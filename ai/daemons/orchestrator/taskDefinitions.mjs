@@ -1,4 +1,5 @@
-import path from 'path';
+import path            from 'path';
+import net             from 'net';
 import {fileURLToPath} from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -7,6 +8,41 @@ const __dirname  = path.dirname(__filename);
 export const DEFAULT_DB_PATH    = process.env.NEO_AI_DB_PATH || '.neo-ai-data/sqlite/memory-core-graph.sqlite';
 export const DEFAULT_DATA_DIR   = process.env.NEO_AI_ORCHESTRATOR_DIR || '.neo-ai-data/orchestrator-daemon';
 export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../../scripts');
+
+/**
+ * @summary Probes whether a local TCP port is accepting connections.
+ * @param {Object} options
+ * @param {String|Number} options.port Port to probe.
+ * @param {Number} [options.timeoutMs] Optional timeout in milliseconds.
+ * @returns {Promise<Boolean>}
+ */
+function probeTcpPort({port, timeoutMs}) {
+    const normalizedPort = Number(port);
+
+    if (!Number.isFinite(normalizedPort) || normalizedPort <= 0) {
+        return Promise.resolve(false);
+    }
+
+    return new Promise(resolve => {
+        const socket = net.connect({host: '127.0.0.1', port: normalizedPort});
+        let settled  = false;
+
+        const finish = result => {
+            if (settled) return;
+            settled = true;
+            socket.destroy();
+            resolve(result);
+        };
+
+        if (Number.isFinite(Number(timeoutMs)) && Number(timeoutMs) > 0) {
+            socket.setTimeout(Number(timeoutMs));
+        }
+
+        socket.once('connect', () => finish(true));
+        socket.once('timeout', () => finish(false));
+        socket.once('error',   () => finish(false));
+    });
+}
 
 /**
  * @summary Builds child-process commands for orchestrator-owned maintenance tasks.
@@ -28,6 +64,10 @@ export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../../scripts');
  * @param {String} [options.scriptDir] Script directory.
  * @param {String} [options.nodeBin] Node executable.
  * @param {String|Number} [options.chromaPort] Chroma daemon port — used for the `--port` arg and as the chroma task's `singletonPort` (the port the orchestrator reaps duplicate listeners on).
+ * @param {String|Number} [options.devServerPort] Local webpack dev-server port — used for the `--port` arg, singleton detection, and TCP liveness probe.
+ * @param {Number} [options.devServerLivenessTimeoutMs] TCP liveness probe timeout.
+ * @param {String|Number} [options.neuralLinkBridgePort] Neural Link Bridge port — sourced from the Neural Link config provider by the orchestrator entrypoint.
+ * @param {Number} [options.neuralLinkBridgeLivenessTimeoutMs] TCP liveness probe timeout.
  * @param {Boolean} [options.mlxEnabled=false] Whether to launch an orchestrator-owned mlx_lm.server.
  * @param {String} [options.mlxModel] MLX launch model: a Hugging Face repo id or local path.
  * @param {String|Number} [options.mlxPort] MLX OpenAI-compatible local inference port.
@@ -45,6 +85,10 @@ export function buildTaskDefinitions({
     scriptDir  = DEFAULT_SCRIPT_DIR,
     nodeBin    = process.argv[0],
     chromaPort,
+    devServerPort,
+    devServerLivenessTimeoutMs,
+    neuralLinkBridgePort,
+    neuralLinkBridgeLivenessTimeoutMs,
     mlxEnabled = false,
     mlxModel,
     mlxPort,
@@ -57,10 +101,13 @@ export function buildTaskDefinitions({
     providerReadiness,
     graphLogCompactionVacuum
 } = {}) {
+    const hasDevServerPort = devServerPort !== undefined && devServerPort !== null;
+    const hasNeuralLinkBridgePort = neuralLinkBridgePort !== undefined && neuralLinkBridgePort !== null;
+
     const tasks = {
         chroma: {
-            label          : 'chroma daemon',
-            command        : 'chroma',
+            label  : 'chroma daemon',
+            command: 'chroma',
             // The --path persist dir resolves to the same dir as AiConfig.engines.chroma.dataDir
             // — the SSOT that KB/MC configs + defragChromaDB read — under the standard
             // cwd==repoRoot. Kept as a relative literal here (not SSOT-sourced) for daemon-launch
@@ -80,6 +127,44 @@ export function buildTaskDefinitions({
             pidFileName    : 'wake-daemon.pid',
             expectedCommand: 'daemons/wake/daemon.mjs'
         },
+        ...(hasDevServerPort ? {
+            devServer: {
+                label  : 'local dev-server',
+                command: nodeBin,
+                args   : [
+                    path.resolve(scriptDir, '../../node_modules/webpack/bin/webpack.js'),
+                    'serve',
+                    '-c',
+                    './buildScripts/webpack/webpack.server.config.mjs',
+                    '--port',
+                    String(devServerPort)
+                ],
+                pidFileName            : 'dev-server.pid',
+                expectedCommand        : 'node_modules/webpack/bin/webpack.js',
+                singletonPort          : Number(devServerPort),
+                duplicateListenerPolicy: 'defer',
+                livenessProbe          : () => probeTcpPort({
+                    port     : devServerPort,
+                    timeoutMs: devServerLivenessTimeoutMs
+                })
+            }
+        } : {}),
+        ...(hasNeuralLinkBridgePort ? {
+            neuralLinkBridge: {
+                label                  : 'Neural Link Bridge',
+                command                : nodeBin,
+                args                   : [path.resolve(scriptDir, '../mcp/server/neural-link/run-bridge.mjs')],
+                pidFileName            : 'neural-link-bridge.pid',
+                expectedCommand        : 'mcp/server/neural-link/run-bridge.mjs',
+                env                    : {NEO_NL_PORT: String(neuralLinkBridgePort)},
+                singletonPort          : Number(neuralLinkBridgePort),
+                duplicateListenerPolicy: 'defer',
+                livenessProbe          : () => probeTcpPort({
+                    port     : neuralLinkBridgePort,
+                    timeoutMs: neuralLinkBridgeLivenessTimeoutMs
+                })
+            }
+        } : {}),
         embedDaemon: {
             label          : 'embed daemon (add_memory WAL drain)',
             command        : nodeBin,
@@ -119,9 +204,9 @@ export function buildTaskDefinitions({
             expectedCommand: 'backup.mjs'
         },
         'graphlog-compaction': {
-            label          : 'GraphLog compaction',
-            command        : nodeBin,
-            args           : [
+            label  : 'GraphLog compaction',
+            command: nodeBin,
+            args   : [
                 path.join(scriptDir, 'maintenance', 'compactGraphLog.mjs'),
                 '--apply',
                 ...(graphLogCompactionVacuum ? ['--vacuum'] : [])
@@ -167,6 +252,17 @@ export function buildTaskDefinitions({
             label          : 'swarm heartbeat pulse',
             pidFileName    : 'swarm-heartbeat.pid',
             expectedCommand: 'SwarmHeartbeatService',
+            serviceTask    : true
+        },
+        // In-process read-only health-check (no child process is ever spawned): the embed-drain
+        // liveness watchdog runs entirely inside the orchestrator's scheduling pipeline. The entry
+        // exists only so the task gets a persisted state envelope (cadence `lastRunAt` + the
+        // one-shot stall-alarm latch). `pidFileName`/`expectedCommand` are inert — no PID file is
+        // ever written, so process recovery/supervision short-circuits on the missing file.
+        'embed-drain-liveness-watchdog': {
+            label          : 'embed-drain liveness watchdog',
+            pidFileName    : 'embed-drain-liveness-watchdog.pid',
+            expectedCommand: 'EmbedDrainLivenessWatchdog',
             serviceTask    : true
         }
     };
@@ -224,13 +320,13 @@ export function buildTaskDefinitions({
                 }
 
                 return ensureLmsModelsLoaded({
-                    host           : lmsHost,
-                    models         : requiredModels,
-                    contextLengths : lmsContextLengths,
-                    allowPartial   : true,
-                    attempts       : providerReadiness?.attempts,
-                    delayMs        : providerReadiness?.delayMs,
-                    timeoutMs      : providerReadiness?.timeoutMs
+                    host          : lmsHost,
+                    models        : requiredModels,
+                    contextLengths: lmsContextLengths,
+                    allowPartial  : true,
+                    attempts      : providerReadiness?.attempts,
+                    delayMs       : providerReadiness?.delayMs,
+                    timeoutMs     : providerReadiness?.timeoutMs
                 });
             }
         };

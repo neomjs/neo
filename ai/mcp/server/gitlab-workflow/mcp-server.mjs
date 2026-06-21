@@ -1,12 +1,14 @@
 import 'dotenv/config';
-import {Command}       from 'commander';
-import Neo             from '../../../../src/Neo.mjs';
-import * as core       from '../../../../src/core/_export.mjs';
-import InstanceManager from '../../../../src/manager/Instance.mjs';
-import aiConfig        from './config.mjs';
-import logger          from './logger.mjs';
-import Server          from './Server.mjs';
-import {sanitizeInput} from '../../../../buildScripts/util/sanitizer.mjs';
+import {Command}           from 'commander';
+import Neo                 from '../../../../src/Neo.mjs';
+import * as core           from '../../../../src/core/_export.mjs';
+import InstanceManager     from '../../../../src/manager/Instance.mjs';
+import aiConfig            from './config.mjs';
+import logger              from './logger.mjs';
+import Server              from './Server.mjs';
+import {sanitizeInput}     from '../../../../buildScripts/util/sanitizer.mjs';
+import {fileURLToPath}     from 'node:url';
+import {assertConfigFresh} from '../../../scripts/setup/initServerConfigs.mjs';
 
 const program = new Command();
 
@@ -24,6 +26,10 @@ if (options.debug) {
 }
 
 try {
+    // Boot guard: fail fast with an actionable message if a materialized config overlay is missing
+    // leaves its template added, rather than crashing cryptically on an undefined config leaf later.
+    await assertConfigFresh({serverPath: fileURLToPath(new URL('.', import.meta.url))});
+
     await Neo.create(Server, {
         configFile: options.config
     }).ready();

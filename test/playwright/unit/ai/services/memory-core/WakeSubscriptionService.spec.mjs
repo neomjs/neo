@@ -724,7 +724,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
                     appName: 'Antigravity',
                     instanceAddress: '4242'
                 }
-            })).rejects.toThrow('requires both harnessTargetMetadata.instanceAddress and harnessTargetMetadata.addressType');
+            })).rejects.toThrow('Shape C instance addressing requires harnessTargetMetadata.addressType');
         });
     });
 
@@ -739,6 +739,49 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
                     addressType: 'frontmost'
                 }
             })).rejects.toThrow("Invalid addressType 'frontmost'. Must be one of: userDataDir, pid, tmuxSession, webhookUrl");
+        });
+    });
+
+    test('subscribe rejects an addressType that resolves to no instance address (#13481)', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            await expect(WakeSubscriptionService.subscribe({
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
+                harnessTargetMetadata: {
+                    appName    : 'Claude',
+                    addressType: 'userDataDir',
+                    userDataDir: ''
+                }
+            })).rejects.toThrow("addressType 'userDataDir' requires a non-empty instance address");
+        });
+    });
+
+    test('subscribe accepts a legacy userDataDir field as a complete instance address (#13481)', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@grace-13481-legacy'}, async () => {
+            const res = await WakeSubscriptionService.subscribe({
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
+                harnessTargetMetadata: {
+                    appName    : 'Claude',
+                    userDataDir: '/Users/x/.claude-grace'
+                }
+            });
+            expect(res.subscriptionId).toMatch(/^WAKE_SUB:/);
+        });
+    });
+
+    test('subscribe accepts a canonical instanceAddress + addressType pair (#13481)', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@grace-13481-canonical'}, async () => {
+            const res = await WakeSubscriptionService.subscribe({
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
+                harnessTargetMetadata: {
+                    appName        : 'Claude',
+                    addressType    : 'userDataDir',
+                    instanceAddress: '/Users/x/.claude-grace'
+                }
+            });
+            expect(res.subscriptionId).toMatch(/^WAKE_SUB:/);
         });
     });
 
@@ -1594,6 +1637,166 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
             // If the race condition was present, both might emit the same event
             expect(emittedEvents.length).toBe(1);
+        });
+    });
+
+    test.describe('who_is_online (#13498 Substrate B)', () => {
+        const T0   = '2026-06-19T12:00:00.000Z',
+              T0ms = new Date(T0).getTime(),
+              iso  = ms => new Date(ms).toISOString();
+
+        function seedAgent(id, {participationStatus = 'active', family = 'claude'} = {}) {
+            GraphService.upsertNode({
+                id,
+                type      : 'AgentIdentity',
+                name      : id,
+                properties: {participationStatus, family, displayName: id}
+            });
+        }
+
+        function seedActivity(owner, {timestamp = T0} = {}) {
+            // Mirrors a swarm (stdio) add_memory graph projection: an AGENT_MEMORY node carrying
+            // agentIdentity + timestamp and NO userId (→ user_id NULL → RLS-visible to every caller,
+            // as stdio-mode memories are). The who_is_online recency read keys on this node.
+            GraphService.upsertNode({
+                id        : `AGENT_MEMORY:${owner}:${timestamp}`,
+                type      : 'AGENT_MEMORY',
+                name      : `Memory: ${timestamp}`,
+                properties: {agentIdentity: owner, timestamp, sessionId: 'sess-test'}
+            });
+        }
+
+        test('participationStatus hard gate: benched reports offline even with fresh activity (verbose)', async () => {
+            seedAgent('@neo-benched', {participationStatus: 'operator_benched'});
+            seedActivity('@neo-benched', {timestamp: T0});
+
+            const {agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+            const entry    = agents.find(a => a.identity === '@neo-benched');
+
+            expect(entry).toBeTruthy();
+            expect(entry.online).toBe(false);
+            expect(entry.participationStatus).toBe('operator_benched');
+            expect(entry.reason).toContain('benched');
+        });
+
+        test('fresh add_memory activity → online (recency-primary, verbose)', async () => {
+            seedAgent('@neo-active');
+            seedActivity('@neo-active', {timestamp: iso(T0ms - 2 * 60 * 1000)});
+
+            const {agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+            const entry    = agents.find(a => a.identity === '@neo-active');
+
+            expect(entry.online).toBe(true);
+            expect(entry.reason).toContain('recent add_memory activity');
+            expect(entry.signals.activityRecency.fresh).toBe(true);
+        });
+
+        test('stale add_memory activity → offline (past the freshness window, verbose)', async () => {
+            seedAgent('@neo-stale');
+            // last write 20 min ago — beyond the 15-min freshness window
+            seedActivity('@neo-stale', {timestamp: iso(T0ms - 20 * 60 * 1000)});
+
+            const {agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+            const entry    = agents.find(a => a.identity === '@neo-stale');
+
+            expect(entry.online).toBe(false);
+            expect(entry.reason).toContain('stale add_memory activity');
+            expect(entry.signals.activityRecency.fresh).toBe(false);
+        });
+
+        test('no add_memory activity → offline (dark) + signals.activityRecency null (verbose)', async () => {
+            seedAgent('@neo-dark');
+
+            const {agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+            const entry    = agents.find(a => a.identity === '@neo-dark');
+
+            expect(entry.online).toBe(false);
+            expect(entry.reason).toContain('no add_memory activity');
+            expect(entry.signals.activityRecency).toBeNull();
+        });
+
+        test('roster-scoping: an agent\'s OWN activity marks it online regardless of the user_id tenant tag', async () => {
+            seedAgent('@neo-foreign-tenant');
+            // who_is_online is a ROSTER tool: it reports each rostered agent's OWN latest activity
+            // (matched by agentIdentity), NOT per-caller tenant. Fresh activity tagged with a foreign
+            // userId therefore still marks the agent online. The prior per-caller user_id RLS here hid
+            // same-deployment teammates from each other. Cross-tenant isolation belongs at the roster
+            // scope (a tenant-scoped _listAgentIdentityNodes) for a multi-tenant cloud, tracked separately.
+            GraphService.upsertNode({
+                id        : 'AGENT_MEMORY:@neo-foreign-tenant:fresh',
+                type      : 'AGENT_MEMORY',
+                name      : 'Memory: fresh',
+                properties: {agentIdentity: '@neo-foreign-tenant', timestamp: iso(T0ms - 2 * 60 * 1000), userId: 'some-other-tenant', sessionId: 'sess-test'}
+            });
+
+            const {agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+            const entry    = agents.find(a => a.identity === '@neo-foreign-tenant');
+
+            expect(entry.online).toBe(true);
+            expect(entry.signals.activityRecency.fresh).toBe(true);
+        });
+
+        test('terse default: {summary, online, idle, benched} identity arrays — no per-agent essay', async () => {
+            seedAgent('@neo-t-online');
+            seedActivity('@neo-t-online', {timestamp: iso(T0ms - 2 * 60 * 1000)});
+            seedAgent('@neo-t-idle');                                              // active, no activity → idle
+            seedAgent('@neo-t-benched', {participationStatus: 'temporarily_unreachable'});
+
+            const result = await WakeSubscriptionService.whoIsOnline({now: new Date(T0)});
+
+            expect(typeof result.summary).toBe('string');
+            expect(result.agents).toBeUndefined();
+            expect(result.signalStatus).toBeUndefined();
+            expect(result.online).toContain('@neo-t-online');
+            expect(result.idle).toContain('@neo-t-idle');
+            expect(result.idle).not.toContain('@neo-t-online');
+            expect(result.benched).toContain('@neo-t-benched');
+            expect(result.summary).toContain(`${result.online.length} online`);
+        });
+
+        test('verbose:true returns the full per-agent projection + signalStatus (no terse summary)', async () => {
+            seedAgent('@neo-v');
+            seedActivity('@neo-v', {timestamp: iso(T0ms - 2 * 60 * 1000)});
+
+            const result = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+
+            expect(result.signalStatus).toContain('add_memory-recency');
+            expect(result.beaconStatus).toBeUndefined();
+            expect(result.summary).toBeUndefined();
+            expect(Array.isArray(result.agents)).toBe(true);
+            expect(result.agents.find(a => a.identity === '@neo-v').online).toBe(true);
+        });
+
+        test('signalStatus (verbose) names the add_memory-recency signal (no beacon field)', async () => {
+            seedAgent('@neo-sig');
+
+            const result = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+
+            expect(result.signalStatus).toContain('add_memory-recency');
+            expect(result.beaconStatus).toBeUndefined();
+        });
+
+        test('family filter narrows the roster (verbose)', async () => {
+            seedAgent('@neo-claude-x', {family: 'claude'});
+            seedAgent('@neo-gpt-x',    {family: 'gpt'});
+
+            const {agents} = await WakeSubscriptionService.whoIsOnline({family: 'gpt', verbose: true, now: new Date(T0)});
+            const ids      = agents.map(a => a.identity);
+
+            expect(ids).toContain('@neo-gpt-x');
+            expect(ids).not.toContain('@neo-claude-x');
+        });
+
+        test('callable through the MCP callTool dispatch — terse default (registration + openapi)', async () => {
+            seedAgent('@neo-dispatch');
+
+            const res = await callTool('who_is_online', {});
+
+            expect(typeof res.summary).toBe('string');
+            expect(Array.isArray(res.online)).toBe(true);
+            expect(Array.isArray(res.idle)).toBe(true);
+            // @neo-dispatch is rostered + active but has no activity → idle
+            expect(res.idle).toContain('@neo-dispatch');
         });
     });
 });

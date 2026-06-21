@@ -232,6 +232,7 @@ class BaseServer extends Base {
      * @param {Object} context
      * @param {String} context.toolName The MCP tool name being invoked.
      * @param {Object} context.args     The arguments passed to the tool call.
+     * @param {Number} context.t0       The Date.now() timestamp captured at handler entry.
      */
     async beforeToolDispatch(context) {
         // No-op default
@@ -360,7 +361,7 @@ class BaseServer extends Base {
 
                 // Pre-dispatch validation hook (e.g., memory-core's identity-spoof guard).
                 // Throws bubble to the outer catch and route to formatToolError.
-                await this.beforeToolDispatch({toolName: name, args});
+                await this.beforeToolDispatch({toolName: name, args, t0});
 
                 if (healthService && !exemptTools.includes(name)) {
                     try {

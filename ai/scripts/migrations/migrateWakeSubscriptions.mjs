@@ -16,40 +16,22 @@
  *   node ai/scripts/migrations/migrateWakeSubscriptions.mjs --help      # print usage
  */
 
-import path from 'node:path';
+import {program}       from 'commander';
+import path            from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {IDENTITIES} from '../../graph/identityRoots.mjs';
+import {IDENTITIES}    from '../../graph/identityRoots.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const neoRoot    = path.resolve(__dirname, '../..');
 
-function parseArgs(argv) {
-    const args = {apply: false, db: null, help: false};
-    for (let i = 2; i < argv.length; i++) {
-        const a = argv[i];
-        if (a === '--apply')       args.apply = true;
-        else if (a === '--help')   args.help = true;
-        else if (a === '--db')     args.db = argv[++i];
-        else {
-            console.error(`Unknown argument: ${a}`);
-            args.help = true;
-        }
-    }
-    return args;
-}
-
-function printUsage() {
-    console.log(`
-Usage: node ai/scripts/migrations/migrateWakeSubscriptions.mjs [options]
-
-Options:
-  (no flags)     Dry-run mode — print the migration plan without committing
-  --apply        Commit the migration atomically in a single transaction
-  --db <path>    Override SQLite file path (default: .neo-ai-data/sqlite/memory-core-graph.sqlite)
-  --help         Print this usage message
-`);
-}
+program
+    .name('migrateWakeSubscriptions')
+    .description('Patch legacy bridge-daemon wake subscriptions onto identity-template route metadata (dry-run by default).')
+    .option('--apply', 'Commit the migration atomically in a single transaction')
+    .option('--audit', 'Read-only audit — report instance-addressing-unsafe wake routes (no changes)')
+    .option('--db <path>', 'Override the SQLite file path (default: .neo-ai-data/sqlite/memory-core-graph.sqlite)')
+    .addHelpText('after', '\n  (no flags)  Dry-run — print the migration plan without committing.');
 
 /**
  * @summary Resolves the canonical wake route template for an AgentIdentity.
@@ -165,22 +147,110 @@ export function runMigration(db, apply) {
     return stats;
 }
 
-async function main() {
-    const args = parseArgs(process.argv);
-    if (args.help) {
-        printUsage();
-        process.exit(0);
+/**
+ * @summary Resolve a wake route's effective instance address, mirroring
+ * `WakeSubscriptionService._resolvePresenceAddress` / the wake daemon's resolver: an explicit
+ * `addressType` wins, else a legacy `userDataDir` field implies the `userDataDir` type; the address
+ * comes from `instanceAddress`, falling back to `userDataDir` for that type.
+ * @param {Object} [meta] harnessTargetMetadata.
+ * @returns {{addressType: (String|null), instanceAddress: (String|null)}}
+ */
+export function resolveRouteAddress(meta = {}) {
+    const addressType     = meta.addressType || (meta.userDataDir ? 'userDataDir' : null),
+          instanceAddress = meta.instanceAddress || (addressType === 'userDataDir' ? meta.userDataDir : null);
+
+    return {addressType: addressType || null, instanceAddress: instanceAddress || null};
+}
+
+/**
+ * @summary Read-only audit surfacing bridge-daemon wake routes that are unsafe under same-app
+ * multi-instance addressing. Two categories:
+ *
+ * - `emptyAddress`: an `addressType` (or legacy `userDataDir`) is present but resolves to NO
+ *   instance address. The wake daemon fails closed on these at delivery, so the owning peer
+ *   silently misses every wake — a liveness hole (not a cross-leak).
+ * - `genericNamedPeer`: a first-party named identity (in `identityRoots`) on an `appName`-only
+ *   route with no resolvable instance address. Once more than one instance of that app runs, a
+ *   generic route is ambiguous — verify it's the deliberate default instance or assign an address.
+ *
+ * Pairs with the registration-time guard (`WakeSubscriptionService.validateHarnessTargetMetadata`),
+ * which blocks NEW unsafe rows; this audit surfaces pre-existing ones for cleanup.
+ *
+ * @param {Object} db Open better-sqlite3 connection.
+ * @returns {{emptyAddress: Object[], genericNamedPeer: Object[], scanned: Number}}
+ */
+export function auditWakeRoutes(db) {
+    const namedIds         = new Set(IDENTITIES.map(identity => identity.id)),
+          subs             = db.prepare(`SELECT id, data FROM Nodes WHERE json_extract(data, '$.label') = ?`).all('WAKE_SUBSCRIPTION'),
+          emptyAddress     = [],
+          genericNamedPeer = [];
+
+    let scanned = 0;
+
+    for (const sub of subs) {
+        let data;
+        try {
+            data = JSON.parse(sub.data);
+        } catch (e) {
+            continue;
+        }
+
+        const props = data.properties || {};
+        if (props.harnessTarget !== 'bridge-daemon') continue;
+        scanned++;
+
+        const meta = props.harnessTargetMetadata || {},
+              {addressType, instanceAddress} = resolveRouteAddress(meta);
+
+        if (addressType && !instanceAddress) {
+            emptyAddress.push({id: sub.id, agentIdentity: props.agentIdentity || null, addressType, appName: meta.appName || null});
+        } else if (!addressType && meta.appName && namedIds.has(props.agentIdentity)) {
+            genericNamedPeer.push({id: sub.id, agentIdentity: props.agentIdentity, appName: meta.appName});
+        }
     }
+
+    return {emptyAddress, genericNamedPeer, scanned};
+}
+
+/**
+ * @summary Print an {@link auditWakeRoutes} result to stdout.
+ * @param {{emptyAddress: Object[], genericNamedPeer: Object[], scanned: Number}} audit
+ * @returns {void}
+ */
+function reportAudit({emptyAddress, genericNamedPeer, scanned}) {
+    console.log(`[migrateWakeSubscriptions] AUDIT — scanned ${scanned} bridge-daemon wake route(s)`);
+    console.log();
+    console.log(`  empty-address (addressType set, no resolvable instance address → fails closed at delivery, peer misses wakes): ${emptyAddress.length}`);
+    for (const r of emptyAddress) {
+        console.log(`    [EMPTY]   ${r.id}  owner=${r.agentIdentity}  addressType=${r.addressType}  app=${r.appName}`);
+    }
+    console.log();
+    console.log(`  generic-named-peer (named identity on an appName-only route → ambiguous with multiple same-app instances; verify default instance or assign an address): ${genericNamedPeer.length}`);
+    for (const r of genericNamedPeer) {
+        console.log(`    [GENERIC] ${r.id}  owner=${r.agentIdentity}  app=${r.appName}`);
+    }
+    console.log();
+    console.log(`[migrateWakeSubscriptions] AUDIT complete (read-only; no changes).`);
+}
+
+async function main() {
+    program.parse(process.argv);
+    const args = program.opts();
 
     const dbPath = args.db || path.resolve(neoRoot, '.neo-ai-data/sqlite/memory-core-graph.sqlite');
     console.log(`[migrateWakeSubscriptions] target: ${dbPath}`);
-    console.log(`[migrateWakeSubscriptions] mode:   ${args.apply ? 'APPLY' : 'DRY-RUN'}`);
+    console.log(`[migrateWakeSubscriptions] mode:   ${args.audit ? 'AUDIT (read-only)' : args.apply ? 'APPLY' : 'DRY-RUN'}`);
     console.log();
 
     const Database = (await import('better-sqlite3')).default;
     const db = new Database(dbPath, {verbose: null});
 
     try {
+        if (args.audit) {
+            reportAudit(auditWakeRoutes(db));
+            return;
+        }
+
         const stats = runMigration(db, args.apply);
 
         console.log();

@@ -1,13 +1,15 @@
-import {program}       from 'commander';
-import {ChromaClient}  from 'chromadb';
-import {execSync}      from 'child_process';
-import crypto          from 'crypto';
-import fs              from 'fs-extra';
-import path            from 'path';
-import {fileURLToPath, pathToFileURL} from 'url';
-import Neo             from '../../../src/Neo.mjs';
-import AiConfig        from '../../config.mjs';
+import {program}                             from 'commander';
+import {ChromaClient}                        from 'chromadb';
+import {execSync}                            from 'child_process';
+import crypto                                from 'crypto';
+import fs                                    from 'fs-extra';
+import path                                  from 'path';
+import {fileURLToPath, pathToFileURL}        from 'url';
+import Neo                                   from '../../../src/Neo.mjs';
+import AiConfig                              from '../../config.mjs';
 import {registerNeoChromaEmbeddingFunctions} from '../../services/shared/vector/chromaClientPrimitives.mjs';
+import {auditChromaVectorCoverage}           from './checkChromaIntegrity.mjs';
+import {extractMemoryCoreCollectionData}     from './repairMemoryCoreStoredEmbeddings.mjs';
 
 /**
  * @summary Defragments collection groups inside the unified ChromaDB store.
@@ -80,7 +82,7 @@ registerNeoChromaEmbeddingFunctions({
 export const TARGETS = {
     'knowledge-base': {
         configPath: '../../mcp/server/knowledge-base/config.mjs',
-        adapt: (cfg) => ({
+        adapt     : (cfg) => ({
             host       : cfg.host,
             path       : cfg.path,
             port       : cfg.port,
@@ -89,11 +91,12 @@ export const TARGETS = {
     },
     'memory-core'   : {
         configPath: '../../mcp/server/memory-core/config.mjs',
-        adapt: (cfg) => ({
-            host       : cfg.engines.chroma.host,
-            path       : cfg.engines.chroma.dataDir,
-            port       : cfg.engines.chroma.port,
-            collections: [
+        adapt     : (cfg) => ({
+            host             : cfg.engines.chroma.host,
+            path             : cfg.engines.chroma.dataDir,
+            port             : cfg.engines.chroma.port,
+            embeddingProvider: cfg.embeddingProvider,
+            collections      : [
                 cfg.collections.memory,
                 cfg.collections.session,
                 cfg.collections.graph
@@ -161,14 +164,17 @@ export function resolveDefragSnapshotRetention({
 }
 
 /**
- * Fails closed for target groups whose interruption safety is not yet proven.
+ * Fails closed for target groups whose interruption safety is not yet proven. Memory Core is allowed
+ * ONLY behind the explicit `allowMemoryCore` opt-in (the `--allow-memory-core` CLI flag), which routes
+ * it through the dedicated full-enumeration repair path — never the KB delete/recreate defrag.
  *
  * @param {Object} options
  * @param {String} options.targetName CLI target name.
+ * @param {Boolean} [options.allowMemoryCore=false] Explicit opt-in to the Memory Core repair path.
  * @returns {void}
  */
-export function assertDefragTargetSupported({targetName} = {}) {
-    if (targetName === 'memory-core') {
+export function assertDefragTargetSupported({targetName, allowMemoryCore = false} = {}) {
+    if (targetName === 'memory-core' && !allowMemoryCore) {
         const error = new Error(MEMORY_CORE_UNSAFE_MESSAGE);
         error.code  = 'DEFRAG_MEMORY_CORE_UNSAFE';
         throw error
@@ -550,9 +556,9 @@ export async function rewriteCollectionViaShadowPromotion({
     await writeDefragState({statePath, state: {...baseState, phase: 'creating-shadow'}});
 
     shadowCollection = await client.createCollection({
-        name             : shadowName,
+        name    : shadowName,
         embeddingFunction,
-        metadata         : {"hnsw:space": "cosine"}
+        metadata: {"hnsw:space": "cosine"}
     });
 
     try {
@@ -631,6 +637,126 @@ export async function rewriteCollectionViaShadowPromotion({
 }
 
 /**
+ * @summary Repairs Memory Core collections' missing stored-embeddings via FULL (uncapped) enumeration,
+ * then promotes the recovered data through the existing shadow-promotion path.
+ *
+ * MC cannot use the KB extract path — `collection.get({include:['embeddings']})` throws "Error finding id"
+ * for the missing-vector rows. This orchestration instead, per MC collection:
+ *   1. enumerates the FULL metadata-id vs vector-index-id drift (uncapped — `auditChromaVectorCoverage`
+ *      with `includeFullIds`, NOT the sampled coverage audit);
+ *   2. extracts intact rows with their stored vectors and RE-EMBEDS the missing-vector rows from their
+ *      still-materializing documents (`extractMemoryCoreCollectionData`);
+ *   3. promotes the recovered `{ids, embeddings, documents, metadatas}` through the shadow/parking promotion.
+ *
+ * Fail-loud: a collection with ANY unrecoverable row (document-less / metadata-absent) aborts its
+ * own promotion with counts — never a silent partial promote. The seams (`auditFn` / `extractFn` /
+ * `promoteFn` / `clearStateFn` / `writeStateFn`) are injectable for unit isolation.
+ *
+ * State-marker lifecycle: `promoteFn` writes durable per-phase markers, so a fully successful repair
+ * CLEARS the marker (`clearStateFn`) before returning — else the next run aborts as DEFRAG_INCOMPLETE_STATE.
+ * An aborted/partial repair instead rewrites an explicit `memory-core-repair-aborted` marker (`writeStateFn`)
+ * so `assertNoIncompleteDefragState` blocks rerun with an accurate diagnostic, not a stale mid-phase marker.
+ *
+ * This function is INERT until wired behind the explicit `--allow-memory-core` opt-in; the default
+ * `assertDefragTargetSupported` fail-closed stands until then.
+ *
+ * @param {Object} options
+ * @param {Object} options.client Chroma client.
+ * @param {String[]} options.collections MC collection names to repair.
+ * @param {String} options.snapshotPath SQLite metadata snapshot path (the full-id enumeration source).
+ * @param {String} options.persistDir HNSW persist dir (the vector-index-id source).
+ * @param {Function} options.embedFn `documents -> embeddings` re-embedder (e.g. TextEmbeddingService.embedTexts).
+ * @param {Object} options.embeddingFunction Chroma embedding function (dummy, for raw-vector moves).
+ * @param {String} options.statePath Durable defrag-state marker path.
+ * @param {Object} [options.stateBase={}] Stable fields written into every phase marker.
+ * @param {Function} [options.auditFn=auditChromaVectorCoverage] Enumeration seam (test injection).
+ * @param {Function} [options.extractFn=extractMemoryCoreCollectionData] Extract + re-embed seam.
+ * @param {Function} [options.promoteFn=rewriteCollectionViaShadowPromotion] Shadow-promotion seam.
+ * @param {Function} [options.clearStateFn=clearDefragState] Clears the durable marker on a fully successful repair.
+ * @param {Function} [options.writeStateFn=writeDefragState] Rewrites the explicit aborted marker on a partial repair.
+ * @param {Function} [options.log=console.log] Log sink.
+ * @returns {Promise<{results: Object[]}>} Per collection: `{collectionName, promotion, counts}` on success
+ *   or `{collectionName, aborted: true, unrecoverable, counts}` when fail-loud aborts the promotion.
+ */
+export async function repairMemoryCoreCollectionsViaFullEnumeration({
+    client,
+    collections,
+    snapshotPath,
+    persistDir,
+    embedFn,
+    embeddingFunction,
+    statePath,
+    stateBase = {},
+    auditFn      = auditChromaVectorCoverage,
+    extractFn    = extractMemoryCoreCollectionData,
+    promoteFn    = rewriteCollectionViaShadowPromotion,
+    clearStateFn = clearDefragState,
+    writeStateFn = writeDefragState,
+    log          = console.log
+} = {}) {
+    const coverage = await auditFn({
+        snapshotPath,
+        persistDir,
+        collectionNames: collections,
+        includeFullIds : true
+    });
+    const results = [];
+
+    for (const collectionName of collections) {
+        const cov = coverage.collections.find(entry => entry.name === collectionName);
+        if (!cov) {
+            throw new Error(`repairMemoryCoreCollectionsViaFullEnumeration: no coverage row for '${collectionName}' — refusing to promote a collection the enumeration never saw.`);
+        }
+
+        const {allIds, missingVectorIds}     = cov,
+              collection                     = await client.getCollection({name: collectionName, embeddingFunction}),
+              {data, unrecoverable, counts}  = await extractFn({collection, allIds, missingVectorIds, embedFn});
+
+        // Fail-loud: never promote a collection that lost rows to unrecoverable extraction.
+        if (unrecoverable.length > 0) {
+            log(`   ⚠️  '${collectionName}': ${unrecoverable.length} unrecoverable row(s) (document-less / metadata-absent) — aborting its promotion, no silent drop. Counts: ${JSON.stringify(counts)}`);
+            results.push({collectionName, aborted: true, unrecoverable, counts});
+            continue;
+        }
+
+        const promotion = await promoteFn({client, collectionName, data, embeddingFunction, statePath, stateBase});
+        results.push({collectionName, promotion, counts});
+    }
+
+    // State-marker lifecycle (mirrors the KB path's end-of-run clearDefragState): rewriteCollectionViaShadowPromotion
+    // wrote durable per-phase markers, so a fully successful repair MUST clear the marker — else the next run aborts
+    // as DEFRAG_INCOMPLETE_STATE. An aborted/partial repair instead rewrites an explicit aborted marker so
+    // assertNoIncompleteDefragState blocks rerun with an accurate diagnostic, not a stale mid-phase marker.
+    if (statePath) {
+        if (anyRepairAborted(results)) {
+            await writeStateFn({statePath, state: {
+                ...stateBase,
+                phase   : 'memory-core-repair-aborted',
+                aborted : results.filter(result => result.aborted).map(result => result.collectionName),
+                promoted: results.filter(result => result.promotion).map(result => result.collectionName)
+            }});
+        } else {
+            await clearStateFn({statePath});
+        }
+    }
+
+    return {results};
+}
+
+/**
+ * @summary True when any repair result aborted (a collection with unrecoverable rows). The
+ * operator-facing fail-loud predicate: an aborted collection is never a successful repair, so the
+ * `--allow-memory-core` CLI path exits non-zero on it (mirrors the KB extractionErrors / hasRestoreErrors
+ * discipline) rather than reporting success on a partial repair.
+ *
+ * @param {Object[]} [results=[]] Per-collection results from `repairMemoryCoreCollectionsViaFullEnumeration`.
+ * @returns {Boolean}
+ */
+export function anyRepairAborted(results = []) {
+    return results.some(result => result?.aborted === true);
+}
+
+/**
  * Main execution function for the defragmentation process.
  *
  * It orchestrates the Snapshot -> Extract -> Shadow Load -> Promote -> Cleanup pipeline.
@@ -650,6 +776,7 @@ async function defragChromaDB() {
         .name('defragChromaDB')
         .description('Defragment ChromaDB instances by rewriting data and cleaning orphaned files.')
         .requiredOption('-t, --target <name>', 'Database target (knowledge-base, memory-core)')
+        .option('--allow-memory-core', 'Opt in to the Memory Core repair-defrag path (default: fails closed)')
         .parse(process.argv);
 
     const options    = program.opts();
@@ -663,7 +790,7 @@ async function defragChromaDB() {
         const config    = await loadConfig(targetName);
         const statePath = resolveDefragStatePath({targetName});
 
-        assertDefragTargetSupported({targetName});
+        assertDefragTargetSupported({targetName, allowMemoryCore: options.allowMemoryCore});
         await assertNoIncompleteDefragState({statePath});
 
         const DB_PATH = config.path;
@@ -713,6 +840,45 @@ async function defragChromaDB() {
         // Dummy embedding function — single source of truth: Tier-1 AiConfig.dummyEmbeddingFunction.
         // Satisfies the Chroma client for raw embeddings without re-generating via a provider.
         const dummyEf = AiConfig.dummyEmbeddingFunction;
+
+        // 2.5 Memory Core repair-defrag path (explicit --allow-memory-core opt-in).
+        // MC cannot use the KB extract/promote below — its missing-vector rows throw on stored-embedding
+        // export — so it runs the dedicated full-enumeration repair (extract intact + re-embed missing)
+        // against the pre-nuke snapshot, then shadow-promotes the recovered data. The orchestration clears the
+        // defrag state marker on clean success (or rewrites an explicit aborted marker on a partial repair)
+        // before this branch returns ahead of the KB path.
+        if (targetName === 'memory-core') {
+            console.log(`\n3️⃣  Memory Core repair-defrag: full-enumeration extract + re-embed + shadow-promote...`);
+            const {default: TextEmbeddingService} = await import('../../services/memory-core/TextEmbeddingService.mjs');
+            const {results} = await repairMemoryCoreCollectionsViaFullEnumeration({
+                client,
+                collections      : config.collections,
+                snapshotPath     : path.join(backupPath, 'chroma.sqlite3'),
+                persistDir       : backupPath,
+                embedFn          : docs => TextEmbeddingService.embedTexts(docs, config.embeddingProvider),
+                embeddingFunction: dummyEf,
+                statePath,
+                stateBase        : {targetName}
+            });
+
+            for (const result of results) {
+                console.log(result.aborted
+                    ? `   ⚠️  ${result.collectionName}: ABORTED — ${result.unrecoverable.length} unrecoverable row(s); counts ${JSON.stringify(result.counts)}`
+                    : `   ✅ ${result.collectionName}: repaired + promoted; counts ${JSON.stringify(result.counts)}`);
+            }
+
+            const finalSize = await getDirSize(DB_PATH);
+            console.log(`   📊 Final Size: ${(finalSize / 1024 / 1024).toFixed(2)} MB`);
+
+            // Fail loud at the operator boundary: an aborted collection is NOT a successful repair
+            // (mirrors the KB extractionErrors / hasRestoreErrors -> process.exit(1) discipline below).
+            if (anyRepairAborted(results)) {
+                const abortedNames = results.filter(result => result.aborted).map(result => result.collectionName);
+                console.error(`❌ Memory Core repair aborted for ${abortedNames.join(', ')} (unrecoverable rows) — NOT a successful repair; resolve the unrecoverable rows and re-run. Counts logged above.`);
+                process.exit(1);
+            }
+            return;
+        }
 
         // 3. Extract All Data (Multi-Collection)
         console.log(`\n3️⃣  Fetching data from all collections...`);
@@ -814,11 +980,11 @@ async function defragChromaDB() {
                 console.log(`   Rewriting ${colName}...`);
                 const result = await rewriteCollectionViaShadowPromotion({
                     client,
-                    collectionName    : colName,
+                    collectionName   : colName,
                     data,
-                    embeddingFunction : dummyEf,
+                    embeddingFunction: dummyEf,
                     statePath,
-                    stateBase         : {
+                    stateBase        : {
                         targetName,
                         dbPath      : DB_PATH,
                         snapshotPath: backupPath,

@@ -1,13 +1,13 @@
-import { test, expect } from '@playwright/test';
-import fs from 'fs-extra';
-import path from 'path';
-import Database from 'better-sqlite3';
-import { spawn } from 'child_process';
-import crypto from 'crypto';
-import http from 'http';
-import os from 'os';
+import { test, expect }                                                                        from '@playwright/test';
+import fs                                                                                      from 'fs-extra';
+import path                                                                                    from 'path';
+import Database                                                                                from 'better-sqlite3';
+import { spawn }                                                                               from 'child_process';
+import crypto                                                                                  from 'crypto';
+import http                                                                                    from 'http';
+import os                                                                                      from 'os';
 import { collapseDuplicateShapeCRoutes, getActiveHarnessPresence, getNodesData, getEdgesData } from '../../../../../../ai/daemons/wake/queries.mjs';
-import { SQLITE_IN_CLAUSE_BATCH_SIZE } from '../../../../../../ai/graph/storage/constants.mjs';
+import { SQLITE_IN_CLAUSE_BATCH_SIZE }                                                         from '../../../../../../ai/graph/storage/constants.mjs';
 
 /**
  * @summary Stubs `ps` for subprocess daemon tests so instance-resolution branches do not depend
@@ -34,19 +34,19 @@ function insertWakeSubscription(db, {
     harnessTargetMetadata
 }) {
     db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
-        id: agentId,
-        label: 'AGENT',
+        id        : agentId,
+        label     : 'AGENT',
         properties: { name: agentId }
     }));
 
     db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
-        id: subId,
-        label: 'WAKE_SUBSCRIPTION',
+        id        : subId,
+        label     : 'WAKE_SUBSCRIPTION',
         properties: {
             agentIdentity: agentId,
             harnessTarget: 'bridge-daemon',
-            status: 'active',
-            trigger: 'SENT_TO_ME',
+            status       : 'active',
+            trigger      : 'SENT_TO_ME',
             harnessTargetMetadata
         }
     }));
@@ -63,18 +63,18 @@ function insertHarnessPresence(db, {
     lastSeenAt = new Date().toISOString()
 }) {
     db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(presenceId, JSON.stringify({
-        id: presenceId,
-        label: 'HARNESS_PRESENCE',
+        id        : presenceId,
+        label     : 'HARNESS_PRESENCE',
         properties: {
-            agentIdentity: agentId,
+            agentIdentity : agentId,
             subscriptionId: subId,
-            state: 'idle',
-            wakePolicy: 'immediate',
-            source: 'mcp-client',
-            bootId: 'test-boot',
-            pid: process.pid,
+            state         : 'idle',
+            wakePolicy    : 'immediate',
+            source        : 'mcp-client',
+            bootId        : 'test-boot',
+            pid           : process.pid,
             lastSeenAt,
-            status: 'active'
+            status        : 'active'
         }
     }));
 }
@@ -82,10 +82,10 @@ function insertHarnessPresence(db, {
 function insertMessageWake(db, {agentId, subject = 'Addressed Wake Event'}) {
     const msgId = 'msg_' + crypto.randomUUID();
     db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
-        id: msgId,
-        label: 'MESSAGE',
+        id        : msgId,
+        label     : 'MESSAGE',
         properties: {
-            from: '@sender',
+            from    : '@sender',
             subject,
             priority: 'normal'
         }
@@ -94,14 +94,45 @@ function insertMessageWake(db, {agentId, subject = 'Addressed Wake Event'}) {
 
     const edgeId = 'edge_' + crypto.randomUUID();
     db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(edgeId, JSON.stringify({
-        id: edgeId,
+        id    : edgeId,
         source: msgId,
         target: agentId,
-        type: 'SENT_TO'
+        type  : 'SENT_TO'
     }), msgId, agentId, 'SENT_TO');
     db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(edgeId, 'edges');
 
     return {msgId, edgeId};
+}
+
+function insertTurnPresence(db, {
+    agentId,
+    turnId = 'turn_' + crypto.randomUUID(),
+    startedAt = new Date().toISOString(),
+    source = 'codex-user-prompt-submit',
+    wakeSubmitNonce
+}) {
+    const nodeId = `AGENT_TURN_PRESENCE:${agentId}:${turnId}`;
+
+    db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(nodeId, JSON.stringify({
+        id        : nodeId,
+        label     : 'AGENT_TURN_PRESENCE',
+        properties: {
+            agentIdentity : agentId,
+            turnId,
+            startedAt,
+            lastProgressAt: startedAt,
+            status        : 'active',
+            terminalState : null,
+            source,
+            ...(wakeSubmitNonce ? {wakeSubmitNonce} : {})
+        }
+    }));
+
+    return {nodeId, turnId};
+}
+
+function extractWakeSubmitNonce(output) {
+    return output.match(/wakeSubmitNonce=([0-9a-f-]{36})/)?.[1] || null;
 }
 
 test.describe('Wake Daemon', () => {
@@ -172,21 +203,21 @@ test.describe('Wake Daemon', () => {
         const agentId = '@test-agent';
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
-            id: agentId,
-            label: 'AGENT',
+            id        : agentId,
+            label     : 'AGENT',
             properties: { name: 'Test Agent' }
         }));
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
-            id: subId,
-            label: 'WAKE_SUBSCRIPTION',
+            id        : subId,
+            label     : 'WAKE_SUBSCRIPTION',
             properties: {
-                agentIdentity: agentId,
-                harnessTarget: 'bridge-daemon',
-                status: 'active',
-                trigger: 'SENT_TO_ME',
+                agentIdentity        : agentId,
+                harnessTarget        : 'bridge-daemon',
+                status               : 'active',
+                trigger              : 'SENT_TO_ME',
                 harnessTargetMetadata: {
-                    adapter: 'test',
+                    adapter       : 'test',
                     coalesceWindow: 1 // 1 second for fast test
                 }
             }
@@ -197,7 +228,7 @@ test.describe('Wake Daemon', () => {
         // Start the daemon with environment overrides
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         const deliveryPromise = new Promise((resolve, reject) => {
@@ -219,11 +250,11 @@ test.describe('Wake Daemon', () => {
         // Inject MESSAGE and SENT_TO edge
         const msgId = 'msg_' + crypto.randomUUID();
         db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
-            id: msgId,
-            label: 'MESSAGE',
+            id        : msgId,
+            label     : 'MESSAGE',
             properties: {
-                from: '@sender',
-                subject: 'Test Wake Event',
+                from    : '@sender',
+                subject : 'Test Wake Event',
                 priority: 'normal'
             }
         }));
@@ -231,10 +262,10 @@ test.describe('Wake Daemon', () => {
 
         const edgeId = 'edge_' + crypto.randomUUID();
         db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(edgeId, JSON.stringify({
-            id: edgeId,
+            id    : edgeId,
             source: msgId,
             target: agentId,
-            type: 'SENT_TO'
+            type  : 'SENT_TO'
         }), msgId, agentId, 'SENT_TO');
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(edgeId, 'edges');
 
@@ -260,6 +291,197 @@ test.describe('Wake Daemon', () => {
         expect(logContents).toContain('[Wake Daemon Test Adapter] Delivered');          // Same delivery line as stdout
     });
 
+    test('#13480: Codex submit attempts log turn-start proof when turn presence appears', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-codex-started';
+
+        insertWakeSubscription(db, {
+            subId,
+            agentId,
+            harnessTargetMetadata: {
+                adapter       : 'test-codex-submit',
+                appName       : 'Codex',
+                coalesceWindow: 1
+            }
+        });
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {
+                ...process.env,
+                NEO_MEMORY_DB_PATH                    : DB_PATH,
+                NEO_AI_DAEMON_DIR                     : DAEMON_DIR,
+                WAKE_CODEX_TURN_START_PROOF_TIMEOUT_MS: '3000',
+                WAKE_CODEX_TURN_START_PROOF_POLL_MS   : '50'
+            }
+        });
+
+        let output = '';
+        let insertedPresence = false;
+        let msgId;
+
+        const proofPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon did not log Codex turn-start proof')), 10000);
+            const onData = data => {
+                output += data.toString();
+
+                const wakeSubmitNonce = extractWakeSubmitNonce(output);
+                if (!insertedPresence && wakeSubmitNonce && output.includes(`Submit attempted ${subId}`)) {
+                    insertedPresence = true;
+                    insertTurnPresence(db, {
+                        agentId,
+                        turnId   : 'started-proof',
+                        startedAt: new Date().toISOString(),
+                        wakeSubmitNonce
+                    });
+                }
+
+                if (output.includes('wake-submit-started')) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            };
+
+            daemonProcess.stdout.on('data', onData);
+            daemonProcess.stderr.on('data', onData);
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        ({msgId} = insertMessageWake(db, {agentId, subject: 'Codex Turn Presence Proof'}));
+
+        await proofPromise;
+
+        const logContents = fs.readFileSync(path.join(DAEMON_DIR, 'wake-daemon.log'), 'utf8');
+        expect(logContents).toContain(`Submit attempted ${subId} via test-codex-submit to Codex`);
+        expect(logContents).toContain(`Turn-start proof wake-submit-started ${subId}`);
+        expect(logContents).toContain('correlation=nonce');
+        expect(logContents).toContain('turnId=started-proof');
+        expect(logContents).toContain(`messageIds=${msgId}`);
+        expect(logContents).toMatch(/wakeSubmitNonce=[0-9a-f-]{36}/);
+    });
+
+    test('#13636: Codex timestamp-only turn presence is ambiguous, not causal started proof', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-codex-ambiguous';
+
+        insertWakeSubscription(db, {
+            subId,
+            agentId,
+            harnessTargetMetadata: {
+                adapter       : 'test-codex-submit',
+                appName       : 'Codex',
+                coalesceWindow: 1
+            }
+        });
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {
+                ...process.env,
+                NEO_MEMORY_DB_PATH                    : DB_PATH,
+                NEO_AI_DAEMON_DIR                     : DAEMON_DIR,
+                WAKE_CODEX_TURN_START_PROOF_TIMEOUT_MS: '3000',
+                WAKE_CODEX_TURN_START_PROOF_POLL_MS   : '50'
+            }
+        });
+
+        let output = '';
+        let insertedPresence = false;
+
+        const proofPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon did not log Codex ambiguous turn-start proof')), 10000);
+            const onData = data => {
+                output += data.toString();
+
+                if (!insertedPresence && output.includes(`Submit attempted ${subId}`)) {
+                    insertedPresence = true;
+                    insertTurnPresence(db, {
+                        agentId,
+                        turnId   : 'timestamp-only-proof',
+                        startedAt: new Date().toISOString()
+                    });
+                }
+
+                if (output.includes('wake-submit-unknown') && output.includes('timestamp-window-without-nonce')) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            };
+
+            daemonProcess.stdout.on('data', onData);
+            daemonProcess.stderr.on('data', onData);
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        insertMessageWake(db, {agentId, subject: 'Codex Ambiguous Turn Presence'});
+
+        await proofPromise;
+
+        const logContents = fs.readFileSync(path.join(DAEMON_DIR, 'wake-daemon.log'), 'utf8');
+        expect(logContents).toContain(`Turn-start proof wake-submit-unknown ${subId}`);
+        expect(logContents).toContain('correlation=timestamp-window-without-nonce');
+        expect(logContents).toContain('turnId=timestamp-only-proof');
+        expect(logContents).not.toContain(`Turn-start proof wake-submit-started ${subId}`);
+    });
+
+    test('#13480: Codex submit attempts log not-started when turn presence does not appear', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-codex-not-started';
+
+        insertWakeSubscription(db, {
+            subId,
+            agentId,
+            harnessTargetMetadata: {
+                adapter       : 'test-codex-submit',
+                appName       : 'Codex',
+                coalesceWindow: 1
+            }
+        });
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {
+                ...process.env,
+                NEO_MEMORY_DB_PATH                    : DB_PATH,
+                NEO_AI_DAEMON_DIR                     : DAEMON_DIR,
+                WAKE_CODEX_TURN_START_PROOF_TIMEOUT_MS: '300',
+                WAKE_CODEX_TURN_START_PROOF_POLL_MS   : '50'
+            }
+        });
+
+        let output = '';
+        let msgId;
+
+        const proofPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon did not log Codex not-started proof')), 10000);
+            const onData = data => {
+                output += data.toString();
+                if (output.includes('wake-submit-not-started')) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            };
+
+            daemonProcess.stdout.on('data', onData);
+            daemonProcess.stderr.on('data', onData);
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        ({msgId} = insertMessageWake(db, {agentId, subject: 'Codex Missing Turn Presence'}));
+
+        await proofPromise;
+
+        const logContents = fs.readFileSync(path.join(DAEMON_DIR, 'wake-daemon.log'), 'utf8');
+        expect(logContents).toContain(`Submit attempted ${subId} via test-codex-submit to Codex`);
+        expect(logContents).toContain(`Turn-start proof wake-submit-not-started ${subId}`);
+        expect(logContents).toContain('correlation=nonce');
+        expect(logContents).toContain(`messageIds=${msgId}`);
+        expect(logContents).toMatch(/wakeSubmitNonce=[0-9a-f-]{36}/);
+    });
+
     test('#13077: a failed wake delivery is retried, then capped with a terminal error', async () => {
         const subId   = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-retry';
@@ -269,13 +491,13 @@ test.describe('Wake Daemon', () => {
         }));
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
-            id: subId,
-            label: 'WAKE_SUBSCRIPTION',
+            id        : subId,
+            label     : 'WAKE_SUBSCRIPTION',
             properties: {
                 agentIdentity: agentId,
                 harnessTarget: 'bridge-daemon',
-                status: 'active',
-                trigger: 'SENT_TO_ME',
+                status       : 'active',
+                trigger      : 'SENT_TO_ME',
                 // The test-fail adapter throws deterministically → the delivery path fails without a live target.
                 harnessTargetMetadata: { adapter: 'test-fail', coalesceWindow: 1 }
             }
@@ -285,7 +507,7 @@ test.describe('Wake Daemon', () => {
         // Cap retries at 2 so the terminal "giving up" path is reached within a few 3s poll cycles.
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR, WAKE_MAX_DELIVERY_RETRIES: '2' }
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR, WAKE_MAX_DELIVERY_RETRIES: '2' }
         });
 
         const terminalPromise = new Promise((resolve, reject) => {
@@ -337,13 +559,13 @@ test.describe('Wake Daemon', () => {
             id: agentId, label: 'AGENT', properties: { name: 'Test Agent Coalesce' }
         }));
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
-            id: subId,
-            label: 'WAKE_SUBSCRIPTION',
+            id        : subId,
+            label     : 'WAKE_SUBSCRIPTION',
             properties: {
-                agentIdentity: agentId,
-                harnessTarget: 'bridge-daemon',
-                status: 'active',
-                trigger: 'SENT_TO_ME',
+                agentIdentity        : agentId,
+                harnessTarget        : 'bridge-daemon',
+                status               : 'active',
+                trigger              : 'SENT_TO_ME',
                 harnessTargetMetadata: { adapter: 'test-fail', coalesceWindow: 1 }
             }
         }));
@@ -351,7 +573,7 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         // First flush ("1 new messages") fails + enqueues; the second flush coalesces; the RETRY
@@ -406,13 +628,13 @@ test.describe('Wake Daemon', () => {
         }));
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
-            id: subId,
-            label: 'WAKE_SUBSCRIPTION',
+            id        : subId,
+            label     : 'WAKE_SUBSCRIPTION',
             properties: {
                 agentIdentity: agentId,
                 harnessTarget: 'bridge-daemon',
-                status: 'active',
-                trigger: 'SENT_TO_ME',
+                status       : 'active',
+                trigger      : 'SENT_TO_ME',
                 // test-fail throws on the first attempt → the wake is queued for retry. We mark the
                 // message read before the retry fires, so the retry's read-reconcile must drop it.
                 harnessTargetMetadata: { adapter: 'test-fail', coalesceWindow: 1 }
@@ -422,7 +644,7 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         // The wake fires on SENT_TO; DELIVERED_TO carries the per-recipient readAt the daemon reconciles
@@ -433,7 +655,7 @@ test.describe('Wake Daemon', () => {
 
         const markMessageRead = () => {
             db.prepare('UPDATE Edges SET data = ? WHERE id = ?').run(JSON.stringify({
-                id: delId, source: msgId, target: agentId, type: 'DELIVERED_TO',
+                id        : delId, source: msgId, target: agentId, type: 'DELIVERED_TO',
                 properties: { readAt: '2026-06-15T00:00:00.000Z' }
             }), delId);
         };
@@ -495,10 +717,10 @@ test.describe('Wake Daemon', () => {
             id: agentId, label: 'AGENT', properties: { name: 'Test Agent Directive' }
         }));
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
-            id: subId, label: 'WAKE_SUBSCRIPTION',
+            id        : subId, label: 'WAKE_SUBSCRIPTION',
             properties: {
                 agentIdentity: agentId, harnessTarget: 'bridge-daemon', status: 'active',
-                trigger: 'SENT_TO_ME', harnessTargetMetadata: { adapter: 'test', coalesceWindow: 1 }
+                trigger      : 'SENT_TO_ME', harnessTargetMetadata: { adapter: 'test', coalesceWindow: 1 }
             }
         }));
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
@@ -602,19 +824,19 @@ test.describe('Wake Daemon', () => {
         const agentId = '@test-agent-readfilter';
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
-            id: agentId,
-            label: 'AGENT',
+            id        : agentId,
+            label     : 'AGENT',
             properties: { name: 'Test Agent ReadFilter' }
         }));
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
-            id: subId,
-            label: 'WAKE_SUBSCRIPTION',
+            id        : subId,
+            label     : 'WAKE_SUBSCRIPTION',
             properties: {
-                agentIdentity: agentId,
-                harnessTarget: 'bridge-daemon',
-                status: 'active',
-                trigger: 'SENT_TO_ME',
+                agentIdentity        : agentId,
+                harnessTarget        : 'bridge-daemon',
+                status               : 'active',
+                trigger              : 'SENT_TO_ME',
                 harnessTargetMetadata: { adapter: 'test', coalesceWindow: 1 }
             }
         }));
@@ -622,7 +844,7 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         const deliveryPromise = new Promise((resolve, reject) => {
@@ -645,8 +867,8 @@ test.describe('Wake Daemon', () => {
         const injectMessage = (subject, readAt) => {
             const msgId = 'msg_' + crypto.randomUUID();
             db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
-                id: msgId,
-                label: 'MESSAGE',
+                id        : msgId,
+                label     : 'MESSAGE',
                 properties: { from: '@sender', subject, priority: 'normal' }
             }));
             db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(msgId, 'nodes');
@@ -682,21 +904,21 @@ test.describe('Wake Daemon', () => {
         const agentId = '@test-agent-heartbeat';
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
-            id: agentId,
-            label: 'AGENT',
+            id        : agentId,
+            label     : 'AGENT',
             properties: { name: 'Test Agent Heartbeat' }
         }));
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
-            id: subId,
-            label: 'WAKE_SUBSCRIPTION',
+            id        : subId,
+            label     : 'WAKE_SUBSCRIPTION',
             properties: {
-                agentIdentity: agentId,
-                harnessTarget: 'bridge-daemon',
-                status: 'active',
-                trigger: 'HEARTBEAT_PULSE',
+                agentIdentity        : agentId,
+                harnessTarget        : 'bridge-daemon',
+                status               : 'active',
+                trigger              : 'HEARTBEAT_PULSE',
                 harnessTargetMetadata: {
-                    adapter: 'test',
+                    adapter       : 'test',
                     coalesceWindow: 1
                 }
             }
@@ -706,7 +928,7 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         const deliveryPromise = new Promise((resolve, reject) => {
@@ -753,26 +975,85 @@ test.describe('Wake Daemon', () => {
         expect(output).not.toContain('new messages');
     });
 
+    test('renders idle-out-nudge cycle-state in the heartbeat digest (#12612)', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-idle-out';
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
+            id        : agentId,
+            label     : 'AGENT',
+            properties: {name: 'Test Agent Idle Out'}
+        }));
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
+            id        : subId,
+            label     : 'WAKE_SUBSCRIPTION',
+            properties: {
+                agentIdentity        : agentId,
+                harnessTarget        : 'bridge-daemon',
+                status               : 'active',
+                trigger              : 'HEARTBEAT_PULSE',
+                harnessTargetMetadata: {adapter: 'test', coalesceWindow: 1}
+            }
+        }));
+
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR}
+        });
+
+        const deliveryPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon failed to deliver idle-out heartbeat pulse within timeout')), 10000);
+
+            daemonProcess.stdout.on('data', (data) => {
+                const out = data.toString();
+                if (out.includes('[Wake Daemon Test Adapter] Delivered')) {
+                    clearTimeout(timeout);
+                    resolve(out);
+                }
+            });
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        const pulseSummary = Buffer.from(JSON.stringify({
+            source    : 'idle-out-nudge',
+            reason    : 'idle: no recent AGENT_MEMORY while the swarm is active',
+            nextAction: 'drain the lifecycle queue, then claim a non-colliding backlog lane'
+        })).toString('base64url');
+        const pulseId = `HEARTBEAT_PULSE:${agentId}:idle-out-nudge.${pulseSummary}`;
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(pulseId, 'heartbeat_pulse');
+
+        const output = await deliveryPromise;
+        expect(output).toContain('[Wake Daemon Test Adapter] Delivered');
+        expect(output).toContain('heartbeat pulses');
+        expect(output).toContain('idle-out nudge — idle: no recent AGENT_MEMORY while the swarm is active');
+        expect(output).toContain('next: drain the lifecycle queue, then claim a non-colliding backlog lane');
+    });
+
     test('delivers heartbeat pulses through the existing SENT_TO_ME bridge-daemon route', async () => {
         const subId = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-heartbeat-sent-to-me';
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
-            id: agentId,
-            label: 'AGENT',
+            id        : agentId,
+            label     : 'AGENT',
             properties: { name: 'Test Agent Heartbeat Existing Route' }
         }));
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
-            id: subId,
-            label: 'WAKE_SUBSCRIPTION',
+            id        : subId,
+            label     : 'WAKE_SUBSCRIPTION',
             properties: {
-                agentIdentity: agentId,
-                harnessTarget: 'bridge-daemon',
-                status: 'active',
-                trigger: 'SENT_TO_ME',
+                agentIdentity        : agentId,
+                harnessTarget        : 'bridge-daemon',
+                status               : 'active',
+                trigger              : 'SENT_TO_ME',
                 harnessTargetMetadata: {
-                    adapter: 'test',
+                    adapter       : 'test',
                     coalesceWindow: 1
                 }
             }
@@ -782,7 +1063,7 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         const deliveryPromise = new Promise((resolve, reject) => {
@@ -815,21 +1096,21 @@ test.describe('Wake Daemon', () => {
         const agentId = '@test-agent-suppressed';
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
-            id: agentId,
-            label: 'AGENT',
+            id        : agentId,
+            label     : 'AGENT',
             properties: { name: 'Test Agent Suppressed' }
         }));
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
-            id: subId,
-            label: 'WAKE_SUBSCRIPTION',
+            id        : subId,
+            label     : 'WAKE_SUBSCRIPTION',
             properties: {
-                agentIdentity: agentId,
-                harnessTarget: 'bridge-daemon',
-                status: 'active',
-                trigger: 'SENT_TO_ME',
+                agentIdentity        : agentId,
+                harnessTarget        : 'bridge-daemon',
+                status               : 'active',
+                trigger              : 'SENT_TO_ME',
                 harnessTargetMetadata: {
-                    adapter: 'test',
+                    adapter       : 'test',
                     coalesceWindow: 1
                 }
             }
@@ -839,7 +1120,7 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         let deliveryCount = 0;
@@ -854,13 +1135,13 @@ test.describe('Wake Daemon', () => {
 
         const msgId = 'msg_' + crypto.randomUUID();
         db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
-            id: msgId,
-            label: 'MESSAGE',
+            id        : msgId,
+            label     : 'MESSAGE',
             properties: {
-                from: agentId,
-                to: agentId,
-                subject: 'Suppressed Sunset Ping',
-                readAt: null,
+                from          : agentId,
+                to            : agentId,
+                subject       : 'Suppressed Sunset Ping',
+                readAt        : null,
                 taggedConcepts: ['sunset-protocol-handover'],
                 wakeSuppressed: true
             }
@@ -869,10 +1150,10 @@ test.describe('Wake Daemon', () => {
 
         const edgeId = 'edge_' + crypto.randomUUID();
         db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(edgeId, JSON.stringify({
-            id: edgeId,
+            id    : edgeId,
             source: msgId,
             target: agentId,
-            type: 'SENT_TO'
+            type  : 'SENT_TO'
         }), msgId, agentId, 'SENT_TO');
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(edgeId, 'edges');
 
@@ -891,14 +1172,14 @@ test.describe('Wake Daemon', () => {
         const subId = insertWakeSubscription(db, {
             agentId,
             harnessTargetMetadata: {
-                adapter: 'test',
+                adapter       : 'test',
                 coalesceWindow: 1
             }
         });
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         let stdoutLog = '';
@@ -921,21 +1202,21 @@ test.describe('Wake Daemon', () => {
         const agentId = '@test-agent-dedup';
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
-            id: agentId,
-            label: 'AGENT',
+            id        : agentId,
+            label     : 'AGENT',
             properties: { name: 'Test Agent Dedup' }
         }));
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
-            id: subId,
-            label: 'WAKE_SUBSCRIPTION',
+            id        : subId,
+            label     : 'WAKE_SUBSCRIPTION',
             properties: {
-                agentIdentity: agentId,
-                harnessTarget: 'bridge-daemon',
-                status: 'active',
-                trigger: 'SENT_TO_ME',
+                agentIdentity        : agentId,
+                harnessTarget        : 'bridge-daemon',
+                status               : 'active',
+                trigger              : 'SENT_TO_ME',
                 harnessTargetMetadata: {
-                    adapter: 'test',
+                    adapter       : 'test',
                     coalesceWindow: 2 // 2 seconds to ensure we catch multiple triggers
                 }
             }
@@ -945,7 +1226,7 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         let deliveryCount = 0;
@@ -971,10 +1252,10 @@ test.describe('Wake Daemon', () => {
 
         const msgId = 'msg_' + crypto.randomUUID();
         db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
-            id: msgId,
-            label: 'MESSAGE',
+            id        : msgId,
+            label     : 'MESSAGE',
             properties: {
-                from: '@sender',
+                from   : '@sender',
                 subject: 'Test Dedup Event'
             }
         }));
@@ -983,20 +1264,20 @@ test.describe('Wake Daemon', () => {
         // Insert first SENT_TO edge
         const edgeId1 = 'edge_1_' + crypto.randomUUID();
         db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(edgeId1, JSON.stringify({
-            id: edgeId1,
+            id    : edgeId1,
             source: msgId,
             target: agentId,
-            type: 'SENT_TO'
+            type  : 'SENT_TO'
         }), msgId, agentId, 'SENT_TO');
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(edgeId1, 'edges');
 
         // Insert second SENT_TO edge for the exact same message to simulate duplication
         const edgeId2 = 'edge_2_' + crypto.randomUUID();
         db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(edgeId2, JSON.stringify({
-            id: edgeId2,
+            id    : edgeId2,
             source: msgId,
             target: agentId,
-            type: 'SENT_TO'
+            type  : 'SENT_TO'
         }), msgId, agentId, 'SENT_TO');
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(edgeId2, 'edges');
 
@@ -1178,21 +1459,21 @@ test.describe('Wake Daemon', () => {
         const agentId = '@test-agent-priority';
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
-            id: agentId,
-            label: 'AGENT',
+            id        : agentId,
+            label     : 'AGENT',
             properties: { name: 'Test Agent Priority' }
         }));
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
-            id: subId,
-            label: 'WAKE_SUBSCRIPTION',
+            id        : subId,
+            label     : 'WAKE_SUBSCRIPTION',
             properties: {
-                agentIdentity: agentId,
-                harnessTarget: 'bridge-daemon',
-                status: 'active',
-                trigger: 'SENT_TO_ME',
+                agentIdentity        : agentId,
+                harnessTarget        : 'bridge-daemon',
+                status               : 'active',
+                trigger              : 'SENT_TO_ME',
                 harnessTargetMetadata: {
-                    adapter: 'test',
+                    adapter       : 'test',
                     coalesceWindow: 2
                 }
             }
@@ -1202,7 +1483,7 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         const deliveryPromise = new Promise((resolve, reject) => {
@@ -1223,11 +1504,11 @@ test.describe('Wake Daemon', () => {
 
         const highMsgId = 'msg_' + crypto.randomUUID();
         db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(highMsgId, JSON.stringify({
-            id: highMsgId,
-            label: 'MESSAGE',
+            id        : highMsgId,
+            label     : 'MESSAGE',
             properties: {
-                from: '@sender',
-                subject: 'High Priority Wake Event',
+                from    : '@sender',
+                subject : 'High Priority Wake Event',
                 priority: 'high'
             }
         }));
@@ -1235,20 +1516,20 @@ test.describe('Wake Daemon', () => {
 
         const highEdgeId = 'edge_' + crypto.randomUUID();
         db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(highEdgeId, JSON.stringify({
-            id: highEdgeId,
+            id    : highEdgeId,
             source: highMsgId,
             target: agentId,
-            type: 'SENT_TO'
+            type  : 'SENT_TO'
         }), highMsgId, agentId, 'SENT_TO');
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(highEdgeId, 'edges');
 
         const lowMsgId = 'msg_' + crypto.randomUUID();
         db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(lowMsgId, JSON.stringify({
-            id: lowMsgId,
-            label: 'MESSAGE',
+            id        : lowMsgId,
+            label     : 'MESSAGE',
             properties: {
-                from: '@sender',
-                subject: 'Low Priority Wake Event',
+                from    : '@sender',
+                subject : 'Low Priority Wake Event',
                 priority: 'low'
             }
         }));
@@ -1256,10 +1537,10 @@ test.describe('Wake Daemon', () => {
 
         const lowEdgeId = 'edge_' + crypto.randomUUID();
         db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(lowEdgeId, JSON.stringify({
-            id: lowEdgeId,
+            id    : lowEdgeId,
             source: lowMsgId,
             target: agentId,
-            type: 'SENT_TO'
+            type  : 'SENT_TO'
         }), lowMsgId, agentId, 'SENT_TO');
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(lowEdgeId, 'edges');
 
@@ -1275,21 +1556,21 @@ test.describe('Wake Daemon', () => {
         const agentId = '@test-agent-empty';
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
-            id: agentId,
-            label: 'AGENT',
+            id        : agentId,
+            label     : 'AGENT',
             properties: { name: 'Test Agent Empty' }
         }));
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
-            id: subId,
-            label: 'WAKE_SUBSCRIPTION',
+            id        : subId,
+            label     : 'WAKE_SUBSCRIPTION',
             properties: {
-                agentIdentity: agentId,
-                harnessTarget: 'bridge-daemon',
-                status: 'active',
-                trigger: 'SENT_TO_ME',
+                agentIdentity        : agentId,
+                harnessTarget        : 'bridge-daemon',
+                status               : 'active',
+                trigger              : 'SENT_TO_ME',
                 harnessTargetMetadata: {
-                    adapter: 'osascript',
+                    adapter       : 'osascript',
                     coalesceWindow: 1 // 1 second for fast test
                     // appName intentionally omitted
                 }
@@ -1300,7 +1581,7 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         const errorLogPromise = new Promise((resolve, reject) => {
@@ -1320,18 +1601,18 @@ test.describe('Wake Daemon', () => {
 
         const msgId = 'msg_' + crypto.randomUUID();
         db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
-            id: msgId,
-            label: 'MESSAGE',
+            id        : msgId,
+            label     : 'MESSAGE',
             properties: { from: '@sender', subject: 'Test Empty AppName' }
         }));
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(msgId, 'nodes');
 
         const edgeId = 'edge_' + crypto.randomUUID();
         db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(edgeId, JSON.stringify({
-            id: edgeId,
+            id    : edgeId,
             source: msgId,
             target: agentId,
-            type: 'SENT_TO'
+            type  : 'SENT_TO'
         }), msgId, agentId, 'SENT_TO');
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(edgeId, 'edges');
 
@@ -1345,22 +1626,22 @@ test.describe('Wake Daemon', () => {
         const agentId = '@test-agent-antigravity';
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
-            id: agentId,
-            label: 'AGENT',
+            id        : agentId,
+            label     : 'AGENT',
             properties: { name: 'Test Agent Antigravity' }
         }));
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
-            id: subId,
-            label: 'WAKE_SUBSCRIPTION',
+            id        : subId,
+            label     : 'WAKE_SUBSCRIPTION',
             properties: {
-                agentIdentity: agentId,
-                harnessTarget: 'bridge-daemon',
-                status: 'active',
-                trigger: 'SENT_TO_ME',
+                agentIdentity        : agentId,
+                harnessTarget        : 'bridge-daemon',
+                status               : 'active',
+                trigger              : 'SENT_TO_ME',
                 harnessTargetMetadata: {
-                    adapter: 'osascript',
-                    appName: 'Antigravity',
+                    adapter       : 'osascript',
+                    appName       : 'Antigravity',
                     coalesceWindow: 1
                 }
             }
@@ -1379,7 +1660,7 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         let stdoutLog = '';
@@ -1404,11 +1685,11 @@ test.describe('Wake Daemon', () => {
 
         const msgId = 'msg_' + crypto.randomUUID();
         db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
-            id: msgId,
-            label: 'MESSAGE',
+            id        : msgId,
+            label     : 'MESSAGE',
             properties: {
-                from: '@sender',
-                subject: 'Test Antigravity Event',
+                from    : '@sender',
+                subject : 'Test Antigravity Event',
                 priority: 'normal'
             }
         }));
@@ -1416,10 +1697,10 @@ test.describe('Wake Daemon', () => {
 
         const edgeId = 'edge_' + crypto.randomUUID();
         db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(edgeId, JSON.stringify({
-            id: edgeId,
+            id    : edgeId,
             source: msgId,
             target: agentId,
-            type: 'SENT_TO'
+            type  : 'SENT_TO'
         }), msgId, agentId, 'SENT_TO');
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(edgeId, 'edges');
 
@@ -1442,22 +1723,22 @@ test.describe('Wake Daemon', () => {
         const agentId = '@test-agent-claude';
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
-            id: agentId,
-            label: 'AGENT',
+            id        : agentId,
+            label     : 'AGENT',
             properties: { name: 'Test Agent Claude' }
         }));
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
-            id: subId,
-            label: 'WAKE_SUBSCRIPTION',
+            id        : subId,
+            label     : 'WAKE_SUBSCRIPTION',
             properties: {
-                agentIdentity: agentId,
-                harnessTarget: 'bridge-daemon',
-                status: 'active',
-                trigger: 'SENT_TO_ME',
+                agentIdentity        : agentId,
+                harnessTarget        : 'bridge-daemon',
+                status               : 'active',
+                trigger              : 'SENT_TO_ME',
                 harnessTargetMetadata: {
-                    adapter: 'osascript',
-                    appName: 'Claude',
+                    adapter       : 'osascript',
+                    appName       : 'Claude',
                     coalesceWindow: 1
                 }
             }
@@ -1475,7 +1756,7 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         const deliveryPromise = new Promise((resolve, reject) => {
@@ -1496,11 +1777,11 @@ test.describe('Wake Daemon', () => {
 
         const msgId = 'msg_' + crypto.randomUUID();
         db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
-            id: msgId,
-            label: 'MESSAGE',
+            id        : msgId,
+            label     : 'MESSAGE',
             properties: {
-                from: '@sender',
-                subject: 'Test Claude Event',
+                from    : '@sender',
+                subject : 'Test Claude Event',
                 priority: 'normal'
             }
         }));
@@ -1508,10 +1789,10 @@ test.describe('Wake Daemon', () => {
 
         const edgeId = 'edge_' + crypto.randomUUID();
         db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(edgeId, JSON.stringify({
-            id: edgeId,
+            id    : edgeId,
             source: msgId,
             target: agentId,
-            type: 'SENT_TO'
+            type  : 'SENT_TO'
         }), msgId, agentId, 'SENT_TO');
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(edgeId, 'edges');
 
@@ -1556,11 +1837,11 @@ test.describe('Wake Daemon', () => {
         const subId = insertWakeSubscription(db, {
             agentId,
             harnessTargetMetadata: {
-                adapter: 'osascript',
-                appName: 'Antigravity',
-                coalesceWindow: 1,
+                adapter        : 'osascript',
+                appName        : 'Antigravity',
+                coalesceWindow : 1,
                 instanceAddress: '4242',
-                addressType: 'pid'
+                addressType    : 'pid'
             }
         });
         insertHarnessPresence(db, {subId, agentId});
@@ -1575,7 +1856,7 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         const deliveryPromise = new Promise((resolve, reject) => {
@@ -1608,11 +1889,11 @@ test.describe('Wake Daemon', () => {
         const subId = insertWakeSubscription(db, {
             agentId,
             harnessTargetMetadata: {
-                adapter: 'osascript',
-                appName: 'Antigravity',
-                coalesceWindow: 1,
+                adapter        : 'osascript',
+                appName        : 'Antigravity',
+                coalesceWindow : 1,
                 instanceAddress: '4242',
-                addressType: 'pid'
+                addressType    : 'pid'
             }
         });
         insertHarnessPresence(db, {
@@ -1630,7 +1911,7 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         const refusalPromise = new Promise((resolve, reject) => {
@@ -1824,11 +2105,11 @@ test.describe('Wake Daemon', () => {
         const subId = insertWakeSubscription(db, {
             agentId,
             harnessTargetMetadata: {
-                adapter: 'tmux',
-                appName: 'Antigravity',
-                coalesceWindow: 1,
+                adapter        : 'tmux',
+                appName        : 'Antigravity',
+                coalesceWindow : 1,
                 instanceAddress: 'neo-gpt-session',
-                addressType: 'tmuxSession'
+                addressType    : 'tmuxSession'
             }
         });
         insertHarnessPresence(db, {subId, agentId});
@@ -1842,7 +2123,7 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         const deliveryPromise = new Promise((resolve, reject) => {
@@ -1870,13 +2151,13 @@ test.describe('Wake Daemon', () => {
         expect(args.at(-1)).toBe('C-m');
     });
 
-    test('tmux wake does not queue pure-heartbeat interactive submit (#13456)', async () => {
+    test('tmux wake delivers pure-heartbeat interactive submit (idle-gated at emit, not delivery)', async () => {
         const agentId = '@test-agent-tmux-pure-heartbeat';
         const subId = insertWakeSubscription(db, {
             agentId,
             harnessTargetMetadata: {
-                adapter: 'tmux',
-                appName: 'Antigravity',
+                adapter       : 'tmux',
+                appName       : 'Antigravity',
                 coalesceWindow: 1
             }
         });
@@ -1890,7 +2171,7 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         let stdoutLog = '';
@@ -1905,8 +2186,8 @@ test.describe('Wake Daemon', () => {
 
         await new Promise(resolve => setTimeout(resolve, 5000));
 
-        expect(fs.existsSync(mockOutPath)).toBe(false);
-        expect(stdoutLog).not.toContain(`Delivered ${subId}`);
+        expect(fs.existsSync(mockOutPath)).toBe(true);
+        expect(stdoutLog).toContain(`Delivered ${subId}`);
         expect(stdoutLog).not.toContain(`Suppressed ${subId}`);
     });
 
@@ -1928,18 +2209,18 @@ test.describe('Wake Daemon', () => {
                 const subId = insertWakeSubscription(db, {
                     agentId,
                     harnessTargetMetadata: {
-                        adapter: 'tmux',
-                        appName: 'Antigravity',
-                        coalesceWindow: 1,
+                        adapter        : 'tmux',
+                        appName        : 'Antigravity',
+                        coalesceWindow : 1,
                         instanceAddress: `http://127.0.0.1:${port}/wake`,
-                        addressType: 'webhookUrl'
+                        addressType    : 'webhookUrl'
                     }
                 });
                 insertHarnessPresence(db, {subId, agentId});
 
                 daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
                     stdio: 'pipe',
-                    env: { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+                    env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
                 });
 
                 setTimeout(() => insertMessageWake(db, {agentId, subject: 'Webhook Address Wake'}), 1000);
@@ -1984,22 +2265,22 @@ test.describe('Wake Daemon', () => {
         const agentId = '@test-agent-codex-fail-closed';
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
-            id: agentId,
-            label: 'AGENT',
+            id        : agentId,
+            label     : 'AGENT',
             properties: { name: 'Test Agent Codex Fail-Closed' }
         }));
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
-            id: subId,
-            label: 'WAKE_SUBSCRIPTION',
+            id        : subId,
+            label     : 'WAKE_SUBSCRIPTION',
             properties: {
-                agentIdentity: agentId,
-                harnessTarget: 'bridge-daemon',
-                status: 'active',
-                trigger: 'SENT_TO_ME',
+                agentIdentity        : agentId,
+                harnessTarget        : 'bridge-daemon',
+                status               : 'active',
+                trigger              : 'SENT_TO_ME',
                 harnessTargetMetadata: {
-                    adapter: 'osascript',
-                    appName: 'Codex',
+                    adapter       : 'osascript',
+                    appName       : 'Codex',
                     coalesceWindow: 1
                     // No focusSeedKey configured — bridge MUST refuse delivery
                 }
@@ -2018,7 +2299,7 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         // Wait for the fail-closed warning log line (proxy for the deliver-or-refuse decision).
@@ -2031,11 +2312,14 @@ test.describe('Wake Daemon', () => {
                     clearTimeout(timeout);
                     resolve();
                 }
-                // Negative case: if the daemon ever logs "Delivered" for this subId, the
+                // Negative case: if the daemon ever logs an osascript attempt for this subId, the
                 // fail-closed guard didn't fire. Reject so the test fails loudly.
-                if (out.includes(`[Wake Daemon] Delivered ${subId}`)) {
+                if (
+                    out.includes(`[Wake Daemon] Delivered ${subId}`) ||
+                    out.includes(`[Wake Daemon] Submit attempted ${subId}`)
+                ) {
                     clearTimeout(timeout);
-                    reject(new Error('Daemon delivered Codex wake despite missing focusSeedKey — fail-closed guard regressed'));
+                    reject(new Error('Daemon attempted Codex wake despite missing focusSeedKey — fail-closed guard regressed'));
                 }
             });
             daemonProcess.stderr.on('data', data => console.error('[DAEMON STDERR]', data.toString()));
@@ -2046,11 +2330,11 @@ test.describe('Wake Daemon', () => {
 
         const msgId = 'msg_' + crypto.randomUUID();
         db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
-            id: msgId,
-            label: 'MESSAGE',
+            id        : msgId,
+            label     : 'MESSAGE',
             properties: {
-                from: '@sender',
-                subject: 'Test Codex Event',
+                from    : '@sender',
+                subject : 'Test Codex Event',
                 priority: 'normal'
             }
         }));
@@ -2058,10 +2342,10 @@ test.describe('Wake Daemon', () => {
 
         const edgeId = 'edge_' + crypto.randomUUID();
         db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(edgeId, JSON.stringify({
-            id: edgeId,
+            id    : edgeId,
             source: msgId,
             target: agentId,
-            type: 'SENT_TO'
+            type  : 'SENT_TO'
         }), msgId, agentId, 'SENT_TO');
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(edgeId, 'edges');
 
@@ -2072,29 +2356,29 @@ test.describe('Wake Daemon', () => {
         expect(fs.existsSync(mockOutPath)).toBe(false);
     });
 
-    test('Codex wake delivery emits specific sequence r -> Cmd+Z -> Cmd+A/X -> paste -> Esc -> Enter (#10667, #13287)', async () => {
+    test('Codex wake submit attempt emits specific sequence r -> Cmd+Z -> Cmd+A/X -> paste -> Esc -> Enter (#10667, #13287, #13480)', async () => {
         const subId = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-codex-cleanup';
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
-            id: agentId,
-            label: 'AGENT',
+            id        : agentId,
+            label     : 'AGENT',
             properties: { name: 'Test Agent Codex Cleanup' }
         }));
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
-            id: subId,
-            label: 'WAKE_SUBSCRIPTION',
+            id        : subId,
+            label     : 'WAKE_SUBSCRIPTION',
             properties: {
-                agentIdentity: agentId,
-                harnessTarget: 'bridge-daemon',
-                status: 'active',
-                trigger: 'SENT_TO_ME',
+                agentIdentity        : agentId,
+                harnessTarget        : 'bridge-daemon',
+                status               : 'active',
+                trigger              : 'SENT_TO_ME',
                 harnessTargetMetadata: {
-                    adapter: 'osascript',
-                    appName: 'Codex',
+                    adapter       : 'osascript',
+                    appName       : 'Codex',
                     coalesceWindow: 1,
-                    focusSeedKey: 'r'
+                    focusSeedKey  : 'r'
                 }
             }
         }));
@@ -2111,18 +2395,18 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         let stdoutLog = '';
 
         const deliveryPromise = new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => reject(new Error('Daemon did not deliver Codex wake within timeout')), 10000);
+            const timeout = setTimeout(() => reject(new Error('Daemon did not attempt Codex wake submit within timeout')), 10000);
 
             daemonProcess.stdout.on('data', (data) => {
                 const out = data.toString();
                 stdoutLog += out;
-                if (out.includes(`Delivered ${subId}`)) {
+                if (out.includes(`Submit attempted ${subId}`)) {
                     clearTimeout(timeout);
                     resolve();
                 }
@@ -2135,11 +2419,11 @@ test.describe('Wake Daemon', () => {
 
         const msgId = 'msg_' + crypto.randomUUID();
         db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
-            id: msgId,
-            label: 'MESSAGE',
+            id        : msgId,
+            label     : 'MESSAGE',
             properties: {
-                from: '@sender',
-                subject: 'Test Codex Cleanup',
+                from    : '@sender',
+                subject : 'Test Codex Cleanup',
                 priority: 'normal'
             }
         }));
@@ -2147,10 +2431,10 @@ test.describe('Wake Daemon', () => {
 
         const edgeId = 'edge_' + crypto.randomUUID();
         db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(edgeId, JSON.stringify({
-            id: edgeId,
+            id    : edgeId,
             source: msgId,
             target: agentId,
-            type: 'SENT_TO'
+            type  : 'SENT_TO'
         }), msgId, agentId, 'SENT_TO');
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(edgeId, 'edges');
 
@@ -2177,35 +2461,38 @@ test.describe('Wake Daemon', () => {
         expect(rawArgs.at(-1)).toContain('[WAKE][priority:normal]');
         expect(rawArgs.at(-1)).toContain('Test Codex Cleanup');
         expect(rawArgs.at(-1)).not.toContain('lifecycle-first');
+        expect(stdoutLog).toContain(`[Wake Daemon] Submit attempted ${subId} via osascript to Codex`);
+        expect(stdoutLog).not.toContain(`[Wake Daemon] Delivered ${subId} via osascript to Codex`);
         expect(stdoutLog).toContain(
             'scenario=direct-message; route=osascript; adapterSource=metadata; app=Codex; ' +
-            'counts=messages:1,tasks:0,permissions:0,heartbeats:0'
+            'counts=messages:1,tasks:0,permissions:0,heartbeats:0; ' +
+            'submitProof=attempted; turnStartProof=live-required'
         );
     });
 
-    test('Codex UI wake does not queue pure-heartbeat interactive submit (#13456)', async () => {
+    test('Codex UI wake submits pure-heartbeat interactively (idle-gated at emit, not delivery)', async () => {
         const subId = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-codex-pure-heartbeat';
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
-            id: agentId,
-            label: 'AGENT',
+            id        : agentId,
+            label     : 'AGENT',
             properties: { name: 'Test Agent Codex Pure Heartbeat' }
         }));
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
-            id: subId,
-            label: 'WAKE_SUBSCRIPTION',
+            id        : subId,
+            label     : 'WAKE_SUBSCRIPTION',
             properties: {
-                agentIdentity: agentId,
-                harnessTarget: 'bridge-daemon',
-                status: 'active',
-                trigger: 'SENT_TO_ME',
+                agentIdentity        : agentId,
+                harnessTarget        : 'bridge-daemon',
+                status               : 'active',
+                trigger              : 'SENT_TO_ME',
                 harnessTargetMetadata: {
-                    adapter: 'osascript',
-                    appName: 'Codex',
+                    adapter       : 'osascript',
+                    appName       : 'Codex',
                     coalesceWindow: 1,
-                    focusSeedKey: 'r'
+                    focusSeedKey  : 'r'
                 }
             }
         }));
@@ -2222,7 +2509,7 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         let stdoutLog = '';
@@ -2237,34 +2524,34 @@ test.describe('Wake Daemon', () => {
 
         await new Promise(resolve => setTimeout(resolve, 5000));
 
-        expect(fs.existsSync(mockOutPath)).toBe(false);
-        expect(stdoutLog).not.toContain(`Delivered ${subId}`);
+        expect(fs.existsSync(mockOutPath)).toBe(true);
+        expect(stdoutLog).toContain(`Submit attempted ${subId}`);
         expect(stdoutLog).not.toContain(`Suppressed ${subId}`);
     });
 
-    test('Codex UI wake submits actionable message and drops coalesced heartbeat event (#13456)', async () => {
+    test('Codex UI wake attempts actionable message submit and drops coalesced heartbeat event (#13456, #13480)', async () => {
         const subId = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-codex-mixed-submit';
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
-            id: agentId,
-            label: 'AGENT',
+            id        : agentId,
+            label     : 'AGENT',
             properties: { name: 'Test Agent Codex Mixed Submit' }
         }));
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
-            id: subId,
-            label: 'WAKE_SUBSCRIPTION',
+            id        : subId,
+            label     : 'WAKE_SUBSCRIPTION',
             properties: {
-                agentIdentity: agentId,
-                harnessTarget: 'bridge-daemon',
-                status: 'active',
-                trigger: 'SENT_TO_ME',
+                agentIdentity        : agentId,
+                harnessTarget        : 'bridge-daemon',
+                status               : 'active',
+                trigger              : 'SENT_TO_ME',
                 harnessTargetMetadata: {
-                    adapter: 'osascript',
-                    appName: 'Codex',
+                    adapter       : 'osascript',
+                    appName       : 'Codex',
                     coalesceWindow: 1,
-                    focusSeedKey: 'r'
+                    focusSeedKey  : 'r'
                 }
             }
         }));
@@ -2281,18 +2568,18 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         let stdoutLog = '';
 
         const deliveryPromise = new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => reject(new Error('Daemon did not deliver actionable Codex wake within timeout')), 10000);
+            const timeout = setTimeout(() => reject(new Error('Daemon did not attempt actionable Codex wake submit within timeout')), 10000);
 
             daemonProcess.stdout.on('data', (data) => {
                 const out = data.toString();
                 stdoutLog += out;
-                if (out.includes(`Delivered ${subId}`)) {
+                if (out.includes(`Submit attempted ${subId}`)) {
                     clearTimeout(timeout);
                     resolve();
                 }
@@ -2323,9 +2610,12 @@ test.describe('Wake Daemon', () => {
         expect(digest).toContain('new messages');
         expect(digest).not.toContain('heartbeat pulses');
         expect(digest).not.toContain('lifecycle-first');
+        expect(stdoutLog).toContain(`[Wake Daemon] Submit attempted ${subId} via osascript to Codex`);
+        expect(stdoutLog).not.toContain(`[Wake Daemon] Delivered ${subId} via osascript to Codex`);
         expect(stdoutLog).toContain(
             'scenario=direct-message; route=osascript; adapterSource=metadata; app=Codex; ' +
-            'counts=messages:1,tasks:0,permissions:0,heartbeats:0'
+            'counts=messages:1,tasks:0,permissions:0,heartbeats:0; ' +
+            'submitProof=attempted; turnStartProof=live-required'
         );
     });
 
@@ -2368,9 +2658,9 @@ test.describe('Wake Daemon', () => {
             label     : 'WAKE_SUBSCRIPTION',
             properties: {
                 agentIdentity,
-                trigger      : 'SENT_TO_ME',
-                filters      : {},
-                harnessTarget: 'bridge-daemon',
+                trigger              : 'SENT_TO_ME',
+                filters              : {},
+                harnessTarget        : 'bridge-daemon',
                 harnessTargetMetadata: {
                     adapter: 'test',
                     appName

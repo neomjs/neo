@@ -1,7 +1,9 @@
 import {test, expect} from '@playwright/test';
 import {
     buildSchedulingContext,
-    runSchedulingPipeline
+    buildTaskStalenessMeta,
+    runSchedulingPipeline,
+    TASK_STALENESS_CADENCE_KEY
 } from '../../../../../../../ai/daemons/orchestrator/scheduling/pipeline.mjs';
 
 function makeContext(overrides = {}) {
@@ -26,9 +28,9 @@ function makeCandidateDescriptor({
         taskName,
         executionKind,
         maintenanceClass,
-        backpressure : maintenanceClass === 'heavy' ? 'exclusive-heavy' : 'none',
-        dependencies : [],
-        getDueTask   : () => trigger
+        backpressure: maintenanceClass === 'heavy' ? 'exclusive-heavy' : 'none',
+        dependencies: [],
+        getDueTask  : () => trigger
     };
 }
 
@@ -181,7 +183,7 @@ test.describe('orchestrator/scheduling/pipeline (#11862/#11900)', () => {
             ],
             context : makeContext({
                 state: {
-                    kbSync: {running: true},
+                    kbSync                     : {running: true},
                     ['memory-summary-backfill']: {running: false}
                 }
             }),
@@ -261,8 +263,8 @@ test.describe('orchestrator/scheduling/pipeline (#11862/#11900)', () => {
         const result = runSchedulingPipeline({
             registry: [
                 makeCandidateDescriptor({
-                    taskName     : 'future-task',
-                    executionKind: 'future-kind',
+                    taskName        : 'future-task',
+                    executionKind   : 'future-kind',
                     maintenanceClass: 'continuous'
                 })
             ],
@@ -294,5 +296,95 @@ test.describe('orchestrator/scheduling/pipeline (#11862/#11900)', () => {
             level  : 'ERROR',
             message: '[Orchestrator] Unsupported executionKind: future-kind'
         }]);
+    });
+});
+
+test.describe('orchestrator/scheduling/pipeline staleness selector (#13586)', () => {
+    test('buildTaskStalenessMeta: builds {lastRunAt, cadenceMs} only for staleness-eligible candidates', () => {
+        const candidates = [
+            {taskName: 'summary'},
+            {taskName: 'golden-path'},
+            {taskName: 'swarm-heartbeat'},               // light → omitted
+            {taskName: 'embed-drain-liveness-watchdog'}  // health → omitted
+        ];
+        const state = {
+            summary      : {lastRunAt: 5_000},
+            'golden-path': {lastRunAt: 1_000}
+        };
+        const intervals = {summarySweep: 600_000, goldenPath: 3_600_000};
+
+        const meta = buildTaskStalenessMeta({candidates, state, intervals});
+
+        expect(meta).toEqual({
+            summary      : {lastRunAt: 5_000, cadenceMs: 600_000},
+            'golden-path': {lastRunAt: 1_000, cadenceMs: 3_600_000}
+        });
+        expect(meta['swarm-heartbeat']).toBeUndefined();
+        expect(meta['embed-drain-liveness-watchdog']).toBeUndefined();
+    });
+
+    test('buildTaskStalenessMeta: defaults lastRunAt to 0 when task state is absent', () => {
+        const meta = buildTaskStalenessMeta({
+            candidates: [{taskName: 'memory-summary-backfill'}],
+            state     : {},
+            intervals : {summarySweep: 600_000}
+        });
+        // backlog-driven backfill shares the summary-sweep cadence; never-run → lastRunAt 0
+        expect(meta['memory-summary-backfill']).toEqual({lastRunAt: 0, cadenceMs: 600_000});
+    });
+
+    test('TASK_STALENESS_CADENCE_KEY: excludes lightweight / health / continuous tasks', () => {
+        expect(TASK_STALENESS_CADENCE_KEY['swarm-heartbeat']).toBeUndefined();
+        expect(TASK_STALENESS_CADENCE_KEY['embed-drain-liveness-watchdog']).toBeUndefined();
+        expect(TASK_STALENESS_CADENCE_KEY['tenant-repo-sync']).toBeUndefined();
+        expect(TASK_STALENESS_CADENCE_KEY['golden-path']).toBe('goldenPath');
+        expect(TASK_STALENESS_CADENCE_KEY.summary).toBe('summarySweep');
+    });
+
+    test('end-to-end: a weeks-stale golden-path is selected over a just-run summary', () => {
+        const WEEK = 7 * 24 * 60 * 60 * 1000;
+        const now  = 100 * WEEK;
+
+        const result = runSchedulingPipeline({
+            registry: [
+                makeCandidateDescriptor({taskName: 'summary',     maintenanceClass: 'heavy'}),
+                makeCandidateDescriptor({taskName: 'golden-path', maintenanceClass: 'graph-dependent', executionKind: 'in-process-async'})
+            ],
+            context: makeContext({
+                now,
+                state: {
+                    summary      : {lastRunAt: now - 60_000,   running: false},
+                    'golden-path': {lastRunAt: now - 3 * WEEK, running: false}
+                },
+                intervals: {summarySweep: 600_000, goldenPath: 3_600_000}
+            }),
+            services: makeServices(),
+            runtime : makeRuntime()
+        });
+
+        expect(result.winner.taskName).toBe('golden-path');
+    });
+
+    test('end-to-end: backup (priority-0) is selected over a hugely-stale never-run backfill', () => {
+        const now = 1_000_000_000;
+
+        const result = runSchedulingPipeline({
+            registry: [
+                makeCandidateDescriptor({taskName: 'memory-summary-backfill', maintenanceClass: 'heavy'}),
+                makeCandidateDescriptor({taskName: 'backup',                   maintenanceClass: 'heavy'})
+            ],
+            context: makeContext({
+                now,
+                state: {
+                    'memory-summary-backfill': {lastRunAt: 0,           running: false}, // never run, hugely stale
+                    backup                   : {lastRunAt: now - 60_000, running: false}  // fresh
+                },
+                intervals: {summarySweep: 600_000, backup: 86_400_000}
+            }),
+            services: makeServices(),
+            runtime : makeRuntime()
+        });
+
+        expect(result.winner.taskName).toBe('backup');
     });
 });

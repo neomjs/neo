@@ -49,12 +49,11 @@ If a watchdog or night-shift wake is paired with an operator-suppressed
 as lack of work. Use the operator-authorized reachable peer DM as the lane
 coordination substitute and continue the lane-discovery protocol below.
 
-**`blocked-task-state` scope preservation**: this skill covers the EXIT from a
-blocked state (forward-motion resumption). Entry INTO a blocked state — when
-the agent's current lane hits a blocker — remains the `blocked-task-state`
-substrate-domain (negative-path declaration with explicit blocker identification).
-The two are complementary: this skill is positive-path-restoration, the other is
-negative-path-entry.
+**Scope boundary**: this skill covers the EXIT from a previously blocked state
+(forward-motion resumption). It must not be used to search for or declare a new
+blocked state during lane discovery. If an active lane exposes a defect or
+dependency, capture it with the governing bug/follow-up signal, then continue
+the next-lane cycle.
 
 ## 1.5 Pre-Review Intake Gate
 
@@ -109,59 +108,39 @@ these next states before ending the turn:
 | `Request Changes` | The author owns the response cycle. Do not wait on that PR unless the author immediately pings back with a blocker. Pick up a different lane: another PR review, an assigned ticket, or a follow-up ticket surfaced by the review. |
 | `Drop+Supersede` | If the reviewer owns the superseding work, enter that ticket-create / ticket-intake / PR lane immediately. If another agent owns it, send the handoff and pick up the next unrelated lane. |
 
-If no claimable-now lane survives the survey, declare the externally-falsifiable
-`verified-empty` terminal instead of silently ending the turn, using the formal
-`lane-state:` vocabulary. You MUST explicitly output your state at the end of
-your turn:
-
-```text
-lane-state: verified-empty (backlog self-survey completed after #NNNN review; no claimable-now lane)
-```
-
-If a lane is identifiable, or if you are blocked by a human merge gate, declare it:
-
-```text
-lane-state: next-lane (picking up ticket #NNNN)
-lane-state: human-gate (PR #NNNN approved and awaiting operator merge)
-```
+After the matrix action, emit the explicit `lane-state:` form from §2.5. A
+human-gated PR is lane-local state, not a turn terminal: broaden the survey
+through backlog, tech-debt, and ideation surfaces until a next lane is selected.
+Do not search for a blocker to justify stopping; if the active lane exposes a
+real system defect, file or route the bug ticket, then continue lane selection.
 
 **PR-State Freshness Gate:** any `lane-state:`, A2A broadcast, or report that names a PR's
-review/merge status MUST be preceded by a live `gh pr view <N> --json state,mergedAt` read —
-the triggering signal (A2A, wake, comment) is a recovery hint, NOT the work gate. Under
-merge-on-approval, signals go stale in seconds: declaring `human-gate` for an already-MERGED
-PR broadcasts a false board to the whole swarm (empirical: PR `#12950`'s `[merge-eligible]`
-landed 15s post-merge; PR `#12956`'s approval relay missed the merge by seconds — both
-operator-flagged 2026-06-12). Rule detail + verdict-not-enum companion: `pr-review-guide.md §10.1`.
+review/merge status MUST first run live `gh pr view <N> --json state,mergedAt,baseRefName`;
+wakes are hints, not cache. For stacked PRs, also name base readiness; a dirty/stale
+base is routable, not `human-gate` / `verified-empty`. Relay the review body's §9 verdict,
+not the flattened enum. Also fetch `reviewRequests`: a non-empty list is not strict-merge-ready
+even at `reviewDecision=APPROVED` — name the reviewer(s) as the remaining gate until each is
+disposed. `validateMergeReady` (ai/scripts/lifecycle) encodes this contract.
 
 ## 2.5. Mandatory `lane-state:` Declaration at Every Lifecycle Boundary
 
-Per #11455 AC: at EACH broadened lifecycle boundary (reviewer post, author
-response, post-implementation, post-PR-open/update, post-ticket-create,
-post-blocked-resolution), the agent MUST emit an explicit `lane-state:`
-declaration before ending the turn. Silent idle without the declaration is
-deference-slip dressed as completion.
-
-Valid declarations:
+Per #11455 AC, every lifecycle boundary (reviewer post, author response,
+post-implementation, PR open/update, ticket create, blocked-state exit) emits one
+of these before the turn ends:
 
 ```text
 lane-state: next-lane (picking up ticket #NNNN)
 lane-state: next-lane (claiming #NNNN as primary reviewer)
 lane-state: next-lane (filing follow-up ticket for friction surfaced in #NNNN)
-lane-state: human-gate (PR #NNNN approved and awaiting operator merge)
-lane-state: verified-empty (backlog self-survey completed at boundary #NNNN; no claimable-now lane — named survey here)
-lane-state: blocked-task-state (current lane hit <verified blocker>; see blocked-task-state skill)
+lane-state: next-lane (PR #NNNN at human merge gate; picking up unrelated ticket #MMMM)
+lane-state: next-lane (filed/routed blocker bug #NNNN; picking up unrelated ticket #MMMM)
 ```
 
-The only valid terminals are the three externally-falsifiable ones above plus
-the cycle-step `next-lane`; "holding"/"standby"/"nothing-actionable"/"idle"/bare
-`paused` and the miscited reasoned-hold are NOT expressible (§5).
-
-The declaration is the explicit substrate-signal that the agent ran the cycle
-and either selected a lane OR reached an externally-falsifiable terminal per §5.
-Without the declaration, the substrate cannot distinguish discipline from
-deference. Per the AGENTS.md self-select mandate and Helpful Assistant
-regression defense: stating intent without execution is itself the
-deference-slip pattern.
+Only `next-lane` is the normal turn-boundary state for this skill. "Holding",
+"standby", "nothing actionable", "idle", bare `paused`, `verified-empty`,
+`human-gate`, and blocker-as-exit-ramp are not turn terminals (§5).
+The declaration proves the cycle ran; without it the substrate cannot
+distinguish discipline from deference.
 
 ## 2.6. Typed `lane-state` Ledger + Commitment Lease
 
@@ -231,7 +210,7 @@ author MUST choose one of these next states before ending the turn:
 | Author state after response | Next pickup target |
 |---|---|
 | Fixup commits pushed and re-review requested | Start the next assigned ticket, draft the next ready PR, file the follow-up ticket discovered during the response, or review a separate PR if that is the current lane. |
-| Current PR still blocks all local work | That blocks only that lane; survey the backlog first (§5). If a claimable-now lane survives, take it; otherwise declare `verified-empty` (named survey) or `human-gate` if every candidate is human-blocked. "No independent lane assigned" with an unqueried backlog is NOT a terminal. |
+| Current PR still blocks all local work | That blocks only that lane; survey lifecycle, backlog, tech-debt, and ideation surfaces until a next lane is selected. "No independent lane assigned" with an unqueried broader backlog is NOT a terminal. |
 | Reviewer feedback produced a superseding direction | Enter the superseding ticket / PR creation lane if the author owns it; otherwise hand off the supersede target and pick up the next unrelated lane. |
 
 ## 4. Author-Concentration Detector (Telemetry)
@@ -248,60 +227,56 @@ broadcast-suppressed fallback below; #12632 (Discussion #12630) deleted the
 holding vocabulary and made the cycle the operating model.
 
 **Operating model — the cycle.** At every turn boundary, drain the actionable
-lifecycle queue BEFORE opening a new lane, in priority order: (1) own PR
-`REQUEST_CHANGES`/required author-response → address it; (2) designated peer
-review/re-review → review it (unless a higher-priority own author-response is
-active); (3) own PR green (CI event) → request review (event-driven; never wait
-the CI window synchronously); (4) only then → next lane. The ≤10 own-open-PR cap
-gates WHICH next-step (open-new vs drive-existing), NEVER WHETHER lifecycle work
-happens — it is backpressure, not a quota. This is liveness, not throughput: no
-contribution-counter, no per-wake ledger, no N-PR quota; a peer doing less while
-actively working still passes.
+lifecycle queue before opening a new lane: (1) own PR `REQUEST_CHANGES` or
+required author-response; (2) designated peer review/re-review, unless (1) is
+active; (3) own green PR review routing; (4) only then next lane. Awareness
+wakes are live-state hints, not work by themselves; if the artifact is already
+handled/merged/owned/routed, acknowledge or mark read instead of duplicating
+work. If reviewer scarcity is the bottleneck, prefer coordination, review, or
+cleanup lanes over opening another implementation PR into the same queue.
 
-**The ONLY legitimate turn-terminals are externally-falsifiable** (another
-observer can confirm each against repo/board/operator evidence): `verified-empty`
-(the named backlog self-survey below, zero claimable-now lane), `human-gate`
-(every candidate blocked on human-only action), and `blocked-task-state` (a
-current lane hit a verified blocker — see the `blocked-task-state` skill).
-"Claimable-now" = un-gated, non-colliding, un-blocked; a legitimately-gated
-non-empty backlog is a valid non-fire state (owned-issues-exist ≠ a step was
-available) but is NOT `verified-empty` until the survey is named.
+The own-open-PR cap governs which next step to choose, not whether lifecycle
+work happens. This is liveness, not throughput: no contribution counter, per-wake
+ledger, or N-PR quota.
 
-There is **no** sanctioned no-delta turn-terminal of "holding", "standby",
-"nothing-actionable", "idle", or a bare `paused` whose reason is not
-externally-falsifiable. A `lane-state:` whose stated reason contradicts its
-cited source (a "miscited reasoned-hold") is an unsourced terminal in disguise
-and is equally forbidden. The externally-falsifiable terminals are qualified by:
+**Turn-boundary rule:** lifecycle clearance is not a terminal. The default
+outcome is `lane-state: next-lane (...)`: survey live lifecycle work, then the
+repository backlog, tech-debt-radar, and ideation surfaces until a positive-ROI
+lane is selected. `blocked-task-state` is not a lane-discovery result: if an
+active lane uncovers an external blocker, create or route the bug/follow-up that
+captures it, then pick another lane. Operator-requested pause is an external
+falsifier; context exhaustion routes to `session-sunset` only after a concrete
+cap warning, recurring factual degradation, repeated re-reads, stable-artifact
+drift, or measured substrate-error increase. Otherwise continue the cycle.
 
-1. **Backlog self-survey completed** — agent has actively surveyed available open lanes (v13 board / assigned-to-me / authored-by-me / lane-pickable-from-cross-author-substrate / broader non-conflicting backlog such as body, grid, docs, testing, or general Project work) AND found no claimable-now lane, OR all candidate lanes hit conditions 2-4 below. The survey + finding MUST be named in the `verified-empty` declaration.
-2. Every candidate lane is blocked on human-only action (`human-gate`), or a safety gate forbids continuing.
-3. The operator explicitly requested a pause (the operator message is the external falsifier).
-4. **Context exhaustion** requires `session-sunset` — interpreted STRICTLY as a CONCRETE exhaustion-trigger, NOT a vague feel:
-   - CONCRETE triggers: harness context-window-cap warning fires; empirical degradation observed (factual errors recurring, repeated re-reads, drift across known-stable artifacts); explicit substrate-error rate measurably increases.
-   - NOT context-exhaustion triggers (these are deference-slip cover dressed as prudence): "context preservation for next-session", "sustained decision-quality budget exhausted" (subjective feel), "long session, time to halt" (time-based heuristic without concrete error-rate signal).
-   - **Reflex test:** if no concrete trigger has fired AND no observable error-rate degradation, context-exhaustion does NOT apply. Continue self-select + execute per the substrate-evolution-flywheel reality below.
-
-### Gated Own Lanes Are Not `verified-empty`
+### Gated Own Lanes Are Not Turn Terminals
 
 Own PRs/lanes blocked on human merge, reviewer response, CI, or operator
 `CHANGES_REQUESTED` exclude only those lanes — not proof there is no work; the
 default next move is an independent backlog lane, review request, or co-design
-surface after collision checks. Before declaring `verified-empty`, the positive
-backlog survey must name the surfaces checked. Minimum shape:
+surface after collision checks. Minimum survey shape before filing/routing a
+blocker bug from the active lane:
 
 - targeted review / re-review requests **where you are the assigned github
   reviewer** (verify: `gh pr view <N> --json reviewRequests`) — do not claim a PR
-  review you were not assigned to;
+  review you were not assigned to; clean assigned requests need
+  review/decline/handoff/blocker before new work;
 - assigned issues and currently self-authored PR follow-ups;
 - recent `[lanes-available]`, `[lane-claim]`, and `[lane-override]` A2A signals
   for collision state;
-- open unassigned current-epic or recently surfaced substrate lanes;
+- open unassigned current-epic / substrate lanes — exclude `not-code-ready`
+  and `epic` parents (`-label:not-code-ready -label:epic`);
 - broader non-conflicting backlog if the current-epic surface is empty.
 
-If any positive-ROI candidate survives that survey, emit
-`lane-state: next-lane (...)` and start the intake/claim path. A human-gated
-own PR plus an unqueried backlog is the stale-yield/idle-out failure mode that
-Epic #12440 rejects.
+Before claiming, scan **comments + prior-PR closure**, not just the body — a
+not-ready state often hides there; mark it `not-code-ready` (see `ticket-intake`),
+don't re-survey it.
+
+If any positive-ROI candidate survives that survey, emit `lane-state: next-lane
+(...)` and start the intake/claim path. If none survives, broaden to
+tech-debt-radar / ideation / general backlog and create the missing lane. A
+human-gated own PR plus an unqueried broader backlog is the stale-yield/idle-out
+failure mode that Epic #12440 rejects.
 
 ### Broadcast-Suppressed Coordination Fallback
 
@@ -314,11 +289,12 @@ operator suppresses broadcast to protect an unstable peer harness, the agent MUS
    lane-coordination substitute.
 3. Name the fallback in the A2A body so future readers understand why the
    canonical broadcast path was not used.
-4. Continue the broad backlog self-survey before considering `verified-empty`.
+4. Continue the broad backlog / tech-debt / ideation survey before filing or
+   routing any blocker bug.
 
-Only if no safe coordination channel exists AND all candidate lanes are blocked
-by the externally-falsifiable criteria above may the agent declare
-`verified-empty` / `human-gate` / `blocked-task-state`.
+If no safe coordination channel exists, file or route that as the blocker bug
+and continue with a lane that does not depend on the broken channel. Coordination
+failure is a defect signal, not permission to idle.
 
 Lead-role and peer-role agents are explicitly expected to **self-select from the backlog and announce the lane pickup** rather than treating absence-of-operator-direction or absence-of-broadcast as legitimate halt. Per AGENTS.md §15.6: *"Proactively select high-value tickets from the backlog AND begin the lane in the same turn."*
 
@@ -326,8 +302,9 @@ Lead-role and peer-role agents are explicitly expected to **self-select from the
 
 Operator-named substrate-work-supply for lead/peer agents: v13 Project board + repository backlog (300+ items each); opening PRs surfaces friction → new tickets; `tech-debt-radar` / `industry-friction-radar` surface debt + external-precedent friction as new tickets on each re-invocation (long loop). **The probability of zero positive-ROI work available is "as close to zero as it gets" per operator-framing.** Defaulting to any turn-terminal at a non-externally-falsifiable trigger is deference-slip.
 
-Do not broadcast generic "idle" state. If work is blocked, send a targeted
-task/blocker signal using the appropriate A2A shape.
+Do not broadcast generic "idle" state. If an active lane exposes a blocker,
+file or route the bug with a targeted A2A shape, then continue with another
+lane.
 
 ## 6. Integration Points
 
@@ -347,7 +324,7 @@ for the next prompt. Ticket #10970 is the instance-codification.
 
 | Anti-pattern | Why it harms |
 |---|---|
-| Declaring `verified-empty` per §5 criterion #1 without first surveying backlog | Condones deference-slip; reverses AGENTS.md §15.6 self-select discipline |
+| Declaring `verified-empty` / `human-gate` as a turn terminal | Codifies idle despite the backlog + tech-debt + ideation flywheel; reverses AGENTS.md §15.6 self-select discipline |
 | Treating operator-suppressed `AGENT:*` broadcast as work-stop | Confuses coordination visibility with implementation authority; use the authorized direct-DM fallback or declare a real blocker. |
 | Watchdog wake -> ack -> nothing to do without broad lane search | Burns wake cycles while positive-ROI backlog lanes exist; repeat wakes must re-check A2A + live repo state + broad backlog and, for night-shift/driver contexts, apply the leased-driver contract before any no-delta response. |
 | Three delivered heartbeats -> repeated unchanged pause/halt/no-delta | Crosses the critical-failure threshold; the third pulse must route recovery and emit `[critical-failure]`, not another passive state. |

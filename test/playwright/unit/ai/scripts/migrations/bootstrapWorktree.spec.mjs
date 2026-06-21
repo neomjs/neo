@@ -30,6 +30,7 @@ import path            from 'path';
  */
 test.describe('ai/scripts/bootstrapWorktree', () => {
     let bootstrapWorktree;
+    let hydrateCurrentWorktree;
     let symlinkDataDir;
     let symlinkGitignoredFiles;
     let installDependencies;
@@ -39,7 +40,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
     let parseWorktreePorcelain;
     let pruneStaleWorktrees;
     let BOOTSTRAP_CONFIGS;
-    let DATA_SUBDIRS_TO_LINK;
+    let DATA_SUBDIRS_BLOCKLIST;
     let GITIGNORED_FILES_TO_LINK;
     let fakeMainCheckout;
     let fakeWorktree;
@@ -55,6 +56,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
     test.beforeAll(async () => {
         const mod               = await import('../../../../../../ai/scripts/migrations/bootstrapWorktree.mjs');
         bootstrapWorktree        = mod.bootstrapWorktree;
+        hydrateCurrentWorktree   = mod.hydrateCurrentWorktree;
         symlinkDataDir           = mod.symlinkDataDir;
         symlinkGitignoredFiles   = mod.symlinkGitignoredFiles;
         installDependencies      = mod.installDependencies;
@@ -64,7 +66,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
         parseWorktreePorcelain   = mod.parseWorktreePorcelain;
         pruneStaleWorktrees      = mod.pruneStaleWorktrees;
         BOOTSTRAP_CONFIGS        = mod.BOOTSTRAP_CONFIGS;
-        DATA_SUBDIRS_TO_LINK     = mod.DATA_SUBDIRS_TO_LINK;
+        DATA_SUBDIRS_BLOCKLIST   = mod.DATA_SUBDIRS_BLOCKLIST;
         GITIGNORED_FILES_TO_LINK = mod.GITIGNORED_FILES_TO_LINK;
     });
 
@@ -322,31 +324,59 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
             }
         }
 
-        test('exports the canonical DATA_SUBDIRS_TO_LINK list', () => {
-            // The exact list is documented in the source; we assert the load-bearing
-            // invariants rather than the precise sequence (which may evolve).
-            expect(Array.isArray(DATA_SUBDIRS_TO_LINK)).toBe(true);
-            expect(DATA_SUBDIRS_TO_LINK).toContain('sqlite');
-            expect(DATA_SUBDIRS_TO_LINK).toContain('chroma');
-            expect(DATA_SUBDIRS_TO_LINK).toContain('wake-daemon');
+        test('exports the canonical DATA_SUBDIRS_BLOCKLIST', () => {
+            expect(Array.isArray(DATA_SUBDIRS_BLOCKLIST)).toBe(true);
 
-            // CRITICAL invariant: concepts/ is git-tracked and MUST NEVER be in the
-            // default allowlist. This is the load-bearing safety check that prevents
-            // the parent-level symlink clobber bug from regressing.
-            expect(DATA_SUBDIRS_TO_LINK).not.toContain('concepts');
+            // CRITICAL invariant: concepts/ is git-tracked and MUST be blocklisted so it is
+            // NEVER symlinked — the load-bearing safety check that prevents the parent-level
+            // symlink clobber bug from regressing.
+            expect(DATA_SUBDIRS_BLOCKLIST).toContain('concepts');
+
+            // Per-process daemon-pid dirs MUST be blocklisted — sharing the orchestrator
+            // parent-pid (the SIGTERM-singleton) across clones would race / cross-signal.
+            expect(DATA_SUBDIRS_BLOCKLIST).toContain('orchestrator-daemon');
+            expect(DATA_SUBDIRS_BLOCKLIST).toContain('embed-daemon');
+
+            // Shared substrate children must NOT be blocklisted — they link by enumeration
+            // (memory-wal carries records + markers + .drain-lock; wake-daemon is a designed singleton).
+            expect(DATA_SUBDIRS_BLOCKLIST).not.toContain('sqlite');
+            expect(DATA_SUBDIRS_BLOCKLIST).not.toContain('memory-wal');
+            expect(DATA_SUBDIRS_BLOCKLIST).not.toContain('wake-daemon');
         });
 
-        test('symlinks every allowlisted subdir from canonical when none exist in worktree', async () => {
+        test('blocklists the per-process daemon-pid dirs (SIGTERM-singleton stays per-clone)', async () => {
+            // orchestrator-daemon/ + embed-daemon/ hold the orchestrator parent-pid + embed pid;
+            // sharing them across clones would race the singleton, so they must NOT be symlinked.
+            for (const d of ['orchestrator-daemon', 'embed-daemon']) {
+                await fs.ensureDir(path.join(fakeMainCheckout, dataDir, d));
+                await fs.writeFile(path.join(fakeMainCheckout, dataDir, d, 'pid'), '12345\n', 'utf-8');
+            }
+            await seedMainSubdirs(['memory-wal']); // a shared child alongside the daemon dirs
+
+            const result = await symlinkDataDir({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                log         : () => {}
+            });
+
+            // memory-wal links; the daemon-pid dirs do not.
+            expect(result.linked).toContain('memory-wal');
+            expect(result.linked).not.toContain('orchestrator-daemon');
+            expect(result.linked).not.toContain('embed-daemon');
+            expect(await fs.pathExists(path.join(fakeWorktree, dataDir, 'orchestrator-daemon'))).toBe(false);
+            expect(await fs.pathExists(path.join(fakeWorktree, dataDir, 'embed-daemon'))).toBe(false);
+        });
+
+        test('symlinks every canonical child except the blocklist when none exist in worktree', async () => {
             await seedMainSubdirs();
 
             const result = await symlinkDataDir({
                 mainCheckout: fakeMainCheckout,
                 projectRoot : fakeWorktree,
-                subdirs     : fixtureSubdirs,
                 log         : () => {}
             });
 
-            expect(result.linked).toEqual(fixtureSubdirs);
+            expect(result.linked.sort()).toEqual([...fixtureSubdirs].sort());
             expect(result.alreadyLinked).toHaveLength(0);
             expect(result.clobbered).toHaveLength(0);
             expect(result.skippedNoSource).toHaveLength(0);
@@ -369,14 +399,51 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
             expect(parentLstat.isSymbolicLink()).toBe(false);
         });
 
-        test('is idempotent per-subdir — re-running over partial state surfaces alreadyLinked + linked', async () => {
+        test('links a previously-non-allowlisted child like memory-wal (regression guard)', async () => {
+            // The exact bug: memory-wal was never in the retired DATA_SUBDIRS_TO_LINK allowlist,
+            // so it was never symlinked → per-clone orphaned WALs. Enumeration must link it now.
+            await seedMainSubdirs(['memory-wal']);
+
+            const result = await symlinkDataDir({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                log         : () => {}
+            });
+
+            expect(result.linked).toContain('memory-wal');
+
+            const dst   = path.join(fakeWorktree, dataDir, 'memory-wal');
+            const lstat = await fs.lstat(dst);
+            expect(lstat.isSymbolicLink()).toBe(true);
+            expect(await fs.readFile(path.join(dst, 'canary.txt'), 'utf-8')).toBe('main-memory-wal-canary\n');
+        });
+
+        test('symlinks a top-level FILE child, not just directories', async () => {
+            // .neo-ai-data can hold file children (e.g. memory-core.sqlite); they must link too.
+            await fs.ensureDir(path.join(fakeMainCheckout, dataDir));
+            await fs.writeFile(path.join(fakeMainCheckout, dataDir, 'memory-core.sqlite'), 'db-bytes\n', 'utf-8');
+
+            const result = await symlinkDataDir({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                log         : () => {}
+            });
+
+            expect(result.linked).toContain('memory-core.sqlite');
+
+            const dst   = path.join(fakeWorktree, dataDir, 'memory-core.sqlite');
+            const lstat = await fs.lstat(dst);
+            expect(lstat.isSymbolicLink()).toBe(true);
+            expect(await fs.readFile(dst, 'utf-8')).toBe('db-bytes\n');
+        });
+
+        test('is idempotent per-child — re-running over partial state surfaces alreadyLinked + linked', async () => {
             await seedMainSubdirs();
 
             // First call links all three subdirs.
             await symlinkDataDir({
                 mainCheckout: fakeMainCheckout,
                 projectRoot : fakeWorktree,
-                subdirs     : fixtureSubdirs,
                 log         : () => {}
             });
 
@@ -387,7 +454,6 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
             const result = await symlinkDataDir({
                 mainCheckout: fakeMainCheckout,
                 projectRoot : fakeWorktree,
-                subdirs     : fixtureSubdirs,
                 log         : () => {}
             });
 
@@ -410,7 +476,6 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
                 symlinkDataDir({
                     mainCheckout: fakeMainCheckout,
                     projectRoot : fakeWorktree,
-                    subdirs     : fixtureSubdirs,
                     log         : () => {}
                 })
             ).rejects.toThrow(/Refusing to replace non-symlink/);
@@ -420,7 +485,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
             expect(preserved).toBe('worktree-specific\n');
         });
 
-        test('clobbers per-subdir with force=true and creates the link', async () => {
+        test('clobbers per-child with force=true and creates the link', async () => {
             await seedMainSubdirs();
 
             const worktreeSubdir = path.join(fakeWorktree, dataDir, 'sqlite');
@@ -430,12 +495,11 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
             const result = await symlinkDataDir({
                 mainCheckout: fakeMainCheckout,
                 projectRoot : fakeWorktree,
-                subdirs     : fixtureSubdirs,
                 force       : true,
                 log         : () => {}
             });
 
-            expect(result.linked).toEqual(fixtureSubdirs);
+            expect(result.linked.sort()).toEqual([...fixtureSubdirs].sort());
             expect(result.clobbered).toEqual(['sqlite']);
 
             // Clobbered subdir is now a symlink + canary reachable.
@@ -446,19 +510,35 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
             expect(canary).toBe('main-sqlite-canary\n');
         });
 
-        test('gracefully skips subdirs missing in the main checkout', async () => {
-            // Seed only two of three; third (chroma) is absent in the main checkout.
+        test('children absent in the canonical checkout are simply not linked', async () => {
+            // Seed only two of three; the third (chroma) is absent in canonical → never
+            // enumerated, so it is neither linked nor reported (graceful by construction).
             await seedMainSubdirs(['sqlite', 'wake-daemon']);
 
             const result = await symlinkDataDir({
                 mainCheckout: fakeMainCheckout,
                 projectRoot : fakeWorktree,
-                subdirs     : fixtureSubdirs, // includes chroma which isn't in main
                 log         : () => {}
             });
 
             expect(result.linked.sort()).toEqual(['sqlite', 'wake-daemon'].sort());
-            expect(result.skippedNoSource).toEqual(['chroma']);
+            expect(result.linked).not.toContain('chroma');
+            expect(await fs.pathExists(path.join(fakeWorktree, dataDir, 'chroma'))).toBe(false);
+        });
+
+        test('returns empty + does not throw when canonical .neo-ai-data is absent', async () => {
+            // Fresh canonical that has never created .neo-ai-data — must be a graceful no-op.
+            const result = await symlinkDataDir({
+                mainCheckout: fakeMainCheckout, // no .neo-ai-data seeded
+                projectRoot : fakeWorktree,
+                log         : () => {}
+            });
+
+            expect(result.linked).toHaveLength(0);
+            expect(result.alreadyLinked).toHaveLength(0);
+            expect(result.clobbered).toHaveLength(0);
+            expect(result.skippedNoSource).toHaveLength(0);
+            expect(result.mainCheckout).toBe(false);
         });
 
         test('NEVER touches concepts/ even when present in main checkout and force=true', async () => {
@@ -478,7 +558,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
                 'worktree-tracked-concept\n', 'utf-8'
             );
 
-            // Use the DEFAULT allowlist (which deliberately omits concepts/), and force=true.
+            // Use the DEFAULT blocklist (which contains concepts/), and force=true.
             const result = await symlinkDataDir({
                 mainCheckout: fakeMainCheckout,
                 projectRoot : fakeWorktree,
@@ -511,7 +591,6 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
             const result = await symlinkDataDir({
                 mainCheckout: fakeMainCheckout,
                 projectRoot : fakeMainCheckout, // same path = primary working tree
-                subdirs     : fixtureSubdirs,
                 log         : () => {}
             });
 
@@ -907,9 +986,9 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
             const result = await pruneStaleWorktrees({
                 projectRoot: fakeMainCheckout,
                 currentPath: paths.current,
-                dryRun    : true,
+                dryRun     : true,
                 exec,
-                getSize: async p => ({
+                getSize    : async p => ({
                     [paths.current] : 1024,
                     [paths.stale]   : 2048,
                     [paths.unmerged]: 3072,
@@ -943,7 +1022,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
                 projectRoot: fakeMainCheckout,
                 currentPath: paths.current,
                 exec,
-                getSize: async p => ({
+                getSize    : async p => ({
                     [paths.current] : 1024,
                     [paths.stale]   : 2048,
                     [paths.unmerged]: 3072,
@@ -983,7 +1062,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
                 currentPath : paths.current,
                 includeDirty: true,
                 exec,
-                getSize: async p => ({
+                getSize     : async p => ({
                     [paths.current] : 1024,
                     [paths.stale]   : 2048,
                     [paths.unmerged]: 3072,
@@ -1019,9 +1098,9 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
                 projectRoot: fakeMainCheckout,
                 currentPath: paths.current,
                 exec,
-                getSize: async () => 1,
-                hydrate: async () => ({ok: true}),
-                log: () => {}
+                getSize    : async () => 1,
+                hydrate    : async () => ({ok: true}),
+                log        : () => {}
             });
 
             const byPath = Object.fromEntries(result.worktrees.map(item => [item.path, item]));
@@ -1044,9 +1123,9 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
                 currentPath  : paths.current,
                 worktreesRoot: fakeMainCheckout,
                 exec,
-                getSize: async () => 1,
-                hydrate: async () => ({ok: true}),
-                log: () => {}
+                getSize      : async () => 1,
+                hydrate      : async () => ({ok: true}),
+                log          : () => {}
             });
 
             const byPath = Object.fromEntries(result.worktrees.map(item => [item.path, item]));
@@ -1069,8 +1148,8 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
             await pruneStaleWorktrees({
                 projectRoot: fakeMainCheckout,
                 exec,
-                getSize: async () => 1,
-                hydrate: async args => {
+                getSize    : async () => 1,
+                hydrate    : async args => {
                     hydrated.push(args);
                     return {ok: true};
                 },
@@ -1083,6 +1162,55 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
                 ['worktree', 'remove', '--force', paths.unmerged]
             ]);
             expect(hydrated[0].projectRoot).toBe(fakeMainCheckout);
+        });
+    });
+
+    // --------------------------------------------------------------------------------
+    // hydrateCurrentWorktree — wires the Claude no-hold Stop hook into the worktree's
+    // .claude/settings.json via initClaudeSettings (the Claude analog of the config-overlay
+    // hydration). Without it the Stop hook is only wired by the npm prepare that
+    // installDependencies skips when node_modules exists — leaving the no-hold enforcement
+    // silently inert in worktrees.
+    // --------------------------------------------------------------------------------
+    test.describe('#13681 hydrateCurrentWorktree wires the Claude Stop hook', () => {
+        test('calls the Claude-settings materializer with the worktree .claude dir', async () => {
+            const calls = [];
+            const spy   = async (opts) => { calls.push(opts); return {action: 'wired'}; };
+
+            const result = await hydrateCurrentWorktree({
+                mainCheckout      : fakeMainCheckout,
+                projectRoot       : fakeWorktree,
+                log               : () => {},
+                wireClaudeSettings: spy
+            });
+
+            expect(calls).toHaveLength(1);
+            expect(calls[0].claudeDir).toBe(path.join(fakeWorktree, '.claude'));
+            expect(result.claudeSettings).toEqual({action: 'wired'});
+        });
+
+        test('real initClaudeSettings materializes the Stop hook from the tracked template', async () => {
+            // Seed the worktree's tracked .claude/settings.template.json (the canonical Stop-hook
+            // wiring); the default (real) initClaudeSettings must clone it into .claude/settings.json.
+            const template = {
+                hooks: {Stop: [{hooks: [{type: 'command', command: 'node .claude/hooks/laneStateStopHook.mjs', timeout: 10}]}]}
+            };
+            await fs.ensureDir(path.join(fakeWorktree, '.claude'));
+            await fs.writeFile(
+                path.join(fakeWorktree, '.claude', 'settings.template.json'),
+                JSON.stringify(template, null, 2) + '\n', 'utf-8'
+            );
+
+            const result = await hydrateCurrentWorktree({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                log         : () => {}
+            });
+
+            expect(result.claudeSettings.action).toBe('clone');
+
+            const settings = JSON.parse(await fs.readFile(path.join(fakeWorktree, '.claude', 'settings.json'), 'utf-8'));
+            expect(settings.hooks.Stop[0].hooks[0].command).toContain('laneStateStopHook.mjs');
         });
     });
 });

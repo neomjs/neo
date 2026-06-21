@@ -218,6 +218,10 @@
     <priority>1.0</priority>
   </url>
   <url>
+    <loc>https://neomjs.com/learn/agentos/KnowledgeBaseEnhancement</loc>
+    <lastmod>2026-06-20T23:58:04+02:00</lastmod>
+  </url>
+  <url>
     <loc>https://neomjs.com/learn/agentos/MemoryCore</loc>
     <lastmod>2026-06-14T13:37:07Z</lastmod>
     <priority>1.0</priority>
@@ -396,6 +400,10 @@
   <url>
     <loc>https://neomjs.com/learn/agentos/decisions/0020-agent-harness-concept</loc>
     <lastmod>2026-06-13T01:17:15+02:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/agentos/decisions/0022-heavy-maintenance-scheduling-fairness</loc>
+    <lastmod>2026-06-20T09:42:44+02:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/fundamentals/CodebaseOverview</loc>
@@ -812,7 +820,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/devindex/index.html</loc>
-    <lastmod>2026-06-18T18:50:55Z</lastmod>
+    <lastmod>2026-06-20T22:32:56Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/email/index.html</loc>
@@ -832,7 +840,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/portal/index.html</loc>
-    <lastmod>2026-06-16T11:43:06Z</lastmod>
+    <lastmod>2026-06-20T11:38:59Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/realworld/index.html</loc>

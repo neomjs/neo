@@ -20,7 +20,7 @@ gh pr checks <PR_NUMBER>
 
 Use an equivalent read-only GitHub status surface only if `gh pr checks` is unavailable, and state that substitution explicitly in the PR/A2A handoff. Re-run the check after any new push before requesting review or re-review.
 
-Treat the check as bound to the current PR head. If you leave the author lane to review a peer PR while CI runs, re-check your own PR afterward rather than relying on the earlier result.
+Treat the check as current-head scoped. Re-check after peer work; for stacked PRs (`baseRefName` not `dev` / default), green means delta evidence and the handoff names base PR / merge order / retarget-CI state.
 
 ## 3. Outcome Branches
 

@@ -2,6 +2,10 @@ import {
     getUnreadSunsetHandovers,
     markNodesAsRead
 } from '../../wake/queries.mjs';
+import {
+    getPendingMemorySummaryBackfillJobs,
+    isNoProgressBackoffActive as isMemorySummaryBackfillBackoffActive
+} from './memorySummaryBackfill.mjs';
 
 /**
  * Reads pending low-latency summarization markers from the coordinator table.
@@ -66,11 +70,14 @@ export function getPendingSummarizationCount(db) {
  * summary artifact itself is `SESSION_SUMMARY` (`summary_<sessionId>`), while the REM projection
  * layer also creates `SESSION` nodes from Chroma summary rows (`session:<sessionId>` with
  * `properties.chromaId = summary_<sessionId>`). Minimal `SESSION` placeholders without a summary
- * Chroma id are deliberately excluded so they do not mask truly unsummarized sessions.
+ * Chroma id are deliberately excluded so they do not mask truly unsummarized sessions. Archived
+ * memories are excluded too: an archived row has no recoverable content to summarize, so it is an
+ * integrity concern, not summary-pending work — counting it would inflate the proxy with sessions
+ * the drain can never drain.
  *
- * @summary Feeds the periodic-sweep trigger reason so the orchestrator log reports the best
- * graph-backed session-summary backlog proxy available without opening Chroma. Fail-soft:
- * returns `null` when the graph table is unavailable.
+ * @summary Feeds the periodic-sweep trigger reason as a graph-backed proxy of drainable
+ * session-summary work — un-archived sessions lacking summary evidence. Fail-soft: returns `null`
+ * when the graph table is unavailable.
  * @param {Object} db SQLite database handle.
  * @returns {Number|null}
  */
@@ -89,6 +96,12 @@ export function getPendingSessionSummaryCount(db) {
                 FROM Nodes memory
                 WHERE json_extract(memory.data, '$.label')                = 'AGENT_MEMORY'
                   AND json_extract(memory.data, '$.properties.sessionId') IS NOT NULL
+                  -- Exclude archived/orphaned sessions: an archived memory has no recoverable
+                  -- content (its vector row was GC'd or never landed), so it can never be
+                  -- summarized — it is an integrity concern, not summary-pending work. A session
+                  -- keeps counting while it has any un-archived memory node. Mirrors the
+                  -- archived-skip the miniSummary backfill fetch applies for the same reason.
+                  AND json_extract(memory.data, '$.properties.archivedAt') IS NULL
             ),
             summary_sessions AS (
                 SELECT DISTINCT json_extract(summary.data, '$.properties.sessionId') AS sessionId
@@ -117,12 +130,44 @@ export function getPendingSessionSummaryCount(db) {
 }
 
 /**
+ * Checks whether periodic session-summary drift should yield to miniSummary backfill first.
+ *
+ * @summary `summarizeSession()` falls back from raw turns to per-turn `miniSummary` rows when the
+ * raw prompt exceeds the safe band or times out. Periodic drift sweeps therefore depend on the
+ * backfill having a chance to drain. Sunset handovers and explicit pending summarization markers
+ * are handled before this guard; this predicate is only for the periodic fallback sweep.
+ * @param {Object} options
+ * @param {Object} options.db SQLite database handle.
+ * @param {Object} [options.state] Orchestrator task-state map.
+ * @param {Number} [options.now] Epoch milliseconds.
+ * @param {Function} [options.getPendingMemorySummaryBackfillJobsFn]
+ * @param {Function} [options.isMemorySummaryBackfillBackoffActiveFn]
+ * @returns {Boolean}
+ */
+export function hasDrainableMemorySummaryBackfill({
+    db,
+    state = {},
+    now = Date.now(),
+    getPendingMemorySummaryBackfillJobsFn = getPendingMemorySummaryBackfillJobs,
+    isMemorySummaryBackfillBackoffActiveFn = isMemorySummaryBackfillBackoffActive
+} = {}) {
+    const pendingBackfillJobs = getPendingMemorySummaryBackfillJobsFn(db);
+    if (!Array.isArray(pendingBackfillJobs) || pendingBackfillJobs.length === 0) {
+        return false;
+    }
+
+    const taskState = state['memory-summary-backfill'] || {};
+    return !isMemorySummaryBackfillBackoffActiveFn({taskState, now});
+}
+
+/**
  * Builds the task trigger for the summarization sweep lane.
  *
  * Three wake-up sources, in priority order:
  * 1. Unread sunset handovers — priority because they unblock the next agent boot
  * 2. Pending disconnect markers — targeted low-latency session close handling
- * 3. Periodic sweep — fallback for ordinary unsummarized sessions
+ * 3. Periodic sweep — fallback for ordinary unsummarized sessions. The optional
+ *    `unsummarizedCount` is graph-backed observability, not Chroma drainability.
  *
  * Pure function. Test the scheduling contract without mounting the SQLite graph.
  *
@@ -164,7 +209,7 @@ export function buildSummaryTrigger({now, lastRunAt, intervalMs, handovers = [],
             taskName: 'summary',
             source  : 'periodic-sweep',
             reason  : Number.isInteger(unsummarizedCount)
-                ? `periodic-sweep:${intervalMs} pending-session-summary:${unsummarizedCount}`
+                ? `periodic-sweep:${intervalMs} graph-pending-session-summary:${unsummarizedCount}`
                 : `periodic-sweep:${intervalMs}`
         };
     }
@@ -183,6 +228,8 @@ export function buildSummaryTrigger({now, lastRunAt, intervalMs, handovers = [],
  * @param {Number} options.summarySweepIntervalMs Periodic summary sweep interval.
  * @param {Function} [options.getUnreadSunsetHandoversFn] Test seam for handover reads.
  * @param {Function} [options.getPendingSummarizationJobsFn] Test seam for pending marker reads.
+ * @param {Function} [options.getPendingMemorySummaryBackfillJobsFn] Test seam for miniSummary backlog.
+ * @param {Function} [options.isMemorySummaryBackfillBackoffActiveFn] Test seam for miniSummary backoff.
  * @param {Function} [options.markNodesAsReadFn] Test seam for handover mark-read writes.
  * @param {Function} [options.log] Optional orchestrator log function.
  * @returns {Object|null} Task trigger with optional `onSuccess` callback, or null.
@@ -196,6 +243,8 @@ export function getDueTask({
     getPendingSummarizationJobsFn = getPendingSummarizationJobs,
     getPendingSummarizationCountFn = getPendingSummarizationCount,
     getPendingSessionSummaryCountFn = getPendingSessionSummaryCount,
+    getPendingMemorySummaryBackfillJobsFn = getPendingMemorySummaryBackfillJobs,
+    isMemorySummaryBackfillBackoffActiveFn = isMemorySummaryBackfillBackoffActive,
     markNodesAsReadFn          = markNodesAsRead,
     log
 }) {
@@ -207,13 +256,25 @@ export function getDueTask({
     // sweep, never on every poll.
     const periodicSweepDue = handovers.length === 0 && pendingJobs.length === 0 &&
         summarySweepIntervalMs > 0 && now - lastRunAt >= summarySweepIntervalMs;
+    const periodicSweepBlockedByBackfill = periodicSweepDue && hasDrainableMemorySummaryBackfill({
+        db,
+        state,
+        now,
+        getPendingMemorySummaryBackfillJobsFn,
+        isMemorySummaryBackfillBackoffActiveFn
+    });
+
+    if (periodicSweepBlockedByBackfill) {
+        return null;
+    }
+
     const trigger   = buildSummaryTrigger({
         now,
         handovers,
         pendingJobs,
         totalPending     : pendingJobs.length > 0 ? getPendingSummarizationCountFn(db) : null,
         unsummarizedCount: periodicSweepDue ? getPendingSessionSummaryCountFn(db) : null,
-        intervalMs: summarySweepIntervalMs,
+        intervalMs       : summarySweepIntervalMs,
         lastRunAt
     });
 

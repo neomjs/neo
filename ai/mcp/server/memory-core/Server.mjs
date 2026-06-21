@@ -1,4 +1,3 @@
-import {execSync}                  from 'node:child_process';
 import BaseServer                  from '../BaseServer.mjs';
 import logger                      from './logger.mjs';
 import {listTools, callTool}       from './toolService.mjs';
@@ -7,8 +6,8 @@ import RequestContextService       from '../shared/services/RequestContextServic
 import StdioIdentityResolver       from '../shared/services/StdioIdentityResolver.mjs';
 import BootEnvelopeResolver        from '../shared/services/BootEnvelopeResolver.mjs';
 import {
-    formatHarnessGroups,
-    groupProcessesByHarness
+    buildSqliteHolderDiagnostics,
+    formatHarnessGroups
 } from '../../../services/memory-core/helpers/harnessClassifier.mjs';
 
 import {
@@ -16,10 +15,11 @@ import {
     Memory_GraphService            as GraphService,
     Memory_HealthService           as HealthService,
     Memory_SessionService          as SessionService,
-    Memory_InferenceLifecycleService as InferenceLifecycleService,
-    Memory_StorageRouter           as StorageRouter,
-    Memory_WakeSubscriptionService as WakeSubscriptionService,
-    Memory_CoalescingEngineService as CoalescingEngineService
+    Memory_InferenceLifecycleService  as InferenceLifecycleService,
+    Memory_RecorderService            as RecorderService,
+    Memory_StorageRouter              as StorageRouter,
+    Memory_WakeSubscriptionService    as WakeSubscriptionService,
+    Memory_CoalescingEngineService    as CoalescingEngineService
 } from '../../../services.mjs';
 import {startDrainLoop}   from '../../../daemons/embed/drainCycle.mjs';
 import {acquireDrainLock} from '../../../daemons/embed/drainLock.mjs';
@@ -126,6 +126,7 @@ class Server extends BaseServer {
             'revoke_permission',
             'list_permissions',
             'manage_wake_subscription',
+            'record_turn_presence',
             'get_session_memories',
             'query_recent_turns'
         ];
@@ -138,8 +139,35 @@ class Server extends BaseServer {
      * outer CallTool try/catch and route to `formatToolError`.
      * @param {{toolName: String, args: Object}} context
      */
-    async beforeToolDispatch({args}) {
-        AuthMiddleware.validateNoIdentitySpoof(args);
+    async beforeToolDispatch({toolName, args, t0}) {
+        try {
+            AuthMiddleware.validateNoIdentitySpoof(args);
+        } catch (error) {
+            RecorderService.logToolCall({
+                toolName,
+                args,
+                success     : false,
+                error,
+                failureStage: 'policy',
+                t0
+            });
+            throw error;
+        }
+    }
+
+    /**
+     * @summary Records health-gate rejects in the redacted MCP tool-call telemetry table.
+     * @param {{toolName: String, args: Object, error: Error, t0: Number}} context
+     */
+    async onHealthGateFailure({toolName, args, error, t0}) {
+        RecorderService.logToolCall({
+            toolName,
+            args,
+            success     : false,
+            error,
+            failureStage: 'health_gate',
+            t0
+        });
     }
 
     /**
@@ -208,6 +236,13 @@ class Server extends BaseServer {
             dependency: SessionService,
             start     : () => SessionService.ready(),
             degraded  : 'session/vector reads are degraded; add_memory remains WAL-available'
+        });
+
+        await this.prepareStartupDependency({
+            name      : 'tool-telemetry',
+            dependency: RecorderService,
+            start     : () => RecorderService.initAsync(),
+            degraded  : 'Memory Core tool telemetry is disabled; tool dispatch remains available'
         });
 
         // In-process WAL drain (containerized / single-process deployments): hosts the embed
@@ -504,49 +539,24 @@ class Server extends BaseServer {
         const dbPath = aiConfig.storagePaths.graph;
         if (!dbPath) return;
 
-        const files = [dbPath, `${dbPath}-wal`, `${dbPath}-shm`];
+        const diagnostics = buildSqliteHolderDiagnostics({
+            dbPath,
+            currentPid: process.pid
+        });
 
-        try {
-            const raw = execSync(`lsof -F pcn -- ${files.map(f => `'${f}'`).join(' ')}`, {
-                encoding: 'utf8',
-                stdio: ['ignore', 'pipe', 'pipe']
-            });
+        if (diagnostics.status === 'degraded') {
+            logger.debug(`[Startup] Failed to check sibling concurrency: ${diagnostics.error}`);
+            return;
+        }
 
-            let current = null;
-            const records = [];
-            for (const line of raw.split('\n')) {
-                if (!line) continue;
-                if (line[0] === 'p') {
-                    if (current && current.pid !== process.pid) records.push(current);
-                    current = {pid: parseInt(line.slice(1), 10)};
-                } else if (current && line[0] === 'c') {
-                    current.command = line.slice(1);
-                }
-            }
-            if (current && current.pid !== process.pid) records.push(current);
+        if (diagnostics.totalProcesses > 0) {
+            const summary = formatHarnessGroups(diagnostics.groups);
+            const message = `ℹ️  [Startup] Sibling concurrency: ${diagnostics.totalProcesses} peer process(es) holding SQLite files. Harnesses: ${summary}`;
 
-            const uniquePids = new Set();
-            const siblings = records.filter(r => {
-                if (uniquePids.has(r.pid)) return false;
-                uniquePids.add(r.pid);
-                return true;
-            });
-
-            if (siblings.length > 0) {
-                const groups  = groupProcessesByHarness(siblings);
-                const summary = formatHarnessGroups(groups);
-                const message = `ℹ️  [Startup] Sibling concurrency: ${siblings.length} peer process(es) holding SQLite files. Harnesses: ${summary}`;
-
-                if (groups.some(group => group.harness === 'unknown')) {
-                    logger.warn(message);
-                } else {
-                    logger.info(message);
-                }
-            }
-        } catch (error) {
-            // Ignore ENOENT (lsof missing on Windows) or status 1 (no matching processes)
-            if (error.status !== 1 && error.code !== 'ENOENT') {
-                logger.debug(`[Startup] Failed to check sibling concurrency: ${error.message}`);
+            if (diagnostics.warnings.length > 0) {
+                logger.warn(message);
+            } else {
+                logger.info(message);
             }
         }
     }

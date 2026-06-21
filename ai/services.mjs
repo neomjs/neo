@@ -49,11 +49,13 @@ import _Memory_GraphService from './services/memory-core/GraphService.mjs';
 import _Memory_SummaryService from './services/memory-core/SummaryService.mjs';
 import _Memory_ChromaLifecycleService from './services/memory-core/lifecycle/ChromaLifecycleService.mjs';
 import _Memory_InferenceLifecycleService from './services/memory-core/lifecycle/InferenceLifecycleService.mjs';
+import _Memory_RecorderService from './services/memory-core/MemoryCoreRecorderService.mjs';
 import Memory_ChromaManager         from './services/memory-core/managers/ChromaManager.mjs';
 import Memory_StorageRouter         from './services/memory-core/managers/StorageRouter.mjs';
 import _Memory_LifecycleService from './services/memory-core/lifecycle/SystemLifecycleService.mjs';
 import _Memory_TextEmbeddingService from './services/memory-core/TextEmbeddingService.mjs';
 import _Memory_WakeSubscriptionService from './services/memory-core/WakeSubscriptionService.mjs';
+import _Memory_TurnPresenceService from './services/memory-core/TurnPresenceService.mjs';
 import _Memory_MailboxService from './services/memory-core/MailboxService.mjs';
 import Memory_CoalescingEngineService from './services/memory-core/CoalescingEngineService.mjs';
 import _Memory_PermissionService from './services/memory-core/PermissionService.mjs';
@@ -225,8 +227,10 @@ const Memory_InferenceLifecycleService = makeSafe(_Memory_InferenceLifecycleServ
 const Memory_HealthService = makeSafe(_Memory_HealthService, memSpec);
 const Memory_GraphService = makeSafe(_Memory_GraphService, memSpec);
 const Memory_SummaryService = makeSafe(_Memory_SummaryService, memSpec);
+const Memory_RecorderService = makeSafe(_Memory_RecorderService, memSpec);
 const Memory_TextEmbeddingService = makeSafe(_Memory_TextEmbeddingService, memSpec);
 const Memory_WakeSubscriptionService = makeSafe(_Memory_WakeSubscriptionService, memSpec);
+const Memory_TurnPresenceService = makeSafe(_Memory_TurnPresenceService, memSpec);
 const Memory_MailboxService = makeSafe(_Memory_MailboxService, memSpec);
 const Memory_PermissionService = makeSafe(_Memory_PermissionService, memSpec);
 
@@ -300,10 +304,12 @@ export {
     Memory_InferenceLifecycleService,
     Memory_GraphService,
     Memory_HealthService,
+    Memory_RecorderService,
     Memory_StorageRouter,
     Memory_SummaryService,
     Memory_TextEmbeddingService,
     Memory_WakeSubscriptionService,
+    Memory_TurnPresenceService,
     Memory_MailboxService,
     Memory_CoalescingEngineService,
     Memory_PermissionService,

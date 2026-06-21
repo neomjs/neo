@@ -1,9 +1,10 @@
-import {test, expect} from '@playwright/test';
-import path from 'path';
-import Neo from '../../../../../../src/Neo.mjs';
-import * as core from '../../../../../../src/core/_export.mjs';
-import AiConfig from '../../../../../../ai/config.mjs';
-import {Orchestrator} from '../../../../../../ai/daemons/orchestrator/Orchestrator.mjs';
+import {test, expect}             from '@playwright/test';
+import path                       from 'path';
+import Neo                        from '../../../../../../src/Neo.mjs';
+import * as core                  from '../../../../../../src/core/_export.mjs';
+import AiConfig                   from '../../../../../../ai/config.mjs';
+import {Orchestrator}             from '../../../../../../ai/daemons/orchestrator/Orchestrator.mjs';
+import {ProcessSupervisorService} from '../../../../../../ai/daemons/orchestrator/services/ProcessSupervisorService.mjs';
 import {
     DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES
 } from '../../../../../../ai/daemons/orchestrator/services/MaintenanceBackpressureService.mjs';
@@ -13,11 +14,17 @@ import {
 import TaskStateService, { createInitialTaskState } from '../../../../../../ai/daemons/orchestrator/services/TaskStateService.mjs';
 
 let testOrchestratorSeq = 0;
+const TEST_DEV_SERVER_PORT = 18080;
+const TEST_NEURAL_LINK_BRIDGE_PORT = 18081;
 let savedIntervals = null;
 let savedLocalOnly = null;
 let savedCloudOnly = null;
+let savedDevServer = null;
+let savedDevServerMissing = false;
 let savedGraphLogCompaction = null;
 let savedGraphLogCompactionMissing = false;
+let savedNeuralLinkBridge = null;
+let savedNeuralLinkBridgeMissing = false;
 let savedDeploymentMode = null;
 
 /**
@@ -32,21 +39,25 @@ let savedDeploymentMode = null;
  */
 function createTestOrchestrator(config = {}) {
     const taskDefinitions = config.taskDefinitions || buildTaskDefinitions({
-        scriptDir: '/repo/ai/scripts',
-        nodeBin  : '/node',
-        graphLogCompactionVacuum: config.graphLogCompactionVacuum ?? false
+        scriptDir                        : '/repo/ai/scripts',
+        nodeBin                          : '/node',
+        devServerPort                    : config.devServerPort ?? TEST_DEV_SERVER_PORT,
+        devServerLivenessTimeoutMs       : config.devServerLivenessTimeoutMs ?? 50,
+        neuralLinkBridgePort             : config.neuralLinkBridgePort ?? TEST_NEURAL_LINK_BRIDGE_PORT,
+        neuralLinkBridgeLivenessTimeoutMs: config.neuralLinkBridgeLivenessTimeoutMs ?? 50,
+        graphLogCompactionVacuum         : config.graphLogCompactionVacuum ?? false
     });
 
     const heavyMaintenanceLeasePath = config.heavyMaintenanceLeasePath
         || `/tmp/orchestrator-test/heavy-maintenance-lease-${process.pid}-${++testOrchestratorSeq}.json`;
 
     TaskStateService.configure({
-        stateFile      : '/tmp/orchestrator-test/state.json',
+        stateFile : '/tmp/orchestrator-test/state.json',
         taskDefinitions,
-        writeLogFn     : () => {}
+        writeLogFn: () => {}
     });
     TaskStateService.taskState = createInitialTaskState(taskDefinitions);
-    ['chroma', 'bridgeDaemon', 'mlx', 'lms'].forEach(name => {
+    ['chroma', 'bridgeDaemon', 'devServer', 'neuralLinkBridge', 'mlx', 'lms'].forEach(name => {
         if (TaskStateService.taskState[name]) {
             TaskStateService.taskState[name].running = true;
         }
@@ -56,9 +67,17 @@ function createTestOrchestrator(config = {}) {
     savedIntervals = savedIntervals || {...AiConfig.orchestrator.intervals};
     savedLocalOnly = savedLocalOnly || {...AiConfig.orchestrator.localOnly};
     savedCloudOnly = savedCloudOnly || {...AiConfig.orchestrator.cloudOnly};
+    if (savedDevServer === null) {
+        savedDevServerMissing = AiConfig.orchestrator.devServer === undefined;
+        savedDevServer = {...(AiConfig.orchestrator.devServer || {})};
+    }
     if (savedGraphLogCompaction === null) {
         savedGraphLogCompactionMissing = AiConfig.orchestrator.graphLogCompaction === undefined;
         savedGraphLogCompaction = {...(AiConfig.orchestrator.graphLogCompaction || {})};
+    }
+    if (savedNeuralLinkBridge === null) {
+        savedNeuralLinkBridgeMissing = AiConfig.orchestrator.neuralLinkBridge === undefined;
+        savedNeuralLinkBridge = {...(AiConfig.orchestrator.neuralLinkBridge || {})};
     }
     savedDeploymentMode = savedDeploymentMode ?? AiConfig.orchestrator.deploymentMode;
 
@@ -80,6 +99,7 @@ function createTestOrchestrator(config = {}) {
     AiConfig.orchestrator.localOnly.kbSyncEnabled                  = config.kbSyncEnabled                  ?? true;
     AiConfig.orchestrator.localOnly.primaryDevSyncEnabled          = config.primaryDevSyncEnabled          ?? false;
     AiConfig.orchestrator.localOnly.bridgeDaemonEnabled            = config.bridgeDaemonEnabled            ?? true;
+    AiConfig.orchestrator.localOnly.neuralLinkBridgeEnabled        = Object.hasOwn(config, 'neuralLinkBridgeEnabled') ? config.neuralLinkBridgeEnabled : true;
     // Default-disabled like primaryDevSyncEnabled: the embed-daemon lane has its own dedicated
     // test; every other test's supervision expectations stay scoped to the lanes under test.
     AiConfig.orchestrator.localOnly.embedDaemonEnabled             = config.embedDaemonEnabled             ?? false;
@@ -87,9 +107,17 @@ function createTestOrchestrator(config = {}) {
     AiConfig.orchestrator.localOnly.goldenPathRepoEnrichmentEnabled = config.goldenPathRepoEnrichmentEnabled ?? true;
 
     AiConfig.orchestrator.cloudOnly.tenantRepoSyncEnabled = config.tenantRepoSyncEnabled ?? false;
+    AiConfig.setData('orchestrator.devServer', {
+        enabled               : Object.hasOwn(config, 'devServerEnabled') ? config.devServerEnabled : null,
+        port                  : config.devServerPort ?? TEST_DEV_SERVER_PORT,
+        livenessProbeTimeoutMs: config.devServerLivenessTimeoutMs ?? 50
+    });
     AiConfig.setData('orchestrator.graphLogCompaction', {
         enabled: config.graphLogCompactionEnabled ?? true,
         vacuum : config.graphLogCompactionVacuum ?? false
+    });
+    AiConfig.setData('orchestrator.neuralLinkBridge', {
+        livenessProbeTimeoutMs: config.neuralLinkBridgeLivenessTimeoutMs ?? 50
     });
 
     const orchestrator = Neo.create(Orchestrator, {
@@ -138,6 +166,15 @@ test.afterEach(() => {
         restoreConfigObject(AiConfig.orchestrator.cloudOnly, savedCloudOnly);
         savedCloudOnly = null;
     }
+    if (savedDevServer) {
+        if (savedDevServerMissing) {
+            AiConfig.setData('orchestrator.devServer', undefined);
+        } else {
+            AiConfig.setData('orchestrator.devServer', {...savedDevServer});
+        }
+        savedDevServer = null;
+        savedDevServerMissing = false;
+    }
     if (savedGraphLogCompaction) {
         if (savedGraphLogCompactionMissing) {
             AiConfig.setData('orchestrator.graphLogCompaction', undefined);
@@ -146,6 +183,15 @@ test.afterEach(() => {
         }
         savedGraphLogCompaction = null;
         savedGraphLogCompactionMissing = false;
+    }
+    if (savedNeuralLinkBridge) {
+        if (savedNeuralLinkBridgeMissing) {
+            AiConfig.setData('orchestrator.neuralLinkBridge', undefined);
+        } else {
+            AiConfig.setData('orchestrator.neuralLinkBridge', {...savedNeuralLinkBridge});
+        }
+        savedNeuralLinkBridge = null;
+        savedNeuralLinkBridgeMissing = false;
     }
     if (savedDeploymentMode !== null) {
         AiConfig.orchestrator.deploymentMode = savedDeploymentMode;
@@ -166,11 +212,13 @@ function restoreConfigObject(target, prior) {
 test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
     test('creates an isolated persisted-state envelope per task', () => {
         const state = createInitialTaskState(buildTaskDefinitions({
-            scriptDir: '/repo/ai/scripts',
-            nodeBin  : '/node'
+            scriptDir                        : '/repo/ai/scripts',
+            nodeBin                          : '/node',
+            neuralLinkBridgePort             : TEST_NEURAL_LINK_BRIDGE_PORT,
+            neuralLinkBridgeLivenessTimeoutMs: 50
         }));
 
-        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'embedDaemon', 'summary', 'memory-summary-backfill', 'kbSync', 'backup', 'graphlog-compaction', 'chromaDefrag', 'primary-dev-sync', 'tenant-repo-sync', 'dream', 'golden-path', 'swarm-heartbeat']);
+        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'neuralLinkBridge', 'embedDaemon', 'summary', 'memory-summary-backfill', 'kbSync', 'backup', 'graphlog-compaction', 'chromaDefrag', 'primary-dev-sync', 'tenant-repo-sync', 'dream', 'golden-path', 'swarm-heartbeat', 'embed-drain-liveness-watchdog']);
         expect(state.mlx).toBeUndefined();
         expect(state.memoryCoreChroma).toBeUndefined();
         expect(state.summary).toMatchObject({
@@ -340,7 +388,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
 
         const orchestrator = createTestOrchestrator({
             bridgeDaemonEnabled: false,
-            kbSyncEnabled     : false
+            kbSyncEnabled      : false
         });
 
         TaskStateService.taskState.bridgeDaemon.running   = false;
@@ -365,7 +413,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
 
         const orchestrator = createTestOrchestrator({
             goldenPathIntervalMs: 600000,
-            healthService: {
+            healthService       : {
                 recordTaskOutcome(taskName, status, details) {
                     outcomes.push({taskName, status, details});
                 }
@@ -403,7 +451,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         const calls = [];
 
         const orchestrator = createTestOrchestrator({
-            goldenPathIntervalMs: 600000,
+            goldenPathIntervalMs : 600000,
             goldenPathSynthesizer: {
                 synthesizeGoldenPath() {
                     calls.push('golden-path');
@@ -424,10 +472,10 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         const calls = [];
 
         const orchestrator = createTestOrchestrator({
-            kbSyncEnabled: false,
-            goldenPathIntervalMs: 600000,
+            kbSyncEnabled                  : false,
+            goldenPathIntervalMs           : 600000,
             goldenPathRepoEnrichmentEnabled: false,
-            goldenPathSynthesizer: {
+            goldenPathSynthesizer          : {
                 synthesizeGoldenPath(options) {
                     calls.push(options);
                     return Promise.resolve();
@@ -486,14 +534,246 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         });
     });
 
+    test('defines the local dev-server task without browser auto-open (#13482)', () => {
+        const taskDefinitions = buildTaskDefinitions({
+            scriptDir                 : '/repo/ai/scripts',
+            nodeBin                   : '/node',
+            devServerPort             : 4242,
+            devServerLivenessTimeoutMs: 50
+        });
+
+        expect(taskDefinitions.devServer).toMatchObject({
+            label                  : 'local dev-server',
+            command                : '/node',
+            pidFileName            : 'dev-server.pid',
+            expectedCommand        : 'node_modules/webpack/bin/webpack.js',
+            singletonPort          : 4242,
+            duplicateListenerPolicy: 'defer'
+        });
+        expect(taskDefinitions.devServer.args).toEqual([
+            '/repo/node_modules/webpack/bin/webpack.js',
+            'serve',
+            '-c',
+            './buildScripts/webpack/webpack.server.config.mjs',
+            '--port',
+            '4242'
+        ]);
+        expect(taskDefinitions.devServer.args).not.toContain('--open');
+        expect(typeof taskDefinitions.devServer.livenessProbe).toBe('function');
+    });
+
+    test('supervises the local dev-server in local mode and skips it in cloud mode (#13482)', async () => {
+        const flushProbe = () => new Promise(resolve => setTimeout(resolve, 0));
+        const cloudStarted = [];
+        const cloudOrchestrator = createTestOrchestrator({
+            deploymentMode  : 'cloud',
+            kbSyncEnabled   : false,
+            devServerEnabled: null
+        });
+
+        TaskStateService.taskState.devServer.running   = false;
+        TaskStateService.taskState.devServer.lastRunAt = 0;
+        cloudOrchestrator.taskDefinitions.devServer.livenessProbe = async () => false;
+        cloudOrchestrator.processSupervisorService.taskDefinitions.devServer.livenessProbe = async () => false;
+        cloudOrchestrator.processSupervisorService.runTask = (taskName, reason) => {
+            cloudStarted.push({taskName, reason});
+            return true;
+        };
+
+        cloudOrchestrator.poll();
+        await flushProbe();
+
+        expect(cloudStarted.find(entry => entry.taskName === 'devServer')).toBeUndefined();
+
+        const localStarted = [];
+        const localOrchestrator = createTestOrchestrator({
+            deploymentMode  : 'local',
+            kbSyncEnabled   : false,
+            devServerEnabled: null
+        });
+
+        TaskStateService.taskState.devServer.running   = false;
+        TaskStateService.taskState.devServer.lastRunAt = 0;
+        localOrchestrator.taskDefinitions.devServer.livenessProbe = async () => false;
+        localOrchestrator.processSupervisorService.taskDefinitions.devServer.livenessProbe = async () => false;
+        localOrchestrator.processSupervisorService.runTask = (taskName, reason) => {
+            localStarted.push({taskName, reason});
+            return true;
+        };
+
+        localOrchestrator.poll();
+        await flushProbe();
+
+        expect(localStarted).toContainEqual({
+            taskName: 'devServer',
+            reason  : 'supervisor-restart'
+        });
+    });
+
+    test('does not spawn over a healthy manually started dev-server (#13482)', async () => {
+        const started = [];
+        const orchestrator = createTestOrchestrator({
+            deploymentMode: 'local',
+            kbSyncEnabled : false
+        });
+
+        TaskStateService.taskState.devServer.running   = false;
+        TaskStateService.taskState.devServer.lastRunAt = 0;
+        orchestrator.taskDefinitions.devServer.livenessProbe = async () => true;
+        orchestrator.processSupervisorService.taskDefinitions.devServer.livenessProbe = async () => true;
+        orchestrator.processSupervisorService.runTask = (taskName, reason) => {
+            started.push({taskName, reason});
+            return true;
+        };
+
+        orchestrator.poll();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(started.find(entry => entry.taskName === 'devServer')).toBeUndefined();
+    });
+
+    test('defines Neural Link Bridge as a defer-safe local shared-infra task (#13483)', () => {
+        const taskDefinitions = buildTaskDefinitions({
+            scriptDir                        : '/repo/ai/scripts',
+            nodeBin                          : '/node',
+            neuralLinkBridgePort             : 4242,
+            neuralLinkBridgeLivenessTimeoutMs: 50
+        });
+
+        expect(taskDefinitions.neuralLinkBridge).toMatchObject({
+            label                  : 'Neural Link Bridge',
+            command                : '/node',
+            args                   : [path.resolve('/repo/ai/scripts', '../mcp/server/neural-link/run-bridge.mjs')],
+            pidFileName            : 'neural-link-bridge.pid',
+            expectedCommand        : 'mcp/server/neural-link/run-bridge.mjs',
+            env                    : {NEO_NL_PORT: '4242'},
+            singletonPort          : 4242,
+            duplicateListenerPolicy: 'defer'
+        });
+        expect(typeof taskDefinitions.neuralLinkBridge.livenessProbe).toBe('function');
+    });
+
+    test('supervises Neural Link Bridge in local mode and skips it in cloud mode (#13483)', async () => {
+        const flushProbe = () => new Promise(resolve => setTimeout(resolve, 0));
+        const localStarted = [];
+        const localOrchestrator = createTestOrchestrator({
+            deploymentMode: 'local',
+            kbSyncEnabled : false
+        });
+
+        TaskStateService.taskState.neuralLinkBridge.running   = false;
+        TaskStateService.taskState.neuralLinkBridge.lastRunAt = 0;
+        localOrchestrator.taskDefinitions.neuralLinkBridge.livenessProbe = async () => false;
+        localOrchestrator.processSupervisorService.runTask = (taskName, reason) => {
+            localStarted.push({taskName, reason});
+            return true;
+        };
+
+        localOrchestrator.poll();
+
+        await expect.poll(() => localStarted.some(entry =>
+            entry.taskName === 'neuralLinkBridge' &&
+            entry.reason === 'supervisor-restart'
+        ), {timeout: 5000}).toBe(true);
+
+        const cloudStarted = [];
+        const cloudOrchestrator = createTestOrchestrator({
+            deploymentMode         : 'cloud',
+            kbSyncEnabled          : false,
+            neuralLinkBridgeEnabled: null
+        });
+
+        TaskStateService.taskState.neuralLinkBridge.running   = false;
+        TaskStateService.taskState.neuralLinkBridge.lastRunAt = 0;
+        cloudOrchestrator.processSupervisorService.runTask = (taskName, reason) => {
+            cloudStarted.push({taskName, reason});
+            return true;
+        };
+
+        cloudOrchestrator.poll();
+        await flushProbe();
+
+        expect(cloudStarted.find(entry => entry.taskName === 'neuralLinkBridge')).toBeUndefined();
+    });
+
+    test('does not kill externally owned Neural Link Bridge listeners (#13483)', () => {
+        const killed = [];
+        const supervisor = Neo.create(ProcessSupervisorService, {
+            dataDir        : '/tmp/orchestrator-test',
+            taskDefinitions: {
+                neuralLinkBridge: {
+                    label                  : 'Neural Link Bridge',
+                    pidFileName            : 'neural-link-bridge.pid',
+                    expectedCommand        : 'mcp/server/neural-link/run-bridge.mjs',
+                    singletonPort          : 4242,
+                    duplicateListenerPolicy: 'defer'
+                }
+            },
+            taskStateService: {
+                getTaskState() {
+                    return {pid: 222};
+                }
+            },
+            healthService: {recordTaskOutcome() {}},
+            writeLog     : () => {}
+        });
+
+        supervisor.listPortListeners = () => [111, 222];
+        supervisor.processCommand    = () => '/node ai/mcp/server/neural-link/run-bridge.mjs';
+        supervisor.killProcess       = pid => killed.push(pid);
+
+        expect(supervisor.reapDuplicateListeners('neuralLinkBridge')).toBe(0);
+        expect(killed).toEqual([]);
+    });
+
+    test('passes task-level environment variables to spawned children (#13483)', () => {
+        const spawned = [];
+        const taskState = {running: false, pid: null};
+        const noop = () => {};
+        const supervisor = Neo.create(ProcessSupervisorService, {
+            dataDir        : '/tmp/orchestrator-test',
+            taskDefinitions: {
+                neuralLinkBridge: {
+                    label          : 'Neural Link Bridge',
+                    command        : '/node',
+                    args           : ['/repo/ai/mcp/server/neural-link/run-bridge.mjs'],
+                    pidFileName    : 'neural-link-bridge.pid',
+                    expectedCommand: 'mcp/server/neural-link/run-bridge.mjs',
+                    env            : {NEO_NL_PORT: '4242'}
+                }
+            },
+            taskStateService: {
+                getTaskState()  { return taskState; },
+                markStarted    : noop,
+                markSpawned    : noop,
+                markCompleted  : noop,
+                markFailed     : noop,
+                markSpawnFailed: noop
+            },
+            healthService: {recordTaskOutcome() {}},
+            writeLog     : () => {},
+            spawnFn(command, args, options) {
+                spawned.push({command, args, options});
+                return {
+                    pid   : 333,
+                    stderr: {on() {}},
+                    on() {}
+                };
+            }
+        });
+
+        expect(supervisor.runTask('neuralLinkBridge', 'unit-test')).toBe(true);
+        expect(spawned[0].options.env.NEO_NL_PORT).toBe('4242');
+    });
+
     test('supervises lms via the supervisor HTTP liveness probe — (re)start only when the endpoint is down (#12262 / #12090)', async () => {
         const taskDefinitions = buildTaskDefinitions({
-            scriptDir : path.resolve(process.cwd(), 'ai/scripts'),
-            nodeBin   : process.argv[0],
-            lmsEnabled: true,
-            lmsModels : ['chat-model', 'embedding-model'],
-            lmsHost   : 'http://127.0.0.1:1234',
-            lmsPort   : 1234,
+            scriptDir        : path.resolve(process.cwd(), 'ai/scripts'),
+            nodeBin          : process.argv[0],
+            lmsEnabled       : true,
+            lmsModels        : ['chat-model', 'embedding-model'],
+            lmsHost          : 'http://127.0.0.1:1234',
+            lmsPort          : 1234,
             providerReadiness: {attempts: 2, delayMs: 0, timeoutMs: 50}
         });
         // `lms server start` is fire-and-exit, so liveness is the HTTP endpoint, not the launcher
@@ -624,8 +904,8 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         });
 
         expect(buildTaskDefinitions({
-            scriptDir: '/repo/ai/scripts',
-            nodeBin  : '/node',
+            scriptDir               : '/repo/ai/scripts',
+            nodeBin                 : '/node',
             graphLogCompactionVacuum: true
         })['graphlog-compaction'].args).toEqual([
             '/repo/ai/scripts/maintenance/compactGraphLog.mjs',
@@ -638,12 +918,12 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         const started = [];
         const dueCalls = [];
         const orchestrator = createTestOrchestrator({
-            deploymentMode               : 'cloud',
-            kbSyncIntervalMs             : 0,
-            backupIntervalMs             : 0,
-            graphLogCompactionEnabled    : true,
-            graphLogCompactionIntervalMs : 600000,
-            graphLogCompactionGetDueTask : options => {
+            deploymentMode              : 'cloud',
+            kbSyncIntervalMs            : 0,
+            backupIntervalMs            : 0,
+            graphLogCompactionEnabled   : true,
+            graphLogCompactionIntervalMs: 600000,
+            graphLogCompactionGetDueTask: options => {
                 dueCalls.push(options);
                 return {
                     taskName: 'graphlog-compaction',
@@ -651,11 +931,11 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
                     reason  : 'periodic-graphlog-compaction:600000'
                 };
             },
-            primaryDevSyncIntervalMs     : 0,
-            tenantRepoSyncIntervalMs     : 0,
-            dreamIntervalMs              : Number.MAX_SAFE_INTEGER,
-            goldenPathIntervalMs         : Number.MAX_SAFE_INTEGER,
-            swarmHeartbeatIntervalMs     : Number.MAX_SAFE_INTEGER
+            primaryDevSyncIntervalMs: 0,
+            tenantRepoSyncIntervalMs: 0,
+            dreamIntervalMs         : Number.MAX_SAFE_INTEGER,
+            goldenPathIntervalMs    : Number.MAX_SAFE_INTEGER,
+            swarmHeartbeatIntervalMs: Number.MAX_SAFE_INTEGER
         });
 
         orchestrator.processSupervisorService = {
@@ -680,18 +960,18 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
     test('passes graphlog-compaction cadence from config verbatim (#12394 / #12061)', () => {
         const dueCalls = [];
         const orchestrator = createTestOrchestrator({
-            kbSyncIntervalMs             : 0,
-            backupIntervalMs             : 123456,
-            graphLogCompactionIntervalMs : 777777,
-            graphLogCompactionGetDueTask : options => {
+            kbSyncIntervalMs            : 0,
+            backupIntervalMs            : 123456,
+            graphLogCompactionIntervalMs: 777777,
+            graphLogCompactionGetDueTask: options => {
                 dueCalls.push(options);
                 return null;
             },
-            primaryDevSyncIntervalMs     : 0,
-            tenantRepoSyncIntervalMs     : 0,
-            dreamIntervalMs              : Number.MAX_SAFE_INTEGER,
-            goldenPathIntervalMs         : Number.MAX_SAFE_INTEGER,
-            swarmHeartbeatIntervalMs     : Number.MAX_SAFE_INTEGER
+            primaryDevSyncIntervalMs: 0,
+            tenantRepoSyncIntervalMs: 0,
+            dreamIntervalMs         : Number.MAX_SAFE_INTEGER,
+            goldenPathIntervalMs    : Number.MAX_SAFE_INTEGER,
+            swarmHeartbeatIntervalMs: Number.MAX_SAFE_INTEGER
         });
 
         orchestrator.poll();
@@ -705,22 +985,22 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         const started = [];
         const dueCalls = [];
         const orchestrator = createTestOrchestrator({
-            kbSyncIntervalMs             : 0,
-            backupIntervalMs             : 0,
-            graphLogCompactionEnabled    : false,
-            graphLogCompactionIntervalMs : 600000,
-            graphLogCompactionGetDueTask : options => {
+            kbSyncIntervalMs            : 0,
+            backupIntervalMs            : 0,
+            graphLogCompactionEnabled   : false,
+            graphLogCompactionIntervalMs: 600000,
+            graphLogCompactionGetDueTask: options => {
                 dueCalls.push(options);
                 return options.enabled ? {
                     taskName: 'graphlog-compaction',
                     reason  : 'periodic-graphlog-compaction:600000'
                 } : null;
             },
-            primaryDevSyncIntervalMs     : 0,
-            tenantRepoSyncIntervalMs     : 0,
-            dreamIntervalMs              : Number.MAX_SAFE_INTEGER,
-            goldenPathIntervalMs         : Number.MAX_SAFE_INTEGER,
-            swarmHeartbeatIntervalMs     : Number.MAX_SAFE_INTEGER
+            primaryDevSyncIntervalMs: 0,
+            tenantRepoSyncIntervalMs: 0,
+            dreamIntervalMs         : Number.MAX_SAFE_INTEGER,
+            goldenPathIntervalMs    : Number.MAX_SAFE_INTEGER,
+            swarmHeartbeatIntervalMs: Number.MAX_SAFE_INTEGER
         });
 
         orchestrator.processSupervisorService = {
@@ -781,14 +1061,14 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         const orchestrator = Neo.create(Orchestrator);
         orchestrator.dataDir         = '/tmp/orchestrator-test-lms-port';
         orchestrator.taskDefinitions = buildTaskDefinitions({
-            scriptDir : path.resolve(process.cwd(), 'ai/scripts'),
-            nodeBin   : process.argv[0],
-            lmsEnabled: true,
-            lmsModel  : 'qwen3-embedding-8b',
-            lmsModels : ['gemma4-31b', 'qwen3-8b'],
-            lmsHost   : 'http://127.0.0.1:4242',
+            scriptDir        : path.resolve(process.cwd(), 'ai/scripts'),
+            nodeBin          : process.argv[0],
+            lmsEnabled       : true,
+            lmsModel         : 'qwen3-embedding-8b',
+            lmsModels        : ['gemma4-31b', 'qwen3-8b'],
+            lmsHost          : 'http://127.0.0.1:4242',
             providerReadiness: {attempts: 2, delayMs: 0, timeoutMs: 50},
-            lmsPort   : 4242
+            lmsPort          : 4242
         });
 
         expect(orchestrator.taskDefinitions.lms.command).toBe('lms');
@@ -865,7 +1145,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             backupIntervalMs        : 0,
             tenantRepoSyncEnabled   : false,
             tenantRepoSyncIntervalMs: 600000,
-            tenantRepoSyncService: {
+            tenantRepoSyncService   : {
                 runTask({taskName, reason}) {
                     started.push({taskName, reason});
                 }
@@ -884,12 +1164,12 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
     test('delegates the configured dev-sync roots to PrimaryRepoSyncService via options.devSyncRootsConfig', () => {
         const received = [];
         const orchestrator = createTestOrchestrator({
-            kbSyncIntervalMs          : 0,
-            backupIntervalMs          : 0,
-            primaryDevSyncEnabled     : true,
-            primaryDevSyncIntervalMs  : 600000,
-            primaryDevSyncRootsConfig : ['/config/neo'],
-            primaryDevSyncGetDueTask  : () => ({
+            kbSyncIntervalMs         : 0,
+            backupIntervalMs         : 0,
+            primaryDevSyncEnabled    : true,
+            primaryDevSyncIntervalMs : 600000,
+            primaryDevSyncRootsConfig: ['/config/neo'],
+            primaryDevSyncGetDueTask : () => ({
                 taskName: 'primary-dev-sync',
                 reason  : 'periodic-sweep:600000'
             }),
@@ -1065,10 +1345,10 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
                     outcomes.push({taskName, status, details});
                 }
             },
-            backupIntervalMs             : Number.MAX_SAFE_INTEGER,
-            graphLogCompactionIntervalMs : Number.MAX_SAFE_INTEGER,
-            primaryDevSyncIntervalMs     : Number.MAX_SAFE_INTEGER,
-            dreamIntervalMs              : Number.MAX_SAFE_INTEGER
+            backupIntervalMs            : Number.MAX_SAFE_INTEGER,
+            graphLogCompactionIntervalMs: Number.MAX_SAFE_INTEGER,
+            primaryDevSyncIntervalMs    : Number.MAX_SAFE_INTEGER,
+            dreamIntervalMs             : Number.MAX_SAFE_INTEGER
         });
 
         orchestrator.db = {
@@ -1254,7 +1534,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
 
         const orchestratorA = createTestOrchestrator({
             heavyMaintenanceLeasePath: sharedLeasePath,
-            healthService: {
+            healthService            : {
                 recordTaskOutcome(taskName, status, details) {
                     outcomesA.push({taskName, status, details});
                 }
@@ -1274,7 +1554,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         // Second orchestrator on the same shared lease path — must defer cross-process.
         const orchestratorB = createTestOrchestrator({
             heavyMaintenanceLeasePath: sharedLeasePath,
-            healthService: {
+            healthService            : {
                 recordTaskOutcome(taskName, status, details) {
                     outcomesB.push({taskName, status, details});
                 }
@@ -1318,10 +1598,10 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         const pulseCalls = [];
 
         const orchestrator = createTestOrchestrator({
-            kbSyncEnabled          : false,
-            swarmHeartbeatEnabled  : true,
+            kbSyncEnabled           : false,
+            swarmHeartbeatEnabled   : true,
             swarmHeartbeatIntervalMs: 600000,
-            swarmHeartbeatService  : {
+            swarmHeartbeatService   : {
                 initAsync() { return Promise.resolve(); },
                 pulse() {
                     pulseCalls.push('pulse');
@@ -1340,10 +1620,10 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         const pulseCalls = [];
 
         const orchestrator = createTestOrchestrator({
-            kbSyncEnabled          : false,
-            swarmHeartbeatEnabled  : false,
+            kbSyncEnabled           : false,
+            swarmHeartbeatEnabled   : false,
             swarmHeartbeatIntervalMs: 600000,
-            swarmHeartbeatService  : {
+            swarmHeartbeatService   : {
                 initAsync() { return Promise.resolve(); },
                 pulse() {
                     pulseCalls.push('pulse');
@@ -1362,10 +1642,10 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         const outcomes = [];
 
         const orchestrator = createTestOrchestrator({
-            kbSyncEnabled          : false,
-            swarmHeartbeatEnabled  : true,
+            kbSyncEnabled           : false,
+            swarmHeartbeatEnabled   : true,
             swarmHeartbeatIntervalMs: 600000,
-            healthService          : {
+            healthService           : {
                 recordTaskOutcome(taskName, status, details) {
                     outcomes.push({taskName, status, details});
                 }
@@ -1412,7 +1692,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         };
 
         const orchestrator = createTestOrchestrator({
-            kbSyncEnabled : false,
+            kbSyncEnabled  : false,
             dreamIntervalMs: 1,
             healthService  : {
                 recordTaskOutcome(taskName, status, details) {

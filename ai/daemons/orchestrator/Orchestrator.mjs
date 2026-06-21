@@ -1,33 +1,40 @@
 // Class bootstrap belongs to `daemon.mjs`; this consumed class relies on global Neo.
-import fs                          from 'fs-extra';
-import {spawn}                     from 'child_process';
-import net                         from 'net';
-import path                        from 'path';
-import Base                        from '../../../src/core/Base.mjs';
-import ClassSystemUtil             from '../../../src/util/ClassSystem.mjs';
-import AiConfig                    from '../../config.mjs';
-import {buildLmsPreloadConfig}     from '../../services/graph/providerReadinessHelper.mjs';
-import HealthService               from '../../services/memory-core/HealthService.mjs';
-import SQLite                      from '../../graph/storage/SQLite.mjs';
+import fs                      from 'fs-extra';
+import {spawn}                 from 'child_process';
+import net                     from 'net';
+import path                    from 'path';
+import Base                    from '../../../src/core/Base.mjs';
+import ClassSystemUtil         from '../../../src/util/ClassSystem.mjs';
+import AiConfig                from '../../config.mjs';
+import neuralLinkConfig        from '../../mcp/server/neural-link/config.mjs';
+import {buildLmsPreloadConfig} from '../../services/graph/providerReadinessHelper.mjs';
+import HealthService           from '../../services/memory-core/HealthService.mjs';
+import SQLite                  from '../../graph/storage/SQLite.mjs';
 import MaintenanceBackpressureService, {
     DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
     DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES
 } from './services/MaintenanceBackpressureService.mjs';
-import PrimaryRepoSyncService from './services/PrimaryRepoSyncService.mjs';
-import TenantRepoSyncService             from './services/TenantRepoSyncService.mjs';
-import {getDueTask as summaryGetDueTaskImport}        from './scheduling/summary.mjs';
-import {getDueTask as backupGetDueTaskImport}         from './scheduling/backup.mjs';
-import {getDueTask as graphLogCompactionGetDueTaskImport} from './scheduling/graphLogCompaction.mjs';
-import {getDueTask as primaryDevSyncGetDueTaskImport} from './scheduling/primaryDevSync.mjs';
-import {getDueTask as goldenPathGetDueTaskImport} from './scheduling/goldenPath.mjs';
-import {getDueTask as dreamGetDueTaskImport}          from './scheduling/dream.mjs';
-import TaskStateService                  from './services/TaskStateService.mjs';
-import ProcessSupervisorService          from './services/ProcessSupervisorService.mjs';
-import DreamService                      from './services/DreamService.mjs';
-import SwarmHeartbeatService             from './services/SwarmHeartbeatService.mjs';
-import GoldenPathSynthesizer             from '../../services/graph/GoldenPathSynthesizer.mjs';
-import {getDueTask as tenantRepoSyncGetDueTaskImport} from './scheduling/tenantRepoSync.mjs';
-import {TASK_REGISTRY}                   from './scheduling/registry.mjs';
+import PrimaryRepoSyncService                                     from './services/PrimaryRepoSyncService.mjs';
+import TenantRepoSyncService                                      from './services/TenantRepoSyncService.mjs';
+import {getDueTask as summaryGetDueTaskImport}                    from './scheduling/summary.mjs';
+import {getDueTask as backupGetDueTaskImport}                     from './scheduling/backup.mjs';
+import {getDueTask as graphLogCompactionGetDueTaskImport}         from './scheduling/graphLogCompaction.mjs';
+import {getDueTask as primaryDevSyncGetDueTaskImport}             from './scheduling/primaryDevSync.mjs';
+import {getDueTask as goldenPathGetDueTaskImport}                 from './scheduling/goldenPath.mjs';
+import {getDueTask as dreamGetDueTaskImport}                      from './scheduling/dream.mjs';
+import {getDueTask as embedDrainLivenessWatchdogGetDueTaskImport} from './scheduling/embedDrainLivenessWatchdog.mjs';
+import memoryCoreConfig                                           from '../../mcp/server/memory-core/config.mjs';
+import MailboxService                                             from '../../services/memory-core/MailboxService.mjs';
+import WakeSubscriptionService                                    from '../../services/memory-core/WakeSubscriptionService.mjs';
+import RequestContextService                                      from '../../mcp/server/shared/services/RequestContextService.mjs';
+import {normalizeAgentIdentityNodeId}                             from '../../scripts/lifecycle/resumeHarness.mjs';
+import TaskStateService                                           from './services/TaskStateService.mjs';
+import ProcessSupervisorService                                   from './services/ProcessSupervisorService.mjs';
+import DreamService                                               from './services/DreamService.mjs';
+import SwarmHeartbeatService                                      from './services/SwarmHeartbeatService.mjs';
+import GoldenPathSynthesizer                                      from '../../services/graph/GoldenPathSynthesizer.mjs';
+import {getDueTask as tenantRepoSyncGetDueTaskImport}             from './scheduling/tenantRepoSync.mjs';
+import {TASK_REGISTRY}                                            from './scheduling/registry.mjs';
 import {
     buildOrchestratorSchedulingOptions,
     runSchedulingPipeline
@@ -55,10 +62,13 @@ export async function initializeDatabaseSelfBootstrap(dbPath) {
  * @param {String} key
  * @returns {Boolean}
  */
-function resolveDeploymentEnabled(key) {
-    const cfg = AiConfig.orchestrator.localOnly[key];
-    if (cfg !== null && cfg !== undefined) return cfg;
+function resolveLocalDeploymentDefault(cfg) {
+    if (cfg != null) return cfg;
     return AiConfig.orchestrator.deploymentMode !== 'cloud';
+}
+
+function resolveDeploymentEnabled(key) {
+    return resolveLocalDeploymentDefault(AiConfig.orchestrator.localOnly[key]);
 }
 
 /**
@@ -72,7 +82,7 @@ function resolveDeploymentEnabled(key) {
  */
 function resolveCloudOnlyEnabled(key) {
     const cfg = AiConfig.orchestrator.cloudOnly[key];
-    if (cfg !== null && cfg !== undefined) return cfg;
+    if (cfg != null) return cfg;
     return AiConfig.orchestrator.deploymentMode === 'cloud';
 }
 
@@ -93,16 +103,16 @@ function resolveCloudOnlyEnabled(key) {
  */
 export class Orchestrator extends Base {
     static config = {
-        className: 'Neo.ai.daemons.Orchestrator',
-        singleton: true,
-        processSupervisorService_: null,
+        className                      : 'Neo.ai.daemons.Orchestrator',
+        singleton                      : true,
+        processSupervisorService_      : null,
         maintenanceBackpressureService_: MaintenanceBackpressureService,
-        dataDir_: DEFAULT_DATA_DIR,
-        taskDefinitions_: null,
-        taskStateService_: TaskStateService,
-        healthService_: HealthService,
-        spawnFn_: spawn,
-        heavyMaintenanceLeasePath_: null
+        dataDir_                       : DEFAULT_DATA_DIR,
+        taskDefinitions_               : null,
+        taskStateService_              : TaskStateService,
+        healthService_                 : HealthService,
+        spawnFn_                       : spawn,
+        heavyMaintenanceLeasePath_     : null
     }
 
     primaryRepoSyncService   = PrimaryRepoSyncService
@@ -118,6 +128,7 @@ export class Orchestrator extends Base {
     tenantRepoSyncGetDueTask = tenantRepoSyncGetDueTaskImport
     dreamGetDueTask          = dreamGetDueTaskImport
     goldenPathGetDueTask     = goldenPathGetDueTaskImport
+    embedDrainLivenessWatchdogGetDueTask = embedDrainLivenessWatchdogGetDueTaskImport
 
     isPolling                     = false
     pollHandle                    = null
@@ -132,6 +143,61 @@ export class Orchestrator extends Base {
 
     processSupervisorWriteLog = (level, msg) => this.writeLog(level, msg)
     maintenanceBackpressureWriteLog = (level, msg) => this.writeLog(level, msg)
+
+    /**
+     * @summary One-shot active alarm dispatcher for the embed-drain liveness watchdog.
+     *
+     * The watchdog's PASSIVE leg is its `recordTaskOutcome` health record (every check); this is the
+     * ACTIVE leg, fired once on stall-onset by the scheduling pipeline. It broadcasts a swarm- and
+     * operator-visible A2A alarm (`MailboxService.addMessage` to the `AGENT:*` sentinel — the
+     * `KbAlertingService.dispatchA2A` precedent) carrying the stall payload, then best-effort nudges a
+     * wake via `WakeSubscriptionService.emitHeartbeatPulse` to the harness owner. A2A is the durable
+     * carrier (heartbeat pulses have no payload column); the pulse is only a wake nudge.
+     *
+     * Bound arrow field so it can be passed as `services.embedDrainLivenessAlarmDispatcher`. The
+     * pipeline wraps the call, but each leg is also independently guarded so one failing leg never
+     * suppresses the other.
+     *
+     * @param {Object} payload
+     * @param {Number} payload.ageMs Age of the oldest un-embedded WAL record.
+     * @param {Number} payload.pendingCount Pending (un-embedded) record count.
+     * @param {Number} payload.thresholdMs Stall threshold that tripped.
+     * @param {Number|null} payload.stalledSince Epoch ms the stall was first observed.
+     * @returns {Promise<void>}
+     */
+    embedDrainLivenessAlarmDispatcher = async ({ageMs, pendingCount, thresholdMs, stalledSince} = {}) => {
+        const sender = process.env.NEO_AGENT_IDENTITY
+            ? normalizeAgentIdentityNodeId(process.env.NEO_AGENT_IDENTITY)
+            : '@system';
+        const stalledSinceIso = Number.isFinite(stalledSince) ? new Date(stalledSince).toISOString() : 'unknown';
+        const ageHours        = (ageMs / (60 * 60 * 1000)).toFixed(1);
+        const subject = `[embed-drain-stall] oldest un-embedded WAL record is ${ageHours}h old`;
+        const body =
+            `The embed-drain liveness watchdog detected a STALLED embed pipeline.\n\n` +
+            `- oldest un-embedded WAL record age: ${ageMs}ms (~${ageHours}h)\n` +
+            `- pending (un-embedded) record count: ${pendingCount}\n` +
+            `- stall threshold: ${thresholdMs}ms\n` +
+            `- stalled since: ${stalledSinceIso}\n\n` +
+            `The embed drain has stopped reconciling the WAL (process-alive != draining). Semantic recall ` +
+            `degrades while the backlog grows. Investigate the embed daemon / drain lock on the drainer clone.`;
+
+        try {
+            await RequestContextService.run({agentIdentityNodeId: sender}, async () => {
+                await MailboxService.addMessage({to: 'AGENT:*', subject, body, priority: 'high'});
+            });
+        } catch (e) {
+            this.writeLog('ERROR', `[Orchestrator] embed-drain stall-alarm A2A broadcast failed: ${e.message}`);
+        }
+
+        const targetIdentity = this.swarmHeartbeatIdentity;
+        if (targetIdentity) {
+            try {
+                await WakeSubscriptionService.emitHeartbeatPulse({targetIdentity: normalizeAgentIdentityNodeId(targetIdentity)});
+            } catch (e) {
+                this.writeLog('ERROR', `[Orchestrator] embed-drain stall-alarm wake pulse failed: ${e.message}`);
+            }
+        }
+    }
 
     /**
      * @param {Neo.ai.daemons.services.ProcessSupervisorService|Object|null} value
@@ -203,10 +269,15 @@ export class Orchestrator extends Base {
     get tenantRepoSyncEnabled()          { return resolveCloudOnlyEnabled('tenantRepoSyncEnabled');           }
     get chromaDaemonEnabled()            { return resolveDeploymentEnabled('chromaDaemonEnabled');            }
     get bridgeDaemonEnabled()            { return resolveDeploymentEnabled('bridgeDaemonEnabled');            }
+    get devServerEnabled()               { return resolveLocalDeploymentDefault(AiConfig.orchestrator.devServer.enabled); }
+    get neuralLinkBridgeEnabled()        { return resolveDeploymentEnabled('neuralLinkBridgeEnabled');        }
     get embedDaemonEnabled()             { return resolveDeploymentEnabled('embedDaemonEnabled');             }
+    get embedDrainLivenessWatchdogWalDir()      { return memoryCoreConfig.memoryWal.dir; }
+    get embedDrainLivenessWatchdogThresholdMs() { return memoryCoreConfig.memoryWal.embedDrainStallThresholdMs; }
     get swarmHeartbeatEnabled()          { return resolveDeploymentEnabled('swarmHeartbeatEnabled');          }
     get goldenPathRepoEnrichmentEnabled(){ return resolveDeploymentEnabled('goldenPathRepoEnrichmentEnabled');}
     get graphLogCompactionEnabled()      { return AiConfig.orchestrator.graphLogCompaction.enabled;      }
+    get neuralLinkBridgeLivenessTimeoutMs() { return AiConfig.orchestrator.neuralLinkBridge.livenessProbeTimeoutMs; }
 
     get mlxEnabled() { return !!AiConfig.orchestrator.mlx.enabled; }
     get lmsEnabled() { return !!AiConfig.orchestrator.lms.enabled; }
@@ -227,19 +298,23 @@ export class Orchestrator extends Base {
         const lmsPreloadConfig = this.lmsPreloadConfig;
         this.taskDefinitions   = options.taskDefinitions || buildTaskDefinitions({
             scriptDir,
-            nodeBin   : options.nodeBin || process.argv[0],
-            chromaPort: AiConfig.engines.chroma.port,
-            mlxEnabled: this.mlxEnabled,
-            mlxModel  : AiConfig.orchestrator.mlx.model,
-            mlxPort   : AiConfig.orchestrator.mlx.port,
-            lmsEnabled: this.lmsEnabled,
-            lmsModel  : AiConfig.orchestrator.lms.model,
-            lmsModels : lmsPreloadConfig.models,
-            lmsHost   : AiConfig.openAiCompatible.host,
-            lmsPort   : AiConfig.orchestrator.lms.port,
-            lmsContextLengths: lmsPreloadConfig.contextLengths,
-            providerReadiness: AiConfig.orchestrator.providerReadiness,
-            graphLogCompactionVacuum: AiConfig.orchestrator.graphLogCompaction.vacuum
+            nodeBin                          : options.nodeBin || process.argv[0],
+            chromaPort                       : AiConfig.engines.chroma.port,
+            devServerPort                    : AiConfig.orchestrator.devServer.port,
+            devServerLivenessTimeoutMs       : AiConfig.orchestrator.devServer.livenessProbeTimeoutMs,
+            neuralLinkBridgePort             : neuralLinkConfig.port,
+            neuralLinkBridgeLivenessTimeoutMs: this.neuralLinkBridgeLivenessTimeoutMs,
+            mlxEnabled                       : this.mlxEnabled,
+            mlxModel                         : AiConfig.orchestrator.mlx.model,
+            mlxPort                          : AiConfig.orchestrator.mlx.port,
+            lmsEnabled                       : this.lmsEnabled,
+            lmsModel                         : AiConfig.orchestrator.lms.model,
+            lmsModels                        : lmsPreloadConfig.models,
+            lmsHost                          : AiConfig.openAiCompatible.host,
+            lmsPort                          : AiConfig.orchestrator.lms.port,
+            lmsContextLengths                : lmsPreloadConfig.contextLengths,
+            providerReadiness                : AiConfig.orchestrator.providerReadiness,
+            graphLogCompactionVacuum         : AiConfig.orchestrator.graphLogCompaction.vacuum
         });
 
         this.dbPath                    = options.dbPath   || DEFAULT_DB_PATH;
@@ -350,6 +425,8 @@ export class Orchestrator extends Base {
         const continuousTasks = [
             ...(this.chromaDaemonEnabled ? ['chroma'] : []),
             ...(this.bridgeDaemonEnabled ? ['bridgeDaemon'] : []),
+            ...(this.devServerEnabled    ? ['devServer'] : []),
+            ...(this.neuralLinkBridgeEnabled ? ['neuralLinkBridge'] : []),
             ...(this.embedDaemonEnabled  ? ['embedDaemon'] : []),
             'mlx',
             'lms'

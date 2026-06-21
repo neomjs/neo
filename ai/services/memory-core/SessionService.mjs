@@ -1,19 +1,20 @@
-import aiConfig from '../../mcp/server/memory-core/config.mjs';
-import Base from '../../../src/core/Base.mjs';
-import {buildChatModel} from '../../provider/buildChatModel.mjs';
-import {invokeWithGuardrail} from './helpers/consumerFrictionHelper.mjs';
-import {withTimeout} from './helpers/withTimeout.mjs';
+import aiConfig                                      from '../../mcp/server/memory-core/config.mjs';
+import Base                                          from '../../../src/core/Base.mjs';
+import {buildChatModel}                              from '../../provider/buildChatModel.mjs';
+import {invokeWithGuardrail}                         from './helpers/consumerFrictionHelper.mjs';
+import {withTimeout}                                 from './helpers/withTimeout.mjs';
 import {appendWalEmbedMarker, readPendingWalRecords} from './helpers/memoryWalStore.mjs';
-import crypto from 'crypto';
-import GraphService from './GraphService.mjs';
-import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER} from '../../graph/identityRoots.mjs';
+import crypto                                        from 'crypto';
+import GraphService                                  from './GraphService.mjs';
+import {capSessionsForSweep}                         from './capSessionsForSweep.mjs';
+import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER}   from '../../graph/identityRoots.mjs';
 
 import StorageRouter from './managers/StorageRouter.mjs';
-import Json from '../../../src/util/Json.mjs';
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
-import logger from '../../mcp/server/memory-core/logger.mjs';
+import Json          from '../../../src/util/Json.mjs';
+import fs            from 'fs';
+import path          from 'path';
+import os            from 'os';
+import logger        from '../../mcp/server/memory-core/logger.mjs';
 import RequestContextService, {
     SHARED_USER_ID,
     normalizeUserId,
@@ -131,7 +132,7 @@ class SessionService extends Base {
 
         return {
             sourceAgentIdentities: [...sourceAgentIdentities],
-            sourceTrustTier     : sourceTrustTier || TRUST_TIERS.UNCLASSIFIED,
+            sourceTrustTier      : sourceTrustTier || TRUST_TIERS.UNCLASSIFIED,
             unclassifiedSourceCount
         };
     }
@@ -170,11 +171,11 @@ class SessionService extends Base {
         }
 
         this.model = buildChatModel({
-            modelProvider          : aiConfig.modelProvider,
-            openAiCompatibleConfig : aiConfig.openAiCompatible,
-            ollamaConfig           : aiConfig.ollama,
-            geminiApiKey           : process.env.GEMINI_API_KEY,
-            geminiModelName        : aiConfig.modelName
+            modelProvider         : aiConfig.modelProvider,
+            openAiCompatibleConfig: aiConfig.openAiCompatible,
+            ollamaConfig          : aiConfig.ollama,
+            geminiApiKey          : process.env.GEMINI_API_KEY,
+            geminiModelName       : aiConfig.modelName
         });
     }
 
@@ -324,9 +325,18 @@ class SessionService extends Base {
      * -   **Parallel / Crash Path:** Session A crashes after adding 5 memories. Summary has 10, DB has 15.
      *     Next startup sees Mismatch. Re-summarizes to capture the lost 5 memories.
      *
+     * 4.  **Churn-gate:** A session whose newest memory is within the swarm idle window
+     *     (`swarmHeartbeat.idleThresholdMs`) is still actively receiving turns; its DB count climbs
+     *     every turn while the last summary's count lags, so it trips the Case-B mismatch on *every*
+     *     sweep. Such sessions are skipped until they go quiet, collapsing the re-summarization ratio
+     *     toward ~1 (measured churn before the gate: 7 sessions re-summarized 16-22×/day).
+     *
+     * @param {Object} [options]
+     * @param {Number|Date|String} [options.now=Date.now()] Clock source (testable; also threaded to
+     *   `getExternallyActiveSessionIds` so a sweep uses one consistent clock).
      * @returns {Promise<String[]>} List of Session IDs requiring summarization.
      */
-    async findSessionsToSummarize() {
+    async findSessionsToSummarize({now = Date.now()} = {}) {
         // 1. Get metadata for memories — all-time scope. (The prior 30-day window was an obsolete
         // boot/healthcheck-timeout safeguard from when MC summarized on server boot.)
         const limit = aiConfig.summarizationBatchLimit;
@@ -379,8 +389,12 @@ class SessionService extends Base {
             }
 
             sessions[m.sessionId].count++;
-            if (m.timestamp && m.timestamp > sessions[m.sessionId].lastActivity) {
-                sessions[m.sessionId].lastActivity = m.timestamp;
+            // Normalize to epoch-ms (numeric, numeric-string, ISO, and the legacy `Memory: <iso>`
+            // name formats are all in play) so lastActivity is a reliable clock for the churn-gate
+            // below — mirrors getExternallyActiveSessionIds' resolution.
+            const tsMs = this.resolveGraphTimestampMs(m.timestamp, m.name);
+            if (tsMs !== null && tsMs > sessions[m.sessionId].lastActivity) {
+                sessions[m.sessionId].lastActivity = tsMs;
             }
         });
 
@@ -423,19 +437,46 @@ class SessionService extends Base {
         });
 
         // 4. Determine candidates
-        const externallyActiveSessionIds = this.getExternallyActiveSessionIds();
+        const nowMs = typeof now === 'number' ? now : new Date(now).getTime();
+        // Re-summary churn-gate threshold. Reuses the swarm idle definition — one idle
+        // concept, no new config leaf. A session whose newest memory is within this window
+        // is still actively receiving turns, so summarizing it now is stale-on-write and re-churns.
+        const churnCooldownMs = aiConfig.orchestrator.swarmHeartbeat.idleThresholdMs;
+        const externallyActiveSessionIds = this.getExternallyActiveSessionIds({now: nowMs});
         const sessionsToUpdate = [];
 
         Object.keys(sessions).forEach(sessionId => {
             const sessionData = sessions[sessionId];
             const summaryCount = summaryMap[sessionId];
 
-            // Explicitly exclude sessions that are still active in this process or another
-            // live harness. Stale/crashed sessions fall back into the self-healing drift path.
+            // Skip the in-process current session (it summarizes on its own sunset).
             if (sessionId === this.currentSessionId) {
                 return;
             }
 
+            // PRIMARY churn-gate: an actively-growing session trips the Case-B count mismatch
+            // below on EVERY sweep (measured: 7 sessions re-summarized 16-22×/day while holding the
+            // heavy-maintenance lease). Graph-truth via the memory timestamp closes the gap the
+            // WAKE_SUBSCRIPTION skip misses; once the session goes quiet past the window it is
+            // summarized once → counts match → no further churn. A crashed session IS idle, so the
+            // eventual-consistency capture still fires once it ages past the window (no regression).
+            //
+            // Timestamp-edge hardening:
+            //   • Future-skew: a clock-drifted memory (plausible across multi-machine / multi-tenant
+            //     deployments) gives lastActivity > nowMs, so a bare `nowMs - lastActivity` is
+            //     negative — perpetually below the cooldown — which would gate the session FOREVER.
+            //     The `idleMs >= 0` guard treats a future timestamp as eligible (summarize once)
+            //     rather than permanently stuck.
+            //   • Unparseable/missing timestamp: resolveGraphTimestampMs returns null, so lastActivity
+            //     stays 0 (falsy) and bypasses this gate — fail-open, since a session we cannot time
+            //     is better summarized than stranded.
+            const idleMs = nowMs - sessionData.lastActivity;
+            if (sessionData.lastActivity && idleMs >= 0 && idleMs < churnCooldownMs) {
+                return;
+            }
+
+            // Secondary cross-harness skip — now largely subsumed by the idle-gate above; retained as
+            // defense-in-depth pending the follow-up cleanup (idle-gate ⊇ this for fresh rows).
             if (externallyActiveSessionIds.has(sessionId)) {
                 logger.info(`[SessionService] Skipping externally active session ${sessionId} during drift detection.`);
                 return;
@@ -471,10 +512,45 @@ class SessionService extends Base {
             return null;
         }
 
-        const memories = await this.memoryCollection.get({
-            where: { sessionId },
-            include: ['documents', 'metadatas']
-        });
+        // Paginate — a single un-paginated .get (the prior behavior) hit Chroma's default page bound
+        // and undercounted larger sessions, so the written memoryCount fell below the drift-detector's
+        // paginated count and the session was re-summarized every sweep (and the summary was truncated
+        // to the first page). Real Chroma respects offset, so this gathers the full set; dedup-by-id +
+        // stop-when-a-page-adds-nothing-new is a defensive guard that safely terminates even if a backing
+        // collection (e.g. an offset-blind mock) repeats a page, instead of looping forever.
+        const memories  = {ids: [], documents: [], metadatas: []};
+        const pageLimit = aiConfig.summarizationBatchLimit;
+        const seenIds   = new Set();
+        let pageOffset  = 0;
+
+        while (true) {
+            const page      = await this.memoryCollection.get({
+                where  : {sessionId},
+                include: ['documents', 'metadatas'],
+                limit  : pageLimit,
+                offset : pageOffset
+            });
+            const pageCount = page.ids?.length || 0;
+
+            if (pageCount === 0) break;
+
+            let addedThisPage = 0;
+
+            for (let i = 0; i < pageCount; i++) {
+                if (seenIds.has(page.ids[i])) continue;
+                seenIds.add(page.ids[i]);
+                memories.ids.push(page.ids[i]);
+                memories.documents.push(page.documents[i]);
+                memories.metadatas.push(page.metadatas[i]);
+                addedThisPage++;
+            }
+
+            // No new ids — the collection ignored offset (an offset-blind mock) or repeated the last
+            // page; either way we've gathered everything, so stop instead of looping forever.
+            if (addedThisPage === 0) break;
+
+            pageOffset += pageCount;
+        }
 
         if (memories.ids.length === 0) return null;
 
@@ -676,11 +752,11 @@ ${sessionContent}
         const summaryMetadata = {
             sessionId, timestamp: lastActivity, memoryCount: memories.ids.length,
             title, category, quality, productivity, impact, complexity,
-            technologies: (technologies || []).join(','),
-            participatingAgents: participatingAgents.join(','),
-            models: models.join(','),
+            technologies         : (technologies || []).join(','),
+            participatingAgents  : participatingAgents.join(','),
+            models               : models.join(','),
             totalToolCalls,
-            toolsUsed: Array.from(allToolsUsed).join(','),
+            toolsUsed            : Array.from(allToolsUsed).join(','),
             sourceAgentIdentities: sourceProvenance.sourceAgentIdentities.join(','),
             sourceTrustTier      : sourceProvenance.sourceTrustTier,
             provenancePolicy     : 'most-restrictive-source',
@@ -694,19 +770,19 @@ ${sessionContent}
         if (userId) summaryMetadata.userId = userId;
 
         await this.sessionsCollection.upsert({
-            ids: [summaryId],
+            ids      : [summaryId],
             documents: [summary],
             metadatas: [summaryMetadata]
         });
 
         // --- 1. Topological Ingestion (Graph Mapping) ---
         GraphService.upsertNode({
-            id: summaryId,
-            type: 'SESSION_SUMMARY',
-            name: title,
-            description: `${category} session by ${participatingAgents.join(', ')}`,
+            id              : summaryId,
+            type            : 'SESSION_SUMMARY',
+            name            : title,
+            description     : `${category} session by ${participatingAgents.join(', ')}`,
             semanticVectorId: summaryId,
-            properties: {
+            properties      : {
                 sessionId,
                 sourceAgentIdentities: sourceProvenance.sourceAgentIdentities,
                 sourceTrustTier      : sourceProvenance.sourceTrustTier,
@@ -726,7 +802,7 @@ ${sessionContent}
         for (const agentIdentity of graphAgentIdentities) {
             GraphService.linkNodes(summaryId, agentIdentity, 'AUTHORED_BY', 1.0, {
                 timestamp,
-                userId          : agentIdentity,
+                userId          : normalizeUserId(agentIdentity),
                 sharedEntity    : true,
                 provenancePolicy: 'most-restrictive-source'
             });
@@ -828,13 +904,13 @@ ${sessionContent}
                             const planMetadata = {
                                 sessionId,
                                 timestamp: stats.mtimeMs,
-                                type: 'implementation_plan',
-                                source: 'antigravity'
+                                type     : 'implementation_plan',
+                                source   : 'antigravity'
                             };
                             if (planUserId) planMetadata.userId = planUserId;
 
                             await this.memoryCollection.upsert({
-                                ids: [artifactId],
+                                ids      : [artifactId],
                                 metadatas: [planMetadata],
                                 documents: [content]
                             });
@@ -844,10 +920,10 @@ ${sessionContent}
 
                         // Tie it structurally into Graph
                         GraphService.upsertNode({
-                            id: artifactId,
-                            type: 'IMPLEMENTATION_PLAN',
-                            name: `Antigravity Plan (${convId})`,
-                            description: `Strategically generated implementation plan via Antigravity Brain for session ${sessionId}.`,
+                            id              : artifactId,
+                            type            : 'IMPLEMENTATION_PLAN',
+                            name            : `Antigravity Plan (${convId})`,
+                            description     : `Strategically generated implementation plan via Antigravity Brain for session ${sessionId}.`,
                             semanticVectorId: artifactId
                         });
 
@@ -884,7 +960,7 @@ ${sessionContent}
         if (RequestContextService.getSessionId()) {
             return {
                 error: 'Cannot manually override request-scoped sessions. Manage session identity via Mcp-Session-Id header.',
-                code: 'REQUEST_SCOPED_SESSION_ACTIVE'
+                code : 'REQUEST_SCOPED_SESSION_ACTIVE'
             };
         }
 
@@ -966,8 +1042,8 @@ ${sessionContent}
 
                     if (row.status === 'completed') {
                         return {
-                            error: 'Session has been finalized via summarization. Resuming would append to a closed-book session; start fresh instead.',
-                            code: 'SESSION_FINALIZED',
+                            error              : 'Session has been finalized via summarization. Resuming would append to a closed-book session; start fresh instead.',
+                            code               : 'SESSION_FINALIZED',
                             sessionId,
                             summarizationStatus: 'completed'
                         };
@@ -975,11 +1051,11 @@ ${sessionContent}
 
                     if (row.status === 'in_progress' && row.expires_at > Date.now()) {
                         return {
-                            error: 'Session is currently being summarized by another worker (lease active). Retry shortly or start fresh.',
-                            code: 'SESSION_BUSY',
+                            error              : 'Session is currently being summarized by another worker (lease active). Retry shortly or start fresh.',
+                            code               : 'SESSION_BUSY',
                             sessionId,
                             summarizationStatus: 'in_progress',
-                            leaseExpiresAt: new Date(row.expires_at).toISOString()
+                            leaseExpiresAt     : new Date(row.expires_at).toISOString()
                         };
                     }
                     // status === 'pending' / 'failed' / expired 'in_progress': resumable below.
@@ -1066,7 +1142,7 @@ ${sessionContent}
         if (memoryCount === 0 && summarizationStatus === 'none') {
             return {
                 error: 'No session found with the supplied ID. Either the session never existed or its data has been purged.',
-                code: 'SESSION_NOT_FOUND',
+                code : 'SESSION_NOT_FOUND',
                 sessionId
             };
         }
@@ -1074,7 +1150,7 @@ ${sessionContent}
         return {
             success: true,
             sessionId,
-            status: 'resumable',
+            status : 'resumable',
             memoryCount,
             lastActivityAt,
             summarizationStatus
@@ -1329,7 +1405,13 @@ ${sessionContent}
                     logger.info(`[SessionService] Skipping session ${sessionId} - active lease held by another instance or already completed.`);
                 }
             } else {
-                const sessionsToSummarize = await this.findSessionsToSummarize();
+                // Cap the per-sweep drain so the child releases the heavy-maintenance lease after a
+                // small batch — the fair picker then interleaves dream / golden-path / backfill rather
+                // than waiting out the whole drift list. The next sweep re-derives the remainder.
+                const sessionsToSummarize = capSessionsForSweep(
+                    await this.findSessionsToSummarize(),
+                    aiConfig.maxSessionsPerSummarySweep
+                );
 
                 // Hardware concurrency scaling
                 let batchSize;
@@ -1393,9 +1475,9 @@ ${sessionContent}
         } catch (error) {
             logger.error('[SessionService] Error during session summarization:', error);
             return {
-                error: 'Session summarization failed',
+                error  : 'Session summarization failed',
                 message: error.message,
-                code: 'SUMMARIZATION_ERROR'
+                code   : 'SUMMARIZATION_ERROR'
             };
         }
     }
@@ -1476,9 +1558,9 @@ ${sessionContent}
         } catch (error) {
             logger.error(`[SessionService] Error purging session ${sessionId}:`, error);
             return {
-                error: 'Failed to purge session',
+                error  : 'Failed to purge session',
                 message: error.message,
-                code: 'PURGE_SESSION_ERROR'
+                code   : 'PURGE_SESSION_ERROR'
             };
         }
     }

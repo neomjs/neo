@@ -130,7 +130,7 @@ ensuring the YAML frontmatter and folder consistency are perfectly formed.
 | `update-roadmap` | Lifecycle | Post-release celebrate + plan-next-roadmap: cornerstones + rationale + explicit deferred set into a milestone with per-epic stewards (release-altitude analog of `epic-create`) |
 | `pull-request` | Lifecycle | Post-implementation reflection + PR creation (custom Playwright configs) |
 | `pr-review` | Lifecycle | Structured quality evaluation & graph ingestion (mandatory ROI templates) |
-| `post-review-pickup` | Lifecycle | Next-lane pickup after review/response and pre-review intake lane discovery when no author lane is active |
+| `post-review-pickup` | Lifecycle | Active lane selection after review/response and pre-review intake lane discovery when no author lane is active |
 | `tech-debt-radar` | Lifecycle | Proactive semantic RAG sweeps for architectural debt |
 | `structural-pre-flight` | Lifecycle | Pre-implementation directory-CHOICE discipline gate fired before authoring any new `.mjs` file (Stage 0 mechanical trigger; Stage 1 fast-path (sibling-file-lift pattern match) or full Pre-Flight) |
 | `identity-firewall` | Security | The L2 Channel Separation and Prompt Firewall defense mechanisms |
@@ -146,7 +146,7 @@ ensuring the YAML frontmatter and folder consistency are perfectly formed.
 | `peer-role` | Coordination | Suspends Auto Mode bias; mandates evidence-backed convergence-pressure mindset for peer reviews |
 | `peer-naming` | Coordination | Social Name ritual (#11240 Layer 4): peer-sketched → criterion-audited → bearer-assented → peer-unvetoed → operator-confirmed; name ≠ handle |
 | `lane-intent` | Coordination | Narrow, non-authoritative, 2h TTL-bound pre-V-B-A signal for collision-prone / long-V-B-A lanes; distinct from authoritative `[lane-claim]` |
-| `post-review-pickup` | Coordination | Mandatory next-phase pickup at ANY PR-lifecycle event boundary (review post / author response / post-impl / post-PR-open-update / post-ticket-create / post-blocked-resolution); requires explicit `lane-state:` declaration per §15.6 |
+| `post-review-pickup` | Coordination | Mandatory active lane selection at ANY PR-lifecycle event boundary (review post / author response / post-impl / post-PR-open-update / post-ticket-create / post-blocked-resolution); requires explicit `lane-state: next-lane` declaration per §15.6 |
 | `create-skill` | Meta | Skill authoring bootstrap guide |
 
 ## Related Guides

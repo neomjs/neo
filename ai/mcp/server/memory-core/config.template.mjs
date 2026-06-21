@@ -5,6 +5,12 @@ import os                                        from 'os';
 import path                                      from 'path';
 import ConfigProvider, {createConfigProxy, leaf} from '../../../ConfigProvider.mjs';
 import {fileURLToPath}                           from 'url';
+import {
+    MEMORY_CORE_GRAPH_DB_ENV,
+    TURN_PRESENCE_DEFAULTS,
+    TURN_PRESENCE_ENV,
+    resolveMemoryCoreGraphPath
+} from './helpers/TurnPresenceConfig.mjs';
 
 function parseMemorySharingPolicy(envVarName, {env = process.env} = {}) {
     const rawValue = env[envVarName];
@@ -116,6 +122,15 @@ class Config extends ConfigProvider {
              */
             summarizationBatchLimit: leaf(2000),
             /**
+             * Maximum sessions one summary sweep drains before the child exits + releases the
+             * heavy-maintenance lease, so the fair picker interleaves dream / golden-path / backfill
+             * frequently instead of waiting out a whole drift batch. The drift sweep self-continues
+             * (the next sweep re-derives the remainder), so this chunks the work, never drops it. A
+             * small default keeps holds short.
+             * @type {number}
+             */
+            maxSessionsPerSummarySweep: leaf(5, 'NEO_MC_MAX_SESSIONS_PER_SUMMARY_SWEEP', 'number'),
+            /**
              * Maximum number of undigested sessions the REM pipeline processes per cycle.
              * Keeps each sleep pass bounded even when the query batch is larger.
              * @type {number}
@@ -164,7 +179,7 @@ class Config extends ConfigProvider {
                  * Production graph SQLite path. Declarative leaf; env override via `NEO_MEMORY_DB_PATH`.
                  * @type {string}
                  */
-                graphProd      : leaf(path.resolve(cwd, '.neo-ai-data/sqlite/memory-core-graph.sqlite'), 'NEO_MEMORY_DB_PATH', 'string'),
+                graphProd      : leaf(resolveMemoryCoreGraphPath({env: {}, rootDir: cwd}), MEMORY_CORE_GRAPH_DB_ENV, 'string'),
                 /**
                  * Unit-test graph path: in-memory SQLite (ephemeral, per-process). Declarative leaf.
                  * @type {string}
@@ -181,9 +196,34 @@ class Config extends ConfigProvider {
              * Durable wake-daemon watermarks consumed by GraphLog maintenance.
              */
             wakeDaemon: {
-                dataDir: leaf(wakeDaemonDataDir, 'NEO_AI_DAEMON_DIR', 'string'),
-                bridgeLastSyncIdPath: leaf(path.join(wakeDaemonDataDir, 'lastSyncId'), 'NEO_BRIDGE_LAST_SYNC_ID_PATH', 'string'),
+                dataDir                       : leaf(wakeDaemonDataDir, 'NEO_AI_DAEMON_DIR', 'string'),
+                bridgeLastSyncIdPath          : leaf(path.join(wakeDaemonDataDir, 'lastSyncId'), 'NEO_BRIDGE_LAST_SYNC_ID_PATH', 'string'),
                 wakeSubscriptionLiveCursorPath: leaf(path.join(wakeDaemonDataDir, 'wakeSubscriptionLiveCursor'), 'NEO_AI_WAKE_SUBSCRIPTION_CURSOR_FILE', 'string')
+            },
+            /**
+             * Turn-presence interval writer configuration.
+             *
+             * `AGENT_TURN_PRESENCE` records are liveness intervals, not point beacons:
+             * `freshMs` is the online freshness window refreshed by start/progress writes,
+             * `ttlMs` is the hard expiry backstop, and `noteMaxChars` bounds hook diagnostics.
+             * Consumers read resolved leaves at use sites through the AiConfig Provider SSOT.
+             */
+            turnPresence: {
+                freshMs           : leaf(TURN_PRESENCE_DEFAULTS.freshMs,            TURN_PRESENCE_ENV.freshMs,            'number'),
+                ttlMs             : leaf(TURN_PRESENCE_DEFAULTS.ttlMs,              TURN_PRESENCE_ENV.ttlMs,              'number'),
+                noteMaxChars      : leaf(TURN_PRESENCE_DEFAULTS.noteMaxChars,       TURN_PRESENCE_ENV.noteMaxChars,       'number'),
+                hookWriteTimeoutMs: leaf(TURN_PRESENCE_DEFAULTS.hookWriteTimeoutMs, TURN_PRESENCE_ENV.hookWriteTimeoutMs, 'number')
+            },
+            /**
+             * Redacted Memory Core MCP tool-call telemetry. The recorder reads these resolved
+             * leaves at write/report time so deployments can tune observability without
+             * re-deriving defaults outside the Provider SSOT.
+             */
+            toolTelemetry: {
+                enabled          : leaf(true, 'NEO_MC_TOOL_TELEMETRY_ENABLED', 'boolean'),
+                errorMaxChars    : leaf(512, 'NEO_MC_TOOL_TELEMETRY_ERROR_MAX_CHARS', 'number'),
+                aggregateWindowMs: leaf(DAY_MS, 'NEO_MC_TOOL_TELEMETRY_WINDOW_MS', 'number'),
+                aggregateLimit   : leaf(50, 'NEO_MC_TOOL_TELEMETRY_LIMIT', 'number')
             },
             /**
              * Data Schema/Table Names
@@ -329,6 +369,18 @@ class Config extends ConfigProvider {
                  */
                 backoffBaseMs  : leaf(1000, 'NEO_MEMORY_WAL_BACKOFF_BASE_MS', 'number'),
                 /**
+                 * Stall threshold for the embed-drain liveness watchdog: when the OLDEST un-embedded
+                 * WAL record is older than this, the (orchestrator-hosted, read-only) watchdog raises a
+                 * one-shot alarm. Conservative default of 6h — hours, NOT days: the whole point is to
+                 * catch a silently-stalled drain same-session, not after a week (the silent drain-death
+                 * incident went ~8 days unnoticed). It must exceed the worst-case healthy drain latency
+                 * (per-turn saves arrive minutes apart; the drain polls every `pollIntervalMs`) so a
+                 * healthy backlog never false-alarms. `<= 0` disables alarming. The watchdog only READS
+                 * the WAL — it never touches the never-fail `add_memory` write path.
+                 * @type {number}
+                 */
+                embedDrainStallThresholdMs: leaf(6 * 60 * 60 * 1000, 'NEO_MEMORY_WAL_EMBED_DRAIN_STALL_THRESHOLD_MS', 'number'),
+                /**
                  * Hosts the WAL drain loop INSIDE the memory-core server process — the
                  * containerized / single-process deployment shape (dockerized MC, npx-neo-app
                  * workspaces) where no orchestrator-supervised embed daemon exists.
@@ -436,6 +488,21 @@ class Config extends ConfigProvider {
              * @type {string}
              */
             logPath: leaf(path.resolve(cwd, '.neo-ai-data/logs')),
+            /**
+             * @summary Retention policy for Memory Core MCP diagnostic log files.
+             *
+             * The shared logger applies this policy only to files matching the `mc-server`
+             * prefix in `logPath`. `maxFiles` and `maxTotalBytes` count historical files;
+             * the active current-day file is always preserved. Set `enabled=false` to
+             * delegate retention entirely to deployment infrastructure.
+             * @type {Object}
+             */
+            loggerRetention: {
+                enabled      : leaf(true, 'NEO_MEMORY_LOG_RETENTION_ENABLED', 'boolean'),
+                maxAgeDays   : leaf(14, 'NEO_MEMORY_LOG_RETENTION_MAX_AGE_DAYS', 'number'),
+                maxFiles     : leaf(30, 'NEO_MEMORY_LOG_RETENTION_MAX_FILES', 'number'),
+                maxTotalBytes: leaf(100 * 1024 * 1024, 'NEO_MEMORY_LOG_RETENTION_MAX_TOTAL_BYTES', 'number')
+            },
             /**
              * @summary Shared MCP logger policy for Memory Core.
              *

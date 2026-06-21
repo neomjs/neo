@@ -601,10 +601,152 @@ export async function initTier1Config({argv = process.argv, logger = console, ai
     return {action: 'warn', drift}
 }
 
+/**
+ * @summary Boot-time freshness guard. Throws if a materialized overlay (`config.mjs`) is missing
+ * structural leaves its template (`config.template.mjs`) added — the crash-causing drift class that
+ * otherwise surfaces as a cryptic `reading '<x>' of undefined` at runtime (the stale-overlay-crash
+ * incident). Reuses the prepare-time {@link detectDrift} / {@link projectShape} detection but FAILS
+ * FAST at boot, scoped to CRASH-CAUSING drift (missing imports / exports / env-leaves); benign drift
+ * (a changed default for a leaf that still exists) warns rather than throws.
+ *
+ * Pairs with {@link initConfigs} / {@link initTier1Config}: those WARN at `npm prepare`; this is the
+ * last-line boot guard for the `git-pull-without-prepare` window, so a stale overlay names its missing
+ * leaves + the `--migrate-config` fix instead of crashing every consumer cryptically.
+ *
+ * @param {Object}   [options]
+ * @param {String}   [options.serverPath] An `ai/mcp/server/<name>/` dir whose `config.mjs` overlay to
+ *   additionally check; its Tier-1 import is materialized before the shape-compare (matching
+ *   {@link initConfigs}) so the template-vs-overlay import path is not read as false drift.
+ * @param {String}   [options.aiRoot=aiDir]  Tier-1 root; `ai/config.mjs` is always checked.
+ * @param {Object}   [options.logger=console] Log sink; injectable for tests.
+ * @returns {Promise<void>}
+ * @throws {Error} on crash-causing overlay drift, naming the missing leaves + the `--migrate-config` fix.
+ */
+export async function assertConfigFresh({serverPath, aiRoot = aiDir, logger = console} = {}) {
+    const stale = [];
+
+    const record = (label, drift) => {
+        const crashCausing = [...drift.missingImports, ...drift.missingExports, ...drift.missingEnvVars];
+
+        if (crashCausing.length > 0) {
+            stale.push({label, missing: crashCausing});
+        } else if (drift.hasDrift) {
+            logger.warn(`[Neo AI] ${label}: benign config drift (changed default only) — run \`npm run prepare -- ${MIGRATE_FLAG}\` to refresh (non-fatal).`);
+        }
+    };
+
+    const tier1Template = path.join(aiRoot, 'config.template.mjs');
+    const tier1Active   = path.join(aiRoot, 'config.mjs');
+
+    if (fs.existsSync(tier1Template) && fs.existsSync(tier1Active)) {
+        record('Tier-1 ai/config.mjs', detectDrift(await projectShape(tier1Template), await projectShape(tier1Active)));
+    }
+
+    if (serverPath) {
+        const serverTemplate = path.join(serverPath, 'config.template.mjs');
+        const serverActive   = path.join(serverPath, 'config.mjs');
+
+        if (fs.existsSync(serverTemplate) && fs.existsSync(serverActive)) {
+            // Materialize the template's Tier-1 import before the compare so the template-vs-overlay
+            // import path is not itself flagged as drift (matches the initConfigs per-server path).
+            const templateShape = projectSourceShape(materializeServerConfigTemplate(await fs.readFile(serverTemplate, 'utf-8'))),
+                  activeShape   = projectSourceShape(await fs.readFile(serverActive, 'utf-8'));
+
+            record(`${path.basename(serverPath)}/config.mjs`, detectDrift(templateShape, activeShape));
+        }
+    }
+
+    if (stale.length > 0) {
+        const detail = stale.map(item => `  - ${item.label}: missing ${item.missing.join(', ')}`).join('\n');
+
+        throw new Error(
+            `[Neo AI] Stale config overlay — a materialized config.mjs is missing leaves its template added:\n${detail}\n` +
+            `This will crash at runtime on an undefined config leaf. Refresh: \`npm run prepare -- ${MIGRATE_FLAG}\` (gitignored; safe), then restart.`
+        );
+    }
+}
+
+/**
+ * @summary Pure merge that ensures the template's `hooks` block is present in the active Claude
+ * settings object, preserving every other key (permissions, autoMode, operator-local edits) and any
+ * non-`Stop` hook events. Template hook events overwrite same-named active events (the template owns
+ * the canonical hook wiring); other active events are kept. Returns the merged settings plus a
+ * `changed` flag so an idempotent re-run is a no-op write.
+ *
+ * @param {Object} [activeSettings={}]   Parsed `.claude/settings.json` (or `{}` when absent).
+ * @param {Object} [templateSettings={}] Parsed `.claude/settings.template.json`.
+ * @returns {{settings: Object, changed: Boolean}}
+ */
+export function mergeClaudeHooks(activeSettings = {}, templateSettings = {}) {
+    const templateHooks = templateSettings.hooks;
+
+    if (!templateHooks || Object.keys(templateHooks).length === 0) {
+        return {settings: activeSettings, changed: false};
+    }
+
+    const mergedHooks = {...(activeSettings.hooks || {}), ...templateHooks};
+
+    if (JSON.stringify(activeSettings.hooks || {}) === JSON.stringify(mergedHooks)) {
+        return {settings: activeSettings, changed: false};
+    }
+
+    return {settings: {...activeSettings, hooks: mergedHooks}, changed: true};
+}
+
+/**
+ * @summary Materializes the tracked `.claude/settings.template.json` into the gitignored
+ * `.claude/settings.json` so every clone self-wires the Claude Stop hook (no-hold lane-state
+ * enforcement) without per-repo manual management — the Claude analog of {@link initConfigs} /
+ * {@link initTier1Config}. A missing active file is cloned whole from the template; an existing one
+ * gets only its `hooks` block ensured ({@link mergeClaudeHooks}), preserving operator-local keys.
+ * Idempotent: an already-wired settings file is a silent no-op. Runs at `npm prepare`. The tracked
+ * template carries `NEO_LANE_STATE_ENFORCE=1` in the Stop-hook command — the operator-directed enforce
+ * default (the forcing-function rollout: the hook blocks + injects the no-hold directive at an
+ * invalid idle-out turn-terminal, rather than only audit-logging it). Enforce is opted OUT locally by
+ * dropping that env prefix in the gitignored `.claude/settings.json`, not by changing the default.
+ *
+ * Distinct from the server/Tier-1 config path: Claude settings are JSON (not `.mjs`), so the regex
+ * shape-drift detector does not apply — a structural `hooks`-key merge is the right primitive.
+ *
+ * @param {Object} [options]
+ * @param {String} [options.claudeDir] `.claude/` dir; defaults to `<repo>/.claude`. Override for tests.
+ * @param {Object} [options.logger=console] Log sink; injectable for tests.
+ * @returns {Promise<{action: String}>} `action` is one of `clone` / `wired` / `silent` / `skip-no-template`.
+ */
+export async function initClaudeSettings({claudeDir = path.join(cwd, '.claude'), logger = console} = {}) {
+    const templatePath = path.join(claudeDir, 'settings.template.json');
+    const activePath   = path.join(claudeDir, 'settings.json');
+
+    if (!fs.existsSync(templatePath)) {
+        logger.warn('[Neo AI] .claude/settings.template.json not found; skipping Claude settings initialization.');
+        return {action: 'skip-no-template'};
+    }
+
+    const templateSettings = JSON.parse(await fs.readFile(templatePath, 'utf-8'));
+
+    if (!fs.existsSync(activePath)) {
+        await fs.writeFile(activePath, JSON.stringify(templateSettings, null, 2) + '\n', 'utf-8');
+        logger.log('[Neo AI] .claude/settings.json missing. Materialized from template (Stop hook wired).');
+        return {action: 'clone'};
+    }
+
+    const activeSettings      = JSON.parse(await fs.readFile(activePath, 'utf-8'));
+    const {settings, changed} = mergeClaudeHooks(activeSettings, templateSettings);
+
+    if (!changed) {
+        return {action: 'silent'};
+    }
+
+    await fs.writeFile(activePath, JSON.stringify(settings, null, 2) + '\n', 'utf-8');
+    logger.log('[Neo AI] Wired the Claude Stop hook into .claude/settings.json (auto-materialized from template).');
+    return {action: 'wired'};
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
     (async () => {
         await initTier1Config();
         await initConfigs();
+        await initClaudeSettings();
     })().catch(err => {
         console.error('[Neo AI] Failed to initialize configs:', err);
         process.exit(1);

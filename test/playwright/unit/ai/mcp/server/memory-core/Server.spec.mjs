@@ -274,11 +274,24 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
             expect(memoryResult.isError).toBe(false);
             expect(memoryResult.structuredContent).toEqual({ok: true, name: 'add_memory'});
 
-            // Both exempt → neither consulted the health service; both reached the tool service.
+            // record_turn_presence — exempt: this writes a SQLite graph interval only, no embedder
+            // or summary provider. It must stay callable when provider canaries are degraded.
+            const turnPresenceResult = await callTool({
+                params: {
+                    name     : 'record_turn_presence',
+                    arguments: {action: 'start', turnId: 'turn-1'}
+                }
+            });
+
+            expect(turnPresenceResult.isError).toBe(false);
+            expect(turnPresenceResult.structuredContent).toEqual({ok: true, name: 'record_turn_presence'});
+
+            // All exempt → none consulted the health service; all reached the tool service.
             expect(healthCalls).toEqual([]);
             expect(toolCalls).toEqual([
-                {name: 'list_messages', args: {status: 'unread'}},
-                {name: 'add_memory',    args: {prompt: 'p', thought: 't', response: 'r'}}
+                {name: 'list_messages',         args: {status: 'unread'}},
+                {name: 'add_memory',            args: {prompt: 'p', thought: 't', response: 'r'}},
+                {name: 'record_turn_presence',  args: {action: 'start', turnId: 'turn-1'}}
             ]);
 
             // query_raw_memories — NOT exempt: it embeds the query, so it genuinely cannot serve a
@@ -294,7 +307,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
             expect(queryResult.content[0].text).toContain('Cannot execute query_raw_memories: Memory Core is not fully operational');
             expect(queryResult.content[0].text).toContain("Summary provider 'gemini' requires GEMINI_API_KEY - summarization features unavailable");
             expect(healthCalls).toEqual(['ensureHealthy']);
-            expect(toolCalls).toHaveLength(2);
+            expect(toolCalls).toHaveLength(3);
         } finally {
             serverInstance.getToolService   = originalGetToolService;
             serverInstance.getHealthService = originalGetHealthService;
@@ -452,6 +465,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         const originalWakeInit = SDK.Memory_WakeSubscriptionService.init;
         const originalInferenceReady = SDK.Memory_InferenceLifecycleService.ready;
         const originalSessionReady = SDK.Memory_SessionService.ready;
+        const originalRecorderInitAsync = SDK.Memory_RecorderService.initAsync;
         const originalRecordStartupDependency = HealthService.recordStartupDependency;
         const originalSetStdioIdentityState = HealthService.setStdioIdentityState;
 
@@ -461,6 +475,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         };
         SDK.Memory_InferenceLifecycleService.ready = async () => calls.push('inferenceReady');
         SDK.Memory_SessionService.ready = async () => calls.push('sessionReady');
+        SDK.Memory_RecorderService.initAsync = async () => calls.push('toolTelemetryReady');
         HealthService.recordStartupDependency = (name, status, details) => {
             startupStates.push({name, status, error: details?.error});
         };
@@ -477,6 +492,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
                 'wakeInit',
                 'inferenceReady',
                 'sessionReady',
+                'toolTelemetryReady',
                 ['setStdioIdentityState', null],
                 'runHealthcheckAndLogStatus',
                 'logSiblingConcurrency',
@@ -486,12 +502,14 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
             expect(startupStates).toEqual([
                 {name: 'wake-subscription', status: 'degraded', error: 'attempt to write a readonly database'},
                 {name: 'inference-lifecycle', status: 'ready', error: undefined},
-                {name: 'session-service', status: 'ready', error: undefined}
+                {name: 'session-service', status: 'ready', error: undefined},
+                {name: 'tool-telemetry', status: 'ready', error: undefined}
             ]);
         } finally {
             SDK.Memory_WakeSubscriptionService.init = originalWakeInit;
             SDK.Memory_InferenceLifecycleService.ready = originalInferenceReady;
             SDK.Memory_SessionService.ready = originalSessionReady;
+            SDK.Memory_RecorderService.initAsync = originalRecorderInitAsync;
             HealthService.recordStartupDependency = originalRecordStartupDependency;
             HealthService.setStdioIdentityState = originalSetStdioIdentityState;
             HealthService.clearStartupDependencyState();

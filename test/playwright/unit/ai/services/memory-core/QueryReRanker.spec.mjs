@@ -274,13 +274,13 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
     async function addToolMemory({sessionId, agentIdentity, prompt = 'Externally active session memory'}) {
         const result = await callToolAs(agentIdentity, 'add_memory', {
             prompt,
-            thought: 'Unit test active-session fixture.',
-            response: 'Stored through the MCP add_memory tool shape.',
+            thought        : 'Unit test active-session fixture.',
+            response       : 'Stored through the MCP add_memory tool shape.',
             sessionId,
-            agent: agentIdentity,
-            model: 'unit-test-model',
+            agent          : agentIdentity,
+            model          : 'unit-test-model',
             amountToolCalls: 0,
-            toolsUsed: ['unit-test']
+            toolsUsed      : ['unit-test']
         });
 
         expect(result.error).toBeUndefined();
@@ -322,8 +322,10 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
         const storedTimestamp = stored.metadatas[0].timestamp;
         expect(typeof storedTimestamp).toBe('number');
 
-        // Now test drift detection — this session should be flagged
-        const sessionsToSummarize = await SDK.Memory_SessionService.findSessionsToSummarize(false);
+        // Now test drift detection — inject a `now` past the churn-gate idle window so the
+        // just-written session is eligible; this verifies epoch-timestamp drift DETECTION, not the
+        // gate's eligibility timing.
+        const sessionsToSummarize = await SDK.Memory_SessionService.findSessionsToSummarize({now: Date.now() + 60 * 60 * 1000});
 
         expect(sessionsToSummarize).toContain(driftSessionId);
     });
@@ -419,9 +421,9 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
             calls.push({type: 'summarize', sessionId});
             return {
                 sessionId,
-                summaryId   : `summary_${sessionId}`,
-                title       : 'Explicit Active Summary',
-                memoryCount : 1
+                summaryId  : `summary_${sessionId}`,
+                title      : 'Explicit Active Summary',
+                memoryCount: 1
             };
         };
         SDK.Memory_SessionService.completeSummarizationJob = (sessionId) => {
@@ -458,7 +460,7 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
         await seedExternallyActiveSession({
             sessionId: staleSessionId,
             agentIdentity,
-            prompt: 'Externally stale session memory'
+            prompt   : 'Externally stale session memory'
         });
 
         const externallyActiveSessionIds = SDK.Memory_SessionService.getExternallyActiveSessionIds({

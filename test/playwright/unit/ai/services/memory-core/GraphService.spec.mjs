@@ -250,6 +250,64 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         }
     });
 
+    test('cold SQLite lazy-load recovers an owner\'s own normalized-user_id node (#13571)', async () => {
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: SqliteError disk I/O - bucket G3 (#10924)');
+        const RequestContextService = (await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
+
+        let mockIdentity    = '@tenant-gamma';
+        const originalGetId = RequestContextService.getAgentIdentityNodeId;
+        RequestContextService.getAgentIdentityNodeId = () => mockIdentity;
+
+        const recool = () => {
+            const wasAutoSave        = GraphService.db.autoSave;
+            GraphService.db.autoSave = false;
+            GraphService.db.nodes.clear();
+            GraphService.db.vicinityLoadedNodes.clear();
+            GraphService.db.autoSave = wasAutoSave;
+        };
+
+        try {
+            // Seed directly into SQLite with a NORMALIZED (no-`@`) user_id — the form MemoryService
+            // writes and the old @-form-only cold predicate filtered out. Bypasses upsertNode's stamp.
+            GraphService.db.storage.addNodes([{
+                id        : 'cold-own-normalized',
+                label     : 'TestNode',
+                properties: {userId: 'tenant-gamma', name: 'cold own normalized'}
+            }]);
+
+            // Owner reads its own normalized-user_id node through the COLD lazy-load (loadNodeVicinitySync).
+            recool();
+            mockIdentity = '@tenant-gamma';
+            expect((await GraphService.getNode({id: 'cold-own-normalized'}))?.id).toBe('cold-own-normalized');
+
+            // Cross-tenant read on the persisted path → null (no widening on the cold load either).
+            recool();
+            mockIdentity = '@tenant-delta';
+            expect(await GraphService.getNode({id: 'cold-own-normalized'})).toBe(null);
+        } finally {
+            RequestContextService.getAgentIdentityNodeId = originalGetId;
+        }
+    });
+
+    test('upsertNode stamps the normalized canonical user_id, not the @-form node id (#13578)', async () => {
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: SqliteError disk I/O - bucket G3 (#10924)');
+        const RequestContextService = (await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
+
+        const originalGetId = RequestContextService.getAgentIdentityNodeId;
+        RequestContextService.getAgentIdentityNodeId = () => '@tenant-writer';
+
+        try {
+            await GraphService.upsertNode({id: 'write-canon-node', label: 'TestNode'});
+            await new Promise(resolve => setTimeout(resolve, 50));   // let the Store → SQLite projection flush
+
+            // The persisted user_id COLUMN (what RLS filters on) must be the normalized form, never the @-form.
+            const row = GraphService.db.storage.db.prepare('SELECT user_id FROM Nodes WHERE id = ?').get('write-canon-node');
+            expect(row?.user_id).toBe('tenant-writer');
+        } finally {
+            RequestContextService.getAgentIdentityNodeId = originalGetId;
+        }
+    });
+
     test('preBriefSession should hydrate episodic context through getNeighbors semanticVectorId', async () => {
         await GraphService.upsertNode({id: 'EpicA', name: 'Roadmap Planner'});
         await GraphService.upsertNode({id: 'MemoryA', name: 'Session Summary', semanticVectorId: 'summary-vector-1'});
@@ -354,12 +412,12 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
     test('upsertNode should lazy-load from SQLite to prevent cold-cache stub overwriting (resolves #10230)', async () => {
         // Bypass upsertNode to simulate a rich node seeded directly into SQLite
         GraphService.db.storage.addNodes([{
-            id: '@test-identity',
-            label: 'AgentIdentity',
+            id        : '@test-identity',
+            label     : 'AgentIdentity',
             properties: {
-                name: 'Test Identity',
+                name       : 'Test Identity',
                 githubLogin: 'test-user',
-                createdAt: '2026-04-23T00:00:00Z'
+                createdAt  : '2026-04-23T00:00:00Z'
             }
         }]);
 
@@ -713,8 +771,8 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         const originalIngest = MemorySessionIngestor.ingestSingleRow;
 
         MemorySessionIngestor.ingestSingleRow = async (id) => ({
-            success: false,
-            reason : 'chroma-row-not-found',
+            success    : false,
+            reason     : 'chroma-row-not-found',
             graphNodeId: id
         });
 
@@ -820,12 +878,12 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
             await GraphService.upsertNode({id: 'tenant-a-node-2', type: 'TEST', name: 'tenant-a', properties: {}});
             await GraphService.linkNodesAsync('tenant-a-node-1', 'tenant-a-node-2', 'RELATES_TO', 1.0);
 
-            // Assert: Nodes and edges are stamped
+            // Assert: nodes and edges are stamped with the normalized canonical user_id (no @-form)
             let node1 = GraphService.db.nodes.get('tenant-a-node-1');
-            expect(node1.properties.userId).toBe('@identity-a');
+            expect(node1.properties.userId).toBe('identity-a');
 
             let edge = GraphService.db.edges.items.find(e => e.source === 'tenant-a-node-1' && e.target === 'tenant-a-node-2');
-            expect(edge.properties.userId).toBe('@identity-a');
+            expect(edge.properties.userId).toBe('identity-a');
 
             // Wait for DB to sync memory to disk (flush mutations if any are async, though upsert is sync RAM + async disk?)
             // upsertNode pushes to RAM and then directly calls storage.addNodes() synchronously.

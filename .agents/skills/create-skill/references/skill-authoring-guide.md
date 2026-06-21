@@ -134,11 +134,10 @@ Map vs World Atlas applies **recursively**. A workflow file (`references/<workfl
 ```
 
 **Mechanical enforcement (Sub-A of Epic #11319 via `skills.manifest.json` + `lint-skill-manifest.mjs`):**
-- `perFilePayloadBudget` per-skill (or `defaults.perFilePayloadBudget`) — lint fails any individual file in `references/` exceeding the cap
-- Default: 25,000 bytes (25 KB) — empirical-floor for clean skills
-- Temporary per-skill overrides for migration-period monoliths (e.g., `pr-review` at 66000, `pull-request` at 38000) — to be tightened as Sub-B+ migrations land
-- `checkSectionTriggers` heuristic: sections larger than 5,000 bytes declaring a rare-firing trigger (e.g., 'openapi', 'audit', 'deprecation', 'edge-case') are flagged for extraction to a sibling file.
-- Skill reference integrity: changed skill text surfaces (Markdown plus manifest prose) must not leave dangling numeric section refs to sibling skill files, broken relative Markdown pointers, or refs to files deleted in the same diff. Fix the reference in the same PR instead of relying on review cycles to catch anchor churn.
+- `perFilePayloadBudget` (per-skill/default) fails files over cap; default 25 KB, temporary monolith overrides shrink as reductions land.
+- `maxPositiveDeltaBytes` caps net `.agents/skills/**/*.md` growth; offset additions, or for new-skill/decay-mitigated exceptions put `[skill-growth-justified: <reason>]` in a commit message and cite the PR rationale.
+- `checkSectionTriggers` flags >5 KB rare-trigger sections for extraction behind a trigger pointer.
+- Skill reference integrity catches dangling numeric refs, broken relative links, and deleted-file refs; fix them in the same PR.
 
 **Empirical precedent:**
 - `pull-request` skill: workflow + 4 sub-rule siblings (`env-var-rename-rule.md`, `mcp-config-template-change-guide.md`, `sync-all-constraints.md`, `review-response-protocol.md`) — each conditionally loaded per workflow body trigger pointer

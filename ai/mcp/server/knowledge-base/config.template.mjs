@@ -233,6 +233,21 @@ class Config extends ConfigProvider {
              */
             logPath: leaf(path.resolve(neoRootDir, '.neo-ai-data/logs')),
             /**
+             * @summary Retention policy for Knowledge Base MCP diagnostic log files.
+             *
+             * The shared logger applies this policy only to files matching the `kb-server`
+             * prefix in `logPath`. `maxFiles` and `maxTotalBytes` count historical files;
+             * the active current-day file is always preserved. Set `enabled=false` to
+             * delegate retention entirely to deployment infrastructure.
+             * @type {Object}
+             */
+            loggerRetention: {
+                enabled      : leaf(true, 'NEO_KB_LOG_RETENTION_ENABLED', 'boolean'),
+                maxAgeDays   : leaf(14, 'NEO_KB_LOG_RETENTION_MAX_AGE_DAYS', 'number'),
+                maxFiles     : leaf(30, 'NEO_KB_LOG_RETENTION_MAX_FILES', 'number'),
+                maxTotalBytes: leaf(100 * 1024 * 1024, 'NEO_KB_LOG_RETENTION_MAX_TOTAL_BYTES', 'number')
+            },
+            /**
              * @summary Shared MCP logger policy for Knowledge Base.
              *
              * Always-on file sink plus debug-gated stderr. The shared logger reads this

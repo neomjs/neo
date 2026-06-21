@@ -408,6 +408,7 @@ Here you find the full history of Neo.mjs updates.
 - [The Concept Ontology](https://neomjs.com/raw/learn/agentos/ConceptOntology.md)
 - [Neural Link: Live Application Mutability](https://neomjs.com/raw/learn/agentos/NeuralLink.md)
 - [The Knowledge Base Server](https://neomjs.com/raw/learn/agentos/KnowledgeBase.md)
+- [Knowledge Base Enhancement (Anchor & Echo)](https://neomjs.com/raw/learn/agentos/KnowledgeBaseEnhancement.md)
 - [The Memory Core Server](https://neomjs.com/raw/learn/agentos/MemoryCore.md)
 - [The GitHub Workflow Server](https://neomjs.com/raw/learn/agentos/GitHubWorkflow.md)
 - [Code Execution (AI SDK)](https://neomjs.com/raw/learn/agentos/CodeExecution.md)
@@ -449,6 +450,7 @@ Here you find the full history of Neo.mjs updates.
 - [0001 — Cross-Process Cache Coherence](https://neomjs.com/raw/learn/agentos/decisions/0001-cross-process-cache-coherence.md)
 - [0019 — AiConfig Reactive Provider SSOT](https://neomjs.com/raw/learn/agentos/decisions/0019-aiconfig-reactive-provider-ssot.md)
 - [0020 — Agent Harness Concept Anchor](https://neomjs.com/raw/learn/agentos/decisions/0020-agent-harness-concept.md)
+- [0022 — Heavy-Maintenance Scheduling Fairness](https://neomjs.com/raw/learn/agentos/decisions/0022-heavy-maintenance-scheduling-fairness.md)
 
 ## Guides
 

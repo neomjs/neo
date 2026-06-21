@@ -27,18 +27,19 @@
 // at module-load. `InstanceManager` binds `Neo.find` / `Neo.findFirst` / `Neo.get`
 // aliases + sets `Base.instanceManagerAvailable=true` + consumes pre-singleton
 // `Neo.idMap`. All 3 MUST run before consumed class imports.
-import Neo             from '../../../src/Neo.mjs';
-import * as core       from '../../../src/core/_export.mjs';
-import InstanceManager from '../../../src/manager/Instance.mjs';
-import AiConfig        from '../../config.mjs';
-import memoryCoreConfig from '../../mcp/server/memory-core/config.mjs';
+import Neo                   from '../../../src/Neo.mjs';
+import * as core             from '../../../src/core/_export.mjs';
+import InstanceManager       from '../../../src/manager/Instance.mjs';
+import AiConfig              from '../../config.mjs';
+import memoryCoreConfig      from '../../mcp/server/memory-core/config.mjs';
+import {assertConfigFresh}   from '../../scripts/setup/initServerConfigs.mjs';
 import {WAKE_LANE_DIRECTIVE} from './wakeLaneDirective.mjs';
 
-import fs from 'fs-extra';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { constants as fsConstants } from 'fs';
-import { spawn, execSync } from 'child_process';
+import fs                               from 'fs-extra';
+import path                             from 'path';
+import { fileURLToPath, pathToFileURL } from 'url';
+import { constants as fsConstants }     from 'fs';
+import { spawn, execSync }              from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -69,18 +70,24 @@ import {
     shouldDeferFlush
 } from './flushDeferPolicy.mjs';
 import {clampWatermark, filterEventsByWatermark, maxLogId} from './wokenWatermark.mjs';
-import {IDENTITIES} from '../../graph/identityRoots.mjs';
+import {IDENTITIES}                                        from '../../graph/identityRoots.mjs';
 
-const DB_PATH                  = memoryCoreConfig.storagePaths.graph;
-const DAEMON_DATA_DIR          = memoryCoreConfig.wakeDaemon.dataDir;
-const STATE_FILE               = path.join(DAEMON_DATA_DIR, 'lastSyncId');
-const LOG_FILE                 = path.join(DAEMON_DATA_DIR, 'wake-daemon.log');
-const WOKEN_WATERMARK_FILE     = path.join(DAEMON_DATA_DIR, 'woken-watermark.json');
+// Config-derived paths + PID_FILE (below) are declared here but ASSIGNED in initConfigDerivedState()
+// (called from the guarded main(), never at module-load): a stale memory-core overlay would otherwise
+// crash these derefs with a cryptic `undefined` at import, before assertConfigFresh can report it.
+let DB_PATH;
+let DAEMON_DATA_DIR;
+let STATE_FILE;
+let LOG_FILE;
+let WOKEN_WATERMARK_FILE;
 const LOG_RETENTION_DAYS       = 30;
 const POLL_INTERVAL_MS         = 3000;
 const DEFAULT_COALESCE_WINDOW_MS = 30000; // 30 seconds
 const CODEX_APP_SERVER_ADAPTER   = 'codex-app-server';
 const DEFAULT_CODEX_DESKTOP_CLI_PATH = '/Applications/Codex.app/Contents/Resources/codex';
+const CODEX_TURN_START_PROOF_TIMEOUT_MS = Number(process.env.WAKE_CODEX_TURN_START_PROOF_TIMEOUT_MS) || 45000;
+const CODEX_TURN_START_PROOF_POLL_MS    = Number(process.env.WAKE_CODEX_TURN_START_PROOF_POLL_MS) || 1000;
+const CODEX_WAKE_SUBMIT_NONCE_PREFIX    = 'NEO_WAKE_SUBMIT_NONCE:';
 const WAKE_PRIORITY_RANKS      = {
     low   : 0,
     normal: 1,
@@ -95,9 +102,6 @@ const identityParticipationById = new Map(
             identity.properties?.participationStatus || 'active'
         ])
 );
-
-// Ensure daemon data dir exists
-fs.ensureDirSync(DAEMON_DATA_DIR);
 
 /**
  * @summary Loads the persisted per-subscription woken-watermark map, tolerant of a missing or
@@ -137,7 +141,7 @@ function persistWokenWatermark() {
  * with — does not replace — the `readAt` reconcile + the heavy-delta defer.
  * @type {Object<String, Number>}
  */
-let wokenWatermark = loadWokenWatermark();
+let wokenWatermark = {};  // loaded from disk in initConfigDerivedState() (after WOKEN_WATERMARK_FILE is assigned)
 
 /**
  * Rotates `wake-daemon.log` if its mtime falls on a calendar day different from today's.
@@ -223,10 +227,7 @@ function writeLog(level, message) {
     }
 }
 
-// One-shot prune at startup; reaper for archived logs older than retention window
-pruneOldLogs();
-
-const PID_FILE = path.join(DAEMON_DATA_DIR, 'wake-daemon.pid');
+let PID_FILE;  // assigned in initConfigDerivedState() (← DAEMON_DATA_DIR); the one-shot log prune runs there too
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function enforceSingleton() {
@@ -428,7 +429,11 @@ function evaluateSubscription(sub, trace, entity, nodesMap, edgesMap) {
     }, trace);
 
     if (!result) return null;
-    if (result.type === 'heartbeat_pulse' && isPromptSubmittingSubscription(sub)) return null;
+
+    // heartbeat_pulse delivers through every adapter (incl. interactive osascript/tmux): emission is
+    // already idle-gated upstream (WakeDecisionService.decideWake — Wake = active AND idle AND ready),
+    // so the delivery layer trusts that gate rather than re-suppressing by adapter, which had dropped
+    // every interactive heartbeat while only non-interactive (codex-app-server) adapters kept theirs.
 
     // Map the shared evaluator's {type, payload, logId} onto the daemon's flat coalescing payload.
     const {payload, logId} = result;
@@ -464,39 +469,31 @@ function isWakeTargetEligible(identity) {
 }
 
 /**
- * @summary Resolves the effective wake adapter for a subscription.
- * @param {Object} subscription WAKE_SUBSCRIPTION node.
- * @returns {String}
+ * Heartbeat-pulse summary sources that encode structured content in the pulse id as
+ * `<source>.<base64url-JSON>`. A plain uuid pulse (no '.') carries no summary.
+ * @type {String[]}
  */
-function getSubscriptionAdapter(subscription) {
-    const meta = subscription.properties?.harnessTargetMetadata || {};
-    return meta.adapter || (process.platform === 'darwin' ? 'osascript' : 'tmux');
-}
+const HEARTBEAT_PULSE_SUMMARY_SOURCES = ['github-notification', 'idle-out-nudge'];
 
 /**
- * @summary True when heartbeat-only delivery would submit into an interactive prompt.
- * @param {Object} subscription WAKE_SUBSCRIPTION node.
- * @returns {Boolean}
- */
-function isPromptSubmittingSubscription(subscription) {
-    const adapter = getSubscriptionAdapter(subscription);
-    return adapter === 'osascript' || adapter === 'tmux';
-}
-
-/**
- * @summary Decodes optional content embedded in heartbeat-pulse ids.
+ * @summary Decodes optional structured content embedded in a heartbeat-pulse id, for any known
+ * summary source. Id format: `<source>.<base64url-JSON>` (e.g. `github-notification` or
+ * `idle-out-nudge`); the decoded payload's `source` must match the id prefix (format/tamper guard).
  * @param {String} pulseId
  * @returns {Object|null}
  */
 function decodeHeartbeatPulseSummary(pulseId = '') {
-    if (!pulseId.startsWith('github-notification.')) return null;
+    const separator = pulseId.indexOf('.');
+    if (separator <= 0) return null;
+
+    const source = pulseId.slice(0, separator);
+    if (!HEARTBEAT_PULSE_SUMMARY_SOURCES.includes(source)) return null;
+
     try {
-        const encoded = pulseId.slice('github-notification.'.length);
-        const parsed  = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
-        if (parsed?.source !== 'github-notification') return null;
-        return parsed
+        const parsed = JSON.parse(Buffer.from(pulseId.slice(separator + 1), 'base64url').toString('utf8'));
+        return parsed?.source === source ? parsed : null;
     } catch {
-        return null
+        return null;
     }
 }
 
@@ -721,6 +718,18 @@ async function flushSubscription(subId) {
     permissions = filterEventsByWatermark(permissions, watermark);
     heartbeats  = filterEventsByWatermark(heartbeats,  watermark);
 
+    // Mixed-wake heartbeat suppression (digest content only): a heartbeat is the idle-watchdog nudge,
+    // but when it coalesces with an actionable wake (message / task / permission) the agent is already
+    // being woken — so the redundant heartbeat is dropped FROM THE DIGEST. A heartbeat-only queue still
+    // delivers, including through interactive osascript/tmux adapters: this is the correctly-scoped
+    // successor to the per-adapter evaluateSubscription drop that had killed ALL interactive heartbeats.
+    // `consumedHeartbeats` keeps the dropped logIds for the watermark below so a re-queued backlog
+    // cannot re-deliver them.
+    const consumedHeartbeats = heartbeats;
+    if (messages.length > 0 || tasks.length > 0 || permissions.length > 0) {
+        heartbeats = [];
+    }
+
     // Nothing genuinely-new survived (the delta was entirely already-read or already-woken) → suppress.
     if (messages.length === 0 && tasks.length === 0 && permissions.length === 0 && heartbeats.length === 0) {
         return;
@@ -742,7 +751,7 @@ async function flushSubscription(subId) {
     // Advance the per-subscription watermark to the highest delivered logId so these events are not
     // re-counted if the backlog is re-queued; persist for restart durability. logId is monotonic
     // (append-only GraphLog), so genuinely-new events always land strictly above this mark.
-    const deliveredMax = maxLogId([...messages, ...tasks, ...permissions, ...heartbeats]);
+    const deliveredMax = maxLogId([...messages, ...tasks, ...permissions, ...consumedHeartbeats]);
     if (deliveredMax !== null && deliveredMax > (wokenWatermark[subId] ?? 0)) {
         wokenWatermark[subId] = deliveredMax;
         persistWokenWatermark();
@@ -840,11 +849,11 @@ async function deliverViaCodexAppServer(subscription, digest, evidenceLabel = ''
  * "lost frontmost status" error. Focus contention is transient, so we re-attempt the whole
  * delivery a few times before giving up.
  *
- * Phase-aware idempotency guard: the wake payload is submitted (`key code 36` / Enter) BEFORE
- * the "user input restore" phases. A frontmost-loss reported for a restore phase therefore means
- * the wake already landed — only the user's draft-restore failed (cosmetic). We must NOT retry
- * that case (it would double-submit the wake). Non-race errors (syntax/permissions) re-throw
- * immediately.
+ * Phase-aware idempotency guard: the wake payload submit is attempted (`key code 36` / Enter)
+ * BEFORE the "user input restore" phases. A frontmost-loss reported for a restore phase therefore
+ * means the submit step already ran — only the user's draft-restore failed (cosmetic). We must NOT
+ * retry that case (it would double-submit the wake). Non-race errors (syntax/permissions) re-throw
+ * immediately. For Codex Desktop, an `osascript` exit proves adapter completion, not turn start.
  * @param {String[]} osascriptArgs The fully-built `osascript -e …` argument list.
  * @param {String} subscriptionId For log attribution.
  * @param {String} appName For log attribution.
@@ -858,19 +867,21 @@ async function deliverViaOsascriptWithRetry(osascriptArgs, subscriptionId, appNa
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
             await spawnAsync('osascript', osascriptArgs);
-            const attemptLabel = attempt > 1 ? ` (attempt ${attempt}/${maxAttempts})` : '';
+            const attemptLabel = attempt > 1 ? ` (attempt ${attempt}/${maxAttempts})` : '',
+                  outcomeLabel = appName === 'Codex' ? 'Submit attempted' : 'Delivered';
             writeLog('INFO',
-                `[Wake Daemon] Delivered ${subscriptionId} via osascript to ${appName}${attemptLabel}${evidenceLabel}`);
+                `[Wake Daemon] ${outcomeLabel} ${subscriptionId} via osascript to ${appName}${attemptLabel}${evidenceLabel}`);
             return
         } catch (err) {
             const message         = err.message || '',
                   isFrontmostRace = /lost frontmost status|-2700/.test(message),
                   afterSubmit     = /user input restore/.test(message);
 
-            // Wake already submitted; only the draft-restore lost frontmost → delivered, do not retry.
+            // Submit step already ran; only the draft-restore lost frontmost → do not retry.
             if (isFrontmostRace && afterSubmit) {
+                const outcomeLabel = appName === 'Codex' ? 'wake submit attempted' : 'wake landed';
                 writeLog('WARN',
-                    `[Wake Daemon] ${subscriptionId} wake landed but draft-restore lost frontmost; ` +
+                    `[Wake Daemon] ${subscriptionId} ${outcomeLabel} but draft-restore lost frontmost; ` +
                     `not retrying (avoids double-send)${evidenceLabel}. ${message}`);
                 return
             }
@@ -903,6 +914,12 @@ function buildWakeDeliveryEvidence({messages = [], tasks = [], permissions = [],
     };
 
     const actionableCount = counts.messages + counts.tasks + counts.permissions;
+    const correlation = {
+        messageIds   : messages.map(message => message.messageId).filter(Boolean),
+        taskIds      : tasks.map(task => task.taskId).filter(Boolean),
+        permissionIds: permissions.map(permission => permission.logId).filter(Boolean),
+        heartbeatIds : heartbeats.map(heartbeat => heartbeat.logId).filter(Boolean)
+    };
 
     let scenario = 'empty';
     if (counts.heartbeats > 0 && actionableCount === 0) {
@@ -917,7 +934,7 @@ function buildWakeDeliveryEvidence({messages = [], tasks = [], permissions = [],
         scenario = 'actionable';
     }
 
-    return {scenario, counts};
+    return {scenario, counts, correlation};
 }
 
 /**
@@ -931,11 +948,204 @@ function formatWakeDeliveryEvidence(evidence, {adapter, adapterSource, appName})
 
     const counts = evidence.counts || {};
 
-    const scenario = evidence.scenario || 'unknown';
+    const scenario       = evidence.scenario || 'unknown',
+          submitBoundary = adapter === 'osascript' && appName === 'Codex'
+              ? '; submitProof=attempted; turnStartProof=live-required'
+              : '',
+          nonceBoundary  = evidence.wakeSubmitNonce ? `; wakeSubmitNonce=${evidence.wakeSubmitNonce}` : '';
 
     return ` (scenario=${scenario}; route=${adapter}; adapterSource=${adapterSource}; app=${appName || ''}; ` +
         `counts=messages:${counts.messages || 0},tasks:${counts.tasks || 0},` +
-        `permissions:${counts.permissions || 0},heartbeats:${counts.heartbeats || 0})`;
+        `permissions:${counts.permissions || 0},heartbeats:${counts.heartbeats || 0}${submitBoundary}${nonceBoundary})`;
+}
+
+/**
+ * @summary Formats stable event identifiers for post-submit turn-start correlation logs.
+ * @param {Object} evidence Scenario/count evidence from buildWakeDeliveryEvidence().
+ * @returns {String}
+ */
+function formatWakeCorrelationEvidence(evidence = {}) {
+    const correlation = evidence.correlation || {},
+          parts       = [];
+
+    if (correlation.messageIds?.length) {
+        parts.push(`messageIds=${correlation.messageIds.slice(-3).join(',')}`);
+    }
+    if (correlation.taskIds?.length) {
+        parts.push(`taskIds=${correlation.taskIds.slice(-3).join(',')}`);
+    }
+    if (correlation.permissionIds?.length) {
+        parts.push(`permissionLogIds=${correlation.permissionIds.slice(-3).join(',')}`);
+    }
+    if (correlation.heartbeatIds?.length) {
+        parts.push(`heartbeatLogIds=${correlation.heartbeatIds.slice(-3).join(',')}`);
+    }
+    if (evidence.wakeSubmitNonce) {
+        parts.push(`wakeSubmitNonce=${evidence.wakeSubmitNonce}`);
+    }
+
+    return parts.length ? `; ${parts.join('; ')}` : '';
+}
+
+/**
+ * @summary Whether a delivery adapter attempts to submit a Codex prompt and therefore needs
+ * nonce-backed turn-start causality evidence.
+ * @param {Object} options
+ * @param {String} options.adapter Resolved wake adapter.
+ * @param {String} [options.appName] Target app name.
+ * @returns {Boolean}
+ */
+function isCodexSubmitProofAdapter({adapter, appName}) {
+    return appName === 'Codex' && (adapter === 'osascript' || adapter === 'test-codex-submit');
+}
+
+/**
+ * @summary Appends a hook-visible nonce to a Codex wake digest without changing wake semantics.
+ * @param {String} digest Wake digest body.
+ * @param {String} wakeSubmitNonce Per-submit correlation id.
+ * @returns {String}
+ */
+function appendCodexWakeSubmitNonce(digest, wakeSubmitNonce) {
+    if (!wakeSubmitNonce) return digest;
+    return `${digest}\n\n<!-- ${CODEX_WAKE_SUBMIT_NONCE_PREFIX}${wakeSubmitNonce} -->`;
+}
+
+/**
+ * @summary Reads the first turn-presence interval that started after a wake submit attempt.
+ *
+ * The Codex prompt-submit hook writes `AGENT_TURN_PRESENCE` at the actual turn boundary. Terminal
+ * updates can later change `source` to `add_memory`, so source is diagnostic only. Until the wake
+ * payload carries a nonce into the prompt-submit hook, this query is timestamp-window evidence: useful
+ * for classifying no-turn-start failures, but not proof that the scripted Enter rather than a later
+ * human Enter caused a matching turn.
+ *
+ * @param {Object} sqlite better-sqlite3 handle.
+ * @param {String} agentIdentity Recipient AgentIdentity node id.
+ * @param {String} sinceIso Submit-attempt timestamp.
+ * @param {Object} [options]
+ * @param {String} [options.wakeSubmitNonce] Required wake-submit nonce for causal matches.
+ * @returns {Object|null}
+ */
+function findTurnPresenceAfter(sqlite, agentIdentity, sinceIso, {wakeSubmitNonce} = {}) {
+    const params = [agentIdentity, sinceIso];
+    let nonceFilter = '';
+
+    if (wakeSubmitNonce) {
+        nonceFilter = `AND json_extract(data, '$.properties.wakeSubmitNonce') = ?`;
+        params.push(wakeSubmitNonce);
+    }
+
+    const row = sqlite.prepare(`
+        SELECT data FROM Nodes
+        WHERE (
+            json_extract(data, '$.label') = 'AGENT_TURN_PRESENCE'
+            OR json_extract(data, '$.type') = 'AGENT_TURN_PRESENCE'
+        )
+          AND json_extract(data, '$.properties.agentIdentity') = ?
+          AND json_extract(data, '$.properties.startedAt') >= ?
+          ${nonceFilter}
+        ORDER BY json_extract(data, '$.properties.startedAt') ASC
+        LIMIT 1
+    `).get(...params);
+
+    if (!row?.data) return null;
+
+    try {
+        return JSON.parse(row.data).properties || null;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * @summary Schedules a bounded Codex submit-attempt observer using turn-presence rows.
+ *
+ * This is evidence-only: it does not retry, alter the submit primitive, or gate delivery. It converts
+ * `turnStartProof=live-required` into one of three durable log outcomes when the graph oracle is
+ * available: `wake-submit-started`, `wake-submit-not-started`, or `wake-submit-unknown`. The started
+ * outcome is reserved for a nonce-correlated turn-presence row; timestamp-window-only matches are
+ * ambiguous because a later human Enter can create the same active-turn evidence.
+ *
+ * @param {Object} subscription WAKE_SUBSCRIPTION node.
+ * @param {Date} submitAttemptedAt Timestamp immediately before the submit adapter ran.
+ * @param {Object} deliveryEvidence Scenario/count/correlation evidence.
+ * @returns {void}
+ */
+function scheduleCodexTurnStartProof(subscription, submitAttemptedAt, deliveryEvidence = {}) {
+    const timeoutMs = CODEX_TURN_START_PROOF_TIMEOUT_MS,
+          pollMs    = Math.max(50, CODEX_TURN_START_PROOF_POLL_MS);
+
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) return;
+
+    const agentIdentity = subscription.properties?.agentIdentity,
+          submitIso     = submitAttemptedAt.toISOString(),
+          deadlineAt    = Date.now() + timeoutMs,
+          correlation   = formatWakeCorrelationEvidence(deliveryEvidence),
+          wakeSubmitNonce = deliveryEvidence.wakeSubmitNonce;
+
+    if (!agentIdentity) {
+        writeLog('WARN',
+            `[Wake Daemon] Turn-start proof wake-submit-unknown ${subscription.id}: ` +
+            `missing subscription.properties.agentIdentity${correlation}`
+        );
+        return;
+    }
+    if (!wakeSubmitNonce) {
+        writeLog('WARN',
+            `[Wake Daemon] Turn-start proof wake-submit-unknown ${subscription.id} ` +
+            `for ${agentIdentity}: missing wakeSubmitNonce${correlation}`
+        );
+        return;
+    }
+
+    const poll = () => {
+        try {
+            const turn = findTurnPresenceAfter(db, agentIdentity, submitIso, {wakeSubmitNonce});
+            if (turn) {
+                const latencyMs = Math.max(0, new Date(turn.startedAt).getTime() - submitAttemptedAt.getTime());
+                writeLog('INFO',
+                    `[Wake Daemon] Turn-start proof wake-submit-started ${subscription.id} ` +
+                    `for ${agentIdentity} after ${latencyMs}ms ` +
+                    `(correlation=nonce; turnId=${turn.turnId || 'unknown'}; startedAt=${turn.startedAt}; ` +
+                    `source=${turn.source || 'unknown'}${correlation})`
+                );
+                return;
+            }
+
+            const ambiguousTurn = findTurnPresenceAfter(db, agentIdentity, submitIso);
+            if (ambiguousTurn) {
+                const latencyMs = Math.max(0, new Date(ambiguousTurn.startedAt).getTime() - submitAttemptedAt.getTime());
+                writeLog('WARN',
+                    `[Wake Daemon] Turn-start proof wake-submit-unknown ${subscription.id} ` +
+                    `for ${agentIdentity} after ${latencyMs}ms ` +
+                    `(correlation=timestamp-window-without-nonce; turnId=${ambiguousTurn.turnId || 'unknown'}; ` +
+                    `startedAt=${ambiguousTurn.startedAt}; source=${ambiguousTurn.source || 'unknown'}${correlation})`
+                );
+                return;
+            }
+        } catch (error) {
+            writeLog('WARN',
+                `[Wake Daemon] Turn-start proof wake-submit-unknown ${subscription.id} ` +
+                `for ${agentIdentity}: ${error.message}${correlation}`
+            );
+            return;
+        }
+
+        if (Date.now() >= deadlineAt) {
+            writeLog('WARN',
+                `[Wake Daemon] Turn-start proof wake-submit-not-started ${subscription.id} ` +
+                `for ${agentIdentity} after ${timeoutMs}ms since ${submitIso} ` +
+                `(correlation=nonce${correlation})`
+            );
+            return;
+        }
+
+        const timer = setTimeout(poll, pollMs);
+        timer.unref?.();
+    };
+
+    const timer = setTimeout(poll, pollMs);
+    timer.unref?.();
 }
 
 /**
@@ -976,7 +1186,10 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
     const defaultAdapter = process.platform === 'darwin' ? 'osascript' : 'tmux';
     const adapter       = meta.adapter || defaultAdapter;
     const adapterSource = meta.adapter ? 'metadata' : 'platform-default';
-    const evidenceLabel = formatWakeDeliveryEvidence(deliveryEvidence, {adapter, adapterSource, appName: meta.appName});
+    const wakeSubmitNonce = isCodexSubmitProofAdapter({adapter, appName: meta.appName}) ? crypto.randomUUID() : null;
+    const dispatchDigest  = wakeSubmitNonce ? appendCodexWakeSubmitNonce(digest, wakeSubmitNonce) : digest;
+    const proofEvidence   = wakeSubmitNonce ? {...deliveryEvidence, wakeSubmitNonce} : deliveryEvidence;
+    const evidenceLabel   = formatWakeDeliveryEvidence(proofEvidence, {adapter, adapterSource, appName: meta.appName});
 
     // Serialize execution to prevent focus collisions (Electron-Paradox defense)
     deliveryPromise = deliveryPromise.then(async () => {
@@ -995,12 +1208,12 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
         }
 
         if (addressType === 'webhookUrl') {
-            await deliverViaWebhookUrl(subscription, digest, instanceAddress);
+            await deliverViaWebhookUrl(subscription, dispatchDigest, instanceAddress);
             return;
         }
 
         if (adapter === CODEX_APP_SERVER_ADAPTER) {
-            await deliverViaCodexAppServer(subscription, digest, evidenceLabel);
+            await deliverViaCodexAppServer(subscription, dispatchDigest, evidenceLabel);
             return;
         }
 
@@ -1008,7 +1221,7 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
             const tmuxSession = addressType === 'tmuxSession' && instanceAddress
                 ? instanceAddress
                 : meta.tmuxSession || process.env.TMUX_SESSION || 'neo-agent';
-            await spawnAsync('tmux', ['send-keys', '-t', tmuxSession, digest, 'C-m']);
+            await spawnAsync('tmux', ['send-keys', '-t', tmuxSession, dispatchDigest, 'C-m']);
             writeLog('INFO', `[Wake Daemon] Delivered ${subscription.id} via tmux to session ${tmuxSession}${evidenceLabel}`);
         } else if (adapter === 'osascript') {
             const appName = meta.appName;
@@ -1227,11 +1440,12 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
                 // Codex Desktop can leave composer-side UI (mention/autocomplete/completion popovers)
                 // active after a pasted A2A digest such as `from @neo-opus-ada)`. Escape closes that
                 // transient UI so the following Enter submits the prompt instead of being consumed
-                // by the composer. Keep this Codex-scoped; other harnesses already have validated
-                // Enter behavior and should not inherit an untested pre-submit key.
+                // by the composer. The longer post-Escape settle is Codex-scoped: operator
+                // samples show human-delayed Enter succeeds after the scripted Enter is
+                // intermittently consumed, so do not shorten this back to the generic key delay.
                 ...(appName === 'Codex' ? [
                     '-e', '      key code 53',
-                    '-e', '      delay 0.1'
+                    '-e', '      delay 0.45'
                 ] : []),
                 '-e', '      key code 36',
                 '-e', '      delay 1.0',
@@ -1256,16 +1470,24 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
                 '-e', '    error errMsg',
                 '-e', '  end try',
                 '-e', 'end run',
-                digest
+                dispatchDigest
             );
 
+            const submitAttemptedAt = new Date();
             await deliverViaOsascriptWithRetry(osascriptArgs, subscription.id, appName, evidenceLabel);
+            if (appName === 'Codex') {
+                scheduleCodexTurnStartProof(subscription, submitAttemptedAt, proofEvidence);
+            }
         } else if (adapter === 'test') {
-            writeLog('INFO', `[Wake Daemon Test Adapter] Delivered ${subscription.id}: ${digest}`);
+            writeLog('INFO', `[Wake Daemon Test Adapter] Delivered ${subscription.id}: ${dispatchDigest}`);
+        } else if (adapter === 'test-codex-submit') {
+            const submitAttemptedAt = new Date();
+            writeLog('INFO', `[Wake Daemon] Submit attempted ${subscription.id} via test-codex-submit to Codex${evidenceLabel}`);
+            scheduleCodexTurnStartProof(subscription, submitAttemptedAt, proofEvidence);
         } else if (adapter === 'test-fail') {
             // Deterministic delivery-failure hook for retry-path testing (no live target needed).
             // Log the attempted digest first so the coalesced retry content is observable, then throw.
-            writeLog('INFO', `[Wake Daemon Test-Fail Adapter] Attempted ${subscription.id}: ${digest}`);
+            writeLog('INFO', `[Wake Daemon Test-Fail Adapter] Attempted ${subscription.id}: ${dispatchDigest}`);
             throw new Error('test-fail adapter: simulated delivery failure');
         } else {
             writeLog('ERROR', `[Wake Daemon] Unknown adapter '${adapter}' for subscription ${subscription.id}`);
@@ -1309,11 +1531,17 @@ function buildWakeDigest(identity, {messages = [], tasks = [], permissions = [],
         breakdown += `\n- ${permissions.length} permissions granted (latest: ${latest.scope} by ${latest.grantedBy})`;
     }
     if (heartbeats.length > 0) {
-        const latest        = heartbeats[heartbeats.length - 1],
-              gitHubSummary = latest.summary?.source === 'github-notification'
-                  ? `; latest GitHub ${latest.summary.latest?.reason || 'notification'}: "${latest.summary.latest?.title || latest.summary.latest?.id || 'untitled'}"${formatPullRequestStateEcho(latest.summary)}${latest.summary.latest?.url ? ` (${latest.summary.latest.url})` : ''}`
-                  : '';
-        breakdown += `\n- ${heartbeats.length} heartbeat pulses (latest GraphLog: ${latest.logId}${gitHubSummary})`;
+        const latest  = heartbeats[heartbeats.length - 1],
+              summary = latest.summary;
+
+        let extra = '';
+        if (summary?.source === 'github-notification') {
+            extra = `; latest GitHub ${summary.latest?.reason || 'notification'}: "${summary.latest?.title || summary.latest?.id || 'untitled'}"${formatPullRequestStateEcho(summary)}${summary.latest?.url ? ` (${summary.latest.url})` : ''}`;
+        } else if (summary?.source === 'idle-out-nudge') {
+            extra = `; idle-out nudge — ${summary.reason || 'idle'}; next: ${summary.nextAction || 'claim a lane'}`;
+        }
+
+        breakdown += `\n- ${heartbeats.length} heartbeat pulses (latest GraphLog: ${latest.logId}${extra})`;
     }
 
     // The lifecycle-first lane directive is an IDLE-watchdog nudge — append it ONLY to pure-heartbeat
@@ -1501,8 +1729,35 @@ async function deliverViaWebhookUrl(subscription, digest, webhookUrl) {
     writeLog('INFO', `[Wake Daemon] Delivered ${subscription.id} via webhookUrl POST`);
 }
 
+/**
+ * @summary Assigns the config-derived module-scope paths (DB_PATH / DAEMON_DATA_DIR / STATE_FILE /
+ * LOG_FILE / WOKEN_WATERMARK_FILE / PID_FILE) + runs their one-shot startup side-effects (data-dir
+ * ensure, archived-log prune, woken-watermark load). Deferred out of module-load so the
+ * assertConfigFresh guard in main() can fail-fast on a stale memory-core overlay BEFORE any
+ * `memoryCoreConfig` deref crashes with a cryptic `undefined` (the stale-overlay fail-fast class).
+ * @protected
+ */
+function initConfigDerivedState() {
+    DB_PATH              = memoryCoreConfig.storagePaths.graph;
+    DAEMON_DATA_DIR      = memoryCoreConfig.wakeDaemon.dataDir;
+    STATE_FILE           = path.join(DAEMON_DATA_DIR, 'lastSyncId');
+    LOG_FILE             = path.join(DAEMON_DATA_DIR, 'wake-daemon.log');
+    WOKEN_WATERMARK_FILE = path.join(DAEMON_DATA_DIR, 'woken-watermark.json');
+    PID_FILE             = path.join(DAEMON_DATA_DIR, 'wake-daemon.pid');
+
+    fs.ensureDirSync(DAEMON_DATA_DIR);     // data dir must exist before any state-file write
+    pruneOldLogs();                        // one-shot reaper for archived logs older than retention
+    wokenWatermark = loadWokenWatermark(); // restore the durable per-subscription woken high-water marks
+}
+
 // Start loop
 async function main() {
+    // Fail-fast on a stale memory-core config overlay with the actionable --migrate-config message,
+    // BEFORE initConfigDerivedState() derefs memoryCoreConfig.
+    await assertConfigFresh({serverPath: fileURLToPath(new URL('../../mcp/server/memory-core/', import.meta.url))});
+
+    initConfigDerivedState();
+
     await enforceSingleton();
 
     db = initializeDatabase(DB_PATH);
@@ -1515,4 +1770,12 @@ async function main() {
     pollLoop();
 }
 
-main();
+// Process-entry only: run the boot guard + start the daemon ONLY when this file is the main module,
+// never on import — preserves the process-entry isolation invariant (mirrors the kb-* daemons). On a
+// stale overlay assertConfigFresh exits 1 with the actionable message; other startup errors → stderr + exit 1.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+    main().catch(err => {
+        process.stderr.write(`[Wake Daemon] Daemon start failed: ${err && err.stack ? err.stack : err}\n`);
+        process.exit(1);
+    });
+}

@@ -36,11 +36,11 @@
  * @see ai/graph/storage/SQLite.mjs                           WAL pragma (storage layer is concurrency-safe)
  * @see learn/agentos/decisions/0001-cross-process-cache-coherence.md
  */
-import {execSync}      from 'child_process';
-import fs              from 'fs';
-import path            from 'path';
-import {fileURLToPath} from 'url';
-import {classifyHarness} from '../../services/memory-core/helpers/harnessClassifier.mjs';
+import {execSync}                     from 'child_process';
+import fs                             from 'fs';
+import path                           from 'path';
+import {fileURLToPath}                from 'url';
+import {buildSqliteHolderDiagnostics} from '../../services/memory-core/helpers/harnessClassifier.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -80,97 +80,7 @@ function resolvePrimaryCheckout() {
 const projectRoot = resolvePrimaryCheckout();
 const SQLITE_MAIN = path.resolve(projectRoot, '.neo-ai-data/sqlite/memory-core-graph.sqlite');
 
-// In WAL mode, SQLite opens three sibling files on each connection: the main DB, the
-// Write-Ahead Log, and the shared-memory index. Checking all three gives a complete
-// picture — a process briefly between checkpoints may only hold -wal / -shm open.
-const SQLITE_WAL  = `${SQLITE_MAIN}-wal`;
-const SQLITE_SHM  = `${SQLITE_MAIN}-shm`;
-
 const jsonOutput = process.argv.includes('--json');
-
-/**
- * @summary Shell out to `lsof -F pcn` to list processes holding a set of files open.
- *
- * `-F pcn` emits a machine-parseable record format: each attribute on its own line
- * with a single-letter tag prefix — `p` = PID, `c` = command name, `n` = file name.
- * Records for the same process across multiple open file descriptors repeat the
- * `p` line, so deduplication by PID happens downstream in {@link listHoldingProcesses}.
- *
- * `lsof` exits with status 1 when no matching processes are found. This is treated
- * as a successful "empty result," not an error — matching the Projection Layer
- * expectation that zero holders is a valid observation.
- *
- * @param {Array<String>} files Absolute paths to probe. Non-existent paths are silently skipped by lsof.
- * @returns {String} Raw lsof output (possibly empty string).
- */
-function runLsof(files) {
-    const existing = files.filter(f => fs.existsSync(f));
-    if (existing.length === 0) return '';
-
-    try {
-        return execSync(`lsof -F pcn -- ${existing.map(f => `'${f}'`).join(' ')}`, {
-            encoding: 'utf8',
-            stdio   : ['ignore', 'pipe', 'pipe']
-        });
-    } catch (error) {
-        // Exit code 1 = no matching processes; not an error
-        if (error.status === 1) return '';
-        if (error.code === 'ENOENT') {
-            console.error('Platform not supported: this diagnostic requires `lsof` (macOS / Linux).');
-            return '';
-        }
-        throw new Error(`lsof failed: ${error.message || error}`);
-    }
-}
-
-/**
- * @summary Parse `lsof -F pcn` output into structured process-file records.
- *
- * Each record in lsof's field-delimited format spans multiple lines; a new record
- * starts on every `p` (PID) tag. We accumulate the current record until the next
- * `p` flush, then push it. This preserves the architectural invariant that one
- * record represents one PID and its associated files. Deduplication by PID happens
- * at the caller boundary (see `uniqueProcesses` in main).
- *
- * @param {String} raw Raw lsof output.
- * @returns {Array<{pid: number, command: string, files: string[]}>}
- */
-function parseLsofOutput(raw) {
-    const records = [];
-    let current   = null;
-
-    for (const line of raw.split('\n')) {
-        if (!line) continue;
-        const tag   = line[0];
-        const value = line.slice(1);
-
-        if (tag === 'p') {
-            if (current && current.pid) records.push(current);
-            current = {pid: parseInt(value, 10), files: []};
-        } else if (current) {
-            if (tag === 'c') current.command = value;
-            else if (tag === 'n') current.files.push(value);
-        }
-    }
-    if (current && current.pid) records.push(current);
-
-    return records;
-}
-
-/**
- * @summary List processes currently holding any of the memory-core SQLite files open.
- *
- * Delegates to {@link runLsof} + {@link parseLsofOutput} to run the OS-level probe
- * and shape its raw output into the Projection Layer the rest of the script
- * consumes. Returns one entry per process with an array of its files. The caller
- * dedupes across records by PID.
- *
- * @returns {Array<{pid: number, command: string, files: string[]}>}
- */
-function listHoldingProcesses() {
-    const raw = runLsof([SQLITE_MAIN, SQLITE_WAL, SQLITE_SHM]);
-    return parseLsofOutput(raw);
-}
 
 /**
  * @summary Main entry point — gather empirical data, classify, render.
@@ -197,60 +107,36 @@ function main() {
         process.exit(1);
     }
 
-    const holders = listHoldingProcesses();
-
-    // Enrich with harness classification, then dedupe by PID (lsof emits one record
-    // per open file descriptor; a single process with main+wal+shm open yields 3
-    // entries that we collapse to one, merging the files array).
-    const enriched = holders.map(h => {
-        const {harness, chain} = classifyHarness(h.pid);
-        return {pid: h.pid, command: h.command, files: Array.from(new Set(h.files)), harness, chain};
-    });
-
-    const processMap = new Map();
-    for (const p of enriched) {
-        if (processMap.has(p.pid)) {
-            const existing = processMap.get(p.pid);
-            existing.files = Array.from(new Set([...existing.files, ...p.files]));
-        } else {
-            processMap.set(p.pid, p);
-        }
-    }
-    const uniqueProcesses = Array.from(processMap.values());
-
-    const byHarness = {};
-    for (const p of uniqueProcesses) {
-        byHarness[p.harness] = (byHarness[p.harness] || 0) + 1;
-    }
+    const diagnostics = buildSqliteHolderDiagnostics({dbPath: SQLITE_MAIN});
 
     if (jsonOutput) {
-        console.log(JSON.stringify({
-            sqliteFile    : SQLITE_MAIN,
-            totalProcesses: uniqueProcesses.length,
-            byHarness,
-            processes     : uniqueProcesses
-        }, null, 2));
+        console.log(JSON.stringify(diagnostics, null, 2));
         return;
     }
 
     console.log(`\nMCP Concurrency Diagnostic — ${SQLITE_MAIN}\n`);
 
-    if (uniqueProcesses.length === 0) {
+    if (diagnostics.status === 'degraded') {
+        console.log(`  Diagnostic degraded: ${diagnostics.error}\n`);
+        return;
+    }
+
+    if (diagnostics.totalProcesses === 0) {
         console.log('  No processes currently hold this SQLite file open.\n');
         console.log('  Expected when: no MCP memory-core server is running.');
         console.log('  Unexpected when: you have Claude Desktop / Claude Code / Antigravity open.\n');
         return;
     }
 
-    console.log(`  Total processes: ${uniqueProcesses.length}\n`);
+    console.log(`  Total processes: ${diagnostics.totalProcesses}\n`);
     console.log('  By harness:');
-    for (const [harness, count] of Object.entries(byHarness).sort((a, b) => b[1] - a[1])) {
+    for (const [harness, count] of Object.entries(diagnostics.byHarness).sort((a, b) => b[1] - a[1])) {
         console.log(`    ${harness.padEnd(18)} ${count}`);
     }
     console.log('\n  Process detail:');
     console.log('    PID       command          harness');
     console.log('    --------  ---------------  ------------------');
-    for (const p of uniqueProcesses) {
+    for (const p of diagnostics.processes) {
         const pidStr     = String(p.pid).padStart(8);
         const cmdStr     = (p.command || '').padEnd(15);
         console.log(`    ${pidStr}  ${cmdStr}  ${p.harness}`);

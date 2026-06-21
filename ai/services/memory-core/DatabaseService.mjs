@@ -45,7 +45,7 @@ class DatabaseService extends Base {
      * @param {Object} collection The ChromaDB collection to export.
      * @param {String} backupPath The directory to save the backup file.
      * @param {String} filePrefix The prefix for the backup filename.
-     * @returns {Promise<number>} The number of exported documents.
+     * @returns {Promise<{collection: String, backupFile: String|null, expected: Number, exported: Number, skipped: Number, skippedIds: String[]}>} Export statistics.
      * @private
      */
     async #exportCollection(collection, backupPath, filePrefix) {
@@ -55,7 +55,14 @@ class DatabaseService extends Base {
         const count = await collection.count();
         if (count === 0) {
             logger.log(`No documents found in ${collection.name} to export.`);
-            return 0;
+            return {
+                collection: collection.name,
+                backupFile: null,
+                expected  : 0,
+                exported  : 0,
+                skipped   : 0,
+                skippedIds: []
+            }
         }
 
         logger.log(`Found ${count} documents in ${collection.name} to export.`);
@@ -64,6 +71,14 @@ class DatabaseService extends Base {
         const timestamp   = new Date().toISOString().replace(/:/g, '-');
         const backupFile  = path.join(backupPath, `${filePrefix}-${timestamp}.jsonl`);
         const writeStream = fs.createWriteStream(backupFile);
+        const stats = {
+            collection: collection.name,
+            backupFile,
+            expected  : count,
+            exported  : 0,
+            skipped   : 0,
+            skippedIds: []
+        };
 
         // 2. Paginated Fetch
         const limit = 2000; // Safe batch size
@@ -105,7 +120,9 @@ class DatabaseService extends Base {
                             batch.embeddings.push(single.embeddings[0]);
                         }
                     } catch (singleErr) {
-                        logger.error(`Skipping corrupted vector ID during export: ${id}`);
+                        stats.skipped++;
+                        stats.skippedIds.push(id);
+                        logger.error(`Skipping corrupted vector ID during export: ${id} (${singleErr.message})`);
                     }
                 }
             }
@@ -120,14 +137,25 @@ class DatabaseService extends Base {
                     document : batch.documents[i]
                 };
                 writeStream.write(JSON.stringify(record) + '\n');
+                stats.exported++;
             }
 
             offset += limit;
         }
 
         await new Promise(resolve => writeStream.end(resolve));
-        logger.log(`Successfully exported ${count} documents to: ${backupFile}`);
-        return count;
+        if (stats.exported !== stats.expected) {
+            const error = new Error(
+                `PARTIAL_COLLECTION_EXPORT: ${collection.name} exported ${stats.exported}/${stats.expected} ` +
+                `records to ${backupFile}; skipped ${stats.skipped} corrupted vector id(s).`
+            );
+            error.code    = 'PARTIAL_COLLECTION_EXPORT';
+            error.details = stats;
+            throw error
+        }
+
+        logger.log(`Successfully exported ${stats.exported}/${stats.expected} documents to: ${backupFile}`);
+        return stats
     }
 
     /**
@@ -347,32 +375,46 @@ class DatabaseService extends Base {
      * @param {Object}    options
      * @param {String[]} [options.include=['memories','summaries','graph']] Array of collections to export.
      * @param {String}   [options.backupPath=aiConfig.backupPath]           Directory for the JSONL artifacts.
-     * @returns {Promise<{message: string}>}
+     * @returns {Promise<Object>}
      */
     async exportDatabase({include=['memories', 'summaries', 'graph'], backupPath = aiConfig.backupPath} = {}) {
         try {
             logger.log('Starting agent memory export...');
-            let memoryCount = 0, summaryCount = 0, graphCount = 0;
+            let memoryStats = null, summaryStats = null, graphStats = null;
 
             if (include.includes('memories')) {
                 const collection = await StorageRouter.getMemoryCollection();
-                memoryCount      = await this.#exportCollection(collection, backupPath, 'memory-backup');
+                memoryStats      = await this.#exportCollection(collection, backupPath, 'memory-backup');
             }
 
             if (include.includes('summaries')) {
                 const collection = await StorageRouter.getSummaryCollection();
-                summaryCount     = await this.#exportCollection(collection, backupPath, 'summaries-backup');
+                summaryStats     = await this.#exportCollection(collection, backupPath, 'summaries-backup');
             }
 
             if (include.includes('graph')) {
-                graphCount = await this.#exportGraph(backupPath, 'graph-backup');
+                const graphCount = await this.#exportGraph(backupPath, 'graph-backup');
+                graphStats       = {expected: graphCount, exported: graphCount};
             }
 
-            return {message: `Export complete. Exported ${memoryCount} memories, ${summaryCount} summaries, and ${graphCount} graph elements.`};
+            const memoryCount = memoryStats?.exported || 0,
+                  summaryCount = summaryStats?.exported || 0,
+                  graphCount   = graphStats?.exported || 0,
+                  result       = {
+                      message: `Export complete. Exported ${memoryCount} memories, ${summaryCount} summaries, and ${graphCount} graph elements.`,
+                      count  : memoryCount + summaryCount + graphCount
+                  };
+
+            if (memoryStats) result.memories = memoryStats;
+            if (summaryStats) result.summaries = summaryStats;
+            if (graphStats) result.graph = graphStats;
+
+            return result
         } catch (error) {
             logger.error('[DatabaseService] Error exporting database:', error);
             const exportError = new Error(`DATABASE_EXPORT_ERROR: ${error.message}`);
             exportError.code  = 'DATABASE_EXPORT_ERROR';
+            if (error.details) exportError.details = error.details;
             throw exportError;
         }
     }
@@ -686,7 +728,7 @@ class DatabaseService extends Base {
             operation,
             subsystem: 'memory-core',
             mode,
-            target: {
+            target   : {
                 sqlitePath: aiConfig.storagePaths.graph,
                 path      : aiConfig.storagePaths.graph,
                 repoRoot  : process.cwd()

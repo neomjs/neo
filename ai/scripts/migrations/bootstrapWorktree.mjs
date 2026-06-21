@@ -5,6 +5,11 @@
  * Memory Core, knowledge-base, and bridge-daemon state is unified across worktree
  * MCP server processes — while leaving the git-tracked `concepts/` subdir untouched.
  *
+ * It also materializes the worktree's `.claude/settings.json` (the no-hold Stop hook) from the
+ * tracked `.claude/settings.template.json` via `initClaudeSettings` — the Claude analog of the
+ * config-overlay hydration, so the hook is wired in worktrees deterministically rather than
+ * relying on the `npm prepare` that `installDependencies` skips when `node_modules` already exists.
+ *
  * **Background (config copy):** `ai/config.mjs` is the Tier-1 operator overlay.
  * `ai/mcp/server/{github-workflow,knowledge-base,memory-core,neural-link}/config.mjs`
  * are gitignored per-server overlays. Fresh git worktrees under
@@ -52,9 +57,10 @@
  * hides the worktree's tracked `concepts/` files behind canonical's view; using `--force`
  * clobbers them entirely. Both outcomes break the worktree-local concepts substrate.
  *
- * The granular fix: symlink each gitignored substrate-data subdir individually
- * via the `DATA_SUBDIRS_TO_LINK` allowlist. `concepts/` is never in the allowlist → never
- * touched. This unifies the Memory Core substrate ({@link symlinkDataDir}) so AgentIdentity
+ * The fix: symlink every gitignored child of `.neo-ai-data/`, EXCEPT the
+ * {@link DATA_SUBDIRS_BLOCKLIST} entries (`concepts/` + the per-process daemon-pid dirs) → never touched. Excluding a blocklist
+ * (vs. an allowlist of names) unifies any new substrate child automatically.
+ * This unifies the Memory Core substrate ({@link symlinkDataDir}) so AgentIdentity
  * nodes seeded once are visible to every worktree's MCP server, A2A mailbox handoffs span
  * harnesses, AND the wake daemon's PID-lock singleton plus persistent log
  * span worktrees too — without the tracked `concepts/` clobber risk that
@@ -108,13 +114,13 @@
  * @see .gitignore
  * @see {@link materializeServerConfigTemplate}
  */
-import {execFile}       from 'child_process';
-import fs               from 'fs/promises';
-import path             from 'path';
-import {fileURLToPath}  from 'url';
-import {promisify}      from 'util';
+import {execFile}      from 'child_process';
+import fs              from 'fs/promises';
+import path            from 'path';
+import {fileURLToPath} from 'url';
+import {promisify}     from 'util';
 
-import {listServersWithTemplates, materializeServerConfigTemplate} from '../setup/initServerConfigs.mjs';
+import {initClaudeSettings, listServersWithTemplates, materializeServerConfigTemplate} from '../setup/initServerConfigs.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -136,24 +142,28 @@ export const BOOTSTRAP_CONFIGS = [
 ];
 
 /**
- * Allowlist of `.neo-ai-data/` subdirs to symlink to canonical when `--link-data` is set.
- * All entries are gitignored substrate-data subdirs that benefit from cross-worktree
- * unification. The git-tracked `concepts/` subdir is deliberately NOT in this list —
- * symlinking it would hide the worktree's own tracked files; `--force` would clobber them.
+ * Blocklist of `.neo-ai-data/` children that must NEVER be symlinked to canonical.
  *
- * The order is informational (no semantic dependency between subdirs); each is symlinked
- * independently and per-subdir results are reported separately.
+ * **Blocklist, not allowlist.** The retired `DATA_SUBDIRS_TO_LINK` allowlist enumerated exactly
+ * which subdirs to link — and silently drifted: `memory-wal` was never added, so every
+ * non-canonical clone wrote its `add_memory` WAL to its own un-drained dir, orphaning thousands
+ * of records across clones for ~8 days. {@link symlinkDataDir} now links EVERY child of
+ * canonical's `.neo-ai-data/` EXCEPT the entries here, so a newly-introduced substrate child is
+ * unified automatically — the drift class is gone by construction.
  *
- * @see {@link symlinkDataDir} for the per-subdir symlink-or-skip-or-clobber logic.
+ * Two kinds of entry:
+ * 1. **`concepts/`** — the ONLY git-tracked item inside `.neo-ai-data/` (`.gitignore`:
+ *    `.neo-ai-data` then `!.neo-ai-data/concepts/`). Symlinking it would hide the worktree's own
+ *    tracked files behind canonical's view; `--force` would clobber them.
+ * 2. **Per-process daemon-pid dirs** (`orchestrator-daemon/`, `embed-daemon/`) — they hold the
+ *    orchestrator parent-pid (the SIGTERM-singleton) + the embed-daemon pid, so a shared pid dir
+ *    would let the orchestrator-singleton race / cross-signal across clones. Contrast
+ *    `wake-daemon/` (a DESIGNED cross-clone singleton that DOES share) and `memory-wal/` (shares
+ *    its records + markers + `.drain-lock` for cross-clone sole-drainer enforcement).
+ *
+ * @see {@link symlinkDataDir} for the per-item symlink-or-skip-or-clobber logic.
  */
-export const DATA_SUBDIRS_TO_LINK = [
-    'sqlite',       // Memory Core graph DB (memory-core-graph.sqlite + WAL/SHM)
-    'chroma',       // Vector DBs (knowledge-base + memory-core)
-    'wake-daemon',  // PID-lock + bridge.log + lastSyncId shared across worktrees
-    'backups',      // JSONL backups (Memory Core message + node history)
-    'datasets',     // Canonical CSVs ingested by knowledge-base sync
-    'neo-sqlite'    // Legacy DB (still referenced by older code paths)
-];
+export const DATA_SUBDIRS_BLOCKLIST = ['concepts', 'orchestrator-daemon', 'embed-daemon'];
 
 /**
  * Allowlist of gitignored single files (outside `.neo-ai-data/`) to symlink to canonical
@@ -162,7 +172,7 @@ export const DATA_SUBDIRS_TO_LINK = [
  * Antigravity-Gemini and Codex-GPT clones don't see the handoff at boot per
  * `AGENTS_STARTUP.md §6` step 4.
  *
- * **Allowlist discipline (parallel to `DATA_SUBDIRS_TO_LINK`):**
+ * **Allowlist discipline (curated — `.neo-ai-data/` uses the inverse {@link DATA_SUBDIRS_BLOCKLIST}):**
  *
  * Each entry MUST be:
  * 1. **Gitignored** — single file with its own `.gitignore` line. Symlinking a tracked file
@@ -313,10 +323,10 @@ async function exists(p) {
  * view; `--force` clobbers them entirely. Both outcomes break the worktree-local
  * concepts substrate.
  *
- * This function symlinks each gitignored subdir individually via the `subdirs` allowlist
- * (default: {@link DATA_SUBDIRS_TO_LINK}). `concepts/` is never in the default allowlist
+ * This function symlinks every gitignored child of canonical's `.neo-ai-data/` EXCEPT the
+ * `blocklist` (default: {@link DATA_SUBDIRS_BLOCKLIST}). `concepts/` is always blocklisted
  * → never touched, regardless of `--force`. The data-loss guard (refuse-clobber-without-
- * force) is preserved per-subdir, so a corrupted `sqlite/` can be reset without nuking
+ * force) is preserved per-item, so a corrupted `sqlite/` can be reset without nuking
  * everything else.
  *
  * **Why this is the right substrate (Anchor & Echo):**
@@ -339,66 +349,89 @@ async function exists(p) {
  * @param {object}   options
  * @param {string}   options.mainCheckout Absolute path to the primary git checkout.
  * @param {string}   options.projectRoot  Absolute path to the worktree root to link from.
- * @param {string[]} [options.subdirs]    Allowlist of subdirs to symlink; defaults to {@link DATA_SUBDIRS_TO_LINK}.
- * @param {boolean}  [options.force=false] If true, clobber existing non-symlink dirs in the allowlist (never touches subdirs not in the allowlist).
+ * @param {string[]} [options.blocklist]  Child names to NEVER symlink; defaults to {@link DATA_SUBDIRS_BLOCKLIST}.
+ * @param {boolean}  [options.force=false] If true, clobber an existing non-symlink dir/file at a non-blocklisted child (never touches blocklisted children).
  * @param {Function} [options.log=console.log] Logger fn for action diagnostics.
- * @returns {Promise<{linked: string[], alreadyLinked: string[], clobbered: string[], skippedNoSource: string[], mainCheckout: boolean}>} Per-subdir action map.
- * @throws {Error} When any subdir's dst is a non-symlink directory and `force` is false. The error message names the offending subdir.
+ * @returns {Promise<{linked: string[], alreadyLinked: string[], clobbered: string[], skippedNoSource: string[], mainCheckout: boolean}>} Per-item action map.
+ * @throws {Error} When a non-blocklisted child's dst is a non-symlink dir/file and `force` is false. The error message names the offending child.
  */
 export async function symlinkDataDir({
     mainCheckout,
     projectRoot,
-    subdirs = DATA_SUBDIRS_TO_LINK,
-    force   = false,
-    log     = console.log
+    blocklist = DATA_SUBDIRS_BLOCKLIST,
+    force     = false,
+    log       = console.log
 }) {
     const result = {linked: [], alreadyLinked: [], clobbered: [], skippedNoSource: [], mainCheckout: false};
 
     if (path.resolve(projectRoot) === path.resolve(mainCheckout)) {
-        log(`symlink skip (main checkout): no per-subdir action`);
+        log(`symlink skip (main checkout): no per-item action`);
         result.mainCheckout = true;
         return result;
     }
+
+    const canonicalDataDir = path.join(mainCheckout, '.neo-ai-data');
 
     // Ensure the parent .neo-ai-data/ exists as a regular dir; we never symlink the parent.
     // This preserves the git-tracked concepts/ subdir already present in the worktree.
     const parentDst = path.join(projectRoot, '.neo-ai-data');
     await fs.mkdir(parentDst, {recursive: true});
 
-    for (const subdir of subdirs) {
-        const src   = path.join(mainCheckout, '.neo-ai-data', subdir);
-        const dst   = path.join(parentDst, subdir);
+    // Blocklist, not allowlist: enumerate EVERY child of canonical's .neo-ai-data and link all
+    // except the blocklist. A new substrate child is unified automatically, removing the
+    // allowlist-drift class that silently orphaned memory-wal across non-canonical clones.
+    const blocklistSet = new Set(blocklist);
+    let entries;
+    try {
+        entries = await fs.readdir(canonicalDataDir, {withFileTypes: true});
+    } catch (e) {
+        // Fresh canonical with no .neo-ai-data yet — nothing to link.
+        if (e?.code === 'ENOENT') return result;
+        throw e;
+    }
+
+    for (const entry of entries) {
+        const name = entry.name;
+
+        if (blocklistSet.has(name)) {
+            log(`symlink skip (blocklisted): ${name}`);
+            continue;
+        }
+
+        const src   = path.join(canonicalDataDir, name);
+        const dst   = path.join(parentDst, name);
         const lstat = await fs.lstat(dst).catch(() => null);
 
         if (lstat?.isSymbolicLink()) {
-            log(`symlink skip (already linked): ${subdir}`);
-            result.alreadyLinked.push(subdir);
+            log(`symlink skip (already linked): ${name}`);
+            result.alreadyLinked.push(name);
             continue;
         }
 
-        // Skip if canonical lacks the subdir — graceful for fresh repos.
+        // src came from readdir, so it exists barring a concurrent-removal race — guard anyway.
         const srcExists = await exists(src);
         if (!srcExists) {
-            log(`symlink skip (no source in main checkout): ${subdir}`);
-            result.skippedNoSource.push(subdir);
+            log(`symlink skip (no source in main checkout): ${name}`);
+            result.skippedNoSource.push(name);
             continue;
         }
 
-        if (lstat?.isDirectory()) {
+        if (lstat) {
+            // A real (non-symlink) dir or file already at dst would be shadowed by the link.
             if (!force) {
                 throw new Error(
                     `Refusing to replace non-symlink ${dst}; pass force=true (CLI --force) to opt in. ` +
-                    `This directory contains local data that would be lost.`
+                    `This path contains local data that would be lost.`
                 );
             }
-            log(`symlink clobber (force=true): removing ${subdir}`);
+            log(`symlink clobber (force=true): removing ${name}`);
             await fs.rm(dst, {recursive: true, force: true});
-            result.clobbered.push(subdir);
+            result.clobbered.push(name);
         }
 
-        await fs.symlink(src, dst, 'dir');
-        log(`symlinked: ${subdir} → ${src}`);
-        result.linked.push(subdir);
+        await fs.symlink(src, dst, entry.isDirectory() ? 'dir' : 'file');
+        log(`symlinked: ${name} → ${src}`);
+        result.linked.push(name);
     }
 
     return result;
@@ -717,10 +750,10 @@ export async function classifyWorktree({
         current,
         mainCheckout: primaryMainCheckout,
         remove      : classification.remove,
-        removeArgs: ['worktree', 'remove', '--force', worktree.path],
-        status    : classification.status,
-        reason    : classification.reason,
-        dirtyStatus: classification.dirtyStatus || null
+        removeArgs  : ['worktree', 'remove', '--force', worktree.path],
+        status      : classification.status,
+        reason      : classification.reason,
+        dirtyStatus : classification.dirtyStatus || null
     };
 }
 
@@ -794,7 +827,7 @@ export async function pruneStaleWorktrees({
     }
 
     return {
-        worktrees      : classified,
+        worktrees     : classified,
         removed,
         skipped,
         totalBytes,
@@ -805,20 +838,29 @@ export async function pruneStaleWorktrees({
 }
 
 /**
- * @summary Reuses the existing bootstrap + `--link-data` hydration path for one checkout.
+ * @summary Reuses the existing bootstrap + `--link-data` hydration path for one checkout, and
+ * wires the Claude no-hold Stop hook into the worktree's `.claude/settings.json`.
+ *
+ * The Claude-settings wiring (`initClaudeSettings`) materializes the gitignored
+ * `.claude/settings.json` from the worktree's own tracked `.claude/settings.template.json` — the
+ * Claude analog of the `ai/config.mjs` / per-server overlay hydration `bootstrapWorktree` performs.
+ * Without it the Stop hook is only wired by the `npm prepare` that `installDependencies` skips when
+ * `node_modules` already exists, leaving the no-hold enforcement silently inert in worktrees.
  *
  * @param {object}   options
  * @param {string}   options.mainCheckout Canonical checkout path.
  * @param {string}   options.projectRoot Current checkout path to hydrate.
  * @param {Function} [options.log] Logger fn.
- * @returns {Promise<object>} Hydration sub-results.
+ * @param {Function} [options.wireClaudeSettings=initClaudeSettings] Claude-settings materializer; injectable for tests.
+ * @returns {Promise<object>} Hydration sub-results (`bootstrap`, `data`, `files`, `claudeSettings`).
  */
-export async function hydrateCurrentWorktree({mainCheckout, projectRoot, log = console.log}) {
-    const bootstrap = await bootstrapWorktree({mainCheckout, projectRoot, log});
-    const data      = await symlinkDataDir({mainCheckout, projectRoot, log});
-    const files     = await symlinkGitignoredFiles({mainCheckout, projectRoot, log});
+export async function hydrateCurrentWorktree({mainCheckout, projectRoot, log = console.log, wireClaudeSettings = initClaudeSettings}) {
+    const bootstrap      = await bootstrapWorktree({mainCheckout, projectRoot, log});
+    const data           = await symlinkDataDir({mainCheckout, projectRoot, log});
+    const files          = await symlinkGitignoredFiles({mainCheckout, projectRoot, log});
+    const claudeSettings = await wireClaudeSettings({claudeDir: path.join(projectRoot, '.claude'), logger: {log, warn: log}});
 
-    return {bootstrap, data, files};
+    return {bootstrap, data, files, claudeSettings};
 }
 
 /**
@@ -905,7 +947,7 @@ async function getWorktreeDirtyState({worktreePath, exec = execFileAsync}) {
         };
     } catch (error) {
         return {
-            dirty: true,
+            dirty : true,
             stdout: '',
             error
         };
@@ -1005,6 +1047,13 @@ if (isMain) {
         const result = await bootstrapWorktree({mainCheckout, projectRoot});
         const total  = result.copied.length + result.skipped.length + result.missing.length;
         console.log(`\n✓ Bootstrap complete: ${result.copied.length} copied, ${result.skipped.length} skipped, ${result.missing.length} missing (${total} total)`);
+
+        // Materialize the worktree's .claude/settings.json (the no-hold Stop hook) from its tracked
+        // settings.template.json — the Claude-settings parallel to the config hydration above, wired
+        // deterministically rather than via the npm prepare that runBuildAll's installDependencies
+        // skips when node_modules already exists.
+        const claudeSettings = await initClaudeSettings({claudeDir: path.join(projectRoot, '.claude')});
+        console.log(`✓ Claude settings: ${claudeSettings.action}`);
 
         if (linkData) {
             const symlinkResult = await symlinkDataDir({mainCheckout, projectRoot, force});

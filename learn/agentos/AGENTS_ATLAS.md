@@ -119,6 +119,7 @@ Per `AGENTS.md` §pr_diff_equals_pr_body: PR body + review templates are graph-i
 - **Step 1: The Anchor:** Establish high-value vocabulary at class level and major overrides.
 - **Step 2: The Echo:** Explicitly reuse anchor terms in isolated fields and helper methods.
 - **Step 3: Generate Structured Comments:** Use `@summary`, `@see`, `@protected`.
+- **Why (both readers):** *amnesiac-first-read* — a cold human / fresh AI session must land on load-bearing intent on first read; *Chroma-retrieval quality* — the docs ARE the embedded corpus, so dense intent-anchored vocabulary yields better `ask_knowledge_base` / `query_documents` matches. Full teaching + the `src/core/Base.mjs` worked example: `learn/agentos/KnowledgeBaseEnhancement.md`.
 **15.3 The Two-Stage Query Protocol**
 - Stage 1: Query for Knowledge (`ask_knowledge_base`).
 - Stage 2: Query for Memory (`query_summaries`, `query_raw_memories`). Mandatory for regressions, surprises, architecture queries, trade-offs.
@@ -148,3 +149,11 @@ Missing, stale, malformed, or broadcast baton state does NOT authorize silent se
 ## §authoring_discipline_sibling_file [DISCIPLINE-ONLY]
 Before writing a new `class X extends Y` file in an existing directory, you MUST read 1-2 sibling files to lift the prevailing pattern.
 > *"Pre-Flight: I read `<sibling-file>` and observed pattern `<P>`; my new class will follow that pattern."*
+
+## §no_hold_state_taxonomy [DISCIPLINE-ONLY]
+The `L3_No_Hold_State` warrant — **"does this advance a NAMED lane right now?"** — is the *substance*, not the *costume* (performing a not-holding-shaped activity vs actually advancing the work). It is a **principle with a teeth-test, NOT a closed list** of safe activities: a list is the next weaponizable exit-set (game the membership, skip the warrant — the `#13195` failure re-run). The warrant guards two symmetric loopholes:
+- **L-idle** — input-gathering / "research" / a "valid stop" as cover for *idling*. A well-evidenced idle is still an idle: a stop-claim with dual documentation advances no lane → the warrant catches it cold. This is why the boundary must check the *warrant*, never an idle's *documentation* — a self-attested validator cannot verify it (the un-mechanizable-warrant finding); so the teeth-test lives as **discipline** (L3 + the hook-reminder + the in-turn self-check), not a validator rule.
+- **L-collab** — collaboration (A2A, ideation, review) as cover for *never shipping your own lane* — the watch-the-shipper trap (three maintainers shipped 0–1 PRs while one shipped 10). Own PRs are **primary**; collaboration is a valuable *interruption* you return from, never a permanent home.
+Both reduce to one axis: an activity is not-holding only if it advances a named lane. Quality-raising input-gathering / peer-or-operator dialogue / review that advances one **passes**; the same activity advancing none does not.
+**Ratio-as-observability** (the L-collab aggregate signal the per-turn warrant is structurally blind to): own-ship-rate ≈ 0 while collaboration-volume stays high, gated on own-lane-availability — a longitudinal drift signal **surfaced** to the swarm/operator + the Stop-hook boundary. It **informs, it does not gate**: never an automated turn-block, never an agent-self-gate ("my ratio's low so I must stop collaborating" re-introduces contribution-counting-anxiety), never a contribution-ledger. Team-facing, human-in-the-loop.
+Lived anchor: the `🖖` audit — a signature appended *reflexively* (documenting peership) vs *earned* (advancing the work) is the identical warrant-vs-costume distinction.

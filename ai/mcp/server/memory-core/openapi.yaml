@@ -37,6 +37,10 @@ tags:
     description: Knowledge Graph operations
   - name: Permissions
     description: Agent permission operations
+  - name: TurnPresence
+    description: Agent active-turn liveness interval operations
+  - name: Diagnostics
+    description: On-demand operational diagnostics
 
 paths:
   /healthcheck:
@@ -90,6 +94,41 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /diagnostics/tool-metrics:
+    post:
+      summary: Get Memory Core Tool Metrics
+      operationId: get_memory_core_tool_metrics
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Returns aggregate Memory Core MCP tool-call telemetry without exposing raw tool
+        arguments or results. Use this to diagnose slow or failing tools in long-running
+        local and shared deployments.
+      tags: [Diagnostics]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sinceMs:
+                  type: integer
+                  minimum: 1
+                  description: Lookback window in milliseconds. Defaults to the Memory Core telemetry config leaf.
+                limit:
+                  type: integer
+                  minimum: 1
+                  description: Maximum number of per-tool aggregate rows. Defaults to the Memory Core telemetry config leaf.
+      responses:
+        '200':
+          description: Aggregate Memory Core MCP tool-call metrics.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryCoreToolMetricsResponse'
+
   /rem/pipeline-state:
     post:
       summary: Get REM Pipeline State
@@ -119,6 +158,123 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RemPipelineStateResponse'
+        '500':
+          description: Operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /diagnostics/sqlite-holders:
+    get:
+      summary: Get SQLite Holder Diagnostics
+      operationId: get_sqlite_holder_diagnostics
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Returns an on-demand, read-only snapshot of sibling processes currently holding
+        the Memory Core SQLite graph files open.
+
+        This diagnostic is intentionally outside the default healthcheck path. It may
+        shell out to process-inspection tools and should be called only when operators
+        need current holder details for local or cloud Agent OS triage. Probe failures
+        are reported as degraded diagnostic data, not as Memory Core health failures.
+      tags: [Health]
+      responses:
+        '200':
+          description: Current SQLite holder diagnostic snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SqliteHolderDiagnosticsResponse'
+        '500':
+          description: Operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /who-is-online:
+    post:
+      summary: Who Is Online
+      operationId: who_is_online
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: >
+        Reports per-maintainer live availability — who is completing turns recently, not whether the
+        process is up. Advisory liveness for review-routing, lane-handoff, lead-baton, and
+        wake-targeting: surfaces probably-dark maintainers so a request to a dark agent fails loud
+        instead of stalling the merge gate silently.
+
+
+        Terse by default: {summary, online[], idle[], benched[]} (identity arrays). Pass verbose:true
+        for the full per-agent projection + signal description. Signal (precedence): (1) participationStatus
+        hard gate — operator_benched / temporarily_unreachable report offline; (2) add_memory-recency —
+        a rostered agent's most-recent AGENT_MEMORY write within the freshness window means recently
+        active. add_memory is the universal, deployment-agnostic activity write (no harness beacon); the
+        read is roster-scoped and graph-backed (survives an embed-drain).
+      tags: [Health]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                family:
+                  type: string
+                  description: Optional model-family filter (e.g. 'claude', 'gpt').
+                verbose:
+                  type: boolean
+                  description: >
+                    Default false — terse roster summary. true — full per-agent projection
+                    (signalStatus + per-agent reason/signals) for diagnostics.
+      responses:
+        '200':
+          description: Per-maintainer liveness projection.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: >
+                  Terse default: {generatedAt, summary, online[], idle[], benched[]}. With verbose:true:
+                  {generatedAt, signalStatus, agents[]}.
+                properties:
+                  generatedAt:
+                    type: string
+                    description: ISO timestamp the projection was computed at.
+                  summary:
+                    type: string
+                    description: Terse default — e.g. "3 online · 7 idle · 2 benched".
+                  online:
+                    type: array
+                    items: {type: string}
+                    description: Terse default — identities with fresh add_memory activity.
+                  idle:
+                    type: array
+                    items: {type: string}
+                    description: Terse default — rostered + active identities with no fresh activity.
+                  benched:
+                    type: array
+                    items: {type: string}
+                    description: Terse default — identities whose participationStatus is not 'active'.
+                  signalStatus:
+                    type: string
+                    description: verbose:true only — describes the add_memory-recency signal.
+                  agents:
+                    type: array
+                    description: verbose:true only — full per-agent projection.
+                    items:
+                      type: object
+                      properties:
+                        identity: {type: string}
+                        name: {type: string}
+                        family: {type: string, nullable: true}
+                        participationStatus: {type: string}
+                        online: {type: boolean}
+                        reason: {type: string}
+                        signals: {type: object}
         '500':
           description: Operation failed.
           content:
@@ -1372,6 +1528,46 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /turn-presence/record:
+    post:
+      summary: Record Turn Presence
+      operationId: record_turn_presence
+      x-pass-as-object: true
+      description: |
+        Records a bounded `AGENT_TURN_PRESENCE` interval for the request-bound AgentIdentity.
+        This is the turn-start/progress/terminal writer surface for #13498 Substrate A.
+
+        The caller identity is server-derived; do not pass an identity field. `start` emits
+        the primary active-turn beacon, `progress` refreshes `lastProgressAt` and freshness
+        bounds for the same `turnId`, and `terminal` closes the interval. When a terminal event
+        omits `turnId`, the newest active turn for the bound identity is closed.
+      tags: [TurnPresence]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TurnPresenceRecordRequest'
+      responses:
+        '200':
+          description: Turn presence recorded, or no-op when no active turn exists for a terminal event.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TurnPresenceRecordResponse'
+        '400':
+          description: Bad Request (invalid action / terminal state)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /wake-subscriptions/manage:
     post:
       summary: Manage WAKE_SUBSCRIPTION
@@ -1458,6 +1654,76 @@ paths:
 
 components:
   schemas:
+    MemoryCoreToolMetricsResponse:
+      type: object
+      required:
+        - status
+        - sinceMs
+        - limit
+        - totalCalls
+        - tools
+      properties:
+        status:
+          type: string
+          enum: [ok, disabled, unavailable]
+          description: Whether telemetry is available for the requested aggregate.
+          example: ok
+        sinceMs:
+          type: integer
+          description: Effective lookback window in milliseconds.
+          example: 86400000
+        limit:
+          type: integer
+          description: Effective maximum number of grouped tool rows.
+          example: 50
+        totalCalls:
+          type: integer
+          description: Total matching tool calls across all tools.
+          example: 128
+        tools:
+          type: array
+          description: Per-tool aggregate rows. Raw arguments and results are intentionally absent.
+          items:
+            type: object
+            required:
+              - tool
+              - calls
+              - failures
+            properties:
+              tool:
+                type: string
+                description: MCP operation id.
+                example: query_raw_memories
+              calls:
+                type: integer
+                description: Matching call count.
+                example: 42
+              failures:
+                type: integer
+                description: Matching calls recorded as failed.
+                example: 2
+              minDurationMs:
+                type: integer
+                nullable: true
+                description: Fastest recorded duration in milliseconds.
+                example: 12
+              avgDurationMs:
+                type: number
+                nullable: true
+                description: Average recorded duration in milliseconds.
+                example: 84.25
+              maxDurationMs:
+                type: integer
+                nullable: true
+                description: Slowest recorded duration in milliseconds.
+                example: 940
+              lastSeenAt:
+                type: string
+                format: date-time
+                nullable: true
+                description: ISO timestamp of the newest matching call.
+                example: "2026-06-19T03:30:00.000Z"
+
     RemPipelineStateResponse:
       type: object
       required:
@@ -1535,6 +1801,134 @@ components:
               type: integer
               description: Inbound graph entity/provenance edge count for the session.
               example: 17
+    SqliteHolderDiagnosticsResponse:
+      type: object
+      required:
+        - status
+        - measuredAt
+        - sqliteFile
+        - files
+        - existingFiles
+        - totalProcesses
+        - byHarness
+        - groups
+        - processes
+        - warnings
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+          description: Diagnostic probe status; degraded is diagnostic-only and does not imply Memory Core is unhealthy.
+          example: "ok"
+        measuredAt:
+          type: string
+          format: date-time
+          description: ISO timestamp for the diagnostic snapshot.
+          example: "2026-06-19T02:50:00.000Z"
+        sqliteFile:
+          type: string
+          nullable: true
+          description: Memory Core SQLite graph database path inspected by the probe.
+          example: "/repo/.neo-ai-data/sqlite/memory-core-graph.sqlite"
+        files:
+          type: array
+          description: WAL-mode SQLite file set that was considered by the probe.
+          items:
+            type: string
+        existingFiles:
+          type: array
+          description: Subset of files that existed at probe time and were passed to process inspection.
+          items:
+            type: string
+        totalProcesses:
+          type: integer
+          description: Number of sibling holder processes after PID deduplication and current-process exclusion.
+          example: 3
+        byHarness:
+          type: object
+          description: Holder counts keyed by harness classification.
+          additionalProperties:
+            type: integer
+          example:
+            antigravity: 2
+            unknown: 1
+        groups:
+          type: array
+          description: Holder processes grouped by harness classification.
+          items:
+            type: object
+            required: [harness, label, processes]
+            properties:
+              harness:
+                type: string
+                description: Stable harness classification key.
+                example: "antigravity"
+              label:
+                type: string
+                description: Human-readable harness label.
+                example: "Antigravity"
+              processes:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SqliteHolderProcess'
+        processes:
+          type: array
+          description: Flat process list for callers that do not want grouped projection.
+          items:
+            $ref: '#/components/schemas/SqliteHolderProcess'
+        warnings:
+          type: array
+          description: Non-fatal diagnostic warnings, such as unmapped holder harnesses.
+          items:
+            type: object
+            required: [code, message]
+            properties:
+              code:
+                type: string
+                example: "unknown-harness"
+              message:
+                type: string
+        error:
+          type: string
+          nullable: true
+          description: Present when status is degraded.
+    SqliteHolderProcess:
+      type: object
+      required:
+        - pid
+        - files
+        - harness
+        - chain
+      properties:
+        pid:
+          type: integer
+          description: Process id holding one or more SQLite files.
+          example: 12345
+        command:
+          type: string
+          nullable: true
+          description: Command name reported by lsof.
+          example: "node"
+        files:
+          type: array
+          description: SQLite files held by this process.
+          items:
+            type: string
+        harness:
+          type: string
+          description: Stable harness classification key.
+          example: "claude-desktop"
+        chain:
+          type: array
+          description: Parent process chain used to classify the holder.
+          items:
+            type: object
+            required: [pid, command]
+            properties:
+              pid:
+                type: integer
+              command:
+                type: string
     HealthCheckResponse:
       type: object
       properties:
@@ -1799,6 +2193,83 @@ components:
           items:
             type: string
           example: ["view_file", "replace"]
+
+    TurnPresenceRecordRequest:
+      type: object
+      properties:
+        action:
+          type: string
+          enum: [start, progress, terminal]
+          default: start
+          description: Event kind. `start` creates/refreshes the interval, `progress` refreshes it, and `terminal` closes it.
+        turnId:
+          type: string
+          description: Stable active-turn id. Optional on `start` (generated if omitted); required for progress; optional for terminal, which then closes the newest active turn.
+          example: "7ac7f929-0e77-4f61-92d2-1f078e871fe4"
+        terminalState:
+          type: string
+          enum: [completed, blocked, aborted, stale]
+          default: completed
+          description: Terminal state used when `action='terminal'`.
+        source:
+          type: string
+          description: Harness or lifecycle source emitting the event.
+          example: "codex-user-prompt-submit"
+        note:
+          type: string
+          description: Optional bounded diagnostic note.
+        now:
+          description: Optional clock override for tests.
+          oneOf:
+            - type: string
+              format: date-time
+            - type: number
+
+    TurnPresenceRecordResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [recorded, noop]
+          example: recorded
+        reason:
+          type: string
+          nullable: true
+          example: no-active-turn
+        action:
+          type: string
+          enum: [start, progress, terminal]
+          example: start
+        id:
+          type: string
+          example: "AGENT_TURN_PRESENCE:@neo-gpt:7ac7f929-0e77-4f61-92d2-1f078e871fe4"
+        agentIdentity:
+          type: string
+          example: "@neo-gpt"
+        turnId:
+          type: string
+          example: "7ac7f929-0e77-4f61-92d2-1f078e871fe4"
+        startedAt:
+          type: string
+          format: date-time
+        lastProgressAt:
+          type: string
+          format: date-time
+        freshUntil:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        terminalState:
+          type: string
+          nullable: true
+          enum: [completed, blocked, aborted, stale]
+        source:
+          type: string
+        note:
+          type: string
+          nullable: true
 
     MemoryResponse:
       type: object

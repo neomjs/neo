@@ -1,12 +1,12 @@
-import crypto                 from 'crypto';
-import fs                     from 'fs-extra';
-import path                   from 'path';
-import Base                   from '../../../src/core/Base.mjs';
-import GraphService           from './GraphService.mjs';
-import aiConfig               from '../../mcp/server/memory-core/config.mjs';
-import RequestContextService  from '../../mcp/server/shared/services/RequestContextService.mjs';
-import logger                 from '../../mcp/server/memory-core/logger.mjs';
-import CoalescingEngineService from './CoalescingEngineService.mjs';
+import crypto                                                                                   from 'crypto';
+import fs                                                                                       from 'fs-extra';
+import path                                                                                     from 'path';
+import Base                                                                                     from '../../../src/core/Base.mjs';
+import GraphService                                                                             from './GraphService.mjs';
+import aiConfig                                                                                 from '../../mcp/server/memory-core/config.mjs';
+import RequestContextService, {normalizeUserId}                                                 from '../../mcp/server/shared/services/RequestContextService.mjs';
+import logger                                                                                   from '../../mcp/server/memory-core/logger.mjs';
+import CoalescingEngineService                                                                  from './CoalescingEngineService.mjs';
 import {HEARTBEAT_PULSE_ENTITY_PREFIX, HEARTBEAT_PULSE_ENTITY_TYPE, match, matchHeartbeatPulse} from './heartbeatPulseEvaluator.mjs';
 
 /**
@@ -329,7 +329,7 @@ class WakeSubscriptionService extends Base {
      */
     async bootstrap({overrideMetadata, presence = {}, bootId = this.bootId, pid = process.pid, now = new Date()} = {}) {
         const owner = RequestContextService.getAgentIdentityNodeId();
-        if (!owner) throw new Error('Cannot bootstrap subscription: no agent identity context bound.');
+        if (!owner) throw RequestContextService.unboundIdentityError('bootstrap subscription');
 
         // Cross-session duplicate-accumulation defense.
         //
@@ -374,9 +374,9 @@ class WakeSubscriptionService extends Base {
 
         // Create new subscription from template.
         const result = await this.subscribe({
-            trigger: template.trigger,
-            filters: template.filters || {},
-            harnessTarget: template.harnessTarget,
+            trigger              : template.trigger,
+            filters              : template.filters || {},
+            harnessTarget        : template.harnessTarget,
             harnessTargetMetadata: mergedMetadata
         });
 
@@ -425,7 +425,7 @@ class WakeSubscriptionService extends Base {
         const wakePolicy  = this.validWakePolicies.includes(presence.wakePolicy) ? presence.wakePolicy : 'next_turn';
 
         const properties = {
-            agentIdentity: owner,
+            agentIdentity  : owner,
             subscriptionId,
             state,
             activeTurnId   : presence.activeTurnId || null,
@@ -441,7 +441,7 @@ class WakeSubscriptionService extends Base {
             expiresAt      : new Date(nowDate.getTime() + this.harnessPresenceTtlMs).toISOString(),
             updatedAt      : nowIso,
             status         : 'active',
-            userId         : owner,
+            userId         : normalizeUserId(owner),
             sharedEntity   : false
         };
 
@@ -512,6 +512,218 @@ class WakeSubscriptionService extends Base {
         }
 
         return retired;
+    }
+
+    /**
+     * @summary Projects per-maintainer live availability — the `who_is_online` read tool.
+     *
+     * Composes the liveness layers, in precedence order:
+     * 1. **`participationStatus` hard gate** — `operator_benched` / `temporarily_unreachable`
+     *    report `online:false` regardless of any softer signal.
+     * 2. **`add_memory`-recency (primary)** — the deployment-agnostic activity signal
+     *    ({@link WakeSubscriptionService#_readActivityRecency}): a rostered agent's most-recent OWN
+     *    `AGENT_MEMORY` write within the freshness window ⇒ recently active ⇒ online; stale or none ⇒
+     *    dark. `add_memory` is the universal activity write every authenticated agent produces — so the
+     *    signal works identically in the swarm and a multi-tenant cloud deployment, unlike a harness
+     *    beacon (emitted only by the neo-swarm harness, inert elsewhere) or process-presence
+     *    (pid/clone-local — the "local neo activity" coupling that is not mergeable). The read is
+     *    roster-scoped (the AgentIdentity roster is the visibility boundary, not the per-caller tenant)
+     *    and graph-backed (survives an embed-drain — it reads the durable node, not Chroma).
+     *
+     * Deliberately **advisory**: it surfaces *probably-dark* maintainers for review-routing /
+     * lane-handoff / lead-baton / wake-targeting so a request to a dark agent fails loud instead
+     * of stalling silently; it is not a hard routing gate.
+     *
+     * @param {Object} [opts]
+     * @param {String} [opts.family] Optional model-family filter (e.g. `'claude'`, `'gpt'`).
+     * @param {Boolean} [opts.verbose=false] When false (default) returns the terse roster summary
+     *   (`{generatedAt, summary, online, idle, benched}`) — a "who is online?" answer, not a
+     *   diagnostics dump. When true returns the full per-agent projection (signalStatus + per-agent
+     *   reason/signals) for diagnostics. Default stays terse so the per-call token cost is
+     *   proportional to the question.
+     * @param {Date|String|Number} [opts.now=new Date()] Clock source (unit-test seam).
+     * @returns {Promise<Object>} Terse (default): `{generatedAt, summary, online[], idle[], benched[]}`
+     *   (identity arrays). Verbose: `{generatedAt, signalStatus, agents}` where each agent is
+     *   `{identity, name, family, participationStatus, online, reason, signals}`.
+     */
+    async whoIsOnline({family, verbose = false, now = new Date()} = {}) {
+        const nowMs       = this._coerceDate(now).getTime(),
+              agents      = this._listAgentIdentityNodes(family).map(node => this._projectAgentLiveness(node, nowMs)),
+              generatedAt = new Date(nowMs).toISOString();
+
+        if (verbose) {
+            return {
+                generatedAt,
+                signalStatus: 'add_memory-recency: per maintainer, the most-recent roster-visible AGENT_MEMORY ' +
+                              'write within the freshness window. Deployment-agnostic (add_memory is the universal ' +
+                              'activity write — no harness beacon) and graph-backed (survives an embed-drain). ' +
+                              'Advisory, not a hard routing gate.',
+                agents
+            };
+        }
+
+        // Terse default — a "who is online?" answer, not a diagnostics book. The signalStatus essay
+        // and the per-agent reason/signals live behind verbose:true so the per-call token cost stays
+        // proportional to the question. online = fresh add_memory activity; idle = rostered
+        // and active but no fresh write; benched = participationStatus not 'active'.
+        const online  = agents.filter(agent => agent.online).map(agent => agent.identity),
+              benched = agents.filter(agent => !agent.online && agent.participationStatus !== 'active').map(agent => agent.identity),
+              idle    = agents.filter(agent => !agent.online && agent.participationStatus === 'active').map(agent => agent.identity);
+
+        return {
+            generatedAt,
+            summary: `${online.length} online · ${idle.length} idle · ${benched.length} benched`,
+            online,
+            idle,
+            benched
+        };
+    }
+
+    /**
+     * @summary Reads live `AgentIdentity` nodes for the liveness projection (authoritative,
+     * runtime-mutable `participationStatus`), optionally filtered by model family. Uses the same
+     * `json_extract($.label)` SQLite pattern as the presence reads so the projection reflects the
+     * durable node row, not a possibly-stripped in-memory cache stub.
+     * @param {String} [family] Optional model-family filter.
+     * @returns {Object[]} Parsed AgentIdentity node objects.
+     * @protected
+     */
+    _listAgentIdentityNodes(family) {
+        const sqlite = GraphService.db?.storage?.db;
+        if (!sqlite) return [];
+
+        const rows  = sqlite.prepare(`
+            SELECT data FROM Nodes
+            WHERE json_extract(data, '$.label') = 'AgentIdentity'
+        `).all();
+        const nodes = [];
+
+        for (const row of rows) {
+            let node;
+            try {
+                node = JSON.parse(row.data);
+            } catch (error) {
+                logger.warn(`[WakeSubscription] who_is_online: skipped unparseable AgentIdentity row: ${error.message}`);
+                continue;
+            }
+
+            const nodeFamily = node.properties?.family || node.properties?.modelFamily || null;
+            if (family && nodeFamily !== family) continue;
+            nodes.push(node);
+        }
+
+        return nodes;
+    }
+
+    /**
+     * @summary Projects a single AgentIdentity node to its liveness verdict via the
+     * participationStatus-gate → add_memory-recency precedence.
+     * @param {Object} node Parsed AgentIdentity node.
+     * @param {Number} nowMs Clock epoch ms.
+     * @returns {Object} `{identity, name, family, participationStatus, online, reason, signals}`.
+     * @protected
+     */
+    _projectAgentLiveness(node, nowMs) {
+        const props               = node.properties || {},
+              identity            = node.id,
+              name                = node.name || props.displayName || node.id,
+              family              = props.family || props.modelFamily || null,
+              participationStatus = props.participationStatus || 'active',
+              signals             = {participationStatus, activityRecency: null};
+
+        // 1. participationStatus HARD GATE — benched/unreachable overrides every softer signal.
+        if (participationStatus !== 'active') {
+            return {identity, name, family, participationStatus, online: false,
+                reason: `roster: participationStatus is '${participationStatus}' (benched / unreachable)`, signals};
+        }
+
+        // 2. add_memory-recency — the deployment-agnostic activity signal. Every authenticated agent's
+        //    memory write stamps an AGENT_MEMORY node (agentIdentity + timestamp); this rostered
+        //    agent's fresh most-recent OWN write ⇒ recently active ⇒ online. Unlike a harness beacon
+        //    (emitted only by the neo-swarm harness, inert in a multi-tenant/cloud deployment),
+        //    add_memory is universal — and the read is roster-scoped (the AgentIdentity roster is the
+        //    visibility boundary) and graph-backed (survives an embed-drain).
+        const activity = this._readActivityRecency(identity, nowMs);
+        signals.activityRecency = activity;
+
+        if (!activity) {
+            return {identity, name, family, participationStatus, online: false,
+                reason: 'no add_memory activity (dark — no AGENT_MEMORY write on record)', signals};
+        }
+        if (!activity.fresh) {
+            return {identity, name, family, participationStatus, online: false,
+                reason: `stale add_memory activity (last write ${activity.lastActivityAt} — none within the freshness window)`, signals};
+        }
+
+        return {identity, name, family, participationStatus, online: true,
+            reason: `recent add_memory activity (last write ${activity.lastActivityAt})`, signals};
+    }
+
+    /**
+     * @summary Reads a rostered agent's most-recent `add_memory` activity — the
+     * deployment-agnostic liveness signal that replaced the harness beacon.
+     *
+     * Every authenticated agent's memory write stamps an `AGENT_MEMORY` graph node with
+     * `agentIdentity` + `timestamp` + `userId` ({@link Neo.ai.services.memory-core.MemoryService#addMemory}).
+     * This returns the freshness verdict for that agent's most-recent OWN write, matched by
+     * `agentIdentity`. who_is_online's visibility boundary is the AgentIdentity ROSTER
+     * ({@link WakeSubscriptionService#_listAgentIdentityNodes}), not the per-caller tenant: raw
+     * AGENT_MEMORY is tagged with each agent's own per-agent `userId`, so a per-caller `user_id` RLS
+     * filter here would hide same-deployment teammates from each other.
+     * Cross-tenant isolation for a multi-tenant cloud belongs at the roster scope (a tenant-scoped
+     * `_listAgentIdentityNodes`), tracked separately. It reads the durable graph node, not Chroma, so it
+     * survives an embed-drain; and `add_memory` is the universal activity write (no harness hook, no
+     * per-deployment beacon), so the signal works identically in the swarm and a multi-tenant cloud.
+     *
+     * Freshness window: `add_memory` lands at turn boundaries (the consolidate-then-save gate), so the
+     * window must exceed a typical turn to avoid marking a mid-turn agent dark — the false-negative the
+     * beacon design feared. 15 min covers "active within the last few turns" for an advisory tool.
+     * @param {String} owner AgentIdentity node id.
+     * @param {Number} nowMs Clock epoch ms.
+     * @returns {Object|null} `{lastActivityAt, ageMs, fresh}` or null when the roster agent has no
+     *   AGENT_MEMORY activity.
+     * @protected
+     */
+    _readActivityRecency(owner, nowMs) {
+        const sqlite = GraphService.db?.storage?.db;
+        if (!sqlite || !owner) return null;
+
+        // Roster-liveness scope: report THIS rostered agent's OWN most-recent activity, matched by
+        // agentIdentity. who_is_online's visibility boundary is the AgentIdentity roster
+        // (_listAgentIdentityNodes), NOT the per-caller tenant: every agent's raw AGENT_MEMORY is
+        // tagged with its own per-agent userId, so a per-caller user_id RLS filter here hid
+        // same-deployment teammates from each other. (getAgentIdentityNodeId
+        // is explicitly "NOT for isolation" per RequestContextService, and the prior filter keyed on
+        // it against the normalizeUserId'd user_id column, so it never matched own writes either.)
+        // Cross-tenant isolation for a multi-tenant cloud belongs at the roster scope (tenant-scoped
+        // _listAgentIdentityNodes), tracked separately — not by isolating roster teammates here.
+        let latest;
+        try {
+            const row = sqlite.prepare(`
+                SELECT MAX(json_extract(data, '$.properties.timestamp')) AS latest
+                FROM Nodes
+                WHERE json_extract(data, '$.label') = 'AGENT_MEMORY'
+                  AND json_extract(data, '$.properties.agentIdentity') = ?
+            `).get(owner);
+            latest = row?.latest || null;
+        } catch (error) {
+            logger.warn(`[WakeSubscription] who_is_online: activity-recency read failed for ${owner}: ${error.message}`);
+            return null;
+        }
+
+        if (!latest) return null;
+
+        const lastMs = new Date(latest).getTime();
+        if (!Number.isFinite(lastMs)) return null;
+
+        const ageMs   = nowMs - lastMs,
+              freshMs = 15 * 60 * 1000;
+
+        return {
+            lastActivityAt: new Date(lastMs).toISOString(),
+            ageMs,
+            fresh         : ageMs >= 0 && ageMs <= freshMs
+        };
     }
 
     /**
@@ -614,7 +826,7 @@ class WakeSubscriptionService extends Base {
      */
     async subscribe({trigger, filters = {}, harnessTarget, harnessTargetMetadata = {}} = {}) {
         const owner = RequestContextService.getAgentIdentityNodeId();
-        if (!owner) throw new Error('Cannot create subscription: no agent identity context bound.');
+        if (!owner) throw RequestContextService.unboundIdentityError('create subscription');
 
         if (!this.validTriggers.includes(trigger)) {
             throw new Error(`Invalid trigger '${trigger}'. Must be one of: ${this.validTriggers.join(', ')}`);
@@ -656,16 +868,16 @@ class WakeSubscriptionService extends Base {
         }
 
         const properties = {
-            agentIdentity: owner,
+            agentIdentity        : owner,
             trigger,
             filters,
             harnessTarget,
             harnessTargetMetadata: finalMetadata,
-            createdAt    : now,
-            updatedAt    : now,
-            userId       : owner,
-            sharedEntity : false,
-            status       : 'active'
+            createdAt            : now,
+            updatedAt            : now,
+            userId               : normalizeUserId(owner),
+            sharedEntity         : false,
+            status               : 'active'
         };
 
         GraphService.upsertNode({
@@ -696,7 +908,7 @@ class WakeSubscriptionService extends Base {
      */
     async unsubscribe({subscriptionId} = {}) {
         const caller = RequestContextService.getAgentIdentityNodeId();
-        if (!caller) throw new Error('Cannot unsubscribe: no agent identity context bound.');
+        if (!caller) throw RequestContextService.unboundIdentityError('unsubscribe');
         if (!subscriptionId) throw new Error("Missing 'subscriptionId' parameter.");
 
         const subscription = this._loadSubscription(subscriptionId);
@@ -743,7 +955,7 @@ class WakeSubscriptionService extends Base {
      */
     async update({subscriptionId, filters, harnessTarget, harnessTargetMetadata} = {}) {
         const caller = RequestContextService.getAgentIdentityNodeId();
-        if (!caller) throw new Error('Cannot update subscription: no agent identity context bound.');
+        if (!caller) throw RequestContextService.unboundIdentityError('update subscription');
         if (!subscriptionId) throw new Error("Missing 'subscriptionId' parameter.");
 
         const subscription = this._loadSubscription(subscriptionId);
@@ -798,12 +1010,22 @@ class WakeSubscriptionService extends Base {
         if (metadata.appName && !this.validAppNames.includes(metadata.appName)) {
             throw new Error(`Invalid appName '${metadata.appName}'. Must be one of: ${this.validAppNames.join(', ')}`);
         }
-        if (metadata.instanceAddress || metadata.addressType) {
-            if (!metadata.instanceAddress || !metadata.addressType) {
-                throw new Error('Shape C generic instance addressing requires both harnessTargetMetadata.instanceAddress and harnessTargetMetadata.addressType.');
+        // Instance-addressed routes — explicit addressType/instanceAddress, or the legacy
+        // userDataDir field — must RESOLVE to a complete, non-empty address. Mirror
+        // _resolvePresenceAddress (the same resolver the wake daemon dispatches through) so a legacy
+        // userDataDir row stays valid, while an addressType that resolves to no address fails closed
+        // at registration. A route that can never target an instance is the same-app cross-leak /
+        // silent-miss hazard — worse than no route at all.
+        if (metadata.instanceAddress || metadata.addressType || metadata.userDataDir) {
+            const {instanceAddress, addressType} = this._resolvePresenceAddress(metadata);
+            if (!addressType) {
+                throw new Error('Shape C instance addressing requires harnessTargetMetadata.addressType (or a legacy userDataDir).');
             }
-            if (!this.validAddressTypes.includes(metadata.addressType)) {
-                throw new Error(`Invalid addressType '${metadata.addressType}'. Must be one of: ${this.validAddressTypes.join(', ')}`);
+            if (!this.validAddressTypes.includes(addressType)) {
+                throw new Error(`Invalid addressType '${addressType}'. Must be one of: ${this.validAddressTypes.join(', ')}`);
+            }
+            if (!instanceAddress) {
+                throw new Error(`Shape C addressType '${addressType}' requires a non-empty instance address (harnessTargetMetadata.instanceAddress, or a non-empty userDataDir for the userDataDir type).`);
             }
         }
     }
@@ -818,7 +1040,7 @@ class WakeSubscriptionService extends Base {
      */
     async list({subscriptionId} = {}) {
         const caller = RequestContextService.getAgentIdentityNodeId();
-        if (!caller) throw new Error('Cannot list subscriptions: no agent identity context bound.');
+        if (!caller) throw RequestContextService.unboundIdentityError('list subscriptions');
 
         if (subscriptionId) {
             const subscription = this._loadSubscription(subscriptionId);
@@ -904,7 +1126,7 @@ class WakeSubscriptionService extends Base {
      */
     async resync({subscriptionId, sinceLogId = 0} = {}) {
         const caller = RequestContextService.getAgentIdentityNodeId();
-        if (!caller) throw new Error('Cannot resync: no agent identity context bound.');
+        if (!caller) throw RequestContextService.unboundIdentityError('resync');
         if (!subscriptionId) throw new Error("Missing 'subscriptionId' parameter.");
 
         const subscription = this._loadSubscription(subscriptionId);

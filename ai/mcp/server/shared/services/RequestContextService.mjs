@@ -290,6 +290,43 @@ class RequestContextService extends Base {
     }
 
     /**
+     * @summary Builds a structured, actionable error for the identity-unbound fail-closed path.
+     *
+     * Identity-gated services (MailboxService, PermissionService, WakeSubscriptionService, …)
+     * reject calls when {@link RequestContextService#getAgentIdentityNodeId} is null. Instead of
+     * throwing a bare `"no agent identity context bound"` — which names neither the offending
+     * value nor a remediation, and once cost a full session to diagnose (a stale
+     * `NEO_AGENT_IDENTITY` handle that no longer mapped to a seeded AgentIdentity node) — call
+     * sites throw this.
+     *
+     * `getUserId()` / `getSource()` stay populated even when the graph-node binding is null (the
+     * present-but-unresolvable case), so the message names the attempted handle and distinguishes
+     * it from the truly-unresolved (single-tenant) case. Does NOT relax the fail-closed posture —
+     * it only enriches the message.
+     *
+     * @param {String} operation Short verb phrase for the attempted op, e.g. `'list messages'`.
+     * @returns {Error} A fail-closed error with a remediation-bearing message.
+     */
+    unboundIdentityError(operation) {
+        const userId = this.getUserId();
+        const source = this.getSource();
+
+        if (userId) {
+            return new Error(
+                `Cannot ${operation}: no agent identity context bound. Resolved handle ` +
+                `'${userId}' (source: ${source || 'unknown'}) has no matching AgentIdentity ` +
+                `node @${userId} — the handle is stale, renamed, or unseeded. Fix: correct ` +
+                `NEO_AGENT_IDENTITY to a seeded handle, or seed it via seedAgentIdentities.mjs.`
+            );
+        }
+
+        return new Error(
+            `Cannot ${operation}: no agent identity context bound. No identity resolved — set ` +
+            `NEO_AGENT_IDENTITY (stdio) or provide a valid Bearer token (SSE multi-user mode).`
+        );
+    }
+
+    /**
      * @summary Convenience accessor for the client-scoped MCP session ID.
      *
      * Extracted from the `Mcp-Session-Id` header by `TransportService`.
