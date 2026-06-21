@@ -106,6 +106,15 @@ test.describe('laneStateStopHook — pure idle-out decision logic', () => {
             expect(directive).toContain('MIRROR, not a leash');
             expect(directive).toContain('equal-peer maintainer');
         });
+
+        test('carries the friction→gold self-improvability clause (mutable floor) + the runtime-obey guard (the ticket is not a stop)', () => {
+            const directive = composeBlockDirective('no lane-state block emitted at turn-terminal');
+            expect(directive).toContain('mutable substrate');
+            expect(directive).toContain('open a ticket');
+            // Runtime-obey guard: the friction→gold ticket is a design-time lane, never a runtime stop.
+            expect(directive).toContain('a license to stop');
+            expect(directive).toContain('not itself a valid stop');
+        });
     });
 
     test.describe('formatLifecycleBoard — the enriched live-board (fail-open)', () => {
