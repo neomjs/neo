@@ -1,27 +1,27 @@
-import fs from 'fs';
-import path from 'path';
-import yaml from 'js-yaml';
-import { fileURLToPath } from 'url';
-import crypto from 'crypto';
-import { Memory_Config as aiConfig } from '../../../services.mjs';
-import Base from '../../../../src/core/Base.mjs';
-import { Memory_StorageRouter as StorageRouter } from '../../../services.mjs';
+import fs                                                      from 'fs';
+import path                                                    from 'path';
+import yaml                                                    from 'js-yaml';
+import { fileURLToPath }                                       from 'url';
+import crypto                                                  from 'crypto';
+import { Memory_Config as aiConfig }                           from '../../../services.mjs';
+import Base                                                    from '../../../../src/core/Base.mjs';
+import { Memory_StorageRouter as StorageRouter }               from '../../../services.mjs';
 import { Memory_TextEmbeddingService as TextEmbeddingService } from '../../../services.mjs';
-import { Memory_GraphService as GraphService } from '../../../services.mjs';
-import Json from '../../../../src/util/Json.mjs';
-import logger from '../../../mcp/server/memory-core/logger.mjs';
-import AdrIngestor from '../../../services/ingestion/AdrIngestor.mjs';
-import ConceptDiscoveryService from '../../../services/ingestion/ConceptDiscoveryService.mjs';
-import ConceptIngestor from '../../../services/ingestion/ConceptIngestor.mjs';
-import FileSystemIngestor from '../../../services/memory-core/FileSystemIngestor.mjs';
-import GapInferenceEngine from '../../../services/graph/GapInferenceEngine.mjs';
-import GraphMaintenanceService from '../../../services/graph/GraphMaintenanceService.mjs';
-import IssueIngestor from '../../../services/ingestion/IssueIngestor.mjs';
-import MemorySessionIngestor from '../../../services/ingestion/MemorySessionIngestor.mjs';
-import SemanticGraphExtractor from '../../../services/graph/SemanticGraphExtractor.mjs';
-import TopologyInferenceEngine from '../../../services/graph/TopologyInferenceEngine.mjs';
-import GoldenPathSynthesizer from '../../../services/graph/GoldenPathSynthesizer.mjs';
-import AiConfig from '../../../config.mjs';
+import { Memory_GraphService as GraphService }                 from '../../../services.mjs';
+import Json                                                    from '../../../../src/util/Json.mjs';
+import logger                                                  from '../../../mcp/server/memory-core/logger.mjs';
+import AdrIngestor                                             from '../../../services/ingestion/AdrIngestor.mjs';
+import ConceptDiscoveryService                                 from '../../../services/ingestion/ConceptDiscoveryService.mjs';
+import ConceptIngestor                                         from '../../../services/ingestion/ConceptIngestor.mjs';
+import FileSystemIngestor                                      from '../../../services/memory-core/FileSystemIngestor.mjs';
+import GapInferenceEngine                                      from '../../../services/graph/GapInferenceEngine.mjs';
+import GraphMaintenanceService                                 from '../../../services/graph/GraphMaintenanceService.mjs';
+import IssueIngestor                                           from '../../../services/ingestion/IssueIngestor.mjs';
+import MemorySessionIngestor                                   from '../../../services/ingestion/MemorySessionIngestor.mjs';
+import SemanticGraphExtractor                                  from '../../../services/graph/SemanticGraphExtractor.mjs';
+import TopologyInferenceEngine                                 from '../../../services/graph/TopologyInferenceEngine.mjs';
+import GoldenPathSynthesizer                                   from '../../../services/graph/GoldenPathSynthesizer.mjs';
+import AiConfig                                                from '../../../config.mjs';
 import {
     assertProviderReadinessConfig,
     buildOllamaReadinessConfig,
@@ -39,6 +39,8 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const UNDIGESTED_SESSION_FRESH_RESERVE = 2;
 
 function estimatePayloadTokens(payload) {
     const text = payload === undefined || payload === null ? '' : String(payload);
@@ -85,6 +87,68 @@ function readRequiredNumberLeaf(leafName) {
     }
 
     return value;
+}
+
+function resolveSessionTimestamp(meta = {}) {
+    const value = meta.timestamp ?? meta.lastActivity ?? meta.updatedAt ?? meta.createdAt;
+
+    if (Number.isFinite(value)) {
+        return value;
+    }
+
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) {
+        return numeric;
+    }
+
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function compareSessionRows(direction) {
+    return (a, b) => {
+        const diff = resolveSessionTimestamp(a.meta) - resolveSessionTimestamp(b.meta);
+
+        if (diff !== 0) {
+            return direction === 'ASC' ? diff : -diff;
+        }
+
+        return String(a.id).localeCompare(String(b.id));
+    }
+}
+
+function addUndigestedRowsFromBatch(batch, byId) {
+    if (!batch?.ids?.length) {
+        return;
+    }
+
+    for (let i = 0; i < batch.ids.length; i++) {
+        const meta = batch.metadatas?.[i];
+
+        if (meta && meta.graphDigested !== true && meta.graphDigested !== 'true') {
+            byId.set(batch.ids[i], {
+                id      : batch.ids[i],
+                document: batch.documents?.[i],
+                meta
+            });
+        }
+    }
+}
+
+function splitFreshAndAgedUndigested(rows, maxToProcess) {
+    if (maxToProcess <= 0 || rows.length === 0) {
+        return [];
+    }
+
+    const reserve = maxToProcess > 1 ? Math.min(UNDIGESTED_SESSION_FRESH_RESERVE, maxToProcess - 1) : maxToProcess;
+    const fresh   = [...rows].sort(compareSessionRows('DESC')).slice(0, reserve);
+    const freshIds = new Set(fresh.map(row => row.id));
+    const aged = [...rows]
+        .filter(row => !freshIds.has(row.id))
+        .sort(compareSessionRows('ASC'))
+        .slice(0, maxToProcess - fresh.length);
+
+    return [...fresh, ...aged];
 }
 
 /**
@@ -146,38 +210,54 @@ class DreamService extends Base {
 
     /**
      * Identifies session summaries that do not have the 'graphDigested' metadata flag set to true.
+     *
+     * The scan samples both the fresh head and aged tail of the Chroma summary collection, then splits
+     * the returned REM batch across newest and oldest undigested summaries. This mirrors the
+     * miniSummary backfill pattern: keep a small fresh reserve for recent work, while the aged drain
+     * steadily reaches long-lived projection lag instead of re-serving the same head window forever.
+     *
      * @returns {Promise<Object[]>} List of metadata objects for undigested sessions
      */
     async findUndigestedSessions() {
         // Since ChromaDB filtering on missing attributes can be tricky depending on version,
-        // we'll fetch recent sessions and filter in memory if the dataset is reasonable.
-        // For production, we will just query specifically.
-        const limit = readRequiredNumberLeaf('summarizationBatchLimit');
-        const maxToProcess = readRequiredNumberLeaf('remSleepBatchLimit');
+        // filter in memory after sampling the collection head and tail. Chroma does not expose
+        // SQL-style ORDER BY, so metadata timestamps define the fresh/aged split.
+        const limit        = Math.max(1, Math.floor(readRequiredNumberLeaf('summarizationBatchLimit')));
+        const maxToProcess = Math.max(0, Math.floor(readRequiredNumberLeaf('remSleepBatchLimit')));
+
+        if (maxToProcess === 0) {
+            return [];
+        }
 
         try {
-            const batch = await this.sessionsCollection.get({
+            const byId = new Map();
+            const readBatch = offset => this.sessionsCollection.get({
                 include: ['metadatas', 'documents'],
-                limit
+                limit,
+                offset
             });
 
-            if (!batch || !batch.ids.length) {
-                return [];
-            }
+            addUndigestedRowsFromBatch(await readBatch(0), byId);
 
-            const undigested = [];
-            for (let i = 0; i < batch.ids.length; i++) {
-                const meta = batch.metadatas[i];
-                if (meta && meta.graphDigested !== true && meta.graphDigested !== 'true') {
-                    undigested.push({
-                        id: batch.ids[i],
-                        document: batch.documents[i],
-                        meta
-                    });
+            let collectionCount = null;
+            if (typeof this.sessionsCollection.count === 'function') {
+                try {
+                    collectionCount = await this.sessionsCollection.count();
+                } catch (error) {
+                    logger.warn(`[DreamService] count() failed while preparing aged undigested-session scan; using head window only: ${error.message}`);
                 }
             }
 
-            return undigested.slice(0, maxToProcess);
+            const tailOffset = Number.isFinite(collectionCount) ? Math.max(0, collectionCount - limit) : 0;
+            if (tailOffset > 0) {
+                addUndigestedRowsFromBatch(await readBatch(tailOffset), byId);
+            }
+
+            if (byId.size === 0) {
+                return [];
+            }
+
+            return splitFreshAndAgedUndigested([...byId.values()], maxToProcess);
         } catch (error) {
             logger.error('[DreamService] Error querying undigested sessions:', error);
             return [];
@@ -287,7 +367,7 @@ class DreamService extends Base {
                         const memoryCollection = await StorageRouter.getMemoryCollection();
                         if (memoryCollection) {
                             const rawMemories = await memoryCollection.get({
-                                where: { sessionId: session.meta.sessionId },
+                                where  : { sessionId: session.meta.sessionId },
                                 include: ['documents']
                             });
                             if (rawMemories?.documents?.length > 0) {
@@ -444,7 +524,7 @@ class DreamService extends Base {
 
                     if (success && ingestErrors === 0) {
                         await this.sessionsCollection.update({
-                            ids: [session.id],
+                            ids      : [session.id],
                             metadatas: [{ ...session.meta, graphDigested: true }]
                         });
                         sessionState.graphDigestedFlag = true;
@@ -668,8 +748,8 @@ class DreamService extends Base {
                     const message = toErrorMessage(e);
                     perPhaseStates.push(finishPhase('decay', decayStart, 'failed', {error: message}));
                     return await finalize('failed', {
-                        reasonCode       : 'decay-failed',
-                        failurePhase     : 'decay',
+                        reasonCode  : 'decay-failed',
+                        failurePhase: 'decay',
                         error            : {message: `decayGlobalTopology threw on zero-session path: ${message}`, stack: e?.stack},
                         sessionsProcessed: 0
                     });
