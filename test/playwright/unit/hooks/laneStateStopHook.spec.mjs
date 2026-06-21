@@ -1,5 +1,5 @@
 import {test, expect}                                                                              from '@playwright/test';
-import {composeBlockDirective, decideHookAction, isOperatorInLoop, parseOutcomeToVerdict,
+import {composeBlockDirective, composeDeferenceDirective, decideHookAction, isOperatorInLoop, parseOutcomeToVerdict,
         extractFinalAssistantText, extractLastAssistantTextFromJsonl, extractLastUserTextFromJsonl,
         formatLifecycleBoard} from '../../../../.claude/hooks/laneStateStopHook.mjs';
 import {spawn} from 'node:child_process';
@@ -114,6 +114,18 @@ test.describe('laneStateStopHook — pure idle-out decision logic', () => {
             // Runtime-obey guard: the friction→gold ticket is a design-time lane, never a runtime stop.
             expect(directive).toContain('a license to stop');
             expect(directive).toContain('not itself a valid stop');
+        });
+    });
+
+    test.describe('composeDeferenceDirective — the injected deference-register directive', () => {
+        test('names the helpful-assistant slip, peer identity, peer routes, mutable-substrate path, and trigger', () => {
+            const directive = composeDeferenceDirective('your call');
+            expect(directive).toContain('helpful assistant');
+            expect(directive).toContain('equal peer');
+            expect(directive).toContain('A2A message with peers');
+            expect(directive).toContain('ideation-sandbox');
+            expect(directive).toContain('mutable substrate');
+            expect(directive).toContain('deference phrase "your call"');
         });
     });
 
@@ -244,6 +256,31 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
     }
 
     const validTerminal = `On it.\n\n${block('{"laneContinuation":"active-lane"}')}`;
+
+    test('deference phrase + autonomous turn → WOULD-BLOCK before lane-state parsing (dry-run)', async () => {
+        const {stdout, log} = await runHook(`Your call.\n\n${validTerminal}`, {promptingText: '[WAKE][priority:normal] 1 events'});
+        expect(log).toContain('WOULD-BLOCK');
+        expect(log).toContain('deference phrase "your call"');
+        expect(stdout).toBe('');
+    });
+
+    test('deference phrase + autonomous turn + enforce → BLOCK with the peer-identity directive', async () => {
+        const {stdout, log} = await runHook(`Your move.\n\n${validTerminal}`, {enforce: true, promptingText: '[WAKE][priority:normal] 1 events'});
+        expect(log).toContain('BLOCK');
+        expect(log).toContain('deference phrase "your move"');
+        const decision = JSON.parse(stdout);
+        expect(decision.decision).toBe('block');
+        expect(decision.reason).toContain('helpful assistant');
+        expect(decision.reason).toContain('A2A message with peers');
+        expect(decision.reason).toContain('deference phrase "your move"');
+    });
+
+    test('deference phrase in a live operator dialogue → ALLOW (operator-dialogue carve)', async () => {
+        const {stdout, log} = await runHook(`Your call.\n\n${validTerminal}`, {enforce: true, promptingText: 'please pick the exact color and report'});
+        expect(log).toContain('ALLOW');
+        expect(log).not.toContain('deference phrase');
+        expect(stdout).toBe('');
+    });
 
     test('LIVE OPERATOR dialogue (genuine prompt) → ALLOW even with a bare prose terminal', async () => {
         const {stdout, log} = await runHook('Done — over to you.', {enforce: true, promptingText: 'please do X, then report'});

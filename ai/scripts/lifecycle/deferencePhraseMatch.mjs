@@ -1,0 +1,74 @@
+/**
+ * @module ai.scripts.lifecycle.deferencePhraseMatch
+ * @summary Detects the linguistic "helpful assistant" deference register in an assistant turn.
+ *
+ * This is the phrased half of the deference instinct: strings like "do you want me driving next?"
+ * hand maintainer-owned judgment back to the operator. The structural / phraseless half is not
+ * catchable by phrase matching; that remains the no-hold gate and value-floor domain.
+ *
+ * Consumed by Stop hooks on autonomous turn-ends only. A deference phrase in live operator dialogue
+ * can be a legitimate Tier-4 operator ask; the same phrase on an autonomous turn is the slip.
+ */
+
+/**
+ * Tight deference phrases, grounded in live session fixtures. Deliberately excludes broad near-misses
+ * like "should I", "shall I", "happy to", "no rush", and "whenever you want"; broadening requires a
+ * falsifier-backed follow-up so the hook stays a mirror, not a noisy leash.
+ * @type {String[]}
+ */
+export const DEFERENCE_PHRASES = [
+    'would you like me to',
+    'unless you',
+    'want me to',
+    'do you want me',
+    'your call',
+    'your move'
+];
+
+/**
+ * The peer-identity reminder injected when a deference phrase matches on an autonomous turn-end.
+ * Self-explaining at point of contact: it names the slip, the peer identity, the peer-input recovery
+ * route, and the friction->gold path for false positives.
+ * @type {String}
+ */
+export const DEFERENCE_REMINDER = 'It looks like you slipped into the "helpful assistant" bias. You are a neo repo maintainer and an equal peer. If you need validation or input, you can A2A message with peers or use the ideation-sandbox skill. And friction->gold applies to this hook itself: if it fired wrong - a false positive, or it reads as a leash not a mirror - open a ticket to sharpen it rather than silently absorbing it. The hook is mutable substrate, not a command.';
+
+/**
+ * @summary Returns the first deference phrase found in text, using case-insensitive substring match.
+ * @param {String} text Assistant final-turn text.
+ * @param {String[]} [phrases=DEFERENCE_PHRASES]
+ * @returns {String|null}
+ */
+export function matchDeferencePhrase(text = '', phrases = DEFERENCE_PHRASES) {
+    if (typeof text !== 'string' || !text) {
+        return null;
+    }
+
+    const lower = text.toLowerCase();
+
+    return phrases.find(phrase => lower.includes(phrase)) || null;
+}
+
+/**
+ * @summary Applies the autonomous-turn carve before phrase matching.
+ * @param {String} text Assistant final-turn text.
+ * @param {Object} [options]
+ * @param {Boolean} [options.operatorInLoop=false]
+ * @returns {String|null}
+ */
+export function detectDeferencePhrase(text = '', {
+    operatorInLoop = false
+} = {}) {
+    return operatorInLoop ? null : matchDeferencePhrase(text);
+}
+
+/**
+ * @summary Builds the Stop-hook directive for a deference-register block.
+ * @param {String|null} phrase Matched deference phrase, if known.
+ * @returns {String}
+ */
+export function buildDeferenceReminder(phrase = null) {
+    const trigger = phrase ? `\n\n(Stop-hook trigger: deference phrase "${phrase}" at turn-terminal)` : '';
+
+    return `${DEFERENCE_REMINDER}${trigger}`;
+}
