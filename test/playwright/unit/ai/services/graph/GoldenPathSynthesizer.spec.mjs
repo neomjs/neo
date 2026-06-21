@@ -178,6 +178,32 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         })).toBe(true);
     });
 
+    test('getRecentSummaryDocuments returns the N most-recent summaries by timestamp, newest-first (#13800)', async () => {
+        const Synthesizer = GoldenPathSynthesizer.constructor;
+        const docMap      = {s1: 'doc-old', s2: 'doc-newest', s3: 'doc-mid'};
+        const collection  = {
+            get: async opts => {
+                // metadatas pass: storage-order (s1,s2,s3) with out-of-order timestamps
+                if (opts.include?.includes('metadatas') && !opts.ids) {
+                    return {ids: ['s1', 's2', 's3'], metadatas: [{timestamp: 100}, {timestamp: 300}, {timestamp: 200}]};
+                }
+                // ids-keyed document read
+                return {ids: opts.ids, documents: opts.ids.map(id => docMap[id])};
+            }
+        };
+
+        const result = await Synthesizer.getRecentSummaryDocuments(collection, 2);
+        // Storage-order is s1,s2,s3; recency-sorted top-2 is s2 (ts 300) then s3 (ts 200).
+        expect(result.documents).toEqual(['doc-newest', 'doc-mid']);
+    });
+
+    test('getRecentSummaryDocuments returns empty documents for an empty collection (#13800)', async () => {
+        const Synthesizer = GoldenPathSynthesizer.constructor;
+        const collection  = {get: async () => ({ids: [], metadatas: []})};
+
+        expect(await Synthesizer.getRecentSummaryDocuments(collection, 2)).toEqual({documents: []});
+    });
+
     test('findLastQualifyingAssignmentActivity treats owner identity comments as maintainer progress acknowledgements', () => {
         const Synthesizer = GoldenPathSynthesizer.constructor;
         const activity = Synthesizer.findLastQualifyingAssignmentActivity({
