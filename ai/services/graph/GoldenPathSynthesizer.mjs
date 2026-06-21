@@ -1,16 +1,16 @@
-import fs from 'fs';
-import matter from 'gray-matter';
-import path from 'path';
-import {fileURLToPath} from 'url';
-import { Memory_Config as aiConfig } from '../../services.mjs';
-import Base from '../../../src/core/Base.mjs';
-import { Memory_StorageRouter as StorageRouter } from '../../services.mjs';
+import fs                                                      from 'fs';
+import matter                                                  from 'gray-matter';
+import path                                                    from 'path';
+import {fileURLToPath}                                         from 'url';
+import { Memory_Config as aiConfig }                           from '../../services.mjs';
+import Base                                                    from '../../../src/core/Base.mjs';
+import { Memory_StorageRouter as StorageRouter }               from '../../services.mjs';
 import { Memory_TextEmbeddingService as TextEmbeddingService } from '../../services.mjs';
-import { Memory_GraphService as GraphService } from '../../services.mjs';
-import Json from '../../../src/util/Json.mjs';
-import logger from '../../mcp/server/memory-core/logger.mjs';
-import {IDENTITIES} from '../../graph/identityRoots.mjs';
-import {buildGraphProvider, resolveGraphModelProvider} from './providerDispatch.mjs';
+import { Memory_GraphService as GraphService }                 from '../../services.mjs';
+import Json                                                    from '../../../src/util/Json.mjs';
+import logger                                                  from '../../mcp/server/memory-core/logger.mjs';
+import {IDENTITIES}                                            from '../../graph/identityRoots.mjs';
+import {buildGraphProvider, resolveGraphModelProvider}         from './providerDispatch.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -848,7 +848,7 @@ class GoldenPathSynthesizer extends Base {
         try {
             const semanticResults = await graphColl.query({
                 queryEmbeddings: [frontierEmbedding],
-                nResults: 20
+                nResults       : 20
             });
             if (semanticResults && semanticResults.ids && semanticResults.ids.length > 0) {
                 semanticIds = semanticResults.ids[0];
@@ -927,9 +927,9 @@ class GoldenPathSynthesizer extends Base {
                 }
 
                 scoredNodes.push({
-                    node: nodeData || { id: issueId },
-                    score: priority,
-                    semantic: semanticScore,
+                    node      : nodeData || { id: issueId },
+                    score     : priority,
+                    semantic  : semanticScore,
                     structural: struct_score
                 });
             }
@@ -1294,6 +1294,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         handoffContent += `${staleAssignmentAppend}${silentThreadsAppend}${prStateAppend}${backlogAppend}${markdownAppend}`;
 
         const handoffFile = aiConfig.handoffFilePath;
+        fs.mkdirSync(path.dirname(handoffFile), {recursive: true});
         fs.writeFileSync(handoffFile, handoffContent.trim() + '\n', 'utf-8');
         logger.info(`[GoldenPathSynthesizer] sandman_handoff.md freshly generated via Centralized Pipeline. Golden Path integrated.`);
 
