@@ -28,6 +28,7 @@ const COMPUTED_RECOMMENDATION_EXCLUDED_LABELS = Object.freeze(new Set([
 const CURRENT_FOCUS_EXCLUDED_LABELS = Object.freeze(new Set([
     'deferred-by-design',
     'duplicate',
+    'epic',
     'invalid',
     'needs-design',
     'needs-re-triage',
@@ -36,8 +37,6 @@ const CURRENT_FOCUS_EXCLUDED_LABELS = Object.freeze(new Set([
     'wontfix',
     'wont fix'
 ]));
-
-const CURRENT_FOCUS_TOPIC_PATTERN = /\b(?:agent\s*os|embed(?:der|ding)?|golden\s*path|orchestrator|prio[-\s]?zero|regression|wake)\b/i;
 
 /**
  * Social Name → `@`-stripped GitHub login, derived from the canonical identity roster. The PR-body
@@ -780,11 +779,6 @@ class GoldenPathSynthesizer extends Base {
         if (labels.some(label => ['architecture', 'model-experience', 'performance'].includes(label))) {
             score += 30;
             reasons.push('agent-os');
-            hasFocusSignal = true;
-        }
-        if (CURRENT_FOCUS_TOPIC_PATTERN.test(issueText)) {
-            score += 25;
-            reasons.push('topic');
             hasFocusSignal = true;
         }
         if (freshCreated || freshUpdated) {
