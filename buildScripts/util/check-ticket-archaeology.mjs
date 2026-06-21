@@ -204,11 +204,11 @@ function main() {
     }
 
     if (violations.length > 0) {
-        console.error(`\x1b[31mcheck-ticket-archaeology: ${violations.length} ticket ref(s) in durable comments:\x1b[0m`);
+        console.error(`\x1b[31mcheck-ticket-archaeology: ${violations.length} decay-prone ref(s) (ticket/Epic/Discussion/ADR) in durable comments:\x1b[0m`);
         if (!options.quiet) {
             violations.forEach(v => console.error('  ' + v));
-            console.error('\nDurable comments/JSDoc must describe behavior, not cite tracking tickets (they rot when');
-            console.error('tickets close/rename). Move the ref to the PR body / commit subject, or — only if genuinely');
+            console.error('\nDurable comments/JSDoc must describe behavior, not cite tracking refs — tickets, Epics, Discussions, or ADRs (they rot when the');
+            console.error('referenced item closes/renames). Move the ref to the PR body / commit subject, or — only if genuinely');
             console.error(`load-bearing — add a "${ESCAPE_MARKER}: <reason>" marker on the line.`);
         }
         process.exit(1);
