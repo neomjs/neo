@@ -12,11 +12,12 @@ This protocol ensures that feedback is:
 
 ## §0 — Patch-blind premise snapshot (BEFORE the diff)
 
-Build — and write down — your premise of the change **before** reading the patch as the source of truth. You can reject a toaster-when-we-need-a-car before reading a line; a green checklist over a wrong premise is theater, and nothing below substitutes for this. Capture three fields. The snapshot is **patch-blind**, NOT a temporally-guaranteed pre-commitment — claiming "I wrote this before I looked" is itself theater; the discipline is that the *premise authority* is the substrate, not the patch.
+Build — and write down — your premise of the change **before** reading the patch as the source of truth. You can reject a toaster-when-we-need-a-car before reading a line; a green checklist over a wrong premise is theater. Capture four fields. The snapshot is **patch-blind** — the *premise authority* is the substrate, not the patch (NOT a temporal pre-commitment; "I wrote this first" is itself theater).
 
 1. **Inputs read before the patch** — the ticket/issue, the changed-file list, the current `dev` source of the touched files, sibling precedent, and the source-of-authority substrate (ADRs, `learn/`, the owning service). **NOT the PR's own self-description as the primary premise** — the PR body is a claim to verify, not the authority. Build the premise from the affected files (intent belongs in their JSDoc — `src/core/Base.mjs` is the bar), their neighbors, and their imports; use `memory-mining` / `ask_knowledge_base` when the code is thin. Intent you can't find anywhere is the finding: ticket the gap.
 2. **Expected solution-shape** (1–3 sentences) — what *should* a correct change here look like? Explicitly include **"what boundary should this NOT hardcode?"** and **"what test-isolation should exist?"**, so the snapshot reaches the portability + test-isolation dimensions before the diff frames them away.
 3. **Patch-verdict** — does the diff **match / improve / contradict** the expected shape? Name the specific evidence that changed (or confirmed) your mind. "Matches" with no evidence is not a verdict.
+4. **Premise-coherence** — the value-coherence verdict, or a scoped "N/A — no value-surface".
 
 **Night-shift provisional marker:** when the approval is single-family / human-asleep (no cross-family reviewer awake), label it `single-family — calibration-deferred-to-merge-gate`. §12 (Typed Calibration Loop) reads this marker at the merge-gate to apply calibration to a single-family / calibration-deferred approval.
 
