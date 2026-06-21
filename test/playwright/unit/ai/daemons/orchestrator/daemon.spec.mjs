@@ -1,6 +1,6 @@
 import {test, expect} from '@playwright/test';
-import fs from 'fs';
-import path from 'path';
+import fs             from 'fs';
+import path           from 'path';
 import '../../../../../../src/Neo.mjs';
 import '../../../../../../src/core/_export.mjs';
 import {
@@ -33,6 +33,10 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         expect(tasks.kbSync.command).toBe('/test/node');
         expect(tasks.kbSync.args).toEqual([path.join(scriptDir, 'maintenance', 'syncKnowledgeBase.mjs')]);
         expect(tasks.kbSync.expectedCommand).toBe('syncKnowledgeBase.mjs');
+
+        expect(tasks.githubWorkflowSync.command).toBe('/test/node');
+        expect(tasks.githubWorkflowSync.args).toEqual([path.join(scriptDir, 'maintenance', 'syncGithubWorkflow.mjs')]);
+        expect(tasks.githubWorkflowSync.expectedCommand).toBe('syncGithubWorkflow.mjs');
 
         expect(tasks.backup.command).toBe('/test/node');
         expect(tasks.backup.args).toEqual([path.join(scriptDir, 'maintenance', 'backup.mjs')]);
@@ -166,13 +170,13 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
             // Explicit values are passed through verbatim; env-vars are still ignored.
             const explicitTasks = buildTaskDefinitions({
                 scriptDir,
-                nodeBin   : '/test/node',
-                lmsEnabled: true,
-                lmsModel  : 'explicit-model',
-                lmsModels : ['chat-model', 'embedding-model'],
-                lmsHost   : 'http://127.0.0.1:4242',
+                nodeBin          : '/test/node',
+                lmsEnabled       : true,
+                lmsModel         : 'explicit-model',
+                lmsModels        : ['chat-model', 'embedding-model'],
+                lmsHost          : 'http://127.0.0.1:4242',
                 providerReadiness: {attempts: 2, delayMs: 0, timeoutMs: 50},
-                lmsPort   : 4242
+                lmsPort          : 4242
             });
 
             expect(explicitTasks.lms.command).toBe('lms');
@@ -288,7 +292,7 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
             aiConfig,
             existsSync: () => false
         })).resolves.toEqual({
-            loaded: false,
+            loaded    : false,
             configPath: '/tmp/missing-ai-config.mjs'
         });
 
@@ -297,7 +301,7 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
             aiConfig,
             existsSync: () => true
         })).resolves.toEqual({
-            loaded: true,
+            loaded    : true,
             configPath: '/tmp/local-ai-config.mjs'
         });
 

@@ -85,6 +85,7 @@ function createTestOrchestrator(config = {}) {
     // Test defaults preserve the pre-refactor helper's defaults (600000ms intervals etc.).
     AiConfig.orchestrator.intervals.summarySweepMs   = config.summarySweepIntervalMs   ?? 600000;
     AiConfig.orchestrator.intervals.kbSyncMs         = config.kbSyncIntervalMs         ?? 600000;
+    AiConfig.orchestrator.intervals.githubWorkflowSyncMs = config.githubWorkflowSyncIntervalMs ?? 600000;
     AiConfig.orchestrator.intervals.backupMs         = config.backupIntervalMs         ?? 86400000;
     AiConfig.orchestrator.intervals.graphLogCompactionMs = config.graphLogCompactionIntervalMs ?? 86400000;
     AiConfig.orchestrator.intervals.primaryDevSyncMs = config.primaryDevSyncIntervalMs ?? 600000;
@@ -97,6 +98,10 @@ function createTestOrchestrator(config = {}) {
     if (config.deploymentMode !== undefined) AiConfig.orchestrator.deploymentMode = config.deploymentMode;
 
     AiConfig.orchestrator.localOnly.kbSyncEnabled                  = config.kbSyncEnabled                  ?? true;
+    // Default-disabled like primaryDevSyncEnabled: githubWorkflowSync is a heavy lane with its own
+    // dedicated coverage (registry.spec getDueTask). Keeping it off by default scopes every other
+    // test's scheduling to the lanes under test, so the new lane never competes in the picker.
+    AiConfig.orchestrator.localOnly.githubWorkflowSyncEnabled      = config.githubWorkflowSyncEnabled      ?? false;
     AiConfig.orchestrator.localOnly.primaryDevSyncEnabled          = config.primaryDevSyncEnabled          ?? false;
     AiConfig.orchestrator.localOnly.bridgeDaemonEnabled            = config.bridgeDaemonEnabled            ?? true;
     AiConfig.orchestrator.localOnly.neuralLinkBridgeEnabled        = Object.hasOwn(config, 'neuralLinkBridgeEnabled') ? config.neuralLinkBridgeEnabled : true;
@@ -218,7 +223,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             neuralLinkBridgeLivenessTimeoutMs: 50
         }));
 
-        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'neuralLinkBridge', 'embedDaemon', 'summary', 'memory-summary-backfill', 'kbSync', 'backup', 'graphlog-compaction', 'chromaDefrag', 'primary-dev-sync', 'tenant-repo-sync', 'dream', 'golden-path', 'swarm-heartbeat', 'embed-drain-liveness-watchdog']);
+        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'neuralLinkBridge', 'embedDaemon', 'summary', 'memory-summary-backfill', 'kbSync', 'githubWorkflowSync', 'backup', 'graphlog-compaction', 'chromaDefrag', 'primary-dev-sync', 'tenant-repo-sync', 'dream', 'golden-path', 'swarm-heartbeat', 'embed-drain-liveness-watchdog']);
         expect(state.mlx).toBeUndefined();
         expect(state.memoryCoreChroma).toBeUndefined();
         expect(state.summary).toMatchObject({
@@ -1211,6 +1216,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         // sorted-set assertion to decouple from declaration order.
         expect([...DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES].sort()).toEqual([
             'backup',
+            'githubWorkflowSync',
             'graphlog-compaction',
             'kbSync',
             'memory-summary-backfill',

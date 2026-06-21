@@ -196,6 +196,13 @@ export function buildTaskDefinitions({
             pidFileName    : 'kb-sync.pid',
             expectedCommand: 'syncKnowledgeBase.mjs'
         },
+        githubWorkflowSync: {
+            label          : 'github workflow sync',
+            command        : nodeBin,
+            args           : [path.join(scriptDir, 'maintenance', 'syncGithubWorkflow.mjs')],
+            pidFileName    : 'github-workflow-sync.pid',
+            expectedCommand: 'syncGithubWorkflow.mjs'
+        },
         backup: {
             label          : 'agent OS backup',
             command        : nodeBin,

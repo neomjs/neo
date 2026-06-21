@@ -41,7 +41,7 @@ test.describe('orchestrator/scheduling/registry (#11862 Sub 18)', () => {
     test('expected scheduling lanes are registered (#11862 Prescription parity)', () => {
         const names = TASK_REGISTRY.map(d => d.taskName);
         expect(names).toEqual(expect.arrayContaining([
-            'summary', 'memory-summary-backfill', 'kbSync', 'backup', 'graphlog-compaction',
+            'summary', 'memory-summary-backfill', 'kbSync', 'githubWorkflowSync', 'backup', 'graphlog-compaction',
             'primary-dev-sync', 'tenant-repo-sync', 'dream',
             'golden-path', 'swarm-heartbeat'
         ]));
@@ -71,6 +71,23 @@ test.describe('orchestrator/scheduling/registry (#11862 Sub 18)', () => {
             expect(descriptor.maintenanceClass, `${taskName} metadata`).toBe('heavy');
             expect(descriptor.backpressure, `${taskName} metadata`).toBe('exclusive-heavy');
         }
+    });
+
+    test('githubWorkflowSync getDueTask gates on enables + fires on elapsed cadence (#13626)', () => {
+        const descriptor = TASK_REGISTRY.find(d => d.taskName === 'githubWorkflowSync');
+        expect(descriptor, 'githubWorkflowSync is registered').toBeTruthy();
+        // Gated off (cloud profile) → never due, even when long overdue.
+        expect(descriptor.getDueTask({state: {}, now: 1e12, intervals: {githubWorkflowSync: 1000}, enables: {githubWorkflowSync: false}})).toBeNull();
+        // Enabled (local) + cadence elapsed → due.
+        expect(descriptor.getDueTask({
+            state    : {githubWorkflowSync: {lastRunAt: 0}}, now: 2000,
+            intervals: {githubWorkflowSync: 1000}, enables: {githubWorkflowSync: true}
+        })).toMatchObject({taskName: 'githubWorkflowSync', source: 'periodic-sync'});
+        // Enabled but within cadence → not yet due.
+        expect(descriptor.getDueTask({
+            state    : {githubWorkflowSync: {lastRunAt: 1500}}, now: 2000,
+            intervals: {githubWorkflowSync: 1000}, enables: {githubWorkflowSync: true}
+        })).toBeNull();
     });
 
     test('continuous tasks (chroma/bridgeDaemon/mlx) are intentionally NOT in registry', () => {
