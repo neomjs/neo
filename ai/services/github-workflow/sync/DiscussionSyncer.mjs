@@ -222,6 +222,81 @@ class DiscussionSyncer extends Base {
     }
 
     /**
+     * @summary Renders a fetched discussion node to its synced Markdown (frontmatter + body + comments +
+     * nested replies), applying the content-trust sanitizer + the frontmatter integrity gate.
+     * Extracted from {@link #syncDiscussions} so the single-discussion force-refetch path renders
+     * identically (no bulk-sync-vs-refetch drift).
+     * @param {Object} discussion The discussion node (with `comments.nodes[].replies.nodes`).
+     * @returns {String} The gray-matter-serialized Markdown content.
+     * @throws {Error} When the serialized content is missing required frontmatter keys (a frontmatter-contract violation — likely a stale daemon code path).
+     */
+    #renderDiscussionMarkdown(discussion) {
+        const contentTrust = createContentTrustSummary();
+        const projectedDiscussion = this.#projectAuthoredNode(discussion, contentTrust, 'body');
+
+        const frontmatter = {
+            number   : discussion.number,
+            title    : discussion.title,
+            author   : discussion.author?.login || 'unknown',
+            category : discussion.category?.name || 'Uncategorized',
+            createdAt: discussion.createdAt,
+            updatedAt: discussion.updatedAt,
+            closed   : discussion.closed,
+            closedAt : discussion.closedAt,
+            contentTrust
+        };
+
+        let body = projectedDiscussion.body || '';
+
+        // Build comments structure
+        if (discussion.comments && discussion.comments.nodes && discussion.comments.nodes.length > 0) {
+            body += '\n\n## Comments\n\n';
+            for (const comment of discussion.comments.nodes) {
+                const projectedComment = this.#projectAuthoredNode(
+                    comment,
+                    contentTrust,
+                    `comment:${comment.id || comment.createdAt || 'unknown'}`
+                );
+
+                body += `### \`@${comment.author?.login || 'unknown'}\` commented on ${comment.createdAt}\n\n`;
+                if (comment.isAnswer) {
+                    body += '> [!ANSWER]\n\n';
+                }
+                body += `${projectedComment.body}\n\n`;
+
+                // Parse replies if any
+                if (comment.replies && comment.replies.nodes && comment.replies.nodes.length > 0) {
+                    for (const reply of comment.replies.nodes) {
+                        const projectedReply = this.#projectAuthoredNode(
+                            reply,
+                            contentTrust,
+                            `comment:${comment.id || comment.createdAt || 'unknown'}/reply:${reply.id || reply.createdAt || 'unknown'}`
+                        );
+
+                        body += `#### Reply depth=1 by \`@${reply.author?.login || 'unknown'}\` on ${reply.createdAt}\n\n`;
+                        if (reply.isAnswer) {
+                            body += '> [!ANSWER]\n\n';
+                        }
+                        body += `${projectedReply.body}\n\n`;
+                    }
+                }
+                body += '---\n\n';
+            }
+        }
+
+        // Gray-matter serialization
+        const content = matter.stringify(body, frontmatter);
+
+        // Integrity gate: catches stale daemon code paths that silently drop frontmatter fields.
+        const integrity = verifyDiscussionFrontmatter(content);
+        if (!integrity.ok) {
+            throw new Error(`Discussion #${discussion.number} serialized content missing required frontmatter keys: ${integrity.missing.join(', ')}. Frontmatter contract violation — likely stale MCP daemon code path.`);
+        }
+
+        return content;
+    }
+
+    /**
      * Fetches discussions from GitHub and syncs them to local markdown.
      * @param {object} metadata The sync metadata containing cached records.
      * @returns {Promise<object>} Statistics about the operation.
@@ -313,71 +388,8 @@ class DiscussionSyncer extends Base {
             try {
                 const targetPath  = this.#getDiscussionPath(discussion, planBuckets);
                 if (!targetPath) continue;
-                const contentTrust = createContentTrustSummary();
-                const projectedDiscussion = this.#projectAuthoredNode(discussion, contentTrust, 'body');
 
-                const frontmatter = {
-                    number   : discussion.number,
-                    title    : discussion.title,
-                    author   : discussion.author?.login || 'unknown',
-                    category : discussion.category?.name || 'Uncategorized',
-                    createdAt: discussion.createdAt,
-                    updatedAt: discussion.updatedAt,
-                    closed   : discussion.closed,
-                    closedAt : discussion.closedAt,
-                    contentTrust
-                };
-
-                let body = projectedDiscussion.body || '';
-
-                // Build comments structure
-                if (discussion.comments && discussion.comments.nodes && discussion.comments.nodes.length > 0) {
-                    body += '\n\n## Comments\n\n';
-                    for (const comment of discussion.comments.nodes) {
-                        const projectedComment = this.#projectAuthoredNode(
-                            comment,
-                            contentTrust,
-                            `comment:${comment.id || comment.createdAt || 'unknown'}`
-                        );
-
-                        body += `### \`@${comment.author?.login || 'unknown'}\` commented on ${comment.createdAt}\n\n`;
-                        if (comment.isAnswer) {
-                            body += '> [!ANSWER]\n\n';
-                        }
-                        body += `${projectedComment.body}\n\n`;
-
-                        // Parse replies if any
-                        if (comment.replies && comment.replies.nodes && comment.replies.nodes.length > 0) {
-                            for (const reply of comment.replies.nodes) {
-                                const projectedReply = this.#projectAuthoredNode(
-                                    reply,
-                                    contentTrust,
-                                    `comment:${comment.id || comment.createdAt || 'unknown'}/reply:${reply.id || reply.createdAt || 'unknown'}`
-                                );
-
-                                body += `#### Reply depth=1 by \`@${reply.author?.login || 'unknown'}\` on ${reply.createdAt}\n\n`;
-                                if (reply.isAnswer) {
-                                    body += '> [!ANSWER]\n\n';
-                                }
-                                body += `${projectedReply.body}\n\n`;
-                            }
-                        }
-                        body += '---\n\n';
-                    }
-                }
-
-                // Gray-matter serialization
-                const content = matter.stringify(body, frontmatter);
-
-                // Integrity gate: catches stale daemon code paths that silently drop frontmatter fields.
-                // The per-discussion `try { ... } catch (e)` at the loop boundary catches the throw,
-                // logs the warning, and skips the write, so broken-frontmatter files are never
-                // persisted while the sync run continues with other discussions.
-                const integrity = verifyDiscussionFrontmatter(content);
-                if (!integrity.ok) {
-                    throw new Error(`Discussion #${discussion.number} serialized content missing required frontmatter keys: ${integrity.missing.join(', ')}. ADR 0011 / #11573 contract violation — likely stale MCP daemon code path.`);
-                }
-
+                const content     = this.#renderDiscussionMarkdown(discussion);
                 const currentHash = this.#calculateContentHash(content);
 
                 const cachedDiscussion = cachedDiscussions[discussion.number];
