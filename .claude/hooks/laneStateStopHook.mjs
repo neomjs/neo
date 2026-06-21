@@ -136,6 +136,13 @@ The only stop is a hard external limit: context-sunset, an operator halt, or a l
 // yourself, not obey.
 const MIRROR_POINTER = `This hook is a MIRROR, not a leash: a hit means you slipped toward the helpful-assistant register (idle / defer / wind-down). Recognize it and act as the equal-peer maintainer you are — you are not being commanded. If you genuinely need input, A2A a peer or open an ideation-sandbox; do not hand the decision back as a stop.`;
 
+// The friction→gold self-improvability clause — the second half of the mirror: the pointer says
+// recognize-yourself, this says the mirror is mutable. A wrong-feeling hit is a TICKET, not a
+// constraint to absorb — so the floor can never ossify into a leash. The runtime-obey guard is
+// load-bearing: that ticket is a SEPARATE design-time lane, never a runtime stop (obey now, improve
+// later) — else the clause becomes a new sophisticated-hold costume ("I'm friction→gold-ing the hook").
+const SELF_IMPROVABILITY_CLAUSE = `friction→gold applies to THIS hook: if it fired wrong — a false positive, or it reads as a leash not a mirror — open a ticket to sharpen it rather than silently absorbing it. But that ticket is a separate design-time lane, NOT a license to stop this turn: obey the hook now, improve it later. "I'm filing a friction→gold ticket" is not itself a valid stop. The hook is mutable substrate, not a command.`;
+
 // The orchestrator/wake daemon writes the current agent's lane-state here (computation preserved, the
 // wake-INTERRUPT dropped); this hook reads it on a block — cheap, no network, inside the 10s budget —
 // and injects the live board so the refuse-directive is ACTIONABLE at the moment the next-action
@@ -202,8 +209,9 @@ export function formatLifecycleBoard(state) {
 /**
  * @summary Composes the directive injected on a block — the curated `IDLE_REMINDER` (lifecycle +
  * teeth-test) + the agent's live lane-state board (when the daemon-written file is present) + the
- * always-present mirror-pointer (discoverability) + the trigger `cause`. Reminder is WHAT-to-do, the
- * board is WHAT'S-actionable-now, the mirror-pointer is WHY-this-is-not-a-leash, the cause is
+ * always-present mirror-pointer (discoverability) + the self-improvability clause (the floor is mutable
+ * substrate) + the trigger `cause`. Reminder is WHAT-to-do, the board is WHAT'S-actionable-now, the
+ * mirror-pointer is WHY-this-is-not-a-leash, the clause is HOW-to-fix-it-when-wrong, the cause is
  * WHY-blocked. Fail-open on the board (missing/bad file → bare reminder). One best-effort file read;
  * exported + unit-tested.
  * @param {String} cause The terminal-evidence violation that triggered the block (the verdict reason).
@@ -211,7 +219,7 @@ export function formatLifecycleBoard(state) {
  */
 export function composeBlockDirective(cause) {
     const board = formatLifecycleBoard(readLifecycleState());
-    return `${IDLE_REMINDER}${board}\n\n${MIRROR_POINTER}\n\n(Stop-hook trigger: ${cause})`;
+    return `${IDLE_REMINDER}${board}\n\n${MIRROR_POINTER}\n\n${SELF_IMPROVABILITY_CLAUSE}\n\n(Stop-hook trigger: ${cause})`;
 }
 
 /**
