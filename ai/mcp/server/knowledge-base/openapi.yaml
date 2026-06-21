@@ -56,6 +56,50 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /tool/handbook:
+    post:
+      summary: Tool Handbook
+      operationId: get_mcp_tool_handbook
+      x-annotations:
+        readOnlyHint: true
+      description: Returns lazy-loaded usage detail for one Knowledge Base MCP tool.
+      tags: [Documents]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [toolId]
+              properties:
+                toolId:
+                  type: string
+                  description: Tool operation id to inspect.
+      responses:
+        '200':
+          description: Tool handbook lookup result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  toolId:
+                    type: string
+                  found:
+                    type: boolean
+                  title:
+                    type: string
+                  description:
+                    type: string
+                  handbook:
+                    type: string
+                  source:
+                    type: string
+                  code:
+                    type: string
+                  message:
+                    type: string
+
   /db/data/manage:
     post:
       summary: Manage Knowledge Base Data
@@ -149,6 +193,7 @@ paths:
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
+      x-neo-tool-summary: Search the Knowledge Base and return ranked source references.
       description: |
         Performs a semantic search on the knowledge base using a natural language query.
         Returns a scored and ranked list of the most relevant source files.
@@ -280,6 +325,7 @@ paths:
       summary: Ask Knowledge Base (RAG)
       operationId: ask_knowledge_base
       x-pass-as-object: true
+      x-neo-tool-summary: Ask the Knowledge Base for a synthesized answer with cited references.
       description: |
         Performs a semantic search and uses an LLM to synthesize an answer based on the top results.
         Use this tool to get a high-level answer without manually reading multiple files.
