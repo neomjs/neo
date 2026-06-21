@@ -493,7 +493,8 @@ export async function releaseHeavyMaintenanceLease({
  * |---------------|------------|-------------------|------------------------------------------------------------------------------|
  * | `'completed'` | `true`     | the task's return | Lease acquired (including after stale/malformed recovery); task ran to completion (success or graceful-return). |
  * | `'inherited'` | `false`    | the task's return | Inherited via matching env-var token; lease was acquired by a parent process; task ran to completion. |
- * | `'held'`      | `false`    | absent            | Another active owner holds the lease; task NOT executed. `lease` carries that owner's descriptor. |
+ * | `'compatible'`| `false`    | the task's return | Another active owner holds the lease, but its owner is in `compatibleLeaseOwners`; task ran without acquiring/releasing that lease. |
+ * | `'held'`      | `false`    | absent            | Another active owner holds the lease and is not compatible; task NOT executed. `lease` carries that owner's descriptor. |
  *
  * Note: when `acquireHeavyMaintenanceLease` returns a non-`'acquired'` non-`'held'`
  * acquisition descriptor (e.g., an `'unreadable'` IO-failure shape — theoretical
@@ -518,13 +519,17 @@ export async function releaseHeavyMaintenanceLease({
  *
  * @param {Function} task Async task to execute when the lease is acquired. Receives the acquisition descriptor as its single argument (`{status, acquired, lease}`).
  * @param {Object} options Lease acquisition options forwarded to `acquireHeavyMaintenanceLease` (owner, reason, metadata, leasePath, staleAfterMs, pid, token, fsModule, now).
- * @returns {Promise<Object>} `{status, acquired, lease, result}` on completion; `{status: 'held', acquired: false, lease}` on contention.
+ * @param {String[]} [options.compatibleLeaseOwners] Active lease owners whose resource envelope is compatible with this task.
+ * @returns {Promise<Object>} `{status, acquired, lease, result}` on completion or compatible execution; `{status: 'held', acquired: false, lease}` on incompatible contention.
  * @see acquireHeavyMaintenanceLease
  * @see releaseHeavyMaintenanceLease
  * @see ai/scripts/runners/runSandman.mjs — canonical consumer pattern
  */
 export async function withHeavyMaintenanceLease(task, options = {}) {
     const inheritedToken = process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
+    const compatibleLeaseOwners = new Set(
+        Array.isArray(options.compatibleLeaseOwners) ? options.compatibleLeaseOwners : []
+    );
 
     if (inheritedToken) {
         const current = await inspectHeavyMaintenanceLease({
@@ -548,6 +553,16 @@ export async function withHeavyMaintenanceLease(task, options = {}) {
     const acquisition = await acquireHeavyMaintenanceLease(options);
 
     if (!acquisition.acquired) {
+        if (acquisition.status === 'held' && compatibleLeaseOwners.has(acquisition.lease?.owner)) {
+            const compatibleAcquisition = {status: 'compatible', acquired: false, lease: acquisition.lease};
+            return {
+                status  : 'compatible',
+                acquired: false,
+                lease   : acquisition.lease,
+                result  : await task(compatibleAcquisition)
+            };
+        }
+
         return acquisition;
     }
 

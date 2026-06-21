@@ -81,14 +81,19 @@ async function syncGithubWorkflow() {
     console.log('🔄 Starting full GitHub Workflow sync via GH_SyncService.runFullSync()...');
 
     // Run the full workflow sync under the shared heavy-maintenance lease so this CLI
-    // cannot collide with orchestrator maintenance tasks or another manual graph-heavy
-    // script. The whole-run guard keeps graph ingestion protected until the sync stages
-    // have a narrower concurrency boundary.
+    // cannot collide with incompatible maintenance tasks or another manual graph-heavy
+    // script. `kbSync` is explicitly compatible: local KB embedding must not starve
+    // issue graph refresh, and Golden Path waits on this task before reading the graph.
     let outcome;
     try {
         outcome = await withHeavyMaintenanceLease(
             async () => GH_SyncService.runFullSync(),
-            {owner: 'syncGithubWorkflow', reason: 'manual-cli', metadata: {script: 'ai/scripts/maintenance/syncGithubWorkflow.mjs', verbose}}
+            {
+                owner                : 'syncGithubWorkflow',
+                reason               : 'manual-cli',
+                compatibleLeaseOwners: ['kbSync'],
+                metadata             : {script: 'ai/scripts/maintenance/syncGithubWorkflow.mjs', verbose}
+            }
         );
     } catch (e) {
         console.error('❌ Sync failed:', e);

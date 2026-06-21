@@ -180,7 +180,7 @@ export const TASK_REGISTRY = Object.freeze([
         executionKind   : 'in-process-async',
         maintenanceClass: 'graph-dependent',
         backpressure    : 'after-heavy',
-        dependencies    : ['dream'],
+        dependencies    : ['dream', 'githubWorkflowSync'],
         getDueTask({state, now, intervals, hooks}) {
             return (hooks.goldenPathGetDueTask || getGoldenPathDueTask)({
                 state               : state['golden-path'] ?? {},

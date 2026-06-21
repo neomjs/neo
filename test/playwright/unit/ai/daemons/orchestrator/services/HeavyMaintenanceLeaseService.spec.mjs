@@ -323,6 +323,46 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
         expect(ran).toBe(false);
     });
 
+    test('withLease runs against an explicitly compatible held owner without releasing that owner (#13750)', async () => {
+        const leasePath = createLeasePath('compatible-held-owner');
+        const now       = new Date('2026-06-21T10:30:00.000Z');
+
+        await acquireHeavyMaintenanceLease({
+            leasePath,
+            owner: 'kbSync',
+            now,
+            token: 'kb-token'
+        });
+
+        let observedAcquisition = null;
+        const outcome = await withHeavyMaintenanceLease(acquisition => {
+            observedAcquisition = acquisition;
+            return 'github-sync-ran';
+        }, {
+            leasePath,
+            owner                : 'syncGithubWorkflow',
+            now,
+            token                : 'github-token',
+            compatibleLeaseOwners: ['kbSync']
+        });
+
+        expect(outcome).toMatchObject({
+            status  : 'compatible',
+            acquired: false,
+            lease   : {owner: 'kbSync', token: 'kb-token'},
+            result  : 'github-sync-ran'
+        });
+        expect(observedAcquisition).toMatchObject({
+            status  : 'compatible',
+            acquired: false,
+            lease   : {owner: 'kbSync', token: 'kb-token'}
+        });
+        await expect(inspectHeavyMaintenanceLease({leasePath, now})).resolves.toMatchObject({
+            status: 'active',
+            lease : {owner: 'kbSync', token: 'kb-token'}
+        });
+    });
+
     test('withLease release-timing invariant: task inner finally runs INSIDE the lease window (#11515)', async () => {
         // Empirical anchor: prior review cycles surfaced the same root failure-mode at two
         // different surfaces: substrate mutation placed AFTER `await withHeavyMaintenanceLease(...)`

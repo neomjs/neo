@@ -26,9 +26,10 @@ async function main() {
             return MemoryService.backfillMiniSummaries();
         },
         {
-            owner   : 'memory-summary-backfill',
-            reason  : 'manual-cli',
-            metadata: {script: 'ai/scripts/lifecycle/backfill-memory-summaries.mjs'}
+            owner                : 'memory-summary-backfill',
+            reason               : 'manual-cli',
+            compatibleLeaseOwners: ['kbSync'],
+            metadata             : {script: 'ai/scripts/lifecycle/backfill-memory-summaries.mjs'}
         }
     );
 

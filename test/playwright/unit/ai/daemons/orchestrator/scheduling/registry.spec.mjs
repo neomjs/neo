@@ -90,6 +90,11 @@ test.describe('orchestrator/scheduling/registry (#11862 Sub 18)', () => {
         })).toBeNull();
     });
 
+    test('golden-path waits for graph-producing sync tasks before synthesis (#13750)', () => {
+        const descriptor = TASK_REGISTRY.find(d => d.taskName === 'golden-path');
+        expect(descriptor.dependencies).toEqual(['dream', 'githubWorkflowSync']);
+    });
+
     test('continuous tasks (chroma/bridgeDaemon/mlx) are intentionally NOT in registry', () => {
         const names = TASK_REGISTRY.map(d => d.taskName);
         expect(names).not.toContain('chroma');

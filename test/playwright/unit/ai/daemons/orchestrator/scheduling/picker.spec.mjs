@@ -118,6 +118,15 @@ test.describe('orchestrator/scheduling/picker (#11862 Sub 18)', () => {
         expect(winner.taskName).toBe('summary');
     });
 
+    test('filterUnmetDependencies: drops golden-path when githubWorkflowSync is running (#13750)', () => {
+        const candidates = [
+            makeCandidate('golden-path', {dependencies: ['dream', 'githubWorkflowSync']}),
+            makeCandidate('summary')
+        ];
+        const winner = pickNextCandidate({candidates, runningTasks: ['githubWorkflowSync']});
+        expect(winner.taskName).toBe('summary');
+    });
+
     test('filterUnmetDependencies: passes golden-path when dream is NOT running', () => {
         const candidates = [
             makeCandidate('golden-path', {dependencies: ['dream']}),

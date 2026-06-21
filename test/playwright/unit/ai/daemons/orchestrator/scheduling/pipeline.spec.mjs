@@ -221,6 +221,54 @@ test.describe('orchestrator/scheduling/pipeline (#11862/#11900)', () => {
         }]);
     });
 
+    test('does not record picker deferral for githubWorkflowSync while compatible kbSync runs (#13750)', () => {
+        const deferrals = [];
+        const started   = [];
+
+        const result = runSchedulingPipeline({
+            registry: [
+                makeCandidateDescriptor({taskName: 'githubWorkflowSync', maintenanceClass: 'heavy'})
+            ],
+            context : makeContext({
+                state: {
+                    kbSync            : {running: true},
+                    githubWorkflowSync: {running: false}
+                }
+            }),
+            services: makeServices({
+                maintenanceBackpressureService: {
+                    acquireLeaseAndExecute({executeFn, taskName, reason, onSuccess, activeHeavyTask}) {
+                        return executeFn(taskName, reason, onSuccess, {activeHeavyTask});
+                    },
+                    getActiveHeavyMaintenanceTask() { return null; },
+                    isHeavyMaintenanceTask(taskName) {
+                        return taskName === 'kbSync' || taskName === 'githubWorkflowSync';
+                    },
+                    isHeavyMaintenanceConflict(taskName, otherTaskName) {
+                        return !(taskName === 'githubWorkflowSync' && otherTaskName === 'kbSync');
+                    },
+                    recordDeferral(deferral) {
+                        deferrals.push(deferral);
+                    }
+                },
+                processSupervisorService: {
+                    runTask(taskName, reason) {
+                        started.push({taskName, reason});
+                        return true;
+                    }
+                }
+            }),
+            runtime: makeRuntime()
+        });
+
+        expect(result.winner.taskName).toBe('githubWorkflowSync');
+        expect(deferrals).toEqual([]);
+        expect(started).toEqual([{
+            taskName: 'githubWorkflowSync',
+            reason  : 'githubWorkflowSync-reason'
+        }]);
+    });
+
     test('dispatches service-runner candidates through runtime-provided collaborators', () => {
         const calls = [];
 

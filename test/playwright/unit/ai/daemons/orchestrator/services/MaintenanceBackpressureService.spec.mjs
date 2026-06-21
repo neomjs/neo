@@ -72,16 +72,18 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
     });
 
     test('DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES pins the dependency set', () => {
-        expect([...DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES]).toEqual(['dream']);
+        expect([...DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES]).toEqual(['dream', 'githubWorkflowSync']);
         expect(Object.isFrozen(DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES)).toBe(true);
     });
 
-    test('DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS keeps miniSummary backfill independent of kbSync', () => {
+    test('DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS keeps graph-refresh lanes independent of kbSync', () => {
         expect(DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS).toEqual([
-            ['kbSync', 'memory-summary-backfill']
+            ['kbSync', 'memory-summary-backfill'],
+            ['kbSync', 'githubWorkflowSync']
         ]);
         expect(Object.isFrozen(DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS)).toBe(true);
         expect(Object.isFrozen(DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS[0])).toBe(true);
+        expect(Object.isFrozen(DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS[1])).toBe(true);
     });
 
     // ====================================================================
@@ -102,6 +104,10 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
     test('isGoldenPathDependencyTask returns membership in dependency set', () => {
         expect(isGoldenPathDependencyTask({
             taskName                     : 'dream',
+            goldenPathDependencyTaskNames: DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES
+        })).toBe(true);
+        expect(isGoldenPathDependencyTask({
+            taskName                     : 'githubWorkflowSync',
             goldenPathDependencyTaskNames: DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES
         })).toBe(true);
         expect(isGoldenPathDependencyTask({
@@ -181,6 +187,11 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
             taskStateService,
             activeTaskName               : 'dream'
         })).toBe('dream');
+        expect(getActiveGoldenPathDependencyTask({
+            goldenPathDependencyTaskNames: DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES,
+            taskStateService,
+            activeTaskName               : 'githubWorkflowSync'
+        })).toBe('githubWorkflowSync');
 
         // activeTaskName is NOT a dependency → fall back to state scan
         expect(getActiveGoldenPathDependencyTask({
@@ -427,6 +438,34 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         expect(activeHeavyTask.name).toBe('memory-summary-backfill');
     });
 
+    test('acquireLeaseAndExecute allows githubWorkflowSync behind active kbSync (#13750)', () => {
+        const executions = [];
+        const service    = buildService({
+            taskStateService: buildTaskStateService({kbSync: {running: true}}),
+            acquireLeaseFn  : () => ({acquired: true, lease: {token: 'github-sync-token'}}),
+            releaseLeaseFn  : () => {}
+        });
+
+        const activeHeavyTask = {name: 'kbSync'};
+        const result = service.acquireLeaseAndExecute({
+            taskName : 'githubWorkflowSync',
+            executeFn: (taskName, reason, onSuccess, taskOptions) => {
+                executions.push({taskName, reason, env: taskOptions.env});
+                return true;
+            },
+            reason: 'periodic-sync:1800000',
+            activeHeavyTask
+        });
+
+        expect(result).toBe(true);
+        expect(executions).toEqual([{
+            taskName: 'githubWorkflowSync',
+            reason  : 'periodic-sync:1800000',
+            env     : {NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN: 'github-sync-token'}
+        }]);
+        expect(activeHeavyTask.name).toBe('githubWorkflowSync');
+    });
+
     test('Sub 9 hypotheses 4 and 5: acquireLeaseAndExecute records held lease as skipped (#12617)', () => {
         const outcomeCalls = [];
         const service      = buildService({
@@ -480,6 +519,39 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         expect(outcomeCalls).toEqual([]);
         expect(releases).toEqual([]);
         expect(activeHeavyTask.name).toBe('memory-summary-backfill');
+    });
+
+    test('acquireLeaseAndExecute allows githubWorkflowSync when compatible kbSync owns the lease (#13750)', () => {
+        const outcomeCalls = [];
+        const executions   = [];
+        const releases     = [];
+        const service      = buildService({
+            taskStateService: buildTaskStateService({}),
+            healthService   : {recordTaskOutcome: (t, s, p) => outcomeCalls.push({t, s, p})},
+            acquireLeaseFn  : () => ({acquired: false, lease: {owner: 'kbSync', pid: 77}}),
+            releaseLeaseFn  : opts => releases.push(opts)
+        });
+
+        const activeHeavyTask = {name: null};
+        const result = service.acquireLeaseAndExecute({
+            taskName : 'githubWorkflowSync',
+            executeFn: (taskName, reason, onSuccess, taskOptions) => {
+                executions.push({taskName, reason, env: taskOptions.env});
+                return true;
+            },
+            reason: 'periodic-sync:1800000',
+            activeHeavyTask
+        });
+
+        expect(result).toBe(true);
+        expect(executions).toEqual([{
+            taskName: 'githubWorkflowSync',
+            reason  : 'periodic-sync:1800000',
+            env     : {}
+        }]);
+        expect(outcomeCalls).toEqual([]);
+        expect(releases).toEqual([]);
+        expect(activeHeavyTask.name).toBe('githubWorkflowSync');
     });
 
     test('acquireLeaseAndExecute records failure outcome on lease-acquire throw', () => {

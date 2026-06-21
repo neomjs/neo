@@ -97,4 +97,17 @@ test.describe('syncGithubWorkflow CLI dev-branch guard (#12780)', () => {
         expect(guardIndex).toBeLessThan(leaseIndex);
         expect(guardIndex).toBeLessThan(syncIndex);
     });
+
+    test('declares kbSync as a compatible lease owner for issue graph refresh (#13750)', async () => {
+        const source = await fs.readFile(cliScriptPath, 'utf8');
+
+        const leaseIndex        = source.indexOf('outcome = await withHeavyMaintenanceLease(');
+        const compatibleIndex   = source.indexOf("compatibleLeaseOwners: ['kbSync']");
+        const syncDelegateIndex = source.indexOf('async () => GH_SyncService.runFullSync()');
+
+        expect(leaseIndex, 'heavy-maintenance lease call must exist').toBeGreaterThan(-1);
+        expect(compatibleIndex, 'compatible kbSync owner declaration must exist').toBeGreaterThan(-1);
+        expect(syncDelegateIndex, 'real sync delegate must exist').toBeGreaterThan(-1);
+        expect(syncDelegateIndex).toBeLessThan(compatibleIndex);
+    });
 });

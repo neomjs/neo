@@ -29,13 +29,15 @@ export const DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES = Object.freeze([
 /**
  * Heavy-maintenance pairs whose resource envelopes are compatible enough to run
  * concurrently. This is intentionally narrow: Memory Core miniSummary backfill
- * must not wait behind local-only KB embedding work, while every other heavy task
- * pair keeps the historical single-heavy invariant.
+ * and GitHub workflow issue-to-graph ingestion must not wait behind local-only KB
+ * embedding work, while every other heavy task pair keeps the historical
+ * single-heavy invariant.
  *
  * @type {ReadonlyArray<ReadonlyArray<String>>}
  */
 export const DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS = Object.freeze([
-    Object.freeze(['kbSync', 'memory-summary-backfill'])
+    Object.freeze(['kbSync', 'memory-summary-backfill']),
+    Object.freeze(['kbSync', 'githubWorkflowSync'])
 ]);
 
 /**
@@ -44,7 +46,8 @@ export const DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS = Object.freeze([
  * @type {ReadonlyArray<String>}
  */
 export const DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES = Object.freeze([
-    'dream'
+    'dream',
+    'githubWorkflowSync'
 ]);
 
 // ============================================================================
