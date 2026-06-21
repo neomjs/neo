@@ -101,6 +101,18 @@ test.describe('laneStateStopHook — pure idle-out decision logic', () => {
             expect(directive).toContain('no lane-state block emitted at turn-terminal');
         });
 
+        test('shows the fenced lane-state JSON schema the parser actually consumes', () => {
+            const directive = composeBlockDirective('no lane-state block emitted at turn-terminal');
+            expect(directive).toContain('```lane-state');
+            expect(directive).toContain('"wakeDisposition":"awareness"');
+            expect(directive).toContain('"laneContinuation":"next-lane"');
+            expect(directive).toContain('"namedGates":[]');
+            expect(directive).toContain('"awaitingOwnPrOnly":false');
+            expect(directive).toContain('awaitingOwnPrOnly:true is invalid');
+            expect(directive).toContain('same-turn checkedAt');
+            expect(directive).toContain('field "mergedAt"');
+        });
+
         test('always carries the discoverability/mirror pointer (a hit = recognize, not obey)', () => {
             const directive = composeBlockDirective('no lane-state block emitted at turn-terminal');
             expect(directive).toContain('MIRROR, not a leash');

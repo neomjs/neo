@@ -8,6 +8,17 @@
  */
 
 /**
+ * Compact runtime hint for the fenced JSON block consumed by `parseLaneState`. Prose `lane-state:`
+ * lines remain useful for humans, but hooks only parse this machine block.
+ * @type {String}
+ */
+export const LANE_STATE_SCHEMA_HINT = `Machine lane-state block to emit with your response:
+\`\`\`lane-state
+{"wakeDisposition":"awareness","laneContinuation":"next-lane","namedGates":[],"awaitingOwnPrOnly":false}
+\`\`\`
+Validator gotchas: if an own PR is only awaiting merge/review/CI, use laneContinuation "next-lane"; "active-lane" + awaitingOwnPrOnly:true is invalid. Every namedGates[] entry needs a same-turn checkedAt; mergeClaim must use field "mergedAt".`;
+
+/**
  * @summary Pure mapping of a parse OUTCOME to a terminal verdict — the 3-bucket chain. A malformed
  * emission (parseLaneState threw) and an absent emission (null) are distinct idle-out failures from an
  * invalid descriptor, each with its own reason; a parsed descriptor is delegated to `validate`.
