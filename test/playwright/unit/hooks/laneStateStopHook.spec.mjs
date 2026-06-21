@@ -1,7 +1,7 @@
 import {test, expect}                                                                              from '@playwright/test';
 import {composeBlockDirective, composeDeferenceDirective, decideHookAction, isOperatorInLoop, parseOutcomeToVerdict,
         extractFinalAssistantText, extractLastAssistantTextFromJsonl, extractLastUserTextFromJsonl,
-        formatLifecycleBoard} from '../../../../.claude/hooks/laneStateStopHook.mjs';
+        formatLifecycleBoard, formatHoldCostumeCallout} from '../../../../.claude/hooks/laneStateStopHook.mjs';
 import {spawn} from 'node:child_process';
 import fs      from 'node:fs';
 import os      from 'node:os';
@@ -171,6 +171,33 @@ test.describe('laneStateStopHook — pure idle-out decision logic', () => {
             expect(board).toContain('#13680');
             expect(board).not.toContain('undefined');
         });
+    });
+});
+
+test.describe('laneStateStopHook — formatHoldCostumeCallout + composeBlockDirective wiring', () => {
+    test('names the matched costume-phrases + frames them as a tripwire, not the boundary', () => {
+        const out = formatHoldCostumeCallout(['gated-tail', 'no clean self-buildable lane']);
+        expect(out).toContain('"gated-tail"');
+        expect(out).toContain('"no clean self-buildable lane"');
+        expect(out).toContain('TRIPWIRE, not the boundary');
+        expect(out).toContain('NAMED lane');
+    });
+
+    test('empty / non-array → no callout (the directive stays the bare reminder)', () => {
+        expect(formatHoldCostumeCallout([])).toBe('');
+        expect(formatHoldCostumeCallout()).toBe('');
+        expect(formatHoldCostumeCallout(null)).toBe('');
+        expect(formatHoldCostumeCallout('garbage')).toBe('');
+    });
+
+    test('composeBlockDirective appends the callout when matches present, omits it when empty', () => {
+        const withCostume = composeBlockDirective('no lane-state block emitted at turn-terminal', ['gated-tail']);
+        expect(withCostume).toContain('Hold-costume detected');
+        expect(withCostume).toContain('"gated-tail"');
+
+        const without = composeBlockDirective('no lane-state block emitted at turn-terminal', []);
+        expect(without).not.toContain('Hold-costume detected');
+        expect(without).toContain('Turn-end refused'); // the bare directive core remains
     });
 });
 

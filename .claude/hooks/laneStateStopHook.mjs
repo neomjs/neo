@@ -48,7 +48,8 @@ import {buildDeferenceStopHookDirective,
         decideStopHookAction,
         isOperatorInLoop,
         LANE_STATE_SCHEMA_HINT,
-        parseOutcomeToVerdict}     from '../../ai/scripts/lifecycle/stopHookDecision.mjs';
+        parseOutcomeToVerdict,
+        scanHoldLexicon}           from '../../ai/scripts/lifecycle/stopHookDecision.mjs';
 import {validateLaneStateTerminal} from '../../ai/scripts/lifecycle/validateLaneStateTerminal.mjs';
 
 export {isOperatorInLoop, parseOutcomeToVerdict};
@@ -222,9 +223,32 @@ export function formatLifecycleBoard(state) {
  * @param {String} cause The terminal-evidence violation that triggered the block (the verdict reason).
  * @returns {String}
  */
-export function composeBlockDirective(cause) {
-    const board = formatLifecycleBoard(readLifecycleState());
-    return `${IDLE_REMINDER}${board}\n\n${MIRROR_POINTER}\n\n${SELF_IMPROVABILITY_CLAUSE}\n\n(Stop-hook trigger: ${cause})`;
+export function composeBlockDirective(cause, holdMatches = []) {
+    const board   = formatLifecycleBoard(readLifecycleState()),
+          costume = formatHoldCostumeCallout(holdMatches);
+    return `${IDLE_REMINDER}${board}${costume}\n\n${MIRROR_POINTER}\n\n${SELF_IMPROVABILITY_CLAUSE}\n\n(Stop-hook trigger: ${cause})`;
+}
+
+/**
+ * @summary Formats the hold-costume callout — when the agent's turn-final text matched the
+ * sophisticated-hold lexicon ({@link scanHoldLexicon}), names the SPECIFIC relapse-phrases back so the
+ * mirror reflects the actual costume instead of re-firing generically. Returns `''` when nothing
+ * matched (the directive stays the bare reminder). Frames the lexicon as a TRIPWIRE, not the boundary:
+ * avoiding the exact words is not the fix — the warrant is — so it cannot become an "avoid-the-phrasing,
+ * keep-holding" game (the closed-list weaponization the no-hold-state taxonomy warns against). Pure;
+ * total (never throws); exported + unit-tested.
+ * @param {String[]} matches The matched lexicon labels from {@link scanHoldLexicon}.
+ * @returns {String}
+ */
+export function formatHoldCostumeCallout(matches = []) {
+    if (!Array.isArray(matches) || !matches.length) return '';
+
+    return `\n\n⚠️ Hold-costume detected in your turn: ${matches.map(m => `"${m}"`).join(', ')}.\n` +
+        `These are the L3_No_Hold_State sophisticated-hold relapse — observed in BOTH Opus instances, so ` +
+        `the costume is correlated, not yours alone. The lexicon is a TRIPWIRE, not the boundary: ` +
+        `avoiding these exact words is NOT the fix — the warrant is ("does this advance a NAMED lane ` +
+        `right now?"). The backlog is never empty (list_issues shows 180+ open, plus discussions + the ` +
+        `tech-debt-radar). Pick one and drive it.`;
 }
 
 /**
@@ -409,11 +433,15 @@ async function main() {
           {action, reason} = decideHookAction(verdict, ENFORCING, operatorInLoop);
 
     if (action === 'block') {
-        auditLog(`BLOCK (session=${session}): ${reason}`);
+        // Costume-tripwire: scan the agent's OWN turn-final text for the sophisticated-hold lexicon so
+        // the injected directive names the SPECIFIC relapse-phrase back (a sharper mirror). Never gates
+        // the block (the decision is unchanged) — only enriches the reason.
+        const holdMatches = scanHoldLexicon(finalText);
+        auditLog(`BLOCK (session=${session}): ${reason}${holdMatches.length ? ` [hold-costume: ${holdMatches.join(', ')}]` : ''}`);
         // Block the stop + inject the curated no-hold-state directive — Claude uses the injected
         // `reason` as its next instruction; the audit log keeps the terse trigger cause.
         // Exit only AFTER stdout drains so the decision JSON is never truncated on a pipe.
-        const directive = composeBlockDirective(reason);
+        const directive = composeBlockDirective(reason, holdMatches);
         process.stdout.write(JSON.stringify({decision: 'block', reason: directive}), () => process.exit(0));
         return;
     }
