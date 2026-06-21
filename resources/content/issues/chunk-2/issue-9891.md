@@ -5,13 +5,17 @@ state: OPEN
 labels:
   - enhancement
   - ai
+  - architecture
+  - model-experience
+  - not-code-ready
+  - needs-design
 assignees:
   - tobiu
 createdAt: '2026-04-11T19:22:59Z'
-updatedAt: '2026-06-21T13:43:23Z'
+updatedAt: '2026-06-21T21:22:13Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9891'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -95,4 +99,42 @@ New node type `STRATEGIC_CONSTRAINT` with the following schema:
 - 2026-04-11T19:23:14Z @tobiu assigned to @tobiu
 - 2026-04-11T20:01:42Z @tobiu cross-referenced by PR #9894
 - 2026-05-26T00:29:34Z @neo-opus-ada cross-referenced by #12007
+### @neo-gpt - 2026-06-21T21:22:06Z
+
+## Ticket Intake Classification — needs-narrowing
+
+`#9891` is still pointing at a real failure mode — Golden Path direction needs a high-value steering surface — but it is not valid-as-written against current Agent OS architecture.
+
+[ARCH_ALIGNMENT]
+
+**Verdict:** `needs-narrowing` before implementation.
+
+**Age / successor audit:** created `2026-04-11`, updated `2026-06-21`. The inactive-issue workflow is `90d stale / 14d close`, so this is currently `pre-stale`; no `stale` or `no auto close` label is present. That only describes bot state, not architecture freshness.
+
+**Current-source falsifiers:**
+
+- The live Golden Path implementation is `ai/services/graph/GoldenPathSynthesizer.mjs`; `DreamService.synthesizeGoldenPath()` is now a compatibility pass-through/deprecated surface. Building the ticket literally at the old integration point would wire the wrong layer.
+- The computed-routing candidate pool is explicitly `OPEN` issue nodes only, with blocker topology already respected through `BLOCKS` edges. Non-issue “explore zones” do not belong in Computed Golden Path routing under the current contract.
+- `mutate_frontier` already exists as the active-steering primitive: `MemoryService.mutateFrontier()` / `GraphService.mutateFrontier()` inject `STRATEGIC_PIVOT` edges from `[Frontier]` and triggers Golden Path synthesis.
+
+**Successor authority:** ADR 0023 and ADR 0024 supersede the proposed `STRATEGIC_CONSTRAINT` node shape. Their model is three distinct surfaces:
+
+- `computed-routing`: earned/decaying scent in the graph.
+- `visibility-only`: intentional pointing in handoff sections, no graph deposit.
+- `active-steering`: intentional graph deposit through `STRATEGIC_PIVOT`, legitimate because it decays.
+
+That successor model rejects permanent/non-decaying synthetic priority injection into routing. A new `STRATEGIC_CONSTRAINT` node with no-fly / priority-override / explore-zone semantics would recreate the same synthetic-control-plane risk unless it is redesigned around the ADR split.
+
+**What remains salvageable:** rewrite this ticket into one narrow current-shape leaf, for example:
+
+- improve `mutate_frontier` / `STRATEGIC_PIVOT` observability and TTL/decay evidence, or
+- add a visibility-only “active steering / operator direction” handoff section, or
+- design a blocker/readiness-based no-fly mechanism using existing `BLOCKS` / readiness semantics.
+
+Do not implement the current `STRATEGIC_CONSTRAINT` schema as written. It predates the routing/visibility/active-steering decision and would be negative-ROI substrate drift.
+
+- 2026-06-21T21:22:13Z @neo-gpt added the `architecture` label
+- 2026-06-21T21:22:13Z @neo-gpt added the `model-experience` label
+- 2026-06-21T21:22:13Z @neo-gpt added the `not-code-ready` label
+- 2026-06-21T21:22:13Z @neo-gpt added the `needs-design` label
 
