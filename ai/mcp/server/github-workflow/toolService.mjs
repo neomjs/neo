@@ -43,6 +43,7 @@ const GITHUB_TOOL_ACCESS = Object.freeze({
     get_conversation           : NON_PUBLIC_GITHUB_WRITE_ACCESS,
     get_discussion_conversation: NON_PUBLIC_GITHUB_WRITE_ACCESS,
     get_local_issue_by_id      : NON_PUBLIC_GITHUB_WRITE_ACCESS,
+    get_mcp_tool_handbook      : NON_PUBLIC_GITHUB_WRITE_ACCESS,
     get_pull_request_diff      : NON_PUBLIC_GITHUB_WRITE_ACCESS,
     get_viewer_permission      : NON_PUBLIC_GITHUB_WRITE_ACCESS,
     healthcheck                : NON_PUBLIC_GITHUB_WRITE_ACCESS,
@@ -393,6 +394,7 @@ const serviceMapping = {
     get_conversation           : getConversationRouter,
     get_discussion_conversation: DiscussionService .getConversation        .bind(DiscussionService),
     get_local_issue_by_id      : LocalFileService  .getIssueById           .bind(LocalFileService),
+    get_mcp_tool_handbook      : toolId => toolService.getToolHandbook(toolId),
     get_pull_request_diff      : PullRequestService.getPullRequestDiff     .bind(PullRequestService),
     get_viewer_permission      : RepositoryService .getViewerPermission    .bind(RepositoryService),
     healthcheck                : HealthService     .healthcheck            .bind(HealthService),
@@ -432,8 +434,10 @@ export {
 };
 
 const toolService = Neo.create(ToolService, {
+    compactToolDescriptions    : true,
     openApiFilePath,
-    serviceMapping: guardedServiceMapping
+    serviceMapping: guardedServiceMapping,
+    toolListDescriptionMaxLength: 120
 });
 
 const callTool  = toolService.callTool .bind(toolService);
