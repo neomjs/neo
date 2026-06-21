@@ -1,9 +1,9 @@
-import crypto                                from 'crypto';
-import fs                                    from 'fs';
-import path                                  from 'path';
-import Base                                  from '../../../src/core/Base.mjs';
+import crypto                                                                       from 'crypto';
+import fs                                                                           from 'fs';
+import path                                                                         from 'path';
+import Base                                                                         from '../../../src/core/Base.mjs';
 import {Memory_GraphService as GraphService, Memory_StorageRouter as StorageRouter} from '../../services.mjs';
-import logger                                from '../../mcp/server/memory-core/logger.mjs';
+import logger                                                                       from '../../mcp/server/memory-core/logger.mjs';
 
 const
     ADR_EDGE_TYPES = Object.freeze({
@@ -287,9 +287,11 @@ class AdrIngestor extends Base {
 
             const files = (await fs.promises.readdir(adrDir)).filter(file => ADR_FILE_REGEX.test(file)).sort();
 
-            // ADR nodes embed into the graph collection so they surface in hybrid GraphRAG
-            // (query_hybrid_graph / search_nodes); without this the node is inserted but inert
-            // to semantic queries. Mirrors IssueIngestor's embed-write pattern.
+            // ADR nodes embed into the graph collection so they surface in the candidate-pool
+            // semantic search (the graph collection's vector query — e.g. GoldenPathSynthesizer's
+            // hybrid traversal). Without this the node is inserted but inert to vector retrieval.
+            // (NB: `search_nodes` is SQLite fuzzy text + `query_hybrid_graph` is topology-by-node-id;
+            // neither is the vector path — the collection query is.) Mirrors IssueIngestor.
             const nodesCollection = StorageRouter ? await StorageRouter.getGraphCollection() : null;
 
             for (const file of files) {
@@ -304,7 +306,24 @@ class AdrIngestor extends Base {
                         payloadHash  = this.computePayloadHash(adr),
                         existingNode = GraphService.db.nodes.get(adr.id);
 
-                    if (existingNode?.properties?.payloadHash === payloadHash) {
+                    // The vector tracks the FULL document (title + body); `payloadHash` deliberately
+                    // excludes the body, so a body-only edit must still re-embed. Compute embed
+                    // freshness first (an md5 over the document) so the skip below cannot strand a
+                    // stale vector behind an unchanged-metadata skip.
+                    let docText = null, contentHash = null, embedCurrent = false;
+                    if (nodesCollection) {
+                        docText     = `${adr.title}\n\n${content}`;
+                        contentHash = crypto.createHash('md5').update(docText).digest('hex');
+                        try {
+                            const existing = await nodesCollection.get({ids: [adr.id], include: ['metadatas']});
+                            embedCurrent = existing?.ids?.length > 0 && (existing.metadatas[0] || {}).hash === contentHash;
+                        } catch (e) {
+                            logger.warn(`[AdrIngestor] graph-collection GET failed for ${adr.id}: ${e.message}`);
+                        }
+                    }
+
+                    // Skip only when BOTH the node metadata AND the embedded document are current.
+                    if (existingNode?.properties?.payloadHash === payloadHash && (embedCurrent || !nodesCollection)) {
                         stats.adrsSkipped++;
                         continue;
                     }
@@ -318,38 +337,24 @@ class AdrIngestor extends Base {
                             adrNumberValue: Number(adr.adrNumber),
                             payloadHash,
                             rawStatus     : adr.rawStatus,
-                            source        : adr.source,
-                            status        : adr.status,
-                            supersedes    : adr.supersedes,
-                            title         : adr.title
+                            // The node points at its own document vector (keyed by the ADR id in the
+                            // graph collection) so a consumer reading the SQLite node knows it is embedded.
+                            semanticVectorId: adr.id,
+                            source          : adr.source,
+                            status          : adr.status,
+                            supersedes      : adr.supersedes,
+                            title           : adr.title
                         }
                     });
 
-                    // Embed the ADR document into the graph collection (the collection auto-embeds
-                    // the `documents` text). Idempotent via an md5 content hash + upsert-by-id, so a
-                    // re-ingest of unchanged content writes no duplicate vector.
-                    if (nodesCollection) {
-                        const
-                            docText     = `${adr.title}\n\n${content}`,
-                            contentHash = crypto.createHash('md5').update(docText).digest('hex');
-
-                        let needsEmbedding = true;
-                        try {
-                            const existing = await nodesCollection.get({ids: [adr.id], include: ['metadatas']});
-                            if (existing?.ids?.length > 0 && (existing.metadatas[0] || {}).hash === contentHash) {
-                                needsEmbedding = false;
-                            }
-                        } catch (e) {
-                            logger.warn(`[AdrIngestor] graph-collection GET failed for ${adr.id}: ${e.message}`);
-                        }
-
-                        if (needsEmbedding) {
-                            await nodesCollection.upsert({
-                                ids      : [adr.id],
-                                documents: [docText],
-                                metadatas: [{hash: contentHash, title: adr.title, type: 'ADR'}]
-                            });
-                        }
+                    // Re-embed the document whenever its content changed (the collection auto-embeds
+                    // the `documents` text; upsert-by-id keeps it idempotent).
+                    if (nodesCollection && !embedCurrent) {
+                        await nodesCollection.upsert({
+                            ids      : [adr.id],
+                            documents: [docText],
+                            metadatas: [{hash: contentHash, title: adr.title, type: 'ADR'}]
+                        });
                     }
 
                     stats.adrsUpserted++;
