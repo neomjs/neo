@@ -1,10 +1,11 @@
-import { execSync } from 'node:child_process';
-import process from 'node:process';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { execSync }          from 'node:child_process';
+import process               from 'node:process';
+import path                  from 'node:path';
+import { fileURLToPath }     from 'node:url';
+import { detectStaleBranch } from './branchFreshness.mjs';
 
 /**
- * Pre-push branch-discipline check (#11133).
+ * Pre-push branch-discipline check (#11133). ticket-ref-ok: implementing ticket
  *
  * Catches the 2026-05-10 empirical 5-PR pattern where feature branches accumulated
  * `chore(data): ...` sync-pipeline commits. PR diffs then showed hundreds of files /
@@ -32,13 +33,13 @@ import { fileURLToPath } from 'node:url';
  *   - `main`, `dev` — never run pre-push from these (caught by `pull-request-workflow.md §2.3`
  *     universal safety net)
  *
- * **Empirical anchor:** PRs #11106, #11109, #11114, #11129, #11132 (2026-05-10) — 5
- * occurrences in <90 minutes of the chore-sync pattern despite the existing
- * `feedback_branch_from_origin_dev_explicitly` discipline. Discipline-only enforcement
- * failed empirically; mechanical gate is load-bearing.
+ * **Empirical anchor:** a 2026-05-10 burst of 5 chore-sync PRs in <90 minutes despite the
+ * existing `feedback_branch_from_origin_dev_explicitly` discipline. Discipline-only
+ * enforcement failed empirically; mechanical gate is load-bearing.
  *
- * @see #11133 — the ticket this script implements
- * @see #11141 — sister pre-push pattern: branch freshness check
+ * @see #11133 — the ticket this script implements (ticket-ref-ok: implementing ticket)
+ * @see buildScripts/util/branchFreshness.mjs — the branch-freshness / revert-trap predicate,
+ *      the sister pre-push pattern wired into the check below
  * @see buildScripts/util/check-chore-sync.mjs — pre-commit sibling that enforces the
  *      generated-content path list at commit time (complementary surface)
  */
@@ -140,6 +141,31 @@ if (choreSyncCommits.length > 0) {
     console.error('Bypass (NOT recommended; surfaces in PR diff signal-to-noise asymmetry):');
     console.error('  git push --no-verify');
     process.exit(1);
+}
+
+// Branch-freshness check: warn on the revert-trap — when this branch has fallen behind
+// origin/dev such that its two-dot diff (origin/dev..HEAD) carries files that are NOT its
+// actual changes (the three-dot origin/dev...HEAD), a PR from it shows a misleading diff and
+// risks reverting merged peer work. Advisory (warn, exit 0). Predicate: ./branchFreshness.mjs.
+const countDiffFiles = (range) => {
+    try {
+        const out = execSync(`git diff ${range} --name-only`, { cwd: gitRoot, encoding: 'utf-8' }).trim();
+        return out ? out.split('\n').length : 0;
+    } catch (e) {
+        return 0;
+    }
+};
+
+const freshness = detectStaleBranch({
+    twoDotFiles  : countDiffFiles('origin/dev..HEAD'),
+    threeDotFiles: countDiffFiles('origin/dev...HEAD')
+});
+
+if (freshness.stale) {
+    console.warn(`\x1b[33mWarning: Branch '${branch}' looks stale against origin/dev — ${freshness.extraFiles} files in the two-dot diff are not your changes (origin/dev has advanced).\x1b[0m`);
+    console.warn('A PR from this branch may show a misleading diff or revert merged peer work (the revert-trap).');
+    console.warn('Recommended: git rebase origin/dev   (or cherry-pick your commits onto a fresh branch off origin/dev)');
+    console.warn('This is advisory — the push proceeds.');
 }
 
 // All checks passed.
