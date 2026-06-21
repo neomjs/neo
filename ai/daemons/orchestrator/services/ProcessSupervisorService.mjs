@@ -1,6 +1,6 @@
-import Base from '../../../../src/core/Base.mjs';
-import fs from 'fs-extra';
-import path from 'path';
+import Base       from '../../../../src/core/Base.mjs';
+import fs         from 'fs-extra';
+import path       from 'path';
 import {execSync} from 'child_process';
 
 const DEFAULT_STDOUT_JSON_MAX_BYTES = 65536;
@@ -470,7 +470,7 @@ export class ProcessSupervisorService extends Base {
             reason,
             child,
             clear,
-            isCleared: () => cleared,
+            isCleared         : () => cleared,
             onReadinessOutcome: status => { readinessOutcome = status; }
         })?.finally(() => {
             readinessPending = false;
@@ -613,21 +613,27 @@ export class ProcessSupervisorService extends Base {
      * @returns {Object}
      */
     classifySuccessfulChildOutcome(taskName, outcome) {
-        if (taskName !== 'memory-summary-backfill' || !outcome) {
+        if (!outcome || (taskName !== 'memory-summary-backfill' && taskName !== 'kbSync')) {
             return {status: 'completed'};
         }
 
+        // Generic deferred envelope: a child that exited 0 without doing work (lease-held /
+        // no-op) emits `{deferred: true, reason}`. Both kbSync (lease-held → no embedding) and
+        // the summary backfill use it — the false-green case that must NOT refresh lastSuccessAt.
         if (outcome.deferred === true && outcome.reason) {
             return {status: 'skipped', reasonCode: outcome.reason};
         }
 
-        const processed      = Number(outcome.processed || 0);
-        const updated        = Number(outcome.updated || 0);
-        const deferred       = Number(outcome.deferred || 0);
-        const missingContent = Number(outcome.missingContent || 0);
+        // Summary-specific: an all-deferred no-progress run (rows attempted, none updated).
+        if (taskName === 'memory-summary-backfill') {
+            const processed      = Number(outcome.processed || 0);
+            const updated        = Number(outcome.updated || 0);
+            const deferred       = Number(outcome.deferred || 0);
+            const missingContent = Number(outcome.missingContent || 0);
 
-        if (processed > 0 && updated === 0 && missingContent === 0 && deferred > 0) {
-            return {status: 'skipped', reasonCode: 'all-deferred'};
+            if (processed > 0 && updated === 0 && missingContent === 0 && deferred > 0) {
+                return {status: 'skipped', reasonCode: 'all-deferred'};
+            }
         }
 
         return {status: 'completed'};
