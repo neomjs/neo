@@ -395,10 +395,19 @@ class Config extends ConfigProvider {
                 inProcessDrain : leaf(false, 'NEO_MEMORY_WAL_IN_PROCESS_DRAIN', 'boolean')
             },
             /**
-             * Target markdown file used for autonomous agent-to-user reporting (offline jobs).
+             * Production handoff markdown file — autonomous agent-to-user reporting (offline jobs).
+             * The active `handoffFilePath` consumers read is a formula (below) resolving Prod/Test by
+             * construction from `UNIT_TEST_MODE`, so test runs that WRITE the handoff (runSandman /
+             * DreamService / TopologyInferenceEngine) never clobber the tracked production file.
              * @type {string}
              */
-            handoffFilePath: leaf(path.resolve(cwd, 'resources/content/sandman_handoff.md')),
+            handoffFilePathProd: leaf(path.resolve(cwd, 'resources/content/sandman_handoff.md'), 'NEO_HANDOFF_FILE_PATH', 'string'),
+            /**
+             * Unit-test handoff path — under gitignored `.neo-ai-data/`, so test-mode writes stay off
+             * the tracked production file. Declarative leaf; test-mode resolved by construction.
+             * @type {string}
+             */
+            handoffFilePathTest: leaf(path.resolve(cwd, '.neo-ai-data/test/sandman_handoff.md'), 'NEO_HANDOFF_FILE_PATH_TEST', 'string'),
             /**
              * Stale-assignment idle threshold used by `GoldenPathSynthesizer` when rendering
              * Sandman handoff candidates. Defaults to the ticket-intake 7-day reassignment rule.
@@ -606,7 +615,11 @@ class Config extends ConfigProvider {
             'storagePaths.graph' : data => data.storagePaths.useTestDatabase ? data.storagePaths.graphTest  : data.storagePaths.graphProd,
             'collections.memory' : data => data.collections.useTestDatabase  ? data.collections.memoryTest  : data.collections.memoryProd,
             'collections.session': data => data.collections.useTestDatabase  ? data.collections.sessionTest : data.collections.sessionProd,
-            'memoryWal.dir'      : data => data.memoryWal.useTestDatabase    ? data.memoryWal.dirTest       : data.memoryWal.dirProd
+            'memoryWal.dir'      : data => data.memoryWal.useTestDatabase    ? data.memoryWal.dirTest       : data.memoryWal.dirProd,
+            // The active handoff path, resolved BY CONSTRUCTION from the canonical UNIT_TEST_MODE toggle
+            // (`storagePaths.useTestDatabase` — every `useTestDatabase` leaf binds the same env). Keeps
+            // test-mode handoff writes off the tracked `resources/content/sandman_handoff.md`.
+            'handoffFilePath'    : data => data.storagePaths.useTestDatabase ? data.handoffFilePathTest    : data.handoffFilePathProd
         }
     }
 }

@@ -224,6 +224,18 @@ test.describe('Memory Core Config (#10010)', () => {
         expect(config.storagePaths.graph).toBe(config.storagePaths.graphTest);
     });
 
+    test('handoffFilePath resolves by construction to the test path under the toggle — never the tracked prod file (#13663)', () => {
+        // Mirrors storagePaths.graph: under the unit suite (UNIT_TEST_MODE=true) the formula resolves
+        // handoffFilePathTest, so a test run writing the handoff cannot clobber the tracked production
+        // resources/content/sandman_handoff.md — test-mode resolved by construction (the AiConfig SSOT
+        // sanctioned form: declarative Prod/Test leaves + a formula, never an inline-env leaf ternary).
+        expect(config.storagePaths.useTestDatabase).toBe(true);
+        expect(config.handoffFilePathProd).toContain('resources/content/sandman_handoff.md');
+        expect(config.handoffFilePathTest).toContain('.neo-ai-data/test/sandman_handoff.md');
+        expect(config.handoffFilePath).toBe(config.handoffFilePathTest);
+        expect(config.handoffFilePath).not.toContain('resources/content/sandman_handoff.md');
+    });
+
     test('collections.memory/session resolve by construction to per-worker-unique test names under the toggle (#12499)', () => {
         // The reshape replaced the inline `process.env.UNIT_TEST_MODE ? test-... : prod` leaf ternaries
         // with *Prod/*Test leaves + formulas; the test names are per-worker-unique module consts. Under
