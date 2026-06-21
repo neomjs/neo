@@ -479,7 +479,7 @@ async function runDreamTask({taskName, reason, services}) {
             services.healthService?.recordTaskOutcome?.(taskName, 'completed', recordPayload);
             break;
         case 'skipped':
-            services.taskStateService.markCompleted(taskName);
+            services.taskStateService.markSkipped(taskName);
             services.healthService?.recordTaskOutcome?.(taskName, 'skipped', {
                 ...recordPayload,
                 skipReason: outcome.skipReason
