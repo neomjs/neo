@@ -1,15 +1,15 @@
-import fs                       from 'fs/promises';
-import fsExtra                  from 'fs-extra';
-import path                     from 'path';
-import {fileURLToPath}          from 'url';
-import aiConfig                 from '../../mcp/server/memory-core/config.mjs';
-import Base                     from '../../../src/core/Base.mjs';
-import RuntimeFreshnessService  from '../../mcp/server/shared/services/RuntimeFreshnessService.mjs';
-import ChromaManager            from './managers/ChromaManager.mjs';
-import StorageRouter            from './managers/StorageRouter.mjs';
-import ChromaLifecycleService   from './lifecycle/ChromaLifecycleService.mjs';
-import logger                   from '../../mcp/server/memory-core/logger.mjs';
-import {readGateState}          from '../../scripts/lifecycle/wakeSafetyGate.mjs';
+import fs                      from 'fs/promises';
+import fsExtra                 from 'fs-extra';
+import path                    from 'path';
+import {fileURLToPath}         from 'url';
+import aiConfig                from '../../mcp/server/memory-core/config.mjs';
+import Base                    from '../../../src/core/Base.mjs';
+import RuntimeFreshnessService from '../../mcp/server/shared/services/RuntimeFreshnessService.mjs';
+import ChromaManager           from './managers/ChromaManager.mjs';
+import StorageRouter           from './managers/StorageRouter.mjs';
+import ChromaLifecycleService  from './lifecycle/ChromaLifecycleService.mjs';
+import logger                  from '../../mcp/server/memory-core/logger.mjs';
+import {readGateState}         from '../../scripts/lifecycle/wakeSafetyGate.mjs';
 import {
     SHARED_USER_ID,
     hasCoreSwarmParticipant,
@@ -24,6 +24,16 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const
     configPath  = path.resolve(__dirname, '../../config.mjs'),
     openApiPath = path.resolve(__dirname, '../../mcp/server/memory-core/openapi.yaml'),
+    // Behavioral-source dirs the Memory Core loads. A pure source-code change here (e.g. a fixed
+    // shared embed path) leaves config + OpenAPI digests untouched, so without a source digest a
+    // long-lived process can run pre-merge code while reporting freshness 'current'. Shared dirs are
+    // included because a shared-module edit makes every dependent process stale.
+    sourceDirs  = [
+        path.resolve(__dirname),                                  // ai/services/memory-core
+        path.resolve(__dirname, '../shared'),                     // ai/services/shared (vector / embed path)
+        path.resolve(__dirname, '../../mcp/server/memory-core'),
+        path.resolve(__dirname, '../../mcp/server/shared')
+    ],
     runtimeFreshnessTracker = RuntimeFreshnessService.createTracker({
         files  : [{
             key       : 'configDigest',
@@ -33,12 +43,16 @@ const
             key       : 'openApiDigest',
             path      : openApiPath,
             errorLabel: 'OpenAPI digest'
+        }, {
+            key       : 'sourceDigest',
+            dirs      : sourceDirs,
+            errorLabel: 'source digest'
         }],
         serviceName       : 'Memory Core MCP server',
         identityLabel     : 'source/config identity',
         assertionFacts    : 'provider, config, or tool-schema facts',
         restartScope      : 'cached provider/config state',
-        statusFields      : ['configDigest', 'openApiDigest'],
+        statusFields      : ['configDigest', 'openApiDigest', 'sourceDigest'],
         unavailableSummary: 'config digest and OpenAPI digest'
     });
 
@@ -124,9 +138,9 @@ export function buildIdentityBlock(stdioIdentityState) {
               : null;
 
     return {
-        source : resolvedSource,
-        bound  : !!agentIdentityNodeId,
-        nodeId : agentIdentityNodeId || null,
+        source: resolvedSource,
+        bound : !!agentIdentityNodeId,
+        nodeId: agentIdentityNodeId || null,
         warning
     };
 }
@@ -259,29 +273,29 @@ function buildSingleEmbeddingProviderBlock(cfg, active, configName) {
         case 'openAiCompatible':
             return {
                 active,
-                host      : cfg.openAiCompatible?.host || null,
-                model     : cfg.openAiCompatible?.embeddingModel || null,
+                host : cfg.openAiCompatible?.host || null,
+                model: cfg.openAiCompatible?.embeddingModel || null,
                 dimensions
             };
         case 'ollama':
             return {
                 active,
-                host      : cfg.ollama?.host || null,
-                model     : cfg.ollama?.embeddingModel || null,
+                host : cfg.ollama?.host || null,
+                model: cfg.ollama?.embeddingModel || null,
                 dimensions
             };
         case 'gemini':
             return {
                 active,
-                host      : null,
-                model     : cfg.embeddingModel || null,
+                host : null,
+                model: cfg.embeddingModel || null,
                 dimensions
             };
         default:
             return {
                 active,
-                host      : null,
-                model     : null,
+                host : null,
+                model: null,
                 dimensions,
                 error     : `Unrecognized ${configName}: '${active}'. Expected 'gemini' | 'openAiCompatible' | 'ollama'.`
             };
@@ -389,7 +403,7 @@ export function buildProviderPrerequisiteBlock(cfg, env = process.env) {
           details = [summary.detail, embedding.detail].filter(Boolean);
 
     return {
-        ready: summary.ready && embedding.ready,
+        ready  : summary.ready && embedding.ready,
         summary: {
             provider: summaryProvider,
             ready   : summary.ready
@@ -566,13 +580,13 @@ export async function buildBackupStateBlock(backupPath, fs, path) {
 
         return {
             lastSuccessful: timestamp,
-            count: backupDirs.length
+            count         : backupDirs.length
         };
     } catch (e) {
         return {
             lastSuccessful: null,
-            count: 0,
-            error: e.message
+            count         : 0,
+            error         : e.message
         };
     }
 }
@@ -1496,10 +1510,10 @@ class HealthService extends Base {
             startup : {
                 dependencies: this.getStartupDependencyState()
             },
-            backup   : await buildBackupStateBlock(aiConfig.backupPath, fsExtra, path),
-            details  : [],
-            version  : process.env.npm_package_version || '1.0.0',
-            uptime   : process.uptime()
+            backup : await buildBackupStateBlock(aiConfig.backupPath, fsExtra, path),
+            details: [],
+            version: process.env.npm_package_version || '1.0.0',
+            uptime : process.uptime()
         };
 
         // Step 1: Check Database connectivity

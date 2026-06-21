@@ -1,8 +1,9 @@
-import {execFile, execFileSync} from 'child_process';
-import {createHash}             from 'crypto';
-import {readFileSync}           from 'fs';
-import {promisify}              from 'util';
-import Base                     from '../../../../../src/core/Base.mjs';
+import {execFile, execFileSync}    from 'child_process';
+import {createHash}                from 'crypto';
+import {readdirSync, readFileSync} from 'fs';
+import {join}                      from 'path';
+import {promisify}                 from 'util';
+import Base                        from '../../../../../src/core/Base.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -41,13 +42,15 @@ function compareIdentityField(field, boot, current) {
 }
 
 /**
- * @summary Normalizes runtime identity file descriptors.
+ * @summary Normalizes runtime identity descriptors.
  *
- * Each file descriptor contributes one SHA-256 digest field to the runtime identity block.
- * The descriptor label is used only for compact diagnostic errors; the digest value itself
- * stays private to the boot/current comparison and is not echoed in public healthcheck output.
+ * Each descriptor contributes one SHA-256 digest field to the runtime identity block — either a
+ * single `path` (a file digest, e.g. config/OpenAPI) or a set of `dirs` (a manifest digest over the
+ * behavioral `.mjs` source under those directories). The descriptor label is used only for compact
+ * diagnostic errors; the digest value itself stays private to the boot/current comparison and is not
+ * echoed in public healthcheck output.
  *
- * @param {Object[]} files File descriptors.
+ * @param {Object[]} files Identity descriptors (`{key, path}` or `{key, dirs}`).
  * @returns {Object[]}
  */
 function normalizeIdentityFiles(files = []) {
@@ -56,8 +59,34 @@ function normalizeIdentityFiles(files = []) {
         .map(file => ({
             key       : file.key,
             path      : file.path,
+            dirs      : file.dirs,
             errorLabel: file.errorLabel || file.key
         }));
+}
+
+/**
+ * @summary Recursively collects `.mjs` source files under a directory for manifest digesting.
+ *
+ * Excludes spec files and node_modules/test trees so the digest tracks behavioral source only. A
+ * missing directory yields an empty list (the caller still records it), so a deleted source dir
+ * changes the manifest rather than throwing.
+ *
+ * @param {String} dir Absolute directory to walk.
+ * @returns {String[]} Absolute `.mjs` file paths (unsorted; the caller sorts the manifest).
+ */
+function collectSourceFiles(dir) {
+    let entries;
+
+    try {
+        entries = readdirSync(dir, {recursive: true, withFileTypes: true});
+    } catch (e) {
+        return [];
+    }
+
+    return entries
+        .filter(entry => entry.isFile() && entry.name.endsWith('.mjs') && !entry.name.endsWith('.spec.mjs'))
+        .map(entry => join(entry.parentPath || entry.path, entry.name))
+        .filter(filePath => !filePath.includes('/node_modules/') && !filePath.includes('/test/'));
 }
 
 /**
@@ -184,36 +213,36 @@ export class RuntimeFreshnessTracker {
                 : [identity.errors].filter(Boolean);
 
             freshness = this.#runtimeService.classifyRuntimeFreshness({
-                assertionFacts  : this.assertionFacts,
-                boot            : identity.boot || this.bootRuntimeIdentity,
-                current         : identity.current || {},
-                errors          : [
+                assertionFacts: this.assertionFacts,
+                boot          : identity.boot || this.bootRuntimeIdentity,
+                current       : identity.current || {},
+                errors        : [
                     ...this.bootRuntimeFreshnessErrors,
                     ...runtimeErrors
                 ],
-                fieldKeys       : this.#fieldKeys,
-                identityLabel   : this.identityLabel,
-                restartScope    : this.restartScope,
-                serviceName     : this.serviceName,
-                startedAt       : this.startedAt,
-                statusFields    : [...this.#statusFieldSet],
+                fieldKeys         : this.#fieldKeys,
+                identityLabel     : this.identityLabel,
+                restartScope      : this.restartScope,
+                serviceName       : this.serviceName,
+                startedAt         : this.startedAt,
+                statusFields      : [...this.#statusFieldSet],
                 unavailableSummary: this.unavailableSummary
             });
         } catch (e) {
             freshness = this.#runtimeService.classifyRuntimeFreshness({
-                assertionFacts  : this.assertionFacts,
-                boot            : this.bootRuntimeIdentity,
-                current         : {},
-                errors          : [
+                assertionFacts: this.assertionFacts,
+                boot          : this.bootRuntimeIdentity,
+                current       : {},
+                errors        : [
                     ...this.bootRuntimeFreshnessErrors,
                     `runtime freshness reader failed: ${e.message}`
                 ],
-                fieldKeys       : this.#fieldKeys,
-                identityLabel   : this.identityLabel,
-                restartScope    : this.restartScope,
-                serviceName     : this.serviceName,
-                startedAt       : this.startedAt,
-                statusFields    : [...this.#statusFieldSet],
+                fieldKeys         : this.#fieldKeys,
+                identityLabel     : this.identityLabel,
+                restartScope      : this.restartScope,
+                serviceName       : this.serviceName,
+                startedAt         : this.startedAt,
+                statusFields      : [...this.#statusFieldSet],
                 unavailableSummary: this.unavailableSummary
             });
         }
@@ -361,6 +390,48 @@ class RuntimeFreshnessService extends Base {
     }
 
     /**
+     * @summary Computes a stable SHA-256 digest over a set of source directories' `.mjs` contents.
+     *
+     * The behavioral-source counterpart to {@link createFileDigest}: where a file digest tracks one
+     * config/schema file, the manifest digest tracks the SOURCE CODE a long-lived MCP process loaded
+     * at boot. A pure-source change (e.g. a fixed embed path) leaves the config/OpenAPI digests
+     * untouched — the freshness signal's historic blind spot — so a stale process can run pre-merge
+     * code while reporting `status:'current'`. Hashing each file's path + content (sorted for a stable
+     * order) closes that gap: any add/remove/edit under the declared dirs flips the digest.
+     *
+     * Path + CONTENT pairs are hashed (not mtimes), so the signal is checkout-stable — a clone or
+     * rebase that rewrites mtimes without changing bytes does not cause a false stale. Boot and
+     * current are both computed in the same process against the same absolute dirs, so absolute paths
+     * compare cleanly.
+     *
+     * @param {String[]} dirs Absolute source directories to digest.
+     * @returns {String} `sha256:<hex>` over the sorted (path, content-hash) manifest.
+     */
+    createManifestDigest(dirs = []) {
+        const fileHashes = [];
+
+        for (const dir of dirs) {
+            for (const filePath of collectSourceFiles(dir)) {
+                try {
+                    fileHashes.push([filePath, createHash('sha256').update(readFileSync(filePath)).digest('hex')]);
+                } catch (e) {
+                    fileHashes.push([filePath, `unreadable:${e.code || 'ERR'}`]);
+                }
+            }
+        }
+
+        fileHashes.sort((a, b) => a[0].localeCompare(b[0]));
+
+        const manifest = createHash('sha256');
+
+        for (const [filePath, contentHash] of fileHashes) {
+            manifest.update(filePath).update('\0').update(contentHash).update('\0');
+        }
+
+        return `sha256:${manifest.digest('hex')}`;
+    }
+
+    /**
      * Creates a per-consumer runtime freshness tracker.
      *
      * @param {Object} options Tracker configuration.
@@ -399,7 +470,9 @@ class RuntimeFreshnessService extends Base {
 
         for (const file of normalizeIdentityFiles(files)) {
             try {
-                identity[file.key] = this.createFileDigest(file.path);
+                identity[file.key] = Array.isArray(file.dirs)
+                    ? this.createManifestDigest(file.dirs)
+                    : this.createFileDigest(file.path);
             } catch (e) {
                 errors.push(`${phase} ${file.errorLabel} unavailable: ${e.message}`);
             }
@@ -437,7 +510,9 @@ class RuntimeFreshnessService extends Base {
 
         for (const file of normalizeIdentityFiles(files)) {
             try {
-                identity[file.key] = this.createFileDigest(file.path);
+                identity[file.key] = Array.isArray(file.dirs)
+                    ? this.createManifestDigest(file.dirs)
+                    : this.createFileDigest(file.path);
             } catch (e) {
                 errors.push(`${phase} ${file.errorLabel} unavailable: ${e.message}`);
             }

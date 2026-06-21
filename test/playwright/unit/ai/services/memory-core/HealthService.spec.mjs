@@ -13,13 +13,13 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core       from '../../../../../../src/core/_export.mjs';
-import InstanceManager from '../../../../../../src/manager/Instance.mjs';
-import AiConfig        from '../../../../../../ai/config.mjs';
-import ChromaManager   from '../../../../../../ai/services/memory-core/managers/ChromaManager.mjs';
-import StorageRouter   from '../../../../../../ai/services/memory-core/managers/StorageRouter.mjs';
+import {test, expect}         from '@playwright/test';
+import Neo                    from '../../../../../../src/Neo.mjs';
+import * as core              from '../../../../../../src/core/_export.mjs';
+import InstanceManager        from '../../../../../../src/manager/Instance.mjs';
+import AiConfig               from '../../../../../../ai/config.mjs';
+import ChromaManager          from '../../../../../../ai/services/memory-core/managers/ChromaManager.mjs';
+import StorageRouter          from '../../../../../../ai/services/memory-core/managers/StorageRouter.mjs';
 import ChromaLifecycleService from '../../../../../../ai/services/memory-core/lifecycle/ChromaLifecycleService.mjs';
 
 /**
@@ -285,12 +285,14 @@ test.describe.serial('HealthService #12772 — runtimeFreshness', () => {
             boot: {
                 gitHead      : 'old-head',
                 configDigest : 'sha256:same-config',
-                openApiDigest: 'sha256:same-openapi'
+                openApiDigest: 'sha256:same-openapi',
+                sourceDigest : 'sha256:same-source'
             },
             current: {
                 gitHead      : 'new-head',
                 configDigest : 'sha256:same-config',
-                openApiDigest: 'sha256:same-openapi'
+                openApiDigest: 'sha256:same-openapi',
+                sourceDigest : 'sha256:same-source'
             }
         });
 
@@ -298,7 +300,7 @@ test.describe.serial('HealthService #12772 — runtimeFreshness', () => {
 
         expect(result.status).toBe('current');
         expect(result.stale).not.toHaveProperty('gitHead');
-        expect(result.stale).toEqual({configDigest: false, openApiDigest: false});
+        expect(result.stale).toEqual({configDigest: false, openApiDigest: false, sourceDigest: false});
         expect(result.details.join(' ')).not.toContain('informational');
     });
 
@@ -375,13 +377,13 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         const summaryCollection = makeCollection(() => summaryCount);
 
         originals = {
-            chromaConnected         : ChromaManager.connected,
-            chromaReady             : ChromaManager.ready,
-            chromaConnect           : ChromaManager.connect,
+            chromaConnected          : ChromaManager.connected,
+            chromaReady              : ChromaManager.ready,
+            chromaConnect            : ChromaManager.connect,
             invalidateCollectionCache: ChromaManager.invalidateCollectionCache,
-            getMemoryCollection     : StorageRouter.getMemoryCollection,
-            getSummaryCollection    : StorageRouter.getSummaryCollection,
-            getDatabaseStatus       : ChromaLifecycleService.getDatabaseStatus
+            getMemoryCollection      : StorageRouter.getMemoryCollection,
+            getSummaryCollection     : StorageRouter.getSummaryCollection,
+            getDatabaseStatus        : ChromaLifecycleService.getDatabaseStatus
         };
 
         ChromaManager.connected = true;
@@ -579,9 +581,9 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
 
         expect(result.status).toBe('degraded');
         expect(result.identity).toMatchObject({
-            source : 'env-var',
-            bound  : false,
-            nodeId : null
+            source: 'env-var',
+            bound : false,
+            nodeId: null
         });
         expect(result.identity.warning).toContain("NEO_AGENT_IDENTITY is pinned to 'neo-opus-grace'");
         expect(result.details).toContain(`WARN: ${result.identity.warning}`);
@@ -959,7 +961,7 @@ test.describe('HealthService #12487 — buildEmbeddingWriteCanaryBlock', () => {
                 vectorDimension  : 4096
             },
             embedText: async () => new Promise(() => {}),
-            now: () => 100,
+            now      : () => 100,
             timeoutMs: 5
         });
 
@@ -980,7 +982,7 @@ test.describe('HealthService #12487 — buildEmbeddingWriteCanaryBlock', () => {
                 vectorDimension  : 4096
             },
             embedText: async () => [],
-            now: () => 100
+            now      : () => 100
         });
 
         expect(result).toMatchObject({
@@ -999,7 +1001,7 @@ test.describe('HealthService #12487 — buildEmbeddingWriteCanaryBlock', () => {
                 vectorDimension  : 4096
             },
             embedText: async () => [0.1, 0.2, 0.3],
-            now: () => 100
+            now      : () => 100
         });
 
         expect(result).toMatchObject({
@@ -1053,7 +1055,7 @@ test.describe('HealthService #10724 — buildSummaryProviderBlock', () => {
 
     test('openAiCompatible config surfaces the lean local-route shape without leaking API key value', () => {
         const result = buildSummaryProviderBlock({
-            modelProvider: 'openAiCompatible',
+            modelProvider   : 'openAiCompatible',
             openAiCompatible: {
                 host  : 'http://127.0.0.1:11434',
                 model : 'qwen3-8b',
@@ -1185,7 +1187,7 @@ test.describe('HealthService #10844 — buildBackupStateBlock', () => {
     test('returns null if no backup directories exist', async () => {
         const mockFs = {
             pathExists: async () => true,
-            readdir: async () => [
+            readdir   : async () => [
                 { isDirectory: () => false, name: 'backup-2023' },
                 { isDirectory: () => true, name: 'other-dir' }
             ]
