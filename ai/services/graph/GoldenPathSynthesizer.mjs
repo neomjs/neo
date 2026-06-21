@@ -142,6 +142,34 @@ class GoldenPathSynthesizer extends Base {
     }
 
     /**
+     * @summary Recency de-bias score for the Golden Path ranking.
+     *
+     * Returns a bounded recency factor in (0, 1]: `1 / (1 + daysSinceUpdate / halfLifeDays)` —
+     * a just-updated node scores ~1.0; one idle `halfLifeDays` days scores 0.5. The caller adds
+     * `recencyScore × goldenPathRecencyWeight` to the priority so fresh release work isn't
+     * structurally out-ranked by old high-weight meta. Pure + defensive: a missing/unparseable
+     * `updatedAt` returns 0 (no boost), so a node without a timestamp is never falsely promoted.
+     *
+     * @param {Object} options
+     * @param {String|Number|undefined} options.updatedAt Node `properties.updatedAt`.
+     * @param {Number} options.now Current epoch ms.
+     * @param {Number} options.halfLifeDays Days at which the boost halves (> 0).
+     * @returns {Number} Recency factor in [0, 1].
+     */
+    static computeRecencyScore({updatedAt, now, halfLifeDays}) {
+        const updatedMs = updatedAt === undefined || updatedAt === null ? NaN : new Date(updatedAt).getTime();
+        const halfLife  = Number(halfLifeDays);
+
+        if (!Number.isFinite(updatedMs) || !Number.isFinite(now) || !Number.isFinite(halfLife) || halfLife <= 0) {
+            return 0;
+        }
+
+        const daysSinceUpdate = Math.max(0, (now - updatedMs) / 86400000);
+
+        return 1 / (1 + daysSinceUpdate / halfLife);
+    }
+
+    /**
      * @summary Derives the core swarm login-to-family map from the AgentIdentity registry.
      *
      * `identityRoots.mjs` is the canonical handle indirection seam for named Neo maintainers.
@@ -1092,6 +1120,11 @@ class GoldenPathSynthesizer extends Base {
         const scoredNodes = [];
         const SEMANTIC_WEIGHT = 2.0;
         const STRUCTURAL_WEIGHT = 1.0;
+        // Recency de-bias inputs — read once. Defaults keep the ranking unchanged
+        // (recencyWeight 0 = dark-launched) when the config leaves are absent or stale.
+        const recencyWeight       = Number(aiConfig.goldenPathRecencyWeight) || 0;
+        const recencyHalfLifeDays = Number(aiConfig.goldenPathRecencyHalfLifeDays) || 30;
+        const recencyNowMs        = now instanceof Date ? now.getTime() : new Date(now).getTime();
 
         try {
             const placeholders = semanticIds.map(() => '?').join(',');
@@ -1142,6 +1175,17 @@ class GoldenPathSynthesizer extends Base {
                 try { nodeData = JSON.parse(row.data); } catch (e) { }
 
                 let priority = (semanticScore * SEMANTIC_WEIGHT) + (struct_score * STRUCTURAL_WEIGHT);
+
+                // Recency de-bias: additive boost so fresh release work isn't structurally
+                // out-ranked by old high-weight meta. No effect until goldenPathRecencyWeight > 0
+                // (dark-launched; tuned from live computed-score data).
+                if (recencyWeight > 0) {
+                    priority += this.constructor.computeRecencyScore({
+                        updatedAt   : nodeData?.properties?.updatedAt,
+                        now         : recencyNowMs,
+                        halfLifeDays: recencyHalfLifeDays
+                    }) * recencyWeight;
+                }
 
                 if (!this.constructor.isActionableComputedRecommendation(nodeData || {id: issueId})) {
                     logger.debug(`[GoldenPathSynthesizer] Skipping non-actionable computed recommendation: ${issueId}`);

@@ -457,6 +457,24 @@ class Config extends ConfigProvider {
              */
             goldenPathTopNodeRenderLimit: leaf(10, 'NEO_GOLDEN_PATH_TOP_NODE_RENDER_LIMIT', 'number'),
             /**
+             * Golden-path recency de-bias: additive recency boost on each scored node's priority —
+             * `priority += recencyScore × goldenPathRecencyWeight`, where
+             * `recencyScore = 1 / (1 + daysSinceUpdate / goldenPathRecencyHalfLifeDays)` ∈ (0,1].
+             * Counters the structural-weight bias that surfaces old high-weight meta over fresh
+             * release work. Defaults to 0 (disabled / dark-launched) — enable + tune from the live
+             * computed-score data so the weight surfaces current work without over-surfacing recent
+             * noise.
+             * @type {number}
+             */
+            goldenPathRecencyWeight: leaf(0, 'NEO_GOLDEN_PATH_RECENCY_WEIGHT', 'number'),
+            /**
+             * Half-life (in days) of the golden-path recency boost: an issue idle this many days
+             * since `updatedAt` gets half the boost of a just-updated one. Active only when
+             * `goldenPathRecencyWeight > 0`.
+             * @type {number}
+             */
+            goldenPathRecencyHalfLifeDays: leaf(30, 'NEO_GOLDEN_PATH_RECENCY_HALF_LIFE_DAYS', 'number'),
+            /**
              * The Hebbian decay factor applied every 24 hours to the edge graph (e.g., 0.98 for ~79 day half-life).
              * @type {number}
              */

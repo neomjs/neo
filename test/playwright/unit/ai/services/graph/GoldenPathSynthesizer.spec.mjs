@@ -130,6 +130,31 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'clear');
     });
 
+    test('computeRecencyScore is a bounded, defensive recency factor (#13750)', () => {
+        const recency = GoldenPathSynthesizer.constructor.computeRecencyScore.bind(GoldenPathSynthesizer.constructor);
+        const now     = Date.parse('2026-06-21T00:00:00.000Z');
+        const DAY     = 86400000;
+
+        // just-updated → ~1.0
+        expect(recency({updatedAt: new Date(now).toISOString(), now, halfLifeDays: 30})).toBeCloseTo(1.0, 5);
+        // idle exactly one half-life (30d) → 0.5
+        expect(recency({updatedAt: new Date(now - 30 * DAY).toISOString(), now, halfLifeDays: 30})).toBeCloseTo(0.5, 5);
+        // idle two half-lives (60d) → 1/3
+        expect(recency({updatedAt: new Date(now - 60 * DAY).toISOString(), now, halfLifeDays: 30})).toBeCloseTo(1 / 3, 5);
+        // very old → bounded in (0, 0.05)
+        const old = recency({updatedAt: new Date(now - 3650 * DAY).toISOString(), now, halfLifeDays: 30});
+        expect(old).toBeGreaterThan(0);
+        expect(old).toBeLessThan(0.05);
+        // future updatedAt clamps to 0 days idle → ~1.0 (never exceeds 1)
+        expect(recency({updatedAt: new Date(now + 10 * DAY).toISOString(), now, halfLifeDays: 30})).toBeCloseTo(1.0, 5);
+
+        // defensive: missing / unparseable / bad-half-life / bad-now → 0 (no false promotion)
+        expect(recency({updatedAt: undefined, now, halfLifeDays: 30})).toBe(0);
+        expect(recency({updatedAt: 'not-a-date', now, halfLifeDays: 30})).toBe(0);
+        expect(recency({updatedAt: new Date(now).toISOString(), now, halfLifeDays: 0})).toBe(0);
+        expect(recency({updatedAt: new Date(now).toISOString(), now: NaN, halfLifeDays: 30})).toBe(0);
+    });
+
     test('derives repo-enrichment identity projections from identityRoots', () => {
         const Synthesizer = GoldenPathSynthesizer.constructor;
 
