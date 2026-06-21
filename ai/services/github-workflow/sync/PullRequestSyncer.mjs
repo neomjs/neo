@@ -1,19 +1,19 @@
-import aiConfig                                              from '../../../mcp/server/github-workflow/config.mjs';
-import Base                                                  from '../../../../src/core/Base.mjs';
-import crypto                                                from 'crypto';
-import {existsSync}                                          from 'fs';
-import fs                                                    from 'fs/promises';
-import logger                                                from '../../../mcp/server/github-workflow/logger.mjs';
-import matter                                                from 'gray-matter';
-import path                                                  from 'path';
-import semver                                                from 'semver';
-import GraphqlService                                        from '../GraphqlService.mjs';
-import ReleaseNotesSyncer                                    from './ReleaseNotesSyncer.mjs';
-import {FETCH_PULL_REQUESTS_FOR_SYNC}                        from '../queries/pullRequestQueries.mjs';
-import contentPath                                           from '../shared/contentPath.mjs';
-import {createContentIndexEntry, updateContentIndex}         from '../shared/contentIndex.mjs';
-import {createContentTrustSummary, projectAuthoredNodeTrust} from '../shared/conversationTrust.mjs';
-import pruneEmptyDirs                                        from '../shared/pruneEmptyDirs.mjs';
+import aiConfig                                                   from '../../../mcp/server/github-workflow/config.mjs';
+import Base                                                       from '../../../../src/core/Base.mjs';
+import crypto                                                     from 'crypto';
+import {existsSync}                                               from 'fs';
+import fs                                                         from 'fs/promises';
+import logger                                                     from '../../../mcp/server/github-workflow/logger.mjs';
+import matter                                                     from 'gray-matter';
+import path                                                       from 'path';
+import semver                                                     from 'semver';
+import GraphqlService                                             from '../GraphqlService.mjs';
+import ReleaseNotesSyncer                                         from './ReleaseNotesSyncer.mjs';
+import {FETCH_PULL_REQUESTS_FOR_SYNC, FETCH_SINGLE_PULL_FOR_SYNC} from '../queries/pullRequestQueries.mjs';
+import contentPath                                                from '../shared/contentPath.mjs';
+import {createContentIndexEntry, updateContentIndex}              from '../shared/contentIndex.mjs';
+import {createContentTrustSummary, projectAuthoredNodeTrust}      from '../shared/conversationTrust.mjs';
+import pruneEmptyDirs                                             from '../shared/pruneEmptyDirs.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
 const pullRequestConfig = aiConfig.pullRequest;
@@ -570,6 +570,98 @@ class PullRequestSyncer extends Base {
             logger.info(`✨ Synced ${stats.count} modified pull requests to disk.`);
         } else {
             logger.info(`✅ Synced 0 pull requests (all up to date).`);
+        }
+
+        return stats;
+    }
+
+    /**
+     * @summary Force-refetches specific pull requests from GitHub, bypassing the delta-by-`updatedAt`
+     * gate, and re-renders their local Markdown mirrors from current GitHub state.
+     *
+     * The bulk {@link #syncPullRequests} path is delta-gated (it stops paginating past the cached
+     * high-water mark) and PR mirrors are pull-only, so a mirror that drifted for a reason that does
+     * NOT bump `updatedAt` (e.g. an upstream body edit on an already-synced closed PR) is never
+     * re-pulled. This is the single recovery primitive: it fetches each PR via
+     * {@link FETCH_SINGLE_PULL_FOR_SYNC}, re-renders via {@link #renderPullRequestMarkdown}, writes the
+     * file, and mutates the passed `metadata` in place. The caller persists metadata afterwards.
+     * Mirrors `IssueSyncer#refetchIssuesByNumber`.
+     *
+     * @param {Array<Number>|Set<Number>} numbers The pull-request numbers to refetch.
+     * @param {Object} metadata The sync metadata object (mutated in place).
+     * @param {Object} [indexMutations=null] Optional accumulator for `_index.json` updates.
+     * @returns {Promise<{refetched: {count: Number, pulls: Number[]}, errors: Array<{prNumber: Number, error: String}>}>}
+     */
+    async refetchPullsByNumber(numbers, metadata, indexMutations = null) {
+        const stats = {refetched: {count: 0, pulls: []}, errors: []};
+        const list  = [...numbers];
+
+        for (const prNumber of list) {
+            try {
+                const data = await GraphqlService.query(
+                    FETCH_SINGLE_PULL_FOR_SYNC,
+                    {
+                        owner      : aiConfig.owner,
+                        repo       : aiConfig.repo,
+                        prNumber,
+                        maxComments: pullRequestConfig.maxCommentsPerPullRequest || 50,
+                        maxReviews : 20
+                    },
+                    true
+                );
+
+                const pr = data.repository.pullRequest;
+                if (!pr) {
+                    logger.warn(`Pull request #${prNumber} not found on GitHub, skipping refetch`);
+                    continue;
+                }
+
+                const planBuckets = this.#planBuckets(metadata, [pr]);
+                const targetPath  = this.#getPullRequestPath(pr, planBuckets);
+                if (!targetPath) {
+                    if (indexMutations) {
+                        indexMutations.remove.push({type: 'pulls', id: prNumber});
+                    }
+                    continue;
+                }
+
+                const content     = this.#renderPullRequestMarkdown(pr);
+                const contentHash = this.#calculateContentHash(content);
+
+                await fs.mkdir(path.dirname(targetPath), {recursive: true});
+                await fs.writeFile(targetPath, content, 'utf-8');
+
+                stats.refetched.count++;
+                stats.refetched.pulls.push(prNumber);
+                logger.debug(`✅ Refetched pull request #${prNumber}`);
+
+                metadata.pulls[prNumber] = {
+                    number   : pr.number,
+                    contentHash,
+                    state    : pr.state,
+                    updatedAt: pr.updatedAt,
+                    closedAt : pr.closedAt || null,
+                    mergedAt : pr.mergedAt || null,
+                    milestone: pr.milestone?.title || null,
+                    path     : this.#relativePath(targetPath)
+                };
+
+                if (indexMutations) {
+                    const plan = planBuckets.get(prNumber);
+                    indexMutations.upsert.push(createContentIndexEntry({
+                        issueSyncConfig,
+                        type     : 'pulls',
+                        id       : prNumber,
+                        filePath : this.#resolvePath(this.#relativePath(targetPath)),
+                        itemIndex: plan ? plan.itemIndex : 0,
+                        version  : pr.state === 'OPEN' ? null : plan?.version || null,
+                        bucket   : null
+                    }));
+                }
+            } catch (e) {
+                logger.error(`Failed to refetch pull request #${prNumber}: ${e.message}`);
+                stats.errors.push({prNumber, error: e.message});
+            }
         }
 
         return stats;
