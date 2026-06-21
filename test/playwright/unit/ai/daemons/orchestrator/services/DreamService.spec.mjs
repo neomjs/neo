@@ -13,13 +13,13 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../../src/core/_export.mjs';
-import InstanceManager from '../../../../../../../src/manager/Instance.mjs';
-import fs             from 'fs';
-import path           from 'path';
-import os             from 'os';
+import {test, expect}        from '@playwright/test';
+import Neo                   from '../../../../../../../src/Neo.mjs';
+import * as core             from '../../../../../../../src/core/_export.mjs';
+import InstanceManager       from '../../../../../../../src/manager/Instance.mjs';
+import fs                    from 'fs';
+import path                  from 'path';
+import os                    from 'os';
 import {TestLifecycleHelper} from '../../../services/memory-core/util.mjs';
 
 test.describe('Neo.ai.services.memory-core.DreamService', () => {
@@ -93,7 +93,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             providerPrompt = prompt;
             return {
                 content: JSON.stringify({
-                    action: "alert",
+                    action : "alert",
                     message: "- **[Codebase Gap]** Node `ButtonFeature`: Mock Gap detected."
                 })
             };
@@ -187,17 +187,17 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             session_artifact: {
                 graph: {
                     nodes: [{
-                        id           : 'node-feature-1',
-                        type         : 'CLASS', // Changed from CONCEPT to bypass filter
-                        name         : 'ButtonFeature',
-                        description  : 'A newly formulated architectural concept.',
-                        confidence   : 0.9,
-                        logical_layer: 'UI Components',
-                        stability    : 'EXPERIMENTAL',
-                        gravity_well : true,
+                        id              : 'node-feature-1',
+                        type            : 'CLASS', // Changed from CONCEPT to bypass filter
+                        name            : 'ButtonFeature',
+                        description     : 'A newly formulated architectural concept.',
+                        confidence      : 0.9,
+                        logical_layer   : 'UI Components',
+                        stability       : 'EXPERIMENTAL',
+                        gravity_well    : true,
                         strategic_weight: 0.85,
-                        tags         : ['Frontend', 'button'],
-                        _resolvedId  : 'mock-file-1'
+                        tags            : ['Frontend', 'button'],
+                        _resolvedId     : 'mock-file-1'
                     }],
                     edges: []
                 }
@@ -340,6 +340,61 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         }
     });
 
+    test('findUndigestedSessions mixes a fresh reserve with the aged Chroma tail (#13697)', async () => {
+        const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const original = {
+            summarizationBatchLimit: aiConfig.summarizationBatchLimit,
+            remSleepBatchLimit     : aiConfig.remSleepBatchLimit,
+            sessionsCollection     : DreamService.sessionsCollection
+        };
+
+        const rows = [
+            {id: 'fresh-5', document: 'fresh 5', meta: {sessionId: 'fresh-5', timestamp: 5000}},
+            {id: 'fresh-4', document: 'fresh 4', meta: {sessionId: 'fresh-4', timestamp: 4000}},
+            {id: 'fresh-3', document: 'fresh 3', meta: {sessionId: 'fresh-3', timestamp: 3000}},
+            {id: 'fresh-2', document: 'fresh 2', meta: {sessionId: 'fresh-2', timestamp: 2000}},
+            {id: 'fresh-1', document: 'fresh 1', meta: {sessionId: 'fresh-1', timestamp: 1000}},
+            {id: 'digested-old', document: 'digested', meta: {sessionId: 'digested-old', timestamp: 5, graphDigested: 'true'}},
+            {id: 'old-3', document: 'old 3', meta: {sessionId: 'old-3', timestamp: 30}},
+            {id: 'old-2', document: 'old 2', meta: {sessionId: 'old-2', timestamp: 20}},
+            {id: 'old-1', document: 'old 1', meta: {sessionId: 'old-1', timestamp: 10}},
+            {id: 'mid', document: 'mid', meta: {sessionId: 'mid', timestamp: 500}}
+        ];
+        const calls = [];
+
+        aiConfig.summarizationBatchLimit = 6;
+        aiConfig.remSleepBatchLimit      = 4;
+        DreamService.sessionsCollection  = {
+            async count() {
+                return rows.length
+            },
+            async get({include, limit, offset = 0}) {
+                calls.push({include, limit, offset});
+                const page = rows.slice(offset, offset + limit);
+                return {
+                    ids      : page.map(row => row.id),
+                    documents: page.map(row => row.document),
+                    metadatas: page.map(row => row.meta)
+                }
+            }
+        };
+
+        try {
+            const result = await DreamService.findUndigestedSessions();
+
+            expect(calls).toEqual([
+                {include: ['metadatas', 'documents'], limit: 6, offset: 0},
+                {include: ['metadatas', 'documents'], limit: 6, offset: 4}
+            ]);
+            expect(result.map(row => row.id)).toEqual(['fresh-5', 'fresh-4', 'old-1', 'old-2']);
+            expect(result.map(row => row.meta.sessionId)).toEqual(['fresh-5', 'fresh-4', 'old-1', 'old-2']);
+        } finally {
+            aiConfig.summarizationBatchLimit = original.summarizationBatchLimit ?? 2000;
+            aiConfig.remSleepBatchLimit      = original.remSleepBatchLimit ?? 10;
+            DreamService.sessionsCollection  = original.sessionsCollection;
+        }
+    });
+
     test('should detect GUIDE_GAP via concept-graph edge traversal (no LLM verification)', async () => {
         // Capability-gap rewrite: replaces the pre-refactor regex + LLM Boolean verification path with
         // deterministic outbound-EXPLAINED_BY edge traversal. Two CONCEPT nodes planted in the
@@ -420,10 +475,10 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
 
         KBRecorderService.listAgentFaqs = () => ({
             faqs: [{
-                clusterId              : 'kb-demand-cluster',
-                canonicalQuery         : 'How should agents use ask_knowledge_base?',
-                count                  : 3,
-                relatedConceptIds      : ['concept-kb-demand'],
+                clusterId             : 'kb-demand-cluster',
+                canonicalQuery        : 'How should agents use ask_knowledge_base?',
+                count                 : 3,
+                relatedConceptIds     : ['concept-kb-demand'],
                 hasStrongGuideCoverage: false
             }]
         });
@@ -737,20 +792,20 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         let conceptGapCalledAfterLastSessionUpdate = false;
 
         const orig = {
-            provider           : aiConfig.modelProvider,
-            findUndigested     : DreamService.findUndigestedSessions,
-            sessionsCollection : DreamService.sessionsCollection,
-            inferTest          : DreamService.inferTestGapsFromSession,
-            inferConcept       : DreamService.inferConceptGraphGaps,
-            runGarbageCol      : DreamService.runGarbageCollection,
-            synthesizeGolden   : DreamService.synthesizeGoldenPath,
-            triVector          : SemanticGraphExtractor.executeTriVectorExtraction,
-            syncSession        : MemorySessionIngestor.syncSessionToGraph,
-            syncAdrs           : AdrIngestor.syncAdrsToGraph,
-            syncConcepts       : ConceptIngestor.syncConceptsToGraph,
-            syncFs             : FileSystemIngestor.syncWorkspaceToGraph,
-            extractTopo        : TopologyInferenceEngine.extractTopology,
-            isProcessing       : DreamService.isProcessing
+            provider          : aiConfig.modelProvider,
+            findUndigested    : DreamService.findUndigestedSessions,
+            sessionsCollection: DreamService.sessionsCollection,
+            inferTest         : DreamService.inferTestGapsFromSession,
+            inferConcept      : DreamService.inferConceptGraphGaps,
+            runGarbageCol     : DreamService.runGarbageCollection,
+            synthesizeGolden  : DreamService.synthesizeGoldenPath,
+            triVector         : SemanticGraphExtractor.executeTriVectorExtraction,
+            syncSession       : MemorySessionIngestor.syncSessionToGraph,
+            syncAdrs          : AdrIngestor.syncAdrsToGraph,
+            syncConcepts      : ConceptIngestor.syncConceptsToGraph,
+            syncFs            : FileSystemIngestor.syncWorkspaceToGraph,
+            extractTopo       : TopologyInferenceEngine.extractTopology,
+            isProcessing      : DreamService.isProcessing
         };
 
         try {
@@ -830,23 +885,23 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         const warnMessages   = [];
 
         const orig = {
-            provider           : aiConfig.modelProvider,
-            findUndigested     : DreamService.findUndigestedSessions,
-            sessionsCollection : DreamService.sessionsCollection,
-            inferTest          : DreamService.inferTestGapsFromSession,
-            inferConcept       : DreamService.inferConceptGraphGaps,
-            runGarbageCol      : DreamService.runGarbageCollection,
-            synthesizeGolden   : DreamService.synthesizeGoldenPath,
-            triVector          : SemanticGraphExtractor.executeTriVectorExtraction,
-            syncSession        : MemorySessionIngestor.syncSessionToGraph,
-            syncAdrs           : AdrIngestor.syncAdrsToGraph,
-            syncConcepts       : ConceptIngestor.syncConceptsToGraph,
-            syncFs             : FileSystemIngestor.syncWorkspaceToGraph,
-            extractTopo        : TopologyInferenceEngine.extractTopology,
-            getMemory          : StorageRouter.getMemoryCollection,
-            loggerInfo         : logger.info,
-            loggerWarn         : logger.warn,
-            isProcessing       : DreamService.isProcessing
+            provider          : aiConfig.modelProvider,
+            findUndigested    : DreamService.findUndigestedSessions,
+            sessionsCollection: DreamService.sessionsCollection,
+            inferTest         : DreamService.inferTestGapsFromSession,
+            inferConcept      : DreamService.inferConceptGraphGaps,
+            runGarbageCol     : DreamService.runGarbageCollection,
+            synthesizeGolden  : DreamService.synthesizeGoldenPath,
+            triVector         : SemanticGraphExtractor.executeTriVectorExtraction,
+            syncSession       : MemorySessionIngestor.syncSessionToGraph,
+            syncAdrs          : AdrIngestor.syncAdrsToGraph,
+            syncConcepts      : ConceptIngestor.syncConceptsToGraph,
+            syncFs            : FileSystemIngestor.syncWorkspaceToGraph,
+            extractTopo       : TopologyInferenceEngine.extractTopology,
+            getMemory         : StorageRouter.getMemoryCollection,
+            loggerInfo        : logger.info,
+            loggerWarn        : logger.warn,
+            isProcessing      : DreamService.isProcessing
         };
 
         try {
@@ -1178,10 +1233,10 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         StorageRouter.getGraphCollection = async () => {
             return {
                 query: async () => ({
-                    ids: [['epic-1', 'task-blocked', 'blocker', 'weak-task', 'rejected-task']],
+                    ids      : [['epic-1', 'task-blocked', 'blocker', 'weak-task', 'rejected-task']],
                     distances: [[0.1, 0.2, 0.9, 0.8, 0.05]]
                 }),
-                get: async () => ({ ids: [], metadatas: [] }),
+                get   : async () => ({ ids: [], metadatas: [] }),
                 upsert: async () => {}
             };
         };
@@ -1340,8 +1395,8 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             // On attempt 3, return valid Tri-Vector
             return {
                 content: JSON.stringify({
-                    a2a_version: "1.0",
-                    agent_id: "Antigravity",
+                    a2a_version     : "1.0",
+                    agent_id        : "Antigravity",
                     session_artifact: {
                         graph: {
                             nodes: [],
@@ -1356,7 +1411,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
 
         try {
             const session = {
-                meta: { sessionId: 'playwright-retry-test' },
+                meta    : { sessionId: 'playwright-retry-test' },
                 document: "Mock episodic history"
             };
 
