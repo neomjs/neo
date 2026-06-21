@@ -25,7 +25,8 @@ test.describe('ai/daemons/orchestrator/services/leaseMonitor — createLeaseMoni
         expect(released).toHaveLength(1);
         expect(outcomes).toHaveLength(1);
         expect(outcomes[0]).toMatchObject({owner: 'kbSync', state: 'skipped'});
-        expect(outcomes[0].d.reason).toBe('watchdog-released-hung-holder');
+        // skipReason matches the established pipeline.mjs skipped-outcome shape (uniform health-endpoint reads)
+        expect(outcomes[0].d.skipReason).toBe('watchdog-released-hung-holder');
     });
 
     test('a slow-but-progressing holder → NOT released (Grace interval-coupling guard)', async () => {

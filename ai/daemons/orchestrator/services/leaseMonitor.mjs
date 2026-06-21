@@ -84,7 +84,7 @@ export function createLeaseMonitor({
             if (isHungLeaseHolder({cpuPercentSamples: samples, idleThresholdPct, minConsecutiveIdle})) {
                 await releaseLease(lease);
                 recordOutcome(owner, 'skipped', {
-                    reason     : 'watchdog-released-hung-holder',
+                    skipReason : 'watchdog-released-hung-holder',
                     pid,
                     idleSamples: samples.length,
                     releasedAt : new Date().toISOString()
