@@ -92,6 +92,54 @@ export function isLeaseStale(lease, {now = new Date(), isPidAlive: isPidAliveFn 
 }
 
 /**
+ * @summary Decides whether a live, long-running heavy-maintenance task should cooperatively yield its lease.
+ *
+ * Distinct from {@link isLeaseStale}, which governs dead-holder reclamation via
+ * `staleAfterMs`: this governs the ACTIVE hold of a *live* task. A long task
+ * (e.g. a multi-session summary that loops the whole pending backlog in one
+ * hold) polls this between work units; when it returns `true` the task returns
+ * early, releasing the single heavy-maintenance lease so an overdue peer (e.g.
+ * `dream`, whose window would otherwise arrive hours late) can interleave. The
+ * next periodic sweep re-acquires for the remaining work. The mutex stays
+ * correct — this only bounds how long one task may monopolize it.
+ *
+ * Pure + read-only: never mutates the lease or touches the release path. The
+ * value of `maxActiveHoldMs` is policy (the fairness Decision Record),
+ * supplied by the calling task — this helper is the value-agnostic mechanism.
+ *
+ * Fail-safe: a falsy/non-positive `maxActiveHoldMs` (the unset knob) returns
+ * `false`, so behavior is byte-identical to today until a caller opts in; a
+ * missing lease or unparseable timestamp also returns `false` — never abandon
+ * work on bad input.
+ *
+ * @param {Object|null} lease Persisted lease payload (reads `acquiredAt`).
+ * @param {Object} [options]
+ * @param {Date|Number|String} [options.now=new Date()] Current time.
+ * @param {Number} [options.maxActiveHoldMs] Bounded active-hold budget in ms; falsy ⇒ never yields (back-compat).
+ * @returns {Boolean} `true` only when the active hold has exceeded `maxActiveHoldMs`.
+ */
+export function shouldYieldHeavyMaintenanceLease(lease, {now = new Date(), maxActiveHoldMs} = {}) {
+    if (!lease || !lease.acquiredAt) {
+        return false;
+    }
+
+    const maxHoldMs = Number(maxActiveHoldMs);
+
+    if (!Number.isFinite(maxHoldMs) || maxHoldMs <= 0) {
+        return false;
+    }
+
+    const acquiredAtMs = toTimestamp(lease.acquiredAt);
+    const nowMs        = toTimestamp(now);
+
+    if (!Number.isFinite(acquiredAtMs) || !Number.isFinite(nowMs)) {
+        return false;
+    }
+
+    return nowMs - acquiredAtMs > maxHoldMs;
+}
+
+/**
  * @summary Builds the durable diagnostic payload for a heavy-maintenance lease.
  *
  * @param {Object} options
