@@ -1,18 +1,19 @@
-import aiConfig                   from '../../../mcp/server/github-workflow/config.mjs';
-import Base                       from '../../../../src/core/Base.mjs';
-import crypto                     from 'crypto';
-import {existsSync}               from 'fs';
-import fs                         from 'fs/promises';
-import logger                     from '../../../mcp/server/github-workflow/logger.mjs';
-import matter                     from 'gray-matter';
-import path                       from 'path';
-import semver                     from 'semver';
-import GraphqlService             from '../GraphqlService.mjs';
-import ReleaseNotesSyncer         from './ReleaseNotesSyncer.mjs';
-import {FETCH_PULL_REQUESTS_FOR_SYNC} from '../queries/pullRequestQueries.mjs';
-import contentPath                from '../shared/contentPath.mjs';
-import {createContentIndexEntry, updateContentIndex} from '../shared/contentIndex.mjs';
-import pruneEmptyDirs             from '../shared/pruneEmptyDirs.mjs';
+import aiConfig                                              from '../../../mcp/server/github-workflow/config.mjs';
+import Base                                                  from '../../../../src/core/Base.mjs';
+import crypto                                                from 'crypto';
+import {existsSync}                                          from 'fs';
+import fs                                                    from 'fs/promises';
+import logger                                                from '../../../mcp/server/github-workflow/logger.mjs';
+import matter                                                from 'gray-matter';
+import path                                                  from 'path';
+import semver                                                from 'semver';
+import GraphqlService                                        from '../GraphqlService.mjs';
+import ReleaseNotesSyncer                                    from './ReleaseNotesSyncer.mjs';
+import {FETCH_PULL_REQUESTS_FOR_SYNC}                        from '../queries/pullRequestQueries.mjs';
+import contentPath                                           from '../shared/contentPath.mjs';
+import {createContentIndexEntry, updateContentIndex}         from '../shared/contentIndex.mjs';
+import {createContentTrustSummary, projectAuthoredNodeTrust} from '../shared/conversationTrust.mjs';
+import pruneEmptyDirs                                        from '../shared/pruneEmptyDirs.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
 const pullRequestConfig = aiConfig.pullRequest;
@@ -117,6 +118,22 @@ class PullRequestSyncer extends Base {
     }
 
     /**
+     * @summary Projects one GitHub-authored pull-request sync node through content trust policy.
+     * @param {Object} node GitHub authored node carrying optional `author.login` and `body`.
+     * @param {Object} summary Machine-readable content-trust summary accumulator.
+     * @param {String} signalPath Stable path label for sanitizer signal metadata.
+     * @returns {Object} Projected node with sanitized body for untrusted authors.
+     * @private
+     */
+    #projectAuthoredNode(node, summary, signalPath) {
+        return projectAuthoredNodeTrust(node, {
+            summary,
+            path               : signalPath,
+            productNameDenylist: issueSyncConfig.productNameDenylist || []
+        }).node;
+    }
+
+    /**
      * @summary Pre-computes bucket distribution for all pull requests based on historical milestones/releases.
      * @param {object} metadata Current sync metadata
      * @param {Array<object>} fetchedPullRequests PRs fetched in the current sync run
@@ -174,7 +191,7 @@ class PullRequestSyncer extends Base {
         const activeItemCount = activeItems.length;
         activeItems.forEach((pr, index) => {
             plans.set(pr.number, {
-                version: null,
+                version  : null,
                 itemCount: activeItemCount,
                 itemIndex: index
             });
@@ -208,12 +225,12 @@ class PullRequestSyncer extends Base {
         const plan = planBuckets.get(pr.number);
 
         const config = {
-            contentRoot: issueSyncConfig.contentRoot,
-            type: 'pulls',
+            contentRoot  : issueSyncConfig.contentRoot,
+            type         : 'pulls',
             filename,
-            itemIndex: plan?.itemIndex || 0,
+            itemIndex    : plan?.itemIndex || 0,
             itemsPerChunk: issueSyncConfig.archiveChunkThreshold,
-            chunkPrefix: issueSyncConfig.archiveChunkPrefix
+            chunkPrefix  : issueSyncConfig.archiveChunkPrefix
         };
 
         if (plan?.version) {
@@ -358,13 +375,13 @@ class PullRequestSyncer extends Base {
 
         while (hasNextPage) {
             const data = await GraphqlService.query(FETCH_PULL_REQUESTS_FOR_SYNC, {
-                owner: aiConfig.owner,
-                repo : aiConfig.repo,
-                limit: pullRequestConfig.defaults.limit || 30,
+                owner      : aiConfig.owner,
+                repo       : aiConfig.repo,
+                limit      : pullRequestConfig.defaults.limit || 30,
                 cursor,
-                states: ['OPEN', 'CLOSED', 'MERGED'],
+                states     : ['OPEN', 'CLOSED', 'MERGED'],
                 maxComments: pullRequestConfig.maxCommentsPerPullRequest || 50,
-                maxReviews: 20
+                maxReviews : 20
             });
 
             const pullRequests = data.repository.pullRequests;
@@ -396,28 +413,37 @@ class PullRequestSyncer extends Base {
         for (const pr of allPullRequests) {
             try {
                 const targetPath = this.#getPullRequestPath(pr, planBuckets);
+                const contentTrust = createContentTrustSummary();
+                const projectedPr = this.#projectAuthoredNode(pr, contentTrust, 'body');
 
                 const frontmatter = {
-                    number     : pr.number,
-                    title      : pr.title,
-                    author     : pr.author?.login || 'unknown',
-                    state      : pr.state,
-                    createdAt  : pr.createdAt,
-                    updatedAt  : pr.updatedAt,
-                    closedAt   : pr.closedAt,
-                    mergedAt   : pr.mergedAt,
-                    head       : pr.headRefName,
-                    base       : pr.baseRefName,
-                    url        : pr.url
+                    number   : pr.number,
+                    title    : pr.title,
+                    author   : pr.author?.login || 'unknown',
+                    state    : pr.state,
+                    createdAt: pr.createdAt,
+                    updatedAt: pr.updatedAt,
+                    closedAt : pr.closedAt,
+                    mergedAt : pr.mergedAt,
+                    head     : pr.headRefName,
+                    base     : pr.baseRefName,
+                    url      : pr.url,
+                    contentTrust
                 };
 
-                let body = pr.body || '';
+                let body = projectedPr.body || '';
 
                 // Build comments structure
                 if (pr.comments && pr.comments.nodes && pr.comments.nodes.length > 0) {
                     body += '\n\n## Comments\n\n';
                     for (const comment of pr.comments.nodes) {
-                        body += `### \`@${comment.author?.login || 'unknown'}\` commented on ${comment.createdAt}\n\n${comment.body}\n\n---\n\n`;
+                        const projectedComment = this.#projectAuthoredNode(
+                            comment,
+                            contentTrust,
+                            `comment:${comment.id || comment.createdAt || 'unknown'}`
+                        );
+
+                        body += `### \`@${comment.author?.login || 'unknown'}\` commented on ${comment.createdAt}\n\n${projectedComment.body}\n\n---\n\n`;
                     }
                 }
 
@@ -428,7 +454,13 @@ class PullRequestSyncer extends Base {
                         const reviewState = review.state ? ` (${review.state})` : '';
                         body += `### \`@${review.author?.login || 'unknown'}\`${reviewState} reviewed on ${review.createdAt}\n\n`;
                         if (review.body && review.body.trim().length > 0) {
-                            body += `${review.body}\n\n`;
+                            const projectedReview = this.#projectAuthoredNode(
+                                review,
+                                contentTrust,
+                                `review:${review.id || review.createdAt || 'unknown'}`
+                            );
+
+                            body += `${projectedReview.body}\n\n`;
                         } else {
                             body += `*No review body provided.*\n\n`;
                         }
@@ -508,12 +540,12 @@ class PullRequestSyncer extends Base {
 
             indexEntries.push(createContentIndexEntry({
                 issueSyncConfig,
-                type: 'pulls',
-                id: p.number,
-                filePath: path.resolve(aiConfig.projectRoot, p.relativeOutputPath),
+                type     : 'pulls',
+                id       : p.number,
+                filePath : path.resolve(aiConfig.projectRoot, p.relativeOutputPath),
                 itemIndex: plan ? plan.itemIndex : 0,
-                version: p.state === 'OPEN' ? null : plan?.version || null,
-                bucket: null
+                version  : p.state === 'OPEN' ? null : plan?.version || null,
+                bucket   : null
             }));
         });
 

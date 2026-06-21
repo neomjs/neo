@@ -1,19 +1,20 @@
-import aiConfig                                      from '../../../mcp/server/github-workflow/config.mjs';
-import Base                                          from '../../../../src/core/Base.mjs';
-import crypto                                        from 'crypto';
-import {existsSync}                                  from 'fs';
-import fs                                            from 'fs/promises';
-import logger                                        from '../../../mcp/server/github-workflow/logger.mjs';
-import matter                                        from 'gray-matter';
-import path                                          from 'path';
-import semver                                        from 'semver';
-import GraphqlService                                from '../GraphqlService.mjs';
-import ReleaseNotesSyncer                                 from './ReleaseNotesSyncer.mjs';
+import aiConfig                                                               from '../../../mcp/server/github-workflow/config.mjs';
+import Base                                                                   from '../../../../src/core/Base.mjs';
+import crypto                                                                 from 'crypto';
+import {existsSync}                                                           from 'fs';
+import fs                                                                     from 'fs/promises';
+import logger                                                                 from '../../../mcp/server/github-workflow/logger.mjs';
+import matter                                                                 from 'gray-matter';
+import path                                                                   from 'path';
+import semver                                                                 from 'semver';
+import GraphqlService                                                         from '../GraphqlService.mjs';
+import ReleaseNotesSyncer                                                     from './ReleaseNotesSyncer.mjs';
 import {FETCH_ISSUE_TIMELINE_PAGE, FETCH_ISSUES_FOR_SYNC, FETCH_SINGLE_ISSUE} from '../queries/issueQueries.mjs';
-import {GET_ISSUE_ID, UPDATE_ISSUE}                                                                        from '../queries/mutations.mjs';
-import contentPath                                      from '../shared/contentPath.mjs';
-import {createContentIndexEntry, updateContentIndex}    from '../shared/contentIndex.mjs';
-import pruneEmptyDirs                                  from '../shared/pruneEmptyDirs.mjs';
+import {GET_ISSUE_ID, UPDATE_ISSUE}                                           from '../queries/mutations.mjs';
+import contentPath                                                            from '../shared/contentPath.mjs';
+import {createContentIndexEntry, updateContentIndex}                          from '../shared/contentIndex.mjs';
+import {createContentTrustSummary, projectAuthoredNodeTrust}                  from '../shared/conversationTrust.mjs';
+import pruneEmptyDirs                                                         from '../shared/pruneEmptyDirs.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
 const lineBreaksRegex = /[\r\n]+/g;
@@ -175,6 +176,22 @@ class IssueSyncer extends Base {
     }
 
     /**
+     * @summary Projects one GitHub-authored issue-sync node through the shared content-trust policy.
+     * @param {Object} node GitHub authored node carrying optional `author.login` and `body`.
+     * @param {Object} summary Machine-readable content-trust summary accumulator.
+     * @param {String} signalPath Stable path label for sanitizer signal metadata.
+     * @returns {Object} Projected node with sanitized body for untrusted authors.
+     * @private
+     */
+    #projectAuthoredNode(node, summary, signalPath) {
+        return projectAuthoredNodeTrust(node, {
+            summary,
+            path               : signalPath,
+            productNameDenylist: issueSyncConfig.productNameDenylist || []
+        }).node;
+    }
+
+    /**
      * Formats a GitHub issue and its comments into a single Markdown string with YAML frontmatter.
      * @param {object}   issue    The GitHub issue object.
      * @param {object[]} comments An array of comment objects associated with the issue.
@@ -182,27 +199,30 @@ class IssueSyncer extends Base {
      * @private
      */
     #formatIssueMarkdown(issue) {
+        const contentTrust = createContentTrustSummary();
+        const projectedIssue = this.#projectAuthoredNode(issue, contentTrust, 'body');
         // GitHub GraphQL may return null authors or relationship nodes after users, labels, or
         // linked issues are deleted. Each dereference site uses optional chaining plus stable
         // fallback conventions: `Ghost` for users, `(no title)` for missing titles, and filtering
         // for null list entries so structured fields keep only real entities.
         const frontmatter = {
-            id                : issue.number,
-            title             : issue.title?.replace(lineBreaksRegex, ' ') || '(no title)',
-            state             : issue.state,
-            labels            : (issue.labels?.nodes || []).map(l => l?.name).filter(Boolean),
-            assignees         : (issue.assignees?.nodes || []).map(a => a?.login).filter(Boolean),
-            createdAt         : issue.createdAt,
-            updatedAt         : issue.updatedAt,
-            githubUrl         : issue.url,
-            author            : issue.author?.login || 'Ghost',
-            commentsCount     : this.#countTimelineComments(issue), // Derived from the exhausted timeline.
-            parentIssue       : issue.parent?.number ?? null,
-            subIssues         : (issue.subIssues?.nodes || []).map(sub =>
+            id           : issue.number,
+            title        : issue.title?.replace(lineBreaksRegex, ' ') || '(no title)',
+            state        : issue.state,
+            labels       : (issue.labels?.nodes || []).map(l => l?.name).filter(Boolean),
+            assignees    : (issue.assignees?.nodes || []).map(a => a?.login).filter(Boolean),
+            createdAt    : issue.createdAt,
+            updatedAt    : issue.updatedAt,
+            githubUrl    : issue.url,
+            author       : issue.author?.login || 'Ghost',
+            commentsCount: this.#countTimelineComments(issue), // Derived from the exhausted timeline.
+            parentIssue  : issue.parent?.number ?? null,
+            subIssues    : (issue.subIssues?.nodes || []).map(sub =>
                 sub ? `[${sub.state === 'CLOSED' ? 'x' : ' '}] ${sub.number} ${sub.title?.replace(lineBreaksRegex, ' ') || '(no title)'}` : null
             ).filter(Boolean),
             subIssuesCompleted: issue.subIssuesSummary?.completed || 0,
             subIssuesTotal    : issue.subIssuesSummary?.total || 0,
+            contentTrust,
             blockedBy         : (issue.blockedBy?.nodes || []).map(b =>
                 b ? `[${b.state === 'CLOSED' ? 'x' : ' '}] ${b.number} ${b.title?.replace(lineBreaksRegex, ' ') || '(no title)'}` : null
             ).filter(Boolean),
@@ -220,14 +240,14 @@ class IssueSyncer extends Base {
 
         let body = `# ${issue.title || '(no title)'}\n\n`;
 
-        body += issue.body || '*(No description provided)*';
+        body += projectedIssue.body || '*(No description provided)*';
         body += '\n\n';
 
         // Add Activity Log / Timeline section
         if (issue.timelineItems?.nodes.length > 0) {
             body += '## Timeline\n\n';
             for (const event of issue.timelineItems.nodes) {
-                body += this.#formatTimelineEvent(event);
+                body += this.#formatTimelineEvent(event, contentTrust);
             }
             body += '\n';
         }
@@ -238,14 +258,21 @@ class IssueSyncer extends Base {
     /**
      * Formats a single timeline event into a human-readable Markdown string.
      * @param {object} event The timeline event object.
+     * @param {object} contentTrust Content-trust summary accumulator for authored comments.
      * @returns {string} The formatted Markdown string for the event.
      * @private
      */
-    #formatTimelineEvent(event) {
+    #formatTimelineEvent(event, contentTrust) {
         const actor = event.actor?.login || event.author?.login || 'Ghost';
 
         if (event.__typename === 'IssueComment') {
-            return `### @${actor} - ${event.createdAt}\n\n${event.body}\n\n`;
+            const projected = this.#projectAuthoredNode(
+                event,
+                contentTrust,
+                `timeline:${event.id || event.createdAt || 'unknown'}`
+            );
+
+            return `### @${actor} - ${event.createdAt}\n\n${projected.body}\n\n`;
         }
 
         let details = '';
@@ -349,10 +376,10 @@ class IssueSyncer extends Base {
             }
 
             combined.set(parseInt(idStr, 10), {
-                number: parseInt(idStr, 10),
-                state: issue.state,
-                milestone: issue.milestone ? { title: issue.milestone } : null,
-                closedAt: issue.closedAt,
+                number     : parseInt(idStr, 10),
+                state      : issue.state,
+                milestone  : issue.milestone ? { title: issue.milestone } : null,
+                closedAt   : issue.closedAt,
                 oldVersion,
                 fromFetched: false
             });
@@ -380,11 +407,11 @@ class IssueSyncer extends Base {
                 existing.fromFetched = true;
             } else {
                 combined.set(issue.number, {
-                    number: issue.number,
-                    state: issue.state,
-                    milestone: issue.milestone,
-                    closedAt: issue.closedAt,
-                    oldVersion: null,
+                    number     : issue.number,
+                    state      : issue.state,
+                    milestone  : issue.milestone,
+                    closedAt   : issue.closedAt,
+                    oldVersion : null,
                     fromFetched: true
                 });
             }
@@ -452,7 +479,7 @@ class IssueSyncer extends Base {
         const activeItemCount = activeItems.length;
         activeItems.forEach((issue, index) => {
             plans.set(issue.number, {
-                version: null,
+                version  : null,
                 itemCount: activeItemCount,
                 itemIndex: index
             });
@@ -498,12 +525,12 @@ class IssueSyncer extends Base {
         const plan = planBuckets.get(issue.number);
 
         const config = {
-            contentRoot: issueSyncConfig.contentRoot,
-            type: 'issues',
+            contentRoot  : issueSyncConfig.contentRoot,
+            type         : 'issues',
             filename,
-            itemIndex: plan?.itemIndex || 0,
+            itemIndex    : plan?.itemIndex || 0,
             itemsPerChunk: issueSyncConfig.archiveChunkThreshold,
-            chunkPrefix: issueSyncConfig.archiveChunkPrefix
+            chunkPrefix  : issueSyncConfig.archiveChunkPrefix
         };
 
         if (plan?.version) {
@@ -561,11 +588,11 @@ class IssueSyncer extends Base {
             const data = await GraphqlService.query(
                 FETCH_ISSUES_FOR_SYNC,
                 {
-                    owner           : aiConfig.owner,
-                    repo            : aiConfig.repo,
-                    limit           : 100,
+                    owner : aiConfig.owner,
+                    repo  : aiConfig.repo,
+                    limit : 100,
                     cursor,
-                    states          : ['OPEN', 'CLOSED'],
+                    states: ['OPEN', 'CLOSED'],
                     // Clean-slate sync (`metadata.lastSync === null`) must traverse the full repo
                     // history per ADR 0004 (ticket-ref-ok: file-owned decision record). Falling back to the normal syncStartDate would miss old
                     // issues that have not been touched since that date. Use an explicit pre-Neo date,
@@ -706,12 +733,12 @@ class IssueSyncer extends Base {
             }
 
             newMetadata.issues[issueNumber] = {
-                state        : issue.state,
-                path         : this.#relativePath(targetPath), // Store relative path
-                updatedAt    : issue.updatedAt,
-                closedAt     : issue.closedAt || null,
-                milestone    : issue.milestone?.title || null,
-                title        : issue.title,
+                state    : issue.state,
+                path     : this.#relativePath(targetPath), // Store relative path
+                updatedAt: issue.updatedAt,
+                closedAt : issue.closedAt || null,
+                milestone: issue.milestone?.title || null,
+                title    : issue.title,
                 contentHash,                                    // Store hash for push comparison
                 commentsTotal: this.#countTimelineComments(issue) // Derived from the exhausted timeline.
             };
@@ -719,12 +746,12 @@ class IssueSyncer extends Base {
             const plan = planBuckets.get(issueNumber);
             indexMutations.upsert.push(createContentIndexEntry({
                 issueSyncConfig,
-                type: 'issues',
-                id: issueNumber,
-                filePath: this.#resolvePath(this.#relativePath(targetPath)),
+                type     : 'issues',
+                id       : issueNumber,
+                filePath : this.#resolvePath(this.#relativePath(targetPath)),
                 itemIndex: plan ? plan.itemIndex : issueNumber,
-                version: issue.state === 'OPEN' ? null : plan?.version || null,
-                bucket: null
+                version  : issue.state === 'OPEN' ? null : plan?.version || null,
+                bucket   : null
             }));
         }
 
@@ -891,12 +918,12 @@ class IssueSyncer extends Base {
                     const plan = planBuckets.get(issueNumber);
                     indexMutations.upsert.push(createContentIndexEntry({
                         issueSyncConfig,
-                        type: 'issues',
-                        id: issueNumber,
-                        filePath: this.#resolvePath(this.#relativePath(targetPath)),
+                        type     : 'issues',
+                        id       : issueNumber,
+                        filePath : this.#resolvePath(this.#relativePath(targetPath)),
                         itemIndex: plan ? plan.itemIndex : issueNumber,
-                        version: issue.state === 'OPEN' ? null : plan?.version || null,
-                        bucket: null
+                        version  : issue.state === 'OPEN' ? null : plan?.version || null,
+                        bucket   : null
                     }));
                 }
             } catch (e) {
@@ -1178,11 +1205,11 @@ class IssueSyncer extends Base {
         }
 
         const summary = {
-            moved    : dryRun ? 0 : moves.length,
+            moved: dryRun ? 0 : moves.length,
             unchanged,
             dryRun,
             byVersion,
-            moves    : moves.map(({number, from, to}) => ({number, from, to}))
+            moves: moves.map(({number, from, to}) => ({number, from, to}))
         };
 
         if (dryRun) {

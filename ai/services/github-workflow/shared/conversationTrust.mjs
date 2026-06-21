@@ -22,6 +22,14 @@ import {sanitizeContent}     from '../../shared/contentTrust/astroturfSanitizer.
  */
 
 /**
+ * @summary Creates the machine-readable summary accumulated by content trust projection.
+ * @returns {{projected: Boolean, quarantined: Number, signals: Object[]}}
+ */
+export function createContentTrustSummary() {
+    return {projected: true, quarantined: 0, signals: []}
+}
+
+/**
  * Projects one authored node (`{author, body, ...}`): stamps `authorTrust`, sanitizes an untrusted
  * author's `body`, and records redaction counts plus stealth-intent signals against `path`.
  * Non-object nodes pass through untouched so sparse / null GraphQL entries never change shape.
@@ -56,6 +64,28 @@ function projectNode(node, ctx, path) {
 }
 
 /**
+ * @summary Projects one authored GitHub node through the shared content-trust policy.
+ * @param {Object} node The authored node carrying optional `author.login` and `body`.
+ * @param {Object} [opts]
+ * @param {Set<String>|String[]} [opts.collaborators] repo collaborator logins for REPO_TRUSTED.
+ * @param {String[]} [opts.productNameDenylist] product names redacted from untrusted content.
+ * @param {Object} [opts.summary] Existing summary accumulator; created when omitted.
+ * @param {String} [opts.path='body'] Signal location label.
+ * @returns {{node: Object, contentTrust: Object}} Projected node plus the summary accumulator.
+ */
+export function projectAuthoredNodeTrust(node, {
+    collaborators,
+    productNameDenylist = [],
+    summary = createContentTrustSummary(),
+    path = 'body'
+} = {}) {
+    return {
+        node        : projectNode(node, {collaborators, productNameDenylist, summary}, path),
+        contentTrust: summary
+    }
+}
+
+/**
  * @summary Projects a fetched conversation payload into its trust-aware shape.
  *
  * Apply BEFORE selector filtering so every return path (full conversation plus all selector shapes)
@@ -77,7 +107,7 @@ export function projectConversationTrust(conversation, {collaborators, productNa
         return conversation
     }
 
-    const summary = {projected: true, quarantined: 0, signals: []};
+    const summary = createContentTrustSummary();
     const ctx     = {collaborators, productNameDenylist, summary};
 
     const projected = projectNode(conversation, ctx, 'body');

@@ -1,20 +1,21 @@
-import aiConfig                   from '../../../mcp/server/github-workflow/config.mjs';
-import Base                       from '../../../../src/core/Base.mjs';
-import crypto                     from 'crypto';
-import fs                         from 'fs/promises';
-import logger                     from '../../../mcp/server/github-workflow/logger.mjs';
-import matter                     from 'gray-matter';
-import path                       from 'path';
-import GraphqlService             from '../GraphqlService.mjs';
-import ReleaseNotesSyncer         from './ReleaseNotesSyncer.mjs';
+import aiConfig                     from '../../../mcp/server/github-workflow/config.mjs';
+import Base                         from '../../../../src/core/Base.mjs';
+import crypto                       from 'crypto';
+import fs                           from 'fs/promises';
+import logger                       from '../../../mcp/server/github-workflow/logger.mjs';
+import matter                       from 'gray-matter';
+import path                         from 'path';
+import GraphqlService               from '../GraphqlService.mjs';
+import ReleaseNotesSyncer           from './ReleaseNotesSyncer.mjs';
 import {FETCH_DISCUSSIONS_FOR_SYNC} from '../queries/discussionQueries.mjs';
 import contentPath                  from '../shared/contentPath.mjs';
 import {
     createContentIndexEntry,
     updateContentIndex
 } from '../shared/contentIndex.mjs';
-import pruneEmptyDirs               from '../shared/pruneEmptyDirs.mjs';
-import {verifyDiscussionFrontmatter} from './verifyFrontmatterIntegrity.mjs';
+import {createContentTrustSummary, projectAuthoredNodeTrust} from '../shared/conversationTrust.mjs';
+import pruneEmptyDirs                                        from '../shared/pruneEmptyDirs.mjs';
+import {verifyDiscussionFrontmatter}                         from './verifyFrontmatterIntegrity.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
 
@@ -78,6 +79,22 @@ class DiscussionSyncer extends Base {
     }
 
     /**
+     * @summary Projects one GitHub-authored discussion sync node through content trust policy.
+     * @param {Object} node GitHub authored node carrying optional `author.login` and `body`.
+     * @param {Object} summary Machine-readable content-trust summary accumulator.
+     * @param {String} signalPath Stable path label for sanitizer signal metadata.
+     * @returns {Object} Projected node with sanitized body for untrusted authors.
+     * @private
+     */
+    #projectAuthoredNode(node, summary, signalPath) {
+        return projectAuthoredNodeTrust(node, {
+            summary,
+            path               : signalPath,
+            productNameDenylist: issueSyncConfig.productNameDenylist || []
+        }).node;
+    }
+
+    /**
      * @summary Pre-computes bucket counts and indices for all discussions based on historical releases.
      * @param {Object} metadata The sync metadata.
      * @param {Array} fetchedDiscussions The delta discussions fetched from GitHub.
@@ -89,16 +106,16 @@ class DiscussionSyncer extends Base {
 
         for (const [idStr, discussion] of Object.entries(metadata.discussions || {})) {
             combined.set(parseInt(idStr, 10), {
-                number: parseInt(idStr, 10),
-                closed: discussion.closed,
+                number  : parseInt(idStr, 10),
+                closed  : discussion.closed,
                 closedAt: discussion.closedAt
             });
         }
 
         for (const discussion of fetchedDiscussions) {
             combined.set(discussion.number, {
-                number: discussion.number,
-                closed: discussion.closed,
+                number  : discussion.number,
+                closed  : discussion.closed,
                 closedAt: discussion.closedAt
             });
         }
@@ -230,9 +247,9 @@ class DiscussionSyncer extends Base {
 
         while (hasNextPage) {
             const data = await GraphqlService.query(FETCH_DISCUSSIONS_FOR_SYNC, {
-                owner: aiConfig.owner,
-                repo : aiConfig.repo,
-                limit: 50,
+                owner      : aiConfig.owner,
+                repo       : aiConfig.repo,
+                limit      : 50,
                 cursor,
                 maxComments: 50,
                 maxReplies : 20
@@ -296,38 +313,53 @@ class DiscussionSyncer extends Base {
             try {
                 const targetPath  = this.#getDiscussionPath(discussion, planBuckets);
                 if (!targetPath) continue;
+                const contentTrust = createContentTrustSummary();
+                const projectedDiscussion = this.#projectAuthoredNode(discussion, contentTrust, 'body');
 
                 const frontmatter = {
-                    number     : discussion.number,
-                    title      : discussion.title,
-                    author     : discussion.author?.login || 'unknown',
-                    category   : discussion.category?.name || 'Uncategorized',
-                    createdAt  : discussion.createdAt,
-                    updatedAt  : discussion.updatedAt,
-                    closed     : discussion.closed,
-                    closedAt   : discussion.closedAt
+                    number   : discussion.number,
+                    title    : discussion.title,
+                    author   : discussion.author?.login || 'unknown',
+                    category : discussion.category?.name || 'Uncategorized',
+                    createdAt: discussion.createdAt,
+                    updatedAt: discussion.updatedAt,
+                    closed   : discussion.closed,
+                    closedAt : discussion.closedAt,
+                    contentTrust
                 };
 
-                let body = discussion.body || '';
+                let body = projectedDiscussion.body || '';
 
                 // Build comments structure
                 if (discussion.comments && discussion.comments.nodes && discussion.comments.nodes.length > 0) {
                     body += '\n\n## Comments\n\n';
                     for (const comment of discussion.comments.nodes) {
+                        const projectedComment = this.#projectAuthoredNode(
+                            comment,
+                            contentTrust,
+                            `comment:${comment.id || comment.createdAt || 'unknown'}`
+                        );
+
                         body += `### \`@${comment.author?.login || 'unknown'}\` commented on ${comment.createdAt}\n\n`;
                         if (comment.isAnswer) {
                             body += '> [!ANSWER]\n\n';
                         }
-                        body += `${comment.body}\n\n`;
+                        body += `${projectedComment.body}\n\n`;
 
                         // Parse replies if any
                         if (comment.replies && comment.replies.nodes && comment.replies.nodes.length > 0) {
                             for (const reply of comment.replies.nodes) {
+                                const projectedReply = this.#projectAuthoredNode(
+                                    reply,
+                                    contentTrust,
+                                    `comment:${comment.id || comment.createdAt || 'unknown'}/reply:${reply.id || reply.createdAt || 'unknown'}`
+                                );
+
                                 body += `#### Reply depth=1 by \`@${reply.author?.login || 'unknown'}\` on ${reply.createdAt}\n\n`;
                                 if (reply.isAnswer) {
                                     body += '> [!ANSWER]\n\n';
                                 }
-                                body += `${reply.body}\n\n`;
+                                body += `${projectedReply.body}\n\n`;
                             }
                         }
                         body += '---\n\n';
@@ -401,23 +433,23 @@ class DiscussionSyncer extends Base {
 
         allDiscussions.forEach(d => {
             metadata.discussions[d.number] = {
-                number: d.number,
-                closed: d.closed,
-                closedAt: d.closedAt,
+                number     : d.number,
+                closed     : d.closed,
+                closedAt   : d.closedAt,
                 contentHash: d.contentHash,
-                path: d.relativeOutputPath
+                path       : d.relativeOutputPath
             };
 
             const plan = planBuckets.get(d.number);
 
             indexEntries.push(createContentIndexEntry({
                 issueSyncConfig,
-                type: 'discussions',
-                id: d.number,
-                filePath: path.resolve(aiConfig.projectRoot, d.relativeOutputPath),
+                type     : 'discussions',
+                id       : d.number,
+                filePath : path.resolve(aiConfig.projectRoot, d.relativeOutputPath),
                 itemIndex: plan ? plan.itemIndex : 0,
-                version: plan?.version || null,
-                bucket: null
+                version  : plan?.version || null,
+                bucket   : null
             }));
         });
 
