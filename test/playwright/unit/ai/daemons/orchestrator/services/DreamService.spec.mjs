@@ -1233,7 +1233,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         StorageRouter.getGraphCollection = async () => {
             return {
                 query: async () => ({
-                    ids      : [['epic-1', 'task-blocked', 'blocker', 'weak-task', 'rejected-task']],
+                    ids      : [['issue-epic-hero', 'issue-task-blocked', 'issue-blocker', 'issue-weak-task', 'issue-rejected-task']],
                     distances: [[0.1, 0.2, 0.9, 0.8, 0.05]]
                 }),
                 get   : async () => ({ ids: [], metadatas: [] }),
@@ -1247,11 +1247,11 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
                 // console.log('MOCK TRIGGERED Nodes SELECT!');
                 return {
                     all: () => [
-                        { id: 'epic-1', data: JSON.stringify({ id: 'epic-1', name: 'Epic Hero', properties: { state: 'OPEN'} }), struct_score: 5.0 },
-                        { id: 'task-blocked', data: JSON.stringify({ id: 'task-blocked', name: 'Blocked Task', properties: { state: 'OPEN'} }), struct_score: 10.0 },
-                        { id: 'blocker', data: JSON.stringify({ id: 'blocker', name: 'Blocker Bug', properties: { state: 'OPEN'} }), struct_score: 1.0 },
-                        { id: 'weak-task', data: JSON.stringify({ id: 'weak-task', name: 'Weak Task', properties: { state: 'OPEN'} }), struct_score: 0.1 },
-                        { id: 'rejected-task', data: JSON.stringify({ id: 'rejected-task', name: 'Massive Stale Feature', properties: { state: 'OPEN', labels: ['needs-re-triage']} }), struct_score: 1000.0 }
+                        { id: 'issue-epic-hero', data: JSON.stringify({ id: 'issue-epic-hero', name: 'Epic Hero', properties: { state: 'OPEN'} }), struct_score: 5.0 },
+                        { id: 'issue-task-blocked', data: JSON.stringify({ id: 'issue-task-blocked', name: 'Blocked Task', properties: { state: 'OPEN'} }), struct_score: 10.0 },
+                        { id: 'issue-blocker', data: JSON.stringify({ id: 'issue-blocker', name: 'Blocker Bug', properties: { state: 'OPEN'} }), struct_score: 1.0 },
+                        { id: 'issue-weak-task', data: JSON.stringify({ id: 'issue-weak-task', name: 'Weak Task', properties: { state: 'OPEN'} }), struct_score: 0.1 },
+                        { id: 'issue-rejected-task', data: JSON.stringify({ id: 'issue-rejected-task', name: 'Massive Stale Feature', properties: { state: 'OPEN', labels: ['needs-re-triage']} }), struct_score: 1000.0 }
                     ],
                     get: () => null,
                     run: () => {}
@@ -1262,15 +1262,15 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
 
         // GraphService mock topology
         GraphService.db.edges.items = [
-             { source: 'blocker', target: 'task-blocked', type: 'BLOCKS' }
+             { source: 'issue-blocker', target: 'issue-task-blocked', type: 'BLOCKS' }
         ];
 
         GraphService.db.nodes.items = [
-             { id: 'epic-1', properties: { state: 'OPEN' } },
-             { id: 'task-blocked', properties: { state: 'OPEN' } },
-             { id: 'blocker', properties: { state: 'OPEN' } },
-             { id: 'weak-task', properties: { state: 'OPEN' } },
-             { id: 'rejected-task', properties: { state: 'OPEN', labels: ['needs-re-triage'] } },
+             { id: 'issue-epic-hero', properties: { state: 'OPEN' } },
+             { id: 'issue-task-blocked', properties: { state: 'OPEN' } },
+             { id: 'issue-blocker', properties: { state: 'OPEN' } },
+             { id: 'issue-weak-task', properties: { state: 'OPEN' } },
+             { id: 'issue-rejected-task', properties: { state: 'OPEN', labels: ['needs-re-triage'] } },
              // Planted CONCEPT with ORPHAN_CONCEPT gap to verify the ⚠️ section renders
              // in sandman_handoff.md alongside the existing TEST/GUIDE/EXAMPLE sections.
              { id: 'concept-orphan-render-test', properties: {
