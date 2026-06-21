@@ -6,16 +6,21 @@ labels:
   - enhancement
   - ai
   - architecture
-assignees: []
+assignees:
+  - neo-gpt
 createdAt: '2026-04-13T09:28:33Z'
-updatedAt: '2026-06-07T16:16:05Z'
+updatedAt: '2026-06-21T08:57:12Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9953'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: 9950
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy: []
 blocking: []
 ---
@@ -74,4 +79,46 @@ Truncate massive JSON schemas returned by the MCP Server on every turn that exha
 > 
 > Routing: keep this issue open, but do not self-assign or branch until the ticket body or a linked successor carries the ledger. A correct first PR should be narrow: prove the shared mechanism and one representative server before attempting repo-wide description truncation.
 
+### @neo-gpt - 2026-06-14T21:46:56Z
+
+**Input from GPT-5 (Codex Desktop):**
+
+> ● [ARCH_ALIGNMENT]
+> 
+> ## Contract Ledger alignment — first branchable slice
+> 
+> V-B-A refresh, 2026-06-14:
+> 
+> - Live #9953 conversation still has only the 2026-06-07 intake verdict: `needs-contract-alignment`, no later body update or implementation claim.
+> - Current source still routes MCP `tools/list` through `ai/mcp/ToolService.mjs` / `ai/mcp/server/BaseServer.mjs`; source search found no `get_mcp_tool_handbook`, `tool handbook`, or equivalent lazy-load endpoint.
+> - Knowledge Base synthesis is currently unavailable (`Failed to access collections`), so this pass relies on live issue conversation + source/local corpus search + Memory Core fallback. Raw-memory search for this exact scope returned no implementation loop.
+> 
+> Verdict: #9953 remains valid, but still **not branch-ready as the broad checklist**. The safe next move is a first-slice PR that proves the shared mechanism on one representative server and leaves repo-wide description truncation for later migration.
+> 
+> ## Proposed Contract Ledger
+> 
+> | Target Surface | Source of Authority | Proposed Behavior | Fallback / Edge Case | Docs | Evidence |
+> |---|---|---|---|---|---|
+> | `tools/list` projection | #9953 + current `ToolService.mjs` / `BaseServer.mjs` | Listed tools keep stable names, input schemas, output schemas, annotations, and a short call-site description. | If no explicit short description exists, derive a bounded fallback from OpenAPI `summary`/`description` without dropping the tool. | JSDoc/OpenAPI note at the projection seam. | Unit test that list output shape is unchanged except bounded descriptions. |
+> | `get_mcp_tool_handbook` first-slice endpoint | #9953 | Return detailed usage text for exactly one tool id, lazy-loaded on demand. | Unknown id returns structured not-found; server health/auth behavior follows existing MCP dispatch rules. | OpenAPI operation for the representative server. | Unit tests for valid id, unknown id, and schema validation. |
+> | Handbook content source | Existing OpenAPI operation metadata first; optional dedicated handbook metadata later. | Preserve the existing long description as the first handbook body so migration is lossless. | Missing details fall back to the existing operation description. | Migration note: detailed guidance moves out of always-loaded `tools/list`. | Fixture test mapping one OpenAPI operation to handbook output. |
+> | Rollout boundary | Current `ai/mcp/server/*/openapi.yaml` servers | First PR applies to one representative server plus shared projection helper only. | Other servers keep existing behavior until migrated; no repo-wide truncation in slice 1. | PR body names non-migrated servers explicitly. | Regression test proves unmigrated server behavior remains compatible. |
+> 
+> ## First PR Shape
+> 
+> Recommended first PR:
+> 
+> 1. Add the shared projection/handbook helper behind the MCP tool service seam.
+> 2. Wire one low-risk representative server to expose `get_mcp_tool_handbook`.
+> 3. Preserve existing detailed text by moving/reading it as the handbook body for that server.
+> 4. Add focused unit coverage for bounded `tools/list`, valid handbook lookup, unknown id, and unmigrated-server fallback.
+> 
+> Do **not** truncate all server manifests in the first PR. That broad migration is where schema drift and agent-discovery regressions would hide.
+
+- 2026-06-14T21:54:08Z @neo-gpt cross-referenced by #13268
+- 2026-06-14T22:04:17Z @neo-gpt cross-referenced by PR #13269
+- 2026-06-21T08:57:12Z @neo-gpt assigned to @neo-gpt
+- 2026-06-21T09:02:40Z @neo-gpt cross-referenced by #13734
+- 2026-06-21T09:03:53Z @neo-gpt cross-referenced by PR #13735
+- 2026-06-21T09:14:40Z @neo-gpt cross-referenced by #13736
 
