@@ -2,7 +2,7 @@
  * @module Neo.ai.daemons.orchestrator.services.leaseMonitor
  * @summary The hung-lease watchdog INTEGRATION — wires the pure `isHungLeaseHolder` decision into a
  * periodic lease-monitor that ps-samples the active heavy-lease holder's cpu and force-releases +
- * records a `skipped` outcome when the holder is HUNG (alive + within-TTL but sustained-idle), which
+ * records a `failed` outcome when the holder is HUNG (alive + within-TTL but sustained-idle), which
  * the pid-death / TTL stale-check (HeavyMaintenanceLeaseService) cannot catch. The 2026-06-21 incident:
  * a heavy task hung ~59min at 0% cpu holding the lease idle, starving all periodic maintenance until
  * the Golden Path froze.
@@ -13,9 +13,10 @@
  * monitor therefore samples on its OWN slow cadence — the caller drives `tick()` at the sample
  * interval (minutes), NOT the fast daemon tick.
  *
- * The recorded outcome uses the EXISTING `recordTaskOutcome` `'skipped'` state (the orchestration
- * observability convergence refines the typed-outcome — `deferred` / provenance — later; this uses the
- * live primitive now).
+ * The recorded outcome uses the EXISTING `recordTaskOutcome` `'failed'` state — a hung holder ran then
+ * stalled (a FAILURE, distinct from `skipped`=never-ran, `deferred`=postponed, task-state `markSkipped`).
+ * The observability convergence may add a hung-specific typed-outcome later; this uses the live primitive
+ * now without overloading `skipped` into a green-looking no-op.
  */
 
 import {isHungLeaseHolder} from './leaseWatchdog.mjs';
@@ -83,11 +84,15 @@ export function createLeaseMonitor({
 
             if (isHungLeaseHolder({cpuPercentSamples: samples, idleThresholdPct, minConsecutiveIdle})) {
                 await releaseLease(lease);
-                recordOutcome(owner, 'skipped', {
-                    skipReason : 'watchdog-released-hung-holder',
+                // A hung holder RAN (it held the lease) but stalled — that is a FAILURE, not a skip
+                // (skipped = never ran). Honoring the typed-outcome vocabulary separation: a force-released
+                // hung holder records 'failed', so it is not collapsed into a green-looking skipped no-op.
+                recordOutcome(owner, 'failed', {
+                    reason      : 'watchdog-released-hung-holder',
+                    failurePhase: 'hung-lease-holder',
                     pid,
-                    idleSamples: samples.length,
-                    releasedAt : new Date().toISOString()
+                    idleSamples : samples.length,
+                    releasedAt  : new Date().toISOString()
                 });
                 history.delete(pid);
                 return {action: 'released-hung', pid, owner};

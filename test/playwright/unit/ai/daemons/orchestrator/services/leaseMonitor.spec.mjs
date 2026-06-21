@@ -10,7 +10,7 @@ import {createLeaseMonitor} from '../../../../../../../ai/daemons/orchestrator/s
 test.describe('ai/daemons/orchestrator/services/leaseMonitor — createLeaseMonitor', () => {
     const leaseOf = (pid, owner = 'kbSync') => ({active: true, lease: {pid, owner}});
 
-    test('a sustained-idle holder → force-released + outcome recorded skipped', async () => {
+    test('a sustained-idle holder → force-released + outcome recorded failed', async () => {
         const released = [], outcomes = [], cpuSeq = [0, 0, 0, 0]; // 4 idle = minConsecutiveIdle default
         let i = 0;
         const monitor = createLeaseMonitor({
@@ -24,9 +24,10 @@ test.describe('ai/daemons/orchestrator/services/leaseMonitor — createLeaseMoni
         expect(last.action).toBe('released-hung');
         expect(released).toHaveLength(1);
         expect(outcomes).toHaveLength(1);
-        expect(outcomes[0]).toMatchObject({owner: 'kbSync', state: 'skipped'});
-        // skipReason matches the established pipeline.mjs skipped-outcome shape (uniform health-endpoint reads)
-        expect(outcomes[0].d.skipReason).toBe('watchdog-released-hung-holder');
+        // a hung holder ran-then-stalled → 'failed' (not 'skipped'=never-ran); preserves the typed-outcome separation
+        expect(outcomes[0]).toMatchObject({owner: 'kbSync', state: 'failed'});
+        expect(outcomes[0].d.reason).toBe('watchdog-released-hung-holder');
+        expect(outcomes[0].d.failurePhase).toBe('hung-lease-holder');
     });
 
     test('a slow-but-progressing holder → NOT released (Grace interval-coupling guard)', async () => {
