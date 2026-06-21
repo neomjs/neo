@@ -118,7 +118,7 @@ Per ADR 0002 §6.6.2, dispatch is the consumer's responsibility. Cycle-3 impleme
 
 **OQ4 + OQ5 — `[RESOLVED_TO_AC]`: Structured readiness metadata + composable operator-set overrides.** Resolution: `[wake-readiness]` sentinels carry structured fields via the A2A `task` envelope. Operator-set vs self-set sentinels compose most-restrictive-wins on `expiresAt`. → Epic #11993 Sub-ii AC4.
 
-**OQ6 — `[DEFERRED_WITH_TIMELINE]`: Bridge-daemon Codex adapter debugging.** Orthogonal to the 3-signal model; depends on live bridge-daemon log capture during a heartbeat dispatch attempt to `@neo-gpt`. Tomorrow's klarso work will exercise both Claude and Codex harnesses against the same swarm — natural empirical anchor. Spun out as sibling concern, NOT in Epic #11993.
+**OQ6 — `[DEFERRED_WITH_TIMELINE]`: Bridge-daemon Codex adapter debugging.** Orthogonal to the 3-signal model; depends on live bridge-daemon log capture during a heartbeat dispatch attempt to `@neo-gpt`. Tomorrow's the client work will exercise both Claude and Codex harnesses against the same swarm — natural empirical anchor. Spun out as sibling concern, NOT in Epic #11993.
 
 ---
 
@@ -178,7 +178,7 @@ All 3 subs linked under Epic #11993 via `parent_child` relationship.
 | OQ2 (Shape A vs B) | `[RESOLVED_TO_AC]` — Shape B-only | Sub-i AC1 (Shape B `emitHeartbeatPulse` only implementation); Sub-iii AC1 + AC3 (Shape A heartbeat-mailbox path removed alongside tmux-inject) |
 | OQ3 (backoff state location) | `[RESOLVED_TO_AC]` | Sub-ii AC2 + AC3 (orchestrator-local persisted state with restart/corrupt/TTL/per-identity tests) |
 | OQ4+OQ5 (sentinel parsing + operator override) | `[RESOLVED_TO_AC]` | Sub-ii AC4 (structured A2A task-envelope authority; most-restrictive-wins on `expiresAt`) |
-| OQ6 (Codex bridge-adapter debug) | `[DEFERRED_WITH_TIMELINE]` | NOT in this Epic — sibling ticket post-klarso-trial trace |
+| OQ6 (Codex bridge-adapter debug) | `[DEFERRED_WITH_TIMELINE]` | NOT in this Epic — sibling ticket post-the client-trial trace |
 
 ---
 
