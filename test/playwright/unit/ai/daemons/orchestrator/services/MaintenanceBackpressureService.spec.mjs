@@ -54,6 +54,11 @@ function buildService(overrides = {}) {
 // embedding — so the mechanism is exercised here with an explicit pair rather than the live default.
 const COMPATIBLE_PAIRS_FIXTURE = [['kbSync', 'memory-summary-backfill']];
 
+// Explicit fixture for the golden-path dependency-gate MECHANISM tests. DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES
+// is now empty — Golden Path is decoupled from `dream` so the hourly re-rank is not frozen behind the
+// multi-hour REM digest — so the gate mechanism is exercised here with an explicit dependency, not the default.
+const GOLDEN_PATH_DEPS_FIXTURE = Object.freeze(['dream']);
+
 test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureService', () => {
 
     // ====================================================================
@@ -76,8 +81,11 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         expect(DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES).not.toContain('golden-path');
     });
 
-    test('DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES pins the dependency set', () => {
-        expect([...DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES]).toEqual(['dream']);
+    test('DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES is EMPTY — Golden Path decoupled from dream for hourly freshness', () => {
+        // Golden Path reads the CURRENT graph (not the dream digest), so it must not block behind the
+        // multi-hour REM digest — that coupling froze the forecast for days. The gate stays a reactive
+        // config leaf so a deployment can re-introduce a write-completion dependency if a store needs it.
+        expect([...DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES]).toEqual([]);
         expect(Object.isFrozen(DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES)).toBe(true);
     });
 
@@ -107,11 +115,11 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
     test('isGoldenPathDependencyTask returns membership in dependency set', () => {
         expect(isGoldenPathDependencyTask({
             taskName                     : 'dream',
-            goldenPathDependencyTaskNames: DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES
+            goldenPathDependencyTaskNames: GOLDEN_PATH_DEPS_FIXTURE
         })).toBe(true);
         expect(isGoldenPathDependencyTask({
             taskName                     : 'summary',
-            goldenPathDependencyTaskNames: DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES
+            goldenPathDependencyTaskNames: GOLDEN_PATH_DEPS_FIXTURE
         })).toBe(false);
     });
 
@@ -182,21 +190,21 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
 
         // activeTaskName is a dependency → returned without consulting state
         expect(getActiveGoldenPathDependencyTask({
-            goldenPathDependencyTaskNames: DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES,
+            goldenPathDependencyTaskNames: GOLDEN_PATH_DEPS_FIXTURE,
             taskStateService,
             activeTaskName               : 'dream'
         })).toBe('dream');
 
         // activeTaskName is NOT a dependency → fall back to state scan
         expect(getActiveGoldenPathDependencyTask({
-            goldenPathDependencyTaskNames: DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES,
+            goldenPathDependencyTaskNames: GOLDEN_PATH_DEPS_FIXTURE,
             taskStateService             : buildTaskStateService({['dream']: {running: true}}),
             activeTaskName               : 'summary'
         })).toBe('dream');
 
         // No dependency running, no active dependency → null
         expect(getActiveGoldenPathDependencyTask({
-            goldenPathDependencyTaskNames: DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES,
+            goldenPathDependencyTaskNames: GOLDEN_PATH_DEPS_FIXTURE,
             taskStateService             : buildTaskStateService({})
         })).toBeNull();
     });
@@ -595,8 +603,9 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
     test('executeWithGoldenPathDependencyGate defers when dependency task is running', () => {
         const outcomeCalls = [];
         const service      = buildService({
-            taskStateService: buildTaskStateService({['dream']: {running: true}}),
-            healthService   : {recordTaskOutcome: (t, s, p) => outcomeCalls.push({t, s, p})}
+            goldenPathDependencyTaskNames: GOLDEN_PATH_DEPS_FIXTURE,
+            taskStateService             : buildTaskStateService({['dream']: {running: true}}),
+            healthService                : {recordTaskOutcome: (t, s, p) => outcomeCalls.push({t, s, p})}
         });
 
         const result = service.executeWithGoldenPathDependencyGate({
