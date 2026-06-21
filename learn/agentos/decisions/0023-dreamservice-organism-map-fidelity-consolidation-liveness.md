@@ -52,6 +52,24 @@ The two are duals: (1) governs the read, (2) governs the write. Together they ar
 - **AC-3 (observability over assumption).** Consolidation-liveness rides a durable observable signal (the 3 backlog classes: over-band/#12439, lease-starve/#13624, observability/#13551); never assumed-green.
 - **AC-4 (no boost, no rejected-floor rebuild).** The rejected deterministic-reduce-only floor (#12423) and the current-focus boost (#13793, dropped) are anti-anchors, not escalation paths.
 
+### 2.5 The Knowledge-Graph Layer + Target-vs-Current State
+
+An ADR must name the **target** architecture *and* the **current** state, per layer (operator requirement) — otherwise the structural audit reports *selective-by-design* absences as "gaps" and a fresh agent chases false gaps (the same map-lie that made the swarm chase old meta-hubs). The organism has a third layer beyond forecast + consolidation: the **knowledge-graph** (CONCEPT + ADR nodes), and its map-fidelity rule is the same — the handoff must not report intended-selectivity as failure.
+
+**Knowledge-graph semantics (operator-corrected mental model):**
+- **CONCEPT nodes are a *selective* bridge guides↔source** — NOT every source file needs a guide, and not every concept needs an implementation. The gap-inference is **weight-gated** (`GapInferenceEngine`'s `guideGapWeightThreshold`, default 0.8), so only high-weight concepts surface `GUIDE_GAP` / `ORPHAN_CONCEPT`. Selectivity is by design: the live handoff's guide-disconnects + orphaned-concepts + the hundreds of concept-reverification entries are mostly **selective-by-design absences**, not a backlog to drain.
+- **ADR nodes are roadmapped for first-class insertion.** Current: `AdrIngestor` inserts ADR nodes but they carry no `semanticVectorId` (the live graph's 23 ADR nodes are un-embedded → inert to the candidate pool). Target: ADR nodes embedded + first-class (queryable as architectural anchors in their own right).
+
+**Target-vs-Current (per layer):**
+
+| Layer | Current | Target |
+|---|---|---|
+| **Forecast (map-fidelity)** | frontier storage-order (pre-#13801) surfaced old structural hubs (`issue-9864` alone) | frontier reads the true position; current #13k work surfaces by legitimate semantic proximity |
+| **Consolidation (liveness)** | 316 undigested, `recentCycles=[]` — silent stall (`forecast-fresh-but-graph-rotting`) | every session deposits a trail or is visibly recorded un-depositable; drain observable |
+| **Knowledge-graph (selectivity)** | CONCEPT gap-inference reports selective absences as "gaps"; ADR nodes inserted-but-inert (no vectors) | selectivity named so absences aren't false gaps; ADR nodes first-class / embedded |
+
+**V-B-A note (do not enshrine unverified):** the gap-inference weight-gate is verified (`GapInferenceEngine.guideGapWeightThreshold`); the ADR-node embedding is **roadmapped, not built** (the 23 ADR nodes are currently un-embedded) — recorded as target, not current.
+
 ## 3. Decision Process — Rejected Alternatives
 
 | Option | Rejection rationale |
