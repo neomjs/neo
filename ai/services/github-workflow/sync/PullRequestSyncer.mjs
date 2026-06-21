@@ -349,6 +349,73 @@ class PullRequestSyncer extends Base {
     }
 
     /**
+     * @summary Renders a fetched PR node to its synced Markdown (frontmatter + body + comments + reviews),
+     * applying the content-trust sanitizer to each authored node. Extracted from {@link #syncPullRequests}
+     * so the single-PR force-refetch path renders identically (no drift between bulk-sync and refetch).
+     * @param {Object} pr The PR node (with `comments.nodes` / `reviews.nodes`).
+     * @returns {String} The gray-matter-serialized Markdown content.
+     */
+    #renderPullRequestMarkdown(pr) {
+        const contentTrust = createContentTrustSummary();
+        const projectedPr  = this.#projectAuthoredNode(pr, contentTrust, 'body');
+
+        const frontmatter = {
+            number   : pr.number,
+            title    : pr.title,
+            author   : pr.author?.login || 'unknown',
+            state    : pr.state,
+            createdAt: pr.createdAt,
+            updatedAt: pr.updatedAt,
+            closedAt : pr.closedAt,
+            mergedAt : pr.mergedAt,
+            head     : pr.headRefName,
+            base     : pr.baseRefName,
+            url      : pr.url,
+            contentTrust
+        };
+
+        let body = projectedPr.body || '';
+
+        // Build comments structure
+        if (pr.comments && pr.comments.nodes && pr.comments.nodes.length > 0) {
+            body += '\n\n## Comments\n\n';
+            for (const comment of pr.comments.nodes) {
+                const projectedComment = this.#projectAuthoredNode(
+                    comment,
+                    contentTrust,
+                    `comment:${comment.id || comment.createdAt || 'unknown'}`
+                );
+
+                body += `### \`@${comment.author?.login || 'unknown'}\` commented on ${comment.createdAt}\n\n${projectedComment.body}\n\n---\n\n`;
+            }
+        }
+
+        // Build reviews structure
+        if (pr.reviews && pr.reviews.nodes && pr.reviews.nodes.length > 0) {
+            body += '\n\n## Reviews\n\n';
+            for (const review of pr.reviews.nodes) {
+                const reviewState = review.state ? ` (${review.state})` : '';
+                body += `### \`@${review.author?.login || 'unknown'}\`${reviewState} reviewed on ${review.createdAt}\n\n`;
+                if (review.body && review.body.trim().length > 0) {
+                    const projectedReview = this.#projectAuthoredNode(
+                        review,
+                        contentTrust,
+                        `review:${review.id || review.createdAt || 'unknown'}`
+                    );
+
+                    body += `${projectedReview.body}\n\n`;
+                } else {
+                    body += `*No review body provided.*\n\n`;
+                }
+                body += `---\n\n`;
+            }
+        }
+
+        // Gray-matter serialization
+        return matter.stringify(body, frontmatter);
+    }
+
+    /**
      * Fetches pull requests from GitHub and syncs them to local markdown.
      * @param {object} metadata The sync metadata containing cached records.
      * @returns {Promise<object>} Statistics about the operation.
@@ -412,64 +479,8 @@ class PullRequestSyncer extends Base {
 
         for (const pr of allPullRequests) {
             try {
-                const targetPath = this.#getPullRequestPath(pr, planBuckets);
-                const contentTrust = createContentTrustSummary();
-                const projectedPr = this.#projectAuthoredNode(pr, contentTrust, 'body');
-
-                const frontmatter = {
-                    number   : pr.number,
-                    title    : pr.title,
-                    author   : pr.author?.login || 'unknown',
-                    state    : pr.state,
-                    createdAt: pr.createdAt,
-                    updatedAt: pr.updatedAt,
-                    closedAt : pr.closedAt,
-                    mergedAt : pr.mergedAt,
-                    head     : pr.headRefName,
-                    base     : pr.baseRefName,
-                    url      : pr.url,
-                    contentTrust
-                };
-
-                let body = projectedPr.body || '';
-
-                // Build comments structure
-                if (pr.comments && pr.comments.nodes && pr.comments.nodes.length > 0) {
-                    body += '\n\n## Comments\n\n';
-                    for (const comment of pr.comments.nodes) {
-                        const projectedComment = this.#projectAuthoredNode(
-                            comment,
-                            contentTrust,
-                            `comment:${comment.id || comment.createdAt || 'unknown'}`
-                        );
-
-                        body += `### \`@${comment.author?.login || 'unknown'}\` commented on ${comment.createdAt}\n\n${projectedComment.body}\n\n---\n\n`;
-                    }
-                }
-
-                // Build reviews structure
-                if (pr.reviews && pr.reviews.nodes && pr.reviews.nodes.length > 0) {
-                    body += '\n\n## Reviews\n\n';
-                    for (const review of pr.reviews.nodes) {
-                        const reviewState = review.state ? ` (${review.state})` : '';
-                        body += `### \`@${review.author?.login || 'unknown'}\`${reviewState} reviewed on ${review.createdAt}\n\n`;
-                        if (review.body && review.body.trim().length > 0) {
-                            const projectedReview = this.#projectAuthoredNode(
-                                review,
-                                contentTrust,
-                                `review:${review.id || review.createdAt || 'unknown'}`
-                            );
-
-                            body += `${projectedReview.body}\n\n`;
-                        } else {
-                            body += `*No review body provided.*\n\n`;
-                        }
-                        body += `---\n\n`;
-                    }
-                }
-
-                // Gray-matter serialization
-                const content = matter.stringify(body, frontmatter);
+                const targetPath  = this.#getPullRequestPath(pr, planBuckets);
+                const content     = this.#renderPullRequestMarkdown(pr);
                 const currentHash = this.#calculateContentHash(content);
 
                 const cachedPull = cachedPulls[pr.number];
