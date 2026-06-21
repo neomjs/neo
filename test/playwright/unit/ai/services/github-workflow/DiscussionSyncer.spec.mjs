@@ -528,6 +528,62 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         expect(stats.synced).toEqual([25005]);
         await expect(fs.pathExists(targetPath)).resolves.toBe(true);
     });
+    test('refetchDiscussionsByNumber force-re-renders a stale discussion mirror, bypassing the delta/hash gate (#13794)', async () => {
+        const discussionNumber = 24050;
+
+        // Cached as current with a STALE contentHash — the bulk delta-sync would skip it.
+        // refetchDiscussionsByNumber must force a re-render from live GitHub state regardless.
+        const metadata = {
+            discussions: {
+                [discussionNumber]: {
+                    number     : discussionNumber,
+                    closed     : false,
+                    closedAt   : null,
+                    contentHash: 'STALE-HASH',
+                    path       : `resources/content/discussions/chunk-1/discussion-${discussionNumber}.md`
+                }
+            }
+        };
+
+        let capturedQuery = null;
+        let capturedVars  = null;
+        GraphqlService.query = async (query, vars) => {
+            capturedQuery = query;
+            capturedVars  = vars;
+
+            return {repository: {discussion: buildDiscussion(discussionNumber, {closed: false})}};
+        };
+
+        const stats = await DiscussionSyncer.refetchDiscussionsByNumber([discussionNumber], metadata);
+
+        // Used the single-discussion query with the right number — not the bulk pagination query.
+        expect(capturedQuery).toContain('FetchSingleDiscussionForSync');
+        expect(capturedVars.number).toBe(discussionNumber);
+
+        // Re-rendered + written to the active bucket.
+        expect(stats.refetched).toEqual({count: 1, discussions: [discussionNumber]});
+        const targetPath = path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', `discussion-${discussionNumber}.md`);
+        await expect(fs.pathExists(targetPath)).resolves.toBe(true);
+
+        const parsed = matter(await fs.readFile(targetPath, 'utf8'));
+        expect(parsed.data.number).toBe(discussionNumber);
+
+        // Metadata refreshed with the live hash (no longer the stale one) + the resolved path.
+        expect(metadata.discussions[discussionNumber].contentHash).not.toBe('STALE-HASH');
+        expect(metadata.discussions[discussionNumber].path).toBe(path.relative(aiConfig.projectRoot, targetPath));
+    });
+
+    test('refetchDiscussionsByNumber skips a discussion that no longer exists on GitHub (#13794)', async () => {
+        const discussionNumber = 24051;
+        const metadata = {discussions: {}};
+
+        GraphqlService.query = async () => ({repository: {discussion: null}});
+
+        const stats = await DiscussionSyncer.refetchDiscussionsByNumber([discussionNumber], metadata);
+
+        expect(stats.refetched).toEqual({count: 0, discussions: []});
+        expect(metadata.discussions[discussionNumber]).toBeUndefined();
+    });
 });
 
 function buildDiscussion(number, config = {}) {
