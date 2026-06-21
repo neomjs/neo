@@ -170,19 +170,20 @@ test.describe('ai/scripts/lifecycle/stopHookDecision — scanHoldLexicon (hold-c
         ]));
     });
 
-    test('matches the structured-JSON hold costume (@neo-opus-vega) — the more insidious form', () => {
-        const costume = '{ "wakeDisposition": "actionable", "laneContinuation": "next-lane", "namedGates": [], "awaitingOwnPrOnly": false }';
-        expect(scanHoldLexicon(costume)).toEqual(expect.arrayContaining([
-            'wakeDisposition: (structured-hold costume)',
-            'laneContinuation: next-lane (structured-hold costume)',
-            'namedGates: [] (structured-hold costume)',
-            'awaitingOwnPrOnly: (structured-hold costume)'
-        ]));
+    test('the canonical lane-state schema block is NOT flagged — required machine status, not a costume', () => {
+        // Regression guard: wakeDisposition / laneContinuation / namedGates / awaitingOwnPrOnly are the
+        // canonical lane-state schema EVERY compliant turn emits (parseLaneState + LANE_STATE_SCHEMA_HINT).
+        // Denylisting those keys would false-positive every turn — the relapse-costume is the PROSE around
+        // the block + its repetition, not the required schema itself.
+        const canonical = '```lane-state\n{"wakeDisposition":"awareness","laneContinuation":"next-lane","namedGates":[],"awaitingOwnPrOnly":false}\n```';
+        expect(scanHoldLexicon(canonical)).toEqual([]);
     });
 
     test('NO false-positive on a genuine driving-turn (the un-mechanizable-warrant guard)', () => {
         expect(scanHoldLexicon('Opened PR #13740; reviewing #13735 cross-family. Claimed #9962 slice.')).toEqual([]);
         expect(scanHoldLexicon('Drove the build, ran the tests (22 passed), merge-eligible — routed to a reviewer.')).toEqual([]);
+        // even a driving-turn that emits the canonical lane-state block stays clean:
+        expect(scanHoldLexicon('Shipped PR #13746.\n```lane-state\n{"wakeDisposition":"awareness","laneContinuation":"next-lane","namedGates":[],"awaitingOwnPrOnly":false}\n```')).toEqual([]);
     });
 
     test('dedupes repeats + is total on non-string / empty input (never throws in the hook path)', () => {

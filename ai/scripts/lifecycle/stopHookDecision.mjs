@@ -132,7 +132,9 @@ export function decideDeferenceStopHookAction(text = '', {
  * valid stops (that is the weaponizable exit-set the no-hold-state taxonomy forbids) and NOT a
  * warrant-validator (the warrant — "does this advance a NAMED lane?" — is un-mechanizable). It is a
  * DENYLIST of costumes the hook NAMES back to sharpen the mirror: an agent emitting these has performed
- * a not-holding-shaped activity (a poll, a structured status) that advances no named lane. Each entry is
+ * a not-holding-shaped activity (a poll, a repeated hold-frame) that advances no named lane. The phrases
+ * are PROSE relapse-frames only — the canonical lane-state schema keys are deliberately excluded (see the
+ * note after the array), since denylisting the required machine block would false-positive every turn. Each entry is
  * a {@link HoldLexiconEntry}; `label` is the human-readable phrase surfaced in the block directive.
  * @type {HoldLexiconEntry[]}
  */
@@ -145,12 +147,12 @@ export const HOLD_LEXICON = [
     {re: /\bholding the\b.{0,28}\btail\b/i,                               label: 'holding the (between-wakes) tail'},
     {re: /\bpivots?\s+wake[\s-]?delivered\b/i,                            label: 'pivots wake-delivered'},
     {re: /\bawaiting at minimal cost\b/i,                                 label: 'awaiting at minimal cost'},
-    {re: /\btight pivot[\s-]?check\b/i,                                   label: 'tight pivot-check'},
-    {re: /["']?wakeDisposition["']?\s*:/i,                                label: 'wakeDisposition: (structured-hold costume)'},
-    {re: /["']?awaitingOwnPrOnly["']?\s*:/i,                              label: 'awaitingOwnPrOnly: (structured-hold costume)'},
-    {re: /["']?laneContinuation["']?\s*:\s*["']?next[\s-]?lane/i,         label: 'laneContinuation: next-lane (structured-hold costume)'},
-    {re: /["']?namedGates["']?\s*:\s*\[\s*\]/i,                           label: 'namedGates: [] (structured-hold costume)'}
+    {re: /\btight pivot[\s-]?check\b/i,                                   label: 'tight pivot-check'}
 ];
+// NOTE deliberately EXCLUDED: the canonical lane-state schema keys (wakeDisposition / laneContinuation /
+// namedGates / awaitingOwnPrOnly, per parseLaneState + LANE_STATE_SCHEMA_HINT) — every compliant turn
+// emits that block, so denylisting them would false-positive on the legitimate machine status. The
+// relapse-costume is the PROSE around the block + its repetition, NOT the required schema itself.
 
 /**
  * @summary Pure costume-tripwire — scans an agent's turn-final text for the {@link HOLD_LEXICON}
