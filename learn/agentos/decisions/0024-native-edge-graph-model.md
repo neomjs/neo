@@ -49,10 +49,12 @@ The LLM extractor's `VALID_TYPES` enum is **14** (`SemanticGraphExtractor:265`);
 | **Provenance / semantic** | `TAGGED_CONCEPT` (1.0 curated / 0.8 auto), `MENTIONED_IN`, `AUTHORED_BY`, `SUPERSEDES`, `OBSOLETES`, `DUPLICATE` | REM extraction + `TopologyInferenceEngine` | yes |
 | **Work / lifecycle** | `BLOCKED_BY`, `CONTAINED_PLAN`, `IMPLEMENTATION_PLAN`, `SESSION_*`, `EVALUATED_BY` | sync + lifecycle services | yes |
 | **Mailbox / A2A** | `DELIVERED_TO`, `SENT_BY`, `SENT_TO` | `MailboxService` | yes |
-| **Permission (auth, RLS)** | enum (3): `CAN_REPLY_TO`, `CAN_READ_INBOX_OF`, `CAN_READ_MEMORIES_OF` · observed: `CAN_READ_SESSIONS_OF`, `PERMISSION_GRANTED` | `PERMISSION_EDGE_TYPES` = the 3 enum (`heartbeatPulseEvaluator:42`); the 2 observed are used but not in the enum | n/a (auth) |
+| **Permission (auth, RLS)** | `CAN_READ_INBOX_OF`, `CAN_READ_MEMORIES_OF`, `CAN_READ_SESSIONS_OF`, `CAN_REPLY_TO` (+ `BLOCKED_BY`, cross-listed with work/lifecycle) | **`PermissionService.validScopes`** (authoritative source); `heartbeatPulseEvaluator.PERMISSION_EDGE_TYPES` is the **wake-firing subset** (the 3 `CAN_*` a `PERMISSION_GRANTED` wake fires on) | n/a (auth) |
 | **Active steering** | `STRATEGIC_PIVOT` | `mutate_frontier` (`GraphService.mutateFrontier`) | yes |
 
-The four named enums (`CONCEPT_EDGE_TYPES`, `ADR_EDGE_TYPES`, `PROTECTED_EDGE_TYPES`, `PERMISSION_EDGE_TYPES`) are **authoritative**; the remaining families are **observed-in-use** across the MC / graph / ingestion services. Converging these into one canonical edge-type registry is a follow-up (§6).
+Three named enums (`CONCEPT_EDGE_TYPES`, `ADR_EDGE_TYPES`, `PROTECTED_EDGE_TYPES`) are **authoritative** for their families; the **permission** family's authoritative source is `PermissionService.validScopes` (`heartbeatPulseEvaluator.PERMISSION_EDGE_TYPES` is its **wake-firing subset**, not the source). The remaining families are **observed-in-use** across the MC / graph / ingestion services. Converging these into one canonical edge-type registry is a follow-up (§6).
+
+**Wake-triggers ≠ edges:** `PERMISSION_GRANTED`, `SENT_TO_ME`, `TASK_STATE_CHANGED`, `HEARTBEAT_PULSE` are **wake-subscription triggers** (`WakeSubscriptionService.validTriggers`), NOT graph edges — each *fires* when a permission edge / message / task-state changes (e.g. `PERMISSION_GRANTED` fires on a `CAN_*` edge granted to the owner). They belong to the wake layer, not the edge taxonomy.
 
 ### 2.4 Topology — how it connects
 
