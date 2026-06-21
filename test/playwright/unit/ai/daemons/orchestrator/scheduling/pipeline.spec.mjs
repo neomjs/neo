@@ -69,6 +69,7 @@ function makeServices(overrides = {}) {
             getTaskState: () => null,
             markCompleted() {},
             markFailed() {},
+            markSkipped() {},
             markStarted() {}
         },
         tenantRepoSyncService: {
@@ -296,6 +297,210 @@ test.describe('orchestrator/scheduling/pipeline (#11862/#11900)', () => {
             level  : 'ERROR',
             message: '[Orchestrator] Unsupported executionKind: future-kind'
         }]);
+    });
+
+    test('records completed Dream outcomes as successful runs (#13767)', async () => {
+        const calls    = [];
+        const outcomes = [];
+
+        const result = runSchedulingPipeline({
+            registry: [
+                makeCandidateDescriptor({
+                    taskName        : 'dream',
+                    executionKind   : 'in-process-async',
+                    maintenanceClass: 'heavy'
+                })
+            ],
+            context : makeContext(),
+            services: makeServices({
+                dreamService: {
+                    executeRemCycle: () => Promise.resolve({
+                        status           : 'completed',
+                        completedAt      : '2026-06-21T12:00:00.000Z',
+                        durationMs       : 42,
+                        sessionsProcessed: 3,
+                        runId            : 'run-completed'
+                    })
+                },
+                healthService: {
+                    recordTaskOutcome(taskName, status, details) {
+                        outcomes.push({taskName, status, details});
+                    }
+                },
+                taskStateService: {
+                    getTaskState: () => null,
+                    markCompleted(taskName) { calls.push(['markCompleted', taskName]); },
+                    markFailed(taskName) { calls.push(['markFailed', taskName]); },
+                    markSkipped(taskName) { calls.push(['markSkipped', taskName]); },
+                    markStarted(taskName, reason) { calls.push(['markStarted', taskName, reason]); }
+                }
+            }),
+            runtime: makeRuntime()
+        });
+
+        await result.executed;
+
+        expect(calls).toEqual([
+            ['markStarted', 'dream', 'dream-reason'],
+            ['markCompleted', 'dream']
+        ]);
+        expect(outcomes).toEqual([
+            {
+                taskName: 'dream',
+                status  : 'running',
+                details : {reason: 'dream-reason', startedAt: expect.any(String)}
+            },
+            {
+                taskName: 'dream',
+                status  : 'completed',
+                details : {
+                    reason           : 'dream-reason',
+                    completedAt      : '2026-06-21T12:00:00.000Z',
+                    durationMs       : 42,
+                    sessionsProcessed: 3,
+                    runId            : 'run-completed'
+                }
+            }
+        ]);
+    });
+
+    test('records skipped Dream outcomes without marking success (#13767)', async () => {
+        const calls    = [];
+        const outcomes = [];
+
+        const result = runSchedulingPipeline({
+            registry: [
+                makeCandidateDescriptor({
+                    taskName        : 'dream',
+                    executionKind   : 'in-process-async',
+                    maintenanceClass: 'heavy'
+                })
+            ],
+            context : makeContext(),
+            services: makeServices({
+                dreamService: {
+                    executeRemCycle: () => Promise.resolve({
+                        status           : 'skipped',
+                        completedAt      : '2026-06-21T12:01:00.000Z',
+                        durationMs       : 7,
+                        sessionsProcessed: 0,
+                        runId            : 'run-skipped',
+                        skipReason       : 'no-actionable-sessions'
+                    })
+                },
+                healthService: {
+                    recordTaskOutcome(taskName, status, details) {
+                        outcomes.push({taskName, status, details});
+                    }
+                },
+                taskStateService: {
+                    getTaskState: () => null,
+                    markCompleted(taskName) { calls.push(['markCompleted', taskName]); },
+                    markFailed(taskName) { calls.push(['markFailed', taskName]); },
+                    markSkipped(taskName) { calls.push(['markSkipped', taskName]); },
+                    markStarted(taskName, reason) { calls.push(['markStarted', taskName, reason]); }
+                }
+            }),
+            runtime: makeRuntime()
+        });
+
+        await result.executed;
+
+        expect(calls).toEqual([
+            ['markStarted', 'dream', 'dream-reason'],
+            ['markSkipped', 'dream']
+        ]);
+        expect(outcomes).toEqual([
+            {
+                taskName: 'dream',
+                status  : 'running',
+                details : {reason: 'dream-reason', startedAt: expect.any(String)}
+            },
+            {
+                taskName: 'dream',
+                status  : 'skipped',
+                details : {
+                    reason           : 'dream-reason',
+                    completedAt      : '2026-06-21T12:01:00.000Z',
+                    durationMs       : 7,
+                    sessionsProcessed: 0,
+                    runId            : 'run-skipped',
+                    skipReason       : 'no-actionable-sessions'
+                }
+            }
+        ]);
+    });
+
+    test('records failed Dream outcomes as failures with diagnostics (#13767)', async () => {
+        const calls    = [];
+        const outcomes = [];
+        const state    = {};
+
+        const result = runSchedulingPipeline({
+            registry: [
+                makeCandidateDescriptor({
+                    taskName        : 'dream',
+                    executionKind   : 'in-process-async',
+                    maintenanceClass: 'heavy'
+                })
+            ],
+            context : makeContext(),
+            services: makeServices({
+                dreamService: {
+                    executeRemCycle: () => Promise.resolve({
+                        status           : 'failed',
+                        completedAt      : '2026-06-21T12:02:00.000Z',
+                        durationMs       : 11,
+                        sessionsProcessed: 0,
+                        runId            : 'run-failed',
+                        diagnostic       : {reason: 'provider-unready'}
+                    })
+                },
+                healthService: {
+                    recordTaskOutcome(taskName, status, details) {
+                        outcomes.push({taskName, status, details});
+                    }
+                },
+                taskStateService: {
+                    getTaskState: () => state,
+                    markCompleted(taskName) { calls.push(['markCompleted', taskName]); },
+                    markFailed(taskName, exitCode) { calls.push(['markFailed', taskName, exitCode]); },
+                    markSkipped(taskName) { calls.push(['markSkipped', taskName]); },
+                    markStarted(taskName, reason) { calls.push(['markStarted', taskName, reason]); }
+                }
+            }),
+            runtime: makeRuntime()
+        });
+
+        await result.executed;
+
+        expect(calls).toEqual([
+            ['markStarted', 'dream', 'dream-reason'],
+            ['markFailed', 'dream', 1]
+        ]);
+        expect(state.lastReason).toBe('provider-unready');
+        expect(outcomes).toEqual([
+            {
+                taskName: 'dream',
+                status  : 'running',
+                details : {reason: 'dream-reason', startedAt: expect.any(String)}
+            },
+            {
+                taskName: 'dream',
+                status  : 'failed',
+                details : {
+                    reason           : 'dream-reason',
+                    completedAt      : '2026-06-21T12:02:00.000Z',
+                    durationMs       : 11,
+                    sessionsProcessed: 0,
+                    runId            : 'run-failed',
+                    failedAt         : '2026-06-21T12:02:00.000Z',
+                    failurePhase     : 'provider-readiness',
+                    diagnostic       : {reason: 'provider-unready'},
+                    error            : undefined
+                }
+            }
+        ]);
     });
 });
 
