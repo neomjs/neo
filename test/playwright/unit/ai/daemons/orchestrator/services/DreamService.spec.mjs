@@ -411,7 +411,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             success   : 0
         });
 
-        const result = await DreamService.executeNLActionDigest({sinceTimestamp: 0});
+        const result = await DreamService.executeNLActionDigest();
 
         const
             classNode    = GraphService.db.nodes.get('class-neo-button-base'),
@@ -436,6 +436,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         expect(edge).toBeTruthy();
         expect(edge.properties.evidenceKind).toBe('neural-link-action-sequence');
         expect(edge.properties.weakEvidence).toBe(true);
+        expect(edge.properties.weight).toBe(0.35);
         expect(edge.properties.successRate).toBe(0.8);
         expect(edge.properties.validationStrength).toBe('weak-runtime-interaction');
         expect(edge.properties.inferredBy).toBe('GapInferenceEngine.inferNlActionDigest');
@@ -486,7 +487,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             });
         }
 
-        const result = await DreamService.executeNLActionDigest({sinceTimestamp: 0});
+        const result = await DreamService.executeNLActionDigest();
 
         const
             classNode = GraphService.db.nodes.get('class-low-success'),
@@ -507,12 +508,103 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     });
 
     test('executeNLActionDigest skips cleanly when nl_action_log is absent (#9890)', async () => {
-        const result = await DreamService.executeNLActionDigest({sinceTimestamp: 0});
+        const result = await DreamService.executeNLActionDigest();
 
         expect(result).toEqual({
             status: 'skipped',
             reason: 'nl-action-log-missing'
         });
+    });
+
+    test('executeNLActionDigest ignores nested result payload targets (#9890)', async () => {
+        createNlActionLogTable();
+
+        GraphService.upsertNode({
+            id        : 'class-targeted-action',
+            type      : 'CLASS',
+            name      : 'Neo.button.TargetedAction',
+            properties: {
+                name         : 'Neo.button.TargetedAction',
+                capabilityGap: JSON.stringify([
+                    "[TEST_GAP] Structural node 'Neo.button.TargetedAction' lacks permanent Playwright coverage."
+                ])
+            }
+        });
+        GraphService.upsertNode({
+            id        : 'class-result-only',
+            type      : 'CLASS',
+            name      : 'Neo.panel.ResultOnly',
+            properties: {
+                name         : 'Neo.panel.ResultOnly',
+                capabilityGap: JSON.stringify([
+                    "[TEST_GAP] Structural node 'Neo.panel.ResultOnly' lacks permanent Playwright coverage."
+                ])
+            }
+        });
+
+        insertNlActionLogRow({
+            id        : 'result-overharvest-regression',
+            sequenceId: 'seq-result-overharvest',
+            timestamp : Date.now() - 5000,
+            tool      : 'get_component_tree',
+            args      : {className: 'Neo.button.TargetedAction'},
+            result    : {
+                root: {
+                    className: 'Neo.panel.ResultOnly',
+                    children : [{className: 'Neo.panel.ResultOnly'}]
+                }
+            }
+        });
+
+        const result = await DreamService.executeNLActionDigest();
+
+        const
+            targetEdge = GraphService.db.edges.items.find(item =>
+                item.source === 'nl-action-sequence:seq-result-overharvest' &&
+                item.target === 'class-targeted-action' &&
+                item.type === 'VALIDATES'
+            ),
+            resultOnlyEdge = GraphService.db.edges.items.find(item =>
+                item.source === 'nl-action-sequence:seq-result-overharvest' &&
+                item.target === 'class-result-only' &&
+                item.type === 'VALIDATES'
+            ),
+            targetNode     = GraphService.db.nodes.get('class-targeted-action'),
+            resultOnlyNode = GraphService.db.nodes.get('class-result-only');
+
+        expect(result.qualifyingSequences).toBe(1);
+        expect(result.targetMatches).toBe(1);
+        expect(targetEdge).toBeTruthy();
+        expect(resultOnlyEdge).toBeUndefined();
+        expect(targetNode.properties.capabilityGap).toContain('[NL_ACTION_WEAK_EVIDENCE]');
+        expect(resultOnlyNode.properties.capabilityGap).toContain('[TEST_GAP]');
+        expect(resultOnlyNode.properties.capabilityGap).not.toContain('[NL_ACTION_WEAK_EVIDENCE]');
+    });
+
+    test('executeNLActionDigest recomputes stale weak-evidence annotations (#9890)', async () => {
+        createNlActionLogTable();
+
+        GraphService.upsertNode({
+            id        : 'class-stale-nl-evidence',
+            type      : 'CLASS',
+            name      : 'Neo.panel.StaleEvidence',
+            properties: {
+                name         : 'Neo.panel.StaleEvidence',
+                capabilityGap: JSON.stringify([
+                    "[TEST_GAP] Structural node 'Neo.panel.StaleEvidence' lacks permanent Playwright coverage. [NL_ACTION_WEAK_EVIDENCE] Old sequence evidence."
+                ]),
+                nlActionEvidence: [{sequenceId: 'old-seq'}]
+            }
+        });
+
+        const result = await DreamService.executeNLActionDigest();
+        const classNode = GraphService.db.nodes.get('class-stale-nl-evidence');
+
+        expect(result.resetWeakEvidenceAnnotations).toBe(1);
+        expect(result.qualifyingSequences).toBe(0);
+        expect(classNode.properties.capabilityGap).toContain('[TEST_GAP]');
+        expect(classNode.properties.capabilityGap).not.toContain('[NL_ACTION_WEAK_EVIDENCE]');
+        expect(classNode.properties.nlActionEvidence).toEqual([]);
     });
 
     test('findUndigestedSessions fails loud when remSleepBatchLimit is malformed in the imported config', async () => {

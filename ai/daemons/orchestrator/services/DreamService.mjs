@@ -927,10 +927,9 @@ class DreamService extends Base {
      * evidence edges. Invoked once per REM cycle after the per-session TEST_GAP pass and before
      * concept-graph gap inference; it never removes TEST_GAPs because live agent interaction is
      * weaker than durable Playwright coverage.
-     * @param {Object} [options] Optional digest window / threshold overrides for tests.
      */
-    async executeNLActionDigest(options) {
-        return GapInferenceEngine.inferNlActionDigest(options);
+    async executeNLActionDigest() {
+        return GapInferenceEngine.inferNlActionDigest();
     }
 
     /**

@@ -1,7 +1,7 @@
-import Base                                                        from '../../../src/core/Base.mjs';
+import Base                                                             from '../../../src/core/Base.mjs';
 import {Memory_Config as aiConfig, Memory_GraphService as GraphService} from '../../services.mjs';
-import KBRecorderService                                           from '../../services/knowledge-base/KBRecorderService.mjs';
-import logger                                                      from '../../mcp/server/memory-core/logger.mjs';
+import KBRecorderService                                                from '../../services/knowledge-base/KBRecorderService.mjs';
+import logger                                                           from '../../mcp/server/memory-core/logger.mjs';
 
 /**
  * Default freshness window for Concept Ontology source-grounding. Concepts with missing,
@@ -12,9 +12,6 @@ import logger                                                      from '../../m
  * @private
  */
 const CONCEPT_REVERIFY_INTERVAL_MS = 90 * 24 * 60 * 60 * 1000;
-const NL_ACTION_DIGEST_LOOKBACK_MS = 14 * 24 * 60 * 60 * 1000;
-const NL_ACTION_DIGEST_LIMIT = 1000;
-const NL_ACTION_DIGEST_MIN_SUCCESS_RATE = 0.8;
 const NL_ACTION_WEAK_EVIDENCE_TAG = '[NL_ACTION_WEAK_EVIDENCE]';
 
 /**
@@ -229,11 +226,11 @@ class GapInferenceEngine extends Base {
             linkedIds.add(testFile.id);
 
             GraphService.linkNodes(testFile.id, dbNode.id, 'VALIDATES', 1.0, {
-                evidenceKind      : 'permanent-test-file',
-                evidencePath      : testFile.path,
-                inferredBy        : 'GapInferenceEngine.inferTestGapsFromSession',
-                validatedNodeName : sourceNode.name,
-                validatedNodeType : sourceNode.type
+                evidenceKind     : 'permanent-test-file',
+                evidencePath     : testFile.path,
+                inferredBy       : 'GapInferenceEngine.inferTestGapsFromSession',
+                validatedNodeName: sourceNode.name,
+                validatedNodeType: sourceNode.type
             });
         }
     }
@@ -302,13 +299,13 @@ class GapInferenceEngine extends Base {
             if (concept.properties?.validated === false) continue;
 
             const
-                outboundEdges       = GraphService.db.edges.getByIndex('source', concept.id),
-                explainedByEdges    = outboundEdges.filter(e => e.type === 'EXPLAINED_BY'),
-                exemplifiedByEdges  = outboundEdges.filter(e => e.type === 'EXEMPLIFIED_BY'),
-                implementedByEdges  = outboundEdges.filter(e => e.type === 'IMPLEMENTED_BY'),
-                weight              = concept.properties?.weight ?? 0,
-                gaps                = [],
-                name                = concept.properties?.name || concept.name || concept.id;
+                outboundEdges      = GraphService.db.edges.getByIndex('source', concept.id),
+                explainedByEdges   = outboundEdges.filter(e => e.type === 'EXPLAINED_BY'),
+                exemplifiedByEdges = outboundEdges.filter(e => e.type === 'EXEMPLIFIED_BY'),
+                implementedByEdges = outboundEdges.filter(e => e.type === 'IMPLEMENTED_BY'),
+                weight             = concept.properties?.weight ?? 0,
+                gaps               = [],
+                name               = concept.properties?.name || concept.name || concept.id;
 
             if (this.isConceptReverifyDue(concept, now)) {
                 const verifiedAt = concept.properties?.verifiedAt ?? null;
@@ -348,24 +345,23 @@ class GapInferenceEngine extends Base {
      * `[TEST_GAP]` strings with a weak-evidence marker. They never remove the gap: live agent
      * interaction is useful signal, but permanent Playwright coverage remains the stronger evidence.
      *
-     * @param {Object} [options]
-     * @param {Number} [options.sinceTimestamp] Minimum action timestamp to consider.
-     * @param {Number} [options.limit] Maximum action rows to inspect.
-     * @param {Number} [options.minSuccessRate] Minimum sequence success rate, default 0.8.
      * @returns {Object} Digest stats.
      */
-    async inferNlActionDigest({
-        sinceTimestamp = Date.now() - NL_ACTION_DIGEST_LOOKBACK_MS,
-        limit = NL_ACTION_DIGEST_LIMIT,
-        minSuccessRate = NL_ACTION_DIGEST_MIN_SUCCESS_RATE
-    } = {}) {
-        const rows = this.readNlActionRows({sinceTimestamp, limit});
+    async inferNlActionDigest() {
+        const
+            lookbackMs     = aiConfig.nlActionDigestLookbackMs,
+            sequenceLimit  = aiConfig.nlActionDigestSequenceLimit,
+            minSuccessRate = aiConfig.nlActionDigestMinSuccessRate,
+            evidenceWeight = aiConfig.nlActionDigestEvidenceWeight,
+            sinceTimestamp = Date.now() - lookbackMs,
+            rows           = this.readNlActionRows({sinceTimestamp, sequenceLimit});
 
         if (rows.status !== 'ok') {
             return rows;
         }
 
         const sequences = this.groupNlActionRowsBySequence(rows.rows);
+        const resetWeakEvidenceAnnotations = this.resetNlActionWeakEvidenceAnnotations();
         let qualifyingSequences = 0,
             linkedEdges         = 0,
             downgradedGaps      = 0,
@@ -381,7 +377,7 @@ class GapInferenceEngine extends Base {
             targetMatches += targets.length;
 
             for (const target of targets) {
-                if (this.linkNlActionEvidenceToStructuralNode(sequence, target)) {
+                if (this.linkNlActionEvidenceToStructuralNode(sequence, target, evidenceWeight)) {
                     linkedEdges++;
                 }
 
@@ -398,7 +394,8 @@ class GapInferenceEngine extends Base {
             qualifyingSequences,
             targetMatches,
             linkedEdges,
-            downgradedGaps
+            downgradedGaps,
+            resetWeakEvidenceAnnotations
         };
     }
 
@@ -407,7 +404,7 @@ class GapInferenceEngine extends Base {
      * @returns {Object}
      * @protected
      */
-    readNlActionRows({sinceTimestamp, limit}) {
+    readNlActionRows({sinceTimestamp, sequenceLimit}) {
         const sqlite = GraphService.db?.storage?.db;
         if (!sqlite) {
             return {status: 'skipped', reason: 'graph-sqlite-unavailable'};
@@ -421,14 +418,28 @@ class GapInferenceEngine extends Base {
                 return {status: 'skipped', reason: 'nl-action-log-missing'};
             }
 
-            const safeLimit = Math.max(1, Number(limit) || NL_ACTION_DIGEST_LIMIT);
+            const safeLimit = Math.max(1, Number(sequenceLimit) || aiConfig.nlActionDigestSequenceLimit);
+            const sequenceRows = sqlite.prepare(`
+                SELECT sequence_id, MAX(timestamp) AS latest_timestamp
+                FROM nl_action_log
+                WHERE timestamp >= ?
+                GROUP BY sequence_id
+                ORDER BY latest_timestamp DESC
+                LIMIT ?
+            `).all(Number(sinceTimestamp) || 0, safeLimit);
+            const sequenceIds = sequenceRows.map(row => row.sequence_id).filter(Boolean);
+
+            if (sequenceIds.length === 0) {
+                return {status: 'ok', rows: []};
+            }
+
+            const placeholders = sequenceIds.map(() => '?').join(',');
             const rows = sqlite.prepare(`
                 SELECT sequence_id, session_id, timestamp, tool, args, result, success, duration_ms, app_name
                 FROM nl_action_log
-                WHERE timestamp >= ?
+                WHERE sequence_id IN (${placeholders})
                 ORDER BY timestamp ASC
-                LIMIT ?
-            `).all(Number(sinceTimestamp) || 0, safeLimit);
+            `).all(...sequenceIds);
 
             return {status: 'ok', rows};
         } catch (err) {
@@ -452,6 +463,10 @@ class GapInferenceEngine extends Base {
                 grouped.set(sequenceId, []);
             }
             grouped.get(sequenceId).push(row);
+        }
+
+        for (const sequenceRows of grouped.values()) {
+            sequenceRows.sort((a, b) => Number(a.timestamp) - Number(b.timestamp));
         }
 
         return grouped;
@@ -503,7 +518,6 @@ class GapInferenceEngine extends Base {
 
         for (const row of rows) {
             this.collectNlActionTargets(this.parseJsonValue(row.args), row.tool, targets);
-            this.collectNlActionTargets(this.parseJsonValue(row.result), row.tool, targets);
         }
 
         return targets;
@@ -516,12 +530,7 @@ class GapInferenceEngine extends Base {
      * @protected
      */
     collectNlActionTargets(value, tool, targets) {
-        if (Array.isArray(value)) {
-            value.forEach(item => this.collectNlActionTargets(item, tool, targets));
-            return;
-        }
-
-        if (!value || typeof value !== 'object') return;
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return;
 
         const isComponentTool = /component|instance/i.test(tool || '');
 
@@ -536,8 +545,6 @@ class GapInferenceEngine extends Base {
             } else if (key === 'id' && isComponentTool && typeof item === 'string' && item.length > 0) {
                 targets.componentIds.add(item);
             }
-
-            this.collectNlActionTargets(item, tool, targets);
         }
     }
 
@@ -622,10 +629,11 @@ class GapInferenceEngine extends Base {
     /**
      * @param {Object} sequence
      * @param {Object} dbNode
+     * @param {Number} evidenceWeight Weak validation edge weight.
      * @returns {Boolean} true when a new weak validation edge was added.
      * @protected
      */
-    linkNlActionEvidenceToStructuralNode(sequence, dbNode) {
+    linkNlActionEvidenceToStructuralNode(sequence, dbNode, evidenceWeight) {
         const targetId = dbNode.id || dbNode.get?.('id');
         if (!targetId || !sequence?.nodeId) return false;
 
@@ -657,7 +665,7 @@ class GapInferenceEngine extends Base {
             }
         });
 
-        GraphService.linkNodes(sequence.nodeId, targetId, 'VALIDATES', 0.35, {
+        GraphService.linkNodes(sequence.nodeId, targetId, 'VALIDATES', evidenceWeight, {
             evidenceKind      : 'neural-link-action-sequence',
             weakEvidence      : true,
             successRate       : sequence.successRate,
@@ -669,6 +677,60 @@ class GapInferenceEngine extends Base {
         });
 
         return true;
+    }
+
+    /**
+     * @summary Clears stale NL weak-evidence annotations before applying the current digest.
+     *
+     * NL action evidence is intentionally weaker and more volatile than permanent Playwright
+     * coverage. Recomputing the marker per successful digest keeps the annotation aligned with
+     * the decaying `VALIDATES` edge instead of leaving permanent text after the evidence ages out.
+     * @returns {Number} Number of nodes whose weak-evidence annotation state changed.
+     * @protected
+     */
+    resetNlActionWeakEvidenceAnnotations() {
+        let resetCount = 0;
+
+        for (const node of GraphService.db.nodes.items) {
+            const properties = node.properties || node.get?.('properties') || {};
+            const gaps       = this.parseCapabilityGaps(properties.capabilityGap);
+            const evidence   = Array.isArray(properties.nlActionEvidence) ? properties.nlActionEvidence : [];
+
+            if (gaps.length === 0 && evidence.length === 0) continue;
+
+            const cleanedGaps = gaps.map(gap => this.stripNlActionWeakEvidence(gap));
+            const gapChanged  = cleanedGaps.some((gap, index) => gap !== gaps[index]);
+
+            if (!gapChanged && evidence.length === 0) continue;
+
+            const nextProperties = {
+                ...properties,
+                nlActionEvidence: []
+            };
+
+            if (cleanedGaps.length > 0) {
+                nextProperties.capabilityGap = JSON.stringify(cleanedGaps);
+            } else {
+                delete nextProperties.capabilityGap;
+            }
+
+            node.properties = nextProperties;
+
+            GraphService.upsertNode(node);
+            resetCount++;
+        }
+
+        return resetCount;
+    }
+
+    /**
+     * @param {String} gap Capability-gap string.
+     * @returns {String}
+     * @protected
+     */
+    stripNlActionWeakEvidence(gap) {
+        const index = String(gap).indexOf(NL_ACTION_WEAK_EVIDENCE_TAG);
+        return index === -1 ? gap : gap.slice(0, index).trim();
     }
 
     /**
