@@ -42,6 +42,12 @@ const __dirname = path.dirname(__filename);
 
 const UNDIGESTED_SESSION_FRESH_RESERVE = 2;
 
+// Max failed digest attempts before a session is marked `deferred` (excluded from the steady REM
+// cadence). Bounds the chronic re-serve of un-digestible sessions — the load bleed where a session
+// that cannot clear is re-served, re-attempted, and re-pays the per-cycle pre-check on the local
+// model every cycle, forever. Env-configurable via a config leaf is a follow-up.
+const MAX_DIGEST_ATTEMPTS = 3;
+
 function estimatePayloadTokens(payload) {
     const text = payload === undefined || payload === null ? '' : String(payload);
     return Math.ceil(Buffer.byteLength(text, 'utf8') / 4);
@@ -125,7 +131,10 @@ function addUndigestedRowsFromBatch(batch, byId) {
     for (let i = 0; i < batch.ids.length; i++) {
         const meta = batch.metadatas?.[i];
 
-        if (meta && meta.graphDigested !== true && meta.graphDigested !== 'true') {
+        // Exclude both digested sessions (graphDigested) AND sessions bounded out as `deferred` after
+        // MAX_DIGEST_ATTEMPTS failures — the latter is the load-reduction lever: stop re-serving (and
+        // re-paying the per-cycle pre-check on) un-digestible sessions in the steady cadence.
+        if (meta && meta.graphDigested !== true && meta.graphDigested !== 'true' && meta.digestState !== 'deferred') {
             byId.set(batch.ids[i], {
                 id      : batch.ids[i],
                 document: batch.documents?.[i],
@@ -525,10 +534,38 @@ class DreamService extends Base {
                     if (success && ingestErrors === 0) {
                         await this.sessionsCollection.update({
                             ids      : [session.id],
-                            metadatas: [{ ...session.meta, graphDigested: true }]
+                            metadatas: [{ ...session.meta, graphDigested: true, digestState: 'digested' }]
                         });
                         sessionState.graphDigestedFlag = true;
                         logger.info(`[DreamService] Session ${session.meta.sessionId} marked as graphDigested in Memory Core.`);
+                    } else {
+                        // Digest failed (extractor returned null OR memory-ingestion errors). Bound the
+                        // re-serve: count the attempt, and once it reaches MAX_DIGEST_ATTEMPTS mark the
+                        // session `deferred` so findUndigestedSessions stops re-serving it every cycle —
+                        // the chronic local-model load bleed. `deferReason` records WHY for the honest
+                        // consolidation-gap surface + a future deep-digest lane. Back-compat: graphDigested
+                        // stays unset, so a consumer that does not yet read digestState still sees an
+                        // un-digested (never a falsely-digested) session.
+                        const digestAttempts = (Number(session.meta.digestAttempts) || 0) + 1;
+                        const safeBandTokens = Number(aiConfig.localModels?.chat?.safeProcessingLimitTokens) || 0;
+                        const deferReason    = ingestErrors > 0
+                            ? 'ingestion-failure'
+                            : (safeBandTokens > 0 && sessionState.payloadSizeTokens > safeBandTokens ? 'skip-over-band' : 'under-band-choke');
+                        const digestState    = digestAttempts >= MAX_DIGEST_ATTEMPTS ? 'deferred' : 'undigested';
+
+                        await this.sessionsCollection.update({
+                            ids      : [session.id],
+                            metadatas: [{ ...session.meta, digestState, digestAttempts, deferReason }]
+                        });
+                        sessionState.digestState    = digestState;
+                        sessionState.deferReason    = deferReason;
+                        sessionState.digestAttempts = digestAttempts;
+
+                        if (digestState === 'deferred') {
+                            logger.warn(`[DreamService] Session ${session.meta.sessionId} marked 'deferred' after ${digestAttempts} failed digest attempt(s) (reason: ${deferReason}); excluded from the steady REM cadence to stop the re-serve bleed.`);
+                        } else {
+                            logger.info(`[DreamService] Session ${session.meta.sessionId} digest failed (reason: ${deferReason}); attempt ${digestAttempts}/${MAX_DIGEST_ATTEMPTS}, will retry next cycle.`);
+                        }
                     }
                 }
 
