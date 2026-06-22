@@ -69,7 +69,7 @@ test.describe('Tier 1 Config Immutability', () => {
 
         expect(Config.ollama).toMatchObject({
             host                 : process.env.NEO_OLLAMA_HOST || 'http://127.0.0.1:11434',
-            model                : process.env.NEO_OLLAMA_MODEL || 'gemma4:31b',
+            model                : process.env.NEO_OLLAMA_MODEL || 'gemma4:26b',
             embeddingModel       : process.env.NEO_OLLAMA_EMBEDDING_MODEL || 'qwen3-embedding',
             keep_alive           : TIER1_DEFAULTS.ollama.keep_alive,
             requireParallelModels: TIER1_DEFAULTS.ollama.requireParallelModels
