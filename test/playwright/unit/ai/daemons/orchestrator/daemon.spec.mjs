@@ -234,6 +234,93 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         );
     });
 
+    // -----------------------------------------------------------------------------
+    // Native Ollama (`ollama serve`) orchestrator-managed lifecycle (local-dev only)
+    // -----------------------------------------------------------------------------
+
+    test('buildTaskDefinitions is pure: tasks.ollama is omitted when disabled or no Ollama roles exist', () => {
+        const scriptDir = path.resolve(process.cwd(), 'ai/scripts');
+
+        expect(buildTaskDefinitions({scriptDir, nodeBin: '/test/node'}).ollama).toBeUndefined();
+        expect(buildTaskDefinitions({
+            scriptDir,
+            nodeBin      : '/test/node',
+            ollamaEnabled: true,
+            ollamaHost   : 'http://127.0.0.1:11434',
+            ollamaRoles  : []
+        }).ollama).toBeUndefined();
+    });
+
+    test('buildTaskDefinitions is pure: native Ollama serve env comes from explicit caller config', () => {
+        const scriptDir = path.resolve(process.cwd(), 'ai/scripts');
+        const originalEnv = {
+            OLLAMA_HOST                    : process.env.OLLAMA_HOST,
+            OLLAMA_CONTEXT_LENGTH          : process.env.OLLAMA_CONTEXT_LENGTH,
+            OLLAMA_MAX_LOADED_MODELS       : process.env.OLLAMA_MAX_LOADED_MODELS,
+            NEO_ORCHESTRATOR_OLLAMA_ENABLED: process.env.NEO_ORCHESTRATOR_OLLAMA_ENABLED
+        };
+
+        process.env.OLLAMA_HOST = 'env-leaked-host:9999';
+        process.env.OLLAMA_CONTEXT_LENGTH = '777';
+        process.env.OLLAMA_MAX_LOADED_MODELS = '9';
+        process.env.NEO_ORCHESTRATOR_OLLAMA_ENABLED = 'false';
+
+        try {
+            const tasks = buildTaskDefinitions({
+                scriptDir,
+                nodeBin      : '/test/node',
+                ollamaEnabled: true,
+                ollamaHost   : 'http://127.0.0.1:11445',
+                ollamaRoles  : [{
+                    role         : 'chat',
+                    providerRole : 'graphProvider',
+                    model        : 'gemma4:31b',
+                    contextLength: 131072
+                }, {
+                    role         : 'embedding',
+                    providerRole : 'embeddingProvider',
+                    model        : 'qwen3-embedding',
+                    contextLength: 32768
+                }],
+                ollamaKeepAlive            : -1,
+                ollamaRequireParallelModels: 2,
+                providerReadiness          : {attempts: 2, delayMs: 0, timeoutMs: 50}
+            });
+
+            expect(tasks.ollama.command).toBe('ollama');
+            expect(tasks.ollama.args).toEqual(['serve']);
+            expect(tasks.ollama.expectedCommand).toBe('ollama serve');
+            expect(tasks.ollama.pidFileName).toBe('ollama.pid');
+            expect(tasks.ollama.requiredModels).toEqual(['gemma4:31b', 'qwen3-embedding']);
+            expect(tasks.ollama.singletonPort).toBe(11445);
+            expect(tasks.ollama.duplicateListenerPolicy).toBe('defer');
+            expect(tasks.ollama.env).toEqual({
+                OLLAMA_HOST             : '127.0.0.1:11445',
+                OLLAMA_KEEP_ALIVE       : '-1',
+                OLLAMA_CONTEXT_LENGTH   : '131072',
+                OLLAMA_MAX_LOADED_MODELS: '2'
+            });
+            expect(typeof tasks.ollama.livenessProbe).toBe('function');
+            expect(typeof tasks.ollama.postSpawn).toBe('function');
+        } finally {
+            for (const [key, value] of Object.entries(originalEnv)) {
+                if (value === undefined) {
+                    delete process.env[key];
+                } else {
+                    process.env[key] = value;
+                }
+            }
+        }
+    });
+
+    test('AiConfig.orchestrator.ollama ships default-enabled local-dev launch gate', () => {
+        const templateSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/config.template.mjs'), 'utf8');
+
+        expect(templateSource).toMatch(
+            /ollama:\s*\{[\s\S]*?leaf\(true,\s*'NEO_ORCHESTRATOR_OLLAMA_ENABLED'/
+        );
+    });
+
     test('keeps wake-daemon wake-only and routes maintenance ownership to the daemon class', () => {
         const bridgeSource       = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/wake/daemon.mjs'), 'utf8');
         const orchestratorSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/orchestrator/daemon.mjs'), 'utf8');

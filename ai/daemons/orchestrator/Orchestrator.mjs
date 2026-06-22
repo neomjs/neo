@@ -7,7 +7,10 @@ import Base                    from '../../../src/core/Base.mjs';
 import ClassSystemUtil         from '../../../src/util/ClassSystem.mjs';
 import AiConfig                from '../../config.mjs';
 import neuralLinkConfig        from '../../mcp/server/neural-link/config.mjs';
-import {buildLmsPreloadConfig} from '../../services/graph/providerReadinessHelper.mjs';
+import {
+    buildLmsPreloadConfig,
+    buildOllamaReadinessConfig
+} from '../../services/graph/providerReadinessHelper.mjs';
 import HealthService           from '../../services/memory-core/HealthService.mjs';
 import SQLite                  from '../../graph/storage/SQLite.mjs';
 import MaintenanceBackpressureService, {
@@ -345,8 +348,11 @@ export class Orchestrator extends Base {
 
     get mlxEnabled() { return !!AiConfig.orchestrator.mlx.enabled; }
     get lmsEnabled() { return !!AiConfig.orchestrator.lms.enabled; }
+    get ollamaEnabled() { return !!AiConfig.orchestrator.ollama?.enabled; }
     get lmsPreloadConfig() { return buildLmsPreloadConfig(AiConfig); }
     get lmsModels()        { return this.lmsPreloadConfig.models;      }
+    get ollamaReadinessConfig() { return buildOllamaReadinessConfig(AiConfig); }
+    get ollamaModels()          { return this.ollamaReadinessConfig.models;     }
 
     /** @summary Starts the orchestrator timer loop after the wrapper selects this process. */
     async start(options = {}) {
@@ -358,8 +364,9 @@ export class Orchestrator extends Base {
         const scriptDir = options.scriptDir || DEFAULT_SCRIPT_DIR;
         const dataDir   = options.dataDir   || DEFAULT_DATA_DIR;
 
-        this.dataDir           = dataDir;
-        const lmsPreloadConfig = this.lmsPreloadConfig;
+        this.dataDir                   = dataDir;
+        const lmsPreloadConfig         = this.lmsPreloadConfig;
+        const ollamaReadinessConfig    = this.ollamaReadinessConfig;
         this.taskDefinitions   = options.taskDefinitions || buildTaskDefinitions({
             scriptDir,
             nodeBin                          : options.nodeBin || process.argv[0],
@@ -378,6 +385,11 @@ export class Orchestrator extends Base {
             lmsPort                          : AiConfig.orchestrator.lms.port,
             lmsContextLengths                : lmsPreloadConfig.contextLengths,
             lmsParallels                     : lmsPreloadConfig.parallels,
+            ollamaEnabled                    : this.ollamaEnabled,
+            ollamaHost                       : ollamaReadinessConfig.host,
+            ollamaRoles                      : ollamaReadinessConfig.roles,
+            ollamaKeepAlive                  : ollamaReadinessConfig.keepAlive,
+            ollamaRequireParallelModels      : ollamaReadinessConfig.requireParallelModels,
             providerReadiness                : AiConfig.orchestrator.providerReadiness,
             graphLogCompactionVacuum         : AiConfig.orchestrator.graphLogCompaction.vacuum
         });
@@ -494,6 +506,7 @@ export class Orchestrator extends Base {
             ...(this.neuralLinkBridgeEnabled ? ['neuralLinkBridge'] : []),
             ...(this.embedDaemonEnabled  ? ['embedDaemon'] : []),
             'mlx',
+            'ollama',
             'lms'
         ];
         const RESTART_COOLDOWN_MS = 15000;

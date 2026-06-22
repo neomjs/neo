@@ -45,15 +45,87 @@ function probeTcpPort({port, timeoutMs}) {
 }
 
 /**
+ * @summary Converts an Ollama API host URL into the `OLLAMA_HOST` bind value.
+ * @param {String} host Configured Ollama API host.
+ * @returns {String|undefined}
+ */
+function resolveOllamaHostEnv(host) {
+    if (!host) {
+        return undefined;
+    }
+
+    try {
+        return new URL(host).host || undefined;
+    } catch {
+        return String(host).replace(/^https?:\/\//, '').replace(/\/.*$/, '') || undefined;
+    }
+}
+
+/**
+ * @summary Extracts a numeric port from an Ollama host config.
+ * @param {String} host Configured Ollama API host.
+ * @returns {Number|undefined}
+ */
+function resolveOllamaHostPort(host) {
+    const hostEnv = resolveOllamaHostEnv(host),
+          match   = hostEnv?.match(/:(\d+)$/);
+
+    return match ? Number(match[1]) : undefined;
+}
+
+/**
+ * @summary Computes the largest requested Ollama role context window.
+ * @param {Object[]} roles Native Ollama readiness roles.
+ * @returns {Number|undefined}
+ */
+function getMaxOllamaContextLength(roles) {
+    const lengths = (Array.isArray(roles) ? roles : [])
+        .map(role => Number(role?.contextLength))
+        .filter(value => Number.isFinite(value) && value > 0);
+
+    return lengths.length ? Math.max(...lengths) : undefined;
+}
+
+/**
+ * @summary Builds the server environment for orchestrator-owned `ollama serve`.
+ * @param {Object} options
+ * @param {String} options.host Configured Ollama API host.
+ * @param {String|Number} options.keepAlive Ollama keep-alive policy.
+ * @param {Number} options.contextLength Largest configured local-model context.
+ * @param {Number} options.requireParallelModels Minimum resident-model count.
+ * @returns {Object}
+ */
+function buildOllamaServeEnv({host, keepAlive, contextLength, requireParallelModels}) {
+    const env     = {},
+          hostEnv = resolveOllamaHostEnv(host);
+
+    if (hostEnv) {
+        env.OLLAMA_HOST = hostEnv;
+    }
+    if (keepAlive !== undefined && keepAlive !== null && keepAlive !== '') {
+        env.OLLAMA_KEEP_ALIVE = String(keepAlive);
+    }
+    if (Number.isFinite(Number(contextLength)) && Number(contextLength) > 0) {
+        env.OLLAMA_CONTEXT_LENGTH = String(Number(contextLength));
+    }
+    if (Number.isFinite(Number(requireParallelModels)) && Number(requireParallelModels) > 0) {
+        env.OLLAMA_MAX_LOADED_MODELS = String(Number(requireParallelModels));
+    }
+
+    return env;
+}
+
+/**
  * @summary Builds child-process commands for orchestrator-owned maintenance tasks.
  *
  * Pure function: receives concrete `mlxEnabled` / `mlxModel` / `mlxPort` and
- * `lmsEnabled` / `lmsModel` / `lmsPort` values from the caller; performs no env-var
- * lookups and carries no embedded MLX or LM Studio defaults. The canonical defaults
- * live in `ai/config.template.mjs` under `orchestrator.mlx` and `orchestrator.lms`;
+ * `lmsEnabled` / `lmsModel` / `lmsPort` / `ollamaEnabled` / `ollamaHost` values
+ * from the caller; performs no env-var lookups and carries no embedded local-model
+ * defaults. The canonical defaults live in `ai/config.template.mjs` under
+ * `orchestrator.mlx`, `orchestrator.lms`, and `orchestrator.ollama`;
  * `Orchestrator` exposes them via env-overrideable getters
- * (`mlxEnabled`/`mlxModel`/`mlxPort`/`lmsEnabled`/`lmsModel`/`lmsPort`) and forwards
- * the resolved values via `Orchestrator.start()`.
+ * (`mlxEnabled`/`mlxModel`/`mlxPort`/`lmsEnabled`/`lmsModel`/`lmsPort`/
+ * `ollamaEnabled`) and forwards the resolved values via `Orchestrator.start()`.
  *
  * The orchestrator intentionally shells out to existing manual maintenance scripts for
  * Piece C instead of reimplementing their internals. This keeps orchestration separate
@@ -78,6 +150,11 @@ function probeTcpPort({port, timeoutMs}) {
  * @param {String|Number} [options.lmsPort] LM Studio OpenAI-compatible local inference port (CLI default `1234`).
  * @param {Object} [options.lmsContextLengths] Per-model `--context-length` override map keyed by model id (chat + embedding from `aiConfig.localModels.{chat,embedding}.contextLimitTokens`).
  * @param {Object} [options.lmsParallels] Per-model `--parallel` slot-count override map keyed by model id (chat-only, from `aiConfig.localModels.chat.parallel`).
+ * @param {Boolean} [options.ollamaEnabled=false] Whether to launch an orchestrator-owned native Ollama server.
+ * @param {String} [options.ollamaHost] Native Ollama API host; also translated to `OLLAMA_HOST` for `ollama serve`.
+ * @param {Object[]} [options.ollamaRoles] Native Ollama readiness roles from `buildOllamaReadinessConfig()`.
+ * @param {String|Number} [options.ollamaKeepAlive] Ollama keep-alive policy.
+ * @param {Number} [options.ollamaRequireParallelModels] Minimum resident-model count for native Ollama.
  * @param {Object} [options.providerReadiness] Provider-readiness retry / timeout config.
  * @param {Boolean} [options.graphLogCompactionVacuum] Whether scheduled GraphLog compaction also runs SQLite VACUUM.
  * @returns {Object}
@@ -100,6 +177,11 @@ export function buildTaskDefinitions({
     lmsPort,
     lmsContextLengths,
     lmsParallels,
+    ollamaEnabled = false,
+    ollamaHost,
+    ollamaRoles,
+    ollamaKeepAlive,
+    ollamaRequireParallelModels,
     providerReadiness,
     graphLogCompactionVacuum
 } = {}) {
@@ -353,6 +435,74 @@ export function buildTaskDefinitions({
                 });
             }
         };
+    }
+
+    if (ollamaEnabled) {
+        const roles          = Array.isArray(ollamaRoles) ? ollamaRoles.filter(role => role?.model) : [],
+              requiredModels = [...new Set(roles.map(role => role.model))];
+
+        if (requiredModels.length) {
+            const contextLength = getMaxOllamaContextLength(roles);
+
+            tasks.ollama = {
+                label                  : 'ollama server',
+                command                : 'ollama',
+                args                   : ['serve'],
+                pidFileName            : 'ollama.pid',
+                expectedCommand        : 'ollama serve',
+                requiredModels,
+                singletonPort          : resolveOllamaHostPort(ollamaHost),
+                duplicateListenerPolicy: 'defer',
+                env                    : buildOllamaServeEnv({
+                    host                 : ollamaHost,
+                    keepAlive            : ollamaKeepAlive,
+                    contextLength,
+                    requireParallelModels: ollamaRequireParallelModels
+                }),
+                livenessProbe          : async () => {
+                    const {ensureOllamaModelsReady} = await import('../../services/graph/providerReadinessHelper.mjs');
+
+                    try {
+                        const result = await ensureOllamaModelsReady({
+                            host                 : ollamaHost,
+                            roles,
+                            keepAlive            : ollamaKeepAlive,
+                            requireParallelModels: ollamaRequireParallelModels,
+                            allowPartial         : true,
+                            attempts             : providerReadiness?.attempts,
+                            delayMs              : providerReadiness?.delayMs,
+                            timeoutMs            : providerReadiness?.timeoutMs
+                        });
+
+                        if (
+                            result.error &&
+                            result.availableModels?.length === 0 &&
+                            result.attemptedModels?.length === 0
+                        ) {
+                            return false;
+                        }
+
+                        return true;
+                    } catch {
+                        return false;
+                    }
+                },
+                postSpawn              : async () => {
+                    const {ensureOllamaModelsReady} = await import('../../services/graph/providerReadinessHelper.mjs');
+
+                    return ensureOllamaModelsReady({
+                        host                 : ollamaHost,
+                        roles,
+                        keepAlive            : ollamaKeepAlive,
+                        requireParallelModels: ollamaRequireParallelModels,
+                        allowPartial         : true,
+                        attempts             : providerReadiness?.attempts,
+                        delayMs              : providerReadiness?.delayMs,
+                        timeoutMs            : providerReadiness?.timeoutMs
+                    });
+                }
+            };
+        }
     }
 
     return tasks;

@@ -57,7 +57,7 @@ function createTestOrchestrator(config = {}) {
         writeLogFn: () => {}
     });
     TaskStateService.taskState = createInitialTaskState(taskDefinitions);
-    ['chroma', 'bridgeDaemon', 'devServer', 'neuralLinkBridge', 'mlx', 'lms'].forEach(name => {
+    ['chroma', 'bridgeDaemon', 'devServer', 'neuralLinkBridge', 'mlx', 'ollama', 'lms'].forEach(name => {
         if (TaskStateService.taskState[name]) {
             TaskStateService.taskState[name].running = true;
         }

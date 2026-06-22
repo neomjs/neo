@@ -8,7 +8,10 @@ import AiConfig        from '../../../../../../ai/config.mjs';
 import {
     Orchestrator
 } from '../../../../../../ai/daemons/orchestrator/Orchestrator.mjs';
-import {buildLmsPreloadConfig} from '../../../../../../ai/services/graph/providerReadinessHelper.mjs';
+import {
+    buildLmsPreloadConfig,
+    buildOllamaReadinessConfig
+} from '../../../../../../ai/services/graph/providerReadinessHelper.mjs';
 import {
     buildTaskDefinitions
 } from '../../../../../../ai/daemons/orchestrator/taskDefinitions.mjs';
@@ -35,6 +38,8 @@ let savedCloudOnly       = null;
 let savedDeploymentMode  = null;
 let savedMlxConfig                   = undefined;
 let savedLmsConfig                   = undefined;
+let savedOrchestratorOllamaConfig    = undefined;
+let savedProviderOllamaConfig        = undefined;
 let savedOpenAiCompatibleConfig      = undefined;
 let savedChatProvider                = undefined;
 let savedModelProvider               = undefined;
@@ -51,6 +56,7 @@ let savedEnvMlxPort                  = undefined;
 let savedEnvLmsEnabled               = undefined;
 let savedEnvLmsModel                 = undefined;
 let savedEnvLmsPort                  = undefined;
+let savedEnvOllamaEnabled            = undefined;
 
 function createMinimalOrchestrator() {
     const taskDefinitions = buildTaskDefinitions({
@@ -84,6 +90,8 @@ test.beforeEach(() => {
     savedDeploymentMode = AiConfig.orchestrator.deploymentMode;
     savedMlxConfig      = AiConfig.orchestrator.mlx ? {...AiConfig.orchestrator.mlx} : undefined;
     savedLmsConfig      = AiConfig.orchestrator.lms ? {...AiConfig.orchestrator.lms} : undefined;
+    savedOrchestratorOllamaConfig = AiConfig.orchestrator.ollama ? {...AiConfig.orchestrator.ollama} : undefined;
+    savedProviderOllamaConfig     = AiConfig.ollama ? {...AiConfig.ollama} : undefined;
     savedOpenAiCompatibleConfig = AiConfig.openAiCompatible ? {...AiConfig.openAiCompatible} : undefined;
     savedChatProvider           = AiConfig.chatProvider;
     savedModelProvider          = AiConfig.modelProvider;
@@ -101,6 +109,7 @@ test.beforeEach(() => {
     savedEnvLmsEnabled             = process.env.NEO_ORCHESTRATOR_LMS_ENABLED;
     savedEnvLmsModel               = process.env.NEO_ORCHESTRATOR_LMS_MODEL;
     savedEnvLmsPort                = process.env.NEO_ORCHESTRATOR_LMS_PORT;
+    savedEnvOllamaEnabled          = process.env.NEO_ORCHESTRATOR_OLLAMA_ENABLED;
 });
 
 test.afterEach(() => {
@@ -111,15 +120,23 @@ test.afterEach(() => {
     }
     AiConfig.orchestrator.deploymentMode = savedDeploymentMode;
 
-    // Restore the full mlx/lms objects (overwrites every leaf on the still-healthy parent).
-    // These leaves are data-seeded and always present on the singleton, so
-    // there is no `delete`-to-absent branch — the verbatim tests above only swap object
-    // values, never null the parent.
+    // Restore full supervised-server config objects. Stale local overlays may not yet carry
+    // `orchestrator.ollama`, so keep its absent-state distinct from mlx/lms.
     if (savedMlxConfig !== undefined) {
         AiConfig.orchestrator.mlx = savedMlxConfig;
     }
     if (savedLmsConfig !== undefined) {
         AiConfig.orchestrator.lms = savedLmsConfig;
+    }
+    if (savedOrchestratorOllamaConfig === undefined) {
+        delete AiConfig.orchestrator.ollama;
+    } else {
+        AiConfig.orchestrator.ollama = savedOrchestratorOllamaConfig;
+    }
+    if (savedProviderOllamaConfig === undefined) {
+        delete AiConfig.ollama;
+    } else {
+        AiConfig.ollama = savedProviderOllamaConfig;
     }
     if (savedOpenAiCompatibleConfig === undefined) {
         delete AiConfig.openAiCompatible;
@@ -142,6 +159,7 @@ test.afterEach(() => {
     restoreEnv('NEO_ORCHESTRATOR_LMS_ENABLED',               savedEnvLmsEnabled);
     restoreEnv('NEO_ORCHESTRATOR_LMS_MODEL',                 savedEnvLmsModel);
     restoreEnv('NEO_ORCHESTRATOR_LMS_PORT',                  savedEnvLmsPort);
+    restoreEnv('NEO_ORCHESTRATOR_OLLAMA_ENABLED',            savedEnvOllamaEnabled);
 });
 
 function restoreEnv(name, prior) {
@@ -209,8 +227,8 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
         expect(AiConfig.orchestrator.localOnly.kbSyncEnabled).toBe(!baselineLocalKbs);
     });
 
-    // === mlx + lms supervised-server lane getters ===
-    // AiConfig.orchestrator.mlx + .lms + the 6 NEO_ORCHESTRATOR_{MLX,LMS}_{ENABLED,MODEL,PORT}
+    // === mlx + lms + ollama supervised-server lane getters ===
+    // AiConfig.orchestrator.mlx/.lms/.ollama + NEO_ORCHESTRATOR_* env vars
     // env vars are saved/restored by the file-level beforeEach/afterEach hooks above —
     // individual tests can mutate freely without leak risk.
 
@@ -245,6 +263,34 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
 
         AiConfig.orchestrator.lms = {enabled: false, model: 'qwen', port: '1234'};
         expect(createMinimalOrchestrator().lmsEnabled).toBe(false);
+    });
+
+    test('ollamaEnabled coerces to boolean + ollamaModels follow native provider role selectors (host/env inlined at call sites)', () => {
+        AiConfig.orchestrator.ollama = {enabled: true};
+        AiConfig.ollama = {
+            host                 : 'http://127.0.0.1:11434',
+            model                : 'ollama-chat-from-config',
+            embeddingModel       : 'ollama-embedding-from-config',
+            keep_alive           : -1,
+            requireParallelModels: 2
+        };
+        AiConfig.modelProvider     = 'gemini';
+        AiConfig.graphProvider     = 'ollama';
+        AiConfig.embeddingProvider = 'ollama';
+
+        const o = createMinimalOrchestrator();
+        expect(o.ollamaEnabled).toBe(true);
+        expect(o.ollamaModels).toEqual(['ollama-chat-from-config', 'ollama-embedding-from-config']);
+        expect(o.ollamaReadinessConfig).toMatchObject(buildOllamaReadinessConfig(AiConfig));
+
+        AiConfig.embeddingProvider = 'gemini';
+        expect(createMinimalOrchestrator().ollamaModels).toEqual(['ollama-chat-from-config']);
+
+        AiConfig.graphProvider = 'openAiCompatible';
+        expect(createMinimalOrchestrator().ollamaModels).toEqual([]);
+
+        AiConfig.orchestrator.ollama = {enabled: false};
+        expect(createMinimalOrchestrator().ollamaEnabled).toBe(false);
     });
 
     test('buildLmsPreloadConfig only reads provider-role selectors, not non-null model leaves (#12264)', () => {
