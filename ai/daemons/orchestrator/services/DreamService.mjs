@@ -48,12 +48,15 @@ const UNDIGESTED_SESSION_FRESH_RESERVE = 2;
 // model every cycle, forever. Env-configurable via a config leaf is a follow-up.
 const MAX_DIGEST_ATTEMPTS = 3;
 
-// Only PERMANENT (local-model-side) un-digestibility bounds the re-serve: an over-band payload or an
-// under-band choke never clears without the deep-digest recovery lane, so deferring after
-// MAX_DIGEST_ATTEMPTS is the correct bleed-stop. A transient ingestion-failure (DB-busy / embed-timeout,
-// likely under the heavy-maintenance lease) must keep retrying — permanently deferring it would silently
-// drop a digestible session from the graph.
-const PERMANENT_DEFER_REASONS = new Set(['skip-over-band', 'under-band-choke']);
+// Bounds the re-serve ONLY for the DETERMINISTICALLY-terminal failure: `skip-over-band` (payload over the
+// model's safe band) is a reliable size check — that session genuinely cannot be processed at this cadence
+// until a deep-digest lane exists, so deferring it after MAX_DIGEST_ATTEMPTS is a safe bleed-stop.
+// `under-band-choke` (a bare-null return UNDER the band) and a transient ingestion-failure are NOT proven
+// terminal — the extractor returns the same null for choke / schema-failure / timeout alike, so treating an
+// under-band null as un-digestible is a guess. They stay `undigested` (attempt-tracked, re-served) until
+// typed extractor failure semantics exist; deferring on a guessed-terminal null would risk silently
+// dropping a digestible session.
+const PERMANENT_DEFER_REASONS = new Set(['skip-over-band']);
 
 function estimatePayloadTokens(payload) {
     const text = payload === undefined || payload === null ? '' : String(payload);
@@ -558,8 +561,9 @@ class DreamService extends Base {
                         const deferReason    = ingestErrors > 0
                             ? 'ingestion-failure'
                             : (safeBandTokens > 0 && sessionState.payloadSizeTokens > safeBandTokens ? 'skip-over-band' : 'under-band-choke');
-                        // Bound the re-serve ONLY for permanent (model-side) un-digestibility; a transient
-                        // ingestion-failure keeps retrying so a digestible session is never silently dropped.
+                        // Bound the re-serve ONLY for the deterministically-terminal reason (skip-over-band);
+                        // under-band-choke + transient ingestion-failure keep retrying (attempt-tracked) so a
+                        // digestible session is never silently dropped on a guessed-terminal null.
                         const digestState = PERMANENT_DEFER_REASONS.has(deferReason) && digestAttempts >= MAX_DIGEST_ATTEMPTS
                             ? 'deferred'
                             : 'undigested';
