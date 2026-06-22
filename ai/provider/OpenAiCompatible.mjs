@@ -63,20 +63,20 @@ class OpenAiCompatibleProvider extends Base {
         // Apply global system prompt if set
         if (this.systemPrompt) {
             messages.push({
-                role: 'system',
+                role   : 'system',
                 content: this.systemPrompt
             });
         }
 
         if (typeof input === 'string') {
             messages.push({
-                role: 'user',
+                role   : 'user',
                 content: input
             });
         } else if (Array.isArray(input)) {
             input.forEach(msg => {
                 messages.push({
-                    role: msg.role === 'model' ? 'assistant' : msg.role,
+                    role   : msg.role === 'model' ? 'assistant' : msg.role,
                     content: String(msg.content)
                 });
             });
@@ -93,21 +93,43 @@ class OpenAiCompatibleProvider extends Base {
         delete clonedOptions.signal;
         delete clonedOptions.timeoutMs;
 
-        // Handle JSON extraction
-        if (clonedOptions.responseMimeType === 'application/json' || clonedOptions.response_mime_type === 'application/json' || clonedOptions.response_format?.type === 'json_object') {
+        // Structured output: LM Studio + the OpenAI spec require `response_format.type` to be
+        // 'json_schema' or 'text' — the older 'json_object' form is REJECTED. When a caller supplies a
+        // JSON schema we emit grammar-constrained `json_schema` (guaranteed valid, fence-free,
+        // schema-correct output — works even with LM Studio's GUI "Structured Output" toggle off).
+        // JSON-requested-without-schema falls back to prompt-driven (no `response_format`) rather than
+        // the rejected `json_object`. `reasoning_effort` (the no-think toggle) needs no handling here —
+        // it rides the generic option-merge below.
+        const responseSchema = clonedOptions.responseSchema || clonedOptions.response_format?.json_schema?.schema;
+        if (responseSchema) {
+            payload.response_format = {
+                type       : 'json_schema',
+                json_schema: {
+                    name  : clonedOptions.responseSchemaName   || clonedOptions.response_format?.json_schema?.name   || 'structured_output',
+                    strict: clonedOptions.responseSchemaStrict ?? clonedOptions.response_format?.json_schema?.strict ?? false,
+                    schema: responseSchema
+                }
+            };
+        } else if (clonedOptions.responseMimeType === 'application/json' || clonedOptions.response_mime_type === 'application/json' || clonedOptions.response_format?.type === 'json_object') {
+            // Backward-compat JSON mode for callers without a schema. LM Studio rejects json_object —
+            // those callers should migrate to `responseSchema`; preserved for other
+            // OpenAI-compatible endpoints + the prior contract.
             payload.response_format = { type: 'json_object' };
-            delete clonedOptions.responseMimeType;
-            delete clonedOptions.response_mime_type;
-            delete clonedOptions.response_format;
         }
+        delete clonedOptions.responseMimeType;
+        delete clonedOptions.response_mime_type;
+        delete clonedOptions.response_format;
+        delete clonedOptions.responseSchema;
+        delete clonedOptions.responseSchemaName;
+        delete clonedOptions.responseSchemaStrict;
 
         if (clonedOptions.tools?.length > 0) {
             payload.tools = clonedOptions.tools.map(tool => ({
-                type: 'function',
+                type    : 'function',
                 function: {
-                    name: tool.name,
+                    name       : tool.name,
                     description: tool.description || '',
-                    parameters: tool.inputSchema || { type: 'object', properties: {} }
+                    parameters : tool.inputSchema || { type: 'object', properties: {} }
                 }
             }));
             delete clonedOptions.tools;
@@ -271,7 +293,7 @@ class OpenAiCompatibleProvider extends Base {
 
         try {
             const response = await fetch(`${this.host}/v1/chat/completions`, {
-                method: 'POST',
+                method : 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     ...(this.apiKey ? {Authorization: `Bearer ${this.apiKey}`} : {})

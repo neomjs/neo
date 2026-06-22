@@ -1,11 +1,11 @@
-import fs from 'fs';
-import path from 'path';
-import aiConfig from '../../mcp/server/memory-core/config.mjs';
-import Base from '../../../src/core/Base.mjs';
-import {emitConsumerFriction, invokeWithGuardrail} from '../../services/memory-core/helpers/consumerFrictionHelper.mjs';
-import GraphService from '../../services/memory-core/GraphService.mjs';
-import Json from '../../../src/util/Json.mjs';
-import logger from '../../mcp/server/memory-core/logger.mjs';
+import fs                                              from 'fs';
+import path                                            from 'path';
+import aiConfig                                        from '../../mcp/server/memory-core/config.mjs';
+import Base                                            from '../../../src/core/Base.mjs';
+import {emitConsumerFriction, invokeWithGuardrail}     from '../../services/memory-core/helpers/consumerFrictionHelper.mjs';
+import GraphService                                    from '../../services/memory-core/GraphService.mjs';
+import Json                                            from '../../../src/util/Json.mjs';
+import logger                                          from '../../mcp/server/memory-core/logger.mjs';
 import {buildGraphProvider, resolveGraphModelProvider} from './providerDispatch.mjs';
 
 /**
@@ -161,12 +161,69 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             const consumerContextTokens  = aiConfig.localModels.chat.contextLimitTokens;
             const consumerSafeTokens     = aiConfig.localModels.chat.safeProcessingLimitTokens;
 
+            // Per-task no-think + grammar-constrained tri-vector output. `graphReasoningEffort`
+            // (default 'none') disables the gemma MoE's hidden thinking pass; `triVectorSchema` enforces
+            // the A2A session_artifact/graph shape via the provider's json_schema path, which makes the
+            // repair-retry loop below a safety net rather than the happy path. Schema mirrors the strict
+            // shape declared in the systemInstruction above.
+            const graphReasoningEffort = aiConfig.localModels.chat.graphReasoningEffort;
+            const triVectorSchema = {
+                type      : 'object',
+                properties: {
+                    a2a_version     : {type: 'string'},
+                    agent_id        : {type: 'string'},
+                    session_artifact: {
+                        type      : 'object',
+                        properties: {
+                            feature_namespace     : {type: ['string', 'null']},
+                            human_readable_summary: {type: 'string'},
+                            roadmap_impact        : {type: ['string', 'null']},
+                            graph                 : {
+                                type      : 'object',
+                                properties: {
+                                    nodes: {type: 'array', items: {
+                                        type      : 'object',
+                                        properties: {
+                                            id              : {type: 'string'},
+                                            type            : {type: 'string'},
+                                            name            : {type: 'string'},
+                                            description     : {type: 'string'},
+                                            logical_layer   : {type: 'string'},
+                                            stability       : {type: 'string'},
+                                            gravity_well    : {type: 'boolean'},
+                                            strategic_weight: {type: 'number'},
+                                            confidence      : {type: 'number'},
+                                            tags            : {type: 'array', items: {type: 'string'}}
+                                        },
+                                        required: ['id', 'type', 'name', 'description']
+                                    }},
+                                    edges: {type: 'array', items: {
+                                        type      : 'object',
+                                        properties: {
+                                            source       : {type: 'string'},
+                                            target       : {type: 'string'},
+                                            relationship : {type: 'string'},
+                                            weight       : {type: 'number'},
+                                            justification: {type: 'string'}
+                                        },
+                                        required: ['source', 'target', 'relationship']
+                                    }}
+                                },
+                                required: ['nodes', 'edges']
+                            }
+                        },
+                        required: ['feature_namespace', 'human_readable_summary', 'graph']
+                    }
+                },
+                required: ['a2a_version', 'session_artifact']
+            };
+
             while (attempt < maxRetries && !payload) {
                 attempt++;
 
                 const inputPayloadText = messages.map(m => m.content).join('\n');
                 const guardrailed      = await invokeWithGuardrail({
-                    invocationFn             : () => provider.generate(messages),
+                    invocationFn             : () => provider.generate(messages, {reasoning_effort: graphReasoningEffort || undefined, responseSchema: triVectorSchema, responseSchemaName: 'triVector'}),
                     inputPayload             : inputPayloadText,
                     model                    : consumerModel,
                     assetRef                 : session.meta.sessionId,
@@ -254,10 +311,10 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             // Ensure frontier exists, if not, stub it so we can link to it
             if (!GraphService.db.nodes.has('frontier')) {
                 GraphService.upsertNode({
-                    id: 'frontier',
-                    type: 'SYSTEM_ANCHOR',
-                    name: 'Active Context Frontier',
-                    description: 'The actively tracked development front for the current project scope.',
+                    id              : 'frontier',
+                    type            : 'SYSTEM_ANCHOR',
+                    name            : 'Active Context Frontier',
+                    description     : 'The actively tracked development front for the current project scope.',
                     semanticVectorId: null
                 });
             }
@@ -279,19 +336,19 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                 nodeId = this.normalizeMemorySessionGraphNodeId(nodeId);
 
                 GraphService.upsertNode({
-                    id: nodeId,
-                    type: nodeType,
-                    name: node.name || 'Unknown',
-                    description: node.description || '',
+                    id              : nodeId,
+                    type            : nodeType,
+                    name            : node.name || 'Unknown',
+                    description     : node.description || '',
                     semanticVectorId: session.id,
-                    properties: {
-                        logical_layer: node.logical_layer || 'Unknown',
-                        stability: node.stability || 'UNKNOWN',
-                        gravity_well: node.gravity_well === true,
+                    properties      : {
+                        logical_layer   : node.logical_layer || 'Unknown',
+                        stability       : node.stability || 'UNKNOWN',
+                        gravity_well    : node.gravity_well === true,
                         strategic_weight: typeof node.strategic_weight === 'number' ? node.strategic_weight : (node.gravity_well ? 1.0 : 0.1),
-                        confidence: typeof node.confidence === 'number' ? node.confidence : 0.5,
-                        tags: Array.isArray(node.tags) ? node.tags : [],
-                        context_source: session.meta.sessionId
+                        confidence      : typeof node.confidence === 'number' ? node.confidence : 0.5,
+                        tags            : Array.isArray(node.tags) ? node.tags : [],
+                        context_source  : session.meta.sessionId
                     }
                 });
 
@@ -353,7 +410,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                     edge.relationship || 'RELATES_TO',
                     edge.weight !== undefined ? parseFloat(edge.weight) : 1.0,
                     {
-                        justification: edge.justification || '',
+                        justification : edge.justification || '',
                         context_source: session.meta.sessionId
                     }
                 );
