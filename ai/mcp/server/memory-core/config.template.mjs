@@ -484,6 +484,31 @@ class Config extends ConfigProvider {
              */
             guideGapWeightThreshold: leaf(0.8, 'NEO_GUIDE_GAP_WEIGHT_THRESHOLD', 'number'),
             /**
+             * Cycle-scoped Neural Link action digest tuning. The digest reads recent
+             * `nl_action_log` sequences and emits weak `NL_ACTION_SEQUENCE -> VALIDATES`
+             * evidence without removing `[TEST_GAP]`. Leaves stay in AiConfig so the REM
+             * pipeline can tune freshness, volume, success gate, and weak edge strength
+             * without re-deriving constants in `GapInferenceEngine`.
+             * @type {number}
+             */
+            nlActionDigestLookbackMs: leaf(14 * DAY_MS, 'NEO_NL_ACTION_DIGEST_LOOKBACK_MS', 'number'),
+            /**
+             * Maximum recent Neural Link action sequences inspected per digest pass.
+             * @type {number}
+             */
+            nlActionDigestSequenceLimit: leaf(1000, 'NEO_NL_ACTION_DIGEST_SEQUENCE_LIMIT', 'number'),
+            /**
+             * Minimum successful-action ratio for a sequence to qualify as weak evidence.
+             * @type {number}
+             */
+            nlActionDigestMinSuccessRate: leaf(0.8, 'NEO_NL_ACTION_DIGEST_MIN_SUCCESS_RATE', 'number'),
+            /**
+             * Decaying graph-edge weight for weak Neural Link runtime-interaction evidence.
+             * Permanent Playwright evidence remains stronger (`1.0`).
+             * @type {number}
+             */
+            nlActionDigestEvidenceWeight: leaf(0.35, 'NEO_NL_ACTION_DIGEST_EVIDENCE_WEIGHT', 'number'),
+            /**
              * Operator-tuning knobs for `ConceptDiscoveryService`. Both values are read live
              * at method-call time (not captured at module load) so tests + runtime overrides are honored.
              *
