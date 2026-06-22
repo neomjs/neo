@@ -275,6 +275,17 @@ export function buildTaskDefinitions({
             pidFileName    : 'embed-drain-liveness-watchdog.pid',
             expectedCommand: 'EmbedDrainLivenessWatchdog',
             serviceTask    : true
+        },
+        // In-process read-only health-check (consolidation-side analog of the embed-drain watchdog,
+        // one subsystem over): the REM consolidation-liveness watchdog runs inside the scheduling
+        // pipeline. The entry exists only so the task gets a persisted state envelope (cadence
+        // `lastRunAt` + the one-shot stall-alarm latch `remConsolidationAlarm`). `pidFileName` /
+        // `expectedCommand` are inert — no PID file is ever written.
+        'rem-consolidation-liveness-watchdog': {
+            label          : 'REM consolidation liveness watchdog',
+            pidFileName    : 'rem-consolidation-liveness-watchdog.pid',
+            expectedCommand: 'RemConsolidationLivenessWatchdog',
+            serviceTask    : true
         }
     };
 

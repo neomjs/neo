@@ -541,6 +541,7 @@ test.describe('orchestrator/scheduling/pipeline staleness selector (#13586)', ()
     test('TASK_STALENESS_CADENCE_KEY: excludes lightweight / health / continuous tasks', () => {
         expect(TASK_STALENESS_CADENCE_KEY['swarm-heartbeat']).toBeUndefined();
         expect(TASK_STALENESS_CADENCE_KEY['embed-drain-liveness-watchdog']).toBeUndefined();
+        expect(TASK_STALENESS_CADENCE_KEY['rem-consolidation-liveness-watchdog']).toBeUndefined();
         expect(TASK_STALENESS_CADENCE_KEY['tenant-repo-sync']).toBeUndefined();
         expect(TASK_STALENESS_CADENCE_KEY['golden-path']).toBe('goldenPath');
         expect(TASK_STALENESS_CADENCE_KEY.summary).toBe('summarySweep');

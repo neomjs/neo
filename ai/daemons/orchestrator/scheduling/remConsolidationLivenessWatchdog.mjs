@@ -41,9 +41,10 @@ import {readRecentRemRunStates} from '../../../services/memory-core/helpers/remR
  * @summary Computes the age since the last successful REM cycle. Read-only, fail-soft.
  *
  * Reads the most-recent REM run-state entry and derives staleness as `now - completedAt`. A read
- * fault OR an empty store fails SOFT to `{hasCycle: false, stalenessMs: 0}` — never a thrown error,
- * never a false stall on its own (the alarm decision pairs `hasCycle` with the undigested backlog, so
- * a fresh store with no backlog cannot alarm).
+ * fault OR an empty store fails SOFT to `{hasCycle: false, stalenessMs: 0}` — never a thrown error
+ * into the never-fail scheduling pipeline. A no-cycle reading is itself a stall under the
+ * staleness-only alarm signal (a healthy orchestrator records a cycle every cadence even with no
+ * work), so `evaluateConsolidationStallAlarm` treats `!hasCycle` as stalled directly.
  *
  * @param {Object} options
  * @param {String} options.remRunStateDir Directory holding the REM run-state JSONL artifacts.
