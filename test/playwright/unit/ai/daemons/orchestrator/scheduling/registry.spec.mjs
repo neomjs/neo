@@ -57,6 +57,26 @@ test.describe('orchestrator/scheduling/registry (#11862 Sub 18)', () => {
         expect(descriptor.dependencies).toEqual([]);
     });
 
+    test('rem-consolidation-liveness-watchdog is registered as a read-only, no-backpressure health-check (#13818 / ADR 0023 AC-3)', () => {
+        const descriptor = TASK_REGISTRY.find(d => d.taskName === 'rem-consolidation-liveness-watchdog');
+        expect(descriptor, 'rem-consolidation-liveness-watchdog is registered').toBeTruthy();
+        expect(descriptor.executionKind).toBe('health-check');
+        expect(descriptor.maintenanceClass).toBe('health-monitor');
+        // Consolidation-side analog of the embed-drain watchdog: read-only lightweight check, so it must
+        // never take a heavy lease or be gated by backpressure.
+        expect(descriptor.backpressure).toBe('none');
+        expect(descriptor.dependencies).toEqual([]);
+        // Cadence-driven: fires on elapsed check interval, not due within it (uses the imported getDueTask
+        // when no hook override is supplied).
+        expect(descriptor.getDueTask({
+            state: {}, now: 2000, intervals: {remConsolidationWatchdogCheck: 1000}, hooks: {}
+        })).toMatchObject({taskName: 'rem-consolidation-liveness-watchdog', source: 'periodic-health-check'});
+        expect(descriptor.getDueTask({
+            state    : {'rem-consolidation-liveness-watchdog': {lastRunAt: 1500}}, now: 2000,
+            intervals: {remConsolidationWatchdogCheck: 1000}, hooks: {}
+        })).toBeNull();
+    });
+
     test('cloud-deployable graph lanes are registered once Orchestrator.poll() consumes the registry', () => {
         const names = TASK_REGISTRY.map(d => d.taskName);
         expect(names).toContain('graphlog-compaction');

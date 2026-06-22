@@ -162,7 +162,7 @@ class Config extends ConfigProvider {
              */
             ollama: {
                 host                 : leaf('http://127.0.0.1:11434', 'NEO_OLLAMA_HOST', 'string'),
-                model                : leaf('gemma4:31b', 'NEO_OLLAMA_MODEL', 'string'),
+                model                : leaf('gemma4:26b', 'NEO_OLLAMA_MODEL', 'string'),
                 embeddingModel       : leaf('qwen3-embedding', 'NEO_OLLAMA_EMBEDDING_MODEL', 'string'),
                 keep_alive           : leaf(-1, 'NEO_OLLAMA_KEEP_ALIVE', 'keepAlive'),
                 requireParallelModels: leaf(2, 'NEO_OLLAMA_REQUIRE_PARALLEL_MODELS', 'number')
@@ -176,7 +176,11 @@ class Config extends ConfigProvider {
              */
             openAiCompatible: {
                 host                   : leaf('http://127.0.0.1:11434', 'NEO_OPENAI_COMPATIBLE_HOST', 'string'),
-                model                  : leaf('gemma-4-31b-it', 'NEO_OPENAI_COMPATIBLE_MODEL', 'string'),
+                // gemma-4-26b-a4b MoE (~4B active): ~15× faster cold prefill than the dense gemma-4-31b-it
+                // (3s vs ~47s on ~9k tok) at quality parity for summary + tri-vector extraction.
+                // Exact LM Studio identifier — keep the 'google/' org prefix. No-think toggle:
+                // localModels.chat.{summary,graph}ReasoningEffort. The ollama provider configures its own model.
+                model                  : leaf('google/gemma-4-26b-a4b', 'NEO_OPENAI_COMPATIBLE_MODEL', 'string'),
                 embeddingModel         : leaf('text-embedding-qwen3-embedding-8b', 'NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL', 'string'),
                 apiKey                 : leaf('', 'NEO_OPENAI_COMPATIBLE_API_KEY', 'string'),
                 unloadRetryCount       : leaf(3, 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT', 'number'),
@@ -241,7 +245,20 @@ class Config extends ConfigProvider {
                     // slots beyond the first are idle KV bloat. PER-MODEL knob, distinct from
                     // requireParallelModels (how many DISTINCT models stay co-resident); both the chat
                     // and embedding models stay loaded regardless of this value.
-                    parallel                 : leaf(1, 'NEO_LOCAL_MODELS_CHAT_PARALLEL', 'number')
+                    parallel                 : leaf(1, 'NEO_LOCAL_MODELS_CHAT_PARALLEL', 'number'),
+                    /**
+                     * @summary Per-task reasoning-effort for the chat model's two structured-output
+                     * consumers — passed straight through as the OpenAI / LM-Studio `reasoning_effort`
+                     * request param. Default `'none'` disables the gemma MoE's hidden "thinking" pass
+                     * (~2× faster, zero measured quality loss for summary OR extraction).
+                     * Kept per-task (not a single global) so a future hard-summary test can re-enable
+                     * thinking for summaries alone (`'low'|'medium'|'high'`) without touching extraction.
+                     * `SessionService.summarizeSession` reads `summaryReasoningEffort`;
+                     * `SemanticGraphExtractor.executeTriVectorExtraction` reads `graphReasoningEffort`.
+                     * @type {'none'|'low'|'medium'|'high'}
+                     */
+                    summaryReasoningEffort: leaf('none', 'NEO_LOCAL_MODELS_CHAT_SUMMARY_REASONING_EFFORT', 'string'),
+                    graphReasoningEffort  : leaf('none', 'NEO_LOCAL_MODELS_CHAT_GRAPH_REASONING_EFFORT', 'string')
                 },
                 /**
                  * @summary Embedding-model context limits in tokens.
@@ -404,7 +421,15 @@ class Config extends ConfigProvider {
                      * drain-death incident) while staying far below the threshold so the check itself adds
                      * negligible load. `<= 0` disables the lane.
                      */
-                    embedDrainLivenessWatchdogCheckMs: leaf(HOUR_MS, 'NEO_ORCHESTRATOR_EMBED_DRAIN_WATCHDOG_INTERVAL_MS', 'number')
+                    embedDrainLivenessWatchdogCheckMs: leaf(HOUR_MS, 'NEO_ORCHESTRATOR_EMBED_DRAIN_WATCHDOG_INTERVAL_MS', 'number'),
+                    /**
+                     * Cadence of the REM consolidation-liveness watchdog — the read-only, never-fail
+                     * health check (consolidation-side analog of the embed-drain watchdog) that computes
+                     * the age since the last successful REM cycle and raises a one-shot alarm when it
+                     * exceeds `memoryWal`-sibling `remConsolidationStallThresholdMs`.
+                     * Hourly surfaces a stalled dream in hours. `<= 0` disables the lane.
+                     */
+                    remConsolidationWatchdogCheckMs  : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_REM_CONSOLIDATION_WATCHDOG_INTERVAL_MS', 'number')
                 },
                 /**
                  * Chroma daemon recycle policy. The orchestrator kills and respawns the supervised

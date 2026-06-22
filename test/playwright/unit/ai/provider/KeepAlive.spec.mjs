@@ -1,6 +1,14 @@
 import {setup} from '../../../setup.mjs';
 
 const appName = 'AiProviderKeepAliveTest';
+const statusSchema = {
+    type      : 'object',
+    properties: {
+        status: {type: 'string'}
+    },
+    required            : ['status'],
+    additionalProperties: false
+};
 
 setup({
     neoConfig: {
@@ -200,6 +208,108 @@ test.describe('AI provider keep_alive payload shape (#12080, #12089)', () => {
         });
     });
 
+    test('Ollama.preparePayload() promotes responseSchema to native format without mutating caller options (#13855)', () => {
+        const provider = Neo.create(OllamaProvider, {
+            host     : 'http://ollama.test',
+            modelName: 'gemma4-test'
+        });
+        const options = {
+            responseMimeType: 'application/json',
+            responseSchema  : statusSchema,
+            temperature     : 0
+        };
+
+        const payload = provider.preparePayload('hello', options, false);
+
+        expect(payload).toMatchObject({
+            model     : 'gemma4-test',
+            stream    : false,
+            format    : statusSchema,
+            keep_alive: -1,
+            options   : {
+                temperature: 0
+            }
+        });
+        expect(payload.options.responseMimeType).toBeUndefined();
+        expect(payload.options.responseSchema).toBeUndefined();
+        expect(options.responseSchema).toBe(statusSchema);
+    });
+
+    test('Ollama.preparePayload() maps OpenAI-compatible JSON schema and think to native top-level fields (#13855)', () => {
+        const provider = Neo.create(OllamaProvider, {
+            host     : 'http://ollama.test',
+            modelName: 'gemma4-test'
+        });
+
+        const payload = provider.preparePayload('hello', {
+            response_format: {
+                type       : 'json_schema',
+                json_schema: {
+                    name  : 'StatusPayload',
+                    schema: statusSchema,
+                    strict: true
+                }
+            },
+            think      : false,
+            temperature: 0
+        }, false);
+
+        expect(payload).toMatchObject({
+            model     : 'gemma4-test',
+            stream    : false,
+            format    : statusSchema,
+            think     : false,
+            keep_alive: -1,
+            options   : {
+                temperature: 0
+            }
+        });
+        expect(payload.options.response_format).toBeUndefined();
+        expect(payload.options.think).toBeUndefined();
+    });
+
+    test('Ollama.preparePayload() preserves plain JSON extraction for response_format json_object (#13855)', () => {
+        const provider = Neo.create(OllamaProvider, {
+            host     : 'http://ollama.test',
+            modelName: 'gemma4-test'
+        });
+
+        const payload = provider.preparePayload('hello', {
+            response_format: {type: 'json_object'},
+            temperature    : 0
+        }, false);
+
+        expect(payload).toMatchObject({
+            model     : 'gemma4-test',
+            stream    : false,
+            format    : 'json',
+            keep_alive: -1,
+            options   : {
+                temperature: 0
+            }
+        });
+        expect(payload.options.response_format).toBeUndefined();
+    });
+
+    test('Ollama.generate() can verify native format against a live env-configured daemon (#13855)', async () => {
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: live Ollama daemon is an operator-local dependency');
+        test.skip(process.env.NEO_RUN_LIVE_OLLAMA_TESTS !== '1', 'Skipping live Ollama test; set NEO_RUN_LIVE_OLLAMA_TESTS=1 to run');
+
+        const host      = process.env.NEO_OLLAMA_HOST || 'http://127.0.0.1:11434';
+        const modelName = process.env.NEO_OLLAMA_MODEL || 'gemma4:26b';
+        const timeoutMs = Number(process.env.NEO_OLLAMA_TEST_TIMEOUT_MS) || 120000;
+        const provider  = Neo.create(OllamaProvider, {host, modelName});
+
+        const result = await provider.generate('Return exactly this JSON object: {"status":"ok"}', {
+            responseSchema: statusSchema,
+            temperature   : 0,
+            think         : false,
+            timeoutMs
+        });
+
+        expect(JSON.parse(result.content)).toEqual({status: 'ok'});
+    });
+
     test('Ollama.stream() defaults keep_alive to top-level payload', async () => {
         let capturedPayload;
 
@@ -341,9 +451,9 @@ test.describe('AI provider keep_alive payload shape (#12080, #12089)', () => {
 
         expect(chunks).toEqual(['ok']);
         expect(capturedPayload).toMatchObject({
-            model     : 'gemma4-test',
-            stream    : true,
-            keep_alive: '10m',
+            model      : 'gemma4-test',
+            stream     : true,
+            keep_alive : '10m',
             temperature: 0.2
         });
         expect(capturedPayload.options).toBeUndefined();
@@ -377,11 +487,43 @@ test.describe('AI provider keep_alive payload shape (#12080, #12089)', () => {
 
         expect(chunks).toEqual(['json ok']);
         expect(capturedPayload).toMatchObject({
-            model          : 'gemma4-test',
-            stream         : true,
-            keep_alive     : -1,
-            response_format: {type: 'json_object'}
+            model     : 'gemma4-test',
+            stream    : true,
+            keep_alive: -1
         });
+        // A schema-less json_object request no longer emits the LM-Studio-rejected json_object form.
+        expect(capturedPayload.response_format).toBeUndefined();
+    });
+
+    test('OpenAiCompatible.stream() emits response_format json_schema when a responseSchema is supplied', async () => {
+        let capturedPayload;
+
+        globalThis.fetch = async (url, init) => {
+            capturedPayload = JSON.parse(init.body);
+
+            return {
+                ok  : true,
+                body: createReadableStream([
+                    JSON.stringify({choices: [{message: {content: '{"x":"ok"}'}}]})
+                ])
+            };
+        };
+
+        const provider = Neo.create(OpenAiCompatibleProvider, {
+            host     : 'http://openai-compatible.test',
+            modelName: 'gemma4-test'
+        });
+        const schema = {type: 'object', properties: {x: {type: 'string'}}, required: ['x']};
+
+        for await (const _chunk of provider.stream('hello', {responseSchema: schema, responseSchemaName: 'mySchema'})) { /* drain */ }
+
+        expect(capturedPayload.response_format).toEqual({
+            type       : 'json_schema',
+            json_schema: {name: 'mySchema', strict: false, schema}
+        });
+        // Schema-carrying keys are consumed by preparePayload, not leaked into the wire payload.
+        expect(capturedPayload.responseSchema).toBeUndefined();
+        expect(capturedPayload.responseSchemaName).toBeUndefined();
     });
 
     test('OpenAiCompatible.stream() aborts a hung request on timeout without leaking transport options', async () => {
@@ -504,11 +646,12 @@ test.describe('AI provider keep_alive payload shape (#12080, #12089)', () => {
             }
         });
         expect(capturedPayload).toMatchObject({
-            model          : 'gemma4-test',
-            stream         : true,
-            keep_alive     : -1,
-            response_format: {type: 'json_object'}
+            model     : 'gemma4-test',
+            stream    : true,
+            keep_alive: -1
         });
+        // A schema-less application/json request no longer emits the rejected json_object form.
+        expect(capturedPayload.response_format).toBeUndefined();
         expect(capturedPayload.responseMimeType).toBeUndefined();
     });
 });

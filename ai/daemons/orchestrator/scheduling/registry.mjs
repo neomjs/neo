@@ -8,6 +8,7 @@ import {getDueTask as getPrimaryDevSyncDueTask}             from './primaryDevSy
 import {getDueTask as getSwarmHeartbeatDueTask}             from './swarmHeartbeat.mjs';
 import {getDueTask as getTenantRepoSyncDueTask}             from './tenantRepoSync.mjs';
 import {getDueTask as getEmbedDrainLivenessWatchdogDueTask} from './embedDrainLivenessWatchdog.mjs';
+import {getDueTask as getRemConsolidationLivenessWatchdogDueTask} from './remConsolidationLivenessWatchdog.mjs';
 
 function toTimestampMs(value) {
     if (typeof value === 'number' && Number.isFinite(value)) {
@@ -241,6 +242,26 @@ export const TASK_REGISTRY = Object.freeze([
                 state                            : state['embed-drain-liveness-watchdog'] ?? {},
                 now,
                 embedDrainLivenessWatchdogCheckMs: intervals.embedDrainLivenessWatchdogCheck
+            });
+        }
+    },
+    {
+        // Consolidation-side analog of `embed-drain-liveness-watchdog` (one subsystem over): the REM
+        // dream cycle digests sessions into the graph but is decoupled from the Golden Path forecast,
+        // so a stalled consolidation produces NO user-visible error (the "green-but-rotting" state).
+        // This read-only, no-backpressure health-check alarms on a stale/absent REM cycle —
+        // consolidation-liveness observable, never assumed-green. Excluded from
+        // TASK_STALENESS_CADENCE_KEY like the embed-drain sibling (health tasks keep registry-order).
+        taskName        : 'rem-consolidation-liveness-watchdog',
+        executionKind   : 'health-check',
+        maintenanceClass: 'health-monitor',
+        backpressure    : 'none',
+        dependencies    : [],
+        getDueTask({state, now, intervals, hooks}) {
+            return (hooks.remConsolidationLivenessWatchdogGetDueTask || getRemConsolidationLivenessWatchdogDueTask)({
+                state                          : state['rem-consolidation-liveness-watchdog'] ?? {},
+                now,
+                remConsolidationWatchdogCheckMs: intervals.remConsolidationWatchdogCheck
             });
         }
     }

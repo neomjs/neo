@@ -2,6 +2,57 @@ import Base                 from './Base.mjs';
 import {createTimeoutError} from './createTimeoutError.mjs';
 
 /**
+ * @summary Extracts native Ollama top-level request fields from generic
+ * provider options while preserving caller-owned option objects.
+ *
+ * Ollama's `/api/chat` accepts `format` as either `'json'` or a JSON schema.
+ * OpenAI-compatible callers may instead provide `response_format`, while Gemini
+ * callers historically use `responseSchema`; normalize those into Ollama's
+ * native field without leaking them into `payload.options`.
+ *
+ * @param {Object} options Cloned options object that may be mutated by deletion.
+ * @returns {Object}
+ */
+function extractNativeOllamaFields(options) {
+    const fields = {};
+
+    if (options.format !== undefined) {
+        fields.format = options.format;
+        delete options.format;
+    } else if (options.responseSchema !== undefined || options.response_schema !== undefined) {
+        fields.format = options.responseSchema ?? options.response_schema;
+        delete options.responseSchema;
+        delete options.response_schema;
+    } else if (options.response_format !== undefined) {
+        const responseFormat = options.response_format;
+
+        if (responseFormat?.type === 'json_object') {
+            fields.format = 'json';
+        } else if (responseFormat?.type === 'json_schema') {
+            fields.format = responseFormat.json_schema?.schema ?? responseFormat.schema ?? responseFormat.json_schema;
+        } else {
+            fields.format = responseFormat;
+        }
+
+        delete options.response_format;
+    } else if (options.responseMimeType === 'application/json' || options.response_mime_type === 'application/json') {
+        fields.format = 'json';
+    }
+
+    if (options.responseMimeType !== undefined || options.response_mime_type !== undefined) {
+        delete options.responseMimeType;
+        delete options.response_mime_type;
+    }
+
+    if (options.think !== undefined) {
+        fields.think = options.think;
+        delete options.think;
+    }
+
+    return fields;
+}
+
+/**
  * Concrete AI provider for a local Ollama daemon.
  * Uses the native JS Fetch API.
  *
@@ -47,7 +98,12 @@ class OllamaProvider extends Base {
     }
 
     /**
-     * Helper to prepare the payload for Ollama.
+     * @summary Prepares the native Ollama `/api/chat` payload.
+     *
+     * Provider-neutral JSON hints are normalized into Ollama's top-level
+     * `format` field, preserving legacy `format: 'json'` extraction and adding
+     * schema passthrough for callers that can supply structured-output schemas.
+     *
      * @param {String|Array} input
      * @param {Object} options
      * @param {Boolean} stream
@@ -71,9 +127,9 @@ class OllamaProvider extends Base {
         }
 
         const payload = {
-            model   : this.modelName,
+            model : this.modelName,
             messages,
-            stream  : stream
+            stream: stream
         };
 
         const clonedOptions = { ...options };
@@ -81,20 +137,15 @@ class OllamaProvider extends Base {
         delete clonedOptions.signal;
         delete clonedOptions.timeoutMs;
 
-        // Handle JSON extraction mirroring Gemini provider
-        if (clonedOptions.responseMimeType === 'application/json' || clonedOptions.response_mime_type === 'application/json') {
-            payload.format = 'json';
-            delete clonedOptions.responseMimeType;
-            delete clonedOptions.response_mime_type;
-        }
+        Object.assign(payload, extractNativeOllamaFields(clonedOptions));
 
         if (clonedOptions.tools && clonedOptions.tools.length > 0) {
             payload.tools = clonedOptions.tools.map(tool => ({
-                type: 'function',
+                type    : 'function',
                 function: {
-                    name: tool.name,
+                    name       : tool.name,
                     description: tool.description || '',
-                    parameters: tool.inputSchema || { type: 'object', properties: {} }
+                    parameters : tool.inputSchema || { type: 'object', properties: {} }
                 }
             }));
             delete clonedOptions.tools;
@@ -102,6 +153,15 @@ class OllamaProvider extends Base {
 
         payload.keep_alive = clonedOptions.keep_alive === undefined ? this.keepAlive : clonedOptions.keep_alive;
         delete clonedOptions.keep_alive;
+
+        // Caller options this provider does not yet consume — drop them so they don't leak into
+        // ollama's `options` bag. Ollama's native structured-output (`format` schema) + the no-think
+        // wiring are a separate follow-up; until then these keys are inert here, not forwarded.
+        delete clonedOptions.responseSchema;
+        delete clonedOptions.responseSchemaName;
+        delete clonedOptions.responseSchemaStrict;
+        delete clonedOptions.response_format;
+        delete clonedOptions.reasoning_effort;
 
         if (Object.keys(clonedOptions).length > 0) {
             payload.options = clonedOptions;
@@ -141,7 +201,7 @@ class OllamaProvider extends Base {
             });
 
             const req = httpModule.request(parsedUrl, {
-                method: 'POST',
+                method : 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
@@ -171,11 +231,11 @@ class OllamaProvider extends Base {
             req.on('timeout', () => {
                 req.destroy();
                 rejectFunc(createTimeoutError({
-                    provider      : 'Ollama',
+                    provider : 'Ollama',
                     operationLabel,
-                    timeoutMs     : requestTimeoutMs,
-                    host          : this.host,
-                    modelName     : this.modelName
+                    timeoutMs: requestTimeoutMs,
+                    host     : this.host,
+                    modelName: this.modelName
                 }));
             });
 

@@ -651,6 +651,26 @@ ${sessionContent}
         const consumerSafeTokens    = aiConfig.localModels.chat.safeProcessingLimitTokens;
         const summaryTimeoutMs      = aiConfig.sessionSummaryTimeoutMs;
 
+        // Per-task no-think + grammar-constrained structured output for the summary.
+        // `summaryReasoningEffort` (default 'none') disables the gemma MoE's hidden thinking pass
+        // (~2× faster, no measured quality loss). `summarySchema` enforces valid, fence-free JSON via
+        // the provider's json_schema path. Passing `undefined` effort omits the param (model default).
+        const summaryReasoningEffort = aiConfig.localModels.chat.summaryReasoningEffort;
+        const summarySchema = {
+            type      : 'object',
+            properties: {
+                summary     : {type: 'string'},
+                title       : {type: 'string'},
+                category    : {type: 'string'},
+                quality     : {type: 'number'},
+                productivity: {type: 'number'},
+                impact      : {type: 'number'},
+                complexity  : {type: 'number'},
+                technologies: {type: 'array', items: {type: 'string'}}
+            },
+            required: ['summary', 'title', 'category', 'quality', 'productivity', 'impact', 'complexity', 'technologies']
+        };
+
         // Bound the synthesis call: pass the interactive budget to the provider (both honor
         // `options.timeoutMs` and throw a uniform PROVIDER_TIMEOUT on overshoot) AND race a
         // `withTimeout` as a provider-agnostic backstop, mirroring `buildMiniSummary`. Without this an
@@ -659,7 +679,7 @@ ${sessionContent}
         // friction symptom, which the degraded fallback below treats like an oversize skip.
         const runGuardrailed = (prompt, note) => invokeWithGuardrail({
             invocationFn             : () => withTimeout(
-                this.model.generateContent(prompt, {timeoutMs: summaryTimeoutMs, operationLabel: 'session summarization', priority: 'batch'}),
+                this.model.generateContent(prompt, {timeoutMs: summaryTimeoutMs, operationLabel: 'session summarization', priority: 'batch', reasoning_effort: summaryReasoningEffort || undefined, responseSchema: summarySchema, responseSchemaName: 'sessionSummary'}),
                 summaryTimeoutMs,
                 'session summarization'
             ),
@@ -777,9 +797,9 @@ ${sessionContent}
 
         // --- 1. Topological Ingestion (Graph Mapping) ---
         GraphService.upsertNode({
-            id              : summaryId,
-            type            : 'SESSION_SUMMARY',
-            name            : title,
+            id  : summaryId,
+            type: 'SESSION_SUMMARY',
+            name: title,
             description     : `${category} session by ${participatingAgents.join(', ')}`,
             semanticVectorId: summaryId,
             properties      : {
@@ -920,8 +940,8 @@ ${sessionContent}
 
                         // Tie it structurally into Graph
                         GraphService.upsertNode({
-                            id              : artifactId,
-                            type            : 'IMPLEMENTATION_PLAN',
+                            id  : artifactId,
+                            type: 'IMPLEMENTATION_PLAN',
                             name            : `Antigravity Plan (${convId})`,
                             description     : `Strategically generated implementation plan via Antigravity Brain for session ${sessionId}.`,
                             semanticVectorId: artifactId

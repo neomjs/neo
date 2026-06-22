@@ -497,6 +497,40 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(handoffContent.indexOf('## Silent Threads')).toBeLessThan(handoffContent.indexOf('## Computed Golden Path'));
     });
 
+    test('synthesizeGoldenPath scopes the candidate-pool query to ISSUE + DISCUSSION vectors', async () => {
+        const originalGetGraphCollection    = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection  = StorageRouter.getSummaryCollection;
+        const originalEmbedText             = TextEmbeddingService.embedText;
+        const originalFetchOpenPRs          = GoldenPathSynthesizer.fetchOpenPRs;
+        const OpenAiCompatible              = (await import('../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
+        const originalGenerate              = OpenAiCompatible.prototype.generate;
+        const issuesDir                     = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-pool-scope-'));
+        let capturedWhere                   = 'UNSET';
+        aiConfig.vectorDimension = 2;
+
+        StorageRouter.getGraphCollection    = async () => ({query: async args => { capturedWhere = args.where; return {ids: [[]], distances: [[]]}; }});
+        StorageRouter.getSummaryCollection  = async () => ({get: async () => ({documents: ['mock document']})});
+        TextEmbeddingService.embedText      = async () => [0.1, 0.2];
+        GoldenPathSynthesizer.fetchOpenPRs  = async () => [];
+        OpenAiCompatible.prototype.generate = async () => ({content: '{"strategic_brief":"stub"}'});
+
+        try {
+            await GoldenPathSynthesizer.synthesizeGoldenPath({issuesDir, now: new Date('2026-05-28T00:00:00Z')});
+        } finally {
+            StorageRouter.getGraphCollection    = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection  = originalGetSummaryCollection;
+            TextEmbeddingService.embedText      = originalEmbedText;
+            GoldenPathSynthesizer.fetchOpenPRs  = originalFetchOpenPRs;
+            OpenAiCompatible.prototype.generate = originalGenerate;
+            fs.rmSync(issuesDir, {recursive: true, force: true});
+        }
+
+        // The candidate pool must be scoped to ISSUE + DISCUSSION vectors; without the filter the top-20
+        // is dominated by the CONCEPT/ADR/GUIDES population and the state='OPEN' intersection is empty.
+        // Both are execution-steerable (work-to-do / converge-to-drive) and embed with state metadata.
+        expect(capturedWhere).toEqual({type: {'$in': ['ISSUE', 'DISCUSSION']}})
+    });
+
     test('synthesizeGoldenPath surfaces current incidents and filters non-actionable computed recommendations', async () => {
         const originalGetGraphCollection   = StorageRouter.getGraphCollection;
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
@@ -627,9 +661,92 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(focusSection).toContain('**#13012**');
         expect(focusSection).not.toContain('Old generic AI enhancement');
         expect(handoffContent).toContain(readyId);
-        expect(handoffContent).not.toContain(discussionId);
-        expect(handoffContent).not.toContain(epicId);
+        expect(handoffContent).toContain(discussionId);  // discussions are now actionable (an open converge-to-drive)
+        expect(handoffContent).not.toContain(epicId);    // epic label still excluded
         expect(handoffContent).not.toContain(notReadyId);
+    });
+
+    test('synthesizeGoldenPath renders a contradiction diagnostic for blog routing during PRIO-zero focus (#13849)', async () => {
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const originalFetchOpenPRs         = GoldenPathSynthesizer.fetchOpenPRs;
+        const issuesDir                    = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-current-focus-contradiction-'));
+        const chunkDir                     = path.join(issuesDir, 'chunk-1');
+        const now                          = new Date('2026-06-22T02:55:31Z');
+        const blogId                       = 'issue-10074';
+        aiConfig.vectorDimension = 2;
+
+        fs.mkdirSync(chunkDir, {recursive: true});
+        fs.writeFileSync(path.join(chunkDir, 'issue-13750.md'), [
+            '---',
+            'id: 13750',
+            "title: 'PRIO-ZERO: Golden Path frozen 18 days'",
+            'state: OPEN',
+            'labels:',
+            '  - bug',
+            '  - ai',
+            '  - architecture',
+            '  - model-experience',
+            "createdAt: '2026-06-22T02:30:00Z'",
+            "updatedAt: '2026-06-22T02:50:55Z'",
+            'assignees:',
+            '  - neo-opus-grace',
+            '---',
+            '# PRIO-ZERO: Golden Path frozen 18 days',
+            '',
+            'PRIO-ZERO incident focus: graph steering must not route agents away from the drain fix.'
+        ].join('\n'));
+
+        GraphService.upsertNode({
+            id        : 'frontier',
+            type      : 'SYSTEM_TENET',
+            properties: {name: 'Active Context Frontier'}
+        });
+        GraphService.upsertNode({
+            id        : blogId,
+            type      : 'ISSUE',
+            properties: {
+                labels: ['documentation', 'Blog Post', 'ai'],
+                state : 'OPEN',
+                title : '[blog] Claude Code x Neo.mjs'
+            }
+        });
+        GoldenPathSynthesizer.constructor.pruneStaleFrontierGuideEdges();
+        GraphService.linkNodes('frontier', blogId, 'GUIDES', 7);
+
+        StorageRouter.getGraphCollection = async () => ({
+            query: async () => ({
+                ids      : [[blogId]],
+                distances: [[0.1]]
+            })
+        });
+        StorageRouter.getSummaryCollection = async () => ({get: async () => ({documents: ['Golden Path stale forecast still routes blog work']})});
+        TextEmbeddingService.embedText     = async () => [0.1, 0.2];
+        GoldenPathSynthesizer.fetchOpenPRs = async () => [];
+
+        try {
+            await GoldenPathSynthesizer.synthesizeGoldenPath({issuesDir, now});
+        } finally {
+            StorageRouter.getGraphCollection   = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection = originalGetSummaryCollection;
+            TextEmbeddingService.embedText     = originalEmbedText;
+            GoldenPathSynthesizer.fetchOpenPRs = originalFetchOpenPRs;
+            fs.rmSync(issuesDir, {recursive: true, force: true});
+        }
+
+        const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
+        const guideTargets = GraphService.db.edges
+            .getByIndex('source', 'frontier')
+            .filter(edge => edge.type === 'GUIDES')
+            .map(edge => edge.target);
+
+        expect(handoffContent).toContain('## Current Release / Incident Focus');
+        expect(handoffContent).toContain('**#13750**');
+        expect(handoffContent).toContain('Computed routing paused because the surviving content/narrative recommendation contradicts live Current Release / Incident Focus.');
+        expect(handoffContent).toContain('Contradictory computed candidates filtered: issue-10074');
+        expect(handoffContent).not.toMatch(/1\.\s+\*\*issue-10074\*\*:/);
+        expect(guideTargets).not.toContain(blogId);
     });
 
     test('synthesizeGoldenPath renders empty computed diagnostics and clears stale frontier guides (#13828)', async () => {
@@ -1075,7 +1192,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         }
     });
 
-    test('synthesizeGoldenPath excludes discussion nodes from computed recommendations', async () => {
+    test('synthesizeGoldenPath includes OPEN discussions but excludes CLOSED ones from computed recommendations', async () => {
         const originalGetGraphCollection   = StorageRouter.getGraphCollection;
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
         const originalEmbedText            = TextEmbeddingService.embedText;
@@ -1132,8 +1249,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
 
         expect(handoffContent).toContain(issueId);
-        expect(handoffContent).not.toContain(openId);
-        expect(handoffContent).not.toContain(closedId);
+        expect(handoffContent).toContain(openId);        // open discussions are now actionable (converge-to-drive)
+        expect(handoffContent).not.toContain(closedId);  // closed discussions excluded by the state='OPEN' gate
     });
 
     test('renderConsolidationGapsSection surfaces undigested sessions visibly (#13807)', async () => {
