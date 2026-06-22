@@ -267,6 +267,13 @@ class Config extends ConfigProvider {
              */
             remRunStateDir: leaf(path.resolve(cwd, '.neo-ai-data/rem-runs'), 'NEO_REM_RUN_STATE_DIR', 'string'),
             /**
+             * Stall threshold for the REM consolidation-liveness watchdog: max age (ms) since the last
+             * successful REM cycle before the watchdog records/raises a consolidation stall. Default 6h
+             * (generous vs the hourly/off-peak dream cadence to avoid false alarms).
+             * @type {number}
+             */
+            remConsolidationStallThresholdMs: leaf(6 * 60 * 60 * 1000, 'NEO_REM_CONSOLIDATION_STALL_THRESHOLD_MS', 'number'),
+            /**
              * Number of recent REM cycles projected by `get_rem_pipeline_state`.
              * @type {number}
              */
