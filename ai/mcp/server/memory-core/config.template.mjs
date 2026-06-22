@@ -144,6 +144,21 @@ class Config extends ConfigProvider {
              */
             remSleepBatchLimit: leaf(10, 'NEO_REM_SLEEP_BATCH_LIMIT', 'number'),
             /**
+             * Maximum failed graph-digest attempts before the REM pipeline bounds a session out as
+             * `deferred` (excluded from the steady cadence). Stops the chronic re-serve of an
+             * un-digestible session that would otherwise re-pay the per-cycle local-model pre-check
+             * every cycle, forever.
+             * @type {number}
+             */
+            maxDigestAttempts: leaf(3, 'NEO_REM_MAX_DIGEST_ATTEMPTS', 'number'),
+            /**
+             * Per-cycle reserve of the freshest (most-recent) undigested sessions the REM picker keeps
+             * for first-pass digestion, so a backlog of retry-eligible aged sessions never fully starves
+             * new work. The remainder of the per-cycle budget goes to the oldest aged sessions.
+             * @type {number}
+             */
+            undigestedSessionFreshReserve: leaf(2, 'NEO_REM_UNDIGESTED_FRESH_RESERVE', 'number'),
+            /**
              * Maximum number of concurrent session summarization requests.
              * Prevents hitting LLM/Embedding API rate limits during bulk operations.
              * @type {number}
