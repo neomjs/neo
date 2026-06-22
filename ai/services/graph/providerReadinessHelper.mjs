@@ -700,6 +700,7 @@ export async function ensureOllamaModelsReady({
     }
 
     const requiredResidentModels = Math.min(requireParallelModels, requiredModels.length);
+    const requiredModelSet       = new Set(requiredModels);
     const normalizeAvailable = available => [...new Map((Array.isArray(available) ? available : []).map(item => {
         if (typeof item === 'string') {
             return [item, {id: item, contextLength: undefined}];
@@ -712,6 +713,8 @@ export async function ensureOllamaModelsReady({
         }] : null;
     }).filter(Boolean)).values()];
     const toIds               = available => available.map(item => item.id);
+    const getRequiredAvailable = available => available.filter(item => requiredModelSet.has(item.id));
+    const getExtraModels       = available => toIds(available.filter(item => !requiredModelSet.has(item.id)));
     const contextRequirements = roles.reduce((map, role) => {
         if (!role.model || !Neo.isNumber(role.contextLength)) {
             return map;
@@ -738,16 +741,22 @@ export async function ensureOllamaModelsReady({
             contextLength        : item.contextLength,
             requiredContextLength: contextRequirements.get(item.id)
         }));
-    const getWarning = ({availableModels, missingModels}) => createParallelModelCapacityWarning({
-        provider             : 'ollama',
-        model                : roles.find(role => role.role === 'chat')?.model,
-        embeddingModel       : roles.find(role => role.role === 'embedding')?.model,
-        requiredModels,
-        availableModels,
-        missingModels,
-        observedCount        : availableModels.length,
-        requireParallelModels: requiredResidentModels
-    });
+    const getWarning = ({availableModels, missingModels, observedRequiredCount}) => {
+        const availableModelIds = toIds(availableModels);
+
+        return createParallelModelCapacityWarning({
+            provider             : 'ollama',
+            model                : roles.find(role => role.role === 'chat')?.model,
+            embeddingModel       : roles.find(role => role.role === 'embedding')?.model,
+            requiredModels,
+            availableModels      : availableModelIds,
+            missingModels,
+            extraModels          : getExtraModels(availableModels),
+            observedCount        : availableModelIds.length,
+            observedRequiredCount,
+            requireParallelModels: requiredResidentModels
+        });
+    };
 
     const probeModels = async phase => {
         let lastError;
@@ -786,9 +795,11 @@ export async function ensureOllamaModelsReady({
             host,
             requiredModels,
             availableModels          : [],
+            extraModels              : [],
             missingModels            : requiredModels,
             insufficientContextModels: [],
             observedCount            : 0,
+            observedRequiredCount    : 0,
             requireParallelModels,
             requiredResidentModels,
             warmedModels             : [],
@@ -849,7 +860,8 @@ export async function ensureOllamaModelsReady({
         const serviceableMissing = missingModels.filter(model => !failedModelIds.has(model));
         const serviceableContext = insufficientContextModels.filter(item => !failedModelIds.has(item.model));
         const observedCount      = availableModels.length;
-        const capacityReady      = observedCount >= requiredResidentModels;
+        const observedRequiredCount = getRequiredAvailable(availableModels).length;
+        const capacityReady      = observedRequiredCount >= requiredResidentModels;
         const ready              = capacityReady && missingModels.length === 0 && insufficientContextModels.length === 0 && failedModels.length === 0;
         const capacityOnlyGap    = missingModels.length === 0 && !capacityReady;
 
@@ -872,11 +884,13 @@ export async function ensureOllamaModelsReady({
                 insufficientContextModels,
                 requiredModels,
                 availableModels: toIds(availableModels),
+                extraModels    : getExtraModels(availableModels),
                 loadedContexts : Object.fromEntries(availableModels.map(item => [item.id, item.contextLength])),
                 observedCount,
+                observedRequiredCount,
                 requireParallelModels,
                 requiredResidentModels,
-                warning        : degraded ? (contextWarning || getWarning({availableModels: toIds(availableModels), missingModels})) : null,
+                warning        : degraded ? (contextWarning || getWarning({availableModels, missingModels, observedRequiredCount})) : null,
                 attempts       : attempt,
                 elapsedMs      : Date.now() - startedAt
             };
@@ -890,7 +904,8 @@ export async function ensureOllamaModelsReady({
     const contextWarning = insufficientContextModels.length
         ? `[provider/ollama] loaded context too small: ${insufficientContextModels.map(item => `${item.model} observed=${item.contextLength ?? 'unknown'} required>=${item.requiredContextLength}`).join(', ')}; warm with options.num_ctx matching localModels context caps.`
         : null;
-    const warning = contextWarning || getWarning({availableModels: toIds(availableModels), missingModels});
+    const observedRequiredCount = getRequiredAvailable(availableModels).length;
+    const warning = contextWarning || getWarning({availableModels, missingModels, observedRequiredCount});
     if (allowPartial) {
         return {
             ready          : false,
@@ -904,8 +919,10 @@ export async function ensureOllamaModelsReady({
             insufficientContextModels,
             requiredModels,
             availableModels: toIds(availableModels),
+            extraModels    : getExtraModels(availableModels),
             loadedContexts : Object.fromEntries(availableModels.map(item => [item.id, item.contextLength])),
             observedCount  : availableModels.length,
+            observedRequiredCount,
             requireParallelModels,
             requiredResidentModels,
             warning,
@@ -983,15 +1000,23 @@ export function createParallelModelCapacityWarning({
     requiredModels,
     availableModels,
     missingModels,
+    extraModels = [],
     observedCount,
+    observedRequiredCount,
     requireParallelModels
 }) {
     const available = availableModels.length ? availableModels.join(', ') : 'none';
     const missing   = missingModels.length ? missingModels.join(', ') : 'none';
-    const base      = `[provider/${provider}] expected ${requireParallelModels}+ models loaded ` +
-        `(chat=${model || 'unset'}, embedding=${embeddingModel || 'unset'}); observed ${observedCount} loaded ` +
-        `(available=${available}, required=${requiredModels.join(', ') || 'none'}, missing=${missing}); ` +
+    const extra     = extraModels.length ? extraModels.join(', ') : 'none';
+    const requiredObserved = Neo.isNumber(observedRequiredCount) ? observedRequiredCount : observedCount;
+    const base      = `[provider/${provider}] expected ${requireParallelModels}+ required models loaded ` +
+        `(chat=${model || 'unset'}, embedding=${embeddingModel || 'unset'}); observed ${requiredObserved} required / ${observedCount} total loaded ` +
+        `(available=${available}, required=${requiredModels.join(', ') || 'none'}, missing=${missing}, extra=${extra}); ` +
         'model swap penalty likely;';
+
+    if (provider === 'ollama' && missingModels.length) {
+        return `${base} pull missing configured model(s): ${missingModels.map(item => `ollama pull ${item}`).join(' && ')}.`;
+    }
 
     return provider === 'ollama'
         ? `${base} set OLLAMA_MAX_LOADED_MODELS=${requireParallelModels} in the Ollama server environment.`
@@ -1050,8 +1075,12 @@ export async function probeProviderParallelModelCapacity({
         : await fetchOpenAiCompatibleModels({host: target.host, timeoutMs});
     const uniqueAvailable = [...new Set(availableModels)];
     const missingModels   = requiredModels.filter(model => !uniqueAvailable.includes(model));
+    const requiredModelSet = new Set(requiredModels);
+    const extraModels     = uniqueAvailable.filter(model => !requiredModelSet.has(model));
     const observedCount   = uniqueAvailable.length;
-    const ready           = observedCount >= requireParallelModels && missingModels.length === 0;
+    const observedRequiredCount = uniqueAvailable.filter(model => requiredModelSet.has(model)).length;
+    const requiredResidentModels = Math.min(requireParallelModels, requiredModels.length);
+    const ready           = observedRequiredCount >= requiredResidentModels && missingModels.length === 0;
 
     return {
         ready,
@@ -1062,17 +1091,22 @@ export async function probeProviderParallelModelCapacity({
         requireParallelModels,
         requiredModels,
         availableModels: uniqueAvailable,
+        extraModels,
         missingModels,
         observedCount,
+        observedRequiredCount,
+        requiredResidentModels,
         warning        : ready ? null : createParallelModelCapacityWarning({
-            provider       : target.provider,
-            model          : target.model,
-            embeddingModel : target.embeddingModel,
+            provider             : target.provider,
+            model                : target.model,
+            embeddingModel       : target.embeddingModel,
             requiredModels,
-            availableModels: uniqueAvailable,
+            availableModels      : uniqueAvailable,
             missingModels,
+            extraModels,
             observedCount,
-            requireParallelModels
+            observedRequiredCount,
+            requireParallelModels: requiredResidentModels
         })
     };
 }
