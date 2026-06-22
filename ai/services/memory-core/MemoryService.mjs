@@ -525,28 +525,11 @@ class MemoryService extends Base {
                 activeSegmentKey: segmentKey
             }).catch(() => {});
 
-            // 4. Best-effort inline tweet-summary via the configured chat model (the modelProvider
-            //    SSOT — reads the resolved leaf at the use site, never aliases it). Fire-and-forget
-            //    so the per-turn write stays fast: the memory is already WAL-accepted and visible
-            //    through the pending recency overlay; this only enriches graph projection
-            //    asynchronously. Fully self-contained —
-            //    errors/timeouts never touch the write path, and a null summary never hides the turn
-            //    (recency recall falls back to raw content). The summarizer choice (local gemma4 OR
-            //    remote gemini-flash) is the user's deployment-agnostic provider setting → cloud-ready.
-            this.buildMiniSummary({prompt, response}).then(miniSummary => {
-                if (miniSummary) {
-                    GraphService.upsertNode({
-                        id              : memoryId,
-                        type            : 'AGENT_MEMORY',
-                        name            : `Memory: ${timestamp}`,
-                        description     : `Agent thought flow inside session ${sessionId}.`,
-                        semanticVectorId: memoryId,
-                        // Archive-aware re-upsert: a tombstone set between the initial projection and this
-                        // post-summary re-mint must not be dropped (see _withArchiveState).
-                        properties: this._withArchiveState({...memoryProperties, miniSummary})
-                    });
-                }
-            }).catch(() => {});
+            // The per-turn miniSummary is NOT generated inline: that fired a chat-model call on every
+            // memory write, in parallel with the orchestrator's exclusive-heavy tasks — starving the
+            // model of an idle window. The AGENT_MEMORY node is already projected by
+            // `_projectMemoryToGraph` (with a null miniSummary); the scheduled `backfillMiniSummaries`
+            // pass enriches it under the heavy lease. Model inference stays orchestrator-driven.
 
             // 5. Mailbox delta signal: per-turn piggyback of inbox unread-count + latest preview.
             //    Non-fatal — buildMailboxDelta swallows its own errors and returns null on failure,

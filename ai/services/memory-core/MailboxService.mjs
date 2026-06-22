@@ -7,7 +7,6 @@ import WakeSubscriptionService                  from './WakeSubscriptionService.
 import {execFile}                               from 'child_process';
 import {promisify}                              from 'util';
 import crypto                                   from 'crypto';
-import SemanticGraphExtractor                   from '../../services/graph/SemanticGraphExtractor.mjs';
 
 const
     execFileAsync                     = promisify(execFile),
@@ -673,26 +672,13 @@ class MailboxService extends Base {
         for (const t of relatedTickets) GraphService.linkNodes(messageId, t, 'REFERENCES_TICKET', 1.0, { timestamp, userId: senderUserId, sharedEntity: true });
         for (const c of taggedConcepts) GraphService.linkNodes(messageId, c, 'TAGGED_CONCEPT', 1.0, { timestamp, userId: senderUserId, sharedEntity: true });
 
-        // 4. Auto-emit TAGGED_CONCEPT edges asynchronously without blocking delivery
-        SemanticGraphExtractor.extractMessageConcepts(body).then(concepts => {
-            if (concepts && concepts.length > 0) {
-                for (const c of concepts) {
-                    // Ensure the concept node exists before linking
-                    if (!db.nodes.has(c)) {
-                        let type = c.split(':')[0];
-                        let name = c.split(':').slice(1).join(':');
-                        GraphService.upsertNode({
-                            id        : c,
-                            type,
-                            name      : name || c,
-                            properties: { auto_extracted: true }
-                        });
-                    }
-                    // Use slightly lower weight for auto-extracted concepts
-                    GraphService.linkNodes(messageId, c, 'TAGGED_CONCEPT', 0.8, { timestamp, userId: senderUserId, sharedEntity: true });
-                }
-            }
-        }).catch(() => { /* error logged internally */ });
+        // Per-message auto concept-extraction is intentionally NOT run inline: it fired a chat-model
+        // call (up to 2 attempts) on EVERY message, in parallel with the orchestrator's exclusive-heavy
+        // tasks — starving the model of an idle window. The curated `taggedConcepts` edges (weight 1.0)
+        // are already linked above; the low-confidence auto-extracted concepts (weight 0.8) were the
+        // bulk of the non-curated graph population and are dropped here as redundant noise. Concept
+        // mining stays orchestrator-driven (scheduled, lease-gated), keeping model inference off the
+        // message hot path.
 
         WakeSubscriptionService.pump().catch(e => logger.error('[wake-pump]', e));
 
