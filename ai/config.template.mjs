@@ -634,6 +634,22 @@ class Config extends ConfigProvider {
                     port   : leaf('11435', 'NEO_ORCHESTRATOR_MLX_PORT', 'string')
                 },
                 /**
+                 * Orchestrator-owned native Ollama server config. Operators tune via gitignored
+                 * `ai/config.mjs` or env var `NEO_ORCHESTRATOR_OLLAMA_ENABLED`.
+                 *
+                 * - `enabled`: whether the orchestrator may supervise `ollama serve` for local-dev
+                 *   roles explicitly routed through the native `ollama` provider. The task is
+                 *   still omitted when no configured chat / embedding role targets `ollama`, so
+                 *   this default does not start Ollama for the standard OpenAI-compatible setup.
+                 *   When active, `OLLAMA_HOST`, `OLLAMA_KEEP_ALIVE`, `OLLAMA_CONTEXT_LENGTH`, and
+                 *   `OLLAMA_MAX_LOADED_MODELS` are derived from the canonical provider and
+                 *   local-model config leaves.
+                 * @type {Object}
+                 */
+                ollama: {
+                    enabled: leaf(true, 'NEO_ORCHESTRATOR_OLLAMA_ENABLED', 'boolean')
+                },
+                /**
                  * Orchestrator-owned LM Studio CLI (`lms`) inference server config. Operators
                  * tune via gitignored `ai/config.mjs` or env vars (`NEO_ORCHESTRATOR_LMS_ENABLED`,
                  * `NEO_ORCHESTRATOR_LMS_MODEL`, `NEO_ORCHESTRATOR_LMS_PORT`).
