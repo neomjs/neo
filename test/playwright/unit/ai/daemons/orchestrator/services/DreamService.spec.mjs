@@ -398,7 +398,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
                 id        : `nl-success-${i}`,
                 sequenceId: 'seq-weak-evidence',
                 timestamp : baseTimestamp + i,
-                args      : {className: 'Neo.button.Base', componentId: 'button-instance-1'},
+                args      : {parentId: 'root-container', config: {className: 'Neo.button.Base', componentId: 'button-instance-1'}},
                 result    : {ok: true}
             });
         }
@@ -406,7 +406,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             id        : 'nl-failure-0',
             sequenceId: 'seq-weak-evidence',
             timestamp : baseTimestamp + 10,
-            args      : {className: 'Neo.button.Base', componentId: 'button-instance-1'},
+            args      : {parentId: 'root-container', config: {className: 'Neo.button.Base', componentId: 'button-instance-1'}},
             result    : {error: 'synthetic failure'},
             success   : 0
         });
@@ -516,7 +516,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         });
     });
 
-    test('executeNLActionDigest ignores nested result payload targets (#9890)', async () => {
+    test('executeNLActionDigest ignores read-tool args and nested result payload targets (#9890)', async () => {
         createNlActionLogTable();
 
         GraphService.upsertNode({
@@ -547,10 +547,11 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             sequenceId: 'seq-result-overharvest',
             timestamp : Date.now() - 5000,
             tool      : 'get_component_tree',
-            args      : {className: 'Neo.button.TargetedAction'},
+            args      : {className: 'Neo.button.TargetedAction', id: 'result-only-component'},
             result    : {
                 root: {
                     className: 'Neo.panel.ResultOnly',
+                    id       : 'result-only-component',
                     children : [{className: 'Neo.panel.ResultOnly'}]
                 }
             }
@@ -572,11 +573,12 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             targetNode     = GraphService.db.nodes.get('class-targeted-action'),
             resultOnlyNode = GraphService.db.nodes.get('class-result-only');
 
-        expect(result.qualifyingSequences).toBe(1);
-        expect(result.targetMatches).toBe(1);
-        expect(targetEdge).toBeTruthy();
+        expect(result.qualifyingSequences).toBe(0);
+        expect(result.targetMatches).toBe(0);
+        expect(targetEdge).toBeUndefined();
         expect(resultOnlyEdge).toBeUndefined();
-        expect(targetNode.properties.capabilityGap).toContain('[NL_ACTION_WEAK_EVIDENCE]');
+        expect(targetNode.properties.capabilityGap).toContain('[TEST_GAP]');
+        expect(targetNode.properties.capabilityGap).not.toContain('[NL_ACTION_WEAK_EVIDENCE]');
         expect(resultOnlyNode.properties.capabilityGap).toContain('[TEST_GAP]');
         expect(resultOnlyNode.properties.capabilityGap).not.toContain('[NL_ACTION_WEAK_EVIDENCE]');
     });

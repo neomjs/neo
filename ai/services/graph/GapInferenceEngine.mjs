@@ -517,10 +517,31 @@ class GapInferenceEngine extends Base {
         const targets = {classNames: new Set(), componentIds: new Set()};
 
         for (const row of rows) {
+            if (!this.isNlActionValidationTool(row.tool)) continue;
+
             this.collectNlActionTargets(this.parseJsonValue(row.args), row.tool, targets);
         }
 
         return targets;
+    }
+
+    /**
+     * @summary Determines whether an NL tool can provide weak validation evidence.
+     *
+     * Read/orientation tools can mention broad component ids or class names without exercising
+     * the returned surface. Only write/interaction tools are allowed to mint weak runtime evidence.
+     * @param {String} tool Neural Link tool name.
+     * @returns {Boolean} `true` when the tool has target-bearing mutation or interaction intent.
+     * @protected
+     */
+    isNlActionValidationTool(tool = '') {
+        const name = String(tool || '');
+
+        if (/^(get|list|inspect|query|read|health|who|manage)_/i.test(name)) {
+            return false;
+        }
+
+        return /^(create|set|update|remove|destroy|call|patch|simulate|trigger|click|type|drag|select|focus|blur|undo|redo|commit|abort|begin)_/i.test(name);
     }
 
     /**
@@ -544,6 +565,19 @@ class GapInferenceEngine extends Base {
                     .forEach(componentId => targets.componentIds.add(componentId));
             } else if (key === 'id' && isComponentTool && typeof item === 'string' && item.length > 0) {
                 targets.componentIds.add(item);
+            }
+        }
+
+        for (const key of ['config', 'properties']) {
+            const item = value[key];
+            if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+
+            if (typeof item.className === 'string' && item.className.length > 0) {
+                targets.classNames.add(item.className);
+            }
+
+            if (typeof item.componentId === 'string' && item.componentId.length > 0) {
+                targets.componentIds.add(item.componentId);
             }
         }
     }
