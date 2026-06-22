@@ -39,6 +39,6 @@ try {
         toolProjectionMode: resolveToolProjectionMode(options.toolProjectionMode)
     }).ready();
 } catch (error) {
-    logger.error('Fatal error during server initialization:', error);
+    logger.fatalStartup('Fatal error during server initialization:', error);
     process.exit(1);
 }

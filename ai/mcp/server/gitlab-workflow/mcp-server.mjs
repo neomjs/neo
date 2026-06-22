@@ -34,6 +34,6 @@ try {
         configFile: options.config
     }).ready();
 } catch (error) {
-    logger.error('Fatal error during server initialization:', error);
+    logger.fatalStartup('Fatal error during server initialization:', error);
     process.exit(1);
 }
