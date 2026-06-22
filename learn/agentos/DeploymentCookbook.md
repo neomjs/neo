@@ -150,6 +150,8 @@ separate from Agent OS startup failures:
 ```sh
 NEO_LOCAL_MODEL_KEEP_ALIVE=-1 \
 NEO_LOCAL_MODEL_CONTEXT_LENGTH=262144 \
+NEO_LOCAL_MODEL_NUM_PARALLEL=1 \
+NEO_LOCAL_MODEL_MAX_LOADED_MODELS=2 \
 NEO_LOCAL_MODEL_MEMORY_LIMIT=32g \
 docker compose -f ai/deploy/docker-compose.yml --profile local-model up -d local-model
 docker compose -f ai/deploy/docker-compose.yml --profile local-model exec local-model ollama pull <chat-model>
@@ -178,6 +180,7 @@ set the provider process environment to at least the same count:
 ```sh
 OLLAMA_KEEP_ALIVE=-1 \
 OLLAMA_CONTEXT_LENGTH=262144 \
+OLLAMA_NUM_PARALLEL=1 \
 OLLAMA_MAX_LOADED_MODELS=2 \
 ollama serve
 ```
@@ -193,8 +196,10 @@ The expected failure signatures are:
 - Provider not started or not on the compose network: KB/MC/orchestrator provider
   calls fail to connect to `local-model:11434`.
 - Resource pressure: the `local-model` container restarts or fails its healthcheck;
-  tune `NEO_LOCAL_MODEL_MEMORY_LIMIT`, `NEO_LOCAL_MODEL_CPU_LIMIT`, or the chosen
-  model before treating Agent OS services as faulty.
+  tune `NEO_LOCAL_MODEL_NUM_PARALLEL`, `NEO_LOCAL_MODEL_CONTEXT_LENGTH`,
+  `NEO_LOCAL_MODEL_MAX_LOADED_MODELS`, `NEO_LOCAL_MODEL_MEMORY_LIMIT`,
+  `NEO_LOCAL_MODEL_CPU_LIMIT`, or the chosen model before treating Agent OS
+  services as faulty.
 
 ## Section 6: Environment Variable Inventory
 
@@ -227,7 +232,7 @@ Supply these values per service/profile as needed:
 | `NEO_OPENAI_COMPATIBLE_API_KEY` | KB, MC, Orchestrator | Optional bearer token for OpenAI-compatible providers that require one; normally empty for the local compose service. |
 | `NEO_OLLAMA_KEEP_ALIVE`, `NEO_OPENAI_COMPATIBLE_KEEP_ALIVE` | KB, MC, Orchestrator | Provider request keep-alive override. Default `-1` keeps the selected local model resident unless the operator explicitly pins a shorter retention window or `0` unload control. |
 | `NEO_OLLAMA_REQUIRE_PARALLEL_MODELS`, `NEO_OPENAI_COMPATIBLE_REQUIRE_PARALLEL_MODELS` | KB, MC, Orchestrator | Local-provider residency expectation for chat + embedding coexistence. Default `2`; the provider-readiness check warns if the selected graph provider cannot observe that count and both configured model names. |
-| `NEO_LOCAL_MODEL_IMAGE`, `NEO_LOCAL_MODEL_KEEP_ALIVE`, `NEO_LOCAL_MODEL_CONTEXT_LENGTH`, `NEO_LOCAL_MODEL_MEMORY_LIMIT`, `NEO_LOCAL_MODEL_CPU_LIMIT` | `local-model` | Optional image/runtime/resource overrides for the self-hosted provider container. Defaults keep the model resident (`-1`), request 262144 context, and reserve a 32g memory envelope for dual-resident chat + embedding Gemma-class local deployments unless the operator explicitly tunes down. |
+| `NEO_LOCAL_MODEL_IMAGE`, `NEO_LOCAL_MODEL_KEEP_ALIVE`, `NEO_LOCAL_MODEL_CONTEXT_LENGTH`, `NEO_LOCAL_MODEL_NUM_PARALLEL`, `NEO_LOCAL_MODEL_MAX_LOADED_MODELS`, `NEO_LOCAL_MODEL_MEMORY_LIMIT`, `NEO_LOCAL_MODEL_CPU_LIMIT` | `local-model` | Optional image/runtime/resource overrides for the self-hosted provider container. Defaults keep the model resident (`-1`), request 262144 context with one parallel request, allow two loaded models for chat + embedding residency, and reserve a 32g memory envelope unless the operator explicitly tunes down. |
 | `NEO_AUTO_SYNC=false` | KB | Prevents one-shot local KB sync during server startup. |
 | `NEO_KB_AUTO_START_DATABASE=false` | KB | Prevents the KB server from starting a local Chroma process. |
 | `NEO_MEM_AUTO_START_DATABASE=false` | MC | Prevents the MC server from starting a local Chroma process. |
