@@ -355,6 +355,68 @@ class GoldenPathSynthesizer extends Base {
     }
 
     /**
+     * @summary Removes stale Computed Golden Path guide edges from the frontier.
+     *
+     * `frontier -> GUIDES` edges are a machine-consumed steering surface. Each
+     * synthesis pass must remove recommendations that are no longer present in
+     * the current computed result; otherwise a zero-node render can leave old
+     * guidance active in the graph after the handoff stops rendering it.
+     *
+     * @param {Object} [options]
+     * @param {Object} [options.graphService=GraphService] Graph service instance.
+     * @param {Set<String>} [options.currentTargetIds=new Set()] Current computed target ids.
+     * @returns {Number} Count of stale guide edges removed.
+     */
+    static pruneStaleFrontierGuideEdges({
+        graphService = GraphService,
+        currentTargetIds = new Set()
+    } = {}) {
+        graphService?.db?.getAdjacentNodes?.('frontier', 'out');
+
+        const staleEdges = (graphService?.db?.edges?.getByIndex?.('source', 'frontier') || [])
+            .filter(edge => edge.type === 'GUIDES' && !currentTargetIds.has(edge.target));
+
+        if (staleEdges.length > 0) {
+            graphService.db.edges.remove(staleEdges.map(edge => edge.id));
+            // Drop the exact index references returned above in case the Store map points at refreshed edge objects.
+            graphService.db.edges.updateIndexMaps?.(null, staleEdges);
+        }
+
+        return staleEdges.length
+    }
+
+    /**
+     * @summary Renders the bounded diagnostic for an empty Computed Golden Path pass.
+     *
+     * The handoff should distinguish "no computed recommendation survived the
+     * filter chain" from "the handoff forgot to render the routing surface".
+     *
+     * @param {Object} stats Candidate-count diagnostics for the current pass.
+     * @returns {String} Markdown section.
+     */
+    static renderComputedGoldenPathEmptySection(stats = {}) {
+        const count = value => Number.isFinite(Number(value)) ? Number(value) : 0;
+
+        return [
+            '',
+            '## Computed Golden Path (Strategic Recommendation)',
+            '',
+            'No actionable computed recommendations survived the current Tri-Vector filter pass.',
+            '',
+            `- Semantic candidates: ${count(stats.semanticCandidates)}`,
+            `- SQLite OPEN matches: ${count(stats.sqliteOpenMatches)}`,
+            `- Blocked candidates filtered: ${count(stats.blockedCandidates)}`,
+            `- Non-actionable candidates filtered: ${count(stats.nonActionableCandidates)}`,
+            `- Scored actionable candidates: ${count(stats.scoredCandidates)}`,
+            `- Selected top nodes: ${count(stats.selectedTopNodes)}`,
+            `- Stale frontier GUIDES pruned: ${count(stats.prunedGuideEdges)}`,
+            '',
+            'This is an empty-state diagnostic for the computed routing surface. Use the Current Release / Incident Focus section for visibility-only hot work while the computed candidate chain is empty.',
+            ''
+        ].join('\n')
+    }
+
+    /**
      * @summary Scores one synced issue as a current release / incident focus candidate.
      *
      * This is deliberately a local-sync signal, not graph-centrality routing. It
@@ -702,6 +764,15 @@ class GoldenPathSynthesizer extends Base {
 
         // Pillar 2: Structural Weight from SQLite Graph
         const scoredNodes = [];
+        const scoringStats = {
+            semanticCandidates     : semanticIds.length,
+            sqliteOpenMatches      : 0,
+            blockedCandidates      : 0,
+            nonActionableCandidates: 0,
+            scoredCandidates       : 0,
+            selectedTopNodes       : 0,
+            prunedGuideEdges       : 0
+        };
         const SEMANTIC_WEIGHT = 2.0;
         const STRUCTURAL_WEIGHT = 1.0;
 
@@ -722,6 +793,7 @@ class GoldenPathSynthesizer extends Base {
             `);
 
             const results = stmt.all(...semanticIds);
+            scoringStats.sqliteOpenMatches = results.length;
 
             for (const row of results) {
                 const issueId = row.id;
@@ -741,7 +813,10 @@ class GoldenPathSynthesizer extends Base {
                     }
                 }
 
-                if (isBlocked) continue; // Architecturally blocked issues cannot be Golden
+                if (isBlocked) {
+                    scoringStats.blockedCandidates++;
+                    continue; // Architecturally blocked issues cannot be Golden
+                }
 
                 const idx = semanticIds.indexOf(issueId);
                 const semantic_distance = parseFloat(semanticDistances[idx]) || 0.1;
@@ -756,6 +831,7 @@ class GoldenPathSynthesizer extends Base {
                 let priority = (semanticScore * SEMANTIC_WEIGHT) + (struct_score * STRUCTURAL_WEIGHT);
 
                 if (!this.constructor.isActionableComputedRecommendation(nodeData || {id: issueId})) {
+                    scoringStats.nonActionableCandidates++;
                     logger.debug(`[GoldenPathSynthesizer] Skipping non-actionable computed recommendation: ${issueId}`);
                     continue;
                 }
@@ -777,6 +853,11 @@ class GoldenPathSynthesizer extends Base {
         // Remove mathematically rejected targets (Negative ROI), then slice
         const topNodes = scoredNodes.filter(n => n.score > -5000).slice(0, aiConfig.goldenPathTopNodeRenderLimit);
         const goldenIds = new Set(topNodes.map(item => item.node.id));
+        scoringStats.scoredCandidates = scoredNodes.length;
+        scoringStats.selectedTopNodes = topNodes.length;
+        scoringStats.prunedGuideEdges = this.constructor.pruneStaleFrontierGuideEdges({
+            currentTargetIds: goldenIds
+        });
 
         let markdownAppend = '';
 
@@ -834,6 +915,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                 logger.warn('[GoldenPathSynthesizer] Failed to generate semantic interpretation for Golden Path (LLM Offline). Proceeding with pure mathematical output.', e);
             }
         } else {
+            markdownAppend = this.constructor.renderComputedGoldenPathEmptySection(scoringStats);
             logger.info('[GoldenPathSynthesizer] No actionable unblocked issues found. Golden path empty.');
         }
 
