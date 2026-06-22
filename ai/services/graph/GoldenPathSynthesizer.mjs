@@ -703,10 +703,11 @@ class GoldenPathSynthesizer extends Base {
     /**
      * @summary Determines whether a graph node can be an immediate computed recommendation.
      *
-     * The Computed Golden Path is an execution steering surface. Discussions, epics,
-     * and tickets explicitly marked not-ready may still be important visibility, but
-     * presenting them as "next immediate focus" causes release-blind governance
-     * drift.
+     * The Computed Golden Path is an execution steering surface. ISSUE (work-to-do) and
+     * DISCUSSION (an open convergence-to-drive) are both steerable next-focus; other node
+     * types (CONCEPT / ADR / CLASS / ...) and tickets explicitly marked not-ready are
+     * visibility, not immediate focus, and stay excluded — presenting those as "next
+     * immediate focus" causes release-blind governance drift.
      *
      * @param {Object} nodeData Parsed graph node payload.
      * @returns {Boolean}
@@ -715,9 +716,9 @@ class GoldenPathSynthesizer extends Base {
         const nodeId = String(nodeData?.id || '');
         const nodeType = String(nodeData?.type || nodeData?.properties?.type || '').toUpperCase();
 
-        if (nodeType === 'DISCUSSION' || nodeId.startsWith('discussion-')) return false;
-        if (nodeType && nodeType !== 'ISSUE') return false;
-        if (!nodeId.startsWith('issue-')) return false;
+        // ISSUE = work-to-do, DISCUSSION = an open convergence-to-drive; both are execution-steerable.
+        if (nodeType && nodeType !== 'ISSUE' && nodeType !== 'DISCUSSION') return false;
+        if (!nodeId.startsWith('issue-') && !nodeId.startsWith('discussion-')) return false;
 
         const labels = this.normalizeLabels(nodeData?.properties?.labels || nodeData?.labels);
 
@@ -1175,11 +1176,12 @@ class GoldenPathSynthesizer extends Base {
             const semanticResults = await graphColl.query({
                 queryEmbeddings: [frontierEmbedding],
                 nResults       : 20,
-                // Scope the candidate pool to actionable ISSUE vectors. Without this, the top-20 is
-                // taken across ALL embedded node types (the CONCEPT + ADR/GUIDES meta dominate), so the
-                // downstream state='OPEN' intersection yields zero open issues and the Computed Golden
-                // Path renders empty even when fresh open issues exist.
-                where          : {type: 'ISSUE'}
+                // Scope the candidate pool to actionable ISSUE + DISCUSSION vectors. Without this, the
+                // top-20 is taken across ALL embedded node types (the CONCEPT + ADR/GUIDES meta dominate),
+                // so the downstream state='OPEN' intersection yields nothing and the Computed Golden Path
+                // renders empty even when fresh open issues/discussions exist. Both are execution-steerable
+                // (work-to-do / converge-to-drive) and both embed with state='OPEN' metadata (IssueIngestor).
+                where          : {type: {'$in': ['ISSUE', 'DISCUSSION']}}
             });
             if (semanticResults && semanticResults.ids && semanticResults.ids.length > 0) {
                 semanticIds = semanticResults.ids[0];
