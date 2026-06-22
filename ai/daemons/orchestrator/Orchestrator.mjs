@@ -200,6 +200,67 @@ export class Orchestrator extends Base {
     }
 
     /**
+     * @summary One-shot active alarm dispatcher for the REM consolidation-liveness watchdog.
+     *
+     * The watchdog's passive leg is the health record plus WARN log. This active leg mirrors
+     * {@link #embedDrainLivenessAlarmDispatcher}: a durable swarm/operator A2A alarm carries the
+     * consolidation-stall payload, then a best-effort wake pulse nudges the harness owner. Each leg is
+     * independently guarded so alarm transport failures never suppress the passive liveness record.
+     *
+     * @param {Object} payload
+     * @param {Boolean} payload.hasCycle Whether a successful REM cycle has ever been observed.
+     * @param {String|null} payload.lastCompletedAt ISO timestamp of the last successful REM cycle.
+     * @param {Number} payload.stalenessMs Age since the last successful REM cycle.
+     * @param {Number} payload.undigestedCount Count of sessions still waiting for graph digestion.
+     * @param {Number} payload.thresholdMs Stall threshold that tripped.
+     * @param {Number|null} payload.stalledSince Epoch ms the stall was first observed.
+     * @returns {Promise<void>}
+     */
+    remConsolidationLivenessAlarmDispatcher = async ({
+        hasCycle,
+        lastCompletedAt,
+        stalenessMs,
+        undigestedCount,
+        thresholdMs,
+        stalledSince
+    } = {}) => {
+        const sender = process.env.NEO_AGENT_IDENTITY
+            ? normalizeAgentIdentityNodeId(process.env.NEO_AGENT_IDENTITY)
+            : '@system';
+        const stalledSinceIso = Number.isFinite(stalledSince) ? new Date(stalledSince).toISOString() : 'unknown';
+        const staleHours      = (Number(stalenessMs || 0) / (60 * 60 * 1000)).toFixed(1);
+        const subject = hasCycle
+            ? `[rem-consolidation-stall] last REM cycle is ${staleHours}h stale`
+            : `[rem-consolidation-stall] no REM cycle recorded with ${undigestedCount} undigested sessions`;
+        const body =
+            `The REM consolidation-liveness watchdog detected a STALLED graph-digestion pipeline.\n\n` +
+            `- last successful REM cycle: ${lastCompletedAt || 'none recorded'}\n` +
+            `- age since last successful cycle: ${stalenessMs}ms (~${staleHours}h)\n` +
+            `- undigested session count: ${undigestedCount}\n` +
+            `- stall threshold: ${thresholdMs}ms\n` +
+            `- stalled since: ${stalledSinceIso}\n\n` +
+            `Golden Path can keep producing a fresh forecast while the graph stops absorbing sessions. ` +
+            `Investigate the dream / REM consolidation lane on the host that owns local graph digestion.`;
+
+        try {
+            await RequestContextService.run({agentIdentityNodeId: sender}, async () => {
+                await MailboxService.addMessage({to: 'AGENT:*', subject, body, priority: 'high'});
+            });
+        } catch (e) {
+            this.writeLog('ERROR', `[Orchestrator] REM consolidation stall-alarm A2A broadcast failed: ${e.message}`);
+        }
+
+        const targetIdentity = this.swarmHeartbeatIdentity;
+        if (targetIdentity) {
+            try {
+                await WakeSubscriptionService.emitHeartbeatPulse({targetIdentity: normalizeAgentIdentityNodeId(targetIdentity)});
+            } catch (e) {
+                this.writeLog('ERROR', `[Orchestrator] REM consolidation stall-alarm wake pulse failed: ${e.message}`);
+            }
+        }
+    }
+
+    /**
      * @param {Neo.ai.daemons.services.ProcessSupervisorService|Object|null} value
      * @returns {Neo.ai.daemons.services.ProcessSupervisorService}
      */
