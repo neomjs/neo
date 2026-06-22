@@ -1,6 +1,7 @@
 import {test, expect} from '@playwright/test';
 import path           from 'node:path';
 import {
+    createProgram,
     filterMjsFiles,
     parseArgs,
     runAgentPreflight,
@@ -25,13 +26,26 @@ const validBody = [
 ].join('\n');
 
 test.describe('agent-preflight utility', () => {
-    test('parses files, optional PR body, and fix mode', () => {
+    test('builds the Commander program with the expected option surface', () => {
+        const program = createProgram();
+
+        expect(program.helpInformation()).toContain('Usage: agent-preflight [options] [files...]');
+        expect(program.helpInformation()).toContain('--pr-body <file>');
+        expect(program.helpInformation()).toContain('--no-fix')
+    });
+
+    test('parses files, optional PR body, and fix mode through Commander', () => {
         expect(parseArgs(['--pr-body', 'body.md', '--no-fix', 'src/a.mjs'])).toEqual({
             files : ['src/a.mjs'],
             fix   : false,
             help  : false,
             prBody: 'body.md'
         });
+    });
+
+    test('uses Commander option validation for unknown flags and missing values', () => {
+        expect(() => parseArgs(['--bogus'])).toThrow();
+        expect(() => parseArgs(['--pr-body'])).toThrow()
     });
 
     test('filters source gates to .mjs files', () => {

@@ -1,5 +1,6 @@
 import {execFileSync}             from 'node:child_process';
 import {existsSync, readFileSync} from 'node:fs';
+import {Command}                  from 'commander/esm.mjs';
 import path                       from 'node:path';
 import process                    from 'node:process';
 import {fileURLToPath}            from 'node:url';
@@ -21,61 +22,46 @@ export const INVISIBLE_PR_BODY_ANCHORS = [
 
 const
     RESOLVES_PATTERN        = /\bResolves:?\s+#\d+/i,
-    FORBIDDEN_CLOSE_PATTERN = /\b(Closes|Fixes):?\s+#\d+/i,
-    USAGE                   = [
-        'Usage: node buildScripts/util/agent-preflight.mjs [--pr-body <file>] [--no-fix] [files...]',
-        '',
-        'Runs the agent commit/PR preflight gates in one pass:',
-        '  - check-ticket-archaeology on scoped .mjs files',
-        '  - check-block-alignment --fix, then a staged-scope check',
-        '  - optional local PR-body template lint when --pr-body is provided',
-        '',
-        'When files are omitted, staged ACMR files are read from git.'
-    ].join('\n');
+    FORBIDDEN_CLOSE_PATTERN = /\b(Closes|Fixes):?\s+#\d+/i;
 
 /**
- * @summary Parses the agent-preflight command line without pulling in another CLI dependency.
+ * @summary Builds the Commander program for the agent preflight helper.
+ * @returns {Command}
+ */
+export function createProgram() {
+    return new Command()
+        .name('agent-preflight')
+        .description('Runs the agent commit/PR preflight gates in one pass.')
+        .usage('[options] [files...]')
+        .option('--pr-body <file>', 'Run local PR-body template lint against the given markdown file.')
+        .option('--no-fix', 'Skip the check-block-alignment --fix pass.')
+        .argument('[files...]', 'Optional file paths. When omitted, staged ACMR files are read from git.')
+}
+
+/**
+ * @summary Parses the agent-preflight command line with the shared Commander dependency.
  * @param {String[]} argv
  * @returns {Object}
  */
 export function parseArgs(argv) {
-    const options = {
-        files : [],
-        fix   : true,
+    const program = createProgram();
+
+    program.exitOverride();
+    program.configureOutput({writeOut: () => {}, writeErr: () => {}});
+    program.parse(argv, {from: 'user'});
+
+    const options = program.opts();
+
+    return {
+        files : program.args,
+        fix   : options.fix,
         help  : false,
-        prBody: null
-    };
-
-    for (let i = 0; i < argv.length; i++) {
-        const arg = argv[i];
-
-        if (arg === '-h' || arg === '--help') {
-            options.help = true;
-            continue
-        }
-
-        if (arg === '--no-fix') {
-            options.fix = false;
-            continue
-        }
-
-        if (arg === '--pr-body') {
-            const value = argv[++i];
-            if (!value) {
-                throw new Error('--pr-body requires a file path')
-            }
-            options.prBody = value;
-            continue
-        }
-
-        if (arg.startsWith('-')) {
-            throw new Error(`unknown option: ${arg}`)
-        }
-
-        options.files.push(arg)
+        prBody: options.prBody || null
     }
+}
 
-    return options
+function writeUsage(stream) {
+    stream.write(createProgram().helpInformation())
 }
 
 /**
@@ -190,14 +176,14 @@ export function runAgentPreflight({
     try {
         options = parseArgs(argv)
     } catch (error) {
-        writeLine(stderr, `agent-preflight: ${error.message}`);
-        writeLine(stderr, USAGE);
-        return 2
-    }
+        if (error.code === 'commander.helpDisplayed') {
+            writeUsage(stdout);
+            return 0
+        }
 
-    if (options.help) {
-        writeLine(stdout, USAGE);
-        return 0
+        writeLine(stderr, `agent-preflight: ${error.message}`);
+        writeUsage(stderr);
+        return 2
     }
 
     const failures = [];
