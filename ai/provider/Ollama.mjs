@@ -8,7 +8,8 @@ import {createTimeoutError} from './createTimeoutError.mjs';
  * Ollama's `/api/chat` accepts `format` as either `'json'` or a JSON schema.
  * OpenAI-compatible callers may instead provide `response_format`, while Gemini
  * callers historically use `responseSchema`; normalize those into Ollama's
- * native field without leaking them into `payload.options`.
+ * native field without leaking them into `payload.options`. Provider-neutral
+ * `reasoning_effort: 'none'` maps to Ollama's native `think:false` switch.
  *
  * @param {Object} options Cloned options object that may be mutated by deletion.
  * @returns {Object}
@@ -47,7 +48,10 @@ function extractNativeOllamaFields(options) {
     if (options.think !== undefined) {
         fields.think = options.think;
         delete options.think;
+    } else if (options.reasoning_effort === 'none') {
+        fields.think = false;
     }
+    delete options.reasoning_effort;
 
     return fields;
 }
@@ -154,14 +158,12 @@ class OllamaProvider extends Base {
         payload.keep_alive = clonedOptions.keep_alive === undefined ? this.keepAlive : clonedOptions.keep_alive;
         delete clonedOptions.keep_alive;
 
-        // Caller options this provider does not yet consume — drop them so they don't leak into
-        // ollama's `options` bag. Ollama's native structured-output (`format` schema) + the no-think
-        // wiring are a separate follow-up; until then these keys are inert here, not forwarded.
+        // Caller options this provider does not consume — drop them so they don't leak into
+        // ollama's `options` bag.
         delete clonedOptions.responseSchema;
         delete clonedOptions.responseSchemaName;
         delete clonedOptions.responseSchemaStrict;
         delete clonedOptions.response_format;
-        delete clonedOptions.reasoning_effort;
 
         if (Object.keys(clonedOptions).length > 0) {
             payload.options = clonedOptions;
