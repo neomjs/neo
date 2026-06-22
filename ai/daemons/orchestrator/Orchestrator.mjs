@@ -275,6 +275,8 @@ export class Orchestrator extends Base {
     get embedDaemonEnabled()             { return resolveDeploymentEnabled('embedDaemonEnabled');             }
     get embedDrainLivenessWatchdogWalDir()      { return memoryCoreConfig.memoryWal.dir; }
     get embedDrainLivenessWatchdogThresholdMs() { return memoryCoreConfig.memoryWal.embedDrainStallThresholdMs; }
+    get remConsolidationWatchdogRunStateDir()   { return memoryCoreConfig.remRunStateDir; }
+    get remConsolidationWatchdogThresholdMs()   { return memoryCoreConfig.remConsolidationStallThresholdMs; }
     get swarmHeartbeatEnabled()          { return resolveDeploymentEnabled('swarmHeartbeatEnabled');          }
     get goldenPathRepoEnrichmentEnabled(){ return resolveDeploymentEnabled('goldenPathRepoEnrichmentEnabled');}
     get graphLogCompactionEnabled()      { return AiConfig.orchestrator.graphLogCompaction.enabled;      }

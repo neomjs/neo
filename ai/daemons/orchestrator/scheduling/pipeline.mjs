@@ -1,6 +1,7 @@
 import {collectDueCandidates}                        from './collector.mjs';
 import {pickNextCandidate}                           from './picker.mjs';
 import {evaluateStallAlarm, getEmbedDrainPendingAge} from './embedDrainLivenessWatchdog.mjs';
+import {evaluateConsolidationStallAlarm, getRemCycleStaleness} from './remConsolidationLivenessWatchdog.mjs';
 
 /**
  * Tasks that win the per-poll pick unconditionally when due. `backup` is data-safety:
@@ -96,7 +97,8 @@ export function buildOrchestratorSchedulingOptions({orchestrator, config, now, r
                 dreamOverflowThreshold         : config.orchestrator.intervals.dreamOverflowThreshold,
                 goldenPath                     : config.orchestrator.intervals.goldenPathMs,
                 swarmHeartbeat                 : config.orchestrator.intervals.swarmHeartbeatMs,
-                embedDrainLivenessWatchdogCheck: config.orchestrator.intervals.embedDrainLivenessWatchdogCheckMs
+                embedDrainLivenessWatchdogCheck: config.orchestrator.intervals.embedDrainLivenessWatchdogCheckMs,
+                remConsolidationWatchdogCheck  : config.orchestrator.intervals.remConsolidationWatchdogCheckMs
             },
             enables: {
                 kbSync            : orchestrator.kbSyncEnabled,
@@ -140,6 +142,8 @@ export function buildOrchestratorSchedulingOptions({orchestrator, config, now, r
             embedDrainLivenessWatchdogWalDir      : orchestrator.embedDrainLivenessWatchdogWalDir,
             embedDrainLivenessWatchdogThresholdMs : orchestrator.embedDrainLivenessWatchdogThresholdMs,
             embedDrainLivenessWatchdogAlarmEnabled: orchestrator.embedDaemonEnabled,
+            remConsolidationWatchdogRunStateDir   : orchestrator.remConsolidationWatchdogRunStateDir,
+            remConsolidationWatchdogThresholdMs   : orchestrator.remConsolidationWatchdogThresholdMs,
             writeLog                              : orchestrator.writeLog.bind(orchestrator)
         }
     };
@@ -561,7 +565,9 @@ async function runSwarmHeartbeatTask({taskName, reason, services}) {
 function executeHealthCheckCandidate({candidate, services, runtime}) {
     const runners = {
         'embed-drain-liveness-watchdog': (taskName, reason) =>
-            runEmbedDrainLivenessWatchdogTask({taskName, reason, services, runtime})
+            runEmbedDrainLivenessWatchdogTask({taskName, reason, services, runtime}),
+        'rem-consolidation-liveness-watchdog': (taskName, reason) =>
+            runRemConsolidationLivenessWatchdogTask({taskName, reason, services, runtime})
     };
 
     const executeFn = runners[candidate.taskName];
@@ -668,6 +674,111 @@ async function runEmbedDrainLivenessWatchdogTask({taskName, reason, services, ru
                 failedAt: new Date().toISOString()
             });
             runtime.writeLog?.('ERROR', `[Orchestrator] embed-drain-liveness-watchdog check failed (degraded to no-alarm): ${e.message}`);
+        } catch {
+            // Last-resort swallow: the never-fail guarantee dominates all observability.
+        }
+    }
+}
+
+/**
+ * @summary Runs the REM consolidation-liveness watchdog: read-only staleness check against the REM
+ * run-state store, a passive health-record every check, and a one-shot stall WARN log. Never throws.
+ *
+ * Consolidation-side analog of {@link runEmbedDrainLivenessWatchdogTask} (one subsystem over). The
+ * dream cycle is decoupled from the Golden Path forecast, so a stalled consolidation is otherwise
+ * silent ("green-but-rotting"). Dual signal: (1) PASSIVE — `healthService.recordTaskOutcome` every
+ * check (`failed` when the last successful REM cycle is stale/absent, `completed` otherwise) — the
+ * observable consolidation-liveness signal; (2) a one-shot WARN log fired only on
+ * stall-onset (latched via the clock-free `evaluateConsolidationStallAlarm`), so consecutive stalled
+ * checks do not re-log. The latch (`{alarmed, stalledSince}`) persists on the task-state envelope so it
+ * survives poll cycles and restarts. The body is fully wrapped: a watchdog fault degrades to "no alarm"
+ * and never breaks the scheduling loop. The active swarm/operator A2A escalation (the embed-drain
+ * `embedDrainLivenessAlarmDispatcher` analog) is a deliberate follow-up; this ships the
+ * consolidation-liveness observability via the health-record + WARN log.
+ *
+ * @param {Object} options
+ * @param {String} options.taskName
+ * @param {String} options.reason Scheduling reason.
+ * @param {Object} options.services Runtime collaborators (`taskStateService`, `healthService`).
+ * @param {Object} options.runtime Runtime policy (`remConsolidationWatchdogRunStateDir`,
+ *   `remConsolidationWatchdogThresholdMs`, `writeLog`).
+ * @returns {Promise<void>}
+ */
+async function runRemConsolidationLivenessWatchdogTask({taskName, reason, services, runtime}) {
+    try {
+        services.taskStateService.markStarted(taskName, reason);
+        services.healthService?.recordTaskOutcome?.(taskName, 'running', {reason, startedAt: new Date().toISOString()});
+
+        const now = Date.now();
+        const {hasCycle, readFault, lastCompletedAt, stalenessMs} = await getRemCycleStaleness({
+            remRunStateDir: runtime.remConsolidationWatchdogRunStateDir,
+            now
+        });
+
+        // Backlog guard (the load-bearing axis this watchdog is scoped around): a stale/absent cycle only alarms when there is
+        // undigested work to consolidate. Read it read-only via the dream service's existing scan; a
+        // backlog-read fault folds into `readFault` so it fails soft to no alarm (never a false stall).
+        let undigestedCount  = 0;
+        let backlogReadFault = false;
+        try {
+            const undigested = await services.dreamService?.findUndigestedSessions?.();
+            undigestedCount  = Array.isArray(undigested) ? undigested.length : 0;
+        } catch {
+            backlogReadFault = true;
+        }
+
+        const state       = services.taskStateService.getTaskState(taskName);
+        const alarmState  = state?.remConsolidationAlarm ?? null;
+        const thresholdMs = runtime.remConsolidationWatchdogThresholdMs;
+
+        const {stalled, shouldAlarm, nextAlarmState} = evaluateConsolidationStallAlarm({
+            hasCycle, readFault: readFault || backlogReadFault, stalenessMs, undigestedCount, thresholdMs, alarmState
+        });
+
+        // Stamp the stall-onset timestamp (the clock-free evaluator leaves it null on the latching
+        // transition); preserve it across subsequent latched checks.
+        const stalledSince = stalled
+            ? (shouldAlarm ? now : (alarmState?.stalledSince ?? now))
+            : null;
+        if (state) state.remConsolidationAlarm = {alarmed: nextAlarmState.alarmed, stalledSince};
+
+        const details = {
+            reason,
+            hasCycle,
+            undigestedCount,
+            stalenessMs,
+            thresholdMs,
+            lastCompletedAt: lastCompletedAt === null ? null : new Date(lastCompletedAt).toISOString(),
+            checkedAt      : new Date(now).toISOString()
+        };
+
+        if (stalled) {
+            services.healthService?.recordTaskOutcome?.(taskName, 'failed', {
+                ...details,
+                stalledSince: stalledSince === null ? null : new Date(stalledSince).toISOString()
+            });
+
+            if (shouldAlarm) {
+                runtime.writeLog?.('WARN', `[Orchestrator] rem-consolidation-liveness-watchdog: REM consolidation STALLED (hasCycle=${hasCycle}, stalenessMs=${stalenessMs}, thresholdMs=${thresholdMs}) — the dream stopped laying trails; the graph is rotting while the forecast looks fresh.`);
+            }
+        } else {
+            services.healthService?.recordTaskOutcome?.(taskName, 'completed', details);
+        }
+
+        services.taskStateService.markCompleted(taskName);
+    } catch (e) {
+        // Degrade to "no alarm": record the fault and clear running state, never rethrow.
+        try {
+            const state = services.taskStateService.getTaskState(taskName);
+            if (state) state.lastReason = e.message;
+            services.taskStateService.markFailed(taskName, 1);
+            services.healthService?.recordTaskOutcome?.(taskName, 'failed', {
+                reason,
+                phase   : 'watchdog-error',
+                error   : e.message,
+                failedAt: new Date().toISOString()
+            });
+            runtime.writeLog?.('ERROR', `[Orchestrator] rem-consolidation-liveness-watchdog check failed (degraded to no-alarm): ${e.message}`);
         } catch {
             // Last-resort swallow: the never-fail guarantee dominates all observability.
         }

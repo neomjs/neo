@@ -404,7 +404,15 @@ class Config extends ConfigProvider {
                      * drain-death incident) while staying far below the threshold so the check itself adds
                      * negligible load. `<= 0` disables the lane.
                      */
-                    embedDrainLivenessWatchdogCheckMs: leaf(HOUR_MS, 'NEO_ORCHESTRATOR_EMBED_DRAIN_WATCHDOG_INTERVAL_MS', 'number')
+                    embedDrainLivenessWatchdogCheckMs: leaf(HOUR_MS, 'NEO_ORCHESTRATOR_EMBED_DRAIN_WATCHDOG_INTERVAL_MS', 'number'),
+                    /**
+                     * Cadence of the REM consolidation-liveness watchdog — the read-only, never-fail
+                     * health check (consolidation-side analog of the embed-drain watchdog) that computes
+                     * the age since the last successful REM cycle and raises a one-shot alarm when it
+                     * exceeds `memoryWal`-sibling `remConsolidationStallThresholdMs`.
+                     * Hourly surfaces a stalled dream in hours. `<= 0` disables the lane.
+                     */
+                    remConsolidationWatchdogCheckMs  : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_REM_CONSOLIDATION_WATCHDOG_INTERVAL_MS', 'number')
                 },
                 /**
                  * Chroma daemon recycle policy. The orchestrator kills and respawns the supervised
