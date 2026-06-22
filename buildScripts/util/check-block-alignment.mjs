@@ -16,10 +16,10 @@ import {getStagedAddedLines} from './stagedDiff.mjs';
  * 2. **object-literal colons** (v1b) — within a run of ≥ 2 consecutive same-indent object properties,
  *    the key `:` aligns to one column = the widest key. Shorthand properties (`foo,`) stay in the run
  *    but are not themselves aligned; nested objects re-group at their own indent.
- * 3. **`=` comma-blocks** (v1b) — within a single-keyword comma-block (a lone `const`/`let`/`var`
- *    line + its indented `name = value` continuations), the `=` aligns to one column. Only this
- *    rule-35 unit is grouped — separate consecutive declarations and bare assignments are left alone,
- *    so the gate never re-aligns unrelated statements. A block-opening value (`{`/`(`/`[`) is excluded.
+ * 3. **`=` declaration blocks** (v1b) — aligns the `=` column for both house-style
+ *    repeated-keyword declarations (`let   a = …; const b = …;`) and single-keyword comma-blocks.
+ *    Bare assignments remain out of scope. The legacy lone-keyword comma-block keeps its
+ *    block-opening exclusion; keyworded declaration runs include block-opening call/object values.
  *
  * Conservative grouping (≥ 2 members, same indent, broken by any non-conforming line) so the gate
  * never touches an un-alignable shape and cannot false-positive. The column math is the entire point.
@@ -206,6 +206,10 @@ const
     LONE_KEYWORD = /^\s*(?:const|let|var)\s*$/,        // a lone `const`/`let`/`var` line (opens a comma-block)
     BARE_DECL    = /^(\s+)[A-Za-z_$][\w$]*\s*=\s*.+$/; // its indented `name = value` comma-block continuation
 
+const
+    KEYWORD_DECL           = /^(\s*)(const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(.+)$/,
+    BARE_DECL_CONTINUATION = /^(\s+)[A-Za-z_$][\w$]*\s*=\s*.+$/;
+
 /**
  * @summary The leading whitespace of a line.
  * @param {String} line
@@ -231,6 +235,39 @@ function splitAssignment(line) {
 }
 
 /**
+ * @summary Parses one keyworded variable declaration line. The returned `left` deliberately includes
+ * the keyword (`const foo`) so mixed `let`/`const` blocks align exactly like the coding-guideline
+ * example. Destructuring declarations are intentionally out of scope for this mechanical rule.
+ * @param {String} line
+ * @returns {{indent: String, kind: String, keyword: String, name: String, left: String, value: String}|null}
+ */
+function parseKeywordDeclaration(line) {
+    const match = KEYWORD_DECL.exec(line);
+    if (!match) return null;
+
+    return {
+        indent : match[1],
+        kind   : 'keyword',
+        keyword: match[2],
+        name   : match[3],
+        left   : line.slice(0, line.indexOf('=')).replace(/\s+$/, ''),
+        value  : match[4]
+    };
+}
+
+/**
+ * @summary Parses a bare `name = value` continuation under a keyworded comma-block.
+ * @param {String} line
+ * @returns {{indent: String, kind: String, left: String, value: String}|null}
+ */
+function parseBareDeclaration(line) {
+    const match = BARE_DECL_CONTINUATION.exec(line);
+    if (!match) return null;
+
+    return {indent: match[1], kind: 'bare', ...splitAssignment(line)};
+}
+
+/**
  * @summary Whether an assignment value opens a multi-line block — its last non-space char is an
  * (unclosed) `{`, `(`, or `[`. Such members are excluded from `=`-alignment: the house style leaves a
  * block-opening `=` unaligned beside its simple-valued siblings (e.g. `cloneMap = {` next to an
@@ -244,22 +281,22 @@ function opensMultilineBlock(value) {
 }
 
 /**
- * @summary Splits lines into single-keyword comma-block assignment runs: the indented `<name> = …`
- * continuations under a lone `const`/`let`/`var` keyword line (the rule-35 house-style unit). Separate
- * consecutive declarations (`let a = …; const b = …;`) and bare assignments are deliberately NOT
- * collected — only the comma-block is an alignment group, so unrelated statements are never re-aligned.
+ * @summary Splits lines into declaration assignment runs. Supported house-style units:
+ *
+ * - legacy lone-keyword comma-blocks (`const` then indented bare `name = …` continuations);
+ * - keyword-head comma-blocks (`const first = …,` then indented bare continuations);
+ * - repeated-keyword declaration blocks (`let foo = …; const longerName = …;`).
+ *
+ * Bare assignments are still deliberately NOT collected without a keyword anchor.
  * @param {String[]} lines
  * @param {Boolean[]} [maskedLines]
- * @returns {Array<Number[]>} runs of line indices (length ≥ 2)
+ * @returns {Array<{entries: Array<{lineIndex: Number, left: String, value: String}>, includeBlockOpeners: Boolean, mode: String}>}
  */
 function collectAssignmentRuns(lines, maskedLines = []) {
     const runs = [];
     let   i    = 0;
 
     while (i < lines.length) {
-        // The single-keyword comma-block — a lone `const`/`let`/`var` line, then its indented
-        // `name = value` continuations at one deeper indent — is the only `=`-alignment unit (rule 35).
-        // Separate consecutive declarations and bare assignments are NOT grouped.
         if (!maskedLines[i] && LONE_KEYWORD.test(lines[i])) {
             const keywordIndent = leadingWhitespace(lines[i]);
             const run           = [];
@@ -271,15 +308,58 @@ function collectAssignmentRuns(lines, maskedLines = []) {
                 if (indent.length <= keywordIndent.length) break; // continuations must be deeper
                 if (runIndent === null) runIndent = indent;
                 if (indent !== runIndent) break;                  // uniform indent only
-                run.push(j);
+                run.push({lineIndex: j, ...splitAssignment(lines[j])});
                 j++;
             }
 
             if (run.length >= 2) {
-                runs.push(run);
+                runs.push({entries: run, includeBlockOpeners: false, mode: 'comma'});
                 i = j;
                 continue;
             }
+        }
+
+        const keywordDeclaration = !maskedLines[i] ? parseKeywordDeclaration(lines[i]) : null;
+        if (keywordDeclaration) {
+            const keywordRun = [{lineIndex: i, ...keywordDeclaration}];
+            let   j          = i + 1;
+
+            if (keywordDeclaration.value.replace(/\s+$/, '').endsWith(',')) {
+                while (j < lines.length && !maskedLines[j]) {
+                    const bareDeclaration = parseBareDeclaration(lines[j]);
+                    if (!bareDeclaration || bareDeclaration.indent.length <= keywordDeclaration.indent.length) {
+                        break;
+                    }
+
+                    keywordRun.push({lineIndex: j, ...bareDeclaration});
+                    j++;
+                }
+            }
+
+            if (keywordRun.length >= 2) {
+                runs.push({entries: keywordRun, includeBlockOpeners: true, mode: 'comma'});
+                i = j;
+                continue;
+            }
+
+            j = i + 1;
+            while (j < lines.length && !maskedLines[j]) {
+                const nextDeclaration = parseKeywordDeclaration(lines[j]);
+                if (!nextDeclaration || nextDeclaration.indent !== keywordDeclaration.indent) {
+                    break;
+                }
+
+                keywordRun.push({lineIndex: j, ...nextDeclaration});
+                j++;
+            }
+
+            if (keywordRun.length >= 2) {
+                runs.push({entries: keywordRun, includeBlockOpeners: true, mode: 'keyword'});
+                i = j;
+                continue;
+            }
+
+            runs.push({entries: keywordRun, includeBlockOpeners: true, mode: 'keyword'});
         }
 
         i++;
@@ -300,19 +380,29 @@ function evaluateAssignmentAlignment(lines, maskedLines = []) {
         violations = [],
         fixedLines = lines.slice();
 
-    for (const run of collectAssignmentRuns(lines, maskedLines)) {
+    for (const {entries, includeBlockOpeners, mode} of collectAssignmentRuns(lines, maskedLines)) {
         // Align the simple-valued members only; a block-opening value keeps its `=` unaligned (house
-        // style). Require ≥ 2 simple members so a lone simple declaration is not an alignment group.
-        const simpleParts = run
-            .map(lineIndex => ({lineIndex, ...splitAssignment(lines[lineIndex])}))
-            .filter(part => !opensMultilineBlock(part.value));
+        // style) for legacy lone-keyword comma-blocks. Keyworded declaration blocks include block
+        // openers because that is how existing source aligns `const response = fetch(..., {`.
+        const simpleParts = includeBlockOpeners
+            ? entries
+            : entries.filter(part => !opensMultilineBlock(part.value));
 
-        if (simpleParts.length < 2) continue;
+        if (simpleParts.length === 0) continue;
+        if (simpleParts.length < 2 && lines[simpleParts[0].lineIndex] === `${simpleParts[0].left} = ${simpleParts[0].value}`) continue;
 
-        const leftWidth = Math.max(...simpleParts.map(part => part.left.length));
+        const
+            keywordWidth = mode === 'keyword' ? Math.max(...simpleParts.map(part => part.keyword.length)) : 0,
+            nameWidth    = mode === 'keyword' ? Math.max(...simpleParts.map(part => part.name.length)) : 0,
+            leftWidth    = mode === 'keyword'
+                ? Math.max(...simpleParts.map(part => part.indent.length + keywordWidth + 1 + nameWidth))
+                : Math.max(...simpleParts.map(part => part.left.length));
 
-        for (const {lineIndex, left, value} of simpleParts) {
-            const expected = `${left.padEnd(leftWidth)} = ${value}`;
+        for (const {lineIndex, left, value, indent, keyword, name} of simpleParts) {
+            const normalizedLeft = mode === 'keyword'
+                ? `${indent}${keyword.padEnd(keywordWidth)} ${name.padEnd(nameWidth)}`
+                : left;
+            const expected = `${normalizedLeft.padEnd(leftWidth)} = ${value}`;
             if (expected !== lines[lineIndex]) {
                 violations.push({lineIndex, expectedColumn: leftWidth + 1, kind: 'assignment'});
                 fixedLines[lineIndex] = expected;

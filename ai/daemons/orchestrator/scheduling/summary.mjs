@@ -249,7 +249,7 @@ export function getDueTask({
     markSunsetHandoversSummaryProcessedFn = markSunsetHandoversSummaryProcessed,
     log
 }) {
-    const handovers = getUnreadSunsetHandoversFn(db);
+    const handovers   = getUnreadSunsetHandoversFn(db);
     const pendingJobs = handovers.length > 0 ? [] : getPendingSummarizationJobsFn(db);
     const lastRunAt   = state.summary?.lastRunAt || 0;
     // Only count the unsummarized-session backlog when the periodic sweep is the path that will
@@ -269,7 +269,7 @@ export function getDueTask({
         return null;
     }
 
-    const trigger   = buildSummaryTrigger({
+    const trigger = buildSummaryTrigger({
         now,
         handovers,
         pendingJobs,
