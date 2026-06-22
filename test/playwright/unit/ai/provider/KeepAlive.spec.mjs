@@ -268,6 +268,54 @@ test.describe('AI provider keep_alive payload shape (#12080, #12089)', () => {
         expect(payload.options.think).toBeUndefined();
     });
 
+    test('Ollama.preparePayload() maps reasoning_effort none to native think false (#13854)', () => {
+        const provider = Neo.create(OllamaProvider, {
+            host     : 'http://ollama.test',
+            modelName: 'gemma4-test'
+        });
+
+        const payload = provider.preparePayload('hello', {
+            reasoning_effort: 'none',
+            temperature     : 0
+        }, false);
+
+        expect(payload).toMatchObject({
+            model     : 'gemma4-test',
+            stream    : false,
+            think     : false,
+            keep_alive: -1,
+            options   : {
+                temperature: 0
+            }
+        });
+        expect(payload.options.reasoning_effort).toBeUndefined();
+    });
+
+    test('Ollama.preparePayload() preserves explicit think over reasoning_effort (#13854)', () => {
+        const provider = Neo.create(OllamaProvider, {
+            host     : 'http://ollama.test',
+            modelName: 'gemma4-test'
+        });
+
+        const payload = provider.preparePayload('hello', {
+            reasoning_effort: 'none',
+            think           : true,
+            temperature     : 0
+        }, false);
+
+        expect(payload).toMatchObject({
+            model     : 'gemma4-test',
+            stream    : false,
+            think     : true,
+            keep_alive: -1,
+            options   : {
+                temperature: 0
+            }
+        });
+        expect(payload.options.reasoning_effort).toBeUndefined();
+        expect(payload.options.think).toBeUndefined();
+    });
+
     test('Ollama.preparePayload() preserves plain JSON extraction for response_format json_object (#13855)', () => {
         const provider = Neo.create(OllamaProvider, {
             host     : 'http://ollama.test',
