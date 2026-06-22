@@ -23,6 +23,10 @@ const REPO_ROOT  = path.resolve(__dirname, '../../../../../..');
 const ORCHESTRATOR_MJS_PATH    = path.join(REPO_ROOT, 'ai/daemons/orchestrator/Orchestrator.mjs');
 const ORCHESTRATOR_DAEMON_PATH = path.join(REPO_ROOT, 'ai/daemons/orchestrator/daemon.mjs');
 const TASK_DEFINITIONS_MJS_PATH = path.join(REPO_ROOT, 'ai/daemons/orchestrator/taskDefinitions.mjs');
+const CONFIGURED_TASK_DEFINITIONS_SERVICE_PATH = path.join(
+    REPO_ROOT,
+    'ai/daemons/orchestrator/services/ConfiguredTaskDefinitionsService.mjs'
+);
 const SIBLING_DAEMON_CONFIG_PATHS = {
     'SwarmHeartbeatService.mjs'     : path.join(REPO_ROOT, 'ai/daemons/orchestrator/services/SwarmHeartbeatService.mjs'),
     'KbAlertingService.mjs'         : path.join(REPO_ROOT, 'ai/daemons/kb-alerting/KbAlertingService.mjs'),
@@ -503,30 +507,55 @@ test.describe('Orchestrator source-level invariants (#11834 AC4)', () => {
         expect(matches, 'Orchestrator.mjs must NOT spread `this` into `processSupervisorService.set({...})` (Sub-1 anti-pattern; `afterSetX` parent-prop propagation hooks supersede the start()-time context replay).').toHaveLength(0);
     });
 
-    test('orchestrator AiConfig reads are fail-loud direct reads on declared subtrees (#12515)', async () => {
+    test('orchestrator config reads are fail-loud direct reads on declared subtrees (#12515 / #13875)', async () => {
         const orchestratorSource = stripCommentsAndStrings(await fs.readFile(ORCHESTRATOR_MJS_PATH, 'utf8'));
-        const daemonSource       = stripCommentsAndStrings(await fs.readFile(ORCHESTRATOR_DAEMON_PATH, 'utf8'));
+        const configuredTaskDefinitionsSource = stripCommentsAndStrings(
+            await fs.readFile(CONFIGURED_TASK_DEFINITIONS_SERVICE_PATH, 'utf8')
+        );
+        const daemonSource = stripCommentsAndStrings(await fs.readFile(ORCHESTRATOR_DAEMON_PATH, 'utf8'));
+        const configReadSource = `${orchestratorSource}\n${configuredTaskDefinitionsSource}`;
 
         for (const snippet of [
             'AiConfig.orchestrator.swarmHeartbeat?.',
             'AiConfig.orchestrator.mlx?.',
             'AiConfig.orchestrator.lms?.',
+            'AiConfig.orchestrator.ollama?.',
             'AiConfig.orchestrator.chroma?.',
             'AiConfig.engines.chroma?.',
             'AiConfig.openAiCompatible?.'
         ]) {
-            expect(orchestratorSource, `Orchestrator.mjs must not defend declared AiConfig subtree ${snippet}`).not.toContain(snippet);
+            expect(configReadSource, `orchestrator config readers must not defend declared AiConfig subtree ${snippet}`).not.toContain(snippet);
         }
 
         expect(daemonSource, 'daemon.mjs must read AiConfig.orchestrator.devSyncRoots directly').not.toContain('AiConfig.orchestrator?.devSyncRoots');
 
         expect(orchestratorSource).toContain('AiConfig.orchestrator.swarmHeartbeat.targets');
-        expect(orchestratorSource).toContain('AiConfig.orchestrator.mlx.enabled');
-        expect(orchestratorSource).toContain('AiConfig.orchestrator.lms.enabled');
-        expect(orchestratorSource).toContain('AiConfig.engines.chroma.port');
-        expect(orchestratorSource).toContain('AiConfig.openAiCompatible.host');
         expect(orchestratorSource).toContain('AiConfig.orchestrator.chroma.maxRuntimeMs');
+        expect(configuredTaskDefinitionsSource).toContain('AiConfig.orchestrator.mlx.enabled');
+        expect(configuredTaskDefinitionsSource).toContain('AiConfig.orchestrator.lms.enabled');
+        expect(configuredTaskDefinitionsSource).toContain('AiConfig.orchestrator.ollama.enabled');
+        expect(configuredTaskDefinitionsSource).toContain('AiConfig.engines.chroma.port');
+        expect(configuredTaskDefinitionsSource).toContain('AiConfig.openAiCompatible.host');
         expect(daemonSource).toContain('AiConfig.orchestrator.devSyncRoots');
+    });
+
+    test('Orchestrator.mjs delegates configured child-process task composition (#13875)', async () => {
+        const orchestratorSource = stripCommentsAndStrings(await fs.readFile(ORCHESTRATOR_MJS_PATH, 'utf8'));
+
+        expect(orchestratorSource).toContain('buildConfiguredTaskDefinitionsService');
+
+        for (const snippet of [
+            'applyConfiguredMlxTask',
+            'applyConfiguredLmsTask',
+            'applyConfiguredOllamaTask',
+            'buildLmsPreloadConfig',
+            'buildOllamaReadinessConfig',
+            'ensureLmsModelsLoaded',
+            'ensureOllamaModelsReady',
+            'OLLAMA_CONTEXT_LENGTH'
+        ]) {
+            expect(orchestratorSource, `Orchestrator.mjs must not own configured task composition detail: ${snippet}`).not.toContain(snippet);
+        }
     });
 
     test('Orchestrator.mjs has no `_`-suffix reactive config slot without a corresponding `beforeSet*` or `afterSet*` hook', async () => {
