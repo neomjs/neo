@@ -9,8 +9,7 @@ import {
     Orchestrator
 } from '../../../../../../ai/daemons/orchestrator/Orchestrator.mjs';
 import {
-    buildLmsPreloadConfig,
-    buildOllamaReadinessConfig
+    buildLmsPreloadConfig
 } from '../../../../../../ai/services/graph/providerReadinessHelper.mjs';
 import {
     buildTaskDefinitions
@@ -227,20 +226,36 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
         expect(AiConfig.orchestrator.localOnly.kbSyncEnabled).toBe(!baselineLocalKbs);
     });
 
-    // === mlx + lms + ollama supervised-server lane getters ===
+    // === mlx + lms + ollama supervised-server task composition ===
     // AiConfig.orchestrator.mlx/.lms/.ollama + NEO_ORCHESTRATOR_* env vars
     // env vars are saved/restored by the file-level beforeEach/afterEach hooks above —
     // individual tests can mutate freely without leak risk.
 
-    test('mlxEnabled getter coerces AiConfig.orchestrator.mlx.enabled to boolean (model/port are inlined at call sites)', () => {
+    test('buildConfiguredTaskDefinitions reads AiConfig.orchestrator.mlx at the daemon use site', () => {
         AiConfig.orchestrator.mlx = {enabled: true, model: 'mlx-from-config', port: '11999'};
-        expect(createMinimalOrchestrator().mlxEnabled).toBe(true);
+        const enabledTasks = createMinimalOrchestrator().buildConfiguredTaskDefinitions({
+            scriptDir: '/repo/ai/scripts',
+            nodeBin  : '/node'
+        });
+
+        expect(enabledTasks.mlx.args).toEqual([
+            '-m',
+            'mlx_lm.server',
+            '--model',
+            'mlx-from-config',
+            '--port',
+            '11999'
+        ]);
 
         AiConfig.orchestrator.mlx = {enabled: false, model: 'm', port: '11435'};
-        expect(createMinimalOrchestrator().mlxEnabled).toBe(false);
+        const disabledTasks = createMinimalOrchestrator().buildConfiguredTaskDefinitions({
+            scriptDir: '/repo/ai/scripts',
+            nodeBin  : '/node'
+        });
+        expect(disabledTasks.mlx).toBeUndefined();
     });
 
-    test('lmsEnabled coerces to boolean + lmsModels follow state-provider role selectors (model/port/host inlined at call sites)', () => {
+    test('buildConfiguredTaskDefinitions composes LMS from AiConfig provider-role selectors', () => {
         AiConfig.orchestrator.lms = {enabled: true, model: 'lms-from-config', port: '4242'};
         AiConfig.openAiCompatible = {
             host          : 'http://127.0.0.1:4242',
@@ -252,20 +267,35 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
         AiConfig.embeddingProvider = 'openAiCompatible';
 
         const o = createMinimalOrchestrator();
-        expect(o.lmsEnabled).toBe(true);
-        expect(o.lmsModels).toEqual(['chat-from-config', 'embedding-from-config']);
+        expect(o.buildConfiguredTaskDefinitions({
+            scriptDir: '/repo/ai/scripts',
+            nodeBin  : '/node'
+        }).lms).toMatchObject({
+            command       : 'lms',
+            args          : ['server', 'start', '--port', '4242'],
+            requiredModels: ['chat-from-config', 'embedding-from-config']
+        });
 
         AiConfig.embeddingProvider = 'gemini';
-        expect(createMinimalOrchestrator().lmsModels).toEqual(['chat-from-config']);
+        expect(createMinimalOrchestrator().buildConfiguredTaskDefinitions({
+            scriptDir: '/repo/ai/scripts',
+            nodeBin  : '/node'
+        }).lms.requiredModels).toEqual(['chat-from-config']);
 
         AiConfig.graphProvider = 'ollama';
-        expect(createMinimalOrchestrator().lmsModels).toEqual([]);
+        expect(createMinimalOrchestrator().buildConfiguredTaskDefinitions({
+            scriptDir: '/repo/ai/scripts',
+            nodeBin  : '/node'
+        }).lms.requiredModels).toEqual([]);
 
         AiConfig.orchestrator.lms = {enabled: false, model: 'qwen', port: '1234'};
-        expect(createMinimalOrchestrator().lmsEnabled).toBe(false);
+        expect(createMinimalOrchestrator().buildConfiguredTaskDefinitions({
+            scriptDir: '/repo/ai/scripts',
+            nodeBin  : '/node'
+        }).lms).toBeUndefined();
     });
 
-    test('ollamaEnabled coerces to boolean + ollamaModels follow native provider role selectors (host/env inlined at call sites)', () => {
+    test('buildConfiguredTaskDefinitions composes native Ollama from AiConfig provider-role selectors', () => {
         AiConfig.orchestrator.ollama = {enabled: true};
         AiConfig.ollama = {
             host                 : 'http://127.0.0.1:11434',
@@ -279,18 +309,38 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
         AiConfig.embeddingProvider = 'ollama';
 
         const o = createMinimalOrchestrator();
-        expect(o.ollamaEnabled).toBe(true);
-        expect(o.ollamaModels).toEqual(['ollama-chat-from-config', 'ollama-embedding-from-config']);
-        expect(o.ollamaReadinessConfig).toMatchObject(buildOllamaReadinessConfig(AiConfig));
+        expect(o.buildConfiguredTaskDefinitions({
+            scriptDir: '/repo/ai/scripts',
+            nodeBin  : '/node'
+        }).ollama).toMatchObject({
+            command       : 'ollama',
+            args          : ['serve'],
+            requiredModels: ['ollama-chat-from-config', 'ollama-embedding-from-config'],
+            singletonPort : 11434,
+            env           : {
+                OLLAMA_HOST             : '127.0.0.1:11434',
+                OLLAMA_KEEP_ALIVE       : '-1',
+                OLLAMA_MAX_LOADED_MODELS: '2'
+            }
+        });
 
         AiConfig.embeddingProvider = 'gemini';
-        expect(createMinimalOrchestrator().ollamaModels).toEqual(['ollama-chat-from-config']);
+        expect(createMinimalOrchestrator().buildConfiguredTaskDefinitions({
+            scriptDir: '/repo/ai/scripts',
+            nodeBin  : '/node'
+        }).ollama.requiredModels).toEqual(['ollama-chat-from-config']);
 
         AiConfig.graphProvider = 'openAiCompatible';
-        expect(createMinimalOrchestrator().ollamaModels).toEqual([]);
+        expect(createMinimalOrchestrator().buildConfiguredTaskDefinitions({
+            scriptDir: '/repo/ai/scripts',
+            nodeBin  : '/node'
+        }).ollama).toBeUndefined();
 
         AiConfig.orchestrator.ollama = {enabled: false};
-        expect(createMinimalOrchestrator().ollamaEnabled).toBe(false);
+        expect(createMinimalOrchestrator().buildConfiguredTaskDefinitions({
+            scriptDir: '/repo/ai/scripts',
+            nodeBin  : '/node'
+        }).ollama).toBeUndefined();
     });
 
     test('buildLmsPreloadConfig only reads provider-role selectors, not non-null model leaves (#12264)', () => {
