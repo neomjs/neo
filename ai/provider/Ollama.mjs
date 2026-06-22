@@ -71,9 +71,9 @@ class OllamaProvider extends Base {
         }
 
         const payload = {
-            model   : this.modelName,
+            model : this.modelName,
             messages,
-            stream  : stream
+            stream: stream
         };
 
         const clonedOptions = { ...options };
@@ -90,11 +90,11 @@ class OllamaProvider extends Base {
 
         if (clonedOptions.tools && clonedOptions.tools.length > 0) {
             payload.tools = clonedOptions.tools.map(tool => ({
-                type: 'function',
+                type    : 'function',
                 function: {
-                    name: tool.name,
+                    name       : tool.name,
                     description: tool.description || '',
-                    parameters: tool.inputSchema || { type: 'object', properties: {} }
+                    parameters : tool.inputSchema || { type: 'object', properties: {} }
                 }
             }));
             delete clonedOptions.tools;
@@ -102,6 +102,15 @@ class OllamaProvider extends Base {
 
         payload.keep_alive = clonedOptions.keep_alive === undefined ? this.keepAlive : clonedOptions.keep_alive;
         delete clonedOptions.keep_alive;
+
+        // Caller options this provider does not yet consume — drop them so they don't leak into
+        // ollama's `options` bag. Ollama's native structured-output (`format` schema) + the no-think
+        // wiring are a separate follow-up; until then these keys are inert here, not forwarded.
+        delete clonedOptions.responseSchema;
+        delete clonedOptions.responseSchemaName;
+        delete clonedOptions.responseSchemaStrict;
+        delete clonedOptions.response_format;
+        delete clonedOptions.reasoning_effort;
 
         if (Object.keys(clonedOptions).length > 0) {
             payload.options = clonedOptions;
@@ -141,7 +150,7 @@ class OllamaProvider extends Base {
             });
 
             const req = httpModule.request(parsedUrl, {
-                method: 'POST',
+                method : 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
@@ -171,11 +180,11 @@ class OllamaProvider extends Base {
             req.on('timeout', () => {
                 req.destroy();
                 rejectFunc(createTimeoutError({
-                    provider      : 'Ollama',
+                    provider : 'Ollama',
                     operationLabel,
-                    timeoutMs     : requestTimeoutMs,
-                    host          : this.host,
-                    modelName     : this.modelName
+                    timeoutMs: requestTimeoutMs,
+                    host     : this.host,
+                    modelName: this.modelName
                 }));
             });
 

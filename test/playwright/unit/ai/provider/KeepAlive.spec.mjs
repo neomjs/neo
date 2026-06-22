@@ -341,9 +341,9 @@ test.describe('AI provider keep_alive payload shape (#12080, #12089)', () => {
 
         expect(chunks).toEqual(['ok']);
         expect(capturedPayload).toMatchObject({
-            model     : 'gemma4-test',
-            stream    : true,
-            keep_alive: '10m',
+            model      : 'gemma4-test',
+            stream     : true,
+            keep_alive : '10m',
             temperature: 0.2
         });
         expect(capturedPayload.options).toBeUndefined();
@@ -377,11 +377,43 @@ test.describe('AI provider keep_alive payload shape (#12080, #12089)', () => {
 
         expect(chunks).toEqual(['json ok']);
         expect(capturedPayload).toMatchObject({
-            model          : 'gemma4-test',
-            stream         : true,
-            keep_alive     : -1,
-            response_format: {type: 'json_object'}
+            model     : 'gemma4-test',
+            stream    : true,
+            keep_alive: -1
         });
+        // A schema-less json_object request no longer emits the LM-Studio-rejected json_object form.
+        expect(capturedPayload.response_format).toBeUndefined();
+    });
+
+    test('OpenAiCompatible.stream() emits response_format json_schema when a responseSchema is supplied', async () => {
+        let capturedPayload;
+
+        globalThis.fetch = async (url, init) => {
+            capturedPayload = JSON.parse(init.body);
+
+            return {
+                ok  : true,
+                body: createReadableStream([
+                    JSON.stringify({choices: [{message: {content: '{"x":"ok"}'}}]})
+                ])
+            };
+        };
+
+        const provider = Neo.create(OpenAiCompatibleProvider, {
+            host     : 'http://openai-compatible.test',
+            modelName: 'gemma4-test'
+        });
+        const schema = {type: 'object', properties: {x: {type: 'string'}}, required: ['x']};
+
+        for await (const _chunk of provider.stream('hello', {responseSchema: schema, responseSchemaName: 'mySchema'})) { /* drain */ }
+
+        expect(capturedPayload.response_format).toEqual({
+            type       : 'json_schema',
+            json_schema: {name: 'mySchema', strict: false, schema}
+        });
+        // Schema-carrying keys are consumed by preparePayload, not leaked into the wire payload.
+        expect(capturedPayload.responseSchema).toBeUndefined();
+        expect(capturedPayload.responseSchemaName).toBeUndefined();
     });
 
     test('OpenAiCompatible.stream() aborts a hung request on timeout without leaking transport options', async () => {
@@ -504,11 +536,12 @@ test.describe('AI provider keep_alive payload shape (#12080, #12089)', () => {
             }
         });
         expect(capturedPayload).toMatchObject({
-            model          : 'gemma4-test',
-            stream         : true,
-            keep_alive     : -1,
-            response_format: {type: 'json_object'}
+            model     : 'gemma4-test',
+            stream    : true,
+            keep_alive: -1
         });
+        // A schema-less application/json request no longer emits the rejected json_object form.
+        expect(capturedPayload.response_format).toBeUndefined();
         expect(capturedPayload.responseMimeType).toBeUndefined();
     });
 });
