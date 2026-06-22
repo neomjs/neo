@@ -44,8 +44,7 @@ function createTestOrchestrator(config = {}) {
         devServerPort                    : config.devServerPort ?? TEST_DEV_SERVER_PORT,
         devServerLivenessTimeoutMs       : config.devServerLivenessTimeoutMs ?? 50,
         neuralLinkBridgePort             : config.neuralLinkBridgePort ?? TEST_NEURAL_LINK_BRIDGE_PORT,
-        neuralLinkBridgeLivenessTimeoutMs: config.neuralLinkBridgeLivenessTimeoutMs ?? 50,
-        graphLogCompactionVacuum         : config.graphLogCompactionVacuum ?? false
+        neuralLinkBridgeLivenessTimeoutMs: config.neuralLinkBridgeLivenessTimeoutMs ?? 50
     });
 
     const heavyMaintenanceLeasePath = config.heavyMaintenanceLeasePath
@@ -57,7 +56,7 @@ function createTestOrchestrator(config = {}) {
         writeLogFn: () => {}
     });
     TaskStateService.taskState = createInitialTaskState(taskDefinitions);
-    ['chroma', 'bridgeDaemon', 'devServer', 'neuralLinkBridge', 'mlx', 'lms'].forEach(name => {
+    ['chroma', 'bridgeDaemon', 'devServer', 'neuralLinkBridge', 'mlx', 'ollama', 'lms'].forEach(name => {
         if (TaskStateService.taskState[name]) {
             TaskStateService.taskState[name].running = true;
         }
@@ -764,45 +763,76 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
     });
 
     test('supervises lms via the supervisor HTTP liveness probe — (re)start only when the endpoint is down (#12262 / #12090)', async () => {
-        const taskDefinitions = buildTaskDefinitions({
-            scriptDir        : path.resolve(process.cwd(), 'ai/scripts'),
-            nodeBin          : process.argv[0],
-            lmsEnabled       : true,
-            lmsModels        : ['chat-model', 'embedding-model'],
-            lmsHost          : 'http://127.0.0.1:1234',
-            lmsPort          : 1234,
-            providerReadiness: {attempts: 2, delayMs: 0, timeoutMs: 50}
-        });
-        // `lms server start` is fire-and-exit, so liveness is the HTTP endpoint, not the launcher
-        // child. Stub the probe for determinism (no real :1234) and drive both branches.
-        let probeUp = false;
-        taskDefinitions.lms.livenessProbe = async () => probeUp;
-
-        const orchestrator = createTestOrchestrator({taskDefinitions, kbSyncEnabled: false});
-        const flushProbe   = () => new Promise(resolve => setTimeout(resolve, 0));
-
-        // A fresh supervisor per case resets the probe-gate state without the test reaching into
-        // its internals; `runTask` is the restart spy. The supervisor owns the probe decision now.
-        const pollDownLms = async () => {
-            const started = [];
-            orchestrator.processSupervisorService = {
-                runTask(taskName, reason) { started.push({taskName, reason}); return true; }
-            };
-            TaskStateService.taskState.lms.running   = false;
-            TaskStateService.taskState.lms.lastRunAt = 0;
-            orchestrator.poll();
-            await flushProbe();
-            return started;
+        const saved = {
+            lms              : {...AiConfig.orchestrator.lms},
+            openAiCompatible : {...AiConfig.openAiCompatible},
+            providerReadiness: {...AiConfig.orchestrator.providerReadiness},
+            modelProvider    : AiConfig.modelProvider,
+            graphProvider    : AiConfig.graphProvider,
+            embeddingProvider: AiConfig.embeddingProvider
         };
 
-        // Endpoint DOWN → the lane is (re)started.
-        probeUp = false;
-        expect(await pollDownLms()).toContainEqual({taskName: 'lms', reason: 'supervisor-restart'});
+        try {
+            AiConfig.orchestrator.lms = {enabled: true, model: 'legacy-model', port: '1234'};
+            AiConfig.openAiCompatible = {
+                host          : 'http://127.0.0.1:1234',
+                model         : 'chat-model',
+                embeddingModel: 'embedding-model'
+            };
+            AiConfig.orchestrator.providerReadiness = {attempts: 2, delayMs: 0, timeoutMs: 50};
+            AiConfig.modelProvider     = 'openAiCompatible';
+            AiConfig.graphProvider     = 'openAiCompatible';
+            AiConfig.embeddingProvider = 'openAiCompatible';
 
-        // Endpoint UP → silent no-op, NO restart (a healthy fire-and-exit lane must not re-spawn
-        // every cooldown).
-        probeUp = true;
-        expect((await pollDownLms()).find(entry => entry.taskName === 'lms')).toBeUndefined();
+            const orchestrator = createTestOrchestrator({kbSyncEnabled: false});
+            const taskDefinitions = orchestrator.buildConfiguredTaskDefinitions({
+                scriptDir: path.resolve(process.cwd(), 'ai/scripts'),
+                nodeBin  : process.argv[0]
+            });
+            // `lms server start` is fire-and-exit, so liveness is the HTTP endpoint, not the launcher
+            // child. Stub the probe for determinism (no real :1234) and drive both branches.
+            let probeUp = false;
+            taskDefinitions.lms.livenessProbe = async () => probeUp;
+            orchestrator.taskDefinitions = taskDefinitions;
+            TaskStateService.configure({
+                stateFile : '/tmp/orchestrator-test/state.json',
+                taskDefinitions,
+                writeLogFn: () => {}
+            });
+            TaskStateService.taskState = createInitialTaskState(taskDefinitions);
+
+            const flushProbe = () => new Promise(resolve => setTimeout(resolve, 0));
+
+            // A fresh supervisor per case resets the probe-gate state without the test reaching into
+            // its internals; `runTask` is the restart spy. The supervisor owns the probe decision now.
+            const pollDownLms = async () => {
+                const started = [];
+                orchestrator.processSupervisorService = {
+                    runTask(taskName, reason) { started.push({taskName, reason}); return true; }
+                };
+                TaskStateService.taskState.lms.running   = false;
+                TaskStateService.taskState.lms.lastRunAt = 0;
+                orchestrator.poll();
+                await flushProbe();
+                return started;
+            };
+
+            // Endpoint DOWN → the lane is (re)started.
+            probeUp = false;
+            expect(await pollDownLms()).toContainEqual({taskName: 'lms', reason: 'supervisor-restart'});
+
+            // Endpoint UP → silent no-op, NO restart (a healthy fire-and-exit lane must not re-spawn
+            // every cooldown).
+            probeUp = true;
+            expect((await pollDownLms()).find(entry => entry.taskName === 'lms')).toBeUndefined();
+        } finally {
+            AiConfig.orchestrator.lms = saved.lms;
+            AiConfig.openAiCompatible = saved.openAiCompatible;
+            AiConfig.orchestrator.providerReadiness = saved.providerReadiness;
+            AiConfig.modelProvider     = saved.modelProvider;
+            AiConfig.graphProvider     = saved.graphProvider;
+            AiConfig.embeddingProvider = saved.embeddingProvider;
+        }
     });
 
     test('skips chroma daemon supervision in cloud mode while keeping local default (#12019)', () => {
@@ -900,10 +930,13 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             expectedCommand: 'compactGraphLog.mjs'
         });
 
-        expect(buildTaskDefinitions({
-            scriptDir               : '/repo/ai/scripts',
-            nodeBin                 : '/node',
+        const orchestrator = createTestOrchestrator({
             graphLogCompactionVacuum: true
+        });
+
+        expect(orchestrator.buildConfiguredTaskDefinitions({
+            scriptDir: '/repo/ai/scripts',
+            nodeBin  : '/node'
         })['graphlog-compaction'].args).toEqual([
             '/repo/ai/scripts/maintenance/compactGraphLog.mjs',
             '--apply',
@@ -1041,37 +1074,70 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
     });
 
     test('passes local mlx launch model config into task definitions', () => {
-        const orchestrator = Neo.create(Orchestrator);
-        orchestrator.dataDir         = '/tmp/orchestrator-test-mlx-model';
-        orchestrator.taskDefinitions = buildTaskDefinitions({
-            scriptDir : path.resolve(process.cwd(), 'ai/scripts'),
-            nodeBin   : process.argv[0],
-            mlxEnabled: true,
-            mlxModel  : 'operator-configured-mlx-model'
-        });
+        const savedMlx = {...AiConfig.orchestrator.mlx};
 
-        expect(orchestrator.taskDefinitions.mlx.args).toContain('operator-configured-mlx-model');
-        expect(orchestrator.taskDefinitions.mlx.args).not.toContain('gemma-4-31b-it');
+        try {
+            AiConfig.orchestrator.mlx = {
+                enabled: true,
+                model  : 'operator-configured-mlx-model',
+                port   : '11435'
+            };
+
+            const orchestrator = Neo.create(Orchestrator);
+            orchestrator.dataDir         = '/tmp/orchestrator-test-mlx-model';
+            orchestrator.taskDefinitions = orchestrator.buildConfiguredTaskDefinitions({
+                scriptDir: path.resolve(process.cwd(), 'ai/scripts'),
+                nodeBin  : process.argv[0]
+            });
+
+            expect(orchestrator.taskDefinitions.mlx.args).toContain('operator-configured-mlx-model');
+            expect(orchestrator.taskDefinitions.mlx.args).not.toContain('gemma-4-31b-it');
+        } finally {
+            AiConfig.orchestrator.mlx = savedMlx;
+        }
     });
 
     test('passes local lms launch port config into task definitions (#11986)', () => {
-        const orchestrator = Neo.create(Orchestrator);
-        orchestrator.dataDir         = '/tmp/orchestrator-test-lms-port';
-        orchestrator.taskDefinitions = buildTaskDefinitions({
-            scriptDir        : path.resolve(process.cwd(), 'ai/scripts'),
-            nodeBin          : process.argv[0],
-            lmsEnabled       : true,
-            lmsModel         : 'qwen3-embedding-8b',
-            lmsModels        : ['gemma4-31b', 'qwen3-8b'],
-            lmsHost          : 'http://127.0.0.1:4242',
-            providerReadiness: {attempts: 2, delayMs: 0, timeoutMs: 50},
-            lmsPort          : 4242
-        });
+        const saved = {
+            lms              : {...AiConfig.orchestrator.lms},
+            openAiCompatible : {...AiConfig.openAiCompatible},
+            providerReadiness: {...AiConfig.orchestrator.providerReadiness},
+            modelProvider    : AiConfig.modelProvider,
+            graphProvider    : AiConfig.graphProvider,
+            embeddingProvider: AiConfig.embeddingProvider
+        };
 
-        expect(orchestrator.taskDefinitions.lms.command).toBe('lms');
-        expect(orchestrator.taskDefinitions.lms.args).toEqual(['server', 'start', '--port', '4242']);
-        expect(orchestrator.taskDefinitions.lms.pidFileName).toBe('lms.pid');
-        expect(orchestrator.taskDefinitions.lms.requiredModels).toEqual(['gemma4-31b', 'qwen3-8b']);
+        try {
+            AiConfig.orchestrator.lms = {enabled: true, model: 'qwen3-embedding-8b', port: '4242'};
+            AiConfig.openAiCompatible = {
+                host          : 'http://127.0.0.1:4242',
+                model         : 'gemma4-31b',
+                embeddingModel: 'qwen3-8b'
+            };
+            AiConfig.orchestrator.providerReadiness = {attempts: 2, delayMs: 0, timeoutMs: 50};
+            AiConfig.modelProvider     = 'openAiCompatible';
+            AiConfig.graphProvider     = 'openAiCompatible';
+            AiConfig.embeddingProvider = 'openAiCompatible';
+
+            const orchestrator = Neo.create(Orchestrator);
+            orchestrator.dataDir         = '/tmp/orchestrator-test-lms-port';
+            orchestrator.taskDefinitions = orchestrator.buildConfiguredTaskDefinitions({
+                scriptDir: path.resolve(process.cwd(), 'ai/scripts'),
+                nodeBin  : process.argv[0]
+            });
+
+            expect(orchestrator.taskDefinitions.lms.command).toBe('lms');
+            expect(orchestrator.taskDefinitions.lms.args).toEqual(['server', 'start', '--port', '4242']);
+            expect(orchestrator.taskDefinitions.lms.pidFileName).toBe('lms.pid');
+            expect(orchestrator.taskDefinitions.lms.requiredModels).toEqual(['gemma4-31b', 'qwen3-8b']);
+        } finally {
+            AiConfig.orchestrator.lms = saved.lms;
+            AiConfig.openAiCompatible = saved.openAiCompatible;
+            AiConfig.orchestrator.providerReadiness = saved.providerReadiness;
+            AiConfig.modelProvider     = saved.modelProvider;
+            AiConfig.graphProvider     = saved.graphProvider;
+            AiConfig.embeddingProvider = saved.embeddingProvider;
+        }
     });
 
     test('routes primary-dev-sync through its service coordinator', () => {

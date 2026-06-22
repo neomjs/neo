@@ -45,15 +45,82 @@ function probeTcpPort({port, timeoutMs}) {
 }
 
 /**
+ * @summary Converts an Ollama API host URL into the `OLLAMA_HOST` bind value.
+ * @param {String} host Configured Ollama API host.
+ * @returns {String|undefined}
+ */
+export function resolveOllamaHostEnv(host) {
+    if (!host) {
+        return undefined;
+    }
+
+    try {
+        return new URL(host).host || undefined;
+    } catch {
+        return String(host).replace(/^https?:\/\//, '').replace(/\/.*$/, '') || undefined;
+    }
+}
+
+/**
+ * @summary Extracts a numeric port from an Ollama host config.
+ * @param {String} host Configured Ollama API host.
+ * @returns {Number|undefined}
+ */
+export function resolveOllamaHostPort(host) {
+    const hostEnv = resolveOllamaHostEnv(host),
+          match   = hostEnv?.match(/:(\d+)$/);
+
+    return match ? Number(match[1]) : undefined;
+}
+
+/**
+ * @summary Computes the largest requested Ollama role context window.
+ * @param {Object[]} roles Native Ollama readiness roles.
+ * @returns {Number|undefined}
+ */
+export function getMaxOllamaContextLength(roles) {
+    const lengths = (Array.isArray(roles) ? roles : [])
+        .map(role => Number(role?.contextLength))
+        .filter(value => Number.isFinite(value) && value > 0);
+
+    return lengths.length ? Math.max(...lengths) : undefined;
+}
+
+/**
+ * @summary Builds the server environment for orchestrator-owned `ollama serve`.
+ * @param {Object} options
+ * @param {String} options.host Configured Ollama API host.
+ * @param {String|Number} options.keepAlive Ollama keep-alive policy.
+ * @param {Number} options.contextLength Largest configured local-model context.
+ * @param {Number} options.requireParallelModels Minimum resident-model count.
+ * @returns {Object}
+ */
+export function buildOllamaServeEnv({host, keepAlive, contextLength, requireParallelModels}) {
+    const env     = {},
+          hostEnv = resolveOllamaHostEnv(host);
+
+    if (hostEnv) {
+        env.OLLAMA_HOST = hostEnv;
+    }
+    if (keepAlive !== undefined && keepAlive !== null && keepAlive !== '') {
+        env.OLLAMA_KEEP_ALIVE = String(keepAlive);
+    }
+    if (Number.isFinite(Number(contextLength)) && Number(contextLength) > 0) {
+        env.OLLAMA_CONTEXT_LENGTH = String(Number(contextLength));
+    }
+    if (Number.isFinite(Number(requireParallelModels)) && Number(requireParallelModels) > 0) {
+        env.OLLAMA_MAX_LOADED_MODELS = String(Number(requireParallelModels));
+    }
+
+    return env;
+}
+
+/**
  * @summary Builds child-process commands for orchestrator-owned maintenance tasks.
  *
- * Pure function: receives concrete `mlxEnabled` / `mlxModel` / `mlxPort` and
- * `lmsEnabled` / `lmsModel` / `lmsPort` values from the caller; performs no env-var
- * lookups and carries no embedded MLX or LM Studio defaults. The canonical defaults
- * live in `ai/config.template.mjs` under `orchestrator.mlx` and `orchestrator.lms`;
- * `Orchestrator` exposes them via env-overrideable getters
- * (`mlxEnabled`/`mlxModel`/`mlxPort`/`lmsEnabled`/`lmsModel`/`lmsPort`) and forwards
- * the resolved values via `Orchestrator.start()`.
+ * Pure function: performs no env-var lookups and carries no embedded local-model
+ * defaults. Config-backed local inference tasks are composed by `Orchestrator`, which
+ * is the daemon entrypoint that may read the reactive AiConfig Provider SSOT.
  *
  * The orchestrator intentionally shells out to existing manual maintenance scripts for
  * Piece C instead of reimplementing their internals. This keeps orchestration separate
@@ -68,18 +135,6 @@ function probeTcpPort({port, timeoutMs}) {
  * @param {Number} [options.devServerLivenessTimeoutMs] TCP liveness probe timeout.
  * @param {String|Number} [options.neuralLinkBridgePort] Neural Link Bridge port — sourced from the Neural Link config provider by the orchestrator entrypoint.
  * @param {Number} [options.neuralLinkBridgeLivenessTimeoutMs] TCP liveness probe timeout.
- * @param {Boolean} [options.mlxEnabled=false] Whether to launch an orchestrator-owned mlx_lm.server.
- * @param {String} [options.mlxModel] MLX launch model: a Hugging Face repo id or local path.
- * @param {String|Number} [options.mlxPort] MLX OpenAI-compatible local inference port.
- * @param {Boolean} [options.lmsEnabled=false] Whether to launch an orchestrator-owned LM Studio CLI server.
- * @param {String} [options.lmsModel] Legacy single LM Studio model identifier.
- * @param {String[]} [options.lmsModels] LM Studio model identifiers that must be resident after spawn.
- * @param {String} [options.lmsHost] OpenAI-compatible host exposed by the LM Studio server.
- * @param {String|Number} [options.lmsPort] LM Studio OpenAI-compatible local inference port (CLI default `1234`).
- * @param {Object} [options.lmsContextLengths] Per-model `--context-length` override map keyed by model id (chat + embedding from `aiConfig.localModels.{chat,embedding}.contextLimitTokens`).
- * @param {Object} [options.lmsParallels] Per-model `--parallel` slot-count override map keyed by model id (chat-only, from `aiConfig.localModels.chat.parallel`).
- * @param {Object} [options.providerReadiness] Provider-readiness retry / timeout config.
- * @param {Boolean} [options.graphLogCompactionVacuum] Whether scheduled GraphLog compaction also runs SQLite VACUUM.
  * @returns {Object}
  */
 export function buildTaskDefinitions({
@@ -89,19 +144,7 @@ export function buildTaskDefinitions({
     devServerPort,
     devServerLivenessTimeoutMs,
     neuralLinkBridgePort,
-    neuralLinkBridgeLivenessTimeoutMs,
-    mlxEnabled = false,
-    mlxModel,
-    mlxPort,
-    lmsEnabled = false,
-    lmsModel,
-    lmsModels,
-    lmsHost,
-    lmsPort,
-    lmsContextLengths,
-    lmsParallels,
-    providerReadiness,
-    graphLogCompactionVacuum
+    neuralLinkBridgeLivenessTimeoutMs
 } = {}) {
     const hasDevServerPort = devServerPort !== undefined && devServerPort !== null;
     const hasNeuralLinkBridgePort = neuralLinkBridgePort !== undefined && neuralLinkBridgePort !== null;
@@ -219,8 +262,7 @@ export function buildTaskDefinitions({
             command: nodeBin,
             args   : [
                 path.join(scriptDir, 'maintenance', 'compactGraphLog.mjs'),
-                '--apply',
-                ...(graphLogCompactionVacuum ? ['--vacuum'] : [])
+                '--apply'
             ],
             pidFileName    : 'graphlog-compaction.pid',
             expectedCommand: 'compactGraphLog.mjs'
@@ -288,72 +330,6 @@ export function buildTaskDefinitions({
             serviceTask    : true
         }
     };
-
-    if (mlxEnabled) {
-        tasks.mlx = {
-            label          : 'mlx inference',
-            command        : path.resolve(scriptDir, '../mcp/server/memory-core/.venv/bin/python'),
-            args           : ['-m', 'mlx_lm.server', '--model', mlxModel, '--port', String(mlxPort)],
-            pidFileName    : 'mlx.pid',
-            expectedCommand: 'mlx_lm.server'
-        };
-    }
-
-    if (lmsEnabled) {
-        const requiredModels = Array.isArray(lmsModels)
-            ? [...new Set(lmsModels.filter(Boolean))]
-            : [lmsModel].filter(Boolean);
-
-        tasks.lms = {
-            label          : 'lms server (LM Studio CLI)',
-            command        : 'lms',
-            args           : ['server', 'start', '--port', String(lmsPort)],
-            pidFileName    : 'lms.pid',
-            expectedCommand: 'lms server',
-            requiredModels,
-            // `lms server start` is fire-and-exit: it wakes the LM Studio service and returns, so
-            // the launched server never matches `expectedCommand` for the supervisor's
-            // process-liveness check (`!state.running` stays permanently true). Liveness is the
-            // HTTP endpoint instead — the supervisor gates the restart on this probe so a healthy
-            // server is a silent no-op rather than a re-spawn loop.
-            livenessProbe  : async () => {
-                const {fetchOpenAiCompatibleModelIds} = await import('../../services/graph/providerReadinessHelper.mjs');
-
-                try {
-                    await fetchOpenAiCompatibleModelIds({host: lmsHost, timeoutMs: providerReadiness?.timeoutMs ?? 2000});
-                    return true;
-                } catch {
-                    return false;
-                }
-            },
-            postSpawn      : async () => {
-                const {ensureLmsModelsLoaded} = await import('../../services/graph/providerReadinessHelper.mjs');
-
-                if (requiredModels.length === 0) {
-                    return {
-                        ready          : true,
-                        loadedModels   : [],
-                        requiredModels,
-                        availableModels: [],
-                        attempts       : 0,
-                        skipped        : true,
-                        reason         : 'no-openai-compatible-local-roles'
-                    };
-                }
-
-                return ensureLmsModelsLoaded({
-                    host          : lmsHost,
-                    models        : requiredModels,
-                    contextLengths: lmsContextLengths,
-                    parallels     : lmsParallels,
-                    allowPartial  : true,
-                    attempts      : providerReadiness?.attempts,
-                    delayMs       : providerReadiness?.delayMs,
-                    timeoutMs     : providerReadiness?.timeoutMs
-                });
-            }
-        };
-    }
 
     return tasks;
 }
