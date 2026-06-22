@@ -12,6 +12,10 @@ import logger                                                      from '../../m
  * @private
  */
 const CONCEPT_REVERIFY_INTERVAL_MS = 90 * 24 * 60 * 60 * 1000;
+const NL_ACTION_DIGEST_LOOKBACK_MS = 14 * 24 * 60 * 60 * 1000;
+const NL_ACTION_DIGEST_LIMIT = 1000;
+const NL_ACTION_DIGEST_MIN_SUCCESS_RATE = 0.8;
+const NL_ACTION_WEAK_EVIDENCE_TAG = '[NL_ACTION_WEAK_EVIDENCE]';
 
 /**
  * ISO freshness stamps accept either a date-only value (`YYYY-MM-DD`) or the canonical
@@ -330,6 +334,406 @@ class GapInferenceEngine extends Base {
             gaps.push(...(kbDemandGaps.get(concept.id) || []));
 
             this.applyGapsToNode(concept, gaps);
+        }
+    }
+
+    /**
+     * @summary Digests successful Neural Link action sequences into weak TEST_GAP evidence.
+     *
+     * `nl_action_log` is structured relational telemetry from the Neural Link MCP server, not
+     * semantic prose. This pass therefore reads the existing SQLite table directly through the
+     * already-mounted Memory Core graph handle instead of importing `RecorderService` or opening a
+     * second MCP-side connection. Qualifying sequences create `NL_ACTION_SEQUENCE -> VALIDATES ->
+     * CLASS/COMPONENT` edges with `evidenceKind: neural-link-action-sequence` and annotate existing
+     * `[TEST_GAP]` strings with a weak-evidence marker. They never remove the gap: live agent
+     * interaction is useful signal, but permanent Playwright coverage remains the stronger evidence.
+     *
+     * @param {Object} [options]
+     * @param {Number} [options.sinceTimestamp] Minimum action timestamp to consider.
+     * @param {Number} [options.limit] Maximum action rows to inspect.
+     * @param {Number} [options.minSuccessRate] Minimum sequence success rate, default 0.8.
+     * @returns {Object} Digest stats.
+     */
+    async inferNlActionDigest({
+        sinceTimestamp = Date.now() - NL_ACTION_DIGEST_LOOKBACK_MS,
+        limit = NL_ACTION_DIGEST_LIMIT,
+        minSuccessRate = NL_ACTION_DIGEST_MIN_SUCCESS_RATE
+    } = {}) {
+        const rows = this.readNlActionRows({sinceTimestamp, limit});
+
+        if (rows.status !== 'ok') {
+            return rows;
+        }
+
+        const sequences = this.groupNlActionRowsBySequence(rows.rows);
+        let qualifyingSequences = 0,
+            linkedEdges         = 0,
+            downgradedGaps      = 0,
+            targetMatches       = 0;
+
+        for (const [sequenceId, sequenceRows] of sequences) {
+            const sequence = this.buildNlActionSequenceEvidence({sequenceId, rows: sequenceRows, minSuccessRate});
+            if (!sequence) continue;
+
+            qualifyingSequences++;
+
+            const targets = this.findNlActionTargetNodes(sequence.targets);
+            targetMatches += targets.length;
+
+            for (const target of targets) {
+                if (this.linkNlActionEvidenceToStructuralNode(sequence, target)) {
+                    linkedEdges++;
+                }
+
+                if (this.annotateTestGapWithNlActionEvidence(target, sequence)) {
+                    downgradedGaps++;
+                }
+            }
+        }
+
+        return {
+            status       : 'completed',
+            rowsRead     : rows.rows.length,
+            sequencesRead: sequences.size,
+            qualifyingSequences,
+            targetMatches,
+            linkedEdges,
+            downgradedGaps
+        };
+    }
+
+    /**
+     * @param {Object} options
+     * @returns {Object}
+     * @protected
+     */
+    readNlActionRows({sinceTimestamp, limit}) {
+        const sqlite = GraphService.db?.storage?.db;
+        if (!sqlite) {
+            return {status: 'skipped', reason: 'graph-sqlite-unavailable'};
+        }
+
+        try {
+            const table = sqlite.prepare(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'nl_action_log'"
+            ).get();
+            if (!table) {
+                return {status: 'skipped', reason: 'nl-action-log-missing'};
+            }
+
+            const safeLimit = Math.max(1, Number(limit) || NL_ACTION_DIGEST_LIMIT);
+            const rows = sqlite.prepare(`
+                SELECT sequence_id, session_id, timestamp, tool, args, result, success, duration_ms, app_name
+                FROM nl_action_log
+                WHERE timestamp >= ?
+                ORDER BY timestamp ASC
+                LIMIT ?
+            `).all(Number(sinceTimestamp) || 0, safeLimit);
+
+            return {status: 'ok', rows};
+        } catch (err) {
+            logger.debug('[GapInferenceEngine] NL action digest skipped:', err.message);
+            return {status: 'skipped', reason: 'nl-action-log-read-failed', error: err.message};
+        }
+    }
+
+    /**
+     * @param {Object[]} rows
+     * @returns {Map<String, Object[]>}
+     * @protected
+     */
+    groupNlActionRowsBySequence(rows = []) {
+        const grouped = new Map();
+
+        for (const row of rows) {
+            const sequenceId = row?.sequence_id;
+            if (!sequenceId) continue;
+            if (!grouped.has(sequenceId)) {
+                grouped.set(sequenceId, []);
+            }
+            grouped.get(sequenceId).push(row);
+        }
+
+        return grouped;
+    }
+
+    /**
+     * @param {Object} options
+     * @returns {Object|null}
+     * @protected
+     */
+    buildNlActionSequenceEvidence({sequenceId, rows, minSuccessRate}) {
+        if (!Array.isArray(rows) || rows.length === 0) return null;
+
+        const successfulRows = rows.filter(row => Number(row.success) === 1);
+        const successRate = successfulRows.length / rows.length;
+
+        if (successRate < minSuccessRate) {
+            return null;
+        }
+
+        const targets = this.extractNlActionTargets(successfulRows);
+        if (targets.classNames.size === 0 && targets.componentIds.size === 0) {
+            return null;
+        }
+
+        return {
+            sequenceId,
+            nodeId: `nl-action-sequence:${sequenceId}`,
+            rows,
+            targets,
+            actionCount      : rows.length,
+            successfulActions: successfulRows.length,
+            successRate,
+            firstTimestamp   : rows[0]?.timestamp ?? null,
+            lastTimestamp    : rows[rows.length - 1]?.timestamp ?? null,
+            tools            : [...new Set(rows.map(row => row.tool).filter(Boolean))],
+            sessionIds       : [...new Set(rows.map(row => row.session_id).filter(Boolean))],
+            appNames         : [...new Set(rows.map(row => row.app_name).filter(Boolean))]
+        };
+    }
+
+    /**
+     * @param {Object[]} rows
+     * @returns {{classNames: Set<String>, componentIds: Set<String>}}
+     * @protected
+     */
+    extractNlActionTargets(rows = []) {
+        const targets = {classNames: new Set(), componentIds: new Set()};
+
+        for (const row of rows) {
+            this.collectNlActionTargets(this.parseJsonValue(row.args), row.tool, targets);
+            this.collectNlActionTargets(this.parseJsonValue(row.result), row.tool, targets);
+        }
+
+        return targets;
+    }
+
+    /**
+     * @param {*} value Parsed JSON value.
+     * @param {String} tool Neural Link tool name.
+     * @param {Object} targets Mutable target accumulator.
+     * @protected
+     */
+    collectNlActionTargets(value, tool, targets) {
+        if (Array.isArray(value)) {
+            value.forEach(item => this.collectNlActionTargets(item, tool, targets));
+            return;
+        }
+
+        if (!value || typeof value !== 'object') return;
+
+        const isComponentTool = /component|instance/i.test(tool || '');
+
+        for (const [key, item] of Object.entries(value)) {
+            if (key === 'className' && typeof item === 'string' && item.length > 0) {
+                targets.classNames.add(item);
+            } else if ((key === 'componentId' || key === 'component_id') && typeof item === 'string' && item.length > 0) {
+                targets.componentIds.add(item);
+            } else if (key === 'componentIds' && Array.isArray(item)) {
+                item.filter(componentId => typeof componentId === 'string' && componentId.length > 0)
+                    .forEach(componentId => targets.componentIds.add(componentId));
+            } else if (key === 'id' && isComponentTool && typeof item === 'string' && item.length > 0) {
+                targets.componentIds.add(item);
+            }
+
+            this.collectNlActionTargets(item, tool, targets);
+        }
+    }
+
+    /**
+     * @param {String|null} text
+     * @returns {*}
+     * @protected
+     */
+    parseJsonValue(text) {
+        if (text == null || text === '') return null;
+        if (typeof text !== 'string') return text;
+        try {
+            return JSON.parse(text);
+        } catch {
+            return null;
+        }
+    }
+
+    /**
+     * @param {Object} targets
+     * @returns {Object[]}
+     * @protected
+     */
+    findNlActionTargetNodes(targets) {
+        const targetNodes = [];
+        const seen = new Set();
+
+        for (const node of GraphService.db.nodes.items) {
+            const label = node.label || node.get?.('label');
+            if (label !== 'CLASS' && label !== 'COMPONENT') continue;
+
+            if (!this.doesNlActionTargetStructuralNode(node, targets)) continue;
+
+            const nodeId = node.id || node.get?.('id');
+            if (!nodeId || seen.has(nodeId)) continue;
+            seen.add(nodeId);
+            targetNodes.push(node);
+        }
+
+        return targetNodes;
+    }
+
+    /**
+     * @param {Object} node
+     * @param {Object} targets
+     * @returns {Boolean}
+     * @protected
+     */
+    doesNlActionTargetStructuralNode(node, targets) {
+        const
+            label      = node.label || node.get?.('label'),
+            id         = node.id || node.get?.('id'),
+            properties = (node.properties || node.get?.('properties') || {}),
+            name       = properties.name || node.name || '';
+
+        const candidateValues = new Set([
+            id,
+            name,
+            properties.className,
+            properties.componentId,
+            properties.id,
+            id && label ? `${label}:${name}` : null
+        ].filter(Boolean));
+
+        if (label === 'CLASS') {
+            for (const className of targets.classNames) {
+                if (candidateValues.has(className) || candidateValues.has(`CLASS:${className}`)) {
+                    return true;
+                }
+            }
+        }
+
+        for (const componentId of targets.componentIds) {
+            if (candidateValues.has(componentId)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param {Object} sequence
+     * @param {Object} dbNode
+     * @returns {Boolean} true when a new weak validation edge was added.
+     * @protected
+     */
+    linkNlActionEvidenceToStructuralNode(sequence, dbNode) {
+        const targetId = dbNode.id || dbNode.get?.('id');
+        if (!targetId || !sequence?.nodeId) return false;
+
+        const existing = GraphService.db.edges.items.find(edge =>
+            edge.source === sequence.nodeId &&
+            edge.target === targetId &&
+            edge.type === 'VALIDATES' &&
+            edge.properties?.evidenceKind === 'neural-link-action-sequence'
+        );
+
+        if (existing) return false;
+
+        GraphService.upsertNode({
+            id        : sequence.nodeId,
+            type      : 'NL_ACTION_SEQUENCE',
+            name      : sequence.sequenceId,
+            properties: {
+                sequenceId       : sequence.sequenceId,
+                actionCount      : sequence.actionCount,
+                successfulActions: sequence.successfulActions,
+                successRate      : sequence.successRate,
+                firstTimestamp   : sequence.firstTimestamp,
+                lastTimestamp    : sequence.lastTimestamp,
+                tools            : sequence.tools,
+                sessionIds       : sequence.sessionIds,
+                appNames         : sequence.appNames,
+                evidenceKind     : 'neural-link-action-sequence',
+                weakEvidence     : true
+            }
+        });
+
+        GraphService.linkNodes(sequence.nodeId, targetId, 'VALIDATES', 0.35, {
+            evidenceKind      : 'neural-link-action-sequence',
+            weakEvidence      : true,
+            successRate       : sequence.successRate,
+            actionCount       : sequence.actionCount,
+            successfulActions : sequence.successfulActions,
+            sequenceId        : sequence.sequenceId,
+            inferredBy        : 'GapInferenceEngine.inferNlActionDigest',
+            validationStrength: 'weak-runtime-interaction'
+        });
+
+        return true;
+    }
+
+    /**
+     * @param {Object} dbNode
+     * @param {Object} sequence
+     * @returns {Boolean}
+     * @protected
+     */
+    annotateTestGapWithNlActionEvidence(dbNode, sequence) {
+        const properties = dbNode.properties || dbNode.get?.('properties') || {};
+        const gaps = this.parseCapabilityGaps(properties.capabilityGap);
+        if (gaps.length === 0) return false;
+
+        let changed = false;
+        const updatedGaps = gaps.map(gap => {
+            if (!gap.includes('[TEST_GAP]') || gap.includes(NL_ACTION_WEAK_EVIDENCE_TAG)) {
+                return gap;
+            }
+            changed = true;
+            return `${gap} ${NL_ACTION_WEAK_EVIDENCE_TAG} Successful Neural Link action sequence '${sequence.sequenceId}' provides weak runtime-interaction evidence (${Math.round(sequence.successRate * 100)}% success), but permanent Playwright coverage is still required.`;
+        });
+
+        if (!changed) return false;
+
+        const targetId = dbNode.id || dbNode.get?.('id');
+        const label    = dbNode.label || dbNode.get?.('label');
+        const existingEvidence = Array.isArray(properties.nlActionEvidence) ? properties.nlActionEvidence : [];
+
+        GraphService.upsertNode({
+            id        : targetId,
+            type      : label,
+            properties: {
+                ...properties,
+                capabilityGap   : JSON.stringify(updatedGaps),
+                nlActionEvidence: [
+                    ...existingEvidence.filter(item => item.sequenceId !== sequence.sequenceId),
+                    {
+                        sequenceId       : sequence.sequenceId,
+                        successRate      : sequence.successRate,
+                        actionCount      : sequence.actionCount,
+                        successfulActions: sequence.successfulActions,
+                        evidenceKind     : 'neural-link-action-sequence',
+                        weakEvidence     : true,
+                        checkedAt        : Date.now()
+                    }
+                ]
+            }
+        });
+
+        return true;
+    }
+
+    /**
+     * @param {String|String[]} value
+     * @returns {String[]}
+     * @protected
+     */
+    parseCapabilityGaps(value) {
+        if (Array.isArray(value)) return value.filter(item => typeof item === 'string');
+        if (typeof value !== 'string' || value.length === 0) return [];
+        try {
+            const parsed = JSON.parse(value);
+            return Array.isArray(parsed) ? parsed.filter(item => typeof item === 'string') : [];
+        } catch {
+            return [];
         }
     }
 
