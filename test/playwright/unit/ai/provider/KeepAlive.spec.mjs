@@ -377,11 +377,12 @@ test.describe('AI provider keep_alive payload shape (#12080, #12089)', () => {
 
         expect(chunks).toEqual(['json ok']);
         expect(capturedPayload).toMatchObject({
-            model          : 'gemma4-test',
-            stream         : true,
-            keep_alive     : -1,
-            response_format: {type: 'json_object'}
+            model     : 'gemma4-test',
+            stream    : true,
+            keep_alive: -1
         });
+        // A schema-less json_object request no longer emits the LM-Studio-rejected json_object form.
+        expect(capturedPayload.response_format).toBeUndefined();
     });
 
     test('OpenAiCompatible.stream() emits response_format json_schema when a responseSchema is supplied', async () => {
@@ -535,11 +536,12 @@ test.describe('AI provider keep_alive payload shape (#12080, #12089)', () => {
             }
         });
         expect(capturedPayload).toMatchObject({
-            model          : 'gemma4-test',
-            stream         : true,
-            keep_alive     : -1,
-            response_format: {type: 'json_object'}
+            model     : 'gemma4-test',
+            stream    : true,
+            keep_alive: -1
         });
+        // A schema-less application/json request no longer emits the rejected json_object form.
+        expect(capturedPayload.response_format).toBeUndefined();
         expect(capturedPayload.responseMimeType).toBeUndefined();
     });
 });

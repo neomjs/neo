@@ -110,12 +110,9 @@ class OpenAiCompatibleProvider extends Base {
                     schema: responseSchema
                 }
             };
-        } else if (clonedOptions.responseMimeType === 'application/json' || clonedOptions.response_mime_type === 'application/json' || clonedOptions.response_format?.type === 'json_object') {
-            // Backward-compat JSON mode for callers without a schema. LM Studio rejects json_object —
-            // those callers should migrate to `responseSchema`; preserved for other
-            // OpenAI-compatible endpoints + the prior contract.
-            payload.response_format = { type: 'json_object' };
         }
+        // A schema-less JSON request emits NO `response_format` (prompt-driven): LM Studio rejects the
+        // `json_object` form, so callers needing enforced JSON must pass a `responseSchema` (json_schema).
         delete clonedOptions.responseMimeType;
         delete clonedOptions.response_mime_type;
         delete clonedOptions.response_format;
