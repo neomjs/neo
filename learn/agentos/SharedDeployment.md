@@ -94,7 +94,7 @@ export NEO_MODEL_PROVIDER=gemini
 
 This path uses the existing `Neo.ai.provider.OpenAiCompatible` chat-completions abstraction. Do not add a model-specific Qwen provider class for shared-deployment installs; local-model selection is an operator config concern.
 `NEO_OPENAI_COMPATIBLE_KEEP_ALIVE` and `NEO_OLLAMA_KEEP_ALIVE` default to `-1` so local providers keep the selected model resident across Agent OS calls unless operators explicitly choose a shorter retention window or `0` unload control.
-The optional `local-model` Docker profile mirrors that service primitive at the provider-runtime boundary: `OLLAMA_KEEP_ALIVE=-1`, `OLLAMA_CONTEXT_LENGTH=262144`, and a 32g default memory envelope for dual-resident chat + embedding deployments unless overridden by `NEO_LOCAL_MODEL_*` deployment variables.
+The optional `local-model` Docker profile mirrors that service primitive at the provider-runtime boundary: `OLLAMA_KEEP_ALIVE=-1`, `OLLAMA_CONTEXT_LENGTH=131072`, and a 32g default memory envelope for dual-resident chat + embedding deployments unless overridden by `NEO_LOCAL_MODEL_*` deployment variables.
 
 ### Local-provider model residency
 
