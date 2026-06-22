@@ -1,9 +1,16 @@
 import { test, expect } from '@playwright/test';
-import Database from 'better-sqlite3';
-import fs from 'fs-extra';
-import os from 'os';
-import path from 'path';
-import { collapseDuplicateShapeCRoutes, getLastSyncId, getUnreadSunsetHandovers, markNodesAsRead, writeLastSyncId } from '../../../../../../ai/daemons/wake/queries.mjs';
+import Database         from 'better-sqlite3';
+import fs               from 'fs-extra';
+import os               from 'os';
+import path             from 'path';
+import {
+    collapseDuplicateShapeCRoutes,
+    getLastSyncId,
+    getUnreadSunsetHandovers,
+    markNodesAsRead,
+    markSunsetHandoversSummaryProcessed,
+    writeLastSyncId
+} from '../../../../../../ai/daemons/wake/queries.mjs';
 
 test.describe('ai/daemons/wake/queries', () => {
     let db;
@@ -28,7 +35,7 @@ test.describe('ai/daemons/wake/queries', () => {
     test.describe('getUnreadSunsetHandovers', () => {
         test('finds unread MESSAGE nodes tagged with sunset-protocol-handover', () => {
             const messageData = {
-                type: 'MESSAGE',
+                type      : 'MESSAGE',
                 properties: {
                     taggedConcepts: ['sunset-protocol-handover', 'other-concept']
                 }
@@ -42,10 +49,25 @@ test.describe('ai/daemons/wake/queries', () => {
 
         test('ignores read MESSAGE nodes', () => {
             const messageData = {
-                type: 'MESSAGE',
+                type      : 'MESSAGE',
                 properties: {
-                    readAt: new Date().toISOString(),
+                    readAt        : new Date().toISOString(),
                     taggedConcepts: ['sunset-protocol-handover']
+                }
+            };
+            db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run('msg-1', JSON.stringify(messageData));
+
+            const results = getUnreadSunsetHandovers(db);
+            expect(results.length).toBe(0);
+        });
+
+        test('ignores summary-processed handovers without marking recipient readAt', () => {
+            const messageData = {
+                type      : 'MESSAGE',
+                properties: {
+                    handoverSummaryProcessedAt: new Date().toISOString(),
+                    readAt                    : null,
+                    taggedConcepts            : ['sunset-protocol-handover']
                 }
             };
             db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run('msg-1', JSON.stringify(messageData));
@@ -56,7 +78,7 @@ test.describe('ai/daemons/wake/queries', () => {
 
         test('ignores nodes without the taggedConcept', () => {
             const messageData = {
-                type: 'MESSAGE',
+                type      : 'MESSAGE',
                 properties: {
                     taggedConcepts: ['some-other-concept']
                 }
@@ -69,7 +91,7 @@ test.describe('ai/daemons/wake/queries', () => {
 
         test('ignores non-MESSAGE nodes', () => {
             const nodeData = {
-                type: 'EPISODIC',
+                type      : 'EPISODIC',
                 properties: {
                     taggedConcepts: ['sunset-protocol-handover']
                 }
@@ -81,11 +103,34 @@ test.describe('ai/daemons/wake/queries', () => {
         });
     });
 
+    test.describe('markSunsetHandoversSummaryProcessed', () => {
+        test('sets the summary-processed marker without consuming the inbox read state', () => {
+            const node = {
+                id        : 'msg-1',
+                type      : 'MESSAGE',
+                properties: {
+                    readAt        : null,
+                    taggedConcepts: ['sunset-protocol-handover']
+                }
+            };
+            db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(node.id, JSON.stringify(node));
+
+            markSunsetHandoversSummaryProcessed(db, [node]);
+
+            const row = db.prepare('SELECT data FROM Nodes WHERE id = ?').get('msg-1');
+            const updatedNode = JSON.parse(row.data);
+
+            expect(updatedNode.properties.handoverSummaryProcessedAt).toBeDefined();
+            expect(new Date(updatedNode.properties.handoverSummaryProcessedAt).getTime()).not.toBeNaN();
+            expect(updatedNode.properties.readAt).toBeNull();
+        });
+    });
+
     test.describe('markNodesAsRead', () => {
         test('updates readAt for provided nodes', () => {
             const node = {
-                id: 'msg-1',
-                type: 'MESSAGE',
+                id        : 'msg-1',
+                type      : 'MESSAGE',
                 properties: {
                     taggedConcepts: ['sunset-protocol-handover']
                 }
