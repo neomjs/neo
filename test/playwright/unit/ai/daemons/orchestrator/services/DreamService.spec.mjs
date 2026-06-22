@@ -1176,8 +1176,9 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
 
         let testGapCalls     = 0;
         let conceptGapCalls  = 0;
-        let sessionUpdates   = 0;
-        const infoMessages   = [];
+        let sessionUpdates          = 0;
+        const sessionUpdatePayloads = [];
+        const infoMessages          = [];
         const warnMessages   = [];
 
         const orig = {
@@ -1206,7 +1207,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
 
             DreamService.findUndigestedSessions = async () => [mockSession];
             DreamService.sessionsCollection     = {
-                update: async () => { sessionUpdates++; }
+                update: async (payload) => { sessionUpdates++; sessionUpdatePayloads.push(payload); }
             };
             DreamService.inferTestGapsFromSession = async () => { testGapCalls++; };
             DreamService.inferConceptGraphGaps    = async () => { conceptGapCalls++; };
@@ -1234,7 +1235,16 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
 
             expect(testGapCalls).toBe(1);
             expect(conceptGapCalls).toBe(1);
-            expect(sessionUpdates).toBe(0);
+            // An ingestion-error no longer no-ops. The session is updated to TRACK the failed attempt
+            // (digestState/digestAttempts/deferReason), but graphDigested is still NOT set — so the
+            // never-falsely-digested invariant (retried next cycle) holds and is strengthened.
+            // Attempt 1 of MAX_DIGEST_ATTEMPTS → stays `undigested` (re-servable), not yet `deferred`.
+            expect(sessionUpdates).toBe(1);
+            const failedMeta = sessionUpdatePayloads[0].metadatas[0];
+            expect(failedMeta.graphDigested).toBeUndefined();
+            expect(failedMeta.digestState).toBe('undigested');
+            expect(failedMeta.digestAttempts).toBe(1);
+            expect(failedMeta.deferReason).toBe('ingestion-failure');
             expect(infoMessages.some(msg => msg.includes('2 upserted, 1 skipped, 1 errors'))).toBe(true);
             expect(warnMessages.some(msg => msg.includes('agent-session-partial') && msg.includes('graphDigested will NOT be set'))).toBe(true);
         } finally {
@@ -1254,6 +1264,308 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             StorageRouter.getMemoryCollection                 = orig.getMemory;
             logger.info                                      = orig.loggerInfo;
             logger.warn                                      = orig.loggerWarn;
+            DreamService.isProcessing                         = orig.isProcessing;
+        }
+    });
+
+    test('findUndigestedSessions excludes `deferred` sessions and re-serves back-compat undigested rows (#13835)', async () => {
+        const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const original = {
+            summarizationBatchLimit: aiConfig.summarizationBatchLimit,
+            remSleepBatchLimit     : aiConfig.remSleepBatchLimit,
+            sessionsCollection     : DreamService.sessionsCollection
+        };
+
+        // Mix: a fresh undigested row, a `deferred` row (bounded out after MAX failed attempts), a
+        // digested row, and a back-compat row that predates digestState (no flag at all — must still
+        // be served). `deferred` is the load-reduction lever: excluded from the steady cadence.
+        const rows = [
+            {id: 'undigested-new', document: 'a', meta: {sessionId: 'undigested-new', timestamp: 4000}},
+            {id: 'deferred-x',     document: 'b', meta: {sessionId: 'deferred-x', timestamp: 3000, digestState: 'deferred', deferReason: 'skip-over-band', digestAttempts: 3}},
+            {id: 'digested-x',     document: 'c', meta: {sessionId: 'digested-x', timestamp: 2000, graphDigested: true, digestState: 'digested'}},
+            {id: 'undigested-old', document: 'd', meta: {sessionId: 'undigested-old', timestamp: 1000}}
+        ];
+
+        aiConfig.summarizationBatchLimit = 10;
+        aiConfig.remSleepBatchLimit      = 10;
+        DreamService.sessionsCollection  = {
+            async count() { return rows.length },
+            async get({limit, offset = 0}) {
+                const page = rows.slice(offset, offset + limit);
+                return {
+                    ids      : page.map(row => row.id),
+                    documents: page.map(row => row.document),
+                    metadatas: page.map(row => row.meta)
+                }
+            }
+        };
+
+        try {
+            const ids = (await DreamService.findUndigestedSessions()).map(row => row.id);
+            // Load-reduction: `deferred` is excluded from the steady cadence (stops the re-serve bleed).
+            expect(ids).not.toContain('deferred-x');
+            // Digested stays excluded; back-compat undigested rows (no digestState) are still served.
+            expect(ids).not.toContain('digested-x');
+            expect(ids).toContain('undigested-new');
+            expect(ids).toContain('undigested-old');
+        } finally {
+            aiConfig.summarizationBatchLimit = original.summarizationBatchLimit ?? 2000;
+            aiConfig.remSleepBatchLimit      = original.remSleepBatchLimit ?? 10;
+            DreamService.sessionsCollection  = original.sessionsCollection;
+        }
+    });
+
+    test('processUndigestedSessions bounds the re-serve — marks a session `deferred` once a skip-over-band failure reaches MAX (#13835)', async () => {
+        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const AdrIngestor             = (await import('../../../../../../../ai/services/ingestion/AdrIngestor.mjs')).default;
+        const ConceptIngestor         = (await import('../../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;
+        const FileSystemIngestor      = (await import('../../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
+        const TopologyInferenceEngine = (await import('../../../../../../../ai/services/graph/TopologyInferenceEngine.mjs')).default;
+
+        // The session has already failed MAX-1 (2) times; this cycle's failure is the 3rd. Payload OVER the
+        // model's safe band → deferReason resolves to the DETERMINISTICALLY-terminal `skip-over-band` (the
+        // only reason that bounds the re-serve — a genuine size check, not a guess). It must be bounded out
+        // as `deferred` so the steady cadence stops re-serving a session the model demonstrably cannot fit.
+        const mockSession = {
+            id      : 'chroma-summary-overband',
+            document: 'x'.repeat(2_000_000),
+            meta    : {sessionId: 'agent-session-overband', title: 'Over-band session', digestAttempts: 2}
+        };
+
+        const sessionUpdatePayloads = [];
+        const orig = {
+            provider          : aiConfig.modelProvider,
+            findUndigested    : DreamService.findUndigestedSessions,
+            sessionsCollection: DreamService.sessionsCollection,
+            inferTest         : DreamService.inferTestGapsFromSession,
+            inferConcept      : DreamService.inferConceptGraphGaps,
+            runGarbageCol     : DreamService.runGarbageCollection,
+            synthesizeGolden  : DreamService.synthesizeGoldenPath,
+            triVector         : SemanticGraphExtractor.executeTriVectorExtraction,
+            syncSession       : MemorySessionIngestor.syncSessionToGraph,
+            syncAdrs          : AdrIngestor.syncAdrsToGraph,
+            syncConcepts      : ConceptIngestor.syncConceptsToGraph,
+            syncFs            : FileSystemIngestor.syncWorkspaceToGraph,
+            extractTopo       : TopologyInferenceEngine.extractTopology,
+            getMemory         : StorageRouter.getMemoryCollection,
+            isProcessing      : DreamService.isProcessing
+        };
+
+        try {
+            aiConfig.modelProvider    = 'mock-provider';
+            DreamService.isProcessing = false;
+
+            DreamService.findUndigestedSessions = async () => [mockSession];
+            DreamService.sessionsCollection     = {
+                update: async (payload) => { sessionUpdatePayloads.push(payload); }
+            };
+            DreamService.inferTestGapsFromSession = async () => {};
+            DreamService.inferConceptGraphGaps    = async () => {};
+            DreamService.runGarbageCollection     = async () => {};
+            DreamService.synthesizeGoldenPath     = async () => {};
+
+            SemanticGraphExtractor.executeTriVectorExtraction = async () => null;
+            MemorySessionIngestor.syncSessionToGraph = async () => ({errors: [], memoriesSkipped: 0, memoriesUpserted: 1});
+            AdrIngestor.syncAdrsToGraph              = async () => ({});
+            ConceptIngestor.syncConceptsToGraph     = async () => ({});
+            FileSystemIngestor.syncWorkspaceToGraph = async () => {};
+            TopologyInferenceEngine.extractTopology = async () => {};
+            StorageRouter.getMemoryCollection       = async () => null;
+
+            await DreamService.processUndigestedSessions();
+
+            expect(sessionUpdatePayloads.length).toBe(1);
+            const meta = sessionUpdatePayloads[0].metadatas[0];
+            expect(meta.graphDigested).toBeUndefined();   // never falsely-digested
+            expect(meta.digestState).toBe('deferred');     // 3rd failure reaches MAX → bounded out (deterministic)
+            expect(meta.digestAttempts).toBe(3);
+            expect(meta.deferReason).toBe('skip-over-band');
+        } finally {
+            aiConfig.modelProvider                            = orig.provider;
+            DreamService.findUndigestedSessions               = orig.findUndigested;
+            DreamService.sessionsCollection                   = orig.sessionsCollection;
+            DreamService.inferTestGapsFromSession             = orig.inferTest;
+            DreamService.inferConceptGraphGaps                = orig.inferConcept;
+            DreamService.runGarbageCollection                 = orig.runGarbageCol;
+            DreamService.synthesizeGoldenPath                 = orig.synthesizeGolden;
+            SemanticGraphExtractor.executeTriVectorExtraction = orig.triVector;
+            MemorySessionIngestor.syncSessionToGraph          = orig.syncSession;
+            AdrIngestor.syncAdrsToGraph                       = orig.syncAdrs;
+            ConceptIngestor.syncConceptsToGraph               = orig.syncConcepts;
+            FileSystemIngestor.syncWorkspaceToGraph           = orig.syncFs;
+            TopologyInferenceEngine.extractTopology           = orig.extractTopo;
+            StorageRouter.getMemoryCollection                 = orig.getMemory;
+            DreamService.isProcessing                         = orig.isProcessing;
+        }
+    });
+
+    test('processUndigestedSessions does NOT defer under-band-choke even at MAX — the heuristic null retries until typed failure semantics exist (#13835)', async () => {
+        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const AdrIngestor             = (await import('../../../../../../../ai/services/ingestion/AdrIngestor.mjs')).default;
+        const ConceptIngestor         = (await import('../../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;
+        const FileSystemIngestor      = (await import('../../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
+        const TopologyInferenceEngine = (await import('../../../../../../../ai/services/graph/TopologyInferenceEngine.mjs')).default;
+
+        // Under-band payload + a bare-null extractor return = `under-band-choke`. The extractor returns the
+        // same null for choke / schema-failure / timeout alike, so terminality here is a GUESS — it must NOT
+        // be bounded out as `deferred` even past MAX. It stays `undigested` (attempt-tracked) and keeps
+        // retrying until typed extractor failure semantics can prove it terminal, so a digestible session
+        // that merely hit a transient/ambiguous null is never silently dropped.
+        const mockSession = {
+            id      : 'chroma-summary-underband',
+            document: 'tiny',
+            meta    : {sessionId: 'agent-session-underband', title: 'Under-band null session', digestAttempts: 5}
+        };
+
+        const sessionUpdatePayloads = [];
+        const orig = {
+            provider          : aiConfig.modelProvider,
+            findUndigested    : DreamService.findUndigestedSessions,
+            sessionsCollection: DreamService.sessionsCollection,
+            inferTest         : DreamService.inferTestGapsFromSession,
+            inferConcept      : DreamService.inferConceptGraphGaps,
+            runGarbageCol     : DreamService.runGarbageCollection,
+            synthesizeGolden  : DreamService.synthesizeGoldenPath,
+            triVector         : SemanticGraphExtractor.executeTriVectorExtraction,
+            syncSession       : MemorySessionIngestor.syncSessionToGraph,
+            syncAdrs          : AdrIngestor.syncAdrsToGraph,
+            syncConcepts      : ConceptIngestor.syncConceptsToGraph,
+            syncFs            : FileSystemIngestor.syncWorkspaceToGraph,
+            extractTopo       : TopologyInferenceEngine.extractTopology,
+            getMemory         : StorageRouter.getMemoryCollection,
+            isProcessing      : DreamService.isProcessing
+        };
+
+        try {
+            aiConfig.modelProvider    = 'mock-provider';
+            DreamService.isProcessing = false;
+
+            DreamService.findUndigestedSessions = async () => [mockSession];
+            DreamService.sessionsCollection     = {
+                update: async (payload) => { sessionUpdatePayloads.push(payload); }
+            };
+            DreamService.inferTestGapsFromSession = async () => {};
+            DreamService.inferConceptGraphGaps    = async () => {};
+            DreamService.runGarbageCollection     = async () => {};
+            DreamService.synthesizeGoldenPath     = async () => {};
+
+            SemanticGraphExtractor.executeTriVectorExtraction = async () => null;
+            MemorySessionIngestor.syncSessionToGraph = async () => ({errors: [], memoriesSkipped: 0, memoriesUpserted: 1});
+            AdrIngestor.syncAdrsToGraph              = async () => ({});
+            ConceptIngestor.syncConceptsToGraph     = async () => ({});
+            FileSystemIngestor.syncWorkspaceToGraph = async () => {};
+            TopologyInferenceEngine.extractTopology = async () => {};
+            StorageRouter.getMemoryCollection       = async () => null;
+
+            await DreamService.processUndigestedSessions();
+
+            expect(sessionUpdatePayloads.length).toBe(1);
+            const meta = sessionUpdatePayloads[0].metadatas[0];
+            expect(meta.graphDigested).toBeUndefined();    // never falsely-digested
+            expect(meta.deferReason).toBe('under-band-choke');
+            expect(meta.digestAttempts).toBe(6);            // 5 prior + this one
+            expect(meta.digestState).toBe('undigested');    // heuristic null → NOT deferred, keeps retrying
+        } finally {
+            aiConfig.modelProvider                            = orig.provider;
+            DreamService.findUndigestedSessions               = orig.findUndigested;
+            DreamService.sessionsCollection                   = orig.sessionsCollection;
+            DreamService.inferTestGapsFromSession             = orig.inferTest;
+            DreamService.inferConceptGraphGaps                = orig.inferConcept;
+            DreamService.runGarbageCollection                 = orig.runGarbageCol;
+            DreamService.synthesizeGoldenPath                 = orig.synthesizeGolden;
+            SemanticGraphExtractor.executeTriVectorExtraction = orig.triVector;
+            MemorySessionIngestor.syncSessionToGraph          = orig.syncSession;
+            AdrIngestor.syncAdrsToGraph                       = orig.syncAdrs;
+            ConceptIngestor.syncConceptsToGraph               = orig.syncConcepts;
+            FileSystemIngestor.syncWorkspaceToGraph           = orig.syncFs;
+            TopologyInferenceEngine.extractTopology           = orig.extractTopo;
+            StorageRouter.getMemoryCollection                 = orig.getMemory;
+            DreamService.isProcessing                         = orig.isProcessing;
+        }
+    });
+
+    test('processUndigestedSessions does NOT defer a transient ingestion-failure — it keeps retrying past MAX so a digestible session is never silently dropped (#13835)', async () => {
+        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const AdrIngestor             = (await import('../../../../../../../ai/services/ingestion/AdrIngestor.mjs')).default;
+        const ConceptIngestor         = (await import('../../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;
+        const FileSystemIngestor      = (await import('../../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
+        const TopologyInferenceEngine = (await import('../../../../../../../ai/services/graph/TopologyInferenceEngine.mjs')).default;
+
+        // The session has already failed 5 times (well past MAX) via TRANSIENT ingestion errors while its
+        // extraction SUCCEEDS — it is digestible, only the graph-ingest keeps hitting soft errors (DB-busy
+        // / embed-timeout). A transient failure must NOT be bounded out as `deferred`: that would silently
+        // drop a digestible session from the graph forever. It stays `undigested` (re-served, retried) —
+        // only permanent model-side un-digestibility defers.
+        const mockSession = {
+            id      : 'chroma-summary-transient',
+            document: 'recoverable session payload',
+            meta    : {sessionId: 'agent-session-transient', title: 'Transient ingest failure', digestAttempts: 5}
+        };
+
+        const sessionUpdatePayloads = [];
+        const orig = {
+            provider          : aiConfig.modelProvider,
+            findUndigested    : DreamService.findUndigestedSessions,
+            sessionsCollection: DreamService.sessionsCollection,
+            inferTest         : DreamService.inferTestGapsFromSession,
+            inferConcept      : DreamService.inferConceptGraphGaps,
+            runGarbageCol     : DreamService.runGarbageCollection,
+            synthesizeGolden  : DreamService.synthesizeGoldenPath,
+            triVector         : SemanticGraphExtractor.executeTriVectorExtraction,
+            syncSession       : MemorySessionIngestor.syncSessionToGraph,
+            syncAdrs          : AdrIngestor.syncAdrsToGraph,
+            syncConcepts      : ConceptIngestor.syncConceptsToGraph,
+            syncFs            : FileSystemIngestor.syncWorkspaceToGraph,
+            extractTopo       : TopologyInferenceEngine.extractTopology,
+            getMemory         : StorageRouter.getMemoryCollection,
+            isProcessing      : DreamService.isProcessing
+        };
+
+        try {
+            aiConfig.modelProvider    = 'mock-provider';
+            DreamService.isProcessing = false;
+
+            DreamService.findUndigestedSessions = async () => [mockSession];
+            DreamService.sessionsCollection     = {
+                update: async (payload) => { sessionUpdatePayloads.push(payload); }
+            };
+            DreamService.inferTestGapsFromSession = async () => {};
+            DreamService.inferConceptGraphGaps    = async () => {};
+            DreamService.runGarbageCollection     = async () => {};
+            DreamService.synthesizeGoldenPath     = async () => {};
+
+            // Extraction SUCCEEDS (digestible) — only the ingest reports soft, transient errors.
+            SemanticGraphExtractor.executeTriVectorExtraction = async () => ({status: 'ok'});
+            MemorySessionIngestor.syncSessionToGraph = async () => ({errors: ['database is locked, retry'], memoriesSkipped: 0, memoriesUpserted: 0});
+            AdrIngestor.syncAdrsToGraph              = async () => ({});
+            ConceptIngestor.syncConceptsToGraph     = async () => ({});
+            FileSystemIngestor.syncWorkspaceToGraph = async () => {};
+            TopologyInferenceEngine.extractTopology = async () => {};
+            StorageRouter.getMemoryCollection       = async () => null;
+
+            await DreamService.processUndigestedSessions();
+
+            expect(sessionUpdatePayloads.length).toBe(1);
+            const meta = sessionUpdatePayloads[0].metadatas[0];
+            expect(meta.graphDigested).toBeUndefined();    // ingest failed → never falsely-digested
+            expect(meta.deferReason).toBe('ingestion-failure');
+            expect(meta.digestAttempts).toBe(6);            // 5 prior + this one
+            expect(meta.digestState).toBe('undigested');    // TRANSIENT → keeps retrying, NOT bounded to `deferred`
+        } finally {
+            aiConfig.modelProvider                            = orig.provider;
+            DreamService.findUndigestedSessions               = orig.findUndigested;
+            DreamService.sessionsCollection                   = orig.sessionsCollection;
+            DreamService.inferTestGapsFromSession             = orig.inferTest;
+            DreamService.inferConceptGraphGaps                = orig.inferConcept;
+            DreamService.runGarbageCollection                 = orig.runGarbageCol;
+            DreamService.synthesizeGoldenPath                 = orig.synthesizeGolden;
+            SemanticGraphExtractor.executeTriVectorExtraction = orig.triVector;
+            MemorySessionIngestor.syncSessionToGraph          = orig.syncSession;
+            AdrIngestor.syncAdrsToGraph                       = orig.syncAdrs;
+            ConceptIngestor.syncConceptsToGraph               = orig.syncConcepts;
+            FileSystemIngestor.syncWorkspaceToGraph           = orig.syncFs;
+            TopologyInferenceEngine.extractTopology           = orig.extractTopo;
+            StorageRouter.getMemoryCollection                 = orig.getMemory;
             DreamService.isProcessing                         = orig.isProcessing;
         }
     });
@@ -1344,7 +1656,9 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
 
             // graphDigested NOT set → session stays undigested for the next REM cycle, not silently masked.
             expect(sessionState.graphDigestedFlag).toBe(false);
-            expect(sessionUpdates).toBe(0);
+            // The failed attempt is now TRACKED via a metadata update (digestState/digestAttempts/
+            // deferReason) — but graphDigested stays unset, so the session is never falsely-digested.
+            expect(sessionUpdates).toBe(1);
 
             // The real SemanticGraphExtractor surfaced the overflow as friction (not a silent drop).
             const friction = getAggregatedFrictions().find(item => item.assetRef === 'agent-session-empty-overflow');
@@ -1457,7 +1771,9 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
 
             // graphDigested NOT set → session stays undigested for the next REM cycle, not silently masked.
             expect(sessionState.graphDigestedFlag).toBe(false);
-            expect(sessionUpdates).toBe(0);
+            // The failed attempt is now TRACKED via a metadata update (digestState/digestAttempts/
+            // deferReason) — but graphDigested stays unset, so the session is never falsely-digested.
+            expect(sessionUpdates).toBe(1);
         } finally {
             aiConfig.modelProvider                           = orig.provider;
             DreamService.findUndigestedSessions              = orig.findUndigested;
