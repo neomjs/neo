@@ -40,6 +40,20 @@ const COMPUTED_RECOMMENDATION_EXCLUDED_LABELS = Object.freeze(new Set([
     'not code ready'
 ]));
 
+const COMPUTED_CONTENT_CONTRADICTION_LABELS = Object.freeze(new Set([
+    'blog post',
+    'documentation',
+    'docs',
+    'guide',
+    'content'
+]));
+
+const CURRENT_FOCUS_ROUTING_CONFLICT_REASONS = Object.freeze(new Set([
+    'incident',
+    'prio-zero',
+    'v13.1'
+]));
+
 /**
  * Social Name → `@`-stripped GitHub login, derived from the canonical identity roster. The PR-body
  * self-id leads with the Social Name (`Authored by <Social Name> (…)`); this resolves it to the login
@@ -353,6 +367,120 @@ class GoldenPathSynthesizer extends Base {
         const labels = this.normalizeLabels(nodeData?.properties?.labels || nodeData?.labels);
 
         return !labels.some(label => COMPUTED_RECOMMENDATION_EXCLUDED_LABELS.has(label))
+    }
+
+    /**
+     * @summary Determines whether a Current Focus candidate is strong enough to guard computed routing.
+     *
+     * Current Focus remains visibility-only. This guard does not boost focus nodes into
+     * routing; it only prevents contradictory content recommendations from being rendered
+     * as the machine-consumed immediate route while unresolved incident/release focus exists.
+     *
+     * @param {Object} candidate Current Focus candidate.
+     * @returns {Boolean}
+     */
+    static isRoutingConflictFocusCandidate(candidate) {
+        return Array.isArray(candidate?.reasons) &&
+            candidate.reasons.some(reason => CURRENT_FOCUS_ROUTING_CONFLICT_REASONS.has(reason))
+    }
+
+    /**
+     * @summary Detects computed recommendations that are narrative/content work.
+     *
+     * Blog and docs tickets are valid Golden Path work when incident/release focus permits
+     * it. They become contradictory only when a live Current Focus incident/release signal
+     * exists and the computed section would otherwise route agents away from it.
+     *
+     * @param {Object} nodeData Parsed computed recommendation node.
+     * @returns {Boolean}
+     */
+    static isContentComputedRecommendation(nodeData) {
+        const labels = this.normalizeLabels(nodeData?.properties?.labels || nodeData?.labels);
+        if (labels.some(label => COMPUTED_CONTENT_CONTRADICTION_LABELS.has(label))) return true;
+
+        const title = String(nodeData?.properties?.title || nodeData?.properties?.name || nodeData?.title || nodeData?.name || '');
+
+        return /\b(?:blog|docs?|documentation|guide|narrative)\b/i.test(title)
+    }
+
+    /**
+     * @summary Finds content recommendations that contradict live Current Focus incident work.
+     *
+     * @param {Object} options
+     * @param {Array<Object>} [options.topNodes=[]] Computed Golden Path recommendations.
+     * @param {Array<Object>} [options.currentFocusCandidates=[]] Current Focus candidates.
+     * @returns {{focusCandidates: Array<Object>, blockedNodes: Array<Object>, blockedIds: Set<String>}|null}
+     */
+    static findComputedFocusContradiction({
+        topNodes = [],
+        currentFocusCandidates = []
+    } = {}) {
+        const focusCandidates = currentFocusCandidates.filter(candidate =>
+            this.isRoutingConflictFocusCandidate(candidate)
+        );
+
+        if (focusCandidates.length === 0 || topNodes.length === 0) return null;
+
+        const focusIds = new Set(focusCandidates.map(candidate => `issue-${candidate.number}`));
+        const blockedNodes = topNodes.filter(item => {
+            const nodeId = String(item?.node?.id || '');
+
+            return nodeId &&
+                !focusIds.has(nodeId) &&
+                this.isContentComputedRecommendation(item.node)
+        });
+
+        if (blockedNodes.length === 0) return null;
+
+        return {
+            blockedIds: new Set(blockedNodes.map(item => item.node.id)),
+            blockedNodes,
+            focusCandidates
+        }
+    }
+
+    /**
+     * @summary Renders the computed-route contradiction diagnostic.
+     *
+     * The section intentionally contains no numbered `**issue-N**:` entries, so
+     * `AgentOrchestrator.parseGoldenPath()` will not treat filtered content work
+     * as an immediate route.
+     *
+     * @param {Object} options
+     * @param {Object} options.contradiction Result from `findComputedFocusContradiction`.
+     * @param {Object} [options.stats={}] Candidate-count diagnostics for the current pass.
+     * @returns {String} Markdown section.
+     */
+    static renderComputedGoldenPathContradictionSection({
+        contradiction,
+        stats = {}
+    } = {}) {
+        const count = value => Number.isFinite(Number(value)) ? Number(value) : 0;
+        const focusRefs = (contradiction?.focusCandidates || [])
+            .slice(0, 3)
+            .map(candidate => `#${candidate.number}`)
+            .join(', ') || 'none';
+        const blockedRefs = (contradiction?.blockedNodes || [])
+            .map(item => item.node.id)
+            .join(', ') || 'none';
+
+        return [
+            '',
+            '## Computed Golden Path (Strategic Recommendation)',
+            '',
+            'Computed routing paused because the surviving content/narrative recommendation contradicts live Current Release / Incident Focus.',
+            '',
+            `- Active incident/release focus candidates: ${focusRefs}`,
+            `- Contradictory computed candidates filtered: ${blockedRefs}`,
+            `- Semantic candidates: ${count(stats.semanticCandidates)}`,
+            `- SQLite OPEN matches: ${count(stats.sqliteOpenMatches)}`,
+            `- Scored actionable candidates: ${count(stats.scoredCandidates)}`,
+            `- Selected routed nodes: ${count(stats.selectedTopNodes)}`,
+            `- Stale frontier GUIDES pruned: ${count(stats.prunedGuideEdges)}`,
+            '',
+            'No numbered immediate recommendation is rendered for this pass; use the Current Release / Incident Focus section for visibility and rerun after the incident/release focus clears or the computed route aligns.',
+            ''
+        ].join('\n')
     }
 
     /**
@@ -859,29 +987,54 @@ class GoldenPathSynthesizer extends Base {
 
         // Remove mathematically rejected targets (Negative ROI), then slice
         const topNodes = scoredNodes.filter(n => n.score > -5000).slice(0, aiConfig.goldenPathTopNodeRenderLimit);
-        const goldenIds = new Set(topNodes.map(item => item.node.id));
+
+        let currentFocusCandidates = [];
+        if (repoEnrichmentEnabled) {
+            try {
+                currentFocusCandidates = this.constructor.buildCurrentFocusCandidates({
+                    issuesDir,
+                    now
+                });
+            } catch (e) {
+                logger.warn('[GoldenPathSynthesizer] Failed to generate Current Release / Incident Focus', e);
+            }
+        }
+
+        const focusContradiction = this.constructor.findComputedFocusContradiction({
+            currentFocusCandidates,
+            topNodes
+        });
+        const routedTopNodes = focusContradiction
+            ? topNodes.filter(item => !focusContradiction.blockedIds.has(item.node.id))
+            : topNodes;
+        const goldenIds = new Set(routedTopNodes.map(item => item.node.id));
         scoringStats.scoredCandidates = scoredNodes.length;
-        scoringStats.selectedTopNodes = topNodes.length;
+        scoringStats.selectedTopNodes = routedTopNodes.length;
         scoringStats.prunedGuideEdges = this.constructor.pruneStaleFrontierGuideEdges({
             currentTargetIds: goldenIds
         });
 
         let markdownAppend = '';
 
-        if (topNodes.length > 0) {
-            logger.info(`[GoldenPathSynthesizer] Top Issue 1 (${topNodes[0].node.id}): Priority ${topNodes[0].score.toFixed(2)} [Sem: ${topNodes[0].semantic.toFixed(2)} / Struc: ${topNodes[0].structural.toFixed(2)}]`);
+        if (routedTopNodes.length > 0) {
+            logger.info(`[GoldenPathSynthesizer] Top Issue 1 (${routedTopNodes[0].node.id}): Priority ${routedTopNodes[0].score.toFixed(2)} [Sem: ${routedTopNodes[0].semantic.toFixed(2)} / Struc: ${routedTopNodes[0].structural.toFixed(2)}]`);
 
             // Explicitly anchor this to the frontier context so the Agent NEVER loses sight of it
             markdownAppend = `\n## Computed Golden Path (Strategic Recommendation)\n\n`;
             markdownAppend += `Based on the latest Tri-Vector Synthesis and Topological Priorities, the following tasks are mathematically recommended as the next immediate focus:\n\n`;
 
-            topNodes.forEach((item, index) => {
+            routedTopNodes.forEach((item, index) => {
                 if (item.node && item.node.id) {
                     GraphService.linkNodes('frontier', item.node.id, 'GUIDES', item.score);
                     const title = item.node.properties?.title || item.node.properties?.name || item.node.name || 'Unknown Title';
                     markdownAppend += `${index + 1}. **${item.node.id}**: Score ${item.score.toFixed(2)} (Semantic: ${item.semantic.toFixed(2)}, Structural: ${item.structural.toFixed(2)})\n   - *${title}*\n`;
                 }
             });
+
+            if (focusContradiction) {
+                const blockedRefs = focusContradiction.blockedNodes.map(item => item.node.id).join(', ');
+                markdownAppend += `\n> **Routing Guard:** Filtered content/narrative computed candidate(s) ${blockedRefs} because live Current Release / Incident Focus would make them contradictory immediate routes.\n\n`;
+            }
 
             try {
                 const graphProvider = resolveGraphModelProvider(aiConfig);
@@ -921,6 +1074,12 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             } catch (e) {
                 logger.warn('[GoldenPathSynthesizer] Failed to generate semantic interpretation for Golden Path (LLM Offline). Proceeding with pure mathematical output.', e);
             }
+        } else if (focusContradiction) {
+            markdownAppend = this.constructor.renderComputedGoldenPathContradictionSection({
+                contradiction: focusContradiction,
+                stats        : scoringStats
+            });
+            logger.info('[GoldenPathSynthesizer] Computed route contradicted Current Focus; rendered diagnostic instead of routing content work.');
         } else {
             markdownAppend = this.constructor.renderComputedGoldenPathEmptySection(scoringStats);
             logger.info('[GoldenPathSynthesizer] No actionable unblocked issues found. Golden path empty.');
@@ -1067,13 +1226,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         let currentFocusAppend = '';
         if (repoEnrichmentEnabled) {
             try {
-                const Synthesizer = this.constructor;
-                const currentFocusCandidates = Synthesizer.buildCurrentFocusCandidates({
-                    issuesDir,
-                    now
-                });
-
-                currentFocusAppend = Synthesizer.renderCurrentFocusCandidatesSection(currentFocusCandidates, {capturedAt: now instanceof Date ? now : new Date(now)});
+                currentFocusAppend = this.constructor.renderCurrentFocusCandidatesSection(currentFocusCandidates, {capturedAt: now instanceof Date ? now : new Date(now)});
             } catch (e) {
                 logger.warn('[GoldenPathSynthesizer] Failed to generate Current Release / Incident Focus', e);
             }
