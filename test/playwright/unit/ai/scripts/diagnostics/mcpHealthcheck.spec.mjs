@@ -290,7 +290,9 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
             'OLLAMA_HOST=0.0.0.0:11434',
             'OLLAMA_MODELS=/root/.ollama',
             'OLLAMA_KEEP_ALIVE=${NEO_LOCAL_MODEL_KEEP_ALIVE:--1}',
-            'OLLAMA_CONTEXT_LENGTH=${NEO_LOCAL_MODEL_CONTEXT_LENGTH:-262144}'
+            'OLLAMA_CONTEXT_LENGTH=${NEO_LOCAL_MODEL_CONTEXT_LENGTH:-131072}',
+            'OLLAMA_NUM_PARALLEL=${NEO_LOCAL_MODEL_NUM_PARALLEL:-1}',
+            'OLLAMA_MAX_LOADED_MODELS=${NEO_LOCAL_MODEL_MAX_LOADED_MODELS:-2}'
         ]));
         expect(localModel.healthcheck.test).toEqual(['CMD', 'ollama', 'list']);
         expect(localModel.deploy.resources.limits).toEqual({
