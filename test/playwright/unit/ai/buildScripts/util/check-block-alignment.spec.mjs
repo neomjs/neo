@@ -12,7 +12,7 @@ const
 
 /**
  * check-block-alignment.mjs — the lint that mechanizes Neo's block alignment (import-`from`,
- * object-literal colons, `=` declaration blocks) so it is never hand-counted. Coverage is constructed
+ * object-literal colons, declaration `=` blocks) so it is never hand-counted. Coverage is constructed
  * WITHOUT any hand-aligned fixture (the exact error class
  * this gate removes): the misaligned input is trivial to write, the aligned form is DERIVED via `--fix`,
  * and the false-positive guards use ungrouped inputs that pass regardless of spacing.
@@ -51,7 +51,7 @@ test.describe('check-block-alignment.mjs (#13556)', () => {
     ].join('\n');
 
     test('flags a misaligned import-from group with a file:line + expected-column diagnostic (exit 1)', () => {
-        const file             = write('m.mjs', MISALIGNED);
+        const file = write('m.mjs', MISALIGNED);
         const {status, output} = run(file);
 
         expect(status).toBe(1);
@@ -237,17 +237,85 @@ test.describe('check-block-alignment.mjs (#13556)', () => {
             expect(run('--fix', file).status).toBe(0);   // idempotent
         });
 
+        test('--fix aligns a keyword-head comma-block with bare continuations', () => {
+            const file = write('d.mjs', [
+                'const short = 1,',
+                '      muchLongerName = 2,',
+                '      blockValue = {',
+                '          a: 1',
+                '      };'
+            ].join('\n'));
+
+            expect(run('--fix', file).status).toBe(0);
+
+            const
+                lines    = fs.readFileSync(file, 'utf8').split('\n'),
+                shortEq  = lines.find(line => /short/.test(line)).indexOf('='),
+                longerEq = lines.find(line => /muchLongerName/.test(line)).indexOf('='),
+                blockEq  = lines.find(line => /blockValue/.test(line)).indexOf('=');
+
+            expect(shortEq).toBe(longerEq);
+            expect(blockEq).toBe(longerEq);
+            expect(run(file).status).toBe(0);
+        });
+
+        test('#13896: --fix aligns repeated-keyword declaration blocks', () => {
+            const file = write('d.mjs', [
+                "const extra     = extraModels.length ? extraModels.join(', ') : 'none';",
+                'const requiredObserved = Neo.isNumber(observedRequiredCount) ? observedRequiredCount : observedCount;'
+            ].join('\n'));
+
+            expect(run(file).status).toBe(1);
+            expect(run('--fix', file).status).toBe(0);
+
+            const
+                lines      = fs.readFileSync(file, 'utf8').split('\n'),
+                extraEq    = lines[0].indexOf('='),
+                observedEq = lines[1].indexOf('=');
+
+            expect(extraEq).toBe(observedEq);
+            expect(lines[0]).toBe("const extra            = extraModels.length ? extraModels.join(', ') : 'none';");
+            expect(run(file).status).toBe(0);
+        });
+
+        test('#13896: --fix aligns repeated declarations when a new longer binding resets the block', () => {
+            const file = write('d.mjs', [
+                'const observedCount = availableModels.length;',
+                'const observedRequiredCount = getRequiredAvailable(availableModels).length;',
+                'const capacityReady      = observedRequiredCount >= requiredResidentModels;'
+            ].join('\n'));
+
+            expect(run('--fix', file).status).toBe(0);
+
+            const eqCols = fs.readFileSync(file, 'utf8').split('\n').map(line => line.indexOf('='));
+
+            expect(new Set(eqCols).size).toBe(1);
+            expect(run(file).status).toBe(0);
+        });
+
+        test('#13896: a lone keyword declaration normalizes stale padding', () => {
+            const file = write('d.mjs', 'const trigger   = buildSummaryTrigger({\n    now\n});\n');
+
+            expect(run(file).status).toBe(1);
+            expect(run('--fix', file).status).toBe(0);
+            expect(fs.readFileSync(file, 'utf8').split('\n')[0]).toBe('const trigger = buildSummaryTrigger({');
+            expect(run(file).status).toBe(0);
+        });
+
         test('bare non-declaration assignments are NOT aligned (declaration-anchored only)', () => {
             // No const/let/var anchor → arbitrary assignments must never be re-aligned (false-positive guard).
             const file = write('d.mjs', 'obj.a = 1;\nobj.bbb = 2;\n');
             expect(run(file).status).toBe(0);
         });
 
-        test('separate consecutive declarations are NOT grouped (only the comma-block aligns)', () => {
-            // `let aaa = …; const b = …;` are distinct statements — the house-style `=` unit is the
-            // single-keyword comma-block, not every adjacent declaration. Must pass unchanged.
+        test('mixed repeated-keyword declarations align keyword, name, and equals columns', () => {
             const file = write('d.mjs', 'let aaa = 1;\nconst b = 2;\nlet cc = 3;\n');
-            expect(run(file).status).toBe(0);
+            expect(run('--fix', file).status).toBe(0);
+
+            const aligned = fs.readFileSync(file, 'utf8');
+            expect(aligned).toContain('let   aaa = 1;');
+            expect(aligned).toContain('const b   = 2;');
+            expect(aligned).toContain('let   cc  = 3;');
         });
 
         test('a computed key participates in colon alignment (the [isDescriptor] config pattern)', () => {
