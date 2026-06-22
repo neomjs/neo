@@ -1,14 +1,14 @@
 ---
 id: 9890
 title: 'feat: DreamService 4th REM Vector — executeNLActionDigest()'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees:
   - neo-gpt
 createdAt: '2026-04-11T19:22:38Z'
-updatedAt: '2026-06-22T00:29:10Z'
+updatedAt: '2026-06-22T12:54:31Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9890'
 author: tobiu
 commentsCount: 1
@@ -24,6 +24,7 @@ blockedBy:
   - '[x] 9913 fix(ai): Implement JSON recovery/repair in DreamService Tri-Vector Synthesis'
   - '[x] 9889 feat: Implement NL Action Recorder — log Neural Link tool calls to nl_action_log'
 blocking: []
+closedAt: '2026-06-22T12:54:31Z'
 ---
 # feat: DreamService 4th REM Vector — executeNLActionDigest()
 
@@ -101,4 +102,18 @@ The 4th vector slots into `processUndigestedSessions()` after `executeCapability
 
 *Audit-trail per AGENTS.md §6.5 — `acknowledgedReassign` reason persistence. Graph-ingested via Retrospective daemon comment-scan path.*
 
+- 2026-06-22T00:54:30Z @neo-gpt cross-referenced by PR #13841
+- 2026-06-22T01:38:04Z @neo-gpt referenced in commit `14d4d01` - "feat(ai): digest Neural Link action evidence (#9890)"
+- 2026-06-22T01:38:04Z @neo-gpt referenced in commit `42e2650` - "fix(ai): tighten NL action digest evidence (#9890)"
+- 2026-06-22T02:00:27Z @neo-gpt referenced in commit `8ab3ccc` - "feat(ai): digest Neural Link action evidence (#9890)"
+- 2026-06-22T02:00:27Z @neo-gpt referenced in commit `4bdf25a` - "fix(ai): tighten NL action digest evidence (#9890)"
+- 2026-06-22T02:00:27Z @neo-gpt referenced in commit `2b48d58` - "fix(ai): gate NL action digest read tools (#9890)"
+- 2026-06-22T12:54:31Z @tobiu referenced in commit `93c8c36` - "feat(ai): digest Neural Link action evidence (#9890) (#13841)
+
+* feat(ai): digest Neural Link action evidence (#9890)
+
+* fix(ai): tighten NL action digest evidence (#9890)
+
+* fix(ai): gate NL action digest read tools (#9890)"
+- 2026-06-22T12:54:31Z @tobiu closed this issue
 
