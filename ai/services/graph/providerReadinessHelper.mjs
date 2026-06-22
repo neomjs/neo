@@ -53,13 +53,41 @@ export function getOpenAiCompatibleModelIds(payload) {
  * @returns {String[]}
  */
 export function getOllamaRunningModelIds(payload) {
+    return getOllamaRunningModels(payload).map(item => item.id);
+}
+
+/**
+ * @summary Extracts resident native Ollama model metadata from `/api/ps`.
+ *
+ * Ollama reports the loaded context as `context_length` per running model. The
+ * readiness layer preserves it so a model that is merely resident at the default
+ * 4K-ish context window cannot satisfy Neo's configured local-model context cap.
+ *
+ * @param {Object} payload Parsed `/api/ps` response.
+ * @returns {Object[]}
+ */
+export function getOllamaRunningModels(payload) {
     if (!Array.isArray(payload?.models)) {
         return [];
     }
 
-    return [...new Set(payload.models
-        .map(item => item?.name || item?.model || item?.id)
-        .filter(Boolean))];
+    const models = [];
+    const seen   = new Set();
+
+    for (const item of payload.models) {
+        const id = item?.name || item?.model || item?.id;
+        if (!id || seen.has(id)) {
+            continue;
+        }
+
+        seen.add(id);
+        models.push({
+            id,
+            contextLength: Neo.isNumber(item?.context_length) ? item.context_length : undefined
+        });
+    }
+
+    return models;
 }
 
 /**
@@ -103,11 +131,23 @@ export async function fetchOpenAiCompatibleModelIds({host, timeoutMs, fetchFn = 
  * @returns {Promise<String[]>}
  */
 export async function fetchOllamaRunningModelIds({host, timeoutMs, fetchFn = fetch} = {}) {
+    return (await fetchOllamaRunningModels({host, timeoutMs, fetchFn})).map(item => item.id);
+}
+
+/**
+ * @summary Fetches resident native Ollama model metadata from `/api/ps`.
+ * @param {Object} options
+ * @param {String} options.host Provider host.
+ * @param {Number} options.timeoutMs HTTP timeout. Required; no module-level default.
+ * @param {Function} [options.fetchFn=fetch] Fetch seam for tests.
+ * @returns {Promise<Object[]>}
+ */
+export async function fetchOllamaRunningModels({host, timeoutMs, fetchFn = fetch} = {}) {
     if (!host) {
-        throw new TypeError('fetchOllamaRunningModelIds: host is required');
+        throw new TypeError('fetchOllamaRunningModels: host is required');
     }
     if (typeof timeoutMs !== 'number') {
-        throw new TypeError('fetchOllamaRunningModelIds: timeoutMs is required');
+        throw new TypeError('fetchOllamaRunningModels: timeoutMs is required');
     }
 
     const url      = new URL('/api/ps', host).toString();
@@ -121,7 +161,7 @@ export async function fetchOllamaRunningModelIds({host, timeoutMs, fetchFn = fet
         throw new Error(`Ollama running-model enumeration failed: HTTP ${response.status}${text ? ` - ${text}` : ''}`);
     }
 
-    return getOllamaRunningModelIds(await response.json());
+    return getOllamaRunningModels(await response.json());
 }
 
 /**
@@ -137,6 +177,7 @@ export async function fetchOllamaRunningModelIds({host, timeoutMs, fetchFn = fet
  * @param {String} options.model Ollama model identifier.
  * @param {String} options.role Either `'chat'` or `'embedding'`.
  * @param {String|Number} [options.keepAlive] Ollama keep_alive value.
+ * @param {Number} [options.contextLength] Native Ollama `options.num_ctx` warm-up override.
  * @param {Number} options.timeoutMs HTTP timeout. Required; no module-level default.
  * @param {Function} [options.fetchFn=fetch] Fetch seam for tests.
  * @returns {Promise<Object>}
@@ -146,6 +187,7 @@ export async function warmOllamaRoleModel({
     model,
     role,
     keepAlive,
+    contextLength,
     timeoutMs,
     fetchFn = fetch
 } = {}) {
@@ -169,6 +211,12 @@ export async function warmOllamaRoleModel({
 
     if (keepAlive !== undefined) {
         payload.keep_alive = keepAlive;
+    }
+    if (Neo.isNumber(contextLength)) {
+        payload.options = {
+            ...(payload.options || {}),
+            num_ctx: contextLength
+        };
     }
 
     const response = await fetchFn(new URL(endpoint, host).toString(), {
@@ -348,27 +396,32 @@ export function buildLmsPreloadConfig(config = aiConfig) {
  * chat, graph, or embedding is routed to another provider family.
  *
  * @param {Object} config aiConfig-shaped provider config.
- * @returns {{provider: String, host: String, keepAlive: *, requireParallelModels: Number, model: String, embeddingModel: String, roles: Object[], models: String[]}}
+ * @returns {{provider: String, host: String, keepAlive: *, requireParallelModels: Number, model: String, embeddingModel: String, roles: Object[], models: String[], contextLengths: Object}}
  */
 export function buildOllamaReadinessConfig(config = aiConfig) {
-    const ollamaConfig   = config.ollama ?? {},
-          chatModel      = ollamaConfig.model,
-          embeddingModel = ollamaConfig.embeddingModel,
-          roles          = [{
-              provider    : config.modelProvider,
-              providerRole: 'modelProvider',
-              role        : 'chat',
-              model       : chatModel
+    const ollamaConfig           = config.ollama ?? {},
+          chatModel              = ollamaConfig.model,
+          embeddingModel         = ollamaConfig.embeddingModel,
+          chatContextLength      = config.localModels?.chat?.contextLimitTokens,
+          embeddingContextLength = config.localModels?.embedding?.contextLimitTokens,
+          roles                  = [{
+              provider     : config.modelProvider,
+              providerRole : 'modelProvider',
+              role         : 'chat',
+              model        : chatModel,
+              contextLength: chatContextLength
           }, {
-              provider    : config.graphProvider,
-              providerRole: 'graphProvider',
-              role        : 'chat',
-              model       : chatModel
+              provider     : config.graphProvider,
+              providerRole : 'graphProvider',
+              role         : 'chat',
+              model        : chatModel,
+              contextLength: chatContextLength
           }, {
-              provider    : config.embeddingProvider,
-              providerRole: 'embeddingProvider',
-              role        : 'embedding',
-              model       : embeddingModel
+              provider     : config.embeddingProvider,
+              providerRole : 'embeddingProvider',
+              role         : 'embedding',
+              model        : embeddingModel,
+              contextLength: embeddingContextLength
           }].filter(role => role.provider === 'ollama' && role.model);
 
     const dedupedRoles = [];
@@ -390,7 +443,13 @@ export function buildOllamaReadinessConfig(config = aiConfig) {
         model                : chatModel,
         embeddingModel,
         roles                : dedupedRoles,
-        models               : [...new Set(dedupedRoles.map(role => role.model))]
+        models               : [...new Set(dedupedRoles.map(role => role.model))],
+        contextLengths       : buildLmsContextLengthsMap({
+            chatModel     : dedupedRoles.some(role => role.role === 'chat') ? chatModel : undefined,
+            embeddingModel: dedupedRoles.some(role => role.role === 'embedding') ? embeddingModel : undefined,
+            chatContextLength,
+            embeddingContextLength
+        })
     }
 }
 
@@ -592,9 +651,9 @@ export async function ensureLmsModelsLoaded({
  * @summary Ensures native Ollama has all configured role models resident.
  *
  * Ollama has no `lms load` equivalent and must be warmed through its native API.
- * This helper probes `/api/ps`, warms only missing role/model pairs through
+ * This helper probes `/api/ps`, warms missing or under-context role/model pairs through
  * `/api/chat` or `/api/embed`, and then verifies that the required chat and
- * embedding models are resident together. Partial failure returns a degraded
+ * embedding models are resident together at the configured context. Partial failure returns a degraded
  * readiness envelope when `allowPartial` is true so callers can fail readiness
  * with operator-actionable diagnostics instead of emitting warning-only drift.
  *
@@ -607,7 +666,7 @@ export async function ensureLmsModelsLoaded({
  * @param {Number} options.timeoutMs HTTP probe timeout.
  * @param {String|Number} [options.keepAlive] Ollama keep_alive value.
  * @param {Boolean} [options.allowPartial=false] Return degraded readiness instead of throwing when one role cannot be warmed.
- * @param {Function} [options.fetchModelIds] Injectable `/api/ps` probe.
+ * @param {Function} [options.fetchModelIds] Injectable `/api/ps` probe. May return model ids or `{id, contextLength}` entries.
  * @param {Function} [options.warmModel] Injectable warm-up function.
  * @param {Object} [options.log=logger] Logger seam.
  * @returns {Promise<Object>}
@@ -621,7 +680,7 @@ export async function ensureOllamaModelsReady({
     timeoutMs,
     keepAlive,
     allowPartial = false,
-    fetchModelIds = opts => fetchOllamaRunningModelIds(opts),
+    fetchModelIds = opts => fetchOllamaRunningModels(opts),
     warmModel     = (role, options) => warmOllamaRoleModel({...role, ...options}),
     log           = logger
 } = {}) {
@@ -641,7 +700,44 @@ export async function ensureOllamaModelsReady({
     }
 
     const requiredResidentModels = Math.min(requireParallelModels, requiredModels.length);
-    const getMissing             = available => requiredModels.filter(model => !available.includes(model));
+    const normalizeAvailable = available => [...new Map((Array.isArray(available) ? available : []).map(item => {
+        if (typeof item === 'string') {
+            return [item, {id: item, contextLength: undefined}];
+        }
+        const id = item?.id || item?.name || item?.model;
+        return id ? [id, {
+            id,
+            contextLength: Neo.isNumber(item.contextLength) ? item.contextLength :
+                Neo.isNumber(item.context_length) ? item.context_length : undefined
+        }] : null;
+    }).filter(Boolean)).values()];
+    const toIds               = available => available.map(item => item.id);
+    const contextRequirements = roles.reduce((map, role) => {
+        if (!role.model || !Neo.isNumber(role.contextLength)) {
+            return map;
+        }
+
+        const current = map.get(role.model);
+        if (!Neo.isNumber(current) || role.contextLength > current) {
+            map.set(role.model, role.contextLength);
+        }
+
+        return map;
+    }, new Map());
+    const toRoleEnvelope = role => ({
+        model       : role.model,
+        role        : role.role,
+        providerRole: role.providerRole,
+        ...(Neo.isNumber(role.contextLength) ? {contextLength: role.contextLength} : {})
+    });
+    const getMissing             = available => requiredModels.filter(model => !toIds(available).includes(model));
+    const getInsufficientContext = available => available
+        .filter(item => contextRequirements.has(item.id) && (!Neo.isNumber(item.contextLength) || item.contextLength < contextRequirements.get(item.id)))
+        .map(item => ({
+            model                : item.id,
+            contextLength        : item.contextLength,
+            requiredContextLength: contextRequirements.get(item.id)
+        }));
     const getWarning = ({availableModels, missingModels}) => createParallelModelCapacityWarning({
         provider             : 'ollama',
         model                : roles.find(role => role.role === 'chat')?.model,
@@ -660,7 +756,7 @@ export async function ensureOllamaModelsReady({
             try {
                 return {
                     attempt,
-                    availableModels: [...new Set(await fetchModelIds({host, timeoutMs}))]
+                    availableModels: normalizeAvailable(await fetchModelIds({host, timeoutMs}))
                 };
             } catch (error) {
                 lastError = error;
@@ -684,20 +780,21 @@ export async function ensureOllamaModelsReady({
         }
 
         return {
-            ready          : false,
-            degraded       : true,
-            provider       : 'ollama',
+            ready                    : false,
+            degraded                 : true,
+            provider                 : 'ollama',
             host,
             requiredModels,
-            availableModels: [],
-            missingModels  : requiredModels,
-            observedCount  : 0,
+            availableModels          : [],
+            missingModels            : requiredModels,
+            insufficientContextModels: [],
+            observedCount            : 0,
             requireParallelModels,
             requiredResidentModels,
-            warmedModels   : [],
-            attemptedModels: [],
-            failedModels   : [],
-            error          : {message: error.message},
+            warmedModels             : [],
+            attemptedModels          : [],
+            failedModels             : [],
+            error                    : {message: error.message},
             warning              : `[provider/ollama] model residency probe failed: ${error.message}`,
             attempts,
             elapsedMs            : Date.now() - startedAt
@@ -705,24 +802,32 @@ export async function ensureOllamaModelsReady({
     }
 
     const initialMissing = getMissing(availableModels);
-    const rolesToWarm    = roles.filter(role => initialMissing.includes(role.model));
+    const initialInsufficientContext = getInsufficientContext(availableModels);
+    const initialContextModelIds     = new Set(initialInsufficientContext.map(item => item.model));
+    const rolesToWarm    = roles.filter(role => initialMissing.includes(role.model) || initialContextModelIds.has(role.model));
     const warmedModels   = [];
     const failedModels   = [];
     const attemptedModels = [];
 
     for (const role of rolesToWarm) {
-        attemptedModels.push({model: role.model, role: role.role, providerRole: role.providerRole});
-        log.info?.(`[ProviderReadinessHelper] Warming native Ollama ${role.role} model '${role.model}' via ${role.role === 'embedding' ? '/api/embed' : '/api/chat'}.`);
+        const roleEnvelope = toRoleEnvelope(role);
+
+        attemptedModels.push(roleEnvelope);
+        const contextSuffix = Neo.isNumber(role.contextLength) ? ` with num_ctx ${role.contextLength}` : '';
+        log.info?.(`[ProviderReadinessHelper] Warming native Ollama ${role.role} model '${role.model}'${contextSuffix} via ${role.role === 'embedding' ? '/api/embed' : '/api/chat'}.`);
 
         try {
-            await warmModel(role, {host, keepAlive, timeoutMs});
-            warmedModels.push({model: role.model, role: role.role, providerRole: role.providerRole});
+            const warmOptions = {host, keepAlive, timeoutMs};
+            if (Neo.isNumber(role.contextLength)) {
+                warmOptions.contextLength = role.contextLength;
+            }
+
+            await warmModel(role, warmOptions);
+            warmedModels.push(roleEnvelope);
         } catch (error) {
             failedModels.push({
-                model       : role.model,
-                role        : role.role,
-                providerRole: role.providerRole,
-                error       : error.message
+                ...roleEnvelope,
+                error: error.message
             });
             log.warn?.(`[ProviderReadinessHelper] Ollama ${role.role} model '${role.model}' warm-up failed: ${error.message}`);
 
@@ -733,37 +838,47 @@ export async function ensureOllamaModelsReady({
     }
 
     let missingModels = initialMissing;
+    let insufficientContextModels = initialInsufficientContext;
 
     for (let attempt = 1; attempt <= attempts; attempt++) {
         ({availableModels} = await probeModels('post-warm /api/ps probe'));
         missingModels = getMissing(availableModels);
+        insufficientContextModels = getInsufficientContext(availableModels);
 
         const failedModelIds     = new Set(failedModels.map(item => item.model));
         const serviceableMissing = missingModels.filter(model => !failedModelIds.has(model));
+        const serviceableContext = insufficientContextModels.filter(item => !failedModelIds.has(item.model));
         const observedCount      = availableModels.length;
         const capacityReady      = observedCount >= requiredResidentModels;
-        const ready              = capacityReady && missingModels.length === 0 && failedModels.length === 0;
+        const ready              = capacityReady && missingModels.length === 0 && insufficientContextModels.length === 0 && failedModels.length === 0;
         const capacityOnlyGap    = missingModels.length === 0 && !capacityReady;
 
-        if (ready || (allowPartial && (serviceableMissing.length === 0 || capacityOnlyGap))) {
+        const contextOnlyGap = missingModels.length === 0 && serviceableContext.length > 0;
+
+        if (ready || (allowPartial && (serviceableMissing.length === 0 || capacityOnlyGap || contextOnlyGap))) {
             const degraded = !ready;
+            const contextWarning = serviceableContext.length
+                ? `[provider/ollama] loaded context too small: ${serviceableContext.map(item => `${item.model} observed=${item.contextLength ?? 'unknown'} required>=${item.requiredContextLength}`).join(', ')}; warm with options.num_ctx matching localModels context caps.`
+                : null;
             return {
                 ready,
                 degraded,
-                provider : 'ollama',
+                provider       : 'ollama',
                 host,
                 warmedModels,
                 attemptedModels,
                 failedModels,
                 missingModels,
+                insufficientContextModels,
                 requiredModels,
-                availableModels,
+                availableModels: toIds(availableModels),
+                loadedContexts : Object.fromEntries(availableModels.map(item => [item.id, item.contextLength])),
                 observedCount,
                 requireParallelModels,
                 requiredResidentModels,
-                warning  : degraded ? getWarning({availableModels, missingModels}) : null,
-                attempts : attempt,
-                elapsedMs: Date.now() - startedAt
+                warning        : degraded ? (contextWarning || getWarning({availableModels: toIds(availableModels), missingModels})) : null,
+                attempts       : attempt,
+                elapsedMs      : Date.now() - startedAt
             };
         }
 
@@ -772,25 +887,30 @@ export async function ensureOllamaModelsReady({
         }
     }
 
-    const warning = getWarning({availableModels, missingModels});
+    const contextWarning = insufficientContextModels.length
+        ? `[provider/ollama] loaded context too small: ${insufficientContextModels.map(item => `${item.model} observed=${item.contextLength ?? 'unknown'} required>=${item.requiredContextLength}`).join(', ')}; warm with options.num_ctx matching localModels context caps.`
+        : null;
+    const warning = contextWarning || getWarning({availableModels: toIds(availableModels), missingModels});
     if (allowPartial) {
         return {
-            ready        : false,
-            degraded     : true,
-            provider     : 'ollama',
+            ready          : false,
+            degraded       : true,
+            provider       : 'ollama',
             host,
             warmedModels,
             attemptedModels,
             failedModels,
             missingModels,
+            insufficientContextModels,
             requiredModels,
-            availableModels,
-            observedCount: availableModels.length,
+            availableModels: toIds(availableModels),
+            loadedContexts : Object.fromEntries(availableModels.map(item => [item.id, item.contextLength])),
+            observedCount  : availableModels.length,
             requireParallelModels,
             requiredResidentModels,
             warning,
             attempts,
-            elapsedMs    : Date.now() - startedAt
+            elapsedMs      : Date.now() - startedAt
         };
     }
 

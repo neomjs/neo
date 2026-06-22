@@ -172,15 +172,34 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
     test('extracts native Ollama resident model ids from /api/ps variants', () => {
         expect(providerReadinessHelper.getOllamaRunningModelIds({
             models: [
-                {name: 'gemma4:31b'},
-                {model: 'qwen3-embedding'},
+                {name: 'gemma4:31b', context_length: 131072},
+                {model: 'qwen3-embedding', context_length: 32768},
                 {id: 'fallback-model'},
                 {name: 'gemma4:31b'},
                 {}
             ]
         })).toEqual(['gemma4:31b', 'qwen3-embedding', 'fallback-model']);
 
+        expect(providerReadinessHelper.getOllamaRunningModels({
+            models: [
+                {name: 'gemma4:31b', context_length: 131072},
+                {model: 'qwen3-embedding', context_length: 32768},
+                {id: 'fallback-model'},
+                {name: 'gemma4:31b', context_length: 4096}
+            ]
+        })).toEqual([{
+            id           : 'gemma4:31b',
+            contextLength: 131072
+        }, {
+            id           : 'qwen3-embedding',
+            contextLength: 32768
+        }, {
+            id           : 'fallback-model',
+            contextLength: undefined
+        }]);
+
         expect(providerReadinessHelper.getOllamaRunningModelIds({models: null})).toEqual([]);
+        expect(providerReadinessHelper.getOllamaRunningModels({models: null})).toEqual([]);
     });
 
     test('fetchOllamaRunningModelIds probes native Ollama /api/ps', async () => {
@@ -193,7 +212,10 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
                 return {
                     ok  : true,
                     json: async () => ({
-                        models: [{name: 'gemma4:31b'}, {name: 'qwen3-embedding'}]
+                        models: [
+                            {name: 'gemma4:31b', context_length: 131072},
+                            {name: 'qwen3-embedding', context_length: 32768}
+                        ]
                     })
                 };
             }
@@ -253,6 +275,54 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
                 model     : 'qwen3-embedding',
                 input     : '',
                 keep_alive: '-1'
+            }
+        }]);
+    });
+
+    test('warmOllamaRoleModel threads native num_ctx for chat and embedding warm-ups (#13865)', async () => {
+        const calls = [];
+        const fetchFn = async (url, options) => {
+            calls.push({
+                url,
+                body: JSON.parse(options.body)
+            });
+            return {
+                ok  : true,
+                text: async () => ''
+            };
+        };
+
+        await providerReadinessHelper.warmOllamaRoleModel({
+            host         : 'http://ollama.test',
+            model        : 'gemma4:31b',
+            role         : 'chat',
+            contextLength: 131072,
+            timeoutMs    : 25,
+            fetchFn
+        });
+        await providerReadinessHelper.warmOllamaRoleModel({
+            host         : 'http://ollama.test',
+            model        : 'qwen3-embedding',
+            role         : 'embedding',
+            contextLength: 32768,
+            timeoutMs    : 25,
+            fetchFn
+        });
+
+        expect(calls).toEqual([{
+            url : 'http://ollama.test/api/chat',
+            body: {
+                model   : 'gemma4:31b',
+                messages: [{role: 'user', content: ''}],
+                stream  : false,
+                options : {num_ctx: 131072}
+            }
+        }, {
+            url : 'http://ollama.test/api/embed',
+            body: {
+                model  : 'qwen3-embedding',
+                input  : '',
+                options: {num_ctx: 32768}
             }
         }]);
     });
@@ -590,69 +660,140 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         const warmCalls = [];
         const modelSnapshots = [
             [],
-            ['gemma4:31b', 'qwen3-embedding']
+            [
+                {id: 'gemma4:31b', contextLength: 131072},
+                {id: 'qwen3-embedding', contextLength: 32768}
+            ]
         ];
 
         const result = await providerReadinessHelper.ensureOllamaModelsReady({
             host : 'http://ollama.test',
             roles: [{
-                providerRole: 'modelProvider',
-                role        : 'chat',
-                model       : 'gemma4:31b'
+                providerRole : 'modelProvider',
+                role         : 'chat',
+                model        : 'gemma4:31b',
+                contextLength: 131072
             }, {
-                providerRole: 'embeddingProvider',
-                role        : 'embedding',
-                model       : 'qwen3-embedding'
+                providerRole : 'embeddingProvider',
+                role         : 'embedding',
+                model        : 'qwen3-embedding',
+                contextLength: 32768
             }],
             requireParallelModels: 2,
             attempts             : 2,
             delayMs              : 0,
             timeoutMs            : 25,
             keepAlive            : '-1',
-            fetchModelIds        : async () => modelSnapshots.shift() || ['gemma4:31b', 'qwen3-embedding'],
-            warmModel            : async (role, options) => warmCalls.push({role, options}),
-            log                  : {info: () => {}}
+            fetchModelIds        : async () => modelSnapshots.shift() || [
+                {id: 'gemma4:31b', contextLength: 131072},
+                {id: 'qwen3-embedding', contextLength: 32768}
+            ],
+            warmModel: async (role, options) => warmCalls.push({role, options}),
+            log      : {info: () => {}}
         });
 
         expect(warmCalls).toEqual([{
             role: {
-                providerRole: 'modelProvider',
-                role        : 'chat',
-                model       : 'gemma4:31b'
+                providerRole : 'modelProvider',
+                role         : 'chat',
+                model        : 'gemma4:31b',
+                contextLength: 131072
             },
             options: {
-                host     : 'http://ollama.test',
-                keepAlive: '-1',
-                timeoutMs: 25
+                host         : 'http://ollama.test',
+                keepAlive    : '-1',
+                timeoutMs    : 25,
+                contextLength: 131072
             }
         }, {
             role: {
-                providerRole: 'embeddingProvider',
-                role        : 'embedding',
-                model       : 'qwen3-embedding'
+                providerRole : 'embeddingProvider',
+                role         : 'embedding',
+                model        : 'qwen3-embedding',
+                contextLength: 32768
             },
             options: {
-                host     : 'http://ollama.test',
-                keepAlive: '-1',
-                timeoutMs: 25
+                host         : 'http://ollama.test',
+                keepAlive    : '-1',
+                timeoutMs    : 25,
+                contextLength: 32768
             }
         }]);
         expect(result).toMatchObject({
             ready       : true,
             provider    : 'ollama',
             warmedModels: [{
-                model       : 'gemma4:31b',
-                role        : 'chat',
-                providerRole: 'modelProvider'
+                model        : 'gemma4:31b',
+                role         : 'chat',
+                providerRole : 'modelProvider',
+                contextLength: 131072
             }, {
-                model       : 'qwen3-embedding',
-                role        : 'embedding',
-                providerRole: 'embeddingProvider'
+                model        : 'qwen3-embedding',
+                role         : 'embedding',
+                providerRole : 'embeddingProvider',
+                contextLength: 32768
             }],
-            requiredModels       : ['gemma4:31b', 'qwen3-embedding'],
-            availableModels      : ['gemma4:31b', 'qwen3-embedding'],
+            requiredModels : ['gemma4:31b', 'qwen3-embedding'],
+            availableModels: ['gemma4:31b', 'qwen3-embedding'],
+            loadedContexts : {
+                'gemma4:31b'     : 131072,
+                'qwen3-embedding': 32768
+            },
             requireParallelModels: 2
         });
+    });
+
+    test('ensureOllamaModelsReady degrades resident models loaded below configured context (#13865)', async () => {
+        const warmCalls = [];
+        const modelSnapshots = [
+            [{id: 'gemma4:31b', contextLength: 4096}],
+            [{id: 'gemma4:31b', contextLength: 4096}]
+        ];
+
+        const result = await providerReadinessHelper.ensureOllamaModelsReady({
+            host : 'http://ollama.test',
+            roles: [{
+                providerRole : 'graphProvider',
+                role         : 'chat',
+                model        : 'gemma4:31b',
+                contextLength: 131072
+            }],
+            requireParallelModels: 1,
+            allowPartial         : true,
+            attempts             : 1,
+            delayMs              : 0,
+            timeoutMs            : 25,
+            keepAlive            : '-1',
+            fetchModelIds        : async () => modelSnapshots.shift() || [{id: 'gemma4:31b', contextLength: 4096}],
+            warmModel            : async (role, options) => warmCalls.push({role, options}),
+            log                  : {info: () => {}}
+        });
+
+        expect(warmCalls).toEqual([{
+            role: {
+                providerRole : 'graphProvider',
+                role         : 'chat',
+                model        : 'gemma4:31b',
+                contextLength: 131072
+            },
+            options: {
+                host         : 'http://ollama.test',
+                keepAlive    : '-1',
+                timeoutMs    : 25,
+                contextLength: 131072
+            }
+        }]);
+        expect(result.ready).toBe(false);
+        expect(result.degraded).toBe(true);
+        expect(result.missingModels).toEqual([]);
+        expect(result.insufficientContextModels).toEqual([{
+            model                : 'gemma4:31b',
+            contextLength        : 4096,
+            requiredContextLength: 131072
+        }]);
+        expect(result.loadedContexts).toEqual({'gemma4:31b': 4096});
+        expect(result.warning).toContain('loaded context too small');
+        expect(result.warning).toContain('observed=4096 required>=131072');
     });
 
     test('ensureOllamaModelsReady returns degraded when one native role cannot be warmed (#12285)', async () => {
@@ -874,6 +1015,14 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             openAiCompatible: {
                 model         : 'gemma-openai',
                 embeddingModel: 'openai-embedding'
+            },
+            localModels: {
+                chat: {
+                    contextLimitTokens: 131072
+                },
+                embedding: {
+                    contextLimitTokens: 32768
+                }
             }
         })).toEqual({
             provider             : 'ollama',
@@ -883,17 +1032,23 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             model                : 'gemma4:31b',
             embeddingModel       : 'qwen3-embedding',
             roles                : [{
-                provider    : 'ollama',
-                providerRole: 'graphProvider',
-                role        : 'chat',
-                model       : 'gemma4:31b'
+                provider     : 'ollama',
+                providerRole : 'graphProvider',
+                role         : 'chat',
+                model        : 'gemma4:31b',
+                contextLength: 131072
             }, {
-                provider    : 'ollama',
-                providerRole: 'embeddingProvider',
-                role        : 'embedding',
-                model       : 'qwen3-embedding'
+                provider     : 'ollama',
+                providerRole : 'embeddingProvider',
+                role         : 'embedding',
+                model        : 'qwen3-embedding',
+                contextLength: 32768
             }],
-            models               : ['gemma4:31b', 'qwen3-embedding']
+            models        : ['gemma4:31b', 'qwen3-embedding'],
+            contextLengths: {
+                'gemma4:31b'     : 131072,
+                'qwen3-embedding': 32768
+            }
         });
 
         expect(providerReadinessHelper.buildOllamaReadinessConfig({
