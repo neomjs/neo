@@ -2,6 +2,57 @@ import Base                 from './Base.mjs';
 import {createTimeoutError} from './createTimeoutError.mjs';
 
 /**
+ * @summary Extracts native Ollama top-level request fields from generic
+ * provider options while preserving caller-owned option objects.
+ *
+ * Ollama's `/api/chat` accepts `format` as either `'json'` or a JSON schema.
+ * OpenAI-compatible callers may instead provide `response_format`, while Gemini
+ * callers historically use `responseSchema`; normalize those into Ollama's
+ * native field without leaking them into `payload.options`.
+ *
+ * @param {Object} options Cloned options object that may be mutated by deletion.
+ * @returns {Object}
+ */
+function extractNativeOllamaFields(options) {
+    const fields = {};
+
+    if (options.format !== undefined) {
+        fields.format = options.format;
+        delete options.format;
+    } else if (options.responseSchema !== undefined || options.response_schema !== undefined) {
+        fields.format = options.responseSchema ?? options.response_schema;
+        delete options.responseSchema;
+        delete options.response_schema;
+    } else if (options.response_format !== undefined) {
+        const responseFormat = options.response_format;
+
+        if (responseFormat?.type === 'json_object') {
+            fields.format = 'json';
+        } else if (responseFormat?.type === 'json_schema') {
+            fields.format = responseFormat.json_schema?.schema ?? responseFormat.schema ?? responseFormat.json_schema;
+        } else {
+            fields.format = responseFormat;
+        }
+
+        delete options.response_format;
+    } else if (options.responseMimeType === 'application/json' || options.response_mime_type === 'application/json') {
+        fields.format = 'json';
+    }
+
+    if (options.responseMimeType !== undefined || options.response_mime_type !== undefined) {
+        delete options.responseMimeType;
+        delete options.response_mime_type;
+    }
+
+    if (options.think !== undefined) {
+        fields.think = options.think;
+        delete options.think;
+    }
+
+    return fields;
+}
+
+/**
  * Concrete AI provider for a local Ollama daemon.
  * Uses the native JS Fetch API.
  *
@@ -47,7 +98,12 @@ class OllamaProvider extends Base {
     }
 
     /**
-     * Helper to prepare the payload for Ollama.
+     * @summary Prepares the native Ollama `/api/chat` payload.
+     *
+     * Provider-neutral JSON hints are normalized into Ollama's top-level
+     * `format` field, preserving legacy `format: 'json'` extraction and adding
+     * schema passthrough for callers that can supply structured-output schemas.
+     *
      * @param {String|Array} input
      * @param {Object} options
      * @param {Boolean} stream
@@ -81,12 +137,7 @@ class OllamaProvider extends Base {
         delete clonedOptions.signal;
         delete clonedOptions.timeoutMs;
 
-        // Handle JSON extraction mirroring Gemini provider
-        if (clonedOptions.responseMimeType === 'application/json' || clonedOptions.response_mime_type === 'application/json') {
-            payload.format = 'json';
-            delete clonedOptions.responseMimeType;
-            delete clonedOptions.response_mime_type;
-        }
+        Object.assign(payload, extractNativeOllamaFields(clonedOptions));
 
         if (clonedOptions.tools && clonedOptions.tools.length > 0) {
             payload.tools = clonedOptions.tools.map(tool => ({

@@ -162,7 +162,7 @@ class Config extends ConfigProvider {
              */
             ollama: {
                 host                 : leaf('http://127.0.0.1:11434', 'NEO_OLLAMA_HOST', 'string'),
-                model                : leaf('gemma4:31b', 'NEO_OLLAMA_MODEL', 'string'),
+                model                : leaf('gemma4:26b', 'NEO_OLLAMA_MODEL', 'string'),
                 embeddingModel       : leaf('qwen3-embedding', 'NEO_OLLAMA_EMBEDDING_MODEL', 'string'),
                 keep_alive           : leaf(-1, 'NEO_OLLAMA_KEEP_ALIVE', 'keepAlive'),
                 requireParallelModels: leaf(2, 'NEO_OLLAMA_REQUIRE_PARALLEL_MODELS', 'number')

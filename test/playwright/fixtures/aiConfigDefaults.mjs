@@ -102,7 +102,7 @@ export const TIER1_DEFAULTS = deepFreeze(Neo.clone({
     embeddingProvider: process.env.NEO_EMBEDDING_PROVIDER || 'openAiCompatible',
     ollama           : {
         host                 : process.env.NEO_OLLAMA_HOST || 'http://127.0.0.1:11434',
-        model                : process.env.NEO_OLLAMA_MODEL || 'gemma4:31b',
+        model                : process.env.NEO_OLLAMA_MODEL || 'gemma4:26b',
         embeddingModel       : process.env.NEO_OLLAMA_EMBEDDING_MODEL || 'qwen3-embedding',
         keep_alive           : parseKeepAlive(process.env.NEO_OLLAMA_KEEP_ALIVE, -1),
         requireParallelModels: Number(process.env.NEO_OLLAMA_REQUIRE_PARALLEL_MODELS) || 2
