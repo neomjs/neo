@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-06-22T02:50:22.280Z",
-  "releasesLastFetched": "2026-06-22T02:50:31.787Z",
+  "lastSync": "2026-06-22T10:03:07.136Z",
+  "releasesLastFetched": "2026-06-22T10:03:17.349Z",
   "pushFailures": [],
   "issues": {
     "1": {
@@ -85264,10 +85264,10 @@
       "state": "OPEN",
       "path": "resources/content/issues/chunk-5/issue-13624.md",
       "closedAt": null,
-      "updatedAt": "2026-06-21T16:01:49Z",
-      "contentHash": "85441fad1b79280e689a6640a5eca681552c7d0fff477b402507b226d039cb02",
+      "updatedAt": "2026-06-22T02:54:46Z",
+      "contentHash": "f17b84356531c793937f05394c9155a34a2e9e486b1d2af60a25c07976fc915e",
       "milestone": null,
-      "commentsTotal": 10
+      "commentsTotal": 11
     },
     "13626": {
       "state": "CLOSED",
@@ -85804,10 +85804,10 @@
       "state": "OPEN",
       "path": "resources/content/issues/chunk-6/issue-13750.md",
       "closedAt": null,
-      "updatedAt": "2026-06-22T01:36:13Z",
-      "contentHash": "009b1c29fa1ce8e12be5c30a377c9c988f271aaebde3285534f6420f84709932",
+      "updatedAt": "2026-06-22T02:50:55Z",
+      "contentHash": "9c8c0ed6800a271df2fb664a924dc28e796604bfe1663fb609af543b087cd47d",
       "milestone": null,
-      "commentsTotal": 16
+      "commentsTotal": 17
     },
     "13751": {
       "state": "OPEN",
@@ -86107,11 +86107,11 @@
       "commentsTotal": 0
     },
     "13818": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/chunk-6/issue-13818.md",
-      "closedAt": null,
-      "updatedAt": "2026-06-21T21:39:09Z",
-      "contentHash": "e501b9b36bb2a303d419c6be49fc166d21be6dc7a14c71cb8efbfa2280228ca7",
+      "closedAt": "2026-06-22T03:08:06Z",
+      "updatedAt": "2026-06-22T03:08:06Z",
+      "contentHash": "793cc63d8fbc2c1cb339b7df0db473b8f1516858d54ef62dfa5d9044ef6481bc",
       "milestone": null,
       "commentsTotal": 1
     },
@@ -86258,6 +86258,42 @@
       "contentHash": "54bc02e8592e1b4499cd7f6da1bc0f41d05e945251f5a5b71b8297b3445238c8",
       "milestone": null,
       "commentsTotal": 0
+    },
+    "13849": {
+      "state": "OPEN",
+      "path": "resources/content/issues/chunk-7/issue-13849.md",
+      "closedAt": null,
+      "updatedAt": "2026-06-22T02:59:29Z",
+      "contentHash": "caa00e736ad3f07cba31b1e90de2fddf93c7dcb3aca4075fc5c357052c862057",
+      "milestone": null,
+      "commentsTotal": 0
+    },
+    "13850": {
+      "state": "OPEN",
+      "path": "resources/content/issues/chunk-7/issue-13850.md",
+      "closedAt": null,
+      "updatedAt": "2026-06-22T02:56:28Z",
+      "contentHash": "c4186a13499af144a30405b270923e750806bdcfed77129ed7650e2c7417e540",
+      "milestone": null,
+      "commentsTotal": 0
+    },
+    "13851": {
+      "state": "OPEN",
+      "path": "resources/content/issues/chunk-7/issue-13851.md",
+      "closedAt": null,
+      "updatedAt": "2026-06-22T03:28:33Z",
+      "contentHash": "663cfe0968397d76e311db3f55d6079ad69e4552632d89b0635992f7b1a86df8",
+      "milestone": null,
+      "commentsTotal": 1
+    },
+    "13852": {
+      "state": "OPEN",
+      "path": "resources/content/issues/chunk-7/issue-13852.md",
+      "closedAt": null,
+      "updatedAt": "2026-06-22T03:32:56Z",
+      "contentHash": "b92671b353701c01c5274e9ca318b8f28008949e4dfa16c1547cf1a1d7efcaaf",
+      "milestone": null,
+      "commentsTotal": 1
     }
   },
   "releases": {
@@ -90250,13 +90286,13 @@
       "contentHash": "baef1e7d26ab54d5c4155d3e8804c423d5eb17577ec4ae90f289f0c30d4d1396"
     },
     "13838": {
-      "state": "OPEN",
+      "state": "MERGED",
       "path": "resources/content/pulls/chunk-1/pr-13838.md",
-      "closedAt": null,
-      "mergedAt": null,
+      "closedAt": "2026-06-22T03:08:05Z",
+      "mergedAt": "2026-06-22T03:08:05Z",
       "milestone": null,
-      "updatedAt": "2026-06-22T02:45:29Z",
-      "contentHash": "29357eb403ede970f6b3dd5501922f29b5eb3b3a10e3ba746082a4b797bb1ac0"
+      "updatedAt": "2026-06-22T03:08:12Z",
+      "contentHash": "47bb1e55928515e8b20626d0d165c7d4faa9587f6501989e469750697e2ea8ce"
     },
     "13841": {
       "state": "OPEN",
@@ -90273,8 +90309,8 @@
       "closedAt": null,
       "mergedAt": null,
       "milestone": null,
-      "updatedAt": "2026-06-22T02:17:52Z",
-      "contentHash": "4d9f799395507d823304bca6bd0d75b5b4803cb3f7e88aed36df15a7cf77e8f1"
+      "updatedAt": "2026-06-22T03:14:38Z",
+      "contentHash": "ae1591575dc75838279650408eb013a041cf389c21ea6ba350fe2df53234c020"
     },
     "13843": {
       "state": "OPEN",
