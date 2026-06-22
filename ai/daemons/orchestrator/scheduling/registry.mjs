@@ -9,6 +9,24 @@ import {getDueTask as getSwarmHeartbeatDueTask}             from './swarmHeartbe
 import {getDueTask as getTenantRepoSyncDueTask}             from './tenantRepoSync.mjs';
 import {getDueTask as getEmbedDrainLivenessWatchdogDueTask} from './embedDrainLivenessWatchdog.mjs';
 
+function toTimestampMs(value) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        return value;
+    }
+
+    if (typeof value === 'string' && value) {
+        const parsed = Date.parse(value);
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    return null;
+}
+
+function getLatestTimestampMs(...values) {
+    const timestamps = values.map(toTimestampMs).filter(Number.isFinite);
+    return timestamps.length ? Math.max(...timestamps) : null;
+}
+
 /**
  * Coordinator-descriptor registry for the Orchestrator scheduling pipeline.
  *
@@ -89,9 +107,11 @@ export const TASK_REGISTRY = Object.freeze([
         dependencies    : [],
         getDueTask({state, now, intervals, enables}) {
             if (!enables.githubWorkflowSync) return null;
-            const lastRunAt  = state.githubWorkflowSync?.lastRunAt ?? 0;
-            const intervalMs = intervals.githubWorkflowSync;
-            if (intervalMs > 0 && now - lastRunAt >= intervalMs) {
+            const taskState     = state.githubWorkflowSync || {};
+            const terminalAt    = getLatestTimestampMs(taskState.lastSuccessAt, taskState.lastErrorAt);
+            const cadenceAnchor = terminalAt ?? toTimestampMs(taskState.lastRunAt) ?? 0;
+            const intervalMs    = intervals.githubWorkflowSync;
+            if (intervalMs > 0 && now - cadenceAnchor >= intervalMs) {
                 return {
                     taskName: 'githubWorkflowSync',
                     source  : 'periodic-sync',
