@@ -1,6 +1,6 @@
-import {collectDueCandidates}                        from './collector.mjs';
-import {pickNextCandidate}                           from './picker.mjs';
-import {evaluateStallAlarm, getEmbedDrainPendingAge} from './embedDrainLivenessWatchdog.mjs';
+import {collectDueCandidates}                                  from './collector.mjs';
+import {pickNextCandidate}                                     from './picker.mjs';
+import {evaluateStallAlarm, getEmbedDrainPendingAge}           from './embedDrainLivenessWatchdog.mjs';
 import {evaluateConsolidationStallAlarm, getRemCycleStaleness} from './remConsolidationLivenessWatchdog.mjs';
 
 /**
@@ -123,16 +123,17 @@ export function buildOrchestratorSchedulingOptions({orchestrator, config, now, r
             }
         }),
         services: {
-            dreamService                     : orchestrator.dreamService,
-            goldenPathSynthesizer            : orchestrator.goldenPathSynthesizer,
-            healthService                    : orchestrator.healthService,
-            maintenanceBackpressureService   : orchestrator.maintenanceBackpressureService,
-            primaryRepoSyncService           : orchestrator.primaryRepoSyncService,
-            processSupervisorService         : orchestrator.processSupervisorService,
-            swarmHeartbeatService            : orchestrator.swarmHeartbeatService,
-            taskStateService                 : orchestrator.taskStateService,
-            tenantRepoSyncService            : orchestrator.tenantRepoSyncService,
-            embedDrainLivenessAlarmDispatcher: orchestrator.embedDrainLivenessAlarmDispatcher
+            dreamService                           : orchestrator.dreamService,
+            goldenPathSynthesizer                  : orchestrator.goldenPathSynthesizer,
+            healthService                          : orchestrator.healthService,
+            maintenanceBackpressureService         : orchestrator.maintenanceBackpressureService,
+            primaryRepoSyncService                 : orchestrator.primaryRepoSyncService,
+            processSupervisorService               : orchestrator.processSupervisorService,
+            swarmHeartbeatService                  : orchestrator.swarmHeartbeatService,
+            taskStateService                       : orchestrator.taskStateService,
+            tenantRepoSyncService                  : orchestrator.tenantRepoSyncService,
+            embedDrainLivenessAlarmDispatcher      : orchestrator.embedDrainLivenessAlarmDispatcher,
+            remConsolidationLivenessAlarmDispatcher: orchestrator.remConsolidationLivenessAlarmDispatcher
         },
         runtime: {
             goldenPathRepoEnrichmentEnabled       : orchestrator.goldenPathRepoEnrichmentEnabled,
@@ -144,6 +145,7 @@ export function buildOrchestratorSchedulingOptions({orchestrator, config, now, r
             embedDrainLivenessWatchdogAlarmEnabled: orchestrator.embedDaemonEnabled,
             remConsolidationWatchdogRunStateDir   : orchestrator.remConsolidationWatchdogRunStateDir,
             remConsolidationWatchdogThresholdMs   : orchestrator.remConsolidationWatchdogThresholdMs,
+            remConsolidationWatchdogAlarmEnabled  : config.orchestrator.intervals.dreamMs > 0,
             writeLog                              : orchestrator.writeLog.bind(orchestrator)
         }
     };
@@ -682,26 +684,25 @@ async function runEmbedDrainLivenessWatchdogTask({taskName, reason, services, ru
 
 /**
  * @summary Runs the REM consolidation-liveness watchdog: read-only staleness check against the REM
- * run-state store, a passive health-record every check, and a one-shot stall WARN log. Never throws.
+ * run-state store, a passive health-record every check, and a one-shot active alarm. Never throws.
  *
  * Consolidation-side analog of {@link runEmbedDrainLivenessWatchdogTask} (one subsystem over). The
  * dream cycle is decoupled from the Golden Path forecast, so a stalled consolidation is otherwise
  * silent ("green-but-rotting"). Dual signal: (1) PASSIVE — `healthService.recordTaskOutcome` every
  * check (`failed` when the last successful REM cycle is stale/absent, `completed` otherwise) — the
- * observable consolidation-liveness signal; (2) a one-shot WARN log fired only on
- * stall-onset (latched via the clock-free `evaluateConsolidationStallAlarm`), so consecutive stalled
- * checks do not re-log. The latch (`{alarmed, stalledSince}`) persists on the task-state envelope so it
- * survives poll cycles and restarts. The body is fully wrapped: a watchdog fault degrades to "no alarm"
- * and never breaks the scheduling loop. The active swarm/operator A2A escalation (the embed-drain
- * `embedDrainLivenessAlarmDispatcher` analog) is a deliberate follow-up; this ships the
- * consolidation-liveness observability via the health-record + WARN log.
+ * observable consolidation-liveness signal; (2) a one-shot active alarm fired only on stall-onset
+ * (latched via the clock-free `evaluateConsolidationStallAlarm`), so consecutive stalled checks do not
+ * re-alert. The latch (`{alarmed, stalledSince}`) persists on the task-state envelope so it survives poll
+ * cycles and restarts. The body is fully wrapped: a watchdog fault degrades to "no alarm" and never
+ * breaks the scheduling loop.
  *
  * @param {Object} options
  * @param {String} options.taskName
  * @param {String} options.reason Scheduling reason.
- * @param {Object} options.services Runtime collaborators (`taskStateService`, `healthService`).
+ * @param {Object} options.services Runtime collaborators (`taskStateService`, `healthService`,
+ *   `remConsolidationLivenessAlarmDispatcher`).
  * @param {Object} options.runtime Runtime policy (`remConsolidationWatchdogRunStateDir`,
- *   `remConsolidationWatchdogThresholdMs`, `writeLog`).
+ *   `remConsolidationWatchdogThresholdMs`, `remConsolidationWatchdogAlarmEnabled`, `writeLog`).
  * @returns {Promise<void>}
  */
 async function runRemConsolidationLivenessWatchdogTask({taskName, reason, services, runtime}) {
@@ -760,6 +761,18 @@ async function runRemConsolidationLivenessWatchdogTask({taskName, reason, servic
 
             if (shouldAlarm) {
                 runtime.writeLog?.('WARN', `[Orchestrator] rem-consolidation-liveness-watchdog: REM consolidation STALLED (hasCycle=${hasCycle}, stalenessMs=${stalenessMs}, thresholdMs=${thresholdMs}) — the dream stopped laying trails; the graph is rotting while the forecast looks fresh.`);
+                if (runtime.remConsolidationWatchdogAlarmEnabled) {
+                    await dispatchRemConsolidationStallAlarm({
+                        dispatcher     : services.remConsolidationLivenessAlarmDispatcher,
+                        hasCycle,
+                        lastCompletedAt: details.lastCompletedAt,
+                        stalenessMs,
+                        undigestedCount,
+                        thresholdMs,
+                        stalledSince,
+                        writeLog       : runtime.writeLog
+                    });
+                }
             }
         } else {
             services.healthService?.recordTaskOutcome?.(taskName, 'completed', details);
@@ -797,6 +810,24 @@ async function dispatchEmbedDrainStallAlarm({dispatcher, ageMs, pendingCount, th
         await dispatcher({ageMs, pendingCount, thresholdMs, stalledSince});
     } catch (e) {
         writeLog?.('ERROR', `[Orchestrator] embed-drain stall-alarm dispatch failed: ${e.message}`);
+    }
+}
+
+async function dispatchRemConsolidationStallAlarm({
+    dispatcher,
+    hasCycle,
+    lastCompletedAt,
+    stalenessMs,
+    undigestedCount,
+    thresholdMs,
+    stalledSince,
+    writeLog
+}) {
+    if (typeof dispatcher !== 'function') return;
+    try {
+        await dispatcher({hasCycle, lastCompletedAt, stalenessMs, undigestedCount, thresholdMs, stalledSince});
+    } catch (e) {
+        writeLog?.('ERROR', `[Orchestrator] REM consolidation stall-alarm dispatch failed: ${e.message}`);
     }
 }
 

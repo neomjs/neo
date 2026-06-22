@@ -1,5 +1,6 @@
 import {test, expect} from '@playwright/test';
 import {
+    buildOrchestratorSchedulingOptions,
     buildSchedulingContext,
     buildTaskStalenessMeta,
     runSchedulingPipeline,
@@ -90,7 +91,98 @@ function makeRuntime(overrides = {}) {
     };
 }
 
+function makeOrchestratorAdapterFixture(overrides = {}) {
+    return {
+        db              : {},
+        taskStateService: {
+            getState: () => ({})
+        },
+        writeLog                               : () => {},
+        summaryGetDueTask                      : () => null,
+        backupGetDueTask                       : () => null,
+        graphLogCompactionGetDueTask           : () => null,
+        primaryDevSyncGetDueTask               : () => null,
+        tenantRepoSyncGetDueTask               : () => null,
+        dreamGetDueTask                        : () => null,
+        goldenPathGetDueTask                   : () => null,
+        swarmHeartbeatGetDueTask               : () => null,
+        embedDrainLivenessWatchdogGetDueTask   : () => null,
+        dreamService                           : {},
+        goldenPathSynthesizer                  : {},
+        healthService                          : {},
+        maintenanceBackpressureService         : {},
+        primaryRepoSyncService                 : {},
+        processSupervisorService               : {},
+        swarmHeartbeatService                  : {initFailed: false},
+        tenantRepoSyncService                  : {},
+        embedDrainLivenessAlarmDispatcher      : () => {},
+        remConsolidationLivenessAlarmDispatcher: () => {},
+        goldenPathRepoEnrichmentEnabled        : true,
+        primaryDevSyncRootsConfig              : null,
+        tenantRepoSyncGlobalCadenceMs          : 10_000,
+        tenantRepoSyncJitterRatio              : 0.1,
+        embedDrainLivenessWatchdogWalDir       : '/tmp/wal',
+        embedDrainLivenessWatchdogThresholdMs  : 1_000,
+        embedDaemonEnabled                     : true,
+        remConsolidationWatchdogRunStateDir    : '/tmp/rem',
+        remConsolidationWatchdogThresholdMs    : 2_000,
+        ...overrides
+    };
+}
+
+function makeAdapterConfig({dreamMs = 3_600_000} = {}) {
+    return {
+        orchestrator: {
+            intervals: {
+                summarySweepMs                   : 1,
+                kbSyncMs                         : 1,
+                githubWorkflowSyncMs             : 1,
+                backupMs                         : 1,
+                graphLogCompactionMs             : 1,
+                primaryDevSyncMs                 : 1,
+                tenantRepoSyncMs                 : 1,
+                dreamMs,
+                dreamOverflowThreshold           : 0.8,
+                goldenPathMs                     : 1,
+                swarmHeartbeatMs                 : 1,
+                embedDrainLivenessWatchdogCheckMs: 1,
+                remConsolidationWatchdogCheckMs  : 1
+            },
+            tenantRepoSync: {
+                sweepCadenceMs: 1,
+                jitterRatio   : 0
+            }
+        }
+    };
+}
+
 test.describe('orchestrator/scheduling/pipeline (#11862/#11900)', () => {
+    test('buildOrchestratorSchedulingOptions wires the REM liveness active alarm and dream-ownership gate (#13839)', () => {
+        const remDispatcher = () => {};
+        const orchestrator = makeOrchestratorAdapterFixture({
+            remConsolidationLivenessAlarmDispatcher: remDispatcher
+        });
+
+        const enabledOptions = buildOrchestratorSchedulingOptions({
+            orchestrator,
+            config  : makeAdapterConfig({dreamMs: 3_600_000}),
+            now     : 10,
+            registry: []
+        });
+
+        expect(enabledOptions.services.remConsolidationLivenessAlarmDispatcher).toBe(remDispatcher);
+        expect(enabledOptions.runtime.remConsolidationWatchdogAlarmEnabled).toBe(true);
+
+        const disabledOptions = buildOrchestratorSchedulingOptions({
+            orchestrator,
+            config  : makeAdapterConfig({dreamMs: 0}),
+            now     : 10,
+            registry: []
+        });
+
+        expect(disabledOptions.runtime.remConsolidationWatchdogAlarmEnabled).toBe(false);
+    });
+
     test('reports descriptor errors and still dispatches the selected candidate', () => {
         const outcomes = [];
         const started  = [];
