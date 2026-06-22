@@ -1176,9 +1176,9 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
 
         let testGapCalls     = 0;
         let conceptGapCalls  = 0;
-        let sessionUpdates   = 0;
+        let sessionUpdates          = 0;
         const sessionUpdatePayloads = [];
-        const infoMessages   = [];
+        const infoMessages          = [];
         const warnMessages   = [];
 
         const orig = {

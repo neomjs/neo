@@ -40,17 +40,9 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const UNDIGESTED_SESSION_FRESH_RESERVE = 2;
-
-// Max failed digest attempts before a session is marked `deferred` (excluded from the steady REM
-// cadence). Bounds the chronic re-serve of un-digestible sessions — the load bleed where a session
-// that cannot clear is re-served, re-attempted, and re-pays the per-cycle pre-check on the local
-// model every cycle, forever. Env-configurable via a config leaf is a follow-up.
-const MAX_DIGEST_ATTEMPTS = 3;
-
 // Bounds the re-serve ONLY for the DETERMINISTICALLY-terminal failure: `skip-over-band` (payload over the
 // model's safe band) is a reliable size check — that session genuinely cannot be processed at this cadence
-// until a deep-digest lane exists, so deferring it after MAX_DIGEST_ATTEMPTS is a safe bleed-stop.
+// until a deep-digest lane exists, so deferring it after the `maxDigestAttempts` config leaf is a safe bleed-stop.
 // `under-band-choke` (a bare-null return UNDER the band) and a transient ingestion-failure are NOT proven
 // terminal — the extractor returns the same null for choke / schema-failure / timeout alike, so treating an
 // under-band null as un-digestible is a guess. They stay `undigested` (attempt-tracked, re-served) until
@@ -142,7 +134,7 @@ function addUndigestedRowsFromBatch(batch, byId) {
         const meta = batch.metadatas?.[i];
 
         // Exclude both digested sessions (graphDigested) AND sessions bounded out as `deferred` after
-        // MAX_DIGEST_ATTEMPTS failures — the latter is the load-reduction lever: stop re-serving (and
+        // `maxDigestAttempts` failures — the latter is the load-reduction lever: stop re-serving (and
         // re-paying the per-cycle pre-check on) un-digestible sessions in the steady cadence.
         if (meta && meta.graphDigested !== true && meta.graphDigested !== 'true' && meta.digestState !== 'deferred') {
             byId.set(batch.ids[i], {
@@ -159,7 +151,7 @@ function splitFreshAndAgedUndigested(rows, maxToProcess) {
         return [];
     }
 
-    const reserve = maxToProcess > 1 ? Math.min(UNDIGESTED_SESSION_FRESH_RESERVE, maxToProcess - 1) : maxToProcess;
+    const reserve = maxToProcess > 1 ? Math.min(readRequiredNumberLeaf('undigestedSessionFreshReserve'), maxToProcess - 1) : maxToProcess;
     const fresh   = [...rows].sort(compareSessionRows('DESC')).slice(0, reserve);
     const freshIds = new Set(fresh.map(row => row.id));
     const aged = [...rows]
@@ -550,21 +542,22 @@ class DreamService extends Base {
                         logger.info(`[DreamService] Session ${session.meta.sessionId} marked as graphDigested in Memory Core.`);
                     } else {
                         // Digest failed (extractor returned null OR memory-ingestion errors). Bound the
-                        // re-serve: count the attempt, and once it reaches MAX_DIGEST_ATTEMPTS mark the
+                        // re-serve: count the attempt, and once it reaches `maxDigestAttempts` mark the
                         // session `deferred` so findUndigestedSessions stops re-serving it every cycle —
                         // the chronic local-model load bleed. `deferReason` records WHY for the honest
                         // consolidation-gap surface + a future deep-digest lane. Back-compat: graphDigested
                         // stays unset, so a consumer that does not yet read digestState still sees an
                         // un-digested (never a falsely-digested) session.
                         const digestAttempts = (Number(session.meta.digestAttempts) || 0) + 1;
-                        const safeBandTokens = Number(aiConfig.localModels?.chat?.safeProcessingLimitTokens) || 0;
+                        const safeBandTokens = aiConfig.localModels?.chat?.safeProcessingLimitTokens;
                         const deferReason    = ingestErrors > 0
                             ? 'ingestion-failure'
                             : (safeBandTokens > 0 && sessionState.payloadSizeTokens > safeBandTokens ? 'skip-over-band' : 'under-band-choke');
                         // Bound the re-serve ONLY for the deterministically-terminal reason (skip-over-band);
                         // under-band-choke + transient ingestion-failure keep retrying (attempt-tracked) so a
                         // digestible session is never silently dropped on a guessed-terminal null.
-                        const digestState = PERMANENT_DEFER_REASONS.has(deferReason) && digestAttempts >= MAX_DIGEST_ATTEMPTS
+                        const maxDigestAttempts = readRequiredNumberLeaf('maxDigestAttempts');
+                        const digestState       = PERMANENT_DEFER_REASONS.has(deferReason) && digestAttempts >= maxDigestAttempts
                             ? 'deferred'
                             : 'undigested';
 
@@ -579,7 +572,7 @@ class DreamService extends Base {
                         if (digestState === 'deferred') {
                             logger.warn(`[DreamService] Session ${session.meta.sessionId} marked 'deferred' after ${digestAttempts} failed digest attempt(s) (reason: ${deferReason}); excluded from the steady REM cadence to stop the re-serve bleed.`);
                         } else {
-                            logger.info(`[DreamService] Session ${session.meta.sessionId} digest failed (reason: ${deferReason}); attempt ${digestAttempts}/${MAX_DIGEST_ATTEMPTS}, will retry next cycle.`);
+                            logger.info(`[DreamService] Session ${session.meta.sessionId} digest failed (reason: ${deferReason}); attempt ${digestAttempts}/${maxDigestAttempts}, will retry next cycle.`);
                         }
                     }
                 }
