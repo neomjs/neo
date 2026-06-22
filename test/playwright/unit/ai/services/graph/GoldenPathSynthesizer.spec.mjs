@@ -34,6 +34,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     let renderStaleAssignmentCandidatesSection;
     let buildSilentThreadCandidates;
     let renderSilentThreadCandidatesSection;
+    let issueFocusSections;
 
     let StorageRouter;
     let TextEmbeddingService;
@@ -70,6 +71,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
 
         const GoldenPathSynthesizerModule = await import('../../../../../../ai/services/graph/GoldenPathSynthesizer.mjs');
         GoldenPathSynthesizer = GoldenPathSynthesizerModule.default;
+        issueFocusSections = await import('../../../../../../ai/services/graph/issueFocusSections.mjs');
         buildStaleAssignmentCandidates = GoldenPathSynthesizer.constructor.buildStaleAssignmentCandidates.bind(GoldenPathSynthesizer.constructor);
         renderStaleAssignmentCandidatesSection = GoldenPathSynthesizer.constructor.renderStaleAssignmentCandidatesSection.bind(GoldenPathSynthesizer.constructor);
         buildSilentThreadCandidates = GoldenPathSynthesizer.constructor.buildSilentThreadCandidates.bind(GoldenPathSynthesizer.constructor);
@@ -597,6 +599,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         GoldenPathSynthesizer.fetchOpenPRs  = async () => [];
         OpenAiCompatible.prototype.generate = async () => ({content: '{"strategic_brief":"stub"}'});
 
+        const directFocusCandidates = issueFocusSections.buildCurrentFocusCandidates({issuesDir, now});
+
         try {
             await GoldenPathSynthesizer.synthesizeGoldenPath({issuesDir, now});
         } finally {
@@ -618,6 +622,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(staleIndex).toBeGreaterThan(-1);
         expect(computedIndex).toBeGreaterThan(-1);
         expect(focusIndex).toBeLessThan(computedIndex);
+        expect(directFocusCandidates.map(candidate => candidate.number)).toEqual([13750, 13012]);
         expect(focusSection).toContain('**#13750**');
         expect(focusSection).toContain('**#13012**');
         expect(focusSection).not.toContain('Old generic AI enhancement');
