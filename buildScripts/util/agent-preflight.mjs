@@ -9,6 +9,9 @@ const
     __filename = fileURLToPath(import.meta.url),
     __dirname  = path.dirname(__filename);
 
+// Source-to-mirror: keep these PR-body anchors in sync with
+// `.github/workflows/agent-pr-body-lint.yml`. Do not reintroduce a shared
+// `prReviewAnchors.mjs`; sync-by-convention is deliberate.
 export const VISIBLE_PR_BODY_ANCHORS = [
     'Evidence:',
     '## Test Evidence',
