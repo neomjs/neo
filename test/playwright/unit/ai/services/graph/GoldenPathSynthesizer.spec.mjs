@@ -34,6 +34,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     let renderStaleAssignmentCandidatesSection;
     let buildSilentThreadCandidates;
     let renderSilentThreadCandidatesSection;
+    let issueFocusSections;
 
     let StorageRouter;
     let TextEmbeddingService;
@@ -70,6 +71,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
 
         const GoldenPathSynthesizerModule = await import('../../../../../../ai/services/graph/GoldenPathSynthesizer.mjs');
         GoldenPathSynthesizer = GoldenPathSynthesizerModule.default;
+        issueFocusSections = await import('../../../../../../ai/services/graph/issueFocusSections.mjs');
         buildStaleAssignmentCandidates = GoldenPathSynthesizer.constructor.buildStaleAssignmentCandidates.bind(GoldenPathSynthesizer.constructor);
         renderStaleAssignmentCandidatesSection = GoldenPathSynthesizer.constructor.renderStaleAssignmentCandidatesSection.bind(GoldenPathSynthesizer.constructor);
         buildSilentThreadCandidates = GoldenPathSynthesizer.constructor.buildSilentThreadCandidates.bind(GoldenPathSynthesizer.constructor);
@@ -597,6 +599,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         GoldenPathSynthesizer.fetchOpenPRs  = async () => [];
         OpenAiCompatible.prototype.generate = async () => ({content: '{"strategic_brief":"stub"}'});
 
+        const directFocusCandidates = issueFocusSections.buildCurrentFocusCandidates({issuesDir, now});
+
         try {
             await GoldenPathSynthesizer.synthesizeGoldenPath({issuesDir, now});
         } finally {
@@ -618,6 +622,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(staleIndex).toBeGreaterThan(-1);
         expect(computedIndex).toBeGreaterThan(-1);
         expect(focusIndex).toBeLessThan(computedIndex);
+        expect(directFocusCandidates.map(candidate => candidate.number)).toEqual([13750, 13012]);
         expect(focusSection).toContain('**#13750**');
         expect(focusSection).toContain('**#13012**');
         expect(focusSection).not.toContain('Old generic AI enhancement');
@@ -625,6 +630,132 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(handoffContent).not.toContain(discussionId);
         expect(handoffContent).not.toContain(epicId);
         expect(handoffContent).not.toContain(notReadyId);
+    });
+
+    test('synthesizeGoldenPath renders empty computed diagnostics and clears stale frontier guides (#13828)', async () => {
+        const originalGetGraphCollection = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText = TextEmbeddingService.embedText;
+        const originalFetchOpenPRs = GoldenPathSynthesizer.fetchOpenPRs;
+        const suffix = `${process.pid}-${Date.now()}`;
+        const staleId = `issue-stale-guide-${suffix}`;
+        const notReadyId = `issue-empty-not-ready-${suffix}`;
+        aiConfig.vectorDimension = 2;
+
+        GraphService.upsertNode({
+            id        : 'frontier',
+            type      : 'SYSTEM_TENET',
+            properties: {name: 'Active Context Frontier'}
+        });
+        GraphService.upsertNode({
+            id        : staleId,
+            type      : 'ISSUE',
+            properties: {state: 'OPEN', title: 'Stale guide edge'}
+        });
+        GraphService.upsertNode({
+            id        : notReadyId,
+            type      : 'ISSUE',
+            properties: {state: 'OPEN', title: 'Not ready candidate', labels: ['not-code-ready', 'ai']}
+        });
+        GoldenPathSynthesizer.constructor.pruneStaleFrontierGuideEdges();
+        GraphService.linkNodes('frontier', staleId, 'GUIDES', 3);
+
+        StorageRouter.getGraphCollection = async () => ({
+            query: async () => ({
+                ids      : [[notReadyId]],
+                distances: [[0.1]]
+            })
+        });
+        StorageRouter.getSummaryCollection = async () => ({get: async () => ({documents: ['Agent OS regression focus']})});
+        TextEmbeddingService.embedText = async () => [0.1, 0.2];
+        GoldenPathSynthesizer.fetchOpenPRs = async () => [];
+
+        try {
+            await GoldenPathSynthesizer.synthesizeGoldenPath({repoEnrichmentEnabled: false});
+        } finally {
+            StorageRouter.getGraphCollection   = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection = originalGetSummaryCollection;
+            TextEmbeddingService.embedText     = originalEmbedText;
+            GoldenPathSynthesizer.fetchOpenPRs = originalFetchOpenPRs;
+        }
+
+        const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
+        const guideTargets = GraphService.db.edges
+            .getByIndex('source', 'frontier')
+            .filter(edge => edge.type === 'GUIDES')
+            .map(edge => edge.target);
+
+        expect(handoffContent).toContain('## Computed Golden Path (Strategic Recommendation)');
+        expect(handoffContent).toContain('No actionable computed recommendations survived the current Tri-Vector filter pass.');
+        expect(handoffContent).toContain('- Semantic candidates: 1');
+        expect(handoffContent).toContain('- SQLite OPEN matches: 1');
+        expect(handoffContent).toContain('- Non-actionable candidates filtered: 1');
+        expect(handoffContent).toContain('- Selected top nodes: 0');
+        expect(handoffContent).toMatch(/- Stale frontier GUIDES pruned: [1-9]\d*/);
+        expect(guideTargets).not.toContain(staleId);
+    });
+
+    test('synthesizeGoldenPath prunes stale guides while preserving current computed guides (#13828)', async () => {
+        const originalGetGraphCollection = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText = TextEmbeddingService.embedText;
+        const originalFetchOpenPRs = GoldenPathSynthesizer.fetchOpenPRs;
+        const OpenAiCompatible = (await import('../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
+        const originalGenerate = OpenAiCompatible.prototype.generate;
+        const suffix = `${process.pid}-${Date.now()}`;
+        const staleId = `issue-stale-guide-nonzero-${suffix}`;
+        const readyId = `issue-current-guide-${suffix}`;
+        aiConfig.vectorDimension = 2;
+
+        GraphService.upsertNode({
+            id        : 'frontier',
+            type      : 'SYSTEM_TENET',
+            properties: {name: 'Active Context Frontier'}
+        });
+        GraphService.upsertNode({
+            id        : staleId,
+            type      : 'ISSUE',
+            properties: {state: 'OPEN', title: 'Old computed guide'}
+        });
+        GraphService.upsertNode({
+            id        : readyId,
+            type      : 'ISSUE',
+            properties: {state: 'OPEN', title: 'Current computed guide', labels: ['bug', 'ai']}
+        });
+        GoldenPathSynthesizer.constructor.pruneStaleFrontierGuideEdges();
+        GraphService.linkNodes('frontier', staleId, 'GUIDES', 3);
+
+        StorageRouter.getGraphCollection = async () => ({
+            query: async () => ({
+                ids      : [[readyId]],
+                distances: [[0.1]]
+            })
+        });
+        StorageRouter.getSummaryCollection = async () => ({get: async () => ({documents: ['Agent OS regression focus']})});
+        TextEmbeddingService.embedText = async () => [0.1, 0.2];
+        GoldenPathSynthesizer.fetchOpenPRs = async () => [];
+        OpenAiCompatible.prototype.generate = async () => ({content: '{"strategic_brief":"stub"}'});
+
+        try {
+            await GoldenPathSynthesizer.synthesizeGoldenPath({repoEnrichmentEnabled: false});
+        } finally {
+            StorageRouter.getGraphCollection   = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection = originalGetSummaryCollection;
+            TextEmbeddingService.embedText     = originalEmbedText;
+            GoldenPathSynthesizer.fetchOpenPRs = originalFetchOpenPRs;
+            OpenAiCompatible.prototype.generate = originalGenerate;
+        }
+
+        const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
+        const guideTargets = GraphService.db.edges
+            .getByIndex('source', 'frontier')
+            .filter(edge => edge.type === 'GUIDES')
+            .map(edge => edge.target);
+
+        expect(handoffContent).toContain(readyId);
+        expect(handoffContent).not.toContain('No actionable computed recommendations survived');
+        expect(guideTargets).toContain(readyId);
+        expect(guideTargets).not.toContain(staleId);
     });
 
     test('synthesizeGoldenPath lists the 5 most recent open PRs with cross-family status', async () => {

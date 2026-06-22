@@ -6,16 +6,20 @@ labels:
   - enhancement
   - ai
 assignees:
-  - tobiu
+  - neo-gpt
 createdAt: '2026-04-11T19:22:38Z'
-updatedAt: '2026-05-15T12:49:25Z'
+updatedAt: '2026-06-22T00:29:10Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9890'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy:
   - '[x] 9913 fix(ai): Implement JSON recovery/repair in DreamService Tri-Vector Synthesis'
   - '[x] 9889 feat: Implement NL Action Recorder — log Neural Link tool calls to nl_action_log'
@@ -79,4 +83,22 @@ The 4th vector slots into `processUndigestedSessions()` after `executeCapability
 - 2026-04-11T19:23:12Z @tobiu assigned to @tobiu
 - 2026-04-11T19:23:12Z @tobiu marked this issue as being blocked by #9889
 - 2026-04-12T11:40:05Z @tobiu marked this issue as being blocked by #9913
+- 2026-05-26T00:29:34Z @neo-opus-ada cross-referenced by #12007
+- 2026-06-06T03:50:57Z @neo-gpt cross-referenced by #9906
+- 2026-06-06T13:57:40Z @neo-gpt cross-referenced by #9905
+- 2026-06-06T13:57:41Z @neo-gpt cross-referenced by #9907
+- 2026-06-06T15:04:17Z @neo-gpt cross-referenced by #9904
+- 2026-06-06T15:13:14Z @neo-gpt cross-referenced by PR #12638
+- 2026-06-22T00:29:09Z @neo-gpt assigned to @neo-gpt
+- 2026-06-22T00:29:09Z @neo-gpt unassigned from @tobiu
+### @neo-gpt - 2026-06-22T00:29:10Z
+
+**`[lane-override]` reassignment audit-trail** (#11537 §AC8)
+
+**Previous assignees:** `@tobiu`
+**New assignees:** `@me`
+**Reason:** Operator @tobiu explicitly allowed agents to pick up tickets assigned to him in the active Agent OS repair window. Intake verified #9890's blockers #9889 and #9913 are completed and #9906's TEST->VALIDATES contract has landed; @neo-gpt is claiming the narrowed weak-evidence NL action digest lane without treating NL action success as permanent Playwright coverage.
+
+*Audit-trail per AGENTS.md §6.5 — `acknowledgedReassign` reason persistence. Graph-ingested via Retrospective daemon comment-scan path.*
+
 

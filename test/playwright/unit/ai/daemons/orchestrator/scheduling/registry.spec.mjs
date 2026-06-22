@@ -120,6 +120,64 @@ test.describe('orchestrator/scheduling/registry (#11862 Sub 18)', () => {
         })).toBeNull();
     });
 
+    test('githubWorkflowSync cadence uses terminal timestamp before start timestamp (#13832)', () => {
+        const descriptor = TASK_REGISTRY.find(d => d.taskName === 'githubWorkflowSync');
+        expect(descriptor, 'githubWorkflowSync is registered').toBeTruthy();
+
+        expect(descriptor.getDueTask({
+            state: {
+                githubWorkflowSync: {
+                    lastRunAt    : 0,
+                    lastSuccessAt: new Date(1200).toISOString()
+                }
+            },
+            now      : 1800,
+            intervals: {githubWorkflowSync: 1000},
+            enables  : {githubWorkflowSync: true}
+        })).toBeNull();
+
+        expect(descriptor.getDueTask({
+            state: {
+                githubWorkflowSync: {
+                    lastRunAt    : 0,
+                    lastSuccessAt: new Date(1200).toISOString()
+                }
+            },
+            now      : 2200,
+            intervals: {githubWorkflowSync: 1000},
+            enables  : {githubWorkflowSync: true}
+        })).toMatchObject({taskName: 'githubWorkflowSync', source: 'periodic-sync'});
+    });
+
+    test('githubWorkflowSync failed terminal attempts also cool down retries (#13832)', () => {
+        const descriptor = TASK_REGISTRY.find(d => d.taskName === 'githubWorkflowSync');
+        expect(descriptor, 'githubWorkflowSync is registered').toBeTruthy();
+
+        expect(descriptor.getDueTask({
+            state: {
+                githubWorkflowSync: {
+                    lastRunAt  : 0,
+                    lastErrorAt: new Date(1200).toISOString()
+                }
+            },
+            now      : 1800,
+            intervals: {githubWorkflowSync: 1000},
+            enables  : {githubWorkflowSync: true}
+        })).toBeNull();
+
+        expect(descriptor.getDueTask({
+            state: {
+                githubWorkflowSync: {
+                    lastRunAt  : 0,
+                    lastErrorAt: new Date(1200).toISOString()
+                }
+            },
+            now      : 2200,
+            intervals: {githubWorkflowSync: 1000},
+            enables  : {githubWorkflowSync: true}
+        })).toMatchObject({taskName: 'githubWorkflowSync', source: 'periodic-sync'});
+    });
+
     test('continuous tasks (chroma/bridgeDaemon/mlx) are intentionally NOT in registry', () => {
         const names = TASK_REGISTRY.map(d => d.taskName);
         expect(names).not.toContain('chroma');
