@@ -1,5 +1,5 @@
-import fs from 'fs-extra';
-import Database from 'better-sqlite3';
+import fs                              from 'fs-extra';
+import Database                        from 'better-sqlite3';
 import { SQLITE_IN_CLAUSE_BATCH_SIZE } from '../../graph/storage/constants.mjs';
 
 export function initializeDatabase(dbPath) {
@@ -294,6 +294,7 @@ export function getUnreadSunsetHandovers(db) {
         SELECT id, data FROM Nodes
         WHERE json_extract(data, '$.type') = 'MESSAGE'
           AND json_extract(data, '$.properties.readAt') IS NULL
+          AND json_extract(data, '$.properties.handoverSummaryProcessedAt') IS NULL
           AND json_extract(data, '$.properties.taggedConcepts') LIKE '%"sunset-protocol-handover"%'
     `);
     const rows = stmt.all();
@@ -313,6 +314,18 @@ export function getUnreadSunsetHandovers(db) {
         }
     }
     return unreadMessages;
+}
+
+export function markSunsetHandoversSummaryProcessed(db, nodes) {
+    if (nodes.length === 0) return;
+    const stmt = db.prepare('UPDATE Nodes SET data = ? WHERE id = ?');
+    db.transaction(() => {
+        for (const node of nodes) {
+            node.properties ??= {};
+            node.properties.handoverSummaryProcessedAt = new Date().toISOString();
+            stmt.run(JSON.stringify(node), node.id);
+        }
+    })();
 }
 
 export function markNodesAsRead(db, nodes) {
