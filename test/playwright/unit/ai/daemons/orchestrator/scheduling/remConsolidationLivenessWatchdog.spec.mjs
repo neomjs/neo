@@ -10,44 +10,59 @@ test.describe('orchestrator/scheduling/remConsolidationLivenessWatchdog', () => 
     test('getRemCycleStaleness derives staleness from the latest cycle completedAt', async () => {
         const readRecent = async () => [{completedAt: 1000, outcome: 'completed'}];
         expect(await getRemCycleStaleness({remRunStateDir: '/x', now: 5000, readRecent}))
-            .toEqual({hasCycle: true, lastCompletedAt: 1000, stalenessMs: 4000});
+            .toEqual({hasCycle: true, readFault: false, lastCompletedAt: 1000, stalenessMs: 4000});
     });
 
-    test('getRemCycleStaleness fails SOFT to no-cycle on a read error (never a false stall, never a throw)', async () => {
+    test('getRemCycleStaleness fails SOFT to a readFault reading on a read error (never a false stall, never a throw)', async () => {
         const readRecent = async () => { throw new Error('fs fault'); };
         expect(await getRemCycleStaleness({remRunStateDir: '/x', now: 5000, readRecent}))
-            .toEqual({hasCycle: false, lastCompletedAt: null, stalenessMs: 0});
+            .toEqual({hasCycle: false, readFault: true, lastCompletedAt: null, stalenessMs: 0});
     });
 
-    test('getRemCycleStaleness reports no-cycle for an empty store', async () => {
+    test('getRemCycleStaleness reports a genuine no-cycle (not a readFault) for an empty store', async () => {
         const readRecent = async () => [];
         expect(await getRemCycleStaleness({remRunStateDir: '/x', now: 5000, readRecent}))
-            .toEqual({hasCycle: false, lastCompletedAt: null, stalenessMs: 0});
+            .toEqual({hasCycle: false, readFault: false, lastCompletedAt: null, stalenessMs: 0});
     });
 
     test('getRemCycleStaleness reports no-cycle when the latest entry lacks a finite completedAt', async () => {
         const readRecent = async () => [{outcome: 'failed'}];
         expect(await getRemCycleStaleness({remRunStateDir: '/x', now: 5000, readRecent}))
-            .toEqual({hasCycle: false, lastCompletedAt: null, stalenessMs: 0});
+            .toEqual({hasCycle: false, readFault: false, lastCompletedAt: null, stalenessMs: 0});
     });
 
-    // ── evaluateConsolidationStallAlarm (pure, one-shot latch) ───────────────────────────────────
-    test('alarms on stall-onset: a stale cycle (older than the threshold)', () => {
-        const r = evaluateConsolidationStallAlarm({hasCycle: true, stalenessMs: 10_000, thresholdMs: 6_000});
+    // ── evaluateConsolidationStallAlarm (pure, one-shot latch; backlog-gated) ─────────────────────
+    test('alarms on stall-onset: a stale cycle (older than the threshold) WITH an undigested backlog', () => {
+        const r = evaluateConsolidationStallAlarm({hasCycle: true, stalenessMs: 10_000, undigestedCount: 5, thresholdMs: 6_000});
         expect(r.stalled).toBe(true);
         expect(r.shouldAlarm).toBe(true);
         expect(r.nextAlarmState.alarmed).toBe(true);
     });
 
-    test('treats NO recorded cycle as a stall (the recentCycles:[] symptom / cold start)', () => {
-        const r = evaluateConsolidationStallAlarm({hasCycle: false, stalenessMs: 0, thresholdMs: 6_000});
+    test('treats NO recorded cycle as a stall (recentCycles:[]) when a backlog exists', () => {
+        const r = evaluateConsolidationStallAlarm({hasCycle: false, stalenessMs: 0, undigestedCount: 5, thresholdMs: 6_000});
         expect(r.stalled).toBe(true);
         expect(r.shouldAlarm).toBe(true);
     });
 
+    test('backlog guard: a stale/absent cycle with NO undigested backlog is NOT a stall', () => {
+        expect(evaluateConsolidationStallAlarm({hasCycle: false, stalenessMs: 10_000, undigestedCount: 0, thresholdMs: 6_000}).stalled).toBe(false);
+        expect(evaluateConsolidationStallAlarm({hasCycle: true, stalenessMs: 10_000, undigestedCount: 0, thresholdMs: 6_000}).stalled).toBe(false);
+    });
+
+    test('readFault fails soft to no alarm and PRESERVES the latch (an inconclusive read != a stall)', () => {
+        const r = evaluateConsolidationStallAlarm({
+            readFault : true, hasCycle: false, stalenessMs: 10_000, undigestedCount: 5, thresholdMs: 6_000,
+            alarmState: {alarmed: true, stalledSince: 1}
+        });
+        expect(r.stalled).toBe(false);
+        expect(r.shouldAlarm).toBe(false);
+        expect(r.nextAlarmState).toEqual({alarmed: true, stalledSince: 1});
+    });
+
     test('one-shot latch: no re-alarm while already alarmed', () => {
         const r = evaluateConsolidationStallAlarm({
-            hasCycle  : true, stalenessMs: 10_000, thresholdMs: 6_000,
+            hasCycle  : true, stalenessMs: 10_000, undigestedCount: 5, thresholdMs: 6_000,
             alarmState: {alarmed: true, stalledSince: 1}
         });
         expect(r.stalled).toBe(true);
@@ -56,7 +71,7 @@ test.describe('orchestrator/scheduling/remConsolidationLivenessWatchdog', () => 
 
     test('a healthy (recent) cycle clears the latch', () => {
         const r = evaluateConsolidationStallAlarm({
-            hasCycle  : true, stalenessMs: 1_000, thresholdMs: 6_000,
+            hasCycle  : true, stalenessMs: 1_000, undigestedCount: 5, thresholdMs: 6_000,
             alarmState: {alarmed: true, stalledSince: 1}
         });
         expect(r.stalled).toBe(false);
@@ -64,13 +79,13 @@ test.describe('orchestrator/scheduling/remConsolidationLivenessWatchdog', () => 
     });
 
     test('a recent cycle below the threshold is healthy (not stalled)', () => {
-        const r = evaluateConsolidationStallAlarm({hasCycle: true, stalenessMs: 1_000, thresholdMs: 6_000});
+        const r = evaluateConsolidationStallAlarm({hasCycle: true, stalenessMs: 1_000, undigestedCount: 5, thresholdMs: 6_000});
         expect(r.stalled).toBe(false);
         expect(r.shouldAlarm).toBe(false);
     });
 
     test('thresholdMs <= 0 disables alarming (never stalled)', () => {
-        const r = evaluateConsolidationStallAlarm({hasCycle: false, stalenessMs: 0, thresholdMs: 0});
+        const r = evaluateConsolidationStallAlarm({hasCycle: false, stalenessMs: 0, undigestedCount: 5, thresholdMs: 0});
         expect(r.stalled).toBe(false);
     });
 

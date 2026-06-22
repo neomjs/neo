@@ -22,8 +22,8 @@ import {readRecentRemRunStates} from '../../../services/memory-core/helpers/remR
  * - **Read-only.** It only READS the REM run-state store (via `readRecentRemRunStates`) plus a
  *   passed-in undigested-backlog count; it never writes a record or touches the digest write path.
  * - **Never-fail.** A check failure degrades to "no alarm", never to a thrown error in the scheduling
- *   pipeline. `getRemCycleStaleness` fails SOFT (a read fault → no-cycle reading), and the backlog
- *   guard means a soft reading can never look like a stall on its own.
+ *   pipeline. `getRemCycleStaleness` fails SOFT (a read fault → a `readFault` reading that never
+ *   alarms), and the backlog guard means a soft/quiet reading can never look like a stall on its own.
  * - **One-shot alarm.** Fires once on stall-onset and latches; a healthy check clears the latch so a
  *   later stall re-alarms. Avoids a per-check alarm storm.
  *
@@ -41,71 +41,82 @@ import {readRecentRemRunStates} from '../../../services/memory-core/helpers/remR
  * @summary Computes the age since the last successful REM cycle. Read-only, fail-soft.
  *
  * Reads the most-recent REM run-state entry and derives staleness as `now - completedAt`. A read
- * fault OR an empty store fails SOFT to `{hasCycle: false, stalenessMs: 0}` — never a thrown error
- * into the never-fail scheduling pipeline. A no-cycle reading is itself a stall under the
- * staleness-only alarm signal (a healthy orchestrator records a cycle every cadence even with no
- * work), so `evaluateConsolidationStallAlarm` treats `!hasCycle` as stalled directly.
+ * fault fails SOFT to a distinct `{hasCycle: false, readFault: true, stalenessMs: 0}` reading — a
+ * watchdog read error must never masquerade as a stall (`evaluateConsolidationStallAlarm` treats
+ * `readFault` as no-alarm). An empty store or an entry with no finite `completedAt` is a genuine
+ * `{hasCycle: false, readFault: false}` no-cycle reading; whether that alarms is decided downstream
+ * by pairing it with the undigested-backlog count (no backlog → never a stall), so a fresh/quiet
+ * store cannot false-alarm on its own.
  *
  * @param {Object} options
  * @param {String} options.remRunStateDir Directory holding the REM run-state JSONL artifacts.
  * @param {Number} options.now Current epoch milliseconds (injected clock).
  * @param {Function} [options.readRecent] Async `({dir, limit}) => Promise<Object[]>` reader; defaults to
  *   {@link readRecentRemRunStates}. Injectable for unit isolation.
- * @returns {Promise<{hasCycle: Boolean, lastCompletedAt: (Number|null), stalenessMs: Number}>}
- *   `hasCycle` is false (and `stalenessMs` 0) when the store is empty or unreadable, or the latest
- *   entry carries no finite `completedAt`.
+ * @returns {Promise<{hasCycle: Boolean, readFault: Boolean, lastCompletedAt: (Number|null), stalenessMs: Number}>}
+ *   `hasCycle` is false (and `stalenessMs` 0) when the store is empty/unreadable or the latest entry
+ *   carries no finite `completedAt`; `readFault` is true ONLY on the read-error path (never alarms).
  */
 export async function getRemCycleStaleness({remRunStateDir, now, readRecent = readRecentRemRunStates} = {}) {
     let entries;
     try {
         entries = await readRecent({dir: remRunStateDir, limit: 1});
     } catch {
-        // Read fault → no-cycle reading. A watchdog fault degrades to "no alarm", never a false stall
-        // and never a throw into the never-fail scheduling pipeline.
-        return {hasCycle: false, lastCompletedAt: null, stalenessMs: 0};
+        // Read fault → fail soft to a distinct `readFault` reading. A watchdog fault degrades to "no
+        // alarm" (never a false stall, never a throw into the never-fail scheduling pipeline).
+        return {hasCycle: false, readFault: true, lastCompletedAt: null, stalenessMs: 0};
     }
 
     const latest      = Array.isArray(entries) && entries.length > 0 ? entries[0] : null;
     const completedAt = Number(latest?.completedAt);
 
     if (!latest || !Number.isFinite(completedAt)) {
-        return {hasCycle: false, lastCompletedAt: null, stalenessMs: 0};
+        return {hasCycle: false, readFault: false, lastCompletedAt: null, stalenessMs: 0};
     }
 
-    return {hasCycle: true, lastCompletedAt: completedAt, stalenessMs: Math.max(0, now - completedAt)};
+    return {hasCycle: true, readFault: false, lastCompletedAt: completedAt, stalenessMs: Math.max(0, now - completedAt)};
 }
 
 /**
  * @summary Pure stall-edge evaluation with one-shot latch semantics.
  *
- * **Stall = consolidation has not recently succeeded** — either no recorded cycle at all (the
- * `recentCycles: []` symptom) or the last successful cycle is older than the threshold. No backlog
- * guard is needed: a healthy orchestrator records a REM cycle every cadence *even with no work*
- * (`executeRemCycle` runs `decayGlobalTopology` on a no-work cycle), so an absent/stale cycle is
- * itself the stall — and the cadence is a cheap run-state file read (no Chroma / undigested-count
- * dependency). A cold-start (no cycle recorded yet) raises one self-clearing alarm — tolerable, and
- * arguably useful ("REM has not started yet"). The staleness-only mirror of
- * `embedDrainLivenessWatchdog` (oldest-pending-age), one subsystem over.
+ * **Stall = there is an undigested backlog AND consolidation has not recently succeeded** — either no
+ * recorded cycle at all (the `recentCycles: []` symptom) or the last successful cycle is older than
+ * the threshold. The backlog guard (`undigestedCount > 0`) is load-bearing: it is what makes "no/stale
+ * cycle" a *stall* rather than a fresh/quiet/idle state — no backlog → nothing to consolidate → never
+ * stalled (so a cold start, a quiet store, or a soft read cannot false-alarm). This mirrors
+ * `embedDrainLivenessWatchdog`'s `pendingCount > 0` guard, one subsystem over. A `readFault` reading
+ * fails soft to no alarm (an inconclusive read must never masquerade as a stall) and preserves the latch.
  *
  * Latch: an alarm fires only on the transition into stalled (`stalled && !alreadyAlarmed`); once
  * latched it stays quiet on subsequent stalled checks; a healthy check clears the latch.
  *
  * @param {Object} options
  * @param {Boolean} options.hasCycle Whether a REM cycle has been recorded (from {@link getRemCycleStaleness}).
+ * @param {Boolean} [options.readFault] When true, the run-state read failed — fail soft to no alarm.
  * @param {Number} options.stalenessMs Age since the last successful cycle.
+ * @param {Number} options.undigestedCount Current undigested-session backlog (the work-pending guard).
  * @param {Number} options.thresholdMs Stall threshold; `<= 0` disables alarming (never stalled).
  * @param {Object} [options.alarmState] Prior latch state `{alarmed, stalledSince}` from task state.
  * @returns {{stalled: Boolean, shouldAlarm: Boolean, nextAlarmState: {alarmed: Boolean, stalledSince: (Number|null)}}}
  */
-export function evaluateConsolidationStallAlarm({hasCycle, stalenessMs, thresholdMs, alarmState} = {}) {
+export function evaluateConsolidationStallAlarm({hasCycle, readFault, stalenessMs, undigestedCount, thresholdMs, alarmState} = {}) {
     const alreadyAlarmed = !!alarmState?.alarmed;
-    // No recorded cycle at all (the `recentCycles: []` symptom) is maximally stale; otherwise compare
-    // the last successful cycle's age. A healthy orchestrator records a cycle every cadence even on a
-    // no-work cycle, so an absent/stale cycle is itself the stall — no backlog guard needed.
-    const stalled = thresholdMs > 0 && (!hasCycle || stalenessMs > thresholdMs);
+
+    // Read fault → inconclusive; fail soft to no alarm and PRESERVE the latch (we neither observed a
+    // healthy cycle to clear it, nor confirmed a stall to raise one).
+    if (readFault) {
+        return {stalled: false, shouldAlarm: false, nextAlarmState: {alarmed: alreadyAlarmed, stalledSince: alarmState?.stalledSince ?? null}};
+    }
+
+    const hasBacklog = Number(undigestedCount) > 0;
+    // No recorded cycle is maximally stale (the `recentCycles: []` symptom); otherwise compare ages.
+    const cycleStale = !hasCycle || stalenessMs > thresholdMs;
+    // Backlog guard is load-bearing: no undigested work → nothing to consolidate → never a stall.
+    const stalled    = thresholdMs > 0 && hasBacklog && cycleStale;
 
     if (!stalled) {
-        // Healthy (or nothing-to-do) check: clear the latch so a future stall re-alarms.
+        // Healthy / nothing-to-do check: clear the latch so a future stall re-alarms.
         return {stalled: false, shouldAlarm: false, nextAlarmState: {alarmed: false, stalledSince: null}};
     }
 

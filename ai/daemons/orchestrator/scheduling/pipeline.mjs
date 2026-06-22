@@ -710,17 +710,29 @@ async function runRemConsolidationLivenessWatchdogTask({taskName, reason, servic
         services.healthService?.recordTaskOutcome?.(taskName, 'running', {reason, startedAt: new Date().toISOString()});
 
         const now = Date.now();
-        const {hasCycle, lastCompletedAt, stalenessMs} = await getRemCycleStaleness({
+        const {hasCycle, readFault, lastCompletedAt, stalenessMs} = await getRemCycleStaleness({
             remRunStateDir: runtime.remConsolidationWatchdogRunStateDir,
             now
         });
+
+        // Backlog guard (the load-bearing axis this watchdog is scoped around): a stale/absent cycle only alarms when there is
+        // undigested work to consolidate. Read it read-only via the dream service's existing scan; a
+        // backlog-read fault folds into `readFault` so it fails soft to no alarm (never a false stall).
+        let undigestedCount  = 0;
+        let backlogReadFault = false;
+        try {
+            const undigested = await services.dreamService?.findUndigestedSessions?.();
+            undigestedCount  = Array.isArray(undigested) ? undigested.length : 0;
+        } catch {
+            backlogReadFault = true;
+        }
 
         const state       = services.taskStateService.getTaskState(taskName);
         const alarmState  = state?.remConsolidationAlarm ?? null;
         const thresholdMs = runtime.remConsolidationWatchdogThresholdMs;
 
         const {stalled, shouldAlarm, nextAlarmState} = evaluateConsolidationStallAlarm({
-            hasCycle, stalenessMs, thresholdMs, alarmState
+            hasCycle, readFault: readFault || backlogReadFault, stalenessMs, undigestedCount, thresholdMs, alarmState
         });
 
         // Stamp the stall-onset timestamp (the clock-free evaluator leaves it null on the latching
@@ -733,6 +745,7 @@ async function runRemConsolidationLivenessWatchdogTask({taskName, reason, servic
         const details = {
             reason,
             hasCycle,
+            undigestedCount,
             stalenessMs,
             thresholdMs,
             lastCompletedAt: lastCompletedAt === null ? null : new Date(lastCompletedAt).toISOString(),
