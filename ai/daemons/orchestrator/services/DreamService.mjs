@@ -532,6 +532,26 @@ class DreamService extends Base {
                     }
                 }
 
+                // Neural Link action digest is cycle-scoped: it reads the shared forward audit
+                // ledger once per REM cycle and adds weak runtime-interaction evidence without
+                // erasing TEST_GAPs or synthesizing permanent Playwright coverage.
+                const nlActionDigestStart = Date.now();
+                try {
+                    const nlActionDigest = await this.executeNLActionDigest();
+                    logger.info(`[DreamService] Cycle-scope NL_ACTION Digest took: ${((Date.now() - nlActionDigestStart) / 1000).toFixed(1)}s`);
+                    perPhaseStates.push(finishPhase(
+                        'nlActionDigest',
+                        nlActionDigestStart,
+                        nlActionDigest?.status === 'skipped' ? 'skipped' : 'completed',
+                        nlActionDigest
+                    ));
+                } catch (e) {
+                    perPhaseStates.push(finishPhase('nlActionDigest', nlActionDigestStart, 'failed', {
+                        error: toErrorMessage(e)
+                    }));
+                    throw e;
+                }
+
                 // Concept-graph gap inference is ontology-scoped: the output is identical
                 // for every invocation within a single REM cycle, so running it once after
                 // the session loop replaces redundant traversals.
@@ -899,6 +919,17 @@ class DreamService extends Base {
      */
     async inferConceptGraphGaps() {
         return GapInferenceEngine.inferConceptGraphGaps();
+    }
+
+    /**
+     * Cycle-scoped Neural Link action digest entry point. Delegates to `GapInferenceEngine`
+     * for deterministic `nl_action_log` inspection and weak `NL_ACTION_SEQUENCE -> VALIDATES`
+     * evidence edges. Invoked once per REM cycle after the per-session TEST_GAP pass and before
+     * concept-graph gap inference; it never removes TEST_GAPs because live agent interaction is
+     * weaker than durable Playwright coverage.
+     */
+    async executeNLActionDigest() {
+        return GapInferenceEngine.inferNlActionDigest();
     }
 
     /**
