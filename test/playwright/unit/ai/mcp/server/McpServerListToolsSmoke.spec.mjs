@@ -13,16 +13,16 @@ setup({
     }
 });
 
-import {test, expect}    from '@playwright/test';
-import {parse}           from 'acorn';
-import fs                from 'fs';
-import path              from 'path';
+import {test, expect} from '@playwright/test';
+import {parse}        from 'acorn';
+import fs             from 'fs';
+import path           from 'path';
 import {fileURLToPath,
         pathToFileURL}   from 'url';
-import yaml              from 'js-yaml';
-import Neo               from '../../../../../../src/Neo.mjs';
-import * as core         from '../../../../../../src/core/_export.mjs';
-import ToolService       from '../../../../../../ai/mcp/ToolService.mjs';
+import yaml        from 'js-yaml';
+import Neo         from '../../../../../../src/Neo.mjs';
+import * as core   from '../../../../../../src/core/_export.mjs';
+import ToolService from '../../../../../../ai/mcp/ToolService.mjs';
 
 const
     __filename = fileURLToPath(import.meta.url),
@@ -38,6 +38,7 @@ const
         },
         {
             name           : 'gitlab-workflow',
+            guardedStartup : true,
             toolServicePath: 'ai/mcp/server/gitlab-workflow/toolService.mjs',
             openApiPath    : 'ai/mcp/server/gitlab-workflow/openapi.yaml',
             mcpServerPath  : 'ai/mcp/server/gitlab-workflow/mcp-server.mjs',
@@ -45,6 +46,7 @@ const
         },
         {
             name           : 'github-workflow',
+            guardedStartup : true,
             toolServicePath: 'ai/mcp/server/github-workflow/toolService.mjs',
             openApiPath    : 'ai/mcp/server/github-workflow/openapi.yaml',
             mcpServerPath  : 'ai/mcp/server/github-workflow/mcp-server.mjs',
@@ -52,6 +54,7 @@ const
         },
         {
             name           : 'knowledge-base',
+            guardedStartup : true,
             toolServicePath: 'ai/mcp/server/knowledge-base/toolService.mjs',
             openApiPath    : 'ai/mcp/server/knowledge-base/openapi.yaml',
             mcpServerPath  : 'ai/mcp/server/knowledge-base/mcp-server.mjs',
@@ -59,6 +62,7 @@ const
         },
         {
             name           : 'memory-core',
+            guardedStartup : true,
             toolServicePath: 'ai/mcp/server/memory-core/toolService.mjs',
             openApiPath    : 'ai/mcp/server/memory-core/openapi.yaml',
             mcpServerPath  : 'ai/mcp/server/memory-core/mcp-server.mjs',
@@ -66,6 +70,7 @@ const
         },
         {
             name           : 'neural-link',
+            guardedStartup : true,
             toolServicePath: 'ai/mcp/server/neural-link/toolService.mjs',
             openApiPath    : 'ai/mcp/server/neural-link/openapi.yaml',
             mcpServerPath  : 'ai/mcp/server/neural-link/mcp-server.mjs',
@@ -80,8 +85,8 @@ const
  */
 function getOperationIds(server) {
     const
-        openApiFile = path.join(repoRoot, server.openApiPath),
-        doc         = yaml.load(fs.readFileSync(openApiFile, 'utf8')),
+        openApiFile  = path.join(repoRoot, server.openApiPath),
+        doc          = yaml.load(fs.readFileSync(openApiFile, 'utf8')),
         operationIds = [];
 
     for (const pathItem of Object.values(doc.paths || {})) {
@@ -253,6 +258,16 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
         });
     }
 
+    test('guarded MCP entrypoints force fatal startup errors to stderr (#13877)', () => {
+        for (const server of servers.filter(item => item.guardedStartup)) {
+            const source = fs.readFileSync(path.join(repoRoot, server.mcpServerPath), 'utf8');
+
+            expect(source, `${server.name} must keep the stale-config boot guard`).toContain('assertConfigFresh');
+            expect(source, `${server.name} fatal startup errors must reach MCP-client stderr`).toContain('logger.fatalStartup');
+            expect(source, `${server.name} must not regress to logger-only fatal exits`).not.toContain("logger.error('Fatal error during server initialization:'");
+        }
+    });
+
     test('file-system exposes compact list descriptions plus lazy-loaded handbook detail (#13268)', async () => {
         const
             server        = servers.find(item => item.name === 'file-system'),
@@ -284,9 +299,9 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
         expect(handbook.handbook.replace(/\s+/g, ' ')).toContain('directory traversal outside the permitted workspace');
 
         expect(missing).toEqual({
-            toolId: 'missing_tool',
-            found : false,
-            code  : 'TOOL_NOT_FOUND',
+            toolId : 'missing_tool',
+            found  : false,
+            code   : 'TOOL_NOT_FOUND',
             message: 'Tool "missing_tool" does not exist in this MCP server.'
         });
     });
@@ -323,9 +338,9 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
         expect(handbook.handbook.replace(/\s+/g, ' ')).toContain('Prefer `ask_knowledge_base` for most queries');
 
         expect(missing).toEqual({
-            toolId: 'missing_tool',
-            found : false,
-            code  : 'TOOL_NOT_FOUND',
+            toolId : 'missing_tool',
+            found  : false,
+            code   : 'TOOL_NOT_FOUND',
             message: 'Tool "missing_tool" does not exist in this MCP server.'
         });
     });
@@ -362,9 +377,9 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
         expect(handbook.handbook).toContain('SESSION_BUSY');
 
         expect(missing).toEqual({
-            toolId: 'missing_tool',
-            found : false,
-            code  : 'TOOL_NOT_FOUND',
+            toolId : 'missing_tool',
+            found  : false,
+            code   : 'TOOL_NOT_FOUND',
             message: 'Tool "missing_tool" does not exist in this MCP server.'
         });
     });
@@ -398,9 +413,9 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
         expect(handbook.handbook).toContain('GitLab GraphQL API');
 
         expect(missing).toEqual({
-            toolId: 'missing_tool',
-            found : false,
-            code  : 'TOOL_NOT_FOUND',
+            toolId : 'missing_tool',
+            found  : false,
+            code   : 'TOOL_NOT_FOUND',
             message: 'Tool "missing_tool" does not exist in this MCP server.'
         });
     });
@@ -438,9 +453,9 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
         expect(handbook.handbook.replace(/\s+/g, ' ')).toContain('Run `sync_all` to update local markdown files');
 
         expect(missing).toEqual({
-            toolId: 'missing_tool',
-            found : false,
-            code  : 'TOOL_NOT_FOUND',
+            toolId : 'missing_tool',
+            found  : false,
+            code   : 'TOOL_NOT_FOUND',
             message: 'Tool "missing_tool" does not exist in this MCP server.'
         });
     });
@@ -474,9 +489,9 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
         expect(handbook.handbook).toContain('StateProviders');
 
         expect(missing).toEqual({
-            toolId: 'missing_tool',
-            found : false,
-            code  : 'TOOL_NOT_FOUND',
+            toolId : 'missing_tool',
+            found  : false,
+            code   : 'TOOL_NOT_FOUND',
             message: 'Tool "missing_tool" does not exist in this MCP server.'
         });
     });
@@ -563,9 +578,9 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
 
     test('forced harness-embedded mode lists only read-tier tools end-to-end, even with omitted _meta (#13106)', async () => {
         const
-            server        = servers.find(item => item.name === 'neural-link'),
-            nlModuleUrl   = pathToFileURL(path.join(repoRoot, 'ai/mcp/server/neural-link/Server.mjs')).href,
-            Server        = (await import(nlModuleUrl)).default,
+            server      = servers.find(item => item.name === 'neural-link'),
+            nlModuleUrl = pathToFileURL(path.join(repoRoot, 'ai/mcp/server/neural-link/Server.mjs')).href,
+            Server      = (await import(nlModuleUrl)).default,
             // server pinned to harness-embedded; client sends NO _meta (the omitted-_meta bypass path)
             forcedContext = Server.prototype.buildToolProjectionContext.call(
                 {toolProjectionMode: 'harness-embedded'}, {request: {params: {}}}

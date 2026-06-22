@@ -13,12 +13,12 @@ setup({
     }
 });
 
-import {test, expect}  from '@playwright/test';
-import fs              from 'fs-extra';
-import os              from 'os';
-import path            from 'path';
-import Neo             from '../../../../../../../src/Neo.mjs';
-import * as core       from '../../../../../../../src/core/_export.mjs';
+import {test, expect} from '@playwright/test';
+import fs             from 'fs-extra';
+import os             from 'os';
+import path           from 'path';
+import Neo            from '../../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../../src/core/_export.mjs';
 import {
     createLogger,
     pruneLoggerRetention,
@@ -126,6 +126,37 @@ test.describe('Neo.ai.mcp.server.shared.Logger', () => {
         expect(stderrWrites.join('')).toContain('[INFO] nl-info-visible');
         expect(stderrWrites.join('')).toContain('[WARN] nl-warn-visible');
         expect(stderrWrites.join('')).toContain('[ERROR] nl-error-visible');
+    });
+
+    test('fatalStartup forces stderr while keeping stdout protocol-clean (#13877)', () => {
+        const stderrWrites = [];
+        const stdoutCalls  = [];
+
+        process.stderr.write = value => {
+            stderrWrites.push(String(value));
+            return true;
+        };
+        process.stdout.write = (...args) => {
+            stdoutCalls.push(args);
+            return true;
+        };
+
+        const logger = createLogger({
+            debug : false,
+            logger: {
+                fileSink      : false,
+                stderrMode    : 'debug',
+                timestampStyle: 'plain'
+            }
+        });
+
+        logger.error('debug-muted-error', new Error('hidden'));
+        logger.fatalStartup('Fatal error during server initialization:', new Error('stale config overlay'));
+
+        expect(stdoutCalls).toHaveLength(0);
+        expect(stderrWrites.join('')).not.toContain('debug-muted-error');
+        expect(stderrWrites.join('')).toContain('[ERROR] Fatal error during server initialization: Error: stale config overlay');
+        expect(stderrWrites.join('')).toContain('at ');
     });
 
     test('writes durable file logs, preserves Error details, and flushes when enabled', async () => {

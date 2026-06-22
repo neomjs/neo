@@ -18,6 +18,11 @@ const DEFAULT_LOGGER_CONFIG = {
     timestampStyle: 'plain'
 };
 
+const FATAL_STARTUP_LOGGER_CONFIG = {
+    ...DEFAULT_LOGGER_CONFIG,
+    stderrMode: 'force'
+};
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
@@ -194,9 +199,9 @@ export const listHistoricalLogFiles = ({
             const filePath = path.join(logDir, entry.name);
 
             return {
-                name    : entry.name,
+                name: entry.name,
                 filePath,
-                date    : match[1],
+                date: match[1],
                 time    : Date.parse(`${match[1]}T00:00:00.000Z`),
                 size    : includeSize ? statFile(filePath).size : undefined
             };
@@ -389,6 +394,11 @@ export const createLogger = (aiConfig = {}, fallbackLoggerConfig = {}) => {
     const writeStderr = (level, args, loggerConfig) => {
         const data = getConfigData(aiConfig);
 
+        if (loggerConfig.stderrMode === 'force') {
+            process.stderr.write(formatLogLine(level, args, loggerConfig));
+            return;
+        }
+
         if (loggerConfig.stderrMode === 'debug') {
             if (data.debug) {
                 console.error(`[${level.toUpperCase()}]`, ...args);
@@ -412,19 +422,23 @@ export const createLogger = (aiConfig = {}, fallbackLoggerConfig = {}) => {
         }
     };
 
-    const createLogMethod = level => (...args) => {
+    const createLogMethod = (level, options = {}) => (...args) => {
         const loggerConfig = getLoggerConfig(aiConfig, fallbackLoggerConfig);
 
         writeFile(level, args, loggerConfig);
-        writeStderr(level, args, loggerConfig);
+        writeStderr(level, args, options.forceStderr ? {
+            ...loggerConfig,
+            ...FATAL_STARTUP_LOGGER_CONFIG
+        } : loggerConfig);
     };
 
     const logger = {
-        debug: createLogMethod('debug'),
-        error: createLogMethod('error'),
-        info : createLogMethod('info'),
-        log  : createLogMethod('log'),
-        warn : createLogMethod('warn')
+        debug       : createLogMethod('debug'),
+        error       : createLogMethod('error'),
+        fatalStartup: createLogMethod('error', {forceStderr: true}),
+        info        : createLogMethod('info'),
+        log         : createLogMethod('log'),
+        warn        : createLogMethod('warn')
     };
 
     if (getLoggerConfig(aiConfig, fallbackLoggerConfig).flush) {
