@@ -1,7 +1,11 @@
-import aiConfig                  from '../../mcp/server/knowledge-base/config.mjs';
-import TextEmbeddingService      from '../memory-core/TextEmbeddingService.mjs';
-import mcConfig                  from '../../mcp/server/memory-core/config.mjs';
-import Base                      from '../../../src/core/Base.mjs';
+import aiConfig             from '../../mcp/server/knowledge-base/config.mjs';
+import TextEmbeddingService from '../memory-core/TextEmbeddingService.mjs';
+import mcConfig             from '../../mcp/server/memory-core/config.mjs';
+import Base                 from '../../../src/core/Base.mjs';
+import {
+    bytesToTokens,
+    emitConsumerFriction
+}                             from '../memory-core/helpers/consumerFrictionHelper.mjs';
 import ChromaManager             from './ChromaManager.mjs';
 import crypto                    from 'crypto';
 import fs                        from 'fs-extra';
@@ -147,10 +151,10 @@ class VectorService extends Base {
      */
     resolveTenantStamp(tenantContext = {}) {
         const config = this.getTenantIsolationConfig();
-        const stamp = {
-            tenantId           : tenantContext.tenantId ?? config.defaultTenantId ?? 'neo-shared',
-            repoSlug           : tenantContext.repoSlug ?? config.defaultRepoSlug ?? 'neo',
-            visibility         : tenantContext.visibility ?? config.defaultVisibility ?? 'team',
+        const stamp  = {
+            tenantId           : tenantContext.tenantId ?? config.defaultTenantId,
+            repoSlug           : tenantContext.repoSlug ?? config.defaultRepoSlug,
+            visibility         : tenantContext.visibility ?? config.defaultVisibility,
             tenantConfigVersion: tenantContext.configVersion ?? 0,
             ingestedAt         : Date.now()
         };
@@ -211,9 +215,9 @@ class VectorService extends Base {
                 field,
                 chunkId,
                 clientValue,
-                serverValue: serverValue ?? null,
-                tenantId: stamp.tenantId,
-                repoSlug: stamp.repoSlug,
+                serverValue        : serverValue ?? null,
+                tenantId           : stamp.tenantId,
+                repoSlug           : stamp.repoSlug,
                 originAgentIdentity: stamp.originAgentIdentity ?? null
             };
 
@@ -276,30 +280,133 @@ class VectorService extends Base {
     }
 
     /**
+     * Resolves the local embedding-model guardrail used before provider invocation.
+     *
+     * @returns {{enabled: Boolean, contextLimitTokens: Number, safeProcessingLimitTokens: Number, model: String}}
+     */
+    resolveEmbeddingGuardrail() {
+        const localEmbeddingProviders   = new Set(['openAiCompatible', 'ollama']);
+        const embeddingProvider         = mcConfig.embeddingProvider;
+        const contextLimitTokens        = Number(aiConfig.localModels.embedding.contextLimitTokens);
+        const safeProcessingLimitTokens = Number(aiConfig.localModels.embedding.safeProcessingLimitTokens);
+        const model                     = embeddingProvider === 'ollama'
+            ? aiConfig.ollama.embeddingModel
+            : embeddingProvider === 'openAiCompatible'
+                ? aiConfig.openAiCompatible.embeddingModel
+                : embeddingProvider;
+
+        return {
+            enabled                  : localEmbeddingProviders.has(embeddingProvider),
+            contextLimitTokens,
+            safeProcessingLimitTokens,
+            model
+        };
+    }
+
+    /**
+     * Emits a bounded, non-secret friction record for an over-budget embedding input.
+     *
+     * @param {Object} options
+     * @param {Object} options.chunk Tenant-stamped chunk.
+     * @param {String} options.text Provider input text.
+     * @param {Object} options.guardrail Resolved embedding guardrail.
+     * @returns {{skip: Boolean, inputBytes: Number, inputTokensEstimate: Number}}
+     */
+    evaluateEmbeddingInput({chunk, text, guardrail}) {
+        if (!guardrail.enabled) {
+            return {skip: false, inputBytes: 0, inputTokensEstimate: 0};
+        }
+
+        const inputBytes          = Buffer.byteLength(text || '', 'utf8');
+        const inputTokensEstimate = bytesToTokens(inputBytes);
+
+        if (inputTokensEstimate <= guardrail.safeProcessingLimitTokens) {
+            return {skip: false, inputBytes, inputTokensEstimate};
+        }
+
+        emitConsumerFriction({
+            assetRef                 : chunk.id || chunk.source || chunk.name || 'kb-chunk',
+            consumer                 : 'VectorService.embedChunks',
+            model                    : guardrail.model,
+            symptom                  : 'size-precheck-skip',
+            emissionPoint            : 'pre-invocation',
+            suggestionKind           : 'split-document',
+            inputBytes,
+            inputTokensEstimate,
+            contextLimitTokens       : guardrail.contextLimitTokens,
+            safeProcessingLimitTokens: guardrail.safeProcessingLimitTokens,
+            serviceDomain            : 'other',
+            note                     : 'KB embedding input exceeds safe processing band; split or reduce the source chunk before embedding.'
+        });
+
+        logger.warn('[VectorService] Skipping over-budget embedding chunk before provider invocation.', {
+            chunkId                  : chunk.id,
+            tenantId                 : chunk.tenantId,
+            repoSlug                 : chunk.repoSlug,
+            source                   : chunk.source,
+            inputBytes,
+            inputTokensEstimate,
+            safeProcessingLimitTokens: guardrail.safeProcessingLimitTokens,
+            contextLimitTokens       : guardrail.contextLimitTokens
+        });
+
+        return {skip: true, inputBytes, inputTokensEstimate};
+    }
+
+    /**
      * Embeds a set of chunks into the provided Chroma collection.
      *
      * @param {Object}   options
      * @param {Object}   options.collection      Chroma collection target.
      * @param {Object[]} options.chunksToProcess Tenant-stamped chunks to embed.
-     * @returns {Promise<void>}
+     * @returns {Promise<{embedded: Number, skipped: Number}>}
      */
     async embedChunks({collection, chunksToProcess}) {
         if (chunksToProcess.length === 0) {
-            return;
+            return {embedded: 0, skipped: 0};
         }
 
         logger.log(`Using TextEmbeddingService with provider: ${mcConfig.embeddingProvider}.`);
         logger.log('Embedding chunks...');
 
         const {batchSize, batchDelay, maxRetries} = aiConfig;
+        const guardrail     = this.resolveEmbeddingGuardrail();
+        let   embeddedCount = 0;
+        let   skippedCount  = 0;
 
         for (let i = 0; i < chunksToProcess.length; i += batchSize) {
             if (i > 0 && batchDelay) {
                 await this.timeout(batchDelay);
             }
 
-            const batch = chunksToProcess.slice(i, i + batchSize);
-            const textsToEmbed = batch.map(chunk => `${chunk.type}: ${chunk.name} in ${chunk.className || ''}\n${chunk.description || chunk.content || ''}`);
+            const batch       = chunksToProcess.slice(i, i + batchSize);
+            const batchInputs = batch.map(chunk => ({
+                chunk,
+                text: `${chunk.type}: ${chunk.name} in ${chunk.className || ''}\n${chunk.description || chunk.content || ''}`
+            }));
+            const embeddable = [];
+
+            for (const input of batchInputs) {
+                const result = this.evaluateEmbeddingInput({
+                    chunk: input.chunk,
+                    text : input.text,
+                    guardrail
+                });
+
+                if (result.skip) {
+                    skippedCount++;
+                } else {
+                    embeddable.push(input);
+                }
+            }
+
+            if (embeddable.length === 0) {
+                logger.warn(`[VectorService] Skipped embedding batch ${i / batchSize + 1}; all ${batch.length} chunk(s) exceeded the embedding safe-processing band.`);
+                continue;
+            }
+
+            const batchToEmbed = embeddable.map(input => input.chunk);
+            const textsToEmbed = embeddable.map(input => input.text);
 
             let retries = 0;
             let success = false;
@@ -308,7 +415,7 @@ class VectorService extends Base {
                 try {
                     const embeddings = await TextEmbeddingService.embedTexts(textsToEmbed, mcConfig.embeddingProvider);
 
-                    const metadatas = batch.map(chunk => {
+                    const metadatas = batchToEmbed.map(chunk => {
                         const metadata = {};
                         for (const [key, value] of Object.entries(chunk)) {
                             metadata[key] = (value === null) ? 'null' : (typeof value === 'object') ? JSON.stringify(value) : value;
@@ -317,12 +424,13 @@ class VectorService extends Base {
                     });
 
                     await collection.upsert({
-                        ids: batch.map(chunk => chunk.id),
+                        ids: batchToEmbed.map(chunk => chunk.id),
                         embeddings,
                         metadatas
                     });
 
-                    logger.log(`Processed and embedded batch ${i / batchSize + 1} of ${Math.ceil(chunksToProcess.length / batchSize)}`);
+                    embeddedCount += batchToEmbed.length;
+                    logger.log(`Processed and embedded batch ${i / batchSize + 1} of ${Math.ceil(chunksToProcess.length / batchSize)} (${batchToEmbed.length} embedded, ${batch.length - batchToEmbed.length} skipped).`);
                     success = true;
                 } catch (err) {
                     retries++;
@@ -335,6 +443,8 @@ class VectorService extends Base {
                 }
             }
         }
+
+        return {embedded: embeddedCount, skipped: skippedCount};
     }
 
     /**
@@ -377,7 +487,11 @@ class VectorService extends Base {
         let shadowPromoted = false;
 
         try {
-            await this.embedChunks({collection: shadowCollection, chunksToProcess: knowledgeBase});
+            const embedResult = await this.embedChunks({collection: shadowCollection, chunksToProcess: knowledgeBase});
+
+            if (embedResult.skipped > 0) {
+                throw new Error(`KB_EMBEDDING_INPUT_SIZE_EXCEEDED: shadow-swap refused to promote an incomplete corpus after skipping ${embedResult.skipped} over-budget embedding chunk(s).`);
+            }
 
             logger.log(`Promoting shadow collection '${shadowName}' to '${aiConfig.collectionName}'.`);
             await liveCollection.modify({name: parkingName});
@@ -394,7 +508,7 @@ class VectorService extends Base {
 
             return {
                 message,
-                embedded           : knowledgeBase.length,
+                embedded           : embedResult.embedded,
                 deleted            : idsToDeleteCount,
                 staleStrategy      : 'shadow-swap',
                 shadowCollection   : shadowName,
@@ -498,16 +612,16 @@ class VectorService extends Base {
         knowledgeBase.forEach(chunk => {
             if (chunk.kind === 'module-context' && chunk.className) {
                 classNameToDataMap[chunk.className] = {
-                    source : chunk.source,
-                    parent : chunk.extends || null
+                    source: chunk.source,
+                    parent: chunk.extends || null
                 };
             }
         });
 
         knowledgeBase.forEach(chunk => {
-            let currentClass = chunk.className; // Metadata is now on every chunk
+            let   currentClass     = chunk.className; // Metadata is now on every chunk
             const inheritanceChain = [];
-            const visited = new Set();
+            const visited          = new Set();
 
             // If no className metadata (e.g. non-class files), skip
             if (!currentClass) return;
@@ -529,8 +643,8 @@ class VectorService extends Base {
 
         logger.log('Fetching existing documents from ChromaDB...');
         const existingIds = new Set();
-        let offset = 0;
-        const limit = 2000;
+        let   offset      = 0;
+        const limit       = 2000;
         let batch;
 
         // ChromaDB has a default limit (usually 10) if not specified.
@@ -539,7 +653,7 @@ class VectorService extends Base {
             batch = await collection.get({
                 include: [],
                 limit,
-                offset: offset
+                offset : offset
             });
 
             batch.ids.forEach(id => existingIds.add(id));
@@ -593,7 +707,7 @@ class VectorService extends Base {
         if (viaMcp && workVolume > mcpThreshold) {
             // `logPath` is a Provider-owned leaf; read it directly so malformed config
             // shape fails loud instead of silently re-deriving a local default.
-            const logDir = aiConfig.logPath;
+            const logDir       = aiConfig.logPath;
             const errorPayload = {
                 error  : `KB sync work volume exceeds MCP-callable threshold`,
                 message: `${workVolume} chunks need re-embedding (threshold: ${mcpThreshold}). ` +
@@ -610,7 +724,7 @@ class VectorService extends Base {
 
         if (shouldShadowSwap) {
             return await this.embedViaShadowSwap({
-                liveCollection: collection,
+                liveCollection  : collection,
                 knowledgeBase,
                 idsToDeleteCount: idsToDelete.length
             });
@@ -621,12 +735,12 @@ class VectorService extends Base {
             logger.log(`Deleted ${idsToDelete.length} stale chunks.`);
         }
 
-        await this.embedChunks({collection, chunksToProcess});
+        const embedResult = await this.embedChunks({collection, chunksToProcess});
 
-        const count   = await collection.count();
+        const count = await collection.count();
         const message = `Embedding complete. Collection now contains ${count} items.`;
         logger.log(message);
-        return {message, embedded: chunksToProcess.length, deleted: idsToDelete.length};
+        return {message, embedded: embedResult.embedded, deleted: idsToDelete.length};
     }
 
     /**

@@ -15,12 +15,12 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
-import fs             from 'fs';
-import path           from 'path';
-import os             from 'os';
+import {test, expect}  from '@playwright/test';
+import Neo             from '../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../src/core/_export.mjs';
+import fs              from 'fs';
+import path            from 'path';
+import os              from 'os';
 import {fileURLToPath} from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -60,7 +60,7 @@ function createSpyCollection({existingIds = [], name = 'spy-knowledge-base'} = {
 
         async get({ids, where, limit = 2000, offset = 0, include = []} = {}) {
             calls.get++;
-            const all = Array.from(rows.keys());
+            const all   = Array.from(rows.keys());
             const slice = all.slice(offset, offset + limit);
             return {
                 ids      : slice,
@@ -73,7 +73,7 @@ function createSpyCollection({existingIds = [], name = 'spy-knowledge-base'} = {
             calls.upsert++;
             ids.forEach((id, i) => rows.set(id, {
                 id,
-                metadata: metadatas?.[i] ?? {},
+                metadata : metadatas?.[i] ?? {},
                 embedding: embeddings?.[i] ?? null
             }));
         },
@@ -156,8 +156,8 @@ function writeFixtureJsonl(filePath, chunkCount, hashPrefix = 'chunk-') {
     const lines = [];
     for (let i = 0; i < chunkCount; i++) {
         lines.push(JSON.stringify({
-            hash       : `${hashPrefix}${i}`,
-            type       : 'method',
+            hash: `${hashPrefix}${i}`,
+            type: 'method',
             name       : `method${i}`,
             className  : '',
             description: `synthetic chunk ${i}`,
@@ -168,11 +168,13 @@ function writeFixtureJsonl(filePath, chunkCount, hashPrefix = 'chunk-') {
 }
 
 test.describe('VectorService.embed — work-volume branching (#10572)', () => {
-    let SDK, KB_VectorService, KB_ChromaManager, KB_Config;
+    let SDK, KB_VectorService, KB_ChromaManager, KB_Config, Memory_Config;
     let TextEmbeddingService_orig;
     let originalGetCollection;
     let originalClient;
     let originalThreshold;
+    let originalEmbeddingLimits;
+    let originalEmbeddingProvider;
     let tmpDir, fixturePath;
 
     let TextEmbeddingService;
@@ -181,6 +183,7 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
         SDK              = await import('../../../../../../ai/services.mjs');
         KB_ChromaManager = SDK.KB_ChromaManager;
         KB_Config        = SDK.KB_Config;
+        Memory_Config    = SDK.Memory_Config;
         TextEmbeddingService = SDK.Memory_TextEmbeddingService;
 
         // VectorService is a helper not exposed via the SDK exports — import directly.
@@ -195,6 +198,11 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
         originalGetCollection = KB_ChromaManager.getKnowledgeBaseCollection.bind(KB_ChromaManager);
         originalClient        = KB_ChromaManager.client;
         originalThreshold     = KB_Config.data.mcpSyncMaxChunks;
+        originalEmbeddingLimits = {
+            contextLimitTokens       : Number(KB_Config.data.localModels.embedding.contextLimitTokens),
+            safeProcessingLimitTokens: Number(KB_Config.data.localModels.embedding.safeProcessingLimitTokens)
+        };
+        originalEmbeddingProvider = Memory_Config.data.embeddingProvider;
 
         tmpDir      = path.resolve(os.tmpdir(), `kb-work-volume-test-${process.pid}-${Date.now()}`);
         fs.mkdirSync(tmpDir, {recursive: true});
@@ -205,6 +213,9 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
         KB_ChromaManager.getKnowledgeBaseCollection = originalGetCollection;
         KB_ChromaManager.client                     = originalClient;
         KB_Config.data.mcpSyncMaxChunks             = originalThreshold;
+        KB_Config.data.localModels.embedding.contextLimitTokens        = originalEmbeddingLimits.contextLimitTokens;
+        KB_Config.data.localModels.embedding.safeProcessingLimitTokens = originalEmbeddingLimits.safeProcessingLimitTokens;
+        Memory_Config.data.embeddingProvider        = originalEmbeddingProvider;
         TextEmbeddingService.embedTexts             = TextEmbeddingService_orig;
         if (tmpDir && fs.existsSync(tmpDir)) {
             fs.rmSync(tmpDir, {recursive: true, force: true});
@@ -213,6 +224,10 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
 
     test.beforeEach(() => {
         KB_Config.data.mcpSyncMaxChunks = 5; // tight threshold for predictable branching
+        KB_Config.data.localModels.embedding.contextLimitTokens        = originalEmbeddingLimits.contextLimitTokens;
+        KB_Config.data.localModels.embedding.safeProcessingLimitTokens = originalEmbeddingLimits.safeProcessingLimitTokens;
+        Memory_Config.data.embeddingProvider = originalEmbeddingProvider;
+        TextEmbeddingService.embedTexts = async texts => texts.map(() => new Array(384).fill(0));
         KB_ChromaManager.client         = originalClient;
         KB_ChromaManager.getKnowledgeBaseCollection = originalGetCollection;
         KB_ChromaManager.invalidateKnowledgeBaseCollectionCache();
@@ -254,6 +269,81 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
         expect('error' in result).toBe(false);
         expect(result.message).toContain('Embedding complete');
         expect(spy.calls.upsert).toBeGreaterThan(0); // embedding actually happened
+    });
+
+    test('skips over-budget chunks before provider invocation while embedding the safe remainder', async () => {
+        KB_Config.data.localModels.embedding.contextLimitTokens        = 50;
+        KB_Config.data.localModels.embedding.safeProcessingLimitTokens = 40;
+
+        const embeddedTexts = [];
+        TextEmbeddingService.embedTexts = async texts => {
+            embeddedTexts.push(...texts);
+            return texts.map(() => new Array(384).fill(0));
+        };
+
+        const spy = createSpyCollection({existingIds: []});
+        KB_ChromaManager.getKnowledgeBaseCollection = async () => spy;
+
+        fs.writeFileSync(fixturePath, [
+            JSON.stringify({
+                hash       : 'small-chunk',
+                type       : 'method',
+                name       : 'small',
+                className  : '',
+                description: 'small body',
+                content    : 'small body'
+            }),
+            JSON.stringify({
+                hash       : 'large-chunk',
+                type       : 'method',
+                name       : 'large',
+                className  : '',
+                description: 'x'.repeat(300),
+                content    : 'x'.repeat(300)
+            })
+        ].join('\n'), 'utf8');
+
+        const result = await KB_VectorService.embed(fixturePath);
+
+        expect(result.embedded).toBe(1);
+        expect('skipped' in result).toBe(false);
+        expect(result.message).toContain('Embedding complete');
+        expect(spy.calls.upsert).toBe(1);
+        expect(spy.rows.size).toBe(1);
+        expect(embeddedTexts).toHaveLength(1);
+        expect(embeddedTexts[0]).toContain('small body');
+        expect(embeddedTexts[0]).not.toContain('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx');
+    });
+
+    test('does not apply local-model input caps to non-local embedding providers', async () => {
+        Memory_Config.data.embeddingProvider                            = 'gemini';
+        KB_Config.data.localModels.embedding.contextLimitTokens        = 50;
+        KB_Config.data.localModels.embedding.safeProcessingLimitTokens = 1;
+
+        const explicitProviders = [];
+        TextEmbeddingService.embedTexts = async (texts, explicitProvider) => {
+            explicitProviders.push(explicitProvider);
+            return texts.map(() => new Array(384).fill(0));
+        };
+
+        const spy = createSpyCollection({existingIds: []});
+        KB_ChromaManager.getKnowledgeBaseCollection = async () => spy;
+
+        fs.writeFileSync(fixturePath, JSON.stringify({
+            hash       : 'remote-provider-large-chunk',
+            type       : 'method',
+            name       : 'remote-large',
+            className  : '',
+            description: 'x'.repeat(300),
+            content    : 'x'.repeat(300)
+        }), 'utf8');
+
+        const result = await KB_VectorService.embed(fixturePath);
+
+        expect(result.embedded).toBe(1);
+        expect('skipped' in result).toBe(false);
+        expect(explicitProviders).toEqual(['gemini']);
+        expect(spy.calls.upsert).toBe(1);
     });
 
     test('deleteStale:false preserves incremental-push callers by skipping stale deletion', async () => {
@@ -305,8 +395,51 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
         expect(shadow.rows.size).toBe(3);
     });
 
-    test('shadow-swap failure invalidates cached canonical handles after local rename mutation', async () => {
+    test('shadow-swap refuses promotion when an over-budget chunk would make the rebuilt corpus incomplete', async () => {
+        KB_Config.data.localModels.embedding.contextLimitTokens        = 50;
+        KB_Config.data.localModels.embedding.safeProcessingLimitTokens = 40;
+
         const live = createSpyCollection({existingIds: [], name: KB_Config.data.collectionName});
+        let shadow;
+
+        KB_ChromaManager.client = {
+            createCollection: async ({name}) => {
+                shadow = createSpyCollection({name});
+                return shadow;
+            }
+        };
+        KB_ChromaManager.getKnowledgeBaseCollection = async () => live;
+
+        fs.writeFileSync(fixturePath, [
+            JSON.stringify({
+                hash       : 'small-chunk',
+                type       : 'method',
+                name       : 'small',
+                className  : '',
+                description: 'small body',
+                content    : 'small body'
+            }),
+            JSON.stringify({
+                hash       : 'large-chunk',
+                type       : 'method',
+                name       : 'large',
+                className  : '',
+                description: 'x'.repeat(300),
+                content    : 'x'.repeat(300)
+            })
+        ].join('\n'), 'utf8');
+
+        await expect(KB_VectorService.embed(fixturePath, {staleStrategy: 'shadow-swap'}))
+            .rejects.toThrow(/KB_EMBEDDING_INPUT_SIZE_EXCEEDED/);
+
+        expect(live.calls.modify).toEqual([]);
+        expect(shadow.calls.modify).toHaveLength(1);
+        expect(shadow.calls.modify[0].name).toContain(`${KB_Config.data.collectionName}-failed-shadow-`);
+        expect(shadow.rows.size).toBe(1);
+    });
+
+    test('shadow-swap failure invalidates cached canonical handles after local rename mutation', async () => {
+        const live                    = createSpyCollection({existingIds: [], name: KB_Config.data.collectionName});
         const cachedCollectionPromise = Promise.resolve(live);
 
         live.modify = async ({name}) => {
@@ -358,7 +491,7 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
 
         const result = await KB_VectorService.embedViaShadowSwap({
             liveCollection: live,
-            knowledgeBase: [{
+            knowledgeBase : [{
                 id         : 'chunk-0',
                 hash       : 'chunk-0',
                 type       : 'method',
@@ -382,7 +515,7 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
     });
 
     test('shadow-swap parks failed pre-promote shadow collections under a non-active name', async () => {
-        const live = createSpyCollection({existingIds: [], name: KB_Config.data.collectionName});
+        const live                = createSpyCollection({existingIds: [], name: KB_Config.data.collectionName});
         const originalEmbedChunks = KB_VectorService.embedChunks.bind(KB_VectorService);
         let shadow;
 
@@ -398,9 +531,9 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
 
         try {
             await expect(KB_VectorService.embedViaShadowSwap({
-                liveCollection   : live,
-                knowledgeBase    : [{id: 'chunk-0', type: 'method', name: 'method0'}],
-                idsToDeleteCount : 0
+                liveCollection  : live,
+                knowledgeBase   : [{id: 'chunk-0', type: 'method', name: 'method0'}],
+                idsToDeleteCount: 0
             })).rejects.toThrow('forced embed failure');
 
             expect(live.calls.modify).toEqual([]);
@@ -413,8 +546,8 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
     });
 
     test('shadow-swap MCP gate measures full-corpus rebuild volume before creating shadow collection', async () => {
-        const live = createSpyCollection({existingIds: [], name: KB_Config.data.collectionName});
-        let createCollectionCalls = 0;
+        const live                  = createSpyCollection({existingIds: [], name: KB_Config.data.collectionName});
+        let   createCollectionCalls = 0;
 
         KB_ChromaManager.client = {
             createCollection: async ({name}) => {
