@@ -397,6 +397,52 @@ class Config extends ConfigProvider {
                     }
                 },
                 /**
+                 * L0 deployment-runtime access holder used by the self-healing stack.
+                 *
+                 * The mechanism decision is ADR-0026 OQ-1 as resolved by #13920:
+                 * docker-socket + deny-by-default wrapper is the MVP, while a privileged sidecar
+                 * remains the hardening fallback if the wrapper cannot prove strict service
+                 * identity and operation allowlisting. The holder exposes two separate
+                 * capability envelopes over the same runtime handle:
+                 *
+                 * - `readOperations`: logs / stats / inspect for #13914 observability.
+                 * - `lifecycleOperations`: restart for #13884/#13915 recovery.
+                 *
+                 * `allowedServices` names Docker Compose service labels, not arbitrary
+                 * container ids. `composeProject` is optional for single-stack deployments;
+                 * set it when a host runs multiple Neo compose projects on one Docker socket.
+                 *
+                 * Env overrides:
+                 * `NEO_ORCHESTRATOR_RUNTIME_ACCESS_ENABLED`,
+                 * `NEO_ORCHESTRATOR_RUNTIME_ACCESS_MECHANISM`,
+                 * `NEO_ORCHESTRATOR_RUNTIME_ACCESS_SOCKET_PATH`,
+                 * `NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT`,
+                 * `NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES`,
+                 * `NEO_ORCHESTRATOR_RUNTIME_ACCESS_READ_OPERATIONS`,
+                 * `NEO_ORCHESTRATOR_RUNTIME_ACCESS_LIFECYCLE_OPERATIONS`,
+                 * `NEO_ORCHESTRATOR_RUNTIME_ACCESS_TIMEOUT_MS`,
+                 * `NEO_ORCHESTRATOR_RUNTIME_ACCESS_RESPONSE_MAX_BYTES`,
+                 * `NEO_ORCHESTRATOR_RUNTIME_ACCESS_LOG_TAIL`,
+                 * `NEO_ORCHESTRATOR_RUNTIME_ACCESS_RESTART_TIMEOUT_SECONDS`,
+                 * `NEO_ORCHESTRATOR_RUNTIME_ACCESS_AUDIT_MODE`.
+                 *
+                 * @type {Object}
+                 */
+                deploymentRuntimeAccess: {
+                    enabled                     : leaf(false, 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_ENABLED', 'boolean'),
+                    mechanism                   : leaf('docker-socket', 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_MECHANISM', 'string'),
+                    socketPath                  : leaf('/var/run/docker.sock', 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_SOCKET_PATH', 'string'),
+                    composeProject              : leaf(null, 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT', 'string'),
+                    allowedServices             : leaf(['chroma', 'kb-server', 'mc-server', 'local-model'], 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES', 'csv'),
+                    readOperations              : leaf(['inspect', 'logs', 'stats'], 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_READ_OPERATIONS', 'csv'),
+                    lifecycleOperations         : leaf(['restart'], 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_LIFECYCLE_OPERATIONS', 'csv'),
+                    timeoutMs                   : leaf(5000, 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_TIMEOUT_MS', 'number'),
+                    responseMaxBytes            : leaf(1024 * 1024, 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_RESPONSE_MAX_BYTES', 'number'),
+                    logTail                     : leaf(200, 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_LOG_TAIL', 'number'),
+                    defaultRestartTimeoutSeconds: leaf(10, 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_RESTART_TIMEOUT_SECONDS', 'number'),
+                    auditMode                   : leaf('metadata', 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_AUDIT_MODE', 'string')
+                },
+                /**
                  * Maintenance-loop intervals consumed by the orchestrator daemon.
                  * Env vars at the daemon boundary retain precedence over these defaults.
                  * @type {Object}

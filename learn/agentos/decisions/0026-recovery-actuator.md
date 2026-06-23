@@ -4,13 +4,13 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Proposed — 2026-06-23 (design-gate sub of Epic #13874; graduated from Discussion #13871; pending cross-family §6.2 family-keyed quorum + human merge gate per ADR-0005 lifecycle). |
+| **Status** | Proposed — 2026-06-23 (design-gate sub of Epic #13874; graduated from Discussion #13871; OQ-1 resolved by #13920 toward the socket-wrapper MVP; pending human merge gate per ADR-0005 lifecycle). |
 | **Author** | @neo-opus-grace (Grace, Claude Opus 4.8) — shaped #13871 / #13874 / ADR-0025 (deepest context). The actuator matrix, persisted anti-thrash state, and detect≠actuator separation are inherited from ADR-0025's cross-family convergence with @neo-gpt (Euclid, GPT family); this ADR carries them forward via the §2.1 successor-risk audit. |
 | **Resolves** | #13880 — *"ADR pair — recovery-actuator ADR + ADR-0025 → diagnostics rescope"* (this is the new-ADR half; the 0025 rescope lands in the **same PR** to avoid a dangling cross-reference). |
 | **Parent epic** | #13874 — *"Orchestrator recovery daemon — reactive heal/act half of self-healing (phase-1)."* |
 | **Depends on** | **ADR-0025** (the diagnostics half — the diagnosis this actuator consumes, and the heal-safety properties this ADR inherits), ADR-0019 (config SSOT — every tuning leaf extends an existing `leaf()`, never a parallel reader), ADR-0009 (cross-daemon lease — the persisted anti-thrash state reuses the same durable harness-state layer), ADR-0020 (agent-harness — the actuator's orchestrator home), the **two-worlds safety model** (cloud-tier = config + lifecycle ONLY, never code-exec / dynamic-import). |
 | **Connects to** | **#13882 / PR #13900** (the B0 actuator's first live instance — the stuck-runner recovery: `ProcessSupervisorService` recycles a resident-but-not-serving local-model child within the existing cooldown, gated on a sustained-failure health probe, zero new privilege — the live proof the B0 recycle works; the durable anti-thrash ledger is scoped to B1, §2.5), **#13884** (the B1 privileged-actuator sub this ADR gates), **Discussion #13873** (phase-2 homeostatic controller — plugs into this ADR's controller-agnostic interface, AC-9), #13852 (config-side prevention — the complementary *prevention* layer, distinct from this *response* layer). |
-| **Implemented by** | **[B0 — shipped]** the supervised-process recovery (`ProcessSupervisorService` restart/recycle; #13882 / PR #13900). **[B1 — gated on this ADR]** the docker-socket actuator for the external-container-crash class (#13884). |
+| **Implemented by** | **[B0 — shipped]** the supervised-process recovery (`ProcessSupervisorService` restart/recycle; #13882 / PR #13900). **[L0 runtime-access holder — #13920]** `DeploymentRuntimeAccessService`, one orchestrator-resident holder with separate read-observe and lifecycle-write envelopes. **[B1 — gated on this ADR]** the recovery actuator consumer for the external-container-crash class (#13884/#13915). |
 | **Anti-anchor for** | `diagnosis == action` (a diagnosis is *consumed by a controller*; the actuator is privilege-bounded and class-keyed); an **unbounded** docker-socket grant (the socket addresses exactly one allowlisted service+action set, never arbitrary containers or exec); **in-memory** anti-thrash state (an orchestrator restart erases the cap → the forbidden loop); a **controller-specific** actuator (phase-2's homeostatic loop must plug in without an actuator rewrite); reaching for B1 privilege where B0 already covers the class. |
 
 ---
@@ -69,7 +69,7 @@ B1 is the *only* tier that introduces privilege, so the actuator-divergence matr
 | **(b) Minimal privileged sidecar** | A tiny separate container owns the runtime handle; exposes a **lifecycle-only** internal API the orchestrator calls; the orchestrator never holds the socket | The sidecar API grows **beyond lifecycle** (exec / arbitrary), **or** its auth is **weaker** than the socket option → reject |
 | **(c) Runtime-native restart** | The container runtime restarts an unhealthy sibling **without** granting the orchestrator any runtime access | The current compose/runtime only *reports* unhealthy or gates *startup* — it does not restart an unhealthy-but-running sibling. Until proven otherwise, **(c) is detection / startup-gating only, not an actuator** |
 
-**Recommendation (for the re-poll, not yet final):** **(a) for the B1 MVP** — fewest moving parts, the safety living in auditable allowlist-wrapper code — **with (b) as the documented hardening path** if socket-in-orchestrator privilege proves too broad. **(c) is rejected as an actuator** on its falsifier (it remains a valuable *detect* input for 0025). Falsifier-gated: if (a)'s wrapper cannot be *proven* strictly-allowlisted + identity-distinguishing, it drops to (b). This is **OQ-1**.
+**Decision (#13920):** **(a) is the B1/L0 MVP** — Docker socket API through `DeploymentRuntimeAccessService`, an auditable allowlist wrapper that resolves Docker Compose service identity by labels and exposes separate read-observe / lifecycle-write envelopes. **(b) remains the documented hardening fallback** if socket-in-orchestrator privilege proves too broad or the wrapper cannot prove strict service identity + operation allowlisting. **(c) remains rejected as an actuator** on its falsifier (it is still a valuable *detect* input for ADR-0025). This resolves **OQ-1** without granting arbitrary container ids, shell access, exec, or non-lifecycle mutation.
 
 ### 2.4 The controller-agnostic actuator interface (AC-9)
 
@@ -97,7 +97,7 @@ The bounded, non-looping state machine and its **persisted** anti-thrash state a
 - **AC-2 — two-worlds safety, inherited.** Every action is config + lifecycle only, reversible, N-capped; never code-exec / dynamic-import. (Inherit-audit §2.1.)
 - **AC-3 — persisted anti-thrash, inherited (tier-scoped).** The §2.5 envelope is binding; the process-memory-external `heal_attempts` store binds **B1 / the daemon-core actuator** (where a heal can churn the orchestrator or must cap across restarts). The **B0 supervised-child slice is narrowed** to the supervisor's in-process cooldown — loop-safe because a child recycle does not restart the orchestrator (§2.5). #13900 ships B0 under that narrowed envelope; it is **not** pending durable-ledger wiring.
 - **AC-4 — privilege tiering.** B0 (no new privilege) covers the supervised-process class; B1 (one allowlisted socket grant) covers exactly the external-container-crash class; reaching for B1 where B0 suffices is rejected (§2.2).
-- **AC-5 — B1 matrix with falsifiers.** The §2.3 matrix stands; runtime-native (c) is rejected as an actuator unless its falsifier is disproven; (a)→(b) is falsifier-gated.
+- **AC-5 — B1 matrix with falsifiers.** The §2.3 matrix stands; socket-wrapper (a) is the MVP selected by #13920; runtime-native (c) is rejected as an actuator unless its falsifier is disproven; (a)→(b) remains falsifier-gated if the wrapper cannot prove strict allowlisting + service identity.
 - **AC-6 — escalate-with-diagnosis, inherited.** A `config-drift` / un-healable class pages with the diagnosis; it never loops an action.
 - **AC-7 — controller-agnostic interface.** The §2.4 `apply` interface + envelope are fixed; phase-2's homeostatic controller (#13873) plugs in without widening the action set, bypassing the envelope, or rewriting the actuator.
 - **AC-8 — orchestrator-SPOF, inherited + accepted.** The actuator is orchestrator-resident (ADR-0025 AC-7); if the orchestrator dies there is no heal. Recorded so a future agent does not grant the actuator a second independent home without re-opening the privilege decision.
@@ -110,11 +110,11 @@ The bounded, non-looping state machine and its **persisted** anti-thrash state a
 - **A second, non-orchestrator home for the actuator** (to dodge the SPOF). Rejected here: it re-opens the privilege decision (a second process holding the socket) without the cross-family review that governs it. Recorded as AC-8, not silently "fixed."
 - **In-memory anti-thrash for B1** (because B0's cooldown is in-process). Rejected (§2.5): the orchestrator-restart-erases-the-cap loop ADR-0025 forbids; B1 reuses the durable store.
 
-## 4. Open questions (for the cross-family re-poll)
+## 4. Resolved and open questions
 
-- **OQ-1 — B1 privilege:** (a) socket+wrapper MVP vs (b) sidecar — the §2.3 falsifier-gated decision. (Unchanged from ADR-0025 OQ-1, now scoped to B1 only.)
+- **OQ-1 — B1 privilege: RESOLVED by #13920.** Docker socket API + constrained wrapper is the MVP; sidecar remains the documented hardening fallback; runtime-native remains rejected as an actuator.
 - **OQ-2 — persisted-state binding:** the exact `heal_attempts` table/file in the durable harness-state store (confirmed in #13884; the survives-restart invariant is fixed).
-- **OQ-3 — controller/actuator seam location:** whether the §2.4 `apply` interface lives on `ProcessSupervisorService` (extended for B1) or a new `RecoveryActuatorService` that delegates to it for B0 and to the B1 wrapper for external containers.
+- **OQ-3 — controller/actuator seam location: narrowed by #13920.** The L0 runtime handle lives in `DeploymentRuntimeAccessService`; the B1 recovery consumer still decides how its `apply` interface delegates to that holder and to B0 `ProcessSupervisorService`.
 
 ## 5. Consequences
 
