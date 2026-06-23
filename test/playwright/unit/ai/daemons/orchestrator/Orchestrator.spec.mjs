@@ -411,6 +411,21 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         expect(started).toEqual([]);
     });
 
+    test('wires deployment-state bridge dependencies through initial reactive service setup', () => {
+        const orchestrator = createTestOrchestrator({
+            kbSyncEnabled: false
+        });
+
+        orchestrator.deploymentRuntimeAccessService = {};
+        orchestrator.deploymentStateBridgeService = {};
+        orchestrator.containerHealthDiagnosisService = {};
+
+        expect(orchestrator.deploymentStateBridgeService.runtimeAccessService)
+            .toBe(orchestrator.deploymentRuntimeAccessService);
+        expect(orchestrator.deploymentStateBridgeService.diagnosisService)
+            .toBe(orchestrator.containerHealthDiagnosisService);
+    });
+
     test('refreshes golden path while dream graph mutation is active — decoupled for hourly freshness', async () => {
         const outcomes = [];
         const calls    = [];

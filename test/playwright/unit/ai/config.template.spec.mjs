@@ -185,6 +185,19 @@ test.describe('Tier 1 Config Immutability', () => {
             vacuum : graphLogCompactionVacuum
         });
 
+        expect(Config.orchestrator.deploymentStateBridge).toMatchObject({
+            enabled          : false,
+            snapshotPath     : expect.stringContaining('.neo-ai-data/deployment-state/snapshot.json'),
+            writeIntervalMs  : 30000,
+            staleAfterMs     : 2 * 60 * 1000,
+            maxSnapshotBytes : 256 * 1024,
+            allowedServices  : [],
+            includeLogs      : true,
+            logTail          : 120,
+            logMaxBytes      : 32 * 1024,
+            statsSampleWindow: 2
+        });
+
         // Provider-readiness probe parameters consumed by the orchestrator dream task
         // + standalone Sandman CLI runner. Values are concrete defaults — no module-level
         // constants substitute when callers omit them.
