@@ -1,8 +1,16 @@
 import {test, expect}                 from '@playwright/test';
+import fs                             from 'fs-extra';
+import os                             from 'os';
+import path                           from 'path';
 import Neo                            from '../../../../../../../src/Neo.mjs';
 import * as core                      from '../../../../../../../src/core/_export.mjs';
 import AiConfig                       from '../../../../../../../ai/config.mjs';
 import {DeploymentStateBridgeService} from '../../../../../../../ai/daemons/orchestrator/services/DeploymentStateBridgeService.mjs';
+import {
+    appendRecoveryRunState,
+    createRecoveryDiagnosisEvent,
+    createRecoveryRunStateEntry
+} from '../../../../../../../ai/services/memory-core/helpers/recoveryRunStateStore.mjs';
 
 const OBSERVED_AT = 1710000000000;
 let originalDeploymentStateBridgeConfig,
@@ -53,7 +61,8 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
             logTail                     : 120,
             logMaxBytes                 : 32 * 1024,
             statsSampleWindow           : 2,
-            providerResidencyServiceKeys: ['local-model', 'model']
+            providerResidencyServiceKeys: ['local-model', 'model'],
+            recoveryRunLimit            : 10
         });
         Object.assign(AiConfig.orchestrator.deploymentRuntimeAccess, {
             allowedServices: ['model']
@@ -125,6 +134,83 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
             },
             proofs: [{operation: 'inspect'}, {operation: 'stats'}, {operation: 'logs'}]
         });
+        expect(snapshot.recoveryRuns).toMatchObject({
+            status : 'available',
+            source : 'orchestrator-recovery-run-ledger',
+            limit  : 10,
+            entries: []
+        });
+    });
+
+    test('includes bounded recent recovery-run ledger entries in the bridge snapshot', async () => {
+        const
+            tmpDir                   = await fs.mkdtemp(path.join(os.tmpdir(), 'deployment-recovery-runs-')),
+            originalRecoveryRunDir   = AiConfig.orchestrator.recoveryActuator.recoveryRunStateDir,
+            originalRecoveryRunLimit = AiConfig.orchestrator.deploymentStateBridge.recoveryRunLimit,
+            originalAllowedServices  = AiConfig.orchestrator.deploymentStateBridge.allowedServices,
+            originalIncludeLogs      = AiConfig.orchestrator.deploymentStateBridge.includeLogs;
+
+        try {
+            AiConfig.orchestrator.recoveryActuator.recoveryRunStateDir = tmpDir;
+            AiConfig.orchestrator.deploymentStateBridge.recoveryRunLimit = 1;
+            AiConfig.orchestrator.deploymentStateBridge.allowedServices = [];
+            AiConfig.orchestrator.deploymentStateBridge.includeLogs = false;
+
+            const diagnosisEvent = createRecoveryDiagnosisEvent({
+                diagnosisId    : 'diagnosis-1',
+                recoveryClass  : 'crash',
+                confidence     : 0.9,
+                targetIdentity : {kind: 'compose-service', id: 'memory'},
+                evidenceFacts  : [{type: 'container-unhealthy'}],
+                suggestedAction: 'restart',
+                observedAt     : OBSERVED_AT
+            });
+
+            await appendRecoveryRunState(createRecoveryRunStateEntry({
+                recoveryRunId: 'recovery-older',
+                diagnosisEvent,
+                rung         : 'rung-3',
+                attempt      : 1,
+                status       : 'recovered',
+                startedAt    : OBSERVED_AT - 2000,
+                updatedAt    : OBSERVED_AT - 1000,
+                completedAt  : OBSERVED_AT - 900
+            }), {dir: tmpDir});
+
+            await appendRecoveryRunState(createRecoveryRunStateEntry({
+                recoveryRunId: 'recovery-newer',
+                diagnosisEvent,
+                rung         : 'rung-3',
+                attempt      : 2,
+                status       : 'reobserve-requested',
+                startedAt    : OBSERVED_AT,
+                updatedAt    : OBSERVED_AT + 1000
+            }), {dir: tmpDir});
+
+            const snapshot = await createService().collectSnapshot();
+
+            expect(snapshot.recoveryRuns).toMatchObject({
+                status : 'available',
+                source : 'orchestrator-recovery-run-ledger',
+                limit  : 1,
+                entries: [
+                    {
+                        recoveryRunId : 'recovery-newer',
+                        diagnosisId   : 'diagnosis-1',
+                        recoveryClass : 'crash',
+                        targetIdentity: {kind: 'compose-service', id: 'memory'},
+                        status        : 'reobserve-requested'
+                    }
+                ],
+                errors: []
+            });
+        } finally {
+            AiConfig.orchestrator.recoveryActuator.recoveryRunStateDir = originalRecoveryRunDir;
+            AiConfig.orchestrator.deploymentStateBridge.recoveryRunLimit = originalRecoveryRunLimit;
+            AiConfig.orchestrator.deploymentStateBridge.allowedServices = originalAllowedServices;
+            AiConfig.orchestrator.deploymentStateBridge.includeLogs = originalIncludeLogs;
+            await fs.remove(tmpDir);
+        }
     });
 
     test('falls back to runtime allowed services and records read errors as degraded state', async () => {

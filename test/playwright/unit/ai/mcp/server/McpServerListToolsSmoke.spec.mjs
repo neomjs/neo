@@ -391,8 +391,15 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
 
     test('knowledge-base and memory-core read deployment-state snapshots through public tools (#13926)', async () => {
         const snapshot = createDeploymentStateSnapshot({
-            generatedAt: Date.now(),
-            services   : [
+            generatedAt : Date.now(),
+            recoveryRuns: {
+                status : 'available',
+                source : 'orchestrator-recovery-run-ledger',
+                limit  : 1,
+                entries: [{recoveryRunId: 'recovery-1', diagnosisId: 'diagnosis-1'}],
+                errors : []
+            },
+            services: [
                 {
                     serviceKey: 'model',
                     status    : 'degraded',
@@ -419,14 +426,20 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
                 knowledgeBaseApi = await import(pathToFileURL(path.join(repoRoot, 'ai/mcp/server/knowledge-base/toolService.mjs')).href),
                 memoryCoreApi    = await import(pathToFileURL(path.join(repoRoot, 'ai/mcp/server/memory-core/toolService.mjs')).href),
                 kbSnapshot       = await knowledgeBaseApi.callTool('get_deployment_state_snapshot', args),
-                mcSnapshot       = await memoryCoreApi.callTool('get_deployment_state_snapshot', args);
+                mcSnapshot       = await memoryCoreApi.callTool('get_deployment_state_snapshot', args),
+                kbInspection     = await knowledgeBaseApi.callTool('inspect_deployment', args),
+                mcInspection     = await memoryCoreApi.callTool('inspect_deployment', args);
 
-            for (const result of [kbSnapshot, mcSnapshot]) {
+            for (const result of [kbSnapshot, mcSnapshot, kbInspection, mcInspection]) {
                 expect(result).toMatchObject({
                     ok      : true,
                     status  : 'available',
                     snapshot: {
-                        recordType: 'deployment-state-snapshot',
+                        recordType  : 'deployment-state-snapshot',
+                        recoveryRuns: {
+                            status : 'available',
+                            entries: [{recoveryRunId: 'recovery-1', diagnosisId: 'diagnosis-1'}]
+                        },
                         services  : [
                             {
                                 serviceKey: 'model',

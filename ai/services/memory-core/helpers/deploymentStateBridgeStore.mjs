@@ -17,12 +17,14 @@ const DEFAULT_STALE_AFTER_MS     = 2 * 60 * 1000;
  * @param {Number} [options.generatedAt=Date.now()] Snapshot timestamp in epoch ms.
  * @param {String} [options.source='orchestrator-deployment-state-bridge'] Producer label.
  * @param {Object[]} [options.services=[]] Bounded per-service snapshots.
+ * @param {Object|null} [options.recoveryRuns=null] Bounded recovery-run ledger snapshot.
  * @returns {Object}
  */
 export function createDeploymentStateSnapshot({
     generatedAt = Date.now(),
     source = 'orchestrator-deployment-state-bridge',
-    services = []
+    services = [],
+    recoveryRuns = null
 } = {}) {
     if (!Number.isFinite(generatedAt)) {
         throw new TypeError('createDeploymentStateSnapshot: generatedAt must be finite');
@@ -37,7 +39,8 @@ export function createDeploymentStateSnapshot({
         recordType   : 'deployment-state-snapshot',
         generatedAt,
         source,
-        services
+        services,
+        recoveryRuns
     };
 }
 

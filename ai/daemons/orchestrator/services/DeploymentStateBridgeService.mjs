@@ -7,6 +7,7 @@ import {
     createDeploymentStateSnapshot,
     writeDeploymentStateSnapshot
 } from '../../../services/memory-core/helpers/deploymentStateBridgeStore.mjs';
+import {readRecentRecoveryRunStates} from '../../../services/memory-core/helpers/recoveryRunStateStore.mjs';
 import {
     calculateDockerCpuPercent,
     calculateDockerMemoryPercent
@@ -120,9 +121,12 @@ export class DeploymentStateBridgeService extends Base {
             services.push(await this.collectServiceSnapshot({serviceKey, observedAt: generatedAt}));
         }
 
+        const recoveryRuns = await this.collectRecoveryRunSnapshot();
+
         return createDeploymentStateSnapshot({
             generatedAt,
-            services
+            services,
+            recoveryRuns
         });
     }
 
@@ -274,6 +278,44 @@ export class DeploymentStateBridgeService extends Base {
      */
     getStatsSamples(serviceKey) {
         return this.statsSamplesByService.get(serviceKey) || [];
+    }
+
+    /**
+     * Reads the bounded recovery-run ledger for the public deployment inspection snapshot.
+     * @returns {Promise<Object>}
+     */
+    async collectRecoveryRunSnapshot() {
+        const
+            bridgeConfig = AiConfig.orchestrator.deploymentStateBridge,
+            limit        = bridgeConfig.recoveryRunLimit,
+            source       = 'orchestrator-recovery-run-ledger';
+
+        if (limit < 0) {
+            throw new RangeError(`DeploymentStateBridgeService: recoveryRunLimit must be >= 0, got ${limit}`);
+        }
+
+        if (limit === 0) {
+            return {status: 'disabled', source, limit, entries: [], errors: []};
+        }
+
+        try {
+            const entries = await readRecentRecoveryRunStates({
+                dir: AiConfig.orchestrator.recoveryActuator.recoveryRunStateDir,
+                limit
+            });
+
+            return {status: 'available', source, limit, entries, errors: []};
+        } catch (error) {
+            this.writeLog?.('WARN', `[DeploymentStateBridge] recovery-run snapshot read failed: ${error.message}`);
+
+            return {
+                status : 'degraded',
+                source,
+                limit,
+                entries: [],
+                errors : [{reason: 'recovery-run-read-failed', code: error.code || null}]
+            };
+        }
     }
 
     /**
