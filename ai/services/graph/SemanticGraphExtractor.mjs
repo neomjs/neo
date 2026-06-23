@@ -1,8 +1,12 @@
-import fs                                              from 'fs';
-import path                                            from 'path';
-import aiConfig                                        from '../../mcp/server/memory-core/config.mjs';
-import Base                                            from '../../../src/core/Base.mjs';
-import {emitConsumerFriction, invokeWithGuardrail}     from '../../services/memory-core/helpers/consumerFrictionHelper.mjs';
+import fs       from 'fs';
+import path     from 'path';
+import aiConfig from '../../mcp/server/memory-core/config.mjs';
+import Base     from '../../../src/core/Base.mjs';
+import {
+    bytesToTokens,
+    emitConsumerFriction,
+    invokeWithGuardrail
+} from '../../services/memory-core/helpers/consumerFrictionHelper.mjs';
 import GraphService                                    from '../../services/memory-core/GraphService.mjs';
 import Json                                            from '../../../src/util/Json.mjs';
 import logger                                          from '../../mcp/server/memory-core/logger.mjs';
@@ -55,6 +59,105 @@ class SemanticGraphExtractor extends Base {
      */
     normalizeMemorySessionGraphNodeId(id) {
         return this.isMemorySessionGraphNodeId(id) ? GraphService.normalizeGraphNodeId(id) : id;
+    }
+
+    /**
+     * Estimates chat-message payload size using the shared consumer-friction token heuristic.
+     *
+     * @summary Anchor & Echo: Keeps post-invocation retry sizing on the same estimator as the
+     * pre-invocation guardrail, so calibration fixes land in one place.
+     *
+     * @param {Object[]} messages Provider chat messages
+     * @returns {Object} `{text, bytes, tokens}` estimate for the composed provider payload
+     * @protected
+     */
+    estimateChatMessagesPayload(messages) {
+        const text  = messages.map(m => m.content).join('\n'),
+              bytes = Buffer.byteLength(text, 'utf8');
+
+        return {
+            text,
+            bytes,
+            tokens: bytesToTokens(bytes)
+        };
+    }
+
+    /**
+     * Resolves provider completion finish reasons across supported raw envelopes.
+     *
+     * @summary Anchor & Echo: Normalizes OpenAI-compatible `finish_reason`, Ollama
+     * `done_reason`, and Gemini `finishReason` shapes into one retry-loop predicate.
+     *
+     * @param {Object} result Provider generation result
+     * @returns {String} Completion finish reason, or an empty string when unavailable
+     * @protected
+     */
+    getCompletionFinishReason(result) {
+        const reason = result?.finish_reason ??
+                       result?.finishReason ??
+                       result?.raw?.finish_reason ??
+                       result?.raw?.finishReason ??
+                       result?.raw?.done_reason ??
+                       result?.raw?.doneReason ??
+                       result?.raw?.choices?.[0]?.finish_reason ??
+                       result?.raw?.choices?.[0]?.finishReason ??
+                       result?.raw?.candidates?.[0]?.finishReason;
+
+        return typeof reason === 'string' ? reason : '';
+    }
+
+    /**
+     * Tests whether a provider finish reason means the response hit an output/token cap.
+     *
+     * @summary Anchor & Echo: Length-capped non-empty responses are treated as overflow
+     * evidence because schema-repair retries would append the truncated body and grow the prompt.
+     *
+     * @param {String} finishReason Provider finish reason
+     * @returns {Boolean} `true` when the reason indicates token-length truncation
+     * @protected
+     */
+    isLengthTruncatedCompletion(finishReason) {
+        return /^(length|max_tokens|token_limit)$/i.test(String(finishReason || '').trim());
+    }
+
+    /**
+     * Emits deterministic context-overflow friction for post-invocation retry aborts.
+     *
+     * @summary Anchor & Echo: Reuses the established ConsumerFriction channel for retry-loop
+     * overflow evidence instead of introducing a parallel symptom path.
+     *
+     * @param {Object} options
+     * @param {String} options.sessionId Session identifier
+     * @param {String} options.consumerModel Provider model identifier
+     * @param {Number} options.consumerContextTokens Context window in tokens
+     * @param {Number} options.consumerSafeTokens Safe processing band in tokens
+     * @param {Number} options.inputBytes Estimated prompt bytes
+     * @param {Number} options.inputTokensEstimate Estimated prompt tokens
+     * @param {String} options.note Diagnostic note
+     * @protected
+     */
+    emitRetryLoopContextOverflow({
+        sessionId,
+        consumerModel,
+        consumerContextTokens,
+        consumerSafeTokens,
+        inputBytes,
+        inputTokensEstimate,
+        note
+    }) {
+        emitConsumerFriction({
+            symptom                  : 'context-overflow',
+            consumer                 : 'SemanticGraphExtractor',
+            model                    : consumerModel,
+            assetRef                 : sessionId,
+            serviceDomain            : 'dream-pipeline',
+            emissionPoint            : 'post-invocation-failure',
+            inputBytes,
+            inputTokensEstimate,
+            contextLimitTokens       : consumerContextTokens,
+            safeProcessingLimitTokens: consumerSafeTokens,
+            note
+        });
     }
 
     /**
@@ -128,7 +231,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
 
         try {
             const graphProvider = resolveGraphModelProvider(aiConfig);
-            const provider = buildGraphProvider({
+            const provider      = buildGraphProvider({
                 modelProvider         : graphProvider,
                 ollamaConfig          : aiConfig.ollama,
                 openAiCompatibleConfig: aiConfig.openAiCompatible
@@ -141,9 +244,9 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             ];
 
             let maxRetries = 3;
-            let attempt = 0;
-            let payload = null;
-            let result = null;
+            let attempt    = 0;
+            let payload    = null;
+            let result     = null;
 
             // Wrap each LLM invocation with the Consumer-Friction guardrail. The upstream
             // pre-check skips invocation when the composed messages' estimated token count
@@ -157,9 +260,12 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             // threshold (model-role axis, not provider-namespace — remote providers like
             // Gemini are API-bound and don't expose these knobs; local providers
             // share the same caps because the limit comes from the loaded model).
-            const consumerModel          = aiConfig[graphProvider].model;
-            const consumerContextTokens  = aiConfig.localModels.chat.contextLimitTokens;
-            const consumerSafeTokens     = aiConfig.localModels.chat.safeProcessingLimitTokens;
+            const consumerModel         = aiConfig[graphProvider].model;
+            const consumerContextTokens = aiConfig.localModels.chat.contextLimitTokens;
+            const configuredSafeTokens  = aiConfig.localModels.chat.safeProcessingLimitTokens;
+            const consumerSafeTokens    = Number.isFinite(configuredSafeTokens)
+                ? configuredSafeTokens
+                : Math.floor(consumerContextTokens * 0.75);
 
             // Per-task no-think + grammar-constrained tri-vector output. `graphReasoningEffort`
             // (default 'none') disables the gemma MoE's hidden thinking pass; `triVectorSchema` enforces
@@ -167,7 +273,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             // repair-retry loop below a safety net rather than the happy path. Schema mirrors the strict
             // shape declared in the systemInstruction above.
             const graphReasoningEffort = aiConfig.localModels.chat.graphReasoningEffort;
-            const triVectorSchema = {
+            const triVectorSchema      = {
                 type      : 'object',
                 properties: {
                     a2a_version     : {type: 'string'},
@@ -217,11 +323,13 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                 },
                 required: ['a2a_version', 'session_artifact']
             };
+            const repairFeedback = `Your previous response failed internal schema validation. You are missing required keys (e.g., session_artifact) or you provided malformed JSON. Please correct your output and provide ONLY the exact JSON shape requested in the instructions.`;
 
             while (attempt < maxRetries && !payload) {
                 attempt++;
 
-                const inputPayloadText = messages.map(m => m.content).join('\n');
+                const inputPayload     = this.estimateChatMessagesPayload(messages);
+                const inputPayloadText = inputPayload.text;
                 const guardrailed      = await invokeWithGuardrail({
                     invocationFn             : () => provider.generate(messages, {reasoning_effort: graphReasoningEffort || undefined, responseSchema: triVectorSchema, responseSchemaName: 'triVector'}),
                     inputPayload             : inputPayloadText,
@@ -240,6 +348,23 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                 }
 
                 result = guardrailed.result;
+                const finishReason = this.getCompletionFinishReason(result);
+
+                if (this.isLengthTruncatedCompletion(finishReason)) {
+                    logger.warn(`[SemanticGraphExtractor] Attempt ${attempt}: Provider reported '${finishReason}' for session ${session.meta.sessionId}; classifying as context-overflow and aborting JSON repair loop.`);
+
+                    this.emitRetryLoopContextOverflow({
+                        sessionId          : session.meta.sessionId,
+                        consumerModel,
+                        consumerContextTokens,
+                        consumerSafeTokens,
+                        inputBytes         : inputPayload.bytes,
+                        inputTokensEstimate: inputPayload.tokens,
+                        note                    : `Provider finish_reason='${finishReason}' before schema validation. Aborting repair loop to avoid appending a truncated response. Attempt ${attempt}/${maxRetries}.`
+                    });
+
+                    return null;
+                }
 
                 // Silent context-overflow detection: provider can stream-close immediately
                 // with an empty body when its loaded-model context window is smaller than
@@ -276,12 +401,32 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                     logger.warn(`[SemanticGraphExtractor] Attempt ${attempt}: Failed to validate extracted Tri-Vector A2A payload for session: ${session.meta.sessionId}`);
 
                     if (attempt < maxRetries) {
+                        const repairMessages = [
+                            ...messages,
+                            { role: 'assistant', content: result.content },
+                            { role: 'user', content: repairFeedback }
+                        ];
+                        const repairPayload = this.estimateChatMessagesPayload(repairMessages);
+
+                        if (repairPayload.tokens > consumerSafeTokens) {
+                            logger.warn(`[SemanticGraphExtractor] Attempt ${attempt}: JSON repair prompt would exceed safe processing band for session ${session.meta.sessionId}; classifying as context-overflow and aborting retry loop.`);
+
+                            this.emitRetryLoopContextOverflow({
+                                sessionId          : session.meta.sessionId,
+                                consumerModel,
+                                consumerContextTokens,
+                                consumerSafeTokens,
+                                inputBytes         : repairPayload.bytes,
+                                inputTokensEstimate: repairPayload.tokens,
+                                note                    : `Repair retry prompt estimate ${repairPayload.tokens} tokens exceeds safe band ${consumerSafeTokens}. Aborting instead of appending assistant output and repair feedback. Attempt ${attempt}/${maxRetries}.`
+                            });
+
+                            return null;
+                        }
+
                         logger.warn(`[SemanticGraphExtractor] Attempt ${attempt}: Injecting autonomous JSON repair feedback loop.`);
-                        messages.push({ role: 'assistant', content: result.content });
-                        messages.push({
-                            role: 'user',
-                            content: `Your previous response failed internal schema validation. You are missing required keys (e.g., session_artifact) or you provided malformed JSON. Please correct your output and provide ONLY the exact JSON shape requested in the instructions.`
-                        });
+                        messages.push(repairMessages[repairMessages.length - 2]);
+                        messages.push(repairMessages[repairMessages.length - 1]);
                         payload = null; // Ensure loop continues
                     } else {
                         logger.warn(`[SemanticGraphExtractor] --- FINAL EXHAUSTED RAW LLM DUMP ---\n${result.content}\n-----------------------------`);
@@ -326,7 +471,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                 if (node.id === 'frontier') continue;
 
                 let nodeType = node.type && VALID_TYPES.includes(node.type.toUpperCase()) ? node.type.toUpperCase() : 'CONCEPT';
-                let nodeId = node.id;
+                let nodeId   = node.id;
 
                 // Enforce Neo native Graph ID specification (Type:Name) if hallucinated
                 if (!nodeId.includes(':')) {
@@ -376,7 +521,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                 const targetExists = validNodeRefs.has(resolvedTarget) || GraphService.db.nodes.has(resolvedTarget);
 
                 if (!sourceExists || !targetExists) {
-                    const isProvenance = ['MENTIONED_IN', 'DISCUSSED_IN', 'REFERENCED_BY'].includes(edge.relationship);
+                    const isProvenance           = ['MENTIONED_IN', 'DISCUSSED_IN', 'REFERENCED_BY'].includes(edge.relationship);
                     const targetsSessionOrMemory = this.isMemorySessionGraphNodeId(resolvedTarget) || this.isMemorySessionGraphNodeId(resolvedSource);
 
                     if (isProvenance && targetsSessionOrMemory) {
@@ -389,7 +534,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                          */
                         logger.info(`[SemanticGraphExtractor] Queuing unresolved provenance edge for lazy back-fill: ${resolvedSource} -> ${resolvedTarget}`);
                         const lazyQueueFile = aiConfig.lazyEdgesQueuePath;
-                        const edgeData = JSON.stringify({ ...edge, source: resolvedSource, target: resolvedTarget, timestamp: new Date().toISOString() }) + '\n';
+                        const edgeData      = JSON.stringify({ ...edge, source: resolvedSource, target: resolvedTarget, timestamp: new Date().toISOString() }) + '\n';
                         try {
                             // Ensure the directory exists before appending
                             await fs.promises.mkdir(path.dirname(lazyQueueFile), { recursive: true });
@@ -478,7 +623,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
 
         try {
             const graphProvider = resolveGraphModelProvider(aiConfig);
-            const provider = buildGraphProvider({
+            const provider      = buildGraphProvider({
                 modelProvider         : graphProvider,
                 ollamaConfig          : aiConfig.ollama,
                 openAiCompatibleConfig: aiConfig.openAiCompatible
@@ -490,8 +635,8 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             ];
 
             let maxRetries = 2;
-            let attempt = 0;
-            let payload = null;
+            let attempt    = 0;
+            let payload    = null;
 
             while (attempt < maxRetries && !payload) {
                 attempt++;
