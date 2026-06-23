@@ -309,11 +309,11 @@ export class Orchestrator extends Base {
      */
     beforeSetRecoveryActuatorService(value) {
         return ClassSystemUtil.beforeSetInstance(value, RecoveryActuatorService, {
-            dataDir                        : this.dataDir,
+            dataDir                       : this.dataDir,
             deploymentRuntimeAccessService: this.deploymentRuntimeAccessService,
-            healthService                  : this.healthService,
-            writeLog                       : this.processSupervisorWriteLog,
-            actuatorConfig                 : AiConfig.orchestrator.recoveryActuator
+            healthService                 : this.healthService,
+            writeLog                      : this.processSupervisorWriteLog,
+            actuatorConfig                : AiConfig.orchestrator.recoveryActuator
         });
     }
 

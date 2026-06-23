@@ -2,11 +2,11 @@ import path            from 'path';
 import {fileURLToPath} from 'url';
 import Neo             from '../../../src/Neo.mjs';
 
-const HOUR_MS     = 60 * 60 * 1000;
-const DAY_MS      = 24 * HOUR_MS;
-const __filename  = fileURLToPath(import.meta.url);
-const __dirname   = path.dirname(__filename);
-const neoRootDir  = path.resolve(__dirname, '../../..');
+const HOUR_MS    = 60 * 60 * 1000;
+const DAY_MS     = 24 * HOUR_MS;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
+const neoRootDir = path.resolve(__dirname, '../../..');
 
 /**
  * @module test/playwright/fixtures/aiConfigDefaults
@@ -109,7 +109,7 @@ export const TIER1_DEFAULTS = deepFreeze(Neo.clone({
     },
     openAiCompatible: {
         host                   : process.env.NEO_OPENAI_COMPATIBLE_HOST || 'http://127.0.0.1:11434',
-        model                  : process.env.NEO_OPENAI_COMPATIBLE_MODEL || 'gemma-4-31b-it',
+        model                  : process.env.NEO_OPENAI_COMPATIBLE_MODEL || 'google/gemma-4-26b-a4b',
         embeddingModel         : process.env.NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL || 'text-embedding-qwen3-embedding-8b',
         apiKey                 : process.env.NEO_OPENAI_COMPATIBLE_API_KEY || '',
         unloadRetryCount       : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT) || 3,
