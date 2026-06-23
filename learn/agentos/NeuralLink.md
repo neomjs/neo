@@ -117,7 +117,7 @@ npm run ai:server-neural-link
 - If the Bridge is already running, the MCP server detects and connects to it automatically
 - If not running, the MCP server spawns a managed Bridge process in the background
 - The Bridge runs detached and persists even if the MCP server exits
-- Bridge logs are written to `./bridge.log` in your project root
+- Bridge child-process stdout/stderr is written to `.neo-ai-data/logs/neural-link-bridge-stdio.log`; the MCP server logger writes daily `nl-server-YYYY-MM-DD.log` files in the same directory
 - To stop: Use the `manage_connection` tool with `action: 'stop'` or manually kill the process
 
 **Multi-Agent Coordination:**
@@ -351,7 +351,7 @@ The Neural Link is a powerful capability, designed for **local development and t
 
 ### Connection Issues
 
-- **"Connection Refused":** Ensure the Bridge is running (`npm run ai:server-neural-link`). Check `./bridge.log` for errors.
+- **"Connection Refused":** Ensure the Bridge is running (`npm run ai:server-neural-link`). Check `.neo-ai-data/logs/neural-link-bridge-stdio.log` and the current `nl-server-YYYY-MM-DD.log` for errors.
 - **"Connection Lost" (Automatic Recovery):** The client retries up to 5 times with exponential backoff (max 30 seconds between attempts). Check browser console for reconnection logs.
 - **"Max reconnection attempts reached":** Bridge or network is unstable. Restart the Bridge and check firewall settings.
 

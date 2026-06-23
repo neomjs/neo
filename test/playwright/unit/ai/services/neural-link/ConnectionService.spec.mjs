@@ -11,9 +11,12 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
+import {test, expect}            from '@playwright/test';
+import fs                        from 'fs';
+import os                        from 'os';
+import path                      from 'path';
+import Neo                       from '../../../../../../src/Neo.mjs';
+import * as core                 from '../../../../../../src/core/_export.mjs';
 import {STALE_BRIDGE_ERROR_CODE} from '../../../../../../ai/mcp/server/neural-link/BridgeProtocol.mjs';
 
 /**
@@ -24,29 +27,38 @@ import {STALE_BRIDGE_ERROR_CODE} from '../../../../../../ai/mcp/server/neural-li
  * is what decides whether a stale shared Bridge is reused, spawned over, or failed loudly.
  */
 test.describe('Neo.ai.services.neural-link.ConnectionService — bridge freshness gate (#13299)', () => {
-    let ConnectionService, logBridgePayload,
+    let ConnectionService, getBridgeStdioLogPath, logBridgePayload,
         normalizeBridgePayloadDebugMaxChars, stringifyBridgePayloadForDebug,
-        originalConnectToBridge, originalSpawnBridge;
+        originalConnectToBridge, originalCwd, originalOpenBridgeLogFile,
+        originalSpawnBridge, originalSpawnBridgeProcess;
 
     test.beforeAll(async () => {
         const module = await import('../../../../../../ai/services/neural-link/ConnectionService.mjs');
 
         ConnectionService                    = module.default;
+        getBridgeStdioLogPath                = module.getBridgeStdioLogPath;
         logBridgePayload                     = module.logBridgePayload;
         normalizeBridgePayloadDebugMaxChars  = module.normalizeBridgePayloadDebugMaxChars;
         stringifyBridgePayloadForDebug       = module.stringifyBridgePayloadForDebug;
     });
 
     test.beforeEach(() => {
-        originalConnectToBridge = ConnectionService.connectToBridge;
-        originalSpawnBridge     = ConnectionService.spawnBridge;
+        originalConnectToBridge    = ConnectionService.connectToBridge;
+        originalCwd                = ConnectionService.cwd;
+        originalOpenBridgeLogFile  = ConnectionService.openBridgeLogFile;
+        originalSpawnBridge        = ConnectionService.spawnBridge;
+        originalSpawnBridgeProcess = ConnectionService.spawnBridgeProcess;
         ConnectionService.bridgeSocket = null;
     });
 
     test.afterEach(() => {
-        ConnectionService.connectToBridge = originalConnectToBridge;
-        ConnectionService.spawnBridge     = originalSpawnBridge;
-        ConnectionService.bridgeSocket    = null;
+        ConnectionService.connectToBridge      = originalConnectToBridge;
+        ConnectionService.cwd                  = originalCwd;
+        ConnectionService.openBridgeLogFile    = originalOpenBridgeLogFile;
+        ConnectionService.spawnBridge          = originalSpawnBridge;
+        ConnectionService.spawnBridgeProcess   = originalSpawnBridgeProcess;
+        ConnectionService.bridgeProcess        = null;
+        ConnectionService.bridgeSocket         = null;
     });
 
     test('builds the Bridge URL from an explicit port and encoded fleet token', () => {
@@ -57,6 +69,59 @@ test.describe('Neo.ai.services.neural-link.ConnectionService — bridge freshnes
         });
 
         expect(url).toBe('ws://127.0.0.1:19081/?role=agent&id=agent-test&token=token+with+spaces');
+    });
+
+    test('resolves Bridge stdio logs under the configured Neural Link log directory (#13899)', () => {
+        const logDir = path.resolve(os.tmpdir(), `nl-bridge-stdio-path-${process.pid}`);
+
+        expect(getBridgeStdioLogPath({logPath: logDir}))
+            .toBe(path.join(logDir, 'neural-link-bridge-stdio.log'));
+        expect(getBridgeStdioLogPath({logPath: '', neoRootDir: '/repo'}))
+            .toBe(path.join('/repo', '.neo-ai-data/logs/neural-link-bridge-stdio.log'));
+    });
+
+    test('creates the configured Bridge stdio log directory before opening the file (#13899)', () => {
+        const logDir  = path.join(os.tmpdir(), `nl-bridge-stdio-open-${process.pid}-${Date.now()}`);
+        const logPath = getBridgeStdioLogPath({logPath: logDir});
+        const fd      = ConnectionService.openBridgeLogFile(logPath);
+
+        fs.closeSync(fd);
+
+        try {
+            expect(fs.existsSync(logDir)).toBe(true);
+            expect(fs.existsSync(logPath)).toBe(true);
+        } finally {
+            fs.rmSync(logDir, {recursive: true, force: true});
+        }
+    });
+
+    test('wires spawned Bridge stdio to the configured log file without launching it (#13899)', async () => {
+        const logDir = path.resolve(os.tmpdir(), `nl-bridge-stdio-spawn-${process.pid}-${Date.now()}`);
+
+        let openedPath, spawnCall, unrefCalled = false;
+
+        ConnectionService.openBridgeLogFile = filePath => {
+            openedPath = filePath;
+            return 42
+        };
+        ConnectionService.spawnBridgeProcess = (command, args, options) => {
+            spawnCall = {command, args, options};
+
+            return {
+                unref() {
+                    unrefCalled = true
+                }
+            }
+        };
+
+        await ConnectionService.spawnBridge({logPath: logDir, startupDelayMs: 0});
+
+        expect(openedPath).toBe(path.join(logDir, 'neural-link-bridge-stdio.log'));
+        expect(path.basename(openedPath)).not.toBe('bridge.log');
+        expect(spawnCall.command).toBe('npm');
+        expect(spawnCall.args).toEqual(['run', 'ai:server-neural-link']);
+        expect(spawnCall.options.stdio).toEqual(['ignore', 42, 42]);
+        expect(unrefCalled).toBe(true);
     });
 
     test('logs bridge receives as bounded metadata when debug is disabled (#13473)', () => {
@@ -160,7 +225,7 @@ test.describe('Neo.ai.services.neural-link.ConnectionService — bridge freshnes
     });
 
     test('fails loudly instead of spawning over a reachable stale Bridge', async () => {
-        let spawned = false;
+        let   spawned    = false;
         const staleError = new Error('Stale Neural Link Bridge on port 8081: missing bridge_info freshness handshake.');
         staleError.code  = STALE_BRIDGE_ERROR_CODE;
 

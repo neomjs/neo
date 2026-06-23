@@ -32,10 +32,11 @@ test.describe('Neo.ai.services.neural-link.ComponentService — createComponent 
 
     test.beforeAll(async () => {
         // Prevent the ConnectionService singleton from auto-spawning a Bridge process at import time
-        // (autoConnect → initAsync → spawnBridge) — it pollutes the unit run (port 8081 EPERM / bridge.log)
-        // and is the isolation blocker. Set autoConnect=false on the shared NL config BEFORE importing
-        // ConnectionService (mirrors McpServerListToolsSmoke.spec). A post-import ready-stub alone is too
-        // late: the spawn fires from ConnectionService's own initAsync, gated by this config leaf.
+        // (autoConnect → initAsync → spawnBridge) — it pollutes the unit run (port 8081 EPERM and
+        // `.neo-ai-data/logs/neural-link-bridge-stdio.log`) and is the isolation blocker. Set
+        // autoConnect=false on the shared NL config BEFORE importing ConnectionService (mirrors
+        // McpServerListToolsSmoke.spec). A post-import ready-stub alone is too late: the spawn fires
+        // from ConnectionService's own initAsync, gated by this config leaf.
         (await import('../../../../../../ai/mcp/server/neural-link/config.mjs')).default.data.autoConnect = false;
 
         ConnectionService = (await import('../../../../../../ai/services/neural-link/ConnectionService.mjs')).default;
