@@ -70,11 +70,9 @@ export class DeploymentStateBridgeService extends Base {
      * @returns {Promise<Object>}
      */
     async writeSnapshotIfDue({force = false} = {}) {
-        const
-            bridgeConfig = AiConfig.orchestrator.deploymentStateBridge,
-            now          = this.now();
+        const now = this.now();
 
-        if (!bridgeConfig.enabled) {
+        if (!AiConfig.orchestrator.deploymentStateBridge.enabled) {
             return {ok: true, status: 'disabled'};
         }
 
@@ -82,7 +80,7 @@ export class DeploymentStateBridgeService extends Base {
             return {ok: true, status: 'in-flight'};
         }
 
-        if (!force && this.lastWriteAt > 0 && now - this.lastWriteAt < bridgeConfig.writeIntervalMs) {
+        if (!force && this.lastWriteAt > 0 && now - this.lastWriteAt < AiConfig.orchestrator.deploymentStateBridge.writeIntervalMs) {
             return {ok: true, status: 'skipped'};
         }
 
@@ -91,13 +89,13 @@ export class DeploymentStateBridgeService extends Base {
         try {
             const snapshot = await this.collectSnapshot({generatedAt: now}),
                   result   = await writeDeploymentStateSnapshot({
-                      filePath: bridgeConfig.snapshotPath,
+                      filePath: AiConfig.orchestrator.deploymentStateBridge.snapshotPath,
                       snapshot,
-                      maxBytes: bridgeConfig.maxSnapshotBytes
+                      maxBytes: AiConfig.orchestrator.deploymentStateBridge.maxSnapshotBytes
                   });
 
             this.lastWriteAt = now;
-            this.writeLog?.('INFO', `[DeploymentStateBridge] wrote ${snapshot.services.length} service snapshots to ${bridgeConfig.snapshotPath}`);
+            this.writeLog?.('INFO', `[DeploymentStateBridge] wrote ${snapshot.services.length} service snapshots to ${AiConfig.orchestrator.deploymentStateBridge.snapshotPath}`);
 
             return {ok: true, status: 'written', snapshot, ...result};
         } catch (error) {
@@ -248,7 +246,7 @@ export class DeploymentStateBridgeService extends Base {
      * @returns {String[]}
      */
     getServiceKeys() {
-        const {allowedServices} = AiConfig.orchestrator.deploymentStateBridge;
+        const allowedServices = AiConfig.orchestrator.deploymentStateBridge.allowedServices;
 
         if (allowedServices.length > 0) {
             return allowedServices.filter(isSafeServiceKey);
