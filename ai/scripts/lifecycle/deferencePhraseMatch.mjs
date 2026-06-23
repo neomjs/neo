@@ -21,6 +21,9 @@ export const DEFERENCE_PHRASES = [
     'unless you want me',
     'want me to',
     'do you want me',
+    'Your steer on',
+    "if you'd rather",
+    'or steer me elsewhere',
     'your call',
     'your move'
 ];

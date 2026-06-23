@@ -19,6 +19,9 @@ test.describe('ai/scripts/lifecycle/deferencePhraseMatch', () => {
         expect(matchDeferencePhrase('WOULD YOU LIKE ME TO open the PR?')).toBe('would you like me to');
         expect(matchDeferencePhrase('I can take it unless you want me elsewhere.')).toBe('unless you want me');
         expect(matchDeferencePhrase('Want me to start the refactor?')).toBe('want me to');
+        expect(matchDeferencePhrase('Your steer on the next lane.')).toBe('Your steer on');
+        expect(matchDeferencePhrase("IF YOU'D RATHER, I can leave this parked.")).toBe("if you'd rather");
+        expect(matchDeferencePhrase('I can do this, or steer me elsewhere.')).toBe('or steer me elsewhere');
         expect(matchDeferencePhrase('Your call on the branch cut.')).toBe('your call');
         expect(matchDeferencePhrase('Your move.')).toBe('your move');
     });
@@ -29,6 +32,7 @@ test.describe('ai/scripts/lifecycle/deferencePhraseMatch', () => {
         expect(matchDeferencePhrase('Happy to take the next lane.')).toBeNull();
         expect(matchDeferencePhrase('No rush on the merge.')).toBeNull();
         expect(matchDeferencePhrase('Whenever you want to merge is fine.')).toBeNull();
+        expect(matchDeferencePhrase('Does this make more sense to you?')).toBeNull();
     });
 
     test('does not match technical substring collisions', () => {
@@ -40,6 +44,9 @@ test.describe('ai/scripts/lifecycle/deferencePhraseMatch', () => {
     test('operator-dialogue carve skips the phrase match', () => {
         expect(detectDeferencePhrase('Your call on the exact color.', {operatorInLoop: true})).toBeNull();
         expect(detectDeferencePhrase('Your call on the exact color.', {operatorInLoop: false})).toBe('your call');
+        expect(detectDeferencePhrase("If you'd rather, I can move it.", {operatorInLoop: true})).toBeNull();
+        expect(detectDeferencePhrase("If you'd rather, I can move it.", {operatorInLoop: false}))
+            .toBe("if you'd rather");
     });
 
     test('returns null on empty or non-string input', () => {
@@ -52,6 +59,9 @@ test.describe('ai/scripts/lifecycle/deferencePhraseMatch', () => {
         const reminder = buildDeferenceReminder('your call');
 
         expect(DEFERENCE_PHRASES).toContain('do you want me');
+        expect(DEFERENCE_PHRASES).toContain('Your steer on');
+        expect(DEFERENCE_PHRASES).toContain("if you'd rather");
+        expect(DEFERENCE_PHRASES).toContain('or steer me elsewhere');
         expect(DEFERENCE_REMINDER).toContain('helpful assistant');
         expect(reminder).toContain('equal peer');
         expect(reminder).toContain('A2A message with peers');
