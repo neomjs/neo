@@ -147,10 +147,10 @@ class VectorService extends Base {
      */
     resolveTenantStamp(tenantContext = {}) {
         const config = this.getTenantIsolationConfig();
-        const stamp = {
-            tenantId           : tenantContext.tenantId ?? config.defaultTenantId ?? 'neo-shared',
-            repoSlug           : tenantContext.repoSlug ?? config.defaultRepoSlug ?? 'neo',
-            visibility         : tenantContext.visibility ?? config.defaultVisibility ?? 'team',
+        const stamp  = {
+            tenantId           : tenantContext.tenantId ?? config.defaultTenantId,
+            repoSlug           : tenantContext.repoSlug ?? config.defaultRepoSlug,
+            visibility         : tenantContext.visibility ?? config.defaultVisibility,
             tenantConfigVersion: tenantContext.configVersion ?? 0,
             ingestedAt         : Date.now()
         };
@@ -211,9 +211,9 @@ class VectorService extends Base {
                 field,
                 chunkId,
                 clientValue,
-                serverValue: serverValue ?? null,
-                tenantId: stamp.tenantId,
-                repoSlug: stamp.repoSlug,
+                serverValue        : serverValue ?? null,
+                tenantId           : stamp.tenantId,
+                repoSlug           : stamp.repoSlug,
                 originAgentIdentity: stamp.originAgentIdentity ?? null
             };
 
@@ -498,16 +498,16 @@ class VectorService extends Base {
         knowledgeBase.forEach(chunk => {
             if (chunk.kind === 'module-context' && chunk.className) {
                 classNameToDataMap[chunk.className] = {
-                    source : chunk.source,
-                    parent : chunk.extends || null
+                    source: chunk.source,
+                    parent: chunk.extends || null
                 };
             }
         });
 
         knowledgeBase.forEach(chunk => {
-            let currentClass = chunk.className; // Metadata is now on every chunk
+            let   currentClass     = chunk.className; // Metadata is now on every chunk
             const inheritanceChain = [];
-            const visited = new Set();
+            const visited          = new Set();
 
             // If no className metadata (e.g. non-class files), skip
             if (!currentClass) return;
@@ -529,8 +529,8 @@ class VectorService extends Base {
 
         logger.log('Fetching existing documents from ChromaDB...');
         const existingIds = new Set();
-        let offset = 0;
-        const limit = 2000;
+        let   offset      = 0;
+        const limit       = 2000;
         let batch;
 
         // ChromaDB has a default limit (usually 10) if not specified.
@@ -539,7 +539,7 @@ class VectorService extends Base {
             batch = await collection.get({
                 include: [],
                 limit,
-                offset: offset
+                offset : offset
             });
 
             batch.ids.forEach(id => existingIds.add(id));
@@ -593,7 +593,7 @@ class VectorService extends Base {
         if (viaMcp && workVolume > mcpThreshold) {
             // `logPath` is a Provider-owned leaf; read it directly so malformed config
             // shape fails loud instead of silently re-deriving a local default.
-            const logDir = aiConfig.logPath;
+            const logDir       = aiConfig.logPath;
             const errorPayload = {
                 error  : `KB sync work volume exceeds MCP-callable threshold`,
                 message: `${workVolume} chunks need re-embedding (threshold: ${mcpThreshold}). ` +
@@ -610,7 +610,7 @@ class VectorService extends Base {
 
         if (shouldShadowSwap) {
             return await this.embedViaShadowSwap({
-                liveCollection: collection,
+                liveCollection  : collection,
                 knowledgeBase,
                 idsToDeleteCount: idsToDelete.length
             });
@@ -623,7 +623,7 @@ class VectorService extends Base {
 
         await this.embedChunks({collection, chunksToProcess});
 
-        const count   = await collection.count();
+        const count = await collection.count();
         const message = `Embedding complete. Collection now contains ${count} items.`;
         logger.log(message);
         return {message, embedded: chunksToProcess.length, deleted: idsToDelete.length};

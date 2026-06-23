@@ -6,19 +6,19 @@ import VectorService             from './VectorService.mjs';
 // SourceRegistry owns KB source discovery. Importing `./source/_export.mjs` triggers
 // auto-registration of Neo's default Source classes when `aiConfig.useDefaultSources !== false`,
 // plus declarative `aiConfig.customSources` entries.
-import SourceRegistry            from './source/_export.mjs';
-import crypto                    from 'crypto';
-import dotenv                    from 'dotenv';
-import fs                        from 'fs-extra';
-import logger                    from '../../mcp/server/knowledge-base/logger.mjs';
-import path                      from 'path';
-import readline                  from 'readline';
+import SourceRegistry from './source/_export.mjs';
+import crypto         from 'crypto';
+import dotenv         from 'dotenv';
+import fs             from 'fs-extra';
+import logger         from '../../mcp/server/knowledge-base/logger.mjs';
+import path           from 'path';
+import readline       from 'readline';
 
 const cwd       = aiConfig.neoRootDir;
 const insideNeo = process.env.npm_package_name?.includes('neo.mjs') ?? false;
 
 dotenv.config({
-    path: insideNeo ? path.resolve(cwd, '.env') : path.resolve(cwd, '../../.env'),
+    path : insideNeo ? path.resolve(cwd, '.env') : path.resolve(cwd, '../../.env'),
     quiet: true
 });
 
@@ -87,8 +87,8 @@ class DatabaseService extends Base {
             nestedKb.defaultVisibility !== undefined
         )) ? nestedKb : aiConfig;
         const contentString = JSON.stringify({
-            tenantId   : chunk.tenantId ?? kbConfig.defaultTenantId ?? 'neo-shared',
-            repoSlug   : chunk.repoSlug ?? kbConfig.defaultRepoSlug ?? 'neo',
+            tenantId   : chunk.tenantId ?? kbConfig.defaultTenantId,
+            repoSlug   : chunk.repoSlug ?? kbConfig.defaultRepoSlug,
             type       : chunk.type,
             name       : chunk.name,
             description: chunk.description,
@@ -153,12 +153,12 @@ class DatabaseService extends Base {
         logger.log(`Found ${count} documents in ${collection.name} to export.`);
 
         await fs.ensureDir(backupPath);
-        const timestamp   = new Date().toISOString().replace(/:/g, '-');
+        const timestamp = new Date().toISOString().replace(/:/g, '-');
         const backupFile  = path.join(backupPath, `${filePrefix}-${timestamp}.jsonl`);
         const writeStream = fs.createWriteStream(backupFile);
 
-        const limit = 2000;
-        let offset  = 0;
+        const limit  = 2000;
+        let   offset = 0;
 
         while (offset < count) {
             logger.log(`Fetching batch: ${offset} to ${Math.min(offset + limit, count)} of ${count}`);
@@ -307,7 +307,7 @@ class DatabaseService extends Base {
             logger.log(`Starting Knowledge Base import. Discovered ${sourceFiles.length} backup file(s) (mode: ${mode})...`);
 
             const collection = await ChromaManager.getKnowledgeBaseCollection();
-            let imported     = 0;
+            let   imported   = 0;
 
             for (const filePath of sourceFiles) {
                 logger.log(`Importing: ${filePath}`);
@@ -473,7 +473,7 @@ class DatabaseService extends Base {
         const outputPath = aiConfig.dataPath;
         await fs.ensureDir(path.dirname(outputPath));
         const writeStream = fs.createWriteStream(outputPath);
-        let totalChunks   = 0;
+        let   totalChunks = 0;
 
         // Sources are discovered via SourceRegistry instead of a hardcoded array. Default
         // Neo sources auto-register at import-time via `./source/_export.mjs` unless
