@@ -31,6 +31,13 @@ export const RECOVERY_RUN_STATUSES = Object.freeze([
     'reobserve-requested'
 ]);
 
+export const RECOVERY_RUN_GRAPH_NODE_TYPES = Object.freeze({
+    diagnosis       : 'RECOVERY_DIAGNOSIS',
+    recoveryRun     : 'RECOVERY_RUN',
+    recoveryRunState: 'RECOVERY_RUN_STATE',
+    reobserveRequest: 'RECOVERY_REOBSERVE_REQUEST'
+});
+
 export const RECOVERY_TARGET_IDENTITY_KINDS = Object.freeze([
     'compose-service',
     'deploy-target',
@@ -49,6 +56,58 @@ export function getRecoveryRunStateFileName(recoveryRunId) {
     }
 
     return `${recoveryRunId.replace(/[^a-zA-Z0-9_.-]/g, '_')}.jsonl`;
+}
+
+/**
+ * @summary Builds the stable graph id for the latest recovery-run proof node.
+ *
+ * @param {String} recoveryRunId Stable recovery run id.
+ * @returns {String} Graph node id.
+ */
+export function getRecoveryRunGraphNodeId(recoveryRunId) {
+    validateStringId(recoveryRunId, 'recoveryRunId', 'getRecoveryRunGraphNodeId');
+
+    return `recovery-run:${recoveryRunId}`;
+}
+
+/**
+ * @summary Builds the stable graph id for one recovery-run state update.
+ *
+ * @param {String} recoveryRunId Stable recovery run id.
+ * @param {Number} updatedAt Epoch milliseconds for the update.
+ * @returns {String} Graph node id.
+ */
+export function getRecoveryRunStateGraphNodeId(recoveryRunId, updatedAt) {
+    validateStringId(recoveryRunId, 'recoveryRunId', 'getRecoveryRunStateGraphNodeId');
+    validateTimestamp(updatedAt, 'updatedAt', 'getRecoveryRunStateGraphNodeId');
+
+    return `recovery-run-state:${recoveryRunId}:${updatedAt}`;
+}
+
+/**
+ * @summary Builds the stable graph id for a recovery diagnosis proof node.
+ *
+ * @param {String} diagnosisId Stable diagnosis event id.
+ * @returns {String} Graph node id.
+ */
+export function getRecoveryDiagnosisGraphNodeId(diagnosisId) {
+    validateStringId(diagnosisId, 'diagnosisId', 'getRecoveryDiagnosisGraphNodeId');
+
+    return `recovery-diagnosis:${diagnosisId}`;
+}
+
+/**
+ * @summary Builds the stable graph id for a recovery reobserve request proof node.
+ *
+ * @param {String} recoveryRunId Stable recovery run id.
+ * @param {Number} requestedAt Epoch milliseconds when the reobserve request was made.
+ * @returns {String} Graph node id.
+ */
+export function getRecoveryReobserveGraphNodeId(recoveryRunId, requestedAt) {
+    validateStringId(recoveryRunId, 'recoveryRunId', 'getRecoveryReobserveGraphNodeId');
+    validateTimestamp(requestedAt, 'requestedAt', 'getRecoveryReobserveGraphNodeId');
+
+    return `recovery-reobserve:${recoveryRunId}:${requestedAt}`;
 }
 
 /**
@@ -236,6 +295,150 @@ export function createRecoveryRunStateEntry({
 }
 
 /**
+ * @summary Projects one recovery-run ledger entry into deterministic Memory Core graph nodes.
+ *
+ * @param {Object} entry JSONL-ready recovery run state entry.
+ * @returns {Object[]} GraphService.upsertNode specs.
+ */
+export function createRecoveryRunGraphNodes(entry) {
+    validateRecoveryRunStateEntry(entry, 'createRecoveryRunGraphNodes');
+
+    const
+        runNodeId        = getRecoveryRunGraphNodeId(entry.recoveryRunId),
+        stateNodeId      = getRecoveryRunStateGraphNodeId(entry.recoveryRunId, entry.updatedAt),
+        diagnosisNodeId  = getRecoveryDiagnosisGraphNodeId(entry.diagnosisId),
+        commonProperties = createRecoveryRunGraphProperties(entry, {runNodeId, stateNodeId, diagnosisNodeId}),
+        nodes            = [{
+            id  : runNodeId,
+            type: RECOVERY_RUN_GRAPH_NODE_TYPES.recoveryRun,
+            name       : `Recovery run ${entry.recoveryRunId}`,
+            description: `Latest recovery state for ${entry.targetIdentity.kind}:${entry.targetIdentity.id}`,
+            state     : entry.status,
+            updatedAt : entry.updatedAt,
+            properties: {
+                ...commonProperties,
+                graphNodeType    : RECOVERY_RUN_GRAPH_NODE_TYPES.recoveryRun,
+                latestStateNodeId: stateNodeId,
+                recordType       : 'recovery-run'
+            }
+        }, {
+            id  : stateNodeId,
+            type: RECOVERY_RUN_GRAPH_NODE_TYPES.recoveryRunState,
+            name       : `Recovery run state ${entry.recoveryRunId}`,
+            description: `Recovery ${entry.rung} update for ${entry.targetIdentity.kind}:${entry.targetIdentity.id}`,
+            state     : entry.status,
+            updatedAt : entry.updatedAt,
+            properties: {
+                ...commonProperties,
+                graphNodeType: RECOVERY_RUN_GRAPH_NODE_TYPES.recoveryRunState,
+                recordType   : 'recovery-run-state'
+            }
+        }, {
+            id  : diagnosisNodeId,
+            type: RECOVERY_RUN_GRAPH_NODE_TYPES.diagnosis,
+            name       : `Recovery diagnosis ${entry.diagnosisId}`,
+            description: `${entry.recoveryClass} diagnosis for ${entry.targetIdentity.kind}:${entry.targetIdentity.id}`,
+            state     : entry.recoveryClass,
+            updatedAt : entry.updatedAt,
+            properties: {
+                graphNodeType         : RECOVERY_RUN_GRAPH_NODE_TYPES.diagnosis,
+                recordType            : 'recovery-diagnosis',
+                schemaVersion         : 1,
+                recoveryRunId         : entry.recoveryRunId,
+                recoveryRunNodeId     : runNodeId,
+                recoveryRunStateNodeId: stateNodeId,
+                diagnosisId           : entry.diagnosisId,
+                recoveryClass         : entry.recoveryClass,
+                targetIdentity        : entry.targetIdentity,
+                targetIdentityKind    : entry.targetIdentity.kind,
+                targetIdentityId      : entry.targetIdentity.id,
+                sourceEntryUpdatedAt  : entry.updatedAt
+            }
+        }];
+
+    if (entry.reobserveRequest) {
+        const
+            request       = entry.reobserveRequest,
+            reobserveNode = getRecoveryReobserveGraphNodeId(entry.recoveryRunId, request.requestedAt);
+
+        nodes.push({
+            id  : reobserveNode,
+            type: RECOVERY_RUN_GRAPH_NODE_TYPES.reobserveRequest,
+            name       : `Recovery reobserve ${entry.recoveryRunId}`,
+            description: `Reobserve request for ${entry.targetIdentity.kind}:${entry.targetIdentity.id}`,
+            state     : 'pending',
+            updatedAt : request.requestedAt,
+            properties: {
+                ...request,
+                graphNodeType         : RECOVERY_RUN_GRAPH_NODE_TYPES.reobserveRequest,
+                recordType            : 'recovery-reobserve-request',
+                recoveryRunNodeId     : runNodeId,
+                recoveryRunStateNodeId: stateNodeId,
+                diagnosisNodeId,
+                targetIdentityKind    : request.targetIdentity.kind,
+                targetIdentityId      : request.targetIdentity.id
+            }
+        });
+    }
+
+    return nodes;
+}
+
+/**
+ * @summary Publishes one recovery-run ledger entry into Memory Core graph proof nodes.
+ *
+ * @param {Object} entry JSONL-ready recovery run state entry.
+ * @param {Object} options
+ * @param {Object} options.graphService GraphService-like writer with upsertNode().
+ * @returns {Promise<Object>} Publication summary.
+ */
+export async function publishRecoveryRunStateToGraph(entry, {graphService} = {}) {
+    if (!graphService || typeof graphService.upsertNode !== 'function') {
+        throw new TypeError('publishRecoveryRunStateToGraph: graphService.upsertNode is required');
+    }
+
+    const nodes = createRecoveryRunGraphNodes(entry);
+
+    for (const node of nodes) {
+        await graphService.upsertNode(node);
+    }
+
+    return {
+        publishedCount: nodes.length,
+        nodeIds       : nodes.map(node => node.id)
+    };
+}
+
+/**
+ * @summary Selects remotely-readable recovery proof records from graph node records.
+ *
+ * @param {Object[]} records Graph node records or upsert specs.
+ * @param {Object} [filters={}]
+ * @param {Object} [filters.targetIdentity] Optional target identity filter.
+ * @param {String|String[]} [filters.recoveryClass] Optional recovery class filter.
+ * @param {String|String[]} [filters.status] Optional status filter.
+ * @param {Number} [filters.limit] Optional maximum count.
+ * @returns {Object[]} Recovery-run state proof records, newest first.
+ */
+export function selectRecoveryRunGraphRecords(records, {
+    targetIdentity = null,
+    recoveryClass  = null,
+    status         = null,
+    limit          = null
+} = {}) {
+    validateArray(records, 'records', 'selectRecoveryRunGraphRecords');
+
+    return records
+        .map(normalizeRecoveryRunGraphRecord)
+        .filter(record => record !== null)
+        .filter(record => matchesTargetIdentity(record, targetIdentity))
+        .filter(record => matchesFilter(record.recoveryClass, recoveryClass))
+        .filter(record => matchesFilter(record.status, status))
+        .sort((a, b) => getEntrySortTime(b) - getEntrySortTime(a))
+        .slice(0, Number.isFinite(limit) && limit > 0 ? limit : undefined);
+}
+
+/**
  * @summary Prunes the recovery-run state directory to the newest retained artifacts.
  *
  * @param {Object} options
@@ -283,9 +486,20 @@ export async function pruneRecoveryRunStates({dir, retentionLimit} = {}) {
  * @param {Object} options
  * @param {String} options.dir Directory for per-run state files.
  * @param {Number} [options.retentionLimit] Maximum artifacts to retain.
+ * @param {Object|null} [options.graphService=null] Optional GraphService-like writer for synchronous proof publication.
+ * @param {Object|null} [options.graphPublicationSummary=null] Mutable summary counters for publication attempts.
+ * @param {Function|null} [options.onGraphPublicationError=null] Optional callback invoked after graph publication fails.
+ * @param {Function|null} [options.writeLog=null] Optional logger for graph publication failures.
  * @returns {Promise<String>} Written file path.
  */
-export async function appendRecoveryRunState(entry, {dir, retentionLimit} = {}) {
+export async function appendRecoveryRunState(entry, {
+    dir,
+    graphPublicationSummary = null,
+    graphService            = null,
+    onGraphPublicationError = null,
+    retentionLimit,
+    writeLog                = null
+} = {}) {
     if (!dir) {
         throw new TypeError('appendRecoveryRunState: dir is required');
     }
@@ -297,6 +511,15 @@ export async function appendRecoveryRunState(entry, {dir, retentionLimit} = {}) 
 
     const filePath = path.join(dir, getRecoveryRunStateFileName(entry.recoveryRunId));
     await fs.appendFile(filePath, `${JSON.stringify(entry)}\n`, 'utf8');
+
+    if (graphService) {
+        await publishRecoveryRunStateToGraphWithSurface(entry, {
+            graphPublicationSummary,
+            graphService,
+            onGraphPublicationError,
+            writeLog
+        });
+    }
 
     if (Number.isFinite(retentionLimit) && retentionLimit > 0) {
         await pruneRecoveryRunStates({dir, retentionLimit});
@@ -363,6 +586,110 @@ function getEntrySortTime(entry) {
     return 0;
 }
 
+function createRecoveryRunGraphProperties(entry, {runNodeId, stateNodeId, diagnosisNodeId}) {
+    return {
+        schemaVersion         : 1,
+        graphProjectionVersion: 1,
+        graphNodeType         : RECOVERY_RUN_GRAPH_NODE_TYPES.recoveryRunState,
+        recordType            : entry.type,
+        proofSurface          : 'recovery-run-graph-ssot',
+        recoveryRunId         : entry.recoveryRunId,
+        recoveryRunNodeId     : runNodeId,
+        recoveryRunStateNodeId: stateNodeId,
+        diagnosisId           : entry.diagnosisId,
+        diagnosisNodeId,
+        recoveryClass         : entry.recoveryClass,
+        targetIdentity        : entry.targetIdentity,
+        targetIdentityKind    : entry.targetIdentity.kind,
+        targetIdentityId      : entry.targetIdentity.id,
+        rung                  : entry.rung,
+        attempt               : entry.attempt,
+        status                : entry.status,
+        startedAt             : entry.startedAt,
+        updatedAt             : entry.updatedAt,
+        completedAt           : entry.completedAt,
+        wallClockMs           : entry.wallClockMs,
+        backoffUntil          : entry.backoffUntil,
+        hasReobserveRequest   : entry.reobserveRequest !== null,
+        details               : entry.details
+    };
+}
+
+function matchesFilter(value, filter) {
+    if (filter === null || filter === undefined) {
+        return true;
+    }
+
+    return Array.isArray(filter) ? filter.includes(value) : value === filter;
+}
+
+function matchesTargetIdentity(record, targetIdentity) {
+    if (targetIdentity === null || targetIdentity === undefined) {
+        return true;
+    }
+
+    return record.targetIdentityKind === targetIdentity.kind && record.targetIdentityId === targetIdentity.id;
+}
+
+function normalizeRecoveryRunGraphRecord(record) {
+    if (!record || typeof record !== 'object') {
+        return null;
+    }
+
+    const
+        properties = record.properties && typeof record.properties === 'object' ? record.properties : record,
+        nodeType   = record.type || record.label || properties.graphNodeType;
+
+    if (nodeType !== RECOVERY_RUN_GRAPH_NODE_TYPES.recoveryRunState) {
+        return null;
+    }
+
+    return {
+        id: record.id || properties.recoveryRunStateNodeId,
+        ...properties
+    };
+}
+
+async function publishRecoveryRunStateToGraphWithSurface(entry, {
+    graphPublicationSummary,
+    graphService,
+    onGraphPublicationError,
+    writeLog
+}) {
+    incrementGraphPublicationSummary(graphPublicationSummary, 'attempted', 1);
+
+    try {
+        const publication = await publishRecoveryRunStateToGraph(entry, {graphService});
+        incrementGraphPublicationSummary(graphPublicationSummary, 'published', publication.publishedCount);
+    } catch (error) {
+        incrementGraphPublicationSummary(graphPublicationSummary, 'failed', 1);
+        recordGraphPublicationError(graphPublicationSummary, entry, error);
+
+        onGraphPublicationError?.({entry, error});
+        writeLog?.(`[RecoveryRunStateStore] Graph publication failed for ${entry.recoveryRunId}: ${error.message}`);
+    }
+}
+
+function incrementGraphPublicationSummary(summary, key, amount) {
+    if (!summary) {
+        return;
+    }
+
+    summary[key] = (summary[key] || 0) + amount;
+}
+
+function recordGraphPublicationError(summary, entry, error) {
+    if (!summary) {
+        return;
+    }
+
+    summary.errors ??= [];
+    summary.errors.push({
+        recoveryRunId: entry.recoveryRunId,
+        message      : error.message
+    });
+}
+
 function validateArray(value, name, callerName) {
     if (!Array.isArray(value)) {
         throw new TypeError(`${callerName}: ${name} must be an array`);
@@ -411,6 +738,46 @@ function validateReobserveRequest(value, recoveryRunId, callerName) {
     }
     if (value.recoveryRunId !== recoveryRunId) {
         throw new TypeError(`${callerName}: reobserveRequest.recoveryRunId must match recoveryRunId`);
+    }
+}
+
+function validateRecoveryRunStateEntry(value, callerName) {
+    validateObject(value, 'entry', callerName);
+
+    if (value.type !== 'recovery-run-state') {
+        throw new TypeError(`${callerName}: entry.type must be 'recovery-run-state'`);
+    }
+
+    validateStringId(value.recoveryRunId, 'recoveryRunId', callerName);
+    validateStringId(value.diagnosisId, 'diagnosisId', callerName);
+    validateEnum(value.recoveryClass, RECOVERY_CLASSES, 'recoveryClass', callerName);
+    createRecoveryTargetIdentity(value.targetIdentity);
+    validateEnum(value.rung, RECOVERY_RUN_RUNG_IDS, 'rung', callerName);
+    validateEnum(value.status, RECOVERY_RUN_STATUSES, 'status', callerName);
+    validateTimestamp(value.startedAt, 'startedAt', callerName);
+    validateTimestamp(value.updatedAt, 'updatedAt', callerName);
+    validateObject(value.details, 'details', callerName);
+
+    if (!Number.isInteger(value.attempt) || value.attempt < 1) {
+        throw new TypeError(`${callerName}: attempt must be a positive integer`);
+    }
+    if (value.completedAt !== null) {
+        validateTimestamp(value.completedAt, 'completedAt', callerName);
+    }
+    if (value.wallClockMs !== null && (!Number.isFinite(value.wallClockMs) || value.wallClockMs < 0)) {
+        throw new TypeError(`${callerName}: wallClockMs must be null or a non-negative number`);
+    }
+    if (value.backoffUntil !== null) {
+        validateTimestamp(value.backoffUntil, 'backoffUntil', callerName);
+    }
+    if (value.reobserveRequest !== null) {
+        validateReobserveRequest(value.reobserveRequest, value.recoveryRunId, callerName);
+    }
+}
+
+function validateStringId(value, name, callerName) {
+    if (typeof value !== 'string' || value.length === 0) {
+        throw new TypeError(`${callerName}: ${name} is required`);
     }
 }
 

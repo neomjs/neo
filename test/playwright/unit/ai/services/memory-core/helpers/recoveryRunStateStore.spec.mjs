@@ -8,12 +8,20 @@ import path                                      from 'path';
 import {
     appendRecoveryRunState,
     createRecoveryDiagnosisEvent,
+    createRecoveryRunGraphNodes,
     createRecoveryReobserveRequest,
     createRecoveryRunStateEntry,
     createRecoveryTargetIdentity,
+    getRecoveryDiagnosisGraphNodeId,
+    getRecoveryReobserveGraphNodeId,
+    getRecoveryRunGraphNodeId,
+    getRecoveryRunStateGraphNodeId,
     getRecoveryRunStateFileName,
+    publishRecoveryRunStateToGraph,
     pruneRecoveryRunStates,
-    readRecentRecoveryRunStates
+    readRecentRecoveryRunStates,
+    RECOVERY_RUN_GRAPH_NODE_TYPES,
+    selectRecoveryRunGraphRecords
 } from '../../../../../../../ai/services/memory-core/helpers/recoveryRunStateStore.mjs';
 
 test.describe('RecoveryRunStateStore', () => {
@@ -155,6 +163,109 @@ test.describe('RecoveryRunStateStore', () => {
         expect(() => runEntry('bad-attempt', 2000, {attempt: 0})).toThrow(/attempt/);
     });
 
+    test('projects recovery run entries into deterministic graph proof nodes', () => {
+        const entry = runEntry('recovery-run-1', 2000, {
+            diagnosisEventOverrides: {
+                diagnosisId   : 'diagnosis-2',
+                targetIdentity: createRecoveryTargetIdentity({kind: 'compose-service', id: 'memory'})
+            }
+        });
+
+        const nodes = createRecoveryRunGraphNodes(entry);
+
+        expect(nodes.map(node => node.id)).toEqual([
+            getRecoveryRunGraphNodeId('recovery-run-1'),
+            getRecoveryRunStateGraphNodeId('recovery-run-1', 2000),
+            getRecoveryDiagnosisGraphNodeId('diagnosis-2'),
+            getRecoveryReobserveGraphNodeId('recovery-run-1', 2000)
+        ]);
+
+        const runNode = nodes.find(node => node.type === RECOVERY_RUN_GRAPH_NODE_TYPES.recoveryRun);
+        expect(runNode).toMatchObject({
+            state     : 'reobserve-requested',
+            properties: {
+                recordType        : 'recovery-run',
+                targetIdentityId  : 'memory',
+                targetIdentityKind: 'compose-service',
+                latestStateNodeId : getRecoveryRunStateGraphNodeId('recovery-run-1', 2000)
+            }
+        });
+
+        const stateNode = nodes.find(node => node.type === RECOVERY_RUN_GRAPH_NODE_TYPES.recoveryRunState);
+        expect(stateNode).toMatchObject({
+            properties: {
+                recordType        : 'recovery-run-state',
+                recoveryClass     : 'crash',
+                recoveryRunId     : 'recovery-run-1',
+                status            : 'reobserve-requested',
+                targetIdentityId  : 'memory',
+                targetIdentityKind: 'compose-service'
+            }
+        });
+
+        const diagnosisNode = nodes.find(node => node.type === RECOVERY_RUN_GRAPH_NODE_TYPES.diagnosis);
+        expect(diagnosisNode).toMatchObject({
+            properties: {
+                diagnosisId           : 'diagnosis-2',
+                recordType            : 'recovery-diagnosis',
+                recoveryRunStateNodeId: getRecoveryRunStateGraphNodeId('recovery-run-1', 2000)
+            }
+        });
+    });
+
+    test('publishes recovery graph nodes idempotently through GraphService upsertNode', async () => {
+        const entry   = runEntry('recovery-run-1', 2000);
+        const upserts = new Map();
+        const calls   = [];
+
+        const graphService = {
+            async upsertNode(node) {
+                calls.push(node.id);
+                upserts.set(node.id, node);
+            }
+        };
+
+        const first  = await publishRecoveryRunStateToGraph(entry, {graphService});
+        const second = await publishRecoveryRunStateToGraph(entry, {graphService});
+
+        expect(first).toEqual(second);
+        expect(first.publishedCount).toBe(4);
+        expect(upserts.size).toBe(4);
+        expect(calls).toHaveLength(8);
+    });
+
+    test('selectRecoveryRunGraphRecords filters graph state records for inspect-deployment providers', () => {
+        const records = [
+            ...createRecoveryRunGraphNodes(runEntry('recovery-memory', 2000, {
+                diagnosisEventOverrides: {
+                    recoveryClass : 'crash',
+                    targetIdentity: createRecoveryTargetIdentity({kind: 'compose-service', id: 'memory'})
+                }
+            })),
+            ...createRecoveryRunGraphNodes(runEntry('recovery-model', 3000, {
+                diagnosisEventOverrides: {
+                    recoveryClass : 'contention',
+                    targetIdentity: createRecoveryTargetIdentity({kind: 'compose-service', id: 'model'})
+                }
+            }))
+        ];
+
+        const proofRecords = selectRecoveryRunGraphRecords(records, {
+            limit         : 1,
+            recoveryClass : 'contention',
+            status        : 'reobserve-requested',
+            targetIdentity: {kind: 'compose-service', id: 'model'}
+        });
+
+        expect(proofRecords).toHaveLength(1);
+        expect(proofRecords[0]).toMatchObject({
+            recoveryRunId     : 'recovery-model',
+            targetIdentityId  : 'model',
+            targetIdentityKind: 'compose-service',
+            updatedAt         : 3000
+        });
+    });
+
     test('appends and reads recent recovery run entries newest first', async () => {
         await appendRecoveryRunState(runEntry('recovery-old', 1000), {dir: tmpDir});
         await appendRecoveryRunState(runEntry('recovery-new', 2000), {dir: tmpDir});
@@ -162,6 +273,64 @@ test.describe('RecoveryRunStateStore', () => {
         const recent = await readRecentRecoveryRunStates({dir: tmpDir, limit: 1});
 
         expect(recent.map(entry => entry.recoveryRunId)).toEqual(['recovery-new']);
+    });
+
+    test('appendRecoveryRunState publishes graph proof while preserving the JSONL return contract', async () => {
+        const
+            summary = {},
+            nodes   = [];
+
+        const filePath = await appendRecoveryRunState(runEntry('recovery-graph', 2000), {
+            dir                    : tmpDir,
+            graphPublicationSummary: summary,
+            graphService           : {
+                async upsertNode(node) {
+                    nodes.push(node);
+                }
+            }
+        });
+
+        expect(path.basename(filePath)).toBe(getRecoveryRunStateFileName('recovery-graph'));
+        expect(summary).toEqual({attempted: 1, published: 4});
+        expect(nodes).toHaveLength(4);
+
+        const recent = await readRecentRecoveryRunStates({dir: tmpDir, limit: 1});
+        expect(recent[0].recoveryRunId).toBe('recovery-graph');
+    });
+
+    test('appendRecoveryRunState surfaces graph publication failure without losing the local ledger', async () => {
+        const
+            errors  = [],
+            logs    = [],
+            summary = {};
+
+        const filePath = await appendRecoveryRunState(runEntry('recovery-local-first', 2000), {
+            dir                    : tmpDir,
+            graphPublicationSummary: summary,
+            graphService           : {
+                async upsertNode() {
+                    throw new Error('graph unavailable');
+                }
+            },
+            onGraphPublicationError(payload) {
+                errors.push(payload);
+            },
+            writeLog(message) {
+                logs.push(message);
+            }
+        });
+
+        expect(path.basename(filePath)).toBe(getRecoveryRunStateFileName('recovery-local-first'));
+        expect(summary).toEqual({
+            attempted: 1,
+            failed   : 1,
+            errors   : [{recoveryRunId: 'recovery-local-first', message: 'graph unavailable'}]
+        });
+        expect(errors).toHaveLength(1);
+        expect(logs[0]).toContain('Graph publication failed for recovery-local-first');
+
+        const recent = await readRecentRecoveryRunStates({dir: tmpDir, limit: 1});
+        expect(recent[0].recoveryRunId).toBe('recovery-local-first');
     });
 
     test('appendRecoveryRunState applies the write-side retention cap', async () => {
