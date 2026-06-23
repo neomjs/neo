@@ -29,6 +29,7 @@ import RequestContextService                                                    
 import {normalizeAgentIdentityNodeId}                                           from '../../scripts/lifecycle/resumeHarness.mjs';
 import TaskStateService                                                         from './services/TaskStateService.mjs';
 import ProcessSupervisorService                                                 from './services/ProcessSupervisorService.mjs';
+import RecoveryActuatorService                                                  from './services/RecoveryActuatorService.mjs';
 import DreamService                                                             from './services/DreamService.mjs';
 import SwarmHeartbeatService                                                    from './services/SwarmHeartbeatService.mjs';
 import GoldenPathSynthesizer                                                    from '../../services/graph/GoldenPathSynthesizer.mjs';
@@ -104,6 +105,7 @@ export class Orchestrator extends Base {
         className                      : 'Neo.ai.daemons.Orchestrator',
         singleton                      : true,
         processSupervisorService_      : null,
+        recoveryActuatorService_       : RecoveryActuatorService,
         maintenanceBackpressureService_: MaintenanceBackpressureService,
         dataDir_                       : DEFAULT_DATA_DIR,
         taskDefinitions_               : null,
@@ -141,6 +143,7 @@ export class Orchestrator extends Base {
     goldenPathDependencyTaskNames = DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES
 
     processSupervisorWriteLog = (level, msg) => this.writeLog(level, msg)
+    recoveryActuatorWriteLog  = (level, msg) => this.writeLog(level, msg)
     maintenanceBackpressureWriteLog = (level, msg) => this.writeLog(level, msg)
 
     /**
@@ -228,7 +231,7 @@ export class Orchestrator extends Base {
             : '@system';
         const stalledSinceIso = Number.isFinite(stalledSince) ? new Date(stalledSince).toISOString() : 'unknown';
         const staleHours      = (Number(stalenessMs || 0) / (60 * 60 * 1000)).toFixed(1);
-        const subject = hasCycle
+        const subject         = hasCycle
             ? `[rem-consolidation-stall] last REM cycle is ${staleHours}h stale`
             : `[rem-consolidation-stall] no REM cycle recorded with ${undigestedCount} undigested sessions`;
         const body =
@@ -274,6 +277,19 @@ export class Orchestrator extends Base {
         });
     }
 
+    /**
+     * @param {Neo.ai.daemons.services.RecoveryActuatorService|Object|null} value
+     * @returns {Neo.ai.daemons.services.RecoveryActuatorService}
+     */
+    beforeSetRecoveryActuatorService(value) {
+        return ClassSystemUtil.beforeSetInstance(value, RecoveryActuatorService, {
+            healthService           : this.healthService,
+            processSupervisorService: this.processSupervisorService,
+            recoveryRunStateDir     : this.recoveryRunStateDir,
+            writeLog                : this.recoveryActuatorWriteLog
+        });
+    }
+
     beforeSetMaintenanceBackpressureService(value) {
         return ClassSystemUtil.beforeSetInstance(value, MaintenanceBackpressureService, {
             heavyMaintenanceTaskNames    : this.heavyMaintenanceTaskNames,
@@ -287,10 +303,15 @@ export class Orchestrator extends Base {
         });
     }
 
+    afterSetProcessSupervisorService(value, oldValue) {
+        if (oldValue === undefined) return;
+        this.recoveryActuatorService.processSupervisorService = value;
+    }
     afterSetDataDir(value, oldValue) {
         if (oldValue === undefined) return;
         this.processSupervisorService.dataDir          = value;
         this.maintenanceBackpressureService.dataDir    = value;
+        this.recoveryActuatorService.recoveryRunStateDir = this.recoveryRunStateDir;
     }
     afterSetTaskDefinitions(value, oldValue) {
         if (oldValue === undefined) return;
@@ -305,6 +326,7 @@ export class Orchestrator extends Base {
     afterSetHealthService(value, oldValue) {
         if (oldValue === undefined) return;
         this.processSupervisorService.healthService       = value;
+        this.recoveryActuatorService.healthService        = value;
         this.maintenanceBackpressureService.healthService = value;
     }
     afterSetSpawnFn(value, oldValue) {
@@ -333,6 +355,7 @@ export class Orchestrator extends Base {
     get devServerEnabled()               { return resolveLocalDeploymentDefault(AiConfig.orchestrator.devServer.enabled); }
     get neuralLinkBridgeEnabled()        { return resolveDeploymentEnabled('neuralLinkBridgeEnabled');        }
     get embedDaemonEnabled()             { return resolveDeploymentEnabled('embedDaemonEnabled');             }
+    get recoveryRunStateDir()            { return path.join(this.dataDir, 'recovery-runs');                   }
     get embedDrainLivenessWatchdogWalDir()      { return memoryCoreConfig.memoryWal.dir; }
     get embedDrainLivenessWatchdogThresholdMs() { return memoryCoreConfig.memoryWal.embedDrainStallThresholdMs; }
     get remConsolidationWatchdogRunStateDir()   { return memoryCoreConfig.remRunStateDir; }
@@ -475,7 +498,7 @@ export class Orchestrator extends Base {
      * @returns {void}
      */
     poll() {
-        const now = Date.now();
+        const now         = Date.now();
         const executeTask = this.processSupervisorService.runTask.bind(this.processSupervisorService);
 
         const continuousTasks = [
