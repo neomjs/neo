@@ -245,19 +245,20 @@ function getMicroDeltaPrReviewTemplateValidationFailure(body) {
     }
 
     const skillPath      = '.agents/skills/pr-review/SKILL.md';
-    const microDeltaPath = '.agents/skills/pr-review/audits/review-cost-circuit-breaker.md';
+    const circuitPath    = '.agents/skills/pr-review/audits/review-cost-circuit-breaker.md';
+    const microDeltaPath = '.agents/skills/pr-review/assets/pr-review-micro-delta-template.md';
 
     const message = [
         `Review body attempts the Micro-Delta Review format but does not match the documented circuit-breaker structure.`,
         ``,
-        `**Required action**: read \`${skillPath}\` and \`${microDeltaPath}\` BEFORE retrying.`,
+        `**Required action**: read \`${skillPath}\`, \`${circuitPath}\`, and \`${microDeltaPath}\` BEFORE retrying.`,
         ``,
         `Micro-Delta reviews are only valid after the Review-Loop Cost Circuit Breaker`,
         `classifies the PR as state (a): semantics cleared, with only mechanical-hygiene`,
         `or metadata-drift remaining. If a semantic or contract delta exists, use the`,
         `full follow-up review template instead.`,
         ``,
-        `Diagnostic hint: at least one required Micro-Delta state-vector or verdict anchor is missing or invalid.`
+        `Diagnostic hint: at least one required Micro-Delta state-vector or verdict anchor from \`${microDeltaPath}\` is missing or invalid.`
     ].join('\n');
 
     return {
@@ -266,6 +267,7 @@ function getMicroDeltaPrReviewTemplateValidationFailure(body) {
         code               : 'PR_REVIEW_TEMPLATE_VALIDATION_FAILED',
         missing_micro_delta: missingMicroDelta,
         skill              : skillPath,
+        circuitBreaker     : circuitPath,
         template           : microDeltaPath
     };
 }

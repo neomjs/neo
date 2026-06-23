@@ -1051,9 +1051,10 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         });
 
         expect(result.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
-        expect(result.template).toBe('.agents/skills/pr-review/audits/review-cost-circuit-breaker.md');
+        expect(result.circuitBreaker).toBe('.agents/skills/pr-review/audits/review-cost-circuit-breaker.md');
+        expect(result.template).toBe('.agents/skills/pr-review/assets/pr-review-micro-delta-template.md');
         expect(result.missing_micro_delta).toContain('- **Measured Discussion Cost:**');
-        expect(result.message).toContain('review-cost-circuit-breaker.md');
+        expect(result.message).toContain('pr-review-micro-delta-template.md');
         expect(graphqlCallCount).toBe(0);
     });
 
