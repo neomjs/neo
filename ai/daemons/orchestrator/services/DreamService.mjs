@@ -36,9 +36,10 @@ import {
     createRemPhaseState,
     createRemRunStateEntry
 } from '../../../services/memory-core/helpers/remRunStateStore.mjs';
+import {bytesToTokens} from '../../../services/memory-core/helpers/consumerFrictionHelper.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname  = path.dirname(__filename);
 
 // Bounds the re-serve ONLY for the DETERMINISTICALLY-terminal failure: `skip-over-band` (payload over the
 // model's safe band) is a reliable size check — that session genuinely cannot be processed at this cadence
@@ -52,7 +53,7 @@ const PERMANENT_DEFER_REASONS = new Set(['skip-over-band']);
 
 function estimatePayloadTokens(payload) {
     const text = payload === undefined || payload === null ? '' : String(payload);
-    return Math.ceil(Buffer.byteLength(text, 'utf8') / 4);
+    return bytesToTokens(Buffer.byteLength(text, 'utf8'));
 }
 
 function toErrorMessage(error) {
@@ -151,10 +152,10 @@ function splitFreshAndAgedUndigested(rows, maxToProcess) {
         return [];
     }
 
-    const reserve = maxToProcess > 1 ? Math.min(readRequiredNumberLeaf('undigestedSessionFreshReserve'), maxToProcess - 1) : maxToProcess;
-    const fresh   = [...rows].sort(compareSessionRows('DESC')).slice(0, reserve);
+    const reserve  = maxToProcess > 1 ? Math.min(readRequiredNumberLeaf('undigestedSessionFreshReserve'), maxToProcess - 1) : maxToProcess;
+    const fresh    = [...rows].sort(compareSessionRows('DESC')).slice(0, reserve);
     const freshIds = new Set(fresh.map(row => row.id));
-    const aged = [...rows]
+    const aged     = [...rows]
         .filter(row => !freshIds.has(row.id))
         .sort(compareSessionRows('ASC'))
         .slice(0, maxToProcess - fresh.length);
@@ -241,7 +242,7 @@ class DreamService extends Base {
         }
 
         try {
-            const byId = new Map();
+            const byId      = new Map();
             const readBatch = offset => this.sessionsCollection.get({
                 include: ['metadatas', 'documents'],
                 limit,
@@ -301,7 +302,7 @@ class DreamService extends Base {
         if (aiConfig.modelProvider === 'openAiCompatible') {
             const providerStart = Date.now();
             try {
-                const url = new URL('/v1/models', aiConfig.openAiCompatible.host);
+                const url  = new URL('/v1/models', aiConfig.openAiCompatible.host);
                 const ping = await fetch(url.toString(), { method: 'GET', signal: AbortSignal.timeout(5000) });
                 if (!ping.ok) throw new Error('API provider not running');
                 perPhaseStates.push(finishPhase('legacyProviderProbe', providerStart, 'completed', {
@@ -428,7 +429,7 @@ class DreamService extends Base {
                     }
                     const rawIngestErrors = Array.isArray(ingestStats.errors) ? ingestStats.errors : [];
                     const ingestErrors    = rawIngestErrors.length;
-                    const ingestTime = ((Date.now() - ingestStart) / 1000).toFixed(1);
+                    const ingestTime      = ((Date.now() - ingestStart) / 1000).toFixed(1);
                     logger.info(`[DreamService]   -> Memory/Session graph ingestion took: ${ingestTime}s (${ingestStats.memoriesUpserted} upserted, ${ingestStats.memoriesSkipped} skipped, ${ingestErrors} errors)`);
 
                     const ingestErrorReasons = rawIngestErrors.map(item => toErrorMessage(item));
@@ -675,8 +676,8 @@ class DreamService extends Base {
         const startedAtMs = Date.now();
         const startedAt   = new Date(startedAtMs);
         const runId       = `rem-${crypto.randomUUID()}`;
-        const perPhaseStates = [];
-        let perSessionStates = [];
+        const perPhaseStates   = [];
+        let   perSessionStates = [];
 
         const baseOutcome = {
             runId,
@@ -785,7 +786,7 @@ class DreamService extends Base {
         // work-completed `completed` path without requiring a return-value refactor on
         // processUndigestedSessions. A pre-call query is cheaper than the alternative
         // of inspecting graph state after the fact.
-        let sessionCount = 0;
+        let   sessionCount      = 0;
         const sessionQueryStart = Date.now();
         try {
             const undigested = await this.findUndigestedSessions();
@@ -830,7 +831,7 @@ class DreamService extends Base {
         // Work path: process sessions, then run decay as the cycle-finalization step
         // under the same lease window the caller already holds.
         try {
-            const processStart = Date.now();
+            const processStart  = Date.now();
             const processResult = await this.processUndigestedSessions();
             if (Array.isArray(processResult?.perPhaseStates)) {
                 perPhaseStates.push(...processResult.perPhaseStates);
@@ -917,7 +918,7 @@ class DreamService extends Base {
         }
 
         const ollamaReadinessConfig = buildOllamaReadinessConfig(AiConfig);
-        const capacity = ollamaReadinessConfig.roles.length > 0
+        const capacity              = ollamaReadinessConfig.roles.length > 0
             ? await ensureOllamaModelsReady({
                 ...ollamaReadinessConfig,
                 attempts    : readinessConfig.attempts,

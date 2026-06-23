@@ -29,8 +29,9 @@
  *   once `count >= PROBABILISTIC_EMIT_THRESHOLD` to avoid burying single transient errors
  *   in the handoff feed.
  *
- * Token estimation: V1 uses a 4-chars/token heuristic (`Math.ceil(Buffer.byteLength(payload) / 4)`)
- * because the codebase has no canonical provider-specific tokenizer. Bytes are retained on
+ * Token estimation: V1 uses a conservative 3-bytes/token heuristic
+ * (`Math.ceil(Buffer.byteLength(payload) / 3)`) because the codebase has no canonical
+ * provider-specific tokenizer and REM payloads are code/JSON/log dense. Bytes are retained on
  * the record as evidence; tokens are the durable LLM-relevant contract.
  * Future V2 may integrate with Model-Stats registry (ADR 0012) for per-provider tokenization. ticket-ref-ok: load-bearing ADR design-pointer (mirrors the @see below).
  *
@@ -51,7 +52,7 @@ import {PROVIDER_TIMEOUT_CODE} from '../../../provider/createTimeoutError.mjs';
  * @property {'pre-invocation' | 'post-invocation-failure'} emissionPoint When the friction was detected.
  * @property {'split-document' | 'compress-payload' | 'extract-anchor' | 'reduce-review-cycle' | 'schema-repair' | 'unknown'} suggestionKind Enum-backed structured suggestion for substrate-evolution action.
  * @property {Number} inputBytes Raw byte size of the payload that triggered the friction — evidence.
- * @property {Number} inputTokensEstimate Estimated token count of the input payload (Math.ceil(inputBytes / 4) heuristic) — durable LLM-relevant metric.
+ * @property {Number} inputTokensEstimate Estimated token count of the input payload (Math.ceil(inputBytes / 3) heuristic) — durable LLM-relevant metric.
  * @property {Number} contextLimitTokens Configured context window of the consumer model (tokens) — durable contract.
  * @property {Number} [safeProcessingLimitTokens] Optional safer threshold in tokens (default = Math.floor(contextLimitTokens * 0.75)).
  * @property {String} firstSeenAt ISO 8601 timestamp of the first emission for this aggregation-tuple.
@@ -111,12 +112,14 @@ const AGGREGATOR_TTL_MS = 60 * 60 * 1000;
 const DEFAULT_SAFE_FRACTION = 0.75;
 
 /**
- * @summary Bytes-per-token heuristic for English-prevalent text.
- * Conservative estimate; provider-specific tokenizers may yield slightly different counts.
+ * @summary Bytes-per-token heuristic for dense REM / Agent OS text.
+ * Conservative estimate; code, JSON, and logs tokenize denser than the old English-prevalent
+ * 4-bytes/token heuristic, which let incident-shaped payloads pass the safe band and overflow
+ * local Gemma contexts before the guardrail could skip them.
  * V2 may delegate to Model-Stats registry per-provider.
  * @type {Number}
  */
-const BYTES_PER_TOKEN_HEURISTIC = 4;
+const BYTES_PER_TOKEN_HEURISTIC = 3;
 
 /**
  * Module-singleton aggregator. Keys are `${assetRef}|${consumer}|${symptom}` tuple-hashes;
@@ -130,7 +133,7 @@ function tupleKey(assetRef, consumer, symptom) {
 }
 
 /**
- * @summary Estimates token count from raw bytes via the 4-chars/token English heuristic.
+ * @summary Estimates token count from raw bytes via the conservative dense-text heuristic.
  * Exported for test verification + caller-side cross-references; not provider-specific.
  *
  * @param {Number} bytes Raw byte count.
@@ -228,11 +231,11 @@ export function emitConsumerFriction(input) {
     const existing = _aggregator.get(key);
 
     const entry = existing || {
-        count          : 0,
-        firstSeenAt    : nowIso,
-        lastSeenAt     : nowIso,
-        latestFriction : null,
-        surfaced       : false
+        count         : 0,
+        firstSeenAt   : nowIso,
+        lastSeenAt    : nowIso,
+        latestFriction: null,
+        surfaced      : false
     };
 
     entry.count += 1;
@@ -347,22 +350,22 @@ export async function invokeWithGuardrail({
         throw new TypeError(`invokeWithGuardrail: contextLimitTokens must be a positive finite number, got ${contextLimitTokens}`);
     }
 
-    const inputBytes              = Buffer.byteLength(inputPayload || '', 'utf8');
-    const inputTokensEstimate     = bytesToTokens(inputBytes);
-    const effectiveSafeTokens     = Number.isFinite(safeProcessingLimitTokens)
+    const inputBytes          = Buffer.byteLength(inputPayload || '', 'utf8');
+    const inputTokensEstimate = bytesToTokens(inputBytes);
+    const effectiveSafeTokens = Number.isFinite(safeProcessingLimitTokens)
         ? safeProcessingLimitTokens
         : Math.floor(contextLimitTokens * DEFAULT_SAFE_FRACTION);
-    const consumerKey             = consumer || model;
+    const consumerKey = consumer || model;
 
     if (inputTokensEstimate > effectiveSafeTokens) {
         const symptom = 'size-precheck-skip';
         const entry   = emitConsumerFriction({
             assetRef,
-            consumer                : consumerKey,
+            consumer                 : consumerKey,
             model,
             symptom,
-            emissionPoint           : 'pre-invocation',
-            suggestionKind          : suggestionKind || deriveSuggestionKind(symptom, assetRef),
+            emissionPoint            : 'pre-invocation',
+            suggestionKind           : suggestionKind || deriveSuggestionKind(symptom, assetRef),
             inputBytes,
             inputTokensEstimate,
             contextLimitTokens,
@@ -382,17 +385,17 @@ export async function invokeWithGuardrail({
         const errTail = String(err?.message || err || '').substring(0, 200);
         const entry   = emitConsumerFriction({
             assetRef,
-            consumer                : consumerKey,
+            consumer                 : consumerKey,
             model,
             symptom,
-            emissionPoint           : 'post-invocation-failure',
-            suggestionKind          : suggestionKind || deriveSuggestionKind(symptom, assetRef),
+            emissionPoint            : 'post-invocation-failure',
+            suggestionKind           : suggestionKind || deriveSuggestionKind(symptom, assetRef),
             inputBytes,
             inputTokensEstimate,
             contextLimitTokens,
             safeProcessingLimitTokens: effectiveSafeTokens,
             serviceDomain,
-            note                    : note || errTail
+            note                     : note || errTail
         });
 
         return {result: null, friction: entry.latestFriction};
