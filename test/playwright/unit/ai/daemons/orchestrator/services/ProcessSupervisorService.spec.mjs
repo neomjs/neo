@@ -8,8 +8,8 @@ import { ProcessSupervisorService } from '../../../../../../../ai/daemons/orches
 function createTestService() {
     const dataDir = `/tmp/process-supervisor-service-test-${Date.now()}-${Math.random()}`;
     fs.ensureDirSync(dataDir);
-    const logEntries = [];
-    const stateCalls = [];
+    const logEntries   = [];
+    const stateCalls   = [];
     const taskOutcomes = [];
 
     const taskDefinitions = {
@@ -109,7 +109,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
     test('runTask spawns child and updates state', () => {
         const { service, mockTaskStateService } = createTestService();
 
-        let spawnCalled = false;
+        let spawnCalled       = false;
         let markSpawnedCalled = false;
 
         service.spawnFn = () => {
@@ -258,8 +258,8 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('#13777: memory-summary-backfill all-deferred stdout marks skipped, not completed', () => {
         const { service, stateCalls, taskOutcomes } = createTestService();
-        const manualChild = createManualChild();
-        let successHooks = 0;
+        const manualChild  = createManualChild();
+        let   successHooks = 0;
 
         service.spawnFn = () => manualChild.child;
 
@@ -393,7 +393,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
         service.runTask('mockTask', 'same-reason');
         service.runTask('mockTask', 'different-reason');
 
-        const skipLogs = logEntries.filter(entry => entry.message.includes('task already running'));
+        const skipLogs        = logEntries.filter(entry => entry.message.includes('task already running'));
         const skippedOutcomes = taskOutcomes.filter(entry => entry.status === 'skipped');
 
         expect(skipLogs.length).toBe(2);
@@ -548,7 +548,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
     test('reapDuplicateListeners defers shared local services without touching listeners', () => {
         const { service } = createTestService();
         const killed = [];
-        let probed = false;
+        let   probed = false;
 
         service.taskDefinitions.mockTask.singletonPort = 8000;
         service.taskDefinitions.mockTask.duplicateListenerPolicy = 'defer';
@@ -621,7 +621,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('superviseTask restarts a down process-match task once the cooldown elapses', () => {
         const {service} = createTestService();
-        const calls     = [];
+        const calls = [];
         service.runTask = (taskName, reason) => { calls.push({taskName, reason}); return true; };
         service.taskStateService.getTaskState = () => ({running: false, lastRunAt: 0});
 
@@ -632,7 +632,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('superviseTask leaves a running task alone — no restart', () => {
         const {service} = createTestService();
-        const calls     = [];
+        const calls = [];
         service.runTask = (taskName, reason) => { calls.push({taskName, reason}); return true; };
         service.taskStateService.getTaskState = () => ({running: true, lastRunAt: 0, pid: 1234});
 
@@ -643,7 +643,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('superviseTask holds off within the cooldown window', () => {
         const {service} = createTestService();
-        const calls     = [];
+        const calls = [];
         service.runTask = (taskName, reason) => { calls.push({taskName, reason}); return true; };
         // lastRunAt only 5s before `now`: still inside the 15s cooldown.
         service.taskStateService.getTaskState = () => ({running: false, lastRunAt: 995_000});
@@ -655,7 +655,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('superviseTask gates a fire-and-exit lane on its liveness probe — UP yields a silent no-op', async () => {
         const {service} = createTestService();
-        const calls     = [];
+        const calls = [];
         service.runTask = (taskName, reason) => { calls.push({taskName, reason}); return true; };
         service.taskStateService.getTaskState = () => ({running: false, lastRunAt: 0});
         service.taskDefinitions = {probeTask: {label: 'Probe Task', livenessProbe: async () => true}};
@@ -669,7 +669,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('superviseTask gates a fire-and-exit lane on its liveness probe — DOWN triggers a restart', async () => {
         const {service} = createTestService();
-        const calls     = [];
+        const calls = [];
         service.runTask = (taskName, reason) => { calls.push({taskName, reason}); return true; };
         service.taskStateService.getTaskState = () => ({running: false, lastRunAt: 0});
         service.taskDefinitions = {probeTask: {label: 'Probe Task', livenessProbe: async () => false}};
@@ -678,5 +678,65 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
         await new Promise(resolve => setTimeout(resolve, 0));
 
         expect(calls).toEqual([{taskName: 'probeTask', reason: 'supervisor-restart'}]);
+    });
+
+    test('superviseTask recycles a RUNNING task whose healthProbe reports sustained-stuck', async () => {
+        const {service} = createTestService();
+        const killed = [];
+        service.killProcess = pid => killed.push(pid);
+        service.taskStateService.getTaskState = () => ({running: true, pid: 9999});
+        service.taskStateService.markRecycled = () => {};
+        service.taskDefinitions = {stuckTask: {label: 'Stuck Task', healthProbe: async () => false}};
+
+        service.superviseTask('stuckTask', 1_000_000, 15000);
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        // The running-but-stuck child is killed → respawned next poll. This is the live recycle
+        // path the detector-only tests never exercised (superviseTask early-returned on running).
+        expect(killed).toEqual([9999]);
+    });
+
+    test('superviseTask leaves a RUNNING task healthy per its healthProbe (no recycle)', async () => {
+        const {service} = createTestService();
+        const killed = [];
+        service.killProcess = pid => killed.push(pid);
+        service.taskStateService.getTaskState = () => ({running: true, pid: 9999});
+        service.taskStateService.markRecycled = () => {};
+        service.taskDefinitions = {stuckTask: {label: 'Stuck Task', healthProbe: async () => true}};
+
+        service.superviseTask('stuckTask', 1_000_000, 15000);
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(killed).toEqual([]);
+    });
+
+    test('superviseTask leaves a RUNNING task WITHOUT a healthProbe alone (no recycle, no respawn)', async () => {
+        const {service} = createTestService();
+        const killed  = [];
+        let   spawned = false;
+        service.killProcess = pid => killed.push(pid);
+        service.runTask     = () => { spawned = true; return true; };
+        service.taskStateService.getTaskState = () => ({running: true, pid: 9999});
+        service.taskDefinitions = {plainTask: {label: 'Plain Task'}};
+
+        service.superviseTask('plainTask', 1_000_000, 15000);
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(killed).toEqual([]);
+        expect(spawned).toBe(false);
+    });
+
+    test('a healthProbe fault never recycles a running child', async () => {
+        const {service} = createTestService();
+        const killed = [];
+        service.killProcess = pid => killed.push(pid);
+        service.taskStateService.getTaskState = () => ({running: true, pid: 9999});
+        service.taskStateService.markRecycled = () => {};
+        service.taskDefinitions = {stuckTask: {label: 'Stuck Task', healthProbe: async () => { throw new Error('probe fault'); }}};
+
+        service.superviseTask('stuckTask', 1_000_000, 15000);
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(killed).toEqual([]);
     });
 });

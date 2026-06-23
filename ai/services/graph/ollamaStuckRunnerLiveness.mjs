@@ -14,7 +14,7 @@
  * failures (sustained over `threshold × cooldown`) classify as stuck. The supervisor's own
  * restart cooldown then bounds the restart cadence (no wildfire).
  *
- * Detect (here) + act (the supervisor restart on a `false` liveness) = the recovery the
+ * Detect (here) + act (the supervisor recycles the running child on a sustained-`false`
  * organism needs for this class. This module owns the **detect** decision only; it holds no
  * privilege and performs no restart.
  *

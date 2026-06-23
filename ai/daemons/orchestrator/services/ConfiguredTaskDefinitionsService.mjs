@@ -198,7 +198,6 @@ function applyConfiguredOllamaTask(tasks) {
         }),
         livenessProbe          : async () => {
             const {ensureOllamaModelsReady} = await import('../../../services/graph/providerReadinessHelper.mjs');
-            const {classifyStuckRunner, probeOllamaServing} = await import('../../../services/graph/ollamaStuckRunnerLiveness.mjs');
 
             try {
                 const result = await ensureOllamaModelsReady({
@@ -220,40 +219,40 @@ function applyConfiguredOllamaTask(tasks) {
                     return false;
                 }
 
-                // Resident — but is the chat runner actually SERVING, or stuck grinding a
-                // pathological request? A residency probe passes a stuck runner; only a real
-                // inference canary, failing SUSTAINED, distinguishes stuck from busy. A false
-                // here triggers the supervisor's cooldown-gated restart; a detector fault must
-                // never itself restart a healthy runner.
-                const stuckCfg  = AiConfig.orchestrator?.providerReadiness?.stuckRunner;
-                const chatModel = roles.find(role => role.role === 'chat')?.model;
-
-                if ((stuckCfg?.enabled ?? false) && chatModel) {
-                    try {
-                        const served  = await probeOllamaServing({
-                            host     : readinessConfig.host,
-                            model    : chatModel,
-                            timeoutMs: stuckCfg.canaryTimeoutMs ?? 10000
-                        });
-                        const verdict = classifyStuckRunner({
-                            served,
-                            consecutiveFailures: consecutiveStuckFailures,
-                            threshold          : stuckCfg.consecutiveFailures ?? 3
-                        });
-
-                        consecutiveStuckFailures = verdict.consecutiveFailures;
-
-                        return verdict.alive;
-                    } catch {
-                        // A stuck-detector fault must never itself restart a healthy runner.
-                        return true;
-                    }
-                }
-
                 return true;
             } catch {
                 return false;
             }
+        },
+        healthProbe            : async () => {
+            // Called by the supervisor for the RUNNING ollama child. A resident model can be stuck —
+            // grinding a pathological request at ~100%×N-cores while serving nothing (residency
+            // probes still pass). Only a real inference canary, failing SUSTAINED (N consecutive
+            // cooldown-gated probes), distinguishes stuck from busy and recycles the child; a single
+            // failure stays healthy so a legitimately-long request is never killed.
+            const stuckCfg  = AiConfig.orchestrator?.providerReadiness?.stuckRunner;
+            const chatModel = roles.find(role => role.role === 'chat')?.model;
+
+            if (!(stuckCfg?.enabled ?? false) || !chatModel) {
+                return true;
+            }
+
+            const {classifyStuckRunner, probeOllamaServing} = await import('../../../services/graph/ollamaStuckRunnerLiveness.mjs');
+
+            const served = await probeOllamaServing({
+                host     : readinessConfig.host,
+                model    : chatModel,
+                timeoutMs: stuckCfg.canaryTimeoutMs ?? 10000
+            });
+            const verdict = classifyStuckRunner({
+                served,
+                consecutiveFailures: consecutiveStuckFailures,
+                threshold          : stuckCfg.consecutiveFailures ?? 3
+            });
+
+            consecutiveStuckFailures = verdict.consecutiveFailures;
+
+            return verdict.alive;
         },
         postSpawn              : async () => {
             const {ensureOllamaModelsReady} = await import('../../../services/graph/providerReadinessHelper.mjs');
