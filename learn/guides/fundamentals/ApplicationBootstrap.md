@@ -49,19 +49,19 @@ The only JavaScript file imported is the `MicroLoader.mjs`, which is loaded as a
 
 ### 2. MicroLoader: Configuration Loading
 
-The `MicroLoader.mjs` is a small script that fetches the application configuration and bootstraps the main thread:
+The `MicroLoader.mjs` is a small script that imports the application configuration and bootstraps the main thread:
 
 ```javascript readonly
-fetch('./neo-config.json').then(r => r.json()).then(d => {
+import(new URL('./neo-config.json', document.baseURI).href, {with: {type: 'json'}}).then(({default: d}) => {
     globalThis.Neo = {config: {...d}};
     import(d.mainPath)
 })
 ```
 
 It performs these steps:
-1. Fetches the `neo-config.json` file from the current directory
-2. Parses the JSON response
-3. Creates a global `Neo` object with the `config` property set to the parsed JSON
+1. Imports the `neo-config.json` file from the application document directory as a JSON module
+2. Reads the module's default export
+3. Creates a global `Neo` object with the `config` property set to the imported JSON data
 4. Dynamically imports the module specified by the `mainPath` property from the config
 
 ### 3. Configuration: neo-config.json
