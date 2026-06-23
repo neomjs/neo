@@ -425,7 +425,8 @@ class DreamService extends Base {
                             sessionId: session.meta.sessionId,
                             error    : toErrorMessage(e)
                         }));
-                        throw e;
+                        logger.warn(`[DreamService] Session ${session.meta.sessionId} failed during memory/session graph ingestion; continuing REM batch.`, e);
+                        continue;
                     }
                     const rawIngestErrors = Array.isArray(ingestStats.errors) ? ingestStats.errors : [];
                     const ingestErrors    = rawIngestErrors.length;
@@ -467,7 +468,8 @@ class DreamService extends Base {
                             sessionId: session.meta.sessionId,
                             error    : toErrorMessage(e)
                         }));
-                        throw e;
+                        logger.warn(`[DreamService] Session ${session.meta.sessionId} failed during Tri-Vector extraction; continuing REM batch.`, e);
+                        continue;
                     }
                     const triVectorTime = ((Date.now() - startTime) / 1000).toFixed(1);
                     logger.info(`[DreamService]   -> Tri-Vector Synthesis took: ${triVectorTime}s`);
@@ -483,9 +485,11 @@ class DreamService extends Base {
                         sessionId: session.meta.sessionId
                     }));
 
-                    const topoStart = Date.now();
+                    const topoStart     = Date.now();
+                    let   conflictCount = 0;
                     try {
                         await TopologyInferenceEngine.extractTopology(session.document, session.meta.sessionId);
+                        conflictCount = await TopologyInferenceEngine.getTopologyConflictCount();
                     } catch (e) {
                         sessionState.topology = {
                             status       : 'failed',
@@ -496,11 +500,11 @@ class DreamService extends Base {
                             sessionId: session.meta.sessionId,
                             error    : toErrorMessage(e)
                         }));
-                        throw e;
+                        logger.warn(`[DreamService] Session ${session.meta.sessionId} failed during topology inference; continuing REM batch.`, e);
+                        continue;
                     }
                     const topoTime = ((Date.now() - topoStart) / 1000).toFixed(1);
                     logger.info(`[DreamService]   -> Topological Conflicts took: ${topoTime}s`);
-                    const conflictCount = await TopologyInferenceEngine.getTopologyConflictCount();
                     sessionState.topology = {
                         status: 'completed',
                         conflictCount
@@ -523,7 +527,8 @@ class DreamService extends Base {
                             sessionId: session.meta.sessionId,
                             error    : toErrorMessage(e)
                         }));
-                        throw e;
+                        logger.warn(`[DreamService] Session ${session.meta.sessionId} failed during TEST_GAP inference; continuing REM batch.`, e);
+                        continue;
                     }
                     const capTime = ((Date.now() - capStart) / 1000).toFixed(1);
                     logger.info(`[DreamService]   -> Session TEST_GAP Inference took: ${capTime}s`);
