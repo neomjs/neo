@@ -650,6 +650,27 @@ class Config extends ConfigProvider {
                     tenantRepoSyncEnabled: leaf(null, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_ENABLED', 'boolean')
                 },
                 /**
+                 * ADR-0026 B1 recovery actuator envelope. Disabled and empty by default: the
+                 * orchestrator may only restart compose services or page deploy targets that are
+                 * explicitly named here by the operator.
+                 * @type {Object}
+                 */
+                recoveryActuator: {
+                    enabled                    : leaf(false, 'NEO_RECOVERY_ACTUATOR_ENABLED', 'boolean'),
+                    allowedComposeServices     : leaf([], 'NEO_RECOVERY_ACTUATOR_COMPOSE_SERVICES', 'csv'),
+                    allowedDeployTargets       : leaf([], 'NEO_RECOVERY_ACTUATOR_DEPLOY_TARGETS', 'csv'),
+                    healAttemptsPath           : leaf(path.resolve(neoRootDir, '.neo-ai-data/orchestrator-daemon/heal-attempts.json'), 'NEO_RECOVERY_ACTUATOR_HEAL_ATTEMPTS_PATH', 'string'),
+                    recoveryRunStateDir        : leaf(path.resolve(neoRootDir, '.neo-ai-data/orchestrator-daemon/recovery-runs'), 'NEO_RECOVERY_ACTUATOR_RUN_STATE_DIR', 'string'),
+                    recoveryRunRetentionLimit  : leaf(100, 'NEO_RECOVERY_ACTUATOR_RUN_RETENTION_LIMIT', 'number'),
+                    maxAttemptsPerWindow       : leaf(3, 'NEO_RECOVERY_ACTUATOR_MAX_ATTEMPTS_PER_WINDOW', 'number'),
+                    maxAttemptsWindowMs        : leaf(HOUR_MS, 'NEO_RECOVERY_ACTUATOR_MAX_ATTEMPTS_WINDOW_MS', 'number'),
+                    baseBackoffMs              : leaf(5 * 60 * 1000, 'NEO_RECOVERY_ACTUATOR_BASE_BACKOFF_MS', 'number'),
+                    maxBackoffMs               : leaf(HOUR_MS, 'NEO_RECOVERY_ACTUATOR_MAX_BACKOFF_MS', 'number'),
+                    verifyCooldownMs           : leaf(60 * 1000, 'NEO_RECOVERY_ACTUATOR_VERIFY_COOLDOWN_MS', 'number'),
+                    healthyObservationThreshold: leaf(1, 'NEO_RECOVERY_ACTUATOR_HEALTHY_OBSERVATION_THRESHOLD', 'number'),
+                    operatorPageTarget         : leaf('AGENT:*', 'NEO_RECOVERY_ACTUATOR_OPERATOR_PAGE_TARGET', 'string')
+                },
+                /**
                  * Optional local Neo repo roots for the primary-dev-sync lane.
                  * Keep the template machine-neutral; set real absolute paths in gitignored
                  * `ai/config.mjs` or via `NEO_ORCHESTRATOR_DEV_SYNC_ROOTS`.

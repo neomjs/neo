@@ -159,6 +159,21 @@ export const TIER1_DEFAULTS = deepFreeze(Neo.clone({
             goldenPathMs                     : HOUR_MS,
             swarmHeartbeatMs                 : 20 * 60 * 1000,
             embedDrainLivenessWatchdogCheckMs: HOUR_MS
+        },
+        recoveryActuator: {
+            enabled                    : false,
+            allowedComposeServices     : [],
+            allowedDeployTargets       : [],
+            healAttemptsPath           : path.resolve(neoRootDir, '.neo-ai-data/orchestrator-daemon/heal-attempts.json'),
+            recoveryRunStateDir        : path.resolve(neoRootDir, '.neo-ai-data/orchestrator-daemon/recovery-runs'),
+            recoveryRunRetentionLimit  : 100,
+            maxAttemptsPerWindow       : 3,
+            maxAttemptsWindowMs        : HOUR_MS,
+            baseBackoffMs              : 5 * 60 * 1000,
+            maxBackoffMs               : HOUR_MS,
+            verifyCooldownMs           : 60 * 1000,
+            healthyObservationThreshold: 1,
+            operatorPageTarget         : 'AGENT:*'
         }
     }
 }, true, true));
