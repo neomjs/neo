@@ -384,7 +384,7 @@ class Config extends ConfigProvider {
                      * one pathological request (e.g. a too-large context prefill) grinding at
                      * ~100%×N-cores while serving nothing, because `OLLAMA_NUM_PARALLEL=1` queues
                      * everything behind it (the empirical anchor: a `gemma4` runner pegged 58h with
-                     * an idle orchestrator and no users). The supervised `livenessProbe` restarts the
+                     * an idle orchestrator and no users). The supervised `healthProbe` restarts the
                      * runner only after `consecutiveFailures` SUSTAINED inference-canary failures —
                      * the false-positive guard against restarting a legitimately-long request — and
                      * the supervisor restart cooldown bounds the cadence (no thrash).
