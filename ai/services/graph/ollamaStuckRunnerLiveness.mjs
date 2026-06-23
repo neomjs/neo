@@ -99,9 +99,12 @@ export async function probeOllamaServing({host, model, timeoutMs, fetchFn = fetc
             signal: controller.signal
         });
 
-        // Any complete HTTP response (even a model-level error JSON) proves the runner is
-        // serving requests, not stuck. A timeout/abort/network error means it is not.
-        return Boolean(response && response.ok);
+        // Any COMPLETED HTTP response — including a non-2xx model/config error — proves the
+        // runner is responsive (it served *this* request promptly), so it is NOT stuck. Only a
+        // timeout / abort / network error (no response — queued behind a grinding request) is the
+        // stuck signature. The status code is deliberately ignored: a 4xx/5xx that returns fast
+        // must never count toward a recycle (the false-positive guard).
+        return Boolean(response);
     } catch {
         return false;
     } finally {

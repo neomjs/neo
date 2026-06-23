@@ -51,6 +51,13 @@ test.describe('ollamaStuckRunnerLiveness (stuck-runner detect)', () => {
             expect(await probeOllamaServing({host: 'http://ollama.test', model: 'gemma4:26b', timeoutMs: 50, fetchFn: okFetch})).toBe(true);
         });
 
+        test('a completed non-2xx response still means serving — a fast model/config error is NOT stuck', async () => {
+            // The false-positive guard: a runner that answers promptly with a 4xx/5xx is responsive,
+            // not queued behind a grind. It must NOT be counted toward a recycle (Cycle-2 fix).
+            const errorFetch = async () => ({ok: false, status: 500});
+            expect(await probeOllamaServing({host: 'http://ollama.test', model: 'gemma4:26b', timeoutMs: 50, fetchFn: errorFetch})).toBe(true);
+        });
+
         test('a thrown/aborted request means not serving (the stuck signature)', async () => {
             const throwingFetch = async () => { throw new Error('aborted'); };
             expect(await probeOllamaServing({host: 'http://ollama.test', model: 'gemma4:26b', timeoutMs: 50, fetchFn: throwingFetch})).toBe(false);
