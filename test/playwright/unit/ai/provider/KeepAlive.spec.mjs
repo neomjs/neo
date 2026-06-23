@@ -1,6 +1,6 @@
 import {setup} from '../../../setup.mjs';
 
-const appName = 'AiProviderKeepAliveTest';
+const appName      = 'AiProviderKeepAliveTest';
 const statusSchema = {
     type      : 'object',
     properties: {
@@ -50,7 +50,7 @@ function createReadableStream(chunks) {
     };
 }
 
-async function createOllamaChatServer(payloads) {
+async function createOllamaChatServer(payloads, responsePayload = {message: {content: 'ok'}}) {
     const server = http.createServer((req, res) => {
         let body = '';
 
@@ -58,7 +58,7 @@ async function createOllamaChatServer(payloads) {
         req.on('end', () => {
             payloads.push(JSON.parse(body));
             res.writeHead(200, {'Content-Type': 'application/json'});
-            res.end(JSON.stringify({message: {content: 'ok'}}));
+            res.end(JSON.stringify(responsePayload));
         });
     });
 
@@ -75,10 +75,17 @@ async function createOllamaChatServer(payloads) {
 test.describe('AI provider keep_alive payload shape (#12080, #12089)', () => {
     let OllamaProvider;
     let OpenAiCompatibleProvider;
+    let buildOllamaEvalAttribution;
+    let calculateOllamaTokensPerSecond;
+    let extractOllamaEvalSample;
     let originalFetch;
 
     test.beforeAll(async () => {
-        OllamaProvider           = (await import('../../../../../ai/provider/Ollama.mjs')).default;
+        const ollamaModule = await import('../../../../../ai/provider/Ollama.mjs');
+        OllamaProvider           = ollamaModule.default;
+        buildOllamaEvalAttribution = ollamaModule.buildOllamaEvalAttribution;
+        calculateOllamaTokensPerSecond = ollamaModule.calculateOllamaTokensPerSecond;
+        extractOllamaEvalSample  = ollamaModule.extractOllamaEvalSample;
         OpenAiCompatibleProvider = (await import('../../../../../ai/provider/OpenAiCompatible.mjs')).default;
     });
 
@@ -90,9 +97,172 @@ test.describe('AI provider keep_alive payload shape (#12080, #12089)', () => {
         globalThis.fetch = originalFetch;
     });
 
+    test('Ollama eval metrics normalize chat and embedding raw counters (#13923)', () => {
+        expect(calculateOllamaTokensPerSecond(40, 2_000_000_000)).toBe(20);
+        expect(calculateOllamaTokensPerSecond(40, 0)).toBeNull();
+
+        const chatSample = extractOllamaEvalSample({
+            model               : 'gemma4:26b',
+            eval_count          : 80,
+            eval_duration       : 4_000_000_000,
+            prompt_eval_count   : 20,
+            prompt_eval_duration: 1_000_000_000
+        }, {role: 'chat'});
+
+        const embeddingSample = extractOllamaEvalSample({
+            embeddings          : [[0.1, 0.2]],
+            prompt_eval_count   : '64',
+            prompt_eval_duration: '2000000000'
+        }, {
+            role : 'embedding',
+            model: 'qwen3-embedding'
+        });
+
+        expect(chatSample).toMatchObject({
+            model                    : 'gemma4:26b',
+            role                     : 'chat',
+            evalCount                : 80,
+            evalTokensPerSecond      : 20,
+            promptEvalCount          : 20,
+            promptEvalTokensPerSecond: 20,
+            totalEvalCount           : 100,
+            totalEvalDurationNs      : 5_000_000_000,
+            totalTokensPerSecond     : 20
+        });
+
+        expect(embeddingSample).toMatchObject({
+            model                    : 'qwen3-embedding',
+            role                     : 'embedding',
+            evalCount                : null,
+            promptEvalCount          : 64,
+            promptEvalTokensPerSecond: 32,
+            totalEvalCount           : 64,
+            totalTokensPerSecond     : 32
+        });
+    });
+
+    test('Ollama eval attribution separates busy, stuck, and unknown models (#13923)', () => {
+        const attribution = buildOllamaEvalAttribution([
+            extractOllamaEvalSample({
+                model        : 'gemma4:26b',
+                eval_count   : 120,
+                eval_duration: 3_000_000_000
+            }, {role: 'chat'}),
+            extractOllamaEvalSample({
+                model               : 'qwen3-embedding',
+                prompt_eval_count   : 0,
+                prompt_eval_duration: 2_000_000_000
+            }, {role: 'embedding'}),
+            extractOllamaEvalSample({model: 'resident-no-counters'}, {role: 'chat'})
+        ]);
+
+        expect(attribution.primaryLoad).toMatchObject({
+            model          : 'gemma4:26b',
+            role           : 'chat',
+            state          : 'busy',
+            tokensPerSecond: 40
+        });
+        expect(attribution.busyModels.map(item => item.model)).toEqual(['gemma4:26b']);
+        expect(attribution.stuckModels.map(item => item.model)).toEqual(['qwen3-embedding']);
+        expect(attribution.models.find(item => item.model === 'resident-no-counters')).toMatchObject({
+            state          : 'unknown',
+            tokensPerSecond: null
+        });
+        expect(attribution.roleLoad.chat).toMatchObject({
+            role           : 'chat',
+            modelCount     : 2,
+            tokensPerSecond: 40
+        });
+        expect(attribution.roleLoad.embedding).toMatchObject({
+            role           : 'embedding',
+            modelCount     : 1,
+            tokensPerSecond: 0
+        });
+        expect(attribution.primaryRole).toMatchObject({role: 'chat'});
+    });
+
+    test('Ollama provider returns normalized eval samples for chat and embedding (#13923)', async () => {
+        const payloads = [];
+        const server   = http.createServer((req, res) => {
+            let body = '';
+
+            req.on('data', chunk => body += chunk);
+            req.on('end', () => {
+                payloads.push({url: req.url, body: JSON.parse(body)});
+                res.writeHead(200, {'Content-Type': 'application/json'});
+
+                if (req.url === '/api/embed') {
+                    res.end(JSON.stringify({
+                        embeddings          : [[0.1, 0.2]],
+                        prompt_eval_count   : 30,
+                        prompt_eval_duration: 2_000_000_000
+                    }));
+                    return;
+                }
+
+                res.end(JSON.stringify({
+                    message      : {content: 'ok'},
+                    eval_count   : 20,
+                    eval_duration: 1_000_000_000
+                }));
+            });
+        });
+        await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+
+        try {
+            const provider = Neo.create(OllamaProvider, {
+                host          : `http://127.0.0.1:${server.address().port}`,
+                modelName     : 'gemma4-test',
+                embeddingModel: 'qwen3-embedding'
+            });
+
+            const chatResult      = await provider.generate('hello');
+            const embeddingResult = await provider.embed('hello');
+            const attribution     = buildOllamaEvalAttribution([
+                chatResult.evalSample,
+                embeddingResult.evalSample
+            ]);
+
+            expect(chatResult.evalSample).toMatchObject({
+                model               : 'gemma4-test',
+                role                : 'chat',
+                evalCount           : 20,
+                evalTokensPerSecond : 20,
+                totalTokensPerSecond: 20
+            });
+            expect(embeddingResult.evalSample).toMatchObject({
+                model                    : 'qwen3-embedding',
+                role                     : 'embedding',
+                promptEvalCount          : 30,
+                promptEvalTokensPerSecond: 15,
+                totalTokensPerSecond     : 15
+            });
+            expect(attribution.models).toEqual([
+                expect.objectContaining({
+                    model          : 'gemma4-test',
+                    role           : 'chat',
+                    state          : 'busy',
+                    tokensPerSecond: 20
+                }),
+                expect.objectContaining({
+                    model          : 'qwen3-embedding',
+                    role           : 'embedding',
+                    state          : 'busy',
+                    tokensPerSecond: 15
+                })
+            ]);
+            expect(attribution.roleLoad.chat.throughputShare).toBeCloseTo(20 / 35);
+            expect(attribution.roleLoad.embedding.throughputShare).toBeCloseTo(15 / 35);
+        } finally {
+            await new Promise(resolve => server.close(resolve));
+        }
+
+        expect(payloads.map(item => item.url)).toEqual(['/api/chat', '/api/embed']);
+    });
+
     test('Ollama.generate() defaults and overrides keep_alive at the top-level payload', async () => {
         const payloads = [];
-        const server = await createOllamaChatServer(payloads);
+        const server   = await createOllamaChatServer(payloads);
 
         try {
             const provider = Neo.create(OllamaProvider, {
@@ -100,7 +270,7 @@ test.describe('AI provider keep_alive payload shape (#12080, #12089)', () => {
                 modelName: 'gemma4-test'
             });
 
-            const defaultResult = await provider.generate('hello', {temperature: 0.2});
+            const defaultResult  = await provider.generate('hello', {temperature: 0.2});
             const overrideResult = await provider.generate('hello', {keep_alive: 0, temperature: 0.2});
 
             expect(defaultResult.content).toBe('ok');
