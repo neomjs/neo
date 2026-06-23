@@ -15,8 +15,8 @@
  * restart cooldown then bounds the restart cadence (no wildfire).
  *
  * Detect (here) + act (the supervisor recycles the running child on a sustained-`false`
- * organism needs for this class. This module owns the **detect** decision only; it holds no
- * privilege and performs no restart.
+ * healthProbe) = the recovery the organism needs for this class. This module owns the **detect**
+ * decision only; it holds no privilege and performs no restart.
  *
  * @module ai/services/graph/ollamaStuckRunnerLiveness
  */
@@ -34,8 +34,8 @@
  * @param {Number}  [options.consecutiveFailures=0] Prior consecutive canary failures for this target.
  * @param {Number}  options.threshold             Consecutive failures that classify as stuck (integer ≥ 1).
  * @returns {{alive: Boolean, stuck: Boolean, consecutiveFailures: Number}}
- *   `alive` is the value to return from a `livenessProbe` (false ⇒ the supervisor restarts);
- *   `stuck` is true only on the transition that triggers the restart;
+ *   `alive` is the value the ollama `healthProbe` returns (false ⇒ the supervisor recycles the child);
+ *   `stuck` is true only on the transition that triggers the recycle;
  *   `consecutiveFailures` is the next counter value the caller must persist.
  */
 export function classifyStuckRunner({served, consecutiveFailures = 0, threshold} = {}) {
