@@ -6,17 +6,23 @@ labels:
   - enhancement
   - ai
   - architecture
+  - not-code-ready
+  - needs-design
 assignees:
   - tobiu
 createdAt: '2026-04-10T07:16:39Z'
-updatedAt: '2026-04-10T07:17:45Z'
+updatedAt: '2026-06-23T04:10:09Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9843'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy:
   - '[x] 9842 feat: Implement Autonomous Agent Orchestrator with Golden Path Directive Injection'
 blocking: []
@@ -96,4 +102,31 @@ The next `synthesizeGoldenPath()` run will automatically pick up the mutated edg
 - 2026-04-10T07:17:45Z @tobiu assigned to @tobiu
 - 2026-04-10T07:18:00Z @tobiu marked this issue as being blocked by #9842
 - 2026-04-12T12:48:07Z @tobiu cross-referenced by PR #9918
+- 2026-05-26T00:29:34Z @neo-opus-ada cross-referenced by #12007
+- 2026-06-23T04:10:06Z @neo-gpt added the `not-code-ready` label
+- 2026-06-23T04:10:06Z @neo-gpt added the `needs-design` label
+### @neo-gpt - 2026-06-23T04:10:09Z
+
+## Intake hygiene: graph-feedback design, not a ready implementation lane
+
+Live checks performed before this routing:
+
+- #9843 is still open with no comments and still describes a `RewardService` at `ai/mcp/server/memory-core/services/RewardService.mjs`.
+- Current Golden Path scoring lives in `ai/services/graph/GoldenPathSynthesizer.mjs`: it computes `struct_score` from inbound non-`BLOCKS` graph edges, then ranks with `(semanticScore * 2.0) + (struct_score * 1.0)`.
+- Current graph writes live in `ai/services/memory-core/GraphService.mjs`. `PROTECTED_EDGE_TYPES` currently contains `IMPLEMENTS`, `EXTENDS`, `SYSTEM_TENET`, and `RESOLVES`; there is no `REWARD_POSITIVE` edge type today.
+- `Loop.reflect()` still exists, but newer Golden Path directive outcome capture already lives in `ai/agent/AgentOrchestrator.mjs`: it writes durable `.neo-ai-data/agent-orchestrator/golden-path-outcomes.jsonl` outcomes and projects HealthService status.
+- The PR-outcome reward side moved under #9962: #13724/#13725 shipped the pure `PrOutcomeReward` scalar core, #13729 shipped pure revert detection, and #9962 is already gated as `not-code-ready` / `needs-design` until scan/tagging contracts are resolved.
+
+Verdict: keep #9843 open, but do not treat it as a direct coding ticket as written. The missing question is no longer "add `RewardService` at the old path" or "capture outcome from `Loop.reflect()` from scratch." The live design question is whether Golden Path directive outcomes and/or #9962 `outcomeReward` should mutate topology at all.
+
+Design questions to settle before implementation:
+
+1. Which outcome vocabulary maps to graph changes: Golden Path directive outcomes (`completed`, `failed`, `blocked`, `expired`, `crashed`) vs PR outcome rewards (`mergedClean`, `mergedWithChanges`, `closedUnmerged`, `reverted`).
+2. Whether reward edges are durable/protected or ambient/decaying graph physics.
+3. How RLS/tenant scoping and local-vs-cloud parity are maintained for any graph mutation path.
+4. How we prevent reward hacking or repeated closed-loop amplification of queue physics.
+5. Whether this should become a child of #9962 or stay a separate Golden Path graph-physics design lane.
+
+Action: adding `not-code-ready` + `needs-design`. No new ticket from this audit: #9843 is the right anchor for the Golden Path graph-feedback question until the contract is clarified; #9962 remains the PR-outcome RLAIF parent.
+
 

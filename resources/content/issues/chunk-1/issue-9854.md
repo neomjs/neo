@@ -6,16 +6,22 @@ labels:
   - documentation
   - Blog Post
   - ai
+  - not-code-ready
+  - needs-design
 assignees: []
 createdAt: '2026-04-10T08:58:54Z'
-updatedAt: '2026-04-10T08:58:54Z'
+updatedAt: '2026-06-23T03:02:52Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9854'
 author: tobiu
-commentsCount: 0
-parentIssue: null
+commentsCount: 1
+parentIssue: 13383
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy: []
 blocking: []
 ---
@@ -92,4 +98,26 @@ This blog post positions Neo.mjs as the established leader in multi-window web a
 - 2026-04-10T08:58:57Z @tobiu added the `Blog Post` label
 - 2026-04-10T08:58:57Z @tobiu added the `ai` label
 - 2026-04-20T02:07:08Z @tobiu cross-referenced by #10120
+- 2026-06-15T18:48:51Z @neo-opus-vega cross-referenced by #13383
+- 2026-06-15T18:49:46Z @neo-opus-vega added parent issue #13383
+- 2026-06-15T23:02:27Z @neo-opus-vega cross-referenced by #13394
+- 2026-06-23T03:02:40Z @neo-gpt added the `not-code-ready` label
+- 2026-06-23T03:02:40Z @neo-gpt added the `needs-design` label
+### @neo-gpt - 2026-06-23T03:02:52Z
+
+[ARCH_ALIGNMENT]
+
+Intake classification from the 2026-06-23 lane-pickup sweep: **not-code-ready / needs-design**, not a direct blog-authoring pickup yet.
+
+Evidence checked:
+
+- Live ticket body is still the April outline and contains several external / competitive claims (`Figma`, Chrome APIs, BroadcastChannel experiments, `industry is only now discovering this pattern`, `Neo solved 7 years ago`) without linked, current sources. Under the blog-post guide, those claims must be verified and cited before drafting, or softened/cut.
+- The current blog-post substrate requires a thesis-first hero-piece shape, a source ledger for every external claim, zero over-claim flavors, and cross-family review before shipping. The ticket predates that guide and does not yet encode those gates.
+- Duplicate/successor sweep found no merged post resolving #9854, but it does overlap newer public-narrative lanes: #13383 (v13 blog-post stream) and #9850 (Off the Main Thread — 2026 Status Report). The relation needs to be decided before authoring so this does not become a second overlapping architecture-status post.
+- KB confirms the internal Neo source material exists (`WorkerArchitecture`, `MultiWindow`, `NeuralLink`, portal config / demos), so the topic remains valuable. The gap is not the technical substrate; it is the public-artifact framing and source discipline.
+- Memory Core raw query returned no relevant prior-session hits for this #9854 blog framing.
+
+Re-entry shape: refresh the brief first. It should name the thesis, list the exact internal receipts, list the external claims with current source URLs or mark them for removal, decide whether the post stands alone or is folded into #9850/#13383, and keep the mandatory cross-family review bar visible. After that, a blog PR can be a focused authoring lane.
+
+- 2026-06-23T03:08:15Z @neo-gpt cross-referenced by #9850
 

@@ -6,19 +6,25 @@ labels:
   - enhancement
   - ai
   - architecture
+  - not-code-ready
+  - needs-design
 assignees:
   - tobiu
 createdAt: '2026-04-10T07:17:09Z'
-updatedAt: '2026-04-10T07:17:48Z'
+updatedAt: '2026-06-23T04:12:45Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9844'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy:
-  - '[ ] 9845 R&D: Evaluate and Configure Linter for Neo.mjs Custom Code Style'
+  - '[x] 9845 R&D: Evaluate and Configure Linter for Neo.mjs Custom Code Style'
   - '[x] 9842 feat: Implement Autonomous Agent Orchestrator with Golden Path Directive Injection'
 blocking: []
 ---
@@ -103,4 +109,32 @@ The CommitGate result (success/failure/PR URL) feeds into the Reward Signal pipe
 - 2026-04-28T11:10:37Z @neo-opus-ada cross-referenced by PR #10471
 - 2026-04-28T11:18:31Z @neo-gemini-pro cross-referenced by #10472
 - 2026-04-28T11:29:19Z @neo-opus-ada cross-referenced by PR #10473
+- 2026-06-23T04:12:44Z @neo-gpt added the `not-code-ready` label
+- 2026-06-23T04:12:44Z @neo-gpt added the `needs-design` label
+### @neo-gpt - 2026-06-23T04:12:45Z
+
+## Intake hygiene: safe-commit lane needs redesign before code
+
+Live checks performed before this routing:
+
+- The predecessor #9842 is closed by PR #9918, and `package.json` now exposes `npm run ai:agent` through the current `ai/scripts/runners/runAgent.mjs` path.
+- There is no `CommitGate` implementation in the repo, and the proposed `agent-task:review` label does not exist.
+- The repo now has later safety substrates that #9844 predates: `npm run agent-preflight`, `.husky/pre-commit`, `.husky/pre-push`, `check-branch-discipline`, lint-staged source gates, PR-body lint guidance, and the pull-request workflow pointer added by #13847.
+- The GitHub Workflow MCP surface does not provide a commit/push/create-PR tool matching this issue body. It can manage issues/comments/reviews, checkout PRs, and run guarded sync paths; it is not the commit pipeline described here.
+- The autonomous agent runner can connect MCP servers, but commit/PR authority is a capability-boundary decision. `resolveAllowedTools` is opt-in and fail-open per server today; a real autonomous commit lane must start from the capability matrix and tool exposure contract, not from a stale utility injected into `Loop.reflect()`.
+- #9843, which this issue names as the reward feedback consumer, is now gated as `not-code-ready` / `needs-design` because its graph-feedback contract is unresolved.
+
+Verdict: keep #9844 open as the safety-boundary anchor, but do not treat it as a ready implementation ticket. The direct body is stale: it assumes a label that does not exist, an MCP PR-creation surface that does not exist, and a reward integration that is now explicitly design-gated.
+
+Required design contract before implementation:
+
+1. Define whether autonomous agents are allowed to own local git writes at all, and under which model/profile/tool tier.
+2. If yes, enforce branch isolation before the first tracked file edit, not only before commit.
+3. Compose existing gates instead of re-inventing them: `agent-preflight`, pre-commit lint-staged checks, branch discipline, ticket assignment, PR-body lint, and explicit `--base dev` behavior.
+4. Define the failure surface: where failed preflight/commit/push/PR creation lands (`AgentOrchestrator` outcome JSONL, dead-letter, A2A handoff, HealthService, or a separate ledger).
+5. Define local-vs-cloud parity. A cloud deployment may not have the same writable checkout, git credentials, or branch authority as a local harness.
+6. Decide whether this remains a single issue or becomes a small epic for autonomous git-write capability. Do not implement the April `CommitGate` body as-is.
+
+Action: adding `not-code-ready` + `needs-design`. No new ticket from this audit: #9844 itself is the right anchor for the autonomous commit/PR safety contract.
+
 

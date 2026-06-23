@@ -1,7 +1,7 @@
 ---
 id: 9845
 title: 'R&D: Evaluate and Configure Linter for Neo.mjs Custom Code Style'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - developer-experience
@@ -9,17 +9,22 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-04-10T07:17:36Z'
-updatedAt: '2026-04-10T07:17:50Z'
+updatedAt: '2026-06-23T04:14:22Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9845'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy: []
 blocking:
   - '[ ] 9844 feat: Implement Safe Commit Pipeline for Autonomous Agent Execution'
+closedAt: '2026-06-23T04:14:22Z'
 ---
 # R&D: Evaluate and Configure Linter for Neo.mjs Custom Code Style
 
@@ -88,4 +93,25 @@ This is a **research and design** ticket, not an implementation ticket. The deli
 - 2026-04-10T07:17:38Z @tobiu added the `ai` label
 - 2026-04-10T07:17:50Z @tobiu assigned to @tobiu
 - 2026-04-10T07:18:01Z @tobiu marked this issue as blocking #9844
+- 2026-06-21T20:19:09Z @neo-opus-ada cross-referenced by #13813
+### @neo-gpt - 2026-06-23T04:14:21Z
+
+## Resolved by successor lint-tooling chain
+
+Live checks performed before this close:
+
+- #9845's original premise said Neo had no automated linting infrastructure and needed an ESLint/Biome/Prettier R&D pass.
+- The later formatter/lint chain answered that question with a Neo-native `buildScripts/util/check-block-alignment.mjs` path instead of Prettier or stock ESLint/Biome. The key decision is captured on #13556: Prettier was rejected because it de-aligns Neo's house style; ESLint `key-spacing` alone could not cover import-`from` or declaration-block alignment; the repo-local `check-*` lint family was the right substrate.
+- #13556 is closed, and PR #13558 shipped the initial block-alignment lint + `--fix`.
+- PR #13564 extended it to object-literal colons and declaration blocks.
+- PR #13676 guarded template literals.
+- #13720 / PR #13721 diff-scoped the pre-commit path to staged-added lines.
+- #13896 / PR #13897 closed the same-line declaration drift that surfaced in later operator review.
+- `package.json` now exposes `npm run agent-preflight`, and lint-staged runs the current lint family (`check-whitespace`, `check-shorthand`, `check-jsdoc-types`, `check-ticket-archaeology`, `check-block-alignment --staged`, plus AiConfig mutation checks for tests).
+
+Verdict: #9845 is no longer a live R&D ticket. The broad tool-selection question has graduated into shipped repo-native lint tooling, and the original "no automated linting infrastructure" premise is false on current `dev`.
+
+Closing as completed by the successor chain. Residual formatter gaps should continue as narrow follow-ups against the existing `check-block-alignment` contract, like #13896 did, not by reopening this broad April R&D ticket.
+
+- 2026-06-23T04:14:22Z @neo-gpt closed this issue
 

@@ -28,7 +28,7 @@ subIssues:
   - '[x] 9497 Grid Multi-Body: Split Column Collections and Orchestration'
   - '[x] 9498 Grid Multi-Body: Infinite Canvas Cross-Window Column Drag & Drop'
   - '[x] 9499 Grid Multi-Body: Test Suite Refactoring & Expansion'
-  - '[ ] 9611 Grid Multi-Body: Native Vertical Scrollbar & Alignment Spacer'
+  - '[x] 9611 Grid Multi-Body: Native Vertical Scrollbar & Alignment Spacer'
   - '[x] 9612 Grid Multi-Body: Scrollbar Refactoring and Vertical Restoration'
   - '[x] 9613 Grid Multi-Body: Fix horizontal DragScroll and Mousewheel translation'
   - '[x] 9608 Fix Event Resolution and Parent Hierarchy Regressions in Nested Sub-Grids'
@@ -45,15 +45,19 @@ subIssues:
   - '[x] 9625 Multi-Body Grid: Visually delegate native vertical scrollbar UX with CSS'
   - '[x] 9614 Grid Multi-Body: Fix Horizontal Row Clipping & Scrollbar SCSS'
   - '[x] 9626 Epic: Grid Unified Scrolling & VDOM Orchestration'
-  - '[ ] 9635 Grid Multi-Body: Restoring Vertical Scrollbar for Dual-Pipeline GPU Thumb Pinning'
+  - '[x] 9635 Grid Multi-Body: Restoring Vertical Scrollbar for Dual-Pipeline GPU Thumb Pinning'
   - '[x] 9636 Grid Multi-Body: Simplify GridDragScroll Scrollbar Hit Detection'
   - '[ ] 9637 Grid Multi-Body: E2E Telemetry Adjustments for Dual-Pipeline Scrolling'
   - '[x] 9868 R&D: Grid Multi-Body Selection Architecture Redesign'
   - '[ ] 9872 Grid Multi-Body: 3-Tier Component Orchestration and Architecture Refactoring'
   - '[x] 12878 Column-header DnD resort misbehaves in locked multi-region grids'
   - '[x] 12883 Column drag to the locked-end region fails to re-home (silent)'
-subIssuesCompleted: 28
+subIssuesCompleted: 30
 subIssuesTotal: 37
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy: []
 blocking: []
 ---

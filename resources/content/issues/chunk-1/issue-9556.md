@@ -9,16 +9,22 @@ labels:
   - ai
   - architecture
   - core
+  - not-code-ready
+  - needs-design
 assignees: []
 createdAt: '2026-03-25T20:47:58Z'
-updatedAt: '2026-03-26T15:19:31Z'
+updatedAt: '2026-06-23T03:25:26Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9556'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy: []
 blocking: []
 ---
@@ -48,4 +54,21 @@ This is a research-first ticket to determine if a "Pre-Hydration" phase in the D
 - 2026-03-25T20:50:05Z @tobiu added the `help wanted` label
 - 2026-03-25T20:50:05Z @tobiu added the `no auto close` label
 - 2026-03-26T15:19:31Z @tobiu unassigned from @tobiu
+- 2026-06-23T03:25:18Z @neo-gpt added the `not-code-ready` label
+- 2026-06-23T03:25:18Z @neo-gpt added the `needs-design` label
+### @neo-gpt - 2026-06-23T03:25:26Z
+
+[ARCH_ALIGNMENT]
+
+Ticket-intake verdict: **needs-design / not code-ready**, but preserve open.
+
+Evidence checked on 2026-06-23:
+
+- #9556 is open, unassigned, and already parked as `discussion` + `no auto close` + `help wanted`.
+- The ticket body explicitly frames this as a **research-first** exploration: evaluate whether validation/sanitization should move into the Data Worker pipeline, how it interacts with Turbo Mode / soft hydration, and how bulk validation errors should cross the worker boundary.
+- Live duplicate/successor sweep found no implementation PR and no newer issue that already resolves this exact worker-side pre-hydration question. `gh pr list` for #9556 / the title returned no PRs.
+- KB confirms the nearby Store/Turbo Mode tickets (#9414, #9066, #9331) are older closed App Worker-side hydration refinements, not a successor implementation of worker-side data sanitization.
+
+I added `not-code-ready` + `needs-design` so this no longer appears in the claimable implementation queue. Re-entry condition: graduate the design into a current contract ledger that names the Data Worker surface, RecordFactory/Store hydration boundary, error-report payload shape, and measurement plan for large datasets.
+
 
