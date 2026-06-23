@@ -3,6 +3,10 @@ import {execFile}                  from 'child_process';
 import {Memory_Config as aiConfig} from '../../services.mjs';
 import logger                      from '../../mcp/server/memory-core/logger.mjs';
 import {
+    buildOllamaEvalAttribution,
+    extractOllamaEvalSample
+} from '../../provider/Ollama.mjs';
+import {
     isGraphModelProviderSupported,
     isOpenAiCompatibleProvider,
     resolveGraphModelProvider
@@ -231,11 +235,32 @@ export async function warmOllamaRoleModel({
         throw new Error(`Ollama ${role} model warmup failed for '${model}': HTTP ${response.status}${text ? ` - ${text}` : ''}`);
     }
 
+    let raw = null;
+
     if (typeof response.text === 'function') {
-        await response.text();
+        const text = await response.text();
+
+        if (text.trim()) {
+            try {
+                raw = JSON.parse(text);
+            } catch (error) {
+                raw = null;
+            }
+        }
+    } else if (typeof response.json === 'function') {
+        try {
+            raw = await response.json();
+        } catch (error) {
+            raw = null;
+        }
     }
 
-    return {model, role, endpoint};
+    return {
+        model,
+        role,
+        endpoint,
+        evalSample: extractOllamaEvalSample(raw, {model, role})
+    };
 }
 
 /**
@@ -819,6 +844,8 @@ export async function ensureOllamaModelsReady({
     const warmedModels               = [];
     const failedModels               = [];
     const attemptedModels            = [];
+    const evalSamples                = [];
+    const getEvalAttribution         = () => evalSamples.length ? buildOllamaEvalAttribution(evalSamples) : null;
 
     for (const role of rolesToWarm) {
         const roleEnvelope = toRoleEnvelope(role);
@@ -833,8 +860,16 @@ export async function ensureOllamaModelsReady({
                 warmOptions.contextLength = role.contextLength;
             }
 
-            await warmModel(role, warmOptions);
-            warmedModels.push(roleEnvelope);
+            const warmResult = await warmModel(role, warmOptions);
+
+            if (warmResult?.evalSample) {
+                evalSamples.push(warmResult.evalSample);
+            }
+
+            warmedModels.push({
+                ...roleEnvelope,
+                ...(warmResult?.evalSample ? {evalSample: warmResult.evalSample} : {})
+            });
         } catch (error) {
             failedModels.push({
                 ...roleEnvelope,
@@ -875,7 +910,7 @@ export async function ensureOllamaModelsReady({
             return {
                 ready,
                 degraded,
-                provider       : 'ollama',
+                provider             : 'ollama',
                 host,
                 warmedModels,
                 attemptedModels,
@@ -883,16 +918,17 @@ export async function ensureOllamaModelsReady({
                 missingModels,
                 insufficientContextModels,
                 requiredModels,
-                availableModels: toIds(availableModels),
-                extraModels    : getExtraModels(availableModels),
-                loadedContexts : Object.fromEntries(availableModels.map(item => [item.id, item.contextLength])),
+                availableModels      : toIds(availableModels),
+                extraModels          : getExtraModels(availableModels),
+                loadedContexts       : Object.fromEntries(availableModels.map(item => [item.id, item.contextLength])),
                 observedCount,
                 observedRequiredCount,
                 requireParallelModels,
                 requiredResidentModels,
-                warning        : degraded ? (contextWarning || getWarning({availableModels, missingModels, observedRequiredCount})) : null,
-                attempts       : attempt,
-                elapsedMs      : Date.now() - startedAt
+                warning              : degraded ? (contextWarning || getWarning({availableModels, missingModels, observedRequiredCount})) : null,
+                ollamaEvalAttribution: getEvalAttribution(),
+                attempts             : attempt,
+                elapsedMs            : Date.now() - startedAt
             };
         }
 
@@ -908,9 +944,9 @@ export async function ensureOllamaModelsReady({
     const warning               = contextWarning || getWarning({availableModels, missingModels, observedRequiredCount});
     if (allowPartial) {
         return {
-            ready          : false,
-            degraded       : true,
-            provider       : 'ollama',
+            ready                : false,
+            degraded             : true,
+            provider             : 'ollama',
             host,
             warmedModels,
             attemptedModels,
@@ -918,16 +954,17 @@ export async function ensureOllamaModelsReady({
             missingModels,
             insufficientContextModels,
             requiredModels,
-            availableModels: toIds(availableModels),
-            extraModels    : getExtraModels(availableModels),
-            loadedContexts : Object.fromEntries(availableModels.map(item => [item.id, item.contextLength])),
-            observedCount  : availableModels.length,
+            availableModels      : toIds(availableModels),
+            extraModels          : getExtraModels(availableModels),
+            loadedContexts       : Object.fromEntries(availableModels.map(item => [item.id, item.contextLength])),
+            observedCount        : availableModels.length,
             observedRequiredCount,
             requireParallelModels,
             requiredResidentModels,
             warning,
+            ollamaEvalAttribution: getEvalAttribution(),
             attempts,
-            elapsedMs      : Date.now() - startedAt
+            elapsedMs            : Date.now() - startedAt
         };
     }
 
