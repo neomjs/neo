@@ -264,12 +264,14 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
         const memoryCoreEnv     = environmentMap(compose.services['mc-server']);
 
         expect(orchestratorEnv).toMatchObject({
-            NEO_AI_DEPLOYMENT_MODE: 'cloud',
-            NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED: 'false',
-            NEO_ORCHESTRATOR_KB_SYNC_ENABLED: 'false',
-            NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED: 'false',
+            NEO_AI_DEPLOYMENT_MODE                              : 'cloud',
+            NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED           : 'false',
+            NEO_ORCHESTRATOR_KB_SYNC_ENABLED                    : 'false',
+            NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED              : 'false',
             NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED: 'false',
-            NEO_ORCHESTRATOR_MLX_ENABLED: 'false'
+            NEO_ORCHESTRATOR_MLX_ENABLED                        : 'false',
+            NEO_ORCHESTRATOR_LMS_ENABLED                        : 'false',
+            NEO_ORCHESTRATOR_OLLAMA_ENABLED                     : 'false'
         });
 
         expect(memoryCoreEnv.NEO_MAILBOX_DEFAULT_REPLY_POLICY).toBe('blocked');
@@ -303,14 +305,14 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
 
         for (const env of [knowledgeBaseEnv, memoryCoreEnv, orchestratorEnv]) {
             expect(env).toMatchObject({
-                NEO_MODEL_PROVIDER                     : '${NEO_MODEL_PROVIDER:-}',
-                NEO_EMBEDDING_PROVIDER                 : '${NEO_EMBEDDING_PROVIDER:-}',
-                NEO_OPENAI_COMPATIBLE_HOST             : '${NEO_OPENAI_COMPATIBLE_HOST:-}',
-                NEO_OPENAI_COMPATIBLE_MODEL            : '${NEO_OPENAI_COMPATIBLE_MODEL:-}',
-                NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL  : '${NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL:-}',
-                NEO_OPENAI_COMPATIBLE_API_KEY          : '${NEO_OPENAI_COMPATIBLE_API_KEY:-}',
-                NEO_OLLAMA_KEEP_ALIVE                  : '${NEO_OLLAMA_KEEP_ALIVE:-}',
-                NEO_OPENAI_COMPATIBLE_KEEP_ALIVE       : '${NEO_OPENAI_COMPATIBLE_KEEP_ALIVE:-}'
+                NEO_MODEL_PROVIDER                   : '${NEO_MODEL_PROVIDER:-}',
+                NEO_EMBEDDING_PROVIDER               : '${NEO_EMBEDDING_PROVIDER:-}',
+                NEO_OPENAI_COMPATIBLE_HOST           : '${NEO_OPENAI_COMPATIBLE_HOST:-}',
+                NEO_OPENAI_COMPATIBLE_MODEL          : '${NEO_OPENAI_COMPATIBLE_MODEL:-}',
+                NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL: '${NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL:-}',
+                NEO_OPENAI_COMPATIBLE_API_KEY        : '${NEO_OPENAI_COMPATIBLE_API_KEY:-}',
+                NEO_OLLAMA_KEEP_ALIVE                : '${NEO_OLLAMA_KEEP_ALIVE:-}',
+                NEO_OPENAI_COMPATIBLE_KEEP_ALIVE     : '${NEO_OPENAI_COMPATIBLE_KEEP_ALIVE:-}'
             });
         }
 

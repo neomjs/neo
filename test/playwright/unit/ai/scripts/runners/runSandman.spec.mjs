@@ -347,7 +347,10 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
 
         expect(result.ready).toBe(false);
         expect(result.missingModels).toEqual(['qwen3-embedding']);
-        expect(result.warning).toContain('set OLLAMA_MAX_LOADED_MODELS=2');
+        expect(result.extraModels).toEqual([]);
+        expect(result.observedRequiredCount).toBe(1);
+        expect(result.warning).toContain('ollama pull qwen3-embedding');
+        expect(result.warning).not.toContain('set OLLAMA_MAX_LOADED_MODELS=2');
         expect(warnings).toHaveLength(1);
         expect(warnings[0][0]).toContain('[provider/ollama]');
     });
@@ -735,10 +738,12 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             }],
             requiredModels : ['gemma4:31b', 'qwen3-embedding'],
             availableModels: ['gemma4:31b', 'qwen3-embedding'],
+            extraModels    : [],
             loadedContexts : {
                 'gemma4:31b'     : 131072,
                 'qwen3-embedding': 32768
             },
+            observedRequiredCount: 2,
             requireParallelModels: 2
         });
     });
@@ -786,6 +791,8 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         expect(result.ready).toBe(false);
         expect(result.degraded).toBe(true);
         expect(result.missingModels).toEqual([]);
+        expect(result.extraModels).toEqual([]);
+        expect(result.observedRequiredCount).toBe(1);
         expect(result.insufficientContextModels).toEqual([{
             model                : 'gemma4:31b',
             contextLength        : 4096,
@@ -836,8 +843,45 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         }]);
         expect(result.missingModels).toEqual(['gemma4:31b']);
         expect(result.availableModels).toEqual(['qwen3-embedding']);
-        expect(result.warning).toContain('set OLLAMA_MAX_LOADED_MODELS=2');
+        expect(result.extraModels).toEqual([]);
+        expect(result.observedRequiredCount).toBe(1);
+        expect(result.warning).toContain('ollama pull gemma4:31b');
+        expect(result.warning).not.toContain('set OLLAMA_MAX_LOADED_MODELS=2');
         expect(warnings[0]).toContain('warm-up failed');
+    });
+
+    test('ensureOllamaModelsReady reports stale resident Ollama models separately (#13879)', async () => {
+        const result = await providerReadinessHelper.ensureOllamaModelsReady({
+            host : 'http://ollama.test',
+            roles: [{
+                providerRole: 'graphProvider',
+                role        : 'chat',
+                model       : 'gemma4:26b'
+            }],
+            requireParallelModels: 2,
+            allowPartial         : true,
+            attempts             : 1,
+            delayMs              : 0,
+            timeoutMs            : 25,
+            fetchModelIds        : async () => ['qwen3-embedding:latest'],
+            warmModel            : async role => {
+                throw new Error(`model '${role.model}' not found`);
+            },
+            log                  : {info: () => {}, warn: () => {}}
+        });
+
+        expect(result.ready).toBe(false);
+        expect(result.degraded).toBe(true);
+        expect(result.requiredModels).toEqual(['gemma4:26b']);
+        expect(result.availableModels).toEqual(['qwen3-embedding:latest']);
+        expect(result.extraModels).toEqual(['qwen3-embedding:latest']);
+        expect(result.missingModels).toEqual(['gemma4:26b']);
+        expect(result.observedCount).toBe(1);
+        expect(result.observedRequiredCount).toBe(0);
+        expect(result.requiredResidentModels).toBe(1);
+        expect(result.warning).toContain('ollama pull gemma4:26b');
+        expect(result.warning).toContain('extra=qwen3-embedding:latest');
+        expect(result.warning).not.toContain('set OLLAMA_MAX_LOADED_MODELS=1');
     });
 
     test('ensureOllamaModelsReady does not require inactive role models (#12285)', async () => {
@@ -857,6 +901,8 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
 
         expect(result.ready).toBe(true);
         expect(result.requiredModels).toEqual(['gemma4:31b']);
+        expect(result.extraModels).toEqual([]);
+        expect(result.observedRequiredCount).toBe(1);
         expect(result.requiredResidentModels).toBe(1);
         expect(result.requireParallelModels).toBe(2);
         expect(result.warning).toBeNull();

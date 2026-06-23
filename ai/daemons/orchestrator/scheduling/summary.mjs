@@ -1,6 +1,6 @@
 import {
     getUnreadSunsetHandovers,
-    markNodesAsRead
+    markSunsetHandoversSummaryProcessed
 } from '../../wake/queries.mjs';
 import {
     getPendingMemorySummaryBackfillJobs,
@@ -186,8 +186,8 @@ export function hasDrainableMemorySummaryBackfill({
 export function buildSummaryTrigger({now, lastRunAt, intervalMs, handovers = [], pendingJobs = [], totalPending, unsummarizedCount}) {
     if (handovers.length > 0) {
         return {
-            taskName     : 'summary',
-            source       : 'sunset-handover',
+            taskName: 'summary',
+            source  : 'sunset-handover',
             reason       : `sunset-handover:${handovers.length}`,
             handoverCount: handovers.length
         };
@@ -197,8 +197,8 @@ export function buildSummaryTrigger({now, lastRunAt, intervalMs, handovers = [],
         const backlog = Number.isInteger(totalPending) ? totalPending : pendingJobs.length;
 
         return {
-            taskName    : 'summary',
-            source      : 'pending-summarization',
+            taskName: 'summary',
+            source  : 'pending-summarization',
             reason      : `pending-summarization:${backlog}`,
             pendingCount: pendingJobs.length
         };
@@ -218,8 +218,8 @@ export function buildSummaryTrigger({now, lastRunAt, intervalMs, handovers = [],
 }
 
 /**
- * Resolves the next summary task trigger, including the post-success handover mark-read hook
- * when the trigger source is sunset-handover.
+ * Resolves the next summary task trigger, including the post-success handover summary-processed
+ * hook when the trigger source is sunset-handover.
  *
  * @param {Object} options
  * @param {Object} options.db SQLite database handle.
@@ -230,7 +230,8 @@ export function buildSummaryTrigger({now, lastRunAt, intervalMs, handovers = [],
  * @param {Function} [options.getPendingSummarizationJobsFn] Test seam for pending marker reads.
  * @param {Function} [options.getPendingMemorySummaryBackfillJobsFn] Test seam for miniSummary backlog.
  * @param {Function} [options.isMemorySummaryBackfillBackoffActiveFn] Test seam for miniSummary backoff.
- * @param {Function} [options.markNodesAsReadFn] Test seam for handover mark-read writes.
+ * @param {Function} [options.markSunsetHandoversSummaryProcessedFn] Test seam for handover
+ *     summary-consumed writes.
  * @param {Function} [options.log] Optional orchestrator log function.
  * @returns {Object|null} Task trigger with optional `onSuccess` callback, or null.
  */
@@ -245,10 +246,10 @@ export function getDueTask({
     getPendingSessionSummaryCountFn = getPendingSessionSummaryCount,
     getPendingMemorySummaryBackfillJobsFn = getPendingMemorySummaryBackfillJobs,
     isMemorySummaryBackfillBackoffActiveFn = isMemorySummaryBackfillBackoffActive,
-    markNodesAsReadFn          = markNodesAsRead,
+    markSunsetHandoversSummaryProcessedFn = markSunsetHandoversSummaryProcessed,
     log
 }) {
-    const handovers = getUnreadSunsetHandoversFn(db);
+    const handovers   = getUnreadSunsetHandoversFn(db);
     const pendingJobs = handovers.length > 0 ? [] : getPendingSummarizationJobsFn(db);
     const lastRunAt   = state.summary?.lastRunAt || 0;
     // Only count the unsummarized-session backlog when the periodic sweep is the path that will
@@ -268,7 +269,7 @@ export function getDueTask({
         return null;
     }
 
-    const trigger   = buildSummaryTrigger({
+    const trigger = buildSummaryTrigger({
         now,
         handovers,
         pendingJobs,
@@ -286,8 +287,8 @@ export function getDueTask({
         return {
             ...trigger,
             onSuccess: () => {
-                markNodesAsReadFn(db, handovers);
-                log?.('INFO', `[Orchestrator] Marked ${handovers.length} sunset handovers as read.`);
+                markSunsetHandoversSummaryProcessedFn(db, handovers);
+                log?.('INFO', `[Orchestrator] Marked ${handovers.length} sunset handovers as summary-processed.`);
             }
         };
     }

@@ -308,7 +308,7 @@ export function buildLmsContextLengthsMap({
     chatContextLength,
     embeddingContextLength
 } = {}) {
-    const map = {};
+    const map    = {};
     const setMax = (modelId, value) => {
         if (!modelId || !Neo.isNumber(value)) {
             return;
@@ -510,7 +510,7 @@ export async function ensureLmsModelsLoaded({
         throw new TypeError('ensureLmsModelsLoaded: models must contain at least one configured model');
     }
 
-    const getMissing = available => requiredModels.filter(model => !available.includes(model));
+    const getMissing  = available => requiredModels.filter(model => !available.includes(model));
     const probeModels = async phase => {
         let lastError;
 
@@ -532,7 +532,7 @@ export async function ensureLmsModelsLoaded({
     };
 
     let {availableModels} = await probeModels('initial /v1/models probe');
-    const initialMissing  = getMissing(availableModels);
+    const initialMissing = getMissing(availableModels);
     const failedModels   = [];
 
     // Force-include context-configured models in the load set even when already
@@ -700,7 +700,8 @@ export async function ensureOllamaModelsReady({
     }
 
     const requiredResidentModels = Math.min(requireParallelModels, requiredModels.length);
-    const normalizeAvailable = available => [...new Map((Array.isArray(available) ? available : []).map(item => {
+    const requiredModelSet       = new Set(requiredModels);
+    const normalizeAvailable     = available => [...new Map((Array.isArray(available) ? available : []).map(item => {
         if (typeof item === 'string') {
             return [item, {id: item, contextLength: undefined}];
         }
@@ -711,8 +712,10 @@ export async function ensureOllamaModelsReady({
                 Neo.isNumber(item.context_length) ? item.context_length : undefined
         }] : null;
     }).filter(Boolean)).values()];
-    const toIds               = available => available.map(item => item.id);
-    const contextRequirements = roles.reduce((map, role) => {
+    const toIds                = available => available.map(item => item.id);
+    const getRequiredAvailable = available => available.filter(item => requiredModelSet.has(item.id));
+    const getExtraModels       = available => toIds(available.filter(item => !requiredModelSet.has(item.id)));
+    const contextRequirements  = roles.reduce((map, role) => {
         if (!role.model || !Neo.isNumber(role.contextLength)) {
             return map;
         }
@@ -738,16 +741,22 @@ export async function ensureOllamaModelsReady({
             contextLength        : item.contextLength,
             requiredContextLength: contextRequirements.get(item.id)
         }));
-    const getWarning = ({availableModels, missingModels}) => createParallelModelCapacityWarning({
-        provider             : 'ollama',
-        model                : roles.find(role => role.role === 'chat')?.model,
-        embeddingModel       : roles.find(role => role.role === 'embedding')?.model,
-        requiredModels,
-        availableModels,
-        missingModels,
-        observedCount        : availableModels.length,
-        requireParallelModels: requiredResidentModels
-    });
+    const getWarning = ({availableModels, missingModels, observedRequiredCount}) => {
+        const availableModelIds = toIds(availableModels);
+
+        return createParallelModelCapacityWarning({
+            provider             : 'ollama',
+            model                : roles.find(role => role.role === 'chat')?.model,
+            embeddingModel       : roles.find(role => role.role === 'embedding')?.model,
+            requiredModels,
+            availableModels      : availableModelIds,
+            missingModels,
+            extraModels          : getExtraModels(availableModels),
+            observedCount        : availableModelIds.length,
+            observedRequiredCount,
+            requireParallelModels: requiredResidentModels
+        });
+    };
 
     const probeModels = async phase => {
         let lastError;
@@ -786,9 +795,11 @@ export async function ensureOllamaModelsReady({
             host,
             requiredModels,
             availableModels          : [],
+            extraModels              : [],
             missingModels            : requiredModels,
             insufficientContextModels: [],
             observedCount            : 0,
+            observedRequiredCount    : 0,
             requireParallelModels,
             requiredResidentModels,
             warmedModels             : [],
@@ -801,13 +812,13 @@ export async function ensureOllamaModelsReady({
         };
     }
 
-    const initialMissing = getMissing(availableModels);
+    const initialMissing             = getMissing(availableModels);
     const initialInsufficientContext = getInsufficientContext(availableModels);
     const initialContextModelIds     = new Set(initialInsufficientContext.map(item => item.model));
-    const rolesToWarm    = roles.filter(role => initialMissing.includes(role.model) || initialContextModelIds.has(role.model));
-    const warmedModels   = [];
-    const failedModels   = [];
-    const attemptedModels = [];
+    const rolesToWarm                = roles.filter(role => initialMissing.includes(role.model) || initialContextModelIds.has(role.model));
+    const warmedModels               = [];
+    const failedModels               = [];
+    const attemptedModels            = [];
 
     for (const role of rolesToWarm) {
         const roleEnvelope = toRoleEnvelope(role);
@@ -837,7 +848,7 @@ export async function ensureOllamaModelsReady({
         }
     }
 
-    let missingModels = initialMissing;
+    let missingModels             = initialMissing;
     let insufficientContextModels = initialInsufficientContext;
 
     for (let attempt = 1; attempt <= attempts; attempt++) {
@@ -845,18 +856,19 @@ export async function ensureOllamaModelsReady({
         missingModels = getMissing(availableModels);
         insufficientContextModels = getInsufficientContext(availableModels);
 
-        const failedModelIds     = new Set(failedModels.map(item => item.model));
-        const serviceableMissing = missingModels.filter(model => !failedModelIds.has(model));
-        const serviceableContext = insufficientContextModels.filter(item => !failedModelIds.has(item.model));
-        const observedCount      = availableModels.length;
-        const capacityReady      = observedCount >= requiredResidentModels;
-        const ready              = capacityReady && missingModels.length === 0 && insufficientContextModels.length === 0 && failedModels.length === 0;
-        const capacityOnlyGap    = missingModels.length === 0 && !capacityReady;
+        const failedModelIds        = new Set(failedModels.map(item => item.model));
+        const serviceableMissing    = missingModels.filter(model => !failedModelIds.has(model));
+        const serviceableContext    = insufficientContextModels.filter(item => !failedModelIds.has(item.model));
+        const observedCount         = availableModels.length;
+        const observedRequiredCount = getRequiredAvailable(availableModels).length;
+        const capacityReady         = observedRequiredCount >= requiredResidentModels;
+        const ready                 = capacityReady && missingModels.length === 0 && insufficientContextModels.length === 0 && failedModels.length === 0;
+        const capacityOnlyGap       = missingModels.length === 0 && !capacityReady;
 
         const contextOnlyGap = missingModels.length === 0 && serviceableContext.length > 0;
 
         if (ready || (allowPartial && (serviceableMissing.length === 0 || capacityOnlyGap || contextOnlyGap))) {
-            const degraded = !ready;
+            const degraded       = !ready;
             const contextWarning = serviceableContext.length
                 ? `[provider/ollama] loaded context too small: ${serviceableContext.map(item => `${item.model} observed=${item.contextLength ?? 'unknown'} required>=${item.requiredContextLength}`).join(', ')}; warm with options.num_ctx matching localModels context caps.`
                 : null;
@@ -872,11 +884,13 @@ export async function ensureOllamaModelsReady({
                 insufficientContextModels,
                 requiredModels,
                 availableModels: toIds(availableModels),
+                extraModels    : getExtraModels(availableModels),
                 loadedContexts : Object.fromEntries(availableModels.map(item => [item.id, item.contextLength])),
                 observedCount,
+                observedRequiredCount,
                 requireParallelModels,
                 requiredResidentModels,
-                warning        : degraded ? (contextWarning || getWarning({availableModels: toIds(availableModels), missingModels})) : null,
+                warning        : degraded ? (contextWarning || getWarning({availableModels, missingModels, observedRequiredCount})) : null,
                 attempts       : attempt,
                 elapsedMs      : Date.now() - startedAt
             };
@@ -890,7 +904,8 @@ export async function ensureOllamaModelsReady({
     const contextWarning = insufficientContextModels.length
         ? `[provider/ollama] loaded context too small: ${insufficientContextModels.map(item => `${item.model} observed=${item.contextLength ?? 'unknown'} required>=${item.requiredContextLength}`).join(', ')}; warm with options.num_ctx matching localModels context caps.`
         : null;
-    const warning = contextWarning || getWarning({availableModels: toIds(availableModels), missingModels});
+    const observedRequiredCount = getRequiredAvailable(availableModels).length;
+    const warning               = contextWarning || getWarning({availableModels, missingModels, observedRequiredCount});
     if (allowPartial) {
         return {
             ready          : false,
@@ -904,8 +919,10 @@ export async function ensureOllamaModelsReady({
             insufficientContextModels,
             requiredModels,
             availableModels: toIds(availableModels),
+            extraModels    : getExtraModels(availableModels),
             loadedContexts : Object.fromEntries(availableModels.map(item => [item.id, item.contextLength])),
             observedCount  : availableModels.length,
+            observedRequiredCount,
             requireParallelModels,
             requiredResidentModels,
             warning,
@@ -944,12 +961,12 @@ export function getGraphProviderReadinessTarget(config = aiConfig) {
     const host     = isOllama
         ? config.ollama?.host
         : getOpenAiCompatibleHost(config);
-    const endpoint = isOllama ? '/api/tags' : '/v1/models';
-    const model    = isOllama ? config.ollama?.model : config.openAiCompatible?.model;
+    const endpoint       = isOllama ? '/api/tags' : '/v1/models';
+    const model          = isOllama ? config.ollama?.model : config.openAiCompatible?.model;
     const embeddingModel = isOllama
         ? config.ollama?.embeddingModel
         : config.openAiCompatible?.embeddingModel;
-    const url      = host ? `${host.replace(/\/+$/, '')}${endpoint}` : null;
+    const url = host ? `${host.replace(/\/+$/, '')}${endpoint}` : null;
 
     return {
         provider,
@@ -983,15 +1000,23 @@ export function createParallelModelCapacityWarning({
     requiredModels,
     availableModels,
     missingModels,
+    extraModels = [],
     observedCount,
+    observedRequiredCount,
     requireParallelModels
 }) {
-    const available = availableModels.length ? availableModels.join(', ') : 'none';
-    const missing   = missingModels.length ? missingModels.join(', ') : 'none';
-    const base      = `[provider/${provider}] expected ${requireParallelModels}+ models loaded ` +
-        `(chat=${model || 'unset'}, embedding=${embeddingModel || 'unset'}); observed ${observedCount} loaded ` +
-        `(available=${available}, required=${requiredModels.join(', ') || 'none'}, missing=${missing}); ` +
+    const available        = availableModels.length ? availableModels.join(', ') : 'none';
+    const missing          = missingModels.length ? missingModels.join(', ') : 'none';
+    const extra            = extraModels.length ? extraModels.join(', ') : 'none';
+    const requiredObserved = Neo.isNumber(observedRequiredCount) ? observedRequiredCount : observedCount;
+    const base      = `[provider/${provider}] expected ${requireParallelModels}+ required models loaded ` +
+        `(chat=${model || 'unset'}, embedding=${embeddingModel || 'unset'}); observed ${requiredObserved} required / ${observedCount} total loaded ` +
+        `(available=${available}, required=${requiredModels.join(', ') || 'none'}, missing=${missing}, extra=${extra}); ` +
         'model swap penalty likely;';
+
+    if (provider === 'ollama' && missingModels.length) {
+        return `${base} pull missing configured model(s): ${missingModels.map(item => `ollama pull ${item}`).join(' && ')}.`;
+    }
 
     return provider === 'ollama'
         ? `${base} set OLLAMA_MAX_LOADED_MODELS=${requireParallelModels} in the Ollama server environment.`
@@ -1037,21 +1062,25 @@ export async function probeProviderParallelModelCapacity({
         };
     }
 
-    const providerConfig = config[target.provider];
+    const providerConfig        = config[target.provider];
     const requireParallelModels = providerConfig?.requireParallelModels;
 
     if (!Neo.isNumber(requireParallelModels)) {
         throw new TypeError(`probeProviderParallelModelCapacity: config.${target.provider}.requireParallelModels must be configured as a number`);
     }
 
-    const requiredModels = getRequiredProviderModels(target);
+    const requiredModels  = getRequiredProviderModels(target);
     const availableModels = target.provider === 'ollama'
         ? await fetchOllamaModels({host: target.host, timeoutMs})
         : await fetchOpenAiCompatibleModels({host: target.host, timeoutMs});
-    const uniqueAvailable = [...new Set(availableModels)];
-    const missingModels   = requiredModels.filter(model => !uniqueAvailable.includes(model));
-    const observedCount   = uniqueAvailable.length;
-    const ready           = observedCount >= requireParallelModels && missingModels.length === 0;
+    const uniqueAvailable        = [...new Set(availableModels)];
+    const missingModels          = requiredModels.filter(model => !uniqueAvailable.includes(model));
+    const requiredModelSet       = new Set(requiredModels);
+    const extraModels            = uniqueAvailable.filter(model => !requiredModelSet.has(model));
+    const observedCount          = uniqueAvailable.length;
+    const observedRequiredCount  = uniqueAvailable.filter(model => requiredModelSet.has(model)).length;
+    const requiredResidentModels = Math.min(requireParallelModels, requiredModels.length);
+    const ready                  = observedRequiredCount >= requiredResidentModels && missingModels.length === 0;
 
     return {
         ready,
@@ -1062,17 +1091,22 @@ export async function probeProviderParallelModelCapacity({
         requireParallelModels,
         requiredModels,
         availableModels: uniqueAvailable,
+        extraModels,
         missingModels,
         observedCount,
+        observedRequiredCount,
+        requiredResidentModels,
         warning        : ready ? null : createParallelModelCapacityWarning({
-            provider       : target.provider,
-            model          : target.model,
-            embeddingModel : target.embeddingModel,
+            provider             : target.provider,
+            model                : target.model,
+            embeddingModel       : target.embeddingModel,
             requiredModels,
-            availableModels: uniqueAvailable,
+            availableModels      : uniqueAvailable,
             missingModels,
+            extraModels,
             observedCount,
-            requireParallelModels
+            observedRequiredCount,
+            requireParallelModels: requiredResidentModels
         })
     };
 }
@@ -1110,7 +1144,7 @@ export async function warnProviderParallelModelCapacity({
         return result;
     } catch (error) {
         const provider = config ? resolveGraphModelProvider(config) : 'unknown';
-        const result = {
+        const result   = {
             ready: false,
             provider,
             error: {message: error?.message || String(error)},
@@ -1140,8 +1174,8 @@ export function checkProvider({config, timeoutMs} = {}) {
     }
 
     return new Promise(resolve => {
-        let settled = false;
-        const settle = value => {
+        let   settled = false;
+        const settle  = value => {
             if (!settled) {
                 settled = true;
                 resolve(value);
@@ -1187,7 +1221,7 @@ export async function waitForProvider({
         throw new TypeError('waitForProvider: attempts, delayMs, and timeoutMs are required (pass from config.orchestrator.providerReadiness)');
     }
 
-    const probe = providerCheck ?? (() => checkProvider({timeoutMs}));
+    const probe     = providerCheck ?? (() => checkProvider({timeoutMs}));
     const startedAt = Date.now();
 
     for (let i = 0; i < attempts; i++) {
@@ -1251,7 +1285,7 @@ export function createProviderFailureDiagnostic({
     reason = 'PROVIDER_READINESS_TIMEOUT',
     capacity
 } = {}) {
-    const target = getGraphProviderReadinessTarget(config);
+    const target      = getGraphProviderReadinessTarget(config);
     const unsupported = reason === 'UNSUPPORTED_GRAPH_PROVIDER';
     const degraded    = reason === 'PROVIDER_MODEL_RESIDENCY_DEGRADED';
 

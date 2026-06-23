@@ -115,13 +115,13 @@ test.describe('orchestrator/scheduling/summary (#11864 / Epic #11831)', () => {
         const markCalls = [];
         const handovers = [{id: 'MESSAGE:1'}, {id: 'MESSAGE:2'}];
         const result = getDueTask({
-            db                        : 'mock-db',
-            state                     : {summary: {lastRunAt: 0}},
-            now                       : 100,
-            summarySweepIntervalMs    : 600000,
-            getUnreadSunsetHandoversFn: () => handovers,
-            markNodesAsReadFn         : (db, nodes) => markCalls.push({db, nodes}),
-            log                       : () => {}
+            db                                   : 'mock-db',
+            state                                : {summary: {lastRunAt: 0}},
+            now                                  : 100,
+            summarySweepIntervalMs               : 600000,
+            getUnreadSunsetHandoversFn           : () => handovers,
+            markSunsetHandoversSummaryProcessedFn: (db, nodes) => markCalls.push({db, nodes}),
+            log                                  : () => {}
         });
         expect(result.source).toBe('sunset-handover');
         expect(result.handoverCount).toBe(2);
