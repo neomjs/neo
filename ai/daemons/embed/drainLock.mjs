@@ -34,19 +34,23 @@ import path from 'path';
  */
 export const DRAIN_LOCK_FILENAME = '.drain-lock';
 
+const DEFAULT_LOCK_LABEL = 'WAL';
+const DEFAULT_REMEDIATION =
+    'Disable one drain host for this deployment — the embed daemon OR memoryWal.inProcessDrain.';
+
 /**
  * @summary Error thrown when the drain lock is already held by a DIFFERENT live host. Carries the
  * holder descriptor so the caller can fail loud with an actionable, holder-naming message.
  */
 export class DrainLockHeldError extends Error {
-    constructor({lockPath, holder, requester}) {
+    constructor({lockPath, holder, requester, lockLabel = DEFAULT_LOCK_LABEL, remediation = DEFAULT_REMEDIATION}) {
         const who = holder
             ? `${holder.owner} pid ${holder.pid} (since ${holder.startedAt})`
             : 'an unknown live process';
 
-        super(`WAL drain lock ${lockPath} is held by ${who}; ${requester.owner} pid ${requester.pid} ` +
+        super(`${lockLabel} drain lock ${lockPath} is held by ${who}; ${requester.owner} pid ${requester.pid} ` +
             'refuses to start a second drain loop on the same WAL directory (sole-drainer invariant). ' +
-            'Disable one drain host for this deployment — the embed daemon OR memoryWal.inProcessDrain.');
+            remediation);
 
         this.name      = 'DrainLockHeldError';
         this.code      = 'DRAIN_LOCK_HELD';
@@ -150,7 +154,9 @@ export function acquireDrainLock({
     now        = Date.now,
     fs: fsImpl = fs,
     isAlive    = defaultIsAlive,
-    log        = () => {}
+    log        = () => {},
+    lockLabel  = DEFAULT_LOCK_LABEL,
+    remediation = DEFAULT_REMEDIATION
 } = {}) {
     const lockPath = path.join(dir, DRAIN_LOCK_FILENAME);
 
@@ -172,7 +178,7 @@ export function acquireDrainLock({
             const holder = readHolder(lockPath, fsImpl);
 
             if (holder && holder.pid !== pid && isAlive(holder.pid)) {
-                throw new DrainLockHeldError({lockPath, holder, requester: {owner, pid}});
+                throw new DrainLockHeldError({lockPath, holder, requester: {owner, pid}, lockLabel, remediation});
             }
 
             // Stale (dead holder), our own leftover, or corrupt → reclaim and retry the wx claim.
@@ -186,5 +192,5 @@ export function acquireDrainLock({
     }
 
     // Both passes lost the wx race: another host re-claimed between our unlink and re-claim.
-    throw new DrainLockHeldError({lockPath, holder: readHolder(lockPath, fsImpl), requester: {owner, pid}});
+    throw new DrainLockHeldError({lockPath, holder: readHolder(lockPath, fsImpl), requester: {owner, pid}, lockLabel, remediation});
 }

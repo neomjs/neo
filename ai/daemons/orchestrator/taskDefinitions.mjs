@@ -24,8 +24,8 @@ function probeTcpPort({port, timeoutMs}) {
     }
 
     return new Promise(resolve => {
-        const socket = net.connect({host: '127.0.0.1', port: normalizedPort});
-        let settled  = false;
+        const socket  = net.connect({host: '127.0.0.1', port: normalizedPort});
+        let   settled = false;
 
         const finish = result => {
             if (settled) return;
@@ -146,7 +146,7 @@ export function buildTaskDefinitions({
     neuralLinkBridgePort,
     neuralLinkBridgeLivenessTimeoutMs
 } = {}) {
-    const hasDevServerPort = devServerPort !== undefined && devServerPort !== null;
+    const hasDevServerPort        = devServerPort !== undefined && devServerPort !== null;
     const hasNeuralLinkBridgePort = neuralLinkBridgePort !== undefined && neuralLinkBridgePort !== null;
 
     const tasks = {
@@ -216,6 +216,13 @@ export function buildTaskDefinitions({
             args           : [path.resolve(scriptDir, '../daemons/embed/daemon.mjs')],
             pidFileName    : 'embed-daemon.pid',
             expectedCommand: 'daemons/embed/daemon.mjs'
+        },
+        messageDaemon: {
+            label          : 'message daemon (A2A message WAL drain)',
+            command        : nodeBin,
+            args           : [path.resolve(scriptDir, '../daemons/message/daemon.mjs')],
+            pidFileName    : 'message-daemon.pid',
+            expectedCommand: 'daemons/message/daemon.mjs'
         },
         summary: {
             label          : 'session summarization',

@@ -21,8 +21,11 @@ import {
     Memory_WakeSubscriptionService    as WakeSubscriptionService,
     Memory_CoalescingEngineService    as CoalescingEngineService
 } from '../../../services.mjs';
-import {startDrainLoop}   from '../../../daemons/embed/drainCycle.mjs';
-import {acquireDrainLock} from '../../../daemons/embed/drainLock.mjs';
+import {startDrainLoop}             from '../../../daemons/embed/drainCycle.mjs';
+import {acquireDrainLock}           from '../../../daemons/embed/drainLock.mjs';
+import {startMessageDrainLoop}      from '../../../daemons/message/drainCycle.mjs';
+import {acquireMessageDrainLock}    from '../../../daemons/message/drainLock.mjs';
+import {getMissingMessageWalLeaves} from '../../../services/memory-core/helpers/messageWalStore.mjs';
 
 /**
  * @summary The Memory Core MCP Server application.
@@ -281,6 +284,35 @@ class Server extends BaseServer {
             }
         }
 
+        // In-process message WAL drain (containerized / single-process deployments): mirrors the
+        // memory WAL host-mode split, but deliberately keeps replay semantics injectable; graph
+        // projection is a separate completion concern.
+        if (aiConfig.messageWal && aiConfig.messageWal.inProcessDrain) {
+            const messageDrainLog = (level, message) => logger[level === 'ERROR' ? 'error' : 'info'](`[neo-memory-core MCP] ${message}`);
+            const missingLeaves = getMissingMessageWalLeaves(aiConfig.messageWal,
+                ['dir', 'pollIntervalMs', 'batchSize', 'maxRetries', 'backoffBaseMs']);
+
+            if (missingLeaves.length > 0) {
+                logger.error(`[neo-memory-core MCP] In-process message WAL drain NOT started: messageWal config leaves missing: ${missingLeaves.join(', ')} — sync the messageWal block from config.template.mjs into the local config.mjs (node ai/scripts/setup/initServerConfigs.mjs --migrate-config) and restart memory-core.`);
+            } else {
+                try {
+                    this.messageWalDrainLock = acquireMessageDrainLock({dir: aiConfig.messageWal.dir, owner: 'in-process', log: messageDrainLog});
+                } catch (err) {
+                    if (err.code !== 'DRAIN_LOCK_HELD') throw err;
+                    logger.error(`[neo-memory-core MCP] In-process message WAL drain NOT started: ${err.message}`);
+                }
+
+                if (this.messageWalDrainLock) {
+                    this.messageWalDrainLoop = startMessageDrainLoop({
+                        getConfig: () => aiConfig.messageWal,
+                        log      : messageDrainLog
+                    });
+                    process.on('exit', () => this.messageWalDrainLock?.release());
+                    logger.info('[neo-memory-core MCP] In-process message WAL drain loop active (messageWal.inProcessDrain)');
+                }
+            }
+        }
+
         // Stdio identity resolution BEFORE healthcheck snapshot.
         if (aiConfig.transport !== 'sse') {
             this.stdioIdentity = await this.resolveStdioIdentity();
@@ -448,7 +480,7 @@ class Server extends BaseServer {
             await GraphService.ready();
 
             let retries = 3;
-            let node = null;
+            let node    = null;
 
             while (retries > 0) {
                 node = await GraphService.getNode({id: graphNodeId});
