@@ -50,7 +50,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         buildMailboxDelta = (await import('../../../../../../ai/services/memory-core/MemoryService.mjs')).buildMailboxDelta;
         const messageWalStore = await import('../../../../../../ai/services/memory-core/helpers/messageWalStore.mjs');
         readWalMessages = messageWalStore.readWalMessages;
-        messageWalDir   = messageWalStore.getMessageWalDir(mailboxAiConfig.memoryWal.dir);
+        messageWalDir   = mailboxAiConfig.messageWal.dir;
 
         // Pin this suite to strict-isolation mode. These tests predate the
         // config-gated default and assert `'blocked'`-mode behavior (Unauthorized

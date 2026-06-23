@@ -170,7 +170,7 @@ test.describe('Memory Core Config (#10010)', () => {
         const prevRoot  = Neo.ai?.Config;
         const freshRoot = Neo.create(ConfigProvider, {data: Neo.ai.Config._data});
         Neo.ai.Config   = freshRoot;
-        const freshMC   = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
+        const freshMC = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
 
         try {
             expect(freshMC.modelProvider).toBe('openAiCompatible');
@@ -234,6 +234,30 @@ test.describe('Memory Core Config (#10010)', () => {
         expect(config.handoffFilePathTest).toContain('neo-sandman-handoff-test-'); // per-worker-unique OS-temp file (fullyParallel race-safe)
         expect(config.handoffFilePath).toBe(config.handoffFilePathTest);
         expect(config.handoffFilePath).not.toContain('resources/content/sandman_handoff.md');
+    });
+
+    test('messageWal.dir resolves by construction from memoryWal.dir unless explicitly overridden (#13890)', () => {
+        expect(config.memoryWal.useTestDatabase).toBe(true);
+        expect(config.messageWal.useTestDatabase).toBe(true);
+        expect(config.messageWal.dirProd).toBe(null);
+        expect(config.messageWal.dirTest).toBe(null);
+        expect(config.messageWal.dir).toBe(path.join(config.memoryWal.dir, 'messages'));
+        expect(config.messageWal.daemonDataDir).toContain('.neo-ai-data/message-daemon');
+        expect(config.messageWal.inProcessDrain).toBe(false);
+
+        process.env.NEO_MESSAGE_WAL_DIR_TEST = '/tmp/neo-message-wal-override';
+        process.env.NEO_MESSAGE_WAL_IN_PROCESS_DRAIN = 'true';
+        process.env.NEO_MESSAGE_WAL_POLL_INTERVAL_MS = '250';
+
+        const freshCfg = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
+
+        try {
+            expect(freshCfg.messageWal.dirTest).toBe('/tmp/neo-message-wal-override');
+            expect(freshCfg.messageWal.inProcessDrain).toBe(true);
+            expect(freshCfg.messageWal.pollIntervalMs).toBe(250);
+        } finally {
+            freshCfg.destroy();
+        }
     });
 
     test('collections.memory/session resolve by construction to per-worker-unique test names under the toggle (#12499)', () => {

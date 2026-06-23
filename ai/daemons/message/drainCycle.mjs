@@ -1,0 +1,159 @@
+import {readWalMessages} from '../../services/memory-core/helpers/messageWalStore.mjs';
+
+/**
+ * @module ai/daemons/message/drainCycle
+ * @summary Host-agnostic message WAL drain loop topology.
+ *
+ * This module intentionally owns only the drain-host mechanics: read the accepted message WAL
+ * from the configured directory, batch it, retry the injected replay processor, and expose a loop
+ * host that both the local daemon and in-process Memory Core mode can share.
+ *
+ * Full graph replay/idempotency is a separate projection concern. Until that processor is wired,
+ * cycles report records as `deferred` and never mark or mutate them, preserving the WAL as the
+ * authority. A2A-message vector/search population is likewise outside this topology layer.
+ */
+
+/**
+ * @summary Computes the exponential backoff delay for a message replay retry.
+ * @param {Number} backoffBaseMs Base delay.
+ * @param {Number} attempt Zero-based retry attempt.
+ * @returns {Number}
+ */
+export function getMessageDrainBackoffDelayMs(backoffBaseMs, attempt) {
+    return backoffBaseMs * 2 ** attempt;
+}
+
+function normalizeProcessResult(records, result = {}) {
+    const drained  = Number.isFinite(result.drained)  ? result.drained  : records.length,
+          failed   = Number.isFinite(result.failed)   ? result.failed   : 0,
+          deferred = Number.isFinite(result.deferred) ? result.deferred : 0;
+
+    return {drained, failed, deferred};
+}
+
+/**
+ * @summary Processes one batch of accepted message WAL records via an injected replay processor.
+ *
+ * Missing processor is a deliberate non-mutating state: the host topology can run in both
+ * deployment realities without claiming graph-projection completion semantics.
+ *
+ * @param {Object} options
+ * @param {Object[]} options.records Message WAL records.
+ * @param {Function|null} [options.processRecords] Optional replay processor.
+ * @param {Number} options.maxRetries In-cycle retry bound.
+ * @param {Number} options.backoffBaseMs Retry backoff base.
+ * @param {Function} [options.sleep] Delay primitive.
+ * @param {Function} [options.log] Log sink.
+ * @returns {Promise<{drained: Number, failed: Number, deferred: Number}>}
+ */
+export async function processMessageBatch({
+    records,
+    processRecords,
+    maxRetries,
+    backoffBaseMs,
+    sleep = ms => new Promise(resolve => setTimeout(resolve, ms)),
+    log   = () => {}
+} = {}) {
+    if (!records?.length) {
+        return {drained: 0, failed: 0, deferred: 0};
+    }
+
+    if (!processRecords) {
+        return {drained: 0, failed: 0, deferred: records.length};
+    }
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            return normalizeProcessResult(records, await processRecords(records));
+        } catch (error) {
+            if (attempt < maxRetries) {
+                const delay = getMessageDrainBackoffDelayMs(backoffBaseMs, attempt);
+                log('INFO', `Message WAL replay attempt ${attempt + 1}/${maxRetries + 1} failed (${error.message}) — backing off ${delay}ms`);
+                await sleep(delay);
+            } else {
+                log('ERROR', `Message WAL replay exhausted ${maxRetries + 1} attempts (${error.message})`);
+            }
+        }
+    }
+
+    return {drained: 0, failed: records.length, deferred: 0};
+}
+
+/**
+ * @summary Executes one message WAL drain cycle.
+ * @param {Object} options
+ * @param {String} options.dir Message WAL directory.
+ * @param {Number} options.batchSize Maximum records observed this cycle.
+ * @param {Number} options.maxRetries Replay retry bound.
+ * @param {Number} options.backoffBaseMs Replay retry backoff base.
+ * @param {Function|null} [options.processRecords] Optional replay processor.
+ * @param {Function} [options.log] Log sink.
+ * @param {Function} [options.sleep] Delay primitive.
+ * @returns {Promise<{observed: Number, drained: Number, failed: Number, deferred: Number}>}
+ */
+export async function drainMessageWalOnce({
+    dir,
+    batchSize,
+    maxRetries,
+    backoffBaseMs,
+    processRecords,
+    log,
+    sleep
+} = {}) {
+    const records = await readWalMessages({dir});
+    const bounded = Number.isFinite(batchSize) && batchSize > 0 ? batchSize : records.length;
+    const batch   = records.slice(0, bounded);
+    const result  = await processMessageBatch({records: batch, processRecords, maxRetries, backoffBaseMs, sleep, log});
+
+    return {
+        observed: records.length,
+        ...result
+    };
+}
+
+/**
+ * @summary Hosts the message WAL drain loop in either daemon or in-process mode.
+ * @param {Object} options
+ * @param {Function} options.getConfig Returns the `messageWal` config slice.
+ * @param {Function} [options.getProcessor] Optional resolver for the replay processor.
+ * @param {Function} [options.log] Log sink.
+ * @returns {{stop: Function}}
+ */
+export function startMessageDrainLoop({getConfig, getProcessor = () => null, log = () => {}}) {
+    let stopped = false,
+        timer   = null;
+
+    const tick = async () => {
+        const {dir, batchSize, maxRetries, backoffBaseMs, pollIntervalMs} = getConfig();
+
+        try {
+            const summary = await drainMessageWalOnce({
+                dir,
+                batchSize,
+                maxRetries,
+                backoffBaseMs,
+                processRecords: getProcessor(),
+                log
+            });
+
+            if (summary.drained > 0 || summary.failed > 0) {
+                log('INFO', `Message WAL drain cycle: ${JSON.stringify(summary)}`);
+            }
+        } catch (error) {
+            log('ERROR', `Message WAL drain cycle failed: ${error.message || error}`);
+        }
+
+        if (!stopped) {
+            timer = setTimeout(tick, pollIntervalMs);
+        }
+    };
+
+    timer = setTimeout(tick, 0);
+
+    return {
+        stop() {
+            stopped = true;
+            clearTimeout(timer);
+        }
+    };
+}

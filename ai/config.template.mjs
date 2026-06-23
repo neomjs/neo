@@ -561,6 +561,10 @@ class Config extends ConfigProvider {
                     // process; cloud deployments own their drain story per-container (mirror of
                     // the chromaDaemonEnabled split).
                     embedDaemonEnabled             : leaf(null, 'NEO_ORCHESTRATOR_EMBED_DAEMON_ENABLED', 'boolean'),
+                    // The message daemon observes the accepted A2A-message WAL. Local profile may
+                    // supervise it as a child process; cloud deployments use Memory Core's
+                    // messageWal.inProcessDrain host mode instead.
+                    messageDaemonEnabled           : leaf(null, 'NEO_ORCHESTRATOR_MESSAGE_DAEMON_ENABLED', 'boolean'),
                     goldenPathRepoEnrichmentEnabled: leaf(null, 'NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED', 'boolean'),
                     // `null` = use the deployment-profile default (local enables, cloud disables);
                     // the swarm-heartbeat lane emits wake-substrate pulses through bridge delivery.

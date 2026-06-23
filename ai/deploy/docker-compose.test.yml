@@ -158,6 +158,9 @@ services:
       - NEO_MEMORY_WAL_IN_PROCESS_DRAIN=true
       - NEO_MEMORY_WAL_POLL_INTERVAL_MS=250
       - NEO_MEMORY_WAL_DIR=/tmp/neo-integration/memory-wal
+      - NEO_MESSAGE_WAL_IN_PROCESS_DRAIN=true
+      - NEO_MESSAGE_WAL_POLL_INTERVAL_MS=250
+      - NEO_MESSAGE_WAL_DIR=/tmp/neo-integration/memory-wal/messages
     tmpfs:
       - /tmp/neo-integration
     depends_on:
@@ -218,6 +221,9 @@ services:
       - NEO_MEMORY_WAL_IN_PROCESS_DRAIN=true
       - NEO_MEMORY_WAL_POLL_INTERVAL_MS=250
       - NEO_MEMORY_WAL_DIR=/tmp/neo-integration/memory-wal-oidc
+      - NEO_MESSAGE_WAL_IN_PROCESS_DRAIN=true
+      - NEO_MESSAGE_WAL_POLL_INTERVAL_MS=250
+      - NEO_MESSAGE_WAL_DIR=/tmp/neo-integration/memory-wal-oidc/messages
     tmpfs:
       - /tmp/neo-integration
     depends_on:
