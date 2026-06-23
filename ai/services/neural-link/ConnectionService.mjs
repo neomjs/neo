@@ -2,9 +2,10 @@ import aiConfig  from '../../mcp/server/neural-link/config.mjs';
 import {spawn}   from 'child_process';
 import crypto    from 'crypto';
 import fs        from 'fs';
+import path      from 'path';
 import WebSocket from 'ws';
-import Base              from '../../../src/core/Base.mjs';
-import logger            from '../../mcp/server/neural-link/logger.mjs';
+import Base      from '../../../src/core/Base.mjs';
+import logger    from '../../mcp/server/neural-link/logger.mjs';
 import {
     BRIDGE_INFO_TYPE,
     STALE_BRIDGE_ERROR_CODE,
@@ -69,6 +70,24 @@ export const getBridgePayloadByteLength = payload => {
     } catch {
         return null
     }
+};
+
+/**
+ * @summary Resolves the detached Bridge process stdout/stderr log file.
+ * @param {Object} [options={}]
+ * @param {String} [options.logPath=aiConfig.logPath]
+ * @param {String} [options.neoRootDir=aiConfig.neoRootDir]
+ * @param {String} [options.cwd=process.cwd()]
+ * @returns {String}
+ */
+export const getBridgeStdioLogPath = ({
+    logPath   = aiConfig.logPath,
+    neoRootDir = aiConfig.neoRootDir,
+    cwd       = process.cwd()
+} = {}) => {
+    const logDir = logPath || path.resolve(neoRootDir || cwd, '.neo-ai-data/logs');
+
+    return path.join(logDir, 'neural-link-bridge-stdio.log')
 };
 
 /**
@@ -238,7 +257,7 @@ class ConnectionService extends Base {
         // Resolve the target session (explicit target honored; silent multi-session auto-targeting denied).
         sessionId = resolveCallTarget(sessionId, Array.from(this.sessionData.keys()));
 
-        const id = ++this.msgId;
+        const id         = ++this.msgId;
         const rpcMessage = {
             jsonrpc: '2.0',
             method,
@@ -689,16 +708,44 @@ class ConnectionService extends Base {
     }
 
     /**
+     * Opens the detached Bridge stdout/stderr log file.
+     * @param {String} [filePath=getBridgeStdioLogPath()]
+     * @returns {Number}
+     */
+    openBridgeLogFile(filePath = getBridgeStdioLogPath()) {
+        fs.mkdirSync(path.dirname(filePath), {recursive: true});
+
+        return fs.openSync(filePath, 'a')
+    }
+
+    /**
+     * Spawns a detached child process. Kept as a method so tests can verify spawn wiring without
+     * launching the live Bridge.
+     * @param {String} command
+     * @param {String[]} args
+     * @param {Object} options
+     * @returns {Object}
+     */
+    spawnBridgeProcess(command, args, options) {
+        return spawn(command, args, options)
+    }
+
+    /**
      * Spawns the Bridge process.
+     * @param {Object} [options={}]
+     * @param {String} [options.logPath=aiConfig.logPath] Directory for spawned Bridge stdout/stderr.
+     * @param {String} [options.neoRootDir=aiConfig.neoRootDir] Repo root fallback for log path resolution.
+     * @param {Number} [options.startupDelayMs=2000] Delay before resolving after spawning.
      * @returns {Promise<void>}
      */
-    async spawnBridge() {
-        return new Promise((resolve, reject) => {
+    async spawnBridge({logPath = aiConfig.logPath, neoRootDir = aiConfig.neoRootDir, startupDelayMs = 2000} = {}) {
+        return new Promise(resolve => {
             const args    = ['run', 'ai:server-neural-link'];
-            const logFile = fs.openSync('./bridge.log', 'a');
+            const file    = getBridgeStdioLogPath({logPath, neoRootDir});
+            const logFile = this.openBridgeLogFile(file);
             const port    = aiConfig.port;
 
-            this.bridgeProcess = spawn('npm', args, {
+            this.bridgeProcess = this.spawnBridgeProcess('npm', args, {
                 cwd     : this.cwd || process.cwd(),
                 detached: true,
                 env     : {...process.env, NEO_NL_PORT: String(port)},
@@ -736,7 +783,7 @@ class ConnectionService extends Base {
 
         return new Promise((resolve, reject) => {
             const startTime = Date.now();
-            const interval = setInterval(() => {
+            const interval  = setInterval(() => {
                 found = check();
                 if (found) {
                     clearInterval(interval);
