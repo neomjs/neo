@@ -31,6 +31,7 @@ import TaskStateService                                                         
 import ProcessSupervisorService                                                 from './services/ProcessSupervisorService.mjs';
 import DeploymentRuntimeAccessService                                           from './services/DeploymentRuntimeAccessService.mjs';
 import RecoveryActuatorService                                                  from './services/RecoveryActuatorService.mjs';
+import ContainerHealthDiagnosisService                                          from './services/ContainerHealthDiagnosisService.mjs';
 import DreamService                                                             from './services/DreamService.mjs';
 import SwarmHeartbeatService                                                    from './services/SwarmHeartbeatService.mjs';
 import GoldenPathSynthesizer                                                    from '../../services/graph/GoldenPathSynthesizer.mjs';
@@ -103,18 +104,19 @@ function resolveCloudOnlyEnabled(key) {
  */
 export class Orchestrator extends Base {
     static config = {
-        className                      : 'Neo.ai.daemons.Orchestrator',
-        singleton                      : true,
-        processSupervisorService_      : null,
-        deploymentRuntimeAccessService_: null,
-        recoveryActuatorService_       : null,
-        maintenanceBackpressureService_: MaintenanceBackpressureService,
-        dataDir_                       : DEFAULT_DATA_DIR,
-        taskDefinitions_               : null,
-        taskStateService_              : TaskStateService,
-        healthService_                 : HealthService,
-        spawnFn_                       : spawn,
-        heavyMaintenanceLeasePath_     : null
+        className                       : 'Neo.ai.daemons.Orchestrator',
+        singleton                       : true,
+        processSupervisorService_       : null,
+        deploymentRuntimeAccessService_ : null,
+        recoveryActuatorService_        : null,
+        containerHealthDiagnosisService_: null,
+        maintenanceBackpressureService_ : MaintenanceBackpressureService,
+        dataDir_                        : DEFAULT_DATA_DIR,
+        taskDefinitions_                : null,
+        taskStateService_               : TaskStateService,
+        healthService_                  : HealthService,
+        spawnFn_                        : spawn,
+        heavyMaintenanceLeasePath_      : null
     }
 
     primaryRepoSyncService   = PrimaryRepoSyncService
@@ -290,6 +292,14 @@ export class Orchestrator extends Base {
         });
     }
 
+    /**
+     * @param {Neo.ai.daemons.services.ContainerHealthDiagnosisService|Object|null} value
+     * @returns {Neo.ai.daemons.services.ContainerHealthDiagnosisService}
+     */
+    beforeSetContainerHealthDiagnosisService(value) {
+        return ClassSystemUtil.beforeSetInstance(value, ContainerHealthDiagnosisService);
+    }
+
     beforeSetMaintenanceBackpressureService(value) {
         return ClassSystemUtil.beforeSetInstance(value, MaintenanceBackpressureService, {
             heavyMaintenanceTaskNames    : this.heavyMaintenanceTaskNames,
@@ -432,6 +442,7 @@ export class Orchestrator extends Base {
         this.processSupervisorService = {};
         this.deploymentRuntimeAccessService = {};
         this.recoveryActuatorService = {};
+        this.containerHealthDiagnosisService = {};
         this.processSupervisorService.recoverTasks();
 
         this.db = await this.initializeDatabaseFn(this.dbPath);
