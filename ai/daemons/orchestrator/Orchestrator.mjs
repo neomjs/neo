@@ -309,7 +309,6 @@ export class Orchestrator extends Base {
      */
     beforeSetDeploymentStateBridgeService(value) {
         return ClassSystemUtil.beforeSetInstance(value, DeploymentStateBridgeService, {
-            bridgeConfig        : AiConfig.orchestrator.deploymentStateBridge,
             runtimeAccessService: this.deploymentRuntimeAccessService,
             diagnosisService    : this.containerHealthDiagnosisService,
             writeLog            : this.deploymentStateBridgeWriteLog
@@ -366,7 +365,6 @@ export class Orchestrator extends Base {
         this.maintenanceBackpressureService.healthService = value;
     }
     afterSetDeploymentRuntimeAccessService(value, oldValue) {
-        if (oldValue === undefined) return;
         if (this.recoveryActuatorService) {
             this.recoveryActuatorService.deploymentRuntimeAccessService = value;
         }
@@ -375,8 +373,9 @@ export class Orchestrator extends Base {
         }
     }
     afterSetContainerHealthDiagnosisService(value, oldValue) {
-        if (oldValue === undefined || !this.deploymentStateBridgeService) return;
-        this.deploymentStateBridgeService.diagnosisService = value;
+        if (this.deploymentStateBridgeService) {
+            this.deploymentStateBridgeService.diagnosisService = value;
+        }
     }
     afterSetSpawnFn(value, oldValue) {
         if (oldValue === undefined) return;
@@ -466,9 +465,9 @@ export class Orchestrator extends Base {
 
         this.processSupervisorService = {};
         this.deploymentRuntimeAccessService = {};
+        this.containerHealthDiagnosisService = {};
         this.deploymentStateBridgeService = {};
         this.recoveryActuatorService = {};
-        this.containerHealthDiagnosisService = {};
         this.processSupervisorService.recoverTasks();
 
         this.db = await this.initializeDatabaseFn(this.dbPath);
