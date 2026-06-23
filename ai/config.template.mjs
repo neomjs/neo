@@ -378,7 +378,23 @@ class Config extends ConfigProvider {
                 providerReadiness: {
                     attempts : leaf(30, 'NEO_ORCHESTRATOR_PROVIDER_READY_ATTEMPTS', 'number'),
                     delayMs  : leaf(1000, 'NEO_ORCHESTRATOR_PROVIDER_READY_DELAY_MS', 'number'),
-                    timeoutMs: leaf(3000, 'NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS', 'number')
+                    timeoutMs: leaf(3000, 'NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS', 'number'),
+                    /**
+                     * Stuck-runner detection. A resident model can be alive yet stuck —
+                     * one pathological request (e.g. a too-large context prefill) grinding at
+                     * ~100%×N-cores while serving nothing, because `OLLAMA_NUM_PARALLEL=1` queues
+                     * everything behind it (the empirical anchor: a `gemma4` runner pegged 58h with
+                     * an idle orchestrator and no users). The supervised `livenessProbe` restarts the
+                     * runner only after `consecutiveFailures` SUSTAINED inference-canary failures —
+                     * the false-positive guard against restarting a legitimately-long request — and
+                     * the supervisor restart cooldown bounds the cadence (no thrash).
+                     * @type {Object}
+                     */
+                    stuckRunner: {
+                        enabled            : leaf(true,  'NEO_ORCHESTRATOR_STUCK_RUNNER_ENABLED', 'boolean'),
+                        consecutiveFailures: leaf(3,     'NEO_ORCHESTRATOR_STUCK_RUNNER_CONSECUTIVE_FAILURES', 'number'),
+                        canaryTimeoutMs    : leaf(10000, 'NEO_ORCHESTRATOR_STUCK_RUNNER_CANARY_TIMEOUT_MS', 'number')
+                    }
                 },
                 /**
                  * Maintenance-loop intervals consumed by the orchestrator daemon.

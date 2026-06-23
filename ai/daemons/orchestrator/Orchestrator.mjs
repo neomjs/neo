@@ -520,6 +520,7 @@ export class Orchestrator extends Base {
             }),
             livenessProbe          : async () => {
                 const {ensureOllamaModelsReady} = await import('../../services/graph/providerReadinessHelper.mjs');
+                const {classifyStuckRunner, probeOllamaServing} = await import('../../services/graph/ollamaStuckRunnerLiveness.mjs');
 
                 try {
                     const result = await ensureOllamaModelsReady({
@@ -539,6 +540,40 @@ export class Orchestrator extends Base {
                         result.attemptedModels?.length === 0
                     ) {
                         return false;
+                    }
+
+                    // Resident — but is the chat runner actually SERVING, or stuck grinding a
+                    // pathological request? A residency probe passes a stuck runner; only a
+                    // real inference canary, failing SUSTAINED, distinguishes stuck from busy. A
+                    // false here triggers the supervisor's cooldown-gated restart; a detector fault
+                    // must never itself restart a healthy runner.
+                    const stuckCfg  = AiConfig.orchestrator?.providerReadiness?.stuckRunner;
+                    const chatModel = roles.find(role => role.role === 'chat')?.model;
+
+                    if ((stuckCfg?.enabled ?? false) && chatModel) {
+                        try {
+                            const served  = await probeOllamaServing({
+                                host     : readinessConfig.host,
+                                model    : chatModel,
+                                timeoutMs: stuckCfg.canaryTimeoutMs ?? 10000
+                            });
+                            const verdict = classifyStuckRunner({
+                                served,
+                                consecutiveFailures: this._ollamaStuckFailures ?? 0,
+                                threshold          : stuckCfg.consecutiveFailures ?? 3
+                            });
+
+                            this._ollamaStuckFailures = verdict.consecutiveFailures;
+
+                            if (verdict.stuck) {
+                                this.writeLog('WARN', `[Orchestrator] ollama '${chatModel}' resident but not serving across ${stuckCfg.consecutiveFailures ?? 3} sustained canary probes — stuck runner; triggering supervised restart.`);
+                            }
+
+                            return verdict.alive;
+                        } catch (e) {
+                            this.writeLog('ERROR', `[Orchestrator] stuck-runner detect errored; treating as alive: ${e.message}`);
+                            return true;
+                        }
                     }
 
                     return true;
