@@ -91,7 +91,7 @@ class Model extends Base {
      * @param {String} [selectedCls]
      */
     deselect(item, silent, itemCollection=this.items, selectedCls) {
-        let me = this,
+        let me     = this,
             {view} = me,
             node;
 
@@ -209,7 +209,9 @@ class Model extends Base {
             let {view}   = this,
                 recordId = view.getRecordId?.(item);
 
-            return recordId === undefined || recordId === null ? item.id : view.getItemId(recordId)
+            return recordId === undefined || recordId === null
+                ? item.id
+                : view.getItemId(recordId)
         }
 
         return item
@@ -270,7 +272,7 @@ class Model extends Base {
             items = [items]
         }
 
-        let me = this,
+        let me      = this,
             {view}  = me,
             records = items.map(item => me.getSelectionRecord(item));
 
@@ -354,7 +356,7 @@ class Model extends Base {
      *
      */
     unregister() {
-        let me = this,
+        let me     = this,
             {view} = me;
 
         if (!view.isDestroying) {
