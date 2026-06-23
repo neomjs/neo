@@ -13,11 +13,11 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
-import fs             from 'fs';
-import path           from 'path';
+import {test, expect}        from '@playwright/test';
+import Neo                   from '../../../../../../src/Neo.mjs';
+import * as core             from '../../../../../../src/core/_export.mjs';
+import fs                    from 'fs';
+import path                  from 'path';
 import {TestLifecycleHelper} from '../../services/memory-core/util.mjs';
 import {
     clearAggregatedFrictions,
@@ -112,36 +112,36 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             OpenAiCompatible.prototype.generate = async function(messages) {
                 return {
                     content: JSON.stringify({
-                        a2a_version: "1.0",
-                        agent_id: "Antigravity",
+                        a2a_version     : "1.0",
+                        agent_id        : "Antigravity",
                         session_artifact: {
                             graph: {
                                 nodes: [
                                     {
-                                        id: "CONCEPT:TestConcept",
-                                        type: "CONCEPT",
-                                        name: "TestConcept",
+                                        id         : "CONCEPT:TestConcept",
+                                        type       : "CONCEPT",
+                                        name       : "TestConcept",
                                         description: "Test concept for provenance edges"
                                     }
                                 ],
                                 edges: [
                                     {
-                                        source: "CONCEPT:TestConcept",
-                                        target: "MEMORY:non-existent-memory",
-                                        relationship: "MENTIONED_IN",
-                                        weight: 1.0,
+                                        source       : "CONCEPT:TestConcept",
+                                        target       : "MEMORY:non-existent-memory",
+                                        relationship : "MENTIONED_IN",
+                                        weight       : 1.0,
                                         justification: "Uppercase compatibility provenance test"
                                     },
                                     {
-                                        source: "CONCEPT:TestConcept",
-                                        target: "session:non-existent-session",
-                                        relationship: "DISCUSSED_IN",
-                                        weight: 1.0,
+                                        source       : "CONCEPT:TestConcept",
+                                        target       : "session:non-existent-session",
+                                        relationship : "DISCUSSED_IN",
+                                        weight       : 1.0,
                                         justification: "Canonical lowercase provenance test"
                                     },
                                     {
-                                        source: "CONCEPT:TestConcept",
-                                        target: "frontier",
+                                        source      : "CONCEPT:TestConcept",
+                                        target      : "frontier",
                                         relationship: "RELATES_TO"
                                     }
                                 ]
@@ -152,8 +152,8 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             };
 
             const session = {
-                id: 'mock-semantic-vector-id',
-                meta: { sessionId: 'playwright-provenance-test' },
+                id      : 'mock-semantic-vector-id',
+                meta    : { sessionId: 'playwright-provenance-test' },
                 document: "Mock episodic history for provenance"
             };
 
@@ -251,8 +251,8 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             OpenAiCompatible.prototype.generate = async function(messages) {
                 return {
                     content: JSON.stringify({
-                        a2a_version: "1.0",
-                        agent_id: "Antigravity",
+                        a2a_version     : "1.0",
+                        agent_id        : "Antigravity",
                         session_artifact: {
                             graph: {}
                         }
@@ -268,8 +268,8 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             OpenAiCompatible.prototype.generate = async function(messages) {
                 return {
                     content: JSON.stringify({
-                        a2a_version: "1.0",
-                        agent_id: "Antigravity",
+                        a2a_version     : "1.0",
+                        agent_id        : "Antigravity",
                         session_artifact: {
                             graph: {
                                 nodes: { someObject: true },
@@ -290,8 +290,8 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
     });
 
     test('Sub 9 hypotheses 9 and 11: empty-response overflow records friction and aborts retry amplification (#12617, #12091)', async () => {
-        const baseGenerate = OpenAiCompatible.prototype.generate;
-        let invocationCount = 0;
+        const baseGenerate    = OpenAiCompatible.prototype.generate;
+        let   invocationCount = 0;
 
         try {
             clearAggregatedFrictions();
@@ -339,11 +339,154 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
         }
     });
 
+    test('truncated non-empty tri-vector output records friction and aborts repair amplification (#13918)', async () => {
+        const baseGenerate                      = OpenAiCompatible.prototype.generate;
+        const originalContextLimitTokens        = aiConfig.localModels.chat.contextLimitTokens;
+        const originalSafeProcessingLimitTokens = aiConfig.localModels.chat.safeProcessingLimitTokens;
+        let   invocationCount                   = 0;
+
+        try {
+            clearAggregatedFrictions();
+
+            aiConfig.localModels.chat.contextLimitTokens        = 100000;
+            aiConfig.localModels.chat.safeProcessingLimitTokens = 50000;
+
+            OpenAiCompatible.prototype.generate = async function(messages) {
+                invocationCount++;
+
+                return {
+                    content      : '{"a2a_version":"1.0","session_artifact":',
+                    finish_reason: 'length'
+                };
+            };
+
+            const result = await SemanticGraphExtractor.executeTriVectorExtraction({
+                id      : 'mock-truncated-response-vector-id',
+                meta    : {sessionId: 'truncated-response-overflow-session'},
+                document: 'Mock episodic history for truncated non-empty response detection.'
+            });
+
+            expect(result).toBeNull();
+            expect(invocationCount).toBe(1);
+
+            const frictions = getAggregatedFrictions();
+            const friction  = frictions.find(item => item.assetRef === 'truncated-response-overflow-session');
+
+            expect(friction).toBeDefined();
+            expect(friction.symptom).toBe('context-overflow');
+            expect(friction.note).toContain("finish_reason='length'");
+            expect(friction.note).toContain('Aborting repair loop');
+        } finally {
+            OpenAiCompatible.prototype.generate                 = baseGenerate;
+            aiConfig.localModels.chat.contextLimitTokens        = originalContextLimitTokens;
+            aiConfig.localModels.chat.safeProcessingLimitTokens = originalSafeProcessingLimitTokens;
+            clearAggregatedFrictions();
+        }
+    });
+
+    test('over-band tri-vector repair prompt records friction instead of appending feedback (#13918)', async () => {
+        const baseGenerate                      = OpenAiCompatible.prototype.generate;
+        const originalContextLimitTokens        = aiConfig.localModels.chat.contextLimitTokens;
+        const originalSafeProcessingLimitTokens = aiConfig.localModels.chat.safeProcessingLimitTokens;
+        let   invocationCount                   = 0;
+
+        try {
+            clearAggregatedFrictions();
+
+            aiConfig.localModels.chat.contextLimitTokens        = 100000;
+            aiConfig.localModels.chat.safeProcessingLimitTokens = 50000;
+
+            OpenAiCompatible.prototype.generate = async function(messages) {
+                invocationCount++;
+
+                return {
+                    content: 'malformed-json'.repeat(20000)
+                };
+            };
+
+            const result = await SemanticGraphExtractor.executeTriVectorExtraction({
+                id      : 'mock-over-band-repair-vector-id',
+                meta    : {sessionId: 'over-band-repair-session'},
+                document: 'Mock episodic history for over-band repair retry detection.'
+            });
+
+            expect(result).toBeNull();
+            expect(invocationCount).toBe(1);
+
+            const frictions = getAggregatedFrictions();
+            const friction  = frictions.find(item => item.assetRef === 'over-band-repair-session');
+
+            expect(friction).toBeDefined();
+            expect(friction.symptom).toBe('context-overflow');
+            expect(friction.inputTokensEstimate).toBeGreaterThan(50000);
+            expect(friction.note).toContain('Repair retry prompt estimate');
+            expect(friction.note).toContain('Aborting instead of appending');
+        } finally {
+            OpenAiCompatible.prototype.generate                 = baseGenerate;
+            aiConfig.localModels.chat.contextLimitTokens        = originalContextLimitTokens;
+            aiConfig.localModels.chat.safeProcessingLimitTokens = originalSafeProcessingLimitTokens;
+            clearAggregatedFrictions();
+        }
+    });
+
+    test('under-band malformed tri-vector output still uses one JSON repair retry (#13918)', async () => {
+        const baseGenerate                      = OpenAiCompatible.prototype.generate;
+        const originalContextLimitTokens        = aiConfig.localModels.chat.contextLimitTokens;
+        const originalSafeProcessingLimitTokens = aiConfig.localModels.chat.safeProcessingLimitTokens;
+        let   invocationCount                   = 0;
+
+        try {
+            clearAggregatedFrictions();
+
+            aiConfig.localModels.chat.contextLimitTokens        = 100000;
+            aiConfig.localModels.chat.safeProcessingLimitTokens = 50000;
+
+            OpenAiCompatible.prototype.generate = async function(messages) {
+                invocationCount++;
+
+                if (invocationCount === 1) {
+                    return {content: 'not-json'};
+                }
+
+                return {
+                    content: JSON.stringify({
+                        a2a_version     : '1.0',
+                        agent_id        : 'Antigravity',
+                        session_artifact: {
+                            feature_namespace     : null,
+                            human_readable_summary: 'Recovered after a bounded JSON repair retry.',
+                            graph                 : {
+                                nodes: [],
+                                edges: []
+                            }
+                        }
+                    })
+                };
+            };
+
+            const result = await SemanticGraphExtractor.executeTriVectorExtraction({
+                id      : 'mock-under-band-repair-vector-id',
+                meta    : {sessionId: 'under-band-repair-session'},
+                document: 'Mock episodic history for bounded repair retry detection.'
+            });
+
+            expect(result).not.toBeNull();
+            expect(result.session_artifact.human_readable_summary).toBe('Recovered after a bounded JSON repair retry.');
+            expect(invocationCount).toBe(2);
+            expect(getAggregatedFrictions().find(item => item.assetRef === 'under-band-repair-session')).toBeUndefined();
+        } finally {
+            OpenAiCompatible.prototype.generate                 = baseGenerate;
+            aiConfig.localModels.chat.contextLimitTokens        = originalContextLimitTokens;
+            aiConfig.localModels.chat.safeProcessingLimitTokens = originalSafeProcessingLimitTokens;
+            clearAggregatedFrictions();
+        }
+    });
+
     test('Sub 9 hypotheses 2, 8, 9: guardrail telemetry uses configured graph-provider model (#12617, #12059)', async () => {
-        const originalGraphProvider                  = aiConfig.graphProvider;
-        const originalOllamaModel                    = aiConfig.ollama?.model;
-        const originalContextLimitTokens             = aiConfig.localModels.chat.contextLimitTokens;
-        const originalSafeProcessingLimitTokens      = aiConfig.localModels.chat.safeProcessingLimitTokens;
+        const originalGraphProvider             = aiConfig.graphProvider;
+        const originalOllamaModel               = aiConfig.ollama?.model;
+        const originalContextLimitTokens        = aiConfig.localModels.chat.contextLimitTokens;
+        const originalSafeProcessingLimitTokens = aiConfig.localModels.chat.safeProcessingLimitTokens;
 
         try {
             clearAggregatedFrictions();
