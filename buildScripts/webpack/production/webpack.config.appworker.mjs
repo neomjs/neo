@@ -2,6 +2,7 @@ import fs           from 'fs-extra';
 import path         from 'path';
 import {spawnSync}  from 'child_process';
 import {minifyHtml} from '../../util/minifyHtml.mjs';
+import * as Terser  from 'terser';
 import webpack      from 'webpack';
 
 const
@@ -31,9 +32,14 @@ export default async function(env) {
     inputPath  = path.resolve(cwd, 'src/MicroLoader.mjs');
     outputPath = path.resolve(cwd, buildTarget.folder, 'src/MicroLoader.mjs');
 
-    content = fs.readFileSync(inputPath).toString().replace(/\s/gm, '');
+    content = await Terser.minify(fs.readFileSync(inputPath, 'utf-8'), {module: true});
+
+    if (content.error) {
+        throw content.error
+    }
+
     fs.mkdirpSync(path.resolve(cwd, buildTarget.folder, 'src/'));
-    fs.writeFileSync(outputPath, content);
+    fs.writeFileSync(outputPath, content.code);
 
     const copyResources = resourcesPath => {
         let inputPath  = path.resolve(cwd, resourcesPath),
@@ -186,7 +192,7 @@ export default async function(env) {
             rules: [
                 {
                     test: /\.mjs$/,
-                    use: [{
+                    use : [{
                         loader: path.resolve(neoPath, 'buildScripts/webpack/loader/template-loader.mjs')
                     }]
                 }
