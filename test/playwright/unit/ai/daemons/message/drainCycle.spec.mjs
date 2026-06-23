@@ -7,6 +7,7 @@ import path           from 'path';
 
 import {appendWalMessage} from '../../../../../../ai/services/memory-core/helpers/messageWalStore.mjs';
 import {
+    createMessageGraphProjectionProcessor,
     drainMessageWalOnce,
     getMessageDrainBackoffDelayMs,
     processMessageBatch
@@ -29,8 +30,9 @@ test.describe('Neo.ai.daemons.message.drainCycle', () => {
 
     const record = id => ({
         id,
-        timestamp: Date.now(),
-        message  : {
+        timestamp             : Date.now(),
+        graphProjectionVersion: 1,
+        message               : {
             id,
             type      : 'MESSAGE',
             name      : `subject ${id}`,
@@ -45,8 +47,8 @@ test.describe('Neo.ai.daemons.message.drainCycle', () => {
     test('without a replay processor, the cycle skips WAL reads instead of doing active no-op work', async () => {
         await seed('MESSAGE:deferred');
 
-        let readCalled = false;
-        const summary = await drainMessageWalOnce({
+        let   readCalled = false;
+        const summary    = await drainMessageWalOnce({
             dir          : tmpDir,
             batchSize    : 20,
             maxRetries   : 1,
@@ -121,5 +123,20 @@ test.describe('Neo.ai.daemons.message.drainCycle', () => {
         });
 
         expect(summary).toEqual({drained: 0, failed: 1, deferred: 0});
+    });
+
+    test('projection processor adapts mailbox drain summaries to cycle counters', async () => {
+        const processRecords = createMessageGraphProjectionProcessor({
+            async drainPendingMessageGraphProjections({ids, limit}) {
+                expect(ids).toEqual(['MESSAGE:a', 'MESSAGE:b']);
+                expect(limit).toBe(2);
+
+                return {pending: 2, projected: 1, failed: 1};
+            }
+        });
+
+        const summary = await processRecords([record('MESSAGE:a'), record('MESSAGE:b')]);
+
+        expect(summary).toEqual({drained: 1, failed: 1, deferred: 0});
     });
 });

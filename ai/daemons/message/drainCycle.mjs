@@ -1,17 +1,13 @@
-import {readWalMessages} from '../../services/memory-core/helpers/messageWalStore.mjs';
+import {readPendingMessageWalRecords} from '../../services/memory-core/helpers/messageWalStore.mjs';
 
 /**
  * @module ai/daemons/message/drainCycle
  * @summary Host-agnostic message WAL drain loop topology.
  *
- * This module intentionally owns only the drain-host mechanics: read the accepted message WAL
- * from the configured directory, batch it, retry the injected replay processor, and expose a loop
- * host that both the local daemon and in-process Memory Core mode can share.
- *
- * Full graph replay/idempotency is a separate projection concern. Until that processor is wired,
- * cycles stay inactive and skip WAL reads entirely, preserving the WAL as the authority without
- * adding a growing no-op scan to live deployments. A2A-message vector/search population is likewise
- * outside this topology layer.
+ * This module intentionally owns only the drain-host mechanics: read graph-pending accepted
+ * message WAL records from the configured directory, batch them, retry the injected replay
+ * processor, and expose a loop host that both the local daemon and in-process Memory Core mode can
+ * share. A2A-message vector/search population is outside this topology layer.
  */
 
 /**
@@ -30,6 +26,27 @@ function normalizeProcessResult(records, result = {}) {
           deferred = Number.isFinite(result.deferred) ? result.deferred : 0;
 
     return {drained, failed, deferred};
+}
+
+/**
+ * @summary Adapts MailboxService's graph-projection drain into the generic loop processor shape.
+ * @param {Object} mailboxService Service exposing `drainPendingMessageGraphProjections`.
+ * @returns {Function} Processor compatible with {@link processMessageBatch}.
+ */
+export function createMessageGraphProjectionProcessor(mailboxService) {
+    return async records => {
+        const ids     = records.map(record => record.id).filter(Boolean);
+        const summary = await mailboxService.drainPendingMessageGraphProjections({
+            ids,
+            limit: records.length
+        });
+
+        return {
+            drained : summary.projected,
+            failed  : summary.failed,
+            deferred: Math.max(summary.pending - summary.projected - summary.failed, 0)
+        };
+    };
 }
 
 /**
@@ -90,7 +107,7 @@ export async function processMessageBatch({
  * @param {Function|null} [options.processRecords] Optional replay processor.
  * @param {Function} [options.log] Log sink.
  * @param {Function} [options.sleep] Delay primitive.
- * @param {Function} [options.readMessages] WAL reader injection for tests.
+ * @param {Function} [options.readMessages] Pending WAL reader injection for tests.
  * @returns {Promise<{observed: Number, drained: Number, failed: Number, deferred: Number, inactive: Boolean}>}
  */
 export async function drainMessageWalOnce({
@@ -101,7 +118,7 @@ export async function drainMessageWalOnce({
     processRecords,
     log,
     sleep,
-    readMessages = readWalMessages
+    readMessages = readPendingMessageWalRecords
 } = {}) {
     if (!processRecords) {
         return {observed: 0, drained: 0, failed: 0, deferred: 0, inactive: true};
@@ -128,8 +145,8 @@ export async function drainMessageWalOnce({
  * @returns {{stop: Function}}
  */
 export function startMessageDrainLoop({getConfig, getProcessor = () => null, log = () => {}}) {
-    let stopped = false,
-        timer   = null,
+    let stopped        = false,
+        timer          = null,
         inactiveLogged = false;
 
     const tick = async () => {

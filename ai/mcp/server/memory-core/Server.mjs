@@ -18,12 +18,16 @@ import {
     Memory_InferenceLifecycleService  as InferenceLifecycleService,
     Memory_RecorderService            as RecorderService,
     Memory_StorageRouter              as StorageRouter,
+    Memory_MailboxService             as MailboxService,
     Memory_WakeSubscriptionService    as WakeSubscriptionService,
     Memory_CoalescingEngineService    as CoalescingEngineService
 } from '../../../services.mjs';
-import {startDrainLoop}             from '../../../daemons/embed/drainCycle.mjs';
-import {acquireDrainLock}           from '../../../daemons/embed/drainLock.mjs';
-import {startMessageDrainLoop}      from '../../../daemons/message/drainCycle.mjs';
+import {startDrainLoop}   from '../../../daemons/embed/drainCycle.mjs';
+import {acquireDrainLock} from '../../../daemons/embed/drainLock.mjs';
+import {
+    createMessageGraphProjectionProcessor,
+    startMessageDrainLoop
+} from '../../../daemons/message/drainCycle.mjs';
 import {acquireMessageDrainLock}    from '../../../daemons/message/drainLock.mjs';
 import {getMissingMessageWalLeaves} from '../../../services/memory-core/helpers/messageWalStore.mjs';
 
@@ -304,8 +308,9 @@ class Server extends BaseServer {
 
                 if (this.messageWalDrainLock) {
                     this.messageWalDrainLoop = startMessageDrainLoop({
-                        getConfig: () => aiConfig.messageWal,
-                        log      : messageDrainLog
+                        getConfig   : () => aiConfig.messageWal,
+                        getProcessor: () => createMessageGraphProjectionProcessor(MailboxService),
+                        log         : messageDrainLog
                     });
                     process.on('exit', () => this.messageWalDrainLock?.release());
                     logger.info('[neo-memory-core MCP] In-process message WAL drain loop active (messageWal.inProcessDrain)');

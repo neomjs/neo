@@ -1,15 +1,21 @@
-import Base                                           from '../../../src/core/Base.mjs';
-import aiConfig                                       from '../../mcp/server/memory-core/config.mjs';
-import logger                                         from '../../mcp/server/memory-core/logger.mjs';
-import RequestContextService, {normalizeUserId}       from '../../mcp/server/shared/services/RequestContextService.mjs';
-import GraphService                                   from './GraphService.mjs';
-import PermissionService                              from './PermissionService.mjs';
-import WakeSubscriptionService                        from './WakeSubscriptionService.mjs';
-import {appendWalMessage, getMissingMessageWalLeaves} from './helpers/messageWalStore.mjs';
-import {getMissingMemoryWalLeaves}                    from './helpers/memoryWalStore.mjs';
-import {execFile}                                     from 'child_process';
-import {promisify}                                    from 'util';
-import crypto                                         from 'crypto';
+import Base                                     from '../../../src/core/Base.mjs';
+import aiConfig                                 from '../../mcp/server/memory-core/config.mjs';
+import logger                                   from '../../mcp/server/memory-core/logger.mjs';
+import RequestContextService, {normalizeUserId} from '../../mcp/server/shared/services/RequestContextService.mjs';
+import GraphService                             from './GraphService.mjs';
+import PermissionService                        from './PermissionService.mjs';
+import WakeSubscriptionService                  from './WakeSubscriptionService.mjs';
+import {
+    appendMessageWalGraphProjectionMarker,
+    appendWalMessage,
+    getMessageWalSegmentKey,
+    getMissingMessageWalLeaves,
+    readPendingMessageWalRecords
+} from './helpers/messageWalStore.mjs';
+import {getMissingMemoryWalLeaves} from './helpers/memoryWalStore.mjs';
+import {execFile}                  from 'child_process';
+import {promisify}                 from 'util';
+import crypto                      from 'crypto';
 
 const
     execFileAsync                     = promisify(execFile),
@@ -246,6 +252,8 @@ function buildMessageWalRecord({
     messageId,
     messageProperties,
     originSessionId,
+    preNormalizeTo,
+    postNormalizeTo,
     relatedSessions,
     relatedTickets,
     sentBy,
@@ -267,6 +275,8 @@ function buildMessageWalRecord({
         routing: {
             sentBy,
             to,
+            preNormalizeTo,
+            postNormalizeTo,
             senderUserId,
             broadcastRecipients: to === 'AGENT:*' ? getBroadcastAudience(sentBy) : []
         },
@@ -279,6 +289,19 @@ function buildMessageWalRecord({
             taggedConcepts : [...messageProperties.taggedConcepts]
         }
     }
+}
+
+function getMessageWalTimestamp(record, properties = {}) {
+    if (properties.sentAt) return properties.sentAt;
+    if (record?.sentAt) return record.sentAt;
+
+    const timestampMs = Number(record?.timestamp);
+
+    return Number.isFinite(timestampMs) ? new Date(timestampMs).toISOString() : new Date().toISOString();
+}
+
+function getMessageWalArray(value) {
+    return Array.isArray(value) ? value : [];
 }
 
 /**
@@ -443,6 +466,14 @@ async function setDeliveryEdgeArchivedAt(edge, archivedAt) {
     if (db?.autoSave && db.storage) {
         await db.storage.addEdges([edge]);
         db.acknowledgeLocalMutations?.();
+    }
+}
+
+function linkOptionalMailboxEdge(source, target, type, weight, properties) {
+    try {
+        GraphService.linkNodes(source, target, type, weight, properties);
+    } catch (e) {
+        logger.warn(`[MailboxService] optional message graph edge skipped: ${source} -[${type}]-> ${target}: ${e.message}`);
     }
 }
 
@@ -694,69 +725,26 @@ class MailboxService extends Base {
             throw new Error(`message WAL config leaves missing: ${missingLeaves.join(', ')} — sync the memoryWal/messageWal blocks from config.template.mjs into the local config.mjs (node ai/scripts/setup/initServerConfigs.mjs --migrate-config) and restart memory-core.`);
         }
 
-        await appendWalMessage(
-            buildMessageWalRecord({
-                messageId,
-                messageProperties,
-                originSessionId,
-                relatedSessions,
-                relatedTickets,
-                sentBy,
-                senderUserId,
-                timestamp,
-                to
-            }),
-            {dir: aiConfig.messageWal.dir}
-        );
+        const walRecord = buildMessageWalRecord({
+            messageId,
+            messageProperties,
+            originSessionId,
+            preNormalizeTo,
+            postNormalizeTo,
+            relatedSessions,
+            relatedTickets,
+            sentBy,
+            senderUserId,
+            timestamp,
+            to
+        });
+
+        await appendWalMessage(walRecord, {dir: aiConfig.messageWal.dir});
 
         let projectionStatus = 'projected';
 
         try {
-            // 2. Project the accepted Message intent to the graph. This is derived work after the
-            // durable WAL append; if projection fails, the accepted `MESSAGE:*` id stays replayable.
-            GraphService.upsertNode({
-                id        : messageId,
-                type      : 'MESSAGE',
-                name      : subject,
-                properties: messageProperties
-            });
-
-            // 3. Map the delivery-critical routing edges. These still fail loudly inside projection
-            // so a replay/drain can retry the complete delivery-critical graph state.
-            const routingDiagnostics = {preNormalizeTo, postNormalizeTo};
-            linkRequiredMailboxEdgeOrThrow(messageId, sentBy, 'SENT_BY', 1.0, { timestamp, userId: senderUserId, sharedEntity: true }, routingDiagnostics);
-            linkRequiredMailboxEdgeOrThrow(messageId, to, 'SENT_TO', 1.0, { timestamp, userId: senderUserId, sharedEntity: true }, routingDiagnostics);
-            if (to === 'AGENT:*') {
-                for (const recipient of getBroadcastAudience(sentBy)) {
-                    linkRequiredMailboxEdgeOrThrow(messageId, recipient, 'DELIVERED_TO', 1.0, {
-                        deliveredAt : timestamp,
-                        readAt      : null,
-                        deliveryKind: 'broadcast',
-                        userId      : senderUserId,
-                        sharedEntity: true
-                    }, routingDiagnostics);
-                }
-            }
-
-            // 4. Map additional graph semantic edges. These remain cull-tolerant:
-            // mailbox delivery does not depend on optional provenance/thread/concept links.
-            if (originSessionId) GraphService.linkNodes(messageId, originSessionId, 'ORIGINATES_IN', 1.0, { timestamp, userId: senderUserId, sharedEntity: true });
-            if (inReplyTo) GraphService.linkNodes(messageId, inReplyTo, 'IN_REPLY_TO', 1.0, { timestamp, userId: senderUserId, sharedEntity: true });
-            if (partOfThread) GraphService.linkNodes(messageId, partOfThread, 'PART_OF_THREAD', 1.0, { timestamp, userId: senderUserId, sharedEntity: true });
-
-            for (const s of relatedSessions) GraphService.linkNodes(messageId, s, 'RELATED_SESSION', 1.0, { timestamp, userId: senderUserId, sharedEntity: true });
-            for (const t of relatedTickets) GraphService.linkNodes(messageId, t, 'REFERENCES_TICKET', 1.0, { timestamp, userId: senderUserId, sharedEntity: true });
-            for (const c of taggedConcepts) GraphService.linkNodes(messageId, c, 'TAGGED_CONCEPT', 1.0, { timestamp, userId: senderUserId, sharedEntity: true });
-
-            // Per-message auto concept-extraction is intentionally NOT run inline: it fired a chat-model
-            // call (up to 2 attempts) on EVERY message, in parallel with the orchestrator's exclusive-heavy
-            // tasks — starving the model of an idle window. The curated `taggedConcepts` edges (weight 1.0)
-            // are already linked above; the low-confidence auto-extracted concepts (weight 0.8) were the
-            // bulk of the non-curated graph population and are dropped here as redundant noise. Concept
-            // mining stays orchestrator-driven (scheduled, lease-gated), keeping model inference off the
-            // message hot path.
-
-            WakeSubscriptionService.pump().catch(e => logger.error('[wake-pump]', e));
+            await this._projectMessageWalRecord(walRecord);
         } catch (e) {
             projectionStatus = 'pending';
             logger.error('[MailboxService.addMessage] graph projection failed after message WAL append', {
@@ -772,6 +760,128 @@ class MailboxService extends Base {
             status: 'sent',
             ...(projectionStatus === 'pending' ? {projectionStatus} : {})
         };
+    }
+
+    /**
+     * @summary Projects one accepted message WAL record into the Native Edge Graph.
+     *
+     * The WAL record is the authority: replay uses its canonical recipient, send-time broadcast
+     * audience snapshot, sender identity, and optional semantic edges. Delivery-critical edges
+     * fail loudly so the record remains pending until a later drain succeeds; optional semantic
+     * edges are cull/throw tolerant and never block mailbox delivery completion.
+     *
+     * @param {Object} record Accepted message WAL record.
+     * @param {Object} [options]
+     * @param {Boolean} [options.pumpWake=true] Whether to pump wake subscriptions after projection.
+     * @returns {Promise<void>}
+     * @private
+     */
+    async _projectMessageWalRecord(record, {pumpWake = true} = {}) {
+        const messageId = record?.id || record?.message?.id;
+        if (typeof messageId !== 'string' || !messageId.startsWith('MESSAGE:')) {
+            throw new Error('[MailboxService] message WAL projection requires a MESSAGE:* id');
+        }
+
+        const message            = record.message || {};
+        const messageProperties  = message.properties || {};
+        const routing            = record.routing || {};
+        const optionalEdges      = record.optionalEdges || {};
+        const sentBy             = routing.sentBy || messageProperties.from;
+        const to                 = routing.to || messageProperties.to;
+        const senderUserId       = routing.senderUserId || normalizeUserId(sentBy);
+        const timestamp          = getMessageWalTimestamp(record, messageProperties);
+        const edgeProperties     = {timestamp, userId: senderUserId, sharedEntity: true};
+        const routingDiagnostics = {
+            preNormalizeTo : routing.preNormalizeTo ?? to,
+            postNormalizeTo: routing.postNormalizeTo ?? to
+        };
+
+        if (!sentBy || !to) {
+            throw new Error(`[MailboxService] message WAL projection requires routing.sentBy and routing.to for ${messageId}`);
+        }
+
+        GraphService.upsertNode({
+            id        : messageId,
+            type      : message.type || 'MESSAGE',
+            name      : message.name || messageProperties.subject || messageId,
+            properties: messageProperties
+        });
+
+        linkRequiredMailboxEdgeOrThrow(messageId, sentBy, 'SENT_BY', 1.0, edgeProperties, routingDiagnostics);
+        linkRequiredMailboxEdgeOrThrow(messageId, to, 'SENT_TO', 1.0, edgeProperties, routingDiagnostics);
+
+        if (to === 'AGENT:*') {
+            for (const recipient of getMessageWalArray(routing.broadcastRecipients)) {
+                linkRequiredMailboxEdgeOrThrow(messageId, recipient, 'DELIVERED_TO', 1.0, {
+                    deliveredAt : timestamp,
+                    readAt      : null,
+                    deliveryKind: 'broadcast',
+                    userId      : senderUserId,
+                    sharedEntity: true
+                }, routingDiagnostics);
+            }
+        }
+
+        if (optionalEdges.originSessionId) {
+            linkOptionalMailboxEdge(messageId, optionalEdges.originSessionId, 'ORIGINATES_IN', 1.0, edgeProperties);
+        }
+        if (optionalEdges.inReplyTo) {
+            linkOptionalMailboxEdge(messageId, optionalEdges.inReplyTo, 'IN_REPLY_TO', 1.0, edgeProperties);
+        }
+        if (optionalEdges.partOfThread) {
+            linkOptionalMailboxEdge(messageId, optionalEdges.partOfThread, 'PART_OF_THREAD', 1.0, edgeProperties);
+        }
+
+        for (const s of getMessageWalArray(optionalEdges.relatedSessions)) {
+            linkOptionalMailboxEdge(messageId, s, 'RELATED_SESSION', 1.0, edgeProperties);
+        }
+        for (const t of getMessageWalArray(optionalEdges.relatedTickets)) {
+            linkOptionalMailboxEdge(messageId, t, 'REFERENCES_TICKET', 1.0, edgeProperties);
+        }
+        for (const c of getMessageWalArray(optionalEdges.taggedConcepts)) {
+            linkOptionalMailboxEdge(messageId, c, 'TAGGED_CONCEPT', 1.0, edgeProperties);
+        }
+
+        // Per-message auto concept-extraction remains intentionally outside projection: curated
+        // taggedConcepts are replayed above, while low-confidence model-derived concepts stay out
+        // of the message hot path.
+
+        await appendMessageWalGraphProjectionMarker({
+            id        : messageId,
+            segmentKey: record.segmentKey || getMessageWalSegmentKey(record.timestamp ?? Date.now())
+        }, {dir: aiConfig.messageWal.dir});
+
+        if (pumpWake) {
+            WakeSubscriptionService.pump().catch(e => logger.error('[wake-pump]', e));
+        }
+    }
+
+    /**
+     * @summary Reconciles graph-pending accepted message WAL records into the mailbox graph.
+     * @param {Object} [options]
+     * @param {String[]} [options.ids] Optional targeted message ids.
+     * @param {Number} [options.limit] Maximum pending records to process.
+     * @returns {Promise<{pending: Number, projected: Number, failed: Number}>}
+     */
+    async drainPendingMessageGraphProjections({ids, limit = aiConfig.messageWal.batchSize} = {}) {
+        const records = await readPendingMessageWalRecords({
+            dir: aiConfig.messageWal.dir,
+            ids,
+            limit
+        });
+        const summary = {pending: records.length, projected: 0, failed: 0};
+
+        for (const record of records) {
+            try {
+                await this._projectMessageWalRecord(record);
+                summary.projected++;
+            } catch (error) {
+                summary.failed++;
+                logger.warn(`[MailboxService] message graph projection drain failed for ${record.id}: ${error.message}`);
+            }
+        }
+
+        return summary;
     }
 
     /**
