@@ -187,10 +187,18 @@ test.describe('Tier 1 Config Immutability', () => {
         // Provider-readiness probe parameters consumed by the orchestrator dream task
         // + standalone Sandman CLI runner. Values are concrete defaults — no module-level
         // constants substitute when callers omit them.
+        const stuckRunnerEnabledEnv = process.env.NEO_ORCHESTRATOR_STUCK_RUNNER_ENABLED?.trim().toLowerCase();
+        const stuckRunnerDisabled   = ['false', 'no', 'off', '0'].includes(stuckRunnerEnabledEnv);
+
         expect(Config.orchestrator.providerReadiness).toEqual({
-            attempts : Number(process.env.NEO_ORCHESTRATOR_PROVIDER_READY_ATTEMPTS)   || 30,
-            delayMs  : Number(process.env.NEO_ORCHESTRATOR_PROVIDER_READY_DELAY_MS)   || 1000,
-            timeoutMs: Number(process.env.NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS) || 3000
+            attempts   : Number(process.env.NEO_ORCHESTRATOR_PROVIDER_READY_ATTEMPTS)   || 30,
+            delayMs    : Number(process.env.NEO_ORCHESTRATOR_PROVIDER_READY_DELAY_MS)   || 1000,
+            timeoutMs  : Number(process.env.NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS) || 3000,
+            stuckRunner: {
+                enabled            : stuckRunnerEnabledEnv === undefined ? true : !stuckRunnerDisabled,
+                consecutiveFailures: Number(process.env.NEO_ORCHESTRATOR_STUCK_RUNNER_CONSECUTIVE_FAILURES) || 3,
+                canaryTimeoutMs    : Number(process.env.NEO_ORCHESTRATOR_STUCK_RUNNER_CANARY_TIMEOUT_MS)    || 10000
+            }
         });
         const ollamaEnabledEnv = process.env.NEO_ORCHESTRATOR_OLLAMA_ENABLED?.trim().toLowerCase();
         const ollamaDisabled   = ['false', 'no', 'off', '0'].includes(ollamaEnabledEnv);

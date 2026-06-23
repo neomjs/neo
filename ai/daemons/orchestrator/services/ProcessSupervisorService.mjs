@@ -659,17 +659,74 @@ export class ProcessSupervisorService extends Base {
     superviseTask(taskName, now, cooldownMs) {
         const state = this.taskStateService.getTaskState(taskName);
 
-        if (!state || state.running || now - (state.lastRunAt || 0) <= cooldownMs) {
+        if (!state) {
             return;
         }
 
         const task = this.taskDefinitions[taskName];
+
+        // Running-but-stuck recycle. A long-running child can be alive yet not serving — a stuck
+        // inference grinding CPU while a residency/process check still passes. A `healthProbe()`
+        // checks the RUNNING child; on a sustained-unhealthy result the child is recycled (killed,
+        // then respawned by the next poll). This is distinct from `livenessProbe()`, which answers
+        // "is the service up while my process flag says down" for a fire-and-exit launcher — the
+        // running-process branch below never reached the down-only liveness path.
+        if (state.running) {
+            if (typeof task?.healthProbe === 'function') {
+                this.gateRecycleOnHealthProbe(taskName, task, now, cooldownMs);
+            }
+            return;
+        }
+
+        if (now - (state.lastRunAt || 0) <= cooldownMs) {
+            return;
+        }
 
         if (typeof task?.livenessProbe === 'function') {
             this.gateRestartOnLivenessProbe(taskName, task, now, cooldownMs);
         } else {
             this.runTask(taskName, 'supervisor-restart');
         }
+    }
+
+    /**
+     * @summary Health-gated recycle for a long-running child that can be stuck-while-running.
+     *
+     * Mirrors {@link gateRestartOnLivenessProbe}'s confirmed-at + in-flight de-dup (at most one
+     * probe per cooldown, no overlap), but acts on the RUNNING-child surface: a healthy result is
+     * silent; a sustained-unhealthy result `killTask`s the child (recycle → respawn next poll). The
+     * task owns the actual "is it serving" check via `healthProbe()` (the sustained-stuck hysteresis
+     * lives there); this method only schedules it and acts on the boolean.
+     *
+     * A THROWN probe is treated as healthy (no recycle): unlike the liveness path, the child is
+     * already running, so a probe fault must never kill a working process.
+     *
+     * @param {String} taskName Task key.
+     * @param {Object} task Task definition (carries `healthProbe`).
+     * @param {Number} now Epoch ms (poll timestamp).
+     * @param {Number} cooldownMs Minimum gap between probes / recycle attempts.
+     * @returns {void}
+     */
+    gateRecycleOnHealthProbe(taskName, task, now, cooldownMs) {
+        this._healthConfirmedAt   ??= {};
+        this._healthProbeInFlight ??= {};
+
+        if (now - (this._healthConfirmedAt[taskName] || 0) <= cooldownMs || this._healthProbeInFlight[taskName]) {
+            return;
+        }
+
+        this._healthProbeInFlight[taskName] = true;
+
+        task.healthProbe()
+            .then(healthy => {
+                if (healthy) {
+                    this._healthConfirmedAt[taskName] = Date.now();
+                } else {
+                    this.killTask(taskName, 'supervisor-health-recycle');
+                }
+            })
+            .catch(() => { /* probe fault on a running child: never recycle a working process */ })
+            .finally(() => { this._healthProbeInFlight[taskName] = false; });
     }
 
     /**
