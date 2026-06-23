@@ -1,26 +1,33 @@
-import Ajv2020               from 'ajv/dist/2020.js';
-import Base                  from '../../../src/core/Base.mjs';
-import ChromaManager         from './ChromaManager.mjs';
-import GraphService          from '../memory-core/GraphService.mjs';
-import KBRecorderService     from './KBRecorderService.mjs';
+import Ajv2020           from 'ajv/dist/2020.js';
+import Base              from '../../../src/core/Base.mjs';
+import ChromaManager     from './ChromaManager.mjs';
+import GraphService      from '../memory-core/GraphService.mjs';
+import KBRecorderService from './KBRecorderService.mjs';
+import {
+    bytesToTokens,
+    emitConsumerFriction
+}                            from '../memory-core/helpers/consumerFrictionHelper.mjs';
 import RequestContextService,
        {normalizeUserId}    from '../../mcp/server/shared/services/RequestContextService.mjs';
 import SourceRegistry        from './source/_export.mjs';
 import {normalizeTenantRepoConfig}
                              from './helpers/tenantRepoAccessContract.mjs';
-import VectorService         from './VectorService.mjs';
-import aiConfig              from '../../mcp/server/knowledge-base/config.mjs';
-import crypto                from 'crypto';
-import fs                    from 'fs-extra';
-import os                    from 'os';
-import path                  from 'path';
-import yaml                  from 'js-yaml';
-import {fileURLToPath}       from 'url';
+import VectorService   from './VectorService.mjs';
+import aiConfig        from '../../mcp/server/knowledge-base/config.mjs';
+import crypto          from 'crypto';
+import fs              from 'fs-extra';
+import logger          from '../../mcp/server/knowledge-base/logger.mjs';
+import mcConfig        from '../../mcp/server/memory-core/config.mjs';
+import os              from 'os';
+import path            from 'path';
+import yaml            from 'js-yaml';
+import {fileURLToPath} from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
-const PARSED_CHUNK_SCHEMA_PATH = path.join(__dirname, 'parser/parsed-chunk-v1.schema.json');
+const LOCAL_EMBEDDING_PROVIDERS = new Set(['openAiCompatible', 'ollama']);
+const PARSED_CHUNK_SCHEMA_PATH  = path.join(__dirname, 'parser/parsed-chunk-v1.schema.json');
 
 /**
  * @summary Orchestrates tenant-aware Knowledge Base ingestion pushes.
@@ -136,8 +143,9 @@ class KnowledgeBaseIngestionService extends Base {
                 }));
             }
 
-            const files  = Array.isArray(payload.files) ? payload.files : [];
-            const chunks = await this.collectParsedChunks({files, tenantContext, summary});
+            const files            = Array.isArray(payload.files) ? payload.files : [];
+            const chunks           = await this.collectParsedChunks({files, tenantContext, summary});
+            const embeddableChunks = this.filterEmbeddingInputBudget({chunks, tenantContext, summary});
 
             summary.deleted = await this.applyDeletionSignals({
                 deleted         : payload.deleted,
@@ -148,11 +156,16 @@ class KnowledgeBaseIngestionService extends Base {
                 summary
             });
 
-            if (chunks.length > 0) {
-                await this.embedChunkGroups({chunks, tenantContext, summary, viaMcp: payload.viaMcp !== false});
+            if (embeddableChunks.length > 0) {
+                await this.embedChunkGroups({
+                    chunks: embeddableChunks,
+                    tenantContext,
+                    summary,
+                    viaMcp: payload.viaMcp !== false
+                });
             }
 
-            summary.ingested   = chunks.length;
+            summary.ingested   = embeddableChunks.length;
             summary.durationMs = Date.now() - startedAt;
 
             await this.persistManifestSnapshot({
@@ -228,7 +241,7 @@ class KnowledgeBaseIngestionService extends Base {
 
         if (normalizedManifest) {
             const livePaths = new Set(normalizedManifest.pathsAfterPush);
-            const rows = await this.getTenantRows(collection, tenantContext.tenantId);
+            const rows      = await this.getTenantRows(collection, tenantContext.tenantId);
 
             rows
                 .filter(row => row.metadata.repoSlug === normalizedManifest.repoSlug && !livePaths.has(row.metadata.sourcePath))
@@ -309,7 +322,7 @@ class KnowledgeBaseIngestionService extends Base {
                 const parsed = await this.resolveFileChunks({file, fileIndex, tenantContext});
 
                 for (let chunkIndex = 0; chunkIndex < parsed.length; chunkIndex++) {
-                    const record = parsed[chunkIndex];
+                    const record     = parsed[chunkIndex];
                     const normalized = await this.validateAndNormalizeParsedChunk({
                         record,
                         fileIndex,
@@ -359,6 +372,7 @@ class KnowledgeBaseIngestionService extends Base {
             ingested           : 0,
             deleted            : 0,
             embeddingsGenerated: 0,
+            skippedOversized   : 0,
             errors             : [],
             tenantId           : aiConfig.defaultTenantId,
             durationMs         : Date.now() - startedAt
@@ -393,9 +407,9 @@ class KnowledgeBaseIngestionService extends Base {
      * @protected
      */
     async getTenantRows(collection, tenantId) {
-        const rows = [];
-        const limit = 2000;
-        let offset  = 0;
+        const rows   = [];
+        const limit  = 2000;
+        let   offset = 0;
         let batch;
 
         do {
@@ -403,7 +417,7 @@ class KnowledgeBaseIngestionService extends Base {
                 include: ['metadatas'],
                 limit,
                 offset,
-                where: {tenantId}
+                where  : {tenantId}
             });
 
             for (let i = 0; i < (batch.ids?.length || 0); i++) {
@@ -509,8 +523,8 @@ class KnowledgeBaseIngestionService extends Base {
                   updatedAt = Date.now();
 
             manifests[tenantContext.repoSlug] = {
-                repoSlug       : tenantContext.repoSlug,
-                pathsAfterPush : paths,
+                repoSlug      : tenantContext.repoSlug,
+                pathsAfterPush: paths,
                 updatedAt
             };
 
@@ -549,9 +563,9 @@ class KnowledgeBaseIngestionService extends Base {
         }
 
         const result = await this.setTenantManifest({
-            tenantId       : tenantContext.tenantId,
-            repoSlug       : normalized.repoSlug,
-            pathsAfterPush : normalized.pathsAfterPush
+            tenantId      : tenantContext.tenantId,
+            repoSlug      : normalized.repoSlug,
+            pathsAfterPush: normalized.pathsAfterPush
         });
 
         if (result?.error) {
@@ -632,13 +646,138 @@ class KnowledgeBaseIngestionService extends Base {
             repoSlug           : tenantContext.repoSlug,
             originAgentIdentity: tenantContext.originAgentIdentity,
             eventType          : this.resolveMetricEventType(summary),
-            chunksTotal        : summary.ingested,
+            chunksTotal        : summary.ingested + summary.skippedOversized,
             chunksEmbedded     : summary.embeddingsGenerated,
             chunksDeleted      : summary.deleted,
             durationMs         : summary.durationMs,
             errorCode          : summary.errors[0]?.code,
             detail             : summary.errors.length > 0 ? {errors: summary.errors} : undefined
         });
+    }
+
+    /**
+     * @summary Resolves the local embedding input-budget guardrail for ingestion diagnostics.
+     * @returns {{enabled: Boolean, embeddingProvider: String, contextLimitTokens: Number, safeProcessingLimitTokens: Number, model: String}}
+     * @protected
+     */
+    resolveEmbeddingInputGuardrail() {
+        const embeddingProvider         = mcConfig.embeddingProvider;
+        const contextLimitTokens        = Number(aiConfig.localModels.embedding.contextLimitTokens);
+        const safeProcessingLimitTokens = Number(aiConfig.localModels.embedding.safeProcessingLimitTokens);
+        const model                     = embeddingProvider === 'ollama'
+            ? aiConfig.ollama.embeddingModel
+            : embeddingProvider === 'openAiCompatible'
+                ? aiConfig.openAiCompatible.embeddingModel
+                : embeddingProvider;
+
+        return {
+            enabled: LOCAL_EMBEDDING_PROVIDERS.has(embeddingProvider),
+            embeddingProvider,
+            contextLimitTokens,
+            safeProcessingLimitTokens,
+            model
+        };
+    }
+
+    /**
+     * @summary Builds the provider input string using the same shape as `VectorService.embedChunks`.
+     * @param {Object} chunk Normalized parsed chunk.
+     * @returns {String}
+     * @protected
+     */
+    buildEmbeddingInputText(chunk) {
+        return `${chunk.type}: ${chunk.name} in ${chunk.className || ''}\n${chunk.description || chunk.content || ''}`;
+    }
+
+    /**
+     * @summary Drops local-provider oversized chunks before writing the VectorService temp JSONL.
+     *
+     * `VectorService` remains the final safety net, but doing the same bounded check here
+     * gives ingestion callers and daemon diagnostics a durable skip signal even when no
+     * graph row can be written for the offending source file.
+     *
+     * @param {Object} options
+     * @param {Array<Object>} options.chunks Normalized parsed chunks.
+     * @param {Object} options.tenantContext Server-resolved tenant context.
+     * @param {Object} options.summary Mutable ingestion summary.
+     * @returns {Array<Object>} Chunks safe to send to VectorService.
+     * @protected
+     */
+    filterEmbeddingInputBudget({chunks, tenantContext, summary}) {
+        const guardrail = this.resolveEmbeddingInputGuardrail();
+
+        if (!guardrail.enabled) {
+            return chunks;
+        }
+
+        return chunks.filter(chunk => {
+            const
+                text                = this.buildEmbeddingInputText(chunk),
+                inputBytes          = Buffer.byteLength(text, 'utf8'),
+                inputTokensEstimate = bytesToTokens(inputBytes);
+
+            if (inputTokensEstimate <= guardrail.safeProcessingLimitTokens) {
+                return true;
+            }
+
+            this.recordOversizedEmbeddingSkip({
+                chunk,
+                guardrail,
+                inputBytes,
+                inputTokensEstimate,
+                summary,
+                tenantContext
+            });
+
+            return false;
+        });
+    }
+
+    /**
+     * @summary Records a bounded oversized-ingestion diagnostic without exposing raw content.
+     * @param {Object} options
+     * @returns {void}
+     * @protected
+     */
+    recordOversizedEmbeddingSkip({chunk, guardrail, inputBytes, inputTokensEstimate, summary, tenantContext}) {
+        const details = {
+            tenantId                 : tenantContext.tenantId,
+            repoSlug                 : chunk.repoSlug || tenantContext.repoSlug,
+            sourcePath               : chunk.sourcePath || chunk.source || chunk.name,
+            parserId                 : chunk.parserId,
+            parserVersion            : chunk.parserVersion,
+            kind                     : chunk.kind || chunk.type,
+            inputBytes,
+            inputTokensEstimate,
+            contextLimitTokens       : guardrail.contextLimitTokens,
+            safeProcessingLimitTokens: guardrail.safeProcessingLimitTokens,
+            embeddingProvider        : guardrail.embeddingProvider,
+            model                    : guardrail.model
+        };
+
+        summary.skippedOversized++;
+        summary.errors.push(this.createError({
+            code   : 'KB_INGEST_INPUT_SIZE_EXCEEDED',
+            message: `KB ingestion chunk '${details.sourcePath}' exceeds the local embedding safe-processing band and was skipped before provider invocation.`,
+            details
+        }));
+
+        emitConsumerFriction({
+            assetRef                 : `${details.tenantId}:${details.repoSlug}:${details.sourcePath}`,
+            consumer                 : 'KnowledgeBaseIngestionService.ingestSourceFiles',
+            model                    : guardrail.model,
+            symptom                  : 'size-precheck-skip',
+            emissionPoint            : 'pre-invocation',
+            suggestionKind           : 'split-document',
+            inputBytes,
+            inputTokensEstimate,
+            contextLimitTokens       : guardrail.contextLimitTokens,
+            safeProcessingLimitTokens: guardrail.safeProcessingLimitTokens,
+            serviceDomain            : 'other',
+            note                     : 'KB ingestion chunk exceeds local embedding safe-processing band; add parser chunking or skip this source file.'
+        });
+
+        logger.warn('[KnowledgeBaseIngestionService] Skipping oversized ingestion chunk before embedding.', details);
     }
 
     /**
@@ -750,7 +889,7 @@ class KnowledgeBaseIngestionService extends Base {
      * @protected
      */
     resolveTenantContext(payload = {}) {
-        const activeTenant = normalizeUserId(this.requestContextService.getUserId?.());
+        const activeTenant    = normalizeUserId(this.requestContextService.getUserId?.());
         const requestedTenant = normalizeUserId(payload.tenantId);
 
         if (activeTenant && requestedTenant && activeTenant !== requestedTenant) {
@@ -763,8 +902,8 @@ class KnowledgeBaseIngestionService extends Base {
 
         return {
             tenantId,
-            repoSlug: payload.repoSlug || this.resolvePayloadRepoSlug(payload) || aiConfig.defaultRepoSlug,
-            visibility: payload.visibility || aiConfig.defaultVisibility,
+            repoSlug           : payload.repoSlug || this.resolvePayloadRepoSlug(payload) || aiConfig.defaultRepoSlug,
+            visibility         : payload.visibility || aiConfig.defaultVisibility,
             originAgentIdentity: this.requestContextService.getAgentIdentityNodeId?.() || payload.originAgentIdentity
         };
     }
@@ -1120,7 +1259,7 @@ class KnowledgeBaseIngestionService extends Base {
      * @protected
      */
     async writeTempJsonl(chunks) {
-        const dir  = path.join(os.tmpdir(), 'neo-kb-ingestion');
+        const dir = path.join(os.tmpdir(), 'neo-kb-ingestion');
         const file = path.join(dir, `ingest-${process.pid}-${Date.now()}-${crypto.randomUUID()}.jsonl`);
 
         await fs.ensureDir(dir);
