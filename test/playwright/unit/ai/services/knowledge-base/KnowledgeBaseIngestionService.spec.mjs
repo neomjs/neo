@@ -20,6 +20,7 @@ import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import fs             from 'fs-extra';
 import aiConfig       from '../../../../../../ai/mcp/server/knowledge-base/config.mjs';
+import memoryConfig   from '../../../../../../ai/mcp/server/memory-core/config.mjs';
 
 /**
  * Contract coverage for KnowledgeBaseIngestionService (#11633).
@@ -93,6 +94,7 @@ function createGraphStub() {
 test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
     let Service;
     let originals;
+    let originalEmbeddingConfig;
     let vectorCalls;
     let metrics;
     let collection;
@@ -115,6 +117,11 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
             revisionResolver     : Service.revisionResolver,
             sourceRegistry       : Service.sourceRegistry,
             vectorService        : Service.vectorService
+        };
+        originalEmbeddingConfig = {
+            embeddingProvider        : memoryConfig.data.embeddingProvider,
+            contextLimitTokens       : Number(aiConfig.data.localModels.embedding.contextLimitTokens),
+            safeProcessingLimitTokens: Number(aiConfig.data.localModels.embedding.safeProcessingLimitTokens)
         };
 
         Service.chromaManager = {
@@ -147,6 +154,9 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
 
     test.afterEach(() => {
         Object.assign(Service, originals);
+        memoryConfig.data.embeddingProvider = originalEmbeddingConfig.embeddingProvider;
+        aiConfig.data.localModels.embedding.contextLimitTokens        = originalEmbeddingConfig.contextLimitTokens;
+        aiConfig.data.localModels.embedding.safeProcessingLimitTokens = originalEmbeddingConfig.safeProcessingLimitTokens;
     });
 
     test('validates parsed-chunk-v1 records, routes them to VectorService, and records telemetry', async () => {
@@ -342,9 +352,9 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
         expect(summary.ingested).toBe(1);
         expect(summary.deleted).toBe(1);
         expect(metrics[0]).toMatchObject({
-            eventType      : 'reconcile',
-            chunksEmbedded : 1,
-            chunksDeleted  : 1
+            eventType     : 'reconcile',
+            chunksEmbedded: 1,
+            chunksDeleted : 1
         });
     });
 
@@ -385,6 +395,98 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
             sourcePath   : 'docs/readme.md',
             type         : 'doc-section'
         });
+    });
+
+    test('skips over-budget client parsed chunks while embedding safe chunks', async () => {
+        memoryConfig.data.embeddingProvider                            = 'openAiCompatible';
+        aiConfig.data.localModels.embedding.contextLimitTokens        = 50;
+        aiConfig.data.localModels.embedding.safeProcessingLimitTokens = 40;
+
+        const summary = await Service.ingestSourceFiles({
+            tenantId: 'tenant-a',
+            files   : [{parsedChunks: [
+                validParsedChunk({sourcePath: 'src/safe.js', content: 'short payload'}),
+                validParsedChunk({sourcePath: 'src/monster.js', content: 'x'.repeat(300)})
+            ]}]
+        });
+
+        expect(summary.ingested).toBe(1);
+        expect(summary.embeddingsGenerated).toBe(1);
+        expect(summary.skippedOversized).toBe(1);
+        expect(summary.errors[0]).toMatchObject({
+            code   : 'KB_INGEST_INPUT_SIZE_EXCEEDED',
+            details: {
+                tenantId         : 'tenant-a',
+                repoSlug         : 'repo-a',
+                sourcePath       : 'src/monster.js',
+                parserId         : 'client-parser',
+                embeddingProvider: 'openAiCompatible'
+            }
+        });
+        expect(summary.errors[0].details).not.toHaveProperty('content');
+        expect(vectorCalls).toHaveLength(1);
+        expect(vectorCalls[0].records).toHaveLength(1);
+        expect(vectorCalls[0].records[0].sourcePath).toBe('src/safe.js');
+        expect(metrics[0]).toMatchObject({
+            eventType     : 'error',
+            chunksTotal   : 2,
+            chunksEmbedded: 1
+        });
+        expect(metrics[0].detail.errors[0].code).toBe('KB_INGEST_INPUT_SIZE_EXCEEDED');
+    });
+
+    test('skips over-budget raw fallback files before VectorService receives a temp JSONL', async () => {
+        memoryConfig.data.embeddingProvider                            = 'openAiCompatible';
+        aiConfig.data.localModels.embedding.contextLimitTokens        = 50;
+        aiConfig.data.localModels.embedding.safeProcessingLimitTokens = 40;
+
+        const summary = await Service.ingestSourceFiles({
+            tenantId: 'tenant-a',
+            repoSlug: 'repo-a',
+            files   : [{
+                content   : 'x'.repeat(300),
+                sourcePath: 'docs/monster.md'
+            }]
+        });
+
+        expect(summary.ingested).toBe(0);
+        expect(summary.embeddingsGenerated).toBe(0);
+        expect(summary.skippedOversized).toBe(1);
+        expect(summary.errors[0]).toMatchObject({
+            code   : 'KB_INGEST_INPUT_SIZE_EXCEEDED',
+            details: {
+                sourcePath   : 'docs/monster.md',
+                parserId     : 'raw-text',
+                parserVersion: '1.0.0'
+            }
+        });
+        expect(vectorCalls).toHaveLength(0);
+        expect(metrics[0]).toMatchObject({
+            eventType     : 'error',
+            chunksTotal   : 1,
+            chunksEmbedded: 0
+        });
+    });
+
+    test('does not apply local embedding caps to non-local ingestion providers', async () => {
+        memoryConfig.data.embeddingProvider                            = 'gemini';
+        aiConfig.data.localModels.embedding.contextLimitTokens        = 50;
+        aiConfig.data.localModels.embedding.safeProcessingLimitTokens = 1;
+
+        const summary = await Service.ingestSourceFiles({
+            tenantId: 'tenant-a',
+            files   : [{parsedChunks: [validParsedChunk({
+                sourcePath: 'src/remote-large.js',
+                content   : 'x'.repeat(300)
+            })]}]
+        });
+
+        expect(summary.ingested).toBe(1);
+        expect(summary.embeddingsGenerated).toBe(1);
+        expect(summary.skippedOversized).toBe(0);
+        expect(summary.errors).toEqual([]);
+        expect(vectorCalls).toHaveLength(1);
+        expect(vectorCalls[0].records[0].sourcePath).toBe('src/remote-large.js');
     });
 
     test('captures VectorService refusal as a summary error without losing the summary', async () => {

@@ -981,6 +981,9 @@ components:
         embeddingsGenerated:
           type: integer
           description: Count of embeddings generated for this push.
+        skippedOversized:
+          type: integer
+          description: Count of local-provider over-budget chunks skipped before embedding.
         errors:
           type: array
           description: Accumulated per-file caller errors; a non-empty array does not imply total failure.
