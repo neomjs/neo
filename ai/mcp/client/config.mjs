@@ -34,8 +34,7 @@ const defaultConfig = {
         "knowledge-base": {
             transportType: "stdio",
             command      : "npm",
-            args         : ["run", "ai:mcp-server-knowledge-base"],
-            requiredEnv  : ["GEMINI_API_KEY"]
+            args         : ["run", "ai:mcp-server-knowledge-base"]
         },
         "memory-core": {
             transportType: "stdio",
