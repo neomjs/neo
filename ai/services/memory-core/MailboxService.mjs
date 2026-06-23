@@ -1,9 +1,12 @@
 import Base                                     from '../../../src/core/Base.mjs';
 import aiConfig                                 from '../../mcp/server/memory-core/config.mjs';
+import logger                                   from '../../mcp/server/memory-core/logger.mjs';
 import RequestContextService, {normalizeUserId} from '../../mcp/server/shared/services/RequestContextService.mjs';
 import GraphService                             from './GraphService.mjs';
 import PermissionService                        from './PermissionService.mjs';
 import WakeSubscriptionService                  from './WakeSubscriptionService.mjs';
+import {appendWalMessage, getMessageWalDir}     from './helpers/messageWalStore.mjs';
+import {getMissingMemoryWalLeaves}              from './helpers/memoryWalStore.mjs';
 import {execFile}                               from 'child_process';
 import {promisify}                              from 'util';
 import crypto                                   from 'crypto';
@@ -235,6 +238,50 @@ function getWakeSuppressionRisk({wakeSuppressed, to, subject = '', priority = 'n
 }
 
 /**
+ * @summary Builds the durable message WAL record used as the authority for later graph replay.
+ * @param {Object} args
+ * @returns {Object}
+ */
+function buildMessageWalRecord({
+    messageId,
+    messageProperties,
+    originSessionId,
+    relatedSessions,
+    relatedTickets,
+    sentBy,
+    senderUserId,
+    timestamp,
+    to
+}) {
+    return {
+        id                    : messageId,
+        timestamp             : Date.parse(timestamp),
+        sentAt                : timestamp,
+        graphProjectionVersion: 1,
+        message               : {
+            id        : messageId,
+            type      : 'MESSAGE',
+            name      : messageProperties.subject,
+            properties: messageProperties
+        },
+        routing: {
+            sentBy,
+            to,
+            senderUserId,
+            broadcastRecipients: to === 'AGENT:*' ? getBroadcastAudience(sentBy) : []
+        },
+        optionalEdges: {
+            originSessionId: originSessionId || null,
+            inReplyTo      : messageProperties.inReplyTo,
+            partOfThread   : messageProperties.partOfThread,
+            relatedSessions: [...relatedSessions],
+            relatedTickets : [...relatedTickets],
+            taggedConcepts : [...messageProperties.taggedConcepts]
+        }
+    }
+}
+
+/**
  * @summary Returns the current broadcast delivery audience for a MESSAGE sent to `AGENT:*`.
  *
  * Broadcasts remain one semantic MESSAGE + SENT_TO->AGENT:* edge, while per-recipient
@@ -250,10 +297,10 @@ function getBroadcastAudience(sentBy) {
 
     return nodes
         .map(node => {
-            const id         = getRecordField(node, 'id'),
-                label        = getRecordField(node, 'label'),
-                properties   = getRecordProperties(node),
-                accountType  = properties.accountType;
+            const id        = getRecordField(node, 'id'),
+                label       = getRecordField(node, 'label'),
+                properties  = getRecordProperties(node),
+                accountType = properties.accountType;
 
             if (!id || id === sentBy || id === 'AGENT:*' || !id.startsWith('@')) {
                 return null;
@@ -493,9 +540,9 @@ class MailboxService extends Base {
      * @returns {Promise<Object>}
      */
     async addMessage({ to, subject, body, originSessionId, relatedSessions = [], relatedTickets = [], inReplyTo, priority = 'normal', partOfThread, taggedConcepts = [], wakeSuppressed = false, task }) {
-        const db = GraphService.requireDb('MailboxService.addMessage');
+        const db             = GraphService.requireDb('MailboxService.addMessage');
         const preNormalizeTo = to; // diagnostic payload captures caller-supplied target
-        const sentBy = RequestContextService.getAgentIdentityNodeId();
+        const sentBy         = RequestContextService.getAgentIdentityNodeId();
         if (!sentBy) {
             throw RequestContextService.unboundIdentityError('send message');
         }
@@ -608,7 +655,7 @@ class MailboxService extends Base {
             throw new Error(`Cannot suppress wake for ${wakeSuppressionRisk}. Omit wakeSuppressed or set it to false; mailbox-only suppression is reserved for awareness/FYI, session-sunset handover, lead-role baton, and audit-alert messages.`);
         }
 
-        // 1. Create the Message Node
+        // 1. Build the accepted Message intent
         // The optional `task` property carries an A2A-Task-object-shaped JSON payload. When
         // present, downstream consumers surface it for programmatic agent coordination. The
         // payload follows Neo's hybrid contract: A2A spec subset + Neo extensions like
@@ -637,52 +684,91 @@ class MailboxService extends Base {
             messageProperties.relatedTickets = [...new Set(relatedTickets)].sort();
         }
 
-        GraphService.upsertNode({
-            id        : messageId,
-            type      : 'MESSAGE',
-            name      : subject,
-            properties: messageProperties
-        });
-
-        // 2. Map the delivery-critical routing edges. These must fail loudly if
-        // GraphService's FK guard culls them; otherwise `addMessage()` can return a
-        // misleading success for an unroutable MESSAGE.
-        const routingDiagnostics = {preNormalizeTo, postNormalizeTo};
-        linkRequiredMailboxEdgeOrThrow(messageId, sentBy, 'SENT_BY', 1.0, { timestamp, userId: senderUserId, sharedEntity: true }, routingDiagnostics);
-        linkRequiredMailboxEdgeOrThrow(messageId, to, 'SENT_TO', 1.0, { timestamp, userId: senderUserId, sharedEntity: true }, routingDiagnostics);
-        if (to === 'AGENT:*') {
-            for (const recipient of getBroadcastAudience(sentBy)) {
-                linkRequiredMailboxEdgeOrThrow(messageId, recipient, 'DELIVERED_TO', 1.0, {
-                    deliveredAt : timestamp,
-                    readAt      : null,
-                    deliveryKind: 'broadcast',
-                    userId      : senderUserId,
-                    sharedEntity: true
-                }, routingDiagnostics);
-            }
+        const missingLeaves = getMissingMemoryWalLeaves(aiConfig.memoryWal, ['dir']);
+        if (missingLeaves.length > 0) {
+            throw new Error(`message WAL config leaves missing: ${missingLeaves.join(', ')} — sync the memoryWal block from config.template.mjs into the local config.mjs (node ai/scripts/setup/initServerConfigs.mjs --migrate-config) and restart memory-core.`);
         }
 
-        // 3. Map additional graph semantic edges. These remain cull-tolerant:
-        // mailbox delivery does not depend on optional provenance/thread/concept links.
-        if (originSessionId) GraphService.linkNodes(messageId, originSessionId, 'ORIGINATES_IN', 1.0, { timestamp, userId: senderUserId, sharedEntity: true });
-        if (inReplyTo) GraphService.linkNodes(messageId, inReplyTo, 'IN_REPLY_TO', 1.0, { timestamp, userId: senderUserId, sharedEntity: true });
-        if (partOfThread) GraphService.linkNodes(messageId, partOfThread, 'PART_OF_THREAD', 1.0, { timestamp, userId: senderUserId, sharedEntity: true });
+        const messageWalDir = getMessageWalDir(aiConfig.memoryWal.dir);
 
-        for (const s of relatedSessions) GraphService.linkNodes(messageId, s, 'RELATED_SESSION', 1.0, { timestamp, userId: senderUserId, sharedEntity: true });
-        for (const t of relatedTickets) GraphService.linkNodes(messageId, t, 'REFERENCES_TICKET', 1.0, { timestamp, userId: senderUserId, sharedEntity: true });
-        for (const c of taggedConcepts) GraphService.linkNodes(messageId, c, 'TAGGED_CONCEPT', 1.0, { timestamp, userId: senderUserId, sharedEntity: true });
+        await appendWalMessage(
+            buildMessageWalRecord({
+                messageId,
+                messageProperties,
+                originSessionId,
+                relatedSessions,
+                relatedTickets,
+                sentBy,
+                senderUserId,
+                timestamp,
+                to
+            }),
+            {dir: messageWalDir}
+        );
 
-        // Per-message auto concept-extraction is intentionally NOT run inline: it fired a chat-model
-        // call (up to 2 attempts) on EVERY message, in parallel with the orchestrator's exclusive-heavy
-        // tasks — starving the model of an idle window. The curated `taggedConcepts` edges (weight 1.0)
-        // are already linked above; the low-confidence auto-extracted concepts (weight 0.8) were the
-        // bulk of the non-curated graph population and are dropped here as redundant noise. Concept
-        // mining stays orchestrator-driven (scheduled, lease-gated), keeping model inference off the
-        // message hot path.
+        let projectionStatus = 'projected';
 
-        WakeSubscriptionService.pump().catch(e => logger.error('[wake-pump]', e));
+        try {
+            // 2. Project the accepted Message intent to the graph. This is derived work after the
+            // durable WAL append; if projection fails, the accepted `MESSAGE:*` id stays replayable.
+            GraphService.upsertNode({
+                id        : messageId,
+                type      : 'MESSAGE',
+                name      : subject,
+                properties: messageProperties
+            });
 
-        return { messageId, sentAt: timestamp, priority, status: 'sent' };
+            // 3. Map the delivery-critical routing edges. These still fail loudly inside projection
+            // so a replay/drain can retry the complete delivery-critical graph state.
+            const routingDiagnostics = {preNormalizeTo, postNormalizeTo};
+            linkRequiredMailboxEdgeOrThrow(messageId, sentBy, 'SENT_BY', 1.0, { timestamp, userId: senderUserId, sharedEntity: true }, routingDiagnostics);
+            linkRequiredMailboxEdgeOrThrow(messageId, to, 'SENT_TO', 1.0, { timestamp, userId: senderUserId, sharedEntity: true }, routingDiagnostics);
+            if (to === 'AGENT:*') {
+                for (const recipient of getBroadcastAudience(sentBy)) {
+                    linkRequiredMailboxEdgeOrThrow(messageId, recipient, 'DELIVERED_TO', 1.0, {
+                        deliveredAt : timestamp,
+                        readAt      : null,
+                        deliveryKind: 'broadcast',
+                        userId      : senderUserId,
+                        sharedEntity: true
+                    }, routingDiagnostics);
+                }
+            }
+
+            // 4. Map additional graph semantic edges. These remain cull-tolerant:
+            // mailbox delivery does not depend on optional provenance/thread/concept links.
+            if (originSessionId) GraphService.linkNodes(messageId, originSessionId, 'ORIGINATES_IN', 1.0, { timestamp, userId: senderUserId, sharedEntity: true });
+            if (inReplyTo) GraphService.linkNodes(messageId, inReplyTo, 'IN_REPLY_TO', 1.0, { timestamp, userId: senderUserId, sharedEntity: true });
+            if (partOfThread) GraphService.linkNodes(messageId, partOfThread, 'PART_OF_THREAD', 1.0, { timestamp, userId: senderUserId, sharedEntity: true });
+
+            for (const s of relatedSessions) GraphService.linkNodes(messageId, s, 'RELATED_SESSION', 1.0, { timestamp, userId: senderUserId, sharedEntity: true });
+            for (const t of relatedTickets) GraphService.linkNodes(messageId, t, 'REFERENCES_TICKET', 1.0, { timestamp, userId: senderUserId, sharedEntity: true });
+            for (const c of taggedConcepts) GraphService.linkNodes(messageId, c, 'TAGGED_CONCEPT', 1.0, { timestamp, userId: senderUserId, sharedEntity: true });
+
+            // Per-message auto concept-extraction is intentionally NOT run inline: it fired a chat-model
+            // call (up to 2 attempts) on EVERY message, in parallel with the orchestrator's exclusive-heavy
+            // tasks — starving the model of an idle window. The curated `taggedConcepts` edges (weight 1.0)
+            // are already linked above; the low-confidence auto-extracted concepts (weight 0.8) were the
+            // bulk of the non-curated graph population and are dropped here as redundant noise. Concept
+            // mining stays orchestrator-driven (scheduled, lease-gated), keeping model inference off the
+            // message hot path.
+
+            WakeSubscriptionService.pump().catch(e => logger.error('[wake-pump]', e));
+        } catch (e) {
+            projectionStatus = 'pending';
+            logger.error('[MailboxService.addMessage] graph projection failed after message WAL append', {
+                messageId,
+                error: e?.message || String(e)
+            });
+        }
+
+        return {
+            messageId,
+            sentAt: timestamp,
+            priority,
+            status: 'sent',
+            ...(projectionStatus === 'pending' ? {projectionStatus} : {})
+        };
     }
 
     /**
@@ -747,9 +833,9 @@ class MailboxService extends Base {
                 edgeSource = getRecordField(edge, 'source'),
                 edgeTarget = getRecordField(edge, 'target');
 
-            let isMatch = false,
-                targetNode = null,
-                senderNode = null,
+            let isMatch      = false,
+                targetNode   = null,
+                senderNode   = null,
                 deliveryEdge = null;
 
             if (edgeType === 'DELIVERED_TO') {
@@ -797,7 +883,7 @@ class MailboxService extends Base {
                 if (messageNode && messageNode.label === 'MESSAGE') {
                     deliveryEdge = deliveryEdge || getBroadcastDeliveryEdge(messageNodeId, target);
 
-                    const readAt = getReadAtForMessage(messageNode, deliveryEdge);
+                    const readAt   = getReadAtForMessage(messageNode, deliveryEdge);
                     const isUnread = !readAt;
                     if (status === 'unread' && !isUnread) continue;
                     if (status === 'read' && isUnread) continue;
@@ -810,9 +896,9 @@ class MailboxService extends Base {
                     const archivedAt = getArchivedAtForMessage(messageNode, deliveryEdge);
                     if (!includeArchived && archivedAt) continue;
 
-                    let sentByNodeId = senderNode;
-                    let sentToNodeId = targetNode;
-                    let foundThreadId = null;
+                    let sentByNodeId          = senderNode;
+                    let sentToNodeId          = targetNode;
+                    let foundThreadId         = null;
                     let messageTaggedConcepts = [];
 
                     for (const sourceEdge of db.edges.items) {
@@ -900,8 +986,8 @@ class MailboxService extends Base {
             throw new Error(`Message not found: ${messageId}`);
         }
 
-        let sentBy = null,
-            sentTo = null,
+        let sentBy            = null,
+            sentTo            = null,
             isDirectRecipient = false;
 
         for (const edge of db.edges.items) {
@@ -922,7 +1008,7 @@ class MailboxService extends Base {
         }
 
         const deliveryEdge = getBroadcastDeliveryEdge(messageId, me);
-        let isAuthorized = sentBy === me || isDirectRecipient;
+        let   isAuthorized = sentBy === me || isDirectRecipient;
 
         if (!isAuthorized && sentTo === 'AGENT:*') {
             // Legacy broadcasts without per-recipient receipts retain their historical
@@ -1000,7 +1086,7 @@ class MailboxService extends Base {
     async resolvePullRequestStateCached(number) {
         if (aiConfig.orchestrator.deploymentMode === 'cloud') return null;
 
-        const now = Date.now(),
+        const now  = Date.now(),
             cached = relatedPullRequestStateCache.get(number);
 
         if (cached && now - cached.cachedAt < RELATED_PULL_REQUEST_CACHE_TTL_MS) {
@@ -1084,7 +1170,7 @@ class MailboxService extends Base {
             throw new Error(`Message not found: ${messageId}`);
         }
 
-        let isDirectRecipient = false,
+        let isDirectRecipient    = false,
             isBroadcastRecipient = false;
 
         for (const edge of db.edges.items) {
@@ -1163,7 +1249,7 @@ class MailboxService extends Base {
             throw new Error(`Message not found: ${messageId}`);
         }
 
-        let isDirectRecipient = false,
+        let isDirectRecipient    = false,
             isBroadcastRecipient = false;
 
         for (const edge of db.edges.items) {
@@ -1314,7 +1400,7 @@ class MailboxService extends Base {
         }
 
         let isOriginator = false;
-        let isAssignee = false;
+        let isAssignee   = false;
 
         for (const edge of db.edges.items) {
             if (edge.source === taskId) {
@@ -1581,7 +1667,7 @@ class MailboxService extends Base {
             }
 
             // Inbox: 3-way UNION mirroring buildMailboxDelta's unread-message taxonomy.
-            const params = [];
+            const params   = [];
             const inboxSql = `
                 WITH inbox_messages AS (
                     SELECT n.id AS messageId
@@ -1658,8 +1744,8 @@ class MailboxService extends Base {
         }
 
         const { count: unreadCount } = await this.countMessages({ box: 'inbox', status: 'unread' });
-        const inboxResult            = await this.listMessages({ box: 'inbox',  limit: 3 });
-        const outboxResult           = await this.listMessages({ box: 'outbox', limit: 3 });
+        const inboxResult  = await this.listMessages({ box: 'inbox',  limit: 3 });
+        const outboxResult = await this.listMessages({ box: 'outbox', limit: 3 });
 
         const inboxPreview = inboxResult.messages.map(msg => ({
             id: msg.messageId,
