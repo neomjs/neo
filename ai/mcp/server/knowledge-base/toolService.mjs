@@ -1,12 +1,14 @@
-import path              from 'path';
-import {fileURLToPath}   from 'url';
-import DatabaseService   from '../../../services/knowledge-base/DatabaseService.mjs';
-import DocumentService   from '../../../services/knowledge-base/DocumentService.mjs';
-import HealthService     from '../../../services/knowledge-base/HealthService.mjs';
-import KBRecorderService from '../../../services/knowledge-base/KBRecorderService.mjs';
-import QueryService      from '../../../services/knowledge-base/QueryService.mjs';
-import SearchService     from '../../../services/knowledge-base/SearchService.mjs';
-import ToolService       from '../../ToolService.mjs';
+import path                          from 'path';
+import {fileURLToPath}               from 'url';
+import DatabaseService               from '../../../services/knowledge-base/DatabaseService.mjs';
+import DocumentService               from '../../../services/knowledge-base/DocumentService.mjs';
+import HealthService                 from '../../../services/knowledge-base/HealthService.mjs';
+import KBRecorderService             from '../../../services/knowledge-base/KBRecorderService.mjs';
+import QueryService                  from '../../../services/knowledge-base/QueryService.mjs';
+import SearchService                 from '../../../services/knowledge-base/SearchService.mjs';
+import ToolService                   from '../../ToolService.mjs';
+import AiConfig                      from '../../../config.mjs';
+import {readDeploymentStateSnapshot} from '../../../services/memory-core/helpers/deploymentStateBridgeStore.mjs';
 import {
     assertToolTransportAllowed,
     ingestSourceFilesViaMcp,
@@ -14,8 +16,8 @@ import {
     isIngestSourceFilesToolVisible
 } from './ingestSourceFilesTool.mjs';
 
-const __filename      = fileURLToPath(import.meta.url);
-const __dirname       = path.dirname(__filename);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
 /** @anchor test-isolation - ENV override to prevent parallel test mutations from corrupting the canonical file. Easily extensible to other servers via NEO_AI_MCP_<SERVER>_OPENAPI_PATH. */
 const openApiFilePath = process.env.NEO_AI_MCP_KB_OPENAPI_PATH || path.join(__dirname, 'openapi.yaml');
 
@@ -56,19 +58,25 @@ const serviceMapping = {
     get_document_by_id   : DocumentService         .getDocumentById    .bind(DocumentService),
     get_mcp_tool_handbook: toolId => toolService.getToolHandbook(toolId),
     healthcheck          : HealthService           .healthcheck        .bind(HealthService),
-    list_documents       : DocumentService         .listDocuments      .bind(DocumentService),
-    list_agent_faqs      : KBRecorderService       .listAgentFaqs      .bind(KBRecorderService),
+    get_deployment_state_snapshot:
+                         args => readDeploymentStateSnapshot({
+                             filePath    : args?.snapshotPath || AiConfig.orchestrator.deploymentStateBridge.snapshotPath,
+                             staleAfterMs: args?.staleAfterMs ?? AiConfig.orchestrator.deploymentStateBridge.staleAfterMs,
+                             maxBytes    : AiConfig.orchestrator.deploymentStateBridge.maxSnapshotBytes
+                         }),
+    list_documents : DocumentService         .listDocuments      .bind(DocumentService),
+    list_agent_faqs: KBRecorderService       .listAgentFaqs      .bind(KBRecorderService),
     // MCP dispatch marks `viaMcp: true` so VectorService.embed can apply the synchronous
     // work-volume gate. CLI invocations call DatabaseService.syncDatabase directly without
     // `viaMcp`, preserving explicit operator opt-in to long-running work.
     manage_knowledge_base: args => DatabaseService.manageKnowledgeBase({...args, viaMcp: true}),
     // Remote tenant ingestion applies the MCP work-volume gate before service dispatch.
-    ingest_source_files  : ingestSourceFilesViaMcp,
-    query_documents      : QueryService            .queryDocuments     .bind(QueryService)
+    ingest_source_files: ingestSourceFilesViaMcp,
+    query_documents    : QueryService            .queryDocuments     .bind(QueryService)
 };
 
 const toolService = Neo.create(ToolService, {
-    compactToolDescriptions    : true,
+    compactToolDescriptions     : true,
     openApiFilePath,
     serviceMapping,
     toolListDescriptionMaxLength: 120

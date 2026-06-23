@@ -443,6 +443,39 @@ class Config extends ConfigProvider {
                     auditMode                   : leaf('metadata', 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_AUDIT_MODE', 'string')
                 },
                 /**
+                 * Graph-independent deployment-state bridge. The orchestrator writes a bounded JSON
+                 * snapshot to shared storage; KB/MC read tools consume it without receiving Docker
+                 * socket, shell, exec, or actuator authority. Disabled by default: deployment
+                 * overlays must explicitly enable the writer and mount the same `snapshotPath`
+                 * into the public KB/MC containers.
+                 *
+                 * Env overrides:
+                 * `NEO_DEPLOYMENT_STATE_BRIDGE_ENABLED`,
+                 * `NEO_DEPLOYMENT_STATE_BRIDGE_SNAPSHOT_PATH`,
+                 * `NEO_DEPLOYMENT_STATE_BRIDGE_WRITE_INTERVAL_MS`,
+                 * `NEO_DEPLOYMENT_STATE_BRIDGE_STALE_AFTER_MS`,
+                 * `NEO_DEPLOYMENT_STATE_BRIDGE_MAX_BYTES`,
+                 * `NEO_DEPLOYMENT_STATE_BRIDGE_ALLOWED_SERVICES`,
+                 * `NEO_DEPLOYMENT_STATE_BRIDGE_INCLUDE_LOGS`,
+                 * `NEO_DEPLOYMENT_STATE_BRIDGE_LOG_TAIL`,
+                 * `NEO_DEPLOYMENT_STATE_BRIDGE_LOG_MAX_BYTES`,
+                 * `NEO_DEPLOYMENT_STATE_BRIDGE_STATS_SAMPLE_WINDOW`.
+                 *
+                 * @type {Object}
+                 */
+                deploymentStateBridge: {
+                    enabled          : leaf(false, 'NEO_DEPLOYMENT_STATE_BRIDGE_ENABLED', 'boolean'),
+                    snapshotPath     : leaf(path.resolve(neoRootDir, '.neo-ai-data/deployment-state/snapshot.json'), 'NEO_DEPLOYMENT_STATE_BRIDGE_SNAPSHOT_PATH', 'string'),
+                    writeIntervalMs  : leaf(30000, 'NEO_DEPLOYMENT_STATE_BRIDGE_WRITE_INTERVAL_MS', 'number'),
+                    staleAfterMs     : leaf(2 * 60 * 1000, 'NEO_DEPLOYMENT_STATE_BRIDGE_STALE_AFTER_MS', 'number'),
+                    maxSnapshotBytes : leaf(256 * 1024, 'NEO_DEPLOYMENT_STATE_BRIDGE_MAX_BYTES', 'number'),
+                    allowedServices  : leaf([], 'NEO_DEPLOYMENT_STATE_BRIDGE_ALLOWED_SERVICES', 'csv'),
+                    includeLogs      : leaf(true, 'NEO_DEPLOYMENT_STATE_BRIDGE_INCLUDE_LOGS', 'boolean'),
+                    logTail          : leaf(120, 'NEO_DEPLOYMENT_STATE_BRIDGE_LOG_TAIL', 'number'),
+                    logMaxBytes      : leaf(32 * 1024, 'NEO_DEPLOYMENT_STATE_BRIDGE_LOG_MAX_BYTES', 'number'),
+                    statsSampleWindow: leaf(2, 'NEO_DEPLOYMENT_STATE_BRIDGE_STATS_SAMPLE_WINDOW', 'number')
+                },
+                /**
                  * Maintenance-loop intervals consumed by the orchestrator daemon.
                  * Env vars at the daemon boundary retain precedence over these defaults.
                  * @type {Object}

@@ -100,6 +100,41 @@ paths:
                   message:
                     type: string
 
+  /deployment/state/snapshot:
+    post:
+      summary: Deployment State Snapshot
+      operationId: get_deployment_state_snapshot
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      x-neo-tool-summary: Read the graph-independent deployment-state bridge snapshot.
+      description: |
+        Reads the bounded deployment-state bridge snapshot written by the internal orchestrator.
+        This is a read-only public KB surface: it does not expose Docker, shell, exec, restart,
+        or any public daemon/orchestrator route. It exists so MC-unhealthy / graph-unavailable
+        incidents still have a KB-hosted current-state path when KB is healthy.
+      tags: [Health]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                staleAfterMs:
+                  type: number
+                  description: Optional freshness window override in milliseconds.
+                snapshotPath:
+                  type: string
+                  description: Test/operator override for the snapshot path; production uses the Tier-1 bridge path.
+      responses:
+        '200':
+          description: Snapshot status and payload when available.
+          content:
+            application/json:
+              schema:
+                type: object
+
   /db/data/manage:
     post:
       summary: Manage Knowledge Base Data

@@ -30,6 +30,7 @@ import {normalizeAgentIdentityNodeId}                                           
 import TaskStateService                                                         from './services/TaskStateService.mjs';
 import ProcessSupervisorService                                                 from './services/ProcessSupervisorService.mjs';
 import DeploymentRuntimeAccessService                                           from './services/DeploymentRuntimeAccessService.mjs';
+import DeploymentStateBridgeService                                             from './services/DeploymentStateBridgeService.mjs';
 import RecoveryActuatorService                                                  from './services/RecoveryActuatorService.mjs';
 import ContainerHealthDiagnosisService                                          from './services/ContainerHealthDiagnosisService.mjs';
 import DreamService                                                             from './services/DreamService.mjs';
@@ -108,6 +109,7 @@ export class Orchestrator extends Base {
         singleton                       : true,
         processSupervisorService_       : null,
         deploymentRuntimeAccessService_ : null,
+        deploymentStateBridgeService_   : null,
         recoveryActuatorService_        : null,
         containerHealthDiagnosisService_: null,
         maintenanceBackpressureService_ : MaintenanceBackpressureService,
@@ -148,6 +150,7 @@ export class Orchestrator extends Base {
 
     processSupervisorWriteLog = (level, msg) => this.writeLog(level, msg)
     deploymentRuntimeAccessWriteLog = (level, msg) => this.writeLog(level, msg)
+    deploymentStateBridgeWriteLog   = (level, msg) => this.writeLog(level, msg)
     maintenanceBackpressureWriteLog = (level, msg) => this.writeLog(level, msg)
 
     /**
@@ -300,6 +303,19 @@ export class Orchestrator extends Base {
         return ClassSystemUtil.beforeSetInstance(value, ContainerHealthDiagnosisService);
     }
 
+    /**
+     * @param {Neo.ai.daemons.services.DeploymentStateBridgeService|Object|null} value
+     * @returns {Neo.ai.daemons.services.DeploymentStateBridgeService}
+     */
+    beforeSetDeploymentStateBridgeService(value) {
+        return ClassSystemUtil.beforeSetInstance(value, DeploymentStateBridgeService, {
+            bridgeConfig        : AiConfig.orchestrator.deploymentStateBridge,
+            runtimeAccessService: this.deploymentRuntimeAccessService,
+            diagnosisService    : this.containerHealthDiagnosisService,
+            writeLog            : this.deploymentStateBridgeWriteLog
+        });
+    }
+
     beforeSetMaintenanceBackpressureService(value) {
         return ClassSystemUtil.beforeSetInstance(value, MaintenanceBackpressureService, {
             heavyMaintenanceTaskNames    : this.heavyMaintenanceTaskNames,
@@ -350,8 +366,17 @@ export class Orchestrator extends Base {
         this.maintenanceBackpressureService.healthService = value;
     }
     afterSetDeploymentRuntimeAccessService(value, oldValue) {
-        if (oldValue === undefined || !this.recoveryActuatorService) return;
-        this.recoveryActuatorService.deploymentRuntimeAccessService = value;
+        if (oldValue === undefined) return;
+        if (this.recoveryActuatorService) {
+            this.recoveryActuatorService.deploymentRuntimeAccessService = value;
+        }
+        if (this.deploymentStateBridgeService) {
+            this.deploymentStateBridgeService.runtimeAccessService = value;
+        }
+    }
+    afterSetContainerHealthDiagnosisService(value, oldValue) {
+        if (oldValue === undefined || !this.deploymentStateBridgeService) return;
+        this.deploymentStateBridgeService.diagnosisService = value;
     }
     afterSetSpawnFn(value, oldValue) {
         if (oldValue === undefined) return;
@@ -441,6 +466,7 @@ export class Orchestrator extends Base {
 
         this.processSupervisorService = {};
         this.deploymentRuntimeAccessService = {};
+        this.deploymentStateBridgeService = {};
         this.recoveryActuatorService = {};
         this.containerHealthDiagnosisService = {};
         this.processSupervisorService.recoverTasks();
@@ -570,6 +596,9 @@ export class Orchestrator extends Base {
         runSchedulingPipeline({
             ...buildOrchestratorSchedulingOptions({orchestrator: this, config: AiConfig, now, registry: TASK_REGISTRY})
         });
+
+        this.deploymentStateBridgeService?.writeSnapshotIfDue()
+            .catch(error => this.writeLog('ERROR', `[Orchestrator] Deployment state bridge failed: ${error.message}`));
 
         if (this.isPolling) {
             this.pollHandle = setTimeout(() => this.poll(), AiConfig.orchestrator.intervals.pollMs);

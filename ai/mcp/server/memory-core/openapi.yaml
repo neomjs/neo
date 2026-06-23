@@ -173,6 +173,41 @@ paths:
               schema:
                 $ref: '#/components/schemas/MemoryCoreToolMetricsResponse'
 
+  /deployment/state/snapshot:
+    post:
+      summary: Deployment State Snapshot
+      operationId: get_deployment_state_snapshot
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      x-neo-tool-summary: Read the graph-independent deployment-state bridge snapshot.
+      description: |
+        Reads the bounded deployment-state bridge snapshot written by the internal orchestrator.
+        This is a read-only public MC surface: it does not expose Docker, shell, exec, restart,
+        or any public daemon/orchestrator route. If the bridge is missing or stale, the response
+        reports that explicitly instead of falling back to graph-only proof.
+      tags: [Diagnostics]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                staleAfterMs:
+                  type: number
+                  description: Optional freshness window override in milliseconds.
+                snapshotPath:
+                  type: string
+                  description: Test/operator override for the snapshot path; production uses the Tier-1 bridge path.
+      responses:
+        '200':
+          description: Snapshot status and payload when available.
+          content:
+            application/json:
+              schema:
+                type: object
+
   /rem/pipeline-state:
     post:
       summary: Get REM Pipeline State
