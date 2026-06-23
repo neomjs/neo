@@ -36,6 +36,11 @@
  *     the aliases become stale pointers; accept the staleness as low-frequency read path)
  *   - Hot-reload in a running MCP process (restart harnesses after `--apply` to pick
  *     up the clean graph state)
+ *   - Identity RENAME re-keying (e.g. `@neo-claude-opus` → `@neo-opus-grace`): re-keying a renamed
+ *     identity's `user_id`-scoped rows (`AGENT_MEMORY` / `MEMORY` / `SESSION`) + their Chroma
+ *     metadata is `renameAgentIdentities.mjs`'s job (its `IDENTITY_RENAMES` + the all-node/edge
+ *     `user_id` sweep `rewriteGraphMetadataRows`), NOT this script's. This one only merges legacy
+ *     *alias* `AgentIdentity` nodes + re-points their edges; it does not touch memory-row RLS scope.
  *
  * @see learn/agentos/tooling/MemoryCoreMcpAuth.md §Identity Normalization Migration
  */
