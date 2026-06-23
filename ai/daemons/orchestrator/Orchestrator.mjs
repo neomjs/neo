@@ -29,6 +29,7 @@ import RequestContextService                                                    
 import {normalizeAgentIdentityNodeId}                                           from '../../scripts/lifecycle/resumeHarness.mjs';
 import TaskStateService                                                         from './services/TaskStateService.mjs';
 import ProcessSupervisorService                                                 from './services/ProcessSupervisorService.mjs';
+import DeploymentRuntimeAccessService                                           from './services/DeploymentRuntimeAccessService.mjs';
 import DreamService                                                             from './services/DreamService.mjs';
 import SwarmHeartbeatService                                                    from './services/SwarmHeartbeatService.mjs';
 import GoldenPathSynthesizer                                                    from '../../services/graph/GoldenPathSynthesizer.mjs';
@@ -104,6 +105,7 @@ export class Orchestrator extends Base {
         className                      : 'Neo.ai.daemons.Orchestrator',
         singleton                      : true,
         processSupervisorService_      : null,
+        deploymentRuntimeAccessService_: null,
         maintenanceBackpressureService_: MaintenanceBackpressureService,
         dataDir_                       : DEFAULT_DATA_DIR,
         taskDefinitions_               : null,
@@ -141,6 +143,7 @@ export class Orchestrator extends Base {
     goldenPathDependencyTaskNames = DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES
 
     processSupervisorWriteLog = (level, msg) => this.writeLog(level, msg)
+    deploymentRuntimeAccessWriteLog = (level, msg) => this.writeLog(level, msg)
     maintenanceBackpressureWriteLog = (level, msg) => this.writeLog(level, msg)
 
     /**
@@ -274,6 +277,17 @@ export class Orchestrator extends Base {
         });
     }
 
+    /**
+     * @param {Neo.ai.daemons.services.DeploymentRuntimeAccessService|Object|null} value
+     * @returns {Neo.ai.daemons.services.DeploymentRuntimeAccessService}
+     */
+    beforeSetDeploymentRuntimeAccessService(value) {
+        return ClassSystemUtil.beforeSetInstance(value, DeploymentRuntimeAccessService, {
+            runtimeAccessConfig: AiConfig.orchestrator.deploymentRuntimeAccess,
+            writeLog           : this.deploymentRuntimeAccessWriteLog
+        });
+    }
+
     beforeSetMaintenanceBackpressureService(value) {
         return ClassSystemUtil.beforeSetInstance(value, MaintenanceBackpressureService, {
             heavyMaintenanceTaskNames    : this.heavyMaintenanceTaskNames,
@@ -394,6 +408,7 @@ export class Orchestrator extends Base {
         });
 
         this.processSupervisorService = {};
+        this.deploymentRuntimeAccessService = {};
         this.processSupervisorService.recoverTasks();
 
         this.db = await this.initializeDatabaseFn(this.dbPath);
