@@ -223,7 +223,7 @@ export async function resolveMainCheckout(cwd, {explicitRoot} = {}) {
     if (explicitRoot) return path.resolve(explicitRoot);
 
     const {stdout} = await execFileAsync('git', ['worktree', 'list', '--porcelain'], {cwd});
-    const match    = stdout.match(/^worktree (.+)$/m);
+    const match = stdout.match(/^worktree (.+)$/m);
     return match ? match[1] : null;
 }
 
@@ -340,7 +340,7 @@ async function exists(p) {
  * The `wake-daemon/` subdir is critical for PID-lock singleton enforcement to
  * span worktrees — without symlinking, each worktree has its own `bridge-daemon.pid` and
  * daemons spawned from different worktrees can't see each other's locks. Same logic for
- * the persistent `bridge.log` substrate.
+ * the persistent `.neo-ai-data/wake-daemon/bridge.log` substrate.
  *
  * Idempotent per-subdir by design: an existing symlink reports `'already-linked'`; a
  * missing canonical source reports `'skip-no-source'` (graceful for fresh repos that
@@ -623,7 +623,7 @@ export async function runBuildAll({projectRoot, log = console.log, exec = execFi
  */
 export function parseWorktreePorcelain(output) {
     const records = [];
-    let current   = null;
+    let   current = null;
 
     for (const line of output.split(/\r?\n/)) {
         if (!line.trim()) {
@@ -635,7 +635,7 @@ export function parseWorktreePorcelain(output) {
         }
 
         const [key, ...rest] = line.split(' ');
-        const value          = rest.join(' ');
+        const value = rest.join(' ');
 
         if (key === 'worktree') {
             if (current) records.push(current);
@@ -720,7 +720,7 @@ export async function classifyWorktree({
     const current               = isSamePath(worktree.path, currentPath);
     const primaryMainCheckout   = isSamePath(worktree.path, mainCheckout);
     const protectedCheckoutPath = current || primaryMainCheckout;
-    const classification = {
+    const classification        = {
         remove: !protectedCheckoutPath,
         status: current ? 'current' : (primaryMainCheckout ? 'main-checkout' : 'remove'),
         reason: current
@@ -787,7 +787,7 @@ export async function pruneStaleWorktrees({
     log           = console.log,
     hydrate       = hydrateCurrentWorktree
 }) {
-    const worktrees = await listClaudeWorktrees({projectRoot, worktreesRoot, exec});
+    const worktrees  = await listClaudeWorktrees({projectRoot, worktreesRoot, exec});
     const classified = [];
 
     for (const worktree of worktrees) {
@@ -887,7 +887,7 @@ export async function runLocalPruneWorktreeSchedule({intervalMs, log = console.l
 
     log(`WARNING: --schedule-local repeatedly prunes non-current worktrees on every tick, ${dirtyPolicy}.`);
 
-    let running = false;
+    let   running = false;
     const runOnce = async () => {
         if (running) {
             log(`Skipping prune tick: prior run still active.`);
@@ -918,7 +918,7 @@ export async function runLocalPruneWorktreeSchedule({intervalMs, log = console.l
 async function getPathSizeBytes(targetPath, {exec = execFileAsync} = {}) {
     try {
         const {stdout} = await exec('du', ['-sk', targetPath]);
-        const kb       = Number.parseInt(stdout.trim().split(/\s+/)[0], 10);
+        const kb = Number.parseInt(stdout.trim().split(/\s+/)[0], 10);
         return Number.isFinite(kb) ? kb * 1024 : 0;
     } catch {
         return 0;
@@ -975,9 +975,9 @@ function isPathInside(rootPath, candidatePath) {
 }
 
 function formatBytes(bytes) {
-    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-    let value   = bytes;
-    let unitIdx = 0;
+    const units   = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let   value   = bytes;
+    let   unitIdx = 0;
 
     while (value >= 1024 && unitIdx < units.length - 1) {
         value /= 1024;
@@ -999,10 +999,10 @@ if (isMain) {
     const __dirname   = path.dirname(__filename);
     const projectRoot = resolveCliProjectRoot(__dirname); // ai/scripts/migrations/ → scripts/ → ai/ → root
 
-    const argv     = process.argv.slice(2);
-    const args     = new Set(argv);
-    const linkData = args.has('--link-data');
-    const force    = args.has('--force');
+    const argv       = process.argv.slice(2);
+    const args       = new Set(argv);
+    const linkData   = args.has('--link-data');
+    const force      = args.has('--force');
     const pruneStale = args.has('--prune-stale') || argv.includes('--mode=prune-stale') ||
         (argv.includes('--mode') && argv[argv.indexOf('--mode') + 1] === 'prune-stale');
     const dryRun        = args.has('--dry-run');
@@ -1015,8 +1015,8 @@ if (isMain) {
     // git-worktree-list resolution path is the natural primary). They activate the
     // independent-clone topology where canonical lives in a sibling
     // checkout that `git worktree list` doesn't surface.
-    const flagIdx       = argv.indexOf('--canonical-root');
-    const explicitRoot  = (flagIdx !== -1 && argv[flagIdx + 1])
+    const flagIdx      = argv.indexOf('--canonical-root');
+    const explicitRoot = (flagIdx !== -1 && argv[flagIdx + 1])
         ? argv[flagIdx + 1]
         : (process.env.NEO_AI_CANONICAL_ROOT || null);
 
