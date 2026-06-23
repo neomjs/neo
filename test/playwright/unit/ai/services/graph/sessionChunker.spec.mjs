@@ -1,4 +1,4 @@
-import {test, expect}              from '@playwright/test';
+import {test, expect}                 from '@playwright/test';
 import {chunkSession, estimateTokens} from '../../../../../../ai/services/graph/sessionChunker.mjs';
 
 /**
@@ -6,21 +6,25 @@ import {chunkSession, estimateTokens} from '../../../../../../ai/services/graph/
  * No Neo bootstrap — the module is a pure helper, mirroring the queries.mjs / consumerFrictionHelper pattern.
  */
 test.describe('ai/services/graph/sessionChunker', () => {
-    // A 400-char turn estimates to 100 tokens at the 0.25 ratio; a 40-token limit forces chunking.
+    // A 300-char turn estimates to 100 tokens at the conservative 1/3 ratio; a 40-token limit forces chunking.
     const turn  = (label, chars) => `${label}:` + 'x'.repeat(Math.max(0, chars - label.length - 1));
-    const TOKENS_PER_CHAR = 0.25;
 
     test.describe('estimateTokens', () => {
-        test('is a deterministic char-based estimate (ceil of chars × 0.25)', () => {
+        test('is a deterministic conservative char-based estimate (ceil of chars / 3)', () => {
             expect(estimateTokens('')).toBe(0);
-            expect(estimateTokens('x'.repeat(400))).toBe(100);
-            expect(estimateTokens('x'.repeat(401))).toBe(101); // ceil(100.25)
+            expect(estimateTokens('x'.repeat(300))).toBe(100);
+            expect(estimateTokens('x'.repeat(301))).toBe(101); // ceil(100.333...)
         });
 
         test('treats non-string input as zero tokens', () => {
             expect(estimateTokens(null)).toBe(0);
             expect(estimateTokens(undefined)).toBe(0);
             expect(estimateTokens(42)).toBe(0);
+        });
+
+        test('estimates incident-shaped dense payloads above the 100k safe band (#13918)', () => {
+            expect(estimateTokens('x'.repeat(400000))).toBe(133334);
+            expect(estimateTokens('x'.repeat(400000))).toBeGreaterThan(100000);
         });
     });
 
@@ -44,8 +48,8 @@ test.describe('ai/services/graph/sessionChunker', () => {
     });
 
     test.describe('chunkSession — chunk activation (AC1) + boundaries (AC2)', () => {
-        // Four 400-char turns = 100 tokens each; limit 250 → packs 2 turns/chunk (200 ≤ 250, +100 would be 300 > 250).
-        const turns = [turn('t0', 400), turn('t1', 400), turn('t2', 400), turn('t3', 400)];
+        // Four 300-char turns = 100 tokens each; limit 250 → packs 2 turns/chunk (~201 ≤ 250, +100 would be > 250).
+        const turns = [turn('t0', 300), turn('t1', 300), turn('t2', 300), turn('t3', 300)];
 
         test('activates chunking above threshold and keeps every chunk within the limit', () => {
             const {chunked, chunks} = chunkSession(turns, {sessionId: 'session:big', safeProcessingLimitTokens: 250});
@@ -64,7 +68,7 @@ test.describe('ai/services/graph/sessionChunker', () => {
 
         test('boundaries are turn-aligned — turnIndices are contiguous and cover every turn exactly once (AC3 traceability)', () => {
             const {chunks} = chunkSession(turns, {sessionId: 'session:big', safeProcessingLimitTokens: 250});
-            const covered  = chunks.flatMap(c => c.turnIndices);
+            const covered = chunks.flatMap(c => c.turnIndices);
 
             expect(covered).toEqual([0, 1, 2, 3]); // full coverage, in order, no duplicates, no mid-turn split
             expect(chunks[0].turnIndices).toEqual([0, 1]);
@@ -80,7 +84,7 @@ test.describe('ai/services/graph/sessionChunker', () => {
 
     test.describe('chunkSession — oversized single turn (Contract Ledger edge: keep intact, do not split)', () => {
         test('a turn larger than the limit becomes its own chunk flagged oversizedTurn', () => {
-            const turns  = [turn('t0', 400), turn('huge', 4000), turn('t2', 400)]; // 100, 1000, 100 tokens; limit 250
+            const turns = [turn('t0', 300), turn('huge', 3000), turn('t2', 300)]; // 100, 1000, 100 tokens; limit 250
             const {chunks} = chunkSession(turns, {sessionId: 'session:x', safeProcessingLimitTokens: 250});
 
             const oversized = chunks.find(c => c.oversizedTurn);
@@ -120,7 +124,7 @@ test.describe('ai/services/graph/sessionChunker', () => {
         });
 
         test('every chunk reports estimatedTokens === estimate(text); non-oversized chunks stay within the limit', () => {
-            const turns = Array.from({length: 7}, (_, i) => `turn${i}:` + 'y'.repeat(300)); // ~77 tokens each
+            const turns = Array.from({length: 7}, (_, i) => `turn${i}:` + 'y'.repeat(300)); // ~102 tokens each
             const limit = 200;
             const {chunks} = chunkSession(turns, {sessionId: 'inv', safeProcessingLimitTokens: limit});
 
