@@ -107,7 +107,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
     });
 
     test('Sub 9 hypothesis 7: manual CLI delegates to canonical REM cycle without autoDream coupling (#12617)', async () => {
-        const calls = [];
+        const calls  = [];
         const output = {
             log  : message => calls.push({type: 'log', message}),
             error: message => calls.push({type: 'error', message}),
@@ -203,7 +203,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
     });
 
     test('fetchOllamaRunningModelIds probes native Ollama /api/ps', async () => {
-        const calls = [];
+        const calls  = [];
         const result = await providerReadinessHelper.fetchOllamaRunningModelIds({
             host     : 'http://ollama.test',
             timeoutMs: 25,
@@ -226,7 +226,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
     });
 
     test('warmOllamaRoleModel uses native role endpoints and keep_alive', async () => {
-        const calls = [];
+        const calls   = [];
         const fetchFn = async (url, options) => {
             calls.push({
                 url,
@@ -236,11 +236,19 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             });
             return {
                 ok  : true,
-                text: async () => ''
+                text: async () => url.endsWith('/api/embed')
+                    ? JSON.stringify({
+                        prompt_eval_count   : 30,
+                        prompt_eval_duration: 2_000_000_000
+                    })
+                    : JSON.stringify({
+                        eval_count   : 20,
+                        eval_duration: 1_000_000_000
+                    })
             };
         };
 
-        await providerReadinessHelper.warmOllamaRoleModel({
+        const chatWarm = await providerReadinessHelper.warmOllamaRoleModel({
             host     : 'http://ollama.test',
             model    : 'gemma4:31b',
             role     : 'chat',
@@ -248,7 +256,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             timeoutMs: 25,
             fetchFn
         });
-        await providerReadinessHelper.warmOllamaRoleModel({
+        const embeddingWarm = await providerReadinessHelper.warmOllamaRoleModel({
             host     : 'http://ollama.test',
             model    : 'qwen3-embedding',
             role     : 'embedding',
@@ -277,10 +285,24 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
                 keep_alive: '-1'
             }
         }]);
+        expect(chatWarm.evalSample).toMatchObject({
+            model               : 'gemma4:31b',
+            role                : 'chat',
+            evalCount           : 20,
+            evalTokensPerSecond : 20,
+            totalTokensPerSecond: 20
+        });
+        expect(embeddingWarm.evalSample).toMatchObject({
+            model                    : 'qwen3-embedding',
+            role                     : 'embedding',
+            promptEvalCount          : 30,
+            promptEvalTokensPerSecond: 15,
+            totalTokensPerSecond     : 15
+        });
     });
 
     test('warmOllamaRoleModel threads native num_ctx for chat and embedding warm-ups (#13865)', async () => {
-        const calls = [];
+        const calls   = [];
         const fetchFn = async (url, options) => {
             calls.push({
                 url,
@@ -329,7 +351,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
 
     test('warnProviderParallelModelCapacity warns for native Ollama missing the embedding model', async () => {
         const warnings = [];
-        const result = await providerReadinessHelper.warnProviderParallelModelCapacity({
+        const result   = await providerReadinessHelper.warnProviderParallelModelCapacity({
             config: {
                 graphProvider: 'ollama',
                 modelProvider: 'openAiCompatible',
@@ -357,7 +379,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
 
     test('warnProviderParallelModelCapacity passes when OpenAI-compatible lists both models', async () => {
         const warnings = [];
-        const result = await providerReadinessHelper.warnProviderParallelModelCapacity({
+        const result   = await providerReadinessHelper.warnProviderParallelModelCapacity({
             config: {
                 graphProvider   : 'openAiCompatible',
                 modelProvider   : 'gemini',
@@ -384,7 +406,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
 
     test('warnProviderParallelModelCapacity warns when requireParallelModels is missing', async () => {
         const warnings = [];
-        const result = await providerReadinessHelper.warnProviderParallelModelCapacity({
+        const result   = await providerReadinessHelper.warnProviderParallelModelCapacity({
             config: {
                 graphProvider   : 'openAiCompatible',
                 openAiCompatible: {
@@ -405,8 +427,8 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
     test('warnProviderParallelModelCapacity rejects non-finite requireParallelModels values', async () => {
         for (const requireParallelModels of [NaN, Infinity, -Infinity]) {
             const warnings = [];
-            let fetched = false;
-            const result = await providerReadinessHelper.warnProviderParallelModelCapacity({
+            let   fetched  = false;
+            const result   = await providerReadinessHelper.warnProviderParallelModelCapacity({
                 config: {
                     graphProvider   : 'openAiCompatible',
                     openAiCompatible: {
@@ -432,7 +454,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
     });
 
     test('ensureLmsModelsLoaded invokes lms load for missing chat and embedding models', async () => {
-        const loads = [];
+        const loads          = [];
         const modelSnapshots = [
             [],
             ['chat-model'],
@@ -508,7 +530,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
     });
 
     test('ensureLmsModelsLoaded mixes missing + context-configured force-reload paths correctly (#12117 RA1)', async () => {
-        const loadCalls = [];
+        const loadCalls      = [];
         const modelSnapshots = [
             ['chat-model'],                      // chat resident, embedding missing
             ['chat-model', 'embedding-model']    // post-load: both present
@@ -543,7 +565,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
     });
 
     test('ensureLmsModelsLoaded threads per-model contextLengths into loadModel invocations (#12117)', async () => {
-        const loadCalls = [];
+        const loadCalls      = [];
         const modelSnapshots = [
             [],
             ['chat-model', 'embedding-model']
@@ -570,8 +592,8 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
     });
 
     test('ensureLmsModelsLoaded does not pre-skip large local chat contexts (#12264)', async () => {
-        const loadCalls = [];
-        const warnings  = [];
+        const loadCalls      = [];
+        const warnings       = [];
         const modelSnapshots = [
             [],
             ['embedding-model']
@@ -615,8 +637,8 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
     });
 
     test('ensureLmsModelsLoaded continues loading remaining models after a partial preload failure (#12264)', async () => {
-        const loadCalls = [];
-        const warnings  = [];
+        const loadCalls      = [];
+        const warnings       = [];
         const modelSnapshots = [
             [],
             ['embedding-model']
@@ -660,7 +682,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
     });
 
     test('ensureOllamaModelsReady warms missing chat and embedding models through native roles (#12285)', async () => {
-        const warmCalls = [];
+        const warmCalls      = [];
         const modelSnapshots = [
             [],
             [
@@ -691,7 +713,19 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
                 {id: 'gemma4:31b', contextLength: 131072},
                 {id: 'qwen3-embedding', contextLength: 32768}
             ],
-            warmModel: async (role, options) => warmCalls.push({role, options}),
+            warmModel: async (role, options) => {
+                warmCalls.push({role, options});
+
+                return {
+                    evalSample: {
+                        model               : role.model,
+                        role                : role.role,
+                        totalEvalCount      : role.role === 'chat' ? 20 : 30,
+                        totalEvalDurationNs : role.role === 'chat' ? 1_000_000_000 : 2_000_000_000,
+                        totalTokensPerSecond: role.role === 'chat' ? 20 : 15
+                    }
+                };
+            },
             log      : {info: () => {}}
         });
 
@@ -746,10 +780,25 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             observedRequiredCount: 2,
             requireParallelModels: 2
         });
+        expect(result.ollamaEvalAttribution).toMatchObject({
+            primaryLoad: {
+                model          : 'gemma4:31b',
+                role           : 'chat',
+                tokensPerSecond: 20
+            },
+            primaryRole: {
+                role           : 'chat',
+                tokensPerSecond: 20
+            }
+        });
+        expect(result.ollamaEvalAttribution.roleLoad.embedding).toMatchObject({
+            role           : 'embedding',
+            tokensPerSecond: 15
+        });
     });
 
     test('ensureOllamaModelsReady degrades resident models loaded below configured context (#13865)', async () => {
-        const warmCalls = [];
+        const warmCalls      = [];
         const modelSnapshots = [
             [{id: 'gemma4:31b', contextLength: 4096}],
             [{id: 'gemma4:31b', contextLength: 4096}]
@@ -805,7 +854,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
 
     test('ensureOllamaModelsReady returns degraded when one native role cannot be warmed (#12285)', async () => {
         const warnings = [];
-        const result = await providerReadinessHelper.ensureOllamaModelsReady({
+        const result   = await providerReadinessHelper.ensureOllamaModelsReady({
             host : 'http://ollama.test',
             roles: [{
                 providerRole: 'modelProvider',
@@ -909,7 +958,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
     });
 
     test('loadLmsModel appends --context-length to execFile args when provided (#12117)', async () => {
-        const execCalls = [];
+        const execCalls    = [];
         const execFileStub = (cmd, args, callback) => {
             execCalls.push({cmd, args});
             callback(null, '', '');
@@ -926,7 +975,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
     });
 
     test('loadLmsModel omits --context-length when not provided (backward compat)', async () => {
-        const execCalls = [];
+        const execCalls    = [];
         const execFileStub = (cmd, args, callback) => {
             execCalls.push({cmd, args});
             callback(null, '', '');
@@ -1111,7 +1160,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
     });
 
     test('loadLmsModel omits --context-length when contextLength is non-finite (defensive)', async () => {
-        const execCalls = [];
+        const execCalls    = [];
         const execFileStub = (cmd, args, callback) => {
             execCalls.push({cmd, args});
             callback(null, '', '');
@@ -1206,7 +1255,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
 
         await logger.flush();
 
-        const today    = new Date().toISOString().slice(0, 10);
+        const today = new Date().toISOString().slice(0, 10);
         const logFile  = path.join(tmpLogDir, `mc-server-${today}.log`);
         const logLines = fs.readFileSync(logFile, 'utf8');
 
@@ -1321,7 +1370,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
 
     test('runSandman delegates exactly one canonical REM cycle inside the lease (#12070)', async () => {
         const calls     = [];
-        const logs = [];
+        const logs      = [];
         const exitCodes = [];
 
         const result = await runSandmanModule.runSandman({

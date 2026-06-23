@@ -1,6 +1,8 @@
 import Base                 from './Base.mjs';
 import {createTimeoutError} from './createTimeoutError.mjs';
 
+const OLLAMA_DURATION_NS_PER_SECOND = 1_000_000_000;
+
 /**
  * @summary Extracts native Ollama top-level request fields from generic
  * provider options while preserving caller-owned option objects.
@@ -54,6 +56,187 @@ function extractNativeOllamaFields(options) {
     delete options.reasoning_effort;
 
     return fields;
+}
+
+function finiteNumber(value) {
+    const parsed = typeof value === 'string' && value.trim() !== '' ? Number(value) : value;
+    return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+/**
+ * @summary Converts Ollama token-count and duration counters into tokens/second.
+ *
+ * Native Ollama responses report durations in nanoseconds. Returning `null` for
+ * zero/absent duration keeps callers from treating missing telemetry as zero
+ * throughput, which would collapse "unknown" into "stuck".
+ *
+ * @param {Number|String} count Ollama token counter (`eval_count`, `prompt_eval_count`).
+ * @param {Number|String} durationNs Ollama duration counter in nanoseconds.
+ * @returns {Number|null}
+ */
+export function calculateOllamaTokensPerSecond(count, durationNs) {
+    const tokenCount = finiteNumber(count),
+          duration   = finiteNumber(durationNs);
+
+    if (tokenCount === undefined || duration === undefined || duration <= 0) {
+        return null;
+    }
+
+    return tokenCount / (duration / OLLAMA_DURATION_NS_PER_SECOND);
+}
+
+/**
+ * @summary Normalizes one native Ollama raw response into a role/model eval sample.
+ *
+ * The diagnostics daemon needs chat-vs-embedding attribution without learning
+ * every caller's response envelope. This helper accepts the raw `/api/chat` or
+ * `/api/embed` payload (or a provider result carrying `.raw`) and preserves the
+ * counters that Ollama already emits: generated eval, prompt eval, total eval,
+ * and tokens/second. Missing counters remain `null` rather than implied zero.
+ *
+ * @param {Object} payload Native Ollama response payload or provider `{raw}` envelope.
+ * @param {Object} [options]
+ * @param {'chat'|'embedding'} [options.role] Provider role that produced the sample.
+ * @param {String} [options.model] Configured model id fallback when the raw payload omits it.
+ * @returns {Object}
+ */
+export function extractOllamaEvalSample(payload, {role, model} = {}) {
+    const raw                  = payload?.raw && typeof payload.raw === 'object' ? payload.raw : payload || {},
+          evalCount            = finiteNumber(raw.eval_count),
+          evalDurationNs       = finiteNumber(raw.eval_duration),
+          promptEvalCount      = finiteNumber(raw.prompt_eval_count),
+          promptEvalDurationNs = finiteNumber(raw.prompt_eval_duration),
+          totalEvalCount       = [evalCount, promptEvalCount].filter(Number.isFinite).reduce((sum, value) => sum + value, 0),
+          totalEvalDurationNs  = [evalDurationNs, promptEvalDurationNs].filter(Number.isFinite).reduce((sum, value) => sum + value, 0),
+          hasAnyEvalCounter    = evalCount !== undefined || promptEvalCount !== undefined,
+          hasAnyEvalDuration   = evalDurationNs !== undefined || promptEvalDurationNs !== undefined;
+
+    return {
+        model                    : model || raw.model || null,
+        role                     : role || (Array.isArray(raw.embeddings) ? 'embedding' : 'chat'),
+        evalCount                : evalCount ?? null,
+        evalDurationNs           : evalDurationNs ?? null,
+        evalTokensPerSecond      : calculateOllamaTokensPerSecond(evalCount, evalDurationNs),
+        promptEvalCount          : promptEvalCount ?? null,
+        promptEvalDurationNs     : promptEvalDurationNs ?? null,
+        promptEvalTokensPerSecond: calculateOllamaTokensPerSecond(promptEvalCount, promptEvalDurationNs),
+        totalEvalCount           : hasAnyEvalCounter ? totalEvalCount : null,
+        totalEvalDurationNs      : hasAnyEvalDuration ? totalEvalDurationNs : null,
+        totalTokensPerSecond     : hasAnyEvalCounter && hasAnyEvalDuration
+            ? calculateOllamaTokensPerSecond(totalEvalCount, totalEvalDurationNs)
+            : null
+    };
+}
+
+/**
+ * @summary Builds a per-model attribution summary from Ollama eval samples.
+ *
+ * This is the pure data contract for the deployment diagnostics probe: callers
+ * collect raw `/api/chat` and `/api/embed` results over their chosen window, then
+ * this helper identifies busy versus resident-but-not-progressing models without
+ * issuing provider calls itself.
+ *
+ * @param {Object[]} samples Raw Ollama payloads or normalized eval samples.
+ * @param {Object} [options]
+ * @param {Number} [options.stuckThresholdTokensPerSecond=0.001] Samples at or below this
+ *   observed throughput are classified as stuck when counters are present.
+ * @returns {{models: Object[], busyModels: Object[], stuckModels: Object[], primaryLoad: Object|null, roleLoad: Object, primaryRole: Object|null}}
+ */
+export function buildOllamaEvalAttribution(samples, {stuckThresholdTokensPerSecond = 0.001} = {}) {
+    const normalized = (Array.isArray(samples) ? samples : [])
+        .map(sample => sample?.totalTokensPerSecond !== undefined ? sample : extractOllamaEvalSample(sample))
+        .filter(Boolean);
+
+    const grouped = new Map();
+
+    for (const sample of normalized) {
+        const key = `${sample.role || 'unknown'}:${sample.model || 'unknown'}`;
+        let entry = grouped.get(key);
+
+        if (!entry) {
+            entry = {
+                model              : sample.model ?? null,
+                role               : sample.role ?? 'unknown',
+                sampleCount        : 0,
+                totalEvalCount     : 0,
+                totalEvalDurationNs: 0,
+                hasAnyEvalCounter  : false,
+                hasAnyEvalDuration : false
+            };
+            grouped.set(key, entry);
+        }
+
+        entry.sampleCount++;
+
+        if (Number.isFinite(sample.totalEvalCount)) {
+            entry.totalEvalCount    += sample.totalEvalCount;
+            entry.hasAnyEvalCounter  = true;
+        }
+        if (Number.isFinite(sample.totalEvalDurationNs)) {
+            entry.totalEvalDurationNs += sample.totalEvalDurationNs;
+            entry.hasAnyEvalDuration  = true;
+        }
+    }
+
+    const models = [...grouped.values()].map(entry => {
+        const tokensPerSecond = entry.hasAnyEvalCounter && entry.hasAnyEvalDuration
+            ? calculateOllamaTokensPerSecond(entry.totalEvalCount, entry.totalEvalDurationNs)
+            : null;
+        const state = !entry.hasAnyEvalCounter || tokensPerSecond === null
+            ? 'unknown'
+            : tokensPerSecond <= stuckThresholdTokensPerSecond
+                ? 'stuck'
+                : 'busy';
+
+        return {
+            model              : entry.model,
+            role               : entry.role,
+            sampleCount        : entry.sampleCount,
+            totalEvalCount     : entry.hasAnyEvalCounter ? entry.totalEvalCount : null,
+            totalEvalDurationNs: entry.hasAnyEvalDuration ? entry.totalEvalDurationNs : null,
+            tokensPerSecond,
+            state
+        };
+    });
+
+    const busyModels           = models.filter(sample => sample.state === 'busy'),
+          stuckModels          = models.filter(sample => sample.state === 'stuck'),
+          primaryLoad          = [...busyModels].sort((a, b) => b.tokensPerSecond - a.tokensPerSecond)[0] || null,
+          totalTokensPerSecond = models.reduce((sum, sample) => sum + (Number.isFinite(sample.tokensPerSecond) ? sample.tokensPerSecond : 0), 0),
+          roleLoad             = {};
+
+    for (const sample of models) {
+        const role = sample.role || 'unknown';
+
+        if (!roleLoad[role]) {
+            roleLoad[role] = {
+                role,
+                modelCount     : 0,
+                tokensPerSecond: 0,
+                throughputShare: 0
+            };
+        }
+
+        roleLoad[role].modelCount++;
+        if (Number.isFinite(sample.tokensPerSecond)) {
+            roleLoad[role].tokensPerSecond += sample.tokensPerSecond;
+        }
+    }
+
+    for (const role of Object.keys(roleLoad)) {
+        roleLoad[role].throughputShare = totalTokensPerSecond > 0
+            ? roleLoad[role].tokensPerSecond / totalTokensPerSecond
+            : 0;
+    }
+
+    return {
+        models,
+        busyModels,
+        stuckModels,
+        primaryLoad,
+        roleLoad,
+        primaryRole: Object.values(roleLoad).sort((a, b) => b.tokensPerSecond - a.tokensPerSecond)[0] || null
+    };
 }
 
 /**
@@ -184,7 +367,7 @@ class OllamaProvider extends Base {
      *     `ask` synthesis) fail fast and degrade rather than wait behind a long batch inference.
      * @param {String} [options.operationLabel] Safe diagnostic label surfaced in the timeout error.
      * @param {AbortSignal} [options.signal] Upstream cancellation signal; when it aborts, the in-flight request is destroyed (parity with OpenAiCompatible).
-     * @returns {Promise<{content: String, raw: Object}>}
+     * @returns {Promise<{content: String, raw: Object, evalSample: Object}>}
      */
     async generate(input, options = {}) {
         const payload          = this.preparePayload(input, options, false);
@@ -247,8 +430,12 @@ class OllamaProvider extends Base {
             const result = await responsePromise;
 
             const resultPayload = {
-                content: result.message?.content || '',
-                raw    : result
+                content   : result.message?.content || '',
+                raw       : result,
+                evalSample: extractOllamaEvalSample(result, {
+                    role : 'chat',
+                    model: this.modelName
+                })
             };
 
             if (result.message?.tool_calls && result.message.tool_calls.length > 0) {
@@ -289,10 +476,10 @@ class OllamaProvider extends Base {
      * @param {String|String[]} input Single text or array of texts to embed.
      * @param {Object} [options]
      * @param {String} [options.model] Override the configured `embeddingModel` / `modelName`.
-     * @returns {Promise<{embeddings: Number[][], raw: Object}>}
+     * @returns {Promise<{embeddings: Number[][], raw: Object, evalSample: Object}>}
      */
     async embed(input, options = {}) {
-        const model = options.model || this.embeddingModel || this.modelName;
+        const model   = options.model || this.embeddingModel || this.modelName;
         const payload = {
             model,
             input
@@ -342,7 +529,11 @@ class OllamaProvider extends Base {
             const result = await responsePromise;
             return {
                 embeddings: result.embeddings || [],
-                raw       : result
+                raw       : result,
+                evalSample: extractOllamaEvalSample(result, {
+                    role: 'embedding',
+                    model
+                })
             };
         } catch (error) {
             throw error;
