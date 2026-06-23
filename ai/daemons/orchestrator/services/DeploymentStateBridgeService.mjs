@@ -31,29 +31,25 @@ export class DeploymentStateBridgeService extends Base {
          */
         className: 'Neo.ai.daemons.services.DeploymentStateBridgeService',
         /**
-         * @member {Object|null} runtimeAccessService_=null
+         * @member {Object|null} runtimeAccessService=null
          * @protected
-         * @reactive
          */
-        runtimeAccessService_: null,
+        runtimeAccessService: null,
         /**
-         * @member {Object|null} diagnosisService_=null
+         * @member {Object|null} diagnosisService=null
          * @protected
-         * @reactive
          */
-        diagnosisService_: null,
+        diagnosisService: null,
         /**
-         * @member {Function|null} nowFn_=null
+         * @member {Function|null} nowFn=null
          * @protected
-         * @reactive
          */
-        nowFn_: null,
+        nowFn: null,
         /**
-         * @member {Function|null} writeLog_=null
+         * @member {Function|null} writeLog=null
          * @protected
-         * @reactive
          */
-        writeLog_: null
+        writeLog: null
     }
 
     lastWriteAt           = 0
