@@ -49,7 +49,7 @@ const serviceMapping = {
                               HealthService          .getSqliteHolderDiagnostics.bind(HealthService),
     get_deployment_state_snapshot:
                               args => readDeploymentStateSnapshot({
-                                  filePath    : args?.snapshotPath || AiConfig.orchestrator.deploymentStateBridge.snapshotPath,
+                                  filePath    : AiConfig.orchestrator.deploymentStateBridge.snapshotPath,
                                   staleAfterMs: args?.staleAfterMs ?? AiConfig.orchestrator.deploymentStateBridge.staleAfterMs,
                                   maxBytes    : AiConfig.orchestrator.deploymentStateBridge.maxSnapshotBytes
                               }),

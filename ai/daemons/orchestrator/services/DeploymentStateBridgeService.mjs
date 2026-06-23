@@ -43,6 +43,12 @@ export class DeploymentStateBridgeService extends Base {
          */
         diagnosisService_: null,
         /**
+         * @member {Object|null} bridgeConfig_=null
+         * @protected
+         * @reactive
+         */
+        bridgeConfig_: null,
+        /**
          * @member {Function|null} nowFn_=null
          * @protected
          * @reactive
@@ -60,18 +66,21 @@ export class DeploymentStateBridgeService extends Base {
     writeInFlight         = false
     statsSamplesByService = new Map()
 
+    /** @summary Resolves the active bridge config from an injected test value or Tier-1 AiConfig. */
+    get cfg() {
+        return this.bridgeConfig || AiConfig.orchestrator.deploymentStateBridge;
+    }
+
     /**
      * Writes a snapshot when enabled and due.
      * @param {Object} [options]
      * @param {Boolean} [options.force=false] Bypass interval gate.
-     * @param {Object} [options.bridgeOptions] Test seam for call-local bridge options.
      * @returns {Promise<Object>}
      */
-    async writeSnapshotIfDue({force = false, bridgeOptions} = {}) {
-        const options = this.resolveBridgeOptions(bridgeOptions),
-              now     = this.now();
+    async writeSnapshotIfDue({force = false} = {}) {
+        const now = this.now();
 
-        if (!options.enabled) {
+        if (!this.cfg.enabled) {
             return {ok: true, status: 'disabled'};
         }
 
@@ -79,22 +88,22 @@ export class DeploymentStateBridgeService extends Base {
             return {ok: true, status: 'in-flight'};
         }
 
-        if (!force && this.lastWriteAt > 0 && now - this.lastWriteAt < options.writeIntervalMs) {
+        if (!force && this.lastWriteAt > 0 && now - this.lastWriteAt < this.cfg.writeIntervalMs) {
             return {ok: true, status: 'skipped'};
         }
 
         this.writeInFlight = true;
 
         try {
-            const snapshot = await this.collectSnapshot({generatedAt: now, bridgeOptions: options}),
+            const snapshot = await this.collectSnapshot({generatedAt: now}),
                   result   = await writeDeploymentStateSnapshot({
-                      filePath: options.snapshotPath,
+                      filePath: this.cfg.snapshotPath,
                       snapshot,
-                      maxBytes: options.maxSnapshotBytes
+                      maxBytes: this.cfg.maxSnapshotBytes
                   });
 
             this.lastWriteAt = now;
-            this.writeLog?.('INFO', `[DeploymentStateBridge] wrote ${snapshot.services.length} service snapshots to ${options.snapshotPath}`);
+            this.writeLog?.('INFO', `[DeploymentStateBridge] wrote ${snapshot.services.length} service snapshots to ${this.cfg.snapshotPath}`);
 
             return {ok: true, status: 'written', snapshot, ...result};
         } catch (error) {
@@ -109,15 +118,13 @@ export class DeploymentStateBridgeService extends Base {
      * Collects one bounded deployment-state snapshot.
      * @param {Object} [options]
      * @param {Number} [options.generatedAt]
-     * @param {Object} [options.bridgeOptions] Test seam for call-local bridge options.
      * @returns {Promise<Object>}
      */
-    async collectSnapshot({generatedAt = this.now(), bridgeOptions} = {}) {
-        const options  = this.resolveBridgeOptions(bridgeOptions),
-              services = [];
+    async collectSnapshot({generatedAt = this.now()} = {}) {
+        const services = [];
 
-        for (const serviceKey of this.getServiceKeys({allowedServices: options.allowedServices})) {
-            services.push(await this.collectServiceSnapshot({serviceKey, observedAt: generatedAt, bridgeOptions: options}));
+        for (const serviceKey of this.getServiceKeys()) {
+            services.push(await this.collectServiceSnapshot({serviceKey, observedAt: generatedAt}));
         }
 
         return createDeploymentStateSnapshot({
@@ -131,12 +138,9 @@ export class DeploymentStateBridgeService extends Base {
      * @param {Object} options
      * @param {String} options.serviceKey Allowlisted service key.
      * @param {Number} options.observedAt Epoch ms.
-     * @param {Object} [options.bridgeOptions] Test seam for call-local bridge options.
      * @returns {Promise<Object>}
      */
-    async collectServiceSnapshot({serviceKey, observedAt, bridgeOptions}) {
-        const options = this.resolveBridgeOptions(bridgeOptions);
-
+    async collectServiceSnapshot({serviceKey, observedAt}) {
         const
             errors = [],
             proofs = [];
@@ -159,12 +163,12 @@ export class DeploymentStateBridgeService extends Base {
         inspect = await read('inspect');
         stats   = await read('stats');
 
-        if (options.includeLogs) {
-            logs = await read('logs', {tail: options.logTail});
+        if (this.cfg.includeLogs) {
+            logs = await read('logs', {tail: this.cfg.logTail});
         }
 
         if (stats) {
-            this.rememberStatsSample(serviceKey, stats, {statsSampleWindow: options.statsSampleWindow});
+            this.rememberStatsSample(serviceKey, stats);
         }
 
         const diagnosis = this.diagnosisService?.diagnose
@@ -186,7 +190,7 @@ export class DeploymentStateBridgeService extends Base {
             status        : errors.length > 0 ? 'degraded' : 'available',
             inspect       : summarizeInspect(inspect),
             stats         : summarizeStats(stats),
-            logs          : summarizeLogs(logs, options.logMaxBytes),
+            logs          : summarizeLogs(logs, this.cfg.logMaxBytes),
             diagnosis,
             proofs,
             errors
@@ -195,11 +199,11 @@ export class DeploymentStateBridgeService extends Base {
 
     /**
      * Resolves allowlisted service keys for snapshot collection.
-     * @param {Object} [options]
-     * @param {String[]} [options.allowedServices] Call-local service allowlist.
      * @returns {String[]}
      */
-    getServiceKeys({allowedServices = AiConfig.orchestrator.deploymentStateBridge.allowedServices} = {}) {
+    getServiceKeys() {
+        const {allowedServices} = this.cfg;
+
         if (Array.isArray(allowedServices) && allowedServices.length > 0) {
             return allowedServices.filter(isSafeServiceKey);
         }
@@ -212,37 +216,15 @@ export class DeploymentStateBridgeService extends Base {
      * Stores a bounded stats sample window per service.
      * @param {String} serviceKey Service key.
      * @param {Object} stats Docker stats sample.
-     * @param {Object} [options]
-     * @param {Number} [options.statsSampleWindow] Bounded sample count.
      * @returns {void}
      */
-    rememberStatsSample(serviceKey, stats, {statsSampleWindow = AiConfig.orchestrator.deploymentStateBridge.statsSampleWindow} = {}) {
+    rememberStatsSample(serviceKey, stats) {
         const samples = this.statsSamplesByService.get(serviceKey) || [];
 
         samples.push(stats);
 
-        const max = Math.max(1, Number(statsSampleWindow) || 1);
+        const max = Math.max(1, Number(this.cfg.statsSampleWindow) || 1);
         this.statsSamplesByService.set(serviceKey, samples.slice(-max));
-    }
-
-    /**
-     * Reads Tier-1 bridge leaves at the use site, with call-local overrides for tests.
-     * @param {Object} [overrides]
-     * @returns {Object}
-     */
-    resolveBridgeOptions(overrides = {}) {
-        return {
-            enabled          : overrides.enabled           ?? AiConfig.orchestrator.deploymentStateBridge.enabled,
-            snapshotPath     : overrides.snapshotPath      ?? AiConfig.orchestrator.deploymentStateBridge.snapshotPath,
-            writeIntervalMs  : overrides.writeIntervalMs   ?? AiConfig.orchestrator.deploymentStateBridge.writeIntervalMs,
-            staleAfterMs     : overrides.staleAfterMs      ?? AiConfig.orchestrator.deploymentStateBridge.staleAfterMs,
-            maxSnapshotBytes : overrides.maxSnapshotBytes  ?? AiConfig.orchestrator.deploymentStateBridge.maxSnapshotBytes,
-            allowedServices  : overrides.allowedServices   ?? AiConfig.orchestrator.deploymentStateBridge.allowedServices,
-            includeLogs      : overrides.includeLogs       ?? AiConfig.orchestrator.deploymentStateBridge.includeLogs,
-            logTail          : overrides.logTail           ?? AiConfig.orchestrator.deploymentStateBridge.logTail,
-            logMaxBytes      : overrides.logMaxBytes       ?? AiConfig.orchestrator.deploymentStateBridge.logMaxBytes,
-            statsSampleWindow: overrides.statsSampleWindow ?? AiConfig.orchestrator.deploymentStateBridge.statsSampleWindow
-        };
     }
 
     /**

@@ -23,6 +23,7 @@ import {fileURLToPath,
 import yaml        from 'js-yaml';
 import Neo         from '../../../../../../src/Neo.mjs';
 import * as core   from '../../../../../../src/core/_export.mjs';
+import AiConfig    from '../../../../../../ai/config.mjs';
 import ToolService from '../../../../../../ai/mcp/ToolService.mjs';
 import {
     createDeploymentStateSnapshot,
@@ -411,33 +412,41 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
 
         await writeDeploymentStateSnapshot({filePath: snapshotPath, snapshot});
 
-        const
-            args             = {snapshotPath, staleAfterMs: 60_000},
-            knowledgeBaseApi = await import(pathToFileURL(path.join(repoRoot, 'ai/mcp/server/knowledge-base/toolService.mjs')).href),
-            memoryCoreApi    = await import(pathToFileURL(path.join(repoRoot, 'ai/mcp/server/memory-core/toolService.mjs')).href),
-            kbSnapshot       = await knowledgeBaseApi.callTool('get_deployment_state_snapshot', args),
-            mcSnapshot       = await memoryCoreApi.callTool('get_deployment_state_snapshot', args);
+        const originalSnapshotPath = AiConfig.orchestrator.deploymentStateBridge.snapshotPath;
 
-        for (const result of [kbSnapshot, mcSnapshot]) {
-            expect(result).toMatchObject({
-                ok      : true,
-                status  : 'available',
-                snapshot: {
-                    recordType: 'deployment-state-snapshot',
-                    services  : [
-                        {
-                            serviceKey: 'model',
-                            status    : 'degraded',
-                            diagnosis : {status: 'critical', reasons: ['cpu-saturation']}
-                        },
-                        {
-                            serviceKey: 'memory',
-                            status    : 'degraded',
-                            diagnosis : {status: 'critical', reasons: ['unhealthy-container']}
-                        }
-                    ]
-                }
-            });
+        try {
+            AiConfig.setEnvOverride('NEO_DEPLOYMENT_STATE_BRIDGE_SNAPSHOT_PATH', snapshotPath);
+
+            const
+                args             = {staleAfterMs: 60_000},
+                knowledgeBaseApi = await import(pathToFileURL(path.join(repoRoot, 'ai/mcp/server/knowledge-base/toolService.mjs')).href),
+                memoryCoreApi    = await import(pathToFileURL(path.join(repoRoot, 'ai/mcp/server/memory-core/toolService.mjs')).href),
+                kbSnapshot       = await knowledgeBaseApi.callTool('get_deployment_state_snapshot', args),
+                mcSnapshot       = await memoryCoreApi.callTool('get_deployment_state_snapshot', args);
+
+            for (const result of [kbSnapshot, mcSnapshot]) {
+                expect(result).toMatchObject({
+                    ok      : true,
+                    status  : 'available',
+                    snapshot: {
+                        recordType: 'deployment-state-snapshot',
+                        services  : [
+                            {
+                                serviceKey: 'model',
+                                status    : 'degraded',
+                                diagnosis : {status: 'critical', reasons: ['cpu-saturation']}
+                            },
+                            {
+                                serviceKey: 'memory',
+                                status    : 'degraded',
+                                diagnosis : {status: 'critical', reasons: ['unhealthy-container']}
+                            }
+                        ]
+                    }
+                });
+            }
+        } finally {
+            AiConfig.setEnvOverride('NEO_DEPLOYMENT_STATE_BRIDGE_SNAPSHOT_PATH', originalSnapshotPath);
         }
     });
 

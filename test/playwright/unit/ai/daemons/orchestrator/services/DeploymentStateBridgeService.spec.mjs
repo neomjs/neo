@@ -47,7 +47,8 @@ function createService({runtimeAccessService, diagnosisService} = {}) {
     return Neo.create(DeploymentStateBridgeService, {
         runtimeAccessService,
         diagnosisService,
-        nowFn: () => OBSERVED_AT
+        bridgeConfig: BRIDGE_OPTIONS,
+        nowFn       : () => OBSERVED_AT
     });
 }
 
@@ -86,7 +87,7 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
         };
 
         const service  = createService({runtimeAccessService, diagnosisService});
-        const snapshot = await service.collectSnapshot({bridgeOptions: BRIDGE_OPTIONS});
+        const snapshot = await service.collectSnapshot();
 
         expect(calls.map(call => call.operation)).toEqual(['inspect', 'stats', 'logs']);
         expect(snapshot.services).toHaveLength(1);
@@ -123,8 +124,10 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
             }
         };
 
-        const service  = createService({runtimeAccessService, diagnosisService: null});
-        const snapshot = await service.collectSnapshot({bridgeOptions: {...BRIDGE_OPTIONS, allowedServices: []}});
+        const service = createService({runtimeAccessService, diagnosisService: null});
+        service.bridgeConfig = {...BRIDGE_OPTIONS, allowedServices: []};
+
+        const snapshot = await service.collectSnapshot();
 
         expect(snapshot.services).toHaveLength(1);
         expect(snapshot.services[0]).toMatchObject({

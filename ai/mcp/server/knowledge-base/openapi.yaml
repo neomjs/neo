@@ -124,9 +124,6 @@ paths:
                 staleAfterMs:
                   type: number
                   description: Optional freshness window override in milliseconds.
-                snapshotPath:
-                  type: string
-                  description: Test/operator override for the snapshot path; production uses the Tier-1 bridge path.
       responses:
         '200':
           description: Snapshot status and payload when available.
