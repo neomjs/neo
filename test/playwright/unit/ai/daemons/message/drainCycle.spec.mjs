@@ -42,17 +42,23 @@ test.describe('Neo.ai.daemons.message.drainCycle', () => {
 
     const seed = id => appendWalMessage(record(id), {dir: tmpDir});
 
-    test('without a replay processor, records are observed but left deferred', async () => {
+    test('without a replay processor, the cycle skips WAL reads instead of doing active no-op work', async () => {
         await seed('MESSAGE:deferred');
 
+        let readCalled = false;
         const summary = await drainMessageWalOnce({
             dir          : tmpDir,
             batchSize    : 20,
             maxRetries   : 1,
-            backoffBaseMs: 1000
+            backoffBaseMs: 1000,
+            readMessages : async () => {
+                readCalled = true;
+                throw new Error('readMessages should not be called without a processor');
+            }
         });
 
-        expect(summary).toEqual({observed: 1, drained: 0, failed: 0, deferred: 1});
+        expect(summary).toEqual({observed: 0, drained: 0, failed: 0, deferred: 0, inactive: true});
+        expect(readCalled).toBe(false);
     });
 
     test('batchSize bounds the records passed to the replay processor', async () => {
@@ -72,7 +78,7 @@ test.describe('Neo.ai.daemons.message.drainCycle', () => {
             }
         });
 
-        expect(summary).toEqual({observed: 3, drained: 2, failed: 0, deferred: 0});
+        expect(summary).toEqual({observed: 3, inactive: false, drained: 2, failed: 0, deferred: 0});
         expect(seen).toHaveLength(2);
     });
 

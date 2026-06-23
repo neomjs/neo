@@ -9,8 +9,9 @@ import {readWalMessages} from '../../services/memory-core/helpers/messageWalStor
  * host that both the local daemon and in-process Memory Core mode can share.
  *
  * Full graph replay/idempotency is a separate projection concern. Until that processor is wired,
- * cycles report records as `deferred` and never mark or mutate them, preserving the WAL as the
- * authority. A2A-message vector/search population is likewise outside this topology layer.
+ * cycles stay inactive and skip WAL reads entirely, preserving the WAL as the authority without
+ * adding a growing no-op scan to live deployments. A2A-message vector/search population is likewise
+ * outside this topology layer.
  */
 
 /**
@@ -34,8 +35,8 @@ function normalizeProcessResult(records, result = {}) {
 /**
  * @summary Processes one batch of accepted message WAL records via an injected replay processor.
  *
- * Missing processor is a deliberate non-mutating state: the host topology can run in both
- * deployment realities without claiming graph-projection completion semantics.
+ * Missing processor is a deliberate non-mutating state for direct unit use. The hosted drain cycle
+ * short-circuits before reading WAL segments when no processor is wired.
  *
  * @param {Object} options
  * @param {Object[]} options.records Message WAL records.
@@ -89,7 +90,8 @@ export async function processMessageBatch({
  * @param {Function|null} [options.processRecords] Optional replay processor.
  * @param {Function} [options.log] Log sink.
  * @param {Function} [options.sleep] Delay primitive.
- * @returns {Promise<{observed: Number, drained: Number, failed: Number, deferred: Number}>}
+ * @param {Function} [options.readMessages] WAL reader injection for tests.
+ * @returns {Promise<{observed: Number, drained: Number, failed: Number, deferred: Number, inactive: Boolean}>}
  */
 export async function drainMessageWalOnce({
     dir,
@@ -98,15 +100,21 @@ export async function drainMessageWalOnce({
     backoffBaseMs,
     processRecords,
     log,
-    sleep
+    sleep,
+    readMessages = readWalMessages
 } = {}) {
-    const records = await readWalMessages({dir});
+    if (!processRecords) {
+        return {observed: 0, drained: 0, failed: 0, deferred: 0, inactive: true};
+    }
+
+    const records = await readMessages({dir});
     const bounded = Number.isFinite(batchSize) && batchSize > 0 ? batchSize : records.length;
     const batch   = records.slice(0, bounded);
     const result  = await processMessageBatch({records: batch, processRecords, maxRetries, backoffBaseMs, sleep, log});
 
     return {
         observed: records.length,
+        inactive: false,
         ...result
     };
 }
@@ -121,10 +129,12 @@ export async function drainMessageWalOnce({
  */
 export function startMessageDrainLoop({getConfig, getProcessor = () => null, log = () => {}}) {
     let stopped = false,
-        timer   = null;
+        timer   = null,
+        inactiveLogged = false;
 
     const tick = async () => {
         const {dir, batchSize, maxRetries, backoffBaseMs, pollIntervalMs} = getConfig();
+        const processRecords = getProcessor();
 
         try {
             const summary = await drainMessageWalOnce({
@@ -132,9 +142,18 @@ export function startMessageDrainLoop({getConfig, getProcessor = () => null, log
                 batchSize,
                 maxRetries,
                 backoffBaseMs,
-                processRecords: getProcessor(),
+                processRecords,
                 log
             });
+
+            if (summary.inactive) {
+                if (!inactiveLogged) {
+                    inactiveLogged = true;
+                    log('INFO', 'Message WAL drain inactive: replay processor is not wired; skipping WAL reads until the projection leaf supplies one.');
+                }
+            } else {
+                inactiveLogged = false;
+            }
 
             if (summary.drained > 0 || summary.failed > 0) {
                 log('INFO', `Message WAL drain cycle: ${JSON.stringify(summary)}`);

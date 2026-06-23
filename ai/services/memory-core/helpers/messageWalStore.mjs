@@ -38,19 +38,6 @@ export function getMissingMessageWalLeaves(messageWal, requiredLeaves) {
 }
 
 /**
- * @summary Derives the message WAL directory from the active memory WAL directory.
- * @param {String} memoryWalDir Active `memoryWal.dir`.
- * @returns {String}
- */
-export function getMessageWalDir(memoryWalDir) {
-    if (!memoryWalDir) {
-        throw new TypeError('getMessageWalDir: memoryWalDir is required');
-    }
-
-    return path.join(memoryWalDir, 'messages');
-}
-
-/**
  * @summary Derives the UTC-day segment key for a write timestamp.
  * @param {Date|Number} [now=new Date()] Clock source (epoch ms or Date).
  * @returns {String} `YYYY-MM-DD` UTC day key.
