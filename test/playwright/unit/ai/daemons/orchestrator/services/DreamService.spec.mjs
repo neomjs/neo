@@ -1573,6 +1573,124 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         }
     });
 
+    test('processUndigestedSessions fault-isolates thrown per-session failures and digests remaining sessions (#13850)', async () => {
+        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const AdrIngestor             = (await import('../../../../../../../ai/services/ingestion/AdrIngestor.mjs')).default;
+        const ConceptIngestor         = (await import('../../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;
+        const FileSystemIngestor      = (await import('../../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
+        const TopologyInferenceEngine = (await import('../../../../../../../ai/services/graph/TopologyInferenceEngine.mjs')).default;
+
+        const mockSessions = [
+            {
+                id      : 'chroma-summary-poison',
+                document: 'poison session payload',
+                meta    : {sessionId: 'agent-session-poison', title: 'Poison Session'}
+            },
+            {
+                id      : 'chroma-summary-good',
+                document: 'good session payload',
+                meta    : {sessionId: 'agent-session-good', title: 'Good Session'}
+            }
+        ];
+
+        const sessionUpdatePayloads = [];
+        let   conceptGapCalls       = 0;
+        let   nlActionDigestCalls   = 0;
+        let   garbageCalls          = 0;
+
+        const orig = {
+            provider          : aiConfig.modelProvider,
+            findUndigested    : DreamService.findUndigestedSessions,
+            sessionsCollection: DreamService.sessionsCollection,
+            inferTest         : DreamService.inferTestGapsFromSession,
+            executeNlDigest   : DreamService.executeNLActionDigest,
+            inferConcept      : DreamService.inferConceptGraphGaps,
+            runGarbageCol     : DreamService.runGarbageCollection,
+            synthesizeGolden  : DreamService.synthesizeGoldenPath,
+            triVector         : SemanticGraphExtractor.executeTriVectorExtraction,
+            syncSession       : MemorySessionIngestor.syncSessionToGraph,
+            syncAdrs          : AdrIngestor.syncAdrsToGraph,
+            syncConcepts      : ConceptIngestor.syncConceptsToGraph,
+            syncFs            : FileSystemIngestor.syncWorkspaceToGraph,
+            extractTopo       : TopologyInferenceEngine.extractTopology,
+            conflictCount     : TopologyInferenceEngine.getTopologyConflictCount,
+            getMemory         : StorageRouter.getMemoryCollection,
+            isProcessing      : DreamService.isProcessing
+        };
+
+        try {
+            aiConfig.modelProvider    = 'mock-provider';
+            DreamService.isProcessing = false;
+
+            DreamService.findUndigestedSessions = async () => mockSessions;
+            DreamService.sessionsCollection     = {
+                update: async (payload) => { sessionUpdatePayloads.push(payload); }
+            };
+            StorageRouter.getMemoryCollection       = async () => null;
+            DreamService.inferTestGapsFromSession   = async () => {};
+            DreamService.executeNLActionDigest      = async () => { nlActionDigestCalls++; return {status: 'completed'}; };
+            DreamService.inferConceptGraphGaps      = async () => { conceptGapCalls++; };
+            DreamService.runGarbageCollection       = async () => { garbageCalls++; };
+            DreamService.synthesizeGoldenPath       = async () => {};
+            MemorySessionIngestor.syncSessionToGraph = async () => ({errors: [], memoriesSkipped: 0, memoriesUpserted: 1});
+            AdrIngestor.syncAdrsToGraph              = async () => ({});
+            ConceptIngestor.syncConceptsToGraph     = async () => ({});
+            FileSystemIngestor.syncWorkspaceToGraph = async () => {};
+            TopologyInferenceEngine.extractTopology = async () => {};
+            TopologyInferenceEngine.getTopologyConflictCount = async () => 0;
+
+            SemanticGraphExtractor.executeTriVectorExtraction = async session => {
+                if (session.meta.sessionId === 'agent-session-poison') {
+                    throw new Error('simulated extractor crash');
+                }
+
+                return {session_artifact: {graph: {nodes: [], edges: []}}};
+            };
+
+            const result = await DreamService.processUndigestedSessions();
+
+            const poisonState = result.perSessionStates.find(item => item.sessionId === 'agent-session-poison'),
+                  goodState   = result.perSessionStates.find(item => item.sessionId === 'agent-session-good');
+
+            expect(poisonState).toBeDefined();
+            expect(poisonState.triVector.status).toBe('failed');
+            expect(poisonState.triVector.errorKind).toBe('simulated extractor crash');
+            expect(poisonState.failureReasons).toContain('simulated extractor crash');
+            expect(poisonState.graphDigestedFlag).toBe(false);
+
+            expect(goodState).toBeDefined();
+            expect(goodState.triVector.status).toBe('completed');
+            expect(goodState.graphDigestedFlag).toBe(true);
+
+            expect(sessionUpdatePayloads).toHaveLength(1);
+            expect(sessionUpdatePayloads[0]).toMatchObject({
+                ids      : ['chroma-summary-good'],
+                metadatas: [{sessionId: 'agent-session-good', graphDigested: true, digestState: 'digested'}]
+            });
+            expect(nlActionDigestCalls).toBe(1);
+            expect(conceptGapCalls).toBe(1);
+            expect(garbageCalls).toBe(1);
+        } finally {
+            aiConfig.modelProvider                            = orig.provider;
+            DreamService.findUndigestedSessions               = orig.findUndigested;
+            DreamService.sessionsCollection                   = orig.sessionsCollection;
+            DreamService.inferTestGapsFromSession             = orig.inferTest;
+            DreamService.executeNLActionDigest                = orig.executeNlDigest;
+            DreamService.inferConceptGraphGaps                = orig.inferConcept;
+            DreamService.runGarbageCollection                 = orig.runGarbageCol;
+            DreamService.synthesizeGoldenPath                 = orig.synthesizeGolden;
+            SemanticGraphExtractor.executeTriVectorExtraction = orig.triVector;
+            MemorySessionIngestor.syncSessionToGraph          = orig.syncSession;
+            AdrIngestor.syncAdrsToGraph                       = orig.syncAdrs;
+            ConceptIngestor.syncConceptsToGraph               = orig.syncConcepts;
+            FileSystemIngestor.syncWorkspaceToGraph           = orig.syncFs;
+            TopologyInferenceEngine.extractTopology           = orig.extractTopo;
+            TopologyInferenceEngine.getTopologyConflictCount  = orig.conflictCount;
+            StorageRouter.getMemoryCollection                 = orig.getMemory;
+            DreamService.isProcessing                         = orig.isProcessing;
+        }
+    });
+
     test('Sub 9 hypothesis 9 (PRIMARY): real DreamService→SemanticGraphExtractor integration — empty-response overflow keeps the session undigested + surfaces friction, not silently completed (#12075)', async () => {
         // Integration complement to the Phase-A isolated extractor test
         // (SemanticGraphExtractor.spec `Sub 9 hypotheses 9 and 11`). Phase-A stubs the service
