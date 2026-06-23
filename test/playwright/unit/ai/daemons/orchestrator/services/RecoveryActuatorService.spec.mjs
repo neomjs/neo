@@ -9,6 +9,9 @@ import {
     RecoveryActuatorService,
     normalizeRecoveryActuatorAllowlist
 } from '../../../../../../../ai/daemons/orchestrator/services/RecoveryActuatorService.mjs';
+import {TIER1_DEFAULTS} from '../../../../../fixtures/aiConfigDefaults.mjs';
+
+const DEFAULT_ACTUATOR_CONFIG = TIER1_DEFAULTS.orchestrator.recoveryActuator;
 
 test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
     let tmpDir;
@@ -26,6 +29,7 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
               pageCalls      = [],
               taskOutcomes   = [],
               actuatorConfig = {
+                  ...DEFAULT_ACTUATOR_CONFIG,
                   enabled               : true,
                   allowedComposeServices: ['memory-core'],
                   allowedDeployTargets  : ['cloud-deploy'],
@@ -44,7 +48,7 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
                   healthService: {
                       recordTaskOutcome(taskName, status, details) {
                           taskOutcomes.push({taskName, status, details});
-                  }
+                      }
                   },
                   deploymentRuntimeAccessService: {
                       async applyLifecycle(options) {

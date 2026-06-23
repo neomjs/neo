@@ -120,17 +120,17 @@ export class RecoveryActuatorService extends Base {
 
     /** @summary Resolves the active actuator config from an injected test value or Tier-1 AiConfig. */
     get cfg() {
-        return this.actuatorConfig || AiConfig.orchestrator?.recoveryActuator || {};
+        return this.actuatorConfig || AiConfig.orchestrator.recoveryActuator;
     }
 
     /** @summary Resolves the persisted anti-thrash attempt state path. */
     get healAttemptsPath() {
-        return this.cfg.healAttemptsPath || path.join(this.dataDir, 'heal-attempts.json');
+        return this.cfg.healAttemptsPath;
     }
 
     /** @summary Resolves the durable recovery-run ledger directory. */
     get recoveryRunStateDir() {
-        return this.cfg.recoveryRunStateDir || path.join(this.dataDir, 'recovery-runs');
+        return this.cfg.recoveryRunStateDir;
     }
 
     /** @summary Resolves the allowlisted compose-service actuator targets. */
@@ -363,7 +363,7 @@ export class RecoveryActuatorService extends Base {
             deployTarget      : target.id,
             action,
             reason            : reason || 'config-drift-redeploy-required',
-            operatorPageTarget: this.cfg.operatorPageTarget || 'AGENT:*'
+            operatorPageTarget: this.cfg.operatorPageTarget
         };
 
         if (typeof this.pageDispatcher === 'function') {
@@ -533,7 +533,7 @@ export class RecoveryActuatorService extends Base {
 
         await appendRecoveryRunState(entry, {
             dir           : this.recoveryRunStateDir,
-            retentionLimit: this.cfg.recoveryRunRetentionLimit ?? 100
+            retentionLimit: this.cfg.recoveryRunRetentionLimit
         });
 
         this.recordTaskOutcome(serviceKey, taskStatus, {
@@ -638,22 +638,22 @@ export class RecoveryActuatorService extends Base {
 
     /** @summary Resolves the rolling attempt-window size. */
     getAttemptWindowMs() {
-        return Math.max(1, Number(this.cfg.maxAttemptsWindowMs ?? 60 * 60 * 1000));
+        return Math.max(1, Number(this.cfg.maxAttemptsWindowMs));
     }
 
     /** @summary Resolves the maximum admitted attempts within one rolling window. */
     getMaxAttemptsPerWindow() {
-        return Math.max(1, Number(this.cfg.maxAttemptsPerWindow ?? 3));
+        return Math.max(1, Number(this.cfg.maxAttemptsPerWindow));
     }
 
     /** @summary Resolves the cooldown before the controller should re-observe after action. */
     getVerifyCooldownMs() {
-        return Math.max(0, Number(this.cfg.verifyCooldownMs ?? 60 * 1000));
+        return Math.max(0, Number(this.cfg.verifyCooldownMs));
     }
 
     /** @summary Resolves the required healthy-observation count for verify-loop completion. */
     getHealthyObservationThreshold() {
-        return Math.max(1, Number(this.cfg.healthyObservationThreshold ?? 1));
+        return Math.max(1, Number(this.cfg.healthyObservationThreshold));
     }
 
     /**
@@ -662,8 +662,8 @@ export class RecoveryActuatorService extends Base {
      * @returns {Number|null}
      */
     computeBackoffUntil({attempt, now}) {
-        const base = Math.max(0, Number(this.cfg.baseBackoffMs ?? 5 * 60 * 1000)),
-              max  = Math.max(base, Number(this.cfg.maxBackoffMs ?? 60 * 60 * 1000));
+        const base = Math.max(0, Number(this.cfg.baseBackoffMs)),
+              max  = Math.max(base, Number(this.cfg.maxBackoffMs));
 
         if (base === 0) {
             return null;
