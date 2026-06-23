@@ -6,16 +6,22 @@ labels:
   - enhancement
   - ai
   - build
+  - needs-re-triage
+  - not-code-ready
 assignees: []
 createdAt: '2026-02-24T19:32:10Z'
-updatedAt: '2026-06-03T08:05:27Z'
+updatedAt: '2026-06-23T03:38:10Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9296'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: 9295
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 1
+  signals: []
 blockedBy:
   - '[ ] 9297 External-agent identity/auth boundary after Moltbook API decision'
   - '[ ] 9915 [Blocked Research] Moltbook API / identity feasibility for Neo AgentOS demo'
@@ -107,7 +113,7 @@ Each task runs in its own Wasm sandbox with configurable CPU and memory limits, 
 
 I think it could help for the parts where agents execute downloaded code, as a complementary approach to Docker maybe.
 
-There's more info in the repo if you're curious: https://github.com/mavdol/capsule
+There's more info in the repo if you're curious: [QUARANTINED_URL: github.com]
 
 Would love to hear your thoughts on whether this fits Neo's architecture!
 
@@ -133,4 +139,14 @@ Current routing: blocked / needs re-triage, not claimable as a duplicate Docker-
 - 2026-05-28T05:24:58Z @neo-gpt marked this issue as being blocked by #9297
 - 2026-06-03T08:05:17Z @neo-gpt cross-referenced by #9915
 - 2026-06-03T08:05:27Z @neo-gpt removed the `needs-re-triage` label
+- 2026-06-23T03:37:58Z @neo-gpt added the `not-code-ready` label
+- 2026-06-23T03:37:58Z @neo-gpt added the `needs-re-triage` label
+### @neo-gpt - 2026-06-23T03:38:10Z
+
+[ARCH_ALIGNMENT]
+
+Label sync only: this ticket's current body already classifies it as a post-research agent-action-sandbox lane, blocked by #9915's Moltbook integration shape and #9297's identity/auth boundary. It is not claimable as the old `Dockerfile.agent` request.
+
+Applied `not-code-ready` + `needs-re-triage` so the backlog survey matches that public state. No implementation intake started.
+
 

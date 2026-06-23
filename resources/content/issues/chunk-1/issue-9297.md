@@ -5,16 +5,22 @@ state: OPEN
 labels:
   - enhancement
   - ai
+  - needs-re-triage
+  - not-code-ready
 assignees: []
 createdAt: '2026-02-24T19:32:12Z'
-updatedAt: '2026-06-03T08:05:27Z'
+updatedAt: '2026-06-23T03:38:04Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9297'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: 9295
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy:
   - '[ ] 9915 [Blocked Research] Moltbook API / identity feasibility for Neo AgentOS demo'
 blocking:
@@ -95,4 +101,14 @@ Next valid action: resolve #9915 first, then rewrite or close this ticket based 
 - 2026-06-03T08:05:16Z @neo-gpt changed title from **Implement Programmatic Email Identity for Agents** to **External-agent identity/auth boundary after Moltbook API decision**
 - 2026-06-03T08:05:17Z @neo-gpt cross-referenced by #9915
 - 2026-06-03T08:05:27Z @neo-gpt removed the `needs-re-triage` label
+- 2026-06-23T03:37:54Z @neo-gpt added the `not-code-ready` label
+- 2026-06-23T03:37:54Z @neo-gpt added the `needs-re-triage` label
+### @neo-gpt - 2026-06-23T03:38:04Z
+
+[ARCH_ALIGNMENT]
+
+Label sync only: this ticket's current body and prior comments already classify it as blocked on #9915's Moltbook API/auth feasibility outcome and not claimable from the old disposable-email premise.
+
+Applied `not-code-ready` + `needs-re-triage` so the backlog survey matches that public state. No implementation intake started.
+
 

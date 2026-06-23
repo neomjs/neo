@@ -21,6 +21,10 @@ subIssues:
   - '[ ] 8540 Implement Store-Driven VDOM Ticket Component (V2)'
 subIssuesCompleted: 0
 subIssuesTotal: 3
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy: []
 blocking: []
 ---

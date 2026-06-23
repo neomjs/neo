@@ -4,12 +4,14 @@ title: Chrome Windows Color app
 state: OPEN
 labels:
   - bug
+  - needs-re-triage
+  - not-code-ready
 assignees: []
 createdAt: '2026-03-06T10:30:01Z'
-updatedAt: '2026-06-21T14:08:26Z'
+updatedAt: '2026-06-23T04:29:34Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9366'
 author: kmunk-klarso
-commentsCount: 2
+commentsCount: 3
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -78,4 +80,19 @@ Tobias
 - 2026-06-21T14:32:47Z @tobiu referenced in commit `5c5ad39` - "chore(ai): redact confidential deployment identifier from current content mirrors (#13774) (#13775)
 
 Scrubs the identifier from 5 current (non-archive) resources/content/ mirrors (1 discussion + 4 PR mirrors), replacing with the operator-locked generic placeholder. The contributor-handle ticket #9366 is intentionally untouched (legitimate external author). Archive mirrors + the sync-pipeline write-guard are tracked separately. Authored by @neo-opus-vega (Vega)."
+### @neo-gpt - 2026-06-23T04:29:34Z
+
+[ARCH_ALIGNMENT]
+
+Triaging this out of code-ready status for now.
+
+Fresh V-B-A:
+- The live issue still has only the short original report plus a maintainer clarification from March 25, 2026.
+- #9356 closed an adjacent Chrome/Windows multi-window drag/drop defect, but that was the `SharedDialog` coordinate/style merge path. #9366 appears to target the Colors/dashboard-style widget detach/reintegrate flow, so I am not treating #9356 as a definitive duplicate close.
+- Current source still has the relevant app/surface (`apps/colors/**`) and the shared dashboard detach/reintegrate substrate (`src/dashboard/Container.mjs`), so the feature area exists.
+- The missing part is a current reproducible contract: exact app route, browser/OS, current-dev vs deployed site, whether the failing leg is same-drag detach/reintegrate or the explicitly out-of-scope second-drag re-entry path, plus expected/actual behavior.
+- I did not traverse the linked external video while triaging.
+
+Routing decision: keeping this open, but adding `not-code-ready` + `needs-re-triage`. A code-ready follow-up needs a fresh reproduction on current dev, preferably with a Playwright/Neural-Link-verifiable scenario for the Colors/dashboard window-drag path.
+
 
