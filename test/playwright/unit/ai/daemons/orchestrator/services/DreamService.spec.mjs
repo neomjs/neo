@@ -38,8 +38,8 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
 
     let originalGenerate;
     let originalAppendFile;
-    let appendedContent = [];
-    let providerPrompt = '';
+    let   appendedContent = [];
+    let   providerPrompt  = '';
     const freshVerifiedAt = new Date().toISOString();
 
     function createNlActionLogTable() {
@@ -212,7 +212,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             KBRecorderService.db.exec('DELETE FROM kb_query_log; DELETE FROM kb_query_faqs;');
         }
 
-        const tmpDir = path.resolve(process.cwd(), 'tmp');
+        const tmpDir      = path.resolve(process.cwd(), 'tmp');
         const mockHandoff = path.join(tmpDir, 'mock_sandman_handoff.md');
         if (fs.existsSync(mockHandoff)) {
             try { fs.unlinkSync(mockHandoff); } catch (e) {}
@@ -301,7 +301,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         await DreamService.inferTestGapsFromSession(payload);
 
         const coveredNode = GraphService.db.nodes.get('covered-class');
-        const edge = GraphService.db.edges.items.find(e =>
+        const edge        = GraphService.db.edges.items.find(e =>
             e.source === 'test-file-button-feature' &&
             e.target === 'covered-class' &&
             e.type === 'VALIDATES'
@@ -599,7 +599,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             }
         });
 
-        const result = await DreamService.executeNLActionDigest();
+        const result    = await DreamService.executeNLActionDigest();
         const classNode = GraphService.db.nodes.get('class-stale-nl-evidence');
 
         expect(result.resetWeakEvidenceAnnotations).toBe(1);
@@ -610,7 +610,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     });
 
     test('findUndigestedSessions fails loud when remSleepBatchLimit is malformed in the imported config', async () => {
-        const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default,
+        const aiConfig                   = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default,
               originalRemSleepBatchLimit = aiConfig.remSleepBatchLimit;
 
         aiConfig.remSleepBatchLimit = Number.NaN;
@@ -740,7 +740,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         // Concept-graph pass is session-independent and hoisted to cycle-scope.
         await DreamService.inferConceptGraphGaps();
 
-        const covered     = GraphService.db.nodes.get('concept-covered');
+        const covered      = GraphService.db.nodes.get('concept-covered');
         const missingGuide = GraphService.db.nodes.get('concept-missing-guide');
 
         expect(covered.properties.capabilityGap).toBeUndefined();
@@ -1174,12 +1174,12 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             meta    : {sessionId: 'agent-session-partial', title: 'Partial ingest session'}
         };
 
-        let testGapCalls     = 0;
-        let conceptGapCalls  = 0;
-        let sessionUpdates          = 0;
+        let   testGapCalls          = 0;
+        let   conceptGapCalls       = 0;
+        let   sessionUpdates        = 0;
         const sessionUpdatePayloads = [];
         const infoMessages          = [];
-        const warnMessages   = [];
+        const warnMessages          = [];
 
         const orig = {
             provider          : aiConfig.modelProvider,
@@ -1322,19 +1322,20 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         const FileSystemIngestor      = (await import('../../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
         const TopologyInferenceEngine = (await import('../../../../../../../ai/services/graph/TopologyInferenceEngine.mjs')).default;
 
-        // The session has already failed MAX-1 (2) times; this cycle's failure is the 3rd. Payload OVER the
-        // model's safe band → deferReason resolves to the DETERMINISTICALLY-terminal `skip-over-band` (the
-        // only reason that bounds the re-serve — a genuine size check, not a guess). It must be bounded out
-        // as `deferred` so the steady cadence stops re-serving a session the model demonstrably cannot fit.
+        // The session has already failed MAX-1 (2) times; this cycle's failure is the 3rd. 400k dense bytes
+        // estimate to 133,334 tokens through the shared guardrail helper (bytes/3) but only 100,000 tokens
+        // through the old split-brain bytes/4 classifier. This must classify as `skip-over-band`, not
+        // `under-band-choke`, so the steady cadence stops re-serving a session the model demonstrably cannot fit.
         const mockSession = {
             id      : 'chroma-summary-overband',
-            document: 'x'.repeat(2_000_000),
+            document: 'x'.repeat(400_000),
             meta    : {sessionId: 'agent-session-overband', title: 'Over-band session', digestAttempts: 2}
         };
 
         const sessionUpdatePayloads = [];
-        const orig = {
+        const orig                  = {
             provider          : aiConfig.modelProvider,
+            safeProcessing    : aiConfig.localModels.chat.safeProcessingLimitTokens,
             findUndigested    : DreamService.findUndigestedSessions,
             sessionsCollection: DreamService.sessionsCollection,
             inferTest         : DreamService.inferTestGapsFromSession,
@@ -1352,7 +1353,8 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         };
 
         try {
-            aiConfig.modelProvider    = 'mock-provider';
+            aiConfig.modelProvider                                  = 'mock-provider';
+            aiConfig.localModels.chat.safeProcessingLimitTokens      = 100_000;
             DreamService.isProcessing = false;
 
             DreamService.findUndigestedSessions = async () => [mockSession];
@@ -1381,7 +1383,8 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             expect(meta.digestAttempts).toBe(3);
             expect(meta.deferReason).toBe('skip-over-band');
         } finally {
-            aiConfig.modelProvider                            = orig.provider;
+            aiConfig.modelProvider                                  = orig.provider;
+            aiConfig.localModels.chat.safeProcessingLimitTokens      = orig.safeProcessing;
             DreamService.findUndigestedSessions               = orig.findUndigested;
             DreamService.sessionsCollection                   = orig.sessionsCollection;
             DreamService.inferTestGapsFromSession             = orig.inferTest;
@@ -1418,7 +1421,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         };
 
         const sessionUpdatePayloads = [];
-        const orig = {
+        const orig                  = {
             provider          : aiConfig.modelProvider,
             findUndigested    : DreamService.findUndigestedSessions,
             sessionsCollection: DreamService.sessionsCollection,
@@ -1503,7 +1506,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         };
 
         const sessionUpdatePayloads = [];
-        const orig = {
+        const orig                  = {
             provider          : aiConfig.modelProvider,
             findUndigested    : DreamService.findUndigestedSessions,
             sessionsCollection: DreamService.sessionsCollection,
@@ -1833,8 +1836,8 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     test('synthesizeGoldenPath should mathematically select and inject Golden Path while rejecting BLOCKS', async () => {
         // Mock StorageRouter to return deterministic ChromaDB metric formats
         const originalGetSummary = StorageRouter.getSummaryCollection;
-        const originalGetGraph = StorageRouter.getGraphCollection;
-        const originalPrepare = GraphService.db.storage.db.prepare;
+        const originalGetGraph   = StorageRouter.getGraphCollection;
+        const originalPrepare    = GraphService.db.storage.db.prepare;
 
         StorageRouter.getSummaryCollection = async () => {
              return {
@@ -1925,7 +1928,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         TextEmbeddingService.embedText = async () => new Array(4096).fill(0.1);
 
         // Setup markdown with a conflicting gap to verify dynamic stripping / injection sequence
-        const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig    = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
         const handoffFile = aiConfig.handoffFilePath,
               originalModelProvider = aiConfig.modelProvider;
 
@@ -1965,7 +1968,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             const twiceContent = fs.readFileSync(handoffFile, 'utf8');
 
             // Count capabilities gaps to ensure idempotence
-            const firstCount = finalContent.split('[Codebase Gap]').length;
+            const firstCount  = finalContent.split('[Codebase Gap]').length;
             const secondCount = twiceContent.split('[Codebase Gap]').length;
             expect(secondCount).toBe(firstCount);
         } finally {
@@ -1987,8 +1990,8 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     });
 
     test('should retry extraction on malformed JSON payload up to 3 times to fix #9913', async () => {
-        let executionCount = 0;
-        const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default,
+        let   executionCount = 0;
+        const aiConfig       = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default,
               baseGenerate = OpenAiCompatible.prototype.generate,
               originalModelProvider = aiConfig.modelProvider;
 
