@@ -198,6 +198,13 @@ services:
       - NEO_CHROMA_HOST=chroma
       - NEO_CHROMA_PORT=8000
       - NEO_MEMORY_DB_PATH=/app/.neo-ai-data/sqlite/memory-core-graph.sqlite
+      - NEO_ORCHESTRATOR_RUNTIME_ACCESS_ENABLED=true
+      - NEO_ORCHESTRATOR_RUNTIME_ACCESS_MECHANISM=docker-socket
+      - NEO_ORCHESTRATOR_RUNTIME_ACCESS_SOCKET_PATH=/var/run/docker.sock
+      - NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT=${NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT:-}
+      - NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES=chroma,kb-server,mc-server,local-model
+      - NEO_ORCHESTRATOR_RUNTIME_ACCESS_READ_OPERATIONS=inspect,logs,stats
+      - NEO_ORCHESTRATOR_RUNTIME_ACCESS_LIFECYCLE_OPERATIONS=restart
     volumes:
       - shared-sqlite-data:/app/.neo-ai-data/sqlite
       - tenant-repo-mirrors:/app/.neo-ai-data/tenant-repos
@@ -213,6 +220,10 @@ services:
       # query time; without the mount the orchestrator silently falls back to the
       # aiConfig.tenantRepos[] default tier only. Example:
       #   - ./kb-config.yaml:/app/kb-config.yaml:ro
+      # Deployment-runtime access (#13920): the orchestrator owns one constrained Docker
+      # socket holder. `DeploymentRuntimeAccessService` resolves allowlisted compose
+      # service labels and exposes separate read-observe / lifecycle-write envelopes.
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       chroma:
         condition: service_healthy
