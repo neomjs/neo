@@ -30,6 +30,7 @@ import {normalizeAgentIdentityNodeId}                                           
 import TaskStateService                                                         from './services/TaskStateService.mjs';
 import ProcessSupervisorService                                                 from './services/ProcessSupervisorService.mjs';
 import DeploymentRuntimeAccessService                                           from './services/DeploymentRuntimeAccessService.mjs';
+import RecoveryActuatorService                                                  from './services/RecoveryActuatorService.mjs';
 import DreamService                                                             from './services/DreamService.mjs';
 import SwarmHeartbeatService                                                    from './services/SwarmHeartbeatService.mjs';
 import GoldenPathSynthesizer                                                    from '../../services/graph/GoldenPathSynthesizer.mjs';
@@ -106,6 +107,7 @@ export class Orchestrator extends Base {
         singleton                      : true,
         processSupervisorService_      : null,
         deploymentRuntimeAccessService_: null,
+        recoveryActuatorService_       : null,
         maintenanceBackpressureService_: MaintenanceBackpressureService,
         dataDir_                       : DEFAULT_DATA_DIR,
         taskDefinitions_               : null,
@@ -301,9 +303,24 @@ export class Orchestrator extends Base {
         });
     }
 
+    /**
+     * @param {Neo.ai.daemons.services.RecoveryActuatorService|Object|null} value
+     * @returns {Neo.ai.daemons.services.RecoveryActuatorService}
+     */
+    beforeSetRecoveryActuatorService(value) {
+        return ClassSystemUtil.beforeSetInstance(value, RecoveryActuatorService, {
+            dataDir                        : this.dataDir,
+            deploymentRuntimeAccessService: this.deploymentRuntimeAccessService,
+            healthService                  : this.healthService,
+            writeLog                       : this.processSupervisorWriteLog,
+            actuatorConfig                 : AiConfig.orchestrator.recoveryActuator
+        });
+    }
+
     afterSetDataDir(value, oldValue) {
         if (oldValue === undefined) return;
         this.processSupervisorService.dataDir          = value;
+        this.recoveryActuatorService.dataDir           = value;
         this.maintenanceBackpressureService.dataDir    = value;
     }
     afterSetTaskDefinitions(value, oldValue) {
@@ -319,7 +336,12 @@ export class Orchestrator extends Base {
     afterSetHealthService(value, oldValue) {
         if (oldValue === undefined) return;
         this.processSupervisorService.healthService       = value;
+        this.recoveryActuatorService.healthService        = value;
         this.maintenanceBackpressureService.healthService = value;
+    }
+    afterSetDeploymentRuntimeAccessService(value, oldValue) {
+        if (oldValue === undefined || !this.recoveryActuatorService) return;
+        this.recoveryActuatorService.deploymentRuntimeAccessService = value;
     }
     afterSetSpawnFn(value, oldValue) {
         if (oldValue === undefined) return;
@@ -409,6 +431,7 @@ export class Orchestrator extends Base {
 
         this.processSupervisorService = {};
         this.deploymentRuntimeAccessService = {};
+        this.recoveryActuatorService = {};
         this.processSupervisorService.recoverTasks();
 
         this.db = await this.initializeDatabaseFn(this.dbPath);
