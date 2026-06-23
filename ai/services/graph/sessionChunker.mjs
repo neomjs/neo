@@ -8,18 +8,18 @@
  * wraps: it splits a session into bounded, turn-aligned chunks so each chunk stays under the safe band.
  *
  * Pure by design — no I/O, no LLM round-trip, no graph mutation — so chunk boundaries are deterministic and
- * fully unit-testable. The estimator is a coarse char-based heuristic (no model call), which keeps boundaries
- * reproducible across runs; the integration MAY inject the guardrail's own estimator for parity.
+ * fully unit-testable. The estimator is a conservative char-based heuristic (no model call), which keeps
+ * boundaries reproducible across runs; the integration MAY inject the guardrail's own estimator for parity.
  *
  * @module ai/services/graph/sessionChunker
  */
 
 /**
- * ~4 characters per token — the standard coarse heuristic. Deterministic by construction (no model round-trip),
- * which is what makes chunk boundaries reproducible.
+ * ~3 characters per token — the conservative dense REM / Agent OS heuristic. Deterministic by construction
+ * (no model round-trip), which is what makes chunk boundaries reproducible.
  * @type {Number}
  */
-const DEFAULT_TOKENS_PER_CHAR = 0.25;
+const DEFAULT_TOKENS_PER_CHAR = 1 / 3;
 
 /**
  * @summary Coarse, deterministic token estimate (`ceil(chars × ratio)`).
@@ -28,7 +28,7 @@ const DEFAULT_TOKENS_PER_CHAR = 0.25;
  * session produce identical chunk boundaries (the determinism AC). Non-string input estimates to `0`.
  *
  * @param {String} text
- * @param {Number} [tokensPerChar=0.25]
+ * @param {Number} [tokensPerChar=1/3]
  * @returns {Number} Estimated token count.
  */
 export function estimateTokens(text, tokensPerChar = DEFAULT_TOKENS_PER_CHAR) {

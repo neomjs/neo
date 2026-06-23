@@ -42,13 +42,13 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
         helper.clearAggregatedFrictions();
     });
 
-    test('bytesToTokens applies the 4-chars/token heuristic', () => {
+    test('bytesToTokens applies the conservative dense-text heuristic', () => {
         const {bytesToTokens} = helper;
         expect(bytesToTokens(0)).toBe(0);
-        expect(bytesToTokens(4)).toBe(1);
-        expect(bytesToTokens(5)).toBe(2);
-        expect(bytesToTokens(40)).toBe(10);
-        expect(bytesToTokens(131072)).toBe(32768);
+        expect(bytesToTokens(3)).toBe(1);
+        expect(bytesToTokens(4)).toBe(2);
+        expect(bytesToTokens(40)).toBe(14);
+        expect(bytesToTokens(131072)).toBe(43691);
         // Edge: negative / non-finite → 0
         expect(bytesToTokens(-1)).toBe(0);
         expect(bytesToTokens(NaN)).toBe(0);
@@ -85,16 +85,16 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
         expect(() => emitConsumerFriction({})).toThrow(/invalid symptom/);
         expect(() => emitConsumerFriction({symptom: 'bogus'})).toThrow(/invalid symptom/);
         expect(() => emitConsumerFriction({
-            symptom        : 'parse-failure',
-            suggestionKind : 'invented-kind'
+            symptom       : 'parse-failure',
+            suggestionKind: 'invented-kind'
         })).toThrow(/invalid suggestionKind/);
         expect(() => emitConsumerFriction({
-            symptom       : 'parse-failure',
-            serviceDomain : 'fake-domain'
+            symptom      : 'parse-failure',
+            serviceDomain: 'fake-domain'
         })).toThrow(/invalid serviceDomain/);
         expect(() => emitConsumerFriction({
-            symptom       : 'parse-failure',
-            emissionPoint : 'wrong-point'
+            symptom      : 'parse-failure',
+            emissionPoint: 'wrong-point'
         })).toThrow(/invalid emissionPoint/);
     });
 
@@ -116,17 +116,17 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
 
         expect(surfaced).toHaveLength(1);
         expect(surfaced[0]).toMatchObject({
-            assetRef            : 'session:abc',
-            consumer            : 'SemanticGraphExtractor',
-            model               : 'gemma4-31b',
-            symptom             : 'size-precheck-skip',
-            emissionPoint       : 'pre-invocation',
-            suggestionKind      : 'compress-payload',
-            inputBytes          : 100000,
-            inputTokensEstimate : 25000,
-            contextLimitTokens  : 8192,
-            count               : 1,
-            serviceDomain       : 'dream-pipeline'
+            assetRef           : 'session:abc',
+            consumer           : 'SemanticGraphExtractor',
+            model              : 'gemma4-31b',
+            symptom            : 'size-precheck-skip',
+            emissionPoint      : 'pre-invocation',
+            suggestionKind     : 'compress-payload',
+            inputBytes         : 100000,
+            inputTokensEstimate: 33334,
+            contextLimitTokens : 8192,
+            count              : 1,
+            serviceDomain      : 'dream-pipeline'
         });
         // Required durable-aggregation fields present
         expect(typeof surfaced[0].firstSeenAt).toBe('string');
@@ -232,10 +232,10 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
     test('invokeWithGuardrail Angle 2 — pre-check skips invocation when input tokens exceed safeProcessingLimitTokens', async () => {
         const {invokeWithGuardrail, getAggregatedFrictions} = helper;
 
-        let invoked = false;
-        const result = await invokeWithGuardrail({
+        let   invoked = false;
+        const result  = await invokeWithGuardrail({
             invocationFn             : async () => { invoked = true; return 'should not run'; },
-            inputPayload             : 'x'.repeat(50000), // 50000 bytes = 12500 tokens estimate
+            inputPayload             : 'x'.repeat(50000), // 50000 bytes = 16667 tokens estimate
             model                    : 'gemma4-31b',
             assetRef                 : 'session:precheck',
             consumer                 : 'SemanticGraphExtractor',
@@ -251,7 +251,7 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
             symptom                  : 'size-precheck-skip',
             emissionPoint            : 'pre-invocation',
             inputBytes               : 50000,
-            inputTokensEstimate      : 12500,
+            inputTokensEstimate      : 16667,
             contextLimitTokens       : 10000,
             safeProcessingLimitTokens: 7500,
             suggestionKind           : 'compress-payload',
@@ -261,11 +261,62 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
         expect(getAggregatedFrictions()).toHaveLength(1);
     });
 
+    test('invokeWithGuardrail skips incident-shaped dense REM payload before provider invocation (#13918)', async () => {
+        const {invokeWithGuardrail} = helper;
+
+        let   invoked = false;
+        const result  = await invokeWithGuardrail({
+            invocationFn             : async () => { invoked = true; return 'should not run'; },
+            inputPayload             : 'x'.repeat(400000),
+            model                    : 'google/gemma-4-26b-a4b',
+            assetRef                 : 'session:incident-13918',
+            consumer                 : 'SemanticGraphExtractor',
+            contextLimitTokens       : 131072,
+            safeProcessingLimitTokens: 100000,
+            serviceDomain            : 'dream-pipeline'
+        });
+
+        expect(invoked).toBe(false);
+        expect(result.result).toBeNull();
+        expect(result.friction).toMatchObject({
+            assetRef                 : 'session:incident-13918',
+            symptom                  : 'size-precheck-skip',
+            emissionPoint            : 'pre-invocation',
+            inputBytes               : 400000,
+            inputTokensEstimate      : 133334,
+            contextLimitTokens       : 131072,
+            safeProcessingLimitTokens: 100000
+        });
+    });
+
+    test('invokeWithGuardrail still invokes payloads that remain inside the safe band (#13918)', async () => {
+        const {invokeWithGuardrail} = helper;
+
+        let   invoked = false;
+        const result  = await invokeWithGuardrail({
+            invocationFn             : async () => {
+                invoked = true;
+                return {content: 'ok'};
+            },
+            inputPayload             : 'x'.repeat(21000), // 21000 bytes = 7000 tokens estimate
+            model                    : 'gemma4-31b',
+            assetRef                 : 'session:under-band',
+            consumer                 : 'SemanticGraphExtractor',
+            contextLimitTokens       : 10000,
+            safeProcessingLimitTokens: 7500,
+            serviceDomain            : 'dream-pipeline'
+        });
+
+        expect(invoked).toBe(true);
+        expect(result.result).toEqual({content: 'ok'});
+        expect(result.friction).toBeNull();
+    });
+
     test('invokeWithGuardrail Angle 2 — safeProcessingLimitTokens defaults to 75% of contextLimitTokens', async () => {
         const {invokeWithGuardrail} = helper;
 
         let invoked = false;
-        // 33000 bytes ≈ 8250 tokens; contextLimitTokens 10000; default safe = 7500; input EXCEEDS safe
+        // 33000 bytes ≈ 11000 tokens; contextLimitTokens 10000; default safe = 7500; input EXCEEDS safe
         const result = await invokeWithGuardrail({
             invocationFn      : async () => { invoked = true; return 'should not run'; },
             inputPayload      : 'x'.repeat(33000),
@@ -280,7 +331,7 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
         expect(invoked).toBe(false);
         expect(result.friction.symptom).toBe('size-precheck-skip');
         expect(result.friction.safeProcessingLimitTokens).toBe(7500);
-        expect(result.friction.inputTokensEstimate).toBe(8250);
+        expect(result.friction.inputTokensEstimate).toBe(11000);
     });
 
     test('invokeWithGuardrail Angle 1 — success path returns result without friction', async () => {
@@ -436,15 +487,15 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
         const {emitConsumerFriction, renderConsumerFrictionSection} = helper;
 
         emitConsumerFriction({
-            assetRef          : 'session:render',
-            consumer          : 'SemanticGraphExtractor',
-            model             : 'gemma4-31b',
-            symptom           : 'size-precheck-skip',
-            emissionPoint     : 'pre-invocation',
-            inputBytes        : 100000,
-            contextLimitTokens: 8192,
+            assetRef                 : 'session:render',
+            consumer                 : 'SemanticGraphExtractor',
+            model                    : 'gemma4-31b',
+            symptom                  : 'size-precheck-skip',
+            emissionPoint            : 'pre-invocation',
+            inputBytes               : 100000,
+            contextLimitTokens       : 8192,
             safeProcessingLimitTokens: 6144,
-            serviceDomain     : 'dream-pipeline'
+            serviceDomain            : 'dream-pipeline'
         });
 
         const section = renderConsumerFrictionSection();
@@ -455,7 +506,7 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
         expect(section).toContain('`session:render`');
         expect(section).toContain('`gemma4-31b`');
         expect(section).toContain('`dream-pipeline`');
-        expect(section).toContain('25000 tokens');
+        expect(section).toContain('33334 tokens');
         expect(section).toContain('safe 6144');
         expect(section).toContain('context 8192');
         expect(section).toContain('(`compress-payload`)');
