@@ -5,19 +5,23 @@ state: OPEN
 labels:
   - enhancement
   - help wanted
-  - good first issue
   - no auto close
-  - hacktoberfest
+  - architecture
+  - core
 assignees: []
 createdAt: '2025-07-01T19:53:13Z'
-updatedAt: '2025-10-22T22:49:35Z'
+updatedAt: '2026-06-23T05:18:25Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6932'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy: []
 blocking: []
 ---
@@ -53,4 +57,38 @@ This issue is stale because it has been open for 90 days with no activity.
 - 2025-10-08T09:40:38Z @tobiu added the `good first issue` label
 - 2025-10-08T09:40:38Z @tobiu added the `no auto close` label
 - 2025-10-08T09:40:38Z @tobiu added the `hacktoberfest` label
+- 2026-06-23T05:18:04Z @neo-gpt added the `core` label
+- 2026-06-23T05:18:04Z @neo-gpt added the `architecture` label
+- 2026-06-23T05:18:08Z @neo-gpt removed the `good first issue` label
+- 2026-06-23T05:18:08Z @neo-gpt removed the `hacktoberfest` label
+### @neo-gpt - 2026-06-23T05:18:25Z
+
+[ARCH_ALIGNMENT]
+
+Fresh V-B-A triage: #6932 is valid after narrowing, but it is not a beginner/Hacktoberfest lane.
+
+Evidence:
+- The stated prerequisite exists and is closed: #6933 added the record-change seam. Source now has `Record.notifyChange()` as the single record field-change choke point, returning the payload after `setRecordFields()` (`src/data/RecordFactory.mjs` lines 278-295), and `record.set()` routes through it (`src/data/RecordFactory.mjs` lines 306-312).
+- `setRecordFields()` builds `changedFields` and emits through `onRecordChange()` when non-silent changes happen (`src/data/RecordFactory.mjs` lines 494-554); `Neo.data.Store#onRecordChange()` exposes store-level `recordChange` with record index (`src/data/Store.mjs` lines 1148-1160).
+- `Neo.state.Provider` already has the correct target substrate: data bindings are `Effect` based (`createBinding()` reads `getHierarchyData()`, `src/state/Provider.mjs` lines 323-358), nested data is routed through `setData()` / `internalSetData()` with bubbling (`src/state/Provider.mjs` lines 560-635), and path configs are created/updated in `processDataObject()` / `#setConfigValue()` (`src/state/Provider.mjs` lines 674-740).
+- The current docs/tests cover plain provider data and stores, but not direct binding to `Neo.data.Record` fields. Verification run: `npm run test-unit -- test/playwright/unit/data/RecordFactory.spec.mjs test/playwright/unit/data/StorePush.spec.mjs` -> 6 passed.
+
+Stage retrospective:
+- Premise: pass. The gap is real; Provider data paths do not currently subscribe to record instance field changes.
+- Prescription: pass after narrowing. Use the existing record-change seam and Provider path-config pipeline; do not make records Observable and do not invent a second binding system.
+- Substrate: StateProvider/data integration, with tests under `test/playwright/unit/state/` plus existing data tests.
+
+Required implementation guardrails:
+- When a record is assigned to Provider `data`, register a per-record/per-path hook that translates changed fields into the matching Provider data paths, e.g. `currentUser.firstName`.
+- Replacement and destroy cleanup are part of the contract. `Neo.util.Function.createSequence()` proves the seam, but it is append-only; an implementation must avoid retaining destroyed providers or stale record/path callbacks.
+- Preserve atomic record assignment for the record object itself while exposing field-level path configs for bindings.
+- Cover: initial record assignment, `record.set()` updating a bound field, nested path bubbling, record replacement, provider destroy cleanup, and silent updates not notifying bindings.
+
+Routing:
+- Added `core` and `architecture`.
+- Removed `good first issue` and `hacktoberfest`; this crosses data records, StateProvider effects, cleanup, and binding invalidation.
+- Kept `enhancement`, `help wanted`, and `no auto close`.
+
+Triaged per `ticket-triage` skill. Stage retrospective passes for an experienced implementer with the guardrails above.
+
 
