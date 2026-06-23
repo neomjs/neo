@@ -30,25 +30,11 @@ function statsSample({cpuPercent = 0, memoryPercent = 0} = {}) {
     };
 }
 
-const BRIDGE_OPTIONS = Object.freeze({
-    enabled          : true,
-    snapshotPath     : '/tmp/unused-snapshot.json',
-    writeIntervalMs  : 30000,
-    staleAfterMs     : 120000,
-    maxSnapshotBytes : 256 * 1024,
-    allowedServices  : ['model'],
-    includeLogs      : true,
-    logTail          : 2,
-    logMaxBytes      : 8,
-    statsSampleWindow: 2
-});
-
 function createService({runtimeAccessService, diagnosisService} = {}) {
     return Neo.create(DeploymentStateBridgeService, {
         runtimeAccessService,
         diagnosisService,
-        bridgeConfig: BRIDGE_OPTIONS,
-        nowFn       : () => OBSERVED_AT
+        nowFn: () => OBSERVED_AT
     });
 }
 
@@ -103,9 +89,9 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
                 memoryPercent: 75
             },
             logs: {
-                text     : '89abcdef',
-                truncated: true,
-                tail     : 2
+                text     : '0123456789abcdef',
+                truncated: false,
+                tail     : 120
             },
             diagnosis: {
                 serviceKey : 'model',
@@ -124,9 +110,7 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
             }
         };
 
-        const service = createService({runtimeAccessService, diagnosisService: null});
-        service.bridgeConfig = {...BRIDGE_OPTIONS, allowedServices: []};
-
+        const service  = createService({runtimeAccessService, diagnosisService: null});
         const snapshot = await service.collectSnapshot();
 
         expect(snapshot.services).toHaveLength(1);

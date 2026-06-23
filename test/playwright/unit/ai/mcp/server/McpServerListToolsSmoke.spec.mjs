@@ -16,7 +16,6 @@ setup({
 import {test, expect} from '@playwright/test';
 import {parse}        from 'acorn';
 import fs             from 'fs';
-import os             from 'os';
 import path           from 'path';
 import {fileURLToPath,
         pathToFileURL}   from 'url';
@@ -391,31 +390,29 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
     });
 
     test('knowledge-base and memory-core read deployment-state snapshots through public tools (#13926)', async () => {
+        const snapshot = createDeploymentStateSnapshot({
+            generatedAt: Date.now(),
+            services   : [
+                {
+                    serviceKey: 'model',
+                    status    : 'degraded',
+                    diagnosis : {status: 'critical', reasons: ['cpu-saturation']}
+                },
+                {
+                    serviceKey: 'memory',
+                    status    : 'degraded',
+                    diagnosis : {status: 'critical', reasons: ['unhealthy-container']}
+                }
+            ]
+        });
+
         const
-            dir          = fs.mkdtempSync(path.join(os.tmpdir(), 'deployment-state-tool-')),
-            snapshotPath = path.join(dir, 'snapshot.json'),
-            snapshot     = createDeploymentStateSnapshot({
-                generatedAt: Date.now(),
-                services   : [
-                    {
-                        serviceKey: 'model',
-                        status    : 'degraded',
-                        diagnosis : {status: 'critical', reasons: ['cpu-saturation']}
-                    },
-                    {
-                        serviceKey: 'memory',
-                        status    : 'degraded',
-                        diagnosis : {status: 'critical', reasons: ['unhealthy-container']}
-                    }
-                ]
-            });
-
-        await writeDeploymentStateSnapshot({filePath: snapshotPath, snapshot});
-
-        const originalSnapshotPath = AiConfig.orchestrator.deploymentStateBridge.snapshotPath;
+            snapshotPathConfig = AiConfig.orchestrator.deploymentStateBridge.snapshotPath,
+            snapshotExists     = fs.existsSync(snapshotPathConfig),
+            originalSnapshot   = snapshotExists ? fs.readFileSync(snapshotPathConfig) : null;
 
         try {
-            AiConfig.setEnvOverride('NEO_DEPLOYMENT_STATE_BRIDGE_SNAPSHOT_PATH', snapshotPath);
+            await writeDeploymentStateSnapshot({filePath: snapshotPathConfig, snapshot});
 
             const
                 args             = {staleAfterMs: 60_000},
@@ -446,7 +443,11 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
                 });
             }
         } finally {
-            AiConfig.setEnvOverride('NEO_DEPLOYMENT_STATE_BRIDGE_SNAPSHOT_PATH', originalSnapshotPath);
+            if (snapshotExists) {
+                fs.writeFileSync(snapshotPathConfig, originalSnapshot);
+            } else {
+                fs.rmSync(snapshotPathConfig, {force: true});
+            }
         }
     });
 

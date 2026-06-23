@@ -43,12 +43,6 @@ export class DeploymentStateBridgeService extends Base {
          */
         diagnosisService_: null,
         /**
-         * @member {Object|null} bridgeConfig_=null
-         * @protected
-         * @reactive
-         */
-        bridgeConfig_: null,
-        /**
          * @member {Function|null} nowFn_=null
          * @protected
          * @reactive
@@ -66,11 +60,6 @@ export class DeploymentStateBridgeService extends Base {
     writeInFlight         = false
     statsSamplesByService = new Map()
 
-    /** @summary Resolves the active bridge config from an injected test value or Tier-1 AiConfig. */
-    get cfg() {
-        return this.bridgeConfig || AiConfig.orchestrator.deploymentStateBridge;
-    }
-
     /**
      * Writes a snapshot when enabled and due.
      * @param {Object} [options]
@@ -78,9 +67,11 @@ export class DeploymentStateBridgeService extends Base {
      * @returns {Promise<Object>}
      */
     async writeSnapshotIfDue({force = false} = {}) {
-        const now = this.now();
+        const
+            bridgeConfig = AiConfig.orchestrator.deploymentStateBridge,
+            now          = this.now();
 
-        if (!this.cfg.enabled) {
+        if (!bridgeConfig.enabled) {
             return {ok: true, status: 'disabled'};
         }
 
@@ -88,7 +79,7 @@ export class DeploymentStateBridgeService extends Base {
             return {ok: true, status: 'in-flight'};
         }
 
-        if (!force && this.lastWriteAt > 0 && now - this.lastWriteAt < this.cfg.writeIntervalMs) {
+        if (!force && this.lastWriteAt > 0 && now - this.lastWriteAt < bridgeConfig.writeIntervalMs) {
             return {ok: true, status: 'skipped'};
         }
 
@@ -97,13 +88,13 @@ export class DeploymentStateBridgeService extends Base {
         try {
             const snapshot = await this.collectSnapshot({generatedAt: now}),
                   result   = await writeDeploymentStateSnapshot({
-                      filePath: this.cfg.snapshotPath,
+                      filePath: bridgeConfig.snapshotPath,
                       snapshot,
-                      maxBytes: this.cfg.maxSnapshotBytes
+                      maxBytes: bridgeConfig.maxSnapshotBytes
                   });
 
             this.lastWriteAt = now;
-            this.writeLog?.('INFO', `[DeploymentStateBridge] wrote ${snapshot.services.length} service snapshots to ${this.cfg.snapshotPath}`);
+            this.writeLog?.('INFO', `[DeploymentStateBridge] wrote ${snapshot.services.length} service snapshots to ${bridgeConfig.snapshotPath}`);
 
             return {ok: true, status: 'written', snapshot, ...result};
         } catch (error) {
@@ -163,8 +154,10 @@ export class DeploymentStateBridgeService extends Base {
         inspect = await read('inspect');
         stats   = await read('stats');
 
-        if (this.cfg.includeLogs) {
-            logs = await read('logs', {tail: this.cfg.logTail});
+        const bridgeConfig = AiConfig.orchestrator.deploymentStateBridge;
+
+        if (bridgeConfig.includeLogs) {
+            logs = await read('logs', {tail: bridgeConfig.logTail});
         }
 
         if (stats) {
@@ -190,7 +183,7 @@ export class DeploymentStateBridgeService extends Base {
             status        : errors.length > 0 ? 'degraded' : 'available',
             inspect       : summarizeInspect(inspect),
             stats         : summarizeStats(stats),
-            logs          : summarizeLogs(logs, this.cfg.logMaxBytes),
+            logs          : summarizeLogs(logs, bridgeConfig.logMaxBytes),
             diagnosis,
             proofs,
             errors
@@ -202,7 +195,7 @@ export class DeploymentStateBridgeService extends Base {
      * @returns {String[]}
      */
     getServiceKeys() {
-        const {allowedServices} = this.cfg;
+        const {allowedServices} = AiConfig.orchestrator.deploymentStateBridge;
 
         if (Array.isArray(allowedServices) && allowedServices.length > 0) {
             return allowedServices.filter(isSafeServiceKey);
@@ -223,7 +216,7 @@ export class DeploymentStateBridgeService extends Base {
 
         samples.push(stats);
 
-        const max = Math.max(1, Number(this.cfg.statsSampleWindow) || 1);
+        const max = Math.max(1, Number(AiConfig.orchestrator.deploymentStateBridge.statsSampleWindow) || 1);
         this.statsSamplesByService.set(serviceKey, samples.slice(-max));
     }
 
