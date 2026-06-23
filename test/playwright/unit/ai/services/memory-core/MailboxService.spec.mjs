@@ -23,7 +23,7 @@ import RequestContextService from '../../../../../../ai/mcp/server/shared/servic
 
 test.describe('Neo.ai.services.memory-core.MailboxService', () => {
     test.describe.configure({ mode: 'serial' });
-    let MailboxService, GraphService, PermissionService, LifecycleService, SwarmHeartbeatService, buildMailboxDelta, originalAutoSave, mailboxAiConfig, originalMailboxPolicy, readWalMessages;
+    let MailboxService, GraphService, PermissionService, LifecycleService, SwarmHeartbeatService, buildMailboxDelta, originalAutoSave, mailboxAiConfig, originalMailboxPolicy, readWalMessages, readPendingMessageWalRecords;
     let dbPath, messageWalDir;
 
     test.beforeAll(async () => {
@@ -49,8 +49,9 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         SwarmHeartbeatService = (await import('../../../../../../ai/daemons/orchestrator/services/SwarmHeartbeatService.mjs')).default;
         buildMailboxDelta = (await import('../../../../../../ai/services/memory-core/MemoryService.mjs')).buildMailboxDelta;
         const messageWalStore = await import('../../../../../../ai/services/memory-core/helpers/messageWalStore.mjs');
-        readWalMessages = messageWalStore.readWalMessages;
-        messageWalDir   = mailboxAiConfig.messageWal.dir;
+        readWalMessages              = messageWalStore.readWalMessages;
+        readPendingMessageWalRecords = messageWalStore.readPendingMessageWalRecords;
+        messageWalDir                = mailboxAiConfig.messageWal.dir;
 
         // Pin this suite to strict-isolation mode. These tests predate the
         // config-gated default and assert `'blocked'`-mode behavior (Unauthorized
@@ -149,6 +150,9 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         expect(records[0].id).toBe(res.messageId);
         expect(records[0].message.properties.subject).toBe('Hello');
         expect(records[0].routing).toMatchObject({sentBy: '@alice', to: '@bob', senderUserId: 'alice'});
+
+        const pending = await readPendingMessageWalRecords({dir: messageWalDir});
+        expect(pending).toHaveLength(0);
     });
 
     test('addMessage stamps the normalized canonical user_id, keeping @-form only as the sender label (#13578)', async () => {
@@ -203,6 +207,90 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             expect(records[0].id).toBe(res.messageId);
             expect(records[0].message.properties.subject).toBe('culled route');
             expect(records[0].routing.to).toBe('@bob');
+
+            const pending = await readPendingMessageWalRecords({dir: messageWalDir});
+            expect(pending.map(record => record.id)).toEqual([res.messageId]);
+        } finally {
+            GraphService.linkNodes = originalLinkNodes;
+        }
+    });
+
+    test('drainPendingMessageGraphProjections replays pending direct MESSAGE rows idempotently (#13892)', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        const originalLinkNodes = GraphService.linkNodes;
+        let   res;
+
+        try {
+            GraphService.linkNodes = function(source, target, relationship, weight, properties) {
+                if (relationship === 'SENT_TO') {
+                    return;
+                }
+
+                return originalLinkNodes.call(GraphService, source, target, relationship, weight, properties);
+            };
+
+            res = await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+                return await MailboxService.addMessage({
+                    to     : '@bob',
+                    subject: 'replay me',
+                    body   : 'body'
+                });
+            });
+        } finally {
+            GraphService.linkNodes = originalLinkNodes;
+        }
+
+        expect(res.projectionStatus).toBe('pending');
+        expect((await readPendingMessageWalRecords({dir: messageWalDir, ids: [res.messageId]})).map(record => record.id)).toEqual([res.messageId]);
+
+        const firstDrain = await MailboxService.drainPendingMessageGraphProjections({ids: [res.messageId]});
+        expect(firstDrain).toEqual({pending: 1, projected: 1, failed: 0});
+
+        const secondDrain = await MailboxService.drainPendingMessageGraphProjections({ids: [res.messageId]});
+        expect(secondDrain).toEqual({pending: 0, projected: 0, failed: 0});
+
+        const sentTo = GraphService.db.edges.items.find(edge =>
+            edge.source === res.messageId &&
+            edge.type === 'SENT_TO' &&
+            edge.target === '@bob'
+        );
+
+        expect(sentTo).toBeDefined();
+        expect(await readPendingMessageWalRecords({dir: messageWalDir, ids: [res.messageId]})).toHaveLength(0);
+    });
+
+    test('drainPendingMessageGraphProjections leaves failed required-edge replay pending (#13892)', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        const originalLinkNodes = GraphService.linkNodes;
+
+        try {
+            GraphService.linkNodes = function(source, target, relationship, weight, properties) {
+                if (relationship === 'SENT_TO') {
+                    return;
+                }
+
+                return originalLinkNodes.call(GraphService, source, target, relationship, weight, properties);
+            };
+
+            const res = await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+                return await MailboxService.addMessage({
+                    to     : '@bob',
+                    subject: 'still pending',
+                    body   : 'body'
+                });
+            });
+
+            expect(res.projectionStatus).toBe('pending');
+
+            const summary = await MailboxService.drainPendingMessageGraphProjections({ids: [res.messageId]});
+            expect(summary).toEqual({pending: 1, projected: 0, failed: 1});
+            expect((await readPendingMessageWalRecords({dir: messageWalDir, ids: [res.messageId]})).map(record => record.id)).toEqual([res.messageId]);
         } finally {
             GraphService.linkNodes = originalLinkNodes;
         }
@@ -237,6 +325,82 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             expect(records[0].id).toBe(res.messageId);
             expect(records[0].routing.to).toBe('AGENT:*');
             expect(records[0].routing.broadcastRecipients).toEqual(expect.arrayContaining(['@bob']));
+        } finally {
+            GraphService.linkNodes = originalLinkNodes;
+        }
+    });
+
+    test('broadcast replay uses WAL send-time audience snapshot, not the current graph audience (#13892)', async () => {
+        GraphService.upsertNode({ id: '@charlie', type: 'AGENT', name: 'Charlie', properties: {} });
+
+        const originalLinkNodes = GraphService.linkNodes;
+        let   res;
+
+        try {
+            GraphService.linkNodes = function(source, target, relationship, weight, properties) {
+                if (relationship === 'DELIVERED_TO') {
+                    return;
+                }
+
+                return originalLinkNodes.call(GraphService, source, target, relationship, weight, properties);
+            };
+
+            res = await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+                return await MailboxService.addMessage({
+                    to     : 'AGENT:*',
+                    subject: 'snapshot broadcast',
+                    body   : 'body'
+                });
+            });
+        } finally {
+            GraphService.linkNodes = originalLinkNodes;
+        }
+
+        expect(res.projectionStatus).toBe('pending');
+
+        GraphService.upsertNode({ id: '@dana', type: 'AGENT', name: 'Dana', properties: {} });
+
+        const summary = await MailboxService.drainPendingMessageGraphProjections({ids: [res.messageId]});
+        expect(summary).toEqual({pending: 1, projected: 1, failed: 0});
+
+        const deliveryTargets = GraphService.db.edges.items
+            .filter(edge => edge.source === res.messageId && edge.type === 'DELIVERED_TO')
+            .map(edge => edge.target)
+            .sort();
+
+        expect(deliveryTargets).toEqual(['@bob', '@charlie']);
+        expect(deliveryTargets).not.toContain('@dana');
+    });
+
+    test('optional semantic edge failures do not block message graph completion (#13892)', async () => {
+        GraphService.upsertNode({ id: 'CONCEPT:ok', type: 'CONCEPT', name: 'Concept', properties: {} });
+
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        const originalLinkNodes = GraphService.linkNodes;
+
+        try {
+            GraphService.linkNodes = function(source, target, relationship, weight, properties) {
+                if (relationship === 'TAGGED_CONCEPT') {
+                    throw new Error('optional concept target temporarily unavailable');
+                }
+
+                return originalLinkNodes.call(GraphService, source, target, relationship, weight, properties);
+            };
+
+            const res = await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+                return await MailboxService.addMessage({
+                    to            : '@bob',
+                    subject       : 'optional edge',
+                    body          : 'body',
+                    taggedConcepts: ['CONCEPT:ok']
+                });
+            });
+
+            expect(res.projectionStatus).toBeUndefined();
+            expect(await readPendingMessageWalRecords({dir: messageWalDir, ids: [res.messageId]})).toHaveLength(0);
         } finally {
             GraphService.linkNodes = originalLinkNodes;
         }

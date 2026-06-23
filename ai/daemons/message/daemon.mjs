@@ -15,9 +15,13 @@ import fs         from 'fs-extra';
 import path       from 'path';
 import {execSync} from 'child_process';
 
-import {startMessageDrainLoop}      from './drainCycle.mjs';
+import {
+    createMessageGraphProjectionProcessor,
+    startMessageDrainLoop
+} from './drainCycle.mjs';
 import {acquireMessageDrainLock}    from './drainLock.mjs';
 import {getMissingMessageWalLeaves} from '../../services/memory-core/helpers/messageWalStore.mjs';
+import MailboxService               from '../../services/memory-core/MailboxService.mjs';
 
 const missingLeaves = getMissingMessageWalLeaves(memoryCoreConfig.messageWal,
     ['dir', 'daemonDataDir', 'pollIntervalMs', 'batchSize', 'maxRetries', 'backoffBaseMs']);
@@ -192,8 +196,9 @@ async function main() {
     writeLog('INFO', `[Message Daemon] Started. Observing message WAL dir: ${memoryCoreConfig.messageWal.dir} (poll: ${memoryCoreConfig.messageWal.pollIntervalMs}ms, batch: ${memoryCoreConfig.messageWal.batchSize})`);
 
     startMessageDrainLoop({
-        getConfig: () => memoryCoreConfig.messageWal,
-        log      : writeLog
+        getConfig   : () => memoryCoreConfig.messageWal,
+        getProcessor: () => createMessageGraphProjectionProcessor(MailboxService),
+        log         : writeLog
     });
 }
 
