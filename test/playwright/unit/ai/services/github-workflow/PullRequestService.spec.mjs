@@ -1,6 +1,6 @@
 import {setup} from '../../../../setup.mjs';
 
-const appName = 'PullRequestServiceTest';
+const appName          = 'PullRequestServiceTest';
 const skipCiGitHubAuth = !!process.env.NEO_TEST_SKIP_CI;
 
 setup({
@@ -29,7 +29,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — checkoutPu
     });
 
     test('refuses checkout when caller workspace repoPath is absent', async () => {
-        let execCalls = 0;
+        let   execCalls           = 0;
         const checkoutPullRequest = buildCheckoutPullRequest({
             projectRoot: '/server/shared-repo',
             log        : silentLogger,
@@ -49,7 +49,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — checkoutPu
     });
 
     test('rejects repoPath that is not the git top-level', async () => {
-        const calls = [];
+        const calls               = [];
         const checkoutPullRequest = buildCheckoutPullRequest({
             projectRoot: '/server/shared-repo',
             log        : silentLogger,
@@ -77,7 +77,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — checkoutPu
     });
 
     test('checks out explicit repoPath and returns read-back git state', async () => {
-        const calls = [];
+        const calls               = [];
         const checkoutPullRequest = buildCheckoutPullRequest({
             projectRoot: '/server/shared-repo',
             log        : silentLogger,
@@ -484,8 +484,8 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
     let GraphqlService;
     let originalQuery;
 
-    const PR_NODE_ID    = 'PR_kwDOABcD9999999999';
-    const REVIEW_NODE   = {
+    const PR_NODE_ID  = 'PR_kwDOABcD9999999999';
+    const REVIEW_NODE = {
         id         : 'PRR_kwDOABcD1111111111',
         url        : 'https://github.com/neomjs/neo/pull/11273#pullrequestreview-12345',
         state      : 'APPROVED',
@@ -591,6 +591,30 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         '### 📋 Required Actions',
         '',
         'No required actions — eligible for human merge.'
+    ].join('\n');
+
+    const VALID_MICRO_DELTA_REVIEW_BODY = [
+        '# Pull Request Micro-Delta Review',
+        '',
+        '> **Context:** This review is using the Micro-Delta Approval format because the Review-Loop Cost Circuit Breaker has fired and the convergence assessment is state (a): the underlying PR has previously received thorough semantic review and has reached the mechanical-hygiene or metadata-drift phase.',
+        '',
+        '### State Vector',
+        '- **Target SHA:** abc1234',
+        '- **Current reviewDecision:** CHANGES_REQUESTED',
+        '- **Semantic Status:** APPROVED',
+        '- **CI Status:** GREEN',
+        '- **Remaining Blocker Class:** mechanical-hygiene',
+        '- **Measured Discussion Cost:** > 24KB',
+        '',
+        '### Micro-Delta Focus',
+        '*Only defects classified as `mechanical-hygiene` or `metadata-drift` are reviewed here.*',
+        '',
+        '- `[x]` **Issue 1:** ai/config.template.mjs - stale wording repaired.',
+        '',
+        '### Verdict',
+        '- [ ] **APPROVED** (All mechanical-hygiene cleared. Merge-ready.)',
+        '- [x] **CHANGES_REQUESTED** (Mechanical-hygiene defects remain as listed above.)',
+        '- [ ] **MAINTAINER POLISH FAST PATH APPLIED** (Reviewer unilaterally patched and pushed fixes. Approved.)'
     ].join('\n');
 
     test.beforeAll(async () => {
@@ -986,6 +1010,74 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         expect(result.error).toBeUndefined();
         expect(result.reviewId).toBe('PRR_kwDOABcD1111111111');
         expect(graphqlCallCount).toBe(2);
+    });
+
+    test('#13910: accepts documented Micro-Delta review without full metric anchors', async () => {
+        let graphqlCallCount = 0;
+        GraphqlService.query = async (queryString) => {
+            graphqlCallCount++;
+            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: {id: PR_NODE_ID}}};
+            if (queryString.includes('AddPullRequestReview')) return {addPullRequestReview: {pullRequestReview: REVIEW_NODE}};
+            return null;
+        };
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 13910,
+            state    : 'REQUEST_CHANGES',
+            body     : VALID_MICRO_DELTA_REVIEW_BODY
+        });
+
+        expect(result.error).toBeUndefined();
+        expect(result.reviewId).toBe('PRR_kwDOABcD1111111111');
+        expect(graphqlCallCount).toBe(2);
+    });
+
+    test('#13910: rejects incomplete Micro-Delta review before GraphQL dispatch', async () => {
+        const incompleteBody = VALID_MICRO_DELTA_REVIEW_BODY
+            .replace('- **Measured Discussion Cost:** > 24KB\n', '');
+
+        let graphqlCallCount = 0;
+        GraphqlService.query = async () => {
+            graphqlCallCount++;
+            return {repository: {pullRequest: {id: PR_NODE_ID}}};
+        };
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 13910,
+            state    : 'REQUEST_CHANGES',
+            body     : incompleteBody
+        });
+
+        expect(result.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+        expect(result.template).toBe('.agents/skills/pr-review/audits/review-cost-circuit-breaker.md');
+        expect(result.missing_micro_delta).toContain('- **Measured Discussion Cost:**');
+        expect(result.message).toContain('review-cost-circuit-breaker.md');
+        expect(graphqlCallCount).toBe(0);
+    });
+
+    test('#13910: rejects Micro-Delta review with a semantic blocker class', async () => {
+        const semanticShortcutBody = VALID_MICRO_DELTA_REVIEW_BODY
+            .replace('- **Remaining Blocker Class:** mechanical-hygiene', '- **Remaining Blocker Class:** semantic-blocker');
+
+        let graphqlCallCount = 0;
+        GraphqlService.query = async () => {
+            graphqlCallCount++;
+            return {repository: {pullRequest: {id: PR_NODE_ID}}};
+        };
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 13910,
+            state    : 'REQUEST_CHANGES',
+            body     : semanticShortcutBody
+        });
+
+        expect(result.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+        expect(result.missing_micro_delta).toContain('Remaining Blocker Class: mechanical-hygiene | metadata-drift');
+        expect(result.message).toContain('full follow-up review template instead');
+        expect(graphqlCallCount).toBe(0);
     });
 
     test('#13547: rejects old plain-heading follow-up review skeleton', async () => {
