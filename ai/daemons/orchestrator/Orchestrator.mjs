@@ -228,7 +228,7 @@ export class Orchestrator extends Base {
             : '@system';
         const stalledSinceIso = Number.isFinite(stalledSince) ? new Date(stalledSince).toISOString() : 'unknown';
         const staleHours      = (Number(stalenessMs || 0) / (60 * 60 * 1000)).toFixed(1);
-        const subject = hasCycle
+        const subject         = hasCycle
             ? `[rem-consolidation-stall] last REM cycle is ${staleHours}h stale`
             : `[rem-consolidation-stall] no REM cycle recorded with ${undigestedCount} undigested sessions`;
         const body =
@@ -333,6 +333,7 @@ export class Orchestrator extends Base {
     get devServerEnabled()               { return resolveLocalDeploymentDefault(AiConfig.orchestrator.devServer.enabled); }
     get neuralLinkBridgeEnabled()        { return resolveDeploymentEnabled('neuralLinkBridgeEnabled');        }
     get embedDaemonEnabled()             { return resolveDeploymentEnabled('embedDaemonEnabled');             }
+    get messageDaemonEnabled()           { return resolveDeploymentEnabled('messageDaemonEnabled');           }
     get embedDrainLivenessWatchdogWalDir()      { return memoryCoreConfig.memoryWal.dir; }
     get embedDrainLivenessWatchdogThresholdMs() { return memoryCoreConfig.memoryWal.embedDrainStallThresholdMs; }
     get remConsolidationWatchdogRunStateDir()   { return memoryCoreConfig.remRunStateDir; }
@@ -475,7 +476,7 @@ export class Orchestrator extends Base {
      * @returns {void}
      */
     poll() {
-        const now = Date.now();
+        const now         = Date.now();
         const executeTask = this.processSupervisorService.runTask.bind(this.processSupervisorService);
 
         const continuousTasks = [
@@ -484,6 +485,7 @@ export class Orchestrator extends Base {
             ...(this.devServerEnabled    ? ['devServer'] : []),
             ...(this.neuralLinkBridgeEnabled ? ['neuralLinkBridge'] : []),
             ...(this.embedDaemonEnabled  ? ['embedDaemon'] : []),
+            ...(this.messageDaemonEnabled ? ['messageDaemon'] : []),
             'mlx',
             'ollama',
             'lms'

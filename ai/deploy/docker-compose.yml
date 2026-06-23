@@ -127,6 +127,11 @@ services:
       - NEO_MEMORY_WAL_IN_PROCESS_DRAIN=true
       - NEO_MEMORY_WAL_POLL_INTERVAL_MS=250
       - NEO_MEMORY_WAL_DIR=/app/.neo-ai-data/sqlite/memory-wal
+      # Mirror the memory WAL host mode for accepted A2A messages. Defaults derive the message
+      # WAL below NEO_MEMORY_WAL_DIR, but the explicit path documents the shared volume boundary.
+      - NEO_MESSAGE_WAL_IN_PROCESS_DRAIN=true
+      - NEO_MESSAGE_WAL_POLL_INTERVAL_MS=250
+      - NEO_MESSAGE_WAL_DIR=/app/.neo-ai-data/sqlite/memory-wal/messages
       - NEO_MODEL_PROVIDER=${NEO_MODEL_PROVIDER:-}
       - NEO_EMBEDDING_PROVIDER=${NEO_EMBEDDING_PROVIDER:-}
       - NEO_OPENAI_COMPATIBLE_HOST=${NEO_OPENAI_COMPATIBLE_HOST:-}

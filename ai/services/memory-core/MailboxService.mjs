@@ -1,15 +1,15 @@
-import Base                                     from '../../../src/core/Base.mjs';
-import aiConfig                                 from '../../mcp/server/memory-core/config.mjs';
-import logger                                   from '../../mcp/server/memory-core/logger.mjs';
-import RequestContextService, {normalizeUserId} from '../../mcp/server/shared/services/RequestContextService.mjs';
-import GraphService                             from './GraphService.mjs';
-import PermissionService                        from './PermissionService.mjs';
-import WakeSubscriptionService                  from './WakeSubscriptionService.mjs';
-import {appendWalMessage, getMessageWalDir}     from './helpers/messageWalStore.mjs';
-import {getMissingMemoryWalLeaves}              from './helpers/memoryWalStore.mjs';
-import {execFile}                               from 'child_process';
-import {promisify}                              from 'util';
-import crypto                                   from 'crypto';
+import Base                                           from '../../../src/core/Base.mjs';
+import aiConfig                                       from '../../mcp/server/memory-core/config.mjs';
+import logger                                         from '../../mcp/server/memory-core/logger.mjs';
+import RequestContextService, {normalizeUserId}       from '../../mcp/server/shared/services/RequestContextService.mjs';
+import GraphService                                   from './GraphService.mjs';
+import PermissionService                              from './PermissionService.mjs';
+import WakeSubscriptionService                        from './WakeSubscriptionService.mjs';
+import {appendWalMessage, getMissingMessageWalLeaves} from './helpers/messageWalStore.mjs';
+import {getMissingMemoryWalLeaves}                    from './helpers/memoryWalStore.mjs';
+import {execFile}                                     from 'child_process';
+import {promisify}                                    from 'util';
+import crypto                                         from 'crypto';
 
 const
     execFileAsync                     = promisify(execFile),
@@ -684,12 +684,15 @@ class MailboxService extends Base {
             messageProperties.relatedTickets = [...new Set(relatedTickets)].sort();
         }
 
-        const missingLeaves = getMissingMemoryWalLeaves(aiConfig.memoryWal, ['dir']);
+        const missingMemoryLeaves  = getMissingMemoryWalLeaves(aiConfig.memoryWal, ['dir']);
+        const missingMessageLeaves = getMissingMessageWalLeaves(aiConfig.messageWal, ['dir']);
+        const missingLeaves        = [
+            ...missingMemoryLeaves.map(leaf => `memoryWal.${leaf}`),
+            ...missingMessageLeaves.map(leaf => `messageWal.${leaf}`)
+        ];
         if (missingLeaves.length > 0) {
-            throw new Error(`message WAL config leaves missing: ${missingLeaves.join(', ')} — sync the memoryWal block from config.template.mjs into the local config.mjs (node ai/scripts/setup/initServerConfigs.mjs --migrate-config) and restart memory-core.`);
+            throw new Error(`message WAL config leaves missing: ${missingLeaves.join(', ')} — sync the memoryWal/messageWal blocks from config.template.mjs into the local config.mjs (node ai/scripts/setup/initServerConfigs.mjs --migrate-config) and restart memory-core.`);
         }
-
-        const messageWalDir = getMessageWalDir(aiConfig.memoryWal.dir);
 
         await appendWalMessage(
             buildMessageWalRecord({
@@ -703,7 +706,7 @@ class MailboxService extends Base {
                 timestamp,
                 to
             }),
-            {dir: messageWalDir}
+            {dir: aiConfig.messageWal.dir}
         );
 
         let projectionStatus = 'projected';

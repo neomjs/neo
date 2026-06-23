@@ -85,6 +85,9 @@ services:
       # daemon. Dev bind-mounts the source at /app, so the default WAL dir persists on the host.
       - NEO_MEMORY_WAL_IN_PROCESS_DRAIN=true
       - NEO_MEMORY_WAL_POLL_INTERVAL_MS=250
+      # Message WAL drain mirrors memory WAL topology; default dir derives from memoryWal.dir.
+      - NEO_MESSAGE_WAL_IN_PROCESS_DRAIN=true
+      - NEO_MESSAGE_WAL_POLL_INTERVAL_MS=250
 
     volumes:
       - ../..:/app

@@ -20,16 +20,21 @@ import {withAppendLock} from './walAppendLock.mjs';
 const MESSAGE_WAL_SEGMENT_RE = /^message-wal-(\d{4}-\d{2}-\d{2})\.jsonl$/;
 
 /**
- * @summary Derives the message WAL directory from the active memory WAL directory.
- * @param {String} memoryWalDir Active `memoryWal.dir`.
- * @returns {String}
+ * @summary Names the `messageWal` config leaves missing from a config slice.
+ *
+ * Mirrors `memoryWal` stale-overlay diagnostics: local `config.mjs` files are materialized
+ * template copies, so a deployment whose overlay predates the message WAL drain leaves would
+ * otherwise fail later with a generic TypeError. Consumers call this before touching the leaves
+ * and fail loud with the exact missing keys plus the config-migration remediation.
+ *
+ * @param {Object|undefined} messageWal The resolved `messageWal` config slice.
+ * @param {String[]} requiredLeaves Leaf names the caller is about to read.
+ * @returns {String[]} Missing leaf names; empty when the slice satisfies the caller.
  */
-export function getMessageWalDir(memoryWalDir) {
-    if (!memoryWalDir) {
-        throw new TypeError('getMessageWalDir: memoryWalDir is required');
-    }
+export function getMissingMessageWalLeaves(messageWal, requiredLeaves) {
+    if (!messageWal) return [...requiredLeaves];
 
-    return path.join(memoryWalDir, 'messages');
+    return requiredLeaves.filter(leaf => messageWal[leaf] === undefined || messageWal[leaf] === null);
 }
 
 /**

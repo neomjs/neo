@@ -424,6 +424,71 @@ class Config extends ConfigProvider {
                 inProcessDrain : leaf(false, 'NEO_MEMORY_WAL_IN_PROCESS_DRAIN', 'boolean')
             },
             /**
+             * Durable JSONL write-ahead store for accepted A2A mailbox messages.
+             *
+             * `dir` defaults by formula to `${memoryWal.dir}/messages`, so the message WAL follows
+             * the same local/cloud volume reachability as the proven memory WAL unless a deployment
+             * deliberately overrides it. The drain-host leaves mirror `memoryWal`: local setups can
+             * run an orchestrator-supervised daemon, while containerized/single-process deployments
+             * can host the loop inside Memory Core via `messageWal.inProcessDrain`.
+             */
+            messageWal: {
+                /**
+                 * Optional production message WAL directory override. Null means derive from
+                 * `memoryWal.dir` by formula; deployments should override only when the alternate
+                 * path is reachable by the configured drain host.
+                 * @type {string|null}
+                 */
+                dirProd       : leaf(null, 'NEO_MESSAGE_WAL_DIR', 'string'),
+                /**
+                 * Optional unit-test message WAL directory override. Null means derive from the
+                 * active test `memoryWal.dir`, preserving by-construction test isolation.
+                 * @type {string|null}
+                 */
+                dirTest       : leaf(null, 'NEO_MESSAGE_WAL_DIR_TEST', 'string'),
+                /**
+                 * Test-mode toggle (env-driven via `UNIT_TEST_MODE`). The `messageWal.dir` formula
+                 * reads this to select `dirTest`/`dirProd` override leaves before falling back to
+                 * the active `memoryWal.dir` sibling.
+                 * @type {boolean}
+                 */
+                useTestDatabase: leaf(false, 'UNIT_TEST_MODE', 'boolean'),
+                /**
+                 * Data directory (PID file, rotating log) for the local message WAL drain daemon.
+                 * @type {string}
+                 */
+                daemonDataDir : leaf(path.resolve(cwd, '.neo-ai-data/message-daemon'), 'NEO_MESSAGE_WAL_DAEMON_DIR', 'string'),
+                /**
+                 * Message WAL drain cadence. Mirrors memory WAL cadence; the replay semantics are
+                 * owned by the message drain processor, while this leaf owns host scheduling.
+                 * @type {number}
+                 */
+                pollIntervalMs: leaf(5000, 'NEO_MESSAGE_WAL_POLL_INTERVAL_MS', 'number'),
+                /**
+                 * Maximum message WAL records observed by one drain cycle.
+                 * @type {number}
+                 */
+                batchSize     : leaf(20, 'NEO_MESSAGE_WAL_BATCH_SIZE', 'number'),
+                /**
+                 * In-cycle whole-batch retry bound for transient message replay failures.
+                 * @type {number}
+                 */
+                maxRetries    : leaf(5, 'NEO_MESSAGE_WAL_MAX_RETRIES', 'number'),
+                /**
+                 * Exponential-backoff base for message replay retries.
+                 * @type {number}
+                 */
+                backoffBaseMs : leaf(1000, 'NEO_MESSAGE_WAL_BACKOFF_BASE_MS', 'number'),
+                /**
+                 * Hosts the message WAL drain loop INSIDE the memory-core server process. This is
+                 * the containerized / single-process shape where no orchestrator-supervised message
+                 * daemon exists. A per-directory drain lock enforces exactly one live message drain
+                 * host per message WAL directory.
+                 * @type {boolean}
+                 */
+                inProcessDrain: leaf(false, 'NEO_MESSAGE_WAL_IN_PROCESS_DRAIN', 'boolean')
+            },
+            /**
              * Production handoff markdown file — autonomous agent-to-user reporting (offline jobs).
              * The active `handoffFilePath` consumers read is a formula (below) resolving Prod/Test by
              * construction from `UNIT_TEST_MODE`, so test runs that WRITE the handoff (runSandman /
@@ -671,6 +736,13 @@ class Config extends ConfigProvider {
             'collections.memory' : data => data.collections.useTestDatabase  ? data.collections.memoryTest  : data.collections.memoryProd,
             'collections.session': data => data.collections.useTestDatabase  ? data.collections.sessionTest : data.collections.sessionProd,
             'memoryWal.dir'      : data => data.memoryWal.useTestDatabase    ? data.memoryWal.dirTest       : data.memoryWal.dirProd,
+            'messageWal.dir'     : data => {
+                const configuredDir = data.messageWal.useTestDatabase ? data.messageWal.dirTest : data.messageWal.dirProd;
+                if (configuredDir) return configuredDir;
+
+                const memoryWalDir = data.memoryWal.useTestDatabase ? data.memoryWal.dirTest : data.memoryWal.dirProd;
+                return path.join(memoryWalDir, 'messages');
+            },
             // The active handoff path, resolved BY CONSTRUCTION from the canonical UNIT_TEST_MODE toggle
             // (`storagePaths.useTestDatabase` — every `useTestDatabase` leaf binds the same env). Keeps
             // test-mode handoff writes off the tracked `resources/content/sandman_handoff.md`.
