@@ -59,11 +59,15 @@ const serviceMapping = {
     get_mcp_tool_handbook: toolId => toolService.getToolHandbook(toolId),
     healthcheck          : HealthService           .healthcheck        .bind(HealthService),
     get_deployment_state_snapshot:
-                         args => readDeploymentStateSnapshot({
-                             filePath    : args?.snapshotPath || AiConfig.orchestrator.deploymentStateBridge.snapshotPath,
-                             staleAfterMs: args?.staleAfterMs ?? AiConfig.orchestrator.deploymentStateBridge.staleAfterMs,
-                             maxBytes    : AiConfig.orchestrator.deploymentStateBridge.maxSnapshotBytes
-                         }),
+                         args => {
+                             const bridgeConfig = AiConfig.orchestrator?.deploymentStateBridge || {};
+
+                             return readDeploymentStateSnapshot({
+                                 filePath    : args?.snapshotPath || bridgeConfig.snapshotPath,
+                                 staleAfterMs: args?.staleAfterMs ?? bridgeConfig.staleAfterMs,
+                                 maxBytes    : bridgeConfig.maxSnapshotBytes
+                             });
+                         },
     list_documents : DocumentService         .listDocuments      .bind(DocumentService),
     list_agent_faqs: KBRecorderService       .listAgentFaqs      .bind(KBRecorderService),
     // MCP dispatch marks `viaMcp: true` so VectorService.embed can apply the synchronous

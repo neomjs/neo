@@ -16,6 +16,7 @@ setup({
 import {test, expect} from '@playwright/test';
 import {parse}        from 'acorn';
 import fs             from 'fs';
+import os             from 'os';
 import path           from 'path';
 import {fileURLToPath,
         pathToFileURL}   from 'url';
@@ -23,6 +24,10 @@ import yaml        from 'js-yaml';
 import Neo         from '../../../../../../src/Neo.mjs';
 import * as core   from '../../../../../../src/core/_export.mjs';
 import ToolService from '../../../../../../ai/mcp/ToolService.mjs';
+import {
+    createDeploymentStateSnapshot,
+    writeDeploymentStateSnapshot
+} from '../../../../../../ai/services/memory-core/helpers/deploymentStateBridgeStore.mjs';
 
 const
     __filename = fileURLToPath(import.meta.url),
@@ -384,6 +389,58 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
         });
     });
 
+    test('knowledge-base and memory-core read deployment-state snapshots through public tools (#13926)', async () => {
+        const
+            dir          = fs.mkdtempSync(path.join(os.tmpdir(), 'deployment-state-tool-')),
+            snapshotPath = path.join(dir, 'snapshot.json'),
+            snapshot     = createDeploymentStateSnapshot({
+                generatedAt: Date.now(),
+                services   : [
+                    {
+                        serviceKey: 'model',
+                        status    : 'degraded',
+                        diagnosis : {status: 'critical', reasons: ['cpu-saturation']}
+                    },
+                    {
+                        serviceKey: 'memory',
+                        status    : 'degraded',
+                        diagnosis : {status: 'critical', reasons: ['unhealthy-container']}
+                    }
+                ]
+            });
+
+        await writeDeploymentStateSnapshot({filePath: snapshotPath, snapshot});
+
+        const
+            args             = {snapshotPath, staleAfterMs: 60_000},
+            knowledgeBaseApi = await import(pathToFileURL(path.join(repoRoot, 'ai/mcp/server/knowledge-base/toolService.mjs')).href),
+            memoryCoreApi    = await import(pathToFileURL(path.join(repoRoot, 'ai/mcp/server/memory-core/toolService.mjs')).href),
+            kbSnapshot       = await knowledgeBaseApi.callTool('get_deployment_state_snapshot', args),
+            mcSnapshot       = await memoryCoreApi.callTool('get_deployment_state_snapshot', args);
+
+        for (const result of [kbSnapshot, mcSnapshot]) {
+            expect(result).toMatchObject({
+                ok      : true,
+                status  : 'available',
+                snapshot: {
+                    recordType: 'deployment-state-snapshot',
+                    services  : [
+                        {
+                            serviceKey: 'model',
+                            status    : 'degraded',
+                            diagnosis : {status: 'critical', reasons: ['cpu-saturation']}
+                        },
+                        {
+                            serviceKey: 'memory',
+                            status    : 'degraded',
+                            diagnosis : {status: 'critical', reasons: ['unhealthy-container']}
+                        }
+                    ]
+                }
+            });
+        }
+    });
+
     test('gitlab-workflow exposes compact list descriptions plus lazy-loaded handbook detail (#9953)', async () => {
         const
             server       = servers.find(item => item.name === 'gitlab-workflow'),
@@ -529,7 +586,7 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
 
     test('ToolService refuses embedded-harness calls outside the projected tier (#13084)', async () => {
         const
-            server        = servers.find(item => item.name === 'neural-link'),
+            server = servers.find(item => item.name === 'neural-link'),
             toolService   = Neo.create(ToolService, {
                 openApiFilePath: path.join(repoRoot, server.openApiPath),
                 serviceMapping : {

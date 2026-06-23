@@ -48,11 +48,15 @@ const serviceMapping = {
     get_sqlite_holder_diagnostics:
                               HealthService          .getSqliteHolderDiagnostics.bind(HealthService),
     get_deployment_state_snapshot:
-                              args => readDeploymentStateSnapshot({
-                                  filePath    : args?.snapshotPath || AiConfig.orchestrator.deploymentStateBridge.snapshotPath,
-                                  staleAfterMs: args?.staleAfterMs ?? AiConfig.orchestrator.deploymentStateBridge.staleAfterMs,
-                                  maxBytes    : AiConfig.orchestrator.deploymentStateBridge.maxSnapshotBytes
-                              }),
+                              args => {
+                                  const bridgeConfig = AiConfig.orchestrator?.deploymentStateBridge || {};
+
+                                  return readDeploymentStateSnapshot({
+                                      filePath    : args?.snapshotPath || bridgeConfig.snapshotPath,
+                                      staleAfterMs: args?.staleAfterMs ?? bridgeConfig.staleAfterMs,
+                                      maxBytes    : bridgeConfig.maxSnapshotBytes
+                                  });
+                              },
     mark_read               : MailboxService         .markRead                .bind(MailboxService),
     archive_message         : MailboxService         .archiveMessage          .bind(MailboxService),
     delete_message          : MailboxService         .deleteMessage           .bind(MailboxService),
