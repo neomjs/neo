@@ -47,6 +47,125 @@ export function getOpenAiCompatibleModelIds(payload) {
 }
 
 /**
+ * @summary Converts CLI/API numeric fields into finite numbers when possible.
+ * @param {*} value Candidate numeric value.
+ * @returns {Number|undefined}
+ */
+function toFiniteNumber(value) {
+    if (Neo.isNumber(value)) {
+        return value;
+    }
+
+    if (typeof value === 'string' && value.trim() !== '') {
+        const parsed = Number(value);
+
+        if (Number.isFinite(parsed)) {
+            return parsed;
+        }
+    }
+}
+
+/**
+ * @summary Reads the first finite numeric value from a row using tolerant field aliases.
+ * @param {Object} row Parsed LM Studio `lms ps --json` row.
+ * @param {String[]} keys Candidate field names.
+ * @returns {Number|undefined}
+ */
+function readNumericField(row, keys) {
+    for (const key of keys) {
+        const value = toFiniteNumber(row?.[key]);
+
+        if (value !== undefined) {
+            return value;
+        }
+    }
+}
+
+/**
+ * @summary Extracts loaded LM Studio model metadata from `lms ps --json`.
+ *
+ * LM Studio CLI output has evolved across versions, so this normalizer accepts
+ * common array/object envelopes and field aliases while preserving only the
+ * readiness facts Neo needs: model id, loaded context length, and parallel slots.
+ *
+ * @param {Object[]|Object} payload Parsed JSON payload from `lms ps --json`.
+ * @returns {Object[]}
+ */
+export function getLmsLoadedModels(payload) {
+    const rows = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.models)
+            ? payload.models
+            : Array.isArray(payload?.data)
+                ? payload.data
+                : Array.isArray(payload?.loadedModels)
+                    ? payload.loadedModels
+                    : [];
+
+    const models = [];
+    const seen   = new Set();
+
+    for (const row of rows) {
+        const id = row?.id || row?.identifier || row?.model || row?.name || row?.path || row?.modelKey;
+
+        if (!id || seen.has(id)) {
+            continue;
+        }
+
+        seen.add(id);
+        models.push({
+            id,
+            contextLength: readNumericField(row, [
+                'contextLength',
+                'context_length',
+                'context',
+                'contextWindow',
+                'context_window',
+                'n_ctx',
+                'num_ctx'
+            ]),
+            parallel: readNumericField(row, [
+                'parallel',
+                'parallelism',
+                'slots',
+                'numParallel',
+                'num_parallel'
+            ])
+        });
+    }
+
+    return models;
+}
+
+/**
+ * @summary Fetches loaded LM Studio model metadata using the CLI's JSON surface.
+ * @param {Object} options
+ * @param {Number} options.timeoutMs CLI timeout. Required; no module-level default.
+ * @param {Function} [options.execFileFn=execFile] Child-process seam for tests.
+ * @returns {Promise<Object[]>}
+ */
+export function fetchLmsLoadedModels({timeoutMs, execFileFn = execFile} = {}) {
+    if (typeof timeoutMs !== 'number') {
+        return Promise.reject(new TypeError('fetchLmsLoadedModels: timeoutMs is required'));
+    }
+
+    return new Promise((resolve, reject) => {
+        execFileFn('lms', ['ps', '--json'], {timeout: timeoutMs}, (error, stdout = '', stderr = '') => {
+            if (error) {
+                reject(new Error(`lms ps --json failed: ${error.message}${stderr ? `; stderr=${stderr.trim()}` : ''}`));
+                return;
+            }
+
+            try {
+                resolve(getLmsLoadedModels(JSON.parse(stdout || '[]')));
+            } catch (parseError) {
+                reject(new Error(`lms ps --json returned invalid JSON: ${parseError.message}`));
+            }
+        });
+    });
+}
+
+/**
  * @summary Extracts currently loaded model identifiers from an Ollama `/api/ps` payload.
  *
  * Native Ollama exposes currently resident models as `models: [{name, model}]`.
@@ -365,7 +484,7 @@ export function buildLmsContextLengthsMap({
  * - `embeddingProvider`: vector embedding role.
  *
  * @param {Object} config aiConfig-shaped provider config.
- * @returns {{models: String[], contextLengths: Object}} Role-aware LMS preload config.
+ * @returns {{models: String[], contextLengths: Object, parallels: Object}} Role-aware LMS preload config.
  */
 export function buildLmsPreloadConfig(config = aiConfig) {
     const openAiCompatibleConfig = config.openAiCompatible ?? {},
@@ -479,6 +598,52 @@ export function buildOllamaReadinessConfig(config = aiConfig) {
 }
 
 /**
+ * @summary Finds LM Studio models whose observed loaded context or parallel slots do not match config.
+ * @param {Object} options
+ * @param {Object[]} options.loadedModels Parsed `lms ps --json` models.
+ * @param {String[]} options.requiredModels Required model identifiers.
+ * @param {Object} [options.contextLengths] Per-model required context lengths.
+ * @param {Object} [options.parallels] Per-model required parallel slots.
+ * @returns {Object[]}
+ */
+export function getInsufficientLmsLoadedModels({
+    loadedModels,
+    requiredModels,
+    contextLengths = {},
+    parallels      = {}
+} = {}) {
+    const byId         = new Map((Array.isArray(loadedModels) ? loadedModels : []).map(item => [item.id, item]));
+    const insufficient = [];
+
+    for (const model of requiredModels || []) {
+        const requiredContext  = contextLengths?.[model],
+              requiredParallel = parallels?.[model],
+              hasContextGate   = Neo.isNumber(requiredContext),
+              hasParallelGate  = Neo.isNumber(requiredParallel);
+
+        if (!hasContextGate && !hasParallelGate) {
+            continue;
+        }
+
+        const observed    = byId.get(model),
+              contextGap  = hasContextGate && (!Neo.isNumber(observed?.contextLength) || observed.contextLength < requiredContext),
+              parallelGap = hasParallelGate && observed?.parallel !== requiredParallel;
+
+        if (contextGap || parallelGap) {
+            insufficient.push({
+                model,
+                contextLength        : observed?.contextLength,
+                requiredContextLength: hasContextGate ? requiredContext : undefined,
+                parallel             : observed?.parallel,
+                requiredParallel     : hasParallelGate ? requiredParallel : undefined
+            });
+        }
+    }
+
+    return insufficient;
+}
+
+/**
  * @summary Ensures LM Studio has all configured OpenAI-compatible models loaded.
  *
  * The orchestrator-owned `lms server start` task gets the server process running;
@@ -506,6 +671,7 @@ export function buildOllamaReadinessConfig(config = aiConfig) {
  * enforced on a resident model, not just a missing one.
  * @param {Boolean} [options.allowPartial=false] Return degraded readiness instead of throwing when one model cannot be loaded.
  * @param {Function} [options.fetchModelIds] Injectable model-list probe.
+ * @param {Function} [options.fetchLoadedModels] Injectable loaded-model metadata probe.
  * @param {Function} [options.loadModel] Injectable model-load function.
  * @param {Object} [options.log=logger] Logger seam.
  * @returns {Promise<Object>}
@@ -519,9 +685,10 @@ export async function ensureLmsModelsLoaded({
     contextLengths = {},
     parallels      = {},
     allowPartial   = false,
-    fetchModelIds = opts => fetchOpenAiCompatibleModelIds(opts),
-    loadModel     = (model, options) => loadLmsModel(model, options),
-    log           = logger
+    fetchModelIds     = opts => fetchOpenAiCompatibleModelIds(opts),
+    fetchLoadedModels = opts => fetchLmsLoadedModels(opts),
+    loadModel         = (model, options) => loadLmsModel(model, options),
+    log               = logger
 } = {}) {
     if (!Array.isArray(models) || models.length === 0) {
         throw new TypeError('ensureLmsModelsLoaded: models must contain at least one configured model');
@@ -535,7 +702,10 @@ export async function ensureLmsModelsLoaded({
         throw new TypeError('ensureLmsModelsLoaded: models must contain at least one configured model');
     }
 
-    const getMissing  = available => requiredModels.filter(model => !available.includes(model));
+    const getMissing                = available => requiredModels.filter(model => !available.includes(model));
+    const requiresObservedLoadCheck = requiredModels.some(model =>
+        Neo.isNumber(contextLengths?.[model]) || Neo.isNumber(parallels?.[model])
+    );
     const probeModels = async phase => {
         let lastError;
 
@@ -629,8 +799,102 @@ export async function ensureLmsModelsLoaded({
         ]);
         const serviceableMissing = missingModels.filter(model => !knownUnavailable.has(model));
 
-        if (missingModels.length === 0 || (allowPartial && serviceableMissing.length === 0)) {
+        if (missingModels.length === 0) {
+            let lmsLoadedModels = [];
+
+            if (requiresObservedLoadCheck) {
+                try {
+                    lmsLoadedModels = await fetchLoadedModels({timeoutMs});
+                } catch (error) {
+                    const warning = `LM Studio loaded-model readiness failed: ${error.message}`;
+
+                    log.warn?.(`[ProviderReadinessHelper] ${warning}`);
+
+                    if (!allowPartial) {
+                        throw new Error(warning);
+                    }
+
+                    return {
+                        ready            : false,
+                        degraded         : true,
+                        loadedModels,
+                        attemptedModels,
+                        failedModels,
+                        missingModels,
+                        observedLoadError: error.message,
+                        requiredModels,
+                        availableModels,
+                        attempts         : attempt,
+                        elapsedMs        : Date.now() - startedAt
+                    };
+                }
+            }
+
+            const insufficientLoadedModels = requiresObservedLoadCheck
+                ? getInsufficientLmsLoadedModels({
+                    loadedModels: lmsLoadedModels,
+                    requiredModels,
+                    contextLengths,
+                    parallels
+                })
+                : [];
+
+            if (insufficientLoadedModels.length) {
+                const warning = `LM Studio loaded-model readiness failed: ${insufficientLoadedModels.map(item => {
+                    const context = item.requiredContextLength !== undefined
+                        ? `context observed=${item.contextLength ?? 'unknown'} required>=${item.requiredContextLength}`
+                        : null;
+                    const parallel = item.requiredParallel !== undefined
+                        ? `parallel observed=${item.parallel ?? 'unknown'} required=${item.requiredParallel}`
+                        : null;
+
+                    return `${item.model} (${[context, parallel].filter(Boolean).join(', ')})`
+                }).join('; ')}`;
+
+                log.warn?.(`[ProviderReadinessHelper] ${warning}`);
+
+                if (!allowPartial) {
+                    throw new Error(warning);
+                }
+
+                return {
+                    ready          : false,
+                    degraded       : true,
+                    loadedModels,
+                    attemptedModels,
+                    failedModels,
+                    missingModels,
+                    insufficientLoadedModels,
+                    requiredModels,
+                    availableModels,
+                    lmsLoadedModels,
+                    loadedContexts : Object.fromEntries(lmsLoadedModels.map(item => [item.id, item.contextLength])),
+                    loadedParallels: Object.fromEntries(lmsLoadedModels.map(item => [item.id, item.parallel])),
+                    attempts       : attempt,
+                    elapsedMs      : Date.now() - startedAt
+                };
+            }
+
             const ready = missingModels.length === 0 && failedModels.length === 0;
+            return {
+                ready,
+                degraded       : !ready,
+                loadedModels,
+                attemptedModels,
+                failedModels,
+                missingModels,
+                requiredModels,
+                availableModels,
+                lmsLoadedModels,
+                loadedContexts : Object.fromEntries(lmsLoadedModels.map(item => [item.id, item.contextLength])),
+                loadedParallels: Object.fromEntries(lmsLoadedModels.map(item => [item.id, item.parallel])),
+                attempts       : attempt,
+                elapsedMs      : Date.now() - startedAt
+            };
+        }
+
+        if (allowPartial && serviceableMissing.length === 0) {
+            const ready = false;
             return {
                 ready,
                 degraded : !ready,

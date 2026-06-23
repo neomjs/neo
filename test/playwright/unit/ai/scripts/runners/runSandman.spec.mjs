@@ -516,8 +516,15 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             // ready with zero loadModel calls, leaving any modelfile-default loaded
             // context window in place. With the fix, context-configured models are
             // force-included in the load set.
-            fetchModelIds: async () => ['chat-model', 'embedding-model'],
-            loadModel    : async (model, options) => loadCalls.push({model, contextLength: options?.contextLength}),
+            fetchModelIds    : async () => ['chat-model', 'embedding-model'],
+            loadModel        : async (model, options) => loadCalls.push({model, contextLength: options?.contextLength}),
+            fetchLoadedModels: async () => [{
+                id           : 'chat-model',
+                contextLength: 262144
+            }, {
+                id           : 'embedding-model',
+                contextLength: 32768
+            }],
             log          : {info: () => {}}
         });
 
@@ -527,6 +534,98 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         ]);
         expect(result.ready).toBe(true);
         expect(result.loadedModels).toEqual(['chat-model', 'embedding-model']);
+    });
+
+    test('getLmsLoadedModels normalizes lms ps json metadata (#13851)', () => {
+        expect(providerReadinessHelper.getLmsLoadedModels({
+            models: [{
+                identifier   : 'chat-model',
+                contextWindow: '131072',
+                parallel     : '1'
+            }, {
+                model         : 'embedding-model',
+                context_length: 32768,
+                num_parallel  : 2
+            }]
+        })).toEqual([{
+            id           : 'chat-model',
+            contextLength: 131072,
+            parallel     : 1
+        }, {
+            id           : 'embedding-model',
+            contextLength: 32768,
+            parallel     : 2
+        }]);
+    });
+
+    test('fetchLmsLoadedModels invokes lms ps --json (#13851)', async () => {
+        const calls        = [];
+        const loadedModels = await providerReadinessHelper.fetchLmsLoadedModels({
+            timeoutMs : 123,
+            execFileFn: (cmd, args, options, callback) => {
+                calls.push({cmd, args, options});
+                callback(null, JSON.stringify([{id: 'chat-model', contextLength: 131072, parallel: 1}]), '');
+            }
+        });
+
+        expect(calls).toEqual([{
+            cmd    : 'lms',
+            args   : ['ps', '--json'],
+            options: {timeout: 123}
+        }]);
+        expect(loadedModels).toEqual([{
+            id           : 'chat-model',
+            contextLength: 131072,
+            parallel     : 1
+        }]);
+    });
+
+    test('ensureLmsModelsLoaded degrades when lms ps reports insufficient context or parallel (#13851)', async () => {
+        const warnings = [];
+
+        const result = await providerReadinessHelper.ensureLmsModelsLoaded({
+            host             : 'http://127.0.0.1:1234',
+            models           : ['chat-model', 'embedding-model'],
+            contextLengths   : {'chat-model': 131072, 'embedding-model': 32768},
+            parallels        : {'chat-model': 1},
+            allowPartial     : true,
+            attempts         : 1,
+            delayMs          : 0,
+            timeoutMs        : 50,
+            fetchModelIds    : async () => ['chat-model', 'embedding-model'],
+            loadModel        : async () => {},
+            fetchLoadedModels: async () => [{
+                id           : 'chat-model',
+                contextLength: 4096,
+                parallel     : 4
+            }, {
+                id           : 'embedding-model',
+                contextLength: 32768
+            }],
+            log: {
+                info: () => {},
+                warn: message => warnings.push(message)
+            }
+        });
+
+        expect(result.ready).toBe(false);
+        expect(result.degraded).toBe(true);
+        expect(result.insufficientLoadedModels).toEqual([{
+            model                : 'chat-model',
+            contextLength        : 4096,
+            requiredContextLength: 131072,
+            parallel             : 4,
+            requiredParallel     : 1
+        }]);
+        expect(result.loadedContexts).toEqual({
+            'chat-model'     : 4096,
+            'embedding-model': 32768
+        });
+        expect(result.loadedParallels).toEqual({
+            'chat-model'     : 4,
+            'embedding-model': undefined
+        });
+        expect(warnings[0]).toContain('loaded-model readiness failed');
     });
 
     test('ensureLmsModelsLoaded mixes missing + context-configured force-reload paths correctly (#12117 RA1)', async () => {
@@ -540,12 +639,16 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             host  : 'http://127.0.0.1:1234',
             models: ['chat-model', 'embedding-model'],
             // Only chat has a configured context-length; embedding must still load as missing
-            contextLengths: {'chat-model': 262144},
-            attempts      : 2,
-            delayMs       : 0,
-            timeoutMs     : 50,
-            fetchModelIds : async () => modelSnapshots.shift() || ['chat-model', 'embedding-model'],
-            loadModel     : async (model, options) => loadCalls.push({model, contextLength: options?.contextLength}),
+            contextLengths   : {'chat-model': 262144},
+            attempts         : 2,
+            delayMs          : 0,
+            timeoutMs        : 50,
+            fetchModelIds    : async () => modelSnapshots.shift() || ['chat-model', 'embedding-model'],
+            loadModel        : async (model, options) => loadCalls.push({model, contextLength: options?.contextLength}),
+            fetchLoadedModels: async () => [{
+                id           : 'chat-model',
+                contextLength: 262144
+            }],
             log           : {info: () => {}}
         });
 
@@ -572,14 +675,21 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         ];
 
         const result = await providerReadinessHelper.ensureLmsModelsLoaded({
-            host          : 'http://127.0.0.1:1234',
-            models        : ['chat-model', 'embedding-model'],
-            contextLengths: {'chat-model': 262144, 'embedding-model': 32768},
-            attempts      : 2,
-            delayMs       : 0,
-            timeoutMs     : 50,
-            fetchModelIds : async () => modelSnapshots.shift() || ['chat-model', 'embedding-model'],
-            loadModel     : async (model, options) => loadCalls.push({model, options}),
+            host             : 'http://127.0.0.1:1234',
+            models           : ['chat-model', 'embedding-model'],
+            contextLengths   : {'chat-model': 262144, 'embedding-model': 32768},
+            attempts         : 2,
+            delayMs          : 0,
+            timeoutMs        : 50,
+            fetchModelIds    : async () => modelSnapshots.shift() || ['chat-model', 'embedding-model'],
+            loadModel        : async (model, options) => loadCalls.push({model, options}),
+            fetchLoadedModels: async () => [{
+                id           : 'chat-model',
+                contextLength: 262144
+            }, {
+                id           : 'embedding-model',
+                contextLength: 32768
+            }],
             log           : {info: () => {}}
         });
 
