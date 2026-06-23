@@ -18,9 +18,9 @@ import {
     summarizePayloadShape
 } from '../../../../.codex/hooks/codex-lane-state-stop.mjs';
 
-const block = body => '```lane-state\n' + body + '\n```',
+const block       = body => '```lane-state\n' + body + '\n```',
       fixturePath = new URL('./fixtures/codex-stop-payload.json', import.meta.url),
-      fixture = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
+      fixture     = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
 
 test.describe('codex-lane-state-stop - contract boundary', () => {
     test('Codex block/inject is active, so enforced invalid terminals block', () => {
@@ -216,13 +216,13 @@ test.describe('codex-lane-state-stop - deference register', () => {
         const result = classifyCodexStopPayload({
             messages: [
                 {role: 'user',      content: '[WAKE][priority:normal] 1 events'},
-                {role: 'assistant', content: 'Your call.'}
+                {role: 'assistant', content: 'I can take #13902, or steer me elsewhere.'}
             ]
         });
 
         expect(result.action).toBe('would-block');
         expect(result.reason).toContain('helpful assistant');           // the deference directive, not the no-hold reason
-        expect(result.reason).toContain('deference phrase "your call"');
+        expect(result.reason).toContain('deference phrase "or steer me elsewhere"');
     });
 
     test('deference phrase + autonomous turn + enforce → block with the peer-identity directive', () => {

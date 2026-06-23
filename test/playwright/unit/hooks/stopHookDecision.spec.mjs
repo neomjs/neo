@@ -126,17 +126,26 @@ test.describe('ai/scripts/lifecycle/stopHookDecision — shared no-hold decision
         expect(decideDeferenceStopHookAction('plain final text')).toBe(null);
     });
 
+    test('decideDeferenceStopHookAction: markdown code literals are data, not autonomous deference', () => {
+        const text = "Opened the PR with `Your steer on`, `if you'd rather`, and `or steer me elsewhere` covered.";
+
+        expect(decideDeferenceStopHookAction(text, {operatorInLoop: false, enforcing: true})).toBe(null);
+    });
+
     test('decideDeferenceStopHookAction: operator dialogue carves deference phrases before action', () => {
         expect(decideDeferenceStopHookAction('Your call.', {operatorInLoop: true, enforcing: true})).toBe(null);
     });
 
     test('decideDeferenceStopHookAction: dry-run autonomous phrase → would-block directive', () => {
-        const decision = decideDeferenceStopHookAction('Your call.', {operatorInLoop: false, enforcing: false});
+        const decision = decideDeferenceStopHookAction("If you'd rather, I can leave it for later.", {
+            operatorInLoop: false,
+            enforcing     : false
+        });
 
         expect(decision.action).toBe('would-block');
-        expect(decision.phrase).toBe('your call');
+        expect(decision.phrase).toBe("if you'd rather");
         expect(decision.reason).toContain('helpful assistant');
-        expect(decision.reason).toContain('deference phrase "your call"');
+        expect(decision.reason).toContain('deference phrase "if you\'d rather"');
     });
 
     test('decideDeferenceStopHookAction: enforcing autonomous phrase → block with same directive', () => {
