@@ -37,6 +37,17 @@ export const DEFERENCE_PHRASES = [
 export const DEFERENCE_REMINDER = 'It looks like you slipped into the "helpful assistant" bias. You are a neo repo maintainer and an equal peer. If you need validation or input, you can A2A message with peers or use the ideation-sandbox skill. And friction->gold applies to this hook itself: if it fired wrong - a false positive, or it reads as a leash not a mirror - open a ticket to sharpen it rather than silently absorbing it. The hook is mutable substrate, not a command.';
 
 /**
+ * @summary Replaces markdown code spans and fences before deference phrase matching.
+ * @param {String} text Assistant final-turn text.
+ * @returns {String}
+ */
+function stripMarkdownCode(text) {
+    return text
+        .replace(/```[\s\S]*?```/g, ' ')
+        .replace(/`[^`\n]*`/g, ' ');
+}
+
+/**
  * @summary Returns the first deference phrase found in text, using case-insensitive boundary match.
  * @param {String} text Assistant final-turn text.
  * @param {String[]} [phrases=DEFERENCE_PHRASES]
@@ -47,11 +58,13 @@ export function matchDeferencePhrase(text = '', phrases = DEFERENCE_PHRASES) {
         return null;
     }
 
+    const searchableText = stripMarkdownCode(text);
+
     return phrases.find(phrase => {
         const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'),
               matcher = new RegExp(`(^|[^a-z0-9_])${escaped}(?=$|[^a-z0-9_])`, 'i');
 
-        return matcher.test(text);
+        return matcher.test(searchableText);
     }) || null;
 }
 

@@ -41,6 +41,12 @@ test.describe('ai/scripts/lifecycle/deferencePhraseMatch', () => {
         expect(matchDeferencePhrase('Restored your moved files to their original paths.')).toBeNull();
     });
 
+    test('does not match phrases quoted as markdown code literals', () => {
+        expect(matchDeferencePhrase("Added `Your steer on`, `if you'd rather`, and `or steer me elsewhere`."))
+            .toBeNull();
+        expect(matchDeferencePhrase('```text\nYour steer on the next lane.\n```')).toBeNull();
+    });
+
     test('operator-dialogue carve skips the phrase match', () => {
         expect(detectDeferencePhrase('Your call on the exact color.', {operatorInLoop: true})).toBeNull();
         expect(detectDeferencePhrase('Your call on the exact color.', {operatorInLoop: false})).toBe('your call');

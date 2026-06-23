@@ -126,6 +126,12 @@ test.describe('ai/scripts/lifecycle/stopHookDecision — shared no-hold decision
         expect(decideDeferenceStopHookAction('plain final text')).toBe(null);
     });
 
+    test('decideDeferenceStopHookAction: markdown code literals are data, not autonomous deference', () => {
+        const text = "Opened the PR with `Your steer on`, `if you'd rather`, and `or steer me elsewhere` covered.";
+
+        expect(decideDeferenceStopHookAction(text, {operatorInLoop: false, enforcing: true})).toBe(null);
+    });
+
     test('decideDeferenceStopHookAction: operator dialogue carves deference phrases before action', () => {
         expect(decideDeferenceStopHookAction('Your call.', {operatorInLoop: true, enforcing: true})).toBe(null);
     });
