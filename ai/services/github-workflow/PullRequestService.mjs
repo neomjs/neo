@@ -117,6 +117,13 @@ const FOLLOWUP_PR_REVIEW_SHAPE_HINTS = [
     '### Metrics Delta'
 ];
 
+const MICRO_DELTA_PR_REVIEW_SHAPE_HINTS = [
+    '# Pull Request Micro-Delta Review',
+    '### State Vector',
+    '### Micro-Delta Focus',
+    '### Verdict'
+];
+
 const FULL_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS = [
     '# PR Review Summary',
     '### 🪜 Strategic-Fit Decision',
@@ -141,6 +148,26 @@ const FOLLOWUP_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS = [
     '### 📋 Required Actions'
 ];
 
+const MICRO_DELTA_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS = [
+    '# Pull Request Micro-Delta Review',
+    '> **Context:**',
+    '### State Vector',
+    '- **Target SHA:**',
+    '- **Current reviewDecision:**',
+    '- **Semantic Status:**',
+    '- **CI Status:**',
+    '- **Remaining Blocker Class:**',
+    '- **Measured Discussion Cost:**',
+    '### Micro-Delta Focus',
+    '*Only defects classified as `mechanical-hygiene` or `metadata-drift` are reviewed here.*',
+    '### Verdict',
+    '**APPROVED**',
+    '**CHANGES_REQUESTED**',
+    '**MAINTAINER POLISH FAST PATH APPLIED**'
+];
+
+const MICRO_DELTA_REVIEW_BLOCKER_CLASS_PATTERN = /(?:^|[^\w-])(mechanical-hygiene|metadata-drift)(?:$|[^\w-])/i;
+
 /**
  * @summary Returns missing cycle-template skeleton anchors for review-body validation.
  *
@@ -159,6 +186,166 @@ function getPrReviewTemplateSkeletonMisses(body) {
     }
 
     return FULL_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS.filter(anchor => !body.includes(anchor));
+}
+
+/**
+ * @summary Returns `true` when a review body selects the Micro-Delta template.
+ *
+ * The Micro-Delta path is intentionally separate from full/follow-up review shapes: it is
+ * documented by the review-loop cost circuit breaker, not the normal pr-review templates,
+ * and carries a narrower state-vector contract instead of the full graph metric block.
+ *
+ * @param {String} body The candidate PR review body.
+ * @returns {Boolean} Whether the body appears to be a Micro-Delta review.
+ */
+function isMicroDeltaPrReview(body) {
+    return body.includes(MICRO_DELTA_PR_REVIEW_SHAPE_HINTS[0]) || (
+        body.includes('### State Vector') &&
+        body.includes('### Micro-Delta Focus')
+    );
+}
+
+/**
+ * @summary Returns missing documented Micro-Delta anchors.
+ *
+ * Micro-Delta reviews are only valid for review-loop cost-compression state (a), where
+ * semantics are already cleared and the remaining issue class is mechanical hygiene or
+ * metadata drift. The blocker-class token check prevents the short format from becoming
+ * a backdoor for semantic review shortcuts.
+ *
+ * @param {String} body The candidate Micro-Delta PR review body.
+ * @returns {String[]} Missing Micro-Delta anchors or state constraints.
+ */
+function getMicroDeltaPrReviewTemplateMisses(body) {
+    const misses = MICRO_DELTA_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS
+        .filter(anchor => !body.includes(anchor));
+
+    const remainingBlockerLine = body
+        .split('\n')
+        .find(line => line.includes('- **Remaining Blocker Class:**')) || '';
+
+    if (!MICRO_DELTA_REVIEW_BLOCKER_CLASS_PATTERN.test(remainingBlockerLine)) {
+        misses.push('Remaining Blocker Class: mechanical-hygiene | metadata-drift');
+    }
+
+    return misses;
+}
+
+/**
+ * @summary Returns a structured validation failure for malformed Micro-Delta review bodies.
+ *
+ * @param {String} body The candidate Micro-Delta PR review body.
+ * @returns {Object|null} Validation failure payload or `null` when valid.
+ */
+function getMicroDeltaPrReviewTemplateValidationFailure(body) {
+    const missingMicroDelta = getMicroDeltaPrReviewTemplateMisses(body);
+
+    if (missingMicroDelta.length === 0) {
+        return null;
+    }
+
+    const skillPath      = '.agents/skills/pr-review/SKILL.md';
+    const circuitPath    = '.agents/skills/pr-review/audits/review-cost-circuit-breaker.md';
+    const microDeltaPath = '.agents/skills/pr-review/assets/pr-review-micro-delta-template.md';
+
+    const message = [
+        `Review body attempts the Micro-Delta Review format but does not match the documented circuit-breaker structure.`,
+        ``,
+        `**Required action**: read \`${skillPath}\`, \`${circuitPath}\`, and \`${microDeltaPath}\` BEFORE retrying.`,
+        ``,
+        `Micro-Delta reviews are only valid after the Review-Loop Cost Circuit Breaker`,
+        `classifies the PR as state (a): semantics cleared, with only mechanical-hygiene`,
+        `or metadata-drift remaining. If a semantic or contract delta exists, use the`,
+        `full follow-up review template instead.`,
+        ``,
+        `Diagnostic hint: at least one required Micro-Delta state-vector or verdict anchor from \`${microDeltaPath}\` is missing or invalid.`
+    ].join('\n');
+
+    return {
+        error              : 'PR Review Template Validation Failed',
+        message,
+        code               : 'PR_REVIEW_TEMPLATE_VALIDATION_FAILED',
+        missing_micro_delta: missingMicroDelta,
+        skill              : skillPath,
+        circuitBreaker     : circuitPath,
+        template           : microDeltaPath
+    };
+}
+
+/**
+ * @summary Returns a structured validation failure for malformed full/follow-up review bodies.
+ *
+ * @param {String} body The candidate PR review body.
+ * @returns {Object|null} Validation failure payload or `null` when valid.
+ */
+function getCanonicalPrReviewTemplateValidationFailure(body) {
+    const missingVisible          = VISIBLE_PR_REVIEW_ANCHORS          .filter(anchor => !body.includes(anchor));
+    const missingInvisible        = INVISIBLE_PR_REVIEW_ANCHORS        .filter(anchor => !body.includes(anchor));
+    const missingTemplateSkeleton = getPrReviewTemplateSkeletonMisses(body);
+    const missingPremiseSnapshot  = REQUIRED_PR_REVIEW_PREMISE_ANCHORS
+        .filter(anchor => !body.includes(anchor.token))
+        .map(anchor => anchor.label);
+
+    if (
+        missingVisible.length === 0          &&
+        missingInvisible.length === 0        &&
+        missingTemplateSkeleton.length === 0 &&
+        missingPremiseSnapshot.length === 0
+    ) {
+        return null;
+    }
+
+    // Compose a message that guides toward the skill without enumerating invisible anchors.
+    // Even the visible-list naming is bounded — at most ONE diagnostic example, not the
+    // full list — to reduce the "stuff just these tags" attack surface further.
+    const diagnosticAnchor = missingVisible[0] ?? missingPremiseSnapshot[0] ?? null;
+
+    const skillPath    = '.agents/skills/pr-review/SKILL.md';
+    const templatePath = '.agents/skills/pr-review/assets/pr-review-template.md';
+    const followupPath = '.agents/skills/pr-review/assets/pr-review-followup-template.md';
+
+    const message = [
+        `Review body does not match the pr-review template structure.`,
+        ``,
+        `**Required action**: read \`${skillPath}\` BEFORE retrying. The skill points at:`,
+        `  - Cycle 1 (full template): \`${templatePath}\``,
+        `  - Cycle N (follow-up template): \`${followupPath}\``,
+        ``,
+        `Do NOT compose a substitute template or hallucinate section headings. The validator`,
+        `checks more structural anchors than this error names. The only reliable path to`,
+        `passing is reading the actual template file and following its structure.`,
+        missingPremiseSnapshot.length > 0
+            ? `\nPremise snapshot note: all four premise fields (incl. **Premise Coherence:**) are REQUIRED. The value-coherence field takes a specific verdict ("coheres: ..." / "conflicts: ...") OR a scoped "N/A — no value-surface (scope: ...)" for a trivial PR.`
+            : ``,
+        diagnosticAnchor
+            ? `\nDiagnostic hint: at least one recognized anchor like \`${diagnosticAnchor}\` is missing.`
+            : `\nDiagnostic hint: visible metric tags appear present but the structural template anchors do not.`
+    ].join('\n');
+
+    return {
+        error: 'PR Review Template Validation Failed',
+        message,
+        code : 'PR_REVIEW_TEMPLATE_VALIDATION_FAILED',
+        // `missing_visible` lists the named-in-message visible misses. Invisible misses
+        // are intentionally NOT enumerated in the response body — even programmatic
+        // callers should be nudged toward the skill rather than the anchor list.
+        missing_visible         : missingVisible,
+        missing_premise_snapshot: missingPremiseSnapshot,
+        skill                   : skillPath,
+        template                : templatePath
+    };
+}
+
+/**
+ * @summary Returns the selected review-template validation failure, if any.
+ *
+ * @param {String} body The candidate PR review body.
+ * @returns {Object|null} Validation failure payload or `null` when valid.
+ */
+function getPrReviewTemplateValidationFailure(body) {
+    return isMicroDeltaPrReview(body)
+        ? getMicroDeltaPrReviewTemplateValidationFailure(body)
+        : getCanonicalPrReviewTemplateValidationFailure(body);
 }
 
 function normalizeCheckoutOptions(options) {
@@ -246,10 +433,10 @@ function buildCheckoutPullRequest({
 
         try {
             const {stdout}       = await execFileFn('gh', ['pr', 'checkout', String(prNumber)], {cwd: gitTopLevel});
-            const branchResult   = await execFileFn('git', ['branch', '--show-current'], {cwd: gitTopLevel});
-            const headShaResult  = await execFileFn('git', ['rev-parse', 'HEAD'], {cwd: gitTopLevel});
-            const branch         = branchResult.stdout.trim();
-            const headSha        = headShaResult.stdout.trim();
+            const branchResult  = await execFileFn('git', ['branch', '--show-current'], {cwd: gitTopLevel});
+            const headShaResult = await execFileFn('git', ['rev-parse', 'HEAD'], {cwd: gitTopLevel});
+            const branch        = branchResult.stdout.trim();
+            const headSha       = headShaResult.stdout.trim();
 
             return {
                 message: `Successfully checked out PR #${prNumber}`,
@@ -478,10 +665,10 @@ class PullRequestService extends Base {
                     return { result: diffStdout };
                 }
 
-                const fileList = file.split(',').map(f => f.trim());
-                const lines = diffStdout.split('\n');
+                const fileList    = file.split(',').map(f => f.trim());
+                const lines       = diffStdout.split('\n');
                 const resultLines = [];
-                let capturing = false;
+                let   capturing   = false;
 
                 for (let i = 0; i < lines.length; i++) {
                     const line = lines[i];
@@ -545,7 +732,7 @@ class PullRequestService extends Base {
         };
 
         try {
-            const data = await GraphqlService.query(FETCH_PULL_REQUESTS, variables);
+            const data         = await GraphqlService.query(FETCH_PULL_REQUESTS, variables);
             const pullRequests = data.repository.pullRequests.nodes;
             return {
                 count: pullRequests.length,
@@ -611,72 +798,10 @@ class PullRequestService extends Base {
             };
         }
 
-        // Tool-boundary mechanical body-shape validation.
-        // The tool description points callers to the pr-review SKILL.md;
-        // this gate promotes that discipline-only guard to a mechanical floor with two layers:
-        //
-        // 1. VISIBLE layer — checked against VISIBLE_PR_REVIEW_ANCHORS; misses are named in the
-        //    error to guide good-faith authors back to the template.
-        // 2. INVISIBLE layer — checked against INVISIBLE_PR_REVIEW_ANCHORS; misses are NOT named
-        //    in the error. Defeats Goodhart anchor-stuffing where an agent receives a visible-only
-        //    error and hallucinates a body containing exactly the named anchors but skipping the
-        //    template structure. See INVISIBLE_PR_REVIEW_ANCHORS docstring for empirical anchor.
-        //
-        // Both layers point the agent at `.agents/skills/pr-review/SKILL.md` — the canonical
-        // primitive for resolving any validation failure is to read the skill + template, not
-        // to compose a substitute structure.
-        const missingVisible          = VISIBLE_PR_REVIEW_ANCHORS          .filter(anchor => !body.includes(anchor));
-        const missingInvisible        = INVISIBLE_PR_REVIEW_ANCHORS        .filter(anchor => !body.includes(anchor));
-        const missingTemplateSkeleton = getPrReviewTemplateSkeletonMisses(body);
-        const missingPremiseSnapshot  = REQUIRED_PR_REVIEW_PREMISE_ANCHORS
-            .filter(anchor => !body.includes(anchor.token))
-            .map(anchor => anchor.label);
+        const templateValidationFailure = getPrReviewTemplateValidationFailure(body);
 
-        if (
-            missingVisible.length > 0          ||
-            missingInvisible.length > 0        ||
-            missingTemplateSkeleton.length > 0 ||
-            missingPremiseSnapshot.length > 0
-        ) {
-            // Compose a message that guides toward the skill without enumerating invisible anchors.
-            // Even the visible-list naming is bounded — at most ONE diagnostic example, not the
-            // full list — to reduce the "stuff just these tags" attack surface further.
-            const diagnosticAnchor = missingVisible[0] ?? missingPremiseSnapshot[0] ?? null;
-
-            const skillPath    = '.agents/skills/pr-review/SKILL.md';
-            const templatePath = '.agents/skills/pr-review/assets/pr-review-template.md';
-            const followupPath = '.agents/skills/pr-review/assets/pr-review-followup-template.md';
-
-            const message = [
-                `Review body does not match the pr-review template structure.`,
-                ``,
-                `**Required action**: read \`${skillPath}\` BEFORE retrying. The skill points at:`,
-                `  - Cycle 1 (full template): \`${templatePath}\``,
-                `  - Cycle N (follow-up template): \`${followupPath}\``,
-                ``,
-                `Do NOT compose a substitute template or hallucinate section headings. The validator`,
-                `checks more structural anchors than this error names. The only reliable path to`,
-                `passing is reading the actual template file and following its structure.`,
-                missingPremiseSnapshot.length > 0
-                    ? `\nPremise snapshot note: all four premise fields (incl. **Premise Coherence:**) are REQUIRED. The value-coherence field takes a specific verdict ("coheres: ..." / "conflicts: ...") OR a scoped "N/A — no value-surface (scope: ...)" for a trivial PR.`
-                    : ``,
-                diagnosticAnchor
-                    ? `\nDiagnostic hint: at least one recognized anchor like \`${diagnosticAnchor}\` is missing.`
-                    : `\nDiagnostic hint: visible metric tags appear present but the structural template anchors do not.`
-            ].join('\n');
-
-            return {
-                error: 'PR Review Template Validation Failed',
-                message,
-                code : 'PR_REVIEW_TEMPLATE_VALIDATION_FAILED',
-                // `missing_visible` lists the named-in-message visible misses. Invisible misses
-                // are intentionally NOT enumerated in the response body — even programmatic
-                // callers should be nudged toward the skill rather than the anchor list.
-                missing_visible         : missingVisible,
-                missing_premise_snapshot: missingPremiseSnapshot,
-                skill                   : skillPath,
-                template                : templatePath
-            };
+        if (templateValidationFailure) {
+            return templateValidationFailure;
         }
 
         if (action === 'create') {
@@ -848,11 +973,11 @@ class PullRequestService extends Base {
             // fails for every agent on that credential class. REST needs only `repo`. Request body:
             // `reviewers[]` (user logins) + `team_reviewers[]` (bare team slugs — REST takes the slug, not
             // the `owner/slug` form `gh pr edit` requires).
-            const method        = action === 'add' ? 'POST' : 'DELETE';
+            const method = action === 'add' ? 'POST' : 'DELETE';
             const reviewerFlags = reviewerList.map(r => `-f 'reviewers[]=${r}'`).join(' ');
             const teamFlags     = teamReviewerList.map(t => `-f 'team_reviewers[]=${t}'`).join(' ');
-            const allFlags      = [reviewerFlags, teamFlags].filter(Boolean).join(' ');
-            const allTargets    = [...reviewerList, ...teamReviewerList];
+            const allFlags   = [reviewerFlags, teamFlags].filter(Boolean).join(' ');
+            const allTargets = [...reviewerList, ...teamReviewerList];
 
             const command = `gh api repos/${aiConfig.owner}/${aiConfig.repo}/pulls/${pr_number}/requested_reviewers -X ${method} ${allFlags}`;
             logger.info(`Attempting to ${action} reviewers on PR #${pr_number} via REST: ${allTargets.join(', ')}`);
