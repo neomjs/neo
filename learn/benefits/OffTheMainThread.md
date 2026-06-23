@@ -105,7 +105,7 @@ Each thread has its fixed scope. Let us take a quick look into each of them.
 ### Main Thread
 
 The `index.html` file of your Neo.mjs App will by default have an empty body tag and only import the
-`MicroLoader.mjs` file. The loader will fetch your `neo-config.json` and afterwards dynamically import the
+`MicroLoader.mjs` file. The loader will import your `neo-config.json` as a JSON module and afterwards dynamically import the
 main thread part of the engine. This part is as lightweight as possible: around 40KB in dist/production.
 
 * Main will start the workers
