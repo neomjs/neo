@@ -189,10 +189,11 @@ export const TASK_REGISTRY = Object.freeze([
         dependencies    : [],
         getDueTask({state, now, intervals, hooks}) {
             return (hooks.dreamGetDueTask || getDreamDueTask)({
-                state                 : state.dream ?? {},
+                state                      : state.dream ?? {},
                 now,
-                dreamIntervalMs       : intervals.dream,
-                dreamOverflowThreshold: intervals.dreamOverflowThreshold
+                dreamIntervalMs            : intervals.dream,
+                dreamOverflowThreshold     : intervals.dreamOverflowThreshold,
+                remBacklogCatchupCooldownMs: intervals.remBacklogCatchupCooldown
             });
         }
     },

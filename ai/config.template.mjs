@@ -509,7 +509,13 @@ class Config extends ConfigProvider {
                      * cadence.
                      */
                     dreamOverflowThreshold: leaf(0.8, 'NEO_ORCHESTRATOR_DREAM_OVERFLOW_THRESHOLD', 'number'),
-                    goldenPathMs          : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_GOLDEN_PATH_INTERVAL_MS', 'number'),
+                    /**
+                     * Cooldown for REM backlog catch-up after a successful cycle saturates the configured
+                     * REM batch. This is shorter than `dreamMs`, but only activates for bounded
+                     * non-overflow cycles that prove backlog remains.
+                     */
+                    remBacklogCatchupCooldownMs: leaf(5 * 60 * 1000, 'NEO_ORCHESTRATOR_REM_BACKLOG_CATCHUP_COOLDOWN_MS', 'number'),
+                    goldenPathMs               : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_GOLDEN_PATH_INTERVAL_MS', 'number'),
                     /**
                      * Generic swarm-heartbeat / watchdog nudge cadence — the periodic pulse that fires a
                      * wake digest even with no new messages. Set to 20 min so the generic watchdog nudge
