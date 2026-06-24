@@ -630,6 +630,7 @@ export function buildLmsPreloadConfig(config = aiConfig) {
           chatContextLength      = config.localModels?.chat?.contextLimitTokens,
           embeddingContextLength = config.localModels?.embedding?.contextLimitTokens,
           chatParallel           = config.localModels?.chat?.parallel,
+          embeddingParallel      = config.localModels?.embedding?.parallel,
           roles                  = [{
               provider     : config.modelProvider,
               model        : chatModel,
@@ -658,12 +659,24 @@ export function buildLmsPreloadConfig(config = aiConfig) {
 
     // `--parallel` is a per-model request-slot count (each slot = an independent KV cache = a RAM
     // multiplier), distinct from `requireParallelModels` (how many DISTINCT models stay co-resident).
-    // Only the chat role carries a configured slot count; the embedding role keeps the lms default.
-    // Keyed by model id so it force-includes through the same path as contextLengths; the embedding
-    // model is intentionally absent (no per-model parallel override).
-    const parallels = selectedContextRole('chat') && chatModel && Neo.isNumber(chatParallel)
-        ? {[chatModel]: chatParallel}
-        : {};
+    // Keyed by model id so it force-includes through the same path as contextLengths. When an operator
+    // points chat + embedding at one LM Studio id, keep the larger requested slot count.
+    const parallels   = {};
+    const setParallel = (model, value) => {
+        if (!model || !Neo.isNumber(value)) {
+            return;
+        }
+        if (parallels[model] === undefined || value > parallels[model]) {
+            parallels[model] = value;
+        }
+    };
+
+    if (selectedContextRole('chat')) {
+        setParallel(chatModel, chatParallel);
+    }
+    if (selectedContextRole('embedding')) {
+        setParallel(embeddingModel, embeddingParallel);
+    }
 
     return {models, contextLengths, parallels}
 }
@@ -1478,6 +1491,126 @@ export async function ensureOllamaModelsReady({
     throw new Error(
         `Ollama model readiness failed: ${warning}`
     );
+}
+
+/**
+ * @summary Restores the active provider role-set residency before higher-cost recovery actions.
+ *
+ * This is the bounded recovery companion to the read-only parallel-capacity probe:
+ * LM Studio is repaired through the orchestrator-owned `lms load` path, while
+ * native Ollama is warmed through its role-specific HTTP endpoints. Remote or
+ * disabled OpenAI-compatible deployments remain observe-only and return a
+ * degraded envelope instead of attempting a local CLI mutation.
+ *
+ * @param {Object} options
+ * @param {Object} [options.config=aiConfig] Provider-source config.
+ * @param {Number} options.attempts Probe attempts after warm-up.
+ * @param {Number} options.delayMs Delay between probes.
+ * @param {Number} options.timeoutMs HTTP/CLI probe timeout.
+ * @param {Object} [options.log=logger] Logger seam.
+ * @param {Function} [options.lmsRepairFn=ensureLmsModelsLoaded] Test seam for LM Studio repair.
+ * @param {Function} [options.ollamaRepairFn=ensureOllamaModelsReady] Test seam for native Ollama repair.
+ * @returns {Promise<Object>} Provider readiness repair result.
+ */
+export async function repairProviderRoleSetResidency({
+    config = aiConfig,
+    attempts,
+    delayMs,
+    timeoutMs,
+    log = logger,
+    lmsRepairFn = ensureLmsModelsLoaded,
+    ollamaRepairFn = ensureOllamaModelsReady
+} = {}) {
+    if (!config || typeof config !== 'object') {
+        throw new TypeError('repairProviderRoleSetResidency: config is required');
+    }
+    if (typeof attempts !== 'number' || typeof delayMs !== 'number' || typeof timeoutMs !== 'number') {
+        throw new TypeError('repairProviderRoleSetResidency: attempts, delayMs, and timeoutMs are required');
+    }
+
+    const provider = resolveGraphModelProvider(config);
+
+    if (provider === 'ollama') {
+        const readinessConfig = buildOllamaReadinessConfig(config);
+
+        if (readinessConfig.roles.length === 0) {
+            return {
+                ready  : true,
+                skipped: true,
+                provider,
+                reason : 'no-active-ollama-roles'
+            };
+        }
+
+        const result = await ollamaRepairFn({
+            host                 : readinessConfig.host,
+            roles                : readinessConfig.roles,
+            keepAlive            : readinessConfig.keepAlive,
+            requireParallelModels: readinessConfig.requireParallelModels,
+            allowPartial         : true,
+            attempts,
+            delayMs,
+            timeoutMs,
+            log
+        });
+
+        return {
+            ...result,
+            provider,
+            action: 'warm-provider'
+        };
+    }
+
+    if (isOpenAiCompatibleProvider(provider)) {
+        if (config.orchestrator.lms.enabled !== true) {
+            return {
+                ready   : false,
+                degraded: true,
+                skipped : true,
+                provider,
+                reason  : 'lms-disabled',
+                warning : '[provider/openAiCompatible] provider role-set repair requires orchestrator.lms.enabled=true; non-LM-Studio OpenAI-compatible endpoints remain observe-only.'
+            };
+        }
+
+        const preloadConfig = buildLmsPreloadConfig(config);
+
+        if (preloadConfig.models.length === 0) {
+            return {
+                ready  : true,
+                skipped: true,
+                provider,
+                reason : 'no-active-openai-compatible-roles'
+            };
+        }
+
+        const result = await lmsRepairFn({
+            host          : getOpenAiCompatibleHost(config),
+            models        : preloadConfig.models,
+            contextLengths: preloadConfig.contextLengths,
+            parallels     : preloadConfig.parallels,
+            allowPartial  : true,
+            attempts,
+            delayMs,
+            timeoutMs,
+            log
+        });
+
+        return {
+            ...result,
+            provider,
+            host  : getOpenAiCompatibleHost(config),
+            action: 'warm-provider'
+        };
+    }
+
+    return {
+        ready    : true,
+        skipped  : true,
+        provider,
+        supported: false,
+        reason   : 'unsupported-provider'
+    };
 }
 
 /**

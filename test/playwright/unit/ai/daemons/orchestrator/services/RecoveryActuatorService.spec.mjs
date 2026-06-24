@@ -25,11 +25,12 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
     });
 
     function createService(overrides = {}) {
-        const runtimeCalls    = [],
-              supervisorCalls = [],
-              pageCalls       = [],
-              taskOutcomes    = [],
-              actuatorConfig  = {
+        const runtimeCalls                 = [],
+              supervisorCalls              = [],
+              pageCalls                    = [],
+              providerResidencyRepairCalls = [],
+              taskOutcomes                 = [],
+              actuatorConfig               = {
                   ...DEFAULT_ACTUATOR_CONFIG,
                   enabled               : true,
                   allowedSupervisedTasks: [{serviceKey: 'model', taskName: 'ollama'}],
@@ -78,11 +79,19 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
                   pageDispatcher(page) {
                       pageCalls.push(page);
                   },
+                  async providerResidencyRepair(options) {
+                      providerResidencyRepairCalls.push(options);
+                      return {
+                          ready       : true,
+                          provider    : 'ollama',
+                          warmedModels: [{model: 'gemma4:26b', role: 'chat'}]
+                      };
+                  },
                   writeLog: () => {},
                   ...overrides.serviceConfig
               });
 
-        return {service, runtimeCalls, supervisorCalls, pageCalls, taskOutcomes, actuatorConfig};
+        return {service, runtimeCalls, supervisorCalls, pageCalls, providerResidencyRepairCalls, taskOutcomes, actuatorConfig};
     }
 
     async function readAttempts() {
@@ -174,6 +183,111 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
             lastAction  : 'restart',
             lastStatus  : 'actioned'
         });
+    });
+
+    test('warm-provider restores provider role-set residency through the bounded actuator envelope', async () => {
+        const {service, runtimeCalls, providerResidencyRepairCalls, taskOutcomes} = createService({
+            actuatorConfig: {
+                allowedComposeServices: ['model']
+            }
+        });
+
+        const result = await service.apply('model', 'warm-provider', {
+            now           : 30_000,
+            reason        : 'missing-required-model',
+            targetIdentity: {kind: 'compose-service', id: 'model'}
+        });
+
+        expect(result.status).toBe('actioned');
+        expect(runtimeCalls).toEqual([]);
+        expect(providerResidencyRepairCalls).toHaveLength(1);
+        expect(result.targetIdentity).toEqual({kind: 'compose-service', id: 'model'});
+        expect(result.reobserveRequest).toMatchObject({
+            recoveryClass : 'provider-role-residency',
+            targetIdentity: {kind: 'compose-service', id: 'model'},
+            cooldownMs    : 5_000
+        });
+        expect(result.providerResidency).toMatchObject({
+            capabilityEnvelope: 'provider-role-set-warm',
+            operation         : 'warm-provider',
+            serviceKey        : 'model',
+            reason            : 'missing-required-model',
+            result            : {
+                ready   : true,
+                provider: 'ollama'
+            }
+        });
+        expect(taskOutcomes).toContainEqual(expect.objectContaining({
+            taskName: 'recovery-actuator:model',
+            status  : 'completed',
+            details : expect.objectContaining({
+                status      : 'actioned',
+                ledgerStatus: 'reobserve-requested'
+            })
+        }));
+
+        const attempts = await readAttempts();
+        expect(attempts['model:warm-provider']).toMatchObject({
+            attemptCount: 1,
+            lastAction  : 'warm-provider',
+            lastStatus  : 'actioned'
+        });
+    });
+
+    test('warm-provider honors persisted backoff and does not loop warm attempts', async () => {
+        const {service, providerResidencyRepairCalls} = createService({
+            actuatorConfig: {
+                allowedComposeServices: ['model'],
+                baseBackoffMs         : 30_000,
+                maxBackoffMs          : 30_000
+            }
+        });
+
+        const first = await service.apply('model', 'warm-provider', {
+            now           : 40_000,
+            targetIdentity: {kind: 'compose-service', id: 'model'}
+        });
+        const second = await service.apply('model', 'warm-provider', {
+            now           : 41_000,
+            targetIdentity: {kind: 'compose-service', id: 'model'}
+        });
+
+        expect(first.status).toBe('actioned');
+        expect(second).toMatchObject({
+            status    : 'deferred',
+            reasonCode: 'backoff-active'
+        });
+        expect(providerResidencyRepairCalls).toHaveLength(1);
+    });
+
+    test('warm-provider reports failed provider repair without restarting the target', async () => {
+        const {service, runtimeCalls, providerResidencyRepairCalls} = createService({
+            actuatorConfig: {
+                allowedComposeServices: ['model']
+            },
+            serviceConfig: {
+                async providerResidencyRepair() {
+                    providerResidencyRepairCalls.push({});
+                    return {
+                        ready  : false,
+                        warning: 'provider cannot hold chat and embedding together'
+                    };
+                }
+            }
+        });
+
+        const result = await service.apply('model', 'warm-provider', {
+            now           : 50_000,
+            targetIdentity: {kind: 'compose-service', id: 'model'}
+        });
+
+        expect(result).toMatchObject({
+            status    : 'failed',
+            reasonCode: 'executor-failed',
+            error     : 'provider cannot hold chat and embedding together'
+        });
+        expect(runtimeCalls).toEqual([]);
+        expect(providerResidencyRepairCalls).toHaveLength(1);
     });
 
     test('non-allowlisted compose services are rejected before any executor call', async () => {

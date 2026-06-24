@@ -1,8 +1,9 @@
 import fs   from 'fs-extra';
 import path from 'path';
 
-import Base     from '../../../../src/core/Base.mjs';
-import AiConfig from '../../../config.mjs';
+import Base                             from '../../../../src/core/Base.mjs';
+import AiConfig                         from '../../../config.mjs';
+import {repairProviderRoleSetResidency} from '../../../services/graph/providerReadinessHelper.mjs';
 import {
     appendRecoveryRunState,
     createRecoveryDiagnosisEvent,
@@ -12,7 +13,7 @@ import {
 } from '../../../services/memory-core/helpers/recoveryRunStateStore.mjs';
 import {DEFAULT_DATA_DIR} from '../taskDefinitions.mjs';
 
-const DEFAULT_ACTIONS = Object.freeze(['restart', 'redeploy', 'page']);
+const DEFAULT_ACTIONS = Object.freeze(['restart', 'redeploy', 'page', 'warm-provider']);
 
 /**
  * @summary Normalizes string/object allowlist entries into stable recovery targets.
@@ -121,7 +122,12 @@ export class RecoveryActuatorService extends Base {
          * @protected
          * @reactive
          */
-        writeLog_: null
+        writeLog_: null,
+        /**
+         * @member {Function|null} providerResidencyRepair=null
+         * @protected
+         */
+        providerResidencyRepair: null
     }
 
     /** @summary Resolves the active actuator config from an injected test value or Tier-1 AiConfig. */
@@ -158,7 +164,7 @@ export class RecoveryActuatorService extends Base {
      * @summary Applies one bounded recovery action if the allowlist and anti-thrash envelope admit it.
      *
      * @param {String} serviceKey Stable allowlisted recovery target key.
-     * @param {String} action restart | redeploy | page.
+     * @param {String} action restart | redeploy | page | warm-provider.
      * @param {Object} [options]
      * @param {Object|null} [options.diagnosisEvent=null] Optional ADR-0025 diagnosis event.
      * @param {Object|null} [options.targetIdentity=null] Optional typed target identity.
@@ -248,13 +254,14 @@ export class RecoveryActuatorService extends Base {
                 backoffUntil  : nextBackoffAt,
                 diagnosisEvent: diagnosis,
                 outcome       : {
-                    status        : target.kind === 'deploy-target' ? 'escalated' : 'actioned',
+                    status           : target.kind === 'deploy-target' ? 'escalated' : 'actioned',
                     serviceKey,
                     action,
-                    targetIdentity: createRecoveryTargetIdentity({kind: target.kind, id: target.id}),
-                    runtimeAccess : result.runtimeAccess || null,
-                    supervisor    : result.supervisor || null,
-                    page          : result.page || null
+                    targetIdentity   : createRecoveryTargetIdentity({kind: target.kind, id: target.id}),
+                    runtimeAccess    : result.runtimeAccess || null,
+                    supervisor       : result.supervisor || null,
+                    page             : result.page || null,
+                    providerResidency: result.providerResidency || null
                 },
                 recoveryRunId,
                 serviceKey,
@@ -332,11 +339,11 @@ export class RecoveryActuatorService extends Base {
      */
     isActionAllowedForTarget({action, target}) {
         if (target.kind === 'compose-service') {
-            return action === 'restart';
+            return action === 'restart' || action === 'warm-provider';
         }
 
         if (target.kind === 'supervised-task') {
-            return action === 'restart';
+            return action === 'restart' || action === 'warm-provider';
         }
 
         if (target.kind === 'deploy-target') {
@@ -352,6 +359,10 @@ export class RecoveryActuatorService extends Base {
      * @returns {Promise<Object>}
      */
     async executeTargetAction({target, action, reason}) {
+        if (action === 'warm-provider') {
+            return this.warmProviderResidency({target, reason});
+        }
+
         if (target.kind === 'compose-service') {
             return this.restartComposeService({target, reason});
         }
@@ -406,6 +417,39 @@ export class RecoveryActuatorService extends Base {
 
         return {
             runtimeAccess: result.proof || null
+        };
+    }
+
+    /**
+     * @summary Warms the configured chat + embedding provider role set without restarting a service.
+     * @param {Object} options
+     * @returns {Promise<Object>}
+     */
+    async warmProviderResidency({target, reason}) {
+        const repair = this.providerResidencyRepair || repairProviderRoleSetResidency,
+              result = await repair({
+                  attempts : AiConfig.orchestrator.providerReadiness.attempts,
+                  delayMs  : AiConfig.orchestrator.providerReadiness.delayMs,
+                  timeoutMs: AiConfig.orchestrator.providerReadiness.timeoutMs,
+                  log      : {
+                      info: message => this.writeLog?.('INFO', message),
+                      warn: message => this.writeLog?.('WARN', message)
+                  }
+              });
+
+        if (result.ready !== true) {
+            throw new Error(result.warning || `Provider role-set repair did not converge for ${target.serviceKey}`);
+        }
+
+        return {
+            providerResidency: {
+                capabilityEnvelope: 'provider-role-set-warm',
+                operation         : 'warm-provider',
+                serviceKey        : target.serviceKey,
+                reason            : reason || `recovery-actuator:${target.serviceKey}`,
+                targetIdentity    : createRecoveryTargetIdentity({kind: target.kind, id: target.id}),
+                result
+            }
         };
     }
 
@@ -678,7 +722,7 @@ export class RecoveryActuatorService extends Base {
 
         return createRecoveryDiagnosisEvent({
             diagnosisId   : `recovery-actuator:${target.serviceKey}:${action}:${now}`,
-            recoveryClass : target.kind === 'deploy-target' ? 'config-drift' : 'crash',
+            recoveryClass : this.getRecoveryClassForAction({action, target}),
             confidence    : 1,
             targetIdentity: createRecoveryTargetIdentity({kind: target.kind, id: target.id}),
             evidenceFacts : [],
@@ -686,6 +730,18 @@ export class RecoveryActuatorService extends Base {
             source        : 'recovery-actuator',
             details       : {action}
         });
+    }
+
+    /**
+     * @summary Resolves the synthetic diagnosis class for direct actuator calls.
+     * @param {Object} options
+     * @returns {String}
+     */
+    getRecoveryClassForAction({action, target}) {
+        if (action === 'warm-provider') {
+            return 'provider-role-residency';
+        }
+        return target.kind === 'deploy-target' ? 'config-drift' : 'crash';
     }
 
     /** @summary Builds the durable anti-thrash key for one service/action pair. */

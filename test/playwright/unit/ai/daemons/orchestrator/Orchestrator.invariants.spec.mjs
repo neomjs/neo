@@ -20,9 +20,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const REPO_ROOT  = path.resolve(__dirname, '../../../../../..');
 
-const ORCHESTRATOR_MJS_PATH    = path.join(REPO_ROOT, 'ai/daemons/orchestrator/Orchestrator.mjs');
-const ORCHESTRATOR_DAEMON_PATH = path.join(REPO_ROOT, 'ai/daemons/orchestrator/daemon.mjs');
-const TASK_DEFINITIONS_MJS_PATH = path.join(REPO_ROOT, 'ai/daemons/orchestrator/taskDefinitions.mjs');
+const ORCHESTRATOR_MJS_PATH                    = path.join(REPO_ROOT, 'ai/daemons/orchestrator/Orchestrator.mjs');
+const ORCHESTRATOR_DAEMON_PATH                 = path.join(REPO_ROOT, 'ai/daemons/orchestrator/daemon.mjs');
+const TASK_DEFINITIONS_MJS_PATH                = path.join(REPO_ROOT, 'ai/daemons/orchestrator/taskDefinitions.mjs');
 const CONFIGURED_TASK_DEFINITIONS_SERVICE_PATH = path.join(
     REPO_ROOT,
     'ai/daemons/orchestrator/services/ConfiguredTaskDefinitionsService.mjs'
@@ -34,32 +34,32 @@ const SIBLING_DAEMON_CONFIG_PATHS = {
     'KbGarbageCollectionService.mjs': path.join(REPO_ROOT, 'ai/daemons/kb-gc/KbGarbageCollectionService.mjs')
 };
 
-let invariantSeq         = 0;
-let savedIntervals       = null;
-let savedLocalOnly       = null;
-let savedCloudOnly       = null;
-let savedDeploymentMode  = null;
-let savedMlxConfig                   = undefined;
-let savedLmsConfig                   = undefined;
-let savedOrchestratorOllamaConfig    = undefined;
-let savedProviderOllamaConfig        = undefined;
-let savedOpenAiCompatibleConfig      = undefined;
-let savedChatProvider                = undefined;
-let savedModelProvider               = undefined;
-let savedGraphProvider               = undefined;
-let savedEmbeddingProvider           = undefined;
-let savedEnvKbSyncEnabled            = undefined;
-let savedEnvKbSyncInterval           = undefined;
-let savedEnvTenantRepoSyncEnabled    = undefined;
-let savedEnvTenantRepoSyncInterval   = undefined;
-let savedEnvChromaDaemonEnabled      = undefined;
-let savedEnvMlxEnabled               = undefined;
-let savedEnvMlxModel                 = undefined;
-let savedEnvMlxPort                  = undefined;
-let savedEnvLmsEnabled               = undefined;
-let savedEnvLmsModel                 = undefined;
-let savedEnvLmsPort                  = undefined;
-let savedEnvOllamaEnabled            = undefined;
+let invariantSeq                   = 0;
+let savedIntervals                 = null;
+let savedLocalOnly                 = null;
+let savedCloudOnly                 = null;
+let savedDeploymentMode            = null;
+let savedMlxConfig                 = undefined;
+let savedLmsConfig                 = undefined;
+let savedOrchestratorOllamaConfig  = undefined;
+let savedProviderOllamaConfig      = undefined;
+let savedOpenAiCompatibleConfig    = undefined;
+let savedChatProvider              = undefined;
+let savedModelProvider             = undefined;
+let savedGraphProvider             = undefined;
+let savedEmbeddingProvider         = undefined;
+let savedEnvKbSyncEnabled          = undefined;
+let savedEnvKbSyncInterval         = undefined;
+let savedEnvTenantRepoSyncEnabled  = undefined;
+let savedEnvTenantRepoSyncInterval = undefined;
+let savedEnvChromaDaemonEnabled    = undefined;
+let savedEnvMlxEnabled             = undefined;
+let savedEnvMlxModel               = undefined;
+let savedEnvMlxPort                = undefined;
+let savedEnvLmsEnabled             = undefined;
+let savedEnvLmsModel               = undefined;
+let savedEnvLmsPort                = undefined;
+let savedEnvOllamaEnabled          = undefined;
 
 function createMinimalOrchestrator() {
     const taskDefinitions = buildTaskDefinitions({
@@ -358,12 +358,12 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
             },
             localModels: {
                 chat     : {contextLimitTokens: 262144},
-                embedding: {contextLimitTokens: 8192}
+                embedding: {contextLimitTokens: 8192, parallel: 1}
             }
         })).toEqual({
             models        : ['shared-model'],
             contextLengths: {'shared-model': 8192},
-            parallels     : {}
+            parallels     : {'shared-model': 1}
         });
 
         expect(buildLmsPreloadConfig({
@@ -385,7 +385,7 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
         })
     });
 
-    test('buildLmsPreloadConfig threads localModels.chat.parallel into a chat-only parallels map (#13700)', () => {
+    test('buildLmsPreloadConfig threads role parallel values into the parallels map (#13700, #13948)', () => {
         const result = buildLmsPreloadConfig({
             modelProvider    : 'openAiCompatible',
             graphProvider    : 'openAiCompatible',
@@ -396,12 +396,15 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
             },
             localModels: {
                 chat     : {contextLimitTokens: 131072, parallel: 1},
-                embedding: {contextLimitTokens: 32768}
+                embedding: {contextLimitTokens: 32768, parallel: 1}
             }
         });
-        // Chat-only: the configured slot count is keyed by the chat model id; the embedding model is
-        // intentionally absent (it keeps the lms default). Distinct from requireParallelModels.
-        expect(result.parallels).toEqual({'gemma-4-31b-it': 1});
+        // Per-model slot counts are distinct from requireParallelModels, which governs how many
+        // distinct configured models stay co-resident.
+        expect(result.parallels).toEqual({
+            'gemma-4-31b-it' : 1,
+            'qwen3-embedding': 1
+        });
     });
 
 });
@@ -414,7 +417,7 @@ test.describe('Orchestrator parent-prop propagation (#11834 AC3)', () => {
 
     test('mutating orchestrator.taskDefinitions propagates to processSupervisorService via afterSetTaskDefinitions hook', () => {
         const orchestrator = createMinimalOrchestrator();
-        const newDefs = buildTaskDefinitions({
+        const newDefs      = buildTaskDefinitions({
             scriptDir: '/repo/ai/scripts/mutated',
             nodeBin  : '/node'
         });
@@ -436,7 +439,7 @@ test.describe('Orchestrator parent-prop propagation (#11834 AC3)', () => {
 
     test('mutating orchestrator.healthService propagates to processSupervisorService + maintenanceBackpressureService', () => {
         const orchestrator = createMinimalOrchestrator();
-        const newHealth = {recordTaskOutcome() {}, marker: 'mutated-healthservice'};
+        const newHealth    = {recordTaskOutcome() {}, marker: 'mutated-healthservice'};
         orchestrator.healthService = newHealth;
 
         expect(orchestrator.processSupervisorService.healthService?.marker).toBe('mutated-healthservice');
@@ -445,7 +448,7 @@ test.describe('Orchestrator parent-prop propagation (#11834 AC3)', () => {
 
     test('mutating orchestrator.taskStateService propagates to processSupervisorService + maintenanceBackpressureService', () => {
         const orchestrator = createMinimalOrchestrator();
-        const newTss = {
+        const newTss       = {
             marker: 'mutated-taskstateservice',
             getState() {return {};},
             getTaskState() {return null;}
@@ -458,7 +461,7 @@ test.describe('Orchestrator parent-prop propagation (#11834 AC3)', () => {
 
     test('mutating orchestrator.spawnFn propagates to processSupervisorService', () => {
         const orchestrator = createMinimalOrchestrator();
-        const newSpawn = () => 'mutated-spawn';
+        const newSpawn     = () => 'mutated-spawn';
         newSpawn.marker = 'mutated-spawnfn';
         orchestrator.spawnFn = newSpawn;
 
@@ -467,7 +470,7 @@ test.describe('Orchestrator parent-prop propagation (#11834 AC3)', () => {
 
     test('mutating orchestrator.heavyMaintenanceLeasePath propagates to maintenanceBackpressureService', () => {
         const orchestrator = createMinimalOrchestrator();
-        const newPath = '/tmp/orchestrator-test/heavy-maintenance-lease-mutated.json';
+        const newPath      = '/tmp/orchestrator-test/heavy-maintenance-lease-mutated.json';
         orchestrator.heavyMaintenanceLeasePath = newPath;
 
         expect(orchestrator.maintenanceBackpressureService.heavyMaintenanceLeasePath).toBe(newPath);
@@ -476,22 +479,22 @@ test.describe('Orchestrator parent-prop propagation (#11834 AC3)', () => {
 
 test.describe('Orchestrator source-level invariants (#11834 AC4)', () => {
     test('Orchestrator.mjs has no `configure()` shadow-resolver method', async () => {
-        const source = await fs.readFile(ORCHESTRATOR_MJS_PATH, 'utf8');
+        const source  = await fs.readFile(ORCHESTRATOR_MJS_PATH, 'utf8');
         const matches = source.match(/^\s*configure\s*\(/gm) || [];
 
         expect(matches, 'Orchestrator.mjs must NOT define a `configure()` method (Sub-1 anti-pattern; lazy getters supersede it).').toHaveLength(0);
     });
 
     test('taskDefinitions.mjs has no `DEFAULT_*_INTERVAL_MS` exports', async () => {
-        const source = await fs.readFile(TASK_DEFINITIONS_MJS_PATH, 'utf8');
+        const source  = await fs.readFile(TASK_DEFINITIONS_MJS_PATH, 'utf8');
         const matches = source.match(/export\s+(?:const|let)\s+DEFAULT_\w*INTERVAL_MS/g) || [];
 
         expect(matches, 'taskDefinitions.mjs must NOT export `DEFAULT_*_INTERVAL_MS` constants (Sub-1 anti-pattern; AiConfig.orchestrator.intervals owns these values).').toHaveLength(0);
     });
 
     test('Orchestrator.mjs has no `parseInterval` / `parseEnabledFlag` call sites', async () => {
-        const source = await fs.readFile(ORCHESTRATOR_MJS_PATH, 'utf8');
-        const codeLines = stripCommentsAndStrings(source);
+        const source             = await fs.readFile(ORCHESTRATOR_MJS_PATH, 'utf8');
+        const codeLines          = stripCommentsAndStrings(source);
         const parseIntervalCalls = codeLines.match(/\bparseInterval\s*\(/g) || [];
         const parseEnabledCalls  = codeLines.match(/\bparseEnabledFlag\s*\(/g) || [];
 
@@ -500,15 +503,15 @@ test.describe('Orchestrator source-level invariants (#11834 AC4)', () => {
     });
 
     test('Orchestrator.mjs has no `processSupervisorService.set({...this...})` context-replay block', async () => {
-        const source = await fs.readFile(ORCHESTRATOR_MJS_PATH, 'utf8');
+        const source    = await fs.readFile(ORCHESTRATOR_MJS_PATH, 'utf8');
         const codeLines = stripCommentsAndStrings(source);
-        const matches = codeLines.match(/processSupervisorService\.set\s*\(\s*\{\s*\.\.\.this/g) || [];
+        const matches   = codeLines.match(/processSupervisorService\.set\s*\(\s*\{\s*\.\.\.this/g) || [];
 
         expect(matches, 'Orchestrator.mjs must NOT spread `this` into `processSupervisorService.set({...})` (Sub-1 anti-pattern; `afterSetX` parent-prop propagation hooks supersede the start()-time context replay).').toHaveLength(0);
     });
 
     test('orchestrator config reads are fail-loud direct reads on declared subtrees (#12515 / #13875)', async () => {
-        const orchestratorSource = stripCommentsAndStrings(await fs.readFile(ORCHESTRATOR_MJS_PATH, 'utf8'));
+        const orchestratorSource              = stripCommentsAndStrings(await fs.readFile(ORCHESTRATOR_MJS_PATH, 'utf8'));
         const configuredTaskDefinitionsSource = stripCommentsAndStrings(
             await fs.readFile(CONFIGURED_TASK_DEFINITIONS_SERVICE_PATH, 'utf8')
         );
@@ -559,7 +562,7 @@ test.describe('Orchestrator source-level invariants (#11834 AC4)', () => {
     });
 
     test('Orchestrator.mjs has no `_`-suffix reactive config slot without a corresponding `beforeSet*` or `afterSet*` hook', async () => {
-        const source = await fs.readFile(ORCHESTRATOR_MJS_PATH, 'utf8');
+        const source    = await fs.readFile(ORCHESTRATOR_MJS_PATH, 'utf8');
         const codeLines = stripCommentsAndStrings(source);
 
         // Find `_`-suffix slot declarations inside `static config = { ... }` — pattern: `<name>_: <default>`
@@ -595,12 +598,12 @@ test.describe('Sibling daemon source-level invariants (#11836)', () => {
  * line structure for line-aware regex anchors.
  */
 function stripCommentsAndStrings(source) {
-    let out = '';
-    let i = 0;
+    let   out = '';
+    let   i   = 0;
     const len = source.length;
 
     while (i < len) {
-        const c = source[i];
+        const c    = source[i];
         const next = source[i + 1];
 
         // Block comment
@@ -617,7 +620,7 @@ function stripCommentsAndStrings(source) {
 
         // Line comment
         if (c === '/' && next === '/') {
-            const end = source.indexOf('\n', i);
+            const end  = source.indexOf('\n', i);
             const stop = end === -1 ? len : end;
             for (let j = i; j < stop; j++) out += ' ';
             i = stop;
