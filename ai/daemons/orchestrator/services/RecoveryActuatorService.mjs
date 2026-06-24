@@ -578,7 +578,7 @@ export class RecoveryActuatorService extends Base {
                   recoveryRunId: runId,
                   diagnosisEvent,
                   rung         : this.getRungForTarget(target),
-                  attempt      : this.requirePositiveNumber('attempt', attempt),
+                  attempt,
                   status       : ledgerStatus,
                   startedAt,
                   updatedAt,
@@ -695,22 +695,22 @@ export class RecoveryActuatorService extends Base {
 
     /** @summary Resolves the rolling attempt-window size. */
     getAttemptWindowMs() {
-        return this.requirePositiveNumber('maxAttemptsWindowMs', this.cfg.maxAttemptsWindowMs);
+        return this.cfg.maxAttemptsWindowMs;
     }
 
     /** @summary Resolves the maximum admitted attempts within one rolling window. */
     getMaxAttemptsPerWindow() {
-        return this.requirePositiveNumber('maxAttemptsPerWindow', this.cfg.maxAttemptsPerWindow);
+        return this.cfg.maxAttemptsPerWindow;
     }
 
     /** @summary Resolves the cooldown before the controller should re-observe after action. */
     getVerifyCooldownMs() {
-        return this.requireNonNegativeNumber('verifyCooldownMs', this.cfg.verifyCooldownMs);
+        return this.cfg.verifyCooldownMs;
     }
 
     /** @summary Resolves the required healthy-observation count for verify-loop completion. */
     getHealthyObservationThreshold() {
-        return this.requirePositiveNumber('healthyObservationThreshold', this.cfg.healthyObservationThreshold);
+        return this.cfg.healthyObservationThreshold;
     }
 
     /**
@@ -732,46 +732,13 @@ export class RecoveryActuatorService extends Base {
      * @returns {Number|null}
      */
     computeBackoffUntil({attempt, now}) {
-        const base = this.requireNonNegativeNumber('baseBackoffMs', this.cfg.baseBackoffMs),
-              max  = this.requireNonNegativeNumber('maxBackoffMs', this.cfg.maxBackoffMs);
+        const {baseBackoffMs, maxBackoffMs} = this.cfg;
 
-        if (max < base) {
-            throw new RangeError('RecoveryActuatorService requires maxBackoffMs to be greater than or equal to baseBackoffMs');
-        }
-
-        if (base === 0) {
+        if (baseBackoffMs === 0) {
             return null;
         }
 
-        return now + Math.min(max, base * Math.pow(2, Math.max(0, attempt - 1)));
-    }
-
-    /**
-     * @summary Reads a required non-negative numeric recovery-actuator config leaf.
-     * @param {String} name Config leaf name.
-     * @param {Number} value Config leaf value.
-     * @returns {Number}
-     */
-    requireNonNegativeNumber(name, value) {
-        if (!Number.isFinite(value) || value < 0) {
-            throw new TypeError(`RecoveryActuatorService requires numeric AiConfig leaf ${name} >= 0`);
-        }
-
-        return value;
-    }
-
-    /**
-     * @summary Reads a required positive numeric recovery-actuator config leaf.
-     * @param {String} name Config leaf name.
-     * @param {Number} value Config leaf value.
-     * @returns {Number}
-     */
-    requirePositiveNumber(name, value) {
-        if (!Number.isFinite(value) || value <= 0) {
-            throw new TypeError(`RecoveryActuatorService requires numeric AiConfig leaf ${name} > 0`);
-        }
-
-        return value;
+        return now + Math.min(maxBackoffMs, baseBackoffMs * Math.pow(2, Math.max(0, attempt - 1)));
     }
 
     /**

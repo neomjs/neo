@@ -264,12 +264,7 @@ export class DeploymentStateBridgeService extends Base {
 
         samples.push(stats);
 
-        const {statsSampleWindow} = AiConfig.orchestrator.deploymentStateBridge;
-        if (!Number.isInteger(statsSampleWindow) || statsSampleWindow < 1) {
-            throw new RangeError('DeploymentStateBridgeService requires a positive integer statsSampleWindow AiConfig leaf');
-        }
-
-        this.statsSamplesByService.set(serviceKey, samples.slice(-statsSampleWindow));
+        this.statsSamplesByService.set(serviceKey, samples.slice(-AiConfig.orchestrator.deploymentStateBridge.statsSampleWindow));
     }
 
     /**
