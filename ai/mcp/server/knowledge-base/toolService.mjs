@@ -21,6 +21,12 @@ const __dirname  = path.dirname(__filename);
 /** @anchor test-isolation - ENV override to prevent parallel test mutations from corrupting the canonical file. Easily extensible to other servers via NEO_AI_MCP_<SERVER>_OPENAPI_PATH. */
 const openApiFilePath = process.env.NEO_AI_MCP_KB_OPENAPI_PATH || path.join(__dirname, 'openapi.yaml');
 
+const readDeploymentInspection = args => readDeploymentStateSnapshot({
+    filePath    : AiConfig.orchestrator.deploymentStateBridge.snapshotPath,
+    staleAfterMs: args?.staleAfterMs ?? AiConfig.orchestrator.deploymentStateBridge.staleAfterMs,
+    maxBytes    : AiConfig.orchestrator.deploymentStateBridge.maxSnapshotBytes
+});
+
 /**
  * @summary Applies the KB transport visibility policy before returning MCP tools/list.
  * @param {Object} [options]
@@ -53,19 +59,15 @@ const listTransportVisibleTools = ({cursor=0, limit} = {}) => {
 };
 
 const serviceMapping = {
-    ask_knowledge_base   : SearchService           .ask                .bind(SearchService),
-    get_class_hierarchy  : QueryService            .getClassHierarchy  .bind(QueryService),
-    get_document_by_id   : DocumentService         .getDocumentById    .bind(DocumentService),
-    get_mcp_tool_handbook: toolId => toolService.getToolHandbook(toolId),
-    healthcheck          : HealthService           .healthcheck        .bind(HealthService),
-    get_deployment_state_snapshot:
-                         args => readDeploymentStateSnapshot({
-                             filePath    : AiConfig.orchestrator.deploymentStateBridge.snapshotPath,
-                             staleAfterMs: args?.staleAfterMs ?? AiConfig.orchestrator.deploymentStateBridge.staleAfterMs,
-                             maxBytes    : AiConfig.orchestrator.deploymentStateBridge.maxSnapshotBytes
-                         }),
-    list_documents : DocumentService         .listDocuments      .bind(DocumentService),
-    list_agent_faqs: KBRecorderService       .listAgentFaqs      .bind(KBRecorderService),
+    ask_knowledge_base           : SearchService           .ask                .bind(SearchService),
+    get_class_hierarchy          : QueryService            .getClassHierarchy  .bind(QueryService),
+    get_document_by_id           : DocumentService         .getDocumentById    .bind(DocumentService),
+    get_mcp_tool_handbook        : toolId => toolService.getToolHandbook(toolId),
+    healthcheck                  : HealthService           .healthcheck        .bind(HealthService),
+    get_deployment_state_snapshot: readDeploymentInspection,
+    inspect_deployment           : readDeploymentInspection,
+    list_documents               : DocumentService         .listDocuments      .bind(DocumentService),
+    list_agent_faqs              : KBRecorderService       .listAgentFaqs      .bind(KBRecorderService),
     // MCP dispatch marks `viaMcp: true` so VectorService.embed can apply the synchronous
     // work-volume gate. CLI invocations call DatabaseService.syncDatabase directly without
     // `viaMcp`, preserving explicit operator opt-in to long-running work.

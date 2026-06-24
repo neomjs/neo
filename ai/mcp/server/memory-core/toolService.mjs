@@ -18,6 +18,12 @@ const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
 const openApiFilePath = path.join(__dirname, 'openapi.yaml');
 
+const readDeploymentInspection = args => readDeploymentStateSnapshot({
+    filePath    : AiConfig.orchestrator.deploymentStateBridge.snapshotPath,
+    staleAfterMs: args?.staleAfterMs ?? AiConfig.orchestrator.deploymentStateBridge.staleAfterMs,
+    maxBytes    : AiConfig.orchestrator.deploymentStateBridge.maxSnapshotBytes
+});
+
 const serviceMapping = {
     add_memory           : MemoryService          .addMemory               .bind(MemoryService),
     get_mcp_tool_handbook: toolId => toolService.getToolHandbook(toolId),
@@ -47,25 +53,21 @@ const serviceMapping = {
     get_rem_pipeline_state: HealthService          .getRemPipelineState     .bind(HealthService),
     get_sqlite_holder_diagnostics:
                               HealthService          .getSqliteHolderDiagnostics.bind(HealthService),
-    get_deployment_state_snapshot:
-                              args => readDeploymentStateSnapshot({
-                                  filePath    : AiConfig.orchestrator.deploymentStateBridge.snapshotPath,
-                                  staleAfterMs: args?.staleAfterMs ?? AiConfig.orchestrator.deploymentStateBridge.staleAfterMs,
-                                  maxBytes    : AiConfig.orchestrator.deploymentStateBridge.maxSnapshotBytes
-                              }),
-    mark_read               : MailboxService         .markRead                .bind(MailboxService),
-    archive_message         : MailboxService         .archiveMessage          .bind(MailboxService),
-    delete_message          : MailboxService         .deleteMessage           .bind(MailboxService),
-    transition_task         : MailboxService         .transitionTask          .bind(MailboxService),
-    grant_permission        : PermissionService      .grantPermission         .bind(PermissionService),
-    revoke_permission       : PermissionService      .revokePermission        .bind(PermissionService),
-    list_permissions        : PermissionService      .listPermissions         .bind(PermissionService),
-    manage_wake_subscription: WakeSubscriptionService.manage                  .bind(WakeSubscriptionService),
-    record_turn_presence    : TurnPresenceService    .recordTurnPresence      .bind(TurnPresenceService),
-    who_is_online           : WakeSubscriptionService.whoIsOnline             .bind(WakeSubscriptionService),
-    purge_session           : SessionService         .purgeSession            .bind(SessionService),
-    resume_session          : SessionService         .validateSessionForResume.bind(SessionService),
-    set_session_id          : SessionService         .setSessionId            .bind(SessionService)
+    get_deployment_state_snapshot: readDeploymentInspection,
+    inspect_deployment           : readDeploymentInspection,
+    mark_read                    : MailboxService         .markRead                .bind(MailboxService),
+    archive_message              : MailboxService         .archiveMessage          .bind(MailboxService),
+    delete_message               : MailboxService         .deleteMessage           .bind(MailboxService),
+    transition_task              : MailboxService         .transitionTask          .bind(MailboxService),
+    grant_permission             : PermissionService      .grantPermission         .bind(PermissionService),
+    revoke_permission            : PermissionService      .revokePermission        .bind(PermissionService),
+    list_permissions             : PermissionService      .listPermissions         .bind(PermissionService),
+    manage_wake_subscription     : WakeSubscriptionService.manage                  .bind(WakeSubscriptionService),
+    record_turn_presence         : TurnPresenceService    .recordTurnPresence      .bind(TurnPresenceService),
+    who_is_online                : WakeSubscriptionService.whoIsOnline             .bind(WakeSubscriptionService),
+    purge_session                : SessionService         .purgeSession            .bind(SessionService),
+    resume_session               : SessionService         .validateSessionForResume.bind(SessionService),
+    set_session_id               : SessionService         .setSessionId            .bind(SessionService)
 };
 
 const toolService = Neo.create(ToolService, {

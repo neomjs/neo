@@ -7,6 +7,7 @@ import {
     createDeploymentStateSnapshot,
     writeDeploymentStateSnapshot
 } from '../../../services/memory-core/helpers/deploymentStateBridgeStore.mjs';
+import {readRecentRecoveryRunStates} from '../../../services/memory-core/helpers/recoveryRunStateStore.mjs';
 import {
     calculateDockerCpuPercent,
     calculateDockerMemoryPercent
@@ -52,6 +53,11 @@ export class DeploymentStateBridgeService extends Base {
          */
         providerResidencyProbe: null,
         /**
+         * @member {Function|null} recoveryRunStateReader=null
+         * @protected
+         */
+        recoveryRunStateReader: null,
+        /**
          * @member {Function|null} writeLog=null
          * @protected
          */
@@ -69,11 +75,9 @@ export class DeploymentStateBridgeService extends Base {
      * @returns {Promise<Object>}
      */
     async writeSnapshotIfDue({force = false} = {}) {
-        const
-            bridgeConfig = AiConfig.orchestrator.deploymentStateBridge,
-            now          = this.now();
+        const now = this.now();
 
-        if (!bridgeConfig.enabled) {
+        if (!AiConfig.orchestrator.deploymentStateBridge.enabled) {
             return {ok: true, status: 'disabled'};
         }
 
@@ -81,7 +85,7 @@ export class DeploymentStateBridgeService extends Base {
             return {ok: true, status: 'in-flight'};
         }
 
-        if (!force && this.lastWriteAt > 0 && now - this.lastWriteAt < bridgeConfig.writeIntervalMs) {
+        if (!force && this.lastWriteAt > 0 && now - this.lastWriteAt < AiConfig.orchestrator.deploymentStateBridge.writeIntervalMs) {
             return {ok: true, status: 'skipped'};
         }
 
@@ -90,13 +94,13 @@ export class DeploymentStateBridgeService extends Base {
         try {
             const snapshot = await this.collectSnapshot({generatedAt: now}),
                   result   = await writeDeploymentStateSnapshot({
-                      filePath: bridgeConfig.snapshotPath,
+                      filePath: AiConfig.orchestrator.deploymentStateBridge.snapshotPath,
                       snapshot,
-                      maxBytes: bridgeConfig.maxSnapshotBytes
+                      maxBytes: AiConfig.orchestrator.deploymentStateBridge.maxSnapshotBytes
                   });
 
             this.lastWriteAt = now;
-            this.writeLog?.('INFO', `[DeploymentStateBridge] wrote ${snapshot.services.length} service snapshots to ${bridgeConfig.snapshotPath}`);
+            this.writeLog?.('INFO', `[DeploymentStateBridge] wrote ${snapshot.services.length} service snapshots to ${AiConfig.orchestrator.deploymentStateBridge.snapshotPath}`);
 
             return {ok: true, status: 'written', snapshot, ...result};
         } catch (error) {
@@ -120,9 +124,12 @@ export class DeploymentStateBridgeService extends Base {
             services.push(await this.collectServiceSnapshot({serviceKey, observedAt: generatedAt}));
         }
 
+        const recoveryRuns = await this.collectRecoveryRunSnapshot();
+
         return createDeploymentStateSnapshot({
             generatedAt,
-            services
+            services,
+            recoveryRuns
         });
     }
 
@@ -244,7 +251,7 @@ export class DeploymentStateBridgeService extends Base {
      * @returns {String[]}
      */
     getServiceKeys() {
-        const {allowedServices} = AiConfig.orchestrator.deploymentStateBridge;
+        const allowedServices = AiConfig.orchestrator.deploymentStateBridge.allowedServices;
 
         if (allowedServices.length > 0) {
             return allowedServices.filter(isSafeServiceKey);
@@ -274,6 +281,49 @@ export class DeploymentStateBridgeService extends Base {
      */
     getStatsSamples(serviceKey) {
         return this.statsSamplesByService.get(serviceKey) || [];
+    }
+
+    /**
+     * Reads the bounded recovery-run ledger for the public deployment inspection snapshot.
+     * @returns {Promise<Object>}
+     */
+    async collectRecoveryRunSnapshot() {
+        const
+            bridgeConfig = AiConfig.orchestrator.deploymentStateBridge,
+            limit        = bridgeConfig.recoveryRunLimit,
+            source       = 'orchestrator-recovery-run-ledger';
+
+        if (!Number.isFinite(limit)) {
+            throw new TypeError(`DeploymentStateBridgeService: recoveryRunLimit must be a finite number, got ${limit}`);
+        }
+
+        if (limit < 0) {
+            throw new RangeError(`DeploymentStateBridgeService: recoveryRunLimit must be >= 0, got ${limit}`);
+        }
+
+        if (limit === 0) {
+            return {status: 'disabled', source, limit, entries: [], errors: []};
+        }
+
+        try {
+            const reader  = this.recoveryRunStateReader || readRecentRecoveryRunStates,
+                  entries = await reader({
+                dir: AiConfig.orchestrator.recoveryActuator.recoveryRunStateDir,
+                limit
+            });
+
+            return {status: 'available', source, limit, entries, errors: []};
+        } catch (error) {
+            this.writeLog?.('WARN', `[DeploymentStateBridge] recovery-run snapshot read failed: ${error.message}`);
+
+            return {
+                status : 'degraded',
+                source,
+                limit,
+                entries: [],
+                errors : [{reason: 'recovery-run-read-failed', code: error.code || null}]
+            };
+        }
     }
 
     /**
