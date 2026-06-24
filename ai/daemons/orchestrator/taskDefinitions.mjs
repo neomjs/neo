@@ -302,6 +302,12 @@ export function buildTaskDefinitions({
             expectedCommand: 'DreamService',
             serviceTask    : true
         },
+        'message-concept-harvest': {
+            label          : 'message concept harvest',
+            pidFileName    : 'message-concept-harvest.pid',
+            expectedCommand: 'ConceptDiscoveryService',
+            serviceTask    : true
+        },
         'golden-path': {
             label          : 'golden path synthesis',
             pidFileName    : 'golden-path.pid',

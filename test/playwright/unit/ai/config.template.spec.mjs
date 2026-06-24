@@ -143,6 +143,7 @@ test.describe('Tier 1 Config Immutability', () => {
             graphLogCompactionMs             : 24 * 60 * 60 * 1000,
             primaryDevSyncMs                 : 10 * 60 * 1000,
             dreamMs                          : 60 * 60 * 1000,
+            messageConceptHarvestMs          : 6 * 60 * 60 * 1000,
             goldenPathMs                     : 60 * 60 * 1000,
             swarmHeartbeatMs                 : 20 * 60 * 1000,
             embedDrainLivenessWatchdogCheckMs: 60 * 60 * 1000

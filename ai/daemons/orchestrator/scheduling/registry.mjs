@@ -1,13 +1,13 @@
-import {getDueTask as getSummaryDueTask}                    from './summary.mjs';
-import {getDueTask as getBackupDueTask}                     from './backup.mjs';
-import {getDueTask as getDreamDueTask}                      from './dream.mjs';
-import {getDueTask as getGraphLogCompactionDueTask}         from './graphLogCompaction.mjs';
-import {getDueTask as getGoldenPathDueTask}                 from './goldenPath.mjs';
-import {getDueTask as getMemorySummaryBackfillDueTask}      from './memorySummaryBackfill.mjs';
-import {getDueTask as getPrimaryDevSyncDueTask}             from './primaryDevSync.mjs';
-import {getDueTask as getSwarmHeartbeatDueTask}             from './swarmHeartbeat.mjs';
-import {getDueTask as getTenantRepoSyncDueTask}             from './tenantRepoSync.mjs';
-import {getDueTask as getEmbedDrainLivenessWatchdogDueTask} from './embedDrainLivenessWatchdog.mjs';
+import {getDueTask as getSummaryDueTask}                          from './summary.mjs';
+import {getDueTask as getBackupDueTask}                           from './backup.mjs';
+import {getDueTask as getDreamDueTask}                            from './dream.mjs';
+import {getDueTask as getGraphLogCompactionDueTask}               from './graphLogCompaction.mjs';
+import {getDueTask as getGoldenPathDueTask}                       from './goldenPath.mjs';
+import {getDueTask as getMemorySummaryBackfillDueTask}            from './memorySummaryBackfill.mjs';
+import {getDueTask as getPrimaryDevSyncDueTask}                   from './primaryDevSync.mjs';
+import {getDueTask as getSwarmHeartbeatDueTask}                   from './swarmHeartbeat.mjs';
+import {getDueTask as getTenantRepoSyncDueTask}                   from './tenantRepoSync.mjs';
+import {getDueTask as getEmbedDrainLivenessWatchdogDueTask}       from './embedDrainLivenessWatchdog.mjs';
 import {getDueTask as getRemConsolidationLivenessWatchdogDueTask} from './remConsolidationLivenessWatchdog.mjs';
 
 function toTimestampMs(value) {
@@ -194,6 +194,25 @@ export const TASK_REGISTRY = Object.freeze([
                 dreamIntervalMs       : intervals.dream,
                 dreamOverflowThreshold: intervals.dreamOverflowThreshold
             });
+        }
+    },
+    {
+        taskName        : 'message-concept-harvest',
+        executionKind   : 'in-process-async',
+        maintenanceClass: 'heavy',
+        backpressure    : 'exclusive-heavy',
+        dependencies    : [],
+        getDueTask({state, now, intervals}) {
+            const lastRunAt  = state['message-concept-harvest']?.lastRunAt ?? 0;
+            const intervalMs = intervals.messageConceptHarvest;
+            if (intervalMs > 0 && now - lastRunAt >= intervalMs) {
+                return {
+                    taskName: 'message-concept-harvest',
+                    source  : 'periodic-message-concept-harvest',
+                    reason  : `periodic-message-concept-harvest:${intervalMs}`
+                };
+            }
+            return null;
         }
     },
     {

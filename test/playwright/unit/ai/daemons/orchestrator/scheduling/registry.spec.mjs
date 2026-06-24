@@ -2,9 +2,9 @@ import {test, expect}                         from '@playwright/test';
 import {TASK_REGISTRY}                        from '../../../../../../../ai/daemons/orchestrator/scheduling/registry.mjs';
 import {DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES} from '../../../../../../../ai/daemons/orchestrator/services/MaintenanceBackpressureService.mjs';
 
-const VALID_EXECUTION_KINDS = ['supervised-child-process', 'service-runner', 'in-process-async', 'local-only-service', 'health-check'];
+const VALID_EXECUTION_KINDS     = ['supervised-child-process', 'service-runner', 'in-process-async', 'local-only-service', 'health-check'];
 const VALID_MAINTENANCE_CLASSES = ['continuous', 'heavy', 'graph-dependent', 'lightweight-signal', 'local-only', 'health-monitor'];
-const VALID_BACKPRESSURE = ['none', 'exclusive-heavy', 'after-heavy'];
+const VALID_BACKPRESSURE        = ['none', 'exclusive-heavy', 'after-heavy'];
 
 test.describe('orchestrator/scheduling/registry (#11862 Sub 18)', () => {
     test('TASK_REGISTRY is a frozen array (immutability invariant)', () => {
@@ -43,8 +43,27 @@ test.describe('orchestrator/scheduling/registry (#11862 Sub 18)', () => {
         expect(names).toEqual(expect.arrayContaining([
             'summary', 'memory-summary-backfill', 'kbSync', 'githubWorkflowSync', 'backup', 'graphlog-compaction',
             'primary-dev-sync', 'tenant-repo-sync', 'dream',
-            'golden-path', 'swarm-heartbeat'
+            'message-concept-harvest', 'golden-path', 'swarm-heartbeat'
         ]));
+    });
+
+    test('message-concept-harvest is registered as an exclusive-heavy scheduled graph-writing lane (#13840)', () => {
+        const descriptor = TASK_REGISTRY.find(d => d.taskName === 'message-concept-harvest');
+        expect(descriptor, 'message-concept-harvest is registered').toBeTruthy();
+        expect(descriptor.executionKind).toBe('in-process-async');
+        expect(descriptor.maintenanceClass).toBe('heavy');
+        expect(descriptor.backpressure).toBe('exclusive-heavy');
+        expect(descriptor.dependencies).toEqual([]);
+        expect(descriptor.getDueTask({
+            state    : {'message-concept-harvest': {lastRunAt: 0}},
+            now      : 6000,
+            intervals: {messageConceptHarvest: 5000}
+        })).toMatchObject({taskName: 'message-concept-harvest', source: 'periodic-message-concept-harvest'});
+        expect(descriptor.getDueTask({
+            state    : {'message-concept-harvest': {lastRunAt: 2000}},
+            now      : 6000,
+            intervals: {messageConceptHarvest: 5000}
+        })).toBeNull();
     });
 
     test('embed-drain-liveness-watchdog is registered as a read-only, no-backpressure health-check (#13551)', () => {

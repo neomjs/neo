@@ -1026,6 +1026,17 @@ class DreamService extends Base {
     }
 
     /**
+     * Scheduled process/MX concept discovery entry point. Delegates to
+     * `ConceptDiscoveryService` so A2A-message vocabulary is drained outside the mailbox
+     * hot path: cheap frequency pre-filter first, then one bounded Teaching-Test prompt for
+     * top recurring terms, then `conceptHarvested` markers on processed MESSAGE nodes.
+     * @returns {Promise<Object>} Message-harvest stats.
+     */
+    async runMessageConceptHarvest() {
+        return ConceptDiscoveryService.runMessageConceptHarvest();
+    }
+
+    /**
      * @summary Parses the local file system for markdown files and explicitly syncs their state
      * into the Native Graph database. Re-asserts edge weights for OPEN issues, heavily discounting
      * any nodes structurally blocked via BLOCKED_BY relationships to prevent GraphRAG hallucinations.

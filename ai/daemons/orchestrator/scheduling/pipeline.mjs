@@ -32,6 +32,7 @@ export const TASK_STALENESS_CADENCE_KEY = Object.freeze({
     'graphlog-compaction'    : 'graphLogCompaction',
     'primary-dev-sync'       : 'primaryDevSync',
     dream                    : 'dream',
+    'message-concept-harvest': 'messageConceptHarvest',
     'golden-path'            : 'goldenPath'
 });
 
@@ -94,6 +95,7 @@ export function buildOrchestratorSchedulingOptions({orchestrator, config, now, r
                 primaryDevSync                 : config.orchestrator.intervals.primaryDevSyncMs,
                 tenantRepoSync                 : config.orchestrator.tenantRepoSync.sweepCadenceMs,
                 dream                          : config.orchestrator.intervals.dreamMs,
+                messageConceptHarvest          : config.orchestrator.intervals.messageConceptHarvestMs,
                 dreamOverflowThreshold         : config.orchestrator.intervals.dreamOverflowThreshold,
                 goldenPath                     : config.orchestrator.intervals.goldenPathMs,
                 swarmHeartbeat                 : config.orchestrator.intervals.swarmHeartbeatMs,
@@ -262,7 +264,7 @@ export function recordPickerDeferrals({
     runningHeavyTasks,
     maintenanceBackpressureService
 }) {
-    const runningSet        = new Set(runningTaskNames);
+    const runningSet = new Set(runningTaskNames);
 
     for (const candidate of candidates) {
         if (runningSet.has(candidate.taskName)) continue;
@@ -404,8 +406,9 @@ function executeServiceRunnerCandidate({candidate, activeHeavyTask, services, ru
 
 function executeInProcessCandidate({candidate, activeHeavyTask, services, runtime}) {
     const runners = {
-        dream        : (taskName, reason) => runDreamTask({taskName, reason, services}),
-        'golden-path': (taskName, reason) => runGoldenPathTask({
+        dream                    : (taskName, reason) => runDreamTask({taskName, reason, services}),
+        'message-concept-harvest': (taskName, reason) => runMessageConceptHarvestTask({taskName, reason, services}),
+        'golden-path'            : (taskName, reason) => runGoldenPathTask({
             taskName,
             reason,
             services,
@@ -506,6 +509,33 @@ async function runDreamTask({taskName, reason, services}) {
             });
             break;
         }
+    }
+}
+
+async function runMessageConceptHarvestTask({taskName, reason, services}) {
+    services.taskStateService.markStarted(taskName, reason);
+    services.healthService?.recordTaskOutcome?.(taskName, 'running', { reason, startedAt: new Date().toISOString() });
+
+    try {
+        const outcome = await services.dreamService.runMessageConceptHarvest();
+        services.taskStateService.markCompleted(taskName);
+        services.healthService?.recordTaskOutcome?.(taskName, 'completed', {
+            reason,
+            completedAt      : new Date().toISOString(),
+            candidatesAdded  : outcome.candidatesAdded,
+            messagesProcessed: outcome.messagesProcessed,
+            messagesMarked   : outcome.messagesMarked,
+            termsConsidered  : outcome.termsConsidered
+        });
+    } catch (e) {
+        const state = services.taskStateService.getTaskState(taskName);
+        if (state) state.lastReason = e.message;
+        services.taskStateService.markFailed(taskName, 1);
+        services.healthService?.recordTaskOutcome?.(taskName, 'failed', {
+            reason,
+            error   : e.message,
+            failedAt: new Date().toISOString()
+        });
     }
 }
 
@@ -616,7 +646,7 @@ async function runEmbedDrainLivenessWatchdogTask({taskName, reason, services, ru
         services.taskStateService.markStarted(taskName, reason);
         services.healthService?.recordTaskOutcome?.(taskName, 'running', {reason, startedAt: new Date().toISOString()});
 
-        const now = Date.now();
+        const now                                          = Date.now();
         const {oldestAgeMs, pendingCount, oldestTimestamp} = await getEmbedDrainPendingAge({
             walDir: runtime.embedDrainLivenessWatchdogWalDir,
             now
@@ -710,7 +740,7 @@ async function runRemConsolidationLivenessWatchdogTask({taskName, reason, servic
         services.taskStateService.markStarted(taskName, reason);
         services.healthService?.recordTaskOutcome?.(taskName, 'running', {reason, startedAt: new Date().toISOString()});
 
-        const now = Date.now();
+        const now                                                 = Date.now();
         const {hasCycle, readFault, lastCompletedAt, stalenessMs} = await getRemCycleStaleness({
             remRunStateDir: runtime.remConsolidationWatchdogRunStateDir,
             now

@@ -210,12 +210,34 @@ test.describe('Neo.ai.daemons.services.ConceptDiscoveryService', () => {
             ]
         }];
 
-        const body = 'Enough content to exceed MIN_SOURCE_LENGTH. '.repeat(20);
+        const body     = 'Enough content to exceed MIN_SOURCE_LENGTH. '.repeat(20);
         const accepted = await ConceptDiscoveryService.extractConceptsFromSource('test-source', body);
 
         // Two dupes filtered (id match + alias match), only one survives
         expect(accepted.length).toBe(1);
         expect(accepted[0].name).toBe('Novel Concept');
+    });
+
+    test('extractConceptsFromSource should dedupe punctuation/case variants by normalized concept name (#13840)', async () => {
+        writeSeedConceptGraph([
+            {id: 'vba', name: 'VBA', tier: 2, description: '', uniqueToNeo: false, tags: [], aliases: ['Verify Before Assert']}
+        ]);
+        ConceptService.loadGraph();
+
+        llmResponses = [{
+            candidates: [
+                {id: 'v-b-a',             name: 'V-B-A',           description: 'dup', reasoning: 'y', aliases: []},
+                {id: 'review_response',   name: 'Review_Response', description: 'new', reasoning: 'y', aliases: []},
+                {id: 'review-response-2', name: 'Review-Response', description: 'dup-by-normalized-name', reasoning: 'y', aliases: []}
+            ]
+        }];
+
+        const body     = 'Enough content to exceed MIN_SOURCE_LENGTH. '.repeat(20);
+        const accepted = await ConceptDiscoveryService.extractConceptsFromSource('variant-source', body);
+        const unique   = ConceptDiscoveryService.dedupeCandidatesByNormalizedName(accepted);
+
+        expect(unique.length).toBe(1);
+        expect(unique[0].name).toBe('Review_Response');
     });
 
     test('extractConceptsFromSource should tolerate malformed LLM output without throwing', async () => {
@@ -224,7 +246,7 @@ test.describe('Neo.ai.daemons.services.ConceptDiscoveryService', () => {
 
         llmResponses = ['not valid json at all, certainly no candidates field'];
 
-        const body = 'Adequate source content. '.repeat(20);
+        const body     = 'Adequate source content. '.repeat(20);
         const accepted = await ConceptDiscoveryService.extractConceptsFromSource('broken-llm-source', body);
 
         expect(accepted).toEqual([]);
@@ -246,10 +268,10 @@ test.describe('Neo.ai.daemons.services.ConceptDiscoveryService', () => {
         writeEmptyConceptGraph();
         ConceptService.loadGraph();
 
-        const aiConfig  = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
         aiConfig.data.conceptDiscovery ??= {};
-        const original  = aiConfig.data.conceptDiscovery?.minSourceLength;
-        const bodyText  = 'Moderate length source. '.repeat(15); // ~360 chars — above default 200, below an override of 10000
+        const original = aiConfig.data.conceptDiscovery?.minSourceLength;
+        const bodyText = 'Moderate length source. '.repeat(15); // ~360 chars — above default 200, below an override of 10000
 
         llmResponses = [{candidates: [{id: 'x', name: 'X', description: 'y', reasoning: 'z', aliases: []}]}];
 
@@ -304,6 +326,173 @@ test.describe('Neo.ai.daemons.services.ConceptDiscoveryService', () => {
         const sharedLine = nodesContent.split('\n').find(l => l.includes('"shared-concept"'));
         expect(sharedLine).toContain('from-epic');
         expect(sharedLine).not.toContain('from-pr');
+    });
+
+    test('runMessageConceptHarvest uses frequency pre-filter and appends process/MX candidates (#13840)', async () => {
+        writeEmptyConceptGraph();
+
+        const messages = [
+            {
+                id            : 'MESSAGE:one',
+                subject       : '[lane-claim] measure-cheap-first follow-up',
+                taggedConcepts: ['coordination-saturation-cycle'],
+                properties    : {subject: '[lane-claim] measure-cheap-first follow-up', taggedConcepts: ['coordination-saturation-cycle']}
+            },
+            {
+                id            : 'MESSAGE:two',
+                subject       : '[lane-claim] coordination saturation',
+                taggedConcepts: ['coordination-saturation-cycle'],
+                properties    : {subject: '[lane-claim] coordination saturation', taggedConcepts: ['coordination-saturation-cycle']}
+            },
+            {
+                id            : 'MESSAGE:three',
+                subject       : '[single-use] should not spend budget',
+                taggedConcepts: [],
+                properties    : {subject: '[single-use] should not spend budget', taggedConcepts: []}
+            }
+        ];
+
+        llmResponses = [{
+            candidates: [{
+                id         : 'coordination-saturation-cycle',
+                name       : 'Coordination Saturation Cycle',
+                description: 'A recurring swarm process loop surfaced from A2A messages.',
+                reasoning  : 'Maintainers need it to operate the swarm productively.',
+                aliases    : ['coordination saturation']
+            }]
+        }];
+
+        const result = await ConceptDiscoveryService.runMessageConceptHarvest({messages, markHarvested: false});
+
+        expect(llmCallCount).toBe(1);
+        expect(result.messagesProcessed).toBe(3);
+        expect(result.termsConsidered).toBe(2); // [lane-claim] + curated coordination tag; singleton filtered out
+        expect(result.candidatesAdded).toBe(1);
+        expect(result.candidates[0]).toMatchObject({
+            ontologyLayer  : 'process-mx',
+            codeGapEligible: false,
+            validated      : false
+        });
+        expect(result.candidates[0].tags).toEqual(expect.arrayContaining(['process-mx', 'message-concept-harvest']));
+
+        const nodesContent = fs.readFileSync(path.join(tmpConceptsDir, 'nodes.jsonl'), 'utf8');
+        const row          = JSON.parse(nodesContent.split('\n').find(l => l.includes('"coordination-saturation-cycle"')));
+        expect(row.ontologyLayer).toBe('process-mx');
+        expect(row.codeGapEligible).toBe(false);
+    });
+
+    test('markMessagesConceptHarvested stamps MESSAGE nodes through a narrow upsert seam (#13840)', () => {
+        const upserts = [];
+        const marked  = ConceptDiscoveryService.markMessagesConceptHarvested([
+            {
+                id        : 'MESSAGE:mark-me',
+                subject   : 'mark subject',
+                properties: {subject: 'mark subject', sentAt: '2026-06-24T00:00:00.000Z'}
+            }
+        ], {
+            timestamp : '2026-06-24T20:00:00.000Z',
+            upsertNode: spec => upserts.push(spec)
+        });
+
+        expect(marked).toBe(1);
+        expect(upserts).toEqual([{
+            id        : 'MESSAGE:mark-me',
+            type      : 'MESSAGE',
+            name      : 'mark subject',
+            properties: {
+                subject           : 'mark subject',
+                sentAt            : '2026-06-24T00:00:00.000Z',
+                conceptHarvested  : true,
+                conceptHarvestedAt: '2026-06-24T20:00:00.000Z'
+            }
+        }]);
+    });
+
+    test('runMessageConceptHarvest does not stamp messages when candidate append fails (#13840)', async () => {
+        writeEmptyConceptGraph();
+
+        const originalAppendCandidates = ConceptDiscoveryService.appendCandidates;
+        const originalMarkMessages     = ConceptDiscoveryService.markMessagesConceptHarvested;
+        let   marked                   = false;
+
+        ConceptDiscoveryService.appendCandidates = async () => {
+            throw new Error('append-failed');
+        };
+        ConceptDiscoveryService.markMessagesConceptHarvested = () => {
+            marked = true;
+            return 1;
+        };
+
+        llmResponses = [{
+            candidates: [{
+                id         : 'message-born-concept',
+                name       : 'Message Born Concept',
+                description: 'A process concept born in repeated A2A messages.',
+                reasoning  : 'Maintainers need it to operate the swarm productively.',
+                aliases    : []
+            }]
+        }];
+
+        try {
+            await expect(ConceptDiscoveryService.runMessageConceptHarvest({
+                messages: [
+                    {
+                        id            : 'MESSAGE:one',
+                        subject       : '[message-born-concept] one',
+                        taggedConcepts: [],
+                        properties    : {subject: '[message-born-concept] one'}
+                    },
+                    {
+                        id            : 'MESSAGE:two',
+                        subject       : '[message-born-concept] two',
+                        taggedConcepts: [],
+                        properties    : {subject: '[message-born-concept] two'}
+                    }
+                ]
+            })).rejects.toThrow('append-failed');
+
+            expect(marked).toBe(false);
+        } finally {
+            ConceptDiscoveryService.appendCandidates             = originalAppendCandidates;
+            ConceptDiscoveryService.markMessagesConceptHarvested = originalMarkMessages;
+        }
+    });
+
+    test('runMessageConceptHarvest does not stamp messages when provider output is unusable (#13840)', async () => {
+        writeEmptyConceptGraph();
+
+        const originalMarkMessages = ConceptDiscoveryService.markMessagesConceptHarvested;
+        let   marked               = false;
+
+        ConceptDiscoveryService.markMessagesConceptHarvested = () => {
+            marked = true;
+            return 1;
+        };
+
+        llmResponses = ['not-json'];
+
+        try {
+            await expect(ConceptDiscoveryService.runMessageConceptHarvest({
+                messages: [
+                    {
+                        id            : 'MESSAGE:one',
+                        subject       : '[unusable-provider-output] one',
+                        taggedConcepts: [],
+                        properties    : {subject: '[unusable-provider-output] one'}
+                    },
+                    {
+                        id            : 'MESSAGE:two',
+                        subject       : '[unusable-provider-output] two',
+                        taggedConcepts: [],
+                        properties    : {subject: '[unusable-provider-output] two'}
+                    }
+                ]
+            })).rejects.toThrow('No usable candidates parsed');
+
+            expect(marked).toBe(false);
+        } finally {
+            ConceptDiscoveryService.markMessagesConceptHarvested = originalMarkMessages;
+        }
     });
 
     test('runDiscoveryCycle captures envelope extraction_metadata, denormalizes onto each candidate, and persists it (#10106)', async () => {

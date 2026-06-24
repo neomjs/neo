@@ -142,6 +142,7 @@ function makeAdapterConfig({dreamMs = 3_600_000} = {}) {
                 primaryDevSyncMs                 : 1,
                 tenantRepoSyncMs                 : 1,
                 dreamMs,
+                messageConceptHarvestMs          : 1,
                 dreamOverflowThreshold           : 0.8,
                 goldenPathMs                     : 1,
                 swarmHeartbeatMs                 : 1,
@@ -159,7 +160,7 @@ function makeAdapterConfig({dreamMs = 3_600_000} = {}) {
 test.describe('orchestrator/scheduling/pipeline (#11862/#11900)', () => {
     test('buildOrchestratorSchedulingOptions wires the REM liveness active alarm and dream-ownership gate (#13839)', () => {
         const remDispatcher = () => {};
-        const orchestrator = makeOrchestratorAdapterFixture({
+        const orchestrator  = makeOrchestratorAdapterFixture({
             remConsolidationLivenessAlarmDispatcher: remDispatcher
         });
 
@@ -456,6 +457,71 @@ test.describe('orchestrator/scheduling/pipeline (#11862/#11900)', () => {
         ]);
     });
 
+    test('records completed message-concept-harvest outcomes as successful runs (#13840)', async () => {
+        const calls    = [];
+        const outcomes = [];
+
+        const result = runSchedulingPipeline({
+            registry: [
+                makeCandidateDescriptor({
+                    taskName        : 'message-concept-harvest',
+                    executionKind   : 'in-process-async',
+                    maintenanceClass: 'heavy'
+                })
+            ],
+            context : makeContext(),
+            services: makeServices({
+                dreamService: {
+                    runMessageConceptHarvest: () => Promise.resolve({
+                        candidatesAdded  : 2,
+                        messagesProcessed: 7,
+                        messagesMarked   : 7,
+                        termsConsidered  : 3
+                    })
+                },
+                healthService: {
+                    recordTaskOutcome(taskName, status, details) {
+                        outcomes.push({taskName, status, details});
+                    }
+                },
+                taskStateService: {
+                    getTaskState: () => null,
+                    markCompleted(taskName) { calls.push(['markCompleted', taskName]); },
+                    markFailed(taskName) { calls.push(['markFailed', taskName]); },
+                    markSkipped(taskName) { calls.push(['markSkipped', taskName]); },
+                    markStarted(taskName, reason) { calls.push(['markStarted', taskName, reason]); }
+                }
+            }),
+            runtime: makeRuntime()
+        });
+
+        await result.executed;
+
+        expect(calls).toEqual([
+            ['markStarted', 'message-concept-harvest', 'message-concept-harvest-reason'],
+            ['markCompleted', 'message-concept-harvest']
+        ]);
+        expect(outcomes).toEqual([
+            {
+                taskName: 'message-concept-harvest',
+                status  : 'running',
+                details : {reason: 'message-concept-harvest-reason', startedAt: expect.any(String)}
+            },
+            {
+                taskName: 'message-concept-harvest',
+                status  : 'completed',
+                details : {
+                    reason           : 'message-concept-harvest-reason',
+                    completedAt      : expect.any(String),
+                    candidatesAdded  : 2,
+                    messagesProcessed: 7,
+                    messagesMarked   : 7,
+                    termsConsidered  : 3
+                }
+            }
+        ]);
+    });
+
     test('records skipped Dream outcomes without marking success (#13767)', async () => {
         const calls    = [];
         const outcomes = [];
@@ -601,20 +667,27 @@ test.describe('orchestrator/scheduling/pipeline staleness selector (#13586)', ()
         const candidates = [
             {taskName: 'summary'},
             {taskName: 'golden-path'},
+            {taskName: 'message-concept-harvest'},
             {taskName: 'swarm-heartbeat'},               // light → omitted
             {taskName: 'embed-drain-liveness-watchdog'}  // health → omitted
         ];
         const state = {
-            summary      : {lastRunAt: 5_000},
-            'golden-path': {lastRunAt: 1_000}
+            summary                  : {lastRunAt: 5_000},
+            'golden-path'            : {lastRunAt: 1_000},
+            'message-concept-harvest': {lastRunAt: 2_000}
         };
-        const intervals = {summarySweep: 600_000, goldenPath: 3_600_000};
+        const intervals = {
+            summarySweep         : 600_000,
+            goldenPath           : 3_600_000,
+            messageConceptHarvest: 21_600_000
+        };
 
         const meta = buildTaskStalenessMeta({candidates, state, intervals});
 
         expect(meta).toEqual({
-            summary      : {lastRunAt: 5_000, cadenceMs: 600_000},
-            'golden-path': {lastRunAt: 1_000, cadenceMs: 3_600_000}
+            summary                  : {lastRunAt: 5_000, cadenceMs: 600_000},
+            'golden-path'            : {lastRunAt: 1_000, cadenceMs: 3_600_000},
+            'message-concept-harvest': {lastRunAt: 2_000, cadenceMs: 21_600_000}
         });
         expect(meta['swarm-heartbeat']).toBeUndefined();
         expect(meta['embed-drain-liveness-watchdog']).toBeUndefined();
@@ -635,6 +708,7 @@ test.describe('orchestrator/scheduling/pipeline staleness selector (#13586)', ()
         expect(TASK_STALENESS_CADENCE_KEY['embed-drain-liveness-watchdog']).toBeUndefined();
         expect(TASK_STALENESS_CADENCE_KEY['rem-consolidation-liveness-watchdog']).toBeUndefined();
         expect(TASK_STALENESS_CADENCE_KEY['tenant-repo-sync']).toBeUndefined();
+        expect(TASK_STALENESS_CADENCE_KEY['message-concept-harvest']).toBe('messageConceptHarvest');
         expect(TASK_STALENESS_CADENCE_KEY['golden-path']).toBe('goldenPath');
         expect(TASK_STALENESS_CADENCE_KEY.summary).toBe('summarySweep');
     });
