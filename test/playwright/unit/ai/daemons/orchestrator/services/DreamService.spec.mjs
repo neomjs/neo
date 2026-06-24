@@ -973,6 +973,32 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         expect(node.properties.capabilityGap).toBeUndefined();
     });
 
+    test('process/MX concepts should be excluded from code-doc gap audit (#13840)', async () => {
+        GraphService.upsertNode({
+            id        : 'concept-process-mx',
+            type      : 'CONCEPT',
+            name      : 'Coordination Saturation Cycle',
+            properties: {
+                name           : 'Coordination Saturation Cycle',
+                tier           : 1,
+                uniqueToNeo    : true,
+                verifiedAt     : freshVerifiedAt,
+                weight         : 1.3,
+                validated      : true,
+                ontologyLayer  : 'process-mx',
+                codeGapEligible: false
+            }
+        });
+
+        await DreamService.inferConceptGraphGaps();
+
+        const node = GraphService.db.nodes.get('concept-process-mx');
+
+        // Weight 1.3 and no edges would normally emit GUIDE_GAP + ORPHAN_CONCEPT. Process/MX
+        // concepts are a separate operational vocabulary layer, not code ontology targets.
+        expect(node.properties.capabilityGap).toBeUndefined();
+    });
+
     test('should emit GUIDE_GAP and ORPHAN_CONCEPT together when concept lacks both EXPLAINED_BY and IMPLEMENTED_BY (#10087)', async () => {
         // Locks in the independence of ORPHAN_CONCEPT from the GUIDE_GAP / EXAMPLE_GAP branch.
         // GUIDE_GAP and EXAMPLE_GAP are mutually exclusive (one requires EXPLAINED_BY absent, the
