@@ -41,19 +41,27 @@ import {bytesToTokens} from '../../../services/memory-core/helpers/consumerFrict
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
-// Bounds the re-serve ONLY for the DETERMINISTICALLY-terminal failure: `skip-over-band` (payload over the
-// model's safe band) is a reliable size check — that session genuinely cannot be processed at this cadence
-// until a deep-digest lane exists, so deferring it after the `maxDigestAttempts` config leaf is a safe bleed-stop.
-// `under-band-choke` (a bare-null return UNDER the band) and a transient ingestion-failure are NOT proven
-// terminal — the extractor returns the same null for choke / schema-failure / timeout alike, so treating an
-// under-band null as un-digestible is a guess. They stay `undigested` (attempt-tracked, re-served) until
-// typed extractor failure semantics exist; deferring on a guessed-terminal null would risk silently
-// dropping a digestible session.
-const PERMANENT_DEFER_REASONS = new Set(['skip-over-band']);
-
 function estimatePayloadTokens(payload) {
     const text = payload === undefined || payload === null ? '' : String(payload);
     return bytesToTokens(Buffer.byteLength(text, 'utf8'));
+}
+
+function isTriVectorFailureDescriptor(value) {
+    return value?.ok === false;
+}
+
+function getTriVectorFailureAttempts(failure) {
+    return Number.isFinite(failure?.evidence?.attempts) ? failure.evidence.attempts : 1;
+}
+
+function getTriVectorFailureKind(failure) {
+    return failure?.deferReason || failure?.frictionSymptom || 'typed-failure';
+}
+
+function getTriVectorFailureMessage(failure) {
+    return failure?.evidence?.note ||
+           failure?.evidence?.errorMessage ||
+           `tri-vector extraction failed (${getTriVectorFailureKind(failure)})`;
 }
 
 function toErrorMessage(error) {
@@ -457,9 +465,9 @@ class DreamService extends Base {
                     }
 
                     const startTime = Date.now();
-                    let success;
+                    let extractionResult;
                     try {
-                        success = await SemanticGraphExtractor.executeTriVectorExtraction(session);
+                        extractionResult = await SemanticGraphExtractor.executeTriVectorExtraction(session);
                     } catch (e) {
                         sessionState.triVector = {
                             status   : 'failed',
@@ -476,16 +484,24 @@ class DreamService extends Base {
                     }
                     const triVectorTime = ((Date.now() - startTime) / 1000).toFixed(1);
                     logger.info(`[DreamService]   -> Tri-Vector Synthesis took: ${triVectorTime}s`);
+                    const extractionFailure = isTriVectorFailureDescriptor(extractionResult) ? extractionResult : null;
+                    const success           = extractionResult && !extractionFailure;
                     sessionState.triVector = {
                         status   : success ? 'completed' : 'failed',
-                        attempts : 1,
-                        errorKind: success ? undefined : 'null-result'
+                        attempts : extractionFailure ? getTriVectorFailureAttempts(extractionFailure) : 1,
+                        errorKind: success ? undefined : (extractionFailure ? getTriVectorFailureKind(extractionFailure) : 'null-result')
                     };
+                    if (extractionFailure) {
+                        sessionState.triVector.deferReason        = extractionFailure.deferReason;
+                        sessionState.triVector.frictionSymptom    = extractionFailure.frictionSymptom;
+                        sessionState.triVector.terminalForCadence = extractionFailure.terminalForCadence === true;
+                    }
                     if (!success) {
-                        sessionState.failureReasons.push('tri-vector extraction returned null');
+                        sessionState.failureReasons.push(extractionFailure ? getTriVectorFailureMessage(extractionFailure) : 'tri-vector extraction returned null');
                     }
                     perPhaseStates.push(finishPhase('triVector', startTime, success ? 'completed' : 'failed', {
-                        sessionId: session.meta.sessionId
+                        sessionId  : session.meta.sessionId,
+                        deferReason: extractionFailure?.deferReason
                     }));
 
                     const topoStart     = Date.now();
@@ -530,7 +546,7 @@ class DreamService extends Base {
 
                     const capStart = Date.now();
                     try {
-                        await this.inferTestGapsFromSession(success);
+                        await this.inferTestGapsFromSession(success ? extractionResult : null);
                     } catch (e) {
                         sessionState.gapSession = {
                             status      : 'failed',
@@ -561,23 +577,17 @@ class DreamService extends Base {
                         sessionState.graphDigestedFlag = true;
                         logger.info(`[DreamService] Session ${session.meta.sessionId} marked as graphDigested in Memory Core.`);
                     } else {
-                        // Digest failed (extractor returned null OR memory-ingestion errors). Bound the
-                        // re-serve: count the attempt, and once it reaches `maxDigestAttempts` mark the
-                        // session `deferred` so findUndigestedSessions stops re-serving it every cycle —
-                        // the chronic local-model load bleed. `deferReason` records WHY for the honest
-                        // consolidation-gap surface + a future deep-digest lane. Back-compat: graphDigested
-                        // stays unset, so a consumer that does not yet read digestState still sees an
-                        // un-digested (never a falsely-digested) session.
-                        const digestAttempts = (Number(session.meta.digestAttempts) || 0) + 1;
-                        const safeBandTokens = aiConfig.localModels?.chat?.safeProcessingLimitTokens;
-                        const deferReason    = ingestErrors > 0
+                        // Digest failed (typed extractor failure OR memory-ingestion errors). Bound the
+                        // re-serve only when the extractor supplies cadence-terminal evidence; ingestion
+                        // errors and legacy bare-null returns stay retryable so a storage/transient failure
+                        // never removes a digestible session from the steady cadence.
+                        const digestAttempts     = (Number(session.meta.digestAttempts) || 0) + 1;
+                        const maxDigestAttempts  = readRequiredNumberLeaf('maxDigestAttempts');
+                        const terminalForCadence = ingestErrors === 0 && extractionFailure?.terminalForCadence === true;
+                        const deferReason        = ingestErrors > 0
                             ? 'ingestion-failure'
-                            : (safeBandTokens > 0 && sessionState.payloadSizeTokens > safeBandTokens ? 'skip-over-band' : 'under-band-choke');
-                        // Bound the re-serve ONLY for the deterministically-terminal reason (skip-over-band);
-                        // under-band-choke + transient ingestion-failure keep retrying (attempt-tracked) so a
-                        // digestible session is never silently dropped on a guessed-terminal null.
-                        const maxDigestAttempts = readRequiredNumberLeaf('maxDigestAttempts');
-                        const digestState       = PERMANENT_DEFER_REASONS.has(deferReason) && digestAttempts >= maxDigestAttempts
+                            : (extractionFailure?.deferReason || 'schema-failure');
+                        const digestState = terminalForCadence && digestAttempts >= maxDigestAttempts
                             ? 'deferred'
                             : 'undigested';
 
@@ -585,9 +595,10 @@ class DreamService extends Base {
                             ids      : [session.id],
                             metadatas: [{ ...session.meta, digestState, digestAttempts, deferReason }]
                         });
-                        sessionState.digestState    = digestState;
-                        sessionState.deferReason    = deferReason;
-                        sessionState.digestAttempts = digestAttempts;
+                        sessionState.digestState        = digestState;
+                        sessionState.deferReason        = deferReason;
+                        sessionState.digestAttempts     = digestAttempts;
+                        sessionState.terminalForCadence = terminalForCadence;
 
                         if (digestState === 'deferred') {
                             logger.warn(`[DreamService] Session ${session.meta.sessionId} marked 'deferred' after ${digestAttempts} failed digest attempt(s) (reason: ${deferReason}); excluded from the steady REM cadence to stop the re-serve bleed.`);
