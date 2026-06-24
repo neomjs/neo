@@ -121,6 +121,35 @@ class SemanticGraphExtractor extends Base {
     }
 
     /**
+     * Builds the graph-generation provider from resolved AiConfig leaves.
+     *
+     * @summary Anchor & Echo: Keeps ADR-19 ownership local to this consumer: the
+     * Provider tree is read at the graph-extraction use site, while the dispatch
+     * helper receives only the plain constructor shape it needs for provider creation.
+     *
+     * @param {String} graphProvider Active graph-generation provider selector
+     * @returns {{generate: Function}} Chat-capable graph provider
+     * @protected
+     */
+    buildConfiguredGraphProvider(graphProvider) {
+        return buildGraphProvider({
+            modelProvider: graphProvider,
+            ollamaConfig : {
+                host          : AiConfig.ollama.host,
+                model         : AiConfig.ollama.model,
+                embeddingModel: AiConfig.ollama.embeddingModel,
+                keep_alive    : AiConfig.ollama.keep_alive
+            },
+            openAiCompatibleConfig: {
+                apiKey    : AiConfig.openAiCompatible.apiKey,
+                host      : AiConfig.openAiCompatible.host,
+                keep_alive: AiConfig.openAiCompatible.keep_alive,
+                model     : AiConfig.openAiCompatible.model
+            }
+        });
+    }
+
+    /**
      * Emits deterministic context-overflow friction for post-invocation retry aborts.
      *
      * @summary Anchor & Echo: Reuses the established ConsumerFriction channel for retry-loop
@@ -287,11 +316,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
 
         try {
             const graphProvider = resolveGraphModelProvider(AiConfig);
-            const provider      = buildGraphProvider({
-                modelProvider         : graphProvider,
-                ollamaConfig          : AiConfig.ollama,
-                openAiCompatibleConfig: AiConfig.openAiCompatible
-            });
+            const provider      = this.buildConfiguredGraphProvider(graphProvider);
 
             // Format boundaries securely
             const messages = [
@@ -736,11 +761,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
 
         try {
             const graphProvider = resolveGraphModelProvider(AiConfig);
-            const provider      = buildGraphProvider({
-                modelProvider         : graphProvider,
-                ollamaConfig          : AiConfig.ollama,
-                openAiCompatibleConfig: AiConfig.openAiCompatible
-            });
+            const provider      = this.buildConfiguredGraphProvider(graphProvider);
 
             const messages = [
                 { role: 'system', content: systemInstruction },
