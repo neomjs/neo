@@ -359,11 +359,12 @@ test.describe('check-block-alignment.mjs (#13556)', () => {
             expect(new Set(colonCols).size).toBe(1); // [isDescriptor]/merge/value colons share one column
         });
 
-        test('a block-opening `=` value is excluded from alignment while simple siblings align', () => {
-            // Regression guard: `cloneMap = {` stays unaligned (house style) beside an aligned
-            // simple-valued declaration run.
+        test('a block-opening `=` value participates in lone-keyword block alignment', () => {
+            // Regression guard: #13908 changed `me    = this` to `me = this` before a block-opening
+            // sibling. That is still one declaration block and must align as a whole.
             const file = write('d.mjs', [
                 'const',
+                '    me = this,',
                 '    camelRegex = 1,',
                 '    configSymbol = 2,',
                 '    cloneMap = {',
@@ -375,11 +376,14 @@ test.describe('check-block-alignment.mjs (#13556)', () => {
 
             const
                 lines    = fs.readFileSync(file, 'utf8').split('\n'),
+                meEq     = lines.find(line => /\bme\b/.test(line)).indexOf('='),
                 camelEq  = lines.find(line => /camelRegex/.test(line)).indexOf('='),
-                configEq = lines.find(line => /configSymbol/.test(line)).indexOf('=');
+                configEq = lines.find(line => /configSymbol/.test(line)).indexOf('='),
+                cloneEq  = lines.find(line => /cloneMap/.test(line)).indexOf('=');
 
-            expect(camelEq).toBe(configEq);                                   // simple siblings align
-            expect(lines.find(line => /cloneMap/.test(line))).toBe('    cloneMap = {'); // block-opener untouched
+            expect(new Set([meEq, camelEq, configEq, cloneEq]).size).toBe(1);
+            expect(lines.find(line => /\bme\b/.test(line))).toBe('    me           = this,');
+            expect(lines.find(line => /cloneMap/.test(line))).toBe('    cloneMap     = {');
         });
     });
 });

@@ -18,8 +18,7 @@ import {getStagedAddedLines} from './stagedDiff.mjs';
  *    but are not themselves aligned; nested objects re-group at their own indent.
  * 3. **`=` declaration blocks** (v1b) — aligns the `=` column for both house-style
  *    repeated-keyword declarations (`let   a = …; const b = …;`) and single-keyword comma-blocks.
- *    Bare assignments remain out of scope. The legacy lone-keyword comma-block keeps its
- *    block-opening exclusion; keyworded declaration runs include block-opening call/object values.
+ *    Bare assignments remain out of scope; block-opening call/object values still participate.
  *
  * Conservative grouping (≥ 2 members, same indent, broken by any non-conforming line) so the gate
  * never touches an un-alignable shape and cannot false-positive. The column math is the entire point.
@@ -270,19 +269,6 @@ function parseBareDeclaration(line) {
 }
 
 /**
- * @summary Whether an assignment value opens a multi-line block — its last non-space char is an
- * (unclosed) `{`, `(`, or `[`. Such members are excluded from `=`-alignment: the house style leaves a
- * block-opening `=` unaligned beside its simple-valued siblings (e.g. `cloneMap = {` next to an
- * aligned `configSymbol = …` run). Object-literal COLON alignment, by contrast, keeps block values in
- * the group (`intervals: {` aligns) — the asymmetry matches the observed convention.
- * @param {String} value
- * @returns {Boolean}
- */
-function opensMultilineBlock(value) {
-    return /[{([]$/.test(value.replace(/\s+$/, ''));
-}
-
-/**
  * @summary Splits lines into declaration assignment runs. Supported house-style units:
  *
  * - legacy lone-keyword comma-blocks (`const` then indented bare `name = …` continuations);
@@ -292,7 +278,7 @@ function opensMultilineBlock(value) {
  * Bare assignments are still deliberately NOT collected without a keyword anchor.
  * @param {String[]} lines
  * @param {Boolean[]} [maskedLines]
- * @returns {Array<{entries: Array<{lineIndex: Number, left: String, value: String}>, includeBlockOpeners: Boolean, mode: String}>}
+ * @returns {Array<{entries: Array<{lineIndex: Number, left: String, value: String}>, mode: String}>}
  */
 function collectAssignmentRuns(lines, maskedLines = []) {
     const runs = [];
@@ -315,7 +301,7 @@ function collectAssignmentRuns(lines, maskedLines = []) {
             }
 
             if (run.length >= 2) {
-                runs.push({entries: run, includeBlockOpeners: false, mode: 'comma'});
+                runs.push({entries: run, mode: 'comma'});
                 i = j;
                 continue;
             }
@@ -339,7 +325,7 @@ function collectAssignmentRuns(lines, maskedLines = []) {
             }
 
             if (keywordRun.length >= 2) {
-                runs.push({entries: keywordRun, includeBlockOpeners: true, mode: 'comma'});
+                runs.push({entries: keywordRun, mode: 'comma'});
                 i = j;
                 continue;
             }
@@ -356,12 +342,12 @@ function collectAssignmentRuns(lines, maskedLines = []) {
             }
 
             if (keywordRun.length >= 2) {
-                runs.push({entries: keywordRun, includeBlockOpeners: true, mode: 'keyword'});
+                runs.push({entries: keywordRun, mode: 'keyword'});
                 i = j;
                 continue;
             }
 
-            runs.push({entries: keywordRun, includeBlockOpeners: true, mode: 'keyword'});
+            runs.push({entries: keywordRun, mode: 'keyword'});
         }
 
         i++;
@@ -382,14 +368,8 @@ function evaluateAssignmentAlignment(lines, maskedLines = []) {
         violations = [],
         fixedLines = lines.slice();
 
-    for (const {entries, includeBlockOpeners, mode} of collectAssignmentRuns(lines, maskedLines)) {
-        // Align the simple-valued members only; a block-opening value keeps its `=` unaligned (house
-        // style) for legacy lone-keyword comma-blocks. Keyworded declaration blocks include block
-        // openers because that is how existing source aligns `const response = fetch(..., {`.
-        const simpleParts = includeBlockOpeners
-            ? entries
-            : entries.filter(part => !opensMultilineBlock(part.value));
-
+    for (const {entries, mode} of collectAssignmentRuns(lines, maskedLines)) {
+        const simpleParts = entries;
         if (simpleParts.length === 0) continue;
         if (simpleParts.length < 2 && lines[simpleParts[0].lineIndex] === `${simpleParts[0].left} = ${simpleParts[0].value}`) continue;
 

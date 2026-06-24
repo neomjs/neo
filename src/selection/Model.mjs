@@ -335,7 +335,7 @@ class Model extends Base {
      */
     toJSON() {
         const
-            me = this,
+            me    = this,
             items = (me.items || []).map(item => {
                 if (Neo.isRecord(item)) {
                     return item.toJSON()
