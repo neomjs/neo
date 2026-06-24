@@ -476,14 +476,34 @@ class OllamaProvider extends Base {
      * @param {String|String[]} input Single text or array of texts to embed.
      * @param {Object} [options]
      * @param {String} [options.model] Override the configured `embeddingModel` / `modelName`.
+     * @param {Boolean} [options.truncate=false] Whether Ollama may truncate inputs over context.
+     * @param {Number} [options.num_ctx] Native Ollama context window for this embedding request.
      * @returns {Promise<{embeddings: Number[][], raw: Object, evalSample: Object}>}
      */
     async embed(input, options = {}) {
-        const model   = options.model || this.embeddingModel || this.modelName;
+        const {
+            dimensions,
+            keep_alive,
+            model: modelOverride,
+            truncate = false,
+            ...ollamaOptions
+        } = options;
+        const model   = modelOverride || this.embeddingModel || this.modelName;
         const payload = {
             model,
-            input
+            input,
+            truncate
         };
+
+        if (keep_alive !== undefined) {
+            payload.keep_alive = keep_alive;
+        }
+        if (dimensions !== undefined) {
+            payload.dimensions = dimensions;
+        }
+        if (Object.keys(ollamaOptions).length > 0) {
+            payload.options = ollamaOptions;
+        }
 
         try {
             const parsedUrl  = new URL(`${this.host}/api/embed`);
