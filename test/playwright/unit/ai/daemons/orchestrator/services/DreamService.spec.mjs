@@ -1443,7 +1443,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         }
     });
 
-    test('findUndigestedSessions excludes `deferred` sessions and re-serves back-compat undigested rows (#13835)', async () => {
+    test('findUndigestedSessions excludes bounded-out sessions and re-serves back-compat undigested rows (#13835)', async () => {
         const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
         const original = {
             summarizationBatchLimit: aiConfig.summarizationBatchLimit,
@@ -1451,14 +1451,15 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             sessionsCollection     : DreamService.sessionsCollection
         };
 
-        // Mix: a fresh undigested row, a `deferred` row (bounded out after MAX failed attempts), a
-        // digested row, and a back-compat row that predates digestState (no flag at all — must still
-        // be served). `deferred` is the load-reduction lever: excluded from the steady cadence.
+        // Mix: a fresh undigested row, a legacy `deferred` row, a terminal `undigestible` row,
+        // a digested row, and a back-compat row that predates digestState (no flag at all — must still
+        // be served). The bounded-out states are excluded from the steady cadence.
         const rows = [
-            {id: 'undigested-new', document: 'a', meta: {sessionId: 'undigested-new', timestamp: 4000}},
-            {id: 'deferred-x',     document: 'b', meta: {sessionId: 'deferred-x', timestamp: 3000, digestState: 'deferred', deferReason: 'skip-over-band', digestAttempts: 3}},
-            {id: 'digested-x',     document: 'c', meta: {sessionId: 'digested-x', timestamp: 2000, graphDigested: true, digestState: 'digested'}},
-            {id: 'undigested-old', document: 'd', meta: {sessionId: 'undigested-old', timestamp: 1000}}
+            {id: 'undigested-new', document: 'a', meta: {sessionId: 'undigested-new', timestamp: 5000}},
+            {id: 'deferred-x',     document: 'b', meta: {sessionId: 'deferred-x', timestamp: 4000, digestState: 'deferred', deferReason: 'skip-over-band', digestAttempts: 3}},
+            {id: 'undigestible-x', document: 'c', meta: {sessionId: 'undigestible-x', timestamp: 3000, digestState: 'undigestible', deferReason: 'under-band-choke', digestAttempts: 3}},
+            {id: 'digested-x',     document: 'd', meta: {sessionId: 'digested-x', timestamp: 2000, graphDigested: true, digestState: 'digested'}},
+            {id: 'undigested-old', document: 'e', meta: {sessionId: 'undigested-old', timestamp: 1000}}
         ];
 
         aiConfig.summarizationBatchLimit = 10;
@@ -1477,8 +1478,9 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
 
         try {
             const ids = (await DreamService.findUndigestedSessions()).map(row => row.id);
-            // Load-reduction: `deferred` is excluded from the steady cadence (stops the re-serve bleed).
+            // Load-reduction: bounded-out rows are excluded from the steady cadence.
             expect(ids).not.toContain('deferred-x');
+            expect(ids).not.toContain('undigestible-x');
             // Digested stays excluded; back-compat undigested rows (no digestState) are still served.
             expect(ids).not.toContain('digested-x');
             expect(ids).toContain('undigested-new');
@@ -1490,7 +1492,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         }
     });
 
-    test('processUndigestedSessions bounds the re-serve — marks a session `deferred` once a skip-over-band failure reaches MAX (#13835)', async () => {
+    test('processUndigestedSessions bounds the re-serve — marks a session `undigestible` once a skip-over-band failure reaches MAX (#13835)', async () => {
         const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
         const AdrIngestor             = (await import('../../../../../../../ai/services/ingestion/AdrIngestor.mjs')).default;
         const ConceptIngestor         = (await import('../../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;
@@ -1560,7 +1562,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             expect(sessionUpdatePayloads.length).toBe(1);
             const meta = sessionUpdatePayloads[0].metadatas[0];
             expect(meta.graphDigested).toBeUndefined();   // never falsely-digested
-            expect(meta.digestState).toBe('deferred');     // 3rd failure reaches MAX → bounded out (deterministic)
+            expect(meta.digestState).toBe('undigestible'); // 3rd failure reaches MAX → bounded out (deterministic)
             expect(meta.digestAttempts).toBe(3);
             expect(meta.deferReason).toBe('skip-over-band');
         } finally {
@@ -1651,7 +1653,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             expect(meta.graphDigested).toBeUndefined();    // never falsely-digested
             expect(meta.deferReason).toBe('under-band-choke');
             expect(meta.digestAttempts).toBe(6);            // 5 prior + this one
-            expect(meta.digestState).toBe('deferred');      // typed terminal descriptor → bounded out
+            expect(meta.digestState).toBe('undigestible');  // typed terminal descriptor → bounded out
         } finally {
             aiConfig.modelProvider                            = orig.provider;
             DreamService.findUndigestedSessions               = orig.findUndigested;
