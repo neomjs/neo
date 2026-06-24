@@ -323,6 +323,64 @@ export class ProcessSupervisorService extends Base {
     }
 
     /**
+     * Runs the task readiness hook after an out-of-band service passes liveness.
+     *
+     * Fire-and-exit launchers such as `lms server start` can leave the HTTP endpoint healthy
+     * while their model-residency contract is stale. Reusing the task-owned readiness hook here
+     * lets the LM Studio task enforce configured model context even when no child spawn happens.
+     *
+     * @param {String} taskName Task key.
+     * @param {Object} task Task definition.
+     * @param {String} reason Scheduling reason.
+     * @param {Function} [onFailure] Callback for readiness-hook failures.
+     * @returns {Promise|null}
+     */
+    runLivenessReadinessHook(taskName, task, reason, onFailure) {
+        if (typeof task.postSpawn !== 'function') {
+            return null;
+        }
+
+        return Promise.resolve()
+            .then(() => task.postSpawn({
+                taskName,
+                task,
+                reason,
+                pid     : null,
+                writeLog: this.writeLog
+            }))
+            .then(result => {
+                if (result?.ready === false || result?.degraded === true) {
+                    this.writeLog?.('WARN', `[ProcessSupervisor] ${task.label} readiness hook completed with degraded readiness after liveness confirmation.`);
+                    this.recordTaskOutcome(taskName, 'degraded', {
+                        reason,
+                        pid      : null,
+                        readyAt  : new Date().toISOString(),
+                        readiness: result || null
+                    });
+                    return;
+                }
+
+                this.taskStateService.markReady?.(taskName);
+                this.writeLog?.('INFO', `[ProcessSupervisor] ${task.label} readiness hook completed successfully after liveness confirmation.`);
+                this.recordTaskOutcome(taskName, 'ready', {
+                    reason,
+                    pid      : null,
+                    readyAt  : new Date().toISOString(),
+                    readiness: result || null
+                });
+            })
+            .catch(error => {
+                this.writeLog?.('ERROR', `[ProcessSupervisor] ${task.label} readiness hook failed after liveness confirmation: ${error.message}`);
+                this.recordTaskOutcome(taskName, 'failed', {
+                    reason,
+                    phase: 'liveness-readiness',
+                    error: error.message
+                });
+                onFailure?.();
+            });
+    }
+
+    /**
      * Starts a child task and wires completion status back into task state and HealthService.
      * @param {String} taskName Task key.
      * @param {String} reason Scheduling reason.
@@ -758,6 +816,7 @@ export class ProcessSupervisorService extends Base {
             .then(up => {
                 if (up) {
                     this._livenessConfirmedAt[taskName] = Date.now();
+                    this.runLivenessReadinessHook(taskName, task, 'liveness-confirmed', () => this.runTask(taskName, 'supervisor-restart'));
                 } else {
                     this.runTask(taskName, 'supervisor-restart');
                 }

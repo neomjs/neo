@@ -667,6 +667,44 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
         expect(service._livenessConfirmedAt.probeTask).toBeTruthy();
     });
 
+    test('superviseTask runs readiness hook when fire-and-exit liveness is already UP (#13944)', async () => {
+        const {service, taskOutcomes} = createTestService();
+        const calls          = [];
+        let   readyMarked    = false;
+        let   readinessCalls = 0;
+
+        service.runTask = (taskName, reason) => { calls.push({taskName, reason}); return true; };
+        service.taskStateService.getTaskState = () => ({running: false, lastRunAt: 0});
+        service.taskStateService.markReady = taskName => {
+            readyMarked = taskName === 'probeTask';
+        };
+        service.taskDefinitions = {
+            probeTask: {
+                label        : 'Probe Task',
+                livenessProbe: async () => true,
+                postSpawn    : async () => {
+                    readinessCalls++;
+                    return {ready: true, loadedModels: ['embedding-model']};
+                }
+            }
+        };
+
+        service.superviseTask('probeTask', 1_000_000, 15000);
+        await new Promise(resolve => setTimeout(resolve, 0));
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(calls).toEqual([]);
+        expect(readinessCalls).toBe(1);
+        expect(readyMarked).toBe(true);
+        expect(taskOutcomes).toContainEqual(expect.objectContaining({
+            status  : 'ready',
+            taskName: 'probeTask',
+            details : expect.objectContaining({
+                readiness: {ready: true, loadedModels: ['embedding-model']}
+            })
+        }));
+    });
+
     test('superviseTask gates a fire-and-exit lane on its liveness probe — DOWN triggers a restart', async () => {
         const {service} = createTestService();
         const calls = [];

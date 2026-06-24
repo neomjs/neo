@@ -3,6 +3,10 @@ import aiConfig             from '../../mcp/server/memory-core/config.mjs';
 import Base                 from '../../../src/core/Base.mjs';
 import logger               from '../../mcp/server/memory-core/logger.mjs';
 import OllamaProvider       from '../../provider/Ollama.mjs';
+import {
+    bytesToTokens,
+    emitConsumerFriction
+}                           from './helpers/consumerFrictionHelper.mjs';
 
 const DEFAULT_OPENAI_COMPATIBLE_REQUEST_TIMEOUT_MS = 60 * 60 * 1000;
 const OPENAI_COMPATIBLE_CONTENTION_HTTP_ERROR_RE   = /openAiCompatible embedding error HTTP (408|429|503|504):/;
@@ -98,7 +102,13 @@ class TextEmbeddingService extends Base {
          * @protected
          * @reactive
          */
-        ollamaProvider_: null
+        ollamaProvider_: null,
+        /**
+         * Optional test seam for LM Studio loaded-model context probes.
+         * @member {Function|null} openAiCompatibleLoadedModelsProbe=null
+         * @protected
+         */
+        openAiCompatibleLoadedModelsProbe: null
     }
 
     #openAiCompatiblePostQueue       = [];
@@ -192,6 +202,167 @@ class TextEmbeddingService extends Base {
         }
 
         return bestIndex;
+    }
+
+    /**
+     * @summary Estimates the largest text input in an OpenAI-compatible embedding request.
+     *
+     * LM Studio truncates each input string independently. Batch safety therefore uses the
+     * largest member, not the aggregate byte length of the whole batch envelope.
+     *
+     * @param {String|String[]} inputData The text or array of texts to embed.
+     * @returns {{inputBytes: Number, inputTokensEstimate: Number}}
+     * @private
+     */
+    #getOpenAiCompatibleInputEstimate(inputData) {
+        const texts = Array.isArray(inputData) ? inputData : [inputData];
+
+        let inputBytes = 0;
+
+        for (const text of texts) {
+            inputBytes = Math.max(inputBytes, Buffer.byteLength(typeof text === 'string' ? text : '', 'utf8'));
+        }
+
+        return {
+            inputBytes,
+            inputTokensEstimate: bytesToTokens(inputBytes)
+        };
+    }
+
+    /**
+     * @summary Reads currently resident LM Studio models for embedding-context enforcement.
+     *
+     * Runtime uses the canonical readiness helper. The optional plain test seam avoids spawning
+     * the LM Studio CLI from unit tests while preserving the same normalized model shape.
+     *
+     * @param {Number} timeoutMs LM Studio CLI timeout.
+     * @returns {Promise<Object[]>}
+     * @private
+     */
+    async #getOpenAiCompatibleLoadedModels(timeoutMs) {
+        if (this.openAiCompatibleLoadedModelsProbe) {
+            return this.openAiCompatibleLoadedModelsProbe({timeoutMs});
+        }
+
+        const {fetchLmsLoadedModels} = await import('../graph/providerReadinessHelper.mjs');
+        return fetchLmsLoadedModels({timeoutMs});
+    }
+
+    /**
+     * @summary Determines whether the active OpenAI-compatible endpoint is the orchestrator-owned LM Studio lane.
+     *
+     * OpenAI-compatible covers LM Studio, Ollama's compatibility surface, llama.cpp, vLLM, and
+     * CI fixture servers. The `lms ps` loaded-context probe is valid only for the LM Studio CLI
+     * lane, identified by the configured `orchestrator.lms.port` owning the provider host.
+     *
+     * @returns {Boolean}
+     * @private
+     */
+    #shouldAssertOpenAiCompatibleEmbeddingContext() {
+        if (this.openAiCompatibleLoadedModelsProbe) {
+            return true;
+        }
+        if (Neo.config.unitTestMode) {
+            return false;
+        }
+        if (aiConfig.orchestrator.lms.enabled !== true) {
+            return false;
+        }
+
+        const
+            host    = aiConfig.openAiCompatible.host,
+            lmsPort = aiConfig.orchestrator.lms.port;
+
+        let endpointUrl;
+
+        try {
+            endpointUrl = new URL(host);
+        } catch (error) {
+            throw new TypeError(`TextEmbeddingService: openAiCompatible.host must be a valid URL for embedding context enforcement, got '${host}': ${error.message}`);
+        }
+
+        return endpointUrl.port === lmsPort;
+    }
+
+    /**
+     * @summary Fails before OpenAI-compatible embeddings can be silently provider-truncated.
+     *
+     * LM Studio can answer `/v1/embeddings` while the embedding model is resident at a smaller
+     * loaded context than Neo's `localModels.embedding.contextLimitTokens` leaf. The provider then
+     * logs a truncation warning and still returns an embedding. This guard checks the resident model
+     * shape before the request so KB / Memory Core callers never accept that corrupted vector.
+     *
+     * @param {String|String[]} inputData The text or array of texts to embed.
+     * @returns {Promise<void>}
+     * @private
+     */
+    async #assertOpenAiCompatibleEmbeddingContext(inputData) {
+        if (!this.#shouldAssertOpenAiCompatibleEmbeddingContext()) {
+            return;
+        }
+
+        const
+            configuredContextLength = aiConfig.localModels.embedding.contextLimitTokens,
+            timeoutMs               = aiConfig.orchestrator.providerReadiness.timeoutMs,
+            model                   = aiConfig.openAiCompatible.embeddingModel;
+
+        if (!Neo.isNumber(configuredContextLength) || configuredContextLength <= 0) {
+            throw new TypeError(`TextEmbeddingService: localModels.embedding.contextLimitTokens must be a positive number, got ${configuredContextLength}`);
+        }
+        if (!Neo.isNumber(timeoutMs) || timeoutMs <= 0) {
+            throw new TypeError(`TextEmbeddingService: orchestrator.providerReadiness.timeoutMs must be a positive number, got ${timeoutMs}`);
+        }
+        if (!model) {
+            throw new TypeError('TextEmbeddingService: openAiCompatible.embeddingModel is required for embedding context enforcement');
+        }
+
+        let loadedModels;
+
+        try {
+            loadedModels = await this.#getOpenAiCompatibleLoadedModels(timeoutMs);
+        } catch (error) {
+            throw new Error(`TextEmbeddingService: unable to verify LM Studio embedding context for '${model}': ${error.message}`);
+        }
+
+        const
+            loadedModel = loadedModels.find(item => item.id === model),
+            estimate    = this.#getOpenAiCompatibleInputEstimate(inputData);
+
+        if (!loadedModel) {
+            const observedIds = loadedModels.map(item => item.id).filter(Boolean).slice(0, 5).join(', ') || 'none';
+            throw new Error(`TextEmbeddingService: LM Studio embedding model '${model}' is not resident under its configured identifier; observed=${observedIds}`);
+        }
+        if (!Neo.isNumber(loadedModel.contextLength)) {
+            throw new Error(`TextEmbeddingService: LM Studio embedding model '${model}' has unknown loaded context; configured>=${configuredContextLength}`);
+        }
+
+        if (loadedModel.contextLength < configuredContextLength || estimate.inputTokensEstimate > loadedModel.contextLength) {
+            if (estimate.inputTokensEstimate > loadedModel.contextLength) {
+                emitConsumerFriction({
+                    assetRef                 : `openAiCompatible:${model}`,
+                    consumer                 : 'TextEmbeddingService.openAiCompatible',
+                    model,
+                    symptom                  : 'context-overflow',
+                    emissionPoint            : 'pre-invocation',
+                    suggestionKind           : 'split-document',
+                    inputBytes               : estimate.inputBytes,
+                    inputTokensEstimate      : estimate.inputTokensEstimate,
+                    contextLimitTokens       : configuredContextLength,
+                    safeProcessingLimitTokens: loadedModel.contextLength,
+                    serviceDomain            : 'memory-core',
+                    note                     : 'OpenAI-compatible embedding request would exceed the observed loaded LM Studio embedding context.'
+                });
+            }
+
+            logger.warn('[TextEmbeddingService] Refusing OpenAI-compatible embedding before provider-side truncation.', {
+                model,
+                loadedContextLength: loadedModel.contextLength,
+                configuredContextLength,
+                inputTokensEstimate: estimate.inputTokensEstimate
+            });
+
+            throw new Error(`TextEmbeddingService: LM Studio embedding context too small for '${model}' (loaded=${loadedModel.contextLength}, configured>=${configuredContextLength}, inputEstimate=${estimate.inputTokensEstimate})`);
+        }
     }
 
     /**
@@ -318,7 +489,7 @@ class TextEmbeddingService extends Base {
     #getOllamaProvider() {
         if (this.ollamaProvider) return this.ollamaProvider;
 
-        const config = aiConfig.ollama;
+        const config   = aiConfig.ollama;
         const provider = Neo.create(OllamaProvider, {
             host          : config.host,
             modelName     : config.model,
@@ -350,7 +521,7 @@ class TextEmbeddingService extends Base {
               data      = [];
 
         for (let offset = 0; offset < texts.length; offset += chunkSize) {
-            const chunk = texts.slice(offset, offset + chunkSize),
+            const chunk  = texts.slice(offset, offset + chunkSize),
                   result = await this.#enqueueOpenAiCompatiblePost(chunk, {
                       unloadRetriesLeft: unloadRetryCount
                   }, 'batch');
@@ -388,6 +559,7 @@ class TextEmbeddingService extends Base {
                 contentionRetryCount      = 2,
                 contentionTimeoutMs       = 15000
             } = aiConfig.openAiCompatible;
+            await this.#assertOpenAiCompatibleEmbeddingContext(text);
             const result = await this.#enqueueOpenAiCompatiblePost(text, {
                 unloadRetriesLeft    : unloadRetryCount,
                 contentionRetriesLeft: contentionRetryCount,
@@ -431,6 +603,7 @@ class TextEmbeddingService extends Base {
         if (!explicitProvider) throw new Error('TextEmbeddingService.embedTexts requires an explicit provider argument');
 
         if (explicitProvider === 'openAiCompatible') {
+            await this.#assertOpenAiCompatibleEmbeddingContext(texts);
             return this.#embedOpenAiCompatibleBatch(texts);
         } else if (explicitProvider === 'ollama') {
             // Ollama's `/api/embed` accepts array-of-strings natively + returns
@@ -448,7 +621,7 @@ class TextEmbeddingService extends Base {
             }
 
             const requests = texts.map(text => ({model: aiConfig.embeddingModel, content: {parts: [{text}]}}));
-            const result = await this.embeddingModel.batchEmbedContents({ requests });
+            const result   = await this.embeddingModel.batchEmbedContents({ requests });
             return result.embeddings.map(e => e.values);
         } else {
             // Unknown provider names fail loudly (matches `embedText`).
