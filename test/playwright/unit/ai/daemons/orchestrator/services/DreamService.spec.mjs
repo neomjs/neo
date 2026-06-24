@@ -1156,6 +1156,155 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         }
     });
 
+    test('processUndigestedSessions threads complete raw memory turns into topology inference (#12073)', async () => {
+        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const AdrIngestor             = (await import('../../../../../../../ai/services/ingestion/AdrIngestor.mjs')).default;
+        const ConceptIngestor         = (await import('../../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;
+        const FileSystemIngestor      = (await import('../../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
+        const TopologyInferenceEngine = (await import('../../../../../../../ai/services/graph/TopologyInferenceEngine.mjs')).default;
+
+        const rawTurns    = ['prompt turn body', 'response turn body'];
+        const mockSession = {
+            id      : 'chroma-summary-raw-turns',
+            document: 'summary fallback should not reach topology',
+            meta    : {sessionId: 'agent-session-raw-turns', title: 'Raw turn session'}
+        };
+
+        let triVectorDocument;
+        let topologyArgs;
+
+        const orig = {
+            provider          : aiConfig.modelProvider,
+            findUndigested    : DreamService.findUndigestedSessions,
+            sessionsCollection: DreamService.sessionsCollection,
+            inferTest         : DreamService.inferTestGapsFromSession,
+            executeNlDigest   : DreamService.executeNLActionDigest,
+            inferConcept      : DreamService.inferConceptGraphGaps,
+            runGarbageCol     : DreamService.runGarbageCollection,
+            synthesizeGolden  : DreamService.synthesizeGoldenPath,
+            triVector         : SemanticGraphExtractor.executeTriVectorExtraction,
+            syncSession       : MemorySessionIngestor.syncSessionToGraph,
+            syncAdrs          : AdrIngestor.syncAdrsToGraph,
+            syncConcepts      : ConceptIngestor.syncConceptsToGraph,
+            syncFs            : FileSystemIngestor.syncWorkspaceToGraph,
+            extractTopo       : TopologyInferenceEngine.extractTopology,
+            conflictCount     : TopologyInferenceEngine.getTopologyConflictCount,
+            getMemory         : StorageRouter.getMemoryCollection,
+            isProcessing      : DreamService.isProcessing
+        };
+
+        try {
+            aiConfig.modelProvider    = 'mock-provider';
+            DreamService.isProcessing = false;
+
+            DreamService.findUndigestedSessions = async () => [mockSession];
+            DreamService.sessionsCollection     = {update: async () => {}};
+            StorageRouter.getMemoryCollection   = async () => ({
+                get: async () => ({documents: rawTurns})
+            });
+            DreamService.inferTestGapsFromSession = async () => {};
+            DreamService.executeNLActionDigest    = async () => ({status: 'completed'});
+            DreamService.inferConceptGraphGaps    = async () => {};
+            DreamService.runGarbageCollection     = async () => {};
+            DreamService.synthesizeGoldenPath     = async () => {};
+            MemorySessionIngestor.syncSessionToGraph = async () => ({errors: [], memoriesSkipped: 0, memoriesUpserted: rawTurns.length});
+            AdrIngestor.syncAdrsToGraph              = async () => ({});
+            ConceptIngestor.syncConceptsToGraph     = async () => ({});
+            FileSystemIngestor.syncWorkspaceToGraph = async () => {};
+            SemanticGraphExtractor.executeTriVectorExtraction = async session => {
+                triVectorDocument = session.document;
+                return {session_artifact: {graph: {nodes: [], edges: []}}};
+            };
+            TopologyInferenceEngine.extractTopology = async (contextText, sessionId, options) => {
+                topologyArgs = {contextText, sessionId, options};
+                return {chunked: true, chunks: {total: 2, skipped: 0, processed: 2}, conflictCount: 0};
+            };
+            TopologyInferenceEngine.getTopologyConflictCount = async () => 0;
+
+            await DreamService.processUndigestedSessions();
+
+            expect(triVectorDocument).toBe(rawTurns.join('\n\n---\n\n'));
+            expect(topologyArgs).toMatchObject({
+                contextText: rawTurns.join('\n\n---\n\n'),
+                sessionId  : 'agent-session-raw-turns',
+                options    : {turnDocuments: rawTurns}
+            });
+        } finally {
+            aiConfig.modelProvider                            = orig.provider;
+            DreamService.findUndigestedSessions               = orig.findUndigested;
+            DreamService.sessionsCollection                   = orig.sessionsCollection;
+            DreamService.inferTestGapsFromSession             = orig.inferTest;
+            DreamService.executeNLActionDigest                = orig.executeNlDigest;
+            DreamService.inferConceptGraphGaps                = orig.inferConcept;
+            DreamService.runGarbageCollection                 = orig.runGarbageCol;
+            DreamService.synthesizeGoldenPath                 = orig.synthesizeGolden;
+            SemanticGraphExtractor.executeTriVectorExtraction = orig.triVector;
+            MemorySessionIngestor.syncSessionToGraph          = orig.syncSession;
+            AdrIngestor.syncAdrsToGraph                       = orig.syncAdrs;
+            ConceptIngestor.syncConceptsToGraph               = orig.syncConcepts;
+            FileSystemIngestor.syncWorkspaceToGraph           = orig.syncFs;
+            TopologyInferenceEngine.extractTopology           = orig.extractTopo;
+            TopologyInferenceEngine.getTopologyConflictCount  = orig.conflictCount;
+            StorageRouter.getMemoryCollection                 = orig.getMemory;
+            DreamService.isProcessing                         = orig.isProcessing;
+        }
+    });
+
+    test('TopologyInferenceEngine chunks complete memory turns and bounds topology output (#12073)', async () => {
+        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const TopologyInferenceEngine = (await import('../../../../../../../ai/services/graph/TopologyInferenceEngine.mjs')).default;
+
+        const turnDocuments = Array.from({length: 15}, (_, index) => `turn-${index}\n${'x'.repeat(1200)}`);
+        const providerCalls = [];
+
+        const orig = {
+            graphProvider : aiConfig.graphProvider,
+            chatContext   : aiConfig.localModels.chat.contextLimitTokens,
+            chatSafe      : aiConfig.localModels.chat.safeProcessingLimitTokens,
+            graphReasoning: aiConfig.localModels.chat.graphReasoningEffort,
+            openAiModel   : aiConfig.openAiCompatible.model,
+            generate      : OpenAiCompatible.prototype.generate
+        };
+
+        try {
+            aiConfig.graphProvider                                = 'openAiCompatible';
+            aiConfig.openAiCompatible.model                       = 'topology-test-model';
+            aiConfig.localModels.chat.contextLimitTokens          = 8192;
+            aiConfig.localModels.chat.safeProcessingLimitTokens   = 5000;
+            aiConfig.localModels.chat.graphReasoningEffort        = 'none';
+            OpenAiCompatible.prototype.generate = async (prompt, providerOptions) => {
+                providerCalls.push({prompt, providerOptions});
+                return {content: '{"conflicts":[]}'};
+            };
+
+            const result = await TopologyInferenceEngine.extractTopology(
+                turnDocuments.join('\n\n---\n\n'),
+                'topology-turns-test',
+                {turnDocuments}
+            );
+
+            expect(result.chunked).toBe(true);
+            expect(providerCalls.length).toBeGreaterThan(1);
+            expect(result.chunks.total).toBe(providerCalls.length);
+            expect(providerCalls[0].prompt).toContain('source turn indices');
+            expect(providerCalls[0].prompt).toContain('turn-0');
+            expect(providerCalls[0].prompt).not.toContain('turn-14');
+            expect(providerCalls[0].providerOptions).toMatchObject({
+                reasoning_effort    : 'none',
+                responseSchemaName  : 'topologyConflicts',
+                responseSchemaStrict: true
+            });
+            expect(providerCalls[0].providerOptions.responseSchema.properties.conflicts.maxItems).toBe(5);
+        } finally {
+            aiConfig.graphProvider                              = orig.graphProvider;
+            aiConfig.localModels.chat.contextLimitTokens        = orig.chatContext;
+            aiConfig.localModels.chat.safeProcessingLimitTokens = orig.chatSafe;
+            aiConfig.localModels.chat.graphReasoningEffort      = orig.graphReasoning;
+            aiConfig.openAiCompatible.model                     = orig.openAiModel;
+            OpenAiCompatible.prototype.generate                 = orig.generate;
+        }
+    });
+
     test('processUndigestedSessions does not set graphDigested when memory ingestion reports errors (#10460)', async () => {
         // Regression guard: the Tri-Vector extractor can succeed from
         // `session.document` even when MemorySessionIngestor partially failed to upsert MEMORY

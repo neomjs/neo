@@ -374,7 +374,8 @@ class DreamService extends Base {
                 for (const session of sessions) {
                     logger.info(`[DreamService] Preparing session ${session.meta.sessionId} ("${session.meta.title}") for REM extraction.`);
 
-                    let rawEpisodicMemory = session.document;
+                    let rawEpisodicMemory = session.document,
+                        turnDocuments     = [session.document];
                     try {
                         const memoryCollection = await StorageRouter.getMemoryCollection();
                         if (memoryCollection) {
@@ -385,14 +386,16 @@ class DreamService extends Base {
                             if (rawMemories?.documents?.length > 0) {
                                 // Send the full raw memory to the LLM. Lossless context tracking is required.
                                 // If local APIs crash, it is a configuration issue with n_ctx, not a client logic error.
-                                rawEpisodicMemory = rawMemories.documents.join('\n\n---\n\n');
+                                turnDocuments     = rawMemories.documents;
+                                rawEpisodicMemory = turnDocuments.join('\n\n---\n\n');
                             }
                         }
                     } catch (e) {
                         logger.warn(`[DreamService] Could not fetch raw memories for ${session.meta.sessionId}`, e);
                     }
 
-                    session.document = rawEpisodicMemory;
+                    session.document      = rawEpisodicMemory;
+                    session.turnDocuments = turnDocuments;
                     logger.info(`[DreamService]   -> Payload size (chars): ${session.document.length}`);
 
                     const sessionState = {
@@ -486,10 +489,19 @@ class DreamService extends Base {
                     }));
 
                     const topoStart     = Date.now();
-                    let   conflictCount = 0;
+                    let   conflictCount = 0,
+                          topologyDetails = {};
                     try {
-                        await TopologyInferenceEngine.extractTopology(session.document, session.meta.sessionId);
+                        const topologyResult = await TopologyInferenceEngine.extractTopology(session.document, session.meta.sessionId, {
+                            turnDocuments: session.turnDocuments
+                        });
                         conflictCount = await TopologyInferenceEngine.getTopologyConflictCount();
+                        if (topologyResult?.chunks) {
+                            topologyDetails = {
+                                chunks : topologyResult.chunks,
+                                chunked: topologyResult.chunked
+                            };
+                        }
                     } catch (e) {
                         sessionState.topology = {
                             status       : 'failed',
@@ -507,11 +519,13 @@ class DreamService extends Base {
                     logger.info(`[DreamService]   -> Topological Conflicts took: ${topoTime}s`);
                     sessionState.topology = {
                         status: 'completed',
-                        conflictCount
+                        conflictCount,
+                        ...topologyDetails
                     };
                     perPhaseStates.push(finishPhase('topology', topoStart, 'completed', {
                         sessionId: session.meta.sessionId,
-                        conflictCount
+                        conflictCount,
+                        ...topologyDetails
                     }));
 
                     const capStart = Date.now();
