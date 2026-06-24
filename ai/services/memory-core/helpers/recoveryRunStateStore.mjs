@@ -9,7 +9,8 @@ export const RECOVERY_CLASSES = Object.freeze([
     'contention',
     'crash',
     'exhaustion',
-    'external-load'
+    'external-load',
+    'provider-role-residency'
 ]);
 
 export const RECOVERY_RUN_RUNG_IDS = Object.freeze([

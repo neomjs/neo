@@ -481,6 +481,147 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         });
     });
 
+    test('repairProviderRoleSetResidency warms the LM Studio chat and embedding role set (#13948)', async () => {
+        let repairOptions;
+
+        const result = await providerReadinessHelper.repairProviderRoleSetResidency({
+            config: {
+                modelProvider    : 'openAiCompatible',
+                graphProvider    : 'openAiCompatible',
+                embeddingProvider: 'openAiCompatible',
+                openAiCompatible : {
+                    host          : 'http://127.0.0.1:1234',
+                    model         : 'chat-model',
+                    embeddingModel: 'embedding-model'
+                },
+                localModels: {
+                    chat     : {contextLimitTokens: 131072, parallel: 1},
+                    embedding: {contextLimitTokens: 32768, parallel: 1}
+                },
+                orchestrator: {
+                    lms: {enabled: true}
+                }
+            },
+            attempts   : 2,
+            delayMs    : 0,
+            timeoutMs  : 50,
+            lmsRepairFn: async options => {
+                repairOptions = options;
+                return {
+                    ready          : true,
+                    requiredModels : options.models,
+                    availableModels: options.models
+                };
+            }
+        });
+
+        expect(result).toMatchObject({
+            ready   : true,
+            provider: 'openAiCompatible',
+            host    : 'http://127.0.0.1:1234',
+            action  : 'warm-provider'
+        });
+        expect(repairOptions).toMatchObject({
+            host          : 'http://127.0.0.1:1234',
+            models        : ['chat-model', 'embedding-model'],
+            contextLengths: {
+                'chat-model'     : 131072,
+                'embedding-model': 32768
+            },
+            parallels: {
+                'chat-model'     : 1,
+                'embedding-model': 1
+            },
+            allowPartial: true,
+            attempts    : 2,
+            delayMs     : 0,
+            timeoutMs   : 50
+        });
+    });
+
+    test('repairProviderRoleSetResidency warms native Ollama chat and embedding roles (#13948)', async () => {
+        let repairOptions;
+
+        const result = await providerReadinessHelper.repairProviderRoleSetResidency({
+            config: {
+                modelProvider    : 'ollama',
+                graphProvider    : 'ollama',
+                embeddingProvider: 'ollama',
+                ollama           : {
+                    host                 : 'http://127.0.0.1:11434',
+                    model                : 'gemma4:26b',
+                    embeddingModel       : 'qwen3-embedding:latest',
+                    keep_alive           : -1,
+                    requireParallelModels: 2
+                },
+                localModels: {
+                    chat     : {contextLimitTokens: 131072},
+                    embedding: {contextLimitTokens: 32768}
+                }
+            },
+            attempts      : 2,
+            delayMs       : 0,
+            timeoutMs     : 50,
+            ollamaRepairFn: async options => {
+                repairOptions = options;
+                return {
+                    ready       : true,
+                    warmedModels: options.roles.map(role => ({model: role.model, role: role.role}))
+                };
+            }
+        });
+
+        expect(result).toMatchObject({
+            ready   : true,
+            provider: 'ollama',
+            action  : 'warm-provider'
+        });
+        expect(repairOptions).toMatchObject({
+            host                 : 'http://127.0.0.1:11434',
+            keepAlive            : -1,
+            requireParallelModels: 2,
+            allowPartial         : true,
+            attempts             : 2,
+            delayMs              : 0,
+            timeoutMs            : 50
+        });
+        expect(repairOptions.roles).toEqual([{
+            provider     : 'ollama',
+            providerRole : 'modelProvider',
+            role         : 'chat',
+            model        : 'gemma4:26b',
+            contextLength: 131072
+        }, {
+            provider     : 'ollama',
+            providerRole : 'embeddingProvider',
+            role         : 'embedding',
+            model        : 'qwen3-embedding:latest',
+            contextLength: 32768
+        }]);
+    });
+
+    test('provider role-set builders fail loud on missing AiConfig localModels leaves (#13948)', () => {
+        expect(() => providerReadinessHelper.buildLmsPreloadConfig({
+            modelProvider    : 'openAiCompatible',
+            graphProvider    : 'openAiCompatible',
+            embeddingProvider: 'openAiCompatible',
+            openAiCompatible : {
+                model         : 'chat-model',
+                embeddingModel: 'embedding-model'
+            }
+        })).toThrow(TypeError);
+
+        expect(() => providerReadinessHelper.buildOllamaReadinessConfig({
+            modelProvider    : 'ollama',
+            graphProvider    : 'ollama',
+            embeddingProvider: 'ollama',
+            ollama           : {
+                model         : 'chat-model',
+                embeddingModel: 'embedding-model'
+            }
+        })).toThrow(TypeError);
+    });
+
     test('ensureLmsModelsLoaded skips lms load when both models are already resident AND no contextLengths configured', async () => {
         const loads = [];
 
@@ -1442,6 +1583,14 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
                 model                : 'gemma4:31b',
                 embeddingModel       : 'qwen3-embedding',
                 requireParallelModels: 2
+            },
+            localModels: {
+                chat: {
+                    contextLimitTokens: 131072
+                },
+                embedding: {
+                    contextLimitTokens: 32768
+                }
             }
         }).roles).toEqual([]);
     });
