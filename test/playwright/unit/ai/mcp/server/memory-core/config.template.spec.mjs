@@ -260,6 +260,29 @@ test.describe('Memory Core Config (#10010)', () => {
         }
     });
 
+    test('conceptDiscovery message-harvest leaves parse numeric env overrides (#13840)', () => {
+        expect(config.conceptDiscovery.messageHarvestBatchLimit).toBe(500);
+        expect(config.conceptDiscovery.messageHarvestTopN).toBe(20);
+        expect(config.conceptDiscovery.messageHarvestMinFrequency).toBe(2);
+
+        process.env.NEO_CONCEPT_DISCOVERY_MESSAGE_HARVEST_BATCH_LIMIT   = '77';
+        process.env.NEO_CONCEPT_DISCOVERY_MESSAGE_HARVEST_TOP_N         = '9';
+        process.env.NEO_CONCEPT_DISCOVERY_MESSAGE_HARVEST_MIN_FREQUENCY = '3';
+
+        const freshCfg = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
+
+        try {
+            expect(freshCfg.conceptDiscovery.messageHarvestBatchLimit).toBe(77);
+            expect(freshCfg.conceptDiscovery.messageHarvestTopN).toBe(9);
+            expect(freshCfg.conceptDiscovery.messageHarvestMinFrequency).toBe(3);
+        } finally {
+            delete process.env.NEO_CONCEPT_DISCOVERY_MESSAGE_HARVEST_BATCH_LIMIT;
+            delete process.env.NEO_CONCEPT_DISCOVERY_MESSAGE_HARVEST_TOP_N;
+            delete process.env.NEO_CONCEPT_DISCOVERY_MESSAGE_HARVEST_MIN_FREQUENCY;
+            freshCfg.destroy();
+        }
+    });
+
     test('collections.memory/session resolve by construction to per-worker-unique test names under the toggle (#12499)', () => {
         // The reshape replaced the inline `process.env.UNIT_TEST_MODE ? test-... : prod` leaf ternaries
         // with *Prod/*Test leaves + formulas; the test names are per-worker-unique module consts. Under

@@ -23,7 +23,8 @@ export const DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES = Object.freeze([
     'backup',
     'graphlog-compaction',
     'primary-dev-sync',
-    'dream'
+    'dream',
+    'message-concept-harvest'
 ]);
 
 /**
@@ -623,7 +624,7 @@ export class MaintenanceBackpressureService extends Base {
      * @returns {Boolean|*} `false` when deferred; otherwise whatever `executeFn` returns.
      */
     executeWithGoldenPathDependencyGate({taskName, executeFn, reason, activeHeavyTask}) {
-        const reasonText = reason || 'scheduled';
+        const reasonText       = reason || 'scheduled';
         const blockingTaskName = this.getActiveGoldenPathDependencyTask({
             activeTaskName: activeHeavyTask?.name
         });

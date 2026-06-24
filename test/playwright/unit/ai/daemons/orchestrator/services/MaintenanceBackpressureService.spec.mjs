@@ -73,6 +73,7 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
             'graphlog-compaction',
             'kbSync',
             'memory-summary-backfill',
+            'message-concept-harvest',
             'primary-dev-sync',
             'summary'
         ].sort());
@@ -373,7 +374,7 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         });
 
         const activeHeavyTask = {name: null};
-        const result = service.acquireLeaseAndExecute({
+        const result          = service.acquireLeaseAndExecute({
             taskName : NON_HEAVY_TASK_NAME,
             executeFn: (taskName, reason) => { executions.push({taskName, reason}); return true; },
             reason   : 'periodic-heartbeat',
@@ -396,7 +397,7 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         });
 
         const activeHeavyTask = {name: 'summary'};
-        const result = service.acquireLeaseAndExecute({
+        const result          = service.acquireLeaseAndExecute({
             taskName : 'kbSync',
             executeFn: () => { throw new Error('should not execute'); },
             reason   : 'periodic-sync',
@@ -421,7 +422,7 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         });
 
         const activeHeavyTask = {name: 'kbSync'};
-        const result = service.acquireLeaseAndExecute({
+        const result          = service.acquireLeaseAndExecute({
             taskName : 'memory-summary-backfill',
             executeFn: (taskName, reason, onSuccess, taskOptions) => {
                 executions.push({taskName, reason, env: taskOptions.env});
@@ -451,7 +452,7 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         });
 
         const activeHeavyTask = {name: null};
-        const result = service.acquireLeaseAndExecute({
+        const result          = service.acquireLeaseAndExecute({
             taskName : 'backup',
             executeFn: () => { throw new Error('should not execute'); },
             reason   : 'periodic-sweep',
@@ -476,7 +477,7 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         });
 
         const activeHeavyTask = {name: null};
-        const result = service.acquireLeaseAndExecute({
+        const result          = service.acquireLeaseAndExecute({
             taskName : 'memory-summary-backfill',
             executeFn: (taskName, reason, onSuccess, taskOptions) => {
                 executions.push({taskName, reason, env: taskOptions.env});
@@ -528,7 +529,7 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         });
 
         const activeHeavyTask = {name: null};
-        const result = service.acquireLeaseAndExecute({
+        const result          = service.acquireLeaseAndExecute({
             taskName : 'kbSync',
             executeFn: () => false, // task self-declined → still must release
             reason   : 'periodic-sync',
@@ -550,7 +551,7 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         });
 
         const activeHeavyTask = {name: null};
-        const result = service.acquireLeaseAndExecute({
+        const result          = service.acquireLeaseAndExecute({
             taskName : 'kbSync',
             executeFn: async () => 'work-done',
             reason   : 'periodic-sync',

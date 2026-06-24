@@ -12,7 +12,7 @@ import logger                                                           from '..
  * @private
  */
 const CONCEPT_REVERIFY_INTERVAL_MS = 90 * 24 * 60 * 60 * 1000;
-const NL_ACTION_WEAK_EVIDENCE_TAG = '[NL_ACTION_WEAK_EVIDENCE]';
+const NL_ACTION_WEAK_EVIDENCE_TAG  = '[NL_ACTION_WEAK_EVIDENCE]';
 
 /**
  * ISO freshness stamps accept either a date-only value (`YYYY-MM-DD`) or the canonical
@@ -120,7 +120,7 @@ class GapInferenceEngine extends Base {
 
         for (const node of structuralNodes) {
             const isInternalConfigHook = node.type === 'METHOD' && /^(beforeGet|beforeSet|afterSet)[A-Z]/.test(node.name);
-            const dbNode = GraphService.db.nodes.get(node.id) || GraphService.db.nodes.get(node._resolvedId);
+            const dbNode               = GraphService.db.nodes.get(node.id) || GraphService.db.nodes.get(node._resolvedId);
 
             if (!dbNode) continue;
 
@@ -304,6 +304,7 @@ class GapInferenceEngine extends Base {
                 exemplifiedByEdges = outboundEdges.filter(e => e.type === 'EXEMPLIFIED_BY'),
                 implementedByEdges = outboundEdges.filter(e => e.type === 'IMPLEMENTED_BY'),
                 weight             = concept.properties?.weight ?? 0,
+                codeGapEligible    = concept.properties?.codeGapEligible !== false && concept.properties?.ontologyLayer !== 'process-mx',
                 gaps               = [],
                 name               = concept.properties?.name || concept.name || concept.id;
 
@@ -316,7 +317,7 @@ class GapInferenceEngine extends Base {
                 ].join(' '));
             }
 
-            if (weight >= threshold) {
+            if (codeGapEligible && weight >= threshold) {
                 if (explainedByEdges.length === 0) {
                     gaps.push(`[GUIDE_GAP] The CONCEPT '${name}' lacks a corresponding architectural Guide (no EXPLAINED_BY edge in the concept ontology).`);
                 } else if (exemplifiedByEdges.length === 0) {
@@ -360,9 +361,9 @@ class GapInferenceEngine extends Base {
             return rows;
         }
 
-        const sequences = this.groupNlActionRowsBySequence(rows.rows);
+        const sequences                    = this.groupNlActionRowsBySequence(rows.rows);
         const resetWeakEvidenceAnnotations = this.resetNlActionWeakEvidenceAnnotations();
-        let qualifyingSequences = 0,
+        let   qualifyingSequences          = 0,
             linkedEdges         = 0,
             downgradedGaps      = 0,
             targetMatches       = 0;
@@ -418,7 +419,7 @@ class GapInferenceEngine extends Base {
                 return {status: 'skipped', reason: 'nl-action-log-missing'};
             }
 
-            const safeLimit = Math.max(1, Number(sequenceLimit) || aiConfig.nlActionDigestSequenceLimit);
+            const safeLimit    = Math.max(1, Number(sequenceLimit) || aiConfig.nlActionDigestSequenceLimit);
             const sequenceRows = sqlite.prepare(`
                 SELECT sequence_id, MAX(timestamp) AS latest_timestamp
                 FROM nl_action_log
@@ -434,7 +435,7 @@ class GapInferenceEngine extends Base {
             }
 
             const placeholders = sequenceIds.map(() => '?').join(',');
-            const rows = sqlite.prepare(`
+            const rows         = sqlite.prepare(`
                 SELECT sequence_id, session_id, timestamp, tool, args, result, success, duration_ms, app_name
                 FROM nl_action_log
                 WHERE sequence_id IN (${placeholders})
@@ -481,7 +482,7 @@ class GapInferenceEngine extends Base {
         if (!Array.isArray(rows) || rows.length === 0) return null;
 
         const successfulRows = rows.filter(row => Number(row.success) === 1);
-        const successRate = successfulRows.length / rows.length;
+        const successRate    = successfulRows.length / rows.length;
 
         if (successRate < minSuccessRate) {
             return null;
@@ -604,7 +605,7 @@ class GapInferenceEngine extends Base {
      */
     findNlActionTargetNodes(targets) {
         const targetNodes = [];
-        const seen = new Set();
+        const seen        = new Set();
 
         for (const node of GraphService.db.nodes.items) {
             const label = node.label || node.get?.('label');
@@ -775,10 +776,10 @@ class GapInferenceEngine extends Base {
      */
     annotateTestGapWithNlActionEvidence(dbNode, sequence) {
         const properties = dbNode.properties || dbNode.get?.('properties') || {};
-        const gaps = this.parseCapabilityGaps(properties.capabilityGap);
+        const gaps       = this.parseCapabilityGaps(properties.capabilityGap);
         if (gaps.length === 0) return false;
 
-        let changed = false;
+        let   changed     = false;
         const updatedGaps = gaps.map(gap => {
             if (!gap.includes('[TEST_GAP]') || gap.includes(NL_ACTION_WEAK_EVIDENCE_TAG)) {
                 return gap;
@@ -789,8 +790,8 @@ class GapInferenceEngine extends Base {
 
         if (!changed) return false;
 
-        const targetId = dbNode.id || dbNode.get?.('id');
-        const label    = dbNode.label || dbNode.get?.('label');
+        const targetId         = dbNode.id || dbNode.get?.('id');
+        const label            = dbNode.label || dbNode.get?.('label');
         const existingEvidence = Array.isArray(properties.nlActionEvidence) ? properties.nlActionEvidence : [];
 
         GraphService.upsertNode({

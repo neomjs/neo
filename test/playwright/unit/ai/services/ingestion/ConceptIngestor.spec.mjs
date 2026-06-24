@@ -13,12 +13,12 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
-import fs             from 'fs';
-import path           from 'path';
-import os             from 'os';
+import {test, expect}                          from '@playwright/test';
+import Neo                                     from '../../../../../../src/Neo.mjs';
+import * as core                               from '../../../../../../src/core/_export.mjs';
+import fs                                      from 'fs';
+import path                                    from 'path';
+import os                                      from 'os';
 import {snapshotAiConfig, TestLifecycleHelper} from '../../services/memory-core/util.mjs';
 
 test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
@@ -226,6 +226,30 @@ test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
         expect(node.properties.verifiedAt).toBe('2026-05-01T00:00:00.000Z');
     });
 
+    test('should persist process/MX ontology layer projection fields (#13840)', async () => {
+        writeFixture(
+            [{
+                id             : 'coordination-saturation-cycle',
+                name           : 'Coordination Saturation Cycle',
+                tier           : 3,
+                description    : 'Message-born swarm process vocabulary.',
+                uniqueToNeo    : false,
+                tags           : ['process-mx', 'message-concept-harvest'],
+                ontologyLayer  : 'process-mx',
+                codeGapEligible: false,
+                verifiedAt     : null
+            }],
+            []
+        );
+
+        await ConceptIngestor.syncConceptsToGraph();
+
+        const node = GraphService.db.nodes.get('coordination-saturation-cycle');
+        expect(node.properties.ontologyLayer).toBe('process-mx');
+        expect(node.properties.codeGapEligible).toBe(false);
+        expect(node.properties.tags).toEqual(expect.arrayContaining(['process-mx', 'message-concept-harvest']));
+    });
+
     test('should count orphan concepts in stats without emitting per-orphan logger.warn (#10087)', async () => {
         // Orphan surfacing moved from the ephemeral logger.warn channel to the
         // durable capabilityGap channel via GapInferenceEngine.inferConceptGraphGaps. ConceptIngestor
@@ -310,14 +334,14 @@ test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
             ]
         );
 
-        const first = await ConceptIngestor.syncConceptsToGraph();
+        const first           = await ConceptIngestor.syncConceptsToGraph();
         const nodesAfterFirst = new Set(GraphService.db.nodes.items.map(n => n.id));
         const edgesAfterFirst = GraphService.db.edges.items
             .map(e => `${e.source}|${e.target}|${e.type}`)
             .sort()
             .join('\n');
 
-        const second = await ConceptIngestor.syncConceptsToGraph();
+        const second           = await ConceptIngestor.syncConceptsToGraph();
         const nodesAfterSecond = new Set(GraphService.db.nodes.items.map(n => n.id));
         const edgesAfterSecond = GraphService.db.edges.items
             .map(e => `${e.source}|${e.target}|${e.type}`)

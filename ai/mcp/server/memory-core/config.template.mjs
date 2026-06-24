@@ -597,14 +597,23 @@ class Config extends ConfigProvider {
              *   discourse) process first. Capping bounds per-cycle LLM cost against the ~300+ PR corpus.
              * - `minSourceLength`: minimum source text length (chars) to trigger an LLM extraction call.
              *   Short bodies aren't worth the provider round-trip; 200 ≈ 30 words of coherent prose.
+             * - `messageHarvestBatchLimit`: maximum unharvested A2A MESSAGE nodes scanned per scheduled
+             *   process/MX concept-harvest cycle.
+             * - `messageHarvestTopN`: maximum frequency-ranked message terms promoted to the LLM
+             *   Teaching-Test source for the cycle.
+             * - `messageHarvestMinFrequency`: minimum subject/tag frequency before a message term can
+             *   spend LLM budget.
              *
              * Expected to migrate to SDK-layer config once daemon/service ownership is split:
              * these are daemon concerns, not memory-core concerns.
              * @type {Object}
              */
             conceptDiscovery: {
-                prScanLimit    : leaf(20, 'NEO_CONCEPT_DISCOVERY_PR_SCAN_LIMIT', 'number'),
-                minSourceLength: leaf(200, 'NEO_CONCEPT_DISCOVERY_MIN_SOURCE_LENGTH', 'number')
+                prScanLimit               : leaf(20, 'NEO_CONCEPT_DISCOVERY_PR_SCAN_LIMIT', 'number'),
+                minSourceLength           : leaf(200, 'NEO_CONCEPT_DISCOVERY_MIN_SOURCE_LENGTH', 'number'),
+                messageHarvestBatchLimit  : leaf(500, 'NEO_CONCEPT_DISCOVERY_MESSAGE_HARVEST_BATCH_LIMIT', 'number'),
+                messageHarvestTopN        : leaf(20, 'NEO_CONCEPT_DISCOVERY_MESSAGE_HARVEST_TOP_N', 'number'),
+                messageHarvestMinFrequency: leaf(2, 'NEO_CONCEPT_DISCOVERY_MESSAGE_HARVEST_MIN_FREQUENCY', 'number')
             },
             /**
              * Directory for the always-on Memory Core diagnostic log files. The MC server's
