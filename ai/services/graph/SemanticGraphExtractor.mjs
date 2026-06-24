@@ -11,6 +11,7 @@ import GraphService                                    from '../../services/memo
 import Json                                            from '../../../src/util/Json.mjs';
 import logger                                          from '../../mcp/server/memory-core/logger.mjs';
 import {buildGraphProvider, resolveGraphModelProvider} from './providerDispatch.mjs';
+import {chunkSession}                                  from './sessionChunker.mjs';
 
 /**
  * @class Neo.ai.daemons.services.SemanticGraphExtractor
@@ -246,6 +247,543 @@ class SemanticGraphExtractor extends Base {
     }
 
     /**
+     * Tests whether a Tri-Vector result is a typed extractor failure descriptor.
+     *
+     * @summary Anchor & Echo: `DreamService` treats the same shape as terminality evidence.
+     * Keeping the producer predicate local lets chunk-map/reduce abort before any graph commit.
+     *
+     * @param {*} value Candidate Tri-Vector extraction result
+     * @returns {Boolean}
+     * @protected
+     */
+    isTriVectorFailureDescriptor(value) {
+        return value?.ok === false;
+    }
+
+    /**
+     * Estimates raw text token size using the ConsumerFriction heuristic.
+     *
+     * @summary Anchor & Echo: Tri-Vector chunk activation uses the same byte→token estimate as
+     * the invocation guardrail, avoiding split-brain limits between chunking and provider calls.
+     *
+     * @param {String} text Raw prompt text
+     * @returns {Number}
+     * @protected
+     */
+    estimateTextTokens(text) {
+        return bytesToTokens(Buffer.byteLength(text === undefined || text === null ? '' : String(text), 'utf8'));
+    }
+
+    /**
+     * Creates deterministic turn-aligned Tri-Vector chunks after subtracting prompt overhead.
+     *
+     * @summary Anchor & Echo: Small sessions preserve the exact `session.document` single-pass path.
+     * Large sessions use complete raw turn documents when available; oversized single turns remain
+     * intact and flow through the typed failure/guardrail path instead of being split mid-turn.
+     *
+     * @param {Object} session Wrapped session object
+     * @param {String} systemInstruction Tri-Vector system prompt
+     * @returns {{chunked: Boolean, totalEstimatedTokens: Number, chunks: Object[]}}
+     * @protected
+     */
+    createTriVectorChunks(session, systemInstruction) {
+        const turnDocuments = Array.isArray(session.turnDocuments) && session.turnDocuments.length > 0
+                ? session.turnDocuments
+                : [session.document],
+              envelopeTokens = this.estimateChatMessagesPayload([
+                  {role: 'system', content: systemInstruction},
+                  {role: 'user',   content: '--- Session Episodic Memory ---\n'}
+              ]).tokens,
+              chunkBudget = Math.max(1, AiConfig.localModels.chat.safeProcessingLimitTokens - envelopeTokens);
+
+        return chunkSession(turnDocuments, {
+            sessionId                : session.meta.sessionId,
+            safeProcessingLimitTokens: chunkBudget,
+            estimate                 : text => this.estimateTextTokens(text)
+        });
+    }
+
+    /**
+     * Adds chunk provenance to a typed Tri-Vector failure descriptor.
+     *
+     * @param {Object} failure Typed failure descriptor
+     * @param {Object} chunk Failed chunk descriptor
+     * @param {Number} index Zero-based chunk index
+     * @param {Number} total Total chunks in the plan
+     * @returns {Object}
+     * @protected
+     */
+    addChunkFailureEvidence(failure, chunk, index, total) {
+        return {
+            ...failure,
+            evidence: {
+                ...failure.evidence,
+                chunkId      : chunk.chunkId,
+                chunkIndex   : index,
+                chunkCount   : total,
+                turnIndices  : chunk.turnIndices,
+                chunkTokens  : chunk.estimatedTokens,
+                oversizedTurn: chunk.oversizedTurn === true
+            }
+        };
+    }
+
+    /**
+     * Deterministically reduces chunk-level Tri-Vector payloads into one session payload.
+     *
+     * @summary Anchor & Echo: This is the deterministic map-reduce floor, not semantic-perfect
+     * synthesis. Chunks are processed in monotonic chunk order; graph nodes dedupe by
+     * `(type, name)`, and edges are remapped through the deduped node ids before graph commit.
+     *
+     * @param {Object[]} payloads Chunk-level Tri-Vector payloads
+     * @param {Object} chunkPlan Chunk plan emitted by `sessionChunker`
+     * @returns {Object} Reduced session-level Tri-Vector payload
+     * @protected
+     */
+    reduceTriVectorPayloads(payloads, chunkPlan) {
+        const nodeByTuple  = new Map(),
+              nodeIdRemap  = new Map(),
+              edgeByTuple  = new Map(),
+              summaries    = [],
+              roadmapItems = [];
+
+        let featureNamespace = null;
+
+        for (const payload of payloads) {
+            const artifact = payload.session_artifact;
+
+            if (!featureNamespace && typeof artifact.feature_namespace === 'string' && artifact.feature_namespace.trim()) {
+                featureNamespace = artifact.feature_namespace;
+            }
+            if (typeof artifact.human_readable_summary === 'string' && artifact.human_readable_summary.trim()) {
+                summaries.push(artifact.human_readable_summary.trim());
+            }
+            if (typeof artifact.roadmap_impact === 'string' && artifact.roadmap_impact.trim() && artifact.roadmap_impact.toLowerCase() !== 'null') {
+                roadmapItems.push(artifact.roadmap_impact.trim());
+            }
+
+            for (const node of artifact.graph.nodes) {
+                const type = typeof node.type === 'string' && node.type.trim() ? node.type.toUpperCase() : 'CONCEPT',
+                      name = typeof node.name === 'string' && node.name.trim() ? node.name : (node.id || 'Unknown'),
+                      key  = `${type}\u0000${name}`;
+
+                if (!nodeByTuple.has(key)) {
+                    const storedNode = {
+                        ...node,
+                        type,
+                        name,
+                        tags: Array.isArray(node.tags) ? [...new Set(node.tags)] : []
+                    };
+                    nodeByTuple.set(key, storedNode);
+                    if (node.id) {
+                        nodeIdRemap.set(node.id, storedNode.id);
+                    }
+                    continue;
+                }
+
+                const storedNode = nodeByTuple.get(key);
+                if (node.id) {
+                    nodeIdRemap.set(node.id, storedNode.id);
+                }
+                if (typeof node.description === 'string' && node.description.length > String(storedNode.description || '').length) {
+                    storedNode.description = node.description;
+                }
+                if (node.gravity_well === true) {
+                    storedNode.gravity_well = true;
+                }
+                if (typeof node.strategic_weight === 'number') {
+                    storedNode.strategic_weight = Math.max(
+                        typeof storedNode.strategic_weight === 'number' ? storedNode.strategic_weight : 0,
+                        node.strategic_weight
+                    );
+                }
+                if (typeof node.confidence === 'number') {
+                    storedNode.confidence = Math.max(
+                        typeof storedNode.confidence === 'number' ? storedNode.confidence : 0,
+                        node.confidence
+                    );
+                }
+                if (Array.isArray(node.tags)) {
+                    storedNode.tags = [...new Set([...(storedNode.tags || []), ...node.tags])];
+                }
+            }
+
+            for (const edge of artifact.graph.edges) {
+                const source       = nodeIdRemap.get(edge.source) || edge.source,
+                      target       = nodeIdRemap.get(edge.target) || edge.target,
+                      relationship = edge.relationship || 'RELATES_TO',
+                      key          = `${source}\u0000${target}\u0000${relationship}`;
+
+                if (!edgeByTuple.has(key)) {
+                    edgeByTuple.set(key, {...edge, source, target, relationship});
+                    continue;
+                }
+
+                const storedEdge = edgeByTuple.get(key);
+                if (edge.weight !== undefined) {
+                    const oldWeight = Number(storedEdge.weight),
+                          newWeight = Number(edge.weight);
+                    storedEdge.weight = Number.isFinite(oldWeight) && Number.isFinite(newWeight)
+                        ? Math.max(oldWeight, newWeight)
+                        : edge.weight;
+                }
+                if (edge.justification && !String(storedEdge.justification || '').includes(edge.justification)) {
+                    storedEdge.justification = [storedEdge.justification, edge.justification].filter(Boolean).join(' / ');
+                }
+            }
+        }
+
+        return {
+            a2a_version     : payloads[0].a2a_version,
+            agent_id        : payloads[0].agent_id,
+            session_artifact: {
+                feature_namespace     : featureNamespace,
+                human_readable_summary: summaries.join(' / '),
+                roadmap_impact        : roadmapItems.length > 0 ? roadmapItems.join('\n') : null,
+                chunking              : {
+                    chunked             : chunkPlan.chunked,
+                    totalEstimatedTokens: chunkPlan.totalEstimatedTokens,
+                    chunks              : chunkPlan.chunks.map(chunk => ({
+                        chunkId        : chunk.chunkId,
+                        turnIndices    : chunk.turnIndices,
+                        estimatedTokens: chunk.estimatedTokens,
+                        oversizedTurn  : chunk.oversizedTurn === true
+                    }))
+                },
+                graph: {
+                    nodes: [...nodeByTuple.values()],
+                    edges: [...edgeByTuple.values()]
+                }
+            }
+        };
+    }
+
+    /**
+     * Runs one provider extraction pass for a single Tri-Vector document.
+     *
+     * @param {Object} options
+     * @returns {Promise<Object>} Tri-Vector payload or typed failure descriptor
+     * @protected
+     */
+    async extractTriVectorPayload({
+        session,
+        document,
+        assetRef,
+        provider,
+        consumerModel,
+        consumerContextTokens,
+        consumerSafeTokens,
+        graphReasoningEffort,
+        triVectorSchema,
+        systemInstruction
+    }) {
+        const messages = [
+            { role: 'system', content: systemInstruction },
+            { role: 'user', content: `--- Session Episodic Memory ---\n${document}` }
+        ];
+
+        let maxRetries = 3;
+        let attempt    = 0;
+        let payload    = null;
+        let result     = null;
+
+        while (attempt < maxRetries && !payload) {
+            attempt++;
+
+            const inputPayload     = this.estimateChatMessagesPayload(messages);
+            const inputPayloadText = inputPayload.text;
+            const guardrailed      = await invokeWithGuardrail({
+                invocationFn             : () => provider.generate(messages, {reasoning_effort: graphReasoningEffort || undefined, responseSchema: triVectorSchema, responseSchemaName: 'triVector'}),
+                inputPayload             : inputPayloadText,
+                model                    : consumerModel,
+                assetRef,
+                consumer                 : 'SemanticGraphExtractor',
+                contextLimitTokens       : consumerContextTokens,
+                safeProcessingLimitTokens: consumerSafeTokens,
+                serviceDomain            : 'dream-pipeline',
+                note                     : `Tri-Vector session-aggregation attempt ${attempt} of ${maxRetries}`
+            });
+
+            if (!guardrailed.result) {
+                logger.warn(`[SemanticGraphExtractor] Attempt ${attempt}: invocation guardrail emitted ${guardrailed.friction?.symptom} for session ${session.meta.sessionId}; aborting retry loop.`);
+
+                return this.createTriVectorFailureDescriptor({
+                    deferReason       : this.getDeferReasonForFrictionSymptom(guardrailed.friction?.symptom),
+                    frictionSymptom   : guardrailed.friction?.symptom,
+                    terminalForCadence: true,
+                    evidence          : {
+                        attempts                 : attempt,
+                        assetRef,
+                        emissionPoint            : guardrailed.friction?.emissionPoint,
+                        inputBytes               : guardrailed.friction?.inputBytes,
+                        inputTokensEstimate      : guardrailed.friction?.inputTokensEstimate,
+                        contextLimitTokens       : guardrailed.friction?.contextLimitTokens,
+                        safeProcessingLimitTokens: guardrailed.friction?.safeProcessingLimitTokens,
+                        note                     : guardrailed.friction?.note
+                    }
+                });
+            }
+
+            result = guardrailed.result;
+            const finishReason = this.getCompletionFinishReason(result);
+
+            if (this.isLengthTruncatedCompletion(finishReason)) {
+                logger.warn(`[SemanticGraphExtractor] Attempt ${attempt}: Provider reported '${finishReason}' for session ${session.meta.sessionId}; classifying as context-overflow and aborting JSON repair loop.`);
+
+                this.emitRetryLoopContextOverflow({
+                    sessionId          : assetRef,
+                    consumerModel,
+                    consumerContextTokens,
+                    consumerSafeTokens,
+                    inputBytes         : inputPayload.bytes,
+                    inputTokensEstimate: inputPayload.tokens,
+                    note                    : `Provider finish_reason='${finishReason}' before schema validation. Aborting repair loop to avoid appending a truncated response. Attempt ${attempt}/${maxRetries}.`
+                });
+
+                return this.createTriVectorFailureDescriptor({
+                    deferReason       : 'under-band-choke',
+                    frictionSymptom   : 'context-overflow',
+                    terminalForCadence: true,
+                    evidence          : {
+                        attempts           : attempt,
+                        assetRef,
+                        finishReason,
+                        inputBytes         : inputPayload.bytes,
+                        inputTokensEstimate: inputPayload.tokens,
+                        note               : `Provider finish_reason='${finishReason}' before schema validation.`
+                    }
+                });
+            }
+
+            if (!result?.content || result.content.trim() === '') {
+                logger.warn(`[SemanticGraphExtractor] Attempt ${attempt}: Empty response from provider for session ${session.meta.sessionId}; classifying as context-overflow (silent: no thrown error, no body).`);
+
+                emitConsumerFriction({
+                    symptom                  : 'context-overflow',
+                    consumer                 : 'SemanticGraphExtractor',
+                    model                    : consumerModel,
+                    assetRef,
+                    serviceDomain            : 'dream-pipeline',
+                    emissionPoint            : 'post-invocation-failure',
+                    inputBytes               : Buffer.byteLength(inputPayloadText),
+                    contextLimitTokens       : consumerContextTokens,
+                    safeProcessingLimitTokens: consumerSafeTokens,
+                    note                     : `Silent empty-response from provider (no thrown error, no body). Prompt chars: ${inputPayloadText.length}. Attempt ${attempt}/${maxRetries}.`
+                });
+
+                return this.createTriVectorFailureDescriptor({
+                    deferReason       : 'under-band-choke',
+                    frictionSymptom   : 'context-overflow',
+                    terminalForCadence: true,
+                    evidence          : {
+                        attempts           : attempt,
+                        assetRef,
+                        inputBytes         : Buffer.byteLength(inputPayloadText),
+                        inputTokensEstimate: inputPayload.tokens,
+                        note               : `Silent empty-response from provider (no thrown error, no body). Prompt chars: ${inputPayloadText.length}.`
+                    }
+                });
+            }
+
+            payload = Json.extract(result.content);
+
+            if (!payload || !payload.session_artifact) {
+                logger.warn(`[SemanticGraphExtractor] Attempt ${attempt}: Failed to validate extracted Tri-Vector A2A payload for session: ${session.meta.sessionId}`);
+
+                if (attempt < maxRetries) {
+                    const repairMessages = [
+                        ...messages,
+                        { role: 'assistant', content: result.content },
+                        { role: 'user', content: 'Your previous response failed internal schema validation. You are missing required keys (e.g., session_artifact) or you provided malformed JSON. Please correct your output and provide ONLY the exact JSON shape requested in the instructions.' }
+                    ];
+                    const repairPayload = this.estimateChatMessagesPayload(repairMessages);
+
+                    if (repairPayload.tokens > consumerSafeTokens) {
+                        logger.warn(`[SemanticGraphExtractor] Attempt ${attempt}: JSON repair prompt would exceed safe processing band for session ${session.meta.sessionId}; classifying as context-overflow and aborting retry loop.`);
+
+                        this.emitRetryLoopContextOverflow({
+                            sessionId          : assetRef,
+                            consumerModel,
+                            consumerContextTokens,
+                            consumerSafeTokens,
+                            inputBytes         : repairPayload.bytes,
+                            inputTokensEstimate: repairPayload.tokens,
+                            note                    : `Repair retry prompt estimate ${repairPayload.tokens} tokens exceeds safe band ${consumerSafeTokens}. Aborting instead of appending assistant output and repair feedback. Attempt ${attempt}/${maxRetries}.`
+                        });
+
+                        return this.createTriVectorFailureDescriptor({
+                            deferReason       : 'under-band-choke',
+                            frictionSymptom   : 'context-overflow',
+                            terminalForCadence: true,
+                            evidence          : {
+                                attempts           : attempt,
+                                assetRef,
+                                inputBytes         : repairPayload.bytes,
+                                inputTokensEstimate: repairPayload.tokens,
+                                note               : `Repair retry prompt estimate ${repairPayload.tokens} tokens exceeds safe band ${consumerSafeTokens}.`
+                            }
+                        });
+                    }
+
+                    logger.warn(`[SemanticGraphExtractor] Attempt ${attempt}: Injecting autonomous JSON repair feedback loop.`);
+                    messages.push(repairMessages[repairMessages.length - 2]);
+                    messages.push(repairMessages[repairMessages.length - 1]);
+                    payload = null;
+                } else {
+                    logger.warn(`[SemanticGraphExtractor] --- FINAL EXHAUSTED RAW LLM DUMP ---\n${result.content}\n-----------------------------`);
+                }
+            } else {
+                payload.session_artifact.graph = payload.session_artifact.graph || {};
+
+                if (!Array.isArray(payload.session_artifact.graph.nodes)) {
+                    payload.session_artifact.graph.nodes = [];
+                }
+                if (!Array.isArray(payload.session_artifact.graph.edges)) {
+                    payload.session_artifact.graph.edges = [];
+                }
+            }
+        }
+
+        if (!payload) {
+            return this.createTriVectorFailureDescriptor({
+                deferReason       : 'schema-failure',
+                frictionSymptom   : 'parse-failure',
+                terminalForCadence: true,
+                evidence          : {
+                    attempts: attempt,
+                    assetRef,
+                    note: `Tri-Vector schema validation failed after ${attempt} attempt(s).`
+                }
+            });
+        }
+
+        logger.debug(`[SemanticGraphExtractor] Successfully extracted Tri-Vector A2A schema for session ${session.meta.sessionId} after ${attempt} attempts.`);
+
+        return payload;
+    }
+
+    /**
+     * Commits a reduced Tri-Vector payload to the Native Edge Graph.
+     *
+     * @summary Anchor & Echo: Chunked extraction completes every chunk before this method runs,
+     * preserving the historical single graph-write phase and avoiding partial writes on chunk failure.
+     *
+     * @param {Object} payload Session-level Tri-Vector payload
+     * @param {Object} session Wrapped session object
+     * @returns {Promise<Object>} The committed payload
+     * @protected
+     */
+    async commitTriVectorPayload(payload, session) {
+        const artifact = payload.session_artifact;
+
+        if (!GraphService.db.nodes.has('frontier')) {
+            GraphService.upsertNode({
+                id              : 'frontier',
+                type            : 'SYSTEM_ANCHOR',
+                name            : 'Active Context Frontier',
+                description     : 'The actively tracked development front for the current project scope.',
+                semanticVectorId: null
+            });
+        }
+
+        const VALID_TYPES = ['SESSION', 'MEMORY', 'ARTIFACT_PLAN', 'ARTIFACT_TASK', 'ISSUE', 'STRATEGY', 'SYSTEM_ANCHOR', 'CONCEPT', 'CLASS', 'METHOD', 'FILE', 'GUIDE', 'BLOG', 'TEST'];
+
+        for (const node of artifact.graph.nodes) {
+            if (node.id === 'frontier') continue;
+
+            let nodeType = node.type && VALID_TYPES.includes(node.type.toUpperCase()) ? node.type.toUpperCase() : 'CONCEPT';
+            let nodeId   = node.id;
+
+            if (!nodeId.includes(':')) {
+                const cleanName = (node.name || nodeId).replace(/[^a-zA-Z0-9_\-\.]/g, '_');
+                nodeId = `${nodeType}:${cleanName}`;
+            }
+            nodeId = this.normalizeMemorySessionGraphNodeId(nodeId);
+
+            GraphService.upsertNode({
+                id              : nodeId,
+                type            : nodeType,
+                name            : node.name || 'Unknown',
+                description     : node.description || '',
+                semanticVectorId: session.id,
+                properties      : {
+                    logical_layer   : node.logical_layer || 'Unknown',
+                    stability       : node.stability || 'UNKNOWN',
+                    gravity_well    : node.gravity_well === true,
+                    strategic_weight: typeof node.strategic_weight === 'number' ? node.strategic_weight : (node.gravity_well ? 1.0 : 0.1),
+                    confidence      : typeof node.confidence === 'number' ? node.confidence : 0.5,
+                    tags            : Array.isArray(node.tags) ? node.tags : [],
+                    context_source  : session.meta.sessionId
+                }
+            });
+
+            node._resolvedId = nodeId;
+        }
+
+        const validNodeRefs = new Set([...artifact.graph.nodes.map(n => n.id), ...artifact.graph.nodes.map(n => n._resolvedId), 'frontier']);
+
+        for (const edge of artifact.graph.edges) {
+            let resolvedSource = edge.source;
+            let resolvedTarget = edge.target;
+
+            const sourceNode = artifact.graph.nodes.find(n => n.id === edge.source);
+            if (sourceNode && sourceNode._resolvedId) resolvedSource = sourceNode._resolvedId;
+
+            const targetNode = artifact.graph.nodes.find(n => n.id === edge.target);
+            if (targetNode && targetNode._resolvedId) resolvedTarget = targetNode._resolvedId;
+
+            resolvedSource = this.normalizeMemorySessionGraphNodeId(resolvedSource);
+            resolvedTarget = this.normalizeMemorySessionGraphNodeId(resolvedTarget);
+
+            const sourceExists = validNodeRefs.has(resolvedSource) || GraphService.db.nodes.has(resolvedSource);
+            const targetExists = validNodeRefs.has(resolvedTarget) || GraphService.db.nodes.has(resolvedTarget);
+
+            if (!sourceExists || !targetExists) {
+                const isProvenance           = ['MENTIONED_IN', 'DISCUSSED_IN', 'REFERENCED_BY'].includes(edge.relationship);
+                const targetsSessionOrMemory = this.isMemorySessionGraphNodeId(resolvedTarget) || this.isMemorySessionGraphNodeId(resolvedSource);
+
+                if (isProvenance && targetsSessionOrMemory) {
+                    logger.info(`[SemanticGraphExtractor] Queuing unresolved provenance edge for lazy back-fill: ${resolvedSource} -> ${resolvedTarget}`);
+                    const lazyQueueFile = AiConfig.lazyEdgesQueuePath;
+                    const edgeData      = JSON.stringify({ ...edge, source: resolvedSource, target: resolvedTarget, timestamp: new Date().toISOString() }) + '\n';
+                    try {
+                        await fs.promises.mkdir(path.dirname(lazyQueueFile), { recursive: true });
+                        await fs.promises.appendFile(lazyQueueFile, edgeData, 'utf8');
+                    } catch (err) {
+                        logger.error('[SemanticGraphExtractor] Failed to queue lazy edge:', err);
+                    }
+                    continue;
+                }
+
+                logger.warn(`[SemanticGraphExtractor] Culling hallucinated edge from ${resolvedSource} to ${resolvedTarget}`);
+                continue;
+            }
+
+            GraphService.linkNodes(
+                resolvedSource,
+                resolvedTarget,
+                edge.relationship || 'RELATES_TO',
+                edge.weight !== undefined ? parseFloat(edge.weight) : 1.0,
+                {
+                    justification : edge.justification || '',
+                    context_source: session.meta.sessionId
+                }
+            );
+        }
+
+        logger.info(`[SemanticGraphExtractor] Graph entities committed to Neocortex for session ${session.meta.sessionId}.`);
+
+        if (artifact.roadmap_impact && typeof artifact.roadmap_impact === 'string' && artifact.roadmap_impact.toLowerCase() !== 'null') {
+            const auditLog = path.join('/tmp', 'roadmap_audits.log');
+            const strategyEntry = `[${new Date().toISOString()}] Session ${session.meta.sessionId}:\n${artifact.roadmap_impact}\n\n`;
+            await fs.promises.appendFile(auditLog, strategyEntry, 'utf8');
+            logger.info(`[SemanticGraphExtractor] Extracted Strategy impact to roadmap_audits.log`);
+        }
+
+        return payload;
+    }
+
+    /**
      * Executes the Tri-Vector Synthesis (Semantic Graph, Open Deltas, Roadmap Strategy)
      * from the session memory log via JSON schema extraction.
      *
@@ -317,17 +855,6 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         try {
             const graphProvider = resolveGraphModelProvider(AiConfig);
             const provider      = this.buildConfiguredGraphProvider(graphProvider);
-
-            // Format boundaries securely
-            const messages = [
-                { role: 'system', content: systemInstruction },
-                { role: 'user', content: `--- Session Episodic Memory ---\n${session.document}` }
-            ];
-
-            let maxRetries = 3;
-            let attempt    = 0;
-            let payload    = null;
-            let result     = null;
 
             // Wrap each LLM invocation with the Consumer-Friction guardrail. The upstream
             // pre-check skips invocation when the composed messages' estimated token count
@@ -401,308 +928,57 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                 },
                 required: ['a2a_version', 'session_artifact']
             };
-            const repairFeedback = `Your previous response failed internal schema validation. You are missing required keys (e.g., session_artifact) or you provided malformed JSON. Please correct your output and provide ONLY the exact JSON shape requested in the instructions.`;
+            const chunkPlan = this.createTriVectorChunks(session, systemInstruction);
+            let   payload;
 
-            while (attempt < maxRetries && !payload) {
-                attempt++;
+            if (chunkPlan.chunked) {
+                logger.info(`[SemanticGraphExtractor] Tri-Vector chunking activated for session ${session.meta.sessionId}: ${chunkPlan.chunks.length} chunk(s), estimated ${chunkPlan.totalEstimatedTokens} tokens.`);
+                const chunkPayloads = [];
 
-                const inputPayload     = this.estimateChatMessagesPayload(messages);
-                const inputPayloadText = inputPayload.text;
-                const guardrailed      = await invokeWithGuardrail({
-                    invocationFn             : () => provider.generate(messages, {reasoning_effort: graphReasoningEffort || undefined, responseSchema: triVectorSchema, responseSchemaName: 'triVector'}),
-                    inputPayload             : inputPayloadText,
-                    model                    : consumerModel,
-                    assetRef                 : session.meta.sessionId,
-                    consumer                 : 'SemanticGraphExtractor',
-                    contextLimitTokens       : consumerContextTokens,
-                    safeProcessingLimitTokens: consumerSafeTokens,
-                    serviceDomain            : 'dream-pipeline',
-                    note                     : `Tri-Vector session-aggregation attempt ${attempt} of ${maxRetries}`
+                for (let index = 0; index < chunkPlan.chunks.length; index++) {
+                    const chunk  = chunkPlan.chunks[index],
+                          result = await this.extractTriVectorPayload({
+                              session,
+                              document: chunk.text,
+                              assetRef: chunk.chunkId,
+                              provider,
+                              consumerModel,
+                              consumerContextTokens,
+                              consumerSafeTokens,
+                              graphReasoningEffort,
+                              triVectorSchema,
+                              systemInstruction
+                          });
+
+                    if (this.isTriVectorFailureDescriptor(result)) {
+                        logger.warn(`[SemanticGraphExtractor] Tri-Vector chunk ${index + 1}/${chunkPlan.chunks.length} failed for session ${session.meta.sessionId}; aborting reduce before graph commit.`);
+                        return this.addChunkFailureEvidence(result, chunk, index, chunkPlan.chunks.length);
+                    }
+
+                    chunkPayloads.push(result);
+                }
+
+                payload = this.reduceTriVectorPayloads(chunkPayloads, chunkPlan);
+            } else {
+                payload = await this.extractTriVectorPayload({
+                    session,
+                    document: session.document,
+                    assetRef: session.meta.sessionId,
+                    provider,
+                    consumerModel,
+                    consumerContextTokens,
+                    consumerSafeTokens,
+                    graphReasoningEffort,
+                    triVectorSchema,
+                    systemInstruction
                 });
 
-                if (!guardrailed.result) {
-                    logger.warn(`[SemanticGraphExtractor] Attempt ${attempt}: invocation guardrail emitted ${guardrailed.friction?.symptom} for session ${session.meta.sessionId}; aborting retry loop.`);
-
-                    return this.createTriVectorFailureDescriptor({
-                        deferReason       : this.getDeferReasonForFrictionSymptom(guardrailed.friction?.symptom),
-                        frictionSymptom   : guardrailed.friction?.symptom,
-                        terminalForCadence: true,
-                        evidence          : {
-                            attempts                 : attempt,
-                            emissionPoint            : guardrailed.friction?.emissionPoint,
-                            inputBytes               : guardrailed.friction?.inputBytes,
-                            inputTokensEstimate      : guardrailed.friction?.inputTokensEstimate,
-                            contextLimitTokens       : guardrailed.friction?.contextLimitTokens,
-                            safeProcessingLimitTokens: guardrailed.friction?.safeProcessingLimitTokens,
-                            note                     : guardrailed.friction?.note
-                        }
-                    });
-                }
-
-                result = guardrailed.result;
-                const finishReason = this.getCompletionFinishReason(result);
-
-                if (this.isLengthTruncatedCompletion(finishReason)) {
-                    logger.warn(`[SemanticGraphExtractor] Attempt ${attempt}: Provider reported '${finishReason}' for session ${session.meta.sessionId}; classifying as context-overflow and aborting JSON repair loop.`);
-
-                    this.emitRetryLoopContextOverflow({
-                        sessionId          : session.meta.sessionId,
-                        consumerModel,
-                        consumerContextTokens,
-                        consumerSafeTokens,
-                        inputBytes         : inputPayload.bytes,
-                        inputTokensEstimate: inputPayload.tokens,
-                        note                    : `Provider finish_reason='${finishReason}' before schema validation. Aborting repair loop to avoid appending a truncated response. Attempt ${attempt}/${maxRetries}.`
-                    });
-
-                    return this.createTriVectorFailureDescriptor({
-                        deferReason       : 'under-band-choke',
-                        frictionSymptom   : 'context-overflow',
-                        terminalForCadence: true,
-                        evidence          : {
-                            attempts           : attempt,
-                            finishReason,
-                            inputBytes         : inputPayload.bytes,
-                            inputTokensEstimate: inputPayload.tokens,
-                            note               : `Provider finish_reason='${finishReason}' before schema validation.`
-                        }
-                    });
-                }
-
-                // Silent context-overflow detection: provider can stream-close immediately
-                // with an empty body when its loaded-model context window is smaller than
-                // the prompt (LM Studio loaded-context-cap signature: ttftMs===ttltMs,
-                // outputChars===0, no thrown error). The retry loop below appends the
-                // assistant echo + feedback prompt monotonically — if root cause is overflow,
-                // retries make it strictly worse. Emit the existing deterministic
-                // `'context-overflow'` symptom (auto-surfaces, no 3-emission threshold) and
-                // abort retry to break the amplification.
-                if (!result?.content || result.content.trim() === '') {
-                    logger.warn(`[SemanticGraphExtractor] Attempt ${attempt}: Empty response from provider for session ${session.meta.sessionId}; classifying as context-overflow (silent: no thrown error, no body).`);
-
-                    emitConsumerFriction({
-                        symptom                  : 'context-overflow',
-                        consumer                 : 'SemanticGraphExtractor',
-                        model                    : consumerModel,
-                        assetRef                 : session.meta.sessionId,
-                        serviceDomain            : 'dream-pipeline',
-                        emissionPoint            : 'post-invocation-failure',
-                        inputBytes               : Buffer.byteLength(inputPayloadText),
-                        contextLimitTokens       : consumerContextTokens,
-                        safeProcessingLimitTokens: consumerSafeTokens,
-                        note                     : `Silent empty-response from provider (no thrown error, no body). Prompt chars: ${inputPayloadText.length}. Attempt ${attempt}/${maxRetries}.`
-                    });
-
-                    return this.createTriVectorFailureDescriptor({
-                        deferReason       : 'under-band-choke',
-                        frictionSymptom   : 'context-overflow',
-                        terminalForCadence: true,
-                        evidence          : {
-                            attempts           : attempt,
-                            inputBytes         : Buffer.byteLength(inputPayloadText),
-                            inputTokensEstimate: inputPayload.tokens,
-                            note               : `Silent empty-response from provider (no thrown error, no body). Prompt chars: ${inputPayloadText.length}.`
-                        }
-                    });
-                }
-
-                // Extract using robust Json parser to catch malformed boundaries
-                payload = Json.extract(result.content);
-
-                // Validation check
-                if (!payload || !payload.session_artifact) {
-                    logger.warn(`[SemanticGraphExtractor] Attempt ${attempt}: Failed to validate extracted Tri-Vector A2A payload for session: ${session.meta.sessionId}`);
-
-                    if (attempt < maxRetries) {
-                        const repairMessages = [
-                            ...messages,
-                            { role: 'assistant', content: result.content },
-                            { role: 'user', content: repairFeedback }
-                        ];
-                        const repairPayload = this.estimateChatMessagesPayload(repairMessages);
-
-                        if (repairPayload.tokens > consumerSafeTokens) {
-                            logger.warn(`[SemanticGraphExtractor] Attempt ${attempt}: JSON repair prompt would exceed safe processing band for session ${session.meta.sessionId}; classifying as context-overflow and aborting retry loop.`);
-
-                            this.emitRetryLoopContextOverflow({
-                                sessionId          : session.meta.sessionId,
-                                consumerModel,
-                                consumerContextTokens,
-                                consumerSafeTokens,
-                                inputBytes         : repairPayload.bytes,
-                                inputTokensEstimate: repairPayload.tokens,
-                                note                    : `Repair retry prompt estimate ${repairPayload.tokens} tokens exceeds safe band ${consumerSafeTokens}. Aborting instead of appending assistant output and repair feedback. Attempt ${attempt}/${maxRetries}.`
-                            });
-
-                            return this.createTriVectorFailureDescriptor({
-                                deferReason       : 'under-band-choke',
-                                frictionSymptom   : 'context-overflow',
-                                terminalForCadence: true,
-                                evidence          : {
-                                    attempts           : attempt,
-                                    inputBytes         : repairPayload.bytes,
-                                    inputTokensEstimate: repairPayload.tokens,
-                                    note               : `Repair retry prompt estimate ${repairPayload.tokens} tokens exceeds safe band ${consumerSafeTokens}.`
-                                }
-                            });
-                        }
-
-                        logger.warn(`[SemanticGraphExtractor] Attempt ${attempt}: Injecting autonomous JSON repair feedback loop.`);
-                        messages.push(repairMessages[repairMessages.length - 2]);
-                        messages.push(repairMessages[repairMessages.length - 1]);
-                        payload = null; // Ensure loop continues
-                    } else {
-                        logger.warn(`[SemanticGraphExtractor] --- FINAL EXHAUSTED RAW LLM DUMP ---\n${result.content}\n-----------------------------`);
-                    }
-                } else {
-                    // Relaxed schema validation: default missing or malformed graph/nodes/edges to empty arrays to prevent exhaustion loops.
-                    payload.session_artifact.graph = payload.session_artifact.graph || {};
-
-                    if (!Array.isArray(payload.session_artifact.graph.nodes)) {
-                        payload.session_artifact.graph.nodes = [];
-                    }
-                    if (!Array.isArray(payload.session_artifact.graph.edges)) {
-                        payload.session_artifact.graph.edges = [];
-                    }
+                if (this.isTriVectorFailureDescriptor(payload)) {
+                    return payload;
                 }
             }
 
-            if (!payload) {
-                return this.createTriVectorFailureDescriptor({
-                    deferReason       : 'schema-failure',
-                    frictionSymptom   : 'parse-failure',
-                    terminalForCadence: true,
-                    evidence          : {
-                        attempts: attempt,
-                        note: `Tri-Vector schema validation failed after ${attempt} attempt(s).`
-                    }
-                });
-            }
-
-            logger.debug(`[SemanticGraphExtractor] Successfully extracted Tri-Vector A2A schema for session ${session.meta.sessionId} after ${attempt} attempts.`);
-
-            const artifact = payload.session_artifact;
-
-            // --- VECTOR 1: SEMANTIC GRAPH ---
-            // Ensure frontier exists, if not, stub it so we can link to it
-            if (!GraphService.db.nodes.has('frontier')) {
-                GraphService.upsertNode({
-                    id              : 'frontier',
-                    type            : 'SYSTEM_ANCHOR',
-                    name            : 'Active Context Frontier',
-                    description     : 'The actively tracked development front for the current project scope.',
-                    semanticVectorId: null
-                });
-            }
-
-            const VALID_TYPES = ['SESSION', 'MEMORY', 'ARTIFACT_PLAN', 'ARTIFACT_TASK', 'ISSUE', 'STRATEGY', 'SYSTEM_ANCHOR', 'CONCEPT', 'CLASS', 'METHOD', 'FILE', 'GUIDE', 'BLOG', 'TEST'];
-
-            // Bridge to GraphService (SQLite)
-            for (const node of artifact.graph.nodes) {
-                if (node.id === 'frontier') continue;
-
-                let nodeType = node.type && VALID_TYPES.includes(node.type.toUpperCase()) ? node.type.toUpperCase() : 'CONCEPT';
-                let nodeId   = node.id;
-
-                // Enforce Neo native Graph ID specification (Type:Name) if hallucinated
-                if (!nodeId.includes(':')) {
-                    const cleanName = (node.name || nodeId).replace(/[^a-zA-Z0-9_\-\.]/g, '_');
-                    nodeId = `${nodeType}:${cleanName}`;
-                }
-                nodeId = this.normalizeMemorySessionGraphNodeId(nodeId);
-
-                GraphService.upsertNode({
-                    id              : nodeId,
-                    type            : nodeType,
-                    name            : node.name || 'Unknown',
-                    description     : node.description || '',
-                    semanticVectorId: session.id,
-                    properties      : {
-                        logical_layer   : node.logical_layer || 'Unknown',
-                        stability       : node.stability || 'UNKNOWN',
-                        gravity_well    : node.gravity_well === true,
-                        strategic_weight: typeof node.strategic_weight === 'number' ? node.strategic_weight : (node.gravity_well ? 1.0 : 0.1),
-                        confidence      : typeof node.confidence === 'number' ? node.confidence : 0.5,
-                        tags            : Array.isArray(node.tags) ? node.tags : [],
-                        context_source  : session.meta.sessionId
-                    }
-                });
-
-                // Update the payload graph node id so edges bind correctly
-                node._resolvedId = nodeId;
-            }
-
-            const validNodeRefs = new Set([...artifact.graph.nodes.map(n => n.id), ...artifact.graph.nodes.map(n => n._resolvedId), 'frontier']);
-
-            for (const edge of artifact.graph.edges) {
-                // Map the original edge source/target to the resolved Node IDs
-                let resolvedSource = edge.source;
-                let resolvedTarget = edge.target;
-
-                const sourceNode = artifact.graph.nodes.find(n => n.id === edge.source);
-                if (sourceNode && sourceNode._resolvedId) resolvedSource = sourceNode._resolvedId;
-
-                const targetNode = artifact.graph.nodes.find(n => n.id === edge.target);
-                if (targetNode && targetNode._resolvedId) resolvedTarget = targetNode._resolvedId;
-
-                resolvedSource = this.normalizeMemorySessionGraphNodeId(resolvedSource);
-                resolvedTarget = this.normalizeMemorySessionGraphNodeId(resolvedTarget);
-
-                const sourceExists = validNodeRefs.has(resolvedSource) || GraphService.db.nodes.has(resolvedSource);
-                const targetExists = validNodeRefs.has(resolvedTarget) || GraphService.db.nodes.has(resolvedTarget);
-
-                if (!sourceExists || !targetExists) {
-                    const isProvenance           = ['MENTIONED_IN', 'DISCUSSED_IN', 'REFERENCED_BY'].includes(edge.relationship);
-                    const targetsSessionOrMemory = this.isMemorySessionGraphNodeId(resolvedTarget) || this.isMemorySessionGraphNodeId(resolvedSource);
-
-                    if (isProvenance && targetsSessionOrMemory) {
-                        /**
-                         * @summary Provenance Edge Lazy-Queue Strategy
-                         * Provenance edges (MENTIONED_IN, DISCUSSED_IN, REFERENCED_BY) linking to past sessions/memories
-                         * may reference nodes not in the current payload or synchronous graph cache.
-                         * Instead of dropping them as invalid, we route them to a JSONL backfill queue.
-                         * Consumer-side draining and retry logic is handled by LazyEdgeDrainer.
-                         */
-                        logger.info(`[SemanticGraphExtractor] Queuing unresolved provenance edge for lazy back-fill: ${resolvedSource} -> ${resolvedTarget}`);
-                        const lazyQueueFile = AiConfig.lazyEdgesQueuePath;
-                        const edgeData      = JSON.stringify({ ...edge, source: resolvedSource, target: resolvedTarget, timestamp: new Date().toISOString() }) + '\n';
-                        try {
-                            // Ensure the directory exists before appending
-                            await fs.promises.mkdir(path.dirname(lazyQueueFile), { recursive: true });
-                            await fs.promises.appendFile(lazyQueueFile, edgeData, 'utf8');
-                        } catch (err) {
-                            logger.error('[SemanticGraphExtractor] Failed to queue lazy edge:', err);
-                        }
-                        continue;
-                    }
-
-                    logger.warn(`[SemanticGraphExtractor] Culling hallucinated edge from ${resolvedSource} to ${resolvedTarget}`);
-                    continue; // Skip trying to link non-existent graph nodes
-                }
-
-                GraphService.linkNodes(
-                    resolvedSource,
-                    resolvedTarget,
-                    edge.relationship || 'RELATES_TO',
-                    edge.weight !== undefined ? parseFloat(edge.weight) : 1.0,
-                    {
-                        justification : edge.justification || '',
-                        context_source: session.meta.sessionId
-                    }
-                );
-            }
-
-            logger.info(`[SemanticGraphExtractor] Graph entities committed to Neocortex for session ${session.meta.sessionId}.`);
-
-            // --- VECTOR 2: STRATEGIC ROADMAP PIVOTS ---
-            if (artifact.roadmap_impact && typeof artifact.roadmap_impact === 'string' && artifact.roadmap_impact.toLowerCase() !== 'null') {
-                const auditLog = path.join('/tmp', 'roadmap_audits.log');
-                const strategyEntry = `[${new Date().toISOString()}] Session ${session.meta.sessionId}:\n${artifact.roadmap_impact}\n\n`;
-                await fs.promises.appendFile(auditLog, strategyEntry, 'utf8');
-                logger.info(`[SemanticGraphExtractor] Extracted Strategy impact to roadmap_audits.log`);
-            }
-
-            return payload;
+            return await this.commitTriVectorPayload(payload, session);
 
         } catch (error) {
             if (error.message && error.message.includes('fetch failed')) {
