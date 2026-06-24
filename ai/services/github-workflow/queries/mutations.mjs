@@ -168,6 +168,31 @@ export const GET_ISSUE_ID = `
 `;
 
 /**
+ * Query to fetch the issue fields needed before deciding whether a local
+ * Markdown hash mismatch is a real pushable edit or generated-only drift.
+ *
+ * Variables required:
+ * - $owner: String!
+ * - $repo: String!
+ * - $number: Int!
+ */
+export const GET_ISSUE_FOR_PUSH = `
+  query GetIssueForPush(
+    $owner: String!
+    $repo: String!
+    $number: Int!
+  ) {
+    repository(owner: $owner, name: $repo) {
+      issue(number: $number) {
+        id
+        title
+        body
+      }
+    }
+  }
+`;
+
+/**
  * Mutation to remove a "blocked by" relationship from an issue.
  *
  * Variables required:
