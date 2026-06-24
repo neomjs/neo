@@ -71,20 +71,6 @@ export const BASELINE = Object.freeze([
  */
 export const AI_CONFIG_IMPLEMENTATION_BASELINE = Object.freeze([
     {
-        file  : 'ai/daemons/orchestrator/services/DeploymentStateBridgeService.mjs',
-        kind  : 'hidden-default',
-        text  : 'const max = Math.max(1, Number(AiConfig.orchestrator.deploymentStateBridge.statsSampleWindow) || 1);',
-        ticket: '#13939',
-        reason: 'Existing live debt; the guard blocks new hidden defaults while cleanup retires this row.'
-    },
-    {
-        file  : 'ai/daemons/orchestrator/services/DeploymentStateBridgeService.mjs',
-        kind  : 'type-coercion',
-        text  : 'const max = Math.max(1, Number(AiConfig.orchestrator.deploymentStateBridge.statsSampleWindow) || 1);',
-        ticket: '#13939',
-        reason: 'Existing live debt; the guard blocks new type coercions while cleanup retires this row.'
-    },
-    {
         file  : 'ai/daemons/orchestrator/Orchestrator.mjs',
         kind  : 'config-pass-through',
         text  : 'runtimeAccessConfig: AiConfig.orchestrator.deploymentRuntimeAccess,',
@@ -104,20 +90,6 @@ export const AI_CONFIG_IMPLEMENTATION_BASELINE = Object.freeze([
         text  : 'primaryDevSyncRootsConfig: AiConfig.orchestrator.devSyncRoots,',
         ticket: '#13939',
         reason: 'Existing entrypoint injection boundary; cleanup belongs to the #12456 fan-out.'
-    },
-    {
-        file  : 'ai/daemons/orchestrator/services/ConfiguredTaskDefinitionsService.mjs',
-        kind  : 'defensive-optional-chain',
-        text  : 'const stuckCfg  = AiConfig.orchestrator?.providerReadiness?.stuckRunner;',
-        ticket: '#13939',
-        reason: 'Existing B3 hit; cleanup belongs to the #12456 fan-out.'
-    },
-    {
-        file  : 'ai/daemons/orchestrator/services/ConfiguredTaskDefinitionsService.mjs',
-        kind  : 'hidden-default',
-        text  : 'timeoutMs: AiConfig.orchestrator.providerReadiness.timeoutMs ?? 2000',
-        ticket: '#13939',
-        reason: 'Existing live debt; the guard blocks new hidden defaults while cleanup retires this row.'
     },
     {
         file  : 'ai/daemons/orchestrator/services/TenantRepoSyncService.mjs',
