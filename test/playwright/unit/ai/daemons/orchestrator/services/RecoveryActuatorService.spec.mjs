@@ -7,11 +7,15 @@ import Neo       from '../../../../../../../src/Neo.mjs';
 import * as core from '../../../../../../../src/core/_export.mjs';
 import {
     RecoveryActuatorService,
-    normalizeRecoveryActuatorAllowlist
+    isRecoveryActuatorTargetBlocked,
+    normalizeRecoveryActuatorTargets
 } from '../../../../../../../ai/daemons/orchestrator/services/RecoveryActuatorService.mjs';
 import {TIER1_DEFAULTS} from '../../../../../fixtures/aiConfigDefaults.mjs';
 
-const DEFAULT_ACTUATOR_CONFIG = TIER1_DEFAULTS.orchestrator.recoveryActuator;
+const DEFAULT_ACTUATOR_CONFIG       = TIER1_DEFAULTS.orchestrator.recoveryActuator;
+const DEFAULT_RUNTIME_ACCESS_CONFIG = {
+    allowedServices: ['chroma', 'kb-server', 'mc-server', 'local-model']
+};
 
 test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
     let tmpDir;
@@ -32,17 +36,13 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
               taskOutcomes                 = [],
               actuatorConfig               = {
                   ...DEFAULT_ACTUATOR_CONFIG,
-                  enabled               : true,
-                  allowedSupervisedTasks: [{serviceKey: 'model', taskName: 'ollama'}],
-                  allowedComposeServices: ['memory-core'],
-                  allowedDeployTargets  : ['cloud-deploy'],
-                  healAttemptsPath      : path.join(tmpDir, 'heal-attempts.json'),
-                  recoveryRunStateDir   : path.join(tmpDir, 'recovery-runs'),
-                  baseBackoffMs         : 0,
-                  maxBackoffMs          : 0,
-                  maxAttemptsPerWindow  : 2,
-                  maxAttemptsWindowMs   : 60_000,
-                  verifyCooldownMs      : 5_000,
+                  healAttemptsPath    : path.join(tmpDir, 'heal-attempts.json'),
+                  recoveryRunStateDir : path.join(tmpDir, 'recovery-runs'),
+                  baseBackoffMs       : 0,
+                  maxBackoffMs        : 0,
+                  maxAttemptsPerWindow: 2,
+                  maxAttemptsWindowMs : 60_000,
+                  verifyCooldownMs    : 5_000,
                   ...overrides.actuatorConfig
               },
               service = Neo.create(RecoveryActuatorService, {
@@ -54,6 +54,7 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
                       }
                   },
                   deploymentRuntimeAccessService: {
+                      runtimeAccessConfig: DEFAULT_RUNTIME_ACCESS_CONFIG,
                       async applyLifecycle(options) {
                           runtimeCalls.push(options);
 
@@ -71,6 +72,10 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
                       ...overrides.deploymentRuntimeAccessService
                   },
                   processSupervisorService: {
+                      taskDefinitions: {
+                          chroma: {label: 'chroma daemon'},
+                          ollama: {label: 'ollama server'}
+                      },
                       killTask(taskName, reason) {
                           supervisorCalls.push({taskName, reason});
                       },
@@ -98,8 +103,8 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
         return JSON.parse(await readFile(path.join(tmpDir, 'heal-attempts.json'), 'utf8'));
     }
 
-    test('normalizes string and object allowlist entries', () => {
-        expect(normalizeRecoveryActuatorAllowlist([
+    test('normalizes string and object recovery target entries', () => {
+        expect(normalizeRecoveryActuatorTargets([
             'memory-core',
             {serviceKey: 'model', taskName: 'ollama'},
             {serviceKey: 'kb', composeService: 'knowledge-base'},
@@ -112,10 +117,27 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
         ]);
     });
 
-    test('restart recycles an allowlisted supervised task through the B0 supervisor envelope', async () => {
+    test('rejects malformed recovery target collections', () => {
+        expect(() => normalizeRecoveryActuatorTargets(null, 'compose-service')).toThrow(
+            'Recovery actuator compose-service targets must be an array.'
+        );
+    });
+
+    test('matches blocklist entries by serviceKey or target id', () => {
+        expect(isRecoveryActuatorTargetBlocked(
+            {kind: 'compose-service', serviceKey: 'model', id: 'local-model'},
+            normalizeRecoveryActuatorTargets(['local-model'], 'compose-service')
+        )).toBe(true);
+        expect(isRecoveryActuatorTargetBlocked(
+            {kind: 'compose-service', serviceKey: 'model', id: 'local-model'},
+            normalizeRecoveryActuatorTargets(['other-service'], 'compose-service')
+        )).toBe(false);
+    });
+
+    test('restart recycles a known supervised task through the B0 supervisor envelope', async () => {
         const {service, runtimeCalls, supervisorCalls, taskOutcomes} = createService();
 
-        const result = await service.apply('model', 'restart', {
+        const result = await service.apply('ollama', 'restart', {
             now           : 15_000,
             reason        : 'provider-resident-not-serving',
             targetIdentity: {kind: 'supervised-task', id: 'ollama'}
@@ -138,7 +160,7 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
         }]);
         expect(runtimeCalls).toEqual([]);
         expect(taskOutcomes).toContainEqual(expect.objectContaining({
-            taskName: 'recovery-actuator:model',
+            taskName: 'recovery-actuator:ollama',
             status  : 'completed',
             details : expect.objectContaining({
                 status      : 'actioned',
@@ -147,29 +169,29 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
         }));
     });
 
-    test('restart applies only to an allowlisted compose service and writes health plus recovery ledger traces', async () => {
+    test('restart applies to a known compose service and writes health plus recovery ledger traces', async () => {
         const {service, runtimeCalls, taskOutcomes} = createService();
 
-        const result = await service.apply('memory-core', 'restart', {now: 10_000});
+        const result = await service.apply('mc-server', 'restart', {now: 10_000});
 
         expect(result.status).toBe('actioned');
         expect(result.reobserveRequest).toMatchObject({
             recoveryClass : 'crash',
-            targetIdentity: {kind: 'compose-service', id: 'memory-core'},
+            targetIdentity: {kind: 'compose-service', id: 'mc-server'},
             cooldownMs    : 5_000
         });
         expect(runtimeCalls).toEqual([expect.objectContaining({
-            serviceKey: 'memory-core',
+            serviceKey: 'mc-server',
             operation : 'restart',
-            reason    : 'recovery-actuator:memory-core'
+            reason    : 'recovery-actuator:mc-server'
         })]);
         expect(result.runtimeAccess).toMatchObject({
             capabilityEnvelope: 'lifecycle-write',
             operation         : 'restart',
-            serviceKey        : 'memory-core'
+            serviceKey        : 'mc-server'
         });
         expect(taskOutcomes).toContainEqual(expect.objectContaining({
-            taskName: 'recovery-actuator:memory-core',
+            taskName: 'recovery-actuator:mc-server',
             status  : 'completed',
             details : expect.objectContaining({
                 status      : 'actioned',
@@ -178,7 +200,7 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
         }));
 
         const attempts = await readAttempts();
-        expect(attempts['memory-core:restart']).toMatchObject({
+        expect(attempts['mc-server:restart']).toMatchObject({
             attemptCount: 1,
             lastAction  : 'restart',
             lastStatus  : 'actioned'
@@ -186,31 +208,27 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
     });
 
     test('warm-provider restores provider role-set residency through the bounded actuator envelope', async () => {
-        const {service, runtimeCalls, providerResidencyRepairCalls, taskOutcomes} = createService({
-            actuatorConfig: {
-                allowedComposeServices: ['model']
-            }
-        });
+        const {service, runtimeCalls, providerResidencyRepairCalls, taskOutcomes} = createService();
 
-        const result = await service.apply('model', 'warm-provider', {
+        const result = await service.apply('local-model', 'warm-provider', {
             now           : 30_000,
             reason        : 'missing-required-model',
-            targetIdentity: {kind: 'compose-service', id: 'model'}
+            targetIdentity: {kind: 'compose-service', id: 'local-model'}
         });
 
         expect(result.status).toBe('actioned');
         expect(runtimeCalls).toEqual([]);
         expect(providerResidencyRepairCalls).toHaveLength(1);
-        expect(result.targetIdentity).toEqual({kind: 'compose-service', id: 'model'});
+        expect(result.targetIdentity).toEqual({kind: 'compose-service', id: 'local-model'});
         expect(result.reobserveRequest).toMatchObject({
             recoveryClass : 'provider-role-residency',
-            targetIdentity: {kind: 'compose-service', id: 'model'},
+            targetIdentity: {kind: 'compose-service', id: 'local-model'},
             cooldownMs    : 5_000
         });
         expect(result.providerResidency).toMatchObject({
             capabilityEnvelope: 'provider-role-set-warm',
             operation         : 'warm-provider',
-            serviceKey        : 'model',
+            serviceKey        : 'local-model',
             reason            : 'missing-required-model',
             result            : {
                 ready   : true,
@@ -218,7 +236,7 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
             }
         });
         expect(taskOutcomes).toContainEqual(expect.objectContaining({
-            taskName: 'recovery-actuator:model',
+            taskName: 'recovery-actuator:local-model',
             status  : 'completed',
             details : expect.objectContaining({
                 status      : 'actioned',
@@ -227,7 +245,7 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
         }));
 
         const attempts = await readAttempts();
-        expect(attempts['model:warm-provider']).toMatchObject({
+        expect(attempts['local-model:warm-provider']).toMatchObject({
             attemptCount: 1,
             lastAction  : 'warm-provider',
             lastStatus  : 'actioned'
@@ -237,19 +255,18 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
     test('warm-provider honors persisted backoff and does not loop warm attempts', async () => {
         const {service, providerResidencyRepairCalls} = createService({
             actuatorConfig: {
-                allowedComposeServices: ['model'],
-                baseBackoffMs         : 30_000,
-                maxBackoffMs          : 30_000
+                baseBackoffMs: 30_000,
+                maxBackoffMs : 30_000
             }
         });
 
-        const first = await service.apply('model', 'warm-provider', {
+        const first = await service.apply('local-model', 'warm-provider', {
             now           : 40_000,
-            targetIdentity: {kind: 'compose-service', id: 'model'}
+            targetIdentity: {kind: 'compose-service', id: 'local-model'}
         });
-        const second = await service.apply('model', 'warm-provider', {
+        const second = await service.apply('local-model', 'warm-provider', {
             now           : 41_000,
-            targetIdentity: {kind: 'compose-service', id: 'model'}
+            targetIdentity: {kind: 'compose-service', id: 'local-model'}
         });
 
         expect(first.status).toBe('actioned');
@@ -262,9 +279,6 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
 
     test('warm-provider reports failed provider repair without restarting the target', async () => {
         const {service, runtimeCalls, providerResidencyRepairCalls} = createService({
-            actuatorConfig: {
-                allowedComposeServices: ['model']
-            },
             serviceConfig: {
                 async providerResidencyRepair() {
                     providerResidencyRepairCalls.push({});
@@ -276,9 +290,9 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
             }
         });
 
-        const result = await service.apply('model', 'warm-provider', {
+        const result = await service.apply('local-model', 'warm-provider', {
             now           : 50_000,
-            targetIdentity: {kind: 'compose-service', id: 'model'}
+            targetIdentity: {kind: 'compose-service', id: 'local-model'}
         });
 
         expect(result).toMatchObject({
@@ -290,14 +304,34 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
         expect(providerResidencyRepairCalls).toHaveLength(1);
     });
 
-    test('non-allowlisted compose services are rejected before any executor call', async () => {
+    test('blocked compose services are rejected before any executor call', async () => {
+        const {service, runtimeCalls, taskOutcomes} = createService({
+            actuatorConfig: {
+                blockedComposeServices: ['mc-server']
+            }
+        });
+
+        const result = await service.apply('mc-server', 'restart', {now: 20_000});
+
+        expect(result).toMatchObject({
+            status    : 'rejected',
+            reasonCode: 'target-not-recoverable'
+        });
+        expect(runtimeCalls).toEqual([]);
+        expect(taskOutcomes).toContainEqual(expect.objectContaining({
+            taskName: 'recovery-actuator:mc-server',
+            status  : 'skipped'
+        }));
+    });
+
+    test('unknown targets are rejected before any executor call', async () => {
         const {service, runtimeCalls, taskOutcomes} = createService();
 
         const result = await service.apply('not-allowed', 'restart', {now: 20_000});
 
         expect(result).toMatchObject({
             status    : 'rejected',
-            reasonCode: 'target-not-allowlisted'
+            reasonCode: 'target-not-recoverable'
         });
         expect(runtimeCalls).toEqual([]);
         expect(taskOutcomes).toContainEqual(expect.objectContaining({
@@ -306,14 +340,14 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
         }));
     });
 
-    test('disabled actuator refuses allowlisted targets before any executor call', async () => {
+    test('disabled actuator refuses known targets before any executor call', async () => {
         const {service, runtimeCalls} = createService({
             actuatorConfig: {
                 enabled: false
             }
         });
 
-        const result = await service.apply('memory-core', 'restart', {now: 25_000});
+        const result = await service.apply('mc-server', 'restart', {now: 25_000});
 
         expect(result).toMatchObject({
             status    : 'rejected',
@@ -330,8 +364,8 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
             }
         });
 
-        const first  = await service.apply('memory-core', 'restart', {now: 100_000});
-        const second = await service.apply('memory-core', 'restart', {now: 101_000});
+        const first  = await service.apply('mc-server', 'restart', {now: 100_000});
+        const second = await service.apply('mc-server', 'restart', {now: 101_000});
 
         expect(first.status).toBe('actioned');
         expect(second).toMatchObject({
@@ -349,8 +383,8 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
             }
         });
 
-        const first  = await service.apply('memory-core', 'restart', {now: 200_000});
-        const second = await service.apply('memory-core', 'restart', {now: 201_000});
+        const first  = await service.apply('mc-server', 'restart', {now: 200_000});
+        const second = await service.apply('mc-server', 'restart', {now: 201_000});
 
         expect(first.status).toBe('actioned');
         expect(second).toMatchObject({
@@ -360,7 +394,7 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
         expect(runtimeCalls).toHaveLength(1);
 
         const attempts = await readAttempts();
-        expect(attempts['memory-core:restart'].alarmOnly).toBe(true);
+        expect(attempts['mc-server:restart'].alarmOnly).toBe(true);
     });
 
     test('deploy-target redeploy pages without executing arbitrary deployment code', async () => {
@@ -391,10 +425,10 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
         }));
     });
 
-    test('arbitrary actions are rejected before allowlist or executor access', async () => {
+    test('arbitrary actions are rejected before target lookup or executor access', async () => {
         const {service, runtimeCalls} = createService();
 
-        const result = await service.apply('memory-core', 'exec', {now: 400_000});
+        const result = await service.apply('mc-server', 'exec', {now: 400_000});
 
         expect(result).toMatchObject({
             status    : 'rejected',
