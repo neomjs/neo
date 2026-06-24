@@ -1,6 +1,6 @@
 import fs       from 'fs';
 import path     from 'path';
-import aiConfig from '../../mcp/server/memory-core/config.mjs';
+import AiConfig from '../../mcp/server/memory-core/config.mjs';
 import Base     from '../../../src/core/Base.mjs';
 import {
     bytesToTokens,
@@ -161,6 +161,62 @@ class SemanticGraphExtractor extends Base {
     }
 
     /**
+     * Maps ConsumerFriction symptoms into REM digest-state `deferReason` values.
+     *
+     * @summary Anchor & Echo: Keeps the visibility taxonomy (`ConsumerFriction.symptom`)
+     * separate from the REM cadence taxonomy (`deferReason`). The extractor owns this
+     * bridge because it is the only layer with direct provider-failure evidence.
+     *
+     * @param {String} symptom ConsumerFriction symptom
+     * @returns {String} REM digest-state defer reason
+     * @protected
+     */
+    getDeferReasonForFrictionSymptom(symptom) {
+        switch (symptom) {
+            case 'size-precheck-skip':
+                return 'skip-over-band';
+            case 'timeout':
+                return 'wall-clock-timeout';
+            case 'parse-failure':
+                return 'schema-failure';
+            case 'context-overflow':
+            default:
+                return 'under-band-choke';
+        }
+    }
+
+    /**
+     * Creates the typed failure descriptor consumed by `DreamService`.
+     *
+     * @summary Anchor & Echo: Success still returns the Tri-Vector payload for compatibility.
+     * Failure returns this descriptor instead of bare `null`, so REM cadence can persist
+     * `deferReason` / `terminalForCadence` from provider-local evidence rather than guessing
+     * from payload size after the fact.
+     *
+     * @param {Object} options
+     * @param {String} options.deferReason REM digest-state reason
+     * @param {String} [options.frictionSymptom] ConsumerFriction symptom used as visibility evidence
+     * @param {Boolean} [options.terminalForCadence=true] Whether repeated failures may be deferred after max attempts
+     * @param {Object} [options.evidence] Bounded diagnostic evidence
+     * @returns {Object}
+     * @protected
+     */
+    createTriVectorFailureDescriptor({
+        deferReason,
+        frictionSymptom,
+        terminalForCadence = true,
+        evidence = {}
+    }) {
+        return {
+            ok: false,
+            deferReason,
+            frictionSymptom,
+            terminalForCadence,
+            evidence
+        };
+    }
+
+    /**
      * Executes the Tri-Vector Synthesis (Semantic Graph, Open Deltas, Roadmap Strategy)
      * from the session memory log via JSON schema extraction.
      *
@@ -169,7 +225,7 @@ class SemanticGraphExtractor extends Base {
      * failures. This graceful degradation prevents token-exhaustion crash-loops under peak payload sizes.
      *
      * @param {Object} session Wrapped session object containing id, document, and meta
-     * @returns {Promise<Object|null>} The extracted payload, or null on failure
+     * @returns {Promise<Object>} The extracted payload, or `{ok:false, ...}` on failure
      */
     async executeTriVectorExtraction(session) {
         logger.info(`[SemanticGraphExtractor] Extracting Tri-Vector Synthesis for session ID: ${session.meta.sessionId}`);
@@ -230,11 +286,11 @@ This does not recase semantic or identity prefixes such as CONCEPT:, CLASS:, or 
 DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide purely the JSON object.`;
 
         try {
-            const graphProvider = resolveGraphModelProvider(aiConfig);
+            const graphProvider = resolveGraphModelProvider(AiConfig);
             const provider      = buildGraphProvider({
                 modelProvider         : graphProvider,
-                ollamaConfig          : aiConfig.ollama,
-                openAiCompatibleConfig: aiConfig.openAiCompatible
+                ollamaConfig          : AiConfig.ollama,
+                openAiCompatibleConfig: AiConfig.openAiCompatible
             });
 
             // Format boundaries securely
@@ -260,19 +316,16 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             // threshold (model-role axis, not provider-namespace — remote providers like
             // Gemini are API-bound and don't expose these knobs; local providers
             // share the same caps because the limit comes from the loaded model).
-            const consumerModel         = aiConfig[graphProvider].model;
-            const consumerContextTokens = aiConfig.localModels.chat.contextLimitTokens;
-            const configuredSafeTokens  = aiConfig.localModels.chat.safeProcessingLimitTokens;
-            const consumerSafeTokens    = Number.isFinite(configuredSafeTokens)
-                ? configuredSafeTokens
-                : Math.floor(consumerContextTokens * 0.75);
+            const consumerModel         = AiConfig[graphProvider].model;
+            const consumerContextTokens = AiConfig.localModels.chat.contextLimitTokens;
+            const consumerSafeTokens    = AiConfig.localModels.chat.safeProcessingLimitTokens;
 
             // Per-task no-think + grammar-constrained tri-vector output. `graphReasoningEffort`
             // (default 'none') disables the gemma MoE's hidden thinking pass; `triVectorSchema` enforces
             // the A2A session_artifact/graph shape via the provider's json_schema path, which makes the
             // repair-retry loop below a safety net rather than the happy path. Schema mirrors the strict
             // shape declared in the systemInstruction above.
-            const graphReasoningEffort = aiConfig.localModels.chat.graphReasoningEffort;
+            const graphReasoningEffort = AiConfig.localModels.chat.graphReasoningEffort;
             const triVectorSchema      = {
                 type      : 'object',
                 properties: {
@@ -344,7 +397,21 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
 
                 if (!guardrailed.result) {
                     logger.warn(`[SemanticGraphExtractor] Attempt ${attempt}: invocation guardrail emitted ${guardrailed.friction?.symptom} for session ${session.meta.sessionId}; aborting retry loop.`);
-                    return null;
+
+                    return this.createTriVectorFailureDescriptor({
+                        deferReason       : this.getDeferReasonForFrictionSymptom(guardrailed.friction?.symptom),
+                        frictionSymptom   : guardrailed.friction?.symptom,
+                        terminalForCadence: true,
+                        evidence          : {
+                            attempts                 : attempt,
+                            emissionPoint            : guardrailed.friction?.emissionPoint,
+                            inputBytes               : guardrailed.friction?.inputBytes,
+                            inputTokensEstimate      : guardrailed.friction?.inputTokensEstimate,
+                            contextLimitTokens       : guardrailed.friction?.contextLimitTokens,
+                            safeProcessingLimitTokens: guardrailed.friction?.safeProcessingLimitTokens,
+                            note                     : guardrailed.friction?.note
+                        }
+                    });
                 }
 
                 result = guardrailed.result;
@@ -363,7 +430,18 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                         note                    : `Provider finish_reason='${finishReason}' before schema validation. Aborting repair loop to avoid appending a truncated response. Attempt ${attempt}/${maxRetries}.`
                     });
 
-                    return null;
+                    return this.createTriVectorFailureDescriptor({
+                        deferReason       : 'under-band-choke',
+                        frictionSymptom   : 'context-overflow',
+                        terminalForCadence: true,
+                        evidence          : {
+                            attempts           : attempt,
+                            finishReason,
+                            inputBytes         : inputPayload.bytes,
+                            inputTokensEstimate: inputPayload.tokens,
+                            note               : `Provider finish_reason='${finishReason}' before schema validation.`
+                        }
+                    });
                 }
 
                 // Silent context-overflow detection: provider can stream-close immediately
@@ -390,7 +468,17 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                         note                     : `Silent empty-response from provider (no thrown error, no body). Prompt chars: ${inputPayloadText.length}. Attempt ${attempt}/${maxRetries}.`
                     });
 
-                    return null;
+                    return this.createTriVectorFailureDescriptor({
+                        deferReason       : 'under-band-choke',
+                        frictionSymptom   : 'context-overflow',
+                        terminalForCadence: true,
+                        evidence          : {
+                            attempts           : attempt,
+                            inputBytes         : Buffer.byteLength(inputPayloadText),
+                            inputTokensEstimate: inputPayload.tokens,
+                            note               : `Silent empty-response from provider (no thrown error, no body). Prompt chars: ${inputPayloadText.length}.`
+                        }
+                    });
                 }
 
                 // Extract using robust Json parser to catch malformed boundaries
@@ -421,7 +509,17 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                                 note                    : `Repair retry prompt estimate ${repairPayload.tokens} tokens exceeds safe band ${consumerSafeTokens}. Aborting instead of appending assistant output and repair feedback. Attempt ${attempt}/${maxRetries}.`
                             });
 
-                            return null;
+                            return this.createTriVectorFailureDescriptor({
+                                deferReason       : 'under-band-choke',
+                                frictionSymptom   : 'context-overflow',
+                                terminalForCadence: true,
+                                evidence          : {
+                                    attempts           : attempt,
+                                    inputBytes         : repairPayload.bytes,
+                                    inputTokensEstimate: repairPayload.tokens,
+                                    note               : `Repair retry prompt estimate ${repairPayload.tokens} tokens exceeds safe band ${consumerSafeTokens}.`
+                                }
+                            });
                         }
 
                         logger.warn(`[SemanticGraphExtractor] Attempt ${attempt}: Injecting autonomous JSON repair feedback loop.`);
@@ -445,7 +543,15 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             }
 
             if (!payload) {
-                return null;
+                return this.createTriVectorFailureDescriptor({
+                    deferReason       : 'schema-failure',
+                    frictionSymptom   : 'parse-failure',
+                    terminalForCadence: true,
+                    evidence          : {
+                        attempts: attempt,
+                        note: `Tri-Vector schema validation failed after ${attempt} attempt(s).`
+                    }
+                });
             }
 
             logger.debug(`[SemanticGraphExtractor] Successfully extracted Tri-Vector A2A schema for session ${session.meta.sessionId} after ${attempt} attempts.`);
@@ -533,7 +639,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                          * Consumer-side draining and retry logic is handled by LazyEdgeDrainer.
                          */
                         logger.info(`[SemanticGraphExtractor] Queuing unresolved provenance edge for lazy back-fill: ${resolvedSource} -> ${resolvedTarget}`);
-                        const lazyQueueFile = aiConfig.lazyEdgesQueuePath;
+                        const lazyQueueFile = AiConfig.lazyEdgesQueuePath;
                         const edgeData      = JSON.stringify({ ...edge, source: resolvedSource, target: resolvedTarget, timestamp: new Date().toISOString() }) + '\n';
                         try {
                             // Ensure the directory exists before appending
@@ -579,7 +685,14 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             } else {
                 logger.error('[SemanticGraphExtractor] Error during graph extraction run:', error);
             }
-            return null;
+            return this.createTriVectorFailureDescriptor({
+                deferReason       : 'schema-failure',
+                frictionSymptom   : 'parse-failure',
+                terminalForCadence: false,
+                evidence          : {
+                    errorMessage: error?.message ? String(error.message) : String(error)
+                }
+            });
         }
     }
 
@@ -622,11 +735,11 @@ Enforce this STRICT JSON schema:
 DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide purely the JSON object.`;
 
         try {
-            const graphProvider = resolveGraphModelProvider(aiConfig);
+            const graphProvider = resolveGraphModelProvider(AiConfig);
             const provider      = buildGraphProvider({
                 modelProvider         : graphProvider,
-                ollamaConfig          : aiConfig.ollama,
-                openAiCompatibleConfig: aiConfig.openAiCompatible
+                ollamaConfig          : AiConfig.ollama,
+                openAiCompatibleConfig: AiConfig.openAiCompatible
             });
 
             const messages = [
