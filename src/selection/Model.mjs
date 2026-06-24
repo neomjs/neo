@@ -128,8 +128,8 @@ class Model extends Base {
      * @param {Object[]|String[]} itemCollection=this.items
      */
     deselectAll(silent, itemCollection=this.items) {
-        let me    = this,
-            items = [...itemCollection],
+        let me     = this,
+            items  = [...itemCollection],
             {view} = me;
 
         if (items.length) {

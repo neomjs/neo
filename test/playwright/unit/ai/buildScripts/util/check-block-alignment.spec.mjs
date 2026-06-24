@@ -13,9 +13,10 @@ const
 /**
  * check-block-alignment.mjs — the lint that mechanizes Neo's block alignment (import-`from`,
  * object-literal colons, declaration `=` blocks) so it is never hand-counted. Coverage is constructed
- * WITHOUT any hand-aligned fixture (the exact error class
- * this gate removes): the misaligned input is trivial to write, the aligned form is DERIVED via `--fix`,
- * and the false-positive guards use ungrouped inputs that pass regardless of spacing.
+ * mostly without hand-aligned fixtures (the exact error class this gate removes): the misaligned input
+ * is trivial to write, the aligned form is DERIVED via `--fix`, and the false-positive guards use
+ * ungrouped inputs that pass regardless of spacing. The destructuring regression pins one concrete
+ * output fixture because the bug erased an existing human-reviewed block shape.
  */
 test.describe('check-block-alignment.mjs (#13556)', () => {
     let tempDir;
@@ -51,7 +52,7 @@ test.describe('check-block-alignment.mjs (#13556)', () => {
     ].join('\n');
 
     test('flags a misaligned import-from group with a file:line + expected-column diagnostic (exit 1)', () => {
-        const file = write('m.mjs', MISALIGNED);
+        const file             = write('m.mjs', MISALIGNED);
         const {status, output} = run(file);
 
         expect(status).toBe(1);
@@ -256,6 +257,25 @@ test.describe('check-block-alignment.mjs (#13556)', () => {
 
             expect(shortEq).toBe(longerEq);
             expect(blockEq).toBe(longerEq);
+            expect(run(file).status).toBe(0);
+        });
+
+        test('#13908: --fix aligns keyword-head comma-blocks with destructuring continuations', () => {
+            const file = write('d.mjs', [
+                '        let me = this,',
+                '            {record} = data,',
+                '            oldValue = me.value,',
+                '            {value} = record;'
+            ].join('\n'));
+
+            expect(run('--fix', file).status).toBe(0);
+
+            expect(fs.readFileSync(file, 'utf8').split('\n')).toEqual([
+                '        let me       = this,',
+                '            {record} = data,',
+                '            oldValue = me.value,',
+                '            {value}  = record;'
+            ]);
             expect(run(file).status).toBe(0);
         });
 

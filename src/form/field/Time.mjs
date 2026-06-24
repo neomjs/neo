@@ -363,7 +363,7 @@ class Time extends Picker {
      * @param {Object} data.record
      */
     onListItemClick(data) {
-        let me = this,
+        let me       = this,
             {record} = data,
             oldValue = me.value,
             {value}  = record;
@@ -406,7 +406,7 @@ class Time extends Picker {
      * @param {Boolean} [preventFocus=false]
      */
     selectCurrentListItem(preventFocus=false) {
-        let me = this,
+        let me     = this,
             {list} = me,
             id     = list.getItemId(me.value);
 

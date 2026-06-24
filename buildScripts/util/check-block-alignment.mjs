@@ -204,11 +204,12 @@ function evaluateColonAlignment(lines, maskedLines = []) {
 
 const
     LONE_KEYWORD = /^\s*(?:const|let|var)\s*$/,        // a lone `const`/`let`/`var` line (opens a comma-block)
-    BARE_DECL    = /^(\s+)[A-Za-z_$][\w$]*\s*=\s*.+$/; // its indented `name = value` comma-block continuation
+    DECL_BINDING = String.raw`(?:[A-Za-z_$][\w$]*|\{[^}]+\}|\[[^\]]+\])`,
+    BARE_DECL    = new RegExp(`^(\\s+)${DECL_BINDING}\\s*=\\s*.+$`); // its indented `binding = value` comma-block continuation
 
 const
-    KEYWORD_DECL           = /^(\s*)(const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(.+)$/,
-    BARE_DECL_CONTINUATION = /^(\s+)[A-Za-z_$][\w$]*\s*=\s*.+$/;
+    KEYWORD_DECL           = new RegExp(`^(\\s*)(const|let|var)\\s+(${DECL_BINDING})\\s*=\\s*(.+)$`),
+    BARE_DECL_CONTINUATION = new RegExp(`^(\\s+)${DECL_BINDING}\\s*=\\s*.+$`);
 
 /**
  * @summary The leading whitespace of a line.
@@ -237,7 +238,8 @@ function splitAssignment(line) {
 /**
  * @summary Parses one keyworded variable declaration line. The returned `left` deliberately includes
  * the keyword (`const foo`) so mixed `let`/`const` blocks align exactly like the coding-guideline
- * example. Destructuring declarations are intentionally out of scope for this mechanical rule.
+ * example. Object and array destructuring bindings participate in comma-block alignment because
+ * Neo's house style aligns the full declaration block, not only identifier continuations.
  * @param {String} line
  * @returns {{indent: String, kind: String, keyword: String, name: String, left: String, value: String}|null}
  */
@@ -256,7 +258,7 @@ function parseKeywordDeclaration(line) {
 }
 
 /**
- * @summary Parses a bare `name = value` continuation under a keyworded comma-block.
+ * @summary Parses a bare `binding = value` continuation under a keyworded comma-block.
  * @param {String} line
  * @returns {{indent: String, kind: String, left: String, value: String}|null}
  */
