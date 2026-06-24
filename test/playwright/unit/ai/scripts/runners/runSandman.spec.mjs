@@ -600,6 +600,28 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         }]);
     });
 
+    test('provider role-set builders fail loud on missing AiConfig localModels leaves (#13948)', () => {
+        expect(() => providerReadinessHelper.buildLmsPreloadConfig({
+            modelProvider    : 'openAiCompatible',
+            graphProvider    : 'openAiCompatible',
+            embeddingProvider: 'openAiCompatible',
+            openAiCompatible : {
+                model         : 'chat-model',
+                embeddingModel: 'embedding-model'
+            }
+        })).toThrow(TypeError);
+
+        expect(() => providerReadinessHelper.buildOllamaReadinessConfig({
+            modelProvider    : 'ollama',
+            graphProvider    : 'ollama',
+            embeddingProvider: 'ollama',
+            ollama           : {
+                model         : 'chat-model',
+                embeddingModel: 'embedding-model'
+            }
+        })).toThrow(TypeError);
+    });
+
     test('ensureLmsModelsLoaded skips lms load when both models are already resident AND no contextLengths configured', async () => {
         const loads = [];
 
@@ -1561,6 +1583,14 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
                 model                : 'gemma4:31b',
                 embeddingModel       : 'qwen3-embedding',
                 requireParallelModels: 2
+            },
+            localModels: {
+                chat: {
+                    contextLimitTokens: 131072
+                },
+                embedding: {
+                    contextLimitTokens: 32768
+                }
             }
         }).roles).toEqual([]);
     });

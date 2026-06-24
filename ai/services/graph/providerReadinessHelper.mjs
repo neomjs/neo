@@ -624,13 +624,13 @@ export function buildLmsContextLengthsMap({
  * @returns {{models: String[], contextLengths: Object, parallels: Object}} Role-aware LMS preload config.
  */
 export function buildLmsPreloadConfig(config = aiConfig) {
-    const openAiCompatibleConfig = config.openAiCompatible ?? {},
+    const openAiCompatibleConfig = config.openAiCompatible,
           chatModel              = openAiCompatibleConfig.model,
           embeddingModel         = openAiCompatibleConfig.embeddingModel,
-          chatContextLength      = config.localModels?.chat?.contextLimitTokens,
-          embeddingContextLength = config.localModels?.embedding?.contextLimitTokens,
-          chatParallel           = config.localModels?.chat?.parallel,
-          embeddingParallel      = config.localModels?.embedding?.parallel,
+          chatContextLength      = config.localModels.chat.contextLimitTokens,
+          embeddingContextLength = config.localModels.embedding.contextLimitTokens,
+          chatParallel           = config.localModels.chat.parallel,
+          embeddingParallel      = config.localModels.embedding.parallel,
           roles                  = [{
               provider     : config.modelProvider,
               model        : chatModel,
@@ -693,11 +693,11 @@ export function buildLmsPreloadConfig(config = aiConfig) {
  * @returns {{provider: String, host: String, keepAlive: *, requireParallelModels: Number, model: String, embeddingModel: String, roles: Object[], models: String[], contextLengths: Object}}
  */
 export function buildOllamaReadinessConfig(config = aiConfig) {
-    const ollamaConfig           = config.ollama ?? {},
+    const ollamaConfig           = config.ollama,
           chatModel              = ollamaConfig.model,
           embeddingModel         = ollamaConfig.embeddingModel,
-          chatContextLength      = config.localModels?.chat?.contextLimitTokens,
-          embeddingContextLength = config.localModels?.embedding?.contextLimitTokens,
+          chatContextLength      = config.localModels.chat.contextLimitTokens,
+          embeddingContextLength = config.localModels.embedding.contextLimitTokens,
           roles                  = [{
               provider     : config.modelProvider,
               providerRole : 'modelProvider',
