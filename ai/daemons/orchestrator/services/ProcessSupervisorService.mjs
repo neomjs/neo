@@ -223,6 +223,40 @@ export class ProcessSupervisorService extends Base {
     }
 
     /**
+     * @summary Resets stable-success logging when readiness leaves the healthy state.
+     *
+     * Clears a readiness-success log guard after degraded/failed/down states.
+     * @param {String} taskName Task key.
+     * @param {String} phase Readiness phase key.
+     * @returns {void}
+     */
+    clearReadinessSuccessLogState(taskName, phase) {
+        this.readinessSuccessLogKeys?.delete(`${taskName}:${phase}`);
+    }
+
+    /**
+     * @summary Allows only the first stable readiness success log for a task phase.
+     *
+     * Determines whether a stable readiness success transition should be logged.
+     * @param {String} taskName Task key.
+     * @param {String} phase Readiness phase key.
+     * @returns {Boolean}
+     */
+    shouldLogReadinessSuccess(taskName, phase) {
+        this.readinessSuccessLogKeys ??= new Set();
+
+        const key = `${taskName}:${phase}`;
+
+        if (this.readinessSuccessLogKeys.has(key)) {
+            return false;
+        }
+
+        this.readinessSuccessLogKeys.add(key);
+
+        return true;
+    }
+
+    /**
      * Maps child-process stderr log prefixes to daemon log severities.
      * @param {String} line Child stderr line.
      * @returns {String}
@@ -350,6 +384,7 @@ export class ProcessSupervisorService extends Base {
             }))
             .then(result => {
                 if (result?.ready === false || result?.degraded === true) {
+                    this.clearReadinessSuccessLogState(taskName, 'liveness');
                     this.writeLog?.('WARN', `[ProcessSupervisor] ${task.label} readiness hook completed with degraded readiness after liveness confirmation.`);
                     this.recordTaskOutcome(taskName, 'degraded', {
                         reason,
@@ -361,7 +396,9 @@ export class ProcessSupervisorService extends Base {
                 }
 
                 this.taskStateService.markReady?.(taskName);
-                this.writeLog?.('INFO', `[ProcessSupervisor] ${task.label} readiness hook completed successfully after liveness confirmation.`);
+                if (this.shouldLogReadinessSuccess(taskName, 'liveness')) {
+                    this.writeLog?.('INFO', `[ProcessSupervisor] ${task.label} readiness hook completed successfully after liveness confirmation.`);
+                }
                 this.recordTaskOutcome(taskName, 'ready', {
                     reason,
                     pid      : null,
@@ -370,6 +407,7 @@ export class ProcessSupervisorService extends Base {
                 });
             })
             .catch(error => {
+                this.clearReadinessSuccessLogState(taskName, 'liveness');
                 this.writeLog?.('ERROR', `[ProcessSupervisor] ${task.label} readiness hook failed after liveness confirmation: ${error.message}`);
                 this.recordTaskOutcome(taskName, 'failed', {
                     reason,
@@ -403,6 +441,7 @@ export class ProcessSupervisorService extends Base {
         }
 
         this.clearRunningSkipLogState(taskName);
+        this.clearReadinessSuccessLogState(taskName, 'liveness');
         this.taskStateService.markStarted(taskName, reason);
 
         this.writeLog?.('INFO', `[ProcessSupervisor] Starting ${task.label} (${reason}).`);
@@ -818,10 +857,14 @@ export class ProcessSupervisorService extends Base {
                     this._livenessConfirmedAt[taskName] = Date.now();
                     this.runLivenessReadinessHook(taskName, task, 'liveness-confirmed', () => this.runTask(taskName, 'supervisor-restart'));
                 } else {
+                    this.clearReadinessSuccessLogState(taskName, 'liveness');
                     this.runTask(taskName, 'supervisor-restart');
                 }
             })
-            .catch(() => this.runTask(taskName, 'supervisor-restart'))
+            .catch(() => {
+                this.clearReadinessSuccessLogState(taskName, 'liveness');
+                this.runTask(taskName, 'supervisor-restart');
+            })
             .finally(() => { this._livenessProbeInFlight[taskName] = false; });
     }
 

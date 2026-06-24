@@ -504,6 +504,51 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
         }));
     });
 
+    test('#13954: liveness-readiness hook dedupes repeated success logs but records each outcome', async () => {
+        const { service, logEntries, taskOutcomes } = createTestService();
+        let readyMarks = 0;
+
+        service.taskDefinitions.mockTask.postSpawn = async () => ({ready: true, loadedModels: ['embedding-model']});
+        service.taskStateService.markReady = taskName => {
+            if (taskName === 'mockTask') {
+                readyMarks++;
+            }
+        };
+
+        await service.runLivenessReadinessHook('mockTask', service.taskDefinitions.mockTask, 'liveness-confirmed');
+        await service.runLivenessReadinessHook('mockTask', service.taskDefinitions.mockTask, 'liveness-confirmed');
+
+        const successLogs   = logEntries.filter(entry => entry.message.includes('completed successfully after liveness confirmation'));
+        const readyOutcomes = taskOutcomes.filter(entry => entry.status === 'ready' && entry.taskName === 'mockTask');
+
+        expect(successLogs.length).toBe(1);
+        expect(readyMarks).toBe(2);
+        expect(readyOutcomes.length).toBe(2);
+    });
+
+    test('#13954: liveness-readiness success logs again after degraded readiness recovers', async () => {
+        const { service, logEntries } = createTestService();
+        const readinessResults = [
+            {ready: true},
+            {ready: true},
+            {ready: false, degraded: true, missingModels: ['chat-model']},
+            {ready: true}
+        ];
+
+        service.taskDefinitions.mockTask.postSpawn = async () => readinessResults.shift();
+
+        await service.runLivenessReadinessHook('mockTask', service.taskDefinitions.mockTask, 'liveness-confirmed');
+        await service.runLivenessReadinessHook('mockTask', service.taskDefinitions.mockTask, 'liveness-confirmed');
+        await service.runLivenessReadinessHook('mockTask', service.taskDefinitions.mockTask, 'liveness-confirmed');
+        await service.runLivenessReadinessHook('mockTask', service.taskDefinitions.mockTask, 'liveness-confirmed');
+
+        const successLogs  = logEntries.filter(entry => entry.message.includes('completed successfully after liveness confirmation'));
+        const degradedLogs = logEntries.filter(entry => entry.message.includes('degraded readiness after liveness confirmation'));
+
+        expect(successLogs.length).toBe(2);
+        expect(degradedLogs.length).toBe(1);
+    });
+
     test('reapDuplicateListeners SIGKILLs extra listeners but keeps the canonical pid', () => {
         const { service, taskOutcomes } = createTestService();
         const killed = [];
