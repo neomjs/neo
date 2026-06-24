@@ -16,12 +16,14 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../src/Neo.mjs';
-import * as core      from '../../../../src/core/_export.mjs';
-import Gallery        from '../../../../src/component/Gallery.mjs';
-import Store          from '../../../../src/data/Store.mjs';
-import Model          from '../../../../src/data/Model.mjs';
+import {test, expect}     from '@playwright/test';
+import Neo                from '../../../../src/Neo.mjs';
+import * as core          from '../../../../src/core/_export.mjs';
+import Collection         from '../../../../src/collection/Base.mjs';
+import Gallery            from '../../../../src/component/Gallery.mjs';
+import List               from '../../../../src/list/Base.mjs';
+import Store              from '../../../../src/data/Store.mjs';
+import Model              from '../../../../src/data/Model.mjs';
 import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import VdomHelper         from '../../../../src/vdom/Helper.mjs';
 
@@ -39,8 +41,8 @@ test.describe('Neo.component.Gallery InternalId Support', () => {
 
     class TestStore extends Store {
         static config = {
-            className: 'Test.Unit.Gallery.InternalId.TestStore',
-            model    : TestModel,
+            className  : 'Test.Unit.Gallery.InternalId.TestStore',
+            model      : TestModel,
             keyProperty: 'id'
         }
     }
@@ -51,7 +53,7 @@ test.describe('Neo.component.Gallery InternalId Support', () => {
 
         store = Neo.create(TestStore, {
             autoInitRecords: true,
-            data: [
+            data           : [
                 {id: 1, name: 'Item 1'},
                 {id: 2, name: 'Item 2'},
                 {id: 3, name: 'Item 3'}
@@ -84,7 +86,7 @@ test.describe('Neo.component.Gallery InternalId Support', () => {
     });
 
     test('Selection change should work with internalId', async () => {
-        const record = store.getAt(1); // Item 2
+        const record     = store.getAt(1); // Item 2
         const internalId = store.getInternalId(record);
 
         expect(internalId).toContain('neo-record');
@@ -94,7 +96,7 @@ test.describe('Neo.component.Gallery InternalId Support', () => {
         // If it fails, index defaults to 0, which would be wrong (should be 1)
 
         // Spy on getCameraTransformForCell to check if correct index is passed
-        let calledIndex = -1;
+        let   calledIndex          = -1;
         const originalGetTransform = gallery.getCameraTransformForCell;
         gallery.getCameraTransformForCell = (index) => {
             calledIndex = index;
@@ -107,7 +109,7 @@ test.describe('Neo.component.Gallery InternalId Support', () => {
     });
 
     test('Navigation should work with internalId', async () => {
-        const record1 = store.getAt(0);
+        const record1     = store.getAt(0);
         const internalId1 = store.getInternalId(record1);
 
         gallery.selectionModel.select(internalId1);
@@ -127,10 +129,59 @@ test.describe('Neo.component.Gallery InternalId Support', () => {
 
         gallery.selectionModel.onNavKeyColumn(1);
 
-        const selection = gallery.selectionModel.items[0];
-        const record2 = store.getAt(1);
+        const selection   = gallery.selectionModel.items[0];
+        const record2     = store.getAt(1);
         const internalId2 = store.getInternalId(record2);
 
         expect(selection).toBe(internalId2);
+    });
+
+    test('List selection should resolve collection objects without isRecord', async () => {
+        let collection, list;
+
+        try {
+            collection = Neo.create(Collection, {
+                items: [
+                    {value: '09:00', text: '09:00'},
+                    {value: '10:00', text: '10:00'}
+                ],
+                keyProperty: 'value'
+            });
+
+            list = Neo.create(List, {
+                appName,
+                autoDestroyStore: false,
+                displayField    : 'text',
+                id              : 'test-list-collection-' + testRun,
+                selectionModel  : {},
+                store           : collection,
+                useInternalId   : false
+            });
+
+            await list.initVnode();
+            list.createItems();
+            await list.timeout(50);
+
+            list.mounted = true;
+
+            const
+                item   = collection.items[0],
+                itemId = list.getItemId(item.value);
+
+            expect(item.isRecord).toBeUndefined();
+
+            list.selectionModel.select(item);
+
+            expect(list.selectionModel.items).toEqual([itemId]);
+            expect(list.getVdomChild(itemId)['aria-selected']).toBe(true);
+
+            list.selectionModel.deselect(item);
+
+            expect(list.selectionModel.items).toEqual([]);
+            expect(list.getVdomChild(itemId)['aria-selected']).toBeUndefined();
+        } finally {
+            list?.destroy();
+            collection?.destroy()
+        }
     });
 });
