@@ -96,7 +96,7 @@ class Model extends Base {
             node;
 
         // We hold vdom ids for now, so all incoming selections must be converted.
-        item = item.isRecord ? view.getItemId(item) : Neo.isObject(item) ? item.id : item;
+        item = me.getSelectionItemId(item);
 
         if (itemCollection.includes(item)) {
             node = view.getVdomChild(item);
@@ -180,6 +180,44 @@ class Model extends Base {
     }
 
     /**
+     * @summary Resolves an incoming selection token into the record payload used by selection events.
+     * @param {Object|Number|String} item
+     * @returns {Object|Number|String}
+     */
+    getSelectionRecord(item) {
+        if (item?.isRecord || Neo.isObject(item)) {
+            return item
+        }
+
+        let {view}   = this,
+            recordId = view.getItemRecordId?.(item);
+
+        return recordId && view.store?.get(recordId) || item
+    }
+
+    /**
+     * @summary Converts record, collection item, and vnode id inputs into the stored selection id.
+     * @param {Object|Number|String} item
+     * @returns {Number|String}
+     */
+    getSelectionItemId(item) {
+        if (item?.isRecord) {
+            return this.view.getItemId(item)
+        }
+
+        if (Neo.isObject(item)) {
+            let {view}   = this,
+                recordId = view.getRecordId?.(item);
+
+            return recordId === undefined || recordId === null
+                ? item.id
+                : view.getItemId(recordId)
+        }
+
+        return item
+    }
+
+    /**
      * @param {String} id
      * @returns {Boolean} true in case the item is selected
      */
@@ -236,16 +274,10 @@ class Model extends Base {
 
         let me      = this,
             {view}  = me,
-            records = items.map(item => {
-                if (item.isRecord) return item;
-
-                const recordId = view.getItemRecordId?.(item);
-
-                return recordId && view.store?.get(recordId) || item
-            });
+            records = items.map(item => me.getSelectionRecord(item));
 
         // We hold vdom ids for now, so all incoming selections must be converted.
-        items = items.map(item => item.isRecord ? view.getItemId(item) : Neo.isObject(item) ? item.id : item);
+        items = items.map(item => me.getSelectionItemId(item));
 
         if (!Neo.isEqual(itemCollection, items)) {
             if (me.singleSelect && itemCollection === me.items) {

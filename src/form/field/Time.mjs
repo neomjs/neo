@@ -281,8 +281,7 @@ class Time extends Picker {
 
         while (currentDate <= endDate) {
             listItems.push({
-                isRecord: true,
-                value   : dt.format(currentDate)
+                value: dt.format(currentDate)
             });
 
             currentDate.setSeconds(currentDate.getSeconds() + me.stepSize)

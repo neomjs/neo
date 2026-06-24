@@ -18,8 +18,7 @@ import {getStagedAddedLines} from './stagedDiff.mjs';
  *    but are not themselves aligned; nested objects re-group at their own indent.
  * 3. **`=` declaration blocks** (v1b) — aligns the `=` column for both house-style
  *    repeated-keyword declarations (`let   a = …; const b = …;`) and single-keyword comma-blocks.
- *    Bare assignments remain out of scope. The legacy lone-keyword comma-block keeps its
- *    block-opening exclusion; keyworded declaration runs include block-opening call/object values.
+ *    Bare assignments remain out of scope; block-opening call/object values still participate.
  *
  * Conservative grouping (≥ 2 members, same indent, broken by any non-conforming line) so the gate
  * never touches an un-alignable shape and cannot false-positive. The column math is the entire point.
@@ -204,11 +203,12 @@ function evaluateColonAlignment(lines, maskedLines = []) {
 
 const
     LONE_KEYWORD = /^\s*(?:const|let|var)\s*$/,        // a lone `const`/`let`/`var` line (opens a comma-block)
-    BARE_DECL    = /^(\s+)[A-Za-z_$][\w$]*\s*=\s*.+$/; // its indented `name = value` comma-block continuation
+    DECL_BINDING = String.raw`(?:[A-Za-z_$][\w$]*|\{[^}]+\}|\[[^\]]+\])`,
+    BARE_DECL    = new RegExp(`^(\\s+)${DECL_BINDING}\\s*=\\s*.+$`); // its indented `binding = value` comma-block continuation
 
 const
-    KEYWORD_DECL           = /^(\s*)(const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(.+)$/,
-    BARE_DECL_CONTINUATION = /^(\s+)[A-Za-z_$][\w$]*\s*=\s*.+$/;
+    KEYWORD_DECL           = new RegExp(`^(\\s*)(const|let|var)\\s+(${DECL_BINDING})\\s*=\\s*(.+)$`),
+    BARE_DECL_CONTINUATION = new RegExp(`^(\\s+)${DECL_BINDING}\\s*=\\s*.+$`);
 
 /**
  * @summary The leading whitespace of a line.
@@ -237,7 +237,8 @@ function splitAssignment(line) {
 /**
  * @summary Parses one keyworded variable declaration line. The returned `left` deliberately includes
  * the keyword (`const foo`) so mixed `let`/`const` blocks align exactly like the coding-guideline
- * example. Destructuring declarations are intentionally out of scope for this mechanical rule.
+ * example. Object and array destructuring bindings participate in comma-block alignment because
+ * Neo's house style aligns the full declaration block, not only identifier continuations.
  * @param {String} line
  * @returns {{indent: String, kind: String, keyword: String, name: String, left: String, value: String}|null}
  */
@@ -256,7 +257,7 @@ function parseKeywordDeclaration(line) {
 }
 
 /**
- * @summary Parses a bare `name = value` continuation under a keyworded comma-block.
+ * @summary Parses a bare `binding = value` continuation under a keyworded comma-block.
  * @param {String} line
  * @returns {{indent: String, kind: String, left: String, value: String}|null}
  */
@@ -265,19 +266,6 @@ function parseBareDeclaration(line) {
     if (!match) return null;
 
     return {indent: match[1], kind: 'bare', ...splitAssignment(line)};
-}
-
-/**
- * @summary Whether an assignment value opens a multi-line block — its last non-space char is an
- * (unclosed) `{`, `(`, or `[`. Such members are excluded from `=`-alignment: the house style leaves a
- * block-opening `=` unaligned beside its simple-valued siblings (e.g. `cloneMap = {` next to an
- * aligned `configSymbol = …` run). Object-literal COLON alignment, by contrast, keeps block values in
- * the group (`intervals: {` aligns) — the asymmetry matches the observed convention.
- * @param {String} value
- * @returns {Boolean}
- */
-function opensMultilineBlock(value) {
-    return /[{([]$/.test(value.replace(/\s+$/, ''));
 }
 
 /**
@@ -290,7 +278,7 @@ function opensMultilineBlock(value) {
  * Bare assignments are still deliberately NOT collected without a keyword anchor.
  * @param {String[]} lines
  * @param {Boolean[]} [maskedLines]
- * @returns {Array<{entries: Array<{lineIndex: Number, left: String, value: String}>, includeBlockOpeners: Boolean, mode: String}>}
+ * @returns {Array<{entries: Array<{lineIndex: Number, left: String, value: String}>, mode: String}>}
  */
 function collectAssignmentRuns(lines, maskedLines = []) {
     const runs = [];
@@ -313,7 +301,7 @@ function collectAssignmentRuns(lines, maskedLines = []) {
             }
 
             if (run.length >= 2) {
-                runs.push({entries: run, includeBlockOpeners: false, mode: 'comma'});
+                runs.push({entries: run, mode: 'comma'});
                 i = j;
                 continue;
             }
@@ -337,7 +325,7 @@ function collectAssignmentRuns(lines, maskedLines = []) {
             }
 
             if (keywordRun.length >= 2) {
-                runs.push({entries: keywordRun, includeBlockOpeners: true, mode: 'comma'});
+                runs.push({entries: keywordRun, mode: 'comma'});
                 i = j;
                 continue;
             }
@@ -354,12 +342,12 @@ function collectAssignmentRuns(lines, maskedLines = []) {
             }
 
             if (keywordRun.length >= 2) {
-                runs.push({entries: keywordRun, includeBlockOpeners: true, mode: 'keyword'});
+                runs.push({entries: keywordRun, mode: 'keyword'});
                 i = j;
                 continue;
             }
 
-            runs.push({entries: keywordRun, includeBlockOpeners: true, mode: 'keyword'});
+            runs.push({entries: keywordRun, mode: 'keyword'});
         }
 
         i++;
@@ -380,14 +368,8 @@ function evaluateAssignmentAlignment(lines, maskedLines = []) {
         violations = [],
         fixedLines = lines.slice();
 
-    for (const {entries, includeBlockOpeners, mode} of collectAssignmentRuns(lines, maskedLines)) {
-        // Align the simple-valued members only; a block-opening value keeps its `=` unaligned (house
-        // style) for legacy lone-keyword comma-blocks. Keyworded declaration blocks include block
-        // openers because that is how existing source aligns `const response = fetch(..., {`.
-        const simpleParts = includeBlockOpeners
-            ? entries
-            : entries.filter(part => !opensMultilineBlock(part.value));
-
+    for (const {entries, mode} of collectAssignmentRuns(lines, maskedLines)) {
+        const simpleParts = entries;
         if (simpleParts.length === 0) continue;
         if (simpleParts.length < 2 && lines[simpleParts[0].lineIndex] === `${simpleParts[0].left} = ${simpleParts[0].value}`) continue;
 
