@@ -59,6 +59,8 @@ The actuator is **class-keyed**: the controller selects the lowest-privilege tie
 
 The action set is **constrained at both tiers**: restart + a closed set of known config tweaks (e.g. re-apply an intended env override the diagnosis found un-applied), **never** arbitrary code or an open container target. B0's constraint is enforced by being plain supervisor code; B1's is enforced by the allowlist wrapper (§2.3).
 
+**Activation default (#13952):** the recovery actuator is **enabled by default**. Safety is enforced by the target/action allowlists plus the §2.5 anti-thrash envelope, not by requiring every deployment to discover a separate opt-in flag before the immune system can act. Operators who need a no-act deployment can explicitly set `NEO_RECOVERY_ACTUATOR_ENABLED=false`; that opt-out does not loosen or replace the deny-by-default allowlists for supervised tasks, compose services, or deploy targets.
+
 ### 2.3 The B1 privilege matrix (inherited from ADR-0025 §2.2 — now scoped to the external-container class)
 
 B1 is the *only* tier that introduces privilege, so the actuator-divergence matrix applies **to B1 alone**. Each option is retained only with its falsifier:
@@ -102,6 +104,7 @@ The bounded, non-looping state machine and its **persisted** anti-thrash state a
 - **AC-7 — controller-agnostic interface.** The §2.4 `apply` interface + envelope are fixed; phase-2's homeostatic controller (#13873) plugs in without widening the action set, bypassing the envelope, or rewriting the actuator.
 - **AC-8 — orchestrator-SPOF, inherited + accepted.** The actuator is orchestrator-resident (ADR-0025 AC-7); if the orchestrator dies there is no heal. Recorded so a future agent does not grant the actuator a second independent home without re-opening the privilege decision.
 - **AC-9 — no privilege smuggling.** B1's socket grant is the *only* privilege this epic introduces; it must not alter healthcheck-auth (#13435) or widen beyond the allowlist via an implementation sub.
+- **AC-10 — opt-out activation.** The actuator default is enabled; deployment safety is controlled by explicit target/action allowlists and the anti-thrash envelope. `NEO_RECOVERY_ACTUATOR_ENABLED=false` remains the operator opt-out for deployments that intentionally want alarm-only behavior.
 
 ## 3. Considered alternatives (rejected)
 
