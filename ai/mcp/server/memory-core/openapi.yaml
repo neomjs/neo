@@ -205,6 +205,38 @@ paths:
               schema:
                 type: object
 
+  /deployment/inspect:
+    post:
+      summary: Inspect Deployment
+      operationId: inspect_deployment
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      x-neo-tool-summary: Inspect bounded cloud deployment state from the orchestrator bridge.
+      description: |
+        Reads the bounded deployment inspection snapshot written by the internal orchestrator.
+        This is a read-only public MC surface: it exposes allowlisted service state, bounded
+        log tails, current diagnoses, and recent recovery-run ledger entries without exposing
+        Docker, shell, exec, restart, or any public daemon/orchestrator route.
+      tags: [Diagnostics]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                staleAfterMs:
+                  type: number
+                  description: Optional freshness window override in milliseconds.
+      responses:
+        '200':
+          description: Inspection status and payload when available.
+          content:
+            application/json:
+              schema:
+                type: object
+
   /rem/pipeline-state:
     post:
       summary: Get REM Pipeline State

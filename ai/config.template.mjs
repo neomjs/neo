@@ -467,7 +467,8 @@ class Config extends ConfigProvider {
                  * `NEO_DEPLOYMENT_STATE_BRIDGE_LOG_TAIL`,
                  * `NEO_DEPLOYMENT_STATE_BRIDGE_LOG_MAX_BYTES`,
                  * `NEO_DEPLOYMENT_STATE_BRIDGE_STATS_SAMPLE_WINDOW`,
-                 * `NEO_DEPLOYMENT_STATE_BRIDGE_PROVIDER_RESIDENCY_SERVICE_KEYS`.
+                 * `NEO_DEPLOYMENT_STATE_BRIDGE_PROVIDER_RESIDENCY_SERVICE_KEYS`,
+                 * `NEO_DEPLOYMENT_STATE_BRIDGE_RECOVERY_RUN_LIMIT`.
                  *
                  * @type {Object}
                  */
@@ -482,7 +483,8 @@ class Config extends ConfigProvider {
                     logTail                     : leaf(120, 'NEO_DEPLOYMENT_STATE_BRIDGE_LOG_TAIL', 'number'),
                     logMaxBytes                 : leaf(32 * 1024, 'NEO_DEPLOYMENT_STATE_BRIDGE_LOG_MAX_BYTES', 'number'),
                     statsSampleWindow           : leaf(2, 'NEO_DEPLOYMENT_STATE_BRIDGE_STATS_SAMPLE_WINDOW', 'number'),
-                    providerResidencyServiceKeys: leaf(['local-model', 'model'], 'NEO_DEPLOYMENT_STATE_BRIDGE_PROVIDER_RESIDENCY_SERVICE_KEYS', 'csv')
+                    providerResidencyServiceKeys: leaf(['local-model', 'model'], 'NEO_DEPLOYMENT_STATE_BRIDGE_PROVIDER_RESIDENCY_SERVICE_KEYS', 'csv'),
+                    recoveryRunLimit            : leaf(10, 'NEO_DEPLOYMENT_STATE_BRIDGE_RECOVERY_RUN_LIMIT', 'number')
                 },
                 /**
                  * Maintenance-loop intervals consumed by the orchestrator daemon.

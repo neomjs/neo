@@ -33,11 +33,17 @@ function statsSample({cpuPercent = 0, memoryPercent = 0} = {}) {
     };
 }
 
-function createService({runtimeAccessService, diagnosisService, providerResidencyProbe = async () => null} = {}) {
+function createService({
+    runtimeAccessService,
+    diagnosisService,
+    providerResidencyProbe = async () => null,
+    recoveryRunStateReader = null
+} = {}) {
     return Neo.create(DeploymentStateBridgeService, {
         runtimeAccessService,
         diagnosisService,
         providerResidencyProbe,
+        recoveryRunStateReader,
         nowFn: () => OBSERVED_AT
     });
 }
@@ -53,7 +59,8 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
             logTail                     : 120,
             logMaxBytes                 : 32 * 1024,
             statsSampleWindow           : 2,
-            providerResidencyServiceKeys: ['local-model', 'model']
+            providerResidencyServiceKeys: ['local-model', 'model'],
+            recoveryRunLimit            : 10
         });
         Object.assign(AiConfig.orchestrator.deploymentRuntimeAccess, {
             allowedServices: ['model']
@@ -124,6 +131,49 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
                 sampleCount: 1
             },
             proofs: [{operation: 'inspect'}, {operation: 'stats'}, {operation: 'logs'}]
+        });
+        expect(snapshot.recoveryRuns).toMatchObject({
+            status : 'available',
+            source : 'orchestrator-recovery-run-ledger',
+            limit  : 10,
+            entries: []
+        });
+    });
+
+    test('includes bounded recent recovery-run ledger entries in the bridge snapshot', async () => {
+        const
+            readerCalls = [],
+            recoveryRunStateReader = async request => {
+                readerCalls.push(request);
+
+                return [{
+                    recoveryRunId : 'recovery-newer',
+                    diagnosisId   : 'diagnosis-1',
+                    recoveryClass : 'crash',
+                    targetIdentity: {kind: 'compose-service', id: 'memory'},
+                    status        : 'reobserve-requested'
+                }];
+            },
+            snapshot = await createService({recoveryRunStateReader}).collectSnapshot();
+
+        expect(readerCalls).toEqual([{
+            dir  : AiConfig.orchestrator.recoveryActuator.recoveryRunStateDir,
+            limit: AiConfig.orchestrator.deploymentStateBridge.recoveryRunLimit
+        }]);
+        expect(snapshot.recoveryRuns).toMatchObject({
+            status : 'available',
+            source : 'orchestrator-recovery-run-ledger',
+            limit  : AiConfig.orchestrator.deploymentStateBridge.recoveryRunLimit,
+            entries: [
+                {
+                    recoveryRunId : 'recovery-newer',
+                    diagnosisId   : 'diagnosis-1',
+                    recoveryClass : 'crash',
+                    targetIdentity: {kind: 'compose-service', id: 'memory'},
+                    status        : 'reobserve-requested'
+                }
+            ],
+            errors: []
         });
     });
 
