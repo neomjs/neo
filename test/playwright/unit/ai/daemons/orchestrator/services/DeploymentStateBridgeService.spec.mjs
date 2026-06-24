@@ -1,9 +1,12 @@
 import {test, expect}                 from '@playwright/test';
 import Neo                            from '../../../../../../../src/Neo.mjs';
 import * as core                      from '../../../../../../../src/core/_export.mjs';
+import AiConfig                       from '../../../../../../../ai/config.mjs';
 import {DeploymentStateBridgeService} from '../../../../../../../ai/daemons/orchestrator/services/DeploymentStateBridgeService.mjs';
 
 const OBSERVED_AT = 1710000000000;
+let originalDeploymentStateBridgeConfig,
+    originalRuntimeAccessConfig;
 
 function statsSample({cpuPercent = 0, memoryPercent = 0} = {}) {
     const systemDelta = 1_000_000_000,
@@ -30,19 +33,41 @@ function statsSample({cpuPercent = 0, memoryPercent = 0} = {}) {
     };
 }
 
-function createService({runtimeAccessService, diagnosisService} = {}) {
+function createService({runtimeAccessService, diagnosisService, providerResidencyProbe = async () => null} = {}) {
     return Neo.create(DeploymentStateBridgeService, {
         runtimeAccessService,
         diagnosisService,
+        providerResidencyProbe,
         nowFn: () => OBSERVED_AT
     });
 }
 
 test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
+    test.beforeEach(() => {
+        originalDeploymentStateBridgeConfig = Neo.clone(AiConfig.orchestrator.deploymentStateBridge, true, true);
+        originalRuntimeAccessConfig         = Neo.clone(AiConfig.orchestrator.deploymentRuntimeAccess, true, true);
+
+        Object.assign(AiConfig.orchestrator.deploymentStateBridge, {
+            allowedServices             : [],
+            includeLogs                 : true,
+            logTail                     : 120,
+            logMaxBytes                 : 32 * 1024,
+            statsSampleWindow           : 2,
+            providerResidencyServiceKeys: ['local-model', 'model']
+        });
+        Object.assign(AiConfig.orchestrator.deploymentRuntimeAccess, {
+            allowedServices: ['model']
+        });
+    });
+
+    test.afterEach(() => {
+        Object.assign(AiConfig.orchestrator.deploymentStateBridge, originalDeploymentStateBridgeConfig);
+        Object.assign(AiConfig.orchestrator.deploymentRuntimeAccess, originalRuntimeAccessConfig);
+    });
+
     test('collects bounded read-observe state and diagnosis for allowlisted services', async () => {
         const calls                = [];
         const runtimeAccessService = {
-            configValues: {allowedServices: ['model']},
             async readObserve(request) {
                 calls.push(request);
 
@@ -103,8 +128,9 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
     });
 
     test('falls back to runtime allowed services and records read errors as degraded state', async () => {
+        AiConfig.orchestrator.deploymentRuntimeAccess.allowedServices = ['memory'];
+
         const runtimeAccessService = {
-            configValues: {allowedServices: ['memory']},
             async readObserve() {
                 throw new Error('runtime unavailable');
             }
@@ -122,6 +148,67 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
                 {operation: 'stats', message: 'runtime unavailable'},
                 {operation: 'logs', message: 'runtime unavailable'}
             ]
+        });
+    });
+
+    test('passes active-provider residency into the diagnosis snapshot for model services', async () => {
+        const runtimeAccessService = {
+            async readObserve(request) {
+                if (request.operation === 'inspect') {
+                    return {
+                        data : {Name: '/model', State: {Status: 'running', Health: {Status: 'healthy'}}, Config: {Image: 'ollama'}},
+                        proof: {operation: 'inspect'}
+                    };
+                }
+
+                if (request.operation === 'stats') {
+                    return {
+                        data : statsSample({cpuPercent: 10, memoryPercent: 20}),
+                        proof: {operation: 'stats'}
+                    };
+                }
+
+                return {
+                    data : {logs: '', tail: request.tail},
+                    proof: {operation: 'logs'}
+                };
+            }
+        };
+        const providerResidencyProbe = async ({serviceKey, observedAt}) => ({
+            ready          : false,
+            provider       : 'ollama',
+            host           : 'http://model:11434',
+            requiredModels : ['gemma4:26b'],
+            availableModels: [],
+            missingModels  : ['gemma4:26b'],
+            serviceKey,
+            observedAt
+        });
+        const diagnosisService = {
+            diagnose({providerResidency}) {
+                return {
+                    provider     : providerResidency.provider,
+                    missingModels: providerResidency.missingModels,
+                    target       : providerResidency.targetIdentity
+                };
+            }
+        };
+
+        const service  = createService({runtimeAccessService, diagnosisService, providerResidencyProbe});
+        const snapshot = await service.collectSnapshot();
+
+        expect(snapshot.services[0]).toMatchObject({
+            serviceKey       : 'model',
+            providerResidency: {
+                provider      : 'ollama',
+                missingModels : ['gemma4:26b'],
+                targetIdentity: {kind: 'compose-service', id: 'model'}
+            },
+            diagnosis: {
+                provider     : 'ollama',
+                missingModels: ['gemma4:26b'],
+                target       : {kind: 'compose-service', id: 'model'}
+            }
         });
     });
 });

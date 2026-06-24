@@ -1,6 +1,9 @@
 import Base from '../../../../src/core/Base.mjs';
 
-import {createRecoveryDiagnosisEvent} from '../../../services/memory-core/helpers/recoveryRunStateStore.mjs';
+import {
+    createRecoveryDiagnosisEvent,
+    createRecoveryTargetIdentity
+} from '../../../services/memory-core/helpers/recoveryRunStateStore.mjs';
 
 export const CONTAINER_HEALTH_FACT_TYPES = Object.freeze({
     configDrift        : 'config-drift',
@@ -9,6 +12,7 @@ export const CONTAINER_HEALTH_FACT_TYPES = Object.freeze({
     endpointProbeFailed: 'endpoint-probe-failed',
     evalContention     : 'ollama-eval-contention',
     memorySaturation   : 'memory-saturation',
+    providerResidency  : 'provider-residency-degraded',
     resourceSaturation : 'resource-saturation',
     runtimeReadFailed  : 'runtime-read-failed'
 });
@@ -86,6 +90,7 @@ export class ContainerHealthDiagnosisService extends Base {
      * @param {Object|null} [options.endpointProbe=null] Direct service probe result.
      * @param {Object|null} [options.configCheck=null] Config correctness result.
      * @param {Object|null} [options.ollamaEvalAttribution=null] Native Ollama eval attribution.
+     * @param {Object|null} [options.providerResidency=null] Active-provider residency observation.
      * @param {Number} [options.observedAt] Epoch milliseconds for the observation.
      * @returns {Object} Diagnosis decision with advisory facts and optional diagnosis event.
      */
@@ -97,6 +102,7 @@ export class ContainerHealthDiagnosisService extends Base {
         endpointProbe = null,
         configCheck = null,
         ollamaEvalAttribution = null,
+        providerResidency = null,
         observedAt = this.now()
     } = {}) {
         this.validateServiceKey(serviceKey);
@@ -106,7 +112,8 @@ export class ContainerHealthDiagnosisService extends Base {
             ...this.collectStatsFacts({serviceKey, stats, statsSamples, observedAt}),
             ...this.collectEndpointProbeFacts({serviceKey, endpointProbe, observedAt}),
             ...this.collectConfigFacts({serviceKey, configCheck, observedAt}),
-            ...this.collectEvalAttributionFacts({serviceKey, ollamaEvalAttribution, observedAt})
+            ...this.collectEvalAttributionFacts({serviceKey, ollamaEvalAttribution, observedAt}),
+            ...this.collectProviderResidencyFacts({serviceKey, providerResidency, observedAt})
         ];
 
         const classification = this.classifyFacts({facts});
@@ -123,7 +130,7 @@ export class ContainerHealthDiagnosisService extends Base {
             diagnosisId   : this.createDiagnosisId({serviceKey, observedAt, recoveryClass: classification.recoveryClass}),
             recoveryClass : classification.recoveryClass,
             confidence    : classification.confidence,
-            targetIdentity: {kind: 'compose-service', id: serviceKey},
+            targetIdentity: this.resolveDiagnosisTargetIdentity({serviceKey, classification}),
             evidenceFacts : classification.evidenceFacts,
             observedAt,
             source        : 'container-health-diagnostics',
@@ -156,6 +163,7 @@ export class ContainerHealthDiagnosisService extends Base {
      * @param {Function|null} [options.endpointProbeFn=null] Optional direct probe callback.
      * @param {Function|null} [options.configCheckFn=null] Optional config-check callback.
      * @param {Object|null} [options.ollamaEvalAttribution=null] Optional eval attribution payload.
+     * @param {Object|null} [options.providerResidency=null] Optional active-provider residency observation.
      * @param {Object[]|null} [options.statsSamples=null] Optional stats samples spanning the window.
      * @param {Number} [options.observedAt] Epoch milliseconds for the observation.
      * @returns {Promise<Object>} Diagnosis decision.
@@ -166,6 +174,7 @@ export class ContainerHealthDiagnosisService extends Base {
         endpointProbeFn = null,
         configCheckFn = null,
         ollamaEvalAttribution = null,
+        providerResidency = null,
         statsSamples = null,
         observedAt = this.now()
     } = {}) {
@@ -203,6 +212,7 @@ export class ContainerHealthDiagnosisService extends Base {
                   endpointProbe,
                   configCheck,
                   ollamaEvalAttribution,
+                  providerResidency,
                   observedAt
               });
 
@@ -390,19 +400,83 @@ export class ContainerHealthDiagnosisService extends Base {
     }
 
     /**
+     * Collects active-provider residency facts from provider-specific probes.
+     *
+     * Diagnostics own normalization only: callers supply LMS, Ollama, or future-provider facts;
+     * recovery later routes by the typed target identity.
+     *
+     * @param {Object} options
+     * @returns {Object[]}
+     */
+    collectProviderResidencyFacts({serviceKey, providerResidency, observedAt}) {
+        if (!providerResidency || typeof providerResidency !== 'object') return [];
+
+        const reasonCode = this.getProviderResidencyReasonCode(providerResidency);
+        if (!reasonCode) return [];
+
+        return [this.createFact({
+            type         : CONTAINER_HEALTH_FACT_TYPES.providerResidency,
+            serviceKey,
+            observedAt,
+            severity     : ['extra-residents', 'provider-probe-failed'].includes(reasonCode) ? 'warning' : 'critical',
+            authoritative: !['extra-residents', 'provider-probe-failed'].includes(reasonCode),
+            details      : {
+                provider                 : typeof providerResidency.provider === 'string' ? providerResidency.provider : null,
+                host                     : typeof providerResidency.host === 'string' ? providerResidency.host : null,
+                message                  : typeof providerResidency.message === 'string' ? providerResidency.message : null,
+                reasonCode,
+                ready                    : typeof providerResidency.ready === 'boolean' ? providerResidency.ready : null,
+                degraded                 : typeof providerResidency.degraded === 'boolean' ? providerResidency.degraded : null,
+                targetIdentity           : this.readProviderTargetIdentity(providerResidency.targetIdentity),
+                requiredModels           : toSafeArray(providerResidency.requiredModels),
+                availableModels          : toSafeArray(providerResidency.availableModels),
+                missingModels            : toSafeArray(providerResidency.missingModels),
+                insufficientContextModels: toSafeArray(providerResidency.insufficientContextModels),
+                extraModels              : toSafeArray(providerResidency.extraModels),
+                failedModels             : toSafeArray(providerResidency.failedModels),
+                loadedContexts           : toSafeObject(providerResidency.loadedContexts),
+                observedRequiredCount    : toSafeNumber(providerResidency.observedRequiredCount),
+                requiredResidentModels   : toSafeNumber(providerResidency.requiredResidentModels),
+                residentButNotServing    : providerResidency.residentButNotServing === true
+            }
+        })];
+    }
+
+    /**
      * Classifies facts into the recovery diagnosis contract.
      * @param {Object} options
      * @returns {Object|null}
      */
     classifyFacts({facts}) {
-        if (facts.some(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.configDrift)) {
-            const evidenceFacts = facts.filter(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.configDrift);
+        const configDriftFacts = facts.filter(fact =>
+            fact.type === CONTAINER_HEALTH_FACT_TYPES.configDrift ||
+            this.isProviderResidencyConfigDrift(fact)
+        );
+
+        if (configDriftFacts.length > 0) {
+            const providerTargetIdentity = this.resolveProviderFactTargetIdentity(configDriftFacts.find(fact =>
+                fact.type === CONTAINER_HEALTH_FACT_TYPES.providerResidency
+            ));
+
             return {
-                recoveryClass: 'config-drift',
-                actionClass  : CONTAINER_HEALTH_ACTION_CLASSES.escalate,
-                confidence   : 0.95,
-                evidenceFacts,
-                reason       : 'config-drift-escalate'
+                recoveryClass : 'config-drift',
+                actionClass   : CONTAINER_HEALTH_ACTION_CLASSES.escalate,
+                confidence    : 0.95,
+                evidenceFacts : configDriftFacts,
+                reason        : 'config-drift-escalate',
+                targetIdentity: providerTargetIdentity
+            };
+        }
+
+        const providerCrashFacts = facts.filter(fact => this.isProviderResidentButNotServing(fact));
+        if (providerCrashFacts.length > 0) {
+            return {
+                recoveryClass : 'crash',
+                actionClass   : CONTAINER_HEALTH_ACTION_CLASSES.restart,
+                confidence    : 0.85,
+                evidenceFacts : this.selectEvidenceFacts(facts, providerCrashFacts),
+                reason        : 'provider-resident-not-serving',
+                targetIdentity: this.resolveProviderFactTargetIdentity(providerCrashFacts[0])
             };
         }
 
@@ -514,7 +588,7 @@ export class ContainerHealthDiagnosisService extends Base {
             schemaVersion : 1,
             recordType    : 'container-health-diagnosis-decision',
             serviceKey,
-            targetIdentity: {kind: 'compose-service', id: serviceKey},
+            targetIdentity: diagnosis?.targetIdentity || {kind: 'compose-service', id: serviceKey},
             observedAt,
             status,
             actionClass,
@@ -552,6 +626,103 @@ export class ContainerHealthDiagnosisService extends Base {
         if (!/^[a-zA-Z0-9_.-]+$/.test(serviceKey)) {
             throw new TypeError(`Container health diagnosis serviceKey '${serviceKey}' contains unsupported characters`);
         }
+    }
+
+    /**
+     * Resolves the diagnosis target without letting raw probe data bypass the target enum.
+     * @param {Object} options
+     * @returns {Object}
+     */
+    resolveDiagnosisTargetIdentity({serviceKey, classification}) {
+        return classification?.targetIdentity || createRecoveryTargetIdentity({
+            kind: 'compose-service',
+            id  : serviceKey
+        });
+    }
+
+    /**
+     * Determines the provider-residency reason code that diagnostics can classify.
+     * @param {Object} providerResidency Active-provider residency observation.
+     * @returns {String|null}
+     */
+    getProviderResidencyReasonCode(providerResidency) {
+        if (providerResidency.residentButNotServing === true) {
+            return 'resident-not-serving';
+        }
+        if (toSafeArray(providerResidency.missingModels).length > 0) {
+            return 'missing-required-model';
+        }
+        if (toSafeArray(providerResidency.insufficientContextModels).length > 0) {
+            return 'insufficient-context';
+        }
+        if (toSafeArray(providerResidency.failedModels).length > 0) {
+            return 'provider-warmup-failed';
+        }
+        if (providerResidency.supported === false) {
+            return 'unsupported-provider';
+        }
+        if (providerResidency.probeFailed === true) {
+            return 'provider-probe-failed';
+        }
+        if (providerResidency.ready === false) {
+            return 'provider-not-ready';
+        }
+        if (toSafeArray(providerResidency.extraModels).length > 0) {
+            return 'extra-residents';
+        }
+
+        return null;
+    }
+
+    /**
+     * Checks whether a provider-residency fact should page instead of looping recovery.
+     * @param {Object} fact Diagnosis fact.
+     * @returns {Boolean}
+     */
+    isProviderResidencyConfigDrift(fact) {
+        return fact.type === CONTAINER_HEALTH_FACT_TYPES.providerResidency && [
+            'insufficient-context',
+            'missing-required-model',
+            'provider-not-ready',
+            'provider-warmup-failed',
+            'unsupported-provider'
+        ].includes(fact.details?.reasonCode);
+    }
+
+    /**
+     * Checks whether a provider-residency fact proves a resident-but-not-serving fault.
+     * @param {Object} fact Diagnosis fact.
+     * @returns {Boolean}
+     */
+    isProviderResidentButNotServing(fact) {
+        return fact.type === CONTAINER_HEALTH_FACT_TYPES.providerResidency &&
+            fact.details?.reasonCode === 'resident-not-serving';
+    }
+
+    /**
+     * Reads and validates a provider fact target identity.
+     * @param {Object|null} targetIdentity Target identity candidate.
+     * @returns {Object|null}
+     */
+    readProviderTargetIdentity(targetIdentity) {
+        if (!targetIdentity || typeof targetIdentity !== 'object') return null;
+
+        try {
+            return createRecoveryTargetIdentity(targetIdentity);
+        } catch {
+            return null;
+        }
+    }
+
+    /**
+     * Resolves the first typed provider fact target identity.
+     * @param {Object} fact Diagnosis fact.
+     * @returns {Object|null}
+     */
+    resolveProviderFactTargetIdentity(fact) {
+        if (!fact) return null;
+
+        return this.readProviderTargetIdentity(fact.details?.targetIdentity);
     }
 }
 
@@ -623,6 +794,22 @@ function toSafeScalar(value) {
     if (['string', 'number', 'boolean'].includes(typeof value)) return value;
 
     return JSON.stringify(value).slice(0, 256);
+}
+
+function toSafeArray(value) {
+    return Array.isArray(value)
+        ? value.map(item => toSafeScalar(item)).filter(item => item !== null)
+        : [];
+}
+
+function toSafeObject(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, toSafeScalar(item)]));
+}
+
+function toSafeNumber(value) {
+    return Number.isFinite(value) ? value : null;
 }
 
 export default Neo.setupClass(ContainerHealthDiagnosisService);

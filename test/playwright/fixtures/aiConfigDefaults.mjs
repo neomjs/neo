@@ -162,6 +162,7 @@ export const TIER1_DEFAULTS = deepFreeze(Neo.clone({
         },
         recoveryActuator: {
             enabled                    : false,
+            allowedSupervisedTasks     : [],
             allowedComposeServices     : [],
             allowedDeployTargets       : [],
             healAttemptsPath           : path.resolve(neoRootDir, '.neo-ai-data/orchestrator-daemon/heal-attempts.json'),
@@ -176,16 +177,17 @@ export const TIER1_DEFAULTS = deepFreeze(Neo.clone({
             operatorPageTarget         : 'AGENT:*'
         },
         deploymentStateBridge: {
-            enabled          : false,
-            snapshotPath     : path.resolve(neoRootDir, '.neo-ai-data/deployment-state/snapshot.json'),
-            writeIntervalMs  : 30000,
-            staleAfterMs     : 2 * 60 * 1000,
-            maxSnapshotBytes : 256 * 1024,
-            allowedServices  : [],
-            includeLogs      : true,
-            logTail          : 120,
-            logMaxBytes      : 32 * 1024,
-            statsSampleWindow: 2
+            enabled                     : false,
+            snapshotPath                : path.resolve(neoRootDir, '.neo-ai-data/deployment-state/snapshot.json'),
+            writeIntervalMs             : 30000,
+            staleAfterMs                : 2 * 60 * 1000,
+            maxSnapshotBytes            : 256 * 1024,
+            allowedServices             : [],
+            includeLogs                 : true,
+            logTail                     : 120,
+            logMaxBytes                 : 32 * 1024,
+            statsSampleWindow           : 2,
+            providerResidencyServiceKeys: ['local-model', 'model']
         }
     }
 }, true, true));

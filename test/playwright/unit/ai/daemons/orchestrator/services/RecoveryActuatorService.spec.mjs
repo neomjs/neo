@@ -25,12 +25,14 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
     });
 
     function createService(overrides = {}) {
-        const runtimeCalls   = [],
-              pageCalls      = [],
-              taskOutcomes   = [],
-              actuatorConfig = {
+        const runtimeCalls    = [],
+              supervisorCalls = [],
+              pageCalls       = [],
+              taskOutcomes    = [],
+              actuatorConfig  = {
                   ...DEFAULT_ACTUATOR_CONFIG,
                   enabled               : true,
+                  allowedSupervisedTasks: [{serviceKey: 'model', taskName: 'ollama'}],
                   allowedComposeServices: ['memory-core'],
                   allowedDeployTargets  : ['cloud-deploy'],
                   healAttemptsPath      : path.join(tmpDir, 'heal-attempts.json'),
@@ -67,6 +69,12 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
                       },
                       ...overrides.deploymentRuntimeAccessService
                   },
+                  processSupervisorService: {
+                      killTask(taskName, reason) {
+                          supervisorCalls.push({taskName, reason});
+                      },
+                      ...overrides.processSupervisorService
+                  },
                   pageDispatcher(page) {
                       pageCalls.push(page);
                   },
@@ -74,7 +82,7 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
                   ...overrides.serviceConfig
               });
 
-        return {service, runtimeCalls, pageCalls, taskOutcomes, actuatorConfig};
+        return {service, runtimeCalls, supervisorCalls, pageCalls, taskOutcomes, actuatorConfig};
     }
 
     async function readAttempts() {
@@ -84,13 +92,50 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
     test('normalizes string and object allowlist entries', () => {
         expect(normalizeRecoveryActuatorAllowlist([
             'memory-core',
+            {serviceKey: 'model', taskName: 'ollama'},
             {serviceKey: 'kb', composeService: 'knowledge-base'},
             {id: 'local-model'}
         ], 'compose-service')).toEqual([
             {kind: 'compose-service', serviceKey: 'memory-core', id: 'memory-core'},
+            {kind: 'compose-service', serviceKey: 'model', id: 'ollama', taskName: 'ollama'},
             {kind: 'compose-service', serviceKey: 'kb', id: 'knowledge-base', composeService: 'knowledge-base'},
             {kind: 'compose-service', serviceKey: 'local-model', id: 'local-model'}
         ]);
+    });
+
+    test('restart recycles an allowlisted supervised task through the B0 supervisor envelope', async () => {
+        const {service, runtimeCalls, supervisorCalls, taskOutcomes} = createService();
+
+        const result = await service.apply('model', 'restart', {
+            now           : 15_000,
+            reason        : 'provider-resident-not-serving',
+            targetIdentity: {kind: 'supervised-task', id: 'ollama'}
+        });
+
+        expect(result.status).toBe('actioned');
+        expect(result.targetIdentity).toEqual({kind: 'supervised-task', id: 'ollama'});
+        expect(result.reobserveRequest).toMatchObject({
+            recoveryClass : 'crash',
+            targetIdentity: {kind: 'supervised-task', id: 'ollama'}
+        });
+        expect(result.supervisor).toMatchObject({
+            capabilityEnvelope: 'supervised-task-recycle',
+            operation         : 'restart',
+            taskName          : 'ollama'
+        });
+        expect(supervisorCalls).toEqual([{
+            taskName: 'ollama',
+            reason  : 'provider-resident-not-serving'
+        }]);
+        expect(runtimeCalls).toEqual([]);
+        expect(taskOutcomes).toContainEqual(expect.objectContaining({
+            taskName: 'recovery-actuator:model',
+            status  : 'completed',
+            details : expect.objectContaining({
+                status      : 'actioned',
+                ledgerStatus: 'reobserve-requested'
+            })
+        }));
     });
 
     test('restart applies only to an allowlisted compose service and writes health plus recovery ledger traces', async () => {

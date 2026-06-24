@@ -18,7 +18,7 @@ const DEFAULT_ACTIONS = Object.freeze(['restart', 'redeploy', 'page']);
  * @summary Normalizes string/object allowlist entries into stable recovery targets.
  *
  * String entries use the same value for `serviceKey` and `id`. Object entries may use an
- * explicit `serviceKey` plus either `id`, `composeService`, or `deployTarget`. The actuator
+ * explicit `serviceKey` plus either `id`, `taskName`, `composeService`, or `deployTarget`. The actuator
  * never accepts a runtime target that cannot be traced back to one of these normalized entries.
  *
  * @param {Array<String|Object>} entries Configured allowlist entries.
@@ -45,7 +45,7 @@ export function normalizeRecoveryActuatorAllowlist(entries, kind) {
             continue;
         }
 
-        const id         = String(entry.id || entry.composeService || entry.deployTarget || '').trim(),
+        const id         = String(entry.id || entry.taskName || entry.composeService || entry.deployTarget || '').trim(),
               serviceKey = String(entry.serviceKey || id).trim();
 
         if (!serviceKey || !id) {
@@ -105,6 +105,12 @@ export class RecoveryActuatorService extends Base {
          */
         deploymentRuntimeAccessService_: null,
         /**
+         * @member {Object|null} processSupervisorService_=null
+         * @protected
+         * @reactive
+         */
+        processSupervisorService_: null,
+        /**
          * @member {Function|null} pageDispatcher_=null
          * @protected
          * @reactive
@@ -136,6 +142,11 @@ export class RecoveryActuatorService extends Base {
     /** @summary Resolves the allowlisted compose-service actuator targets. */
     get allowedComposeServices() {
         return normalizeRecoveryActuatorAllowlist(this.cfg.allowedComposeServices, 'compose-service');
+    }
+
+    /** @summary Resolves the allowlisted supervised-task actuator targets. */
+    get allowedSupervisedTasks() {
+        return normalizeRecoveryActuatorAllowlist(this.cfg.allowedSupervisedTasks, 'supervised-task');
     }
 
     /** @summary Resolves the allowlisted deploy-target page/escalation targets. */
@@ -212,9 +223,7 @@ export class RecoveryActuatorService extends Base {
         const startedAt = now;
 
         try {
-            const result = target.kind === 'compose-service'
-                ? await this.restartComposeService({target, reason})
-                : await this.pageDeployTarget({target, action, reason});
+            const result = await this.executeTargetAction({target, action, reason});
 
             const updatedAt     = Date.now(),
                   diagnosis     = this.resolveDiagnosisEvent({diagnosisEvent, action, target, now: startedAt}),
@@ -244,6 +253,7 @@ export class RecoveryActuatorService extends Base {
                     action,
                     targetIdentity: createRecoveryTargetIdentity({kind: target.kind, id: target.id}),
                     runtimeAccess : result.runtimeAccess || null,
+                    supervisor    : result.supervisor || null,
                     page          : result.page || null
                 },
                 recoveryRunId,
@@ -302,6 +312,7 @@ export class RecoveryActuatorService extends Base {
     resolveTarget({serviceKey, targetIdentity}) {
         const candidates = [
             ...this.allowedComposeServices,
+            ...this.allowedSupervisedTasks,
             ...this.allowedDeployTargets
         ].filter(target => target.serviceKey === serviceKey || target.id === serviceKey);
 
@@ -324,11 +335,57 @@ export class RecoveryActuatorService extends Base {
             return action === 'restart';
         }
 
+        if (target.kind === 'supervised-task') {
+            return action === 'restart';
+        }
+
         if (target.kind === 'deploy-target') {
             return action === 'redeploy' || action === 'page';
         }
 
         return false;
+    }
+
+    /**
+     * @summary Executes the typed target action through the matching privilege envelope.
+     * @param {Object} options
+     * @returns {Promise<Object>}
+     */
+    async executeTargetAction({target, action, reason}) {
+        if (target.kind === 'compose-service') {
+            return this.restartComposeService({target, reason});
+        }
+
+        if (target.kind === 'supervised-task') {
+            return this.restartSupervisedTask({target, reason});
+        }
+
+        return this.pageDeployTarget({target, action, reason});
+    }
+
+    /**
+     * @summary Recycles one allowlisted supervised task through the B0 process supervisor.
+     * @param {Object} options
+     * @returns {Promise<Object>}
+     */
+    async restartSupervisedTask({target, reason}) {
+        if (!this.processSupervisorService?.killTask) {
+            throw new Error('Process supervisor service is unavailable');
+        }
+
+        this.processSupervisorService.killTask(
+            target.id,
+            reason || `recovery-actuator:${target.serviceKey}`
+        );
+
+        return {
+            supervisor: {
+                capabilityEnvelope: 'supervised-task-recycle',
+                operation         : 'restart',
+                taskName          : target.id,
+                targetIdentity    : createRecoveryTargetIdentity({kind: target.kind, id: target.id})
+            }
+        };
     }
 
     /**
@@ -520,8 +577,8 @@ export class RecoveryActuatorService extends Base {
               entry = createRecoveryRunStateEntry({
                   recoveryRunId: runId,
                   diagnosisEvent,
-                  rung         : target?.kind === 'deploy-target' ? 'rung-3' : 'rung-2',
-                  attempt      : Math.max(1, Number(attempt || 1)),
+                  rung         : this.getRungForTarget(target),
+                  attempt      : this.requirePositiveNumber('attempt', attempt),
                   status       : ledgerStatus,
                   startedAt,
                   updatedAt,
@@ -638,22 +695,35 @@ export class RecoveryActuatorService extends Base {
 
     /** @summary Resolves the rolling attempt-window size. */
     getAttemptWindowMs() {
-        return Math.max(1, Number(this.cfg.maxAttemptsWindowMs));
+        return this.requirePositiveNumber('maxAttemptsWindowMs', this.cfg.maxAttemptsWindowMs);
     }
 
     /** @summary Resolves the maximum admitted attempts within one rolling window. */
     getMaxAttemptsPerWindow() {
-        return Math.max(1, Number(this.cfg.maxAttemptsPerWindow));
+        return this.requirePositiveNumber('maxAttemptsPerWindow', this.cfg.maxAttemptsPerWindow);
     }
 
     /** @summary Resolves the cooldown before the controller should re-observe after action. */
     getVerifyCooldownMs() {
-        return Math.max(0, Number(this.cfg.verifyCooldownMs));
+        return this.requireNonNegativeNumber('verifyCooldownMs', this.cfg.verifyCooldownMs);
     }
 
     /** @summary Resolves the required healthy-observation count for verify-loop completion. */
     getHealthyObservationThreshold() {
-        return Math.max(1, Number(this.cfg.healthyObservationThreshold));
+        return this.requirePositiveNumber('healthyObservationThreshold', this.cfg.healthyObservationThreshold);
+    }
+
+    /**
+     * @summary Resolves the recovery-run rung id for the typed actuator target.
+     * @param {Object} target Typed target descriptor.
+     * @returns {String}
+     */
+    getRungForTarget(target) {
+        if (target?.kind === 'supervised-task') return 'rung-1';
+        if (target?.kind === 'compose-service') return 'rung-2';
+        if (target?.kind === 'deploy-target') return 'rung-3';
+
+        return 'rung-0';
     }
 
     /**
@@ -662,14 +732,46 @@ export class RecoveryActuatorService extends Base {
      * @returns {Number|null}
      */
     computeBackoffUntil({attempt, now}) {
-        const base = Math.max(0, Number(this.cfg.baseBackoffMs)),
-              max  = Math.max(base, Number(this.cfg.maxBackoffMs));
+        const base = this.requireNonNegativeNumber('baseBackoffMs', this.cfg.baseBackoffMs),
+              max  = this.requireNonNegativeNumber('maxBackoffMs', this.cfg.maxBackoffMs);
+
+        if (max < base) {
+            throw new RangeError('RecoveryActuatorService requires maxBackoffMs to be greater than or equal to baseBackoffMs');
+        }
 
         if (base === 0) {
             return null;
         }
 
         return now + Math.min(max, base * Math.pow(2, Math.max(0, attempt - 1)));
+    }
+
+    /**
+     * @summary Reads a required non-negative numeric recovery-actuator config leaf.
+     * @param {String} name Config leaf name.
+     * @param {Number} value Config leaf value.
+     * @returns {Number}
+     */
+    requireNonNegativeNumber(name, value) {
+        if (!Number.isFinite(value) || value < 0) {
+            throw new TypeError(`RecoveryActuatorService requires numeric AiConfig leaf ${name} >= 0`);
+        }
+
+        return value;
+    }
+
+    /**
+     * @summary Reads a required positive numeric recovery-actuator config leaf.
+     * @param {String} name Config leaf name.
+     * @param {Number} value Config leaf value.
+     * @returns {Number}
+     */
+    requirePositiveNumber(name, value) {
+        if (!Number.isFinite(value) || value <= 0) {
+            throw new TypeError(`RecoveryActuatorService requires numeric AiConfig leaf ${name} > 0`);
+        }
+
+        return value;
     }
 
     /**
