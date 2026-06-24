@@ -92,11 +92,13 @@ test.describe('Tier 1 Config Immutability', () => {
         expect(Config.localModels).toMatchObject({
             chat: {
                 contextLimitTokens       : Number(process.env.NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS) || 131072,
-                safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS) || 100000
+                safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS) || 100000,
+                parallel                 : Number(process.env.NEO_LOCAL_MODELS_CHAT_PARALLEL) || 1
             },
             embedding: {
                 contextLimitTokens       : Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS) || 32768,
-                safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS) || 28672
+                safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS) || 28672,
+                parallel                 : Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_PARALLEL) || 1
             }
         });
         expect(Config.engines.chroma).toEqual({
@@ -110,20 +112,24 @@ test.describe('Tier 1 Config Immutability', () => {
     });
 
     test('keeps local embedding context env overrides role-scoped (#12286)', () => {
-        const originalContext = Config.localModels.embedding.contextLimitTokens,
-              originalSafe    = Config.localModels.embedding.safeProcessingLimitTokens;
+        const originalContext  = Config.localModels.embedding.contextLimitTokens,
+              originalSafe     = Config.localModels.embedding.safeProcessingLimitTokens,
+              originalParallel = Config.localModels.embedding.parallel;
 
         Config.setEnvOverride('NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS', 12345);
         Config.setEnvOverride('NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS', 11111);
+        Config.setEnvOverride('NEO_LOCAL_MODELS_EMBEDDING_PARALLEL', 2);
 
         expect(Config.localModels.embedding).toMatchObject({
             contextLimitTokens       : 12345,
-            safeProcessingLimitTokens: 11111
+            safeProcessingLimitTokens: 11111,
+            parallel                 : 2
         });
         expect(Config.localModels.chat.contextLimitTokens).toBe(Number(process.env.NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS) || 131072);
 
         Config.setEnvOverride('NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS', originalContext);
         Config.setEnvOverride('NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS', originalSafe);
+        Config.setEnvOverride('NEO_LOCAL_MODELS_EMBEDDING_PARALLEL', originalParallel);
     });
 
     test('ships top-level deployment and maintenance policy defaults', async () => {

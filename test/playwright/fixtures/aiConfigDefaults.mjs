@@ -125,11 +125,13 @@ export const TIER1_DEFAULTS = deepFreeze(Neo.clone({
     localModels: {
         chat: {
             contextLimitTokens       : Number(process.env.NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS) || 131072,
-            safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS) || 100000
+            safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS) || 100000,
+            parallel                 : Number(process.env.NEO_LOCAL_MODELS_CHAT_PARALLEL) || 1
         },
         embedding: {
             contextLimitTokens       : Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS) || 32768,
-            safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS) || 28672
+            safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS) || 28672,
+            parallel                 : Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_PARALLEL) || 1
         }
     },
     vectorDimension: Number(process.env.NEO_VECTOR_DIMENSION) || 4096,

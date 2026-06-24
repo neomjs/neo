@@ -219,7 +219,7 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
         ]);
     });
 
-    test('escalates native Ollama missing required models as provider config drift', () => {
+    test('routes missing provider role models to warm-provider before config-drift escalation', () => {
         const service = createService();
 
         const decision = service.diagnose({
@@ -238,13 +238,13 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
         });
 
         expect(decision.status).toBe('diagnosed');
-        expect(decision.actionClass).toBe(CONTAINER_HEALTH_ACTION_CLASSES.escalate);
+        expect(decision.actionClass).toBe(CONTAINER_HEALTH_ACTION_CLASSES.warmProvider);
         expect(decision.targetIdentity).toEqual({kind: 'compose-service', id: 'model'});
         expect(decision.diagnosis).toMatchObject({
-            recoveryClass : 'config-drift',
+            recoveryClass : 'provider-role-residency',
             targetIdentity: {kind: 'compose-service', id: 'model'},
             details       : {
-                classificationReason: 'config-drift-escalate'
+                classificationReason: 'provider-role-residency-warm'
             }
         });
         expect(decision.diagnosis.evidenceFacts).toHaveLength(1);

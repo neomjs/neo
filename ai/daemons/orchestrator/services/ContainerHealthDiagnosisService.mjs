@@ -20,7 +20,8 @@ export const CONTAINER_HEALTH_FACT_TYPES = Object.freeze({
 export const CONTAINER_HEALTH_ACTION_CLASSES = Object.freeze({
     escalate    : 'escalate',
     restart     : 'restart',
-    throttleShed: 'throttle-shed'
+    throttleShed: 'throttle-shed',
+    warmProvider: 'warm-provider'
 });
 
 export const DEFAULT_CONTAINER_HEALTH_DIAGNOSIS_CONFIG = Object.freeze({
@@ -448,6 +449,18 @@ export class ContainerHealthDiagnosisService extends Base {
      * @returns {Object|null}
      */
     classifyFacts({facts}) {
+        const providerRoleResidencyFacts = facts.filter(fact => this.isProviderRoleResidencyRecoverable(fact));
+        if (providerRoleResidencyFacts.length > 0) {
+            return {
+                recoveryClass : 'provider-role-residency',
+                actionClass   : CONTAINER_HEALTH_ACTION_CLASSES.warmProvider,
+                confidence    : 0.85,
+                evidenceFacts : providerRoleResidencyFacts,
+                reason        : 'provider-role-residency-warm',
+                targetIdentity: this.resolveProviderFactTargetIdentity(providerRoleResidencyFacts[0])
+            };
+        }
+
         const configDriftFacts = facts.filter(fact =>
             fact.type === CONTAINER_HEALTH_FACT_TYPES.configDrift ||
             this.isProviderResidencyConfigDrift(fact)
@@ -682,11 +695,20 @@ export class ContainerHealthDiagnosisService extends Base {
     isProviderResidencyConfigDrift(fact) {
         return fact.type === CONTAINER_HEALTH_FACT_TYPES.providerResidency && [
             'insufficient-context',
-            'missing-required-model',
             'provider-not-ready',
             'provider-warmup-failed',
             'unsupported-provider'
         ].includes(fact.details?.reasonCode);
+    }
+
+    /**
+     * Checks whether a provider-residency fact should first restore the active role set.
+     * @param {Object} fact Diagnosis fact.
+     * @returns {Boolean}
+     */
+    isProviderRoleResidencyRecoverable(fact) {
+        return fact.type === CONTAINER_HEALTH_FACT_TYPES.providerResidency &&
+            fact.details?.reasonCode === 'missing-required-model';
     }
 
     /**
