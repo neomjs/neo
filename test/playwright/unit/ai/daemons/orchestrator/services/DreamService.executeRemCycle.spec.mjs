@@ -1,13 +1,13 @@
-import {test, expect} from '@playwright/test';
-import Neo from '../../../../../../../src/Neo.mjs';
-import * as core from '../../../../../../../src/core/_export.mjs';
-import DreamService from '../../../../../../../ai/daemons/orchestrator/services/DreamService.mjs';
-import AiConfig from '../../../../../../../ai/config.mjs';
-import {Memory_Config as MemoryConfig} from '../../../../../../../ai/services.mjs';
-import logger from '../../../../../../../ai/mcp/server/memory-core/logger.mjs';
+import {test, expect}                   from '@playwright/test';
+import Neo                              from '../../../../../../../src/Neo.mjs';
+import * as core                        from '../../../../../../../src/core/_export.mjs';
+import DreamService                     from '../../../../../../../ai/daemons/orchestrator/services/DreamService.mjs';
+import AiConfig                         from '../../../../../../../ai/config.mjs';
+import {Memory_Config as MemoryConfig}  from '../../../../../../../ai/services.mjs';
+import logger                           from '../../../../../../../ai/mcp/server/memory-core/logger.mjs';
 import {mkdtemp, readdir, readFile, rm} from 'fs/promises';
-import os from 'os';
-import path from 'path';
+import os                               from 'os';
+import path                             from 'path';
 
 /**
  * @summary Focused coverage for the typed-outcome contract of `DreamService.executeRemCycle()`.
@@ -114,8 +114,8 @@ test.describe('DreamService.executeRemCycle typed outcome contract', () => {
         expect(entry.failureReason).toBe('PROVIDER_READINESS_TIMEOUT');
         expect(entry.cycleScopePhases).toEqual(['providerReady']);
         expect(entry.perPhaseStates[0]).toMatchObject({
-            phase : 'providerReady',
-            status: 'failed',
+            phase  : 'providerReady',
+            status : 'failed',
             details: {
                 diagnostic: {
                     provider     : 'openAiCompatible',
@@ -172,8 +172,8 @@ test.describe('DreamService.executeRemCycle typed outcome contract', () => {
         expect(entry.lastSuccessfulPhase).toBe('providerReady');
         expect(entry.cycleScopePhases).toEqual(['providerReady', 'concurrentGuard']);
         expect(entry.perPhaseStates[1]).toMatchObject({
-            phase : 'concurrentGuard',
-            status: 'skipped',
+            phase  : 'concurrentGuard',
+            status : 'skipped',
             details: {reasonCode: 'already-processing'}
         });
         expect(entry.perSessionStates).toEqual([]);
@@ -203,8 +203,24 @@ test.describe('DreamService.executeRemCycle typed outcome contract', () => {
 
         expect(outcome.status).toBe('completed');
         expect(outcome.sessionsProcessed).toBe(2);
+        expect(outcome.remBatchLimit).toBe(MemoryConfig.remSleepBatchLimit);
+        expect(outcome.remBatchSaturated).toBe(false);
         expect(outcome.error).toBeNull();
         expect(outcome.skipReason).toBeNull();
+    });
+
+    test('marks REM outcome as saturated when the processed count reaches the batch limit (#13971)', async () => {
+        const sessions = Array.from({length: MemoryConfig.remSleepBatchLimit}, (_, index) => ({id: `session-${index}`}));
+
+        DreamService.findUndigestedSessions    = async () => sessions;
+        DreamService.processUndigestedSessions = async () => {};
+
+        const outcome = await DreamService.executeRemCycle({reason: 'saturated-test', includeDecay: false});
+
+        expect(outcome.status).toBe('completed');
+        expect(outcome.sessionsProcessed).toBe(MemoryConfig.remSleepBatchLimit);
+        expect(outcome.remBatchLimit).toBe(MemoryConfig.remSleepBatchLimit);
+        expect(outcome.remBatchSaturated).toBe(true);
     });
 
     test('Sub 9 hypotheses 10 and 11: failed phase from processing is persisted into REM run state (#12617)', async () => {

@@ -130,7 +130,7 @@ function makeOrchestratorAdapterFixture(overrides = {}) {
     };
 }
 
-function makeAdapterConfig({dreamMs = 3_600_000} = {}) {
+function makeAdapterConfig({dreamMs = 3_600_000, remBacklogCatchupCooldownMs = 300_000} = {}) {
     return {
         orchestrator: {
             intervals: {
@@ -144,6 +144,7 @@ function makeAdapterConfig({dreamMs = 3_600_000} = {}) {
                 dreamMs,
                 messageConceptHarvestMs          : 1,
                 dreamOverflowThreshold           : 0.8,
+                remBacklogCatchupCooldownMs,
                 goldenPathMs                     : 1,
                 swarmHeartbeatMs                 : 1,
                 embedDrainLivenessWatchdogCheckMs: 1,
@@ -173,6 +174,7 @@ test.describe('orchestrator/scheduling/pipeline (#11862/#11900)', () => {
 
         expect(enabledOptions.services.remConsolidationLivenessAlarmDispatcher).toBe(remDispatcher);
         expect(enabledOptions.runtime.remConsolidationWatchdogAlarmEnabled).toBe(true);
+        expect(enabledOptions.context.intervals.remBacklogCatchupCooldown).toBe(300_000);
 
         const disabledOptions = buildOrchestratorSchedulingOptions({
             orchestrator,
@@ -412,6 +414,8 @@ test.describe('orchestrator/scheduling/pipeline (#11862/#11900)', () => {
                         completedAt      : '2026-06-21T12:00:00.000Z',
                         durationMs       : 42,
                         sessionsProcessed: 3,
+                        remBatchLimit    : 3,
+                        remBatchSaturated: true,
                         runId            : 'run-completed'
                     })
                 },
@@ -422,7 +426,7 @@ test.describe('orchestrator/scheduling/pipeline (#11862/#11900)', () => {
                 },
                 taskStateService: {
                     getTaskState: () => null,
-                    markCompleted(taskName) { calls.push(['markCompleted', taskName]); },
+                    markCompleted(taskName, lastCompletion) { calls.push(['markCompleted', taskName, lastCompletion]); },
                     markFailed(taskName) { calls.push(['markFailed', taskName]); },
                     markSkipped(taskName) { calls.push(['markSkipped', taskName]); },
                     markStarted(taskName, reason) { calls.push(['markStarted', taskName, reason]); }
@@ -435,7 +439,16 @@ test.describe('orchestrator/scheduling/pipeline (#11862/#11900)', () => {
 
         expect(calls).toEqual([
             ['markStarted', 'dream', 'dream-reason'],
-            ['markCompleted', 'dream']
+            ['markCompleted', 'dream', {
+                completedAt: '2026-06-21T12:00:00.000Z',
+                durationMs : 42,
+                runId      : 'run-completed',
+                rem        : {
+                    sessionsProcessed: 3,
+                    batchLimit       : 3,
+                    batchSaturated   : true
+                }
+            }]
         ]);
         expect(outcomes).toEqual([
             {
@@ -451,6 +464,8 @@ test.describe('orchestrator/scheduling/pipeline (#11862/#11900)', () => {
                     completedAt      : '2026-06-21T12:00:00.000Z',
                     durationMs       : 42,
                     sessionsProcessed: 3,
+                    remBatchLimit    : 3,
+                    remBatchSaturated: true,
                     runId            : 'run-completed'
                 }
             }
