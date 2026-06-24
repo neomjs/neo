@@ -64,6 +64,15 @@ function getTriVectorFailureMessage(failure) {
            `tri-vector extraction failed (${getTriVectorFailureKind(failure)})`;
 }
 
+/**
+ * @summary Returns true for digest states excluded from the steady REM cadence.
+ * @param {String} state
+ * @returns {Boolean}
+ */
+function isSteadyCadenceExcludedDigestState(state) {
+    return state === 'deferred' || state === 'undigestible';
+}
+
 function toErrorMessage(error) {
     return error && error.message !== undefined ? String(error.message) : String(error);
 }
@@ -142,10 +151,9 @@ function addUndigestedRowsFromBatch(batch, byId) {
     for (let i = 0; i < batch.ids.length; i++) {
         const meta = batch.metadatas?.[i];
 
-        // Exclude both digested sessions (graphDigested) AND sessions bounded out as `deferred` after
-        // `maxDigestAttempts` failures — the latter is the load-reduction lever: stop re-serving (and
-        // re-paying the per-cycle pre-check on) un-digestible sessions in the steady cadence.
-        if (meta && meta.graphDigested !== true && meta.graphDigested !== 'true' && meta.digestState !== 'deferred') {
+        // Exclude digested sessions plus terminal/legacy states that were already bounded out.
+        // `deferred` is kept as a back-compat alias for rows written by the first stop-re-serve kernel.
+        if (meta && meta.graphDigested !== true && meta.graphDigested !== 'true' && !isSteadyCadenceExcludedDigestState(meta.digestState)) {
             byId.set(batch.ids[i], {
                 id      : batch.ids[i],
                 document: batch.documents?.[i],
@@ -589,7 +597,7 @@ class DreamService extends Base {
                             ? 'ingestion-failure'
                             : (extractionFailure?.deferReason || 'schema-failure');
                         const digestState = terminalForCadence && digestAttempts >= maxDigestAttempts
-                            ? 'deferred'
+                            ? 'undigestible'
                             : 'undigested';
 
                         await this.sessionsCollection.update({
@@ -601,8 +609,8 @@ class DreamService extends Base {
                         sessionState.digestAttempts     = digestAttempts;
                         sessionState.terminalForCadence = terminalForCadence;
 
-                        if (digestState === 'deferred') {
-                            logger.warn(`[DreamService] Session ${session.meta.sessionId} marked 'deferred' after ${digestAttempts} failed digest attempt(s) (reason: ${deferReason}); excluded from the steady REM cadence to stop the re-serve bleed.`);
+                        if (digestState === 'undigestible') {
+                            logger.warn(`[DreamService] Session ${session.meta.sessionId} marked 'undigestible' after ${digestAttempts} failed digest attempt(s) (reason: ${deferReason}); excluded from the steady REM cadence to stop the re-serve bleed.`);
                         } else {
                             logger.info(`[DreamService] Session ${session.meta.sessionId} digest failed (reason: ${deferReason}); attempt ${digestAttempts}/${maxDigestAttempts}, will retry next cycle.`);
                         }
