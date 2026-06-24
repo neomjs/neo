@@ -13,7 +13,7 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
+import {test, expect}     from '@playwright/test';
 import crypto             from 'node:crypto';
 import {mkdir, writeFile} from 'fs/promises';
 import os                 from 'node:os';
@@ -319,6 +319,43 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
     });
 
     test.describe('TopologyInferenceEngine.getTopologyConflictCount', () => {
+        test('mergeConflictAlerts caps handoff alerts at 5 and prunes older unbounded entries', () => {
+            const existing = [
+                '# Sandman Handoff Alerts',
+                '',
+                '## Active Conflicts',
+                '',
+                '- **[SUPERSEDES]** `issue-old-1`: old one (Source Session: old-1)',
+                '- **[OBSOLETES]** `issue-old-2`: old two (Source Session: old-2)',
+                '- **[DUPLICATE]** `issue-old-3`: old three (Source Session: old-3)',
+                '- **[SUPERSEDES]** `issue-old-4`: old four (Source Session: old-4)',
+                '- **[OBSOLETES]** `issue-old-5`: old five (Source Session: old-5)',
+                '- **[DUPLICATE]** `issue-old-6`: old six (Source Session: old-6)',
+                '',
+                '## Computed Golden Path',
+                '',
+                'Golden Path content.',
+                ''
+            ].join('\n');
+
+            const {content, changed} = TopologyInferenceEngine.mergeConflictAlerts(existing, [
+                {type: 'SUPERSEDES', issueId: 'issue-new-1', description: 'new one'},
+                {type: 'OBSOLETES', issueId: 'issue-new-2', description: 'new two'}
+            ], 'new-session');
+
+            const matches = content.match(/\(Source Session:/g) || [];
+
+            expect(changed).toBe(true);
+            expect(matches.length).toBe(5);
+            expect(content).toContain('- **[SUPERSEDES]** `issue-new-1`: new one (Source Session: new-session)');
+            expect(content).toContain('- **[OBSOLETES]** `issue-new-2`: new two (Source Session: new-session)');
+            expect(content).toContain('`issue-old-1`');
+            expect(content).toContain('`issue-old-3`');
+            expect(content).not.toContain('`issue-old-4`');
+            expect(content).not.toContain('`issue-old-6`');
+            expect(content.indexOf('`issue-new-1`')).toBeLessThan(content.indexOf('## Computed Golden Path'));
+        });
+
         test('counts (Source Session: lines in handoff file', async () => {
             const handoffPath = uniqueHandoffPath('counts');
             await mkdir(tmpRoot, {recursive: true});
