@@ -82,6 +82,68 @@ function readNumericField(row, keys) {
 }
 
 /**
+ * @summary Checks whether an LM Studio loaded-model identifier belongs to a configured model.
+ *
+ * LM Studio appends numeric suffixes (`:2`, `:3`, etc.) when the same model is
+ * loaded more than once. Matching only numeric suffixes avoids conflating
+ * legitimate colon-bearing model keys with unrelated model identifiers.
+ *
+ * @param {String} id Loaded-model identifier reported by `lms ps`.
+ * @param {String} model Configured model id.
+ * @returns {Boolean}
+ */
+function matchesLmsLoadedModelId(id, model) {
+    if (!id || !model) {
+        return false;
+    }
+
+    if (id === model) {
+        return true;
+    }
+
+    if (!id.startsWith(`${model}:`)) {
+        return false;
+    }
+
+    return /^[1-9]\d*$/.test(id.slice(model.length + 1));
+}
+
+/**
+ * @summary Checks whether an exact LM Studio resident model satisfies the configured shape.
+ * @param {Object} options
+ * @param {Object} options.loadedModel Parsed `lms ps --json` row for the exact model id.
+ * @param {String} options.model Configured model id.
+ * @param {Object} [options.contextLengths] Per-model required context lengths.
+ * @param {Object} [options.parallels] Per-model required parallel slots.
+ * @returns {Boolean}
+ */
+function isLmsLoadedModelSufficient({
+    loadedModel,
+    model,
+    contextLengths = {},
+    parallels      = {}
+} = {}) {
+    if (!loadedModel) {
+        return false;
+    }
+
+    const requiredContext  = contextLengths?.[model],
+          requiredParallel = parallels?.[model],
+          hasContextGate   = Neo.isNumber(requiredContext),
+          hasParallelGate  = Neo.isNumber(requiredParallel);
+
+    if (hasContextGate && (!Neo.isNumber(loadedModel.contextLength) || loadedModel.contextLength < requiredContext)) {
+        return false;
+    }
+
+    if (hasParallelGate && loadedModel.parallel !== requiredParallel) {
+        return false;
+    }
+
+    return true;
+}
+
+/**
  * @summary Extracts loaded LM Studio model metadata from `lms ps --json`.
  *
  * LM Studio CLI output has evolved across versions, so this normalizer accepts
@@ -163,6 +225,53 @@ export function fetchLmsLoadedModels({timeoutMs, execFileFn = execFile} = {}) {
             }
         });
     });
+}
+
+/**
+ * @summary Finds loaded LM Studio siblings superseded by a verified exact model id.
+ *
+ * The configured model id must stay resident because downstream OpenAI-compatible
+ * calls target that id. Once that exact id has the desired context/parallel shape,
+ * suffixed duplicate siblings are stale resident memory and should be unloaded.
+ *
+ * @param {Object} options
+ * @param {Object[]} options.loadedModels Parsed `lms ps --json` models.
+ * @param {String[]} options.requiredModels Required configured model ids.
+ * @param {Object} [options.contextLengths] Per-model required context lengths.
+ * @param {Object} [options.parallels] Per-model required parallel slots.
+ * @returns {Object[]}
+ */
+export function getSupersededLmsLoadedModels({
+    loadedModels,
+    requiredModels,
+    contextLengths = {},
+    parallels      = {}
+} = {}) {
+    const models     = Array.isArray(loadedModels) ? loadedModels : [],
+          byId       = new Map(models.map(item => [item.id, item])),
+          superseded = [];
+
+    for (const model of requiredModels || []) {
+        if (!isLmsLoadedModelSufficient({
+            loadedModel: byId.get(model),
+            model,
+            contextLengths,
+            parallels
+        })) {
+            continue;
+        }
+
+        for (const item of models) {
+            if (item.id !== model && matchesLmsLoadedModelId(item.id, model)) {
+                superseded.push({
+                    ...item,
+                    model
+                });
+            }
+        }
+    }
+
+    return superseded;
 }
 
 /**
@@ -399,9 +508,10 @@ export async function warmOllamaRoleModel({
  * slot holds an independent KV cache at the loaded context window, so the slot count multiplies the
  * model's resident RAM. Omit to inherit the lms default; set low for a lease-serialized role whose
  * concurrent demand is 1 (the chat model) to reclaim the idle KV-cache multiplier.
+ * @param {String} [options.identifier] Stable LM Studio loaded-model identifier.
  * @returns {Promise<{stdout: String, stderr: String}>}
  */
-export function loadLmsModel(model, {execFileFn = execFile, contextLength, parallel} = {}) {
+export function loadLmsModel(model, {execFileFn = execFile, contextLength, parallel, identifier} = {}) {
     if (!model) {
         return Promise.reject(new TypeError('loadLmsModel: model is required'));
     }
@@ -413,11 +523,38 @@ export function loadLmsModel(model, {execFileFn = execFile, contextLength, paral
     if (Neo.isNumber(parallel)) {
         args.push('--parallel', String(parallel));
     }
+    if (Neo.isString(identifier) && identifier) {
+        args.push('--identifier', identifier);
+    }
 
     return new Promise((resolve, reject) => {
         execFileFn('lms', args, (error, stdout = '', stderr = '') => {
             if (error) {
                 reject(new Error(`lms load ${model} failed: ${error.message}${stderr ? `; stderr=${stderr.trim()}` : ''}`));
+                return;
+            }
+
+            resolve({stdout, stderr});
+        });
+    });
+}
+
+/**
+ * @summary Invokes `lms unload <identifier>` for one LM Studio resident model.
+ * @param {String} identifier LM Studio loaded-model identifier.
+ * @param {Object} [options]
+ * @param {Function} [options.execFileFn=execFile] Child-process seam for tests.
+ * @returns {Promise<{stdout: String, stderr: String}>}
+ */
+export function unloadLmsModel(identifier, {execFileFn = execFile} = {}) {
+    if (!identifier) {
+        return Promise.reject(new TypeError('unloadLmsModel: identifier is required'));
+    }
+
+    return new Promise((resolve, reject) => {
+        execFileFn('lms', ['unload', identifier], (error, stdout = '', stderr = '') => {
+            if (error) {
+                reject(new Error(`lms unload ${identifier} failed: ${error.message}${stderr ? `; stderr=${stderr.trim()}` : ''}`));
                 return;
             }
 
@@ -673,6 +810,7 @@ export function getInsufficientLmsLoadedModels({
  * @param {Function} [options.fetchModelIds] Injectable model-list probe.
  * @param {Function} [options.fetchLoadedModels] Injectable loaded-model metadata probe.
  * @param {Function} [options.loadModel] Injectable model-load function.
+ * @param {Function} [options.unloadModel] Injectable model-unload function.
  * @param {Object} [options.log=logger] Logger seam.
  * @returns {Promise<Object>}
  */
@@ -688,6 +826,7 @@ export async function ensureLmsModelsLoaded({
     fetchModelIds     = opts => fetchOpenAiCompatibleModelIds(opts),
     fetchLoadedModels = opts => fetchLmsLoadedModels(opts),
     loadModel         = (model, options) => loadLmsModel(model, options),
+    unloadModel       = (identifier, options) => unloadLmsModel(identifier, options),
     log               = logger
 } = {}) {
     if (!Array.isArray(models) || models.length === 0) {
@@ -727,32 +866,96 @@ export async function ensureLmsModelsLoaded({
     };
 
     let {availableModels} = await probeModels('initial /v1/models probe');
-    const initialMissing = getMissing(availableModels);
-    const failedModels   = [];
+    const initialMissing       = getMissing(availableModels),
+          initialLoadedModels  = [],
+          failedModels         = [],
+          cleanupFailedModels  = [],
+          unloadedModels       = [],
+          modelHasObservedGate = model => Neo.isNumber(contextLengths?.[model]) || Neo.isNumber(parallels?.[model]);
 
-    // Force-include context-configured models in the load set even when already
-    // resident in /v1/models. `/v1/models` reports presence only — it does NOT
-    // expose the loaded context window, so model-id presence is insufficient to
-    // confirm the loaded cap matches the operator-declared threshold. Without
-    // this re-load, the exact context-window-mismatch regression survives orchestrator restarts:
-    // a model loaded with the modelfile-default context window (~4K-8K) would
-    // be accepted as ready while every chat invocation silently overflows.
-    // Force-include each context-configured model in the load set even if resident,
-    // BUT preserve the declared requiredModels input order (filter rather than concat-dedupe).
+    const needsInitialLoadedProbe = requiresObservedLoadCheck && requiredModels.some(model =>
+        !initialMissing.includes(model) && modelHasObservedGate(model)
+    );
+
+    if (needsInitialLoadedProbe) {
+        try {
+            initialLoadedModels.push(...await fetchLoadedModels({timeoutMs}));
+        } catch (error) {
+            log.warn?.(`[ProviderReadinessHelper] Initial LM Studio loaded-model probe failed: ${error.message}; falling back to reload enforcement.`);
+        }
+    }
+
+    const initialLoadedById = new Map(initialLoadedModels.map(item => [item.id, item]));
+
+    // `/v1/models` reports presence only. For models with context/parallel gates, use
+    // `lms ps --json` metadata to avoid reloading an already-correct resident model,
+    // but still replace an exact resident model whose loaded shape is stale.
     const modelsToLoad = requiredModels.filter(model => {
         if (initialMissing.includes(model)) return true;
-        return Neo.isNumber(contextLengths?.[model]) || Neo.isNumber(parallels?.[model]);
+        if (!modelHasObservedGate(model)) return false;
+
+        return !isLmsLoadedModelSufficient({
+            loadedModel: initialLoadedById.get(model),
+            model,
+            contextLengths,
+            parallels
+        });
     });
     const attemptedModels = [...modelsToLoad];
     const loadedModels    = [];
 
+    const cleanupSupersededModels = async lmsLoadedModels => {
+        const superseded = getSupersededLmsLoadedModels({
+            loadedModels: lmsLoadedModels,
+            requiredModels,
+            contextLengths,
+            parallels
+        });
+
+        for (const item of superseded) {
+            log.info?.(`[ProviderReadinessHelper] Unloading superseded LM Studio model '${item.id}' after '${item.model}' reached the configured shape.`);
+
+            try {
+                await unloadModel(item.id);
+                unloadedModels.push(item.id);
+            } catch (error) {
+                const failure = {
+                    model: item.model,
+                    id   : item.id,
+                    error: error.message
+                };
+
+                cleanupFailedModels.push(failure);
+                log.warn?.(`[ProviderReadinessHelper] LM Studio model '${item.id}' unload failed: ${error.message}`);
+
+                if (!allowPartial) {
+                    throw error;
+                }
+            }
+        }
+
+        return cleanupFailedModels;
+    };
+
     if (modelsToLoad.length === 0) {
+        if (requiresObservedLoadCheck && initialLoadedModels.length) {
+            await cleanupSupersededModels(initialLoadedModels);
+        }
+
         return {
-            ready       : true,
-            loadedModels: [],
+            ready          : cleanupFailedModels.length === 0,
+            degraded       : cleanupFailedModels.length > 0,
+            loadedModels   : [],
+            attemptedModels,
+            failedModels,
+            cleanupFailedModels,
+            unloadedModels,
             requiredModels,
             availableModels,
-            attempts    : 1
+            lmsLoadedModels: initialLoadedModels,
+            loadedContexts : Object.fromEntries(initialLoadedModels.map(item => [item.id, item.contextLength])),
+            loadedParallels: Object.fromEntries(initialLoadedModels.map(item => [item.id, item.parallel])),
+            attempts       : 1
         };
     }
 
@@ -770,7 +973,33 @@ export async function ensureLmsModelsLoaded({
             : 'context-length / parallel enforcement on resident model';
         log.info?.(`[ProviderReadinessHelper] Loading LM Studio model '${model}' via lms load${contextSuffix}${parallelSuffix} (${reason}).`);
         try {
-            await loadModel(model, {contextLength, parallel});
+            const observed           = initialLoadedById.get(model),
+                  exactResident      = !initialMissing.includes(model),
+                  shouldReplaceExact = observed
+                      ? !isLmsLoadedModelSufficient({
+                          loadedModel: observed,
+                          model,
+                          contextLengths,
+                          parallels
+                      })
+                      : exactResident && modelHasObservedGate(model);
+
+            if (shouldReplaceExact) {
+                log.info?.(`[ProviderReadinessHelper] Unloading stale LM Studio model '${model}' before stable-identifier reload.`);
+                await unloadModel(model);
+                unloadedModels.push(model);
+            }
+
+            const loadOptions = {identifier: model};
+
+            if (Neo.isNumber(contextLength)) {
+                loadOptions.contextLength = contextLength;
+            }
+            if (Neo.isNumber(parallel)) {
+                loadOptions.parallel = parallel;
+            }
+
+            await loadModel(model, loadOptions);
             loadedModels.push(model);
         } catch (error) {
             failedModels.push({
@@ -820,6 +1049,8 @@ export async function ensureLmsModelsLoaded({
                         loadedModels,
                         attemptedModels,
                         failedModels,
+                        cleanupFailedModels,
+                        unloadedModels,
                         missingModels,
                         observedLoadError: error.message,
                         requiredModels,
@@ -863,6 +1094,8 @@ export async function ensureLmsModelsLoaded({
                     loadedModels,
                     attemptedModels,
                     failedModels,
+                    cleanupFailedModels,
+                    unloadedModels,
                     missingModels,
                     insufficientLoadedModels,
                     requiredModels,
@@ -875,13 +1108,19 @@ export async function ensureLmsModelsLoaded({
                 };
             }
 
-            const ready = missingModels.length === 0 && failedModels.length === 0;
+            if (requiresObservedLoadCheck && lmsLoadedModels.length) {
+                await cleanupSupersededModels(lmsLoadedModels);
+            }
+
+            const ready = missingModels.length === 0 && failedModels.length === 0 && cleanupFailedModels.length === 0;
             return {
                 ready,
                 degraded       : !ready,
                 loadedModels,
                 attemptedModels,
                 failedModels,
+                cleanupFailedModels,
+                unloadedModels,
                 missingModels,
                 requiredModels,
                 availableModels,
@@ -901,6 +1140,8 @@ export async function ensureLmsModelsLoaded({
                 loadedModels,
                 attemptedModels,
                 failedModels,
+                cleanupFailedModels,
+                unloadedModels,
                 missingModels,
                 requiredModels,
                 availableModels,
@@ -921,6 +1162,8 @@ export async function ensureLmsModelsLoaded({
             loadedModels,
             attemptedModels,
             failedModels,
+            cleanupFailedModels,
+            unloadedModels,
             missingModels,
             requiredModels,
             availableModels,
