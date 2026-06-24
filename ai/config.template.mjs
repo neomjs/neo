@@ -692,13 +692,14 @@ class Config extends ConfigProvider {
                     tenantRepoSyncEnabled: leaf(null, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_ENABLED', 'boolean')
                 },
                 /**
-                 * Recovery actuator envelope. Disabled and empty by default: the
+                 * Recovery actuator envelope. Enabled by default so deployed immune-system
+                 * lanes can heal once their explicit target allowlists are configured. The
                  * orchestrator may only recycle supervised tasks, restart compose services, or
                  * page deploy targets that are explicitly named here by the operator.
                  * @type {Object}
                  */
                 recoveryActuator: {
-                    enabled                    : leaf(false, 'NEO_RECOVERY_ACTUATOR_ENABLED', 'boolean'),
+                    enabled                    : leaf(true, 'NEO_RECOVERY_ACTUATOR_ENABLED', 'boolean'),
                     allowedSupervisedTasks     : leaf([], 'NEO_RECOVERY_ACTUATOR_SUPERVISED_TASKS', 'csv'),
                     allowedComposeServices     : leaf([], 'NEO_RECOVERY_ACTUATOR_COMPOSE_SERVICES', 'csv'),
                     allowedDeployTargets       : leaf([], 'NEO_RECOVERY_ACTUATOR_DEPLOY_TARGETS', 'csv'),

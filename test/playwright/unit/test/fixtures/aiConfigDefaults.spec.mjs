@@ -122,5 +122,6 @@ test.describe('aiConfigDefaults fixture contract (#11977 cycle-2)', () => {
         expect(TIER1_DEFAULTS.modelProvider).toBe(process.env.NEO_MODEL_PROVIDER || 'openAiCompatible');
         expect(TIER1_DEFAULTS.embeddingProvider).toBe(process.env.NEO_EMBEDDING_PROVIDER || 'openAiCompatible');
         expect(TIER1_DEFAULTS.vectorDimension).toBe(Number(process.env.NEO_VECTOR_DIMENSION) || 4096);
+        expect(TIER1_DEFAULTS.orchestrator.recoveryActuator.enabled).toBe(true);
     });
 });

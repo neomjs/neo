@@ -32,7 +32,6 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
               taskOutcomes                 = [],
               actuatorConfig               = {
                   ...DEFAULT_ACTUATOR_CONFIG,
-                  enabled               : true,
                   allowedSupervisedTasks: [{serviceKey: 'model', taskName: 'ollama'}],
                   allowedComposeServices: ['memory-core'],
                   allowedDeployTargets  : ['cloud-deploy'],

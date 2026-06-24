@@ -163,7 +163,7 @@ export const TIER1_DEFAULTS = deepFreeze(Neo.clone({
             embedDrainLivenessWatchdogCheckMs: HOUR_MS
         },
         recoveryActuator: {
-            enabled                    : false,
+            enabled                    : true,
             allowedSupervisedTasks     : [],
             allowedComposeServices     : [],
             allowedDeployTargets       : [],
