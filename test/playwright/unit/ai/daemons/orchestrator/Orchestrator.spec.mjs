@@ -61,6 +61,12 @@ function createTestOrchestrator(config = {}) {
             TaskStateService.taskState[name].running = true;
         }
     });
+    if (TaskStateService.taskState['message-concept-harvest']) {
+        TaskStateService.taskState['message-concept-harvest'].lastRunAt =
+            Object.hasOwn(config, 'messageConceptHarvestLastRunAt') ?
+                config.messageConceptHarvestLastRunAt :
+                Date.now();
+    }
 
     // Save canonical AiConfig once per test; afterEach restores.
     savedIntervals = savedIntervals || {...AiConfig.orchestrator.intervals};
@@ -90,7 +96,6 @@ function createTestOrchestrator(config = {}) {
     AiConfig.orchestrator.intervals.primaryDevSyncMs = config.primaryDevSyncIntervalMs ?? 600000;
     AiConfig.orchestrator.intervals.tenantRepoSyncMs = config.tenantRepoSyncIntervalMs ?? Number.MAX_SAFE_INTEGER;
     AiConfig.orchestrator.intervals.dreamMs          = config.dreamIntervalMs          ?? Number.MAX_SAFE_INTEGER;
-    AiConfig.orchestrator.intervals.messageConceptHarvestMs = config.messageConceptHarvestIntervalMs ?? Number.MAX_SAFE_INTEGER;
     AiConfig.orchestrator.intervals.dreamOverflowThreshold = config.dreamOverflowThreshold ?? 0.8;
     AiConfig.orchestrator.intervals.goldenPathMs     = config.goldenPathIntervalMs     ?? Number.MAX_SAFE_INTEGER;
     AiConfig.orchestrator.intervals.swarmHeartbeatMs = config.swarmHeartbeatIntervalMs ?? Number.MAX_SAFE_INTEGER;
@@ -387,6 +392,29 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         orchestrator.poll();
 
         expect(started).toEqual([]);
+    });
+
+    test('keeps message-concept-harvest scoped out of default helper polls without AiConfig mutation (#13969)', () => {
+        const originalCadence = AiConfig.orchestrator.intervals.messageConceptHarvestMs;
+        const started         = [];
+
+        const orchestrator = createTestOrchestrator({
+            kbSyncEnabled: false
+        });
+
+        expect(AiConfig.orchestrator.intervals.messageConceptHarvestMs).toBe(originalCadence);
+        expect(TaskStateService.taskState['message-concept-harvest'].lastRunAt).toBeGreaterThan(0);
+
+        orchestrator.processSupervisorService = {
+            runTask(taskName, reason) {
+                started.push({taskName, reason});
+                return true;
+            }
+        };
+
+        orchestrator.poll();
+
+        expect(started.find(entry => entry.taskName === 'message-concept-harvest')).toBeUndefined();
     });
 
     test('does not restart bridge-daemon when deployment config disables local wake delivery', () => {
