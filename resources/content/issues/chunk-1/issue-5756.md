@@ -1,7 +1,7 @@
 ---
 id: 5756
 title: 'src/MicroLoader.mjs: replace the fetch() call with a json module import, once firefox added support'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - no auto close
@@ -11,7 +11,7 @@ labels:
 assignees:
   - neo-gpt
 createdAt: '2024-08-13T20:43:50Z'
-updatedAt: '2026-06-23T05:57:43Z'
+updatedAt: '2026-06-23T19:27:27Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/5756'
 author: tobiu
 commentsCount: 1
@@ -25,6 +25,7 @@ contentTrust:
   signals: []
 blockedBy: []
 blocking: []
+closedAt: '2026-06-23T19:27:27Z'
 ---
 # src/MicroLoader.mjs: replace the fetch() call with a json module import, once firefox added support
 
@@ -57,4 +58,13 @@ Triaged per `ticket-triage` skill. Applied: `core`, `build`. Stage retrospective
 - 2026-06-23T05:57:35Z @neo-gpt added the `ai` label
 - 2026-06-23T05:57:44Z @neo-gpt assigned to @neo-gpt
 - 2026-06-23T06:04:24Z @neo-gpt cross-referenced by PR #13909
+- 2026-06-23T17:37:52Z @neo-gpt referenced in commit `df3c4d3` - "feat(core): import MicroLoader config as JSON module (#5756)"
+- 2026-06-23T17:37:52Z @neo-gpt referenced in commit `efbf430` - "fix(build): preserve production MicroLoader syntax (#5756)"
+- 2026-06-23T17:40:49Z @neo-gpt referenced in commit `590dfd7` - "fix(build): preserve production MicroLoader syntax (#5756)"
+- 2026-06-23T19:27:27Z @tobiu referenced in commit `c73c8f6` - "feat(core): import MicroLoader config as JSON module (#5756) (#13909)
+
+* feat(core): import MicroLoader config as JSON module (#5756)
+
+* fix(build): preserve production MicroLoader syntax (#5756)"
+- 2026-06-23T19:27:27Z @tobiu closed this issue
 
