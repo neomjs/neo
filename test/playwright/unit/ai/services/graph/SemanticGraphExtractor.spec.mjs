@@ -309,8 +309,13 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
                 document: 'Mock episodic history for silent empty-response detection.'
             });
 
-            // AC4: returns null (no retry-loop amplification)
-            expect(result).toBeNull();
+            // AC4: returns a typed failure descriptor (no retry-loop amplification)
+            expect(result).toMatchObject({
+                ok                : false,
+                deferReason       : 'under-band-choke',
+                frictionSymptom   : 'context-overflow',
+                terminalForCadence: true
+            });
 
             // AC6 (e): retry loop did NOT fire — single invocation only
             expect(invocationCount).toBe(1);
@@ -366,7 +371,13 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
                 document: 'Mock episodic history for truncated non-empty response detection.'
             });
 
-            expect(result).toBeNull();
+            expect(result).toMatchObject({
+                ok                : false,
+                deferReason       : 'under-band-choke',
+                frictionSymptom   : 'context-overflow',
+                terminalForCadence: true,
+                evidence          : {finishReason: 'length'}
+            });
             expect(invocationCount).toBe(1);
 
             const frictions = getAggregatedFrictions();
@@ -410,7 +421,12 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
                 document: 'Mock episodic history for over-band repair retry detection.'
             });
 
-            expect(result).toBeNull();
+            expect(result).toMatchObject({
+                ok                : false,
+                deferReason       : 'under-band-choke',
+                frictionSymptom   : 'context-overflow',
+                terminalForCadence: true
+            });
             expect(invocationCount).toBe(1);
 
             const frictions = getAggregatedFrictions();
@@ -502,7 +518,12 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
                 document: 'Force guardrail pre-check so provider.generate is never invoked.'
             });
 
-            expect(result).toBeNull();
+            expect(result).toMatchObject({
+                ok                : false,
+                deferReason       : 'skip-over-band',
+                frictionSymptom   : 'size-precheck-skip',
+                terminalForCadence: true
+            });
 
             const frictions = getAggregatedFrictions();
             const friction  = frictions.find(item => item.assetRef === 'consumer-model-telemetry-session');

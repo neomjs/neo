@@ -1541,7 +1541,13 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             DreamService.runGarbageCollection     = async () => {};
             DreamService.synthesizeGoldenPath     = async () => {};
 
-            SemanticGraphExtractor.executeTriVectorExtraction = async () => null;
+            SemanticGraphExtractor.executeTriVectorExtraction = async () => ({
+                ok                : false,
+                deferReason       : 'skip-over-band',
+                frictionSymptom   : 'size-precheck-skip',
+                terminalForCadence: true,
+                evidence          : {attempts: 1, note: 'unit over-band guardrail'}
+            });
             MemorySessionIngestor.syncSessionToGraph = async () => ({errors: [], memoriesSkipped: 0, memoriesUpserted: 1});
             AdrIngestor.syncAdrsToGraph              = async () => ({});
             ConceptIngestor.syncConceptsToGraph     = async () => ({});
@@ -1577,18 +1583,15 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         }
     });
 
-    test('processUndigestedSessions does NOT defer under-band-choke even at MAX — the heuristic null retries until typed failure semantics exist (#13835)', async () => {
+    test('processUndigestedSessions defers typed under-band-choke once it reaches MAX (#13974)', async () => {
         const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
         const AdrIngestor             = (await import('../../../../../../../ai/services/ingestion/AdrIngestor.mjs')).default;
         const ConceptIngestor         = (await import('../../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;
         const FileSystemIngestor      = (await import('../../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
         const TopologyInferenceEngine = (await import('../../../../../../../ai/services/graph/TopologyInferenceEngine.mjs')).default;
 
-        // Under-band payload + a bare-null extractor return = `under-band-choke`. The extractor returns the
-        // same null for choke / schema-failure / timeout alike, so terminality here is a GUESS — it must NOT
-        // be bounded out as `deferred` even past MAX. It stays `undigested` (attempt-tracked) and keeps
-        // retrying until typed extractor failure semantics can prove it terminal, so a digestible session
-        // that merely hit a transient/ambiguous null is never silently dropped.
+        // Typed extractor failure semantics remove the payload-size guess: when the extractor reports
+        // cadence-terminal under-band choke, DreamService may bound it out after maxDigestAttempts.
         const mockSession = {
             id      : 'chroma-summary-underband',
             document: 'tiny',
@@ -1627,7 +1630,13 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             DreamService.runGarbageCollection     = async () => {};
             DreamService.synthesizeGoldenPath     = async () => {};
 
-            SemanticGraphExtractor.executeTriVectorExtraction = async () => null;
+            SemanticGraphExtractor.executeTriVectorExtraction = async () => ({
+                ok                : false,
+                deferReason       : 'under-band-choke',
+                frictionSymptom   : 'context-overflow',
+                terminalForCadence: true,
+                evidence          : {attempts: 1, note: 'unit under-band choke'}
+            });
             MemorySessionIngestor.syncSessionToGraph = async () => ({errors: [], memoriesSkipped: 0, memoriesUpserted: 1});
             AdrIngestor.syncAdrsToGraph              = async () => ({});
             ConceptIngestor.syncConceptsToGraph     = async () => ({});
@@ -1642,7 +1651,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             expect(meta.graphDigested).toBeUndefined();    // never falsely-digested
             expect(meta.deferReason).toBe('under-band-choke');
             expect(meta.digestAttempts).toBe(6);            // 5 prior + this one
-            expect(meta.digestState).toBe('undigested');    // heuristic null → NOT deferred, keeps retrying
+            expect(meta.digestState).toBe('deferred');      // typed terminal descriptor → bounded out
         } finally {
             aiConfig.modelProvider                            = orig.provider;
             DreamService.findUndigestedSessions               = orig.findUndigested;
@@ -1871,7 +1880,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         // (SemanticGraphExtractor.spec `Sub 9 hypotheses 9 and 11`). Phase-A stubs the service
         // choreography; this drives the REAL processUndigestedSessions → SemanticGraphExtractor
         // handoff so a genuine empty-response overflow at the provider boundary flows through
-        // DreamService's actual null-result handling. Per the Sub-9 avoided-trap, only the
+        // DreamService's typed failure handling. Per the Sub-9 avoided-trap, only the
         // peripheral pipeline phases (ingestors / topology / gap inference / golden-path / GC),
         // the storage backend, and the LLM boundary are neutralized — the DreamService↔
         // SemanticGraphExtractor choreography under test runs real. Hypothesis 9 (PRIMARY),
@@ -1937,18 +1946,21 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             TopologyInferenceEngine.getTopologyConflictCount = async () => 0;
 
             // THE H9 TRIGGER: the provider boundary streams an empty body (LM Studio silent-overflow
-            // signature). SemanticGraphExtractor.executeTriVectorExtraction runs REAL and must
-            // classify this as context-overflow + return null (no retry amplification).
+            // signature). SemanticGraphExtractor.executeTriVectorExtraction runs REAL and must classify
+            // this as context-overflow + return a typed under-band-choke descriptor (no retry amplification).
             OpenAiCompatible.prototype.generate = async function() { return {content: ''}; };
 
             const result = await DreamService.processUndigestedSessions();
 
-            // The REAL extractor returned null; assert DreamService's integration handling propagated it.
+            // The REAL extractor returned a typed descriptor; assert DreamService propagated it.
             const sessionState = result.perSessionStates.find(s => s.sessionId === 'agent-session-empty-overflow');
             expect(sessionState).toBeDefined();
             expect(sessionState.triVector.status).toBe('failed');
-            expect(sessionState.triVector.errorKind).toBe('null-result');
-            expect(sessionState.failureReasons).toContain('tri-vector extraction returned null');
+            expect(sessionState.triVector.errorKind).toBe('under-band-choke');
+            expect(sessionState.triVector.deferReason).toBe('under-band-choke');
+            expect(sessionState.triVector.frictionSymptom).toBe('context-overflow');
+            expect(sessionState.triVector.terminalForCadence).toBe(true);
+            expect(sessionState.failureReasons.some(reason => reason.includes('Silent empty-response from provider'))).toBe(true);
 
             // graphDigested NOT set → session stays undigested for the next REM cycle, not silently masked.
             expect(sessionState.graphDigestedFlag).toBe(false);
@@ -1985,8 +1997,8 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         // Integration complement to the isolated JSON-repair retry test (which calls the extractor
         // directly and exercises success-after-retry). Here the provider returns malformed JSON
         // on every attempt, so the REAL extractor exhausts its retry budget through the REAL
-        // processUndigestedSessions choreography and returns null — and DreamService must record
-        // the failure + keep the session undigested rather than mask it behind graphDigested.
+        // processUndigestedSessions choreography and returns a typed schema-failure descriptor —
+        // and DreamService must record the failure + keep the session undigested rather than mask it behind graphDigested.
         // Only peripheral phases + storage + the LLM boundary are neutralized. Hypothesis 11,
         // Discussion silent-failure enumeration §2.4.
         const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
@@ -2047,7 +2059,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             TopologyInferenceEngine.getTopologyConflictCount = async () => 0;
 
             // THE H11 TRIGGER: provider returns unparseable JSON on every attempt. The REAL extractor
-            // runs its full retry budget (no valid payload ever) and returns null.
+            // runs its full retry budget (no valid payload ever) and returns a typed descriptor.
             OpenAiCompatible.prototype.generate = async function() {
                 invocationCount++;
                 return {content: '```json\n{ "a2a_version": "1.0", "agent_id": "Antigravity" '}; // truncated, never valid
@@ -2058,12 +2070,15 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             // The real retry loop ran to exhaustion through the real choreography.
             expect(invocationCount).toBeGreaterThan(1);
 
-            // The REAL extractor returned null; assert DreamService's integration handling propagated it.
+            // The REAL extractor returned a typed descriptor; assert DreamService propagated it.
             const sessionState = result.perSessionStates.find(s => s.sessionId === 'agent-session-json-exhaustion');
             expect(sessionState).toBeDefined();
             expect(sessionState.triVector.status).toBe('failed');
-            expect(sessionState.triVector.errorKind).toBe('null-result');
-            expect(sessionState.failureReasons).toContain('tri-vector extraction returned null');
+            expect(sessionState.triVector.errorKind).toBe('schema-failure');
+            expect(sessionState.triVector.deferReason).toBe('schema-failure');
+            expect(sessionState.triVector.frictionSymptom).toBe('parse-failure');
+            expect(sessionState.triVector.terminalForCadence).toBe(true);
+            expect(sessionState.failureReasons.some(reason => reason.includes('Tri-Vector schema validation failed'))).toBe(true);
 
             // graphDigested NOT set → session stays undigested for the next REM cycle, not silently masked.
             expect(sessionState.graphDigestedFlag).toBe(false);
