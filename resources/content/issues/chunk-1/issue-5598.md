@@ -1,7 +1,7 @@
 ---
 id: 5598
 title: 'selection.Model: select() => add support for widgets using a collection instead of a store'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - no auto close
@@ -10,7 +10,7 @@ labels:
 assignees:
   - neo-gpt
 createdAt: '2024-07-20T19:09:11Z'
-updatedAt: '2026-06-23T04:50:22Z'
+updatedAt: '2026-06-24T17:18:41Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/5598'
 author: tobiu
 commentsCount: 3
@@ -24,6 +24,7 @@ contentTrust:
   signals: []
 blockedBy: []
 blocking: []
+closedAt: '2026-06-24T17:18:41Z'
 ---
 # selection.Model: select() => add support for widgets using a collection instead of a store
 
@@ -80,4 +81,19 @@ Stage retrospective passed: premise is still current against `src/selection/Mode
 
 - 2026-06-23T04:50:21Z @neo-gpt assigned to @neo-gpt
 - 2026-06-23T04:59:53Z @neo-gpt cross-referenced by PR #13908
+- 2026-06-23T17:58:51Z @neo-gpt referenced in commit `8fa56a4` - "fix(selection): support collection item ids (#5598)"
+- 2026-06-23T17:58:51Z @neo-gpt referenced in commit `b8c5779` - "fix(selection): align collection id fallback formatting (#5598)"
+- 2026-06-24T10:32:44Z @neo-gpt referenced in commit `9fbdd37` - "fix(selection): align collection id fallback formatting (#5598)"
+- 2026-06-24T16:38:29Z @neo-gpt referenced in commit `869cbf7` - "fix(selection): preserve declaration block alignment (#5598)"
+- 2026-06-24T17:08:01Z @neo-gpt referenced in commit `e909b4b` - "fix(selection): preserve lone-keyword block alignment (#5598)"
+- 2026-06-24T17:18:41Z @tobiu referenced in commit `2ffe7a9` - "fix(selection): support collection item ids (#5598) (#13908)
+
+* fix(selection): support collection item ids (#5598)
+
+* fix(selection): align collection id fallback formatting (#5598)
+
+* fix(selection): preserve declaration block alignment (#5598)
+
+* fix(selection): preserve lone-keyword block alignment (#5598)"
+- 2026-06-24T17:18:41Z @tobiu closed this issue
 
