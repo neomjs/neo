@@ -670,6 +670,87 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         expect(result.loadedModels).toEqual([]);
     });
 
+    test('ensureLmsModelsLoaded treats unknown embedding parallel as unobservable telemetry (#13950)', async () => {
+        const loadCalls = [];
+
+        const result = await providerReadinessHelper.ensureLmsModelsLoaded({
+            host             : 'http://127.0.0.1:1234',
+            models           : ['chat-model', 'embedding-model'],
+            contextLengths   : {'chat-model': 131072, 'embedding-model': 32768},
+            parallels        : {'chat-model': 1, 'embedding-model': 1},
+            attempts         : 1,
+            delayMs          : 0,
+            timeoutMs        : 50,
+            fetchModelIds    : async () => ['chat-model', 'embedding-model'],
+            loadModel        : async (model, options) => loadCalls.push({model, options}),
+            fetchLoadedModels: async () => [{
+                id           : 'chat-model',
+                contextLength: 131072,
+                parallel     : 1
+            }, {
+                id           : 'embedding-model',
+                contextLength: 32768
+            }],
+            log: {info: () => {}}
+        });
+
+        expect(loadCalls).toEqual([]);
+        expect(result.ready).toBe(true);
+        expect(result.loadedModels).toEqual([]);
+        expect(result.loadedParallels).toEqual({
+            'chat-model'     : 1,
+            'embedding-model': undefined
+        });
+    });
+
+    test('ensureLmsModelsLoaded still repairs numeric chat parallel mismatches (#13950)', async () => {
+        const loadCalls       = [],
+              unloadCalls     = [],
+              loadedSnapshots = [
+                  [{
+                      id           : 'chat-model',
+                      contextLength: 131072,
+                      parallel     : 4
+                  }],
+                  [{
+                      id           : 'chat-model',
+                      contextLength: 131072,
+                      parallel     : 1
+                  }]
+              ];
+
+        const result = await providerReadinessHelper.ensureLmsModelsLoaded({
+            host             : 'http://127.0.0.1:1234',
+            models           : ['chat-model'],
+            contextLengths   : {'chat-model': 131072},
+            parallels        : {'chat-model': 1},
+            attempts         : 1,
+            delayMs          : 0,
+            timeoutMs        : 50,
+            fetchModelIds    : async () => ['chat-model'],
+            unloadModel      : async identifier => unloadCalls.push(identifier),
+            loadModel        : async (model, options) => loadCalls.push({model, options}),
+            fetchLoadedModels: async () => loadedSnapshots.shift() || [{
+                id           : 'chat-model',
+                contextLength: 131072,
+                parallel     : 1
+            }],
+            log: {info: () => {}}
+        });
+
+        expect(unloadCalls).toEqual(['chat-model']);
+        expect(loadCalls).toEqual([{
+            model  : 'chat-model',
+            options: {
+                contextLength: 131072,
+                parallel     : 1,
+                identifier   : 'chat-model'
+            }
+        }]);
+        expect(result.ready).toBe(true);
+        expect(result.loadedModels).toEqual(['chat-model']);
+    });
+
     test('ensureLmsModelsLoaded replaces stale exact lms load and unloads suffixed siblings (#13700)', async () => {
         const loadCalls      = [],
               unloadCalls    = [],
@@ -1066,6 +1147,175 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         }]);
         expect(result.missingModels).toEqual(['chat-model']);
         expect(warnings[0]).toContain('preload failed');
+    });
+
+    test('checkOpenAiCompatibleEmbeddingServing reports success without returning vector bodies (#13950)', async () => {
+        let request;
+
+        const result = await providerReadinessHelper.checkOpenAiCompatibleEmbeddingServing({
+            host     : 'http://127.0.0.1:1234',
+            model    : 'embedding-model',
+            input    : 'neo embedding canary',
+            timeoutMs: 50,
+            fetchFn  : async (url, options) => {
+                request = {
+                    url,
+                    method: options.method,
+                    body  : JSON.parse(options.body)
+                };
+
+                return {
+                    ok  : true,
+                    json: async () => ({data: [{embedding: [0.1, 0.2, 0.3]}]})
+                };
+            }
+        });
+
+        expect(request).toEqual({
+            url   : 'http://127.0.0.1:1234/v1/embeddings',
+            method: 'POST',
+            body  : {
+                model: 'embedding-model',
+                input: 'neo embedding canary'
+            }
+        });
+        expect(result).toEqual({
+            ready       : true,
+            degraded    : false,
+            provider    : 'openAiCompatible',
+            host        : 'http://127.0.0.1:1234',
+            model       : 'embedding-model',
+            vectorLength: 3
+        });
+        expect(result.embedding).toBeUndefined();
+    });
+
+    test('checkOpenAiCompatibleEmbeddingServing serializes concurrent canaries (#13950)', async () => {
+        const events = [];
+        let releaseFirst;
+
+        const firstCanaryDone = new Promise(resolve => {
+            releaseFirst = resolve;
+        });
+        const fetchFn = async (url, options) => {
+            const {input} = JSON.parse(options.body);
+
+            events.push(`start:${input}`);
+
+            if (input === 'first') {
+                await firstCanaryDone;
+            }
+
+            events.push(`finish:${input}`);
+
+            return {
+                ok  : true,
+                json: async () => ({data: [{embedding: [1]}]})
+            };
+        };
+
+        const first = providerReadinessHelper.checkOpenAiCompatibleEmbeddingServing({
+            host     : 'http://127.0.0.1:1234',
+            model    : 'embedding-model',
+            input    : 'first',
+            timeoutMs: 50,
+            fetchFn
+        });
+        const second = providerReadinessHelper.checkOpenAiCompatibleEmbeddingServing({
+            host     : 'http://127.0.0.1:1234',
+            model    : 'embedding-model',
+            input    : 'second',
+            timeoutMs: 50,
+            fetchFn
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect(events).toEqual(['start:first']);
+
+        releaseFirst();
+        await Promise.all([first, second]);
+
+        expect(events).toEqual([
+            'start:first',
+            'finish:first',
+            'start:second',
+            'finish:second'
+        ]);
+    });
+
+    test('checkOpenAiCompatibleEmbeddingServing skips under load without issuing a request (#13950)', async () => {
+        let fetchCalled = false;
+
+        const result = await providerReadinessHelper.checkOpenAiCompatibleEmbeddingServing({
+            host     : 'http://127.0.0.1:1234',
+            model    : 'embedding-model',
+            input    : 'neo embedding canary',
+            timeoutMs: 50,
+            fetchFn  : async () => {
+                fetchCalled = true;
+            },
+            shouldRun: async () => ({
+                run   : false,
+                reason: 'heavy-maintenance-active'
+            })
+        });
+
+        expect(fetchCalled).toBe(false);
+        expect(result).toMatchObject({
+            ready   : false,
+            degraded: true,
+            skipped : true,
+            provider: 'openAiCompatible',
+            model   : 'embedding-model',
+            reason  : 'heavy-maintenance-active'
+        });
+    });
+
+    test('ensureLmsModelsLoaded surfaces degraded embedding-serving canary diagnostics (#13950)', async () => {
+        const warnings = [];
+
+        const result = await providerReadinessHelper.ensureLmsModelsLoaded({
+            host             : 'http://127.0.0.1:1234',
+            models           : ['embedding-model'],
+            contextLengths   : {'embedding-model': 32768},
+            parallels        : {'embedding-model': 1},
+            attempts         : 1,
+            delayMs          : 0,
+            timeoutMs        : 50,
+            fetchModelIds    : async () => ['embedding-model'],
+            fetchLoadedModels: async () => [{
+                id           : 'embedding-model',
+                contextLength: 32768
+            }],
+            embeddingServingProbe: async () => ({
+                ready   : false,
+                degraded: true,
+                error   : {message: 'HTTP 400 - Model unloaded while request was queued'},
+                warning : '[provider/openAiCompatible] embedding-serving canary failed for embedding-model: HTTP 400 - Model unloaded while request was queued'
+            }),
+            log: {
+                info: () => {},
+                warn: message => warnings.push(message)
+            }
+        });
+
+        expect(result.ready).toBe(false);
+        expect(result.degraded).toBe(true);
+        expect(result.embeddingServing).toMatchObject({
+            ready   : false,
+            degraded: true,
+            error   : {message: 'HTTP 400 - Model unloaded while request was queued'}
+        });
+        expect(warnings[0]).toContain('embedding-serving canary failed');
+    });
+
+    test('checkOpenAiCompatibleEmbeddingServing rejects large canary bodies (#13950)', async () => {
+        await expect(providerReadinessHelper.checkOpenAiCompatibleEmbeddingServing({
+            host     : 'http://127.0.0.1:1234',
+            model    : 'embedding-model',
+            input    : 'x'.repeat(257),
+            timeoutMs: 50
+        })).rejects.toThrow(/<= 256 UTF-8 bytes/);
     });
 
     test('ensureOllamaModelsReady warms missing chat and embedding models through native roles (#12285)', async () => {
