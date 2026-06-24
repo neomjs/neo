@@ -732,7 +732,7 @@ class GoldenPathSynthesizer extends Base {
      */
     async fetchOpenPRs() {
         const { execSync } = await import('child_process');
-        const rawPrData = execSync('gh pr list --state open --json number,url,author,title,body,headRefOid,reviewRequests,reviews,comments,createdAt', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
+        const rawPrData    = execSync('gh pr list --state open --json number,url,author,title,body,headRefOid,reviewRequests,reviews,comments,createdAt', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
         return JSON.parse(rawPrData);
     }
 
@@ -898,6 +898,17 @@ class GoldenPathSynthesizer extends Base {
             return;
         }
 
+        const scoredNodes  = [];
+        const scoringStats = {
+            semanticCandidates     : 0,
+            sqliteOpenMatches      : 0,
+            blockedCandidates      : 0,
+            nonActionableCandidates: 0,
+            scoredCandidates       : 0,
+            selectedTopNodes       : 0,
+            prunedGuideEdges       : 0
+        };
+
         // Pillar 1: Semantic Distance from ChromaDB
         let semanticIds       = [];
         let semanticDistances = [];
@@ -923,92 +934,84 @@ class GoldenPathSynthesizer extends Base {
 
         if (semanticIds.length === 0) {
             logger.info('[GoldenPathSynthesizer] No semantic nodes found. Golden path empty.');
-            return;
         }
+        scoringStats.semanticCandidates = semanticIds.length;
 
         // Pillar 2: Structural Weight from SQLite Graph
-        const scoredNodes  = [];
-        const scoringStats = {
-            semanticCandidates     : semanticIds.length,
-            sqliteOpenMatches      : 0,
-            blockedCandidates      : 0,
-            nonActionableCandidates: 0,
-            scoredCandidates       : 0,
-            selectedTopNodes       : 0,
-            prunedGuideEdges       : 0
-        };
         const SEMANTIC_WEIGHT   = 2.0;
         const STRUCTURAL_WEIGHT = 1.0;
 
-        try {
-            const placeholders = semanticIds.map(() => '?').join(',');
-            const stmt         = GraphService.db.storage.db.prepare(`
-                SELECT
-                    n.id,
-                    n.data,
-                    COALESCE((
-                        SELECT SUM(json_extract(e.data, '$.properties.weight'))
-                        FROM Edges e
-                        WHERE e.target = n.id AND e.type != 'BLOCKS'
-                    ), 0.0) as struct_score
-                FROM Nodes n
-                WHERE (json_extract(n.data, '$.properties.state') = 'OPEN' OR json_extract(n.data, '$.state') = 'OPEN')
-                  AND n.id IN (${placeholders})
-            `);
+        if (semanticIds.length > 0) {
+            try {
+                const placeholders = semanticIds.map(() => '?').join(',');
+                const stmt         = GraphService.db.storage.db.prepare(`
+                    SELECT
+                        n.id,
+                        n.data,
+                        COALESCE((
+                            SELECT SUM(json_extract(e.data, '$.properties.weight'))
+                            FROM Edges e
+                            WHERE e.target = n.id AND e.type != 'BLOCKS'
+                        ), 0.0) as struct_score
+                    FROM Nodes n
+                    WHERE (json_extract(n.data, '$.properties.state') = 'OPEN' OR json_extract(n.data, '$.state') = 'OPEN')
+                      AND n.id IN (${placeholders})
+                `);
 
-            const results = stmt.all(...semanticIds);
-            scoringStats.sqliteOpenMatches = results.length;
+                const results = stmt.all(...semanticIds);
+                scoringStats.sqliteOpenMatches = results.length;
 
-            for (const row of results) {
-                const issueId = row.id;
+                for (const row of results) {
+                    const issueId = row.id;
 
-                // Guarantee graph topology is completely loaded into RAM BEFORE executing cold-cache resistant queries natively!
-                GraphService.db.getAdjacentNodes(issueId, 'both');
+                    // Guarantee graph topology is completely loaded into RAM BEFORE executing cold-cache resistant queries natively!
+                    GraphService.db.getAdjacentNodes(issueId, 'both');
 
-                // Re-verify blocker topology natively using GraphService API
-                const blockers  = GraphService.db.edges.getByIndex('target', issueId).filter(e => e.type === 'BLOCKS');
-                let   isBlocked = false;
+                    // Re-verify blocker topology natively using GraphService API
+                    const blockers  = GraphService.db.edges.getByIndex('target', issueId).filter(e => e.type === 'BLOCKS');
+                    let   isBlocked = false;
 
-                for (const bEdge of blockers) {
-                    const blockerNode = GraphService.db.nodes.get(bEdge.source);
-                    if (blockerNode && (blockerNode.properties?.state === 'OPEN' || blockerNode.state === 'OPEN')) {
-                        isBlocked = true;
-                        break;
+                    for (const bEdge of blockers) {
+                        const blockerNode = GraphService.db.nodes.get(bEdge.source);
+                        if (blockerNode && (blockerNode.properties?.state === 'OPEN' || blockerNode.state === 'OPEN')) {
+                            isBlocked = true;
+                            break;
+                        }
                     }
+
+                    if (isBlocked) {
+                        scoringStats.blockedCandidates++;
+                        continue; // Architecturally blocked issues cannot be Golden
+                    }
+
+                    const idx               = semanticIds.indexOf(issueId);
+                    const semantic_distance = parseFloat(semanticDistances[idx]) || 0.1;
+                    const struct_score      = parseFloat(row.struct_score) || 0;
+
+                    // Lower distance = Higher significance. (Add 0.1 to avoid div by 0 and curb massive asymptotes)
+                    const semanticScore = 1.0 / (semantic_distance + 0.1);
+
+                    let nodeData = null;
+                    try { nodeData = JSON.parse(row.data); } catch (e) { }
+
+                    let priority = (semanticScore * SEMANTIC_WEIGHT) + (struct_score * STRUCTURAL_WEIGHT);
+
+                    if (!this.constructor.isActionableComputedRecommendation(nodeData || {id: issueId})) {
+                        scoringStats.nonActionableCandidates++;
+                        logger.debug(`[GoldenPathSynthesizer] Skipping non-actionable computed recommendation: ${issueId}`);
+                        continue;
+                    }
+
+                    scoredNodes.push({
+                        node      : nodeData || { id: issueId },
+                        score     : priority,
+                        semantic  : semanticScore,
+                        structural: struct_score
+                    });
                 }
-
-                if (isBlocked) {
-                    scoringStats.blockedCandidates++;
-                    continue; // Architecturally blocked issues cannot be Golden
-                }
-
-                const idx               = semanticIds.indexOf(issueId);
-                const semantic_distance = parseFloat(semanticDistances[idx]) || 0.1;
-                const struct_score      = parseFloat(row.struct_score) || 0;
-
-                // Lower distance = Higher significance. (Add 0.1 to avoid div by 0 and curb massive asymptotes)
-                const semanticScore = 1.0 / (semantic_distance + 0.1);
-
-                let nodeData = null;
-                try { nodeData = JSON.parse(row.data); } catch (e) { }
-
-                let priority = (semanticScore * SEMANTIC_WEIGHT) + (struct_score * STRUCTURAL_WEIGHT);
-
-                if (!this.constructor.isActionableComputedRecommendation(nodeData || {id: issueId})) {
-                    scoringStats.nonActionableCandidates++;
-                    logger.debug(`[GoldenPathSynthesizer] Skipping non-actionable computed recommendation: ${issueId}`);
-                    continue;
-                }
-
-                scoredNodes.push({
-                    node      : nodeData || { id: issueId },
-                    score     : priority,
-                    semantic  : semanticScore,
-                    structural: struct_score
-                });
+            } catch (e) {
+                logger.warn('[GoldenPathSynthesizer] Error executing hybrid mapping across local Graph Store.', e);
             }
-        } catch (e) {
-            logger.warn('[GoldenPathSynthesizer] Error executing hybrid mapping across local Graph Store.', e);
         }
 
         // Sort descending by calculated priority
@@ -1238,7 +1241,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         // larger-context consumer choice).
         try {
             const {renderConsumerFrictionSection} = await import('../../services/memory-core/helpers/consumerFrictionHelper.mjs');
-            const frictionSection = renderConsumerFrictionSection();
+            const frictionSection                 = renderConsumerFrictionSection();
 
             if (frictionSection) {
                 handoffContent += frictionSection + '\n';

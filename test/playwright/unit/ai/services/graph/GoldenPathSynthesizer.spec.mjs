@@ -279,6 +279,71 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(handoffContent).not.toContain('- **Head SHA**:');
     });
 
+    test('synthesizeGoldenPath overwrites stale author sections when semantic candidates are empty', async () => {
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const originalFetchOpenPRs         = GoldenPathSynthesizer.fetchOpenPRs;
+        const issuesDir                    = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-zero-candidate-issues-'));
+        aiConfig.vectorDimension = 2;
+
+        fs.mkdirSync(path.dirname(tmpHandoffFile), {recursive: true});
+        fs.writeFileSync(tmpHandoffFile, [
+            '# Autonomous Handoff (Dream Pipeline & Golden Path)',
+            '',
+            '## Active PR Cycle State',
+            '',
+            '### Recent Open PRs',
+            '',
+            '### @neo-gpt',
+            '',
+            '- stale author-grouped PR entry',
+            '',
+            '### @neo-opus-grace',
+            '',
+            '- stale author-grouped PR entry'
+        ].join('\n'));
+
+        StorageRouter.getGraphCollection = async () => ({ query: async () => ({ ids: [[]], distances: [[]] }) });
+        StorageRouter.getSummaryCollection = async () => ({ get: async () => ({ documents: ['mock document'] }) });
+        TextEmbeddingService.embedText = async () => [0.1, 0.2];
+        GoldenPathSynthesizer.fetchOpenPRs = async () => [
+            {
+                number        : 13962,
+                url           : 'https://github.com/neomjs/neo/pull/13962',
+                author        : {login: 'neo-gpt'},
+                title         : 'fix(ai): overwrite stale Sandman handoff',
+                body          : '',
+                createdAt     : '2026-06-24T17:59:52Z',
+                headRefOid    : 'abcdef1234567890',
+                reviewRequests: [],
+                reviews       : [],
+                comments      : []
+            }
+        ];
+
+        try {
+            await GoldenPathSynthesizer.synthesizeGoldenPath({issuesDir});
+        } finally {
+            GoldenPathSynthesizer.fetchOpenPRs = originalFetchOpenPRs;
+            StorageRouter.getGraphCollection   = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection = originalGetSummaryCollection;
+            TextEmbeddingService.embedText     = originalEmbedText;
+            fs.rmSync(issuesDir, {recursive: true, force: true});
+        }
+
+        const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
+
+        expect(handoffContent).toContain('## Active PR Cycle State');
+        expect(handoffContent).toContain('### Recent Open PRs (`1` of `1` items)');
+        expect(handoffContent).toContain('## Computed Golden Path (Strategic Recommendation)');
+        expect(handoffContent).toContain('No actionable computed recommendations survived the current Tri-Vector filter pass.');
+        expect(handoffContent).toContain('- Semantic candidates: 0');
+        expect(handoffContent).not.toContain('### @neo-gpt');
+        expect(handoffContent).not.toContain('### @neo-opus-grace');
+        expect(handoffContent).not.toContain('stale author-grouped PR entry');
+    });
+
     test('synthesizeGoldenPath skips Neo repo enrichment sections when deployment config disables them', async () => {
         const originalGetGraphCollection   = StorageRouter.getGraphCollection;
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
