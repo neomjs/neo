@@ -217,7 +217,7 @@ test.describe('AI provider keep_alive payload shape (#12080, #12089)', () => {
             });
 
             const chatResult      = await provider.generate('hello');
-            const embeddingResult = await provider.embed('hello');
+            const embeddingResult = await provider.embed('hello', {num_ctx: 32768});
             const attribution     = buildOllamaEvalAttribution([
                 chatResult.evalSample,
                 embeddingResult.evalSample
@@ -258,6 +258,14 @@ test.describe('AI provider keep_alive payload shape (#12080, #12089)', () => {
         }
 
         expect(payloads.map(item => item.url)).toEqual(['/api/chat', '/api/embed']);
+        expect(payloads[1].body).toMatchObject({
+            model   : 'qwen3-embedding',
+            input   : 'hello',
+            truncate: false,
+            options : {
+                num_ctx: 32768
+            }
+        });
     });
 
     test('Ollama.generate() defaults and overrides keep_alive at the top-level payload', async () => {
