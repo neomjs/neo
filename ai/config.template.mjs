@@ -459,21 +459,23 @@ class Config extends ConfigProvider {
                  * `NEO_DEPLOYMENT_STATE_BRIDGE_INCLUDE_LOGS`,
                  * `NEO_DEPLOYMENT_STATE_BRIDGE_LOG_TAIL`,
                  * `NEO_DEPLOYMENT_STATE_BRIDGE_LOG_MAX_BYTES`,
-                 * `NEO_DEPLOYMENT_STATE_BRIDGE_STATS_SAMPLE_WINDOW`.
+                 * `NEO_DEPLOYMENT_STATE_BRIDGE_STATS_SAMPLE_WINDOW`,
+                 * `NEO_DEPLOYMENT_STATE_BRIDGE_PROVIDER_RESIDENCY_SERVICE_KEYS`.
                  *
                  * @type {Object}
                  */
                 deploymentStateBridge: {
-                    enabled          : leaf(false, 'NEO_DEPLOYMENT_STATE_BRIDGE_ENABLED', 'boolean'),
-                    snapshotPath     : leaf(path.resolve(neoRootDir, '.neo-ai-data/deployment-state/snapshot.json'), 'NEO_DEPLOYMENT_STATE_BRIDGE_SNAPSHOT_PATH', 'string'),
-                    writeIntervalMs  : leaf(30000, 'NEO_DEPLOYMENT_STATE_BRIDGE_WRITE_INTERVAL_MS', 'number'),
-                    staleAfterMs     : leaf(2 * 60 * 1000, 'NEO_DEPLOYMENT_STATE_BRIDGE_STALE_AFTER_MS', 'number'),
-                    maxSnapshotBytes : leaf(256 * 1024, 'NEO_DEPLOYMENT_STATE_BRIDGE_MAX_BYTES', 'number'),
-                    allowedServices  : leaf([], 'NEO_DEPLOYMENT_STATE_BRIDGE_ALLOWED_SERVICES', 'csv'),
-                    includeLogs      : leaf(true, 'NEO_DEPLOYMENT_STATE_BRIDGE_INCLUDE_LOGS', 'boolean'),
-                    logTail          : leaf(120, 'NEO_DEPLOYMENT_STATE_BRIDGE_LOG_TAIL', 'number'),
-                    logMaxBytes      : leaf(32 * 1024, 'NEO_DEPLOYMENT_STATE_BRIDGE_LOG_MAX_BYTES', 'number'),
-                    statsSampleWindow: leaf(2, 'NEO_DEPLOYMENT_STATE_BRIDGE_STATS_SAMPLE_WINDOW', 'number')
+                    enabled                     : leaf(false, 'NEO_DEPLOYMENT_STATE_BRIDGE_ENABLED', 'boolean'),
+                    snapshotPath                : leaf(path.resolve(neoRootDir, '.neo-ai-data/deployment-state/snapshot.json'), 'NEO_DEPLOYMENT_STATE_BRIDGE_SNAPSHOT_PATH', 'string'),
+                    writeIntervalMs             : leaf(30000, 'NEO_DEPLOYMENT_STATE_BRIDGE_WRITE_INTERVAL_MS', 'number'),
+                    staleAfterMs                : leaf(2 * 60 * 1000, 'NEO_DEPLOYMENT_STATE_BRIDGE_STALE_AFTER_MS', 'number'),
+                    maxSnapshotBytes            : leaf(256 * 1024, 'NEO_DEPLOYMENT_STATE_BRIDGE_MAX_BYTES', 'number'),
+                    allowedServices             : leaf([], 'NEO_DEPLOYMENT_STATE_BRIDGE_ALLOWED_SERVICES', 'csv'),
+                    includeLogs                 : leaf(true, 'NEO_DEPLOYMENT_STATE_BRIDGE_INCLUDE_LOGS', 'boolean'),
+                    logTail                     : leaf(120, 'NEO_DEPLOYMENT_STATE_BRIDGE_LOG_TAIL', 'number'),
+                    logMaxBytes                 : leaf(32 * 1024, 'NEO_DEPLOYMENT_STATE_BRIDGE_LOG_MAX_BYTES', 'number'),
+                    statsSampleWindow           : leaf(2, 'NEO_DEPLOYMENT_STATE_BRIDGE_STATS_SAMPLE_WINDOW', 'number'),
+                    providerResidencyServiceKeys: leaf(['local-model', 'model'], 'NEO_DEPLOYMENT_STATE_BRIDGE_PROVIDER_RESIDENCY_SERVICE_KEYS', 'csv')
                 },
                 /**
                  * Maintenance-loop intervals consumed by the orchestrator daemon.
@@ -683,13 +685,14 @@ class Config extends ConfigProvider {
                     tenantRepoSyncEnabled: leaf(null, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_ENABLED', 'boolean')
                 },
                 /**
-                 * ADR-0026 B1 recovery actuator envelope. Disabled and empty by default: the
-                 * orchestrator may only restart compose services or page deploy targets that are
-                 * explicitly named here by the operator.
+                 * Recovery actuator envelope. Disabled and empty by default: the
+                 * orchestrator may only recycle supervised tasks, restart compose services, or
+                 * page deploy targets that are explicitly named here by the operator.
                  * @type {Object}
                  */
                 recoveryActuator: {
                     enabled                    : leaf(false, 'NEO_RECOVERY_ACTUATOR_ENABLED', 'boolean'),
+                    allowedSupervisedTasks     : leaf([], 'NEO_RECOVERY_ACTUATOR_SUPERVISED_TASKS', 'csv'),
                     allowedComposeServices     : leaf([], 'NEO_RECOVERY_ACTUATOR_COMPOSE_SERVICES', 'csv'),
                     allowedDeployTargets       : leaf([], 'NEO_RECOVERY_ACTUATOR_DEPLOY_TARGETS', 'csv'),
                     healAttemptsPath           : leaf(path.resolve(neoRootDir, '.neo-ai-data/orchestrator-daemon/heal-attempts.json'), 'NEO_RECOVERY_ACTUATOR_HEAL_ATTEMPTS_PATH', 'string'),

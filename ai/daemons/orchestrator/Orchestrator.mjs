@@ -337,6 +337,7 @@ export class Orchestrator extends Base {
             dataDir                       : this.dataDir,
             deploymentRuntimeAccessService: this.deploymentRuntimeAccessService,
             healthService                 : this.healthService,
+            processSupervisorService      : this.processSupervisorService,
             writeLog                      : this.processSupervisorWriteLog,
             actuatorConfig                : AiConfig.orchestrator.recoveryActuator
         });
@@ -352,6 +353,11 @@ export class Orchestrator extends Base {
         if (oldValue === undefined) return;
         this.processSupervisorService.taskDefinitions       = value;
         this.maintenanceBackpressureService.taskDefinitions = value;
+    }
+    afterSetProcessSupervisorService(value, oldValue) {
+        if (this.recoveryActuatorService) {
+            this.recoveryActuatorService.processSupervisorService = value;
+        }
     }
     afterSetTaskStateService(value, oldValue) {
         if (oldValue === undefined) return;

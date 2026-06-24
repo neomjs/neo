@@ -1,5 +1,6 @@
-import Base     from '../../../../src/core/Base.mjs';
-import AiConfig from '../../../config.mjs';
+import Base                                 from '../../../../src/core/Base.mjs';
+import AiConfig                             from '../../../config.mjs';
+import {probeProviderParallelModelCapacity} from '../../../services/graph/providerReadinessHelper.mjs';
 
 import {
     boundUtf8Tail,
@@ -45,6 +46,11 @@ export class DeploymentStateBridgeService extends Base {
          * @protected
          */
         nowFn: null,
+        /**
+         * @member {Function|null} providerResidencyProbe=null
+         * @protected
+         */
+        providerResidencyProbe: null,
         /**
          * @member {Function|null} writeLog=null
          * @protected
@@ -132,9 +138,10 @@ export class DeploymentStateBridgeService extends Base {
             errors = [],
             proofs = [];
 
-        let inspect = null,
-            stats   = null,
-            logs    = null;
+        let inspect           = null,
+            stats             = null,
+            logs              = null,
+            providerResidency = null;
 
         const read = async (operation, args = {}) => {
             try {
@@ -160,12 +167,15 @@ export class DeploymentStateBridgeService extends Base {
             this.rememberStatsSample(serviceKey, stats);
         }
 
+        providerResidency = await this.collectProviderResidency({serviceKey, observedAt});
+
         const diagnosis = this.diagnosisService?.diagnose
             ? this.diagnosisService.diagnose({
                 serviceKey,
                 inspect,
                 stats,
                 statsSamples: this.getStatsSamples(serviceKey),
+                providerResidency,
                 observedAt
             })
             : null;
@@ -180,10 +190,53 @@ export class DeploymentStateBridgeService extends Base {
             inspect       : summarizeInspect(inspect),
             stats         : summarizeStats(stats),
             logs          : summarizeLogs(logs, bridgeConfig.logMaxBytes),
+            providerResidency,
             diagnosis,
             proofs,
             errors
         };
+    }
+
+    /**
+     * Collects active graph-provider residency for the configured model service.
+     * @param {Object} options
+     * @param {String} options.serviceKey Allowlisted service key.
+     * @param {Number} options.observedAt Epoch ms.
+     * @returns {Promise<Object|null>}
+     */
+    async collectProviderResidency({serviceKey, observedAt}) {
+        if (!AiConfig.orchestrator.deploymentStateBridge.providerResidencyServiceKeys.includes(serviceKey)) {
+            return null;
+        }
+
+        const targetIdentity = {kind: 'compose-service', id: serviceKey};
+
+        try {
+            const probe  = this.providerResidencyProbe || probeProviderParallelModelCapacity,
+                  result = await probe({
+                      timeoutMs: AiConfig.orchestrator.providerReadiness.timeoutMs,
+                      serviceKey,
+                      observedAt
+                  });
+
+            if (!result) {
+                return null;
+            }
+
+            return {
+                ...result,
+                targetIdentity
+            };
+        } catch (error) {
+            return {
+                ready      : null,
+                degraded   : true,
+                provider   : 'unknown',
+                probeFailed: true,
+                message    : error.message,
+                targetIdentity
+            };
+        }
     }
 
     /**
@@ -193,12 +246,11 @@ export class DeploymentStateBridgeService extends Base {
     getServiceKeys() {
         const {allowedServices} = AiConfig.orchestrator.deploymentStateBridge;
 
-        if (Array.isArray(allowedServices) && allowedServices.length > 0) {
+        if (allowedServices.length > 0) {
             return allowedServices.filter(isSafeServiceKey);
         }
 
-        const runtimeAllowed = this.runtimeAccessService.configValues.allowedServices;
-        return Array.isArray(runtimeAllowed) ? runtimeAllowed.filter(isSafeServiceKey) : [];
+        return AiConfig.orchestrator.deploymentRuntimeAccess.allowedServices.filter(isSafeServiceKey);
     }
 
     /**
@@ -212,8 +264,7 @@ export class DeploymentStateBridgeService extends Base {
 
         samples.push(stats);
 
-        const max = Math.max(1, Number(AiConfig.orchestrator.deploymentStateBridge.statsSampleWindow) || 1);
-        this.statsSamplesByService.set(serviceKey, samples.slice(-max));
+        this.statsSamplesByService.set(serviceKey, samples.slice(-AiConfig.orchestrator.deploymentStateBridge.statsSampleWindow));
     }
 
     /**

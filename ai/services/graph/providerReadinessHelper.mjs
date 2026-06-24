@@ -1575,14 +1575,14 @@ export function createParallelModelCapacityWarning({
  * or fail based on the returned envelope.
  *
  * @param {Object} options
- * @param {Object} options.config Provider-source config (aiConfig-shaped).
+ * @param {Object} [options.config=aiConfig] Provider-source config (aiConfig-shaped).
  * @param {Number} options.timeoutMs HTTP probe timeout. Required; no module-level default.
  * @param {Function} [options.fetchOpenAiCompatibleModels] Injectable OpenAI-compatible model-list probe.
  * @param {Function} [options.fetchOllamaModels] Injectable Ollama running-model probe.
  * @returns {Promise<Object>}
  */
 export async function probeProviderParallelModelCapacity({
-    config,
+    config = aiConfig,
     timeoutMs,
     fetchOpenAiCompatibleModels = opts => fetchOpenAiCompatibleModelIds(opts),
     fetchOllamaModels           = opts => fetchOllamaRunningModelIds(opts)
@@ -1663,13 +1663,13 @@ export async function probeProviderParallelModelCapacity({
  * owned by `waitForProvider()`.
  *
  * @param {Object} options
- * @param {Object} options.config Provider-source config (aiConfig-shaped).
+ * @param {Object} [options.config=aiConfig] Provider-source config (aiConfig-shaped).
  * @param {Number} options.timeoutMs HTTP probe timeout. Required; no module-level default.
  * @param {Object} [options.log=logger] Logger seam.
  * @returns {Promise<Object>}
  */
 export async function warnProviderParallelModelCapacity({
-    config,
+    config = aiConfig,
     timeoutMs,
     log = logger,
     ...probeOptions
