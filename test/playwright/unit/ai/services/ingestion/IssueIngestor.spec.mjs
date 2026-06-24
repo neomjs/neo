@@ -43,7 +43,8 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
         { type: 'issues', id: 2002, path: 'archive/issues/v1.0.0/issue-2002.md' },
         { type: 'discussions', id: 3001, path: 'discussions/discussion-3001.md' },
         { type: 'discussions', id: 3002, path: 'discussions/discussion-3002.md' },
-        { type: 'pulls', id: 4001, path: 'pulls/pr-4001.md' }
+        { type: 'pulls', id: 4001, path: 'pulls/pr-4001.md' },
+        { type: 'pulls', id: 4002, path: 'pulls/pr-4002.md' }
     ];
 
     const mockFiles = {
@@ -96,6 +97,30 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
             '',
             '## Summary',
             'Hardens the PR resolution graph path.'
+        ].join('\n'),
+        'resources/content/pulls/pr-4002.md': [
+            '---',
+            'number: 4002',
+            'title: Review actionability proof',
+            'state: MERGED',
+            "createdAt: '2026-06-23T10:00:00Z'",
+            "updatedAt: '2026-06-23T15:22:40Z'",
+            '---',
+            '### `@neo-opus-grace` (CHANGES_REQUESTED) reviewed on 2026-06-23T09:33:00Z',
+            '',
+            '### Required Actions',
+            '- [ ] Hold for the L0 decision before this actuator can be considered routable.',
+            '- [ ] Extract shared runtime access instead of welding the privilege into B1.',
+            '',
+            '* **`[RETROSPECTIVE]`**: Required Actions are useful only when reduced to a concrete durable signal, not as raw review topology.',
+            '',
+            '### `@neo-opus-grace` (APPROVED) reviewed on 2026-06-23T15:22:40Z',
+            '',
+            'The L0 dependency landed, so the prior blocker is neutralized for this PR cycle.',
+            '',
+            '### Rubber stamp fixture',
+            '',
+            'LGTM.'
         ].join('\n'),
         'resources/content/_index.json': JSON.stringify(mockIndexMap)
     };
@@ -177,7 +202,7 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
                 return [];
             }
             if (typeof dirPath === 'string' && dirPath.includes('resources/content/pulls')) {
-                return ['pr-4001.md'];
+                return ['pr-4001.md', 'pr-4002.md'];
             }
             return _originalReaddirSync.call(fs, dirPath, options);
         };
@@ -259,8 +284,8 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
         });
 
         try {
-            const result = await IssueIngestor.ingestIssueStates();
-            const activeIssue = result.find(issue => issue.issueId === 'issue-2001');
+            const result       = await IssueIngestor.ingestIssueStates();
+            const activeIssue  = result.find(issue => issue.issueId === 'issue-2001');
             const activeUpsert = upserts.find(payload => payload.ids[0] === 'issue-2001');
 
             expect(activeIssue.body).toContain(QUARANTINED_URL);
@@ -330,6 +355,49 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
                 justification: 'PR #4001 explicitly resolves Issue #2001.'
             }
         });
+    });
+
+    test('ingestPullRequestFeedback() keeps review actions non-routing unless mapped to sanctioned tags (#13967)', async () => {
+        await IssueIngestor.ingestPullRequestFeedback();
+
+        const prNode            = graphNodes.find(node => node.id === 'pr-4002');
+        const retrospectiveNode = graphNodes.find(node =>
+            node.label === 'RETROSPECTIVE' &&
+            node.properties.sourcePr === 'pr-4002'
+        );
+
+        expect(prNode).toMatchObject({
+            id   : 'pr-4002',
+            label: 'PULL_REQUEST'
+        });
+        expect(retrospectiveNode).toMatchObject({
+            label     : 'RETROSPECTIVE',
+            properties: {
+                description: 'Required Actions are useful only when reduced to a concrete durable signal, not as raw review topology.',
+                sourcePr   : 'pr-4002'
+            }
+        });
+
+        expect(graphEdges.filter(edge => edge.source === 'pr-4002')).toEqual([{
+            source      : 'pr-4002',
+            target      : retrospectiveNode.id,
+            relationship: 'EVALUATED_BY',
+            weight      : 1.0,
+            properties  : {
+                justification: 'Gap evaluated during PR #4002 review.'
+            }
+        }]);
+        expect(graphEdges.filter(edge => edge.target === 'pr-4002')).toEqual([{
+            source      : retrospectiveNode.id,
+            target      : 'pr-4002',
+            relationship: 'DISCOVERED_IN',
+            weight      : 1.0,
+            properties  : {
+                justification: 'Extracted from PR #4002 feedback.'
+            }
+        }]);
+        expect(graphNodes.some(node => ['PR_REVIEW', 'REQUIRED_ACTION', 'APPROVAL', 'BLOCKER'].includes(node.label))).toBe(false);
+        expect(graphEdges.some(edge => ['BLOCKS', 'APPROVES', 'REQUESTS_CHANGES', 'NEUTRALIZES'].includes(edge.relationship))).toBe(false);
     });
 });
 
