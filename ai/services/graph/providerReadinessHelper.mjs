@@ -12,6 +12,8 @@ import {
     resolveGraphModelProvider
 } from './providerDispatch.mjs';
 
+let openAiCompatibleEmbeddingServingProbeQueue = Promise.resolve();
+
 /**
  * @module ai/services/graph/ProviderReadinessHelper
  */
@@ -82,6 +84,24 @@ function readNumericField(row, keys) {
 }
 
 /**
+ * @summary Checks an observed LM Studio parallel value only when the CLI exposes it.
+ *
+ * `lms ps --json` can report `parallel: null` for embedding rows even when the
+ * desktop UI shows a configured value. Unknown telemetry is diagnostic, not an
+ * unsatisfiable repair loop. Numeric mismatches still fail loud for roles whose
+ * parallel value is observable, such as chat rows.
+ *
+ * @param {*} observedParallel Loaded-model parallel value.
+ * @param {*} requiredParallel Configured required parallel value.
+ * @returns {Boolean}
+ */
+function isObservedLmsParallelSufficient(observedParallel, requiredParallel) {
+    return !Neo.isNumber(requiredParallel) ||
+        !Neo.isNumber(observedParallel) ||
+        observedParallel === requiredParallel;
+}
+
+/**
  * @summary Checks whether an LM Studio loaded-model identifier belongs to a configured model.
  *
  * LM Studio appends numeric suffixes (`:2`, `:3`, etc.) when the same model is
@@ -136,7 +156,7 @@ function isLmsLoadedModelSufficient({
         return false;
     }
 
-    if (hasParallelGate && loadedModel.parallel !== requiredParallel) {
+    if (hasParallelGate && !isObservedLmsParallelSufficient(loadedModel.parallel, requiredParallel)) {
         return false;
     }
 
@@ -351,6 +371,139 @@ export async function fetchOpenAiCompatibleModelIds({host, timeoutMs, fetchFn = 
     }
 
     return getOpenAiCompatibleModelIds(await response.json());
+}
+
+/**
+ * @summary Runs one tiny OpenAI-compatible embedding-serving canary.
+ *
+ * This probe verifies `/v1/embeddings` can serve the configured embedding model
+ * without returning or logging vector bodies. The caller owns load gating through
+ * `shouldRun`; a skipped decision returns an explicit degraded envelope instead
+ * of issuing a provider request during heavy maintenance or known contention.
+ *
+ * @param {Object} options
+ * @param {String} options.host Provider host.
+ * @param {String} options.model Embedding model identifier.
+ * @param {String} options.input Tiny canary text. Required and capped at 256 UTF-8 bytes.
+ * @param {Number} options.timeoutMs HTTP timeout. Required; no module-level default.
+ * @param {String} [options.apiKey] Optional OpenAI-compatible bearer token.
+ * @param {Function} [options.fetchFn=fetch] Fetch seam for tests.
+ * @param {Function} [options.shouldRun] Optional load/backpressure gate.
+ * @returns {Promise<Object>}
+ */
+export async function checkOpenAiCompatibleEmbeddingServing({
+    host,
+    model,
+    input,
+    timeoutMs,
+    apiKey,
+    fetchFn = fetch,
+    shouldRun
+} = {}) {
+    if (!host) {
+        throw new TypeError('checkOpenAiCompatibleEmbeddingServing: host is required');
+    }
+    if (!model) {
+        throw new TypeError('checkOpenAiCompatibleEmbeddingServing: model is required');
+    }
+    if (typeof timeoutMs !== 'number') {
+        throw new TypeError('checkOpenAiCompatibleEmbeddingServing: timeoutMs is required');
+    }
+    if (!Neo.isString(input) || input.length === 0) {
+        throw new TypeError('checkOpenAiCompatibleEmbeddingServing: non-empty input is required');
+    }
+    if (Buffer.byteLength(input, 'utf8') > 256) {
+        throw new TypeError('checkOpenAiCompatibleEmbeddingServing: input must be <= 256 UTF-8 bytes');
+    }
+
+    const gate = shouldRun ? await shouldRun({host, model, timeoutMs}) : true;
+
+    if (gate === false || gate?.run === false || gate?.skipped === true) {
+        return {
+            ready   : false,
+            degraded: true,
+            skipped : true,
+            provider: 'openAiCompatible',
+            host,
+            model,
+            reason  : gate?.reason || 'embedding-serving-canary-skipped',
+            warning : gate?.warning || `[provider/openAiCompatible] embedding-serving canary skipped for '${model}': ${gate?.reason || 'load gate returned false'}`
+        };
+    }
+
+    const headers = {'content-type': 'application/json'};
+    if (apiKey) {
+        headers.authorization = `Bearer ${apiKey}`;
+    }
+
+    const runProbe = async () => {
+        const response = await fetchFn(new URL('/v1/embeddings', host).toString(), {
+            method: 'POST',
+            headers,
+            body  : JSON.stringify({model, input}),
+            signal: AbortSignal.timeout(timeoutMs)
+        });
+
+        if (!response.ok) {
+            const text = typeof response.text === 'function' ? await response.text() : '',
+                  message = `HTTP ${response.status}${text ? ` - ${text.slice(0, 256)}` : ''}`;
+
+            return {
+                ready   : false,
+                degraded: true,
+                provider: 'openAiCompatible',
+                host,
+                model,
+                status  : response.status,
+                error   : {message},
+                warning : `[provider/openAiCompatible] embedding-serving canary failed for '${model}': ${message}`
+            };
+        }
+
+        const payload = await response.json(),
+              vector  = payload?.data?.[0]?.embedding;
+
+        if (!Array.isArray(vector)) {
+            return {
+                ready   : false,
+                degraded: true,
+                provider: 'openAiCompatible',
+                host,
+                model,
+                error   : {message: 'response did not contain data[0].embedding[]'},
+                warning : `[provider/openAiCompatible] embedding-serving canary failed for '${model}': response did not contain data[0].embedding[]`
+            };
+        }
+
+        return {
+            ready       : true,
+            degraded    : false,
+            provider    : 'openAiCompatible',
+            host,
+            model,
+            vectorLength: vector.length
+        };
+    };
+
+    const queuedProbe = openAiCompatibleEmbeddingServingProbeQueue
+        .catch(() => {})
+        .then(runProbe)
+        .catch(error => ({
+            ready   : false,
+            degraded: true,
+            provider: 'openAiCompatible',
+            host,
+            model,
+            error   : {
+                message: error?.message || String(error),
+                code   : error?.code
+            },
+            warning : `[provider/openAiCompatible] embedding-serving canary failed for '${model}': ${error?.message || error}`
+        }));
+
+    openAiCompatibleEmbeddingServingProbeQueue = queuedProbe.catch(() => {});
+
+    return queuedProbe;
 }
 
 /**
@@ -777,7 +930,7 @@ export function getInsufficientLmsLoadedModels({
 
         const observed    = byId.get(model),
               contextGap  = hasContextGate && (!Neo.isNumber(observed?.contextLength) || observed.contextLength < requiredContext),
-              parallelGap = hasParallelGate && observed?.parallel !== requiredParallel;
+              parallelGap = hasParallelGate && !isObservedLmsParallelSufficient(observed?.parallel, requiredParallel);
 
         if (contextGap || parallelGap) {
             insufficient.push({
@@ -824,6 +977,7 @@ export function getInsufficientLmsLoadedModels({
  * @param {Function} [options.fetchLoadedModels] Injectable loaded-model metadata probe.
  * @param {Function} [options.loadModel] Injectable model-load function.
  * @param {Function} [options.unloadModel] Injectable model-unload function.
+ * @param {Function} [options.embeddingServingProbe] Optional bounded embedding-serving canary seam.
  * @param {Object} [options.log=logger] Logger seam.
  * @returns {Promise<Object>}
  */
@@ -840,6 +994,7 @@ export async function ensureLmsModelsLoaded({
     fetchLoadedModels = opts => fetchLmsLoadedModels(opts),
     loadModel         = (model, options) => loadLmsModel(model, options),
     unloadModel       = (identifier, options) => unloadLmsModel(identifier, options),
+    embeddingServingProbe,
     log               = logger
 } = {}) {
     if (!Array.isArray(models) || models.length === 0) {
@@ -854,7 +1009,52 @@ export async function ensureLmsModelsLoaded({
         throw new TypeError('ensureLmsModelsLoaded: models must contain at least one configured model');
     }
 
-    const getMissing                = available => requiredModels.filter(model => !available.includes(model));
+    const getMissing          = available => requiredModels.filter(model => !available.includes(model));
+    const completeReadyResult = async result => {
+        if (result.ready !== true || typeof embeddingServingProbe !== 'function') {
+            return result;
+        }
+
+        let embeddingServing;
+
+        try {
+            embeddingServing = await embeddingServingProbe({
+                host,
+                timeoutMs,
+                requiredModels,
+                availableModels     : result.availableModels,
+                lmsLoadedModels     : result.lmsLoadedModels || [],
+                loadedContexts      : result.loadedContexts || {},
+                loadedParallels     : result.loadedParallels || {},
+                loadedParallelsKnown: Object.fromEntries((result.lmsLoadedModels || []).map(item => [item.id, Neo.isNumber(item.parallel)]))
+            });
+        } catch (error) {
+            embeddingServing = {
+                ready   : false,
+                degraded: true,
+                error   : {message: error?.message || String(error)},
+                warning : `[provider/openAiCompatible] embedding-serving canary failed: ${error?.message || error}`
+            };
+        }
+
+        if (embeddingServing?.ready === true) {
+            return {
+                ...result,
+                embeddingServing
+            };
+        }
+
+        if (embeddingServing?.warning) {
+            log.warn?.(`[ProviderReadinessHelper] ${embeddingServing.warning}`);
+        }
+
+        return {
+            ...result,
+            ready   : false,
+            degraded: true,
+            embeddingServing
+        };
+    };
     const requiresObservedLoadCheck = requiredModels.some(model =>
         Neo.isNumber(contextLengths?.[model]) || Neo.isNumber(parallels?.[model])
     );
@@ -955,7 +1155,7 @@ export async function ensureLmsModelsLoaded({
             await cleanupSupersededModels(initialLoadedModels);
         }
 
-        return {
+        return completeReadyResult({
             ready          : cleanupFailedModels.length === 0,
             degraded       : cleanupFailedModels.length > 0,
             loadedModels   : [],
@@ -969,7 +1169,7 @@ export async function ensureLmsModelsLoaded({
             loadedContexts : Object.fromEntries(initialLoadedModels.map(item => [item.id, item.contextLength])),
             loadedParallels: Object.fromEntries(initialLoadedModels.map(item => [item.id, item.parallel])),
             attempts       : 1
-        };
+        });
     }
 
     for (const model of modelsToLoad) {
@@ -1126,7 +1326,7 @@ export async function ensureLmsModelsLoaded({
             }
 
             const ready = missingModels.length === 0 && failedModels.length === 0 && cleanupFailedModels.length === 0;
-            return {
+            return completeReadyResult({
                 ready,
                 degraded       : !ready,
                 loadedModels,
@@ -1142,7 +1342,7 @@ export async function ensureLmsModelsLoaded({
                 loadedParallels: Object.fromEntries(lmsLoadedModels.map(item => [item.id, item.parallel])),
                 attempts       : attempt,
                 elapsedMs      : Date.now() - startedAt
-            };
+            });
         }
 
         if (allowPartial && serviceableMissing.length === 0) {
