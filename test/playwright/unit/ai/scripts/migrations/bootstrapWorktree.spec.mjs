@@ -32,6 +32,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
     let bootstrapWorktree;
     let hydrateCurrentWorktree;
     let symlinkDataDir;
+    let symlinkCanonicalDataReadAliases;
     let symlinkGitignoredFiles;
     let installDependencies;
     let runBuildAll;
@@ -41,6 +42,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
     let pruneStaleWorktrees;
     let BOOTSTRAP_CONFIGS;
     let DATA_SUBDIRS_BLOCKLIST;
+    let CANONICAL_DATA_READ_ALIASES;
     let GITIGNORED_FILES_TO_LINK;
     let fakeMainCheckout;
     let fakeWorktree;
@@ -54,20 +56,22 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
     ];
 
     test.beforeAll(async () => {
-        const mod               = await import('../../../../../../ai/scripts/migrations/bootstrapWorktree.mjs');
-        bootstrapWorktree        = mod.bootstrapWorktree;
-        hydrateCurrentWorktree   = mod.hydrateCurrentWorktree;
-        symlinkDataDir           = mod.symlinkDataDir;
-        symlinkGitignoredFiles   = mod.symlinkGitignoredFiles;
-        installDependencies      = mod.installDependencies;
-        runBuildAll              = mod.runBuildAll;
-        resolveMainCheckout      = mod.resolveMainCheckout;
-        resolveCliProjectRoot    = mod.resolveCliProjectRoot;
-        parseWorktreePorcelain   = mod.parseWorktreePorcelain;
-        pruneStaleWorktrees      = mod.pruneStaleWorktrees;
-        BOOTSTRAP_CONFIGS        = mod.BOOTSTRAP_CONFIGS;
-        DATA_SUBDIRS_BLOCKLIST   = mod.DATA_SUBDIRS_BLOCKLIST;
-        GITIGNORED_FILES_TO_LINK = mod.GITIGNORED_FILES_TO_LINK;
+        const mod = await import('../../../../../../ai/scripts/migrations/bootstrapWorktree.mjs');
+        bootstrapWorktree                 = mod.bootstrapWorktree;
+        hydrateCurrentWorktree            = mod.hydrateCurrentWorktree;
+        symlinkDataDir                    = mod.symlinkDataDir;
+        symlinkCanonicalDataReadAliases   = mod.symlinkCanonicalDataReadAliases;
+        symlinkGitignoredFiles            = mod.symlinkGitignoredFiles;
+        installDependencies               = mod.installDependencies;
+        runBuildAll                       = mod.runBuildAll;
+        resolveMainCheckout               = mod.resolveMainCheckout;
+        resolveCliProjectRoot             = mod.resolveCliProjectRoot;
+        parseWorktreePorcelain            = mod.parseWorktreePorcelain;
+        pruneStaleWorktrees               = mod.pruneStaleWorktrees;
+        BOOTSTRAP_CONFIGS                 = mod.BOOTSTRAP_CONFIGS;
+        DATA_SUBDIRS_BLOCKLIST            = mod.DATA_SUBDIRS_BLOCKLIST;
+        CANONICAL_DATA_READ_ALIASES       = mod.CANONICAL_DATA_READ_ALIASES;
+        GITIGNORED_FILES_TO_LINK          = mod.GITIGNORED_FILES_TO_LINK;
     });
 
     test.beforeEach(async () => {
@@ -191,9 +195,9 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
     });
 
     test('copies Tier-1 config and materializes stale per-server AiConfig imports (#12051)', async () => {
-        const tier1Rel      = 'ai/config.mjs';
-        const serverRel     = 'ai/mcp/server/memory-core/config.mjs';
-        const tier1Content  = [
+        const tier1Rel     = 'ai/config.mjs';
+        const serverRel    = 'ai/mcp/server/memory-core/config.mjs';
+        const tier1Content = [
             `export default {`,
             `    tenantRepos: [{tenantId: 'acme', repoSlug: 'org/repo'}],`,
             `    customOperatorKey: 'preserved'`,
@@ -301,6 +305,139 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
         });
     });
 
+    test.describe('#13960 symlinkCanonicalDataReadAliases (canonical state reads)', () => {
+        const dataDir         = '.neo-ai-data';
+        const sourceSubdir    = 'orchestrator-daemon';
+        const aliasSubdir     = 'orchestrator-daemon-canonical';
+        const localDaemonPath = () => path.join(fakeWorktree, dataDir, sourceSubdir);
+        const aliasPath       = () => path.join(fakeWorktree, dataDir, aliasSubdir);
+
+        async function seedCanonicalOrchestratorState() {
+            const src = path.join(fakeMainCheckout, dataDir, sourceSubdir);
+            await fs.ensureDir(src);
+            await fs.writeJson(path.join(src, 'orchestrator-state.json'), {
+                'golden-path': {
+                    lastSuccessAt: '2026-06-24T17:00:25.923Z'
+                }
+            });
+        }
+
+        test('exports a canonical read alias without removing the daemon-pid blocklist', () => {
+            expect(CANONICAL_DATA_READ_ALIASES).toContainEqual({
+                source: sourceSubdir,
+                alias : aliasSubdir
+            });
+            expect(DATA_SUBDIRS_BLOCKLIST).toContain(sourceSubdir);
+        });
+
+        test('links a separate canonical alias while preserving the clone-local daemon dir', async () => {
+            await seedCanonicalOrchestratorState();
+            await fs.ensureDir(localDaemonPath());
+            await fs.writeFile(path.join(localDaemonPath(), 'orchestrator-daemon.pid'), '99999\n', 'utf-8');
+
+            const result = await symlinkCanonicalDataReadAliases({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                log         : () => {}
+            });
+
+            expect(result.linked).toEqual([aliasSubdir]);
+            expect(result.alreadyLinked).toHaveLength(0);
+            expect(result.skippedNoSource).toHaveLength(0);
+            expect(result.skippedRealPath).toHaveLength(0);
+            expect(result.mainCheckout).toBe(false);
+
+            const liveLstat  = await fs.lstat(localDaemonPath());
+            const aliasLstat = await fs.lstat(aliasPath());
+
+            expect(liveLstat.isDirectory()).toBe(true);
+            expect(liveLstat.isSymbolicLink()).toBe(false);
+            expect(aliasLstat.isSymbolicLink()).toBe(true);
+
+            const livePid = await fs.readFile(path.join(localDaemonPath(), 'orchestrator-daemon.pid'), 'utf-8');
+            expect(livePid).toBe('99999\n');
+
+            const canonicalState = await fs.readJson(path.join(aliasPath(), 'orchestrator-state.json'));
+            expect(canonicalState['golden-path'].lastSuccessAt).toBe('2026-06-24T17:00:25.923Z');
+        });
+
+        test('is idempotent and reports alreadyLinked on the second pass', async () => {
+            await seedCanonicalOrchestratorState();
+
+            await symlinkCanonicalDataReadAliases({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                log         : () => {}
+            });
+
+            const result = await symlinkCanonicalDataReadAliases({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                log         : () => {}
+            });
+
+            expect(result.linked).toHaveLength(0);
+            expect(result.alreadyLinked).toEqual([aliasSubdir]);
+        });
+
+        test('relinks stale alias symlinks to the current canonical checkout', async () => {
+            const oldCanonical = path.join(path.dirname(fakeMainCheckout), 'old-main-checkout', dataDir, sourceSubdir);
+            await fs.ensureDir(oldCanonical);
+            await fs.ensureDir(path.dirname(aliasPath()));
+            await fs.symlink(oldCanonical, aliasPath(), 'dir');
+            await seedCanonicalOrchestratorState();
+
+            const result = await symlinkCanonicalDataReadAliases({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                log         : () => {}
+            });
+
+            expect(result.relinked).toEqual([aliasSubdir]);
+            expect(await fs.realpath(aliasPath())).toBe(await fs.realpath(path.join(fakeMainCheckout, dataDir, sourceSubdir)));
+        });
+
+        test('skips when canonical source is absent or when running in main checkout', async () => {
+            const missing = await symlinkCanonicalDataReadAliases({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                log         : () => {}
+            });
+
+            expect(missing.skippedNoSource).toEqual([aliasSubdir]);
+            expect(await fs.pathExists(aliasPath())).toBe(false);
+
+            await seedCanonicalOrchestratorState();
+
+            const mainCheckout = await symlinkCanonicalDataReadAliases({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeMainCheckout,
+                log         : () => {}
+            });
+
+            expect(mainCheckout.mainCheckout).toBe(true);
+            expect(mainCheckout.linked).toHaveLength(0);
+        });
+
+        test('preserves a real alias path instead of clobbering it', async () => {
+            await seedCanonicalOrchestratorState();
+            await fs.ensureDir(aliasPath());
+            await fs.writeFile(path.join(aliasPath(), 'local-note.txt'), 'preserve\n', 'utf-8');
+
+            const result = await symlinkCanonicalDataReadAliases({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                log         : () => {}
+            });
+
+            expect(result.skippedRealPath).toEqual([aliasSubdir]);
+            const lstat = await fs.lstat(aliasPath());
+            expect(lstat.isDirectory()).toBe(true);
+            expect(lstat.isSymbolicLink()).toBe(false);
+            expect(await fs.readFile(path.join(aliasPath(), 'local-note.txt'), 'utf-8')).toBe('preserve\n');
+        });
+    });
+
     // --------------------------------------------------------------------------------
     // symlinkDataDir — granular per-subdir symlinking of gitignored substrate-data
     // subdirs of `.neo-ai-data/`, while leaving the git-tracked `concepts/` subdir
@@ -313,7 +450,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
     // refactor exists to prevent.
     // --------------------------------------------------------------------------------
     test.describe('#10432 symlinkDataDir (granular per-subdir)', () => {
-        const dataDir = '.neo-ai-data';
+        const dataDir        = '.neo-ai-data';
         const fixtureSubdirs = ['sqlite', 'chroma', 'wake-daemon'];
 
         async function seedMainSubdirs(subdirs = fixtureSubdirs) {
@@ -624,8 +761,8 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
     // are inert.
     // --------------------------------------------------------------------------------
     test.describe('#10591 symlinkGitignoredFiles (granular per-file)', () => {
-        const fixtureFile      = 'resources/content/sandman_handoff.md';
-        const fixtureFiles     = [fixtureFile];
+        const fixtureFile  = 'resources/content/sandman_handoff.md';
+        const fixtureFiles = [fixtureFile];
 
         async function seedMainHandoff(content = '# fixture handoff\n') {
             const src = path.join(fakeMainCheckout, fixtureFile);
@@ -775,7 +912,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
     test.describe('#10351 installDependencies', () => {
         function makeMockExec() {
             const calls = [];
-            const exec = async (cmd, args, opts) => {
+            const exec  = async (cmd, args, opts) => {
                 calls.push({cmd, args, opts});
                 // Simulate npm install creating node_modules — flips the existence guard
                 // for downstream calls that re-check.
@@ -789,7 +926,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
 
         test('runs `npm install` then `bundle-parse5` when node_modules is absent', async () => {
             const {exec, calls} = makeMockExec();
-            const result = await installDependencies({
+            const result        = await installDependencies({
                 projectRoot: fakeWorktree,
                 exec,
                 log        : () => {}
@@ -813,7 +950,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
             await fs.ensureDir(path.join(fakeWorktree, 'node_modules'));
 
             const {exec, calls} = makeMockExec();
-            const result = await installDependencies({
+            const result        = await installDependencies({
                 projectRoot: fakeWorktree,
                 exec,
                 log        : () => {}
@@ -848,7 +985,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
     test.describe('#10351 runBuildAll', () => {
         function makeMockExec() {
             const calls = [];
-            const exec = async (cmd, args, opts) => {
+            const exec  = async (cmd, args, opts) => {
                 calls.push({cmd, args, opts});
                 if (cmd === 'npm' && args[0] === 'install') {
                     await fs.ensureDir(path.join(opts.cwd, 'node_modules'));
@@ -860,7 +997,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
 
         test('composes installDependencies then runs `npm run build-all`', async () => {
             const {exec, calls} = makeMockExec();
-            const result = await runBuildAll({
+            const result        = await runBuildAll({
                 projectRoot: fakeWorktree,
                 exec,
                 log        : () => {}
@@ -889,7 +1026,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
     test.describe('#12677 pruneStaleWorktrees', () => {
         function makePruneExec({removed, dirtyStatus = ' M ai/config.mjs\n', statusByPath} = {}) {
             const worktreesRoot = path.join(fakeMainCheckout, '.claude', 'worktrees');
-            const paths = {
+            const paths         = {
                 current : path.join(worktreesRoot, 'current'),
                 stale   : path.join(worktreesRoot, 'stale'),
                 unmerged: path.join(worktreesRoot, 'unmerged'),
@@ -980,7 +1117,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
         });
 
         test('dry-runs the keep-current/delete-clean-rest plan only when requested', async () => {
-            const removed = [];
+            const removed       = [];
             const {exec, paths} = makePruneExec({removed});
 
             const result = await pruneStaleWorktrees({
@@ -1014,8 +1151,8 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
         });
 
         test('deletes clean non-current worktrees by default and hydrates the current checkout', async () => {
-            const removed = [];
-            const hydrated = [];
+            const removed       = [];
+            const hydrated      = [];
             const {exec, paths} = makePruneExec({removed});
 
             const result = await pruneStaleWorktrees({
@@ -1053,8 +1190,8 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
         });
 
         test('includeDirty removes dirty non-current worktrees explicitly', async () => {
-            const removed = [];
-            const hydrated = [];
+            const removed       = [];
+            const hydrated      = [];
             const {exec, paths} = makePruneExec({removed});
 
             const result = await pruneStaleWorktrees({
@@ -1087,8 +1224,8 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
         });
 
         test('skips non-current worktrees when dirty status cannot be determined', async () => {
-            const removed = [];
-            const statusError = new Error('status failed');
+            const removed       = [];
+            const statusError   = new Error('status failed');
             const {exec, paths} = makePruneExec({
                 removed,
                 dirtyStatus: statusError
@@ -1115,7 +1252,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
         });
 
         test('never removes the primary checkout even when the worktree root includes it', async () => {
-            const removed = [];
+            const removed       = [];
             const {exec, paths} = makePruneExec({removed});
 
             const result = await pruneStaleWorktrees({
@@ -1141,9 +1278,9 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
         });
 
         test('main-checkout invocation removes clean Claude worktrees and hydrates main checkout', async () => {
-            const removed = [];
+            const removed       = [];
             const {exec, paths} = makePruneExec({removed});
-            const hydrated = [];
+            const hydrated      = [];
 
             await pruneStaleWorktrees({
                 projectRoot: fakeMainCheckout,

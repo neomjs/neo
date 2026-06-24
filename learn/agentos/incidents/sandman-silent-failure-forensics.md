@@ -38,9 +38,11 @@ Useful live-state checks:
 ```bash
 git status --short --branch
 rg -n "DreamService|SemanticGraphExtractor|TopologyInferenceEngine|GraphMaintenanceService|LazyEdgeDrainer|graphDigested|size-precheck|unsupported modelProvider" .neo-ai-data/logs/mc-server-$(date +%F).log
-find .neo-ai-data/orchestrator-daemon -maxdepth 2 -type f -print
+find .neo-ai-data/orchestrator-daemon-canonical -maxdepth 2 -type f -print
 test -f ai/data/memory-core/lazy-edges.jsonl && wc -l ai/data/memory-core/lazy-edges.jsonl
 ```
+
+In non-canonical worktrees, `.neo-ai-data/orchestrator-daemon/` is clone-local process-control state. Use the `orchestrator-daemon-canonical/` read alias after `bootstrapWorktree.mjs --link-data --canonical-root <canonical-checkout>` when validating the root daemon's task state or log.
 
 ## Intake Verdict
 

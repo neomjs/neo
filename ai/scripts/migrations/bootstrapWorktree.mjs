@@ -65,6 +65,9 @@
  * harnesses, AND the wake daemon's PID-lock singleton plus persistent log
  * span worktrees too — without the tracked `concepts/` clobber risk that
  * empirically broke most active worktrees during cross-process coherence diagnosis.
+ * Blocklisted process-control dirs that still need operator diagnostics expose
+ * a separate canonical read alias via {@link symlinkCanonicalDataReadAliases};
+ * the daemon-owned live path stays clone-local.
  *
  * **Usage:**
  * ```
@@ -166,6 +169,20 @@ export const BOOTSTRAP_CONFIGS = [
 export const DATA_SUBDIRS_BLOCKLIST = ['concepts', 'orchestrator-daemon', 'embed-daemon'];
 
 /**
+ * Read aliases for blocklisted data subdirs whose canonical state is useful to
+ * operators and diagnostics, but whose live path must stay clone-local.
+ *
+ * `orchestrator-daemon/` contains the daemon PID file plus task-state/log
+ * outputs. Symlinking that exact child name across clones would let a secondary
+ * checkout participate in the canonical singleton's process-control directory.
+ * The alias gives humans and read-only tools a stable canonical inspection path
+ * without changing the daemon's default write target.
+ */
+export const CANONICAL_DATA_READ_ALIASES = [
+    {source: 'orchestrator-daemon', alias: 'orchestrator-daemon-canonical'}
+];
+
+/**
  * Allowlist of gitignored single files (outside `.neo-ai-data/`) to symlink to canonical
  * when `--link-data` is set. Initial member is the Sandman strategic-priming handoff,
  * which `runSandman.mjs` writes only inside the canonical clone. Without symlink mediation,
@@ -223,7 +240,7 @@ export async function resolveMainCheckout(cwd, {explicitRoot} = {}) {
     if (explicitRoot) return path.resolve(explicitRoot);
 
     const {stdout} = await execFileAsync('git', ['worktree', 'list', '--porcelain'], {cwd});
-    const match = stdout.match(/^worktree (.+)$/m);
+    const match    = stdout.match(/^worktree (.+)$/m);
     return match ? match[1] : null;
 }
 
@@ -438,6 +455,97 @@ export async function symlinkDataDir({
 }
 
 /**
+ * @summary Symlinks canonical read-path aliases for blocklisted `.neo-ai-data/` children.
+ *
+ * This is intentionally separate from {@link symlinkDataDir}. Some canonical
+ * state directories are useful to inspect from every checkout, but unsafe to
+ * mount at their live child name because daemon entry points write PID files,
+ * state files, and logs there. The alias path is explicit (`*-canonical`) so
+ * code must opt into diagnostic reads and cannot accidentally join the shared
+ * singleton by using the normal daemon data-dir default.
+ *
+ * @param {object}   options
+ * @param {string}   options.mainCheckout Canonical checkout path.
+ * @param {string}   options.projectRoot  Current checkout path to link from.
+ * @param {Array<{source: string, alias: string}>} [options.aliases] Read-path alias map.
+ * @param {Function} [options.log=console.log] Logger fn for action diagnostics.
+ * @returns {Promise<{linked: string[], relinked: string[], alreadyLinked: string[], skippedNoSource: string[], skippedRealPath: string[], mainCheckout: boolean}>}
+ */
+export async function symlinkCanonicalDataReadAliases({
+    mainCheckout,
+    projectRoot,
+    aliases = CANONICAL_DATA_READ_ALIASES,
+    log     = console.log
+}) {
+    const result = {
+        linked         : [],
+        relinked       : [],
+        alreadyLinked  : [],
+        skippedNoSource: [],
+        skippedRealPath: [],
+        mainCheckout   : false
+    };
+
+    if (path.resolve(projectRoot) === path.resolve(mainCheckout)) {
+        log(`read-alias skip (main checkout): no alias action`);
+        result.mainCheckout = true;
+        return result;
+    }
+
+    const parentDst = path.join(projectRoot, '.neo-ai-data');
+    await fs.mkdir(parentDst, {recursive: true});
+
+    for (const entry of aliases) {
+        const {source, alias} = entry;
+
+        if (!source || !alias || source === alias || path.isAbsolute(source) || path.isAbsolute(alias) ||
+            source.includes('..') || alias.includes('..')) {
+            throw new Error(`Invalid canonical data read alias: ${JSON.stringify(entry)}`);
+        }
+
+        const src = path.join(mainCheckout, '.neo-ai-data', source),
+              dst = path.join(parentDst, alias);
+
+        if (!await exists(src)) {
+            log(`read-alias skip (no source in main checkout): ${alias}`);
+            result.skippedNoSource.push(alias);
+            continue;
+        }
+
+        const lstat = await fs.lstat(dst).catch(() => null);
+
+        if (lstat?.isSymbolicLink()) {
+            const existingTarget = await fs.readlink(dst),
+                  resolvedTarget = path.resolve(path.dirname(dst), existingTarget);
+
+            if (resolvedTarget === path.resolve(src)) {
+                log(`read-alias skip (already linked): ${alias}`);
+                result.alreadyLinked.push(alias);
+                continue;
+            }
+
+            await fs.unlink(dst);
+            await fs.symlink(src, dst, 'dir');
+            log(`read-alias relinked: ${alias} → ${src}`);
+            result.relinked.push(alias);
+            continue;
+        }
+
+        if (lstat) {
+            log(`read-alias skip (real path present, preserving local state): ${alias}`);
+            result.skippedRealPath.push(alias);
+            continue;
+        }
+
+        await fs.symlink(src, dst, 'dir');
+        log(`read-alias linked: ${alias} → ${src}`);
+        result.linked.push(alias);
+    }
+
+    return result;
+}
+
+/**
  * @summary Granularly symlinks gitignored single files (outside `.neo-ai-data/`) to
  * canonical, unifying cross-clone-readable handoff substrates without exposing the entire
  * tracked parent directory.
@@ -635,7 +743,7 @@ export function parseWorktreePorcelain(output) {
         }
 
         const [key, ...rest] = line.split(' ');
-        const value = rest.join(' ');
+        const value          = rest.join(' ');
 
         if (key === 'worktree') {
             if (current) records.push(current);
@@ -855,12 +963,13 @@ export async function pruneStaleWorktrees({
  * @returns {Promise<object>} Hydration sub-results (`bootstrap`, `data`, `files`, `claudeSettings`).
  */
 export async function hydrateCurrentWorktree({mainCheckout, projectRoot, log = console.log, wireClaudeSettings = initClaudeSettings}) {
-    const bootstrap      = await bootstrapWorktree({mainCheckout, projectRoot, log});
-    const data           = await symlinkDataDir({mainCheckout, projectRoot, log});
-    const files          = await symlinkGitignoredFiles({mainCheckout, projectRoot, log});
-    const claudeSettings = await wireClaudeSettings({claudeDir: path.join(projectRoot, '.claude'), logger: {log, warn: log}});
+    const bootstrap       = await bootstrapWorktree({mainCheckout, projectRoot, log});
+    const data            = await symlinkDataDir({mainCheckout, projectRoot, log});
+    const dataReadAliases = await symlinkCanonicalDataReadAliases({mainCheckout, projectRoot, log});
+    const files           = await symlinkGitignoredFiles({mainCheckout, projectRoot, log});
+    const claudeSettings  = await wireClaudeSettings({claudeDir: path.join(projectRoot, '.claude'), logger: {log, warn: log}});
 
-    return {bootstrap, data, files, claudeSettings};
+    return {bootstrap, data, dataReadAliases, files, claudeSettings};
 }
 
 /**
@@ -918,7 +1027,7 @@ export async function runLocalPruneWorktreeSchedule({intervalMs, log = console.l
 async function getPathSizeBytes(targetPath, {exec = execFileAsync} = {}) {
     try {
         const {stdout} = await exec('du', ['-sk', targetPath]);
-        const kb = Number.parseInt(stdout.trim().split(/\s+/)[0], 10);
+        const kb       = Number.parseInt(stdout.trim().split(/\s+/)[0], 10);
         return Number.isFinite(kb) ? kb * 1024 : 0;
     } catch {
         return 0;
@@ -1072,6 +1181,27 @@ if (isMain) {
                 if (alreadyLinkedN   > 0) console.log(`  already-linked:   ${symlinkResult.alreadyLinked.join(', ')}`);
                 if (clobberedN       > 0) console.log(`  clobbered:        ${symlinkResult.clobbered.join(', ')}`);
                 if (skippedNoSourceN > 0) console.log(`  skipped-no-src:   ${symlinkResult.skippedNoSource.join(', ')}`);
+            }
+
+            const readAliasResult = await symlinkCanonicalDataReadAliases({mainCheckout, projectRoot});
+            if (readAliasResult.mainCheckout) {
+                console.log(`✓ Data read aliases: skipped (running in main checkout)`);
+            } else {
+                const raLinkedN          = readAliasResult.linked.length;
+                const raRelinkedN        = readAliasResult.relinked.length;
+                const raAlreadyLinkedN   = readAliasResult.alreadyLinked.length;
+                const raSkippedNoSourceN = readAliasResult.skippedNoSource.length;
+                const raSkippedRealPathN = readAliasResult.skippedRealPath.length;
+                console.log(
+                    `✓ Data read aliases: ${raLinkedN} linked, ${raRelinkedN} relinked, ` +
+                    `${raAlreadyLinkedN} already-linked, ${raSkippedNoSourceN} skipped-no-source, ` +
+                    `${raSkippedRealPathN} skipped-real-path`
+                );
+                if (raLinkedN          > 0) console.log(`  linked:           ${readAliasResult.linked.join(', ')}`);
+                if (raRelinkedN        > 0) console.log(`  relinked:         ${readAliasResult.relinked.join(', ')}`);
+                if (raAlreadyLinkedN   > 0) console.log(`  already-linked:   ${readAliasResult.alreadyLinked.join(', ')}`);
+                if (raSkippedNoSourceN > 0) console.log(`  skipped-no-src:   ${readAliasResult.skippedNoSource.join(', ')}`);
+                if (raSkippedRealPathN > 0) console.log(`  skipped-real-path: ${readAliasResult.skippedRealPath.join(', ')}`);
             }
 
             // Cross-clone single-file symlinks. Same --link-data flag, narrower
