@@ -53,6 +53,11 @@ export class DeploymentStateBridgeService extends Base {
          */
         providerResidencyProbe: null,
         /**
+         * @member {Function|null} recoveryRunStateReader=null
+         * @protected
+         */
+        recoveryRunStateReader: null,
+        /**
          * @member {Function|null} writeLog=null
          * @protected
          */
@@ -288,6 +293,10 @@ export class DeploymentStateBridgeService extends Base {
             limit        = bridgeConfig.recoveryRunLimit,
             source       = 'orchestrator-recovery-run-ledger';
 
+        if (!Number.isFinite(limit)) {
+            throw new TypeError(`DeploymentStateBridgeService: recoveryRunLimit must be a finite number, got ${limit}`);
+        }
+
         if (limit < 0) {
             throw new RangeError(`DeploymentStateBridgeService: recoveryRunLimit must be >= 0, got ${limit}`);
         }
@@ -297,7 +306,8 @@ export class DeploymentStateBridgeService extends Base {
         }
 
         try {
-            const entries = await readRecentRecoveryRunStates({
+            const reader  = this.recoveryRunStateReader || readRecentRecoveryRunStates,
+                  entries = await reader({
                 dir: AiConfig.orchestrator.recoveryActuator.recoveryRunStateDir,
                 limit
             });
