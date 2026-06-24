@@ -7,6 +7,10 @@ import logger                                          from '../../mcp/server/me
 import {emitConsumerFriction}                          from '../memory-core/helpers/consumerFrictionHelper.mjs';
 import {buildGraphProvider, resolveGraphModelProvider} from './providerDispatch.mjs';
 
+const
+    conflictEntryRegex          = /^- \*\*\[(SUPERSEDES|OBSOLETES|DUPLICATE)\]\*\* `([^`]+)`: (.*?) \(Source Session: ([^)]+)\)$/gm,
+    topologyConflictRenderLimit = 5;
+
 /**
  * @class Neo.ai.daemons.services.TopologyInferenceEngine
  * @extends Neo.core.Base
@@ -24,6 +28,81 @@ class TopologyInferenceEngine extends Base {
          * @protected
          */
         singleton: true
+    }
+
+    /**
+     * @summary Parses existing topological conflict handoff entries.
+     * @param {String} content Current handoff markdown.
+     * @returns {Object[]} Parsed conflict entries.
+     */
+    parseConflictEntries(content) {
+        return [...content.matchAll(conflictEntryRegex)].map(match => ({
+            type       : match[1],
+            issueId    : match[2],
+            description: match[3],
+            sessionId  : match[4]
+        }))
+    }
+
+    /**
+     * @summary Renders one canonical topological conflict handoff entry.
+     * @param {Object} conflict Conflict entry.
+     * @returns {String}
+     */
+    renderConflictEntry(conflict) {
+        return `- **[${conflict.type}]** \`${conflict.issueId}\`: ${conflict.description} (Source Session: ${conflict.sessionId})`
+    }
+
+    /**
+     * @summary Merges new conflicts into the handoff while keeping the alert list bounded.
+     *
+     * New conflicts win ordering, then still-relevant existing alerts are retained up to the
+     * compact handoff cap. Existing lines are rewritten as one bounded block so prior unbounded
+     * REM cycles are pruned the next time a conflict pass writes the file.
+     *
+     * @param {String} handoffContent Current handoff markdown.
+     * @param {Object[]} conflicts New provider conflicts.
+     * @param {String} sessionId Source session id for new conflicts.
+     * @returns {{content: String, changed: Boolean}}
+     */
+    mergeConflictAlerts(handoffContent, conflicts, sessionId) {
+        const existing = this.parseConflictEntries(handoffContent),
+              merged   = [],
+              seen     = new Set();
+
+        for (const conflict of conflicts) {
+            if (seen.has(conflict.issueId)) continue;
+            merged.push({...conflict, sessionId});
+            seen.add(conflict.issueId);
+        }
+
+        for (const conflict of existing) {
+            if (seen.has(conflict.issueId)) continue;
+            merged.push(conflict);
+            seen.add(conflict.issueId);
+        }
+
+        const bounded  = merged.slice(0, topologyConflictRenderLimit),
+              stripped = handoffContent.replace(conflictEntryRegex, '').replace(/\n{3,}/g, '\n\n').trimEnd(),
+              block    = bounded.map(conflict => this.renderConflictEntry(conflict)).join('\n');
+
+        if (!block) {
+            return {content: stripped + '\n', changed: existing.length > 0}
+        }
+
+        const insertIndex = stripped.indexOf('## Computed Golden Path');
+        let content;
+
+        if (insertIndex !== -1) {
+            content = `${stripped.substring(0, insertIndex).trimEnd()}\n\n${block}\n\n${stripped.substring(insertIndex)}`;
+        } else {
+            content = `${stripped}\n\n${block}`;
+        }
+
+        return {
+            content: `${content.trimEnd()}\n`,
+            changed: true
+        }
     }
 
     /**
@@ -57,7 +136,7 @@ ${contextText}
 `;
         try {
             const graphProvider = resolveGraphModelProvider(aiConfig);
-            const provider = buildGraphProvider({
+            const provider      = buildGraphProvider({
                 modelProvider         : graphProvider,
                 ollamaConfig          : aiConfig.ollama,
                 openAiCompatibleConfig: aiConfig.openAiCompatible
@@ -105,24 +184,11 @@ ${contextText}
                 handoffContent = '# Sandman Handoff Alerts\n\nThis file tracks topological conflict alerts generated during overnight REM sleep cycles. Agents MUST reconcile these conflicts structurally upon startup.\n\n## Active Conflicts\n\n';
             }
 
-            let newAlerts = false;
-            for (const conflict of payload.conflicts) {
-                const entry = `- **[${conflict.type}]** \`${conflict.issueId}\`: ${conflict.description} (Source Session: ${sessionId})\n`;
-                const anyConflictIdentifier = `\`${conflict.issueId}\`:`;
-                if (!handoffContent.includes(anyConflictIdentifier)) {
-                    let insertIndex = handoffContent.indexOf('## Computed Golden Path');
-                    if (insertIndex !== -1) {
-                        handoffContent = handoffContent.substring(0, insertIndex) + entry + '\n\n' + handoffContent.substring(insertIndex);
-                    } else {
-                        handoffContent += entry;
-                    }
-                    newAlerts = true;
-                }
-            }
+            const {content, changed} = this.mergeConflictAlerts(handoffContent, payload.conflicts, sessionId);
 
-            if (newAlerts) {
+            if (changed) {
                 await fs.promises.mkdir(path.dirname(handoffFile), {recursive: true});
-                await fs.promises.writeFile(tmpFile, handoffContent, 'utf8');
+                await fs.promises.writeFile(tmpFile, content, 'utf8');
                 await fs.promises.rename(tmpFile, handoffFile);
                 logger.info(`[TopologyInferenceEngine] Registered new topological conflicts to sandman_handoff.md for session ${sessionId}.`);
             }

@@ -55,7 +55,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     test.beforeAll(async () => {
         aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
 
-        const os = await import('os');
+        const os     = await import('os');
         const tmpDir = path.resolve(process.cwd(), 'tmp');
         if (!fs.existsSync(tmpDir)) {
             fs.mkdirSync(tmpDir, { recursive: true });
@@ -164,7 +164,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
 
     test('hasCrossFamilyReview accepts injected identity-family maps', () => {
         const Synthesizer = GoldenPathSynthesizer.constructor;
-        const pr = {
+        const pr          = {
             author : {login: 'author-agent'},
             reviews: [{author: {login: 'reviewer-agent'}}]
         };
@@ -208,7 +208,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
 
     test('findLastQualifyingAssignmentActivity treats owner identity comments as maintainer progress acknowledgements', () => {
         const Synthesizer = GoldenPathSynthesizer.constructor;
-        const activity = Synthesizer.findLastQualifyingAssignmentActivity({
+        const activity    = Synthesizer.findLastQualifyingAssignmentActivity({
             assignees: ['neo-gpt'],
             author   : 'neo-gpt',
             createdAt: '2026-05-01T00:00:00Z',
@@ -225,9 +225,9 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     });
 
     test('synthesizeGoldenPath appends Active PR Cycle State from GitHub CLI output', async () => {
-        const originalGetGraphCollection = StorageRouter.getGraphCollection;
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
-        const originalEmbedText = TextEmbeddingService.embedText;
+        const originalEmbedText            = TextEmbeddingService.embedText;
         aiConfig.vectorDimension = 2;
 
         StorageRouter.getGraphCollection = async () => ({ query: async () => ({ ids: [['mock-id']], distances: [[0.1]] }) });
@@ -267,24 +267,24 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
 
         expect(handoffContent).toContain('## Active PR Cycle State');
-        expect(handoffContent).toContain('### Recent Open PRs');
+        expect(handoffContent).toContain('### Recent Open PRs (`1` of `1` items)');
         expect(handoffContent).toContain('cross-family reviewed: yes');
-        expect(handoffContent).toContain('### @neo-gemini-pro');
         expect(handoffContent).toContain('- **PR #11178**: feat(ai): Automate PR Cycle State Extraction');
         expect(handoffContent).not.toContain('](https://github.com/');
-        expect(handoffContent).toContain('- **Lane State**: `AWAITING_REVIEW`');
-        expect(handoffContent).toContain('- **Cycle**: `2`');
-        expect(handoffContent).toContain('- **Reviewers**: neo-opus-ada');
-        expect(handoffContent).toContain('- **Status**: `CHANGES_REQUESTED`');
-        expect(handoffContent).toContain('- **Head SHA**: `abcdef1234567890`');
+        expect(handoffContent).not.toContain('### @neo-gemini-pro');
+        expect(handoffContent).not.toContain('- **Lane State**:');
+        expect(handoffContent).not.toContain('- **Cycle**:');
+        expect(handoffContent).not.toContain('- **Reviewers**:');
+        expect(handoffContent).not.toContain('- **Status**:');
+        expect(handoffContent).not.toContain('- **Head SHA**:');
     });
 
     test('synthesizeGoldenPath skips Neo repo enrichment sections when deployment config disables them', async () => {
-        const originalGetGraphCollection = StorageRouter.getGraphCollection;
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
-        const originalEmbedText = TextEmbeddingService.embedText;
-        const originalFetchOpenPRs = GoldenPathSynthesizer.fetchOpenPRs;
-        const issuesDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-recent-pr-issues-'));
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const originalFetchOpenPRs         = GoldenPathSynthesizer.fetchOpenPRs;
+        const issuesDir                    = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-recent-pr-issues-'));
         aiConfig.vectorDimension = 2;
 
         StorageRouter.getGraphCollection = async () => ({ query: async () => ({ ids: [['mock-id']], distances: [[0.1]] }) });
@@ -312,13 +312,13 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     });
 
     test('synthesizeGoldenPath renders stale assignment candidates from local issue sync', async () => {
-        const originalGetGraphCollection = StorageRouter.getGraphCollection;
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
-        const originalEmbedText = TextEmbeddingService.embedText;
-        const originalFetchOpenPRs = GoldenPathSynthesizer.fetchOpenPRs;
-        const issuesDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-stale-issues-'));
-        const chunkDir  = path.join(issuesDir, 'chunk-1');
-        const now       = new Date('2026-05-28T00:00:00Z');
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const originalFetchOpenPRs         = GoldenPathSynthesizer.fetchOpenPRs;
+        const issuesDir                    = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-stale-issues-'));
+        const chunkDir                     = path.join(issuesDir, 'chunk-1');
+        const now                          = new Date('2026-05-28T00:00:00Z');
         aiConfig.vectorDimension = 2;
 
         fs.mkdirSync(chunkDir, {recursive: true});
@@ -412,18 +412,18 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     });
 
     test('synthesizeGoldenPath renders Silent Threads after stale assignments and before computed routing', async () => {
-        const originalGetGraphCollection = StorageRouter.getGraphCollection;
-        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
-        const originalEmbedText = TextEmbeddingService.embedText;
-        const originalFetchOpenPRs = GoldenPathSynthesizer.fetchOpenPRs;
-        const OpenAiCompatible = (await import('../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
-        const originalGenerate = OpenAiCompatible.prototype.generate;
-        const Synthesizer = GoldenPathSynthesizer.constructor;
+        const originalGetGraphCollection       = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection     = StorageRouter.getSummaryCollection;
+        const originalEmbedText                = TextEmbeddingService.embedText;
+        const originalFetchOpenPRs             = GoldenPathSynthesizer.fetchOpenPRs;
+        const OpenAiCompatible                 = (await import('../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
+        const originalGenerate                 = OpenAiCompatible.prototype.generate;
+        const Synthesizer                      = GoldenPathSynthesizer.constructor;
         const originalGetIssueStructuralWeight = Synthesizer.getIssueStructuralWeight;
-        const originalHasOpenIssueBlocker = Synthesizer.hasOpenIssueBlocker;
-        const issuesDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-silent-render-issues-'));
-        const chunkDir  = path.join(issuesDir, 'chunk-1');
-        const now       = new Date('2026-05-28T00:00:00Z');
+        const originalHasOpenIssueBlocker      = Synthesizer.hasOpenIssueBlocker;
+        const issuesDir                        = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-silent-render-issues-'));
+        const chunkDir                         = path.join(issuesDir, 'chunk-1');
+        const now                              = new Date('2026-05-28T00:00:00Z');
         const goldenIssueId = `issue-silent-golden-${Date.now()}`;
         aiConfig.vectorDimension = 2;
 
@@ -498,14 +498,14 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     });
 
     test('synthesizeGoldenPath scopes the candidate-pool query to ISSUE + DISCUSSION vectors', async () => {
-        const originalGetGraphCollection    = StorageRouter.getGraphCollection;
-        const originalGetSummaryCollection  = StorageRouter.getSummaryCollection;
-        const originalEmbedText             = TextEmbeddingService.embedText;
-        const originalFetchOpenPRs          = GoldenPathSynthesizer.fetchOpenPRs;
-        const OpenAiCompatible              = (await import('../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
-        const originalGenerate              = OpenAiCompatible.prototype.generate;
-        const issuesDir                     = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-pool-scope-'));
-        let capturedWhere                   = 'UNSET';
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const originalFetchOpenPRs         = GoldenPathSynthesizer.fetchOpenPRs;
+        const OpenAiCompatible             = (await import('../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
+        const originalGenerate             = OpenAiCompatible.prototype.generate;
+        const issuesDir                    = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-pool-scope-'));
+        let   capturedWhere                = 'UNSET';
         aiConfig.vectorDimension = 2;
 
         StorageRouter.getGraphCollection    = async () => ({query: async args => { capturedWhere = args.where; return {ids: [[]], distances: [[]]}; }});
@@ -736,7 +736,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         }
 
         const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
-        const guideTargets = GraphService.db.edges
+        const guideTargets   = GraphService.db.edges
             .getByIndex('source', 'frontier')
             .filter(edge => edge.type === 'GUIDES')
             .map(edge => edge.target);
@@ -750,10 +750,10 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     });
 
     test('synthesizeGoldenPath renders empty computed diagnostics and clears stale frontier guides (#13828)', async () => {
-        const originalGetGraphCollection = StorageRouter.getGraphCollection;
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
-        const originalEmbedText = TextEmbeddingService.embedText;
-        const originalFetchOpenPRs = GoldenPathSynthesizer.fetchOpenPRs;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const originalFetchOpenPRs         = GoldenPathSynthesizer.fetchOpenPRs;
         const suffix = `${process.pid}-${Date.now()}`;
         const staleId = `issue-stale-guide-${suffix}`;
         const notReadyId = `issue-empty-not-ready-${suffix}`;
@@ -797,7 +797,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         }
 
         const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
-        const guideTargets = GraphService.db.edges
+        const guideTargets   = GraphService.db.edges
             .getByIndex('source', 'frontier')
             .filter(edge => edge.type === 'GUIDES')
             .map(edge => edge.target);
@@ -813,12 +813,12 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     });
 
     test('synthesizeGoldenPath prunes stale guides while preserving current computed guides (#13828)', async () => {
-        const originalGetGraphCollection = StorageRouter.getGraphCollection;
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
-        const originalEmbedText = TextEmbeddingService.embedText;
-        const originalFetchOpenPRs = GoldenPathSynthesizer.fetchOpenPRs;
-        const OpenAiCompatible = (await import('../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
-        const originalGenerate = OpenAiCompatible.prototype.generate;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const originalFetchOpenPRs         = GoldenPathSynthesizer.fetchOpenPRs;
+        const OpenAiCompatible             = (await import('../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
+        const originalGenerate             = OpenAiCompatible.prototype.generate;
         const suffix = `${process.pid}-${Date.now()}`;
         const staleId = `issue-stale-guide-nonzero-${suffix}`;
         const readyId = `issue-current-guide-${suffix}`;
@@ -864,7 +864,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         }
 
         const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
-        const guideTargets = GraphService.db.edges
+        const guideTargets   = GraphService.db.edges
             .getByIndex('source', 'frontier')
             .filter(edge => edge.type === 'GUIDES')
             .map(edge => edge.target);
@@ -875,18 +875,19 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(guideTargets).not.toContain(staleId);
     });
 
-    test('synthesizeGoldenPath lists the 5 most recent open PRs with cross-family status', async () => {
-        const originalGetGraphCollection = StorageRouter.getGraphCollection;
+    test('synthesizeGoldenPath lists the 10 most recent open PRs with cross-family status', async () => {
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
-        const originalEmbedText = TextEmbeddingService.embedText;
-        const originalFetchOpenPRs = GoldenPathSynthesizer.fetchOpenPRs;
-        const issuesDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-recent-pr-issues-'));
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const originalFetchOpenPRs         = GoldenPathSynthesizer.fetchOpenPRs;
+        const issuesDir                    = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-recent-pr-issues-'));
         aiConfig.vectorDimension = 2;
+        aiConfig.goldenPathRecentOpenPrRenderLimit = 10;
 
         StorageRouter.getGraphCollection = async () => ({ query: async () => ({ ids: [['mock-id']], distances: [[0.1]] }) });
         StorageRouter.getSummaryCollection = async () => ({ get: async () => ({ documents: ['mock document'] }) });
         TextEmbeddingService.embedText = async () => [0.1, 0.2];
-        GoldenPathSynthesizer.fetchOpenPRs = async () => [1, 2, 3, 4, 5, 6].map(number => ({
+        GoldenPathSynthesizer.fetchOpenPRs = async () => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(number => ({
             number,
             url: `https://github.com/neomjs/neo/pull/${number}`,
             author: {login: 'external-dev'},
@@ -895,7 +896,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             createdAt: `2026-05-${String(number).padStart(2, '0')}T00:00:00Z`,
             headRefOid: `sha-${number}`,
             reviewRequests: [],
-            reviews       : number === 6 ? [{state: 'APPROVED', body: 'LGTM', submittedAt: '2026-05-06T01:00:00Z', author: {login: 'neo-opus-ada'}}] : [],
+            reviews       : number === 12 ? [{state: 'APPROVED', body: 'LGTM', submittedAt: '2026-05-12T01:00:00Z', author: {login: 'neo-opus-ada'}}] : [],
             comments      : []
         }));
 
@@ -911,16 +912,62 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
 
         const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
 
-        expect(handoffContent).toContain('### Recent Open PRs');
-        expect(handoffContent).toContain('**PR #6**');
+        expect(handoffContent).toContain('### Recent Open PRs (`10` of `12` items)');
+        expect(handoffContent).toContain('**PR #12**');
         expect(handoffContent).toContain('cross-family reviewed: yes');
-        expect(handoffContent).toContain('**PR #2**');
+        expect(handoffContent).toContain('**PR #3**');
+        expect(handoffContent).not.toContain('**PR #2**');
         expect(handoffContent).not.toContain('**PR #1**');
+    });
+
+    test('synthesizeGoldenPath renders deterministic Strategic Interpretation fallback when provider output is invalid', async () => {
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const originalFetchOpenPRs         = GoldenPathSynthesizer.fetchOpenPRs;
+        const OpenAiCompatible             = (await import('../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
+        const originalGenerate             = OpenAiCompatible.prototype.generate;
+        const suffix = `${process.pid}-${Date.now()}`;
+        const readyId = `issue-strategic-fallback-${suffix}`;
+        aiConfig.vectorDimension = 2;
+
+        GraphService.upsertNode({
+            id        : readyId,
+            type      : 'ISSUE',
+            properties: {state: 'OPEN', title: 'Restore compact strategic brief', labels: ['bug', 'ai']}
+        });
+
+        StorageRouter.getGraphCollection = async () => ({
+            query: async () => ({
+                ids      : [[readyId]],
+                distances: [[0.1]]
+            })
+        });
+        StorageRouter.getSummaryCollection = async () => ({get: async () => ({documents: ['Sandman handoff bloat']})});
+        TextEmbeddingService.embedText = async () => [0.1, 0.2];
+        GoldenPathSynthesizer.fetchOpenPRs = async () => [];
+        OpenAiCompatible.prototype.generate = async () => ({content: 'not json'});
+
+        try {
+            await GoldenPathSynthesizer.synthesizeGoldenPath({repoEnrichmentEnabled: false});
+        } finally {
+            StorageRouter.getGraphCollection   = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection = originalGetSummaryCollection;
+            TextEmbeddingService.embedText     = originalEmbedText;
+            GoldenPathSynthesizer.fetchOpenPRs = originalFetchOpenPRs;
+            OpenAiCompatible.prototype.generate = originalGenerate;
+        }
+
+        const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
+
+        expect(handoffContent).toContain('> **Strategic Interpretation:**');
+        expect(handoffContent).toContain(`The computed route is currently led by ${readyId}`);
+        expect(handoffContent).toContain('Restore compact strategic brief');
     });
 
     test('buildStaleAssignmentCandidates returns an empty set when no synced issue is stale', () => {
         const issuesDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-fresh-issues-'));
-        const chunkDir = path.join(issuesDir, 'chunk-1');
+        const chunkDir  = path.join(issuesDir, 'chunk-1');
         fs.mkdirSync(chunkDir, {recursive: true});
         fs.writeFileSync(path.join(chunkDir, 'issue-9100.md'), [
             '---',
@@ -979,10 +1026,10 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     });
 
     test('buildSilentThreadCandidates filters unassigned atrophying issues and sorts by silence score', () => {
-        const Synthesizer = GoldenPathSynthesizer.constructor;
+        const Synthesizer                      = GoldenPathSynthesizer.constructor;
         const originalGetIssueStructuralWeight = Synthesizer.getIssueStructuralWeight;
-        const issuesDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-silent-threads-'));
-        const chunkDir  = path.join(issuesDir, 'chunk-1');
+        const issuesDir                        = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-silent-threads-'));
+        const chunkDir                         = path.join(issuesDir, 'chunk-1');
         fs.mkdirSync(chunkDir, {recursive: true});
 
         function writeIssue(number, lines) {
@@ -1157,7 +1204,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
         const originalEmbedText            = TextEmbeddingService.embedText;
         const warnings                     = [];
-        let queryCalls                     = 0;
+        let   queryCalls                   = 0;
 
         aiConfig.embeddingProvider = 'gemini';
         aiConfig.embeddingModel    = 'gemini-embedding-001';

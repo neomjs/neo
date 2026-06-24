@@ -235,9 +235,10 @@ The following open tickets represent the most recently created structural object
 > directly addresses the selection model gap identified across 3 sessions.
 ```
 
-The **Strategic Interpretation** is an optional LLM-generated brief that explains
-*why* the mathematical scores point to these specific tasks. If the LLM is offline,
-the system falls back to pure numerical output.
+The **Strategic Interpretation** prefers an LLM-generated brief that explains
+*why* the mathematical scores point to these specific tasks. If the LLM is offline
+or returns invalid JSON, the system renders a compact deterministic fallback instead
+of dropping the section.
 
 `## Silent Threads` is visibility-only. It surfaces old, unassigned, non-rejected
 open issues that are outside the Computed Golden Path, sorted by

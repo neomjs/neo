@@ -357,7 +357,7 @@ class GoldenPathSynthesizer extends Base {
      * @returns {Boolean}
      */
     static isActionableComputedRecommendation(nodeData) {
-        const nodeId = String(nodeData?.id || '');
+        const nodeId   = String(nodeData?.id || '');
         const nodeType = String(nodeData?.type || nodeData?.properties?.type || '').toUpperCase();
 
         // ISSUE = work-to-do, DISCUSSION = an open convergence-to-drive; both are execution-steerable.
@@ -455,7 +455,7 @@ class GoldenPathSynthesizer extends Base {
         contradiction,
         stats = {}
     } = {}) {
-        const count = value => Number.isFinite(Number(value)) ? Number(value) : 0;
+        const count     = value => Number.isFinite(Number(value)) ? Number(value) : 0;
         const focusRefs = (contradiction?.focusCandidates || [])
             .slice(0, 3)
             .map(candidate => `#${candidate.number}`)
@@ -654,7 +654,7 @@ class GoldenPathSynthesizer extends Base {
         const reviews      = Array.isArray(pr.reviews) ? pr.reviews : [];
 
         return reviews.some(review => {
-            const reviewerLogin = review.author?.login || review.author?.name || review.author?.login;
+            const reviewerLogin  = review.author?.login || review.author?.name || review.author?.login;
             const reviewerFamily = agentFamilies[reviewerLogin];
 
             if (!reviewerFamily) return false;
@@ -680,7 +680,7 @@ class GoldenPathSynthesizer extends Base {
 
         if (recent.length === 0) return '';
 
-        let section = `### Recent Open PRs\n`;
+        let section = `### Recent Open PRs (\`${recent.length}\` of \`${prs.length}\` items)\n`;
 
         for (const pr of recent) {
             const author = pr.author?.login || 'unknown';
@@ -690,6 +690,35 @@ class GoldenPathSynthesizer extends Base {
         section += `\n`;
 
         return section
+    }
+
+    /**
+     * @summary Renders a compact deterministic Strategic Interpretation fallback.
+     *
+     * The preferred path is still the model-generated brief. This fallback keeps the
+     * handoff structurally useful when the local graph model is offline, overloaded, or
+     * returns invalid JSON.
+     *
+     * @param {Array<Object>} routedTopNodes Ranked Golden Path entries.
+     * @param {Object|null} focusContradiction Current-focus contradiction metadata.
+     * @returns {String}
+     */
+    static renderStrategicInterpretationFallback(routedTopNodes, focusContradiction) {
+        const lead      = routedTopNodes[0],
+              leadId    = lead?.node?.id ?? 'the highest ranked open item',
+              leadTitle = lead?.node?.properties?.title || lead?.node?.properties?.name || lead?.node?.name,
+              score     = Number.isFinite(lead?.score) ? `score ${lead.score.toFixed(2)}` : 'the strongest combined score',
+              titleText = leadTitle ? ` (${leadTitle})` : '';
+
+        let brief = `The computed route is currently led by ${leadId}${titleText} with ${score}, so the next agent should treat it as the highest-signal advisory lane after live lifecycle gates.`;
+
+        if (focusContradiction) {
+            brief += ' Current-focus filtering already removed contradictory candidates; do not re-open them from this handoff without fresher live evidence.';
+        } else {
+            brief += ' Use live issue and PR state to confirm the lane before claiming, but do not expand this handoff into a full backlog survey.';
+        }
+
+        return brief
     }
 
     /**
@@ -814,7 +843,7 @@ class GoldenPathSynthesizer extends Base {
     } = {}) {
         logger.info('[GoldenPathSynthesizer] Initializing Hybrid GraphRAG Strategic Traversal...');
 
-        let graphColl = null;
+        let graphColl   = null;
         let summaryColl = null;
         try {
             graphColl = await StorageRouter.getGraphCollection();
@@ -870,7 +899,7 @@ class GoldenPathSynthesizer extends Base {
         }
 
         // Pillar 1: Semantic Distance from ChromaDB
-        let semanticIds = [];
+        let semanticIds       = [];
         let semanticDistances = [];
         try {
             const semanticResults = await graphColl.query({
@@ -898,7 +927,7 @@ class GoldenPathSynthesizer extends Base {
         }
 
         // Pillar 2: Structural Weight from SQLite Graph
-        const scoredNodes = [];
+        const scoredNodes  = [];
         const scoringStats = {
             semanticCandidates     : semanticIds.length,
             sqliteOpenMatches      : 0,
@@ -908,12 +937,12 @@ class GoldenPathSynthesizer extends Base {
             selectedTopNodes       : 0,
             prunedGuideEdges       : 0
         };
-        const SEMANTIC_WEIGHT = 2.0;
+        const SEMANTIC_WEIGHT   = 2.0;
         const STRUCTURAL_WEIGHT = 1.0;
 
         try {
             const placeholders = semanticIds.map(() => '?').join(',');
-            const stmt = GraphService.db.storage.db.prepare(`
+            const stmt         = GraphService.db.storage.db.prepare(`
                 SELECT
                     n.id,
                     n.data,
@@ -937,8 +966,8 @@ class GoldenPathSynthesizer extends Base {
                 GraphService.db.getAdjacentNodes(issueId, 'both');
 
                 // Re-verify blocker topology natively using GraphService API
-                const blockers = GraphService.db.edges.getByIndex('target', issueId).filter(e => e.type === 'BLOCKS');
-                let isBlocked = false;
+                const blockers  = GraphService.db.edges.getByIndex('target', issueId).filter(e => e.type === 'BLOCKS');
+                let   isBlocked = false;
 
                 for (const bEdge of blockers) {
                     const blockerNode = GraphService.db.nodes.get(bEdge.source);
@@ -953,9 +982,9 @@ class GoldenPathSynthesizer extends Base {
                     continue; // Architecturally blocked issues cannot be Golden
                 }
 
-                const idx = semanticIds.indexOf(issueId);
+                const idx               = semanticIds.indexOf(issueId);
                 const semantic_distance = parseFloat(semanticDistances[idx]) || 0.1;
-                const struct_score = parseFloat(row.struct_score) || 0;
+                const struct_score      = parseFloat(row.struct_score) || 0;
 
                 // Lower distance = Higher significance. (Add 0.1 to avoid div by 0 and curb massive asymptotes)
                 const semanticScore = 1.0 / (semantic_distance + 0.1);
@@ -1036,6 +1065,8 @@ class GoldenPathSynthesizer extends Base {
                 markdownAppend += `\n> **Routing Guard:** Filtered content/narrative computed candidate(s) ${blockedRefs} because live Current Release / Incident Focus would make them contradictory immediate routes.\n\n`;
             }
 
+            let strategicBrief = '';
+
             try {
                 const graphProvider = resolveGraphModelProvider(aiConfig);
                 logger.info(`[GoldenPathSynthesizer] Instantiating ${graphProvider} provider to interpret Mathematical Golden Path...`);
@@ -1068,12 +1099,18 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
 
                 const payload = Json.extract(result.content);
                 if (payload && payload.strategic_brief) {
-                    markdownAppend += `\n> **Strategic Interpretation:**\n> ${payload.strategic_brief}\n\n`;
+                    strategicBrief = payload.strategic_brief;
                     logger.info('[GoldenPathSynthesizer] Successfully appended semantic strategic brief to Golden Path.');
                 }
             } catch (e) {
-                logger.warn('[GoldenPathSynthesizer] Failed to generate semantic interpretation for Golden Path (LLM Offline). Proceeding with pure mathematical output.', e);
+                logger.warn('[GoldenPathSynthesizer] Failed to generate semantic interpretation for Golden Path (LLM Offline). Rendering deterministic fallback.', e);
             }
+
+            if (!strategicBrief) {
+                strategicBrief = this.constructor.renderStrategicInterpretationFallback(routedTopNodes, focusContradiction);
+            }
+
+            markdownAppend += `\n> **Strategic Interpretation:**\n> ${strategicBrief}\n\n`;
         } else if (focusContradiction) {
             markdownAppend = this.constructor.renderComputedGoldenPathContradictionSection({
                 contradiction: focusContradiction,
@@ -1090,17 +1127,17 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         let handoffContent = `# Autonomous Handoff (Dream Pipeline & Golden Path)\n\n`;
         handoffContent += `The Native Edge Graph has audited the codebase structurally. The following architectural coverage gaps currently exist natively within the SQLite matrix.\n\n`;
 
-        const TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days TTL (Time-to-Live)
-        const gapNow = Date.now();
-        let gapElementsCount = 0;
-        let prunedGaps = 0;
+        const TTL_MS           = 7 * 24 * 60 * 60 * 1000; // 7 days TTL (Time-to-Live)
+        const gapNow           = Date.now();
+        let   gapElementsCount = 0;
+        let   prunedGaps       = 0;
 
-        let testGaps        = [];
-        let guideGaps       = [];
-        let exampleGaps     = [];
-        let orphanConcepts  = [];
-        let reverifyDue     = [];
-        let kbDemandGaps    = [];
+        let testGaps       = [];
+        let guideGaps      = [];
+        let exampleGaps    = [];
+        let orphanConcepts = [];
+        let reverifyDue    = [];
+        let kbDemandGaps   = [];
 
         GraphService.db.nodes.items.forEach(node => {
             if (node.properties?.capabilityGap) {
@@ -1236,7 +1273,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         let staleAssignmentAppend = '';
         if (repoEnrichmentEnabled) {
             try {
-                const Synthesizer = this.constructor;
+                const Synthesizer     = this.constructor;
                 const staleCandidates = Synthesizer.buildStaleAssignmentCandidates({
                     issuesDir,
                     now
@@ -1252,7 +1289,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         let silentThreadsAppend = '';
         if (repoEnrichmentEnabled) {
             try {
-                const Synthesizer = this.constructor;
+                const Synthesizer            = this.constructor;
                 const silentThreadCandidates = Synthesizer.buildSilentThreadCandidates({
                     issuesDir,
                     now,
@@ -1270,84 +1307,12 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         if (repoEnrichmentEnabled) {
             try {
                 const Synthesizer = this.constructor;
-                const prs = await this.fetchOpenPRs();
-
-                const agentLogins = Synthesizer.getAgentLogins();
-                const agentPrs = prs.filter(pr => pr.author && agentLogins.includes(pr.author.login));
+                const prs         = await this.fetchOpenPRs();
 
                 if (prs.length > 0) {
                     prStateAppend += `\n## Active PR Cycle State\n\n`;
                     prStateAppend += `*Captured at: ${new Date().toISOString()} (Source: GitHub Live)*\n\n`;
                     prStateAppend += Synthesizer.renderRecentOpenPrSummary(prs);
-
-                    // Group by agent
-                    agentLogins.forEach(agent => {
-                        const myPrs = agentPrs.filter(pr => pr.author.login === agent);
-                        if (myPrs.length > 0) {
-                            prStateAppend += `### @${agent}\n`;
-                            myPrs.forEach(pr => {
-                                // Extract lane-state
-                                let laneState = 'unknown';
-                                const laneMatch = pr.body.match(/lane-state:\s*([^\s]+)/);
-                                if (laneMatch) {
-                                    laneState = laneMatch[1];
-                                }
-                                // Attempt to find cycle #. For example, "Cycle 3" in body or title.
-                                let cycle = '1';
-                                const cycleMatch = pr.body.match(/Cycle\s*(\d+)/i) || pr.title.match(/Cycle\s*(\d+)/i);
-                                if (cycleMatch) {
-                                    cycle = cycleMatch[1];
-                                }
-
-                                // Combine reviews and comments, sort by creation time (most recent first)
-                                const allInteractions = [
-                                    ...(pr.reviews || []).map(r => ({ body: r.body, date: new Date(r.submittedAt), state: r.state, type: 'review' })),
-                                    ...(pr.comments || []).map(c => ({ body: c.body, date: new Date(c.createdAt), type: 'comment' }))
-                                ].sort((a, b) => b.date - a.date);
-
-                                let foundCycle = false;
-                                for (const interaction of allInteractions) {
-                                    if (laneState === 'unknown') {
-                                        const rLaneMatch = interaction.body.match(/lane-state:\s*([^\s]+)/);
-                                        if (rLaneMatch) laneState = rLaneMatch[1];
-                                    }
-                                    if (!foundCycle) {
-                                        const rCycleMatch = interaction.body.match(/Cycle\s*(\d+)/i);
-                                        if (rCycleMatch) {
-                                            cycle = rCycleMatch[1];
-                                            foundCycle = true;
-                                        }
-                                    }
-                                    if (laneState !== 'unknown' && foundCycle) break;
-                                }
-
-                                // Determine primary reviewer
-                                let reviewers = pr.reviewRequests?.map(rr => rr.login).join(', ') || 'None';
-
-                                // Determine status
-                                let status = 'Pending';
-                                const latestReview = allInteractions.find(i => i.type === 'review');
-                                if (latestReview) {
-                                    status = latestReview.state;
-                                } else {
-                                    // Check if there's an approval or change request in comments (e.g. from a non-review PR comment)
-                                    const latestCommentStatus = allInteractions.find(i => i.body.match(/\*\*Status:\*\*\s*(Approved|Changes Requested|Pending)/i));
-                                    if (latestCommentStatus) {
-                                        const match = latestCommentStatus.body.match(/\*\*Status:\*\*\s*(Approved|Changes Requested|Pending)/i);
-                                        if (match) status = match[1].toUpperCase();
-                                    }
-                                }
-
-                                prStateAppend += `- **PR #${pr.number}**: ${pr.title}\n`;
-                                prStateAppend += `  - **Lane State**: \`${laneState}\`\n`;
-                                prStateAppend += `  - **Cycle**: \`${cycle}\`\n`;
-                                prStateAppend += `  - **Reviewers**: ${reviewers}\n`;
-                                prStateAppend += `  - **Status**: \`${status}\`\n`;
-                                prStateAppend += `  - **Head SHA**: \`${pr.headRefOid}\`\n`;
-                            });
-                            prStateAppend += `\n`;
-                        }
-                    });
                 }
             } catch (e) {
                 logger.warn('[GoldenPathSynthesizer] Failed to generate Active PR Cycle State', e);
@@ -1358,9 +1323,9 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         let backlogAppend = '';
         if (repoEnrichmentEnabled) {
             try {
-                const rawIssuesDir = path.resolve(__dirname, '../../../resources/content/issues');
-                const filesRaw = fs.readdirSync(rawIssuesDir);
-                const mdFiles = filesRaw.filter(f => f.endsWith('.md'));
+                const rawIssuesDir   = path.resolve(__dirname, '../../../resources/content/issues');
+                const filesRaw       = fs.readdirSync(rawIssuesDir);
+                const mdFiles        = filesRaw.filter(f => f.endsWith('.md'));
                 const openIssuesData = [];
                 for (const file of mdFiles) {
                     const issueId = file.replace(/\\.md$/, '');
@@ -1382,8 +1347,8 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                 if (latest5.length > 0) {
                     backlogAppend += `\n## 📋 Latest Priority Backlog\n\nThe following open tickets represent the most recently created structural objectives.\n\n`;
                     latest5.forEach((item, idx) => {
-                       const title = item.node.properties?.title || item.node.properties?.name || item.node.name || 'Unknown Title';
-                       const labels = item.node.properties?.labels || [];
+                       const title     = item.node.properties?.title || item.node.properties?.name || item.node.name || 'Unknown Title';
+                       const labels    = item.node.properties?.labels || [];
                        const labelTags = labels.length > 0 ? ' [\\`' + labels.join('\\`, \\`') + '\\`]' : '';
                        backlogAppend += `${idx + 1}. **${item.id}**${labelTags}\n   - *${title}*\n`;
                     });
