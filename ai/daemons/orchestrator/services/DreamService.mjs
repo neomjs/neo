@@ -706,6 +706,8 @@ class DreamService extends Base {
             completedAt      : null,
             durationMs       : null,
             sessionsProcessed: null,
+            remBatchLimit    : null,
+            remBatchSaturated: false,
             diagnostic       : null,
             skipReason       : null,
             error            : null
@@ -805,11 +807,13 @@ class DreamService extends Base {
         // work-completed `completed` path without requiring a return-value refactor on
         // processUndigestedSessions. A pre-call query is cheaper than the alternative
         // of inspecting graph state after the fact.
-        let   sessionCount      = 0;
+        let sessionCount  = 0,
+            remBatchLimit = null;
         const sessionQueryStart = Date.now();
         try {
             const undigested = await this.findUndigestedSessions();
             sessionCount = Array.isArray(undigested) ? undigested.length : 0;
+            remBatchLimit = Math.max(0, Math.floor(readRequiredNumberLeaf('remSleepBatchLimit')));
             perPhaseStates.push(finishPhase('sessionQuery', sessionQueryStart, 'completed', {sessionsFound: sessionCount}));
         } catch (e) {
             const message = toErrorMessage(e);
@@ -843,6 +847,8 @@ class DreamService extends Base {
             return await finalize('skipped', {
                 reasonCode       : 'no-undigested-sessions',
                 sessionsProcessed: 0,
+                remBatchLimit,
+                remBatchSaturated: false,
                 skipReason       : 'no undigested sessions'
             });
         }
@@ -873,7 +879,12 @@ class DreamService extends Base {
                 }
             }
 
-            return await finalize('completed', {reasonCode: 'ok', sessionsProcessed: sessionCount});
+            return await finalize('completed', {
+                reasonCode       : 'ok',
+                sessionsProcessed: sessionCount,
+                remBatchLimit,
+                remBatchSaturated: remBatchLimit > 0 && sessionCount >= remBatchLimit
+            });
         } catch (e) {
             if (e.remState) {
                 if (Array.isArray(e.remState.perPhaseStates)) {

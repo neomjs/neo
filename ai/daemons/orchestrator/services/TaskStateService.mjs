@@ -185,14 +185,16 @@ export class TaskStateService extends Base {
     /**
      * Marks a task as successfully completed.
      * @param {String} taskName
+     * @param {Object|null} [lastCompletion=null] Bounded task-specific completion metadata.
      * @returns {void}
      */
-    markCompleted(taskName) {
+    markCompleted(taskName, lastCompletion=null) {
         const state = this.taskState[taskName];
         state.running       = false;
         state.pid           = null;
         state.lastExitCode  = 0;
         state.lastSuccessAt = new Date().toISOString();
+        state.lastCompletion = lastCompletion;
         this.writeState();
     }
 
@@ -218,6 +220,7 @@ export class TaskStateService extends Base {
         state.running      = false;
         state.pid          = null;
         state.lastExitCode = null;
+        state.lastCompletion = null;
         this.writeState();
     }
 
@@ -248,6 +251,7 @@ export class TaskStateService extends Base {
         state.pid          = null;
         state.lastExitCode = code;
         state.lastErrorAt  = new Date().toISOString();
+        state.lastCompletion = null;
         this.writeState();
     }
 

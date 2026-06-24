@@ -97,6 +97,7 @@ export function buildOrchestratorSchedulingOptions({orchestrator, config, now, r
                 dream                          : config.orchestrator.intervals.dreamMs,
                 messageConceptHarvest          : config.orchestrator.intervals.messageConceptHarvestMs,
                 dreamOverflowThreshold         : config.orchestrator.intervals.dreamOverflowThreshold,
+                remBacklogCatchupCooldown      : config.orchestrator.intervals.remBacklogCatchupCooldownMs,
                 goldenPath                     : config.orchestrator.intervals.goldenPathMs,
                 swarmHeartbeat                 : config.orchestrator.intervals.swarmHeartbeatMs,
                 embedDrainLivenessWatchdogCheck: config.orchestrator.intervals.embedDrainLivenessWatchdogCheckMs,
@@ -481,10 +482,21 @@ async function runDreamTask({taskName, reason, services}) {
         sessionsProcessed: outcome.sessionsProcessed,
         runId            : outcome.runId
     };
+    if (outcome.remBatchLimit !== undefined) recordPayload.remBatchLimit = outcome.remBatchLimit;
+    if (outcome.remBatchSaturated !== undefined) recordPayload.remBatchSaturated = outcome.remBatchSaturated;
 
     switch (outcome.status) {
         case 'completed':
-            services.taskStateService.markCompleted(taskName);
+            services.taskStateService.markCompleted(taskName, {
+                completedAt: outcome.completedAt,
+                durationMs : outcome.durationMs,
+                runId      : outcome.runId,
+                rem        : {
+                    sessionsProcessed: outcome.sessionsProcessed,
+                    batchLimit       : outcome.remBatchLimit,
+                    batchSaturated   : outcome.remBatchSaturated === true
+                }
+            });
             services.healthService?.recordTaskOutcome?.(taskName, 'completed', recordPayload);
             break;
         case 'skipped':
