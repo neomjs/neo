@@ -1,15 +1,65 @@
-import fs                                              from 'fs';
-import path                                            from 'path';
-import { Memory_Config as aiConfig }                   from '../../services.mjs';
-import Base                                            from '../../../src/core/Base.mjs';
-import Json                                            from '../../../src/util/Json.mjs';
-import logger                                          from '../../mcp/server/memory-core/logger.mjs';
-import {emitConsumerFriction}                          from '../memory-core/helpers/consumerFrictionHelper.mjs';
+import fs                            from 'fs';
+import path                          from 'path';
+import { Memory_Config as aiConfig } from '../../services.mjs';
+import Base                          from '../../../src/core/Base.mjs';
+import Json                          from '../../../src/util/Json.mjs';
+import logger                        from '../../mcp/server/memory-core/logger.mjs';
+import {
+    bytesToTokens,
+    emitConsumerFriction,
+    invokeWithGuardrail
+}                                                       from '../memory-core/helpers/consumerFrictionHelper.mjs';
 import {buildGraphProvider, resolveGraphModelProvider} from './providerDispatch.mjs';
+import {chunkSession}                                  from './sessionChunker.mjs';
 
 const
     conflictEntryRegex          = /^- \*\*\[(SUPERSEDES|OBSOLETES|DUPLICATE)\]\*\* `([^`]+)`: (.*?) \(Source Session: ([^)]+)\)$/gm,
-    topologyConflictRenderLimit = 5;
+    topologyConflictRenderLimit = 5,
+    topologyConflictSchema      = {
+        type      : 'object',
+        properties: {
+            conflicts: {
+                type    : 'array',
+                maxItems: topologyConflictRenderLimit,
+                items   : {
+                    type      : 'object',
+                    properties: {
+                        issueId    : {type: 'string', maxLength: 64},
+                        type       : {type: 'string', enum: ['SUPERSEDES', 'OBSOLETES', 'DUPLICATE']},
+                        description: {type: 'string', maxLength: 240}
+                    },
+                    required            : ['issueId', 'type', 'description'],
+                    additionalProperties: false
+                }
+            }
+        },
+        required            : ['conflicts'],
+        additionalProperties: false
+    };
+
+function estimateTopologyTokens(text) {
+    return bytesToTokens(Buffer.byteLength(text === undefined || text === null ? '' : String(text), 'utf8'));
+}
+
+function readRequiredChatNumberLeaf(leafName) {
+    const value = aiConfig.localModels.chat[leafName];
+
+    if (!Number.isFinite(value)) {
+        throw new Error(`[TopologyInferenceEngine] Required AiConfig leaf "localModels.chat.${leafName}" is missing or invalid. Update ai/mcp/server/memory-core/config.mjs from config.template.mjs.`);
+    }
+
+    return value;
+}
+
+function readRequiredChatStringLeaf(leafName) {
+    const value = aiConfig.localModels.chat[leafName];
+
+    if (typeof value !== 'string') {
+        throw new Error(`[TopologyInferenceEngine] Required AiConfig leaf "localModels.chat.${leafName}" is missing or invalid. Update ai/mcp/server/memory-core/config.mjs from config.template.mjs.`);
+    }
+
+    return value;
+}
 
 /**
  * @class Neo.ai.daemons.services.TopologyInferenceEngine
@@ -106,17 +156,22 @@ class TopologyInferenceEngine extends Base {
     }
 
     /**
-     * Dedicated inference pass to scan episodic memory explicitly for topological conflicts
-     * (e.g. tracking when an OPEN issue is superseded or rendered obsolete by recent session decisions).
-     * @param {String} contextText The raw session episodic document.
-     * @param {String} sessionId The ID of the session being processed.
+     * @summary Builds the bounded topology-conflict prompt for one turn-aligned chunk.
+     * @param {String} contextText Turn-aligned chunk text.
+     * @param {Object} chunkInfo Chunk provenance.
+     * @returns {String}
      */
-    async extractTopology(contextText, sessionId) {
-        logger.info(`[TopologyInferenceEngine] Extracting Topological Conflicts for session ID: ${sessionId}`);
+    buildTopologyPrompt(contextText, chunkInfo = {}) {
+        const chunkLine = chunkInfo.chunked
+            ? `Chunk ${chunkInfo.index + 1}/${chunkInfo.chunkCount}; source turn indices: ${chunkInfo.turnIndices.join(', ')}.`
+            : 'Single-pass session payload.';
 
-        const prompt = `
-You are the Neo.mjs REM Sandman. Analyze the following session history for strict topological conflicts.
-A topological conflict occurs primarily when the user and agent realize an OPEN GitHub ticket/issue has been rendered obsolete, superseded, or is a duplicate.
+        return `
+You are the Neo.mjs REM Sandman. Analyze the following session history chunk for strict topological conflicts.
+A topological conflict occurs only when the session explicitly establishes that an OPEN GitHub ticket/issue has been rendered obsolete, superseded, or is a duplicate.
+
+Return at most ${topologyConflictRenderLimit} highest-confidence conflicts for this chunk. Keep descriptions concise.
+Do not infer conflicts from missing earlier or later chunks.
 
 Enforce this STRICT JSON schema:
 {
@@ -131,46 +186,149 @@ Enforce this STRICT JSON schema:
 
 DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide purely the JSON object. If there are no conflicts, output {"conflicts": []}.
 
---- Session Episodic Memory ---
+--- Session Episodic Memory (${chunkLine}) ---
 ${contextText}
 `;
+    }
+
+    /**
+     * @summary Creates deterministic turn chunks after subtracting topology prompt overhead.
+     * @param {String[]} turnDocuments Complete raw memory turn documents.
+     * @param {String} sessionId Source session id.
+     * @returns {{chunked: Boolean, totalEstimatedTokens: Number, chunks: Object[]}}
+     */
+    createTopologyChunks(turnDocuments, sessionId) {
+        const envelopeTokens = estimateTopologyTokens(this.buildTopologyPrompt('', {
+                  chunked    : true,
+                  index      : 0,
+                  chunkCount : 1,
+                  turnIndices: []
+              })),
+              chunkBudget    = Math.max(1, readRequiredChatNumberLeaf('safeProcessingLimitTokens') - envelopeTokens);
+
+        return chunkSession(turnDocuments, {
+            sessionId,
+            safeProcessingLimitTokens: chunkBudget,
+            estimate                 : estimateTopologyTokens
+        });
+    }
+
+    /**
+     * @summary Returns provider options that bound topology output across graph providers.
+     * @returns {Object} Provider generation options.
+     */
+    getTopologyProviderOptions() {
+        return {
+            reasoning_effort    : readRequiredChatStringLeaf('graphReasoningEffort'),
+            responseSchema      : topologyConflictSchema,
+            responseSchemaName  : 'topologyConflicts',
+            responseSchemaStrict: true
+        }
+    }
+
+    /**
+     * Dedicated inference pass to scan episodic memory explicitly for topological conflicts
+     * (e.g. tracking when an OPEN issue is superseded or rendered obsolete by recent session decisions).
+     * @param {String} contextText The raw session episodic document.
+     * @param {String} sessionId The ID of the session being processed.
+     * @param {Object} [options]
+     * @param {String[]} [options.turnDocuments] Complete raw memory turn documents, preserving turn boundaries.
+     * @returns {Promise<Object|undefined>} Topology extraction summary.
+     */
+    async extractTopology(contextText, sessionId, options = {}) {
+        logger.info(`[TopologyInferenceEngine] Extracting Topological Conflicts for session ID: ${sessionId}`);
+
         try {
-            const graphProvider = resolveGraphModelProvider(aiConfig);
-            const provider      = buildGraphProvider({
+            const turnDocuments = Array.isArray(options.turnDocuments) && options.turnDocuments.length > 0
+                ? options.turnDocuments
+                : [contextText];
+            const chunkPlan = this.createTopologyChunks(turnDocuments, sessionId);
+
+            const graphProvider = resolveGraphModelProvider(aiConfig),
+                  provider      = buildGraphProvider({
                 modelProvider         : graphProvider,
                 ollamaConfig          : aiConfig.ollama,
                 openAiCompatibleConfig: aiConfig.openAiCompatible
-            });
+            }),
+                  consumerModel         = aiConfig[graphProvider].model,
+                  consumerContextTokens = readRequiredChatNumberLeaf('contextLimitTokens'),
+                  consumerSafeTokens    = readRequiredChatNumberLeaf('safeProcessingLimitTokens'),
+                  providerOptions       = this.getTopologyProviderOptions(),
+                  conflicts             = [];
 
-            const result = await provider.generate(prompt);
+            let skippedChunks = 0;
 
-            // Silent context-overflow detection (parallel single-attempt path): empty
-            // result.content with no thrown error is the LM Studio loaded-context-cap
-            // signature (ttftMs===ttltMs, outputChars===0). Emit the deterministic
-            // `'context-overflow'` symptom (auto-surfaces) and return early to avoid
-            // downstream null-payload handling on empty input.
-            if (!result?.content || result.content.trim() === '') {
-                logger.warn(`[TopologyInferenceEngine] Empty response from provider for session ${sessionId}; classifying as context-overflow (silent: no thrown error, no body).`);
+            for (let index = 0; index < chunkPlan.chunks.length; index++) {
+                const chunk  = chunkPlan.chunks[index],
+                      prompt = this.buildTopologyPrompt(chunk.text, {
+                          chunked    : chunkPlan.chunked,
+                          index,
+                          chunkCount : chunkPlan.chunks.length,
+                          turnIndices: chunk.turnIndices
+                      });
 
-                emitConsumerFriction({
-                    symptom                  : 'context-overflow',
+                const guardrailed = await invokeWithGuardrail({
+                    invocationFn             : () => provider.generate(prompt, providerOptions),
+                    inputPayload             : prompt,
+                    model                    : consumerModel,
+                    assetRef                 : chunk.chunkId,
                     consumer                 : 'TopologyInferenceEngine',
-                    model                    : aiConfig[graphProvider].model,
-                    assetRef                 : sessionId,
+                    contextLimitTokens       : consumerContextTokens,
+                    safeProcessingLimitTokens: consumerSafeTokens,
                     serviceDomain            : 'dream-pipeline',
-                    emissionPoint            : 'post-invocation-failure',
-                    inputBytes               : Buffer.byteLength(prompt),
-                    contextLimitTokens       : aiConfig.localModels.chat.contextLimitTokens,
-                    safeProcessingLimitTokens: aiConfig.localModels.chat.safeProcessingLimitTokens,
-                    note                     : `Silent empty-response from provider (no thrown error, no body). Prompt chars: ${prompt.length}.`
+                    note                     : `Topological conflict chunk ${index + 1}/${chunkPlan.chunks.length}`
                 });
 
-                return;
+                if (!guardrailed.result) {
+                    skippedChunks++;
+                    logger.warn(`[TopologyInferenceEngine] Chunk ${index + 1}/${chunkPlan.chunks.length} for session ${sessionId} skipped by ${guardrailed.friction?.symptom || 'guardrail'}.`);
+                    continue;
+                }
+
+                const result = guardrailed.result;
+
+                // Silent context-overflow detection (parallel single-attempt path): empty
+                // result.content with no thrown error is the LM Studio loaded-context-cap
+                // signature (ttftMs===ttltMs, outputChars===0). Emit the deterministic
+                // `'context-overflow'` symptom (auto-surfaces) and continue with the next
+                // turn-aligned chunk instead of retry-amplifying the same prompt.
+                if (!result?.content || result.content.trim() === '') {
+                    logger.warn(`[TopologyInferenceEngine] Empty response from provider for session ${sessionId} chunk ${index + 1}/${chunkPlan.chunks.length}; classifying as context-overflow (silent: no thrown error, no body).`);
+
+                    emitConsumerFriction({
+                        symptom                  : 'context-overflow',
+                        consumer                 : 'TopologyInferenceEngine',
+                        model                    : consumerModel,
+                        assetRef                 : chunk.chunkId,
+                        serviceDomain            : 'dream-pipeline',
+                        emissionPoint            : 'post-invocation-failure',
+                        inputBytes               : Buffer.byteLength(prompt, 'utf8'),
+                        inputTokensEstimate      : estimateTopologyTokens(prompt),
+                        contextLimitTokens       : consumerContextTokens,
+                        safeProcessingLimitTokens: consumerSafeTokens,
+                        note                     : `Silent empty-response from provider (no thrown error, no body). Chunk ${index + 1}/${chunkPlan.chunks.length}; prompt chars: ${prompt.length}.`
+                    });
+
+                    skippedChunks++;
+                    continue;
+                }
+
+                const payload = Json.extract(result.content);
+                if (payload && Array.isArray(payload.conflicts) && payload.conflicts.length > 0) {
+                    conflicts.push(...payload.conflicts.slice(0, topologyConflictRenderLimit));
+                }
             }
 
-            const payload = Json.extract(result.content);
-            if (!payload || !Array.isArray(payload.conflicts) || payload.conflicts.length === 0) {
-                return;
+            if (conflicts.length === 0) {
+                return {
+                    chunked: chunkPlan.chunked,
+                    chunks : {
+                        total    : chunkPlan.chunks.length,
+                        skipped  : skippedChunks,
+                        processed: chunkPlan.chunks.length - skippedChunks
+                    },
+                    conflictCount: 0
+                }
             }
 
             // Write to sandman_handoff.md
@@ -184,13 +342,23 @@ ${contextText}
                 handoffContent = '# Sandman Handoff Alerts\n\nThis file tracks topological conflict alerts generated during overnight REM sleep cycles. Agents MUST reconcile these conflicts structurally upon startup.\n\n## Active Conflicts\n\n';
             }
 
-            const {content, changed} = this.mergeConflictAlerts(handoffContent, payload.conflicts, sessionId);
+            const {content, changed} = this.mergeConflictAlerts(handoffContent, conflicts, sessionId);
 
             if (changed) {
                 await fs.promises.mkdir(path.dirname(handoffFile), {recursive: true});
                 await fs.promises.writeFile(tmpFile, content, 'utf8');
                 await fs.promises.rename(tmpFile, handoffFile);
                 logger.info(`[TopologyInferenceEngine] Registered new topological conflicts to sandman_handoff.md for session ${sessionId}.`);
+            }
+
+            return {
+                chunked: chunkPlan.chunked,
+                chunks : {
+                    total    : chunkPlan.chunks.length,
+                    skipped  : skippedChunks,
+                    processed: chunkPlan.chunks.length - skippedChunks
+                },
+                conflictCount: conflicts.length
             }
 
         } catch (error) {
