@@ -20,6 +20,7 @@ import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 import fs              from 'fs-extra';
 import matter          from 'gray-matter';
 import path            from 'path';
+import crypto          from 'crypto';
 
 /**
  * @summary Regression coverage for IssueSyncer's timeline-based comment accounting.
@@ -141,7 +142,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
 
         const chunkNumber = 1;
         const writtenPath = path.join(issueSyncConfig.issuesDir, `chunk-${chunkNumber}`, `issue-${mockIssue.number}.md`);
-        const written     = await fs.readFile(writtenPath, 'utf-8');
+        const written = await fs.readFile(writtenPath, 'utf-8');
 
         // Every comment body must appear — the bug being fixed is that second-page comments
         // were silently dropped.
@@ -199,7 +200,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         // Frontmatter commentsCount uses the same derivation — no dual-source divergence possible.
         const chunkNumber = 1;
         const writtenPath = path.join(issueSyncConfig.issuesDir, `chunk-${chunkNumber}`, `issue-${mockIssue.number}.md`);
-        const written     = await fs.readFile(writtenPath, 'utf-8');
+        const written = await fs.readFile(writtenPath, 'utf-8');
         expect(written).toContain(`commentsCount: ${COMMENT_COUNT}`);
     });
 
@@ -305,9 +306,9 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         // Assert via configured active root (issuesDir) rather than literal '/issues/' substring —
         // the test rewrites issuesDir to a tmp dir, so the literal substring no longer matches even
         // when behavior is correct.
-        const targetPath           = metadata.issues['50001'].path;
-        const absoluteTargetPath   = path.resolve(aiConfig.projectRoot, targetPath);
-        const relativeToIssuesDir  = path.relative(issueSyncConfig.issuesDir, absoluteTargetPath);
+        const targetPath          = metadata.issues['50001'].path;
+        const absoluteTargetPath  = path.resolve(aiConfig.projectRoot, targetPath);
+        const relativeToIssuesDir = path.relative(issueSyncConfig.issuesDir, absoluteTargetPath);
         expect(relativeToIssuesDir.startsWith('..')).toBe(false); // path is under issuesDir
         expect(targetPath).not.toContain('/archive/');
         expect(targetPath).not.toContain('unversioned');
@@ -382,8 +383,8 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         };
 
         try {
-            const metadata = {issues: {}};
-            const stats    = await IssueSyncer.refetchIssuesByNumber([mockIssue.number], metadata);
+            const metadata   = {issues: {}};
+            const stats      = await IssueSyncer.refetchIssuesByNumber([mockIssue.number], metadata);
             const targetPath = metadata.issues[mockIssue.number].path;
 
             expect(stats.refetched.count).toBe(1);
@@ -456,7 +457,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         const originalSorted = ReleaseNotesSyncer.sortedReleases;
         const issueNumber    = 6003;
         const oldAbs         = path.join(issueSyncConfig.issuesDir, 'chunk-77', `issue-${issueNumber}.md`);
-        const oldRel         = path.relative(aiConfig.projectRoot, oldAbs);
+        const oldRel = path.relative(aiConfig.projectRoot, oldAbs);
 
         await fs.ensureDir(path.dirname(oldAbs));
         await fs.writeFile(oldAbs, 'CLOSED ISSUE CONTENT', 'utf8');
@@ -479,7 +480,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         };
 
         try {
-            const stats     = await IssueSyncer.reconcileClosedIssueLocations(metadata);
+            const stats = await IssueSyncer.reconcileClosedIssueLocations(metadata);
             const targetAbs = path.join(issueSyncConfig.archiveRoot, 'issues', 'v13.0.0', 'chunk-1', `issue-${issueNumber}.md`);
 
             expect(stats.count).toBe(1);
@@ -677,7 +678,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
 
         const chunkNumber = 1;
         const writtenPath = path.join(issueSyncConfig.issuesDir, `chunk-${chunkNumber}`, `issue-${mockIssue.number}.md`);
-        const written     = await fs.readFile(writtenPath, 'utf-8');
+        const written = await fs.readFile(writtenPath, 'utf-8');
 
         // Fallback markers appear in rendered markdown.
         expect(written).toContain('assigned to @Ghost');
@@ -871,10 +872,10 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         await fs.writeFile(issueBOldAbsolutePath, 'mock content B', 'utf8');
 
         // Spy on logger.warn and logger.debug.
-        const warnCalls  = [];
-        const debugCalls = [];
-        const originalWarn  = logger.warn;
-        const originalDebug = logger.debug;
+        const warnCalls                = [];
+        const debugCalls               = [];
+        const originalWarn             = logger.warn;
+        const originalDebug            = logger.debug;
         const originalRouteByMilestone = issueSyncConfig.routeByMilestone;
         logger.warn  = (...args) => { warnCalls.push(args[0]); };
         logger.debug = (...args) => { debugCalls.push(args[0]); };
@@ -978,9 +979,9 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         await fs.ensureDir(path.dirname(issueAbsolutePath));
         await fs.writeFile(issueAbsolutePath, 'mock content unchanged', 'utf8');
 
-        const warnCalls = [];
-        const debugCalls = [];
-        const originalWarn = logger.warn;
+        const warnCalls     = [];
+        const debugCalls    = [];
+        const originalWarn  = logger.warn;
         const originalDebug = logger.debug;
         logger.warn  = (...args) => { warnCalls.push(args[0]); };
         logger.debug = (...args) => { debugCalls.push(args[0]); };
@@ -1052,7 +1053,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         // oldVersion-precedence keep it pinned during a normal sync; the migration ignores both and,
         // with the full release history, recomputes closedAt→release and moves it to v7.0.0.
         const originalSorted = ReleaseNotesSyncer.sortedReleases;
-        const N        = 6001;
+        const N              = 6001;
         const wrongAbs = path.join(issueSyncConfig.archiveRoot, 'issues', 'v8.1.0', 'chunk-1', `issue-${N}.md`);
         const wrongRel = path.relative(aiConfig.projectRoot, wrongAbs);
         await fs.ensureDir(path.dirname(wrongAbs));
@@ -1076,7 +1077,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         };
 
         try {
-            const result     = await IssueSyncer.migrateArchiveBuckets(metadata);
+            const result = await IssueSyncer.migrateArchiveBuckets(metadata);
             const correctAbs = path.join(issueSyncConfig.archiveRoot, 'issues', 'v7.0.0', 'chunk-1', `issue-${N}.md`);
 
             expect(result.moved).toBe(1);
@@ -1098,7 +1099,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
 
     test('migrateArchiveBuckets dryRun reports the plan without moving any file (#12194)', async () => {
         const originalSorted = ReleaseNotesSyncer.sortedReleases;
-        const N        = 6002;
+        const N              = 6002;
         const wrongAbs = path.join(issueSyncConfig.archiveRoot, 'issues', 'v8.1.0', 'chunk-1', `issue-${N}.md`);
         const wrongRel = path.relative(aiConfig.projectRoot, wrongAbs);
         await fs.ensureDir(path.dirname(wrongAbs));
@@ -1147,6 +1148,158 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         } finally {
             ReleaseNotesSyncer.sortedReleases = originalSorted;
         }
+    });
+
+    test('pushToGitHub heals generated-only drift without mutating GitHub (#13958)', async () => {
+        const issueNumber = 43058;
+        const filePath    = path.join(issueSyncConfig.issuesDir, 'chunk-1', `issue-${issueNumber}.md`);
+        const markdown = matter.stringify(
+            '# Generated-only drift\n\nRemote body already matches.\n\n## Timeline\n\n### @tobiu - 2026-06-24T12:00:00Z\n\nGenerated timeline changed.\n',
+            {
+                id       : issueNumber,
+                title    : 'Generated-only drift',
+                state    : 'OPEN',
+                updatedAt: '2026-06-24T12:00:00Z',
+                githubUrl    : `https://github.com/neomjs/neo/issues/${issueNumber}`,
+                author       : 'tobiu',
+                commentsCount: 1,
+                contentTrust : {projected: true, quarantined: 0, signals: []}
+            },
+            {lineWidth: -1}
+        );
+        const currentHash = hashContent(markdown);
+
+        await fs.ensureDir(path.dirname(filePath));
+        await fs.writeFile(filePath, markdown, 'utf8');
+
+        const metadata = {
+            lastSync: '2026-06-24T11:00:00Z',
+            issues  : {
+                [issueNumber]: {
+                    state        : 'OPEN',
+                    path         : path.relative(aiConfig.projectRoot, filePath),
+                    updatedAt    : '2026-06-24T12:00:00Z',
+                    closedAt     : null,
+                    milestone    : null,
+                    title        : 'Generated-only drift',
+                    contentHash  : 'stale-full-render-hash',
+                    commentsTotal: 1
+                }
+            }
+        };
+
+        const queries = [];
+        GraphqlService.query = async (query, variables) => {
+            queries.push({query, variables});
+
+            if (query.includes('GetIssueForPush')) {
+                return {
+                    repository: {
+                        issue: {
+                            id   : 'I_generated_only',
+                            title: 'Generated-only drift',
+                            body : 'Remote body already matches.'
+                        }
+                    }
+                };
+            }
+
+            if (query.includes('UpdateIssue')) {
+                throw new Error('generated-only drift must not call UPDATE_ISSUE');
+            }
+
+            throw new Error(`Unexpected GraphQL query in test: ${query.slice(0, 80)}`);
+        };
+
+        const stats = await IssueSyncer.pushToGitHub(metadata);
+
+        expect(stats.count).toBe(0);
+        expect(stats.generatedOnly.count).toBe(1);
+        expect(stats.generatedOnly.issues).toEqual([issueNumber]);
+        expect(metadata.issues[issueNumber].contentHash).toBe(currentHash);
+        expect(queries.filter(item => item.query.includes('UpdateIssue'))).toHaveLength(0);
+    });
+
+    test('pushToGitHub still mutates GitHub for real title/body edits (#13958)', async () => {
+        const issueNumber = 43059;
+        const filePath    = path.join(issueSyncConfig.issuesDir, 'chunk-1', `issue-${issueNumber}.md`);
+        const markdown = matter.stringify(
+            '# Real body edit\n\nLocal body changed.\n\n## Timeline\n\n### @tobiu - 2026-06-24T12:00:00Z\n\nGenerated timeline.\n',
+            {
+                id       : issueNumber,
+                title    : 'Real body edit',
+                state    : 'OPEN',
+                updatedAt: '2026-06-24T12:00:00Z',
+                githubUrl    : `https://github.com/neomjs/neo/issues/${issueNumber}`,
+                author       : 'tobiu',
+                commentsCount: 1,
+                contentTrust : {projected: true, quarantined: 0, signals: []}
+            },
+            {lineWidth: -1}
+        );
+        const currentHash = hashContent(markdown);
+
+        await fs.ensureDir(path.dirname(filePath));
+        await fs.writeFile(filePath, markdown, 'utf8');
+
+        const metadata = {
+            lastSync: '2026-06-24T11:00:00Z',
+            issues  : {
+                [issueNumber]: {
+                    state        : 'OPEN',
+                    path         : path.relative(aiConfig.projectRoot, filePath),
+                    updatedAt    : '2026-06-24T12:00:00Z',
+                    closedAt     : null,
+                    milestone    : null,
+                    title        : 'Real body edit',
+                    contentHash  : 'stale-full-render-hash',
+                    commentsTotal: 1
+                }
+            }
+        };
+
+        const updates = [];
+        GraphqlService.query = async (query, variables) => {
+            if (query.includes('GetIssueForPush')) {
+                return {
+                    repository: {
+                        issue: {
+                            id   : 'I_real_edit',
+                            title: 'Real body edit',
+                            body : 'Remote body before local edit.'
+                        }
+                    }
+                };
+            }
+
+            if (query.includes('UpdateIssue')) {
+                updates.push(variables);
+                return {
+                    updateIssue: {
+                        issue: {
+                            number   : issueNumber,
+                            title    : variables.title,
+                            updatedAt: '2026-06-24T12:01:00Z'
+                        }
+                    }
+                };
+            }
+
+            throw new Error(`Unexpected GraphQL query in test: ${query.slice(0, 80)}`);
+        };
+
+        const stats = await IssueSyncer.pushToGitHub(metadata);
+
+        expect(stats.count).toBe(1);
+        expect(stats.issues).toEqual([issueNumber]);
+        expect(stats.generatedOnly.count).toBe(0);
+        expect(updates).toEqual([{
+            issueId: 'I_real_edit',
+            title  : 'Real body edit',
+            body   : 'Local body changed.'
+        }]);
+        expect(metadata.issues[issueNumber].contentHash).toBe(currentHash);
+        expect(metadata.issues[issueNumber].updatedAt).toBe('2026-06-24T12:01:00Z');
     });
 });
 
@@ -1198,4 +1351,8 @@ function buildMockIssue({number, title, timelineFirst, hasNextPage, endCursor}) 
             nodes   : timelineFirst
         }
     };
+}
+
+function hashContent(content) {
+    return crypto.createHash('sha256').update(content).digest('hex');
 }
