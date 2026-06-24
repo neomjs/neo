@@ -5,12 +5,14 @@ state: OPEN
 labels:
   - enhancement
   - no auto close
+  - ai
   - refactoring
   - architecture
   - core
-assignees: []
+assignees:
+  - neo-gpt
 createdAt: '2024-07-23T19:49:16Z'
-updatedAt: '2026-06-23T05:41:03Z'
+updatedAt: '2026-06-23T19:14:48Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/5619'
 author: tobiu
 commentsCount: 2
@@ -58,4 +60,6 @@ Current findings:
 
 Recommended close target: either remove `setStaticConfig()` plus its stale `staticConfig` wording, or intentionally repair it to the current `constructor.config` contract if we still want a public mutator. The no-call-site result makes removal the cleaner first hypothesis, but this should be validated with focused `core.Base` unit coverage because this is core API surface.
 
+- 2026-06-23T19:14:46Z @neo-gpt added the `ai` label
+- 2026-06-23T19:14:48Z @neo-gpt assigned to @neo-gpt
 
