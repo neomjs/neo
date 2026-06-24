@@ -526,14 +526,214 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             });
 
             const frictions = getAggregatedFrictions();
-            const friction  = frictions.find(item => item.assetRef === 'consumer-model-telemetry-session');
+            const friction  = frictions.find(item => item.assetRef === 'consumer-model-telemetry-session:chunk:0');
 
             expect(friction).toBeDefined();
             expect(friction.model).toBe('gemma4-real-model');
             expect(friction.model).not.toBe('ollama');
+            expect(result.evidence.assetRef).toBe('consumer-model-telemetry-session:chunk:0');
+            expect(result.evidence.chunkId).toBe('consumer-model-telemetry-session:chunk:0');
         } finally {
             aiConfig.graphProvider                             = originalGraphProvider;
             aiConfig.ollama.model                              = originalOllamaModel;
+            aiConfig.localModels.chat.contextLimitTokens        = originalContextLimitTokens;
+            aiConfig.localModels.chat.safeProcessingLimitTokens = originalSafeProcessingLimitTokens;
+            clearAggregatedFrictions();
+        }
+    });
+
+    test('chunk-aware Tri-Vector preserves small-session single-pass behavior (#12073)', async () => {
+        const baseGenerate                      = OpenAiCompatible.prototype.generate;
+        const originalGraphProvider             = aiConfig.graphProvider;
+        const originalContextLimitTokens        = aiConfig.localModels.chat.contextLimitTokens;
+        const originalSafeProcessingLimitTokens = aiConfig.localModels.chat.safeProcessingLimitTokens;
+        const providerCalls                     = [];
+
+        try {
+            aiConfig.graphProvider                              = 'openAiCompatible';
+            aiConfig.localModels.chat.contextLimitTokens        = 100000;
+            aiConfig.localModels.chat.safeProcessingLimitTokens = 50000;
+
+            OpenAiCompatible.prototype.generate = async function(messages) {
+                providerCalls.push(messages);
+
+                return {
+                    content: JSON.stringify({
+                        a2a_version     : '1.0',
+                        agent_id        : 'Antigravity',
+                        session_artifact: {
+                            feature_namespace     : 'Neo.ai.Small',
+                            human_readable_summary: 'Small session used the original single-pass path.',
+                            graph                 : {nodes: [], edges: []}
+                        }
+                    })
+                };
+            };
+
+            const result = await SemanticGraphExtractor.executeTriVectorExtraction({
+                id           : 'mock-small-vector-id',
+                meta         : {sessionId: 'small-trivector-session'},
+                document     : 'turn-a\n\n---\n\nturn-b',
+                turnDocuments: ['turn-a', 'turn-b']
+            });
+
+            expect(providerCalls.length).toBe(1);
+            expect(providerCalls[0][1].content).toContain('turn-a\n\n---\n\nturn-b');
+            expect(result.session_artifact.chunking).toBeUndefined();
+            expect(result.session_artifact.human_readable_summary).toBe('Small session used the original single-pass path.');
+        } finally {
+            OpenAiCompatible.prototype.generate                 = baseGenerate;
+            aiConfig.graphProvider                              = originalGraphProvider;
+            aiConfig.localModels.chat.contextLimitTokens        = originalContextLimitTokens;
+            aiConfig.localModels.chat.safeProcessingLimitTokens = originalSafeProcessingLimitTokens;
+        }
+    });
+
+    test('chunk-aware Tri-Vector maps chunks, reduces deterministically, and dedupes by type/name (#12073)', async () => {
+        const baseGenerate                      = OpenAiCompatible.prototype.generate;
+        const originalGraphProvider             = aiConfig.graphProvider;
+        const originalContextLimitTokens        = aiConfig.localModels.chat.contextLimitTokens;
+        const originalSafeProcessingLimitTokens = aiConfig.localModels.chat.safeProcessingLimitTokens;
+        const providerCalls                     = [];
+
+        try {
+            aiConfig.graphProvider                              = 'openAiCompatible';
+            aiConfig.localModels.chat.contextLimitTokens        = 100000;
+            aiConfig.localModels.chat.safeProcessingLimitTokens = 5000;
+
+            OpenAiCompatible.prototype.generate = async function(messages) {
+                const userContent = messages[1].content;
+                providerCalls.push(userContent);
+
+                const index = providerCalls.length - 1;
+
+                return {
+                    content: JSON.stringify({
+                        a2a_version     : '1.0',
+                        agent_id        : 'Antigravity',
+                        session_artifact: {
+                            feature_namespace     : index === 0 ? 'Neo.ai.Chunked' : null,
+                            human_readable_summary: `summary-${index}`,
+                            roadmap_impact: index === 1 ? 'second chunk impact' : null,
+                            graph         : {
+                                nodes: [
+                                    {
+                                        id         : `CLASS:Shared${index}`,
+                                        type: 'CLASS',
+                                        name: 'SharedThing',
+                                        description: `Shared description ${index}`,
+                                        tags       : [`chunk-${index}`]
+                                    },
+                                    {
+                                        id         : `CONCEPT:Chunk${index}`,
+                                        type       : 'CONCEPT',
+                                        name       : `Chunk${index}`,
+                                        description: `Unique chunk ${index}`
+                                    }
+                                ],
+                                edges: [
+                                    {
+                                        source       : `CLASS:Shared${index}`,
+                                        target       : `CONCEPT:Chunk${index}`,
+                                        relationship: 'RELATES_TO',
+                                        weight      : index + 1,
+                                        justification: `chunk ${index}`
+                                    }
+                                ]
+                            }
+                        }
+                    })
+                };
+            };
+
+            const turnDocuments = Array.from({length: 4}, (_, index) => `turn-${index}\n${'x'.repeat(6000)}`);
+            const result = await SemanticGraphExtractor.executeTriVectorExtraction({
+                id      : 'mock-chunked-vector-id',
+                meta    : {sessionId: 'chunked-trivector-session'},
+                document: turnDocuments.join('\n\n---\n\n'),
+                turnDocuments
+            });
+
+            expect(providerCalls.length).toBeGreaterThan(1);
+            expect(result.session_artifact.chunking.chunked).toBe(true);
+            expect(result.session_artifact.chunking.chunks.length).toBe(providerCalls.length);
+            expect(result.session_artifact.graph.nodes.filter(node => node.name === 'SharedThing').length).toBe(1);
+            expect(result.session_artifact.graph.edges.some(edge => edge.source === 'CLASS:Shared1')).toBe(false);
+            expect(result.session_artifact.graph.edges.some(edge => edge.source === 'CLASS:Shared0')).toBe(true);
+            expect(result.session_artifact.human_readable_summary).toContain('summary-0');
+            expect(result.session_artifact.human_readable_summary).toContain('summary-1');
+            expect(result.session_artifact.roadmap_impact).toBe('second chunk impact');
+            expect(GraphService.db.nodes.get('CLASS:Shared0')).toBeTruthy();
+            expect(GraphService.db.nodes.get('CLASS:Shared1')).toBeFalsy();
+        } finally {
+            OpenAiCompatible.prototype.generate                 = baseGenerate;
+            aiConfig.graphProvider                              = originalGraphProvider;
+            aiConfig.localModels.chat.contextLimitTokens        = originalContextLimitTokens;
+            aiConfig.localModels.chat.safeProcessingLimitTokens = originalSafeProcessingLimitTokens;
+        }
+    });
+
+    test('chunk-aware Tri-Vector aborts reduce before graph commit when a chunk fails (#12073)', async () => {
+        const baseGenerate                      = OpenAiCompatible.prototype.generate;
+        const originalGraphProvider             = aiConfig.graphProvider;
+        const originalContextLimitTokens        = aiConfig.localModels.chat.contextLimitTokens;
+        const originalSafeProcessingLimitTokens = aiConfig.localModels.chat.safeProcessingLimitTokens;
+        let   invocationCount                   = 0;
+
+        try {
+            aiConfig.graphProvider                              = 'openAiCompatible';
+            aiConfig.localModels.chat.contextLimitTokens        = 100000;
+            aiConfig.localModels.chat.safeProcessingLimitTokens = 5000;
+
+            OpenAiCompatible.prototype.generate = async function() {
+                invocationCount++;
+
+                if (invocationCount === 2) {
+                    return {content: ''};
+                }
+
+                return {
+                    content: JSON.stringify({
+                        a2a_version     : '1.0',
+                        agent_id        : 'Antigravity',
+                        session_artifact: {
+                            feature_namespace     : 'Neo.ai.Partial',
+                            human_readable_summary: 'partial chunk success',
+                            graph                 : {
+                                nodes: [{
+                                    id         : 'CLASS:PartialChunk',
+                                    type       : 'CLASS',
+                                    name       : 'PartialChunk',
+                                    description: 'Must not be committed when a later chunk fails.'
+                                }],
+                                edges: []
+                            }
+                        }
+                    })
+                };
+            };
+
+            const turnDocuments = Array.from({length: 3}, (_, index) => `turn-${index}\n${'x'.repeat(6000)}`);
+            const result = await SemanticGraphExtractor.executeTriVectorExtraction({
+                id      : 'mock-chunk-failure-vector-id',
+                meta    : {sessionId: 'chunk-failure-trivector-session'},
+                document: turnDocuments.join('\n\n---\n\n'),
+                turnDocuments
+            });
+
+            expect(result).toMatchObject({
+                ok                : false,
+                deferReason       : 'under-band-choke',
+                frictionSymptom   : 'context-overflow',
+                terminalForCadence: true
+            });
+            expect(result.evidence.chunkId).toBe('chunk-failure-trivector-session:chunk:1');
+            expect(result.evidence.chunkIndex).toBe(1);
+            expect(result.evidence.chunkCount).toBeGreaterThan(1);
+            expect(GraphService.db.nodes.get('CLASS:PartialChunk')).toBeFalsy();
+        } finally {
+            OpenAiCompatible.prototype.generate                 = baseGenerate;
+            aiConfig.graphProvider                              = originalGraphProvider;
             aiConfig.localModels.chat.contextLimitTokens        = originalContextLimitTokens;
             aiConfig.localModels.chat.safeProcessingLimitTokens = originalSafeProcessingLimitTokens;
             clearAggregatedFrictions();

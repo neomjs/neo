@@ -495,6 +495,7 @@ class DreamService extends Base {
                         sessionState.triVector.deferReason        = extractionFailure.deferReason;
                         sessionState.triVector.frictionSymptom    = extractionFailure.frictionSymptom;
                         sessionState.triVector.terminalForCadence = extractionFailure.terminalForCadence === true;
+                        sessionState.triVector.evidence           = extractionFailure.evidence;
                     }
                     if (!success) {
                         sessionState.failureReasons.push(extractionFailure ? getTriVectorFailureMessage(extractionFailure) : 'tri-vector extraction returned null');
