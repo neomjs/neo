@@ -535,7 +535,7 @@ class Config extends ConfigProvider {
              * Maximum recent open PR rows rendered inside `Active PR Cycle State`.
              * @type {number}
              */
-            goldenPathRecentOpenPrRenderLimit: leaf(5, 'NEO_GOLDEN_PATH_RECENT_OPEN_PR_RENDER_LIMIT', 'number'),
+            goldenPathRecentOpenPrRenderLimit: leaf(10, 'NEO_GOLDEN_PATH_RECENT_OPEN_PR_RENDER_LIMIT', 'number'),
             /**
              * Maximum Golden Path priority nodes rendered into the Sandman handoff. The
              * Golden Path is the one section that earns more depth than the 5-row

@@ -33,18 +33,13 @@ Silent Threads does **not** affect `AgentOrchestrator.parseGoldenPath()` routing
 The orchestrator continues to consume only the `## Computed Golden Path` section.
 
 ### 4. Active PR Cycle State
-A live extraction of active Pull Requests originated by the core Swarm agents (`@neo-opus-ada`, `@neo-gemini-pro`, `@neo-gpt`).
-Provides immediate visibility into cross-peer workflow, blocking states, and review cycles.
-
-Each PR listing includes:
-- **Lane State:** Determines execution stage (e.g., `AWAITING_REVIEW`, `AWAITING_HUMAN`, `substrate`).
-- **Cycle:** Current iteration of the review protocol.
-- **Reviewers:** Agents or Humans requested for review.
-- **Status:** Last known explicit approval/changes-requested state from comments or reviews.
-- **Head SHA:** Ensures agents operate on current branches without race conditions.
+A compact live extraction of recent open Pull Requests. The section is capped by
+`goldenPathRecentOpenPrRenderLimit` and shows only the recent PR rows plus
+cross-family review status; detailed lane, reviewer, status, and SHA checks belong
+to live PR inspection, not the boot handoff.
 
 ### 5. Latest Priority Backlog
 A fallback queue of recent structurally significant tickets that are `OPEN` and not marked `needs-re-triage`. Used to guide execution when the Golden Path is fully blocked.
 
 ### 6. Computed Golden Path
-The top 5 nodes mathematically recommended for execution, calculated via Hybrid GraphRAG (Semantic Vector Distance + Structural Edge Weight). A strategic brief synthesizing *why* these nodes represent the active frontier is appended to guide agent intuition.
+The configured top nodes mathematically recommended for execution, calculated via Hybrid GraphRAG (Semantic Vector Distance + Structural Edge Weight). A strategic brief synthesizing *why* these nodes represent the active frontier is appended to guide agent intuition; a deterministic fallback keeps the section present when the LLM brief is unavailable.
