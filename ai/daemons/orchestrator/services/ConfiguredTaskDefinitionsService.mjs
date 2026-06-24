@@ -121,7 +121,7 @@ function applyConfiguredLmsTask(tasks) {
             try {
                 await fetchOpenAiCompatibleModelIds({
                     host     : AiConfig.openAiCompatible.host,
-                    timeoutMs: AiConfig.orchestrator.providerReadiness.timeoutMs ?? 2000
+                    timeoutMs: AiConfig.orchestrator.providerReadiness.timeoutMs
                 });
                 return true;
             } catch {
@@ -230,10 +230,10 @@ function applyConfiguredOllamaTask(tasks) {
             // probes still pass). Only a real inference canary, failing SUSTAINED (N consecutive
             // cooldown-gated probes), distinguishes stuck from busy and recycles the child; a single
             // failure stays healthy so a legitimately-long request is never killed.
-            const stuckCfg  = AiConfig.orchestrator?.providerReadiness?.stuckRunner;
+            const stuckCfg  = AiConfig.orchestrator.providerReadiness.stuckRunner;
             const chatModel = roles.find(role => role.role === 'chat')?.model;
 
-            if (!(stuckCfg?.enabled ?? false) || !chatModel) {
+            if (!stuckCfg.enabled || !chatModel) {
                 return true;
             }
 
@@ -242,12 +242,12 @@ function applyConfiguredOllamaTask(tasks) {
             const served = await probeOllamaServing({
                 host     : readinessConfig.host,
                 model    : chatModel,
-                timeoutMs: stuckCfg.canaryTimeoutMs ?? 10000
+                timeoutMs: stuckCfg.canaryTimeoutMs
             });
             const verdict = classifyStuckRunner({
                 served,
                 consecutiveFailures: consecutiveStuckFailures,
-                threshold          : stuckCfg.consecutiveFailures ?? 3
+                threshold          : stuckCfg.consecutiveFailures
             });
 
             consecutiveStuckFailures = verdict.consecutiveFailures;

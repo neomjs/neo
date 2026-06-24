@@ -32,7 +32,7 @@ async function waitForCondition(condition, message, timeoutMs = 250) {
 
 test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openAiCompatible retry, QoS, and lms server start support', () => {
     let SDK, TextEmbeddingService, server;
-    let requestCount = 0;
+    let requestCount   = 0;
     let serverBehavior = 'succeed';
     let lastRequest;
     let allRequests;
@@ -42,6 +42,8 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
     let originalHost, originalRetryCount, originalRetryDelay;
     let originalContentionRetryCount, originalContentionRetryDelay, originalContentionTimeout;
     let originalBatchEmbeddingChunkSize, originalBatchEmbeddingYieldMs;
+    let originalLmsPort;
+    let originalLoadedModelsProbe;
 
     test.beforeAll(async () => {
         SDK = await import('../../../../../../ai/services.mjs');
@@ -188,6 +190,8 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         originalContentionTimeout = aiConfig.openAiCompatible.contentionTimeoutMs;
         originalBatchEmbeddingChunkSize = aiConfig.openAiCompatible.batchEmbeddingChunkSize;
         originalBatchEmbeddingYieldMs = aiConfig.openAiCompatible.batchEmbeddingYieldMs;
+        originalLmsPort = aiConfig.orchestrator.lms.port;
+        originalLoadedModelsProbe = TextEmbeddingService.openAiCompatibleLoadedModelsProbe;
 
         aiConfig.openAiCompatible.host = `http://127.0.0.1:${testPort}`;
         aiConfig.openAiCompatible.unloadRetryCount = 3;
@@ -197,6 +201,10 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         aiConfig.openAiCompatible.contentionTimeoutMs = 25;
         aiConfig.openAiCompatible.batchEmbeddingChunkSize = 5;
         aiConfig.openAiCompatible.batchEmbeddingYieldMs = 0;
+        TextEmbeddingService.openAiCompatibleLoadedModelsProbe = async () => [{
+            id           : aiConfig.openAiCompatible.embeddingModel,
+            contextLength: aiConfig.localModels.embedding.contextLimitTokens
+        }];
     });
 
     test.afterEach(() => {
@@ -208,6 +216,8 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         aiConfig.openAiCompatible.contentionTimeoutMs = originalContentionTimeout;
         aiConfig.openAiCompatible.batchEmbeddingChunkSize = originalBatchEmbeddingChunkSize;
         aiConfig.openAiCompatible.batchEmbeddingYieldMs = originalBatchEmbeddingYieldMs;
+        aiConfig.orchestrator.lms.port = originalLmsPort;
+        TextEmbeddingService.openAiCompatibleLoadedModelsProbe = originalLoadedModelsProbe;
     });
 
     test('first-call-succeeds-no-retry path', async () => {
@@ -252,6 +262,60 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
                 input: ['first', 'second']
             }
         });
+    });
+
+    test('openAiCompatible refuses single embeddings when LM Studio loaded context is below the configured embedding context (#13944)', async () => {
+        serverBehavior = 'succeed';
+        TextEmbeddingService.openAiCompatibleLoadedModelsProbe = async () => [{
+            id           : aiConfig.openAiCompatible.embeddingModel,
+            contextLength: 8192
+        }];
+
+        const providerTruncatedInput = 'x'.repeat(12746 * 3);
+
+        await expect(TextEmbeddingService.embedText(providerTruncatedInput, 'openAiCompatible'))
+            .rejects.toThrow(/loaded=8192, configured>=32768, inputEstimate=12746/);
+
+        expect(requestCount).toBe(0);
+    });
+
+    test('openAiCompatible refuses batch embeddings before any provider-truncated request is posted (#13944)', async () => {
+        serverBehavior = 'chunked-batch-succeed';
+        let probeCount = 0;
+        TextEmbeddingService.openAiCompatibleLoadedModelsProbe = async () => {
+            probeCount++;
+            return [{
+                id           : aiConfig.openAiCompatible.embeddingModel,
+                contextLength: 8192
+            }];
+        };
+
+        const providerTruncatedInput = 'x'.repeat(12746 * 3);
+
+        await expect(TextEmbeddingService.embedTexts(['short', providerTruncatedInput], 'openAiCompatible'))
+            .rejects.toThrow(/LM Studio embedding context too small/);
+
+        expect(probeCount).toBe(1);
+        expect(requestCount).toBe(0);
+    });
+
+    test('openAiCompatible skips LM Studio context probe for non-LMS endpoints (#13944)', async () => {
+        serverBehavior = 'succeed';
+
+        const originalUnitTestMode = Neo.config.unitTestMode;
+
+        try {
+            Neo.config.unitTestMode = false;
+            aiConfig.orchestrator.lms.port = '1234';
+            TextEmbeddingService.openAiCompatibleLoadedModelsProbe = null;
+
+            const result = await TextEmbeddingService.embedText('hello', 'openAiCompatible');
+
+            expect(result).toEqual([0.1, 0.2, 0.3]);
+            expect(requestCount).toBe(1);
+        } finally {
+            Neo.config.unitTestMode = originalUnitTestMode;
+        }
     });
 
     test('first-call-fails-second-call-succeeds path with mock client', async () => {
