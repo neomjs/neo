@@ -570,7 +570,10 @@ class TextEmbeddingService extends Base {
             // Native Ollama returns `{embeddings: [[...]]}` even for single-input;
             // project the single inner array since this method is the per-text variant.
             const provider = this.#getOllamaProvider();
-            const result   = await provider.embed(text);
+            const result   = await provider.embed(text, {
+                num_ctx : aiConfig.localModels.embedding.contextLimitTokens,
+                truncate: false
+            });
             return result.embeddings?.[0];
         } else if (explicitProvider === 'gemini') {
             const geminiKey = process.env.GEMINI_API_KEY;
@@ -609,7 +612,10 @@ class TextEmbeddingService extends Base {
             // Ollama's `/api/embed` accepts array-of-strings natively + returns
             // a parallel embeddings array — no per-text fan-out needed.
             const provider = this.#getOllamaProvider();
-            const result   = await provider.embed(texts);
+            const result   = await provider.embed(texts, {
+                num_ctx : aiConfig.localModels.embedding.contextLimitTokens,
+                truncate: false
+            });
             return result.embeddings || [];
         } else if (explicitProvider === 'gemini') {
             const geminiKey = process.env.GEMINI_API_KEY;

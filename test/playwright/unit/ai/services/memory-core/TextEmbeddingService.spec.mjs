@@ -51,10 +51,12 @@ test.describe('TextEmbeddingService #10804 — shouldInitializeGeminiEmbeddingCl
 
 test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', () => {
     let TextEmbeddingService;
+    let aiConfig;
 
     test.beforeAll(async () => {
         const mod = await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs');
         TextEmbeddingService = mod.default;
+        aiConfig             = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
     });
 
     test.afterEach(() => {
@@ -63,10 +65,10 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
     });
 
     test('embedText dispatches to native Ollama provider when explicitProvider=ollama', async () => {
-        const captured  = [];
+        const captured   = [];
         const fakeOllama = {
-            async embed(input) {
-                captured.push({input});
+            async embed(input, options) {
+                captured.push({input, options});
                 return {embeddings: [[0.1, 0.2, 0.3]], raw: {model: 'fake-model'}};
             }
         };
@@ -75,14 +77,20 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
         const result = await TextEmbeddingService.embedText('hello world', 'ollama');
 
         expect(result).toEqual([0.1, 0.2, 0.3]);
-        expect(captured).toEqual([{input: 'hello world'}]);
+        expect(captured).toEqual([{
+            input  : 'hello world',
+            options: {
+                num_ctx : aiConfig.localModels.embedding.contextLimitTokens,
+                truncate: false
+            }
+        }]);
     });
 
     test('embedTexts dispatches batch to native Ollama provider when explicitProvider=ollama', async () => {
-        const captured  = [];
+        const captured   = [];
         const fakeOllama = {
-            async embed(input) {
-                captured.push({input});
+            async embed(input, options) {
+                captured.push({input, options});
                 return {
                     embeddings: [
                         [0.1, 0.2],
@@ -98,7 +106,13 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
         const result = await TextEmbeddingService.embedTexts(['a', 'b', 'c'], 'ollama');
 
         expect(result).toEqual([[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]]);
-        expect(captured).toEqual([{input: ['a', 'b', 'c']}]);
+        expect(captured).toEqual([{
+            input  : ['a', 'b', 'c'],
+            options: {
+                num_ctx : aiConfig.localModels.embedding.contextLimitTokens,
+                truncate: false
+            }
+        }]);
     });
 
     test('embedText with explicitProvider=ollama returns empty when provider returns no embeddings', async () => {
