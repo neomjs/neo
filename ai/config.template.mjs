@@ -693,16 +693,16 @@ class Config extends ConfigProvider {
                 },
                 /**
                  * Recovery actuator envelope. Enabled by default so deployed immune-system
-                 * lanes can heal once their explicit target allowlists are configured. The
-                 * orchestrator may only recycle supervised tasks, restart compose services, or
-                 * page deploy targets that are explicitly named here by the operator.
+                 * lanes can heal without per-deployment recovery target allowlists. Operators
+                 * can block specific supervised tasks, compose services, or deploy targets while
+                 * the runtime-access holder still gates compose services to known labels.
                  * @type {Object}
                  */
                 recoveryActuator: {
                     enabled                    : leaf(true, 'NEO_RECOVERY_ACTUATOR_ENABLED', 'boolean'),
-                    allowedSupervisedTasks     : leaf([], 'NEO_RECOVERY_ACTUATOR_SUPERVISED_TASKS', 'csv'),
-                    allowedComposeServices     : leaf([], 'NEO_RECOVERY_ACTUATOR_COMPOSE_SERVICES', 'csv'),
-                    allowedDeployTargets       : leaf([], 'NEO_RECOVERY_ACTUATOR_DEPLOY_TARGETS', 'csv'),
+                    blockedSupervisedTasks     : leaf([], 'NEO_RECOVERY_ACTUATOR_BLOCKED_SUPERVISED_TASKS', 'csv'),
+                    blockedComposeServices     : leaf([], 'NEO_RECOVERY_ACTUATOR_BLOCKED_COMPOSE_SERVICES', 'csv'),
+                    blockedDeployTargets       : leaf([], 'NEO_RECOVERY_ACTUATOR_BLOCKED_DEPLOY_TARGETS', 'csv'),
                     healAttemptsPath           : leaf(path.resolve(neoRootDir, '.neo-ai-data/orchestrator-daemon/heal-attempts.json'), 'NEO_RECOVERY_ACTUATOR_HEAL_ATTEMPTS_PATH', 'string'),
                     recoveryRunStateDir        : leaf(path.resolve(neoRootDir, '.neo-ai-data/orchestrator-daemon/recovery-runs'), 'NEO_RECOVERY_ACTUATOR_RUN_STATE_DIR', 'string'),
                     recoveryRunRetentionLimit  : leaf(100, 'NEO_RECOVERY_ACTUATOR_RUN_RETENTION_LIMIT', 'number'),
