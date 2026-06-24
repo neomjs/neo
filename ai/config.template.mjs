@@ -692,16 +692,17 @@ class Config extends ConfigProvider {
                     tenantRepoSyncEnabled: leaf(null, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_ENABLED', 'boolean')
                 },
                 /**
-                 * Recovery actuator envelope. Disabled and empty by default: the
-                 * orchestrator may only recycle supervised tasks, restart compose services, or
-                 * page deploy targets that are explicitly named here by the operator.
+                 * Recovery actuator envelope. Enabled by default so deployed immune-system
+                 * lanes can heal without per-deployment recovery target allowlists. Operators
+                 * can block specific supervised tasks, compose services, or deploy targets while
+                 * the runtime-access holder still gates compose services to known labels.
                  * @type {Object}
                  */
                 recoveryActuator: {
-                    enabled                    : leaf(false, 'NEO_RECOVERY_ACTUATOR_ENABLED', 'boolean'),
-                    allowedSupervisedTasks     : leaf([], 'NEO_RECOVERY_ACTUATOR_SUPERVISED_TASKS', 'csv'),
-                    allowedComposeServices     : leaf([], 'NEO_RECOVERY_ACTUATOR_COMPOSE_SERVICES', 'csv'),
-                    allowedDeployTargets       : leaf([], 'NEO_RECOVERY_ACTUATOR_DEPLOY_TARGETS', 'csv'),
+                    enabled                    : leaf(true, 'NEO_RECOVERY_ACTUATOR_ENABLED', 'boolean'),
+                    blockedSupervisedTasks     : leaf([], 'NEO_RECOVERY_ACTUATOR_BLOCKED_SUPERVISED_TASKS', 'csv'),
+                    blockedComposeServices     : leaf([], 'NEO_RECOVERY_ACTUATOR_BLOCKED_COMPOSE_SERVICES', 'csv'),
+                    blockedDeployTargets       : leaf([], 'NEO_RECOVERY_ACTUATOR_BLOCKED_DEPLOY_TARGETS', 'csv'),
                     healAttemptsPath           : leaf(path.resolve(neoRootDir, '.neo-ai-data/orchestrator-daemon/heal-attempts.json'), 'NEO_RECOVERY_ACTUATOR_HEAL_ATTEMPTS_PATH', 'string'),
                     recoveryRunStateDir        : leaf(path.resolve(neoRootDir, '.neo-ai-data/orchestrator-daemon/recovery-runs'), 'NEO_RECOVERY_ACTUATOR_RUN_STATE_DIR', 'string'),
                     recoveryRunRetentionLimit  : leaf(100, 'NEO_RECOVERY_ACTUATOR_RUN_RETENTION_LIMIT', 'number'),

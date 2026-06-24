@@ -13,22 +13,22 @@ import {
 } from '../../../services/memory-core/helpers/recoveryRunStateStore.mjs';
 import {DEFAULT_DATA_DIR} from '../taskDefinitions.mjs';
 
-const DEFAULT_ACTIONS = Object.freeze(['restart', 'redeploy', 'page', 'warm-provider']);
+const DEFAULT_ACTIONS        = Object.freeze(['restart', 'redeploy', 'page', 'warm-provider']);
+const DEFAULT_DEPLOY_TARGETS = Object.freeze(['cloud-deploy']);
 
 /**
- * @summary Normalizes string/object allowlist entries into stable recovery targets.
+ * @summary Normalizes string/object recovery-target entries into stable descriptors.
  *
  * String entries use the same value for `serviceKey` and `id`. Object entries may use an
- * explicit `serviceKey` plus either `id`, `taskName`, `composeService`, or `deployTarget`. The actuator
- * never accepts a runtime target that cannot be traced back to one of these normalized entries.
+ * explicit `serviceKey` plus either `id`, `taskName`, `composeService`, or `deployTarget`.
  *
- * @param {Array<String|Object>} entries Configured allowlist entries.
+ * @param {Array<String|Object>} entries Configured recovery target entries.
  * @param {String} kind Recovery target kind.
  * @returns {Object[]} Normalized target descriptors.
  */
-export function normalizeRecoveryActuatorAllowlist(entries, kind) {
+export function normalizeRecoveryActuatorTargets(entries, kind) {
     if (!Array.isArray(entries)) {
-        return [];
+        throw new TypeError(`Recovery actuator ${kind} targets must be an array.`);
     }
 
     const targets = [];
@@ -65,12 +65,27 @@ export function normalizeRecoveryActuatorAllowlist(entries, kind) {
 }
 
 /**
+ * @summary Checks whether a recovery target is blocked by the operator's opt-out list.
+ * @param {Object} target Normalized target descriptor.
+ * @param {Object[]} blockedTargets Normalized blocklist descriptors.
+ * @returns {Boolean}
+ */
+export function isRecoveryActuatorTargetBlocked(target, blockedTargets) {
+    return blockedTargets.some(blocked => (
+        blocked.serviceKey === target.serviceKey ||
+        blocked.serviceKey === target.id ||
+        blocked.id         === target.serviceKey ||
+        blocked.id         === target.id
+    ));
+}
+
+/**
  * @class Neo.ai.daemons.services.RecoveryActuatorService
  * @extends Neo.core.Base
  *
  * B1 privileged recovery actuator for ADR-0026. The service is controller-blind:
  * callers pass an already-selected action, and this class only answers whether the
- * actuator allowlist + persisted anti-thrash envelope admits it. Compose-service
+ * recovery target registry + persisted anti-thrash envelope admits it. Compose-service
  * lifecycle writes are delegated to the shared L0 deployment-runtime access holder,
  * keeping Docker socket access and container identity resolution out of this B1 class.
  */
@@ -145,25 +160,55 @@ export class RecoveryActuatorService extends Base {
         return this.cfg.recoveryRunStateDir;
     }
 
-    /** @summary Resolves the allowlisted compose-service actuator targets. */
-    get allowedComposeServices() {
-        return normalizeRecoveryActuatorAllowlist(this.cfg.allowedComposeServices, 'compose-service');
+    /** @summary Resolves the configured compose-service recovery blocklist. */
+    get blockedComposeServices() {
+        return normalizeRecoveryActuatorTargets(this.cfg.blockedComposeServices, 'compose-service');
     }
 
-    /** @summary Resolves the allowlisted supervised-task actuator targets. */
-    get allowedSupervisedTasks() {
-        return normalizeRecoveryActuatorAllowlist(this.cfg.allowedSupervisedTasks, 'supervised-task');
+    /** @summary Resolves the configured supervised-task recovery blocklist. */
+    get blockedSupervisedTasks() {
+        return normalizeRecoveryActuatorTargets(this.cfg.blockedSupervisedTasks, 'supervised-task');
     }
 
-    /** @summary Resolves the allowlisted deploy-target page/escalation targets. */
-    get allowedDeployTargets() {
-        return normalizeRecoveryActuatorAllowlist(this.cfg.allowedDeployTargets, 'deploy-target');
+    /** @summary Resolves the configured deploy-target recovery blocklist. */
+    get blockedDeployTargets() {
+        return normalizeRecoveryActuatorTargets(this.cfg.blockedDeployTargets, 'deploy-target');
+    }
+
+    /** @summary Resolves all currently-known supervised-task recovery targets except blocked ones. */
+    get supervisedTaskTargets() {
+        const taskNames = Object.keys(this.processSupervisorService?.taskDefinitions || {});
+
+        return taskNames
+            .map(taskName => ({
+                kind      : 'supervised-task',
+                serviceKey: taskName,
+                id        : taskName,
+                taskName
+            }))
+            .filter(target => !isRecoveryActuatorTargetBlocked(target, this.blockedSupervisedTasks));
+    }
+
+    /** @summary Resolves all runtime-access compose-service recovery targets except blocked ones. */
+    get composeServiceTargets() {
+        const runtimeAccessConfig = this.deploymentRuntimeAccessService
+            ? this.deploymentRuntimeAccessService.runtimeAccessConfig
+            : AiConfig.orchestrator.deploymentRuntimeAccess;
+
+        return normalizeRecoveryActuatorTargets(runtimeAccessConfig.allowedServices, 'compose-service')
+            .filter(target => !isRecoveryActuatorTargetBlocked(target, this.blockedComposeServices));
+    }
+
+    /** @summary Resolves all built-in deploy-target recovery targets except blocked ones. */
+    get deployTargets() {
+        return normalizeRecoveryActuatorTargets(DEFAULT_DEPLOY_TARGETS, 'deploy-target')
+            .filter(target => !isRecoveryActuatorTargetBlocked(target, this.blockedDeployTargets));
     }
 
     /**
-     * @summary Applies one bounded recovery action if the allowlist and anti-thrash envelope admit it.
+     * @summary Applies one bounded recovery action if the target registry and anti-thrash envelope admit it.
      *
-     * @param {String} serviceKey Stable allowlisted recovery target key.
+     * @param {String} serviceKey Stable recovery target key.
      * @param {String} action restart | redeploy | page | warm-provider.
      * @param {Object} [options]
      * @param {Object|null} [options.diagnosisEvent=null] Optional ADR-0025 diagnosis event.
@@ -193,7 +238,7 @@ export class RecoveryActuatorService extends Base {
         const target = this.resolveTarget({serviceKey, action, targetIdentity});
 
         if (!target) {
-            return this.rejectAction({serviceKey, action, now, reasonCode: 'target-not-allowlisted', targetIdentity});
+            return this.rejectAction({serviceKey, action, now, reasonCode: 'target-not-recoverable', targetIdentity});
         }
 
         if (!this.isActionAllowedForTarget({action, target})) {
@@ -312,15 +357,15 @@ export class RecoveryActuatorService extends Base {
     }
 
     /**
-     * @summary Resolves the strict target allowlist entry for a service key and optional identity.
+     * @summary Resolves the strict recovery target entry for a service key and optional identity.
      * @param {Object} options
      * @returns {Object|null}
      */
     resolveTarget({serviceKey, targetIdentity}) {
         const candidates = [
-            ...this.allowedComposeServices,
-            ...this.allowedSupervisedTasks,
-            ...this.allowedDeployTargets
+            ...this.composeServiceTargets,
+            ...this.supervisedTaskTargets,
+            ...this.deployTargets
         ].filter(target => target.serviceKey === serviceKey || target.id === serviceKey);
 
         if (targetIdentity) {
@@ -375,7 +420,7 @@ export class RecoveryActuatorService extends Base {
     }
 
     /**
-     * @summary Recycles one allowlisted supervised task through the B0 process supervisor.
+     * @summary Recycles one known supervised task through the B0 process supervisor.
      * @param {Object} options
      * @returns {Promise<Object>}
      */
@@ -400,7 +445,7 @@ export class RecoveryActuatorService extends Base {
     }
 
     /**
-     * @summary Restarts one allowlisted compose service through the L0 lifecycle-write envelope.
+     * @summary Restarts one known compose service through the L0 lifecycle-write envelope.
      * @param {Object} options
      * @returns {Promise<Object>}
      */

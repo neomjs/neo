@@ -163,10 +163,10 @@ export const TIER1_DEFAULTS = deepFreeze(Neo.clone({
             embedDrainLivenessWatchdogCheckMs: HOUR_MS
         },
         recoveryActuator: {
-            enabled                    : false,
-            allowedSupervisedTasks     : [],
-            allowedComposeServices     : [],
-            allowedDeployTargets       : [],
+            enabled                    : true,
+            blockedSupervisedTasks     : [],
+            blockedComposeServices     : [],
+            blockedDeployTargets       : [],
             healAttemptsPath           : path.resolve(neoRootDir, '.neo-ai-data/orchestrator-daemon/heal-attempts.json'),
             recoveryRunStateDir        : path.resolve(neoRootDir, '.neo-ai-data/orchestrator-daemon/recovery-runs'),
             recoveryRunRetentionLimit  : 100,
