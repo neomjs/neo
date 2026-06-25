@@ -1286,21 +1286,28 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         const orig = {
             graphProvider : aiConfig.graphProvider,
             chatContext   : aiConfig.localModels.chat.contextLimitTokens,
+            chatGraphChunk: aiConfig.localModels.chat.graphChunkLimitTokens,
+            chatGraphOut  : aiConfig.localModels.chat.graphOutputLimitTokens,
             chatSafe      : aiConfig.localModels.chat.safeProcessingLimitTokens,
             graphReasoning: aiConfig.localModels.chat.graphReasoningEffort,
             openAiModel   : aiConfig.openAiCompatible.model,
-            generate      : OpenAiCompatible.prototype.generate
+            generate      : OpenAiCompatible.prototype.generate,
+            loggerInfo    : logger.info
         };
+        const infoCalls = [];
 
         try {
             aiConfig.graphProvider                                = 'openAiCompatible';
             aiConfig.openAiCompatible.model                       = 'topology-test-model';
             aiConfig.localModels.chat.contextLimitTokens          = 8192;
+            aiConfig.localModels.chat.graphChunkLimitTokens       = 4800;
+            aiConfig.localModels.chat.graphOutputLimitTokens      = 512;
             aiConfig.localModels.chat.safeProcessingLimitTokens   = 5000;
             aiConfig.localModels.chat.graphReasoningEffort        = 'none';
+            logger.info = (...args) => infoCalls.push(args.join(' '));
             OpenAiCompatible.prototype.generate = async (prompt, providerOptions) => {
                 providerCalls.push({prompt, providerOptions});
-                return {content: '{"conflicts":[]}'};
+                return {content: '{"conflicts":[]}', finish_reason: 'stop'};
             };
 
             const result = await TopologyInferenceEngine.extractTopology(
@@ -1318,16 +1325,90 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             expect(providerCalls[0].providerOptions).toMatchObject({
                 reasoning_effort    : 'none',
                 responseSchemaName  : 'topologyConflicts',
-                responseSchemaStrict: true
+                responseSchemaStrict: true,
+                maxCompletionTokens : 512
             });
             expect(providerCalls[0].providerOptions.responseSchema.properties.conflicts.maxItems).toBe(5);
+            expect(infoCalls.some(line => line.includes('conflicts=0') && line.includes('outputLimitTokens=512'))).toBe(true);
         } finally {
             aiConfig.graphProvider                              = orig.graphProvider;
             aiConfig.localModels.chat.contextLimitTokens        = orig.chatContext;
+            aiConfig.localModels.chat.graphChunkLimitTokens     = orig.chatGraphChunk;
+            aiConfig.localModels.chat.graphOutputLimitTokens    = orig.chatGraphOut;
             aiConfig.localModels.chat.safeProcessingLimitTokens = orig.chatSafe;
             aiConfig.localModels.chat.graphReasoningEffort      = orig.graphReasoning;
             aiConfig.openAiCompatible.model                     = orig.openAiModel;
             OpenAiCompatible.prototype.generate                 = orig.generate;
+            logger.info                                         = orig.loggerInfo;
+        }
+    });
+
+    test('TopologyInferenceEngine classifies non-empty invalid topology output as parse failure (#13995)', async () => {
+        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const TopologyInferenceEngine = (await import('../../../../../../../ai/services/graph/TopologyInferenceEngine.mjs')).default;
+        const {
+            clearAggregatedFrictions,
+            getAggregatedFrictions
+        } = await import('../../../../../../../ai/services/memory-core/helpers/consumerFrictionHelper.mjs');
+
+        const orig = {
+            graphProvider : aiConfig.graphProvider,
+            chatContext   : aiConfig.localModels.chat.contextLimitTokens,
+            chatGraphChunk: aiConfig.localModels.chat.graphChunkLimitTokens,
+            chatGraphOut  : aiConfig.localModels.chat.graphOutputLimitTokens,
+            chatSafe      : aiConfig.localModels.chat.safeProcessingLimitTokens,
+            graphReasoning: aiConfig.localModels.chat.graphReasoningEffort,
+            openAiModel   : aiConfig.openAiCompatible.model,
+            generate      : OpenAiCompatible.prototype.generate,
+            loggerWarn    : logger.warn
+        };
+        const warnCalls = [];
+
+        try {
+            clearAggregatedFrictions();
+
+            aiConfig.graphProvider                              = 'openAiCompatible';
+            aiConfig.openAiCompatible.model                     = 'topology-parse-test-model';
+            aiConfig.localModels.chat.contextLimitTokens        = 8192;
+            aiConfig.localModels.chat.graphChunkLimitTokens     = 4800;
+            aiConfig.localModels.chat.graphOutputLimitTokens    = 512;
+            aiConfig.localModels.chat.safeProcessingLimitTokens = 5000;
+            aiConfig.localModels.chat.graphReasoningEffort      = 'none';
+            logger.warn = (...args) => warnCalls.push(args.join(' '));
+            OpenAiCompatible.prototype.generate = async () => ({
+                content      : 'this is not json',
+                finish_reason: 'stop'
+            });
+
+            for (let i = 0; i < 3; i++) {
+                const result = await TopologyInferenceEngine.extractTopology(
+                    'turn body',
+                    'topology-parse-failure-test',
+                    {turnDocuments: ['turn body']}
+                );
+
+                expect(result.conflictCount).toBe(0);
+                expect(result.chunks.parseFailed).toBe(1);
+                expect(result.chunks.processed).toBe(0);
+            }
+
+            expect(warnCalls.some(line => line.includes('Failed to parse topology-conflict payload'))).toBe(true);
+            expect(getAggregatedFrictions().some(friction =>
+                friction.consumer === 'TopologyInferenceEngine' &&
+                friction.symptom === 'parse-failure' &&
+                friction.model === 'topology-parse-test-model'
+            )).toBe(true);
+        } finally {
+            clearAggregatedFrictions();
+            aiConfig.graphProvider                              = orig.graphProvider;
+            aiConfig.localModels.chat.contextLimitTokens        = orig.chatContext;
+            aiConfig.localModels.chat.graphChunkLimitTokens     = orig.chatGraphChunk;
+            aiConfig.localModels.chat.graphOutputLimitTokens    = orig.chatGraphOut;
+            aiConfig.localModels.chat.safeProcessingLimitTokens = orig.chatSafe;
+            aiConfig.localModels.chat.graphReasoningEffort      = orig.graphReasoning;
+            aiConfig.openAiCompatible.model                     = orig.openAiModel;
+            OpenAiCompatible.prototype.generate                 = orig.generate;
+            logger.warn                                         = orig.loggerWarn;
         }
     });
 
