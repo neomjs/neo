@@ -39,6 +39,7 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
     const ENV = {
         CHAT_CONTEXT_LIMIT_TOKENS        : 'NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS',
         CHAT_SAFE_PROCESSING_LIMIT_TOKENS: 'NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS',
+        GRAPH_CHUNK_LIMIT_TOKENS         : 'NEO_LOCAL_MODELS_CHAT_GRAPH_CHUNK_LIMIT_TOKENS',
         GRAPH_OUTPUT_LIMIT_TOKENS        : 'NEO_LOCAL_MODELS_CHAT_GRAPH_OUTPUT_LIMIT_TOKENS',
         GRAPH_PROVIDER                   : 'NEO_GRAPH_PROVIDER',
         LAZY_EDGES_QUEUE_PATH            : 'NEO_LAZY_EDGES_QUEUE_PATH',
@@ -782,6 +783,68 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             expect(providerCalls[0][1].content).toContain('turn-a\n\n---\n\nturn-b');
             expect(result.session_artifact.chunking).toBeUndefined();
             expect(result.session_artifact.human_readable_summary).toBe('Small session used the original single-pass path.');
+        } finally {
+            OpenAiCompatible.prototype.generate = baseGenerate;
+            setConfigOverrides(originalOverrides);
+        }
+    });
+
+    test('chunk-aware Tri-Vector applies graph chunk limit and reserves output context (#13984)', async () => {
+        const baseGenerate      = OpenAiCompatible.prototype.generate;
+        const originalOverrides = {
+            [ENV.GRAPH_PROVIDER]                   : aiConfig.graphProvider,
+            [ENV.CHAT_CONTEXT_LIMIT_TOKENS]        : aiConfig.localModels.chat.contextLimitTokens,
+            [ENV.CHAT_SAFE_PROCESSING_LIMIT_TOKENS]: aiConfig.localModels.chat.safeProcessingLimitTokens,
+            [ENV.GRAPH_CHUNK_LIMIT_TOKENS]         : aiConfig.localModels.chat.graphChunkLimitTokens,
+            [ENV.GRAPH_OUTPUT_LIMIT_TOKENS]        : aiConfig.localModels.chat.graphOutputLimitTokens
+        };
+        const providerCalls = [];
+
+        try {
+            setConfigOverrides({
+                [ENV.GRAPH_PROVIDER]                   : 'openAiCompatible',
+                [ENV.CHAT_CONTEXT_LIMIT_TOKENS]        : 40000,
+                [ENV.CHAT_SAFE_PROCESSING_LIMIT_TOKENS]: 50000,
+                [ENV.GRAPH_CHUNK_LIMIT_TOKENS]         : 50000,
+                [ENV.GRAPH_OUTPUT_LIMIT_TOKENS]        : 8192
+            });
+
+            OpenAiCompatible.prototype.generate = async function(messages, options) {
+                providerCalls.push({
+                    messages,
+                    options,
+                    activeDuringCall: {...SemanticGraphExtractor.activeTriVectorCall}
+                });
+
+                return {
+                    content: JSON.stringify({
+                        a2a_version     : '1.0',
+                        agent_id        : 'Antigravity',
+                        session_artifact: {
+                            feature_namespace     : 'Neo.ai.OutputReserve',
+                            human_readable_summary: `reserve-aware summary ${providerCalls.length}`,
+                            graph                 : {nodes: [], edges: []}
+                        }
+                    })
+                };
+            };
+
+            const turnDocuments = Array.from({length: 2}, (_, index) => `turn-${index}\n${'x'.repeat(54000)}`);
+            const result = await SemanticGraphExtractor.executeTriVectorExtraction({
+                id      : 'mock-output-reserve-vector-id',
+                meta    : {sessionId: 'output-reserve-trivector-session'},
+                document: turnDocuments.join('\n\n---\n\n'),
+                turnDocuments
+            });
+
+            expect(providerCalls.length).toBeGreaterThan(1);
+            expect(result.session_artifact.chunking.chunked).toBe(true);
+
+            for (const call of providerCalls) {
+                expect(call.options.maxCompletionTokens).toBe(8192);
+                expect(call.activeDuringCall.promptPlusOutputTokens).toBeLessThanOrEqual(40000);
+                expect(call.activeDuringCall.outputLimitTokens).toBe(8192);
+            }
         } finally {
             OpenAiCompatible.prototype.generate = baseGenerate;
             setConfigOverrides(originalOverrides);

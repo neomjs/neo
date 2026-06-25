@@ -298,8 +298,14 @@ class SemanticGraphExtractor extends Base {
                   {role: 'system', content: systemInstruction},
                   {role: 'user',   content: '--- Session Episodic Memory ---\n'}
               ]).tokens,
-              safeProcessingLimitTokens = AiConfig.localModels.chat.safeProcessingLimitTokens,
-              chunkBudget               = Math.max(1, safeProcessingLimitTokens - envelopeTokens);
+              {
+                  contextLimitTokens,
+                  safeProcessingLimitTokens,
+                  graphOutputLimitTokens,
+                  graphChunkLimitTokens
+              } = AiConfig.localModels.chat,
+              promptBudget = Math.min(graphChunkLimitTokens, safeProcessingLimitTokens, contextLimitTokens - graphOutputLimitTokens),
+              chunkBudget  = Math.max(1, promptBudget - envelopeTokens);
 
         return chunkSession(turnDocuments, {
             sessionId                : session.meta.sessionId,

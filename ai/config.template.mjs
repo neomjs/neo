@@ -256,6 +256,16 @@ class Config extends ConfigProvider {
                      */
                     graphOutputLimitTokens   : leaf(8192, 'NEO_LOCAL_MODELS_CHAT_GRAPH_OUTPUT_LIMIT_TOKENS', 'number'),
                     /**
+                     * @summary Prompt-token target for one REM Tri-Vector graph chunk.
+                     *
+                     * REM needs enough episodic context to infer useful graph structure, but this is an
+                     * input-side bundle size, not the completion cap. `SemanticGraphExtractor` clamps the
+                     * effective chunk budget to this leaf, `safeProcessingLimitTokens`, and
+                     * `contextLimitTokens - graphOutputLimitTokens` before subtracting the prompt envelope.
+                     * @type {Number}
+                     */
+                    graphChunkLimitTokens    : leaf(50000, 'NEO_LOCAL_MODELS_CHAT_GRAPH_CHUNK_LIMIT_TOKENS', 'number'),
+                    /**
                      * @summary Per-task reasoning-effort for the chat model's two structured-output
                      * consumers — passed straight through as the OpenAI / LM-Studio `reasoning_effort`
                      * request param. Default `'none'` disables the gemma MoE's hidden "thinking" pass
