@@ -35,11 +35,20 @@
  * @param {Function}   options.embedFn          `(documents: String[]) => Promise<Number[][]>` — re-embed a batch
  *                                               (e.g. `TextEmbeddingService.embedTexts` bound to the MC provider).
  * @param {Number}     [options.batchSize=1000] Chroma `.get` / embed batch size.
+ * @param {Function}   [options.onProgress] Optional callback receiving 10%-bucket progress events:
+ *                                           `{phase, percent, processed, total, counts}`.
  * @returns {Promise<{data: {ids: String[], embeddings: Number[][], documents: String[], metadatas: Object[]},
  *                    unrecoverable: String[],
  *                    counts: {total: Number, intact: Number, reEmbedded: Number, unrecoverable: Number}}>}
  */
-export async function extractMemoryCoreCollectionData({collection, allIds = [], missingVectorIds = [], embedFn, batchSize = 1000} = {}) {
+export async function extractMemoryCoreCollectionData({
+    collection,
+    allIds = [],
+    missingVectorIds = [],
+    embedFn,
+    batchSize = 1000,
+    onProgress
+} = {}) {
     if (typeof embedFn !== 'function') {
         throw new Error('extractMemoryCoreCollectionData: embedFn (documents -> embeddings) is required');
     }
@@ -47,8 +56,12 @@ export async function extractMemoryCoreCollectionData({collection, allIds = [], 
     const missingSet = new Set(missingVectorIds);
     const intactIds  = allIds.filter(id => !missingSet.has(id));
     const data       = {ids: [], embeddings: [], documents: [], metadatas: []};
+    const counts     = {total: allIds.length, intact: 0, reEmbedded: 0, unrecoverable: 0};
 
-    let intactCount = 0;
+    const reportIntactProgress  = createTenPercentProgressReporter({phase: 'intact-extract', total: intactIds.length, onProgress});
+    const reportMissingProgress = createTenPercentProgressReporter({phase: 'missing-reembed', total: missingVectorIds.length, onProgress});
+
+    onProgress?.({phase: 'start', percent: 0, processed: 0, total: allIds.length, counts: {...counts}});
 
     // 1. Intact rows — extract with their stored embeddings (these vectors exist in the HNSW index).
     for (let i = 0; i < intactIds.length; i += batchSize) {
@@ -60,13 +73,14 @@ export async function extractMemoryCoreCollectionData({collection, allIds = [], 
             data.embeddings.push(got.embeddings[j]);
             data.documents.push(got.documents?.[j] ?? '');
             data.metadatas.push(got.metadatas?.[j] ?? {});
-            intactCount++;
+            counts.intact++;
         }
+
+        reportIntactProgress({processed: Math.min(i + batchIds.length, intactIds.length), counts});
     }
 
     // 2. Missing-vector rows — re-embed from documents (their stored embeddings cannot be fetched).
     const unrecoverable = [];
-    let   reEmbedded    = 0;
 
     for (let i = 0; i < missingVectorIds.length; i += batchSize) {
         const batchIds = missingVectorIds.slice(i, i + batchSize);
@@ -76,14 +90,21 @@ export async function extractMemoryCoreCollectionData({collection, allIds = [], 
 
         // An id that did not even come back from the metadata read is unrecoverable.
         for (const id of batchIds) {
-            if (!returned.has(id)) unrecoverable.push(id);
+            if (!returned.has(id)) {
+                unrecoverable.push(id);
+                counts.unrecoverable++;
+            }
         }
 
         const reEmbedIds = [], reEmbedDocs = [], reEmbedMetas = [];
 
         for (let j = 0; j < (got.ids?.length || 0); j++) {
             const doc = got.documents?.[j];
-            if (!doc) { unrecoverable.push(got.ids[j]); continue; }
+            if (!doc) {
+                unrecoverable.push(got.ids[j]);
+                counts.unrecoverable++;
+                continue;
+            }
             reEmbedIds.push(got.ids[j]);
             reEmbedDocs.push(doc);
             reEmbedMetas.push(got.metadatas?.[j] ?? {});
@@ -101,16 +122,48 @@ export async function extractMemoryCoreCollectionData({collection, allIds = [], 
                 data.embeddings.push(embeddings[j]);
                 data.documents.push(reEmbedDocs[j]);
                 data.metadatas.push(reEmbedMetas[j]);
-                reEmbedded++;
+                counts.reEmbedded++;
             }
         }
+
+        reportMissingProgress({processed: Math.min(i + batchIds.length, missingVectorIds.length), counts});
     }
+
+    onProgress?.({phase: 'complete', percent: 100, processed: allIds.length, total: allIds.length, counts: {...counts}});
 
     return {
         data,
         unrecoverable,
-        counts: {total: allIds.length, intact: intactCount, reEmbedded, unrecoverable: unrecoverable.length}
+        counts
     };
+}
+
+/**
+ * @summary Creates a 10%-bucket progress callback wrapper for long repair phases.
+ * @param {Object} options
+ * @param {String} options.phase Progress phase label.
+ * @param {Number} options.total Total rows in the phase.
+ * @param {Function} [options.onProgress] Progress sink.
+ * @returns {Function}
+ */
+function createTenPercentProgressReporter({phase, total, onProgress} = {}) {
+    let nextPercent = 10;
+
+    return ({processed, counts} = {}) => {
+        if (typeof onProgress !== 'function' || total <= 0) {
+            return
+        }
+
+        const percent = Math.min(100, Math.floor((processed / total) * 100)),
+              bucket  = Math.floor(percent / 10) * 10;
+
+        if (bucket < nextPercent) {
+            return
+        }
+
+        onProgress({phase, percent: bucket, processed, total, counts: {...counts}});
+        nextPercent = bucket + 10;
+    }
 }
 
 export default extractMemoryCoreCollectionData;

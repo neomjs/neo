@@ -637,6 +637,43 @@ export async function rewriteCollectionViaShadowPromotion({
 }
 
 /**
+ * @summary Selects the coverage row that belongs to the live Chroma collection.
+ *
+ * Chroma snapshots can contain stale duplicate collection-name rows even when `listCollections()`
+ * exposes only one active collection. Name-only pairing can then feed ids from a stale row into
+ * the active collection repair. Single rows remain the normal path; duplicate names must match
+ * the live collection id or fail before any shadow promotion is attempted.
+ *
+ * @param {Object} options
+ * @param {String} options.collectionName Collection name being repaired.
+ * @param {Object[]} [options.coverageRows=[]] Audit rows with matching collection names.
+ * @param {String} [options.liveCollectionId] Collection id returned by `client.getCollection`.
+ * @returns {Object}
+ */
+function selectMemoryCoreRepairCoverageRow({
+    collectionName,
+    coverageRows = [],
+    liveCollectionId
+} = {}) {
+    if (coverageRows.length === 1) {
+        return coverageRows[0];
+    }
+
+    if (!liveCollectionId) {
+        throw new Error(`repairMemoryCoreCollectionsViaFullEnumeration: '${collectionName}' has ${coverageRows.length} coverage rows, but the live collection id is unavailable — refusing name-only repair.`);
+    }
+
+    const match = coverageRows.find(row => row.collectionId === liveCollectionId);
+
+    if (!match) {
+        const ids = coverageRows.map(row => row.collectionId || '(missing-id)').join(', ');
+        throw new Error(`repairMemoryCoreCollectionsViaFullEnumeration: '${collectionName}' has duplicate coverage rows, but none match live collection id '${liveCollectionId}' (coverage ids: ${ids}) — refusing ambiguous repair.`);
+    }
+
+    return match
+}
+
+/**
  * @summary Repairs Memory Core collections' missing stored-embeddings via FULL (uncapped) enumeration,
  * then promotes the recovered data through the existing shadow-promotion path.
  *
@@ -697,23 +734,41 @@ export async function repairMemoryCoreCollectionsViaFullEnumeration({
     writeStateFn = writeDefragState,
     log          = console.log
 } = {}) {
+    log(`   🔎 Enumerating Memory Core metadata/vector coverage for ${collections.length} collection(s)...`);
     const coverage = await auditFn({
         snapshotPath,
         persistDir,
         collectionNames: collections,
         includeFullIds : true
     });
+    log(`   ✅ Coverage enumeration complete (${coverage.collections.length} coverage row(s)).`);
     const results = [];
 
     for (const collectionName of collections) {
-        const cov = coverage.collections.find(entry => entry.name === collectionName);
-        if (!cov) {
+        const
+            coverageRows = coverage.collections.filter(entry => entry.name === collectionName),
+            collection   = await client.getCollection({name: collectionName, embeddingFunction});
+
+        if (coverageRows.length === 0) {
             throw new Error(`repairMemoryCoreCollectionsViaFullEnumeration: no coverage row for '${collectionName}' — refusing to promote a collection the enumeration never saw.`);
         }
 
+        const cov = selectMemoryCoreRepairCoverageRow({
+            collectionName,
+            coverageRows,
+            liveCollectionId: collection.id
+        });
+
+        log(`   📦 '${collectionName}': metadata=${cov.metadataRowCount ?? cov.allIds?.length ?? 0}, vector=${cov.vectorIndexIdCount ?? cov.vectorIds?.length ?? 0}, missing=${cov.missingFromVectorCount ?? cov.missingVectorIds?.length ?? 0}, extra=${cov.extraInVectorCount ?? cov.extraVectorIds?.length ?? 0}`);
+
         const {allIds, missingVectorIds}    = cov,
-              collection                    = await client.getCollection({name: collectionName, embeddingFunction}),
-              {data, unrecoverable, counts} = await extractFn({collection, allIds, missingVectorIds, embedFn});
+              {data, unrecoverable, counts} = await extractFn({
+                  collection,
+                  allIds,
+                  missingVectorIds,
+                  embedFn,
+                  onProgress: event => log(formatMemoryCoreRepairProgress({collectionName, event}))
+              });
 
         if (dryRun) {
             if (unrecoverable.length > 0) {
@@ -734,7 +789,9 @@ export async function repairMemoryCoreCollectionsViaFullEnumeration({
             continue;
         }
 
+        log(`   🚚 '${collectionName}': shadow promotion starting for ${data.ids.length} recovered row(s)...`);
         const promotion = await promoteFn({client, collectionName, data, embeddingFunction, statePath, stateBase});
+        log(`   ✅ '${collectionName}': shadow promotion complete.`);
         results.push({collectionName, promotion, counts});
     }
 
@@ -756,6 +813,30 @@ export async function repairMemoryCoreCollectionsViaFullEnumeration({
     }
 
     return {results};
+}
+
+/**
+ * @summary Formats progress events from Memory Core repair extraction for operator terminals.
+ * @param {Object} options
+ * @param {String} options.collectionName Collection currently being repaired.
+ * @param {Object} options.event Progress event emitted by `extractMemoryCoreCollectionData`.
+ * @returns {String}
+ */
+function formatMemoryCoreRepairProgress({collectionName, event} = {}) {
+    const counts = event.counts || {};
+
+    switch (event.phase) {
+        case 'start':
+            return `   ⏳ '${collectionName}': extraction starting (total=${event.total}, intact=${counts.intact || 0}, reEmbedded=${counts.reEmbedded || 0}, unrecoverable=${counts.unrecoverable || 0})`;
+        case 'intact-extract':
+            return `   ⏳ '${collectionName}': intact-vector extraction ${event.percent}% (${event.processed}/${event.total}; intact=${counts.intact || 0})`;
+        case 'missing-reembed':
+            return `   ⏳ '${collectionName}': missing-vector re-embed ${event.percent}% (${event.processed}/${event.total}; reEmbedded=${counts.reEmbedded || 0}, unrecoverable=${counts.unrecoverable || 0})`;
+        case 'complete':
+            return `   ✅ '${collectionName}': extraction complete; counts ${JSON.stringify(counts)}`;
+        default:
+            return `   ⏳ '${collectionName}': ${event.phase || 'progress'} ${event.percent ?? '?'}% (${event.processed ?? '?'}/${event.total ?? '?'})`;
+    }
 }
 
 /**
