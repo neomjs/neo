@@ -74,7 +74,7 @@ test.describe('ClassConfigsAndFields', () => {
 
             construct(config) {
                 super.construct(config);
-                let me = this;
+                let me        = this;
                 let extension = me.extension;
                 expect(me.fieldA).toBe(extension ? 3 : 1);
                 expect(me.fieldB).toBe(extension ? 4 : 2);
@@ -164,6 +164,24 @@ test.describe('ClassConfigsAndFields', () => {
         expect(instance.configB).toBe(6); // 2 + 4
         expect(instance.fieldA).toBe(1);
         expect(instance.fieldB).toBe(2);
+    });
+
+    test('Static constructor values remain readable without the retired staticConfig alias (#5619)', () => {
+        class StaticConstructorValueTest extends core.Base {
+            static dockPositions = ['top', 'right', 'bottom', 'left'];
+
+            static config = {
+                className: 'Test.Unit.Core.ClassConfigsAndFields.StaticConstructorValueTest'
+            }
+        }
+
+        StaticConstructorValueTest = Neo.setupClass(StaticConstructorValueTest);
+
+        const instance = Neo.create(StaticConstructorValueTest);
+
+        expect(instance.getStaticConfig('dockPositions')).toEqual(['top', 'right', 'bottom', 'left']);
+        expect(instance.constructor.staticConfig).toBeUndefined();
+        expect(instance.setStaticConfig).toBeUndefined();
     });
 
     test('Instance based class configs and fields', () => {
