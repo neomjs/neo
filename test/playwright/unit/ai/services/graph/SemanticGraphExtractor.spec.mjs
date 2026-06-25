@@ -547,15 +547,17 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
         const originalGraphProvider             = aiConfig.graphProvider;
         const originalContextLimitTokens        = aiConfig.localModels.chat.contextLimitTokens;
         const originalSafeProcessingLimitTokens = aiConfig.localModels.chat.safeProcessingLimitTokens;
+        const originalGraphOutputLimitTokens    = aiConfig.localModels.chat.graphOutputLimitTokens;
         const providerCalls                     = [];
 
         try {
             aiConfig.graphProvider                              = 'openAiCompatible';
             aiConfig.localModels.chat.contextLimitTokens        = 100000;
             aiConfig.localModels.chat.safeProcessingLimitTokens = 50000;
+            aiConfig.localModels.chat.graphOutputLimitTokens    = 2048;
 
-            OpenAiCompatible.prototype.generate = async function(messages) {
-                providerCalls.push(messages);
+            OpenAiCompatible.prototype.generate = async function(messages, options) {
+                providerCalls.push({messages, options});
 
                 return {
                     content: JSON.stringify({
@@ -578,7 +580,9 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             });
 
             expect(providerCalls.length).toBe(1);
-            expect(providerCalls[0][1].content).toContain('turn-a\n\n---\n\nturn-b');
+            expect(providerCalls[0].messages[1].content).toContain('turn-a\n\n---\n\nturn-b');
+            expect(providerCalls[0].options.max_tokens).toBe(2048);
+            expect(providerCalls[0].options.responseSchemaName).toBe('triVector');
             expect(result.session_artifact.chunking).toBeUndefined();
             expect(result.session_artifact.human_readable_summary).toBe('Small session used the original single-pass path.');
         } finally {
@@ -586,6 +590,7 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             aiConfig.graphProvider                              = originalGraphProvider;
             aiConfig.localModels.chat.contextLimitTokens        = originalContextLimitTokens;
             aiConfig.localModels.chat.safeProcessingLimitTokens = originalSafeProcessingLimitTokens;
+            aiConfig.localModels.chat.graphOutputLimitTokens    = originalGraphOutputLimitTokens;
         }
     });
 

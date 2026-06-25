@@ -122,6 +122,25 @@ class SemanticGraphExtractor extends Base {
     }
 
     /**
+     * Reads the AiConfig graph output budget at the use site.
+     *
+     * @summary Anchor & Echo: Complements input chunking with an explicit response-token cap.
+     * The config leaf owns defaults/env decoding; this method only fails loud if the SSOT is invalid.
+     *
+     * @returns {Number}
+     * @protected
+     */
+    getGraphOutputLimitTokens() {
+        const value = AiConfig.localModels.chat.graphOutputLimitTokens;
+
+        if (!Number.isFinite(value) || value <= 0) {
+            throw new Error(`[SemanticGraphExtractor] Required AiConfig leaf "localModels.chat.graphOutputLimitTokens" must be a positive number.`);
+        }
+
+        return value;
+    }
+
+    /**
      * Builds the graph-generation provider from resolved AiConfig leaves.
      *
      * @summary Anchor & Echo: Keeps ADR-19 ownership local to this consumer: the
@@ -493,7 +512,12 @@ class SemanticGraphExtractor extends Base {
             const inputPayload     = this.estimateChatMessagesPayload(messages);
             const inputPayloadText = inputPayload.text;
             const guardrailed      = await invokeWithGuardrail({
-                invocationFn             : () => provider.generate(messages, {reasoning_effort: graphReasoningEffort || undefined, responseSchema: triVectorSchema, responseSchemaName: 'triVector'}),
+                invocationFn             : () => provider.generate(messages, {
+                    reasoning_effort  : graphReasoningEffort || undefined,
+                    responseSchema    : triVectorSchema,
+                    responseSchemaName: 'triVector',
+                    max_tokens        : this.getGraphOutputLimitTokens()
+                }),
                 inputPayload             : inputPayloadText,
                 model                    : consumerModel,
                 assetRef,
@@ -936,8 +960,12 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                 const chunkPayloads = [];
 
                 for (let index = 0; index < chunkPlan.chunks.length; index++) {
-                    const chunk  = chunkPlan.chunks[index],
-                          result = await this.extractTriVectorPayload({
+                    const chunk             = chunkPlan.chunks[index],
+                          outputLimitTokens = this.getGraphOutputLimitTokens();
+
+                    logger.info(`[SemanticGraphExtractor] Tri-Vector extracting chunk ${index + 1}/${chunkPlan.chunks.length} for session ${session.meta.sessionId} (${chunk.chunkId}); estimated ${chunk.estimatedTokens} tokens; output cap ${outputLimitTokens} tokens.`);
+
+                    const result = await this.extractTriVectorPayload({
                               session,
                               document: chunk.text,
                               assetRef: chunk.chunkId,

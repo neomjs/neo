@@ -93,7 +93,8 @@ test.describe('Tier 1 Config Immutability', () => {
             chat: {
                 contextLimitTokens       : Number(process.env.NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS) || 131072,
                 safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS) || 100000,
-                parallel                 : Number(process.env.NEO_LOCAL_MODELS_CHAT_PARALLEL) || 1
+                parallel                 : Number(process.env.NEO_LOCAL_MODELS_CHAT_PARALLEL) || 1,
+                graphOutputLimitTokens   : Number(process.env.NEO_LOCAL_MODELS_CHAT_GRAPH_OUTPUT_LIMIT_TOKENS) || 8192
             },
             embedding: {
                 contextLimitTokens       : Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS) || 32768,

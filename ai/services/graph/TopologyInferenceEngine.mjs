@@ -51,6 +51,16 @@ function readRequiredChatNumberLeaf(leafName) {
     return value;
 }
 
+function readRequiredChatPositiveNumberLeaf(leafName) {
+    const value = readRequiredChatNumberLeaf(leafName);
+
+    if (value <= 0) {
+        throw new Error(`[TopologyInferenceEngine] Required AiConfig leaf "localModels.chat.${leafName}" must be a positive number.`);
+    }
+
+    return value;
+}
+
 function readRequiredChatStringLeaf(leafName) {
     const value = aiConfig.localModels.chat[leafName];
 
@@ -222,7 +232,8 @@ ${contextText}
             reasoning_effort    : readRequiredChatStringLeaf('graphReasoningEffort'),
             responseSchema      : topologyConflictSchema,
             responseSchemaName  : 'topologyConflicts',
-            responseSchemaStrict: true
+            responseSchemaStrict: true,
+            max_tokens          : readRequiredChatPositiveNumberLeaf('graphOutputLimitTokens')
         }
     }
 

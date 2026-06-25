@@ -9,6 +9,8 @@ import {createTimeoutError} from './createTimeoutError.mjs';
  * @extends Neo.ai.provider.Base
  */
 class OpenAiCompatibleProvider extends Base {
+    #lastCompletionMetadata = null;
+
     static config = {
         /**
          * @member {String} className='Neo.ai.provider.OpenAiCompatible'
@@ -162,11 +164,23 @@ class OpenAiCompatibleProvider extends Base {
                 fullContent += chunk;
             }
 
-            return {
-                content: fullContent,
-                // Simulate the raw message expected by upstream callers
-                raw: { message: { content: fullContent } }
-            };
+            const finishReason = this.#lastCompletionMetadata?.finish_reason || '',
+                  result       = {
+                      content: fullContent,
+                      // Simulate the raw message expected by upstream callers.
+                      raw: { message: { content: fullContent } }
+                  };
+
+            if (finishReason) {
+                result.finish_reason     = finishReason;
+                result.raw.finish_reason = finishReason;
+                result.raw.choices       = [{
+                    finish_reason: finishReason,
+                    message      : { content: fullContent }
+                }];
+            }
+
+            return result;
         } catch (error) {
             throw error;
         }
@@ -184,9 +198,14 @@ class OpenAiCompatibleProvider extends Base {
      * @private
      */
     #getChoiceContent(data) {
-        const choice = data?.choices?.[0],
-              deltaContent = choice?.delta?.content,
-              messageContent = choice?.message?.content;
+        const choice         = data?.choices?.[0],
+              deltaContent   = choice?.delta?.content,
+              messageContent = choice?.message?.content,
+              finishReason   = choice?.finish_reason ?? choice?.finishReason ?? data?.finish_reason ?? data?.finishReason;
+
+        if (typeof finishReason === 'string' && finishReason) {
+            this.#lastCompletionMetadata = {finish_reason: finishReason};
+        }
 
         if (typeof deltaContent === 'string') {
             return deltaContent;
@@ -252,7 +271,7 @@ class OpenAiCompatibleProvider extends Base {
      */
     async *stream(input, options = {}) {
         const cleanOptions = { ...options };
-        const rawTimeoutMs  = Number(cleanOptions.timeoutMs),
+        const rawTimeoutMs = Number(cleanOptions.timeoutMs),
               timeoutMs     = Number.isFinite(rawTimeoutMs) && rawTimeoutMs > 0 ? rawTimeoutMs : null,
               operationLabel = cleanOptions.operationLabel || 'OpenAI-compatible chat completion',
               upstreamSignal = cleanOptions.signal;
@@ -262,7 +281,9 @@ class OpenAiCompatibleProvider extends Base {
         delete cleanOptions.signal;
         delete cleanOptions.timeoutMs;
 
-        const payload = this.preparePayload(input, cleanOptions, true);
+        this.#lastCompletionMetadata = null;
+
+        const payload    = this.preparePayload(input, cleanOptions, true);
         const controller = timeoutMs || upstreamSignal ? new AbortController() : null;
         let timeoutId, upstreamAbortListener, timedOut = false;
 
@@ -304,9 +325,9 @@ class OpenAiCompatibleProvider extends Base {
                 throw new Error(`OpenAI-Compatible API error: ${response.status} - ${text}`);
             }
 
-            const reader = response.body.getReader();
+            const reader  = response.body.getReader();
             const decoder = new TextDecoder('utf-8');
-            let buffer = '',
+            let   buffer  = '',
                 bodyText = '',
                 yieldedContent = false;
 

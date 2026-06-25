@@ -247,6 +247,15 @@ class Config extends ConfigProvider {
                     // and embedding models stay loaded regardless of this value.
                     parallel                 : leaf(1, 'NEO_LOCAL_MODELS_CHAT_PARALLEL', 'number'),
                     /**
+                     * @summary Output-token budget for REM graph structured-output calls.
+                     *
+                     * Input chunking protects the prompt side; this caps the provider's JSON response
+                     * side so an LMS/OpenAI-compatible schema request cannot consume the remaining
+                     * context window while the backlog waits for a response.
+                     * @type {Number}
+                     */
+                    graphOutputLimitTokens   : leaf(8192, 'NEO_LOCAL_MODELS_CHAT_GRAPH_OUTPUT_LIMIT_TOKENS', 'number'),
+                    /**
                      * @summary Per-task reasoning-effort for the chat model's two structured-output
                      * consumers — passed straight through as the OpenAI / LM-Studio `reasoning_effort`
                      * request param. Default `'none'` disables the gemma MoE's hidden "thinking" pass

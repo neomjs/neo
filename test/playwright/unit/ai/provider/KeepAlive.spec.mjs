@@ -834,6 +834,29 @@ test.describe('AI provider keep_alive payload shape (#12080, #12089)', () => {
         });
     });
 
+    test('OpenAiCompatible.generate() preserves streaming finish_reason metadata (#13981)', async () => {
+        globalThis.fetch = async () => ({
+            ok  : true,
+            body: createReadableStream([
+                'data: {"choices":[{"delta":{"content":"{\\"status\\""},"finish_reason":null}]}\n\n',
+                'data: {"choices":[{"delta":{"content":":\\"ok\\"}"},"finish_reason":"length"}]}\n\n',
+                'data: [DONE]\n\n'
+            ])
+        });
+
+        const provider = Neo.create(OpenAiCompatibleProvider, {
+            host     : 'http://openai-compatible.test',
+            modelName: 'gemma4-test'
+        });
+
+        const result = await provider.generate('hello', {max_tokens: 8});
+
+        expect(result.content).toBe('{"status":"ok"}');
+        expect(result.finish_reason).toBe('length');
+        expect(result.raw.finish_reason).toBe('length');
+        expect(result.raw.choices[0].finish_reason).toBe('length');
+    });
+
     test('OpenAiCompatible.generate() aggregates non-SSE JSON message content', async () => {
         let capturedPayload;
 
