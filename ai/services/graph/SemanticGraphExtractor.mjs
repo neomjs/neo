@@ -8,6 +8,10 @@ import {
     invokeWithGuardrail
 } from '../../services/memory-core/helpers/consumerFrictionHelper.mjs';
 import GraphService                                    from '../../services/memory-core/GraphService.mjs';
+import {
+    clearActiveRemCallState,
+    writeActiveRemCallState
+} from '../../services/memory-core/helpers/remRunStateStore.mjs';
 import Json                                            from '../../../src/util/Json.mjs';
 import logger                                          from '../../mcp/server/memory-core/logger.mjs';
 import {buildGraphProvider, resolveGraphModelProvider} from './providerDispatch.mjs';
@@ -294,7 +298,14 @@ class SemanticGraphExtractor extends Base {
                   {role: 'system', content: systemInstruction},
                   {role: 'user',   content: '--- Session Episodic Memory ---\n'}
               ]).tokens,
-              chunkBudget = Math.max(1, AiConfig.localModels.chat.safeProcessingLimitTokens - envelopeTokens);
+              {
+                  contextLimitTokens,
+                  safeProcessingLimitTokens,
+                  graphOutputLimitTokens,
+                  graphChunkLimitTokens
+              } = AiConfig.localModels.chat,
+              promptBudget = Math.min(graphChunkLimitTokens, safeProcessingLimitTokens, contextLimitTokens - graphOutputLimitTokens),
+              chunkBudget  = Math.max(1, promptBudget - envelopeTokens);
 
         return chunkSession(turnDocuments, {
             sessionId                : session.meta.sessionId,
@@ -469,31 +480,117 @@ class SemanticGraphExtractor extends Base {
         session,
         document,
         assetRef,
+        consumerProvider,
         provider,
         consumerModel,
         consumerContextTokens,
         consumerSafeTokens,
+        graphOutputLimitTokens,
         graphReasoningEffort,
         triVectorSchema,
-        systemInstruction
+        systemInstruction,
+        chunkIndex = 0,
+        chunkCount = 1,
+        turnIndices = [],
+        chunkTokens = null
     }) {
         const messages = [
             { role: 'system', content: systemInstruction },
             { role: 'user', content: `--- Session Episodic Memory ---\n${document}` }
         ];
 
-        let maxRetries = 3;
-        let attempt    = 0;
-        let payload    = null;
-        let result     = null;
+        let maxRetries          = 3;
+        let attempt             = 0;
+        let payload             = null;
+        let result              = null;
+        let lastCallDiagnostics = null;
 
         while (attempt < maxRetries && !payload) {
             attempt++;
 
             const inputPayload     = this.estimateChatMessagesPayload(messages);
             const inputPayloadText = inputPayload.text;
-            const guardrailed      = await invokeWithGuardrail({
-                invocationFn             : () => provider.generate(messages, {reasoning_effort: graphReasoningEffort || undefined, responseSchema: triVectorSchema, responseSchemaName: 'triVector'}),
+            const startedAt        = new Date().toISOString();
+            const callDiagnostics  = {
+                phase                    : 'triVector',
+                sessionId                : session.meta.sessionId,
+                assetRef,
+                chunkIndex,
+                chunkCount,
+                turnIndices,
+                chunkTokens,
+                attempt,
+                maxRetries,
+                provider                 : consumerProvider,
+                model                    : consumerModel,
+                promptBytes              : inputPayload.bytes,
+                promptTokensEstimate     : inputPayload.tokens,
+                outputLimitTokens        : graphOutputLimitTokens,
+                contextLimitTokens       : consumerContextTokens,
+                safeProcessingLimitTokens: consumerSafeTokens,
+                promptPlusOutputTokens   : inputPayload.tokens + graphOutputLimitTokens,
+                startedAt
+            };
+            lastCallDiagnostics = callDiagnostics;
+
+            if (callDiagnostics.promptPlusOutputTokens > consumerContextTokens) {
+                logger.warn(`[SemanticGraphExtractor] Attempt ${attempt}: Tri-Vector prompt + output reserve exceeds context cap for session ${session.meta.sessionId}; aborting before provider dispatch.`);
+
+                this.emitRetryLoopContextOverflow({
+                    sessionId          : assetRef,
+                    consumerModel,
+                    consumerContextTokens,
+                    consumerSafeTokens,
+                    inputBytes         : inputPayload.bytes,
+                    inputTokensEstimate: callDiagnostics.promptPlusOutputTokens,
+                    note               : `REM Tri-Vector prompt estimate ${inputPayload.tokens} plus output reserve ${graphOutputLimitTokens} exceeds context cap ${consumerContextTokens}. Attempt ${attempt}/${maxRetries}.`
+                });
+
+                return this.createTriVectorFailureDescriptor({
+                    deferReason       : 'under-band-choke',
+                    frictionSymptom   : 'context-overflow',
+                    terminalForCadence: true,
+                    evidence          : {
+                        ...callDiagnostics,
+                        note: `REM Tri-Vector prompt estimate ${inputPayload.tokens} plus output reserve ${graphOutputLimitTokens} exceeds context cap ${consumerContextTokens}.`
+                    }
+                });
+            }
+
+            const providerOptions = {
+                reasoning_effort   : graphReasoningEffort || undefined,
+                responseSchema     : triVectorSchema,
+                responseSchemaName : 'triVector',
+                maxCompletionTokens: graphOutputLimitTokens,
+                operationLabel     : `REM Tri-Vector ${session.meta.sessionId} ${assetRef} attempt ${attempt}/${maxRetries}`
+            };
+
+            logger.info(
+                `[SemanticGraphExtractor] Tri-Vector provider call started: session=${session.meta.sessionId} ` +
+                `assetRef=${assetRef} chunk=${chunkIndex + 1}/${chunkCount} attempt=${attempt}/${maxRetries} ` +
+                `provider=${consumerProvider} model=${consumerModel} promptTokens=${inputPayload.tokens} ` +
+                `outputLimitTokens=${graphOutputLimitTokens} startedAt=${startedAt}.`
+            );
+
+            const guardrailed = await invokeWithGuardrail({
+                invocationFn             : async () => {
+                    this.activeTriVectorCall = callDiagnostics;
+                    try {
+                        await writeActiveRemCallState(callDiagnostics, {dir: AiConfig.remRunStateDir});
+                    } catch (e) {
+                        logger.error('[SemanticGraphExtractor] Failed to write active REM Tri-Vector diagnostics:', e);
+                    }
+                    try {
+                        return await provider.generate(messages, providerOptions);
+                    } finally {
+                        this.activeTriVectorCall = null;
+                        try {
+                            await clearActiveRemCallState({dir: AiConfig.remRunStateDir});
+                        } catch (e) {
+                            logger.error('[SemanticGraphExtractor] Failed to clear active REM Tri-Vector diagnostics:', e);
+                        }
+                    }
+                },
                 inputPayload             : inputPayloadText,
                 model                    : consumerModel,
                 assetRef,
@@ -501,7 +598,7 @@ class SemanticGraphExtractor extends Base {
                 contextLimitTokens       : consumerContextTokens,
                 safeProcessingLimitTokens: consumerSafeTokens,
                 serviceDomain            : 'dream-pipeline',
-                note                     : `Tri-Vector session-aggregation attempt ${attempt} of ${maxRetries}`
+                note                     : `Tri-Vector session-aggregation attempt ${attempt} of ${maxRetries}; outputLimitTokens=${graphOutputLimitTokens}`
             });
 
             if (!guardrailed.result) {
@@ -512,6 +609,7 @@ class SemanticGraphExtractor extends Base {
                     frictionSymptom   : guardrailed.friction?.symptom,
                     terminalForCadence: true,
                     evidence          : {
+                        ...callDiagnostics,
                         attempts                 : attempt,
                         assetRef,
                         emissionPoint            : guardrailed.friction?.emissionPoint,
@@ -545,6 +643,7 @@ class SemanticGraphExtractor extends Base {
                     frictionSymptom   : 'context-overflow',
                     terminalForCadence: true,
                     evidence          : {
+                        ...callDiagnostics,
                         attempts           : attempt,
                         assetRef,
                         finishReason,
@@ -576,6 +675,7 @@ class SemanticGraphExtractor extends Base {
                     frictionSymptom   : 'context-overflow',
                     terminalForCadence: true,
                     evidence          : {
+                        ...callDiagnostics,
                         attempts           : attempt,
                         assetRef,
                         inputBytes         : Buffer.byteLength(inputPayloadText),
@@ -616,6 +716,7 @@ class SemanticGraphExtractor extends Base {
                             frictionSymptom   : 'context-overflow',
                             terminalForCadence: true,
                             evidence          : {
+                                ...callDiagnostics,
                                 attempts           : attempt,
                                 assetRef,
                                 inputBytes         : repairPayload.bytes,
@@ -650,6 +751,7 @@ class SemanticGraphExtractor extends Base {
                 frictionSymptom   : 'parse-failure',
                 terminalForCadence: true,
                 evidence          : {
+                    ...lastCallDiagnostics,
                     attempts: attempt,
                     assetRef,
                     note: `Tri-Vector schema validation failed after ${attempt} attempt(s).`
@@ -868,17 +970,20 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             // threshold (model-role axis, not provider-namespace — remote providers like
             // Gemini are API-bound and don't expose these knobs; local providers
             // share the same caps because the limit comes from the loaded model).
-            const consumerModel         = AiConfig[graphProvider].model;
-            const consumerContextTokens = AiConfig.localModels.chat.contextLimitTokens;
-            const consumerSafeTokens    = AiConfig.localModels.chat.safeProcessingLimitTokens;
+            const consumerModel = graphProvider === 'ollama' ? AiConfig.ollama.model : AiConfig.openAiCompatible.model;
+            const {
+                contextLimitTokens,
+                safeProcessingLimitTokens,
+                graphOutputLimitTokens,
+                graphReasoningEffort
+            } = AiConfig.localModels.chat;
 
             // Per-task no-think + grammar-constrained tri-vector output. `graphReasoningEffort`
             // (default 'none') disables the gemma MoE's hidden thinking pass; `triVectorSchema` enforces
             // the A2A session_artifact/graph shape via the provider's json_schema path, which makes the
             // repair-retry loop below a safety net rather than the happy path. Schema mirrors the strict
             // shape declared in the systemInstruction above.
-            const graphReasoningEffort = AiConfig.localModels.chat.graphReasoningEffort;
-            const triVectorSchema      = {
+            const triVectorSchema = {
                 type      : 'object',
                 properties: {
                     a2a_version     : {type: 'string'},
@@ -939,15 +1044,21 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                     const chunk  = chunkPlan.chunks[index],
                           result = await this.extractTriVectorPayload({
                               session,
-                              document: chunk.text,
-                              assetRef: chunk.chunkId,
+                              document             : chunk.text,
+                              assetRef             : chunk.chunkId,
+                              consumerProvider     : graphProvider,
                               provider,
                               consumerModel,
-                              consumerContextTokens,
-                              consumerSafeTokens,
+                              consumerContextTokens: contextLimitTokens,
+                              consumerSafeTokens   : safeProcessingLimitTokens,
+                              graphOutputLimitTokens,
                               graphReasoningEffort,
                               triVectorSchema,
-                              systemInstruction
+                              systemInstruction,
+                              chunkIndex           : index,
+                              chunkCount           : chunkPlan.chunks.length,
+                              turnIndices          : chunk.turnIndices,
+                              chunkTokens          : chunk.estimatedTokens
                           });
 
                     if (this.isTriVectorFailureDescriptor(result)) {
@@ -962,12 +1073,14 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             } else {
                 payload = await this.extractTriVectorPayload({
                     session,
-                    document: session.document,
-                    assetRef: session.meta.sessionId,
+                    document             : session.document,
+                    assetRef             : session.meta.sessionId,
+                    consumerProvider     : graphProvider,
                     provider,
                     consumerModel,
-                    consumerContextTokens,
-                    consumerSafeTokens,
+                    consumerContextTokens: contextLimitTokens,
+                    consumerSafeTokens   : safeProcessingLimitTokens,
+                    graphOutputLimitTokens,
                     graphReasoningEffort,
                     triVectorSchema,
                     systemInstruction

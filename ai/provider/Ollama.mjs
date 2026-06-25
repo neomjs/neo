@@ -55,6 +55,15 @@ function extractNativeOllamaFields(options) {
     }
     delete options.reasoning_effort;
 
+    if (options.maxCompletionTokens !== undefined) {
+        if (options.num_predict === undefined) {
+            options.num_predict = options.maxCompletionTokens;
+        }
+        delete options.maxCompletionTokens;
+    }
+    delete options.maxGeneratedTokens;
+    delete options.onProviderChunk;
+
     return fields;
 }
 
