@@ -11,12 +11,12 @@ test.describe('repairMemoryCoreCollectionsViaFullEnumeration (#13634 AC4)', () =
     const embeddingFunction = {name: 'dummy'},
           embedFn           = async docs => docs.map(() => [0.1, 0.2]);
 
-    function makeSeams({coverage, extractResults}) {
+    function makeSeams({coverage, extractResults, client}) {
         const calls = {audit: [], extract: [], promote: [], clearState: [], writeState: []};
 
         return {
             calls,
-            client      : {getCollection: async ({name}) => ({_name: name})},
+            client      : client || {getCollection: async ({name}) => ({_name: name})},
             auditFn     : async args => { calls.audit.push(args);   return coverage; },
             extractFn   : async args => { calls.extract.push(args); return extractResults[args.collection._name]; },
             promoteFn   : async args => { calls.promote.push(args); return {promoted: args.collectionName}; },
@@ -59,6 +59,45 @@ test.describe('repairMemoryCoreCollectionsViaFullEnumeration (#13634 AC4)', () =
         // clean success CLEARS the durable marker (no rerun-poisoning); the aborted marker is never written
         expect(calls.clearState).toEqual([{statePath: '/state'}]);
         expect(calls.writeState).toHaveLength(0);
+    });
+
+    test('duplicate collection names select the coverage row matching the live collection id', async () => {
+        const coverage = {collections: [
+                  {name: 'mc-graph', collectionId: 'stale-id', allIds: ['stale'], missingVectorIds: ['stale']},
+                  {name: 'mc-graph', collectionId: 'live-id',  allIds: ['live'],  missingVectorIds: []}
+              ]},
+              extractResults = {
+                  'mc-graph': {data: {ids: ['live'], embeddings: [[9]], documents: [''], metadatas: [{}]}, unrecoverable: [], counts: {total: 1, intact: 1, reEmbedded: 0, unrecoverable: 0}}
+              },
+              client = {getCollection: async ({name}) => ({_name: name, id: 'live-id'})},
+              {calls, auditFn, extractFn, promoteFn, clearStateFn, writeStateFn} = makeSeams({coverage, extractResults, client});
+
+        const {results} = await repairMemoryCoreCollectionsViaFullEnumeration({
+            client, collections: ['mc-graph'], snapshotPath: '/snap', persistDir: '/persist',
+            embedFn, embeddingFunction, statePath: '/state', auditFn, extractFn, promoteFn, clearStateFn, writeStateFn, log: () => {}
+        });
+
+        expect(calls.extract).toHaveLength(1);
+        expect(calls.extract[0].allIds).toEqual(['live']);
+        expect(calls.extract[0].missingVectorIds).toEqual([]);
+        expect(results[0].promotion).toEqual({promoted: 'mc-graph'});
+    });
+
+    test('duplicate collection names fail before extraction when the live collection id cannot be matched', async () => {
+        const coverage = {collections: [
+                  {name: 'mc-graph', collectionId: 'stale-id', allIds: ['stale'], missingVectorIds: ['stale']},
+                  {name: 'mc-graph', collectionId: 'other-id', allIds: ['other'], missingVectorIds: []}
+              ]},
+              client = {getCollection: async ({name}) => ({_name: name, id: 'live-id'})},
+              {calls, auditFn, extractFn, promoteFn} = makeSeams({coverage, extractResults: {}, client});
+
+        await expect(repairMemoryCoreCollectionsViaFullEnumeration({
+            client, collections: ['mc-graph'], snapshotPath: '/snap', persistDir: '/persist',
+            embedFn, embeddingFunction, statePath: '/state', auditFn, extractFn, promoteFn, log: () => {}
+        })).rejects.toThrow(/none match live collection id 'live-id'/);
+
+        expect(calls.extract).toHaveLength(0);
+        expect(calls.promote).toHaveLength(0);
     });
 
     test('fail-loud: unrecoverable rows abort that collection promotion (no silent drop)', async () => {

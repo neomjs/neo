@@ -88,6 +88,43 @@ test.describe('extractMemoryCoreCollectionData — MC stored-embedding repair ex
         expect(result.counts.reEmbedded).toBe(1);
     });
 
+    test('reports 10%-bucket progress for intact extraction and missing-vector re-embed', async () => {
+        const intactIds = Array.from({length: 10}, (_, i) => `i${i}`),
+              missingIds = Array.from({length: 10}, (_, i) => `m${i}`),
+              rows       = {};
+
+        for (const id of intactIds) {
+            rows[id] = {embedding: [1], document: `doc-${id}`, metadata: {}};
+        }
+
+        for (const id of missingIds) {
+            rows[id] = {document: `doc-${id}`, metadata: {}};
+        }
+
+        const events = [];
+
+        const result = await extractMemoryCoreCollectionData({
+            collection      : makeCollection(rows),
+            allIds          : [...intactIds, ...missingIds],
+            missingVectorIds: missingIds,
+            batchSize       : 1,
+            embedFn         : async docs => docs.map(() => [7]),
+            onProgress      : event => events.push(event)
+        });
+
+        expect(result.counts).toEqual({total: 20, intact: 10, reEmbedded: 10, unrecoverable: 0});
+        expect(events.filter(event => event.phase === 'intact-extract').map(event => event.percent))
+            .toEqual([10, 20, 30, 40, 50, 60, 70, 80, 90, 100]);
+        expect(events.filter(event => event.phase === 'missing-reembed').map(event => event.percent))
+            .toEqual([10, 20, 30, 40, 50, 60, 70, 80, 90, 100]);
+        expect(events.at(0)).toMatchObject({phase: 'start', percent: 0, processed: 0, total: 20});
+        expect(events.at(-1)).toMatchObject({
+            phase  : 'complete',
+            percent: 100,
+            counts : {total: 20, intact: 10, reEmbedded: 10, unrecoverable: 0}
+        });
+    });
+
     test('embedFn returning a wrong-length result throws (fail loud)', async () => {
         const rows = {m: {document: 'dm', metadata: {}}};
 
