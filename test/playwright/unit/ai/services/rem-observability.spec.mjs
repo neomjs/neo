@@ -23,7 +23,8 @@ import Neo                from '../../../../../src/Neo.mjs';
 import * as core          from '../../../../../src/core/_export.mjs';
 import {
     appendRemRunState,
-    createRemRunStateEntry
+    createRemRunStateEntry,
+    writeActiveRemCallState
 } from '../../../../../ai/services/memory-core/helpers/remRunStateStore.mjs';
 
 /**
@@ -447,8 +448,9 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
             ].join('\n'), 'utf8');
             aiConfig.data.handoffFilePath = handoffPath;
 
-            const {callTool} = await import('../../../../../ai/mcp/server/memory-core/toolService.mjs');
-            const state = await callTool('get_rem_pipeline_state', {sessionId: 's1'});
+            const
+                {callTool} = await import('../../../../../ai/mcp/server/memory-core/toolService.mjs'),
+                state      = await callTool('get_rem_pipeline_state', {sessionId: 's1'});
 
             expect(state).toEqual({
                 undigested       : 2,
@@ -456,6 +458,7 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
                 sessionNodes     : 2,
                 topologyConflicts: 2,
                 recentCycles     : [],
+                activeCall       : null,
                 perSession       : {
                     sessionId  : 's1',
                     entityCount: 9
@@ -475,8 +478,9 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
             TopologyInferenceEngine.getTopologyConflictCount = async () => 2;
 
             try {
-                const {buildRemPipelineState} = await import('../../../../../ai/services/memory-core/HealthService.mjs');
-                const state = await buildRemPipelineState({axisTimeoutMs: 5});
+                const
+                    {buildRemPipelineState} = await import('../../../../../ai/services/memory-core/HealthService.mjs'),
+                    state                   = await buildRemPipelineState({axisTimeoutMs: 5});
 
                 expect(state).toMatchObject({
                     undigested       : 0,
@@ -484,6 +488,7 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
                     sessionNodes     : 11,
                     topologyConflicts: 2,
                     recentCycles     : [],
+                    activeCall       : null,
                     axisErrors       : {
                         undigested: 'REM axis undigested timed out after 5ms'
                     }
@@ -529,8 +534,9 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
                 reasonCode         : 'no-undigested-sessions'
             }), {dir: aiConfig.remRunStateDir});
 
-            const {callTool} = await import('../../../../../ai/mcp/server/memory-core/toolService.mjs');
-            const state = await callTool('get_rem_pipeline_state', {});
+            const
+                {callTool} = await import('../../../../../ai/mcp/server/memory-core/toolService.mjs'),
+                state      = await callTool('get_rem_pipeline_state', {});
 
             expect(state.recentCycles).toEqual([{
                 runId              : 'rem-new',
@@ -539,6 +545,63 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
                 cycleOverflowRatio : 0.9,
                 outcome            : 'skipped'
             }]);
+        });
+
+        test('projects active REM Tri-Vector call state through the MCP tool', async () => {
+            ChromaManager.getSummaryCollection = async () => makeFakeSummaryCollection([]);
+            GraphService.db = makeFakeGraphDb((sql) => {
+                if (sql.includes('FROM Nodes')) {
+                    return {get: () => ({c: 0})};
+                }
+
+                return {get: () => ({count: 0})};
+            });
+            aiConfig.data.handoffFilePath = uniqueHandoffPath('no-conflicts');
+
+            await writeActiveRemCallState({
+                phase                    : 'triVector',
+                sessionId                : '2d993feb-ea2f-4468-8fbd-c53e62365f4d',
+                assetRef                 : '2d993feb-ea2f-4468-8fbd-c53e62365f4d:chunk:1',
+                chunkIndex               : 1,
+                chunkCount               : 2,
+                turnIndices              : [96, 191],
+                chunkTokens              : 70549,
+                attempt                  : 1,
+                maxRetries               : 3,
+                provider                 : 'openAiCompatible',
+                model                    : 'google/gemma-4-26b-a4b',
+                promptTokensEstimate     : 70549,
+                outputLimitTokens        : 8192,
+                contextLimitTokens       : 131072,
+                safeProcessingLimitTokens: 100000,
+                promptPlusOutputTokens   : 78741,
+                startedAt                : '2026-06-24T23:27:55.880Z',
+                ignoredInternalField     : 'not-projected'
+            }, {dir: aiConfig.remRunStateDir});
+
+            const
+                {callTool} = await import('../../../../../ai/mcp/server/memory-core/toolService.mjs'),
+                state      = await callTool('get_rem_pipeline_state', {});
+
+            expect(state.activeCall).toEqual({
+                phase                    : 'triVector',
+                sessionId                : '2d993feb-ea2f-4468-8fbd-c53e62365f4d',
+                assetRef                 : '2d993feb-ea2f-4468-8fbd-c53e62365f4d:chunk:1',
+                chunkIndex               : 1,
+                chunkCount               : 2,
+                turnIndices              : [96, 191],
+                chunkTokens              : 70549,
+                attempt                  : 1,
+                maxRetries               : 3,
+                provider                 : 'openAiCompatible',
+                model                    : 'google/gemma-4-26b-a4b',
+                promptTokensEstimate     : 70549,
+                outputLimitTokens        : 8192,
+                contextLimitTokens       : 131072,
+                safeProcessingLimitTokens: 100000,
+                promptPlusOutputTokens   : 78741,
+                startedAt                : '2026-06-24T23:27:55.880Z'
+            });
         });
     });
 });

@@ -23,6 +23,7 @@ import {
     clearAggregatedFrictions,
     getAggregatedFrictions
 } from '../../../../../../ai/services/memory-core/helpers/consumerFrictionHelper.mjs';
+import {readActiveRemCallState} from '../../../../../../ai/services/memory-core/helpers/remRunStateStore.mjs';
 
 test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
     test.describe.configure({mode: 'serial'});
@@ -396,48 +397,60 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
     });
 
     test('REM marathon chunk exposes active diagnostics and output budget before provider return (#13984)', async () => {
-        let capturedOptions, activeDuringCall;
+        const originalRemRunStateDir = aiConfig.remRunStateDir,
+              remRunStateDir         = path.resolve(process.cwd(), 'tmp', `active-rem-call-${process.pid}-${Date.now()}`);
 
-        const provider = {
-            generate: async function(messages, options) {
-                capturedOptions  = options;
-                activeDuringCall = {...SemanticGraphExtractor.activeTriVectorCall};
+        let capturedOptions, activeDuringCall, activeOnDiskDuringCall, activeOnDiskAfterCall, result;
 
-                return {
-                    content: JSON.stringify({
-                        a2a_version     : '1.0',
-                        agent_id        : 'Antigravity',
-                        session_artifact: {
-                            feature_namespace     : 'Neo.ai.REM',
-                            human_readable_summary: 'Marathon REM chunk stayed bounded by output budget.',
-                            graph                 : {nodes: [], edges: []}
-                        }
-                    })
-                };
-            }
-        };
+        try {
+            aiConfig.remRunStateDir = remRunStateDir;
 
-        const result = await SemanticGraphExtractor.extractTriVectorPayload({
-            session: {
-                id  : 'mock-marathon-rem-vector-id',
-                meta: {sessionId: '2d993feb-ea2f-4468-8fbd-c53e62365f4d'}
-            },
-            document              : 'chunk-2 live evidence: 70549 estimated prompt tokens, provider stream exceeded 204k live tokens.',
-            assetRef              : '2d993feb-ea2f-4468-8fbd-c53e62365f4d:chunk:1',
-            consumerProvider      : 'openAiCompatible',
-            provider,
-            consumerModel         : 'google/gemma-4-26b-a4b',
-            consumerContextTokens : 131072,
-            consumerSafeTokens    : 100000,
-            graphOutputLimitTokens: 8192,
-            graphReasoningEffort  : 'none',
-            triVectorSchema       : {type: 'object'},
-            systemInstruction     : 'Return the requested Tri-Vector JSON object.',
-            chunkIndex            : 1,
-            chunkCount            : 2,
-            turnIndices           : [96, 191],
-            chunkTokens           : 70549
-        });
+            const provider = {
+                generate: async function(messages, options) {
+                    capturedOptions         = options;
+                    activeDuringCall        = {...SemanticGraphExtractor.activeTriVectorCall};
+                    activeOnDiskDuringCall  = await readActiveRemCallState({dir: remRunStateDir});
+
+                    return {
+                        content: JSON.stringify({
+                            a2a_version     : '1.0',
+                            agent_id        : 'Antigravity',
+                            session_artifact: {
+                                feature_namespace     : 'Neo.ai.REM',
+                                human_readable_summary: 'Marathon REM chunk stayed bounded by output budget.',
+                                graph                 : {nodes: [], edges: []}
+                            }
+                        })
+                    };
+                }
+            };
+
+            result = await SemanticGraphExtractor.extractTriVectorPayload({
+                session: {
+                    id  : 'mock-marathon-rem-vector-id',
+                    meta: {sessionId: '2d993feb-ea2f-4468-8fbd-c53e62365f4d'}
+                },
+                document              : 'chunk-2 live evidence: 70549 estimated prompt tokens, provider stream exceeded 204k live tokens.',
+                assetRef              : '2d993feb-ea2f-4468-8fbd-c53e62365f4d:chunk:1',
+                consumerProvider      : 'openAiCompatible',
+                provider,
+                consumerModel         : 'google/gemma-4-26b-a4b',
+                consumerContextTokens : 131072,
+                consumerSafeTokens    : 100000,
+                graphOutputLimitTokens: 8192,
+                graphReasoningEffort  : 'none',
+                triVectorSchema       : {type: 'object'},
+                systemInstruction     : 'Return the requested Tri-Vector JSON object.',
+                chunkIndex            : 1,
+                chunkCount            : 2,
+                turnIndices           : [96, 191],
+                chunkTokens           : 70549
+            });
+            activeOnDiskAfterCall = await readActiveRemCallState({dir: remRunStateDir});
+        } finally {
+            aiConfig.remRunStateDir = originalRemRunStateDir;
+            fs.rmSync(remRunStateDir, {recursive: true, force: true});
+        }
 
         expect(result.session_artifact.human_readable_summary).toBe('Marathon REM chunk stayed bounded by output budget.');
         expect(capturedOptions).toMatchObject({
@@ -458,9 +471,11 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             contextLimitTokens       : 131072,
             safeProcessingLimitTokens: 100000
         });
+        expect(activeOnDiskDuringCall).toMatchObject(activeDuringCall);
         expect(activeDuringCall.promptTokensEstimate).toBeGreaterThan(0);
         expect(activeDuringCall.startedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
         expect(SemanticGraphExtractor.activeTriVectorCall).toBeNull();
+        expect(activeOnDiskAfterCall).toBeNull();
     });
 
     test('REM parser fails before dispatch when prompt plus output reserve exceeds context (#13984)', async () => {

@@ -1,6 +1,8 @@
 import fs   from 'fs/promises';
 import path from 'path';
 
+const ACTIVE_REM_CALL_FILE = 'active-rem-call.json';
+
 /**
  * @summary Builds the gitignored file name used for one REM run state artifact.
  *
@@ -13,6 +15,20 @@ export function getRemRunStateFileName(runId) {
     }
 
     return `${runId.replace(/[^a-zA-Z0-9_.-]/g, '_')}.jsonl`;
+}
+
+/**
+ * @summary Builds the gitignored active-call state file path used while REM is in flight.
+ *
+ * @param {String} dir Directory for REM run state files.
+ * @returns {String} Active-call state file path.
+ */
+export function getActiveRemCallStateFilePath(dir) {
+    if (!dir) {
+        throw new TypeError('getActiveRemCallStateFilePath: dir is required');
+    }
+
+    return path.join(dir, ACTIVE_REM_CALL_FILE);
 }
 
 /**
@@ -200,6 +216,68 @@ export async function appendRemRunState(entry, {dir, retentionLimit} = {}) {
     }
 
     return filePath;
+}
+
+/**
+ * @summary Writes the currently in-flight REM provider call before dispatch.
+ *
+ * The completed-run JSONL artifact is written only when a cycle finalizes. This file is the
+ * bounded live counterpart: operators and MCP diagnostics can identify the exact session/chunk
+ * responsible while a provider call is still streaming.
+ *
+ * @param {Object} state Active-call diagnostic state.
+ * @param {Object} options
+ * @param {String} options.dir Directory for REM run state files.
+ * @returns {Promise<String>} Written file path.
+ */
+export async function writeActiveRemCallState(state, {dir} = {}) {
+    if (!dir) {
+        throw new TypeError('writeActiveRemCallState: dir is required');
+    }
+
+    await fs.mkdir(dir, {recursive: true});
+
+    const filePath = getActiveRemCallStateFilePath(dir),
+          tmpPath  = `${filePath}.tmp`;
+
+    await fs.writeFile(tmpPath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+    await fs.rename(tmpPath, filePath);
+
+    return filePath;
+}
+
+/**
+ * @summary Removes the active REM provider-call marker after the call completes or fails.
+ *
+ * @param {Object} options
+ * @param {String} options.dir Directory for REM run state files.
+ * @returns {Promise<void>}
+ */
+export async function clearActiveRemCallState({dir} = {}) {
+    if (!dir) {
+        throw new TypeError('clearActiveRemCallState: dir is required');
+    }
+
+    await fs.rm(getActiveRemCallStateFilePath(dir), {force: true});
+}
+
+/**
+ * @summary Reads the active REM provider-call marker, if one exists.
+ *
+ * @param {Object} options
+ * @param {String} options.dir Directory for REM run state files.
+ * @returns {Promise<Object|null>} Parsed active-call state, or null when absent/corrupt.
+ */
+export async function readActiveRemCallState({dir} = {}) {
+    if (!dir) {
+        return null;
+    }
+
+    try {
+        return JSON.parse(await fs.readFile(getActiveRemCallStateFilePath(dir), 'utf8'));
+    } catch (e) {
+        return null;
+    }
 }
 
 /**

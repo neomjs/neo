@@ -102,6 +102,12 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
         expect(tool.outputSchema.properties.recentCycles.type).toBe('array');
         expect(tool.outputSchema.properties.recentCycles.items.properties.runId.type).toBe('string');
         expect(tool.outputSchema.properties.recentCycles.items.properties.cycleOverflowSignal.type).toBe('boolean');
+        expect(tool.outputSchema.required).toContain('activeCall');
+        const activeCall = tool.outputSchema.properties.activeCall.anyOf.find(item => item.type === 'object');
+        expect(tool.outputSchema.properties.activeCall.anyOf.some(item => item.type === 'null')).toBe(true);
+        expect(activeCall.properties.sessionId.type).toBe('string');
+        expect(activeCall.properties.chunkIndex.type).toBe('integer');
+        expect(activeCall.properties.outputLimitTokens.type).toBe('integer');
         const perSession = tool.outputSchema.properties.perSession.anyOf.find(item => item.type === 'object');
         expect(perSession.properties.entityCount.type).toBe('integer');
     });

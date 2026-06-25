@@ -16,7 +16,10 @@ import {
     normalizeUserId
 } from '../../mcp/server/shared/services/RequestContextService.mjs';
 import {buildSqliteHolderDiagnostics} from './helpers/harnessClassifier.mjs';
-import {readRecentRemRunStates}       from './helpers/remRunStateStore.mjs';
+import {
+    readActiveRemCallState,
+    readRecentRemRunStates
+} from './helpers/remRunStateStore.mjs';
 import {withTimeout}                  from './helpers/withTimeout.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -737,12 +740,37 @@ export async function buildRemPipelineState({sessionId, axisTimeoutMs = aiConfig
         }));
     }, []);
 
+    const activeCall = await resolveRemBlock('activeCall', async () => {
+        const state = await readActiveRemCallState({dir: aiConfig.remRunStateDir});
+
+        return state ? {
+            phase                    : state.phase,
+            sessionId                : state.sessionId,
+            assetRef                 : state.assetRef,
+            chunkIndex               : state.chunkIndex,
+            chunkCount               : state.chunkCount,
+            turnIndices              : state.turnIndices,
+            chunkTokens              : state.chunkTokens,
+            attempt                  : state.attempt,
+            maxRetries               : state.maxRetries,
+            provider                 : state.provider,
+            model                    : state.model,
+            promptTokensEstimate     : state.promptTokensEstimate,
+            outputLimitTokens        : state.outputLimitTokens,
+            contextLimitTokens       : state.contextLimitTokens,
+            safeProcessingLimitTokens: state.safeProcessingLimitTokens,
+            promptPlusOutputTokens   : state.promptPlusOutputTokens,
+            startedAt                : state.startedAt
+        } : null;
+    }, null);
+
     const state = {
         undigested,
         digested,
         sessionNodes,
         topologyConflicts,
-        recentCycles
+        recentCycles,
+        activeCall
     };
 
     if (Object.keys(axisErrors).length) {

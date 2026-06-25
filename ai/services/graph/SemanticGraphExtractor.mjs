@@ -8,6 +8,10 @@ import {
     invokeWithGuardrail
 } from '../../services/memory-core/helpers/consumerFrictionHelper.mjs';
 import GraphService                                    from '../../services/memory-core/GraphService.mjs';
+import {
+    clearActiveRemCallState,
+    writeActiveRemCallState
+} from '../../services/memory-core/helpers/remRunStateStore.mjs';
 import Json                                            from '../../../src/util/Json.mjs';
 import logger                                          from '../../mcp/server/memory-core/logger.mjs';
 import {buildGraphProvider, resolveGraphModelProvider} from './providerDispatch.mjs';
@@ -586,9 +590,19 @@ class SemanticGraphExtractor extends Base {
                 invocationFn             : async () => {
                     this.activeTriVectorCall = callDiagnostics;
                     try {
+                        await writeActiveRemCallState(callDiagnostics, {dir: AiConfig.remRunStateDir});
+                    } catch (e) {
+                        logger.error('[SemanticGraphExtractor] Failed to write active REM Tri-Vector diagnostics:', e);
+                    }
+                    try {
                         return await provider.generate(messages, providerOptions);
                     } finally {
                         this.activeTriVectorCall = null;
+                        try {
+                            await clearActiveRemCallState({dir: AiConfig.remRunStateDir});
+                        } catch (e) {
+                            logger.error('[SemanticGraphExtractor] Failed to clear active REM Tri-Vector diagnostics:', e);
+                        }
                     }
                 },
                 inputPayload             : inputPayloadText,
