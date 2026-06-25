@@ -168,7 +168,13 @@ function splitFreshAndAgedUndigested(rows, maxToProcess) {
         return [];
     }
 
-    const reserve  = maxToProcess > 1 ? Math.min(aiConfig.undigestedSessionFreshReserve, maxToProcess - 1) : maxToProcess;
+    const undigestedSessionFreshReserve = aiConfig.undigestedSessionFreshReserve;
+
+    if (!Number.isFinite(undigestedSessionFreshReserve)) {
+        throw new Error('[DreamService] Required AiConfig leaf "undigestedSessionFreshReserve" is missing or invalid. Update ai/mcp/server/memory-core/config.mjs from config.template.mjs.');
+    }
+
+    const reserve  = maxToProcess > 1 ? Math.min(undigestedSessionFreshReserve, maxToProcess - 1) : maxToProcess;
     const fresh    = [...rows].sort(compareSessionRows('DESC')).slice(0, reserve);
     const freshIds = new Set(fresh.map(row => row.id));
     const aged     = [...rows]
@@ -250,8 +256,18 @@ class DreamService extends Base {
         // Since ChromaDB filtering on missing attributes can be tricky depending on version,
         // filter in memory after sampling the collection head and tail. Chroma does not expose
         // SQL-style ORDER BY, so metadata timestamps define the fresh/aged split.
-        const limit        = Math.max(1, Math.floor(aiConfig.summarizationBatchLimit));
-        const maxToProcess = Math.max(0, Math.floor(aiConfig.remSleepBatchLimit));
+        const summarizationBatchLimit = aiConfig.summarizationBatchLimit,
+              remSleepBatchLimit      = aiConfig.remSleepBatchLimit;
+
+        if (!Number.isFinite(summarizationBatchLimit)) {
+            throw new Error('[DreamService] Required AiConfig leaf "summarizationBatchLimit" is missing or invalid. Update ai/mcp/server/memory-core/config.mjs from config.template.mjs.');
+        }
+        if (!Number.isFinite(remSleepBatchLimit)) {
+            throw new Error('[DreamService] Required AiConfig leaf "remSleepBatchLimit" is missing or invalid. Update ai/mcp/server/memory-core/config.mjs from config.template.mjs.');
+        }
+
+        const limit        = Math.max(1, Math.floor(summarizationBatchLimit));
+        const maxToProcess = Math.max(0, Math.floor(remSleepBatchLimit));
 
         if (maxToProcess === 0) {
             return [];
@@ -590,8 +606,11 @@ class DreamService extends Base {
                         // re-serve immediately for provider-size failures; ingestion errors and legacy
                         // bare-null returns stay retryable so a storage/transient failure never removes
                         // a digestible session from the steady cadence.
-                        const digestAttempts           = (Number(session.meta.digestAttempts) || 0) + 1;
-                        const maxDigestAttempts        = aiConfig.maxDigestAttempts;
+                        const digestAttempts    = (Number(session.meta.digestAttempts) || 0) + 1;
+                        const maxDigestAttempts = aiConfig.maxDigestAttempts;
+                        if (!Number.isFinite(maxDigestAttempts)) {
+                            throw new Error('[DreamService] Required AiConfig leaf "maxDigestAttempts" is missing or invalid. Update ai/mcp/server/memory-core/config.mjs from config.template.mjs.');
+                        }
                         const terminalForCadence       = ingestErrors === 0 && extractionFailure?.terminalForCadence === true;
                         const immediateTerminalCadence = ingestErrors === 0 && isImmediateCadenceTerminalFailure(extractionFailure);
                         const deferReason              = ingestErrors > 0
@@ -832,9 +851,13 @@ class DreamService extends Base {
             remBatchLimit = null;
         const sessionQueryStart = Date.now();
         try {
-            const undigested = await this.findUndigestedSessions();
+            const undigested         = await this.findUndigestedSessions();
+            const remSleepBatchLimit = aiConfig.remSleepBatchLimit;
+            if (!Number.isFinite(remSleepBatchLimit)) {
+                throw new Error('[DreamService] Required AiConfig leaf "remSleepBatchLimit" is missing or invalid. Update ai/mcp/server/memory-core/config.mjs from config.template.mjs.');
+            }
             sessionCount = Array.isArray(undigested) ? undigested.length : 0;
-            remBatchLimit = Math.max(0, Math.floor(aiConfig.remSleepBatchLimit));
+            remBatchLimit = Math.max(0, Math.floor(remSleepBatchLimit));
             perPhaseStates.push(finishPhase('sessionQuery', sessionQueryStart, 'completed', {sessionsFound: sessionCount}));
         } catch (e) {
             const message = toErrorMessage(e);
