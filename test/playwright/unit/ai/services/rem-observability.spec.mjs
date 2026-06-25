@@ -128,7 +128,7 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
     test.beforeEach(() => {
         originalGetSummaryCollection = ChromaManager.getSummaryCollection;
         originalGraphDb              = GraphService.db;
-        originalHandoffPath          = aiConfig.data.handoffFilePath;
+        originalHandoffPath          = aiConfig.handoffFilePathTest;
         originalRemRunStateDir       = aiConfig.remRunStateDir;
         originalRemRunRecentLimit    = aiConfig.remRunRecentLimit;
 
@@ -139,7 +139,7 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
     test.afterEach(() => {
         ChromaManager.getSummaryCollection = originalGetSummaryCollection;
         GraphService.db                    = originalGraphDb;
-        aiConfig.data.handoffFilePath      = originalHandoffPath;
+        aiConfig.handoffFilePathTest       = originalHandoffPath;
         aiConfig.remRunStateDir            = originalRemRunStateDir;
         aiConfig.remRunRecentLimit         = originalRemRunRecentLimit;
     });
@@ -374,18 +374,18 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
                 'Some Golden Path content here, no Source Session marker.',
                 ''
             ].join('\n'), 'utf8');
-            aiConfig.data.handoffFilePath = handoffPath;
+            aiConfig.handoffFilePathTest = handoffPath;
 
             expect(await TopologyInferenceEngine.getTopologyConflictCount()).toBe(3);
         });
 
         test('returns 0 when handoff file does not exist (ENOENT)', async () => {
-            aiConfig.data.handoffFilePath = uniqueHandoffPath('never-existed');
+            aiConfig.handoffFilePathTest = uniqueHandoffPath('never-existed');
             expect(await TopologyInferenceEngine.getTopologyConflictCount()).toBe(0);
         });
 
         test('returns 0 when handoffFilePath is unset', async () => {
-            aiConfig.data.handoffFilePath = null;
+            aiConfig.handoffFilePathTest = null;
             expect(await TopologyInferenceEngine.getTopologyConflictCount()).toBe(0);
         });
 
@@ -393,7 +393,7 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
             const handoffPath = uniqueHandoffPath('empty');
             await mkdir(tmpRoot, {recursive: true});
             await writeFile(handoffPath,'', 'utf8');
-            aiConfig.data.handoffFilePath = handoffPath;
+            aiConfig.handoffFilePathTest = handoffPath;
 
             expect(await TopologyInferenceEngine.getTopologyConflictCount()).toBe(0);
         });
@@ -409,7 +409,7 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
                 'Some content, but zero conflict markers.',
                 ''
             ].join('\n'), 'utf8');
-            aiConfig.data.handoffFilePath = handoffPath;
+            aiConfig.handoffFilePathTest = handoffPath;
 
             expect(await TopologyInferenceEngine.getTopologyConflictCount()).toBe(0);
         });
@@ -446,7 +446,7 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
                 '- **[DUPLICATE]** `issue-101`: bar (Source Session: s2)',
                 ''
             ].join('\n'), 'utf8');
-            aiConfig.data.handoffFilePath = handoffPath;
+            aiConfig.handoffFilePathTest = handoffPath;
 
             const
                 {callTool} = await import('../../../../../ai/mcp/server/memory-core/toolService.mjs'),
@@ -556,7 +556,7 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
 
                 return {get: () => ({count: 0})};
             });
-            aiConfig.data.handoffFilePath = uniqueHandoffPath('no-conflicts');
+            aiConfig.handoffFilePathTest = uniqueHandoffPath('no-conflicts');
 
             await writeActiveRemCallState({
                 phase                    : 'triVector',
