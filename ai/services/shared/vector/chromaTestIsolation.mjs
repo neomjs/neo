@@ -63,6 +63,19 @@ async function createAdminClient({host, port, ssl = false}) {
 }
 
 /**
+ * @summary Detects Chroma's "already exists" response for concurrent createDatabase calls.
+ *
+ * Fully parallel unit workers can all race through `getDatabase` before any one creates the
+ * stable test database. The first create wins; the rest receive `ChromaUniqueError`. That is a
+ * successful ensure outcome, not a boot failure.
+ * @param {Error} error
+ * @returns {Boolean}
+ */
+export function isChromaAlreadyExistsError(error) {
+    return error?.name === 'ChromaUniqueError' || /resource already exists|already exists/i.test(error?.message || '')
+}
+
+/**
  * @summary Ensures the unit-test Chroma database exists before the first collection op. chromadb
  * 3.x has no `getOrCreateDatabase`, so this is `getDatabase` → catch → `createDatabase`. Idempotent;
  * safe to call on every connect.
@@ -86,7 +99,13 @@ export async function ensureChromaTestDatabase({host, port, ssl = false, databas
     try {
         await admin.getDatabase({name: database, tenant})
     } catch {
-        await admin.createDatabase({name: database, tenant})
+        try {
+            await admin.createDatabase({name: database, tenant})
+        } catch (error) {
+            if (!isChromaAlreadyExistsError(error)) {
+                throw error
+            }
+        }
     }
 
     return database

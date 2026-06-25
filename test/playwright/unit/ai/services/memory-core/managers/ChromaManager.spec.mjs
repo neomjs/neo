@@ -7,23 +7,23 @@ setup({
         unitTestMode: true
     },
     appConfig: {
-        name: appName,
-        isMounted: () => true,
+        name             : appName,
+        isMounted        : () => true,
         vnodeInitialising: false
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../../src/core/_export.mjs';
-import InstanceManager from '../../../../../../../src/manager/Instance.mjs';
-import aiConfig       from '../../../../../../../ai/mcp/server/memory-core/config.mjs';
-import ChromaManager  from '../../../../../../../ai/services/memory-core/managers/ChromaManager.mjs';
+import {test, expect}                                     from '@playwright/test';
+import Neo                                                from '../../../../../../../src/Neo.mjs';
+import * as core                                          from '../../../../../../../src/core/_export.mjs';
+import InstanceManager                                    from '../../../../../../../src/manager/Instance.mjs';
+import aiConfig                                           from '../../../../../../../ai/mcp/server/memory-core/config.mjs';
+import ChromaManager                                      from '../../../../../../../ai/services/memory-core/managers/ChromaManager.mjs';
 import {CHROMA_PRODUCTION_DATABASE, CHROMA_TEST_DATABASE} from '../../../../../../../ai/services/shared/vector/chromaTestIsolation.mjs';
-import logger         from '../../../../../../../ai/mcp/server/memory-core/logger.mjs';
-import StorageRouter  from '../../../../../../../ai/services/memory-core/managers/StorageRouter.mjs';
-import SystemLifecycleService from '../../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs';
-import {resetMemoryCoreLifecycle} from '../util.mjs';
+import logger                                             from '../../../../../../../ai/mcp/server/memory-core/logger.mjs';
+import StorageRouter                                      from '../../../../../../../ai/services/memory-core/managers/StorageRouter.mjs';
+import SystemLifecycleService                             from '../../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs';
+import {resetMemoryCoreLifecycle}                         from '../util.mjs';
 
 // Unit test mode resolves storagePaths.graph to ':memory:' by construction.
 
@@ -54,21 +54,26 @@ test.describe('Neo.ai.services.memory-core.managers.ChromaManager', () => {
         expect(resolved).toEqual({host: 'localhost', port: 8000, database: 'some-explicit-db'});
     });
 
-    test('under UNIT_TEST_MODE the Chroma database is isolated from production (#12335 AC1/AC2)', () => {
+    test('under UNIT_TEST_MODE Chroma uses an isolated daemon, data dir, and database (#14010)', () => {
         // The spec runs with unitTestMode:true, so the config leaf must resolve to the dedicated
-        // test database — never default_database — by construction. No crashed/npx-bypassed run can
-        // create collections in the production namespace because the client never points there.
+        // test coordinates by construction. No interrupted unit run can create collections in the
+        // live Chroma daemon because the client never points at its endpoint or persist dir.
         // The test-database toggle is ON (declaratively resolved from UNIT_TEST_MODE), so the resolver
         // selects the dedicated test database — never default_database — by construction. Both NAMES are
         // config literals; the toggle (not an env var the runner must remember to set) drives selection.
         expect(aiConfig.engines.chroma.useTestDatabase).toBe(true);
         expect(aiConfig.engines.chroma.databaseTest).toBe(CHROMA_TEST_DATABASE);
         expect(aiConfig.engines.chroma.database).toBe(CHROMA_PRODUCTION_DATABASE);
+        expect(aiConfig.engines.chroma.dataDir).toBe(aiConfig.engines.chroma.dataDirTest);
+        expect(aiConfig.engines.chroma.dataDir).not.toBe(aiConfig.engines.chroma.dataDirProd);
+        expect(aiConfig.engines.chroma.port).toBe(aiConfig.engines.chroma.portTest);
+        expect(aiConfig.engines.chroma.port).not.toBe(aiConfig.engines.chroma.portProd);
 
         // …and the resolver carries the isolated namespace (databaseTest) through to the client coordinates.
-        const {database} = ChromaManager.resolveChromaClientConfig(aiConfig);
+        const {database, port} = ChromaManager.resolveChromaClientConfig(aiConfig);
         expect(database).toBe(CHROMA_TEST_DATABASE);
         expect(database).not.toBe(CHROMA_PRODUCTION_DATABASE);
+        expect(port).toBe(aiConfig.engines.chroma.portTest);
     });
 
     test('the constructed ChromaClient targets the isolated test database', () => {
@@ -155,7 +160,7 @@ test.describe('Neo.ai.services.memory-core.managers.ChromaManager', () => {
 
     test('should prevent console.warn global state theft during concurrent collection fetching', async () => {
         // Set up a custom warn logger to inspect leaks
-        const warningLogs = [];
+        const warningLogs  = [];
         const originalWarn = console.warn;
         let originalClient;
 

@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 import fs               from 'fs/promises';
+import os               from 'os';
+import path             from 'path';
 import Neo              from '../../../../src/Neo.mjs';
 import '../../../../src/core/_export.mjs';
 import ConfigProvider         from '../../../../ai/ConfigProvider.mjs';
@@ -102,9 +104,15 @@ test.describe('Tier 1 Config Immutability', () => {
             }
         });
         expect(Config.engines.chroma).toEqual({
-            dataDir        : expect.stringMatching(/\.neo-ai-data[/\\]chroma[/\\]unified$/),
-            host           : process.env.NEO_CHROMA_HOST || 'localhost',
-            port           : Number(process.env.NEO_CHROMA_PORT) || 8000,
+            dataDir        : process.env.NEO_CHROMA_DATA_DIR_TEST || expect.stringMatching(/neo-chroma-unit-test/),
+            dataDirProd    : expect.stringMatching(/\.neo-ai-data[/\\]chroma[/\\]unified$/),
+            dataDirTest    : process.env.NEO_CHROMA_DATA_DIR_TEST || path.join(os.tmpdir(), 'neo-chroma-unit-test'),
+            host           : process.env.NEO_CHROMA_HOST_TEST || 'localhost',
+            hostProd       : process.env.NEO_CHROMA_HOST || 'localhost',
+            hostTest       : process.env.NEO_CHROMA_HOST_TEST || 'localhost',
+            port           : Number(process.env.NEO_CHROMA_PORT_TEST) || 18180,
+            portProd       : Number(process.env.NEO_CHROMA_PORT) || 8000,
+            portTest       : Number(process.env.NEO_CHROMA_PORT_TEST) || 18180,
             database       : process.env.NEO_CHROMA_DATABASE || 'default_database',
             databaseTest   : process.env.NEO_CHROMA_DATABASE_TEST || CHROMA_TEST_DATABASE,
             useTestDatabase: true

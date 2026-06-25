@@ -1,12 +1,14 @@
 import path            from 'path';
 import {fileURLToPath} from 'url';
+import os              from 'os';
 import Neo             from '../../../src/Neo.mjs';
 
-const HOUR_MS    = 60 * 60 * 1000;
-const DAY_MS     = 24 * HOUR_MS;
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
-const neoRootDir = path.resolve(__dirname, '../../..');
+const HOUR_MS               = 60 * 60 * 1000;
+const DAY_MS                = 24 * HOUR_MS;
+const __filename            = fileURLToPath(import.meta.url);
+const __dirname             = path.dirname(__filename);
+const neoRootDir            = path.resolve(__dirname, '../../..');
+const chromaUnitTestDataDir = path.join(os.tmpdir(), 'neo-chroma-unit-test');
 
 /**
  * @module test/playwright/fixtures/aiConfigDefaults
@@ -139,9 +141,12 @@ export const TIER1_DEFAULTS = deepFreeze(Neo.clone({
     embeddingModel : 'gemini-embedding-001',
     engines        : {
         chroma: {
-            dataDir: path.resolve(neoRootDir, '.neo-ai-data/chroma/unified'),
-            host   : process.env.NEO_CHROMA_HOST || 'localhost',
-            port   : Number(process.env.NEO_CHROMA_PORT) || 8000
+            dataDirProd: path.resolve(neoRootDir, '.neo-ai-data/chroma/unified'),
+            dataDirTest: process.env.NEO_CHROMA_DATA_DIR_TEST || chromaUnitTestDataDir,
+            hostProd   : process.env.NEO_CHROMA_HOST || 'localhost',
+            hostTest   : process.env.NEO_CHROMA_HOST_TEST || 'localhost',
+            portProd   : Number(process.env.NEO_CHROMA_PORT) || 8000,
+            portTest   : Number(process.env.NEO_CHROMA_PORT_TEST) || 18180
         }
     },
     orchestrator: {
