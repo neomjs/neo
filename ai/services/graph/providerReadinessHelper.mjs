@@ -11,6 +11,9 @@ import {
     isOpenAiCompatibleProvider,
     resolveGraphModelProvider
 } from './providerDispatch.mjs';
+import {
+    withLmsEmbeddingInputSuffix
+} from '../shared/vector/lmsEmbeddingInputSuffix.mjs';
 
 let openAiCompatibleEmbeddingServingProbeQueue = Promise.resolve();
 
@@ -527,6 +530,7 @@ export async function fetchOpenAiCompatibleModelIds({
  * @param {String} options.input Tiny canary text. Required and capped at 256 UTF-8 bytes.
  * @param {Number} options.timeoutMs HTTP timeout. Required; no module-level default.
  * @param {String} [options.apiKey] Optional OpenAI-compatible bearer token.
+ * @param {Object[]} [options.lmsLoadedModels] Optional LMS metadata rows for suffix parity with TextEmbeddingService.
  * @param {Function} [options.fetchFn=fetch] Fetch seam for tests.
  * @param {Function} [options.shouldRun] Optional load/backpressure gate.
  * @returns {Promise<Object>}
@@ -537,6 +541,7 @@ export async function checkOpenAiCompatibleEmbeddingServing({
     input,
     timeoutMs,
     apiKey,
+    lmsLoadedModels = [],
     fetchFn = fetch,
     shouldRun
 } = {}) {
@@ -576,11 +581,15 @@ export async function checkOpenAiCompatibleEmbeddingServing({
         headers.authorization = `Bearer ${apiKey}`;
     }
 
+    const
+        loadedModel  = Array.isArray(lmsLoadedModels) ? lmsLoadedModels.find(item => item?.id === model) : null,
+        requestInput = withLmsEmbeddingInputSuffix(input, loadedModel);
+
     const runProbe = async () => {
         const response = await fetchFn(new URL('/v1/embeddings', host).toString(), {
             method: 'POST',
             headers,
-            body  : JSON.stringify({model, input}),
+            body  : JSON.stringify({model, input: requestInput}),
             signal: AbortSignal.timeout(timeoutMs)
         });
 

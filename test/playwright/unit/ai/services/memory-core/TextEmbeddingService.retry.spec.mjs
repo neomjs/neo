@@ -16,8 +16,17 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
+import fs             from 'fs';
 import http           from 'http';
+import os             from 'os';
+import path           from 'path';
 import aiConfig       from '../../../../../../ai/mcp/server/memory-core/config.mjs';
+import {
+    clearLmsEmbeddingInputSuffixCache,
+    readGgufTokenizerMetadata,
+    resolveLmsEmbeddingInputSuffix,
+    withLmsEmbeddingInputSuffix
+} from '../../../../../../ai/services/shared/vector/lmsEmbeddingInputSuffix.mjs';
 
 async function waitForCondition(condition, message, timeoutMs = 250) {
     const start = Date.now();
@@ -28,6 +37,52 @@ async function waitForCondition(condition, message, timeoutMs = 250) {
     }
 
     throw new Error(`Timed out waiting for ${message}`);
+}
+
+function u32(value) {
+    const buffer = Buffer.alloc(4);
+    buffer.writeUInt32LE(value);
+    return buffer;
+}
+
+function u64(value) {
+    const buffer = Buffer.alloc(8);
+    buffer.writeBigUInt64LE(BigInt(value));
+    return buffer;
+}
+
+function ggufString(value) {
+    const bytes = Buffer.from(value, 'utf8');
+    return Buffer.concat([u64(bytes.length), bytes]);
+}
+
+function ggufMetadataEntry(key, type, valueBuffer) {
+    return Buffer.concat([ggufString(key), u32(type), valueBuffer]);
+}
+
+function ggufStringArray(values) {
+    return Buffer.concat([
+        u32(8),
+        u64(values.length),
+        ...values.map(value => ggufString(value))
+    ]);
+}
+
+function buildMinimalGguf({tokens, eosTokenId, eotTokenId, addEosToken = true}) {
+    const entries = [
+        ggufMetadataEntry('tokenizer.ggml.tokens', 9, ggufStringArray(tokens)),
+        ggufMetadataEntry('tokenizer.ggml.eos_token_id', 4, u32(eosTokenId)),
+        ggufMetadataEntry('tokenizer.ggml.eot_token_id', 4, u32(eotTokenId)),
+        ggufMetadataEntry('tokenizer.ggml.add_eos_token', 7, Buffer.from([addEosToken ? 1 : 0]))
+    ];
+
+    return Buffer.concat([
+        Buffer.from('GGUF'),
+        u32(3),
+        u64(0),
+        u64(entries.length),
+        ...entries
+    ]);
 }
 
 test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openAiCompatible retry, QoS, and lms server start support', () => {
@@ -264,38 +319,68 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         });
     });
 
-    test('LMS GGUF/Qwen3 embeddings append metadata-derived SEP/EOS suffix to request inputs (#14009)', async () => {
+    test('LMS suffix helper reads the GGUF EOS token instead of the chat EOT token (#14015)', async () => {
+        clearLmsEmbeddingInputSuffixCache();
+
+        const tmpDir   = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-lms-gguf-suffix-')),
+              ggufPath = path.join(tmpDir, 'minimal-qwen3-embedding.gguf');
+
+        try {
+            fs.writeFileSync(ggufPath, buildMinimalGguf({
+                tokens    : ['<|pad|>', '<|endoftext|>', '<|im_end|>'],
+                eosTokenId: 1,
+                eotTokenId: 2
+            }));
+
+            const metadata = readGgufTokenizerMetadata(ggufPath),
+                  row      = {id: 'embedding-model', format: 'gguf', path: ggufPath};
+
+            expect(metadata).toMatchObject({
+                addEosToken: true,
+                eosTokenId : 1,
+                eotTokenId : 2
+            });
+            expect(resolveLmsEmbeddingInputSuffix(row)).toBe('<|endoftext|>');
+            expect(withLmsEmbeddingInputSuffix('hello<|im_end|>', row)).toBe('hello<|im_end|><|endoftext|>');
+        } finally {
+            fs.rmSync(tmpDir, {recursive: true, force: true});
+            clearLmsEmbeddingInputSuffixCache();
+        }
+    });
+
+    test('LMS GGUF embeddings append metadata-derived EOS suffix to request inputs (#14015)', async () => {
         serverBehavior = 'lms-server-start-succeed';
         TextEmbeddingService.openAiCompatibleLoadedModelsProbe = async () => [{
             id           : aiConfig.openAiCompatible.embeddingModel,
             contextLength: aiConfig.localModels.embedding.contextLimitTokens,
             format       : 'gguf',
-            architecture : 'qwen3'
+            architecture : 'qwen3',
+            eosTokenText : '<|endoftext|>'
         }];
 
         const singleInput = 'last-token-is-semantic-content';
 
         await TextEmbeddingService.embedText(singleInput, 'openAiCompatible');
 
-        expect(lastRequest.body.input).toBe(`${singleInput}<|im_end|>`);
+        expect(lastRequest.body.input).toBe(`${singleInput}<|endoftext|>`);
         expect(singleInput).toBe('last-token-is-semantic-content');
 
         serverBehavior = 'lms-server-start-batch-succeed';
 
         const batchInput = [
             'batch-first-without-provider-separator',
-            'batch-second-with-provider-eos<|im_end|>'
+            'batch-second-with-provider-eos<|endoftext|>'
         ];
 
         await TextEmbeddingService.embedTexts(batchInput, 'openAiCompatible');
 
         expect(lastRequest.body.input).toEqual([
-            'batch-first-without-provider-separator<|im_end|>',
-            'batch-second-with-provider-eos<|im_end|>'
+            'batch-first-without-provider-separator<|endoftext|>',
+            'batch-second-with-provider-eos<|endoftext|>'
         ]);
         expect(batchInput).toEqual([
             'batch-first-without-provider-separator',
-            'batch-second-with-provider-eos<|im_end|>'
+            'batch-second-with-provider-eos<|endoftext|>'
         ]);
     });
 
