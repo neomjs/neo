@@ -1847,7 +1847,6 @@ components:
         - sessionNodes
         - topologyConflicts
         - recentCycles
-        - activeCall
       properties:
         undigested:
           type: integer
@@ -1905,71 +1904,6 @@ components:
                 description: Typed cycle outcome.
                 enum: [completed, skipped, failed]
                 example: "completed"
-        activeCall:
-          type: object
-          nullable: true
-          description: Currently in-flight REM provider call, if a Tri-Vector chunk is actively streaming.
-          properties:
-            phase:
-              type: string
-              example: "triVector"
-            sessionId:
-              type: string
-              description: Source session id currently being digested.
-              example: "2d993feb-ea2f-4468-8fbd-c53e62365f4d"
-            assetRef:
-              type: string
-              description: Session or chunk id for the active provider call.
-              example: "2d993feb-ea2f-4468-8fbd-c53e62365f4d:chunk:1"
-            chunkIndex:
-              type: integer
-              description: Zero-based active chunk index.
-              example: 1
-            chunkCount:
-              type: integer
-              description: Total chunks in the current Tri-Vector plan.
-              example: 2
-            turnIndices:
-              type: array
-              description: Source turn indices included in this active chunk.
-              items:
-                type: integer
-            chunkTokens:
-              type: integer
-              nullable: true
-              description: Estimated tokens for the active chunk body.
-              example: 70549
-            attempt:
-              type: integer
-              example: 1
-            maxRetries:
-              type: integer
-              example: 3
-            provider:
-              type: string
-              example: "openAiCompatible"
-            model:
-              type: string
-              example: "google/gemma-4-26b-a4b"
-            promptTokensEstimate:
-              type: integer
-              example: 70549
-            outputLimitTokens:
-              type: integer
-              example: 8192
-            contextLimitTokens:
-              type: integer
-              example: 131072
-            safeProcessingLimitTokens:
-              type: integer
-              example: 100000
-            promptPlusOutputTokens:
-              type: integer
-              example: 78741
-            startedAt:
-              type: string
-              format: date-time
-              example: "2026-06-24T23:27:55.880Z"
         perSession:
           type: object
           nullable: true

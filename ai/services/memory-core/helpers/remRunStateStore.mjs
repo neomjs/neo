@@ -222,8 +222,8 @@ export async function appendRemRunState(entry, {dir, retentionLimit} = {}) {
  * @summary Writes the currently in-flight REM provider call before dispatch.
  *
  * The completed-run JSONL artifact is written only when a cycle finalizes. This file is the
- * bounded live counterpart: operators and MCP diagnostics can identify the exact session/chunk
- * responsible while a provider call is still streaming.
+ * bounded live counterpart: logs and local diagnostics can identify the exact session/chunk
+ * responsible while a provider call is still streaming without changing the public MCP contract.
  *
  * @param {Object} state Active-call diagnostic state.
  * @param {Object} options

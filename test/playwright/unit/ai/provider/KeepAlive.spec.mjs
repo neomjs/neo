@@ -905,42 +905,6 @@ test.describe('AI provider keep_alive payload shape (#12080, #12089)', () => {
         expect(capturedPayload.maxCompletionTokens).toBeUndefined();
     });
 
-    test('OpenAiCompatible.generate() locally reports token_limit when streaming exceeds output budget (#13984)', async () => {
-        let capturedPayload;
-
-        globalThis.fetch = async (url, init) => {
-            expect(url).toBe('http://openai-compatible.test/v1/chat/completions');
-            capturedPayload = JSON.parse(init.body);
-
-            return {
-                ok  : true,
-                body: createReadableStream([
-                    'data: {"choices":[{"delta":{"content":"abcdef"}}]}\n\n',
-                    'data: {"choices":[{"delta":{"content":"should-not-be-read"}}]}\n\n',
-                    'data: [DONE]\n\n'
-                ])
-            };
-        };
-
-        const provider = Neo.create(OpenAiCompatibleProvider, {
-            host     : 'http://openai-compatible.test',
-            modelName: 'gemma4-test'
-        });
-
-        const result = await provider.generate('hello', {maxCompletionTokens: 1});
-
-        expect(result.content).toBe('abcdef');
-        expect(result.finish_reason).toBe('token_limit');
-        expect(result.raw.finish_reason).toBe('token_limit');
-        expect(capturedPayload).toMatchObject({
-            model     : 'gemma4-test',
-            stream    : true,
-            keep_alive: -1,
-            max_tokens: 1
-        });
-        expect(capturedPayload.maxCompletionTokens).toBeUndefined();
-    });
-
     test('OpenAiCompatible.generate() aggregates non-SSE JSON message content', async () => {
         let capturedPayload;
 

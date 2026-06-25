@@ -65,6 +65,21 @@ function getTriVectorFailureMessage(failure) {
 }
 
 /**
+ * @summary Identifies parser-size failures that must leave the steady REM cadence immediately.
+ *
+ * Schema failures can still use the historical max-attempts gate; a provider-size
+ * failure has already proven that re-serving the same payload just re-pays the
+ * model lock cost next cycle.
+ *
+ * @param {Object|null} failure Typed Tri-Vector failure descriptor.
+ * @returns {Boolean}
+ */
+function isImmediateCadenceTerminalFailure(failure) {
+    return failure?.terminalForCadence === true &&
+        ['size-precheck-skip', 'context-overflow'].includes(failure?.frictionSymptom);
+}
+
+/**
  * @summary Returns true for digest states excluded from the steady REM cadence.
  * @param {String} state
  * @returns {Boolean}
@@ -587,16 +602,17 @@ class DreamService extends Base {
                         logger.info(`[DreamService] Session ${session.meta.sessionId} marked as graphDigested in Memory Core.`);
                     } else {
                         // Digest failed (typed extractor failure OR memory-ingestion errors). Bound the
-                        // re-serve only when the extractor supplies cadence-terminal evidence; ingestion
-                        // errors and legacy bare-null returns stay retryable so a storage/transient failure
-                        // never removes a digestible session from the steady cadence.
-                        const digestAttempts     = (Number(session.meta.digestAttempts) || 0) + 1;
-                        const maxDigestAttempts  = readRequiredNumberLeaf('maxDigestAttempts');
-                        const terminalForCadence = ingestErrors === 0 && extractionFailure?.terminalForCadence === true;
-                        const deferReason        = ingestErrors > 0
+                        // re-serve immediately for provider-size failures; ingestion errors and legacy
+                        // bare-null returns stay retryable so a storage/transient failure never removes
+                        // a digestible session from the steady cadence.
+                        const digestAttempts          = (Number(session.meta.digestAttempts) || 0) + 1;
+                        const maxDigestAttempts       = readRequiredNumberLeaf('maxDigestAttempts');
+                        const terminalForCadence      = ingestErrors === 0 && extractionFailure?.terminalForCadence === true;
+                        const immediateTerminalCadence = ingestErrors === 0 && isImmediateCadenceTerminalFailure(extractionFailure);
+                        const deferReason             = ingestErrors > 0
                             ? 'ingestion-failure'
                             : (extractionFailure?.deferReason || 'schema-failure');
-                        const digestState = terminalForCadence && digestAttempts >= maxDigestAttempts
+                        const digestState = immediateTerminalCadence || (terminalForCadence && digestAttempts >= maxDigestAttempts)
                             ? 'undigestible'
                             : 'undigested';
 

@@ -1,8 +1,6 @@
 import Base                 from './Base.mjs';
 import {createTimeoutError} from './createTimeoutError.mjs';
 
-const TOKEN_ESTIMATE_BYTES_PER_TOKEN = 3;
-
 /**
  * Concrete AI provider for a local MLX-native or any OpenAI-compatible API server.
  * Uses the native JS Fetch API. Defaults to http://127.0.0.1:8000.
@@ -166,10 +164,6 @@ class OpenAiCompatibleProvider extends Base {
         let fullContent  = '',
             finishReason = '';
 
-        const maxCompletionTokens = Number.isFinite(options.maxCompletionTokens) && options.maxCompletionTokens > 0
-            ? options.maxCompletionTokens
-            : null;
-
         try {
             // Internally delegate to the streaming API to bypass LM Studio/llama.cpp
             // monolithic buffer serialization penalties (~30% faster on Apple Silicon)
@@ -185,11 +179,6 @@ class OpenAiCompatibleProvider extends Base {
                 }
             })) {
                 fullContent += chunk;
-
-                if (maxCompletionTokens && this.#estimateCompletionTokens(fullContent) > maxCompletionTokens) {
-                    finishReason = finishReason || 'token_limit';
-                    break;
-                }
             }
 
             const raw = {
@@ -248,18 +237,6 @@ class OpenAiCompatibleProvider extends Base {
         const reason = data?.choices?.[0]?.finish_reason ?? data?.choices?.[0]?.finishReason;
 
         return typeof reason === 'string' ? reason : '';
-    }
-
-    /**
-     * @summary Estimates generated text tokens with the same conservative byte heuristic
-     * used by the Dream Pipeline's consumer-friction guardrail.
-     *
-     * @param {String} text Generated text accumulated so far
-     * @returns {Number}
-     * @private
-     */
-    #estimateCompletionTokens(text) {
-        return Math.ceil(Buffer.byteLength(text || '', 'utf8') / TOKEN_ESTIMATE_BYTES_PER_TOKEN);
     }
 
     /**
@@ -337,8 +314,7 @@ class OpenAiCompatibleProvider extends Base {
               timeoutMs     = Number.isFinite(rawTimeoutMs) && rawTimeoutMs > 0 ? rawTimeoutMs : null,
               operationLabel = cleanOptions.operationLabel || 'OpenAI-compatible chat completion',
               upstreamSignal = cleanOptions.signal,
-              onProviderChunk = typeof cleanOptions.onProviderChunk === 'function' ? cleanOptions.onProviderChunk : null,
-              hasCompletionLimit = Number.isFinite(cleanOptions.maxCompletionTokens) && cleanOptions.maxCompletionTokens > 0;
+              onProviderChunk = typeof cleanOptions.onProviderChunk === 'function' ? cleanOptions.onProviderChunk : null;
 
         delete cleanOptions.num_ctx;
         delete cleanOptions.onProviderChunk;
@@ -347,7 +323,7 @@ class OpenAiCompatibleProvider extends Base {
         delete cleanOptions.timeoutMs;
 
         const payload    = this.preparePayload(input, cleanOptions, true);
-        const controller = timeoutMs || upstreamSignal || hasCompletionLimit ? new AbortController() : null;
+        const controller = timeoutMs || upstreamSignal ? new AbortController() : null;
         let timeoutId, upstreamAbortListener, timedOut = false, reader, readerDone = false;
 
         if (controller && upstreamSignal) {

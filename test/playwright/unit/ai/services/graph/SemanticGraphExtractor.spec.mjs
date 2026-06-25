@@ -396,84 +396,89 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
         }
     });
 
-    test('REM marathon chunk exposes active diagnostics and output budget before provider return (#13984)', async () => {
-        const originalRemRunStateDir = aiConfig.remRunStateDir,
-              remRunStateDir         = path.resolve(process.cwd(), 'tmp', `active-rem-call-${process.pid}-${Date.now()}`);
+    test('REM marathon raw-turn path exposes active diagnostics and output budget before provider return (#13984)', async () => {
+        const originalGraphProvider         = aiConfig.graphProvider,
+              originalRemRunStateDir        = aiConfig.remRunStateDir,
+              expectedContextLimitTokens    = aiConfig.localModels.chat.contextLimitTokens,
+              expectedSafeProcessingTokens  = aiConfig.localModels.chat.safeProcessingLimitTokens,
+              expectedGraphOutputLimit      = aiConfig.localModels.chat.graphOutputLimitTokens,
+              expectedGraphModel            = aiConfig.openAiCompatible.model,
+              baseGenerate                  = OpenAiCompatible.prototype.generate,
+              remRunStateDir                = path.resolve(process.cwd(), 'tmp', `active-rem-call-${process.pid}-${Date.now()}`),
+              turnDocuments                 = Array.from(
+                  {length: 192},
+                  (_, index) => `raw-turn-${index}\n${'x'.repeat(3500)}`
+              );
 
-        let capturedOptions, activeDuringCall, activeOnDiskDuringCall, activeOnDiskAfterCall, result;
+        let activeOnDiskAfterCall, result;
+        const providerCalls = [];
 
         try {
+            aiConfig.graphProvider  = 'openAiCompatible';
             aiConfig.remRunStateDir = remRunStateDir;
 
-            const provider = {
-                generate: async function(messages, options) {
-                    capturedOptions         = options;
-                    activeDuringCall        = {...SemanticGraphExtractor.activeTriVectorCall};
-                    activeOnDiskDuringCall  = await readActiveRemCallState({dir: remRunStateDir});
+            OpenAiCompatible.prototype.generate = async function(messages, options) {
+                const activeDuringCall       = {...SemanticGraphExtractor.activeTriVectorCall},
+                      activeOnDiskDuringCall = await readActiveRemCallState({dir: remRunStateDir});
 
-                    return {
-                        content: JSON.stringify({
-                            a2a_version     : '1.0',
-                            agent_id        : 'Antigravity',
-                            session_artifact: {
-                                feature_namespace     : 'Neo.ai.REM',
-                                human_readable_summary: 'Marathon REM chunk stayed bounded by output budget.',
-                                graph                 : {nodes: [], edges: []}
-                            }
-                        })
-                    };
-                }
+                providerCalls.push({messages, options, activeDuringCall, activeOnDiskDuringCall});
+
+                return {
+                    content: JSON.stringify({
+                        a2a_version     : '1.0',
+                        agent_id        : 'Antigravity',
+                        session_artifact: {
+                            feature_namespace     : 'Neo.ai.REM',
+                            human_readable_summary: `bounded raw-turn chunk ${providerCalls.length}`,
+                            graph                 : {nodes: [], edges: []}
+                        }
+                    })
+                };
             };
 
-            result = await SemanticGraphExtractor.extractTriVectorPayload({
-                session: {
-                    id  : 'mock-marathon-rem-vector-id',
-                    meta: {sessionId: '2d993feb-ea2f-4468-8fbd-c53e62365f4d'}
-                },
-                document              : 'chunk-2 live evidence: 70549 estimated prompt tokens, provider stream exceeded 204k live tokens.',
-                assetRef              : '2d993feb-ea2f-4468-8fbd-c53e62365f4d:chunk:1',
-                consumerProvider      : 'openAiCompatible',
-                provider,
-                consumerModel         : 'google/gemma-4-26b-a4b',
-                consumerContextTokens : 131072,
-                consumerSafeTokens    : 100000,
-                graphOutputLimitTokens: 8192,
-                graphReasoningEffort  : 'none',
-                triVectorSchema       : {type: 'object'},
-                systemInstruction     : 'Return the requested Tri-Vector JSON object.',
-                chunkIndex            : 1,
-                chunkCount            : 2,
-                turnIndices           : [96, 191],
-                chunkTokens           : 70549
+            result = await SemanticGraphExtractor.executeTriVectorExtraction({
+                id           : 'mock-marathon-rem-vector-id',
+                meta         : {sessionId: '2d993feb-ea2f-4468-8fbd-c53e62365f4d'},
+                document     : turnDocuments.join('\n\n---\n\n'),
+                turnDocuments
             });
             activeOnDiskAfterCall = await readActiveRemCallState({dir: remRunStateDir});
         } finally {
-            aiConfig.remRunStateDir = originalRemRunStateDir;
+            aiConfig.graphProvider             = originalGraphProvider;
+            aiConfig.remRunStateDir            = originalRemRunStateDir;
+            OpenAiCompatible.prototype.generate = baseGenerate;
             fs.rmSync(remRunStateDir, {recursive: true, force: true});
         }
 
-        expect(result.session_artifact.human_readable_summary).toBe('Marathon REM chunk stayed bounded by output budget.');
-        expect(capturedOptions).toMatchObject({
-            maxCompletionTokens: 8192,
+        expect(providerCalls.length).toBeGreaterThan(1);
+        expect(result.session_artifact.chunking.chunked).toBe(true);
+        expect(result.session_artifact.chunking.chunks.length).toBe(providerCalls.length);
+        expect(result.session_artifact.chunking.chunks.flatMap(chunk => chunk.turnIndices).length).toBe(turnDocuments.length);
+
+        const secondCall = providerCalls[1] || providerCalls[0];
+
+        expect(secondCall.options).toMatchObject({
+            maxCompletionTokens: expectedGraphOutputLimit,
             operationLabel     : expect.stringContaining('2d993feb-ea2f-4468-8fbd-c53e62365f4d')
         });
-        expect(activeDuringCall).toMatchObject({
+        expect(secondCall.activeDuringCall).toMatchObject({
             phase                    : 'triVector',
             sessionId                : '2d993feb-ea2f-4468-8fbd-c53e62365f4d',
-            assetRef                 : '2d993feb-ea2f-4468-8fbd-c53e62365f4d:chunk:1',
-            chunkIndex               : 1,
-            chunkCount               : 2,
-            turnIndices              : [96, 191],
-            chunkTokens              : 70549,
+            assetRef                 : expect.stringContaining(':chunk:'),
+            chunkIndex               : secondCall.activeDuringCall.chunkIndex,
+            chunkCount               : providerCalls.length,
+            turnIndices              : expect.any(Array),
+            chunkTokens              : expect.any(Number),
             provider                 : 'openAiCompatible',
-            model                    : 'google/gemma-4-26b-a4b',
-            outputLimitTokens        : 8192,
-            contextLimitTokens       : 131072,
-            safeProcessingLimitTokens: 100000
+            model                    : expectedGraphModel,
+            outputLimitTokens        : expectedGraphOutputLimit,
+            contextLimitTokens       : expectedContextLimitTokens,
+            safeProcessingLimitTokens: expectedSafeProcessingTokens
         });
-        expect(activeOnDiskDuringCall).toMatchObject(activeDuringCall);
-        expect(activeDuringCall.promptTokensEstimate).toBeGreaterThan(0);
-        expect(activeDuringCall.startedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+        expect(secondCall.activeOnDiskDuringCall).toMatchObject(secondCall.activeDuringCall);
+        expect(secondCall.activeDuringCall.promptTokensEstimate).toBeGreaterThan(0);
+        expect(secondCall.activeDuringCall.promptPlusOutputTokens).toBeLessThanOrEqual(expectedContextLimitTokens);
+        expect(secondCall.activeDuringCall.startedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
         expect(SemanticGraphExtractor.activeTriVectorCall).toBeNull();
         expect(activeOnDiskAfterCall).toBeNull();
     });
