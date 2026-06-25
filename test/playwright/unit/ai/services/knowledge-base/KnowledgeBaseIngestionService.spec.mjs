@@ -20,7 +20,6 @@ import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import fs             from 'fs-extra';
 import aiConfig       from '../../../../../../ai/mcp/server/knowledge-base/config.mjs';
-import memoryConfig   from '../../../../../../ai/mcp/server/memory-core/config.mjs';
 
 /**
  * Contract coverage for KnowledgeBaseIngestionService (#11633).
@@ -91,10 +90,20 @@ function createGraphStub() {
     };
 }
 
+function createEmbeddingGuardrail(overrides = {}) {
+    return {
+        enabled                  : true,
+        embeddingProvider        : 'openAiCompatible',
+        contextLimitTokens       : 100,
+        safeProcessingLimitTokens: 80,
+        model                    : 'unit-test-embedding-model',
+        ...overrides
+    };
+}
+
 test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
     let Service;
     let originals;
-    let originalEmbeddingConfig;
     let vectorCalls;
     let metrics;
     let collection;
@@ -109,19 +118,15 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
         collection  = createSpyCollection();
 
         originals = {
-            chromaManager        : Service.chromaManager,
-            graphService         : Service.graphService,
-            getTenantConfig      : Service.getTenantConfig,
-            recorderService      : Service.recorderService,
-            requestContextService: Service.requestContextService,
-            revisionResolver     : Service.revisionResolver,
-            sourceRegistry       : Service.sourceRegistry,
-            vectorService        : Service.vectorService
-        };
-        originalEmbeddingConfig = {
-            embeddingProvider        : memoryConfig.data.embeddingProvider,
-            contextLimitTokens       : Number(aiConfig.data.localModels.embedding.contextLimitTokens),
-            safeProcessingLimitTokens: Number(aiConfig.data.localModels.embedding.safeProcessingLimitTokens)
+            chromaManager                 : Service.chromaManager,
+            graphService                  : Service.graphService,
+            getTenantConfig               : Service.getTenantConfig,
+            recorderService               : Service.recorderService,
+            requestContextService         : Service.requestContextService,
+            resolveEmbeddingInputGuardrail: Service.resolveEmbeddingInputGuardrail,
+            revisionResolver              : Service.revisionResolver,
+            sourceRegistry                : Service.sourceRegistry,
+            vectorService                 : Service.vectorService
         };
 
         Service.chromaManager = {
@@ -154,9 +159,6 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
 
     test.afterEach(() => {
         Object.assign(Service, originals);
-        memoryConfig.data.embeddingProvider = originalEmbeddingConfig.embeddingProvider;
-        aiConfig.data.localModels.embedding.contextLimitTokens        = originalEmbeddingConfig.contextLimitTokens;
-        aiConfig.data.localModels.embedding.safeProcessingLimitTokens = originalEmbeddingConfig.safeProcessingLimitTokens;
     });
 
     test('validates parsed-chunk-v1 records, routes them to VectorService, and records telemetry', async () => {
@@ -398,9 +400,7 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
     });
 
     test('splits over-budget client parsed chunks while embedding safe chunks', async () => {
-        memoryConfig.data.embeddingProvider                            = 'openAiCompatible';
-        aiConfig.data.localModels.embedding.contextLimitTokens        = 100;
-        aiConfig.data.localModels.embedding.safeProcessingLimitTokens = 80;
+        Service.resolveEmbeddingInputGuardrail = () => createEmbeddingGuardrail();
         const monsterContent = Array.from({length: 12}, (_, index) => `line-${index} ${'x'.repeat(24)}`).join('\n');
 
         const summary = await Service.ingestSourceFiles({
@@ -444,9 +444,7 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
     });
 
     test('splits over-budget raw fallback files before VectorService receives a temp JSONL', async () => {
-        memoryConfig.data.embeddingProvider                            = 'openAiCompatible';
-        aiConfig.data.localModels.embedding.contextLimitTokens        = 100;
-        aiConfig.data.localModels.embedding.safeProcessingLimitTokens = 80;
+        Service.resolveEmbeddingInputGuardrail = () => createEmbeddingGuardrail();
 
         const summary = await Service.ingestSourceFiles({
             tenantId: 'tenant-a',
@@ -474,9 +472,10 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
     });
 
     test('keeps skip diagnostics for over-budget chunks that cannot be split', async () => {
-        memoryConfig.data.embeddingProvider                            = 'openAiCompatible';
-        aiConfig.data.localModels.embedding.contextLimitTokens        = 50;
-        aiConfig.data.localModels.embedding.safeProcessingLimitTokens = 40;
+        Service.resolveEmbeddingInputGuardrail = () => createEmbeddingGuardrail({
+            contextLimitTokens       : 50,
+            safeProcessingLimitTokens: 40
+        });
 
         const summary = await Service.ingestSourceFiles({
             tenantId: 'tenant-a',
@@ -503,9 +502,13 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
     });
 
     test('does not apply local embedding caps to non-local ingestion providers', async () => {
-        memoryConfig.data.embeddingProvider                            = 'gemini';
-        aiConfig.data.localModels.embedding.contextLimitTokens        = 50;
-        aiConfig.data.localModels.embedding.safeProcessingLimitTokens = 1;
+        Service.resolveEmbeddingInputGuardrail = () => createEmbeddingGuardrail({
+            enabled                  : false,
+            embeddingProvider        : 'gemini',
+            contextLimitTokens       : 50,
+            safeProcessingLimitTokens: 1,
+            model                    : 'gemini'
+        });
 
         const summary = await Service.ingestSourceFiles({
             tenantId: 'tenant-a',
