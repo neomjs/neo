@@ -20,7 +20,6 @@ import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import fs             from 'fs-extra';
 import aiConfig       from '../../../../../../ai/mcp/server/knowledge-base/config.mjs';
-import memoryConfig   from '../../../../../../ai/mcp/server/memory-core/config.mjs';
 
 /**
  * Contract coverage for KnowledgeBaseIngestionService (#11633).
@@ -91,10 +90,20 @@ function createGraphStub() {
     };
 }
 
+function createEmbeddingGuardrail(overrides = {}) {
+    return {
+        enabled                  : true,
+        embeddingProvider        : 'openAiCompatible',
+        contextLimitTokens       : 100,
+        safeProcessingLimitTokens: 80,
+        model                    : 'unit-test-embedding-model',
+        ...overrides
+    };
+}
+
 test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
     let Service;
     let originals;
-    let originalEmbeddingConfig;
     let vectorCalls;
     let metrics;
     let collection;
@@ -109,19 +118,15 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
         collection  = createSpyCollection();
 
         originals = {
-            chromaManager        : Service.chromaManager,
-            graphService         : Service.graphService,
-            getTenantConfig      : Service.getTenantConfig,
-            recorderService      : Service.recorderService,
-            requestContextService: Service.requestContextService,
-            revisionResolver     : Service.revisionResolver,
-            sourceRegistry       : Service.sourceRegistry,
-            vectorService        : Service.vectorService
-        };
-        originalEmbeddingConfig = {
-            embeddingProvider        : memoryConfig.data.embeddingProvider,
-            contextLimitTokens       : Number(aiConfig.data.localModels.embedding.contextLimitTokens),
-            safeProcessingLimitTokens: Number(aiConfig.data.localModels.embedding.safeProcessingLimitTokens)
+            chromaManager                 : Service.chromaManager,
+            graphService                  : Service.graphService,
+            getTenantConfig               : Service.getTenantConfig,
+            recorderService               : Service.recorderService,
+            requestContextService         : Service.requestContextService,
+            resolveEmbeddingInputGuardrail: Service.resolveEmbeddingInputGuardrail,
+            revisionResolver              : Service.revisionResolver,
+            sourceRegistry                : Service.sourceRegistry,
+            vectorService                 : Service.vectorService
         };
 
         Service.chromaManager = {
@@ -154,9 +159,6 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
 
     test.afterEach(() => {
         Object.assign(Service, originals);
-        memoryConfig.data.embeddingProvider = originalEmbeddingConfig.embeddingProvider;
-        aiConfig.data.localModels.embedding.contextLimitTokens        = originalEmbeddingConfig.contextLimitTokens;
-        aiConfig.data.localModels.embedding.safeProcessingLimitTokens = originalEmbeddingConfig.safeProcessingLimitTokens;
     });
 
     test('validates parsed-chunk-v1 records, routes them to VectorService, and records telemetry', async () => {
@@ -397,56 +399,91 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
         });
     });
 
-    test('skips over-budget client parsed chunks while embedding safe chunks', async () => {
-        memoryConfig.data.embeddingProvider                            = 'openAiCompatible';
-        aiConfig.data.localModels.embedding.contextLimitTokens        = 50;
-        aiConfig.data.localModels.embedding.safeProcessingLimitTokens = 40;
+    test('splits over-budget client parsed chunks while embedding safe chunks', async () => {
+        Service.resolveEmbeddingInputGuardrail = () => createEmbeddingGuardrail();
+        const monsterContent = Array.from({length: 12}, (_, index) => `line-${index} ${'x'.repeat(24)}`).join('\n');
 
         const summary = await Service.ingestSourceFiles({
             tenantId: 'tenant-a',
             files   : [{parsedChunks: [
                 validParsedChunk({sourcePath: 'src/safe.js', content: 'short payload'}),
-                validParsedChunk({sourcePath: 'src/monster.js', content: 'x'.repeat(300)})
+                validParsedChunk({sourcePath: 'src/monster.js', content: monsterContent})
             ]}]
         });
 
-        expect(summary.ingested).toBe(1);
-        expect(summary.embeddingsGenerated).toBe(1);
-        expect(summary.skippedOversized).toBe(1);
-        expect(summary.errors[0]).toMatchObject({
-            code   : 'KB_INGEST_INPUT_SIZE_EXCEEDED',
-            details: {
-                tenantId         : 'tenant-a',
-                repoSlug         : 'repo-a',
-                sourcePath       : 'src/monster.js',
-                parserId         : 'client-parser',
-                embeddingProvider: 'openAiCompatible'
-            }
-        });
-        expect(summary.errors[0].details).not.toHaveProperty('content');
+        expect(summary.ingested).toBeGreaterThan(1);
+        expect(summary.embeddingsGenerated).toBe(summary.ingested);
+        expect(summary.skippedOversized).toBe(0);
+        expect(summary.errors).toEqual([]);
         expect(vectorCalls).toHaveLength(1);
-        expect(vectorCalls[0].records).toHaveLength(1);
         expect(vectorCalls[0].records[0].sourcePath).toBe('src/safe.js');
+
+        const splitRecords = vectorCalls[0].records.filter(record => record.sourcePath === 'src/monster.js');
+
+        expect(splitRecords.length).toBeGreaterThan(1);
+        expect(splitRecords.map(record => record.oversizedSplitIndex)).toEqual(splitRecords.map((_, index) => index));
+        expect(splitRecords.every(record => record.oversizedSplit === true)).toBe(true);
+        expect(splitRecords.every(record => record.oversizedSplitTotal === splitRecords.length)).toBe(true);
+        expect(new Set(splitRecords.map(record => record.id)).size).toBe(splitRecords.length);
         expect(metrics[0]).toMatchObject({
-            eventType     : 'error',
-            chunksTotal   : 2,
-            chunksEmbedded: 1
+            eventType     : 'ingest',
+            chunksTotal   : summary.ingested,
+            chunksEmbedded: summary.ingested
         });
-        expect(metrics[0].detail.errors[0].code).toBe('KB_INGEST_INPUT_SIZE_EXCEEDED');
+
+        const firstIds = splitRecords.map(record => record.id);
+        vectorCalls = [];
+        metrics     = [];
+
+        await Service.ingestSourceFiles({
+            tenantId: 'tenant-a',
+            files   : [{parsedChunks: [validParsedChunk({sourcePath: 'src/monster.js', content: monsterContent})]}]
+        });
+
+        expect(vectorCalls[0].records.map(record => record.id)).toEqual(firstIds);
     });
 
-    test('skips over-budget raw fallback files before VectorService receives a temp JSONL', async () => {
-        memoryConfig.data.embeddingProvider                            = 'openAiCompatible';
-        aiConfig.data.localModels.embedding.contextLimitTokens        = 50;
-        aiConfig.data.localModels.embedding.safeProcessingLimitTokens = 40;
+    test('splits over-budget raw fallback files before VectorService receives a temp JSONL', async () => {
+        Service.resolveEmbeddingInputGuardrail = () => createEmbeddingGuardrail();
 
         const summary = await Service.ingestSourceFiles({
             tenantId: 'tenant-a',
             repoSlug: 'repo-a',
             files   : [{
-                content   : 'x'.repeat(300),
+                content   : Array.from({length: 12}, (_, index) => `section-${index} ${'y'.repeat(24)}`).join('\n'),
                 sourcePath: 'docs/monster.md'
             }]
+        });
+
+        expect(summary.ingested).toBeGreaterThan(1);
+        expect(summary.embeddingsGenerated).toBe(summary.ingested);
+        expect(summary.skippedOversized).toBe(0);
+        expect(summary.errors).toEqual([]);
+        expect(vectorCalls).toHaveLength(1);
+        expect(vectorCalls[0].records.length).toBe(summary.ingested);
+        expect(vectorCalls[0].records.every(record => record.sourcePath === 'docs/monster.md')).toBe(true);
+        expect(vectorCalls[0].records.every(record => record.parserId === 'raw-text')).toBe(true);
+        expect(vectorCalls[0].records.every(record => record.oversizedSplit === true)).toBe(true);
+        expect(metrics[0]).toMatchObject({
+            eventType     : 'ingest',
+            chunksTotal   : summary.ingested,
+            chunksEmbedded: summary.ingested
+        });
+    });
+
+    test('keeps skip diagnostics for over-budget chunks that cannot be split', async () => {
+        Service.resolveEmbeddingInputGuardrail = () => createEmbeddingGuardrail({
+            contextLimitTokens       : 50,
+            safeProcessingLimitTokens: 40
+        });
+
+        const summary = await Service.ingestSourceFiles({
+            tenantId: 'tenant-a',
+            files   : [{parsedChunks: [validParsedChunk({
+                content   : '',
+                name      : 'x'.repeat(300),
+                sourcePath: 'src/metadata-only.js'
+            })]}]
         });
 
         expect(summary.ingested).toBe(0);
@@ -455,23 +492,23 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
         expect(summary.errors[0]).toMatchObject({
             code   : 'KB_INGEST_INPUT_SIZE_EXCEEDED',
             details: {
-                sourcePath   : 'docs/monster.md',
-                parserId     : 'raw-text',
-                parserVersion: '1.0.0'
+                sourcePath       : 'src/metadata-only.js',
+                parserId         : 'client-parser',
+                embeddingProvider: 'openAiCompatible'
             }
         });
+        expect(summary.errors[0].details).not.toHaveProperty('content');
         expect(vectorCalls).toHaveLength(0);
-        expect(metrics[0]).toMatchObject({
-            eventType     : 'error',
-            chunksTotal   : 1,
-            chunksEmbedded: 0
-        });
     });
 
     test('does not apply local embedding caps to non-local ingestion providers', async () => {
-        memoryConfig.data.embeddingProvider                            = 'gemini';
-        aiConfig.data.localModels.embedding.contextLimitTokens        = 50;
-        aiConfig.data.localModels.embedding.safeProcessingLimitTokens = 1;
+        Service.resolveEmbeddingInputGuardrail = () => createEmbeddingGuardrail({
+            enabled                  : false,
+            embeddingProvider        : 'gemini',
+            contextLimitTokens       : 50,
+            safeProcessingLimitTokens: 1,
+            model                    : 'gemini'
+        });
 
         const summary = await Service.ingestSourceFiles({
             tenantId: 'tenant-a',
