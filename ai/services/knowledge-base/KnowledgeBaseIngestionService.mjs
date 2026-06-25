@@ -720,7 +720,11 @@ class KnowledgeBaseIngestionService extends Base {
                 continue;
             }
 
-            const splitChunks = this.splitOversizedEmbeddingChunk({chunk, guardrail, tenantContext});
+            const splitChunks = this.vectorService.splitOversizedEmbeddingChunk({
+                chunk,
+                guardrail,
+                createHash: splitChunk => this.createChunkHash(splitChunk, tenantContext)
+            });
 
             if (splitChunks.length <= 1) {
                 this.recordOversizedEmbeddingSkip({
@@ -771,129 +775,6 @@ class KnowledgeBaseIngestionService extends Base {
             inputBytes,
             inputTokensEstimate
         };
-    }
-
-    /**
-     * @summary Splits a recoverable oversized text chunk into deterministic embedding-safe sub-chunks.
-     * @param {Object} options
-     * @returns {Object[]} Either multiple sub-chunks or the original chunk when no safe split is possible.
-     * @protected
-     */
-    splitOversizedEmbeddingChunk({chunk, guardrail, tenantContext}) {
-        const content = chunk.content || chunk.description;
-
-        if (typeof content !== 'string' || content.length === 0) {
-            return [chunk];
-        }
-
-        const maxInputBytes = Math.max(1, guardrail.safeProcessingLimitTokens * 3),
-              prefixBytes   = Buffer.byteLength(`${chunk.type}: ${chunk.name} in ${chunk.className || ''}\n`, 'utf8'),
-              maxContentBytes = Math.max(1, maxInputBytes - prefixBytes - 128),
-              parts = this.splitTextByByteBudget(content, maxContentBytes);
-
-        if (parts.length <= 1) {
-            return [chunk];
-        }
-
-        let charStart = 0;
-
-        return parts.map((part, index) => {
-            const charEnd = charStart + part.length,
-                  child   = {
-                      ...chunk,
-                      content    : part,
-                      description: part,
-                      name         : `${chunk.name} [part ${index + 1}/${parts.length}]`,
-                      hashInputs   : Array.from(new Set([
-                          ...(chunk.hashInputs || []),
-                          'oversizedSplitIndex',
-                          'oversizedSplitTotal',
-                          'oversizedSplitCharStart',
-                          'oversizedSplitCharEnd'
-                      ])),
-                      oversizedSplit         : true,
-                      oversizedSplitIndex    : index,
-                      oversizedSplitTotal    : parts.length,
-                      oversizedSplitCharStart: charStart,
-                      oversizedSplitCharEnd  : charEnd
-                  };
-
-            charStart = charEnd;
-
-            const hash = this.createChunkHash(child, tenantContext);
-
-            child.hash = hash;
-            child.id   = hash;
-
-            return child;
-        });
-    }
-
-    /**
-     * @summary Splits text on stable line boundaries, falling back to character slices for single huge lines.
-     * @param {String} text Source text.
-     * @param {Number} maxBytes Maximum byte size per returned part.
-     * @returns {String[]}
-     * @protected
-     */
-    splitTextByByteBudget(text, maxBytes) {
-        if (Buffer.byteLength(text, 'utf8') <= maxBytes) {
-            return [text];
-        }
-
-        const parts   = [];
-        let   current = '';
-
-        for (const line of text.match(/[^\n]*\n?|[^\n]+$/g).filter(Boolean)) {
-            if (Buffer.byteLength(line, 'utf8') > maxBytes) {
-                if (current) {
-                    parts.push(current);
-                    current = '';
-                }
-                parts.push(...this.splitLongStringByByteBudget(line, maxBytes));
-                continue;
-            }
-
-            if (current && Buffer.byteLength(current + line, 'utf8') > maxBytes) {
-                parts.push(current);
-                current = line;
-            } else {
-                current += line;
-            }
-        }
-
-        if (current) {
-            parts.push(current);
-        }
-
-        return parts.filter(part => part.length > 0);
-    }
-
-    /**
-     * @summary Splits one oversized line without breaking JavaScript surrogate pairs.
-     * @param {String} value Source string.
-     * @param {Number} maxBytes Maximum byte size per part.
-     * @returns {String[]}
-     * @protected
-     */
-    splitLongStringByByteBudget(value, maxBytes) {
-        const parts   = [];
-        let   current = '';
-
-        for (const char of value) {
-            if (current && Buffer.byteLength(current + char, 'utf8') > maxBytes) {
-                parts.push(current);
-                current = char;
-            } else {
-                current += char;
-            }
-        }
-
-        if (current) {
-            parts.push(current);
-        }
-
-        return parts;
     }
 
     /**

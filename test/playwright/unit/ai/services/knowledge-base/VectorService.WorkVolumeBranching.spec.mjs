@@ -271,48 +271,74 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
         expect(spy.calls.upsert).toBeGreaterThan(0); // embedding actually happened
     });
 
-    test('skips over-budget chunks before provider invocation while embedding the safe remainder', async () => {
-        KB_Config.data.localModels.embedding.contextLimitTokens        = 50;
-        KB_Config.data.localModels.embedding.safeProcessingLimitTokens = 40;
+    test('splits over-budget full-sync chunks before provider invocation while embedding the safe remainder', async () => {
+        const originalResolveEmbeddingGuardrail = KB_VectorService.resolveEmbeddingGuardrail.bind(KB_VectorService);
 
-        const embeddedTexts = [];
-        TextEmbeddingService.embedTexts = async texts => {
-            embeddedTexts.push(...texts);
-            return texts.map(() => new Array(384).fill(0));
-        };
+        KB_VectorService.resolveEmbeddingGuardrail = () => ({
+            enabled                  : true,
+            contextLimitTokens       : 100,
+            safeProcessingLimitTokens: 80,
+            model                    : 'unit-test-embedding-model'
+        });
 
-        const spy = createSpyCollection({existingIds: []});
-        KB_ChromaManager.getKnowledgeBaseCollection = async () => spy;
+        try {
+            const embeddedTexts = [];
+            TextEmbeddingService.embedTexts = async texts => {
+                embeddedTexts.push(...texts);
+                return texts.map(() => new Array(384).fill(0));
+            };
 
-        fs.writeFileSync(fixturePath, [
-            JSON.stringify({
-                hash       : 'small-chunk',
-                type       : 'method',
-                name       : 'small',
-                className  : '',
-                description: 'small body',
-                content    : 'small body'
-            }),
-            JSON.stringify({
-                hash       : 'large-chunk',
-                type       : 'method',
-                name       : 'large',
-                className  : '',
-                description: 'x'.repeat(300),
-                content    : 'x'.repeat(300)
-            })
-        ].join('\n'), 'utf8');
+            const spy = createSpyCollection({existingIds: []});
+            KB_ChromaManager.getKnowledgeBaseCollection = async () => spy;
 
-        const result = await KB_VectorService.embed(fixturePath);
+            fs.writeFileSync(fixturePath, [
+                JSON.stringify({
+                    hash       : 'small-chunk',
+                    type       : 'method',
+                    name       : 'small',
+                    className  : '',
+                    description: 'small body',
+                    content    : 'small body'
+                }),
+                JSON.stringify({
+                    hash     : 'large-chunk',
+                    type     : 'ticket',
+                    kind     : 'ticket',
+                    name     : 'issue-12065',
+                    className: '',
+                    description: Array.from({length: 12}, (_, index) => `section-${index} ${'x'.repeat(24)}`).join('\n'),
+                    content    : Array.from({length: 12}, (_, index) => `section-${index} ${'x'.repeat(24)}`).join('\n'),
+                    source     : 'resources/content/issues/chunk-2/issue-12065.md'
+                })
+            ].join('\n'), 'utf8');
 
-        expect(result.embedded).toBe(1);
-        expect('skipped' in result).toBe(false);
-        expect(result.message).toContain('Embedding complete');
-        expect(spy.calls.upsert).toBe(1);
-        expect(spy.rows.size).toBe(1);
-        expect(embeddedTexts).toHaveLength(1);
-        expect(embeddedTexts[0]).toContain('small body');
-        expect(embeddedTexts[0]).not.toContain('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx');
+            const result = await KB_VectorService.embed(fixturePath);
+
+            expect(result.embedded).toBeGreaterThan(1);
+            expect('skipped' in result).toBe(false);
+            expect(result.message).toContain('Embedding complete');
+            expect(spy.calls.upsert).toBe(1);
+            expect(spy.rows.size).toBe(result.embedded);
+            expect(embeddedTexts).toHaveLength(result.embedded);
+            expect(embeddedTexts[0]).toContain('small body');
+
+            const splitRows = Array.from(spy.rows.values())
+                .filter(row => row.metadata.source === 'resources/content/issues/chunk-2/issue-12065.md');
+
+            expect(splitRows.length).toBeGreaterThan(1);
+            expect(splitRows.every(row => row.metadata.oversizedSplit === true)).toBe(true);
+            expect(splitRows.map(row => row.metadata.oversizedSplitIndex)).toEqual(splitRows.map((_, index) => index));
+            expect(new Set(splitRows.map(row => row.id)).size).toBe(splitRows.length);
+
+            const upsertCountAfterFirstRun = spy.calls.upsert;
+            const secondResult             = await KB_VectorService.embed(fixturePath);
+
+            expect(secondResult.embedded).toBe(0);
+            expect(secondResult.message).toContain('No changes detected');
+            expect(spy.calls.upsert).toBe(upsertCountAfterFirstRun);
+        } finally {
+            KB_VectorService.resolveEmbeddingGuardrail = originalResolveEmbeddingGuardrail;
+        }
     });
 
     test('does not apply local-model input caps to non-local embedding providers', async () => {
@@ -422,10 +448,10 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
             JSON.stringify({
                 hash       : 'large-chunk',
                 type       : 'method',
-                name       : 'large',
+                name       : 'x'.repeat(300),
                 className  : '',
-                description: 'x'.repeat(300),
-                content    : 'x'.repeat(300)
+                description: '',
+                content    : ''
             })
         ].join('\n'), 'utf8');
 

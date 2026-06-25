@@ -304,6 +304,237 @@ class VectorService extends Base {
     }
 
     /**
+     * Builds the provider input string used by the embedding guardrail and provider call.
+     *
+     * @param {Object} chunk Parsed knowledge chunk.
+     * @returns {String} Provider input text.
+     */
+    buildEmbeddingInputText(chunk) {
+        return `${chunk.type}: ${chunk.name} in ${chunk.className || ''}\n${chunk.description || chunk.content || ''}`;
+    }
+
+    /**
+     * Expands recoverable over-budget text chunks before tenant stamping and diffing.
+     *
+     * The final `embedChunks()` guardrail still refuses any chunk that remains too large;
+     * this pass only prevents the full-corpus sync route from losing split-safe source
+     * files before they ever become Chroma rows.
+     *
+     * @param {Object[]} chunks Raw parsed knowledge chunks read from JSONL.
+     * @returns {Object[]} Original chunks plus deterministic split children.
+     */
+    expandOversizedEmbeddingChunks(chunks) {
+        const guardrail = this.resolveEmbeddingGuardrail();
+
+        if (!guardrail.enabled) {
+            return chunks;
+        }
+
+        const expanded = [];
+
+        for (const chunk of chunks) {
+            const inputText  = this.buildEmbeddingInputText(chunk),
+                  evaluation = this.measureEmbeddingInput({text: inputText, guardrail});
+
+            if (!evaluation.skip) {
+                expanded.push(chunk);
+                continue;
+            }
+
+            const splitChunks = this.splitOversizedEmbeddingChunk({chunk, guardrail});
+
+            expanded.push(...splitChunks);
+        }
+
+        return expanded;
+    }
+
+    /**
+     * Creates a deterministic pre-tenant split hash for a full-sync child chunk.
+     *
+     * @param {Object} options
+     * @param {Object} options.chunk     Source chunk before splitting.
+     * @param {String} options.content   Split content slice.
+     * @param {Number} options.index     Zero-based split index.
+     * @param {Number} options.total     Total split count.
+     * @param {Number} options.charStart Character offset where the split starts.
+     * @param {Number} options.charEnd   Character offset where the split ends.
+     * @returns {String} Stable SHA-256 hash.
+     */
+    createSplitChunkHash({chunk, content, index, total, charStart, charEnd}) {
+        const identityString = JSON.stringify({
+            parentHash             : chunk.hash,
+            type                   : chunk.type,
+            kind                   : chunk.kind,
+            name                   : chunk.name,
+            source                 : chunk.source,
+            content,
+            oversizedSplitIndex    : index,
+            oversizedSplitTotal    : total,
+            oversizedSplitCharStart: charStart,
+            oversizedSplitCharEnd  : charEnd
+        });
+
+        return crypto.createHash('sha256').update(identityString).digest('hex');
+    }
+
+    /**
+     * Splits a recoverable over-budget text chunk into deterministic sub-chunks.
+     *
+     * @param {Object} options
+     * @param {Object} options.chunk     Source chunk before tenant stamping.
+     * @param {Object} options.guardrail Resolved embedding guardrail.
+     * @param {Function} [options.createHash] Optional caller-specific split hash function.
+     * @returns {Object[]} Either split children or the original chunk.
+     */
+    splitOversizedEmbeddingChunk({chunk, guardrail, createHash}) {
+        const content = chunk.content || chunk.description;
+
+        if (typeof content !== 'string' || content.length === 0) {
+            return [chunk];
+        }
+
+        const maxInputBytes = Math.max(1, guardrail.safeProcessingLimitTokens * 3),
+              prefixBytes     = Buffer.byteLength(`${chunk.type}: ${chunk.name} in ${chunk.className || ''}\n`, 'utf8'),
+              maxContentBytes = Math.max(1, maxInputBytes - prefixBytes - 128),
+              parts           = this.splitTextByByteBudget(content, maxContentBytes);
+
+        if (parts.length <= 1) {
+            return [chunk];
+        }
+
+        let charStart = 0;
+
+        return parts.map((part, index) => {
+            const charEnd = charStart + part.length,
+                  child   = {
+                      ...chunk,
+                      content    : part,
+                      description: part,
+                      name       : `${chunk.name} [part ${index + 1}/${parts.length}]`,
+                      hashInputs : Array.from(new Set([
+                          ...(chunk.hashInputs || []),
+                          'oversizedSplitIndex',
+                          'oversizedSplitTotal',
+                          'oversizedSplitCharStart',
+                          'oversizedSplitCharEnd'
+                      ])),
+                      oversizedSplit         : true,
+                      oversizedSplitIndex    : index,
+                      oversizedSplitTotal    : parts.length,
+                      oversizedSplitCharStart: charStart,
+                      oversizedSplitCharEnd  : charEnd
+                  };
+
+            const hash = createHash
+                ? createHash(child)
+                : this.createSplitChunkHash({
+                    chunk,
+                    content: part,
+                    index,
+                    total  : parts.length,
+                    charStart,
+                    charEnd
+                });
+
+            child.hash = hash;
+            child.id   = hash;
+            charStart = charEnd;
+            return child;
+        });
+    }
+
+    /**
+     * Splits text on stable line boundaries, falling back to character slices for huge lines.
+     *
+     * @param {String} text Source text.
+     * @param {Number} maxBytes Maximum byte size per returned part.
+     * @returns {String[]} Split text parts.
+     */
+    splitTextByByteBudget(text, maxBytes) {
+        if (Buffer.byteLength(text, 'utf8') <= maxBytes) {
+            return [text];
+        }
+
+        const parts   = [];
+        let   current = '';
+
+        for (const line of text.match(/[^\n]*\n?|[^\n]+$/g).filter(Boolean)) {
+            if (Buffer.byteLength(line, 'utf8') > maxBytes) {
+                if (current) {
+                    parts.push(current);
+                    current = '';
+                }
+                parts.push(...this.splitLongStringByByteBudget(line, maxBytes));
+                continue;
+            }
+
+            if (current && Buffer.byteLength(current + line, 'utf8') > maxBytes) {
+                parts.push(current);
+                current = line;
+            } else {
+                current += line;
+            }
+        }
+
+        if (current) {
+            parts.push(current);
+        }
+
+        return parts.filter(part => part.length > 0);
+    }
+
+    /**
+     * Splits one oversized line without breaking JavaScript surrogate pairs.
+     *
+     * @param {String} value Source string.
+     * @param {Number} maxBytes Maximum byte size per part.
+     * @returns {String[]} Split text parts.
+     */
+    splitLongStringByByteBudget(value, maxBytes) {
+        const parts   = [];
+        let   current = '';
+
+        for (const char of value) {
+            if (current && Buffer.byteLength(current + char, 'utf8') > maxBytes) {
+                parts.push(current);
+                current = char;
+            } else {
+                current += char;
+            }
+        }
+
+        if (current) {
+            parts.push(current);
+        }
+
+        return parts;
+    }
+
+    /**
+     * Measures provider input size without recording a final refusal diagnostic.
+     *
+     * @param {Object} options
+     * @param {String} options.text Provider input text.
+     * @param {Object} options.guardrail Resolved embedding guardrail.
+     * @returns {{skip: Boolean, inputBytes: Number, inputTokensEstimate: Number}}
+     */
+    measureEmbeddingInput({text, guardrail}) {
+        if (!guardrail.enabled) {
+            return {skip: false, inputBytes: 0, inputTokensEstimate: 0};
+        }
+
+        const inputBytes          = Buffer.byteLength(text || '', 'utf8');
+        const inputTokensEstimate = bytesToTokens(inputBytes);
+
+        return {
+            skip: inputTokensEstimate > guardrail.safeProcessingLimitTokens,
+            inputBytes,
+            inputTokensEstimate
+        };
+    }
+
+    /**
      * Emits a bounded, non-secret friction record for an over-budget embedding input.
      *
      * @param {Object} options
@@ -313,14 +544,9 @@ class VectorService extends Base {
      * @returns {{skip: Boolean, inputBytes: Number, inputTokensEstimate: Number}}
      */
     evaluateEmbeddingInput({chunk, text, guardrail}) {
-        if (!guardrail.enabled) {
-            return {skip: false, inputBytes: 0, inputTokensEstimate: 0};
-        }
+        const {skip, inputBytes, inputTokensEstimate} = this.measureEmbeddingInput({text, guardrail});
 
-        const inputBytes          = Buffer.byteLength(text || '', 'utf8');
-        const inputTokensEstimate = bytesToTokens(inputBytes);
-
-        if (inputTokensEstimate <= guardrail.safeProcessingLimitTokens) {
+        if (!skip) {
             return {skip: false, inputBytes, inputTokensEstimate};
         }
 
@@ -370,9 +596,9 @@ class VectorService extends Base {
         logger.log('Embedding chunks...');
 
         const {batchSize, batchDelay, maxRetries} = aiConfig;
-        const guardrail     = this.resolveEmbeddingGuardrail();
-        let   embeddedCount = 0;
-        let   skippedCount  = 0;
+        const guardrail                           = this.resolveEmbeddingGuardrail();
+        let   embeddedCount                       = 0;
+        let   skippedCount                        = 0;
 
         for (let i = 0; i < chunksToProcess.length; i += batchSize) {
             if (i > 0 && batchDelay) {
@@ -382,7 +608,7 @@ class VectorService extends Base {
             const batch       = chunksToProcess.slice(i, i + batchSize);
             const batchInputs = batch.map(chunk => ({
                 chunk,
-                text: `${chunk.type}: ${chunk.name} in ${chunk.className || ''}\n${chunk.description || chunk.content || ''}`
+                text: this.buildEmbeddingInputText(chunk)
             }));
             const embeddable = [];
 
@@ -601,15 +827,16 @@ class VectorService extends Base {
         }
         logger.log(`Loaded ${knowledgeBase.length} knowledge chunks from file.`);
 
-        const tenantStamp = this.resolveTenantStamp(tenantContext);
+        const tenantStamp           = this.resolveTenantStamp(tenantContext);
+        const expandedKnowledgeBase = this.expandOversizedEmbeddingChunks(knowledgeBase);
 
-        for (let i = 0; i < knowledgeBase.length; i++) {
-            knowledgeBase[i] = this.applyTenantStamp(knowledgeBase[i], tenantStamp);
+        for (let i = 0; i < expandedKnowledgeBase.length; i++) {
+            expandedKnowledgeBase[i] = this.applyTenantStamp(expandedKnowledgeBase[i], tenantStamp);
         }
 
         // Enrich with inheritance chains
         const classNameToDataMap = {};
-        knowledgeBase.forEach(chunk => {
+        expandedKnowledgeBase.forEach(chunk => {
             if (chunk.kind === 'module-context' && chunk.className) {
                 classNameToDataMap[chunk.className] = {
                     source: chunk.source,
@@ -618,7 +845,7 @@ class VectorService extends Base {
             }
         });
 
-        knowledgeBase.forEach(chunk => {
+        expandedKnowledgeBase.forEach(chunk => {
             let   currentClass     = chunk.className; // Metadata is now on every chunk
             const inheritanceChain = [];
             const visited          = new Set();
@@ -667,7 +894,7 @@ class VectorService extends Base {
         const allIds          = new Set();
         const processedIds    = new Set();
 
-        knowledgeBase.forEach(chunk => {
+        expandedKnowledgeBase.forEach(chunk => {
             const chunkId = chunk.id;
             allIds.add(chunkId);
 
@@ -681,7 +908,7 @@ class VectorService extends Base {
         const existingIdsArray = Array.from(existingIds);
         const idsToDelete      = resolvedStaleStrategy === STALE_STRATEGY_SKIP ? [] : existingIdsArray.filter(id => !allIds.has(id));
         const shouldShadowSwap = resolvedStaleStrategy === 'shadow-swap' && (chunksToProcess.length > 0 || idsToDelete.length > 0);
-        const workVolume       = shouldShadowSwap ? knowledgeBase.length : chunksToProcess.length;
+        const workVolume       = shouldShadowSwap ? expandedKnowledgeBase.length : chunksToProcess.length;
 
         logger.log(`${workVolume} chunks to add or update.`);
         logger.log(`${idsToDelete.length} chunks to delete.`);
@@ -725,7 +952,7 @@ class VectorService extends Base {
         if (shouldShadowSwap) {
             return await this.embedViaShadowSwap({
                 liveCollection  : collection,
-                knowledgeBase,
+                knowledgeBase   : expandedKnowledgeBase,
                 idsToDeleteCount: idsToDelete.length
             });
         }
