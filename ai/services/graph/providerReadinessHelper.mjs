@@ -1,7 +1,7 @@
-import http                        from 'http';
-import {execFile}                  from 'child_process';
-import {Memory_Config as aiConfig} from '../../services.mjs';
-import logger                      from '../../mcp/server/memory-core/logger.mjs';
+import http       from 'http';
+import {execFile} from 'child_process';
+import aiConfig   from '../../mcp/server/memory-core/config.mjs';
+import logger     from '../../mcp/server/memory-core/logger.mjs';
 import {
     buildOllamaEvalAttribution,
     extractOllamaEvalSample
