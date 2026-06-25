@@ -388,6 +388,7 @@ Here you find the full history of Neo.mjs updates.
 ## Gettingstarted
 
 - [Setup](https://neomjs.com/raw/learn/gettingstarted/Setup.md)
+- [Workspace or Repository Fork](https://neomjs.com/raw/learn/gettingstarted/WorkspaceVsRepository.md)
 - [Workspaces and Applications](https://neomjs.com/raw/learn/gettingstarted/Workspaces.md)
 - [Describing a View](https://neomjs.com/raw/learn/gettingstarted/DescribingTheUI.md)
 - [Events](https://neomjs.com/raw/learn/gettingstarted/Events.md)

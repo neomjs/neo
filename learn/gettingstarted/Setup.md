@@ -28,6 +28,10 @@ This script automates the entire setup process:
 
 When you're finished, you will have a complete Neo.mjs workspace, as described in the _Workspaces and Applications_ topic, which follows.
 
+If you are not sure whether to use a generated workspace or a repository fork,
+read **[Workspace or Repository Fork](WorkspaceVsRepository.md)** before adding
+application code.
+
 ## Understanding the Four Environments
 
 A unique advantage of Neo.mjs is its support for four distinct environments, allowing you to switch between a rapid, zero-builds development workflow and highly optimized deployment builds. Understanding these environments is key to leveraging the full power of the framework.

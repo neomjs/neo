@@ -22,6 +22,7 @@
         {"name": "Features and Benefits Summary",                      "parentId": "Benefits",                                            "id": "benefits/Features"},
     {"name": "Getting Started",                                        "parentId": null,                                 "isLeaf": false, "id": "GettingStarted"},
         {"name": "Setup",                                              "parentId": "GettingStarted",                                      "id": "gettingstarted/Setup"},
+        {"name": "Workspace or Repository Fork",                       "parentId": "GettingStarted",                                      "id": "gettingstarted/WorkspaceVsRepository"},
         {"name": "Workspaces and Applications",                        "parentId": "GettingStarted",                                      "id": "gettingstarted/Workspaces"},
         {"name": "Describing a View",                                  "parentId": "GettingStarted",                                      "id": "gettingstarted/DescribingTheUI"},
         {"name": "Events",                                             "parentId": "GettingStarted",                                      "id": "gettingstarted/Events"},

@@ -11,6 +11,10 @@ For most use cases, creating a dedicated workspace with `npx neo-app` is the bes
 
 A workspace provides the same structure as the main neo.mjs repository, but includes the framework as an NPM dependency, making it easier to manage.
 
+If you are deciding between a generated workspace and a repository fork, or if
+you need to move an app between the two layouts, read the deeper learning guide:
+**[Workspace or Repository Fork](../learn/gettingstarted/WorkspaceVsRepository.md)**.
+
 ### Create a Workspace
 1.  Open your terminal and navigate to the directory where you want to create your project.
 2.  Run the following command:
