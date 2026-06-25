@@ -537,6 +537,72 @@ test.describe('orchestrator/scheduling/pipeline (#11862/#11900)', () => {
         ]);
     });
 
+    test('records Golden Path failed outcomes without marking success (#13978)', async () => {
+        const calls    = [];
+        const outcomes = [];
+        const state    = {};
+
+        runSchedulingPipeline({
+            registry: [
+                makeCandidateDescriptor({
+                    taskName        : 'golden-path',
+                    executionKind   : 'in-process-async',
+                    maintenanceClass: 'graph-dependent'
+                })
+            ],
+            context : makeContext(),
+            services: makeServices({
+                goldenPathSynthesizer: {
+                    synthesizeGoldenPath: () => Promise.resolve({
+                        status      : 'failed',
+                        reasonCode  : 'semantic-query-failed',
+                        error       : 'Error executing plan: Internal error: Error finding id',
+                        wroteHandoff: true
+                    })
+                },
+                healthService: {
+                    recordTaskOutcome(taskName, status, details) {
+                        outcomes.push({taskName, status, details});
+                    }
+                },
+                taskStateService: {
+                    getTaskState: () => state,
+                    markCompleted(taskName) { calls.push(['markCompleted', taskName]); },
+                    markFailed(taskName, exitCode) { calls.push(['markFailed', taskName, exitCode]); },
+                    markSkipped(taskName) { calls.push(['markSkipped', taskName]); },
+                    markStarted(taskName, reason) { calls.push(['markStarted', taskName, reason]); }
+                }
+            }),
+            runtime: makeRuntime()
+        });
+
+        await Promise.resolve();
+
+        expect(calls).toEqual([
+            ['markStarted', 'golden-path', 'golden-path-reason'],
+            ['markFailed', 'golden-path', 1]
+        ]);
+        expect(state.lastReason).toBe('semantic-query-failed');
+        expect(outcomes).toEqual([
+            {
+                taskName: 'golden-path',
+                status  : 'running',
+                details : {reason: 'golden-path-reason', startedAt: expect.any(String)}
+            },
+            {
+                taskName: 'golden-path',
+                status  : 'failed',
+                details : {
+                    reason      : 'golden-path-reason',
+                    reasonCode  : 'semantic-query-failed',
+                    error       : 'Error executing plan: Internal error: Error finding id',
+                    failedAt    : expect.any(String),
+                    wroteHandoff: true
+                }
+            }
+        ]);
+    });
+
     test('records skipped Dream outcomes without marking success (#13767)', async () => {
         const calls    = [];
         const outcomes = [];

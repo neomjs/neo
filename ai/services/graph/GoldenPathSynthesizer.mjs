@@ -546,6 +546,64 @@ class GoldenPathSynthesizer extends Base {
     }
 
     /**
+     * @summary Normalizes a Golden Path failure into the task outcome shape consumed by the scheduler.
+     *
+     * The Golden Path task is freshness-critical steering substrate: a caught ChromaDB / graph-store
+     * failure must not resolve as a successful run and refresh `lastSuccessAt`.
+     *
+     * @param {String} reasonCode Stable machine-readable failure reason.
+     * @param {*} error Error object or message payload.
+     * @param {Object} [extra={}] Additional diagnostics for downstream task-state / health surfaces.
+     * @returns {{status: String, reasonCode: String, error: String}} Failure outcome.
+     */
+    static buildFailureOutcome(reasonCode, error, extra = {}) {
+        return {
+            status: 'failed',
+            reasonCode,
+            error : error instanceof Error ? error.message : String(error || reasonCode),
+            ...extra
+        }
+    }
+
+    /**
+     * @summary Renders a fail-loud Computed Golden Path section when the route cannot be trusted.
+     *
+     * No numbered recommendation entries are emitted, so downstream parsers cannot consume stale or
+     * partially-computed routing as an immediate lane.
+     *
+     * @param {Object} options
+     * @param {Object} options.failure Failure outcome from `buildFailureOutcome()`.
+     * @param {Object} [options.stats={}] Candidate-count diagnostics for the current pass.
+     * @returns {String} Markdown section.
+     */
+    static renderComputedGoldenPathFailureSection({
+        failure,
+        stats = {}
+    } = {}) {
+        const count      = value => Number.isFinite(Number(value)) ? Number(value) : 0;
+        const reasonCode = failure?.reasonCode || 'golden-path-failed';
+        const error      = failure?.error || 'unknown failure';
+
+        return [
+            '',
+            '## Computed Golden Path (Strategic Recommendation)',
+            '',
+            'Golden Path degraded: the semantic route could not be computed safely.',
+            '',
+            `- Reason: \`${reasonCode}\``,
+            `- Error: \`${error}\``,
+            `- Semantic candidates: ${count(stats.semanticCandidates)}`,
+            `- SQLite OPEN matches: ${count(stats.sqliteOpenMatches)}`,
+            `- Scored actionable candidates: ${count(stats.scoredCandidates)}`,
+            `- Selected routed nodes: ${count(stats.selectedTopNodes)}`,
+            `- Stale frontier GUIDES pruned: ${count(stats.prunedGuideEdges)}`,
+            '',
+            'No numbered immediate recommendation is rendered for this pass; do not claim a computed lane from stale handoff data until the next successful Golden Path run.',
+            ''
+        ].join('\n')
+    }
+
+    /**
      * @summary Scores one synced issue as a current release / incident focus candidate.
      *
      * This is deliberately a local-sync signal, not graph-centrality routing. It
@@ -850,12 +908,12 @@ class GoldenPathSynthesizer extends Base {
             summaryColl = await StorageRouter.getSummaryCollection();
         } catch (e) {
             logger.warn('[GoldenPathSynthesizer] StorageRouter unavailable. Skipping Golden Path extraction.');
-            return;
+            return this.constructor.buildFailureOutcome('storage-router-unavailable', e);
         }
 
         if (!graphColl || !summaryColl) {
             logger.warn('[GoldenPathSynthesizer] Collections missing. Skipping Golden Path extraction.');
-            return;
+            return this.constructor.buildFailureOutcome('collections-missing', 'graph or summary collection missing');
         }
 
         // Generate the Frontier Baseline Vector from the N MOST-RECENT session summaries.
@@ -876,7 +934,7 @@ class GoldenPathSynthesizer extends Base {
             frontierEmbedding = await TextEmbeddingService.embedText(frontierText, aiConfig.embeddingProvider);
         } catch (e) {
             logger.warn('[GoldenPathSynthesizer] Failed to generate Frontier Baseline Vector. Aborting Hybrid route.', e);
-            return;
+            return this.constructor.buildFailureOutcome('frontier-embedding-failed', e);
         }
 
         const actualDimension     = getEmbeddingVectorLength(frontierEmbedding);
@@ -889,13 +947,15 @@ class GoldenPathSynthesizer extends Base {
             const provider = aiConfig.embeddingProvider;
             const model    = getEmbeddingModelName(aiConfig, provider);
 
-            logger.warn(buildEmbeddingDimensionMismatchMessage({
+            const message = buildEmbeddingDimensionMismatchMessage({
                 provider,
                 model,
                 configuredDimension,
                 actualDimension
-            }));
-            return;
+            });
+
+            logger.warn(message);
+            return this.constructor.buildFailureOutcome('embedding-dimension-mismatch', message);
         }
 
         const scoredNodes  = [];
@@ -908,6 +968,7 @@ class GoldenPathSynthesizer extends Base {
             selectedTopNodes       : 0,
             prunedGuideEdges       : 0
         };
+        let routeFailure = null;
 
         // Pillar 1: Semantic Distance from ChromaDB
         let semanticIds       = [];
@@ -929,7 +990,7 @@ class GoldenPathSynthesizer extends Base {
             }
         } catch (e) {
             logger.warn('[GoldenPathSynthesizer] Failed to query semantic vectors from ChromaDB.', e);
-            return;
+            routeFailure = this.constructor.buildFailureOutcome('semantic-query-failed', e);
         }
 
         if (semanticIds.length === 0) {
@@ -941,7 +1002,7 @@ class GoldenPathSynthesizer extends Base {
         const SEMANTIC_WEIGHT   = 2.0;
         const STRUCTURAL_WEIGHT = 1.0;
 
-        if (semanticIds.length > 0) {
+        if (semanticIds.length > 0 && !routeFailure) {
             try {
                 const placeholders = semanticIds.map(() => '?').join(',');
                 const stmt         = GraphService.db.storage.db.prepare(`
@@ -1011,6 +1072,7 @@ class GoldenPathSynthesizer extends Base {
                 }
             } catch (e) {
                 logger.warn('[GoldenPathSynthesizer] Error executing hybrid mapping across local Graph Store.', e);
+                routeFailure = this.constructor.buildFailureOutcome('graph-store-mapping-failed', e);
             }
         }
 
@@ -1018,7 +1080,7 @@ class GoldenPathSynthesizer extends Base {
         scoredNodes.sort((a, b) => b.score - a.score);
 
         // Remove mathematically rejected targets (Negative ROI), then slice
-        const topNodes = scoredNodes.filter(n => n.score > -5000).slice(0, aiConfig.goldenPathTopNodeRenderLimit);
+        const topNodes = routeFailure ? [] : scoredNodes.filter(n => n.score > -5000).slice(0, aiConfig.goldenPathTopNodeRenderLimit);
 
         let currentFocusCandidates = [];
         if (repoEnrichmentEnabled) {
@@ -1048,7 +1110,13 @@ class GoldenPathSynthesizer extends Base {
 
         let markdownAppend = '';
 
-        if (routedTopNodes.length > 0) {
+        if (routeFailure) {
+            markdownAppend = this.constructor.renderComputedGoldenPathFailureSection({
+                failure: routeFailure,
+                stats  : scoringStats
+            });
+            logger.warn(`[GoldenPathSynthesizer] Golden Path route failed loud: ${routeFailure.reasonCode} — rendered degraded handoff section.`);
+        } else if (routedTopNodes.length > 0) {
             logger.info(`[GoldenPathSynthesizer] Top Issue 1 (${routedTopNodes[0].node.id}): Priority ${routedTopNodes[0].score.toFixed(2)} [Sem: ${routedTopNodes[0].semantic.toFixed(2)} / Struc: ${routedTopNodes[0].structural.toFixed(2)}]`);
 
             // Explicitly anchor this to the frontier context so the Agent NEVER loses sight of it
@@ -1369,6 +1437,18 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         logger.info(`[GoldenPathSynthesizer] sandman_handoff.md freshly generated via Centralized Pipeline. Golden Path integrated.`);
 
         logger.info(`[GoldenPathSynthesizer] Mathematical Golden Path established. Anchored ${topNodes.length} strategic nodes to frontier.`);
+
+        return routeFailure ? {
+            ...routeFailure,
+            wroteHandoff    : true,
+            selectedTopNodes: scoringStats.selectedTopNodes,
+            prunedGuideEdges: scoringStats.prunedGuideEdges
+        } : {
+            status          : 'completed',
+            wroteHandoff    : true,
+            selectedTopNodes: scoringStats.selectedTopNodes,
+            prunedGuideEdges: scoringStats.prunedGuideEdges
+        };
     }
 }
 
