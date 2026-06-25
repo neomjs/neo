@@ -52,6 +52,10 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         providerReadinessHelper = await import('../../../../../../ai/services/graph/providerReadinessHelper.mjs');
     });
 
+    test.beforeEach(() => {
+        providerReadinessHelper?.clearProviderDiscoveryProbeCache();
+    });
+
     test.afterAll(() => {
         aiConfig.data.logPath = originalLogPath;
 
@@ -94,10 +98,17 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
     test('assertProviderReadinessConfig fails loud when the SSOT config block is absent', () => {
         expect(() => runSandmanModule.assertProviderReadinessConfig()).toThrow(/providerReadiness is required/);
         expect(() => runSandmanModule.assertProviderReadinessConfig({attempts: 1, delayMs: 0})).toThrow(/timeoutMs.*configured/);
-        expect(runSandmanModule.assertProviderReadinessConfig({attempts: 1, delayMs: 0, timeoutMs: 10})).toEqual({
-            attempts : 1,
-            delayMs  : 0,
-            timeoutMs: 10
+        expect(() => runSandmanModule.assertProviderReadinessConfig({attempts: 1, delayMs: 0, timeoutMs: 10})).toThrow(/routineCacheTtlMs.*configured/);
+        expect(runSandmanModule.assertProviderReadinessConfig({
+            attempts         : 1,
+            delayMs          : 0,
+            timeoutMs        : 10,
+            routineCacheTtlMs: 1000
+        })).toEqual({
+            attempts         : 1,
+            delayMs          : 0,
+            timeoutMs        : 10,
+            routineCacheTtlMs: 1000
         });
     });
 
@@ -936,6 +947,186 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             contextLength: 131072,
             parallel     : 1
         }]);
+    });
+
+    test('fetchOpenAiCompatibleModelIds coalesces and caches routine probes (#13997)', async () => {
+        let fetchCalls = 0,
+            releaseFirst;
+
+        const firstProbe = new Promise(resolve => {
+            releaseFirst = resolve;
+        });
+        const fetchFn = async () => {
+            fetchCalls++;
+            await firstProbe;
+
+            return {
+                ok  : true,
+                json: async () => ({data: [{id: 'chat-model'}]})
+            };
+        };
+
+        const first = providerReadinessHelper.fetchOpenAiCompatibleModelIds({
+            host      : 'http://127.0.0.1:1234',
+            timeoutMs : 50,
+            freshness : 'routine',
+            cacheTtlMs: 1000,
+            fetchFn
+        });
+        const second = providerReadinessHelper.fetchOpenAiCompatibleModelIds({
+            host      : 'http://127.0.0.1:1234',
+            timeoutMs : 50,
+            freshness : 'routine',
+            cacheTtlMs: 1000,
+            fetchFn
+        });
+
+        await Promise.resolve();
+        expect(fetchCalls).toBe(1);
+
+        releaseFirst();
+        await expect(Promise.all([first, second])).resolves.toEqual([
+            ['chat-model'],
+            ['chat-model']
+        ]);
+
+        const cached = await providerReadinessHelper.fetchOpenAiCompatibleModelIds({
+            host      : 'http://127.0.0.1:1234',
+            timeoutMs : 50,
+            freshness : 'routine',
+            cacheTtlMs: 1000,
+            fetchFn
+        });
+
+        expect(cached).toEqual(['chat-model']);
+        expect(fetchCalls).toBe(1);
+    });
+
+    test('fetchOpenAiCompatibleModelIds force-refresh bypasses routine cache (#13997)', async () => {
+        let   fetchCalls = 0;
+        const fetchFn    = async () => {
+            fetchCalls++;
+
+            return {
+                ok  : true,
+                json: async () => ({data: [{id: fetchCalls === 1 ? 'cached-model' : 'fresh-model'}]})
+            };
+        };
+
+        await expect(providerReadinessHelper.fetchOpenAiCompatibleModelIds({
+            host      : 'http://127.0.0.1:1234',
+            timeoutMs : 50,
+            freshness : 'routine',
+            cacheTtlMs: 1000,
+            fetchFn
+        })).resolves.toEqual(['cached-model']);
+
+        await expect(providerReadinessHelper.fetchOpenAiCompatibleModelIds({
+            host     : 'http://127.0.0.1:1234',
+            timeoutMs: 50,
+            freshness: 'force',
+            fetchFn
+        })).resolves.toEqual(['fresh-model']);
+
+        expect(fetchCalls).toBe(2);
+    });
+
+    test('routine provider-discovery failures are not cached as healthy (#13997)', async () => {
+        let   fetchCalls = 0;
+        const fetchFn    = async () => {
+            fetchCalls++;
+
+            if (fetchCalls === 1) {
+                return {
+                    ok    : false,
+                    status: 503,
+                    text  : async () => 'starting'
+                };
+            }
+
+            return {
+                ok  : true,
+                json: async () => ({data: [{id: 'recovered-model'}]})
+            };
+        };
+
+        await expect(providerReadinessHelper.fetchOpenAiCompatibleModelIds({
+            host      : 'http://127.0.0.1:1234',
+            timeoutMs : 50,
+            freshness : 'routine',
+            cacheTtlMs: 1000,
+            fetchFn
+        })).rejects.toThrow(/HTTP 503/);
+
+        await expect(providerReadinessHelper.fetchOpenAiCompatibleModelIds({
+            host      : 'http://127.0.0.1:1234',
+            timeoutMs : 50,
+            freshness : 'routine',
+            cacheTtlMs: 1000,
+            fetchFn
+        })).resolves.toEqual(['recovered-model']);
+        expect(fetchCalls).toBe(2);
+    });
+
+    test('fetchLmsLoadedModels coalesces routine metadata probes and lets force-refresh bypass cache (#13997)', async () => {
+        let cliCalls = 0;
+
+        const execFileFn = (cmd, args, options, callback) => {
+            cliCalls++;
+            callback(null, JSON.stringify([{
+                id           : cliCalls === 1 ? 'cached-model' : 'fresh-model',
+                contextLength: 32768
+            }]), '');
+        };
+
+        const first = await providerReadinessHelper.fetchLmsLoadedModels({
+            timeoutMs : 123,
+            freshness : 'routine',
+            cacheTtlMs: 1000,
+            execFileFn
+        });
+        const cached = await providerReadinessHelper.fetchLmsLoadedModels({
+            timeoutMs : 123,
+            freshness : 'routine',
+            cacheTtlMs: 1000,
+            execFileFn
+        });
+        const fresh = await providerReadinessHelper.fetchLmsLoadedModels({
+            timeoutMs: 123,
+            freshness: 'force',
+            execFileFn
+        });
+
+        expect(first.map(item => item.id)).toEqual(['cached-model']);
+        expect(cached.map(item => item.id)).toEqual(['cached-model']);
+        expect(fresh.map(item => item.id)).toEqual(['fresh-model']);
+        expect(cliCalls).toBe(2);
+    });
+
+    test('ensureLmsModelsLoaded uses routine discovery before mutation and force-refresh after load (#13997)', async () => {
+        const
+            discoveryFreshness = [],
+            loadCalls          = [];
+
+        const result = await providerReadinessHelper.ensureLmsModelsLoaded({
+            host                    : 'http://127.0.0.1:1234',
+            models                  : ['chat-model'],
+            attempts                : 1,
+            delayMs                 : 0,
+            timeoutMs               : 50,
+            modelDiscoveryFreshness : 'routine',
+            modelDiscoveryCacheTtlMs: 1000,
+            fetchModelIds           : async options => {
+                discoveryFreshness.push(options.freshness);
+                return discoveryFreshness.length === 1 ? [] : ['chat-model'];
+            },
+            loadModel: async model => loadCalls.push(model),
+            log      : {info: () => {}}
+        });
+
+        expect(discoveryFreshness).toEqual(['routine', 'force']);
+        expect(loadCalls).toEqual(['chat-model']);
+        expect(result.ready).toBe(true);
     });
 
     test('ensureLmsModelsLoaded degrades when lms ps reports insufficient context or parallel (#13851)', async () => {

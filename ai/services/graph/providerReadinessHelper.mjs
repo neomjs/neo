@@ -1,7 +1,7 @@
-import http                        from 'http';
-import {execFile}                  from 'child_process';
-import {Memory_Config as aiConfig} from '../../services.mjs';
-import logger                      from '../../mcp/server/memory-core/logger.mjs';
+import http       from 'http';
+import {execFile} from 'child_process';
+import aiConfig   from '../../mcp/server/memory-core/config.mjs';
+import logger     from '../../mcp/server/memory-core/logger.mjs';
 import {
     buildOllamaEvalAttribution,
     extractOllamaEvalSample
@@ -14,6 +14,12 @@ import {
 
 let openAiCompatibleEmbeddingServingProbeQueue = Promise.resolve();
 
+const
+    providerDiscoveryCache         = new Map(),
+    providerDiscoveryForceInflight = new Map(),
+    PROVIDER_DISCOVERY_FORCE       = 'force',
+    PROVIDER_DISCOVERY_ROUTINE     = 'routine';
+
 /**
  * @module ai/services/graph/ProviderReadinessHelper
  */
@@ -25,6 +31,101 @@ let openAiCompatibleEmbeddingServingProbeQueue = Promise.resolve();
  */
 export function getOpenAiCompatibleHost(config = aiConfig) {
     return config.openAiCompatible?.host;
+}
+
+/**
+ * @summary Clears provider-discovery caches for deterministic tests and explicit diagnostics.
+ * @returns {void}
+ */
+export function clearProviderDiscoveryProbeCache() {
+    providerDiscoveryCache.clear();
+    providerDiscoveryForceInflight.clear();
+}
+
+/**
+ * @summary Validates the requested provider-discovery freshness contract.
+ * @param {Object} options
+ * @param {String} options.freshness Either `force` or `routine`.
+ * @param {Number} [options.cacheTtlMs] Routine-cache freshness window.
+ * @param {String} options.caller Caller name for fail-loud errors.
+ * @returns {void}
+ */
+function assertProviderDiscoveryFreshness({freshness, cacheTtlMs, caller}) {
+    if (![PROVIDER_DISCOVERY_FORCE, PROVIDER_DISCOVERY_ROUTINE].includes(freshness)) {
+        throw new TypeError(`${caller}: freshness must be '${PROVIDER_DISCOVERY_FORCE}' or '${PROVIDER_DISCOVERY_ROUTINE}'`);
+    }
+
+    if (freshness === PROVIDER_DISCOVERY_ROUTINE && (!Neo.isNumber(cacheTtlMs) || cacheTtlMs < 0)) {
+        throw new TypeError(`${caller}: cacheTtlMs must be a non-negative number for routine provider discovery`);
+    }
+}
+
+/**
+ * @summary Runs one provider-discovery probe with routine TTL caching or force-fresh coalescing.
+ * @param {Object} options
+ * @param {String} options.key Stable probe identity.
+ * @param {String} options.freshness Either `force` or `routine`.
+ * @param {Number} [options.cacheTtlMs] Routine-cache freshness window.
+ * @param {String} options.caller Caller name for fail-loud errors.
+ * @param {Function} options.runProbe Probe executor.
+ * @returns {Promise<*>}
+ */
+async function runProviderDiscoveryProbe({
+    key,
+    freshness = PROVIDER_DISCOVERY_FORCE,
+    cacheTtlMs,
+    caller,
+    runProbe
+}) {
+    assertProviderDiscoveryFreshness({freshness, cacheTtlMs, caller});
+
+    if (freshness === PROVIDER_DISCOVERY_ROUTINE) {
+        const
+            cached = providerDiscoveryCache.get(key),
+            now    = Date.now();
+
+        if (cached?.promise) {
+            return cached.promise;
+        }
+
+        if (cached && now <= cached.expiresAt) {
+            return cached.value;
+        }
+
+        const promise = Promise.resolve()
+            .then(runProbe)
+            .then(value => {
+                providerDiscoveryCache.set(key, {
+                    value,
+                    expiresAt: Date.now() + cacheTtlMs
+                });
+
+                return value;
+            })
+            .catch(error => {
+                if (providerDiscoveryCache.get(key)?.promise === promise) {
+                    providerDiscoveryCache.delete(key);
+                }
+
+                throw error;
+            });
+
+        providerDiscoveryCache.set(key, {promise});
+        return promise;
+    }
+
+    const forceKey = `${PROVIDER_DISCOVERY_FORCE}:${key}`;
+
+    if (providerDiscoveryForceInflight.has(forceKey)) {
+        return providerDiscoveryForceInflight.get(forceKey);
+    }
+
+    const promise = Promise.resolve()
+        .then(runProbe)
+        .finally(() => providerDiscoveryForceInflight.delete(forceKey));
+
+    providerDiscoveryForceInflight.set(forceKey, promise);
+    return promise;
 }
 
 /**
@@ -224,26 +325,41 @@ export function getLmsLoadedModels(payload) {
  * @param {Object} options
  * @param {Number} options.timeoutMs CLI timeout. Required; no module-level default.
  * @param {Function} [options.execFileFn=execFile] Child-process seam for tests.
+ * @param {String} [options.freshness='force'] `routine` enables TTL caching; `force` bypasses completed cache.
+ * @param {Number} [options.cacheTtlMs] Required for routine caching.
  * @returns {Promise<Object[]>}
  */
-export function fetchLmsLoadedModels({timeoutMs, execFileFn = execFile} = {}) {
+export function fetchLmsLoadedModels({
+    timeoutMs,
+    execFileFn = execFile,
+    freshness  = PROVIDER_DISCOVERY_FORCE,
+    cacheTtlMs
+} = {}) {
     if (typeof timeoutMs !== 'number') {
         return Promise.reject(new TypeError('fetchLmsLoadedModels: timeoutMs is required'));
     }
 
-    return new Promise((resolve, reject) => {
-        execFileFn('lms', ['ps', '--json'], {timeout: timeoutMs}, (error, stdout = '', stderr = '') => {
-            if (error) {
-                reject(new Error(`lms ps --json failed: ${error.message}${stderr ? `; stderr=${stderr.trim()}` : ''}`));
-                return;
-            }
+    return runProviderDiscoveryProbe({
+        key   : `lms-loaded-models:${timeoutMs}`,
+        freshness,
+        cacheTtlMs,
+        caller: 'fetchLmsLoadedModels',
+        runProbe() {
+            return new Promise((resolve, reject) => {
+                execFileFn('lms', ['ps', '--json'], {timeout: timeoutMs}, (error, stdout = '', stderr = '') => {
+                    if (error) {
+                        reject(new Error(`lms ps --json failed: ${error.message}${stderr ? `; stderr=${stderr.trim()}` : ''}`));
+                        return;
+                    }
 
-            try {
-                resolve(getLmsLoadedModels(JSON.parse(stdout || '[]')));
-            } catch (parseError) {
-                reject(new Error(`lms ps --json returned invalid JSON: ${parseError.message}`));
-            }
-        });
+                    try {
+                        resolve(getLmsLoadedModels(JSON.parse(stdout || '[]')));
+                    } catch (parseError) {
+                        reject(new Error(`lms ps --json returned invalid JSON: ${parseError.message}`));
+                    }
+                });
+            });
+        }
     });
 }
 
@@ -349,9 +465,17 @@ export function getOllamaRunningModels(payload) {
  * @param {String} options.host Provider host.
  * @param {Number} options.timeoutMs HTTP timeout. Required; no module-level default.
  * @param {Function} [options.fetchFn=fetch] Fetch seam for tests.
+ * @param {String} [options.freshness='force'] `routine` enables TTL caching; `force` bypasses completed cache.
+ * @param {Number} [options.cacheTtlMs] Required for routine caching.
  * @returns {Promise<String[]>}
  */
-export async function fetchOpenAiCompatibleModelIds({host, timeoutMs, fetchFn = fetch} = {}) {
+export async function fetchOpenAiCompatibleModelIds({
+    host,
+    timeoutMs,
+    fetchFn    = fetch,
+    freshness  = PROVIDER_DISCOVERY_FORCE,
+    cacheTtlMs
+} = {}) {
     if (!host) {
         throw new TypeError('fetchOpenAiCompatibleModelIds: host is required');
     }
@@ -359,18 +483,26 @@ export async function fetchOpenAiCompatibleModelIds({host, timeoutMs, fetchFn = 
         throw new TypeError('fetchOpenAiCompatibleModelIds: timeoutMs is required');
     }
 
-    const url      = new URL('/v1/models', host).toString();
-    const response = await fetchFn(url, {
-        method: 'GET',
-        signal: AbortSignal.timeout(timeoutMs)
+    return runProviderDiscoveryProbe({
+        key   : `openai-compatible-models:${host}:${timeoutMs}`,
+        freshness,
+        cacheTtlMs,
+        caller: 'fetchOpenAiCompatibleModelIds',
+        async runProbe() {
+            const url      = new URL('/v1/models', host).toString();
+            const response = await fetchFn(url, {
+                method: 'GET',
+                signal: AbortSignal.timeout(timeoutMs)
+            });
+
+            if (!response.ok) {
+                const text = typeof response.text === 'function' ? await response.text() : '';
+                throw new Error(`OpenAI-compatible model enumeration failed: HTTP ${response.status}${text ? ` - ${text}` : ''}`);
+            }
+
+            return getOpenAiCompatibleModelIds(await response.json());
+        }
     });
-
-    if (!response.ok) {
-        const text = typeof response.text === 'function' ? await response.text() : '';
-        throw new Error(`OpenAI-compatible model enumeration failed: HTTP ${response.status}${text ? ` - ${text}` : ''}`);
-    }
-
-    return getOpenAiCompatibleModelIds(await response.json());
 }
 
 /**
@@ -978,6 +1110,8 @@ export function getInsufficientLmsLoadedModels({
  * @param {Function} [options.loadModel] Injectable model-load function.
  * @param {Function} [options.unloadModel] Injectable model-unload function.
  * @param {Function} [options.embeddingServingProbe] Optional bounded embedding-serving canary seam.
+ * @param {String} [options.modelDiscoveryFreshness='force'] Routine callers may use `routine`; post-mutation probes force-refresh.
+ * @param {Number} [options.modelDiscoveryCacheTtlMs] Required when `modelDiscoveryFreshness` is `routine`.
  * @param {Object} [options.log=logger] Logger seam.
  * @returns {Promise<Object>}
  */
@@ -995,6 +1129,8 @@ export async function ensureLmsModelsLoaded({
     loadModel         = (model, options) => loadLmsModel(model, options),
     unloadModel       = (identifier, options) => unloadLmsModel(identifier, options),
     embeddingServingProbe,
+    modelDiscoveryFreshness = PROVIDER_DISCOVERY_FORCE,
+    modelDiscoveryCacheTtlMs,
     log               = logger
 } = {}) {
     if (!Array.isArray(models) || models.length === 0) {
@@ -1058,14 +1194,19 @@ export async function ensureLmsModelsLoaded({
     const requiresObservedLoadCheck = requiredModels.some(model =>
         Neo.isNumber(contextLengths?.[model]) || Neo.isNumber(parallels?.[model])
     );
-    const probeModels = async phase => {
+    const probeModels = async (phase, freshness = modelDiscoveryFreshness) => {
         let lastError;
 
         for (let attempt = 1; attempt <= attempts; attempt++) {
             try {
                 return {
                     attempt,
-                    availableModels: await fetchModelIds({host, timeoutMs})
+                    availableModels: await fetchModelIds({
+                        host,
+                        timeoutMs,
+                        freshness,
+                        cacheTtlMs: freshness === PROVIDER_DISCOVERY_ROUTINE ? modelDiscoveryCacheTtlMs : undefined
+                    })
                 };
             } catch (error) {
                 lastError = error;
@@ -1078,8 +1219,8 @@ export async function ensureLmsModelsLoaded({
         throw new Error(`LM Studio model readiness failed during ${phase}: ${lastError?.message || lastError}`);
     };
 
-    let {availableModels} = await probeModels('initial /v1/models probe');
-    const initialMissing       = getMissing(availableModels),
+    let   {availableModels} = await probeModels('initial /v1/models probe');
+    const initialMissing    = getMissing(availableModels),
           initialLoadedModels  = [],
           failedModels         = [],
           cleanupFailedModels  = [],
@@ -1092,7 +1233,11 @@ export async function ensureLmsModelsLoaded({
 
     if (needsInitialLoadedProbe) {
         try {
-            initialLoadedModels.push(...await fetchLoadedModels({timeoutMs}));
+            initialLoadedModels.push(...await fetchLoadedModels({
+                timeoutMs,
+                freshness : modelDiscoveryFreshness,
+                cacheTtlMs: modelDiscoveryFreshness === PROVIDER_DISCOVERY_ROUTINE ? modelDiscoveryCacheTtlMs : undefined
+            }));
         } catch (error) {
             log.warn?.(`[ProviderReadinessHelper] Initial LM Studio loaded-model probe failed: ${error.message}; falling back to reload enforcement.`);
         }
@@ -1233,7 +1378,7 @@ export async function ensureLmsModelsLoaded({
 
     const startedAt = Date.now();
     for (let attempt = 1; attempt <= attempts; attempt++) {
-        ({availableModels} = await probeModels('post-load /v1/models probe'));
+        ({availableModels} = await probeModels('post-load /v1/models probe', PROVIDER_DISCOVERY_FORCE));
         missingModels = getMissing(availableModels);
 
         const knownUnavailable = new Set([
@@ -1246,7 +1391,10 @@ export async function ensureLmsModelsLoaded({
 
             if (requiresObservedLoadCheck) {
                 try {
-                    lmsLoadedModels = await fetchLoadedModels({timeoutMs});
+                    lmsLoadedModels = await fetchLoadedModels({
+                        timeoutMs,
+                        freshness: PROVIDER_DISCOVERY_FORCE
+                    });
                 } catch (error) {
                     const warning = `LM Studio loaded-model readiness failed: ${error.message}`;
 
@@ -1912,13 +2060,17 @@ export function createParallelModelCapacityWarning({
  * @param {Number} options.timeoutMs HTTP probe timeout. Required; no module-level default.
  * @param {Function} [options.fetchOpenAiCompatibleModels] Injectable OpenAI-compatible model-list probe.
  * @param {Function} [options.fetchOllamaModels] Injectable Ollama running-model probe.
+ * @param {String} [options.modelDiscoveryFreshness='force'] Routine callers may use `routine`; diagnostics/recovery keep `force`.
+ * @param {Number} [options.modelDiscoveryCacheTtlMs] Required when `modelDiscoveryFreshness` is `routine`.
  * @returns {Promise<Object>}
  */
 export async function probeProviderParallelModelCapacity({
     config = aiConfig,
     timeoutMs,
     fetchOpenAiCompatibleModels = opts => fetchOpenAiCompatibleModelIds(opts),
-    fetchOllamaModels           = opts => fetchOllamaRunningModelIds(opts)
+    fetchOllamaModels           = opts => fetchOllamaRunningModelIds(opts),
+    modelDiscoveryFreshness     = PROVIDER_DISCOVERY_FORCE,
+    modelDiscoveryCacheTtlMs
 } = {}) {
     if (!config || typeof config !== 'object') {
         throw new TypeError('probeProviderParallelModelCapacity: config is required');
@@ -1949,7 +2101,14 @@ export async function probeProviderParallelModelCapacity({
     const requiredModels  = getRequiredProviderModels(target);
     const availableModels = target.provider === 'ollama'
         ? await fetchOllamaModels({host: target.host, timeoutMs})
-        : await fetchOpenAiCompatibleModels({host: target.host, timeoutMs});
+        : await fetchOpenAiCompatibleModels({
+            host      : target.host,
+            timeoutMs,
+            freshness : modelDiscoveryFreshness,
+            cacheTtlMs: modelDiscoveryFreshness === PROVIDER_DISCOVERY_ROUTINE
+                ? modelDiscoveryCacheTtlMs
+                : undefined
+        });
     const uniqueAvailable        = [...new Set(availableModels)];
     const missingModels          = requiredModels.filter(model => !uniqueAvailable.includes(model));
     const requiredModelSet       = new Set(requiredModels);
@@ -2038,9 +2197,16 @@ export async function warnProviderParallelModelCapacity({
  * @param {Object} options
  * @param {Object} options.config Provider-source config (aiConfig-shaped).
  * @param {Number} options.timeoutMs HTTP probe abandon threshold. Required; no module-level default.
+ * @param {String} [options.modelDiscoveryFreshness='force'] Routine callers may use `routine`; diagnostics/recovery keep `force`.
+ * @param {Number} [options.modelDiscoveryCacheTtlMs] Required when `modelDiscoveryFreshness` is `routine`.
  * @returns {Promise<Boolean>}
  */
-export function checkProvider({config, timeoutMs} = {}) {
+export function checkProvider({
+    config,
+    timeoutMs,
+    modelDiscoveryFreshness = PROVIDER_DISCOVERY_FORCE,
+    modelDiscoveryCacheTtlMs
+} = {}) {
     if (typeof timeoutMs !== 'number') {
         throw new TypeError('checkProvider: timeoutMs is required (pass from config.orchestrator.providerReadiness.timeoutMs)');
     }
@@ -2048,6 +2214,17 @@ export function checkProvider({config, timeoutMs} = {}) {
 
     if (!target.supported || !target.url) {
         return Promise.resolve(false);
+    }
+
+    if (target.provider === 'openAiCompatible') {
+        return fetchOpenAiCompatibleModelIds({
+            host      : target.host,
+            timeoutMs,
+            freshness : modelDiscoveryFreshness,
+            cacheTtlMs: modelDiscoveryFreshness === PROVIDER_DISCOVERY_ROUTINE
+                ? modelDiscoveryCacheTtlMs
+                : undefined
+        }).then(() => true, () => false);
     }
 
     return new Promise(resolve => {
@@ -2084,6 +2261,8 @@ export function checkProvider({config, timeoutMs} = {}) {
  * @param {Number} options.attempts Retry cap.
  * @param {Number} options.delayMs Between-probe wait.
  * @param {Number} options.timeoutMs HTTP probe abandon threshold (also flows into the default `checkProvider` when no override is provided).
+ * @param {String} [options.modelDiscoveryFreshness='force'] Routine callers may use `routine`; diagnostics/recovery keep `force`.
+ * @param {Number} [options.modelDiscoveryCacheTtlMs] Required when `modelDiscoveryFreshness` is `routine`.
  * @param {Object} [options.output] Writable stream for dot-progress (defaults to `process.stdout`).
  * @returns {Promise<Object>}
  */
@@ -2092,13 +2271,19 @@ export async function waitForProvider({
     attempts,
     delayMs,
     timeoutMs,
+    modelDiscoveryFreshness = PROVIDER_DISCOVERY_FORCE,
+    modelDiscoveryCacheTtlMs,
     output = process.stdout
 } = {}) {
     if (typeof attempts !== 'number' || typeof delayMs !== 'number' || typeof timeoutMs !== 'number') {
         throw new TypeError('waitForProvider: attempts, delayMs, and timeoutMs are required (pass from config.orchestrator.providerReadiness)');
     }
 
-    const probe     = providerCheck ?? (() => checkProvider({timeoutMs}));
+    const probe = providerCheck ?? (() => checkProvider({
+        timeoutMs,
+        modelDiscoveryFreshness,
+        modelDiscoveryCacheTtlMs
+    }));
     const startedAt = Date.now();
 
     for (let i = 0; i < attempts; i++) {
@@ -2133,7 +2318,7 @@ export function assertProviderReadinessConfig(readinessConfig) {
         throw new TypeError('AiConfig.orchestrator.providerReadiness is required; copy the providerReadiness block from ai/config.template.mjs or set its env-backed values in ai/config.mjs');
     }
 
-    const missing = ['attempts', 'delayMs', 'timeoutMs'].filter(key => typeof readinessConfig[key] !== 'number');
+    const missing = ['attempts', 'delayMs', 'timeoutMs', 'routineCacheTtlMs'].filter(key => typeof readinessConfig[key] !== 'number');
     if (missing.length > 0) {
         throw new TypeError(`AiConfig.orchestrator.providerReadiness.${missing.join('|')} must be configured as number(s); no code-level fallback is applied`);
     }
