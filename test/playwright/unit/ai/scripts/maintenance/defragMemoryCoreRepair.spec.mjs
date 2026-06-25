@@ -1,49 +1,58 @@
-import {test, expect}                                                                                 from '@playwright/test';
+import {test, expect} from '@playwright/test';
 import {
     anyRepairAborted,
     assertDefragTargetSupported,
     formatMemoryCoreRepairProgress,
-    repairMemoryCoreCollectionsViaFullEnumeration
+    repairMemoryCoreCollectionViaResumableShadow,
+    repairMemoryCoreCollectionsViaFullEnumeration,
+    runDefragChromaDBCli
 } from '../../../../../../ai/scripts/maintenance/defragChromaDB.mjs';
 
 /**
  * AC4 — the Memory Core defrag-wiring orchestration: full (uncapped) enumeration ->
- * extract + re-embed -> shadow-promotion, with fail-loud on unrecoverable rows. The seams
- * (auditFn / extractFn / promoteFn) are injected so the orchestration is verified without a
+ * resumable shadow repair, with fail-loud on unrecoverable rows. The seams
+ * (auditFn / extractFn / repairCollectionFn) are injected so the orchestration is verified without a
  * live Chroma store.
  */
-test.describe('repairMemoryCoreCollectionsViaFullEnumeration (#13634 AC4)', () => {
+test.describe('repairMemoryCoreCollectionsViaFullEnumeration (#14020)', () => {
     const embeddingFunction = {name: 'dummy'},
           embedFn           = async docs => docs.map(() => [0.1, 0.2]);
 
-    function makeSeams({coverage, extractResults, client}) {
-        const calls = {audit: [], extract: [], promote: [], clearState: [], writeState: []};
+    function makeSeams({coverage, extractResults = {}, repairResults = {}, client}) {
+        const calls = {audit: [], extract: [], repair: [], clearState: [], writeState: []};
 
         return {
             calls,
-            client      : client || {getCollection: async ({name}) => ({_name: name})},
-            auditFn     : async args => { calls.audit.push(args);   return coverage; },
-            extractFn   : async args => { calls.extract.push(args); return extractResults[args.collection._name]; },
-            promoteFn   : async args => { calls.promote.push(args); return {promoted: args.collectionName}; },
+            client            : client || {getCollection: async ({name}) => ({_name: name})},
+            auditFn           : async args => { calls.audit.push(args);   return coverage; },
+            extractFn         : async args => { calls.extract.push(args); return extractResults[args.collection._name]; },
+            repairCollectionFn: async args => {
+                calls.repair.push(args);
+                return repairResults[args.collectionName] || {
+                    collectionName: args.collectionName,
+                    promotion     : {promoted: args.collectionName},
+                    counts        : extractResults[args.collection._name]?.counts || {}
+                };
+            },
             clearStateFn: async args => { calls.clearState.push(args); },
             writeStateFn: async args => { calls.writeState.push(args); }
         };
     }
 
-    test('full-enumeration audit feeds extract + promote per collection (happy path)', async () => {
+    test('full-enumeration audit feeds resumable repair per collection (happy path)', async () => {
         const coverage = {collections: [
                   {name: 'mc-memory', allIds: ['a', 'b', 'c'], missingVectorIds: ['c']},
                   {name: 'mc-graph',  allIds: ['x'],           missingVectorIds: []}
               ]},
-              extractResults = {
-                  'mc-memory': {data: {ids: ['a', 'b', 'c'], embeddings: [[1], [2], [3]], documents: ['', '', ''], metadatas: [{}, {}, {}]}, unrecoverable: [], counts: {total: 3, intact: 2, reEmbedded: 1, unrecoverable: 0}},
-                  'mc-graph' : {data: {ids: ['x'], embeddings: [[9]], documents: [''], metadatas: [{}]},             unrecoverable: [], counts: {total: 1, intact: 1, reEmbedded: 0, unrecoverable: 0}}
+              repairResults = {
+                  'mc-memory': {collectionName: 'mc-memory', promotion: {promoted: 'mc-memory'}, counts: {total: 3, intact: 2, reEmbedded: 1, unrecoverable: 0}},
+                  'mc-graph' : {collectionName: 'mc-graph',  promotion: {promoted: 'mc-graph'},  counts: {total: 1, intact: 1, reEmbedded: 0, unrecoverable: 0}}
               },
-              {calls, client, auditFn, extractFn, promoteFn, clearStateFn, writeStateFn} = makeSeams({coverage, extractResults});
+              {calls, client, auditFn, extractFn, repairCollectionFn, clearStateFn, writeStateFn} = makeSeams({coverage, repairResults});
 
         const {results} = await repairMemoryCoreCollectionsViaFullEnumeration({
             client, collections: ['mc-memory', 'mc-graph'], snapshotPath: '/snap', persistDir: '/persist',
-            embedFn, embeddingFunction, statePath: '/state', auditFn, extractFn, promoteFn, clearStateFn, writeStateFn, log: () => {}
+            embedFn, embeddingFunction, statePath: '/state', auditFn, extractFn, repairCollectionFn, clearStateFn, writeStateFn, log: () => {}
         });
 
         // exactly one enumeration call, uncapped (includeFullIds), over the requested collections
@@ -51,13 +60,12 @@ test.describe('repairMemoryCoreCollectionsViaFullEnumeration (#13634 AC4)', () =
         expect(calls.audit[0].includeFullIds).toBe(true);
         expect(calls.audit[0].collectionNames).toEqual(['mc-memory', 'mc-graph']);
 
-        // extract receives the FULL {allIds, missingVectorIds} from the coverage, per collection
-        expect(calls.extract.map(c => c.allIds)).toEqual([['a', 'b', 'c'], ['x']]);
-        expect(calls.extract.map(c => c.missingVectorIds)).toEqual([['c'], []]);
+        // mutating repair receives the FULL {allIds, missingVectorIds} from the coverage, per collection
+        expect(calls.repair.map(c => c.allIds)).toEqual([['a', 'b', 'c'], ['x']]);
+        expect(calls.repair.map(c => c.missingVectorIds)).toEqual([['c'], []]);
 
-        // both promoted with their recovered data
-        expect(calls.promote.map(c => c.collectionName)).toEqual(['mc-memory', 'mc-graph']);
-        expect(calls.promote[0].data.ids).toEqual(['a', 'b', 'c']);
+        // both repaired/promoted through the resumable seam
+        expect(calls.repair.map(c => c.collectionName)).toEqual(['mc-memory', 'mc-graph']);
         expect(results).toHaveLength(2);
         expect(results.every(r => r.promotion && !r.aborted)).toBe(true);
 
@@ -71,20 +79,20 @@ test.describe('repairMemoryCoreCollectionsViaFullEnumeration (#13634 AC4)', () =
                   {name: 'mc-graph', collectionId: 'stale-id', allIds: ['stale'], missingVectorIds: ['stale']},
                   {name: 'mc-graph', collectionId: 'live-id',  allIds: ['live'],  missingVectorIds: []}
               ]},
-              extractResults = {
-                  'mc-graph': {data: {ids: ['live'], embeddings: [[9]], documents: [''], metadatas: [{}]}, unrecoverable: [], counts: {total: 1, intact: 1, reEmbedded: 0, unrecoverable: 0}}
+              repairResults = {
+                  'mc-graph': {collectionName: 'mc-graph', promotion: {promoted: 'mc-graph'}, counts: {total: 1, intact: 1, reEmbedded: 0, unrecoverable: 0}}
               },
               client = {getCollection: async ({name}) => ({_name: name, id: 'live-id'})},
-              {calls, auditFn, extractFn, promoteFn, clearStateFn, writeStateFn} = makeSeams({coverage, extractResults, client});
+              {calls, auditFn, extractFn, repairCollectionFn, clearStateFn, writeStateFn} = makeSeams({coverage, repairResults, client});
 
         const {results} = await repairMemoryCoreCollectionsViaFullEnumeration({
             client, collections: ['mc-graph'], snapshotPath: '/snap', persistDir: '/persist',
-            embedFn, embeddingFunction, statePath: '/state', auditFn, extractFn, promoteFn, clearStateFn, writeStateFn, log: () => {}
+            embedFn, embeddingFunction, statePath: '/state', auditFn, extractFn, repairCollectionFn, clearStateFn, writeStateFn, log: () => {}
         });
 
-        expect(calls.extract).toHaveLength(1);
-        expect(calls.extract[0].allIds).toEqual(['live']);
-        expect(calls.extract[0].missingVectorIds).toEqual([]);
+        expect(calls.repair).toHaveLength(1);
+        expect(calls.repair[0].allIds).toEqual(['live']);
+        expect(calls.repair[0].missingVectorIds).toEqual([]);
         expect(results[0].promotion).toEqual({promoted: 'mc-graph'});
     });
 
@@ -94,31 +102,31 @@ test.describe('repairMemoryCoreCollectionsViaFullEnumeration (#13634 AC4)', () =
                   {name: 'mc-graph', collectionId: 'other-id', allIds: ['other'], missingVectorIds: []}
               ]},
               client = {getCollection: async ({name}) => ({_name: name, id: 'live-id'})},
-              {calls, auditFn, extractFn, promoteFn} = makeSeams({coverage, extractResults: {}, client});
+              {calls, auditFn, extractFn, repairCollectionFn} = makeSeams({coverage, client});
 
         await expect(repairMemoryCoreCollectionsViaFullEnumeration({
             client, collections: ['mc-graph'], snapshotPath: '/snap', persistDir: '/persist',
-            embedFn, embeddingFunction, statePath: '/state', auditFn, extractFn, promoteFn, log: () => {}
+            embedFn, embeddingFunction, statePath: '/state', auditFn, extractFn, repairCollectionFn, log: () => {}
         })).rejects.toThrow(/none match live collection id 'live-id'/);
 
         expect(calls.extract).toHaveLength(0);
-        expect(calls.promote).toHaveLength(0);
+        expect(calls.repair).toHaveLength(0);
     });
 
     test('fail-loud: unrecoverable rows abort that collection promotion (no silent drop)', async () => {
-        const coverage       = {collections: [{name: 'mc-memory', allIds: ['a', 'b'], missingVectorIds: ['b']}]},
-              extractResults = {
-                  'mc-memory': {data: {ids: ['a'], embeddings: [[1]], documents: [''], metadatas: [{}]}, unrecoverable: ['b'], counts: {total: 2, intact: 1, reEmbedded: 0, unrecoverable: 1}}
+        const coverage      = {collections: [{name: 'mc-memory', allIds: ['a', 'b'], missingVectorIds: ['b']}]},
+              repairResults = {
+                  'mc-memory': {collectionName: 'mc-memory', aborted: true, shadowName: 'mc-memory-shadow-resume', loadedCount: 1, sourceCount: 2, unrecoverable: ['b'], counts: {total: 2, intact: 1, reEmbedded: 0, unrecoverable: 1}}
               },
-              {calls, client, auditFn, extractFn, promoteFn, clearStateFn, writeStateFn} = makeSeams({coverage, extractResults});
+              {calls, client, auditFn, extractFn, repairCollectionFn, clearStateFn, writeStateFn} = makeSeams({coverage, repairResults});
 
         const {results} = await repairMemoryCoreCollectionsViaFullEnumeration({
             client, collections: ['mc-memory'], snapshotPath: '/snap', persistDir: '/persist',
             embedFn, embeddingFunction, statePath: '/state', stateBase: {targetName: 'memory-core'},
-            auditFn, extractFn, promoteFn, clearStateFn, writeStateFn, log: () => {}
+            auditFn, extractFn, repairCollectionFn, clearStateFn, writeStateFn, log: () => {}
         });
 
-        expect(calls.promote).toHaveLength(0);              // never promoted
+        expect(calls.repair).toHaveLength(1);
         expect(results[0].aborted).toBe(true);
         expect(results[0].unrecoverable).toEqual(['b']);
         expect(results[0].counts.unrecoverable).toBe(1);
@@ -130,7 +138,72 @@ test.describe('repairMemoryCoreCollectionsViaFullEnumeration (#13634 AC4)', () =
         expect(calls.writeState[0].statePath).toBe('/state');
         expect(calls.writeState[0].state.phase).toBe('memory-core-repair-aborted');
         expect(calls.writeState[0].state.targetName).toBe('memory-core');
+        expect(calls.writeState[0].state.shadowName).toBe('mc-memory-shadow-resume');
+        expect(calls.writeState[0].state.loadedCount).toBe(1);
         expect(calls.writeState[0].state.aborted).toEqual(['mc-memory']);
+    });
+
+    test('resume state skips earlier collections and resumes the matching collection repair', async () => {
+        const coverage = {collections: [
+                  {name: 'mc-memory',   allIds: ['old'], missingVectorIds: []},
+                  {name: 'mc-sessions', allIds: ['a'],   missingVectorIds: ['a']}
+              ]},
+              repairResults = {
+                  'mc-sessions': {collectionName: 'mc-sessions', promotion: {promoted: 'mc-sessions'}, counts: {total: 1, intact: 0, reEmbedded: 1, unrecoverable: 0}}
+              },
+              resumeState = {
+                  phase         : 'memory-core-repair-shadow-loading',
+                  collectionName: 'mc-sessions',
+                  shadowName    : 'mc-sessions-shadow-resume'
+              },
+              {calls, client, auditFn, extractFn, repairCollectionFn, clearStateFn, writeStateFn} = makeSeams({coverage, repairResults});
+
+        const {results} = await repairMemoryCoreCollectionsViaFullEnumeration({
+            client,
+            collections : ['mc-memory', 'mc-sessions'],
+            snapshotPath: '/snap',
+            persistDir  : '/persist',
+            embedFn,
+            embeddingFunction,
+            statePath   : '/state',
+            auditFn,
+            extractFn,
+            repairCollectionFn,
+            clearStateFn,
+            writeStateFn,
+            resumeState,
+            log         : () => {}
+        });
+
+        expect(calls.repair.map(call => call.collectionName)).toEqual(['mc-sessions']);
+        expect(calls.repair[0].resumeState).toBe(resumeState);
+        expect(results).toHaveLength(1);
+        expect(results[0].promotion).toEqual({promoted: 'mc-sessions'});
+        expect(calls.clearState).toEqual([{statePath: '/state'}]);
+    });
+
+    test('malformed resumable state fails closed instead of starting from zero', async () => {
+        const coverage = {collections: [
+                  {name: 'mc-memory', allIds: ['a'], missingVectorIds: ['a']}
+              ]},
+              {client, auditFn, extractFn, repairCollectionFn} = makeSeams({coverage});
+
+        await expect(repairMemoryCoreCollectionsViaFullEnumeration({
+            client,
+            collections : ['mc-memory'],
+            snapshotPath: '/snap',
+            persistDir  : '/persist',
+            embedFn,
+            embeddingFunction,
+            statePath   : '/state',
+            auditFn,
+            extractFn,
+            repairCollectionFn,
+            resumeState : {
+                phase: 'memory-core-repair-shadow-loading'
+            },
+            log: () => {}
+        })).rejects.toThrow(/missing collectionName or shadowName/);
     });
 
     test('dry-run reports clean extraction without promotion or state-marker writes', async () => {
@@ -138,17 +211,17 @@ test.describe('repairMemoryCoreCollectionsViaFullEnumeration (#13634 AC4)', () =
               extractResults = {
                   'mc-memory': {data: {ids: ['a', 'b'], embeddings: [[1], [2]], documents: ['', 'doc'], metadatas: [{}, {}]}, unrecoverable: [], counts: {total: 2, intact: 1, reEmbedded: 1, unrecoverable: 0}}
               },
-              {calls, client, auditFn, extractFn, promoteFn, clearStateFn, writeStateFn} = makeSeams({coverage, extractResults});
+              {calls, client, auditFn, extractFn, repairCollectionFn, clearStateFn, writeStateFn} = makeSeams({coverage, extractResults});
 
         const {results} = await repairMemoryCoreCollectionsViaFullEnumeration({
             client, collections: ['mc-memory'], snapshotPath: '/snap', persistDir: '/persist',
             embedFn, embeddingFunction, statePath: '/state', dryRun: true,
-            auditFn, extractFn, promoteFn, clearStateFn, writeStateFn, log: () => {}
+            auditFn, extractFn, repairCollectionFn, clearStateFn, writeStateFn, log: () => {}
         });
 
         expect(calls.audit[0].includeFullIds).toBe(true);
         expect(calls.extract).toHaveLength(1);
-        expect(calls.promote).toHaveLength(0);
+        expect(calls.repair).toHaveLength(0);
         expect(calls.clearState).toHaveLength(0);
         expect(calls.writeState).toHaveLength(0);
         expect(results).toEqual([{
@@ -163,15 +236,15 @@ test.describe('repairMemoryCoreCollectionsViaFullEnumeration (#13634 AC4)', () =
               extractResults = {
                   'mc-memory': {data: {ids: ['a'], embeddings: [[1]], documents: [''], metadatas: [{}]}, unrecoverable: ['b'], counts: {total: 2, intact: 1, reEmbedded: 0, unrecoverable: 1}}
               },
-              {calls, client, auditFn, extractFn, promoteFn, clearStateFn, writeStateFn} = makeSeams({coverage, extractResults});
+              {calls, client, auditFn, extractFn, repairCollectionFn, clearStateFn, writeStateFn} = makeSeams({coverage, extractResults});
 
         const {results} = await repairMemoryCoreCollectionsViaFullEnumeration({
             client, collections: ['mc-memory'], snapshotPath: '/snap', persistDir: '/persist',
             embedFn, embeddingFunction, statePath: '/state', dryRun: true,
-            auditFn, extractFn, promoteFn, clearStateFn, writeStateFn, log: () => {}
+            auditFn, extractFn, repairCollectionFn, clearStateFn, writeStateFn, log: () => {}
         });
 
-        expect(calls.promote).toHaveLength(0);
+        expect(calls.repair).toHaveLength(0);
         expect(calls.clearState).toHaveLength(0);
         expect(calls.writeState).toHaveLength(0);
         expect(results[0]).toMatchObject({
@@ -185,11 +258,11 @@ test.describe('repairMemoryCoreCollectionsViaFullEnumeration (#13634 AC4)', () =
     });
 
     test('throws when the enumeration returns no coverage row for a requested collection', async () => {
-        const {client, auditFn, extractFn, promoteFn} = makeSeams({coverage: {collections: []}, extractResults: {}});
+        const {client, auditFn, extractFn, repairCollectionFn} = makeSeams({coverage: {collections: []}, extractResults: {}});
 
         await expect(repairMemoryCoreCollectionsViaFullEnumeration({
             client, collections: ['mc-memory'], snapshotPath: '/snap', persistDir: '/persist',
-            embedFn, embeddingFunction, statePath: '/state', auditFn, extractFn, promoteFn, log: () => {}
+            embedFn, embeddingFunction, statePath: '/state', auditFn, extractFn, repairCollectionFn, log: () => {}
         })).rejects.toThrow(/no coverage row for 'mc-memory'/);
     });
 
@@ -198,11 +271,11 @@ test.describe('repairMemoryCoreCollectionsViaFullEnumeration (#13634 AC4)', () =
               extractResults = {
                   'mc-memory': {data: {ids: ['a'], embeddings: [[1]], documents: [''], metadatas: [{}]}, unrecoverable: [], counts: {total: 1, intact: 1, reEmbedded: 0, unrecoverable: 0}}
               },
-              {calls, client, auditFn, extractFn, promoteFn, clearStateFn, writeStateFn} = makeSeams({coverage, extractResults});
+              {calls, client, auditFn, extractFn, repairCollectionFn, clearStateFn, writeStateFn} = makeSeams({coverage, extractResults});
 
         await repairMemoryCoreCollectionsViaFullEnumeration({
             client, collections: ['mc-memory'], snapshotPath: '/snap', persistDir: '/persist',
-            embedFn, embeddingFunction, auditFn, extractFn, promoteFn, clearStateFn, writeStateFn, log: () => {}
+            embedFn, embeddingFunction, auditFn, extractFn, repairCollectionFn, clearStateFn, writeStateFn, log: () => {}
         });
 
         expect(calls.clearState).toHaveLength(0);
@@ -210,7 +283,223 @@ test.describe('repairMemoryCoreCollectionsViaFullEnumeration (#13634 AC4)', () =
     });
 });
 
-test.describe('assertDefragTargetSupported — Memory Core opt-in gate (#13634 AC4)', () => {
+test.describe('repairMemoryCoreCollectionViaResumableShadow (#14020)', () => {
+    const embeddingFunction = {name: 'dummy'},
+          embedFn           = async docs => docs.map(() => [0.1, 0.2]);
+
+    function createCollection({name, ids = []}) {
+        const rows = new Map(ids.map(id => [id, {
+            embedding: [1],
+            metadata : {},
+            document : `doc-${id}`
+        }]));
+
+        return {
+            name,
+            rows,
+            calls: {
+                add: [],
+                get: []
+            },
+            async add(payload) {
+                this.calls.add.push(payload);
+
+                for (let i = 0; i < payload.ids.length; i++) {
+                    rows.set(payload.ids[i], {
+                        embedding: payload.embeddings[i],
+                        metadata : payload.metadatas[i],
+                        document : payload.documents[i]
+                    });
+                }
+            },
+            async count() {
+                return rows.size;
+            },
+            async get({ids, limit, offset = 0, include = []} = {}) {
+                this.calls.get.push({ids, limit, offset, include});
+
+                if (ids) {
+                    return {ids: ids.filter(id => rows.has(id))};
+                }
+
+                return {ids: Array.from(rows.keys()).slice(offset, offset + limit)};
+            }
+        };
+    }
+
+    function createClient(collections = {}) {
+        const registry = new Map(Object.entries(collections));
+        const created  = [];
+
+        return {
+            created,
+            async createCollection({name}) {
+                const collection = createCollection({name});
+                registry.set(name, collection);
+                created.push(collection);
+                return collection;
+            },
+            async getCollection({name}) {
+                const collection = registry.get(name);
+
+                if (!collection) {
+                    throw new Error(`Collection ${name} not found`);
+                }
+
+                return collection;
+            }
+        };
+    }
+
+    test('streams recovered batches into a shadow collection and checkpoints loaded count', async () => {
+        const states       = [];
+        const promoteCalls = [];
+        const extractCalls = [];
+        const client       = createClient();
+        const live         = createCollection({name: 'mc-memory'});
+
+        const result = await repairMemoryCoreCollectionViaResumableShadow({
+            client,
+            collectionName  : 'mc-memory',
+            collection      : live,
+            allIds          : ['a', 'b'],
+            missingVectorIds: ['b'],
+            embedFn,
+            embeddingFunction,
+            statePath       : '/state',
+            stateBase       : {targetName: 'memory-core'},
+            extractFn       : async args => {
+                extractCalls.push(args);
+                await args.onDataBatch({ids: ['a'], embeddings: [[1]], documents: ['doc-a'], metadatas: [{}]});
+                await args.onDataBatch({ids: ['b'], embeddings: [[2]], documents: ['doc-b'], metadatas: [{}]});
+                return {unrecoverable: [], counts: {total: 2, intact: 1, reEmbedded: 1, unrecoverable: 0}};
+            },
+            promoteLoadedFn: async args => {
+                promoteCalls.push(args);
+                return {shadowName: args.shadowName, sourceCount: args.sourceIds.length, parkingDeleted: true};
+            },
+            writeStateFn: async args => states.push(args.state),
+            timestamp   : 123,
+            uuidFactory : () => 'uuid-1',
+            log         : () => {}
+        });
+
+        expect(client.created).toHaveLength(1);
+        expect(client.created[0].rows.size).toBe(2);
+        expect(extractCalls[0].collectData).toBe(false);
+        expect(extractCalls[0].skipIds).toEqual([]);
+        expect(states.filter(state => state.phase === 'memory-core-repair-shadow-loading').map(state => state.loadedCount))
+            .toEqual([0, 1, 2]);
+        expect(promoteCalls[0].sourceIds).toEqual(['a', 'b']);
+        expect(result.promotion).toEqual({shadowName: 'mc-memory-shadow-123-uuid-1', sourceCount: 2, parkingDeleted: true});
+    });
+
+    test('resumes from an existing shadow and skips already loaded ids', async () => {
+        const states       = [];
+        const extractCalls = [];
+        const shadow       = createCollection({name: 'mc-memory-shadow-resume', ids: ['a']});
+        const client       = createClient({'mc-memory-shadow-resume': shadow});
+        const live         = createCollection({name: 'mc-memory'});
+
+        await repairMemoryCoreCollectionViaResumableShadow({
+            client,
+            collectionName  : 'mc-memory',
+            collection      : live,
+            allIds          : ['a', 'b'],
+            missingVectorIds: ['b'],
+            embedFn,
+            embeddingFunction,
+            statePath       : '/state',
+            resumeState     : {
+                phase     : 'memory-core-repair-shadow-loading',
+                shadowName: 'mc-memory-shadow-resume'
+            },
+            extractFn: async args => {
+                extractCalls.push(args);
+                await args.onDataBatch({ids: ['b'], embeddings: [[2]], documents: ['doc-b'], metadatas: [{}]});
+                return {unrecoverable: [], counts: {total: 2, intact: 0, reEmbedded: 1, unrecoverable: 0, resumedExisting: 1}};
+            },
+            promoteLoadedFn: async () => ({promoted: true}),
+            writeStateFn   : async args => states.push(args.state),
+            log            : () => {}
+        });
+
+        expect(client.created).toHaveLength(0);
+        expect(extractCalls[0].skipIds).toEqual(['a']);
+        expect(shadow.rows.has('a')).toBe(true);
+        expect(shadow.rows.has('b')).toBe(true);
+        expect(states.filter(state => state.phase === 'memory-core-repair-shadow-loading').map(state => state.loadedCount))
+            .toEqual([1, 2]);
+    });
+});
+
+test.describe('runDefragChromaDBCli (#14020)', () => {
+    test('runs standalone defrag inside the shared heavy-maintenance lease', async () => {
+        const calls = {
+            lease: [],
+            run  : 0,
+            exit : []
+        };
+
+        await runDefragChromaDBCli({
+            runDefrag: async () => {
+                calls.run++;
+            },
+            withLease: async (task, options) => {
+                calls.lease.push(options);
+                await task();
+                return {status: 'acquired', result: undefined};
+            },
+            output: {
+                log  : () => {},
+                error: () => {}
+            },
+            exit: code => calls.exit.push(code)
+        });
+
+        expect(calls.run).toBe(1);
+        expect(calls.lease).toEqual([{
+            owner   : 'defrag',
+            reason  : 'manual-cli',
+            metadata: {script: 'ai/scripts/maintenance/defragChromaDB.mjs'}
+        }]);
+        expect(calls.exit).toEqual([0]);
+    });
+
+    test('defers without running defrag when another heavy task holds the lease', async () => {
+        const logs  = [];
+        const calls = {
+            run : 0,
+            exit: []
+        };
+
+        await runDefragChromaDBCli({
+            runDefrag: async () => {
+                calls.run++;
+            },
+            withLease: async () => ({
+                status: 'held',
+                lease : {
+                    owner     : 'sandman',
+                    reason    : 'manual-cli',
+                    pid       : 123,
+                    acquiredAt: '2026-06-25T21:00:00.000Z'
+                }
+            }),
+            output: {
+                log  : message => logs.push(message),
+                error: () => {}
+            },
+            exit: code => calls.exit.push(code)
+        });
+
+        expect(calls.run).toBe(0);
+        expect(calls.exit).toEqual([0]);
+        expect(logs.some(message => message.includes("Deferred: heavy-maintenance lease held by 'sandman'"))).toBe(true);
+    });
+});
+
+test.describe('assertDefragTargetSupported — Memory Core opt-in gate (#14020)', () => {
     test('fails closed for memory-core by default (no opt-in)', () => {
         expect(() => assertDefragTargetSupported({targetName: 'memory-core'})).toThrow(/Memory Core defrag is disabled/);
     });
@@ -224,7 +513,7 @@ test.describe('assertDefragTargetSupported — Memory Core opt-in gate (#13634 A
     });
 });
 
-test.describe('anyRepairAborted — operator fail-loud predicate (#13634 AC4)', () => {
+test.describe('anyRepairAborted — operator fail-loud predicate (#14020)', () => {
     test('true when any collection aborted — the CLI exits non-zero on this', () => {
         expect(anyRepairAborted([
             {collectionName: 'mc-memory', promotion: {}},

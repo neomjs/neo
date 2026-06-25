@@ -7,6 +7,7 @@ import path                                  from 'path';
 import {fileURLToPath, pathToFileURL}        from 'url';
 import Neo                                   from '../../../src/Neo.mjs';
 import AiConfig                              from '../../config.mjs';
+import {withHeavyMaintenanceLease}           from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
 import {registerNeoChromaEmbeddingFunctions} from '../../services/shared/vector/chromaClientPrimitives.mjs';
 import {auditChromaVectorCoverage}           from './checkChromaIntegrity.mjs';
 import {extractMemoryCoreCollectionData}     from './repairMemoryCoreStoredEmbeddings.mjs';
@@ -219,19 +220,25 @@ export function resolveDefragStatePath({
 }
 
 /**
- * Refuses to run over an incomplete previous promotion.
+ * Refuses to run over an incomplete previous promotion unless its phase is explicitly resumable.
  *
  * @param {Object} options
  * @param {String} options.statePath State marker path.
+ * @param {String[]} [options.allowedPhases=[]] Incomplete phases the caller knows how to resume.
  * @param {Object} [options.fsModule=fs] Filesystem seam.
- * @returns {Promise<void>}
+ * @returns {Promise<Object|undefined>} Existing resumable state, when allowed.
  */
-export async function assertNoIncompleteDefragState({statePath, fsModule = fs} = {}) {
+export async function assertNoIncompleteDefragState({statePath, allowedPhases = [], fsModule = fs} = {}) {
     if (!await fsModule.pathExists(statePath)) {
         return
     }
 
     const state = await fsModule.readJson(statePath);
+
+    if (allowedPhases.includes(state.phase)) {
+        return state
+    }
+
     const error = new Error(
         `Incomplete Chroma defrag state found at ${statePath}. ` +
         `Phase '${state.phase}' for target '${state.targetName || 'unknown'}' must be recovered or cleared before rerun.`
@@ -503,6 +510,66 @@ export async function validateLoadedCollection({collection, data, collectionName
 }
 
 /**
+ * Lists all ids in a collection without requesting embeddings.
+ *
+ * @param {Object} options
+ * @param {Object} options.collection Chroma collection handle.
+ * @param {Number} [options.batchSize=2000] Chroma get page size.
+ * @returns {Promise<String[]>}
+ */
+export async function listCollectionIds({collection, batchSize = 2000} = {}) {
+    const ids    = [];
+    let   offset = 0;
+
+    while (true) {
+        const batch    = await collection.get({limit: batchSize, offset, include: []});
+        const batchIds = batch.ids || [];
+
+        if (batchIds.length === 0) {
+            break;
+        }
+
+        ids.push(...batchIds);
+        offset += batchSize;
+
+        if (batchIds.length < batchSize) {
+            break;
+        }
+    }
+
+    return ids
+}
+
+/**
+ * Validates a loaded replacement collection without holding full source vectors in memory.
+ *
+ * @param {Object} options
+ * @param {Object} options.collection Chroma collection handle.
+ * @param {String[]} options.ids Expected source ids.
+ * @param {String} options.collectionName Collection name for diagnostics.
+ * @returns {Promise<{count: Number}>}
+ */
+export async function validateLoadedCollectionByIds({collection, ids = [], collectionName} = {}) {
+    const expected = ids.length;
+    const count    = await collection.count();
+
+    if (count !== expected) {
+        throw new Error(`Collection '${collectionName}' validation failed: expected ${expected} rows, found ${count}.`)
+    }
+
+    if (expected > 0) {
+        const sampleId = ids[0];
+        const sample   = await collection.get({ids: [sampleId], include: []});
+
+        if (!sample.ids?.includes(sampleId)) {
+            throw new Error(`Collection '${collectionName}' validation failed: sample id '${sampleId}' was not readable.`)
+        }
+    }
+
+    return {count}
+}
+
+/**
  * Rewrites one canonical collection through a shadow/parking promotion. The
  * canonical name remains live while the shadow loads; the only absent-canonical
  * window is the bounded live->parking / shadow->canonical rename pair, where
@@ -637,6 +704,110 @@ export async function rewriteCollectionViaShadowPromotion({
 }
 
 /**
+ * Promotes an already loaded shadow collection to the canonical name.
+ *
+ * Memory Core repair uses this after streaming recovered batches durably into a resumable
+ * shadow collection. The shadow-loading phase is restartable; the bounded rename phase is
+ * deliberately not auto-resumed because the live canonical name may have been parked.
+ *
+ * @param {Object} options
+ * @param {Object} options.client Chroma client.
+ * @param {String} options.collectionName Canonical collection name.
+ * @param {Object} options.shadowCollection Loaded shadow collection handle.
+ * @param {String} options.shadowName Loaded shadow collection name.
+ * @param {String[]} options.sourceIds Expected source ids.
+ * @param {Object} options.embeddingFunction Chroma embedding function.
+ * @param {String} options.statePath Durable state marker path.
+ * @param {Object} [options.stateBase] Stable fields written into every phase marker.
+ * @param {Number} [options.timestamp=Date.now()] Stable run timestamp.
+ * @param {Function} [options.uuidFactory=crypto.randomUUID] Unique id factory.
+ * @param {Function} [options.writeStateFn=writeDefragState] State writer seam.
+ * @param {Function} [options.warn=console.warn] Warning sink.
+ * @returns {Promise<Object>}
+ */
+export async function promoteLoadedShadowCollection({
+    client,
+    collectionName,
+    shadowCollection,
+    shadowName,
+    sourceIds,
+    embeddingFunction,
+    statePath,
+    stateBase   = {},
+    timestamp   = Date.now(),
+    uuidFactory = crypto.randomUUID,
+    writeStateFn = writeDefragState,
+    warn        = console.warn
+} = {}) {
+    const parkingName = createSwapCollectionName(collectionName, 'parking', {timestamp, uuid: uuidFactory()});
+    const sourceCount = sourceIds.length;
+    const baseState   = {
+        ...stateBase,
+        collectionName,
+        sourceCount,
+        shadowName,
+        parkingName
+    };
+
+    let liveCollection;
+    let liveParked     = false;
+    let shadowPromoted = false;
+    let parkingDeleted = false;
+
+    await validateLoadedCollectionByIds({collection: shadowCollection, ids: sourceIds, collectionName: shadowName});
+    await writeStateFn({statePath, state: {...baseState, phase: 'memory-core-repair-shadow-loaded'}});
+
+    try {
+        liveCollection = await client.getCollection({
+            name             : collectionName,
+            embeddingFunction
+        });
+
+        await liveCollection.modify({name: parkingName});
+        liveParked = true;
+        await writeStateFn({statePath, state: {...baseState, phase: 'live-parked'}});
+
+        await shadowCollection.modify({name: collectionName});
+        shadowPromoted = true;
+        await writeStateFn({statePath, state: {...baseState, phase: 'shadow-promoted'}});
+
+        const canonicalCollection = await client.getCollection({
+            name             : collectionName,
+            embeddingFunction
+        });
+        await validateLoadedCollectionByIds({collection: canonicalCollection, ids: sourceIds, collectionName});
+        await writeStateFn({statePath, state: {...baseState, phase: 'canonical-validated'}});
+
+        try {
+            await client.deleteCollection({name: parkingName});
+            parkingDeleted = true;
+            await writeStateFn({statePath, state: {...baseState, phase: 'parking-deleted'}});
+        } catch (error) {
+            warn(`   ⚠️  Could not delete parked pre-defrag collection '${parkingName}': ${error.message}`);
+        }
+
+        return {
+            collectionName,
+            shadowName,
+            parkingName,
+            sourceCount,
+            parkingDeleted
+        }
+    } catch (error) {
+        if (liveParked && !shadowPromoted && liveCollection) {
+            try {
+                await liveCollection.modify({name: collectionName});
+                await writeStateFn({statePath, state: {...baseState, phase: 'live-rollback-complete'}});
+            } catch (rollbackError) {
+                warn(`   ⚠️  Failed to roll back parked collection '${parkingName}': ${rollbackError.message}`);
+            }
+        }
+
+        throw error
+    }
+}
+
+/**
  * @summary Selects the coverage row that belongs to the live Chroma collection.
  *
  * Chroma snapshots can contain stale duplicate collection-name rows even when `listCollections()`
@@ -674,6 +845,189 @@ function selectMemoryCoreRepairCoverageRow({
 }
 
 /**
+ * @summary Repairs one Memory Core collection through a resumable shadow-load phase.
+ *
+ * Recovered batches are added to the shadow collection immediately, then the state marker records
+ * the loaded count. If the process crashes, the next run lists the shadow ids and skips them during
+ * extraction/re-embedding instead of starting the provider work from zero.
+ *
+ * @param {Object} options
+ * @param {Object} options.client Chroma client.
+ * @param {String} options.collectionName Canonical collection name.
+ * @param {Object} options.collection Live canonical collection handle.
+ * @param {String[]} options.allIds Full source ids from metadata enumeration.
+ * @param {String[]} options.missingVectorIds Ids missing from the vector index.
+ * @param {Function} options.embedFn Re-embedder.
+ * @param {Object} options.embeddingFunction Chroma embedding function.
+ * @param {String} options.statePath Durable defrag state path.
+ * @param {Object} [options.stateBase={}] Stable state fields.
+ * @param {Object|null} [options.resumeState=null] Previously allowed resumable state.
+ * @param {Function} [options.extractFn=extractMemoryCoreCollectionData] Extraction seam.
+ * @param {Function} [options.addDataFn=addCollectionData] Shadow add seam.
+ * @param {Function} [options.listIdsFn=listCollectionIds] Collection id listing seam.
+ * @param {Function} [options.promoteLoadedFn=promoteLoadedShadowCollection] Promotion seam.
+ * @param {Function} [options.writeStateFn=writeDefragState] State writer seam.
+ * @param {Number} [options.timestamp=Date.now()] Stable run timestamp.
+ * @param {Function} [options.uuidFactory=crypto.randomUUID] Unique id factory.
+ * @param {Function} [options.log=console.log] Log sink.
+ * @returns {Promise<Object>} Repair result.
+ */
+export async function repairMemoryCoreCollectionViaResumableShadow({
+    client,
+    collectionName,
+    collection,
+    allIds = [],
+    missingVectorIds = [],
+    embedFn,
+    embeddingFunction,
+    statePath,
+    stateBase = {},
+    resumeState = null,
+    extractFn = extractMemoryCoreCollectionData,
+    addDataFn = addCollectionData,
+    listIdsFn = listCollectionIds,
+    promoteLoadedFn = promoteLoadedShadowCollection,
+    writeStateFn = writeDefragState,
+    timestamp = Date.now(),
+    uuidFactory = crypto.randomUUID,
+    log = console.log
+} = {}) {
+    const sourceCount = allIds.length;
+    const baseState   = {
+        ...stateBase,
+        collectionName,
+        sourceCount
+    };
+
+    let shadowName       = resumeState?.shadowName;
+    let shadowCollection = null;
+
+    if (shadowName) {
+        log(`   ♻️  '${collectionName}': resuming shadow load from '${shadowName}' (${resumeState.phase}).`);
+        shadowCollection = await client.getCollection({name: shadowName, embeddingFunction});
+    } else {
+        shadowName = createSwapCollectionName(collectionName, 'shadow', {timestamp, uuid: uuidFactory()});
+        await writeStateFn({statePath, state: {...baseState, phase: 'memory-core-repair-shadow-creating', shadowName}});
+        shadowCollection = await client.createCollection({
+            name    : shadowName,
+            embeddingFunction,
+            metadata: {"hnsw:space": "cosine"}
+        });
+    }
+
+    const shadowIds = await listIdsFn({collection: shadowCollection});
+    const sourceSet = new Set(allIds);
+    const extraIds  = shadowIds.filter(id => !sourceSet.has(id));
+
+    if (extraIds.length > 0) {
+        throw new Error(`repairMemoryCoreCollectionViaResumableShadow: shadow '${shadowName}' contains ${extraIds.length} id(s) not present in source '${collectionName}' (first: '${extraIds[0]}') — refusing ambiguous resume.`);
+    }
+
+    const skipIds     = shadowIds.filter(id => sourceSet.has(id));
+    let   loadedCount = skipIds.length;
+
+    await writeStateFn({
+        statePath,
+        state: {
+            ...baseState,
+            phase: 'memory-core-repair-shadow-loading',
+            shadowName,
+            loadedCount
+        }
+    });
+
+    const {unrecoverable, counts} = await extractFn({
+        collection,
+        allIds,
+        missingVectorIds,
+        embedFn,
+        skipIds,
+        collectData: false,
+        onDataBatch: async (batchData, event = {}) => {
+            await addDataFn({
+                collection   : shadowCollection,
+                data         : batchData,
+                writeProgress: () => {},
+                log          : () => {}
+            });
+
+            loadedCount += batchData.ids.length;
+
+            await writeStateFn({
+                statePath,
+                state: {
+                    ...baseState,
+                    phase : 'memory-core-repair-shadow-loading',
+                    shadowName,
+                    loadedCount,
+                    counts: event.counts
+                }
+            });
+        },
+        onProgress: event => log(formatMemoryCoreRepairProgress({collectionName, event}))
+    });
+
+    if (unrecoverable.length > 0) {
+        await writeStateFn({
+            statePath,
+            state: {
+                ...baseState,
+                phase               : 'memory-core-repair-aborted',
+                shadowName,
+                loadedCount,
+                unrecoverableCount  : unrecoverable.length,
+                unrecoverablePreview: unrecoverable.slice(0, 20),
+                counts
+            }
+        });
+
+        return {
+            collectionName,
+            aborted: true,
+            unrecoverable,
+            counts,
+            shadowName,
+            loadedCount,
+            sourceCount
+        }
+    }
+
+    await writeStateFn({
+        statePath,
+        state: {
+            ...baseState,
+            phase: 'memory-core-repair-shadow-loaded',
+            shadowName,
+            loadedCount,
+            counts
+        }
+    });
+
+    log(`   🚚 '${collectionName}': shadow promotion starting for ${loadedCount} recovered row(s)...`);
+    const promotion = await promoteLoadedFn({
+        client,
+        collectionName,
+        shadowCollection,
+        shadowName,
+        sourceIds: allIds,
+        embeddingFunction,
+        statePath,
+        stateBase,
+        writeStateFn
+    });
+    log(`   ✅ '${collectionName}': shadow promotion complete.`);
+
+    return {
+        collectionName,
+        promotion,
+        counts,
+        shadowName,
+        loadedCount,
+        sourceCount
+    }
+}
+
+/**
  * @summary Repairs Memory Core collections' missing stored-embeddings via FULL (uncapped) enumeration,
  * then promotes the recovered data through the existing shadow-promotion path.
  *
@@ -683,16 +1037,16 @@ function selectMemoryCoreRepairCoverageRow({
  *      with `includeFullIds`, NOT the sampled coverage audit);
  *   2. extracts intact rows with their stored vectors and RE-EMBEDS the missing-vector rows from their
  *      still-materializing documents (`extractMemoryCoreCollectionData`);
- *   3. promotes the recovered `{ids, embeddings, documents, metadatas}` through the shadow/parking promotion.
+ *   3. streams recovered batches into a resumable shadow collection, then promotes that loaded shadow.
  *
  * Fail-loud: a collection with ANY unrecoverable row (document-less / metadata-absent) aborts its
  * own promotion with counts — never a silent partial promote. The seams (`auditFn` / `extractFn` /
- * `promoteFn` / `clearStateFn` / `writeStateFn`) are injectable for unit isolation.
+ * `repairCollectionFn` / `clearStateFn` / `writeStateFn`) are injectable for unit isolation.
  *
- * State-marker lifecycle: `promoteFn` writes durable per-phase markers, so a fully successful repair
+ * State-marker lifecycle: the mutating repair writes durable per-phase markers, so a fully successful repair
  * CLEARS the marker (`clearStateFn`) before returning — else the next run aborts as DEFRAG_INCOMPLETE_STATE.
  * An aborted/partial repair instead rewrites an explicit `memory-core-repair-aborted` marker (`writeStateFn`)
- * so `assertNoIncompleteDefragState` blocks rerun with an accurate diagnostic, not a stale mid-phase marker.
+ * with the active shadow name so the next run can retry only the unrecovered rows.
  *
  * This function is INERT until wired behind the explicit `--allow-memory-core` opt-in; the default
  * `assertDefragTargetSupported` fail-closed stands until then.
@@ -709,7 +1063,8 @@ function selectMemoryCoreRepairCoverageRow({
  * @param {Boolean} [options.dryRun=false] True extracts/re-embeds and reports counts without shadow promotion or state-marker writes.
  * @param {Function} [options.auditFn=auditChromaVectorCoverage] Enumeration seam (test injection).
  * @param {Function} [options.extractFn=extractMemoryCoreCollectionData] Extract + re-embed seam.
- * @param {Function} [options.promoteFn=rewriteCollectionViaShadowPromotion] Shadow-promotion seam.
+ * @param {Function} [options.repairCollectionFn=repairMemoryCoreCollectionViaResumableShadow] Mutating repair seam.
+ * @param {Object|null} [options.resumeState=null] Resumable defrag state returned by `assertNoIncompleteDefragState`.
  * @param {Function} [options.clearStateFn=clearDefragState] Clears the durable marker on a fully successful repair.
  * @param {Function} [options.writeStateFn=writeDefragState] Rewrites the explicit aborted marker on a partial repair.
  * @param {Function} [options.log=console.log] Log sink.
@@ -729,7 +1084,8 @@ export async function repairMemoryCoreCollectionsViaFullEnumeration({
     dryRun    = false,
     auditFn      = auditChromaVectorCoverage,
     extractFn    = extractMemoryCoreCollectionData,
-    promoteFn    = rewriteCollectionViaShadowPromotion,
+    repairCollectionFn = repairMemoryCoreCollectionViaResumableShadow,
+    resumeState  = null,
     clearStateFn = clearDefragState,
     writeStateFn = writeDefragState,
     log          = console.log
@@ -744,7 +1100,24 @@ export async function repairMemoryCoreCollectionsViaFullEnumeration({
     log(`   ✅ Coverage enumeration complete (${coverage.collections.length} coverage row(s)).`);
     const results = [];
 
-    for (const collectionName of collections) {
+    if (!dryRun && resumeState && (!resumeState.collectionName || !resumeState.shadowName)) {
+        throw new Error(`repairMemoryCoreCollectionsViaFullEnumeration: resumable state phase '${resumeState.phase}' is missing collectionName or shadowName; manual recovery is required before rerun.`);
+    }
+
+    const resumeCollectionIndex = resumeState?.collectionName ? collections.indexOf(resumeState.collectionName) : -1;
+
+    if (resumeState?.collectionName && resumeCollectionIndex === -1) {
+        throw new Error(`repairMemoryCoreCollectionsViaFullEnumeration: resumable state targets '${resumeState.collectionName}', which is not in this run's collection list (${collections.join(', ')}).`);
+    }
+
+    for (let collectionIndex = 0; collectionIndex < collections.length; collectionIndex++) {
+        const collectionName = collections[collectionIndex];
+
+        if (!dryRun && resumeCollectionIndex > -1 && collectionIndex < resumeCollectionIndex) {
+            log(`   ♻️  '${collectionName}': skipping collection before resumable state target '${resumeState.collectionName}'.`);
+            continue;
+        }
+
         const
             coverageRows = coverage.collections.filter(entry => entry.name === collectionName),
             collection   = await client.getCollection({name: collectionName, embeddingFunction});
@@ -761,16 +1134,17 @@ export async function repairMemoryCoreCollectionsViaFullEnumeration({
 
         log(`   📦 '${collectionName}': metadata=${cov.metadataRowCount ?? cov.allIds?.length ?? 0}, vector=${cov.vectorIndexIdCount ?? cov.vectorIds?.length ?? 0}, missing=${cov.missingFromVectorCount ?? cov.missingVectorIds?.length ?? 0}, extra=${cov.extraInVectorCount ?? cov.extraVectorIds?.length ?? 0}`);
 
-        const {allIds, missingVectorIds}    = cov,
-              {data, unrecoverable, counts} = await extractFn({
-                  collection,
-                  allIds,
-                  missingVectorIds,
-                  embedFn,
-                  onProgress: event => log(formatMemoryCoreRepairProgress({collectionName, event}))
-              });
+        const {allIds, missingVectorIds} = cov;
 
         if (dryRun) {
+            const {unrecoverable, counts} = await extractFn({
+                collection,
+                allIds,
+                missingVectorIds,
+                embedFn,
+                onProgress: event => log(formatMemoryCoreRepairProgress({collectionName, event}))
+            });
+
             if (unrecoverable.length > 0) {
                 log(`   ⚠️  '${collectionName}': DRY-RUN found ${unrecoverable.length} unrecoverable row(s) (document-less / metadata-absent) — no promotion attempted. Counts: ${JSON.stringify(counts)}`);
                 results.push({collectionName, dryRun: true, aborted: true, unrecoverable, counts});
@@ -782,30 +1156,50 @@ export async function repairMemoryCoreCollectionsViaFullEnumeration({
             continue;
         }
 
-        // Fail-loud: never promote a collection that lost rows to unrecoverable extraction.
-        if (unrecoverable.length > 0) {
-            log(`   ⚠️  '${collectionName}': ${unrecoverable.length} unrecoverable row(s) (document-less / metadata-absent) — aborting its promotion, no silent drop. Counts: ${JSON.stringify(counts)}`);
-            results.push({collectionName, aborted: true, unrecoverable, counts});
-            continue;
+        const result = await repairCollectionFn({
+            client,
+            collectionName,
+            collection,
+            allIds,
+            missingVectorIds,
+            embedFn,
+            embeddingFunction,
+            statePath,
+            stateBase,
+            resumeState: resumeState?.collectionName === collectionName ? resumeState : null,
+            extractFn,
+            writeStateFn,
+            log
+        });
+
+        if (result.aborted) {
+            log(`   ⚠️  '${collectionName}': ${result.unrecoverable.length} unrecoverable row(s) (document-less / metadata-absent / provider-overcap) — aborting before promotion, but keeping resumable shadow '${result.shadowName}'. Counts: ${JSON.stringify(result.counts)}`);
+            results.push(result);
+            break;
         }
 
-        log(`   🚚 '${collectionName}': shadow promotion starting for ${data.ids.length} recovered row(s)...`);
-        const promotion = await promoteFn({client, collectionName, data, embeddingFunction, statePath, stateBase});
-        log(`   ✅ '${collectionName}': shadow promotion complete.`);
-        results.push({collectionName, promotion, counts});
+        results.push(result);
     }
 
     // State-marker lifecycle (mirrors the KB path's end-of-run clearDefragState): rewriteCollectionViaShadowPromotion
     // wrote durable per-phase markers, so a fully successful repair MUST clear the marker — else the next run aborts
-    // as DEFRAG_INCOMPLETE_STATE. An aborted/partial repair instead rewrites an explicit aborted marker so
-    // assertNoIncompleteDefragState blocks rerun with an accurate diagnostic, not a stale mid-phase marker.
+    // as DEFRAG_INCOMPLETE_STATE. An aborted/partial repair instead rewrites an explicit aborted marker with
+    // the active shadow name, so the next run can resume without discarding already loaded batches.
     if (statePath && !dryRun) {
         if (anyRepairAborted(results)) {
+            const activeAbort = results.find(result => result.aborted);
+
             await writeStateFn({statePath, state: {
                 ...stateBase,
-                phase   : 'memory-core-repair-aborted',
-                aborted : results.filter(result => result.aborted).map(result => result.collectionName),
-                promoted: results.filter(result => result.promotion).map(result => result.collectionName)
+                phase               : 'memory-core-repair-aborted',
+                collectionName      : activeAbort?.collectionName,
+                shadowName          : activeAbort?.shadowName,
+                sourceCount         : activeAbort?.sourceCount,
+                loadedCount         : activeAbort?.loadedCount,
+                unrecoverableCount  : activeAbort?.unrecoverable?.length,
+                unrecoverablePreview: activeAbort?.unrecoverable?.slice?.(0, 20) || [],
+                aborted             : results.filter(result => result.aborted).map(result => result.collectionName),
+                promoted            : results.filter(result => result.promotion).map(result => result.collectionName)
             }});
         } else {
             await clearStateFn({statePath});
@@ -890,7 +1284,14 @@ async function defragChromaDB() {
         const statePath = resolveDefragStatePath({targetName});
 
         assertDefragTargetSupported({targetName, allowMemoryCore: options.allowMemoryCore});
-        await assertNoIncompleteDefragState({statePath});
+        const resumeState = await assertNoIncompleteDefragState({
+            statePath,
+            allowedPhases: targetName === 'memory-core' && options.allowMemoryCore ? [
+                'memory-core-repair-shadow-loading',
+                'memory-core-repair-shadow-loaded',
+                'memory-core-repair-aborted'
+            ] : []
+        });
 
         const DB_PATH = config.path;
 
@@ -962,7 +1363,8 @@ async function defragChromaDB() {
                 embeddingFunction: dummyEf,
                 statePath,
                 stateBase        : {targetName},
-                dryRun
+                dryRun,
+                resumeState
             });
 
             for (const result of results) {
@@ -1153,8 +1555,48 @@ async function defragChromaDB() {
     }
 }
 
+/**
+ * Runs the standalone defrag CLI under the shared heavy-maintenance lease.
+ *
+ * The exported defrag implementation remains lease-free for tests and controlled
+ * module callers. Only direct CLI execution acquires the cross-process lease, so a
+ * manually started defrag is visible to the orchestrator before other heavy tasks run.
+ *
+ * @param {Object} options
+ * @param {Function} [options.runDefrag=defragChromaDB] Defrag implementation seam.
+ * @param {Function} [options.withLease=withHeavyMaintenanceLease] Lease wrapper seam.
+ * @param {Object} [options.output=console] Terminal sink.
+ * @param {Function} [options.exit=process.exit] Exit hook.
+ * @returns {Promise<*>}
+ */
+export async function runDefragChromaDBCli({
+    runDefrag = defragChromaDB,
+    withLease = withHeavyMaintenanceLease,
+    output    = console,
+    exit      = code => process.exit(code)
+} = {}) {
+    let outcome;
+
+    try {
+        outcome = await withLease(
+            () => runDefrag(),
+            {owner: 'defrag', reason: 'manual-cli', metadata: {script: 'ai/scripts/maintenance/defragChromaDB.mjs'}}
+        );
+    } catch (error) {
+        output.error('❌ Defrag lease acquisition failed:', error);
+        return exit(1)
+    }
+
+    if (outcome?.status === 'held') {
+        const held = outcome.lease;
+        output.log(`⏸️  Deferred: heavy-maintenance lease held by '${held.owner}' (reason='${held.reason}', pid=${held.pid}, acquiredAt=${held.acquiredAt}).`);
+        output.log('   This script will not run while another heavy-maintenance task is active. Re-invoke once the active owner completes.');
+        return exit(0)
+    }
+
+    return exit(0)
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-    defragChromaDB().then(() => {
-        process.exit(0);
-    });
+    runDefragChromaDBCli();
 }

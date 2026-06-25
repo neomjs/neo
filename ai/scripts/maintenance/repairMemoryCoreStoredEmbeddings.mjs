@@ -9,10 +9,10 @@
  *
  * This module supplies the missing extraction half: partition each collection's ids into intact-vector
  * vs missing-vector, extract intact rows with their stored embeddings, and **re-embed** the missing-vector
- * rows from their DOCUMENTS (which still materialize — only the embedding fetch fails). The merged
- * `{ids, embeddings, documents, metadatas}` then feeds defrag's existing `addCollectionData` →
- * `validateLoadedCollection` → promote, unchanged. A missing-vector row with no recoverable document is
- * reported as `unrecoverable` (counts surfaced, never silently dropped — the fail-loud discipline).
+ * rows from their DOCUMENTS (which still materialize — only the embedding fetch fails). Recovered batches
+ * can either be retained in a merged `{ids, embeddings, documents, metadatas}` buffer or streamed into a
+ * resumable shadow collection. A missing-vector row with no recoverable document/embedding is reported as
+ * `unrecoverable` (counts surfaced, never silently dropped — the fail-loud discipline).
  *
  * The live shadow run + canonical promotion is operator/env-gated (out of scope without
  * explicit authorization); this module is the pure extraction logic, unit-tested against mocked Chroma.
@@ -35,6 +35,9 @@
  * @param {Function}   options.embedFn          `(documents: String[]) => Promise<Number[][]>` — re-embed a batch
  *                                               (e.g. `TextEmbeddingService.embedTexts` bound to the MC provider).
  * @param {Number}     [options.batchSize=1000] Chroma `.get` / embed batch size.
+ * @param {String[]}   [options.skipIds=[]] IDs already durably loaded into a resumable shadow collection.
+ * @param {Boolean}    [options.collectData=true] False streams batches through `onDataBatch` without retaining all vectors in memory.
+ * @param {Function}   [options.onDataBatch] Optional async sink for each recovered batch.
  * @param {Function}   [options.onProgress] Optional callback receiving 10%-bucket progress events:
  *                                           `{phase, percent, processed, total, counts}`.
  * @returns {Promise<{data: {ids: String[], embeddings: Number[][], documents: String[], metadatas: Object[]},
@@ -47,6 +50,9 @@ export async function extractMemoryCoreCollectionData({
     missingVectorIds = [],
     embedFn,
     batchSize = 1000,
+    skipIds = [],
+    collectData = true,
+    onDataBatch,
     onProgress
 } = {}) {
     if (typeof embedFn !== 'function') {
@@ -54,36 +60,61 @@ export async function extractMemoryCoreCollectionData({
     }
 
     const missingSet = new Set(missingVectorIds);
-    const intactIds  = allIds.filter(id => !missingSet.has(id));
+    const skipSet    = new Set(skipIds);
+    const intactIds  = allIds.filter(id => !missingSet.has(id) && !skipSet.has(id));
+    const missingIds = missingVectorIds.filter(id => !skipSet.has(id));
     const data       = {ids: [], embeddings: [], documents: [], metadatas: []};
     const counts     = {total: allIds.length, intact: 0, reEmbedded: 0, unrecoverable: 0};
 
+    if (skipSet.size > 0) {
+        counts.resumedExisting = skipSet.size;
+    }
+
     const reportIntactProgress  = createTenPercentProgressReporter({phase: 'intact-extract', total: intactIds.length, onProgress});
-    const reportMissingProgress = createTenPercentProgressReporter({phase: 'missing-reembed', total: missingVectorIds.length, onProgress});
+    const reportMissingProgress = createTenPercentProgressReporter({phase: 'missing-reembed', total: missingIds.length, onProgress});
 
     onProgress?.({phase: 'start', percent: 0, processed: 0, total: allIds.length, counts: {...counts}});
 
+    async function emitDataBatch(batchData) {
+        if (batchData.ids.length === 0) {
+            return
+        }
+
+        if (collectData) {
+            data.ids.push(...batchData.ids);
+            data.embeddings.push(...batchData.embeddings);
+            data.documents.push(...batchData.documents);
+            data.metadatas.push(...batchData.metadatas);
+        }
+
+        if (typeof onDataBatch === 'function') {
+            await onDataBatch(batchData, {counts: {...counts}});
+        }
+    }
+
     // 1. Intact rows — extract with their stored embeddings (these vectors exist in the HNSW index).
     for (let i = 0; i < intactIds.length; i += batchSize) {
-        const batchIds = intactIds.slice(i, i + batchSize);
-        const got      = await collection.get({ids: batchIds, include: ['embeddings', 'documents', 'metadatas']});
+        const batchIds  = intactIds.slice(i, i + batchSize);
+        const got       = await collection.get({ids: batchIds, include: ['embeddings', 'documents', 'metadatas']});
+        const batchData = {ids: [], embeddings: [], documents: [], metadatas: []};
 
         for (let j = 0; j < (got.ids?.length || 0); j++) {
-            data.ids.push(got.ids[j]);
-            data.embeddings.push(got.embeddings[j]);
-            data.documents.push(got.documents?.[j] ?? '');
-            data.metadatas.push(got.metadatas?.[j] ?? {});
+            batchData.ids.push(got.ids[j]);
+            batchData.embeddings.push(got.embeddings[j]);
+            batchData.documents.push(got.documents?.[j] ?? '');
+            batchData.metadatas.push(got.metadatas?.[j] ?? {});
             counts.intact++;
         }
 
+        await emitDataBatch(batchData);
         reportIntactProgress({processed: Math.min(i + batchIds.length, intactIds.length), counts});
     }
 
     // 2. Missing-vector rows — re-embed from documents (their stored embeddings cannot be fetched).
     const unrecoverable = [];
 
-    for (let i = 0; i < missingVectorIds.length; i += batchSize) {
-        const batchIds = missingVectorIds.slice(i, i + batchSize);
+    for (let i = 0; i < missingIds.length; i += batchSize) {
+        const batchIds = missingIds.slice(i, i + batchSize);
         // documents + metadatas DO materialize for missing-vector ids; only `embeddings` fails.
         const got      = await collection.get({ids: batchIds, include: ['documents', 'metadatas']});
         const returned = new Set(got.ids || []);
@@ -111,22 +142,30 @@ export async function extractMemoryCoreCollectionData({
         }
 
         if (reEmbedDocs.length > 0) {
-            const embeddings = await embedFn(reEmbedDocs);
+            const {embeddings, failedIndexes} = await embedRecoverableDocuments({embedFn, ids: reEmbedIds, documents: reEmbedDocs});
+            const batchData                   = {ids: [], embeddings: [], documents: [], metadatas: []};
 
-            if (!Array.isArray(embeddings) || embeddings.length !== reEmbedDocs.length) {
-                throw new Error(`extractMemoryCoreCollectionData: embedFn returned ${Array.isArray(embeddings) ? embeddings.length : 'non-array'} embeddings for ${reEmbedDocs.length} documents`);
+            for (const failedIndex of failedIndexes) {
+                unrecoverable.push(reEmbedIds[failedIndex]);
+                counts.unrecoverable++;
             }
 
             for (let j = 0; j < reEmbedIds.length; j++) {
-                data.ids.push(reEmbedIds[j]);
-                data.embeddings.push(embeddings[j]);
-                data.documents.push(reEmbedDocs[j]);
-                data.metadatas.push(reEmbedMetas[j]);
+                if (failedIndexes.has(j)) {
+                    continue;
+                }
+
+                batchData.ids.push(reEmbedIds[j]);
+                batchData.embeddings.push(embeddings[j]);
+                batchData.documents.push(reEmbedDocs[j]);
+                batchData.metadatas.push(reEmbedMetas[j]);
                 counts.reEmbedded++;
             }
+
+            await emitDataBatch(batchData);
         }
 
-        reportMissingProgress({processed: Math.min(i + batchIds.length, missingVectorIds.length), counts});
+        reportMissingProgress({processed: Math.min(i + batchIds.length, missingIds.length), counts});
     }
 
     onProgress?.({phase: 'complete', percent: 100, processed: allIds.length, total: allIds.length, counts: {...counts}});
@@ -136,6 +175,45 @@ export async function extractMemoryCoreCollectionData({
         unrecoverable,
         counts
     };
+}
+
+/**
+ * @summary Embeds a batch, falling back to per-document isolation when the batch fails.
+ * @param {Object} options
+ * @param {Function} options.embedFn Embedding function.
+ * @param {String[]} options.ids Row ids paired with `documents`.
+ * @param {String[]} options.documents Documents to embed.
+ * @returns {Promise<{embeddings: Number[][], failedIndexes: Set<Number>}>}
+ */
+async function embedRecoverableDocuments({embedFn, ids, documents} = {}) {
+    try {
+        const embeddings = await embedFn(documents);
+
+        if (!Array.isArray(embeddings) || embeddings.length !== documents.length) {
+            throw new Error(`embedFn returned ${Array.isArray(embeddings) ? embeddings.length : 'non-array'} embeddings for ${documents.length} documents`);
+        }
+
+        return {embeddings, failedIndexes: new Set()}
+    } catch {
+        const embeddings    = new Array(documents.length);
+        const failedIndexes = new Set();
+
+        for (let i = 0; i < documents.length; i++) {
+            try {
+                const single = await embedFn([documents[i]]);
+
+                if (!Array.isArray(single) || single.length !== 1) {
+                    throw new Error(`single embed returned ${Array.isArray(single) ? single.length : 'non-array'} embeddings`);
+                }
+
+                embeddings[i] = single[0];
+            } catch (error) {
+                failedIndexes.add(i);
+            }
+        }
+
+        return {embeddings, failedIndexes}
+    }
 }
 
 /**
