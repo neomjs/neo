@@ -19,7 +19,8 @@ import {decideDeferenceStopHookAction,
         decideStopHookAction,
         isOperatorInLoop,
         LANE_STATE_SCHEMA_HINT,
-        parseOutcomeToVerdict}     from '../../ai/scripts/lifecycle/stopHookDecision.mjs';
+        parseOutcomeToVerdict,
+        STOP_HOOK_TURN_OPTIONS_HINT} from '../../ai/scripts/lifecycle/stopHookDecision.mjs';
 import {validateLaneStateTerminal} from '../../ai/scripts/lifecycle/validateLaneStateTerminal.mjs';
 
 export const CODEX_STOP_BLOCK_INJECTION_SUPPORTED = true;
@@ -280,8 +281,15 @@ export function extractPromptingText(input = {}) {
  * @param {String} verdictReason
  * @returns {String}
  */
-export function buildNoHoldReminder(verdictReason) {
+export function buildNoHoldReminder(verdictReason, {promptSource = '', operatorInLoop = false} = {}) {
+    const promptDiagnostic = !operatorInLoop && promptSource === 'none'
+        ? '\nOperator prompt was not visible to this hook (promptSource=none), so live operator dialogue could not be confirmed.'
+        : '';
+
     return `No-hold reminder: ${verdictReason}. There is no hold state: continue concrete work on the active lane, perform an assigned review that advances a named lane, or pick a fresh claimable lane. Passive waiting is not a terminal.
+${promptDiagnostic}
+
+${STOP_HOOK_TURN_OPTIONS_HINT}
 
 ${LANE_STATE_SCHEMA_HINT}`;
 }
@@ -300,7 +308,8 @@ ${LANE_STATE_SCHEMA_HINT}`;
 export function decideCodexHookAction(verdict, {
     enforcing               = false,
     blockInjectionSupported = CODEX_STOP_BLOCK_INJECTION_SUPPORTED,
-    operatorInLoop          = false
+    operatorInLoop          = false,
+    promptSource            = ''
 } = {}) {
     const decision = decideStopHookAction(verdict, {
         enforcing,
@@ -310,9 +319,15 @@ export function decideCodexHookAction(verdict, {
     });
 
     if (decision.action === 'allow') return decision;
-    if (decision.action === 'block') return {action: 'block', reason: buildNoHoldReminder(decision.reason)};
+    if (decision.action === 'block') return {
+        action: 'block',
+        reason: buildNoHoldReminder(decision.reason, {operatorInLoop, promptSource})
+    };
 
-    return {action: 'would-block', reason: buildNoHoldReminder(decision.reason)};
+    return {
+        action: 'would-block',
+        reason: buildNoHoldReminder(decision.reason, {operatorInLoop, promptSource})
+    };
 }
 
 /**
@@ -338,10 +353,10 @@ export function summarizePayloadShape(payload = {}) {
  * @returns {{action: ('allow'|'block'|'would-block'), reason: String, source: String, promptSource: String, verdict: Object, phrase: (String|undefined)}}
  */
 export function classifyCodexStopPayload(input = {}, {enforcing = false} = {}) {
-    const stopHookActive                            = !!(input.stop_hook_active || input.stopHookActive),
-          {text, source}                            = extractFinalAssistantText(input),
+    const stopHookActive                              = !!(input.stop_hook_active || input.stopHookActive),
+          {text, source}                              = extractFinalAssistantText(input),
           {text: promptingText, source: promptSource} = extractPromptingText(input),
-          operatorInLoop                            = isOperatorInLoop({stopHookActive, promptingText});
+          operatorInLoop                              = isOperatorInLoop({stopHookActive, promptingText});
 
     // Deference-register check: shared decision, adapter-owned payload/source metadata.
     const deferenceDecision = decideDeferenceStopHookAction(text, {operatorInLoop, enforcing});
@@ -350,6 +365,7 @@ export function classifyCodexStopPayload(input = {}, {enforcing = false} = {}) {
             ...deferenceDecision,
             source,
             promptSource,
+            operatorInLoop,
             verdict: null
         };
     }
@@ -364,7 +380,8 @@ export function classifyCodexStopPayload(input = {}, {enforcing = false} = {}) {
     const verdict = parseOutcomeToVerdict({descriptor, parseError}, validateLaneStateTerminal);
 
     return {
-        ...decideCodexHookAction(verdict, {enforcing, operatorInLoop}),
+        ...decideCodexHookAction(verdict, {enforcing, operatorInLoop, promptSource}),
+        operatorInLoop,
         source,
         promptSource,
         verdict
@@ -401,14 +418,14 @@ async function main() {
     const session = input.session_id || input.sessionId || '?';
 
     if (result.action === 'block') {
-        auditLog(`BLOCK (session=${session}, source=${result.source}): ${result.reason}`);
+        auditLog(`BLOCK (session=${session}, source=${result.source}, promptSource=${result.promptSource}, operatorInLoop=${result.operatorInLoop}): ${result.reason}`);
         process.stdout.write(JSON.stringify({decision: 'block', reason: result.reason}), () => process.exit(0));
         return;
     }
 
     const prefix = result.action === 'allow' ? 'ALLOW' : 'WOULD-BLOCK';
 
-    auditLog(`${prefix} (session=${session}, source=${result.source}): ${result.reason}`);
+    auditLog(`${prefix} (session=${session}, source=${result.source}, promptSource=${result.promptSource}, operatorInLoop=${result.operatorInLoop}): ${result.reason}`);
     process.exit(0);
 }
 
