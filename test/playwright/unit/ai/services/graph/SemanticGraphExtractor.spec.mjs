@@ -397,13 +397,13 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
     });
 
     test('REM marathon raw-turn path exposes active diagnostics and output budget before provider return (#13984)', async () => {
-        const originalGraphProvider         = aiConfig.graphProvider,
-              originalRemRunStateDir        = aiConfig.remRunStateDir,
-              expectedContextLimitTokens    = aiConfig.localModels.chat.contextLimitTokens,
-              expectedSafeProcessingTokens  = aiConfig.localModels.chat.safeProcessingLimitTokens,
-              expectedGraphOutputLimit      = aiConfig.localModels.chat.graphOutputLimitTokens,
-              expectedGraphModel            = aiConfig.openAiCompatible.model,
-              baseGenerate                  = OpenAiCompatible.prototype.generate,
+        const originalGraphProvider        = aiConfig.graphProvider,
+              originalRemRunStateDir       = aiConfig.remRunStateDir,
+              expectedContextLimitTokens   = aiConfig.localModels.chat.contextLimitTokens,
+              expectedSafeProcessingTokens = aiConfig.localModels.chat.safeProcessingLimitTokens,
+              expectedGraphOutputLimit     = aiConfig.localModels.chat.graphOutputLimitTokens,
+              expectedGraphModel           = aiConfig.openAiCompatible.model,
+              baseGenerate                 = OpenAiCompatible.prototype.generate,
               remRunStateDir                = path.resolve(process.cwd(), 'tmp', `active-rem-call-${process.pid}-${Date.now()}`),
               turnDocuments                 = Array.from(
                   {length: 192},
@@ -437,9 +437,9 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             };
 
             result = await SemanticGraphExtractor.executeTriVectorExtraction({
-                id           : 'mock-marathon-rem-vector-id',
-                meta         : {sessionId: '2d993feb-ea2f-4468-8fbd-c53e62365f4d'},
-                document     : turnDocuments.join('\n\n---\n\n'),
+                id      : 'mock-marathon-rem-vector-id',
+                meta    : {sessionId: '2d993feb-ea2f-4468-8fbd-c53e62365f4d'},
+                document: turnDocuments.join('\n\n---\n\n'),
                 turnDocuments
             });
             activeOnDiskAfterCall = await readActiveRemCallState({dir: remRunStateDir});

@@ -1,9 +1,9 @@
-import {test, expect} from '@playwright/test';
-import Neo             from '../../../../../../../src/Neo.mjs';
-import * as core       from '../../../../../../../src/core/_export.mjs';
+import {test, expect}                            from '@playwright/test';
+import Neo                                       from '../../../../../../../src/Neo.mjs';
+import * as core                                 from '../../../../../../../src/core/_export.mjs';
 import {mkdtemp, rm, readdir, utimes, writeFile} from 'fs/promises';
-import os              from 'os';
-import path            from 'path';
+import os                                        from 'os';
+import path                                      from 'path';
 
 import {
     appendRemRunState,

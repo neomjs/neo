@@ -605,11 +605,11 @@ class DreamService extends Base {
                         // re-serve immediately for provider-size failures; ingestion errors and legacy
                         // bare-null returns stay retryable so a storage/transient failure never removes
                         // a digestible session from the steady cadence.
-                        const digestAttempts          = (Number(session.meta.digestAttempts) || 0) + 1;
-                        const maxDigestAttempts       = readRequiredNumberLeaf('maxDigestAttempts');
-                        const terminalForCadence      = ingestErrors === 0 && extractionFailure?.terminalForCadence === true;
+                        const digestAttempts           = (Number(session.meta.digestAttempts) || 0) + 1;
+                        const maxDigestAttempts        = readRequiredNumberLeaf('maxDigestAttempts');
+                        const terminalForCadence       = ingestErrors === 0 && extractionFailure?.terminalForCadence === true;
                         const immediateTerminalCadence = ingestErrors === 0 && isImmediateCadenceTerminalFailure(extractionFailure);
-                        const deferReason             = ingestErrors > 0
+                        const deferReason              = ingestErrors > 0
                             ? 'ingestion-failure'
                             : (extractionFailure?.deferReason || 'schema-failure');
                         const digestState = immediateTerminalCadence || (terminalForCadence && digestAttempts >= maxDigestAttempts)
