@@ -144,10 +144,9 @@ class Config extends ConfigProvider {
              */
             remSleepBatchLimit: leaf(10, 'NEO_REM_SLEEP_BATCH_LIMIT', 'number'),
             /**
-             * Maximum failed graph-digest attempts before the REM pipeline bounds a session out as
-             * `deferred` (excluded from the steady cadence). Stops the chronic re-serve of an
-             * un-digestible session that would otherwise re-pay the per-cycle local-model pre-check
-             * every cycle, forever.
+             * Maximum failed graph-digest attempts before the REM pipeline bounds a retry-exhausted
+             * terminal schema failure out of the steady cadence. Provider-size parser failures bypass
+             * this threshold and are excluded immediately; transient ingestion failures remain retryable.
              * @type {number}
              */
             maxDigestAttempts: leaf(3, 'NEO_REM_MAX_DIGEST_ATTEMPTS', 'number'),

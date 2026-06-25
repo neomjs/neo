@@ -308,6 +308,39 @@ test.describe('AI provider keep_alive payload shape (#12080, #12089)', () => {
         expect(payloads[1].options.keep_alive).toBeUndefined();
     });
 
+    test('Ollama.generate() maps maxCompletionTokens to native num_predict (#13984)', async () => {
+        const payloads = [];
+        const server   = await createOllamaChatServer(payloads);
+
+        try {
+            const provider = Neo.create(OllamaProvider, {
+                host     : server.host,
+                modelName: 'gemma4-test'
+            });
+
+            const result = await provider.generate('hello', {
+                maxCompletionTokens: 8192,
+                temperature        : 0.2
+            });
+
+            expect(result.content).toBe('ok');
+        } finally {
+            await server.close();
+        }
+
+        expect(payloads).toHaveLength(1);
+        expect(payloads[0]).toMatchObject({
+            model     : 'gemma4-test',
+            stream    : false,
+            keep_alive: -1,
+            options   : {
+                num_predict: 8192,
+                temperature: 0.2
+            }
+        });
+        expect(payloads[0].options.maxCompletionTokens).toBeUndefined();
+    });
+
     test('Ollama.generate() aborts a hung request at options.timeoutMs with a labeled timeout error (#12803)', async () => {
         // A server that accepts the request but never responds — simulates a long inference
         // holding the one serialized local endpoint, so the configurable socket timeout fires.
@@ -832,6 +865,44 @@ test.describe('AI provider keep_alive payload shape (#12080, #12089)', () => {
             keep_alive : -1,
             temperature: 0.2
         });
+    });
+
+    test('OpenAiCompatible.generate() preserves streaming finish_reason metadata (#13984)', async () => {
+        let capturedPayload;
+
+        globalThis.fetch = async (url, init) => {
+            expect(url).toBe('http://openai-compatible.test/v1/chat/completions');
+            capturedPayload = JSON.parse(init.body);
+
+            return {
+                ok  : true,
+                body: createReadableStream([
+                    'data: {"choices":[{"delta":{"content":"{\\"status\\":"}}]}\n\n',
+                    'data: {"choices":[{"delta":{"content":"\\"partial\\"}"}}]}\n\n',
+                    'data: {"choices":[{"delta":{},"finish_reason":"length"}]}\n\n',
+                    'data: [DONE]\n\n'
+                ])
+            };
+        };
+
+        const provider = Neo.create(OpenAiCompatibleProvider, {
+            host     : 'http://openai-compatible.test',
+            modelName: 'gemma4-test'
+        });
+
+        const result = await provider.generate('hello', {maxCompletionTokens: 8192});
+
+        expect(result.content).toBe('{"status":"partial"}');
+        expect(result.finish_reason).toBe('length');
+        expect(result.raw.finish_reason).toBe('length');
+        expect(result.raw.choices[0].finish_reason).toBe('length');
+        expect(capturedPayload).toMatchObject({
+            model     : 'gemma4-test',
+            stream    : true,
+            keep_alive: -1,
+            max_tokens: 8192
+        });
+        expect(capturedPayload.maxCompletionTokens).toBeUndefined();
     });
 
     test('OpenAiCompatible.generate() aggregates non-SSE JSON message content', async () => {

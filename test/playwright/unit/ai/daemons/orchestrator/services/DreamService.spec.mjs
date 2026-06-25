@@ -1492,21 +1492,20 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         }
     });
 
-    test('processUndigestedSessions bounds the re-serve — marks a session `undigestible` once a skip-over-band failure reaches MAX (#13835)', async () => {
+    test('processUndigestedSessions bounds the re-serve immediately for skip-over-band parser failures (#13984)', async () => {
         const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
         const AdrIngestor             = (await import('../../../../../../../ai/services/ingestion/AdrIngestor.mjs')).default;
         const ConceptIngestor         = (await import('../../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;
         const FileSystemIngestor      = (await import('../../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
         const TopologyInferenceEngine = (await import('../../../../../../../ai/services/graph/TopologyInferenceEngine.mjs')).default;
 
-        // The session has already failed MAX-1 (2) times; this cycle's failure is the 3rd. 400k dense bytes
-        // estimate to 133,334 tokens through the shared guardrail helper (bytes/3) but only 100,000 tokens
-        // through the old split-brain bytes/4 classifier. This must classify as `skip-over-band`, not
-        // `under-band-choke`, so the steady cadence stops re-serving a session the model demonstrably cannot fit.
+        // A provider-size precheck failure has already proven this payload cannot fit the current graph
+        // parser budget. It must leave the steady cadence on the first classified failure rather than
+        // re-paying the same model-lock cost until MAX attempts.
         const mockSession = {
             id      : 'chroma-summary-overband',
             document: 'x'.repeat(400_000),
-            meta    : {sessionId: 'agent-session-overband', title: 'Over-band session', digestAttempts: 2}
+            meta    : {sessionId: 'agent-session-overband', title: 'Over-band session'}
         };
 
         const sessionUpdatePayloads = [];
@@ -1562,8 +1561,8 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             expect(sessionUpdatePayloads.length).toBe(1);
             const meta = sessionUpdatePayloads[0].metadatas[0];
             expect(meta.graphDigested).toBeUndefined();   // never falsely-digested
-            expect(meta.digestState).toBe('undigestible'); // 3rd failure reaches MAX → bounded out (deterministic)
-            expect(meta.digestAttempts).toBe(3);
+            expect(meta.digestState).toBe('undigestible'); // first size-classified failure → bounded out
+            expect(meta.digestAttempts).toBe(1);
             expect(meta.deferReason).toBe('skip-over-band');
         } finally {
             aiConfig.modelProvider                                  = orig.provider;

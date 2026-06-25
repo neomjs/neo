@@ -1,16 +1,20 @@
-import {test, expect} from '@playwright/test';
-import Neo             from '../../../../../../../src/Neo.mjs';
-import * as core       from '../../../../../../../src/core/_export.mjs';
-import {mkdtemp, rm, readdir, utimes} from 'fs/promises';
-import os              from 'os';
-import path            from 'path';
+import {test, expect}                            from '@playwright/test';
+import Neo                                       from '../../../../../../../src/Neo.mjs';
+import * as core                                 from '../../../../../../../src/core/_export.mjs';
+import {mkdtemp, rm, readdir, utimes, writeFile} from 'fs/promises';
+import os                                        from 'os';
+import path                                      from 'path';
 
 import {
     appendRemRunState,
+    clearActiveRemCallState,
     createRemPhaseState,
     createRemRunStateEntry,
+    getActiveRemCallStateFilePath,
     getRemRunStateFileName,
     pruneRemRunStates,
+    readActiveRemCallState,
+    writeActiveRemCallState,
     readRecentRemRunStates
 } from '../../../../../../../ai/services/memory-core/helpers/remRunStateStore.mjs';
 
@@ -99,6 +103,45 @@ test.describe('RemRunStateStore', () => {
         const recent = await readRecentRemRunStates({dir: tmpDir, limit: 1});
 
         expect(recent.map(entry => entry.runId)).toEqual(['rem-new']);
+    });
+
+    test('writes, reads, and clears the active REM provider-call marker', async () => {
+        const state = {
+            phase                    : 'triVector',
+            sessionId                : '2d993feb-ea2f-4468-8fbd-c53e62365f4d',
+            assetRef                 : '2d993feb-ea2f-4468-8fbd-c53e62365f4d:chunk:1',
+            chunkIndex               : 1,
+            chunkCount               : 2,
+            turnIndices              : [96, 191],
+            chunkTokens              : 70549,
+            attempt                  : 1,
+            maxRetries               : 3,
+            provider                 : 'openAiCompatible',
+            model                    : 'google/gemma-4-26b-a4b',
+            promptTokensEstimate     : 70549,
+            outputLimitTokens        : 8192,
+            contextLimitTokens       : 131072,
+            safeProcessingLimitTokens: 100000,
+            promptPlusOutputTokens   : 78741,
+            startedAt                : '2026-06-24T23:27:55.880Z'
+        };
+
+        const filePath = await writeActiveRemCallState(state, {dir: tmpDir});
+
+        expect(filePath).toBe(getActiveRemCallStateFilePath(tmpDir));
+        expect(await readActiveRemCallState({dir: tmpDir})).toEqual(state);
+
+        await clearActiveRemCallState({dir: tmpDir});
+
+        expect(await readActiveRemCallState({dir: tmpDir})).toBeNull();
+    });
+
+    test('readActiveRemCallState returns null for missing or corrupt active markers', async () => {
+        expect(await readActiveRemCallState({dir: tmpDir})).toBeNull();
+
+        await writeFile(getActiveRemCallStateFilePath(tmpDir), '{broken-json', 'utf8');
+
+        expect(await readActiveRemCallState({dir: tmpDir})).toBeNull();
     });
 
     const makeEntry = (runId, completedAt) => createRemRunStateEntry({

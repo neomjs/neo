@@ -247,6 +247,25 @@ class Config extends ConfigProvider {
                     // and embedding models stay loaded regardless of this value.
                     parallel                 : leaf(1, 'NEO_LOCAL_MODELS_CHAT_PARALLEL', 'number'),
                     /**
+                     * @summary Output-token budget for REM graph structured-output calls.
+                     *
+                     * Input chunking protects the prompt side; this caps the provider's JSON response
+                     * side so an OpenAI-compatible or Ollama graph request cannot monopolize the chat
+                     * model while the REM backlog waits for a response.
+                     * @type {Number}
+                     */
+                    graphOutputLimitTokens   : leaf(8192, 'NEO_LOCAL_MODELS_CHAT_GRAPH_OUTPUT_LIMIT_TOKENS', 'number'),
+                    /**
+                     * @summary Prompt-token target for one REM Tri-Vector graph chunk.
+                     *
+                     * REM needs enough episodic context to infer useful graph structure, but this is an
+                     * input-side bundle size, not the completion cap. `SemanticGraphExtractor` clamps the
+                     * effective chunk budget to this leaf, `safeProcessingLimitTokens`, and
+                     * `contextLimitTokens - graphOutputLimitTokens` before subtracting the prompt envelope.
+                     * @type {Number}
+                     */
+                    graphChunkLimitTokens    : leaf(50000, 'NEO_LOCAL_MODELS_CHAT_GRAPH_CHUNK_LIMIT_TOKENS', 'number'),
+                    /**
                      * @summary Per-task reasoning-effort for the chat model's two structured-output
                      * consumers — passed straight through as the OpenAI / LM-Studio `reasoning_effort`
                      * request param. Default `'none'` disables the gemma MoE's hidden "thinking" pass

@@ -23,6 +23,7 @@ import {
     clearAggregatedFrictions,
     getAggregatedFrictions
 } from '../../../../../../ai/services/memory-core/helpers/consumerFrictionHelper.mjs';
+import {readActiveRemCallState} from '../../../../../../ai/services/memory-core/helpers/remRunStateStore.mjs';
 
 test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
     test.describe.configure({mode: 'serial'});
@@ -31,12 +32,43 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
     let SemanticGraphExtractor;
     let SystemLifecycleService;
     let OpenAiCompatible;
+    let rootAiConfig;
     let aiConfig;
+    let suiteOverrides;
+
+    const ENV = {
+        CHAT_CONTEXT_LIMIT_TOKENS        : 'NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS',
+        CHAT_SAFE_PROCESSING_LIMIT_TOKENS: 'NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS',
+        GRAPH_CHUNK_LIMIT_TOKENS         : 'NEO_LOCAL_MODELS_CHAT_GRAPH_CHUNK_LIMIT_TOKENS',
+        GRAPH_OUTPUT_LIMIT_TOKENS        : 'NEO_LOCAL_MODELS_CHAT_GRAPH_OUTPUT_LIMIT_TOKENS',
+        GRAPH_PROVIDER                   : 'NEO_GRAPH_PROVIDER',
+        LAZY_EDGES_QUEUE_PATH            : 'NEO_LAZY_EDGES_QUEUE_PATH',
+        MEMORY_DB_PATH_TEST              : 'NEO_MEMORY_DB_PATH_TEST',
+        MODEL_PROVIDER                   : 'NEO_MODEL_PROVIDER',
+        OLLAMA_MODEL                     : 'NEO_OLLAMA_MODEL',
+        REM_RUN_STATE_DIR                : 'NEO_REM_RUN_STATE_DIR',
+        UNIT_TEST_MODE                   : 'UNIT_TEST_MODE'
+    };
+
+    const memoryCoreEnvNames = new Set([
+        ENV.LAZY_EDGES_QUEUE_PATH,
+        ENV.MEMORY_DB_PATH_TEST,
+        ENV.REM_RUN_STATE_DIR,
+        ENV.UNIT_TEST_MODE
+    ]);
+
+    const setConfigOverrides = overrides => {
+        for (const [envName, value] of Object.entries(overrides)) {
+            const config = memoryCoreEnvNames.has(envName) ? aiConfig : rootAiConfig;
+            config.setEnvOverride(envName, value);
+        }
+    };
 
     const testDbName = `memory-core-semantic-extractor-test-${process.pid}-${Date.now()}.sqlite`;
     let testDbPath;
 
     test.beforeAll(async () => {
+        rootAiConfig = (await import('../../../../../../ai/config.mjs')).default;
         aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
 
         const tmpDir = path.resolve(process.cwd(), 'tmp');
@@ -44,15 +76,23 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             fs.mkdirSync(tmpDir, {recursive: true});
         }
         testDbPath = path.join(tmpDir, testDbName);
+        suiteOverrides = {
+            [ENV.MEMORY_DB_PATH_TEST]  : aiConfig.storagePaths.graphTest,
+            [ENV.LAZY_EDGES_QUEUE_PATH]: aiConfig.lazyEdgesQueuePath,
+            [ENV.UNIT_TEST_MODE]       : aiConfig.storagePaths.useTestDatabase,
+            [ENV.MODEL_PROVIDER]       : aiConfig.modelProvider
+        };
 
-        aiConfig.storagePaths.graph   = testDbPath;
-        aiConfig.lazyEdgesQueuePath   = path.join(tmpDir, `lazy-edges-${process.pid}-${Date.now()}.jsonl`);
-        aiConfig.autoIngestFileSystem = false;
+        setConfigOverrides({
+            [ENV.MEMORY_DB_PATH_TEST]  : testDbPath,
+            [ENV.LAZY_EDGES_QUEUE_PATH]: path.join(tmpDir, `lazy-edges-${process.pid}-${Date.now()}.jsonl`),
+            [ENV.UNIT_TEST_MODE]       : true
+        });
 
         // Graph services dispatch through buildGraphProvider using the configured
         // modelProvider. This test stubs OpenAiCompatible.prototype.generate, so
         // force that dispatch path for deterministic provider mocking.
-        aiConfig.modelProvider = 'openAiCompatible';
+        setConfigOverrides({[ENV.MODEL_PROVIDER]: 'openAiCompatible'});
 
         GraphService           = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         SemanticGraphExtractor = (await import('../../../../../../ai/services/graph/SemanticGraphExtractor.mjs')).default;
@@ -103,6 +143,9 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
 
     test.afterAll(async () => {
         await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'clear');
+        if (suiteOverrides) {
+            setConfigOverrides(suiteOverrides);
+        }
     });
 
     test('Sub 9 hypothesis 12: provenance Memory/Session edges are lazy-queued, not silently culled (#12617, #10172)', async () => {
@@ -345,16 +388,20 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
     });
 
     test('truncated non-empty tri-vector output records friction and aborts repair amplification (#13918)', async () => {
-        const baseGenerate                      = OpenAiCompatible.prototype.generate;
-        const originalContextLimitTokens        = aiConfig.localModels.chat.contextLimitTokens;
-        const originalSafeProcessingLimitTokens = aiConfig.localModels.chat.safeProcessingLimitTokens;
-        let   invocationCount                   = 0;
+        const baseGenerate      = OpenAiCompatible.prototype.generate;
+        const originalOverrides = {
+            [ENV.CHAT_CONTEXT_LIMIT_TOKENS]        : aiConfig.localModels.chat.contextLimitTokens,
+            [ENV.CHAT_SAFE_PROCESSING_LIMIT_TOKENS]: aiConfig.localModels.chat.safeProcessingLimitTokens
+        };
+        let invocationCount = 0;
 
         try {
             clearAggregatedFrictions();
 
-            aiConfig.localModels.chat.contextLimitTokens        = 100000;
-            aiConfig.localModels.chat.safeProcessingLimitTokens = 50000;
+            setConfigOverrides({
+                [ENV.CHAT_CONTEXT_LIMIT_TOKENS]        : 100000,
+                [ENV.CHAT_SAFE_PROCESSING_LIMIT_TOKENS]: 50000
+            });
 
             OpenAiCompatible.prototype.generate = async function(messages) {
                 invocationCount++;
@@ -388,24 +435,170 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             expect(friction.note).toContain("finish_reason='length'");
             expect(friction.note).toContain('Aborting repair loop');
         } finally {
-            OpenAiCompatible.prototype.generate                 = baseGenerate;
-            aiConfig.localModels.chat.contextLimitTokens        = originalContextLimitTokens;
-            aiConfig.localModels.chat.safeProcessingLimitTokens = originalSafeProcessingLimitTokens;
+            OpenAiCompatible.prototype.generate = baseGenerate;
+            setConfigOverrides(originalOverrides);
             clearAggregatedFrictions();
         }
     });
 
+    test('REM marathon raw-turn path exposes active diagnostics and output budget before provider return (#13984)', async () => {
+        const originalOverrides = {
+                  [ENV.GRAPH_PROVIDER]   : aiConfig.graphProvider,
+                  [ENV.REM_RUN_STATE_DIR]: aiConfig.remRunStateDir
+              },
+              expectedContextLimitTokens   = aiConfig.localModels.chat.contextLimitTokens,
+              expectedSafeProcessingTokens = aiConfig.localModels.chat.safeProcessingLimitTokens,
+              expectedGraphOutputLimit     = aiConfig.localModels.chat.graphOutputLimitTokens,
+              expectedGraphModel           = aiConfig.openAiCompatible.model,
+              baseGenerate                 = OpenAiCompatible.prototype.generate,
+              remRunStateDir                = path.resolve(process.cwd(), 'tmp', `active-rem-call-${process.pid}-${Date.now()}`),
+              turnDocuments                 = Array.from(
+                  {length: 192},
+                  (_, index) => `raw-turn-${index}\n${'x'.repeat(3500)}`
+              );
+
+        let activeOnDiskAfterCall, result;
+        const providerCalls = [];
+
+        try {
+            setConfigOverrides({
+                [ENV.GRAPH_PROVIDER]   : 'openAiCompatible',
+                [ENV.REM_RUN_STATE_DIR]: remRunStateDir
+            });
+
+            OpenAiCompatible.prototype.generate = async function(messages, options) {
+                const activeDuringCall       = {...SemanticGraphExtractor.activeTriVectorCall},
+                      activeOnDiskDuringCall = await readActiveRemCallState({dir: remRunStateDir});
+
+                providerCalls.push({messages, options, activeDuringCall, activeOnDiskDuringCall});
+
+                return {
+                    content: JSON.stringify({
+                        a2a_version     : '1.0',
+                        agent_id        : 'Antigravity',
+                        session_artifact: {
+                            feature_namespace     : 'Neo.ai.REM',
+                            human_readable_summary: `bounded raw-turn chunk ${providerCalls.length}`,
+                            graph                 : {nodes: [], edges: []}
+                        }
+                    })
+                };
+            };
+
+            result = await SemanticGraphExtractor.executeTriVectorExtraction({
+                id      : 'mock-marathon-rem-vector-id',
+                meta    : {sessionId: '2d993feb-ea2f-4468-8fbd-c53e62365f4d'},
+                document: turnDocuments.join('\n\n---\n\n'),
+                turnDocuments
+            });
+            activeOnDiskAfterCall = await readActiveRemCallState({dir: remRunStateDir});
+        } finally {
+            OpenAiCompatible.prototype.generate = baseGenerate;
+            setConfigOverrides(originalOverrides);
+            fs.rmSync(remRunStateDir, {recursive: true, force: true});
+        }
+
+        expect(providerCalls.length).toBeGreaterThan(1);
+        expect(result.session_artifact.chunking.chunked).toBe(true);
+        expect(result.session_artifact.chunking.chunks.length).toBe(providerCalls.length);
+        expect(result.session_artifact.chunking.chunks.flatMap(chunk => chunk.turnIndices).length).toBe(turnDocuments.length);
+
+        const secondCall = providerCalls[1] || providerCalls[0];
+
+        expect(secondCall.options).toMatchObject({
+            maxCompletionTokens: expectedGraphOutputLimit,
+            operationLabel     : expect.stringContaining('2d993feb-ea2f-4468-8fbd-c53e62365f4d')
+        });
+        expect(secondCall.activeDuringCall).toMatchObject({
+            phase                    : 'triVector',
+            sessionId                : '2d993feb-ea2f-4468-8fbd-c53e62365f4d',
+            assetRef                 : expect.stringContaining(':chunk:'),
+            chunkIndex               : secondCall.activeDuringCall.chunkIndex,
+            chunkCount               : providerCalls.length,
+            turnIndices              : expect.any(Array),
+            chunkTokens              : expect.any(Number),
+            provider                 : 'openAiCompatible',
+            model                    : expectedGraphModel,
+            outputLimitTokens        : expectedGraphOutputLimit,
+            contextLimitTokens       : expectedContextLimitTokens,
+            safeProcessingLimitTokens: expectedSafeProcessingTokens
+        });
+        expect(secondCall.activeOnDiskDuringCall).toMatchObject(secondCall.activeDuringCall);
+        expect(secondCall.activeDuringCall.promptTokensEstimate).toBeGreaterThan(0);
+        expect(secondCall.activeDuringCall.promptPlusOutputTokens).toBeLessThanOrEqual(expectedContextLimitTokens);
+        expect(secondCall.activeDuringCall.startedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+        expect(SemanticGraphExtractor.activeTriVectorCall).toBeNull();
+        expect(activeOnDiskAfterCall).toBeNull();
+    });
+
+    test('REM parser fails before dispatch when prompt plus output reserve exceeds context (#13984)', async () => {
+        let providerCalled = false;
+
+        clearAggregatedFrictions();
+
+        const result = await SemanticGraphExtractor.extractTriVectorPayload({
+            session: {
+                id  : 'mock-over-budget-rem-vector-id',
+                meta: {sessionId: '2d993feb-ea2f-4468-8fbd-c53e62365f4d'}
+            },
+            document        : 'small document that still breaches the artificial prompt plus output reserve',
+            assetRef        : '2d993feb-ea2f-4468-8fbd-c53e62365f4d:chunk:1',
+            consumerProvider: 'openAiCompatible',
+            provider        : {
+                generate: async function() {
+                    providerCalled = true;
+                    return {content: '{}'};
+                }
+            },
+            consumerModel         : 'google/gemma-4-26b-a4b',
+            consumerContextTokens : 20,
+            consumerSafeTokens    : 1000,
+            graphOutputLimitTokens: 20,
+            graphReasoningEffort  : 'none',
+            triVectorSchema       : {type: 'object'},
+            systemInstruction     : 'sys',
+            chunkIndex            : 1,
+            chunkCount            : 2,
+            turnIndices           : [96, 191],
+            chunkTokens           : 70549
+        });
+
+        expect(providerCalled).toBe(false);
+        expect(result).toMatchObject({
+            ok                : false,
+            deferReason       : 'under-band-choke',
+            frictionSymptom   : 'context-overflow',
+            terminalForCadence: true,
+            evidence          : {
+                sessionId             : '2d993feb-ea2f-4468-8fbd-c53e62365f4d',
+                chunkIndex            : 1,
+                chunkCount            : 2,
+                outputLimitTokens     : 20,
+                contextLimitTokens    : 20,
+                promptPlusOutputTokens: expect.any(Number)
+            }
+        });
+        expect(result.evidence.promptPlusOutputTokens).toBeGreaterThan(20);
+        expect(SemanticGraphExtractor.activeTriVectorCall).toBeNull();
+
+        clearAggregatedFrictions();
+    });
+
     test('over-band tri-vector repair prompt records friction instead of appending feedback (#13918)', async () => {
-        const baseGenerate                      = OpenAiCompatible.prototype.generate;
-        const originalContextLimitTokens        = aiConfig.localModels.chat.contextLimitTokens;
-        const originalSafeProcessingLimitTokens = aiConfig.localModels.chat.safeProcessingLimitTokens;
-        let   invocationCount                   = 0;
+        const baseGenerate      = OpenAiCompatible.prototype.generate;
+        const originalOverrides = {
+            [ENV.CHAT_CONTEXT_LIMIT_TOKENS]        : aiConfig.localModels.chat.contextLimitTokens,
+            [ENV.CHAT_SAFE_PROCESSING_LIMIT_TOKENS]: aiConfig.localModels.chat.safeProcessingLimitTokens
+        };
+        let invocationCount = 0;
 
         try {
             clearAggregatedFrictions();
 
-            aiConfig.localModels.chat.contextLimitTokens        = 100000;
-            aiConfig.localModels.chat.safeProcessingLimitTokens = 50000;
+            setConfigOverrides({
+                [ENV.CHAT_CONTEXT_LIMIT_TOKENS]        : 100000,
+                [ENV.CHAT_SAFE_PROCESSING_LIMIT_TOKENS]: 50000
+            });
 
             OpenAiCompatible.prototype.generate = async function(messages) {
                 invocationCount++;
@@ -438,24 +631,27 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             expect(friction.note).toContain('Repair retry prompt estimate');
             expect(friction.note).toContain('Aborting instead of appending');
         } finally {
-            OpenAiCompatible.prototype.generate                 = baseGenerate;
-            aiConfig.localModels.chat.contextLimitTokens        = originalContextLimitTokens;
-            aiConfig.localModels.chat.safeProcessingLimitTokens = originalSafeProcessingLimitTokens;
+            OpenAiCompatible.prototype.generate = baseGenerate;
+            setConfigOverrides(originalOverrides);
             clearAggregatedFrictions();
         }
     });
 
     test('under-band malformed tri-vector output still uses one JSON repair retry (#13918)', async () => {
-        const baseGenerate                      = OpenAiCompatible.prototype.generate;
-        const originalContextLimitTokens        = aiConfig.localModels.chat.contextLimitTokens;
-        const originalSafeProcessingLimitTokens = aiConfig.localModels.chat.safeProcessingLimitTokens;
-        let   invocationCount                   = 0;
+        const baseGenerate      = OpenAiCompatible.prototype.generate;
+        const originalOverrides = {
+            [ENV.CHAT_CONTEXT_LIMIT_TOKENS]        : aiConfig.localModels.chat.contextLimitTokens,
+            [ENV.CHAT_SAFE_PROCESSING_LIMIT_TOKENS]: aiConfig.localModels.chat.safeProcessingLimitTokens
+        };
+        let invocationCount = 0;
 
         try {
             clearAggregatedFrictions();
 
-            aiConfig.localModels.chat.contextLimitTokens        = 100000;
-            aiConfig.localModels.chat.safeProcessingLimitTokens = 50000;
+            setConfigOverrides({
+                [ENV.CHAT_CONTEXT_LIMIT_TOKENS]        : 100000,
+                [ENV.CHAT_SAFE_PROCESSING_LIMIT_TOKENS]: 50000
+            });
 
             OpenAiCompatible.prototype.generate = async function(messages) {
                 invocationCount++;
@@ -491,26 +687,31 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             expect(invocationCount).toBe(2);
             expect(getAggregatedFrictions().find(item => item.assetRef === 'under-band-repair-session')).toBeUndefined();
         } finally {
-            OpenAiCompatible.prototype.generate                 = baseGenerate;
-            aiConfig.localModels.chat.contextLimitTokens        = originalContextLimitTokens;
-            aiConfig.localModels.chat.safeProcessingLimitTokens = originalSafeProcessingLimitTokens;
+            OpenAiCompatible.prototype.generate = baseGenerate;
+            setConfigOverrides(originalOverrides);
             clearAggregatedFrictions();
         }
     });
 
     test('Sub 9 hypotheses 2, 8, 9: guardrail telemetry uses configured graph-provider model (#12617, #12059)', async () => {
-        const originalGraphProvider             = aiConfig.graphProvider;
-        const originalOllamaModel               = aiConfig.ollama?.model;
-        const originalContextLimitTokens        = aiConfig.localModels.chat.contextLimitTokens;
-        const originalSafeProcessingLimitTokens = aiConfig.localModels.chat.safeProcessingLimitTokens;
+        const originalOverrides = {
+            [ENV.GRAPH_PROVIDER]                   : aiConfig.graphProvider,
+            [ENV.OLLAMA_MODEL]                     : aiConfig.ollama.model,
+            [ENV.CHAT_CONTEXT_LIMIT_TOKENS]        : aiConfig.localModels.chat.contextLimitTokens,
+            [ENV.CHAT_SAFE_PROCESSING_LIMIT_TOKENS]: aiConfig.localModels.chat.safeProcessingLimitTokens,
+            [ENV.GRAPH_OUTPUT_LIMIT_TOKENS]        : aiConfig.localModels.chat.graphOutputLimitTokens
+        };
 
         try {
             clearAggregatedFrictions();
 
-            aiConfig.graphProvider                             = 'ollama';
-            aiConfig.ollama.model                              = 'gemma4-real-model';
-            aiConfig.localModels.chat.contextLimitTokens        = 8;
-            aiConfig.localModels.chat.safeProcessingLimitTokens = 1;
+            setConfigOverrides({
+                [ENV.GRAPH_PROVIDER]                   : 'ollama',
+                [ENV.OLLAMA_MODEL]                     : 'gemma4-real-model',
+                [ENV.CHAT_CONTEXT_LIMIT_TOKENS]        : 100000,
+                [ENV.CHAT_SAFE_PROCESSING_LIMIT_TOKENS]: 1,
+                [ENV.GRAPH_OUTPUT_LIMIT_TOKENS]        : 1
+            });
 
             const result = await SemanticGraphExtractor.executeTriVectorExtraction({
                 id      : 'mock-consumer-model-vector-id',
@@ -534,25 +735,26 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             expect(result.evidence.assetRef).toBe('consumer-model-telemetry-session:chunk:0');
             expect(result.evidence.chunkId).toBe('consumer-model-telemetry-session:chunk:0');
         } finally {
-            aiConfig.graphProvider                             = originalGraphProvider;
-            aiConfig.ollama.model                              = originalOllamaModel;
-            aiConfig.localModels.chat.contextLimitTokens        = originalContextLimitTokens;
-            aiConfig.localModels.chat.safeProcessingLimitTokens = originalSafeProcessingLimitTokens;
+            setConfigOverrides(originalOverrides);
             clearAggregatedFrictions();
         }
     });
 
     test('chunk-aware Tri-Vector preserves small-session single-pass behavior (#12073)', async () => {
-        const baseGenerate                      = OpenAiCompatible.prototype.generate;
-        const originalGraphProvider             = aiConfig.graphProvider;
-        const originalContextLimitTokens        = aiConfig.localModels.chat.contextLimitTokens;
-        const originalSafeProcessingLimitTokens = aiConfig.localModels.chat.safeProcessingLimitTokens;
-        const providerCalls                     = [];
+        const baseGenerate      = OpenAiCompatible.prototype.generate;
+        const originalOverrides = {
+            [ENV.GRAPH_PROVIDER]                   : aiConfig.graphProvider,
+            [ENV.CHAT_CONTEXT_LIMIT_TOKENS]        : aiConfig.localModels.chat.contextLimitTokens,
+            [ENV.CHAT_SAFE_PROCESSING_LIMIT_TOKENS]: aiConfig.localModels.chat.safeProcessingLimitTokens
+        };
+        const providerCalls = [];
 
         try {
-            aiConfig.graphProvider                              = 'openAiCompatible';
-            aiConfig.localModels.chat.contextLimitTokens        = 100000;
-            aiConfig.localModels.chat.safeProcessingLimitTokens = 50000;
+            setConfigOverrides({
+                [ENV.GRAPH_PROVIDER]                   : 'openAiCompatible',
+                [ENV.CHAT_CONTEXT_LIMIT_TOKENS]        : 100000,
+                [ENV.CHAT_SAFE_PROCESSING_LIMIT_TOKENS]: 50000
+            });
 
             OpenAiCompatible.prototype.generate = async function(messages) {
                 providerCalls.push(messages);
@@ -582,24 +784,88 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             expect(result.session_artifact.chunking).toBeUndefined();
             expect(result.session_artifact.human_readable_summary).toBe('Small session used the original single-pass path.');
         } finally {
-            OpenAiCompatible.prototype.generate                 = baseGenerate;
-            aiConfig.graphProvider                              = originalGraphProvider;
-            aiConfig.localModels.chat.contextLimitTokens        = originalContextLimitTokens;
-            aiConfig.localModels.chat.safeProcessingLimitTokens = originalSafeProcessingLimitTokens;
+            OpenAiCompatible.prototype.generate = baseGenerate;
+            setConfigOverrides(originalOverrides);
+        }
+    });
+
+    test('chunk-aware Tri-Vector applies graph chunk limit and reserves output context (#13984)', async () => {
+        const baseGenerate      = OpenAiCompatible.prototype.generate;
+        const originalOverrides = {
+            [ENV.GRAPH_PROVIDER]                   : aiConfig.graphProvider,
+            [ENV.CHAT_CONTEXT_LIMIT_TOKENS]        : aiConfig.localModels.chat.contextLimitTokens,
+            [ENV.CHAT_SAFE_PROCESSING_LIMIT_TOKENS]: aiConfig.localModels.chat.safeProcessingLimitTokens,
+            [ENV.GRAPH_CHUNK_LIMIT_TOKENS]         : aiConfig.localModels.chat.graphChunkLimitTokens,
+            [ENV.GRAPH_OUTPUT_LIMIT_TOKENS]        : aiConfig.localModels.chat.graphOutputLimitTokens
+        };
+        const providerCalls = [];
+
+        try {
+            setConfigOverrides({
+                [ENV.GRAPH_PROVIDER]                   : 'openAiCompatible',
+                [ENV.CHAT_CONTEXT_LIMIT_TOKENS]        : 40000,
+                [ENV.CHAT_SAFE_PROCESSING_LIMIT_TOKENS]: 50000,
+                [ENV.GRAPH_CHUNK_LIMIT_TOKENS]         : 50000,
+                [ENV.GRAPH_OUTPUT_LIMIT_TOKENS]        : 8192
+            });
+
+            OpenAiCompatible.prototype.generate = async function(messages, options) {
+                providerCalls.push({
+                    messages,
+                    options,
+                    activeDuringCall: {...SemanticGraphExtractor.activeTriVectorCall}
+                });
+
+                return {
+                    content: JSON.stringify({
+                        a2a_version     : '1.0',
+                        agent_id        : 'Antigravity',
+                        session_artifact: {
+                            feature_namespace     : 'Neo.ai.OutputReserve',
+                            human_readable_summary: `reserve-aware summary ${providerCalls.length}`,
+                            graph                 : {nodes: [], edges: []}
+                        }
+                    })
+                };
+            };
+
+            const turnDocuments = Array.from({length: 2}, (_, index) => `turn-${index}\n${'x'.repeat(54000)}`);
+            const result = await SemanticGraphExtractor.executeTriVectorExtraction({
+                id      : 'mock-output-reserve-vector-id',
+                meta    : {sessionId: 'output-reserve-trivector-session'},
+                document: turnDocuments.join('\n\n---\n\n'),
+                turnDocuments
+            });
+
+            expect(providerCalls.length).toBeGreaterThan(1);
+            expect(result.session_artifact.chunking.chunked).toBe(true);
+
+            for (const call of providerCalls) {
+                expect(call.options.maxCompletionTokens).toBe(8192);
+                expect(call.activeDuringCall.promptPlusOutputTokens).toBeLessThanOrEqual(40000);
+                expect(call.activeDuringCall.outputLimitTokens).toBe(8192);
+            }
+        } finally {
+            OpenAiCompatible.prototype.generate = baseGenerate;
+            setConfigOverrides(originalOverrides);
         }
     });
 
     test('chunk-aware Tri-Vector maps chunks, reduces deterministically, and dedupes by type/name (#12073)', async () => {
-        const baseGenerate                      = OpenAiCompatible.prototype.generate;
-        const originalGraphProvider             = aiConfig.graphProvider;
-        const originalContextLimitTokens        = aiConfig.localModels.chat.contextLimitTokens;
-        const originalSafeProcessingLimitTokens = aiConfig.localModels.chat.safeProcessingLimitTokens;
-        const providerCalls                     = [];
+        const baseGenerate      = OpenAiCompatible.prototype.generate;
+        const originalOverrides = {
+            [ENV.GRAPH_PROVIDER]                   : aiConfig.graphProvider,
+            [ENV.CHAT_CONTEXT_LIMIT_TOKENS]        : aiConfig.localModels.chat.contextLimitTokens,
+            [ENV.CHAT_SAFE_PROCESSING_LIMIT_TOKENS]: aiConfig.localModels.chat.safeProcessingLimitTokens
+        };
+        const providerCalls = [];
 
         try {
-            aiConfig.graphProvider                              = 'openAiCompatible';
-            aiConfig.localModels.chat.contextLimitTokens        = 100000;
-            aiConfig.localModels.chat.safeProcessingLimitTokens = 5000;
+            setConfigOverrides({
+                [ENV.GRAPH_PROVIDER]                   : 'openAiCompatible',
+                [ENV.CHAT_CONTEXT_LIMIT_TOKENS]        : 100000,
+                [ENV.CHAT_SAFE_PROCESSING_LIMIT_TOKENS]: 5000
+            });
 
             OpenAiCompatible.prototype.generate = async function(messages) {
                 const userContent = messages[1].content;
@@ -666,24 +932,26 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             expect(GraphService.db.nodes.get('CLASS:Shared0')).toBeTruthy();
             expect(GraphService.db.nodes.get('CLASS:Shared1')).toBeFalsy();
         } finally {
-            OpenAiCompatible.prototype.generate                 = baseGenerate;
-            aiConfig.graphProvider                              = originalGraphProvider;
-            aiConfig.localModels.chat.contextLimitTokens        = originalContextLimitTokens;
-            aiConfig.localModels.chat.safeProcessingLimitTokens = originalSafeProcessingLimitTokens;
+            OpenAiCompatible.prototype.generate = baseGenerate;
+            setConfigOverrides(originalOverrides);
         }
     });
 
     test('chunk-aware Tri-Vector aborts reduce before graph commit when a chunk fails (#12073)', async () => {
-        const baseGenerate                      = OpenAiCompatible.prototype.generate;
-        const originalGraphProvider             = aiConfig.graphProvider;
-        const originalContextLimitTokens        = aiConfig.localModels.chat.contextLimitTokens;
-        const originalSafeProcessingLimitTokens = aiConfig.localModels.chat.safeProcessingLimitTokens;
-        let   invocationCount                   = 0;
+        const baseGenerate      = OpenAiCompatible.prototype.generate;
+        const originalOverrides = {
+            [ENV.GRAPH_PROVIDER]                   : aiConfig.graphProvider,
+            [ENV.CHAT_CONTEXT_LIMIT_TOKENS]        : aiConfig.localModels.chat.contextLimitTokens,
+            [ENV.CHAT_SAFE_PROCESSING_LIMIT_TOKENS]: aiConfig.localModels.chat.safeProcessingLimitTokens
+        };
+        let invocationCount = 0;
 
         try {
-            aiConfig.graphProvider                              = 'openAiCompatible';
-            aiConfig.localModels.chat.contextLimitTokens        = 100000;
-            aiConfig.localModels.chat.safeProcessingLimitTokens = 5000;
+            setConfigOverrides({
+                [ENV.GRAPH_PROVIDER]                   : 'openAiCompatible',
+                [ENV.CHAT_CONTEXT_LIMIT_TOKENS]        : 100000,
+                [ENV.CHAT_SAFE_PROCESSING_LIMIT_TOKENS]: 5000
+            });
 
             OpenAiCompatible.prototype.generate = async function() {
                 invocationCount++;
@@ -732,10 +1000,8 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             expect(result.evidence.chunkCount).toBeGreaterThan(1);
             expect(GraphService.db.nodes.get('CLASS:PartialChunk')).toBeFalsy();
         } finally {
-            OpenAiCompatible.prototype.generate                 = baseGenerate;
-            aiConfig.graphProvider                              = originalGraphProvider;
-            aiConfig.localModels.chat.contextLimitTokens        = originalContextLimitTokens;
-            aiConfig.localModels.chat.safeProcessingLimitTokens = originalSafeProcessingLimitTokens;
+            OpenAiCompatible.prototype.generate = baseGenerate;
+            setConfigOverrides(originalOverrides);
             clearAggregatedFrictions();
         }
     });
