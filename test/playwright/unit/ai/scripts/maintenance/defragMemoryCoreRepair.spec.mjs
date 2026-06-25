@@ -1,5 +1,10 @@
 import {test, expect}                                                                                 from '@playwright/test';
-import {anyRepairAborted, assertDefragTargetSupported, repairMemoryCoreCollectionsViaFullEnumeration} from '../../../../../../ai/scripts/maintenance/defragChromaDB.mjs';
+import {
+    anyRepairAborted,
+    assertDefragTargetSupported,
+    formatMemoryCoreRepairProgress,
+    repairMemoryCoreCollectionsViaFullEnumeration
+} from '../../../../../../ai/scripts/maintenance/defragChromaDB.mjs';
 
 /**
  * AC4 — the Memory Core defrag-wiring orchestration: full (uncapped) enumeration ->
@@ -236,5 +241,68 @@ test.describe('anyRepairAborted — operator fail-loud predicate (#13634 AC4)', 
 
     test('false for an empty result set', () => {
         expect(anyRepairAborted([])).toBe(false);
+    });
+});
+
+test.describe('formatMemoryCoreRepairProgress — timestamped operator progress (#14017)', () => {
+    const now            = '2026-06-25T18:45:00.000Z',
+          collectionName = 'neo-agent-memory';
+
+    test('timestamps representative repair phases while preserving progress details', () => {
+        expect(formatMemoryCoreRepairProgress({
+            collectionName,
+            now,
+            event: {
+                phase : 'start',
+                total : 22545,
+                counts: {intact: 0, reEmbedded: 0, unrecoverable: 0}
+            }
+        })).toBe(`   [${now}] ⏳ 'neo-agent-memory': extraction starting (total=22545, intact=0, reEmbedded=0, unrecoverable=0)`);
+
+        expect(formatMemoryCoreRepairProgress({
+            collectionName,
+            now,
+            event: {
+                phase    : 'intact-extract',
+                percent  : 40,
+                processed: 4000,
+                total    : 8583,
+                counts   : {intact: 4000}
+            }
+        })).toBe(`   [${now}] ⏳ 'neo-agent-memory': intact-vector extraction 40% (4000/8583; intact=4000)`);
+
+        expect(formatMemoryCoreRepairProgress({
+            collectionName,
+            now,
+            event: {
+                phase    : 'missing-reembed',
+                percent  : 30,
+                processed: 5000,
+                total    : 13962,
+                counts   : {reEmbedded: 5000, unrecoverable: 0}
+            }
+        })).toBe(`   [${now}] ⏳ 'neo-agent-memory': missing-vector re-embed 30% (5000/13962; reEmbedded=5000, unrecoverable=0)`);
+
+        expect(formatMemoryCoreRepairProgress({
+            collectionName,
+            now,
+            event: {
+                phase : 'complete',
+                counts: {total: 22545, intact: 8583, reEmbedded: 13962, unrecoverable: 0}
+            }
+        })).toBe(`   [${now}] ✅ 'neo-agent-memory': extraction complete; counts {"total":22545,"intact":8583,"reEmbedded":13962,"unrecoverable":0}`);
+    });
+
+    test('timestamps fallback progress phases', () => {
+        expect(formatMemoryCoreRepairProgress({
+            collectionName,
+            now,
+            event: {
+                phase    : 'unexpected-phase',
+                percent  : 75,
+                processed: 3,
+                total    : 4
+            }
+        })).toBe(`   [${now}] ⏳ 'neo-agent-memory': unexpected-phase 75% (3/4)`);
     });
 });
