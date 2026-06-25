@@ -62,7 +62,7 @@ test.describe('repairMemoryCoreCollectionsViaFullEnumeration (#13634 AC4)', () =
     });
 
     test('fail-loud: unrecoverable rows abort that collection promotion (no silent drop)', async () => {
-        const coverage = {collections: [{name: 'mc-memory', allIds: ['a', 'b'], missingVectorIds: ['b']}]},
+        const coverage       = {collections: [{name: 'mc-memory', allIds: ['a', 'b'], missingVectorIds: ['b']}]},
               extractResults = {
                   'mc-memory': {data: {ids: ['a'], embeddings: [[1]], documents: [''], metadatas: [{}]}, unrecoverable: ['b'], counts: {total: 2, intact: 1, reEmbedded: 0, unrecoverable: 1}}
               },
@@ -89,6 +89,57 @@ test.describe('repairMemoryCoreCollectionsViaFullEnumeration (#13634 AC4)', () =
         expect(calls.writeState[0].state.aborted).toEqual(['mc-memory']);
     });
 
+    test('dry-run reports clean extraction without promotion or state-marker writes', async () => {
+        const coverage       = {collections: [{name: 'mc-memory', allIds: ['a', 'b'], missingVectorIds: ['b']}]},
+              extractResults = {
+                  'mc-memory': {data: {ids: ['a', 'b'], embeddings: [[1], [2]], documents: ['', 'doc'], metadatas: [{}, {}]}, unrecoverable: [], counts: {total: 2, intact: 1, reEmbedded: 1, unrecoverable: 0}}
+              },
+              {calls, client, auditFn, extractFn, promoteFn, clearStateFn, writeStateFn} = makeSeams({coverage, extractResults});
+
+        const {results} = await repairMemoryCoreCollectionsViaFullEnumeration({
+            client, collections: ['mc-memory'], snapshotPath: '/snap', persistDir: '/persist',
+            embedFn, embeddingFunction, statePath: '/state', dryRun: true,
+            auditFn, extractFn, promoteFn, clearStateFn, writeStateFn, log: () => {}
+        });
+
+        expect(calls.audit[0].includeFullIds).toBe(true);
+        expect(calls.extract).toHaveLength(1);
+        expect(calls.promote).toHaveLength(0);
+        expect(calls.clearState).toHaveLength(0);
+        expect(calls.writeState).toHaveLength(0);
+        expect(results).toEqual([{
+            collectionName: 'mc-memory',
+            dryRun        : true,
+            counts        : {total: 2, intact: 1, reEmbedded: 1, unrecoverable: 0}
+        }]);
+    });
+
+    test('dry-run reports unrecoverable rows without writing an aborted state marker', async () => {
+        const coverage       = {collections: [{name: 'mc-memory', allIds: ['a', 'b'], missingVectorIds: ['b']}]},
+              extractResults = {
+                  'mc-memory': {data: {ids: ['a'], embeddings: [[1]], documents: [''], metadatas: [{}]}, unrecoverable: ['b'], counts: {total: 2, intact: 1, reEmbedded: 0, unrecoverable: 1}}
+              },
+              {calls, client, auditFn, extractFn, promoteFn, clearStateFn, writeStateFn} = makeSeams({coverage, extractResults});
+
+        const {results} = await repairMemoryCoreCollectionsViaFullEnumeration({
+            client, collections: ['mc-memory'], snapshotPath: '/snap', persistDir: '/persist',
+            embedFn, embeddingFunction, statePath: '/state', dryRun: true,
+            auditFn, extractFn, promoteFn, clearStateFn, writeStateFn, log: () => {}
+        });
+
+        expect(calls.promote).toHaveLength(0);
+        expect(calls.clearState).toHaveLength(0);
+        expect(calls.writeState).toHaveLength(0);
+        expect(results[0]).toMatchObject({
+            collectionName: 'mc-memory',
+            dryRun        : true,
+            aborted       : true,
+            unrecoverable : ['b'],
+            counts        : {total: 2, intact: 1, reEmbedded: 0, unrecoverable: 1}
+        });
+        expect(anyRepairAborted(results)).toBe(true);
+    });
+
     test('throws when the enumeration returns no coverage row for a requested collection', async () => {
         const {client, auditFn, extractFn, promoteFn} = makeSeams({coverage: {collections: []}, extractResults: {}});
 
@@ -99,7 +150,7 @@ test.describe('repairMemoryCoreCollectionsViaFullEnumeration (#13634 AC4)', () =
     });
 
     test('omitting statePath skips all state-marker ops (no marker lifecycle without a path)', async () => {
-        const coverage = {collections: [{name: 'mc-memory', allIds: ['a'], missingVectorIds: []}]},
+        const coverage       = {collections: [{name: 'mc-memory', allIds: ['a'], missingVectorIds: []}]},
               extractResults = {
                   'mc-memory': {data: {ids: ['a'], embeddings: [[1]], documents: [''], metadatas: [{}]}, unrecoverable: [], counts: {total: 1, intact: 1, reEmbedded: 0, unrecoverable: 0}}
               },
