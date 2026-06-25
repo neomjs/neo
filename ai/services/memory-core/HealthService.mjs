@@ -1611,7 +1611,7 @@ class HealthService extends Base {
                 // If the cache is still fresh (< 5 minutes old), reuse it while keeping
                 // direct healthcheck observability request-fresh when requested.
                 if (age < this.#cacheDuration) {
-                    logger.debug(`[HealthService] Using cached health status (age: ${Math.round(age / 1000)}s)`);
+                    logger.fileDebug(`[HealthService] Using cached health status (age: ${Math.round(age / 1000)}s)`);
 
                     if (!freshObservability) {
                         return this.#cachedHealth;
@@ -1632,12 +1632,12 @@ class HealthService extends Base {
 
             // Check for in-flight request (deduplication)
             if (this.#healthCheckPromise) {
-                logger.debug('[HealthService] Joining in-flight health check...');
+                logger.fileDebug('[HealthService] Joining in-flight health check...');
                 return await this.#healthCheckPromise;
             }
 
             // Cache is stale, was unhealthy, or doesn't exist - perform a fresh check
-            logger.debug('[HealthService] Performing fresh health check');
+            logger.fileDebug('[HealthService] Performing fresh health check');
 
             // Create the promise and store it
             this.#healthCheckPromise = this.#performHealthCheck({
@@ -1825,13 +1825,15 @@ class HealthService extends Base {
      * Intent: This is primarily useful for testing and debugging scenarios where
      * you need to immediately verify a fix (e.g., after starting ChromaDB)
      * without waiting for the 5-minute cache to expire.
+     * The routine invalidation notice is durable-file-only so diagnostic churn
+     * does not flood developer-facing console streams.
      */
     clearCache() {
         this.#cachedHealth                = null;
         this.#lastCheckTime               = null;
         this.#embeddingWriteCanaryCache   = null;
         this.#runtimeFreshnessTracker.clearCache();
-        logger.debug('[HealthService] Cache cleared, next health check will be fresh');
+        logger.fileDebug('[HealthService] Cache cleared, next health check will be fresh');
     }
 }
 
