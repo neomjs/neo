@@ -1385,6 +1385,51 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         expect(result.embedding).toBeUndefined();
     });
 
+    test('checkOpenAiCompatibleEmbeddingServing applies LMS GGUF EOS suffix when metadata is available (#14015)', async () => {
+        let request;
+
+        const result = await providerReadinessHelper.checkOpenAiCompatibleEmbeddingServing({
+            host           : 'http://127.0.0.1:1234',
+            model          : 'embedding-model',
+            input          : 'neo embedding canary',
+            timeoutMs      : 50,
+            lmsLoadedModels: [{
+                id          : 'embedding-model',
+                format      : 'gguf',
+                eosTokenText: '<|endoftext|>'
+            }],
+            fetchFn  : async (url, options) => {
+                request = {
+                    url,
+                    method: options.method,
+                    body  : JSON.parse(options.body)
+                };
+
+                return {
+                    ok  : true,
+                    json: async () => ({data: [{embedding: [0.1, 0.2, 0.3]}]})
+                };
+            }
+        });
+
+        expect(request).toEqual({
+            url   : 'http://127.0.0.1:1234/v1/embeddings',
+            method: 'POST',
+            body  : {
+                model: 'embedding-model',
+                input: 'neo embedding canary<|endoftext|>'
+            }
+        });
+        expect(result).toMatchObject({
+            ready       : true,
+            degraded    : false,
+            provider    : 'openAiCompatible',
+            host        : 'http://127.0.0.1:1234',
+            model       : 'embedding-model',
+            vectorLength: 3
+        });
+    });
+
     test('checkOpenAiCompatibleEmbeddingServing serializes concurrent canaries (#13950)', async () => {
         const events = [];
         let releaseFirst;

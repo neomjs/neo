@@ -4,15 +4,15 @@ import Base                 from '../../../src/core/Base.mjs';
 import logger               from '../../mcp/server/memory-core/logger.mjs';
 import OllamaProvider       from '../../provider/Ollama.mjs';
 import {
+    withLmsEmbeddingInputSuffix
+}                           from '../shared/vector/lmsEmbeddingInputSuffix.mjs';
+import {
     bytesToTokens,
     emitConsumerFriction
 }                           from './helpers/consumerFrictionHelper.mjs';
 
 const DEFAULT_OPENAI_COMPATIBLE_REQUEST_TIMEOUT_MS = 60 * 60 * 1000;
 const OPENAI_COMPATIBLE_CONTENTION_HTTP_ERROR_RE   = /openAiCompatible embedding error HTTP (408|429|503|504):/;
-const LMS_EMBEDDING_INPUT_SUFFIX_BY_ARCHITECTURE   = {
-    qwen3: '<|im_end|>'
-};
 
 /**
  * Determines whether TextEmbeddingService needs a Gemini embedding client for the active provider.
@@ -227,74 +227,6 @@ class TextEmbeddingService extends Base {
     }
 
     /**
-     * @summary Resolves the LMS-only embedding input suffix from loaded-model metadata.
-     *
-     * This deliberately does not use OpenAI-compatible config: Ollama, llama.cpp, vLLM, and
-     * managed compatibility endpoints share that provider surface but must not receive an
-     * LM Studio/Qwen-specific request suffix. `lms ps --json` exposes the resident model
-     * metadata; Qwen3 GGUF embeddings need `<|im_end|>` when their GGUF header does not auto-add
-     * EOS/SEP.
-     *
-     * @param {Object|null} loadedModel Normalized `lms ps --json` row.
-     * @returns {String}
-     * @private
-     */
-    #getLmsEmbeddingInputSuffix(loadedModel) {
-        const
-            format       = String(loadedModel?.format || '').toLowerCase(),
-            metadataText = [
-                loadedModel?.architecture,
-                loadedModel?.modelKey,
-                loadedModel?.path,
-                loadedModel?.indexedModelIdentifier
-            ].filter(value => typeof value === 'string').join(' ').toLowerCase();
-
-        if (format && format !== 'gguf') {
-            return '';
-        }
-
-        for (const [architecture, suffix] of Object.entries(LMS_EMBEDDING_INPUT_SUFFIX_BY_ARCHITECTURE)) {
-            if (metadataText.includes(architecture)) {
-                return suffix;
-            }
-        }
-
-        return '';
-    }
-
-    /**
-     * @summary Appends the LMS metadata-derived embedding input suffix when absent.
-     * @param {String} text The outbound embedding text.
-     * @param {Object|null} loadedModel Normalized `lms ps --json` row.
-     * @returns {String}
-     * @private
-     */
-    #appendLmsEmbeddingInputSuffix(text, loadedModel) {
-        const suffix = this.#getLmsEmbeddingInputSuffix(loadedModel);
-
-        if (!suffix || typeof text !== 'string' || text.endsWith(suffix)) {
-            return text;
-        }
-
-        return `${text}${suffix}`;
-    }
-
-    /**
-     * @summary Normalizes LMS embedding request input before context checks and POST.
-     * @param {String|String[]} inputData The text or array of texts to embed.
-     * @param {Object|null} loadedModel Normalized `lms ps --json` row.
-     * @returns {String|String[]}
-     * @private
-     */
-    #withLmsEmbeddingInputSuffix(inputData, loadedModel) {
-        if (Array.isArray(inputData)) {
-            return inputData.map(text => this.#appendLmsEmbeddingInputSuffix(text, loadedModel));
-        }
-
-        return this.#appendLmsEmbeddingInputSuffix(inputData, loadedModel);
-    }
-
-    /**
      * @summary Estimates the largest text input in an OpenAI-compatible embedding request.
      *
      * LM Studio truncates each input string independently. Batch safety therefore uses the
@@ -460,7 +392,7 @@ class TextEmbeddingService extends Base {
     async #prepareOpenAiCompatibleEmbeddingInput(inputData) {
         const
             runtime          = await this.#getOpenAiCompatibleEmbeddingRuntime(),
-            requestInputData = runtime ? this.#withLmsEmbeddingInputSuffix(inputData, runtime.loadedModel) : inputData;
+            requestInputData = runtime ? withLmsEmbeddingInputSuffix(inputData, runtime.loadedModel, {log: logger}) : inputData;
 
         this.#assertOpenAiCompatibleEmbeddingContext(requestInputData, runtime);
 
