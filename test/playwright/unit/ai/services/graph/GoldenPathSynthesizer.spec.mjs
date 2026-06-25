@@ -779,11 +779,12 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             fs.rmSync(issuesDir, {recursive: true, force: true});
         }
 
-        const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
-        const focusIndex     = handoffContent.indexOf('## Current Release / Incident Focus');
-        const staleIndex     = handoffContent.indexOf('## Stale Assignment Candidates');
-        const computedIndex  = handoffContent.indexOf('## Computed Golden Path');
-        const focusSection   = handoffContent.slice(focusIndex, staleIndex);
+        const handoffContent  = fs.readFileSync(tmpHandoffFile, 'utf-8');
+        const focusIndex      = handoffContent.indexOf('## Current Release / Incident Focus');
+        const staleIndex      = handoffContent.indexOf('## Stale Assignment Candidates');
+        const computedIndex   = handoffContent.indexOf('## Computed Golden Path');
+        const focusSection    = handoffContent.slice(focusIndex, staleIndex);
+        const computedSection = handoffContent.slice(computedIndex);
 
         expect(focusIndex).toBeGreaterThan(-1);
         expect(staleIndex).toBeGreaterThan(-1);
@@ -795,6 +796,17 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(focusSection).not.toContain('Old generic AI enhancement');
         expect(handoffContent).toContain(readyId);
         expect(handoffContent).toContain(discussionId);  // discussions are now actionable (an open converge-to-drive)
+        expect(computedSection).toContain([
+            '## Computed Golden Path (Strategic Recommendation)',
+            '',
+            'Captured at: 2026-06-21 11:30 UTC',
+            '',
+            'Based on the latest Tri-Vector Synthesis and Topological Priorities, the following tasks are mathematically recommended as the next immediate focus:',
+            ''
+        ].join('\n'));
+        expect(computedSection).toContain(`1. **${discussionId}**: Score 18.18 (Semantic: 9.09, Structural: 0.00)\n   - *Governance discussion*`);
+        expect(computedSection).toContain(`2. **${readyId}**: Score 3.33 (Semantic: 1.67, Structural: 0.00)\n   - *Actionable release leaf*`);
+        expect(computedSection).toContain('> **Strategic Interpretation:**\n> stub');
         expect(handoffContent).not.toContain(epicId);    // epic label still excluded
         expect(handoffContent).not.toContain(notReadyId);
     });
