@@ -193,7 +193,7 @@ test.describe('Tier 1 Config Immutability', () => {
         });
 
         expect(Config.orchestrator.deploymentStateBridge).toMatchObject({
-            enabled          : false,
+            enabled          : true,
             snapshotPath     : expect.stringContaining('.neo-ai-data/deployment-state/snapshot.json'),
             writeIntervalMs  : 30000,
             staleAfterMs     : 2 * 60 * 1000,
@@ -204,6 +204,11 @@ test.describe('Tier 1 Config Immutability', () => {
             logMaxBytes      : 32 * 1024,
             statsSampleWindow: 2
         });
+
+        Config.setEnvOverride('NEO_DEPLOYMENT_STATE_BRIDGE_ENABLED', false);
+        expect(Config.orchestrator.deploymentStateBridge.enabled).toBe(false);
+        Config.setEnvOverride('NEO_DEPLOYMENT_STATE_BRIDGE_ENABLED', true);
+        expect(Config.orchestrator.deploymentStateBridge.enabled).toBe(true);
 
         // Provider-readiness probe parameters consumed by the orchestrator dream task
         // + standalone Sandman CLI runner. Values are concrete defaults — no module-level
