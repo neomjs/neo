@@ -279,27 +279,6 @@ class SemanticGraphExtractor extends Base {
     }
 
     /**
-     * Reads a required `localModels.chat` numeric leaf from the AiConfig SSOT.
-     *
-     * @summary Anchor & Echo: Keeps ADR-19 fail-loud semantics at the use site for REM parsing
-     * budgets. The config template owns defaults and types; missing/stale overlays must crash
-     * with an actionable message instead of silently disabling parser bounds.
-     *
-     * @param {String} leafName Leaf name under `AiConfig.localModels.chat`
-     * @returns {Number}
-     * @protected
-     */
-    readRequiredChatNumberLeaf(leafName) {
-        const value = AiConfig.localModels.chat[leafName];
-
-        if (!Number.isFinite(value) || value <= 0) {
-            throw new Error(`[SemanticGraphExtractor] Required AiConfig leaf "localModels.chat.${leafName}" is missing or invalid. Update ai/config.mjs from config.template.mjs.`);
-        }
-
-        return value;
-    }
-
-    /**
      * Creates deterministic turn-aligned Tri-Vector chunks after subtracting prompt overhead.
      *
      * @summary Anchor & Echo: Small sessions preserve the exact `session.document` single-pass path.
@@ -319,7 +298,8 @@ class SemanticGraphExtractor extends Base {
                   {role: 'system', content: systemInstruction},
                   {role: 'user',   content: '--- Session Episodic Memory ---\n'}
               ]).tokens,
-              chunkBudget = Math.max(1, this.readRequiredChatNumberLeaf('safeProcessingLimitTokens') - envelopeTokens);
+              safeProcessingLimitTokens = AiConfig.localModels.chat.safeProcessingLimitTokens,
+              chunkBudget               = Math.max(1, safeProcessingLimitTokens - envelopeTokens);
 
         return chunkSession(turnDocuments, {
             sessionId                : session.meta.sessionId,
@@ -984,18 +964,20 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             // threshold (model-role axis, not provider-namespace — remote providers like
             // Gemini are API-bound and don't expose these knobs; local providers
             // share the same caps because the limit comes from the loaded model).
-            const consumerModel          = AiConfig[graphProvider].model;
-            const consumerContextTokens  = this.readRequiredChatNumberLeaf('contextLimitTokens');
-            const consumerSafeTokens     = this.readRequiredChatNumberLeaf('safeProcessingLimitTokens');
-            const graphOutputLimitTokens = this.readRequiredChatNumberLeaf('graphOutputLimitTokens');
+            const consumerModel = graphProvider === 'ollama' ? AiConfig.ollama.model : AiConfig.openAiCompatible.model;
+            const {
+                contextLimitTokens,
+                safeProcessingLimitTokens,
+                graphOutputLimitTokens,
+                graphReasoningEffort
+            } = AiConfig.localModels.chat;
 
             // Per-task no-think + grammar-constrained tri-vector output. `graphReasoningEffort`
             // (default 'none') disables the gemma MoE's hidden thinking pass; `triVectorSchema` enforces
             // the A2A session_artifact/graph shape via the provider's json_schema path, which makes the
             // repair-retry loop below a safety net rather than the happy path. Schema mirrors the strict
             // shape declared in the systemInstruction above.
-            const graphReasoningEffort = AiConfig.localModels.chat.graphReasoningEffort;
-            const triVectorSchema      = {
+            const triVectorSchema = {
                 type      : 'object',
                 properties: {
                     a2a_version     : {type: 'string'},
@@ -1056,21 +1038,21 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                     const chunk  = chunkPlan.chunks[index],
                           result = await this.extractTriVectorPayload({
                               session,
-                              document        : chunk.text,
-                              assetRef        : chunk.chunkId,
-                              consumerProvider: graphProvider,
+                              document             : chunk.text,
+                              assetRef             : chunk.chunkId,
+                              consumerProvider     : graphProvider,
                               provider,
                               consumerModel,
-                              consumerContextTokens,
-                              consumerSafeTokens,
+                              consumerContextTokens: contextLimitTokens,
+                              consumerSafeTokens   : safeProcessingLimitTokens,
                               graphOutputLimitTokens,
                               graphReasoningEffort,
                               triVectorSchema,
                               systemInstruction,
-                              chunkIndex      : index,
-                              chunkCount      : chunkPlan.chunks.length,
-                              turnIndices     : chunk.turnIndices,
-                              chunkTokens     : chunk.estimatedTokens
+                              chunkIndex           : index,
+                              chunkCount           : chunkPlan.chunks.length,
+                              turnIndices          : chunk.turnIndices,
+                              chunkTokens          : chunk.estimatedTokens
                           });
 
                     if (this.isTriVectorFailureDescriptor(result)) {
@@ -1085,13 +1067,13 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             } else {
                 payload = await this.extractTriVectorPayload({
                     session,
-                    document        : session.document,
-                    assetRef        : session.meta.sessionId,
-                    consumerProvider: graphProvider,
+                    document             : session.document,
+                    assetRef             : session.meta.sessionId,
+                    consumerProvider     : graphProvider,
                     provider,
                     consumerModel,
-                    consumerContextTokens,
-                    consumerSafeTokens,
+                    consumerContextTokens: contextLimitTokens,
+                    consumerSafeTokens   : safeProcessingLimitTokens,
                     graphOutputLimitTokens,
                     graphReasoningEffort,
                     triVectorSchema,

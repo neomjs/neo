@@ -115,21 +115,6 @@ function finishPhase(phase, startedAt, status, details = {}) {
     });
 }
 
-/**
- * @summary Reads a required numeric AiConfig leaf and fails loud when the imported config is stale.
- * @param {String} leafName The AiConfig leaf name.
- * @returns {Number}
- */
-function readRequiredNumberLeaf(leafName) {
-    const value = aiConfig[leafName];
-
-    if (!Number.isFinite(value)) {
-        throw new Error(`[DreamService] Required AiConfig leaf "${leafName}" is missing or invalid. Update ai/mcp/server/memory-core/config.mjs from config.template.mjs.`);
-    }
-
-    return value;
-}
-
 function resolveSessionTimestamp(meta = {}) {
     const value = meta.timestamp ?? meta.lastActivity ?? meta.updatedAt ?? meta.createdAt;
 
@@ -183,7 +168,7 @@ function splitFreshAndAgedUndigested(rows, maxToProcess) {
         return [];
     }
 
-    const reserve  = maxToProcess > 1 ? Math.min(readRequiredNumberLeaf('undigestedSessionFreshReserve'), maxToProcess - 1) : maxToProcess;
+    const reserve  = maxToProcess > 1 ? Math.min(aiConfig.undigestedSessionFreshReserve, maxToProcess - 1) : maxToProcess;
     const fresh    = [...rows].sort(compareSessionRows('DESC')).slice(0, reserve);
     const freshIds = new Set(fresh.map(row => row.id));
     const aged     = [...rows]
@@ -265,8 +250,8 @@ class DreamService extends Base {
         // Since ChromaDB filtering on missing attributes can be tricky depending on version,
         // filter in memory after sampling the collection head and tail. Chroma does not expose
         // SQL-style ORDER BY, so metadata timestamps define the fresh/aged split.
-        const limit        = Math.max(1, Math.floor(readRequiredNumberLeaf('summarizationBatchLimit')));
-        const maxToProcess = Math.max(0, Math.floor(readRequiredNumberLeaf('remSleepBatchLimit')));
+        const limit        = Math.max(1, Math.floor(aiConfig.summarizationBatchLimit));
+        const maxToProcess = Math.max(0, Math.floor(aiConfig.remSleepBatchLimit));
 
         if (maxToProcess === 0) {
             return [];
@@ -606,7 +591,7 @@ class DreamService extends Base {
                         // bare-null returns stay retryable so a storage/transient failure never removes
                         // a digestible session from the steady cadence.
                         const digestAttempts           = (Number(session.meta.digestAttempts) || 0) + 1;
-                        const maxDigestAttempts        = readRequiredNumberLeaf('maxDigestAttempts');
+                        const maxDigestAttempts        = aiConfig.maxDigestAttempts;
                         const terminalForCadence       = ingestErrors === 0 && extractionFailure?.terminalForCadence === true;
                         const immediateTerminalCadence = ingestErrors === 0 && isImmediateCadenceTerminalFailure(extractionFailure);
                         const deferReason              = ingestErrors > 0
@@ -849,7 +834,7 @@ class DreamService extends Base {
         try {
             const undigested = await this.findUndigestedSessions();
             sessionCount = Array.isArray(undigested) ? undigested.length : 0;
-            remBatchLimit = Math.max(0, Math.floor(readRequiredNumberLeaf('remSleepBatchLimit')));
+            remBatchLimit = Math.max(0, Math.floor(aiConfig.remSleepBatchLimit));
             perPhaseStates.push(finishPhase('sessionQuery', sessionQueryStart, 'completed', {sessionsFound: sessionCount}));
         } catch (e) {
             const message = toErrorMessage(e);
