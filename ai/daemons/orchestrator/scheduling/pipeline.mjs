@@ -555,7 +555,22 @@ async function runGoldenPathTask({taskName, reason, services, repoEnrichmentEnab
     services.taskStateService.markStarted(taskName, reason);
     services.healthService?.recordTaskOutcome?.(taskName, 'running', { reason, startedAt: new Date().toISOString() });
     try {
-        await services.goldenPathSynthesizer.synthesizeGoldenPath({repoEnrichmentEnabled});
+        const outcome = await services.goldenPathSynthesizer.synthesizeGoldenPath({repoEnrichmentEnabled});
+
+        if (outcome?.status === 'failed') {
+            const state = services.taskStateService.getTaskState(taskName);
+            if (state) state.lastReason = outcome.reasonCode || outcome.error || 'golden-path-failed';
+            services.taskStateService.markFailed(taskName, 1);
+            services.healthService?.recordTaskOutcome?.(taskName, 'failed', {
+                reason,
+                reasonCode  : outcome.reasonCode,
+                error       : outcome.error,
+                failedAt    : new Date().toISOString(),
+                wroteHandoff: outcome.wroteHandoff === true
+            });
+            return;
+        }
+
         services.taskStateService.markCompleted(taskName);
         services.healthService?.recordTaskOutcome?.(taskName, 'completed', {
             reason,

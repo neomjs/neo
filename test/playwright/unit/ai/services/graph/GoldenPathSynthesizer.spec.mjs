@@ -877,6 +877,85 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(guideTargets).not.toContain(staleId);
     });
 
+    test('synthesizeGoldenPath renders degraded diagnostics when semantic vector query fails (#13978)', async () => {
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const suffix     = `${process.pid}-${Date.now()}`;
+        const staleId    = `issue-stale-query-guide-${suffix}`;
+        const queryError = new Error('Error executing plan: Internal error: Error finding id');
+        aiConfig.vectorDimension = 2;
+
+        GraphService.upsertNode({
+            id        : 'frontier',
+            type      : 'SYSTEM_TENET',
+            properties: {name: 'Active Context Frontier'}
+        });
+        GraphService.upsertNode({
+            id        : staleId,
+            type      : 'ISSUE',
+            properties: {state: 'OPEN', title: 'Stale query guide'}
+        });
+        GoldenPathSynthesizer.constructor.pruneStaleFrontierGuideEdges();
+        GraphService.linkNodes('frontier', staleId, 'GUIDES', 3);
+        fs.writeFileSync(tmpHandoffFile, [
+            '# Stale Handoff',
+            '',
+            '### Recent Open PRs by Author',
+            '- stale solo PR bloat',
+            '',
+            '1. **issue-9890**: stale computed route'
+        ].join('\n'), 'utf-8');
+
+        StorageRouter.getGraphCollection = async () => ({
+            query: async () => { throw queryError; }
+        });
+        StorageRouter.getSummaryCollection = async () => ({
+            get: async config => {
+                if (Array.isArray(config?.ids)) {
+                    return {
+                        ids      : ['summary-1'],
+                        documents: ['Golden Path should fail loud when Chroma cannot resolve an id']
+                    };
+                }
+
+                return {
+                    ids      : ['summary-1'],
+                    metadatas: [{timestamp: '2026-06-24T23:00:00.000Z', graphDigested: true}]
+                };
+            }
+        });
+        TextEmbeddingService.embedText = async () => [0.1, 0.2];
+
+        let outcome;
+        try {
+            outcome = await GoldenPathSynthesizer.synthesizeGoldenPath({repoEnrichmentEnabled: false});
+        } finally {
+            StorageRouter.getGraphCollection   = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection = originalGetSummaryCollection;
+            TextEmbeddingService.embedText     = originalEmbedText;
+        }
+
+        const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
+        const guideTargets   = GraphService.db.edges
+            .getByIndex('source', 'frontier')
+            .filter(edge => edge.type === 'GUIDES')
+            .map(edge => edge.target);
+
+        expect(outcome).toMatchObject({
+            status      : 'failed',
+            reasonCode  : 'semantic-query-failed',
+            wroteHandoff: true
+        });
+        expect(outcome.error).toContain('Error finding id');
+        expect(handoffContent).toContain('Golden Path degraded: the semantic route could not be computed safely.');
+        expect(handoffContent).toContain('- Reason: `semantic-query-failed`');
+        expect(handoffContent).toContain('No numbered immediate recommendation is rendered for this pass');
+        expect(handoffContent).not.toContain('### Recent Open PRs by Author');
+        expect(handoffContent).not.toContain('issue-9890');
+        expect(guideTargets).not.toContain(staleId);
+    });
+
     test('synthesizeGoldenPath prunes stale guides while preserving current computed guides (#13828)', async () => {
         const originalGetGraphCollection   = StorageRouter.getGraphCollection;
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
