@@ -45,18 +45,19 @@ class DatabaseService extends Base {
      * @param {Object} collection The ChromaDB collection to export.
      * @param {String} backupPath The directory to save the backup file.
      * @param {String} filePrefix The prefix for the backup filename.
+     * @param {String} collectionName Stable collection label for logs, stats, and fail-loud errors.
      * @returns {Promise<{collection: String, backupFile: String|null, expected: Number, exported: Number, skipped: Number, skippedIds: String[]}>} Export statistics.
      * @private
      */
-    async #exportCollection(collection, backupPath, filePrefix) {
-        logger.log(`Fetching all documents from "${collection.name}"...`);
+    async #exportCollection(collection, backupPath, filePrefix, collectionName = collection.name || filePrefix) {
+        logger.log(`Fetching all documents from "${collectionName}"...`);
 
         // 1. Get total count first
         const count = await collection.count();
         if (count === 0) {
-            logger.log(`No documents found in ${collection.name} to export.`);
+            logger.log(`No documents found in ${collectionName} to export.`);
             return {
-                collection: collection.name,
+                collection: collectionName,
                 backupFile: null,
                 expected  : 0,
                 exported  : 0,
@@ -65,14 +66,14 @@ class DatabaseService extends Base {
             }
         }
 
-        logger.log(`Found ${count} documents in ${collection.name} to export.`);
+        logger.log(`Found ${count} documents in ${collectionName} to export.`);
 
         await fs.ensureDir(backupPath);
-        const timestamp   = new Date().toISOString().replace(/:/g, '-');
+        const timestamp = new Date().toISOString().replace(/:/g, '-');
         const backupFile  = path.join(backupPath, `${filePrefix}-${timestamp}.jsonl`);
         const writeStream = fs.createWriteStream(backupFile);
-        const stats = {
-            collection: collection.name,
+        const stats       = {
+            collection: collectionName,
             backupFile,
             expected  : count,
             exported  : 0,
@@ -81,8 +82,8 @@ class DatabaseService extends Base {
         };
 
         // 2. Paginated Fetch
-        const limit = 2000; // Safe batch size
-        let offset  = 0;
+        const limit  = 2000; // Safe batch size
+        let   offset = 0;
 
         while (offset < count) {
             logger.log(`Fetching batch: ${offset} to ${Math.min(offset + limit, count)} of ${count}`);
@@ -146,7 +147,7 @@ class DatabaseService extends Base {
         await new Promise(resolve => writeStream.end(resolve));
         if (stats.exported !== stats.expected) {
             const error = new Error(
-                `PARTIAL_COLLECTION_EXPORT: ${collection.name} exported ${stats.exported}/${stats.expected} ` +
+                `PARTIAL_COLLECTION_EXPORT: ${collectionName} exported ${stats.exported}/${stats.expected} ` +
                 `records to ${backupFile}; skipped ${stats.skipped} corrupted vector id(s).`
             );
             error.code    = 'PARTIAL_COLLECTION_EXPORT';
@@ -154,7 +155,7 @@ class DatabaseService extends Base {
             throw error
         }
 
-        logger.log(`Successfully exported ${stats.exported}/${stats.expected} documents to: ${backupFile}`);
+        logger.log(`Successfully exported ${stats.exported}/${stats.expected} documents from ${collectionName} to: ${backupFile}`);
         return stats
     }
 
@@ -197,11 +198,11 @@ class DatabaseService extends Base {
 
         logger.log(`Found ${nodesCount} nodes and ${edgesCount} edges to export.`);
 
-        const fs        = (await import('fs-extra')).default;
-        const path      = (await import('path')).default;
+        const fs   = (await import('fs-extra')).default;
+        const path = (await import('path')).default;
         await fs.ensureDir(backupPath);
 
-        const timestamp   = new Date().toISOString().replace(/:/g, '-');
+        const timestamp = new Date().toISOString().replace(/:/g, '-');
         const backupFile  = path.join(backupPath, `${filePrefix}-${timestamp}.jsonl`);
         const writeStream = fs.createWriteStream(backupFile);
 
@@ -211,7 +212,7 @@ class DatabaseService extends Base {
         const nodesStmt = db.prepare('SELECT data FROM Nodes');
         for (const row of nodesStmt.iterate()) {
              try {
-                 const node = JSON.parse(row.data);
+                 const node   = JSON.parse(row.data);
                  const record = { type: 'node', data: node };
                  writeStream.write(JSON.stringify(record) + '\n');
                  exported++;
@@ -224,7 +225,7 @@ class DatabaseService extends Base {
         const edgesStmt = db.prepare('SELECT data FROM Edges');
         for (const row of edgesStmt.iterate()) {
              try {
-                 const edge = JSON.parse(row.data);
+                 const edge   = JSON.parse(row.data);
                  const record = { type: 'edge', data: edge };
                  writeStream.write(JSON.stringify(record) + '\n');
                  exported++;
@@ -269,11 +270,11 @@ class DatabaseService extends Base {
             db.prepare('DELETE FROM Edges').run();
         }
 
-        const fs = (await import('fs-extra')).default;
+        const fs       = (await import('fs-extra')).default;
         const readline = (await import('readline')).default;
 
         const fileStream = fs.createReadStream(filePath);
-        const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+        const rl         = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
 
         let imported = 0;
 
@@ -384,12 +385,12 @@ class DatabaseService extends Base {
 
             if (include.includes('memories')) {
                 const collection = await StorageRouter.getMemoryCollection();
-                memoryStats      = await this.#exportCollection(collection, backupPath, 'memory-backup');
+                memoryStats      = await this.#exportCollection(collection, backupPath, 'memory-backup', aiConfig.collections.memory);
             }
 
             if (include.includes('summaries')) {
                 const collection = await StorageRouter.getSummaryCollection();
-                summaryStats     = await this.#exportCollection(collection, backupPath, 'summaries-backup');
+                summaryStats     = await this.#exportCollection(collection, backupPath, 'summaries-backup', aiConfig.collections.session);
             }
 
             if (include.includes('graph')) {
@@ -397,7 +398,7 @@ class DatabaseService extends Base {
                 graphStats       = {expected: graphCount, exported: graphCount};
             }
 
-            const memoryCount = memoryStats?.exported || 0,
+            const memoryCount  = memoryStats?.exported || 0,
                   summaryCount = summaryStats?.exported || 0,
                   graphCount   = graphStats?.exported || 0,
                   result       = {
@@ -519,7 +520,7 @@ class DatabaseService extends Base {
 
                 // Determine which collection to import into based on filename heuristics
                 const isMemoryBackup = path.basename(filePath).startsWith('memory-backup');
-                let collection       = isMemoryBackup
+                let   collection     = isMemoryBackup
                     ? await StorageRouter.getMemoryCollection()
                     : await StorageRouter.getSummaryCollection();
 
@@ -574,7 +575,7 @@ class DatabaseService extends Base {
                         existence.ids.forEach(id => existingIds.add(id));
                     }
 
-                    const missing       = records.filter(r => !existingIds.has(r.id));
+                    const missing = records.filter(r => !existingIds.has(r.id));
                     fileSkippedExisting = existingIds.size;
 
                     if (existingIds.size > 0) {

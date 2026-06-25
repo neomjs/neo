@@ -27,18 +27,20 @@ import path            from 'path';
 test.describe.configure({mode: 'serial'});
 
 test.describe('Memory_DatabaseService — backupPath routing (#10129 Phase 2 prerequisite)', () => {
-    let SDK, Memory_DatabaseService, Memory_StorageRouter;
-    let originalGetMemory, originalGetSummary, tmpDir;
+    let SDK, aiConfig, Memory_DatabaseService, Memory_StorageRouter;
+    let memoryCollectionName, originalGetMemory, originalGetSummary, tmpDir;
 
     test.beforeAll(async () => {
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
         if (!aiConfig.collections) aiConfig.collections = {};
-        aiConfig.collections.memory = `test-memory-${process.pid}-${Date.now()}`;
+        memoryCollectionName       = `test-memory-${process.pid}-${Date.now()}`;
+        aiConfig.collections.memory = memoryCollectionName;
         aiConfig.collections.session = `test-session-${process.pid}-${Date.now()}`;
 
         SDK                    = await import('../../../../../../ai/services.mjs');
         Memory_DatabaseService = SDK.Memory_DatabaseService;
         Memory_StorageRouter   = SDK.Memory_StorageRouter;
+        memoryCollectionName   = aiConfig.collections.memory;
 
         tmpDir = path.resolve(process.cwd(), 'tmp', `mc-backuppath-test-${process.pid}-${Date.now()}`);
         fs.mkdirSync(tmpDir, {recursive: true});
@@ -104,7 +106,7 @@ test.describe('Memory_DatabaseService — backupPath routing (#10129 Phase 2 pre
         expect(produced.some(f => f.startsWith('summaries-backup-'))).toBe(true);
     });
 
-    test('fails loudly when corrupt vector ids make a collection export partial (#13496)', async () => {
+    test('fails loudly when corrupt vector ids make a collection export partial without collection.name (#13496, #13999)', async () => {
         const partialDir = path.join(tmpDir, `partial-${Date.now()}`);
         fs.mkdirSync(partialDir, {recursive: true});
 
@@ -114,7 +116,6 @@ test.describe('Memory_DatabaseService — backupPath routing (#10129 Phase 2 pre
         ];
 
         const partialCollection = {
-            name : 'fake-memories-partial',
             count: async () => rows.length,
             get  : async ({ids, include = [], limit, offset = 0} = {}) => {
                 if (ids) {
@@ -137,11 +138,23 @@ test.describe('Memory_DatabaseService — backupPath routing (#10129 Phase 2 pre
 
         Memory_StorageRouter.getMemoryCollection = async () => partialCollection;
 
-        await expect(Memory_DatabaseService.manageDatabaseBackup({
-            action    : 'export',
-            include   : ['memories'],
-            backupPath: partialDir
-        })).rejects.toThrow(/DATABASE_EXPORT_ERROR: PARTIAL_COLLECTION_EXPORT: fake-memories-partial exported 1\/2/);
+        let error;
+        try {
+            await Memory_DatabaseService.manageDatabaseBackup({
+                action    : 'export',
+                include   : ['memories'],
+                backupPath: partialDir
+            });
+        } catch (e) {
+            error = e;
+        }
+
+        expect(error).toBeDefined();
+        expect(error.message).toContain(
+            `DATABASE_EXPORT_ERROR: PARTIAL_COLLECTION_EXPORT: ${memoryCollectionName} exported 1/2`
+        );
+        expect(error.message).not.toContain('undefined exported');
+        expect(error.details.collection).toBe(memoryCollectionName);
 
         const produced = fs.readdirSync(partialDir).filter(f => f.startsWith('memory-backup-'));
         expect(produced.length).toBe(1);
