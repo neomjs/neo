@@ -536,6 +536,12 @@ class Config extends ConfigProvider {
              */
             goldenPathRecentOpenPrRenderLimit: leaf(10, 'NEO_GOLDEN_PATH_RECENT_OPEN_PR_RENDER_LIMIT', 'number'),
             /**
+             * Freshness SLA for generated `Active PR Cycle State` data. Older PR-cycle snapshots
+             * are rendered as stale instead of implied-current.
+             * @type {number}
+             */
+            goldenPathActivePrStateFreshnessMs: leaf(60 * 60 * 1000, 'NEO_GOLDEN_PATH_ACTIVE_PR_STATE_FRESHNESS_MS', 'number'),
+            /**
              * Maximum Golden Path priority nodes rendered into the Sandman handoff. The
              * Golden Path is the one section that earns more depth than the 5-row
              * convention applied to every other category; defaults to 10.

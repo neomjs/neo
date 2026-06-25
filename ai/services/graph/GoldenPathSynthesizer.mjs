@@ -751,6 +751,68 @@ class GoldenPathSynthesizer extends Base {
     }
 
     /**
+     * @summary Resolves whether an Active PR Cycle snapshot is still within its freshness SLA.
+     *
+     * @param {Object} options
+     * @param {Date|String} options.capturedAt Snapshot timestamp.
+     * @param {Date|String} options.now Freshness comparison timestamp.
+     * @param {Number} options.freshnessMs Freshness SLA in milliseconds.
+     * @returns {String}
+     */
+    static getActivePrCycleStatus({capturedAt, now, freshnessMs}) {
+        const capturedMs = capturedAt instanceof Date ? capturedAt.getTime() : new Date(capturedAt).getTime(),
+              nowMs      = now        instanceof Date ? now.getTime()        : new Date(now).getTime();
+
+        if (!Number.isFinite(capturedMs) || !Number.isFinite(nowMs)) return 'unknown';
+
+        return nowMs - capturedMs > freshnessMs ? 'stale' : 'current'
+    }
+
+    /**
+     * @summary Renders the complete Active PR Cycle State section.
+     *
+     * @param {Object} options
+     * @param {Object[]} [options.prs=[]] GitHub PR payloads.
+     * @param {Date|String} [options.capturedAt=new Date()] Snapshot timestamp.
+     * @param {Date|String} [options.now=options.capturedAt] Freshness comparison timestamp.
+     * @param {Error} [options.error=null] Fetch failure that makes the section degraded.
+     * @param {Number} [options.freshnessMs=aiConfig.goldenPathActivePrStateFreshnessMs] Freshness SLA.
+     * @param {Number} [options.limit=aiConfig.goldenPathRecentOpenPrRenderLimit] Maximum PR rows.
+     * @returns {String}
+     */
+    static renderActivePrCycleState({
+        prs         = [],
+        capturedAt  = new Date(),
+        now         = capturedAt,
+        error       = null,
+        freshnessMs = aiConfig.goldenPathActivePrStateFreshnessMs,
+        limit       = aiConfig.goldenPathRecentOpenPrRenderLimit
+    } = {}) {
+        const capturedDate = capturedAt instanceof Date ? capturedAt : new Date(capturedAt),
+              freshUntil   = new Date(capturedDate.getTime() + freshnessMs),
+              status       = error ? 'degraded' : this.getActivePrCycleStatus({capturedAt: capturedDate, now, freshnessMs});
+
+        let section = `\n## Active PR Cycle State\n\n`;
+        section += `*Captured at: ${capturedDate.toISOString()} (Source: GitHub Live; Status at generation: ${status}; Fresh until: ${freshUntil.toISOString()})*\n\n`;
+
+        if (error) {
+            section += `### Recent Open PRs (degraded)\n`;
+            section += `Live PR fetch failed; stale PR data was intentionally not reused.\n`;
+            section += `- Error: ${String(error.message || error).replace(/\s+/g, ' ').slice(0, 240)}\n\n`;
+            return section
+        }
+
+        const summary = this.renderRecentOpenPrSummary(prs, {limit});
+
+        if (summary) return section + summary;
+
+        section += `### Recent Open PRs (\`0\` of \`0\` items)\n`;
+        section += `No open PRs reported by GitHub at capture time.\n\n`;
+
+        return section
+    }
+
+    /**
      * @summary Renders a compact deterministic Strategic Interpretation fallback.
      *
      * The preferred path is still the model-generated brief. This fallback keeps the
@@ -1377,16 +1439,22 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         let prStateAppend = '';
         if (repoEnrichmentEnabled) {
             try {
-                const Synthesizer = this.constructor;
-                const prs         = await this.fetchOpenPRs();
+                const Synthesizer = this.constructor,
+                      prs         = await this.fetchOpenPRs(),
+                      capturedAt  = now instanceof Date ? now : new Date(now);
 
-                if (prs.length > 0) {
-                    prStateAppend += `\n## Active PR Cycle State\n\n`;
-                    prStateAppend += `*Captured at: ${new Date().toISOString()} (Source: GitHub Live)*\n\n`;
-                    prStateAppend += Synthesizer.renderRecentOpenPrSummary(prs);
+                if (!Array.isArray(prs)) {
+                    throw new Error('fetchOpenPRs did not return an array');
                 }
+
+                prStateAppend = Synthesizer.renderActivePrCycleState({prs, capturedAt, now: capturedAt});
             } catch (e) {
                 logger.warn('[GoldenPathSynthesizer] Failed to generate Active PR Cycle State', e);
+                prStateAppend = this.constructor.renderActivePrCycleState({
+                    capturedAt: now instanceof Date ? now : new Date(now),
+                    error     : e,
+                    now       : now instanceof Date ? now : new Date(now)
+                });
             }
         }
 

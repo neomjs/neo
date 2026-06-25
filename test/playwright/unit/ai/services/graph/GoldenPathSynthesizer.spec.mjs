@@ -267,6 +267,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
 
         expect(handoffContent).toContain('## Active PR Cycle State');
+        expect(handoffContent).toContain('(Source: GitHub Live; Status at generation: current; Fresh until:');
         expect(handoffContent).toContain('### Recent Open PRs (`1` of `1` items)');
         expect(handoffContent).toContain('cross-family reviewed: yes');
         expect(handoffContent).toContain('- **PR #11178**: feat(ai): Automate PR Cycle State Extraction');
@@ -342,6 +343,73 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(handoffContent).not.toContain('### @neo-gpt');
         expect(handoffContent).not.toContain('### @neo-opus-grace');
         expect(handoffContent).not.toContain('stale author-grouped PR entry');
+    });
+
+    test('synthesizeGoldenPath renders degraded Active PR Cycle State when GitHub PR fetch fails (#13985)', async () => {
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const originalFetchOpenPRs         = GoldenPathSynthesizer.fetchOpenPRs;
+        const issuesDir                    = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-degraded-pr-issues-'));
+        const now                          = new Date('2026-06-25T02:00:00.000Z');
+        aiConfig.vectorDimension = 2;
+
+        fs.mkdirSync(path.dirname(tmpHandoffFile), {recursive: true});
+        fs.writeFileSync(tmpHandoffFile, [
+            '# Autonomous Handoff (Dream Pipeline & Golden Path)',
+            '',
+            '## Active PR Cycle State',
+            '',
+            '*Captured at: 2026-06-22T12:48:16.738Z (Source: GitHub Live)*',
+            '',
+            '### Recent Open PRs',
+            '',
+            '- **PR #13864**: stale lifecycle data',
+            '',
+            '### @neo-gpt',
+            '',
+            '- stale author-grouped PR entry'
+        ].join('\n'));
+
+        StorageRouter.getGraphCollection = async () => ({ query: async () => ({ ids: [[]], distances: [[]] }) });
+        StorageRouter.getSummaryCollection = async () => ({ get: async () => ({ documents: ['mock document'] }) });
+        TextEmbeddingService.embedText = async () => [0.1, 0.2];
+        GoldenPathSynthesizer.fetchOpenPRs = async () => {
+            throw new Error('gh pr list unavailable');
+        };
+
+        try {
+            await GoldenPathSynthesizer.synthesizeGoldenPath({issuesDir, now});
+        } finally {
+            GoldenPathSynthesizer.fetchOpenPRs = originalFetchOpenPRs;
+            StorageRouter.getGraphCollection   = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection = originalGetSummaryCollection;
+            TextEmbeddingService.embedText     = originalEmbedText;
+            fs.rmSync(issuesDir, {recursive: true, force: true});
+        }
+
+        const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
+
+        expect(handoffContent).toContain('## Active PR Cycle State');
+        expect(handoffContent).toContain('*Captured at: 2026-06-25T02:00:00.000Z (Source: GitHub Live; Status at generation: degraded; Fresh until: 2026-06-25T03:00:00.000Z)*');
+        expect(handoffContent).toContain('### Recent Open PRs (degraded)');
+        expect(handoffContent).toContain('Live PR fetch failed; stale PR data was intentionally not reused.');
+        expect(handoffContent).toContain('- Error: gh pr list unavailable');
+        expect(handoffContent).not.toContain('PR #13864');
+        expect(handoffContent).not.toContain('### @neo-gpt');
+        expect(handoffContent).not.toContain('stale author-grouped PR entry');
+    });
+
+    test('renderActivePrCycleState marks snapshots older than the configured SLA as stale (#13985)', () => {
+        const section = GoldenPathSynthesizer.constructor.renderActivePrCycleState({
+            capturedAt : new Date('2026-06-25T00:00:00.000Z'),
+            freshnessMs: 60 * 60 * 1000,
+            now        : new Date('2026-06-25T02:00:00.000Z'),
+            prs        : []
+        });
+
+        expect(section).toContain('*Captured at: 2026-06-25T00:00:00.000Z (Source: GitHub Live; Status at generation: stale; Fresh until: 2026-06-25T01:00:00.000Z)*');
+        expect(section).toContain('### Recent Open PRs (`0` of `0` items)');
     });
 
     test('synthesizeGoldenPath skips Neo repo enrichment sections when deployment config disables them', async () => {
