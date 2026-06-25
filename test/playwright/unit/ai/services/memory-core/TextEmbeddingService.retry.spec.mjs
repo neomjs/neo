@@ -264,6 +264,41 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         });
     });
 
+    test('LMS GGUF/Qwen3 embeddings append metadata-derived SEP/EOS suffix to request inputs (#14009)', async () => {
+        serverBehavior = 'lms-server-start-succeed';
+        TextEmbeddingService.openAiCompatibleLoadedModelsProbe = async () => [{
+            id           : aiConfig.openAiCompatible.embeddingModel,
+            contextLength: aiConfig.localModels.embedding.contextLimitTokens,
+            format       : 'gguf',
+            architecture : 'qwen3'
+        }];
+
+        const singleInput = 'last-token-is-semantic-content';
+
+        await TextEmbeddingService.embedText(singleInput, 'openAiCompatible');
+
+        expect(lastRequest.body.input).toBe(`${singleInput}<|im_end|>`);
+        expect(singleInput).toBe('last-token-is-semantic-content');
+
+        serverBehavior = 'lms-server-start-batch-succeed';
+
+        const batchInput = [
+            'batch-first-without-provider-separator',
+            'batch-second-with-provider-eos<|im_end|>'
+        ];
+
+        await TextEmbeddingService.embedTexts(batchInput, 'openAiCompatible');
+
+        expect(lastRequest.body.input).toEqual([
+            'batch-first-without-provider-separator<|im_end|>',
+            'batch-second-with-provider-eos<|im_end|>'
+        ]);
+        expect(batchInput).toEqual([
+            'batch-first-without-provider-separator',
+            'batch-second-with-provider-eos<|im_end|>'
+        ]);
+    });
+
     test('openAiCompatible refuses single embeddings when LM Studio loaded context is below the configured embedding context (#13944)', async () => {
         serverBehavior = 'succeed';
         TextEmbeddingService.openAiCompatibleLoadedModelsProbe = async () => [{
@@ -313,6 +348,7 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
 
             expect(result).toEqual([0.1, 0.2, 0.3]);
             expect(requestCount).toBe(1);
+            expect(lastRequest.body.input).toBe('hello');
         } finally {
             Neo.config.unitTestMode = originalUnitTestMode;
         }
@@ -438,7 +474,7 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
 
         await waitForCondition(() => allRequests.length === 1, 'first batch chunk request');
 
-        const interactivePromise = TextEmbeddingService.embedText('urgent', 'openAiCompatible');
+        const interactivePromise               = TextEmbeddingService.embedText('urgent', 'openAiCompatible');
         const [batchResult, interactiveResult] = await Promise.all([batchPromise, interactivePromise]);
 
         expect(maxInFlightRequests).toBe(1);

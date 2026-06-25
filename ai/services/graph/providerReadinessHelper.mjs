@@ -296,7 +296,7 @@ export function getLmsLoadedModels(payload) {
         }
 
         seen.add(id);
-        models.push({
+        const model = {
             id,
             contextLength: readNumericField(row, [
                 'contextLength',
@@ -314,7 +314,15 @@ export function getLmsLoadedModels(payload) {
                 'numParallel',
                 'num_parallel'
             ])
-        });
+        };
+
+        for (const key of ['type', 'modelKey', 'format', 'displayName', 'publisher', 'path', 'indexedModelIdentifier', 'architecture']) {
+            if (row?.[key] !== undefined) {
+                model[key] = row[key];
+            }
+        }
+
+        models.push(model);
     }
 
     return models;

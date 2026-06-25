@@ -910,7 +910,9 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             models: [{
                 identifier   : 'chat-model',
                 contextWindow: '131072',
-                parallel     : '1'
+                parallel     : '1',
+                format       : 'gguf',
+                architecture : 'gemma3'
             }, {
                 model         : 'embedding-model',
                 context_length: 32768,
@@ -919,7 +921,9 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         })).toEqual([{
             id           : 'chat-model',
             contextLength: 131072,
-            parallel     : 1
+            parallel     : 1,
+            format       : 'gguf',
+            architecture : 'gemma3'
         }, {
             id           : 'embedding-model',
             contextLength: 32768,

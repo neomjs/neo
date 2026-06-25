@@ -10,6 +10,9 @@ import {
 
 const DEFAULT_OPENAI_COMPATIBLE_REQUEST_TIMEOUT_MS = 60 * 60 * 1000;
 const OPENAI_COMPATIBLE_CONTENTION_HTTP_ERROR_RE   = /openAiCompatible embedding error HTTP (408|429|503|504):/;
+const LMS_EMBEDDING_INPUT_SUFFIX_BY_ARCHITECTURE   = {
+    qwen3: '<|im_end|>'
+};
 
 /**
  * Determines whether TextEmbeddingService needs a Gemini embedding client for the active provider.
@@ -205,6 +208,93 @@ class TextEmbeddingService extends Base {
     }
 
     /**
+     * @summary Reads currently resident LM Studio models for embedding-context enforcement.
+     *
+     * Runtime uses the canonical readiness helper. The optional plain test seam avoids spawning
+     * the LM Studio CLI from unit tests while preserving the same normalized model shape.
+     *
+     * @param {Number} timeoutMs LM Studio CLI timeout.
+     * @returns {Promise<Object[]>}
+     * @private
+     */
+    async #getOpenAiCompatibleLoadedModels(timeoutMs) {
+        if (this.openAiCompatibleLoadedModelsProbe) {
+            return this.openAiCompatibleLoadedModelsProbe({timeoutMs});
+        }
+
+        const {fetchLmsLoadedModels} = await import('../graph/providerReadinessHelper.mjs');
+        return fetchLmsLoadedModels({timeoutMs});
+    }
+
+    /**
+     * @summary Resolves the LMS-only embedding input suffix from loaded-model metadata.
+     *
+     * This deliberately does not use OpenAI-compatible config: Ollama, llama.cpp, vLLM, and
+     * managed compatibility endpoints share that provider surface but must not receive an
+     * LM Studio/Qwen-specific request suffix. `lms ps --json` exposes the resident model
+     * metadata; Qwen3 GGUF embeddings need `<|im_end|>` when their GGUF header does not auto-add
+     * EOS/SEP.
+     *
+     * @param {Object|null} loadedModel Normalized `lms ps --json` row.
+     * @returns {String}
+     * @private
+     */
+    #getLmsEmbeddingInputSuffix(loadedModel) {
+        const
+            format       = String(loadedModel?.format || '').toLowerCase(),
+            metadataText = [
+                loadedModel?.architecture,
+                loadedModel?.modelKey,
+                loadedModel?.path,
+                loadedModel?.indexedModelIdentifier
+            ].filter(value => typeof value === 'string').join(' ').toLowerCase();
+
+        if (format && format !== 'gguf') {
+            return '';
+        }
+
+        for (const [architecture, suffix] of Object.entries(LMS_EMBEDDING_INPUT_SUFFIX_BY_ARCHITECTURE)) {
+            if (metadataText.includes(architecture)) {
+                return suffix;
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * @summary Appends the LMS metadata-derived embedding input suffix when absent.
+     * @param {String} text The outbound embedding text.
+     * @param {Object|null} loadedModel Normalized `lms ps --json` row.
+     * @returns {String}
+     * @private
+     */
+    #appendLmsEmbeddingInputSuffix(text, loadedModel) {
+        const suffix = this.#getLmsEmbeddingInputSuffix(loadedModel);
+
+        if (!suffix || typeof text !== 'string' || text.endsWith(suffix)) {
+            return text;
+        }
+
+        return `${text}${suffix}`;
+    }
+
+    /**
+     * @summary Normalizes LMS embedding request input before context checks and POST.
+     * @param {String|String[]} inputData The text or array of texts to embed.
+     * @param {Object|null} loadedModel Normalized `lms ps --json` row.
+     * @returns {String|String[]}
+     * @private
+     */
+    #withLmsEmbeddingInputSuffix(inputData, loadedModel) {
+        if (Array.isArray(inputData)) {
+            return inputData.map(text => this.#appendLmsEmbeddingInputSuffix(text, loadedModel));
+        }
+
+        return this.#appendLmsEmbeddingInputSuffix(inputData, loadedModel);
+    }
+
+    /**
      * @summary Estimates the largest text input in an OpenAI-compatible embedding request.
      *
      * LM Studio truncates each input string independently. Batch safety therefore uses the
@@ -227,25 +317,6 @@ class TextEmbeddingService extends Base {
             inputBytes,
             inputTokensEstimate: bytesToTokens(inputBytes)
         };
-    }
-
-    /**
-     * @summary Reads currently resident LM Studio models for embedding-context enforcement.
-     *
-     * Runtime uses the canonical readiness helper. The optional plain test seam avoids spawning
-     * the LM Studio CLI from unit tests while preserving the same normalized model shape.
-     *
-     * @param {Number} timeoutMs LM Studio CLI timeout.
-     * @returns {Promise<Object[]>}
-     * @private
-     */
-    async #getOpenAiCompatibleLoadedModels(timeoutMs) {
-        if (this.openAiCompatibleLoadedModelsProbe) {
-            return this.openAiCompatibleLoadedModelsProbe({timeoutMs});
-        }
-
-        const {fetchLmsLoadedModels} = await import('../graph/providerReadinessHelper.mjs');
-        return fetchLmsLoadedModels({timeoutMs});
     }
 
     /**
@@ -285,20 +356,18 @@ class TextEmbeddingService extends Base {
     }
 
     /**
-     * @summary Fails before OpenAI-compatible embeddings can be silently provider-truncated.
+     * @summary Reads and validates the active LM Studio embedding model metadata.
      *
      * LM Studio can answer `/v1/embeddings` while the embedding model is resident at a smaller
-     * loaded context than Neo's `localModels.embedding.contextLimitTokens` leaf. The provider then
-     * logs a truncation warning and still returns an embedding. This guard checks the resident model
-     * shape before the request so KB / Memory Core callers never accept that corrupted vector.
+     * loaded context than Neo's `localModels.embedding.contextLimitTokens` leaf. Fetching the
+     * resident row also exposes LMS model metadata used for request-boundary token handling.
      *
-     * @param {String|String[]} inputData The text or array of texts to embed.
-     * @returns {Promise<void>}
+     * @returns {Promise<{configuredContextLength: Number, loadedModel: Object, model: String}|null>}
      * @private
      */
-    async #assertOpenAiCompatibleEmbeddingContext(inputData) {
+    async #getOpenAiCompatibleEmbeddingRuntime() {
         if (!this.#shouldAssertOpenAiCompatibleEmbeddingContext()) {
-            return;
+            return null;
         }
 
         const
@@ -324,9 +393,7 @@ class TextEmbeddingService extends Base {
             throw new Error(`TextEmbeddingService: unable to verify LM Studio embedding context for '${model}': ${error.message}`);
         }
 
-        const
-            loadedModel = loadedModels.find(item => item.id === model),
-            estimate    = this.#getOpenAiCompatibleInputEstimate(inputData);
+        const loadedModel = loadedModels.find(item => item.id === model);
 
         if (!loadedModel) {
             const observedIds = loadedModels.map(item => item.id).filter(Boolean).slice(0, 5).join(', ') || 'none';
@@ -335,6 +402,25 @@ class TextEmbeddingService extends Base {
         if (!Neo.isNumber(loadedModel.contextLength)) {
             throw new Error(`TextEmbeddingService: LM Studio embedding model '${model}' has unknown loaded context; configured>=${configuredContextLength}`);
         }
+
+        return {configuredContextLength, loadedModel, model};
+    }
+
+    /**
+     * @summary Fails before OpenAI-compatible embeddings can be silently provider-truncated.
+     * @param {String|String[]} inputData The text or array of texts to embed.
+     * @param {{configuredContextLength: Number, loadedModel: Object, model: String}|null} runtime LMS runtime metadata.
+     * @returns {void}
+     * @private
+     */
+    #assertOpenAiCompatibleEmbeddingContext(inputData, runtime) {
+        if (!runtime) {
+            return;
+        }
+
+        const
+            {configuredContextLength, loadedModel, model} = runtime,
+            estimate                                      = this.#getOpenAiCompatibleInputEstimate(inputData);
 
         if (loadedModel.contextLength < configuredContextLength || estimate.inputTokensEstimate > loadedModel.contextLength) {
             if (estimate.inputTokensEstimate > loadedModel.contextLength) {
@@ -363,6 +449,22 @@ class TextEmbeddingService extends Base {
 
             throw new Error(`TextEmbeddingService: LM Studio embedding context too small for '${model}' (loaded=${loadedModel.contextLength}, configured>=${configuredContextLength}, inputEstimate=${estimate.inputTokensEstimate})`);
         }
+    }
+
+    /**
+     * @summary Prepares OpenAI-compatible embedding input at the provider request boundary.
+     * @param {String|String[]} inputData The caller's original text input.
+     * @returns {Promise<String|String[]>}
+     * @private
+     */
+    async #prepareOpenAiCompatibleEmbeddingInput(inputData) {
+        const
+            runtime          = await this.#getOpenAiCompatibleEmbeddingRuntime(),
+            requestInputData = runtime ? this.#withLmsEmbeddingInputSuffix(inputData, runtime.loadedModel) : inputData;
+
+        this.#assertOpenAiCompatibleEmbeddingContext(requestInputData, runtime);
+
+        return requestInputData;
     }
 
     /**
@@ -559,8 +661,8 @@ class TextEmbeddingService extends Base {
                 contentionRetryCount      = 2,
                 contentionTimeoutMs       = 15000
             } = aiConfig.openAiCompatible;
-            await this.#assertOpenAiCompatibleEmbeddingContext(text);
-            const result = await this.#enqueueOpenAiCompatiblePost(text, {
+            const requestText = await this.#prepareOpenAiCompatibleEmbeddingInput(text);
+            const result      = await this.#enqueueOpenAiCompatiblePost(requestText, {
                 unloadRetriesLeft    : unloadRetryCount,
                 contentionRetriesLeft: contentionRetryCount,
                 requestTimeoutMs     : contentionTimeoutMs
@@ -606,8 +708,8 @@ class TextEmbeddingService extends Base {
         if (!explicitProvider) throw new Error('TextEmbeddingService.embedTexts requires an explicit provider argument');
 
         if (explicitProvider === 'openAiCompatible') {
-            await this.#assertOpenAiCompatibleEmbeddingContext(texts);
-            return this.#embedOpenAiCompatibleBatch(texts);
+            const requestTexts = await this.#prepareOpenAiCompatibleEmbeddingInput(texts);
+            return this.#embedOpenAiCompatibleBatch(requestTexts);
         } else if (explicitProvider === 'ollama') {
             // Ollama's `/api/embed` accepts array-of-strings natively + returns
             // a parallel embeddings array — no per-text fan-out needed.
