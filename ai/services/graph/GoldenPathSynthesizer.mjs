@@ -449,11 +449,13 @@ class GoldenPathSynthesizer extends Base {
      * @param {Object} options
      * @param {Object} options.contradiction Result from `findComputedFocusContradiction`.
      * @param {Object} [options.stats={}] Candidate-count diagnostics for the current pass.
+     * @param {Date|String} [options.capturedAt=new Date()] Current pass capture timestamp.
      * @returns {String} Markdown section.
      */
     static renderComputedGoldenPathContradictionSection({
         contradiction,
-        stats = {}
+        stats      = {},
+        capturedAt = new Date()
     } = {}) {
         const count     = value => Number.isFinite(Number(value)) ? Number(value) : 0;
         const focusRefs = (contradiction?.focusCandidates || [])
@@ -467,6 +469,8 @@ class GoldenPathSynthesizer extends Base {
         return [
             '',
             '## Computed Golden Path (Strategic Recommendation)',
+            '',
+            `Captured at: ${this.formatGoldenPathCapturedAt(capturedAt)}`,
             '',
             'Computed routing paused because the surviving content/narrative recommendation contradicts live Current Release / Incident Focus.',
             '',
@@ -521,14 +525,17 @@ class GoldenPathSynthesizer extends Base {
      * filter chain" from "the handoff forgot to render the routing surface".
      *
      * @param {Object} stats Candidate-count diagnostics for the current pass.
+     * @param {Date|String} [capturedAt=new Date()] Current pass capture timestamp.
      * @returns {String} Markdown section.
      */
-    static renderComputedGoldenPathEmptySection(stats = {}) {
+    static renderComputedGoldenPathEmptySection(stats = {}, capturedAt = new Date()) {
         const count = value => Number.isFinite(Number(value)) ? Number(value) : 0;
 
         return [
             '',
             '## Computed Golden Path (Strategic Recommendation)',
+            '',
+            `Captured at: ${this.formatGoldenPathCapturedAt(capturedAt)}`,
             '',
             'No actionable computed recommendations survived the current Tri-Vector filter pass.',
             '',
@@ -574,11 +581,13 @@ class GoldenPathSynthesizer extends Base {
      * @param {Object} options
      * @param {Object} options.failure Failure outcome from `buildFailureOutcome()`.
      * @param {Object} [options.stats={}] Candidate-count diagnostics for the current pass.
+     * @param {Date|String} [options.capturedAt=new Date()] Current pass capture timestamp.
      * @returns {String} Markdown section.
      */
     static renderComputedGoldenPathFailureSection({
         failure,
-        stats = {}
+        stats      = {},
+        capturedAt = new Date()
     } = {}) {
         const count      = value => Number.isFinite(Number(value)) ? Number(value) : 0;
         const reasonCode = failure?.reasonCode || 'golden-path-failed';
@@ -587,6 +596,8 @@ class GoldenPathSynthesizer extends Base {
         return [
             '',
             '## Computed Golden Path (Strategic Recommendation)',
+            '',
+            `Captured at: ${this.formatGoldenPathCapturedAt(capturedAt)}`,
             '',
             'Golden Path degraded: the semantic route could not be computed safely.',
             '',
@@ -813,32 +824,37 @@ class GoldenPathSynthesizer extends Base {
     }
 
     /**
-     * @summary Renders a compact deterministic Strategic Interpretation fallback.
+     * @summary Renders a degraded Strategic Interpretation reason without inventing route rationale.
      *
-     * The preferred path is still the model-generated brief. This fallback keeps the
-     * handoff structurally useful when the local graph model is offline, overloaded, or
-     * returns invalid JSON.
-     *
-     * @param {Array<Object>} routedTopNodes Ranked Golden Path entries.
-     * @param {Object|null} focusContradiction Current-focus contradiction metadata.
+     * @param {Object} options
+     * @param {String} options.reasonCode Stable machine-readable degradation reason.
+     * @param {String} [options.error=''] Sanitized provider or parser error.
      * @returns {String}
      */
-    static renderStrategicInterpretationFallback(routedTopNodes, focusContradiction) {
-        const lead      = routedTopNodes[0],
-              leadId    = lead?.node?.id ?? 'the highest ranked open item',
-              leadTitle = lead?.node?.properties?.title || lead?.node?.properties?.name || lead?.node?.name,
-              score     = Number.isFinite(lead?.score) ? `score ${lead.score.toFixed(2)}` : 'the strongest combined score',
-              titleText = leadTitle ? ` (${leadTitle})` : '';
+    static renderStrategicInterpretationDegradedReason({
+        reasonCode,
+        error = ''
+    }) {
+        const safeReason = reasonCode || 'strategic-interpretation-degraded',
+              safeError  = String(error || safeReason).replace(/\s+/g, ' ').slice(0, 240);
 
-        let brief = `The computed route is currently led by ${leadId}${titleText} with ${score}, so the next agent should treat it as the highest-signal advisory lane after live lifecycle gates.`;
+        return `Strategic Interpretation degraded: the model-generated brief was not available (${safeReason}). The Computed Golden Path list above remains the mathematical route, but no synthetic rationale is generated for this pass. Error: ${safeError}`
+    }
 
-        if (focusContradiction) {
-            brief += ' Current-focus filtering already removed contradictory candidates; do not re-open them from this handoff without fresher live evidence.';
-        } else {
-            brief += ' Use live issue and PR state to confirm the lane before claiming, but do not expand this handoff into a full backlog survey.';
+    /**
+     * @summary Formats the Computed Golden Path section capture timestamp.
+     *
+     * @param {Date|String} capturedAt Capture timestamp.
+     * @returns {String}
+     */
+    static formatGoldenPathCapturedAt(capturedAt) {
+        const date = capturedAt instanceof Date ? capturedAt : new Date(capturedAt);
+
+        if (!Number.isFinite(date.getTime())) {
+            return 'unknown'
         }
 
-        return brief
+        return `${date.toISOString().slice(0, 16).replace('T', ' ')} UTC`
     }
 
     /**
@@ -1170,12 +1186,14 @@ class GoldenPathSynthesizer extends Base {
             currentTargetIds: goldenIds
         });
 
-        let markdownAppend = '';
+        const handoffTimestamp = now instanceof Date ? now : new Date(now);
+        let   markdownAppend   = '';
 
         if (routeFailure) {
             markdownAppend = this.constructor.renderComputedGoldenPathFailureSection({
-                failure: routeFailure,
-                stats  : scoringStats
+                capturedAt: handoffTimestamp,
+                failure   : routeFailure,
+                stats     : scoringStats
             });
             logger.warn(`[GoldenPathSynthesizer] Golden Path route failed loud: ${routeFailure.reasonCode} — rendered degraded handoff section.`);
         } else if (routedTopNodes.length > 0) {
@@ -1183,6 +1201,7 @@ class GoldenPathSynthesizer extends Base {
 
             // Explicitly anchor this to the frontier context so the Agent NEVER loses sight of it
             markdownAppend = `\n## Computed Golden Path (Strategic Recommendation)\n\n`;
+            markdownAppend += `Captured at: ${this.constructor.formatGoldenPathCapturedAt(handoffTimestamp)}\n\n`;
             markdownAppend += `Based on the latest Tri-Vector Synthesis and Topological Priorities, the following tasks are mathematically recommended as the next immediate focus:\n\n`;
 
             routedTopNodes.forEach((item, index) => {
@@ -1198,7 +1217,9 @@ class GoldenPathSynthesizer extends Base {
                 markdownAppend += `\n> **Routing Guard:** Filtered content/narrative computed candidate(s) ${blockedRefs} because live Current Release / Incident Focus would make them contradictory immediate routes.\n\n`;
             }
 
-            let strategicBrief = '';
+            let strategicBrief                    = '',
+                strategicInterpretationReasonCode = 'strategic-brief-missing',
+                strategicInterpretationError      = '';
 
             try {
                 const graphProvider = resolveGraphModelProvider(aiConfig);
@@ -1234,24 +1255,33 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                 if (payload && payload.strategic_brief) {
                     strategicBrief = payload.strategic_brief;
                     logger.info('[GoldenPathSynthesizer] Successfully appended semantic strategic brief to Golden Path.');
+                } else {
+                    strategicInterpretationReasonCode = 'strategic-brief-invalid-json';
+                    strategicInterpretationError      = 'Provider output did not contain strategic_brief.';
                 }
             } catch (e) {
-                logger.warn('[GoldenPathSynthesizer] Failed to generate semantic interpretation for Golden Path (LLM Offline). Rendering deterministic fallback.', e);
+                strategicInterpretationReasonCode = 'strategic-brief-provider-failed';
+                strategicInterpretationError      = e instanceof Error ? e.message : String(e || strategicInterpretationReasonCode);
+                logger.warn('[GoldenPathSynthesizer] Failed to generate semantic interpretation for Golden Path. Rendering degraded reason.', e);
             }
 
             if (!strategicBrief) {
-                strategicBrief = this.constructor.renderStrategicInterpretationFallback(routedTopNodes, focusContradiction);
+                strategicBrief = this.constructor.renderStrategicInterpretationDegradedReason({
+                    error     : strategicInterpretationError,
+                    reasonCode: strategicInterpretationReasonCode
+                });
             }
 
             markdownAppend += `\n> **Strategic Interpretation:**\n> ${strategicBrief}\n\n`;
         } else if (focusContradiction) {
             markdownAppend = this.constructor.renderComputedGoldenPathContradictionSection({
+                capturedAt   : handoffTimestamp,
                 contradiction: focusContradiction,
                 stats        : scoringStats
             });
             logger.info('[GoldenPathSynthesizer] Computed route contradicted Current Focus; rendered diagnostic instead of routing content work.');
         } else {
-            markdownAppend = this.constructor.renderComputedGoldenPathEmptySection(scoringStats);
+            markdownAppend = this.constructor.renderComputedGoldenPathEmptySection(scoringStats, handoffTimestamp);
             logger.info('[GoldenPathSynthesizer] No actionable unblocked issues found. Golden path empty.');
         }
 
