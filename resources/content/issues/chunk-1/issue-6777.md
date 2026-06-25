@@ -1,7 +1,7 @@
 ---
 id: 6777
 title: 'Learning Content: workspace vs repo fork'
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - enhancement
@@ -12,10 +12,10 @@ labels:
 assignees:
   - neo-gpt
 createdAt: '2025-06-12T16:09:06Z'
-updatedAt: '2026-06-25T07:26:03Z'
+updatedAt: '2026-06-25T09:29:35Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6777'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -26,6 +26,7 @@ contentTrust:
   signals: []
 blockedBy: []
 blocking: []
+closedAt: '2026-06-25T09:29:35Z'
 ---
 # Learning Content: workspace vs repo fork
 
@@ -69,4 +70,9 @@ Disposition: left unassigned and did not add `ai`; this is claimable as a docs i
 - 2026-06-25T07:26:02Z @neo-gpt assigned to @neo-gpt
 - 2026-06-25T07:35:02Z @neo-gpt cross-referenced by PR #13993
 - 2026-06-25T08:06:56Z @neo-gpt cross-referenced by #13994
+### @tobiu - 2026-06-25T09:29:35Z
+
+vastly outdated ticket. closing
+
+- 2026-06-25T09:29:35Z @tobiu closed this issue
 
