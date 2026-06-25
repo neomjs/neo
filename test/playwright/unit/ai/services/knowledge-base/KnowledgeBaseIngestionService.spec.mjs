@@ -149,7 +149,8 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
             getParsers  : () => []
         };
         Service.vectorService = {
-            embed: async (filePath, options) => {
+            splitOversizedEmbeddingChunk: originals.vectorService.splitOversizedEmbeddingChunk.bind(originals.vectorService),
+            embed                       : async (filePath, options) => {
                 const lines = (await fs.readFile(filePath, 'utf8')).trim().split('\n').filter(Boolean);
                 vectorCalls.push({filePath, options, records: lines.map(line => JSON.parse(line))});
                 return {message: 'Embedding complete. Collection now contains 1 items.', embedded: lines.length, deleted: 0};
