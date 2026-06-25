@@ -65,7 +65,7 @@ context-recovery:
 - semantic: <memory ids or clear miss>
 - live-state: <issue/PR/branch verification>
 - confidence: recovered | degraded
-lane-state: next-lane|human-gate|verified-empty|blocked-task-state (<specific target>)
+lane-state: next-lane (<specific resumed lane or fresh claimable lane>)
 ```
 
 `recovered` means the lane and next action are supported by recency, memory, and
@@ -79,8 +79,9 @@ ambiguous; name the missing surface and the next falsifying probe.
   priority, enter `pr-review`.
 - If a ticket or branch is recovered as the active implementation lane, resume
   only after confirming ownership and collision state.
-- If no lane survives recovery, run `post-review-pickup` before declaring any
-  terminal. A lossy summary alone is not evidence for `verified-empty`.
+- If no lane survives recovery, run `post-review-pickup` and choose another
+  named lane. A lossy summary alone is not evidence to stop; per
+  `§no_hold_state`, recovery failure is a routing input, not a hold terminal.
 
 Only ask the operator to restate context after the mailbox, recency, semantic,
 session-rollup, and live-state probes have failed to identify a safe next action.

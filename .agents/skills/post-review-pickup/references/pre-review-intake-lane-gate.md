@@ -55,10 +55,11 @@ review-first rationale: <why review precedes author-lane pickup>
 
 ## Terminal Boundary
 
-Do not stop merely because no operator assigned a lane. An externally-falsifiable
-terminal (`verified-empty` / `human-gate` / `blocked-task-state`) is valid only
-after the backlog self-survey in `post-review-pickup-workflow.md §5` passes and
-the blocker is named.
+Do not stop merely because no operator assigned a lane. Per `§no_hold_state`,
+a gated, blocked, or absent current lane excludes only that lane; it does not
+create a turn terminal. If the author/review surface is empty, continue through
+the backlog self-survey in `post-review-pickup-workflow.md §5` and choose the
+next named lane.
 
 ## Anti-Patterns
 
