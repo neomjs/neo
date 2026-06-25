@@ -76,7 +76,7 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         // Architectural contract: taskDefinitions.mjs has no embedded MLX defaults
         // and no env-var reads. The daemon entrypoint composes MLX after reading
         // AiConfig, so stale caller params and env-vars are ignored here.
-        const scriptDir = path.resolve(process.cwd(), 'ai/scripts');
+        const scriptDir          = path.resolve(process.cwd(), 'ai/scripts');
         const originalMlxModel   = process.env.NEO_ORCHESTRATOR_MLX_MODEL;
         const originalMlxEnabled = process.env.NEO_ORCHESTRATOR_MLX_ENABLED;
         const originalMlxPort    = process.env.NEO_ORCHESTRATOR_MLX_PORT;
@@ -140,7 +140,7 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         // Architectural contract: taskDefinitions.mjs has no embedded LM Studio
         // defaults and no env-var reads. The daemon entrypoint composes LMS after
         // reading AiConfig, so stale caller params and env-vars are ignored here.
-        const scriptDir = path.resolve(process.cwd(), 'ai/scripts');
+        const scriptDir          = path.resolve(process.cwd(), 'ai/scripts');
         const originalLmsModel   = process.env.NEO_ORCHESTRATOR_LMS_MODEL;
         const originalLmsEnabled = process.env.NEO_ORCHESTRATOR_LMS_ENABLED;
         const originalLmsPort    = process.env.NEO_ORCHESTRATOR_LMS_PORT;
@@ -160,7 +160,7 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
                 lmsModel         : 'explicit-model',
                 lmsModels        : ['chat-model', 'embedding-model'],
                 lmsHost          : 'http://127.0.0.1:4242',
-                providerReadiness: {attempts: 2, delayMs: 0, timeoutMs: 50},
+                providerReadiness: {attempts: 2, delayMs: 0, timeoutMs: 50, routineCacheTtlMs: 1000},
                 lmsPort          : 4242
             });
             expect(staleCallerParams.lms).toBeUndefined();
@@ -285,7 +285,7 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         const bridgeSource       = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/wake/daemon.mjs'), 'utf8');
         const orchestratorSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/orchestrator/daemon.mjs'), 'utf8');
         const daemonSource       = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/orchestrator/Orchestrator.mjs'), 'utf8');
-        const taskDefSource        = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/orchestrator/taskDefinitions.mjs'), 'utf8');
+        const taskDefSource      = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/orchestrator/taskDefinitions.mjs'), 'utf8');
 
         expect(bridgeSource).not.toContain('summarize-sessions.mjs');
         expect(bridgeSource).not.toContain('Piece C periodic summarization sweep');
@@ -328,7 +328,7 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
 
     test('loads gitignored top-level AI config only when present', async () => {
         const loadedPaths = [];
-        const aiConfig = {
+        const aiConfig    = {
             async load(configPath) {
                 loadedPaths.push(configPath);
             }

@@ -836,7 +836,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
                 model         : 'chat-model',
                 embeddingModel: 'embedding-model'
             };
-            AiConfig.orchestrator.providerReadiness = {attempts: 2, delayMs: 0, timeoutMs: 50};
+            AiConfig.orchestrator.providerReadiness = {attempts: 2, delayMs: 0, timeoutMs: 50, routineCacheTtlMs: 1000};
             AiConfig.modelProvider     = 'openAiCompatible';
             AiConfig.graphProvider     = 'openAiCompatible';
             AiConfig.embeddingProvider = 'openAiCompatible';
@@ -1171,7 +1171,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
                 model         : 'gemma4-31b',
                 embeddingModel: 'qwen3-8b'
             };
-            AiConfig.orchestrator.providerReadiness = {attempts: 2, delayMs: 0, timeoutMs: 50};
+            AiConfig.orchestrator.providerReadiness = {attempts: 2, delayMs: 0, timeoutMs: 50, routineCacheTtlMs: 1000};
             AiConfig.modelProvider     = 'openAiCompatible';
             AiConfig.graphProvider     = 'openAiCompatible';
             AiConfig.embeddingProvider = 'openAiCompatible';

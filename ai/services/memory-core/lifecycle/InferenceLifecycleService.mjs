@@ -1,13 +1,14 @@
-import { spawn } from 'child_process';
-import aiConfig from '../../../mcp/server/memory-core/config.mjs';
-import logger from '../../../mcp/server/memory-core/logger.mjs';
-import Base from '../../../../src/core/Base.mjs';
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
+import { spawn }                       from 'child_process';
+import aiConfig                        from '../../../mcp/server/memory-core/config.mjs';
+import logger                          from '../../../mcp/server/memory-core/logger.mjs';
+import Base                            from '../../../../src/core/Base.mjs';
+import path                            from 'path';
+import fs                              from 'fs';
+import { fileURLToPath }               from 'url';
+import {fetchOpenAiCompatibleModelIds} from '../../graph/providerReadinessHelper.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname  = path.dirname(__filename);
 const memCoreDir = path.resolve(__dirname, '../../../mcp/server/memory-core');
 
 /**
@@ -58,11 +59,13 @@ class InferenceLifecycleService extends Base {
      */
     async isInferenceRunning() {
         try {
-            const res = await fetch(aiConfig.openAiCompatible.host + '/v1/models', {
-                method: 'GET',
-                signal: AbortSignal.timeout(3000)
+            await fetchOpenAiCompatibleModelIds({
+                host      : aiConfig.openAiCompatible.host,
+                timeoutMs : aiConfig.orchestrator.providerReadiness.timeoutMs,
+                freshness : 'routine',
+                cacheTtlMs: aiConfig.orchestrator.providerReadiness.routineCacheTtlMs
             });
-            return res.ok;
+            return true;
         } catch (e) {
             return false;
         }
