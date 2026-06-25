@@ -217,10 +217,11 @@ test.describe('Tier 1 Config Immutability', () => {
         const stuckRunnerDisabled   = ['false', 'no', 'off', '0'].includes(stuckRunnerEnabledEnv);
 
         expect(Config.orchestrator.providerReadiness).toEqual({
-            attempts   : Number(process.env.NEO_ORCHESTRATOR_PROVIDER_READY_ATTEMPTS)   || 30,
-            delayMs    : Number(process.env.NEO_ORCHESTRATOR_PROVIDER_READY_DELAY_MS)   || 1000,
-            timeoutMs  : Number(process.env.NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS) || 3000,
-            stuckRunner: {
+            attempts         : Number(process.env.NEO_ORCHESTRATOR_PROVIDER_READY_ATTEMPTS)             || 30,
+            delayMs          : Number(process.env.NEO_ORCHESTRATOR_PROVIDER_READY_DELAY_MS)             || 1000,
+            timeoutMs        : Number(process.env.NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS)           || 3000,
+            routineCacheTtlMs: Number(process.env.NEO_ORCHESTRATOR_PROVIDER_READY_ROUTINE_CACHE_TTL_MS) || 1000,
+            stuckRunner      : {
                 enabled            : stuckRunnerEnabledEnv === undefined ? true : !stuckRunnerDisabled,
                 consecutiveFailures: Number(process.env.NEO_ORCHESTRATOR_STUCK_RUNNER_CONSECUTIVE_FAILURES) || 3,
                 canaryTimeoutMs    : Number(process.env.NEO_ORCHESTRATOR_STUCK_RUNNER_CANARY_TIMEOUT_MS)    || 10000

@@ -27,6 +27,7 @@ import {
     buildOllamaReadinessConfig,
     createProviderFailureDiagnostic,
     ensureOllamaModelsReady,
+    fetchOpenAiCompatibleModelIds,
     getGraphProviderReadinessTarget,
     waitForProvider,
     warnProviderParallelModelCapacity
@@ -334,9 +335,12 @@ class DreamService extends Base {
         if (aiConfig.modelProvider === 'openAiCompatible') {
             const providerStart = Date.now();
             try {
-                const url  = new URL('/v1/models', aiConfig.openAiCompatible.host);
-                const ping = await fetch(url.toString(), { method: 'GET', signal: AbortSignal.timeout(5000) });
-                if (!ping.ok) throw new Error('API provider not running');
+                await fetchOpenAiCompatibleModelIds({
+                    host      : aiConfig.openAiCompatible.host,
+                    timeoutMs : AiConfig.orchestrator.providerReadiness.timeoutMs,
+                    freshness : 'routine',
+                    cacheTtlMs: AiConfig.orchestrator.providerReadiness.routineCacheTtlMs
+                });
                 perPhaseStates.push(finishPhase('legacyProviderProbe', providerStart, 'completed', {
                     provider: aiConfig.modelProvider
                 }));
@@ -978,10 +982,12 @@ class DreamService extends Base {
         }
 
         const waitResult = await waitForProvider({
-            attempts : readinessConfig.attempts,
-            delayMs  : readinessConfig.delayMs,
-            timeoutMs: readinessConfig.timeoutMs,
-            output   : {write: () => {}}
+            attempts                : readinessConfig.attempts,
+            delayMs                 : readinessConfig.delayMs,
+            timeoutMs               : readinessConfig.timeoutMs,
+            modelDiscoveryFreshness : 'routine',
+            modelDiscoveryCacheTtlMs: readinessConfig.routineCacheTtlMs,
+            output                  : {write: () => {}}
         });
 
         if (!waitResult.running) {
@@ -1001,8 +1007,10 @@ class DreamService extends Base {
                 allowPartial: true
             })
             : await warnProviderParallelModelCapacity({
-                config   : AiConfig,
-                timeoutMs: readinessConfig.timeoutMs
+                config                  : AiConfig,
+                timeoutMs               : readinessConfig.timeoutMs,
+                modelDiscoveryFreshness : 'routine',
+                modelDiscoveryCacheTtlMs: readinessConfig.routineCacheTtlMs
             });
 
         if (capacity?.degraded) {

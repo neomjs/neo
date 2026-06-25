@@ -120,8 +120,10 @@ function applyConfiguredLmsTask(tasks) {
 
             try {
                 await fetchOpenAiCompatibleModelIds({
-                    host     : AiConfig.openAiCompatible.host,
-                    timeoutMs: AiConfig.orchestrator.providerReadiness.timeoutMs
+                    host      : AiConfig.openAiCompatible.host,
+                    timeoutMs : AiConfig.orchestrator.providerReadiness.timeoutMs,
+                    freshness : 'routine',
+                    cacheTtlMs: AiConfig.orchestrator.providerReadiness.routineCacheTtlMs
                 });
                 return true;
             } catch {
@@ -144,14 +146,16 @@ function applyConfiguredLmsTask(tasks) {
             }
 
             return ensureLmsModelsLoaded({
-                host          : AiConfig.openAiCompatible.host,
-                models        : requiredModels,
-                contextLengths: preloadConfig.contextLengths,
-                parallels     : preloadConfig.parallels,
-                allowPartial  : true,
-                attempts      : AiConfig.orchestrator.providerReadiness.attempts,
-                delayMs       : AiConfig.orchestrator.providerReadiness.delayMs,
-                timeoutMs     : AiConfig.orchestrator.providerReadiness.timeoutMs
+                host                    : AiConfig.openAiCompatible.host,
+                models                  : requiredModels,
+                contextLengths          : preloadConfig.contextLengths,
+                parallels               : preloadConfig.parallels,
+                allowPartial            : true,
+                attempts                : AiConfig.orchestrator.providerReadiness.attempts,
+                delayMs                 : AiConfig.orchestrator.providerReadiness.delayMs,
+                timeoutMs               : AiConfig.orchestrator.providerReadiness.timeoutMs,
+                modelDiscoveryFreshness : 'routine',
+                modelDiscoveryCacheTtlMs: AiConfig.orchestrator.providerReadiness.routineCacheTtlMs
             });
         }
     };

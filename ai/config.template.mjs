@@ -398,13 +398,16 @@ class Config extends ConfigProvider {
                  *
                  * Defaults are sized for a developer-laptop cold start (30 × 1s + 3s timeout
                  * per probe ≈ 2 min absolute ceiling). Cloud-deployment operators tune these
-                 * via gitignored `ai/config.mjs` or the env vars below.
+                 * via gitignored `ai/config.mjs` or the env vars below. Routine readiness
+                 * consumers share a short model-discovery cache to avoid flooding user-facing
+                 * provider logs; recovery and force-refresh diagnostics bypass it.
                  * @type {Object}
                  */
                 providerReadiness: {
-                    attempts : leaf(30, 'NEO_ORCHESTRATOR_PROVIDER_READY_ATTEMPTS', 'number'),
-                    delayMs  : leaf(1000, 'NEO_ORCHESTRATOR_PROVIDER_READY_DELAY_MS', 'number'),
-                    timeoutMs: leaf(3000, 'NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS', 'number'),
+                    attempts         : leaf(30, 'NEO_ORCHESTRATOR_PROVIDER_READY_ATTEMPTS', 'number'),
+                    delayMs          : leaf(1000, 'NEO_ORCHESTRATOR_PROVIDER_READY_DELAY_MS', 'number'),
+                    timeoutMs        : leaf(3000, 'NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS', 'number'),
+                    routineCacheTtlMs: leaf(1000, 'NEO_ORCHESTRATOR_PROVIDER_READY_ROUTINE_CACHE_TTL_MS', 'number'),
                     /**
                      * Stuck-runner detection. A resident model can be alive yet stuck —
                      * one pathological request (e.g. a too-large context prefill) grinding at
