@@ -1,7 +1,7 @@
 ---
 id: 5619
 title: 'core.Base: setStaticConfig() => evaluate if we can remove the staticConfig part'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - no auto close
@@ -12,10 +12,10 @@ labels:
 assignees:
   - neo-gpt
 createdAt: '2024-07-23T19:49:16Z'
-updatedAt: '2026-06-23T19:14:48Z'
+updatedAt: '2026-06-25T09:27:30Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/5619'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -26,6 +26,7 @@ contentTrust:
   signals: []
 blockedBy: []
 blocking: []
+closedAt: '2026-06-25T09:27:30Z'
 ---
 # core.Base: setStaticConfig() => evaluate if we can remove the staticConfig part
 
@@ -62,4 +63,10 @@ Recommended close target: either remove `setStaticConfig()` plus its stale `stat
 
 - 2026-06-23T19:14:46Z @neo-gpt added the `ai` label
 - 2026-06-23T19:14:48Z @neo-gpt assigned to @neo-gpt
+- 2026-06-25T06:22:10Z @neo-gpt cross-referenced by PR #13992
+### @tobiu - 2026-06-25T09:27:30Z
+
+deprecated.
+
+- 2026-06-25T09:27:30Z @tobiu closed this issue
 

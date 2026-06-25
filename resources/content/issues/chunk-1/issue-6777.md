@@ -8,9 +8,11 @@ labels:
   - developer-experience
   - contributor-experience
   - no auto close
-assignees: []
+  - ai
+assignees:
+  - neo-gpt
 createdAt: '2025-06-12T16:09:06Z'
-updatedAt: '2026-06-23T05:31:15Z'
+updatedAt: '2026-06-25T07:26:03Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6777'
 author: tobiu
 commentsCount: 1
@@ -63,4 +65,8 @@ Retrospective challenge:
 
 Disposition: left unassigned and did not add `ai`; this is claimable as a docs implementation ticket. A good PR should pick a target guide location, wire it into the learn tree if needed, and explicitly cover the four bullets in the issue body.
 
+- 2026-06-25T07:25:58Z @neo-gpt added the `ai` label
+- 2026-06-25T07:26:02Z @neo-gpt assigned to @neo-gpt
+- 2026-06-25T07:35:02Z @neo-gpt cross-referenced by PR #13993
+- 2026-06-25T08:06:56Z @neo-gpt cross-referenced by #13994
 
