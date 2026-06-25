@@ -820,22 +820,24 @@ export async function repairMemoryCoreCollectionsViaFullEnumeration({
  * @param {Object} options
  * @param {String} options.collectionName Collection currently being repaired.
  * @param {Object} options.event Progress event emitted by `extractMemoryCoreCollectionData`.
+ * @param {Date|String|Number} [options.now=new Date()] Timestamp source for log correlation.
  * @returns {String}
  */
-function formatMemoryCoreRepairProgress({collectionName, event} = {}) {
-    const counts = event.counts || {};
+export function formatMemoryCoreRepairProgress({collectionName, event, now = new Date()} = {}) {
+    const counts    = event.counts || {},
+          timestamp = new Date(now).toISOString();
 
     switch (event.phase) {
         case 'start':
-            return `   ⏳ '${collectionName}': extraction starting (total=${event.total}, intact=${counts.intact || 0}, reEmbedded=${counts.reEmbedded || 0}, unrecoverable=${counts.unrecoverable || 0})`;
+            return `   [${timestamp}] ⏳ '${collectionName}': extraction starting (total=${event.total}, intact=${counts.intact || 0}, reEmbedded=${counts.reEmbedded || 0}, unrecoverable=${counts.unrecoverable || 0})`;
         case 'intact-extract':
-            return `   ⏳ '${collectionName}': intact-vector extraction ${event.percent}% (${event.processed}/${event.total}; intact=${counts.intact || 0})`;
+            return `   [${timestamp}] ⏳ '${collectionName}': intact-vector extraction ${event.percent}% (${event.processed}/${event.total}; intact=${counts.intact || 0})`;
         case 'missing-reembed':
-            return `   ⏳ '${collectionName}': missing-vector re-embed ${event.percent}% (${event.processed}/${event.total}; reEmbedded=${counts.reEmbedded || 0}, unrecoverable=${counts.unrecoverable || 0})`;
+            return `   [${timestamp}] ⏳ '${collectionName}': missing-vector re-embed ${event.percent}% (${event.processed}/${event.total}; reEmbedded=${counts.reEmbedded || 0}, unrecoverable=${counts.unrecoverable || 0})`;
         case 'complete':
-            return `   ✅ '${collectionName}': extraction complete; counts ${JSON.stringify(counts)}`;
+            return `   [${timestamp}] ✅ '${collectionName}': extraction complete; counts ${JSON.stringify(counts)}`;
         default:
-            return `   ⏳ '${collectionName}': ${event.phase || 'progress'} ${event.percent ?? '?'}% (${event.processed ?? '?'}/${event.total ?? '?'})`;
+            return `   [${timestamp}] ⏳ '${collectionName}': ${event.phase || 'progress'} ${event.percent ?? '?'}% (${event.processed ?? '?'}/${event.total ?? '?'})`;
     }
 }
 
