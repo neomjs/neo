@@ -397,56 +397,94 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
         });
     });
 
-    test('skips over-budget client parsed chunks while embedding safe chunks', async () => {
+    test('splits over-budget client parsed chunks while embedding safe chunks', async () => {
         memoryConfig.data.embeddingProvider                            = 'openAiCompatible';
-        aiConfig.data.localModels.embedding.contextLimitTokens        = 50;
-        aiConfig.data.localModels.embedding.safeProcessingLimitTokens = 40;
+        aiConfig.data.localModels.embedding.contextLimitTokens        = 100;
+        aiConfig.data.localModels.embedding.safeProcessingLimitTokens = 80;
+        const monsterContent = Array.from({length: 12}, (_, index) => `line-${index} ${'x'.repeat(24)}`).join('\n');
 
         const summary = await Service.ingestSourceFiles({
             tenantId: 'tenant-a',
             files   : [{parsedChunks: [
                 validParsedChunk({sourcePath: 'src/safe.js', content: 'short payload'}),
-                validParsedChunk({sourcePath: 'src/monster.js', content: 'x'.repeat(300)})
+                validParsedChunk({sourcePath: 'src/monster.js', content: monsterContent})
             ]}]
         });
 
-        expect(summary.ingested).toBe(1);
-        expect(summary.embeddingsGenerated).toBe(1);
-        expect(summary.skippedOversized).toBe(1);
-        expect(summary.errors[0]).toMatchObject({
-            code   : 'KB_INGEST_INPUT_SIZE_EXCEEDED',
-            details: {
-                tenantId         : 'tenant-a',
-                repoSlug         : 'repo-a',
-                sourcePath       : 'src/monster.js',
-                parserId         : 'client-parser',
-                embeddingProvider: 'openAiCompatible'
-            }
-        });
-        expect(summary.errors[0].details).not.toHaveProperty('content');
+        expect(summary.ingested).toBeGreaterThan(1);
+        expect(summary.embeddingsGenerated).toBe(summary.ingested);
+        expect(summary.skippedOversized).toBe(0);
+        expect(summary.errors).toEqual([]);
         expect(vectorCalls).toHaveLength(1);
-        expect(vectorCalls[0].records).toHaveLength(1);
         expect(vectorCalls[0].records[0].sourcePath).toBe('src/safe.js');
+
+        const splitRecords = vectorCalls[0].records.filter(record => record.sourcePath === 'src/monster.js');
+
+        expect(splitRecords.length).toBeGreaterThan(1);
+        expect(splitRecords.map(record => record.oversizedSplitIndex)).toEqual(splitRecords.map((_, index) => index));
+        expect(splitRecords.every(record => record.oversizedSplit === true)).toBe(true);
+        expect(splitRecords.every(record => record.oversizedSplitTotal === splitRecords.length)).toBe(true);
+        expect(new Set(splitRecords.map(record => record.id)).size).toBe(splitRecords.length);
         expect(metrics[0]).toMatchObject({
-            eventType     : 'error',
-            chunksTotal   : 2,
-            chunksEmbedded: 1
+            eventType     : 'ingest',
+            chunksTotal   : summary.ingested,
+            chunksEmbedded: summary.ingested
         });
-        expect(metrics[0].detail.errors[0].code).toBe('KB_INGEST_INPUT_SIZE_EXCEEDED');
+
+        const firstIds = splitRecords.map(record => record.id);
+        vectorCalls = [];
+        metrics     = [];
+
+        await Service.ingestSourceFiles({
+            tenantId: 'tenant-a',
+            files   : [{parsedChunks: [validParsedChunk({sourcePath: 'src/monster.js', content: monsterContent})]}]
+        });
+
+        expect(vectorCalls[0].records.map(record => record.id)).toEqual(firstIds);
     });
 
-    test('skips over-budget raw fallback files before VectorService receives a temp JSONL', async () => {
+    test('splits over-budget raw fallback files before VectorService receives a temp JSONL', async () => {
+        memoryConfig.data.embeddingProvider                            = 'openAiCompatible';
+        aiConfig.data.localModels.embedding.contextLimitTokens        = 100;
+        aiConfig.data.localModels.embedding.safeProcessingLimitTokens = 80;
+
+        const summary = await Service.ingestSourceFiles({
+            tenantId: 'tenant-a',
+            repoSlug: 'repo-a',
+            files   : [{
+                content   : Array.from({length: 12}, (_, index) => `section-${index} ${'y'.repeat(24)}`).join('\n'),
+                sourcePath: 'docs/monster.md'
+            }]
+        });
+
+        expect(summary.ingested).toBeGreaterThan(1);
+        expect(summary.embeddingsGenerated).toBe(summary.ingested);
+        expect(summary.skippedOversized).toBe(0);
+        expect(summary.errors).toEqual([]);
+        expect(vectorCalls).toHaveLength(1);
+        expect(vectorCalls[0].records.length).toBe(summary.ingested);
+        expect(vectorCalls[0].records.every(record => record.sourcePath === 'docs/monster.md')).toBe(true);
+        expect(vectorCalls[0].records.every(record => record.parserId === 'raw-text')).toBe(true);
+        expect(vectorCalls[0].records.every(record => record.oversizedSplit === true)).toBe(true);
+        expect(metrics[0]).toMatchObject({
+            eventType     : 'ingest',
+            chunksTotal   : summary.ingested,
+            chunksEmbedded: summary.ingested
+        });
+    });
+
+    test('keeps skip diagnostics for over-budget chunks that cannot be split', async () => {
         memoryConfig.data.embeddingProvider                            = 'openAiCompatible';
         aiConfig.data.localModels.embedding.contextLimitTokens        = 50;
         aiConfig.data.localModels.embedding.safeProcessingLimitTokens = 40;
 
         const summary = await Service.ingestSourceFiles({
             tenantId: 'tenant-a',
-            repoSlug: 'repo-a',
-            files   : [{
-                content   : 'x'.repeat(300),
-                sourcePath: 'docs/monster.md'
-            }]
+            files   : [{parsedChunks: [validParsedChunk({
+                content   : '',
+                name      : 'x'.repeat(300),
+                sourcePath: 'src/metadata-only.js'
+            })]}]
         });
 
         expect(summary.ingested).toBe(0);
@@ -455,17 +493,13 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
         expect(summary.errors[0]).toMatchObject({
             code   : 'KB_INGEST_INPUT_SIZE_EXCEEDED',
             details: {
-                sourcePath   : 'docs/monster.md',
-                parserId     : 'raw-text',
-                parserVersion: '1.0.0'
+                sourcePath       : 'src/metadata-only.js',
+                parserId         : 'client-parser',
+                embeddingProvider: 'openAiCompatible'
             }
         });
+        expect(summary.errors[0].details).not.toHaveProperty('content');
         expect(vectorCalls).toHaveLength(0);
-        expect(metrics[0]).toMatchObject({
-            eventType     : 'error',
-            chunksTotal   : 1,
-            chunksEmbedded: 0
-        });
     });
 
     test('does not apply local embedding caps to non-local ingestion providers', async () => {
