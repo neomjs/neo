@@ -779,11 +779,12 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             fs.rmSync(issuesDir, {recursive: true, force: true});
         }
 
-        const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
-        const focusIndex     = handoffContent.indexOf('## Current Release / Incident Focus');
-        const staleIndex     = handoffContent.indexOf('## Stale Assignment Candidates');
-        const computedIndex  = handoffContent.indexOf('## Computed Golden Path');
-        const focusSection   = handoffContent.slice(focusIndex, staleIndex);
+        const handoffContent  = fs.readFileSync(tmpHandoffFile, 'utf-8');
+        const focusIndex      = handoffContent.indexOf('## Current Release / Incident Focus');
+        const staleIndex      = handoffContent.indexOf('## Stale Assignment Candidates');
+        const computedIndex   = handoffContent.indexOf('## Computed Golden Path');
+        const focusSection    = handoffContent.slice(focusIndex, staleIndex);
+        const computedSection = handoffContent.slice(computedIndex);
 
         expect(focusIndex).toBeGreaterThan(-1);
         expect(staleIndex).toBeGreaterThan(-1);
@@ -795,6 +796,17 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(focusSection).not.toContain('Old generic AI enhancement');
         expect(handoffContent).toContain(readyId);
         expect(handoffContent).toContain(discussionId);  // discussions are now actionable (an open converge-to-drive)
+        expect(computedSection).toContain([
+            '## Computed Golden Path (Strategic Recommendation)',
+            '',
+            'Captured at: 2026-06-21 11:30 UTC',
+            '',
+            'Based on the latest Tri-Vector Synthesis and Topological Priorities, the following tasks are mathematically recommended as the next immediate focus:',
+            ''
+        ].join('\n'));
+        expect(computedSection).toContain(`1. **${discussionId}**: Score 18.18 (Semantic: 9.09, Structural: 0.00)\n   - *Governance discussion*`);
+        expect(computedSection).toContain(`2. **${readyId}**: Score 3.33 (Semantic: 1.67, Structural: 0.00)\n   - *Actionable release leaf*`);
+        expect(computedSection).toContain('> **Strategic Interpretation:**\n> stub');
         expect(handoffContent).not.toContain(epicId);    // epic label still excluded
         expect(handoffContent).not.toContain(notReadyId);
     });
@@ -1132,7 +1144,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(handoffContent).not.toContain('**PR #1**');
     });
 
-    test('synthesizeGoldenPath renders deterministic Strategic Interpretation fallback when provider output is invalid', async () => {
+    test('synthesizeGoldenPath renders degraded Strategic Interpretation reason when provider output is invalid', async () => {
         const originalGetGraphCollection   = StorageRouter.getGraphCollection;
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
         const originalEmbedText            = TextEmbeddingService.embedText;
@@ -1161,7 +1173,10 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         OpenAiCompatible.prototype.generate = async () => ({content: 'not json'});
 
         try {
-            await GoldenPathSynthesizer.synthesizeGoldenPath({repoEnrichmentEnabled: false});
+            await GoldenPathSynthesizer.synthesizeGoldenPath({
+                now                  : new Date('2026-06-25T02:03:00Z'),
+                repoEnrichmentEnabled: false
+            });
         } finally {
             StorageRouter.getGraphCollection   = originalGetGraphCollection;
             StorageRouter.getSummaryCollection = originalGetSummaryCollection;
@@ -1172,9 +1187,14 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
 
         const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
 
+        expect(handoffContent).toContain('## Computed Golden Path (Strategic Recommendation)\n\nCaptured at: 2026-06-25 02:03 UTC\n\nBased on the latest Tri-Vector Synthesis');
+        expect(handoffContent).not.toContain('*Latest update:');
+        expect(handoffContent).not.toContain('## Golden Path Forecast Status');
+        expect(handoffContent).not.toContain('- Route source: Hybrid GraphRAG');
         expect(handoffContent).toContain('> **Strategic Interpretation:**');
-        expect(handoffContent).toContain(`The computed route is currently led by ${readyId}`);
-        expect(handoffContent).toContain('Restore compact strategic brief');
+        expect(handoffContent).toContain('Strategic Interpretation degraded: the model-generated brief was not available (strategic-brief-invalid-json).');
+        expect(handoffContent).toContain('The Computed Golden Path list above remains the mathematical route, but no synthetic rationale is generated for this pass.');
+        expect(handoffContent).not.toContain(`The computed route is currently led by ${readyId}`);
     });
 
     test('buildStaleAssignmentCandidates returns an empty set when no synced issue is stale', () => {
