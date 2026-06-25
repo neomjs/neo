@@ -37387,6 +37387,7 @@
   "repo:rust-cli/config-rs",
   "repo:rust-cli/human-panic",
   "repo:rust-db/refinery",
+  "repo:rust-diplomat/diplomat",
   "repo:rust-embedded/awesome-embedded-rust",
   "repo:rust-embedded/book",
   "repo:rust-embedded/embedded-hal",
