@@ -64,6 +64,45 @@ test.describe('extractMemoryCoreCollectionData — MC stored-embedding repair ex
         expect(result.data.embeddings[result.data.ids.indexOf('a')]).toEqual([1]);    // stored, untouched
     });
 
+    test('can stream recovered batches without retaining full collection data in memory', async () => {
+        const rows    = {a: {embedding: [1], document: 'da', metadata: {}}, m: {document: 'dm', metadata: {k: 1}}};
+        const batches = [];
+
+        const result = await extractMemoryCoreCollectionData({
+            collection      : makeCollection(rows),
+            allIds          : ['a', 'm'],
+            missingVectorIds: ['m'],
+            embedFn         : async docs => docs.map(() => [7]),
+            batchSize       : 1,
+            collectData     : false,
+            onDataBatch     : async batchData => batches.push(batchData)
+        });
+
+        expect(result.data).toEqual({ids: [], embeddings: [], documents: [], metadatas: []});
+        expect(result.counts).toEqual({total: 2, intact: 1, reEmbedded: 1, unrecoverable: 0});
+        expect(batches.map(batch => batch.ids)).toEqual([['a'], ['m']]);
+    });
+
+    test('skipIds prevents already shadow-loaded rows from being re-extracted or re-embedded', async () => {
+        const rows       = {a: {embedding: [1], document: 'da', metadata: {}}, m: {document: 'dm', metadata: {k: 1}}};
+        let   embedCalls = 0;
+
+        const result = await extractMemoryCoreCollectionData({
+            collection      : makeCollection(rows),
+            allIds          : ['a', 'm'],
+            missingVectorIds: ['m'],
+            skipIds         : ['a'],
+            embedFn         : async docs => {
+                embedCalls++;
+                return docs.map(() => [7]);
+            }
+        });
+
+        expect(result.data.ids).toEqual(['m']);
+        expect(result.counts).toEqual({total: 2, intact: 0, reEmbedded: 1, unrecoverable: 0, resumedExisting: 1});
+        expect(embedCalls).toBe(1);
+    });
+
     test('a missing-vector row with no document is unrecoverable, not silently dropped', async () => {
         const rows    = {m: {document: '', metadata: {}}, n: {document: 'dn', metadata: {}}};
         const embedFn = async docs => docs.map(() => [5]);
@@ -86,6 +125,40 @@ test.describe('extractMemoryCoreCollectionData — MC stored-embedding repair ex
 
         expect(result.unrecoverable).toEqual(['gone']);
         expect(result.counts.reEmbedded).toBe(1);
+    });
+
+    test('batch embed failure falls back to single-document isolation and marks only failed docs unrecoverable', async () => {
+        const rows = {
+            ok     : {document: 'small', metadata: {}},
+            overcap: {document: 'too-large', metadata: {}},
+            ok2    : {document: 'small-2', metadata: {}}
+        };
+        const calls = [];
+
+        const result = await extractMemoryCoreCollectionData({
+            collection      : makeCollection(rows),
+            allIds          : ['ok', 'overcap', 'ok2'],
+            missingVectorIds: ['ok', 'overcap', 'ok2'],
+            embedFn         : async docs => {
+                calls.push(docs);
+
+                if (docs.length > 1 || docs[0] === 'too-large') {
+                    throw new Error('context overflow');
+                }
+
+                return [[docs[0].length]];
+            }
+        });
+
+        expect(calls).toEqual([
+            ['small', 'too-large', 'small-2'],
+            ['small'],
+            ['too-large'],
+            ['small-2']
+        ]);
+        expect(result.unrecoverable).toEqual(['overcap']);
+        expect(result.data.ids).toEqual(['ok', 'ok2']);
+        expect(result.counts).toEqual({total: 3, intact: 0, reEmbedded: 2, unrecoverable: 1});
     });
 
     test('reports 10%-bucket progress for intact extraction and missing-vector re-embed', async () => {
@@ -125,12 +198,15 @@ test.describe('extractMemoryCoreCollectionData — MC stored-embedding repair ex
         });
     });
 
-    test('embedFn returning a wrong-length result throws (fail loud)', async () => {
+    test('embedFn returning wrong-length results marks the row unrecoverable instead of crashing repair progress', async () => {
         const rows = {m: {document: 'dm', metadata: {}}};
 
-        await expect(extractMemoryCoreCollectionData({
+        const result = await extractMemoryCoreCollectionData({
             collection: makeCollection(rows), allIds: ['m'], missingVectorIds: ['m'], embedFn: async () => []
-        })).rejects.toThrow(/returned 0 embeddings for 1 documents/);
+        });
+
+        expect(result.unrecoverable).toEqual(['m']);
+        expect(result.counts).toEqual({total: 1, intact: 0, reEmbedded: 0, unrecoverable: 1});
     });
 
     test('a missing embedFn throws (required param)', async () => {

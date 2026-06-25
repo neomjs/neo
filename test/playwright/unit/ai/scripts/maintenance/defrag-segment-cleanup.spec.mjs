@@ -15,12 +15,12 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
-import {execSync}     from 'child_process';
-import fs             from 'fs-extra';
-import path           from 'path';
+import {test, expect}                                  from '@playwright/test';
+import Neo                                             from '../../../../../../src/Neo.mjs';
+import * as core                                       from '../../../../../../src/core/_export.mjs';
+import {execSync}                                      from 'child_process';
+import fs                                              from 'fs-extra';
+import path                                            from 'path';
 import {getEmbeddingFunction, knownEmbeddingFunctions} from 'chromadb';
 
 /**
@@ -51,7 +51,7 @@ test.describe('defragChromaDB segment cleanup — unified-store-safe keep-set (#
     let cleanOrphanedSegmentDirs;
     let writeDefragState;
     let tmpRoot;
-    let nudge           = 0;
+    let nudge            = 0;
     let sqlite3Available = false;
 
     test.beforeAll(async () => {
@@ -96,7 +96,7 @@ test.describe('defragChromaDB segment cleanup — unified-store-safe keep-set (#
     }
 
     function createRegistryBackedCollection({name, registry, failModifyTo = null}) {
-        const rows = new Map();
+        const rows       = new Map();
         const collection = {
             name,
             calls: {
@@ -193,8 +193,8 @@ test.describe('defragChromaDB segment cleanup — unified-store-safe keep-set (#
         // Non-segment dirs that must survive the heuristic guard:
         //   - short name fails the 36-char branch
         //   - 36-char-no-hyphen fails the `includes('-')` branch
-        const shortDir       = 'system-cache';
-        const noHyphen36     = 'abcdefabcdefabcdefabcdefabcdef123456';
+        const shortDir   = 'system-cache';
+        const noHyphen36 = 'abcdefabcdefabcdefabcdefabcdef123456';
 
         await seedSegmentDir(thisTargetLive);
         await seedSegmentDir(siblingLive);
@@ -299,6 +299,32 @@ test.describe('defragChromaDB segment cleanup — unified-store-safe keep-set (#
         await expect(assertNoIncompleteDefragState({statePath})).resolves.toBeUndefined();
     });
 
+    test('durable phase marker can be returned when the caller owns resumability for that phase', async () => {
+        const statePath = path.join(tmpRoot, 'defrag-state-resumable.json');
+
+        await writeDefragState({
+            statePath,
+            state: {
+                targetName    : 'memory-core',
+                collectionName: 'neo-agent-memory',
+                phase         : 'memory-core-repair-shadow-loading',
+                shadowName    : 'neo-agent-memory-shadow-resume'
+            }
+        });
+
+        const state = await assertNoIncompleteDefragState({
+            statePath,
+            allowedPhases: ['memory-core-repair-shadow-loading']
+        });
+
+        expect(state).toMatchObject({
+            targetName    : 'memory-core',
+            collectionName: 'neo-agent-memory',
+            phase         : 'memory-core-repair-shadow-loading',
+            shadowName    : 'neo-agent-memory-shadow-resume'
+        });
+    });
+
     test('shadow promotion loads replacement before parking live and never deletes canonical', async () => {
         const registry       = new Map();
         const collectionName = 'neo-knowledge-base';
@@ -306,7 +332,7 @@ test.describe('defragChromaDB segment cleanup — unified-store-safe keep-set (#
         const client         = createRegistryBackedClient({registry});
         const data           = createCollectionData();
         const statePath      = path.join(tmpRoot, 'defrag-state.json');
-        let uuid             = 0;
+        let   uuid           = 0;
 
         const result = await rewriteCollectionViaShadowPromotion({
             client,
@@ -316,8 +342,8 @@ test.describe('defragChromaDB segment cleanup — unified-store-safe keep-set (#
             statePath,
             timestamp        : 123,
             uuidFactory      : () => `uuid-${++uuid}`,
-            log              : () => {},
-            writeProgress    : () => {}
+            log          : () => {},
+            writeProgress: () => {}
         });
 
         expect(result.shadowName).toBe('neo-knowledge-base-shadow-123-uuid-1');
@@ -347,12 +373,12 @@ test.describe('defragChromaDB segment cleanup — unified-store-safe keep-set (#
             timestamp: 456,
             uuid     : 'uuid-2'
         });
-        const failedName     = createSwapCollectionName(collectionName, 'failed-shadow', {
+        const failedName = createSwapCollectionName(collectionName, 'failed-shadow', {
             timestamp: 456,
             uuid     : 'uuid-3'
         });
-        const live           = createRegistryBackedCollection({name: collectionName, registry});
-        const client         = createRegistryBackedClient({
+        const live   = createRegistryBackedCollection({name: collectionName, registry});
+        const client = createRegistryBackedClient({
             registry,
             shadowFailModifyTo: collectionName
         });
@@ -366,9 +392,9 @@ test.describe('defragChromaDB segment cleanup — unified-store-safe keep-set (#
             statePath,
             timestamp        : 456,
             uuidFactory      : () => `uuid-${++uuid}`,
-            log              : () => {},
-            warn             : () => {},
-            writeProgress    : () => {}
+            log          : () => {},
+            warn         : () => {},
+            writeProgress: () => {}
         })).rejects.toThrow(`forced modify failure for ${collectionName}`);
 
         expect(registry.get(collectionName)).toBe(live);
@@ -386,8 +412,8 @@ test.describe('defragChromaDB segment cleanup — unified-store-safe keep-set (#
 
     test('registers Neo Chroma embedding functions before defrag collection hydration', async () => {
         const {default: AiConfig} = await import('../../../../../../ai/config.mjs');
-        const warnings     = [];
-        const originalWarn = console.warn;
+        const warnings            = [];
+        const originalWarn        = console.warn;
 
         console.warn = (...args) => warnings.push(args.join(' '));
 
@@ -416,7 +442,7 @@ test.describe('defragChromaDB segment cleanup — unified-store-safe keep-set (#
     });
 
     test('skips UUID-named entries that are files, not directories', async () => {
-        const liveSeg     = '66666666-6666-4666-8666-666666666666';
+        const liveSeg       = '66666666-6666-4666-8666-666666666666';
         const uuidNamedFile = '77777777-7777-4777-8777-777777777777';
 
         await seedSegmentDir(liveSeg);
