@@ -41,7 +41,10 @@ function makeServices(overrides = {}) {
             executeRemCycle: () => Promise.resolve({status: 'completed'})
         },
         goldenPathSynthesizer: {
-            synthesizeGoldenPath: () => Promise.resolve()
+            synthesizeGoldenPath: () => Promise.resolve({
+                status      : 'completed',
+                wroteHandoff: true
+            })
         },
         healthService: {
             recordTaskOutcome() {}
@@ -598,6 +601,67 @@ test.describe('orchestrator/scheduling/pipeline (#11862/#11900)', () => {
                     error       : 'Error executing plan: Internal error: Error finding id',
                     failedAt    : expect.any(String),
                     wroteHandoff: true
+                }
+            }
+        ]);
+    });
+
+    test('records Golden Path missing handoff write proof as failure (#13985)', async () => {
+        const calls    = [];
+        const outcomes = [];
+        const state    = {};
+
+        runSchedulingPipeline({
+            registry: [
+                makeCandidateDescriptor({
+                    taskName        : 'golden-path',
+                    executionKind   : 'in-process-async',
+                    maintenanceClass: 'graph-dependent'
+                })
+            ],
+            context : makeContext(),
+            services: makeServices({
+                goldenPathSynthesizer: {
+                    synthesizeGoldenPath: () => Promise.resolve({status: 'completed'})
+                },
+                healthService: {
+                    recordTaskOutcome(taskName, status, details) {
+                        outcomes.push({taskName, status, details});
+                    }
+                },
+                taskStateService: {
+                    getTaskState: () => state,
+                    markCompleted(taskName) { calls.push(['markCompleted', taskName]); },
+                    markFailed(taskName, exitCode) { calls.push(['markFailed', taskName, exitCode]); },
+                    markSkipped(taskName) { calls.push(['markSkipped', taskName]); },
+                    markStarted(taskName, reason) { calls.push(['markStarted', taskName, reason]); }
+                }
+            }),
+            runtime: makeRuntime()
+        });
+
+        await Promise.resolve();
+
+        expect(calls).toEqual([
+            ['markStarted', 'golden-path', 'golden-path-reason'],
+            ['markFailed', 'golden-path', 1]
+        ]);
+        expect(state.lastReason).toBe('golden-path-handoff-write-unverified');
+        expect(outcomes).toEqual([
+            {
+                taskName: 'golden-path',
+                status  : 'running',
+                details : {reason: 'golden-path-reason', startedAt: expect.any(String)}
+            },
+            {
+                taskName: 'golden-path',
+                status  : 'failed',
+                details : {
+                    reason      : 'golden-path-reason',
+                    reasonCode  : 'golden-path-handoff-write-unverified',
+                    error       : 'Golden Path synthesizer did not report wroteHandoff=true.',
+                    failedAt    : expect.any(String),
+                    wroteHandoff: false
                 }
             }
         ]);

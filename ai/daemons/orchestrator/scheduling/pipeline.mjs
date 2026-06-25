@@ -557,24 +557,36 @@ async function runGoldenPathTask({taskName, reason, services, repoEnrichmentEnab
     try {
         const outcome = await services.goldenPathSynthesizer.synthesizeGoldenPath({repoEnrichmentEnabled});
 
-        if (outcome?.status === 'failed') {
+        if (outcome?.status === 'failed' || outcome?.wroteHandoff !== true) {
+            const writeProofMissing = outcome?.wroteHandoff !== true,
+                  reasonCode        = writeProofMissing ? 'golden-path-handoff-write-unverified' : outcome.reasonCode,
+                  error             = writeProofMissing ? 'Golden Path synthesizer did not report wroteHandoff=true.' : outcome.error;
             const state = services.taskStateService.getTaskState(taskName);
-            if (state) state.lastReason = outcome.reasonCode || outcome.error || 'golden-path-failed';
+            if (state) state.lastReason = reasonCode || error || 'golden-path-failed';
             services.taskStateService.markFailed(taskName, 1);
             services.healthService?.recordTaskOutcome?.(taskName, 'failed', {
                 reason,
-                reasonCode  : outcome.reasonCode,
-                error       : outcome.error,
+                reasonCode,
+                error,
                 failedAt    : new Date().toISOString(),
-                wroteHandoff: outcome.wroteHandoff === true
+                wroteHandoff: outcome?.wroteHandoff === true
             });
             return;
         }
 
-        services.taskStateService.markCompleted(taskName);
+        const completedAt = new Date().toISOString();
+        services.taskStateService.markCompleted(taskName, {
+            completedAt,
+            prunedGuideEdges: outcome.prunedGuideEdges,
+            selectedTopNodes: outcome.selectedTopNodes,
+            wroteHandoff    : true
+        });
         services.healthService?.recordTaskOutcome?.(taskName, 'completed', {
             reason,
-            completedAt: new Date().toISOString()
+            completedAt,
+            prunedGuideEdges: outcome.prunedGuideEdges,
+            selectedTopNodes: outcome.selectedTopNodes,
+            wroteHandoff    : true
         });
     } catch (e) {
         const state = services.taskStateService.getTaskState(taskName);
