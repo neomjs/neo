@@ -11,6 +11,8 @@ test.describe('Memory Core Config (#10010)', () => {
     let originalTier1ClassHierarchy;
     let originalConfig;
     let originalClassHierarchy;
+    let tier1TemplateData;
+    let tier1TemplateFormulas;
 
     test.beforeAll(async () => {
         originalEnv = { ...process.env };
@@ -43,8 +45,14 @@ test.describe('Memory Core Config (#10010)', () => {
         // (cached module) that's a no-op — so install a fresh Tier-1 root built from the canonical
         // template tree, making inheritance deterministic across workers.
         const tier1Template = (await import('../../../../../../../ai/config.template.mjs')).default;
+        tier1TemplateData     = tier1Template._data;
+        tier1TemplateFormulas = tier1Template._formulas;
         Neo.ai = Neo.ai || {};
-        Neo.ai.Config = Neo.create(ConfigProvider, {data: tier1Template._data});
+        delete Neo.ai.Config;
+        Neo.ai.Config = Neo.create(ConfigProvider, {
+            data    : tier1TemplateData,
+            formulas: tier1TemplateFormulas
+        });
     });
 
     test.afterAll(() => {
@@ -114,12 +122,13 @@ test.describe('Memory Core Config (#10010)', () => {
         expect(config.openAiCompatible.model).toBe(TIER1_DEFAULTS.openAiCompatible.model);
         expect(config.openAiCompatible.embeddingModel).toBe(TIER1_DEFAULTS.openAiCompatible.embeddingModel);
 
-        expect(config.engines.chroma.host).toBe(TIER1_DEFAULTS.engines.chroma.host);
-        expect(config.engines.chroma.port).toBe(TIER1_DEFAULTS.engines.chroma.port);
-        // MC reads the unified persist-dir SSOT, not a server-local dir.
-        // Was the stale `.neo-ai-data/chroma/memory-core` — the bug.
-        expect(config.engines.chroma.dataDir).toBe(TIER1_DEFAULTS.engines.chroma.dataDir);
-        expect(config.engines.chroma.dataDir).toContain('.neo-ai-data/chroma/unified');
+        expect(config.engines.chroma.host).toBe(TIER1_DEFAULTS.engines.chroma.hostTest);
+        expect(config.engines.chroma.port).toBe(TIER1_DEFAULTS.engines.chroma.portTest);
+        // MC reads the Tier-1 Chroma SSOT. Under UNIT_TEST_MODE the active endpoint is the
+        // isolated unit-test daemon/data dir, while the production leaf stays the unified store.
+        expect(config.engines.chroma.dataDir).toBe(TIER1_DEFAULTS.engines.chroma.dataDirTest);
+        expect(config.engines.chroma.dataDirProd).toContain('.neo-ai-data/chroma/unified');
+        expect(config.engines.chroma.dataDir).toContain('neo-chroma-unit-test');
     });
 
     test('inherits the Tier-1 active-session idle threshold (#9959)', () => {
@@ -160,15 +169,20 @@ test.describe('Memory Core Config (#10010)', () => {
         process.env.NEO_OLLAMA_REQUIRE_PARALLEL_MODELS = '3';
         process.env.NEO_OPENAI_COMPATIBLE_KEEP_ALIVE = '10m';
         process.env.NEO_OPENAI_COMPATIBLE_REQUIRE_PARALLEL_MODELS = '4';
+        process.env.UNIT_TEST_MODE = 'false';
         process.env.NEO_CHROMA_HOST = 'chroma';
         process.env.NEO_CHROMA_PORT = '8010';
 
         // Post-split, MC declares none of these locally — they are Tier-1-owned, so env
         // precedence lives at the OWNER. Build a fresh realm root WITH the env set, register it, and
         // a fresh MC child inherits the overrides up the getParent() chain. (config._data is the raw
-        // MC meta-leaf tree; Neo.ai.Config._data is the Tier-1 realm tree, loaded via MC's import.)
-        const prevRoot  = Neo.ai?.Config;
-        const freshRoot = Neo.create(ConfigProvider, {data: Neo.ai.Config._data});
+        // MC meta-leaf tree; tier1TemplateData is the raw Tier-1 meta-leaf tree.)
+        const prevRoot = Neo.ai?.Config;
+        delete Neo.ai.Config;
+        const freshRoot = Neo.create(ConfigProvider, {
+            data    : tier1TemplateData,
+            formulas: tier1TemplateFormulas
+        });
         Neo.ai.Config   = freshRoot;
         const freshMC = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
 

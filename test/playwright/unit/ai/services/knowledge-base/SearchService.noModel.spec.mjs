@@ -35,12 +35,12 @@ test.describe('Neo.ai.services.knowledge-base.SearchService model guard', () => 
         QueryService.queryDocuments    = originalQueryDocuments;
     });
 
-    test('ask returns the no-documents response before requiring a Gemini model', async () => {
+    test('ask returns the empty-collection response before requiring a Gemini model', async () => {
         SearchService.model         = null;
         QueryService.queryDocuments = async () => ({message: 'No results found for your query and type.'});
 
         await expect(SearchService.ask({query: 'How does KB work?'})).resolves.toEqual({
-            answer    : 'No relevant documents found in the knowledge base.',
+            answer    : "The knowledge base collection is empty. Populate it with the release artifact via 'npm run ai:download-kb' (or build locally with 'npm run ai:sync-kb').",
             references: []
         });
     });
@@ -52,11 +52,11 @@ test.describe('Neo.ai.services.knowledge-base.SearchService model guard', () => 
         });
 
         await expect(SearchService.ask({query: 'How does KB work?'})).resolves.toEqual({
-            answer    : 'Knowledge-base retrieval succeeded, but answer synthesis is currently unavailable (GEMINI_API_KEY is required for RAG features.). Use the references directly while the synthesis provider recovers.',
-            degraded  : true,
+            answer      : 'Knowledge-base retrieval succeeded, but answer synthesis is currently unavailable (GEMINI_API_KEY is required for RAG features.). Use the references directly while the synthesis provider recovers.',
+            degraded    : true,
             degradedCode: 'no_provider',
-            reason    : 'GEMINI_API_KEY is required for RAG features.',
-            references: [{
+            reason      : 'GEMINI_API_KEY is required for RAG features.',
+            references  : [{
                 name  : 'KnowledgeBase.md',
                 score : 100,
                 source: 'learn/agentos/KnowledgeBase.md'

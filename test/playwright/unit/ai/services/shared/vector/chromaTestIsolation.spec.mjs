@@ -3,7 +3,8 @@ import {
     CHROMA_PRODUCTION_DATABASE,
     CHROMA_TEST_DATABASE,
     dropChromaTestDatabase,
-    ensureChromaTestDatabase
+    ensureChromaTestDatabase,
+    isChromaAlreadyExistsError
 } from '../../../../../../../ai/services/shared/vector/chromaTestIsolation.mjs';
 
 /**
@@ -20,7 +21,7 @@ test.describe('chromaTestIsolation helpers', () => {
     });
 
     test('ensureChromaTestDatabase is a no-op create when the database already exists', async () => {
-        const calls = [];
+        const calls       = [];
         const adminClient = {
             getDatabase   : async args => { calls.push(['get',    args]) },
             createDatabase: async args => { calls.push(['create', args]) }
@@ -33,7 +34,7 @@ test.describe('chromaTestIsolation helpers', () => {
     });
 
     test('ensureChromaTestDatabase creates the database when getDatabase rejects (not-found)', async () => {
-        const created = [];
+        const created     = [];
         const adminClient = {
             getDatabase   : async () => { throw new Error('database not found') },
             createDatabase: async args => { created.push(args) }
@@ -47,12 +48,41 @@ test.describe('chromaTestIsolation helpers', () => {
         expect(result).toBe(CHROMA_TEST_DATABASE);
     });
 
+    test('ensureChromaTestDatabase treats a concurrent already-exists create as success', async () => {
+        const calls       = [];
+        const adminClient = {
+            getDatabase   : async args => { calls.push(['get', args]); throw new Error('database not found') },
+            createDatabase: async args => {
+                calls.push(['create', args]);
+                const error = new Error('The resource already exists');
+                error.name = 'ChromaUniqueError';
+                throw error
+            }
+        };
+
+        const result = await ensureChromaTestDatabase({
+            database: CHROMA_TEST_DATABASE, tenant: 'default_tenant', adminClient
+        });
+
+        expect(calls.map(c => c[0])).toEqual(['get', 'create']);
+        expect(result).toBe(CHROMA_TEST_DATABASE);
+    });
+
+    test('isChromaAlreadyExistsError detects Chroma duplicate-create signatures', () => {
+        const named = new Error('The resource already exists');
+        named.name = 'ChromaUniqueError';
+
+        expect(isChromaAlreadyExistsError(named)).toBe(true);
+        expect(isChromaAlreadyExistsError(new Error('already exists'))).toBe(true);
+        expect(isChromaAlreadyExistsError(new Error('connection refused'))).toBe(false);
+    });
+
     test('ensureChromaTestDatabase rejects when database is missing', async () => {
         await expect(ensureChromaTestDatabase({adminClient: {}})).rejects.toThrow(/`database` is required/);
     });
 
     test('dropChromaTestDatabase drops the named test database', async () => {
-        const deleted = [];
+        const deleted     = [];
         const adminClient = {deleteDatabase: async args => { deleted.push(args) }};
 
         const result = await dropChromaTestDatabase({
@@ -64,7 +94,7 @@ test.describe('chromaTestIsolation helpers', () => {
     });
 
     test('dropChromaTestDatabase REFUSES to drop the production database', async () => {
-        const deleted = [];
+        const deleted     = [];
         const adminClient = {deleteDatabase: async args => { deleted.push(args) }};
 
         await expect(dropChromaTestDatabase({database: CHROMA_PRODUCTION_DATABASE, adminClient}))

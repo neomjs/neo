@@ -1,3 +1,4 @@
+import os                                        from 'os';
 import path                                      from 'path';
 import {fileURLToPath}                           from 'url';
 import ConfigProvider, {createConfigProxy, leaf} from './ConfigProvider.mjs';
@@ -6,7 +7,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const neoRootDir = path.resolve(__dirname, '../');
 // Fallback to neoRootDir if cwd is root (e.g., container/daemon edge cases)
-const projectRoot = process.cwd() === '/' ? neoRootDir : process.cwd();
+const projectRoot           = process.cwd() === '/' ? neoRootDir : process.cwd();
+const chromaUnitTestDataDir = path.join(os.tmpdir(), 'neo-chroma-unit-test');
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS  = 24 * HOUR_MS;
@@ -333,20 +335,21 @@ class Config extends ConfigProvider {
             /**
              * @summary Deployment-wide storage engine coordinates.
              *
-             * `engines.chroma` is the unified Chroma topology: ONE daemon, ONE persist dir,
-             * shared by Knowledge Base + Memory Core. `dataDir` is the fixed canonical persist dir
-             * read by both server configs + the `defragChromaDB` maintenance script; the local
-             * orchestrator launches the daemon against the same fixed path. The leaf is named `unified`
-             * (identical local + cloud) — it holds every realm (KB + MC + graph + sessions), so a
-             * realm-specific name would misrepresent the store. Collection NAMES remain server-local;
-             * the persist DIR is unified.
+             * `engines.chroma` is the unified production topology: ONE daemon, ONE persist dir,
+             * shared by Knowledge Base + Memory Core. The active `host` / `port` / `dataDir` values are
+             * formulas (below) that resolve production vs unit-test coordinates from the existing
+             * `UNIT_TEST_MODE` toggle. Unit tests therefore connect to a separate daemon and separate
+             * persist directory by construction; a database-name swap alone is not isolation.
              * @type {Object}
              */
             engines: {
                 chroma: {
-                    dataDir: leaf(path.resolve(neoRootDir, '.neo-ai-data/chroma/unified')),
-                    host   : leaf('localhost', 'NEO_CHROMA_HOST', 'string'),
-                    port   : leaf(8000, 'NEO_CHROMA_PORT', 'port'),
+                    dataDirProd: leaf(path.resolve(neoRootDir, '.neo-ai-data/chroma/unified')),
+                    dataDirTest: leaf(chromaUnitTestDataDir, 'NEO_CHROMA_DATA_DIR_TEST', 'string'),
+                    hostProd   : leaf('localhost', 'NEO_CHROMA_HOST', 'string'),
+                    hostTest   : leaf('localhost', 'NEO_CHROMA_HOST_TEST', 'string'),
+                    portProd   : leaf(8000, 'NEO_CHROMA_PORT', 'port'),
+                    portTest   : leaf(18180, 'NEO_CHROMA_PORT_TEST', 'port'),
                     /**
                      * Chroma database selection — three declarative leaves, all SSOT-inline (config.template
                      * imports no config values):
@@ -982,6 +985,14 @@ class Config extends ConfigProvider {
                     })
                 }
             })
+        },
+        /**
+         * Reactive computed config values (`Neo.state.Provider` formulas).
+         */
+        formulas: {
+            'engines.chroma.dataDir': data => data.engines.chroma.useTestDatabase ? data.engines.chroma.dataDirTest : data.engines.chroma.dataDirProd,
+            'engines.chroma.host'   : data => data.engines.chroma.useTestDatabase ? data.engines.chroma.hostTest    : data.engines.chroma.hostProd,
+            'engines.chroma.port'   : data => data.engines.chroma.useTestDatabase ? data.engines.chroma.portTest    : data.engines.chroma.portProd
         }
     }
 }
