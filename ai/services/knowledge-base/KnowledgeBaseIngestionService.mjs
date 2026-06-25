@@ -474,8 +474,8 @@ class KnowledgeBaseIngestionService extends Base {
      */
     async getTenantManifest({tenantId, repoSlug} = {}) {
         const {tenantId: resolvedTenant, repoSlug: resolvedRepo} = this.resolveTenantContext({tenantId, repoSlug});
-        const manifests = await this.getTenantManifests({tenantId: resolvedTenant});
-        const manifest  = manifests[resolvedRepo];
+        const manifests                                          = await this.getTenantManifests({tenantId: resolvedTenant});
+        const manifest                                           = manifests[resolvedRepo];
 
         return {
             tenantId      : resolvedTenant,
@@ -710,27 +710,190 @@ class KnowledgeBaseIngestionService extends Base {
             return chunks;
         }
 
-        return chunks.filter(chunk => {
-            const
-                text                = this.buildEmbeddingInputText(chunk),
-                inputBytes          = Buffer.byteLength(text, 'utf8'),
-                inputTokensEstimate = bytesToTokens(inputBytes);
+        const embeddable = [];
 
-            if (inputTokensEstimate <= guardrail.safeProcessingLimitTokens) {
-                return true;
+        for (const chunk of chunks) {
+            const budget = this.evaluateEmbeddingInputBudget(chunk, guardrail);
+
+            if (!budget.skip) {
+                embeddable.push(chunk);
+                continue;
             }
 
-            this.recordOversizedEmbeddingSkip({
-                chunk,
-                guardrail,
-                inputBytes,
-                inputTokensEstimate,
-                summary,
-                tenantContext
-            });
+            const splitChunks = this.splitOversizedEmbeddingChunk({chunk, guardrail, tenantContext});
 
-            return false;
+            if (splitChunks.length <= 1) {
+                this.recordOversizedEmbeddingSkip({
+                    chunk,
+                    guardrail,
+                    summary,
+                    tenantContext,
+                    ...budget
+                });
+                continue;
+            }
+
+            for (const splitChunk of splitChunks) {
+                const splitBudget = this.evaluateEmbeddingInputBudget(splitChunk, guardrail);
+
+                if (!splitBudget.skip) {
+                    embeddable.push(splitChunk);
+                    continue;
+                }
+
+                this.recordOversizedEmbeddingSkip({
+                    chunk: splitChunk,
+                    guardrail,
+                    summary,
+                    tenantContext,
+                    ...splitBudget
+                });
+            }
+        }
+
+        return embeddable;
+    }
+
+    /**
+     * @summary Evaluates the final embedding input shape against the local provider budget.
+     * @param {Object} chunk Normalized parsed chunk.
+     * @param {Object} guardrail Local embedding guardrail.
+     * @returns {{skip: Boolean, inputBytes: Number, inputTokensEstimate: Number}}
+     * @protected
+     */
+    evaluateEmbeddingInputBudget(chunk, guardrail) {
+        const text                = this.buildEmbeddingInputText(chunk),
+              inputBytes          = Buffer.byteLength(text, 'utf8'),
+              inputTokensEstimate = bytesToTokens(inputBytes);
+
+        return {
+            skip: inputTokensEstimate > guardrail.safeProcessingLimitTokens,
+            inputBytes,
+            inputTokensEstimate
+        };
+    }
+
+    /**
+     * @summary Splits a recoverable oversized text chunk into deterministic embedding-safe sub-chunks.
+     * @param {Object} options
+     * @returns {Object[]} Either multiple sub-chunks or the original chunk when no safe split is possible.
+     * @protected
+     */
+    splitOversizedEmbeddingChunk({chunk, guardrail, tenantContext}) {
+        const content = chunk.content || chunk.description;
+
+        if (typeof content !== 'string' || content.length === 0) {
+            return [chunk];
+        }
+
+        const maxInputBytes = Math.max(1, guardrail.safeProcessingLimitTokens * 3),
+              prefixBytes   = Buffer.byteLength(`${chunk.type}: ${chunk.name} in ${chunk.className || ''}\n`, 'utf8'),
+              maxContentBytes = Math.max(1, maxInputBytes - prefixBytes - 128),
+              parts = this.splitTextByByteBudget(content, maxContentBytes);
+
+        if (parts.length <= 1) {
+            return [chunk];
+        }
+
+        let charStart = 0;
+
+        return parts.map((part, index) => {
+            const charEnd = charStart + part.length,
+                  child   = {
+                      ...chunk,
+                      content    : part,
+                      description: part,
+                      name         : `${chunk.name} [part ${index + 1}/${parts.length}]`,
+                      hashInputs   : Array.from(new Set([
+                          ...(chunk.hashInputs || []),
+                          'oversizedSplitIndex',
+                          'oversizedSplitTotal',
+                          'oversizedSplitCharStart',
+                          'oversizedSplitCharEnd'
+                      ])),
+                      oversizedSplit         : true,
+                      oversizedSplitIndex    : index,
+                      oversizedSplitTotal    : parts.length,
+                      oversizedSplitCharStart: charStart,
+                      oversizedSplitCharEnd  : charEnd
+                  };
+
+            charStart = charEnd;
+
+            const hash = this.createChunkHash(child, tenantContext);
+
+            child.hash = hash;
+            child.id   = hash;
+
+            return child;
         });
+    }
+
+    /**
+     * @summary Splits text on stable line boundaries, falling back to character slices for single huge lines.
+     * @param {String} text Source text.
+     * @param {Number} maxBytes Maximum byte size per returned part.
+     * @returns {String[]}
+     * @protected
+     */
+    splitTextByByteBudget(text, maxBytes) {
+        if (Buffer.byteLength(text, 'utf8') <= maxBytes) {
+            return [text];
+        }
+
+        const parts   = [];
+        let   current = '';
+
+        for (const line of text.match(/[^\n]*\n?|[^\n]+$/g).filter(Boolean)) {
+            if (Buffer.byteLength(line, 'utf8') > maxBytes) {
+                if (current) {
+                    parts.push(current);
+                    current = '';
+                }
+                parts.push(...this.splitLongStringByByteBudget(line, maxBytes));
+                continue;
+            }
+
+            if (current && Buffer.byteLength(current + line, 'utf8') > maxBytes) {
+                parts.push(current);
+                current = line;
+            } else {
+                current += line;
+            }
+        }
+
+        if (current) {
+            parts.push(current);
+        }
+
+        return parts.filter(part => part.length > 0);
+    }
+
+    /**
+     * @summary Splits one oversized line without breaking JavaScript surrogate pairs.
+     * @param {String} value Source string.
+     * @param {Number} maxBytes Maximum byte size per part.
+     * @returns {String[]}
+     * @protected
+     */
+    splitLongStringByByteBudget(value, maxBytes) {
+        const parts   = [];
+        let   current = '';
+
+        for (const char of value) {
+            if (current && Buffer.byteLength(current + char, 'utf8') > maxBytes) {
+                parts.push(current);
+                current = char;
+            } else {
+                current += char;
+            }
+        }
+
+        if (current) {
+            parts.push(current);
+        }
+
+        return parts;
     }
 
     /**
