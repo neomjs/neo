@@ -395,6 +395,127 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
         }
     });
 
+    test('REM marathon chunk exposes active diagnostics and output budget before provider return (#13984)', async () => {
+        let capturedOptions, activeDuringCall;
+
+        const provider = {
+            generate: async function(messages, options) {
+                capturedOptions  = options;
+                activeDuringCall = {...SemanticGraphExtractor.activeTriVectorCall};
+
+                return {
+                    content: JSON.stringify({
+                        a2a_version     : '1.0',
+                        agent_id        : 'Antigravity',
+                        session_artifact: {
+                            feature_namespace     : 'Neo.ai.REM',
+                            human_readable_summary: 'Marathon REM chunk stayed bounded by output budget.',
+                            graph                 : {nodes: [], edges: []}
+                        }
+                    })
+                };
+            }
+        };
+
+        const result = await SemanticGraphExtractor.extractTriVectorPayload({
+            session: {
+                id  : 'mock-marathon-rem-vector-id',
+                meta: {sessionId: '2d993feb-ea2f-4468-8fbd-c53e62365f4d'}
+            },
+            document              : 'chunk-2 live evidence: 70549 estimated prompt tokens, provider stream exceeded 204k live tokens.',
+            assetRef              : '2d993feb-ea2f-4468-8fbd-c53e62365f4d:chunk:1',
+            consumerProvider      : 'openAiCompatible',
+            provider,
+            consumerModel         : 'google/gemma-4-26b-a4b',
+            consumerContextTokens : 131072,
+            consumerSafeTokens    : 100000,
+            graphOutputLimitTokens: 8192,
+            graphReasoningEffort  : 'none',
+            triVectorSchema       : {type: 'object'},
+            systemInstruction     : 'Return the requested Tri-Vector JSON object.',
+            chunkIndex            : 1,
+            chunkCount            : 2,
+            turnIndices           : [96, 191],
+            chunkTokens           : 70549
+        });
+
+        expect(result.session_artifact.human_readable_summary).toBe('Marathon REM chunk stayed bounded by output budget.');
+        expect(capturedOptions).toMatchObject({
+            maxCompletionTokens: 8192,
+            operationLabel     : expect.stringContaining('2d993feb-ea2f-4468-8fbd-c53e62365f4d')
+        });
+        expect(activeDuringCall).toMatchObject({
+            phase                    : 'triVector',
+            sessionId                : '2d993feb-ea2f-4468-8fbd-c53e62365f4d',
+            assetRef                 : '2d993feb-ea2f-4468-8fbd-c53e62365f4d:chunk:1',
+            chunkIndex               : 1,
+            chunkCount               : 2,
+            turnIndices              : [96, 191],
+            chunkTokens              : 70549,
+            provider                 : 'openAiCompatible',
+            model                    : 'google/gemma-4-26b-a4b',
+            outputLimitTokens        : 8192,
+            contextLimitTokens       : 131072,
+            safeProcessingLimitTokens: 100000
+        });
+        expect(activeDuringCall.promptTokensEstimate).toBeGreaterThan(0);
+        expect(activeDuringCall.startedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+        expect(SemanticGraphExtractor.activeTriVectorCall).toBeNull();
+    });
+
+    test('REM parser fails before dispatch when prompt plus output reserve exceeds context (#13984)', async () => {
+        let providerCalled = false;
+
+        clearAggregatedFrictions();
+
+        const result = await SemanticGraphExtractor.extractTriVectorPayload({
+            session: {
+                id  : 'mock-over-budget-rem-vector-id',
+                meta: {sessionId: '2d993feb-ea2f-4468-8fbd-c53e62365f4d'}
+            },
+            document        : 'small document that still breaches the artificial prompt plus output reserve',
+            assetRef        : '2d993feb-ea2f-4468-8fbd-c53e62365f4d:chunk:1',
+            consumerProvider: 'openAiCompatible',
+            provider        : {
+                generate: async function() {
+                    providerCalled = true;
+                    return {content: '{}'};
+                }
+            },
+            consumerModel         : 'google/gemma-4-26b-a4b',
+            consumerContextTokens : 20,
+            consumerSafeTokens    : 1000,
+            graphOutputLimitTokens: 20,
+            graphReasoningEffort  : 'none',
+            triVectorSchema       : {type: 'object'},
+            systemInstruction     : 'sys',
+            chunkIndex            : 1,
+            chunkCount            : 2,
+            turnIndices           : [96, 191],
+            chunkTokens           : 70549
+        });
+
+        expect(providerCalled).toBe(false);
+        expect(result).toMatchObject({
+            ok                : false,
+            deferReason       : 'under-band-choke',
+            frictionSymptom   : 'context-overflow',
+            terminalForCadence: true,
+            evidence          : {
+                sessionId             : '2d993feb-ea2f-4468-8fbd-c53e62365f4d',
+                chunkIndex            : 1,
+                chunkCount            : 2,
+                outputLimitTokens     : 20,
+                contextLimitTokens    : 20,
+                promptPlusOutputTokens: expect.any(Number)
+            }
+        });
+        expect(result.evidence.promptPlusOutputTokens).toBeGreaterThan(20);
+        expect(SemanticGraphExtractor.activeTriVectorCall).toBeNull();
+
+        clearAggregatedFrictions();
+    });
+
     test('over-band tri-vector repair prompt records friction instead of appending feedback (#13918)', async () => {
         const baseGenerate                      = OpenAiCompatible.prototype.generate;
         const originalContextLimitTokens        = aiConfig.localModels.chat.contextLimitTokens;
@@ -500,17 +621,19 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
 
     test('Sub 9 hypotheses 2, 8, 9: guardrail telemetry uses configured graph-provider model (#12617, #12059)', async () => {
         const originalGraphProvider             = aiConfig.graphProvider;
-        const originalOllamaModel               = aiConfig.ollama?.model;
+        const originalOllamaModel               = aiConfig.ollama.model;
         const originalContextLimitTokens        = aiConfig.localModels.chat.contextLimitTokens;
         const originalSafeProcessingLimitTokens = aiConfig.localModels.chat.safeProcessingLimitTokens;
+        const originalGraphOutputLimitTokens    = aiConfig.localModels.chat.graphOutputLimitTokens;
 
         try {
             clearAggregatedFrictions();
 
             aiConfig.graphProvider                             = 'ollama';
             aiConfig.ollama.model                              = 'gemma4-real-model';
-            aiConfig.localModels.chat.contextLimitTokens        = 8;
+            aiConfig.localModels.chat.contextLimitTokens        = 100000;
             aiConfig.localModels.chat.safeProcessingLimitTokens = 1;
+            aiConfig.localModels.chat.graphOutputLimitTokens    = 1;
 
             const result = await SemanticGraphExtractor.executeTriVectorExtraction({
                 id      : 'mock-consumer-model-vector-id',
@@ -538,6 +661,7 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             aiConfig.ollama.model                              = originalOllamaModel;
             aiConfig.localModels.chat.contextLimitTokens        = originalContextLimitTokens;
             aiConfig.localModels.chat.safeProcessingLimitTokens = originalSafeProcessingLimitTokens;
+            aiConfig.localModels.chat.graphOutputLimitTokens    = originalGraphOutputLimitTokens;
             clearAggregatedFrictions();
         }
     });

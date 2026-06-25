@@ -1,6 +1,8 @@
 import Base                 from './Base.mjs';
 import {createTimeoutError} from './createTimeoutError.mjs';
 
+const TOKEN_ESTIMATE_BYTES_PER_TOKEN = 3;
+
 /**
  * Concrete AI provider for a local MLX-native or any OpenAI-compatible API server.
  * Uses the native JS Fetch API. Defaults to http://127.0.0.1:8000.
@@ -90,8 +92,16 @@ class OpenAiCompatibleProvider extends Base {
 
         const clonedOptions = { ...options };
         delete clonedOptions.operationLabel;
+        delete clonedOptions.onProviderChunk;
         delete clonedOptions.signal;
         delete clonedOptions.timeoutMs;
+
+        if (clonedOptions.maxCompletionTokens !== undefined) {
+            if (clonedOptions.max_tokens === undefined && clonedOptions.max_completion_tokens === undefined) {
+                payload.max_tokens = clonedOptions.maxCompletionTokens;
+            }
+            delete clonedOptions.maxCompletionTokens;
+        }
 
         // Structured output: LM Studio + the OpenAI spec require `response_format.type` to be
         // 'json_schema' or 'text' — the older 'json_object' form is REJECTED. When a caller supplies a
@@ -153,19 +163,51 @@ class OpenAiCompatibleProvider extends Base {
      * @returns {Promise<{content: String, raw: Object}>}
      */
     async generate(input, options = {}) {
-        let fullContent = '';
+        let fullContent  = '',
+            finishReason = '';
+
+        const maxCompletionTokens = Number.isFinite(options.maxCompletionTokens) && options.maxCompletionTokens > 0
+            ? options.maxCompletionTokens
+            : null;
 
         try {
             // Internally delegate to the streaming API to bypass LM Studio/llama.cpp
             // monolithic buffer serialization penalties (~30% faster on Apple Silicon)
-            for await (const chunk of this.stream(input, options)) {
+            for await (const chunk of this.stream(input, {
+                ...options,
+                onProviderChunk: frame => {
+                    if (frame.finishReason) {
+                        finishReason = frame.finishReason;
+                    }
+                    if (typeof options.onProviderChunk === 'function') {
+                        options.onProviderChunk(frame);
+                    }
+                }
+            })) {
                 fullContent += chunk;
+
+                if (maxCompletionTokens && this.#estimateCompletionTokens(fullContent) > maxCompletionTokens) {
+                    finishReason = finishReason || 'token_limit';
+                    break;
+                }
+            }
+
+            const raw = {
+                message: {content: fullContent}
+            };
+
+            if (finishReason) {
+                raw.finish_reason = finishReason;
+                raw.choices       = [{
+                    finish_reason: finishReason,
+                    message      : {content: fullContent}
+                }];
             }
 
             return {
                 content: fullContent,
-                // Simulate the raw message expected by upstream callers
-                raw: { message: { content: fullContent } }
+                ...(finishReason ? {finish_reason: finishReason} : {}),
+                raw
             };
         } catch (error) {
             throw error;
@@ -184,8 +226,8 @@ class OpenAiCompatibleProvider extends Base {
      * @private
      */
     #getChoiceContent(data) {
-        const choice = data?.choices?.[0],
-              deltaContent = choice?.delta?.content,
+        const choice         = data?.choices?.[0],
+              deltaContent   = choice?.delta?.content,
               messageContent = choice?.message?.content;
 
         if (typeof deltaContent === 'string') {
@@ -196,13 +238,38 @@ class OpenAiCompatibleProvider extends Base {
     }
 
     /**
+     * @summary Extracts completion finish metadata from OpenAI-compatible response payloads.
+     *
+     * @param {Object} data Parsed OpenAI-compatible response payload.
+     * @returns {String}
+     * @private
+     */
+    #getChoiceFinishReason(data) {
+        const reason = data?.choices?.[0]?.finish_reason ?? data?.choices?.[0]?.finishReason;
+
+        return typeof reason === 'string' ? reason : '';
+    }
+
+    /**
+     * @summary Estimates generated text tokens with the same conservative byte heuristic
+     * used by the Dream Pipeline's consumer-friction guardrail.
+     *
+     * @param {String} text Generated text accumulated so far
+     * @returns {Number}
+     * @private
+     */
+    #estimateCompletionTokens(text) {
+        return Math.ceil(Buffer.byteLength(text || '', 'utf8') / TOKEN_ESTIMATE_BYTES_PER_TOKEN);
+    }
+
+    /**
      * @summary Parses one streaming line or a complete single-line JSON response.
      *
      * @param {String} line SSE `data:` line or JSON response line.
-     * @returns {String|null}
+     * @returns {{content: String|null, finishReason: String, raw: Object}|null}
      * @private
      */
-    #parseCompletionLine(line) {
+    #parseCompletionFrame(line) {
         const trimmed = line.trim();
         if (!trimmed || trimmed === 'data: [DONE]') {
             return null;
@@ -210,7 +277,16 @@ class OpenAiCompatibleProvider extends Base {
 
         try {
             const jsonStr = trimmed.replace(/^data:\s*/, '');
-            return jsonStr ? this.#getChoiceContent(JSON.parse(jsonStr)) : null;
+            if (!jsonStr) {
+                return null;
+            }
+
+            const raw = JSON.parse(jsonStr);
+            return {
+                content     : this.#getChoiceContent(raw),
+                finishReason: this.#getChoiceFinishReason(raw),
+                raw
+            };
         } catch (e) {
             // Safe to ignore if JSON.parse fails on malformed LLM outputs.
             return null;
@@ -224,17 +300,22 @@ class OpenAiCompatibleProvider extends Base {
      * the full body only when no content has already been yielded.
      *
      * @param {String} bodyText Full decoded response body.
-     * @returns {String|null}
+     * @returns {{content: String|null, finishReason: String, raw: Object}|null}
      * @private
      */
-    #parseCompletionBody(bodyText) {
+    #parseCompletionBodyFrame(bodyText) {
         const trimmed = bodyText.trim();
         if (!trimmed || trimmed.startsWith('data:')) {
             return null;
         }
 
         try {
-            return this.#getChoiceContent(JSON.parse(trimmed));
+            const raw = JSON.parse(trimmed);
+            return {
+                content     : this.#getChoiceContent(raw),
+                finishReason: this.#getChoiceFinishReason(raw),
+                raw
+            };
         } catch (e) {
             return null;
         }
@@ -252,19 +333,22 @@ class OpenAiCompatibleProvider extends Base {
      */
     async *stream(input, options = {}) {
         const cleanOptions = { ...options };
-        const rawTimeoutMs  = Number(cleanOptions.timeoutMs),
+        const rawTimeoutMs = Number(cleanOptions.timeoutMs),
               timeoutMs     = Number.isFinite(rawTimeoutMs) && rawTimeoutMs > 0 ? rawTimeoutMs : null,
               operationLabel = cleanOptions.operationLabel || 'OpenAI-compatible chat completion',
-              upstreamSignal = cleanOptions.signal;
+              upstreamSignal = cleanOptions.signal,
+              onProviderChunk = typeof cleanOptions.onProviderChunk === 'function' ? cleanOptions.onProviderChunk : null,
+              hasCompletionLimit = Number.isFinite(cleanOptions.maxCompletionTokens) && cleanOptions.maxCompletionTokens > 0;
 
         delete cleanOptions.num_ctx;
+        delete cleanOptions.onProviderChunk;
         delete cleanOptions.operationLabel;
         delete cleanOptions.signal;
         delete cleanOptions.timeoutMs;
 
-        const payload = this.preparePayload(input, cleanOptions, true);
-        const controller = timeoutMs || upstreamSignal ? new AbortController() : null;
-        let timeoutId, upstreamAbortListener, timedOut = false;
+        const payload    = this.preparePayload(input, cleanOptions, true);
+        const controller = timeoutMs || upstreamSignal || hasCompletionLimit ? new AbortController() : null;
+        let timeoutId, upstreamAbortListener, timedOut = false, reader, readerDone = false;
 
         if (controller && upstreamSignal) {
             if (upstreamSignal.aborted) {
@@ -304,15 +388,18 @@ class OpenAiCompatibleProvider extends Base {
                 throw new Error(`OpenAI-Compatible API error: ${response.status} - ${text}`);
             }
 
-            const reader = response.body.getReader();
+            reader = response.body.getReader();
             const decoder = new TextDecoder('utf-8');
-            let buffer = '',
+            let   buffer  = '',
                 bodyText = '',
                 yieldedContent = false;
 
             while (true) {
                 const { done, value } = await reader.read();
-                if (done) break;
+                if (done) {
+                    readerDone = true;
+                    break;
+                }
 
                 const chunkText = decoder.decode(value, { stream: true });
                 bodyText += chunkText;
@@ -323,10 +410,13 @@ class OpenAiCompatibleProvider extends Base {
                 buffer = lines.pop();
 
                 for (const line of lines) {
-                    const content = this.#parseCompletionLine(line);
-                    if (content) {
+                    const frame = this.#parseCompletionFrame(line);
+                    if (frame) {
+                        onProviderChunk?.(frame);
+                    }
+                    if (frame?.content) {
                         yieldedContent = true;
-                        yield content;
+                        yield frame.content;
                     }
                 }
             }
@@ -337,16 +427,22 @@ class OpenAiCompatibleProvider extends Base {
                 buffer += flushText;
             }
 
-            const finalContent = this.#parseCompletionLine(buffer);
-            if (finalContent) {
+            const finalFrame = this.#parseCompletionFrame(buffer);
+            if (finalFrame) {
+                onProviderChunk?.(finalFrame);
+            }
+            if (finalFrame?.content) {
                 yieldedContent = true;
-                yield finalContent;
+                yield finalFrame.content;
             }
 
             if (!yieldedContent) {
-                const bodyContent = this.#parseCompletionBody(bodyText);
-                if (bodyContent) {
-                    yield bodyContent;
+                const bodyFrame = this.#parseCompletionBodyFrame(bodyText);
+                if (bodyFrame) {
+                    onProviderChunk?.(bodyFrame);
+                }
+                if (bodyFrame?.content) {
+                    yield bodyFrame.content;
                 }
             }
         } catch (error) {
@@ -368,6 +464,14 @@ class OpenAiCompatibleProvider extends Base {
             }
             if (upstreamSignal && upstreamAbortListener) {
                 upstreamSignal.removeEventListener('abort', upstreamAbortListener);
+            }
+            if (reader && !readerDone && typeof reader.cancel === 'function') {
+                try {
+                    await reader.cancel();
+                } catch (e) {}
+            }
+            if (controller && !controller.signal.aborted && !readerDone) {
+                controller.abort();
             }
         }
     }
