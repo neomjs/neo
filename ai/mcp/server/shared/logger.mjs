@@ -348,6 +348,7 @@ const getConfiguredLogLevel = (aiConfig, loggerConfig) => {
  * - workflow servers: priority-filtered stderr only (`stderrMode: "threshold"`)
  * - KB / Memory Core: always-on file sink plus debug-gated stderr
  * - Neural Link: always-on file sink plus tier-gated stderr
+ * - file-only diagnostics: `fileDebug()` writes durable debug entries without touching stderr
  *
  * The logger never writes to stdout. `error()` logs and never throws.
  *
@@ -426,6 +427,8 @@ export const createLogger = (aiConfig = {}, fallbackLoggerConfig = {}) => {
         const loggerConfig = getLoggerConfig(aiConfig, fallbackLoggerConfig);
 
         writeFile(level, args, loggerConfig);
+        if (options.fileOnly) return;
+
         writeStderr(level, args, options.forceStderr ? {
             ...loggerConfig,
             ...FATAL_STARTUP_LOGGER_CONFIG
@@ -436,6 +439,7 @@ export const createLogger = (aiConfig = {}, fallbackLoggerConfig = {}) => {
         debug       : createLogMethod('debug'),
         error       : createLogMethod('error'),
         fatalStartup: createLogMethod('error', {forceStderr: true}),
+        fileDebug   : createLogMethod('debug', {fileOnly: true}),
         info        : createLogMethod('info'),
         log         : createLogMethod('log'),
         warn        : createLogMethod('warn')

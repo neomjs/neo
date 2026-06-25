@@ -41,24 +41,37 @@ function estimateTopologyTokens(text) {
     return bytesToTokens(Buffer.byteLength(text === undefined || text === null ? '' : String(text), 'utf8'));
 }
 
-function readRequiredChatNumberLeaf(leafName) {
-    const value = aiConfig.localModels.chat[leafName];
-
-    if (!Number.isFinite(value)) {
-        throw new Error(`[TopologyInferenceEngine] Required AiConfig leaf "localModels.chat.${leafName}" is missing or invalid. Update ai/mcp/server/memory-core/config.mjs from config.template.mjs.`);
+function assertRequiredChatNumber(value, configPath) {
+    if (!Number.isFinite(value) || value <= 0) {
+        throw new Error(`[TopologyInferenceEngine] Required AiConfig leaf "${configPath}" is missing or invalid. Update ai/mcp/server/memory-core/config.mjs from config.template.mjs.`);
     }
 
     return value;
 }
 
-function readRequiredChatStringLeaf(leafName) {
-    const value = aiConfig.localModels.chat[leafName];
-
+function assertRequiredChatString(value, configPath) {
     if (typeof value !== 'string') {
-        throw new Error(`[TopologyInferenceEngine] Required AiConfig leaf "localModels.chat.${leafName}" is missing or invalid. Update ai/mcp/server/memory-core/config.mjs from config.template.mjs.`);
+        throw new Error(`[TopologyInferenceEngine] Required AiConfig leaf "${configPath}" is missing or invalid. Update ai/mcp/server/memory-core/config.mjs from config.template.mjs.`);
     }
 
     return value;
+}
+
+function getCompletionFinishReason(result) {
+    return result?.finish_reason ||
+        result?.finishReason ||
+        result?.raw?.finish_reason ||
+        result?.raw?.finishReason ||
+        result?.raw?.choices?.[0]?.finish_reason ||
+        result?.raw?.choices?.[0]?.finishReason ||
+        result?.raw?.done_reason ||
+        result?.raw?.doneReason ||
+        '';
+}
+
+function isLengthTruncatedCompletion(finishReason) {
+    return ['length', 'max_tokens', 'max_completion_tokens', 'num_predict', 'token_limit']
+        .includes(String(finishReason || '').toLowerCase());
 }
 
 /**
@@ -192,7 +205,7 @@ ${contextText}
     }
 
     /**
-     * @summary Creates deterministic turn chunks after subtracting topology prompt overhead.
+     * @summary Creates deterministic turn chunks after reserving topology output and prompt overhead.
      * @param {String[]} turnDocuments Complete raw memory turn documents.
      * @param {String} sessionId Source session id.
      * @returns {{chunked: Boolean, totalEstimatedTokens: Number, chunks: Object[]}}
@@ -204,7 +217,19 @@ ${contextText}
                   chunkCount : 1,
                   turnIndices: []
               })),
-              chunkBudget    = Math.max(1, readRequiredChatNumberLeaf('safeProcessingLimitTokens') - envelopeTokens);
+              {
+                  contextLimitTokens,
+                  safeProcessingLimitTokens,
+                  graphChunkLimitTokens,
+                  graphOutputLimitTokens
+              } = aiConfig.localModels.chat,
+              promptBudget   = Math.min(
+                  assertRequiredChatNumber(graphChunkLimitTokens, 'localModels.chat.graphChunkLimitTokens'),
+                  assertRequiredChatNumber(safeProcessingLimitTokens, 'localModels.chat.safeProcessingLimitTokens'),
+                  assertRequiredChatNumber(contextLimitTokens, 'localModels.chat.contextLimitTokens') -
+                      assertRequiredChatNumber(graphOutputLimitTokens, 'localModels.chat.graphOutputLimitTokens')
+              ),
+              chunkBudget    = Math.max(1, promptBudget - envelopeTokens);
 
         return chunkSession(turnDocuments, {
             sessionId,
@@ -219,10 +244,11 @@ ${contextText}
      */
     getTopologyProviderOptions() {
         return {
-            reasoning_effort    : readRequiredChatStringLeaf('graphReasoningEffort'),
+            reasoning_effort    : assertRequiredChatString(aiConfig.localModels.chat.graphReasoningEffort, 'localModels.chat.graphReasoningEffort'),
             responseSchema      : topologyConflictSchema,
             responseSchemaName  : 'topologyConflicts',
-            responseSchemaStrict: true
+            responseSchemaStrict: true,
+            maxCompletionTokens : assertRequiredChatNumber(aiConfig.localModels.chat.graphOutputLimitTokens, 'localModels.chat.graphOutputLimitTokens')
         }
     }
 
@@ -251,12 +277,14 @@ ${contextText}
                 openAiCompatibleConfig: aiConfig.openAiCompatible
             }),
                   consumerModel         = aiConfig[graphProvider].model,
-                  consumerContextTokens = readRequiredChatNumberLeaf('contextLimitTokens'),
-                  consumerSafeTokens    = readRequiredChatNumberLeaf('safeProcessingLimitTokens'),
+                  consumerContextTokens = assertRequiredChatNumber(aiConfig.localModels.chat.contextLimitTokens, 'localModels.chat.contextLimitTokens'),
+                  consumerSafeTokens    = assertRequiredChatNumber(aiConfig.localModels.chat.safeProcessingLimitTokens, 'localModels.chat.safeProcessingLimitTokens'),
+                  outputLimitTokens     = assertRequiredChatNumber(aiConfig.localModels.chat.graphOutputLimitTokens, 'localModels.chat.graphOutputLimitTokens'),
                   providerOptions       = this.getTopologyProviderOptions(),
                   conflicts             = [];
 
-            let skippedChunks = 0;
+            let parseFailedChunks = 0,
+                skippedChunks     = 0;
 
             for (let index = 0; index < chunkPlan.chunks.length; index++) {
                 const chunk  = chunkPlan.chunks[index],
@@ -265,10 +293,41 @@ ${contextText}
                           index,
                           chunkCount : chunkPlan.chunks.length,
                           turnIndices: chunk.turnIndices
-                      });
+                      }),
+                      promptBytes          = Buffer.byteLength(prompt, 'utf8'),
+                      promptTokensEstimate = estimateTopologyTokens(prompt),
+                      promptPlusOutput     = promptTokensEstimate + outputLimitTokens,
+                      chunkLabel           = `${index + 1}/${chunkPlan.chunks.length}`;
+
+                if (promptPlusOutput > consumerContextTokens) {
+                    logger.warn(
+                        `[TopologyInferenceEngine] Chunk ${chunkLabel} for session ${sessionId} exceeds context cap before dispatch: ` +
+                        `promptTokens=${promptTokensEstimate} outputLimitTokens=${outputLimitTokens} contextLimitTokens=${consumerContextTokens}.`
+                    );
+
+                    emitConsumerFriction({
+                        symptom                  : 'context-overflow',
+                        consumer                 : 'TopologyInferenceEngine',
+                        model                    : consumerModel,
+                        assetRef                 : chunk.chunkId,
+                        serviceDomain            : 'dream-pipeline',
+                        emissionPoint            : 'pre-invocation',
+                        inputBytes               : promptBytes,
+                        inputTokensEstimate      : promptPlusOutput,
+                        contextLimitTokens       : consumerContextTokens,
+                        safeProcessingLimitTokens: consumerSafeTokens,
+                        note                     : `Topology prompt estimate ${promptTokensEstimate} plus output reserve ${outputLimitTokens} exceeds context cap ${consumerContextTokens}. Chunk ${chunkLabel}.`
+                    });
+
+                    skippedChunks++;
+                    continue;
+                }
 
                 const guardrailed = await invokeWithGuardrail({
-                    invocationFn             : () => provider.generate(prompt, providerOptions),
+                    invocationFn             : () => provider.generate(prompt, {
+                        ...providerOptions,
+                        operationLabel: `REM topology ${sessionId} chunk ${chunkLabel}`
+                    }),
                     inputPayload             : prompt,
                     model                    : consumerModel,
                     assetRef                 : chunk.chunkId,
@@ -281,19 +340,16 @@ ${contextText}
 
                 if (!guardrailed.result) {
                     skippedChunks++;
-                    logger.warn(`[TopologyInferenceEngine] Chunk ${index + 1}/${chunkPlan.chunks.length} for session ${sessionId} skipped by ${guardrailed.friction?.symptom || 'guardrail'}.`);
+                    logger.warn(`[TopologyInferenceEngine] Chunk ${chunkLabel} for session ${sessionId} skipped by ${guardrailed.friction?.symptom || 'guardrail'}.`);
                     continue;
                 }
 
-                const result = guardrailed.result;
+                const result       = guardrailed.result;
+                const finishReason = getCompletionFinishReason(result),
+                      responseChars = String(result.content || '').length;
 
-                // Silent context-overflow detection (parallel single-attempt path): empty
-                // result.content with no thrown error is the LM Studio loaded-context-cap
-                // signature (ttftMs===ttltMs, outputChars===0). Emit the deterministic
-                // `'context-overflow'` symptom (auto-surfaces) and continue with the next
-                // turn-aligned chunk instead of retry-amplifying the same prompt.
-                if (!result?.content || result.content.trim() === '') {
-                    logger.warn(`[TopologyInferenceEngine] Empty response from provider for session ${sessionId} chunk ${index + 1}/${chunkPlan.chunks.length}; classifying as context-overflow (silent: no thrown error, no body).`);
+                if (isLengthTruncatedCompletion(finishReason)) {
+                    logger.warn(`[TopologyInferenceEngine] Provider reported finish_reason='${finishReason}' for session ${sessionId} chunk ${chunkLabel}; classifying as context-overflow before parsing.`);
 
                     emitConsumerFriction({
                         symptom                  : 'context-overflow',
@@ -302,11 +358,37 @@ ${contextText}
                         assetRef                 : chunk.chunkId,
                         serviceDomain            : 'dream-pipeline',
                         emissionPoint            : 'post-invocation-failure',
-                        inputBytes               : Buffer.byteLength(prompt, 'utf8'),
-                        inputTokensEstimate      : estimateTopologyTokens(prompt),
+                        inputBytes               : promptBytes,
+                        inputTokensEstimate      : promptTokensEstimate,
                         contextLimitTokens       : consumerContextTokens,
                         safeProcessingLimitTokens: consumerSafeTokens,
-                        note                     : `Silent empty-response from provider (no thrown error, no body). Chunk ${index + 1}/${chunkPlan.chunks.length}; prompt chars: ${prompt.length}.`
+                        note                     : `Topology provider finish_reason='${finishReason}' before schema validation. Chunk ${chunkLabel}; responseChars=${responseChars}; outputLimitTokens=${outputLimitTokens}.`
+                    });
+
+                    skippedChunks++;
+                    continue;
+                }
+
+                // Silent context-overflow detection (parallel single-attempt path): empty
+                // result.content with no thrown error is the LM Studio loaded-context-cap
+                // signature (ttftMs===ttltMs, outputChars===0). Emit the deterministic
+                // `'context-overflow'` symptom (auto-surfaces) and continue with the next
+                // turn-aligned chunk instead of retry-amplifying the same prompt.
+                if (!result?.content || result.content.trim() === '') {
+                    logger.warn(`[TopologyInferenceEngine] Empty response from provider for session ${sessionId} chunk ${chunkLabel}; classifying as context-overflow (silent: no thrown error, no body).`);
+
+                    emitConsumerFriction({
+                        symptom                  : 'context-overflow',
+                        consumer                 : 'TopologyInferenceEngine',
+                        model                    : consumerModel,
+                        assetRef                 : chunk.chunkId,
+                        serviceDomain            : 'dream-pipeline',
+                        emissionPoint            : 'post-invocation-failure',
+                        inputBytes               : promptBytes,
+                        inputTokensEstimate      : promptTokensEstimate,
+                        contextLimitTokens       : consumerContextTokens,
+                        safeProcessingLimitTokens: consumerSafeTokens,
+                        note                     : `Silent empty-response from provider (no thrown error, no body). Chunk ${chunkLabel}; prompt chars: ${prompt.length}; outputLimitTokens=${outputLimitTokens}.`
                     });
 
                     skippedChunks++;
@@ -314,18 +396,53 @@ ${contextText}
                 }
 
                 const payload = Json.extract(result.content);
-                if (payload && Array.isArray(payload.conflicts) && payload.conflicts.length > 0) {
+                if (!payload || !Array.isArray(payload.conflicts)) {
+                    parseFailedChunks++;
+                    logger.warn(`[TopologyInferenceEngine] Failed to parse topology-conflict payload for session ${sessionId} chunk ${chunkLabel}; responseChars=${responseChars}; finishReason=${finishReason || 'unknown'}.`);
+
+                    emitConsumerFriction({
+                        symptom                  : 'parse-failure',
+                        consumer                 : 'TopologyInferenceEngine',
+                        model                    : consumerModel,
+                        assetRef                 : chunk.chunkId,
+                        serviceDomain            : 'dream-pipeline',
+                        emissionPoint            : 'post-invocation-failure',
+                        suggestionKind           : 'schema-repair',
+                        inputBytes               : promptBytes,
+                        inputTokensEstimate      : promptTokensEstimate,
+                        contextLimitTokens       : consumerContextTokens,
+                        safeProcessingLimitTokens: consumerSafeTokens,
+                        note                     : `Topology response did not match {conflicts:Array}. Chunk ${chunkLabel}; responseChars=${responseChars}; finishReason=${finishReason || 'unknown'}; outputLimitTokens=${outputLimitTokens}.`
+                    });
+
+                    continue;
+                }
+
+                logger.info(
+                    `[TopologyInferenceEngine] Topology chunk ${chunkLabel} for session ${sessionId} completed: ` +
+                    `conflicts=${payload.conflicts.length} responseChars=${responseChars} ` +
+                    `finishReason=${finishReason || 'unknown'} outputLimitTokens=${outputLimitTokens}.`
+                );
+
+                if (payload.conflicts.length > 0) {
                     conflicts.push(...payload.conflicts.slice(0, topologyConflictRenderLimit));
                 }
             }
 
             if (conflicts.length === 0) {
+                logger.info(
+                    `[TopologyInferenceEngine] Topology extraction completed for session ${sessionId}: ` +
+                    `conflicts=0 processed=${chunkPlan.chunks.length - skippedChunks - parseFailedChunks}/${chunkPlan.chunks.length} ` +
+                    `skipped=${skippedChunks} parseFailed=${parseFailedChunks} outputLimitTokens=${outputLimitTokens}.`
+                );
+
                 return {
                     chunked: chunkPlan.chunked,
                     chunks : {
-                        total    : chunkPlan.chunks.length,
-                        skipped  : skippedChunks,
-                        processed: chunkPlan.chunks.length - skippedChunks
+                        total      : chunkPlan.chunks.length,
+                        skipped    : skippedChunks,
+                        parseFailed: parseFailedChunks,
+                        processed  : chunkPlan.chunks.length - skippedChunks - parseFailedChunks
                     },
                     conflictCount: 0
                 }
@@ -354,9 +471,10 @@ ${contextText}
             return {
                 chunked: chunkPlan.chunked,
                 chunks : {
-                    total    : chunkPlan.chunks.length,
-                    skipped  : skippedChunks,
-                    processed: chunkPlan.chunks.length - skippedChunks
+                    total      : chunkPlan.chunks.length,
+                    skipped    : skippedChunks,
+                    parseFailed: parseFailedChunks,
+                    processed  : chunkPlan.chunks.length - skippedChunks - parseFailedChunks
                 },
                 conflictCount: conflicts.length
             }

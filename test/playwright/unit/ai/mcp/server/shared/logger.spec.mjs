@@ -177,7 +177,7 @@ test.describe('Neo.ai.mcp.server.shared.Logger', () => {
 
             expect(typeof logger.flush).toBe('function');
 
-            const today    = new Date().toISOString().slice(0, 10);
+            const today = new Date().toISOString().slice(0, 10);
             const expected = path.join(tmpLogDir, `shared-test-${today}.log`);
             const err      = new Error('shared logger failure');
             const circular = {};
@@ -200,12 +200,59 @@ test.describe('Neo.ai.mcp.server.shared.Logger', () => {
         }
     });
 
+    test('writes file-only diagnostics without touching console or stderr (#13995)', async () => {
+        const tmpLogDir    = path.resolve(os.tmpdir(), `shared-logger-file-debug-${process.pid}-${Date.now()}`);
+        const stderrCalls  = [];
+        const stderrWrites = [];
+        const stdoutCalls  = [];
+
+        console.error = (...args) => stderrCalls.push(args);
+        process.stderr.write = value => {
+            stderrWrites.push(String(value));
+            return true;
+        };
+        process.stdout.write = (...args) => {
+            stdoutCalls.push(args);
+            return true;
+        };
+
+        try {
+            const logger = createLogger({
+                debug  : true,
+                logPath: tmpLogDir,
+                logger : {
+                    filePrefix    : 'shared-test',
+                    fileSink      : true,
+                    flush         : true,
+                    stderrMode    : 'debug',
+                    timestampStyle: 'plain'
+                }
+            });
+
+            logger.fileDebug('file-only-diagnostic');
+            await logger.flush();
+
+            const today = new Date().toISOString().slice(0, 10);
+            const expected = path.join(tmpLogDir, `shared-test-${today}.log`);
+            const content = fs.readFileSync(expected, 'utf8');
+
+            expect(content).toContain('[DEBUG] file-only-diagnostic');
+            expect(stderrCalls).toHaveLength(0);
+            expect(stderrWrites).toHaveLength(0);
+            expect(stdoutCalls).toHaveLength(0);
+        } finally {
+            if (fs.existsSync(tmpLogDir)) {
+                fs.rmSync(tmpLogDir, {recursive: true, force: true});
+            }
+        }
+    });
+
     test('prunes old matching file logs while preserving active and unrelated files', async () => {
         const tmpLogDir = path.resolve(os.tmpdir(), `shared-logger-retention-${process.pid}-${Date.now()}`);
-        const today     = dayStamp(0);
-        const keepDay   = dayStamp(1);
-        const oldDay    = dayStamp(2);
-        const olderDay  = dayStamp(3);
+        const today    = dayStamp(0);
+        const keepDay  = dayStamp(1);
+        const oldDay   = dayStamp(2);
+        const olderDay = dayStamp(3);
 
         try {
             fs.ensureDirSync(tmpLogDir);
@@ -365,7 +412,7 @@ test.describe('Neo.ai.mcp.server.shared.Logger', () => {
 
     test('turns retention prune failures into bounded warnings', () => {
         const warnings = [];
-        const count = pruneLoggerRetention({
+        const count    = pruneLoggerRetention({
             logDir      : '/tmp',
             filePrefix  : 'shared-test',
             today       : '2026-06-18',
