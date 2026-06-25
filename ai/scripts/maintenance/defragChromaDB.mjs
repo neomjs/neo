@@ -67,7 +67,7 @@ const __filename   = fileURLToPath(import.meta.url);
 const __dirname    = path.dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 export const LOCAL_AI_CONFIG_FILE = path.join(PROJECT_ROOT, 'ai', 'config.mjs');
-const DEFRAG_STATE_DIR            = path.join(PROJECT_ROOT, '.neo-ai-data', 'maintenance', 'defrag-state');
+const DEFRAG_STATE_DIR = path.join(PROJECT_ROOT, '.neo-ai-data', 'maintenance', 'defrag-state');
 const MEMORY_CORE_UNSAFE_MESSAGE  =
     'Memory Core defrag is disabled until a safe multi-collection shadow/parking promotion exists. ' +
     'MC is an irreplaceable store; use backup/restore or a purpose-built repair lane instead of delete/recreate defrag.';
@@ -325,7 +325,7 @@ export async function cleanOldBackups(backupDir, retention = resolveDefragSnapsh
  */
 async function getDirSize(dir) {
     const files = await fs.readdir(dir, {withFileTypes: true});
-    let size    = 0;
+    let   size  = 0;
 
     for (const file of files) {
         const filePath = path.join(dir, file.name);
@@ -669,14 +669,16 @@ export async function rewriteCollectionViaShadowPromotion({
  * @param {Object} options.embeddingFunction Chroma embedding function (dummy, for raw-vector moves).
  * @param {String} options.statePath Durable defrag-state marker path.
  * @param {Object} [options.stateBase={}] Stable fields written into every phase marker.
+ * @param {Boolean} [options.dryRun=false] True extracts/re-embeds and reports counts without shadow promotion or state-marker writes.
  * @param {Function} [options.auditFn=auditChromaVectorCoverage] Enumeration seam (test injection).
  * @param {Function} [options.extractFn=extractMemoryCoreCollectionData] Extract + re-embed seam.
  * @param {Function} [options.promoteFn=rewriteCollectionViaShadowPromotion] Shadow-promotion seam.
  * @param {Function} [options.clearStateFn=clearDefragState] Clears the durable marker on a fully successful repair.
  * @param {Function} [options.writeStateFn=writeDefragState] Rewrites the explicit aborted marker on a partial repair.
  * @param {Function} [options.log=console.log] Log sink.
- * @returns {Promise<{results: Object[]}>} Per collection: `{collectionName, promotion, counts}` on success
- *   or `{collectionName, aborted: true, unrecoverable, counts}` when fail-loud aborts the promotion.
+ * @returns {Promise<{results: Object[]}>} Per collection: `{collectionName, promotion, counts}` on success,
+ *   `{collectionName, dryRun: true, counts}` on clean dry-run, or
+ *   `{collectionName, aborted: true, unrecoverable, counts}` when fail-loud aborts the promotion/report.
  */
 export async function repairMemoryCoreCollectionsViaFullEnumeration({
     client,
@@ -687,6 +689,7 @@ export async function repairMemoryCoreCollectionsViaFullEnumeration({
     embeddingFunction,
     statePath,
     stateBase = {},
+    dryRun    = false,
     auditFn      = auditChromaVectorCoverage,
     extractFn    = extractMemoryCoreCollectionData,
     promoteFn    = rewriteCollectionViaShadowPromotion,
@@ -708,9 +711,21 @@ export async function repairMemoryCoreCollectionsViaFullEnumeration({
             throw new Error(`repairMemoryCoreCollectionsViaFullEnumeration: no coverage row for '${collectionName}' — refusing to promote a collection the enumeration never saw.`);
         }
 
-        const {allIds, missingVectorIds}     = cov,
-              collection                     = await client.getCollection({name: collectionName, embeddingFunction}),
-              {data, unrecoverable, counts}  = await extractFn({collection, allIds, missingVectorIds, embedFn});
+        const {allIds, missingVectorIds}    = cov,
+              collection                    = await client.getCollection({name: collectionName, embeddingFunction}),
+              {data, unrecoverable, counts} = await extractFn({collection, allIds, missingVectorIds, embedFn});
+
+        if (dryRun) {
+            if (unrecoverable.length > 0) {
+                log(`   ⚠️  '${collectionName}': DRY-RUN found ${unrecoverable.length} unrecoverable row(s) (document-less / metadata-absent) — no promotion attempted. Counts: ${JSON.stringify(counts)}`);
+                results.push({collectionName, dryRun: true, aborted: true, unrecoverable, counts});
+                continue;
+            }
+
+            log(`   🧪 '${collectionName}': DRY-RUN extraction/re-embed succeeded; no promotion attempted. Counts: ${JSON.stringify(counts)}`);
+            results.push({collectionName, dryRun: true, counts});
+            continue;
+        }
 
         // Fail-loud: never promote a collection that lost rows to unrecoverable extraction.
         if (unrecoverable.length > 0) {
@@ -727,7 +742,7 @@ export async function repairMemoryCoreCollectionsViaFullEnumeration({
     // wrote durable per-phase markers, so a fully successful repair MUST clear the marker — else the next run aborts
     // as DEFRAG_INCOMPLETE_STATE. An aborted/partial repair instead rewrites an explicit aborted marker so
     // assertNoIncompleteDefragState blocks rerun with an accurate diagnostic, not a stale mid-phase marker.
-    if (statePath) {
+    if (statePath && !dryRun) {
         if (anyRepairAborted(results)) {
             await writeStateFn({statePath, state: {
                 ...stateBase,
@@ -777,6 +792,7 @@ async function defragChromaDB() {
         .description('Defragment ChromaDB instances by rewriting data and cleaning orphaned files.')
         .requiredOption('-t, --target <name>', 'Database target (knowledge-base, memory-core)')
         .option('--allow-memory-core', 'Opt in to the Memory Core repair-defrag path (default: fails closed)')
+        .option('--dry-run', 'For memory-core, run full enumeration/extraction report without shadow promotion')
         .parse(process.argv);
 
     const options    = program.opts();
@@ -848,9 +864,13 @@ async function defragChromaDB() {
         // defrag state marker on clean success (or rewrites an explicit aborted marker on a partial repair)
         // before this branch returns ahead of the KB path.
         if (targetName === 'memory-core') {
-            console.log(`\n3️⃣  Memory Core repair-defrag: full-enumeration extract + re-embed + shadow-promote...`);
+            const dryRun = options.dryRun === true;
+
+            console.log(dryRun
+                ? `\n3️⃣  Memory Core repair-defrag DRY-RUN: full-enumeration extract + re-embed report (no shadow promotion)...`
+                : `\n3️⃣  Memory Core repair-defrag: full-enumeration extract + re-embed + shadow-promote...`);
             const {default: TextEmbeddingService} = await import('../../services/memory-core/TextEmbeddingService.mjs');
-            const {results} = await repairMemoryCoreCollectionsViaFullEnumeration({
+            const {results}                       = await repairMemoryCoreCollectionsViaFullEnumeration({
                 client,
                 collections      : config.collections,
                 snapshotPath     : path.join(backupPath, 'chroma.sqlite3'),
@@ -858,13 +878,16 @@ async function defragChromaDB() {
                 embedFn          : docs => TextEmbeddingService.embedTexts(docs, config.embeddingProvider),
                 embeddingFunction: dummyEf,
                 statePath,
-                stateBase        : {targetName}
+                stateBase        : {targetName},
+                dryRun
             });
 
             for (const result of results) {
                 console.log(result.aborted
-                    ? `   ⚠️  ${result.collectionName}: ABORTED — ${result.unrecoverable.length} unrecoverable row(s); counts ${JSON.stringify(result.counts)}`
-                    : `   ✅ ${result.collectionName}: repaired + promoted; counts ${JSON.stringify(result.counts)}`);
+                    ? `   ⚠️  ${result.collectionName}: ${dryRun ? 'DRY-RUN WOULD ABORT' : 'ABORTED'} — ${result.unrecoverable.length} unrecoverable row(s); counts ${JSON.stringify(result.counts)}`
+                    : dryRun
+                        ? `   🧪 ${result.collectionName}: dry-run report clean; no promotion; counts ${JSON.stringify(result.counts)}`
+                        : `   ✅ ${result.collectionName}: repaired + promoted; counts ${JSON.stringify(result.counts)}`);
             }
 
             const finalSize = await getDirSize(DB_PATH);
@@ -874,7 +897,9 @@ async function defragChromaDB() {
             // (mirrors the KB extractionErrors / hasRestoreErrors -> process.exit(1) discipline below).
             if (anyRepairAborted(results)) {
                 const abortedNames = results.filter(result => result.aborted).map(result => result.collectionName);
-                console.error(`❌ Memory Core repair aborted for ${abortedNames.join(', ')} (unrecoverable rows) — NOT a successful repair; resolve the unrecoverable rows and re-run. Counts logged above.`);
+                console.error(dryRun
+                    ? `❌ Memory Core repair dry-run found unrecoverable rows for ${abortedNames.join(', ')} — no promotion was attempted; resolve the unrecoverable rows before running the mutating repair. Counts logged above.`
+                    : `❌ Memory Core repair aborted for ${abortedNames.join(', ')} (unrecoverable rows) — NOT a successful repair; resolve the unrecoverable rows and re-run. Counts logged above.`);
                 process.exit(1);
             }
             return;
@@ -882,8 +907,8 @@ async function defragChromaDB() {
 
         // 3. Extract All Data (Multi-Collection)
         console.log(`\n3️⃣  Fetching data from all collections...`);
-        const buffer         = {};
-        let extractionErrors = false;
+        const buffer           = {};
+        let   extractionErrors = false;
 
         for (const colName of config.collections) {
             console.log(`   Processing collection: ${colName}`);
@@ -900,7 +925,7 @@ async function defragChromaDB() {
 
                 // 3.1 Fetch all IDs first (avoids HNSW index to prevent "Error finding id")
                 const allIds = [];
-                let offset   = 0;
+                let   offset = 0;
                 while (true) {
                     const batch = await collection.get({limit: 2000, offset, include: []});
                     if (batch.ids.length === 0) break;
