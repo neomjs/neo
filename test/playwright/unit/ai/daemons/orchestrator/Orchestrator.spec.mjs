@@ -155,7 +155,10 @@ function createTestOrchestrator(config = {}) {
     orchestrator.tenantRepoSyncGetDueTask = config.tenantRepoSyncGetDueTask || (() => null);
     orchestrator.dreamGetDueTask          = config.dreamGetDueTask          || orchestrator.dreamGetDueTask;
     orchestrator.dreamService             = config.dreamService             || {processUndigestedSessions: () => Promise.resolve()};
-    orchestrator.goldenPathSynthesizer    = config.goldenPathSynthesizer    || {synthesizeGoldenPath: () => Promise.resolve()};
+    orchestrator.goldenPathSynthesizer    = config.goldenPathSynthesizer    || {synthesizeGoldenPath: () => Promise.resolve({
+        status      : 'completed',
+        wroteHandoff: true
+    })};
     orchestrator.swarmHeartbeatService    = config.swarmHeartbeatService    || {initAsync: () => Promise.resolve(), pulse: () => Promise.resolve()};
 
     orchestrator.writeLog  = () => {};
@@ -469,7 +472,10 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             goldenPathSynthesizer: {
                 synthesizeGoldenPath() {
                     calls.push('golden-path');
-                    return Promise.resolve();
+                    return Promise.resolve({
+                        status      : 'completed',
+                        wroteHandoff: true
+                    });
                 }
             }
         });
@@ -496,7 +502,10 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             goldenPathSynthesizer: {
                 synthesizeGoldenPath() {
                     calls.push('golden-path');
-                    return Promise.resolve();
+                    return Promise.resolve({
+                        status      : 'completed',
+                        wroteHandoff: true
+                    });
                 }
             }
         });
@@ -519,7 +528,10 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             goldenPathSynthesizer          : {
                 synthesizeGoldenPath(options) {
                     calls.push(options);
-                    return Promise.resolve();
+                    return Promise.resolve({
+                        status      : 'completed',
+                        wroteHandoff: true
+                    });
                 }
             }
         });
