@@ -227,6 +227,10 @@ The following open tickets represent the most recently created structural object
 
 ## Computed Golden Path (Strategic Recommendation)
 
+Captured at: 2026-06-25 02:00 UTC
+
+Based on the latest Tri-Vector Synthesis and Topological Priorities, the following tasks are mathematically recommended as the next immediate focus:
+
 1. **issue-1234**: Score 5.42 (Semantic: 3.14, Structural: 2.28)
    - *Implement reactive grid selection...*
 
@@ -237,8 +241,8 @@ The following open tickets represent the most recently created structural object
 
 The **Strategic Interpretation** prefers an LLM-generated brief that explains
 *why* the mathematical scores point to these specific tasks. If the LLM is offline
-or returns invalid JSON, the system renders a compact deterministic fallback instead
-of dropping the section.
+or returns invalid JSON, the system renders an explicit degraded reason instead
+of inventing fallback rationale from the scores.
 
 `## Silent Threads` is visibility-only. It surfaces old, unassigned, non-rejected
 open issues that are outside the Computed Golden Path, sorted by
