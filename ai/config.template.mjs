@@ -471,9 +471,9 @@ class Config extends ConfigProvider {
                 /**
                  * Graph-independent deployment-state bridge. The orchestrator writes a bounded JSON
                  * snapshot to shared storage; KB/MC read tools consume it without receiving Docker
-                 * socket, shell, exec, or actuator authority. Disabled by default: deployment
-                 * overlays must explicitly enable the writer and mount the same `snapshotPath`
-                 * into the public KB/MC containers.
+                 * socket, shell, exec, or actuator authority. Enabled by default: deployment
+                 * overlays may explicitly disable the writer, and must mount the same
+                 * `snapshotPath` into the public KB/MC containers.
                  *
                  * Env overrides:
                  * `NEO_DEPLOYMENT_STATE_BRIDGE_ENABLED`,
@@ -492,7 +492,7 @@ class Config extends ConfigProvider {
                  * @type {Object}
                  */
                 deploymentStateBridge: {
-                    enabled                     : leaf(false, 'NEO_DEPLOYMENT_STATE_BRIDGE_ENABLED', 'boolean'),
+                    enabled                     : leaf(true, 'NEO_DEPLOYMENT_STATE_BRIDGE_ENABLED', 'boolean'),
                     snapshotPath                : leaf(path.resolve(neoRootDir, '.neo-ai-data/deployment-state/snapshot.json'), 'NEO_DEPLOYMENT_STATE_BRIDGE_SNAPSHOT_PATH', 'string'),
                     writeIntervalMs             : leaf(30000, 'NEO_DEPLOYMENT_STATE_BRIDGE_WRITE_INTERVAL_MS', 'number'),
                     staleAfterMs                : leaf(2 * 60 * 1000, 'NEO_DEPLOYMENT_STATE_BRIDGE_STALE_AFTER_MS', 'number'),

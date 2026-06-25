@@ -179,7 +179,7 @@ export const TIER1_DEFAULTS = deepFreeze(Neo.clone({
             operatorPageTarget         : 'AGENT:*'
         },
         deploymentStateBridge: {
-            enabled                     : false,
+            enabled                     : true,
             snapshotPath                : path.resolve(neoRootDir, '.neo-ai-data/deployment-state/snapshot.json'),
             writeIntervalMs             : 30000,
             staleAfterMs                : 2 * 60 * 1000,
