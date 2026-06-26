@@ -73,7 +73,7 @@ class Server extends BaseServer {
      * @returns {Array<String>}
      */
     getHealthExemptTools() {
-        return ['healthcheck', 'list_agent_faqs', 'manage_knowledge_base'];
+        return ['healthcheck', 'get_ingestion_progress', 'list_agent_faqs', 'manage_knowledge_base'];
     }
 
     /**

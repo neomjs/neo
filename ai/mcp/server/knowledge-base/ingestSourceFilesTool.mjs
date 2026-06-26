@@ -1,5 +1,5 @@
-import aiConfig                      from './config.mjs';
-import KnowledgeBaseIngestionService from '../../../services/knowledge-base/KnowledgeBaseIngestionService.mjs';
+import aiConfig         from './config.mjs';
+import IngestionService from '../../../services/knowledge-base/IngestionService.mjs';
 
 const ingestToolName = 'ingest_source_files';
 
@@ -43,7 +43,7 @@ const assertToolTransportAllowed = toolName => {
 };
 
 /**
- * @summary MCP facade for `KnowledgeBaseIngestionService.ingestSourceFiles`.
+ * @summary MCP facade for `IngestionService.ingestSourceFiles`.
  *
  * An agent-initiated `ingest_source_files` push embeds synchronously; an oversized batch
  * would freeze the calling agent. This facade counts the batch volume up-front and, when
@@ -62,7 +62,7 @@ const assertToolTransportAllowed = toolName => {
  * @param {Object}    args            The `ingest_source_files` tool envelope.
  * @param {String}   [args.tenantId]  Authenticated tenant id.
  * @param {Object[]} [args.files]     Raw file payloads or client-side parsed records.
- * @returns {Promise<Object>} The `KnowledgeBaseIngestionService.ingestSourceFiles` summary,
+ * @returns {Promise<Object>} The `IngestionService.ingestSourceFiles` summary,
  *     OR a `{error, message, code: 'KB_INGEST_VOLUME_EXCEEDED', bulkPath, batchSize, threshold}`
  *     refusal when the work-volume gate fires.
  * @see https://github.com/neomjs/neo/issues/11634
@@ -87,7 +87,7 @@ const ingestSourceFilesViaMcp = async args => {
         };
     }
 
-    return KnowledgeBaseIngestionService.ingestSourceFiles(args);
+    return IngestionService.ingestSourceFiles(args);
 };
 
 export {

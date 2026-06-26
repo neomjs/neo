@@ -33,7 +33,7 @@ import _KB_DatabaseService from './services/knowledge-base/DatabaseService.mjs';
 import _KB_LifecycleService from './services/knowledge-base/DatabaseLifecycleService.mjs';
 import _KB_DocumentService from './services/knowledge-base/DocumentService.mjs';
 import _KB_HealthService from './services/knowledge-base/HealthService.mjs';
-import _KB_IngestionService from './services/knowledge-base/KnowledgeBaseIngestionService.mjs';
+import _KB_IngestionService from './services/knowledge-base/IngestionService.mjs';
 import _KB_RecorderService from './services/knowledge-base/KBRecorderService.mjs';
 import _KB_QueryService from './services/knowledge-base/QueryService.mjs';
 import _KB_SearchService from './services/knowledge-base/SearchService.mjs';

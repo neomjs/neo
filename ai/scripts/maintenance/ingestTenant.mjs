@@ -9,7 +9,7 @@ import readline                     from 'readline';
 import {pathToFileURL}              from 'url';
 import KB_Config                    from '../../mcp/server/knowledge-base/config.mjs';
 import KB_ChromaManager             from '../../services/knowledge-base/ChromaManager.mjs';
-import KB_IngestionService          from '../../services/knowledge-base/KnowledgeBaseIngestionService.mjs';
+import KB_IngestionService          from '../../services/knowledge-base/IngestionService.mjs';
 import KB_LifecycleService          from '../../services/knowledge-base/DatabaseLifecycleService.mjs';
 import {withHeavyMaintenanceLease}  from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
 
@@ -19,7 +19,7 @@ import {withHeavyMaintenanceLease}  from '../../daemons/orchestrator/services/He
  * @summary Bulk-facade CLI (`npm run ai:ingest-tenant`) for Cloud-Native KB Ingestion.
  *
  * Streams `parsed-chunk-v1` JSONL records (one record per line) from a file or stdin into the
- * Knowledge Base via {@link Neo.ai.services.knowledge-base.KnowledgeBaseIngestionService}. This is
+ * Knowledge Base via {@link Neo.ai.services.knowledge-base.IngestionService}. This is
  * the bulk data-plane counterpart to the `ingest_source_files` MCP small-batch facade:
  * initial tenant onboarding (5k–50k chunks) and large `git push` hook bursts exceed the
  * MCP work-volume gate (`aiConfig.mcpSyncMaxChunks`), so the CLI calls `ingestSourceFiles` with

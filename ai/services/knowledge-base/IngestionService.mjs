@@ -9,19 +9,19 @@ import {
 }                            from '../memory-core/helpers/consumerFrictionHelper.mjs';
 import RequestContextService,
        {normalizeUserId}    from '../../mcp/server/shared/services/RequestContextService.mjs';
-import SourceRegistry        from './source/_export.mjs';
+import SourceRegistry       from './source/_export.mjs';
 import {normalizeTenantRepoConfig}
-                             from './helpers/tenantRepoAccessContract.mjs';
-import VectorService   from './VectorService.mjs';
-import aiConfig        from '../../mcp/server/knowledge-base/config.mjs';
-import crypto          from 'crypto';
-import fs              from 'fs-extra';
-import logger          from '../../mcp/server/knowledge-base/logger.mjs';
-import mcConfig        from '../../mcp/server/memory-core/config.mjs';
-import os              from 'os';
-import path            from 'path';
-import yaml            from 'js-yaml';
-import {fileURLToPath} from 'url';
+                            from './helpers/tenantRepoAccessContract.mjs';
+import VectorService        from './VectorService.mjs';
+import aiConfig             from '../../mcp/server/knowledge-base/config.mjs';
+import crypto               from 'crypto';
+import fs                   from 'fs-extra';
+import logger               from '../../mcp/server/knowledge-base/logger.mjs';
+import mcConfig             from '../../mcp/server/memory-core/config.mjs';
+import os                   from 'os';
+import path                 from 'path';
+import yaml                 from 'js-yaml';
+import {fileURLToPath}      from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -32,7 +32,7 @@ const PARSED_CHUNK_SCHEMA_PATH  = path.join(__dirname, 'parser/parsed-chunk-v1.s
 /**
  * @summary Orchestrates tenant-aware Knowledge Base ingestion pushes.
  *
- * `KnowledgeBaseIngestionService` is the service-layer substrate consumed by the
+ * `IngestionService` is the service-layer substrate consumed by the
  * MCP and bulk ingestion facades. It validates the caller tenant boundary, accepts
  * client-side parsed `parsed-chunk-v1` records or server-side raw file payloads,
  * rejects restore-only embedding records, applies deletion signaling, and delegates
@@ -43,17 +43,17 @@ const PARSED_CHUNK_SCHEMA_PATH  = path.join(__dirname, 'parser/parsed-chunk-v1.s
  * successful portion of a push, and fully failed pushes still return the contract
  * summary instead of throwing out of the facade boundary.
  *
- * @class Neo.ai.services.knowledge-base.KnowledgeBaseIngestionService
+ * @class Neo.ai.services.knowledge-base.IngestionService
  * @extends Neo.core.Base
  * @singleton
  */
-class KnowledgeBaseIngestionService extends Base {
+class IngestionService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.services.knowledge-base.KnowledgeBaseIngestionService'
+         * @member {String} className='Neo.ai.services.knowledge-base.IngestionService'
          * @protected
          */
-        className: 'Neo.ai.services.knowledge-base.KnowledgeBaseIngestionService',
+        className: 'Neo.ai.services.knowledge-base.IngestionService',
         /**
          * @member {Boolean} singleton=true
          * @protected
@@ -103,6 +103,18 @@ class KnowledgeBaseIngestionService extends Base {
     parsedChunkValidator = null
 
     /**
+     * @member {Object|null} activeIngestionProgress=null
+     * @summary In-memory progress ledger for the currently executing ingestion request.
+     */
+    activeIngestionProgress = null
+
+    /**
+     * @member {Object|null} lastIngestionProgress=null
+     * @summary Last completed ingestion snapshot surfaced while the service is idle.
+     */
+    lastIngestionProgress = null
+
+    /**
      * @summary Ingests raw or client-parsed source files into the Knowledge Base.
      *
      * @param {Object}  payload
@@ -143,10 +155,29 @@ class KnowledgeBaseIngestionService extends Base {
                 }));
             }
 
-            const files            = Array.isArray(payload.files) ? payload.files : [];
-            const chunks           = await this.collectParsedChunks({files, tenantContext, summary});
-            const embeddableChunks = this.filterEmbeddingInputBudget({chunks, tenantContext, summary});
+            const files = Array.isArray(payload.files) ? payload.files : [];
 
+            this.startIngestionProgress({
+                startedAt,
+                tenantContext,
+                totalSources: files.length
+            });
+
+            const chunks = await this.collectParsedChunks({files, tenantContext, summary});
+            this.updateIngestionProgress({
+                errorCount : summary.errors.length,
+                phase      : 'filtering',
+                totalChunks: chunks.length
+            });
+
+            const embeddableChunks = this.filterEmbeddingInputBudget({chunks, tenantContext, summary});
+            this.updateIngestionProgress({
+                embeddableChunks: embeddableChunks.length,
+                errorCount      : summary.errors.length,
+                skippedChunks   : summary.skippedOversized
+            });
+
+            this.updateIngestionProgress({phase: 'deleting'});
             summary.deleted = await this.applyDeletionSignals({
                 deleted         : payload.deleted,
                 manifestSnapshot: payload.manifestSnapshot,
@@ -155,8 +186,10 @@ class KnowledgeBaseIngestionService extends Base {
                 tenantContext,
                 summary
             });
+            this.updateIngestionProgress({deletedRows: summary.deleted});
 
             if (embeddableChunks.length > 0) {
+                this.updateIngestionProgress({phase: 'embedding'});
                 await this.embedChunkGroups({
                     chunks: embeddableChunks,
                     tenantContext,
@@ -168,6 +201,7 @@ class KnowledgeBaseIngestionService extends Base {
             summary.ingested   = embeddableChunks.length;
             summary.durationMs = Date.now() - startedAt;
 
+            this.updateIngestionProgress({phase: 'manifest'});
             await this.persistManifestSnapshot({
                 manifestSnapshot: payload.manifestSnapshot,
                 tenantContext,
@@ -175,14 +209,22 @@ class KnowledgeBaseIngestionService extends Base {
             });
 
             this.recordMetric(summary, tenantContext);
+            this.finishIngestionProgress({
+                summary,
+                status: summary.errors.length > 0 ? 'completed_with_errors' : 'completed'
+            });
             return summary;
         } catch (error) {
-            summary.errors.push(this.createError({code: error.code || 'KB_INGEST_FAILED', message: error.message}));
+            summary.errors.push(this.createError({
+                code   : error.code || 'KB_INGEST_FAILED',
+                message: error.message
+            }));
             summary.durationMs = Date.now() - startedAt;
             this.recordMetric(summary, {
                 tenantId: summary.tenantId || aiConfig.defaultTenantId,
                 repoSlug: aiConfig.defaultRepoSlug
             });
+            this.finishIngestionProgress({summary, status: 'failed'});
             return summary;
         }
     }
@@ -290,16 +332,28 @@ class KnowledgeBaseIngestionService extends Base {
                         message: result.message || result.error,
                         details: result
                     }));
+                    this.updateIngestionProgress({
+                        embeddedChunks: summary.embeddingsGenerated,
+                        errorCount    : summary.errors.length
+                    });
                     continue;
                 }
 
                 summary.embeddingsGenerated += result?.embedded ?? group.length;
+                this.updateIngestionProgress({
+                    embeddedChunks: summary.embeddingsGenerated,
+                    errorCount    : summary.errors.length
+                });
             } catch (error) {
                 summary.errors.push(this.createError({
                     code   : error.code || 'KB_VECTOR_EMBED_FAILED',
                     message: error.message,
                     details: {repoSlug}
                 }));
+                this.updateIngestionProgress({
+                    embeddedChunks: summary.embeddingsGenerated,
+                    errorCount    : summary.errors.length
+                });
             } finally {
                 await fs.remove(tempFile);
             }
@@ -342,6 +396,12 @@ class KnowledgeBaseIngestionService extends Base {
                     details: {fileIndex, sourcePath: file?.sourcePath}
                 }));
             }
+
+            this.updateIngestionProgress({
+                errorCount : summary.errors.length,
+                seenSources: fileIndex + 1,
+                totalChunks: chunks.length
+            });
         }
 
         return chunks;
@@ -377,6 +437,196 @@ class KnowledgeBaseIngestionService extends Base {
             tenantId           : aiConfig.defaultTenantId,
             durationMs         : Date.now() - startedAt
         };
+    }
+
+    /**
+     * @summary Returns the current ingestion progress snapshot.
+     *
+     * This is a diagnostics surface, deliberately separate from `healthcheck`: liveness stays
+     * compact while operators can still inspect whether a long ingestion is healthy, idle, or stale.
+     *
+     * @param {Object} [options]
+     * @param {Number} [options.staleAfterMs=60000] Age after which the active run is marked stalled.
+     * @returns {Object} Read-only ingestion progress snapshot.
+     */
+    getIngestionProgress({staleAfterMs = 60000} = {}) {
+        const now = Date.now();
+
+        if (this.activeIngestionProgress) {
+            return this.createIngestionProgressSnapshot({
+                progress: this.activeIngestionProgress,
+                active  : true,
+                now,
+                staleAfterMs
+            });
+        }
+
+        const lastRunSummary = this.lastIngestionProgress
+            ? this.createIngestionProgressSnapshot({
+                progress: this.lastIngestionProgress,
+                active  : false,
+                now,
+                staleAfterMs
+            })
+            : null;
+
+        return {
+            status        : 'idle',
+            active        : false,
+            phase         : 'idle',
+            startedAt     : null,
+            updatedAt     : lastRunSummary?.updatedAt ?? null,
+            lastProgressAt: null,
+            completedAt   : lastRunSummary?.completedAt ?? null,
+            durationMs    : 0,
+            staleAfterMs,
+            stalled       : false,
+            totalSources  : 0,
+            seenSources   : 0,
+            totalChunks   : 0,
+            embeddedChunks: 0,
+            skippedChunks : 0,
+            remaining     : 0,
+            deletedRows   : 0,
+            errorCount    : 0,
+            lastRunSummary
+        };
+    }
+
+    /**
+     * @summary Starts the active ingestion progress ledger.
+     * @param {Object} options
+     * @returns {void}
+     * @protected
+     */
+    startIngestionProgress({startedAt, tenantContext, totalSources}) {
+        this.activeIngestionProgress = {
+            status          : 'running',
+            phase           : 'collecting',
+            startedAt,
+            updatedAt       : startedAt,
+            lastProgressAt  : startedAt,
+            completedAt     : null,
+            tenantId        : tenantContext.tenantId,
+            repoSlug        : tenantContext.repoSlug,
+            totalSources,
+            seenSources     : 0,
+            totalChunks     : 0,
+            embeddableChunks: 0,
+            embeddedChunks  : 0,
+            skippedChunks   : 0,
+            deletedRows     : 0,
+            errorCount      : 0
+        };
+    }
+
+    /**
+     * @summary Mutates the active progress ledger with a fresh progress timestamp.
+     * @param {Object} updates
+     * @returns {void}
+     * @protected
+     */
+    updateIngestionProgress(updates = {}) {
+        if (!this.activeIngestionProgress) return;
+
+        const now = Date.now();
+        Object.assign(this.activeIngestionProgress, updates, {
+            updatedAt     : now,
+            lastProgressAt: now
+        });
+    }
+
+    /**
+     * @summary Completes the active progress ledger and stores the idle last-run summary.
+     * @param {Object} options
+     * @returns {void}
+     * @protected
+     */
+    finishIngestionProgress({summary, status}) {
+        const active = this.activeIngestionProgress;
+        const now    = Date.now();
+
+        this.lastIngestionProgress = {
+            ...(active || {
+                startedAt       : now - (summary.durationMs || 0),
+                tenantId        : summary.tenantId,
+                repoSlug        : aiConfig.defaultRepoSlug,
+                totalSources    : 0,
+                seenSources     : 0,
+                totalChunks     : summary.ingested + summary.skippedOversized,
+                embeddableChunks: summary.ingested,
+                skippedChunks   : summary.skippedOversized
+            }),
+            status,
+            phase         : 'completed',
+            updatedAt     : now,
+            lastProgressAt: now,
+            completedAt   : now,
+            embeddedChunks: summary.embeddingsGenerated,
+            skippedChunks : summary.skippedOversized,
+            deletedRows   : summary.deleted,
+            errorCount    : summary.errors.length
+        };
+
+        this.activeIngestionProgress = null;
+    }
+
+    /**
+     * @summary Normalizes a progress ledger into the public diagnostics shape.
+     * @param {Object} options
+     * @returns {Object}
+     * @protected
+     */
+    createIngestionProgressSnapshot({progress, active, now, staleAfterMs}) {
+        const startedAt        = progress.startedAt;
+        const completedAt      = progress.completedAt;
+        const durationMs       = completedAt ? Math.max(0, completedAt - startedAt) : Math.max(0, now - startedAt);
+        const totalChunks      = progress.totalChunks || 0;
+        const embeddableChunks = progress.embeddableChunks || 0;
+        const embeddedChunks   = progress.embeddedChunks || 0;
+        const skippedChunks    = progress.skippedChunks || 0;
+        const targetChunks     = embeddableChunks > 0 || skippedChunks > 0 ? embeddableChunks : totalChunks;
+        const remaining        = Math.max(0, targetChunks - embeddedChunks);
+        const stalled          = active && staleAfterMs > 0 && now - progress.lastProgressAt > staleAfterMs;
+        const chunksPerSecond  = durationMs > 0 ? embeddedChunks / (durationMs / 1000) : 0;
+        const etaMs            = active && chunksPerSecond > 0 ? Math.ceil((remaining / chunksPerSecond) * 1000) : null;
+
+        return {
+            status        : progress.status,
+            active,
+            phase         : active ? progress.phase : 'idle',
+            startedAt     : this.formatProgressTimestamp(startedAt),
+            updatedAt     : this.formatProgressTimestamp(progress.updatedAt),
+            lastProgressAt: active ? this.formatProgressTimestamp(progress.lastProgressAt) : null,
+            completedAt   : this.formatProgressTimestamp(completedAt),
+            durationMs,
+            staleAfterMs,
+            stalled,
+            tenantId      : progress.tenantId,
+            repoSlug      : progress.repoSlug,
+            totalSources  : progress.totalSources || 0,
+            seenSources   : progress.seenSources || 0,
+            totalChunks,
+            embeddedChunks,
+            skippedChunks,
+            remaining,
+            deletedRows   : progress.deletedRows || 0,
+            errorCount    : progress.errorCount || 0,
+            rate          : {
+                chunksPerSecond
+            },
+            etaMs
+        };
+    }
+
+    /**
+     * @summary Formats an epoch millisecond timestamp for the public progress snapshot.
+     * @param {Number|null|undefined} timestamp
+     * @returns {String|null}
+     * @protected
+     */
+    formatProgressTimestamp(timestamp) {
+        return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null;
     }
 
     /**
@@ -808,7 +1058,7 @@ class KnowledgeBaseIngestionService extends Base {
 
         emitConsumerFriction({
             assetRef                 : `${details.tenantId}:${details.repoSlug}:${details.sourcePath}`,
-            consumer                 : 'KnowledgeBaseIngestionService.ingestSourceFiles',
+            consumer                 : 'IngestionService.ingestSourceFiles',
             model                    : guardrail.model,
             symptom                  : 'size-precheck-skip',
             emissionPoint            : 'pre-invocation',
@@ -821,7 +1071,7 @@ class KnowledgeBaseIngestionService extends Base {
             note                     : 'KB ingestion chunk exceeds local embedding safe-processing band; add parser chunking or skip this source file.'
         });
 
-        logger.warn('[KnowledgeBaseIngestionService] Skipping oversized ingestion chunk before embedding.', details);
+        logger.warn('[IngestionService] Skipping oversized ingestion chunk before embedding.', details);
     }
 
     /**
@@ -1313,4 +1563,4 @@ class KnowledgeBaseIngestionService extends Base {
     }
 }
 
-export default Neo.setupClass(KnowledgeBaseIngestionService);
+export default Neo.setupClass(IngestionService);

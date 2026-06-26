@@ -56,6 +56,34 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /ingestion/progress:
+    get:
+      summary: Get Ingestion Progress
+      operationId: get_ingestion_progress
+      x-annotations:
+        readOnlyHint: true
+      x-neo-tool-summary: Inspect active or last ingestion progress.
+      description: |
+        Returns a read-only snapshot for the active ingestion run, or an idle state with the last
+        completed run summary. This diagnostics tool stays separate from `healthcheck` so liveness
+        payloads remain compact.
+      tags: [Health]
+      parameters:
+        - in: query
+          name: staleAfterMs
+          schema:
+            type: integer
+            minimum: 0
+            default: 60000
+          description: Mark an active run stalled when no progress has occurred for this many milliseconds.
+      responses:
+        '200':
+          description: Ingestion progress snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestionProgressResponse'
+
   /tool/handbook:
     post:
       summary: Tool Handbook
@@ -1034,7 +1062,7 @@ components:
 
     IngestSourceFilesResponse:
       type: object
-      description: Structured ingestion summary returned by KnowledgeBaseIngestionService.
+      description: Structured ingestion summary returned by IngestionService.
       properties:
         ingested:
           type: integer
@@ -1060,6 +1088,80 @@ components:
         durationMs:
           type: integer
           description: Wall-clock duration of the ingestion in milliseconds.
+
+    IngestionProgressResponse:
+      type: object
+      description: Read-only active/idle ingestion progress snapshot.
+      additionalProperties: true
+      properties:
+        status:
+          type: string
+          enum: [idle, running, completed, completed_with_errors, failed]
+          description: Current progress state.
+        active:
+          type: boolean
+          description: True when an ingestion run is currently executing.
+        phase:
+          type: string
+          description: Current phase for an active run, or idle when no ingestion is running.
+        startedAt:
+          type: string
+          nullable: true
+          description: ISO timestamp for the active or last run start.
+        updatedAt:
+          type: string
+          nullable: true
+          description: ISO timestamp for the last progress ledger update.
+        lastProgressAt:
+          type: string
+          nullable: true
+          description: ISO timestamp for the last active progress event.
+        completedAt:
+          type: string
+          nullable: true
+          description: ISO timestamp for the last run completion.
+        durationMs:
+          type: integer
+          description: Elapsed wall-clock duration in milliseconds.
+        staleAfterMs:
+          type: integer
+          description: Staleness threshold used to compute stalled.
+        stalled:
+          type: boolean
+          description: True when an active run has not advanced within staleAfterMs.
+        tenantId:
+          type: string
+        repoSlug:
+          type: string
+        totalSources:
+          type: integer
+        seenSources:
+          type: integer
+        totalChunks:
+          type: integer
+        embeddedChunks:
+          type: integer
+        skippedChunks:
+          type: integer
+        remaining:
+          type: integer
+        deletedRows:
+          type: integer
+        errorCount:
+          type: integer
+        etaMs:
+          type: integer
+          nullable: true
+        rate:
+          type: object
+          additionalProperties: true
+          properties:
+            chunksPerSecond:
+              type: number
+        lastRunSummary:
+          type: object
+          nullable: true
+          additionalProperties: true
 
     KbIngestVolumeExceededResponse:
       type: object

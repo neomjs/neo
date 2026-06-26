@@ -468,7 +468,7 @@ function ingestSourceFilesViaMcpTool({collectionName, repoSlug, tenantId}) {
  * Drives the `ai:ingest-tenant` Phase 2C bulk-facade CLI end-to-end inside the deployed KB
  * container. Streams a 1k+-record `parsed-chunk-v1` JSONL fixture through the CLI's exported
  * orchestration units (`readJsonlRecords` -> `runIngest`) wired to the real ingestion `ingestFn`
- * (`KnowledgeBaseIngestionService.ingestSourceFiles` with `viaMcp:false` — the bulk gate-bypass),
+ * (`IngestionService.ingestSourceFiles` with `viaMcp:false` — the bulk gate-bypass),
  * then verifies the isolated temp collection holds every embedded chunk. The ingestion service
  * is imported directly (not via `ai/services.mjs`) so the closure-injected `viaMcp:false` flag
  * survives the makeSafe Zod wrapper and reaches `VectorService.embed` as the explicit #10572
@@ -496,7 +496,7 @@ function ingestTenantViaCli({collectionName, recordCount, repoSlug, tenantId}) {
         // Direct import (not ai/services.mjs): the makeSafe Zod wrapper strips the
         // closure-injected viaMcp flag, and the bulk CLI relies on viaMcp:false reaching
         // VectorService.embed as the explicit #10572 work-volume-gate bypass.
-        const {default: KB_IngestionService} = await import('./ai/services/knowledge-base/KnowledgeBaseIngestionService.mjs');
+        const {default: KB_IngestionService} = await import('./ai/services/knowledge-base/IngestionService.mjs');
         const {readJsonlRecords, runIngest}  = await import('./ai/scripts/maintenance/ingestTenant.mjs');
 
         await KB_LifecycleService.ready();
@@ -583,7 +583,7 @@ function ingestTenantViaCli({collectionName, recordCount, repoSlug, tenantId}) {
  * container. Writes a tenant's config as a `KnowledgeBaseTenantConfig` graph node via
  * `setTenantConfig`, reads it back, then simulates a KB-server restart by dropping the
  * in-memory Native Edge Graph cache — forcing the next `getTenantConfig` to reload the node
- * from the on-disk `memory-core-graph.sqlite`. `KnowledgeBaseIngestionService` is imported
+ * from the on-disk `memory-core-graph.sqlite`. `IngestionService` is imported
  * directly (not via `ai/services.mjs`) so the makeSafe Zod wrapper does not strip the
  * structured config payload; all calls run under the tenant's request context so the
  * `setTenantConfig` RLS gate and the `getNodeRecord` RLS re-check resolve as the owner.
@@ -596,7 +596,7 @@ function tenantConfigPersistsAcrossRestart({tenantId}) {
         ${NEO_BOOTSTRAP}
 
         const {KB_LifecycleService}            = await import('./ai/services.mjs');
-        const {default: KB_IngestionService}   = await import('./ai/services/knowledge-base/KnowledgeBaseIngestionService.mjs');
+        const {default: KB_IngestionService}   = await import('./ai/services/knowledge-base/IngestionService.mjs');
         const {default: GraphService}          = await import('./ai/services/memory-core/GraphService.mjs');
         const {default: RequestContextService} = await import('./ai/mcp/server/shared/services/RequestContextService.mjs');
 
