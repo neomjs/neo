@@ -1,8 +1,8 @@
-import {test, expect}                                               from '@playwright/test';
-import Neo                                                          from '../../../../../../../src/Neo.mjs';
-import * as core                                                    from '../../../../../../../src/core/_export.mjs';
-import {decideAcceptedLossSettlement, DEFAULT_SYSTEMIC_FAULT_BOUND} from '../../../../../../../ai/services/memory-core/helpers/acceptedLossSettlement.mjs';
-import {computeResidueFingerprint, TERMINAL_REASONS}                from '../../../../../../../ai/services/memory-core/helpers/classifyRepairResidue.mjs';
+import {test, expect}                                                                            from '@playwright/test';
+import Neo                                                                                       from '../../../../../../../src/Neo.mjs';
+import * as core                                                                                 from '../../../../../../../src/core/_export.mjs';
+import {decideAcceptedLossSettlement, DEFAULT_SYSTEMIC_FAULT_BOUND, resolveAutonomousRepairExit} from '../../../../../../../ai/services/memory-core/helpers/acceptedLossSettlement.mjs';
+import {computeResidueFingerprint, TERMINAL_REASONS}                                             from '../../../../../../../ai/services/memory-core/helpers/classifyRepairResidue.mjs';
 
 // Pure AUTONOMOUS decider (no operator, no runtime escalate). Decides clean / heal-path / systemic-fault /
 // auto-settle for a repair's unrecoverable residue, bounded by a systemic-fault threshold.
@@ -78,5 +78,56 @@ test.describe('decideAcceptedLossSettlement — autonomous accepted-loss disposi
 
         expect(r1.auditRecord.acceptedIds).toEqual(['a', 'b']);
         expect(r1.auditRecord.fingerprint).toBe(r2.auditRecord.fingerprint);
+    });
+});
+
+test.describe('resolveAutonomousRepairExit — per-results autonomous exit decision', () => {
+    const nonClean = (collectionName, residue, sourceCount, partialPromoted = true) => ({
+        collectionName, partialPromoted, aborted: !partialPromoted, unrecoverable: residue, sourceCount
+    });
+
+    test('every non-clean collection bounded-terminal → allSettled true (run may exit clean)', () => {
+        const results = [
+                  {collectionName: 'mc-memory', partialPromoted: false, aborted: false}, // clean → ignored
+                  nonClean('mc-graph', [{id: 'a', reason: 'document-absent'}], 10000)
+              ],
+              exit = resolveAutonomousRepairExit({results, ...CTX});
+
+        expect(exit.allSettled).toBe(true);
+        expect(exit.perCollection).toHaveLength(1);
+        expect(exit.perCollection[0]).toMatchObject({collectionName: 'mc-graph', disposition: 'auto-settle'});
+        expect(exit.perCollection[0].auditRecord).toMatchObject({type: 'auto-accepted-loss'});
+    });
+
+    test('any heal-path (transient) collection → allSettled false (route to the actuator, never exit clean)', () => {
+        const results = [
+                  nonClean('mc-graph', [{id: 'a', reason: 'document-absent'}], 10000),
+                  nonClean('mc-memory', [{id: 'b', reason: 'provider-timeout'}], 10000)
+              ],
+              exit = resolveAutonomousRepairExit({results, ...CTX});
+
+        expect(exit.allSettled).toBe(false);
+        expect(exit.perCollection.map(e => e.disposition).sort()).toEqual(['auto-settle', 'heal-path']);
+    });
+
+    test('a systemic-fault collection → allSettled false (freeze, never mass auto-settle)', () => {
+        const residue = Array.from({length: 80}, (_, i) => ({id: `x${i}`, reason: 'document-absent'})),
+              exit    = resolveAutonomousRepairExit({results: [nonClean('mc-graph', residue, 1000)], ...CTX});
+
+        expect(exit.allSettled).toBe(false);
+        expect(exit.perCollection[0].disposition).toBe('systemic-fault');
+        expect(exit.perCollection[0].auditRecord).toBeNull();
+    });
+
+    test('normalizeResidue maps raw entries → {id, reason} (mirrors normalizeUnrecoverableEntry)', () => {
+        const raw = [{id: 42, reason: 'document-absent', message: 'gone'}], // raw id is a number
+              exit = resolveAutonomousRepairExit({
+                  results         : [nonClean('mc-graph', raw, 10000)],
+                  normalizeResidue: row => ({id: String(row.id), reason: row.reason}),
+                  ...CTX
+              });
+
+        expect(exit.perCollection[0].disposition).toBe('auto-settle');
+        expect(exit.perCollection[0].auditRecord.acceptedIds).toEqual(['42']);
     });
 });

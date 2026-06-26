@@ -100,3 +100,53 @@ export function decideAcceptedLossSettlement({
         }
     };
 }
+
+/**
+ * @summary Resolves the autonomous exit decision for a full set of per-collection repair results — the
+ * pure heart of the `defragChromaDB` non-clean exit path under the zero-ack / no-escalate mandate. Runs
+ * `decideAcceptedLossSettlement` over each non-clean collection's residue and reports whether EVERY
+ * non-clean collection autonomously accepted-loss-settled (so the run may exit clean) or any collection
+ * needs the heal-path (transient → the data-recovery actuator) or hit a systemic-fault (freeze). Pure: no
+ * I/O — the caller persists each `auditRecord` and chooses the exit code.
+ *
+ * @param {Object} options
+ * @param {Object[]} [options.results=[]] Per-collection repair results (`{collectionName, aborted, partialPromoted, unrecoverable, sourceCount}`).
+ * @param {Function} [options.normalizeResidue] Maps a raw `unrecoverable` entry to `{id, reason}` (the caller's `normalizeUnrecoverableEntry`).
+ * @param {Array<String>} [options.terminalReasons=TERMINAL_REASONS]
+ * @param {{maxRatio: Number, maxAbsolute: Number}} [options.systemicFaultBound=DEFAULT_SYSTEMIC_FAULT_BOUND]
+ * @param {String} [options.strategyVersion='']
+ * @param {String} [options.provider='']
+ * @param {Number|String} [options.contextBudget='']
+ * @returns {Object} `{allSettled, perCollection: [{collectionName, disposition, reasonCode, auditRecord}]}`. `allSettled` is true iff there is ≥1 non-clean collection and EVERY one's disposition is `auto-settle`.
+ */
+export function resolveAutonomousRepairExit({
+    results            = [],
+    normalizeResidue   = row => ({id: row?.id, reason: row?.reason}),
+    terminalReasons    = TERMINAL_REASONS,
+    systemicFaultBound = DEFAULT_SYSTEMIC_FAULT_BOUND,
+    strategyVersion    = '',
+    provider           = '',
+    contextBudget      = ''
+} = {}) {
+    const nonClean = (Array.isArray(results) ? results : []).filter(result => result?.aborted || result?.partialPromoted);
+
+    const perCollection = nonClean.map(result => {
+        const residue  = (Array.isArray(result.unrecoverable) ? result.unrecoverable : []).map(normalizeResidue),
+              decision = decideAcceptedLossSettlement({
+                  residue,
+                  collectionSize: result.sourceCount ?? 0,
+                  terminalReasons,
+                  systemicFaultBound,
+                  strategyVersion,
+                  provider,
+                  contextBudget
+              });
+
+        return {collectionName: result.collectionName, disposition: decision.disposition, reasonCode: decision.reasonCode, auditRecord: decision.auditRecord};
+    });
+
+    return {
+        allSettled   : perCollection.length > 0 && perCollection.every(entry => entry.disposition === 'auto-settle'),
+        perCollection
+    };
+}
