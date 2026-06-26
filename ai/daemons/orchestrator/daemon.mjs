@@ -31,7 +31,7 @@ import fs                             from 'fs-extra';
 import path                           from 'path';
 import {execSync}                     from 'child_process';
 import AiConfig                       from '../../config.mjs';
-import Orchestrator                   from './Orchestrator.mjs';
+import Orchestrator, {rotateLogFileIfNewDay} from './Orchestrator.mjs';
 import {assertConfigFresh}            from '../../scripts/setup/initServerConfigs.mjs';
 
 const DAEMON_DATA_DIR = process.env.NEO_AI_ORCHESTRATOR_DIR || '.neo-ai-data/orchestrator-daemon';
@@ -51,6 +51,11 @@ export function isOrchestratorDaemonCommand(cmd) {
 }
 
 function writeLog(level, message) {
+    // Both this wrapper writer AND Orchestrator.writeLog append to the same orchestrator.log, so
+    // BOTH must rotate-before-append: an unguarded append here would advance the file's mtime past
+    // the day boundary and defeat the mtime-based daily rotation.
+    rotateLogFileIfNewDay(LOG_FILE);
+
     const timestamp = new Date().toISOString();
     const line      = `[${timestamp}] [PID:${process.pid}] [${level}] ${message}`;
 

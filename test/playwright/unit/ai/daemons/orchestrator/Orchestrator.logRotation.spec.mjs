@@ -65,4 +65,27 @@ test.describe('Neo.ai.daemons.Orchestrator log rotation', () => {
 
         fs.removeSync(dir);
     });
+
+    test('rotate-before-append keeps a prior-day log from becoming a mixed old+new active file (two-writer / restart edge)', () => {
+        const dir = tmpDir();
+        const log = path.join(dir, 'orchestrator.log');
+
+        // A file left over from a prior day — e.g. across a restart at the day boundary, or written
+        // by the daemon.mjs wrapper writer. Both writers now rotate-before-append, so neither can
+        // advance the mtime past the boundary and leave a mixed old+new active file.
+        fs.writeFileSync(log, 'prior-day line\n');
+        const priorMs  = Date.now() - 2 * DAY_MS;
+        const priorDay = new Date(priorMs).toISOString().split('T')[0];
+        fs.utimesSync(log, new Date(priorMs), new Date(priorMs));
+
+        // The rotate-before-append contract shared by Orchestrator.writeLog AND daemon.mjs::writeLog:
+        // whichever writer fires first on the new day rotates, THEN appends to a fresh file.
+        rotateLogFileIfNewDay(log);
+        fs.appendFileSync(log, 'current-day line\n');
+
+        expect(fs.readFileSync(log, 'utf8')).toBe('current-day line\n');             // active file: only new content
+        expect(fs.readFileSync(`${log}.${priorDay}`, 'utf8')).toBe('prior-day line\n'); // prior day archived, not mixed
+
+        fs.removeSync(dir);
+    });
 });
