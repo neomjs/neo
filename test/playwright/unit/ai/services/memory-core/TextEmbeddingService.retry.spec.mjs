@@ -27,6 +27,10 @@ import {
     resolveLmsEmbeddingInputSuffix,
     withLmsEmbeddingInputSuffix
 } from '../../../../../../ai/services/shared/vector/lmsEmbeddingInputSuffix.mjs';
+import {
+    clearAggregatedFrictions,
+    getAggregatedFrictions
+} from '../../../../../../ai/services/memory-core/helpers/consumerFrictionHelper.mjs';
 
 async function waitForCondition(condition, message, timeoutMs = 250) {
     const start = Date.now();
@@ -96,7 +100,7 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
     let testPort;
     let originalHost, originalRetryCount, originalRetryDelay;
     let originalContentionRetryCount, originalContentionRetryDelay, originalContentionTimeout;
-    let originalBatchEmbeddingChunkSize, originalBatchEmbeddingYieldMs;
+    let originalBatchEmbeddingChunkSize, originalBatchEmbeddingTimeoutMs, originalBatchEmbeddingYieldMs;
     let originalLmsPort;
     let originalLoadedModelsProbe;
 
@@ -244,6 +248,7 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         originalContentionRetryDelay = aiConfig.openAiCompatible.contentionRetryDelayMs;
         originalContentionTimeout = aiConfig.openAiCompatible.contentionTimeoutMs;
         originalBatchEmbeddingChunkSize = aiConfig.openAiCompatible.batchEmbeddingChunkSize;
+        originalBatchEmbeddingTimeoutMs = aiConfig.openAiCompatible.batchEmbeddingTimeoutMs;
         originalBatchEmbeddingYieldMs = aiConfig.openAiCompatible.batchEmbeddingYieldMs;
         originalLmsPort = aiConfig.orchestrator.lms.port;
         originalLoadedModelsProbe = TextEmbeddingService.openAiCompatibleLoadedModelsProbe;
@@ -255,6 +260,7 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         aiConfig.openAiCompatible.contentionRetryDelayMs = 10;
         aiConfig.openAiCompatible.contentionTimeoutMs = 25;
         aiConfig.openAiCompatible.batchEmbeddingChunkSize = 5;
+        aiConfig.openAiCompatible.batchEmbeddingTimeoutMs = 1000;
         aiConfig.openAiCompatible.batchEmbeddingYieldMs = 0;
         TextEmbeddingService.openAiCompatibleLoadedModelsProbe = async () => [{
             id           : aiConfig.openAiCompatible.embeddingModel,
@@ -270,9 +276,11 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         aiConfig.openAiCompatible.contentionRetryDelayMs = originalContentionRetryDelay;
         aiConfig.openAiCompatible.contentionTimeoutMs = originalContentionTimeout;
         aiConfig.openAiCompatible.batchEmbeddingChunkSize = originalBatchEmbeddingChunkSize;
+        aiConfig.openAiCompatible.batchEmbeddingTimeoutMs = originalBatchEmbeddingTimeoutMs;
         aiConfig.openAiCompatible.batchEmbeddingYieldMs = originalBatchEmbeddingYieldMs;
         aiConfig.orchestrator.lms.port = originalLmsPort;
         TextEmbeddingService.openAiCompatibleLoadedModelsProbe = originalLoadedModelsProbe;
+        clearAggregatedFrictions();
     });
 
     test('first-call-succeeds-no-retry path', async () => {
@@ -515,9 +523,10 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         expect(requestCount).toBe(2);
     });
 
-    test('batch embeddings preserve the long batch timeout instead of using the interactive contention timeout', async () => {
+    test('batch embeddings use the batch timeout instead of the interactive contention timeout', async () => {
         serverBehavior = 'delayed-batch-succeed';
         aiConfig.openAiCompatible.contentionTimeoutMs = 1;
+        aiConfig.openAiCompatible.batchEmbeddingTimeoutMs = 100;
 
         const result = await TextEmbeddingService.embedTexts(['first', 'second'], 'openAiCompatible');
 
@@ -526,6 +535,31 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
             [4.1, 4.2, 4.3]
         ]);
         expect(requestCount).toBe(1);
+    });
+
+    test('batch embeddings time out through the batch timeout and surface ConsumerFriction (#14036)', async () => {
+        serverBehavior = 'timeout-all';
+        aiConfig.openAiCompatible.batchEmbeddingTimeoutMs = 25;
+        clearAggregatedFrictions();
+
+        for (let i = 0; i < 3; i++) {
+            await expect(TextEmbeddingService.embedTexts([`stuck batch ${i}`], 'openAiCompatible'))
+                .rejects.toThrow(/openAiCompatible request timed out after 25ms/);
+        }
+
+        expect(requestCount).toBe(3);
+        expect(getAggregatedFrictions()).toEqual([
+            expect.objectContaining({
+                assetRef      : `openAiCompatible:${aiConfig.openAiCompatible.embeddingModel}`,
+                consumer      : 'TextEmbeddingService.openAiCompatible',
+                model         : aiConfig.openAiCompatible.embeddingModel,
+                symptom       : 'timeout',
+                emissionPoint : 'post-invocation-failure',
+                suggestionKind: 'unknown',
+                serviceDomain : 'memory-core',
+                count         : 3
+            })
+        ]);
     });
 
     test('batch embeddings split large requests into yieldable chunks and preserve global ordering', async () => {
