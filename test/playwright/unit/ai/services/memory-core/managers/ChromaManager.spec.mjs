@@ -54,6 +54,20 @@ test.describe('Neo.ai.services.memory-core.managers.ChromaManager', () => {
         expect(resolved).toEqual({host: 'localhost', port: 8000, database: 'some-explicit-db'});
     });
 
+    test('config-independent guard: a test-runner context resolving the production database is refused (#14031)', () => {
+        // This spec runs under UNIT_TEST_MODE, so isTestRunnerContext() is true. Resolving the production
+        // namespace from a test-runner — the bare-playwright bleed, where the config-keyed toggle is off but
+        // TEST_WORKER_INDEX is set — must fail closed regardless of the useTestDatabase toggle.
+        expect(() => ChromaManager.resolveChromaClientConfig({
+            engines: {chroma: {host: 'localhost', port: 8000, database: CHROMA_PRODUCTION_DATABASE, useTestDatabase: false}}
+        })).toThrow(/config-independent test-write isolation guard/);
+
+        // A non-production custom database under the same test-runner context is NOT refused (no false-positive).
+        expect(() => ChromaManager.resolveChromaClientConfig({
+            engines: {chroma: {host: 'localhost', port: 8000, database: 'some-explicit-db'}}
+        })).not.toThrow();
+    });
+
     test('under UNIT_TEST_MODE Chroma uses an isolated daemon, data dir, and database (#14010)', () => {
         // The spec runs with unitTestMode:true, so the config leaf must resolve to the dedicated
         // test coordinates by construction. No interrupted unit run can create collections in the

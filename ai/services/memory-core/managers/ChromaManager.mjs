@@ -1,8 +1,8 @@
-import {ChromaClient}                       from 'chromadb';
-import aiConfig                             from '../../../mcp/server/memory-core/config.mjs';
-import logger                               from '../../../mcp/server/memory-core/logger.mjs';
-import AbstractVectorManager                from './AbstractVectorManager.mjs';
-import ChromaLifecycleService               from '../lifecycle/ChromaLifecycleService.mjs';
+import {ChromaClient}         from 'chromadb';
+import aiConfig               from '../../../mcp/server/memory-core/config.mjs';
+import logger                 from '../../../mcp/server/memory-core/logger.mjs';
+import AbstractVectorManager  from './AbstractVectorManager.mjs';
+import ChromaLifecycleService from '../lifecycle/ChromaLifecycleService.mjs';
 import {
     chromaConnect,
     chromaDeleteCollection,
@@ -11,7 +11,8 @@ import {
     isChromaCollectionNotFoundError,
     registerNeoChromaEmbeddingFunctions
 } from '../../shared/vector/chromaClientPrimitives.mjs';
-import {ensureChromaTestDatabase} from '../../shared/vector/chromaTestIsolation.mjs';
+import {CHROMA_PRODUCTION_DATABASE, ensureChromaTestDatabase} from '../../shared/vector/chromaTestIsolation.mjs';
+import {isTestRunnerContext}                                  from '../../shared/storeWriteGuard.mjs';
 
 /**
  * Predicate suppression filter for MC: the four Chroma library messages that surface noisily
@@ -125,6 +126,19 @@ class ChromaManager extends AbstractVectorManager {
         if (useTestDatabase && database === chroma.database) {
             const message = `ChromaManager: refusing the production database "${chroma.database}" under ` +
                 `the test-database toggle — unit-test isolation must not resolve into the production namespace.`;
+
+            logger.error(`[ChromaManager] Test-isolation guard: ${message}`);
+
+            throw new Error(message);
+        }
+
+        // Config-INDEPENDENT fail-closed defense-in-depth (symmetric to the SQLite graph + concept-ontology
+        // test-write guards in storeWriteGuard): a bare `npx playwright` sets TEST_WORKER_INDEX but never
+        // UNIT_TEST_MODE, so the config-keyed toggle above stays off and the production database resolves.
+        // A test-runner context must NEVER target the production namespace, regardless of config state.
+        if (isTestRunnerContext() && database === CHROMA_PRODUCTION_DATABASE) {
+            const message = `ChromaManager: refusing the production database "${CHROMA_PRODUCTION_DATABASE}" from a ` +
+                `test-runner context (TEST_WORKER_INDEX/UNIT_TEST_MODE) — config-independent test-write isolation guard.`;
 
             logger.error(`[ChromaManager] Test-isolation guard: ${message}`);
 
