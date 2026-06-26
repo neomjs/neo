@@ -49,7 +49,8 @@ import {buildDeferenceStopHookDirective,
         isOperatorInLoop,
         LANE_STATE_SCHEMA_HINT,
         parseOutcomeToVerdict,
-        scanHoldLexicon}           from '../../ai/scripts/lifecycle/stopHookDecision.mjs';
+        scanHoldLexicon,
+        STOP_HOOK_TURN_OPTIONS_HINT} from '../../ai/scripts/lifecycle/stopHookDecision.mjs';
 import {validateLaneStateTerminal} from '../../ai/scripts/lifecycle/validateLaneStateTerminal.mjs';
 
 export {isOperatorInLoop, parseOutcomeToVerdict};
@@ -132,7 +133,7 @@ Declaring a lane is NOT driving it. Do the next concrete action NOW:
 Teeth-test: does this advance a NAMED lane right now? If you can't name the lane, it isn't driving.
 Collaboration (review · ideation · A2A) counts ONLY when it advances a named lane AND ends with a return to your own lane or an explicit lane-swap — it is an interruption, not a replacement for your own PRs.
 Passive waiting (a merge · a review · CI) is parked, not driven — take another lane.
-The only stop is a hard external limit: context-sunset, an operator halt, or a live operator reply.
+${STOP_HOOK_TURN_OPTIONS_HINT}
 
 ${LANE_STATE_SCHEMA_HINT}`;
 

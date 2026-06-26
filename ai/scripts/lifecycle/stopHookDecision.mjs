@@ -20,6 +20,12 @@ export const LANE_STATE_SCHEMA_HINT = `Machine lane-state block to emit with you
 Validator gotchas: if an own PR is only awaiting merge/review/CI, use laneContinuation "next-lane"; "active-lane" + awaitingOwnPrOnly:true is invalid. Every namedGates[] entry needs a same-turn checkedAt; mergeClaim must use field "mergedAt".`;
 
 /**
+ * @summary Compact cross-harness turn-end options hint for Stop-hook injections.
+ * @type {String}
+ */
+export const STOP_HOOK_TURN_OPTIONS_HINT = `Turn-end options: live operator dialogue/planning may stop only when the hook can confirm the operator prompt. Autonomous [WAKE]/stop-hook continuations must drive a named lane and emit lane-state. Before any stop, save one concise turn memory under 24KB. Missing prompt fails closed as autonomous.`;
+
+/**
  * @summary Pure mapping of a parse OUTCOME to a terminal verdict — the 3-bucket chain. A malformed
  * emission (parseLaneState threw) and an absent emission (null) are distinct idle-out failures from an
  * invalid descriptor, each with its own reason; a parsed descriptor is delegated to `validate`.

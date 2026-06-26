@@ -98,6 +98,9 @@ test.describe('laneStateStopHook — pure idle-out decision logic', () => {
             expect(directive).toContain('there is no hold state');
             expect(directive).toContain('advance a NAMED lane');
             expect(directive).toContain('Passive waiting');
+            expect(directive).toContain('operator dialogue/planning');
+            expect(directive).toContain('under 24KB');
+            expect(directive).toContain('Missing prompt fails closed');
             expect(directive).toContain('no lane-state block emitted at turn-terminal');
         });
 
@@ -279,8 +282,8 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
 
             if (enforce) env.NEO_LANE_STATE_ENFORCE = '1';
 
-            const proc = spawn('node', ['.claude/hooks/laneStateStopHook.mjs'], {stdio: ['pipe', 'pipe', 'pipe'], env});
-            let stdout = '';
+            const proc   = spawn('node', ['.claude/hooks/laneStateStopHook.mjs'], {stdio: ['pipe', 'pipe', 'pipe'], env});
+            let   stdout = '';
 
             proc.stdout.on('data', chunk => stdout += chunk);
             proc.on('error', reject);
