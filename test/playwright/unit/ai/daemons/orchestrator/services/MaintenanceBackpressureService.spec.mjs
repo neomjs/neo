@@ -295,8 +295,9 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         const writeLog        = (level, message) => logCalls.push({level, message});
         const taskDefinitions = {kbSync: {label: 'KB sync'}, 'memory-summary-backfill': {label: 'memory miniSummary backfill'}};
 
-        // The memorySummaryBackfill backlog counter changes every poll; without a stabilized dedup key
-        // each value churns the key and the deferral logs on every poll (the live ~8%-of-lines flood).
+        // The memorySummaryBackfill backlog counter changes every poll. The dedup key is keyed on
+        // (task, blocker, reasonCode) — NOT the volatile reasonText — so the changing count never
+        // churns it and the deferral logs once per episode (not the live ~8%-of-lines flood).
         for (const backlog of [47, 48, 49, 50]) {
             recordDeferral({
                 deferralLogKeys,

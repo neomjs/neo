@@ -237,14 +237,14 @@ export function recordDeferral({
 }) {
     const isLeaseHeld = reasonCode === 'heavy-maintenance-lease-held';
     const holderOwner = holdingLease?.owner || 'unknown';
-    // Strip a trailing volatile counter (e.g. `pending-memory-minisummary:47`) from the dedup key so
-    // recurring deferrals of the same task by the same blocker collapse to ONE log line per episode.
-    // Without this, a counter that changes each poll (the memorySummaryBackfill backlog) churns the
-    // key and the dedup never fires. The full reasonText (with count) stays in the message + outcome.
-    const stableReason = String(reasonText).replace(/:\d+$/, '');
-    const dedupKey    = isLeaseHeld
-        ? `${taskName}:lease-held-by-${holderOwner}:${stableReason}`
-        : `${taskName}:${blockingTaskName}:${stableReason}`;
+    // Dedup on STABLE identifiers only — the deferred task, its blocker, and the deferral reasonCode —
+    // never the volatile `reasonText`: its `:<count>` / `:<interval>` suffix changes every poll and its
+    // source-class is already implied by `taskName`, so including it churns the key (the dedup never
+    // fires) without adding a real distinction. The full reasonText (with count) stays in the log
+    // message + the recordTaskOutcome payload below.
+    const dedupKey = isLeaseHeld
+        ? `${taskName}:lease-held-by-${holderOwner}`
+        : `${taskName}:${blockingTaskName}:${reasonCode}`;
 
     if (!deferralLogKeys.has(dedupKey)) {
         const taskLabel = taskDefinitions?.[taskName]?.label || taskName;
