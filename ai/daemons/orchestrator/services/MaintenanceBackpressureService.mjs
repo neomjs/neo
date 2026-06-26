@@ -237,9 +237,14 @@ export function recordDeferral({
 }) {
     const isLeaseHeld = reasonCode === 'heavy-maintenance-lease-held';
     const holderOwner = holdingLease?.owner || 'unknown';
+    // Strip a trailing volatile counter (e.g. `pending-memory-minisummary:47`) from the dedup key so
+    // recurring deferrals of the same task by the same blocker collapse to ONE log line per episode.
+    // Without this, a counter that changes each poll (the memorySummaryBackfill backlog) churns the
+    // key and the dedup never fires. The full reasonText (with count) stays in the message + outcome.
+    const stableReason = String(reasonText).replace(/:\d+$/, '');
     const dedupKey    = isLeaseHeld
-        ? `${taskName}:lease-held-by-${holderOwner}:${reasonText}`
-        : `${taskName}:${blockingTaskName}:${reasonText}`;
+        ? `${taskName}:lease-held-by-${holderOwner}:${stableReason}`
+        : `${taskName}:${blockingTaskName}:${stableReason}`;
 
     if (!deferralLogKeys.has(dedupKey)) {
         const taskLabel = taskDefinitions?.[taskName]?.label || taskName;
