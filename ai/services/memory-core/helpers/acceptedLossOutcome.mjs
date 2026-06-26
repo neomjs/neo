@@ -3,6 +3,7 @@ import {
     classifyRepairResidue,
     computeResidueFingerprint
 } from './classifyRepairResidue.mjs';
+import {createAcceptedLossAckEntry} from './acceptedLossAck.mjs';
 
 /**
  * @module ai/services/memory-core/helpers/acceptedLossOutcome
@@ -48,12 +49,8 @@ export async function evaluateAcceptedLossOutcome({partialResults = [], recovery
     let allAccepted = rows.length > 0;
 
     for (const result of rows) {
-        const residue = (result?.unrecoverable || []).map(row => ({
-            id    : row?.id ?? null,
-            reason: row?.reason ?? null
-        }));
-
-        const fingerprint = computeResidueFingerprint({residue, strategyVersion, provider, contextBudget, terminalReasons}),
+        const residue     = mapUnrecoverableToResidue(result?.unrecoverable),
+              fingerprint = computeResidueFingerprint({residue, strategyVersion, provider, contextBudget, terminalReasons}),
               ack         = typeof readAck === 'function' ? await readAck(fingerprint) : null,
               verdict     = classifyRepairResidue({residue, ack, strategyVersion, provider, contextBudget, terminalReasons});
 
@@ -70,4 +67,76 @@ export async function evaluateAcceptedLossOutcome({partialResults = [], recovery
     }
 
     return {allAccepted, perCollection};
+}
+
+/**
+ * @summary Maps a partial-promotion's unrecoverable manifest rows to the classifier's residue shape.
+ *
+ * The SINGLE shared mapping used by BOTH the accepted-loss check (read side) and the operator
+ * acknowledgement (write side), so the two compute identical fingerprints by construction — never a
+ * hand-duplicated map that could silently drift and break the match.
+ *
+ * @param {Array<Object>} rows `[{id, reason, ...}]` unrecoverable rows.
+ * @returns {Array<Object>} `[{id, reason}]`.
+ */
+export function mapUnrecoverableToResidue(rows) {
+    return (Array.isArray(rows) ? rows : []).map(row => ({
+        id    : row?.id ?? null,
+        reason: row?.reason ?? null
+    }));
+}
+
+/**
+ * @summary Mints + persists an operator accepted-loss acknowledgement over a partial-promotion's
+ * unrecoverable manifest, one ack per collection.
+ *
+ * Pure except for the injected `persist` and the supplied `acknowledgedAt` (no time/randomness of its
+ * own), so it round-trips with the accepted-loss check by construction: an ack minted here under the same
+ * recovery context is exactly the one `evaluateAcceptedLossOutcome` accepts. A collection with no residue
+ * is skipped (nothing to acknowledge).
+ *
+ * @param {Object} options
+ * @param {Object} [options.unrecoverableByCollection={}] `{collection: [{id, reason}]}` from the state marker.
+ * @param {Object} [options.recoveryContext={}] The shared recovery context (same as the check reads).
+ * @param {String} options.operatorId The acknowledging operator identity.
+ * @param {Number} options.acknowledgedAt Epoch milliseconds of the acknowledgement.
+ * @param {Function} options.persist `async ack => void` — the durable ack writer (injected).
+ * @param {String|null} [options.recoveryRunId=null] Optional originating recovery-run id (provenance).
+ * @returns {Promise<Object>} `{acknowledged:[{collection, fingerprint, residueCount}]}`.
+ */
+export async function acknowledgeAcceptedLossResidue({
+    unrecoverableByCollection = {},
+    recoveryContext           = {},
+    operatorId,
+    acknowledgedAt,
+    persist,
+    recoveryRunId             = null
+} = {}) {
+    const {
+        strategyVersion = '',
+        provider        = '',
+        contextBudget   = '',
+        terminalReasons = TERMINAL_REASONS
+    } = recoveryContext;
+
+    const acknowledged = [];
+
+    for (const [collection, rows] of Object.entries(unrecoverableByCollection || {})) {
+        const residue = mapUnrecoverableToResidue(rows);
+        if (residue.length === 0) {
+            continue;
+        }
+
+        const ack = createAcceptedLossAckEntry({
+            residue, operatorId, acknowledgedAt, strategyVersion, provider, contextBudget, terminalReasons, recoveryRunId
+        });
+
+        if (typeof persist === 'function') {
+            await persist(ack);
+        }
+
+        acknowledged.push({collection, fingerprint: ack.fingerprint, residueCount: residue.length});
+    }
+
+    return {acknowledged};
 }

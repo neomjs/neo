@@ -1,7 +1,11 @@
-import {test, expect}                from '@playwright/test';
-import Neo                           from '../../../../../../../src/Neo.mjs';
-import * as core                     from '../../../../../../../src/core/_export.mjs';
-import {evaluateAcceptedLossOutcome} from '../../../../../../../ai/services/memory-core/helpers/acceptedLossOutcome.mjs';
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../../src/core/_export.mjs';
+import {
+    acknowledgeAcceptedLossResidue,
+    evaluateAcceptedLossOutcome,
+    mapUnrecoverableToResidue
+}                                    from '../../../../../../../ai/services/memory-core/helpers/acceptedLossOutcome.mjs';
 import {createAcceptedLossAckEntry}  from '../../../../../../../ai/services/memory-core/helpers/acceptedLossAck.mjs';
 
 // Pure decider that joins the classifier + an injected durable-ack lookup + the partial-promotion manifest
@@ -99,5 +103,54 @@ test.describe('evaluateAcceptedLossOutcome — operator-acknowledged accepted-lo
         expect(allAccepted).toBe(true);
         expect(perCollection[0]).toMatchObject({collection: 'mc-memory', outcome: 'accepted-loss'});
         expect(perCollection[0].fingerprint).toEqual(expect.any(String));
+    });
+});
+
+test.describe('acknowledgeAcceptedLossResidue — operator ack minting + the round-trip', () => {
+    test('mints + persists one ack per collection; the persisted acks then satisfy the accepted-loss check', async () => {
+        const unrecoverableByCollection = {
+                  'mc-memory'       : [{id: 'a', reason: 'embedding-context-exceeded'}],
+                  'neo-native-graph': [{id: 'b', reason: 'document-absent'}]
+              },
+              store = new Map();
+
+        const {acknowledged} = await acknowledgeAcceptedLossResidue({
+            unrecoverableByCollection,
+            recoveryContext: CTX,
+            operatorId     : '@tobiu',
+            acknowledgedAt : 1000,
+            persist        : ack => { store.set(ack.fingerprint, ack); }
+        });
+
+        expect(acknowledged).toHaveLength(2);
+
+        // The persisted acks make the decider settle the SAME manifest as accepted-loss (the closed loop).
+        const partialResults = Object.entries(unrecoverableByCollection)
+            .map(([collectionName, unrecoverable]) => ({collectionName, partialPromoted: true, unrecoverable}));
+
+        const {allAccepted} = await evaluateAcceptedLossOutcome({
+            partialResults, recoveryContext: CTX, readAck: async fp => store.get(fp) ?? null
+        });
+
+        expect(allAccepted).toBe(true);
+    });
+
+    test('skips a collection with no residue', async () => {
+        const store = new Map();
+
+        const {acknowledged} = await acknowledgeAcceptedLossResidue({
+            unrecoverableByCollection: {'mc-memory': [], 'neo-native-graph': [{id: 'b', reason: 'document-absent'}]},
+            recoveryContext          : CTX,
+            operatorId               : '@tobiu',
+            acknowledgedAt           : 1000,
+            persist                  : ack => { store.set(ack.fingerprint, ack); }
+        });
+
+        expect(acknowledged.map(a => a.collection)).toEqual(['neo-native-graph']);
+    });
+
+    test('mapUnrecoverableToResidue is the shared mapping (id+reason only, defensive on non-arrays)', () => {
+        expect(mapUnrecoverableToResidue([{id: 'a', reason: 'r', extra: 1}])).toEqual([{id: 'a', reason: 'r'}]);
+        expect(mapUnrecoverableToResidue(undefined)).toEqual([]);
     });
 });

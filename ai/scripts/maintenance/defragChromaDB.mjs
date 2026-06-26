@@ -11,8 +11,8 @@ import {withHeavyMaintenanceLease}                                   from '../..
 import {registerNeoChromaEmbeddingFunctions}                         from '../../services/shared/vector/chromaClientPrimitives.mjs';
 import {auditChromaVectorCoverage}                                   from './checkChromaIntegrity.mjs';
 import {extractMemoryCoreCollectionData, truncateToEmbedTokenBudget} from './repairMemoryCoreStoredEmbeddings.mjs';
-import {evaluateAcceptedLossOutcome}                                 from '../../services/memory-core/helpers/acceptedLossOutcome.mjs';
-import {readAcceptedLossAckByFingerprint}                            from '../../services/memory-core/helpers/acceptedLossAckStore.mjs';
+import {acknowledgeAcceptedLossResidue, evaluateAcceptedLossOutcome} from '../../services/memory-core/helpers/acceptedLossOutcome.mjs';
+import {appendAcceptedLossAck, readAcceptedLossAckByFingerprint}     from '../../services/memory-core/helpers/acceptedLossAckStore.mjs';
 import {TERMINAL_REASONS}                                            from '../../services/memory-core/helpers/classifyRepairResidue.mjs';
 
 // Bumped whenever the recovery strategy's embeddability changes (e.g. oversized-document chunking ships),
@@ -44,6 +44,46 @@ function buildMemoryCoreRecoveryContext(config) {
  */
 function acceptedLossAckDir(statePath) {
     return path.join(path.dirname(statePath), 'accepted-loss-acks');
+}
+
+/**
+ * @summary Mints + persists a durable operator accepted-loss acknowledgement over the live partial-promotion
+ * residue read from the defrag state marker, so a subsequent repair settles it as accepted-loss instead of
+ * paging. Fails closed (exit 1) when the target is not memory-core, when `--operator-id` is missing, or when
+ * there is no partial-promoted state to acknowledge. Does not run the repair pipeline.
+ * @param {Object} options
+ * @param {String} options.targetName
+ * @param {Object} options.config Resolved target config (for the shared recovery context).
+ * @param {String} options.statePath Defrag durable state-marker path.
+ * @param {String} options.operatorId Acknowledging operator identity.
+ * @returns {Promise<void>}
+ */
+async function acknowledgeOperatorAcceptedLoss({targetName, config, statePath, operatorId}) {
+    if (targetName !== 'memory-core') {
+        console.error('❌ --acknowledge-accepted-loss is only valid for --target memory-core.');
+        process.exit(1);
+    }
+    if (!operatorId) {
+        console.error('❌ --acknowledge-accepted-loss requires --operator-id <id>.');
+        process.exit(1);
+    }
+
+    const state = await fs.pathExists(statePath) ? await fs.readJson(statePath) : null;
+    if (!state || state.phase !== 'memory-core-repair-partial-promoted' || !state.unrecoverableByCollection) {
+        console.error('❌ No partial-promoted Memory Core repair state to acknowledge. Run the repair first; only a partial-promotion with retained unrecoverable residue is acknowledgeable.');
+        process.exit(1);
+    }
+
+    const {acknowledged} = await acknowledgeAcceptedLossResidue({
+        unrecoverableByCollection: state.unrecoverableByCollection,
+        recoveryContext          : buildMemoryCoreRecoveryContext(config),
+        operatorId,
+        acknowledgedAt           : Date.now(),
+        recoveryRunId            : state.recoveryRunId ?? null,
+        persist                  : ack => appendAcceptedLossAck({entry: ack, dir: acceptedLossAckDir(statePath)})
+    });
+
+    console.log(`✅ Acknowledged accepted-loss for ${acknowledged.length} collection(s): ${acknowledged.map(a => `${a.collection} (${a.residueCount} row(s))`).join(', ')}. Re-run the repair to settle it as accepted-loss.`);
 }
 
 /**
@@ -1452,6 +1492,8 @@ async function defragChromaDB() {
         .requiredOption('-t, --target <name>', 'Database target (knowledge-base, memory-core)')
         .option('--allow-memory-core', 'Opt in to the Memory Core repair-defrag path (default: fails closed)')
         .option('--dry-run', 'For memory-core, run full enumeration/extraction report without shadow promotion')
+        .option('--acknowledge-accepted-loss', 'For memory-core, acknowledge the live partial-promotion residue as accepted terminal loss (mints a durable ack; requires --operator-id)')
+        .option('--operator-id <id>', 'Operator identity recorded on an accepted-loss acknowledgement')
         .parse(process.argv);
 
     const options    = program.opts();
@@ -1464,6 +1506,13 @@ async function defragChromaDB() {
 
         const config    = await loadConfig(targetName);
         const statePath = resolveDefragStatePath({targetName});
+
+        // Operator accepted-loss acknowledgement: mint + persist a durable ack over the live partial-promotion
+        // residue so a subsequent repair settles it as accepted-loss. Reads the state marker; runs no pipeline.
+        if (options.acknowledgeAcceptedLoss) {
+            await acknowledgeOperatorAcceptedLoss({targetName, config, statePath, operatorId: options.operatorId});
+            return;
+        }
 
         assertDefragTargetSupported({targetName, allowMemoryCore: options.allowMemoryCore});
         const resumeState = await assertNoIncompleteDefragState({
