@@ -11,6 +11,8 @@ import {withHeavyMaintenanceLease}                                   from '../..
 import {registerNeoChromaEmbeddingFunctions}                         from '../../services/shared/vector/chromaClientPrimitives.mjs';
 import {auditChromaVectorCoverage}                                   from './checkChromaIntegrity.mjs';
 import {extractMemoryCoreCollectionData, truncateToEmbedTokenBudget} from './repairMemoryCoreStoredEmbeddings.mjs';
+import {resolveAutonomousRepairExit}                                 from '../../services/memory-core/helpers/acceptedLossSettlement.mjs';
+import {appendAutoAcceptedLoss}                                      from '../../services/memory-core/helpers/acceptedLossAuditStore.mjs';
 
 /**
  * @summary Defragments collection groups inside the unified ChromaDB store.
@@ -1535,6 +1537,27 @@ async function defragChromaDB() {
             // Fail loud at the operator boundary: non-clean repair work is NOT a successful repair
             // (mirrors the KB extractionErrors / hasRestoreErrors -> process.exit(1) discipline below).
             if (anyRepairNonClean(results)) {
+                // Autonomous accepted-loss settlement (zero operator-ack, no runtime escalate): when EVERY
+                // non-clean collection's residue is bounded AND deterministically-terminal, self-settle it —
+                // record a durable audit entry per collection and exit clean, with no human. Transient residue
+                // (heal-path → the data-recovery actuator) or a systemic-fault (mass terminal = a misconfigured
+                // embedder, frozen) keeps the loud non-clean exit below.
+                const settleExit = resolveAutonomousRepairExit({
+                    results,
+                    normalizeResidue: normalizeUnrecoverableEntry,
+                    provider        : config.embeddingProvider,
+                    contextBudget   : embedBudgetTokens
+                });
+
+                if (!dryRun && settleExit.allSettled) {
+                    const auditDir = path.dirname(statePath);
+                    for (const entry of settleExit.perCollection) {
+                        await appendAutoAcceptedLoss(entry.auditRecord, {dir: auditDir});
+                    }
+                    console.log(`   ♻️  Autonomous accepted-loss: all ${settleExit.perCollection.length} non-clean collection(s) held only bounded, deterministically-terminal residue — settled + recorded to ${path.join(auditDir, 'auto-accepted-loss.jsonl')}. No operator page; zero ack.`);
+                    return;
+                }
+
                 const abortedNames  = results.filter(result => result.aborted).map(result => result.collectionName),
                       partialNames  = results.filter(result => result.partialPromoted).map(result => result.collectionName),
                       nonCleanNames = [...abortedNames, ...partialNames];
