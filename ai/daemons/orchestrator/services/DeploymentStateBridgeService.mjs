@@ -67,6 +67,9 @@ export class DeploymentStateBridgeService extends Base {
     lastWriteAt           = 0
     writeInFlight         = false
     statsSamplesByService = new Map()
+    // Last service-state signature written to the log; gates the edge-triggered success line so a
+    // healthy steady-state stops re-emitting an identical INFO line on every snapshot write.
+    lastLoggedSignature   = null
 
     /**
      * Writes a snapshot when enabled and due.
@@ -100,9 +103,22 @@ export class DeploymentStateBridgeService extends Base {
                   });
 
             this.lastWriteAt = now;
-            this.writeLog?.('INFO', `[DeploymentStateBridge] wrote ${snapshot.services.length} service snapshots to ${AiConfig.orchestrator.deploymentStateBridge.snapshotPath}`);
 
-            return {ok: true, status: 'written', snapshot, ...result};
+            // Edge-trigger the success line: a healthy deployment writes an identical snapshot every
+            // interval, so logging each write floods the daemon log and buries real signal. Emit only
+            // on the first write or when a service appears/disappears or changes status. Liveness is
+            // still observable via the snapshot's own `generatedAt` + the `staleAfterMs` watchdog.
+            const signature = buildServiceStateSignature(snapshot.services),
+                  logged    = signature !== this.lastLoggedSignature;
+
+            if (logged) {
+                const transition = this.lastLoggedSignature === null ? 'first write' : 'service-state changed';
+
+                this.writeLog?.('INFO', `[DeploymentStateBridge] wrote ${snapshot.services.length} service snapshots to ${AiConfig.orchestrator.deploymentStateBridge.snapshotPath} (${transition})`);
+                this.lastLoggedSignature = signature;
+            }
+
+            return {ok: true, status: 'written', snapshot, logged, ...result};
         } catch (error) {
             this.writeLog?.('ERROR', `[DeploymentStateBridge] snapshot write failed: ${error.message}`);
             throw error;
@@ -387,6 +403,20 @@ function summarizeLogs(logs, maxBytes) {
 
 function isSafeServiceKey(value) {
     return typeof value === 'string' && /^[a-zA-Z0-9_.-]+$/.test(value);
+}
+
+/**
+ * Builds a stable, order-independent signature of the snapshot's per-service status. Used to
+ * edge-trigger the success log: an unchanged signature means a healthy steady-state write whose
+ * log line carries no new information and is therefore suppressed.
+ * @param {Object[]} services Collected per-service snapshot envelopes.
+ * @returns {String}
+ */
+function buildServiceStateSignature(services) {
+    return (Array.isArray(services) ? services : [])
+        .map(service => `${service.serviceKey}:${service.status}`)
+        .sort()
+        .join(',');
 }
 
 export default Neo.setupClass(DeploymentStateBridgeService);
