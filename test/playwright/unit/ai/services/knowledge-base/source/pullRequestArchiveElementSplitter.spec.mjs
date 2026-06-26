@@ -41,7 +41,7 @@ One fix needed.`;
         const els = splitPullRequestArchiveMarkdown(content);
         expect(els.map(e => `${e.kind}-${e.ordinal}`)).toEqual(['body-0', 'review-1', 'review-2']);
         expect(els[0].content).toContain('## Test Evidence');
-        expect(els[0].content).not.toContain('## Reviews');
+        expect(els[0].content).toContain('## Reviews');
         expect(els[0].content).not.toContain('LGTM');
         expect(els[1].content).toContain('@tobiu');
         expect(els[1].content).toContain('LGTM.');
@@ -88,6 +88,22 @@ More.`;
         expect(els[1].content).toContain('## Sub-section in the review');
         expect(els[1].content).toContain('### Another heading');
         expect(els[1].content).toContain('More.');
+    });
+
+    test('section heading with no delimiter entries -> single body element conserving the heading + content', () => {
+        const content = `${BODY}
+
+## Reviews
+
+(no formal reviews recorded yet)`;
+        const els = splitPullRequestArchiveMarkdown(content);
+        expect(els).toHaveLength(1);
+        expect(els[0].kind).toBe('body');
+        // Conservation: a section heading with no backtick-author delimiter entry is NOT dropped —
+        // the heading + any pre-delimiter content stays in the body.
+        expect(els[0].content).toContain('## Reviews');
+        expect(els[0].content).toContain('(no formal reviews recorded yet)');
+        expect(els[0].content).toBe(content.trimEnd());
     });
 
     test('throws on non-string content', () => {

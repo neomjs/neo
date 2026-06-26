@@ -111,7 +111,7 @@ test.describe('Neo.ai.services.knowledge-base.source.PullRequestSource', () => {
         const review  = written.find(c => c.name === 'pr-1003#review-1');
 
         expect(body.content).toContain('## Test Evidence');
-        expect(body.content).not.toContain('## Comments');
+        expect(body.content).toContain('## Comments');
         expect(body.content).not.toContain('A comment.');
         expect(comment.content).toContain('@neo-gpt');
         expect(comment.content).toContain('A comment.');

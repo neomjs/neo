@@ -11,20 +11,15 @@
  * review rounds a PR accumulates.
  *
  * Boundary format (verified across the archive — 494/4121 files carry `## Reviews`, 243 `## Comments`):
- * frontmatter + title + PR body (which carries its OWN `## Deltas` / `## Test Evidence` / `## Commits`
- * sections — those are body content, NOT boundaries) run until the FIRST of `## Reviews` / `## Comments`.
- * Each discussion element is delimited by a backtick-author line:
+ * the body (frontmatter + title + the PR body, which carries its OWN `## Deltas` / `## Test Evidence` /
+ * `## Commits` sections) runs until the FIRST review/comment delimiter. Each discussion element is
+ * delimited by a backtick-author line:
  *   review  — ``### `@<author>` (<STATE>) reviewed on <ISO>``
  *   comment — ``### `@<author>` commented on <ISO>``
- * Element bodies may contain their own `##`/`###` headings, so the split keys ONLY on the section
- * boundary + these delimiters. A PR with neither section yields a single body element (the whole file).
+ * Element bodies may contain their own `##`/`###` headings, so the split keys ONLY on these delimiters —
+ * never on arbitrary headings. A PR with no delimiter yields a single body element equal to the whole
+ * file, so any `## Reviews`/`## Comments` heading + pre-delimiter content is CONSERVED, never dropped.
  */
-
-/**
- * The PR body→discussion boundary: the first `## Reviews` or `## Comments` section heading.
- * @type {RegExp}
- */
-const SECTION_BOUNDARY = /^## (Reviews|Comments)\s*$/;
 
 /**
  * A review delimiter, e.g. ``### `@tobiu` (APPROVED) reviewed on 2026-06-25T21:02:56Z``.
@@ -43,9 +38,9 @@ const COMMENT_DELIM = /^### `@[A-Za-z0-9_-]+` commented on \d{4}-\d{2}-\d{2}T[0-
  *
  * Pure — no I/O. Returns the body as element `ordinal: 0` followed by each review / comment in
  * document order. Reviews and comments carry independent 1-based ordinals (so naming can be
- * `#review-<n>` / `#comment-<n>`). A no-discussion PR (no `## Reviews`/`## Comments`) returns a single
- * body element whose content equals the whole file (so the existing whole-file chunk is preserved
- * unchanged for that case).
+ * `#review-<n>` / `#comment-<n>`). A PR with no review/comment delimiter returns a single body element
+ * whose content equals the whole file — so the whole-file chunk is preserved and any section heading +
+ * pre-delimiter content is never dropped.
  *
  * @param {String} content Raw `pr-*.md` file content (frontmatter + body + Reviews/Comments).
  * @returns {Array<{kind: ('body'|'review'|'comment'), ordinal: Number, content: String}>}
@@ -59,30 +54,34 @@ export function splitPullRequestArchiveMarkdown(content) {
         throw new TypeError(`splitPullRequestArchiveMarkdown: content must be a string, got ${typeof content}`);
     }
 
-    const lines       = content.split('\n');
-    let   boundaryIdx = -1;
+    const lines         = content.split('\n');
+    let   firstDelimIdx = -1;
 
     for (let i = 0; i < lines.length; i++) {
-        if (SECTION_BOUNDARY.test(lines[i])) {
-            boundaryIdx = i;
+        if (REVIEW_DELIM.test(lines[i]) || COMMENT_DELIM.test(lines[i])) {
+            firstDelimIdx = i;
             break;
         }
     }
 
-    // No `## Reviews`/`## Comments` → the whole file is a single body element (no-discussion PR).
-    if (boundaryIdx === -1) {
+    // No review/comment delimiter → the whole file is a single body element. This CONSERVES any
+    // `## Reviews`/`## Comments` heading + pre-delimiter content (there are no entries to split out).
+    if (firstDelimIdx === -1) {
         return [{kind: 'body', ordinal: 0, content: content.trimEnd()}];
     }
 
-    const elements      = [{kind: 'body', ordinal: 0, content: lines.slice(0, boundaryIdx).join('\n').trimEnd()}],
+    // Body = everything before the first delimiter (frontmatter + title + PR body + the section heading
+    // + any pre-delimiter content — no content dropped). Discussion elements split out after it.
+    const elements      = [{kind: 'body', ordinal: 0, content: lines.slice(0, firstDelimIdx).join('\n').trimEnd()}],
           discussionEls = [];
 
     let current = null;
 
-    // From the first section boundary onward: a backtick-author delimiter opens a review / comment
-    // element that runs until the next delimiter. Section-heading lines (`## Reviews`/`## Comments`)
-    // close the current element without opening one; element-internal `##`/`###` headings stay in-element.
-    for (let i = boundaryIdx; i < lines.length; i++) {
+    // From the first delimiter onward: a backtick-author delimiter opens a review / comment element that
+    // runs until the next delimiter. A `## Reviews`/`## Comments` heading appearing between sections is
+    // non-delimiter content and stays with the current element; element-internal `##`/`###` headings stay
+    // in-element. Nothing is dropped — the split keys ONLY on the review/comment delimiters.
+    for (let i = firstDelimIdx; i < lines.length; i++) {
         const line = lines[i];
 
         if (REVIEW_DELIM.test(line)) {
@@ -91,8 +90,6 @@ export function splitPullRequestArchiveMarkdown(content) {
         } else if (COMMENT_DELIM.test(line)) {
             current = {kind: 'comment', lines: [line]};
             discussionEls.push(current);
-        } else if (SECTION_BOUNDARY.test(line)) {
-            current = null;
         } else if (current) {
             current.lines.push(line);
         }
