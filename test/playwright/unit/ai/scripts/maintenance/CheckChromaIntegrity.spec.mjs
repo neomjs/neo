@@ -6,6 +6,7 @@ import {promisify}    from 'util';
 import {test, expect} from '@playwright/test';
 import {
     auditChromaVectorCoverage,
+    auditCollectionVectorDimensions,
     classifySqliteCheck,
     compareMetadataToVectorIds,
     countFailedApiSteps,
@@ -382,5 +383,59 @@ test.describe('checkChromaIntegrity maintenance helpers', () => {
         } finally {
             await fs.remove(tmpDir);
         }
+    });
+});
+
+test.describe('auditCollectionVectorDimensions — data-integrity dimension fact-gatherer', () => {
+    // mock collection: the limit-`get` (no ids) returns the sampled ids; the by-ids `get` returns embeddings.
+    function makeDimCollection({ids, embeddings, failOn}) {
+        return {
+            get: async ({ids: reqIds} = {}) => {
+                if (failOn) throw new Error('chroma unavailable');
+                if (!reqIds) return {ids};                 // limit-get → ids
+                return {ids: reqIds, embeddings};          // by-ids get → embeddings (positionally aligned to ids)
+            }
+        };
+    }
+
+    test('counts present vectors whose dimension differs from expected', async () => {
+        const collection = makeDimCollection({
+            ids       : ['a', 'b', 'c'],
+            embeddings: [new Array(4096).fill(0), new Array(512).fill(0), new Array(4096).fill(0)]  // b is wrong-dim
+        });
+
+        expect(await auditCollectionVectorDimensions({collection, collectionName: 'neo-agent-memory', expectedDimension: 4096, sampleSize: 10}))
+            .toEqual({collection: 'neo-agent-memory', expectedDimension: 4096, mismatchedVectorCount: 1, sampledCount: 3});
+    });
+
+    test('all-matching dimensions -> mismatchedVectorCount 0', async () => {
+        const collection = makeDimCollection({ids: ['a', 'b'], embeddings: [new Array(4096).fill(0), new Array(4096).fill(0)]});
+
+        const result = await auditCollectionVectorDimensions({collection, collectionName: 'c', expectedDimension: 4096});
+        expect(result.mismatchedVectorCount).toBe(0);
+        expect(result.sampledCount).toBe(2);
+    });
+
+    test('a missing (null) embedding is NOT a dimension mismatch — that is coverage\'s domain', async () => {
+        const collection = makeDimCollection({ids: ['a', 'b'], embeddings: [new Array(4096).fill(0), null]});
+
+        // the 4096 vector matches; the null is absent-not-wrong-dim, so it is not counted here.
+        expect((await auditCollectionVectorDimensions({collection, collectionName: 'c', expectedDimension: 4096})).mismatchedVectorCount).toBe(0);
+    });
+
+    test('empty / unsampled collection -> mismatchedVectorCount 0, sampledCount 0', async () => {
+        const collection = makeDimCollection({ids: [], embeddings: []});
+
+        expect(await auditCollectionVectorDimensions({collection, collectionName: 'c', expectedDimension: 4096}))
+            .toEqual({collection: 'c', expectedDimension: 4096, mismatchedVectorCount: 0, sampledCount: 0});
+    });
+
+    test('a .get failure surfaces as an error with a zero count — never throws into the runner', async () => {
+        const collection = makeDimCollection({ids: ['a'], embeddings: [[]], failOn: true});
+
+        const result = await auditCollectionVectorDimensions({collection, collectionName: 'c', expectedDimension: 4096});
+        expect(result.mismatchedVectorCount).toBe(0);
+        expect(result.sampledCount).toBe(0);
+        expect(result.error).toBe('chroma unavailable');
     });
 });
