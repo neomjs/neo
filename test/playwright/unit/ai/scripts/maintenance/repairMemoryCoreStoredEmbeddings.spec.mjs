@@ -103,16 +103,27 @@ test.describe('extractMemoryCoreCollectionData — MC stored-embedding repair ex
         expect(embedCalls).toBe(1);
     });
 
-    test('a missing-vector row with no document is unrecoverable, not silently dropped', async () => {
-        const rows    = {m: {document: '', metadata: {}}, n: {document: 'dn', metadata: {}}};
+    test('missing-vector rows with empty or missing documents are unrecoverable with distinct reasons', async () => {
+        const rows = {
+            empty  : {document: '', metadata: {}},
+            missing: {metadata: {}},
+            n      : {document: 'dn', metadata: {}}
+        };
         const embedFn = async docs => docs.map(() => [5]);
 
         const result = await extractMemoryCoreCollectionData({
-            collection: makeCollection(rows), allIds: ['m', 'n'], missingVectorIds: ['m', 'n'], embedFn
+            collection      : makeCollection(rows),
+            allIds          : ['empty', 'missing', 'n'],
+            missingVectorIds: ['empty', 'missing', 'n'],
+            embedFn
         });
 
-        expect(result.unrecoverable).toEqual(['m']);
-        expect(result.counts).toEqual({total: 2, intact: 0, reEmbedded: 1, unrecoverable: 1});
+        expect(result.unrecoverable).toEqual([
+            {id: 'empty', reason: 'document-empty', message: 'document field was empty'},
+            {id: 'missing', reason: 'document-missing', message: 'document field was missing from the Chroma metadata read'}
+        ]);
+        expect(result.unrecoverableIds).toEqual(['empty', 'missing']);
+        expect(result.counts).toEqual({total: 3, intact: 0, reEmbedded: 1, unrecoverable: 2});
     });
 
     test('a missing id absent from the metadata read is unrecoverable', async () => {
@@ -123,7 +134,12 @@ test.describe('extractMemoryCoreCollectionData — MC stored-embedding repair ex
             collection: makeCollection(rows), allIds: ['n', 'gone'], missingVectorIds: ['n', 'gone'], embedFn
         });
 
-        expect(result.unrecoverable).toEqual(['gone']);
+        expect(result.unrecoverable).toEqual([{
+            id     : 'gone',
+            reason : 'metadata-row-missing',
+            message: 'id was absent from the Chroma documents/metadatas read'
+        }]);
+        expect(result.unrecoverableIds).toEqual(['gone']);
         expect(result.counts.reEmbedded).toBe(1);
     });
 
@@ -156,7 +172,12 @@ test.describe('extractMemoryCoreCollectionData — MC stored-embedding repair ex
             ['too-large'],
             ['small-2']
         ]);
-        expect(result.unrecoverable).toEqual(['overcap']);
+        expect(result.unrecoverable).toEqual([{
+            id     : 'overcap',
+            reason : 'embedding-provider-error',
+            message: 'context overflow'
+        }]);
+        expect(result.unrecoverableIds).toEqual(['overcap']);
         expect(result.data.ids).toEqual(['ok', 'ok2']);
         expect(result.counts).toEqual({total: 3, intact: 0, reEmbedded: 2, unrecoverable: 1});
     });
@@ -205,7 +226,12 @@ test.describe('extractMemoryCoreCollectionData — MC stored-embedding repair ex
             collection: makeCollection(rows), allIds: ['m'], missingVectorIds: ['m'], embedFn: async () => []
         });
 
-        expect(result.unrecoverable).toEqual(['m']);
+        expect(result.unrecoverable).toEqual([{
+            id     : 'm',
+            reason : 'embedding-result-malformed',
+            message: 'single embed returned 0 embeddings'
+        }]);
+        expect(result.unrecoverableIds).toEqual(['m']);
         expect(result.counts).toEqual({total: 1, intact: 0, reEmbedded: 0, unrecoverable: 1});
     });
 
