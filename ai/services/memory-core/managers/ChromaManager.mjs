@@ -328,7 +328,7 @@ class ChromaManager extends AbstractVectorManager {
 
     /**
      * Guarded delete-collection wrapper. Refuses canonical production collection names
-     * (`neo-agent-memory`, `neo-agent-sessions`, `neo-agent-graph`, `neo-knowledge-base`)
+     * (`neo-agent-memory`, `neo-agent-sessions`, `neo-native-graph`, `neo-knowledge-base`)
      * unless `process.env.UNIT_TEST_MODE === 'true'` (test path) or a valid production
      * `confirmation` token is supplied.
      *
