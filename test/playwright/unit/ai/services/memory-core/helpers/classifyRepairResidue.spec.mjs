@@ -10,7 +10,7 @@ import {classifyRepairResidue, computeResidueFingerprint, TERMINAL_REASONS} from
 const CTX = {strategyVersion: 'v1', provider: 'openAiCompatible', contextBudget: 32768};
 
 function ackFor(residue, ctx = CTX) {
-    return {fingerprint: computeResidueFingerprint({residue, ...ctx})};
+    return {fingerprint: computeResidueFingerprint({residue, ...ctx, terminalReasons: TERMINAL_REASONS})};
 }
 
 test.describe('classifyRepairResidue — accepted-loss vs escalate decider', () => {
@@ -67,6 +67,17 @@ test.describe('classifyRepairResidue — accepted-loss vs escalate decider', () 
 
         // oversized-doc chunking ships → strategyVersion bumps → the old ack no longer matches → escalate (re-ack needed).
         const result = classifyRepairResidue({residue, ack, strategyVersion: 'v2-chunking', provider: 'openAiCompatible', contextBudget: 32768});
+
+        expect(result.outcome).toBe('escalate');
+        expect(result.reasonCode).toBe('unacknowledged-or-stale-terminal-residue');
+    });
+
+    test('a terminality-POLICY change since the ack -> escalate (the fingerprint binds the policy, not just residue+strategy)', () => {
+        // Residue is terminal under BOTH policies, but the ack was minted under the broader policy.
+        const residue = [{id: 'a', reason: 'document-absent'}],
+              ack     = {fingerprint: computeResidueFingerprint({residue, ...CTX, terminalReasons: ['embedding-context-exceeded', 'document-absent']})},
+              // policy narrowed to {document-absent} (still terminal for this residue) → the old ack must NOT carry over
+              result  = classifyRepairResidue({residue, ack, ...CTX, terminalReasons: ['document-absent']});
 
         expect(result.outcome).toBe('escalate');
         expect(result.reasonCode).toBe('unacknowledged-or-stale-terminal-residue');
