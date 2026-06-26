@@ -710,6 +710,15 @@ export async function rewriteCollectionViaShadowPromotion({
  * shadow collection. The shadow-loading phase is restartable; the bounded rename phase is
  * deliberately not auto-resumed because the live canonical name may have been parked.
  *
+ * Retained-parking lifecycle: when `deleteParking` is false (the partial-promotion path, where
+ * recovered rows are promoted but unrecoverable rows remain), the pre-promotion source is renamed to
+ * a timestamped, uuid-suffixed parking collection (`<collectionName>-parking-<timestamp>-<uuid>`) and
+ * KEPT as a recovery asset instead of being deleted; a `parking-retained` state marker records its
+ * `parkingName` so an operator can inspect the unrecoverable residue and delete it after recovery.
+ * Because each partial run mints a fresh parking name, repeated partial repairs accumulate distinct
+ * parking collections — they are bounded by operator cleanup, not auto-pruned. A defrag or cleanup
+ * pass must therefore treat a `parking-retained` source as live recovery state, never as orphaned clutter.
+ *
  * @param {Object} options
  * @param {Object} options.client Chroma client.
  * @param {String} options.collectionName Canonical collection name.
@@ -719,7 +728,7 @@ export async function rewriteCollectionViaShadowPromotion({
  * @param {Object} options.embeddingFunction Chroma embedding function.
  * @param {String} options.statePath Durable state marker path.
  * @param {Object} [options.stateBase] Stable fields written into every phase marker.
- * @param {Boolean} [options.deleteParking=true] Delete parked source collection after validation.
+ * @param {Boolean} [options.deleteParking=true] When true, delete the parked source after the promoted collection validates; when false (partial promotion), retain it as a recovery asset and write a `parking-retained` state marker.
  * @param {Number} [options.timestamp=Date.now()] Stable run timestamp.
  * @param {Function} [options.uuidFactory=crypto.randomUUID] Unique id factory.
  * @param {Function} [options.writeStateFn=writeDefragState] State writer seam.
@@ -1368,23 +1377,17 @@ export function formatUnrecoverablePreview(entries = [], {limit = 5} = {}) {
 }
 
 /**
- * @summary True when any repair result aborted (a collection with unrecoverable rows). The
- * operator-facing fail-loud predicate: an aborted collection is never a successful repair, so the
- * `--allow-memory-core` CLI path exits non-zero on it (mirrors the KB extractionErrors / hasRestoreErrors
- * discipline) rather than reporting success on a partial repair.
- *
- * @param {Object[]} [results=[]] Per-collection results from `repairMemoryCoreCollectionsViaFullEnumeration`.
- * @returns {Boolean}
- */
-export function anyRepairAborted(results = []) {
-    return results.some(result => result?.aborted === true);
-}
-
-/**
  * @summary True when any repair result is non-clean (aborted or partial-promoted).
  *
  * The CLI must exit non-zero for both classes: aborted means no promotion happened; partial-promoted means
- * recovered rows were promoted durably, but unrecoverable rows remain in a retained parked source.
+ * recovered rows were promoted durably, but unrecoverable rows remain in a retained parked source. That
+ * non-zero exit is the immune-system signal of record: the process supervisor observes the failed maintenance
+ * run and escalates it to an operator page, while the retained parked source stays available for
+ * unrecoverable-residue inspection.
+ *
+ * This is the single operator-facing fail-loud predicate; it subsumes the older aborted-only check, because an
+ * aborted OR partial-promoted collection is never a clean repair. It mirrors the KB extractionErrors /
+ * hasRestoreErrors discipline rather than reporting success on a non-clean repair.
  *
  * @param {Object[]} [results=[]] Per-collection results from `repairMemoryCoreCollectionsViaFullEnumeration`.
  * @returns {Boolean}
