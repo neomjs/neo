@@ -36,7 +36,7 @@ First comment body.`;
         expect(els).toHaveLength(2);
         expect(els[0]).toMatchObject({kind: 'body', ordinal: 0});
         expect(els[0].content).toContain('## Context');
-        expect(els[0].content).not.toContain('## Timeline');
+        expect(els[0].content).toContain('## Timeline');
         expect(els[0].content).not.toContain('First comment body');
         expect(els[1]).toMatchObject({kind: 'comment', ordinal: 1});
         expect(els[1].content).toContain('### @neo-gpt - 2026-06-26T02:20:08Z');
@@ -89,15 +89,22 @@ Second comment.`;
         expect(els[2].content).toContain('Second comment.');
     });
 
-    test('## Timeline with no comments -> single body element', () => {
+    test('event-only Timeline (no comment delimiter) -> single body element conserving the event rows (#14065 RC)', () => {
         const content = `${BODY}
 
 ## Timeline
-`;
+
+- referenced in commit abc1234 on 2026-06-26T02:00:00Z
+- @tobiu added the bug label`;
         const els = splitTicketArchiveMarkdown(content);
         expect(els).toHaveLength(1);
         expect(els[0].kind).toBe('body');
-        expect(els[0].content).not.toContain('## Timeline');
+        // Conservation: a Timeline with only event rows (no ### @author comment) is NOT dropped —
+        // the heading + event rows stay in the body.
+        expect(els[0].content).toContain('## Timeline');
+        expect(els[0].content).toContain('referenced in commit abc1234');
+        expect(els[0].content).toContain('@tobiu added the bug label');
+        expect(els[0].content).toBe(content.trimEnd());
     });
 
     test('throws on non-string content', () => {

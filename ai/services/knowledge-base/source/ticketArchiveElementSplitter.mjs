@@ -10,12 +10,12 @@
  * keeps every element small (a body / a single comment), so coverage stays complete regardless of
  * how many comment cycles a ticket accumulates.
  *
- * Boundary format (verified across the archive — 709/711 files carry a `## Timeline` section):
- * frontmatter + title + body run until `## Timeline`; each comment is delimited by a
- * `### @<author> - <ISO-timestamp>` line. Comment bodies may themselves contain `##`/`###`
- * headings, so the split keys ONLY on the `## Timeline` boundary + the author-timestamp delimiter
- * — never on arbitrary headings. A file with no `## Timeline` (a no-comment ticket) yields a single
- * body element whose content equals the whole file.
+ * Boundary format (verified across the archive): the body runs until the FIRST
+ * `### @<author> - <ISO-timestamp>` comment delimiter; each comment is delimited by that line.
+ * Comment bodies may themselves contain `##`/`###` headings, so the split keys ONLY on the
+ * author-timestamp delimiter — never on arbitrary headings. A file with no comment delimiter
+ * (including a `## Timeline` carrying only event rows — the majority of the corpus) yields a single
+ * body element equal to the whole file, so non-comment Timeline events are CONSERVED, never dropped.
  */
 
 /**
@@ -25,18 +25,12 @@
 const COMMENT_DELIMITER = /^### @[A-Za-z0-9_-]+ - \d{4}-\d{2}-\d{2}T[0-9:.Z+-]+\s*$/;
 
 /**
- * Matches the `## Timeline` section heading that separates the issue body from its comments.
- * @type {RegExp}
- */
-const TIMELINE_HEADING = /^## Timeline\s*$/;
-
-/**
  * Splits issue-archive markdown into ordered per-element pieces.
  *
  * Pure — no I/O. Returns the body as element `ordinal: 0` followed by each comment as
- * `ordinal: 1..N` in document order. A no-comment ticket (no `## Timeline`) returns a single
- * body element whose content equals the whole file (so the existing whole-file chunk is preserved
- * unchanged for that case).
+ * `ordinal: 1..N` in document order. A ticket with no comment delimiter (including a `## Timeline`
+ * carrying only event rows) returns a single body element whose content equals the whole file — so
+ * the whole-file chunk is preserved and non-comment Timeline content is never dropped.
  *
  * @param {String} content Raw `issue-*.md` file content (frontmatter + title + body + Timeline).
  * @returns {Array<{kind: ('body'|'comment'), ordinal: Number, content: String}>}
@@ -50,31 +44,34 @@ export function splitTicketArchiveMarkdown(content) {
         throw new TypeError(`splitTicketArchiveMarkdown: content must be a string, got ${typeof content}`);
     }
 
-    const lines       = content.split('\n');
-    let   timelineIdx = -1;
+    const lines           = content.split('\n');
+    let   firstCommentIdx = -1;
 
     for (let i = 0; i < lines.length; i++) {
-        if (TIMELINE_HEADING.test(lines[i])) {
-            timelineIdx = i;
+        if (COMMENT_DELIMITER.test(lines[i])) {
+            firstCommentIdx = i;
             break;
         }
     }
 
-    // No `## Timeline` section → the whole file is a single body element (no-comment ticket).
-    if (timelineIdx === -1) {
+    // No `### @author - <ISO>` comment delimiter → the whole file is a single body element. This
+    // CONSERVES a `## Timeline` section that carries only event rows (no comments): its content stays
+    // in the body rather than being dropped.
+    if (firstCommentIdx === -1) {
         return [{kind: 'body', ordinal: 0, content: content.trimEnd()}];
     }
 
-    const elements      = [{kind: 'body', ordinal: 0, content: lines.slice(0, timelineIdx).join('\n').trimEnd()}],
+    // Body = everything before the first comment (frontmatter + title + issue body + the `## Timeline`
+    // heading + any pre-comment event rows — no content dropped). Comments split out after it.
+    const elements      = [{kind: 'body', ordinal: 0, content: lines.slice(0, firstCommentIdx).join('\n').trimEnd()}],
           commentBlocks = [];
 
     let current = null;
 
-    // Everything after `## Timeline`: a `### @author - <ISO>` line opens a comment block that runs
-    // until the next delimiter or EOF. Comment bodies may carry their own `##`/`###` headings, so we
-    // split ONLY on the author-timestamp delimiter. Lines before the first delimiter (the Timeline
-    // preamble / bare heading) belong to no comment and are skipped.
-    for (let i = timelineIdx + 1; i < lines.length; i++) {
+    // From the first comment onward: a `### @author - <ISO>` line opens a comment block that runs until
+    // the next delimiter or EOF. Comment bodies may carry their own `##`/`###` headings + trailing event
+    // rows, so we split ONLY on the author-timestamp delimiter.
+    for (let i = firstCommentIdx; i < lines.length; i++) {
         const line = lines[i];
 
         if (COMMENT_DELIMITER.test(line)) {

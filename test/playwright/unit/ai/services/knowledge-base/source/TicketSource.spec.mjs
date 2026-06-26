@@ -138,7 +138,7 @@ test.describe('Neo.ai.services.knowledge-base.source.TicketSource', () => {
         const comment2 = written.find(c => c.name === 'issue-1004#comment-2');
 
         expect(body.content).toContain('## Context');
-        expect(body.content).not.toContain('## Timeline');
+        expect(body.content).toContain('## Timeline');
         expect(body.content).not.toContain('First comment.');
         expect(comment1.content).toContain('@neo-opus-vega');
         expect(comment1.content).toContain('First comment.');
