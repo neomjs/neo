@@ -2,7 +2,7 @@ import {test, expect}                                     from '@playwright/test
 import Neo                                                from '../../../../../../../src/Neo.mjs';
 import * as core                                          from '../../../../../../../src/core/_export.mjs';
 import {createAcceptedLossAckEntry}                       from '../../../../../../../ai/services/memory-core/helpers/acceptedLossAck.mjs';
-import {classifyRepairResidue, computeResidueFingerprint} from '../../../../../../../ai/services/memory-core/helpers/classifyRepairResidue.mjs';
+import {classifyRepairResidue, computeResidueFingerprint, TERMINAL_REASONS} from '../../../../../../../ai/services/memory-core/helpers/classifyRepairResidue.mjs';
 
 // Pure ack constructor. Packages the shared residue fingerprint + operator metadata into a durable
 // accepted-loss-ack record — the suppression key the classifier reads. The round-trip test is the
@@ -24,7 +24,7 @@ test.describe('createAcceptedLossAckEntry — durable accepted-loss acknowledgem
         const residue = [{id: 'a', reason: 'embedding-context-exceeded'}],
               ack     = createAcceptedLossAckEntry({residue, operatorId: '@tobiu', acknowledgedAt: 1000, ...CTX});
 
-        expect(ack.fingerprint).toBe(computeResidueFingerprint({residue, ...CTX}));
+        expect(ack.fingerprint).toBe(computeResidueFingerprint({residue, ...CTX, terminalReasons: TERMINAL_REASONS}));
     });
 
     test('the record is typed + carries sorted acknowledgedIds + operator provenance', () => {
@@ -60,6 +60,19 @@ test.describe('createAcceptedLossAckEntry — durable accepted-loss acknowledgem
               verdict = classifyRepairResidue({residue, ack, strategyVersion: 'v2-chunking', provider: 'openAiCompatible', contextBudget: 32768});
 
         expect(verdict.outcome).toBe('escalate');
+    });
+
+    test('the ack BINDS the terminality policy — a policy change since the ack -> the classifier escalates', () => {
+        const residue = [{id: 'a', reason: 'document-absent'}],
+              // ack minted under the broad default policy (both terminal reasons)
+              ack     = createAcceptedLossAckEntry({residue, operatorId: '@tobiu', acknowledgedAt: 1000, ...CTX}),
+              // classify under a NARROWED policy (still terminal for this residue) → the ack must not carry over
+              verdict = classifyRepairResidue({residue, ack, ...CTX, terminalReasons: ['document-absent']});
+
+        expect(verdict.outcome).toBe('escalate');
+        expect(verdict.reasonCode).toBe('unacknowledged-or-stale-terminal-residue');
+        // the record carries the policy set (sorted) for provenance
+        expect(ack.terminalReasons).toEqual(['document-absent', 'embedding-context-exceeded']);
     });
 
     test('rejects missing operatorId / non-finite acknowledgedAt', () => {

@@ -1,4 +1,4 @@
-import {computeResidueFingerprint} from './classifyRepairResidue.mjs';
+import {computeResidueFingerprint, TERMINAL_REASONS} from './classifyRepairResidue.mjs';
 
 /**
  * @module ai/services/memory-core/helpers/acceptedLossAck
@@ -25,6 +25,7 @@ import {computeResidueFingerprint} from './classifyRepairResidue.mjs';
  * @param {String} [options.strategyVersion='']
  * @param {String} [options.provider='']
  * @param {Number|String} [options.contextBudget='']
+ * @param {Array<String>} [options.terminalReasons=TERMINAL_REASONS] The terminality-policy set bound into the fingerprint — so a later policy change makes the ack stale.
  * @param {String|null} [options.recoveryRunId=null] Optional originating recovery-run id (provenance).
  * @returns {Object} A typed `accepted-loss-ack` record — the durable suppression key the classifier reads.
  * @throws {TypeError} when `operatorId` is missing/empty or `acknowledgedAt` is not a finite number.
@@ -36,6 +37,7 @@ export function createAcceptedLossAckEntry({
     strategyVersion = '',
     provider        = '',
     contextBudget   = '',
+    terminalReasons = TERMINAL_REASONS,
     recoveryRunId   = null
 } = {}) {
     if (typeof operatorId !== 'string' || operatorId.length === 0) {
@@ -50,12 +52,13 @@ export function createAcceptedLossAckEntry({
     return {
         schemaVersion  : 1,
         type           : 'accepted-loss-ack',
-        fingerprint    : computeResidueFingerprint({residue: rows, strategyVersion, provider, contextBudget}),
+        fingerprint    : computeResidueFingerprint({residue: rows, strategyVersion, provider, contextBudget, terminalReasons}),
         acknowledgedIds: rows.map(row => row?.id).sort(),
         residueCount   : rows.length,
         strategyVersion,
         provider,
         contextBudget  : String(contextBudget),
+        terminalReasons: [...(Array.isArray(terminalReasons) ? terminalReasons : [])].sort(),
         operatorId,
         acknowledgedAt,
         recoveryRunId
