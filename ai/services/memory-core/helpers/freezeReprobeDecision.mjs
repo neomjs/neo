@@ -97,3 +97,100 @@ export function decideFreezeReprobe({freezeRecord, probe, bounds = DEFAULT_REPRO
     }
     return {unfreeze: false, status: 'stay-frozen', reason: 'probe inconclusive — stay frozen (fail closed)', nextProbeAfterMs};
 }
+
+/**
+ * @summary Runs one re-probe tick across every frozen collection: for each record it makes a cheap pre-decision
+ * (skipping a probe entirely when the collection is within its back-off, contained, or has a bad record), then
+ * probes only the ones actually due, re-decides with the live probe, and executes the disposition via INJECTED
+ * operations — returning a uniform outcome per collection. Pure orchestration: the health probe, the privileged
+ * unfreeze + re-heal, and the freeze-record persistence are all injected, so this is fully testable without a
+ * live daemon (mirrors `dispatchHeal`). No operator, no escalate.
+ *
+ * **Anti-hot-loop:** an unfreeze bumps `unfreezeAttempts` + `lastProbeAt` via `persistProbe` BEFORE executing the
+ * unfreeze, so a collection that unfreezes then immediately re-freezes keeps a climbing attempt count and is
+ * eventually `contained` rather than thrashing. A failed unfreeze leaves the record (the attempt is already
+ * recorded); a successful one clears it via `clearFreeze`.
+ *
+ * @param {Object} options
+ * @param {Object} [options.freezeRecords={}] The keyed freeze-record map (`{[collectionName]: record}`) — the caller reads it from the store.
+ * @param {Function} [options.probe] `async (collectionName) => {embedderHealthy, dimensionConsistent}` — the injected health probe. A throw / missing probe is treated as inconclusive (stay frozen).
+ * @param {Number} [options.now] Epoch milliseconds (injected clock).
+ * @param {Object} [options.bounds] Re-probe bounds (defaults to `DEFAULT_REPROBE_BOUNDS` in `decideFreezeReprobe`).
+ * @param {Function} [options.unfreezeAndReheal] `async (collectionName) => any` — the injected privileged unfreeze + re-enter-heal. Absent → an `unfreeze` disposition is recorded `deferred` (not executed).
+ * @param {Function} [options.persistProbe] `async ({collectionName, lastProbeAt, unfreezeAttempts?}) => void` — persists the re-probe bookkeeping.
+ * @param {Function} [options.clearFreeze] `async (collectionName) => void` — removes the freeze-record on a successful unfreeze.
+ * @returns {Promise<Object[]>} `[{collectionName, status, reason, unfroze}]` per frozen collection.
+ */
+export async function runFreezeReprobeCycle({freezeRecords = {}, probe, now, bounds, unfreezeAndReheal, persistProbe, clearFreeze} = {}) {
+    const records  = freezeRecords && typeof freezeRecords === 'object' ? freezeRecords : {},
+          outcomes = [];
+
+    for (const collectionName of Object.keys(records)) {
+        const freezeRecord = records[collectionName];
+
+        // Cheap pre-decision (no probe): a within-back-off `defer`, a `contained` cap, or an `unsafe-input` bad
+        // record needs no probe — only a past-back-off collection (which reads `stay-frozen` against a null probe)
+        // is actually due for a live re-probe.
+        const preDecision = decideFreezeReprobe({freezeRecord, probe: null, bounds, now});
+
+        if (preDecision.status !== 'stay-frozen') {
+            outcomes.push({collectionName, status: preDecision.status, reason: preDecision.reason, unfroze: false});
+            continue;
+        }
+
+        let probeResult = null;
+        if (typeof probe === 'function') {
+            try {
+                probeResult = await probe(collectionName);
+            } catch (probeError) {
+                probeResult = null; // a failed probe is inconclusive → the decider stays frozen
+            }
+        }
+
+        const decision = decideFreezeReprobe({freezeRecord, probe: probeResult, bounds, now});
+
+        if (decision.status === 'unfreeze') {
+            // Record the unfreeze ATTEMPT before executing — a re-freeze then keeps the climbing count (anti-thrash).
+            const attempts = (Number.isFinite(freezeRecord?.unfreezeAttempts) ? freezeRecord.unfreezeAttempts : 0) + 1;
+
+            if (typeof persistProbe === 'function') {
+                try {
+                    await persistProbe({collectionName, lastProbeAt: now, unfreezeAttempts: attempts});
+                } catch (persistError) {
+                    outcomes.push({collectionName, status: 'failed', reason: `persist pre-unfreeze failed: ${persistError?.message ?? String(persistError)}`, unfroze: false});
+                    continue;
+                }
+            }
+
+            if (typeof unfreezeAndReheal !== 'function') {
+                outcomes.push({collectionName, status: 'deferred', reason: 'no unfreezeAndReheal operation wired', unfroze: false});
+                continue;
+            }
+
+            try {
+                await unfreezeAndReheal(collectionName);
+                if (typeof clearFreeze === 'function') {
+                    await clearFreeze(collectionName);
+                }
+                outcomes.push({collectionName, status: 'unfrozen', reason: decision.reason, unfroze: true});
+            } catch (unfreezeError) {
+                // Unfreeze / re-heal failed — the attempt is already recorded; stays frozen, re-probed next cycle.
+                outcomes.push({collectionName, status: 'failed', reason: `unfreeze/re-heal failed: ${unfreezeError?.message ?? String(unfreezeError)}`, unfroze: false});
+            }
+            continue;
+        }
+
+        // stay-frozen after a real probe: advance the probe clock so the back-off measures from this tick.
+        if (decision.status === 'stay-frozen' && typeof persistProbe === 'function') {
+            try {
+                await persistProbe({collectionName, lastProbeAt: now});
+            } catch (persistError) {
+                // best-effort clock update — a missed bookkeeping write just re-probes a touch sooner next tick
+            }
+        }
+
+        outcomes.push({collectionName, status: decision.status, reason: decision.reason, unfroze: false});
+    }
+
+    return outcomes;
+}
