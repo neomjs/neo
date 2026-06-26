@@ -10,6 +10,10 @@ import {
     isRecoveryActuatorTargetBlocked,
     normalizeRecoveryActuatorTargets
 } from '../../../../../../../ai/daemons/orchestrator/services/RecoveryActuatorService.mjs';
+import {
+    createRecoveryDiagnosisEvent,
+    createRecoveryTargetIdentity
+} from '../../../../../../../ai/services/memory-core/helpers/recoveryRunStateStore.mjs';
 import {TIER1_DEFAULTS} from '../../../../../fixtures/aiConfigDefaults.mjs';
 
 const DEFAULT_ACTUATOR_CONFIG       = TIER1_DEFAULTS.orchestrator.recoveryActuator;
@@ -101,6 +105,23 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
 
     async function readAttempts() {
         return JSON.parse(await readFile(path.join(tmpDir, 'heal-attempts.json'), 'utf8'));
+    }
+
+    function backupEscalationDiagnosis(overrides = {}) {
+        return createRecoveryDiagnosisEvent({
+            diagnosisId   : 'backup-failed-1',
+            recoveryClass : 'ambiguous',
+            confidence    : 1,
+            targetIdentity: createRecoveryTargetIdentity({kind: 'supervised-task', id: 'backup'}),
+            evidenceFacts : [{type: 'task-failure', taskName: 'backup'}],
+            observedAt    : 500_000,
+            source        : 'process-supervisor-task-outcome',
+            details       : {
+                actionClass: 'escalate',
+                reasonCode : 'maintenance-task-failure'
+            },
+            ...overrides
+        });
     }
 
     test('normalizes string and object recovery target entries', () => {
@@ -423,6 +444,68 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
                 ledgerStatus: 'escalated'
             })
         }));
+    });
+
+    test('escalateDiagnosis pages a supervised-task diagnosis without executing target actions', async () => {
+        const {service, runtimeCalls, supervisorCalls, pageCalls, taskOutcomes} = createService();
+        let   executedTargetAction                                              = false;
+
+        service.executeTargetAction = async () => {
+            executedTargetAction = true;
+            throw new Error('should not execute');
+        };
+
+        const result = await service.escalateDiagnosis(backupEscalationDiagnosis(), {
+            now   : 500_000,
+            reason: 'backup-failed'
+        });
+
+        expect(result).toMatchObject({
+            status        : 'escalated',
+            reasonCode    : 'maintenance-task-failure',
+            targetIdentity: {kind: 'supervised-task', id: 'backup'}
+        });
+        expect(result.reobserveRequest).toBeNull();
+        expect(executedTargetAction).toBe(false);
+        expect(runtimeCalls).toEqual([]);
+        expect(supervisorCalls).toEqual([]);
+        expect(pageCalls).toEqual([expect.objectContaining({
+            serviceKey        : 'backup',
+            action            : 'escalate',
+            reason            : 'backup-failed',
+            targetIdentity    : {kind: 'supervised-task', id: 'backup'},
+            operatorPageTarget: 'AGENT:*'
+        })]);
+        expect(pageCalls[0].diagnosisEvent).toMatchObject({
+            type          : 'recovery-diagnosis',
+            targetIdentity: {kind: 'supervised-task', id: 'backup'},
+            details       : expect.objectContaining({actionClass: 'escalate'})
+        });
+        expect(taskOutcomes).toContainEqual(expect.objectContaining({
+            taskName: 'recovery-actuator:backup',
+            status  : 'failed',
+            details : expect.objectContaining({
+                status      : 'escalated',
+                ledgerStatus: 'escalated'
+            })
+        }));
+    });
+
+    test('escalateDiagnosis rejects non-escalate diagnoses without privileged actions', async () => {
+        const {service, runtimeCalls, supervisorCalls, pageCalls} = createService();
+
+        const result = await service.escalateDiagnosis(backupEscalationDiagnosis({
+            details: {actionClass: 'restart'}
+        }), {now: 510_000});
+
+        expect(result).toEqual({
+            status        : 'rejected',
+            reasonCode    : 'diagnosis-not-escalatable',
+            targetIdentity: {kind: 'supervised-task', id: 'backup'}
+        });
+        expect(runtimeCalls).toEqual([]);
+        expect(supervisorCalls).toEqual([]);
+        expect(pageCalls).toEqual([]);
     });
 
     test('arbitrary actions are rejected before target lookup or executor access', async () => {

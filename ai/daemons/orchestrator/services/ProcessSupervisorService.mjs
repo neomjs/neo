@@ -1,9 +1,11 @@
-import Base       from '../../../../src/core/Base.mjs';
-import fs         from 'fs-extra';
-import path       from 'path';
-import {execSync} from 'child_process';
+import Base                           from '../../../../src/core/Base.mjs';
+import fs                             from 'fs-extra';
+import path                           from 'path';
+import {execSync}                     from 'child_process';
+import {createRecoveryDiagnosisEvent} from '../../../services/memory-core/helpers/recoveryRunStateStore.mjs';
 
 const DEFAULT_STDOUT_JSON_MAX_BYTES = 65536;
+const ESCALATING_TASK_OUTCOMES      = Object.freeze(new Set(['backup']));
 
 /**
  * @class Neo.ai.daemons.services.ProcessSupervisorService
@@ -45,6 +47,12 @@ export class ProcessSupervisorService extends Base {
          * @reactive
          */
         healthService_: null,
+        /**
+         * @member {Object|null} recoveryActuatorService_=null
+         * @protected
+         * @reactive
+         */
+        recoveryActuatorService_: null,
         /**
          * @member {Function|null} writeLog_=null
          * @protected
@@ -168,7 +176,11 @@ export class ProcessSupervisorService extends Base {
     }
 
     /**
-     * Records task status into HealthService without letting observability failures break the loop.
+     * Records task status into HealthService and escalates critical task failures.
+     *
+     * Health recording is observability-only; escalation is alarm-only for allowlisted critical
+     * failed tasks, and never restarts the failed task from this sink.
+     *
      * @param {String} taskName Task key.
      * @param {String} status Outcome status.
      * @param {Object|null} [details=null] Outcome details.
@@ -180,6 +192,65 @@ export class ProcessSupervisorService extends Base {
         } catch (e) {
             this.writeLog?.('ERROR', `[ProcessSupervisor] Failed to record ${taskName} outcome: ${e.message}`);
         }
+
+        this.escalateFailedTaskOutcome({taskName, status, details});
+    }
+
+    /**
+     * @summary Escalates allowlisted failed task outcomes through the recovery diagnosis sink.
+     *
+     * This is alarm-only: it creates a `supervised-task` diagnosis and calls
+     * `RecoveryActuatorService.escalateDiagnosis()` without restarting the task.
+     *
+     * @param {Object} options
+     * @param {String} options.taskName Task key.
+     * @param {String} options.status Outcome status.
+     * @param {Object|null} [options.details=null] Outcome details.
+     * @returns {Boolean} True when an escalation was attempted.
+     */
+    escalateFailedTaskOutcome({taskName, status, details}) {
+        if (status !== 'failed' || !ESCALATING_TASK_OUTCOMES.has(taskName)) {
+            return false;
+        }
+
+        const actuator = this.recoveryActuatorService;
+
+        if (typeof actuator?.escalateDiagnosis !== 'function') {
+            return false;
+        }
+
+        const observedAt = Date.now(),
+              diagnosis  = createRecoveryDiagnosisEvent({
+                  diagnosisId   : `process-supervisor:${taskName}:failed:${observedAt}`,
+                  recoveryClass : 'ambiguous',
+                  confidence    : 1,
+                  targetIdentity: {kind: 'supervised-task', id: taskName},
+                  evidenceFacts : [{
+                      type   : 'task-failure',
+                      taskName,
+                      status,
+                      details: details || {},
+                      observedAt
+                  }],
+                  observedAt,
+                  source : 'process-supervisor-task-outcome',
+                  details: {
+                      actionClass   : 'escalate',
+                      reasonCode    : 'maintenance-task-failure',
+                      taskName,
+                      taskStatus    : status,
+                      outcomeDetails: details || {}
+                  }
+              });
+
+        Promise.resolve(actuator.escalateDiagnosis(diagnosis, {
+            now   : observedAt,
+            reason: 'maintenance-task-failure'
+        })).catch(error => {
+            this.writeLog?.('ERROR', `[ProcessSupervisor] Failed to escalate ${taskName} failure: ${error.message}`);
+        });
+
+        return true;
     }
 
     /**

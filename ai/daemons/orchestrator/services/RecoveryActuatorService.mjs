@@ -357,6 +357,83 @@ export class RecoveryActuatorService extends Base {
     }
 
     /**
+     * @summary Escalates a diagnosis without executing a privileged recovery action.
+     *
+     * Backup/task-failure alerting needs the recovery-run ledger and operator page path, but
+     * must not coerce a supervised task into the deploy-target `page` action. This sink accepts
+     * only controller-produced alarm diagnoses and records them as escalated.
+     *
+     * @param {Object} diagnosisEvent Recovery diagnosis event with `details.actionClass = 'escalate'`.
+     * @param {Object} [options]
+     * @param {String|null} [options.recoveryRunId=null] Optional stable recovery run id.
+     * @param {Number} [options.now=Date.now()] Epoch milliseconds.
+     * @param {String|null} [options.reason=null] Operator/controller reason.
+     * @returns {Promise<Object>} Escalation outcome descriptor.
+     */
+    async escalateDiagnosis(diagnosisEvent, {
+        recoveryRunId = null,
+        now = Date.now(),
+        reason = null
+    } = {}) {
+        let diagnosis;
+
+        try {
+            diagnosis = createRecoveryDiagnosisEvent(diagnosisEvent);
+        } catch (error) {
+            return {
+                status    : 'rejected',
+                reasonCode: 'invalid-diagnosis',
+                error     : error.message
+            };
+        }
+
+        if (diagnosis.details?.actionClass !== 'escalate') {
+            return {
+                status        : 'rejected',
+                reasonCode    : 'diagnosis-not-escalatable',
+                targetIdentity: diagnosis.targetIdentity
+            };
+        }
+
+        const serviceKey = diagnosis.targetIdentity.id,
+              target     = {
+                  kind: diagnosis.targetIdentity.kind,
+                  serviceKey,
+                  id  : serviceKey
+              },
+              page       = this.createDiagnosisPage({diagnosisEvent: diagnosis, reason});
+
+        if (typeof this.pageDispatcher === 'function') {
+            await this.pageDispatcher(page);
+        } else {
+            this.writeLog?.('WARN', `[RecoveryActuator] Escalation required for ${serviceKey}; page target ${page.operatorPageTarget}.`);
+        }
+
+        const updatedAt = Date.now();
+
+        return this.finishAction({
+            action        : 'escalate',
+            attempt       : 1,
+            backoffUntil  : null,
+            diagnosisEvent: diagnosis,
+            outcome       : {
+                status        : 'escalated',
+                reasonCode    : diagnosis.details.reasonCode || 'diagnosis-escalation',
+                serviceKey,
+                action        : 'escalate',
+                targetIdentity: createRecoveryTargetIdentity(diagnosis.targetIdentity),
+                page
+            },
+            recoveryRunId,
+            serviceKey,
+            startedAt : now,
+            target,
+            taskStatus: 'failed',
+            updatedAt
+        });
+    }
+
+    /**
      * @summary Resolves the strict recovery target entry for a service key and optional identity.
      * @param {Object} options
      * @returns {Object|null}
@@ -519,6 +596,22 @@ export class RecoveryActuatorService extends Base {
         }
 
         return {page};
+    }
+
+    /**
+     * @summary Builds the operator page payload for an alarm-only diagnosis escalation.
+     * @param {Object} options
+     * @returns {Object}
+     */
+    createDiagnosisPage({diagnosisEvent, reason}) {
+        return {
+            serviceKey        : diagnosisEvent.targetIdentity.id,
+            targetIdentity    : createRecoveryTargetIdentity(diagnosisEvent.targetIdentity),
+            action            : 'escalate',
+            reason            : reason || diagnosisEvent.details?.reasonCode || 'diagnosis-escalation',
+            diagnosisEvent,
+            operatorPageTarget: this.cfg.operatorPageTarget
+        };
     }
 
     /**

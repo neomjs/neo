@@ -275,12 +275,13 @@ export class Orchestrator extends Base {
      */
     beforeSetProcessSupervisorService(value) {
         return ClassSystemUtil.beforeSetInstance(value, ProcessSupervisorService, {
-            dataDir         : this.dataDir,
-            taskDefinitions : this.taskDefinitions,
-            taskStateService: this.taskStateService,
-            healthService   : this.healthService,
-            writeLog        : this.processSupervisorWriteLog,
-            spawnFn         : this.spawnFn
+            dataDir                : this.dataDir,
+            taskDefinitions        : this.taskDefinitions,
+            taskStateService       : this.taskStateService,
+            healthService          : this.healthService,
+            recoveryActuatorService: this.recoveryActuatorService,
+            writeLog               : this.processSupervisorWriteLog,
+            spawnFn                : this.spawnFn
         });
     }
 
@@ -357,6 +358,14 @@ export class Orchestrator extends Base {
     afterSetProcessSupervisorService(value, oldValue) {
         if (this.recoveryActuatorService) {
             this.recoveryActuatorService.processSupervisorService = value;
+            if (value) {
+                value.recoveryActuatorService = this.recoveryActuatorService;
+            }
+        }
+    }
+    afterSetRecoveryActuatorService(value, oldValue) {
+        if (this.processSupervisorService) {
+            this.processSupervisorService.recoveryActuatorService = value;
         }
     }
     afterSetTaskStateService(value, oldValue) {
