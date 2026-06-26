@@ -615,6 +615,43 @@ export async function auditCollectionVectorDimensions({collection, collectionNam
 }
 
 /**
+ * @summary Audits document-presence for a set of Chroma row ids — the data-integrity gatherer that lets the
+ * recovery classifier separate a re-embeddable WAL-stall (documents present, vectors missing) from an
+ * unrecoverable wipe (documents also gone). Given the gutted ids (metadata present, vector absent — the
+ * `missingFromVector` set surfaced by `auditChromaVectorCoverage`), samples up to `sampleSize` and counts
+ * those whose stored document is a non-empty string: a present document is what a lossless re-embed re-drives
+ * from, an absent one means the row is unrecoverable from documents alone. A read-only `.get` does not invoke
+ * the embedder, so this is NOT gated by the embed canary. Returns the producer's per-collection sample element
+ * shape, 1:1. A probe failure surfaces as an `error` field with a zero count — it never throws into the runner.
+ *
+ * @param {Object} options
+ * @param {Object} options.collection Chroma collection handle (`.get({ids, include})`).
+ * @param {String} options.collectionName The collection's name (carried into the sample for the diagnosis).
+ * @param {String[]} [options.ids=[]] The row ids to probe — the missing-from-vector / gutted ids.
+ * @param {Number} [options.sampleSize=100] Maximum ids to sample.
+ * @returns {Promise<Object>} `{collection, documentsPresentCount, sampledCount}` (+ `error` on probe failure).
+ */
+export async function auditCollectionDocumentPresence({collection, collectionName, ids = [], sampleSize = 100} = {}) {
+    const sampledIds = ids.slice(0, sampleSize);
+
+    // No gutted ids to probe → nothing to recover from, never a probe (and never a false zero-with-error).
+    if (sampledIds.length === 0) {
+        return {collection: collectionName, documentsPresentCount: 0, sampledCount: 0};
+    }
+
+    try {
+        const {documents = []} = await collection.get({ids: sampledIds, include: ['documents']}),
+              // A present document is a non-empty string — the source a lossless re-embed re-drives from
+              // (WAL-stall); a null/empty document means the row is unrecoverable from documents alone (wipe).
+              documentsPresentCount = documents.filter(document => typeof document === 'string' && document.length > 0).length;
+
+        return {collection: collectionName, documentsPresentCount, sampledCount: sampledIds.length};
+    } catch (error) {
+        return {collection: collectionName, documentsPresentCount: 0, sampledCount: 0, error: error.message};
+    }
+}
+
+/**
  * @param {Object} options
  * @param {Object} options.collection
  * @param {String} options.name
