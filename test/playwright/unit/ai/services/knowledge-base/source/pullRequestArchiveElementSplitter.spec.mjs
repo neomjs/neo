@@ -2,8 +2,9 @@ import {test, expect}                    from '@playwright/test';
 import {splitPullRequestArchiveMarkdown} from '../../../../../../../ai/services/knowledge-base/source/pullRequestArchiveElementSplitter.mjs';
 
 // Pure splitter (no I/O) — direct import, mirrors ticketArchiveElementSplitter.spec.
-// PR boundary format V-B-A'd across the archive: first of `## Reviews`/`## Comments`;
-// delimiters: backtick-author "(STATE) reviewed on <ISO>" (review) / "commented on <ISO>" (comment).
+// Boundary contract (V-B-A'd): elements start at the backtick-author delimiters — "(STATE) reviewed on
+// <ISO>" (review) / "commented on <ISO>" (comment); the body runs until the FIRST such delimiter, so a
+// bare `## Reviews`/`## Comments` heading without a delimiter stays body content (conservation).
 
 const BODY = `---
 id: 14067
