@@ -458,7 +458,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
             type          : 'recovery-diagnosis',
             recoveryClass : 'ambiguous',
             targetIdentity: {kind: 'supervised-task', id: 'backup'},
-            source        : 'process-supervisor-task-outcome',
+            source        : 'task-outcome-diagnostics',
             details       : expect.objectContaining({
                 actionClass   : 'escalate',
                 reasonCode    : 'maintenance-task-failure',

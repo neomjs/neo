@@ -355,6 +355,10 @@ export class Orchestrator extends Base {
         this.processSupervisorService.taskDefinitions       = value;
         this.maintenanceBackpressureService.taskDefinitions = value;
     }
+    // Service-graph reconciliation, not arbitrary circular wiring: the supervisor needs the actuator to
+    // route its escalate-only diagnoses (a failed maintenance task), and the actuator needs the supervisor
+    // to execute restart/recover actions. Each setter back-links the other so either arrival order
+    // converges to the same bidirectional pair.
     afterSetProcessSupervisorService(value, oldValue) {
         if (this.recoveryActuatorService) {
             this.recoveryActuatorService.processSupervisorService = value;

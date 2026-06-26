@@ -36,18 +36,20 @@ test.describe('taskOutcomeDiagnosis — supervised-task failure/overdue producer
         expect(detectTaskOverdue({intervalMs: 1000, now: 2000}).overdue).toBe(true);
     });
 
-    test('buildSupervisedTaskDiagnosis: failed→crash, overdue→ambiguous, supervised-task identity + escalate (#14030 AC1)', () => {
+    test('buildSupervisedTaskDiagnosis: failed+overdue→ambiguous (escalate-only), supervised-task identity + escalate (#14030 AC1)', () => {
         const failed = buildSupervisedTaskDiagnosis({
-            taskName: 'backup', outcome: 'failed', observedAt: 1_700_000_000_000, details: {code: 1}
+            taskName     : 'backup', outcome: 'failed', observedAt: 1_700_000_000_000,
+            evidenceFacts: [{type: 'task-failure', code: 1}], details: {code: 1}
         });
 
         expect(failed.type).toBe('recovery-diagnosis');
-        expect(failed.recoveryClass).toBe('crash');
+        expect(failed.recoveryClass).toBe('ambiguous');
         expect(failed.targetIdentity).toEqual({kind: 'supervised-task', id: 'backup'});
         expect(failed.details.actionClass).toBe('escalate');
         expect(failed.details.outcome).toBe('failed');
         expect(failed.details.code).toBe(1);
         expect(failed.confidence).toBe(1);
+        expect(failed.evidenceFacts).toEqual([{type: 'task-failure', code: 1}]);
 
         const overdue = buildSupervisedTaskDiagnosis({
             taskName: 'backup', outcome: 'overdue', observedAt: 1_700_000_000_000
