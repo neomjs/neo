@@ -259,7 +259,11 @@ export async function runBackup({
  * bundle. For subsystems whose `manageDatabaseBackup({action: 'export'})` SDK call returns a
  * numeric count (KB, MC memories+summaries, MC graph), this function counts non-empty lines
  * in the bundle's JSONL files and compares — mismatch indicates a partial/torn write that the
- * caller treats as a fail-the-bundle condition.
+ * caller treats as a fail-the-bundle condition. Zero-zero parity (source and bundle both empty) is
+ * reported as `empty`, not `pass`: a backup of an empty/gutted store is surfaced non-fatally because
+ * it is not a usable recovery source (a fresh environment is legitimately empty; a populated
+ * deployment reporting zero rows is the gutted-store signature). `runBackup` warns on `empty`
+ * subsystems and persists the status into `bundle-meta.integrity` for a downstream canary/alert.
  *
  * For file-copy subsystems (concepts, trajectories, mailbox) the source side has no
  * authoritative count to compare against — `copyJsonlSource`'s reported `copied` field
@@ -267,7 +271,7 @@ export async function runBackup({
  *
  * @param {Object} layout     The bundle's per-subsystem destination directory map.
  * @param {Object} subsystems The runBackup `subsystems` map of SDK return values.
- * @returns {Promise<Array<{subsystem: String, status: String, sourceCount: Number, bundleCount: Number, reason: String}>>} `status` is `pass` / `fail` / `skipped`; count + reason fields present per status.
+ * @returns {Promise<Array<{subsystem: String, status: String, sourceCount: Number, bundleCount: Number, reason: String}>>} `status` is `pass` (positive row-count parity) / `empty` (source and bundle both zero — non-fatal, not a usable recovery source) / `fail` (row-count mismatch) / `skipped` (non-numeric source count); count + reason fields present per status.
  */
 export async function verifyBundleIntegrity(layout, subsystems) {
     const verifiable = ['kb', 'mc', 'graph'];

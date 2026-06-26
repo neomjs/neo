@@ -298,4 +298,35 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
         expect(kb.bundleCount).toBe(0);
         expect(kb.reason).toMatch(/not a usable recovery source/);
     });
+
+    test('runBackup propagates an empty subsystem to bundle-meta.integrity "empty" + a non-fatal warning (#14048)', async () => {
+        // Close-target proof: the helper status alone is not enough — runBackup must keep an empty
+        // subsystem non-fatal, WARN, and persist `empty` into bundle-meta.integrity (the canary/alert
+        // handoff). Force MC (memories + summaries) to export zero rows.
+        const warnings      = [];
+        const captureLogger = {log: () => {}, error: () => {}, warn: msg => warnings.push(msg)};
+        const savedMem      = Memory_StorageRouter.getMemoryCollection;
+        const savedSum      = Memory_StorageRouter.getSummaryCollection;
+
+        try {
+            Memory_StorageRouter.getMemoryCollection  = async () => fakeCollection([], 'empty-mem');
+            Memory_StorageRouter.getSummaryCollection = async () => fakeCollection([], 'empty-sum');
+
+            const result = await runBackup({
+                bundleRoot: path.join(workRoot, 'bundle-empty-subsystem'),
+                conceptsSourceDir,
+                trajectoriesSourceFile,
+                logger    : captureLogger
+            });
+
+            const mcIntegrity = result.meta.integrity.find(check => check.subsystem === 'mc');
+            expect(mcIntegrity.status).toBe('empty');           // persisted into bundle-meta.integrity
+            expect(mcIntegrity.sourceCount).toBe(0);
+            expect(mcIntegrity.bundleCount).toBe(0);
+            expect(warnings.some(w => /ZERO rows|empty backup/i.test(w))).toBe(true);  // runBackup warned, non-fatally
+        } finally {
+            Memory_StorageRouter.getMemoryCollection  = savedMem;
+            Memory_StorageRouter.getSummaryCollection = savedSum;
+        }
+    });
 });
