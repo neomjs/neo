@@ -49,6 +49,19 @@ test.describe('codex-lane-state-stop - contract boundary', () => {
         expect(reason).toContain('No-hold reminder');
         expect(reason).toContain('pick a fresh claimable lane');
         expect(reason).toContain('Passive waiting is not a terminal');
+        expect(reason).toContain('operator dialogue/planning');
+        expect(reason).toContain('under 24KB');
+        expect(reason).toContain('Missing prompt fails closed');
+    });
+
+    test('the no-hold reminder explains when Codex cannot confirm operator dialogue', () => {
+        const reason = buildNoHoldReminder('no lane-state block emitted at turn-terminal', {
+            promptSource  : 'none',
+            operatorInLoop: false
+        });
+
+        expect(reason).toContain('promptSource=none');
+        expect(reason).toContain('live operator dialogue could not be confirmed');
     });
 
     test('the no-hold reminder shows the fenced lane-state JSON schema', () => {
@@ -143,8 +156,10 @@ test.describe('codex-lane-state-stop - lane-state classification', () => {
         expect(result.action).toBe('would-block');
         expect(result.reason).toContain('valid lane-state terminal');
         expect(result.reason).toContain('No-hold reminder');
+        expect(result.reason).toContain('promptSource=none');
         expect(result.source).toBe('last_assistant_message');
         expect(result.promptSource).toBe('none');
+        expect(result.operatorInLoop).toBe(false);
     });
 
     test('live operator prompt is the only valid voluntary allow', () => {
@@ -159,6 +174,7 @@ test.describe('codex-lane-state-stop - lane-state classification', () => {
         expect(result.reason).toContain('live operator dialogue');
         expect(result.source).toBe('messages');
         expect(result.promptSource).toBe('messages');
+        expect(result.operatorInLoop).toBe(true);
     });
 
     test('[WAKE] prompt is autonomous, so a valid terminal still would-blocks', () => {
@@ -172,6 +188,7 @@ test.describe('codex-lane-state-stop - lane-state classification', () => {
         expect(result.action).toBe('would-block');
         expect(result.reason).toContain('valid lane-state terminal');
         expect(result.promptSource).toBe('messages');
+        expect(result.operatorInLoop).toBe(false);
     });
 
     test('absent lane-state would-block with no-hold reminder', () => {
@@ -183,6 +200,7 @@ test.describe('codex-lane-state-stop - lane-state classification', () => {
         expect(result.action).toBe('would-block');
         expect(result.reason).toContain('no lane-state block emitted');
         expect(result.reason).toContain('No-hold reminder');
+        expect(result.reason).toContain('promptSource=none');
     });
 
     test('malformed lane-state is distinct from absent', () => {
@@ -208,6 +226,7 @@ test.describe('codex-lane-state-stop - lane-state classification', () => {
         expect(result.reason).toContain('valid lane-state terminal');
         expect(result.source).toBe('messages');
         expect(result.promptSource).toBe('messages');
+        expect(result.operatorInLoop).toBe(false);
     });
 });
 
@@ -295,6 +314,8 @@ test.describe('codex-lane-state-stop - spawned hook', () => {
         expect(stdout).toBe('');
         expect(log).toContain('WOULD-BLOCK');
         expect(log).toContain('source=last_assistant_message');
+        expect(log).toContain('promptSource=none');
+        expect(log).toContain('operatorInLoop=false');
         expect(log).toContain('valid lane-state terminal');
     });
 
@@ -310,6 +331,8 @@ test.describe('codex-lane-state-stop - spawned hook', () => {
         expect(stdout).toBe('');
         expect(log).toContain('ALLOW');
         expect(log).toContain('source=messages');
+        expect(log).toContain('promptSource=messages');
+        expect(log).toContain('operatorInLoop=true');
     });
 
     test('enforced invalid terminal logs BLOCK and writes the block decision to stdout', async () => {
@@ -320,6 +343,8 @@ test.describe('codex-lane-state-stop - spawned hook', () => {
 
         expect(JSON.parse(stdout).decision).toBe('block');
         expect(log).toContain('BLOCK');
+        expect(log).toContain('promptSource=none');
+        expect(log).toContain('operatorInLoop=false');
         expect(log).toContain('Unknown laneContinuation');
     });
 

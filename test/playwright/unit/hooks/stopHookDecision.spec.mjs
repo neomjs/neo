@@ -6,7 +6,8 @@ import {
     isOperatorInLoop,
     LANE_STATE_SCHEMA_HINT,
     parseOutcomeToVerdict,
-    scanHoldLexicon
+    scanHoldLexicon,
+    STOP_HOOK_TURN_OPTIONS_HINT
 }                        from '../../../../ai/scripts/lifecycle/stopHookDecision.mjs';
 
 /**
@@ -26,6 +27,14 @@ test.describe('ai/scripts/lifecycle/stopHookDecision — shared no-hold decision
         expect(LANE_STATE_SCHEMA_HINT).toContain('awaitingOwnPrOnly:true is invalid');
         expect(LANE_STATE_SCHEMA_HINT).toContain('same-turn checkedAt');
         expect(LANE_STATE_SCHEMA_HINT).toContain('field "mergedAt"');
+    });
+
+    test('STOP_HOOK_TURN_OPTIONS_HINT: compactly names operator dialogue, memory, and fail-closed behavior', () => {
+        expect(STOP_HOOK_TURN_OPTIONS_HINT).toContain('operator dialogue/planning');
+        expect(STOP_HOOK_TURN_OPTIONS_HINT).toContain('[WAKE]/stop-hook continuations');
+        expect(STOP_HOOK_TURN_OPTIONS_HINT).toContain('under 24KB');
+        expect(STOP_HOOK_TURN_OPTIONS_HINT).toContain('Missing prompt fails closed');
+        expect(STOP_HOOK_TURN_OPTIONS_HINT.length).toBeLessThanOrEqual(320);
     });
 
     // ── parseOutcomeToVerdict: the 3-bucket parse → verdict chain ──────────────────────────────
