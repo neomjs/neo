@@ -167,6 +167,9 @@ class Config extends ConfigProvider {
                 model                : leaf('gemma4:26b', 'NEO_OLLAMA_MODEL', 'string'),
                 embeddingModel       : leaf('qwen3-embedding', 'NEO_OLLAMA_EMBEDDING_MODEL', 'string'),
                 keep_alive           : leaf(-1, 'NEO_OLLAMA_KEEP_ALIVE', 'keepAlive'),
+                // Upper bound for one native Ollama embedding HTTP request. Keeps explicit
+                // `embeddingProvider: 'ollama'` deployments from stalling the WAL drain.
+                embeddingTimeoutMs   : leaf(300000, 'NEO_OLLAMA_EMBEDDING_TIMEOUT_MS', 'number'),
                 requireParallelModels: leaf(2, 'NEO_OLLAMA_REQUIRE_PARALLEL_MODELS', 'number')
             },
             /**
