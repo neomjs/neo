@@ -101,7 +101,7 @@ function createManualChild() {
 test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
     test('getTaskPidFile returns correct path', () => {
         const { service, dataDir } = createTestService();
-        const pidFile = service.getTaskPidFile('mockTask');
+        const pidFile              = service.getTaskPidFile('mockTask');
 
         expect(pidFile).toBe(path.join(dataDir, 'mockTask.pid'));
     });
@@ -132,7 +132,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('runTask watchdog kills a child that exceeds maxRuntimeMs and finalizes it as failed', async () => {
         const { service, taskOutcomes } = createTestService();
-        let killed = false;
+        let   killed                    = false;
 
         service.taskDefinitions = {
             ...service.taskDefinitions,
@@ -162,7 +162,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('runTask does NOT arm a watchdog when maxRuntimeMs is unset (opt-in)', async () => {
         const { service } = createTestService();
-        let killed = false;
+        let   killed      = false;
 
         // mockTask has no maxRuntimeMs → no watchdog → a long-lived child is left alone.
         service.spawnFn = () => ({pid: 4243, on: () => {}, kill: () => { killed = true; }, stderr: {on: () => {}}});
@@ -223,7 +223,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('#13777: opted-in stdout JSON is recorded on successful child completion', () => {
         const { service, stateCalls, taskOutcomes } = createTestService();
-        const manualChild = createManualChild();
+        const manualChild                           = createManualChild();
 
         service.taskDefinitions.mockTask.captureStdoutJson = true;
         service.spawnFn = (command, args, options) => {
@@ -258,8 +258,8 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('#13777: memory-summary-backfill all-deferred stdout marks skipped, not completed', () => {
         const { service, stateCalls, taskOutcomes } = createTestService();
-        const manualChild  = createManualChild();
-        let   successHooks = 0;
+        const manualChild                           = createManualChild();
+        let   successHooks                          = 0;
 
         service.spawnFn = () => manualChild.child;
 
@@ -292,7 +292,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('#13777: memory-summary-backfill lease-held stdout marks skipped with child reason', () => {
         const { service, stateCalls, taskOutcomes } = createTestService();
-        const manualChild = createManualChild();
+        const manualChild                           = createManualChild();
 
         service.spawnFn = () => manualChild.child;
 
@@ -319,7 +319,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('#13777: malformed opted-in stdout fails soft and preserves success classification', () => {
         const { service, stateCalls, taskOutcomes } = createTestService();
-        const manualChild = createManualChild();
+        const manualChild                           = createManualChild();
 
         service.taskDefinitions.mockTask.captureStdoutJson = true;
         service.spawnFn = () => manualChild.child;
@@ -340,7 +340,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('#13784: kbSync lease-held stdout records skipped, not false-green completed', () => {
         const { service, stateCalls, taskOutcomes } = createTestService();
-        const manualChild = createManualChild();
+        const manualChild                           = createManualChild();
 
         service.spawnFn = () => manualChild.child;
 
@@ -367,7 +367,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('#13784: kbSync real sync (deferred:false) records completed with embed counts', () => {
         const { service, stateCalls, taskOutcomes } = createTestService();
-        const manualChild = createManualChild();
+        const manualChild                           = createManualChild();
 
         service.spawnFn = () => manualChild.child;
 
@@ -402,7 +402,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('runTask records ready state after a post-spawn hook succeeds', async () => {
         const { service, taskOutcomes } = createTestService();
-        let readyMarked = false;
+        let   readyMarked               = false;
 
         service.taskDefinitions.mockTask.postSpawn = async () => ({models: ['chat', 'embedding']});
         service.taskStateService.markReady = taskName => {
@@ -427,9 +427,69 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
         }));
     });
 
+    test('recordTaskOutcome escalates failed backup outcomes without breaking HealthService', async () => {
+        const { service, taskOutcomes } = createTestService();
+        const escalations               = [];
+
+        service.recoveryActuatorService = {
+            async escalateDiagnosis(diagnosisEvent, options) {
+                escalations.push({diagnosisEvent, options});
+                return {status: 'escalated'};
+            }
+        };
+
+        service.recordTaskOutcome('backup', 'failed', {
+            reason: 'periodic-backup',
+            code  : 1
+        });
+        service.recordTaskOutcome('kbSync', 'failed', {reason: 'other-task'});
+
+        expect(taskOutcomes).toContainEqual(expect.objectContaining({
+            taskName: 'backup',
+            status  : 'failed',
+            details : expect.objectContaining({code: 1})
+        }));
+        expect(escalations).toHaveLength(1);
+        expect(escalations[0].options).toMatchObject({
+            now   : expect.any(Number),
+            reason: 'maintenance-task-failure'
+        });
+        expect(escalations[0].diagnosisEvent).toMatchObject({
+            type          : 'recovery-diagnosis',
+            recoveryClass : 'ambiguous',
+            targetIdentity: {kind: 'supervised-task', id: 'backup'},
+            source        : 'process-supervisor-task-outcome',
+            details       : expect.objectContaining({
+                actionClass   : 'escalate',
+                reasonCode    : 'maintenance-task-failure',
+                taskName      : 'backup',
+                taskStatus    : 'failed',
+                outcomeDetails: expect.objectContaining({code: 1})
+            })
+        });
+    });
+
+    test('recordTaskOutcome logs but swallows backup escalation failures', async () => {
+        const { service, logEntries } = createTestService();
+
+        service.recoveryActuatorService = {
+            async escalateDiagnosis() {
+                throw new Error('page unavailable');
+            }
+        };
+
+        service.recordTaskOutcome('backup', 'failed', {reason: 'periodic-backup'});
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(logEntries).toContainEqual(expect.objectContaining({
+            level  : 'ERROR',
+            message: expect.stringContaining('Failed to escalate backup failure: page unavailable')
+        }));
+    });
+
     test('runTask records degraded state when a post-spawn hook returns partial readiness (#12264)', async () => {
         const { service, logEntries, taskOutcomes } = createTestService();
-        let readyMarked = false;
+        let   readyMarked                           = false;
         let closeHandler;
 
         service.taskDefinitions.mockTask.postSpawn = async () => ({
@@ -474,8 +534,8 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('runTask fails and terminates the child when a post-spawn hook fails', async () => {
         const { service, taskOutcomes } = createTestService();
-        let killed = false;
-        let failed = false;
+        let   killed                    = false;
+        let   failed                    = false;
 
         service.taskDefinitions.mockTask.postSpawn = async () => {
             throw new Error('models missing');
@@ -506,7 +566,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('#13954: liveness-readiness hook dedupes repeated success logs but records each outcome', async () => {
         const { service, logEntries, taskOutcomes } = createTestService();
-        let readyMarks = 0;
+        let   readyMarks                            = 0;
 
         service.taskDefinitions.mockTask.postSpawn = async () => ({ready: true, loadedModels: ['embedding-model']});
         service.taskStateService.markReady = taskName => {
@@ -528,7 +588,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('#13954: liveness-readiness success logs again after degraded readiness recovers', async () => {
         const { service, logEntries } = createTestService();
-        const readinessResults = [
+        const readinessResults        = [
             {ready: true},
             {ready: true},
             {ready: false, degraded: true, missingModels: ['chat-model']},
@@ -551,7 +611,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('reapDuplicateListeners SIGKILLs extra listeners but keeps the canonical pid', () => {
         const { service, taskOutcomes } = createTestService();
-        const killed = [];
+        const killed                    = [];
 
         service.taskDefinitions.mockTask.singletonPort = 8000;
         service.taskStateService.getTaskState = () => ({running: true, pid: 100});
@@ -568,7 +628,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('reapDuplicateListeners leaves a process whose command is not the task command', () => {
         const { service } = createTestService();
-        const killed = [];
+        const killed      = [];
 
         service.taskDefinitions.mockTask.singletonPort = 8000;
         service.taskStateService.getTaskState = () => ({running: true, pid: 100});
@@ -582,7 +642,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('reapDuplicateListeners is a no-op for tasks without a singletonPort', () => {
         const { service } = createTestService();
-        let probed = false;
+        let   probed      = false;
 
         service.listPortListeners = () => { probed = true; return [200]; };
 
@@ -592,8 +652,8 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('reapDuplicateListeners defers shared local services without touching listeners', () => {
         const { service } = createTestService();
-        const killed = [];
-        let   probed = false;
+        const killed      = [];
+        let   probed      = false;
 
         service.taskDefinitions.mockTask.singletonPort = 8000;
         service.taskDefinitions.mockTask.duplicateListenerPolicy = 'defer';
@@ -607,7 +667,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('reapDuplicateListeners reaps every matching listener when no canonical pid is tracked', () => {
         const { service } = createTestService();
-        const killed = [];
+        const killed      = [];
 
         service.taskDefinitions.mockTask.singletonPort = 8000;
         service.taskStateService.getTaskState = () => ({running: false, pid: null});
@@ -621,8 +681,8 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('killTask SIGKILLs the tracked pid, marks the task recycled, and records the outcome (#12138)', () => {
         const {service, taskOutcomes} = createTestService();
-        const killed   = [];
-        const recycled = [];
+        const killed                  = [];
+        const recycled                = [];
 
         service.taskStateService.getTaskState = () => ({running: true, pid: 4242});
         service.taskStateService.markRecycled = name => recycled.push(name);
@@ -639,8 +699,8 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('killTask is safe when no pid is tracked: no kill attempted, still marks recycled (#12138)', () => {
         const {service, taskOutcomes} = createTestService();
-        const killed   = [];
-        const recycled = [];
+        const killed                  = [];
+        const recycled                = [];
 
         service.taskStateService.getTaskState = () => ({running: false, pid: null});
         service.taskStateService.markRecycled = name => recycled.push(name);
@@ -666,7 +726,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('superviseTask restarts a down process-match task once the cooldown elapses', () => {
         const {service} = createTestService();
-        const calls = [];
+        const calls     = [];
         service.runTask = (taskName, reason) => { calls.push({taskName, reason}); return true; };
         service.taskStateService.getTaskState = () => ({running: false, lastRunAt: 0});
 
@@ -677,7 +737,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('superviseTask leaves a running task alone — no restart', () => {
         const {service} = createTestService();
-        const calls = [];
+        const calls     = [];
         service.runTask = (taskName, reason) => { calls.push({taskName, reason}); return true; };
         service.taskStateService.getTaskState = () => ({running: true, lastRunAt: 0, pid: 1234});
 
@@ -688,7 +748,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('superviseTask holds off within the cooldown window', () => {
         const {service} = createTestService();
-        const calls = [];
+        const calls     = [];
         service.runTask = (taskName, reason) => { calls.push({taskName, reason}); return true; };
         // lastRunAt only 5s before `now`: still inside the 15s cooldown.
         service.taskStateService.getTaskState = () => ({running: false, lastRunAt: 995_000});
@@ -700,7 +760,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('superviseTask gates a fire-and-exit lane on its liveness probe — UP yields a silent no-op', async () => {
         const {service} = createTestService();
-        const calls = [];
+        const calls     = [];
         service.runTask = (taskName, reason) => { calls.push({taskName, reason}); return true; };
         service.taskStateService.getTaskState = () => ({running: false, lastRunAt: 0});
         service.taskDefinitions = {probeTask: {label: 'Probe Task', livenessProbe: async () => true}};
@@ -714,9 +774,9 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('superviseTask runs readiness hook when fire-and-exit liveness is already UP (#13944)', async () => {
         const {service, taskOutcomes} = createTestService();
-        const calls          = [];
-        let   readyMarked    = false;
-        let   readinessCalls = 0;
+        const calls                   = [];
+        let   readyMarked             = false;
+        let   readinessCalls          = 0;
 
         service.runTask = (taskName, reason) => { calls.push({taskName, reason}); return true; };
         service.taskStateService.getTaskState = () => ({running: false, lastRunAt: 0});
@@ -752,7 +812,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('superviseTask gates a fire-and-exit lane on its liveness probe — DOWN triggers a restart', async () => {
         const {service} = createTestService();
-        const calls = [];
+        const calls     = [];
         service.runTask = (taskName, reason) => { calls.push({taskName, reason}); return true; };
         service.taskStateService.getTaskState = () => ({running: false, lastRunAt: 0});
         service.taskDefinitions = {probeTask: {label: 'Probe Task', livenessProbe: async () => false}};
@@ -765,7 +825,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('superviseTask recycles a RUNNING task whose healthProbe reports sustained-stuck', async () => {
         const {service} = createTestService();
-        const killed = [];
+        const killed    = [];
         service.killProcess = pid => killed.push(pid);
         service.taskStateService.getTaskState = () => ({running: true, pid: 9999});
         service.taskStateService.markRecycled = () => {};
@@ -781,7 +841,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('superviseTask leaves a RUNNING task healthy per its healthProbe (no recycle)', async () => {
         const {service} = createTestService();
-        const killed = [];
+        const killed    = [];
         service.killProcess = pid => killed.push(pid);
         service.taskStateService.getTaskState = () => ({running: true, pid: 9999});
         service.taskStateService.markRecycled = () => {};
@@ -795,8 +855,8 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('superviseTask leaves a RUNNING task WITHOUT a healthProbe alone (no recycle, no respawn)', async () => {
         const {service} = createTestService();
-        const killed  = [];
-        let   spawned = false;
+        const killed    = [];
+        let   spawned   = false;
         service.killProcess = pid => killed.push(pid);
         service.runTask     = () => { spawned = true; return true; };
         service.taskStateService.getTaskState = () => ({running: true, pid: 9999});
@@ -811,7 +871,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
 
     test('a healthProbe fault never recycles a running child', async () => {
         const {service} = createTestService();
-        const killed = [];
+        const killed    = [];
         service.killProcess = pid => killed.push(pid);
         service.taskStateService.getTaskState = () => ({running: true, pid: 9999});
         service.taskStateService.markRecycled = () => {};
