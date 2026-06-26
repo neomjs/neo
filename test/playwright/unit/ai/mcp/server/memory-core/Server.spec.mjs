@@ -175,13 +175,13 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
     });
 
     test('#12199: onSessionClosed writes a pending summarization marker without summarizing inline', async () => {
-        const SDK = await import('../../../../../../../ai/services.mjs');
-        const serverInstance = await createServerWithoutBoot();
+        const SDK               = await import('../../../../../../../ai/services.mjs');
+        const serverInstance    = await createServerWithoutBoot();
         const mcpServerInstance = {id: 'mcp-session-server'};
-        const calls = [];
-        const removed = [];
+        const calls             = [];
+        const removed           = [];
 
-        const originalQueue = SDK.Memory_SessionService.queueSummarizationJob;
+        const originalQueue  = SDK.Memory_SessionService.queueSummarizationJob;
         const originalRemove = SDK.Memory_CoalescingEngineService.removeMcpServer;
 
         SDK.Memory_SessionService.queueSummarizationJob = (sessionId) => {
@@ -206,10 +206,10 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
 
     test('#12838: mailbox + add_memory bypass the summary-degraded health gate (never-fail WAL); embed-dependent reads do not', async () => {
         const serverInstance = await createServerWithoutBoot();
-        const handlers = new Map();
-        const healthCalls = [];
-        const toolCalls = [];
-        const degradedError = new Error([
+        const handlers       = new Map();
+        const healthCalls    = [];
+        const toolCalls      = [];
+        const degradedError  = new Error([
             'Memory Core is not fully operational:',
             "  - Summary provider 'gemini' requires GEMINI_API_KEY - summarization features unavailable"
         ].join('\n'));
@@ -317,10 +317,10 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
 
     test('#12978: non-embedding reads (get_session_memories, query_recent_turns) bypass the embedder-degraded health gate; embed-dependent reads do not', async () => {
         const serverInstance = await createServerWithoutBoot();
-        const handlers = new Map();
-        const healthCalls = [];
-        const toolCalls = [];
-        const degradedError = new Error([
+        const handlers       = new Map();
+        const healthCalls    = [];
+        const toolCalls      = [];
+        const degradedError  = new Error([
             'Memory Core is not fully operational:',
             "  - Summary provider 'gemini' requires GEMINI_API_KEY - summarization features unavailable"
         ].join('\n'));
@@ -449,13 +449,33 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         }
     });
 
+    test('#14124: non-embedding read-only diagnostics are health-exempt so a degraded Memory Core stays inspectable', async () => {
+        const serverInstance = await createServerWithoutBoot();
+
+        try {
+            const exemptTools = serverInstance.getHealthExemptTools();
+
+            // Pure state/metric projections with no embedder call — an agent must be able to diagnose a
+            // slow-embed Memory Core through them, not have the read gated by the very degradation it
+            // surfaces (the embedding-write canary would otherwise block the inspection tool).
+            expect(exemptTools).toContain('get_rem_pipeline_state');
+            expect(exemptTools).toContain('get_sqlite_holder_diagnostics');
+            expect(exemptTools).toContain('get_memory_core_tool_metrics');
+            // The must-embed reads stay NON-exempt (exempting them trades a clean reject for a timeout).
+            expect(exemptTools).not.toContain('query_raw_memories');
+            expect(exemptTools).not.toContain('query_summaries');
+        } finally {
+            serverInstance.destroy();
+        }
+    });
+
     test('#13312: boot keeps MCP handlers available when graph startup tiers degrade', async () => {
-        const SDK = await import('../../../../../../../ai/services.mjs');
-        const HealthService = (await import('../../../../../../../ai/services/memory-core/HealthService.mjs')).default;
-        const serverInstance = Neo.create('Neo.ai.mcp.server.memory-core.Server');
-        const calls = [];
-        const startupStates = [];
-        const wakeFailure = new Error('attempt to write a readonly database');
+        const SDK                   = await import('../../../../../../../ai/services.mjs');
+        const HealthService         = (await import('../../../../../../../ai/services/memory-core/HealthService.mjs')).default;
+        const serverInstance        = Neo.create('Neo.ai.mcp.server.memory-core.Server');
+        const calls                 = [];
+        const startupStates         = [];
+        const wakeFailure           = new Error('attempt to write a readonly database');
         const originalServerMethods = new Map([
             'loadCustomConfig',
             'createMcpServer',
@@ -480,12 +500,12 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         serverInstance.logIdentityStatus = () => calls.push('logIdentityStatus');
         serverInstance.logSiblingConcurrency = () => calls.push('logSiblingConcurrency');
 
-        const originalWakeInit = SDK.Memory_WakeSubscriptionService.init;
-        const originalInferenceReady = SDK.Memory_InferenceLifecycleService.ready;
-        const originalSessionReady = SDK.Memory_SessionService.ready;
-        const originalRecorderInitAsync = SDK.Memory_RecorderService.initAsync;
+        const originalWakeInit                = SDK.Memory_WakeSubscriptionService.init;
+        const originalInferenceReady          = SDK.Memory_InferenceLifecycleService.ready;
+        const originalSessionReady            = SDK.Memory_SessionService.ready;
+        const originalRecorderInitAsync       = SDK.Memory_RecorderService.initAsync;
         const originalRecordStartupDependency = HealthService.recordStartupDependency;
-        const originalSetStdioIdentityState = HealthService.setStdioIdentityState;
+        const originalSetStdioIdentityState   = HealthService.setStdioIdentityState;
 
         SDK.Memory_WakeSubscriptionService.init = async () => {
             calls.push('wakeInit');

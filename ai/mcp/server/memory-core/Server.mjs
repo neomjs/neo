@@ -115,7 +115,11 @@ class Server extends BaseServer {
      * WAL-overlay fallback for its optional Chroma content join), and `who_is_online` (a SQLite
      * `AgentIdentity`-roster liveness projection — graph-backed, survives an embed-drain) call no
      * embedder — they serve fine while it is down, so gating them only denied a read the outage
-     * never touched. NOT exempt:
+     * never touched. The read-only diagnostics `get_rem_pipeline_state` (REM/dream run-state),
+     * `get_sqlite_holder_diagnostics` (SQLite holder state), and `get_memory_core_tool_metrics`
+     * (tool-call metrics) are exempt for the same reason — pure state/metric projections with no
+     * embedder call, so an agent can still inspect a degraded Memory Core through them rather than
+     * losing the very diagnostics the slow-embed condition is meant to surface. NOT exempt:
      * `query_raw_memories` / `query_summaries`, which embed the query and genuinely cannot serve
      * during an embedder outage — exempting them would trade a clean gate-reject for an embed-timeout.
      * @returns {Array<String>}
@@ -138,7 +142,10 @@ class Server extends BaseServer {
             'record_turn_presence',
             'get_session_memories',
             'query_recent_turns',
-            'who_is_online'
+            'who_is_online',
+            'get_rem_pipeline_state',
+            'get_sqlite_holder_diagnostics',
+            'get_memory_core_tool_metrics'
         ];
     }
 
