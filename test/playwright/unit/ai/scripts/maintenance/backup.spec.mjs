@@ -144,7 +144,7 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
     });
 
     test('reports missing concept/trajectory sources as non-fatal notes', async () => {
-        const silentLogger = {log: () => {}, error: () => {}};
+        const silentLogger  = {log: () => {}, error: () => {}};
         const altBundleRoot = path.join(workRoot, 'bundle-no-optional-sources');
 
         const result = await runBackup({
@@ -274,5 +274,28 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
         const mc = checks.find(c => c.subsystem === 'mc');
         expect(mc.status).toBe('skipped');
         expect(mc.reason).toMatch(/no numeric source count/);
+    });
+
+    test('verifyBundleIntegrity: empty (not a silent pass) when source and bundle are both zero (#14030)', async () => {
+        const tempRoot = path.join(workRoot, 'integrity-empty');
+        const kbDir    = path.join(tempRoot, 'kb');
+
+        fs.mkdirSync(kbDir, {recursive: true});
+        // The gutted-store signature: a populated deployment whose export came back empty. Both
+        // sides agree at zero, so the old `bundleCount === sourceCount` branch reported 'pass' —
+        // a false recovery source. It must surface as 'empty', never 'pass'.
+        fs.writeFileSync(path.join(kbDir, 'kb-data.jsonl'), '');
+
+        const checks = await verifyBundleIntegrity(
+            {kb: kbDir, mc: path.join(tempRoot, 'mc-missing'), graph: path.join(tempRoot, 'graph-missing')},
+            {kb: 0}
+        );
+
+        const kb = checks.find(c => c.subsystem === 'kb');
+        expect(kb.status).toBe('empty');
+        expect(kb.status).not.toBe('pass');
+        expect(kb.sourceCount).toBe(0);
+        expect(kb.bundleCount).toBe(0);
+        expect(kb.reason).toMatch(/not a usable recovery source/);
     });
 });
