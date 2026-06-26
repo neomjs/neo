@@ -57,4 +57,13 @@ test.describe('lmsExecOptions — embedding-readiness PATH fix', () => {
             process.env.PATH = origPath;
         }
     });
+
+    test('preserves a caller-supplied extra.env (merges, does not clobber) + augments its PATH', () => {
+        const opts    = lmsExecOptions({timeout: 99, env: {FOO: 'bar', PATH: '/custom/bin'}});
+        const entries = opts.env.PATH.split(SEP);
+        expect(opts.timeout).toBe(99);   // extra options preserved
+        expect(opts.env.FOO).toBe('bar'); // caller env preserved (not clobbered)
+        expect(entries).toContain('/custom/bin'); // caller PATH preserved
+        expect(entries).toContain(LMS_BIN);       // lms bin dir augmented onto the caller PATH
+    });
 });

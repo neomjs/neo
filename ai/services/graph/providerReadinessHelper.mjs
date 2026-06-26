@@ -37,21 +37,26 @@ const LMS_DEFAULT_BIN_DIR = path.join(os.homedir(), '.lmstudio', 'bin');
 /**
  * @summary Builds execFile options for the `lms` CLI with its bin dir guaranteed on PATH.
  *
- * Augmenting PATH here makes every `lms` readiness/management probe robust to the launch env,
- * fixing `spawn lms ENOENT` false-negatives. Idempotent — never duplicates an already-present
- * bin dir. The caller's extra options (e.g. `{timeout}`) are merged.
+ * Augmenting PATH here makes the `lms` readiness probe (`fetchLmsLoadedModels`) robust to the launch
+ * env, fixing `spawn lms ENOENT` false-negatives. Idempotent — never duplicates an already-present bin
+ * dir. The caller's extra options are preserved, INCLUDING a caller-supplied `extra.env` (merged, not
+ * clobbered). (The `lms` load/unload spawns carry the same fragility — a noted follow-up — but their
+ * tests assert a 3-arg execFile signature, so they stay out of this slice.)
  *
- * @param {Object} [extra={}] Extra execFile options merged into the result.
- * @returns {Object} execFile options carrying an augmented `PATH` env.
+ * @param {Object} [extra={}] Extra execFile options (e.g. `{timeout}`, `{env}`) merged into the result.
+ * @returns {Object} execFile options carrying an augmented `PATH` env (caller `extra.env` preserved).
  */
 export function lmsExecOptions(extra = {}) {
-    const sep  = process.platform === 'win32' ? ';' : ':',
-          curr = process.env.PATH || '',
-          PATH = curr.split(sep).includes(LMS_DEFAULT_BIN_DIR)
+    // Merge the caller's env (if any) over process.env, then derive + augment PATH from THAT merged env,
+    // so a caller-supplied `extra.env` (and its own PATH) is preserved rather than clobbered.
+    const baseEnv = {...process.env, ...(extra.env || {})},
+          sep     = process.platform === 'win32' ? ';' : ':',
+          curr    = baseEnv.PATH || '',
+          PATH    = curr.split(sep).includes(LMS_DEFAULT_BIN_DIR)
               ? curr
               : (curr ? `${curr}${sep}${LMS_DEFAULT_BIN_DIR}` : LMS_DEFAULT_BIN_DIR);
 
-    return {...extra, env: {...process.env, PATH}};
+    return {...extra, env: {...baseEnv, PATH}};
 }
 
 /**
