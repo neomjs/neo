@@ -3,6 +3,7 @@ import {fileURLToPath}               from 'url';
 import DatabaseService               from '../../../services/knowledge-base/DatabaseService.mjs';
 import DocumentService               from '../../../services/knowledge-base/DocumentService.mjs';
 import HealthService                 from '../../../services/knowledge-base/HealthService.mjs';
+import IngestionService              from '../../../services/knowledge-base/IngestionService.mjs';
 import KBRecorderService             from '../../../services/knowledge-base/KBRecorderService.mjs';
 import QueryService                  from '../../../services/knowledge-base/QueryService.mjs';
 import SearchService                 from '../../../services/knowledge-base/SearchService.mjs';
@@ -66,6 +67,7 @@ const serviceMapping = {
     healthcheck                  : HealthService           .healthcheck        .bind(HealthService),
     get_deployment_state_snapshot: readDeploymentInspection,
     inspect_deployment           : readDeploymentInspection,
+    get_ingestion_progress       : IngestionService        .getIngestionProgress.bind(IngestionService),
     list_documents               : DocumentService         .listDocuments      .bind(DocumentService),
     list_agent_faqs              : KBRecorderService       .listAgentFaqs      .bind(KBRecorderService),
     // MCP dispatch marks `viaMcp: true` so VectorService.embed can apply the synchronous
