@@ -19,15 +19,25 @@ import {withHeavyMaintenanceLease} from '../../daemons/orchestrator/services/Hea
  * `lastSuccessAt`) — the kb-sync half of the deferred-as-completed fix.
  */
 
+/**
+ * Logs supervised-child progress to STDERR (STDOUT carries the single structured outcome JSON),
+ * prefixed `[INFO]` so the orchestrator's `ProcessSupervisorService` classifies it as INFO. Its
+ * `getChildLogLevel` defaults UNPREFIXED child stderr to ERROR, which otherwise mis-stamps routine
+ * progress as errors and camouflages real failures. Genuine failures stay on raw `console.error`
+ * (unprefixed → ERROR).
+ * @param {...*} args
+ */
+const logProgress = (...args) => console.error('[INFO]', ...args);
+
 async function syncKnowledgeBase() {
     // Enable debug logging to see progress. B4-safe activation: drive NEO_DEBUG via the Provider
     // override API, never mutate the read-only reactive Provider.
     KB_Config.setEnvOverride('NEO_DEBUG', true);
     const staleStrategy = process.env.NEO_KB_STALE_STRATEGY || undefined;
 
-    console.error('⏳ Initializing Knowledge Base Services...');
+    logProgress('⏳ Initializing Knowledge Base Services...');
     if (staleStrategy) {
-        console.error(`   Using explicit stale strategy: ${staleStrategy}`);
+        logProgress(`   Using explicit stale strategy: ${staleStrategy}`);
     }
 
     // Run the full sync under the shared heavy-maintenance lease so this CLI cannot
@@ -37,19 +47,19 @@ async function syncKnowledgeBase() {
     try {
         outcome = await withHeavyMaintenanceLease(
             async () => {
-                console.error('   Waiting for Lifecycle Service...');
+                logProgress('   Waiting for Lifecycle Service...');
                 await KB_LifecycleService.ready();
-                console.error('   Lifecycle Service Ready. Database should be running.');
+                logProgress('   Lifecycle Service Ready. Database should be running.');
 
-                console.error('   Waiting for Chroma Manager...');
+                logProgress('   Waiting for Chroma Manager...');
                 await KB_ChromaManager.ready();
-                console.error('   Chroma Manager Ready.');
+                logProgress('   Chroma Manager Ready.');
 
-                console.error('   Waiting for Database Service...');
+                logProgress('   Waiting for Database Service...');
                 await KB_DatabaseService.ready();
-                console.error('   Database Service Ready.');
+                logProgress('   Database Service Ready.');
 
-                console.error('✅ Services Ready. Starting Synchronization...');
+                logProgress('✅ Services Ready. Starting Synchronization...');
 
                 // Execute the full sync (create + embed). `NEO_KB_STALE_STRATEGY=shadow-swap`
                 // opts into the shadow-swap stale-data strategy; default CLI sync remains unchanged.
@@ -64,8 +74,8 @@ async function syncKnowledgeBase() {
 
     if (outcome.status === 'held') {
         const held = outcome.lease;
-        console.error(`⏸️  Deferred: heavy-maintenance lease held by '${held.owner}' (reason='${held.reason}', pid=${held.pid}, acquiredAt=${held.acquiredAt}).`);
-        console.error('   This script will not run while another heavy-maintenance task is active. Re-invoke once the active owner completes.');
+        logProgress(`⏸️  Deferred: heavy-maintenance lease held by '${held.owner}' (reason='${held.reason}', pid=${held.pid}, acquiredAt=${held.acquiredAt}).`);
+        logProgress('   This script will not run while another heavy-maintenance task is active. Re-invoke once the active owner completes.');
         // Structured outcome → ProcessSupervisorService records `skipped` (not false-green
         // `completed`), so a lease-held run does not refresh kbSync's lastSuccessAt.
         console.log(JSON.stringify({
@@ -76,7 +86,7 @@ async function syncKnowledgeBase() {
         process.exit(0);
     }
 
-    console.error('✅ Synchronization Complete:', outcome.result);
+    logProgress(`✅ Synchronization Complete: ${JSON.stringify(outcome.result)}`);
     // Real run → `completed` (falls through the classify) + the embed/delete counts as details.
     console.log(JSON.stringify({deferred: false, ...(outcome.result || {})}));
     process.exit(0);

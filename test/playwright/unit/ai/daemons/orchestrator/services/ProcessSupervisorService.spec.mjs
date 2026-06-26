@@ -99,6 +99,21 @@ function createManualChild() {
 }
 
 test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
+    test('getChildLogLevel honors the [LOG]/[INFO]/[WARN] prefix contract; unprefixed child stderr fails safe to ERROR', () => {
+        const { service } = createTestService();
+
+        // Prefixed progress — the contract the supervised maintenance children (syncKnowledgeBase,
+        // reconcileActiveChunks) now honor — classifies to its declared level.
+        expect(service.getChildLogLevel('[INFO]    Waiting for Lifecycle Service...')).toBe('INFO');
+        expect(service.getChildLogLevel('[INFO] ✅ Services Ready. Starting Synchronization...')).toBe('INFO');
+        expect(service.getChildLogLevel('[LOG] Processed and embedded batch 2 of 328')).toBe('INFO');
+        expect(service.getChildLogLevel('[WARN] [reconcileActiveChunks] removed duplicate pr-1.md')).toBe('WARN');
+
+        // Unprefixed → ERROR fail-safe: a genuine unprefixed failure must never be silently downgraded.
+        expect(service.getChildLogLevel('❌ Synchronization Failed: Error: boom')).toBe('ERROR');
+        expect(service.getChildLogLevel('some unexpected line')).toBe('ERROR');
+    });
+
     test('getTaskPidFile returns correct path', () => {
         const { service, dataDir } = createTestService();
         const pidFile              = service.getTaskPidFile('mockTask');

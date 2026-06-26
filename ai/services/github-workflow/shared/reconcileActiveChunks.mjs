@@ -65,7 +65,9 @@ export default async function reconcileActiveChunks(issueSyncConfig = {}, {type,
         if (unique.length > 0 && unique[unique.length - 1].id === item.id) {
             await fs.unlink(item.absPath);
             deduped++;
-            console.warn(`[reconcileActiveChunks] removed duplicate ${filePrefix}${item.id}.md at ${item.absPath}`)
+            // `[WARN]` prefix so the orchestrator's ProcessSupervisor classifies this child-stderr
+            // line as WARN, not its unprefixed-default ERROR (routine dedup ≠ error).
+            console.warn(`[WARN] [reconcileActiveChunks] removed duplicate ${filePrefix}${item.id}.md at ${item.absPath}`)
         } else {
             unique.push(item)
         }
