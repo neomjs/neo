@@ -384,6 +384,69 @@ export async function validateBundle(bundleRoot, layout, logger = console) {
 }
 
 /**
+ * @summary Verifies the latest backup bundle is structurally restorable WITHOUT performing a restore.
+ *
+ * Backups are the recovery source of last resort, yet assumed-restorable-but-never-checked. This runs
+ * the same pre-flight `validateBundle` gate the restore path uses (required subdirs present, JSONL
+ * parseable, `bundle-meta.json` parseable) against the newest `backup-<ISO-ts>/` under `backupRoot`,
+ * returning a structured verdict. It performs NO writes and NO live-store import — a read-only
+ * restorability probe. The alert-on-failure wiring is the escalation-mechanism piece (it shares the
+ * AC1 sink decision, tracked on the parent backup-reliability ticket); this is the check that produces
+ * the verdict that piece consumes.
+ *
+ * @param {Object}    options
+ * @param {String}    options.backupRoot Absolute path to the `.neo-ai-data/backups` root.
+ * @param {Object}   [options.logger=console] Log sink.
+ * @param {Object}   [options.fsModule=fs] Filesystem seam (test injection).
+ * @param {Function} [options.validateFn=validateBundle] Bundle validator seam (test injection).
+ * @returns {Promise<{restorable: Boolean, bundleRoot: String|null, reason: String|null, checkedAt: String}>}
+ */
+export async function verifyLatestBackupRestorable({
+    backupRoot,
+    logger     = console,
+    fsModule   = fs,
+    validateFn = validateBundle
+} = {}) {
+    if (!backupRoot) {
+        throw new Error('verifyLatestBackupRestorable requires a `backupRoot` argument.');
+    }
+
+    const checkedAt = new Date().toISOString();
+
+    if (!await fsModule.pathExists(backupRoot)) {
+        return {restorable: false, bundleRoot: null, reason: `backup root not found: ${backupRoot}`, checkedAt};
+    }
+
+    // backup-<ISO-ts> names sort lexically by their ISO timestamp, so reverse-sort yields newest-first.
+    const bundleNames = (await fsModule.readdir(backupRoot, {withFileTypes: true}))
+        .filter(entry => entry.isDirectory() && entry.name.startsWith('backup-'))
+        .map(entry => entry.name)
+        .sort()
+        .reverse();
+
+    if (bundleNames.length === 0) {
+        return {restorable: false, bundleRoot: null, reason: `no backup-* bundles under ${backupRoot}`, checkedAt};
+    }
+
+    const bundleRoot = path.join(backupRoot, bundleNames[0]);
+    const layout     = {
+        kb          : path.join(bundleRoot, 'kb'),
+        mc          : path.join(bundleRoot, 'mc'),
+        graph       : path.join(bundleRoot, 'graph'),
+        concepts    : path.join(bundleRoot, 'concepts'),
+        trajectories: path.join(bundleRoot, 'trajectories'),
+        mailbox     : path.join(bundleRoot, 'mailbox')
+    };
+
+    try {
+        await validateFn(bundleRoot, layout, logger);
+        return {restorable: true, bundleRoot, reason: null, checkedAt};
+    } catch (error) {
+        return {restorable: false, bundleRoot, reason: error.message, checkedAt};
+    }
+}
+
+/**
  * Compares the bundle's `topology.shared_topology` to the live deployment (always true).
  * Mismatch is refused unless `forceTopologyMismatch` is set. Bundles without metadata
  * skip the check (legacy bundles).
