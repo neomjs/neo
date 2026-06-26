@@ -1,6 +1,7 @@
 import {test, expect} from '@playwright/test';
 import {
     anyRepairAborted,
+    anyRepairNonClean,
     assertDefragTargetSupported,
     createUnrecoverablePreview,
     formatMemoryCoreRepairProgress,
@@ -147,6 +148,51 @@ test.describe('repairMemoryCoreCollectionsViaFullEnumeration (#14020)', () => {
         expect(calls.writeState[0].state.unrecoverablePreview).toEqual(unrecoverable);
         expect(calls.writeState[0].state.aborted).toEqual(['mc-memory']);
         expect(logs.some(message => message.includes('Reasons: b (document-empty: document field was empty)'))).toBe(true);
+    });
+
+    test('partial-promoted repair keeps recovered rows durable while retaining parked source', async () => {
+        const coverage = {collections: [
+                  {name: 'mc-memory', allIds: ['a', 'b'], missingVectorIds: ['b']},
+                  {name: 'mc-graph',  allIds: ['g'],      missingVectorIds: []}
+              ]},
+              repairResults = {
+                  'mc-memory': {
+                      collectionName : 'mc-memory',
+                      partialPromoted: true,
+                      promotion      : {parkingName: 'mc-memory-parking', parkingDeleted: false},
+                      shadowName     : 'mc-memory-shadow-resume',
+                      loadedCount    : 1,
+                      recoveredCount : 1,
+                      sourceCount    : 2,
+                      unrecoverable  : ['b'],
+                      counts         : {total: 2, intact: 1, reEmbedded: 0, unrecoverable: 1}
+                  },
+                  'mc-graph': {
+                      collectionName: 'mc-graph',
+                      promotion     : {promoted: 'mc-graph'},
+                      counts        : {total: 1, intact: 1, reEmbedded: 0, unrecoverable: 0}
+                  }
+              },
+              {calls, client, auditFn, extractFn, repairCollectionFn, clearStateFn, writeStateFn} = makeSeams({coverage, repairResults});
+
+        const {results} = await repairMemoryCoreCollectionsViaFullEnumeration({
+            client, collections: ['mc-memory', 'mc-graph'], snapshotPath: '/snap', persistDir: '/persist',
+            embedFn, embeddingFunction, statePath: '/state', stateBase: {targetName: 'memory-core'},
+            auditFn, extractFn, repairCollectionFn, clearStateFn, writeStateFn, log: () => {}
+        });
+
+        expect(calls.repair.map(call => call.collectionName)).toEqual(['mc-memory', 'mc-graph']);
+        expect(results[0].partialPromoted).toBe(true);
+        expect(results[1].promotion).toEqual({promoted: 'mc-graph'});
+        expect(calls.clearState).toHaveLength(0);
+        expect(calls.writeState).toHaveLength(1);
+        expect(calls.writeState[0].state.phase).toBe('memory-core-repair-partial-promoted');
+        expect(calls.writeState[0].state.parkingName).toBe('mc-memory-parking');
+        expect(calls.writeState[0].state.unrecoverable).toEqual(['b']);
+        expect(calls.writeState[0].state.unrecoverableByCollection).toEqual({'mc-memory': ['b']});
+        expect(calls.writeState[0].state.partialPromoted).toEqual(['mc-memory']);
+        expect(calls.writeState[0].state.promoted).toEqual(['mc-memory', 'mc-graph']);
+        expect(anyRepairNonClean(results)).toBe(true);
     });
 
     test('resume state skips earlier collections and resumes the matching collection repair', async () => {
@@ -442,6 +488,51 @@ test.describe('repairMemoryCoreCollectionViaResumableShadow (#14020)', () => {
         expect(states.filter(state => state.phase === 'memory-core-repair-shadow-loading').map(state => state.loadedCount))
             .toEqual([1, 2]);
     });
+
+    test('partially promotes recovered shadow rows and retains parked source on unrecoverable rows', async () => {
+        const states       = [];
+        const promoteCalls = [];
+        const client       = createClient();
+        const live         = createCollection({name: 'mc-memory'});
+
+        const result = await repairMemoryCoreCollectionViaResumableShadow({
+            client,
+            collectionName  : 'mc-memory',
+            collection      : live,
+            allIds          : ['a', 'b'],
+            missingVectorIds: ['b'],
+            embedFn,
+            embeddingFunction,
+            statePath       : '/state',
+            stateBase       : {targetName: 'memory-core'},
+            extractFn       : async args => {
+                await args.onDataBatch({ids: ['a'], embeddings: [[1]], documents: ['doc-a'], metadatas: [{}]});
+                return {unrecoverable: ['b'], counts: {total: 2, intact: 1, reEmbedded: 0, unrecoverable: 1}};
+            },
+            promoteLoadedFn: async args => {
+                promoteCalls.push(args);
+                return {shadowName: args.shadowName, parkingName: 'mc-memory-parking', parkingDeleted: false};
+            },
+            writeStateFn: async args => states.push(args.state),
+            timestamp   : 123,
+            uuidFactory : () => 'uuid-1',
+            log         : () => {}
+        });
+
+        expect(promoteCalls).toHaveLength(1);
+        expect(promoteCalls[0].sourceIds).toEqual(['a']);
+        expect(promoteCalls[0].deleteParking).toBe(false);
+        expect(result.partialPromoted).toBe(true);
+        expect(result.recoveredCount).toBe(1);
+        expect(result.unrecoverable).toEqual(['b']);
+        expect(states.some(state => state.phase === 'memory-core-repair-aborted')).toBe(false);
+        expect(states.find(state => state.partial === true)).toMatchObject({
+            phase             : 'memory-core-repair-shadow-loaded',
+            recoveredCount    : 1,
+            unrecoverableCount: 1,
+            unrecoverable     : ['b']
+        });
+    });
 });
 
 test.describe('runDefragChromaDBCli (#14020)', () => {
@@ -559,6 +650,28 @@ test.describe('unrecoverable reason previews (#14023)', () => {
         expect(formatUnrecoverablePreview(entries, {limit: 2}))
             .toBe('a (document-empty: document field was empty); b (embedding-provider-error: context overflow); +1 more');
         expect(formatUnrecoverablePreview(['legacy-id'])).toBe('legacy-id (unknown)');
+    });
+});
+
+test.describe('anyRepairNonClean — operator fail-loud predicate (#14062)', () => {
+    test('true when any collection partial-promoted', () => {
+        expect(anyRepairNonClean([
+            {collectionName: 'mc-memory', partialPromoted: true, promotion: {}, unrecoverable: ['x']},
+            {collectionName: 'mc-graph',  promotion: {}}
+        ])).toBe(true);
+    });
+
+    test('true when any collection aborted', () => {
+        expect(anyRepairNonClean([
+            {collectionName: 'mc-memory', aborted: true, unrecoverable: ['x']}
+        ])).toBe(true);
+    });
+
+    test('false when every collection promoted cleanly', () => {
+        expect(anyRepairNonClean([
+            {collectionName: 'mc-memory', promotion: {}},
+            {collectionName: 'mc-graph',  promotion: {}}
+        ])).toBe(false);
     });
 });
 
