@@ -4,11 +4,11 @@ import * as core                       from '../../../../../../../src/core/_expo
 import {buildSqliteIntegrityDiagnosis} from '../../../../../../../ai/daemons/orchestrator/services/sqliteIntegrityDiagnosis.mjs';
 
 // Pure detect-producer (no I/O). Turns a Chroma SQLite quick_check/integrity_check audit into a
-// data-integrity recovery-diagnosis (escalate) when the store's SQLite integrity is broken (a malformed
+// data-integrity recovery-diagnosis (raw evidence, no escalate) when the store's SQLite integrity is broken (a malformed
 // FTS5 index — the corruption-incident forensic shape); returns null when every check passes.
 
 test.describe('buildSqliteIntegrityDiagnosis — data-integrity SQLite-integrity detect-producer', () => {
-    test('a failed integrity check -> a data-integrity/escalate recovery-diagnosis', () => {
+    test('a failed integrity check -> a data-integrity raw-evidence recovery-diagnosis (no escalate)', () => {
         const diag = buildSqliteIntegrityDiagnosis({
             sqliteResult: {checks: [
                 {pragma: 'quick_check',     ok: false, output: 'malformed inverted index for FTS5 table main.embedding_fulltext_search'},
@@ -24,7 +24,7 @@ test.describe('buildSqliteIntegrityDiagnosis — data-integrity SQLite-integrity
             confidence    : 1,
             targetIdentity: {kind: 'compose-service', id: 'memory-core'},
             source        : 'data-integrity-sqlite-integrity-monitor',
-            details       : {actionClass: 'escalate', reasonCode: 'data-integrity-sqlite-integrity-failure', failedPragmas: ['quick_check', 'integrity_check']}
+            details       : {reasonCode: 'data-integrity-sqlite-integrity-failure', failedPragmas: ['quick_check', 'integrity_check']}
         });
         expect(diag.evidenceFacts[0]).toMatchObject({type: 'sqlite-integrity-failure', pragma: 'quick_check'});
         expect(diag.evidenceFacts[0].detail).toContain('malformed inverted index');

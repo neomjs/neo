@@ -4,10 +4,10 @@ import * as core                            from '../../../../../../../src/core/
 import {buildDimensionConsistencyDiagnosis} from '../../../../../../../ai/daemons/orchestrator/services/dimensionConsistencyDiagnosis.mjs';
 
 // Pure detect-producer (no I/O). A stored vector whose dimension ≠ the configured embedding dimension is
-// unambiguous corruption → a data-integrity/escalate recovery-diagnosis; all-matching samples → null.
+// unambiguous corruption → a data-integrity raw-evidence recovery-diagnosis; all-matching samples → null.
 
 test.describe('buildDimensionConsistencyDiagnosis — embedding-dimension consistency detect-producer', () => {
-    test('a collection holding mismatched-dimension vectors -> a data-integrity/escalate recovery-diagnosis', () => {
+    test('a collection holding mismatched-dimension vectors -> a data-integrity raw-evidence recovery-diagnosis (no escalate)', () => {
         const diag = buildDimensionConsistencyDiagnosis({
             samples: [
                 {collection: 'neo-agent-memory',   expectedDimension: 4096, mismatchedVectorCount: 12},
@@ -24,7 +24,7 @@ test.describe('buildDimensionConsistencyDiagnosis — embedding-dimension consis
             confidence    : 1,
             targetIdentity: {kind: 'compose-service', id: 'memory-core'},
             source        : 'data-integrity-dimension-monitor',
-            details       : {actionClass: 'escalate', reasonCode: 'data-integrity-dimension-mismatch', mismatchedCollections: ['neo-agent-memory']}
+            details       : {reasonCode: 'data-integrity-dimension-mismatch', mismatchedCollections: ['neo-agent-memory']}
         });
         expect(diag.evidenceFacts).toEqual([
             {type: 'vector-dimension-mismatch', collection: 'neo-agent-memory', expectedDimension: 4096, mismatchedVectorCount: 12}

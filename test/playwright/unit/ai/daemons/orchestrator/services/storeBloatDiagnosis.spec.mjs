@@ -3,14 +3,14 @@ import Neo                        from '../../../../../../../src/Neo.mjs';
 import * as core                  from '../../../../../../../src/core/_export.mjs';
 import {buildStoreBloatDiagnosis} from '../../../../../../../ai/daemons/orchestrator/services/storeBloatDiagnosis.mjs';
 
-// Pure detect-producer (no I/O). Turns a store-size measurement + thresholds into a data-integrity/escalate
+// Pure detect-producer (no I/O). Turns a store-size measurement + thresholds into a data-integrity raw-evidence
 // recovery-diagnosis when the store is over its absolute budget OR grew too fast since the previous sample;
 // null when within budget.
 
 const THRESHOLDS = {absoluteBytes: 2_000_000_000, growthRatio: 0.25};  // 2GB absolute, 25% growth
 
 test.describe('buildStoreBloatDiagnosis — data-integrity store-size bloat detect-producer', () => {
-    test('over the absolute budget -> a data-integrity/escalate recovery-diagnosis', () => {
+    test('over the absolute budget -> a data-integrity raw-evidence recovery-diagnosis (no escalate)', () => {
         const diag = buildStoreBloatDiagnosis({
             storeSizeBytes: 2_500_000_000,  // 2.5GB > 2GB
             thresholds    : THRESHOLDS,
@@ -24,7 +24,7 @@ test.describe('buildStoreBloatDiagnosis — data-integrity store-size bloat dete
             confidence    : 1,
             targetIdentity: {kind: 'compose-service', id: 'memory-core'},
             source        : 'data-integrity-store-bloat-monitor',
-            details       : {actionClass: 'escalate', reasonCode: 'data-integrity-store-bloat', triggeredSignals: ['absolute']}
+            details       : {reasonCode: 'data-integrity-store-bloat', triggeredSignals: ['absolute']}
         });
         expect(diag.evidenceFacts).toEqual([
             {type: 'store-bloat', signal: 'absolute', storeSizeBytes: 2_500_000_000, thresholdBytes: 2_000_000_000}

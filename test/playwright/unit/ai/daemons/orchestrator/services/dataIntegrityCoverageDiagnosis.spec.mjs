@@ -4,10 +4,10 @@ import * as core                             from '../../../../../../../src/core
 import {buildDataIntegrityCoverageDiagnosis} from '../../../../../../../ai/daemons/orchestrator/services/dataIntegrityCoverageDiagnosis.mjs';
 
 // Pure detect-producer (no I/O). Turns a Chroma vector-coverage audit into a data-integrity
-// recovery-diagnosis (escalate) when a collection is "up but data-gutted"; returns null when clean.
+// recovery-diagnosis (raw evidence, no escalate) when a collection is "up but data-gutted"; returns null when clean.
 
 test.describe('buildDataIntegrityCoverageDiagnosis — data-integrity coverage-drift detect-producer', () => {
-    test('drift (a collection with ok:false) -> a data-integrity/escalate recovery-diagnosis', () => {
+    test('drift (a collection with ok:false) -> a data-integrity raw-evidence recovery-diagnosis (no escalate)', () => {
         const diag = buildDataIntegrityCoverageDiagnosis({
             coverageResult: {collections: [
                 {name: 'neo-agent-memory',   ok: false, missingFromVectorCount: 10, extraInVectorCount: 0},
@@ -23,7 +23,7 @@ test.describe('buildDataIntegrityCoverageDiagnosis — data-integrity coverage-d
             confidence    : 1,
             targetIdentity: {kind: 'compose-service', id: 'memory-core'},
             source        : 'data-integrity-coverage-monitor',
-            details       : {actionClass: 'escalate', reasonCode: 'data-integrity-coverage-drift', driftedCollections: ['neo-agent-memory']}
+            details       : {reasonCode: 'data-integrity-coverage-drift', driftedCollections: ['neo-agent-memory']}
         });
         expect(diag.evidenceFacts).toEqual([
             {type: 'vector-coverage-drift', collection: 'neo-agent-memory', missingFromVectorCount: 10, extraInVectorCount: 0}
