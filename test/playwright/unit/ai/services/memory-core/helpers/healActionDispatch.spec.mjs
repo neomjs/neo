@@ -6,7 +6,8 @@ import {
     dispatchHeal,
     DEFAULT_DISPATCH_BOUNDS,
     HEAL_ACTIONS,
-    MUTATING_HEAL_ACTIONS
+    MUTATING_HEAL_ACTIONS,
+    NO_HEAL_ACTION
 } from '../../../../../../../ai/services/memory-core/helpers/healActionDispatch.mjs';
 
 const NOW = 10_000_000;
@@ -57,12 +58,42 @@ test.describe('decideHealAction — autonomous bounded-dispatch safety gate', ()
             .toMatchObject({execute: false, status: 'rate-limited'});
     });
 
+    test('fail-closed: a mutating action with a missing/empty collection → unsafe-input (no fail-open execute)', () => {
+        expect(decideHealAction({action: 're-embed-missing', now: NOW}))
+            .toMatchObject({execute: false, status: 'unsafe-input'});
+        expect(decideHealAction({action: 're-embed-missing', collection: '', now: NOW}))
+            .toMatchObject({execute: false, status: 'unsafe-input'});
+    });
+
+    test('fail-closed: a mutating action with a non-finite now → unsafe-input (no cooldown/window clock)', () => {
+        expect(decideHealAction({action: 'defrag', collection: 'mc'}))
+            .toMatchObject({execute: false, status: 'unsafe-input'});
+        expect(decideHealAction({action: 'defrag', collection: 'mc', now: NaN}))
+            .toMatchObject({execute: false, status: 'unsafe-input'});
+    });
+
+    test('partial bounds are normalized onto the defaults — an empty {} cannot disable the gate', () => {
+        // a run 1 min ago is within the DEFAULT 10-min cooldown; an empty bounds {} must still hold it.
+        const recentRuns = [{action: 're-embed-missing', collection: 'mc', at: NOW - 60_000}];
+        expect(decideHealAction({action: 're-embed-missing', collection: 'mc', recentRuns, bounds: {}, now: NOW}))
+            .toMatchObject({execute: false, status: 'thrash-cooldown'});
+    });
+
+    test('fail-closed: a bound that resolves non-finite → unsafe-input', () => {
+        expect(decideHealAction({action: 're-embed-missing', collection: 'mc', bounds: {cooldownMs: 'soon'}, now: NOW}))
+            .toMatchObject({execute: false, status: 'unsafe-input'});
+    });
+
     test('the vocabulary split is frozen + mutating ⊂ all actions', () => {
         expect(Object.isFrozen(HEAL_ACTIONS)).toBe(true);
         expect(Object.isFrozen(MUTATING_HEAL_ACTIONS)).toBe(true);
         expect(MUTATING_HEAL_ACTIONS.every(a => HEAL_ACTIONS.includes(a))).toBe(true);
         expect(HEAL_ACTIONS).toContain('quarantine'); // quarantine is a containment heal-action
         expect(DEFAULT_DISPATCH_BOUNDS.maxRunsPerWindow).toBeGreaterThan(0);
+        // the no-op sentinel is non-dispatchable: it lives OUTSIDE HEAL_ACTIONS and resolves to no-op.
+        expect(NO_HEAL_ACTION).toBe('none');
+        expect(HEAL_ACTIONS).not.toContain(NO_HEAL_ACTION);
+        expect(decideHealAction({action: NO_HEAL_ACTION, now: NOW})).toMatchObject({execute: false, status: 'no-op'});
     });
 });
 
@@ -141,5 +172,41 @@ test.describe('dispatchHeal — actuator core dispatch (safety gate + injected e
         });
 
         expect(recorded).toBe(false);
+    });
+
+    test('a throwing mutating heal RECORDS the attempt before execution → it cannot immediately re-run', async () => {
+        const runs      = [],
+              recordRun = async run => { runs.push(run); };
+
+        // First dispatch: the operation throws → failed, BUT the attempt is recorded.
+        const first = await dispatchHeal({
+            action        : 're-embed-missing',
+            collection    : 'mc',
+            now           : NOW,
+            healOperations: {'re-embed-missing': async () => { throw new Error('provider 404'); }},
+            recordRun
+        });
+
+        expect(first).toMatchObject({status: 'failed', detail: 'provider 404'});
+        expect(runs).toEqual([{action: 're-embed-missing', collection: 'mc', at: NOW}]); // recorded despite the throw
+
+        // A moment later, feeding the recorded attempt as recentRuns → the gate holds (no hot-loop).
+        expect(decideHealAction({action: 're-embed-missing', collection: 'mc', recentRuns: runs, now: NOW + 1000}))
+            .toMatchObject({execute: false, status: 'thrash-cooldown'});
+    });
+
+    test('fail-closed: if the pre-execution recordRun throws, the mutating heal does NOT execute', async () => {
+        let   called  = false;
+        const outcome = await dispatchHeal({
+            action        : 're-embed-missing',
+            collection    : 'mc',
+            now           : NOW,
+            healOperations: {'re-embed-missing': async () => { called = true; return {status: 'healed'}; }},
+            recordRun     : async () => { throw new Error('anti-thrash store down'); }
+        });
+
+        expect(called).toBe(false); // never executed the mutation when the attempt could not be recorded
+        expect(outcome).toMatchObject({status: 'failed'});
+        expect(outcome.detail).toMatch(/recordRun failed pre-execution/);
     });
 });
