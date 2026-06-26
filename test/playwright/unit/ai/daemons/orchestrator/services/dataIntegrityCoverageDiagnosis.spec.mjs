@@ -17,6 +17,7 @@ test.describe('buildDataIntegrityCoverageDiagnosis — data-integrity coverage-d
             serviceId : 'memory-core'
         });
         expect(diag).toMatchObject({
+            diagnosisId   : 'data-integrity:memory-core:coverage-drift:1000',
             type          : 'recovery-diagnosis',
             recoveryClass : 'data-integrity',
             confidence    : 1,
@@ -27,6 +28,16 @@ test.describe('buildDataIntegrityCoverageDiagnosis — data-integrity coverage-d
         expect(diag.evidenceFacts).toEqual([
             {type: 'vector-coverage-drift', collection: 'neo-agent-memory', missingFromVectorCount: 10, extraInVectorCount: 0}
         ]);
+    });
+
+    test('diagnosisId is target-scoped — two services drifting at the same instant get distinct ids (no graph-node collision)', () => {
+        const args = {coverageResult: {collections: [{name: 'c', ok: false}]}, observedAt: 1000},
+              a    = buildDataIntegrityCoverageDiagnosis({...args, serviceId: 'memory-core'}),
+              b    = buildDataIntegrityCoverageDiagnosis({...args, serviceId: 'knowledge-base'});
+
+        expect(a.diagnosisId).toBe('data-integrity:memory-core:coverage-drift:1000');
+        expect(b.diagnosisId).toBe('data-integrity:knowledge-base:coverage-drift:1000');
+        expect(a.diagnosisId).not.toBe(b.diagnosisId);
     });
 
     test('clean coverage (all ok:true) -> null (no false escalation)', () => {

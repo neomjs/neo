@@ -47,7 +47,7 @@ export function buildDataIntegrityCoverageDiagnosis({coverageResult, observedAt,
     }
 
     return createRecoveryDiagnosisEvent({
-        diagnosisId   : `data-integrity:coverage-drift:${observedAt}`,
+        diagnosisId   : `data-integrity:${serviceId}:coverage-drift:${observedAt}`,
         recoveryClass : 'data-integrity',
         confidence    : 1,
         targetIdentity: {kind: 'compose-service', id: serviceId},
