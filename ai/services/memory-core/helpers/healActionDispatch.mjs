@@ -133,7 +133,7 @@ export function decideHealAction({action, collection, recentRuns = [], bounds = 
  * @param {Object} [options.bounds] The dispatch bounds (defaults to `DEFAULT_DISPATCH_BOUNDS` in `decideHealAction`).
  * @param {Number} [options.now] Epoch milliseconds (injected clock).
  * @param {Object} [options.healOperations={}] `{ '<action>': async ({collection, evidence, now}) => ({status?, detail?}) }` — the injected privileged operations.
- * @param {Function} [options.recordRun] `async ({action, collection, at}) => void` — persists a mutating ATTEMPT for future anti-thrash. Called before execution for every mutating heal (success OR failure), so a failed heal cannot hot-loop.
+ * @param {Function} [options.recordRun] `async ({action, collection, at}) => void` — persists a mutating ATTEMPT for future anti-thrash. **Required for mutating actions** — absent → the heal fails closed (`unsafe-input`: no recorder, no mutation). Called before execution for every mutating heal (success OR failure), so a failed heal cannot hot-loop.
  * @returns {Promise<Object>} `outcomeRecord` = `{action, collection, status, detail, healedAt}`.
  */
 export async function dispatchHeal({action, collection, evidence, recentRuns = [], bounds, now, healOperations = {}, recordRun} = {}) {
@@ -151,10 +151,19 @@ export async function dispatchHeal({action, collection, evidence, recentRuns = [
         return {action, collection, status: 'deferred', detail: `no heal operation wired for '${action}'`, healedAt: now};
     }
 
+    const isMutating = MUTATING_HEAL_ACTIONS.includes(action);
+
+    // A mutating heal MUST be anti-thrash-recordable, or its loop cannot be bounded → fail CLOSED: no
+    // recorder, no mutation. (Containment is unbounded and needs no recorder.) The invariant holds on EVERY
+    // path, not only when a recordRun happens to be wired.
+    if (isMutating && typeof recordRun !== 'function') {
+        return {action, collection, status: 'unsafe-input', detail: `mutating '${action}' requires a recordRun to persist the anti-thrash attempt (no recorder, no mutation)`, healedAt: now};
+    }
+
     // Record the mutating ATTEMPT BEFORE execution so a throwing/failing heal still enters the anti-thrash
-    // history — a broken provider/store cannot immediately hot-loop. Containment is unbounded and unrecorded.
-    // If the attempt can't be recorded, fail CLOSED rather than risk an unrecorded loop.
-    if (MUTATING_HEAL_ACTIONS.includes(action) && typeof recordRun === 'function') {
+    // history — a broken provider/store cannot immediately hot-loop. If recording itself throws, also fail
+    // CLOSED rather than risk an unrecorded loop.
+    if (isMutating) {
         try {
             await recordRun({action, collection, at: now});
         } catch (recordError) {

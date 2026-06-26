@@ -142,10 +142,26 @@ test.describe('dispatchHeal — actuator core dispatch (safety gate + injected e
             action        : 'defrag',
             collection    : 'mc',
             now           : NOW,
-            healOperations: {defrag: async () => { throw new Error('chroma unreachable'); }}
+            healOperations: {defrag: async () => { throw new Error('chroma unreachable'); }},
+            recordRun     : async () => {}
         });
 
         expect(outcome).toMatchObject({status: 'failed', detail: 'chroma unreachable'});
+    });
+
+    test('fail-closed: a mutating action with NO recordRun does not execute (no recorder, no mutation)', async () => {
+        let   called  = false;
+        const outcome = await dispatchHeal({
+            action        : 're-embed-missing',
+            collection    : 'mc',
+            now           : NOW,
+            healOperations: {'re-embed-missing': async () => { called = true; return {status: 'healed'}; }}
+            // no recordRun → the mutating attempt cannot be persisted → must not execute.
+        });
+
+        expect(called).toBe(false);
+        expect(outcome).toMatchObject({status: 'unsafe-input'});
+        expect(outcome.detail).toMatch(/requires a recordRun/);
     });
 
     test('the operation status+detail is carried through (e.g. quarantine reports frozen)', async () => {
