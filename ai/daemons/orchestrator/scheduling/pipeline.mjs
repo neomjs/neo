@@ -875,11 +875,11 @@ async function runRemConsolidationLivenessWatchdogTask({taskName, reason, servic
  * @summary Runs the data-integrity sweep: the read-only coverage probe + diagnosis routing of the
  * DataIntegrityDiagnosisService runner, recorded as a passive health signal. Never throws.
  *
- * The runner itself self-routes a drift diagnosis to the actuator's escalate sink (operator page) and
- * is detect-only. This wrapper adds the passive health-record (`completed` on a clean store; `failed`
- * when drift was escalated OR the coverage probe was unavailable — both not-healthy signals, with the
- * `status`/`probeError` details distinguishing them) and the never-fail guarantee: any error degrades
- * to a recorded fault and never breaks the scheduling loop.
+ * The runner self-routes each finding to the actuator's AUTONOMOUS heal sink (`applyHeal`) — there is no
+ * escalate/operator path. This wrapper records the passive health signal (`completed` on a clean store OR
+ * after autonomous heals; `failed` only when the evidence probe was unavailable — the `status`/`probeError`
+ * details distinguish them) and the never-fail guarantee: any error degrades to a recorded fault and never
+ * breaks the scheduling loop.
  *
  * @param {Object} options
  * @param {String} options.taskName
@@ -898,15 +898,16 @@ async function runDataIntegritySweepTask({taskName, reason, services, runtime}) 
 
         const details = {
             reason,
-            status         : decision.status,
-            diagnosisCount : Array.isArray(decision.diagnoses) ? decision.diagnoses.length : 0,
-            escalationCount: Array.isArray(decision.escalations) ? decision.escalations.length : 0,
-            checkedAt      : new Date().toISOString()
+            status             : decision.status,
+            classificationCount: Array.isArray(decision.classifications) ? decision.classifications.length : 0,
+            healCount          : Array.isArray(decision.heals) ? decision.heals.length : 0,
+            checkedAt          : new Date().toISOString()
         };
         if (decision.probeError) details.probeError = decision.probeError;
 
-        // A drift escalation OR an unavailable probe is a not-healthy signal; a clean store is healthy.
-        const notHealthy = decision.status === 'escalated' || decision.status === 'probe-unavailable';
+        // Self-heal semantics: a clean store AND an autonomously-healed store are both healthy outcomes (the
+        // immune system worked). Only an unavailable probe is a not-healthy signal — there is no escalate state.
+        const notHealthy = decision.status === 'probe-unavailable';
         services.healthService?.recordTaskOutcome?.(taskName, notHealthy ? 'failed' : 'completed', details);
 
         services.taskStateService.markCompleted(taskName);

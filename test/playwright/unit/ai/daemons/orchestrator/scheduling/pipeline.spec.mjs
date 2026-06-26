@@ -944,7 +944,7 @@ test.describe('orchestrator/scheduling/pipeline — data-integrity-sweep never-f
 
     test('a clean decision records a completed health-outcome', async () => {
         const {calls, outcomes} = runSweep({
-            gatherAndDiagnose: async () => ({status: 'healthy', diagnoses: [], escalations: []})
+            gatherAndDiagnose: async () => ({status: 'clean', classifications: [], heals: []})
         });
         await flush();
 
@@ -954,26 +954,27 @@ test.describe('orchestrator/scheduling/pipeline — data-integrity-sweep never-f
         ]);
         expect(outcomes.at(-1)).toMatchObject({
             status : 'completed',
-            details: {status: 'healthy', diagnosisCount: 0, escalationCount: 0}
+            details: {status: 'clean', classificationCount: 0, healCount: 0}
         });
     });
 
-    test('a drift escalation records a failed health-outcome (the runner already routed the page)', async () => {
+    test('an autonomous heal records a COMPLETED health-outcome (the runner self-healed — no failure, no operator)', async () => {
         const {calls, outcomes} = runSweep({
-            gatherAndDiagnose: async () => ({status: 'escalated', diagnoses: [{}], escalations: [{status: 'escalated'}]})
+            gatherAndDiagnose: async () => ({status: 'healed', classifications: [{mode: 'wal-stall', terminalAction: 're-embed-missing'}], heals: [{outcome: {status: 'healed'}}]})
         });
         await flush();
 
         expect(calls).toContainEqual(['markCompleted', 'data-integrity-sweep']);
+        // A self-heal is a SUCCESS (the immune system worked), not a failure — there is no escalate/operator state.
         expect(outcomes.at(-1)).toMatchObject({
-            status : 'failed',
-            details: {status: 'escalated', diagnosisCount: 1, escalationCount: 1}
+            status : 'completed',
+            details: {status: 'healed', classificationCount: 1, healCount: 1}
         });
     });
 
     test('a probe-unavailable decision records a failed health-outcome (a failed probe is not silently green)', async () => {
         const {outcomes} = runSweep({
-            gatherAndDiagnose: async () => ({status: 'probe-unavailable', probeError: 'Chroma unreachable', diagnoses: [], escalations: []})
+            gatherAndDiagnose: async () => ({status: 'probe-unavailable', probeError: 'Chroma unreachable', classifications: [], heals: []})
         });
         await flush();
 
