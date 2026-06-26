@@ -4,7 +4,8 @@ import * as core      from '../../../../../../../src/core/_export.mjs';
 import {
     acknowledgeAcceptedLossResidue,
     evaluateAcceptedLossOutcome,
-    mapUnrecoverableToResidue
+    mapUnrecoverableToResidue,
+    resolveAcceptedLossExit
 }                                    from '../../../../../../../ai/services/memory-core/helpers/acceptedLossOutcome.mjs';
 import {createAcceptedLossAckEntry}  from '../../../../../../../ai/services/memory-core/helpers/acceptedLossAck.mjs';
 
@@ -152,5 +153,41 @@ test.describe('acknowledgeAcceptedLossResidue — operator ack minting + the rou
     test('mapUnrecoverableToResidue is the shared mapping (id+reason only, defensive on non-arrays)', () => {
         expect(mapUnrecoverableToResidue([{id: 'a', reason: 'r', extra: 1}])).toEqual([{id: 'a', reason: 'r'}]);
         expect(mapUnrecoverableToResidue(undefined)).toEqual([]);
+    });
+});
+
+test.describe('resolveAcceptedLossExit — the defrag exit decision (gating + accepted-loss)', () => {
+    const terminal = [{id: 'a', reason: 'embedding-context-exceeded'}],
+          partialR = (name, residue) => ({collectionName: name, partialPromoted: true, unrecoverable: residue}),
+          abortedR = name => ({collectionName: name, aborted: true, unrecoverable: [{id: 'x', reason: 'document-absent'}]});
+
+    test('dry-run -> not accepted (reason dry-run), even with matching acks', async () => {
+        const r = await resolveAcceptedLossExit({results: [partialR('mc-memory', terminal)], dryRun: true, recoveryContext: CTX, readAck: ackStoreFrom(terminal)});
+        expect(r).toMatchObject({acceptedLoss: false, reason: 'dry-run'});
+    });
+
+    test('an aborted collection present -> not accepted (reason aborted-present) — no promotion is never bounded loss', async () => {
+        const r = await resolveAcceptedLossExit({results: [partialR('mc-memory', terminal), abortedR('neo-native-graph')], recoveryContext: CTX, readAck: ackStoreFrom(terminal)});
+        expect(r).toMatchObject({acceptedLoss: false, reason: 'aborted-present'});
+    });
+
+    test('no partial-promotion -> not accepted (reason no-partial-promotion)', async () => {
+        const r = await resolveAcceptedLossExit({results: [{collectionName: 'mc-memory', promotion: {}}], recoveryContext: CTX, readAck: ackStoreFrom()});
+        expect(r).toMatchObject({acceptedLoss: false, reason: 'no-partial-promotion'});
+    });
+
+    test('partial-promotion, all residue acknowledged -> accepted (reason all-acknowledged)', async () => {
+        const r = await resolveAcceptedLossExit({results: [partialR('mc-memory', terminal)], recoveryContext: CTX, readAck: ackStoreFrom(terminal)});
+        expect(r).toMatchObject({acceptedLoss: true, reason: 'all-acknowledged'});
+    });
+
+    test('partial-promotion, no matching ack -> escalate (reason unacknowledged-or-non-terminal)', async () => {
+        const r = await resolveAcceptedLossExit({results: [partialR('mc-memory', terminal)], recoveryContext: CTX, readAck: async () => null});
+        expect(r).toMatchObject({acceptedLoss: false, reason: 'unacknowledged-or-non-terminal'});
+    });
+
+    test('a null readAck (no durable ack location) -> not accepted', async () => {
+        const r = await resolveAcceptedLossExit({results: [partialR('mc-memory', terminal)], recoveryContext: CTX, readAck: null});
+        expect(r.acceptedLoss).toBe(false);
     });
 });

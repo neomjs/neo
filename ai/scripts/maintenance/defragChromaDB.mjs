@@ -11,7 +11,7 @@ import {withHeavyMaintenanceLease}                                   from '../..
 import {registerNeoChromaEmbeddingFunctions}                         from '../../services/shared/vector/chromaClientPrimitives.mjs';
 import {auditChromaVectorCoverage}                                   from './checkChromaIntegrity.mjs';
 import {extractMemoryCoreCollectionData, truncateToEmbedTokenBudget} from './repairMemoryCoreStoredEmbeddings.mjs';
-import {acknowledgeAcceptedLossResidue, evaluateAcceptedLossOutcome} from '../../services/memory-core/helpers/acceptedLossOutcome.mjs';
+import {acknowledgeAcceptedLossResidue, resolveAcceptedLossExit}     from '../../services/memory-core/helpers/acceptedLossOutcome.mjs';
 import {appendAcceptedLossAck, readAcceptedLossAckByFingerprint}     from '../../services/memory-core/helpers/acceptedLossAckStore.mjs';
 import {TERMINAL_REASONS}                                            from '../../services/memory-core/helpers/classifyRepairResidue.mjs';
 
@@ -1626,12 +1626,12 @@ async function defragChromaDB() {
                 // operator-acknowledged terminal loss is a bounded, accepted outcome — the recovered rows are
                 // durable and the residue is genuinely unembeddable, so it must not page "repair failed" forever.
                 // Every other path (aborted, dry-run, any transient/unacknowledged/stale residue) still exits 1.
-                const acceptedLoss = !dryRun && Boolean(statePath) && abortedNames.length === 0 && partialNames.length > 0 &&
-                    (await evaluateAcceptedLossOutcome({
-                        partialResults : results.filter(result => result.partialPromoted),
-                        recoveryContext: buildMemoryCoreRecoveryContext(config),
-                        readAck        : fingerprint => readAcceptedLossAckByFingerprint({fingerprint, dir: acceptedLossAckDir(statePath)})
-                    })).allAccepted;
+                const {acceptedLoss} = await resolveAcceptedLossExit({
+                    results,
+                    dryRun,
+                    recoveryContext: buildMemoryCoreRecoveryContext(config),
+                    readAck        : statePath ? (fingerprint => readAcceptedLossAckByFingerprint({fingerprint, dir: acceptedLossAckDir(statePath)})) : null
+                });
 
                 if (acceptedLoss) {
                     console.log(`✅ Memory Core repair: the bounded unrecoverable residue is operator-acknowledged accepted-loss for ${partialNames.join(', ')} — recovered rows are durable; not escalating. Acknowledge new residue with --acknowledge-accepted-loss.`);

@@ -140,3 +140,43 @@ export async function acknowledgeAcceptedLossResidue({
 
     return {acknowledged};
 }
+
+/**
+ * @summary Decides whether a non-clean Memory Core repair is an operator-acknowledged accepted-loss exit
+ * (exit 0) or must escalate (exit 1) — the testable exit-decision the defrag CLI consults.
+ *
+ * Accepted-loss applies ONLY to a non-dry-run partial-promotion with NO aborted collection (an aborted
+ * collection means no promotion happened — a real failure, never bounded loss) whose every partial residue
+ * classifies as accepted-loss. Pure: the durable-ack lookup is injected (a null/absent `readAck` — e.g. no
+ * durable ack location — means nothing is acknowledged → not accepted).
+ *
+ * @param {Object} options
+ * @param {Object[]} [options.results=[]] Per-collection repair results (`{aborted, partialPromoted, unrecoverable}`).
+ * @param {Boolean} [options.dryRun=false]
+ * @param {Object} [options.recoveryContext={}] The shared recovery context bound into the fingerprint.
+ * @param {Function} [options.readAck] `async fingerprint => ack|null`.
+ * @returns {Promise<Object>} `{acceptedLoss, reason, perCollection}`.
+ */
+export async function resolveAcceptedLossExit({results = [], dryRun = false, recoveryContext = {}, readAck} = {}) {
+    const rows    = Array.isArray(results) ? results : [],
+          aborted = rows.filter(result => result?.aborted),
+          partial = rows.filter(result => result?.partialPromoted);
+
+    if (dryRun) {
+        return {acceptedLoss: false, reason: 'dry-run', perCollection: []};
+    }
+    if (aborted.length > 0) {
+        return {acceptedLoss: false, reason: 'aborted-present', perCollection: []};
+    }
+    if (partial.length === 0) {
+        return {acceptedLoss: false, reason: 'no-partial-promotion', perCollection: []};
+    }
+
+    const {allAccepted, perCollection} = await evaluateAcceptedLossOutcome({partialResults: partial, recoveryContext, readAck});
+
+    return {
+        acceptedLoss: allAccepted,
+        reason      : allAccepted ? 'all-acknowledged' : 'unacknowledged-or-non-terminal',
+        perCollection
+    };
+}
