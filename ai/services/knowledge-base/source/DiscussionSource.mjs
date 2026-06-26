@@ -1,7 +1,8 @@
-import Base from './Base.mjs';
-import fs   from 'fs-extra';
-import path from 'path';
-import aiConfig from '../../../mcp/server/knowledge-base/config.mjs';
+import Base                             from './Base.mjs';
+import fs                               from 'fs-extra';
+import path                             from 'path';
+import aiConfig                         from '../../../mcp/server/knowledge-base/config.mjs';
+import {splitDiscussionArchiveMarkdown} from './discussionArchiveElementSplitter.mjs';
 
 /**
  * @summary Extracts knowledge chunks from the active and archived GitHub Discussions.
@@ -61,9 +62,9 @@ class DiscussionSource extends Base {
         // Per-source paths (array) from the `sourcePaths` config (SSOT). Each entry is resolved
         // against `neoRootDir`.
         const discussionPaths = aiConfig.sourcePaths.DiscussionSource;
-        const targetPaths = discussionPaths.map(p => path.resolve(aiConfig.neoRootDir, p));
+        const targetPaths     = discussionPaths.map(p => path.resolve(aiConfig.neoRootDir, p));
 
-        const indexMap = await loadIndexMap(aiConfig.neoRootDir, 'discussions');
+        const indexMap    = await loadIndexMap(aiConfig.neoRootDir, 'discussions');
         const contentRoot = path.resolve(aiConfig.neoRootDir, 'resources/content');
 
         for (const targetPath of targetPaths) {
@@ -73,7 +74,7 @@ class DiscussionSource extends Base {
 
                 for (const file of discussionFiles) {
                     if (typeof file === 'string' && file.endsWith('.md')) {
-                        const filePath   = path.join(targetPath, file);
+                        const filePath          = path.join(targetPath, file);
                         const relativeToContent = path.relative(contentRoot, filePath);
 
                         let id = indexMap.get(relativeToContent);
@@ -81,19 +82,28 @@ class DiscussionSource extends Base {
                             id = path.basename(file).replace('.md', '').replace(/^discussion-/, '');
                         }
 
-                        const content    = await fs.readFile(filePath, 'utf-8');
-                        const chunk      = {
-                            type   : 'discussion',
-                            kind   : 'discussion',
-                            name   : `discussion-${id}`,
-                            content,
-                            // Relative path keeps the distributed Chroma zip portable.
-                            source : path.relative(aiConfig.neoRootDir, filePath)
-                        };
+                        const content = await fs.readFile(filePath, 'utf-8');
+                        // Relative path keeps the distributed Chroma zip portable.
+                        const source = path.relative(aiConfig.neoRootDir, filePath);
+                        // Per-element chunks (body + each comment) keep a large converged Discussion
+                        // under the embedding cap; a no-comment discussion yields one body chunk whose
+                        // content equals the whole file.
+                        const elements = splitDiscussionArchiveMarkdown(content);
 
-                        chunk.hash = createHashFn(chunk);
-                        writeStream.write(JSON.stringify(chunk) + '\n');
-                        count++;
+                        for (const element of elements) {
+                            const suffix = element.kind === 'body' ? 'body' : `comment-${element.ordinal}`;
+                            const chunk = {
+                                type: 'discussion',
+                                kind: 'discussion',
+                                name   : `discussion-${id}#${suffix}`,
+                                content: element.content,
+                                source
+                            };
+
+                            chunk.hash = createHashFn(chunk);
+                            writeStream.write(JSON.stringify(chunk) + '\n');
+                            count++;
+                        }
                     }
                 }
             }
