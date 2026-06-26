@@ -49,10 +49,11 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
     });
 
     let verifyBundleIntegrity;
+    let countNonEmptyJsonlLines;
 
     test.beforeAll(async () => {
         SDK                   = await import('../../../../../../ai/services.mjs');
-        ({runBackup, verifyBundleIntegrity} = await import('../../../../../../ai/scripts/maintenance/backup.mjs'));
+        ({runBackup, verifyBundleIntegrity, countNonEmptyJsonlLines} = await import('../../../../../../ai/scripts/maintenance/backup.mjs'));
         KB_ChromaManager      = SDK.KB_ChromaManager;
         Memory_StorageRouter  = SDK.Memory_StorageRouter;
 
@@ -328,5 +329,23 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
             Memory_StorageRouter.getMemoryCollection  = savedMem;
             Memory_StorageRouter.getSummaryCollection = savedSum;
         }
+    });
+
+    test('countNonEmptyJsonlLines: streams a JSONL file, counting non-empty lines (#14082)', async () => {
+        // Regression: verifyBundleIntegrity used to read each bundle file fully into a string
+        // (fs.readFile + split('\n')), which threw ERR_STRING_TOO_LONG on the 1+ GB Memory Core /
+        // Knowledge Base exports (past V8's ~512 MB max string length). The streaming counter has no
+        // such ceiling. This locks the exact non-empty-line semantics the parity check depends on:
+        // blank lines and a missing trailing newline must not change the row count. The >512 MB
+        // no-throw property is proven manually against the real ~1.2 GB MC export (PR evidence) —
+        // materializing a 512 MB+ file in CI is prohibitively heavy.
+        const tempRoot = path.join(workRoot, 'count-nonempty');
+        const file     = path.join(tempRoot, 'rows.jsonl');
+
+        fs.mkdirSync(tempRoot, {recursive: true});
+        // 3 records — with a blank line, a whitespace-only line, and NO trailing newline on the last.
+        fs.writeFileSync(file, '{"id":"1"}\n\n{"id":"2"}\n   \n{"id":"3"}');
+
+        expect(await countNonEmptyJsonlLines(file)).toBe(3);
     });
 });

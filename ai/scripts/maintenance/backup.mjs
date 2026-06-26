@@ -1,6 +1,7 @@
 import {execFile}      from 'child_process';
 import fs              from 'fs-extra';
 import path            from 'path';
+import readline        from 'readline';
 import {promisify}     from 'util';
 import {fileURLToPath} from 'url';
 
@@ -255,10 +256,38 @@ export async function runBackup({
 }
 
 /**
+ * Counts non-empty (trimmed) lines in a JSONL file by streaming, so files larger than V8's
+ * maximum string length (`0x1fffffe8`, ~512 MB) are counted without `ERR_STRING_TOO_LONG`.
+ * Replaces a whole-file `fs.readFile(..., 'utf8').split('\n')`, which throws on the 1+ GB
+ * Memory Core / Knowledge Base exports. Each JSONL record is exactly one line, so the
+ * non-empty line count is the row count.
+ *
+ * @param {String} filePath Absolute path to the JSONL file.
+ * @returns {Promise<Number>} Count of non-empty lines.
+ */
+export async function countNonEmptyJsonlLines(filePath) {
+    const rl = readline.createInterface({
+        input    : fs.createReadStream(filePath),
+        crlfDelay: Infinity
+    });
+
+    let count = 0;
+
+    for await (const line of rl) {
+        if (line.trim()) {
+            count++;
+        }
+    }
+
+    return count
+}
+
+/**
  * Verifies row-count parity between source collections and the JSONL files written into the
  * bundle. For subsystems whose `manageDatabaseBackup({action: 'export'})` SDK call returns a
- * numeric count (KB, MC memories+summaries, MC graph), this function counts non-empty lines
- * in the bundle's JSONL files and compares — mismatch indicates a partial/torn write that the
+ * numeric count (KB, MC memories+summaries, MC graph), this function streams the bundle's JSONL
+ * files to count non-empty lines (streaming so 1+ GB exports do not exceed V8's max string length)
+ * and compares — mismatch indicates a partial/torn write that the
  * caller treats as a fail-the-bundle condition. Zero-zero parity (source and bundle both empty) is
  * reported as `empty`, not `pass`: a backup of an empty/gutted store is surfaced non-fatally because
  * it is not a usable recovery source (a fresh environment is legitimately empty; a populated
@@ -297,8 +326,7 @@ export async function verifyBundleIntegrity(layout, subsystems) {
         let   bundleCount = 0;
 
         for (const file of files) {
-            const content = await fs.readFile(path.join(dir, file), 'utf8');
-            bundleCount += content.split('\n').filter(line => line.trim()).length;
+            bundleCount += await countNonEmptyJsonlLines(path.join(dir, file));
         }
 
         if (bundleCount === sourceCount) {
