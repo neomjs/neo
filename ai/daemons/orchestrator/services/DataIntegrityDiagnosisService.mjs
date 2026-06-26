@@ -1,23 +1,24 @@
-import Base from '../../../../src/core/Base.mjs';
-
-import {buildDataIntegrityCoverageDiagnosis} from './dataIntegrityCoverageDiagnosis.mjs';
+import Base                                               from '../../../../src/core/Base.mjs';
+import {classifyDataIntegrityMode, DataIntegrityTerminal} from './dataIntegrityModeClassifier.mjs';
 
 /**
  * @module ai/daemons/orchestrator/services/DataIntegrityDiagnosisService
- * @summary The data-integrity diagnostics runner — the integration leaf of the data-integrity
- * detect-signal class that turns the pure detect-producers (coverage-drift, and, as they land,
- * monotonicity / dimension / store-bloat / SQLite) into a LIVE immune-system signal. It is the missing
- * wiring between the producers (which are proven by the release-gate end-to-end corruption proof but
- * not yet running) and the recovery actuator's escalate sink.
+ * @summary The data-integrity self-heal runner — the integration leaf of the data-integrity detect-signal
+ * class. It gathers per-collection raw evidence, classifies the corruption MODE, and routes each finding to
+ * its AUTONOMOUS heal action via the recovery actuator's `applyHeal` sink.
  *
- * The runner gathers bounded read-observe facts (a Chroma vector-coverage audit), runs the producers
- * over them, and routes every emitted `recovery-diagnosis` to the actuator's `escalateDiagnosis` sink —
- * the operator-page path. It is DETECT-ONLY / ESCALATE-ONLY by construction: it never calls a
- * privileged recovery action (`apply` / restart / re-embed / restore / Chroma mutation). Data mutation
- * stays operator-gated (the two-worlds boundary); a gutted store pages a human, it is not
- * silently "repaired".
+ * There is NO `escalate` and NO operator in the loop: in a cloud deployment there is no human to page or
+ * acknowledge, so every actionable mode routes to an autonomous heal (re-embed-missing, restore-delta-merge,
+ * quarantine, freeze, defrag…) — or the safe-default `quarantine` contain where the specific repair is not
+ * yet built. Safety comes from the actuator's bounded envelope (snapshot, reversibility, durable audit
+ * record, rate-limit), not from a human gate that does not exist.
  *
- * All collaborators are injected (the fact gatherer, the actuator, the Memory Core service id, the
+ * The mode taxonomy is single-sourced in `dataIntegrityModeClassifier`; the producers stay dumb raw-evidence
+ * emitters; the actuator owns the heal execution. This runner only gathers → classifies → routes. If the
+ * probe itself cannot run (e.g. Chroma unreachable), the decision is `probe-unavailable` and NOTHING is
+ * actioned — a failed probe must never be mistaken for a corruption signal.
+ *
+ * All collaborators are injected (the evidence gatherer, the actuator, the Memory Core service id, the
  * clock), so the unit is pure-testable in isolation and the AiConfig SSOT leaves are read at the
  * orchestrator use-site, never re-derived here (config-SSOT discipline).
  */
@@ -25,9 +26,9 @@ import {buildDataIntegrityCoverageDiagnosis} from './dataIntegrityCoverageDiagno
 /**
  * @class Neo.ai.daemons.services.DataIntegrityDiagnosisService
  * @extends Neo.core.Base
+ * @see ai/daemons/orchestrator/services/dataIntegrityModeClassifier.mjs
  * @see learn/agentos/decisions/0025-orchestrator-container-health-self-healing.md
  * @see learn/agentos/decisions/0026-recovery-actuator.md
- * @see learn/agentos/decisions/0019-aiconfig-reactive-provider-ssot.md
  */
 export class DataIntegrityDiagnosisService extends Base {
     static config = {
@@ -39,54 +40,54 @@ export class DataIntegrityDiagnosisService extends Base {
     }
 
     /**
-     * Async fact gatherer returning a Chroma vector-coverage audit result
-     * (`auditChromaVectorCoverage()` pre-bound with its AiConfig leaves at the use-site).
-     * A set-once injected dependency — a plain class field, NOT a reactive config: it is assigned once
-     * at construction, never reassigned, and never observed (no before/afterSet hook, no subscription),
-     * so the reactive Config-controller machinery would be pure overhead.
-     * @member {Function|null} coverageGatherer=null
+     * Async fact gatherer returning an array of per-collection raw evidence rows — the dumb-emitter
+     * producers' output: `[{collection, rowCount, missingFromVectorCount, documentsPresentCount,
+     * countRegressed, mismatchedVectorCount, sqliteIntegrityOk, sizeAnomaly}]`. The mode is NOT decided
+     * here by the producers; the classifier derives it. A set-once injected dependency — a plain class
+     * field, never reassigned/observed, so the reactive Config-controller machinery would be pure overhead.
+     * @member {Function|null} evidenceGatherer=null
      */
-    coverageGatherer = null
+    evidenceGatherer = null
     /**
-     * The current-clock injection seam for deterministic tests; falls back to `Date.now()`.
-     * Set-once injected dependency — a plain class field (see `coverageGatherer`), not reactive.
-     * @member {Function|null} nowFn=null
-     */
-    nowFn = null
-    /**
-     * The recovery actuator (or any object exposing `escalateDiagnosis(event, options)`). Only its
-     * escalate sink is ever reached — never a privileged action. Set-once injected dependency — a
-     * plain class field, not reactive.
+     * The recovery actuator exposing `applyHeal({action, collection, evidence, now})`. Every actionable mode
+     * routes here — there is no escalate/operator sink. Set-once injected dependency — a plain class field.
      * @member {Object|null} recoveryActuator=null
      */
     recoveryActuator = null
     /**
-     * The Memory Core `compose-service` identifier the diagnoses target. Set-once injected
-     * dependency — a plain class field, not reactive.
+     * The current-clock injection seam for deterministic tests; falls back to `Date.now()`.
+     * Set-once injected dependency — a plain class field.
+     * @member {Function|null} nowFn=null
+     */
+    nowFn = null
+    /**
+     * The Memory Core `compose-service` identifier the heals target. Set-once injected dependency — a plain
+     * class field.
      * @member {String|null} serviceId=null
      */
     serviceId = null
 
     /**
-     * @summary Gathers integrity facts, runs the detect-producers, and routes any diagnosis to escalate.
+     * @summary Gathers per-collection evidence, classifies each, and routes every actionable finding to its
+     * autonomous heal.
      *
-     * On a clean store this returns a `healthy` decision with no escalation. When a producer fires, the
-     * diagnosis is routed to the actuator's escalate sink (operator page) and the decision is `escalated`.
-     * If the probe itself cannot run (e.g. Chroma unreachable), the decision is `probe-unavailable` and
-     * NOTHING is escalated — a failed probe must never be mistaken for a data-integrity drift signal.
+     * On a clean store this returns a `clean` decision with no heals. When a collection classifies to an
+     * actionable mode, the heal is applied via the actuator (`applyHeal`) and the decision is `healed`. If
+     * the probe cannot run, the decision is `probe-unavailable` and NOTHING is actioned — a failed probe is
+     * never a corruption signal. There is no `escalated` status by construction (no operator).
      *
      * @param {Object} [options]
      * @param {Number} [options.observedAt=this.now()] Epoch milliseconds for the observation.
-     * @returns {Promise<Object>} A `data-integrity-diagnosis-decision` envelope.
-     * @throws {TypeError} when a required collaborator (serviceId / coverageGatherer / recoveryActuator) is missing.
+     * @returns {Promise<Object>} A `data-integrity-self-heal-decision` envelope.
+     * @throws {TypeError} when a required collaborator (serviceId / evidenceGatherer / recoveryActuator) is missing.
      */
     async gatherAndDiagnose({observedAt = this.now()} = {}) {
         this.validateDependencies();
 
-        let coverageResult;
+        let evidenceRows;
 
         try {
-            coverageResult = await this.coverageGatherer();
+            evidenceRows = await this.evidenceGatherer();
         } catch (error) {
             return this.createDecision({
                 serviceId : this.serviceId,
@@ -96,82 +97,79 @@ export class DataIntegrityDiagnosisService extends Base {
             });
         }
 
-        const diagnoses   = this.buildDiagnoses({coverageResult, observedAt}),
-              escalations = await this.routeDiagnoses({diagnoses, now: observedAt});
+        const rows            = Array.isArray(evidenceRows) ? evidenceRows : [],
+              classifications = rows.map(evidence => classifyDataIntegrityMode(evidence)),
+              actionable      = classifications.filter(classification => classification.terminalAction !== DataIntegrityTerminal.NONE),
+              heals           = await this.applyHeals({rows, classifications, now: observedAt});
 
         return this.createDecision({
             serviceId: this.serviceId,
             observedAt,
-            status   : diagnoses.length > 0 ? 'escalated' : 'healthy',
-            diagnoses,
-            escalations
+            status   : actionable.length > 0 ? 'healed' : 'clean',
+            classifications,
+            heals
         });
     }
 
     /**
-     * @summary Runs the pure detect-producers over the gathered facts and collects non-null diagnoses.
+     * @summary Routes each actionable classification to the actuator's autonomous heal sink (`applyHeal`).
      *
-     * This is the extension seam: follow-up slices add the monotonicity producer (fed by the runner's
-     * own per-collection history) and the dimension-consistency producer (fed by an injected dimension
-     * fact-gatherer) alongside the coverage-drift producer wired here.
-     *
-     * @param {Object} options
-     * @param {Object} options.coverageResult The `auditChromaVectorCoverage()` result.
-     * @param {Number} options.observedAt Epoch milliseconds for the observation.
-     * @returns {Object[]} The non-null `recovery-diagnosis` events emitted this cycle.
-     */
-    buildDiagnoses({coverageResult, observedAt}) {
-        const diagnoses = [],
-              coverage  = buildDataIntegrityCoverageDiagnosis({
-                  coverageResult,
-                  observedAt,
-                  serviceId: this.serviceId
-              });
-
-        if (coverage) {
-            diagnoses.push(coverage);
-        }
-
-        return diagnoses;
-    }
-
-    /**
-     * @summary Routes each diagnosis to the actuator's escalate sink — the only recovery surface reached.
-     *
-     * Detect-only by construction: this method calls `escalateDiagnosis` exclusively and never a
-     * privileged action. A `rejected` escalation outcome is recorded, not thrown — a single
-     * malformed diagnosis must not abort the cycle.
+     * Self-heal by construction: this method calls `applyHeal` exclusively — never an escalate/operator path.
+     * A rejected/failed heal outcome is recorded, not thrown — a single heal failure must not abort the cycle
+     * (the next periodic sweep re-detects the still-unhealed residue).
      *
      * @param {Object} options
-     * @param {Object[]} options.diagnoses Emitted `recovery-diagnosis` events.
+     * @param {Object[]} options.rows The raw evidence rows (parallel to `classifications`).
+     * @param {Object[]} options.classifications The per-collection classifier decisions.
      * @param {Number} options.now Epoch milliseconds passed through to the actuator for consistent timestamps.
-     * @returns {Promise<Object[]>} The per-diagnosis escalation outcome descriptors.
+     * @returns {Promise<Object[]>} The per-heal outcome descriptors.
      */
-    async routeDiagnoses({diagnoses, now}) {
-        const escalations = [];
+    async applyHeals({rows, classifications, now}) {
+        const heals = [];
 
-        for (const diagnosis of diagnoses) {
-            escalations.push(await this.recoveryActuator.escalateDiagnosis(diagnosis, {now}));
+        for (let i = 0; i < classifications.length; i++) {
+            const classification = classifications[i];
+
+            if (classification.terminalAction === DataIntegrityTerminal.NONE) {
+                continue;
+            }
+
+            let outcome;
+
+            try {
+                outcome = await this.recoveryActuator.applyHeal({
+                    action    : classification.terminalAction,
+                    collection: classification.collection,
+                    evidence  : rows[i],
+                    now
+                });
+            } catch (error) {
+                // A single heal failure is recorded, not thrown — the next periodic sweep re-detects the
+                // still-unhealed residue. Aborting the cycle would strand the other collections' heals.
+                outcome = {status: 'failed', error: error.message};
+            }
+
+            heals.push({collection: classification.collection, action: classification.terminalAction, mode: classification.mode, outcome});
         }
 
-        return escalations;
+        return heals;
     }
 
     /**
-     * @summary Builds the top-level decision envelope for one diagnostics cycle.
+     * @summary Builds the top-level decision envelope for one self-heal cycle.
      * @param {Object} options
      * @returns {Object}
      */
-    createDecision({serviceId, observedAt, status, diagnoses = [], escalations = [], probeError = null}) {
+    createDecision({serviceId, observedAt, status, classifications = [], heals = [], probeError = null}) {
         return {
             schemaVersion: 1,
-            recordType   : 'data-integrity-diagnosis-decision',
+            recordType   : 'data-integrity-self-heal-decision',
             serviceId,
             observedAt,
             status,
             probeError,
-            diagnoses,
-            escalations
+            classifications,
+            heals
         };
     }
 
@@ -184,19 +182,19 @@ export class DataIntegrityDiagnosisService extends Base {
     }
 
     /**
-     * @summary Fail-closed guard: the immune-system runner must not silently no-op on a missing collaborator.
+     * @summary Fail-closed guard: the self-heal runner must not silently no-op on a missing collaborator.
      * @returns {void}
-     * @throws {TypeError} when serviceId / coverageGatherer / recoveryActuator is missing or malformed.
+     * @throws {TypeError} when serviceId / evidenceGatherer / recoveryActuator(.applyHeal) is missing or malformed.
      */
     validateDependencies() {
         if (typeof this.serviceId !== 'string' || this.serviceId.length === 0) {
             throw new TypeError('DataIntegrityDiagnosisService: serviceId is required');
         }
-        if (typeof this.coverageGatherer !== 'function') {
-            throw new TypeError('DataIntegrityDiagnosisService: coverageGatherer is required');
+        if (typeof this.evidenceGatherer !== 'function') {
+            throw new TypeError('DataIntegrityDiagnosisService: evidenceGatherer is required');
         }
-        if (typeof this.recoveryActuator?.escalateDiagnosis !== 'function') {
-            throw new TypeError('DataIntegrityDiagnosisService: recoveryActuator with escalateDiagnosis() is required');
+        if (typeof this.recoveryActuator?.applyHeal !== 'function') {
+            throw new TypeError('DataIntegrityDiagnosisService: recoveryActuator with applyHeal() is required');
         }
     }
 }
