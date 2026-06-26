@@ -1,11 +1,11 @@
 import {test, expect} from '@playwright/test';
 import {
-    anyRepairAborted,
     anyRepairNonClean,
     assertDefragTargetSupported,
     createUnrecoverablePreview,
     formatMemoryCoreRepairProgress,
     formatUnrecoverablePreview,
+    promoteLoadedShadowCollection,
     repairMemoryCoreCollectionViaResumableShadow,
     repairMemoryCoreCollectionsViaFullEnumeration,
     runDefragChromaDBCli
@@ -311,7 +311,7 @@ test.describe('repairMemoryCoreCollectionsViaFullEnumeration (#14020)', () => {
         expect(logs.some(message => message.includes(
             'Reasons: b (metadata-row-missing: id was absent from the Chroma documents/metadatas read)'
         ))).toBe(true);
-        expect(anyRepairAborted(results)).toBe(true);
+        expect(anyRepairNonClean(results)).toBe(true);
     });
 
     test('throws when the enumeration returns no coverage row for a requested collection', async () => {
@@ -615,23 +615,87 @@ test.describe('assertDefragTargetSupported — Memory Core opt-in gate (#14020)'
     });
 });
 
-test.describe('anyRepairAborted — operator fail-loud predicate (#14020)', () => {
-    test('true when any collection aborted — the CLI exits non-zero on this', () => {
-        expect(anyRepairAborted([
-            {collectionName: 'mc-memory', promotion: {}},
-            {collectionName: 'mc-graph',  aborted: true, unrecoverable: ['x'], counts: {unrecoverable: 1}}
-        ])).toBe(true);
+test.describe('promoteLoadedShadowCollection — retained-parking lifecycle (#14068)', () => {
+    const embeddingFunction = {name: 'dummy'};
+
+    // Minimal Chroma double: getCollection returns the live collection until the shadow is promoted
+    // onto the canonical name, then returns the promoted shadow. Records deletes + state-marker phases
+    // so a test can assert the retained-vs-deleted parking behavior of the partial-promotion path.
+    function makePromoteHarness({sourceIds = ['a', 'b']} = {}) {
+        const states = [], deletedCollections = [];
+
+        function makeCollection(name) {
+            return {
+                name,
+                async count()                   { return sourceIds.length },
+                async get({ids = []} = {})      { return {ids} },
+                async modify({name: newName})   { this.name = newName }
+            }
+        }
+
+        const live   = makeCollection('mc-memory'),
+              shadow = makeCollection('mc-memory-shadow'),
+              client = {
+                  async getCollection({name}) {
+                      if (name === 'mc-memory') {
+                          return shadow.name === 'mc-memory' ? shadow : live
+                      }
+                      throw new Error(`unexpected getCollection(${name})`)
+                  },
+                  async deleteCollection({name}) { deletedCollections.push(name) }
+              };
+
+        return {
+            client, deletedCollections, shadow, sourceIds, states,
+            writeStateFn: async ({state}) => { states.push(state) }
+        }
+    }
+
+    test('deleteParking:false retains the parked source and records parking-retained', async () => {
+        const harness = makePromoteHarness();
+
+        const result = await promoteLoadedShadowCollection({
+            client          : harness.client,
+            collectionName  : 'mc-memory',
+            shadowCollection: harness.shadow,
+            shadowName      : 'mc-memory-shadow',
+            sourceIds       : harness.sourceIds,
+            embeddingFunction,
+            statePath       : '/state',
+            deleteParking   : false,
+            timestamp       : 123,
+            uuidFactory     : () => 'uuid-1',
+            writeStateFn    : harness.writeStateFn
+        });
+
+        expect(harness.deletedCollections).toEqual([]);
+        expect(result.parkingDeleted).toBe(false);
+        expect(harness.states.some(state => state.phase === 'parking-retained')).toBe(true);
+        expect(harness.states.some(state => state.phase === 'parking-deleted')).toBe(false);
+        expect(harness.states.find(state => state.phase === 'parking-retained').parkingName).toMatch(/^mc-memory-parking-/);
     });
 
-    test('false when every collection promoted cleanly', () => {
-        expect(anyRepairAborted([
-            {collectionName: 'mc-memory', promotion: {}},
-            {collectionName: 'mc-graph',  promotion: {}}
-        ])).toBe(false);
-    });
+    test('deleteParking:true (default) deletes the parked source and records parking-deleted', async () => {
+        const harness = makePromoteHarness();
 
-    test('false for an empty result set', () => {
-        expect(anyRepairAborted([])).toBe(false);
+        const result = await promoteLoadedShadowCollection({
+            client          : harness.client,
+            collectionName  : 'mc-memory',
+            shadowCollection: harness.shadow,
+            shadowName      : 'mc-memory-shadow',
+            sourceIds       : harness.sourceIds,
+            embeddingFunction,
+            statePath       : '/state',
+            timestamp       : 123,
+            uuidFactory     : () => 'uuid-1',
+            writeStateFn    : harness.writeStateFn
+        });
+
+        expect(harness.deletedCollections).toHaveLength(1);
+        expect(harness.deletedCollections[0]).toMatch(/^mc-memory-parking-/);
+        expect(result.parkingDeleted).toBe(true);
+        expect(harness.states.some(state => state.phase === 'parking-deleted')).toBe(true);
+        expect(harness.states.some(state => state.phase === 'parking-retained')).toBe(false);
     });
 });
 
