@@ -27,7 +27,7 @@ const MC_REPAIR_STRATEGY_VERSION = 'mc-repair-v1';
  * @param {Object} config The resolved target config (`{embeddingProvider, ...}`).
  * @returns {Object} `{strategyVersion, provider, contextBudget, terminalReasons}`.
  */
-function buildMemoryCoreRecoveryContext(config) {
+export function buildMemoryCoreRecoveryContext(config) {
     return {
         strategyVersion: MC_REPAIR_STRATEGY_VERSION,
         provider       : config?.embeddingProvider ?? '',
@@ -42,7 +42,7 @@ function buildMemoryCoreRecoveryContext(config) {
  * @param {String} statePath The defrag durable state-marker path.
  * @returns {String}
  */
-function acceptedLossAckDir(statePath) {
+export function acceptedLossAckDir(statePath) {
     return path.join(path.dirname(statePath), 'accepted-loss-acks');
 }
 
@@ -84,6 +84,47 @@ async function acknowledgeOperatorAcceptedLoss({targetName, config, statePath, o
     });
 
     console.log(`✅ Acknowledged accepted-loss for ${acknowledged.length} collection(s): ${acknowledged.map(a => `${a.collection} (${a.residueCount} row(s))`).join(', ')}. Re-run the repair to settle it as accepted-loss.`);
+}
+
+/**
+ * @summary Settles an operator-acknowledged partial-promotion on a rerun: when the durable state marker is
+ * `memory-core-repair-partial-promoted` and its residue is operator-acknowledged accepted-loss, it clears the
+ * marker and reports success (the caller returns → exit 0) instead of aborting at the incomplete-state guard.
+ * This is what makes the operator workflow reachable end-to-end: repair → partial-promotion (exit 1 + marker)
+ * → `--acknowledge-accepted-loss` → rerun. Returns false when there is nothing acknowledged to settle (no
+ * marker, not a partial-promotion, or unacknowledged/stale residue) — the caller then proceeds to the normal
+ * incomplete-state guard, which escalates an unacknowledged partial-promotion.
+ *
+ * @param {Object} options
+ * @param {Object} options.config Resolved target config (for the shared recovery context).
+ * @param {String} options.statePath Defrag durable state-marker path.
+ * @returns {Promise<Boolean>} True when settled (the caller should return); false to proceed to the guard.
+ */
+export async function settleAcknowledgedPartialPromotion({config, statePath} = {}) {
+    const state = statePath && await fs.pathExists(statePath) ? await fs.readJson(statePath) : null;
+
+    if (!state || state.phase !== 'memory-core-repair-partial-promoted' || !state.unrecoverableByCollection) {
+        return false;
+    }
+
+    const partialResults = Object.entries(state.unrecoverableByCollection).map(
+        ([collectionName, unrecoverable]) => ({collectionName, partialPromoted: true, unrecoverable})
+    );
+
+    const {acceptedLoss, perCollection} = await resolveAcceptedLossExit({
+        results        : partialResults,
+        dryRun         : false,
+        recoveryContext: buildMemoryCoreRecoveryContext(config),
+        readAck        : fingerprint => readAcceptedLossAckByFingerprint({fingerprint, dir: acceptedLossAckDir(statePath)})
+    });
+
+    if (!acceptedLoss) {
+        return false;
+    }
+
+    await clearDefragState({statePath});
+    console.log(`✅ Memory Core repair: the partial-promotion residue is operator-acknowledged accepted-loss for ${perCollection.map(entry => entry.collection).join(', ')} — recovered rows are durable; clearing the state marker and settling clean.`);
+    return true;
 }
 
 /**
@@ -1515,6 +1556,15 @@ async function defragChromaDB() {
         }
 
         assertDefragTargetSupported({targetName, allowMemoryCore: options.allowMemoryCore});
+
+        // A rerun over an operator-acknowledged partial-promotion settles as accepted-loss (clear the marker +
+        // exit 0) rather than aborting at the incomplete-state guard below — the repair → acknowledge → rerun
+        // workflow. An unacknowledged partial-promotion falls through to the guard, which escalates it.
+        if (targetName === 'memory-core' && options.allowMemoryCore &&
+            await settleAcknowledgedPartialPromotion({config, statePath})) {
+            return;
+        }
+
         const resumeState = await assertNoIncompleteDefragState({
             statePath,
             allowedPhases: targetName === 'memory-core' && options.allowMemoryCore ? [
