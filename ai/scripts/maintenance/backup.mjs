@@ -1,19 +1,19 @@
-import {execFile}       from 'child_process';
-import fs               from 'fs-extra';
-import path             from 'path';
-import {promisify}      from 'util';
-import {fileURLToPath}  from 'url';
+import {execFile}      from 'child_process';
+import fs              from 'fs-extra';
+import path            from 'path';
+import {promisify}     from 'util';
+import {fileURLToPath} from 'url';
 
 // Neo namespace bootstrap (entry-point invariant) for the operator-runnable backup driver.
 // `Neo` + `core/_export` populate
 // `globalThis.Neo`; `InstanceManager` binds Neo.find/findFirst/get aliases +
 // consumes pre-singleton `Neo.idMap`.
-import Neo              from '../../../src/Neo.mjs';
-import * as core        from '../../../src/core/_export.mjs';
-import InstanceManager  from '../../../src/manager/Instance.mjs';
-import AiConfig         from '../../config.mjs';
-import kbConfig         from '../../mcp/server/knowledge-base/config.mjs';
-import mcConfig         from '../../mcp/server/memory-core/config.mjs';
+import Neo             from '../../../src/Neo.mjs';
+import * as core       from '../../../src/core/_export.mjs';
+import InstanceManager from '../../../src/manager/Instance.mjs';
+import AiConfig        from '../../config.mjs';
+import kbConfig        from '../../mcp/server/knowledge-base/config.mjs';
+import mcConfig        from '../../mcp/server/memory-core/config.mjs';
 
 import {
     KB_DatabaseService,
@@ -157,7 +157,7 @@ export async function runBackup({
     sentToCullSourceFile   = DEFAULT_SENT_TO_CULL_FILE,
     logger                 = console
 } = {}) {
-    const timestamp    = new Date().toISOString().replace(/:/g, '-');
+    const timestamp = new Date().toISOString().replace(/:/g, '-');
     const resolvedRoot = bundleRoot ?? path.join(DEFAULT_BACKUP_ROOT, `backup-${timestamp}`);
 
     const layout = {
@@ -214,7 +214,7 @@ export async function runBackup({
     await cleanOldBackups(DEFAULT_BACKUP_ROOT, logger, resolveBackupRetention());
 
     logger.log('Verifying bundle integrity (row-count parity)...');
-    const integrity = await verifyBundleIntegrity(layout, subsystems);
+    const integrity    = await verifyBundleIntegrity(layout, subsystems);
     const failedChecks = integrity.filter(check => check.status === 'fail');
     if (failedChecks.length > 0) {
         throw new Error(
@@ -223,10 +223,23 @@ export async function runBackup({
         );
     }
 
+    const emptyChecks = integrity.filter(check => check.status === 'empty');
+    if (emptyChecks.length > 0) {
+        // Non-fatal (a fresh environment legitimately backs up empty subsystems), but loud: a zero-row
+        // export from a normally-populated deployment is the gutted-store signature, and a backup of an
+        // empty store is a false recovery source. The 'empty' status is carried in bundle-meta.integrity
+        // for a downstream canary/alert to escalate on.
+        logger.warn?.(
+            `[Backup] ${emptyChecks.length} subsystem(s) exported ZERO rows — empty backup is not a usable ` +
+            `recovery source: ${emptyChecks.map(c => c.subsystem).join(', ')}. Legitimate for a fresh ` +
+            `environment; corruption-suspicious for a populated deployment.`
+        );
+    }
+
     const completedAt = new Date().toISOString();
     const topology    = buildTopologyDescriptor();
     const versionInfo = await buildVersionDescriptor(PROJECT_ROOT, logger);
-    const meta = {
+    const meta        = {
         bundleVersion: 1,
         timestamp,
         completedAt,
@@ -246,7 +259,11 @@ export async function runBackup({
  * bundle. For subsystems whose `manageDatabaseBackup({action: 'export'})` SDK call returns a
  * numeric count (KB, MC memories+summaries, MC graph), this function counts non-empty lines
  * in the bundle's JSONL files and compares — mismatch indicates a partial/torn write that the
- * caller treats as a fail-the-bundle condition.
+ * caller treats as a fail-the-bundle condition. Zero-zero parity (source and bundle both empty) is
+ * reported as `empty`, not `pass`: a backup of an empty/gutted store is surfaced non-fatally because
+ * it is not a usable recovery source (a fresh environment is legitimately empty; a populated
+ * deployment reporting zero rows is the gutted-store signature). `runBackup` warns on `empty`
+ * subsystems and persists the status into `bundle-meta.integrity` for a downstream canary/alert.
  *
  * For file-copy subsystems (concepts, trajectories, mailbox) the source side has no
  * authoritative count to compare against — `copyJsonlSource`'s reported `copied` field
@@ -254,7 +271,7 @@ export async function runBackup({
  *
  * @param {Object} layout     The bundle's per-subsystem destination directory map.
  * @param {Object} subsystems The runBackup `subsystems` map of SDK return values.
- * @returns {Promise<Array<{subsystem: String, status: String, sourceCount: Number, bundleCount: Number, reason: String}>>} `status` is `pass` / `fail` / `skipped`; count + reason fields present per status.
+ * @returns {Promise<Array<{subsystem: String, status: String, sourceCount: Number, bundleCount: Number, reason: String}>>} `status` is `pass` (positive row-count parity) / `empty` (source and bundle both zero — non-fatal, not a usable recovery source) / `fail` (row-count mismatch) / `skipped` (non-numeric source count); count + reason fields present per status.
  */
 export async function verifyBundleIntegrity(layout, subsystems) {
     const verifiable = ['kb', 'mc', 'graph'];
@@ -276,8 +293,8 @@ export async function verifyBundleIntegrity(layout, subsystems) {
             continue;
         }
 
-        const files = (await fs.readdir(dir)).filter(f => f.endsWith('.jsonl'));
-        let bundleCount = 0;
+        const files       = (await fs.readdir(dir)).filter(f => f.endsWith('.jsonl'));
+        let   bundleCount = 0;
 
         for (const file of files) {
             const content = await fs.readFile(path.join(dir, file), 'utf8');
@@ -285,7 +302,20 @@ export async function verifyBundleIntegrity(layout, subsystems) {
         }
 
         if (bundleCount === sourceCount) {
-            checks.push({subsystem, status: 'pass', sourceCount, bundleCount});
+            // Empty-parity is NOT a healthy pass: a backup whose source AND bundle are both empty is
+            // not a usable recovery source. Legitimate for a fresh environment, but for a normally-
+            // populated deployment a zero-row export is the gutted-store signature (the corruption a
+            // backup is supposed to survive) — surface it as 'empty' (visible, non-fatal) rather than
+            // a silent 'pass' so a downstream canary/alert can act on bundle-meta.integrity.
+            const status = sourceCount === 0 ? 'empty' : 'pass';
+            const entry  = {subsystem, status, sourceCount, bundleCount};
+
+            if (status === 'empty') {
+                entry.reason = 'source and bundle both report zero rows — empty backup is not a usable ' +
+                    'recovery source (fresh-env legitimate; populated-deployment corruption-suspicious)';
+            }
+
+            checks.push(entry);
         } else {
             checks.push({
                 subsystem,
@@ -314,7 +344,7 @@ export async function verifyBundleIntegrity(layout, subsystems) {
 function buildTopologyDescriptor() {
     return {
         shared_topology: true,
-        kbChromaCoords: {
+        kbChromaCoords : {
             host: kbConfig.host    ?? null,
             port: kbConfig.port    ?? null,
             path: kbConfig.path    ?? null
@@ -396,9 +426,9 @@ export async function cleanOldBackups(backupRoot, logger, retention = {}) {
         const tsMatch = entry.name.match(/^backup-(.+)$/);
         if (!tsMatch) continue;
 
-        const rawTs = tsMatch[1];
+        const rawTs   = tsMatch[1];
         const isoTime = rawTs.replace(/T(\d{2})-(\d{2})-(\d{2})/, 'T$1:$2:$3');
-        const date = new Date(isoTime);
+        const date    = new Date(isoTime);
 
         if (!isNaN(date.getTime())) {
             backups.push({
@@ -412,16 +442,16 @@ export async function cleanOldBackups(backupRoot, logger, retention = {}) {
 
     backups.sort((a, b) => b.time - a.time);
 
-    const K = keepMinimum;
-    const N_DAYS = maxDays;
-    const now = Date.now();
+    const K           = keepMinimum;
+    const N_DAYS      = maxDays;
+    const now         = Date.now();
     const thresholdMs = N_DAYS * 24 * 60 * 60 * 1000;
 
     let deletedCount = 0;
 
     for (let i = K; i < backups.length; i++) {
         const backup = backups[i];
-        const ageMs = now - backup.time;
+        const ageMs  = now - backup.time;
         if (ageMs > thresholdMs) {
             try {
                 logger.log(`[Retention] Deleting old backup: ${backup.name} (age: ${Math.round(ageMs / 86400000)} days)`);
