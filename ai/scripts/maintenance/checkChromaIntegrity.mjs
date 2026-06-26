@@ -544,8 +544,8 @@ export async function probeStoredEmbeddingExportability({
         }
     }
 
-    const failures = [];
-    let succeeded  = 0;
+    const failures  = [];
+    let   succeeded = 0;
 
     for (const id of ids) {
         try {
@@ -577,6 +577,40 @@ export async function probeStoredEmbeddingExportability({
             failed : failures.length,
             failures
         }
+    }
+}
+
+/**
+ * @summary Audits a Chroma collection's stored-vector dimensions — the data-integrity dimension fact-gatherer
+ * the diagnostics runner imports to feed `buildDimensionConsistencyDiagnosis`. Samples up to `sampleSize`
+ * stored vectors and counts those whose dimension differs from the configured `expectedDimension`. A *missing*
+ * embedding is NOT a dimension mismatch — that is index-coverage's domain (`auditChromaVectorCoverage`); only a
+ * present vector of the wrong length counts. Returns the producer's per-collection `samples` element shape, 1:1.
+ * A probe failure surfaces as an `error` field with a zero count — it never throws into the runner.
+ *
+ * @param {Object} options
+ * @param {Object} options.collection Chroma collection handle (`.get({ids, limit, include})`).
+ * @param {String} options.collectionName The collection's name (carried into the sample for the diagnosis).
+ * @param {Number} options.expectedDimension The configured embedding dimension every stored vector must match.
+ * @param {Number} [options.sampleSize=100] Maximum stored vectors to sample.
+ * @returns {Promise<Object>} `{collection, expectedDimension, mismatchedVectorCount, sampledCount}` (+ `error` on probe failure).
+ */
+export async function auditCollectionVectorDimensions({collection, collectionName, expectedDimension, sampleSize = 100} = {}) {
+    try {
+        const {ids = []} = await collection.get({limit: sampleSize, include: []});
+
+        if (ids.length === 0) {
+            return {collection: collectionName, expectedDimension, mismatchedVectorCount: 0, sampledCount: 0};
+        }
+
+        const {embeddings = []} = await collection.get({ids, include: ['embeddings']}),
+              // A present vector whose length ≠ expectedDimension is corruption; a missing (null) embedding is
+              // index-coverage's domain (auditChromaVectorCoverage), not a dimension mismatch.
+              mismatchedVectorCount = embeddings.filter(embedding => Array.isArray(embedding) && embedding.length !== expectedDimension).length;
+
+        return {collection: collectionName, expectedDimension, mismatchedVectorCount, sampledCount: ids.length};
+    } catch (error) {
+        return {collection: collectionName, expectedDimension, mismatchedVectorCount: 0, sampledCount: 0, error: error.message};
     }
 }
 
@@ -765,7 +799,7 @@ function printHuman(result) {
         } else {
             console.log('Chroma vector coverage:');
             for (const collection of result.coverage.collections) {
-                const status   = collection.ok ? 'ok' : 'failed',
+                const status    = collection.ok ? 'ok' : 'failed',
                       duplicate = collection.duplicateCollectionName ? ' duplicate-name' : '';
 
                 console.log(`- ${collection.name} [${collection.collectionId}]: ${status}${duplicate} metadata=${collection.metadataRowCount} vector=${collection.vectorIndexIdCount} overlap=${collection.overlapCount} missing=${collection.missingFromVectorCount} extra=${collection.extraInVectorCount}`);
@@ -889,9 +923,9 @@ export async function run(argv = process.argv) {
         printHuman(result);
     }
 
-    const sqliteFailed = result.sqlite.checks.some(check => !check.ok),
+    const sqliteFailed   = result.sqlite.checks.some(check => !check.ok),
           coverageFailed = Boolean(result.coverage?.error || result.coverage?.failedCollections),
-          apiFailed    = Boolean(result.api?.error || result.api?.failedSteps);
+          apiFailed      = Boolean(result.api?.error || result.api?.failedSteps);
 
     return {
         result,
