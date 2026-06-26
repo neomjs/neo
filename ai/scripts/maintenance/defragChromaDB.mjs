@@ -719,6 +719,7 @@ export async function rewriteCollectionViaShadowPromotion({
  * @param {Object} options.embeddingFunction Chroma embedding function.
  * @param {String} options.statePath Durable state marker path.
  * @param {Object} [options.stateBase] Stable fields written into every phase marker.
+ * @param {Boolean} [options.deleteParking=true] Delete parked source collection after validation.
  * @param {Number} [options.timestamp=Date.now()] Stable run timestamp.
  * @param {Function} [options.uuidFactory=crypto.randomUUID] Unique id factory.
  * @param {Function} [options.writeStateFn=writeDefragState] State writer seam.
@@ -734,6 +735,7 @@ export async function promoteLoadedShadowCollection({
     embeddingFunction,
     statePath,
     stateBase   = {},
+    deleteParking = true,
     timestamp   = Date.now(),
     uuidFactory = crypto.randomUUID,
     writeStateFn = writeDefragState,
@@ -778,12 +780,16 @@ export async function promoteLoadedShadowCollection({
         await validateLoadedCollectionByIds({collection: canonicalCollection, ids: sourceIds, collectionName});
         await writeStateFn({statePath, state: {...baseState, phase: 'canonical-validated'}});
 
-        try {
-            await client.deleteCollection({name: parkingName});
-            parkingDeleted = true;
-            await writeStateFn({statePath, state: {...baseState, phase: 'parking-deleted'}});
-        } catch (error) {
-            warn(`   ⚠️  Could not delete parked pre-defrag collection '${parkingName}': ${error.message}`);
+        if (deleteParking) {
+            try {
+                await client.deleteCollection({name: parkingName});
+                parkingDeleted = true;
+                await writeStateFn({statePath, state: {...baseState, phase: 'parking-deleted'}});
+            } catch (error) {
+                warn(`   ⚠️  Could not delete parked pre-defrag collection '${parkingName}': ${error.message}`);
+            }
+        } else {
+            await writeStateFn({statePath, state: {...baseState, phase: 'parking-retained'}});
         }
 
         return {
@@ -968,6 +974,53 @@ export async function repairMemoryCoreCollectionViaResumableShadow({
     });
 
     if (unrecoverable.length > 0) {
+        const recoveredIds = await listIdsFn({collection: shadowCollection});
+
+        if (recoveredIds.length > 0) {
+            await writeStateFn({
+                statePath,
+                state: {
+                    ...baseState,
+                    phase               : 'memory-core-repair-shadow-loaded',
+                    partial             : true,
+                    shadowName,
+                    loadedCount,
+                    recoveredCount      : recoveredIds.length,
+                    unrecoverableCount  : unrecoverable.length,
+                    unrecoverablePreview: unrecoverable.slice(0, 20),
+                    unrecoverable,
+                    counts
+                }
+            });
+
+            log(`   🚚 '${collectionName}': partial shadow promotion starting for ${recoveredIds.length}/${sourceCount} recovered row(s); ${unrecoverable.length} unrecoverable row(s) stay in parked source...`);
+            const promotion = await promoteLoadedFn({
+                client,
+                collectionName,
+                shadowCollection,
+                shadowName,
+                sourceIds    : recoveredIds,
+                embeddingFunction,
+                statePath,
+                stateBase,
+                deleteParking: false,
+                writeStateFn
+            });
+            log(`   ⚠️  '${collectionName}': partial shadow promotion complete; parked source retained as '${promotion.parkingName}'.`);
+
+            return {
+                collectionName,
+                partialPromoted: true,
+                promotion,
+                unrecoverable,
+                counts,
+                shadowName,
+                loadedCount,
+                recoveredCount : recoveredIds.length,
+                sourceCount
+            }
+        }
+
         await writeStateFn({
             statePath,
             state: {
@@ -1039,14 +1092,16 @@ export async function repairMemoryCoreCollectionViaResumableShadow({
  *      still-materializing documents (`extractMemoryCoreCollectionData`);
  *   3. streams recovered batches into a resumable shadow collection, then promotes that loaded shadow.
  *
- * Fail-loud: a collection with ANY unrecoverable row (document-less / metadata-absent) aborts its
- * own promotion with counts — never a silent partial promote. The seams (`auditFn` / `extractFn` /
+ * Fail-loud: a collection with unrecoverable rows promotes recovered rows only when the shadow already
+ * contains recoverable data, retains the parked source, and returns a non-clean partial result. It aborts
+ * only when there is no recoverable shadow to promote. The seams (`auditFn` / `extractFn` /
  * `repairCollectionFn` / `clearStateFn` / `writeStateFn`) are injectable for unit isolation.
  *
  * State-marker lifecycle: the mutating repair writes durable per-phase markers, so a fully successful repair
  * CLEARS the marker (`clearStateFn`) before returning — else the next run aborts as DEFRAG_INCOMPLETE_STATE.
- * An aborted/partial repair instead rewrites an explicit `memory-core-repair-aborted` marker (`writeStateFn`)
- * with the active shadow name so the next run can retry only the unrecovered rows.
+ * An aborted repair rewrites an explicit `memory-core-repair-aborted` marker (`writeStateFn`) with the active
+ * shadow name. A partial-promoted repair rewrites `memory-core-repair-partial-promoted` with the retained
+ * parking collection and full unrecoverable manifest.
  *
  * This function is INERT until wired behind the explicit `--allow-memory-core` opt-in; the default
  * `assertDefragTargetSupported` fail-closed stands until then.
@@ -1066,11 +1121,13 @@ export async function repairMemoryCoreCollectionViaResumableShadow({
  * @param {Function} [options.repairCollectionFn=repairMemoryCoreCollectionViaResumableShadow] Mutating repair seam.
  * @param {Object|null} [options.resumeState=null] Resumable defrag state returned by `assertNoIncompleteDefragState`.
  * @param {Function} [options.clearStateFn=clearDefragState] Clears the durable marker on a fully successful repair.
- * @param {Function} [options.writeStateFn=writeDefragState] Rewrites the explicit aborted marker on a partial repair.
+ * @param {Function} [options.writeStateFn=writeDefragState] Rewrites explicit non-clean repair markers.
  * @param {Function} [options.log=console.log] Log sink.
  * @returns {Promise<{results: Object[]}>} Per collection: `{collectionName, promotion, counts}` on success,
- *   `{collectionName, dryRun: true, counts}` on clean dry-run, or
- *   `{collectionName, aborted: true, unrecoverable, counts}` when fail-loud aborts the promotion/report.
+ *   `{collectionName, dryRun: true, counts}` on clean dry-run,
+ *   `{collectionName, partialPromoted: true, unrecoverable, counts}` when recovered rows were promoted but
+ *   unrecoverable rows remain, or `{collectionName, aborted: true, unrecoverable, counts}` when fail-loud
+ *   aborts the promotion/report.
  */
 export async function repairMemoryCoreCollectionsViaFullEnumeration({
     client,
@@ -1178,27 +1235,41 @@ export async function repairMemoryCoreCollectionsViaFullEnumeration({
             break;
         }
 
+        if (result.partialPromoted) {
+            log(`   ⚠️  '${collectionName}': partial repair promoted ${result.recoveredCount}/${result.sourceCount} recovered row(s); ${result.unrecoverable.length} unrecoverable row(s) remain in retained parking '${result.promotion?.parkingName}'. Counts: ${JSON.stringify(result.counts)}`);
+        }
+
         results.push(result);
     }
 
     // State-marker lifecycle (mirrors the KB path's end-of-run clearDefragState): rewriteCollectionViaShadowPromotion
     // wrote durable per-phase markers, so a fully successful repair MUST clear the marker — else the next run aborts
-    // as DEFRAG_INCOMPLETE_STATE. An aborted/partial repair instead rewrites an explicit aborted marker with
-    // the active shadow name, so the next run can resume without discarding already loaded batches.
+    // as DEFRAG_INCOMPLETE_STATE. Aborted/partial repairs instead rewrite explicit non-clean markers, preserving
+    // either the active shadow resume handle or the retained parking collection + unrecoverable manifest.
     if (statePath && !dryRun) {
-        if (anyRepairAborted(results)) {
-            const activeAbort = results.find(result => result.aborted);
+        if (anyRepairNonClean(results)) {
+            const activeNonClean            = results.find(result => result.aborted || result.partialPromoted),
+                  unrecoverableByCollection = Object.fromEntries(
+                      results
+                          .filter(result => result.aborted || result.partialPromoted)
+                          .map(result => [result.collectionName, result.unrecoverable || []])
+                  );
 
             await writeStateFn({statePath, state: {
                 ...stateBase,
-                phase               : 'memory-core-repair-aborted',
-                collectionName      : activeAbort?.collectionName,
-                shadowName          : activeAbort?.shadowName,
-                sourceCount         : activeAbort?.sourceCount,
-                loadedCount         : activeAbort?.loadedCount,
-                unrecoverableCount  : activeAbort?.unrecoverable?.length,
-                unrecoverablePreview: createUnrecoverablePreview(activeAbort?.unrecoverable),
+                phase               : activeNonClean?.partialPromoted ? 'memory-core-repair-partial-promoted' : 'memory-core-repair-aborted',
+                collectionName      : activeNonClean?.collectionName,
+                shadowName          : activeNonClean?.shadowName,
+                parkingName         : activeNonClean?.promotion?.parkingName,
+                sourceCount         : activeNonClean?.sourceCount,
+                loadedCount         : activeNonClean?.loadedCount,
+                recoveredCount      : activeNonClean?.recoveredCount,
+                unrecoverableCount  : activeNonClean?.unrecoverable?.length,
+                unrecoverablePreview: createUnrecoverablePreview(activeNonClean?.unrecoverable),
+                unrecoverable       : activeNonClean?.unrecoverable || [],
+                unrecoverableByCollection,
                 aborted             : results.filter(result => result.aborted).map(result => result.collectionName),
+                partialPromoted     : results.filter(result => result.partialPromoted).map(result => result.collectionName),
                 promoted            : results.filter(result => result.promotion).map(result => result.collectionName)
             }});
         } else {
@@ -1307,6 +1378,19 @@ export function formatUnrecoverablePreview(entries = [], {limit = 5} = {}) {
  */
 export function anyRepairAborted(results = []) {
     return results.some(result => result?.aborted === true);
+}
+
+/**
+ * @summary True when any repair result is non-clean (aborted or partial-promoted).
+ *
+ * The CLI must exit non-zero for both classes: aborted means no promotion happened; partial-promoted means
+ * recovered rows were promoted durably, but unrecoverable rows remain in a retained parked source.
+ *
+ * @param {Object[]} [results=[]] Per-collection results from `repairMemoryCoreCollectionsViaFullEnumeration`.
+ * @returns {Boolean}
+ */
+export function anyRepairNonClean(results = []) {
+    return results.some(result => result?.aborted === true || result?.partialPromoted === true);
 }
 
 /**
@@ -1431,21 +1515,25 @@ async function defragChromaDB() {
             for (const result of results) {
                 console.log(result.aborted
                     ? `   ⚠️  ${result.collectionName}: ${dryRun ? 'DRY-RUN WOULD ABORT' : 'ABORTED'} — ${result.unrecoverable.length} unrecoverable row(s); counts ${JSON.stringify(result.counts)}`
-                    : dryRun
-                        ? `   🧪 ${result.collectionName}: dry-run report clean; no promotion; counts ${JSON.stringify(result.counts)}`
-                        : `   ✅ ${result.collectionName}: repaired + promoted; counts ${JSON.stringify(result.counts)}`);
+                    : result.partialPromoted
+                        ? `   ⚠️  ${result.collectionName}: PARTIAL PROMOTED — ${result.recoveredCount}/${result.sourceCount} recovered row(s), ${result.unrecoverable.length} unrecoverable row(s), parked source retained at ${result.promotion?.parkingName}; counts ${JSON.stringify(result.counts)}`
+                        : dryRun
+                            ? `   🧪 ${result.collectionName}: dry-run report clean; no promotion; counts ${JSON.stringify(result.counts)}`
+                            : `   ✅ ${result.collectionName}: repaired + promoted; counts ${JSON.stringify(result.counts)}`);
             }
 
             const finalSize = await getDirSize(DB_PATH);
             console.log(`   📊 Final Size: ${(finalSize / 1024 / 1024).toFixed(2)} MB`);
 
-            // Fail loud at the operator boundary: an aborted collection is NOT a successful repair
+            // Fail loud at the operator boundary: non-clean repair work is NOT a successful repair
             // (mirrors the KB extractionErrors / hasRestoreErrors -> process.exit(1) discipline below).
-            if (anyRepairAborted(results)) {
-                const abortedNames = results.filter(result => result.aborted).map(result => result.collectionName);
+            if (anyRepairNonClean(results)) {
+                const abortedNames  = results.filter(result => result.aborted).map(result => result.collectionName),
+                      partialNames  = results.filter(result => result.partialPromoted).map(result => result.collectionName),
+                      nonCleanNames = [...abortedNames, ...partialNames];
                 console.error(dryRun
                     ? `❌ Memory Core repair dry-run found unrecoverable rows for ${abortedNames.join(', ')} — no promotion was attempted; resolve the unrecoverable rows before running the mutating repair. Counts and reasons logged above.`
-                    : `❌ Memory Core repair aborted for ${abortedNames.join(', ')} (unrecoverable rows) — NOT a successful repair; resolve the unrecoverable rows and re-run. Counts and reasons logged above.`);
+                    : `❌ Memory Core repair non-clean for ${nonCleanNames.join(', ')} (aborted: ${abortedNames.join(', ') || 'none'}; partial-promoted: ${partialNames.join(', ') || 'none'}) — recovered rows are durable where partial-promoted, but this is NOT a successful repair. Resolve unrecoverable rows using the retained parking/source state. Counts and reasons logged above.`);
                 process.exit(1);
             }
             return;
