@@ -54,6 +54,27 @@ test.describe('Neo.ai.services.memory-core.managers.ChromaManager', () => {
         expect(resolved).toEqual({host: 'localhost', port: 8000, database: 'some-explicit-db'});
     });
 
+    test('assertCollectionNotProdBleed: a test-named collection in the production database is refused (#14031/#14044)', () => {
+        // The bleed signature: test isolation routed the collection NAME to a test variant
+        // (test-*) but the DATABASE fell back to production. Refuse at the collection boundary.
+        expect(() => ChromaManager.assertCollectionNotProdBleed({
+            name: 'test-memory-123-abc', database: CHROMA_PRODUCTION_DATABASE
+        })).toThrow(/collection-boundary test-write isolation/);
+
+        // A production-NAMED collection in the production database is NOT refused — the legitimate
+        // fresh-workspace / cloud daemon case: prod coordinates + prod-named collections, inheriting
+        // Playwright's TEST_WORKER_INDEX, must boot without tripping the guard (the resolver-level
+        // db-name guard wrongly blocked this; the collection-name discriminator fixes it).
+        expect(() => ChromaManager.assertCollectionNotProdBleed({
+            name: 'neo-agent-memory', database: CHROMA_PRODUCTION_DATABASE
+        })).not.toThrow();
+
+        // A test-named collection in an isolated TEST database is the normal unit-test path — allowed.
+        expect(() => ChromaManager.assertCollectionNotProdBleed({
+            name: 'test-memory-123-abc', database: CHROMA_TEST_DATABASE
+        })).not.toThrow();
+    });
+
     test('under UNIT_TEST_MODE Chroma uses an isolated daemon, data dir, and database (#14010)', () => {
         // The spec runs with unitTestMode:true, so the config leaf must resolve to the dedicated
         // test coordinates by construction. No interrupted unit run can create collections in the
