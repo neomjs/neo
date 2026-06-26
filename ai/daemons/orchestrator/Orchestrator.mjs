@@ -33,6 +33,8 @@ import DeploymentRuntimeAccessService                                           
 import DeploymentStateBridgeService                                             from './services/DeploymentStateBridgeService.mjs';
 import RecoveryActuatorService                                                  from './services/RecoveryActuatorService.mjs';
 import ContainerHealthDiagnosisService                                          from './services/ContainerHealthDiagnosisService.mjs';
+import DataIntegrityDiagnosisService                                            from './services/DataIntegrityDiagnosisService.mjs';
+import {auditChromaVectorCoverage}                                              from '../../scripts/maintenance/checkChromaIntegrity.mjs';
 import DreamService                                                             from './services/DreamService.mjs';
 import SwarmHeartbeatService                                                    from './services/SwarmHeartbeatService.mjs';
 import GoldenPathSynthesizer                                                    from '../../services/graph/GoldenPathSynthesizer.mjs';
@@ -112,6 +114,7 @@ export class Orchestrator extends Base {
         deploymentStateBridgeService_   : null,
         recoveryActuatorService_        : null,
         containerHealthDiagnosisService_: null,
+        dataIntegrityDiagnosisService_  : null,
         maintenanceBackpressureService_ : MaintenanceBackpressureService,
         dataDir_                        : DEFAULT_DATA_DIR,
         taskDefinitions_                : null,
@@ -344,6 +347,18 @@ export class Orchestrator extends Base {
         });
     }
 
+    /**
+     * @param {Neo.ai.daemons.services.DataIntegrityDiagnosisService|Object|null} value
+     * @returns {Neo.ai.daemons.services.DataIntegrityDiagnosisService}
+     */
+    beforeSetDataIntegrityDiagnosisService(value) {
+        return ClassSystemUtil.beforeSetInstance(value, DataIntegrityDiagnosisService, {
+            serviceId       : this.dataIntegrityServiceId,
+            recoveryActuator: this.recoveryActuatorService,
+            coverageGatherer: this.dataIntegrityCoverageGatherer
+        });
+    }
+
     afterSetDataDir(value, oldValue) {
         if (oldValue === undefined) return;
         this.processSupervisorService.dataDir          = value;
@@ -423,6 +438,22 @@ export class Orchestrator extends Base {
     get embedDrainLivenessWatchdogThresholdMs() { return memoryCoreConfig.memoryWal.embedDrainStallThresholdMs; }
     get remConsolidationWatchdogRunStateDir()   { return memoryCoreConfig.remRunStateDir; }
     get remConsolidationWatchdogThresholdMs()   { return memoryCoreConfig.remConsolidationStallThresholdMs; }
+    /** @summary The Memory Core compose-service id targeted by data-integrity diagnoses. */
+    get dataIntegrityServiceId() { return 'mc-server'; }
+    /**
+     * @summary Builds the read-only Chroma vector-coverage gatherer for the data-integrity sweep, bound
+     * to the unified Chroma persist dir (AiConfig SSOT leaf, read here at the use-site per the config-SSOT
+     * discipline) over the Memory Core collections.
+     * @returns {Function} `() => Promise<{collections:Object[]}>`
+     */
+    get dataIntegrityCoverageGatherer() {
+        const dataDir = AiConfig.engines.chroma.dataDir;
+        return () => auditChromaVectorCoverage({
+            snapshotPath   : path.join(dataDir, 'chroma.sqlite3'),
+            persistDir     : dataDir,
+            collectionNames: ['neo-agent-memory', 'neo-agent-sessions']
+        });
+    }
     get swarmHeartbeatEnabled()          { return resolveDeploymentEnabled('swarmHeartbeatEnabled');          }
     get goldenPathRepoEnrichmentEnabled(){ return resolveDeploymentEnabled('goldenPathRepoEnrichmentEnabled');}
     get graphLogCompactionEnabled()      { return AiConfig.orchestrator.graphLogCompaction.enabled;      }
@@ -483,6 +514,7 @@ export class Orchestrator extends Base {
         this.containerHealthDiagnosisService = {};
         this.deploymentStateBridgeService = {};
         this.recoveryActuatorService = {};
+        this.dataIntegrityDiagnosisService = {};
         this.processSupervisorService.recoverTasks();
 
         this.db = await this.initializeDatabaseFn(this.dbPath);
