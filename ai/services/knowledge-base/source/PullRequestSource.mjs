@@ -1,7 +1,8 @@
-import Base     from './Base.mjs';
-import fs       from 'fs-extra';
-import path     from 'path';
-import aiConfig from '../../../mcp/server/knowledge-base/config.mjs';
+import Base                              from './Base.mjs';
+import fs                                from 'fs-extra';
+import path                              from 'path';
+import aiConfig                          from '../../../mcp/server/knowledge-base/config.mjs';
+import {splitPullRequestArchiveMarkdown} from './pullRequestArchiveElementSplitter.mjs';
 
 /**
  * @summary Extracts knowledge chunks from locally synced Pull Request conversations.
@@ -63,9 +64,9 @@ class PullRequestSource extends Base {
         let count = 0;
         // Per-source paths (array) from the `sourcePaths` config (SSOT).
         const pullRequestPaths = aiConfig.sourcePaths.PullRequestSource;
-        const targetPaths = pullRequestPaths.map(p => path.resolve(aiConfig.neoRootDir, p));
+        const targetPaths      = pullRequestPaths.map(p => path.resolve(aiConfig.neoRootDir, p));
 
-        const indexMap = await loadIndexMap(aiConfig.neoRootDir, 'pulls');
+        const indexMap    = await loadIndexMap(aiConfig.neoRootDir, 'pulls');
         const contentRoot = path.resolve(aiConfig.neoRootDir, 'resources/content');
 
         for (const targetPath of targetPaths) {
@@ -75,7 +76,7 @@ class PullRequestSource extends Base {
 
                 for (const file of pullFiles) {
                     if (typeof file === 'string' && file.endsWith('.md')) {
-                        const filePath = path.join(targetPath, file);
+                        const filePath          = path.join(targetPath, file);
                         const relativeToContent = path.relative(contentRoot, filePath);
 
                         let id = indexMap.get(relativeToContent);
@@ -83,19 +84,28 @@ class PullRequestSource extends Base {
                             id = path.basename(file).replace('.md', '').replace(/^pr-/, '');
                         }
 
-                        const content  = await fs.readFile(filePath, 'utf-8');
-                        const chunk    = {
-                            type   : 'pull',
-                            kind   : 'pull',
-                            name   : `pr-${id}`,
-                            content,
-                            // Relative path keeps the distributed Chroma zip portable.
-                            source : path.relative(aiConfig.neoRootDir, filePath)
-                        };
+                        const content = await fs.readFile(filePath, 'utf-8');
+                        // Relative path keeps the distributed Chroma zip portable.
+                        const source = path.relative(aiConfig.neoRootDir, filePath);
+                        // Per-element chunks (body + each review/comment) keep a multi-round PR
+                        // under the embedding cap; a no-discussion PR yields one body chunk whose
+                        // content equals the whole file.
+                        const elements = splitPullRequestArchiveMarkdown(content);
 
-                        chunk.hash = createHashFn(chunk);
-                        writeStream.write(JSON.stringify(chunk) + '\n');
-                        count++;
+                        for (const element of elements) {
+                            const suffix = element.kind === 'body' ? 'body' : `${element.kind}-${element.ordinal}`;
+                            const chunk = {
+                                type: 'pull',
+                                kind: 'pull',
+                                name   : `pr-${id}#${suffix}`,
+                                content: element.content,
+                                source
+                            };
+
+                            chunk.hash = createHashFn(chunk);
+                            writeStream.write(JSON.stringify(chunk) + '\n');
+                            count++;
+                        }
                     }
                 }
             }
