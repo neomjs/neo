@@ -369,6 +369,38 @@ test.describe('AI provider keep_alive payload shape (#12080, #12089)', () => {
         }
     });
 
+    test('Ollama.embed() aborts a hung request at options.timeoutMs with a labeled timeout error (#14052)', async () => {
+        // Mirrors the chat timeout regression but exercises the native `/api/embed` transport.
+        const server = http.createServer((req) => {
+            req.on('data', () => {});
+            req.on('end', () => {/* intentionally never respond */});
+        });
+        await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+        const host = `http://127.0.0.1:${server.address().port}`;
+
+        try {
+            const provider = Neo.create(OllamaProvider, {
+                embeddingModel: 'qwen3-embedding-test',
+                host,
+                modelName: 'gemma4-test'
+            });
+
+            const error = await provider.embed('hello', {
+                timeoutMs     : 25,
+                operationLabel: 'native embedding probe'
+            }).then(() => null, e => e);
+
+            expect(error?.message).toMatch(
+                /\[Ollama\] native embedding probe timed out after 25ms \(host=http:\/\/127\.0\.0\.1:\d+, model=qwen3-embedding-test\)/
+            );
+            expect(error?.code).toBe('PROVIDER_TIMEOUT');
+            expect(error?.provider).toBe('Ollama');
+            expect(error?.timeoutMs).toBe(25);
+        } finally {
+            await new Promise(resolve => server.close(resolve));
+        }
+    });
+
     test('Ollama.generate() honors options.signal and aborts the in-flight request (#12814)', async () => {
         // A hung server (accepts but never responds) — so only an honored abort signal can end
         // the request quickly; the prior signal-stripping behavior would hang past the test.

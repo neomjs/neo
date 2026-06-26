@@ -1,13 +1,13 @@
 /**
- * @summary Shared interactive-timeout contract for the local chat providers.
+ * @summary Shared provider-timeout contract for local model requests.
  *
- * Both {@link Neo.ai.provider.OpenAiCompatible} and {@link Neo.ai.provider.Ollama}
- * throw the exact error shape produced here, so a caller can detect a provider
- * timeout via a single uniform `error.code` regardless of which provider served the
- * request. Housing the helper plus the documented `generate(options)` contract in one
- * module keeps the two parallel provider implementations from silently drifting apart
- * (their transport differs — `fetch` + `AbortController` vs node `http.request` — but
- * the observable contract here must stay uniform).
+ * Both {@link Neo.ai.provider.OpenAiCompatible} chat requests and native
+ * {@link Neo.ai.provider.Ollama} chat / embedding requests throw the exact error shape
+ * produced here, so a caller can detect a provider timeout via one uniform `error.code`
+ * regardless of which local provider served the request. Housing the helper plus the
+ * documented options contract in one module keeps the parallel provider implementations
+ * from silently drifting apart (their transports differ, but the observable contract here
+ * must stay uniform).
  *
  * @module Neo.ai.provider.createTimeoutError
  */
@@ -21,14 +21,13 @@
 const PROVIDER_TIMEOUT_CODE = 'PROVIDER_TIMEOUT';
 
 /**
- * @summary The shared interactive options contract honored by every local chat
- * provider's `generate(input, options)` / `stream(input, options)`.
+ * @summary The shared provider-request options contract honored by local providers.
  *
- * @typedef {Object} ProviderGenerateOptions
+ * @typedef {Object} ProviderTimeoutOptions
  * @property {Number} [timeoutMs] Abort the provider request after this many milliseconds.
  *     Unset/invalid falls back to the provider's default deadline.
  * @property {AbortSignal} [signal] Upstream cancellation signal. When it aborts, the
- *     in-flight request is destroyed — both providers honor it identically.
+ *     in-flight request is destroyed when the provider transport supports it.
  * @property {String} [operationLabel] Safe diagnostic label surfaced in the timeout
  *     error message; must never carry prompt content or credentials.
  */
@@ -45,7 +44,7 @@ const PROVIDER_TIMEOUT_CODE = 'PROVIDER_TIMEOUT';
  * @param {String} options.operationLabel Safe diagnostic label for the caller operation.
  * @param {Number} options.timeoutMs Timeout budget in milliseconds.
  * @param {String} options.host Provider host.
- * @param {String} options.modelName Chat model id.
+ * @param {String} options.modelName Provider model id.
  * @returns {Error} Error with `code='PROVIDER_TIMEOUT'`, plus `provider` and `timeoutMs` fields.
  */
 function createTimeoutError({provider, operationLabel, timeoutMs, host, modelName}) {
