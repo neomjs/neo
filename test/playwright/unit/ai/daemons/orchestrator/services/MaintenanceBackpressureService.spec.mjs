@@ -289,6 +289,46 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         expect(outcomeCalls[0].payload.deferredAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     });
 
+    test('recordDeferral dedupes across a CHANGING reasonText counter (the volatile-backlog flood fix)', () => {
+        const deferralLogKeys = new Set();
+        const logCalls        = [];
+        const writeLog        = (level, message) => logCalls.push({level, message});
+        const taskDefinitions = {kbSync: {label: 'KB sync'}, 'memory-summary-backfill': {label: 'memory miniSummary backfill'}};
+
+        // The memorySummaryBackfill backlog counter changes every poll. The dedup key is keyed on
+        // (task, blocker, reasonCode) — NOT the volatile reasonText — so the changing count never
+        // churns it and the deferral logs once per episode (not the live ~8%-of-lines flood).
+        for (const backlog of [47, 48, 49, 50]) {
+            recordDeferral({
+                deferralLogKeys,
+                taskName        : 'memory-summary-backfill',
+                reasonCode      : 'heavy-maintenance-backpressure',
+                reasonText      : `pending-memory-minisummary:${backlog}`,
+                blockingTaskName: 'kbSync',
+                taskDefinitions,
+                writeLog
+            });
+        }
+
+        // Four polls with a changing counter → ONE log line (the dedup now holds on the stable key).
+        expect(logCalls.length).toBe(1);
+        expect(logCalls[0].message).toContain('Deferring memory miniSummary backfill');
+        expect(logCalls[0].message).toContain('pending-memory-minisummary:47'); // first episode's live count stays in the message
+
+        // A new deferral episode after the prior one clears → re-logs exactly once.
+        clearDeferralLogState({deferralLogKeys, taskName: 'memory-summary-backfill'});
+        recordDeferral({
+            deferralLogKeys,
+            taskName        : 'memory-summary-backfill',
+            reasonCode      : 'heavy-maintenance-backpressure',
+            reasonText      : 'pending-memory-minisummary:51',
+            blockingTaskName: 'kbSync',
+            taskDefinitions,
+            writeLog
+        });
+        expect(logCalls.length).toBe(2);
+    });
+
     test('recordDeferral (cross-daemon lease-held) uses holdingLease owner in key + payload', () => {
         const deferralLogKeys = new Set();
         const logCalls        = [];

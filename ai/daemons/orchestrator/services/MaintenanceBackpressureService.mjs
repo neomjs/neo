@@ -237,9 +237,14 @@ export function recordDeferral({
 }) {
     const isLeaseHeld = reasonCode === 'heavy-maintenance-lease-held';
     const holderOwner = holdingLease?.owner || 'unknown';
-    const dedupKey    = isLeaseHeld
-        ? `${taskName}:lease-held-by-${holderOwner}:${reasonText}`
-        : `${taskName}:${blockingTaskName}:${reasonText}`;
+    // Dedup on STABLE identifiers only — the deferred task, its blocker, and the deferral reasonCode —
+    // never the volatile `reasonText`: its `:<count>` / `:<interval>` suffix changes every poll and its
+    // source-class is already implied by `taskName`, so including it churns the key (the dedup never
+    // fires) without adding a real distinction. The full reasonText (with count) stays in the log
+    // message + the recordTaskOutcome payload below.
+    const dedupKey = isLeaseHeld
+        ? `${taskName}:lease-held-by-${holderOwner}`
+        : `${taskName}:${blockingTaskName}:${reasonCode}`;
 
     if (!deferralLogKeys.has(dedupKey)) {
         const taskLabel = taskDefinitions?.[taskName]?.label || taskName;
