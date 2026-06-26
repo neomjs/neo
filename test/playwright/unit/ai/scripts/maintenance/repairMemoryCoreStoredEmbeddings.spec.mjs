@@ -5,9 +5,9 @@ setup({
     appConfig: {name: 'RepairMcStoredEmbeddingsTest', isMounted: () => true, vnodeInitialising: false}
 });
 
-import {test, expect}                                               from '@playwright/test';
-import Neo                                                          from '../../../../../../src/Neo.mjs';
-import * as core                                                    from '../../../../../../src/core/_export.mjs';
+import {test, expect}                                                                                                 from '@playwright/test';
+import Neo                                                                                                            from '../../../../../../src/Neo.mjs';
+import * as core                                                                                                      from '../../../../../../src/core/_export.mjs';
 import {embedRecoverableDocuments, extractMemoryCoreCollectionData, truncateToByteBudget, truncateToEmbedTokenBudget} from '../../../../../../ai/scripts/maintenance/repairMemoryCoreStoredEmbeddings.mjs';
 
 /**
@@ -298,7 +298,7 @@ test.describe('truncateToEmbedTokenBudget — oversized-document recovery (the P
     });
 
     test('truncates an over-budget document to a prefix estimated to fit the budget', () => {
-        const text      = 'x'.repeat(30000),            // ~10000 tokens at ~3 bytes/token
+        const text = 'x'.repeat(30000),            // ~10000 tokens at ~3 bytes/token
               truncated = truncateToEmbedTokenBudget(text, 100);
 
         expect(truncated.length).toBeLessThan(text.length);
@@ -306,8 +306,19 @@ test.describe('truncateToEmbedTokenBudget — oversized-document recovery (the P
         expect(Math.ceil(Buffer.byteLength(truncated, 'utf8') / 3)).toBeLessThanOrEqual(100);
     });
 
+    test('applies the dense-content safety margin — the truncated prefix lands UNDER budget, not just at it', () => {
+        // Dense multi-byte content (CJK, 3 bytes/char): bytesToTokens under-estimates real tokens here, so
+        // the ~0.9 margin shaves the prefix below the raw budget to keep dense docs recoverable.
+        const text = '世'.repeat(4000),   // ~12000 bytes ≈ 4000 heuristic-tokens
+              truncated = truncateToEmbedTokenBudget(text, 100);
+
+        expect(text.startsWith(truncated)).toBe(true);
+        // estimate sits at/below the margin (0.9 × 100), leaving headroom for the denser real tokenization
+        expect(Math.ceil(Buffer.byteLength(truncated, 'utf8') / 3)).toBeLessThanOrEqual(90);
+    });
+
     test('never splits a multi-byte UTF-8 character', () => {
-        const text      = '😀'.repeat(5000),            // 4 bytes each
+        const text = '😀'.repeat(5000),            // 4 bytes each
               truncated = truncateToEmbedTokenBudget(text, 100);
 
         expect(truncated.length).toBeGreaterThan(0);
@@ -328,7 +339,7 @@ test.describe('truncateToEmbedTokenBudget — oversized-document recovery (the P
     });
 
     test('a budget-aware embedFn RECOVERS an oversized document instead of marking it unrecoverable', async () => {
-        const BUDGET    = 50,                 // tiny test token budget
+        const BUDGET = 50,                 // tiny test token budget
               oversized = 'y'.repeat(900);    // ~300 tokens — exceeds BUDGET
 
         // Mirror the production embedFn wrapper: truncate each doc to the budget, then embed. The fake
@@ -356,7 +367,7 @@ test.describe('truncateToEmbedTokenBudget — oversized-document recovery (the P
     });
 
     test('the gap this closes: without budget-aware truncation the same oversized document stays unrecoverable', async () => {
-        const oversized  = 'y'.repeat(900);
+        const oversized = 'y'.repeat(900);
         // A raw embedFn (no truncation) that rejects the oversized doc — the pre-truncation behavior.
         const rawEmbedFn = async () => { throw new Error('embedding context too small (context overflow)'); };
 

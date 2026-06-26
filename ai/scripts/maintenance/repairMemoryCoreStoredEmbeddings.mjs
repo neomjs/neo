@@ -366,6 +366,15 @@ export function truncateToByteBudget(text, maxBytes) {
 }
 
 /**
+ * Safety margin on the truncate budget. `bytesToTokens` (≈3 bytes/token) UNDER-estimates tokens for dense
+ * content (CJK/emoji run fewer bytes/token), so a naive prefix sized at the raw estimate can still exceed
+ * the real provider budget. Shaving the byte budget lands a dense prefix safely under budget — raising
+ * dense-content recovery instead of degrading it to `unrecoverable`.
+ * @type {Number}
+ */
+const EMBED_TRUNCATE_SAFETY_FACTOR = 0.9;
+
+/**
  * @summary Truncates a document to a context-bounded prefix that fits the embedding token budget, so an
  * oversized Memory Core document gets *a* (slightly lossy) vector and stays searchable rather than falling
  * out of recovery as `unrecoverable`.
@@ -395,10 +404,10 @@ export function truncateToEmbedTokenBudget(text, maxTokens) {
         return text;
     }
 
-    // Derive the byte budget from the heuristic's own ratio (no duplicated magic constant), then shave the
-    // rounding edge until the estimate is within budget.
+    // Derive the byte budget from the heuristic's own ratio (no duplicated magic constant), apply the
+    // dense-content safety margin (see EMBED_TRUNCATE_SAFETY_FACTOR), then shave any residual rounding edge.
     const bytesPerToken = totalBytes / Math.max(1, bytesToTokens(totalBytes));
-    let   maxBytes      = Math.max(1, Math.floor(maxTokens * bytesPerToken)),
+    let   maxBytes      = Math.max(1, Math.floor(maxTokens * bytesPerToken * EMBED_TRUNCATE_SAFETY_FACTOR)),
           truncated     = truncateToByteBudget(text, maxBytes);
 
     while (truncated.length > 0 && bytesToTokens(Buffer.byteLength(truncated, 'utf8')) > maxTokens) {
