@@ -8,6 +8,7 @@ export const RECOVERY_CLASSES = Object.freeze([
     'config-drift',
     'contention',
     'crash',
+    'data-integrity',
     'exhaustion',
     'external-load',
     'provider-role-residency'
