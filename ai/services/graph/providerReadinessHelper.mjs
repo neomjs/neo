@@ -1,5 +1,7 @@
 import http       from 'http';
 import {execFile} from 'child_process';
+import os         from 'os';
+import path       from 'path';
 import aiConfig   from '../../mcp/server/memory-core/config.mjs';
 import logger     from '../../mcp/server/memory-core/logger.mjs';
 import {
@@ -22,6 +24,40 @@ const
     providerDiscoveryForceInflight = new Map(),
     PROVIDER_DISCOVERY_FORCE       = 'force',
     PROVIDER_DISCOVERY_ROUTINE     = 'routine';
+
+/**
+ * Default LM Studio CLI bin directory. `lms bootstrap` installs the CLI here; an interactive shell
+ * has it on PATH, but a daemon / MCP-server launch env often does not — so a bare `execFile('lms', …)`
+ * ENOENTs and false-negatives the provider as unavailable while it is actually healthy (blocking
+ * KB + Memory Core embedding ops).
+ * @type {String}
+ */
+const LMS_DEFAULT_BIN_DIR = path.join(os.homedir(), '.lmstudio', 'bin');
+
+/**
+ * @summary Builds execFile options for the `lms` CLI with its bin dir guaranteed on PATH.
+ *
+ * Augmenting PATH here makes the `lms` readiness probe (`fetchLmsLoadedModels`) robust to the launch
+ * env, fixing `spawn lms ENOENT` false-negatives. Idempotent — never duplicates an already-present bin
+ * dir. The caller's extra options are preserved, INCLUDING a caller-supplied `extra.env` (merged, not
+ * clobbered). (The `lms` load/unload spawns carry the same fragility — a noted follow-up — but their
+ * tests assert a 3-arg execFile signature, so they stay out of this slice.)
+ *
+ * @param {Object} [extra={}] Extra execFile options (e.g. `{timeout}`, `{env}`) merged into the result.
+ * @returns {Object} execFile options carrying an augmented `PATH` env (caller `extra.env` preserved).
+ */
+export function lmsExecOptions(extra = {}) {
+    // Merge the caller's env (if any) over process.env, then derive + augment PATH from THAT merged env,
+    // so a caller-supplied `extra.env` (and its own PATH) is preserved rather than clobbered.
+    const baseEnv = {...process.env, ...(extra.env || {})},
+          sep     = process.platform === 'win32' ? ';' : ':',
+          curr    = baseEnv.PATH || '',
+          PATH    = curr.split(sep).includes(LMS_DEFAULT_BIN_DIR)
+              ? curr
+              : (curr ? `${curr}${sep}${LMS_DEFAULT_BIN_DIR}` : LMS_DEFAULT_BIN_DIR);
+
+    return {...extra, env: {...baseEnv, PATH}};
+}
 
 /**
  * @module ai/services/graph/ProviderReadinessHelper
@@ -357,7 +393,7 @@ export function fetchLmsLoadedModels({
         caller: 'fetchLmsLoadedModels',
         runProbe() {
             return new Promise((resolve, reject) => {
-                execFileFn('lms', ['ps', '--json'], {timeout: timeoutMs}, (error, stdout = '', stderr = '') => {
+                execFileFn('lms', ['ps', '--json'], lmsExecOptions({timeout: timeoutMs}), (error, stdout = '', stderr = '') => {
                     if (error) {
                         reject(new Error(`lms ps --json failed: ${error.message}${stderr ? `; stderr=${stderr.trim()}` : ''}`));
                         return;
