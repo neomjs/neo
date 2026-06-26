@@ -373,7 +373,7 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
         expect(operationIds).toEqual(mappingIds);
     });
 
-    test('neural-link inspect_store + list_stores output schemas accept an object `model` (#13372)', () => {
+    test('neural-link inspect_store + list_stores output schemas (object `model` #13372; list_stores `{stores:[]}` envelope + `isLoaded` #10072)', () => {
         const doc         = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/neural-link/openapi.yaml'), 'utf8')),
               opsById     = getOperationsById(doc),
               // A live store's `model` is the serialized Neo.data.Model — an object, not a className string.
@@ -389,9 +389,10 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
         expect(() => inspectStoreOut.parse({id: 'store-1', count: 2, model: objectModel, filters: [], sorters: [], items: []})).not.toThrow();
         // A className-only string `model` still parses — backward-compatible.
         expect(() => inspectStoreOut.parse({id: 'store-1', count: 2, model: 'Neo.data.Model', filters: [], sorters: [], items: []})).not.toThrow();
-        // list_stores: the top-level array response is wrapped as `{result: [...]}` by the output validator;
-        // each item's object `model` parses.
-        expect(() => listStoresOut.parse({result: [{id: 'store-1', model: objectModel, count: 2}]})).not.toThrow();
+        // list_stores: the impl (src/ai/client/DataService.mjs#listStores) returns a NAMED `{stores:[...]}`
+        // envelope incl. `isLoaded` — not a top-level array (strict output validation surfaced that drift). The
+        // schema admits the envelope, the `isLoaded` field, and each item's object `model`.
+        expect(() => listStoresOut.parse({stores: [{id: 'store-1', model: objectModel, count: 2, isLoaded: true}]})).not.toThrow();
     });
 
     for (const server of servers) {
