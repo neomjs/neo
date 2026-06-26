@@ -11,7 +11,8 @@
  * accumulate a rich body + many maintainer comments; per-element chunks keep each small and make each
  * maintainer's reasoning separately retrievable.
  *
- * Boundary format (verified across the archive — 84/176 files carry comments): the body (frontmatter +
+ * Boundary format (verified active+archive — 155/176 files carry the comment delimiter, 84 active + 71
+ * archive; a corpus scan found zero files with content unowned by an element): the body (frontmatter +
  * the converged-model doc, which carries its OWN `## Converged Model` / `## Decision Record` /
  * `## Signal Ledger` / … sections) runs until the FIRST comment delimiter; each comment is delimited by a
  * backtick-author line ``### `@<author>` commented on <ISO>`` (the same delimiter as PR comments). Comment
