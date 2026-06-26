@@ -11,6 +11,40 @@ import {withHeavyMaintenanceLease}                                   from '../..
 import {registerNeoChromaEmbeddingFunctions}                         from '../../services/shared/vector/chromaClientPrimitives.mjs';
 import {auditChromaVectorCoverage}                                   from './checkChromaIntegrity.mjs';
 import {extractMemoryCoreCollectionData, truncateToEmbedTokenBudget} from './repairMemoryCoreStoredEmbeddings.mjs';
+import {evaluateAcceptedLossOutcome}                                 from '../../services/memory-core/helpers/acceptedLossOutcome.mjs';
+import {readAcceptedLossAckByFingerprint}                            from '../../services/memory-core/helpers/acceptedLossAckStore.mjs';
+import {TERMINAL_REASONS}                                            from '../../services/memory-core/helpers/classifyRepairResidue.mjs';
+
+// Bumped whenever the recovery strategy's embeddability changes (e.g. oversized-document chunking ships),
+// so a strategy change invalidates a stale accepted-loss acknowledgement by construction.
+const MC_REPAIR_STRATEGY_VERSION = 'mc-repair-v1';
+
+/**
+ * @summary Builds the recovery context bound into accepted-loss fingerprints — the shared source both the
+ * defrag accepted-loss check and the operator acknowledgement read, so their fingerprints match by
+ * construction. Provider + embedding context budget come from the live config/SSOT (read at the use site);
+ * the strategy version is the constant above.
+ * @param {Object} config The resolved target config (`{embeddingProvider, ...}`).
+ * @returns {Object} `{strategyVersion, provider, contextBudget, terminalReasons}`.
+ */
+function buildMemoryCoreRecoveryContext(config) {
+    return {
+        strategyVersion: MC_REPAIR_STRATEGY_VERSION,
+        provider       : config?.embeddingProvider ?? '',
+        contextBudget  : AiConfig.localModels.embedding.safeProcessingLimitTokens,
+        terminalReasons: TERMINAL_REASONS
+    };
+}
+
+/**
+ * @summary The durable accepted-loss acknowledgement directory — a stable sibling of the defrag state
+ * marker, so an operator acknowledgement persists across runs and a later repair finds it by fingerprint.
+ * @param {String} statePath The defrag durable state-marker path.
+ * @returns {String}
+ */
+function acceptedLossAckDir(statePath) {
+    return path.join(path.dirname(statePath), 'accepted-loss-acks');
+}
 
 /**
  * @summary Defragments collection groups inside the unified ChromaDB store.
@@ -1538,10 +1572,26 @@ async function defragChromaDB() {
                 const abortedNames  = results.filter(result => result.aborted).map(result => result.collectionName),
                       partialNames  = results.filter(result => result.partialPromoted).map(result => result.collectionName),
                       nonCleanNames = [...abortedNames, ...partialNames];
-                console.error(dryRun
-                    ? `❌ Memory Core repair dry-run found unrecoverable rows for ${abortedNames.join(', ')} — no promotion was attempted; resolve the unrecoverable rows before running the mutating repair. Counts and reasons logged above.`
-                    : `❌ Memory Core repair non-clean for ${nonCleanNames.join(', ')} (aborted: ${abortedNames.join(', ') || 'none'}; partial-promoted: ${partialNames.join(', ') || 'none'}) — recovered rows are durable where partial-promoted, but this is NOT a successful repair. Resolve unrecoverable rows using the retained parking/source state. Counts and reasons logged above.`);
-                process.exit(1);
+
+                // Accepted-loss settlement: a partial-promotion (NO aborted collection) whose entire residue is
+                // operator-acknowledged terminal loss is a bounded, accepted outcome — the recovered rows are
+                // durable and the residue is genuinely unembeddable, so it must not page "repair failed" forever.
+                // Every other path (aborted, dry-run, any transient/unacknowledged/stale residue) still exits 1.
+                const acceptedLoss = !dryRun && Boolean(statePath) && abortedNames.length === 0 && partialNames.length > 0 &&
+                    (await evaluateAcceptedLossOutcome({
+                        partialResults : results.filter(result => result.partialPromoted),
+                        recoveryContext: buildMemoryCoreRecoveryContext(config),
+                        readAck        : fingerprint => readAcceptedLossAckByFingerprint({fingerprint, dir: acceptedLossAckDir(statePath)})
+                    })).allAccepted;
+
+                if (acceptedLoss) {
+                    console.log(`✅ Memory Core repair: the bounded unrecoverable residue is operator-acknowledged accepted-loss for ${partialNames.join(', ')} — recovered rows are durable; not escalating. Acknowledge new residue with --acknowledge-accepted-loss.`);
+                } else {
+                    console.error(dryRun
+                        ? `❌ Memory Core repair dry-run found unrecoverable rows for ${abortedNames.join(', ')} — no promotion was attempted; resolve the unrecoverable rows before running the mutating repair. Counts and reasons logged above.`
+                        : `❌ Memory Core repair non-clean for ${nonCleanNames.join(', ')} (aborted: ${abortedNames.join(', ') || 'none'}; partial-promoted: ${partialNames.join(', ') || 'none'}) — recovered rows are durable where partial-promoted, but this is NOT a successful repair. Resolve unrecoverable rows using the retained parking/source state, or acknowledge accepted terminal loss with --acknowledge-accepted-loss. Counts and reasons logged above.`);
+                    process.exit(1);
+                }
             }
             return;
         }
