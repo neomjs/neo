@@ -2,7 +2,9 @@ import {test, expect} from '@playwright/test';
 import {
     anyRepairAborted,
     assertDefragTargetSupported,
+    createUnrecoverablePreview,
     formatMemoryCoreRepairProgress,
+    formatUnrecoverablePreview,
     repairMemoryCoreCollectionViaResumableShadow,
     repairMemoryCoreCollectionsViaFullEnumeration,
     runDefragChromaDBCli
@@ -114,21 +116,23 @@ test.describe('repairMemoryCoreCollectionsViaFullEnumeration (#14020)', () => {
     });
 
     test('fail-loud: unrecoverable rows abort that collection promotion (no silent drop)', async () => {
+        const unrecoverable = [{id: 'b', reason: 'document-empty', message: 'document field was empty'}],
+              logs          = [];
         const coverage      = {collections: [{name: 'mc-memory', allIds: ['a', 'b'], missingVectorIds: ['b']}]},
               repairResults = {
-                  'mc-memory': {collectionName: 'mc-memory', aborted: true, shadowName: 'mc-memory-shadow-resume', loadedCount: 1, sourceCount: 2, unrecoverable: ['b'], counts: {total: 2, intact: 1, reEmbedded: 0, unrecoverable: 1}}
+                  'mc-memory': {collectionName: 'mc-memory', aborted: true, shadowName: 'mc-memory-shadow-resume', loadedCount: 1, sourceCount: 2, unrecoverable, counts: {total: 2, intact: 1, reEmbedded: 0, unrecoverable: 1}}
               },
               {calls, client, auditFn, extractFn, repairCollectionFn, clearStateFn, writeStateFn} = makeSeams({coverage, repairResults});
 
         const {results} = await repairMemoryCoreCollectionsViaFullEnumeration({
             client, collections: ['mc-memory'], snapshotPath: '/snap', persistDir: '/persist',
             embedFn, embeddingFunction, statePath: '/state', stateBase: {targetName: 'memory-core'},
-            auditFn, extractFn, repairCollectionFn, clearStateFn, writeStateFn, log: () => {}
+            auditFn, extractFn, repairCollectionFn, clearStateFn, writeStateFn, log: message => logs.push(message)
         });
 
         expect(calls.repair).toHaveLength(1);
         expect(results[0].aborted).toBe(true);
-        expect(results[0].unrecoverable).toEqual(['b']);
+        expect(results[0].unrecoverable).toEqual(unrecoverable);
         expect(results[0].counts.unrecoverable).toBe(1);
 
         // an aborted repair NEVER clears the marker; it rewrites an explicit aborted marker so the next run
@@ -140,7 +144,9 @@ test.describe('repairMemoryCoreCollectionsViaFullEnumeration (#14020)', () => {
         expect(calls.writeState[0].state.targetName).toBe('memory-core');
         expect(calls.writeState[0].state.shadowName).toBe('mc-memory-shadow-resume');
         expect(calls.writeState[0].state.loadedCount).toBe(1);
+        expect(calls.writeState[0].state.unrecoverablePreview).toEqual(unrecoverable);
         expect(calls.writeState[0].state.aborted).toEqual(['mc-memory']);
+        expect(logs.some(message => message.includes('Reasons: b (document-empty: document field was empty)'))).toBe(true);
     });
 
     test('resume state skips earlier collections and resumes the matching collection repair', async () => {
@@ -232,16 +238,18 @@ test.describe('repairMemoryCoreCollectionsViaFullEnumeration (#14020)', () => {
     });
 
     test('dry-run reports unrecoverable rows without writing an aborted state marker', async () => {
+        const unrecoverable = [{id: 'b', reason: 'metadata-row-missing', message: 'id was absent from the Chroma documents/metadatas read'}],
+              logs          = [];
         const coverage       = {collections: [{name: 'mc-memory', allIds: ['a', 'b'], missingVectorIds: ['b']}]},
               extractResults = {
-                  'mc-memory': {data: {ids: ['a'], embeddings: [[1]], documents: [''], metadatas: [{}]}, unrecoverable: ['b'], counts: {total: 2, intact: 1, reEmbedded: 0, unrecoverable: 1}}
+                  'mc-memory': {data: {ids: ['a'], embeddings: [[1]], documents: [''], metadatas: [{}]}, unrecoverable, counts: {total: 2, intact: 1, reEmbedded: 0, unrecoverable: 1}}
               },
               {calls, client, auditFn, extractFn, repairCollectionFn, clearStateFn, writeStateFn} = makeSeams({coverage, extractResults});
 
         const {results} = await repairMemoryCoreCollectionsViaFullEnumeration({
             client, collections: ['mc-memory'], snapshotPath: '/snap', persistDir: '/persist',
             embedFn, embeddingFunction, statePath: '/state', dryRun: true,
-            auditFn, extractFn, repairCollectionFn, clearStateFn, writeStateFn, log: () => {}
+            auditFn, extractFn, repairCollectionFn, clearStateFn, writeStateFn, log: message => logs.push(message)
         });
 
         expect(calls.repair).toHaveLength(0);
@@ -251,9 +259,12 @@ test.describe('repairMemoryCoreCollectionsViaFullEnumeration (#14020)', () => {
             collectionName: 'mc-memory',
             dryRun        : true,
             aborted       : true,
-            unrecoverable : ['b'],
+            unrecoverable,
             counts        : {total: 2, intact: 1, reEmbedded: 0, unrecoverable: 1}
         });
+        expect(logs.some(message => message.includes(
+            'Reasons: b (metadata-row-missing: id was absent from the Chroma documents/metadatas read)'
+        ))).toBe(true);
         expect(anyRepairAborted(results)).toBe(true);
     });
 
@@ -530,6 +541,24 @@ test.describe('anyRepairAborted — operator fail-loud predicate (#14020)', () =
 
     test('false for an empty result set', () => {
         expect(anyRepairAborted([])).toBe(false);
+    });
+});
+
+test.describe('unrecoverable reason previews (#14023)', () => {
+    test('keeps structured state previews and formats bounded operator logs', () => {
+        const entries = [
+            {id: 'a', reason: 'document-empty', message: 'document field was empty'},
+            {id: 'b', reason: 'embedding-provider-error', message: 'context overflow'},
+            'legacy-id'
+        ];
+
+        expect(createUnrecoverablePreview(entries, 2)).toEqual([
+            {id: 'a', reason: 'document-empty', message: 'document field was empty'},
+            {id: 'b', reason: 'embedding-provider-error', message: 'context overflow'}
+        ]);
+        expect(formatUnrecoverablePreview(entries, {limit: 2}))
+            .toBe('a (document-empty: document field was empty); b (embedding-provider-error: context overflow); +1 more');
+        expect(formatUnrecoverablePreview(['legacy-id'])).toBe('legacy-id (unknown)');
     });
 });
 

@@ -976,7 +976,7 @@ export async function repairMemoryCoreCollectionViaResumableShadow({
                 shadowName,
                 loadedCount,
                 unrecoverableCount  : unrecoverable.length,
-                unrecoverablePreview: unrecoverable.slice(0, 20),
+                unrecoverablePreview: createUnrecoverablePreview(unrecoverable),
                 counts
             }
         });
@@ -1146,7 +1146,7 @@ export async function repairMemoryCoreCollectionsViaFullEnumeration({
             });
 
             if (unrecoverable.length > 0) {
-                log(`   ⚠️  '${collectionName}': DRY-RUN found ${unrecoverable.length} unrecoverable row(s) (document-less / metadata-absent) — no promotion attempted. Counts: ${JSON.stringify(counts)}`);
+                log(`   ⚠️  '${collectionName}': DRY-RUN found ${unrecoverable.length} unrecoverable row(s) — no promotion attempted. Reasons: ${formatUnrecoverablePreview(unrecoverable)}. Counts: ${JSON.stringify(counts)}`);
                 results.push({collectionName, dryRun: true, aborted: true, unrecoverable, counts});
                 continue;
             }
@@ -1173,7 +1173,7 @@ export async function repairMemoryCoreCollectionsViaFullEnumeration({
         });
 
         if (result.aborted) {
-            log(`   ⚠️  '${collectionName}': ${result.unrecoverable.length} unrecoverable row(s) (document-less / metadata-absent / provider-overcap) — aborting before promotion, but keeping resumable shadow '${result.shadowName}'. Counts: ${JSON.stringify(result.counts)}`);
+            log(`   ⚠️  '${collectionName}': ${result.unrecoverable.length} unrecoverable row(s) — aborting before promotion, but keeping resumable shadow '${result.shadowName}'. Reasons: ${formatUnrecoverablePreview(result.unrecoverable)}. Counts: ${JSON.stringify(result.counts)}`);
             results.push(result);
             break;
         }
@@ -1197,7 +1197,7 @@ export async function repairMemoryCoreCollectionsViaFullEnumeration({
                 sourceCount         : activeAbort?.sourceCount,
                 loadedCount         : activeAbort?.loadedCount,
                 unrecoverableCount  : activeAbort?.unrecoverable?.length,
-                unrecoverablePreview: activeAbort?.unrecoverable?.slice?.(0, 20) || [],
+                unrecoverablePreview: createUnrecoverablePreview(activeAbort?.unrecoverable),
                 aborted             : results.filter(result => result.aborted).map(result => result.collectionName),
                 promoted            : results.filter(result => result.promotion).map(result => result.collectionName)
             }});
@@ -1233,6 +1233,67 @@ export function formatMemoryCoreRepairProgress({collectionName, event, now = new
         default:
             return `   [${timestamp}] ⏳ '${collectionName}': ${event.phase || 'progress'} ${event.percent ?? '?'}% (${event.processed ?? '?'}/${event.total ?? '?'})`;
     }
+}
+
+/**
+ * @summary Normalizes structured and legacy unrecoverable entries for state/log consumers.
+ * @param {String|Object} entry Unrecoverable row entry.
+ * @returns {Object} Structured unrecoverable row entry.
+ */
+export function normalizeUnrecoverableEntry(entry) {
+    if (entry && typeof entry === 'object') {
+        const normalized = {
+            id    : String(entry.id ?? ''),
+            reason: entry.reason || 'unknown'
+        };
+
+        if (entry.message) {
+            normalized.message = String(entry.message);
+        }
+
+        return normalized
+    }
+
+    return {
+        id    : String(entry),
+        reason: 'unknown'
+    }
+}
+
+/**
+ * @summary Creates the bounded structured preview stored in defrag abort state markers.
+ * @param {Array<String|Object>} [entries=[]] Unrecoverable rows.
+ * @param {Number} [limit=20] Maximum preview entries.
+ * @returns {Object[]} Structured unrecoverable row entries.
+ */
+export function createUnrecoverablePreview(entries = [], limit = 20) {
+    return entries.slice(0, limit).map(entry => normalizeUnrecoverableEntry(entry))
+}
+
+/**
+ * @summary Formats a bounded operator-facing unrecoverable reason preview for terminal logs.
+ * @param {Array<String|Object>} [entries=[]] Unrecoverable rows.
+ * @param {Object} [options]
+ * @param {Number} [options.limit=5] Maximum entries to include inline.
+ * @returns {String}
+ */
+export function formatUnrecoverablePreview(entries = [], {limit = 5} = {}) {
+    const preview = createUnrecoverablePreview(entries, limit);
+
+    if (preview.length === 0) {
+        return 'none'
+    }
+
+    const formatted = preview.map(entry => {
+        const message = entry.message ? `: ${entry.message}` : '';
+        return `${entry.id} (${entry.reason}${message})`
+    });
+
+    if (entries.length > preview.length) {
+        formatted.push(`+${entries.length - preview.length} more`);
+    }
+
+    return formatted.join('; ')
 }
 
 /**
@@ -1383,8 +1444,8 @@ async function defragChromaDB() {
             if (anyRepairAborted(results)) {
                 const abortedNames = results.filter(result => result.aborted).map(result => result.collectionName);
                 console.error(dryRun
-                    ? `❌ Memory Core repair dry-run found unrecoverable rows for ${abortedNames.join(', ')} — no promotion was attempted; resolve the unrecoverable rows before running the mutating repair. Counts logged above.`
-                    : `❌ Memory Core repair aborted for ${abortedNames.join(', ')} (unrecoverable rows) — NOT a successful repair; resolve the unrecoverable rows and re-run. Counts logged above.`);
+                    ? `❌ Memory Core repair dry-run found unrecoverable rows for ${abortedNames.join(', ')} — no promotion was attempted; resolve the unrecoverable rows before running the mutating repair. Counts and reasons logged above.`
+                    : `❌ Memory Core repair aborted for ${abortedNames.join(', ')} (unrecoverable rows) — NOT a successful repair; resolve the unrecoverable rows and re-run. Counts and reasons logged above.`);
                 process.exit(1);
             }
             return;
