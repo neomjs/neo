@@ -6,13 +6,15 @@ import {
     bytesToTokens,
     emitConsumerFriction
 }                             from '../memory-core/helpers/consumerFrictionHelper.mjs';
-import ChromaManager             from './ChromaManager.mjs';
-import crypto                    from 'crypto';
-import fs                        from 'fs-extra';
-import logger                    from '../../mcp/server/knowledge-base/logger.mjs';
-import path                      from 'path';
-import readline                  from 'readline';
-import DestructiveOperationGuard from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
+import ChromaManager                                                   from './ChromaManager.mjs';
+import crypto                                                          from 'crypto';
+import fs                                                              from 'fs-extra';
+import logger                                                          from '../../mcp/server/knowledge-base/logger.mjs';
+import path                                                            from 'path';
+import readline                                                        from 'readline';
+import DestructiveOperationGuard                                       from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
+import {computeCorpusFingerprint, decideResume, selectResumableChunks} from './helpers/resumableEmbedding.mjs';
+import {clearResumeState, readResumeState, writeResumeState}           from './helpers/kbEmbeddingResumeStore.mjs';
 
 const TENANT_GUARDED_FIELDS = ['tenantId', 'repoSlug', 'visibility', 'originAgentIdentity', 'tenantConfigVersion', 'ingestedAt'];
 const STALE_STRATEGIES      = Object.freeze(new Set(['delete-upfront', 'shadow-swap']));
@@ -699,21 +701,57 @@ class VectorService extends Base {
      * @returns {Promise<Object>} Embedding result.
      */
     async embedViaShadowSwap({liveCollection, knowledgeBase, idsToDeleteCount}) {
-        const shadowName  = this.createSwapCollectionName('shadow');
+        const stateDir    = this.getResumeStateDir();
+        const fingerprint = computeCorpusFingerprint(knowledgeBase);
+        const resumeState = await readResumeState({dir: stateDir});
+        const decision    = decideResume({resumeState, currentFingerprint: fingerprint});
+
+        let shadowCollection = null;
+        let shadowName       = null;
+        let chunksToEmbed    = knowledgeBase;
+        let attempts         = 1;
+        let alreadyEmbedded  = 0;
+
+        // Resume into the preserved shadow (it holds the completed batches), skipping already-embedded chunks.
+        if (decision.resume) {
+            try {
+                shadowName       = resumeState.shadowName;
+                attempts         = decision.attempts;
+                shadowCollection = await ChromaManager.client.getCollection({name: shadowName, embeddingFunction: aiConfig.dummyEmbeddingFunction});
+
+                const selection = selectResumableChunks({chunks: knowledgeBase, existingIds: await this.readCollectionIds(shadowCollection)});
+
+                chunksToEmbed   = selection.remaining;
+                alreadyEmbedded = selection.alreadyEmbedded;
+                logger.log(`Resuming KB embedding into '${shadowName}' — ${alreadyEmbedded} already embedded, ${chunksToEmbed.length} remaining (attempt ${attempts}).`);
+            } catch (resumeError) {
+                logger.warn(`[VectorService] Could not resume into preserved shadow '${shadowName}' (${resumeError.message}); rebuilding fresh.`);
+                shadowCollection = null;
+            }
+        }
+
+        // Fresh build: discard any stale preserved shadow (corpus-drift / attempt-cap / vanished), then rebuild.
+        if (!shadowCollection) {
+            if (resumeState?.shadowName) {
+                await this.discardResumeShadow(resumeState.shadowName);
+            }
+            await clearResumeState({dir: stateDir});
+
+            shadowName      = this.createSwapCollectionName('shadow');
+            attempts        = 1;
+            chunksToEmbed   = knowledgeBase;
+            alreadyEmbedded = 0;
+            logger.log(`Building shadow knowledge-base collection '${shadowName}' (${decision.reason}).`);
+            shadowCollection = await ChromaManager.client.createCollection({name: shadowName, embeddingFunction: aiConfig.dummyEmbeddingFunction});
+        }
+
         const parkingName = this.createSwapCollectionName('parking');
-
-        logger.log(`Building shadow knowledge-base collection '${shadowName}'.`);
-
-        const shadowCollection = await ChromaManager.client.createCollection({
-            name             : shadowName,
-            embeddingFunction: aiConfig.dummyEmbeddingFunction
-        });
 
         let liveParked     = false;
         let shadowPromoted = false;
 
         try {
-            const embedResult = await this.embedChunks({collection: shadowCollection, chunksToProcess: knowledgeBase});
+            const embedResult = await this.embedChunks({collection: shadowCollection, chunksToProcess: chunksToEmbed});
 
             if (embedResult.skipped > 0) {
                 throw new Error(`KB_EMBEDDING_INPUT_SIZE_EXCEEDED: shadow-swap refused to promote an incomplete corpus after skipping ${embedResult.skipped} over-budget embedding chunk(s).`);
@@ -726,6 +764,7 @@ class VectorService extends Base {
             shadowPromoted = true;
 
             ChromaManager.invalidateKnowledgeBaseCollectionCache();
+            await clearResumeState({dir: stateDir}); // promoted → nothing to resume
 
             const collection = await ChromaManager.getKnowledgeBaseCollection();
             const count      = await collection.count();
@@ -734,7 +773,7 @@ class VectorService extends Base {
 
             return {
                 message,
-                embedded           : embedResult.embedded,
+                embedded           : embedResult.embedded + alreadyEmbedded,
                 deleted            : idsToDeleteCount,
                 staleStrategy      : 'shadow-swap',
                 shadowCollection   : shadowName,
@@ -754,9 +793,69 @@ class VectorService extends Base {
             }
 
             if (!shadowPromoted) {
-                await this.parkFailedShadowCollection({shadowCollection, shadowName});
+                // A too-big chunk (KB_EMBEDDING_INPUT_SIZE_EXCEEDED) will NEVER embed — resuming it is futile,
+                // so park the shadow as a dead artifact (the prior behavior). A TRANSIENT embed failure (a
+                // provider blip) instead PRESERVES the shadow + records resume-state, so the next run resumes
+                // from here rather than re-embedding the whole corpus.
+                if (error?.message?.includes('KB_EMBEDDING_INPUT_SIZE_EXCEEDED')) {
+                    await this.parkFailedShadowCollection({shadowCollection, shadowName});
+                    await clearResumeState({dir: stateDir});
+                } else {
+                    try {
+                        await writeResumeState({dir: stateDir, fingerprint, shadowName, attempts});
+                        logger.warn(`[VectorService] Preserved shadow '${shadowName}' for resume (attempt ${attempts}) after a transient embedding failure: ${error.message}`);
+                    } catch (preserveError) {
+                        logger.error(`[VectorService] Failed to record resume-state for '${shadowName}': ${preserveError.message}`);
+                    }
+                }
             }
             throw error;
+        }
+    }
+
+    /**
+     * @summary Resolves the gitignored directory holding the KB embedding resume-state marker.
+     * @returns {String}
+     */
+    getResumeStateDir() {
+        return this.resumeStateDir ?? path.resolve(aiConfig.neoRootDir, '.neo-ai-data', 'kb-sync');
+    }
+
+    /**
+     * @summary Reads every document id present in a Chroma collection (paginated id-only fetch).
+     * Used to compute which chunks a preserved resume-shadow already holds.
+     * @param {Object} collection Chroma collection handle.
+     * @returns {Promise<Set<String>>}
+     */
+    async readCollectionIds(collection) {
+        const ids    = [];
+        const limit  = 1000;
+        let   offset = 0;
+
+        while (true) {
+            const batch    = await collection.get({include: [], limit, offset});
+            const batchIds = batch?.ids ?? [];
+
+            ids.push(...batchIds);
+            if (batchIds.length < limit) break;
+            offset += limit;
+        }
+
+        return new Set(ids);
+    }
+
+    /**
+     * @summary Parks a stale preserved resume-shadow (corpus drifted / attempt cap reached) so the fresh
+     * rebuild starts clean. Best-effort: a vanished/unreadable shadow is simply nothing to discard.
+     * @param {String} shadowName The preserved resume-shadow collection name.
+     * @returns {Promise<void>}
+     */
+    async discardResumeShadow(shadowName) {
+        try {
+            const shadowCollection = await ChromaManager.client.getCollection({name: shadowName, embeddingFunction: aiConfig.dummyEmbeddingFunction});
+            await this.parkFailedShadowCollection({shadowCollection, shadowName});
+        } catch (error) {
+            logger.warn(`[VectorService] Could not discard stale resume-shadow '${shadowName}': ${error.message}`);
         }
     }
 
