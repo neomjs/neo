@@ -1,6 +1,7 @@
 import Base from '../../../../src/core/Base.mjs';
 
 import {buildDataIntegrityCoverageDiagnosis} from './dataIntegrityCoverageDiagnosis.mjs';
+import {buildDimensionConsistencyDiagnosis}  from './dimensionConsistencyDiagnosis.mjs';
 
 /**
  * @module ai/daemons/orchestrator/services/DataIntegrityDiagnosisService
@@ -10,8 +11,9 @@ import {buildDataIntegrityCoverageDiagnosis} from './dataIntegrityCoverageDiagno
  * wiring between the producers (which are proven by the release-gate end-to-end corruption proof but
  * not yet running) and the recovery actuator's escalate sink.
  *
- * The runner gathers bounded read-observe facts (a Chroma vector-coverage audit), runs the producers
- * over them, and routes every emitted `recovery-diagnosis` to the actuator's `escalateDiagnosis` sink —
+ * The runner gathers bounded read-observe facts (a Chroma vector-coverage audit, plus per-collection
+ * embedding-dimension samples when a dimension gatherer is injected), runs the producers over them, and
+ * routes every emitted `recovery-diagnosis` to the actuator's `escalateDiagnosis` sink —
  * the operator-page path. It is DETECT-ONLY / ESCALATE-ONLY by construction: it never calls a
  * privileged recovery action (`apply` / restart / re-embed / restore / Chroma mutation). Data mutation
  * stays operator-gated (the two-worlds boundary); a gutted store pages a human, it is not
@@ -47,6 +49,16 @@ export class DataIntegrityDiagnosisService extends Base {
      * @member {Function|null} coverageGatherer=null
      */
     coverageGatherer = null
+    /**
+     * Async fact gatherer returning per-collection embedding-dimension samples
+     * (`[{collection, expectedDimension, mismatchedVectorCount}]`) for `buildDimensionConsistencyDiagnosis`.
+     * OPTIONAL — a set-once injected dependency (a plain class field, like `coverageGatherer`). The
+     * dimension signal is secondary: when this is absent (the live-Chroma binding not yet wired) or its
+     * probe fails, dimension is skipped for the cycle and the coverage signal still runs — a
+     * dimension-probe issue must never suppress the primary coverage probe.
+     * @member {Function|null} dimensionGatherer=null
+     */
+    dimensionGatherer = null
     /**
      * The current-clock injection seam for deterministic tests; falls back to `Date.now()`.
      * Set-once injected dependency — a plain class field (see `coverageGatherer`), not reactive.
@@ -96,7 +108,9 @@ export class DataIntegrityDiagnosisService extends Base {
             });
         }
 
-        const diagnoses   = this.buildDiagnoses({coverageResult, observedAt}),
+        const dimensionSamples = await this.gatherDimensionSamples();
+
+        const diagnoses   = this.buildDiagnoses({coverageResult, dimensionSamples, observedAt}),
               escalations = await this.routeDiagnoses({diagnoses, now: observedAt});
 
         return this.createDecision({
@@ -109,18 +123,42 @@ export class DataIntegrityDiagnosisService extends Base {
     }
 
     /**
+     * @summary Gathers per-collection dimension samples from the injected dimension gatherer, if present.
+     *
+     * The dimension signal is secondary and degrades independently: an absent gatherer (the live-Chroma
+     * binding not yet wired) or a probe failure yields no samples (dimension is skipped this cycle) and
+     * never aborts the cycle — the primary coverage probe has already run and must not be suppressed.
+     *
+     * @returns {Promise<Object[]>} Per-collection dimension samples, or `[]` when unavailable.
+     */
+    async gatherDimensionSamples() {
+        if (typeof this.dimensionGatherer !== 'function') {
+            return [];
+        }
+
+        try {
+            const samples = await this.dimensionGatherer();
+            return Array.isArray(samples) ? samples : [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    /**
      * @summary Runs the pure detect-producers over the gathered facts and collects non-null diagnoses.
      *
-     * This is the extension seam: follow-up slices add the monotonicity producer (fed by the runner's
-     * own per-collection history) and the dimension-consistency producer (fed by an injected dimension
-     * fact-gatherer) alongside the coverage-drift producer wired here.
+     * Wires the coverage-drift producer (snapshot-derived) and the dimension-consistency producer (fed by
+     * the optional injected dimension gatherer). The remaining extension is the monotonicity producer
+     * (fed by the runner's own per-collection history). Each producer is pure and returns `null` on a
+     * clean signal, so an absent dimension gatherer (empty samples) simply yields no dimension diagnosis.
      *
      * @param {Object} options
      * @param {Object} options.coverageResult The `auditChromaVectorCoverage()` result.
+     * @param {Object[]} [options.dimensionSamples=[]] Per-collection dimension samples; empty when no gatherer is injected.
      * @param {Number} options.observedAt Epoch milliseconds for the observation.
      * @returns {Object[]} The non-null `recovery-diagnosis` events emitted this cycle.
      */
-    buildDiagnoses({coverageResult, observedAt}) {
+    buildDiagnoses({coverageResult, dimensionSamples = [], observedAt}) {
         const diagnoses = [],
               coverage  = buildDataIntegrityCoverageDiagnosis({
                   coverageResult,
@@ -130,6 +168,16 @@ export class DataIntegrityDiagnosisService extends Base {
 
         if (coverage) {
             diagnoses.push(coverage);
+        }
+
+        const dimension = buildDimensionConsistencyDiagnosis({
+            samples  : dimensionSamples,
+            observedAt,
+            serviceId: this.serviceId
+        });
+
+        if (dimension) {
+            diagnoses.push(dimension);
         }
 
         return diagnoses;
