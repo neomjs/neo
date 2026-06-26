@@ -8,7 +8,7 @@ setup({
 import {test, expect}                                               from '@playwright/test';
 import Neo                                                          from '../../../../../../src/Neo.mjs';
 import * as core                                                    from '../../../../../../src/core/_export.mjs';
-import {embedRecoverableDocuments, extractMemoryCoreCollectionData} from '../../../../../../ai/scripts/maintenance/repairMemoryCoreStoredEmbeddings.mjs';
+import {embedRecoverableDocuments, extractMemoryCoreCollectionData, truncateToByteBudget, truncateToEmbedTokenBudget} from '../../../../../../ai/scripts/maintenance/repairMemoryCoreStoredEmbeddings.mjs';
 
 /**
  * Mock Chroma collection: `rows` is `{ id: {embedding?, document?, metadata?} }`. `.get` returns only
@@ -288,5 +288,87 @@ test.describe('embedRecoverableDocuments — binary-split isolate-then-rebatch (
         expect([...failedIndexes]).toEqual([]);
         expect(embeddings).toEqual([[3], [3], [3]]);
         expect(calls).toBe(1);
+    });
+});
+
+test.describe('truncateToEmbedTokenBudget — oversized-document recovery (the Prevent floor)', () => {
+    test('returns text unchanged when within the token budget (no-op)', () => {
+        const text = 'a short document';
+        expect(truncateToEmbedTokenBudget(text, 1000)).toBe(text);
+    });
+
+    test('truncates an over-budget document to a prefix estimated to fit the budget', () => {
+        const text      = 'x'.repeat(30000),            // ~10000 tokens at ~3 bytes/token
+              truncated = truncateToEmbedTokenBudget(text, 100);
+
+        expect(truncated.length).toBeLessThan(text.length);
+        expect(text.startsWith(truncated)).toBe(true);  // a genuine prefix, not a re-encoding
+        expect(Math.ceil(Buffer.byteLength(truncated, 'utf8') / 3)).toBeLessThanOrEqual(100);
+    });
+
+    test('never splits a multi-byte UTF-8 character', () => {
+        const text      = '😀'.repeat(5000),            // 4 bytes each
+              truncated = truncateToEmbedTokenBudget(text, 100);
+
+        expect(truncated.length).toBeGreaterThan(0);
+        expect(truncated.length).toBeLessThan(text.length);
+        expect([...truncated].every(char => char === '😀')).toBe(true);  // no broken/replacement char
+    });
+
+    test('is a no-op for a non-positive budget or non-string input (degrades to current behavior)', () => {
+        expect(truncateToEmbedTokenBudget('abc', 0)).toBe('abc');
+        expect(truncateToEmbedTokenBudget('abc', -5)).toBe('abc');
+        expect(truncateToEmbedTokenBudget(null, 100)).toBe(null);
+    });
+
+    test('truncateToByteBudget respects the byte budget and never cuts a multi-byte char in half', () => {
+        expect(truncateToByteBudget('hello', 100)).toBe('hello');                                  // under budget → unchanged
+        expect(Buffer.byteLength(truncateToByteBudget('a'.repeat(50), 10), 'utf8')).toBeLessThanOrEqual(10);
+        expect(truncateToByteBudget('😀😀', 5)).toBe('😀');                                         // 4-byte char that overflows is dropped whole
+    });
+
+    test('a budget-aware embedFn RECOVERS an oversized document instead of marking it unrecoverable', async () => {
+        const BUDGET    = 50,                 // tiny test token budget
+              oversized = 'y'.repeat(900);    // ~300 tokens — exceeds BUDGET
+
+        // Mirror the production embedFn wrapper: truncate each doc to the budget, then embed. The fake
+        // provider REJECTS input still over budget (its context assertion) and SUCCEEDS otherwise.
+        const budgetAwareEmbedFn = async docs => docs.map(doc => {
+            const prepared = truncateToEmbedTokenBudget(doc, BUDGET);
+
+            if (Math.ceil(Buffer.byteLength(prepared, 'utf8') / 3) > BUDGET) {
+                throw new Error('embedding context too small (context overflow)');
+            }
+
+            return [1, 2, 3];
+        });
+
+        const result = await extractMemoryCoreCollectionData({
+            collection      : makeCollection({m: {document: oversized, metadata: {}}}),
+            allIds          : ['m'],
+            missingVectorIds: ['m'],
+            embedFn         : budgetAwareEmbedFn
+        });
+
+        expect(result.counts).toEqual({total: 1, intact: 0, reEmbedded: 1, unrecoverable: 0});
+        expect(result.data.ids).toEqual(['m']);
+        expect(result.unrecoverableIds).toEqual([]);
+    });
+
+    test('the gap this closes: without budget-aware truncation the same oversized document stays unrecoverable', async () => {
+        const oversized  = 'y'.repeat(900);
+        // A raw embedFn (no truncation) that rejects the oversized doc — the pre-truncation behavior.
+        const rawEmbedFn = async () => { throw new Error('embedding context too small (context overflow)'); };
+
+        const result = await extractMemoryCoreCollectionData({
+            collection      : makeCollection({m: {document: oversized, metadata: {}}}),
+            allIds          : ['m'],
+            missingVectorIds: ['m'],
+            embedFn         : rawEmbedFn
+        });
+
+        expect(result.counts.reEmbedded).toBe(0);
+        expect(result.counts.unrecoverable).toBe(1);
+        expect(result.unrecoverableIds).toEqual(['m']);
     });
 });
