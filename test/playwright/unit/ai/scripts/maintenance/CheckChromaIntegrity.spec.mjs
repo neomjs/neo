@@ -6,6 +6,7 @@ import {promisify}    from 'util';
 import {test, expect} from '@playwright/test';
 import {
     auditChromaVectorCoverage,
+    auditCollectionDocumentPresence,
     auditCollectionVectorDimensions,
     classifySqliteCheck,
     compareMetadataToVectorIds,
@@ -435,6 +436,65 @@ test.describe('auditCollectionVectorDimensions — data-integrity dimension fact
 
         const result = await auditCollectionVectorDimensions({collection, collectionName: 'c', expectedDimension: 4096});
         expect(result.mismatchedVectorCount).toBe(0);
+        expect(result.sampledCount).toBe(0);
+        expect(result.error).toBe('chroma unavailable');
+    });
+});
+
+test.describe('auditCollectionDocumentPresence — data-integrity WAL-stall-vs-wipe discriminator', () => {
+    // mock collection: the by-ids `get` returns documents positionally aligned to the requested ids.
+    function makeDocCollection({documents, failOn}) {
+        return {
+            get: async ({ids: reqIds} = {}) => {
+                if (failOn) throw new Error('chroma unavailable');
+                return {ids: reqIds, documents};
+            }
+        };
+    }
+
+    test('counts rows whose document is present — the re-embeddable WAL-stall shape', async () => {
+        const collection = makeDocCollection({documents: ['memory text', 'another memory', 'third']});
+
+        expect(await auditCollectionDocumentPresence({collection, collectionName: 'neo-agent-memory', ids: ['a', 'b', 'c'], sampleSize: 10}))
+            .toEqual({collection: 'neo-agent-memory', documentsPresentCount: 3, sampledCount: 3});
+    });
+
+    test('gutted rows — documents absent (null/empty/undefined) -> documentsPresentCount 0 (the unrecoverable wipe shape)', async () => {
+        const collection = makeDocCollection({documents: [null, '', undefined]});
+
+        expect((await auditCollectionDocumentPresence({collection, collectionName: 'c', ids: ['a', 'b', 'c']})).documentsPresentCount).toBe(0);
+    });
+
+    test('mixed — only non-empty-string documents count', async () => {
+        const collection = makeDocCollection({documents: ['present', null, 'also present']});
+
+        const result = await auditCollectionDocumentPresence({collection, collectionName: 'c', ids: ['a', 'b', 'c']});
+        expect(result.documentsPresentCount).toBe(2);
+        expect(result.sampledCount).toBe(3);
+    });
+
+    test('sampleSize caps the ids probed', async () => {
+        // chroma returns documents for the 2 requested (sampled) ids only.
+        const collection = makeDocCollection({documents: ['t1', 't2']});
+
+        expect(await auditCollectionDocumentPresence({collection, collectionName: 'c', ids: ['a', 'b', 'c'], sampleSize: 2}))
+            .toEqual({collection: 'c', documentsPresentCount: 2, sampledCount: 2});
+    });
+
+    test('no gutted ids -> zero count, no probe (and no false error)', async () => {
+        let   probed     = false;
+        const collection = {get: async () => { probed = true; return {ids: [], documents: []}; }};
+
+        expect(await auditCollectionDocumentPresence({collection, collectionName: 'c', ids: []}))
+            .toEqual({collection: 'c', documentsPresentCount: 0, sampledCount: 0});
+        expect(probed).toBe(false);
+    });
+
+    test('a .get failure surfaces as an error with a zero count — never throws into the runner', async () => {
+        const collection = makeDocCollection({documents: [], failOn: true});
+
+        const result = await auditCollectionDocumentPresence({collection, collectionName: 'c', ids: ['a']});
+        expect(result.documentsPresentCount).toBe(0);
         expect(result.sampledCount).toBe(0);
         expect(result.error).toBe('chroma unavailable');
     });
