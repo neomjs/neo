@@ -22,7 +22,7 @@ import * as core      from '../../../../../../../src/core/_export.mjs';
 /**
  * Coverage for the `ingest_source_files` MCP facade (#11634, Phase 2B).
  *
- * `ingestSourceFilesViaMcp` wraps `KnowledgeBaseIngestionService.ingestSourceFiles`
+ * `ingestSourceFilesViaMcp` wraps `IngestionService.ingestSourceFiles`
  * with the #10572 work-volume gate: an oversized agent-initiated push is refused
  * up-front with a structured `KB_INGEST_VOLUME_EXCEEDED` payload instead of being
  * dispatched (which would embed synchronously and freeze the calling agent).
@@ -32,12 +32,12 @@ import * as core      from '../../../../../../../src/core/_export.mjs';
  * wrapper; `listTools()` separately confirms the openapi operation registers.
  *
  * Serial mode: specs mutate the `aiConfig.mcpSyncMaxChunks` threshold and the
- * `KnowledgeBaseIngestionService.ingestSourceFiles` singleton method.
+ * `IngestionService.ingestSourceFiles` singleton method.
  */
 test.describe.configure({mode: 'serial'});
 
 test.describe('ingest_source_files MCP facade — work-volume gate (#11634)', () => {
-    let callTool, ingestSourceFilesViaMcp, listTools, KnowledgeBaseIngestionService, aiConfig;
+    let callTool, ingestSourceFilesViaMcp, listTools, IngestionService, aiConfig;
     let originalIngest, originalThreshold, originalTransport;
 
     test.beforeAll(async () => {
@@ -47,17 +47,17 @@ test.describe('ingest_source_files MCP facade — work-volume gate (#11634)', ()
         ingestSourceFilesViaMcp = ingestTool.ingestSourceFilesViaMcp;
         listTools               = toolService.listTools;
 
-        KnowledgeBaseIngestionService = (await import('../../../../../../../ai/services/knowledge-base/KnowledgeBaseIngestionService.mjs')).default;
+        IngestionService = (await import('../../../../../../../ai/services/knowledge-base/IngestionService.mjs')).default;
         aiConfig                      = (await import('../../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
 
-        originalIngest    = KnowledgeBaseIngestionService.ingestSourceFiles;
+        originalIngest    = IngestionService.ingestSourceFiles;
         originalThreshold = aiConfig.mcpSyncMaxChunks;
         originalTransport = aiConfig.transport;
     });
 
     test.afterAll(() => {
-        if (KnowledgeBaseIngestionService) {
-            KnowledgeBaseIngestionService.ingestSourceFiles = originalIngest;
+        if (IngestionService) {
+            IngestionService.ingestSourceFiles = originalIngest;
         }
         if (aiConfig) {
             aiConfig.mcpSyncMaxChunks = originalThreshold;
@@ -69,12 +69,12 @@ test.describe('ingest_source_files MCP facade — work-volume gate (#11634)', ()
         // Tight, predictable threshold; restore the real service method before each spec.
         aiConfig.mcpSyncMaxChunks                       = 5;
         aiConfig.transport                              = 'sse';
-        KnowledgeBaseIngestionService.ingestSourceFiles = originalIngest;
+        IngestionService.ingestSourceFiles = originalIngest;
     });
 
     test('gate fires above threshold — returns KB_INGEST_VOLUME_EXCEEDED, service not dispatched', async () => {
         let dispatched = false;
-        KnowledgeBaseIngestionService.ingestSourceFiles = async () => {
+        IngestionService.ingestSourceFiles = async () => {
             dispatched = true;
             return {};
         };
@@ -95,7 +95,7 @@ test.describe('ingest_source_files MCP facade — work-volume gate (#11634)', ()
         let dispatchedArgs = null;
         const summary      = {ingested: 5, deleted: 0, embeddingsGenerated: 5, errors: [], tenantId: 'neo-shared', durationMs: 1};
 
-        KnowledgeBaseIngestionService.ingestSourceFiles = async args => {
+        IngestionService.ingestSourceFiles = async args => {
             dispatchedArgs = args;
             return summary;
         };
@@ -111,7 +111,7 @@ test.describe('ingest_source_files MCP facade — work-volume gate (#11634)', ()
 
     test('batch volume sums parsedChunks lengths and counts each raw file as 1', async () => {
         let dispatched = false;
-        KnowledgeBaseIngestionService.ingestSourceFiles = async () => {
+        IngestionService.ingestSourceFiles = async () => {
             dispatched = true;
             return {};
         };
@@ -131,7 +131,7 @@ test.describe('ingest_source_files MCP facade — work-volume gate (#11634)', ()
 
     test('missing files field dispatches with a zero batch volume', async () => {
         let dispatchedArgs = 'unset';
-        KnowledgeBaseIngestionService.ingestSourceFiles = async args => {
+        IngestionService.ingestSourceFiles = async args => {
             dispatchedArgs = args;
             return {ingested: 0, deleted: 0, embeddingsGenerated: 0, errors: [], tenantId: 'neo-shared', durationMs: 0};
         };

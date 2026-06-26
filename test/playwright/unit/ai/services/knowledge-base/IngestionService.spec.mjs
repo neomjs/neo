@@ -1,6 +1,6 @@
 import {setup} from '../../../../setup.mjs';
 
-const appName = 'KBIngestionServiceTest';
+const appName = 'IngestionServiceTest';
 
 setup({
     neoConfig: {
@@ -22,7 +22,7 @@ import fs             from 'fs-extra';
 import aiConfig       from '../../../../../../ai/mcp/server/knowledge-base/config.mjs';
 
 /**
- * Contract coverage for KnowledgeBaseIngestionService (#11633).
+ * Contract coverage for IngestionService (#11633).
  *
  * The suite uses mock VectorService / Chroma / telemetry dependencies so it verifies the
  * Phase 2A orchestration contract without touching the real ChromaDB collection or external
@@ -101,7 +101,7 @@ function createEmbeddingGuardrail(overrides = {}) {
     };
 }
 
-test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
+test.describe('IngestionService.ingestSourceFiles', () => {
     let Service;
     let originals;
     let vectorCalls;
@@ -109,7 +109,7 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
     let collection;
 
     test.beforeAll(async () => {
-        Service = (await import('../../../../../../ai/services/knowledge-base/KnowledgeBaseIngestionService.mjs')).default;
+        Service = (await import('../../../../../../ai/services/knowledge-base/IngestionService.mjs')).default;
     });
 
     test.beforeEach(() => {
@@ -119,8 +119,10 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
 
         originals = {
             chromaManager                 : Service.chromaManager,
+            activeIngestionProgress       : Service.activeIngestionProgress,
             graphService                  : Service.graphService,
             getTenantConfig               : Service.getTenantConfig,
+            lastIngestionProgress         : Service.lastIngestionProgress,
             recorderService               : Service.recorderService,
             requestContextService         : Service.requestContextService,
             resolveEmbeddingInputGuardrail: Service.resolveEmbeddingInputGuardrail,
@@ -156,6 +158,8 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
                 return {message: 'Embedding complete. Collection now contains 1 items.', embedded: lines.length, deleted: 0};
             }
         };
+        Service.activeIngestionProgress = null;
+        Service.lastIngestionProgress   = null;
     });
 
     test.afterEach(() => {
@@ -193,6 +197,112 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
             eventType     : 'ingest',
             chunksTotal   : 1,
             chunksEmbedded: 1
+        });
+    });
+
+    test('reports idle ingestion progress before any observed run (#14028)', () => {
+        expect(Service.getIngestionProgress()).toMatchObject({
+            status        : 'idle',
+            active        : false,
+            phase         : 'idle',
+            stalled       : false,
+            totalSources  : 0,
+            seenSources   : 0,
+            totalChunks   : 0,
+            embeddedChunks: 0,
+            skippedChunks : 0,
+            remaining     : 0,
+            lastRunSummary: null
+        });
+    });
+
+    test('reports active ingestion progress and preserves the last-run summary (#14028)', async () => {
+        let activeSnapshot;
+        let releaseEmbed;
+        const embedGate = new Promise(resolve => { releaseEmbed = resolve; });
+
+        Service.vectorService.embed = async (filePath, options) => {
+            const lines = (await fs.readFile(filePath, 'utf8')).trim().split('\n').filter(Boolean);
+            vectorCalls.push({filePath, options, records: lines.map(line => JSON.parse(line))});
+            activeSnapshot = Service.getIngestionProgress({staleAfterMs: 60000});
+            await embedGate;
+            return {message: 'Embedding complete.', embedded: lines.length, deleted: 0};
+        };
+
+        const ingestPromise = Service.ingestSourceFiles({
+            tenantId: 'tenant-a',
+            files   : [{parsedChunks: [validParsedChunk()]}]
+        });
+
+        while (!activeSnapshot) {
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+
+        expect(activeSnapshot).toMatchObject({
+            status        : 'running',
+            active        : true,
+            phase         : 'embedding',
+            stalled       : false,
+            totalSources  : 1,
+            seenSources   : 1,
+            totalChunks   : 1,
+            embeddedChunks: 0,
+            skippedChunks : 0,
+            remaining     : 1
+        });
+
+        releaseEmbed();
+
+        const summary = await ingestPromise;
+        expect(summary.embeddingsGenerated).toBe(1);
+
+        const idle = Service.getIngestionProgress();
+        expect(idle).toMatchObject({
+            status: 'idle',
+            active: false,
+            phase : 'idle'
+        });
+        expect(idle.lastRunSummary).toMatchObject({
+            status        : 'completed',
+            active        : false,
+            totalSources  : 1,
+            seenSources   : 1,
+            totalChunks   : 1,
+            embeddedChunks: 1,
+            remaining     : 0
+        });
+    });
+
+    test('marks active progress stalled when the last progress timestamp exceeds the threshold (#14028)', () => {
+        const now = Date.now();
+
+        Service.activeIngestionProgress = {
+            status          : 'running',
+            phase           : 'embedding',
+            startedAt       : now - 1000,
+            updatedAt       : now - 1000,
+            lastProgressAt  : now - 1000,
+            completedAt     : null,
+            tenantId        : 'tenant-a',
+            repoSlug        : 'repo-a',
+            totalSources    : 1,
+            seenSources     : 1,
+            totalChunks     : 2,
+            embeddableChunks: 2,
+            embeddedChunks  : 1,
+            skippedChunks   : 0,
+            deletedRows     : 0,
+            errorCount      : 0
+        };
+
+        const snapshot = Service.getIngestionProgress({staleAfterMs: 1});
+
+        expect(snapshot).toMatchObject({
+            status   : 'running',
+            active   : true,
+            phase    : 'embedding',
+            stalled  : true,
+            remaining: 1
         });
     });
 
@@ -500,6 +610,16 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
         });
         expect(summary.errors[0].details).not.toHaveProperty('content');
         expect(vectorCalls).toHaveLength(0);
+
+        const idle = Service.getIngestionProgress();
+
+        expect(idle.lastRunSummary).toMatchObject({
+            status        : 'completed_with_errors',
+            totalChunks   : 1,
+            embeddedChunks: 0,
+            skippedChunks : 1,
+            remaining     : 0
+        });
     });
 
     test('does not apply local embedding caps to non-local ingestion providers', async () => {
@@ -608,13 +728,13 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
     });
 });
 
-test.describe('KnowledgeBaseIngestionService.tenantConfig (#11637)', () => {
+test.describe('IngestionService.tenantConfig (#11637)', () => {
     let Service;
     let originals;
     let graphStub;
 
     test.beforeAll(async () => {
-        Service = (await import('../../../../../../ai/services/knowledge-base/KnowledgeBaseIngestionService.mjs')).default;
+        Service = (await import('../../../../../../ai/services/knowledge-base/IngestionService.mjs')).default;
     });
 
     test.beforeEach(() => {
@@ -809,14 +929,14 @@ test.describe('KnowledgeBaseIngestionService.tenantConfig (#11637)', () => {
     });
 });
 
-test.describe('KnowledgeBaseIngestionService.listConfiguredTenantRepos (#12145)', () => {
+test.describe('IngestionService.listConfiguredTenantRepos (#12145)', () => {
     let Service;
     let originals;
     let graphStub;
     let originalAiConfigRepos;
 
     test.beforeAll(async () => {
-        Service = (await import('../../../../../../ai/services/knowledge-base/KnowledgeBaseIngestionService.mjs')).default;
+        Service = (await import('../../../../../../ai/services/knowledge-base/IngestionService.mjs')).default;
     });
 
     test.beforeEach(() => {

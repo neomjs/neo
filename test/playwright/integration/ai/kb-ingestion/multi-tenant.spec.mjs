@@ -112,7 +112,7 @@ function runMultiTenantMatrix(collectionName) {
         } = await import('./ai/services.mjs');
         const {callTool} = await import('./ai/mcp/server/knowledge-base/toolService.mjs');
         const {default: KbReconciliationService} = await import('./ai/daemons/kb-reconciliation/KbReconciliationService.mjs');
-        const {default: KnowledgeBaseIngestionService} = await import('./ai/services/knowledge-base/KnowledgeBaseIngestionService.mjs');
+        const {default: IngestionService} = await import('./ai/services/knowledge-base/IngestionService.mjs');
         const {default: QueryService} = await import('./ai/services/knowledge-base/QueryService.mjs');
         const {default: SearchService} = await import('./ai/services/knowledge-base/SearchService.mjs');
         const {default: SourceRegistry} = await import('./ai/services/knowledge-base/source/_export.mjs');
@@ -226,7 +226,7 @@ function runMultiTenantMatrix(collectionName) {
             spoofRejectionMode: KB_Config.data.spoofRejectionMode,
             embedText        : Memory_TextEmbeddingService.embedText.bind(Memory_TextEmbeddingService),
             embedTexts       : Memory_TextEmbeddingService.embedTexts.bind(Memory_TextEmbeddingService),
-            revisionResolver : KnowledgeBaseIngestionService.revisionResolver
+            revisionResolver : IngestionService.revisionResolver
         };
 
         KB_Config.data.collectionName     = process.env.NEO_TEST_KB_COLLECTION;
@@ -446,7 +446,7 @@ function runMultiTenantMatrix(collectionName) {
             await waitForRows({tenantId: 'tenant-alpha'}, rows => rows.some(row => (
                 row.metadata.repoSlug === forcePushRepoSlug && row.metadata.sourcePath === forcePushSourcePath
             )));
-            KnowledgeBaseIngestionService.revisionResolver = {
+            IngestionService.revisionResolver = {
                 resolveDeletedPaths: async () => [{repoSlug: forcePushRepoSlug, sourcePath: forcePushSourcePath}]
             };
             const forcePush = await asTenant('tenant-alpha', () => callTool('ingest_source_files', {
@@ -469,7 +469,7 @@ function runMultiTenantMatrix(collectionName) {
                 newPresent: forceRows.some(row => row.metadata.repoSlug === forcePushRepoSlug && row.metadata.sourcePath === 'src/new.js')
             };
 
-            await asTenant('tenant-alpha', () => KnowledgeBaseIngestionService.setTenantManifest({
+            await asTenant('tenant-alpha', () => IngestionService.setTenantManifest({
                 tenantId      : 'tenant-alpha',
                 repoSlug      : forcePushRepoSlug,
                 pathsAfterPush: ['src/new.js']
@@ -517,7 +517,7 @@ function runMultiTenantMatrix(collectionName) {
         } finally {
             Memory_TextEmbeddingService.embedText  = originals.embedText;
             Memory_TextEmbeddingService.embedTexts = originals.embedTexts;
-            KnowledgeBaseIngestionService.revisionResolver = originals.revisionResolver;
+            IngestionService.revisionResolver = originals.revisionResolver;
             delete KbReconciliationService.recordReconcileMetric;
             KB_Config.data.collectionName      = originals.collectionName;
             KB_Config.data.defaultRepoSlug     = originals.defaultRepoSlug;
