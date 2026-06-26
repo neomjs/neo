@@ -572,18 +572,23 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    id:
-                      type: string
-                    model:
-                      oneOf:
-                        - type: string
-                        - type: object
-                    count:
-                      type: integer
+                type: object
+                properties:
+                  stores:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        model:
+                          oneOf:
+                            - type: string
+                            - type: object
+                        count:
+                          type: integer
+                        isLoaded:
+                          type: boolean
 
   /data/record/get:
     post:
