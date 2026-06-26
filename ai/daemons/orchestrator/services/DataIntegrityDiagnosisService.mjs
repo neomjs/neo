@@ -35,37 +35,37 @@ export class DataIntegrityDiagnosisService extends Base {
          * @member {String} className='Neo.ai.daemons.services.DataIntegrityDiagnosisService'
          * @protected
          */
-        className: 'Neo.ai.daemons.services.DataIntegrityDiagnosisService',
-        /**
-         * Async fact gatherer returning a Chroma vector-coverage audit result
-         * (`auditChromaVectorCoverage()` pre-bound with its AiConfig leaves at the use-site).
-         * @member {Function|null} coverageGatherer_=null
-         * @protected
-         * @reactive
-         */
-        coverageGatherer_: null,
-        /**
-         * The recovery actuator (or any object exposing `escalateDiagnosis(event, options)`).
-         * Only its escalate sink is ever reached — never a privileged action.
-         * @member {Object|null} recoveryActuator_=null
-         * @protected
-         * @reactive
-         */
-        recoveryActuator_: null,
-        /**
-         * The Memory Core `compose-service` identifier the diagnoses target.
-         * @member {String|null} serviceId_=null
-         * @protected
-         * @reactive
-         */
-        serviceId_: null,
-        /**
-         * @member {Function|null} nowFn_=null
-         * @protected
-         * @reactive
-         */
-        nowFn_: null
+        className: 'Neo.ai.daemons.services.DataIntegrityDiagnosisService'
     }
+
+    /**
+     * Async fact gatherer returning a Chroma vector-coverage audit result
+     * (`auditChromaVectorCoverage()` pre-bound with its AiConfig leaves at the use-site).
+     * A set-once injected dependency — a plain class field, NOT a reactive config: it is assigned once
+     * at construction, never reassigned, and never observed (no before/afterSet hook, no subscription),
+     * so the reactive Config-controller machinery would be pure overhead.
+     * @member {Function|null} coverageGatherer=null
+     */
+    coverageGatherer = null
+    /**
+     * The current-clock injection seam for deterministic tests; falls back to `Date.now()`.
+     * Set-once injected dependency — a plain class field (see `coverageGatherer`), not reactive.
+     * @member {Function|null} nowFn=null
+     */
+    nowFn = null
+    /**
+     * The recovery actuator (or any object exposing `escalateDiagnosis(event, options)`). Only its
+     * escalate sink is ever reached — never a privileged action. Set-once injected dependency — a
+     * plain class field, not reactive.
+     * @member {Object|null} recoveryActuator=null
+     */
+    recoveryActuator = null
+    /**
+     * The Memory Core `compose-service` identifier the diagnoses target. Set-once injected
+     * dependency — a plain class field, not reactive.
+     * @member {String|null} serviceId=null
+     */
+    serviceId = null
 
     /**
      * @summary Gathers integrity facts, runs the detect-producers, and routes any diagnosis to escalate.

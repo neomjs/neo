@@ -9,6 +9,7 @@ import {getDueTask as getSwarmHeartbeatDueTask}                   from './swarmH
 import {getDueTask as getTenantRepoSyncDueTask}                   from './tenantRepoSync.mjs';
 import {getDueTask as getEmbedDrainLivenessWatchdogDueTask}       from './embedDrainLivenessWatchdog.mjs';
 import {getDueTask as getRemConsolidationLivenessWatchdogDueTask} from './remConsolidationLivenessWatchdog.mjs';
+import {getDueTask as getDataIntegritySweepDueTask}               from './dataIntegritySweep.mjs';
 
 function toTimestampMs(value) {
     if (typeof value === 'number' && Number.isFinite(value)) {
@@ -282,6 +283,25 @@ export const TASK_REGISTRY = Object.freeze([
                 state                          : state['rem-consolidation-liveness-watchdog'] ?? {},
                 now,
                 remConsolidationWatchdogCheckMs: intervals.remConsolidationWatchdogCheck
+            });
+        }
+    },
+    {
+        // The data-integrity sweep: live scheduling of the data-integrity DETECT signal (the
+        // "up but data-gutted reports green" blind spot). A read-only, no-backpressure health-check
+        // that runs the DataIntegrityDiagnosisService runner (coverage audit -> diagnosis -> escalate
+        // sink) — never a privileged action. Excluded from TASK_STALENESS_CADENCE_KEY like the watchdog
+        // siblings (health tasks keep registry-order).
+        taskName        : 'data-integrity-sweep',
+        executionKind   : 'health-check',
+        maintenanceClass: 'health-monitor',
+        backpressure    : 'none',
+        dependencies    : [],
+        getDueTask({state, now, intervals}) {
+            return getDataIntegritySweepDueTask({
+                state                    : state['data-integrity-sweep'] ?? {},
+                now,
+                dataIntegritySweepCheckMs: intervals.dataIntegritySweepCheck
             });
         }
     }

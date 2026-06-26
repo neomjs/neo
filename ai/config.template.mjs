@@ -163,10 +163,10 @@ class Config extends ConfigProvider {
              * @type {Object}
              */
             ollama: {
-                host                 : leaf('http://127.0.0.1:11434', 'NEO_OLLAMA_HOST', 'string'),
-                model                : leaf('gemma4:26b', 'NEO_OLLAMA_MODEL', 'string'),
-                embeddingModel       : leaf('qwen3-embedding', 'NEO_OLLAMA_EMBEDDING_MODEL', 'string'),
-                keep_alive           : leaf(-1, 'NEO_OLLAMA_KEEP_ALIVE', 'keepAlive'),
+                host          : leaf('http://127.0.0.1:11434', 'NEO_OLLAMA_HOST', 'string'),
+                model         : leaf('gemma4:26b', 'NEO_OLLAMA_MODEL', 'string'),
+                embeddingModel: leaf('qwen3-embedding', 'NEO_OLLAMA_EMBEDDING_MODEL', 'string'),
+                keep_alive    : leaf(-1, 'NEO_OLLAMA_KEEP_ALIVE', 'keepAlive'),
                 // Upper bound for one native Ollama embedding HTTP request. Keeps explicit
                 // `embeddingProvider: 'ollama'` deployments from stalling the WAL drain.
                 embeddingTimeoutMs   : leaf(300000, 'NEO_OLLAMA_EMBEDDING_TIMEOUT_MS', 'number'),
@@ -573,7 +573,15 @@ class Config extends ConfigProvider {
                      * exceeds `memoryWal`-sibling `remConsolidationStallThresholdMs`.
                      * Hourly surfaces a stalled dream in hours. `<= 0` disables the lane.
                      */
-                    remConsolidationWatchdogCheckMs  : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_REM_CONSOLIDATION_WATCHDOG_INTERVAL_MS', 'number')
+                    remConsolidationWatchdogCheckMs  : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_REM_CONSOLIDATION_WATCHDOG_INTERVAL_MS', 'number'),
+                    /**
+                     * Cadence of the data-integrity sweep — the read-only, never-fail health check that
+                     * audits Memory Core metadata-vs-vector coverage and escalates a `data-integrity`
+                     * diagnosis (operator page) on drift (the "up but data-gutted reports green" blind
+                     * spot). Detect-only; data mutation stays operator-gated. Hourly surfaces a silent
+                     * vector-loss in hours, not weeks. `<= 0` disables the lane.
+                     */
+                    dataIntegritySweepCheckMs        : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_DATA_INTEGRITY_SWEEP_INTERVAL_MS', 'number')
                 },
                 /**
                  * Chroma daemon recycle policy. The orchestrator kills and respawns the supervised

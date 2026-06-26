@@ -101,7 +101,8 @@ export function buildOrchestratorSchedulingOptions({orchestrator, config, now, r
                 goldenPath                     : config.orchestrator.intervals.goldenPathMs,
                 swarmHeartbeat                 : config.orchestrator.intervals.swarmHeartbeatMs,
                 embedDrainLivenessWatchdogCheck: config.orchestrator.intervals.embedDrainLivenessWatchdogCheckMs,
-                remConsolidationWatchdogCheck  : config.orchestrator.intervals.remConsolidationWatchdogCheckMs
+                remConsolidationWatchdogCheck  : config.orchestrator.intervals.remConsolidationWatchdogCheckMs,
+                dataIntegritySweepCheck        : config.orchestrator.intervals.dataIntegritySweepCheckMs
             },
             enables: {
                 kbSync            : orchestrator.kbSyncEnabled,
@@ -136,7 +137,8 @@ export function buildOrchestratorSchedulingOptions({orchestrator, config, now, r
             taskStateService                       : orchestrator.taskStateService,
             tenantRepoSyncService                  : orchestrator.tenantRepoSyncService,
             embedDrainLivenessAlarmDispatcher      : orchestrator.embedDrainLivenessAlarmDispatcher,
-            remConsolidationLivenessAlarmDispatcher: orchestrator.remConsolidationLivenessAlarmDispatcher
+            remConsolidationLivenessAlarmDispatcher: orchestrator.remConsolidationLivenessAlarmDispatcher,
+            dataIntegrityDiagnosisService          : orchestrator.dataIntegrityDiagnosisService
         },
         runtime: {
             goldenPathRepoEnrichmentEnabled       : orchestrator.goldenPathRepoEnrichmentEnabled,
@@ -638,7 +640,9 @@ function executeHealthCheckCandidate({candidate, services, runtime}) {
         'embed-drain-liveness-watchdog': (taskName, reason) =>
             runEmbedDrainLivenessWatchdogTask({taskName, reason, services, runtime}),
         'rem-consolidation-liveness-watchdog': (taskName, reason) =>
-            runRemConsolidationLivenessWatchdogTask({taskName, reason, services, runtime})
+            runRemConsolidationLivenessWatchdogTask({taskName, reason, services, runtime}),
+        'data-integrity-sweep': (taskName, reason) =>
+            runDataIntegritySweepTask({taskName, reason, services, runtime})
     };
 
     const executeFn = runners[candidate.taskName];
@@ -861,6 +865,64 @@ async function runRemConsolidationLivenessWatchdogTask({taskName, reason, servic
                 failedAt: new Date().toISOString()
             });
             runtime.writeLog?.('ERROR', `[Orchestrator] rem-consolidation-liveness-watchdog check failed (degraded to no-alarm): ${e.message}`);
+        } catch {
+            // Last-resort swallow: the never-fail guarantee dominates all observability.
+        }
+    }
+}
+
+/**
+ * @summary Runs the data-integrity sweep: the read-only coverage probe + diagnosis routing of the
+ * DataIntegrityDiagnosisService runner, recorded as a passive health signal. Never throws.
+ *
+ * The runner itself self-routes a drift diagnosis to the actuator's escalate sink (operator page) and
+ * is detect-only. This wrapper adds the passive health-record (`completed` on a clean store; `failed`
+ * when drift was escalated OR the coverage probe was unavailable — both not-healthy signals, with the
+ * `status`/`probeError` details distinguishing them) and the never-fail guarantee: any error degrades
+ * to a recorded fault and never breaks the scheduling loop.
+ *
+ * @param {Object} options
+ * @param {String} options.taskName
+ * @param {String} options.reason Scheduling reason.
+ * @param {Object} options.services Runtime collaborators (`taskStateService`, `healthService`,
+ *   `dataIntegrityDiagnosisService`).
+ * @param {Object} options.runtime Runtime policy values (`writeLog`).
+ * @returns {Promise<void>}
+ */
+async function runDataIntegritySweepTask({taskName, reason, services, runtime}) {
+    try {
+        services.taskStateService.markStarted(taskName, reason);
+        services.healthService?.recordTaskOutcome?.(taskName, 'running', {reason, startedAt: new Date().toISOString()});
+
+        const decision = await services.dataIntegrityDiagnosisService.gatherAndDiagnose();
+
+        const details = {
+            reason,
+            status         : decision.status,
+            diagnosisCount : Array.isArray(decision.diagnoses) ? decision.diagnoses.length : 0,
+            escalationCount: Array.isArray(decision.escalations) ? decision.escalations.length : 0,
+            checkedAt      : new Date().toISOString()
+        };
+        if (decision.probeError) details.probeError = decision.probeError;
+
+        // A drift escalation OR an unavailable probe is a not-healthy signal; a clean store is healthy.
+        const notHealthy = decision.status === 'escalated' || decision.status === 'probe-unavailable';
+        services.healthService?.recordTaskOutcome?.(taskName, notHealthy ? 'failed' : 'completed', details);
+
+        services.taskStateService.markCompleted(taskName);
+    } catch (e) {
+        // Degrade to "no alarm": record the fault and clear running state, never rethrow.
+        try {
+            const state = services.taskStateService.getTaskState(taskName);
+            if (state) state.lastReason = e.message;
+            services.taskStateService.markFailed(taskName, 1);
+            services.healthService?.recordTaskOutcome?.(taskName, 'failed', {
+                reason,
+                phase   : 'data-integrity-sweep-error',
+                error   : e.message,
+                failedAt: new Date().toISOString()
+            });
+            runtime.writeLog?.('ERROR', `[Orchestrator] data-integrity-sweep check failed (degraded to no-alarm): ${e.message}`);
         } catch {
             // Last-resort swallow: the never-fail guarantee dominates all observability.
         }
