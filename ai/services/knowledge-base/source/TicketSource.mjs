@@ -1,7 +1,8 @@
-import Base from './Base.mjs';
-import fs   from 'fs-extra';
-import path from 'path';
-import aiConfig from '../../../mcp/server/knowledge-base/config.mjs';
+import Base                         from './Base.mjs';
+import fs                           from 'fs-extra';
+import path                         from 'path';
+import aiConfig                     from '../../../mcp/server/knowledge-base/config.mjs';
+import {splitTicketArchiveMarkdown} from './ticketArchiveElementSplitter.mjs';
 
 /**
  * @summary Extracts knowledge chunks from the Issue Archive.
@@ -65,7 +66,7 @@ class TicketSource extends Base {
         const ticketPaths = aiConfig.sourcePaths.TicketSource;
         const targetPaths = ticketPaths.map(p => path.resolve(aiConfig.neoRootDir, p));
 
-        const indexMap = await loadIndexMap(aiConfig.neoRootDir, 'issues');
+        const indexMap    = await loadIndexMap(aiConfig.neoRootDir, 'issues');
         const contentRoot = path.resolve(aiConfig.neoRootDir, 'resources/content');
 
         for (const targetPath of targetPaths) {
@@ -75,7 +76,7 @@ class TicketSource extends Base {
 
                 for (const file of ticketFiles) {
                     if (typeof file === 'string' && file.endsWith('.md')) {
-                        const filePath   = path.join(targetPath, file);
+                        const filePath          = path.join(targetPath, file);
                         const relativeToContent = path.relative(contentRoot, filePath);
 
                         let id = indexMap.get(relativeToContent);
@@ -84,19 +85,28 @@ class TicketSource extends Base {
                             id = path.basename(file).replace('.md', '').replace(/^issue-/, '');
                         }
 
-                        const content    = await fs.readFile(filePath, 'utf-8');
-                        const chunk      = {
-                            type   : 'ticket',
-                            kind   : 'ticket',
-                            name   : `issue-${id}`,
-                            content,
-                            // Relative path keeps the distributed Chroma zip portable.
-                            source : path.relative(aiConfig.neoRootDir, filePath)
-                        };
+                        const content = await fs.readFile(filePath, 'utf-8');
+                        // Relative path keeps the distributed Chroma zip portable.
+                        const source = path.relative(aiConfig.neoRootDir, filePath);
+                        // Per-element chunks (body + each Timeline comment) keep a multi-cycle
+                        // ticket under the embedding cap; a no-comment ticket yields one body chunk
+                        // whose content equals the whole file.
+                        const elements = splitTicketArchiveMarkdown(content);
 
-                        chunk.hash = createHashFn(chunk);
-                        writeStream.write(JSON.stringify(chunk) + '\n');
-                        count++;
+                        for (const element of elements) {
+                            const suffix = element.kind === 'body' ? 'body' : `comment-${element.ordinal}`;
+                            const chunk = {
+                                type: 'ticket',
+                                kind: 'ticket',
+                                name   : `issue-${id}#${suffix}`,
+                                content: element.content,
+                                source
+                            };
+
+                            chunk.hash = createHashFn(chunk);
+                            writeStream.write(JSON.stringify(chunk) + '\n');
+                            count++;
+                        }
                     }
                 }
             }
