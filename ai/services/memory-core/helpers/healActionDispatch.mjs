@@ -79,3 +79,51 @@ export function decideHealAction({action, collection, recentRuns = [], bounds = 
 
     return {execute: true, status: 'execute', reason: 'within bounds'};
 }
+
+/**
+ * @summary The actuator's core dispatch: run the bounded-dispatch safety gate, and if it clears, execute the
+ * heal via an INJECTED operation — returning a uniform `outcomeRecord`. Pure orchestration: the privileged
+ * data-mutation primitives (re-embed / restore / defrag) are injected as `healOperations`, so this dispatcher
+ * is fully testable without touching a real store, and the wired actuator (its placement decided separately)
+ * supplies the real operations. No operator, no escalate — a held / unwired / failed heal is RECORDED in the
+ * outcome, never paged.
+ *
+ * @param {Object} options
+ * @param {String} [options.action] The heal action (the classifier's `terminalAction`).
+ * @param {String} [options.collection] The target collection.
+ * @param {Object} [options.evidence] The diagnosis evidence passed through to the operation.
+ * @param {Object[]} [options.recentRuns=[]] Recent heal runs for the safety gate (anti-thrash + rate).
+ * @param {Object} [options.bounds] The dispatch bounds (defaults to `DEFAULT_DISPATCH_BOUNDS` in `decideHealAction`).
+ * @param {Number} [options.now] Epoch milliseconds (injected clock).
+ * @param {Object} [options.healOperations={}] `{ '<action>': async ({collection, evidence, now}) => ({status?, detail?}) }` — the injected privileged operations.
+ * @param {Function} [options.recordRun] `async ({action, collection, at}) => void` — persists the run for future anti-thrash (called only on a successful mutating heal).
+ * @returns {Promise<Object>} `outcomeRecord` = `{action, collection, status, detail, healedAt}`.
+ */
+export async function dispatchHeal({action, collection, evidence, recentRuns = [], bounds, now, healOperations = {}, recordRun} = {}) {
+    const decision = decideHealAction({action, collection, recentRuns, bounds, now});
+
+    if (!decision.execute) {
+        return {action, collection, status: decision.status, detail: decision.reason, healedAt: now};
+    }
+
+    const operation = healOperations?.[action];
+
+    // The action cleared the gate but its heal isn't wired yet (the "missing logic → ticket" set): record a
+    // `deferred` outcome — autonomous, never a page. The runner's safe-default (quarantine) covers the gap.
+    if (typeof operation !== 'function') {
+        return {action, collection, status: 'deferred', detail: `no heal operation wired for '${action}'`, healedAt: now};
+    }
+
+    try {
+        const result = await operation({collection, evidence, now});
+
+        if (typeof recordRun === 'function') {
+            await recordRun({action, collection, at: now});
+        }
+
+        return {action, collection, status: result?.status ?? 'healed', detail: result?.detail ?? result ?? null, healedAt: now};
+    } catch (error) {
+        // A failed heal is recorded, never escalated — autonomous self-heal degrades to a recorded fault.
+        return {action, collection, status: 'failed', detail: error?.message ?? String(error), healedAt: now};
+    }
+}

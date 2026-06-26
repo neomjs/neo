@@ -3,6 +3,7 @@ import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 import {
     decideHealAction,
+    dispatchHeal,
     DEFAULT_DISPATCH_BOUNDS,
     HEAL_ACTIONS,
     MUTATING_HEAL_ACTIONS
@@ -62,5 +63,83 @@ test.describe('decideHealAction — autonomous bounded-dispatch safety gate', ()
         expect(MUTATING_HEAL_ACTIONS.every(a => HEAL_ACTIONS.includes(a))).toBe(true);
         expect(HEAL_ACTIONS).toContain('quarantine'); // quarantine is a containment heal-action
         expect(DEFAULT_DISPATCH_BOUNDS.maxRunsPerWindow).toBeGreaterThan(0);
+    });
+});
+
+test.describe('dispatchHeal — actuator core dispatch (safety gate + injected execution)', () => {
+    const ok = async () => ({status: 'healed', detail: 're-embedded 5 rows'});
+
+    test('a held action (thrash-cooldown) returns the hold outcome and NEVER calls the operation', async () => {
+        let   called     = false;
+        const recentRuns = [{action: 're-embed-missing', collection: 'mc', at: NOW - 1000}],
+              outcome    = await dispatchHeal({
+                  action        : 're-embed-missing',
+                  collection    : 'mc',
+                  recentRuns,
+                  now           : NOW,
+                  healOperations: {'re-embed-missing': async () => { called = true; return ok(); }}
+              });
+
+        expect(outcome).toMatchObject({status: 'thrash-cooldown', healedAt: NOW});
+        expect(called).toBe(false);
+    });
+
+    test('an executable action with a wired operation → healed + records the run', async () => {
+        const runs    = [],
+              outcome = await dispatchHeal({
+                  action        : 're-embed-missing',
+                  collection    : 'mc-memory',
+                  evidence      : {gap: 5},
+                  now           : NOW,
+                  healOperations: {'re-embed-missing': ok},
+                  recordRun     : async run => { runs.push(run); }
+              });
+
+        expect(outcome).toMatchObject({action: 're-embed-missing', collection: 'mc-memory', status: 'healed', detail: 're-embedded 5 rows'});
+        expect(runs).toEqual([{action: 're-embed-missing', collection: 'mc-memory', at: NOW}]);
+    });
+
+    test('an executable action with NO wired operation → deferred (the missing-logic gap, autonomous, no page)', async () => {
+        const outcome = await dispatchHeal({action: 'restore-delta-merge', collection: 'mc', now: NOW, healOperations: {}});
+
+        expect(outcome).toMatchObject({status: 'deferred', healedAt: NOW});
+        expect(outcome.detail).toMatch(/no heal operation wired/);
+    });
+
+    test('a throwing operation → failed (recorded, never escalated)', async () => {
+        const outcome = await dispatchHeal({
+            action        : 'defrag',
+            collection    : 'mc',
+            now           : NOW,
+            healOperations: {defrag: async () => { throw new Error('chroma unreachable'); }}
+        });
+
+        expect(outcome).toMatchObject({status: 'failed', detail: 'chroma unreachable'});
+    });
+
+    test('the operation status+detail is carried through (e.g. quarantine reports frozen)', async () => {
+        const outcome = await dispatchHeal({
+            action        : 'quarantine',
+            collection    : 'mc',
+            now           : NOW,
+            healOperations: {quarantine: async () => ({status: 'frozen', detail: 'collection marked unhealthy'})}
+        });
+
+        expect(outcome).toMatchObject({status: 'frozen', detail: 'collection marked unhealthy'});
+    });
+
+    test('recordRun is NOT called when the gate holds', async () => {
+        let   recorded   = false;
+        const recentRuns = [{action: 'defrag', collection: 'mc', at: NOW - 1000}];
+        await dispatchHeal({
+            action        : 'defrag',
+            collection    : 'mc',
+            recentRuns,
+            now           : NOW,
+            healOperations: {defrag: ok},
+            recordRun     : async () => { recorded = true; }
+        });
+
+        expect(recorded).toBe(false);
     });
 });
