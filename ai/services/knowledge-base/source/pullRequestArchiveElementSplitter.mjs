@@ -10,7 +10,8 @@
  * (the corruption class). Splitting at extract time keeps every element small regardless of how many
  * review rounds a PR accumulates.
  *
- * Boundary format (verified across the archive — 494/4121 files carry `## Reviews`, 243 `## Comments`):
+ * Boundary format (verified active+archive — 1579/4121 files carry `## Reviews`, 1354 `## Comments`,
+ * 2071 with either boundary; a corpus scan found zero files with content unowned by an element):
  * the body (frontmatter + title + the PR body, which carries its OWN `## Deltas` / `## Test Evidence` /
  * `## Commits` sections) runs until the FIRST review/comment delimiter. Each discussion element is
  * delimited by a backtick-author line:
