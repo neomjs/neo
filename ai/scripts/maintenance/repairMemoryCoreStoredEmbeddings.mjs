@@ -259,7 +259,7 @@ function getDocumentProblem(document) {
 }
 
 /**
- * @summary Embeds a batch, falling back to per-document isolation when the batch fails.
+ * @summary Embeds a batch; on failure, binary-splits to isolate the failing document(s) and re-batches the survivors.
  * @param {Object} options
  * @param {Function} options.embedFn Embedding function.
  * @param {String[]} options.ids Row ids paired with `documents`.
@@ -267,38 +267,52 @@ function getDocumentProblem(document) {
  * @returns {Promise<{embeddings: Number[][], failedIndexes: Set<Number>,
  *                    failures: Array<{index: Number, reason: String, message: String}>}>}
  */
-async function embedRecoverableDocuments({embedFn, ids, documents} = {}) {
-    try {
-        const embeddings = await embedFn(documents);
+export async function embedRecoverableDocuments({embedFn, ids, documents} = {}) {
+    const embeddings = new Array(documents.length);
+    const failures   = [];
 
-        if (!Array.isArray(embeddings) || embeddings.length !== documents.length) {
-            throw createEmbeddingResultError(`embedFn returned ${Array.isArray(embeddings) ? embeddings.length : 'non-array'} embeddings for ${documents.length} documents`);
+    // Embed the widest range that succeeds as a single batch; on failure, binary-split to isolate
+    // the failing document(s) and RE-BATCH the survivors — rather than degrading the whole batch to
+    // 1-by-1 single embeds, which forfeits the provider's batch parallelism on the failure path
+    // (the graph-recovery slowdown a single oversized doc caused). Failures stay attributed to their
+    // exact source index. Common case (few bad docs in a batch): O(log n) extra batch calls vs the
+    // old O(n) singles; pathological all-fail is bounded near ~2x calls — an acceptable trade for
+    // the far-more-common single-bad-apple path.
+    await embedRange(0, documents.length);
+
+    return {embeddings, failedIndexes: new Set(failures.map(failure => failure.index)), failures};
+
+    async function embedRange(start, end) {
+        const slice = documents.slice(start, end);
+
+        if (slice.length === 0) {
+            return;
         }
 
-        return {embeddings, failedIndexes: new Set(), failures: []}
-    } catch {
-        const embeddings = new Array(documents.length);
-        const failures   = [];
+        try {
+            const vectors = await embedFn(slice);
 
-        for (let i = 0; i < documents.length; i++) {
-            try {
-                const single = await embedFn([documents[i]]);
+            if (!Array.isArray(vectors) || vectors.length !== slice.length) {
+                throw createEmbeddingResultError(`embedFn returned ${Array.isArray(vectors) ? vectors.length : 'non-array'} embeddings for ${slice.length} documents`);
+            }
 
-                if (!Array.isArray(single) || single.length !== 1) {
-                    throw createEmbeddingResultError(`single embed returned ${Array.isArray(single) ? single.length : 'non-array'} embeddings`);
-                }
-
-                embeddings[i] = single[0];
-            } catch (error) {
+            for (let i = 0; i < slice.length; i++) {
+                embeddings[start + i] = vectors[i];
+            }
+        } catch (error) {
+            if (slice.length === 1) {
                 failures.push({
-                    index  : i,
+                    index  : start,
                     reason : getEmbeddingFailureReason(error),
                     message: error?.message || String(error)
                 });
+                return;
             }
-        }
 
-        return {embeddings, failedIndexes: new Set(failures.map(failure => failure.index)), failures}
+            const mid = start + Math.floor(slice.length / 2);
+            await embedRange(start, mid);
+            await embedRange(mid, end);
+        }
     }
 }
 

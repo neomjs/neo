@@ -5,10 +5,10 @@ setup({
     appConfig: {name: 'RepairMcStoredEmbeddingsTest', isMounted: () => true, vnodeInitialising: false}
 });
 
-import {test, expect}                    from '@playwright/test';
-import Neo                               from '../../../../../../src/Neo.mjs';
-import * as core                         from '../../../../../../src/core/_export.mjs';
-import {extractMemoryCoreCollectionData} from '../../../../../../ai/scripts/maintenance/repairMemoryCoreStoredEmbeddings.mjs';
+import {test, expect}                                               from '@playwright/test';
+import Neo                                                          from '../../../../../../src/Neo.mjs';
+import * as core                                                    from '../../../../../../src/core/_export.mjs';
+import {embedRecoverableDocuments, extractMemoryCoreCollectionData} from '../../../../../../ai/scripts/maintenance/repairMemoryCoreStoredEmbeddings.mjs';
 
 /**
  * Mock Chroma collection: `rows` is `{ id: {embedding?, document?, metadata?} }`. `.get` returns only
@@ -143,7 +143,7 @@ test.describe('extractMemoryCoreCollectionData — MC stored-embedding repair ex
         expect(result.counts.reEmbedded).toBe(1);
     });
 
-    test('batch embed failure falls back to single-document isolation and marks only failed docs unrecoverable', async () => {
+    test('batch embed failure binary-splits to isolate only the failed doc as unrecoverable', async () => {
         const rows = {
             ok     : {document: 'small', metadata: {}},
             overcap: {document: 'too-large', metadata: {}},
@@ -166,9 +166,13 @@ test.describe('extractMemoryCoreCollectionData — MC stored-embedding repair ex
             }
         });
 
+        // Binary-split: the full batch fails → the [small] half succeeds as a batch → the
+        // [too-large, small-2] half fails → splits again, isolating [too-large] (the unrecoverable)
+        // while [small-2] recovers. Survivors are re-batched where possible, not forced 1-by-1.
         expect(calls).toEqual([
             ['small', 'too-large', 'small-2'],
             ['small'],
+            ['too-large', 'small-2'],
             ['too-large'],
             ['small-2']
         ]);
@@ -229,7 +233,7 @@ test.describe('extractMemoryCoreCollectionData — MC stored-embedding repair ex
         expect(result.unrecoverable).toEqual([{
             id     : 'm',
             reason : 'embedding-result-malformed',
-            message: 'single embed returned 0 embeddings'
+            message: 'embedFn returned 0 embeddings for 1 documents'
         }]);
         expect(result.unrecoverableIds).toEqual(['m']);
         expect(result.counts).toEqual({total: 1, intact: 0, reEmbedded: 0, unrecoverable: 1});
@@ -239,5 +243,50 @@ test.describe('extractMemoryCoreCollectionData — MC stored-embedding repair ex
         await expect(extractMemoryCoreCollectionData({
             collection: makeCollection({}), allIds: [], missingVectorIds: []
         })).rejects.toThrow(/embedFn .* is required/);
+    });
+});
+
+test.describe('embedRecoverableDocuments — binary-split isolate-then-rebatch (#14081)', () => {
+    test('isolates the failing doc to its exact index and re-batches survivors (not 1-by-1)', async () => {
+        // POISON makes any batch containing it throw — the single-oversized-doc graph-recovery case.
+        const docs               = ['d0', 'd1', 'd2', 'd3', 'd4', 'POISON', 'd6', 'd7'];
+        let   maxSuccessfulBatch = 0;
+        const embedFn            = async batch => {
+            if (batch.includes('POISON')) {
+                throw new Error('embedding-provider-error: context too small');
+            }
+            maxSuccessfulBatch = Math.max(maxSuccessfulBatch, batch.length);
+            return batch.map(() => [1, 2]);
+        };
+
+        const {embeddings, failedIndexes, failures} = await embedRecoverableDocuments({
+            embedFn, ids: docs.map((_, i) => `id-${i}`), documents: docs
+        });
+
+        // Failure pinned to the exact poison index; every survivor recovered.
+        expect([...failedIndexes]).toEqual([5]);
+        expect(failures[0].index).toBe(5);
+        expect(embeddings[5]).toBeUndefined();
+        for (const i of [0, 1, 2, 3, 4, 6, 7]) {
+            expect(embeddings[i]).toEqual([1, 2]);
+        }
+
+        // Survivors were RE-BATCHED: at least one successful embed ran with >1 doc. The old
+        // per-document fallback embedded every survivor individually, so its largest successful
+        // batch would have been 1.
+        expect(maxSuccessfulBatch).toBeGreaterThan(1);
+    });
+
+    test('all-success batch embeds in a single call, no splitting (happy path unchanged)', async () => {
+        let   calls   = 0;
+        const embedFn = async batch => { calls++; return batch.map(() => [3]); };
+
+        const {embeddings, failedIndexes} = await embedRecoverableDocuments({
+            embedFn, ids: ['a', 'b', 'c'], documents: ['a', 'b', 'c']
+        });
+
+        expect([...failedIndexes]).toEqual([]);
+        expect(embeddings).toEqual([[3], [3], [3]]);
+        expect(calls).toBe(1);
     });
 });
