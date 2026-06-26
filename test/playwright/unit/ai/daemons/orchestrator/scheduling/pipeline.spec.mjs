@@ -905,3 +905,97 @@ test.describe('orchestrator/scheduling/pipeline staleness selector (#13586)', ()
         expect(result.winner.taskName).toBe('backup');
     });
 });
+
+test.describe('orchestrator/scheduling/pipeline — data-integrity-sweep never-fail wrapper (#14109)', () => {
+    // The health-check runner is fire-and-forget (runSchedulingPipeline does not await it), so a
+    // macrotask flush drains the runner's microtasks before assertions.
+    const flush = () => new Promise(resolve => setTimeout(resolve, 0));
+
+    function runSweep({gatherAndDiagnose}) {
+        const calls    = [],
+              outcomes = [],
+              state    = {};
+
+        runSchedulingPipeline({
+            registry: [makeCandidateDescriptor({
+                taskName        : 'data-integrity-sweep',
+                executionKind   : 'health-check',
+                maintenanceClass: 'health-monitor'
+            })],
+            context : makeContext(),
+            services: makeServices({
+                dataIntegrityDiagnosisService: {gatherAndDiagnose},
+                healthService                : {
+                    recordTaskOutcome(taskName, status, details) { outcomes.push({taskName, status, details}); }
+                },
+                taskStateService: {
+                    getTaskState: () => state,
+                    markCompleted(taskName)        { calls.push(['markCompleted', taskName]); },
+                    markFailed(taskName, exitCode) { calls.push(['markFailed', taskName, exitCode]); },
+                    markSkipped(taskName)          { calls.push(['markSkipped', taskName]); },
+                    markStarted(taskName, reason)  { calls.push(['markStarted', taskName, reason]); }
+                }
+            }),
+            runtime: makeRuntime()
+        });
+
+        return {calls, outcomes, state};
+    }
+
+    test('a clean decision records a completed health-outcome', async () => {
+        const {calls, outcomes} = runSweep({
+            gatherAndDiagnose: async () => ({status: 'healthy', diagnoses: [], escalations: []})
+        });
+        await flush();
+
+        expect(calls).toEqual([
+            ['markStarted', 'data-integrity-sweep', 'data-integrity-sweep-reason'],
+            ['markCompleted', 'data-integrity-sweep']
+        ]);
+        expect(outcomes.at(-1)).toMatchObject({
+            status : 'completed',
+            details: {status: 'healthy', diagnosisCount: 0, escalationCount: 0}
+        });
+    });
+
+    test('a drift escalation records a failed health-outcome (the runner already routed the page)', async () => {
+        const {calls, outcomes} = runSweep({
+            gatherAndDiagnose: async () => ({status: 'escalated', diagnoses: [{}], escalations: [{status: 'escalated'}]})
+        });
+        await flush();
+
+        expect(calls).toContainEqual(['markCompleted', 'data-integrity-sweep']);
+        expect(outcomes.at(-1)).toMatchObject({
+            status : 'failed',
+            details: {status: 'escalated', diagnosisCount: 1, escalationCount: 1}
+        });
+    });
+
+    test('a probe-unavailable decision records a failed health-outcome (a failed probe is not silently green)', async () => {
+        const {outcomes} = runSweep({
+            gatherAndDiagnose: async () => ({status: 'probe-unavailable', probeError: 'Chroma unreachable', diagnoses: [], escalations: []})
+        });
+        await flush();
+
+        expect(outcomes.at(-1)).toMatchObject({
+            status : 'failed',
+            details: {status: 'probe-unavailable', probeError: 'Chroma unreachable'}
+        });
+    });
+
+    test('a throwing gatherAndDiagnose degrades to markFailed and NEVER rethrows (the never-fail guarantee)', async () => {
+        const {calls, outcomes, state} = runSweep({
+            gatherAndDiagnose: async () => { throw new Error('runner boom'); }
+        });
+        await flush();
+
+        // The catch records the fault and clears running state; the rejection never propagates into the
+        // scheduling loop (runSchedulingPipeline returned normally above).
+        expect(calls).toContainEqual(['markFailed', 'data-integrity-sweep', 1]);
+        expect(state.lastReason).toBe('runner boom');
+        expect(outcomes.at(-1)).toMatchObject({
+            status : 'failed',
+            details: {phase: 'data-integrity-sweep-error', error: 'runner boom'}
+        });
+    });
+});
