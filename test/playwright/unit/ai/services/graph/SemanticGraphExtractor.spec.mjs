@@ -531,6 +531,79 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
         expect(activeOnDiskAfterCall).toBeNull();
     });
 
+    test('REM provider diagnostics fingerprint each request without cross-session payload bleed (#13994)', async () => {
+        const originalOverrides = {
+                  [ENV.GRAPH_PROVIDER]: aiConfig.graphProvider
+              },
+              baseGenerate      = OpenAiCompatible.prototype.generate,
+              firstNeedle       = 'FIRST_SESSION_13994_UNIQUE_PAYLOAD_NEEDLE',
+              secondNeedle      = 'SECOND_SESSION_13994_UNIQUE_PAYLOAD_NEEDLE',
+              providerCalls     = [];
+
+        try {
+            setConfigOverrides({[ENV.GRAPH_PROVIDER]: 'openAiCompatible'});
+
+            OpenAiCompatible.prototype.generate = async function(messages) {
+                providerCalls.push({
+                    messages: messages.map(message => ({...message})),
+                    active  : {...SemanticGraphExtractor.activeTriVectorCall}
+                });
+
+                return {
+                    content: JSON.stringify({
+                        a2a_version     : '1.0',
+                        agent_id        : 'Antigravity',
+                        session_artifact: {
+                            feature_namespace     : 'Neo.ai.REM',
+                            human_readable_summary: `fingerprinted request ${providerCalls.length}`,
+                            graph                 : {nodes: [], edges: []}
+                        }
+                    })
+                };
+            };
+
+            await SemanticGraphExtractor.executeTriVectorExtraction({
+                id  : 'mock-first-fingerprint-vector-id',
+                meta: {sessionId: 'first-fingerprint-session'},
+                document: `First session content ${firstNeedle}`
+            });
+            await SemanticGraphExtractor.executeTriVectorExtraction({
+                id  : 'mock-second-fingerprint-vector-id',
+                meta: {sessionId: 'second-fingerprint-session'},
+                document: `Second session content ${secondNeedle}`
+            });
+        } finally {
+            OpenAiCompatible.prototype.generate = baseGenerate;
+            setConfigOverrides(originalOverrides);
+        }
+
+        expect(providerCalls.length).toBe(2);
+
+        const firstCall  = providerCalls[0],
+              secondCall = providerCalls[1];
+
+        expect(firstCall.messages[1].content).toContain(firstNeedle);
+        expect(secondCall.messages[1].content).toContain(secondNeedle);
+        expect(secondCall.messages[1].content).not.toContain(firstNeedle);
+        expect(secondCall.active).toMatchObject({
+            phase              : 'triVector',
+            sessionId          : 'second-fingerprint-session',
+            requestMessageCount: 2
+        });
+        expect(secondCall.active.requestMessageFingerprints).toHaveLength(2);
+        expect(secondCall.active.requestMessageFingerprints[1]).toMatchObject({
+            index              : 1,
+            role               : 'user',
+            bytes              : Buffer.byteLength(secondCall.messages[1].content, 'utf8'),
+            tokensEstimate     : expect.any(Number),
+            contentSha256Prefix: expect.stringMatching(/^[a-f0-9]{16}$/)
+        });
+
+        const fingerprintPayload = JSON.stringify(secondCall.active.requestMessageFingerprints);
+        expect(fingerprintPayload).not.toContain(firstNeedle);
+        expect(fingerprintPayload).not.toContain(secondNeedle);
+    });
+
     test('REM parser fails before dispatch when prompt plus output reserve exceeds context (#13984)', async () => {
         let providerCalled = false;
 

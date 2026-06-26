@@ -1,3 +1,4 @@
+import crypto   from 'crypto';
 import fs       from 'fs';
 import path     from 'path';
 import AiConfig from '../../mcp/server/memory-core/config.mjs';
@@ -85,6 +86,31 @@ class SemanticGraphExtractor extends Base {
             bytes,
             tokens: bytesToTokens(bytes)
         };
+    }
+
+    /**
+     * Builds bounded per-message fingerprints for REM provider request diagnostics.
+     *
+     * @summary Anchor & Echo: Lets operators correlate one provider-visible counter with
+     * one Neo request without logging full session payloads or repair-loop output.
+     *
+     * @param {Object[]} messages Provider chat messages
+     * @returns {Object[]} Bounded message-slot diagnostics
+     * @protected
+     */
+    buildTriVectorRequestFingerprints(messages = []) {
+        return messages.map((message, index) => {
+            const content = String(message?.content ?? ''),
+                  bytes   = Buffer.byteLength(content, 'utf8');
+
+            return {
+                index,
+                role               : typeof message?.role === 'string' ? message.role : 'unknown',
+                bytes,
+                tokensEstimate     : bytesToTokens(bytes),
+                contentSha256Prefix: crypto.createHash('sha256').update(content).digest('hex').slice(0, 16)
+            };
+        });
     }
 
     /**
@@ -512,8 +538,8 @@ class SemanticGraphExtractor extends Base {
             const inputPayloadText = inputPayload.text;
             const startedAt        = new Date().toISOString();
             const callDiagnostics  = {
-                phase                    : 'triVector',
-                sessionId                : session.meta.sessionId,
+                phase                     : 'triVector',
+                sessionId                 : session.meta.sessionId,
                 assetRef,
                 chunkIndex,
                 chunkCount,
@@ -521,14 +547,16 @@ class SemanticGraphExtractor extends Base {
                 chunkTokens,
                 attempt,
                 maxRetries,
-                provider                 : consumerProvider,
-                model                    : consumerModel,
-                promptBytes              : inputPayload.bytes,
-                promptTokensEstimate     : inputPayload.tokens,
-                outputLimitTokens        : graphOutputLimitTokens,
-                contextLimitTokens       : consumerContextTokens,
-                safeProcessingLimitTokens: consumerSafeTokens,
-                promptPlusOutputTokens   : inputPayload.tokens + graphOutputLimitTokens,
+                provider                  : consumerProvider,
+                model                     : consumerModel,
+                promptBytes               : inputPayload.bytes,
+                promptTokensEstimate      : inputPayload.tokens,
+                outputLimitTokens         : graphOutputLimitTokens,
+                contextLimitTokens        : consumerContextTokens,
+                safeProcessingLimitTokens : consumerSafeTokens,
+                promptPlusOutputTokens    : inputPayload.tokens + graphOutputLimitTokens,
+                requestMessageCount       : messages.length,
+                requestMessageFingerprints: this.buildTriVectorRequestFingerprints(messages),
                 startedAt
             };
             lastCallDiagnostics = callDiagnostics;
