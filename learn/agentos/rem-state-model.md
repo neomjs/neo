@@ -79,6 +79,32 @@ Use `perSession.entityCount` to inspect extraction yield for a single session. A
 digested session with zero inbound entity/provenance edges is suspicious when the
 payload clearly contained entities.
 
+## Active Tri-Vector Call Diagnostics
+
+While a REM Tri-Vector provider call is in flight, `SemanticGraphExtractor`
+writes a gitignored active-call snapshot under `NEO_REM_RUN_STATE_DIR`. This is
+the operator correlation surface for provider-visible counters such as LM Studio's
+token meter. The snapshot includes the session id, asset/chunk id, chunk index,
+provider/model, prompt estimate, output cap, context cap, and bounded request
+message fingerprints.
+
+`requestMessageFingerprints[]` deliberately avoids payload logging. Each entry is
+limited to:
+
+```js
+{
+    index              : Number,
+    role               : String,
+    bytes              : Number,
+    tokensEstimate     : Number,
+    contentSha256Prefix: String // first 16 hex chars only
+}
+```
+
+Use these fields to correlate one Neo request with one provider counter without
+leaking full session content. A second REM call should show new fingerprints for
+its own message slots, not the prior session's payload.
+
 ## Durable Cycle State
 
 `DreamService.executeRemCycle()` writes one append-only JSONL artifact per run
