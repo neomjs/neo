@@ -1399,6 +1399,62 @@ export function anyRepairNonClean(results = []) {
 }
 
 /**
+ * @summary Applies the AUTONOMOUS accepted-loss settlement over a non-clean repair result set and — when EVERY
+ * non-clean collection self-settles — resolves the durable defrag state marker so the next maintenance pass is
+ * not blocked as `DEFRAG_INCOMPLETE_STATE`. A clean process exit is not enough: the repair already wrote a
+ * `memory-core-repair-partial-promoted` / `-aborted` marker, so a settled run must clear it or the next run aborts.
+ *
+ * Pure orchestration over injected I/O (`appendFn` / `clearFn`): runs `resolveAutonomousRepairExit`; if
+ * `allSettled`, carries each collection's retained-parking context into the durable `auto-accepted-loss` audit
+ * record (the audit log becomes the inspection surface that replaces the cleared marker), appends it, then clears
+ * the marker. Zero operator-ack, no runtime escalate. Returns `{settled:false}` (no mutation) when any collection
+ * is heal-path / systemic-fault, so the caller keeps the loud non-clean exit.
+ *
+ * @param {Object} options
+ * @param {Object[]} options.results Per-collection repair results.
+ * @param {String} options.statePath The defrag state-marker path (cleared on full settlement).
+ * @param {String} options.auditDir The durable audit-log directory.
+ * @param {Function} [options.normalizeResidue=normalizeUnrecoverableEntry]
+ * @param {String} [options.provider='']
+ * @param {Number|String} [options.contextBudget='']
+ * @param {Function} [options.appendFn=appendAutoAcceptedLoss] Audit-append seam (test injection).
+ * @param {Function} [options.clearFn=clearDefragState] Marker-clear seam (test injection).
+ * @param {Function} [options.writeLog] Optional logger, called with the settled-collection count.
+ * @returns {Promise<Object>} `{settled, perCollection}` — `settled` true iff every non-clean collection auto-settled and the marker was cleared.
+ */
+export async function applyAutonomousSettlement({
+    results,
+    statePath,
+    auditDir,
+    normalizeResidue = normalizeUnrecoverableEntry,
+    provider         = '',
+    contextBudget    = '',
+    appendFn         = appendAutoAcceptedLoss,
+    clearFn          = clearDefragState,
+    writeLog
+} = {}) {
+    const settleExit = resolveAutonomousRepairExit({results, normalizeResidue, provider, contextBudget});
+
+    if (!settleExit.allSettled) {
+        return {settled: false, perCollection: settleExit.perCollection};
+    }
+
+    for (const entry of settleExit.perCollection) {
+        const result = (Array.isArray(results) ? results : []).find(item => item?.collectionName === entry.collectionName);
+
+        await appendFn({...entry.auditRecord, collectionName: entry.collectionName, parkingName: result?.promotion?.parkingName ?? null}, {dir: auditDir});
+    }
+
+    // Resolve the non-clean marker the repair wrote — the run is now genuinely settled across runs, not just for
+    // this process's exit code.
+    await clearFn({statePath});
+
+    writeLog?.(settleExit.perCollection.length);
+
+    return {settled: true, perCollection: settleExit.perCollection};
+}
+
+/**
  * Main execution function for the defragmentation process.
  *
  * It orchestrates the Snapshot -> Extract -> Shadow Load -> Promote -> Cleanup pipeline.
@@ -1539,23 +1595,23 @@ async function defragChromaDB() {
             if (anyRepairNonClean(results)) {
                 // Autonomous accepted-loss settlement (zero operator-ack, no runtime escalate): when EVERY
                 // non-clean collection's residue is bounded AND deterministically-terminal, self-settle it —
-                // record a durable audit entry per collection and exit clean, with no human. Transient residue
+                // record a durable audit entry per collection AND clear the non-clean defrag marker (so the next
+                // run is not blocked as DEFRAG_INCOMPLETE_STATE), then exit clean with no human. Transient residue
                 // (heal-path → the data-recovery actuator) or a systemic-fault (mass terminal = a misconfigured
                 // embedder, frozen) keeps the loud non-clean exit below.
-                const settleExit = resolveAutonomousRepairExit({
-                    results,
-                    normalizeResidue: normalizeUnrecoverableEntry,
-                    provider        : config.embeddingProvider,
-                    contextBudget   : embedBudgetTokens
-                });
+                if (!dryRun) {
+                    const settlement = await applyAutonomousSettlement({
+                        results,
+                        statePath,
+                        auditDir     : path.dirname(statePath),
+                        provider     : config.embeddingProvider,
+                        contextBudget: embedBudgetTokens,
+                        writeLog     : settledCount => console.log(`   ♻️  Autonomous accepted-loss: all ${settledCount} non-clean collection(s) held only bounded, deterministically-terminal residue — settled + recorded to ${path.join(path.dirname(statePath), 'auto-accepted-loss.jsonl')}, and the defrag marker cleared so the next run is unblocked. No operator page; zero ack.`)
+                    });
 
-                if (!dryRun && settleExit.allSettled) {
-                    const auditDir = path.dirname(statePath);
-                    for (const entry of settleExit.perCollection) {
-                        await appendAutoAcceptedLoss(entry.auditRecord, {dir: auditDir});
+                    if (settlement.settled) {
+                        return;
                     }
-                    console.log(`   ♻️  Autonomous accepted-loss: all ${settleExit.perCollection.length} non-clean collection(s) held only bounded, deterministically-terminal residue — settled + recorded to ${path.join(auditDir, 'auto-accepted-loss.jsonl')}. No operator page; zero ack.`);
-                    return;
                 }
 
                 const abortedNames  = results.filter(result => result.aborted).map(result => result.collectionName),
