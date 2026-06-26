@@ -6,6 +6,7 @@ import OllamaProvider       from '../../provider/Ollama.mjs';
 import {
     withLmsEmbeddingInputSuffix
 }                           from '../shared/vector/lmsEmbeddingInputSuffix.mjs';
+import {PROVIDER_TIMEOUT_CODE} from '../../provider/createTimeoutError.mjs';
 import {
     bytesToTokens,
     emitConsumerFriction
@@ -237,6 +238,16 @@ class TextEmbeddingService extends Base {
      * @private
      */
     #getOpenAiCompatibleInputEstimate(inputData) {
+        return this.#getEmbeddingInputEstimate(inputData);
+    }
+
+    /**
+     * @summary Estimates the largest text input in an embedding request.
+     * @param {String|String[]} inputData The text or array of texts to embed.
+     * @returns {{inputBytes: Number, inputTokensEstimate: Number}}
+     * @private
+     */
+    #getEmbeddingInputEstimate(inputData) {
         const texts = Array.isArray(inputData) ? inputData : [inputData];
 
         let inputBytes = 0;
@@ -534,6 +545,82 @@ class TextEmbeddingService extends Base {
     }
 
     /**
+     * @summary Reads the native Ollama embedding request timeout from AiConfig.
+     * @returns {Number}
+     * @private
+     */
+    #getOllamaEmbeddingTimeoutMs() {
+        const timeoutMs = aiConfig.ollama.embeddingTimeoutMs;
+
+        if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+            throw new TypeError(`TextEmbeddingService: ollama.embeddingTimeoutMs must be a positive number, got ${timeoutMs}`);
+        }
+
+        return timeoutMs;
+    }
+
+    /**
+     * @summary Emits a structured ConsumerFriction timeout signal for native Ollama embeddings.
+     * @param {String|String[]} inputData Text input that timed out.
+     * @param {Number} requestTimeoutMs Request timeout in milliseconds.
+     * @param {Error} err Timeout error.
+     * @returns {void}
+     * @private
+     */
+    #emitOllamaEmbeddingTimeoutFriction(inputData, requestTimeoutMs, err) {
+        const
+            model    = aiConfig.ollama.embeddingModel || aiConfig.ollama.model,
+            estimate = this.#getEmbeddingInputEstimate(inputData);
+
+        try {
+            emitConsumerFriction({
+                assetRef                 : `ollama:${model}`,
+                consumer                 : 'TextEmbeddingService.ollama',
+                model,
+                symptom                  : 'timeout',
+                emissionPoint            : 'post-invocation-failure',
+                suggestionKind           : 'unknown',
+                inputBytes               : estimate.inputBytes,
+                inputTokensEstimate      : estimate.inputTokensEstimate,
+                contextLimitTokens       : aiConfig.localModels.embedding.contextLimitTokens,
+                safeProcessingLimitTokens: aiConfig.localModels.embedding.safeProcessingLimitTokens,
+                serviceDomain            : 'memory-core',
+                note                     : `Native Ollama embedding request timed out after ${requestTimeoutMs}ms: ${String(err?.message || err).substring(0, 160)}`
+            });
+        } catch (frictionError) {
+            logger.warn('[TextEmbeddingService] Failed to emit native Ollama embedding timeout friction.', frictionError.message);
+        }
+    }
+
+    /**
+     * @summary Runs the native Ollama embedding call with request-shape and timeout parity.
+     * @param {String|String[]} inputData Text input to embed.
+     * @param {String} operationLabel Safe diagnostic label for timeout errors.
+     * @returns {Promise<Object>}
+     * @private
+     */
+    async #embedOllama(inputData, operationLabel) {
+        const
+            provider         = this.#getOllamaProvider(),
+            requestTimeoutMs = this.#getOllamaEmbeddingTimeoutMs();
+
+        try {
+            return await provider.embed(inputData, {
+                num_ctx : aiConfig.localModels.embedding.contextLimitTokens,
+                operationLabel,
+                timeoutMs: requestTimeoutMs,
+                truncate: false
+            });
+        } catch (err) {
+            if (err?.code === PROVIDER_TIMEOUT_CODE) {
+                this.#emitOllamaEmbeddingTimeoutFriction(inputData, requestTimeoutMs, err);
+            }
+
+            throw err;
+        }
+    }
+
+    /**
      * @summary Embeds a text array through OpenAI-compatible chunked batch requests.
      *
      * Local OpenAI-compatible embedding servers often serialize model requests. Sending the whole
@@ -603,11 +690,7 @@ class TextEmbeddingService extends Base {
         } else if (explicitProvider === 'ollama') {
             // Native Ollama returns `{embeddings: [[...]]}` even for single-input;
             // project the single inner array since this method is the per-text variant.
-            const provider = this.#getOllamaProvider();
-            const result   = await provider.embed(text, {
-                num_ctx : aiConfig.localModels.embedding.contextLimitTokens,
-                truncate: false
-            });
+            const result = await this.#embedOllama(text, 'TextEmbeddingService.embedText native Ollama embedding');
             return result.embeddings?.[0];
         } else if (explicitProvider === 'gemini') {
             const geminiKey = process.env.GEMINI_API_KEY;
@@ -645,11 +728,7 @@ class TextEmbeddingService extends Base {
         } else if (explicitProvider === 'ollama') {
             // Ollama's `/api/embed` accepts array-of-strings natively + returns
             // a parallel embeddings array — no per-text fan-out needed.
-            const provider = this.#getOllamaProvider();
-            const result   = await provider.embed(texts, {
-                num_ctx : aiConfig.localModels.embedding.contextLimitTokens,
-                truncate: false
-            });
+            const result = await this.#embedOllama(texts, 'TextEmbeddingService.embedTexts native Ollama embedding');
             return result.embeddings || [];
         } else if (explicitProvider === 'gemini') {
             const geminiKey = process.env.GEMINI_API_KEY;

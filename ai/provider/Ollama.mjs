@@ -487,6 +487,9 @@ class OllamaProvider extends Base {
      * @param {String} [options.model] Override the configured `embeddingModel` / `modelName`.
      * @param {Boolean} [options.truncate=false] Whether Ollama may truncate inputs over context.
      * @param {Number} [options.num_ctx] Native Ollama context window for this embedding request.
+     * @param {Number} [options.timeoutMs] Abort the request after this many ms of socket inactivity.
+     * @param {String} [options.operationLabel] Safe diagnostic label surfaced in the timeout error.
+     * @param {AbortSignal} [options.signal] Upstream cancellation signal.
      * @returns {Promise<{embeddings: Number[][], raw: Object, evalSample: Object}>}
      */
     async embed(input, options = {}) {
@@ -494,11 +497,16 @@ class OllamaProvider extends Base {
             dimensions,
             keep_alive,
             model: modelOverride,
+            operationLabel = 'Ollama embedding request',
+            signal,
+            timeoutMs,
             truncate = false,
             ...ollamaOptions
         } = options;
-        const model   = modelOverride || this.embeddingModel || this.modelName;
-        const payload = {
+        const model            = modelOverride || this.embeddingModel || this.modelName;
+        const rawTimeoutMs     = Number(timeoutMs);
+        const requestTimeoutMs = Number.isFinite(rawTimeoutMs) && rawTimeoutMs > 0 ? rawTimeoutMs : 60 * 60 * 1000;
+        const payload          = {
             model,
             input,
             truncate
@@ -527,7 +535,8 @@ class OllamaProvider extends Base {
             const req = httpModule.request(parsedUrl, {
                 method : 'POST',
                 headers: {'Content-Type': 'application/json'},
-                timeout: 60 * 60 * 1000 // 1h timeout matches generate()
+                signal,
+                timeout: requestTimeoutMs
             }, (res) => {
                 let body = '';
                 res.on('data', chunk => body += chunk);
@@ -549,7 +558,13 @@ class OllamaProvider extends Base {
 
             req.on('timeout', () => {
                 req.destroy();
-                rejectFunc(new Error('Ollama embed request timed out after 1 hour'));
+                rejectFunc(createTimeoutError({
+                    provider : 'Ollama',
+                    operationLabel,
+                    timeoutMs: requestTimeoutMs,
+                    host     : this.host,
+                    modelName: model
+                }));
             });
 
             req.write(JSON.stringify(payload));
