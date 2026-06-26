@@ -1,8 +1,8 @@
-import {ChromaClient}                       from 'chromadb';
-import aiConfig                             from '../../../mcp/server/memory-core/config.mjs';
-import logger                               from '../../../mcp/server/memory-core/logger.mjs';
-import AbstractVectorManager                from './AbstractVectorManager.mjs';
-import ChromaLifecycleService               from '../lifecycle/ChromaLifecycleService.mjs';
+import {ChromaClient}         from 'chromadb';
+import aiConfig               from '../../../mcp/server/memory-core/config.mjs';
+import logger                 from '../../../mcp/server/memory-core/logger.mjs';
+import AbstractVectorManager  from './AbstractVectorManager.mjs';
+import ChromaLifecycleService from '../lifecycle/ChromaLifecycleService.mjs';
 import {
     chromaConnect,
     chromaDeleteCollection,
@@ -11,7 +11,7 @@ import {
     isChromaCollectionNotFoundError,
     registerNeoChromaEmbeddingFunctions
 } from '../../shared/vector/chromaClientPrimitives.mjs';
-import {ensureChromaTestDatabase} from '../../shared/vector/chromaTestIsolation.mjs';
+import {CHROMA_PRODUCTION_DATABASE, ensureChromaTestDatabase} from '../../shared/vector/chromaTestIsolation.mjs';
 
 /**
  * Predicate suppression filter for MC: the four Chroma library messages that surface noisily
@@ -139,6 +139,32 @@ class ChromaManager extends AbstractVectorManager {
     }
 
     /**
+     * Collection-boundary test-bleed guard. A `test-`-prefixed collection name — the per-worker test
+     * collection variants from config `collections.memoryTest` / `sessionTest` — resolved into the
+     * PRODUCTION database is the test-bleed signature: test isolation routed the collection NAME to a
+     * test variant while the DATABASE fell back to production (a stale config overlay, or a run that
+     * never loaded the unit config). Unlike the coordinate resolver — which cannot tell this bleed apart
+     * from a fresh-workspace / cloud daemon that legitimately uses production COORDINATES with production-
+     * NAMED collections — the collection name is the discriminator: the bleed is `test-*`; a legitimate
+     * prod-coordinate daemon is `neo-*`. Fails closed before the collection is created.
+     * @param {Object} options
+     * @param {String} options.name     The collection name about to be created.
+     * @param {String} options.database The resolved Chroma database the client targets.
+     * @returns {void}
+     */
+    assertCollectionNotProdBleed({name, database} = {}) {
+        if (database === CHROMA_PRODUCTION_DATABASE && typeof name === 'string' && name.startsWith('test-')) {
+            const message = `ChromaManager: refusing to create the test-named collection "${name}" in the ` +
+                `production database "${CHROMA_PRODUCTION_DATABASE}" — collection-boundary test-write isolation ` +
+                `guard: test isolation routed the collection name but the database resolved to production.`;
+
+            logger.error(`[ChromaManager] Test-isolation guard: ${message}`);
+
+            throw new Error(message);
+        }
+    }
+
+    /**
      * @returns {Promise<void>}
      */
     async initAsync() {
@@ -207,8 +233,9 @@ class ChromaManager extends AbstractVectorManager {
      */
     async getMemoryCollection() {
         if (!this._memoryCollectionPromise) {
+            const collectionName = aiConfig.collections.memory;
+            this.assertCollectionNotProdBleed({name: collectionName, database: this.resolveChromaClientConfig(aiConfig).database});
             this._memoryCollectionPromise = this.#executeSilently(async () => {
-                const collectionName = aiConfig.collections.memory;
                 return await this.client.getOrCreateCollection({
                     name             : collectionName,
                     embeddingFunction: this.#createEmbeddingFunction()
@@ -225,8 +252,9 @@ class ChromaManager extends AbstractVectorManager {
      */
     async getSummaryCollection() {
         if (!this._summaryCollectionPromise) {
+            const collectionName = aiConfig.collections.session;
+            this.assertCollectionNotProdBleed({name: collectionName, database: this.resolveChromaClientConfig(aiConfig).database});
             this._summaryCollectionPromise = this.#executeSilently(async () => {
-                const collectionName = aiConfig.collections.session;
                 return await this.client.getOrCreateCollection({
                     name             : collectionName,
                     embeddingFunction: this.#createEmbeddingFunction()
@@ -243,8 +271,9 @@ class ChromaManager extends AbstractVectorManager {
      */
     async getGraphCollection() {
         if (!this._graphCollectionPromise) {
+            const collectionName = aiConfig.collections.graph;
+            this.assertCollectionNotProdBleed({name: collectionName, database: this.resolveChromaClientConfig(aiConfig).database});
             this._graphCollectionPromise = this.#executeSilently(async () => {
-                const collectionName = aiConfig.collections.graph;
                 return await this.client.getOrCreateCollection({
                     name             : collectionName,
                     embeddingFunction: this.#createEmbeddingFunction()
