@@ -941,11 +941,12 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             }
         });
 
-        expect(calls).toEqual([{
-            cmd    : 'lms',
-            args   : ['ps', '--json'],
-            options: {timeout: 123}
-        }]);
+        expect(calls).toHaveLength(1);
+        expect(calls[0].cmd).toBe('lms');
+        expect(calls[0].args).toEqual(['ps', '--json']);
+        expect(calls[0].options.timeout).toBe(123);
+        // embedding-readiness fix: the LM Studio bin dir is augmented onto PATH so the probe resolves `lms` regardless of launch env
+        expect(calls[0].options.env.PATH).toContain('.lmstudio');
         expect(loadedModels).toEqual([{
             id           : 'chat-model',
             contextLength: 131072,

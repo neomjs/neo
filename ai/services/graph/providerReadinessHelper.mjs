@@ -1,5 +1,7 @@
 import http       from 'http';
 import {execFile} from 'child_process';
+import os         from 'os';
+import path       from 'path';
 import aiConfig   from '../../mcp/server/memory-core/config.mjs';
 import logger     from '../../mcp/server/memory-core/logger.mjs';
 import {
@@ -22,6 +24,35 @@ const
     providerDiscoveryForceInflight = new Map(),
     PROVIDER_DISCOVERY_FORCE       = 'force',
     PROVIDER_DISCOVERY_ROUTINE     = 'routine';
+
+/**
+ * Default LM Studio CLI bin directory. `lms bootstrap` installs the CLI here; an interactive shell
+ * has it on PATH, but a daemon / MCP-server launch env often does not — so a bare `execFile('lms', …)`
+ * ENOENTs and false-negatives the provider as unavailable while it is actually healthy (blocking
+ * KB + Memory Core embedding ops).
+ * @type {String}
+ */
+const LMS_DEFAULT_BIN_DIR = path.join(os.homedir(), '.lmstudio', 'bin');
+
+/**
+ * @summary Builds execFile options for the `lms` CLI with its bin dir guaranteed on PATH.
+ *
+ * Augmenting PATH here makes every `lms` readiness/management probe robust to the launch env,
+ * fixing `spawn lms ENOENT` false-negatives. Idempotent — never duplicates an already-present
+ * bin dir. The caller's extra options (e.g. `{timeout}`) are merged.
+ *
+ * @param {Object} [extra={}] Extra execFile options merged into the result.
+ * @returns {Object} execFile options carrying an augmented `PATH` env.
+ */
+export function lmsExecOptions(extra = {}) {
+    const sep  = process.platform === 'win32' ? ';' : ':',
+          curr = process.env.PATH || '',
+          PATH = curr.split(sep).includes(LMS_DEFAULT_BIN_DIR)
+              ? curr
+              : (curr ? `${curr}${sep}${LMS_DEFAULT_BIN_DIR}` : LMS_DEFAULT_BIN_DIR);
+
+    return {...extra, env: {...process.env, PATH}};
+}
 
 /**
  * @module ai/services/graph/ProviderReadinessHelper
@@ -357,7 +388,7 @@ export function fetchLmsLoadedModels({
         caller: 'fetchLmsLoadedModels',
         runProbe() {
             return new Promise((resolve, reject) => {
-                execFileFn('lms', ['ps', '--json'], {timeout: timeoutMs}, (error, stdout = '', stderr = '') => {
+                execFileFn('lms', ['ps', '--json'], lmsExecOptions({timeout: timeoutMs}), (error, stdout = '', stderr = '') => {
                     if (error) {
                         reject(new Error(`lms ps --json failed: ${error.message}${stderr ? `; stderr=${stderr.trim()}` : ''}`));
                         return;
