@@ -191,6 +191,9 @@ class Config extends ConfigProvider {
                 contentionRetryDelayMs : leaf(1000, 'NEO_OPENAI_COMPATIBLE_CONTENTION_RETRY_DELAY_MS', 'number'),
                 contentionTimeoutMs    : leaf(15000, 'NEO_OPENAI_COMPATIBLE_CONTENTION_TIMEOUT_MS', 'number'),
                 batchEmbeddingChunkSize: leaf(5, 'NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE', 'number'),
+                // Upper bound for one batch embedding HTTP request. Batch chunks can legitimately take
+                // longer than interactive single embeddings, but must not hold the provider queue forever.
+                batchEmbeddingTimeoutMs: leaf(300000, 'NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_TIMEOUT_MS', 'number'),
                 batchEmbeddingYieldMs  : leaf(0, 'NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_YIELD_MS', 'number'),
                 keep_alive             : leaf(-1, 'NEO_OPENAI_COMPATIBLE_KEEP_ALIVE', 'keepAlive'),
                 requireParallelModels  : leaf(2, 'NEO_OPENAI_COMPATIBLE_REQUIRE_PARALLEL_MODELS', 'number')

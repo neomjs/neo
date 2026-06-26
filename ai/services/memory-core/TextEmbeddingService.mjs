@@ -68,6 +68,20 @@ function waitForOpenAiCompatibleBatchYield(delayMs) {
 }
 
 /**
+ * @summary Fails loudly when a resolved embedding request timeout leaf is invalid.
+ * @param {Number} value Resolved timeout value in milliseconds.
+ * @param {String} label Config label for the error message.
+ * @returns {Number}
+ */
+function assertPositiveTimeoutMs(value, label) {
+    if (!Number.isFinite(value) || value <= 0) {
+        throw new TypeError(`TextEmbeddingService: ${label} must be a positive number, got ${value}`);
+    }
+
+    return value
+}
+
+/**
  * @summary Service for creating embedding vectors for text.
  *
  * This wrapper service interfaces with the Google Generative AI API (Gemini) to generate vector embeddings
@@ -504,8 +518,44 @@ class TextEmbeddingService extends Base {
                     requestTimeoutMs
                 });
             }
+            if (isOpenAiCompatibleContentionTimeoutError(err)) {
+                this.#emitOpenAiCompatibleTimeoutFriction(inputData, requestTimeoutMs, err);
+            }
             logger.error(`[TextEmbeddingService] Failed to generate embedding from openAiCompatible:`, err.message);
             throw err;
+        }
+    }
+
+    /**
+     * @summary Emits a structured ConsumerFriction timeout signal for bounded embedding requests.
+     * @param {String|String[]} inputData Text input that timed out.
+     * @param {Number} requestTimeoutMs Request timeout in milliseconds.
+     * @param {Error} err Timeout error.
+     * @returns {void}
+     * @private
+     */
+    #emitOpenAiCompatibleTimeoutFriction(inputData, requestTimeoutMs, err) {
+        const
+            {embeddingModel} = aiConfig.openAiCompatible,
+            estimate         = this.#getOpenAiCompatibleInputEstimate(inputData);
+
+        try {
+            emitConsumerFriction({
+                assetRef                 : `openAiCompatible:${embeddingModel}`,
+                consumer                 : 'TextEmbeddingService.openAiCompatible',
+                model                    : embeddingModel,
+                symptom                  : 'timeout',
+                emissionPoint            : 'post-invocation-failure',
+                suggestionKind           : 'unknown',
+                inputBytes               : estimate.inputBytes,
+                inputTokensEstimate      : estimate.inputTokensEstimate,
+                contextLimitTokens       : aiConfig.localModels.embedding.contextLimitTokens,
+                safeProcessingLimitTokens: aiConfig.localModels.embedding.safeProcessingLimitTokens,
+                serviceDomain            : 'memory-core',
+                note                     : `OpenAI-compatible embedding request timed out after ${describeOpenAiCompatibleTimeout(requestTimeoutMs)}: ${String(err?.message || err).substring(0, 160)}`
+            });
+        } catch (frictionError) {
+            logger.warn('[TextEmbeddingService] Failed to emit embedding timeout friction.', frictionError.message);
         }
     }
 
@@ -549,15 +599,18 @@ class TextEmbeddingService extends Base {
         const {
             unloadRetryCount        = 3,
             batchEmbeddingChunkSize = 5,
+            batchEmbeddingTimeoutMs = DEFAULT_OPENAI_COMPATIBLE_REQUEST_TIMEOUT_MS,
             batchEmbeddingYieldMs   = 0
         } = aiConfig.openAiCompatible;
-        const chunkSize = Math.max(1, Math.floor(batchEmbeddingChunkSize || texts.length)),
-              data      = [];
+        const chunkSize        = Math.max(1, Math.floor(batchEmbeddingChunkSize || texts.length)),
+              requestTimeoutMs = assertPositiveTimeoutMs(batchEmbeddingTimeoutMs, 'openAiCompatible.batchEmbeddingTimeoutMs'),
+              data             = [];
 
         for (let offset = 0; offset < texts.length; offset += chunkSize) {
             const chunk  = texts.slice(offset, offset + chunkSize),
                   result = await this.#enqueueOpenAiCompatiblePost(chunk, {
-                      unloadRetriesLeft: unloadRetryCount
+                      unloadRetriesLeft: unloadRetryCount,
+                      requestTimeoutMs
                   }, 'batch');
 
             data.push(...(result.data || []).map(item => ({
