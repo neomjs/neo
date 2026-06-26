@@ -21,7 +21,8 @@ import os             from 'os';
 import path           from 'path';
 import DestructiveOperationGuard, {
     DESTRUCTIVE_PRODUCTION_BYPASS_ENV,
-    DESTRUCTIVE_PRODUCTION_CONFIRMATION
+    DESTRUCTIVE_PRODUCTION_CONFIRMATION,
+    GUARDED_CANONICAL_COLLECTION_NAMES
 } from '../../../../../../../../ai/mcp/server/shared/services/DestructiveOperationGuard.mjs';
 import CollectionProxy       from '../../../../../../../../ai/services/memory-core/managers/CollectionProxy.mjs';
 import MemoryDatabaseService from '../../../../../../../../ai/services/memory-core/DatabaseService.mjs';
@@ -33,6 +34,20 @@ import aiConfig              from '../../../../../../../../ai/mcp/server/memory-
 const repoRoot = process.cwd();
 
 test.describe('Neo.ai.mcp.server.shared.services.DestructiveOperationGuard (#10845)', () => {
+    test('the guarded canonical set stays in parity with the live config collection names (drift-catch)', () => {
+        // The guard hardcodes its set (deliberately, for the no-unit-test-isolation case), so this is the
+        // defense against it silently drifting from the live config — the gap that left the renamed graph
+        // collection (the stale neo-agent-graph vs the live neo-native-graph) unguarded at the name layer.
+        // Parity is checked against the PRODUCTION leaves: the guard protects production names regardless of
+        // the unit-test isolation toggle, so `collections.memory`/`.session` (test-toggled here) would be wrong.
+        for (const name of [aiConfig.collections.memoryProd, aiConfig.collections.sessionProd, aiConfig.collections.graph, kbConfig.collectionName]) {
+            expect(typeof name).toBe('string');
+            expect(GUARDED_CANONICAL_COLLECTION_NAMES.has(name)).toBe(true);
+        }
+
+        expect(GUARDED_CANONICAL_COLLECTION_NAMES.has('neo-agent-graph')).toBe(false);
+    });
+
     test('permits in-memory SQLite targets', async () => {
         const result = await DestructiveOperationGuard.assertDestructiveTargetAllowed({
             operation: 'memory-core.graph.truncate',

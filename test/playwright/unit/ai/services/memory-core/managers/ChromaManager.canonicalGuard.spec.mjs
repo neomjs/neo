@@ -28,7 +28,7 @@ test.describe('Neo.ai.mcp.server.shared.services.DestructiveOperationGuard — c
     test('Set of canonical names covers MC + KB production collections', () => {
         expect(GUARDED_CANONICAL_COLLECTION_NAMES.has('neo-agent-memory')).toBe(true);
         expect(GUARDED_CANONICAL_COLLECTION_NAMES.has('neo-agent-sessions')).toBe(true);
-        expect(GUARDED_CANONICAL_COLLECTION_NAMES.has('neo-agent-graph')).toBe(true);
+        expect(GUARDED_CANONICAL_COLLECTION_NAMES.has('neo-native-graph')).toBe(true);
         expect(GUARDED_CANONICAL_COLLECTION_NAMES.has('neo-knowledge-base')).toBe(true);
     });
 
