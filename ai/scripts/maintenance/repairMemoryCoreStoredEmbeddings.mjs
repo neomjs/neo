@@ -21,6 +21,8 @@
  * @module Neo.ai.scripts.maintenance.repairMemoryCoreStoredEmbeddings
  */
 
+import {bytesToTokens} from '../../services/memory-core/helpers/consumerFrictionHelper.mjs';
+
 /**
  * @summary Extracts a Memory Core collection's data for a shadow rebuild, RE-EMBEDDING the rows whose
  * stored vectors are missing from the HNSW index.
@@ -336,6 +338,75 @@ function createEmbeddingResultError(message) {
  */
 function getEmbeddingFailureReason(error) {
     return error?.unrecoverableReason || 'embedding-provider-error'
+}
+
+/**
+ * @summary Truncates a UTF-8 string to at most `maxBytes` bytes without ever splitting a multi-byte char.
+ * Pure; the byte-budget primitive under {@link truncateToEmbedTokenBudget}.
+ *
+ * @param {String} text The source string.
+ * @param {Number} maxBytes Maximum UTF-8 byte length.
+ * @returns {String} `text` unchanged when already within budget, else the longest char-aligned prefix that fits.
+ */
+export function truncateToByteBudget(text, maxBytes) {
+    const buffer = Buffer.from(text, 'utf8');
+
+    if (buffer.length <= maxBytes) {
+        return text;
+    }
+
+    let end = Math.max(0, maxBytes);
+
+    // A UTF-8 continuation byte matches 0b10xxxxxx; back off so a multi-byte char is never cut in half.
+    while (end > 0 && (buffer[end] & 0xC0) === 0x80) {
+        end--;
+    }
+
+    return buffer.subarray(0, end).toString('utf8');
+}
+
+/**
+ * @summary Truncates a document to a context-bounded prefix that fits the embedding token budget, so an
+ * oversized Memory Core document gets *a* (slightly lossy) vector and stays searchable rather than falling
+ * out of recovery as `unrecoverable`.
+ *
+ * This is the truncate-to-context FLOOR: it eliminates the oversized-document `unrecoverable` class with
+ * minimal blast by embedding a bounded prefix. The trade-off is fidelity — the document's tail is dropped;
+ * the higher-fidelity chunk-and-aggregate strategy (embed each chunk, store sub/aggregate vectors) is a
+ * deferred follow-up. A genuinely-unembeddable document (empty, or a truncated prefix the provider still
+ * rejects) is unaffected here and degrades cleanly to the existing `unrecoverable` classification.
+ *
+ * The token estimate reuses the shared {@link bytesToTokens} heuristic (the SSOT for the bytes→tokens
+ * ratio) and derives the byte budget from that same ratio, so the heuristic is never re-implemented.
+ * No-op (returns `text`) when already within budget or when `maxTokens` is not a positive number.
+ *
+ * @param {String} text The document to embed.
+ * @param {Number} maxTokens The embedding token budget (e.g. `AiConfig.localModels.embedding.safeProcessingLimitTokens`).
+ * @returns {String} `text` when within budget, else a char-aligned prefix estimated to fit `maxTokens`.
+ */
+export function truncateToEmbedTokenBudget(text, maxTokens) {
+    if (typeof text !== 'string' || !Number.isFinite(maxTokens) || maxTokens <= 0) {
+        return text;
+    }
+
+    const totalBytes = Buffer.byteLength(text, 'utf8');
+
+    if (bytesToTokens(totalBytes) <= maxTokens) {
+        return text;
+    }
+
+    // Derive the byte budget from the heuristic's own ratio (no duplicated magic constant), then shave the
+    // rounding edge until the estimate is within budget.
+    const bytesPerToken = totalBytes / Math.max(1, bytesToTokens(totalBytes));
+    let   maxBytes      = Math.max(1, Math.floor(maxTokens * bytesPerToken)),
+          truncated     = truncateToByteBudget(text, maxBytes);
+
+    while (truncated.length > 0 && bytesToTokens(Buffer.byteLength(truncated, 'utf8')) > maxTokens) {
+        maxBytes  = Math.floor(maxBytes * 0.9);
+        truncated = truncateToByteBudget(text, maxBytes);
+    }
+
+    return truncated;
 }
 
 /**

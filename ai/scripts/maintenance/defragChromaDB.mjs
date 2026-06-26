@@ -1,16 +1,16 @@
-import {program}                             from 'commander';
-import {ChromaClient}                        from 'chromadb';
-import {execSync}                            from 'child_process';
-import crypto                                from 'crypto';
-import fs                                    from 'fs-extra';
-import path                                  from 'path';
-import {fileURLToPath, pathToFileURL}        from 'url';
-import Neo                                   from '../../../src/Neo.mjs';
-import AiConfig                              from '../../config.mjs';
-import {withHeavyMaintenanceLease}           from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
-import {registerNeoChromaEmbeddingFunctions} from '../../services/shared/vector/chromaClientPrimitives.mjs';
-import {auditChromaVectorCoverage}           from './checkChromaIntegrity.mjs';
-import {extractMemoryCoreCollectionData}     from './repairMemoryCoreStoredEmbeddings.mjs';
+import {program}                                                     from 'commander';
+import {ChromaClient}                                                from 'chromadb';
+import {execSync}                                                    from 'child_process';
+import crypto                                                        from 'crypto';
+import fs                                                            from 'fs-extra';
+import path                                                          from 'path';
+import {fileURLToPath, pathToFileURL}                                from 'url';
+import Neo                                                           from '../../../src/Neo.mjs';
+import AiConfig                                                      from '../../config.mjs';
+import {withHeavyMaintenanceLease}                                   from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
+import {registerNeoChromaEmbeddingFunctions}                         from '../../services/shared/vector/chromaClientPrimitives.mjs';
+import {auditChromaVectorCoverage}                                   from './checkChromaIntegrity.mjs';
+import {extractMemoryCoreCollectionData, truncateToEmbedTokenBudget} from './repairMemoryCoreStoredEmbeddings.mjs';
 
 /**
  * @summary Defragments collection groups inside the unified ChromaDB store.
@@ -1499,12 +1499,16 @@ async function defragChromaDB() {
                 ? `\n3️⃣  Memory Core repair-defrag DRY-RUN: full-enumeration extract + re-embed report (no shadow promotion)...`
                 : `\n3️⃣  Memory Core repair-defrag: full-enumeration extract + re-embed + shadow-promote...`);
             const {default: TextEmbeddingService} = await import('../../services/memory-core/TextEmbeddingService.mjs');
-            const {results}                       = await repairMemoryCoreCollectionsViaFullEnumeration({
+            // Prevent oversized-document data loss: truncate each document to the embedding token budget so a
+            // document that exceeds the provider context recovers with a (slightly lossy) vector instead of
+            // falling out of recovery as unrecoverable. The safe-budget leaf is read at the use site.
+            const embedBudgetTokens = AiConfig.localModels.embedding.safeProcessingLimitTokens;
+            const {results}         = await repairMemoryCoreCollectionsViaFullEnumeration({
                 client,
                 collections      : config.collections,
                 snapshotPath     : path.join(backupPath, 'chroma.sqlite3'),
                 persistDir       : backupPath,
-                embedFn          : docs => TextEmbeddingService.embedTexts(docs, config.embeddingProvider),
+                embedFn          : docs => TextEmbeddingService.embedTexts(docs.map(doc => truncateToEmbedTokenBudget(doc, embedBudgetTokens)), config.embeddingProvider),
                 embeddingFunction: dummyEf,
                 statePath,
                 stateBase        : {targetName},
