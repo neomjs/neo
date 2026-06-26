@@ -1,14 +1,20 @@
 import {test, expect} from '@playwright/test';
+import {mkdtemp, rm}  from 'fs/promises';
+import os             from 'os';
+import path           from 'path';
 import {
     anyRepairNonClean,
+    applyAutonomousSettlement,
     assertDefragTargetSupported,
+    assertNoIncompleteDefragState,
     createUnrecoverablePreview,
     formatMemoryCoreRepairProgress,
     formatUnrecoverablePreview,
     promoteLoadedShadowCollection,
     repairMemoryCoreCollectionViaResumableShadow,
     repairMemoryCoreCollectionsViaFullEnumeration,
-    runDefragChromaDBCli
+    runDefragChromaDBCli,
+    writeDefragState
 } from '../../../../../../ai/scripts/maintenance/defragChromaDB.mjs';
 
 /**
@@ -799,5 +805,74 @@ test.describe('formatMemoryCoreRepairProgress — timestamped operator progress 
                 total    : 4
             }
         })).toBe(`   [${now}] ⏳ 'neo-agent-memory': unexpected-phase 75% (3/4)`);
+    });
+});
+
+test.describe('applyAutonomousSettlement — a settled clean exit clears the non-clean marker', () => {
+    const partial = (collectionName, residue, sourceCount, parkingName) => ({
+        collectionName, partialPromoted: true, aborted: false, unrecoverable: residue, sourceCount,
+        promotion: {parkingName}
+    });
+
+    test('all-bounded-terminal → settles, audits WITH the parking context, clears the marker', async () => {
+        const audits = [], cleared = [];
+
+        const result = await applyAutonomousSettlement({
+            results  : [partial('mc-graph', [{id: 'a', reason: 'document-absent'}], 10000, 'mc-graph-parking-1')],
+            statePath: '/state/marker.json',
+            auditDir : '/state',
+            appendFn : async (entry, opts) => { audits.push({entry, opts}); },
+            clearFn  : async opts => { cleared.push(opts); }
+        });
+
+        expect(result.settled).toBe(true);
+        expect(cleared).toEqual([{statePath: '/state/marker.json'}]);
+        expect(audits).toHaveLength(1);
+        expect(audits[0].entry).toMatchObject({type: 'auto-accepted-loss', collectionName: 'mc-graph', parkingName: 'mc-graph-parking-1'});
+        expect(audits[0].opts).toEqual({dir: '/state'});
+    });
+
+    test('any heal-path (transient) collection → NOT settled, no audit, marker left intact', async () => {
+        const audits = [], cleared = [];
+
+        const result = await applyAutonomousSettlement({
+            results: [
+                partial('mc-graph',  [{id: 'a', reason: 'document-absent'}],  10000, 'p1'),
+                partial('mc-memory', [{id: 'b', reason: 'provider-timeout'}], 10000, 'p2')
+            ],
+            statePath: '/state/marker.json',
+            auditDir : '/state',
+            appendFn : async entry => { audits.push(entry); },
+            clearFn  : async opts => { cleared.push(opts); }
+        });
+
+        expect(result.settled).toBe(false);
+        expect(audits).toHaveLength(0);
+        expect(cleared).toHaveLength(0);
+    });
+
+    test('the next maintenance pass is NOT blocked after a settled run (real marker lifecycle)', async () => {
+        const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'neo-defrag-settle-'));
+
+        try {
+            const statePath = path.join(tmpDir, 'defrag-state.json');
+
+            // the repair wrote a non-clean marker; it WOULD block the next run (anchor the defect)
+            await writeDefragState({statePath, state: {phase: 'memory-core-repair-partial-promoted', targetName: 'memory-core'}});
+            await expect(assertNoIncompleteDefragState({statePath, allowedPhases: []})).rejects.toThrow(/Incomplete Chroma defrag state/);
+
+            // a settled autonomous run (real clearDefragState + real audit append into tmpDir)
+            const result = await applyAutonomousSettlement({
+                results : [partial('mc-graph', [{id: 'a', reason: 'document-absent'}], 10000, 'parking-1')],
+                statePath,
+                auditDir: tmpDir
+            });
+            expect(result.settled).toBe(true);
+
+            // the next run is now unblocked — the marker is resolved
+            await expect(assertNoIncompleteDefragState({statePath, allowedPhases: []})).resolves.toBeUndefined();
+        } finally {
+            await rm(tmpDir, {recursive: true, force: true});
+        }
     });
 });
