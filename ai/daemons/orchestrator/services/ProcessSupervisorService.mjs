@@ -2,7 +2,7 @@ import Base                           from '../../../../src/core/Base.mjs';
 import fs                             from 'fs-extra';
 import path                           from 'path';
 import {execSync}                     from 'child_process';
-import {createRecoveryDiagnosisEvent} from '../../../services/memory-core/helpers/recoveryRunStateStore.mjs';
+import {buildSupervisedTaskDiagnosis} from './taskOutcomeDiagnosis.mjs';
 
 const DEFAULT_STDOUT_JSON_MAX_BYTES = 65536;
 const ESCALATING_TASK_OUTCOMES      = Object.freeze(new Set(['backup']));
@@ -219,28 +219,16 @@ export class ProcessSupervisorService extends Base {
             return false;
         }
 
+        // Consume the shared supervised-task diagnosis producer (single source of the failed/overdue
+        // diagnosis contract) instead of building the event inline. A failed maintenance task routes as
+        // `ambiguous` (escalate-only), not `crash` — the supervisor saw the failure, not its cause.
         const observedAt = Date.now(),
-              diagnosis  = createRecoveryDiagnosisEvent({
-                  diagnosisId   : `process-supervisor:${taskName}:failed:${observedAt}`,
-                  recoveryClass : 'ambiguous',
-                  confidence    : 1,
-                  targetIdentity: {kind: 'supervised-task', id: taskName},
-                  evidenceFacts : [{
-                      type   : 'task-failure',
-                      taskName,
-                      status,
-                      details: details || {},
-                      observedAt
-                  }],
+              diagnosis  = buildSupervisedTaskDiagnosis({
+                  taskName,
+                  outcome      : 'failed',
                   observedAt,
-                  source : 'process-supervisor-task-outcome',
-                  details: {
-                      actionClass   : 'escalate',
-                      reasonCode    : 'maintenance-task-failure',
-                      taskName,
-                      taskStatus    : status,
-                      outcomeDetails: details || {}
-                  }
+                  evidenceFacts: [{type: 'task-failure', taskName, status, details: details || {}, observedAt}],
+                  details      : {reasonCode: 'maintenance-task-failure', taskName, taskStatus: status, outcomeDetails: details || {}}
               });
 
         Promise.resolve(actuator.escalateDiagnosis(diagnosis, {
