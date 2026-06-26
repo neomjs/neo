@@ -1,4 +1,7 @@
 import {test, expect}                 from '@playwright/test';
+import fs                             from 'fs';
+import os                             from 'os';
+import path                           from 'path';
 import Neo                            from '../../../../../../../src/Neo.mjs';
 import * as core                      from '../../../../../../../src/core/_export.mjs';
 import AiConfig                       from '../../../../../../../ai/config.mjs';
@@ -260,5 +263,42 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
                 target       : {kind: 'compose-service', id: 'model'}
             }
         });
+    });
+
+    test('edge-triggers the success log: silent on unchanged state, re-logs on a service-state transition', async () => {
+        const snapshotPath = path.join(os.tmpdir(), 'neo-deployment-bridge-edge-trigger.spec.json');
+
+        AiConfig.orchestrator.deploymentStateBridge.snapshotPath     = snapshotPath;
+        AiConfig.orchestrator.deploymentStateBridge.maxSnapshotBytes = 256 * 1024;
+
+        const
+            logs    = [],
+            service = createService({});
+
+        service.writeLog = (level, message) => logs.push({level, message});
+
+        let services = [{serviceKey: 'model', status: 'available'}, {serviceKey: 'memory', status: 'available'}];
+
+        // Override the gatherer so the test controls the per-service status that drives the signature.
+        service.collectSnapshot = async () => ({generatedAt: OBSERVED_AT, services, recoveryRuns: {entries: []}});
+
+        const first     = await service.writeSnapshotIfDue({force: true}); // first write → logs
+        const unchanged = await service.writeSnapshotIfDue({force: true}); // identical state → silent
+
+        services = [{serviceKey: 'model', status: 'available'}, {serviceKey: 'memory', status: 'degraded'}];
+
+        const transitioned = await service.writeSnapshotIfDue({force: true}); // status flip → logs again
+
+        expect(first.logged).toBe(true);
+        expect(unchanged.logged).toBe(false);
+        expect(transitioned.logged).toBe(true);
+
+        const infoLines = logs.filter(entry => entry.level === 'INFO' && entry.message.includes('service snapshots'));
+
+        expect(infoLines).toHaveLength(2);
+        expect(infoLines[0].message).toContain('first write');
+        expect(infoLines[1].message).toContain('service-state changed');
+
+        try { fs.unlinkSync(snapshotPath); } catch {}
     });
 });
