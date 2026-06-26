@@ -88,6 +88,8 @@ test.describe('KB_DatabaseService — manageDatabaseBackup (#10129 Phase 1)', ()
         });
 
         expect(result.message).toMatch(/Exported 2 knowledge base chunks/);
+        // Numeric count surfaced for the backup orchestrator's verifyBundleIntegrity KB row-count parity.
+        expect(result.count).toBe(2);
 
         const produced = fs.readdirSync(tmpBackupDir)
             .filter(f => f.startsWith('knowledge-base-backup-') && f.endsWith('.jsonl'));
@@ -119,6 +121,8 @@ test.describe('KB_DatabaseService — manageDatabaseBackup (#10129 Phase 1)', ()
         });
 
         expect(result.message).toMatch(/Exported 0 knowledge base chunks/);
+        // Zero count makes the verifier report KB 'empty' parity (a visible non-fatal status), not a silent 'skipped'.
+        expect(result.count).toBe(0);
 
         const produced = fs.readdirSync(emptyDir).filter(f => f.endsWith('.jsonl'));
         expect(produced).toHaveLength(0);
