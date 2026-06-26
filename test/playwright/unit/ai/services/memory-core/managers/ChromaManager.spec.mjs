@@ -54,17 +54,24 @@ test.describe('Neo.ai.services.memory-core.managers.ChromaManager', () => {
         expect(resolved).toEqual({host: 'localhost', port: 8000, database: 'some-explicit-db'});
     });
 
-    test('config-independent guard: a test-runner context resolving the production database is refused (#14031)', () => {
-        // This spec runs under UNIT_TEST_MODE, so isTestRunnerContext() is true. Resolving the production
-        // namespace from a test-runner — the bare-playwright bleed, where the config-keyed toggle is off but
-        // TEST_WORKER_INDEX is set — must fail closed regardless of the useTestDatabase toggle.
-        expect(() => ChromaManager.resolveChromaClientConfig({
-            engines: {chroma: {host: 'localhost', port: 8000, database: CHROMA_PRODUCTION_DATABASE, useTestDatabase: false}}
-        })).toThrow(/config-independent test-write isolation guard/);
+    test('assertCollectionNotProdBleed: a test-named collection in the production database is refused (#14031/#14044)', () => {
+        // The bleed signature: test isolation routed the collection NAME to a test variant
+        // (test-*) but the DATABASE fell back to production. Refuse at the collection boundary.
+        expect(() => ChromaManager.assertCollectionNotProdBleed({
+            name: 'test-memory-123-abc', database: CHROMA_PRODUCTION_DATABASE
+        })).toThrow(/collection-boundary test-write isolation/);
 
-        // A non-production custom database under the same test-runner context is NOT refused (no false-positive).
-        expect(() => ChromaManager.resolveChromaClientConfig({
-            engines: {chroma: {host: 'localhost', port: 8000, database: 'some-explicit-db'}}
+        // A production-NAMED collection in the production database is NOT refused — the legitimate
+        // fresh-workspace / cloud daemon case: prod coordinates + prod-named collections, inheriting
+        // Playwright's TEST_WORKER_INDEX, must boot without tripping the guard (the resolver-level
+        // db-name guard wrongly blocked this; the collection-name discriminator fixes it).
+        expect(() => ChromaManager.assertCollectionNotProdBleed({
+            name: 'neo-agent-memory', database: CHROMA_PRODUCTION_DATABASE
+        })).not.toThrow();
+
+        // A test-named collection in an isolated TEST database is the normal unit-test path — allowed.
+        expect(() => ChromaManager.assertCollectionNotProdBleed({
+            name: 'test-memory-123-abc', database: CHROMA_TEST_DATABASE
         })).not.toThrow();
     });
 
