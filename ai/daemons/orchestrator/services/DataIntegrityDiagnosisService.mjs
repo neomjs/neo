@@ -87,6 +87,13 @@ export class DataIntegrityDiagnosisService extends Base {
      * @member {Function|null} recordCircuitEvent=null
      */
     recordCircuitEvent = null
+    /**
+     * Chronic `unsafe-input` mis-wire detector: `async ({now}) => [{action, collection, count}]` — folds the
+     * heal-ledger for sustained `unsafe-input` per (action, collection). Observability only (does NOT gate the
+     * cycle). `null` → no detection. Set-once injected dependency — a plain class field.
+     * @member {Function|null} chronicUnsafeInputDetector=null
+     */
+    chronicUnsafeInputDetector = null
 
     /**
      * @summary Gathers per-collection evidence, classifies each, and routes every actionable finding to its
@@ -156,13 +163,21 @@ export class DataIntegrityDiagnosisService extends Base {
                 : {type: 'circuit-close', at: observedAt, detail: 'half-open probe recovered — circuit closed'});
         }
 
+        // Chronic unsafe-input mis-wire detector (observability only — does NOT gate): surface sustained
+        // unsafe-input per (action, collection) so a chronically mis-wired heal that silently never-executes is
+        // detected rather than invisible. Reads the same heal-ledger the circuit folds.
+        const chronicUnsafeInput = typeof this.chronicUnsafeInputDetector === 'function'
+            ? await this.chronicUnsafeInputDetector({now: observedAt})
+            : [];
+
         return this.createDecision({
             serviceId: this.serviceId,
             observedAt,
             status   : actionable.length > 0 ? 'healed' : 'clean',
             classifications,
             heals,
-            circuit
+            circuit,
+            chronicUnsafeInput
         });
     }
 
@@ -231,7 +246,7 @@ export class DataIntegrityDiagnosisService extends Base {
      * @param {Object} options
      * @returns {Object}
      */
-    createDecision({serviceId, observedAt, status, classifications = [], heals = [], probeError = null, circuit = null}) {
+    createDecision({serviceId, observedAt, status, classifications = [], heals = [], probeError = null, circuit = null, chronicUnsafeInput = []}) {
         return {
             schemaVersion: 1,
             recordType   : 'data-integrity-self-heal-decision',
@@ -241,7 +256,8 @@ export class DataIntegrityDiagnosisService extends Base {
             probeError,
             classifications,
             heals,
-            circuit
+            circuit,
+            chronicUnsafeInput
         };
     }
 
