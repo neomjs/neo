@@ -285,9 +285,10 @@ class Server extends BaseServer {
 
             if (this.walDrainLock) {
                 this.walDrainLoop = startDrainLoop({
-                    getCollection: () => StorageRouter.getMemoryCollection(),
-                    getConfig    : () => aiConfig.memoryWal,
-                    log          : drainLog
+                    getCollection    : () => StorageRouter.getMemoryCollection(),
+                    getConfig        : () => aiConfig.memoryWal,
+                    expectedDimension: aiConfig.vectorDimension,
+                    log              : drainLog
                 });
                 // Release on process exit (the realistic single-process clean-shutdown path); a
                 // signal-kill leaves the lock for the next host to reclaim as stale.
@@ -301,7 +302,7 @@ class Server extends BaseServer {
         // projection is a separate completion concern.
         if (aiConfig.messageWal && aiConfig.messageWal.inProcessDrain) {
             const messageDrainLog = (level, message) => logger[level === 'ERROR' ? 'error' : 'info'](`[neo-memory-core MCP] ${message}`);
-            const missingLeaves = getMissingMessageWalLeaves(aiConfig.messageWal,
+            const missingLeaves   = getMissingMessageWalLeaves(aiConfig.messageWal,
                 ['dir', 'pollIntervalMs', 'batchSize', 'maxRetries', 'backoffBaseMs']);
 
             if (missingLeaves.length > 0) {
@@ -528,7 +529,7 @@ class Server extends BaseServer {
         }
 
         const {userId, agentIdentityNodeId, source} = this.stdioIdentity;
-        const bound = agentIdentityNodeId ? `bound to ${agentIdentityNodeId}` : 'unbound (no matching AgentIdentity node)';
+        const bound                                 = agentIdentityNodeId ? `bound to ${agentIdentityNodeId}` : 'unbound (no matching AgentIdentity node)';
 
         logger.info(`[neo-memory-core MCP] Identity: ${userId} via ${source} — ${bound}`);
     }
