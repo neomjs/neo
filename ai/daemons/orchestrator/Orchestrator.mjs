@@ -84,7 +84,9 @@ function resolveDeploymentEnabled(key) {
  * @param {String} key
  * @returns {Boolean}
  */
-function resolveCloudOnlyEnabled(key) {
+// Exported so a cross-module controller (e.g. the recovery actuator's B1 compose-service selection
+// point) can consult a cloudOnly mode-gate without scattering raw `deploymentMode` reads (ADR-0019).
+export function resolveCloudOnlyEnabled(key) {
     const cfg = AiConfig.orchestrator.cloudOnly[key];
     if (cfg != null) return cfg;
     return AiConfig.orchestrator.deploymentMode === 'cloud';
@@ -432,6 +434,7 @@ export class Orchestrator extends Base {
     get githubWorkflowSyncEnabled()      { return resolveDeploymentEnabled('githubWorkflowSyncEnabled');      }
     get primaryDevSyncEnabled()          { return resolveDeploymentEnabled('primaryDevSyncEnabled');          }
     get tenantRepoSyncEnabled()          { return resolveCloudOnlyEnabled('tenantRepoSyncEnabled');           }
+    get composeServiceRecoveryEnabled()  { return resolveCloudOnlyEnabled('composeServiceRecoveryEnabled');   }
     get chromaDaemonEnabled()            { return resolveDeploymentEnabled('chromaDaemonEnabled');            }
     get bridgeDaemonEnabled()            { return resolveDeploymentEnabled('bridgeDaemonEnabled');            }
     get devServerEnabled()               { return resolveLocalDeploymentDefault(AiConfig.orchestrator.devServer.enabled); }

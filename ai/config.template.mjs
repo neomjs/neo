@@ -737,7 +737,16 @@ class Config extends ConfigProvider {
                     // Tenant-repo-sync is a cloud-deployable lane: cloud profile defaults enabled
                     // when tenant repos are configured; local Neo-maintainer profile defaults
                     // disabled unless explicitly opted in.
-                    tenantRepoSyncEnabled: leaf(null, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_ENABLED', 'boolean')
+                    tenantRepoSyncEnabled: leaf(null, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_ENABLED', 'boolean'),
+                    // B1 docker-socket sibling-container recovery (the immune system's privileged tier).
+                    // Cloud profile defaults enabled (no operator present to manually restart a wedged
+                    // sibling); local profile defaults disabled (the operator IS present + autonomously
+                    // recycling a dev container is disruptive). B0 in-process recycle + data-integrity
+                    // re-embed + the read-only deployment-state bridge stay active locally regardless.
+                    // ORTHOGONAL to `recoveryActuator.blockedComposeServices` (ADR-26): this mode-gate is
+                    // "is B1 active in this deployment at all"; the blocklist is the per-service opt-out
+                    // WITHIN an active mode. They compose; do not overload the blocklist to express the mode gate.
+                    composeServiceRecoveryEnabled: leaf(null, 'NEO_ORCHESTRATOR_COMPOSE_SERVICE_RECOVERY_ENABLED', 'boolean')
                 },
                 /**
                  * Recovery actuator envelope. Enabled by default so deployed immune-system
