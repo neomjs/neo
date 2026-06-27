@@ -62,3 +62,35 @@ test.describe('DataRecoveryActuatorService.applyHeal — autonomous terminal (no
         expect(['escalate', 'escalated', 'page', 'paged']).not.toContain(outcome.status);
     });
 });
+
+test.describe('DataRecoveryActuatorService.applyHeal — recordHealOutcome (persist the OUTCOME, not just the attempt)', () => {
+    test('persists the dispatch OUTCOME via the injected recordHealOutcome', async () => {
+        const recorded = [];
+        const actuator = Neo.create(DataRecoveryActuatorService, {
+            recordHealOutcome: async outcome => { recorded.push(outcome); }
+        });
+
+        // 'quarantine' is non-mutating containment → the gate clears it; no wired op → a 'deferred' outcome.
+        const outcome = await actuator.applyHeal({action: 'quarantine', collection: 'c1', now: NOW});
+
+        expect(outcome).toMatchObject({action: 'quarantine', collection: 'c1', status: 'deferred'});
+        expect(recorded).toHaveLength(1);
+        expect(recorded[0]).toMatchObject({action: 'quarantine', collection: 'c1', status: 'deferred', healedAt: NOW});
+    });
+
+    test('a recordHealOutcome failure never breaks the heal (best-effort telemetry, swallowed)', async () => {
+        const actuator = Neo.create(DataRecoveryActuatorService, {
+            recordHealOutcome: async () => { throw new Error('ledger write failed'); }
+        });
+
+        const outcome = await actuator.applyHeal({action: 'quarantine', collection: 'c1', now: NOW});
+        expect(outcome).toMatchObject({action: 'quarantine', collection: 'c1', status: 'deferred'}); // the heal stands
+    });
+
+    test('no recordHealOutcome wired → applyHeal still returns the outcome (observability is optional)', async () => {
+        const actuator = Neo.create(DataRecoveryActuatorService); // recordHealOutcome stays null
+        const outcome  = await actuator.applyHeal({action: 'quarantine', collection: 'c1', now: NOW});
+
+        expect(outcome).toMatchObject({action: 'quarantine', collection: 'c1', status: 'deferred'});
+    });
+});
