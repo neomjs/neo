@@ -400,11 +400,15 @@ function evaluateAssignmentAlignment(lines, maskedLines = []) {
 const EVALUATORS = [evaluateImportAlignment, evaluateColonAlignment, evaluateAssignmentAlignment];
 
 /**
- * @summary Computes which lines contain template-literal string content, excluding JavaScript code
- * inside `${...}` expressions. Backticks in comments, quoted strings, and escaped template content do
- * not toggle the mask.
+ * @summary Computes which lines BEGIN inside a template literal — i.e. are template-text continuations of
+ * a multi-line template opened on an earlier line. Such a line is not its own declaration and must break
+ * the alignment runs. A line that merely CONTAINS a single-line template value (e.g. a property whose
+ * value is a one-line template) begins in code and is NOT flagged, so it stays in its run. (A prior
+ * version flagged any line containing template content, which split a run at a single-line template-valued
+ * property — leaving the keys before it tight and the rest far.) Backticks in comments, quoted strings,
+ * and escaped content do not open a template.
  * @param {String[]} lines
- * @returns {Boolean[]}
+ * @returns {Boolean[]} Per-line: does the line begin inside an unclosed template literal?
  */
 function computeTemplateLiteralLineMask(lines) {
     const
@@ -420,6 +424,13 @@ function computeTemplateLiteralLineMask(lines) {
     for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
         const line = lines[lineIndex];
         let   i    = 0;
+
+        // A run member must START in code. A line that begins INSIDE a template literal is a continuation
+        // (template text, not its own declaration) and must break the alignment run. A line that merely
+        // CONTAINS a single-line template value begins in code and must STAY in its run — capturing the
+        // line-START template state (not any-template-content-on-the-line) keeps a single-line
+        // template-valued property aligned with its block.
+        maskedLines[lineIndex] = stack.some(frame => frame.type === 'template');
 
         while (i < line.length) {
             const
@@ -451,14 +462,12 @@ function computeTemplateLiteralLineMask(lines) {
 
             if (ctx.type === 'template') {
                 if (templateEscape) {
-                    maskedLines[lineIndex] = true;
                     templateEscape = false;
                     i++;
                     continue;
                 }
 
                 if (ch === '\\') {
-                    maskedLines[lineIndex] = true;
                     templateEscape = true;
                     i++;
                     continue;
@@ -476,7 +485,6 @@ function computeTemplateLiteralLineMask(lines) {
                     continue;
                 }
 
-                maskedLines[lineIndex] = true;
                 i++;
                 continue;
             }

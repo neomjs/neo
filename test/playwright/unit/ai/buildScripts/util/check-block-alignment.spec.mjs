@@ -186,6 +186,31 @@ test.describe('check-block-alignment.mjs (#13556)', () => {
             expect(fs.readFileSync(file, 'utf8')).toBe(before);
         });
 
+        test('a single-line template-valued property stays in its run — all keys align, not split (#14212)', () => {
+            // Regression: a property whose VALUE is a single-line template begins in code, so it must stay
+            // in its colon-alignment run. A prior mask flagged any line containing template content, which
+            // split the run here — leaving the keys before it tight and the rest far.
+            const file = write('tmpl-value.mjs', [
+                'const node = {',
+                '    id: memoryId,',
+                '    type: nodeType,',
+                '    name: `Memory: ${timestamp}`,',
+                '    semanticVectorId: memoryId',
+                '};'
+            ].join('\n'));
+
+            expect(run('--fix', file).status).toBe(0);
+
+            const colonCols = fs.readFileSync(file, 'utf8').split('\n')
+                .filter(line => /^\s+\w+\s*:/.test(line))
+                .map(line => line.indexOf(':'));
+
+            expect(colonCols.length).toBe(4);
+            expect(new Set(colonCols).size).toBe(1);     // id/type/name/semanticVectorId share one column — the template value did not split the run
+            expect(run(file).status).toBe(0);            // aligned → clean
+            expect(run('--fix', file).status).toBe(0);   // idempotent
+        });
+
         test('template masking ignores quoted/comment backticks and preserves real object fixes (#13670)', () => {
             const file = write('prompt-edge.mjs', [
                 'const quoted = "`";',
