@@ -20,12 +20,12 @@ import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 
 /**
- * Cooperative heavy-maintenance-lease yield-point coverage for `VectorService.embedChunks` (#14186).
+ * Cooperative heavy-maintenance-lease yield-point coverage for `VectorService.embedChunks`.
  *
- * The kbSync side of the #14144 lease-fairness epic: a long re-embed must release the heavy-maintenance
- * lease at a BATCH BOUNDARY so a starved heavy task (`githubWorkflowSync`) can interleave, then resume from
- * the preserved shadow — never starving it indefinitely. The producer side (`HeavyMaintenanceLeaseService.
- * shouldYield`, #14185) decides WHEN; this is the consumer that ACTS on it between batches.
+ * The kbSync side of the heavy-maintenance-lease fairness contract: a long re-embed must release the lease
+ * at a BATCH BOUNDARY so a starved heavy task (`githubWorkflowSync`) can interleave, then resume from the
+ * preserved shadow — never starving it indefinitely. The producer side (`HeavyMaintenanceLeaseService.
+ * shouldYield`) decides WHEN; this is the consumer that ACTS on it between batches.
  *
  * These tests drive `embedChunks` directly with an in-memory spy collection and a stubbed embedder,
  * asserting the three load-bearing properties:
@@ -59,7 +59,7 @@ function makeChunks(count) {
     }));
 }
 
-test.describe('VectorService.embedChunks — cooperative lease yield-point (#14186)', () => {
+test.describe('VectorService.embedChunks — cooperative lease yield-point', () => {
     let SDK, KB_VectorService, KB_Config, TextEmbeddingService;
     let originalEmbedTexts, originalBatchConfig;
 

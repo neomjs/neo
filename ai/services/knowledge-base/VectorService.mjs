@@ -587,7 +587,7 @@ class VectorService extends Base {
      * @param {Object}   options
      * @param {Object}   options.collection      Chroma collection target.
      * @param {Object[]} options.chunksToProcess Tenant-stamped chunks to embed.
-     * @param {Function} [options.shouldYield]   Cooperative heavy-maintenance-lease yield predicate (#14186),
+     * @param {Function} [options.shouldYield]   Cooperative heavy-maintenance-lease yield predicate,
      *     consulted BETWEEN batches. Returns truthy once the lease holder has exceeded the fairness bound
      *     (`HeavyMaintenanceLeaseService.shouldYield`); the loop then stops so a starved heavy task can
      *     interleave. Defaults to never-yield, so callers that do not hold the lease are unaffected.
@@ -608,7 +608,7 @@ class VectorService extends Base {
         let   yielded                             = false;
 
         for (let i = 0; i < chunksToProcess.length; i += batchSize) {
-            // Cooperative heavy-maintenance-lease yield-point (#14186): BETWEEN batches (never before the
+            // Cooperative heavy-maintenance-lease yield-point: BETWEEN batches (never before the
             // first — so at least one batch lands per lease acquisition: a forward-progress guarantee, never a
             // livelock), if the lease holder has exceeded the fairness bound, stop embedding so a starved heavy
             // task (e.g. githubWorkflowSync) can interleave. The completed batches are already durably upserted
@@ -715,7 +715,7 @@ class VectorService extends Base {
      * @param {Object}   options.liveCollection Existing canonical collection handle.
      * @param {Object[]} options.knowledgeBase   Full tenant-stamped corpus.
      * @param {Number}   options.idsToDeleteCount Logical stale-id count removed from the canonical view.
-     * @param {Function} [options.shouldYield]   Cooperative heavy-maintenance-lease yield predicate (#14186),
+     * @param {Function} [options.shouldYield]   Cooperative heavy-maintenance-lease yield predicate,
      *     threaded to `embedChunks`. On a between-batch yield the shadow is preserved-not-promoted (the
      *     write-ahead resume marker already indexes it) and a `{yielded: true}` envelope is returned so the
      *     lease holder releases; the next sweep resumes from the preserved shadow.
@@ -782,7 +782,7 @@ class VectorService extends Base {
             const embedResult = await this.embedChunks({collection: shadowCollection, chunksToProcess: chunksToEmbed, shouldYield});
 
             if (embedResult.yielded) {
-                // Cooperative lease-yield (#14186): the shadow holds the completed batches and the write-ahead
+                // Cooperative lease-yield: the shadow holds the completed batches and the write-ahead
                 // resume marker already indexes it, so DO NOT promote and DO NOT clear the marker — the next
                 // sweep resumes (decideResume -> selectResumableChunks). The live collection is untouched
                 // (preserved-not-promoted), so githubWorkflowSync can write resources/content/ freely while we
@@ -956,7 +956,7 @@ class VectorService extends Base {
      *                                             `shadow-swap` rebuilds into a fresh collection
      *                                             before promoting it to the canonical name.
      * @param {Function} [opts.shouldYield]        Cooperative heavy-maintenance-lease yield predicate
-     *                                             (#14186), threaded to the shadow-swap embed loop so a long
+     *                                             threaded to the shadow-swap embed loop so a long
      *                                             re-embed releases the lease at a batch boundary for a starved
      *                                             heavy task, then resumes from the preserved shadow. Default
      *                                             never yields, so non-lease-held callers are unaffected.

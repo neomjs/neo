@@ -64,12 +64,16 @@ async function syncKnowledgeBase() {
 
                 // Execute the full sync (create + embed). `NEO_KB_STALE_STRATEGY=shadow-swap`
                 // opts into the shadow-swap stale-data strategy; default CLI sync remains unchanged.
-                // Cooperative lease-yield (#14186): a long re-embed releases the heavy-maintenance lease at a
+                // Cooperative lease-yield: a long re-embed releases the heavy-maintenance lease at a
                 // batch boundary once the active hold exceeds the fairness bound, so a starved heavy task
                 // (githubWorkflowSync) interleaves; the next sweep re-acquires and resumes the preserved shadow.
+                // The task arg is the acquisition descriptor `{status, acquired, lease}` — pass `acquisition.lease`
+                // (the payload carrying `acquiredAt`), NOT the wrapper. It is present for BOTH a fresh acquire
+                // AND an inherited-active parent lease (the orchestrator spawns kbSync with
+                // NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN), so the fairness bound holds on either path.
                 return KB_DatabaseService.syncDatabase({
                     staleStrategy,
-                    shouldYield: () => shouldYieldHeavyMaintenanceLease(acquisition, {
+                    shouldYield: () => shouldYieldHeavyMaintenanceLease(acquisition.lease, {
                         maxActiveHoldMs: AiConfig.orchestrator.heavyMaintenanceLease.maxActiveHoldMs
                     })
                 });

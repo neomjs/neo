@@ -580,7 +580,7 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
         }
     });
 
-    test('shadow-swap PRESERVES the shadow on a cooperative lease YIELD — no promote, marker intact (#14186)', async () => {
+    test('shadow-swap PRESERVES the shadow on a cooperative lease YIELD — no promote, marker intact', async () => {
         const live                = createSpyCollection({existingIds: [], name: KB_Config.data.collectionName});
         const originalEmbedChunks = KB_VectorService.embedChunks.bind(KB_VectorService);
         let shadow;
