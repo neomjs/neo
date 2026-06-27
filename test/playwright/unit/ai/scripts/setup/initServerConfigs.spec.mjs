@@ -30,8 +30,8 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
     let workRoot;
 
     function recordingLogger() {
-        const log  = [];
-        const warn = [];
+        const log   = [];
+        const warn  = [];
         const error = [];
         return {
             log    : (...args) => log.push(args.join(' ')),
@@ -81,7 +81,7 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
 
     test('AC1: missing config.mjs is cloned from template', async () => {
         const templateSrc = `import path from 'path';\nexport default {x: 1};\n`;
-        const root = buildServerSandbox({
+        const root        = buildServerSandbox({
             sandboxName     : 'ac1-clone',
             templateContents: templateSrc,
             configContents  : undefined
@@ -398,7 +398,7 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
         // `import {parsePort as foo, parseBool} from '...'` projects as `:parsePort` + `:parseBool`,
         // not the local alias `:foo`. Ensures shape comparison is stable across
         // operator local-aliasing variations.
-        const src = `import {parsePort as foo, parseBool} from '../../../../src/util/Env.mjs';\n`;
+        const src      = `import {parsePort as foo, parseBool} from '../../../../src/util/Env.mjs';\n`;
         const filePath = path.join(workRoot, 'aliased.mjs');
         fs.writeFileSync(filePath, src);
 
@@ -508,7 +508,7 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
     });
 
     test('named exports projection: exports {a, b} blocks are extracted and trimmed', async () => {
-        const src = `export {first, second, third} from './re-export.mjs';\nexport {only} from './another.mjs';\n`;
+        const src      = `export {first, second, third} from './re-export.mjs';\nexport {only} from './another.mjs';\n`;
         const filePath = path.join(workRoot, 'exports.mjs');
         fs.writeFileSync(filePath, src);
 
@@ -797,7 +797,7 @@ test.describe('assertConfigFresh — boot freshness guard (#13560)', () => {
     });
 
     test('benign drift (changed default only) warns but does NOT throw', async () => {
-        const root   = buildTier1({
+        const root = buildTier1({
             name            : 'benign',
             templateContents: `export default {model: leaf('a', 'NEO_MODEL', 'string')};\n`,
             configContents  : `export default {model: leaf('b', 'NEO_MODEL', 'string')};\n`
@@ -820,10 +820,15 @@ test.describe('initClaudeSettings — Claude Stop-hook auto-wire (#13641)', () =
     };
 
     // The tracked template the materializer reads — the Stop hook with the operator-directed
-    // enforce=1 default (the forcing-function rollout; NOT dry-run).
+    // enforce=1 default (the forcing-function rollout; NOT dry-run) plus PreToolUse guards.
     const TEMPLATE = {
         permissions: {allow: ['mcp__neo-mjs-memory-core__healthcheck']},
         hooks      : {
+            PreToolUse: [{matcher: 'Bash', hooks: [{
+                type   : 'command',
+                command: '/usr/bin/env node "$(git rev-parse --show-toplevel)/.claude/hooks/rgReplaceGuardHook.mjs"',
+                timeout: 2
+            }]}],
             Stop: [{hooks: [{
                 type   : 'command',
                 command: 'NEO_LANE_STATE_ENFORCE=1 /usr/bin/env node "$(git rev-parse --show-toplevel)/.claude/hooks/laneStateStopHook.mjs"',
@@ -850,23 +855,24 @@ test.describe('initClaudeSettings — Claude Stop-hook auto-wire (#13641)', () =
         if (claudeRoot && fs.existsSync(claudeRoot)) fs.rmSync(claudeRoot, {recursive: true, force: true});
     });
 
-    test('mergeClaudeHooks: ensures the template Stop hook, preserves other keys + non-Stop events', () => {
-        const active = {permissions: {allow: ['local-perm']}, hooks: {PreToolUse: [{hooks: []}]}};
+    test('mergeClaudeHooks: ensures template hooks, preserves other keys + local-only events', () => {
+        const active              = {permissions: {allow: ['local-perm']}, hooks: {PostToolUse: [{hooks: []}]}};
         const {settings, changed} = mergeClaudeHooks(active, TEMPLATE);
 
         expect(changed).toBe(true);
-        expect(settings.permissions.allow).toEqual(['local-perm']);     // operator-local key preserved
-        expect(settings.hooks.PreToolUse).toEqual([{hooks: []}]);       // non-Stop hook event preserved
-        expect(settings.hooks.Stop).toEqual(TEMPLATE.hooks.Stop);       // Stop wired from template
+        expect(settings.permissions.allow).toEqual(['local-perm']);             // operator-local key preserved
+        expect(settings.hooks.PostToolUse).toEqual([{hooks: []}]);              // local-only event preserved
+        expect(settings.hooks.PreToolUse).toEqual(TEMPLATE.hooks.PreToolUse);   // PreToolUse wired from template
+        expect(settings.hooks.Stop).toEqual(TEMPLATE.hooks.Stop);               // Stop wired from template
     });
 
     test('mergeClaudeHooks: idempotent — already-wired hooks report changed=false', () => {
-        const {changed} = mergeClaudeHooks({hooks: {Stop: TEMPLATE.hooks.Stop}}, TEMPLATE);
+        const {changed} = mergeClaudeHooks({hooks: TEMPLATE.hooks}, TEMPLATE);
         expect(changed).toBe(false);
     });
 
     test('mergeClaudeHooks: a template without hooks is a no-op', () => {
-        const active = {permissions: {allow: ['x']}};
+        const active              = {permissions: {allow: ['x']}};
         const {settings, changed} = mergeClaudeHooks(active, {permissions: {}});
         expect(changed).toBe(false);
         expect(settings).toBe(active);
@@ -883,6 +889,7 @@ test.describe('initClaudeSettings — Claude Stop-hook auto-wire (#13641)', () =
         // rollout. A future drift to dry-run fails this assertion.
         expect(command).toContain('NEO_LANE_STATE_ENFORCE=1');
         expect(command).toContain('laneStateStopHook.mjs');
+        expect(written.hooks.PreToolUse[0].hooks[0].command).toContain('rgReplaceGuardHook.mjs');
     });
 
     test('initClaudeSettings: re-run is idempotent → silent', async () => {
@@ -900,6 +907,7 @@ test.describe('initClaudeSettings — Claude Stop-hook auto-wire (#13641)', () =
         const written = JSON.parse(fs.readFileSync(path.join(dir, 'settings.json'), 'utf-8'));
         expect(written.permissions.allow).toEqual(['my-local-perm']);                      // preserved
         expect(written.hooks.Stop[0].hooks[0].command).toContain('NEO_LANE_STATE_ENFORCE=1');
+        expect(written.hooks.PreToolUse[0].hooks[0].command).toContain('rgReplaceGuardHook.mjs');
     });
 
     test('initClaudeSettings: no template → skip-no-template (no settings.json written)', async () => {
