@@ -52,13 +52,45 @@ if (missingLeaves.length > 0) {
     process.exit(1);
 }
 
-const DAEMON_DATA_DIR    = memoryCoreConfig.memoryWal.daemonDataDir;
-const LOG_FILE           = path.join(DAEMON_DATA_DIR, 'embed-daemon.log');
-const PID_FILE           = path.join(DAEMON_DATA_DIR, 'embed-daemon.pid');
 const LOG_RETENTION_DAYS = 30;
 
+/**
+ * @summary Reads the live daemon data directory from AiConfig at use time.
+ * @returns {String}
+ */
+function getDaemonDataDir() {
+    return memoryCoreConfig.memoryWal.daemonDataDir;
+}
+
+/**
+ * @summary Ensures the live daemon data directory exists and returns it.
+ * @returns {String}
+ */
+function ensureDaemonDataDir() {
+    const dir = getDaemonDataDir();
+
+    fs.ensureDirSync(dir);
+    return dir;
+}
+
+/**
+ * @summary Resolves the live embed daemon log file path.
+ * @returns {String}
+ */
+function getLogFile() {
+    return path.join(ensureDaemonDataDir(), 'embed-daemon.log');
+}
+
+/**
+ * @summary Resolves the live embed daemon PID file path.
+ * @returns {String}
+ */
+function getPidFile() {
+    return path.join(ensureDaemonDataDir(), 'embed-daemon.pid');
+}
+
 // Ensure daemon data dir exists
-fs.ensureDirSync(DAEMON_DATA_DIR);
+ensureDaemonDataDir();
 
 /**
  * Rotates `embed-daemon.log` if its mtime falls on a calendar day different from today's.
@@ -68,13 +100,15 @@ fs.ensureDirSync(DAEMON_DATA_DIR);
  * @protected
  */
 function rotateLogIfNewDay() {
-    if (!fs.existsSync(LOG_FILE)) return;
+    const logFile = getLogFile();
+
+    if (!fs.existsSync(logFile)) return;
     try {
-        const stats    = fs.statSync(LOG_FILE);
+        const stats    = fs.statSync(logFile);
         const fileDay  = stats.mtime.toISOString().split('T')[0];
         const todayDay = new Date().toISOString().split('T')[0];
         if (fileDay !== todayDay) {
-            fs.renameSync(LOG_FILE, `${LOG_FILE}.${fileDay}`);
+            fs.renameSync(logFile, `${logFile}.${fileDay}`);
         }
     } catch (e) {
         process.stderr.write(`[Embed Daemon] Log rotation failed: ${e.message}\n`);
@@ -88,11 +122,12 @@ function rotateLogIfNewDay() {
  * @protected
  */
 function pruneOldLogs() {
-    const cutoff = Date.now() - LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+    const cutoff        = Date.now() - LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+          daemonDataDir = getDaemonDataDir();
     try {
-        for (const entry of fs.readdirSync(DAEMON_DATA_DIR)) {
+        for (const entry of fs.readdirSync(daemonDataDir)) {
             if (!entry.startsWith('embed-daemon.log.') || entry === 'embed-daemon.log') continue;
-            const fullPath = path.join(DAEMON_DATA_DIR, entry);
+            const fullPath = path.join(daemonDataDir, entry);
             try {
                 if (fs.statSync(fullPath).mtime.getTime() < cutoff) {
                     fs.unlinkSync(fullPath);
@@ -120,10 +155,11 @@ function pruneOldLogs() {
  */
 function writeLog(level, message) {
     rotateLogIfNewDay();
-    const line = `[${new Date().toISOString()}] [PID:${process.pid}] [${level}] ${message}`;
+    const line    = `[${new Date().toISOString()}] [PID:${process.pid}] [${level}] ${message}`,
+          logFile = getLogFile();
 
     try {
-        fs.appendFileSync(LOG_FILE, line + '\n', 'utf8');
+        fs.appendFileSync(logFile, line + '\n', 'utf8');
     } catch (e) {
         // Best-effort; daemon must stay alive even if file-write fails
     }
@@ -149,9 +185,11 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
  * @protected
  */
 async function enforceSingleton() {
-    if (fs.existsSync(PID_FILE)) {
+    const pidFile = getPidFile();
+
+    if (fs.existsSync(pidFile)) {
         try {
-            const oldPid = parseInt(fs.readFileSync(PID_FILE, 'utf8'), 10);
+            const oldPid = parseInt(fs.readFileSync(pidFile, 'utf8'), 10);
             if (!isNaN(oldPid) && oldPid > 0 && oldPid !== process.pid) {
                 let isAlive = false;
                 try {
@@ -199,7 +237,7 @@ async function enforceSingleton() {
                 }
 
                 try {
-                    fs.unlinkSync(PID_FILE);
+                    fs.unlinkSync(pidFile);
                 } catch (e) {}
             }
         } catch (e) {
@@ -209,7 +247,7 @@ async function enforceSingleton() {
 
     // Write new PID using atomic wx claim
     try {
-        fs.writeFileSync(PID_FILE, process.pid.toString(), {encoding: 'utf8', flag: 'wx'});
+        fs.writeFileSync(pidFile, process.pid.toString(), {encoding: 'utf8', flag: 'wx'});
     } catch (e) {
         if (e.code === 'EEXIST') {
             writeLog('ERROR', '[Embed Daemon] Failed to claim PID file (EEXIST). Another instance started simultaneously. Exiting.');
@@ -225,10 +263,10 @@ async function enforceSingleton() {
         if (cleanedUp) return;
         cleanedUp = true;
         try {
-            if (fs.existsSync(PID_FILE)) {
-                const currentPid = parseInt(fs.readFileSync(PID_FILE, 'utf8'), 10);
+            if (fs.existsSync(pidFile)) {
+                const currentPid = parseInt(fs.readFileSync(pidFile, 'utf8'), 10);
                 if (currentPid === process.pid) {
-                    fs.unlinkSync(PID_FILE);
+                    fs.unlinkSync(pidFile);
                 }
             }
         } catch (e) {}
