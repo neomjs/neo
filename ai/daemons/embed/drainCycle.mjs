@@ -4,7 +4,7 @@ import {
     pruneReconciledWalSegments,
     readPendingWalRecords
 } from '../../services/memory-core/helpers/memoryWalStore.mjs';
-import {classifyRowVector} from '../../services/memory-core/helpers/vectorWriteInvariant.mjs';
+import {classifyRowVector, VECTOR_REJECTION_REASONS} from '../../services/memory-core/helpers/vectorWriteInvariant.mjs';
 
 /**
  * @summary One durable drain pass over the `add_memory` write-ahead log.
@@ -130,30 +130,37 @@ export async function embedBatch({collection, records, maxRetries, backoffBaseMs
  *
  * Disposition per outcome:
  * - **valid vector** → `embedded` (safe to mark reconciled).
- * - **confirmed metadata-only** (read-back ok, vector missing/empty/wrong-dimension) → `metadataOnly`, and the
- *   persisted row is **deleted** so the cooldown retry's `add` re-embeds cleanly (`add` is create-not-upsert; a
- *   lingering row would no-op the retry). The autonomous recovery actuator remains the backstop for any that slip.
- * - **unverifiable** (the read-back itself threw) → `metadataOnly` but **not** deleted — a transient read error
- *   must never destroy possibly-valid rows; the batch stays pending for a clean re-verify next cycle.
+ * - **confirmed metadata-only** (read-back returns a missing/empty/wrong-dimension vector, OR a single-id read
+ *   throws the documented vector-absent signature — {@link isVectorAbsentError}, `Error finding id`) → `metadataOnly`,
+ *   and the persisted row is **deleted** so the cooldown retry's `add` re-embeds cleanly (`add` is create-not-upsert;
+ *   a lingering row would no-op the retry). The autonomous recovery actuator remains the backstop for any that slip.
+ * - **unverifiable** (a read throws a non-vector-absent / transient error) → `unverifiable`, **not** deleted —
+ *   a transient read failure must never destroy possibly-valid rows; the row stays pending for a clean re-verify.
  *
- * Verify is opt-in on a known `expectedDimension`: without one it cannot classify, so it falls back (logged) to
- * the prior add-success⟹embed-success behavior rather than rejecting every row.
+ * A *batch* read-back throw cannot name which id failed, so it routes to a bounded per-record re-read
+ * ({@link verifyRecordsPerId}) that isolates the metadata-only signature from a transient error before deciding
+ * delete-vs-retry. Verify is opt-in on a known `expectedDimension`: without one it cannot classify, so it falls
+ * back (logged) to the prior add-success⟹embed-success behavior rather than rejecting every row.
  *
  * @param {Object}   options
  * @param {Object}   options.collection        Content-store collection (`get({ids, include:['embeddings']})` + `delete`).
  * @param {Object[]} options.records           The `add`-succeeded WAL records to verify (`{id, ...}`).
  * @param {Number}   options.expectedDimension Required vector dimension; non-positive/absent → verify skipped.
  * @param {Function} options.log               `(level, message)` sink.
- * @returns {Promise<{embedded: Object[], metadataOnly: Array<{record: Object, error: Error}>}>}
+ * @returns {Promise<{embedded: Object[], metadataOnly: Array<{record: Object, error: Error}>, unverifiable: Array<{record: Object, error: Error}>}>}
  */
+export function isVectorAbsentError(error) {
+    return /error finding id/i.test(error?.message ?? '');
+}
+
 export async function verifyEmbeddedVectors({collection, records, expectedDimension, log}) {
     if (records.length === 0) {
-        return {embedded: [], metadataOnly: []};
+        return {embedded: [], metadataOnly: [], unverifiable: []};
     }
 
     if (!Number.isInteger(expectedDimension) || expectedDimension <= 0) {
         log('WARN', `Post-add vector verify skipped — expectedDimension not configured (${expectedDimension}); add-success treated as embed-success`);
-        return {embedded: [...records], metadataOnly: []};
+        return {embedded: [...records], metadataOnly: [], unverifiable: []};
     }
 
     const ids = records.map(record => record.id);
@@ -161,19 +168,20 @@ export async function verifyEmbeddedVectors({collection, records, expectedDimens
 
     try {
         readBack = await collection.get({ids, include: ['embeddings']});
-    } catch (error) {
-        // Cannot prove the vectors persisted — fail closed (do NOT mark embedded) but do NOT delete:
-        // a transient read failure must never destroy possibly-valid rows. Stays pending for next cycle.
-        log('ERROR', `Post-add vector verify read failed (${error.message}) — batch left pending for retry`);
-        return {embedded: [], metadataOnly: records.map(record => ({record, error}))};
+    } catch (batchError) {
+        // The batch read-back threw. The content store throws the vector-absent signature (`Error finding id`)
+        // precisely for a metadata-only row — but a batch throw cannot name WHICH id, and may also be transient.
+        // Fall back to per-id verification so the known metadata-only signature is caught (delete + retry)
+        // rather than collapsed into "unverifiable, do not delete".
+        log('WARN', `Post-add batch vector verify threw (${batchError.message}) — isolating per record`);
+        return verifyRecordsPerId({collection, records, expectedDimension, log});
     }
 
     const embeddingById = new Map();
     (readBack?.ids ?? []).forEach((id, index) => embeddingById.set(id, readBack.embeddings?.[index]));
 
-    const embedded        = [];
-    const metadataOnly    = [];
-    const metadataOnlyIds = [];
+    const embedded     = [];
+    const metadataOnly = [];
 
     for (const record of records) {
         const reason = classifyRowVector({id: record.id, embedding: embeddingById.get(record.id)}, expectedDimension);
@@ -182,20 +190,79 @@ export async function verifyEmbeddedVectors({collection, records, expectedDimens
             embedded.push(record);
         } else {
             metadataOnly.push({record, error: new Error(`metadata-only row (${reason}) — auto-embed persisted no valid vector`)});
-            metadataOnlyIds.push(record.id);
         }
     }
 
-    if (metadataOnlyIds.length > 0) {
+    await deleteMetadataOnlyRows({collection, metadataOnly, log});
+
+    return {embedded, metadataOnly, unverifiable: []};
+}
+
+/**
+ * @summary Per-record verify fallback for when the batch read-back throws. Isolates each record with a single-id
+ * read: a returned vector is classified by {@link classifyRowVector}; a thrown vector-absent signature
+ * ({@link isVectorAbsentError}) is the confirmed metadata-only shape (delete + retry); any other thrown error is
+ * genuinely unverifiable (retry, never deleted). Bounded to the exceptional path — the happy path is one batched read.
+ * @param {Object} options See {@link verifyEmbeddedVectors}.
+ * @returns {Promise<{embedded: Object[], metadataOnly: Array<{record, error}>, unverifiable: Array<{record, error}>}>}
+ */
+async function verifyRecordsPerId({collection, records, expectedDimension, log}) {
+    const embedded     = [];
+    const metadataOnly = [];
+    const unverifiable = [];
+
+    for (const record of records) {
+        let reason;
+
         try {
-            await collection.delete({ids: metadataOnlyIds});
-            log('ERROR', `Post-add verify: deleted ${metadataOnlyIds.length} metadata-only row(s) for re-embed: ${metadataOnlyIds.join(', ')}`);
-        } catch (error) {
-            log('ERROR', `Post-add verify: metadata-only delete failed (${error.message}) — rows remain for the recovery actuator: ${metadataOnlyIds.join(', ')}`);
+            const back  = await collection.get({ids: [record.id], include: ['embeddings']});
+            const index = (back?.ids ?? []).indexOf(record.id);
+
+            reason = classifyRowVector({id: record.id, embedding: index >= 0 ? back.embeddings?.[index] : undefined}, expectedDimension);
+        } catch (perIdError) {
+            if (isVectorAbsentError(perIdError)) {
+                reason = VECTOR_REJECTION_REASONS.missingEmbedding; // the documented metadata-only thrown shape
+            } else {
+                unverifiable.push({record, error: perIdError}); // transient — retry next cycle, never delete
+                continue;
+            }
+        }
+
+        if (reason === null) {
+            embedded.push(record);
+        } else {
+            metadataOnly.push({record, error: new Error(`metadata-only row (${reason}) — auto-embed persisted no valid vector`)});
         }
     }
 
-    return {embedded, metadataOnly};
+    await deleteMetadataOnlyRows({collection, metadataOnly, log});
+
+    return {embedded, metadataOnly, unverifiable};
+}
+
+/**
+ * @summary Deletes confirmed metadata-only rows so the cooldown retry's `add` re-embeds cleanly (`add` is
+ * create-not-upsert; a lingering row would no-op the retry). A failed delete is logged loud — the autonomous
+ * recovery actuator remains the backstop.
+ * @param {Object}   options
+ * @param {Object}   options.collection
+ * @param {Object[]} options.metadataOnly `{record, error}` entries to delete.
+ * @param {Function} options.log
+ * @returns {Promise<void>}
+ */
+async function deleteMetadataOnlyRows({collection, metadataOnly, log}) {
+    if (metadataOnly.length === 0) {
+        return;
+    }
+
+    const ids = metadataOnly.map(({record}) => record.id);
+
+    try {
+        await collection.delete({ids});
+        log('ERROR', `Post-add verify: deleted ${ids.length} metadata-only row(s) for re-embed: ${ids.join(', ')}`);
+    } catch (error) {
+        log('ERROR', `Post-add verify: metadata-only delete failed (${error.message}) — rows remain for the recovery actuator: ${ids.join(', ')}`);
+    }
 }
 
 /**
@@ -230,7 +297,7 @@ export async function verifyEmbeddedVectors({collection, records, expectedDimens
  * @param {Function} [options.log]            `(level, message)` sink. Defaults to a no-op.
  * @param {Function} [options.sleep]          Delay primitive. Defaults to a real timer.
  * @param {Function} [options.now]            Clock source (epoch ms). Defaults to `Date.now`.
- * @returns {Promise<{pending: Number, embedded: Number, compensated: Number, failed: Number, metadataOnly: Number, cooling: Number, prunedSegments: Number}>}
+ * @returns {Promise<{pending: Number, embedded: Number, compensated: Number, failed: Number, metadataOnly: Number, unverifiable: Number, cooling: Number, prunedSegments: Number}>}
  *     Cycle summary for the daemon's log line.
  */
 export async function drainWalOnce({
@@ -247,7 +314,7 @@ export async function drainWalOnce({
     sleep      = ms => new Promise(resolve => setTimeout(resolve, ms)),
     now        = Date.now
 } = {}) {
-    const summary = {pending: 0, embedded: 0, compensated: 0, failed: 0, metadataOnly: 0, cooling: 0, prunedSegments: 0};
+    const summary = {pending: 0, embedded: 0, compensated: 0, failed: 0, metadataOnly: 0, unverifiable: 0, cooling: 0, prunedSegments: 0};
 
     // Full pending read (not limit-bounded): a newest-first limited read would let records
     // cooling down at the head permanently shadow older drainable ones. Scan cost is bounded —
@@ -275,11 +342,12 @@ export async function drainWalOnce({
 
         // Atomic-write Prevent floor: add-success ≠ embed-success on the auto-embed path, so verify the
         // persisted vector before reconciling. Metadata-only rows are routed to retry, never marked embedded.
-        const {embedded, metadataOnly} = await verifyEmbeddedVectors({collection, records: succeeded, expectedDimension, log});
-        const failedRecords            = [...failed, ...metadataOnly];
+        const {embedded, metadataOnly, unverifiable} = await verifyEmbeddedVectors({collection, records: succeeded, expectedDimension, log});
+        const failedRecords                          = [...failed, ...metadataOnly, ...unverifiable];
 
         summary.failed       = failed.length;
         summary.metadataOnly = metadataOnly.length;
+        summary.unverifiable = unverifiable.length;
 
         for (const {record, error} of failedRecords) {
             const failures = (retryState.get(record.id)?.failures ?? 0) + 1;
