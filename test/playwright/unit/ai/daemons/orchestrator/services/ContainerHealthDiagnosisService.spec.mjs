@@ -363,12 +363,12 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
         });
 
         expect(decision.status).toBe('diagnosed');
-        expect(decision.actionClass).toBe(CONTAINER_HEALTH_ACTION_CLASSES.record);
+        expect(decision.actionClass).toBe(CONTAINER_HEALTH_ACTION_CLASSES.warmProvider);
         expect(decision.diagnosis).toMatchObject({
             recoveryClass: 'config-drift',
             details      : {
-                actionClass         : CONTAINER_HEALTH_ACTION_CLASSES.record,
-                classificationReason: 'config-drift-record'
+                actionClass         : CONTAINER_HEALTH_ACTION_CLASSES.warmProvider,
+                classificationReason: 'config-drift-reconfigure'
             }
         });
     });

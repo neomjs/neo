@@ -473,10 +473,10 @@ export class ContainerHealthDiagnosisService extends Base {
 
             return {
                 recoveryClass : 'config-drift',
-                actionClass   : CONTAINER_HEALTH_ACTION_CLASSES.record,
+                actionClass   : CONTAINER_HEALTH_ACTION_CLASSES.warmProvider,
                 confidence    : 0.95,
                 evidenceFacts : configDriftFacts,
-                reason        : 'config-drift-record',
+                reason        : 'config-drift-reconfigure',
                 targetIdentity: providerTargetIdentity
             };
         }
