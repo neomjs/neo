@@ -8,11 +8,14 @@ import path                                                   from 'path';
  * records its `auto-accepted-loss` audit entry (ids + reasons + the shared residue fingerprint) so an
  * operator, when one is present, can review the accepted losses asynchronously — but the system NEVER
  * blocks on a human and there is no ack. This is telemetry, not a gate. Mirrors the `recoveryRunStateStore`
- * JSONL shape: I/O at the edge only, deterministic content. The fingerprint is the auto-reopen key — a later
- * embedding-capability change re-opens the residue, so an audited loss is recorded-and-reversible, not silent.
+ * JSONL shape: I/O at the edge only, deterministic content. The companion latest-state marker is the
+ * machine-readable terminal surface for maintenance tooling: the JSONL is history, the marker is the current
+ * accepted-loss outcome. The fingerprint is the auto-reopen key — a later embedding-capability change
+ * re-opens the residue, so an audited loss is recorded-and-reversible, not silent.
  */
 
-const AUDIT_FILE_NAME = 'auto-accepted-loss.jsonl';
+const AUDIT_FILE_NAME = 'auto-accepted-loss.jsonl',
+      STATE_FILE_NAME = 'auto-accepted-loss-state.json';
 
 /**
  * Bounded-retention cap. The audit log is append-only telemetry — operator-review only, with NO functional
@@ -44,6 +47,15 @@ const AUTO_ACCEPTED_LOSS_PRUNE_TRIGGER_BYTES = 2 * 1024 * 1024;
  */
 export function getAcceptedLossAuditFilePath(dir) {
     return path.join(dir, AUDIT_FILE_NAME);
+}
+
+/**
+ * @summary The latest accepted-loss state marker path within a state directory.
+ * @param {String} dir
+ * @returns {String}
+ */
+export function getAcceptedLossStateFilePath(dir) {
+    return path.join(dir, STATE_FILE_NAME);
 }
 
 /**
@@ -115,6 +127,56 @@ export async function readAutoAcceptedLossAudit({dir} = {}) {
         }
     }
     return entries;
+}
+
+/**
+ * @summary Writes the latest non-blocking `auto-accepted-loss` state marker atomically.
+ * This is the machine-distinguishable terminal state for a settled repair run; it complements the append-only
+ * audit log and intentionally does NOT replace the blocking defrag marker that `clearDefragState()` removes.
+ * @param {Object} state JSON-serializable latest-state payload.
+ * @param {Object} options
+ * @param {String} options.dir The durable state directory.
+ * @returns {Promise<String>} The marker path written.
+ * @throws {TypeError} when `state` is not an object or `dir` is missing/empty.
+ */
+export async function writeAutoAcceptedLossState(state, {dir} = {}) {
+    if (!state || typeof state !== 'object') {
+        throw new TypeError('writeAutoAcceptedLossState: state object is required');
+    }
+    if (typeof dir !== 'string' || dir.length === 0) {
+        throw new TypeError('writeAutoAcceptedLossState: dir is required');
+    }
+
+    await mkdir(dir, {recursive: true});
+
+    const filePath = getAcceptedLossStateFilePath(dir),
+          tmpPath  = `${filePath}.tmp`;
+
+    await writeFile(tmpPath, JSON.stringify(state, null, 2) + '\n', 'utf8');
+    await rename(tmpPath, filePath);
+
+    return filePath;
+}
+
+/**
+ * @summary Reads the latest accepted-loss state marker. A missing marker returns `null`.
+ * @param {Object} options
+ * @param {String} options.dir The durable state directory.
+ * @returns {Promise<Object|null>}
+ */
+export async function readAutoAcceptedLossState({dir} = {}) {
+    let text;
+
+    try {
+        text = await readFile(getAcceptedLossStateFilePath(dir), 'utf8');
+    } catch (error) {
+        if (error?.code === 'ENOENT') {
+            return null;
+        }
+        throw error;
+    }
+
+    return JSON.parse(text);
 }
 
 /**

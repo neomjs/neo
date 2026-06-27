@@ -1,15 +1,18 @@
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../../src/core/_export.mjs';
+import {test, expect}            from '@playwright/test';
+import Neo                       from '../../../../../../../src/Neo.mjs';
+import * as core                 from '../../../../../../../src/core/_export.mjs';
 import {appendFile, mkdtemp, rm} from 'fs/promises';
-import os             from 'os';
-import path           from 'path';
+import os                        from 'os';
+import path                      from 'path';
 
 import {
     appendAutoAcceptedLoss,
     getAcceptedLossAuditFilePath,
+    getAcceptedLossStateFilePath,
     pruneAutoAcceptedLossAudit,
-    readAutoAcceptedLossAudit
+    readAutoAcceptedLossAudit,
+    readAutoAcceptedLossState,
+    writeAutoAcceptedLossState
 } from '../../../../../../../ai/services/memory-core/helpers/acceptedLossAuditStore.mjs';
 
 test.describe('acceptedLossAuditStore — durable autonomous accepted-loss audit log', () => {
@@ -55,6 +58,27 @@ test.describe('acceptedLossAuditStore — durable autonomous accepted-loss audit
         expect(getAcceptedLossAuditFilePath(nested)).toBe(path.join(nested, 'auto-accepted-loss.jsonl'));
     });
 
+    test('write → read round-trips the latest accepted-loss state marker', async () => {
+        const state = {
+            schemaVersion  : 1,
+            type           : 'auto-accepted-loss-state',
+            phase          : 'memory-core-repair-recovered-with-accepted-loss',
+            settledAt      : '2026-06-27T13:31:00.000Z',
+            collectionCount: 1,
+            collections    : [{collectionName: 'mc-graph', fingerprint: 'fp-1'}]
+        };
+
+        const filePath = await writeAutoAcceptedLossState(state, {dir: tmpDir});
+
+        expect(filePath).toBe(getAcceptedLossStateFilePath(tmpDir));
+        expect(filePath).toBe(path.join(tmpDir, 'auto-accepted-loss-state.json'));
+        expect(await readAutoAcceptedLossState({dir: tmpDir})).toEqual(state);
+    });
+
+    test('a missing latest accepted-loss state marker reads as null', async () => {
+        expect(await readAutoAcceptedLossState({dir: tmpDir})).toBeNull();
+    });
+
     test('append is purely append-only (telemetry, not a gate): existing entries are preserved', async () => {
         await appendAutoAcceptedLoss(entry({fingerprint: 'fp-old'}), {dir: tmpDir});
         await appendAutoAcceptedLoss(entry({fingerprint: 'fp-new'}), {dir: tmpDir});
@@ -66,6 +90,8 @@ test.describe('acceptedLossAuditStore — durable autonomous accepted-loss audit
     test('rejects a missing entry / missing dir', async () => {
         await expect(appendAutoAcceptedLoss(null, {dir: tmpDir})).rejects.toThrow('entry');
         await expect(appendAutoAcceptedLoss(entry(), {})).rejects.toThrow('dir');
+        await expect(writeAutoAcceptedLossState(null, {dir: tmpDir})).rejects.toThrow('state');
+        await expect(writeAutoAcceptedLossState({}, {})).rejects.toThrow('dir');
     });
 
     test('a corrupt line is skipped on read (fail-safe — a torn append must not break the audit)', async () => {
