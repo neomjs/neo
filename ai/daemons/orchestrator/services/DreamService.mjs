@@ -1028,16 +1028,6 @@ class DreamService extends Base {
     }
 
     /**
-     * Backward compatibility passthrough to GoldenPathSynthesizer.
-     * @deprecated Trigger GoldenPathSynthesizer directly or use MemoryService.mutateFrontier hook.
-     */
-    async synthesizeGoldenPath() {
-        // We dynamically import it here to avoid circular dependency loops during initialization
-        const { default: GoldenPathSynthesizer } = await import('./services/GoldenPathSynthesizer.mjs');
-        return GoldenPathSynthesizer.synthesizeGoldenPath();
-    }
-
-    /**
      * Cycle-scoped GUIDE_GAP / EXAMPLE_GAP inference entry point. Delegates to
      * `GapInferenceEngine` for deterministic concept-graph edge traversal (`EXPLAINED_BY` /
      * `EXEMPLIFIED_BY`). Output depends only on ontology state, not on any individual session —
