@@ -32,6 +32,18 @@ export function getQuarantineFilePath(dir) {
     return path.join(dir, QUARANTINE_FILENAME);
 }
 
+/**
+ * @summary Resolves which served collections a quarantine target fences. A store-level fault (sqlite-integrity /
+ * store-bloat) targets the service id rather than a served collection, so it must fence EVERY served collection
+ * in the store — otherwise no query guard observes the fence. A collection-level target fences exactly itself.
+ * @param {String} collection The quarantine target (a served collection name OR a store-level service id).
+ * @param {String[]} [servedCollections=[]] The collections the read guards actually check.
+ * @returns {String[]} The collection(s) to fence.
+ */
+export function storeFenceTargets(collection, servedCollections = []) {
+    return servedCollections.includes(collection) ? [collection] : servedCollections;
+}
+
 // path → {mtimeMs, fences}. Module-level so the hot read path is O(1) when the file is unchanged.
 const fenceCache = new Map();
 
