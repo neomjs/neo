@@ -154,9 +154,10 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
 
         expect(exitCode).toBe(0);
         expect(leaseOptions).toEqual({
-            owner   : 'sandman',
-            reason  : 'manual-cli',
-            metadata: {script: 'ai/scripts/runners/runSandman.mjs'}
+            owner       : 'sandman',
+            reason      : 'manual-cli',
+            staleAfterMs: aiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs,
+            metadata    : {script: 'ai/scripts/runners/runSandman.mjs'}
         });
         expect(calls.find(call => call.type === 'execute-rem-cycle').options).toEqual({
             reason      : 'manual-cli',
@@ -2336,9 +2337,10 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         expect(exitCodes).toEqual([0]);
         expect(calls).toEqual([
             ['withLease', {
-                owner   : 'sandman',
-                reason  : 'manual-cli',
-                metadata: {script: 'ai/scripts/runners/runSandman.mjs'}
+                owner       : 'sandman',
+                reason      : 'manual-cli',
+                staleAfterMs: aiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs,
+                metadata    : {script: 'ai/scripts/runners/runSandman.mjs'}
             }],
             'lifecycle.ready',
             'dream.ready',

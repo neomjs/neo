@@ -555,7 +555,7 @@ async function copyJsonlSource(source, destDir, logger=console) {
 if (import.meta.url === `file://${process.argv[1]}`) {
     withHeavyMaintenanceLease(
         () => runBackup(),
-        {owner: 'backup', reason: 'manual-cli', metadata: {script: 'ai/scripts/maintenance/backup.mjs'}}
+        {owner: 'backup', reason: 'manual-cli', staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs, metadata: {script: 'ai/scripts/maintenance/backup.mjs'}}
     )
         .then(outcome => {
             if (outcome.status === 'held') {

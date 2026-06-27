@@ -1815,7 +1815,7 @@ export async function runDefragChromaDBCli({
     try {
         outcome = await withLease(
             () => runDefrag(),
-            {owner: 'defrag', reason: 'manual-cli', metadata: {script: 'ai/scripts/maintenance/defragChromaDB.mjs'}}
+            {owner: 'defrag', reason: 'manual-cli', staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs, metadata: {script: 'ai/scripts/maintenance/defragChromaDB.mjs'}}
         );
     } catch (error) {
         output.error('❌ Defrag lease acquisition failed:', error);
