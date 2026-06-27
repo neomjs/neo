@@ -21,7 +21,8 @@
  * @module Neo.ai.scripts.maintenance.repairMemoryCoreStoredEmbeddings
  */
 
-import {bytesToTokens} from '../../services/memory-core/helpers/consumerFrictionHelper.mjs';
+import {bytesToTokens}              from '../../services/memory-core/helpers/consumerFrictionHelper.mjs';
+import {resolveTurnDocumentForRead} from '../../services/memory-core/helpers/turnDocumentText.mjs';
 
 /**
  * @summary Extracts a Memory Core collection's data for a shadow rebuild, RE-EMBEDDING the rows whose
@@ -137,8 +138,14 @@ export async function extractMemoryCoreCollectionData({
         const reEmbedIds = [], reEmbedDocs = [], reEmbedMetas = [];
 
         for (let j = 0; j < (got.ids?.length || 0); j++) {
-            const doc             = got.documents?.[j],
-                  documentProblem = getDocumentProblem(doc);
+            // Field↔document de-dup: a dropped turn-document (falsy doc + turn metadata) is reconstructed
+            // from its split metadata so its missing vector is recovered, not marked unrecoverable. Non-turn
+            // rows and present documents are unchanged — the empty/missing classification below still applies.
+            let doc = got.documents?.[j];
+            if (!doc && got.metadatas?.[j]?.type === 'agent-interaction') {
+                doc = resolveTurnDocumentForRead({documents: [], metadata: got.metadatas[j]});
+            }
+            const documentProblem = getDocumentProblem(doc);
 
             if (documentProblem) {
                 recordUnrecoverable({

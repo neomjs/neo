@@ -126,6 +126,37 @@ test.describe('extractMemoryCoreCollectionData — MC stored-embedding repair ex
         expect(result.counts).toEqual({total: 3, intact: 0, reEmbedded: 1, unrecoverable: 2});
     });
 
+    test('a de-duped turn (dropped document, split turn metadata) is reconstructed + re-embedded, not unrecoverable (#14218)', async () => {
+        let   embeddedDocs = [];
+        const embedFn      = async docs => { embeddedDocs = docs; return docs.map(() => [4, 4]); };
+        const rows         = {
+            intact : {embedding: [1, 1], document: 'doc-a', metadata: {type: 'agent-interaction'}},
+            // missing-vector row whose stored document the de-dup dropped — only the split fields remain:
+            deduped: {metadata: {type: 'agent-interaction', prompt: 'p', thought: 't', response: 'r'}}
+        };
+
+        const result = await extractMemoryCoreCollectionData({
+            collection: makeCollection(rows), allIds: ['intact', 'deduped'], missingVectorIds: ['deduped'], embedFn
+        });
+
+        // The dropped turn-document is reconstructed from its split metadata (byte-identical to the write)
+        // and re-embedded — recovered, NOT marked unrecoverable.
+        expect(result.counts).toEqual({total: 2, intact: 1, reEmbedded: 1, unrecoverable: 0});
+        expect(embeddedDocs).toEqual(['User Prompt: p\nAgent Thought: t\nAgent Response: r']);
+    });
+
+    test('a missing-vector NON-turn (summary) with a dropped document stays unrecoverable — no false recovery (#14218)', async () => {
+        const embedFn = async docs => docs.map(() => [5]);
+        // a summary (non-turn) is never reconstructed via the turn template; a dropped doc → unrecoverable
+        const rows = {summary: {metadata: {type: 'session-summary'}}};
+
+        const result = await extractMemoryCoreCollectionData({
+            collection: makeCollection(rows), allIds: ['summary'], missingVectorIds: ['summary'], embedFn
+        });
+
+        expect(result.counts).toEqual({total: 1, intact: 0, reEmbedded: 0, unrecoverable: 1});
+    });
+
     test('a missing id absent from the metadata read is unrecoverable', async () => {
         const rows    = {n: {document: 'dn', metadata: {}}}; // 'gone' is not in the row map
         const embedFn = async docs => docs.map(() => [5]);
