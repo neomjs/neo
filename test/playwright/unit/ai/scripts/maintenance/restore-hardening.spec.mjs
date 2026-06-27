@@ -15,17 +15,17 @@ setup({
     }
 });
 
-import {test, expect}   from '@playwright/test';
-import Neo              from '../../../../../../src/Neo.mjs';
-import * as core        from '../../../../../../src/core/_export.mjs';
-import InstanceManager  from '../../../../../../src/manager/Instance.mjs';
-import {execFile}       from 'child_process';
-import fs               from 'fs';
-import fsExtra          from 'fs-extra';
-import os               from 'os';
-import path             from 'path';
-import {fileURLToPath}  from 'url';
-import {promisify}      from 'util';
+import {test, expect}  from '@playwright/test';
+import Neo             from '../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../src/core/_export.mjs';
+import InstanceManager from '../../../../../../src/manager/Instance.mjs';
+import {execFile}      from 'child_process';
+import fs              from 'fs';
+import fsExtra         from 'fs-extra';
+import os              from 'os';
+import path            from 'path';
+import {fileURLToPath} from 'url';
+import {promisify}     from 'util';
 
 const execFileAsync = promisify(execFile);
 const __filename    = fileURLToPath(import.meta.url);
@@ -85,8 +85,8 @@ test.describe('restore hardening regression (#11150 / #11151)', () => {
         const {validateBundle} = await import('../../../../../../ai/scripts/maintenance/restore.mjs');
 
         const workRoot = await fsExtra.mkdtemp(path.join(os.tmpdir(), 'restore-hardening-validate-'));
-        const bundle = path.join(workRoot, 'bundle');
-        const subdirs = ['kb', 'mc', 'graph', 'concepts', 'trajectories'];
+        const bundle   = path.join(workRoot, 'bundle');
+        const subdirs  = ['kb', 'mc', 'graph', 'concepts', 'trajectories'];
         for (const s of subdirs) await fsExtra.ensureDir(path.join(bundle, s));
         // Plant one JSONL file per subdir
         await fsExtra.writeFile(path.join(bundle, 'kb', 'k.jsonl'), '{"id":"k1"}\n');
@@ -97,8 +97,8 @@ test.describe('restore hardening regression (#11150 / #11151)', () => {
 
         // Spy on fs-extra.readFile — assert it is NOT called for the JSONL parseability
         // sanity check (the bug path that overflows V8 string cap on >512MB files).
-        const fsExtraMod = await import('fs-extra');
-        const realReadFile = fsExtraMod.default.readFile;
+        const fsExtraMod    = await import('fs-extra');
+        const realReadFile  = fsExtraMod.default.readFile;
         const readFileCalls = [];
         fsExtraMod.default.readFile = function (...args) {
             readFileCalls.push(args[0]);
@@ -107,12 +107,12 @@ test.describe('restore hardening regression (#11150 / #11151)', () => {
 
         try {
             const layout = {
-                kb: path.join(bundle, 'kb'),
-                mc: path.join(bundle, 'mc'),
-                graph: path.join(bundle, 'graph'),
-                concepts: path.join(bundle, 'concepts'),
+                kb          : path.join(bundle, 'kb'),
+                mc          : path.join(bundle, 'mc'),
+                graph       : path.join(bundle, 'graph'),
+                concepts    : path.join(bundle, 'concepts'),
                 trajectories: path.join(bundle, 'trajectories'),
-                mailbox: path.join(bundle, 'mailbox')
+                mailbox     : path.join(bundle, 'mailbox')
             };
             await validateBundle(bundle, layout, {log: () => {}, warn: () => {}});
 
@@ -140,14 +140,20 @@ test.describe('restore hardening regression (#11150 / #11151)', () => {
         // records, every backup ID is "missing" → 1000 records still chunk into 4
         // chunks of 250 (same CHROMA_UPSERT_CHUNK_SIZE budget). Also assert the
         // existence-preflight is chunked at the same boundary.
-        const SDK = await import('../../../../../../ai/services.mjs');
+        const SDK                    = await import('../../../../../../ai/services.mjs');
         const Memory_DatabaseService = SDK.Memory_DatabaseService;
         const Memory_StorageRouter   = SDK.Memory_StorageRouter;
 
-        const addCalls    = [];
-        const getCalls    = [];
+        // This test exercises chunking, not vector validity. Build fixtures AT the resolved
+        // aiConfig.vectorDimension (READ it, never mutate — the reactive Provider SSOT must not be written
+        // from a test) so they pass the atomic vector-write gate authentically.
+        const aiConfig       = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const validEmbedding = new Array(aiConfig.vectorDimension).fill(0);
+
+        const addCalls       = [];
+        const getCalls       = [];
         const mockCollection = {
-            name: 'neo-agent-memory',
+            name  : 'neo-agent-memory',
             get   : async ({ids}) => { getCalls.push(ids.length); return {ids: []}; },
             add   : async ({ids}) => { addCalls.push(ids.length); },
             upsert: async ({ids}) => { addCalls.push(ids.length); } // replace-mode path safety
@@ -160,13 +166,13 @@ test.describe('restore hardening regression (#11150 / #11151)', () => {
         // Build synthetic JSONL bundle dir with 1000 records (> CHROMA_UPSERT_CHUNK_SIZE
         // of 250 → expect ⌈1000/250⌉ = 4 add() calls + 4 get() preflight calls).
         const workRoot = await fsExtra.mkdtemp(path.join(os.tmpdir(), 'restore-hardening-chunk-'));
-        const mcDir   = path.join(workRoot, 'mc-import');
+        const mcDir    = path.join(workRoot, 'mc-import');
         await fsExtra.ensureDir(mcDir);
         const lines = [];
         for (let i = 0; i < 1000; i++) {
             lines.push(JSON.stringify({
                 id       : `m-${i}`,
-                embedding: [0.1 + i * 0.0001],
+                embedding: validEmbedding,
                 metadata : {idx: i},
                 document : `doc-${i}`
             }));
