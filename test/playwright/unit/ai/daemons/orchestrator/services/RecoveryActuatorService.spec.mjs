@@ -36,7 +36,6 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
     function createService(overrides = {}) {
         const runtimeCalls                 = [],
               supervisorCalls              = [],
-              pageCalls                    = [],
               providerResidencyRepairCalls = [],
               taskOutcomes                 = [],
               actuatorConfig               = {
@@ -86,9 +85,6 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
                       },
                       ...overrides.processSupervisorService
                   },
-                  pageDispatcher(page) {
-                      pageCalls.push(page);
-                  },
                   async providerResidencyRepair(options) {
                       providerResidencyRepairCalls.push(options);
                       return {
@@ -101,7 +97,7 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
                   ...overrides.serviceConfig
               });
 
-        return {service, runtimeCalls, supervisorCalls, pageCalls, providerResidencyRepairCalls, taskOutcomes, actuatorConfig};
+        return {service, runtimeCalls, supervisorCalls, providerResidencyRepairCalls, taskOutcomes, actuatorConfig};
     }
 
     async function readAttempts() {
@@ -397,7 +393,7 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
         expect(runtimeCalls).toHaveLength(1);
     });
 
-    test('attempt cap escalates to alarm-only and never loops the privileged action', async () => {
+    test('attempt cap records as alarm-only and never loops the privileged action', async () => {
         const {service, runtimeCalls} = createService({
             actuatorConfig: {
                 maxAttemptsPerWindow: 1,
@@ -410,7 +406,7 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
 
         expect(first.status).toBe('actioned');
         expect(second).toMatchObject({
-            status    : 'escalated',
+            status    : 'recorded',
             reasonCode: 'attempt-cap-reached'
         });
         expect(runtimeCalls).toHaveLength(1);
@@ -419,8 +415,8 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
         expect(attempts['mc-server:restart'].alarmOnly).toBe(true);
     });
 
-    test('deploy-target redeploy pages without executing arbitrary deployment code', async () => {
-        const {service, runtimeCalls, pageCalls, taskOutcomes} = createService();
+    test('deploy-target redeploy records to the heal-event ledger without paging (no human to page in cloud)', async () => {
+        const {service, runtimeCalls, taskOutcomes} = createService();
 
         const result = await service.apply('cloud-deploy', 'redeploy', {
             now   : 300_000,
@@ -428,28 +424,32 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
         });
 
         expect(result).toMatchObject({
-            status        : 'escalated',
+            status        : 'recorded',
             targetIdentity: {kind: 'deploy-target', id: 'cloud-deploy'}
         });
         expect(runtimeCalls).toEqual([]);
-        expect(pageCalls).toEqual([expect.objectContaining({
-            deployTarget      : 'cloud-deploy',
-            reason            : 'config-drift',
-            operatorPageTarget: 'AGENT:*'
-        })]);
+
+        // The last human-page path is gone: an un-auto-executable redeploy records, never pages.
+        const healEvents = await readHealLedger({dir: service.healEventLedgerDir});
+        expect(healEvents).toContainEqual(expect.objectContaining({
+            type      : 'redeploy',
+            collection: 'cloud-deploy',
+            status    : 'recorded',
+            detail    : expect.objectContaining({deployTarget: 'cloud-deploy', reason: 'config-drift'})
+        }));
         expect(taskOutcomes).toContainEqual(expect.objectContaining({
             taskName: 'recovery-actuator:cloud-deploy',
             status  : 'completed',
             details : expect.objectContaining({
-                status      : 'escalated',
-                ledgerStatus: 'escalated'
+                status      : 'recorded',
+                ledgerStatus: 'recorded'
             })
         }));
     });
 
     test('recordDiagnosis records a supervised-task diagnosis to the heal-event ledger without executing target actions', async () => {
-        const {service, runtimeCalls, supervisorCalls, pageCalls, taskOutcomes} = createService();
-        let   executedTargetAction                                              = false;
+        const {service, runtimeCalls, supervisorCalls, taskOutcomes} = createService();
+        let   executedTargetAction                                   = false;
 
         service.executeTargetAction = async () => {
             executedTargetAction = true;
@@ -470,9 +470,8 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
         expect(executedTargetAction).toBe(false);
         expect(runtimeCalls).toEqual([]);
         expect(supervisorCalls).toEqual([]);
-        // record-with-diagnosis never pages — it appends to the heal-event ledger instead.
-        expect(pageCalls).toEqual([]);
 
+        // record-with-diagnosis never pages — it appends to the heal-event ledger instead.
         const healEvents = await readHealLedger({dir: service.healEventLedgerDir});
         expect(healEvents).toContainEqual(expect.objectContaining({
             type      : 'ambiguous',
@@ -491,7 +490,7 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
     });
 
     test('recordDiagnosis rejects non-record diagnoses without privileged actions', async () => {
-        const {service, runtimeCalls, supervisorCalls, pageCalls} = createService();
+        const {service, runtimeCalls, supervisorCalls} = createService();
 
         const result = await service.recordDiagnosis(backupEscalationDiagnosis({
             details: {actionClass: 'restart'}
@@ -504,7 +503,6 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
         });
         expect(runtimeCalls).toEqual([]);
         expect(supervisorCalls).toEqual([]);
-        expect(pageCalls).toEqual([]);
     });
 
     test('arbitrary actions are rejected before target lookup or executor access', async () => {

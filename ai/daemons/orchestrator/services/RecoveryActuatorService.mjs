@@ -14,7 +14,7 @@ import {
 import {appendHealEvent}  from '../../../services/memory-core/helpers/healEventLedgerStore.mjs';
 import {DEFAULT_DATA_DIR} from '../taskDefinitions.mjs';
 
-const DEFAULT_ACTIONS        = Object.freeze(['restart', 'redeploy', 'page', 'warm-provider']);
+const DEFAULT_ACTIONS        = Object.freeze(['restart', 'redeploy', 'warm-provider']);
 const DEFAULT_DEPLOY_TARGETS = Object.freeze(['cloud-deploy']);
 
 /**
@@ -128,12 +128,6 @@ export class RecoveryActuatorService extends Base {
          */
         processSupervisorService_: null,
         /**
-         * @member {Function|null} pageDispatcher_=null
-         * @protected
-         * @reactive
-         */
-        pageDispatcher_: null,
-        /**
          * @member {Function|null} writeLog_=null
          * @protected
          * @reactive
@@ -218,7 +212,7 @@ export class RecoveryActuatorService extends Base {
      * @summary Applies one bounded recovery action if the target registry and anti-thrash envelope admit it.
      *
      * @param {String} serviceKey Stable recovery target key.
-     * @param {String} action restart | redeploy | page | warm-provider.
+     * @param {String} action restart | redeploy | warm-provider.
      * @param {Object} [options]
      * @param {Object|null} [options.diagnosisEvent=null] Optional ADR-0025 diagnosis event.
      * @param {Object|null} [options.targetIdentity=null] Optional typed target identity.
@@ -275,7 +269,7 @@ export class RecoveryActuatorService extends Base {
                 serviceKey,
                 startedAt : now,
                 target,
-                taskStatus: gate.status === 'escalated' ? 'failed' : 'skipped',
+                taskStatus: gate.status === 'recorded' ? 'failed' : 'skipped',
                 updatedAt : now
             });
         }
@@ -297,7 +291,7 @@ export class RecoveryActuatorService extends Base {
                 attempt     : nextAttempt,
                 backoffUntil: nextBackoffAt,
                 now         : updatedAt,
-                status      : target.kind === 'deploy-target' ? 'escalated' : 'actioned'
+                status      : target.kind === 'deploy-target' ? 'recorded' : 'actioned'
             });
             await this.writeHealAttempts(attempts);
 
@@ -308,13 +302,13 @@ export class RecoveryActuatorService extends Base {
                 backoffUntil  : nextBackoffAt,
                 diagnosisEvent: diagnosis,
                 outcome       : {
-                    status           : target.kind === 'deploy-target' ? 'escalated' : 'actioned',
+                    status           : target.kind === 'deploy-target' ? 'recorded' : 'actioned',
                     serviceKey,
                     action,
                     targetIdentity   : createRecoveryTargetIdentity({kind: target.kind, id: target.id}),
                     runtimeAccess    : result.runtimeAccess || null,
                     supervisor       : result.supervisor || null,
-                    page             : result.page || null,
+                    recorded         : result.recorded || null,
                     providerResidency: result.providerResidency || null
                 },
                 recoveryRunId,
@@ -487,7 +481,7 @@ export class RecoveryActuatorService extends Base {
         }
 
         if (target.kind === 'deploy-target') {
-            return action === 'redeploy' || action === 'page';
+            return action === 'redeploy';
         }
 
         return false;
@@ -511,7 +505,7 @@ export class RecoveryActuatorService extends Base {
             return this.restartSupervisedTask({target, reason});
         }
 
-        return this.pageDeployTarget({target, action, reason});
+        return this.recordDeployTarget({target, action, reason});
     }
 
     /**
@@ -594,26 +588,31 @@ export class RecoveryActuatorService extends Base {
     }
 
     /**
-     * @summary Triggers the config-drift redeploy page without executing arbitrary deployment code.
+     * @summary Records an un-auto-executable deploy-target redeploy to the durable heal-event ledger — the
+     * record-with-diagnosis terminal. The actuator cannot execute arbitrary deployment code and an operatorless
+     * cloud has no human to page, so an un-resolvable deploy-target is RECORDED (durable async-audit), never
+     * paged — this completes the escalate/page → record cutover for the last lifecycle page path.
      * @param {Object} options
      * @returns {Promise<Object>}
      */
-    async pageDeployTarget({target, action, reason}) {
-        const page = {
-            serviceKey        : target.serviceKey,
-            deployTarget      : target.id,
+    async recordDeployTarget({target, action, reason}) {
+        const recorded = {
+            serviceKey  : target.serviceKey,
+            deployTarget: target.id,
             action,
-            reason            : reason || 'config-drift-redeploy-required',
-            operatorPageTarget: this.cfg.operatorPageTarget
+            reason      : reason || 'config-drift-redeploy-required'
         };
 
-        if (typeof this.pageDispatcher === 'function') {
-            await this.pageDispatcher(page);
-        } else {
-            this.writeLog?.('WARN', `[RecoveryActuator] Redeploy required for ${target.id}; page target ${page.operatorPageTarget}.`);
-        }
+        await appendHealEvent({
+            type      : action,
+            collection: target.id,
+            status    : 'recorded',
+            detail    : recorded
+        }, {dir: this.healEventLedgerDir, now: Date.now()});
 
-        return {page};
+        this.writeLog?.('INFO', `[RecoveryActuator] Redeploy required for ${target.id}; recorded to the heal-event ledger (no operator to page).`);
+
+        return {recorded};
     }
 
     /**
@@ -667,7 +666,7 @@ export class RecoveryActuatorService extends Base {
                 admitted  : false,
                 attempt   : state.attemptCount,
                 reasonCode: 'attempt-cap-reached',
-                status    : 'escalated'
+                status    : 'recorded'
             };
         }
 
@@ -945,9 +944,6 @@ export class RecoveryActuatorService extends Base {
     getLedgerStatus({outcome}) {
         if (outcome.status === 'actioned') {
             return 'reobserve-requested';
-        }
-        if (outcome.status === 'escalated') {
-            return 'escalated';
         }
         if (outcome.status === 'recorded') {
             return 'recorded';

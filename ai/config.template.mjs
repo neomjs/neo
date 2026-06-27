@@ -823,7 +823,6 @@ class Config extends ConfigProvider {
                     maxBackoffMs               : leaf(HOUR_MS, 'NEO_RECOVERY_ACTUATOR_MAX_BACKOFF_MS', 'number'),
                     verifyCooldownMs           : leaf(60 * 1000, 'NEO_RECOVERY_ACTUATOR_VERIFY_COOLDOWN_MS', 'number'),
                     healthyObservationThreshold: leaf(1, 'NEO_RECOVERY_ACTUATOR_HEALTHY_OBSERVATION_THRESHOLD', 'number'),
-                    operatorPageTarget         : leaf('AGENT:*', 'NEO_RECOVERY_ACTUATOR_OPERATOR_PAGE_TARGET', 'string'),
                     /**
                      * Systemic-fault circuit-breaker bounds — the cross-collection layer above the per-collection
                      * anti-thrash (`maxAttemptsPerWindow`/`maxAttemptsWindowMs`). >= `systemicThreshold` DISTINCT
