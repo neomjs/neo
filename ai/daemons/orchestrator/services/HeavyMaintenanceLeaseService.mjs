@@ -8,6 +8,7 @@ import {
     acquireHeavyMaintenanceLease,
     inspectHeavyMaintenanceLease,
     releaseHeavyMaintenanceLease,
+    shouldYieldHeavyMaintenanceLease,
     withHeavyMaintenanceLease
 } from './heavyMaintenanceLeasePrimitives.mjs';
 
@@ -52,6 +53,17 @@ export class HeavyMaintenanceLeaseService extends Base {
          * @reactive
          */
         staleAfterMs_: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs,
+        /**
+         * Bound on continuous LIVE-holder lease hold before a cooperative yield (#14144 lease-fairness):
+         * consumed by `shouldYield()` so a long heavy task (e.g. a multi-hour KB re-embed) releases the lease
+         * at a resumable checkpoint, letting a starved heavy peer interleave. Distinct from `staleAfterMs`
+         * (dead-holder reclaim); kept the smaller so a live holder yields before it would be stale-reclaimed.
+         * Falsy ⇒ never yields (byte-identical back-compat).
+         * @member {Number} maxActiveHoldMs_=AiConfig.orchestrator.heavyMaintenance.maxActiveHoldMs
+         * @protected
+         * @reactive
+         */
+        maxActiveHoldMs_: AiConfig.orchestrator.heavyMaintenance.maxActiveHoldMs,
         /**
          * @member {Object} fsModule_=fs
          * @protected
@@ -98,6 +110,24 @@ export class HeavyMaintenanceLeaseService extends Base {
             ...options,
             leasePath: options.leasePath ?? this.leasePath,
             fsModule : options.fsModule  ?? this.fsModule
+        });
+    }
+
+    /**
+     * Decides whether a LIVE lease holder should cooperatively yield (release at the next resumable
+     * checkpoint) because it has held the lease past the fairness bound — a thin wrapper over the pure
+     * `shouldYieldHeavyMaintenanceLease` primitive with the reactive `maxActiveHoldMs` injected (#14144).
+     * Consumed by long heavy tasks between batches (e.g. kbSync `embedViaShadowSwap`, #14186).
+     * @param {Object|null} lease The current lease payload (reads `acquiredAt`).
+     * @param {Object} [options] Overrides.
+     * @param {Date}   [options.now=new Date()] Clock injection for tests.
+     * @param {Number} [options.maxActiveHoldMs=this.maxActiveHoldMs] Hold-bound override.
+     * @returns {Boolean} `true` only once the active hold exceeds `maxActiveHoldMs` (falsy bound ⇒ never yields).
+     */
+    shouldYield(lease, options = {}) {
+        return shouldYieldHeavyMaintenanceLease(lease, {
+            now            : options.now            ?? new Date(),
+            maxActiveHoldMs: options.maxActiveHoldMs ?? this.maxActiveHoldMs
         });
     }
 
