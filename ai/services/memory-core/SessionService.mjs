@@ -4,6 +4,7 @@ import {buildChatModel}                              from '../../provider/buildC
 import {invokeWithGuardrail}                         from './helpers/consumerFrictionHelper.mjs';
 import {withTimeout}                                 from './helpers/withTimeout.mjs';
 import {appendWalEmbedMarker, readPendingWalRecords} from './helpers/memoryWalStore.mjs';
+import {verifyPersistedVector}                       from './helpers/verifyPersistedVector.mjs';
 import {resolveTurnDocumentForRead}                  from './helpers/turnDocumentText.mjs';
 import crypto                                        from 'crypto';
 import GraphService                                  from './GraphService.mjs';
@@ -729,7 +730,7 @@ ${sessionContent}
                       .filter(Boolean);
 
             if (degradedEntries.length > 0) {
-                const usedTier = miniByMemoryId.size > 0 ? 'miniSummary' : 'truncatedRaw',
+                const usedTier        = miniByMemoryId.size > 0 ? 'miniSummary' : 'truncatedRaw',
                       degradedContent = degradedEntries.map((entry, index) => `Turn ${index + 1}: ${entry}`).join('\n'),
                       degradedResult  = await runGuardrailed(
                           buildSummaryPrompt(degradedContent),
@@ -798,11 +799,16 @@ ${sessionContent}
             metadatas: [summaryMetadata]
         });
 
+        // Atomic-write Prevent floor: the upsert relies on Chroma auto-embed (no explicit vector), so confirm
+        // a vector actually persisted. A metadata-only summary is logged loud for the recovery actuator; the
+        // row is expected data so it is never deleted, and a verify failure never breaks the persist.
+        await verifyPersistedVector(this.sessionsCollection, summaryId, aiConfig.vectorDimension, logger, 'session summary');
+
         // --- 1. Topological Ingestion (Graph Mapping) ---
         GraphService.upsertNode({
-            id  : summaryId,
-            type: 'SESSION_SUMMARY',
-            name: title,
+            id              : summaryId,
+            type            : 'SESSION_SUMMARY',
+            name            : title,
             description     : `${category} session by ${participatingAgents.join(', ')}`,
             semanticVectorId: summaryId,
             properties      : {
@@ -911,7 +917,7 @@ ${sessionContent}
                     const stats = fs.statSync(planPath);
                     // Match artifact to session timeframe
                     if (stats.mtimeMs >= minTimeMs && stats.mtimeMs <= maxTimeMs) {
-                        const content = fs.readFileSync(planPath, 'utf8');
+                        const content    = fs.readFileSync(planPath, 'utf8');
                         const artifactId = `plan_${convId}`;
 
                         logger.info(`[SessionService] Ingesting Antigravity artifact: ${planPath}`);
@@ -937,14 +943,18 @@ ${sessionContent}
                                 metadatas: [planMetadata],
                                 documents: [content]
                             });
+
+                            // Atomic-write Prevent floor: confirm the auto-embed actually persisted a vector;
+                            // a metadata-only plan is logged for the recovery actuator (never deleted/thrown).
+                            await verifyPersistedVector(this.memoryCollection, artifactId, aiConfig.vectorDimension, logger, 'antigravity plan');
                         } catch (e) {
                             logger.warn(`[SessionService] Failed to vector-upsert plan: ${e.message}`);
                         }
 
                         // Tie it structurally into Graph
                         GraphService.upsertNode({
-                            id  : artifactId,
-                            type: 'IMPLEMENTATION_PLAN',
+                            id              : artifactId,
+                            type            : 'IMPLEMENTATION_PLAN',
                             name            : `Antigravity Plan (${convId})`,
                             description     : `Strategically generated implementation plan via Antigravity Brain for session ${sessionId}.`,
                             semanticVectorId: artifactId
