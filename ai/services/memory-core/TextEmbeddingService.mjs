@@ -508,14 +508,17 @@ class TextEmbeddingService extends Base {
 
             return await responsePromise;
         } catch (err) {
-            const isModelLoadError = err.message.includes('HTTP 400') && (
+            // Shape C (HTTP 404): the model is not resident at the provider (sustained eviction / never
+            // loaded) — the live #14154 trigger. A 404 on /v1/embeddings means model-not-found, so it gets
+            // the same bounded model-load-wait retry; it stays fail-loud on a permanent 404 (retries exhaust).
+            const isModelLoadError = (err.message.includes('HTTP 400') && (
                 err.message.includes('Model was unloaded') ||              // Shape A — JIT-unload-then-queued-request
                 (err.message.includes('Failed to load model') &&            // Shape B — JIT-warm-load-canceled
                  err.message.includes('Operation canceled'))
-            );
+            )) || err.message.includes('HTTP 404');                         // Shape C — model not resident
 
             if (unloadRetriesLeft > 0 && isModelLoadError) {
-                logger.log(`[TextEmbeddingService] embedding-provider model-load failure detected (Shape ${err.message.includes('Model was unloaded') ? 'A' : 'B'}), retrying (remaining retries: ${unloadRetriesLeft})`);
+                logger.log(`[TextEmbeddingService] embedding-provider model-load failure detected (Shape ${err.message.includes('Model was unloaded') ? 'A' : err.message.includes('HTTP 404') ? 'C' : 'B'}), retrying (remaining retries: ${unloadRetriesLeft})`);
                 await new Promise(r => setTimeout(r, unloadRetryDelayMs));
                 return this.#postOpenAiCompatible(inputData, {
                     unloadRetriesLeft: unloadRetriesLeft - 1,
