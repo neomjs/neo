@@ -177,7 +177,7 @@ When the PR discussion thread exceeds 24KB or has received ≥ 3 formal reviews,
 
 ## 7. Depth Floor — Preventing Rubber-Stamp Approvals
 
-Structural compliance ≠ rigor — these mandates apply to **intense** changes (touch an ADR / new subsystem / consumed contract / security / migration, **or** large, class-first not size); a **micro/contained** PR gets a premise+correctness glance → Approve.
+Structural compliance ≠ rigor — these mandates (+ the concept-graph feed) are for **concept-bearing** changes: touch an ADR/new-abstraction/consumed-contract/security/migration. A **mechanical** PR (test/config/behavior-preserving, any size) gets a premise+correctness glance → Approve.
 
 ### 7.1 Minimum-One-Challenge for Peer Reviews
 
@@ -321,7 +321,7 @@ After technical audits (§3-§8), decide the merge posture:
 
 1. **Approve** — default for a working PR (no blocking defect); ship as-is, nits inline.
 2. **Request Changes** — must-fix, only for code-shape/correctness/safety; a finding → same-PR fix/comment/AC, never a follow-up ticket.
-3. **Approve+Follow-Up** — least-desirable; avoid (spawns the follow-up-ticket flood). Mergeable→Approve; defect→Request Changes.
+3. **Approve+Follow-Up** — least-desirable (spawns the follow-up flood). Mergeable→Approve; defect→Request Changes.
 4. **Drop+Supersede** — premise is stale/wrong; recommend closure via Request Changes shape so author/human handles PR/ticket closure. Use for fundamentally wrong premise, operator-intent correction, or >5 cycles rearranging the same invalid abstraction.
 
 This is architectural judgment after defects are identified; it is not another defect audit.

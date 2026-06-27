@@ -186,7 +186,7 @@ const MICRO_REVIEW_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS = [
     '**Glance:**'
 ];
 
-const MICRO_REVIEW_CLASS_PATTERN = /(?:^|[^\w-])(micro|contained)(?:$|[^\w-])/i;
+const MICRO_REVIEW_CLASS_PATTERN = /(?:^|[^\w-])(micro|contained|mechanical)(?:$|[^\w-])/i;
 
 /**
  * @summary Returns missing cycle-template skeleton anchors for review-body validation.
@@ -406,12 +406,12 @@ function getMicroReviewTemplateValidationFailure(body) {
     const message = [
         `Review body attempts the Micro-Review format but does not match its minimal shape.`,
         ``,
-        `The Micro-Review (Cycle-1, blast-scaled per pr-review-guide §7) is for a MICRO / CONTAINED PR — none`,
-        `of the intense triggers (ADR / new-subsystem / consumed-contract / security / migration), a small diff,`,
-        `AND no architectural concept to teach (so no \`[ARCH_ALIGNMENT]\` / \`[RETROSPECTIVE]\` graph-ingestion is`,
-        `lost — that is the gate that keeps the concept-graph fed). It needs only: the header, **Class:**`,
-        `(asserting micro | contained), **Verdict:**, and **Glance:** (the premise + correctness check). A`,
-        `concept-bearing or intense / large PR uses the full template instead.`
+        `The Micro-Review (Cycle-1, blast-scaled per pr-review-guide §7) is for a MECHANICAL PR with`,
+        `no architectural concept to teach (test / config-leaf / behavior-preserving), ANY size — so no`,
+        `\`[ARCH_ALIGNMENT]\` / \`[RETROSPECTIVE]\` graph-ingestion is lost (the gate that keeps the concept-graph`,
+        `fed). It needs only: the header, **Class:** (asserting micro | contained | mechanical), **Verdict:**,`,
+        `and **Glance:** (the premise + correctness check). A concept-bearing PR — touches an ADR / new`,
+        `abstraction / consumed contract / security / migration — uses the full template instead, regardless of size.`
     ].join('\n');
 
     return {
