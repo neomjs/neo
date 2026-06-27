@@ -14,6 +14,7 @@ import {
     createRecoveryDiagnosisEvent,
     createRecoveryTargetIdentity
 } from '../../../../../../../ai/services/memory-core/helpers/recoveryRunStateStore.mjs';
+import {readHealLedger} from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
 import {TIER1_DEFAULTS} from '../../../../../fixtures/aiConfigDefaults.mjs';
 
 const DEFAULT_ACTUATOR_CONFIG       = TIER1_DEFAULTS.orchestrator.recoveryActuator;
@@ -117,7 +118,7 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
             observedAt    : 500_000,
             source        : 'process-supervisor-task-outcome',
             details       : {
-                actionClass: 'escalate',
+                actionClass: 'record',
                 reasonCode : 'maintenance-task-failure'
             },
             ...overrides
@@ -446,7 +447,7 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
         }));
     });
 
-    test('escalateDiagnosis pages a supervised-task diagnosis without executing target actions', async () => {
+    test('recordDiagnosis records a supervised-task diagnosis to the heal-event ledger without executing target actions', async () => {
         const {service, runtimeCalls, supervisorCalls, pageCalls, taskOutcomes} = createService();
         let   executedTargetAction                                              = false;
 
@@ -455,13 +456,13 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
             throw new Error('should not execute');
         };
 
-        const result = await service.escalateDiagnosis(backupEscalationDiagnosis(), {
+        const result = await service.recordDiagnosis(backupEscalationDiagnosis(), {
             now   : 500_000,
             reason: 'backup-failed'
         });
 
         expect(result).toMatchObject({
-            status        : 'escalated',
+            status        : 'recorded',
             reasonCode    : 'maintenance-task-failure',
             targetIdentity: {kind: 'supervised-task', id: 'backup'}
         });
@@ -469,38 +470,36 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
         expect(executedTargetAction).toBe(false);
         expect(runtimeCalls).toEqual([]);
         expect(supervisorCalls).toEqual([]);
-        expect(pageCalls).toEqual([expect.objectContaining({
-            serviceKey        : 'backup',
-            action            : 'escalate',
-            reason            : 'backup-failed',
-            targetIdentity    : {kind: 'supervised-task', id: 'backup'},
-            operatorPageTarget: 'AGENT:*'
-        })]);
-        expect(pageCalls[0].diagnosisEvent).toMatchObject({
-            type          : 'recovery-diagnosis',
-            targetIdentity: {kind: 'supervised-task', id: 'backup'},
-            details       : expect.objectContaining({actionClass: 'escalate'})
-        });
+        // record-with-diagnosis never pages — it appends to the heal-event ledger instead.
+        expect(pageCalls).toEqual([]);
+
+        const healEvents = await readHealLedger({dir: service.healEventLedgerDir});
+        expect(healEvents).toContainEqual(expect.objectContaining({
+            type      : 'ambiguous',
+            collection: 'backup',
+            status    : 'recorded',
+            detail    : expect.objectContaining({reasonCode: 'maintenance-task-failure'})
+        }));
         expect(taskOutcomes).toContainEqual(expect.objectContaining({
             taskName: 'recovery-actuator:backup',
             status  : 'failed',
             details : expect.objectContaining({
-                status      : 'escalated',
-                ledgerStatus: 'escalated'
+                status      : 'recorded',
+                ledgerStatus: 'recorded'
             })
         }));
     });
 
-    test('escalateDiagnosis rejects non-escalate diagnoses without privileged actions', async () => {
+    test('recordDiagnosis rejects non-record diagnoses without privileged actions', async () => {
         const {service, runtimeCalls, supervisorCalls, pageCalls} = createService();
 
-        const result = await service.escalateDiagnosis(backupEscalationDiagnosis({
+        const result = await service.recordDiagnosis(backupEscalationDiagnosis({
             details: {actionClass: 'restart'}
         }), {now: 510_000});
 
         expect(result).toEqual({
             status        : 'rejected',
-            reasonCode    : 'diagnosis-not-escalatable',
+            reasonCode    : 'diagnosis-not-recordable',
             targetIdentity: {kind: 'supervised-task', id: 'backup'}
         });
         expect(runtimeCalls).toEqual([]);

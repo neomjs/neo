@@ -8,8 +8,8 @@ import {createRecoveryDiagnosisEvent} from '../../../services/memory-core/helper
  * (which is container CPU/memory/config-drift-scoped) and NOT modeling a maintenance task as a pageable
  * recovery-actuator target. These are pure functions: they detect a failed/overdue supervised task and
  * build a `recovery-diagnosis` event (`targetIdentity.kind: 'supervised-task'`, `details.actionClass:
- * 'escalate'`) for a diagnosis-escalation sink to route. They never restart or retry the task — the
- * recovery boundary (e.g. `escalateDiagnosis` in the actuator) owns dispatch; this owns detection.
+ * 'record'`) for a diagnosis-record sink to route. They never restart or retry the task — the
+ * recovery boundary (e.g. `recordDiagnosis` in the actuator) owns dispatch; this owns detection.
  *
  * Consumed by (next slice): the `ProcessSupervisorService.recordTaskOutcome('<task>', 'failed', …)` hook
  * and a scheduling-loop overdue check, both for the configured alert-on-failure task set (e.g. `backup`).
@@ -49,14 +49,14 @@ export function detectTaskOverdue({lastRunAt, intervalMs, graceMs = 0, now} = {}
 /**
  * @summary Builds the recovery-diagnosis event for a failed or overdue supervised maintenance task.
  *
- * Producer half of the parent backup-reliability AC1 — does NOT restart/retry the task; the event routes to the escalation sink.
+ * Producer half of the parent backup-reliability AC1 — does NOT restart/retry the task; the event routes to the record sink (the heal-event ledger, never an operator page).
  *
  * @param {Object}  options
  * @param {String}  options.taskName Supervised task id (e.g. `backup`).
  * @param {'failed'|'overdue'} options.outcome The detected fault.
  * @param {Number}  options.observedAt Epoch ms when the fault was observed.
  * @param {Object[]} [options.evidenceFacts=[]] Bounded evidence facts carried into the diagnosis.
- * @param {Object} [options.details={}] Diagnostics-owned details; merged with `actionClass: 'escalate'`.
+ * @param {Object} [options.details={}] Diagnostics-owned details; merged with `actionClass: 'record'`.
  * @returns {Object} A `recovery-diagnosis` event (see `createRecoveryDiagnosisEvent`).
  */
 export function buildSupervisedTaskDiagnosis({taskName, outcome, observedAt, evidenceFacts = [], details = {}} = {}) {
@@ -77,6 +77,6 @@ export function buildSupervisedTaskDiagnosis({taskName, outcome, observedAt, evi
         evidenceFacts,
         observedAt,
         source        : 'task-outcome-diagnostics',
-        details       : {...details, actionClass: 'escalate', outcome}
+        details       : {...details, actionClass: 'record', outcome}
     });
 }
