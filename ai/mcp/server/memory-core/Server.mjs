@@ -138,7 +138,15 @@ class Server extends BaseServer {
             'record_turn_presence',
             'get_session_memories',
             'query_recent_turns',
-            'who_is_online'
+            'who_is_online',
+            // Read-only diagnostics that never embed — exempt so a slow/down embedder cannot block the
+            // very tools an agent needs to SEE the degradation (the embed-canary catch-22). They read
+            // state/files/metrics only; none embed a query (unlike `query_raw_memories`/`query_summaries`).
+            'get_rem_pipeline_state',
+            'get_sqlite_holder_diagnostics',
+            'get_deployment_state_snapshot',
+            'inspect_deployment',
+            'get_memory_core_tool_metrics'
         ];
     }
 
