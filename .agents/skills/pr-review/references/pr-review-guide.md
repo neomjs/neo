@@ -319,9 +319,9 @@ If any check surfaces a miss, flag it in Required Actions. A PR that ships a new
 
 After technical audits (§3-§8), decide the merge posture:
 
-1. **Approve** — PR is free of blocking defects; ship as-is (with non-blocking nits).
-2. **Approve+Follow-Up** — measurable value, no release-blocking defect, and another cycle would cost more than it returns. Follow-ups default off the release board; release blockers mean **Request Changes**.
-3. **Request Changes** — must-fix before merge; defects block substrate correctness.
+1. **Approve** — the DEFAULT for any working PR: free of code-shape / correctness / safety defects; ship as-is. Non-blocking observations go inline or as a comment, NOT as gating items. Bias to Approve — a trivially-correct micro / contained PR is approved on a premise + correctness glance, not run through the full gauntlet.
+2. **Request Changes** — must-fix before merge, and **only** for code-shape / correctness / safety defects. No manufactured nits. A finding the author should address becomes an inline-fix / comment / same-PR AC — **a review never spawns a follow-up ticket** (those follow-up tickets are the micro-ticket flood this skill exists to prevent).
+3. **Approve+Follow-Up** — **the least desirable outcome; avoid it.** It launders "do more work + iterate" as approval and spawns a fat follow-up ticket → new lane → CI → nitpick cycles. If the PR is mergeable, just **Approve** (fold any real residual into a same-PR AC or an inline comment); if it has a blocking defect, **Request Changes**. Reserve A+FU only for a genuinely-separable, already-tracked, release-relevant successor — never as a reflexive "approve, but…".
 4. **Drop+Supersede** — premise is stale/wrong; recommend closure via Request Changes shape so author/human handles PR/ticket closure. Use for fundamentally wrong premise, operator-intent correction, or >5 cycles rearranging the same invalid abstraction.
 
 This is architectural judgment after defects are identified; it is not another defect audit.
