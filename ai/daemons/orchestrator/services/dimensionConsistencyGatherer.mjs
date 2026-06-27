@@ -68,11 +68,21 @@ export async function gatherDimensionConsistencyDiagnosis({
  */
 export function createLiveDimensionConsistencyGatherer({storageRouter, expectedDimension, serviceId, auditFn} = {}) {
     return async observedAt => {
-        await storageRouter.ready();
-        const collections = [
-            {collection: await storageRouter.getMemoryCollection(),  collectionName: 'neo-agent-memory'},
-            {collection: await storageRouter.getSummaryCollection(), collectionName: 'neo-agent-sessions'}
-        ];
-        return gatherDimensionConsistencyDiagnosis({collections, expectedDimension, serviceId, observedAt, auditFn});
+        // Degrade-not-throw at the live-binding boundary, not only inside the audit primitive (#14130 AC3).
+        // A Chroma *connection* failure (storageRouter.ready / getCollection) must skip the dimension signal
+        // for this cycle and return null — never throw. The shared `dataIntegrityEvidenceGatherer` gathers
+        // coverage first then awaits this; an unguarded throw here would discard the already-gathered coverage
+        // diagnosis and blank the whole hourly sweep. A down-Chroma is surfaced separately (coverage gatherer
+        // + container-health), so a silent dimension-skip is the safe degrade; null is filtered downstream.
+        try {
+            await storageRouter.ready();
+            const collections = [
+                {collection: await storageRouter.getMemoryCollection(),  collectionName: 'neo-agent-memory'},
+                {collection: await storageRouter.getSummaryCollection(), collectionName: 'neo-agent-sessions'}
+            ];
+            return await gatherDimensionConsistencyDiagnosis({collections, expectedDimension, serviceId, observedAt, auditFn});
+        } catch (error) {
+            return null;
+        }
     };
 }

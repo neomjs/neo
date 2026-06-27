@@ -74,5 +74,24 @@ test.describe('createLiveDimensionConsistencyGatherer', () => {
               auditFn = async ({collectionName, expectedDimension}) => ({collection: collectionName, expectedDimension, mismatchedVectorCount: 0, sampledCount: 100}),
               gather  = createLiveDimensionConsistencyGatherer({storageRouter: router, expectedDimension: 1024, serviceId: 'mc-server', auditFn});
         expect(await gather(1000)).toBeNull()
+    });
+
+    test('degrades to null (never throws) on a Chroma connection failure — coverage is not suppressed (#14130 AC3)', async () => {
+        // ready() throws (Chroma down): an unguarded throw here would discard the already-gathered coverage
+        // diagnosis in the shared evidence-gather and blank the whole sweep. Must resolve to null, not reject.
+        const downRouter = {
+            ready               : async () => { throw new Error('chroma connection refused'); },
+            getMemoryCollection : async () => ({id: 'mem'}),
+            getSummaryCollection: async () => ({id: 'sum'})
+        };
+        await expect(createLiveDimensionConsistencyGatherer({storageRouter: downRouter, expectedDimension: 1024, serviceId: 'mc-server'})(1000)).resolves.toBeNull();
+
+        // mid-resolution failure (getCollection throws after a successful ready()) — same degrade.
+        const midFailRouter = {
+            ready               : async () => {},
+            getMemoryCollection : async () => { throw new Error('chroma get failed'); },
+            getSummaryCollection: async () => ({id: 'sum'})
+        };
+        await expect(createLiveDimensionConsistencyGatherer({storageRouter: midFailRouter, expectedDimension: 1024, serviceId: 'mc-server'})(1000)).resolves.toBeNull()
     })
 });
