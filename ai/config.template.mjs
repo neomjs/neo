@@ -618,6 +618,20 @@ class Config extends ConfigProvider {
                     vacuum : leaf(false, 'NEO_ORCHESTRATOR_GRAPHLOG_COMPACTION_VACUUM', 'boolean')
                 },
                 /**
+                 * Heavy-maintenance lease fairness — the bound on continuous lease hold. A long-running
+                 * heavy task (e.g. a multi-hour KB re-embed) yields the single heavy-maintenance lease
+                 * after `maxActiveHoldMs` of continuous hold — polled via `shouldYieldHeavyMaintenanceLease`
+                 * — so a starved heavy peer (e.g. `githubWorkflowSync`, which otherwise stales the sandman
+                 * handoff for the whole run) interleaves; the next sweep re-acquires for the remaining work.
+                 * A holder must only yield at a resumable checkpoint (a preserved shadow + resume-marker keep
+                 * completed work), so the release window is torn-read-free. `0`/falsy ⇒ never yields
+                 * (byte-identical back-compat). Env override: `NEO_ORCHESTRATOR_HEAVY_MAINTENANCE_MAX_ACTIVE_HOLD_MS`.
+                 * @type {Object}
+                 */
+                heavyMaintenance: {
+                    maxActiveHoldMs: leaf(HOUR_MS, 'NEO_ORCHESTRATOR_HEAVY_MAINTENANCE_MAX_ACTIVE_HOLD_MS', 'number')
+                },
+                /**
                  * Neural Link Bridge local-supervision policy. The bridge port itself is owned
                  * by `ai/mcp/server/neural-link/config.mjs` (`NEO_NL_PORT`); this block only
                  * controls orchestrator-side probing.
