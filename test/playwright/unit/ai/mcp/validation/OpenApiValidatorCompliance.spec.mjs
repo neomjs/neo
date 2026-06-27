@@ -236,6 +236,67 @@ const githubWorkflowDangerousReadForbidden = [
     'signal_state_transition'
 ];
 
+const memoryCoreToolTiers = ['read', 'write', 'extended', 'admin'];
+
+const expectedMemoryCoreToolTiers = {
+    healthcheck                  : 'read',
+    get_mcp_tool_handbook        : 'read',
+    get_memory_core_tool_metrics : 'extended',
+    get_deployment_state_snapshot: 'extended',
+    inspect_deployment           : 'extended',
+    get_rem_pipeline_state       : 'extended',
+    get_sqlite_holder_diagnostics: 'extended',
+    who_is_online                : 'read',
+    add_memory                   : 'write',
+    get_session_memories         : 'read',
+    query_raw_memories           : 'read',
+    query_recent_turns           : 'read',
+    get_context_frontier         : 'read',
+    mutate_frontier              : 'extended',
+    pre_brief_session            : 'extended',
+    get_all_summaries            : 'read',
+    query_summaries              : 'read',
+    purge_session                : 'admin',
+    resume_session               : 'extended',
+    set_session_id               : 'extended',
+    get_node                     : 'read',
+    get_neighbors                : 'read',
+    search_nodes                 : 'read',
+    query_hybrid_graph           : 'read',
+    grant_permission             : 'admin',
+    revoke_permission            : 'admin',
+    list_permissions             : 'extended',
+    add_message                  : 'write',
+    list_messages                : 'read',
+    get_message                  : 'read',
+    mark_read                    : 'write',
+    archive_message              : 'extended',
+    delete_message               : 'admin',
+    transition_task              : 'extended',
+    record_turn_presence         : 'write',
+    manage_wake_subscription     : 'extended'
+};
+
+// Every mutating mc op must NOT be tiered `read`. The destructive ops (purge_session, delete_message,
+// grant/revoke_permission) are `admin`; the constant maintainer-writes (add_message/add_memory/mark_read/
+// record_turn_presence) are visible `write`; the rest of the mutations are withheld `extended`.
+const memoryCoreDangerousReadForbidden = [
+    'add_memory',
+    'add_message',
+    'mark_read',
+    'record_turn_presence',
+    'mutate_frontier',
+    'resume_session',
+    'set_session_id',
+    'transition_task',
+    'manage_wake_subscription',
+    'archive_message',
+    'purge_session',
+    'grant_permission',
+    'revoke_permission',
+    'delete_message'
+];
+
 /**
  * Reads OpenAPI operations by operationId.
  * @param {object} doc Parsed OpenAPI document.
@@ -499,6 +560,39 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
             offenders  = githubWorkflowDangerousReadForbidden.filter(id => operations[id]?.['x-neo-tool-tier'] === 'read');
 
         expect(offenders, `Dangerous github-workflow operations mislabeled read:\n${offenders.join('\n')}`).toEqual([]);
+    });
+
+    test('memory-core declares the harness-visible projection policy (#14164)', () => {
+        const
+            doc        = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/memory-core/openapi.yaml'), 'utf8')),
+            projection = doc['x-neo-harness-tool-projection'];
+
+        expect(projection, 'Missing x-neo-harness-tool-projection contract').toBeTruthy();
+        expect(projection.defaultVisibleTiers).toEqual(['read', 'write']);
+        expect(projection.operatorOnlyTiers).toEqual(['admin']);
+    });
+
+    test('memory-core classifies every operation into one harness tool tier (#14164)', () => {
+        const
+            doc        = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/memory-core/openapi.yaml'), 'utf8')),
+            operations = getOperationsById(doc),
+            tiers      = Object.fromEntries(Object.entries(operations).map(([id, op]) => [id, op['x-neo-tool-tier']]));
+
+        const missing = Object.entries(tiers).filter(([, tier]) => tier === undefined).map(([id]) => id);
+        const invalid = Object.entries(tiers).filter(([, tier]) => tier !== undefined && !memoryCoreToolTiers.includes(tier));
+
+        expect(missing, `memory-core operations missing x-neo-tool-tier:\n${missing.join('\n')}`).toEqual([]);
+        expect(invalid, `Invalid memory-core x-neo-tool-tier values:\n${invalid.map(([id, tier]) => `${id}: ${tier}`).join('\n')}`).toEqual([]);
+        expect(tiers).toEqual(expectedMemoryCoreToolTiers);
+    });
+
+    test('memory-core mutating operations cannot be tiered as read (#14164)', () => {
+        const
+            doc        = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/memory-core/openapi.yaml'), 'utf8')),
+            operations = getOperationsById(doc),
+            offenders  = memoryCoreDangerousReadForbidden.filter(id => operations[id]?.['x-neo-tool-tier'] === 'read');
+
+        expect(offenders, `Dangerous memory-core operations mislabeled read:\n${offenders.join('\n')}`).toEqual([]);
     });
 
     test('neural-link OpenAPI operations stay aligned with serviceMapping keys (#13064)', () => {
