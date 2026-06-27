@@ -144,12 +144,11 @@ test.describe('restore hardening regression (#11150 / #11151)', () => {
         const Memory_DatabaseService = SDK.Memory_DatabaseService;
         const Memory_StorageRouter   = SDK.Memory_StorageRouter;
 
-        // This test exercises chunking, not vector validity — its fixtures use length-1 embeddings.
-        // Align the atomic vector-write gate's expected dimension so it doesn't reject them pre-persist.
-        // Restored in the finally to avoid cross-spec singleton bleed.
-        const aiConfig                = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        const originalVectorDimension = aiConfig.vectorDimension;
-        aiConfig.vectorDimension = 1;
+        // This test exercises chunking, not vector validity. Build fixtures AT the resolved
+        // aiConfig.vectorDimension (READ it, never mutate — the reactive Provider SSOT must not be written
+        // from a test) so they pass the atomic vector-write gate authentically.
+        const aiConfig       = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const validEmbedding = new Array(aiConfig.vectorDimension).fill(0);
 
         const addCalls       = [];
         const getCalls       = [];
@@ -173,7 +172,7 @@ test.describe('restore hardening regression (#11150 / #11151)', () => {
         for (let i = 0; i < 1000; i++) {
             lines.push(JSON.stringify({
                 id       : `m-${i}`,
-                embedding: [0.1 + i * 0.0001],
+                embedding: validEmbedding,
                 metadata : {idx: i},
                 document : `doc-${i}`
             }));
@@ -200,7 +199,6 @@ test.describe('restore hardening regression (#11150 / #11151)', () => {
                 expect(callSize).toBeLessThanOrEqual(250);
             }
         } finally {
-            aiConfig.vectorDimension = originalVectorDimension;
             Memory_StorageRouter.getMemoryCollection = originalGetMemColl;
             Memory_StorageRouter.getSummaryCollection = originalGetSumColl;
             await fsExtra.remove(workRoot);
