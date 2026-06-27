@@ -580,6 +580,46 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
         }
     });
 
+    test('fresh-build records the resume marker BEFORE creating the shadow (write-ahead — no orphan on a double failure)', async () => {
+        const live                = createSpyCollection({existingIds: [], name: KB_Config.data.collectionName});
+        const originalEmbedChunks = KB_VectorService.embedChunks.bind(KB_VectorService);
+        let shadow;
+        let markerShadowAtCreate = null;
+
+        KB_ChromaManager.client = {
+            createCollection: async ({name}) => {
+                // The write-ahead marker must already be on disk when the shadow is created, so a shadow can
+                // never exist without a marker indexing it. Without write-ahead, a transient embed failure
+                // whose catch-path marker-write ALSO fails would strand the shadow with no marker, and the
+                // next fresh-build's discardResumeShadow(resumeState?.shadowName) would no-op — orphaning it.
+                const stateAtCreate = await readResumeState({dir: KB_VectorService.resumeStateDir});
+                markerShadowAtCreate = stateAtCreate?.shadowName ?? null;
+                shadow = createSpyCollection({name});
+                return shadow;
+            }
+        };
+        KB_VectorService.embedChunks = async () => {
+            throw new Error('forced embed failure');
+        };
+
+        try {
+            await expect(KB_VectorService.embedViaShadowSwap({
+                liveCollection  : live,
+                knowledgeBase   : [{id: 'chunk-0', type: 'method', name: 'method0'}],
+                idsToDeleteCount: 0
+            })).rejects.toThrow('forced embed failure');
+
+            // Write-ahead: the marker indexed THIS shadow at creation time, not only in the failure catch.
+            expect(markerShadowAtCreate).toBe(shadow.name);
+
+            // And it persists through the failure for the next run to resume into / reclaim.
+            const resumeState = await readResumeState({dir: KB_VectorService.resumeStateDir});
+            expect(resumeState?.shadowName).toBe(shadow.name);
+        } finally {
+            KB_VectorService.embedChunks = originalEmbedChunks;
+        }
+    });
+
     test('shadow-swap MCP gate measures full-corpus rebuild volume before creating shadow collection', async () => {
         const live                  = createSpyCollection({existingIds: [], name: KB_Config.data.collectionName});
         let   createCollectionCalls = 0;
