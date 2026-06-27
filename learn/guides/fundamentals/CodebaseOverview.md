@@ -451,6 +451,7 @@ Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. L
 **Lifecycle (execution gates):**
 - `ticket-intake`: Pre-execution validation gate for existing tickets (validation sweep, ROI calculation, branch-before-code).
 - `ticket-create`: Pre-creation discipline gate for new GitHub issues (duplicate sweep, six-stage challenge chain, Fat Ticket body, title/label rules, explicit custom Playwright targeting).
+- `goal-scoping`: Scope a GOAL (release / initiative) into a few coherent owned LANES — the planning front-end of the epic lifecycle (goal→lanes, not scrap tickets; peers self-select their lane; the planner defines goal+lanes but never assigns a peer). Feeds `epic-create` (each lane → an epic).
 - `epic-create`: Author Epic bodies as problem-scope + intended-solution — ACs live in the sub-tickets, subs are linked (not listed) so the body doesn't stale (creation-side dual of ticket-create).
 - `epic-review`: Pre-work six-stage gating chain for epics (roadmap fit, approach elegance, source discussion mapping, sub-structure coherence, prescription layer, avoided-traps completeness).
 - `epic-resolution`: Closeout protocol for parent epics resolving the completion status (exit gate).

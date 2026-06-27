@@ -123,6 +123,17 @@
         "learn/guides/fundamentals/CodebaseOverview.md"
       ]
     },
+    "goal-scoping": {
+      "name": "goal-scoping",
+      "description": "Scope a GOAL (release / initiative / major objective) into a few coherent owned LANES — the planning front-end of the epic lifecycle. Convert goals into lanes (not scrap tickets); peers self-select lanes; the planner defines goal+lanes but never assigns a peer. Triggers: before decomposing a release/initiative/major-goal into work; when a goal needs scoping into owned streams; when work is being chased as scattered micro-tickets with no owned lanes; when tempted to skip planning OR to assign peers to lanes.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
     "hostile-content-quarantine": {
       "name": "hostile-content-quarantine",
       "description": "Incident playbook for externally-authored hostile content on public surfaces — astroturfing, spam, stealth marketing, injection-bearing artifacts. Triggers: external-authored content bearing astroturf markers (engagement-bait clauses, vendor links, external endpoint/MCP offers, name-only drops), an operator \"astroturf / spam / we got hit\" signal, or verifying a moderation outcome. ANTI-trigger: ordinary good-faith contributor posts.",
