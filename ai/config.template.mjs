@@ -661,11 +661,15 @@ class Config extends ConfigProvider {
                  * handoff for the whole run) interleaves; the next sweep re-acquires for the remaining work.
                  * A holder must only yield at a resumable checkpoint (a preserved shadow + resume-marker keep
                  * completed work), so the release window is torn-read-free. `0`/falsy ⇒ never yields
-                 * (byte-identical back-compat). Env override: `NEO_ORCHESTRATOR_HEAVY_MAINTENANCE_MAX_ACTIVE_HOLD_MS`.
+                 * (byte-identical back-compat). Default 30min (the #14144 fairness Decision Record with
+                 * @neo-opus-grace): independent of `staleAfterMs` but kept smaller (a live holder yields before
+                 * it would be stale-reclaimed); a SOFT knob — the holder yields at the first between-batch
+                 * checkpoint after the bound, never mid-batch — so it is tunable on observed yield-churn.
+                 * Env override: `NEO_ORCHESTRATOR_HEAVY_MAINTENANCE_MAX_ACTIVE_HOLD_MS`.
                  * @type {Object}
                  */
                 heavyMaintenance: {
-                    maxActiveHoldMs: leaf(HOUR_MS, 'NEO_ORCHESTRATOR_HEAVY_MAINTENANCE_MAX_ACTIVE_HOLD_MS', 'number')
+                    maxActiveHoldMs: leaf(HOUR_MS / 2, 'NEO_ORCHESTRATOR_HEAVY_MAINTENANCE_MAX_ACTIVE_HOLD_MS', 'number')
                 },
                 /**
                  * Neural Link Bridge local-supervision policy. The bridge port itself is owned

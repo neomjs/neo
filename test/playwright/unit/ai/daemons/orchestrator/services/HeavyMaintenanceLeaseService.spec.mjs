@@ -130,6 +130,22 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
         })).toBe(false);
     });
 
+    test('#14144: service.shouldYield() injects the reactive maxActiveHoldMs into the primitive', () => {
+        const acquiredAt = '2026-05-16T20:00:00.000Z',
+              lease      = {owner: 'summary', acquiredAt},
+              service    = Neo.create(HeavyMaintenanceLeaseService, {});
+        service.maxActiveHoldMs = 5 * 60 * 1000; // 5 min — through the reactive setter (config-default-independent)
+
+        // hold past the reactive bound → yield (the service injects this.maxActiveHoldMs, no per-call arg)
+        expect(service.shouldYield(lease, {now: new Date('2026-05-16T20:06:00.000Z')})).toBe(true);
+        // still within the reactive bound → keep holding
+        expect(service.shouldYield(lease, {now: new Date('2026-05-16T20:03:00.000Z')})).toBe(false);
+        // explicit per-call override wins over the reactive default
+        expect(service.shouldYield(lease, {now: new Date('2026-05-16T20:06:00.000Z'), maxActiveHoldMs: 30 * 60 * 1000})).toBe(false);
+        // fail-safe: a falsy bound → never yields (byte-identical back-compat; #14186's absent/0-leaf path)
+        expect(service.shouldYield(lease, {now: new Date('2026-05-16T23:00:00.000Z'), maxActiveHoldMs: 0})).toBe(false)
+    });
+
     test('process liveness detects invalid owner pids', () => {
         expect(isPidAlive(process.pid)).toBe(true);
         expect(isPidAlive(-1)).toBe(false);
