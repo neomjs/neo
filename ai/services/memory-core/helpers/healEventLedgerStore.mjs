@@ -95,12 +95,17 @@ export async function readHealLedger({dir} = {}) {
  * would never match its own action and the anti-thrash bound would silently never fire (a just-recorded
  * attempt would re-`execute` instead of `thrash-cooldown`). This projection (`type` → `action`, keeping the
  * epoch-ms `at` and the collection) is the seam where the ledger schema meets the dispatch contract.
+ *
+ * **Only `status: 'attempt'` rows project.** The pre-execution attempt is the anti-thrash unit (one per heal).
+ * Outcome rows (the recorded dispatch result — `failed`, `healed`, etc.) carry the SAME `{type, collection}`
+ * key but are observability, NOT additional runs; counting them would double the run-count per heal — silently
+ * tightening the rate-limit (3 → 2 heals/window) and dragging the cooldown `lastAt` to the later outcome-time.
  * @param {Object[]} [events=[]] Heal-event entries (as read/filtered from the ledger).
  * @returns {Object[]} `[{action, collection, at}]` for `decideHealAction`.
  */
 export function healEventsToRecentRuns(events = []) {
     return (Array.isArray(events) ? events : [])
-        .filter(event => event && typeof event === 'object')
+        .filter(event => event && typeof event === 'object' && event.status === 'attempt')
         .map(event => ({action: event.type, collection: event.collection, at: event.at}));
 }
 
