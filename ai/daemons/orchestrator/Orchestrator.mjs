@@ -92,6 +92,68 @@ export function resolveCloudOnlyEnabled(key) {
     return AiConfig.orchestrator.deploymentMode === 'cloud';
 }
 
+const LOG_RETENTION_DAYS = 30;
+
+/**
+ * @summary Rotates a daemon log file when its mtime falls on a prior calendar day.
+ *
+ * Renames the previous-day file to `<logFile>.YYYY-MM-DD` so the active file only ever holds the
+ * current day's lines — bounding the otherwise-unbounded growth (the orchestrator polls every few
+ * seconds, so its `writeLog` reliably triggers this once per day). Best-effort: failures are
+ * swallowed — log integrity must never gate daemon liveness (mirrors the embed/message/wake daemons).
+ * @param {String} logFile Active log file path.
+ * @returns {void}
+ */
+export function rotateLogFileIfNewDay(logFile) {
+    if (!logFile || !fs.existsSync(logFile)) return;
+
+    try {
+        const fileDay  = fs.statSync(logFile).mtime.toISOString().split('T')[0],
+              todayDay = new Date().toISOString().split('T')[0];
+
+        if (fileDay !== todayDay) {
+            fs.renameSync(logFile, `${logFile}.${fileDay}`);
+        }
+    } catch (e) {
+        // Best-effort; the daemon stays alive even if rotation fails.
+    }
+}
+
+/**
+ * @summary Prunes archived daemon log files older than the retention window.
+ *
+ * Deletes `<baseName>.*` archives (e.g. `orchestrator.log.2026-05-01`) whose mtime is older than
+ * `retentionDays`, leaving the active `<baseName>` untouched. Best-effort; runs once at startup.
+ * @param {Object} options
+ * @param {String} options.dir Daemon data directory.
+ * @param {String} options.baseName Active log file name (archives are `<baseName>.*`).
+ * @param {Number} [options.retentionDays=LOG_RETENTION_DAYS] Days of archives to keep.
+ * @returns {void}
+ */
+export function pruneOldDailyLogs({dir, baseName, retentionDays = LOG_RETENTION_DAYS}) {
+    if (!dir || !baseName) return;
+
+    const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+
+    try {
+        for (const entry of fs.readdirSync(dir)) {
+            if (!entry.startsWith(`${baseName}.`) || entry === baseName) continue;
+
+            const fullPath = path.join(dir, entry);
+
+            try {
+                if (fs.statSync(fullPath).mtime.getTime() < cutoff) {
+                    fs.unlinkSync(fullPath);
+                }
+            } catch (e) {
+                // Per-entry failure is non-fatal.
+            }
+        }
+    } catch (e) {
+        // Directory-listing failure is non-fatal.
+    }
+}
+
 /**
  * @summary Neo daemon class for Agent OS maintenance scheduling.
  *
@@ -510,6 +572,9 @@ export class Orchestrator extends Base {
 
         fs.ensureDirSync(this.dataDir);
 
+        // Prune stale daily-rotated archives so the data dir doesn't accrue them unboundedly.
+        pruneOldDailyLogs({dir: path.dirname(this.logFile), baseName: path.basename(this.logFile)});
+
         this.taskStateService.configure({
             stateFile      : this.stateFile,
             taskDefinitions: this.taskDefinitions,
@@ -564,6 +629,8 @@ export class Orchestrator extends Base {
      * @returns {void}
      */
     writeLog(level, message) {
+        rotateLogFileIfNewDay(this.logFile);
+
         const timestamp = new Date().toISOString();
         const line      = `[${timestamp}] [PID:${process.pid}] [${level}] ${message}`;
 
