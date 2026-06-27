@@ -166,6 +166,10 @@ You MUST follow this exact handoff protocol:
 PR Review state (`reviewDecision: APPROVED`); a comment alone is insufficient.
 Author family is resolved from the §5 Social Name, with `author.login` fallback.
 
+Stacked PRs (`baseRefName` not `dev` / default): cross-family approval belongs
+to the dev-rebased full-CI merge candidate; same-family delta review is not a
+substitute.
+
 A formal `reviewDecision: APPROVED` is necessary but NOT sufficient: a non-empty `reviewRequests`
 blocks merge-handoff until each requested reviewer is disposed. `validateMergeReady` encodes this.
 

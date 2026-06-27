@@ -20,7 +20,11 @@ gh pr checks <PR_NUMBER>
 
 Use an equivalent read-only GitHub status surface only if `gh pr checks` is unavailable, and state that substitution explicitly in the PR/A2A handoff. Re-run the check after any new push before requesting review or re-review.
 
-Treat the check as current-head scoped. Re-check after peer work; for stacked PRs (`baseRefName` not `dev` / default), green means delta evidence and the handoff names base PR / merge order / retarget-CI state.
+Treat the check as current-head scoped. Re-check after peer work. Stacked PRs
+(`baseRefName` not `dev` / default) with lint-only green are observer/no-action:
+name base PR / merge order / retarget-CI, then request primary cross-family
+review only after dev-rebase/full CI. Full-CI stacked heads still name base
+state.
 
 ## 3. Outcome Branches
 
