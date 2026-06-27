@@ -47,7 +47,7 @@ export class HeavyMaintenanceLeaseService extends Base {
          */
         leasePath_: DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH,
         /**
-         * @member {Number} staleAfterMs_=21600000
+         * @member {Number} staleAfterMs_=AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs
          * @protected
          * @reactive
          */
