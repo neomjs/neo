@@ -405,6 +405,71 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         }
     });
 
+    test('#14124: read-only diagnostics (get_rem_pipeline_state) bypass the embedder-degraded health gate; embedding queries still gate', async () => {
+        const serverInstance = await createServerWithoutBoot();
+        const handlers      = new Map();
+        const healthCalls   = [];
+        const toolCalls     = [];
+        const degradedError = new Error([
+            'Memory Core is not fully operational:',
+            '  - Embedding write canary timed out after 5000ms'
+        ].join('\n'));
+
+        const mcpServer = {
+            server: {
+                setRequestHandler(schema, handler) {
+                    handlers.set(schema, handler);
+                }
+            }
+        };
+        const originalGetToolService   = serverInstance.getToolService;
+        const originalGetHealthService = serverInstance.getHealthService;
+
+        serverInstance.getToolService = () => ({
+            listTools: () => ({tools: [], nextCursor: undefined}),
+            callTool : (name, args) => {
+                toolCalls.push({name, args});
+                return {ok: true, name};
+            }
+        });
+        serverInstance.getHealthService = () => ({
+            ensureHealthy: async () => {
+                healthCalls.push('ensureHealthy');
+                throw degradedError;
+            }
+        });
+
+        serverInstance.setupRequestHandlers(mcpServer);
+
+        try {
+            const callTool = handlers.get(CallToolRequestSchema);
+
+            // The catch-22 fix: a read-only diagnostic an agent needs to SEE the embedder outage must
+            // still serve despite the embed-canary failure (it reads pipeline state, never embeds).
+            const remResult = await callTool({
+                params: {name: 'get_rem_pipeline_state', arguments: {}}
+            });
+
+            expect(remResult.isError).toBe(false);
+            expect(remResult.structuredContent).toEqual({ok: true, name: 'get_rem_pipeline_state'});
+            expect(healthCalls).toEqual([]); // exempt → never consulted the (failing) health gate
+
+            // query_raw_memories — NOT exempt: it embeds the query, so the gate must still fire.
+            const queryResult = await callTool({
+                params: {name: 'query_raw_memories', arguments: {query: 'q'}}
+            });
+
+            expect(queryResult.isError).toBe(true);
+            expect(queryResult.content[0].text).toContain('Cannot execute query_raw_memories: Memory Core is not fully operational');
+            expect(healthCalls).toEqual(['ensureHealthy']);
+            expect(toolCalls).toEqual([{name: 'get_rem_pipeline_state', args: {}}]);
+        } finally {
+            serverInstance.getToolService   = originalGetToolService;
+            serverInstance.getHealthService = originalGetHealthService;
+            serverInstance.destroy();
+        }
+    });
+
     test('#12978: logStartupStatus tolerates a null health result (BaseServer passes null when the health service has no healthcheck)', async () => {
         const serverInstance = await createServerWithoutBoot();
 
