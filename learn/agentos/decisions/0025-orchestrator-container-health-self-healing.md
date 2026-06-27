@@ -5,6 +5,7 @@
 | Attribute | Value |
 |---|---|
 | **Status** | Proposed — 2026-06-22 (design sub of Epic #13860; cross-family `/peer-role` design-pressure converged with @neo-gpt; pending ADR-PR re-poll + §6.2 family-keyed quorum at graduation. Human merge gate per ADR-0005 lifecycle.) |
+| **Amended** | 2026-06-26 (#14191, full-self-heal) — the **escalate-with-diagnosis (page)** terminal (the §2.3 envelope, the alarm-only line, the §2.4 diagnose-map's `config-drift` / `data-integrity` routes, AC-7) is superseded by **record-with-diagnosis (durable async-audit to the heal-event ledger `healEventLedgerStore`, #14163) + autonomous action**: an operatorless cloud has no human to page (@tobiu's directive — epic #14039 / #14132). `data-integrity` routing is now governed by ADR-0027 (autonomous data-recovery). The never-loop discipline, the persisted anti-thrash envelope, and the two-worlds config-lifecycle-only safety (AC-5) are **unchanged**. |
 | **Author** | @neo-opus-grace (Grace, Claude Opus 4.8) body-driving; design converged with @neo-gpt (Euclid, GPT family) via cross-family `/peer-role` on #13861 — the detect/actuator separation, the 3-column actuator matrix, the persisted anti-thrash state, and the multi-fact detect model are his pressure, accepted |
 | **Resolves** | #13861 — *"Container-health daemon: design / ADR (actuator privilege + heal-safety + false-positive-safe detect)"* |
 | **Parent epic** | #13860 — *"Orchestrator container-health self-healing daemon"* (the deployment-wide detect→diagnose→heal→escalate loop) |
@@ -55,11 +56,11 @@ The daemon's *decision* logic lives in the orchestrator (operator-agreed shape: 
 
 The heal loop is a strict, non-looping state machine:
 
-> **observe → classify → ONE bounded lifecycle action → cooldown → re-observe → escalate.** Never an action loop.
+> **observe → classify → ONE bounded lifecycle action → cooldown → re-observe → record.** Never an action loop, never a blocking page.
 
 The thrash-impossibility argument is **mechanical**, not aspirational:
 
-- A **per-service token bucket** + **max-attempts-per-time-window** + **exponential backoff**, after which the service hard-transitions to **alarm-only** (escalate, never act).
+- A **per-service token bucket** + **max-attempts-per-time-window** + **exponential backoff**, after which the service hard-transitions to **alarm-only** (durable async-record, never act, never page).
 - **The anti-thrash state is persisted OUTSIDE process memory.** This is the decision's sharpest edge (@neo-gpt's catch): the daemon is orchestrator-resident, and **an orchestrator restart would erase an in-memory attempt cap — recreating exactly the loop this ADR forbids** (heal → orchestrator churns/restarts → cap lost → heal again → …). The cap is durable or it is not a cap.
 - **Named location:** a dedicated `heal_attempts` record (service-key → window-start, attempt-count, last-action, backoff-until) in the **orchestrator's durable harness-state store** — the same persistence layer the cross-daemon lease (ADR-0009) and harness-state already use, **not** process memory. Concrete file/table binding is confirmed in the **[act]** sub (OQ-2), but the *invariant* — survives an orchestrator restart — is fixed here.
 
@@ -68,10 +69,10 @@ Every heal action is **config + lifecycle only** (restart / throttle / reconfigu
 ### 2.4 The false-positive-safe detect model
 
 - **A single failed probe is *advisory*.** An **authoritative** restart requires **≥ 1 resource or lifecycle fact beyond a single canary** — e.g. `container-unhealthy state` **+** a failed *direct* endpoint probe, **or** `resource-exhaustion` (sustained, sampled over time) **+** a sustained failed service operation.
-- **Model-dependent canaries classify as "contention / degraded" *first*, never "restart now."** The embedding-canary false-fail (§2.1) is the anchoring example: contention is throttled/shed (or escalated), not restarted-through.
+- **Model-dependent canaries classify as "contention / degraded" *first*, never "restart now."** The embedding-canary false-fail (§2.1) is the anchoring example: contention is throttled/shed (or recorded when un-healable), not restarted-through.
 - **Detect signals, per container:** memory %, CPU load **sampled over a window** (not a single snapshot — a momentary spike ≠ saturation), env-var / **config-correctness** (catches the "intended override not applied" class — a config-drift fault no resource probe sees), container-health state, a direct endpoint probe.
 - **Detect signals, data-integrity** *(amendment 2026-06-26, #14089 — the detect model extends beyond container-health into data-correctness; first shipped in #14075):* container liveness ≠ data health — a container can be *up + responsive but data-gutted* (the #13999 ~60% Memory-Core vector-loss that went undetected for weeks precisely because §2.1 treats memory-core as healthy while it "answers A2A and persists memory"). The first shipped signal is per-collection **vector-coverage drift** (`buildDataIntegrityCoverageDiagnosis` — `metadataRowCount` vs `vectorIndexIdCount`); the follow-on heuristics (MC vector-count monotonicity, cross-collection MC-vs-KB sanity, store-bloat, exportability canary, SQLite `integrity_check`) and the **scheduled wiring** into the diagnostics daemon are deferred to #14026. The merged #14075 is the **pure** detect→diagnose producer; scheduling it is the follow-on.
-- **Diagnose** maps symptom→cause into the action class: *transient-crash* → restart; *contention/saturation* → throttle/shed; *config-drift* → escalate-with-diagnosis (needs redeploy; **page, do not loop**); ***data-integrity drift* → escalate-with-diagnosis** (`recoveryClass: 'data-integrity'`, `actionClass: 'escalate'`; **never auto-repair** — data mutation stays operator-gated per the ADR-0026 two-worlds boundary). A single coverage-drift fact escalating at `confidence: 1` is within-model because the action is a **page, not an authoritative restart**: the multi-fact requirement above gates authoritative *actions*, not escalations.
+- **Diagnose** maps symptom→cause into the action class: *transient-crash* → restart; *contention/saturation* → throttle/shed; *config-drift* → the autonomous lifecycle action (reconfigure / redeploy within the envelope), **recorded** with its diagnosis when un-resolvable (never a blocking page); ***data-integrity drift* → autonomous data-recovery** (`recoveryClass: 'data-integrity'` → the runner-classifier + the ADR-0027 actuator: heal / freeze / settle; **escalate removed** — superseded by ADR-0027 §2.2, which moved data mutation from operator-gated to bounded-autonomous). *(Amended 2026-06-26, #14191 — the original `config-drift` / `data-integrity` → `escalate-with-diagnosis` (page) routes are full-self-heal-superseded; data-integrity now routes per ADR-0027.)* A single coverage-drift fact at `confidence: 1` **records** (not pages) at that confidence because a record is non-authoritative: the multi-fact requirement above gates authoritative *actions*, not records.
 
 ### 2.5 Binding constraints (graduation ACs)
 
@@ -81,7 +82,7 @@ Every heal action is **config + lifecycle only** (restart / throttle / reconfigu
 - **AC-4 — false-positive-safe detect.** Probe-alone stays advisory; authoritative action needs multi-fact evidence; model canaries classify contention-first.
 - **AC-5 — two-worlds safety.** Every heal action is config + lifecycle only, reversible, N-capped; never code-exec / dynamic-import.
 - **AC-6 — no privilege smuggling.** Container-health must not alter healthcheck-auth (#13435) via an implementation sub; the actuator handle is the *only* privilege this epic introduces, and it is governed here.
-- **AC-7 — orchestrator-SPOF, accepted + documented.** The daemon is orchestrator-resident; if the orchestrator dies there is no heal (escalate-only — and nothing to escalate *with*). This is the operator-accepted caveat, recorded so a future agent does not "fix" it by granting the actuator a second independent home without re-opening the privilege decision.
+- **AC-7 — orchestrator-SPOF, accepted + documented.** The daemon is orchestrator-resident; if the orchestrator dies there is no heal — and the durable record is itself orchestrator-resident, so a dead orchestrator records nothing (the cloud's orchestrator-restart is the recovery; #14191). This is the operator-accepted caveat, recorded so a future agent does not "fix" it by granting the actuator a second independent home without re-opening the privilege decision.
 
 ## 3. Considered alternatives (rejected)
 
@@ -98,4 +99,4 @@ Every heal action is **config + lifecycle only** (restart / throttle / reconfigu
 
 ## 5. Consequences
 
-The organism gains a bounded immune response: a degrading sibling is detected on resource reality, diagnosed to an action class, healed within a thrash-proof envelope, or escalated *with a diagnosis* when un-healable — replacing a silent green-while-rotting deployment with an observable, self-correcting one. The cost is one new privilege (the actuator handle), confined to config+lifecycle, governed by this ADR, and gated by cross-family review before any implementation sub merges.
+The organism gains a bounded immune response: a degrading sibling is detected on resource reality, diagnosed to an action class, healed within a thrash-proof envelope, or **recorded** *with a diagnosis* when un-healable (a durable async-audit, never a blocking page to a nonexistent cloud operator; #14191) — replacing a silent green-while-rotting deployment with an observable, self-correcting one. The cost is one new privilege (the actuator handle), confined to config+lifecycle, governed by this ADR, and gated by cross-family review before any implementation sub merges.
