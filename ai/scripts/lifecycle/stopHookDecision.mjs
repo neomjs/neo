@@ -25,6 +25,70 @@ Validator gotchas: if an own PR is only awaiting merge/review/CI, use laneContin
  */
 export const STOP_HOOK_TURN_OPTIONS_HINT = `Turn-end options: live operator dialogue/planning may stop only when the hook can confirm the operator prompt. Autonomous [WAKE]/stop-hook continuations must drive a named lane and emit lane-state. Before any stop, save one concise turn memory under 24KB. Missing prompt fails closed as autonomous.`;
 
+const AUTONOMOUS_HANDOFF_PATTERNS = Object.freeze([
+    {label: 'nightshift-mode', re: /\bnight\s*shift\b|\bnightshift\b/i},
+    {label: 'freely-choose-window', re: /\bfreely choose\b[\s\S]{0,160}\b(?:for the next|next)\s+\d+\s*(?:h|hr|hrs|hour|hours)\b/i},
+    {label: 'merge-when-back', re: /\b(?:you|agents?|maintainers?)\b[\s\S]{0,160}\bfreely choose\b[\s\S]{0,160}\bmerge when (?:I )?get back\b/i},
+    {label: 'you-drive-window', re: /\byou drive\b[\s\S]{0,160}\b(?:for the next|next|until I|while I)\b/i}
+]);
+
+/**
+ * @summary Extracts a bounded handoff window from operator prose when one is explicitly stated.
+ * @param {String} text Operator prompting text.
+ * @returns {Number|null} Window length in milliseconds, or null when absent/unparseable.
+ */
+export function extractAutonomousHandoffWindowMs(text = '') {
+    if (typeof text !== 'string') return null;
+
+    const match = text.match(/\b(?:for the next|next)\s+(\d+(?:\.\d+)?)\s*(h|hr|hrs|hour|hours|m|min|mins|minute|minutes)\b/i);
+    if (!match) return null;
+
+    const value = Number(match[1]);
+    if (!Number.isFinite(value) || value <= 0) return null;
+
+    const unit = match[2].toLowerCase();
+    return value * (unit.startsWith('m') ? 60 * 1000 : 60 * 60 * 1000);
+}
+
+/**
+ * @summary Detects operator prompts that delegate an autonomous work window, not active dialogue.
+ * @param {String} promptingText Text that prompted the current turn.
+ * @returns {{active: Boolean, reason: String|null, windowMs: Number|null}}
+ */
+export function detectAutonomousHandoffPrompt(promptingText = '') {
+    if (typeof promptingText !== 'string' || !promptingText.trim()) {
+        return {active: false, reason: null, windowMs: null};
+    }
+
+    for (const {label, re} of AUTONOMOUS_HANDOFF_PATTERNS) {
+        if (re.test(promptingText)) {
+            return {
+                active  : true,
+                reason  : label,
+                windowMs: extractAutonomousHandoffWindowMs(promptingText)
+            };
+        }
+    }
+
+    return {active: false, reason: null, windowMs: null};
+}
+
+/**
+ * @summary Classifies the prompting text into operator-dialogue vs autonomous handoff.
+ * @param {{stopHookActive: Boolean, promptingText: String}} signals
+ * @returns {{operatorInLoop: Boolean, autonomousHandoff: Boolean, handoffReason: String|null, handoffWindowMs: Number|null}}
+ */
+export function classifyPromptingContext({stopHookActive, promptingText = ''}) {
+    const handoff = detectAutonomousHandoffPrompt(promptingText);
+
+    return {
+        operatorInLoop   : !stopHookActive && !!promptingText.trim() && !/^\s*\[WAKE\]/.test(promptingText) && !handoff.active,
+        autonomousHandoff: handoff.active,
+        handoffReason    : handoff.reason,
+        handoffWindowMs  : handoff.windowMs
+    };
+}
+
 /**
  * @summary Pure mapping of a parse OUTCOME to a terminal verdict — the 3-bucket chain. A malformed
  * emission (parseLaneState threw) and an absent emission (null) are distinct idle-out failures from an
@@ -53,9 +117,7 @@ export function parseOutcomeToVerdict({descriptor, parseError}, validate) {
  * @returns {Boolean}
  */
 export function isOperatorInLoop({stopHookActive, promptingText = ''}) {
-    if (stopHookActive)        return false;
-    if (!promptingText.trim()) return false;
-    return !/^\s*\[WAKE\]/.test(promptingText);
+    return classifyPromptingContext({stopHookActive, promptingText}).operatorInLoop;
 }
 
 /**
