@@ -67,7 +67,7 @@ flowchart LR
     COMMIT --> AUDIT["list_transactions<br/>audit view"]
 ```
 
-## A Shared World — and it's live right now
+## A Shared World — and here's the receipt
 
 The Neural Link is a star topology: a **Bridge** (a dumb WebSocket router on `127.0.0.1:8081`), a **Client** (`Neo.ai.Client`, a tree-shakeable, opt-in singleton in the App Worker — zero overhead in production), and the **MCP server**. The Bridge creates a *Shared World*: multiple agents — a Claude in one harness, a GPT in another — connect to the same runtime, and every response is broadcast to *all* of them. Collaborative debugging, by construction.
 
