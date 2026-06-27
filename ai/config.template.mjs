@@ -611,9 +611,10 @@ class Config extends ConfigProvider {
                     remConsolidationWatchdogCheckMs  : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_REM_CONSOLIDATION_WATCHDOG_INTERVAL_MS', 'number'),
                     /**
                      * Cadence of the data-integrity sweep — the read-only, never-fail health check that
-                     * audits Memory Core metadata-vs-vector coverage and escalates a `data-integrity`
-                     * diagnosis (operator page) on drift (the "up but data-gutted reports green" blind
-                     * spot). Detect-only; data mutation stays operator-gated. Hourly surfaces a silent
+                     * audits Memory Core metadata-vs-vector coverage and emits a `data-integrity`
+                     * diagnosis on drift (the "up but data-gutted reports green" blind spot). The
+                     * diagnosis routes to the autonomous data-recovery actuator — the store is HEALED,
+                     * not paged: a cloud deployment has no operator to gate. Hourly surfaces a silent
                      * vector-loss in hours, not weeks. `<= 0` disables the lane.
                      */
                     dataIntegritySweepCheckMs        : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_DATA_INTEGRITY_SWEEP_INTERVAL_MS', 'number')
