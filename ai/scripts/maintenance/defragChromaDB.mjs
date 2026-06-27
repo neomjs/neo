@@ -1,17 +1,17 @@
-import {program}                                                     from 'commander';
-import {ChromaClient}                                                from 'chromadb';
-import {execSync}                                                    from 'child_process';
-import crypto                                                        from 'crypto';
-import fs                                                            from 'fs-extra';
-import path                                                          from 'path';
-import {fileURLToPath, pathToFileURL}                                from 'url';
-import Neo                                                           from '../../../src/Neo.mjs';
-import AiConfig                                                      from '../../config.mjs';
-import {withHeavyMaintenanceLease}                                   from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
-import {registerNeoChromaEmbeddingFunctions}                         from '../../services/shared/vector/chromaClientPrimitives.mjs';
-import {auditChromaVectorCoverage}                                   from './checkChromaIntegrity.mjs';
-import {extractMemoryCoreCollectionData, truncateToEmbedTokenBudget} from './repairMemoryCoreStoredEmbeddings.mjs';
-import {resolveAutonomousRepairExit}                                 from '../../services/memory-core/helpers/acceptedLossSettlement.mjs';
+import {program}                                                                                 from 'commander';
+import {ChromaClient}                                                                            from 'chromadb';
+import {execSync}                                                                                from 'child_process';
+import crypto                                                                                    from 'crypto';
+import fs                                                                                        from 'fs-extra';
+import path                                                                                      from 'path';
+import {fileURLToPath, pathToFileURL}                                                            from 'url';
+import Neo                                                                                       from '../../../src/Neo.mjs';
+import AiConfig                                                                                  from '../../config.mjs';
+import {withHeavyMaintenanceLease}                                                               from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
+import {registerNeoChromaEmbeddingFunctions}                                                     from '../../services/shared/vector/chromaClientPrimitives.mjs';
+import {auditChromaVectorCoverage}                                                               from './checkChromaIntegrity.mjs';
+import {MC_REPAIR_STRATEGY_VERSION, extractMemoryCoreCollectionData, truncateToEmbedTokenBudget} from './repairMemoryCoreStoredEmbeddings.mjs';
+import {resolveAutonomousRepairExit}                                                             from '../../services/memory-core/helpers/acceptedLossSettlement.mjs';
 import {
     appendAutoAcceptedLoss,
     getAcceptedLossAuditFilePath,
@@ -1422,6 +1422,7 @@ export function anyRepairNonClean(results = []) {
  * @param {Function} [options.normalizeResidue=normalizeUnrecoverableEntry]
  * @param {String} [options.provider='']
  * @param {Number|String} [options.contextBudget='']
+ * @param {String} [options.strategyVersion=MC_REPAIR_STRATEGY_VERSION]
  * @param {Function} [options.appendFn=appendAutoAcceptedLoss] Audit-append seam (test injection).
  * @param {Function} [options.writeAcceptedLossStateFn=writeAutoAcceptedLossState] Latest-state marker seam.
  * @param {Function} [options.clearFn=clearDefragState] Marker-clear seam (test injection).
@@ -1436,13 +1437,14 @@ export async function applyAutonomousSettlement({
     normalizeResidue = normalizeUnrecoverableEntry,
     provider         = '',
     contextBudget    = '',
+    strategyVersion  = MC_REPAIR_STRATEGY_VERSION,
     appendFn         = appendAutoAcceptedLoss,
     writeAcceptedLossStateFn = writeAutoAcceptedLossState,
     clearFn          = clearDefragState,
     now              = () => new Date().toISOString(),
     writeLog
 } = {}) {
-    const settleExit = resolveAutonomousRepairExit({results, normalizeResidue, provider, contextBudget});
+    const settleExit = resolveAutonomousRepairExit({results, normalizeResidue, provider, contextBudget, strategyVersion});
 
     if (!settleExit.allSettled) {
         return {settled: false, perCollection: settleExit.perCollection};
