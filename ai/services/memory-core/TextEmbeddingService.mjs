@@ -479,7 +479,11 @@ class TextEmbeddingService extends Base {
                 res.on('data', chunk => body += chunk);
                 res.on('end', () => {
                     if (res.statusCode < 200 || res.statusCode >= 300) {
-                        rejectFunc(new Error(`openAiCompatible embedding error HTTP ${res.statusCode}: ${body}`));
+                        // Append the resolved endpoint + model so a wrong host:port (the :11434 Ollama
+                        // default vs :1234 LM Studio) or a non-resident model is diagnosable from the error
+                        // alone — not a bare "resource could not be found". The `HTTP <status>:` prefix MUST
+                        // stay verbatim: OPENAI_COMPATIBLE_CONTENTION_HTTP_ERROR_RE classifies on it.
+                        rejectFunc(new Error(`openAiCompatible embedding error HTTP ${res.statusCode}: ${body} [endpoint=${parsedUrl.href}, model='${embeddingModel}']`));
                     } else {
                         try {
                             const result = JSON.parse(body);
