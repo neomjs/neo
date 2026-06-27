@@ -17,6 +17,14 @@
             "path": "learn/blog/cross-family-verification.md"
         },
         {
+            "date": "2026-06-16",
+            "id": "blog/ai-agents-runtime-possession",
+            "isLeaf": true,
+            "name": "Your AI can write the app. It still can't operate the running one.",
+            "parentId": "2026",
+            "path": "learn/blog/ai-agents-runtime-possession.md"
+        },
+        {
             "collapsed": false,
             "id": "2025",
             "isLeaf": false,
