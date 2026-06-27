@@ -1132,7 +1132,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
 
         expect(result.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
         expect(result.missing_micro_review).toContain('Class: micro | contained (the blast-class assertion)');
-        expect(result.template).toBe('.agents/skills/pr-review/assets/pr-review-micro-review-template.md');
+        expect(result.message).toContain('no architectural concept to teach'); // the graph-ingestion gate keeps the concept-graph fed
         expect(graphqlCallCount).toBe(0);
     });
 

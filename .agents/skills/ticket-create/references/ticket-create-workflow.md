@@ -73,8 +73,6 @@ For source anchors (`#11078` / `#11082` / `#11083` / `#11084`), Discussion `#110
 
 Apply at creation time — not just at intake. Every stage must pass before the ticket is drafted.
 
-**Scope Gate (apply FIRST — bundle by default):** before the chain, ask — is this a *separate* ticket, or part of work that lands in ONE PR? Coherent change that ships in a single PR is ONE ticket, never decomposed into 3–8 process-slices (each slice pays the full per-unit tax: a Fat body + a CI run + a review cycle). The unit is **a coherent change worth its own CI + review**, not a 50-line step. A split must **replace** scope — carve out a genuinely-separable, independently-shippable concern — never **add** net scope by atomizing one unit into slivers. Over-fragmentation × per-unit overhead is the single biggest velocity drag; when in doubt, bundle. (The Fat-body mandate, §5, is untouched — bodies stay load-bearing; this gate governs ticket **count**, not body depth.)
-
 1. **Premise** — is the stated problem real and reproducible? Has the underlying symptom been independently verified, or is it secondhand?
 2. **Prescription** — is the stated fix the right substrate for the problem, or does it treat a symptom? Could a different layer (config, service, daemon, schema) solve it better?
    **Verify-Before-Assert Integration:** Before making architectural claims or prescribing solutions in your Fat Ticket body (Stage 2 Prescription), you MUST apply the **Verify-Before-Assert Pre-Flight Check** (`AGENTS.md` §verify_before_assert). You cannot assert that a bug exists or a pattern is flawed without empirical confirmation (a falsifying tool call) prior to filing the ticket.
@@ -151,7 +149,7 @@ When drafting ticket bodies, read [`learn/agentos/process/reference-hygiene.md`]
 | Skipping duplicate sweep | Pollutes Knowledge Base; splits swarm attention |
 | Inventing label names | Breaks label taxonomy; causes silent GitHub API rejections |
 | Precedent-following without skill check | Propagates anti-patterns from prior sessions (e.g., `[enhancement]` prefix spread this way) |
-| UNRELATED-scope bundling | cramming *unrelated* concerns into one ticket, or an `epic` label on a single-commit ticket. (Bundling *coherent* one-PR work is the GOAL — see the §2 Scope Gate — never fragment it into slivers.) |
+| Over-fragmentation | one-PR work split into micro-tickets; bundle by default — a split replaces scope, not adds |
 
 ## 9. When to Escalate to Discussion Instead
 

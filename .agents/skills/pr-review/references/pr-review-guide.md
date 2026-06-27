@@ -177,11 +177,9 @@ When the PR discussion thread exceeds 24KB or has received ≥ 3 formal reviews,
 
 ## 7. Depth Floor — Preventing Rubber-Stamp Approvals
 
-Structural skill compliance does not guarantee rigor. A review can hit every `[EVALUATION_METRICS]` score, include all graph-ingestion tags, match the template structure — and still be empirically rubber-stamp-shaped. The Depth Floor mandates below close that gap.
+Structural compliance ≠ rigor — these mandates apply to **intense** changes (touch an ADR / new subsystem / consumed contract / security / migration, **or** large, class-first not size); a **micro/contained** PR gets a premise+correctness glance → Approve.
 
-**Blast-scaling (class-first, size-second).** The Depth Floor + the full metric scoring + the audit gauntlet apply to **intense** reviews — a change that touches an ADR, a new subsystem, a consumed contract, security, or a migration, **OR** is large. For a **micro / contained** PR (none of those triggers, small diff) the review is a **premise + correctness glance**: confirm the change is right and safe, then **Approve** — the Minimum-One-Challenge, full scoring, and audit gauntlet are NOT required. Class-first, size-second: a 1k-line diff is intense even if "mechanical"; a 30-line ADR-touching change is intense even if small. Running the full gauntlet on a trivially-correct micro PR is the rubber-stamp's opposite failure — theater — and is exactly what this scaling prevents. For the light path use the Micro-Review shape (`assets/pr-review-micro-review-template.md`: header + **Class:** + **Verdict:** + **Glance:**) — the `manage_pr_review` + CI-lint validators accept it for a micro/contained PR.
-
-### 7.1 Minimum-One-Challenge for Peer Reviews (intense-class)
+### 7.1 Minimum-One-Challenge for Peer Reviews
 
 Peer-reviews MUST name at least one of the following:
 - A **weakness** in the approach, even if non-blocking
@@ -321,9 +319,9 @@ If any check surfaces a miss, flag it in Required Actions. A PR that ships a new
 
 After technical audits (§3-§8), decide the merge posture:
 
-1. **Approve** — the DEFAULT for any working PR: free of code-shape / correctness / safety defects; ship as-is. Non-blocking observations go inline or as a comment, NOT as gating items. Bias to Approve — a trivially-correct micro / contained PR is approved on a premise + correctness glance, not run through the full gauntlet.
-2. **Request Changes** — must-fix before merge, and **only** for code-shape / correctness / safety defects. No manufactured nits. A finding the author should address becomes an inline-fix / comment / same-PR AC — **a review never spawns a follow-up ticket** (those follow-up tickets are the micro-ticket flood this skill exists to prevent).
-3. **Approve+Follow-Up** — **the least desirable outcome; avoid it.** It launders "do more work + iterate" as approval and spawns a fat follow-up ticket → new lane → CI → nitpick cycles. If the PR is mergeable, just **Approve** (fold any real residual into a same-PR AC or an inline comment); if it has a blocking defect, **Request Changes**. Reserve A+FU only for a genuinely-separable, already-tracked, release-relevant successor — never as a reflexive "approve, but…".
+1. **Approve** — default for a working PR (no blocking defect); ship as-is, nits inline.
+2. **Request Changes** — must-fix, only for code-shape/correctness/safety; a finding → same-PR fix/comment/AC, never a follow-up ticket.
+3. **Approve+Follow-Up** — least-desirable; avoid (spawns the follow-up-ticket flood). Mergeable→Approve; defect→Request Changes.
 4. **Drop+Supersede** — premise is stale/wrong; recommend closure via Request Changes shape so author/human handles PR/ticket closure. Use for fundamentally wrong premise, operator-intent correction, or >5 cycles rearranging the same invalid abstraction.
 
 This is architectural judgment after defects are identified; it is not another defect audit.

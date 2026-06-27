@@ -401,18 +401,17 @@ function getMicroReviewTemplateValidationFailure(body) {
         return null;
     }
 
-    const skillPath       = '.agents/skills/pr-review/SKILL.md';
-    const microReviewPath = '.agents/skills/pr-review/assets/pr-review-micro-review-template.md';
+    const skillPath = '.agents/skills/pr-review/SKILL.md';
 
     const message = [
         `Review body attempts the Micro-Review format but does not match its minimal shape.`,
         ``,
-        `**Required action**: read \`${microReviewPath}\` BEFORE retrying.`,
-        ``,
-        `The Micro-Review (Cycle-1, blast-scaled) is for a MICRO / CONTAINED PR — none of the intense`,
-        `triggers (ADR / new-subsystem / consumed-contract / security / migration) and a small diff. It needs`,
-        `only: the header, **Class:** (asserting micro | contained), **Verdict:**, and **Glance:** (the`,
-        `premise + correctness check). An intense or large PR uses the full template instead.`
+        `The Micro-Review (Cycle-1, blast-scaled per pr-review-guide §7) is for a MICRO / CONTAINED PR — none`,
+        `of the intense triggers (ADR / new-subsystem / consumed-contract / security / migration), a small diff,`,
+        `AND no architectural concept to teach (so no \`[ARCH_ALIGNMENT]\` / \`[RETROSPECTIVE]\` graph-ingestion is`,
+        `lost — that is the gate that keeps the concept-graph fed). It needs only: the header, **Class:**`,
+        `(asserting micro | contained), **Verdict:**, and **Glance:** (the premise + correctness check). A`,
+        `concept-bearing or intense / large PR uses the full template instead.`
     ].join('\n');
 
     return {
@@ -420,8 +419,7 @@ function getMicroReviewTemplateValidationFailure(body) {
         message,
         code               : 'PR_REVIEW_TEMPLATE_VALIDATION_FAILED',
         missing_micro_review: missing,
-        skill              : skillPath,
-        template           : microReviewPath
+        skill              : skillPath
     };
 }
 
