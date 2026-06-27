@@ -39,6 +39,8 @@ import {auditChromaVectorCoverage}                                              
 import {createReEmbedMissingHeal, createReEmbedMissingHealOperation}                                from '../../services/memory-core/helpers/reEmbedMissingHeal.mjs';
 import {appendHealEvent, healEventsToRecentRuns, queryHealLedger, readHealLedger}                   from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
 import {quarantineCollection, storeFenceTargets, unquarantineCollection}                            from '../../services/memory-core/helpers/quarantineStore.mjs';
+import {readFreezeRecords, removeFreezeRecord, upsertFreezeRecord}                                  from '../../services/memory-core/helpers/freezeRecordStore.mjs';
+import {runFreezeReprobeCycle}                                                                      from '../../services/memory-core/helpers/freezeReprobeDecision.mjs';
 import {Memory_StorageRouter as StorageRouter, Memory_TextEmbeddingService as TextEmbeddingService} from '../../services.mjs';
 import {buildDataIntegrityCoverageDiagnosis}                                                        from './services/dataIntegrityCoverageDiagnosis.mjs';
 import {assembleDataIntegrityEvidence}                                                              from './services/dataIntegrityEvidenceAssembler.mjs';
@@ -431,7 +433,8 @@ export class Orchestrator extends Base {
             expectedDimension: AiConfig.vectorDimension
         });
 
-        const healLedgerDir = path.join(this.dataDir, 'data-heal-events');
+        const healLedgerDir    = path.join(this.dataDir, 'data-heal-events');
+        const freezeRecordsDir = path.join(this.dataDir, 'data-freeze-records');
 
         return ClassSystemUtil.beforeSetInstance(value, DataRecoveryActuatorService, {
             healOperations: {
@@ -470,11 +473,78 @@ export class Orchestrator extends Base {
                     }
 
                     return {status: 'quarantined', detail: {collection, fenced: targets}};
+                },
+                // Freeze-from-serving: the safe terminal for a systemic / dimension-systemic fault (e.g. a
+                // misconfigured-embedder false-storm). Mirrors quarantine's fence, but ALSO persists a durable
+                // freeze-record so the autonomous re-probe cycle can auto-unfreeze when the fault clears — in
+                // cloud there is no operator to lift it (the #1 weeks-bar risk). Lossless: no data mutated.
+                freeze: async ({collection, evidence, now} = {}) => {
+                    const targets          = storeFenceTargets(collection, [AiConfig.collections.memory, AiConfig.collections.session]),
+                          faultFingerprint = evidence?.reasonCode ?? evidence?.mode ?? collection;
+
+                    for (const target of targets) {
+                        await quarantineCollection(target, {dir: AiConfig.engines.chroma.dataDir, reason: faultFingerprint, now});
+                    }
+                    await upsertFreezeRecord({dir: freezeRecordsDir, collectionName: collection, faultFingerprint, frozenAt: now});
+
+                    return {status: 'frozen', detail: {collection, fenced: targets, faultFingerprint}};
                 }
             },
             recentRunsReader : async collectionName => healEventsToRecentRuns(queryHealLedger(await readHealLedger({dir: healLedgerDir}), {collections: [collectionName]})),
             recordRun        : async ({action, collection, at}) => appendHealEvent({type: action, collection, status: 'attempt'}, {dir: healLedgerDir, now: at}),
             recordHealOutcome: async ({action, collection, status, detail, healedAt}) => appendHealEvent({type: action, collection, status, detail}, {dir: healLedgerDir, now: healedAt})
+        });
+    }
+
+    /**
+     * @summary Health probe for the freeze re-probe cycle: has the systemic fault that tripped the freeze
+     * cleared? A canary embed (the same `TextEmbeddingService` the heal path uses) checks BOTH signals at once —
+     * a successful embed proves the embedder is healthy, and a correct-dimension vector proves dimension
+     * consistency. Any error → an inconclusive reading, so `decideFreezeReprobe` fails closed to stay-frozen. The
+     * embedder fault is systemic, so the canary is collection-agnostic (the parameter satisfies the cycle contract).
+     * @param {String} [collectionName] The frozen collection (unused — the embedder health is systemic).
+     * @returns {Promise<{embedderHealthy: Boolean, dimensionConsistent: Boolean}>}
+     */
+    async probeFrozenCollectionHealth(collectionName) {
+        try {
+            const [vector] = await TextEmbeddingService.embedTexts(['__freeze-reprobe-health-canary__'], AiConfig.embeddingProvider),
+                  ok       = Array.isArray(vector) && vector.length === AiConfig.vectorDimension;
+
+            return {embedderHealthy: ok, dimensionConsistent: ok};
+        } catch (error) {
+            return {embedderHealthy: false, dimensionConsistent: false}; // inconclusive → stay frozen (fail closed)
+        }
+    }
+
+    /**
+     * @summary Runs one autonomous freeze re-probe tick (the recovery counterpart to the `freeze` actuator op):
+     * for every frozen collection it re-probes health and auto-unfreezes + re-heals a cleared fault, stays frozen
+     * while it persists, or contains it past the thrash cap — all under `decideFreezeReprobe`'s back-off, never an
+     * operator. In cloud a transient embedder fault must not permanently kill a collection (the #1 weeks-bar risk).
+     * No-op (a cheap read only) when nothing is frozen; never throws into the poll (the caller swallows).
+     * @param {Number} [now] Injected clock (epoch ms).
+     * @returns {Promise<Object[]>} Per-collection re-probe outcomes, or `[]` when nothing is frozen.
+     */
+    async runFreezeReprobeCycleIfActive(now = Date.now()) {
+        const freezeRecordsDir = path.join(this.dataDir, 'data-freeze-records'),
+              healLedgerDir    = path.join(this.dataDir, 'data-heal-events'),
+              freezeRecords    = await readFreezeRecords({dir: freezeRecordsDir});
+
+        if (Object.keys(freezeRecords).length === 0) {
+            return []; // nothing frozen → no probe, no unfreeze, no further I/O
+        }
+
+        return runFreezeReprobeCycle({
+            freezeRecords,
+            now,
+            probe            : collectionName => this.probeFrozenCollectionHealth(collectionName),
+            unfreezeAndReheal: async collectionName => {
+                // Lift the serving fence + ledger the unfreeze; the next poll's diagnosis re-heals any residue.
+                await unquarantineCollection(collectionName, {dir: AiConfig.engines.chroma.dataDir});
+                await appendHealEvent({type: 'unfreeze', collection: collectionName, status: 'unfrozen'}, {dir: healLedgerDir, now});
+            },
+            persistProbe: async ({collectionName, lastProbeAt, unfreezeAttempts}) => upsertFreezeRecord({dir: freezeRecordsDir, collectionName, lastProbeAt, unfreezeAttempts}),
+            clearFreeze : async collectionName => { await removeFreezeRecord({dir: freezeRecordsDir, collectionName}); }
         });
     }
 
@@ -816,6 +886,9 @@ export class Orchestrator extends Base {
 
         this.deploymentStateBridgeService?.writeSnapshotIfDue()
             .catch(error => this.writeLog('ERROR', `[Orchestrator] Deployment state bridge failed: ${error.message}`));
+
+        this.runFreezeReprobeCycleIfActive(now)
+            .catch(error => this.writeLog('ERROR', `[Orchestrator] Freeze re-probe cycle failed: ${error.message}`));
 
         if (this.isPolling) {
             this.pollHandle = setTimeout(() => this.poll(), AiConfig.orchestrator.intervals.pollMs);
