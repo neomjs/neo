@@ -151,7 +151,7 @@ When drafting ticket bodies, read [`learn/agentos/process/reference-hygiene.md`]
 | Skipping duplicate sweep | Pollutes Knowledge Base; splits swarm attention |
 | Inventing label names | Breaks label taxonomy; causes silent GitHub API rejections |
 | Precedent-following without skill check | Propagates anti-patterns from prior sessions (e.g., `[enhancement]` prefix spread this way) |
-| Cross-scope bundling | `epic` label on a single-commit ticket; hurts granularity |
+| UNRELATED-scope bundling | cramming *unrelated* concerns into one ticket, or an `epic` label on a single-commit ticket. (Bundling *coherent* one-PR work is the GOAL — see the §2 Scope Gate — never fragment it into slivers.) |
 
 ## 9. When to Escalate to Discussion Instead
 

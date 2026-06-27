@@ -179,7 +179,9 @@ When the PR discussion thread exceeds 24KB or has received ≥ 3 formal reviews,
 
 Structural skill compliance does not guarantee rigor. A review can hit every `[EVALUATION_METRICS]` score, include all graph-ingestion tags, match the template structure — and still be empirically rubber-stamp-shaped. The Depth Floor mandates below close that gap.
 
-### 7.1 Minimum-One-Challenge for Peer Reviews
+**Blast-scaling (class-first, size-second).** The Depth Floor + the full metric scoring + the audit gauntlet apply to **intense** reviews — a change that touches an ADR, a new subsystem, a consumed contract, security, or a migration, **OR** is large. For a **micro / contained** PR (none of those triggers, small diff) the review is a **premise + correctness glance**: confirm the change is right and safe, then **Approve** — the Minimum-One-Challenge, full scoring, and audit gauntlet are NOT required. Class-first, size-second: a 1k-line diff is intense even if "mechanical"; a 30-line ADR-touching change is intense even if small. Running the full gauntlet on a trivially-correct micro PR is the rubber-stamp's opposite failure — theater — and is exactly what this scaling prevents.
+
+### 7.1 Minimum-One-Challenge for Peer Reviews (intense-class)
 
 Peer-reviews MUST name at least one of the following:
 - A **weakness** in the approach, even if non-blocking
