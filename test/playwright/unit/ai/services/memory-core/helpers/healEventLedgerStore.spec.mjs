@@ -8,7 +8,8 @@ import {
     getHealLedgerFilePath,
     appendHealEvent,
     readHealLedger,
-    summarizeHealLedger
+    summarizeHealLedger,
+    queryHealLedger
 } from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
 
 async function tmpDir() {
@@ -90,5 +91,44 @@ test.describe('summarizeHealLedger — the queryable status surface', () => {
         const withGarbage = summarizeHealLedger([null, {type: 'heal', status: 'healed', at: 5}, 'nope']);
         expect(withGarbage.total).toBe(3);          // counts rows
         expect(withGarbage.byStatus).toEqual({healed: 1}); // but only valid objects contribute
+    });
+});
+
+test.describe('queryHealLedger — the filtered "what happened" surface', () => {
+    const sample = [
+        {type: 'heal',     collection: 'c1', status: 'healed',    at: 10},
+        {type: 'freeze',   collection: 'c2', status: 'contained', at: 20},
+        {type: 'heal',     collection: 'c1', status: 'failed',    at: 30},
+        {type: 'unfreeze', collection: 'c2', status: 'unfrozen',  at: 40}
+    ];
+
+    test('returns newest-first by `at`', () => {
+        expect(queryHealLedger(sample).map(e => e.at)).toEqual([40, 30, 20, 10]);
+    });
+
+    test('time window (sinceMs / untilMs, inclusive)', () => {
+        expect(queryHealLedger(sample, {sinceMs: 20, untilMs: 30}).map(e => e.at)).toEqual([30, 20]);
+    });
+
+    test('filters by type / collection / status', () => {
+        expect(queryHealLedger(sample, {types: ['freeze', 'unfreeze']}).map(e => e.type)).toEqual(['unfreeze', 'freeze']);
+        expect(queryHealLedger(sample, {collections: ['c1']}).map(e => e.at)).toEqual([30, 10]);
+        expect(queryHealLedger(sample, {statuses: ['failed']}).map(e => e.at)).toEqual([30]);
+    });
+
+    test('combined filters intersect', () => {
+        expect(queryHealLedger(sample, {collections: ['c2'], types: ['freeze']}).map(e => e.at)).toEqual([20]);
+    });
+
+    test('limit caps the result newest-first', () => {
+        expect(queryHealLedger(sample, {limit: 2}).map(e => e.at)).toEqual([40, 30]);
+        expect(queryHealLedger(sample, {limit: 0})).toEqual([]);
+    });
+
+    test('drops non-objects, and excludes untimed events when a time bound is requested', () => {
+        const withGarbage = [null, 'nope', {type: 'heal', status: 'healed'} /* no at */, {type: 'heal', status: 'healed', at: 50}];
+        expect(queryHealLedger(withGarbage).length).toBe(2);                          // both objects, no time bound
+        expect(queryHealLedger(withGarbage, {sinceMs: 0}).map(e => e.at)).toEqual([50]); // untimed excluded under a bound
+        expect(queryHealLedger(undefined)).toEqual([]);
     });
 });
