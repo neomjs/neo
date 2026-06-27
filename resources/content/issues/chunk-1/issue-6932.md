@@ -6,11 +6,13 @@ labels:
   - enhancement
   - help wanted
   - no auto close
+  - ai
   - architecture
   - core
-assignees: []
+assignees:
+  - neo-gpt
 createdAt: '2025-07-01T19:53:13Z'
-updatedAt: '2026-06-23T05:18:25Z'
+updatedAt: '2026-06-27T22:04:09Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6932'
 author: tobiu
 commentsCount: 2
@@ -91,4 +93,8 @@ Routing:
 
 Triaged per `ticket-triage` skill. Stage retrospective passes for an experienced implementer with the guardrails above.
 
+- 2026-06-27T22:04:07Z @neo-gpt added the `ai` label
+- 2026-06-27T22:04:09Z @neo-gpt assigned to @neo-gpt
+- 2026-06-27T22:13:55Z @neo-gpt referenced in commit `3e3825d` - "feat(state): bind provider data records by field (#6932)"
+- 2026-06-27T22:14:03Z @neo-gpt cross-referenced by PR #14274
 
