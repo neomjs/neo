@@ -12,7 +12,11 @@ import {registerNeoChromaEmbeddingFunctions}                         from '../..
 import {auditChromaVectorCoverage}                                   from './checkChromaIntegrity.mjs';
 import {extractMemoryCoreCollectionData, truncateToEmbedTokenBudget} from './repairMemoryCoreStoredEmbeddings.mjs';
 import {resolveAutonomousRepairExit}                                 from '../../services/memory-core/helpers/acceptedLossSettlement.mjs';
-import {appendAutoAcceptedLoss}                                      from '../../services/memory-core/helpers/acceptedLossAuditStore.mjs';
+import {
+    appendAutoAcceptedLoss,
+    getAcceptedLossAuditFilePath,
+    writeAutoAcceptedLossState
+}                                                                    from '../../services/memory-core/helpers/acceptedLossAuditStore.mjs';
 
 /**
  * @summary Defragments collection groups inside the unified ChromaDB store.
@@ -74,6 +78,7 @@ const DEFRAG_STATE_DIR = path.join(PROJECT_ROOT, '.neo-ai-data', 'maintenance', 
 const MEMORY_CORE_UNSAFE_MESSAGE  =
     'Memory Core defrag is disabled until a safe multi-collection shadow/parking promotion exists. ' +
     'MC is an irreplaceable store; use backup/restore or a purpose-built repair lane instead of delete/recreate defrag.';
+const ACCEPTED_LOSS_STATE_SCHEMA_VERSION = 1;
 
 registerNeoChromaEmbeddingFunctions({
     dummyEmbeddingFunction: AiConfig.dummyEmbeddingFunction
@@ -1418,8 +1423,10 @@ export function anyRepairNonClean(results = []) {
  * @param {String} [options.provider='']
  * @param {Number|String} [options.contextBudget='']
  * @param {Function} [options.appendFn=appendAutoAcceptedLoss] Audit-append seam (test injection).
+ * @param {Function} [options.writeAcceptedLossStateFn=writeAutoAcceptedLossState] Latest-state marker seam.
  * @param {Function} [options.clearFn=clearDefragState] Marker-clear seam (test injection).
  * @param {Function} [options.writeLog] Optional logger, called with the settled-collection count.
+ * @param {Function} [options.now] Injectable timestamp factory for deterministic tests.
  * @returns {Promise<Object>} `{settled, perCollection}` — `settled` true iff every non-clean collection auto-settled and the marker was cleared.
  */
 export async function applyAutonomousSettlement({
@@ -1430,7 +1437,9 @@ export async function applyAutonomousSettlement({
     provider         = '',
     contextBudget    = '',
     appendFn         = appendAutoAcceptedLoss,
+    writeAcceptedLossStateFn = writeAutoAcceptedLossState,
     clearFn          = clearDefragState,
+    now              = () => new Date().toISOString(),
     writeLog
 } = {}) {
     const settleExit = resolveAutonomousRepairExit({results, normalizeResidue, provider, contextBudget});
@@ -1439,11 +1448,35 @@ export async function applyAutonomousSettlement({
         return {settled: false, perCollection: settleExit.perCollection};
     }
 
-    for (const entry of settleExit.perCollection) {
-        const result = (Array.isArray(results) ? results : []).find(item => item?.collectionName === entry.collectionName);
+    const settledCollections = [];
 
-        await appendFn({...entry.auditRecord, collectionName: entry.collectionName, parkingName: result?.promotion?.parkingName ?? null}, {dir: auditDir});
+    for (const entry of settleExit.perCollection) {
+        const result     = (Array.isArray(results) ? results : []).find(item => item?.collectionName === entry.collectionName),
+              auditEntry = {...entry.auditRecord, collectionName: entry.collectionName, parkingName: result?.promotion?.parkingName ?? null};
+
+        await appendFn(auditEntry, {dir: auditDir});
+
+        settledCollections.push({
+            collectionName: entry.collectionName,
+            reasonCode    : entry.reasonCode,
+            fingerprint   : auditEntry.fingerprint,
+            acceptedIds   : auditEntry.acceptedIds,
+            residueCount  : auditEntry.residueCount,
+            collectionSize: auditEntry.collectionSize,
+            parkingName   : auditEntry.parkingName
+        });
     }
+
+    await writeAcceptedLossStateFn({
+        schemaVersion  : ACCEPTED_LOSS_STATE_SCHEMA_VERSION,
+        type           : 'auto-accepted-loss-state',
+        phase          : 'memory-core-repair-recovered-with-accepted-loss',
+        settledAt      : now(),
+        auditPath      : getAcceptedLossAuditFilePath(auditDir),
+        defragStatePath: statePath,
+        collectionCount: settledCollections.length,
+        collections    : settledCollections
+    }, {dir: auditDir});
 
     // Resolve the non-clean marker the repair wrote — the run is now genuinely settled across runs, not just for
     // this process's exit code.
@@ -1606,7 +1639,7 @@ async function defragChromaDB() {
                         auditDir     : path.dirname(statePath),
                         provider     : config.embeddingProvider,
                         contextBudget: embedBudgetTokens,
-                        writeLog     : settledCount => console.log(`   ♻️  Autonomous accepted-loss: all ${settledCount} non-clean collection(s) held only bounded, deterministically-terminal residue — settled + recorded to ${path.join(path.dirname(statePath), 'auto-accepted-loss.jsonl')}, and the defrag marker cleared so the next run is unblocked. No operator page; zero ack.`)
+                        writeLog     : settledCount => console.log(`   ♻️  Autonomous accepted-loss: all ${settledCount} non-clean collection(s) held only bounded, deterministically-terminal residue — settled + recorded to ${path.join(path.dirname(statePath), 'auto-accepted-loss.jsonl')} and ${path.join(path.dirname(statePath), 'auto-accepted-loss-state.json')}, and the defrag marker cleared so the next run is unblocked. No operator page; zero ack.`)
                     });
 
                     if (settlement.settled) {
