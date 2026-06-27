@@ -181,8 +181,7 @@ export const TIER1_DEFAULTS = deepFreeze(Neo.clone({
             baseBackoffMs              : 5 * 60 * 1000,
             maxBackoffMs               : HOUR_MS,
             verifyCooldownMs           : 60 * 1000,
-            healthyObservationThreshold: 1,
-            operatorPageTarget         : 'AGENT:*'
+            healthyObservationThreshold: 1
         },
         deploymentStateBridge: {
             enabled                     : true,
