@@ -18,13 +18,15 @@ const DEFAULT_STALE_AFTER_MS     = 2 * 60 * 1000;
  * @param {String} [options.source='orchestrator-deployment-state-bridge'] Producer label.
  * @param {Object[]} [options.services=[]] Bounded per-service snapshots.
  * @param {Object|null} [options.recoveryRuns=null] Bounded recovery-run ledger snapshot.
+ * @param {Object|null} [options.selfHeal=null] Bounded self-heal immune-system status (heal-ledger summary + recent events).
  * @returns {Object}
  */
 export function createDeploymentStateSnapshot({
     generatedAt = Date.now(),
     source = 'orchestrator-deployment-state-bridge',
     services = [],
-    recoveryRuns = null
+    recoveryRuns = null,
+    selfHeal = null
 } = {}) {
     if (!Number.isFinite(generatedAt)) {
         throw new TypeError('createDeploymentStateSnapshot: generatedAt must be finite');
@@ -40,7 +42,8 @@ export function createDeploymentStateSnapshot({
         generatedAt,
         source,
         services,
-        recoveryRuns
+        recoveryRuns,
+        selfHeal
     };
 }
 

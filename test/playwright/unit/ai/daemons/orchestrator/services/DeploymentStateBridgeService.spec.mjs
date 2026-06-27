@@ -40,13 +40,17 @@ function createService({
     runtimeAccessService,
     diagnosisService,
     providerResidencyProbe = async () => null,
-    recoveryRunStateReader = null
+    recoveryRunStateReader = null,
+    healLedgerDir = null,
+    healLedgerReader = null
 } = {}) {
     return Neo.create(DeploymentStateBridgeService, {
         runtimeAccessService,
         diagnosisService,
         providerResidencyProbe,
         recoveryRunStateReader,
+        healLedgerDir,
+        healLedgerReader,
         nowFn: () => OBSERVED_AT
     });
 }
@@ -143,9 +147,38 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
         });
     });
 
+    test('collectSelfHealSnapshot folds the heal-ledger into an operator-facing immune-status (#14163 AC2)', async () => {
+        const events = [
+            {type: 'freeze',           collection: 'c2', status: 'contained', at: 5},
+            {type: 're-embed-missing', collection: 'c1', status: 'healed',    at: 9}
+        ];
+        const service = createService({
+            healLedgerDir   : '/heal',
+            healLedgerReader: async ({dir}) => { expect(dir).toBe('/heal'); return events; }
+        });
+
+        const selfHeal = await service.collectSelfHealSnapshot();
+        expect(selfHeal.status).toBe('available');
+        expect(selfHeal.source).toBe('orchestrator-heal-event-ledger');
+        expect(selfHeal.summary).toMatchObject({total: 2, currentlyFrozen: ['c2'], byStatus: {contained: 1, healed: 1}});
+        expect(selfHeal.recentEvents.map(e => e.at)).toEqual([9, 5]); // newest-first, bounded by recoveryRunLimit
+    });
+
+    test('collectSelfHealSnapshot is disabled (graceful) when no heal-ledger dir is wired', async () => {
+        const selfHeal = await createService({}).collectSelfHealSnapshot();
+        expect(selfHeal).toMatchObject({status: 'disabled', summary: null, recentEvents: []});
+    });
+
+    test('collectSelfHealSnapshot degrades, never throws, when the ledger read fails (observe must not perturb)', async () => {
+        const service  = createService({healLedgerDir: '/heal', healLedgerReader: async () => { throw new Error('disk gone'); }}),
+              selfHeal = await service.collectSelfHealSnapshot();
+        expect(selfHeal.status).toBe('degraded');
+        expect(selfHeal.errors[0].reason).toBe('heal-ledger-read-failed');
+    });
+
     test('includes bounded recent recovery-run ledger entries in the bridge snapshot', async () => {
         const
-            readerCalls = [],
+            readerCalls            = [],
             recoveryRunStateReader = async request => {
                 readerCalls.push(request);
 

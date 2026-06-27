@@ -1,5 +1,5 @@
-import {appendFile, mkdir, readFile} from 'fs/promises';
-import path                          from 'path';
+import {appendFile, mkdir, readFile, stat, writeFile} from 'fs/promises';
+import path                                           from 'path';
 
 /**
  * @module ai/services/memory-core/helpers/healEventLedgerStore
@@ -22,6 +22,25 @@ const HEAL_LEDGER_FILENAME = 'heal-events.jsonl';
 export const HEAL_LEDGER_FROZEN_TRANSITIONS = Object.freeze({FREEZE: 'freeze', UNFREEZE: 'unfreeze'});
 
 /**
+ * Bounded-retention cap (sibling of `acceptedLossAuditStore`). The ledger is append-only observability,
+ * so retention is a plain keep-most-recent cap: the newest `MAX_HEAL_LEDGER_EVENTS` survive a prune. Sized well
+ * above any realistic anti-thrash window — this is the ONE functional dependency the accepted-loss audit lacks:
+ * `healEventsToRecentRuns` projects `attempt` rows for the dispatch cooldown/rate gate, but that gate filters by
+ * `DEFAULT_DISPATCH_BOUNDS.windowMs` (~1h) and the rate-limit caps mutating heals to a handful per window, so a
+ * 5000-event keep-most-recent prune can never evict a within-window attempt. Forensic depth ≈ months at typical volume.
+ * @type {Number}
+ */
+export const MAX_HEAL_LEDGER_EVENTS = 5000;
+
+/**
+ * Append-time prune trigger (mirrors the accepted-loss audit store): an O(1) size stat-gate fires a prune only once the ledger crosses
+ * this byte threshold, so the file is bounded with amortized — not per-append — O(N) work. At ~150 B/entry the
+ * 5000-event cap is ~750 KB retained; a 1 MB trigger leaves headroom so the prune amortizes instead of firing every append.
+ * @type {Number}
+ */
+export const HEAL_LEDGER_PRUNE_TRIGGER_BYTES = 1024 * 1024;
+
+/**
  * @summary The JSONL ledger path within a state directory.
  * @param {String} dir
  * @returns {String}
@@ -35,15 +54,19 @@ export function getHealLedgerFilePath(dir) {
 
 /**
  * @summary Appends one heal-event entry to the durable JSONL ledger (creating the dir if needed). Stamps
- * `at` from the injected clock when absent so every entry is time-ordered.
+ * `at` from the injected clock when absent so every entry is time-ordered. Self-bounding: once the ledger
+ * crosses `triggerBytes` an amortized keep-most-recent prune fires (sibling of the accepted-loss audit store), so the file never
+ * grows without bound under sustained operation — the observability sink must not become its own disk leak.
  * @param {Object} entry A JSON-serializable heal event (`{type, collection, status, detail, at?}`).
  * @param {Object} options
  * @param {String} options.dir The durable state directory.
  * @param {Number} [options.now] Epoch ms used to stamp `at` when the entry omits it.
+ * @param {Number} [options.triggerBytes=HEAL_LEDGER_PRUNE_TRIGGER_BYTES] Byte threshold that arms the auto-prune. Injectable so a test can drive the self-bounding gate with a tiny threshold.
+ * @param {Number} [options.maxEvents=MAX_HEAL_LEDGER_EVENTS] Retention cap the triggered auto-prune enforces.
  * @returns {Promise<String>} The ledger file path written to.
  * @throws {TypeError} when `entry` is not an object or `dir` is missing/empty.
  */
-export async function appendHealEvent(entry, {dir, now} = {}) {
+export async function appendHealEvent(entry, {dir, now, triggerBytes = HEAL_LEDGER_PRUNE_TRIGGER_BYTES, maxEvents = MAX_HEAL_LEDGER_EVENTS} = {}) {
     if (!entry || typeof entry !== 'object') {
         throw new TypeError('appendHealEvent: entry object is required');
     }
@@ -56,6 +79,16 @@ export async function appendHealEvent(entry, {dir, now} = {}) {
     await mkdir(dir, {recursive: true});
     const filePath = getHealLedgerFilePath(dir);
     await appendFile(filePath, `${JSON.stringify(stamped)}\n`, 'utf8');
+
+    // Self-bound (mirrors acceptedLossAuditStore): an O(1) size stat-gate triggers an amortized prune
+    // only once the ledger crosses the byte threshold — not a full read every append. A stat/prune failure must
+    // never break the heal path (the ledger is observability, never a gate), so it is swallowed.
+    try {
+        const {size} = await stat(filePath);
+        if (size > triggerBytes) await pruneHealLedger({dir, maxEvents});
+    } catch (error) {
+        // a partial/failed prune leaves the prior ledger intact; the next append re-tries the gate
+    }
 
     return filePath;
 }
@@ -86,6 +119,33 @@ export async function readHealLedger({dir} = {}) {
         }
     }
     return events;
+}
+
+/**
+ * @summary Bounds the durable ledger to the newest `maxEvents` entries (keep-most-recent), rewriting the file
+ * in place. Pure keep-most-recent is correct because the ledger is append-only telemetry — no entry's removal
+ * changes a heal decision (the anti-thrash gate reads only a recent window, far inside the retained set). A
+ * corrupt line is dropped on rewrite (it was already unreadable). I/O at the edge only.
+ * @param {Object} options
+ * @param {String} options.dir The durable state directory.
+ * @param {Number} [options.maxEvents=MAX_HEAL_LEDGER_EVENTS] Max entries to retain.
+ * @returns {Promise<{pruned: Number, retained: Number}>} Counts; `pruned: 0` when no prune was needed.
+ * @throws {TypeError} when `dir` is missing/empty.
+ */
+export async function pruneHealLedger({dir, maxEvents = MAX_HEAL_LEDGER_EVENTS} = {}) {
+    if (typeof dir !== 'string' || dir.length === 0) {
+        throw new TypeError('pruneHealLedger: dir is required');
+    }
+
+    const events = await readHealLedger({dir});
+    if (events.length <= maxEvents) {
+        return {pruned: 0, retained: events.length};
+    }
+
+    const retained = events.slice(events.length - maxEvents); // append order is oldest→newest; keep the tail
+    await writeFile(getHealLedgerFilePath(dir), retained.map(event => JSON.stringify(event)).join('\n') + '\n', 'utf8');
+
+    return {pruned: events.length - retained.length, retained: retained.length};
 }
 
 /**

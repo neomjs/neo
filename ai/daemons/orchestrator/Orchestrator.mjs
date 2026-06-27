@@ -387,6 +387,7 @@ export class Orchestrator extends Base {
         return ClassSystemUtil.beforeSetInstance(value, DeploymentStateBridgeService, {
             runtimeAccessService: this.deploymentRuntimeAccessService,
             diagnosisService    : this.containerHealthDiagnosisService,
+            healLedgerDir       : path.join(this.dataDir, 'data-heal-events'),
             writeLog            : this.deploymentStateBridgeWriteLog
         });
     }

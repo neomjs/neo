@@ -10,6 +10,7 @@ import {
     readHealLedger,
     summarizeHealLedger,
     queryHealLedger,
+    pruneHealLedger,
     healEventsToRecentRuns
 } from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
 import {decideHealAction} from '../../../../../../../ai/services/memory-core/helpers/healActionDispatch.mjs';
@@ -187,6 +188,53 @@ test.describe('healEventsToRecentRuns — the ledger→dispatch anti-thrash shap
             // Raw (unprojected) ledger shape: no run.action -> the filter never matches -> the bug (re-execute).
             const buggy = decideHealAction({action: 're-embed-missing', collection: 'neo-agent-memory', recentRuns: ledgerRuns, now: now + 1000});
             expect(buggy.status).toBe('execute');
+        } finally {
+            await fs.rm(dir, {recursive: true, force: true});
+        }
+    });
+});
+
+test.describe('pruneHealLedger + self-bounding append — bounded retention (#14163 AC3, sibling of #14128)', () => {
+    test('keep-most-recent: prunes the oldest, retains the newest maxEvents in append order', async () => {
+        const dir = await tmpDir();
+        try {
+            for (let i = 0; i < 6; i++) {
+                await appendHealEvent({type: 'heal', collection: 'c1', status: 'healed', at: i}, {dir, triggerBytes: Infinity});
+            }
+            expect(await pruneHealLedger({dir, maxEvents: 4})).toEqual({pruned: 2, retained: 4});
+            expect((await readHealLedger({dir})).map(e => e.at)).toEqual([2, 3, 4, 5]); // oldest 0,1 dropped; order kept
+        } finally {
+            await fs.rm(dir, {recursive: true, force: true});
+        }
+    });
+
+    test('no-op at/under the cap and on a missing ledger (pruned: 0)', async () => {
+        const dir = await tmpDir(), emptyDir = await tmpDir();
+        try {
+            await appendHealEvent({type: 'heal', collection: 'c1', status: 'healed', at: 1}, {dir, triggerBytes: Infinity});
+            expect(await pruneHealLedger({dir, maxEvents: 5})).toEqual({pruned: 0, retained: 1});
+            expect(await pruneHealLedger({dir: emptyDir, maxEvents: 5})).toEqual({pruned: 0, retained: 0});
+        } finally {
+            await fs.rm(dir, {recursive: true, force: true});
+            await fs.rm(emptyDir, {recursive: true, force: true});
+        }
+    });
+
+    test('guards the required dir arg', async () => {
+        await expect(pruneHealLedger({})).rejects.toThrow(/dir is required/);
+    });
+
+    test('self-bounding append: the byte-gate fires an amortized prune so the ledger never grows past the cap', async () => {
+        const dir = await tmpDir();
+        try {
+            // triggerBytes:1 arms the gate on every append; maxEvents:3 is the retained cap. Append 5 → the gate
+            // prunes to the newest 3 as soon as the file crosses 1 byte — proving the observability sink self-bounds.
+            for (let i = 0; i < 5; i++) {
+                await appendHealEvent({type: 'heal', collection: 'c1', status: 'healed', at: i}, {dir, triggerBytes: 1, maxEvents: 3});
+            }
+            const events = await readHealLedger({dir});
+            expect(events.length).toBeLessThanOrEqual(3);     // bounded — never unbounded growth under sustained operation
+            expect(events.at(-1).at).toBe(4);                 // the newest event always survives
         } finally {
             await fs.rm(dir, {recursive: true, force: true});
         }
