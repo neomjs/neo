@@ -177,6 +177,20 @@ test.describe('agent-preflight — Contract Ledger drift (#14119)', () => {
         ])
     });
 
+    test('scans only the Signature cell — incidental parens in a Surface/Notes column are ignored', () => {
+        // Surface has `reconfigure(key)` and Notes has `migrate(old)`; neither is the declared signature.
+        // Only the Signature cell's `applyHeal(action, evidence)` must be extracted (without cell-scoping the
+        // whole-row match would wrongly return reconfigure(key) — the first paren token in the row).
+        const incidentalBody = [
+            '| Surface | Signature | Consumer | Notes |',
+            '|---|---|---|---|',
+            '| reconfigure(key) drift | `applyHeal(action, evidence)` | actuator | replaces migrate(old) |'
+        ].join('\n');
+        expect(extractLedgerSignatures(incidentalBody)).toEqual([
+            {symbol: 'applyHeal', params: 'action, evidence'}
+        ])
+    });
+
     test('a non-ledger body yields no signatures — the check is opt-in/inert', () => {
         expect(extractLedgerSignatures('## Summary\njust prose, foo(bar) in a sentence')).toEqual([]);
         expect(detectContractLedgerDrift({body: 'no ledger here', diffText: '+ foo(a, b, c)'})).toEqual([])

@@ -125,7 +125,8 @@ const LEDGER_SIGNATURE_PATTERN = /([A-Za-z_$][\w$]*)\s*\(([^)]*)\)/;
  * @summary Extracts ledger-declared `symbol(params)` signatures from a Contract Ledger table in a PR body.
  *
  * Opt-in + high-precision: only markdown rows belonging to a table whose header carries BOTH a `Surface`
- * and a `Signature` column are considered, and within them only a `name(args)` token. A body with NO
+ * and a `Signature` column are considered, and within each row only the `Signature` *cell* is scanned for a
+ * `name(args)` token (an incidental `name(args)` in a Surface/Notes column is ignored). A body with NO
  * Contract Ledger therefore yields `[]` and the drift check is inert — this is the author's *declared*
  * contract surface, the only thing the drift check verifies against the diff.
  *
@@ -134,19 +135,27 @@ const LEDGER_SIGNATURE_PATTERN = /([A-Za-z_$][\w$]*)\s*\(([^)]*)\)/;
  */
 export function extractLedgerSignatures(body = '') {
     const signatures    = [];
-    let   inLedgerTable = false;
+    let   inLedgerTable = false,
+          signatureColumn = -1;
 
     for (const line of body.split('\n')) {
         if (!line.trim().startsWith('|')) { inLedgerTable = false; continue; }
 
         // A ledger table is identified by a header row carrying both `Surface` and `Signature`; the flag
-        // then persists across the table's body rows until a non-table line resets it.
-        if (/\bsurface\b/i.test(line) && /\bsignature\b/i.test(line)) { inLedgerTable = true; continue; }
+        // then persists across the table's body rows until a non-table line resets it. We also record the
+        // `Signature` column index so extraction scans ONLY that cell — an incidental `name(args)` in a
+        // Surface/Notes column must never be mistaken for the declared signature.
+        if (/\bsurface\b/i.test(line) && /\bsignature\b/i.test(line)) {
+            inLedgerTable   = true;
+            signatureColumn = line.split('|').findIndex(cell => /\bsignature\b/i.test(cell));
+            continue;
+        }
         if (/^\s*\|[\s:|-]+\|\s*$/.test(line)) continue; // the |---|---| separator row
 
-        if (!inLedgerTable) continue;
+        if (!inLedgerTable || signatureColumn < 0) continue;
 
-        const match = line.match(LEDGER_SIGNATURE_PATTERN);
+        const cell  = line.split('|')[signatureColumn],
+              match = cell?.match(LEDGER_SIGNATURE_PATTERN);
         if (match) signatures.push({symbol: match[1], params: match[2]});
     }
 
@@ -156,11 +165,13 @@ export function extractLedgerSignatures(body = '') {
 /**
  * @summary Finds a symbol's shipped parameter list from its DEFINITION in the ADDED (`+`) lines of a diff.
  *
- * Conservative + definition-only: matches `symbol(params)` only when it is a definition — the params are
- * followed by `{` (function/method body) or `=>` (arrow). A bare CALL-site `symbol(args)` (followed by `;`,
- * `,`, `)`, `.`) is NOT matched, so a call appearing before the def can never be mistaken for the shipped
- * signature. Returns `null` when no definition is found — a MISS, never a false signal (a multi-line
- * signature simply does not match and is skipped, the safe direction for a warn-only check).
+ * Conservative + definition-only + SINGLE-LINE: matches `symbol(params)` only when the whole `name(params) {`
+ * (or `name(params) =>`) sits on ONE added line. A bare CALL-site `symbol(args)` (followed by `;`, `,`, `)`,
+ * `.`) is NOT matched, so a call appearing before the def can never be mistaken for the shipped signature.
+ * A MULTI-LINE definition — params spanning several lines, as large destructured params often are — is a
+ * silent MISS (returns `null`), never a false signal. This is the safe direction for a warn-only check: a
+ * miss costs nothing, a false-warn costs a review cycle. Multi-line coverage via a brace-balanced
+ * accumulator is a tracked follow-up; authors must not read a non-warn as proof of no drift.
  *
  * @param {String} diffText A unified diff (`git diff` output).
  * @param {String} symbol The symbol name to locate.
