@@ -3,14 +3,14 @@ import Neo                        from '../../../../../../../src/Neo.mjs';
 import * as core                  from '../../../../../../../src/core/_export.mjs';
 import {buildStoreBloatDiagnosis} from '../../../../../../../ai/daemons/orchestrator/services/storeBloatDiagnosis.mjs';
 
-// Pure detect-producer (no I/O). Turns a store-size measurement + thresholds into a data-integrity/escalate
+// Pure detect-producer (no I/O). Turns a store-size measurement + thresholds into a data-integrity
 // recovery-diagnosis when the store is over its absolute budget OR grew too fast since the previous sample;
 // null when within budget.
 
 const THRESHOLDS = {absoluteBytes: 2_000_000_000, growthRatio: 0.25};  // 2GB absolute, 25% growth
 
 test.describe('buildStoreBloatDiagnosis — data-integrity store-size bloat detect-producer', () => {
-    test('over the absolute budget -> a data-integrity/escalate recovery-diagnosis', () => {
+    test('over the absolute budget -> a data-integrity recovery-diagnosis', () => {
         const diag = buildStoreBloatDiagnosis({
             storeSizeBytes: 2_500_000_000,  // 2.5GB > 2GB
             thresholds    : THRESHOLDS,
@@ -24,8 +24,9 @@ test.describe('buildStoreBloatDiagnosis — data-integrity store-size bloat dete
             confidence    : 1,
             targetIdentity: {kind: 'compose-service', id: 'memory-core'},
             source        : 'data-integrity-store-bloat-monitor',
-            details       : {actionClass: 'escalate', reasonCode: 'data-integrity-store-bloat', triggeredSignals: ['absolute']}
+            details       : {reasonCode: 'data-integrity-store-bloat', triggeredSignals: ['absolute']}
         });
+        expect(diag.details.actionClass).toBeUndefined(); // raw evidence for the autonomous classifier — the producer no longer escalates
         expect(diag.evidenceFacts).toEqual([
             {type: 'store-bloat', signal: 'absolute', storeSizeBytes: 2_500_000_000, thresholdBytes: 2_000_000_000}
         ]);
@@ -56,7 +57,7 @@ test.describe('buildStoreBloatDiagnosis — data-integrity store-size bloat dete
         expect(diag.evidenceFacts).toHaveLength(2);
     });
 
-    test('within budget (absolute + growth both under) -> null (no false escalation)', () => {
+    test('within budget (absolute + growth both under) -> null (no false positive)', () => {
         expect(buildStoreBloatDiagnosis({
             storeSizeBytes   : 1_100_000_000,  // under 2GB
             previousSizeBytes: 1_000_000_000, // +10% < 25%

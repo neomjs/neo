@@ -7,10 +7,10 @@ import {createRecoveryDiagnosisEvent} from '../../../services/memory-core/helper
  * Every stored Memory Core vector must be the configured embedding dimension; a wrong-dimension vector is
  * unambiguous corruption (it breaks similarity search, and — unlike a count regression — has no legitimate
  * case). It turns per-collection dimension-audit samples into a `recovery-diagnosis` when any collection
- * holds mismatched-dimension vectors, so the immune system can ESCALATE rather than serve a corrupt index.
+ * holds mismatched-dimension vectors, so the immune system can heal autonomously rather than serve a corrupt index.
  *
  * Detect-only by construction: it consumes audit samples and emits a diagnosis — no repair / re-embed /
- * restore / mutation. It emits `recoveryClass: 'data-integrity'` + `details.actionClass: 'escalate'`,
+ * restore / mutation. It emits `recoveryClass: 'data-integrity'` + raw `evidenceFacts` (the autonomous classifier's input),
  * targeting the Memory Core `compose-service` (per-collection mismatch carried in `evidenceFacts`). Mirrors
  * the sibling producers' pure shape: the samples (the dimension audit) are injected — the audit + scheduling
  * are the consumer/daemon's concern — so it is testable in isolation.
@@ -21,14 +21,14 @@ import {createRecoveryDiagnosisEvent} from '../../../services/memory-core/helper
  *
  * Pure — no I/O. Returns a diagnosis when ANY collection reports `mismatchedVectorCount > 0` (a stored
  * vector whose dimension ≠ the configured embedding dimension); returns `null` when every sampled collection
- * is clean (never a false escalation). Samples whose `mismatchedVectorCount` is not a finite number are
+ * is clean (never a false positive). Samples whose `mismatchedVectorCount` is not a finite number are
  * ignored (an unread collection is not corruption).
  *
  * @param {Object} options
  * @param {Array<Object>} options.samples Per-collection dimension samples — `[{collection, expectedDimension, mismatchedVectorCount}]`.
  * @param {Number} options.observedAt Epoch milliseconds when the audit was observed.
  * @param {String} options.serviceId The Memory Core compose-service identifier.
- * @returns {Object|null} A `recovery-diagnosis` event (`data-integrity` / `escalate`) when a mismatch is present, else `null`.
+ * @returns {Object|null} A `recovery-diagnosis` event (`data-integrity`, raw evidence) when a mismatch is present, else `null`.
  * @throws {TypeError} when `serviceId` is missing/empty or `observedAt` is not a finite number.
  */
 export function buildDimensionConsistencyDiagnosis({samples, observedAt, serviceId} = {}) {
@@ -44,7 +44,7 @@ export function buildDimensionConsistencyDiagnosis({samples, observedAt, service
               Number.isFinite(sample?.mismatchedVectorCount) && sample.mismatchedVectorCount > 0
           );
 
-    // Every sampled collection dimension-consistent → no diagnosis (never a false escalation).
+    // Every sampled collection dimension-consistent → no diagnosis (never a false positive).
     if (mismatched.length === 0) {
         return null;
     }
@@ -63,7 +63,6 @@ export function buildDimensionConsistencyDiagnosis({samples, observedAt, service
         observedAt,
         source : 'data-integrity-dimension-monitor',
         details: {
-            actionClass          : 'escalate',
             reasonCode           : 'data-integrity-dimension-mismatch',
             mismatchedCollections: mismatched.map(sample => sample.collection)
         }
