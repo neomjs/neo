@@ -313,9 +313,14 @@ class Config extends ConfigProvider {
                 chromaProbeTimeoutMs: leaf(1500, 'NEO_MEMORY_HEALTHCHECK_CHROMA_PROBE_TIMEOUT_MS', 'number'),
                 /**
                  * Max time to wait for the active embedding provider during the write canary.
+                 * Must tolerate a cold embedder load: an 8b embedding model VRAM-evicted under chat-model
+                 * pressure cold-reloads in ~11-19s, so a tighter bound false-negatives a healthy-but-slow
+                 * provider and trips the embed-canary health gate. Still a bound, not removal — the embed
+                 * operation itself budgets 300s, so this gate stays well under that while surviving a
+                 * realistic cold-load.
                  * @type {number}
                  */
-                embeddingWriteCanaryTimeoutMs: leaf(5000, 'NEO_MEMORY_HEALTHCHECK_EMBEDDING_WRITE_CANARY_TIMEOUT_MS', 'number'),
+                embeddingWriteCanaryTimeoutMs: leaf(30000, 'NEO_MEMORY_HEALTHCHECK_EMBEDDING_WRITE_CANARY_TIMEOUT_MS', 'number'),
                 /**
                  * Max time to wait for each REM pipeline-state axis.
                  * @type {number}
