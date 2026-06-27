@@ -7,75 +7,11 @@ import SessionService                                                           
 import TurnPresenceService                                                                                                             from './TurnPresenceService.mjs';
 import {withTimeout}                                                                                                                   from './helpers/withTimeout.mjs';
 import {appendWalGraphProjectionMarker, appendWalMemory, getMissingMemoryWalLeaves, pruneReconciledWalSegments, readPendingWalRecords} from './helpers/memoryWalStore.mjs';
-import {composeTurnDocumentText}                                                                                                       from './helpers/turnDocumentText.mjs';
+import {composeTurnDocumentText, resolveTurnDocumentForRead}                                                                           from './helpers/turnDocumentText.mjs';
 import {buildChatModel}                                                                                                                from '../../provider/buildChatModel.mjs';
 import aiConfig                                                                                                                        from '../../mcp/server/memory-core/config.mjs';
 import RequestContextService, {SHARED_USER_ID, normalizeUserId}                                                                        from '../../mcp/server/shared/services/RequestContextService.mjs';
 import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER}                                                                                     from '../../graph/identityRoots.mjs';
-
-/**
- * Maximum time to wait for a single mini-summary model call during backfill before failing soft.
- * A hung inference endpoint must never block the supervised maintenance child indefinitely.
- * @type {Number}
- */
-const MINI_SUMMARY_TIMEOUT_MS = 30000;
-
-/**
- * Wall-clock budget for a single `backfillMiniSummaries` run. Bounds the run safely under the
- * ProcessSupervisor watchdog (`taskDefinitions.mjs` `memory-summary-backfill` maxRuntimeMs=900000):
- * the loop exits cleanly at this budget and defers the unprocessed remainder to the next scheduled
- * sweep, rather than risking a watchdog SIGKILL that makes zero forward progress. A slow or contended
- * local model can otherwise push a full batch past the 15-minute watchdog and loop without draining.
- * @type {Number}
- */
-const MINI_SUMMARY_BACKFILL_MAX_RUN_MS = 600000;
-
-/**
- * Of a backfill batch's `limit`, how many NEWEST rows to reserve; the remainder drains the OLDEST
- * (aged) rows.
- *
- * A single newest-first (`timestamp DESC`) fetch is LIFO: every agent `add_memory` lands a fresh
- * `miniSummary:NULL` row at the DESC top, so a newest-only batch perpetually re-summarizes fresh
- * inflow while the aged tail (rows days old) never enters the window and starves forever.
- * Splitting the batch converges the tail while the fresh reserve still feeds the `summary`
- * producer→consumer soft-gate + absorbs per-turn inflow. Clamped to the run's `limit`.
- * @type {Number}
- */
-const MINI_SUMMARY_BACKFILL_FRESH_RESERVE = 10;
-
-/**
- * Maximum time to wait for the backfill's content-store (Chroma) metadata fetch before deferring
- * the whole batch. Usually milliseconds; the bound exists only to defeat a hung connection.
- * @type {Number}
- */
-const CHROMA_FETCH_TIMEOUT_MS = 10000;
-
-/**
- * Bounded in-process graph-projection retry for WAL-accepted memories. This is the cloud-safe host:
- * it does not require a local orchestrator daemon, and a persistent MCP server keeps retrying
- * transient graph contention without making `add_memory` wait.
- * @type {Number}
- */
-const GRAPH_PROJECTION_MAX_ATTEMPTS = 5;
-
-/**
- * Base delay for graph projection retries.
- * @type {Number}
- */
-const GRAPH_PROJECTION_RETRY_BASE_MS = 250;
-
-/**
- * Maximum delay for graph projection retries.
- * @type {Number}
- */
-const GRAPH_PROJECTION_RETRY_MAX_MS = 5000;
-
-/**
- * Hosted graph-projection drain cadence. This is intentionally independent of the Chroma embed
- * daemon: graph projection and embedding are separate derived states.
- * @type {Number}
- */
-const GRAPH_PROJECTION_DRAIN_INTERVAL_MS = 60000;
 
 /**
  * Re-exported from `./helpers/withTimeout.mjs` (moved there so `SessionService` can share it without
@@ -584,10 +520,13 @@ class MemoryService extends Base {
      * @private
      */
     _scheduleMemoryGraphProjection(options, attempt = 1) {
-        const me      = this,
-              delayMs = attempt === 1
+        // Read the reactive AiConfig leaves at the use site (re-read per retry attempt) so a runtime
+        // healing-mutation (recovery actuator setData) is reflected — never captured at module load.
+        const me          = this,
+              maxAttempts = aiConfig.memoryService.graphProjectionMaxAttempts,
+              delayMs     = attempt === 1
                   ? 0
-                  : Math.min(GRAPH_PROJECTION_RETRY_BASE_MS * 2 ** (attempt - 2), GRAPH_PROJECTION_RETRY_MAX_MS);
+                  : Math.min(aiConfig.memoryService.graphProjectionRetryBaseMs * 2 ** (attempt - 2), aiConfig.memoryService.graphProjectionRetryMaxMs);
 
         me.graphProjectionRetryTimers ??= new Set();
 
@@ -597,13 +536,13 @@ class MemoryService extends Base {
             try {
                 await me._projectMemoryToGraph(options);
             } catch (error) {
-                if (attempt < GRAPH_PROJECTION_MAX_ATTEMPTS) {
-                    logger.warn(`[MemoryService] Deferred graph projection failed for ${options.memoryId} (attempt ${attempt}/${GRAPH_PROJECTION_MAX_ATTEMPTS}); retrying: ${error.message}`);
+                if (attempt < maxAttempts) {
+                    logger.warn(`[MemoryService] Deferred graph projection failed for ${options.memoryId} (attempt ${attempt}/${maxAttempts}); retrying: ${error.message}`);
                     me._scheduleMemoryGraphProjection(options, attempt + 1);
                     return;
                 }
 
-                logger.warn(`[MemoryService] Deferred graph projection failed for ${options.memoryId} after ${GRAPH_PROJECTION_MAX_ATTEMPTS} attempts; WAL row remains projection-pending: ${error.message}`);
+                logger.warn(`[MemoryService] Deferred graph projection failed for ${options.memoryId} after ${maxAttempts} attempts; WAL row remains projection-pending: ${error.message}`);
             }
         }, delayMs);
 
@@ -678,7 +617,7 @@ class MemoryService extends Base {
             this.drainPendingGraphProjections().catch(error => {
                 logger.warn(`[MemoryService] graph projection drain failed: ${error.message}`);
             });
-        }, GRAPH_PROJECTION_DRAIN_INTERVAL_MS);
+        }, aiConfig.memoryService.graphProjectionDrainIntervalMs);
         this.graphProjectionDrainTimer.unref?.();
     }
 
@@ -894,10 +833,10 @@ class MemoryService extends Base {
      * @param {Number} options.limit     The maximum number of memories to return.
      * @param {Number} options.offset    The number of memories to skip.
      * @param {String} [options.memorySharing] Optional tenant-isolation policy override (mirrors queryMemories) — lets callers and tests select 'team' / 'private' without depending on ambient defaultPolicy resolution.
-     * @param {Number} [options.chromaTimeoutMs=CHROMA_FETCH_TIMEOUT_MS] Test seam for bounding Chroma metadata reads.
+     * @param {Number} [options.chromaTimeoutMs=aiConfig.memoryService.chromaFetchTimeoutMs] Test seam for bounding Chroma metadata reads.
      * @returns {Promise<{sessionId: string, count: number, total: number, memories: Object[]}>}
      */
-    async listMemories({sessionId, limit=100, offset=0, memorySharing, chromaTimeoutMs=CHROMA_FETCH_TIMEOUT_MS} = {}) {
+    async listMemories({sessionId, limit=100, offset=0, memorySharing, chromaTimeoutMs=aiConfig.memoryService.chromaFetchTimeoutMs} = {}) {
         try {
             if (!sessionId) {
                 return { sessionId, count: 0, total: 0, memories: [] };
@@ -1460,26 +1399,26 @@ class MemoryService extends Base {
      * @param {Object} options
      * @param {String} options.prompt
      * @param {String} options.response
-     * @returns {Promise<String|null>} A ≤280-char one-line summary, or `null`.
+     * @returns {Promise<String|null>} A one-line summary capped at `aiConfig.memoryService.miniSummaryMaxChars` (default 280), or `null`.
      */
     async buildMiniSummary({prompt, response}) {
         // Calibrated above the measured local-model summary latency so a real summary is not aborted
         // before it completes. Benchmark (2026-06-09, MacBook M5 Max 128GB, gemma-4-31b-it via LM
         // Studio): a ~5k-char -> tweet-size summary takes ~5.3s warm / ~13s cold. The prior 4s cap
         // aborted most local summaries -> null -> zero backfill drain. Stays under the 30s outer
-        // backfill per-item timeout (MINI_SUMMARY_TIMEOUT_MS).
-        const TIMEOUT_MS = 20000;
+        // backfill per-item timeout (aiConfig.memoryService.miniSummaryTimeoutMs).
+        const TIMEOUT_MS = aiConfig.memoryService.generateMiniSummaryTimeoutMs;
         try {
             const model = buildChatModel({
                 modelProvider         : aiConfig.modelProvider,
                 openAiCompatibleConfig: aiConfig.openAiCompatible,
                 ollamaConfig          : aiConfig.ollama,
-                geminiApiKey          : process.env.GEMINI_API_KEY,
+                geminiApiKey          : aiConfig.geminiApiKey,
                 geminiModelName       : aiConfig.modelName
             });
             if (!model) return null;
 
-            const promptText = `Summarize this agent turn in one line, max 280 characters, no preamble:\nUser: ${prompt ?? ''}\nAgent: ${response ?? ''}`;
+            const promptText = `Summarize this agent turn in one line, max ${aiConfig.memoryService.miniSummaryMaxChars} characters, no preamble:\nUser: ${prompt ?? ''}\nAgent: ${response ?? ''}`;
             const result = await withTimeout(
                 model.generateContent(promptText, {
                     timeoutMs     : TIMEOUT_MS,
@@ -1491,7 +1430,7 @@ class MemoryService extends Base {
             );
 
             const text = result?.response?.text?.() ?? null;
-            return text ? String(text).replace(/\s+/g, ' ').trim().slice(0, 280) : null;
+            return text ? String(text).replace(/\s+/g, ' ').trim().slice(0, aiConfig.memoryService.miniSummaryMaxChars) : null;
         } catch (error) {
             logger.warn(`[MemoryService] miniSummary generation failed (fail-soft): ${error.message}`);
             return null;
@@ -1593,7 +1532,7 @@ class MemoryService extends Base {
      * turns written while the summarizer was unavailable. The scan is graph-first and SPLIT across
      * both ends of the backlog — a fresh reserve (newest) + an aged-drain bulk (oldest) — so the
      * aged tail converges instead of starving behind perpetual fresh inflow (see
-     * {@link MINI_SUMMARY_BACKFILL_FRESH_RESERVE}). Chroma is only joined by the selected node ids to
+     * `aiConfig.memoryService.miniSummaryBackfillFreshReserve`). Chroma is only joined by the selected node ids to
      * fetch that memory's own prompt/response. Updates merge `miniSummary` into the same graph node
      * through a tenant-preserving storage-layer merge, preserving tenant attribution (`userId`,
      * `agentIdentity`) and every other property already present on the row.
@@ -1605,11 +1544,11 @@ class MemoryService extends Base {
      * @param {Number} [options.limit] Maximum rows to fetch. Defaults to
      *     `aiConfig.summarizationBatchLimit`.
      * @param {Number} [options.freshReserve] Of `limit`, how many newest rows to reserve before the
-     *     remainder drains the oldest. Defaults to `MINI_SUMMARY_BACKFILL_FRESH_RESERVE`; clamped to
+     *     remainder drains the oldest. Defaults to `aiConfig.memoryService.miniSummaryBackfillFreshReserve`; clamped to
      *     `limit`. Exposed for deterministic split-coverage tests.
      * @param {Function} [options.buildMiniSummary] Optional summarizer seam for deterministic tests.
      * @param {Number} [options.maxRunMs] Wall-clock budget for the run; defaults to
-     *     `MINI_SUMMARY_BACKFILL_MAX_RUN_MS`. The loop stops starting new rows once reached and defers
+     *     `aiConfig.memoryService.miniSummaryBackfillMaxRunMs`. The loop stops starting new rows once reached and defers
      *     the remainder to the next sweep, keeping the supervised child under its watchdog.
      * @param {Function} [options.now] Clock seam (defaults to `Date.now`) for deterministic budget tests.
      * @returns {Promise<{processed: Number, updated: Number, deferred: Number, missingContent: Number, runBudgetHit: Boolean}>}
@@ -1624,7 +1563,7 @@ class MemoryService extends Base {
         const numericLimit = Number(limit) || defaultLimit;
         const boundedLimit = Math.max(1, Math.min(numericLimit, defaultLimit));
         const summarize    = buildMiniSummary || (options => this.buildMiniSummary(options));
-        const runBudgetMs  = Number(maxRunMs) > 0 ? Number(maxRunMs) : MINI_SUMMARY_BACKFILL_MAX_RUN_MS;
+        const runBudgetMs  = Number(maxRunMs) > 0 ? Number(maxRunMs) : aiConfig.memoryService.miniSummaryBackfillMaxRunMs;
         const startedAt    = now();
 
         // Split the batch across BOTH ends of the backlog. A single newest-first fetch is
@@ -1634,7 +1573,7 @@ class MemoryService extends Base {
         // starved tail). Both ends skip rows already archived as un-summarizable so the
         // drain doesn't burn budget re-archiving them. De-dup: the windows overlap once the backlog
         // is shallower than the limit.
-        const reserveBudget = Number.isInteger(freshReserve) && freshReserve >= 0 ? freshReserve : MINI_SUMMARY_BACKFILL_FRESH_RESERVE;
+        const reserveBudget = Number.isInteger(freshReserve) && freshReserve >= 0 ? freshReserve : aiConfig.memoryService.miniSummaryBackfillFreshReserve;
         const reserve       = Math.min(reserveBudget, boundedLimit);
         const drainLimit    = boundedLimit - reserve;
 
@@ -1659,8 +1598,8 @@ class MemoryService extends Base {
 
         let byId;
         try {
-            const collection = await withTimeout(StorageRouter.getMemoryCollection(), CHROMA_FETCH_TIMEOUT_MS, 'miniSummary backfill getMemoryCollection');
-            const fetched    = await withTimeout(collection.get({ids: rows.map(row => row.id), include: ['metadatas']}), CHROMA_FETCH_TIMEOUT_MS, 'miniSummary backfill collection.get');
+            const collection = await withTimeout(StorageRouter.getMemoryCollection(), aiConfig.memoryService.chromaFetchTimeoutMs, 'miniSummary backfill getMemoryCollection');
+            const fetched    = await withTimeout(collection.get({ids: rows.map(row => row.id), include: ['metadatas']}), aiConfig.memoryService.chromaFetchTimeoutMs, 'miniSummary backfill collection.get');
             byId             = new Map((fetched.ids || []).map((id, index) => [id, fetched.metadatas?.[index] || {}]));
         } catch (error) {
             logger.warn(`[MemoryService] miniSummary backfill deferred the whole batch (content store unreachable, fail-soft): ${error.message}`);
@@ -1703,7 +1642,7 @@ class MemoryService extends Base {
             try {
                 const miniSummary = await withTimeout(
                     summarize({prompt: metadata.prompt, response: metadata.response}),
-                    MINI_SUMMARY_TIMEOUT_MS,
+                    aiConfig.memoryService.miniSummaryTimeoutMs,
                     'miniSummary backfill summarize'
                 );
 
@@ -1925,8 +1864,12 @@ class MemoryService extends Base {
                             if (userId) getArgs.where = {$or: [{userId}, {userId: SHARED_USER_ID}]};
                             const result = await collection.get(getArgs);
 
-                            if (result.documents && result.documents.length > 0) {
-                                const metadata      = result.metadatas ? result.metadatas[0] : null;
+                            const metadata = result.metadatas ? result.metadatas[0] : null;
+                            // Field↔document de-dup: prefer the stored document, else reconstruct from split
+                            // metadata (turns only) when it was dropped — single-sourced in turnDocumentText.
+                            const content = resolveTurnDocumentForRead({documents: result.documents, metadata});
+
+                            if (content) {
                                 const trustTier     = this.constructor.resolveSummaryTrustTier(metadata);
                                 const trustWeight   = this.constructor.getFrontierTrustWeight(trustTier);
                                 const weightedScore = Number(((Number(neighbor.weight) || 0) * trustWeight).toFixed(6));
@@ -1939,7 +1882,7 @@ class MemoryService extends Base {
                                     trustTier,
                                     trustWeight,
                                     weightedScore,
-                                    content     : result.documents[0],
+                                    content,
                                     metadata
                                 });
                             }
@@ -2014,13 +1957,14 @@ class MemoryService extends Base {
                     try {
                         const getArgs = {
                             ids    : [neighbor.semanticVectorId],
-                            include: ['documents']
+                            include: ['documents', 'metadatas']
                         };
                         if (userId) getArgs.where = {$or: [{userId}, {userId: SHARED_USER_ID}]};
-                        const result = await collection.get(getArgs);
-                        if (result.documents && result.documents.length > 0) {
-                            episodicContext = result.documents[0];
-                        }
+                        const result   = await collection.get(getArgs);
+                        const metadata = result.metadatas ? result.metadatas[0] : null;
+                        // Field↔document de-dup: prefer the stored document, else reconstruct from split
+                        // metadata (turns only) when it was dropped — single-sourced in turnDocumentText.
+                        episodicContext = resolveTurnDocumentForRead({documents: result.documents, metadata});
                     } catch (e) {
                          // Missing vector is fine, we still have structural graph data
                     }

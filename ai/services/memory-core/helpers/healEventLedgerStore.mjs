@@ -89,6 +89,22 @@ export async function readHealLedger({dir} = {}) {
 }
 
 /**
+ * @summary Projects heal-event ledger entries into the anti-thrash `recentRuns` shape `dispatchHeal`'s
+ * cooldown/rate gate expects (`[{action, collection, at}]`). The ledger records the heal action under its
+ * event-`type` field, but `decideHealAction` filters `recentRuns` by `run.action` — so a raw ledger entry
+ * would never match its own action and the anti-thrash bound would silently never fire (a just-recorded
+ * attempt would re-`execute` instead of `thrash-cooldown`). This projection (`type` → `action`, keeping the
+ * epoch-ms `at` and the collection) is the seam where the ledger schema meets the dispatch contract.
+ * @param {Object[]} [events=[]] Heal-event entries (as read/filtered from the ledger).
+ * @returns {Object[]} `[{action, collection, at}]` for `decideHealAction`.
+ */
+export function healEventsToRecentRuns(events = []) {
+    return (Array.isArray(events) ? events : [])
+        .filter(event => event && typeof event === 'object')
+        .map(event => ({action: event.type, collection: event.collection, at: event.at}));
+}
+
+/**
  * @summary Folds a heal-event stream into the queryable immune-system status surface: totals, counts by
  * status and by type, the currently-frozen set (freeze adds, unfreeze removes — last transition wins), and the
  * latest event timestamp. Pure — no I/O; the caller reads the ledger then summarizes.
