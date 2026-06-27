@@ -12,11 +12,9 @@ import {registerNeoChromaEmbeddingFunctions}                         from '../..
 import {auditChromaVectorCoverage}                                   from './checkChromaIntegrity.mjs';
 import {extractMemoryCoreCollectionData, truncateToEmbedTokenBudget} from './repairMemoryCoreStoredEmbeddings.mjs';
 import {resolveAutonomousRepairExit}                                 from '../../services/memory-core/helpers/acceptedLossSettlement.mjs';
-import {
-    appendAutoAcceptedLoss,
-    getAcceptedLossAuditFilePath,
-    writeAutoAcceptedLossState
-}                                                                    from '../../services/memory-core/helpers/acceptedLossAuditStore.mjs';
+import {appendAutoAcceptedLoss}                                      from '../../services/memory-core/helpers/acceptedLossAuditStore.mjs';
+import {getAcceptedLossAuditFilePath}                                from '../../services/memory-core/helpers/acceptedLossAuditStore.mjs';
+import {writeAutoAcceptedLossState}                                  from '../../services/memory-core/helpers/acceptedLossAuditStore.mjs';
 
 /**
  * @summary Defragments collection groups inside the unified ChromaDB store.
@@ -1422,6 +1420,7 @@ export function anyRepairNonClean(results = []) {
  * @param {Function} [options.normalizeResidue=normalizeUnrecoverableEntry]
  * @param {String} [options.provider='']
  * @param {Number|String} [options.contextBudget='']
+ * @param {String} [options.strategyVersion=AiConfig.memoryRepair.strategyVersion]
  * @param {Function} [options.appendFn=appendAutoAcceptedLoss] Audit-append seam (test injection).
  * @param {Function} [options.writeAcceptedLossStateFn=writeAutoAcceptedLossState] Latest-state marker seam.
  * @param {Function} [options.clearFn=clearDefragState] Marker-clear seam (test injection).
@@ -1436,13 +1435,14 @@ export async function applyAutonomousSettlement({
     normalizeResidue = normalizeUnrecoverableEntry,
     provider         = '',
     contextBudget    = '',
+    strategyVersion  = AiConfig.memoryRepair.strategyVersion,
     appendFn         = appendAutoAcceptedLoss,
     writeAcceptedLossStateFn = writeAutoAcceptedLossState,
     clearFn          = clearDefragState,
     now              = () => new Date().toISOString(),
     writeLog
 } = {}) {
-    const settleExit = resolveAutonomousRepairExit({results, normalizeResidue, provider, contextBudget});
+    const settleExit = resolveAutonomousRepairExit({results, normalizeResidue, provider, contextBudget, strategyVersion});
 
     if (!settleExit.allSettled) {
         return {settled: false, perCollection: settleExit.perCollection};
