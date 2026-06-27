@@ -200,7 +200,7 @@ export class ProcessSupervisorService extends Base {
      * @summary Escalates allowlisted failed task outcomes through the recovery diagnosis sink.
      *
      * This is alarm-only: it creates a `supervised-task` diagnosis and calls
-     * `RecoveryActuatorService.escalateDiagnosis()` without restarting the task.
+     * `RecoveryActuatorService.recordDiagnosis()` without restarting the task.
      *
      * @param {Object} options
      * @param {String} options.taskName Task key.
@@ -215,7 +215,7 @@ export class ProcessSupervisorService extends Base {
 
         const actuator = this.recoveryActuatorService;
 
-        if (typeof actuator?.escalateDiagnosis !== 'function') {
+        if (typeof actuator?.recordDiagnosis !== 'function') {
             return false;
         }
 
@@ -231,7 +231,7 @@ export class ProcessSupervisorService extends Base {
                   details      : {reasonCode: 'maintenance-task-failure', taskName, taskStatus: status, outcomeDetails: details || {}}
               });
 
-        Promise.resolve(actuator.escalateDiagnosis(diagnosis, {
+        Promise.resolve(actuator.recordDiagnosis(diagnosis, {
             now   : observedAt,
             reason: 'maintenance-task-failure'
         })).catch(error => {

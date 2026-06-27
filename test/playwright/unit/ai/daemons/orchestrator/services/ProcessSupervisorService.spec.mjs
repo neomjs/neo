@@ -467,14 +467,14 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
         }));
     });
 
-    test('recordTaskOutcome escalates failed backup outcomes without breaking HealthService', async () => {
+    test('recordTaskOutcome records failed backup outcomes without breaking HealthService', async () => {
         const { service, taskOutcomes } = createTestService();
         const escalations               = [];
 
         service.recoveryActuatorService = {
-            async escalateDiagnosis(diagnosisEvent, options) {
+            async recordDiagnosis(diagnosisEvent, options) {
                 escalations.push({diagnosisEvent, options});
-                return {status: 'escalated'};
+                return {status: 'recorded'};
             }
         };
 
@@ -500,7 +500,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
             targetIdentity: {kind: 'supervised-task', id: 'backup'},
             source        : 'task-outcome-diagnostics',
             details       : expect.objectContaining({
-                actionClass   : 'escalate',
+                actionClass   : 'record',
                 reasonCode    : 'maintenance-task-failure',
                 taskName      : 'backup',
                 taskStatus    : 'failed',
@@ -509,11 +509,11 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
         });
     });
 
-    test('recordTaskOutcome logs but swallows backup escalation failures', async () => {
+    test('recordTaskOutcome logs but swallows backup record failures', async () => {
         const { service, logEntries } = createTestService();
 
         service.recoveryActuatorService = {
-            async escalateDiagnosis() {
+            async recordDiagnosis() {
                 throw new Error('page unavailable');
             }
         };
