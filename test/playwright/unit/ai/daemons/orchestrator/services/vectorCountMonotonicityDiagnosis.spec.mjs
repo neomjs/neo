@@ -4,11 +4,11 @@ import * as core                               from '../../../../../../../src/co
 import {buildVectorCountMonotonicityDiagnosis} from '../../../../../../../ai/daemons/orchestrator/services/vectorCountMonotonicityDiagnosis.mjs';
 
 // Pure detect-producer (no I/O). Memory Core collections are append-mostly, so a vector-count DECREASE
-// between samples is a near-unambiguous, threshold-free data-loss signal → a data-integrity/escalate
+// between samples is a near-unambiguous, threshold-free data-loss signal → a data-integrity
 // recovery-diagnosis; monotonic samples → null.
 
 test.describe('buildVectorCountMonotonicityDiagnosis — vector-count monotonicity detect-producer', () => {
-    test('a collection whose vector count regressed -> a data-integrity/escalate recovery-diagnosis', () => {
+    test('a collection whose vector count regressed -> a data-integrity recovery-diagnosis', () => {
         const diag = buildVectorCountMonotonicityDiagnosis({
             samples: [
                 {collection: 'neo-agent-memory',   previousCount: 18835, currentCount: 7000},
@@ -25,8 +25,9 @@ test.describe('buildVectorCountMonotonicityDiagnosis — vector-count monotonici
             confidence    : 1,
             targetIdentity: {kind: 'compose-service', id: 'memory-core'},
             source        : 'data-integrity-monotonicity-monitor',
-            details       : {actionClass: 'escalate', reasonCode: 'data-integrity-vector-count-regression', regressedCollections: ['neo-agent-memory']}
+            details       : {reasonCode: 'data-integrity-vector-count-regression', regressedCollections: ['neo-agent-memory']}
         });
+        expect(diag.details.actionClass).toBeUndefined(); // raw evidence for the autonomous classifier — the producer no longer escalates
         expect(diag.evidenceFacts).toEqual([
             {type: 'vector-count-regression', collection: 'neo-agent-memory', previousCount: 18835, currentCount: 7000, lost: 11835}
         ]);
@@ -42,7 +43,7 @@ test.describe('buildVectorCountMonotonicityDiagnosis — vector-count monotonici
         expect(a.diagnosisId).not.toBe(b.diagnosisId);
     });
 
-    test('all-monotonic samples (current >= previous) -> null (no false escalation)', () => {
+    test('all-monotonic samples (current >= previous) -> null (no false positive)', () => {
         expect(buildVectorCountMonotonicityDiagnosis({
             samples: [
                 {collection: 'neo-agent-memory',   previousCount: 100, currentCount: 100},  // equal — not a loss

@@ -7,11 +7,11 @@ import {createRecoveryDiagnosisEvent} from '../../../services/memory-core/helper
  * unified Chroma store can grow unbounded (un-pruned WAL, orphaned segments, churn); a store far over its
  * size budget, or growing too fast between samples, is a data-integrity signal. It turns an injected
  * `(storeSizeBytes, previousSizeBytes)` measurement + configured thresholds into a `recovery-diagnosis`
- * so the immune system ESCALATES rather than letting the store bloat silently.
+ * so the immune system heals autonomously rather than letting the store bloat silently.
  *
  * Detect-only by construction: it consumes a size measurement and emits a diagnosis — it performs no
  * prune / vacuum / mutation (operator-gated remediation). It emits `recoveryClass: 'data-integrity'` +
- * `details.actionClass: 'escalate'`, targeting the Memory Core `compose-service`. The size measurement and
+ * raw `evidenceFacts` (the autonomous classifier's input), targeting the Memory Core `compose-service`. The size measurement and
  * the threshold config-leaves (read at the daemon use-site) are injected, so the producer is pure and
  * testable in isolation. A sub-signal whose threshold is non-finite is skipped (graceful).
  */
@@ -21,7 +21,7 @@ import {createRecoveryDiagnosisEvent} from '../../../services/memory-core/helper
  *
  * Pure — no I/O. Returns a diagnosis when the store is over its ABSOLUTE budget OR has GROWN faster than
  * the growth-ratio budget since the previous sample; returns `null` when within budget (never a false
- * escalation). A non-finite `storeSizeBytes` (no measurement) returns `null`; a missing / zero
+ * positive). A non-finite `storeSizeBytes` (no measurement) returns `null`; a missing / zero
  * `previousSizeBytes` simply disables the growth sub-signal (absolute-only).
  *
  * @param {Object} options
@@ -30,7 +30,7 @@ import {createRecoveryDiagnosisEvent} from '../../../services/memory-core/helper
  * @param {Object} options.thresholds `{absoluteBytes, growthRatio}` — config leaves read at the daemon use-site.
  * @param {Number} options.observedAt Epoch milliseconds when the measurement was observed.
  * @param {String} options.serviceId The Memory Core compose-service identifier.
- * @returns {Object|null} A `recovery-diagnosis` event (`data-integrity` / `escalate`) when bloated, else `null`.
+ * @returns {Object|null} A `recovery-diagnosis` event (`data-integrity`, raw evidence) when bloated, else `null`.
  * @throws {TypeError} when `serviceId` is missing/empty or `observedAt` is not a finite number.
  */
 export function buildStoreBloatDiagnosis({storeSizeBytes, previousSizeBytes, thresholds, observedAt, serviceId} = {}) {
@@ -83,7 +83,6 @@ export function buildStoreBloatDiagnosis({storeSizeBytes, previousSizeBytes, thr
         observedAt,
         source        : 'data-integrity-store-bloat-monitor',
         details       : {
-            actionClass     : 'escalate',
             reasonCode      : 'data-integrity-store-bloat',
             triggeredSignals: signals.map(signal => signal.signal)
         }
