@@ -587,11 +587,15 @@ class VectorService extends Base {
      * @param {Object}   options
      * @param {Object}   options.collection      Chroma collection target.
      * @param {Object[]} options.chunksToProcess Tenant-stamped chunks to embed.
-     * @returns {Promise<{embedded: Number, skipped: Number}>}
+     * @param {Function} [options.shouldYield]   Cooperative heavy-maintenance-lease yield predicate,
+     *     consulted BETWEEN batches. Returns truthy once the lease holder has exceeded the fairness bound
+     *     (`HeavyMaintenanceLeaseService.shouldYield`); the loop then stops so a starved heavy task can
+     *     interleave. Defaults to never-yield, so callers that do not hold the lease are unaffected.
+     * @returns {Promise<{embedded: Number, skipped: Number, yielded: Boolean}>}
      */
-    async embedChunks({collection, chunksToProcess}) {
+    async embedChunks({collection, chunksToProcess, shouldYield = () => false}) {
         if (chunksToProcess.length === 0) {
-            return {embedded: 0, skipped: 0};
+            return {embedded: 0, skipped: 0, yielded: false};
         }
 
         logger.log(`Using TextEmbeddingService with provider: ${mcConfig.embeddingProvider}.`);
@@ -601,8 +605,21 @@ class VectorService extends Base {
         const guardrail                           = this.resolveEmbeddingGuardrail();
         let   embeddedCount                       = 0;
         let   skippedCount                        = 0;
+        let   yielded                             = false;
 
         for (let i = 0; i < chunksToProcess.length; i += batchSize) {
+            // Cooperative heavy-maintenance-lease yield-point: BETWEEN batches (never before the
+            // first — so at least one batch lands per lease acquisition: a forward-progress guarantee, never a
+            // livelock), if the lease holder has exceeded the fairness bound, stop embedding so a starved heavy
+            // task (e.g. githubWorkflowSync) can interleave. The completed batches are already durably upserted
+            // into the shadow and indexed by the write-ahead resume marker, so the next sweep resumes here
+            // (decideResume -> selectResumableChunks). The caller releases the lease on the `yielded` signal.
+            if (i > 0 && shouldYield()) {
+                yielded = true;
+                logger.log(`Yielding the heavy-maintenance lease after ${i} chunk(s) (${embeddedCount} embedded); ${chunksToProcess.length - i} remaining will resume on the next sweep.`);
+                break;
+            }
+
             if (i > 0 && batchDelay) {
                 await this.timeout(batchDelay);
             }
@@ -672,7 +689,7 @@ class VectorService extends Base {
             }
         }
 
-        return {embedded: embeddedCount, skipped: skippedCount};
+        return {embedded: embeddedCount, skipped: skippedCount, yielded};
     }
 
     /**
@@ -698,9 +715,13 @@ class VectorService extends Base {
      * @param {Object}   options.liveCollection Existing canonical collection handle.
      * @param {Object[]} options.knowledgeBase   Full tenant-stamped corpus.
      * @param {Number}   options.idsToDeleteCount Logical stale-id count removed from the canonical view.
-     * @returns {Promise<Object>} Embedding result.
+     * @param {Function} [options.shouldYield]   Cooperative heavy-maintenance-lease yield predicate,
+     *     threaded to `embedChunks`. On a between-batch yield the shadow is preserved-not-promoted (the
+     *     write-ahead resume marker already indexes it) and a `{yielded: true}` envelope is returned so the
+     *     lease holder releases; the next sweep resumes from the preserved shadow.
+     * @returns {Promise<Object>} Embedding result (carries `yielded: true` when the lease was cooperatively released).
      */
-    async embedViaShadowSwap({liveCollection, knowledgeBase, idsToDeleteCount}) {
+    async embedViaShadowSwap({liveCollection, knowledgeBase, idsToDeleteCount, shouldYield = () => false}) {
         const stateDir    = this.getResumeStateDir();
         const fingerprint = computeCorpusFingerprint(knowledgeBase);
         const resumeState = await readResumeState({dir: stateDir});
@@ -758,7 +779,25 @@ class VectorService extends Base {
         let shadowPromoted = false;
 
         try {
-            const embedResult = await this.embedChunks({collection: shadowCollection, chunksToProcess: chunksToEmbed});
+            const embedResult = await this.embedChunks({collection: shadowCollection, chunksToProcess: chunksToEmbed, shouldYield});
+
+            if (embedResult.yielded) {
+                // Cooperative lease-yield: the shadow holds the completed batches and the write-ahead
+                // resume marker already indexes it, so DO NOT promote and DO NOT clear the marker — the next
+                // sweep resumes (decideResume -> selectResumableChunks). The live collection is untouched
+                // (preserved-not-promoted), so githubWorkflowSync can write resources/content/ freely while we
+                // are yielded; the resumed run re-reads the updated corpus. Torn-read-free by the same shadow
+                // isolation that protects a normal run.
+                logger.log(`Yielded the heavy-maintenance lease mid shadow-swap; preserving shadow '${shadowName}' for resume (${embedResult.embedded + alreadyEmbedded} embedded so far).`);
+                return {
+                    message         : `KB embedding yielded the heavy-maintenance lease after ${embedResult.embedded + alreadyEmbedded} chunk(s); the next sweep resumes from the preserved shadow.`,
+                    embedded        : embedResult.embedded + alreadyEmbedded,
+                    deleted         : idsToDeleteCount,
+                    staleStrategy   : 'shadow-swap',
+                    yielded         : true,
+                    shadowCollection: shadowName
+                };
+            }
 
             if (embedResult.skipped > 0) {
                 throw new Error(`KB_EMBEDDING_INPUT_SIZE_EXCEEDED: shadow-swap refused to promote an incomplete corpus after skipping ${embedResult.skipped} over-budget embedding chunk(s).`);
@@ -916,10 +955,15 @@ class VectorService extends Base {
      *                                             preserves the historical behavior;
      *                                             `shadow-swap` rebuilds into a fresh collection
      *                                             before promoting it to the canonical name.
+     * @param {Function} [opts.shouldYield]        Cooperative heavy-maintenance-lease yield predicate
+     *                                             threaded to the shadow-swap embed loop so a long
+     *                                             re-embed releases the lease at a batch boundary for a starved
+     *                                             heavy task, then resumes from the preserved shadow. Default
+     *                                             never yields, so non-lease-held callers are unaffected.
      * @returns {Promise<object>} A promise that resolves to a success message, OR a
      *     `{error, code: 'KB_SYNC_VOLUME_EXCEEDED', ...}` shape when the MCP gate fires.
      */
-    async embed(knowledgeBasePath, {viaMcp = false, tenantContext = {}, deleteStale = true, staleStrategy} = {}) {
+    async embed(knowledgeBasePath, {viaMcp = false, tenantContext = {}, deleteStale = true, staleStrategy, shouldYield = () => false} = {}) {
         logger.log('Starting knowledge base embedding...');
         const resolvedStaleStrategy = this.resolveStaleStrategy({staleStrategy, deleteStale});
 
@@ -1062,7 +1106,8 @@ class VectorService extends Base {
             return await this.embedViaShadowSwap({
                 liveCollection  : collection,
                 knowledgeBase   : expandedKnowledgeBase,
-                idsToDeleteCount: idsToDelete.length
+                idsToDeleteCount: idsToDelete.length,
+                shouldYield
             });
         }
 
