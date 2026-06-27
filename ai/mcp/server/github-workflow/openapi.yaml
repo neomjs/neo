@@ -30,6 +30,19 @@ tags:
   - name: Repository
     description: Operations related to the repository itself
 
+# Harness tool-projection policy (mirrors neural-link / knowledge-base). A maintainer harness spawned
+# with `--tool-projection-mode harness-embedded` loads the read + write (core-maintainer) tiers; the
+# `extended` (rare ops) + `admin` (dangerous) tiers are withheld, reachable on demand via
+# `get_mcp_tool_handbook`. gh's visible set includes `write` because a maintainer's core writes
+# (review, comment, create, assign, label, link, transition) are constant — unlike kb, whose writes are
+# all admin-destructive (visible=[read] there).
+x-neo-harness-tool-projection:
+  defaultVisibleTiers:
+    - read
+    - write
+  operatorOnlyTiers:
+    - admin
+
 paths:
   /docs:
     get:
@@ -48,6 +61,7 @@ paths:
     get:
       summary: Check GitHub CLI Health
       operationId: healthcheck
+      x-neo-tool-tier: read
       x-annotations:
         readOnlyHint: true
       description: |
@@ -74,6 +88,7 @@ paths:
     post:
       summary: Tool Handbook
       operationId: get_mcp_tool_handbook
+      x-neo-tool-tier: read
       x-annotations:
         readOnlyHint: true
       description: Returns lazy-loaded usage detail for one GitHub Workflow MCP tool.
@@ -118,6 +133,7 @@ paths:
     get:
       summary: List Repository Labels
       operationId: list_labels
+      x-neo-tool-tier: read
       x-annotations:
         readOnlyHint: true
       description: |
@@ -144,6 +160,7 @@ paths:
     get:
       summary: List Pull Requests
       operationId: list_pull_requests
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -202,6 +219,7 @@ paths:
     post:
       summary: Checkout PR Branch
       operationId: checkout_pull_request
+      x-neo-tool-tier: admin
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
@@ -250,6 +268,7 @@ paths:
     get:
       summary: Get PR Diff
       operationId: get_pull_request_diff
+      x-neo-tool-tier: read
       x-annotations:
         readOnlyHint: true
       description: |
@@ -336,6 +355,7 @@ paths:
     get:
       summary: Get Conversation (Issue or PR)
       operationId: get_conversation
+      x-neo-tool-tier: read
       x-neo-tool-summary: Fetch a pull request or issue conversation with optional comment-window selectors.
       x-pass-as-object: true
       x-annotations:
@@ -441,6 +461,7 @@ paths:
     post:
       summary: Manage Comments (Create or Update)
       operationId: manage_issue_comment
+      x-neo-tool-tier: write
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
@@ -526,6 +547,7 @@ paths:
     post:
       summary: Manage Issue Labels (Add or Remove)
       operationId: manage_issue_labels
+      x-neo-tool-tier: write
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
@@ -598,6 +620,7 @@ paths:
     post:
       summary: Manage Issue Assignees (Single Guarded MCP Operation — Add or Remove)
       operationId: manage_issue_assignees
+      x-neo-tool-tier: write
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
@@ -708,6 +731,7 @@ paths:
     post:
       summary: Manage PR Review (Create or Update — atomic body + formal-state in one call)
       operationId: manage_pr_review
+      x-neo-tool-tier: write
       x-neo-tool-summary: Create or update one formal PR review with body and review state validation.
       x-pass-as-object: true
       x-annotations:
@@ -801,6 +825,7 @@ paths:
     post:
       summary: Manage PR Reviewers (Add or Remove)
       operationId: manage_pr_reviewers
+      x-neo-tool-tier: write
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
@@ -870,6 +895,7 @@ paths:
     get:
       summary: Get Local Issue Content by ID
       operationId: get_local_issue_by_id
+      x-neo-tool-tier: read
       x-annotations:
         readOnlyHint: true
       description: |
@@ -911,6 +937,7 @@ paths:
     get:
       summary: List Issues
       operationId: list_issues
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -978,6 +1005,7 @@ paths:
     post:
       summary: Create a new GitHub issue
       operationId: create_issue
+      x-neo-tool-tier: write
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
@@ -1048,6 +1076,7 @@ paths:
     post:
       summary: Manage Issue ProjectV2 Memberships (Add, Remove, or Update Field)
       operationId: manage_issue_projects
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
@@ -1137,6 +1166,7 @@ paths:
     post:
       summary: Create a new GitHub Discussion
       operationId: create_discussion
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
@@ -1185,6 +1215,7 @@ paths:
     post:
       summary: Manage GitHub Discussions (Update Body)
       operationId: manage_discussion
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
@@ -1256,6 +1287,7 @@ paths:
     get:
       summary: Get Discussion Conversation
       operationId: get_discussion_conversation
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -1415,6 +1447,7 @@ paths:
     post:
       summary: Manage Discussion Comments (Create or Update)
       operationId: manage_discussion_comment
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
@@ -1481,6 +1514,7 @@ paths:
     post:
       summary: Manage Issue Relationships (Parent-Child and Blocked-By)
       operationId: update_issue_relationship
+      x-neo-tool-tier: write
       x-neo-tool-summary: Create, replace, or remove issue parent-child and blocked-by relationships.
       x-pass-as-object: true
       x-annotations:
@@ -1570,6 +1604,7 @@ paths:
     post:
       summary: Sync GitHub Issues & Releases
       operationId: sync_all
+      x-neo-tool-tier: extended
       x-annotations:
         readOnlyHint: false
       description: |
@@ -1604,6 +1639,7 @@ paths:
     get:
       summary: Get Viewer Permission
       operationId: get_viewer_permission
+      x-neo-tool-tier: read
       x-annotations:
         readOnlyHint: true
       description: |
@@ -1637,6 +1673,7 @@ paths:
     post:
       summary: Signal State Transition
       operationId: signal_state_transition
+      x-neo-tool-tier: write
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
