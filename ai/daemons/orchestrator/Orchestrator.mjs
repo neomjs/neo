@@ -39,6 +39,7 @@ import {auditChromaVectorCoverage}                                              
 import {createReEmbedMissingHeal, createReEmbedMissingHealOperation}                                from '../../services/memory-core/helpers/reEmbedMissingHeal.mjs';
 import {appendHealEvent, healEventsToRecentRuns, queryHealLedger, readHealLedger}                   from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
 import {quarantineCollection, storeFenceTargets, unquarantineCollection}                            from '../../services/memory-core/helpers/quarantineStore.mjs';
+import {decideSystemicCircuit, foldSystemicCircuitState}                                            from '../../services/memory-core/helpers/healSystemicCircuit.mjs';
 import {Memory_StorageRouter as StorageRouter, Memory_TextEmbeddingService as TextEmbeddingService} from '../../services.mjs';
 import {buildDataIntegrityCoverageDiagnosis}                                                        from './services/dataIntegrityCoverageDiagnosis.mjs';
 import {assembleDataIntegrityEvidence}                                                              from './services/dataIntegrityEvidenceAssembler.mjs';
@@ -489,7 +490,19 @@ export class Orchestrator extends Base {
             evidenceGatherer: this.dataIntegrityEvidenceGatherer,
             // Reversibility: a clean re-audit (terminalAction `none`) lifts the serving fence. The store-level
             // fence is per-served-collection, so each lifts as it re-audits clean.
-            liftQuarantine  : async collection => unquarantineCollection(collection, {dir: AiConfig.engines.chroma.dataDir})
+            liftQuarantine  : async collection => unquarantineCollection(collection, {dir: AiConfig.engines.chroma.dataDir}),
+            // Systemic circuit-breaker: fold the heal-ledger → decide whether a cross-collection embedder outage
+            // should suppress this cycle's heals (bounds read FRESH from the AiConfig recovery-actuator leaf).
+            systemicCircuitGate: async ({now}) => {
+                const dir                               = path.join(this.dataDir, 'data-heal-events'),
+                      bounds                            = AiConfig.orchestrator.recoveryActuator.systemicCircuit,
+                      {recentFailures, circuitOpenedAt} = foldSystemicCircuitState(await readHealLedger({dir}), {now, windowMs: bounds.windowMs});
+                return decideSystemicCircuit({recentFailures, circuitOpenedAt, now, bounds});
+            },
+            recordCircuitEvent: async ({type, at, detail}) => appendHealEvent(
+                {type, collection: '*', status: type === 'circuit-open' ? 'open' : 'close', detail},
+                {dir: path.join(this.dataDir, 'data-heal-events'), now: at}
+            )
         });
     }
 
