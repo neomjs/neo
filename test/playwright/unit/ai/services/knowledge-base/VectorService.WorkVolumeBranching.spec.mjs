@@ -15,13 +15,14 @@ setup({
     }
 });
 
-import {test, expect}  from '@playwright/test';
-import Neo             from '../../../../../../src/Neo.mjs';
-import * as core       from '../../../../../../src/core/_export.mjs';
-import fs              from 'fs';
-import path            from 'path';
-import os              from 'os';
-import {fileURLToPath} from 'url';
+import {test, expect}    from '@playwright/test';
+import Neo               from '../../../../../../src/Neo.mjs';
+import * as core         from '../../../../../../src/core/_export.mjs';
+import fs                from 'fs';
+import path              from 'path';
+import os                from 'os';
+import {fileURLToPath}   from 'url';
+import {readResumeState} from '../../../../../../ai/services/knowledge-base/helpers/kbEmbeddingResumeStore.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -231,6 +232,10 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
         KB_ChromaManager.client         = originalClient;
         KB_ChromaManager.getKnowledgeBaseCollection = originalGetCollection;
         KB_ChromaManager.invalidateKnowledgeBaseCollectionCache();
+
+        // Isolate the shadow-swap resume-state marker per test (never touch the real .neo-ai-data tree).
+        KB_VectorService.resumeStateDir = path.join(tmpDir, 'kb-resume-state');
+        fs.rmSync(KB_VectorService.resumeStateDir, {recursive: true, force: true});
     });
 
     test('zero-changes fast-path is unchanged (existing chunks dedup to empty queue)', async () => {
@@ -540,7 +545,7 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
         expect(registry.get(KB_Config.data.collectionName).rows.size).toBe(1);
     });
 
-    test('shadow-swap parks failed pre-promote shadow collections under a non-active name', async () => {
+    test('shadow-swap PRESERVES the shadow on a transient failure for resume (records resume-state)', async () => {
         const live                = createSpyCollection({existingIds: [], name: KB_Config.data.collectionName});
         const originalEmbedChunks = KB_VectorService.embedChunks.bind(KB_VectorService);
         let shadow;
@@ -562,10 +567,14 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
                 idsToDeleteCount: 0
             })).rejects.toThrow('forced embed failure');
 
+            // A transient embed failure PRESERVES the shadow (NOT renamed to a dead failed-shadow) and records
+            // a resume-state marker, so the next run resumes from the completed batches instead of rebuilding.
             expect(live.calls.modify).toEqual([]);
-            expect(shadow.calls.modify).toHaveLength(1);
-            expect(shadow.calls.modify[0].name).toContain(`${KB_Config.data.collectionName}-failed-shadow-`);
-            expect(shadow.calls.modify[0].name).not.toContain(`${KB_Config.data.collectionName}-shadow-`);
+            expect(shadow.calls.modify).toEqual([]);
+
+            const resumeState = await readResumeState({dir: KB_VectorService.resumeStateDir});
+            expect(resumeState?.shadowName).toBe(shadow.name);
+            expect(resumeState?.attempts).toBe(1);
         } finally {
             KB_VectorService.embedChunks = originalEmbedChunks;
         }
