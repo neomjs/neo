@@ -42,11 +42,25 @@ tags:
   - name: Diagnostics
     description: On-demand operational diagnostics
 
+# Harness tool-projection policy (mirrors neural-link / knowledge-base / github-workflow). A maintainer
+# harness spawned with `--tool-projection-mode harness-embedded` loads the read + write (core-maintainer)
+# tiers; the `extended` (on-demand diagnostics / session-lifecycle / frontier / wake) + `admin` (destructive /
+# permission) tiers are withheld, reachable on demand via `get_mcp_tool_handbook`. mc's visible set includes
+# `write` because a maintainer's core writes (A2A add_message/mark_read, add_memory, record_turn_presence) are
+# constant — like gh, unlike kb.
+x-neo-harness-tool-projection:
+  defaultVisibleTiers:
+    - read
+    - write
+  operatorOnlyTiers:
+    - admin
+
 paths:
   /healthcheck:
     get:
       summary: Health Check
       operationId: healthcheck
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -98,6 +112,7 @@ paths:
     post:
       summary: Tool Handbook
       operationId: get_mcp_tool_handbook
+      x-neo-tool-tier: read
       x-annotations:
         readOnlyHint: true
       description: Returns lazy-loaded usage detail for one Memory Core MCP tool.
@@ -142,6 +157,7 @@ paths:
     post:
       summary: Get Memory Core Tool Metrics
       operationId: get_memory_core_tool_metrics
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -177,6 +193,7 @@ paths:
     post:
       summary: Deployment State Snapshot
       operationId: get_deployment_state_snapshot
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -209,6 +226,7 @@ paths:
     post:
       summary: Inspect Deployment
       operationId: inspect_deployment
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -241,6 +259,7 @@ paths:
     post:
       summary: Get REM Pipeline State
       operationId: get_rem_pipeline_state
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -277,6 +296,7 @@ paths:
     get:
       summary: Get SQLite Holder Diagnostics
       operationId: get_sqlite_holder_diagnostics
+      x-neo-tool-tier: extended
       x-annotations:
         readOnlyHint: true
       description: |
@@ -306,6 +326,7 @@ paths:
     post:
       summary: Who Is Online
       operationId: who_is_online
+      x-neo-tool-tier: read
       x-neo-tool-summary: Report recent maintainer activity for review routing and lane handoffs.
       x-pass-as-object: true
       x-annotations:
@@ -395,6 +416,7 @@ paths:
     post:
       summary: Add New Memory
       operationId: add_memory
+      x-neo-tool-tier: write
       x-pass-as-object: true
       x-neo-tool-summary: Persist one consolidated turn memory for the active agent session.
       description: |
@@ -433,6 +455,7 @@ paths:
     get:
       summary: Get Session Memories
       operationId: get_session_memories
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -488,6 +511,7 @@ paths:
     post:
       summary: Search Raw Memories
       operationId: query_raw_memories
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -527,6 +551,7 @@ paths:
     get:
       summary: Query Recent Turns
       operationId: query_recent_turns
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-neo-tool-summary: Recall recent turns chronologically for recovery or handoff.
       x-annotations:
@@ -600,6 +625,7 @@ paths:
     get:
       summary: Get Context Frontier
       operationId: get_context_frontier
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -625,6 +651,7 @@ paths:
     post:
       summary: Mutate Context Frontier
       operationId: mutate_frontier
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       description: |
         Actively manages the [Frontier] node. When project priorities pivot, this injects those new priorities into the Graph's Edge relationships in real-time.
@@ -673,6 +700,7 @@ paths:
     post:
       summary: Contextual Pre-Briefing
       operationId: pre_brief_session
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       description: |
         Instantly contextualizes the agent by targeting a specific Epic or Graph Node,
@@ -720,6 +748,7 @@ paths:
     get:
       summary: Get All Summaries
       operationId: get_all_summaries
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -778,6 +807,7 @@ paths:
     post:
       summary: Search Summaries
       operationId: query_summaries
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -817,6 +847,7 @@ paths:
     post:
       summary: Purge Session
       operationId: purge_session
+      x-neo-tool-tier: admin
       x-pass-as-object: true
       x-annotations:
         destructiveHint: true
@@ -860,6 +891,7 @@ paths:
     post:
       summary: Validate session resumability
       operationId: resume_session
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       x-neo-tool-summary: Validate whether a session id is safe to resume.
       x-annotations:
@@ -931,6 +963,7 @@ paths:
     post:
       summary: Set Session ID
       operationId: set_session_id
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       description: |
         Overrides the current active session ID.
@@ -984,6 +1017,7 @@ paths:
     get:
       summary: Get Node by ID
       operationId: get_node
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -1021,6 +1055,7 @@ paths:
     get:
       summary: Get Node Neighbors
       operationId: get_neighbors
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -1086,6 +1121,7 @@ paths:
     get:
       summary: Search Graph Nodes
       operationId: search_nodes
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -1122,6 +1158,7 @@ paths:
     post:
       summary: Query Hybrid Graph
       operationId: query_hybrid_graph
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -1163,6 +1200,7 @@ paths:
     post:
       summary: Grant Permission
       operationId: grant_permission
+      x-neo-tool-tier: admin
       x-pass-as-object: true
       description: |
         Grants a permission edge from the caller to a target identity.
@@ -1207,6 +1245,7 @@ paths:
     post:
       summary: Revoke Permission
       operationId: revoke_permission
+      x-neo-tool-tier: admin
       x-pass-as-object: true
       description: |
         Revokes a permission edge from the caller to a target identity.
@@ -1251,6 +1290,7 @@ paths:
     get:
       summary: List Permissions
       operationId: list_permissions
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -1282,6 +1322,7 @@ paths:
     post:
       summary: Send Message
       operationId: add_message
+      x-neo-tool-tier: write
       x-pass-as-object: true
       x-neo-tool-summary: Send an A2A message to one peer or an agent broadcast.
       description: |
@@ -1350,6 +1391,7 @@ paths:
     get:
       summary: List Messages
       operationId: list_messages
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-neo-tool-summary: List incoming or historical A2A mailbox messages.
       description: |
@@ -1446,6 +1488,7 @@ paths:
     get:
       summary: Get Message
       operationId: get_message
+      x-neo-tool-tier: read
       x-pass-as-object: true
       description: |
         Retrieves a specific message. Subject to read-path permission checks.
@@ -1484,6 +1527,7 @@ paths:
     post:
       summary: Mark Message Read
       operationId: mark_read
+      x-neo-tool-tier: write
       x-pass-as-object: true
       description: |
         Marks a specific message as read.
@@ -1518,6 +1562,7 @@ paths:
     post:
       summary: Archive Message (receiver-side)
       operationId: archive_message
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       description: |
         Recipient-side archive: hides the message from the default `list_messages` view without deleting it. Surface again via `list_messages` with `includeArchived: true`. Only the recipient (direct DM `SENT_TO` or per-recipient broadcast `DELIVERED_TO`) can archive their own copy; broadcasts are archived per-recipient. Distinct from `mark_read` (read ≠ done) and `delete_message` (sender-side permanent retraction).
@@ -1552,6 +1597,7 @@ paths:
     post:
       summary: Delete Message (sender-side retraction)
       operationId: delete_message
+      x-neo-tool-tier: admin
       x-pass-as-object: true
       description: |
         Sender-side retraction: permanently clears the message's `subject` and `bodyText` to `'[retracted by sender]'` and sets `retracted: true`. All edges (`SENT_BY`, `SENT_TO`, `DELIVERED_TO`, `PART_OF_THREAD`, `IN_REPLY_TO`) survive so thread context remains coherent — receivers see the placeholder, not an unexplained gap. Only the sender (`SENT_BY` match) can retract. Irreversible; no undo path.
@@ -1586,6 +1632,7 @@ paths:
     post:
       summary: Transition A2A Task State
       operationId: transition_task
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       description: |
         Transitions the state of an A2A Task using optimistic concurrency control.
@@ -1646,6 +1693,7 @@ paths:
     post:
       summary: Record Turn Presence
       operationId: record_turn_presence
+      x-neo-tool-tier: write
       x-pass-as-object: true
       x-neo-tool-summary: Record active-turn liveness for the current agent session.
       description: |
@@ -1687,6 +1735,7 @@ paths:
     post:
       summary: Manage WAKE_SUBSCRIPTION
       operationId: manage_wake_subscription
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       description: Subscribe / unsubscribe / update / list / resync agent wake-event subscriptions with trigger types (SENT_TO_ME, TASK_STATE_CHANGED, PERMISSION_GRANTED), optional AND-conjunctive filters, and harness target routing.
       tags: [WakeSubscriptions]
