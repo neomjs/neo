@@ -18,7 +18,7 @@ export const CONTAINER_HEALTH_FACT_TYPES = Object.freeze({
 });
 
 export const CONTAINER_HEALTH_ACTION_CLASSES = Object.freeze({
-    escalate    : 'escalate',
+    record      : 'record',
     restart     : 'restart',
     throttleShed: 'throttle-shed',
     warmProvider: 'warm-provider'
@@ -473,10 +473,10 @@ export class ContainerHealthDiagnosisService extends Base {
 
             return {
                 recoveryClass : 'config-drift',
-                actionClass   : CONTAINER_HEALTH_ACTION_CLASSES.escalate,
+                actionClass   : CONTAINER_HEALTH_ACTION_CLASSES.record,
                 confidence    : 0.95,
                 evidenceFacts : configDriftFacts,
-                reason        : 'config-drift-escalate',
+                reason        : 'config-drift-record',
                 targetIdentity: providerTargetIdentity
             };
         }

@@ -11,6 +11,7 @@ import {
     createRecoveryRunStateEntry,
     createRecoveryTargetIdentity
 } from '../../../services/memory-core/helpers/recoveryRunStateStore.mjs';
+import {appendHealEvent}  from '../../../services/memory-core/helpers/healEventLedgerStore.mjs';
 import {DEFAULT_DATA_DIR} from '../taskDefinitions.mjs';
 
 const DEFAULT_ACTIONS        = Object.freeze(['restart', 'redeploy', 'page', 'warm-provider']);
@@ -158,6 +159,14 @@ export class RecoveryActuatorService extends Base {
     /** @summary Resolves the durable recovery-run ledger directory. */
     get recoveryRunStateDir() {
         return this.cfg.recoveryRunStateDir;
+    }
+
+    /**
+     * @summary Resolves the durable heal-event ledger directory — a sibling of the recovery-run dir; the
+     * shared record sink for the lifecycle (this actuator) and data worlds of the immune system.
+     */
+    get healEventLedgerDir() {
+        return path.join(path.dirname(this.recoveryRunStateDir), 'heal-events');
     }
 
     /** @summary Resolves the configured compose-service recovery blocklist. */
@@ -357,20 +366,22 @@ export class RecoveryActuatorService extends Base {
     }
 
     /**
-     * @summary Escalates a diagnosis without executing a privileged recovery action.
+     * @summary Records a diagnosis to the durable heal-event ledger without executing a privileged
+     * recovery action — the **record-with-diagnosis** terminal of the operatorless self-heal loop.
      *
-     * Backup/task-failure alerting needs the recovery-run ledger and operator page path, but
-     * must not coerce a supervised task into the deploy-target `page` action. This sink accepts
-     * only controller-produced alarm diagnoses and records them as escalated.
+     * An operatorless cloud deploy has no human to page, so an un-healable / alarm-only lifecycle
+     * diagnosis is written to the shared heal-event ledger (durable async-audit, never a blocking page)
+     * and recorded as `recorded`; the recovery-run ledger still captures the outcome. This sink accepts
+     * only controller-produced alarm diagnoses; it never coerces a supervised task into a privileged action.
      *
-     * @param {Object} diagnosisEvent Recovery diagnosis event with `details.actionClass = 'escalate'`.
+     * @param {Object} diagnosisEvent Recovery diagnosis event with `details.actionClass = 'record'`.
      * @param {Object} [options]
      * @param {String|null} [options.recoveryRunId=null] Optional stable recovery run id.
      * @param {Number} [options.now=Date.now()] Epoch milliseconds.
-     * @param {String|null} [options.reason=null] Operator/controller reason.
-     * @returns {Promise<Object>} Escalation outcome descriptor.
+     * @param {String|null} [options.reason=null] Controller reason.
+     * @returns {Promise<Object>} Record outcome descriptor.
      */
-    async escalateDiagnosis(diagnosisEvent, {
+    async recordDiagnosis(diagnosisEvent, {
         recoveryRunId = null,
         now = Date.now(),
         reason = null
@@ -387,10 +398,10 @@ export class RecoveryActuatorService extends Base {
             };
         }
 
-        if (diagnosis.details?.actionClass !== 'escalate') {
+        if (diagnosis.details?.actionClass !== 'record') {
             return {
                 status        : 'rejected',
-                reasonCode    : 'diagnosis-not-escalatable',
+                reasonCode    : 'diagnosis-not-recordable',
                 targetIdentity: diagnosis.targetIdentity
             };
         }
@@ -401,28 +412,35 @@ export class RecoveryActuatorService extends Base {
                   serviceKey,
                   id  : serviceKey
               },
-              page       = this.createDiagnosisPage({diagnosisEvent: diagnosis, reason});
+              reasonCode = reason || diagnosis.details.reasonCode || 'diagnosis-record';
 
-        if (typeof this.pageDispatcher === 'function') {
-            await this.pageDispatcher(page);
-        } else {
-            this.writeLog?.('WARN', `[RecoveryActuator] Escalation required for ${serviceKey}; page target ${page.operatorPageTarget}.`);
-        }
+        // Record-with-diagnosis: durable async-audit to the shared heal-event ledger, never a blocking
+        // page (an operatorless cloud has no human to page). The lifecycle and data worlds share this
+        // sink for the immune-system status surface (summarizeHealLedger).
+        await appendHealEvent({
+            type      : diagnosis.recoveryClass,
+            collection: serviceKey,
+            status    : 'recorded',
+            detail    : {
+                reasonCode,
+                targetIdentity: createRecoveryTargetIdentity(diagnosis.targetIdentity),
+                evidenceFacts : diagnosis.evidenceFacts || []
+            }
+        }, {dir: this.healEventLedgerDir, now});
 
         const updatedAt = Date.now();
 
         return this.finishAction({
-            action        : 'escalate',
+            action        : 'record',
             attempt       : 1,
             backoffUntil  : null,
             diagnosisEvent: diagnosis,
             outcome       : {
-                status        : 'escalated',
-                reasonCode    : diagnosis.details.reasonCode || 'diagnosis-escalation',
+                status        : 'recorded',
+                reasonCode,
                 serviceKey,
-                action        : 'escalate',
-                targetIdentity: createRecoveryTargetIdentity(diagnosis.targetIdentity),
-                page
+                action        : 'record',
+                targetIdentity: createRecoveryTargetIdentity(diagnosis.targetIdentity)
             },
             recoveryRunId,
             serviceKey,
@@ -596,22 +614,6 @@ export class RecoveryActuatorService extends Base {
         }
 
         return {page};
-    }
-
-    /**
-     * @summary Builds the operator page payload for an alarm-only diagnosis escalation.
-     * @param {Object} options
-     * @returns {Object}
-     */
-    createDiagnosisPage({diagnosisEvent, reason}) {
-        return {
-            serviceKey        : diagnosisEvent.targetIdentity.id,
-            targetIdentity    : createRecoveryTargetIdentity(diagnosisEvent.targetIdentity),
-            action            : 'escalate',
-            reason            : reason || diagnosisEvent.details?.reasonCode || 'diagnosis-escalation',
-            diagnosisEvent,
-            operatorPageTarget: this.cfg.operatorPageTarget
-        };
     }
 
     /**
@@ -946,6 +948,9 @@ export class RecoveryActuatorService extends Base {
         }
         if (outcome.status === 'escalated') {
             return 'escalated';
+        }
+        if (outcome.status === 'recorded') {
+            return 'recorded';
         }
         if (outcome.status === 'failed') {
             return 'failed';

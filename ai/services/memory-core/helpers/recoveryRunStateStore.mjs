@@ -29,6 +29,7 @@ export const RECOVERY_RUN_STATUSES = Object.freeze([
     'failed',
     'no-action',
     'pending',
+    'recorded',
     'recovered',
     'reobserve-requested'
 ]);
