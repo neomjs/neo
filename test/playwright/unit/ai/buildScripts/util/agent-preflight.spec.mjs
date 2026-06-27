@@ -2,7 +2,11 @@ import {test, expect} from '@playwright/test';
 import path           from 'node:path';
 import {
     createProgram,
+    detectContractLedgerDrift,
+    extractLedgerSignatures,
     filterMjsFiles,
+    findShippedSignature,
+    normalizeSignatureShape,
     parseArgs,
     runAgentPreflight,
     validatePrBody
@@ -153,5 +157,100 @@ test.describe('agent-preflight utility', () => {
         expect(stderr).toContain('Visible/body-closing misses:');
         expect(stderr).toContain('Structural template anchors are missing');
         expect(stderr).toContain('agent-preflight: 1 gate(s) failed: pr-body')
+    })
+});
+
+test.describe('agent-preflight — Contract Ledger drift (#14119)', () => {
+    const ledgerBody = [
+        '## Contract Ledger',
+        '',
+        '| Surface | Signature | Consumer | Notes |',
+        '|---|---|---|---|',
+        '| yield check | `shouldYieldLease(lease)` | kbSync | reads the bound |',
+        '| assemble | `assembleEvidence({diagnoses, serviceId})` | runner | folds diagnoses |'
+    ].join('\n');
+
+    test('extracts only signatures from a Surface+Signature ledger table', () => {
+        expect(extractLedgerSignatures(ledgerBody)).toEqual([
+            {symbol: 'shouldYieldLease', params: 'lease'},
+            {symbol: 'assembleEvidence', params: '{diagnoses, serviceId}'}
+        ])
+    });
+
+    test('a non-ledger body yields no signatures — the check is opt-in/inert', () => {
+        expect(extractLedgerSignatures('## Summary\njust prose, foo(bar) in a sentence')).toEqual([]);
+        expect(detectContractLedgerDrift({body: 'no ledger here', diffText: '+ foo(a, b, c)'})).toEqual([])
+    });
+
+    test('no staged diff → no check (falsy diffText is inert)', () => {
+        expect(detectContractLedgerDrift({body: ledgerBody, diffText: ''})).toEqual([])
+    });
+
+    test('a matching shipped signature is NOT flagged', () => {
+        expect(detectContractLedgerDrift({
+            body: ledgerBody, diffText: '+function shouldYieldLease(lease) {\n+    return true\n+}'
+        })).toEqual([])
+    });
+
+    test('destructured key REORDER is normalized — NOT flagged (no false positive)', () => {
+        expect(detectContractLedgerDrift({
+            body: ledgerBody, diffText: '+export function assembleEvidence({serviceId, diagnoses}) {'
+        })).toEqual([])
+    });
+
+    test('a symbol absent from the diff is NOT flagged — a miss is silent', () => {
+        expect(detectContractLedgerDrift({body: ledgerBody, diffText: '+const unrelated = 1'})).toEqual([])
+    });
+
+    test('a genuine arity increase IS flagged', () => {
+        const warnings = detectContractLedgerDrift({
+            body: ledgerBody, diffText: '+function shouldYieldLease(lease, now, force) {'
+        });
+        expect(warnings.length).toBe(1);
+        expect(warnings[0]).toContain('shouldYieldLease')
+    });
+
+    test('a positional→destructured shape change IS flagged (the #14104 class)', () => {
+        const warnings = detectContractLedgerDrift({
+            body: ledgerBody, diffText: '+function shouldYieldLease({lease, now}) {'
+        });
+        expect(warnings.length).toBe(1);
+        expect(warnings[0]).toContain('shouldYieldLease')
+    });
+
+    test('normalizeSignatureShape: positional arity vs destructured key-set, order-insensitive', () => {
+        expect(normalizeSignatureShape('a, b')).toEqual({shape: 'positional', arity: 2, keys: []});
+        expect(normalizeSignatureShape('{b, a}')).toEqual({shape: 'destructured', arity: 2, keys: ['a', 'b']});
+        expect(normalizeSignatureShape('')).toEqual({shape: 'positional', arity: 0, keys: []})
+    });
+
+    test('findShippedSignature returns the params or null — a miss, never a guess', () => {
+        expect(findShippedSignature('+function foo(a, b) {', 'foo')).toBe('a, b');
+        expect(findShippedSignature('+function foo(a) {', 'bar')).toBe(null);
+        expect(findShippedSignature('-function foo(a) {', 'foo')).toBe(null)
+    });
+
+    test('runAgentPreflight emits a non-blocking drift WARNING through the --pr-body path', () => {
+        let stdout = '';
+        let stderr = '';
+
+        const status = runAgentPreflight({
+            argv            : ['--pr-body', 'body.md'],
+            cwd             : '/repo',
+            execFileSyncImpl: (cmd, args) => {
+                if (cmd === 'git' && args.includes('--name-only')) return '';      // no staged source files
+                if (cmd === 'git') return '+function shouldYieldLease(lease, now, force) {'; // the drifted diff
+                return ''
+            },
+            existsSyncImpl  : () => true,
+            readFileSyncImpl: () => `${validBody}\n${ledgerBody}`,
+            stderr: {write: value => { stderr += value }},
+            stdout: {write: value => { stdout += value }}
+        });
+
+        expect(status).toBe(0); // drift is WARN-only — never fails the preflight
+        expect(stdout).toContain('Contract Ledger drift warning');
+        expect(stdout).toContain('shouldYieldLease');
+        expect(stderr).toBe('')
     })
 });

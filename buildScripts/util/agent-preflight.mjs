@@ -119,6 +119,128 @@ export function validatePrBody(body) {
     }
 }
 
+const LEDGER_SIGNATURE_PATTERN = /([A-Za-z_$][\w$]*)\s*\(([^)]*)\)/;
+
+/**
+ * @summary Extracts ledger-declared `symbol(params)` signatures from a Contract Ledger table in a PR body.
+ *
+ * Opt-in + high-precision: only markdown rows belonging to a table whose header carries BOTH a `Surface`
+ * and a `Signature` column are considered, and within them only a `name(args)` token. A body with NO
+ * Contract Ledger therefore yields `[]` and the drift check is inert — this is the author's *declared*
+ * contract surface, the only thing the drift check verifies against the diff.
+ *
+ * @param {String} body The PR / ticket markdown body.
+ * @returns {Array<{symbol: String, params: String}>} The ledger-declared signatures.
+ */
+export function extractLedgerSignatures(body = '') {
+    const signatures    = [];
+    let   inLedgerTable = false;
+
+    for (const line of body.split('\n')) {
+        if (!line.trim().startsWith('|')) { inLedgerTable = false; continue; }
+
+        // A ledger table is identified by a header row carrying both `Surface` and `Signature`; the flag
+        // then persists across the table's body rows until a non-table line resets it.
+        if (/\bsurface\b/i.test(line) && /\bsignature\b/i.test(line)) { inLedgerTable = true; continue; }
+        if (/^\s*\|[\s:|-]+\|\s*$/.test(line)) continue; // the |---|---| separator row
+
+        if (!inLedgerTable) continue;
+
+        const match = line.match(LEDGER_SIGNATURE_PATTERN);
+        if (match) signatures.push({symbol: match[1], params: match[2]});
+    }
+
+    return signatures;
+}
+
+/**
+ * @summary Finds a symbol's shipped parameter list in the ADDED (`+`) lines of a unified diff.
+ *
+ * Conservative: matches a `symbol(params)` token on an added line. Returns `null` when the symbol is not
+ * defined in the added lines — a MISS, never a false signal (a multi-line signature simply does not match
+ * and is skipped, which is the safe direction for a warn-only check).
+ *
+ * @param {String} diffText A unified diff (`git diff` output).
+ * @param {String} symbol The symbol name to locate.
+ * @returns {String|null} The shipped params string, or `null` if not found on an added line.
+ */
+export function findShippedSignature(diffText = '', symbol = '') {
+    const escaped = symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+          definePattern = new RegExp(`^\\+(?!\\+).*\\b${escaped}\\s*\\(([^)]*)\\)`);
+
+    for (const line of diffText.split('\n')) {
+        const match = line.match(definePattern);
+        if (match) return match[1];
+    }
+
+    return null;
+}
+
+/**
+ * @summary Normalizes a parameter string to a comparable shape — positional arity vs destructured key-set —
+ * so cosmetic differences (whitespace, destructured key ORDER, defaults) never read as drift.
+ *
+ * @param {String} params The raw parameter string (between the parens).
+ * @returns {{shape: String, arity: Number, keys: String[]}}
+ */
+export function normalizeSignatureShape(params = '') {
+    const trimmed = params.trim();
+    if (trimmed === '') return {shape: 'positional', arity: 0, keys: []};
+
+    if (trimmed.startsWith('{')) {
+        const keys = trimmed.replace(/[{}]/g, '')
+            .split(',')
+            .map(key => key.split(/[:=]/)[0].trim())
+            .filter(Boolean)
+            .sort();
+        return {shape: 'destructured', arity: keys.length, keys};
+    }
+
+    const arity = trimmed.split(',').map(part => part.trim()).filter(Boolean).length;
+    return {shape: 'positional', arity, keys: []};
+}
+
+/**
+ * @summary Detects Contract-Ledger-vs-shipped-diff signature drift — the author-side dual of the pr-review
+ * Contract Completeness Audit. Catches the "ledger described the pre-evolution contract" class (a
+ * destructured-vs-positional signature; an added field the ledger omits) BEFORE the PR opens, rather than
+ * burning a scarce cross-family review cycle on a mechanical gap.
+ *
+ * **Opt-in** (no ledger → no check), **high-precision** (only ledger-declared symbols actually found in the
+ * diff), and **warn-only** (the caller never gates on it): a miss is silent; only a clear shape / arity /
+ * destructured-key mismatch warns. By construction it cannot false-positive on un-laddered code.
+ *
+ * @param {Object} options
+ * @param {String} options.body The PR / ticket body carrying the Contract Ledger.
+ * @param {String} [options.diffText] The staged unified diff to verify against. Falsy ⇒ no check.
+ * @returns {String[]} Human-readable drift warnings (empty when no drift / no ledger / no diff).
+ */
+export function detectContractLedgerDrift({body = '', diffText = ''} = {}) {
+    if (!diffText) return [];
+
+    const warnings = [];
+
+    for (const {symbol, params: ledgerParams} of extractLedgerSignatures(body)) {
+        const shippedParams = findShippedSignature(diffText, symbol);
+        if (shippedParams === null) continue;
+
+        const ledgerShape  = normalizeSignatureShape(ledgerParams),
+              shippedShape = normalizeSignatureShape(shippedParams),
+              drifted      = ledgerShape.shape !== shippedShape.shape
+                          || ledgerShape.arity !== shippedShape.arity
+                          || ledgerShape.keys.join(',') !== shippedShape.keys.join(',');
+
+        if (drifted) {
+            warnings.push(
+                `Contract Ledger drift: \`${symbol}\` — ledger declares (${ledgerParams.trim()}) but the diff ` +
+                `ships (${shippedParams.trim()}). Update the ledger or the signature before opening the PR.`
+            )
+        }
+    }
+
+    return warnings;
+}
+
 function writeLine(stream, line = '') {
     stream.write(line + '\n')
 }
@@ -259,6 +381,34 @@ export function runAgentPreflight({
             if (result.missingInvisible.length > 0) {
                 writeLine(stderr, 'Structural template anchors are missing; reread .agents/skills/pull-request/SKILL.md before editing the body.');
             }
+        }
+
+        // Author-side Contract-Ledger-vs-diff drift: opt-in (only fires when the body carries a Contract
+        // Ledger), WARN-only (never added to `failures`), and best-effort (a check error never fails the
+        // preflight). Verifies a declared signature against the staged diff before the PR opens.
+        try {
+            const bodyPath = path.resolve(cwd, options.prBody);
+
+            if (existsSyncImpl(bodyPath)) {
+                let diffText = '';
+                try {
+                    diffText = String(execFileSyncImpl('git', ['diff', '--cached'], {cwd, encoding: 'utf8', stdio: 'pipe'}) || '')
+                } catch {
+                    diffText = '' // no staged diff (or not a git tree) → the drift check is inert
+                }
+
+                const driftWarnings = detectContractLedgerDrift({
+                    body: readFileSyncImpl(bodyPath, 'utf8'),
+                    diffText
+                });
+
+                if (driftWarnings.length > 0) {
+                    writeLine(stdout, 'agent-preflight: Contract Ledger drift warning(s) (non-blocking):');
+                    driftWarnings.forEach(warning => writeLine(stdout, `  ⚠ ${warning}`))
+                }
+            }
+        } catch (error) {
+            writeLine(stdout, `agent-preflight: contract-drift check skipped (${error.message}).`)
         }
     } else {
         writeLine(stdout, 'agent-preflight: no --pr-body provided; skipped PR-body lint.');
