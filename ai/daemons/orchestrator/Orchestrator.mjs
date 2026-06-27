@@ -41,6 +41,7 @@ import {appendHealEvent, healEventsToRecentRuns, queryHealLedger, readHealLedger
 import {Memory_StorageRouter as StorageRouter, Memory_TextEmbeddingService as TextEmbeddingService} from '../../services.mjs';
 import {buildDataIntegrityCoverageDiagnosis}                                                        from './services/dataIntegrityCoverageDiagnosis.mjs';
 import {assembleDataIntegrityEvidence}                                                              from './services/dataIntegrityEvidenceAssembler.mjs';
+import {createLiveDimensionConsistencyGatherer}                                                     from './services/dimensionConsistencyGatherer.mjs';
 import DreamService                                                                                 from './services/DreamService.mjs';
 import SwarmHeartbeatService                                                                        from './services/SwarmHeartbeatService.mjs';
 import GoldenPathSynthesizer                                                                        from '../../services/graph/GoldenPathSynthesizer.mjs';
@@ -580,12 +581,19 @@ export class Orchestrator extends Base {
      * @returns {Function} `async () => Promise<Object[]>` — the assembled classifier-input rows.
      */
     get dataIntegrityEvidenceGatherer() {
-        const coverageGatherer = this.dataIntegrityCoverageGatherer,
-              serviceId        = this.dataIntegrityServiceId;
+        const coverageGatherer  = this.dataIntegrityCoverageGatherer,
+              dimensionGatherer = createLiveDimensionConsistencyGatherer({
+                  storageRouter    : StorageRouter,
+                  expectedDimension: AiConfig.vectorDimension,
+                  serviceId        : this.dataIntegrityServiceId
+              }),
+              serviceId         = this.dataIntegrityServiceId;
         return async () => {
-            const coverageResult    = await coverageGatherer(),
-                  coverageDiagnosis = buildDataIntegrityCoverageDiagnosis({coverageResult, observedAt: Date.now(), serviceId}),
-                  diagnoses         = coverageDiagnosis ? [coverageDiagnosis] : [];
+            const observedAt         = Date.now(),
+                  coverageResult     = await coverageGatherer(),
+                  coverageDiagnosis  = buildDataIntegrityCoverageDiagnosis({coverageResult, observedAt, serviceId}),
+                  dimensionDiagnosis = await dimensionGatherer(observedAt),
+                  diagnoses          = [coverageDiagnosis, dimensionDiagnosis].filter(Boolean);
             return assembleDataIntegrityEvidence({diagnoses, serviceId});
         };
     }
