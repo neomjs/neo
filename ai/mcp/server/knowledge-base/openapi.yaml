@@ -27,11 +27,22 @@ tags:
   - name: Documents
     description: Operations for querying knowledge base documents
 
+# Harness tool-projection policy (mirrors neural-link). In a maintainer harness spawned with
+# `--tool-projection-mode harness-embedded`, only `read`-tier tools load by default; `extended` +
+# `admin` tools are withheld and reachable on demand via `get_mcp_tool_handbook`. This caps the
+# loaded surface against the harness ~100-tool ceiling without removing any capability.
+x-neo-harness-tool-projection:
+  defaultVisibleTiers:
+    - read
+  operatorOnlyTiers:
+    - admin
+
 paths:
   /healthcheck:
     get:
       summary: Health Check
       operationId: healthcheck
+      x-neo-tool-tier: read
       x-annotations:
         readOnlyHint: true
       description: |
@@ -60,6 +71,7 @@ paths:
     get:
       summary: Get Ingestion Progress
       operationId: get_ingestion_progress
+      x-neo-tool-tier: extended
       x-annotations:
         readOnlyHint: true
       x-neo-tool-summary: Inspect active or last ingestion progress.
@@ -88,6 +100,7 @@ paths:
     post:
       summary: Tool Handbook
       operationId: get_mcp_tool_handbook
+      x-neo-tool-tier: read
       x-annotations:
         readOnlyHint: true
       description: Returns lazy-loaded usage detail for one Knowledge Base MCP tool.
@@ -132,6 +145,7 @@ paths:
     post:
       summary: Deployment State Snapshot
       operationId: get_deployment_state_snapshot
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -164,6 +178,7 @@ paths:
     post:
       summary: Inspect Deployment
       operationId: inspect_deployment
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -196,6 +211,7 @@ paths:
     post:
       summary: Manage Knowledge Base Data
       operationId: manage_knowledge_base
+      x-neo-tool-tier: admin
       x-pass-as-object: true
       description: |
         Manages the content of the knowledge base.
@@ -242,6 +258,7 @@ paths:
     post:
       summary: Ingest Source Files
       operationId: ingest_source_files
+      x-neo-tool-tier: admin
       x-pass-as-object: true
       description: |
         Agent-native Knowledge Base ingestion for small batches of source files.
@@ -282,6 +299,7 @@ paths:
     post:
       summary: Query Documents
       operationId: query_documents
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -416,6 +434,7 @@ paths:
     post:
       summary: Ask Knowledge Base (RAG)
       operationId: ask_knowledge_base
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-neo-tool-summary: Ask the Knowledge Base for a synthesized answer with cited references.
       description: |
@@ -530,6 +549,7 @@ paths:
     post:
       summary: List Agent FAQs
       operationId: list_agent_faqs
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       description: |
         Lists frequently repeated Knowledge Base questions captured from agent calls to
@@ -582,6 +602,7 @@ paths:
     get:
       summary: Get Class Hierarchy
       operationId: get_class_hierarchy
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -630,6 +651,7 @@ paths:
     get:
       summary: List Documents
       operationId: list_documents
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -674,6 +696,7 @@ paths:
     get:
       summary: Get Document by ID
       operationId: get_document_by_id
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
