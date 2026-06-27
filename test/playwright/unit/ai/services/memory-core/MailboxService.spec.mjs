@@ -686,6 +686,55 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         )).toHaveLength(0);
     });
 
+    test('addMessage rejects wakeSuppressed [lane-claim] broadcasts AND direct claims (collision-prevention, #14100)', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            // The core collision case: a wake-suppressed lane-claim BROADCAST. isAllowedWakeSuppression
+            // used to green-light every AGENT:* broadcast, so the claim never woke a mid-session peer.
+            await expect(MailboxService.addMessage({
+                to            : 'AGENT:*',
+                subject       : '[lane-claim] #99999 — extract the foo helper',
+                body          : 'Claiming the foo leaf.',
+                wakeSuppressed: true
+            })).rejects.toThrow(/Cannot suppress wake for collision-prone \[lane-claim\]/);
+
+            // A direct lane-claim is equally collision-prone — the guard is subject-based, not broadcast-only.
+            await expect(MailboxService.addMessage({
+                to            : '@bob',
+                subject       : '[lane-claim] #99998 — the bar leaf',
+                body          : 'Claiming bar.',
+                wakeSuppressed: true
+            })).rejects.toThrow(/Cannot suppress wake for collision-prone \[lane-claim\]/);
+        });
+
+        expect(GraphService.db.nodes.items.filter(node =>
+            node.label === 'MESSAGE' &&
+            node.properties?.wakeSuppressed === true
+        )).toHaveLength(0);
+    });
+
+    test('addMessage still allows wakeSuppressed non-claim FYI/progress broadcasts (the scoping that avoids the blanket-ban trap)', async () => {
+        let msgId;
+
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            // The guard is scoped to [lane-claim]: plain awareness/progress broadcasts stay suppressible,
+            // so noise-reduction for true FYI is preserved (the blanket-ban the ticket explicitly avoids).
+            const res = await MailboxService.addMessage({
+                to            : 'AGENT:*',
+                subject       : '[lifecycle] 3 approvals acked — merge-eligible',
+                body          : 'FYI lane-progress, no claim.',
+                wakeSuppressed: true
+            });
+            msgId = res.messageId;
+        });
+
+        const node = GraphService.db.nodes.get(msgId);
+        expect(node.properties.wakeSuppressed).toBe(true);
+    });
+
     test('addMessage preserves explicit mailbox-only wakeSuppressed exceptions', async () => {
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
@@ -708,9 +757,11 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
                 wakeSuppressed: true
             });
 
+            // A [lane-claim] now always wakes (collision-prevention); a TRUE awareness broadcast uses a
+            // non-claim tag (lane-progress / FYI / ack) and stays suppressible — the scoping the guard preserves.
             const awareness = await MailboxService.addMessage({
                 to            : 'AGENT:*',
-                subject       : '[lane-claim] #13295 — non-overlapping awareness',
+                subject       : '[lane-progress] #13295 — non-overlapping awareness',
                 body          : 'Broadcast awareness only.',
                 wakeSuppressed: true
             });
