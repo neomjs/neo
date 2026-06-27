@@ -28,6 +28,7 @@ test.describe.configure({mode: 'serial'});
 test.describe('Memory_DatabaseService — Chroma preserve-live parity for #importMemories (#11144)', () => {
     let SDK, Memory_DatabaseService, Memory_StorageRouter;
     let originalGetMemory, originalGetSummary, tmpDir;
+    let aiConfigRef, originalVectorDimension;
 
     /**
      * Builds a recording fake Chroma collection used by the spec to assert that:
@@ -85,6 +86,13 @@ test.describe('Memory_DatabaseService — Chroma preserve-live parity for #impor
         aiConfig.collections.memory  = `test-memory-${process.pid}-${Date.now()}`;
         aiConfig.collections.session = `test-session-${process.pid}-${Date.now()}`;
 
+        // The atomic vector-write invariant validates each imported row's embedding length against
+        // aiConfig.vectorDimension. These fixtures use length-1 vectors, so align the expected dimension
+        // to 1 for this suite (restored in afterAll to avoid cross-file singleton bleed).
+        aiConfigRef             = aiConfig;
+        originalVectorDimension = aiConfig.vectorDimension;
+        aiConfig.vectorDimension = 1;
+
         SDK                    = await import('../../../../../../ai/services.mjs');
         Memory_DatabaseService = SDK.Memory_DatabaseService;
         Memory_StorageRouter   = SDK.Memory_StorageRouter;
@@ -102,6 +110,10 @@ test.describe('Memory_DatabaseService — Chroma preserve-live parity for #impor
 
         Memory_StorageRouter.getMemoryCollection  = originalGetMemory;
         Memory_StorageRouter.getSummaryCollection = originalGetSummary;
+
+        if (aiConfigRef) {
+            aiConfigRef.vectorDimension = originalVectorDimension;
+        }
 
         if (tmpDir && fs.existsSync(tmpDir)) {
             fs.rmSync(tmpDir, {recursive: true, force: true});
@@ -187,6 +199,35 @@ test.describe('Memory_DatabaseService — Chroma preserve-live parity for #impor
         expect(result.counts.memories.skippedExisting).toBe(0);
         expect(memoryCollection.addCalls[0].ids.sort()).toEqual(['fresh-1', 'fresh-2']);
         expect(memoryCollection.upsertCalls.length).toBe(0);
+    });
+
+    test('merge mode: atomic vector-write invariant rejects rows lacking a valid same-dimension vector', async () => {
+        // The gate (non-reEmbed) must reject missing / empty / wrong-dimension embeddings fail-loud, so a
+        // metadata-only row is never half-persisted (the corruption shape the invariant exists to prevent).
+        // expectedDimension is 1 for this suite; only a length-1 finite vector is valid.
+        const memoryCollection = buildFakeCollection({name: 'fake-memories', liveIds: []});
+        Memory_StorageRouter.getMemoryCollection  = async () => memoryCollection;
+        Memory_StorageRouter.getSummaryCollection = async () => buildFakeCollection({name: 'fake-summaries'});
+
+        const backupFile = path.join(tmpDir, `memory-backup-vector-invariant-${Date.now()}.jsonl`);
+        await writeJsonl(backupFile, [
+            {id: 'gate-valid',    embedding: [0.5],      metadata: {tag: 'OK'},  document: 'valid'},
+            {id: 'gate-wrongdim', embedding: [0.1, 0.2], metadata: {tag: 'BAD'}, document: 'wrong-dim'},
+            {id: 'gate-empty',    embedding: [],         metadata: {tag: 'BAD'}, document: 'empty'},
+            {id: 'gate-missing',  metadata: {tag: 'BAD'}, document: 'no-embedding'}
+        ]);
+
+        const result = await Memory_DatabaseService.manageDatabaseBackup({
+            action: 'import',
+            file  : backupFile,
+            mode  : 'merge'
+        });
+
+        // Only the valid row persists; the 3 invalid rows are rejected fail-loud (counted failed, never added).
+        expect(result.counts.memories.inserted).toBe(1);
+        expect(result.counts.memories.failed).toBe(3);
+        expect(memoryCollection.addCalls.length).toBe(1);
+        expect(memoryCollection.addCalls[0].ids).toEqual(['gate-valid']);
     });
 
     test('replace mode: upsert() called for full record set; merge-mode counters stay 0', async () => {
