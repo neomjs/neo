@@ -139,7 +139,7 @@ class TextEmbeddingService extends Base {
         super.construct(config);
 
         if (shouldInitializeGeminiEmbeddingClient()) {
-            const apiKey = process.env.GEMINI_API_KEY;
+            const apiKey = aiConfig.geminiApiKey;
             if (!apiKey) {
                 logger.warn('⚠️  [TextEmbeddingService] GEMINI_API_KEY not set. Semantic search features with Gemini will be unavailable.');
             } else {
@@ -750,7 +750,7 @@ class TextEmbeddingService extends Base {
             const result = await this.#embedOllama(text, 'TextEmbeddingService.embedText native Ollama embedding');
             return result.embeddings?.[0];
         } else if (explicitProvider === 'gemini') {
-            const geminiKey = process.env.GEMINI_API_KEY;
+            const geminiKey = aiConfig.geminiApiKey;
             if (!geminiKey) {
                  throw new Error('Semantic search unavailable: GEMINI_API_KEY is missing.');
             }
@@ -788,7 +788,7 @@ class TextEmbeddingService extends Base {
             const result = await this.#embedOllama(texts, 'TextEmbeddingService.embedTexts native Ollama embedding');
             return result.embeddings || [];
         } else if (explicitProvider === 'gemini') {
-            const geminiKey = process.env.GEMINI_API_KEY;
+            const geminiKey = aiConfig.geminiApiKey;
             if (!geminiKey) {
                  throw new Error('Semantic search unavailable: GEMINI_API_KEY is missing.');
             }
