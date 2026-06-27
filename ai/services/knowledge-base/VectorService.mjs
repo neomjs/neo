@@ -742,6 +742,13 @@ class VectorService extends Base {
             chunksToEmbed   = knowledgeBase;
             alreadyEmbedded = 0;
             logger.log(`Building shadow knowledge-base collection '${shadowName}' (${decision.reason}).`);
+
+            // Write-ahead resume marker: record the shadow BEFORE creating + embedding it, so a non-promoted
+            // shadow is ALWAYS indexed by a marker. Otherwise a transient embed failure whose catch-path
+            // marker-write ALSO fails strands the shadow with no marker — the next fresh-build's
+            // discardResumeShadow(resumeState?.shadowName) then no-ops and the shadow orphans permanently. A
+            // failure here throws before createCollection, so no shadow is ever created without its marker.
+            await writeResumeState({dir: stateDir, fingerprint, shadowName, attempts});
             shadowCollection = await ChromaManager.client.createCollection({name: shadowName, embeddingFunction: aiConfig.dummyEmbeddingFunction});
         }
 
@@ -794,9 +801,10 @@ class VectorService extends Base {
 
             if (!shadowPromoted) {
                 // A too-big chunk (KB_EMBEDDING_INPUT_SIZE_EXCEEDED) will NEVER embed — resuming it is futile,
-                // so park the shadow as a dead artifact (the prior behavior). A TRANSIENT embed failure (a
-                // provider blip) instead PRESERVES the shadow + records resume-state, so the next run resumes
-                // from here rather than re-embedding the whole corpus.
+                // so park the shadow as a dead artifact (the prior behavior) and clear its marker. A TRANSIENT
+                // embed failure (a provider blip) instead PRESERVES the shadow so the next run resumes from
+                // here. This re-write advances the attempt counter; fresh builds already wrote the marker
+                // ahead of embedding and resumes carry a prior marker, so the shadow is already indexed.
                 if (error?.message?.includes('KB_EMBEDDING_INPUT_SIZE_EXCEEDED')) {
                     await this.parkFailedShadowCollection({shadowCollection, shadowName});
                     await clearResumeState({dir: stateDir});
@@ -805,7 +813,9 @@ class VectorService extends Base {
                         await writeResumeState({dir: stateDir, fingerprint, shadowName, attempts});
                         logger.warn(`[VectorService] Preserved shadow '${shadowName}' for resume (attempt ${attempts}) after a transient embedding failure: ${error.message}`);
                     } catch (preserveError) {
-                        logger.error(`[VectorService] Failed to record resume-state for '${shadowName}': ${preserveError.message}`);
+                        // The write-ahead (fresh build) or prior (resume) marker still indexes the shadow, so
+                        // it is not orphaned — only the attempt-counter refresh was lost.
+                        logger.error(`[VectorService] Could not refresh resume-state for '${shadowName}' (${preserveError.message}); the write-ahead marker still protects the shadow.`);
                     }
                 }
             }
