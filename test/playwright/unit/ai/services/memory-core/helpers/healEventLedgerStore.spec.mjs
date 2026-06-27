@@ -151,6 +151,20 @@ test.describe('healEventsToRecentRuns — the ledger→dispatch anti-thrash shap
         expect(healEventsToRecentRuns()).toEqual([]);
     });
 
+    test('DOUBLE-COUNT GUARD: an outcome row alongside its attempt projects to ONE run, not two', () => {
+        // recordRun writes status:'attempt' (the anti-thrash unit); recordHealOutcome writes the OUTCOME
+        // (failed/healed/...) under the SAME {type, collection}. Counting both would double the run-count and
+        // silently tighten the rate-limit + drag the cooldown to the outcome-time — keep only the attempt.
+        const events = [
+            {type: 're-embed-missing', collection: 'neo-agent-memory', status: 'attempt', at: 1000},
+            {type: 're-embed-missing', collection: 'neo-agent-memory', status: 'failed', detail: 'boom', at: 1500}
+        ];
+
+        expect(healEventsToRecentRuns(events)).toEqual([
+            {action: 're-embed-missing', collection: 'neo-agent-memory', at: 1000}
+        ]);
+    });
+
     test('REGRESSION: a just-recorded ledger attempt cools down the next dispatch (raw shape would not)', async () => {
         // The wired production seam: recordRun appends {type: action, ...}; the bug was recentRunsReader
         // returning the raw {type} entries, which decideHealAction (filtering recentRuns by run.action) never

@@ -62,6 +62,15 @@ class DataRecoveryActuatorService extends Base {
      * @member {Function|null} recordRun=null
      */
     recordRun = null
+    /**
+     * Injected OUTCOME recorder: `async ({action, collection, status, detail, healedAt}) => void` — persists the
+     * dispatch outcome (what actually happened) to the heal-event ledger, the complement to `recordRun`'s
+     * pre-execution attempt. This is the durable substrate the chronic-`unsafe-input` detector and the systemic
+     * circuit-breaker read; without it the ledger holds only attempts. null → not recorded (observability-only; a
+     * recording failure never breaks the heal path). A set-once injected dependency.
+     * @member {Function|null} recordHealOutcome=null
+     */
+    recordHealOutcome = null
 
     /**
      * @summary The autonomous heal terminal — routes the classifier's action through the dispatch core's safety
@@ -78,7 +87,7 @@ class DataRecoveryActuatorService extends Base {
     async applyHeal({action, collection, evidence, now} = {}) {
         const recentRuns = typeof this.recentRunsReader === 'function' ? await this.recentRunsReader(collection) : [];
 
-        return dispatchHeal({
+        const outcome = await dispatchHeal({
             action,
             collection,
             evidence,
@@ -87,6 +96,19 @@ class DataRecoveryActuatorService extends Base {
             healOperations: this.healOperations,
             recordRun     : this.recordRun
         });
+
+        // Persist the OUTCOME (what happened) — `recordRun` only captured the pre-execution attempt. This is the
+        // durable record the chronic-`unsafe-input` detector + the systemic circuit-breaker read. Observability,
+        // never a gate: a recording failure must not break or re-trigger the heal, so it is swallowed.
+        if (typeof this.recordHealOutcome === 'function') {
+            try {
+                await this.recordHealOutcome(outcome);
+            } catch (recordError) {
+                // best-effort telemetry — the heal already happened; never let a ledger-write fault break it
+            }
+        }
+
+        return outcome;
     }
 }
 

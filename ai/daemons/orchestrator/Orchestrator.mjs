@@ -453,8 +453,9 @@ export class Orchestrator extends Base {
                     }
                 })
             },
-            recentRunsReader: async collectionName => healEventsToRecentRuns(queryHealLedger(await readHealLedger({dir: healLedgerDir}), {collections: [collectionName]})),
-            recordRun       : async ({action, collection, at}) => appendHealEvent({type: action, collection, status: 'attempt'}, {dir: healLedgerDir, now: at})
+            recentRunsReader : async collectionName => healEventsToRecentRuns(queryHealLedger(await readHealLedger({dir: healLedgerDir}), {collections: [collectionName]})),
+            recordRun        : async ({action, collection, at}) => appendHealEvent({type: action, collection, status: 'attempt'}, {dir: healLedgerDir, now: at}),
+            recordHealOutcome: async ({action, collection, status, detail, healedAt}) => appendHealEvent({type: action, collection, status, detail}, {dir: healLedgerDir, now: healedAt})
         });
     }
 
