@@ -160,6 +160,17 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
                 } else if (serverBehavior === 'fail-all-shape-b') {
                     res.writeHead(400, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ error: 'Failed to load model "text-embedding-qwen3-embedding-8b". Error: Operation canceled.' }));
+                } else if (serverBehavior === 'fail-404-then-succeed') {
+                    if (requestCount === 1) {
+                        res.writeHead(404, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ error: 'The requested resource could not be found.' }));
+                    } else {
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ data: [{ embedding: [0.11, 0.22, 0.33] }] }));
+                    }
+                } else if (serverBehavior === 'fail-all-404') {
+                    res.writeHead(404, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'The requested resource could not be found.' }));
                 } else if (serverBehavior === 'fail-other') {
                     res.writeHead(400, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ error: 'Some other bad request error' }));
@@ -490,6 +501,24 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
             .rejects.toThrow(/Some other bad request error/);
 
         expect(requestCount).toBe(1); // No retries
+    });
+
+    test('HTTP 404 model-not-resident retries with wait and succeeds (Shape C, #14247)', async () => {
+        serverBehavior = 'fail-404-then-succeed';
+        const result = await TextEmbeddingService.embedText('hello', 'openAiCompatible');
+        expect(result).toEqual([0.11, 0.22, 0.33]);
+        expect(requestCount).toBe(2);
+    });
+
+    test('HTTP 404 fails loud after bounded retries — no infinite loop (Shape C, #14247)', async () => {
+        serverBehavior = 'fail-all-404';
+        aiConfig.openAiCompatible.unloadRetryCount = 2; // N=2
+
+        await expect(TextEmbeddingService.embedText('hello', 'openAiCompatible'))
+            .rejects.toThrow(/HTTP 404/);
+
+        // Initial request + 2 bounded retries = 3 total requests (no infinite loop on a permanent 404)
+        expect(requestCount).toBe(3);
     });
 
     test('contention-timeout single embedding retries and succeeds', async () => {
