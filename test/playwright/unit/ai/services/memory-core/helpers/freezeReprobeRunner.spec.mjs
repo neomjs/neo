@@ -1,12 +1,12 @@
-import {test, expect}                                from '@playwright/test';
-import Neo                                           from '../../../../../../../src/Neo.mjs';
-import * as core                                     from '../../../../../../../src/core/_export.mjs';
-import fs                                            from 'fs/promises';
-import os                                            from 'os';
-import path                                          from 'path';
-import {createFreezeHealOperation, runFreezeReprobe} from '../../../../../../../ai/services/memory-core/helpers/freezeReprobeRunner.mjs';
-import {getFreezeRecord, upsertFreezeRecord}         from '../../../../../../../ai/services/memory-core/helpers/freezeRecordStore.mjs';
-import {readHealLedger}                              from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
+import {test, expect}                                                               from '@playwright/test';
+import Neo                                                                          from '../../../../../../../src/Neo.mjs';
+import * as core                                                                    from '../../../../../../../src/core/_export.mjs';
+import fs                                                                           from 'fs/promises';
+import os                                                                           from 'os';
+import path                                                                         from 'path';
+import {createFreezeHealOperation, createStoreFenceOperations, runFreezeReprobe}    from '../../../../../../../ai/services/memory-core/helpers/freezeReprobeRunner.mjs';
+import {getFreezeRecord, readFreezeRecords, removeFreezeRecord, upsertFreezeRecord} from '../../../../../../../ai/services/memory-core/helpers/freezeRecordStore.mjs';
+import {readHealLedger}                                                             from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
 
 async function tmpDir() {
     return await fs.mkdtemp(path.join(os.tmpdir(), 'freeze-reprobe-runner-'));
@@ -93,6 +93,92 @@ test.describe('freezeReprobeRunner — runFreezeReprobe (#14166)', () => {
             expect(outcomes.find(o => o.collectionName === 'c1')).toMatchObject({status: 'stay-frozen', unfroze: false});
             expect(unfenced).toEqual([]);                                              // fence NOT lifted — fault persists
             expect(await getFreezeRecord({dir, collectionName: 'c1'})).not.toBeNull(); // freeze-record retained
+        } finally {
+            await fs.rm(dir, {recursive: true, force: true});
+        }
+    });
+});
+
+test.describe('freezeReprobeRunner — createStoreFenceOperations (#14276 store-level symmetry)', () => {
+    test('fence + unfence expand to the SAME served set — a store-level freeze and its auto-unfreeze cannot diverge', async () => {
+        const fenced = [], unfenced = [],
+              expand = (collection, served) => served.map(s => `${collection}-${s}`), // a store collection → its served set
+              ops    = createStoreFenceOperations({
+                  quarantine       : async target => { fenced.push(target); },
+                  unquarantine     : async target => { unfenced.push(target); },
+                  expand,
+                  servedCollections: ['memory', 'sessions']
+              });
+
+        const fenceTargets   = await ops.fence({collection: 'mc-server', reason: 'embedder', now: 1}),
+              unfenceTargets = await ops.unfence('mc-server');
+
+        // both expand mc-server → [mc-server-memory, mc-server-sessions]; the unfence lifts EXACTLY what the fence fenced,
+        // so the asymmetry bug (unfence lifts only the record key while served collections stay fenced) is impossible.
+        expect(fenced).toEqual(['mc-server-memory', 'mc-server-sessions']);
+        expect(unfenced).toEqual(fenced);
+        expect(unfenceTargets).toEqual(fenceTargets);
+    });
+
+    test('requires quarantine/unquarantine/expand functions (fail fast on a mis-wired pair)', () => {
+        expect(() => createStoreFenceOperations({unquarantine: () => {}, expand: () => []})).toThrow(/quarantine.*required/);
+    });
+});
+
+test.describe('freezeRecordStore — serialized RMW (#14276 lost-update race)', () => {
+    test('concurrent upserts all persist — the whole-map read-modify-write does not clobber under interleave', async () => {
+        const dir = await tmpDir();
+        try {
+            // Without serialization each concurrent whole-map RMW reads the same (empty) map and the last write wins,
+            // so only ONE record survives. Serialized → every write lands on the prior write's result.
+            await Promise.all([
+                upsertFreezeRecord({dir, collectionName: 'c1', faultFingerprint: 'e', frozenAt: 1}),
+                upsertFreezeRecord({dir, collectionName: 'c2', faultFingerprint: 'e', frozenAt: 1}),
+                upsertFreezeRecord({dir, collectionName: 'c3', faultFingerprint: 'e', frozenAt: 1})
+            ]);
+
+            expect(Object.keys(await readFreezeRecords({dir})).sort()).toEqual(['c1', 'c2', 'c3']);
+        } finally {
+            await fs.rm(dir, {recursive: true, force: true});
+        }
+    });
+
+    test('a concurrent upsert + remove keeps the survivor (the freeze-apply-vs-re-probe interleave the ticket named)', async () => {
+        const dir = await tmpDir();
+        try {
+            await upsertFreezeRecord({dir, collectionName: 'keep', faultFingerprint: 'e', frozenAt: 1});
+
+            await Promise.all([
+                upsertFreezeRecord({dir, collectionName: 'added', faultFingerprint: 'e', frozenAt: 1}),
+                removeFreezeRecord({dir, collectionName: 'keep'})
+            ]);
+
+            // serialized: the remove and the add both apply against the live map — 'keep' gone, 'added' present.
+            expect(Object.keys(await readFreezeRecords({dir}))).toEqual(['added']);
+        } finally {
+            await fs.rm(dir, {recursive: true, force: true});
+        }
+    });
+});
+
+test.describe('freezeReprobeRunner — contained ledgering (#14276)', () => {
+    test('a thrash-capped collection ledgers `contained` once on transition, then dedups on the marker', async () => {
+        const dir       = await tmpDir(),
+              unhealthy = async () => ({embedderHealthy: false, dimensionConsistent: false});
+        try {
+            // a record AT the unfreeze-attempt cap (default 3) → the decider returns `contained` (no probe)
+            await upsertFreezeRecord({dir, collectionName: 'c1', faultFingerprint: 'e', frozenAt: 1000, unfreezeAttempts: 3});
+
+            const outcomes = await runFreezeReprobe({freezeRecordsDir: dir, healLedgerDir: dir, now: 2_000_000, probe: unhealthy, unfence: async () => {}});
+            expect(outcomes.find(o => o.collectionName === 'c1')).toMatchObject({status: 'contained'});
+
+            // ledgered exactly once + the containedAt marker set
+            expect((await readHealLedger({dir})).filter(e => e.type === 'contained' && e.collection === 'c1')).toHaveLength(1);
+            expect((await getFreezeRecord({dir, collectionName: 'c1'}))?.containedAt).toBe(2_000_000);
+
+            // a later tick: still contained, already marked → NOT re-ledgered (no per-poll spam)
+            await runFreezeReprobe({freezeRecordsDir: dir, healLedgerDir: dir, now: 3_000_000, probe: unhealthy, unfence: async () => {}});
+            expect((await readHealLedger({dir})).filter(e => e.type === 'contained' && e.collection === 'c1')).toHaveLength(1);
         } finally {
             await fs.rm(dir, {recursive: true, force: true});
         }

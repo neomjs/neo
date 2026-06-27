@@ -39,7 +39,7 @@ import {auditChromaVectorCoverage}                                              
 import {createReEmbedMissingHeal, createReEmbedMissingHealOperation}                                from '../../services/memory-core/helpers/reEmbedMissingHeal.mjs';
 import {appendHealEvent, healEventsToRecentRuns, queryHealLedger, readHealLedger}                   from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
 import {quarantineCollection, storeFenceTargets, unquarantineCollection}                            from '../../services/memory-core/helpers/quarantineStore.mjs';
-import {createFreezeHealOperation, runFreezeReprobe}                                                from '../../services/memory-core/helpers/freezeReprobeRunner.mjs';
+import {createFreezeHealOperation, createStoreFenceOperations, runFreezeReprobe}                    from '../../services/memory-core/helpers/freezeReprobeRunner.mjs';
 import {Memory_StorageRouter as StorageRouter, Memory_TextEmbeddingService as TextEmbeddingService} from '../../services.mjs';
 import {buildDataIntegrityCoverageDiagnosis}                                                        from './services/dataIntegrityCoverageDiagnosis.mjs';
 import {assembleDataIntegrityEvidence}                                                              from './services/dataIntegrityEvidenceAssembler.mjs';
@@ -478,13 +478,10 @@ export class Orchestrator extends Base {
                 // cycle can auto-unfreeze when the fault clears — in cloud there is no operator (the #1 weeks-bar risk).
                 freeze: createFreezeHealOperation({
                     freezeRecordsDir,
-                    fence: async ({collection, reason, now}) => {
-                        const targets = storeFenceTargets(collection, [AiConfig.collections.memory, AiConfig.collections.session]);
-                        for (const target of targets) {
-                            await quarantineCollection(target, {dir: AiConfig.engines.chroma.dataDir, reason, now});
-                        }
-                        return targets;
-                    }
+                    // Symmetric store-level fence (memory + session) — paired with the re-probe auto-unfence via the
+                    // same `createStoreFenceOperations` factory, so a freeze and its later auto-unfreeze lift exactly
+                    // the same served set (they cannot diverge into the unfreeze-lifts-only-the-record-key asymmetry).
+                    fence: this.getStoreFenceOperations().fence
                 })
             },
             recentRunsReader : async collectionName => healEventsToRecentRuns(queryHealLedger(await readHealLedger({dir: healLedgerDir}), {collections: [collectionName]})),
@@ -514,6 +511,22 @@ export class Orchestrator extends Base {
     }
 
     /**
+     * @summary The symmetric store-level fence/unfence pair used by BOTH the `freeze` heal-op and the re-probe
+     * auto-unfreeze — built from one factory (`createStoreFenceOperations`) so they cannot diverge: a store-level
+     * freeze fences the served collections (memory + session) and the auto-unfreeze lifts exactly that same set.
+     * @returns {{fence: Function, unfence: Function, expandTargets: Function}}
+     */
+    getStoreFenceOperations() {
+        return createStoreFenceOperations({
+            quarantine       : quarantineCollection,
+            unquarantine     : unquarantineCollection,
+            expand           : storeFenceTargets,
+            servedCollections: [AiConfig.collections.memory, AiConfig.collections.session],
+            quarantineOptions: {dir: AiConfig.engines.chroma.dataDir}
+        });
+    }
+
+    /**
      * @summary Runs one autonomous freeze re-probe tick (the recovery counterpart to the `freeze` actuator op):
      * for every frozen collection it re-probes health and auto-unfreezes + re-heals a cleared fault, stays frozen
      * while it persists, or contains it past the thrash cap — all under `decideFreezeReprobe`'s back-off, never an
@@ -528,7 +541,9 @@ export class Orchestrator extends Base {
             healLedgerDir   : path.join(this.dataDir, 'data-heal-events'),
             now,
             probe           : collectionName => this.probeFrozenCollectionHealth(collectionName),
-            unfence         : collectionName => unquarantineCollection(collectionName, {dir: AiConfig.engines.chroma.dataDir})
+            // The store-level unfence — paired with the `freeze` op's fence via createStoreFenceOperations, so a
+            // store-level freeze and its auto-unfreeze lift exactly the same served set (no asymmetry).
+            unfence         : this.getStoreFenceOperations().unfence
         });
     }
 
