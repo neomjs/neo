@@ -412,7 +412,7 @@ export class RecoveryActuatorService extends Base {
                   serviceKey,
                   id  : serviceKey
               },
-              reasonCode = reason || diagnosis.details.reasonCode || 'diagnosis-record';
+              reasonCode = diagnosis.details.reasonCode || reason || 'diagnosis-record';
 
         // Record-with-diagnosis: durable async-audit to the shared heal-event ledger, never a blocking
         // page (an operatorless cloud has no human to page). The lifecycle and data worlds share this
