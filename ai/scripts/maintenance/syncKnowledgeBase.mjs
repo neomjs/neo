@@ -9,7 +9,7 @@ import KB_Config                   from '../../mcp/server/knowledge-base/config.
 import KB_DatabaseService          from '../../services/knowledge-base/DatabaseService.mjs';
 import KB_ChromaManager            from '../../services/knowledge-base/ChromaManager.mjs';
 import KB_LifecycleService         from '../../services/knowledge-base/DatabaseLifecycleService.mjs';
-import {withHeavyMaintenanceLease} from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
+import {withHeavyMaintenanceLease, shouldYieldHeavyMaintenanceLease} from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
 
 /**
  * @module ai/scripts/maintenance/syncKnowledgeBase
@@ -47,7 +47,7 @@ async function syncKnowledgeBase() {
     let outcome;
     try {
         outcome = await withHeavyMaintenanceLease(
-            async () => {
+            async (acquisition) => {
                 logProgress('   Waiting for Lifecycle Service...');
                 await KB_LifecycleService.ready();
                 logProgress('   Lifecycle Service Ready. Database should be running.');
@@ -64,7 +64,15 @@ async function syncKnowledgeBase() {
 
                 // Execute the full sync (create + embed). `NEO_KB_STALE_STRATEGY=shadow-swap`
                 // opts into the shadow-swap stale-data strategy; default CLI sync remains unchanged.
-                return KB_DatabaseService.syncDatabase({staleStrategy});
+                // Cooperative lease-yield (#14186): a long re-embed releases the heavy-maintenance lease at a
+                // batch boundary once the active hold exceeds the fairness bound, so a starved heavy task
+                // (githubWorkflowSync) interleaves; the next sweep re-acquires and resumes the preserved shadow.
+                return KB_DatabaseService.syncDatabase({
+                    staleStrategy,
+                    shouldYield: () => shouldYieldHeavyMaintenanceLease(acquisition, {
+                        maxActiveHoldMs: AiConfig.orchestrator.heavyMaintenanceLease.maxActiveHoldMs
+                    })
+                });
             },
             {owner: 'kbSync', reason: 'manual-cli', staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs, metadata: {script: 'ai/scripts/maintenance/syncKnowledgeBase.mjs'}}
         );

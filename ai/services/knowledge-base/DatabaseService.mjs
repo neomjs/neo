@@ -522,11 +522,14 @@ class DatabaseService extends Base {
      *                                      threaded to VectorService.embed for the
      *                                      work-volume gate.
      * @param {String}  [opts.staleStrategy] Explicit stale-data handling strategy.
+     * @param {Function} [opts.shouldYield]  Cooperative heavy-maintenance-lease yield predicate (#14186),
+     *                                      threaded to VectorService.embed so a long re-embed releases the
+     *                                      lease at a batch boundary and resumes on the next sweep.
      * @returns {Promise<object>} A promise that resolves to a success message, OR a
      *     `{error, code: 'KB_SYNC_VOLUME_EXCEEDED', ...}` shape when the MCP gate fires.
      */
-    async embedKnowledgeBase({viaMcp = false, staleStrategy} = {}) {
-        return await VectorService.embed(aiConfig.dataPath, {viaMcp, staleStrategy});
+    async embedKnowledgeBase({viaMcp = false, staleStrategy, shouldYield} = {}) {
+        return await VectorService.embed(aiConfig.dataPath, {viaMcp, staleStrategy, shouldYield});
     }
 
     /**
@@ -562,12 +565,14 @@ class DatabaseService extends Base {
      * @param {Boolean} [opts.viaMcp=false] True when invoked via MCP tool dispatch;
      *                                      threaded to embed() for the work-volume gate.
      * @param {String}  [opts.staleStrategy] Explicit stale-data handling strategy.
+     * @param {Function} [opts.shouldYield]  Cooperative heavy-maintenance-lease yield predicate (#14186),
+     *                                      threaded to the embed step.
      * @returns {Promise<object>} A promise that resolves to the final success message from the embedding step.
      */
-    async syncDatabase({viaMcp = false, staleStrategy} = {}) {
+    async syncDatabase({viaMcp = false, staleStrategy, shouldYield} = {}) {
         logger.log('Starting full database synchronization...');
         await this.createKnowledgeBase();
-        return await this.embedKnowledgeBase({viaMcp, staleStrategy});
+        return await this.embedKnowledgeBase({viaMcp, staleStrategy, shouldYield});
     }
 }
 
