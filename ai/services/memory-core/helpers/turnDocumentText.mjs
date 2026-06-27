@@ -33,3 +33,30 @@
 export function composeTurnDocumentText({prompt, thought, response} = {}) {
     return `User Prompt: ${prompt}\nAgent Thought: ${thought}\nAgent Response: ${response}`;
 }
+
+/**
+ * @summary Resolves a memory's document text on READ — prefers the stored Chroma document, falling back to
+ * reconstructing it from the split metadata fields when the redundant stored copy has been dropped (the
+ * field↔document de-dup). A turn memory (`metadata.type === 'agent-interaction'`) reconstructs via
+ * {@link composeTurnDocumentText}; a summary (or any non-turn / metadata-less record) has a DISTINCT
+ * document shape and is NEVER reconstructed — it returns its stored document or `null`.
+ *
+ * The stored document, when present, ALWAYS wins (byte-exact, no reconstruction), so existing records are
+ * behavior-preserved; reconstruction is the post-migration path for turns whose stored document was dropped.
+ * Pure + total (never throws). The turn-vs-summary discriminator lives HERE so every read-path shares it.
+ *
+ * @param {Object} options
+ * @param {Array<String>=} options.documents The Chroma `get` `documents` array (or undefined/empty).
+ * @param {Object|null} options.metadata The record metadata (`{type, prompt, thought, response, …}`).
+ * @returns {String|null} The document text (stored or reconstructed), or `null` when neither is available.
+ */
+export function resolveTurnDocumentForRead({documents, metadata} = {}) {
+    const stored = Array.isArray(documents) ? documents[0] : undefined;
+    if (stored) return stored;
+
+    if (metadata && metadata.type === 'agent-interaction') {
+        return composeTurnDocumentText({prompt: metadata.prompt, thought: metadata.thought, response: metadata.response});
+    }
+
+    return null;
+}
