@@ -36,7 +36,7 @@ import ContainerHealthDiagnosisService                                          
 import DataIntegrityDiagnosisService                                                                from './services/DataIntegrityDiagnosisService.mjs';
 import DataRecoveryActuatorService                                                                  from './services/DataRecoveryActuatorService.mjs';
 import {auditChromaVectorCoverage}                                                                  from '../../scripts/maintenance/checkChromaIntegrity.mjs';
-import {createReEmbedMissingHeal}                                                                   from '../../services/memory-core/helpers/reEmbedMissingHeal.mjs';
+import {createReEmbedMissingHeal, createReEmbedMissingHealOperation}                                from '../../services/memory-core/helpers/reEmbedMissingHeal.mjs';
 import {appendHealEvent, queryHealLedger, readHealLedger}                                           from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
 import {Memory_StorageRouter as StorageRouter, Memory_TextEmbeddingService as TextEmbeddingService} from '../../services.mjs';
 import {buildDataIntegrityCoverageDiagnosis}                                                        from './services/dataIntegrityCoverageDiagnosis.mjs';
@@ -433,32 +433,24 @@ export class Orchestrator extends Base {
 
         return ClassSystemUtil.beforeSetInstance(value, DataRecoveryActuatorService, {
             healOperations: {
-                /*
-                 * The wal-stall heal terminal. The runner passes a collection NAME and count-only evidence
-                 * (the coverage diagnosis carries missingFromVectorCount, not the ids), so this adapter
-                 * re-audits with includeFullIds to recover the absent ids, resolves the live Memory Core
-                 * handle, and delegates to the pure re-embed op. The handle/diagnosis match is asserted so a
-                 * stray non-MC target can never have recovered vectors upserted into the wrong collection.
-                 */
-                're-embed-missing': async ({collection: collectionName, evidence, now}) => {
-                    await StorageRouter.ready();
+                // The wal-stall heal terminal: the runtime<->op adapter (cross-store guard + re-audit-for-ids
+                // + handle resolution) lives in createReEmbedMissingHealOperation so its branch logic is
+                // unit-tested against mocked collaborators rather than only the live stack.
+                're-embed-missing': createReEmbedMissingHealOperation({
+                    reEmbedMissing,
+                    ready                  : () => StorageRouter.ready(),
+                    getMemoryCollection    : () => StorageRouter.getMemoryCollection(),
+                    resolveMissingVectorIds: async collectionName => {
+                        const coverage = await auditChromaVectorCoverage({
+                                  persistDir     : AiConfig.engines.chroma.dataDir,
+                                  collectionNames: [collectionName],
+                                  includeFullIds : true
+                              }),
+                              drift = coverage.collections?.find(entry => entry.name === collectionName);
 
-                    const collection = await StorageRouter.getMemoryCollection();
-
-                    if (collection?.name && collectionName && collection.name !== collectionName) {
-                        return {status: 'no-op', detail: {reason: 're-embed-missing targets the Memory Core collection only', collectionName, healedAt: now}};
+                        return Array.isArray(drift?.missingVectorIds) ? drift.missingVectorIds : [];
                     }
-
-                    const coverage = await auditChromaVectorCoverage({
-                              persistDir     : AiConfig.engines.chroma.dataDir,
-                              collectionNames: [collectionName],
-                              includeFullIds : true
-                          }),
-                          drift            = coverage.collections?.find(entry => entry.name === collectionName),
-                          missingVectorIds = Array.isArray(drift?.missingVectorIds) ? drift.missingVectorIds : [];
-
-                    return reEmbedMissing({collection, evidence: {missingVectorIds}, now});
-                }
+                })
             },
             recentRunsReader: async collectionName => queryHealLedger(await readHealLedger({dir: healLedgerDir}), {collections: [collectionName]}),
             recordRun       : async ({action, collection, at}) => appendHealEvent({type: action, collection, status: 'attempt'}, {dir: healLedgerDir, now: at})

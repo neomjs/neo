@@ -1,7 +1,7 @@
-import {test, expect}             from '@playwright/test';
-import Neo                        from '../../../../../../../src/Neo.mjs';
-import * as core                  from '../../../../../../../src/core/_export.mjs';
-import {createReEmbedMissingHeal} from '../../../../../../../ai/services/memory-core/helpers/reEmbedMissingHeal.mjs';
+import {test, expect}                                                from '@playwright/test';
+import Neo                                                           from '../../../../../../../src/Neo.mjs';
+import * as core                                                     from '../../../../../../../src/core/_export.mjs';
+import {createReEmbedMissingHeal, createReEmbedMissingHealOperation} from '../../../../../../../ai/services/memory-core/helpers/reEmbedMissingHeal.mjs';
 
 // The autonomous re-embed-missing data-heal: audit the coverage gap → re-embed the orphaned rows from their
 // documents → gate each recovered vector through the write invariant → upsert the survivors in place. These
@@ -123,5 +123,53 @@ test.describe('Neo.ai.services.memory-core.reEmbedMissingHeal', () => {
             .toThrow(/expectedDimension/);
         expect(() => createReEmbedMissingHeal({embedFn: async () => [], auditCoverage: async () => ({}), expectedDimension: 0}))
             .toThrow(/expectedDimension/);
+    });
+});
+
+test.describe('Neo.ai.services.memory-core.createReEmbedMissingHealOperation (runtime adapter)', () => {
+    test('matching collection: awaits ready, resolves the handle + re-audited ids, delegates to the pure op', async () => {
+        const calls  = [],
+              handle = {name: 'neo-agent-memory'};
+        let   readied = false;
+
+        const op = createReEmbedMissingHealOperation({
+            reEmbedMissing         : args => { calls.push(args); return {status: 'healed', detail: {reEmbedded: 2}}; },
+            ready                  : async () => { readied = true; },
+            getMemoryCollection    : async () => handle,
+            resolveMissingVectorIds: async name => name === 'neo-agent-memory' ? ['a', 'b'] : []
+        });
+
+        const outcome = await op({collection: 'neo-agent-memory', evidence: {countOnly: 2}, now: 1_000});
+
+        expect(readied).toBe(true);
+        expect(outcome).toMatchObject({status: 'healed'});
+        expect(calls).toHaveLength(1);
+        // the pure op receives the live HANDLE + the re-audited ids (NOT the count-only runtime evidence)
+        expect(calls[0]).toMatchObject({collection: handle, evidence: {missingVectorIds: ['a', 'b']}, now: 1_000});
+    });
+
+    test('cross-store guard: a handle that is not the diagnosed collection no-ops without delegating', async () => {
+        let delegated = false;
+
+        const op = createReEmbedMissingHealOperation({
+            reEmbedMissing         : () => { delegated = true; return {status: 'healed'}; },
+            getMemoryCollection    : async () => ({name: 'neo-agent-memory'}),
+            resolveMissingVectorIds: async () => ['x']
+        });
+
+        const outcome = await op({collection: 'some-other-collection', now: 2_000});
+
+        expect(outcome.status).toBe('no-op');
+        expect(outcome.detail.collectionName).toBe('some-other-collection');
+        expect(delegated).toBe(false);
+    });
+
+    test('fail-loud wiring: a missing collaborator throws at construction', () => {
+        expect(() => createReEmbedMissingHealOperation({getMemoryCollection: async () => ({}), resolveMissingVectorIds: async () => []}))
+            .toThrow(/reEmbedMissing/);
+        expect(() => createReEmbedMissingHealOperation({reEmbedMissing: () => {}, resolveMissingVectorIds: async () => []}))
+            .toThrow(/getMemoryCollection/);
+        expect(() => createReEmbedMissingHealOperation({reEmbedMissing: () => {}, getMemoryCollection: async () => ({})}))
+            .toThrow(/resolveMissingVectorIds/);
     });
 });

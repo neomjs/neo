@@ -132,3 +132,56 @@ export function createReEmbedMissingHeal({embedFn, auditCoverage, expectedDimens
         };
     };
 }
+
+/**
+ * @summary Wraps the pure re-embed-missing op as the actuator's `healOperations['re-embed-missing']`
+ * terminal, bridging the runtime↔op shape gap. The data-integrity runner dispatches with a collection
+ * NAME and count-only evidence (the coverage diagnosis carries a missing-vector COUNT, not the ids),
+ * while the pure op needs a live collection HANDLE and the absent ids. This resolver supplies both —
+ * the heal-time re-audit recovers the ids, `getMemoryCollection` resolves the handle — and REFUSES to
+ * act when the resolved handle is not the diagnosed collection, so recovered vectors can never be
+ * upserted into the wrong store (the one mutation the pure op cannot guard, because it trusts its handle).
+ *
+ * Kept separate from the pure op so the adapter's branch logic (the cross-store guard + the resolve →
+ * delegate path) is unit-testable against mocked collaborators, with no live store / provider / Chroma.
+ *
+ * @param {Object}   options
+ * @param {Function} options.reEmbedMissing The pure op from {@link createReEmbedMissingHeal}.
+ * @param {Function} options.getMemoryCollection `async () => collectionHandle` — resolves the live MC handle.
+ * @param {Function} options.resolveMissingVectorIds `async (collectionName) => String[]` — the heal-time
+ *     re-audit that recovers the absent vector ids the count-only diagnosis omits.
+ * @param {Function} [options.ready] `async () => void` — optional storage-readiness barrier awaited first.
+ * @returns {Function} The `async ({collection, evidence, now}) => outcome` heal operation.
+ * @throws {TypeError} When `reEmbedMissing` / `getMemoryCollection` / `resolveMissingVectorIds` is missing —
+ *     fail-loud at wiring time, never a silent no-op heal at run time.
+ */
+export function createReEmbedMissingHealOperation({reEmbedMissing, getMemoryCollection, resolveMissingVectorIds, ready} = {}) {
+    if (typeof reEmbedMissing !== 'function') {
+        throw new TypeError('createReEmbedMissingHealOperation: reEmbedMissing op is required');
+    }
+    if (typeof getMemoryCollection !== 'function') {
+        throw new TypeError('createReEmbedMissingHealOperation: getMemoryCollection (-> collection handle) is required');
+    }
+    if (typeof resolveMissingVectorIds !== 'function') {
+        throw new TypeError('createReEmbedMissingHealOperation: resolveMissingVectorIds (collectionName -> ids) is required');
+    }
+
+    return async function reEmbedMissingHealOperation({collection: collectionName, evidence, now} = {}) {
+        if (typeof ready === 'function') {
+            await ready();
+        }
+
+        const collection = await getMemoryCollection();
+
+        // Cross-store guard: never upsert recovered vectors into a different collection than the one the
+        // coverage gap was diagnosed in. The pure op trusts whatever handle it receives, so the match is
+        // asserted HERE, where the name-less handle resolution and the named diagnosis meet.
+        if (collection?.name && collectionName && collection.name !== collectionName) {
+            return {status: 'no-op', detail: {reason: 're-embed-missing targets the Memory Core collection only', collectionName, healedAt: now}};
+        }
+
+        const missingVectorIds = await resolveMissingVectorIds(collectionName);
+
+        return reEmbedMissing({collection, evidence: {missingVectorIds}, now});
+    };
+}
