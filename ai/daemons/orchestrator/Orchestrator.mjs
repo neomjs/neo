@@ -38,7 +38,7 @@ import DataRecoveryActuatorService                                              
 import {auditChromaVectorCoverage}                                              from '../../scripts/maintenance/checkChromaIntegrity.mjs';
 import {buildDataIntegrityCoverageDiagnosis}                                    from './services/dataIntegrityCoverageDiagnosis.mjs';
 import {assembleDataIntegrityEvidence}                                          from './services/dataIntegrityEvidenceAssembler.mjs';
-import {gatherDimensionConsistencyDiagnosis}                                    from './services/dimensionConsistencyGatherer.mjs';
+import {createLiveDimensionConsistencyGatherer}                                 from './services/dimensionConsistencyGatherer.mjs';
 import {Memory_StorageRouter as StorageRouter}                                  from '../../services.mjs';
 import DreamService                                                             from './services/DreamService.mjs';
 import SwarmHeartbeatService                                                    from './services/SwarmHeartbeatService.mjs';
@@ -538,25 +538,6 @@ export class Orchestrator extends Base {
         });
     }
     /**
-     * @summary Builds the read-only live-Chroma dimension-consistency gatherer for the data-integrity sweep:
-     * samples per-vector dimensions across the Memory Core collections (live `.get(include:['embeddings'])` — a
-     * snapshot can't recover stored-vector dimensions). Degrade-not-throw, so a down-Chroma probe yields no false
-     * diagnosis; the offline coverage gatherer stays the always-available baseline (mixed = a robustness ladder).
-     * @returns {Function} `async (observedAt) => Promise<Object|null>` — a dimension-mismatch recovery-diagnosis or null.
-     */
-    get dataIntegrityDimensionGatherer() {
-        const expectedDimension = AiConfig.vectorDimension,
-              serviceId         = this.dataIntegrityServiceId;
-        return async observedAt => {
-            await StorageRouter.ready();
-            const collections = [
-                {collection: await StorageRouter.getMemoryCollection(),  collectionName: 'neo-agent-memory'},
-                {collection: await StorageRouter.getSummaryCollection(), collectionName: 'neo-agent-sessions'}
-            ];
-            return gatherDimensionConsistencyDiagnosis({collections, expectedDimension, serviceId, observedAt});
-        };
-    }
-    /**
      * @summary Builds the data-integrity EVIDENCE gatherer the self-heal runner consumes: runs the
      * detect-producer(s) over the coverage audit and assembles per-collection classifier-input rows. INTERIM
      * (the escalate-deletion cutover): wires the coverage producer; the false-storm denominator
@@ -568,7 +549,11 @@ export class Orchestrator extends Base {
      */
     get dataIntegrityEvidenceGatherer() {
         const coverageGatherer  = this.dataIntegrityCoverageGatherer,
-              dimensionGatherer = this.dataIntegrityDimensionGatherer,
+              dimensionGatherer = createLiveDimensionConsistencyGatherer({
+                  storageRouter    : StorageRouter,
+                  expectedDimension: AiConfig.vectorDimension,
+                  serviceId        : this.dataIntegrityServiceId
+              }),
               serviceId         = this.dataIntegrityServiceId;
         return async () => {
             const observedAt         = Date.now(),

@@ -46,3 +46,33 @@ export async function gatherDimensionConsistencyDiagnosis({
 
     return buildDimensionConsistencyDiagnosis({samples, observedAt, serviceId});
 }
+
+/**
+ * @summary Builds the live-Chroma dimension-consistency gatherer the data-integrity sweep schedules: it
+ * resolves the Memory Core collections from the injected storage router and binds the producer config, then
+ * returns a closure that runs {@link gatherDimensionConsistencyDiagnosis} over the resolved live collections.
+ *
+ * The live-collection resolution + config binding live here with the gatherer service (not in the
+ * scheduling/orchestrator class): the orchestrator reads the AiConfig leaf at its use-site per the SSOT
+ * discipline and injects the resolved `expectedDimension` + the `storageRouter`, keeping this module free of
+ * config/Neo imports while owning the gather wiring. Injected `storageRouter` makes the factory testable in
+ * isolation (no live Chroma).
+ *
+ * @param {Object} options
+ * @param {Object} options.storageRouter The Memory Core storage router — supplies `ready()` +
+ * `getMemoryCollection()` / `getSummaryCollection()`.
+ * @param {Number} options.expectedDimension The configured embedding dimension (read at the orchestrator use-site).
+ * @param {String} options.serviceId The Memory Core compose-service identifier.
+ * @param {Function} [options.auditFn] The dimension-audit primitive — passed through to the gatherer; injectable for tests.
+ * @returns {Function} `async (observedAt) => Promise<Object|null>` — a dimension-mismatch recovery-diagnosis or null.
+ */
+export function createLiveDimensionConsistencyGatherer({storageRouter, expectedDimension, serviceId, auditFn} = {}) {
+    return async observedAt => {
+        await storageRouter.ready();
+        const collections = [
+            {collection: await storageRouter.getMemoryCollection(),  collectionName: 'neo-agent-memory'},
+            {collection: await storageRouter.getSummaryCollection(), collectionName: 'neo-agent-sessions'}
+        ];
+        return gatherDimensionConsistencyDiagnosis({collections, expectedDimension, serviceId, observedAt, auditFn});
+    };
+}
