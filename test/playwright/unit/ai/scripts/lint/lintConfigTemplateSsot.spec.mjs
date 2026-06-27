@@ -4,10 +4,13 @@ import path           from 'node:path';
 
 import {
     AI_CONFIG_IMPLEMENTATION_BASELINE,
+    AI_CONFIG_MODULE_SCOPE_BASELINE,
     BASELINE,
     detectAiConfigImplementationViolations,
     detectInlineEnvLeaves,
+    detectModuleScopeAiConfigCaptures,
     lintAiConfigImplementationSsot,
+    lintAiConfigModuleScopeCaptures,
     lintConfigTemplateSsot,
     runLint
 } from '../../../../../../ai/scripts/lint/lint-config-template-ssot.mjs';
@@ -100,6 +103,33 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
         )).toHaveLength(0);
     });
 
+    test('detects module-scope AiConfig leaf captures', () => {
+        const hits = detectModuleScopeAiConfigCaptures([
+            `import aiConfig from './config.mjs';`,
+            `const issueSyncConfig = aiConfig.issueSync;`,
+            `const {queryScoreWeights} = aiConfig;`,
+            `const memoryPath = Memory_Config.storagePaths.memory;`
+        ].join('\n'));
+
+        expect(hits.map(hit => hit.text)).toEqual([
+            'const issueSyncConfig = aiConfig.issueSync;',
+            'const {queryScoreWeights} = aiConfig;',
+            'const memoryPath = Memory_Config.storagePaths.memory;'
+        ]);
+    });
+
+    test('ignores invocation-time and function-local AiConfig reads', () => {
+        const hits = detectModuleScopeAiConfigCaptures([
+            `const isRemoteIngestTransport = () => aiConfig.transport === 'sse';`,
+            `function getSnapshotPath() {`,
+            `    const snapshotPath = AiConfig.orchestrator.deploymentStateBridge.snapshotPath;`,
+            `    return snapshotPath;`,
+            `}`
+        ].join('\n'));
+
+        expect(hits).toHaveLength(0);
+    });
+
     // ---- baseline partitioning (injected files, no disk) ----
 
     const fileOf = (file, source) => ({file, source});
@@ -175,6 +205,46 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
         expect(result.implementation.newViolations.map(hit => hit.kind)).toEqual(['type-coercion', 'hidden-default']);
     });
 
+    test('a baselined module-scope AiConfig capture is suppressed (documented P1 debt)', () => {
+        const baseline = [{
+            file  : 'ai/fixture.mjs',
+            kind  : 'module-scope-capture',
+            text  : 'const issueSyncConfig = aiConfig.issueSync;',
+            ticket: '#14239',
+            reason: 'fixture P1 capture'
+        }];
+        const files = [fileOf(
+            'ai/fixture.mjs',
+            `const issueSyncConfig = aiConfig.issueSync;`
+        )];
+
+        const {violations, newViolations} = lintAiConfigModuleScopeCaptures({files, baseline});
+
+        expect(violations).toHaveLength(1);
+        expect(newViolations).toHaveLength(0);
+    });
+
+    test('a fresh module-scope AiConfig capture fails the combined lint', () => {
+        const moduleScopeFiles = [fileOf(
+            'ai/daemons/orchestrator/services/SelfHealFixture.mjs',
+            `const recoveryActuatorConfig = aiConfig.orchestrator.recoveryActuator;`
+        )];
+
+        const result = runLint({
+            files                 : [],
+            implementationFiles   : [],
+            implementationBaseline: [],
+            moduleScopeFiles,
+            moduleScopeBaseline   : []
+        });
+
+        expect(result.exitCode).toBe(1);
+        expect(result.moduleScope.newViolations).toHaveLength(1);
+        expect(result.moduleScope.newViolations[0].text).toBe(
+            'const recoveryActuatorConfig = aiConfig.orchestrator.recoveryActuator;'
+        );
+    });
+
     // ---- the shipped baseline is internally well-formed ----
 
     test('every shipped BASELINE row carries file, env, and a reshape note', () => {
@@ -193,6 +263,16 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
             expect(row.kind.length).toBeGreaterThan(0);
             expect(row.text.length).toBeGreaterThan(0);
             expect(row.reason.length).toBeGreaterThan(0);
+        }
+    });
+
+    test('every shipped AI_CONFIG_MODULE_SCOPE_BASELINE row carries #14239 burndown context', () => {
+        for (const row of AI_CONFIG_MODULE_SCOPE_BASELINE) {
+            expect(row.file).toMatch(/^ai\/.*\.mjs$/);
+            expect(row.kind).toBe('module-scope-capture');
+            expect(row.text.length).toBeGreaterThan(0);
+            expect(row.ticket).toBe('#14239');
+            expect(row.reason).toContain('not a self-heal');
         }
     });
 });

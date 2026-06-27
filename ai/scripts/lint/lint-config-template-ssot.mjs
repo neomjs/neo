@@ -101,6 +101,93 @@ export const AI_CONFIG_IMPLEMENTATION_BASELINE = Object.freeze([
 ]);
 
 /**
+ * Existing module-scope AiConfig leaf captures that are classified as non-self-heal P1 debt.
+ * These rows are not permission to add more captures: they document the residual #14239 audit
+ * and keep the lint fail-build for any NEW module-load Provider leaf capture, especially in
+ * self-heal / repair paths where stale values can block runtime healing.
+ * @type {ReadonlyArray<{file: String, kind: String, text: String, ticket: String, reason: String}>}
+ */
+export const AI_CONFIG_MODULE_SCOPE_BASELINE = Object.freeze([
+    {
+        file  : 'ai/scripts/diagnostics/analyzeNlTelemetry.mjs',
+        kind  : 'module-scope-capture',
+        text  : 'const DB_PATH = aiConfig.storagePaths.graph;',
+        ticket: '#14239',
+        reason: 'One-shot diagnostic CLI path capture; not a self-heal runtime consumer.'
+    },
+    {
+        file  : 'ai/scripts/diagnostics/analyzeNlTelemetry.mjs',
+        kind  : 'module-scope-capture',
+        text  : 'const RLAIF_PATH = aiConfig.datasets.rlaif.trajectories;',
+        ticket: '#14239',
+        reason: 'One-shot diagnostic CLI output path capture; not a self-heal runtime consumer.'
+    },
+    {
+        file  : 'ai/services/github-workflow/sync/DiscussionSyncer.mjs',
+        kind  : 'module-scope-capture',
+        text  : 'const issueSyncConfig = aiConfig.issueSync;',
+        ticket: '#14239',
+        reason: 'GitHub mirror sync P1 config capture; not a self-heal repair/actuator path.'
+    },
+    {
+        file  : 'ai/services/github-workflow/sync/IssueSyncer.mjs',
+        kind  : 'module-scope-capture',
+        text  : 'const issueSyncConfig = aiConfig.issueSync;',
+        ticket: '#14239',
+        reason: 'GitHub mirror sync P1 config capture; not a self-heal repair/actuator path.'
+    },
+    {
+        file  : 'ai/services/github-workflow/sync/MetadataManager.mjs',
+        kind  : 'module-scope-capture',
+        text  : 'const issueSyncConfig = aiConfig.issueSync;',
+        ticket: '#14239',
+        reason: 'GitHub mirror metadata P1 config capture; not a self-heal repair/actuator path.'
+    },
+    {
+        file  : 'ai/services/github-workflow/sync/PullRequestSyncer.mjs',
+        kind  : 'module-scope-capture',
+        text  : 'const issueSyncConfig = aiConfig.issueSync;',
+        ticket: '#14239',
+        reason: 'GitHub mirror sync P1 config capture; not a self-heal repair/actuator path.'
+    },
+    {
+        file  : 'ai/services/github-workflow/sync/PullRequestSyncer.mjs',
+        kind  : 'module-scope-capture',
+        text  : 'const pullRequestConfig = aiConfig.pullRequest;',
+        ticket: '#14239',
+        reason: 'GitHub PR mirror P1 config capture; not a self-heal repair/actuator path.'
+    },
+    {
+        file  : 'ai/services/github-workflow/sync/ReleaseNotesSyncer.mjs',
+        kind  : 'module-scope-capture',
+        text  : 'const issueSyncConfig = aiConfig.issueSync;',
+        ticket: '#14239',
+        reason: 'Release-note mirror sync P1 config capture; not a self-heal repair/actuator path.'
+    },
+    {
+        file  : 'ai/services/knowledge-base/DatabaseService.mjs',
+        kind  : 'module-scope-capture',
+        text  : 'const cwd       = aiConfig.neoRootDir;',
+        ticket: '#14239',
+        reason: 'Knowledge Base startup path P1 capture; not a self-heal repair/actuator path.'
+    },
+    {
+        file  : 'ai/services/knowledge-base/QueryService.mjs',
+        kind  : 'module-scope-capture',
+        text  : 'const {queryScoreWeights} = aiConfig;',
+        ticket: '#14239',
+        reason: 'Knowledge Base scoring-weight P1 capture; not a self-heal repair/actuator path.'
+    },
+    {
+        file  : 'ai/services/knowledge-base/QueryService.mjs',
+        kind  : 'module-scope-capture',
+        text  : 'const cwd       = aiConfig.neoRootDir;',
+        ticket: '#14239',
+        reason: 'Knowledge Base startup path P1 capture; not a self-heal repair/actuator path.'
+    }
+]);
+
+/**
  * @summary Normalizes paths for deterministic lint keys.
  * @param {String} file Path to normalize.
  * @returns {String}
@@ -252,6 +339,93 @@ export function detectAiConfigImplementationViolations(source) {
 }
 
 /**
+ * @summary Detects module-load AiConfig leaf captures (`const x = aiConfig.y` / destructuring).
+ *
+ * Direct use-site reads remain valid. This detector specifically targets values frozen at module
+ * evaluation time, the #14239 failure mode where a runtime self-heal config mutation can be ignored
+ * by a stale closure. Function bodies and module-scope functions that read AiConfig when invoked are
+ * intentionally out of scope.
+ * @param {String} source File contents.
+ * @returns {Array<{line: Number, kind: String, text: String}>}
+ */
+export function detectModuleScopeAiConfigCaptures(source) {
+    const violations = [];
+    let   depth      = 0;
+
+    source.split('\n').forEach((text, index) => {
+        const trimmed = text.trim(),
+              before  = depth;
+
+        if (before === 0 &&
+            !trimmed.startsWith('//') &&
+            !trimmed.startsWith('*') &&
+            !trimmed.startsWith('/*') &&
+            !trimmed.startsWith('*/') &&
+            /\b(?:const|let|var)\b/.test(trimmed) &&
+            (
+                /\b(?:const|let|var)\s*\{[^}]+\}\s*=\s*(?:aiConfig|AiConfig|KB_Config|Memory_Config)\b/.test(trimmed) ||
+                /=\s*(?:aiConfig|AiConfig|KB_Config|Memory_Config)(?:\?\.|\.)/.test(trimmed)
+            )
+        ) {
+            violations.push({line: index + 1, kind: 'module-scope-capture', text: trimmed});
+        }
+
+        const code = stripStringsAndLineComment(text);
+        for (const ch of code) {
+            if (ch === '{') {
+                depth++;
+            } else if (ch === '}') {
+                depth = Math.max(0, depth - 1);
+            }
+        }
+    });
+
+    return violations;
+}
+
+/**
+ * @summary Removes quoted strings and line comments for brace-depth scanning.
+ * @param {String} line Source line.
+ * @returns {String}
+ */
+function stripStringsAndLineComment(line) {
+    let out     = '',
+        quote   = null,
+        escaped = false;
+
+    for (let i = 0; i < line.length; i++) {
+        const ch   = line[i],
+              next = line[i + 1];
+
+        if (!quote && ch === '/' && next === '/') {
+            break;
+        }
+
+        if (quote) {
+            out += ' ';
+            if (escaped) {
+                escaped = false;
+            } else if (ch === '\\') {
+                escaped = true;
+            } else if (ch === quote) {
+                quote = null;
+            }
+            continue;
+        }
+
+        if (ch === '"' || ch === '\'' || ch === '`') {
+            quote = ch;
+            out += ' ';
+            continue;
+        }
+
+        out += ch;
+    }
+
+    return out;
+}
+
+/**
  * @summary Core lint: scans config templates and partitions inline-env leaf defaults into
  * baselined, new (unbaselined), and stale-baseline sets.
  * @param {Object} [options]
@@ -326,12 +500,56 @@ export function lintAiConfigImplementationSsot({
     };
 }
 
+/**
+ * @summary Scans `ai/` implementation files for module-scope AiConfig leaf captures.
+ * @param {Object} [options]
+ * @param {String} [options.rootDir] Repo root.
+ * @param {Array<{file: String, source: String}>} [options.files] Injected file records (test seam).
+ * @param {ReadonlyArray<Object>} [options.baseline] Baseline rows.
+ * @returns {{violations: Object[], newViolations: Object[], staleBaseline: Object[]}}
+ */
+export function lintAiConfigModuleScopeCaptures({
+    rootDir  = ROOT_DIR,
+    files,
+    baseline = AI_CONFIG_MODULE_SCOPE_BASELINE
+} = {}) {
+    const records = files || walkMjsFiles(path.join(rootDir, SCAN_ROOT_REL))
+        .map(abs => ({
+            file  : normalizeFile(path.relative(rootDir, abs)),
+            source: fs.readFileSync(abs, 'utf8')
+        }))
+        .filter(({file}) => shouldScanAiConfigImplementation(file));
+
+    const violations = [];
+
+    for (const {file, source} of records) {
+        if (!shouldScanAiConfigImplementation(file)) continue;
+
+        for (const hit of detectModuleScopeAiConfigCaptures(source)) {
+            violations.push({file, ...hit});
+        }
+    }
+
+    const keyOf         = row => `${row.file}::${row.kind}::${row.text}`,
+          baselineKeys  = new Set(baseline.map(keyOf)),
+          violationKeys = new Set(violations.map(keyOf));
+
+    return {
+        violations,
+        newViolations: violations.filter(v => !baselineKeys.has(keyOf(v))),
+        staleBaseline: baseline.filter(b => !violationKeys.has(keyOf(b)))
+    };
+}
+
 const FIX_HINT = 'Move env access into the leaf env-var-name argument — leaf(default, \'ENV_VAR\', type) — ' +
     'and relocate any UNIT_TEST_MODE branch to the test layer (the test-unit npm script shell env). ' +
     'Authority: the AiConfig reactive Provider SSOT decision record (issue #12451).';
 const AI_CONFIG_FIX_HINT = 'Read resolved AiConfig leaves inline at the use site; local Provider subtree references are OK. ' +
     'Do not export config values, pass config-shaped objects through consumers, add hidden defaults/type coercions, ' +
     'or add defensive optional chaining unless the code names an ADR-19-sanctioned boundary. Authority: ADR 0019.';
+const AI_CONFIG_MODULE_SCOPE_FIX_HINT = 'Do not freeze Provider leaves at module load. Read AiConfig at the use site, ' +
+    'or document an existing non-self-heal P1 capture in AI_CONFIG_MODULE_SCOPE_BASELINE as a burndown row. ' +
+    'New self-heal / repair / actuator captures must be converted, not baselined. Authority: #14239 + ADR 0019.';
 
 /**
  * @summary CLI wrapper. Returns an exit code (0 clean, 1 on new violations or stale baseline rows).
@@ -344,7 +562,9 @@ export function runLint(options = {}) {
               files,
               baseline               = BASELINE,
               implementationFiles,
-              implementationBaseline = AI_CONFIG_IMPLEMENTATION_BASELINE
+              implementationBaseline = AI_CONFIG_IMPLEMENTATION_BASELINE,
+              moduleScopeFiles,
+              moduleScopeBaseline    = AI_CONFIG_MODULE_SCOPE_BASELINE
           } = options,
           result               = lintConfigTemplateSsot({rootDir, files, baseline}),
           implementationResult = lintAiConfigImplementationSsot({
@@ -352,13 +572,20 @@ export function runLint(options = {}) {
               files   : implementationFiles,
               baseline: implementationBaseline
           }),
+          moduleScopeResult = lintAiConfigModuleScopeCaptures({
+              rootDir,
+              files   : moduleScopeFiles,
+              baseline: moduleScopeBaseline
+          }),
           {violations, newViolations, staleBaseline} = result,
           hasImplementationFailures = implementationResult.newViolations.length > 0 ||
-              implementationResult.staleBaseline.length > 0;
+              implementationResult.staleBaseline.length > 0,
+          hasModuleScopeFailures = moduleScopeResult.newViolations.length > 0 ||
+              moduleScopeResult.staleBaseline.length > 0;
 
-    if (newViolations.length === 0 && staleBaseline.length === 0 && !hasImplementationFailures) {
-        console.log(`[lint-config-template-ssot] OK - ${violations.length} inline-env leaf default(s), ${implementationResult.violations.length} AiConfig implementation SSOT hit(s), all baselined.`);
-        return {exitCode: 0, ...result, implementation: implementationResult};
+    if (newViolations.length === 0 && staleBaseline.length === 0 && !hasImplementationFailures && !hasModuleScopeFailures) {
+        console.log(`[lint-config-template-ssot] OK - ${violations.length} inline-env leaf default(s), ${implementationResult.violations.length} AiConfig implementation SSOT hit(s), ${moduleScopeResult.violations.length} module-scope AiConfig capture(s), all baselined.`);
+        return {exitCode: 0, ...result, implementation: implementationResult, moduleScope: moduleScopeResult};
     }
 
     if (newViolations.length > 0) {
@@ -403,7 +630,28 @@ export function runLint(options = {}) {
         console.error('');
     }
 
-    return {exitCode: 1, ...result, implementation: implementationResult};
+    if (moduleScopeResult.newViolations.length > 0) {
+        console.error(`[lint-config-template-ssot] FAILED - ${moduleScopeResult.newViolations.length} new module-scope AiConfig capture(s):\n`);
+
+        for (const v of moduleScopeResult.newViolations) {
+            console.error(`- ${v.file}:${v.line}  (${v.kind})`);
+            console.error(`    ${v.text}`);
+        }
+
+        console.error(`\n${AI_CONFIG_MODULE_SCOPE_FIX_HINT}\n`);
+    }
+
+    if (moduleScopeResult.staleBaseline.length > 0) {
+        console.error(`[lint-config-template-ssot] FAILED - ${moduleScopeResult.staleBaseline.length} module-scope AiConfig baseline row(s) no longer match live code (cleanup landed — remove the row):\n`);
+
+        for (const b of moduleScopeResult.staleBaseline) {
+            console.error(`- ${b.file}::${b.kind}::${b.text}  (${b.ticket})`);
+        }
+
+        console.error('');
+    }
+
+    return {exitCode: 1, ...result, implementation: implementationResult, moduleScope: moduleScopeResult};
 }
 
 function main() {
@@ -414,7 +662,8 @@ function main() {
         console.log('');
         console.log('Fails when a config.template.mjs leaf default reads process.env inline');
         console.log('(outside the BASELINE), when a BASELINE row no longer matches a violation,');
-        console.log('or when ai/ implementation code adds mechanical ADR-19 AiConfig SSOT violations.');
+        console.log('when ai/ implementation code adds mechanical ADR-19 AiConfig SSOT violations,');
+        console.log('or when ai/ implementation code adds module-scope AiConfig leaf captures.');
         process.exit(0);
     }
 
