@@ -4,7 +4,9 @@ import * as core      from '../../../../../../../src/core/_export.mjs';
 import {
     EMBEDDER_OUTAGE_SIGNATURE,
     isEmbedderOutageFailure,
-    decideSystemicCircuit
+    decideSystemicCircuit,
+    foldSystemicCircuitState,
+    SYSTEMIC_CIRCUIT_EVENTS
 } from '../../../../../../../ai/services/memory-core/helpers/healSystemicCircuit.mjs';
 
 const NOW = 1_000_000;
@@ -156,5 +158,32 @@ test.describe('healSystemicCircuit — decideSystemicCircuit (indeterminate inpu
     test('exports the tunable outage signature for the wiring slice', () => {
         expect(Array.isArray(EMBEDDER_OUTAGE_SIGNATURE)).toBe(true);
         expect(EMBEDDER_OUTAGE_SIGNATURE).toContain('econnrefused');
+    });
+
+    test('foldSystemicCircuitState: last unmatched circuit-open → circuitOpenedAt; a later close → null', () => {
+        const open = foldSystemicCircuitState([
+                  {type: SYSTEMIC_CIRCUIT_EVENTS.OPEN, status: 'open',   at: 100},
+                  {type: 're-embed-missing',           status: 'failed', at: 150, detail: 'econnrefused', collection: 'a'},
+                  {type: SYSTEMIC_CIRCUIT_EVENTS.OPEN, status: 'open',   at: 200}  // a later open wins
+              ], {now: NOW, windowMs: 600_000}),
+              closed = foldSystemicCircuitState([
+                  {type: SYSTEMIC_CIRCUIT_EVENTS.OPEN,  status: 'open',  at: 100},
+                  {type: SYSTEMIC_CIRCUIT_EVENTS.CLOSE, status: 'close', at: 300}  // close clears the open
+              ], {now: NOW, windowMs: 600_000});
+
+        expect(open.circuitOpenedAt).toBe(200);
+        expect(closed.circuitOpenedAt).toBe(null);
+    });
+
+    test('foldSystemicCircuitState: recentFailures = failed rows in-window; circuit + non-failed rows excluded', () => {
+        const {recentFailures} = foldSystemicCircuitState([
+            {type: 're-embed-missing',           status: 'failed', at: NOW - 100_000, detail: 'econnrefused', collection: 'a'}, // in-window failure
+            {type: 're-embed-missing',           status: 'failed', at: NOW - 900_000, detail: 'timeout',      collection: 'b'}, // OUT of window
+            {type: 're-embed-missing',           status: 'healed', at: NOW - 50_000,                          collection: 'c'}, // not a failure
+            {type: SYSTEMIC_CIRCUIT_EVENTS.OPEN, status: 'open',   at: NOW - 10_000,                          collection: '*'}  // a circuit event, not a failure
+        ], {now: NOW, windowMs: 600_000});
+
+        expect(recentFailures).toHaveLength(1);
+        expect(recentFailures[0]).toMatchObject({collection: 'a', detail: 'econnrefused'});
     });
 });
