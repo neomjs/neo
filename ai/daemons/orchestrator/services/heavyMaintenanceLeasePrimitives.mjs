@@ -3,7 +3,6 @@ import fs     from 'fs-extra';
 import path   from 'path';
 
 export const DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH = '.neo-ai-data/orchestrator-daemon/heavy-maintenance-lease.json';
-export const DEFAULT_HEAVY_MAINTENANCE_LEASE_TTL_MS = 6 * 60 * 60 * 1000;
 
 /**
  * @summary Converts supported time inputs into epoch milliseconds.
@@ -145,7 +144,7 @@ export function shouldYieldHeavyMaintenanceLease(lease, {now = new Date(), maxAc
  * @param {String} [options.reason='manual'] Acquisition reason.
  * @param {Object} [options.metadata={}] Diagnostic metadata.
  * @param {Number} [options.pid=process.pid] Owning process ID.
- * @param {Number} [options.staleAfterMs=DEFAULT_HEAVY_MAINTENANCE_LEASE_TTL_MS] Stale TTL.
+ * @param {Number} options.staleAfterMs Stale TTL in ms — REQUIRED; resolved from AiConfig at the boundary (no primitive default).
  * @param {Date|Number|String} [options.now=new Date()] Current time.
  * @param {String} [options.token] Owner release token.
  * @returns {Object}
@@ -155,10 +154,14 @@ export function buildLeasePayload({
     reason       = 'manual',
     metadata     = {},
     pid          = process.pid,
-    staleAfterMs = DEFAULT_HEAVY_MAINTENANCE_LEASE_TTL_MS,
+    staleAfterMs,
     now          = new Date(),
     token        = crypto.randomUUID()
 }) {
+    if (!Number.isFinite(staleAfterMs) || staleAfterMs <= 0) {
+        throw new TypeError('buildLeasePayload: staleAfterMs (positive ms) is required — resolve it from AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs at the AiConfig-aware boundary; this Neo/Base-free primitive carries no TTL default by design.');
+    }
+
     const acquiredAt = new Date(toTimestamp(now));
     const expiresAt  = new Date(acquiredAt.getTime() + staleAfterMs);
 
@@ -290,7 +293,7 @@ export function acquireHeavyMaintenanceLeaseSync({
     fsModule     = fs,
     now          = new Date(),
     pid          = process.pid,
-    staleAfterMs = DEFAULT_HEAVY_MAINTENANCE_LEASE_TTL_MS,
+    staleAfterMs,
     isPidAlive: isPidAliveFn = isPidAlive,
     token
 } = {}) {
@@ -381,7 +384,7 @@ export function releaseHeavyMaintenanceLeaseSync({
  * @param {Object} [options.fsModule=fs] File-system implementation seam.
  * @param {Date|Number|String} [options.now=new Date()] Current time.
  * @param {Number} [options.pid=process.pid] Owning process ID.
- * @param {Number} [options.staleAfterMs=DEFAULT_HEAVY_MAINTENANCE_LEASE_TTL_MS] Stale TTL.
+ * @param {Number} options.staleAfterMs Stale TTL in ms — REQUIRED; resolved from AiConfig at the boundary (no primitive default).
  * @param {String} [options.token] Owner release token.
  * @returns {Promise<Object>}
  */
@@ -393,7 +396,7 @@ export async function acquireHeavyMaintenanceLease({
     fsModule     = fs,
     now          = new Date(),
     pid          = process.pid,
-    staleAfterMs = DEFAULT_HEAVY_MAINTENANCE_LEASE_TTL_MS,
+    staleAfterMs,
     isPidAlive: isPidAliveFn = isPidAlive,
     token
 } = {}) {

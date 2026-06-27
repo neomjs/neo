@@ -518,6 +518,17 @@ class Config extends ConfigProvider {
                     recoveryRunLimit            : leaf(10, 'NEO_DEPLOYMENT_STATE_BRIDGE_RECOVERY_RUN_LIMIT', 'number')
                 },
                 /**
+                 * Cross-process heavy-maintenance lease (Chroma / SQLite / LLM maintenance mutex).
+                 * `staleAfterMs`: a lease older than this is treated as abandoned and reclaimable — it must
+                 * exceed the longest legitimate heavy-maintenance run (scales with data size), so it is an
+                 * operator-tunable threshold, not a hardcoded ceiling. The Neo/Base-free lease primitives
+                 * mirror this default + env name for subprocess consumers (kbSync VectorService) that can't read the Provider.
+                 * @type {Object}
+                 */
+                heavyMaintenanceLease: {
+                    staleAfterMs: leaf(6 * 60 * 60 * 1000, 'NEO_HEAVY_MAINTENANCE_LEASE_TTL_MS', 'number')
+                },
+                /**
                  * Maintenance-loop intervals consumed by the orchestrator daemon.
                  * Env vars at the daemon boundary retain precedence over these defaults.
                  * @type {Object}

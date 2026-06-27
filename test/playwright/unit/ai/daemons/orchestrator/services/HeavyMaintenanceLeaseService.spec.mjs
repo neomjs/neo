@@ -5,8 +5,8 @@ import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 import {
     HeavyMaintenanceLeaseService,
-    acquireHeavyMaintenanceLease,
-    acquireHeavyMaintenanceLeaseSync,
+    acquireHeavyMaintenanceLease as _rawAcquireHeavyMaintenanceLease,
+    acquireHeavyMaintenanceLeaseSync as _rawAcquireHeavyMaintenanceLeaseSync,
     inspectHeavyMaintenanceLease,
     inspectHeavyMaintenanceLeaseSync,
     isPidAlive,
@@ -14,8 +14,23 @@ import {
     releaseHeavyMaintenanceLease,
     releaseHeavyMaintenanceLeaseSync,
     shouldYieldHeavyMaintenanceLease,
-    withHeavyMaintenanceLease
+    withHeavyMaintenanceLease as _rawWithHeavyMaintenanceLease
 } from '../../../../../../../ai/daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
+
+// Test convenience: the lease primitive now requires `staleAfterMs` (the AiConfig-aware boundary
+// resolves it; the Neo/Base-free primitive carries no default). These suites exercise
+// acquire/release/stale/inheritance semantics — not the TTL value — so they default a valid TTL
+// here; the required-`staleAfterMs` contract itself is covered by the dedicated guard test below.
+const TEST_LEASE_STALE_MS = 60000;
+
+const acquireHeavyMaintenanceLease = ({staleAfterMs = TEST_LEASE_STALE_MS, ...rest} = {}) =>
+    _rawAcquireHeavyMaintenanceLease({staleAfterMs, ...rest});
+
+const acquireHeavyMaintenanceLeaseSync = ({staleAfterMs = TEST_LEASE_STALE_MS, ...rest} = {}) =>
+    _rawAcquireHeavyMaintenanceLeaseSync({staleAfterMs, ...rest});
+
+const withHeavyMaintenanceLease = (task, {staleAfterMs = TEST_LEASE_STALE_MS, ...rest} = {}) =>
+    _rawWithHeavyMaintenanceLease(task, {staleAfterMs, ...rest});
 
 function createLeasePath(name) {
     const dir = path.join(process.cwd(), 'tmp', `heavy-maintenance-lease-${process.pid}-${Date.now()}-${Math.random()}`);
@@ -24,6 +39,16 @@ function createLeasePath(name) {
 }
 
 test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', () => {
+    test('#14205: buildLeasePayload requires staleAfterMs — the Neo/Base-free primitive fails loudly with no default', async () => {
+        const leasePath = createLeasePath('staleAfterMs-required-guard');
+        await expect(_rawAcquireHeavyMaintenanceLease({
+            leasePath,
+            owner: 'summary',
+            now  : new Date('2026-05-16T20:00:00.000Z'),
+            token: 'no-stale'
+        })).rejects.toThrow(/staleAfterMs.*required/);
+    });
+
     test('acquires and inspects a missing lease', async () => {
         const leasePath = createLeasePath('missing');
         const now       = new Date('2026-05-16T20:00:00.000Z');
@@ -312,7 +337,7 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
     test('withLease releases after task completion and skips held tasks', async () => {
         const leasePath = createLeasePath('with-lease');
         const now       = new Date('2026-05-16T20:00:00.000Z');
-        let ran = false;
+        let   ran       = false;
 
         const completed = await withHeavyMaintenanceLease(() => {
             ran = true;
@@ -371,12 +396,12 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
         //
         // A future refactor that releases the lease before the task's inner finally runs would
         // fail probe 2 — exactly the consumer-side correctness invariant the JSDoc documents.
-        const leasePath = createLeasePath('release-timing');
-        const now       = new Date('2026-05-16T20:00:00.000Z');
-        const order     = [];
-        let leaseDuringBody    = null;
-        let leaseDuringFinally = null;
-        let leaseAfterAwait    = null;
+        const leasePath          = createLeasePath('release-timing');
+        const now                = new Date('2026-05-16T20:00:00.000Z');
+        const order              = [];
+        let   leaseDuringBody    = null;
+        let   leaseDuringFinally = null;
+        let   leaseAfterAwait    = null;
 
         const completed = await withHeavyMaintenanceLease(async () => {
             order.push('task-body');
@@ -555,7 +580,7 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
         const original = process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
         process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN = 'spurious-stale-token';
 
-        let taskRan = false;
+        let   taskRan        = false;
         const staleHookCalls = [];
         try {
             const result = await withHeavyMaintenanceLease(() => {
@@ -606,7 +631,7 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
             token       : 'real-active-token'
         });
 
-        const original    = process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
+        const original = process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
         process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN = 'spurious-stale-token';
 
         const originalWarn = console.warn;

@@ -1,10 +1,10 @@
-import fs   from 'fs-extra';
-import Neo  from '../../../../src/Neo.mjs';
-import Base from '../../../../src/core/Base.mjs';
+import fs       from 'fs-extra';
+import Neo      from '../../../../src/Neo.mjs';
+import Base     from '../../../../src/core/Base.mjs';
+import AiConfig from '../../../config.mjs';
 
 import {
     DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH,
-    DEFAULT_HEAVY_MAINTENANCE_LEASE_TTL_MS,
     acquireHeavyMaintenanceLease,
     inspectHeavyMaintenanceLease,
     releaseHeavyMaintenanceLease,
@@ -51,7 +51,7 @@ export class HeavyMaintenanceLeaseService extends Base {
          * @protected
          * @reactive
          */
-        staleAfterMs_: DEFAULT_HEAVY_MAINTENANCE_LEASE_TTL_MS,
+        staleAfterMs_: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs,
         /**
          * @member {Object} fsModule_=fs
          * @protected
