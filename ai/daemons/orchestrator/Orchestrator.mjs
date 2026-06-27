@@ -34,7 +34,10 @@ import DeploymentStateBridgeService                                             
 import RecoveryActuatorService                                                  from './services/RecoveryActuatorService.mjs';
 import ContainerHealthDiagnosisService                                          from './services/ContainerHealthDiagnosisService.mjs';
 import DataIntegrityDiagnosisService                                            from './services/DataIntegrityDiagnosisService.mjs';
+import DataRecoveryActuatorService                                              from './services/DataRecoveryActuatorService.mjs';
 import {auditChromaVectorCoverage}                                              from '../../scripts/maintenance/checkChromaIntegrity.mjs';
+import {buildDataIntegrityCoverageDiagnosis}                                    from './services/dataIntegrityCoverageDiagnosis.mjs';
+import {assembleDataIntegrityEvidence}                                          from './services/dataIntegrityEvidenceAssembler.mjs';
 import DreamService                                                             from './services/DreamService.mjs';
 import SwarmHeartbeatService                                                    from './services/SwarmHeartbeatService.mjs';
 import GoldenPathSynthesizer                                                    from '../../services/graph/GoldenPathSynthesizer.mjs';
@@ -116,6 +119,7 @@ export class Orchestrator extends Base {
         deploymentStateBridgeService_   : null,
         recoveryActuatorService_        : null,
         containerHealthDiagnosisService_: null,
+        dataRecoveryActuatorService_    : null,
         dataIntegrityDiagnosisService_  : null,
         maintenanceBackpressureService_ : MaintenanceBackpressureService,
         dataDir_                        : DEFAULT_DATA_DIR,
@@ -350,14 +354,22 @@ export class Orchestrator extends Base {
     }
 
     /**
+     * @param {Neo.ai.daemons.services.DataRecoveryActuatorService|Object|null} value
+     * @returns {Neo.ai.daemons.services.DataRecoveryActuatorService}
+     */
+    beforeSetDataRecoveryActuatorService(value) {
+        return ClassSystemUtil.beforeSetInstance(value, DataRecoveryActuatorService);
+    }
+
+    /**
      * @param {Neo.ai.daemons.services.DataIntegrityDiagnosisService|Object|null} value
      * @returns {Neo.ai.daemons.services.DataIntegrityDiagnosisService}
      */
     beforeSetDataIntegrityDiagnosisService(value) {
         return ClassSystemUtil.beforeSetInstance(value, DataIntegrityDiagnosisService, {
             serviceId       : this.dataIntegrityServiceId,
-            recoveryActuator: this.recoveryActuatorService,
-            coverageGatherer: this.dataIntegrityCoverageGatherer
+            recoveryActuator: this.dataRecoveryActuatorService,
+            evidenceGatherer: this.dataIntegrityEvidenceGatherer
         });
     }
 
@@ -460,6 +472,26 @@ export class Orchestrator extends Base {
             persistDir     : dataDir,
             collectionNames: ['neo-agent-memory', 'neo-agent-sessions']
         });
+    }
+    /**
+     * @summary Builds the data-integrity EVIDENCE gatherer the self-heal runner consumes: runs the
+     * detect-producer(s) over the coverage audit and assembles per-collection classifier-input rows. INTERIM
+     * (the escalate-deletion cutover): wires the coverage producer; the false-storm denominator
+     * (`collectionSizes`) + the WAL-stall-vs-wipe discriminator (`documentsPresentByCollection`) wire WITH the
+     * actuator's real heal operations in the follow-up — classification precision only changes the OUTCOME once
+     * a heal acts, and the interim actuator all-defers, so coverage → assemble → classify → defer is
+     * correct-by-construction.
+     * @returns {Function} `async () => Promise<Object[]>` — the assembled classifier-input rows.
+     */
+    get dataIntegrityEvidenceGatherer() {
+        const coverageGatherer = this.dataIntegrityCoverageGatherer,
+              serviceId        = this.dataIntegrityServiceId;
+        return async () => {
+            const coverageResult    = await coverageGatherer(),
+                  coverageDiagnosis = buildDataIntegrityCoverageDiagnosis({coverageResult, observedAt: Date.now(), serviceId}),
+                  diagnoses         = coverageDiagnosis ? [coverageDiagnosis] : [];
+            return assembleDataIntegrityEvidence({diagnoses, serviceId});
+        };
     }
     get swarmHeartbeatEnabled()          { return resolveDeploymentEnabled('swarmHeartbeatEnabled');          }
     get goldenPathRepoEnrichmentEnabled(){ return resolveDeploymentEnabled('goldenPathRepoEnrichmentEnabled');}
