@@ -580,6 +580,44 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
         }
     });
 
+    test('shadow-swap PRESERVES the shadow on a cooperative lease YIELD — no promote, marker intact (#14186)', async () => {
+        const live                = createSpyCollection({existingIds: [], name: KB_Config.data.collectionName});
+        const originalEmbedChunks = KB_VectorService.embedChunks.bind(KB_VectorService);
+        let shadow;
+
+        KB_ChromaManager.client = {
+            createCollection: async ({name}) => {
+                shadow = createSpyCollection({name});
+                return shadow;
+            }
+        };
+        // Simulate embedChunks yielding mid-corpus — the embedChunks-level yield mechanism (between-batch,
+        // forward-progress) is covered in VectorService.leaseYield.spec.mjs; here we assert embedViaShadowSwap's
+        // yield HANDLING reuses the same preserve-not-promote path as a transient failure.
+        KB_VectorService.embedChunks = async () => ({embedded: 1, skipped: 0, yielded: true});
+
+        try {
+            const result = await KB_VectorService.embedViaShadowSwap({
+                liveCollection  : live,
+                knowledgeBase   : [{id: 'chunk-0', type: 'method', name: 'method0'}],
+                idsToDeleteCount: 0,
+                shouldYield     : () => true
+            });
+
+            // On yield: a {yielded:true} envelope (the lease holder releases on it), the shadow is preserved-
+            // not-promoted (NEITHER collection renamed), and the write-ahead resume marker is NOT cleared — so
+            // the next sweep re-acquires and resumes from the completed batches instead of rebuilding.
+            expect(result.yielded).toBe(true);
+            expect(live.calls.modify).toEqual([]);
+            expect(shadow.calls.modify).toEqual([]);
+
+            const resumeState = await readResumeState({dir: KB_VectorService.resumeStateDir});
+            expect(resumeState?.shadowName).toBe(shadow.name);
+        } finally {
+            KB_VectorService.embedChunks = originalEmbedChunks;
+        }
+    });
+
     test('fresh-build records the resume marker BEFORE creating the shadow (write-ahead — no orphan on a double failure)', async () => {
         const live                = createSpyCollection({existingIds: [], name: KB_Config.data.collectionName});
         const originalEmbedChunks = KB_VectorService.embedChunks.bind(KB_VectorService);
