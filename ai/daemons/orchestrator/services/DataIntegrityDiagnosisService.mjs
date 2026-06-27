@@ -68,6 +68,12 @@ export class DataIntegrityDiagnosisService extends Base {
      * @member {String|null} serviceId=null
      */
     serviceId = null
+    /**
+     * Reversibility seam: lifts a collection's serving fence when a clean re-audit (terminalAction `none`)
+     * shows it recovered. `null` → no-op (the fence persists). Set-once injected dependency — a plain field.
+     * @member {Function|null} liftQuarantine=null
+     */
+    liftQuarantine = null
 
     /**
      * @summary Gathers per-collection evidence, classifies each, and routes every actionable finding to its
@@ -133,6 +139,12 @@ export class DataIntegrityDiagnosisService extends Base {
             const classification = classifications[i];
 
             if (classification.terminalAction === DataIntegrityTerminal.NONE) {
+                // Reversibility: a clean re-audit lifts any prior serving fence on this collection (serving
+                // resumes). No fence → a no-op; recorded only when a fence was actually lifted.
+                const lifted = typeof this.liftQuarantine === 'function' && await this.liftQuarantine(classification.collection);
+                if (lifted) {
+                    heals.push({collection: classification.collection, action: 'unquarantine', mode: classification.mode, outcome: {status: 'unquarantined'}});
+                }
                 continue;
             }
 

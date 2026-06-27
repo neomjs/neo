@@ -169,4 +169,32 @@ test.describe('Neo.ai.daemons.services.DataIntegrityDiagnosisService', () => {
 
         await expect(service.gatherAndDiagnose()).rejects.toThrow(/recoveryActuator with applyHeal/);
     });
+
+    test('reversibility: a clean re-audit lifts a prior serving fence (terminalAction none → un-quarantine)', async () => {
+        const lifted  = [],
+              service = createService({
+                  evidenceGatherer: async () => [clean('neo-agent-memory')],
+                  recoveryActuator: fakeActuator(),
+                  liftQuarantine  : async collection => { lifted.push(collection); return true; } // simulate: was fenced, now clean
+              });
+
+        const decision = await service.gatherAndDiagnose();
+
+        expect(lifted).toEqual(['neo-agent-memory']);                                             // the clean re-audit probed the fence
+        expect(decision.heals).toContainEqual(expect.objectContaining({
+            collection: 'neo-agent-memory', action: 'unquarantine', outcome: {status: 'unquarantined'}
+        }));
+    });
+
+    test('reversibility: a clean collection that was never fenced records NO un-quarantine (no spurious heal)', async () => {
+        const service = createService({
+            evidenceGatherer: async () => [clean('neo-agent-memory')],
+            recoveryActuator: fakeActuator(),
+            liftQuarantine  : async () => false                                                   // not fenced → no-op
+        });
+
+        const decision = await service.gatherAndDiagnose();
+
+        expect(decision.heals).toHaveLength(0);                                                   // nothing fenced → nothing recorded
+    });
 });
