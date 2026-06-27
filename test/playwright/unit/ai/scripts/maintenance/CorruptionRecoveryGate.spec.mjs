@@ -5,10 +5,11 @@ import path           from 'path';
 import {promisify}    from 'util';
 import {test, expect} from '@playwright/test';
 
-import Neo                         from '../../../../../../src/Neo.mjs';
-import * as core                   from '../../../../../../src/core/_export.mjs';
-import {auditChromaVectorCoverage} from '../../../../../../ai/scripts/maintenance/checkChromaIntegrity.mjs';
-import {classifyDataIntegrityMode} from '../../../../../../ai/daemons/orchestrator/services/dataIntegrityModeClassifier.mjs';
+import Neo                                             from '../../../../../../src/Neo.mjs';
+import * as core                                       from '../../../../../../src/core/_export.mjs';
+import {auditChromaVectorCoverage}                     from '../../../../../../ai/scripts/maintenance/checkChromaIntegrity.mjs';
+import {isCollectionQuarantined, quarantineCollection} from '../../../../../../ai/services/memory-core/helpers/quarantineStore.mjs';
+import {classifyDataIntegrityMode}                     from '../../../../../../ai/daemons/orchestrator/services/dataIntegrityModeClassifier.mjs';
 import {createReEmbedMissingHeal,
         createReEmbedMissingHealOperation} from '../../../../../../ai/services/memory-core/helpers/reEmbedMissingHeal.mjs';
 import DataRecoveryActuatorService from '../../../../../../ai/daemons/orchestrator/services/DataRecoveryActuatorService.mjs';
@@ -238,6 +239,50 @@ test.describe('v13.1 release gate — corruption injection → detect → diagno
 
             // 6. NO operator page, NO escalate — the terminal is an autonomous heal, not a page-into-the-void
             //    (the model shift the escalate-deletion made: a cloud deployment has no operator to escalate to).
+            expect(decision.terminalAction).not.toBe('escalate');
+            expect(outcome.status).not.toBe('escalated');
+        } finally {
+            await fs.remove(tmpDir);
+        }
+    });
+
+    test('count-regression is DIAGNOSED (count-loss) and autonomously QUARANTINED — fenced from serving, never paged', async () => {
+        const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-corruption-gate-quarantine-'));
+
+        try {
+            const COLLECTION = 'neo-agent-memory';
+
+            // DIAGNOSE — a regressed row count is NOT row-level repairable (the data already left, nothing to
+            // re-embed from) → quarantine, the safe-default autonomous terminal. Never re-embed, never escalate.
+            const decision = classifyDataIntegrityMode({collection: COLLECTION, countRegressed: true});
+            expect(decision).toMatchObject({mode: 'count-loss', terminalAction: 'quarantine', autonomous: true});
+
+            // HEAL — the autonomous actuator FENCES the collection from similarity-serving (the real quarantine
+            // op writes the durable fence). quarantine is non-mutating containment, so it needs no recordRun.
+            const actuator = Neo.create(DataRecoveryActuatorService, {
+                healOperations: {
+                    quarantine: async ({collection}) => {
+                        await quarantineCollection(collection, {dir: tmpDir, reason: decision.mode, now: OBSERVED_AT});
+                        return {status: 'quarantined', detail: {collection}};
+                    }
+                },
+                recentRunsReader: async () => []
+            });
+
+            const outcome = await actuator.applyHeal({
+                action    : decision.terminalAction,
+                collection: COLLECTION,
+                evidence  : {mode: decision.mode},
+                now       : OBSERVED_AT
+            });
+
+            // QUARANTINED — the ACT fired: the collection is fenced. queryMemories / querySummaries read this
+            // fence and fail-fast to empty (proven at the unit level in quarantineStore.spec + the guard inserts),
+            // so a known-corrupt index is never served while it awaits repair.
+            expect(outcome.status).toBe('quarantined');
+            expect(await isCollectionQuarantined(COLLECTION, {dir: tmpDir})).toBe(true);
+
+            // No operator page, no escalate — an autonomous containment terminal, never a page-into-the-void.
             expect(decision.terminalAction).not.toBe('escalate');
             expect(outcome.status).not.toBe('escalated');
         } finally {
