@@ -7,7 +7,7 @@ import SessionService                                                           
 import TurnPresenceService                                                                                                             from './TurnPresenceService.mjs';
 import {withTimeout}                                                                                                                   from './helpers/withTimeout.mjs';
 import {appendWalGraphProjectionMarker, appendWalMemory, getMissingMemoryWalLeaves, pruneReconciledWalSegments, readPendingWalRecords} from './helpers/memoryWalStore.mjs';
-import {composeTurnDocumentText}                                                                                                       from './helpers/turnDocumentText.mjs';
+import {composeTurnDocumentText, resolveTurnDocumentForRead}                                                                           from './helpers/turnDocumentText.mjs';
 import {buildChatModel}                                                                                                                from '../../provider/buildChatModel.mjs';
 import aiConfig                                                                                                                        from '../../mcp/server/memory-core/config.mjs';
 import RequestContextService, {SHARED_USER_ID, normalizeUserId}                                                                        from '../../mcp/server/shared/services/RequestContextService.mjs';
@@ -1864,8 +1864,12 @@ class MemoryService extends Base {
                             if (userId) getArgs.where = {$or: [{userId}, {userId: SHARED_USER_ID}]};
                             const result = await collection.get(getArgs);
 
-                            if (result.documents && result.documents.length > 0) {
-                                const metadata      = result.metadatas ? result.metadatas[0] : null;
+                            const metadata = result.metadatas ? result.metadatas[0] : null;
+                            // Field↔document de-dup: prefer the stored document, else reconstruct from split
+                            // metadata (turns only) when it was dropped — single-sourced in turnDocumentText.
+                            const content = resolveTurnDocumentForRead({documents: result.documents, metadata});
+
+                            if (content) {
                                 const trustTier     = this.constructor.resolveSummaryTrustTier(metadata);
                                 const trustWeight   = this.constructor.getFrontierTrustWeight(trustTier);
                                 const weightedScore = Number(((Number(neighbor.weight) || 0) * trustWeight).toFixed(6));
@@ -1878,7 +1882,7 @@ class MemoryService extends Base {
                                     trustTier,
                                     trustWeight,
                                     weightedScore,
-                                    content     : result.documents[0],
+                                    content,
                                     metadata
                                 });
                             }
@@ -1953,13 +1957,14 @@ class MemoryService extends Base {
                     try {
                         const getArgs = {
                             ids    : [neighbor.semanticVectorId],
-                            include: ['documents']
+                            include: ['documents', 'metadatas']
                         };
                         if (userId) getArgs.where = {$or: [{userId}, {userId: SHARED_USER_ID}]};
-                        const result = await collection.get(getArgs);
-                        if (result.documents && result.documents.length > 0) {
-                            episodicContext = result.documents[0];
-                        }
+                        const result   = await collection.get(getArgs);
+                        const metadata = result.metadatas ? result.metadatas[0] : null;
+                        // Field↔document de-dup: prefer the stored document, else reconstruct from split
+                        // metadata (turns only) when it was dropped — single-sourced in turnDocumentText.
+                        episodicContext = resolveTurnDocumentForRead({documents: result.documents, metadata});
                     } catch (e) {
                          // Missing vector is fine, we still have structural graph data
                     }
