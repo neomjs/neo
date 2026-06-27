@@ -819,7 +819,20 @@ class Config extends ConfigProvider {
                     maxBackoffMs               : leaf(HOUR_MS, 'NEO_RECOVERY_ACTUATOR_MAX_BACKOFF_MS', 'number'),
                     verifyCooldownMs           : leaf(60 * 1000, 'NEO_RECOVERY_ACTUATOR_VERIFY_COOLDOWN_MS', 'number'),
                     healthyObservationThreshold: leaf(1, 'NEO_RECOVERY_ACTUATOR_HEALTHY_OBSERVATION_THRESHOLD', 'number'),
-                    operatorPageTarget         : leaf('AGENT:*', 'NEO_RECOVERY_ACTUATOR_OPERATOR_PAGE_TARGET', 'string')
+                    operatorPageTarget         : leaf('AGENT:*', 'NEO_RECOVERY_ACTUATOR_OPERATOR_PAGE_TARGET', 'string'),
+                    /**
+                     * Systemic-fault circuit-breaker bounds — the cross-collection layer above the per-collection
+                     * anti-thrash (`maxAttemptsPerWindow`/`maxAttemptsWindowMs`). >= `systemicThreshold` DISTINCT
+                     * collections failing with a shared embedder-outage signature inside `windowMs` trips the circuit
+                     * OPEN (suppress every heal) for `openDurationMs`, then allows one half-open recovery probe.
+                     * Consumed by `decideSystemicCircuit`: read at the actuator use-site and passed as its `bounds`.
+                     * @type {Object}
+                     */
+                    systemicCircuit: {
+                        systemicThreshold: leaf(3,              'NEO_RECOVERY_ACTUATOR_SYSTEMIC_CIRCUIT_THRESHOLD',        'number'),
+                        windowMs         : leaf(10 * 60 * 1000, 'NEO_RECOVERY_ACTUATOR_SYSTEMIC_CIRCUIT_WINDOW_MS',        'number'),
+                        openDurationMs   : leaf(10 * 60 * 1000, 'NEO_RECOVERY_ACTUATOR_SYSTEMIC_CIRCUIT_OPEN_DURATION_MS', 'number')
+                    }
                 },
                 /**
                  * Optional local Neo repo roots for the primary-dev-sync lane.
