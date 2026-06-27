@@ -7,6 +7,7 @@ import SessionService                                                           
 import TurnPresenceService                                                                                                             from './TurnPresenceService.mjs';
 import {withTimeout}                                                                                                                   from './helpers/withTimeout.mjs';
 import {appendWalGraphProjectionMarker, appendWalMemory, getMissingMemoryWalLeaves, pruneReconciledWalSegments, readPendingWalRecords} from './helpers/memoryWalStore.mjs';
+import {composeTurnDocumentText}                                                                                                       from './helpers/turnDocumentText.mjs';
 import {buildChatModel}                                                                                                                from '../../provider/buildChatModel.mjs';
 import aiConfig                                                                                                                        from '../../mcp/server/memory-core/config.mjs';
 import RequestContextService, {SHARED_USER_ID, normalizeUserId}                                                                        from '../../mcp/server/shared/services/RequestContextService.mjs';
@@ -435,7 +436,7 @@ class MemoryService extends Base {
                 };
             }
 
-            const combinedText = `User Prompt: ${prompt}\nAgent Thought: ${thought}\nAgent Response: ${response}`;
+            const combinedText = composeTurnDocumentText({prompt, thought, response});
             const now          = Date.now();
             const timestamp    = new Date(now).toISOString();
             const memoryId     = crypto.randomUUID();
@@ -628,8 +629,8 @@ class MemoryService extends Base {
      */
     async _projectMemoryToGraph({memoryId, timestamp, sessionId, segmentKey, walDir, requestIdentity, memoryProperties}) {
         GraphService.upsertNode({
-            id              : memoryId,
-            type            : 'AGENT_MEMORY',
+            id  : memoryId,
+            type: 'AGENT_MEMORY',
             name            : `Memory: ${timestamp}`,
             description     : `Agent thought flow inside session ${sessionId}.`,
             semanticVectorId: memoryId,
@@ -973,7 +974,7 @@ class MemoryService extends Base {
                 return r;
             }).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-            const total = records.length;
+            const total    = records.length;
             const memories = records.slice(offset, offset + limit);
 
             return {
@@ -1245,7 +1246,7 @@ class MemoryService extends Base {
 
             // AC1 — resolve the agent filter; capture the caller's bound identity for the privacy gate.
             const callerIdentity = RequestContextService.getAgentIdentityNodeId();
-            let identity = agentIdentity;
+            let   identity       = agentIdentity;
             if (!identity || identity === '@me') {
                 identity = callerIdentity;
                 if (!identity) {
@@ -1264,8 +1265,8 @@ class MemoryService extends Base {
             // AC2/AC3 — recency read over graph-projected AGENT_MEMORY rows plus pending WAL rows.
             // ORDER BY (timestamp, id) DESC for a stable reverse-chronological page even at equal
             // timestamps.
-            const params = [identity, userId];
-            let cursorClause = '';
+            const params       = [identity, userId];
+            let   cursorClause = '';
             if (before && before.timestamp) {
                 // Stable (timestamp, id) cursor — matches ORDER BY (timestamp DESC, id DESC), so
                 // equal-timestamp turns neither duplicate nor skip across pages.
@@ -1479,7 +1480,7 @@ class MemoryService extends Base {
             if (!model) return null;
 
             const promptText = `Summarize this agent turn in one line, max 280 characters, no preamble:\nUser: ${prompt ?? ''}\nAgent: ${response ?? ''}`;
-            const result     = await withTimeout(
+            const result = await withTimeout(
                 model.generateContent(promptText, {
                     timeoutMs     : TIMEOUT_MS,
                     operationLabel: 'miniSummary generation',
@@ -1526,7 +1527,7 @@ class MemoryService extends Base {
             return false;
         }
 
-        const existing   = JSON.parse(row.data),
+        const existing = JSON.parse(row.data),
               // Archive-aware: this addNodes overwrites the node, so a tombstone set after `existing` was
               // read (the merge-vs-archive race) must be replayed from the durable marker (_withArchiveState).
               properties = this._withArchiveState({...(existing.properties || {}), miniSummary}),
@@ -1753,7 +1754,7 @@ class MemoryService extends Base {
             }
 
             const collection = await StorageRouter.getMemoryCollection();
-            const queryArgs = {
+            const queryArgs  = {
                 queryTexts: [query],
                 nResults,
                 // 'distances' is load-bearing — the Dual-Pass re-ranker's semantic score needs it (else topology-only).
@@ -1810,8 +1811,8 @@ class MemoryService extends Base {
                     signature         : searchResult._degradedSignature,
                     message           : `Memory query path is degraded (${searchResult._degradedSignature}); this is NOT a genuine no-match. Underlying error: ${searchResult._degradedReason}`,
                     query,
-                    count             : 0,
-                    results           : []
+                    count  : 0,
+                    results: []
                 };
             }
 
@@ -1835,7 +1836,7 @@ class MemoryService extends Base {
             if ((userId && policy === 'legacy') || minTrustTier) {
                 const filteredIndices = [];
                 for (let i = 0; i < metadatas.length; i++) {
-                    const metaUserId = metadatas[i]?.userId;
+                    const metaUserId  = metadatas[i]?.userId;
                     const tenantMatch = !userId || policy !== 'legacy' || !metaUserId || metaUserId === userId || metaUserId === SHARED_USER_ID;
                     const trustMatch  = this.constructor.matchesMinTrustTier(metadatas[i], minTrustTier);
 
@@ -1904,7 +1905,7 @@ class MemoryService extends Base {
 
             // 2. Unpack mapping to map context to Chroma db entries
             const { frontier, strategicNeighbors } = topology;
-            const semanticContexts = [];
+            const semanticContexts                 = [];
 
             // We grab context blocks from summaries, as that is where DreamService extracts episodic graph nodes from
             const collection = await StorageRouter.getSummaryCollection();
