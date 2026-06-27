@@ -79,7 +79,7 @@ paths:
           schema:
             type: integer
             minimum: 1
-            default: 5000
+            default: 30000
       responses:
         '200':
           description: Server is healthy and database is accessible
