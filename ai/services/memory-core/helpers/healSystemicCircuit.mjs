@@ -6,8 +6,9 @@
  * see the correlation, so N collections each retry within their own bounds — a mass-heal storm hammering a
  * dead embedder. This decider recognizes that pattern as ONE fault: >= `systemicThreshold` DISTINCT collections
  * failing with an embedder-outage signature inside `windowMs` trips the circuit OPEN, suppressing ALL heals
- * until a cooldown lets a single half-open probe test recovery. It reads the failure evidence the heal-event
- * ledger already records (`status: 'failed'` + `detail`); it is a SIBLING of `decideHealAction`, not an
+ * until a cooldown lets a single half-open probe test recovery. It decides over the recent FAILED heal runs the
+ * caller folds from the heal-event ledger — production outcome-`detail` recording lands in the wiring slice, not
+ * this pure decider; it is a SIBLING of `decideHealAction`, not an
  * extension — the per-collection contract stays pure and untouched. No operator, no escalate: an open circuit
  * is a recorded, self-clearing suppression, never a page.
  */
@@ -99,10 +100,14 @@ export function decideSystemicCircuit({recentFailures = [], circuitOpenedAt, now
     // CIRCUIT CLOSED: trip iff enough DISTINCT collections are failing with the shared-outage signature in-window.
     const failing = new Set(
         (Array.isArray(recentFailures) ? recentFailures : [])
-            .filter(run => run && typeof run === 'object' &&
-                Number.isFinite(run.at) && now - run.at < windowMs &&
-                typeof run.collection === 'string' && run.collection.length > 0 &&
-                isEmbedderOutageFailure(run.detail))
+            .filter(run => {
+                if (!run || typeof run !== 'object' || !Number.isFinite(run.at)) return false;
+                // A future-dated row (negative age — a forward/bad clock) must NOT count: the global breaker
+                // suppresses EVERY heal, so only genuinely in-the-past, in-window evidence may trip it.
+                const age = now - run.at;
+                if (age < 0 || age >= windowMs) return false;
+                return typeof run.collection === 'string' && run.collection.length > 0 && isEmbedderOutageFailure(run.detail);
+            })
             .map(run => run.collection)
     );
 

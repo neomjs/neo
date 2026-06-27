@@ -84,6 +84,14 @@ test.describe('healSystemicCircuit — decideSystemicCircuit (closed-state detec
         expect(decision.status).toBe('closed');
     });
 
+    test('FUTURE-row guard: future-dated outage rows (negative age — a forward clock) do NOT trip', () => {
+        const future   = ['c1', 'c2', 'c3'].map(c => outage(c, NOW + 100_000)); // at > now → negative age
+        const decision = decideSystemicCircuit({recentFailures: future, now: NOW});
+
+        expect(decision.open).toBe(false);
+        expect(decision.status).toBe('closed'); // a forward clock must not trip the global suppressor
+    });
+
     test('bounds normalize: a partial {systemicThreshold} overrides while window/openDuration keep defaults', () => {
         const decision = decideSystemicCircuit({
             recentFailures: [outage('c1'), outage('c2')], // 2 distinct
