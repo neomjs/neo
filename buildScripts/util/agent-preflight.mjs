@@ -154,19 +154,23 @@ export function extractLedgerSignatures(body = '') {
 }
 
 /**
- * @summary Finds a symbol's shipped parameter list in the ADDED (`+`) lines of a unified diff.
+ * @summary Finds a symbol's shipped parameter list from its DEFINITION in the ADDED (`+`) lines of a diff.
  *
- * Conservative: matches a `symbol(params)` token on an added line. Returns `null` when the symbol is not
- * defined in the added lines — a MISS, never a false signal (a multi-line signature simply does not match
- * and is skipped, which is the safe direction for a warn-only check).
+ * Conservative + definition-only: matches `symbol(params)` only when it is a definition — the params are
+ * followed by `{` (function/method body) or `=>` (arrow). A bare CALL-site `symbol(args)` (followed by `;`,
+ * `,`, `)`, `.`) is NOT matched, so a call appearing before the def can never be mistaken for the shipped
+ * signature. Returns `null` when no definition is found — a MISS, never a false signal (a multi-line
+ * signature simply does not match and is skipped, the safe direction for a warn-only check).
  *
  * @param {String} diffText A unified diff (`git diff` output).
  * @param {String} symbol The symbol name to locate.
- * @returns {String|null} The shipped params string, or `null` if not found on an added line.
+ * @returns {String|null} The shipped params string, or `null` if no definition is found on an added line.
  */
 export function findShippedSignature(diffText = '', symbol = '') {
     const escaped = symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-          definePattern = new RegExp(`^\\+(?!\\+).*\\b${escaped}\\s*\\(([^)]*)\\)`);
+          // Require a definition shape — `)` followed by `{` (function/method body) or `=>` (arrow) — so a
+          // bare call-site `symbol(args)` is never mistaken for the def (the call-before-def false-warn).
+          definePattern = new RegExp(`^\\+(?!\\+).*\\b${escaped}\\s*\\(([^)]*)\\)\\s*(?:\\{|=>)`);
 
     for (const line of diffText.split('\n')) {
         const match = line.match(definePattern);

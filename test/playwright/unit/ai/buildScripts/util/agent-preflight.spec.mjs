@@ -224,10 +224,26 @@ test.describe('agent-preflight — Contract Ledger drift (#14119)', () => {
         expect(normalizeSignatureShape('')).toEqual({shape: 'positional', arity: 0, keys: []})
     });
 
-    test('findShippedSignature returns the params or null — a miss, never a guess', () => {
+    test('findShippedSignature returns the DEFINITION params (not a call-site) or null', () => {
         expect(findShippedSignature('+function foo(a, b) {', 'foo')).toBe('a, b');
         expect(findShippedSignature('+function foo(a) {', 'bar')).toBe(null);
-        expect(findShippedSignature('-function foo(a) {', 'foo')).toBe(null)
+        expect(findShippedSignature('-function foo(a) {', 'foo')).toBe(null);
+        // A bare call-site (no `{`/`=>` after the params) is NOT a definition — never matched.
+        expect(findShippedSignature('+    const r = foo(a, b);', 'foo')).toBe(null);
+        // Call-before-def: the call-site is skipped, the definition wins (not the call's args).
+        expect(findShippedSignature('+    if (shouldYield(lease)) return;\n+function shouldYield(lease, now) {', 'shouldYield')).toBe('lease, now')
+    });
+
+    test('a call-site before the definition does NOT produce a false drift warning', () => {
+        const callBeforeDefLedger = [
+            '| Surface | Signature | Consumer | Notes |',
+            '|---|---|---|---|',
+            '| yield | `shouldYield(lease, now)` | runner | the bound |'
+        ].join('\n');
+        // The CALL `shouldYield(lease)` (arity 1) precedes the DEF `shouldYield(lease, now)` (arity 2);
+        // without definition-only matching this false-warns (ledger 2 vs call-site 1).
+        const diff = '+    if (shouldYield(lease)) return;\n+function shouldYield(lease, now) {';
+        expect(detectContractLedgerDrift({body: callBeforeDefLedger, diffText: diff})).toEqual([])
     });
 
     test('runAgentPreflight emits a non-blocking drift WARNING through the --pr-body path', () => {
