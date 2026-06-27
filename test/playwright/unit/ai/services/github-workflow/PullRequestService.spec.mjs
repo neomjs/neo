@@ -617,6 +617,18 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         '- [ ] **MAINTAINER POLISH FAST PATH APPLIED** (Reviewer unilaterally patched and pushed fixes. Approved.)'
     ].join('\n');
 
+    // Micro-Review (Cycle-1, blast-scaled light shape) — the minimal floor: header + Class (asserting
+    // micro|contained) + Verdict + Glance (pr-review-guide §7 blast-scaling, #14263).
+    const VALID_MICRO_REVIEW_BODY = [
+        '# PR Micro-Review',
+        '',
+        '**Class:** micro — a one-line doc typo fix; no ADR / subsystem / consumed-contract / security / migration trigger, 2-line diff.',
+        '',
+        '**Verdict:** APPROVED',
+        '',
+        '**Glance:** Premise + correctness: the change is the right shape (fixes the stale wording) and is correct + safe; no behavior touched.'
+    ].join('\n');
+
     test.beforeAll(async () => {
         GraphqlService     = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
         PullRequestService = (await import('../../../../../../ai/services/github-workflow/PullRequestService.mjs')).default;
@@ -1078,6 +1090,49 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         expect(result.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
         expect(result.missing_micro_delta).toContain('Remaining Blocker Class: mechanical-hygiene | metadata-drift');
         expect(result.message).toContain('full follow-up review template instead');
+        expect(graphqlCallCount).toBe(0);
+    });
+
+    test('#14263: accepts a Micro-Review (blast-scaled light shape) — micro PRs are not gauntletted', async () => {
+        let graphqlCallCount = 0;
+        GraphqlService.query = async (queryString) => {
+            graphqlCallCount++;
+            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: {id: PR_NODE_ID}}};
+            if (queryString.includes('AddPullRequestReview')) return {addPullRequestReview: {pullRequestReview: REVIEW_NODE}};
+            return null;
+        };
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 14263,
+            state    : 'APPROVED',
+            body     : VALID_MICRO_REVIEW_BODY
+        });
+
+        expect(result.error).toBeUndefined();
+        expect(result.reviewId).toBe('PRR_kwDOABcD1111111111');
+        expect(graphqlCallCount).toBe(2);
+    });
+
+    test('#14263: rejects a Micro-Review missing the Class blast-assertion (anti-backdoor)', async () => {
+        // Drop the micro|contained token from the Class line — the light path must not be a backdoor
+        // for an intense PR. Fail-safe-toward-accept applies to the TIER choice, not the class gate.
+        const noClassBody = VALID_MICRO_REVIEW_BODY
+            .replace('**Class:** micro — a one-line doc typo fix', '**Class:** a one-line doc typo fix');
+
+        let graphqlCallCount = 0;
+        GraphqlService.query = async () => { graphqlCallCount++; return {repository: {pullRequest: {id: PR_NODE_ID}}}; };
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 14263,
+            state    : 'APPROVED',
+            body     : noClassBody
+        });
+
+        expect(result.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+        expect(result.missing_micro_review).toContain('Class: micro | contained (the blast-class assertion)');
+        expect(result.message).toContain('no architectural concept to teach'); // the graph-ingestion gate keeps the concept-graph fed
         expect(graphqlCallCount).toBe(0);
     });
 
