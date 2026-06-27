@@ -29,15 +29,6 @@ export const EMBEDDER_OUTAGE_SIGNATURE = Object.freeze([
 ]);
 
 /**
- * Default circuit bounds: >= 3 DISTINCT collections failing with the outage signature inside a 10-minute
- * detection window trips the circuit; an open circuit suppresses for 10 minutes, then allows one half-open
- * probe. The window/cooldown mirror `DEFAULT_DISPATCH_BOUNDS` so the systemic and per-collection layers share
- * a time-scale.
- * @type {{systemicThreshold: Number, windowMs: Number, openDurationMs: Number}}
- */
-export const DEFAULT_SYSTEMIC_CIRCUIT_BOUNDS = Object.freeze({systemicThreshold: 3, windowMs: 600000, openDurationMs: 600000});
-
-/**
  * @summary Whether a failure `detail` carries the shared-dependency OUTAGE signature (vs a data-specific
  * per-collection error). Case-insensitive substring match against `EMBEDDER_OUTAGE_SIGNATURE`. A non-string
  * detail never matches — it carries no transport signal to correlate on.
@@ -76,12 +67,14 @@ export function isEmbedderOutageFailure(detail) {
  * @param {Number} [options.circuitOpenedAt] Epoch ms of the current open circuit (the last unmatched circuit-open
  *   event from the ledger fold); nullish/non-finite => the circuit is closed.
  * @param {Number} [options.now] Epoch ms (the injected clock).
- * @param {{systemicThreshold: Number, windowMs: Number, openDurationMs: Number}} [options.bounds=DEFAULT_SYSTEMIC_CIRCUIT_BOUNDS]
+ * @param {{systemicThreshold: Number, windowMs: Number, openDurationMs: Number}} options.bounds The operational
+ *   bounds — read FRESH from the `AiConfig` recovery-actuator leaf at the wiring's use-site and passed per call.
+ *   This pure decider holds NO default (the reactive SSOT leaf owns it); incomplete/non-finite bounds -> `indeterminate`.
  * @returns {Object} `{open, status, reason, distinctFailingCollections?}`. `status ∈ {indeterminate, closed,
  *   tripped, circuit-open, half-open-probe}`; `open` is the should-suppress flag.
  */
-export function decideSystemicCircuit({recentFailures = [], circuitOpenedAt, now, bounds = DEFAULT_SYSTEMIC_CIRCUIT_BOUNDS} = {}) {
-    const {systemicThreshold, windowMs, openDurationMs} = {...DEFAULT_SYSTEMIC_CIRCUIT_BOUNDS, ...(bounds && typeof bounds === 'object' ? bounds : {})};
+export function decideSystemicCircuit({recentFailures = [], circuitOpenedAt, now, bounds} = {}) {
+    const {systemicThreshold, windowMs, openDurationMs} = bounds && typeof bounds === 'object' ? bounds : {};
 
     // Indeterminate input -> do NOT suppress; defer to the per-collection gate's own fail-closed.
     if (!Number.isFinite(now) || ![systemicThreshold, windowMs, openDurationMs].every(Number.isFinite)) {
