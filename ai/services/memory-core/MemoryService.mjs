@@ -18,7 +18,7 @@ import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER}                              
  * A hung inference endpoint must never block the supervised maintenance child indefinitely.
  * @type {Number}
  */
-const MINI_SUMMARY_TIMEOUT_MS = 30000;
+const MINI_SUMMARY_TIMEOUT_MS = aiConfig.memoryService.miniSummaryTimeoutMs;
 
 /**
  * Wall-clock budget for a single `backfillMiniSummaries` run. Bounds the run safely under the
@@ -28,7 +28,7 @@ const MINI_SUMMARY_TIMEOUT_MS = 30000;
  * local model can otherwise push a full batch past the 15-minute watchdog and loop without draining.
  * @type {Number}
  */
-const MINI_SUMMARY_BACKFILL_MAX_RUN_MS = 600000;
+const MINI_SUMMARY_BACKFILL_MAX_RUN_MS = aiConfig.memoryService.miniSummaryBackfillMaxRunMs;
 
 /**
  * Of a backfill batch's `limit`, how many NEWEST rows to reserve; the remainder drains the OLDEST
@@ -41,14 +41,14 @@ const MINI_SUMMARY_BACKFILL_MAX_RUN_MS = 600000;
  * producer→consumer soft-gate + absorbs per-turn inflow. Clamped to the run's `limit`.
  * @type {Number}
  */
-const MINI_SUMMARY_BACKFILL_FRESH_RESERVE = 10;
+const MINI_SUMMARY_BACKFILL_FRESH_RESERVE = aiConfig.memoryService.miniSummaryBackfillFreshReserve;
 
 /**
  * Maximum time to wait for the backfill's content-store (Chroma) metadata fetch before deferring
  * the whole batch. Usually milliseconds; the bound exists only to defeat a hung connection.
  * @type {Number}
  */
-const CHROMA_FETCH_TIMEOUT_MS = 10000;
+const CHROMA_FETCH_TIMEOUT_MS = aiConfig.memoryService.chromaFetchTimeoutMs;
 
 /**
  * Bounded in-process graph-projection retry for WAL-accepted memories. This is the cloud-safe host:
@@ -56,26 +56,26 @@ const CHROMA_FETCH_TIMEOUT_MS = 10000;
  * transient graph contention without making `add_memory` wait.
  * @type {Number}
  */
-const GRAPH_PROJECTION_MAX_ATTEMPTS = 5;
+const GRAPH_PROJECTION_MAX_ATTEMPTS = aiConfig.memoryService.graphProjectionMaxAttempts;
 
 /**
  * Base delay for graph projection retries.
  * @type {Number}
  */
-const GRAPH_PROJECTION_RETRY_BASE_MS = 250;
+const GRAPH_PROJECTION_RETRY_BASE_MS = aiConfig.memoryService.graphProjectionRetryBaseMs;
 
 /**
  * Maximum delay for graph projection retries.
  * @type {Number}
  */
-const GRAPH_PROJECTION_RETRY_MAX_MS = 5000;
+const GRAPH_PROJECTION_RETRY_MAX_MS = aiConfig.memoryService.graphProjectionRetryMaxMs;
 
 /**
  * Hosted graph-projection drain cadence. This is intentionally independent of the Chroma embed
  * daemon: graph projection and embedding are separate derived states.
  * @type {Number}
  */
-const GRAPH_PROJECTION_DRAIN_INTERVAL_MS = 60000;
+const GRAPH_PROJECTION_DRAIN_INTERVAL_MS = aiConfig.memoryService.graphProjectionDrainIntervalMs;
 
 /**
  * Re-exported from `./helpers/withTimeout.mjs` (moved there so `SessionService` can share it without
@@ -1468,7 +1468,7 @@ class MemoryService extends Base {
         // Studio): a ~5k-char -> tweet-size summary takes ~5.3s warm / ~13s cold. The prior 4s cap
         // aborted most local summaries -> null -> zero backfill drain. Stays under the 30s outer
         // backfill per-item timeout (MINI_SUMMARY_TIMEOUT_MS).
-        const TIMEOUT_MS = 20000;
+        const TIMEOUT_MS = aiConfig.memoryService.generateMiniSummaryTimeoutMs;
         try {
             const model = buildChatModel({
                 modelProvider         : aiConfig.modelProvider,
@@ -1479,7 +1479,7 @@ class MemoryService extends Base {
             });
             if (!model) return null;
 
-            const promptText = `Summarize this agent turn in one line, max 280 characters, no preamble:\nUser: ${prompt ?? ''}\nAgent: ${response ?? ''}`;
+            const promptText = `Summarize this agent turn in one line, max ${aiConfig.memoryService.miniSummaryMaxChars} characters, no preamble:\nUser: ${prompt ?? ''}\nAgent: ${response ?? ''}`;
             const result = await withTimeout(
                 model.generateContent(promptText, {
                     timeoutMs     : TIMEOUT_MS,

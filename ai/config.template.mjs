@@ -383,6 +383,23 @@ class Config extends ConfigProvider {
                 }
             },
             /**
+             * Memory Core service tuning — timeouts, retry, graph-projection cadence, miniSummary.
+             * All operator-tunable; consumers read `aiConfig.memoryService.*` at the use site.
+             * @type {Object}
+             */
+            memoryService: {
+                miniSummaryTimeoutMs           : leaf(30000, 'NEO_MC_MINI_SUMMARY_TIMEOUT_MS', 'number'),
+                miniSummaryBackfillMaxRunMs    : leaf(600000, 'NEO_MC_MINI_SUMMARY_BACKFILL_MAX_RUN_MS', 'number'),
+                miniSummaryBackfillFreshReserve: leaf(10, 'NEO_MC_MINI_SUMMARY_BACKFILL_FRESH_RESERVE', 'number'),
+                miniSummaryMaxChars            : leaf(280, 'NEO_MC_MINI_SUMMARY_MAX_CHARS', 'number'),
+                generateMiniSummaryTimeoutMs   : leaf(20000, 'NEO_MC_GENERATE_MINI_SUMMARY_TIMEOUT_MS', 'number'),
+                chromaFetchTimeoutMs           : leaf(10000, 'NEO_MC_CHROMA_FETCH_TIMEOUT_MS', 'number'),
+                graphProjectionMaxAttempts     : leaf(5, 'NEO_MC_GRAPH_PROJECTION_MAX_ATTEMPTS', 'number'),
+                graphProjectionRetryBaseMs     : leaf(250, 'NEO_MC_GRAPH_PROJECTION_RETRY_BASE_MS', 'number'),
+                graphProjectionRetryMaxMs      : leaf(5000, 'NEO_MC_GRAPH_PROJECTION_RETRY_MAX_MS', 'number'),
+                graphProjectionDrainIntervalMs : leaf(60000, 'NEO_MC_GRAPH_PROJECTION_DRAIN_INTERVAL_MS', 'number')
+            },
+            /**
              * Agent OS maintenance orchestrator configuration.
              * @type {Object}
              */
