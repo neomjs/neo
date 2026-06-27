@@ -132,4 +132,61 @@ test.describe('SessionService.summarizeSession — memory-fetch pagination (clos
             aiConfig.summarizationBatchLimit = origLimit;
         }
     });
+
+    test('reconstructs a dropped turn-document from split metadata before synthesis (#14211 de-dup read)', async () => {
+        const svc        = SDK.Memory_SessionService,
+              aiConfig   = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default,
+              origMemGet = svc.memoryCollection.get,
+              origModel  = svc.model,
+              origSess   = svc.sessionsCollection,
+              origLimit  = aiConfig.summarizationBatchLimit;
+
+        aiConfig.summarizationBatchLimit = 10;
+
+        const SESSION = 'pg-dropped-doc';
+
+        // A de-duped turn (post-slice-4): the stored Chroma document is DROPPED (null); only the split
+        // metadata fields remain. The paging reader must reconstruct it, not feed null context to synthesis.
+        const TURN = {
+            id      : 'd0',
+            metadata: {type: 'agent-interaction', sessionId: SESSION, timestamp: 1, prompt: 'PROMPT-X', thought: 'THOUGHT-Y', response: 'RESPONSE-Z'}
+        };
+
+        let synthesisPrompt = null;
+
+        svc.memoryCollection.get = async ({offset = 0, limit} = {}) => {
+            const page = offset === 0 ? [TURN] : [];
+            return {
+                ids      : page.map(r => r.id),
+                documents: page.map(() => null),          // ← dropped document
+                metadatas: page.map(r => r.metadata)
+            };
+        };
+
+        svc.model = {
+            generateContent: async prompt => {
+                synthesisPrompt = prompt;
+                return {response: {text: () => JSON.stringify({
+                    summary: 's', title: 't', category: 'test', quality: 5, productivity: 5, impact: 5, complexity: 5, technologies: []
+                })}};
+            }
+        };
+
+        svc.sessionsCollection = {upsert: async () => {}, get: async () => ({ids: [], metadatas: []})};
+
+        try {
+            await svc.summarizeSession(SESSION);
+
+            // The dropped document was reconstructed from split metadata (via resolveTurnDocumentForRead) and
+            // fed to synthesis as the byte-exact canonical turn-document text — NOT null context.
+            expect(synthesisPrompt).toContain('User Prompt: PROMPT-X');
+            expect(synthesisPrompt).toContain('Agent Thought: THOUGHT-Y');
+            expect(synthesisPrompt).toContain('Agent Response: RESPONSE-Z');
+        } finally {
+            svc.memoryCollection.get         = origMemGet;
+            svc.model                        = origModel;
+            svc.sessionsCollection           = origSess;
+            aiConfig.summarizationBatchLimit = origLimit;
+        }
+    });
 });
