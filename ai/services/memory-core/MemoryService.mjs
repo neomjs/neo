@@ -1460,7 +1460,7 @@ class MemoryService extends Base {
      * @param {Object} options
      * @param {String} options.prompt
      * @param {String} options.response
-     * @returns {Promise<String|null>} A ≤280-char one-line summary, or `null`.
+     * @returns {Promise<String|null>} A one-line summary capped at `aiConfig.memoryService.miniSummaryMaxChars` (default 280), or `null`.
      */
     async buildMiniSummary({prompt, response}) {
         // Calibrated above the measured local-model summary latency so a real summary is not aborted
@@ -1491,7 +1491,7 @@ class MemoryService extends Base {
             );
 
             const text = result?.response?.text?.() ?? null;
-            return text ? String(text).replace(/\s+/g, ' ').trim().slice(0, 280) : null;
+            return text ? String(text).replace(/\s+/g, ' ').trim().slice(0, aiConfig.memoryService.miniSummaryMaxChars) : null;
         } catch (error) {
             logger.warn(`[MemoryService] miniSummary generation failed (fail-soft): ${error.message}`);
             return null;
