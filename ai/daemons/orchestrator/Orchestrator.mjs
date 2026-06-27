@@ -12,37 +12,40 @@ import MaintenanceBackpressureService, {
     DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
     DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES
 } from './services/MaintenanceBackpressureService.mjs';
-import {buildConfiguredTaskDefinitions as buildConfiguredTaskDefinitionsImport} from './services/ConfiguredTaskDefinitionsService.mjs';
-import PrimaryRepoSyncService                                                   from './services/PrimaryRepoSyncService.mjs';
-import TenantRepoSyncService                                                    from './services/TenantRepoSyncService.mjs';
-import {getDueTask as summaryGetDueTaskImport}                                  from './scheduling/summary.mjs';
-import {getDueTask as backupGetDueTaskImport}                                   from './scheduling/backup.mjs';
-import {getDueTask as graphLogCompactionGetDueTaskImport}                       from './scheduling/graphLogCompaction.mjs';
-import {getDueTask as primaryDevSyncGetDueTaskImport}                           from './scheduling/primaryDevSync.mjs';
-import {getDueTask as goldenPathGetDueTaskImport}                               from './scheduling/goldenPath.mjs';
-import {getDueTask as dreamGetDueTaskImport}                                    from './scheduling/dream.mjs';
-import {getDueTask as embedDrainLivenessWatchdogGetDueTaskImport}               from './scheduling/embedDrainLivenessWatchdog.mjs';
-import memoryCoreConfig                                                         from '../../mcp/server/memory-core/config.mjs';
-import MailboxService                                                           from '../../services/memory-core/MailboxService.mjs';
-import WakeSubscriptionService                                                  from '../../services/memory-core/WakeSubscriptionService.mjs';
-import RequestContextService                                                    from '../../mcp/server/shared/services/RequestContextService.mjs';
-import {normalizeAgentIdentityNodeId}                                           from '../../scripts/lifecycle/resumeHarness.mjs';
-import TaskStateService                                                         from './services/TaskStateService.mjs';
-import ProcessSupervisorService                                                 from './services/ProcessSupervisorService.mjs';
-import DeploymentRuntimeAccessService                                           from './services/DeploymentRuntimeAccessService.mjs';
-import DeploymentStateBridgeService                                             from './services/DeploymentStateBridgeService.mjs';
-import RecoveryActuatorService                                                  from './services/RecoveryActuatorService.mjs';
-import ContainerHealthDiagnosisService                                          from './services/ContainerHealthDiagnosisService.mjs';
-import DataIntegrityDiagnosisService                                            from './services/DataIntegrityDiagnosisService.mjs';
-import DataRecoveryActuatorService                                              from './services/DataRecoveryActuatorService.mjs';
-import {auditChromaVectorCoverage}                                              from '../../scripts/maintenance/checkChromaIntegrity.mjs';
-import {buildDataIntegrityCoverageDiagnosis}                                    from './services/dataIntegrityCoverageDiagnosis.mjs';
-import {assembleDataIntegrityEvidence}                                          from './services/dataIntegrityEvidenceAssembler.mjs';
-import DreamService                                                             from './services/DreamService.mjs';
-import SwarmHeartbeatService                                                    from './services/SwarmHeartbeatService.mjs';
-import GoldenPathSynthesizer                                                    from '../../services/graph/GoldenPathSynthesizer.mjs';
-import {getDueTask as tenantRepoSyncGetDueTaskImport}                           from './scheduling/tenantRepoSync.mjs';
-import {TASK_REGISTRY}                                                          from './scheduling/registry.mjs';
+import {buildConfiguredTaskDefinitions as buildConfiguredTaskDefinitionsImport}                     from './services/ConfiguredTaskDefinitionsService.mjs';
+import PrimaryRepoSyncService                                                                       from './services/PrimaryRepoSyncService.mjs';
+import TenantRepoSyncService                                                                        from './services/TenantRepoSyncService.mjs';
+import {getDueTask as summaryGetDueTaskImport}                                                      from './scheduling/summary.mjs';
+import {getDueTask as backupGetDueTaskImport}                                                       from './scheduling/backup.mjs';
+import {getDueTask as graphLogCompactionGetDueTaskImport}                                           from './scheduling/graphLogCompaction.mjs';
+import {getDueTask as primaryDevSyncGetDueTaskImport}                                               from './scheduling/primaryDevSync.mjs';
+import {getDueTask as goldenPathGetDueTaskImport}                                                   from './scheduling/goldenPath.mjs';
+import {getDueTask as dreamGetDueTaskImport}                                                        from './scheduling/dream.mjs';
+import {getDueTask as embedDrainLivenessWatchdogGetDueTaskImport}                                   from './scheduling/embedDrainLivenessWatchdog.mjs';
+import memoryCoreConfig                                                                             from '../../mcp/server/memory-core/config.mjs';
+import MailboxService                                                                               from '../../services/memory-core/MailboxService.mjs';
+import WakeSubscriptionService                                                                      from '../../services/memory-core/WakeSubscriptionService.mjs';
+import RequestContextService                                                                        from '../../mcp/server/shared/services/RequestContextService.mjs';
+import {normalizeAgentIdentityNodeId}                                                               from '../../scripts/lifecycle/resumeHarness.mjs';
+import TaskStateService                                                                             from './services/TaskStateService.mjs';
+import ProcessSupervisorService                                                                     from './services/ProcessSupervisorService.mjs';
+import DeploymentRuntimeAccessService                                                               from './services/DeploymentRuntimeAccessService.mjs';
+import DeploymentStateBridgeService                                                                 from './services/DeploymentStateBridgeService.mjs';
+import RecoveryActuatorService                                                                      from './services/RecoveryActuatorService.mjs';
+import ContainerHealthDiagnosisService                                                              from './services/ContainerHealthDiagnosisService.mjs';
+import DataIntegrityDiagnosisService                                                                from './services/DataIntegrityDiagnosisService.mjs';
+import DataRecoveryActuatorService                                                                  from './services/DataRecoveryActuatorService.mjs';
+import {auditChromaVectorCoverage}                                                                  from '../../scripts/maintenance/checkChromaIntegrity.mjs';
+import {createReEmbedMissingHeal, createReEmbedMissingHealOperation}                                from '../../services/memory-core/helpers/reEmbedMissingHeal.mjs';
+import {appendHealEvent, healEventsToRecentRuns, queryHealLedger, readHealLedger}                   from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
+import {Memory_StorageRouter as StorageRouter, Memory_TextEmbeddingService as TextEmbeddingService} from '../../services.mjs';
+import {buildDataIntegrityCoverageDiagnosis}                                                        from './services/dataIntegrityCoverageDiagnosis.mjs';
+import {assembleDataIntegrityEvidence}                                                              from './services/dataIntegrityEvidenceAssembler.mjs';
+import DreamService                                                                                 from './services/DreamService.mjs';
+import SwarmHeartbeatService                                                                        from './services/SwarmHeartbeatService.mjs';
+import GoldenPathSynthesizer                                                                        from '../../services/graph/GoldenPathSynthesizer.mjs';
+import {getDueTask as tenantRepoSyncGetDueTaskImport}                                               from './scheduling/tenantRepoSync.mjs';
+import {TASK_REGISTRY}                                                                              from './scheduling/registry.mjs';
 import {
     buildOrchestratorSchedulingOptions,
     runSchedulingPipeline
@@ -251,7 +254,7 @@ export class Orchestrator extends Base {
             : '@system';
         const stalledSinceIso = Number.isFinite(stalledSince) ? new Date(stalledSince).toISOString() : 'unknown';
         const ageHours        = (ageMs / (60 * 60 * 1000)).toFixed(1);
-        const subject = `[embed-drain-stall] oldest un-embedded WAL record is ${ageHours}h old`;
+        const subject         = `[embed-drain-stall] oldest un-embedded WAL record is ${ageHours}h old`;
         const body =
             `The embed-drain liveness watchdog detected a STALLED embed pipeline.\n\n` +
             `- oldest un-embedded WAL record age: ${ageMs}ms (~${ageHours}h)\n` +
@@ -420,7 +423,38 @@ export class Orchestrator extends Base {
      * @returns {Neo.ai.daemons.services.DataRecoveryActuatorService}
      */
     beforeSetDataRecoveryActuatorService(value) {
-        return ClassSystemUtil.beforeSetInstance(value, DataRecoveryActuatorService);
+        const reEmbedMissing = createReEmbedMissingHeal({
+            embedFn          : documents => TextEmbeddingService.embedTexts(documents, AiConfig.embeddingProvider),
+            auditCoverage    : ({evidence}) => ({missingVectorIds: Array.isArray(evidence?.missingVectorIds) ? evidence.missingVectorIds : []}),
+            expectedDimension: AiConfig.vectorDimension
+        });
+
+        const healLedgerDir = path.join(this.dataDir, 'data-heal-events');
+
+        return ClassSystemUtil.beforeSetInstance(value, DataRecoveryActuatorService, {
+            healOperations: {
+                // The wal-stall heal terminal: the runtime<->op adapter (cross-store guard + re-audit-for-ids
+                // + handle resolution) lives in createReEmbedMissingHealOperation so its branch logic is
+                // unit-tested against mocked collaborators rather than only the live stack.
+                're-embed-missing': createReEmbedMissingHealOperation({
+                    reEmbedMissing,
+                    ready                  : () => StorageRouter.ready(),
+                    getMemoryCollection    : () => StorageRouter.getMemoryCollection(),
+                    resolveMissingVectorIds: async collectionName => {
+                        const coverage = await auditChromaVectorCoverage({
+                                  persistDir     : AiConfig.engines.chroma.dataDir,
+                                  collectionNames: [collectionName],
+                                  includeFullIds : true
+                              }),
+                              drift = coverage.collections?.find(entry => entry.name === collectionName);
+
+                        return Array.isArray(drift?.missingVectorIds) ? drift.missingVectorIds : [];
+                    }
+                })
+            },
+            recentRunsReader: async collectionName => healEventsToRecentRuns(queryHealLedger(await readHealLedger({dir: healLedgerDir}), {collections: [collectionName]})),
+            recordRun       : async ({action, collection, at}) => appendHealEvent({type: action, collection, status: 'attempt'}, {dir: healLedgerDir, now: at})
+        });
     }
 
     /**

@@ -5,50 +5,55 @@ import path           from 'path';
 import {promisify}    from 'util';
 import {test, expect} from '@playwright/test';
 
-import Neo                                   from '../../../../../../src/Neo.mjs';
-import * as core                             from '../../../../../../src/core/_export.mjs';
-import {auditChromaVectorCoverage}           from '../../../../../../ai/scripts/maintenance/checkChromaIntegrity.mjs';
-import {buildDataIntegrityCoverageDiagnosis} from '../../../../../../ai/daemons/orchestrator/services/dataIntegrityCoverageDiagnosis.mjs';
-import {RecoveryActuatorService}             from '../../../../../../ai/daemons/orchestrator/services/RecoveryActuatorService.mjs';
-import {TIER1_DEFAULTS}                      from '../../../../fixtures/aiConfigDefaults.mjs';
+import Neo                         from '../../../../../../src/Neo.mjs';
+import * as core                   from '../../../../../../src/core/_export.mjs';
+import {auditChromaVectorCoverage} from '../../../../../../ai/scripts/maintenance/checkChromaIntegrity.mjs';
+import {classifyDataIntegrityMode} from '../../../../../../ai/daemons/orchestrator/services/dataIntegrityModeClassifier.mjs';
+import {createReEmbedMissingHeal,
+        createReEmbedMissingHealOperation} from '../../../../../../ai/services/memory-core/helpers/reEmbedMissingHeal.mjs';
+import DataRecoveryActuatorService from '../../../../../../ai/daemons/orchestrator/services/DataRecoveryActuatorService.mjs';
 
 const execFileAsync = promisify(execFile);
 
 /*
  * v13.1 release gate — the keystone integration proof for the Agent OS data-integrity immune system.
  *
- * The component layers each ship on their own (the coverage-drift detect-producer, the escalate
- * sink, the recovery actuator, the atomic-write invariant, the test write-guard, …). None of them
- * proves the layers COMPOSE into the demonstrable release bar. This spec is that proof — the
+ * The component layers each ship on their own (the coverage-drift detect-producer, the mode classifier,
+ * the autonomous data-recovery actuator, the re-embed-missing heal op, the atomic-write invariant, …).
+ * None of them proves the layers COMPOSE into the demonstrable release bar. This spec is that proof — the
  * v13.1 definition-of-done:
  *
- *   a corruption injected in test  →  auto-DETECTED  →  DIAGNOSED  →  RECOVERED-or-ESCALATED
- *   end-to-end — never discovered weeks later by a failed backup (the corruption-incident failure mode).
+ *   a corruption injected in test  →  auto-DETECTED  →  DIAGNOSED  →  autonomously HEALED
+ *   end-to-end, with NO human in the loop — never discovered weeks later by a failed backup, and never
+ *   merely paged into an operatorless cloud. (This gate previously, wrongly, certified that escalate-and-
+ *   page-the-operator flow — the smoke-detector-not-fire-extinguisher anti-pattern the escalate-deletion removed. Its
+ *   green meant the system did NOT heal. This is the corrected proof: the extinguisher fires.)
  *
  * It drives the REAL pipeline against a REAL injected corruption (an isolated Chroma SQLite via
  * fs.mkdtemp — never touches live data), rather than hand-built fixtures, so it falsifies the
  * "all subs green, nothing proven" trap:
  *
- *   inject (metadata-without-vector — the corruption-incident shape)
- *     → auditChromaVectorCoverage            (DETECT: the immune system SEES a store that is "up
- *                                             but data-gutted" — the container-health blind spot that
- *                                             let the incident hide for ~weeks while the container kept
- *                                             reporting green)
- *     → buildDataIntegrityCoverageDiagnosis  (DIAGNOSE: a data-integrity / escalate recovery-diagnosis)
- *     → RecoveryActuatorService.escalateDiagnosis
- *                                            (ESCALATE: page the operator — the SAFE recovery action
- *                                             for data-integrity. The immune system does NOT auto-repair
- *                                             data; data mutation stays operator-gated — the detect/act
- *                                             two-worlds boundary. "Never silent-green.")
+ *   inject (metadata + document persisted, vector absent — the corruption-incident shape)
+ *     → auditChromaVectorCoverage      (DETECT: the immune system SEES a store "up but data-gutted" —
+ *                                       the container-health blind spot that hid the incident for ~weeks)
+ *     → classifyDataIntegrityMode      (DIAGNOSE: wal-stall — documents survive → lossless re-embed; the
+ *                                       terminal is AUTONOMOUS, never an escalate/operator-page outcome)
+ *     → DataRecoveryActuatorService.applyHeal({action: 're-embed-missing'})
+ *                                      (HEAL: the ACT — re-embed the orphaned rows from their surviving
+ *                                       documents and upsert the recovered vectors in place. No operator,
+ *                                       no page: a cloud deployment has no human to gate.)
  *
- * When this gate is green, the release gate's end-to-end integration clause is met.
+ * The embedding provider is stubbed (a deterministic same-dimension vector) so the gate proves the
+ * PIPELINE, not the provider; the real op still audits → re-embeds → write-invariant-gates → upserts.
  *
  * @see https://github.com/neomjs/neo/issues/14046
  * @see https://github.com/neomjs/neo/issues/14039
+ * @see https://github.com/neomjs/neo/issues/14134
  */
 
-const OBSERVED_AT  = 1_750_000_000_000,
-      METADATA_IDS = ['mem-1', 'mem-2', 'mem-3'];
+const OBSERVED_AT          = 1_750_000_000_000,
+      METADATA_IDS         = ['mem-1', 'mem-2', 'mem-3'],
+      DETERMINISTIC_VECTOR = [0.10, 0.20, 0.30, 0.40];
 
 /**
  * @summary Writes a minimal Chroma HNSW `index_metadata.pickle` (id → label map) so an audit reads
@@ -123,60 +128,43 @@ async function injectMemoryCoreSnapshot(tmpDir, {writeVectorPickle}) {
 }
 
 /**
- * @summary Constructs a RecoveryActuatorService with capturing mocks (mirrors the createService
- * harness in `RecoveryActuatorService.spec.mjs`). The page dispatcher, runtime-access, and
- * supervisor calls are captured so the gate can assert that escalation pages but mutates nothing.
+ * @summary A minimal recording Chroma collection double (mirrors `reEmbedMissingHeal.spec.mjs`): `.get`
+ * returns documents/metadatas for ids whose metadata row still materializes (the surviving WAL-stall
+ * documents), and `.upsert` records the recovered-vector writes so the gate can assert the ACT fired in
+ * place. The heal needs a collection HANDLE; the file-level audit (DETECT) only reads the snapshot, so the
+ * handle is modelled here, seeded with the same gutted rows the snapshot carries.
  */
-function createRecoveryActuator(tmpDir) {
-    const pageCalls       = [],
-          runtimeCalls    = [],
-          supervisorCalls = [],
-          taskOutcomes    = [],
-          service         = Neo.create(RecoveryActuatorService, {
-              actuatorConfig: {
-                  ...TIER1_DEFAULTS.orchestrator.recoveryActuator,
-                  healAttemptsPath   : path.join(tmpDir, 'heal-attempts.json'),
-                  recoveryRunStateDir: path.join(tmpDir, 'recovery-runs'),
-                  baseBackoffMs      : 0,
-                  maxBackoffMs       : 0
-              },
-              dataDir      : tmpDir,
-              healthService: {
-                  recordTaskOutcome(taskName, status, details) {
-                      taskOutcomes.push({taskName, status, details});
-                  }
-              },
-              deploymentRuntimeAccessService: {
-                  runtimeAccessConfig: {allowedServices: ['chroma', 'kb-server', 'mc-server', 'local-model']},
-                  async applyLifecycle(options) {
-                      runtimeCalls.push(options);
-                      return {ok: true, statusCode: 204};
-                  }
-              },
-              processSupervisorService: {
-                  taskDefinitions: {},
-                  killTask(taskName, reason) {
-                      supervisorCalls.push({taskName, reason});
-                  }
-              },
-              pageDispatcher(page) {
-                  pageCalls.push(page);
-              },
-              async providerResidencyRepair() {
-                  return {ready: true};
-              },
-              writeLog: () => {}
-          });
+function mockCollection(docsById = {}) {
+    const upserts = [];
 
-    return {service, pageCalls, runtimeCalls, supervisorCalls, taskOutcomes};
+    return {
+        name: 'neo-agent-memory',
+        upserts,
+        async get({ids}) {
+            const result = {ids: [], documents: [], metadatas: []};
+
+            for (const id of ids) {
+                if (Object.hasOwn(docsById, id)) {
+                    result.ids.push(id);
+                    result.documents.push(docsById[id].document);
+                    result.metadatas.push(docsById[id].metadata ?? {});
+                }
+            }
+
+            return result;
+        },
+        async upsert(payload) {
+            upserts.push(payload);
+        }
+    };
 }
 
-test.describe('v13.1 release gate — corruption injection → detect → diagnose → escalate', () => {
-    test('injected vector-loss corruption is DETECTED, DIAGNOSED (data-integrity), and ESCALATED — never silently auto-repaired', async () => {
+test.describe('v13.1 release gate — corruption injection → detect → diagnose → autonomous HEAL', () => {
+    test('injected vector-loss is DETECTED, DIAGNOSED (wal-stall), and autonomously HEALED — re-embedded in place, never paged', async () => {
         const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-corruption-gate-'));
 
         try {
-            // 1. INJECT — the "up but data-gutted" shape: metadata rows present, vectors absent.
+            // 1. INJECT — the "up but data-gutted" shape: metadata + documents present, vectors absent.
             const snapshotPath = await injectMemoryCoreSnapshot(tmpDir, {writeVectorPickle: false});
 
             // 2. DETECT — the audit SEES the gutted store (the container-health blind spot, closed).
@@ -191,72 +179,73 @@ test.describe('v13.1 release gate — corruption injection → detect → diagno
             const drifted = coverageResult.collections.find(collection => collection.name === 'neo-agent-memory');
 
             expect(drifted.ok).toBe(false);
-            expect(drifted.missingFromVectorCount).toBeGreaterThan(0);
+            expect(drifted.missingFromVectorCount).toBeGreaterThan(0);   // the audit sees the gutted rows
             expect(coverageResult.failedCollections).toBeGreaterThanOrEqual(1);
 
-            // 3. DIAGNOSE — the detect-producer turns the audit into a data-integrity / escalate diagnosis.
-            const diagnosis = buildDataIntegrityCoverageDiagnosis({
-                coverageResult,
-                observedAt: OBSERVED_AT,
-                serviceId : 'memory-core'
+            // 3. DIAGNOSE — the classifier routes wal-stall → re-embed-missing: AUTONOMOUS, never escalate.
+            //    The documents survive (the WAL-stall shape), so the coverage gap is losslessly re-embeddable.
+            const decision = classifyDataIntegrityMode({
+                collection            : 'neo-agent-memory',
+                rowCount              : METADATA_IDS.length,
+                missingFromVectorCount: drifted.missingFromVectorCount,
+                documentsPresentCount : drifted.missingFromVectorCount
             });
 
-            expect(diagnosis).toMatchObject({
-                diagnosisId   : `data-integrity:memory-core:coverage-drift:${OBSERVED_AT}`,
-                type          : 'recovery-diagnosis',
-                recoveryClass : 'data-integrity',
-                targetIdentity: {kind: 'compose-service', id: 'memory-core'},
-                details       : {actionClass: 'escalate', reasonCode: 'data-integrity-coverage-drift'}
-            });
-            expect(diagnosis.details.driftedCollections).toContain('neo-agent-memory');
+            expect(decision).toMatchObject({mode: 'wal-stall', terminalAction: 're-embed-missing', autonomous: true});
 
-            // 4. ESCALATE — the SAFE recovery action for data-integrity: page the operator, mutate NOTHING.
-            const {service, pageCalls, runtimeCalls, supervisorCalls, taskOutcomes} = createRecoveryActuator(tmpDir);
-
-            let executedPrivilegedAction = false;
-
-            service.executeTargetAction = async () => {
-                executedPrivilegedAction = true;
-                throw new Error('the data-integrity gate must ESCALATE, never execute a privileged recovery action');
-            };
-
-            const outcome = await service.escalateDiagnosis(diagnosis, {
-                now   : OBSERVED_AT,
-                reason: 'v13.1-corruption-recovery-gate'
+            // 4. HEAL — the autonomous data actuator RE-EMBEDS the orphaned rows (defer becomes act).
+            //    The actuator's anti-thrash gate keys on the collection NAME; the runtime adapter resolves
+            //    that name → the live handle (cross-store-guarded) + re-audits the absent ids, then delegates
+            //    to the pure op. A stub embedFn supplies the deterministic vector (no live provider); the real
+            //    op write-invariant-gates each recovered row before upserting it back in place.
+            const collection = mockCollection({
+                'mem-1': {document: 'surviving document for mem-1', metadata: {kind: 'turn'}},
+                'mem-2': {document: 'surviving document for mem-2', metadata: {kind: 'turn'}},
+                'mem-3': {document: 'surviving document for mem-3', metadata: {kind: 'turn'}}
             });
 
-            expect(outcome).toMatchObject({
-                status        : 'escalated',
-                reasonCode    : 'data-integrity-coverage-drift',
-                targetIdentity: {kind: 'compose-service', id: 'memory-core'}
+            const reEmbedMissing = createReEmbedMissingHeal({
+                embedFn          : async documents => documents.map(() => DETERMINISTIC_VECTOR.slice()),
+                auditCoverage    : async ({evidence}) => ({missingVectorIds: evidence.missingVectorIds}),
+                expectedDimension: DETERMINISTIC_VECTOR.length
             });
 
-            // The immune system escalated — it did NOT mutate data (the detect/act two-worlds boundary held).
-            expect(executedPrivilegedAction).toBe(false);
-            expect(runtimeCalls).toEqual([]);
-            expect(supervisorCalls).toEqual([]);
-
-            // A single operator page carrying the data-integrity diagnosis.
-            expect(pageCalls).toHaveLength(1);
-            expect(pageCalls[0]).toMatchObject({
-                serviceKey        : 'memory-core',
-                action            : 'escalate',
-                targetIdentity    : {kind: 'compose-service', id: 'memory-core'},
-                operatorPageTarget: 'AGENT:*'
-            });
-            expect(pageCalls[0].diagnosisEvent).toMatchObject({
-                recoveryClass: 'data-integrity',
-                details      : {actionClass: 'escalate'}
+            const healOperation = createReEmbedMissingHealOperation({
+                reEmbedMissing,
+                getMemoryCollection    : async () => collection,
+                resolveMissingVectorIds: async () => [...METADATA_IDS]
             });
 
-            // The recovery-run ledger recorded the escalation (escalate-with-diagnosis, not silent-green).
-            expect(taskOutcomes.some(outcome => outcome.details?.status === 'escalated')).toBe(true);
+            const actuator = Neo.create(DataRecoveryActuatorService, {
+                healOperations  : {[decision.terminalAction]: healOperation},
+                recordRun       : async () => {},      // anti-thrash recorder (required for a mutating heal)
+                recentRunsReader: async () => []        // no prior runs → within the dispatch envelope
+            });
+
+            const outcome = await actuator.applyHeal({
+                action    : decision.terminalAction,
+                collection: 'neo-agent-memory',   // the NAME — the anti-thrash key + cross-store guard
+                evidence  : {missingVectorIds: [...METADATA_IDS]},
+                now       : OBSERVED_AT
+            });
+
+            // 5. HEALED — the ACT fired: every orphaned row was re-embedded and written back in place.
+            expect(outcome.status).toBe('healed');
+            expect(outcome.detail.reEmbedded).toBe(METADATA_IDS.length);
+            expect(outcome.detail.rejected.count).toBe(0);
+            expect(collection.upserts).toHaveLength(1);
+            expect(collection.upserts[0].ids.slice().sort()).toEqual([...METADATA_IDS].sort());
+
+            // 6. NO operator page, NO escalate — the terminal is an autonomous heal, not a page-into-the-void
+            //    (the model shift the escalate-deletion made: a cloud deployment has no operator to escalate to).
+            expect(decision.terminalAction).not.toBe('escalate');
+            expect(outcome.status).not.toBe('escalated');
         } finally {
             await fs.remove(tmpDir);
         }
     });
 
-    test('a clean store produces NO diagnosis and NO escalation (no false-positive immune response)', async () => {
+    test('a clean store produces NO diagnosis and NO action (no false-positive immune response)', async () => {
         const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-corruption-gate-clean-'));
 
         try {
@@ -276,14 +265,15 @@ test.describe('v13.1 release gate — corruption injection → detect → diagno
             expect(collection.missingFromVectorCount).toBe(0);
             expect(collection.extraInVectorCount).toBe(0);
 
-            // Clean coverage → the producer returns null → there is nothing to escalate.
-            const diagnosis = buildDataIntegrityCoverageDiagnosis({
-                coverageResult,
-                observedAt: OBSERVED_AT,
-                serviceId : 'memory-core'
+            // Clean coverage → the classifier yields `clean` / `none` → no action (no false-positive heal).
+            const decision = classifyDataIntegrityMode({
+                collection            : 'neo-agent-memory',
+                rowCount              : METADATA_IDS.length,
+                missingFromVectorCount: collection.missingFromVectorCount,
+                documentsPresentCount : 0
             });
 
-            expect(diagnosis).toBeNull();
+            expect(decision).toMatchObject({mode: 'clean', terminalAction: 'none', autonomous: true});
         } finally {
             await fs.remove(tmpDir);
         }
