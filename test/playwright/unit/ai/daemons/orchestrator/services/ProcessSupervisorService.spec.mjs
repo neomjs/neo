@@ -114,6 +114,23 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
         expect(service.getChildLogLevel('some unexpected line')).toBe('ERROR');
     });
 
+    test('writeChildStderr trims to [ProcessSupervisor] [childSource] message — single level stamp, level preserved, no task/stderr framing', () => {
+        const { service, logEntries } = createTestService();
+
+        // The child line already carries [LEVEL] [source]; the relay strips the duplicate [LEVEL] + the
+        // `<task> stderr:` framing, logging once as [ProcessSupervisor] [<childSource>] <message>.
+        service.writeChildStderr('[INFO] [MemoryService] miniSummary backfill complete: 9/9');
+        expect(logEntries.at(-1)).toEqual({level: 'INFO', message: '[ProcessSupervisor] [MemoryService] miniSummary backfill complete: 9/9'});
+
+        // The child's severity is preserved (not hardcoded INFO) and never duplicated in the message.
+        service.writeChildStderr('[WARN] [reconcileActiveChunks] removed duplicate pr-1.md');
+        expect(logEntries.at(-1)).toEqual({level: 'WARN', message: '[ProcessSupervisor] [reconcileActiveChunks] removed duplicate pr-1.md'});
+
+        // Unprefixed child failure → ERROR fail-safe, passed through unstripped (nothing to strip).
+        service.writeChildStderr('❌ Synchronization Failed: Error: boom');
+        expect(logEntries.at(-1)).toEqual({level: 'ERROR', message: '[ProcessSupervisor] ❌ Synchronization Failed: Error: boom'});
+    });
+
     test('getTaskPidFile returns correct path', () => {
         const { service, dataDir } = createTestService();
         const pidFile              = service.getTaskPidFile('mockTask');
@@ -231,9 +248,17 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
             'plain stderr output'
         ].join('\n')));
 
-        const stderrLogs = logEntries.filter(entry => entry.message.includes('stderr:'));
+        // The relay strips each child line's [LEVEL] + the `<task> stderr:` framing, logging once as
+        // [ProcessSupervisor] <message> at the child's parsed severity (unprefixed → ERROR fail-safe).
+        const childLogs = logEntries.filter(entry => /^\[ProcessSupervisor\] (Processed|Sync|Slow|Failed|plain)/.test(entry.message));
 
-        expect(stderrLogs.map(entry => entry.level)).toEqual(['INFO', 'INFO', 'WARN', 'ERROR', 'ERROR']);
+        expect(childLogs).toEqual([
+            {level: 'INFO',  message: '[ProcessSupervisor] Processed and embedded batch 83 of 237'},
+            {level: 'INFO',  message: '[ProcessSupervisor] Sync still running'},
+            {level: 'WARN',  message: '[ProcessSupervisor] Slow embedding batch'},
+            {level: 'ERROR', message: '[ProcessSupervisor] Failed embedding batch'},
+            {level: 'ERROR', message: '[ProcessSupervisor] plain stderr output'}
+        ]);
     });
 
     test('#13777: opted-in stdout JSON is recorded on successful child completion', () => {

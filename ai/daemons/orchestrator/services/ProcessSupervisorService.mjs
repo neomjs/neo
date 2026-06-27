@@ -333,16 +333,19 @@ export class ProcessSupervisorService extends Base {
     }
 
     /**
-     * Writes child stderr lines using their child-provided severity prefix.
-     * @param {Object} task Task definition.
+     * Re-logs child stderr lines at the child's own severity (via {@link getChildLogLevel}), trimmed: the
+     * child's leading `[LEVEL]` is stripped — the outer logger already stamps that level, so it is not
+     * duplicated — and the `<task> stderr:` framing is dropped, so each line logs once as
+     * `[ProcessSupervisor] [<childSource>] <message>`. A line with no recognized `[LEVEL]` prefix passes
+     * through unstripped at the ERROR fail-safe (an unprefixed child failure is never silently downgraded).
      * @param {Buffer|String} data Stderr chunk.
      * @returns {void}
      */
-    writeChildStderr(task, data) {
+    writeChildStderr(data) {
         const lines = data.toString().split(/\r?\n/).map(line => line.trim()).filter(Boolean);
 
         for (const line of lines) {
-            this.writeLog?.(this.getChildLogLevel(line), `[ProcessSupervisor] ${task.label} stderr: ${line}`);
+            this.writeLog?.(this.getChildLogLevel(line), `[ProcessSupervisor] ${line.replace(/^\[(LOG|INFO|WARN|ERROR)\]\s*/, '')}`);
         }
     }
 
@@ -514,7 +517,7 @@ export class ProcessSupervisorService extends Base {
             child = this.spawnFn(task.command, task.args, {stdio: stdoutCapture ? ['ignore', 'pipe', 'pipe'] : ['ignore', 'ignore', 'pipe'], env});
 
             child.stderr?.on('data', data => {
-                this.writeChildStderr(task, data);
+                this.writeChildStderr(data);
             });
             child.stdout?.on('data', data => {
                 this.captureStdoutJsonChunk(stdoutCapture, data);
