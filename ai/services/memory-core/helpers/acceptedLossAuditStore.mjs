@@ -27,6 +27,12 @@ const MAX_AUTO_ACCEPTED_LOSS_EVENTS = 2000;
  * Append-time prune trigger. An O(1) size stat is far cheaper than reading the whole log every append, so a
  * prune fires only once the file crosses this threshold — bounding the file with amortized, not per-append,
  * cost. Picked well above the steady-state size (accepted losses are minted rarely).
+ *
+ * Coupling with `MAX_AUTO_ACCEPTED_LOSS_EVENTS`: this 2 MB trigger assumes entries < ~1 KB, so the byte gate
+ * trips at ≈ the 2000-entry cap. If the entry shape grows past ~1 KB the gate trips *before* 2000 entries, so
+ * the prune no-ops (count ≤ cap) and each subsequent append pays an O(N) re-read until growth stops — still
+ * bounded (the file never exceeds the trigger by more than one entry), a perf not a correctness concern.
+ * Keep the two in step if the entry shape grows.
  * @type {Number}
  */
 const AUTO_ACCEPTED_LOSS_PRUNE_TRIGGER_BYTES = 2 * 1024 * 1024;
@@ -41,14 +47,18 @@ export function getAcceptedLossAuditFilePath(dir) {
 }
 
 /**
- * @summary Appends one `auto-accepted-loss` audit entry to the durable JSONL log (creating the dir if needed).
+ * @summary Appends one `auto-accepted-loss` audit entry to the durable JSONL log (creating the dir if needed),
+ * then self-bounds via an O(1) size stat-gate (see `triggerBytes`).
  * @param {Object} entry The `decideAcceptedLossSettlement` `auditRecord` (or any JSON-serializable record).
  * @param {Object} options
  * @param {String} options.dir The durable state directory.
+ * @param {Number} [options.triggerBytes=AUTO_ACCEPTED_LOSS_PRUNE_TRIGGER_BYTES] Size threshold above which the
+ *   append auto-prunes. Injectable so a test can drive the self-bounding gate with a tiny threshold.
+ * @param {Number} [options.maxEvents=MAX_AUTO_ACCEPTED_LOSS_EVENTS] Retention cap the triggered auto-prune enforces.
  * @returns {Promise<String>} The audit-log file path written to.
  * @throws {TypeError} when `entry` is not an object or `dir` is missing/empty.
  */
-export async function appendAutoAcceptedLoss(entry, {dir} = {}) {
+export async function appendAutoAcceptedLoss(entry, {dir, triggerBytes = AUTO_ACCEPTED_LOSS_PRUNE_TRIGGER_BYTES, maxEvents = MAX_AUTO_ACCEPTED_LOSS_EVENTS} = {}) {
     if (!entry || typeof entry !== 'object') {
         throw new TypeError('appendAutoAcceptedLoss: entry object is required');
     }
@@ -66,8 +76,8 @@ export async function appendAutoAcceptedLoss(entry, {dir} = {}) {
     // not a gate.
     try {
         const {size} = await stat(filePath);
-        if (size > AUTO_ACCEPTED_LOSS_PRUNE_TRIGGER_BYTES) {
-            await pruneAutoAcceptedLossAudit({dir, maxEvents: MAX_AUTO_ACCEPTED_LOSS_EVENTS});
+        if (size > triggerBytes) {
+            await pruneAutoAcceptedLossAudit({dir, maxEvents});
         }
     } catch (error) {
         // a partial/failed prune leaves the prior log intact; the next append re-tries the gate

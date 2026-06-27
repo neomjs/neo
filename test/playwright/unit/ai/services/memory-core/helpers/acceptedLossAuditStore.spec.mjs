@@ -106,4 +106,16 @@ test.describe('acceptedLossAuditStore — durable autonomous accepted-loss audit
         await appendAutoAcceptedLoss(entry(), {dir: tmpDir});
         expect(await pruneAutoAcceptedLossAudit({dir: tmpDir, maxEvents: 0})).toEqual({pruned: 0, retained: 1});
     });
+
+    test('append self-bounds: crossing the byte trigger auto-prunes to maxEvents (the wiring, not just the prune)', async () => {
+        // A tiny injected trigger fires the append-time stat-gate every append; each prune caps to maxEvents.
+        for (let i = 0; i < 6; i++) {
+            await appendAutoAcceptedLoss(entry({fingerprint: `fp-${i}`}), {dir: tmpDir, triggerBytes: 1, maxEvents: 2});
+        }
+
+        const records = await readAutoAcceptedLossAudit({dir: tmpDir});
+        // The self-bounding gate kept the file at the cap (the prune actually fired on append, not just on demand).
+        expect(records).toHaveLength(2);
+        expect(records.map(r => r.fingerprint)).toEqual(['fp-4', 'fp-5']); // newest two
+    });
 });
