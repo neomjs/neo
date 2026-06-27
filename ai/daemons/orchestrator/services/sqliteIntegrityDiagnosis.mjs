@@ -10,7 +10,7 @@ import {createRecoveryDiagnosisEvent} from '../../../services/memory-core/helper
  * a detect signal — so the immune system heals autonomously rather than leaving a structurally-corrupt store undetected.
  *
  * Detect-only by construction: it consumes a check RESULT and emits a diagnosis — it performs no
- * repair / FTS5 rebuild / mutation (those are operator-gated). It emits `recoveryClass: 'data-integrity'`
+ * repair / FTS5 rebuild / mutation (those are the autonomous quarantine actuator — a separate layer). It emits `recoveryClass: 'data-integrity'`
  * + raw `evidenceFacts` (the autonomous classifier's input), targeting the Memory Core `compose-service` (per-pragma failure
  * carried in `evidenceFacts`, with a bounded detail snippet — no unbounded SQLite output). Mirrors the
  * coverage-drift detect-producer: pure, with the audit result injected so it is testable in isolation.

@@ -10,7 +10,7 @@ import {createRecoveryDiagnosisEvent} from '../../../services/memory-core/helper
  * so the immune system heals autonomously rather than letting the store bloat silently.
  *
  * Detect-only by construction: it consumes a size measurement and emits a diagnosis — it performs no
- * prune / vacuum / mutation (operator-gated remediation). It emits `recoveryClass: 'data-integrity'` +
+ * prune / vacuum / mutation (remediation is the autonomous defrag actuator — a separate layer). It emits `recoveryClass: 'data-integrity'` +
  * raw `evidenceFacts` (the autonomous classifier's input), targeting the Memory Core `compose-service`. The size measurement and
  * the threshold config-leaves (read at the daemon use-site) are injected, so the producer is pure and
  * testable in isolation. A sub-signal whose threshold is non-finite is skipped (graceful).
