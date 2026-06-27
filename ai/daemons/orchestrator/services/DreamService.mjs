@@ -37,7 +37,8 @@ import {
     createRemPhaseState,
     createRemRunStateEntry
 } from '../../../services/memory-core/helpers/remRunStateStore.mjs';
-import {bytesToTokens} from '../../../services/memory-core/helpers/consumerFrictionHelper.mjs';
+import {bytesToTokens}              from '../../../services/memory-core/helpers/consumerFrictionHelper.mjs';
+import {resolveTurnDocumentForRead} from '../../../services/memory-core/helpers/turnDocumentText.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -417,12 +418,14 @@ class DreamService extends Base {
                         if (memoryCollection) {
                             const rawMemories = await memoryCollection.get({
                                 where  : { sessionId: session.meta.sessionId },
-                                include: ['documents']
+                                include: ['documents', 'metadatas']
                             });
                             if (rawMemories?.documents?.length > 0) {
                                 // Send the full raw memory to the LLM. Lossless context tracking is required.
                                 // If local APIs crash, it is a configuration issue with n_ctx, not a client logic error.
-                                turnDocuments     = rawMemories.documents;
+                                // Field↔document de-dup: reconstruct a dropped turn-document from its split metadata
+                                // (resolveTurnDocumentForRead no-ops on summaries via the type discriminator).
+                                turnDocuments     = rawMemories.documents.map((doc, i) => resolveTurnDocumentForRead({documents: [doc], metadata: rawMemories.metadatas?.[i]}));
                                 rawEpisodicMemory = turnDocuments.join('\n\n---\n\n');
                             }
                         }

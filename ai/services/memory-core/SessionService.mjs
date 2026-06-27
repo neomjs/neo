@@ -4,6 +4,7 @@ import {buildChatModel}                              from '../../provider/buildC
 import {invokeWithGuardrail}                         from './helpers/consumerFrictionHelper.mjs';
 import {withTimeout}                                 from './helpers/withTimeout.mjs';
 import {appendWalEmbedMarker, readPendingWalRecords} from './helpers/memoryWalStore.mjs';
+import {resolveTurnDocumentForRead}                  from './helpers/turnDocumentText.mjs';
 import crypto                                        from 'crypto';
 import GraphService                                  from './GraphService.mjs';
 import {capSessionsForSweep}                         from './capSessionsForSweep.mjs';
@@ -101,7 +102,7 @@ class SessionService extends Base {
      */
     static resolveSummarySourceProvenance(metadatas = []) {
         const sourceAgentIdentities = new Set();
-        let sourceTrustTier         = null,
+        let   sourceTrustTier       = null,
             unclassifiedSourceCount = 0;
 
         for (const metadata of metadatas || []) {
@@ -109,7 +110,7 @@ class SessionService extends Base {
                 ? metadata.agentIdentity
                 : null;
             const knownTrustTier = agentIdentity ? this.identityTrustTiers.get(agentIdentity) : null;
-            const trustTier = agentIdentity
+            const trustTier      = agentIdentity
                 ? (knownTrustTier || TRUST_TIERS.UNCLASSIFIED)
                 : TRUST_TIERS.UNCLASSIFIED;
 
@@ -228,7 +229,7 @@ class SessionService extends Base {
         if (!Number.isFinite(nowMs)) return new Set();
 
         const thresholdMs = aiConfig.orchestrator.swarmHeartbeat.idleThresholdMs;
-        const cutoffMs = nowMs - thresholdMs;
+        const cutoffMs    = nowMs - thresholdMs;
 
         try {
             const rows = sqlite.prepare(`
@@ -339,13 +340,13 @@ class SessionService extends Base {
     async findSessionsToSummarize({now = Date.now()} = {}) {
         // 1. Get metadata for memories — all-time scope. (The prior 30-day window was an obsolete
         // boot/healthcheck-timeout safeguard from when MC summarized on server boot.)
-        const limit = aiConfig.summarizationBatchLimit;
+        const limit         = aiConfig.summarizationBatchLimit;
         const maxIterations = 1000; // Safety break: max 2M records (2000 * 1000)
 
         let allMetadatas = [];
-        let offset = 0;
-        let hasMore = true;
-        let iterations = 0;
+        let offset       = 0;
+        let hasMore      = true;
+        let iterations   = 0;
 
         // Build query options dynamically to avoid passing `where: undefined`
         const baseQueryOptions = {
@@ -441,12 +442,12 @@ class SessionService extends Base {
         // Re-summary churn-gate threshold. Reuses the swarm idle definition — one idle
         // concept, no new config leaf. A session whose newest memory is within this window
         // is still actively receiving turns, so summarizing it now is stale-on-write and re-churns.
-        const churnCooldownMs = aiConfig.orchestrator.swarmHeartbeat.idleThresholdMs;
+        const churnCooldownMs            = aiConfig.orchestrator.swarmHeartbeat.idleThresholdMs;
         const externallyActiveSessionIds = this.getExternallyActiveSessionIds({now: nowMs});
-        const sessionsToUpdate = [];
+        const sessionsToUpdate           = [];
 
         Object.keys(sessions).forEach(sessionId => {
-            const sessionData = sessions[sessionId];
+            const sessionData  = sessions[sessionId];
             const summaryCount = summaryMap[sessionId];
 
             // Skip the in-process current session (it summarizes on its own sunset).
@@ -518,13 +519,13 @@ class SessionService extends Base {
         // to the first page). Real Chroma respects offset, so this gathers the full set; dedup-by-id +
         // stop-when-a-page-adds-nothing-new is a defensive guard that safely terminates even if a backing
         // collection (e.g. an offset-blind mock) repeats a page, instead of looping forever.
-        const memories  = {ids: [], documents: [], metadatas: []};
-        const pageLimit = aiConfig.summarizationBatchLimit;
-        const seenIds   = new Set();
-        let pageOffset  = 0;
+        const memories   = {ids: [], documents: [], metadatas: []};
+        const pageLimit  = aiConfig.summarizationBatchLimit;
+        const seenIds    = new Set();
+        let   pageOffset = 0;
 
         while (true) {
-            const page      = await this.memoryCollection.get({
+            const page = await this.memoryCollection.get({
                 where  : {sessionId},
                 include: ['documents', 'metadatas'],
                 limit  : pageLimit,
@@ -540,7 +541,9 @@ class SessionService extends Base {
                 if (seenIds.has(page.ids[i])) continue;
                 seenIds.add(page.ids[i]);
                 memories.ids.push(page.ids[i]);
-                memories.documents.push(page.documents[i]);
+                // Field↔document de-dup: reconstruct a dropped turn-document from its split metadata
+                // (resolveTurnDocumentForRead no-ops on summaries via the type discriminator).
+                memories.documents.push(resolveTurnDocumentForRead({documents: [page.documents[i]], metadata: page.metadatas[i]}));
                 memories.metadatas.push(page.metadatas[i]);
                 addedThisPage++;
             }
@@ -560,12 +563,12 @@ class SessionService extends Base {
         // sufficient `n_ctx` capabilities (128k+).
         const aggregatedContent = memories.documents.join('\n\n---\n\n');
 
-        let lastActivity = Date.now();
-        let firstActivity = lastActivity;
+        let   lastActivity    = Date.now();
+        let   firstActivity   = lastActivity;
         const extractedAgents = new Set();
         const extractedModels = new Set();
-        let totalToolCalls = 0;
-        const allToolsUsed = new Set();
+        let   totalToolCalls  = 0;
+        const allToolsUsed    = new Set();
 
         if (memories.metadatas && memories.metadatas.length > 0) {
             const timestamps = memories.metadatas.map(m => m.timestamp).filter(Boolean);
@@ -588,7 +591,7 @@ class SessionService extends Base {
                                 if (t) {
                                     if (typeof t === 'string') {
                                         try {
-                                            const inner = JSON.parse(t);
+                                            const inner      = JSON.parse(t);
                                             const identifier = inner.name || inner.toolAction || inner.toolSummary || 'unknown_tool';
                                             allToolsUsed.add(String(identifier).substring(0, 50));
                                         } catch (e) {
@@ -611,7 +614,7 @@ class SessionService extends Base {
         }
 
         const participatingAgents = Array.from(extractedAgents);
-        const models = Array.from(extractedModels);
+        const models              = Array.from(extractedModels);
 
         const buildSummaryPrompt = sessionContent => `
 Analyze the following development session and provide a structured summary in JSON format. The JSON object should have the following properties:
@@ -656,7 +659,7 @@ ${sessionContent}
         // (~2× faster, no measured quality loss). `summarySchema` enforces valid, fence-free JSON via
         // the provider's json_schema path. Passing `undefined` effort omits the param (model default).
         const summaryReasoningEffort = aiConfig.localModels.chat.summaryReasoningEffort;
-        const summarySchema = {
+        const summarySchema          = {
             type      : 'object',
             properties: {
                 summary     : {type: 'string'},
@@ -713,7 +716,7 @@ ${sessionContent}
         const skipSymptom     = guardrailed.friction?.symptom,
               recoverableSkip = skipSymptom === 'size-precheck-skip' || skipSymptom === 'timeout';
         if (!guardrailed.result && recoverableSkip) {
-            const FALLBACK_CHARS   = 280, // truncated-raw snippet cap (matches the per-turn miniSummary cap)
+            const FALLBACK_CHARS = 280, // truncated-raw snippet cap (matches the per-turn miniSummary cap)
                   miniByMemoryId   = this.getSessionMiniSummaries(sessionId),
                   degradedEntries  = (memories.ids || [])
                       .map((id, index) => ({
@@ -726,7 +729,7 @@ ${sessionContent}
                       .filter(Boolean);
 
             if (degradedEntries.length > 0) {
-                const usedTier        = miniByMemoryId.size > 0 ? 'miniSummary' : 'truncatedRaw',
+                const usedTier = miniByMemoryId.size > 0 ? 'miniSummary' : 'truncatedRaw',
                       degradedContent = degradedEntries.map((entry, index) => `Turn ${index + 1}: ${entry}`).join('\n'),
                       degradedResult  = await runGuardrailed(
                           buildSummaryPrompt(degradedContent),
@@ -746,9 +749,9 @@ ${sessionContent}
             return null;
         }
 
-        const result = guardrailed.result;
+        const result       = guardrailed.result;
         const responseText = result.response.text();
-        const summaryData = Json.extract(responseText);
+        const summaryData  = Json.extract(responseText);
 
         if (!summaryData) {
             logger.warn(`Failed to parse summary for session ${sessionId}`);
@@ -829,7 +832,7 @@ ${sessionContent}
         }
 
         // --- 2. Semantic Extraction (Regex Linkage) ---
-        const issueRegex = /(?:#|issue-)(\d+)/gi;
+        const issueRegex   = /(?:#|issue-)(\d+)/gi;
         const linkedIssues = new Set();
         let match;
 
@@ -896,7 +899,7 @@ ${sessionContent}
      */
     async ingestAntigravityArtifacts(sessionId, summaryId, minTimeMs, maxTimeMs) {
         try {
-            const homeDir = os.homedir();
+            const homeDir  = os.homedir();
             const brainDir = path.join(homeDir, '.gemini', 'antigravity', 'brain');
 
             if (!fs.existsSync(brainDir)) return;
@@ -920,7 +923,7 @@ ${sessionContent}
                             // concurrent users summarizing overlapping time windows each produce
                             // their own tenant-tagged copy; cross-tenant isolation holds because
                             // the ChromaDB id is also conversation-scoped.
-                            const planUserId = RequestContextService.getUserId();
+                            const planUserId   = RequestContextService.getUserId();
                             const planMetadata = {
                                 sessionId,
                                 timestamp: stats.mtimeMs,
@@ -1050,8 +1053,8 @@ ${sessionContent}
 
         // Fast SQLite check on summarization-job state — gates FINALIZED + BUSY error paths
         // before the more expensive Chroma read.
-        const sqlite = GraphService.db?.storage?.db;
-        let summarizationStatus = 'none';
+        const sqlite              = GraphService.db?.storage?.db;
+        let   summarizationStatus = 'none';
         if (sqlite) {
             try {
                 const row = sqlite.prepare(
@@ -1135,7 +1138,7 @@ ${sessionContent}
         // (same tenant predicate as the Chroma where above) before declaring SESSION_NOT_FOUND.
         if (memoryCount === 0 && sqlite) {
             try {
-                const userId = normalizeUserId(RequestContextService.getUserId());
+                const userId       = normalizeUserId(RequestContextService.getUserId());
                 const tenantClause = userId
                     ? `AND (json_extract(data, '$.properties.userId') = ? OR json_extract(data, '$.properties.userId') = ?)`
                     : '';
@@ -1302,8 +1305,8 @@ ${sessionContent}
         }
 
         const allowCompletedRepair = options.allowCompletedRepair === true;
-        const now = Date.now();
-        const expiresAt = now + ttlMs;
+        const now                  = Date.now();
+        const expiresAt            = now + ttlMs;
 
         try {
             const claimTx = db.transaction(() => {
@@ -1404,7 +1407,7 @@ ${sessionContent}
      */
     async summarizeSessions({ sessionId } = {}) {
         try {
-            let processed = [];
+            let   processed  = [];
             const leaseToken = crypto.randomUUID();
 
             if (sessionId) {
@@ -1447,7 +1450,7 @@ ${sessionContent}
 
                 logger.info(`[SessionService] Found ${total} sessions to summarize. Processing in batches of ${batchSize}...`);
 
-                let completed = 0,
+                let completed     = 0,
                     skippedClaims = 0;
 
                 for (let i = 0; i < total; i += batchSize) {
@@ -1481,7 +1484,7 @@ ${sessionContent}
                         }
                     });
 
-                    const results = await Promise.all(promises);
+                    const results     = await Promise.all(promises);
                     const batchResult = results.filter(Boolean);
 
                     processed.push(...batchResult);
