@@ -1,22 +1,21 @@
-import {program}                                                                                 from 'commander';
-import {ChromaClient}                                                                            from 'chromadb';
-import {execSync}                                                                                from 'child_process';
-import crypto                                                                                    from 'crypto';
-import fs                                                                                        from 'fs-extra';
-import path                                                                                      from 'path';
-import {fileURLToPath, pathToFileURL}                                                            from 'url';
-import Neo                                                                                       from '../../../src/Neo.mjs';
-import AiConfig                                                                                  from '../../config.mjs';
-import {withHeavyMaintenanceLease}                                                               from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
-import {registerNeoChromaEmbeddingFunctions}                                                     from '../../services/shared/vector/chromaClientPrimitives.mjs';
-import {auditChromaVectorCoverage}                                                               from './checkChromaIntegrity.mjs';
-import {MC_REPAIR_STRATEGY_VERSION, extractMemoryCoreCollectionData, truncateToEmbedTokenBudget} from './repairMemoryCoreStoredEmbeddings.mjs';
-import {resolveAutonomousRepairExit}                                                             from '../../services/memory-core/helpers/acceptedLossSettlement.mjs';
-import {
-    appendAutoAcceptedLoss,
-    getAcceptedLossAuditFilePath,
-    writeAutoAcceptedLossState
-}                                                                    from '../../services/memory-core/helpers/acceptedLossAuditStore.mjs';
+import {program}                                                     from 'commander';
+import {ChromaClient}                                                from 'chromadb';
+import {execSync}                                                    from 'child_process';
+import crypto                                                        from 'crypto';
+import fs                                                            from 'fs-extra';
+import path                                                          from 'path';
+import {fileURLToPath, pathToFileURL}                                from 'url';
+import Neo                                                           from '../../../src/Neo.mjs';
+import AiConfig                                                      from '../../config.mjs';
+import {withHeavyMaintenanceLease}                                   from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
+import {registerNeoChromaEmbeddingFunctions}                         from '../../services/shared/vector/chromaClientPrimitives.mjs';
+import {auditChromaVectorCoverage}                                   from './checkChromaIntegrity.mjs';
+import {MC_REPAIR_STRATEGY_VERSION}                                  from './repairMemoryCoreStoredEmbeddings.mjs';
+import {extractMemoryCoreCollectionData, truncateToEmbedTokenBudget} from './repairMemoryCoreStoredEmbeddings.mjs';
+import {resolveAutonomousRepairExit}                                 from '../../services/memory-core/helpers/acceptedLossSettlement.mjs';
+import {appendAutoAcceptedLoss}                                      from '../../services/memory-core/helpers/acceptedLossAuditStore.mjs';
+import {getAcceptedLossAuditFilePath}                                from '../../services/memory-core/helpers/acceptedLossAuditStore.mjs';
+import {writeAutoAcceptedLossState}                                  from '../../services/memory-core/helpers/acceptedLossAuditStore.mjs';
 
 /**
  * @summary Defragments collection groups inside the unified ChromaDB store.
