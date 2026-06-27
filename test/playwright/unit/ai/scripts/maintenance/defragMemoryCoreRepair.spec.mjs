@@ -16,7 +16,7 @@ import {
     runDefragChromaDBCli,
     writeDefragState
 } from '../../../../../../ai/scripts/maintenance/defragChromaDB.mjs';
-import AiConfig       from '../../../../../../ai/mcp/server/memory-core/config.mjs';
+import AiConfig                     from '../../../../../../ai/mcp/server/memory-core/config.mjs';
 
 /**
  * AC4 — the Memory Core defrag-wiring orchestration: full (uncapped) enumeration ->
@@ -832,7 +832,12 @@ test.describe('applyAutonomousSettlement — a settled clean exit clears the non
         expect(result.settled).toBe(true);
         expect(cleared).toEqual([{statePath: '/state/marker.json'}]);
         expect(audits).toHaveLength(1);
-        expect(audits[0].entry).toMatchObject({type: 'auto-accepted-loss', collectionName: 'mc-graph', parkingName: 'mc-graph-parking-1'});
+        expect(audits[0].entry).toMatchObject({
+            type           : 'auto-accepted-loss',
+            collectionName : 'mc-graph',
+            parkingName    : 'mc-graph-parking-1',
+            strategyVersion: AiConfig.memoryRepair.strategyVersion
+        });
         expect(audits[0].opts).toEqual({dir: '/state'});
         expect(acceptedLossStates).toHaveLength(1);
         expect(acceptedLossStates[0].opts).toEqual({dir: '/state'});

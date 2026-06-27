@@ -5,10 +5,16 @@ setup({
     appConfig: {name: 'RepairMcStoredEmbeddingsTest', isMounted: () => true, vnodeInitialising: false}
 });
 
-import {test, expect}                                                                                                 from '@playwright/test';
-import Neo                                                                                                            from '../../../../../../src/Neo.mjs';
-import * as core                                                                                                      from '../../../../../../src/core/_export.mjs';
-import {embedRecoverableDocuments, extractMemoryCoreCollectionData, truncateToByteBudget, truncateToEmbedTokenBudget} from '../../../../../../ai/scripts/maintenance/repairMemoryCoreStoredEmbeddings.mjs';
+import {test, expect}   from '@playwright/test';
+import Neo              from '../../../../../../src/Neo.mjs';
+import * as core        from '../../../../../../src/core/_export.mjs';
+import {
+    embedRecoverableDocuments,
+    extractMemoryCoreCollectionData,
+    truncateToByteBudget,
+    truncateToEmbedTokenBudget
+} from '../../../../../../ai/scripts/maintenance/repairMemoryCoreStoredEmbeddings.mjs';
+import AiConfig         from '../../../../../../ai/mcp/server/memory-core/config.mjs';
 
 /**
  * Mock Chroma collection: `rows` is `{ id: {embedding?, document?, metadata?} }`. `.get` returns only
@@ -218,7 +224,7 @@ test.describe('extractMemoryCoreCollectionData — MC stored-embedding repair ex
     });
 
     test('reports 10%-bucket progress for intact extraction and missing-vector re-embed', async () => {
-        const intactIds = Array.from({length: 10}, (_, i) => `i${i}`),
+        const intactIds  = Array.from({length: 10}, (_, i) => `i${i}`),
               missingIds = Array.from({length: 10}, (_, i) => `m${i}`),
               rows       = {};
 
@@ -323,6 +329,41 @@ test.describe('embedRecoverableDocuments — binary-split isolate-then-rebatch (
 });
 
 test.describe('truncateToEmbedTokenBudget — oversized-document recovery (the Prevent floor)', () => {
+    test('pins mc-repair-v1 to the current oversized-document embeddability behavior', async () => {
+        const BUDGET            = 50,
+              oversized         = 'z'.repeat(900),
+              stillUnembeddable = '',
+              prepared          = truncateToEmbedTokenBudget(oversized, BUDGET);
+
+        expect(AiConfig.memoryRepair.strategyVersion).toBe('mc-repair-v1');
+        expect(prepared.length).toBeGreaterThan(0);
+        expect(prepared.length).toBeLessThan(oversized.length);
+        expect(Math.ceil(Buffer.byteLength(prepared, 'utf8') / 3)).toBeLessThanOrEqual(BUDGET);
+
+        const result = await extractMemoryCoreCollectionData({
+            collection: makeCollection({
+                recovered: {document: oversized, metadata: {}},
+                terminal : {document: stillUnembeddable, metadata: {}}
+            }),
+            allIds          : ['recovered', 'terminal'],
+            missingVectorIds: ['recovered', 'terminal'],
+            embedFn         : async docs => docs.map(doc => {
+                const candidate = truncateToEmbedTokenBudget(doc, BUDGET),
+                      docTokens = Math.ceil(Buffer.byteLength(candidate, 'utf8') / 3);
+                if (docTokens > BUDGET) {
+                    const error = new Error('embedding context exceeded');
+                    error.unrecoverableReason = 'embedding-context-exceeded';
+                    throw error;
+                }
+                return [1, 2, 3];
+            })
+        });
+
+        expect(result.counts).toEqual({total: 2, intact: 0, reEmbedded: 1, unrecoverable: 1});
+        expect(result.data.ids).toEqual(['recovered']);
+        expect(result.unrecoverable).toMatchObject([{id: 'terminal', reason: 'document-empty'}]);
+    });
+
     test('returns text unchanged when within the token budget (no-op)', () => {
         const text = 'a short document';
         expect(truncateToEmbedTokenBudget(text, 1000)).toBe(text);
