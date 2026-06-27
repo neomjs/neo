@@ -37,7 +37,7 @@ import DataIntegrityDiagnosisService                                            
 import DataRecoveryActuatorService                                                                  from './services/DataRecoveryActuatorService.mjs';
 import {auditChromaVectorCoverage}                                                                  from '../../scripts/maintenance/checkChromaIntegrity.mjs';
 import {createReEmbedMissingHeal, createReEmbedMissingHealOperation}                                from '../../services/memory-core/helpers/reEmbedMissingHeal.mjs';
-import {appendHealEvent, queryHealLedger, readHealLedger}                                           from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
+import {appendHealEvent, healEventsToRecentRuns, queryHealLedger, readHealLedger}                   from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
 import {Memory_StorageRouter as StorageRouter, Memory_TextEmbeddingService as TextEmbeddingService} from '../../services.mjs';
 import {buildDataIntegrityCoverageDiagnosis}                                                        from './services/dataIntegrityCoverageDiagnosis.mjs';
 import {assembleDataIntegrityEvidence}                                                              from './services/dataIntegrityEvidenceAssembler.mjs';
@@ -452,7 +452,7 @@ export class Orchestrator extends Base {
                     }
                 })
             },
-            recentRunsReader: async collectionName => queryHealLedger(await readHealLedger({dir: healLedgerDir}), {collections: [collectionName]}),
+            recentRunsReader: async collectionName => healEventsToRecentRuns(queryHealLedger(await readHealLedger({dir: healLedgerDir}), {collections: [collectionName]})),
             recordRun       : async ({action, collection, at}) => appendHealEvent({type: action, collection, status: 'attempt'}, {dir: healLedgerDir, now: at})
         });
     }
