@@ -5,16 +5,16 @@ setup({
     appConfig: {name: 'RepairMcStoredEmbeddingsTest', isMounted: () => true, vnodeInitialising: false}
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
+import {test, expect}   from '@playwright/test';
+import Neo              from '../../../../../../src/Neo.mjs';
+import * as core        from '../../../../../../src/core/_export.mjs';
 import {
-    MC_REPAIR_STRATEGY_VERSION,
     embedRecoverableDocuments,
     extractMemoryCoreCollectionData,
     truncateToByteBudget,
     truncateToEmbedTokenBudget
 } from '../../../../../../ai/scripts/maintenance/repairMemoryCoreStoredEmbeddings.mjs';
+import AiConfig         from '../../../../../../ai/mcp/server/memory-core/config.mjs';
 
 /**
  * Mock Chroma collection: `rows` is `{ id: {embedding?, document?, metadata?} }`. `.get` returns only
@@ -335,7 +335,7 @@ test.describe('truncateToEmbedTokenBudget — oversized-document recovery (the P
               stillUnembeddable = '',
               prepared          = truncateToEmbedTokenBudget(oversized, BUDGET);
 
-        expect(MC_REPAIR_STRATEGY_VERSION).toBe('mc-repair-v1');
+        expect(AiConfig.memoryRepair.strategyVersion).toBe('mc-repair-v1');
         expect(prepared.length).toBeGreaterThan(0);
         expect(prepared.length).toBeLessThan(oversized.length);
         expect(Math.ceil(Buffer.byteLength(prepared, 'utf8') / 3)).toBeLessThanOrEqual(BUDGET);

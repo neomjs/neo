@@ -25,16 +25,6 @@ import {bytesToTokens}              from '../../services/memory-core/helpers/con
 import {resolveTurnDocumentForRead} from '../../services/memory-core/helpers/turnDocumentText.mjs';
 
 /**
- * @summary Memory Core repair accepted-loss strategy version for embeddability semantics.
- *
- * This value is part of the accepted-loss fingerprint. Bump it whenever the repair path's
- * embeddability behavior changes in a way that can make previously terminal residue recoverable
- * (for example, changing the truncate/chunk/re-embed policy).
- * @type {String}
- */
-export const MC_REPAIR_STRATEGY_VERSION = 'mc-repair-v1';
-
-/**
  * @summary Extracts a Memory Core collection's data for a shadow rebuild, RE-EMBEDDING the rows whose
  * stored vectors are missing from the HNSW index.
  *

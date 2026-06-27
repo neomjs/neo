@@ -317,6 +317,22 @@ class Config extends ConfigProvider {
                 }
             },
             /**
+             * Memory Core repair strategy controls that participate in durable accepted-loss fingerprints.
+             *
+             * `strategyVersion` must change whenever repair embeddability behavior changes in a way that can
+             * make previously terminal residue recoverable (for example, truncation/chunking/re-embed policy).
+             * Keeping it in AiConfig, not a maintenance-script export, preserves the Provider SSOT: consumers read
+             * the resolved leaf at the use site, and local overlays/env can make the active fingerprint explicit.
+             * @type {Object}
+             */
+            memoryRepair: {
+                /**
+                 * Accepted-loss fingerprint strategy version for Memory Core repair embeddability semantics.
+                 * @type {string}
+                 */
+                strategyVersion: leaf('mc-repair-v1', 'NEO_MEMORY_REPAIR_STRATEGY_VERSION', 'string')
+            },
+            /**
              * @summary Deployment-wide Gemini model defaults.
              *
              * Memory Core still exposes these historical field names for Gemini-backed

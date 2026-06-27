@@ -16,7 +16,6 @@ import {
     runDefragChromaDBCli,
     writeDefragState
 } from '../../../../../../ai/scripts/maintenance/defragChromaDB.mjs';
-import {MC_REPAIR_STRATEGY_VERSION} from '../../../../../../ai/scripts/maintenance/repairMemoryCoreStoredEmbeddings.mjs';
 import AiConfig                     from '../../../../../../ai/mcp/server/memory-core/config.mjs';
 
 /**
@@ -837,7 +836,7 @@ test.describe('applyAutonomousSettlement — a settled clean exit clears the non
             type           : 'auto-accepted-loss',
             collectionName : 'mc-graph',
             parkingName    : 'mc-graph-parking-1',
-            strategyVersion: MC_REPAIR_STRATEGY_VERSION
+            strategyVersion: AiConfig.memoryRepair.strategyVersion
         });
         expect(audits[0].opts).toEqual({dir: '/state'});
         expect(acceptedLossStates).toHaveLength(1);
