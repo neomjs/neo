@@ -16,6 +16,7 @@ import {
     runDefragChromaDBCli,
     writeDefragState
 } from '../../../../../../ai/scripts/maintenance/defragChromaDB.mjs';
+import AiConfig       from '../../../../../../ai/mcp/server/memory-core/config.mjs';
 
 /**
  * AC4 — the Memory Core defrag-wiring orchestration: full (uncapped) enumeration ->
@@ -567,9 +568,10 @@ test.describe('runDefragChromaDBCli (#14020)', () => {
 
         expect(calls.run).toBe(1);
         expect(calls.lease).toEqual([{
-            owner   : 'defrag',
-            reason  : 'manual-cli',
-            metadata: {script: 'ai/scripts/maintenance/defragChromaDB.mjs'}
+            owner       : 'defrag',
+            reason      : 'manual-cli',
+            staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs,
+            metadata    : {script: 'ai/scripts/maintenance/defragChromaDB.mjs'}
         }]);
         expect(calls.exit).toEqual([0]);
     });
