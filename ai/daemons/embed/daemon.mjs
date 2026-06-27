@@ -29,13 +29,13 @@ import * as core        from '../../../src/core/_export.mjs';
 import InstanceManager  from '../../../src/manager/Instance.mjs';
 import memoryCoreConfig from '../../mcp/server/memory-core/config.mjs';
 
-import fs   from 'fs-extra';
-import path from 'path';
+import fs         from 'fs-extra';
+import path       from 'path';
 import {execSync} from 'child_process';
 
-import StorageRouter   from '../../services/memory-core/managers/StorageRouter.mjs';
-import {startDrainLoop} from './drainCycle.mjs';
-import {acquireDrainLock} from './drainLock.mjs';
+import StorageRouter               from '../../services/memory-core/managers/StorageRouter.mjs';
+import {startDrainLoop}            from './drainCycle.mjs';
+import {acquireDrainLock}          from './drainLock.mjs';
 import {getMissingMemoryWalLeaves} from '../../services/memory-core/helpers/memoryWalStore.mjs';
 
 // Stale-config boot guard: the gitignored config.mjs is a MATERIALIZED template copy — on a
@@ -220,8 +220,8 @@ async function enforceSingleton() {
     }
 
     // Cleanup on exit
-    let cleanedUp = false;
-    const cleanup = () => {
+    let   cleanedUp = false;
+    const cleanup   = () => {
         if (cleanedUp) return;
         cleanedUp = true;
         try {
@@ -274,9 +274,10 @@ async function main() {
     // The shared loop host (`drainCycle.mjs`) owns cycle scheduling, per-cycle config/collection
     // resolution, and failure absorption; this process wrapper owns PID/lifecycle/logging only.
     startDrainLoop({
-        getCollection: () => StorageRouter.getMemoryCollection(),
-        getConfig    : () => memoryCoreConfig.memoryWal,
-        log          : writeLog
+        getCollection    : () => StorageRouter.getMemoryCollection(),
+        getConfig        : () => memoryCoreConfig.memoryWal,
+        expectedDimension: memoryCoreConfig.vectorDimension,
+        log              : writeLog
     });
 }
 
