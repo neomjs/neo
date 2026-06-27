@@ -61,8 +61,9 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         );
 
         expect(source).toContain('withHeavyMaintenanceLease');
-        expect(source).toContain("owner   : 'memory-summary-backfill'");
-        expect(source).toContain("reason  : 'manual-cli'");
+        expect(source).toContain("owner       : 'memory-summary-backfill'");
+        expect(source).toContain("reason      : 'manual-cli'");
+        expect(source).toContain('staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs');
     });
 
     test('buildTaskDefinitions is pure: tasks.mlx is omitted when mlxEnabled is false', () => {

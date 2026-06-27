@@ -1,6 +1,7 @@
-import path from 'path';
-import Neo  from '../../../../src/Neo.mjs';
-import Base from '../../../../src/core/Base.mjs';
+import path     from 'path';
+import Neo      from '../../../../src/Neo.mjs';
+import Base     from '../../../../src/core/Base.mjs';
+import AiConfig from '../../../config.mjs';
 import {
     acquireHeavyMaintenanceLeaseSync,
     releaseHeavyMaintenanceLeaseSync
@@ -542,10 +543,11 @@ export class MaintenanceBackpressureService extends Base {
         let acquisition;
         try {
             acquisition = this.acquireLeaseFn({
-                owner    : taskName,
-                reason   : reasonText,
-                metadata : {source: 'orchestrator'},
-                leasePath: this.resolveHeavyMaintenanceLeasePath()
+                owner       : taskName,
+                reason      : reasonText,
+                metadata    : {source: 'orchestrator'},
+                leasePath   : this.resolveHeavyMaintenanceLeasePath(),
+                staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs
             });
         } catch (e) {
             this.writeLog('ERROR', `[Orchestrator] Heavy-maintenance lease acquire failed for ${taskName}: ${e.message}`);

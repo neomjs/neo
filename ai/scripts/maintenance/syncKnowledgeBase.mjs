@@ -2,6 +2,7 @@
 // `InstanceManager` binds Neo.find/findFirst/get aliases + consumes pre-singleton
 // `Neo.idMap`; required for any consumer of the Neo singleton API.
 import Neo                         from '../../../src/Neo.mjs';
+import AiConfig                    from '../../config.mjs';
 import * as core                   from '../../../src/core/_export.mjs';
 import InstanceManager             from '../../../src/manager/Instance.mjs';
 import KB_Config                   from '../../mcp/server/knowledge-base/config.mjs';
@@ -65,7 +66,7 @@ async function syncKnowledgeBase() {
                 // opts into the shadow-swap stale-data strategy; default CLI sync remains unchanged.
                 return KB_DatabaseService.syncDatabase({staleStrategy});
             },
-            {owner: 'kbSync', reason: 'manual-cli', metadata: {script: 'ai/scripts/maintenance/syncKnowledgeBase.mjs'}}
+            {owner: 'kbSync', reason: 'manual-cli', staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs, metadata: {script: 'ai/scripts/maintenance/syncKnowledgeBase.mjs'}}
         );
     } catch (e) {
         console.error('❌ Synchronization Failed:', e);
