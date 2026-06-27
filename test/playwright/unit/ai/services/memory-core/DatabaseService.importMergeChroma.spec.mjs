@@ -230,6 +230,42 @@ test.describe('Memory_DatabaseService — Chroma preserve-live parity for #impor
         expect(memoryCollection.addCalls[0].ids).toEqual(['gate-valid']);
     });
 
+    test('replace mode: atomic vector-write invariant rejects invalid vectors on the upsert path', async () => {
+        // The gate guards BOTH branches; replace-mode upsert must reject missing/wrong-dim the same way,
+        // adjusting fileInserted (records.length - rejected) so the count stays truthful.
+        const memoryCollection = buildFakeCollection({name: 'fake-memories', liveIds: []});
+        Memory_StorageRouter.getMemoryCollection  = async () => memoryCollection;
+        Memory_StorageRouter.getSummaryCollection = async () => buildFakeCollection({name: 'fake-summaries'});
+
+        // Replace mode truncates first; stub the destructive guard to isolate the upsert-gate path.
+        const originalTruncate = Memory_DatabaseService.truncateDatabase.bind(Memory_DatabaseService);
+        Memory_DatabaseService.truncateDatabase = async () => ({message: 'stubbed for replace-mode gate test'});
+
+        try {
+            const backupFile = path.join(tmpDir, `memory-backup-replace-gate-${Date.now()}.jsonl`);
+            await writeJsonl(backupFile, [
+                {id: 'r-valid',    embedding: [0.5],      metadata: {tag: 'OK'},  document: 'valid'},
+                {id: 'r-wrongdim', embedding: [0.1, 0.2], metadata: {tag: 'BAD'}, document: 'wrong-dim'},
+                {id: 'r-missing',  metadata: {tag: 'BAD'}, document: 'no-embedding'}
+            ]);
+
+            const result = await Memory_DatabaseService.manageDatabaseBackup({
+                action: 'import',
+                file  : backupFile,
+                mode  : 'replace'
+            });
+
+            // Only the valid row upserts; the 2 invalid rows are rejected fail-loud (never upserted).
+            expect(result.mode).toBe('replace');
+            expect(result.counts.memories.inserted).toBe(1);
+            expect(result.counts.memories.failed).toBe(2);
+            expect(memoryCollection.upsertCalls.length).toBe(1);
+            expect(memoryCollection.upsertCalls[0].ids).toEqual(['r-valid']);
+        } finally {
+            Memory_DatabaseService.truncateDatabase = originalTruncate;
+        }
+    });
+
     test('replace mode: upsert() called for full record set; merge-mode counters stay 0', async () => {
         const memoryCollection = buildFakeCollection({name: 'fake-memories', liveIds: ['mem-1']});
         Memory_StorageRouter.getMemoryCollection  = async () => memoryCollection;
