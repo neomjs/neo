@@ -6,40 +6,32 @@ import {DataIntegrityDiagnosisService} from '../../../../../../../ai/daemons/orc
 const OBSERVED_AT = 1710000000000;
 
 /**
- * Records every actuator surface reached so a test can assert detect-only behavior:
- * `escalateDiagnosis` is expected; `apply` (the privileged path) must never be called.
+ * Records every actuator surface reached so a test can assert SELF-HEAL behavior: `applyHeal` is the only
+ * sink — there is no `escalateDiagnosis`/operator path by construction.
  */
-function fakeActuator() {
-    const calls = {escalate: [], apply: []};
+function fakeActuator({failOn = null} = {}) {
+    const calls = {applyHeal: []};
 
     return {
         calls,
-        async escalateDiagnosis(diagnosisEvent, options) {
-            calls.escalate.push({diagnosisEvent, options});
-            return {
-                status        : 'escalated',
-                reasonCode    : diagnosisEvent.details?.reasonCode || 'diagnosis-escalation',
-                targetIdentity: diagnosisEvent.targetIdentity
-            };
-        },
-        async apply(...args) {
-            calls.apply.push(args);
-            return {status: 'actioned'};
+        async applyHeal({action, collection, evidence, now}) {
+            calls.applyHeal.push({action, collection, evidence, now});
+            if (failOn && failOn === collection) {
+                throw new Error(`heal failed for ${collection}`);
+            }
+            return {status: 'healed', action};
         }
     };
 }
 
-function coverage({ok}) {
-    return {
-        collections: [{
-            name                  : 'neo-agent-memory',
-            ok,
-            missingFromVectorCount: ok ? 0 : 2000,
-            extraInVectorCount    : 0
-        }],
-        failedCollections       : ok ? 0 : 1,
-        duplicateCollectionNames: []
-    };
+/** A clean per-collection evidence row. */
+function clean(collection = 'neo-agent-memory') {
+    return {collection, rowCount: 1000};
+}
+
+/** A WAL-stall row: metadata-without-vector, documents intact → autonomous re-embed-missing. */
+function walStall(collection = 'neo-agent-memory') {
+    return {collection, rowCount: 1000, missingFromVectorCount: 200, documentsPresentCount: 200};
 }
 
 function createService(config = {}) {
@@ -51,110 +43,130 @@ function createService(config = {}) {
 }
 
 test.describe('Neo.ai.daemons.services.DataIntegrityDiagnosisService', () => {
-    test('clean coverage → healthy decision, nothing escalated', async () => {
+    test('clean evidence → clean decision, nothing healed', async () => {
         const actuator = fakeActuator(),
               service  = createService({
-                  coverageGatherer: async () => coverage({ok: true}),
+                  evidenceGatherer: async () => [clean()],
                   recoveryActuator: actuator
               });
 
         const decision = await service.gatherAndDiagnose();
 
         expect(decision).toMatchObject({
-            recordType: 'data-integrity-diagnosis-decision',
+            recordType: 'data-integrity-self-heal-decision',
             serviceId : 'memory-core',
             observedAt: OBSERVED_AT,
-            status    : 'healthy'
+            status    : 'clean'
         });
-        expect(decision.diagnoses).toHaveLength(0);
-        expect(decision.escalations).toHaveLength(0);
-        expect(actuator.calls.escalate).toHaveLength(0);
-        expect(actuator.calls.apply).toHaveLength(0);
+        expect(decision.heals).toHaveLength(0);
+        expect(actuator.calls.applyHeal).toHaveLength(0);
     });
 
-    test('coverage drift → routes a data-integrity/escalate diagnosis to escalateDiagnosis', async () => {
+    test('WAL-stall → routes an autonomous re-embed-missing heal to applyHeal (no escalate)', async () => {
         const actuator = fakeActuator(),
               service  = createService({
-                  coverageGatherer: async () => coverage({ok: false}),
+                  evidenceGatherer: async () => [walStall()],
                   recoveryActuator: actuator
               });
 
         const decision = await service.gatherAndDiagnose();
 
-        expect(decision.status).toBe('escalated');
-        expect(decision.diagnoses).toHaveLength(1);
-        expect(decision.diagnoses[0]).toMatchObject({
-            type          : 'recovery-diagnosis',
-            recoveryClass : 'data-integrity',
-            targetIdentity: {kind: 'compose-service', id: 'memory-core'},
-            details       : {actionClass: 'escalate'}
-        });
-        expect(decision.diagnoses[0].evidenceFacts).toContainEqual(
-            expect.objectContaining({type: 'vector-coverage-drift', collection: 'neo-agent-memory'})
-        );
-
-        expect(actuator.calls.escalate).toHaveLength(1);
-        expect(actuator.calls.escalate[0].diagnosisEvent.recoveryClass).toBe('data-integrity');
-        expect(decision.escalations[0]).toMatchObject({status: 'escalated'});
+        expect(decision.status).toBe('healed');
+        expect(decision.heals).toHaveLength(1);
+        expect(decision.heals[0]).toMatchObject({collection: 'neo-agent-memory', action: 're-embed-missing', mode: 'wal-stall'});
+        expect(actuator.calls.applyHeal).toHaveLength(1);
+        expect(actuator.calls.applyHeal[0]).toMatchObject({action: 're-embed-missing', collection: 'neo-agent-memory', now: OBSERVED_AT});
+        expect(actuator.calls.applyHeal[0].evidence).toMatchObject({missingFromVectorCount: 200, documentsPresentCount: 200});
     });
 
-    test('detect-only: never reaches the privileged apply path, even on drift', async () => {
+    test('wipe (docs gone) → restore-delta-merge; systemic mismatch → freeze (never mass re-embed)', async () => {
         const actuator = fakeActuator(),
               service  = createService({
-                  coverageGatherer: async () => coverage({ok: false}),
+                  evidenceGatherer: async () => [
+                      {collection: 'neo-agent-memory',   rowCount: 1000, missingFromVectorCount: 200, documentsPresentCount: 0},
+                      {collection: 'neo-agent-sessions', rowCount: 1000, mismatchedVectorCount: 900}
+                  ],
+                  recoveryActuator: actuator
+              });
+
+        const decision = await service.gatherAndDiagnose();
+
+        expect(decision.status).toBe('healed');
+        const actions = decision.heals.map(h => h.action);
+        expect(actions).toContain('restore-delta-merge');
+        expect(actions).toContain('freeze');
+        expect(actuator.calls.applyHeal).toHaveLength(2);
+    });
+
+    test('probe-unavailable: a failing gatherer heals NOTHING (failed probe ≠ corruption signal)', async () => {
+        const actuator = fakeActuator(),
+              service  = createService({
+                  evidenceGatherer: async () => { throw new Error('Chroma unreachable'); },
+                  recoveryActuator: actuator
+              });
+
+        const decision = await service.gatherAndDiagnose();
+
+        expect(decision).toMatchObject({status: 'probe-unavailable', probeError: 'Chroma unreachable'});
+        expect(decision.heals).toHaveLength(0);
+        expect(actuator.calls.applyHeal).toHaveLength(0);
+    });
+
+    test('a single heal failure is recorded, not thrown — the cycle still heals the other collections', async () => {
+        const actuator = fakeActuator({failOn: 'neo-agent-memory'}),
+              service  = createService({
+                  evidenceGatherer: async () => [walStall('neo-agent-memory'), walStall('neo-agent-sessions')],
+                  recoveryActuator: actuator
+              });
+
+        const decision = await service.gatherAndDiagnose();
+
+        expect(decision.status).toBe('healed');
+        expect(decision.heals).toHaveLength(2);
+        const memHeal = decision.heals.find(h => h.collection === 'neo-agent-memory');
+        expect(memHeal.outcome).toMatchObject({status: 'failed'});
+        const sessHeal = decision.heals.find(h => h.collection === 'neo-agent-sessions');
+        expect(sessHeal.outcome).toMatchObject({status: 'healed'});
+    });
+
+    test('INVARIANT: the runner reaches applyHeal ONLY — there is no escalate/operator sink', async () => {
+        const actuator = fakeActuator(),
+              service  = createService({
+                  evidenceGatherer: async () => [walStall()],
                   recoveryActuator: actuator
               });
 
         await service.gatherAndDiagnose();
 
-        expect(actuator.calls.apply).toHaveLength(0);
-        expect(actuator.calls.escalate).toHaveLength(1);
+        // The fake actuator exposes no escalateDiagnosis; the runner must only ever call applyHeal.
+        expect(typeof actuator.escalateDiagnosis).toBe('undefined');
+        expect(actuator.calls.applyHeal).toHaveLength(1);
     });
 
-    test('probe-unavailable: a failing gatherer escalates NOTHING (failed probe ≠ drift signal)', async () => {
+    test('threads the injected clock into every heal call', async () => {
         const actuator = fakeActuator(),
               service  = createService({
-                  coverageGatherer: async () => { throw new Error('Chroma unreachable'); },
+                  evidenceGatherer: async () => [walStall()],
                   recoveryActuator: actuator
               });
 
-        const decision = await service.gatherAndDiagnose();
+        await service.gatherAndDiagnose();
 
-        expect(decision).toMatchObject({
-            status    : 'probe-unavailable',
-            probeError: 'Chroma unreachable'
-        });
-        expect(decision.diagnoses).toHaveLength(0);
-        expect(actuator.calls.escalate).toHaveLength(0);
-        expect(actuator.calls.apply).toHaveLength(0);
+        expect(actuator.calls.applyHeal[0].now).toBe(OBSERVED_AT);
     });
 
-    test('threads the injected clock into the diagnosis id and the escalate call', async () => {
-        const actuator = fakeActuator(),
-              service  = createService({
-                  coverageGatherer: async () => coverage({ok: false}),
-                  recoveryActuator: actuator
-              });
-
-        const decision = await service.gatherAndDiagnose();
-
-        expect(decision.diagnoses[0].diagnosisId).toBe(`data-integrity:memory-core:coverage-drift:${OBSERVED_AT}`);
-        expect(decision.diagnoses[0].observedAt).toBe(OBSERVED_AT);
-        expect(actuator.calls.escalate[0].options).toMatchObject({now: OBSERVED_AT});
-    });
-
-    test('fail-closed: a missing coverageGatherer throws', async () => {
+    test('fail-closed: a missing evidenceGatherer throws', async () => {
         const service = createService({recoveryActuator: fakeActuator()});
 
-        await expect(service.gatherAndDiagnose()).rejects.toThrow(/coverageGatherer is required/);
+        await expect(service.gatherAndDiagnose()).rejects.toThrow(/evidenceGatherer is required/);
     });
 
-    test('fail-closed: a recoveryActuator without escalateDiagnosis throws', async () => {
+    test('fail-closed: a recoveryActuator without applyHeal throws', async () => {
         const service = createService({
-            coverageGatherer: async () => coverage({ok: true}),
+            evidenceGatherer: async () => [clean()],
             recoveryActuator: {}
         });
 
-        await expect(service.gatherAndDiagnose()).rejects.toThrow(/recoveryActuator with escalateDiagnosis/);
+        await expect(service.gatherAndDiagnose()).rejects.toThrow(/recoveryActuator with applyHeal/);
     });
 });

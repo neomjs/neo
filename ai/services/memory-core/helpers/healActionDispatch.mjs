@@ -146,7 +146,8 @@ export async function dispatchHeal({action, collection, evidence, recentRuns = [
     const operation = healOperations?.[action];
 
     // The action cleared the gate but its heal isn't wired yet (the "missing logic → ticket" set): record a
-    // `deferred` outcome — autonomous, never a page. The runner's safe-default (quarantine) covers the gap.
+    // `deferred` outcome — autonomous, never a page. (Until quarantine itself is wired it defers too — the
+    // interim detects + records rather than contains; containment lands with the wired containment op.)
     if (typeof operation !== 'function') {
         return {action, collection, status: 'deferred', detail: `no heal operation wired for '${action}'`, healedAt: now};
     }
