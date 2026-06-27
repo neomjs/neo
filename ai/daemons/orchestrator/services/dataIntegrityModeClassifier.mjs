@@ -5,8 +5,8 @@
  * MODE plus the AUTONOMOUS terminal action.
  *
  * There is no `escalate` outcome and no operator in the loop: in a cloud deployment there is no human to page
- * or acknowledge, so every mode routes to an autonomous heal action (or the safe-default `quarantine` contain
- * when the specific repair action is not yet built). Safety comes from the action envelope (snapshot,
+ * or acknowledge, so every mode routes to an autonomous heal action (the safe-default being `quarantine`
+ * when a specific repair action is not yet built). Safety comes from the action envelope (snapshot,
  * reversibility, durable audit record, rate-limit), not from a human gate that does not exist.
  *
  * The classifier is pure (no I/O): producers gather the evidence, the recovery actuator executes the action;
@@ -21,8 +21,9 @@
 /**
  * @summary The autonomous terminal actions a corruption mode routes to. There is deliberately NO `escalate`
  * or `page` action — every terminal is autonomous and bounded. Where the specific repair action is not yet
- * implemented, the classifier routes to `quarantine` (the safe-default contain) so a corrupt index is never
- * served, and the specific repair lands later.
+ * implemented, the classifier routes to `quarantine`, the safe-default terminal. The classifier only DECIDES
+ * the action; the actuator EXECUTES it — quarantine fences a corrupt index from similarity-serving once that
+ * op is wired, while the interim actuator defers every action (detected + recorded autonomously, never a page).
  * @enum {String}
  */
 export const DataIntegrityTerminal = Object.freeze({
@@ -32,7 +33,7 @@ export const DataIntegrityTerminal = Object.freeze({
     REEMBED_ROWS       : 're-embed-rows',
     /** Wipe: metadata-without-vector, documents also gone — restore the last-good backup and delta-merge newer rows. */
     RESTORE_DELTA_MERGE: 'restore-delta-merge',
-    /** Safe-default contain: fence the collection from similarity-serving so a corrupt index is never served. Bounded, lossless, reversible. */
+    /** Safe-default terminal: when the actuator executes it, fences the collection from similarity-serving (a corrupt index is never served). Bounded, lossless, reversible. The interim actuator defers it. */
     QUARANTINE         : 'quarantine',
     /** Systemic false-storm (mass mismatch): freeze the collection — never trigger a mass auto-re-embed. */
     FREEZE             : 'freeze',

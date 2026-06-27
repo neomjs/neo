@@ -9,9 +9,11 @@ import {classifyDataIntegrityMode, DataIntegrityTerminal} from './dataIntegrityM
  *
  * There is NO `escalate` and NO operator in the loop: in a cloud deployment there is no human to page or
  * acknowledge, so every actionable mode routes to an autonomous heal (re-embed-missing, restore-delta-merge,
- * quarantine, freeze, defrag…) — or the safe-default `quarantine` contain where the specific repair is not
- * yet built. Safety comes from the actuator's bounded envelope (snapshot, reversibility, durable audit
- * record, rate-limit), not from a human gate that does not exist.
+ * quarantine, freeze, defrag…) — or the safe-default `quarantine` where the specific repair is not yet built.
+ * The runner only routes; the actuator executes — the interim actuator defers every action (detected +
+ * recorded, never a page) until the heal ops are wired, so it contains nothing yet. Safety comes from the
+ * actuator's bounded envelope (snapshot, reversibility, durable audit record, rate-limit), not from a human
+ * gate that does not exist.
  *
  * The mode taxonomy is single-sourced in `dataIntegrityModeClassifier`; the producers stay dumb raw-evidence
  * emitters; the actuator owns the heal execution. This runner only gathers → classifies → routes. If the
