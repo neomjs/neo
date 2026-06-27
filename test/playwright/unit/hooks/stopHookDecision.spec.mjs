@@ -1,8 +1,11 @@
 import {test, expect} from '@playwright/test';
 import {
     buildDeferenceStopHookDirective,
+    classifyPromptingContext,
     decideDeferenceStopHookAction,
     decideStopHookAction,
+    detectAutonomousHandoffPrompt,
+    extractAutonomousHandoffWindowMs,
     isOperatorInLoop,
     LANE_STATE_SCHEMA_HINT,
     parseOutcomeToVerdict,
@@ -82,6 +85,28 @@ test.describe('ai/scripts/lifecycle/stopHookDecision — shared no-hold decision
 
     test('isOperatorInLoop: a genuine operator prompt is the one operator-in-loop signal', () => {
         expect(isOperatorInLoop({stopHookActive: false, promptingText: 'please review the PR'})).toBe(true);
+    });
+
+    test('isOperatorInLoop: an operator handoff-to-autonomous prompt is not active dialogue', () => {
+        const prompt = "nightshift mode from here on for the next 5h, you and Euclid can freely choose. I merge when I get back.";
+
+        expect(isOperatorInLoop({stopHookActive: false, promptingText: prompt})).toBe(false);
+        expect(detectAutonomousHandoffPrompt(prompt)).toMatchObject({
+            active  : true,
+            reason  : 'nightshift-mode',
+            windowMs: 5 * 60 * 60 * 1000
+        });
+        expect(classifyPromptingContext({stopHookActive: false, promptingText: prompt})).toMatchObject({
+            autonomousHandoff: true,
+            handoffReason    : 'nightshift-mode',
+            operatorInLoop   : false
+        });
+    });
+
+    test('extractAutonomousHandoffWindowMs: parses hours and minutes only when explicit', () => {
+        expect(extractAutonomousHandoffWindowMs('for the next 90 minutes')).toBe(90 * 60 * 1000);
+        expect(extractAutonomousHandoffWindowMs('next 1.5 hours')).toBe(1.5 * 60 * 60 * 1000);
+        expect(extractAutonomousHandoffWindowMs('please pick a lane')).toBe(null);
     });
 
     // ── decideStopHookAction: operatorInLoop is the only allow; block-support gates block vs would-block ──
