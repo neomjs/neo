@@ -4,6 +4,7 @@ import {
     pruneReconciledWalSegments,
     readPendingWalRecords
 } from '../../services/memory-core/helpers/memoryWalStore.mjs';
+import {classifyRowVector} from '../../services/memory-core/helpers/vectorWriteInvariant.mjs';
 
 /**
  * @summary One durable drain pass over the `add_memory` write-ahead log.
@@ -117,6 +118,87 @@ export async function embedBatch({collection, records, maxRetries, backoffBaseMs
 }
 
 /**
+ * @summary Verifies that an `add`-succeeded batch actually persisted a valid vector — the atomic-write
+ * Prevent floor for the auto-embed drain path.
+ *
+ * `embedBatch` calls `collection.add({ids, metadatas, documents})` with **no `embeddings`** — it relies on
+ * Chroma's collection embedding-function to auto-generate the vector. That auto-embed is **not atomic**: the
+ * provider call can fail (timeout, oversized input, model-not-resident) while the document/metadata still
+ * persist, leaving a metadata-only row — the recurring corruption shape — on the *highest-volume* write path.
+ * `add`-success therefore does NOT imply embed-success, so this reads the persisted vectors back and classifies
+ * each with the same {@link classifyRowVector} invariant the explicit-embedding write gate uses.
+ *
+ * Disposition per outcome:
+ * - **valid vector** → `embedded` (safe to mark reconciled).
+ * - **confirmed metadata-only** (read-back ok, vector missing/empty/wrong-dimension) → `metadataOnly`, and the
+ *   persisted row is **deleted** so the cooldown retry's `add` re-embeds cleanly (`add` is create-not-upsert; a
+ *   lingering row would no-op the retry). The autonomous recovery actuator remains the backstop for any that slip.
+ * - **unverifiable** (the read-back itself threw) → `metadataOnly` but **not** deleted — a transient read error
+ *   must never destroy possibly-valid rows; the batch stays pending for a clean re-verify next cycle.
+ *
+ * Verify is opt-in on a known `expectedDimension`: without one it cannot classify, so it falls back (logged) to
+ * the prior add-success⟹embed-success behavior rather than rejecting every row.
+ *
+ * @param {Object}   options
+ * @param {Object}   options.collection        Content-store collection (`get({ids, include:['embeddings']})` + `delete`).
+ * @param {Object[]} options.records           The `add`-succeeded WAL records to verify (`{id, ...}`).
+ * @param {Number}   options.expectedDimension Required vector dimension; non-positive/absent → verify skipped.
+ * @param {Function} options.log               `(level, message)` sink.
+ * @returns {Promise<{embedded: Object[], metadataOnly: Array<{record: Object, error: Error}>}>}
+ */
+export async function verifyEmbeddedVectors({collection, records, expectedDimension, log}) {
+    if (records.length === 0) {
+        return {embedded: [], metadataOnly: []};
+    }
+
+    if (!Number.isInteger(expectedDimension) || expectedDimension <= 0) {
+        log('WARN', `Post-add vector verify skipped — expectedDimension not configured (${expectedDimension}); add-success treated as embed-success`);
+        return {embedded: [...records], metadataOnly: []};
+    }
+
+    const ids = records.map(record => record.id);
+    let readBack;
+
+    try {
+        readBack = await collection.get({ids, include: ['embeddings']});
+    } catch (error) {
+        // Cannot prove the vectors persisted — fail closed (do NOT mark embedded) but do NOT delete:
+        // a transient read failure must never destroy possibly-valid rows. Stays pending for next cycle.
+        log('ERROR', `Post-add vector verify read failed (${error.message}) — batch left pending for retry`);
+        return {embedded: [], metadataOnly: records.map(record => ({record, error}))};
+    }
+
+    const embeddingById = new Map();
+    (readBack?.ids ?? []).forEach((id, index) => embeddingById.set(id, readBack.embeddings?.[index]));
+
+    const embedded        = [];
+    const metadataOnly    = [];
+    const metadataOnlyIds = [];
+
+    for (const record of records) {
+        const reason = classifyRowVector({id: record.id, embedding: embeddingById.get(record.id)}, expectedDimension);
+
+        if (reason === null) {
+            embedded.push(record);
+        } else {
+            metadataOnly.push({record, error: new Error(`metadata-only row (${reason}) — auto-embed persisted no valid vector`)});
+            metadataOnlyIds.push(record.id);
+        }
+    }
+
+    if (metadataOnlyIds.length > 0) {
+        try {
+            await collection.delete({ids: metadataOnlyIds});
+            log('ERROR', `Post-add verify: deleted ${metadataOnlyIds.length} metadata-only row(s) for re-embed: ${metadataOnlyIds.join(', ')}`);
+        } catch (error) {
+            log('ERROR', `Post-add verify: metadata-only delete failed (${error.message}) — rows remain for the recovery actuator: ${metadataOnlyIds.join(', ')}`);
+        }
+    }
+
+    return {embedded, metadataOnly};
+}
+
+/**
  * @summary Executes one full drain cycle: read pending → embed → reconcile/compensate → prune.
  *
  * **Reconcile vs compensate:** after a successful embed, the cycle re-reads the pending state for
@@ -142,11 +224,13 @@ export async function embedBatch({collection, records, maxRetries, backoffBaseMs
  * @param {Number}   options.maxRetries       In-cycle whole-batch retry bound.
  * @param {Number}   options.backoffBaseMs    Exponential backoff base.
  * @param {Number}   options.retentionLimit   Reconciled-segment retention bound for pruning.
+ * @param {Number}   [options.expectedDimension] Required vector dimension for the post-add atomic-write verify;
+ *     absent/non-positive → verify skipped (add-success⟹embed-success, the prior behavior).
  * @param {Map}      [options.retryState]     Cross-cycle per-record cooldown state (caller-owned).
  * @param {Function} [options.log]            `(level, message)` sink. Defaults to a no-op.
  * @param {Function} [options.sleep]          Delay primitive. Defaults to a real timer.
  * @param {Function} [options.now]            Clock source (epoch ms). Defaults to `Date.now`.
- * @returns {Promise<{pending: Number, embedded: Number, compensated: Number, failed: Number, cooling: Number, prunedSegments: Number}>}
+ * @returns {Promise<{pending: Number, embedded: Number, compensated: Number, failed: Number, metadataOnly: Number, cooling: Number, prunedSegments: Number}>}
  *     Cycle summary for the daemon's log line.
  */
 export async function drainWalOnce({
@@ -157,12 +241,13 @@ export async function drainWalOnce({
     maxRetries,
     backoffBaseMs,
     retentionLimit,
+    expectedDimension,
     retryState = new Map(),
     log        = () => {},
     sleep      = ms => new Promise(resolve => setTimeout(resolve, ms)),
     now        = Date.now
 } = {}) {
-    const summary = {pending: 0, embedded: 0, compensated: 0, failed: 0, cooling: 0, prunedSegments: 0};
+    const summary = {pending: 0, embedded: 0, compensated: 0, failed: 0, metadataOnly: 0, cooling: 0, prunedSegments: 0};
 
     // Full pending read (not limit-bounded): a newest-first limited read would let records
     // cooling down at the head permanently shadow older drainable ones. Scan cost is bounded —
@@ -188,20 +273,26 @@ export async function drainWalOnce({
     if (drainable.length > 0) {
         const {succeeded, failed} = await embedBatch({collection, records: drainable, maxRetries, backoffBaseMs, sleep, log});
 
-        summary.failed = failed.length;
+        // Atomic-write Prevent floor: add-success ≠ embed-success on the auto-embed path, so verify the
+        // persisted vector before reconciling. Metadata-only rows are routed to retry, never marked embedded.
+        const {embedded, metadataOnly} = await verifyEmbeddedVectors({collection, records: succeeded, expectedDimension, log});
+        const failedRecords            = [...failed, ...metadataOnly];
 
-        for (const {record, error} of failed) {
+        summary.failed       = failed.length;
+        summary.metadataOnly = metadataOnly.length;
+
+        for (const {record, error} of failedRecords) {
             const failures = (retryState.get(record.id)?.failures ?? 0) + 1;
 
             retryState.set(record.id, {failures, nextAttemptAt: now() + getBackoffDelayMs(backoffBaseMs, failures)});
             log('ERROR', `Record ${record.id} failed embed #${failures} (${error.message}) — cooling down`);
         }
 
-        if (succeeded.length > 0) {
+        if (embedded.length > 0) {
             // Purge-race compensation window: re-read pending state for exactly the embedded ids.
-            const succeededIds = succeeded.map(record => record.id);
+            const succeededIds = embedded.map(record => record.id);
             const stillPending = new Set((await readPendingWalRecords({dir, ids: succeededIds})).map(record => record.id));
-            const tombstoned   = succeeded.filter(record => !stillPending.has(record.id));
+            const tombstoned   = embedded.filter(record => !stillPending.has(record.id));
 
             if (tombstoned.length > 0) {
                 // Tombstoned mid-embed: purgeSession marked these records (always BEFORE its own
@@ -219,7 +310,7 @@ export async function drainWalOnce({
                 }
             }
 
-            for (const record of succeeded) {
+            for (const record of embedded) {
                 retryState.delete(record.id);
 
                 if (!stillPending.has(record.id)) continue;
@@ -266,11 +357,13 @@ export async function drainWalOnce({
  * @param {Object}   options
  * @param {Function} options.getCollection Async resolver for the content-store collection.
  * @param {Function} options.getConfig     Returns the `memoryWal` config slice (read per cycle).
+ * @param {Number}   [options.expectedDimension] Required vector dimension for the post-add atomic-write verify
+ *     (deploy-fixed; read once at wire-up). Absent → verify skipped (logged) — wire it in production.
  * @param {Function} [options.log]         `(level, message)` sink. Defaults to a no-op.
  * @param {Map}      [options.retryState]  Cross-cycle per-record cooldown state.
  * @returns {{stop: Function}} Handle whose `stop()` ends the loop (idempotent).
  */
-export function startDrainLoop({getCollection, getConfig, log = () => {}, retryState = new Map()}) {
+export function startDrainLoop({getCollection, getConfig, expectedDimension, log = () => {}, retryState = new Map()}) {
     let stopped = false;
     let timer   = null;
 
@@ -279,7 +372,7 @@ export function startDrainLoop({getCollection, getConfig, log = () => {}, retryS
 
         try {
             const collection = await getCollection();
-            const summary    = await drainWalOnce({dir, collection, batchSize, maxRetries, backoffBaseMs, retentionLimit, retryState, log});
+            const summary    = await drainWalOnce({dir, collection, batchSize, maxRetries, backoffBaseMs, retentionLimit, expectedDimension, retryState, log});
 
             // Idle cycles stay silent — at a multi-second poll interval, per-cycle no-op lines
             // would dominate the log without adding signal.
