@@ -38,6 +38,7 @@ Each sub the decomposition creates MUST be a **leaf that a single PR can FULLY d
 
 | Skill | Phase | Owns |
 |---|---|---|
+| **`goal-scoping`** | Front-end (upstream) | Scope a GOAL → the set of owned LANES this skill then authors (one epic per lane); peers self-select their lane |
 | **`epic-create`** (here) | Creation | Problem-scope + intended-solution body; `epic` label; title hygiene |
 | `epic-review` | Pre-work entry | Roadmap fit, approach elegance, source-Discussion mapping, sub-structure coherence; seeds the Stage 3.1 closeout matrix |
 | `epic-resolution` | Closeout exit | Reconciles delivered subs against the parent ACs (which live in the subs) |
