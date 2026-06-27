@@ -46,10 +46,17 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const ROOT_DIR   = path.resolve(__dirname, '../../..');
 
-const CONFIG_TEMPLATE_BASENAME = 'config.template.mjs';
-const CONFIG_OVERLAY_BASENAME  = 'config.mjs';
-const SCAN_ROOT_REL            = 'ai';
-const SELF_REL_FILE            = 'ai/scripts/lint/lint-config-template-ssot.mjs';
+const CONFIG_TEMPLATE_BASENAME           = 'config.template.mjs';
+const CONFIG_OVERLAY_BASENAME            = 'config.mjs';
+const SCAN_ROOT_REL                      = 'ai';
+const SELF_REL_FILE                      = 'ai/scripts/lint/lint-config-template-ssot.mjs';
+const CONFIG_TEMPLATE_KIND_CACHE         = new Map();
+const SERVICE_EXPORT_CONFIG_TEMPLATE_REL = Object.freeze({
+    GH_Config        : 'ai/mcp/server/github-workflow/config.template.mjs',
+    KB_Config        : 'ai/mcp/server/knowledge-base/config.template.mjs',
+    Memory_Config    : 'ai/mcp/server/memory-core/config.template.mjs',
+    NeuralLink_Config: 'ai/mcp/server/neural-link/config.template.mjs'
+});
 
 /**
  * Pre-existing inline-env leaf defaults, keyed by `<file>::<envVar>`. Each entry is a
@@ -101,89 +108,40 @@ export const AI_CONFIG_IMPLEMENTATION_BASELINE = Object.freeze([
 ]);
 
 /**
- * Existing module-scope AiConfig leaf captures that are classified as non-self-heal P1 debt.
- * These rows are not permission to add more captures: they document the residual #14239 audit
- * and keep the lint fail-build for any NEW module-load Provider leaf capture, especially in
- * self-heal / repair paths where stale values can block runtime healing.
+ * Existing module-scope AiConfig primitive leaf captures that freeze resolved Provider values at
+ * module load. These rows are not permission to add more captures: they document residual #14239
+ * P1 debt while the lint fails NEW primitive/formula leaf freezes. Namespace and object-valued
+ * leaves are deliberately excluded because their nested reads stay live through the Provider proxy.
  * @type {ReadonlyArray<{file: String, kind: String, text: String, ticket: String, reason: String}>}
  */
 export const AI_CONFIG_MODULE_SCOPE_BASELINE = Object.freeze([
     {
         file  : 'ai/scripts/diagnostics/analyzeNlTelemetry.mjs',
-        kind  : 'module-scope-capture',
+        kind  : 'module-scope-leaf-capture',
         text  : 'const DB_PATH = aiConfig.storagePaths.graph;',
         ticket: '#14239',
-        reason: 'One-shot diagnostic CLI path capture; not a self-heal runtime consumer.'
+        reason: 'Frozen primitive path leaf; existing P1 burndown debt.'
     },
     {
         file  : 'ai/scripts/diagnostics/analyzeNlTelemetry.mjs',
-        kind  : 'module-scope-capture',
+        kind  : 'module-scope-leaf-capture',
         text  : 'const RLAIF_PATH = aiConfig.datasets.rlaif.trajectories;',
         ticket: '#14239',
-        reason: 'One-shot diagnostic CLI output path capture; not a self-heal runtime consumer.'
-    },
-    {
-        file  : 'ai/services/github-workflow/sync/DiscussionSyncer.mjs',
-        kind  : 'module-scope-capture',
-        text  : 'const issueSyncConfig = aiConfig.issueSync;',
-        ticket: '#14239',
-        reason: 'GitHub mirror sync P1 config capture; not a self-heal repair/actuator path.'
-    },
-    {
-        file  : 'ai/services/github-workflow/sync/IssueSyncer.mjs',
-        kind  : 'module-scope-capture',
-        text  : 'const issueSyncConfig = aiConfig.issueSync;',
-        ticket: '#14239',
-        reason: 'GitHub mirror sync P1 config capture; not a self-heal repair/actuator path.'
-    },
-    {
-        file  : 'ai/services/github-workflow/sync/MetadataManager.mjs',
-        kind  : 'module-scope-capture',
-        text  : 'const issueSyncConfig = aiConfig.issueSync;',
-        ticket: '#14239',
-        reason: 'GitHub mirror metadata P1 config capture; not a self-heal repair/actuator path.'
-    },
-    {
-        file  : 'ai/services/github-workflow/sync/PullRequestSyncer.mjs',
-        kind  : 'module-scope-capture',
-        text  : 'const issueSyncConfig = aiConfig.issueSync;',
-        ticket: '#14239',
-        reason: 'GitHub mirror sync P1 config capture; not a self-heal repair/actuator path.'
-    },
-    {
-        file  : 'ai/services/github-workflow/sync/PullRequestSyncer.mjs',
-        kind  : 'module-scope-capture',
-        text  : 'const pullRequestConfig = aiConfig.pullRequest;',
-        ticket: '#14239',
-        reason: 'GitHub PR mirror P1 config capture; not a self-heal repair/actuator path.'
-    },
-    {
-        file  : 'ai/services/github-workflow/sync/ReleaseNotesSyncer.mjs',
-        kind  : 'module-scope-capture',
-        text  : 'const issueSyncConfig = aiConfig.issueSync;',
-        ticket: '#14239',
-        reason: 'Release-note mirror sync P1 config capture; not a self-heal repair/actuator path.'
+        reason: 'Frozen primitive dataset leaf; existing P1 burndown debt.'
     },
     {
         file  : 'ai/services/knowledge-base/DatabaseService.mjs',
-        kind  : 'module-scope-capture',
+        kind  : 'module-scope-leaf-capture',
         text  : 'const cwd       = aiConfig.neoRootDir;',
         ticket: '#14239',
-        reason: 'Knowledge Base startup path P1 capture; not a self-heal repair/actuator path.'
+        reason: 'Frozen primitive root path leaf; existing P1 burndown debt.'
     },
     {
         file  : 'ai/services/knowledge-base/QueryService.mjs',
-        kind  : 'module-scope-capture',
-        text  : 'const {queryScoreWeights} = aiConfig;',
-        ticket: '#14239',
-        reason: 'Knowledge Base scoring-weight P1 capture; not a self-heal repair/actuator path.'
-    },
-    {
-        file  : 'ai/services/knowledge-base/QueryService.mjs',
-        kind  : 'module-scope-capture',
+        kind  : 'module-scope-leaf-capture',
         text  : 'const cwd       = aiConfig.neoRootDir;',
         ticket: '#14239',
-        reason: 'Knowledge Base startup path P1 capture; not a self-heal repair/actuator path.'
+        reason: 'Frozen primitive root path leaf; existing P1 burndown debt.'
     }
 ]);
 
@@ -339,16 +297,198 @@ export function detectAiConfigImplementationViolations(source) {
 }
 
 /**
- * @summary Detects module-load AiConfig leaf captures (`const x = aiConfig.y` / destructuring).
+ * @summary Collects config paths that resolve to frozen leaves versus live Provider proxies.
  *
- * Direct use-site reads remain valid. This detector specifically targets values frozen at module
- * evaluation time, the #14239 failure mode where a runtime self-heal config mutation can be ignored
- * by a stale closure. Function bodies and module-scope functions that read AiConfig when invoked are
- * intentionally out of scope.
+ * The scanner follows the `config.template.mjs` meta-leaf style: namespace objects are live proxy
+ * paths, object-valued leaves return nested live proxies, and primitive/formula leaves return the
+ * value itself. It intentionally reads source text instead of importing config modules so this lint
+ * stays a static guard with no Neo bootstrap side effects.
+ * @param {String} source Config template source.
+ * @returns {{primitiveLeafPaths: Set<String>, liveProxyPaths: Set<String>}}
+ */
+export function collectConfigPathKindsFromSource(source) {
+    const primitiveLeafPaths = new Set(),
+          liveProxyPaths     = new Set(),
+          stack              = [];
+    let   insideData    = false,
+          dataIndent    = 0,
+          leafCallDepth = 0;
+
+    for (const text of source.split('\n')) {
+        const code    = stripStringsAndLineComment(text),
+              trimmed = code.trim(),
+              indent  = (code.match(/^\s*/) || [''])[0].length;
+
+        if (!insideData) {
+            if (/^\s*data\s*:\s*\{/.test(code)) {
+                insideData = true;
+                dataIndent = indent;
+                stack.length = 0;
+            }
+            continue;
+        }
+
+        if (leafCallDepth > 0) {
+            leafCallDepth += countChar(code, '(') - countChar(code, ')');
+            if (leafCallDepth <= 0) {
+                leafCallDepth = 0;
+            }
+            continue;
+        }
+
+        if (trimmed.startsWith('}') && indent <= dataIndent) {
+            insideData = false;
+            stack.length = 0;
+            continue;
+        }
+
+        while (stack.length > 0 && stack[stack.length - 1].indent >= indent) {
+            stack.pop();
+        }
+
+        const match = code.match(/^(\s*)([A-Za-z_$][\w$]*)\s*:\s*(leaf\s*\(|\{)/);
+        if (!match) continue;
+
+        const prop = match[2],
+              rhs  = match[3],
+              key  = [...stack.map(entry => entry.prop), prop].join('.');
+
+        if (rhs.startsWith('leaf')) {
+            if (/:\s*leaf\s*\(\s*\{/.test(code)) {
+                liveProxyPaths.add(key);
+            } else {
+                primitiveLeafPaths.add(key);
+            }
+
+            leafCallDepth = countChar(code.slice(code.indexOf('leaf')), '(') -
+                countChar(code.slice(code.indexOf('leaf')), ')');
+            if (leafCallDepth < 0) {
+                leafCallDepth = 0;
+            }
+        } else {
+            liveProxyPaths.add(key);
+            stack.push({indent, prop});
+        }
+    }
+
+    return {primitiveLeafPaths, liveProxyPaths};
+}
+
+/**
+ * @summary Counts single-character occurrences in a string.
+ * @param {String} text Source text.
+ * @param {String} ch Character to count.
+ * @returns {Number}
+ */
+function countChar(text, ch) {
+    let count = 0;
+
+    for (const current of text) {
+        if (current === ch) count++;
+    }
+
+    return count;
+}
+
+/**
+ * @summary Resolves a `config.mjs` import specifier to its matching `config.template.mjs`.
+ * @param {Object} options
+ * @param {String} options.rootDir Repo root.
+ * @param {String} options.file Repo-relative importer file.
+ * @param {String} options.specifier Import specifier.
+ * @returns {String|null} Absolute template path.
+ */
+function resolveConfigTemplatePath({rootDir, file, specifier}) {
+    let abs;
+
+    if (specifier.startsWith('neo.mjs/')) {
+        abs = path.join(rootDir, specifier.slice('neo.mjs/'.length));
+    } else if (specifier.startsWith('.')) {
+        abs = path.resolve(path.dirname(path.join(rootDir, file)), specifier);
+    } else {
+        return null;
+    }
+
+    const template = abs.replace(/config\.mjs$/, 'config.template.mjs');
+    return fs.existsSync(template) ? template : null;
+}
+
+/**
+ * @summary Reads and caches config-template path classifications.
+ * @param {String} templatePath Absolute template path.
+ * @returns {{primitiveLeafPaths: Set<String>, liveProxyPaths: Set<String>}}
+ */
+function getConfigPathKindsForTemplate(templatePath) {
+    const key = normalizeFile(templatePath);
+
+    if (!CONFIG_TEMPLATE_KIND_CACHE.has(key)) {
+        CONFIG_TEMPLATE_KIND_CACHE.set(
+            key,
+            collectConfigPathKindsFromSource(fs.readFileSync(templatePath, 'utf8'))
+        );
+    }
+
+    return CONFIG_TEMPLATE_KIND_CACHE.get(key);
+}
+
+/**
+ * @summary Maps imported config identifiers in one implementation file to config path kinds.
+ * @param {Object} options
+ * @param {String} [options.rootDir] Repo root.
+ * @param {String} options.file Repo-relative file.
+ * @param {String} options.source File source.
+ * @returns {Map<String,{primitiveLeafPaths: Set<String>, liveProxyPaths: Set<String>}>}
+ */
+export function buildConfigPathKindsByIdentifier({rootDir = ROOT_DIR, file, source} = {}) {
+    const out = new Map();
+
+    if (!file || !source) return out;
+
+    for (const match of source.matchAll(/\bimport\s+([A-Za-z_$][\w$]*)\s+from\s+['"]([^'"]*config\.mjs)['"]/g)) {
+        const template = resolveConfigTemplatePath({rootDir, file, specifier: match[2]});
+        if (template) {
+            out.set(match[1], getConfigPathKindsForTemplate(template));
+        }
+    }
+
+    for (const match of source.matchAll(/\bimport\s*\{([^}]+)\}\s*from\s+['"]([^'"]*services\.mjs)['"]/g)) {
+        for (const rawBinding of match[1].split(',')) {
+            const binding = rawBinding.trim();
+            if (!binding) continue;
+
+            const [imported, alias] = binding.split(/\s+as\s+/),
+                  rel               = SERVICE_EXPORT_CONFIG_TEMPLATE_REL[imported];
+
+            if (rel) {
+                out.set(alias || imported, getConfigPathKindsForTemplate(path.join(rootDir, rel)));
+            }
+        }
+    }
+
+    if (!out.has('AiConfig')) {
+        const rootTemplate = path.join(rootDir, 'ai/config.template.mjs');
+        if (fs.existsSync(rootTemplate)) {
+            out.set('AiConfig', getConfigPathKindsForTemplate(rootTemplate));
+        }
+    }
+
+    return out;
+}
+
+/**
+ * @summary Detects module-load AiConfig primitive/formula leaf captures.
+ *
+ * Direct use-site reads remain valid. Namespace captures and object-valued leaf captures also remain
+ * valid because later property reads go through live nested Provider proxies. This detector targets
+ * primitive/formula leaves frozen at module evaluation time, the #14239 failure mode where a runtime
+ * self-heal config mutation can be ignored by a stale closure. Function bodies and module-scope
+ * functions that read AiConfig when invoked are intentionally out of scope.
  * @param {String} source File contents.
+ * @param {Object} [options]
+ * @param {Map<String,{primitiveLeafPaths: Set<String>, liveProxyPaths: Set<String>}>} [options.configPathKindsByIdentifier]
  * @returns {Array<{line: Number, kind: String, text: String}>}
  */
-export function detectModuleScopeAiConfigCaptures(source) {
+export function detectModuleScopeAiConfigCaptures(source, {configPathKindsByIdentifier = new Map()} = {}) {
     const violations = [];
     let   depth      = 0;
 
@@ -356,18 +496,10 @@ export function detectModuleScopeAiConfigCaptures(source) {
         const trimmed = text.trim(),
               before  = depth;
 
-        if (before === 0 &&
-            !trimmed.startsWith('//') &&
-            !trimmed.startsWith('*') &&
-            !trimmed.startsWith('/*') &&
-            !trimmed.startsWith('*/') &&
-            /\b(?:const|let|var)\b/.test(trimmed) &&
-            (
-                /\b(?:const|let|var)\s*\{[^}]+\}\s*=\s*(?:aiConfig|AiConfig|KB_Config|Memory_Config)\b/.test(trimmed) ||
-                /=\s*(?:aiConfig|AiConfig|KB_Config|Memory_Config)(?:\?\.|\.)/.test(trimmed)
-            )
+        if (before === 0 && isPotentialModuleScopeConfigCapture(trimmed) &&
+            shouldFlagModuleScopeCapture(trimmed, configPathKindsByIdentifier)
         ) {
-            violations.push({line: index + 1, kind: 'module-scope-capture', text: trimmed});
+            violations.push({line: index + 1, kind: 'module-scope-leaf-capture', text: trimmed});
         }
 
         const code = stripStringsAndLineComment(text);
@@ -381,6 +513,100 @@ export function detectModuleScopeAiConfigCaptures(source) {
     });
 
     return violations;
+}
+
+/**
+ * @summary Checks whether a line can be a module-scope config capture before kind classification.
+ * @param {String} trimmed Trimmed source line.
+ * @returns {Boolean}
+ */
+function isPotentialModuleScopeConfigCapture(trimmed) {
+    return Boolean(trimmed) &&
+        !trimmed.startsWith('//') &&
+        !trimmed.startsWith('*') &&
+        !trimmed.startsWith('/*') &&
+        !trimmed.startsWith('*/') &&
+        /\b(?:const|let|var)\b/.test(trimmed);
+}
+
+/**
+ * @summary Decides whether a module-scope config capture freezes a primitive/formula leaf.
+ * @param {String} trimmed Trimmed source line.
+ * @param {Map<String,{primitiveLeafPaths: Set<String>, liveProxyPaths: Set<String>}>} configPathKindsByIdentifier
+ * @returns {Boolean}
+ */
+function shouldFlagModuleScopeCapture(trimmed, configPathKindsByIdentifier) {
+    const captures = readModuleScopeCapturePaths(trimmed, configPathKindsByIdentifier);
+
+    if (captures.length === 0) return false;
+
+    return captures.some(({identifier, path: capturePath}) => {
+        const kinds = configPathKindsByIdentifier.get(identifier);
+
+        if (!kinds) return true;
+
+        const key = capturePath.join('.');
+
+        if (kinds.liveProxyPaths.has(key)) return false;
+        if (kinds.primitiveLeafPaths.has(key)) return true;
+
+        for (const knownPath of [...kinds.liveProxyPaths, ...kinds.primitiveLeafPaths]) {
+            if (knownPath.startsWith(`${key}.`)) return false;
+        }
+
+        return true;
+    });
+}
+
+/**
+ * @summary Extracts captured config paths from one module-scope declaration line.
+ * @param {String} trimmed Trimmed source line.
+ * @param {Map<String,{primitiveLeafPaths: Set<String>, liveProxyPaths: Set<String>}>} configPathKindsByIdentifier
+ * @returns {Array<{identifier: String, path: String[]}>}
+ */
+function readModuleScopeCapturePaths(trimmed, configPathKindsByIdentifier) {
+    const direct = trimmed.match(/\b(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=\s*([A-Za-z_$][\w$]*)(?:\?\.|\.)((?:[A-Za-z_$][\w$]*)(?:\.[A-Za-z_$][\w$]*)*)/);
+
+    if (direct) {
+        if (!isConfigCaptureIdentifier(direct[1], configPathKindsByIdentifier)) return [];
+        return [{identifier: direct[1], path: direct[2].split('.')}];
+    }
+
+    const destructured = trimmed.match(/\b(?:const|let|var)\s*\{([^}]+)\}\s*=\s*([A-Za-z_$][\w$]*)\b/);
+    if (!destructured) return [];
+    if (!isConfigCaptureIdentifier(destructured[2], configPathKindsByIdentifier)) return [];
+
+    return destructured[1]
+        .split(',')
+        .map(part => part.trim())
+        .filter(Boolean)
+        .map(part => {
+            const localDefaultFree = part.split('=')[0].trim(),
+                  prop             = localDefaultFree.split(':')[0].trim();
+
+            return {identifier: destructured[2], path: [prop]};
+        })
+        .filter(({path}) => /^[A-Za-z_$][\w$]*$/.test(path[0]));
+}
+
+/**
+ * @summary Checks whether an identifier is a config provider alias worth classifying.
+ * @param {String} identifier Source identifier.
+ * @param {Map<String,{primitiveLeafPaths: Set<String>, liveProxyPaths: Set<String>}>} configPathKindsByIdentifier
+ * @returns {Boolean}
+ */
+function isConfigCaptureIdentifier(identifier, configPathKindsByIdentifier) {
+    return configPathKindsByIdentifier.has(identifier) || [
+        'aiConfig',
+        'AiConfig',
+        'GH_Config',
+        'KB_Config',
+        'MC_Config',
+        'Memory_Config',
+        'kbConfig',
+        'mcConfig',
+        'memoryCoreConfig'
+    ].includes(identifier);
 }
 
 /**
@@ -525,7 +751,9 @@ export function lintAiConfigModuleScopeCaptures({
     for (const {file, source} of records) {
         if (!shouldScanAiConfigImplementation(file)) continue;
 
-        for (const hit of detectModuleScopeAiConfigCaptures(source)) {
+        const configPathKindsByIdentifier = buildConfigPathKindsByIdentifier({rootDir, file, source});
+
+        for (const hit of detectModuleScopeAiConfigCaptures(source, {configPathKindsByIdentifier})) {
             violations.push({file, ...hit});
         }
     }
@@ -547,9 +775,10 @@ const FIX_HINT = 'Move env access into the leaf env-var-name argument — leaf(d
 const AI_CONFIG_FIX_HINT = 'Read resolved AiConfig leaves inline at the use site; local Provider subtree references are OK. ' +
     'Do not export config values, pass config-shaped objects through consumers, add hidden defaults/type coercions, ' +
     'or add defensive optional chaining unless the code names an ADR-19-sanctioned boundary. Authority: ADR 0019.';
-const AI_CONFIG_MODULE_SCOPE_FIX_HINT = 'Do not freeze Provider leaves at module load. Read AiConfig at the use site, ' +
-    'or document an existing non-self-heal P1 capture in AI_CONFIG_MODULE_SCOPE_BASELINE as a burndown row. ' +
-    'New self-heal / repair / actuator captures must be converted, not baselined. Authority: #14239 + ADR 0019.';
+const AI_CONFIG_MODULE_SCOPE_FIX_HINT = 'Do not freeze primitive/formula Provider leaves at module load. ' +
+    'Read the leaf at the use site, or document an existing frozen primitive leaf in AI_CONFIG_MODULE_SCOPE_BASELINE ' +
+    'as explicit #14239 burndown debt. Namespace and object-valued leaf captures stay live through nested Provider ' +
+    'proxies and must not be baselined as violations. Authority: #14239 + ADR 0019.';
 
 /**
  * @summary CLI wrapper. Returns an exit code (0 clean, 1 on new violations or stale baseline rows).

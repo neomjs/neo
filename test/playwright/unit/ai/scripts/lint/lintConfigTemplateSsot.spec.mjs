@@ -6,6 +6,8 @@ import {
     AI_CONFIG_IMPLEMENTATION_BASELINE,
     AI_CONFIG_MODULE_SCOPE_BASELINE,
     BASELINE,
+    buildConfigPathKindsByIdentifier,
+    collectConfigPathKindsFromSource,
     detectAiConfigImplementationViolations,
     detectInlineEnvLeaves,
     detectModuleScopeAiConfigCaptures,
@@ -28,7 +30,11 @@ import {
  * a fresh violation fails, and a stale baseline row fails (burndown hygiene).
  */
 test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative config SSOT guard)', () => {
-    const scriptPath = path.resolve(process.cwd(), 'ai/scripts/lint/lint-config-template-ssot.mjs');
+    const scriptPath  = path.resolve(process.cwd(), 'ai/scripts/lint/lint-config-template-ssot.mjs');
+    const configKinds = ({primitive = [], live = []} = {}) => ({
+        primitiveLeafPaths: new Set(primitive),
+        liveProxyPaths    : new Set(live)
+    });
 
     // ---- CLI ----
 
@@ -103,19 +109,60 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
         )).toHaveLength(0);
     });
 
-    test('detects module-scope AiConfig leaf captures', () => {
+    test('classifies config-template paths as frozen leaves versus live proxies', () => {
+        const kinds = collectConfigPathKindsFromSource([
+            `class Config {`,
+            `    static config = {`,
+            `        data: {`,
+            `            neoRootDir: leaf('/repo'),`,
+            `            issueSync: {`,
+            `                maxIssues: leaf(20, 'NEO_MAX_ISSUES', 'number')`,
+            `            },`,
+            `            queryScoreWeights: leaf({`,
+            `                baseIncrement: 1`,
+            `            })`,
+            `        }`,
+            `    }`,
+            `}`
+        ].join('\n'));
+
+        expect(kinds.primitiveLeafPaths.has('neoRootDir')).toBe(true);
+        expect(kinds.primitiveLeafPaths.has('issueSync.maxIssues')).toBe(true);
+        expect(kinds.liveProxyPaths.has('issueSync')).toBe(true);
+        expect(kinds.liveProxyPaths.has('queryScoreWeights')).toBe(true);
+    });
+
+    test('detects module-scope AiConfig primitive leaf captures', () => {
+        const configPathKindsByIdentifier = new Map([
+            ['aiConfig', configKinds({
+                primitive: ['neoRootDir', 'storagePaths.graph', 'datasets.rlaif.trajectories'],
+                live     : ['issueSync', 'pullRequest', 'queryScoreWeights']
+            })],
+            ['Memory_Config', configKinds({primitive: ['storagePaths.memory']})]
+        ]);
+
         const hits = detectModuleScopeAiConfigCaptures([
             `import aiConfig from './config.mjs';`,
             `const issueSyncConfig = aiConfig.issueSync;`,
             `const {queryScoreWeights} = aiConfig;`,
+            `const cwd = aiConfig.neoRootDir;`,
             `const memoryPath = Memory_Config.storagePaths.memory;`
-        ].join('\n'));
+        ].join('\n'), {configPathKindsByIdentifier});
 
         expect(hits.map(hit => hit.text)).toEqual([
-            'const issueSyncConfig = aiConfig.issueSync;',
-            'const {queryScoreWeights} = aiConfig;',
+            'const cwd = aiConfig.neoRootDir;',
             'const memoryPath = Memory_Config.storagePaths.memory;'
         ]);
+    });
+
+    test('maps config.mjs imports to templates for module-scope capture classification', () => {
+        const configPathKindsByIdentifier = buildConfigPathKindsByIdentifier({
+            file  : 'ai/services/github-workflow/sync/IssueSyncer.mjs',
+            source: `import aiConfig from '../../../mcp/server/github-workflow/config.mjs';`
+        });
+
+        expect(configPathKindsByIdentifier.get('aiConfig').liveProxyPaths.has('issueSync')).toBe(true);
+        expect(configPathKindsByIdentifier.get('aiConfig').primitiveLeafPaths.has('issueSync.maxIssues')).toBe(true);
     });
 
     test('ignores invocation-time and function-local AiConfig reads', () => {
@@ -205,17 +252,17 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
         expect(result.implementation.newViolations.map(hit => hit.kind)).toEqual(['type-coercion', 'hidden-default']);
     });
 
-    test('a baselined module-scope AiConfig capture is suppressed (documented P1 debt)', () => {
+    test('a baselined module-scope AiConfig primitive leaf capture is suppressed (documented P1 debt)', () => {
         const baseline = [{
             file  : 'ai/fixture.mjs',
-            kind  : 'module-scope-capture',
-            text  : 'const issueSyncConfig = aiConfig.issueSync;',
+            kind  : 'module-scope-leaf-capture',
+            text  : 'const cwd = aiConfig.neoRootDir;',
             ticket: '#14239',
-            reason: 'fixture P1 capture'
+            reason: 'fixture frozen primitive leaf'
         }];
         const files = [fileOf(
             'ai/fixture.mjs',
-            `const issueSyncConfig = aiConfig.issueSync;`
+            `const cwd = aiConfig.neoRootDir;`
         )];
 
         const {violations, newViolations} = lintAiConfigModuleScopeCaptures({files, baseline});
@@ -224,10 +271,13 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
         expect(newViolations).toHaveLength(0);
     });
 
-    test('a fresh module-scope AiConfig capture fails the combined lint', () => {
+    test('a fresh module-scope AiConfig primitive leaf capture fails the combined lint', () => {
         const moduleScopeFiles = [fileOf(
             'ai/daemons/orchestrator/services/SelfHealFixture.mjs',
-            `const recoveryActuatorConfig = aiConfig.orchestrator.recoveryActuator;`
+            [
+                `import AiConfig from '../../../config.mjs';`,
+                `const recoveryRunStateDir = AiConfig.orchestrator.recoveryActuator.recoveryRunStateDir;`
+            ].join('\n')
         )];
 
         const result = runLint({
@@ -241,8 +291,29 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
         expect(result.exitCode).toBe(1);
         expect(result.moduleScope.newViolations).toHaveLength(1);
         expect(result.moduleScope.newViolations[0].text).toBe(
-            'const recoveryActuatorConfig = aiConfig.orchestrator.recoveryActuator;'
+            'const recoveryRunStateDir = AiConfig.orchestrator.recoveryActuator.recoveryRunStateDir;'
         );
+    });
+
+    test('a fresh module-scope namespace proxy capture passes the combined lint', () => {
+        const moduleScopeFiles = [fileOf(
+            'ai/daemons/orchestrator/services/SelfHealFixture.mjs',
+            [
+                `import AiConfig from '../../../config.mjs';`,
+                `const recoveryActuatorConfig = AiConfig.orchestrator.recoveryActuator;`
+            ].join('\n')
+        )];
+
+        const result = runLint({
+            files                 : [],
+            implementationFiles   : [],
+            implementationBaseline: [],
+            moduleScopeFiles,
+            moduleScopeBaseline   : []
+        });
+
+        expect(result.exitCode).toBe(0);
+        expect(result.moduleScope.newViolations).toHaveLength(0);
     });
 
     // ---- the shipped baseline is internally well-formed ----
@@ -269,10 +340,10 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
     test('every shipped AI_CONFIG_MODULE_SCOPE_BASELINE row carries #14239 burndown context', () => {
         for (const row of AI_CONFIG_MODULE_SCOPE_BASELINE) {
             expect(row.file).toMatch(/^ai\/.*\.mjs$/);
-            expect(row.kind).toBe('module-scope-capture');
+            expect(row.kind).toBe('module-scope-leaf-capture');
             expect(row.text.length).toBeGreaterThan(0);
             expect(row.ticket).toBe('#14239');
-            expect(row.reason).toContain('not a self-heal');
+            expect(row.reason).toContain('Frozen primitive');
         }
     });
 });
