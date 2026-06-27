@@ -168,6 +168,26 @@ const MICRO_DELTA_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS = [
 
 const MICRO_DELTA_REVIEW_BLOCKER_CLASS_PATTERN = /(?:^|[^\w-])(mechanical-hygiene|metadata-drift)(?:$|[^\w-])/i;
 
+// Micro-Review (Cycle-1, blast-scaled): a MICRO / CONTAINED PR — none of the intense triggers (ADR /
+// new-subsystem / consumed-contract / security / migration) and a small diff — gets a premise+correctness
+// glance, not the full gauntlet (pr-review-guide §7 blast-scaling). The minimal shape stays opt-in via the
+// header so full/intense reviews keep validating heavy; the `**Class:**` token-check asserts the blast-class
+// so the light path cannot be a backdoor for an intense PR. Fail SAFE toward accept: the only enforced floor
+// is the header + class-assertion + a verdict + the glance — a wrongly-accepted-light review is recoverable
+// (human merge gate + peer review), a wrongly-rejected valid micro-review is the theater this tier removes.
+const MICRO_REVIEW_PR_REVIEW_SHAPE_HINTS = [
+    '# PR Micro-Review'
+];
+
+const MICRO_REVIEW_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS = [
+    '# PR Micro-Review',
+    '**Class:**',
+    '**Verdict:**',
+    '**Glance:**'
+];
+
+const MICRO_REVIEW_CLASS_PATTERN = /(?:^|[^\w-])(micro|contained|mechanical)(?:$|[^\w-])/i;
+
 /**
  * @summary Returns missing cycle-template skeleton anchors for review-body validation.
  *
@@ -337,12 +357,88 @@ function getCanonicalPrReviewTemplateValidationFailure(body) {
 }
 
 /**
+ * @summary Returns `true` when a review body opts into the Micro-Review (Cycle-1 blast-scaled) shape.
+ * @param {String} body The candidate PR review body.
+ * @returns {Boolean} Whether the body selects the Micro-Review light path.
+ */
+function isMicroReview(body) {
+    return MICRO_REVIEW_PR_REVIEW_SHAPE_HINTS.some(anchor => body.includes(anchor));
+}
+
+/**
+ * @summary Returns missing Micro-Review anchors (the minimal blast-scaled floor).
+ *
+ * Micro-Reviews are the Cycle-1 light path for a micro/contained PR (pr-review-guide §7 blast-scaling).
+ * The floor is intentionally minimal — header + `**Class:**` (asserting `micro`|`contained`, so the light
+ * path is not a backdoor for an intense PR) + `**Verdict:**` + `**Glance:**` (the premise+correctness check).
+ *
+ * @param {String} body The candidate Micro-Review body.
+ * @returns {String[]} Missing anchors or the class-assertion constraint.
+ */
+function getMicroReviewTemplateMisses(body) {
+    const misses = MICRO_REVIEW_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS
+        .filter(anchor => !body.includes(anchor));
+
+    const classLine = body.split('\n').find(line => line.includes('**Class:**')) || '';
+
+    if (!MICRO_REVIEW_CLASS_PATTERN.test(classLine)) {
+        misses.push('Class: micro | contained (the blast-class assertion)');
+    }
+
+    return misses;
+}
+
+/**
+ * @summary Returns a structured validation failure for malformed Micro-Review bodies.
+ *
+ * @param {String} body The candidate Micro-Review body.
+ * @returns {Object|null} Validation failure payload or `null` when valid.
+ */
+function getMicroReviewTemplateValidationFailure(body) {
+    const missing = getMicroReviewTemplateMisses(body);
+
+    if (missing.length === 0) {
+        return null;
+    }
+
+    const skillPath = '.agents/skills/pr-review/SKILL.md';
+
+    const message = [
+        `Review body attempts the Micro-Review format but does not match its minimal shape.`,
+        ``,
+        `The Micro-Review (Cycle-1, blast-scaled per pr-review-guide §7) is for a MECHANICAL PR with`,
+        `no architectural concept to teach (test / config-leaf / behavior-preserving), ANY size — so no`,
+        `\`[ARCH_ALIGNMENT]\` / \`[RETROSPECTIVE]\` graph-ingestion is lost (the gate that keeps the concept-graph`,
+        `fed). It needs only: the header, **Class:** (asserting micro | contained | mechanical), **Verdict:**,`,
+        `and **Glance:** (the premise + correctness check). A concept-bearing PR — touches an ADR / new`,
+        `abstraction / consumed contract / security / migration — uses the full template instead, regardless of size.`
+    ].join('\n');
+
+    return {
+        error              : 'PR Review Template Validation Failed',
+        message,
+        code               : 'PR_REVIEW_TEMPLATE_VALIDATION_FAILED',
+        missing_micro_review: missing,
+        skill              : skillPath
+    };
+}
+
+/**
  * @summary Returns the selected review-template validation failure, if any.
+ *
+ * Tier dispatch (most-specific first): an opt-in Micro-Review (Cycle-1 blast-scaled light shape) → a
+ * Micro-Delta (Cycle-N cost-compression) → else the canonical full/follow-up template. The blast-scaled
+ * tiers fail SAFE toward accept (a minimal floor); the canonical path keeps validating heavy for
+ * full/intense reviews.
  *
  * @param {String} body The candidate PR review body.
  * @returns {Object|null} Validation failure payload or `null` when valid.
  */
 function getPrReviewTemplateValidationFailure(body) {
+    if (isMicroReview(body)) {
+        return getMicroReviewTemplateValidationFailure(body);
+    }
+
     return isMicroDeltaPrReview(body)
         ? getMicroDeltaPrReviewTemplateValidationFailure(body)
         : getCanonicalPrReviewTemplateValidationFailure(body);

@@ -89,6 +89,27 @@ jobs:
               {label: "Patch Verdict",            token: "**Patch Verdict:**"}
             ];
 
+            // Micro-Review (Cycle-1, blast-scaled) light path — KEEP IN SYNC with
+            // ai/services/github-workflow/PullRequestService.mjs MICRO_REVIEW_* constants.
+            // A micro/contained PR gets a premise+correctness glance, not the full gauntlet
+            // (pr-review-guide §7). Fail SAFE toward accept: the floor is the header + the Class
+            // assertion (micro|contained, so the light path is not an intense-PR backdoor) + a
+            // Verdict + the Glance. An intense/large PR uses the full template instead.
+            if (body.includes("# PR Micro-Review")) {
+              const microMisses = ["# PR Micro-Review", "**Class:**", "**Verdict:**", "**Glance:**"]
+                .filter(a => !body.includes(a));
+              const microClassLine = body.split("\n").find(l => l.includes("**Class:**")) || "";
+              if (!/(?:^|[^\w-])(micro|contained)(?:$|[^\w-])/i.test(microClassLine)) {
+                microMisses.push("Class: micro | contained");
+              }
+              if (microMisses.length === 0) {
+                console.log("✅ Micro-Review body matches the blast-scaled light shape.");
+                return;
+              }
+              core.setFailed(`Agent micro-review body missing the minimal shape (header + "**Class:** micro|contained" + "**Verdict:**" + "**Glance:**"). See .agents/skills/pr-review/assets/pr-review-micro-review-template.md`);
+              return;
+            }
+
             const missingVisible         = VISIBLE_PR_REVIEW_ANCHORS         .filter(a => !body.includes(a));
             const missingInvisible       = INVISIBLE_PR_REVIEW_ANCHORS       .filter(a => !body.includes(a));
             const presentPremiseSnapshot = OPTIONAL_PR_REVIEW_PREMISE_ANCHORS.filter(a =>  body.includes(a.token));
