@@ -188,6 +188,54 @@ const knowledgeBaseDangerousReadForbidden = [
     'ingest_source_files'
 ];
 
+const githubWorkflowToolTiers = ['read', 'write', 'extended', 'admin'];
+
+const expectedGithubWorkflowToolTiers = {
+    healthcheck                : 'read',
+    get_mcp_tool_handbook      : 'read',
+    list_labels                : 'read',
+    list_pull_requests         : 'read',
+    checkout_pull_request      : 'admin',
+    get_pull_request_diff      : 'read',
+    get_conversation           : 'read',
+    manage_issue_comment       : 'write',
+    manage_issue_labels        : 'write',
+    manage_issue_assignees     : 'write',
+    manage_pr_review           : 'write',
+    manage_pr_reviewers        : 'write',
+    get_local_issue_by_id      : 'read',
+    list_issues                : 'read',
+    create_issue               : 'write',
+    manage_issue_projects      : 'extended',
+    create_discussion          : 'extended',
+    manage_discussion          : 'extended',
+    get_discussion_conversation: 'read',
+    manage_discussion_comment  : 'extended',
+    update_issue_relationship  : 'write',
+    sync_all                   : 'extended',
+    get_viewer_permission      : 'read',
+    signal_state_transition    : 'write'
+};
+
+// Every mutating gh op must NOT be tiered `read` (a mutation mislabeled read would be wrongly
+// auto-visible as a safe default). `checkout_pull_request` is `admin` (it desyncs the canonical clone).
+const githubWorkflowDangerousReadForbidden = [
+    'checkout_pull_request',
+    'manage_issue_comment',
+    'manage_issue_labels',
+    'manage_issue_assignees',
+    'manage_pr_review',
+    'manage_pr_reviewers',
+    'create_issue',
+    'manage_issue_projects',
+    'create_discussion',
+    'manage_discussion',
+    'manage_discussion_comment',
+    'update_issue_relationship',
+    'sync_all',
+    'signal_state_transition'
+];
+
 /**
  * Reads OpenAPI operations by operationId.
  * @param {object} doc Parsed OpenAPI document.
@@ -418,6 +466,39 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
             offenders  = knowledgeBaseDangerousReadForbidden.filter(id => operations[id]?.['x-neo-tool-tier'] === 'read');
 
         expect(offenders, `Dangerous Knowledge Base operations mislabeled read:\n${offenders.join('\n')}`).toEqual([]);
+    });
+
+    test('github-workflow declares the harness-visible projection policy (#14164)', () => {
+        const
+            doc        = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/github-workflow/openapi.yaml'), 'utf8')),
+            projection = doc['x-neo-harness-tool-projection'];
+
+        expect(projection, 'Missing x-neo-harness-tool-projection contract').toBeTruthy();
+        expect(projection.defaultVisibleTiers).toEqual(['read', 'write']);
+        expect(projection.operatorOnlyTiers).toEqual(['admin']);
+    });
+
+    test('github-workflow classifies every operation into one harness tool tier (#14164)', () => {
+        const
+            doc        = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/github-workflow/openapi.yaml'), 'utf8')),
+            operations = getOperationsById(doc),
+            tiers      = Object.fromEntries(Object.entries(operations).map(([id, op]) => [id, op['x-neo-tool-tier']]));
+
+        const missing = Object.entries(tiers).filter(([, tier]) => tier === undefined).map(([id]) => id);
+        const invalid = Object.entries(tiers).filter(([, tier]) => tier !== undefined && !githubWorkflowToolTiers.includes(tier));
+
+        expect(missing, `github-workflow operations missing x-neo-tool-tier:\n${missing.join('\n')}`).toEqual([]);
+        expect(invalid, `Invalid github-workflow x-neo-tool-tier values:\n${invalid.map(([id, tier]) => `${id}: ${tier}`).join('\n')}`).toEqual([]);
+        expect(tiers).toEqual(expectedGithubWorkflowToolTiers);
+    });
+
+    test('github-workflow mutating operations cannot be tiered as read (#14164)', () => {
+        const
+            doc        = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/github-workflow/openapi.yaml'), 'utf8')),
+            operations = getOperationsById(doc),
+            offenders  = githubWorkflowDangerousReadForbidden.filter(id => operations[id]?.['x-neo-tool-tier'] === 'read');
+
+        expect(offenders, `Dangerous github-workflow operations mislabeled read:\n${offenders.join('\n')}`).toEqual([]);
     });
 
     test('neural-link OpenAPI operations stay aligned with serviceMapping keys (#13064)', () => {
