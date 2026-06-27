@@ -42,8 +42,9 @@ import path            from 'node:path';
 import os              from 'node:os';
 import {pathToFileURL} from 'node:url';
 
-import {parseLaneState}            from '../../ai/scripts/lifecycle/parseLaneState.mjs';
+import {parseLaneState} from '../../ai/scripts/lifecycle/parseLaneState.mjs';
 import {buildDeferenceStopHookDirective,
+        classifyPromptingContext,
         decideDeferenceStopHookAction,
         decideStopHookAction,
         isOperatorInLoop,
@@ -392,7 +393,11 @@ async function main() {
     } catch (e) {
         // best-effort; isOperatorInLoop falls back to stop_hook_active when promptingText is empty
     }
-    const operatorInLoop = isOperatorInLoop({stopHookActive: !!input.stop_hook_active, promptingText});
+    const promptContext = classifyPromptingContext({
+        stopHookActive: !!input.stop_hook_active,
+        promptingText
+    });
+    const {autonomousHandoff, handoffReason, handoffWindowMs, operatorInLoop} = promptContext;
 
     const deferenceDecision = decideDeferenceStopHookAction(finalText, {operatorInLoop, enforcing: ENFORCING});
     if (deferenceDecision) {
@@ -400,7 +405,7 @@ async function main() {
               session = input.session_id || '?';
 
         if (deferenceDecision.action === 'block') {
-            auditLog(`BLOCK (session=${session}): ${reason}`);
+            auditLog(`BLOCK (session=${session}, operatorInLoop=${operatorInLoop}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}`);
             process.stdout.write(JSON.stringify({
                 decision: 'block',
                 reason  : deferenceDecision.reason
@@ -408,7 +413,7 @@ async function main() {
             return;
         }
 
-        auditLog(`WOULD-BLOCK (session=${session}): ${reason}`);
+        auditLog(`WOULD-BLOCK (session=${session}, operatorInLoop=${operatorInLoop}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}`);
         process.exit(0);
     }
 
@@ -438,7 +443,7 @@ async function main() {
         // the injected directive names the SPECIFIC relapse-phrase back (a sharper mirror). Never gates
         // the block (the decision is unchanged) — only enriches the reason.
         const holdMatches = scanHoldLexicon(finalText);
-        auditLog(`BLOCK (session=${session}): ${reason}${holdMatches.length ? ` [hold-costume: ${holdMatches.join(', ')}]` : ''}`);
+        auditLog(`BLOCK (session=${session}, operatorInLoop=${operatorInLoop}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}${holdMatches.length ? ` [hold-costume: ${holdMatches.join(', ')}]` : ''}`);
         // Block the stop + inject the curated no-hold-state directive — Claude uses the injected
         // `reason` as its next instruction; the audit log keeps the terse trigger cause.
         // Exit only AFTER stdout drains so the decision JSON is never truncated on a pipe.
@@ -447,7 +452,7 @@ async function main() {
         return;
     }
 
-    auditLog(`${action === 'would-block' ? 'WOULD-BLOCK' : 'ALLOW'} (session=${session}): ${reason}`);
+    auditLog(`${action === 'would-block' ? 'WOULD-BLOCK' : 'ALLOW'} (session=${session}, operatorInLoop=${operatorInLoop}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}`);
     process.exit(0);
 }
 

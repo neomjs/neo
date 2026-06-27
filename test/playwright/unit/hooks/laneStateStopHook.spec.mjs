@@ -89,6 +89,13 @@ test.describe('laneStateStopHook — pure idle-out decision logic', () => {
         test('a genuine operator message → true', () => {
             expect(isOperatorInLoop({stopHookActive: false, promptingText: 'please do X, then report'})).toBe(true);
         });
+
+        test('a handoff-to-autonomous operator message → false', () => {
+            expect(isOperatorInLoop({
+                stopHookActive: false,
+                promptingText : "nightshift mode from here on for the next 5h, you and Euclid can freely choose. I merge when I get back."
+            })).toBe(false);
+        });
     });
 
     test.describe('composeBlockDirective — the injected no-hold-state directive', () => {
@@ -328,6 +335,20 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
         const {stdout, log} = await runHook('Done — over to you.', {enforce: true, promptingText: 'please do X, then report'});
         expect(log).toContain('ALLOW');
         expect(stdout).toBe('');
+    });
+
+    test('handoff-to-autonomous operator prompt + enforce → BLOCK, not operator ALLOW', async () => {
+        const {stdout, log} = await runHook(validTerminal, {
+            enforce      : true,
+            promptingText: "nightshift mode from here on for the next 5h, you and Euclid can freely choose. I merge when I get back."
+        });
+
+        expect(JSON.parse(stdout).decision).toBe('block');
+        expect(log).toContain('BLOCK');
+        expect(log).toContain('operatorInLoop=false');
+        expect(log).toContain('autonomousHandoff=true');
+        expect(log).toContain('handoffReason=nightshift-mode');
+        expect(log).toContain('handoffWindowMs=18000000');
     });
 
     test('loophole closed: a VALID terminal with NO operator prompt → WOULD-BLOCK (dry-run)', async () => {
