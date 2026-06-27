@@ -38,6 +38,7 @@ import DataRecoveryActuatorService                                              
 import {auditChromaVectorCoverage}                                                                  from '../../scripts/maintenance/checkChromaIntegrity.mjs';
 import {createReEmbedMissingHeal, createReEmbedMissingHealOperation}                                from '../../services/memory-core/helpers/reEmbedMissingHeal.mjs';
 import {appendHealEvent, healEventsToRecentRuns, queryHealLedger, readHealLedger}                   from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
+import {quarantineCollection, storeFenceTargets, unquarantineCollection}                            from '../../services/memory-core/helpers/quarantineStore.mjs';
 import {Memory_StorageRouter as StorageRouter, Memory_TextEmbeddingService as TextEmbeddingService} from '../../services.mjs';
 import {buildDataIntegrityCoverageDiagnosis}                                                        from './services/dataIntegrityCoverageDiagnosis.mjs';
 import {assembleDataIntegrityEvidence}                                                              from './services/dataIntegrityEvidenceAssembler.mjs';
@@ -451,7 +452,25 @@ export class Orchestrator extends Base {
 
                         return Array.isArray(drift?.missingVectorIds) ? drift.missingVectorIds : [];
                     }
-                })
+                }),
+                // Quarantine-from-serving: the safe-default terminal for non-losslessly-recoverable corruption.
+                // Fences the collection (queryMemories / querySummaries fail-fast) until a repair or a clean
+                // re-audit lifts it. Lossless — no data mutated, no operator.
+                quarantine: async ({collection, evidence, now} = {}) => {
+                    // A store-level fault (sqlite-integrity) targets the service id, not a served collection, so
+                    // fence every served collection in the store — else no query guard observes the fence.
+                    const targets = storeFenceTargets(collection, [AiConfig.collections.memory, AiConfig.collections.session]);
+
+                    for (const target of targets) {
+                        await quarantineCollection(target, {
+                            dir   : AiConfig.engines.chroma.dataDir,
+                            reason: evidence?.reasonCode ?? evidence?.mode ?? collection,
+                            now
+                        });
+                    }
+
+                    return {status: 'quarantined', detail: {collection, fenced: targets}};
+                }
             },
             recentRunsReader : async collectionName => healEventsToRecentRuns(queryHealLedger(await readHealLedger({dir: healLedgerDir}), {collections: [collectionName]})),
             recordRun        : async ({action, collection, at}) => appendHealEvent({type: action, collection, status: 'attempt'}, {dir: healLedgerDir, now: at}),
@@ -467,7 +486,10 @@ export class Orchestrator extends Base {
         return ClassSystemUtil.beforeSetInstance(value, DataIntegrityDiagnosisService, {
             serviceId       : this.dataIntegrityServiceId,
             recoveryActuator: this.dataRecoveryActuatorService,
-            evidenceGatherer: this.dataIntegrityEvidenceGatherer
+            evidenceGatherer: this.dataIntegrityEvidenceGatherer,
+            // Reversibility: a clean re-audit (terminalAction `none`) lifts the serving fence. The store-level
+            // fence is per-served-collection, so each lifts as it re-audits clean.
+            liftQuarantine  : async collection => unquarantineCollection(collection, {dir: AiConfig.engines.chroma.dataDir})
         });
     }
 
