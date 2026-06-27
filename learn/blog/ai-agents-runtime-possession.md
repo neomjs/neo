@@ -113,7 +113,7 @@ And the team that built this engine is the team that needed it. Neo's maintainer
 
 ## The takeaway
 
-Code generation is the easy half. The hard, valuable half — the half almost no UI runtime offers — is letting an agent **operate the running application**: read its real state through a self-describing protocol, mutate it through the developer's own primitives, stay inside a transaction it can reverse, and verify against the worker's own truth. On a main-thread DOM stack there is no single introspectable *application* to possess — only its rendered shadow. On Neo.mjs it's a Neural Link call, because the Body was built to be inhabited.
+Code generation is the easy half. The hard, valuable half — the half almost no UI runtime offers — is letting an agent **operate the running application**: read its real state through a self-describing protocol, mutate it through the developer's own primitives, stay inside a transaction it can reverse, and verify against the worker's own truth. On a main-thread DOM stack there's no single, *agent-operable* application to possess: a framework's tree may be visible to a human through devtools, but not as a programmatic, mutable, transactional runtime an agent drives — what the agent gets is the rendered shadow. On Neo.mjs it's a Neural Link call, because the Body was built to be inhabited.
 
 If you're building for agents that *do* things in live applications rather than just write code for them — **what does your agent see when it looks at your running app: the application, or its shadow?**
 
