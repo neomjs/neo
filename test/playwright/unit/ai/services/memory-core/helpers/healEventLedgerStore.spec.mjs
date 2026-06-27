@@ -9,8 +9,10 @@ import {
     appendHealEvent,
     readHealLedger,
     summarizeHealLedger,
-    queryHealLedger
+    queryHealLedger,
+    healEventsToRecentRuns
 } from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
+import {decideHealAction} from '../../../../../../../ai/services/memory-core/helpers/healActionDispatch.mjs';
 
 async function tmpDir() {
     return await fs.mkdtemp(path.join(os.tmpdir(), 'heal-ledger-'));
@@ -130,5 +132,49 @@ test.describe('queryHealLedger — the filtered "what happened" surface', () => 
         expect(queryHealLedger(withGarbage).length).toBe(2);                          // both objects, no time bound
         expect(queryHealLedger(withGarbage, {sinceMs: 0}).map(e => e.at)).toEqual([50]); // untimed excluded under a bound
         expect(queryHealLedger(undefined)).toEqual([]);
+    });
+});
+
+test.describe('healEventsToRecentRuns — the ledger→dispatch anti-thrash shape seam', () => {
+    test('projects each ledger entry type → action, keeping collection + the epoch-ms at', () => {
+        const events = [
+            {type: 're-embed-missing', collection: 'neo-agent-memory', status: 'attempt', at: 1000},
+            {type: 're-embed-missing', collection: 'neo-agent-memory', status: 'attempt', at: 2000},
+            null,
+            'garbage'
+        ];
+
+        expect(healEventsToRecentRuns(events)).toEqual([
+            {action: 're-embed-missing', collection: 'neo-agent-memory', at: 1000},
+            {action: 're-embed-missing', collection: 'neo-agent-memory', at: 2000}
+        ]);
+        expect(healEventsToRecentRuns()).toEqual([]);
+    });
+
+    test('REGRESSION: a just-recorded ledger attempt cools down the next dispatch (raw shape would not)', async () => {
+        // The wired production seam: recordRun appends {type: action, ...}; the bug was recentRunsReader
+        // returning the raw {type} entries, which decideHealAction (filtering recentRuns by run.action) never
+        // matched -> a just-recorded attempt re-executed with no anti-thrash. Prove the projection fixes it.
+        const dir = await tmpDir();
+
+        try {
+            const now = 1_000_000;
+
+            await appendHealEvent({type: 're-embed-missing', collection: 'neo-agent-memory', status: 'attempt'}, {dir, now});
+
+            const ledgerRuns = queryHealLedger(await readHealLedger({dir}), {collections: ['neo-agent-memory']}),
+                  recentRuns = healEventsToRecentRuns(ledgerRuns);
+
+            // Projected shape: action matches -> within the default cooldown window -> thrash-cooldown.
+            const fixed = decideHealAction({action: 're-embed-missing', collection: 'neo-agent-memory', recentRuns, now: now + 1000});
+            expect(fixed.status).toBe('thrash-cooldown');
+            expect(fixed.execute).toBe(false);
+
+            // Raw (unprojected) ledger shape: no run.action -> the filter never matches -> the bug (re-execute).
+            const buggy = decideHealAction({action: 're-embed-missing', collection: 'neo-agent-memory', recentRuns: ledgerRuns, now: now + 1000});
+            expect(buggy.status).toBe('execute');
+        } finally {
+            await fs.rm(dir, {recursive: true, force: true});
+        }
     });
 });

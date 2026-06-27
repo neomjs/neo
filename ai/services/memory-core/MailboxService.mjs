@@ -34,6 +34,11 @@ const
         /\blane-override\b/i
     ];
 
+// A `[lane-claim]` is collision-prevention substrate: the wake IS the point — a mid-session peer learns
+// "don't claim this" only if the claim wakes them. So a lane-claim is never an allowed wake suppression
+// (broadcast OR direct); plain lane-progress / FYI / ack broadcasts stay suppressible.
+const LANE_CLAIM_SUBJECT = /^\s*\[lane-claim\]/i;
+
 /**
  * @summary Extracts a GitHub pull request number from a ticket-style related id.
  * @param {String} ticket Related ticket id such as `#<number>`.
@@ -197,6 +202,10 @@ function setRecordProperties(record, properties) {
  * @private
  */
 function isAllowedWakeSuppression({subject = '', taggedConcepts = [], to}) {
+    // A lane-claim is never a safe suppression — the wake is its whole purpose. This MUST precede the
+    // `AGENT:*` allow below, which would otherwise green-light a wake-suppressed lane-claim broadcast.
+    if (LANE_CLAIM_SUBJECT.test(subject)) return false;
+
     if (to === 'AGENT:*') return true;
 
     if (taggedConcepts.some(tag => WAKE_SUPPRESSION_ALLOWED_TAGS.has(tag))) {
@@ -207,10 +216,10 @@ function isAllowedWakeSuppression({subject = '', taggedConcepts = [], to}) {
 }
 
 /**
- * @summary Returns the actionable-suppression reason for a direct A2A message, or `null` when
- * `wakeSuppressed` is safe. `wakeSuppressed` is honored downstream by the wake substrate; this
- * guard sits at message acceptance so known-actionable direct lifecycle messages cannot silently
- * become mailbox-only.
+ * @summary Returns the wake-suppression-risk reason for an A2A message, or `null` when `wakeSuppressed`
+ * is safe. `wakeSuppressed` is honored downstream by the wake substrate; this guard sits at message
+ * acceptance so known-actionable messages — actionable DIRECT subjects, high-priority/task direct
+ * messages, AND collision-prone `[lane-claim]` BROADCASTS — cannot silently become mailbox-only.
  * @param {Object} args
  * @param {Boolean} args.wakeSuppressed
  * @param {String} args.to
@@ -224,6 +233,12 @@ function isAllowedWakeSuppression({subject = '', taggedConcepts = [], to}) {
 function getWakeSuppressionRisk({wakeSuppressed, to, subject = '', priority = 'normal', taggedConcepts = [], task}) {
     if (!wakeSuppressed || isAllowedWakeSuppression({subject, taggedConcepts, to})) {
         return null;
+    }
+
+    // A collision-prone lane-claim must wake — broadcast OR direct. This precedes the @-direct-only gate
+    // below, because the exact collision class this guards is a wake-suppressed `AGENT:*` lane-claim.
+    if (LANE_CLAIM_SUBJECT.test(subject)) {
+        return 'collision-prone [lane-claim]';
     }
 
     if (!to?.startsWith('@')) {

@@ -1,7 +1,8 @@
-import Neo from '../../../src/Neo.mjs';
-import * as core from '../../../src/core/_export.mjs';
+import Neo           from '../../../src/Neo.mjs';
+import AiConfig      from '../../config.mjs';
+import * as core     from '../../../src/core/_export.mjs';
 import Memory_Config from '../../mcp/server/memory-core/config.mjs';
-import DreamService from '../../daemons/orchestrator/services/DreamService.mjs';
+import DreamService  from '../../daemons/orchestrator/services/DreamService.mjs';
 import {
     assertProviderReadinessConfig,
     checkProvider,
@@ -11,9 +12,9 @@ import {
     recordProviderReadinessFailure,
     waitForProvider
 } from '../../services/graph/providerReadinessHelper.mjs';
-import LifecycleService from '../../services/memory-core/lifecycle/SystemLifecycleService.mjs';
+import LifecycleService            from '../../services/memory-core/lifecycle/SystemLifecycleService.mjs';
 import {withHeavyMaintenanceLease} from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
-import {pathToFileURL} from 'url';
+import {pathToFileURL}             from 'url';
 
 /**
  * @module ai/scripts/runners/runSandman
@@ -117,7 +118,7 @@ export async function runSandman({
                 mode        : 'cli',
                 includeDecay: true
             });
-        }, {owner: 'sandman', reason: 'manual-cli', metadata: {script: 'ai/scripts/runners/runSandman.mjs'}});
+        }, {owner: 'sandman', reason: 'manual-cli', staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs, metadata: {script: 'ai/scripts/runners/runSandman.mjs'}});
     } catch (e) {
         // If lease acquisition fails, fail closed rather than mutating Memory Core graph state
         // without concurrency protection.

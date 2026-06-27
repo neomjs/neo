@@ -1,7 +1,7 @@
-import {test, expect} from '@playwright/test';
-import {mkdtemp, rm}  from 'fs/promises';
-import os             from 'os';
-import path           from 'path';
+import {test, expect}          from '@playwright/test';
+import {mkdtemp, readFile, rm} from 'fs/promises';
+import os                      from 'os';
+import path                    from 'path';
 import {
     anyRepairNonClean,
     applyAutonomousSettlement,
@@ -16,6 +16,7 @@ import {
     runDefragChromaDBCli,
     writeDefragState
 } from '../../../../../../ai/scripts/maintenance/defragChromaDB.mjs';
+import AiConfig       from '../../../../../../ai/mcp/server/memory-core/config.mjs';
 
 /**
  * AC4 — the Memory Core defrag-wiring orchestration: full (uncapped) enumeration ->
@@ -567,9 +568,10 @@ test.describe('runDefragChromaDBCli (#14020)', () => {
 
         expect(calls.run).toBe(1);
         expect(calls.lease).toEqual([{
-            owner   : 'defrag',
-            reason  : 'manual-cli',
-            metadata: {script: 'ai/scripts/maintenance/defragChromaDB.mjs'}
+            owner       : 'defrag',
+            reason      : 'manual-cli',
+            staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs,
+            metadata    : {script: 'ai/scripts/maintenance/defragChromaDB.mjs'}
         }]);
         expect(calls.exit).toEqual([0]);
     });
@@ -814,15 +816,17 @@ test.describe('applyAutonomousSettlement — a settled clean exit clears the non
         promotion: {parkingName}
     });
 
-    test('all-bounded-terminal → settles, audits WITH the parking context, clears the marker', async () => {
-        const audits = [], cleared = [];
+    test('all-bounded-terminal → settles, audits WITH the parking context, writes accepted-loss state, clears the marker', async () => {
+        const audits = [], acceptedLossStates = [], cleared = [];
 
         const result = await applyAutonomousSettlement({
-            results  : [partial('mc-graph', [{id: 'a', reason: 'document-absent'}], 10000, 'mc-graph-parking-1')],
-            statePath: '/state/marker.json',
-            auditDir : '/state',
-            appendFn : async (entry, opts) => { audits.push({entry, opts}); },
-            clearFn  : async opts => { cleared.push(opts); }
+            results                 : [partial('mc-graph', [{id: 'a', reason: 'document-absent'}], 10000, 'mc-graph-parking-1')],
+            statePath               : '/state/marker.json',
+            auditDir                : '/state',
+            appendFn                : async (entry, opts) => { audits.push({entry, opts}); },
+            writeAcceptedLossStateFn: async (state, opts) => { acceptedLossStates.push({state, opts}); },
+            clearFn                 : async opts => { cleared.push(opts); },
+            now                     : () => '2026-06-27T13:31:00.000Z'
         });
 
         expect(result.settled).toBe(true);
@@ -830,6 +834,22 @@ test.describe('applyAutonomousSettlement — a settled clean exit clears the non
         expect(audits).toHaveLength(1);
         expect(audits[0].entry).toMatchObject({type: 'auto-accepted-loss', collectionName: 'mc-graph', parkingName: 'mc-graph-parking-1'});
         expect(audits[0].opts).toEqual({dir: '/state'});
+        expect(acceptedLossStates).toHaveLength(1);
+        expect(acceptedLossStates[0].opts).toEqual({dir: '/state'});
+        expect(acceptedLossStates[0].state).toMatchObject({
+            type           : 'auto-accepted-loss-state',
+            phase          : 'memory-core-repair-recovered-with-accepted-loss',
+            settledAt      : '2026-06-27T13:31:00.000Z',
+            auditPath      : '/state/auto-accepted-loss.jsonl',
+            defragStatePath: '/state/marker.json',
+            collectionCount: 1,
+            collections    : [{
+                collectionName: 'mc-graph',
+                parkingName   : 'mc-graph-parking-1',
+                fingerprint   : audits[0].entry.fingerprint,
+                acceptedIds   : ['a']
+            }]
+        });
     });
 
     test('any heal-path (transient) collection → NOT settled, no audit, marker left intact', async () => {
@@ -865,12 +885,16 @@ test.describe('applyAutonomousSettlement — a settled clean exit clears the non
             const result = await applyAutonomousSettlement({
                 results : [partial('mc-graph', [{id: 'a', reason: 'document-absent'}], 10000, 'parking-1')],
                 statePath,
-                auditDir: tmpDir
+                auditDir: tmpDir,
+                now     : () => '2026-06-27T13:31:00.000Z'
             });
             expect(result.settled).toBe(true);
 
             // the next run is now unblocked — the marker is resolved
             await expect(assertNoIncompleteDefragState({statePath, allowedPhases: []})).resolves.toBeUndefined();
+            const acceptedLossState = JSON.parse(await readFile(path.join(tmpDir, 'auto-accepted-loss-state.json'), 'utf8'));
+            expect(acceptedLossState.phase).toBe('memory-core-repair-recovered-with-accepted-loss');
+            expect(acceptedLossState.collections[0].parkingName).toBe('parking-1');
         } finally {
             await rm(tmpDir, {recursive: true, force: true});
         }

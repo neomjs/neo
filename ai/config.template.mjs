@@ -330,6 +330,13 @@ class Config extends ConfigProvider {
              */
             embeddingModel: leaf('gemini-embedding-001'),
             /**
+             * @summary Gemini API key (secret), sourced from the `GEMINI_API_KEY` env var via the leaf
+             * (mirrors the OpenAI-compatible `apiKey` leaf). Read at the use site (`aiConfig.geminiApiKey`);
+             * consumers must never read `process.env.GEMINI_API_KEY` directly.
+             * @type {String}
+             */
+            geminiApiKey: leaf('', 'GEMINI_API_KEY', 'string'),
+            /**
              * @summary Enforced vector dimension across shared vector collections.
              *
              * Hard-configured to prevent schema wipes when operators change embedding
@@ -374,6 +381,23 @@ class Config extends ConfigProvider {
                     databaseTest   : leaf('neo-unit-test', 'NEO_CHROMA_DATABASE_TEST', 'string'),
                     useTestDatabase: leaf(false, 'UNIT_TEST_MODE', 'boolean')
                 }
+            },
+            /**
+             * Memory Core service tuning — timeouts, retry, graph-projection cadence, miniSummary.
+             * All operator-tunable; consumers read `aiConfig.memoryService.*` at the use site.
+             * @type {Object}
+             */
+            memoryService: {
+                miniSummaryTimeoutMs           : leaf(30000, 'NEO_MC_MINI_SUMMARY_TIMEOUT_MS', 'number'),
+                miniSummaryBackfillMaxRunMs    : leaf(600000, 'NEO_MC_MINI_SUMMARY_BACKFILL_MAX_RUN_MS', 'number'),
+                miniSummaryBackfillFreshReserve: leaf(10, 'NEO_MC_MINI_SUMMARY_BACKFILL_FRESH_RESERVE', 'number'),
+                miniSummaryMaxChars            : leaf(280, 'NEO_MC_MINI_SUMMARY_MAX_CHARS', 'number'),
+                generateMiniSummaryTimeoutMs   : leaf(20000, 'NEO_MC_GENERATE_MINI_SUMMARY_TIMEOUT_MS', 'number'),
+                chromaFetchTimeoutMs           : leaf(10000, 'NEO_MC_CHROMA_FETCH_TIMEOUT_MS', 'number'),
+                graphProjectionMaxAttempts     : leaf(5, 'NEO_MC_GRAPH_PROJECTION_MAX_ATTEMPTS', 'number'),
+                graphProjectionRetryBaseMs     : leaf(250, 'NEO_MC_GRAPH_PROJECTION_RETRY_BASE_MS', 'number'),
+                graphProjectionRetryMaxMs      : leaf(5000, 'NEO_MC_GRAPH_PROJECTION_RETRY_MAX_MS', 'number'),
+                graphProjectionDrainIntervalMs : leaf(60000, 'NEO_MC_GRAPH_PROJECTION_DRAIN_INTERVAL_MS', 'number')
             },
             /**
              * Agent OS maintenance orchestrator configuration.
@@ -518,6 +542,17 @@ class Config extends ConfigProvider {
                     recoveryRunLimit            : leaf(10, 'NEO_DEPLOYMENT_STATE_BRIDGE_RECOVERY_RUN_LIMIT', 'number')
                 },
                 /**
+                 * Cross-process heavy-maintenance lease (Chroma / SQLite / LLM maintenance mutex).
+                 * `staleAfterMs`: a lease older than this is treated as abandoned and reclaimable — it must
+                 * exceed the longest legitimate heavy-maintenance run (scales with data size), so it is an
+                 * operator-tunable threshold, not a hardcoded ceiling. AiConfig-aware entrypoints pass the
+                 * resolved value into Neo/Base-free lease primitives; primitives carry no TTL default/env binding.
+                 * @type {Object}
+                 */
+                heavyMaintenanceLease: {
+                    staleAfterMs: leaf(6 * 60 * 60 * 1000, 'NEO_HEAVY_MAINTENANCE_LEASE_TTL_MS', 'number')
+                },
+                /**
                  * Maintenance-loop intervals consumed by the orchestrator daemon.
                  * Env vars at the daemon boundary retain precedence over these defaults.
                  * @type {Object}
@@ -576,9 +611,10 @@ class Config extends ConfigProvider {
                     remConsolidationWatchdogCheckMs  : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_REM_CONSOLIDATION_WATCHDOG_INTERVAL_MS', 'number'),
                     /**
                      * Cadence of the data-integrity sweep — the read-only, never-fail health check that
-                     * audits Memory Core metadata-vs-vector coverage and escalates a `data-integrity`
-                     * diagnosis (operator page) on drift (the "up but data-gutted reports green" blind
-                     * spot). Detect-only; data mutation stays operator-gated. Hourly surfaces a silent
+                     * audits Memory Core metadata-vs-vector coverage and emits a `data-integrity`
+                     * diagnosis on drift (the "up but data-gutted reports green" blind spot). The
+                     * diagnosis routes to the autonomous data-recovery actuator — the store is HEALED,
+                     * not paged: a cloud deployment has no operator to gate. Hourly surfaces a silent
                      * vector-loss in hours, not weeks. `<= 0` disables the lane.
                      */
                     dataIntegritySweepCheckMs        : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_DATA_INTEGRITY_SWEEP_INTERVAL_MS', 'number')

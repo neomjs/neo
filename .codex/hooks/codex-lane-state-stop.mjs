@@ -15,9 +15,9 @@ import os              from 'node:os';
 import {pathToFileURL} from 'node:url';
 
 import {parseLaneState}            from '../../ai/scripts/lifecycle/parseLaneState.mjs';
-import {decideDeferenceStopHookAction,
+import {classifyPromptingContext,
+        decideDeferenceStopHookAction,
         decideStopHookAction,
-        isOperatorInLoop,
         LANE_STATE_SCHEMA_HINT,
         parseOutcomeToVerdict,
         STOP_HOOK_TURN_OPTIONS_HINT} from '../../ai/scripts/lifecycle/stopHookDecision.mjs';
@@ -281,13 +281,22 @@ export function extractPromptingText(input = {}) {
  * @param {String} verdictReason
  * @returns {String}
  */
-export function buildNoHoldReminder(verdictReason, {promptSource = '', operatorInLoop = false} = {}) {
+export function buildNoHoldReminder(verdictReason, {
+    autonomousHandoff = false,
+    handoffReason = '',
+    handoffWindowMs = null,
+    operatorInLoop = false,
+    promptSource = ''
+} = {}) {
     const promptDiagnostic = !operatorInLoop && promptSource === 'none'
-        ? '\nOperator prompt was not visible to this hook (promptSource=none), so live operator dialogue could not be confirmed.'
+              ? '\nOperator prompt was not visible to this hook (promptSource=none), so live operator dialogue could not be confirmed.'
+              : '',
+          handoffDiagnostic = autonomousHandoff
+              ? `\nOperator prompt matched handoff-to-autonomous (${handoffReason || 'unknown'}${handoffWindowMs ? `, windowMs=${handoffWindowMs}` : ''}); treating this turn as autonomous no-hold.`
         : '';
 
     return `No-hold reminder: ${verdictReason}. There is no hold state: continue concrete work on the active lane, perform an assigned review that advances a named lane, or pick a fresh claimable lane. Passive waiting is not a terminal.
-${promptDiagnostic}
+${promptDiagnostic}${handoffDiagnostic}
 
 ${STOP_HOOK_TURN_OPTIONS_HINT}
 
@@ -306,8 +315,11 @@ ${LANE_STATE_SCHEMA_HINT}`;
  * @returns {{action: ('allow'|'block'|'would-block'), reason: String}}
  */
 export function decideCodexHookAction(verdict, {
+    autonomousHandoff       = false,
     enforcing               = false,
     blockInjectionSupported = CODEX_STOP_BLOCK_INJECTION_SUPPORTED,
+    handoffReason           = '',
+    handoffWindowMs         = null,
     operatorInLoop          = false,
     promptSource            = ''
 } = {}) {
@@ -321,12 +333,24 @@ export function decideCodexHookAction(verdict, {
     if (decision.action === 'allow') return decision;
     if (decision.action === 'block') return {
         action: 'block',
-        reason: buildNoHoldReminder(decision.reason, {operatorInLoop, promptSource})
+        reason: buildNoHoldReminder(decision.reason, {
+            autonomousHandoff,
+            handoffReason,
+            handoffWindowMs,
+            operatorInLoop,
+            promptSource
+        })
     };
 
     return {
         action: 'would-block',
-        reason: buildNoHoldReminder(decision.reason, {operatorInLoop, promptSource})
+        reason: buildNoHoldReminder(decision.reason, {
+            autonomousHandoff,
+            handoffReason,
+            handoffWindowMs,
+            operatorInLoop,
+            promptSource
+        })
     };
 }
 
@@ -353,10 +377,11 @@ export function summarizePayloadShape(payload = {}) {
  * @returns {{action: ('allow'|'block'|'would-block'), reason: String, source: String, promptSource: String, verdict: Object, phrase: (String|undefined)}}
  */
 export function classifyCodexStopPayload(input = {}, {enforcing = false} = {}) {
-    const stopHookActive                              = !!(input.stop_hook_active || input.stopHookActive),
-          {text, source}                              = extractFinalAssistantText(input),
-          {text: promptingText, source: promptSource} = extractPromptingText(input),
-          operatorInLoop                              = isOperatorInLoop({stopHookActive, promptingText});
+    const stopHookActive                                                      = !!(input.stop_hook_active || input.stopHookActive),
+          {text, source}                                                      = extractFinalAssistantText(input),
+          {text: promptingText, source: promptSource}                         = extractPromptingText(input),
+          promptContext                                                       = classifyPromptingContext({stopHookActive, promptingText}),
+          {autonomousHandoff, handoffReason, handoffWindowMs, operatorInLoop} = promptContext;
 
     // Deference-register check: shared decision, adapter-owned payload/source metadata.
     const deferenceDecision = decideDeferenceStopHookAction(text, {operatorInLoop, enforcing});
@@ -365,6 +390,9 @@ export function classifyCodexStopPayload(input = {}, {enforcing = false} = {}) {
             ...deferenceDecision,
             source,
             promptSource,
+            autonomousHandoff,
+            handoffReason,
+            handoffWindowMs,
             operatorInLoop,
             verdict: null
         };
@@ -380,7 +408,17 @@ export function classifyCodexStopPayload(input = {}, {enforcing = false} = {}) {
     const verdict = parseOutcomeToVerdict({descriptor, parseError}, validateLaneStateTerminal);
 
     return {
-        ...decideCodexHookAction(verdict, {enforcing, operatorInLoop, promptSource}),
+        ...decideCodexHookAction(verdict, {
+            autonomousHandoff,
+            enforcing,
+            handoffReason,
+            handoffWindowMs,
+            operatorInLoop,
+            promptSource
+        }),
+        autonomousHandoff,
+        handoffReason,
+        handoffWindowMs,
         operatorInLoop,
         source,
         promptSource,
@@ -418,14 +456,14 @@ async function main() {
     const session = input.session_id || input.sessionId || '?';
 
     if (result.action === 'block') {
-        auditLog(`BLOCK (session=${session}, source=${result.source}, promptSource=${result.promptSource}, operatorInLoop=${result.operatorInLoop}): ${result.reason}`);
+        auditLog(`BLOCK (session=${session}, source=${result.source}, promptSource=${result.promptSource}, operatorInLoop=${result.operatorInLoop}, autonomousHandoff=${!!result.autonomousHandoff}, handoffReason=${result.handoffReason || 'none'}, handoffWindowMs=${result.handoffWindowMs ?? 'none'}): ${result.reason}`);
         process.stdout.write(JSON.stringify({decision: 'block', reason: result.reason}), () => process.exit(0));
         return;
     }
 
     const prefix = result.action === 'allow' ? 'ALLOW' : 'WOULD-BLOCK';
 
-    auditLog(`${prefix} (session=${session}, source=${result.source}, promptSource=${result.promptSource}, operatorInLoop=${result.operatorInLoop}): ${result.reason}`);
+    auditLog(`${prefix} (session=${session}, source=${result.source}, promptSource=${result.promptSource}, operatorInLoop=${result.operatorInLoop}, autonomousHandoff=${!!result.autonomousHandoff}, handoffReason=${result.handoffReason || 'none'}, handoffWindowMs=${result.handoffWindowMs ?? 'none'}): ${result.reason}`);
     process.exit(0);
 }
 

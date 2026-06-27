@@ -6,6 +6,7 @@ import readline                  from 'readline';
 import Base                      from '../../../src/core/Base.mjs';
 import StorageRouter             from './managers/StorageRouter.mjs';
 import DestructiveOperationGuard from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
+import {partitionRowsByVectorValidity, summarizeVectorRejections} from './helpers/vectorWriteInvariant.mjs';
 
 /**
  * @summary Service for exporting and importing memory core data.
@@ -505,6 +506,11 @@ class DatabaseService extends Base {
                 memoriesInserted: 0
             };
 
+            // Atomic vector-write invariant: an explicit-embedding import must carry a valid same-dimension
+            // vector — a row whose vector is missing/empty/wrong-dim/non-finite is rejected fail-loud rather
+            // than half-persisted as metadata-only (the corruption shape the invariant exists to prevent).
+            const expectedDimension = aiConfig.vectorDimension;
+
             for (const filePath of filesToImport) {
                 logger.log(`Importing: ${filePath}`);
 
@@ -583,7 +589,21 @@ class DatabaseService extends Base {
                     }
 
                     for (let i = 0; i < missing.length; i += CHROMA_UPSERT_CHUNK_SIZE) {
-                        const chunk = missing.slice(i, i + CHROMA_UPSERT_CHUNK_SIZE);
+                        let chunk = missing.slice(i, i + CHROMA_UPSERT_CHUNK_SIZE);
+                        // reEmbed strips vectors (Chroma re-embeds), so the invariant guards only the
+                        // explicit-embedding path: reject any row lacking a valid same-dimension vector.
+                        if (!reEmbed) {
+                            const {valid, rejected} = partitionRowsByVectorValidity({rows: chunk, expectedDimension});
+                            if (rejected.length > 0) {
+                                const {count, byReason} = summarizeVectorRejections(rejected);
+                                logger.error(`[importMemories] vector-write invariant rejected ${count} row(s) without a valid same-dimension vector ${JSON.stringify(byReason)} — not persisted`);
+                                fileFailed += rejected.length;
+                            }
+                            chunk = valid;
+                        }
+                        if (chunk.length === 0) {
+                            continue;
+                        }
                         try {
                             await collection.add({
                                 ids       : chunk.map(r => r.id),
@@ -604,8 +624,23 @@ class DatabaseService extends Base {
                     // Replace mode: subsystem already truncated above; upsert is safe
                     // (no live rows to collide with). Fail-fast on chunk error matches
                     // fail-fast behavior; the outer try/catch wraps it as DATABASE_IMPORT_ERROR.
+                    let replaceRejected = 0;
                     for (let i = 0; i < records.length; i += CHROMA_UPSERT_CHUNK_SIZE) {
-                        const chunk = records.slice(i, i + CHROMA_UPSERT_CHUNK_SIZE);
+                        let chunk = records.slice(i, i + CHROMA_UPSERT_CHUNK_SIZE);
+                        // reEmbed strips vectors (Chroma re-embeds), so the invariant guards only the
+                        // explicit-embedding path: reject any row lacking a valid same-dimension vector.
+                        if (!reEmbed) {
+                            const {valid, rejected} = partitionRowsByVectorValidity({rows: chunk, expectedDimension});
+                            if (rejected.length > 0) {
+                                const {count, byReason} = summarizeVectorRejections(rejected);
+                                logger.error(`[importMemories] vector-write invariant rejected ${count} row(s) without a valid same-dimension vector ${JSON.stringify(byReason)} — not persisted`);
+                                replaceRejected += rejected.length;
+                            }
+                            chunk = valid;
+                        }
+                        if (chunk.length === 0) {
+                            continue;
+                        }
                         await collection.upsert({
                             ids       : chunk.map(r => r.id),
                             embeddings: chunk.map(r => r.embedding),
@@ -616,7 +651,8 @@ class DatabaseService extends Base {
                             logger.log(`  upserted chunk ${Math.floor(i / CHROMA_UPSERT_CHUNK_SIZE) + 1}/${Math.ceil(records.length / CHROMA_UPSERT_CHUNK_SIZE)} (${chunk.length} records)`);
                         }
                     }
-                    fileInserted = records.length;
+                    fileFailed   += replaceRejected;
+                    fileInserted  = records.length - replaceRejected;
                 }
 
                 chromaCounts.inserted            += fileInserted;

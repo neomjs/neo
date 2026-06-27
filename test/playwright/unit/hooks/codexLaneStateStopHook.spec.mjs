@@ -177,6 +177,38 @@ test.describe('codex-lane-state-stop - lane-state classification', () => {
         expect(result.operatorInLoop).toBe(true);
     });
 
+    test('handoff-to-autonomous operator prompt would-blocks instead of allowing', () => {
+        const result = classifyCodexStopPayload({
+            messages: [
+                {role: 'user', content: "nightshift mode from here on for the next 5h, you and Euclid can freely choose. I merge when I get back."},
+                {role: 'assistant', content: fixture.last_assistant_message}
+            ]
+        });
+
+        expect(result.action).toBe('would-block');
+        expect(result.reason).toContain('handoff-to-autonomous');
+        expect(result.reason).toContain('windowMs=18000000');
+        expect(result.source).toBe('messages');
+        expect(result.promptSource).toBe('messages');
+        expect(result.operatorInLoop).toBe(false);
+        expect(result.autonomousHandoff).toBe(true);
+        expect(result.handoffReason).toBe('nightshift-mode');
+    });
+
+    test('handoff-to-autonomous operator prompt blocks when enforcing', () => {
+        const result = classifyCodexStopPayload({
+            messages: [
+                {role: 'user', content: "nightshift mode from here on for the next 5h, you and Euclid can freely choose. I merge when I get back."},
+                {role: 'assistant', content: fixture.last_assistant_message}
+            ]
+        }, {enforcing: true});
+
+        expect(result.action).toBe('block');
+        expect(result.reason).toContain('handoff-to-autonomous');
+        expect(result.operatorInLoop).toBe(false);
+        expect(result.autonomousHandoff).toBe(true);
+    });
+
     test('[WAKE] prompt is autonomous, so a valid terminal still would-blocks', () => {
         const result = classifyCodexStopPayload({
             messages: [
@@ -333,6 +365,23 @@ test.describe('codex-lane-state-stop - spawned hook', () => {
         expect(log).toContain('source=messages');
         expect(log).toContain('promptSource=messages');
         expect(log).toContain('operatorInLoop=true');
+    });
+
+    test('handoff-to-autonomous prompt logs autonomous context and blocks while enforcing', async () => {
+        const {stdout, log} = await runHook({
+            session_id: 'handoff',
+            messages  : [
+                {role: 'user', content: "nightshift mode from here on for the next 5h, you and Euclid can freely choose. I merge when I get back."},
+                {role: 'assistant', content: fixture.last_assistant_message}
+            ]
+        }, {enforce: true});
+
+        expect(JSON.parse(stdout).decision).toBe('block');
+        expect(log).toContain('BLOCK');
+        expect(log).toContain('operatorInLoop=false');
+        expect(log).toContain('autonomousHandoff=true');
+        expect(log).toContain('handoffReason=nightshift-mode');
+        expect(log).toContain('handoffWindowMs=18000000');
     });
 
     test('enforced invalid terminal logs BLOCK and writes the block decision to stdout', async () => {
