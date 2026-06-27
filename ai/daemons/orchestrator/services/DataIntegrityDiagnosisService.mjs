@@ -139,13 +139,21 @@ export class DataIntegrityDiagnosisService extends Base {
             return this.createDecision({serviceId: this.serviceId, observedAt, status: 'circuit-open', classifications, heals: [], circuit});
         }
 
-        const heals = await this.applyHeals({rows, classifications, now: observedAt});
+        // Half-open allows EXACTLY ONE actionable probe heal — not the full batch, which would re-storm a
+        // still-down embedder. Clean re-audit fence-lifts are exempt from the cap (cheap, non-storm).
+        const heals = await this.applyHeals({
+            rows, classifications, now: observedAt,
+            maxActionableHeals: circuit.status === 'half-open-probe' ? 1 : Infinity
+        });
 
-        // A half-open probe that healed cleanly → the shared dependency recovered → close the circuit so the next
-        // fold proceeds normally. A probe that re-failed leaves the circuit open (the next fold re-trips on it).
-        if (circuit.status === 'half-open-probe' && typeof this.recordCircuitEvent === 'function' &&
-                heals.length > 0 && heals.every(heal => heal.outcome?.status !== 'failed')) {
-            await this.recordCircuitEvent({type: 'circuit-close', at: observedAt, detail: 'half-open probe recovered — circuit closed'});
+        // Half-open outcome: a clean probe (or nothing left to probe) closes the circuit; a FAILED probe refreshes
+        // the open window at observedAt so the next fold rides it out, rather than immediately re-probing on the
+        // already-elapsed cooldown (which would let a still-down embedder be hammered every sweep).
+        if (circuit.status === 'half-open-probe' && typeof this.recordCircuitEvent === 'function') {
+            const probeFailed = heals.some(heal => heal.outcome?.status === 'failed');
+            await this.recordCircuitEvent(probeFailed
+                ? {type: 'circuit-open',  at: observedAt, detail: 'half-open probe failed — circuit re-opened'}
+                : {type: 'circuit-close', at: observedAt, detail: 'half-open probe recovered — circuit closed'});
         }
 
         return this.createDecision({
@@ -171,8 +179,10 @@ export class DataIntegrityDiagnosisService extends Base {
      * @param {Number} options.now Epoch milliseconds passed through to the actuator for consistent timestamps.
      * @returns {Promise<Object[]>} The per-heal outcome descriptors.
      */
-    async applyHeals({rows, classifications, now}) {
+    async applyHeals({rows, classifications, now, maxActionableHeals = Infinity}) {
         const heals = [];
+
+        let actionableHealCount = 0;
 
         for (let i = 0; i < classifications.length; i++) {
             const classification = classifications[i];
@@ -186,6 +196,14 @@ export class DataIntegrityDiagnosisService extends Base {
                 }
                 continue;
             }
+
+            // Half-open probe cap: a recovering circuit allows EXACTLY ONE actionable heal to test the shared
+            // dependency — running the full batch would re-storm a still-down embedder. The NONE-lifts above are
+            // exempt (cheap, non-storm). Beyond the cap, the residue waits for the next post-recovery sweep.
+            if (actionableHealCount >= maxActionableHeals) {
+                continue
+            }
+            actionableHealCount++;
 
             let outcome;
 

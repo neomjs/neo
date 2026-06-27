@@ -248,7 +248,23 @@ test.describe('Neo.ai.daemons.services.DataIntegrityDiagnosisService', () => {
         expect(events).toContainEqual(expect.objectContaining({type: 'circuit-close'}));
     });
 
-    test('half-open probe that RE-FAILS → no circuit-close (the circuit stays open for the next fold)', async () => {
+    test('half-open probe runs EXACTLY ONE actionable heal (not the full batch — no mini-storm)', async () => {
+        const actuator = fakeActuator(),
+              events   = [],
+              service  = createService({
+                  evidenceGatherer   : async () => [walStall('neo-agent-memory'), walStall('neo-agent-sessions')],
+                  recoveryActuator   : actuator,
+                  systemicCircuitGate: async () => ({open: false, status: 'half-open-probe', reason: 'cooldown elapsed'}),
+                  recordCircuitEvent : async event => { events.push(event); }
+              });
+
+        await service.gatherAndDiagnose();
+
+        expect(actuator.calls.applyHeal).toHaveLength(1);                              // ONE probe, NOT two (no re-storm)
+        expect(events).toContainEqual(expect.objectContaining({type: 'circuit-close'})); // the single probe healed → close
+    });
+
+    test('half-open probe that RE-FAILS refreshes the open circuit (circuit-open at observedAt, not circuit-close)', async () => {
         const actuator = fakeActuator({failOn: 'neo-agent-memory'}),
               events   = [],
               service  = createService({
@@ -260,8 +276,9 @@ test.describe('Neo.ai.daemons.services.DataIntegrityDiagnosisService', () => {
 
         await service.gatherAndDiagnose();
 
-        expect(actuator.calls.applyHeal).toHaveLength(1);                // the probe still ran
-        expect(events).toHaveLength(0);                                  // but it re-failed → circuit stays open
+        expect(actuator.calls.applyHeal).toHaveLength(1);                              // the probe ran
+        expect(events).toContainEqual(expect.objectContaining({type: 'circuit-open'})); // re-opened → next fold rides it out
+        expect(events.some(event => event.type === 'circuit-close')).toBe(false);
     });
 
     test('circuit CLOSED → proceeds normally (heals run, no circuit event recorded)', async () => {
