@@ -330,6 +330,13 @@ class Config extends ConfigProvider {
              */
             embeddingModel: leaf('gemini-embedding-001'),
             /**
+             * @summary Gemini API key (secret), sourced from the `GEMINI_API_KEY` env var via the leaf
+             * (mirrors the OpenAI-compatible `apiKey` leaf). Read at the use site (`aiConfig.geminiApiKey`);
+             * consumers must never read `process.env.GEMINI_API_KEY` directly.
+             * @type {String}
+             */
+            geminiApiKey: leaf('', 'GEMINI_API_KEY', 'string'),
+            /**
              * @summary Enforced vector dimension across shared vector collections.
              *
              * Hard-configured to prevent schema wipes when operators change embedding

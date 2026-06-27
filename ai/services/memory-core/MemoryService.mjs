@@ -1474,7 +1474,7 @@ class MemoryService extends Base {
                 modelProvider         : aiConfig.modelProvider,
                 openAiCompatibleConfig: aiConfig.openAiCompatible,
                 ollamaConfig          : aiConfig.ollama,
-                geminiApiKey          : process.env.GEMINI_API_KEY,
+                geminiApiKey          : aiConfig.geminiApiKey,
                 geminiModelName       : aiConfig.modelName
             });
             if (!model) return null;

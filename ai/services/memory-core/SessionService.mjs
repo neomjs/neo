@@ -153,7 +153,7 @@ class SessionService extends Base {
         logger.info(`[SessionService] Initialized new fallback session: ${this._legacySessionId}`);
 
         if (aiConfig.modelProvider === 'gemini') {
-            const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+            const GEMINI_API_KEY = aiConfig.geminiApiKey;
             if (!GEMINI_API_KEY) {
                 logger.warn('⚠️  [Startup] GEMINI_API_KEY not set for generation model.');
                 return;
@@ -174,7 +174,7 @@ class SessionService extends Base {
             modelProvider         : aiConfig.modelProvider,
             openAiCompatibleConfig: aiConfig.openAiCompatible,
             ollamaConfig          : aiConfig.ollama,
-            geminiApiKey          : process.env.GEMINI_API_KEY,
+            geminiApiKey          : aiConfig.geminiApiKey,
             geminiModelName       : aiConfig.modelName
         });
     }
