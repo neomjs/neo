@@ -157,8 +157,8 @@ function writeFixtureJsonl(filePath, chunkCount, hashPrefix = 'chunk-') {
     const lines = [];
     for (let i = 0; i < chunkCount; i++) {
         lines.push(JSON.stringify({
-            hash: `${hashPrefix}${i}`,
-            type: 'method',
+            hash       : `${hashPrefix}${i}`,
+            type       : 'method',
             name       : `method${i}`,
             className  : '',
             description: `synthetic chunk ${i}`,
@@ -306,11 +306,11 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
                     content    : 'small body'
                 }),
                 JSON.stringify({
-                    hash     : 'large-chunk',
-                    type     : 'ticket',
-                    kind     : 'ticket',
-                    name     : 'issue-12065',
-                    className: '',
+                    hash       : 'large-chunk',
+                    type       : 'ticket',
+                    kind       : 'ticket',
+                    name       : 'issue-12065',
+                    className  : '',
                     description: Array.from({length: 12}, (_, index) => `section-${index} ${'x'.repeat(24)}`).join('\n'),
                     content    : Array.from({length: 12}, (_, index) => `section-${index} ${'x'.repeat(24)}`).join('\n'),
                     source     : 'resources/content/issues/chunk-2/issue-12065.md'
