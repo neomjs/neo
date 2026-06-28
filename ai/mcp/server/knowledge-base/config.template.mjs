@@ -1,8 +1,8 @@
-import os              from 'os';
-import path            from 'path';
-import AiConfig        from '../../../config.template.mjs';
+import os                                          from 'os';
+import path                                        from 'path';
+import AiConfig                                    from '../../../config.template.mjs';
 import ConfigProvider, { createConfigProxy, leaf } from '../../../ConfigProvider.mjs';
-import {fileURLToPath} from 'url';
+import {fileURLToPath}                             from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -267,6 +267,21 @@ class Config extends ConfigProvider {
              */
             collectionName: leaf('neo-knowledge-base'),
             /**
+             * @summary Bounded retry policy for resolving the canonical Chroma KB collection.
+             *
+             * Long-running syncs can overlap a local Chroma restart or recycle. `ChromaManager`
+             * consumes these leaves only for transient `ChromaConnectionError` failures while
+             * resolving the canonical collection name; not-found and shadow-swap promotion paths
+             * keep their existing handling. `maxAttempts` includes the initial call.
+             * @type {Object}
+             */
+            collectionResolveRetry: {
+                maxAttempts    : leaf(5,    'NEO_KB_COLLECTION_RESOLVE_RETRY_MAX_ATTEMPTS', 'number'),
+                initialDelayMs : leaf(500,  'NEO_KB_COLLECTION_RESOLVE_RETRY_INITIAL_DELAY_MS', 'number'),
+                maxDelayMs     : leaf(2000, 'NEO_KB_COLLECTION_RESOLVE_RETRY_MAX_DELAY_MS', 'number'),
+                maxTotalDelayMs: leaf(5000, 'NEO_KB_COLLECTION_RESOLVE_RETRY_MAX_TOTAL_DELAY_MS', 'number')
+            },
+            /**
              * When `true` (default), the SourceRegistry auto-registers Neo's
              * 10 curated default Source classes. Cloud deployments that ingest only tenant content
              * can set `false` to skip Neo's curated sources entirely.
@@ -465,22 +480,22 @@ class Config extends ConfigProvider {
              * @type {Object}
              */
             queryScoreWeights: leaf({
-                baseIncrement    : 1,
-                sourcePathMatch  : 40,
-                fileNameMatch    : 30,
-                classNameMatch   : 20,
-                guideMatch       : 50,
-                conceptMatch     : 15,
-                blogMatch        : 5,
-                namePartMatch    : 30,
+                baseIncrement     : 1,
+                sourcePathMatch   : 40,
+                fileNameMatch     : 30,
+                classNameMatch    : 20,
+                guideMatch        : 50,
+                conceptMatch      : 15,
+                blogMatch         : 5,
+                namePartMatch     : 30,
                 lexicalRescueMatch: 3200,
-                ticketPenalty    : -70,
-                pullPenalty      : -250,
-                releasePenalty   : -50,
-                baseFileBonus    : 20,
-                releaseExactMatch: 1000,
-                inheritanceBoost : 80,
-                inheritanceDecay : 0.6
+                ticketPenalty     : -70,
+                pullPenalty       : -250,
+                releasePenalty    : -50,
+                baseFileBonus     : 20,
+                releaseExactMatch : 1000,
+                inheritanceBoost  : 80,
+                inheritanceDecay  : 0.6
             })
         }
     }
