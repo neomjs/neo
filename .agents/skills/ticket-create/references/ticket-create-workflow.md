@@ -71,6 +71,8 @@ For source anchors (`#11078` / `#11082` / `#11083` / `#11084`), Discussion `#110
 
 ## 2. Six-Stage Challenge Chain
 
+Apply the same importance weighting used by PR review at creation time: premise / right thing to build = 30%; substrate / what belongs where = 30%; deliverable correctness = 30%; AC and evidence checklist sanity = 10%. These are importance-to-verdict weights, not drafting effort budgets. A perfectly detailed AC list for the wrong work or wrong owning substrate still fails the ticket.
+
 Apply at creation time — not just at intake. Every stage must pass before the ticket is drafted.
 
 1. **Premise** — is the stated problem real and reproducible? Has the underlying symptom been independently verified, or is it secondhand?
