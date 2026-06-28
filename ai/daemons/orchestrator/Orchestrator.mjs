@@ -484,7 +484,11 @@ export class Orchestrator extends Base {
                     // Symmetric store-level fence (memory + session) — paired with the re-probe auto-unfence via the
                     // same `createStoreFenceOperations` factory, so a freeze and its later auto-unfreeze lift exactly
                     // the same served set (they cannot diverge into the unfreeze-lifts-only-the-record-key asymmetry).
-                    fence: this.getStoreFenceOperations().fence
+                    // LAZY closure: `getStoreFenceOperations()` reads `AiConfig.collections` (a reactive leaf unset at
+                    // singleton construction) — resolve it at HEAL-TIME, not while building this factory arg, mirroring
+                    // the quarantine op + throttle-shed (independent of reactive-config set ordering). The eager form
+                    // crashed `Neo.setupClass(Orchestrator)` on import once a sibling spec constructed the singleton.
+                    fence: args => this.getStoreFenceOperations().fence(args)
                 }),
                 // Throttle-shed: the resource-contention / exhaustion heal — open a bounded shed-window so the
                 // orchestrator defers ALL heavy-maintenance until the contended resource recovers, then auto-expires
