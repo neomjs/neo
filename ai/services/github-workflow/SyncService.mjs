@@ -233,8 +233,10 @@ class SyncService extends Base {
             throw new Error(`Automated sync commit rejected: non-sync files are staged: ${nonSyncFiles.join(', ')}`);
         }
 
-        // Automated generated-data commits bypass Husky; hooks are human-lane guards.
-        await this.execGit('git commit --no-verify -m "chore: ticket sync [skip ci]"', cwd);
+        // Automated generated-data commits (neo repo): --no-verify because generated content fails whitespace
+        // hooks. NEO_SKIP_TICKET_ARCHAEOLOGY=1 is the explicit archaeology-gate exemption for this generated-data
+        // class — declares intent + future-proofs (co-exists with --no-verify, still required for whitespace).
+        await this.execGit('NEO_SKIP_TICKET_ARCHAEOLOGY=1 git commit --no-verify -m "chore: ticket sync [skip ci]"', cwd);
 
         try {
             await this.execGit('git pull --rebase --autostash', cwd);
