@@ -1,4 +1,5 @@
 import {test, expect}             from '@playwright/test';
+import fs                         from 'fs-extra';
 import path                       from 'path';
 import Neo                        from '../../../../../../src/Neo.mjs';
 import * as core                  from '../../../../../../src/core/_export.mjs';
@@ -1884,6 +1885,7 @@ test.describe('Neo.ai.daemons.Orchestrator — chroma max-runtime recycle (#1213
         return {
             reapDuplicateListeners() {},
             killTask(taskName, reason) { sink.killed.push({taskName, reason}); },
+            superviseTask(taskName)    { sink.supervised?.push(taskName); },
             runTask(taskName, reason)  { sink.started.push({taskName, reason}); return true; }
         };
     }
@@ -1943,6 +1945,42 @@ test.describe('Neo.ai.daemons.Orchestrator — chroma max-runtime recycle (#1213
         expect(orchestrator._chromaDefragPending).toBe(true);
     });
 
+    test('defers an over-age chroma recycle while the heavy-maintenance lease is active', () => {
+        AiConfig.orchestrator.chroma = {maxRuntimeMs: 1000};
+        const sink         = {killed: [], started: [], supervised: []};
+        const orchestrator = createTestOrchestrator();
+        const now          = Date.now();
+
+        fs.ensureDirSync(path.dirname(orchestrator.heavyMaintenanceLeasePath));
+        fs.writeJsonSync(orchestrator.heavyMaintenanceLeasePath, {
+            owner       : 'kbSync',
+            reason      : 'scheduled',
+            pid         : process.pid,
+            token       : 'test-token',
+            acquiredAt  : new Date(now - 1000).toISOString(),
+            staleAfterMs: 600000,
+            expiresAt   : new Date(now + 600000).toISOString()
+        });
+
+        TaskStateService.taskState.chroma.running   = true;
+        TaskStateService.taskState.chroma.lastRunAt = now - 5000;
+        orchestrator.processSupervisorService = recycleMock(sink);
+
+        orchestrator.poll();
+
+        expect(sink.killed).toEqual([]);
+        expect(sink.supervised).toContain('chroma');
+        expect(orchestrator._chromaDefragPending).toBeFalsy();
+
+        fs.removeSync(orchestrator.heavyMaintenanceLeasePath);
+
+        orchestrator.poll();
+
+        expect(sink.killed).toHaveLength(1);
+        expect(sink.killed[0].taskName).toBe('chroma');
+        expect(orchestrator._chromaDefragPending).toBe(true);
+    });
+
     test('does not recycle a chroma daemon within its max-runtime ceiling', () => {
         AiConfig.orchestrator.chroma = {maxRuntimeMs: 60000};
         const sink         = {killed: [], started: []};
@@ -1990,6 +2028,38 @@ test.describe('Neo.ai.daemons.Orchestrator — chroma max-runtime recycle (#1213
 
         expect(sink.started).toContainEqual({taskName: 'chromaDefrag', reason: 'chroma-recycle-defrag'});
         expect(orchestrator._chromaDefragPending).toBe(false);
+    });
+
+    test('does not start pending chroma defrag while the heavy-maintenance lease is active', async () => {
+        AiConfig.orchestrator.chroma = {maxRuntimeMs: 60000};
+        const sink         = {killed: [], started: []};
+        const orchestrator = createTestOrchestrator();
+        const now          = Date.now();
+
+        fs.ensureDirSync(path.dirname(orchestrator.heavyMaintenanceLeasePath));
+        fs.writeJsonSync(orchestrator.heavyMaintenanceLeasePath, {
+            owner       : 'kbSync',
+            reason      : 'scheduled',
+            pid         : process.pid,
+            token       : 'test-token',
+            acquiredAt  : new Date(now - 1000).toISOString(),
+            staleAfterMs: 600000,
+            expiresAt   : new Date(now + 600000).toISOString()
+        });
+
+        TaskStateService.taskState.chroma.running   = true;
+        TaskStateService.taskState.chroma.lastRunAt = now;
+        orchestrator._chromaDefragPending = true;
+        orchestrator.probeChromaReady     = () => Promise.resolve(true);
+        orchestrator.processSupervisorService = recycleMock(sink);
+
+        orchestrator.poll();
+        await new Promise(resolve => setTimeout(resolve, 10));
+
+        expect(sink.started.find(s => s.taskName === 'chromaDefrag')).toBeUndefined();
+        expect(orchestrator._chromaDefragPending).toBe(true);
+
+        fs.removeSync(orchestrator.heavyMaintenanceLeasePath);
     });
 
     test('does not spawn the defrag while the restarted chroma is not yet connection-ready', async () => {

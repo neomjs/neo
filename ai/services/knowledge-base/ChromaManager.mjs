@@ -1,8 +1,8 @@
-import {ChromaClient}                       from 'chromadb';
-import aiConfig                             from '../../mcp/server/knowledge-base/config.mjs';
-import logger                               from '../../mcp/server/knowledge-base/logger.mjs';
-import Base                                 from '../../../src/core/Base.mjs';
-import DatabaseLifecycleService             from './DatabaseLifecycleService.mjs';
+import {ChromaClient}           from 'chromadb';
+import aiConfig                 from '../../mcp/server/knowledge-base/config.mjs';
+import logger                   from '../../mcp/server/knowledge-base/logger.mjs';
+import Base                     from '../../../src/core/Base.mjs';
+import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
 import {
     chromaConnect,
     chromaDeleteCollection,
@@ -13,6 +13,11 @@ import {
 
 const COLLECTION_ALREADY_EXISTS_RE = /already exists|already contains|conflict/i;
 const SWAP_ACTIVE_PHASES           = ['parking', 'shadow'];
+
+/** @summary Waits for the configured collection-resolve retry backoff interval. */
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, Math.max(0, ms)));
+}
 
 registerNeoChromaEmbeddingFunctions({
     dummyEmbeddingFunction: aiConfig.dummyEmbeddingFunction
@@ -49,6 +54,11 @@ class ChromaManager extends Base {
          * @protected
          */
         knowledgeBaseCollection: null,
+        /**
+         * @member {Function} collectionResolveRetrySleepFn=sleep
+         * @protected
+         */
+        collectionResolveRetrySleepFn: sleep,
         /**
          * @member {Boolean} singleton=true
          * @protected
@@ -145,7 +155,7 @@ class ChromaManager extends Base {
         const options = this.#getKnowledgeBaseCollectionOptions();
 
         try {
-            return await this.client.getCollection(options);
+            return await this.#getCollectionWithConnectionRetry(options);
         } catch (error) {
             if (!this.#isCollectionNotFoundError(error)) {
                 throw error;
@@ -174,6 +184,78 @@ class ChromaManager extends Base {
     }
 
     /**
+     * @summary Resolves the canonical collection with bounded retries for transient Chroma restarts.
+     * @param {Object} options Chroma getCollection options.
+     * @returns {Promise<Object>}
+     * @throws {Error}
+     */
+    async #getCollectionWithConnectionRetry(options) {
+        const retry        = this.#getCollectionResolveRetryPolicy();
+        let   totalDelayMs = 0;
+
+        for (let attempt = 1; attempt <= retry.maxAttempts; attempt++) {
+            try {
+                return await this.client.getCollection(options);
+            } catch (error) {
+                if (!this.#isChromaConnectionError(error) || attempt >= retry.maxAttempts) {
+                    throw this.#createCollectionResolveError(error, {attempt, retry, totalDelayMs});
+                }
+
+                const delayMs = this.#getCollectionResolveRetryDelay({attempt, retry, totalDelayMs});
+
+                if (delayMs <= 0 && totalDelayMs >= retry.maxTotalDelayMs) {
+                    throw this.#createCollectionResolveError(error, {attempt, retry, totalDelayMs});
+                }
+
+                logger.debug?.(`[ChromaManager] Transient Chroma collection resolve failure; retrying in ${delayMs}ms (attempt ${attempt + 1}/${retry.maxAttempts}).`);
+                await this.collectionResolveRetrySleepFn(delayMs);
+                totalDelayMs += delayMs;
+            }
+        }
+    }
+
+    /**
+     * @returns {{maxAttempts: Number, initialDelayMs: Number, maxDelayMs: Number, maxTotalDelayMs: Number}}
+     */
+    #getCollectionResolveRetryPolicy() {
+        const policy  = aiConfig.collectionResolveRetry;
+        const missing = ['maxAttempts', 'initialDelayMs', 'maxDelayMs', 'maxTotalDelayMs']
+            .filter(key => !Number.isFinite(Number(policy?.[key])));
+
+        if (missing.length > 0) {
+            throw new Error(`collectionResolveRetry config leaves missing or invalid: ${missing.join(', ')}. Sync ai/mcp/server/knowledge-base/config.mjs from config.template.mjs (node ai/scripts/setup/initServerConfigs.mjs --migrate-config) and restart knowledge-base.`);
+        }
+
+        const retry = {
+            maxAttempts    : Math.trunc(Number(policy.maxAttempts)),
+            initialDelayMs : Number(policy.initialDelayMs),
+            maxDelayMs     : Number(policy.maxDelayMs),
+            maxTotalDelayMs: Number(policy.maxTotalDelayMs)
+        };
+
+        if (retry.maxAttempts < 1 || retry.initialDelayMs < 0 || retry.maxDelayMs < 0 || retry.maxTotalDelayMs < 0) {
+            throw new Error('collectionResolveRetry config leaves are invalid: maxAttempts must be >= 1 and delay values must be >= 0.');
+        }
+
+        return retry
+    }
+
+    /**
+     * @param {Object} options
+     * @param {Number} options.attempt Completed attempt number.
+     * @param {Object} options.retry Retry policy.
+     * @param {Number} options.totalDelayMs Delay already spent.
+     * @returns {Number}
+     */
+    #getCollectionResolveRetryDelay({attempt, retry, totalDelayMs}) {
+        const exponentialDelayMs = retry.initialDelayMs * 2 ** (attempt - 1);
+        const cappedDelayMs      = retry.maxDelayMs > 0 ? Math.min(exponentialDelayMs, retry.maxDelayMs) : exponentialDelayMs;
+        const remainingDelayMs   = retry.maxTotalDelayMs - totalDelayMs;
+
+        return Math.max(0, Math.min(cappedDelayMs, remainingDelayMs))
+    }
+
+    /**
      * @returns {{name: String, embeddingFunction: Object}}
      */
     #getKnowledgeBaseCollectionOptions() {
@@ -189,6 +271,36 @@ class ChromaManager extends Base {
      */
     #isCollectionNotFoundError(error) {
         return isChromaCollectionNotFoundError(error)
+    }
+
+    /**
+     * @param {Error} error
+     * @returns {Boolean}
+     */
+    #isChromaConnectionError(error) {
+        return error?.name === 'ChromaConnectionError' || error?.constructor?.name === 'ChromaConnectionError'
+    }
+
+    /**
+     * @param {Error} error
+     * @param {Object} context
+     * @returns {Error}
+     */
+    #createCollectionResolveError(error, {attempt, retry, totalDelayMs}) {
+        if (!this.#isChromaConnectionError(error)) {
+            return error
+        }
+
+        const failure = new Error(
+            `Knowledge base collection resolve failed after ${attempt}/${retry.maxAttempts} attempts ` +
+            `and ${totalDelayMs}ms retry delay: ${error.message}`
+        );
+
+        failure.name         = error.name || 'ChromaConnectionError';
+        failure.code         = error.code;
+        failure.cause        = error;
+        failure.retryContext = {attempt, maxAttempts: retry.maxAttempts, totalDelayMs};
+        return failure
     }
 
     /**
@@ -217,9 +329,9 @@ class ChromaManager extends Base {
      * @returns {Promise<String[]>}
      */
     async #getActiveKnowledgeBaseSwapCollections() {
-        const names = [];
-        const limit = 1000;
-        let offset  = 0;
+        const names  = [];
+        const limit  = 1000;
+        let   offset = 0;
 
         do {
             const collections = await this.client.listCollections({limit, offset});
