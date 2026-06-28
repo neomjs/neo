@@ -1,10 +1,8 @@
-import {program}             from 'commander';
 import {execSync, spawnSync} from 'node:child_process';
 import {readFileSync}        from 'node:fs';
 import path                  from 'node:path';
 import process               from 'node:process';
 import {fileURLToPath}       from 'node:url';
-import {getStagedAddedLines} from './stagedDiff.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -130,6 +128,34 @@ export function findTicketRefs(content) {
     return hits
 }
 
+/**
+ * @summary Built-in argv parser (no commander dep) so the guard runs in CI without `npm ci` — matching the
+ * sibling lint-scripts (e.g. lint-skill-manifest). Supports `--dirs`/`--ignore` (`=value` or space-separated),
+ * `--quiet`, `--skip`, `--base <ref>`, and bare positional file paths.
+ * @param {string[]} [argv=process.argv.slice(2)]
+ * @returns {{options: {dirs: string, ignore: string, quiet: boolean, skip: boolean, base: ?string}, files: string[]}}
+ */
+function parseArgs(argv = process.argv.slice(2)) {
+    const options = {dirs: DEFAULT_DIRS.join(','), ignore: DEFAULT_IGNORES.join(','), quiet: false, skip: false, base: null};
+    const files   = [];
+
+    for (let i = 0; i < argv.length; i++) {
+        const arg = argv[i];
+
+        if (arg === '-d' || arg === '--dirs')        { options.dirs   = argv[++i]; }
+        else if (arg.startsWith('--dirs='))          { options.dirs   = arg.slice('--dirs='.length); }
+        else if (arg === '-i' || arg === '--ignore') { options.ignore = argv[++i]; }
+        else if (arg.startsWith('--ignore='))        { options.ignore = arg.slice('--ignore='.length); }
+        else if (arg === '-q' || arg === '--quiet')  { options.quiet  = true; }
+        else if (arg === '-s' || arg === '--skip')   { options.skip   = true; }
+        else if (arg === '-b' || arg === '--base')   { options.base   = argv[++i]; }
+        else if (arg.startsWith('--base='))          { options.base   = arg.slice('--base='.length); }
+        else                                         { files.push(arg); }
+    }
+
+    return {options, files};
+}
+
 function main() {
     let gitRoot;
     try {
@@ -145,21 +171,17 @@ function main() {
         process.exit(1);
     }
 
-    program
-        .name('check-ticket-archaeology')
-        .description('Substrate gate against decay-prone ticket/Epic/Discussion/ADR refs in durable .mjs comments/JSDoc.')
-        .argument('[files...]', 'Specific .mjs files to scan (lint-staged passes staged paths here). When omitted, falls back to scanning --dirs.')
-        .option('-d, --dirs <list>', 'Comma-separated directories to scan in default mode.', DEFAULT_DIRS.join(','))
-        .option('-i, --ignore <list>', 'Comma-separated path fragments to exclude from default-mode scan.', DEFAULT_IGNORES.join(','))
-        .option('-q, --quiet', 'Suppress the per-violation listing; print summary only.', false)
-        .showHelpAfterError();
+    const {options, files: argvFiles} = parseArgs();
+    const scanDirs                    = options.dirs.split(',').map(s => s.trim()).filter(Boolean),
+          ignores  = options.ignore.split(',').map(s => s.trim()).filter(Boolean);
 
-    program.parse(process.argv);
-
-    const argvFiles = program.args,
-          options   = program.opts(),
-          scanDirs  = options.dirs.split(',').map(s => s.trim()).filter(Boolean),
-          ignores   = options.ignore.split(',').map(s => s.trim()).filter(Boolean);
+    // Targeted skip for the generated-data class (data-sync pipeline / sync_all): they commit
+    // resources/content/ which legitimately carries ticket-refs (the actual issue/PR/discussion bodies),
+    // so the archaeology gate does not apply. A clean opt-out, distinct from blunt `--no-verify`.
+    if (options.skip || process.env.NEO_SKIP_TICKET_ARCHAEOLOGY === '1') {
+        console.log('check-ticket-archaeology: skipped (generated-data class — --skip / NEO_SKIP_TICKET_ARCHAEOLOGY).');
+        process.exit(0);
+    }
 
     function collectDefaultFiles() {
         const findArgs = ['-type', 'f', '-name', '*.mjs'];
@@ -174,10 +196,31 @@ function main() {
         return result.stdout.trim().split('\n').filter(Boolean);
     }
 
-    const isStagedMode = argvFiles.length > 0;
-    const files = isStagedMode
-        ? argvFiles.filter(f => f.endsWith('.mjs'))
-        : collectDefaultFiles();
+    // CI mode: the in-scope (.mjs, within scanDirs, not ignored) files CHANGED vs the base ref. Deletions
+    // (--diff-filter=d excludes them) cannot carry archaeology; renames/edits exist on HEAD → readable.
+    function changedFilesVsBase(base) {
+        const result = spawnSync('git', ['diff', '--name-only', '--diff-filter=d', `${base}...HEAD`], {cwd: gitRoot, encoding: 'utf-8'});
+        if (result.status !== 0) {
+            console.error(`\x1b[31mError: git diff against '${base}' failed.\x1b[0m`);
+            console.error(result.stderr);
+            process.exit(1);
+        }
+        return result.stdout.trim().split('\n').filter(Boolean)
+            .filter(f => f.endsWith('.mjs'))
+            .filter(f => scanDirs.some(dir => f === dir || f.startsWith(`${dir}/`)))
+            .filter(f => !ignores.some(ignore => f.split('/').includes(ignore)));
+    }
+
+    // File selection (all modes scan each selected file in FULL — boy-scout, no line scoping):
+    //   --base <ref> : CI — the in-scope files changed vs <ref>
+    //   file args    : pre-commit — lint-staged passes the staged paths
+    //   neither      : the default whole-repo audit
+    const hasFileArgs = argvFiles.length > 0;
+    const files       = options.base
+        ? changedFilesVsBase(options.base)
+        : hasFileArgs
+            ? argvFiles.filter(f => f.endsWith('.mjs'))
+            : collectDefaultFiles();
 
     if (files.length === 0) {
         console.log('check-ticket-archaeology: 0 .mjs files in scope, nothing to check.');
@@ -194,12 +237,11 @@ function main() {
             continue;
         }
 
-        // In staged (pre-commit) mode, scope findings to the author's added lines so we do not
-        // re-flag grandfathered refs on untouched lines; the default-dirs full audit stays whole-file.
-        const addedLines = isStagedMode ? getStagedAddedLines(file, gitRoot) : null;
-
+        // Boy-scout rule (operator-directed): scan the WHOLE touched file, exactly like
+        // check-block-alignment — touching a file obligates cleaning ALL its ticket-archaeology, not just
+        // the author's added lines. This reduces the grandfathered backlog as files are naturally touched;
+        // an added-lines-only scope (the prior shape) froze that debt instead.
         findTicketRefs(content)
-            .filter(({line}) => !addedLines || addedLines.has(line))
             .forEach(({line, text}) => violations.push(`${file}:${line}: ${text}`));
     }
 

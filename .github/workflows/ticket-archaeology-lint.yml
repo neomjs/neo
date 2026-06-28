@@ -1,0 +1,41 @@
+name: Ticket Archaeology Lint
+
+# CI mirror of the .husky/pre-commit check-ticket-archaeology guard, so `git commit --no-verify` cannot
+# bypass it at the merge-gate. Boy-scout: scans each in-scope file CHANGED in the PR in FULL (whole
+# touched-file, like block-alignment) — touching a file obligates cleaning all its ticket-archaeology.
+# PR-only: the data-sync pipeline / sync_all push to dev with `[skip ci]`, so they never reach this gate.
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'ai/**/*.mjs'
+      - 'src/**/*.mjs'
+      - 'test/**/*.mjs'
+      - 'buildScripts/util/check-ticket-archaeology.mjs'
+      - '.github/workflows/ticket-archaeology-lint.yml'
+
+concurrency:
+  group: ticket-archaeology-lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Fetch base branch
+        run: git fetch origin ${{ github.base_ref }}
+
+      # No `npm ci` — the guard uses only Node built-ins (matches the sibling lint workflows).
+      - name: Lint ticket-archaeology (boy-scout — whole touched-file vs base)
+        run: node buildScripts/util/check-ticket-archaeology.mjs --base origin/${{ github.base_ref || 'dev' }}
