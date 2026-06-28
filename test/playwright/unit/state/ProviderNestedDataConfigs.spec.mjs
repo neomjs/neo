@@ -11,6 +11,8 @@ import Neo             from '../../../../src/Neo.mjs';
 import * as core       from '../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../src/manager/Instance.mjs';
 import Component       from '../../../../src/component/Base.mjs';
+import Model           from '../../../../src/data/Model.mjs';
+import RecordFactory   from '../../../../src/data/RecordFactory.mjs';
 import StateProvider   from '../../../../src/state/Provider.mjs';
 
 class MockComponent extends Component {
@@ -42,7 +44,7 @@ test.describe('State Provider Nested Data Configs', () => {
                 data: {
                     user: {
                         name: 'John',
-                        age: 30
+                        age : 30
                     }
                 }
             }
@@ -81,8 +83,8 @@ test.describe('State Provider Nested Data Configs', () => {
             }
         });
 
-        const provider = component.getStateProvider();
-        let effectRunCount = 0;
+        const provider       = component.getStateProvider();
+        let   effectRunCount = 0;
 
         provider.createBinding(component.id, 'user', data => {
             effectRunCount++;
@@ -109,7 +111,7 @@ test.describe('State Provider Nested Data Configs', () => {
         provider.setData({
             user: {
                 firstname: 'John',
-                lastname: 'Doe'
+                lastname : 'Doe'
             }
         });
         expect(effectRunCount).toBe(3);
@@ -135,7 +137,7 @@ test.describe('State Provider Nested Data Configs', () => {
                 data: {
                     user: {
                         firstName: 'John',
-                        lastName: 'Doe'
+                        lastName : 'Doe'
                     }
                 },
                 formulas: {
@@ -274,7 +276,7 @@ test.describe('State Provider Nested Data Configs', () => {
         });
 
         const parentProvider = parentComponent.getStateProvider();
-        const childProvider = childComponent.getStateProvider();
+        const childProvider  = childComponent.getStateProvider();
 
         expect(childFormulaRunCount).toBe(1);
         expect(childProvider.getData('display')).toBe('User: Parent (admin)');
@@ -293,5 +295,148 @@ test.describe('State Provider Nested Data Configs', () => {
 
         parentComponent.destroy();
         childComponent.destroy();
+    });
+
+    test('Record fields assigned to data should update direct field bindings', () => {
+        const
+            model = Neo.create(Model, {
+                fields: [
+                    {name: 'id',        type: 'String'},
+                    {name: 'firstName', type: 'String'},
+                    {name: 'lastName',  type: 'String'}
+                ]
+            }),
+            record = RecordFactory.createRecord(model, {
+                id       : '1',
+                firstName: 'John',
+                lastName : 'Doe'
+            }),
+            component = Neo.create(MockComponent, {
+                stateProvider: {
+                    data: {
+                        currentUser: record
+                    }
+                }
+            }),
+            provider = component.getStateProvider();
+
+        let effectRunCount = 0;
+
+        provider.createBinding(component.id, 'userName', data => {
+            effectRunCount++;
+            return data['currentUser.firstName']
+        });
+
+        expect(provider.getData('currentUser')).toBe(record);
+        expect(component.userName).toBe('John');
+        expect(effectRunCount).toBe(1);
+
+        record.set({firstName: 'Jane'});
+
+        expect(component.userName).toBe('Jane');
+        expect(provider.getData('currentUser')).toBe(record);
+        expect(provider.getData('currentUser.firstName')).toBe('Jane');
+        expect(effectRunCount).toBe(2);
+
+        record.setSilent({firstName: 'Silent'});
+
+        expect(component.userName).toBe('Jane');
+        expect(effectRunCount).toBe(2);
+
+        component.destroy();
+    });
+
+    test('Record field bindings should detach on record replacement', () => {
+        const
+            model = Neo.create(Model, {
+                fields: [
+                    {name: 'id',        type: 'String'},
+                    {name: 'firstName', type: 'String'}
+                ]
+            }),
+            oldRecord = RecordFactory.createRecord(model, {
+                id       : '1',
+                firstName: 'John'
+            }),
+            newRecord = RecordFactory.createRecord(model, {
+                id       : '2',
+                firstName: 'Jane'
+            }),
+            component = Neo.create(MockComponent, {
+                stateProvider: {
+                    data: {
+                        currentUser: oldRecord
+                    }
+                }
+            }),
+            provider = component.getStateProvider();
+
+        let effectRunCount = 0;
+
+        provider.createBinding(component.id, 'userName', data => {
+            effectRunCount++;
+            return data['currentUser.firstName']
+        });
+
+        expect(component.userName).toBe('John');
+        expect(effectRunCount).toBe(1);
+
+        provider.setData('currentUser', newRecord);
+
+        expect(component.userName).toBe('Jane');
+        expect(provider.getData('currentUser')).toBe(newRecord);
+        expect(effectRunCount).toBe(2);
+
+        oldRecord.set({firstName: 'Stale'});
+
+        expect(component.userName).toBe('Jane');
+        expect(effectRunCount).toBe(2);
+
+        newRecord.set({firstName: 'Grace'});
+
+        expect(component.userName).toBe('Grace');
+        expect(effectRunCount).toBe(3);
+
+        component.destroy();
+    });
+
+    test('Record field bindings should detach on provider destroy', () => {
+        const
+            model = Neo.create(Model, {
+                fields: [
+                    {name: 'id',        type: 'String'},
+                    {name: 'firstName', type: 'String'}
+                ]
+            }),
+            record = RecordFactory.createRecord(model, {
+                id       : '1',
+                firstName: 'John'
+            }),
+            component = Neo.create(MockComponent, {
+                stateProvider: {
+                    data: {
+                        currentUser: record
+                    }
+                }
+            }),
+            provider = component.getStateProvider();
+
+        let effectRunCount = 0;
+
+        provider.createBinding(component.id, 'userName', data => {
+            effectRunCount++;
+            return data['currentUser.firstName']
+        });
+
+        expect(component.userName).toBe('John');
+        expect(effectRunCount).toBe(1);
+
+        provider.destroy();
+        record.set({firstName: 'Detached'});
+
+        expect(component.userName).toBe('John');
+        expect(effectRunCount).toBe(1);
+
+        component.destroy();
     });
 });

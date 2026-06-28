@@ -317,6 +317,22 @@ class Config extends ConfigProvider {
                 }
             },
             /**
+             * Memory Core repair strategy controls that participate in durable accepted-loss fingerprints.
+             *
+             * `strategyVersion` must change whenever repair embeddability behavior changes in a way that can
+             * make previously terminal residue recoverable (for example, truncation/chunking/re-embed policy).
+             * Keeping it in AiConfig, not a maintenance-script export, preserves the Provider SSOT: consumers read
+             * the resolved leaf at the use site, and local overlays/env can make the active fingerprint explicit.
+             * @type {Object}
+             */
+            memoryRepair: {
+                /**
+                 * Accepted-loss fingerprint strategy version for Memory Core repair embeddability semantics.
+                 * @type {string}
+                 */
+                strategyVersion: leaf('mc-repair-v1', 'NEO_MEMORY_REPAIR_STRATEGY_VERSION', 'string')
+            },
+            /**
              * @summary Deployment-wide Gemini model defaults.
              *
              * Memory Core still exposes these historical field names for Gemini-backed
@@ -852,6 +868,19 @@ class Config extends ConfigProvider {
                         systemicThreshold: leaf(3,              'NEO_RECOVERY_ACTUATOR_SYSTEMIC_CIRCUIT_THRESHOLD',        'number'),
                         windowMs         : leaf(10 * 60 * 1000, 'NEO_RECOVERY_ACTUATOR_SYSTEMIC_CIRCUIT_WINDOW_MS',        'number'),
                         openDurationMs   : leaf(10 * 60 * 1000, 'NEO_RECOVERY_ACTUATOR_SYSTEMIC_CIRCUIT_OPEN_DURATION_MS', 'number')
+                    },
+                    /**
+                     * Chronic `unsafe-input` detector bounds — the immune system's self-observability for a
+                     * MIS-WIRE. `dispatchHeal` fails CLOSED to `unsafe-input` on under-specified input (no
+                     * collection / non-finite clock / missing recordRun); a single one is routine, but >=
+                     * `threshold` for the SAME (action, collection) inside `windowMs` means a caller is
+                     * chronically mis-wired and that heal silently never executes. Consumed by
+                     * `detectChronicUnsafeInput`: read at the use-site and passed as its bounds.
+                     * @type {Object}
+                     */
+                    chronicUnsafeInput: {
+                        threshold: leaf(5,              'NEO_RECOVERY_ACTUATOR_CHRONIC_UNSAFE_INPUT_THRESHOLD', 'number'),
+                        windowMs : leaf(60 * 60 * 1000, 'NEO_RECOVERY_ACTUATOR_CHRONIC_UNSAFE_INPUT_WINDOW_MS', 'number')
                     }
                 },
                 /**

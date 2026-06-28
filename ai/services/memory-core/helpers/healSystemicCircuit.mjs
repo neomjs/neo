@@ -115,3 +115,47 @@ export function decideSystemicCircuit({recentFailures = [], circuitOpenedAt, now
 
     return {open: false, status: 'closed', reason: `${failing.size}/${systemicThreshold} distinct collections failing the outage signature — not systemic`};
 }
+
+/**
+ * The systemic-circuit ledger event types. `circuit-open` records a trip (or a re-trip after a failed probe);
+ * `circuit-close` records a recovered half-open probe. The wiring folds these back to derive `circuitOpenedAt`.
+ * @type {{OPEN: String, CLOSE: String}}
+ */
+export const SYSTEMIC_CIRCUIT_EVENTS = Object.freeze({OPEN: 'circuit-open', CLOSE: 'circuit-close'});
+
+/**
+ * @summary Folds the heal-event ledger into the two inputs `decideSystemicCircuit` derives from it: the current
+ * circuit state (`circuitOpenedAt` — the last `circuit-open` with no later `circuit-close`) and the recent FAILED
+ * heal runs in-window (`recentFailures` — the cross-collection storm evidence). Pure: the caller reads the ledger.
+ * This is the wiring-side counterpart the decider's JSDoc defers to it — kept beside the decider so the open-state
+ * derivation and the suppression decision share one event vocabulary.
+ * @param {Object[]} [events=[]] The heal-event entries (append order, oldest → newest).
+ * @param {Object} [options]
+ * @param {Number} [options.now] Epoch ms (the recent-failure window's upper bound).
+ * @param {Number} [options.windowMs] The recent-failure window length; absent/non-finite → no lower bound.
+ * @returns {{recentFailures: Object[], circuitOpenedAt: (Number|null)}}
+ */
+export function foldSystemicCircuitState(events = [], {now, windowMs} = {}) {
+    const rows       = Array.isArray(events) ? events : [],
+          lowerBound = Number.isFinite(now) && Number.isFinite(windowMs) ? now - windowMs : -Infinity;
+
+    // Last unmatched circuit-open wins (events are append-order oldest → newest); a later close clears it.
+    let circuitOpenedAt = null;
+
+    for (const event of rows) {
+        if (!event || typeof event !== 'object') continue;
+        if (event.type === SYSTEMIC_CIRCUIT_EVENTS.OPEN && Number.isFinite(event.at)) {
+            circuitOpenedAt = event.at;
+        } else if (event.type === SYSTEMIC_CIRCUIT_EVENTS.CLOSE) {
+            circuitOpenedAt = null;
+        }
+    }
+
+    // Recent FAILED heal-outcome rows in-window — the cross-collection storm evidence the decider correlates.
+    // Circuit-open/close rows carry status open/close (not failed), so they never count as failures here.
+    const recentFailures = rows
+        .filter(event => event && typeof event === 'object' && event.status === 'failed' && Number.isFinite(event.at) && event.at >= lowerBound)
+        .map(event => ({collection: event.collection, at: event.at, detail: event.detail}));
+
+    return {recentFailures, circuitOpenedAt};
+}

@@ -372,9 +372,9 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
 
         recordDeferral({
             deferralLogKeys,
-            taskName  : 'golden-path',
-            reasonCode: 'golden-path-dependency-backpressure',
-            reasonText     : `periodic-golden-path:1800000`,
+            taskName        : 'golden-path',
+            reasonCode      : 'golden-path-dependency-backpressure',
+            reasonText      : `periodic-golden-path:1800000`,
             blockingTaskName: 'dream',
             taskDefinitions : {
                 ['golden-path']: {label: 'Golden Path'},
@@ -676,5 +676,67 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
 
         expect(executions).toEqual([{taskName: 'golden-path', reason: 'periodic-golden-path'}]);
         expect(result).toBe('gp-done');
+    });
+});
+
+test.describe('MaintenanceBackpressureService — shed-window (#14284 throttle-shed actuation)', () => {
+    test('setShedWindow opens an auto-expiring window; isShedActive is true within, false at/after expiry', () => {
+        const svc = buildService();
+        expect(svc.isShedActive(1000)).toBe(false); // no window yet
+        svc.setShedWindow(500, 1000);               // shed until 1500
+        expect(svc.isShedActive(1000)).toBe(true);
+        expect(svc.isShedActive(1499)).toBe(true);
+        expect(svc.isShedActive(1500)).toBe(false);  // strict: now < shedUntil
+        expect(svc.isShedActive(9999)).toBe(false);  // auto-expired
+    });
+
+    test('max-wins on overlap — a shorter later window cannot curtail a longer active one', () => {
+        const svc = buildService();
+        svc.setShedWindow(1000, 1000); // until 2000
+        svc.setShedWindow(100, 1200);  // until 1300 — shorter; must NOT shrink the active window
+        expect(svc.shedUntil).toBe(2000);
+        expect(svc.isShedActive(1900)).toBe(true);
+    });
+
+    test('a non-positive / non-finite duration is a no-op (no window opened)', () => {
+        const svc = buildService();
+        svc.setShedWindow(0, 1000);
+        svc.setShedWindow(-5, 1000);
+        svc.setShedWindow(NaN, 1000);
+        expect(svc.isShedActive(1000)).toBe(false);
+    });
+
+    test('acquireLeaseAndExecute DEFERS all heavy-maintenance while the window is active (returns false, executeFn NOT called)', () => {
+        const svc = buildService();
+        svc.setShedWindow(1000, 1000);
+
+        let   called = false;
+        const result = svc.acquireLeaseAndExecute({
+            taskName       : 'kbSync',
+            executeFn      : () => { called = true; return true; },
+            reason         : 'scheduled',
+            activeHeavyTask: {name: null},
+            now            : 1000
+        });
+
+        expect(result).toBe(false); // deferred by the shed-window
+        expect(called).toBe(false); // the heavy task did NOT run — gated before the lease
+    });
+
+    test('does NOT shed a non-heavy task — light maintenance bypasses the window', () => {
+        const svc = buildService();
+        svc.setShedWindow(1000, 1000);
+
+        let   called = false;
+        const result = svc.acquireLeaseAndExecute({
+            taskName       : NON_HEAVY_TASK_NAME,
+            executeFn      : () => { called = true; return 'ran'; },
+            reason         : 'scheduled',
+            activeHeavyTask: {name: null},
+            now            : 1000
+        });
+
+        expect(called).toBe(true);    // light task ran despite the active shed-window
+        expect(result).toBe('ran');
     });
 });

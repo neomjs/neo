@@ -39,6 +39,11 @@ import {auditChromaVectorCoverage}                                              
 import {createReEmbedMissingHeal, createReEmbedMissingHealOperation}                                from '../../services/memory-core/helpers/reEmbedMissingHeal.mjs';
 import {appendHealEvent, healEventsToRecentRuns, queryHealLedger, readHealLedger}                   from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
 import {validateHealLedgerRetention}                                                                from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
+import {detectChronicUnsafeInput}                                                                   from '../../services/memory-core/helpers/healActionDispatch.mjs';
+import {quarantineCollection, storeFenceTargets, unquarantineCollection}                            from '../../services/memory-core/helpers/quarantineStore.mjs';
+import {createFreezeHealOperation, createStoreFenceOperations, runFreezeReprobe}                    from '../../services/memory-core/helpers/freezeReprobeRunner.mjs';
+import {createThrottleShedHealOperation}                                                            from '../../services/memory-core/helpers/throttleShedHeal.mjs';
+import {decideSystemicCircuit, foldSystemicCircuitState}                                            from '../../services/memory-core/helpers/healSystemicCircuit.mjs';
 import {Memory_StorageRouter as StorageRouter, Memory_TextEmbeddingService as TextEmbeddingService} from '../../services.mjs';
 import {buildDataIntegrityCoverageDiagnosis}                                                        from './services/dataIntegrityCoverageDiagnosis.mjs';
 import {assembleDataIntegrityEvidence}                                                              from './services/dataIntegrityEvidenceAssembler.mjs';
@@ -433,7 +438,8 @@ export class Orchestrator extends Base {
             expectedDimension: AiConfig.vectorDimension
         });
 
-        const healLedgerDir = path.join(this.dataDir, 'data-heal-events');
+        const healLedgerDir    = path.join(this.dataDir, 'data-heal-events');
+        const freezeRecordsDir = path.join(this.dataDir, 'data-freeze-records');
 
         // The retention leaves, read + VALIDATED at this AiConfig boundary (call-time). An invalid operator-set
         // maxEvents/pruneTriggerBytes fails VISIBLY here rather than being swallowed by appendHealEvent's prune gate
@@ -462,6 +468,43 @@ export class Orchestrator extends Base {
 
                         return Array.isArray(drift?.missingVectorIds) ? drift.missingVectorIds : [];
                     }
+                }),
+                // Quarantine-from-serving: the safe-default terminal for non-losslessly-recoverable corruption.
+                // Fences the collection (queryMemories / querySummaries fail-fast) until a repair or a clean
+                // re-audit lifts it. Lossless — no data mutated, no operator.
+                quarantine: async ({collection, evidence, now} = {}) => {
+                    // A store-level fault (sqlite-integrity) targets the service id, not a served collection, so
+                    // fence every served collection in the store — else no query guard observes the fence. The served
+                    // collection NAMES are owned by the Memory Core config (memoryCoreConfig.collections), the SSOT the
+                    // store consumers read — NOT top-level AiConfig (which has no `collections` key).
+                    const targets = storeFenceTargets(collection, [memoryCoreConfig.collections.memory, memoryCoreConfig.collections.session]);
+
+                    for (const target of targets) {
+                        await quarantineCollection(target, {
+                            dir   : AiConfig.engines.chroma.dataDir,
+                            reason: evidence?.reasonCode ?? evidence?.mode ?? collection,
+                            now
+                        });
+                    }
+
+                    return {status: 'quarantined', detail: {collection, fenced: targets}};
+                },
+                // Freeze-from-serving: the safe terminal for a systemic / dimension-systemic fault. Fences the
+                // served collections (mirrors quarantine) AND persists a freeze-record so the autonomous re-probe
+                // cycle can auto-unfreeze when the fault clears — in cloud there is no operator (the #1 weeks-bar risk).
+                freeze: createFreezeHealOperation({
+                    freezeRecordsDir,
+                    // Symmetric store-level fence (memory + session) — paired with the re-probe auto-unfence via the
+                    // same `createStoreFenceOperations` factory, so a freeze and its later auto-unfreeze lift exactly
+                    // the same served set (they cannot diverge into the unfreeze-lifts-only-the-record-key asymmetry).
+                    fence: this.getStoreFenceOperations().fence
+                }),
+                // Throttle-shed: the resource-contention / exhaustion heal — open a bounded shed-window so the
+                // orchestrator defers ALL heavy-maintenance until the contended resource recovers, then auto-expires
+                // (no operator). The lazy closure resolves the live `maintenanceBackpressureService` at heal-time,
+                // so it is independent of reactive-config set ordering.
+                'throttle-shed': createThrottleShedHealOperation({
+                    setShedWindow: (durationMs, now) => this.maintenanceBackpressureService.setShedWindow(durationMs, now)
                 })
             },
             // The ledger is observability, never a gate: readHealLedger now THROWS on an unreadable FILE, so an
@@ -489,6 +532,65 @@ export class Orchestrator extends Base {
     }
 
     /**
+     * @summary Health probe for the freeze re-probe cycle: has the systemic fault that tripped the freeze
+     * cleared? A canary embed (the same `TextEmbeddingService` the heal path uses) checks BOTH signals at once —
+     * a successful embed proves the embedder is healthy, and a correct-dimension vector proves dimension
+     * consistency. Any error → an inconclusive reading, so `decideFreezeReprobe` fails closed to stay-frozen. The
+     * embedder fault is systemic, so the canary is collection-agnostic (the parameter satisfies the cycle contract).
+     * @param {String} [collectionName] The frozen collection (unused — the embedder health is systemic).
+     * @returns {Promise<{embedderHealthy: Boolean, dimensionConsistent: Boolean}>}
+     */
+    async probeFrozenCollectionHealth(collectionName) {
+        try {
+            const [vector] = await TextEmbeddingService.embedTexts(['__freeze-reprobe-health-canary__'], AiConfig.embeddingProvider),
+                  ok       = Array.isArray(vector) && vector.length === AiConfig.vectorDimension;
+
+            return {embedderHealthy: ok, dimensionConsistent: ok};
+        } catch (error) {
+            return {embedderHealthy: false, dimensionConsistent: false}; // inconclusive → stay frozen (fail closed)
+        }
+    }
+
+    /**
+     * @summary The symmetric store-level fence/unfence pair used by BOTH the `freeze` heal-op and the re-probe
+     * auto-unfreeze — built from one factory (`createStoreFenceOperations`) so they cannot diverge: a store-level
+     * freeze fences the served collections (memory + session) and the auto-unfreeze lifts exactly that same set.
+     * @returns {{fence: Function, unfence: Function, expandTargets: Function}}
+     */
+    getStoreFenceOperations() {
+        return createStoreFenceOperations({
+            quarantine  : quarantineCollection,
+            unquarantine: unquarantineCollection,
+            expand      : storeFenceTargets,
+            // Served collection NAMES come from the Memory Core config SSOT (memoryCoreConfig.collections — the same
+            // source the quarantine op + the store consumers read), NOT top-level AiConfig (no `collections` key).
+            servedCollections: [memoryCoreConfig.collections.memory, memoryCoreConfig.collections.session],
+            quarantineOptions: {dir: AiConfig.engines.chroma.dataDir}
+        });
+    }
+
+    /**
+     * @summary Runs one autonomous freeze re-probe tick (the recovery counterpart to the `freeze` actuator op):
+     * for every frozen collection it re-probes health and auto-unfreezes + re-heals a cleared fault, stays frozen
+     * while it persists, or contains it past the thrash cap — all under `decideFreezeReprobe`'s back-off, never an
+     * operator. In cloud a transient embedder fault must not permanently kill a collection (the #1 weeks-bar risk).
+     * No-op (a cheap read only) when nothing is frozen; never throws into the poll (the caller swallows).
+     * @param {Number} [now] Injected clock (epoch ms).
+     * @returns {Promise<Object[]>} Per-collection re-probe outcomes, or `[]` when nothing is frozen.
+     */
+    async runFreezeReprobeCycleIfActive(now = Date.now()) {
+        return runFreezeReprobe({
+            freezeRecordsDir: path.join(this.dataDir, 'data-freeze-records'),
+            healLedgerDir   : path.join(this.dataDir, 'data-heal-events'),
+            now,
+            probe           : collectionName => this.probeFrozenCollectionHealth(collectionName),
+            // The store-level unfence — paired with the `freeze` op's fence via createStoreFenceOperations, so a
+            // store-level freeze and its auto-unfreeze lift exactly the same served set (no asymmetry).
+            unfence         : this.getStoreFenceOperations().unfence
+        });
+    }
+
+    /**
      * @param {Neo.ai.daemons.services.DataIntegrityDiagnosisService|Object|null} value
      * @returns {Neo.ai.daemons.services.DataIntegrityDiagnosisService}
      */
@@ -496,7 +598,29 @@ export class Orchestrator extends Base {
         return ClassSystemUtil.beforeSetInstance(value, DataIntegrityDiagnosisService, {
             serviceId       : this.dataIntegrityServiceId,
             recoveryActuator: this.dataRecoveryActuatorService,
-            evidenceGatherer: this.dataIntegrityEvidenceGatherer
+            evidenceGatherer: this.dataIntegrityEvidenceGatherer,
+            // Reversibility: a clean re-audit (terminalAction `none`) lifts the serving fence. The store-level
+            // fence is per-served-collection, so each lifts as it re-audits clean.
+            liftQuarantine  : async collection => unquarantineCollection(collection, {dir: AiConfig.engines.chroma.dataDir}),
+            // Systemic circuit-breaker: fold the heal-ledger → decide whether a cross-collection embedder outage
+            // should suppress this cycle's heals (bounds read FRESH from the AiConfig recovery-actuator leaf).
+            systemicCircuitGate: async ({now}) => {
+                const dir                               = path.join(this.dataDir, 'data-heal-events'),
+                      bounds                            = AiConfig.orchestrator.recoveryActuator.systemicCircuit,
+                      {recentFailures, circuitOpenedAt} = foldSystemicCircuitState(await readHealLedger({dir}), {now, windowMs: bounds.windowMs});
+                return decideSystemicCircuit({recentFailures, circuitOpenedAt, now, bounds});
+            },
+            recordCircuitEvent: async ({type, at, detail}) => appendHealEvent(
+                {type, collection: '*', status: type === 'circuit-open' ? 'open' : 'close', detail},
+                {dir: path.join(this.dataDir, 'data-heal-events'), now: at}
+            ),
+            // Chronic unsafe-input mis-wire detector (observability): fold the heal-ledger for sustained
+            // unsafe-input per (action, collection); bounds read FRESH from the AiConfig recovery-actuator leaf.
+            chronicUnsafeInputDetector: async ({now}) => {
+                const dir    = path.join(this.dataDir, 'data-heal-events'),
+                      bounds = AiConfig.orchestrator.recoveryActuator.chronicUnsafeInput;
+                return detectChronicUnsafeInput(await readHealLedger({dir}), {threshold: bounds.threshold, windowMs: bounds.windowMs, now});
+            }
         });
     }
 
@@ -828,6 +952,9 @@ export class Orchestrator extends Base {
 
         this.deploymentStateBridgeService?.writeSnapshotIfDue()
             .catch(error => this.writeLog('ERROR', `[Orchestrator] Deployment state bridge failed: ${error.message}`));
+
+        this.runFreezeReprobeCycleIfActive(now)
+            .catch(error => this.writeLog('ERROR', `[Orchestrator] Freeze re-probe cycle failed: ${error.message}`));
 
         if (this.isPolling) {
             this.pollHandle = setTimeout(() => this.poll(), AiConfig.orchestrator.intervals.pollMs);

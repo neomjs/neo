@@ -1,10 +1,11 @@
-import {test, expect}  from '@playwright/test';
-import fs              from 'fs/promises';
-import path            from 'path';
-import {fileURLToPath} from 'url';
-import Neo             from '../../../../../../src/Neo.mjs';
-import * as core       from '../../../../../../src/core/_export.mjs';
-import AiConfig        from '../../../../../../ai/config.mjs';
+import {test, expect}   from '@playwright/test';
+import fs               from 'fs/promises';
+import path             from 'path';
+import {fileURLToPath}  from 'url';
+import Neo              from '../../../../../../src/Neo.mjs';
+import * as core        from '../../../../../../src/core/_export.mjs';
+import AiConfig         from '../../../../../../ai/config.mjs';
+import memoryCoreConfig from '../../../../../../ai/mcp/server/memory-core/config.mjs';
 import {
     Orchestrator
 } from '../../../../../../ai/daemons/orchestrator/Orchestrator.mjs';
@@ -440,6 +441,17 @@ test.describe('Orchestrator parent-prop propagation (#11834 AC3)', () => {
         expect(orchestrator.deploymentStateBridgeService.healLedgerDir).toBe(path.join('/tmp/orchestrator-test-mutated', 'data-heal-events'));
     });
 
+    test('the store-level fence fan-out resolves served collection names from the Memory Core config SSOT', () => {
+        const orchestrator = createMinimalOrchestrator();
+        // A store-level fault target (e.g. mc-server) is not itself a served collection, so it expands to the served
+        // set — memory + session — sourced from memoryCoreConfig.collections (the store-name SSOT). Reading top-level
+        // AiConfig.collections (no such key) would have dereferenced undefined at heal-time.
+        expect(orchestrator.getStoreFenceOperations().expandTargets('mc-server'))
+            .toEqual([memoryCoreConfig.collections.memory, memoryCoreConfig.collections.session]);
+        expect(memoryCoreConfig.collections.memory).toBeTruthy();
+        expect(memoryCoreConfig.collections.session).toBeTruthy();
+    });
+
     test('mutating orchestrator.healthService propagates to processSupervisorService + maintenanceBackpressureService', () => {
         const orchestrator = createMinimalOrchestrator();
         const newHealth    = {recordTaskOutcome() {}, marker: 'mutated-healthservice'};
@@ -543,6 +555,16 @@ test.describe('Orchestrator source-level invariants (#11834 AC4)', () => {
         expect(configuredTaskDefinitionsSource).toContain('AiConfig.engines.chroma.port');
         expect(configuredTaskDefinitionsSource).toContain('AiConfig.openAiCompatible.host');
         expect(daemonSource).toContain('AiConfig.orchestrator.devSyncRoots');
+    });
+
+    test('the store-level served-collection fan-out (freeze + quarantine) reads the Memory Core config SSOT, never top-level AiConfig.collections', async () => {
+        const orchestratorSource = stripCommentsAndStrings(await fs.readFile(ORCHESTRATOR_MJS_PATH, 'utf8'));
+        // Top-level AiConfig has no `collections` key — the served collection NAMES live in the Memory Core config.
+        // BOTH store-fence fan-outs (the quarantine op + getStoreFenceOperations) must read memoryCoreConfig.collections;
+        // a top-level AiConfig.collections.memory/session read would dereference undefined at heal-time.
+        expect(orchestratorSource).not.toContain('AiConfig.collections');
+        expect((orchestratorSource.match(/memoryCoreConfig\.collections\.memory/g)  || []).length).toBeGreaterThanOrEqual(2);
+        expect((orchestratorSource.match(/memoryCoreConfig\.collections\.session/g) || []).length).toBeGreaterThanOrEqual(2);
     });
 
     test('Orchestrator.mjs delegates configured child-process task composition (#13875)', async () => {

@@ -83,4 +83,20 @@ test.describe('freezeRecordStore — durable mutable freeze-state', () => {
         await expect(upsertFreezeRecord({dir})).rejects.toThrow(/collectionName is required/);
         await fs.rm(dir, {recursive: true, force: true});
     });
+
+    test('null DELETES a field while undefined PRESERVES it — the tombstone re-activation null-clear (#14276)', async () => {
+        const dir = await tmpDir();
+        // a released tombstone carrying a climbing count + stale back-off / contained markers
+        await upsertFreezeRecord({dir, collectionName: 'c1', faultFingerprint: 'e', frozenAt: 100, unfreezeAttempts: 2, lastProbeAt: 500, containedAt: 600, unfrozenAt: 700});
+
+        // re-activation: set frozenAt, null-clear the released / back-off / contained markers, PRESERVE unfreezeAttempts (undefined)
+        await upsertFreezeRecord({dir, collectionName: 'c1', frozenAt: 900, unfrozenAt: null, lastProbeAt: null, containedAt: null});
+
+        const record = await getFreezeRecord({dir, collectionName: 'c1'});
+        expect(record).toMatchObject({collectionName: 'c1', faultFingerprint: 'e', frozenAt: 900, unfreezeAttempts: 2}); // preserved (undefined) + overwritten (frozenAt)
+        expect(record.unfrozenAt).toBeUndefined();  // null-cleared
+        expect(record.lastProbeAt).toBeUndefined(); // null-cleared
+        expect(record.containedAt).toBeUndefined(); // null-cleared
+        await fs.rm(dir, {recursive: true, force: true});
+    });
 });

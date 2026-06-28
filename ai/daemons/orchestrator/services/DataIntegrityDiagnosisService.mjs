@@ -68,6 +68,32 @@ export class DataIntegrityDiagnosisService extends Base {
      * @member {String|null} serviceId=null
      */
     serviceId = null
+    /**
+     * Reversibility seam: lifts a collection's serving fence when a clean re-audit (terminalAction `none`)
+     * shows it recovered. `null` → no-op (the fence persists). Set-once injected dependency — a plain field.
+     * @member {Function|null} liftQuarantine=null
+     */
+    liftQuarantine = null
+    /**
+     * The systemic circuit-breaker gate: `async ({now}) => {open, status, reason, …}` — folds the ledger, runs
+     * `decideSystemicCircuit`, and reports whether a cross-collection embedder outage should suppress THIS cycle's
+     * heals. `null` → no gate (proceed, as before). Set-once injected dependency — a plain class field.
+     * @member {Function|null} systemicCircuitGate=null
+     */
+    systemicCircuitGate = null
+    /**
+     * Records a circuit-open / circuit-close ledger event: `async ({type, at, detail}) => void`. The gate's fold
+     * reads these back to derive the open state. `null` → events are not recorded (the gate still suppresses).
+     * @member {Function|null} recordCircuitEvent=null
+     */
+    recordCircuitEvent = null
+    /**
+     * Chronic `unsafe-input` mis-wire detector: `async ({now}) => [{action, collection, count}]` — folds the
+     * heal-ledger for sustained `unsafe-input` per (action, collection). Observability only (does NOT gate the
+     * cycle). `null` → no detection. Set-once injected dependency — a plain class field.
+     * @member {Function|null} chronicUnsafeInputDetector=null
+     */
+    chronicUnsafeInputDetector = null
 
     /**
      * @summary Gathers per-collection evidence, classifies each, and routes every actionable finding to its
@@ -101,15 +127,57 @@ export class DataIntegrityDiagnosisService extends Base {
 
         const rows            = Array.isArray(evidenceRows) ? evidenceRows : [],
               classifications = rows.map(evidence => classifyDataIntegrityMode(evidence)),
-              actionable      = classifications.filter(classification => classification.terminalAction !== DataIntegrityTerminal.NONE),
-              heals           = await this.applyHeals({rows, classifications, now: observedAt});
+              actionable      = classifications.filter(classification => classification.terminalAction !== DataIntegrityTerminal.NONE);
+
+        // SYSTEMIC CIRCUIT-BREAKER — the cross-collection layer above the per-collection anti-thrash. A shared
+        // embedder outage fails N collections' heals at once; the per-collection gate cannot see the correlation,
+        // so each retries within its own bounds — a mass-heal storm hammering a dead embedder. An open circuit
+        // SUPPRESSES every heal here, before any per-collection heal runs — recorded + self-clearing (a half-open
+        // probe tests recovery), never a page.
+        const circuit = typeof this.systemicCircuitGate === 'function'
+            ? await this.systemicCircuitGate({now: observedAt})
+            : {open: false, status: 'closed'};
+
+        if (circuit.open) {
+            // `tripped` is the fresh detection → record the open once; `circuit-open` is riding out a prior trip.
+            if (circuit.status === 'tripped' && typeof this.recordCircuitEvent === 'function') {
+                await this.recordCircuitEvent({type: 'circuit-open', at: observedAt, detail: circuit.reason});
+            }
+            return this.createDecision({serviceId: this.serviceId, observedAt, status: 'circuit-open', classifications, heals: [], circuit});
+        }
+
+        // Half-open allows EXACTLY ONE actionable probe heal — not the full batch, which would re-storm a
+        // still-down embedder. Clean re-audit fence-lifts are exempt from the cap (cheap, non-storm).
+        const heals = await this.applyHeals({
+            rows, classifications, now: observedAt,
+            maxActionableHeals: circuit.status === 'half-open-probe' ? 1 : Infinity
+        });
+
+        // Half-open outcome: a clean probe (or nothing left to probe) closes the circuit; a FAILED probe refreshes
+        // the open window at observedAt so the next fold rides it out, rather than immediately re-probing on the
+        // already-elapsed cooldown (which would let a still-down embedder be hammered every sweep).
+        if (circuit.status === 'half-open-probe' && typeof this.recordCircuitEvent === 'function') {
+            const probeFailed = heals.some(heal => heal.outcome?.status === 'failed');
+            await this.recordCircuitEvent(probeFailed
+                ? {type: 'circuit-open',  at: observedAt, detail: 'half-open probe failed — circuit re-opened'}
+                : {type: 'circuit-close', at: observedAt, detail: 'half-open probe recovered — circuit closed'});
+        }
+
+        // Chronic unsafe-input mis-wire detector (observability only — does NOT gate): surface sustained
+        // unsafe-input per (action, collection) so a chronically mis-wired heal that silently never-executes is
+        // detected rather than invisible. Reads the same heal-ledger the circuit folds.
+        const chronicUnsafeInput = typeof this.chronicUnsafeInputDetector === 'function'
+            ? await this.chronicUnsafeInputDetector({now: observedAt})
+            : [];
 
         return this.createDecision({
             serviceId: this.serviceId,
             observedAt,
             status   : actionable.length > 0 ? 'healed' : 'clean',
             classifications,
-            heals
+            heals,
+            circuit,
+            chronicUnsafeInput
         });
     }
 
@@ -126,15 +194,31 @@ export class DataIntegrityDiagnosisService extends Base {
      * @param {Number} options.now Epoch milliseconds passed through to the actuator for consistent timestamps.
      * @returns {Promise<Object[]>} The per-heal outcome descriptors.
      */
-    async applyHeals({rows, classifications, now}) {
+    async applyHeals({rows, classifications, now, maxActionableHeals = Infinity}) {
         const heals = [];
+
+        let actionableHealCount = 0;
 
         for (let i = 0; i < classifications.length; i++) {
             const classification = classifications[i];
 
             if (classification.terminalAction === DataIntegrityTerminal.NONE) {
+                // Reversibility: a clean re-audit lifts any prior serving fence on this collection (serving
+                // resumes). No fence → a no-op; recorded only when a fence was actually lifted.
+                const lifted = typeof this.liftQuarantine === 'function' && await this.liftQuarantine(classification.collection);
+                if (lifted) {
+                    heals.push({collection: classification.collection, action: 'unquarantine', mode: classification.mode, outcome: {status: 'unquarantined'}});
+                }
                 continue;
             }
+
+            // Half-open probe cap: a recovering circuit allows EXACTLY ONE actionable heal to test the shared
+            // dependency — running the full batch would re-storm a still-down embedder. The NONE-lifts above are
+            // exempt (cheap, non-storm). Beyond the cap, the residue waits for the next post-recovery sweep.
+            if (actionableHealCount >= maxActionableHeals) {
+                continue
+            }
+            actionableHealCount++;
 
             let outcome;
 
@@ -162,7 +246,7 @@ export class DataIntegrityDiagnosisService extends Base {
      * @param {Object} options
      * @returns {Object}
      */
-    createDecision({serviceId, observedAt, status, classifications = [], heals = [], probeError = null}) {
+    createDecision({serviceId, observedAt, status, classifications = [], heals = [], probeError = null, circuit = null, chronicUnsafeInput = []}) {
         return {
             schemaVersion: 1,
             recordType   : 'data-integrity-self-heal-decision',
@@ -171,7 +255,9 @@ export class DataIntegrityDiagnosisService extends Base {
             status,
             probeError,
             classifications,
-            heals
+            heals,
+            circuit,
+            chronicUnsafeInput
         };
     }
 

@@ -3,6 +3,7 @@ import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 import {
     decideHealAction,
+    detectChronicUnsafeInput,
     dispatchHeal,
     DEFAULT_DISPATCH_BOUNDS,
     HEAL_ACTIONS,
@@ -224,5 +225,61 @@ test.describe('dispatchHeal — actuator core dispatch (safety gate + injected e
         expect(called).toBe(false); // never executed the mutation when the attempt could not be recorded
         expect(outcome).toMatchObject({status: 'failed'});
         expect(outcome.detail).toMatch(/recordRun failed pre-execution/);
+    });
+});
+
+test.describe('detectChronicUnsafeInput — chronic unsafe-input mis-wire detector', () => {
+    const NOW = 5_000_000;
+
+    test('>= threshold unsafe-input for the same (action, collection) in-window → flagged', () => {
+        const chronic = detectChronicUnsafeInput([
+            {type: 're-embed-missing', collection: 'a', status: 'unsafe-input', at: NOW - 1000},
+            {type: 're-embed-missing', collection: 'a', status: 'unsafe-input', at: NOW - 2000},
+            {type: 're-embed-missing', collection: 'a', status: 'unsafe-input', at: NOW - 3000},
+            {type: 're-embed-missing', collection: 'b', status: 'unsafe-input', at: NOW - 1000}, // below threshold
+            {type: 're-embed-missing', collection: 'a', status: 'healed',       at: NOW - 500}   // not unsafe-input
+        ], {threshold: 3, windowMs: 60_000, now: NOW});
+
+        expect(chronic).toEqual([{action: 're-embed-missing', collection: 'a', count: 3}]);
+    });
+
+    test('out-of-window unsafe-input does NOT count toward the threshold', () => {
+        const chronic = detectChronicUnsafeInput([
+            {type: 're-embed-missing', collection: 'a', status: 'unsafe-input', at: NOW - 1000},
+            {type: 're-embed-missing', collection: 'a', status: 'unsafe-input', at: NOW - 2000},
+            {type: 're-embed-missing', collection: 'a', status: 'unsafe-input', at: NOW - 9_000_000} // out of window
+        ], {threshold: 3, windowMs: 60_000, now: NOW});
+
+        expect(chronic).toEqual([]); // only 2 in-window < 3
+    });
+
+    test('non-finite bounds → no alert (indeterminate input never spuriously fires)', () => {
+        const events = [{type: 'x', collection: 'a', status: 'unsafe-input', at: 1000}];
+        expect(detectChronicUnsafeInput(events, {threshold: NaN, windowMs: 60_000, now: 5000})).toEqual([]);
+        expect(detectChronicUnsafeInput(events, {threshold: 1,   windowMs: 60_000, now: NaN })).toEqual([]);
+    });
+});
+
+test.describe('healActionDispatch — throttle-shed vocabulary (#14284)', () => {
+    const NOW2 = 12_000_000;
+
+    test('throttle-shed is a dispatchable, NON-mutating containment action (not unknown-action)', () => {
+        expect(HEAL_ACTIONS).toContain('throttle-shed');
+        expect(MUTATING_HEAL_ACTIONS).not.toContain('throttle-shed'); // non-mutating like freeze/quarantine
+        // admitted by the vocabulary gate + exempt from the mutating rate-limit/anti-thrash bound
+        expect(decideHealAction({action: 'throttle-shed', collection: 'kbSync', now: NOW2})).toMatchObject({execute: true});
+    });
+
+    test('dispatchHeal invokes the throttle-shed operation + returns the shed outcome (was inert before the vocabulary fix)', async () => {
+        let   called  = false;
+        const outcome = await dispatchHeal({
+            action        : 'throttle-shed',
+            collection    : 'kbSync',
+            now           : NOW2,
+            healOperations: {'throttle-shed': async () => { called = true; return {status: 'shed', detail: {shedUntil: NOW2 + 300000}}; }}
+        });
+
+        expect(called).toBe(true); // reachable through the dispatch vocabulary — NOT rejected as unknown-action
+        expect(outcome).toMatchObject({action: 'throttle-shed', collection: 'kbSync', status: 'shed', healedAt: NOW2});
     });
 });

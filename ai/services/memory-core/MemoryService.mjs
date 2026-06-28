@@ -8,6 +8,7 @@ import TurnPresenceService                                                      
 import {withTimeout}                                                                                                                   from './helpers/withTimeout.mjs';
 import {appendWalGraphProjectionMarker, appendWalMemory, getMissingMemoryWalLeaves, pruneReconciledWalSegments, readPendingWalRecords} from './helpers/memoryWalStore.mjs';
 import {composeTurnDocumentText, resolveTurnDocumentForRead}                                                                           from './helpers/turnDocumentText.mjs';
+import {isCollectionQuarantined}                                                                                                       from './helpers/quarantineStore.mjs';
 import {buildChatModel}                                                                                                                from '../../provider/buildChatModel.mjs';
 import aiConfig                                                                                                                        from '../../mcp/server/memory-core/config.mjs';
 import RequestContextService, {SHARED_USER_ID, normalizeUserId}                                                                        from '../../mcp/server/shared/services/RequestContextService.mjs';
@@ -568,8 +569,8 @@ class MemoryService extends Base {
      */
     async _projectMemoryToGraph({memoryId, timestamp, sessionId, segmentKey, walDir, requestIdentity, memoryProperties}) {
         GraphService.upsertNode({
-            id  : memoryId,
-            type: 'AGENT_MEMORY',
+            id              : memoryId,
+            type            : 'AGENT_MEMORY',
             name            : `Memory: ${timestamp}`,
             description     : `Agent thought flow inside session ${sessionId}.`,
             semanticVectorId: memoryId,
@@ -1419,7 +1420,7 @@ class MemoryService extends Base {
             if (!model) return null;
 
             const promptText = `Summarize this agent turn in one line, max ${aiConfig.memoryService.miniSummaryMaxChars} characters, no preamble:\nUser: ${prompt ?? ''}\nAgent: ${response ?? ''}`;
-            const result = await withTimeout(
+            const result     = await withTimeout(
                 model.generateContent(promptText, {
                     timeoutMs     : TIMEOUT_MS,
                     operationLabel: 'miniSummary generation',
@@ -1692,6 +1693,12 @@ class MemoryService extends Base {
                 };
             }
 
+            // Quarantine guard: a fenced (known-corrupt, awaiting-repair) collection is NOT served — fail-fast to
+            // an empty result rather than serve a corrupt index. The autonomous quarantine heal sets the fence.
+            if (await isCollectionQuarantined(aiConfig.collections.memory, {dir: aiConfig.engines.chroma.dataDir})) {
+                return {results: [], quarantined: true};
+            }
+
             const collection = await StorageRouter.getMemoryCollection();
             const queryArgs  = {
                 queryTexts: [query],
@@ -1750,8 +1757,8 @@ class MemoryService extends Base {
                     signature         : searchResult._degradedSignature,
                     message           : `Memory query path is degraded (${searchResult._degradedSignature}); this is NOT a genuine no-match. Underlying error: ${searchResult._degradedReason}`,
                     query,
-                    count  : 0,
-                    results: []
+                    count             : 0,
+                    results           : []
                 };
             }
 
