@@ -15,6 +15,10 @@ setup({
 });
 
 import {test, expect}  from '@playwright/test';
+import fs              from 'fs';
+import path            from 'path';
+import vm              from 'vm';
+import yaml            from 'js-yaml';
 import Neo             from '../../../../../../src/Neo.mjs';
 import * as core       from '../../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../../src/manager/Instance.mjs';
@@ -462,6 +466,70 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — getPullReq
 });
 
 /**
+ * @summary Returns the inline GitHub Script used by the agent PR review-body lint workflow.
+ * @returns {String} The workflow script source.
+ */
+function getAgentPrReviewBodyLintScript() {
+    const
+        workflowPath = path.resolve(process.cwd(), '.github/workflows/agent-pr-review-body-lint.yml'),
+        workflow     = yaml.load(fs.readFileSync(workflowPath, 'utf8')),
+        step         = workflow.jobs['lint-pr-review-body'].steps.find(item => item.name === 'Validate PR Review Body');
+
+    return step.with.script;
+}
+
+/**
+ * @summary Executes the review-body lint workflow script with stubbed GitHub Actions services.
+ * @param {Object} options Execution options.
+ * @param {String} options.body Review body to validate.
+ * @param {String} [options.reviewer='neo-gpt'] GitHub login for the simulated reviewer.
+ * @returns {Promise<Object>} Captured workflow comments, failures, and log lines.
+ */
+async function runAgentPrReviewBodyLintWorkflow({body, reviewer = 'neo-gpt'} = {}) {
+    const
+        comments = [],
+        failures = [],
+        logs     = [],
+        context  = {
+            repo   : {owner: 'neomjs', repo: 'neo'},
+            payload: {
+                review: {
+                    id  : 1391001,
+                    user: {login: reviewer},
+                    body
+                },
+                pull_request: {number: 13910}
+            }
+        },
+        coreStub = {
+            setFailed: message => failures.push(message)
+        },
+        githubStub = {
+            rest: {
+                issues: {
+                    createComment: async payload => comments.push(payload)
+                }
+            }
+        },
+        consoleStub = {
+            log: message => logs.push(message)
+        };
+
+    await vm.runInNewContext(
+        `(async () => {\n${getAgentPrReviewBodyLintScript()}\n})()`,
+        {
+            console: consoleStub,
+            context,
+            core   : coreStub,
+            github : githubStub
+        },
+        {timeout: 1000}
+    );
+
+    return {comments, failures, logs};
+}
+
+/**
  * @summary Contract coverage for `PullRequestService.managePrReview`.
  *
  * Closes the formal-state gap: atomic create or update of a formal pull request review
@@ -617,8 +685,8 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         '- [ ] **MAINTAINER POLISH FAST PATH APPLIED** (Reviewer unilaterally patched and pushed fixes. Approved.)'
     ].join('\n');
 
-    // Micro-Review (Cycle-1, blast-scaled light shape) — the minimal floor: header + Class (asserting
-    // micro|contained) + Verdict + Glance (pr-review-guide §7 blast-scaling, #14263).
+    // Micro-Review (Cycle-1, blast-scaled light shape) — the minimal floor: header + Class
+    // (asserting micro|contained|mechanical) + Verdict + Glance.
     const VALID_MICRO_REVIEW_BODY = [
         '# PR Micro-Review',
         '',
@@ -1091,6 +1159,63 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         expect(result.missing_micro_delta).toContain('Remaining Blocker Class: mechanical-hygiene | metadata-drift');
         expect(result.message).toContain('full follow-up review template instead');
         expect(graphqlCallCount).toBe(0);
+    });
+
+    test('#13910: workflow lint accepts documented Micro-Delta review bodies', async () => {
+        const result = await runAgentPrReviewBodyLintWorkflow({
+            body: VALID_MICRO_DELTA_REVIEW_BODY
+        });
+
+        expect(result.failures).toEqual([]);
+        expect(result.comments).toEqual([]);
+        expect(result.logs).toContain('✅ Micro-Delta body matches the documented circuit-breaker shape.');
+    });
+
+    test('#13910: workflow lint rejects incomplete Micro-Delta bodies before canonical fallback', async () => {
+        const incompleteBody = VALID_MICRO_DELTA_REVIEW_BODY
+            .replace('- **Measured Discussion Cost:** > 24KB\n', '');
+
+        const result = await runAgentPrReviewBodyLintWorkflow({
+            body: incompleteBody
+        });
+
+        expect(result.failures).toEqual([
+            'Agent micro-delta review body missing required circuit-breaker anchors. See follow-up comment on PR #13910.'
+        ]);
+        expect(result.comments).toHaveLength(1);
+        expect(result.comments[0].body).toContain('Agent Micro-Delta Review Body Lint Violation');
+        expect(result.comments[0].body).toContain('.agents/skills/pr-review/assets/pr-review-micro-delta-template.md');
+        expect(result.comments[0].body).not.toContain('Visible anchors missing');
+    });
+
+    test('#13910: workflow lint rejects Micro-Delta semantic blocker shortcuts', async () => {
+        const semanticShortcutBody = VALID_MICRO_DELTA_REVIEW_BODY
+            .replace('- **Remaining Blocker Class:** mechanical-hygiene', '- **Remaining Blocker Class:** semantic-blocker');
+
+        const result = await runAgentPrReviewBodyLintWorkflow({
+            body: semanticShortcutBody
+        });
+
+        expect(result.failures[0]).toContain('micro-delta review body missing required circuit-breaker anchors');
+        expect(result.comments[0].body).toContain('mechanical-hygiene or metadata-drift');
+        expect(result.comments[0].body).toContain('full follow-up review template instead');
+    });
+
+    test('#13910: workflow lint requires Premise Coherence for canonical reviews', async () => {
+        const bodyWithoutPremiseCoherence = VALID_REVIEW_BODY
+            .replace('* **Premise Coherence:** coheres: a substrate validator fix; flat-peer-team / facilitator-not-delegator unaffected.\n', '');
+
+        const result = await runAgentPrReviewBodyLintWorkflow({
+            body: bodyWithoutPremiseCoherence
+        });
+
+        expect(result.failures).toEqual([
+            'Agent review body missing required template anchors. See follow-up comment on PR #13910.'
+        ]);
+        expect(result.comments).toHaveLength(1);
+        expect(result.comments[0].body).toContain('Agent PR Review Body Lint Violation');
+        expect(result.comments[0].body).toContain('Premise Coherence');
+        expect(result.comments[0].body).toContain('all four premise fields');
     });
 
     test('#14263: accepts a Micro-Review (blast-scaled light shape) — micro PRs are not gauntletted', async () => {
