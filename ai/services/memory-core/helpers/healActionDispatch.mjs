@@ -191,7 +191,7 @@ export async function dispatchHeal({action, collection, evidence, recentRuns = [
  * that crossed `threshold` inside `windowMs`. Pure (no I/O): the caller reads the ledger + surfaces/logs the
  * result. Detection ONLY — it never touches the fail-closed gate.
  *
- * @param {Object[]} [events=[]] Heal-event ledger entries (`{type, collection, status, at}`, oldest → newest).
+ * @param {Object[]} [events=[]] Heal-event ledger entries (`{type, collection, status, at}`, oldest to newest).
  * @param {Object} options
  * @param {Number} options.threshold Minimum same-(action, collection) `unsafe-input` count in-window to flag.
  * @param {Number} options.windowMs The look-back window (an epoch-ms span ending at `now`).
@@ -200,7 +200,7 @@ export async function dispatchHeal({action, collection, evidence, recentRuns = [
  *   non-finite (indeterminate input never spuriously alerts) or nothing is chronic.
  */
 export function detectChronicUnsafeInput(events = [], {threshold, windowMs, now} = {}) {
-    // Indeterminate bounds → no alert: a detector must not fire on un-evaluable input.
+    // Indeterminate bounds -> no alert: a detector must not fire on un-evaluable input.
     if (![threshold, windowMs, now].every(Number.isFinite) || threshold <= 0) {
         return []
     }
@@ -213,8 +213,9 @@ export function detectChronicUnsafeInput(events = [], {threshold, windowMs, now}
         if (!Number.isFinite(event.at) || event.at < lowerBound || event.at > now)   continue;
         if (typeof event.collection !== 'string' || typeof event.type !== 'string')  continue;
 
-        // The ledger records the heal ACTION under the event `type` field (mirrors healEventsToRecentRuns).
-        const key = `${event.type} ${event.collection}`;
+        // Text-safe tuple key: a JSON pair (never a raw separator byte in source). The ledger records the heal
+        // ACTION under the event `type` field (mirrors healEventsToRecentRuns).
+        const key = JSON.stringify([event.type, event.collection]);
         counts.set(key, (counts.get(key) ?? 0) + 1)
     }
 
@@ -222,11 +223,11 @@ export function detectChronicUnsafeInput(events = [], {threshold, windowMs, now}
 
     for (const [key, count] of counts) {
         if (count >= threshold) {
-            const [action, collection] = key.split(' ');
+            const [action, collection] = JSON.parse(key);
             chronic.push({action, collection, count})
         }
     }
 
-    // Worst-first: descending count, then a stable key order for deterministic surfacing.
-    return chronic.sort((a, b) => b.count - a.count || `${a.action} ${a.collection}`.localeCompare(`${b.action} ${b.collection}`))
+    // Worst-first: descending count, then a stable JSON-key order for deterministic surfacing.
+    return chronic.sort((a, b) => b.count - a.count || JSON.stringify([a.action, a.collection]).localeCompare(JSON.stringify([b.action, b.collection])))
 }
