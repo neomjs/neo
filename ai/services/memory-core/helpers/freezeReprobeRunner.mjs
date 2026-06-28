@@ -136,6 +136,8 @@ export function createFreezeHealOperation({freezeRecordsDir, fence, flapWindowMs
  * @param {Object} options
  * @param {String} options.freezeRecordsDir Durable freeze-record state directory.
  * @param {String} options.healLedgerDir Durable heal-event ledger directory (for the `unfreeze` event).
+ * @param {{maxEvents: Number, triggerBytes: Number}} [options.healLedgerRetention] Explicit retention pair supplied
+ * by the AiConfig-aware orchestrator boundary and passed through to every shared heal-ledger append.
  * @param {Number} options.now Injected clock (epoch ms).
  * @param {Function} options.probe `async (collectionName) => {embedderHealthy, dimensionConsistent}`.
  * @param {Function} options.unfence `async (collectionName) => void` — lifts the serving fence (production: unquarantine).
@@ -143,8 +145,9 @@ export function createFreezeHealOperation({freezeRecordsDir, fence, flapWindowMs
  * @param {Number} [options.flapWindowMs=DEFAULT_FLAP_WINDOW_MS] Released-tombstone retention / flap horizon: a tombstone older than this is garbage-collected, and a re-freeze past it starts a fresh recovery budget.
  * @returns {Promise<Object[]>} Per-collection re-probe outcomes, or `[]` when nothing is actively frozen.
  */
-export async function runFreezeReprobe({freezeRecordsDir, healLedgerDir, now, probe, unfence, containedCooldownMs = DEFAULT_CONTAINED_COOLDOWN_MS, flapWindowMs = DEFAULT_FLAP_WINDOW_MS}) {
-    const freezeRecords = await readFreezeRecords({dir: freezeRecordsDir});
+export async function runFreezeReprobe({freezeRecordsDir, healLedgerDir, healLedgerRetention = null, now, probe, unfence, containedCooldownMs = DEFAULT_CONTAINED_COOLDOWN_MS, flapWindowMs = DEFAULT_FLAP_WINDOW_MS}) {
+    const freezeRecords           = await readFreezeRecords({dir: freezeRecordsDir});
+    const healLedgerAppendOptions = () => ({dir: healLedgerDir, now, ...(healLedgerRetention ?? {})});
 
     if (Object.keys(freezeRecords).length === 0) {
         return []; // nothing frozen or tombstoned → no probe, no unfreeze, no further I/O
@@ -169,7 +172,7 @@ export async function runFreezeReprobe({freezeRecordsDir, healLedgerDir, now, pr
     for (const [collectionName, record] of Object.entries(freezeRecords)) {
         if (Number.isFinite(record?.containedAt) && (now - record.containedAt) >= containedCooldownMs) {
             freezeRecords[collectionName] = await upsertFreezeRecord({dir: freezeRecordsDir, collectionName, unfreezeAttempts: 0, containedAt: now});
-            await appendHealEvent({type: 'contained-reopen', collection: collectionName, status: 'reopened'}, {dir: healLedgerDir, now});
+            await appendHealEvent({type: 'contained-reopen', collection: collectionName, status: 'reopened'}, healLedgerAppendOptions());
         }
     }
 
@@ -190,7 +193,7 @@ export async function runFreezeReprobe({freezeRecordsDir, healLedgerDir, now, pr
         unfreezeAndReheal: async collectionName => {
             // Lift the serving fence + ledger the unfreeze; the next poll's diagnosis re-heals any residue.
             await unfence(collectionName);
-            await appendHealEvent({type: 'unfreeze', collection: collectionName, status: 'unfrozen'}, {dir: healLedgerDir, now});
+            await appendHealEvent({type: 'unfreeze', collection: collectionName, status: 'unfrozen'}, healLedgerAppendOptions());
         },
         persistProbe: async ({collectionName, lastProbeAt, unfreezeAttempts}) => upsertFreezeRecord({dir: freezeRecordsDir, collectionName, lastProbeAt, unfreezeAttempts}),
         // RELEASE (not delete) on a successful unfreeze: mark a tombstone (`unfrozenAt`) that carries the just-climbed
@@ -206,7 +209,7 @@ export async function runFreezeReprobe({freezeRecordsDir, healLedgerDir, now, pr
     // `containedAt` marker so a collection that remains contained across polls is ledgered on the transition only.
     for (const outcome of outcomes) {
         if (outcome.status === 'contained' && !activeRecords[outcome.collectionName]?.containedAt) {
-            await appendHealEvent({type: 'contained', collection: outcome.collectionName, status: 'contained', detail: {reason: outcome.reason}}, {dir: healLedgerDir, now});
+            await appendHealEvent({type: 'contained', collection: outcome.collectionName, status: 'contained', detail: {reason: outcome.reason}}, healLedgerAppendOptions());
             await upsertFreezeRecord({dir: freezeRecordsDir, collectionName: outcome.collectionName, containedAt: now});
         }
     }

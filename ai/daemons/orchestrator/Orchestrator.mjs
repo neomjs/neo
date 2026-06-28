@@ -445,14 +445,6 @@ export class Orchestrator extends Base {
         const healLedgerDir    = path.join(this.dataDir, 'data-heal-events');
         const freezeRecordsDir = path.join(this.dataDir, 'data-freeze-records');
 
-        // The retention leaves, read + VALIDATED at this AiConfig boundary (call-time). An invalid operator-set
-        // maxEvents/pruneTriggerBytes fails VISIBLY here rather than being swallowed by appendHealEvent's prune gate
-        // (which would silently let the observability ledger grow unbounded).
-        const healLedgerRetention = () => validateHealLedgerRetention(
-            AiConfig.orchestrator.recoveryActuator.healLedger.maxEvents,
-            AiConfig.orchestrator.recoveryActuator.healLedger.pruneTriggerBytes
-        );
-
         return ClassSystemUtil.beforeSetInstance(value, DataRecoveryActuatorService, {
             healOperations: {
                 // The wal-stall heal terminal: the runtime<->op adapter (cross-store guard + re-audit-for-ids
@@ -522,15 +514,29 @@ export class Orchestrator extends Base {
                 }
                 return healEventsToRecentRuns(queryHealLedger(events, {collections: [collectionName]}));
             },
-            // Retention is read + VALIDATED at the AiConfig boundary (healLedgerRetention(), above) and passed explicit
-            // into the pure ledger helper (which owns no production default). Call-time, never aliased at construction.
+            // Retention is read + VALIDATED from the AiConfig provider at the append boundary; the pure ledger helper
+            // owns no production default.
             recordRun        : async ({action, collection, at}) => appendHealEvent(
                 {type: action, collection, status: 'attempt'},
-                {dir: healLedgerDir, now: at, ...healLedgerRetention()}
+                {
+                    dir: healLedgerDir,
+                    now: at,
+                    ...validateHealLedgerRetention(
+                        AiConfig.orchestrator.recoveryActuator.healLedger.maxEvents,
+                        AiConfig.orchestrator.recoveryActuator.healLedger.pruneTriggerBytes
+                    )
+                }
             ),
             recordHealOutcome: async ({action, collection, status, detail, healedAt}) => appendHealEvent(
                 {type: action, collection, status, detail},
-                {dir: healLedgerDir, now: healedAt, ...healLedgerRetention()}
+                {
+                    dir: healLedgerDir,
+                    now: healedAt,
+                    ...validateHealLedgerRetention(
+                        AiConfig.orchestrator.recoveryActuator.healLedger.maxEvents,
+                        AiConfig.orchestrator.recoveryActuator.healLedger.pruneTriggerBytes
+                    )
+                }
             )
         });
     }
@@ -584,13 +590,17 @@ export class Orchestrator extends Base {
      */
     async runFreezeReprobeCycleIfActive(now = Date.now()) {
         return runFreezeReprobe({
-            freezeRecordsDir: path.join(this.dataDir, 'data-freeze-records'),
-            healLedgerDir   : path.join(this.dataDir, 'data-heal-events'),
+            freezeRecordsDir   : path.join(this.dataDir, 'data-freeze-records'),
+            healLedgerDir      : path.join(this.dataDir, 'data-heal-events'),
+            healLedgerRetention: validateHealLedgerRetention(
+                AiConfig.orchestrator.recoveryActuator.healLedger.maxEvents,
+                AiConfig.orchestrator.recoveryActuator.healLedger.pruneTriggerBytes
+            ),
             now,
-            probe           : collectionName => this.probeFrozenCollectionHealth(collectionName),
+            probe              : collectionName => this.probeFrozenCollectionHealth(collectionName),
             // The store-level unfence — paired with the `freeze` op's fence via createStoreFenceOperations, so a
             // store-level freeze and its auto-unfreeze lift exactly the same served set (no asymmetry).
-            unfence         : this.getStoreFenceOperations().unfence
+            unfence            : this.getStoreFenceOperations().unfence
         });
     }
 
@@ -616,7 +626,14 @@ export class Orchestrator extends Base {
             },
             recordCircuitEvent: async ({type, at, detail}) => appendHealEvent(
                 {type, collection: '*', status: type === 'circuit-open' ? 'open' : 'close', detail},
-                {dir: path.join(this.dataDir, 'data-heal-events'), now: at}
+                {
+                    dir: path.join(this.dataDir, 'data-heal-events'),
+                    now: at,
+                    ...validateHealLedgerRetention(
+                        AiConfig.orchestrator.recoveryActuator.healLedger.maxEvents,
+                        AiConfig.orchestrator.recoveryActuator.healLedger.pruneTriggerBytes
+                    )
+                }
             ),
             // Chronic unsafe-input mis-wire detector (observability): fold the heal-ledger for sustained
             // unsafe-input per (action, collection); bounds read FRESH from the AiConfig recovery-actuator leaf.
