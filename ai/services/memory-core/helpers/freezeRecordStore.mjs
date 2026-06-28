@@ -103,9 +103,14 @@ export async function getFreezeRecord({dir, collectionName} = {}) {
  * @param {Number} [options.unfreezeAttempts] Auto-unfreeze attempts so far (the anti-thrash counter).
  * @param {Number} [options.lastProbeAt] Epoch ms of the last re-probe (the back-off clock).
  * @param {Number} [options.containedAt] Epoch ms the collection became contained (thrash-cap terminal) — set once on transition so the `contained` heal-event ledgers exactly once, not every poll.
+ * @param {Number} [options.unfrozenAt] Epoch ms of the last successful auto-unfreeze — marks the record a RELEASED tombstone (no longer frozen, not re-probed) that lingers only so a re-freeze within the flap window can inherit its climbing `unfreezeAttempts`. Cleared (re-activated) on re-freeze.
  * @returns {Promise<Object>} The written record.
+ *
+ * Set-or-clear per field: `undefined` PRESERVES the prior value (a partial update), an explicit `null` DELETES the
+ * field, and any other value sets it. The null-clear is what lets a re-freeze re-activate a released tombstone
+ * (`unfrozenAt: null`) and reset its stale back-off / contained markers (`lastProbeAt: null`, `containedAt: null`).
  */
-export async function upsertFreezeRecord({dir, collectionName, faultFingerprint, frozenAt, unfreezeAttempts, lastProbeAt, containedAt} = {}) {
+export async function upsertFreezeRecord({dir, collectionName, faultFingerprint, frozenAt, unfreezeAttempts, lastProbeAt, containedAt, unfrozenAt} = {}) {
     if (typeof collectionName !== 'string' || collectionName.length === 0) {
         throw new TypeError('upsertFreezeRecord: collectionName is required');
     }
@@ -114,15 +119,20 @@ export async function upsertFreezeRecord({dir, collectionName, faultFingerprint,
         const records  = await readFreezeRecords({dir}),
               existing = Object.hasOwn(records, collectionName) && records[collectionName] && typeof records[collectionName] === 'object'
                   ? records[collectionName] : {},
-              merged   = {
-                  ...existing,
-                  collectionName,
-                  ...(faultFingerprint !== undefined ? {faultFingerprint} : {}),
-                  ...(frozenAt         !== undefined ? {frozenAt}         : {}),
-                  ...(unfreezeAttempts !== undefined ? {unfreezeAttempts} : {}),
-                  ...(lastProbeAt      !== undefined ? {lastProbeAt}      : {}),
-                  ...(containedAt      !== undefined ? {containedAt}      : {})
+              merged   = {...existing, collectionName},
+              // undefined → preserve prior; null → delete the field; else → set it.
+              applyField = (key, value) => {
+                  if (value === undefined) return;
+                  if (value === null) { delete merged[key]; return; }
+                  merged[key] = value;
               };
+
+        applyField('faultFingerprint', faultFingerprint);
+        applyField('frozenAt',         frozenAt);
+        applyField('unfreezeAttempts', unfreezeAttempts);
+        applyField('lastProbeAt',      lastProbeAt);
+        applyField('containedAt',      containedAt);
+        applyField('unfrozenAt',       unfrozenAt);
 
         records[collectionName] = merged;
 

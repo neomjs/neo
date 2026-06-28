@@ -57,7 +57,7 @@ test.describe('freezeReprobeRunner — runFreezeReprobe (#14166)', () => {
         }
     });
 
-    test('a cleared fault (healthy probe) auto-unfreezes: lifts the fence, ledgers the unfreeze, clears the record', async () => {
+    test('a cleared fault (healthy probe) auto-unfreezes: lifts the fence, ledgers the unfreeze, RELEASES the record to a tombstone', async () => {
         const dir = await tmpDir();
         try {
             await upsertFreezeRecord({dir, collectionName: 'c1', faultFingerprint: 'embedder', frozenAt: 1000});
@@ -70,8 +70,12 @@ test.describe('freezeReprobeRunner — runFreezeReprobe (#14166)', () => {
                   });
 
             expect(outcomes.find(o => o.collectionName === 'c1')).toMatchObject({status: 'unfrozen', unfroze: true});
-            expect(unfenced).toEqual(['c1']);                                      // serving fence lifted
-            expect(await getFreezeRecord({dir, collectionName: 'c1'})).toBeNull(); // freeze-record cleared
+            expect(unfenced).toEqual(['c1']); // serving fence lifted
+
+            // NOT deleted: the record is RELEASED to a tombstone (`unfrozenAt` set) that retains the climbing
+            // unfreezeAttempts, so a re-freeze within the flap window inherits the count (the bounded anti-thrash fix).
+            expect(await getFreezeRecord({dir, collectionName: 'c1'})).toMatchObject({collectionName: 'c1', unfrozenAt: 2_000_000, unfreezeAttempts: 1});
+
             expect((await readHealLedger({dir})).some(e => e.type === 'unfreeze' && e.collection === 'c1')).toBe(true); // ledgered for the frozen-set
         } finally {
             await fs.rm(dir, {recursive: true, force: true});
@@ -204,7 +208,9 @@ test.describe('freezeReprobeRunner — contained recovery (#14276 no permanent s
             // reopened (attempts reset) → re-probed → healthy → unfrozen — never permanently stranded
             expect(outcomes.find(o => o.collectionName === 'c1')).toMatchObject({status: 'unfrozen', unfroze: true});
             expect(unfenced).toEqual(['c1']);
-            expect(await getFreezeRecord({dir, collectionName: 'c1'})).toBeNull();
+            // released to a tombstone (not deleted) on the successful unfreeze — the reopened attempt count (now 1)
+            // survives as anti-thrash memory; the stale contained marker is cleared (it is no longer contained).
+            expect(await getFreezeRecord({dir, collectionName: 'c1'})).toMatchObject({unfrozenAt: 1000 + 7 * HOUR, unfreezeAttempts: 1});
             const ledger = await readHealLedger({dir});
             expect(ledger.some(e => e.type === 'contained-reopen' && e.collection === 'c1')).toBe(true);
             expect(ledger.some(e => e.type === 'unfreeze'        && e.collection === 'c1')).toBe(true);
@@ -228,6 +234,101 @@ test.describe('freezeReprobeRunner — contained recovery (#14276 no permanent s
             expect(outcomes.find(o => o.collectionName === 'c1')).toMatchObject({status: 'contained'});
             expect(probed).toBe(false);
             expect((await readHealLedger({dir})).some(e => e.type === 'contained-reopen')).toBe(false);
+        } finally {
+            await fs.rm(dir, {recursive: true, force: true});
+        }
+    });
+});
+
+test.describe('freezeReprobeRunner — flap anti-thrash (#14276 bounded freeze↔unfreeze)', () => {
+    const HOUR = 60 * 60 * 1000,
+          MIN  = 60 * 1000;
+
+    const healthy = async () => ({embedderHealthy: true, dimensionConsistent: true});
+
+    test('a flapping fault (freeze → healthy-unfreeze → re-freeze …) is BOUNDED: caps to `contained`, never thrashes forever', async () => {
+        const dir = await tmpDir();
+        try {
+            const freezeOp = createFreezeHealOperation({freezeRecordsDir: dir, fence: async ({collection}) => [collection]});
+
+            // Drive the realistic loop: the orchestrator only re-freezes a SERVING collection, so we re-freeze only
+            // when the record is absent (fresh) or a released tombstone (fence lifted) — never an actively-frozen one.
+            // Pre-fix the record was DELETED on every unfreeze, so each cycle restarted at attempts=0 and returned
+            // `unfrozen` forever (gpt's Cycle-3 sim: 5× unfrozen, containedEvents 0). With the tombstone the climbing
+            // count survives the flap and the loop reaches the cap.
+            const statuses = [];
+            let   now      = 1_000_000;
+
+            for (let cycle = 0; cycle < 5; cycle++) {
+                const record  = await getFreezeRecord({dir, collectionName: 'c1'}),
+                      serving = !record || Number.isFinite(record.unfrozenAt);
+
+                if (serving) {
+                    await freezeOp({collection: 'c1', evidence: {reasonCode: 'misconfigured-embedder'}, now});
+                }
+
+                const [outcome] = await runFreezeReprobe({freezeRecordsDir: dir, healLedgerDir: dir, now, probe: healthy, unfence: async () => {}});
+                statuses.push(outcome.status);
+                now += 5 * MIN; // re-freeze well within the 6h flap window → the climbing count is inherited
+            }
+
+            // Bounded: the first maxUnfreezeAttempts (default 3) cycles auto-unfreeze, then it caps to `contained` —
+            // it does NOT return `unfrozen` for all 5 (the pre-fix flap bug).
+            expect(statuses).toEqual(['unfrozen', 'unfrozen', 'unfrozen', 'contained', 'contained']);
+
+            const ledger = await readHealLedger({dir});
+            expect(ledger.filter(e => e.type === 'unfreeze'  && e.collection === 'c1')).toHaveLength(3); // capped, not 5
+            expect(ledger.filter(e => e.type === 'contained' && e.collection === 'c1')).toHaveLength(1); // ledgered once on transition
+        } finally {
+            await fs.rm(dir, {recursive: true, force: true});
+        }
+    });
+
+    test('a re-freeze WITHIN the flap window inherits the released tombstone\'s climbing unfreezeAttempts', async () => {
+        const dir = await tmpDir();
+        try {
+            const freezeOp = createFreezeHealOperation({freezeRecordsDir: dir, fence: async ({collection}) => [collection]});
+
+            // a released tombstone from an unfreeze 5 min ago (within the 6h window), carrying unfreezeAttempts: 2
+            await upsertFreezeRecord({dir, collectionName: 'c1', faultFingerprint: 'e', frozenAt: 1000, unfreezeAttempts: 2, unfrozenAt: 2000});
+
+            const result = await freezeOp({collection: 'c1', evidence: {reasonCode: 'e2'}, now: 2000 + 5 * MIN});
+
+            expect(result.detail.reactivated).toBe(true);
+            // re-activated: frozen again with the released marker cleared, but the climbing count INHERITED (not reset)
+            const record = await getFreezeRecord({dir, collectionName: 'c1'});
+            expect(record).toMatchObject({frozenAt: 2000 + 5 * MIN, faultFingerprint: 'e2', unfreezeAttempts: 2});
+            expect(record.unfrozenAt).toBeUndefined(); // released marker cleared on re-activation → re-probed again
+        } finally {
+            await fs.rm(dir, {recursive: true, force: true});
+        }
+    });
+
+    test('a tombstone past the flap window is garbage-collected; a re-freeze past the window starts a FRESH budget', async () => {
+        const dir = await tmpDir();
+        try {
+            const freezeOp = createFreezeHealOperation({freezeRecordsDir: dir, fence: async ({collection}) => [collection]});
+
+            // a released tombstone from an unfreeze 7h ago — past the 6h flap window — carrying a climbing count
+            await upsertFreezeRecord({dir, collectionName: 'c1', faultFingerprint: 'e', frozenAt: 1000, unfreezeAttempts: 2, unfrozenAt: 1000});
+
+            let   probed   = false;
+            const outcomes = await runFreezeReprobe({
+                freezeRecordsDir: dir, healLedgerDir: dir, now: 1000 + 7 * HOUR,
+                probe           : async () => { probed = true; return {embedderHealthy: true, dimensionConsistent: true}; },
+                unfence         : async () => {}
+            });
+
+            expect(outcomes).toEqual([]);                                          // only a stale tombstone → nothing active to re-probe
+            expect(probed).toBe(false);                                            // a tombstone is never probed
+            expect(await getFreezeRecord({dir, collectionName: 'c1'})).toBeNull(); // garbage-collected
+
+            // a fresh freeze after the window → a clean recovery budget (the prior climbing count did NOT carry)
+            const result = await freezeOp({collection: 'c1', evidence: {reasonCode: 'e'}, now: 1000 + 8 * HOUR});
+            expect(result.detail.reactivated).toBe(false);
+            const record = await getFreezeRecord({dir, collectionName: 'c1'});
+            expect(record).toMatchObject({frozenAt: 1000 + 8 * HOUR});
+            expect(record.unfreezeAttempts).toBeUndefined(); // reset, not inherited
         } finally {
             await fs.rm(dir, {recursive: true, force: true});
         }

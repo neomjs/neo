@@ -1,6 +1,6 @@
-import {appendHealEvent}                                           from './healEventLedgerStore.mjs';
-import {readFreezeRecords, removeFreezeRecord, upsertFreezeRecord} from './freezeRecordStore.mjs';
-import {runFreezeReprobeCycle}                                     from './freezeReprobeDecision.mjs';
+import {appendHealEvent}                                                            from './healEventLedgerStore.mjs';
+import {getFreezeRecord, readFreezeRecords, removeFreezeRecord, upsertFreezeRecord} from './freezeRecordStore.mjs';
+import {runFreezeReprobeCycle}                                                      from './freezeReprobeDecision.mjs';
 
 /**
  * @module ai/services/memory-core/helpers/freezeReprobeRunner
@@ -21,6 +21,19 @@ import {runFreezeReprobeCycle}                                     from './freez
  * @type {Number}
  */
 export const DEFAULT_CONTAINED_COOLDOWN_MS = 6 * 60 * 60 * 1000; // 6h
+
+/**
+ * Default flap window — the anti-thrash MEMORY HORIZON across a successful auto-unfreeze. A cleared fault does NOT
+ * delete the freeze-record; it leaves a RELEASED tombstone (`unfrozenAt` set, fence already lifted) carrying the
+ * climbing `unfreezeAttempts`. A re-freeze WITHIN this window is a FLAP and inherits that count, so a collection that
+ * repeatedly freeze → healthy-unfreeze → re-freezes reaches the `contained` cap instead of resetting to zero each
+ * cycle and thrashing forever (the bounded-anti-thrash AC). A re-freeze AFTER the window is a fresh fault (the count
+ * resets), and a tombstone left untouched this long is garbage-collected. Aligned with
+ * `DEFAULT_CONTAINED_COOLDOWN_MS` so the "same fault episode?" horizon is one value across the contained-recovery and
+ * flap paths. Overridable via `runFreezeReprobe` / `createFreezeHealOperation`'s `flapWindowMs` per deployment.
+ * @type {Number}
+ */
+export const DEFAULT_FLAP_WINDOW_MS = DEFAULT_CONTAINED_COOLDOWN_MS; // 6h
 
 /**
  * @summary Builds the SYMMETRIC store-level fence/unfence pair. A store-level fault (e.g. `mc-server`) fences
@@ -66,33 +79,60 @@ export function createStoreFenceOperations({quarantine, unquarantine, expand, se
  * dimension-systemic fault) AND persist a durable freeze-record so the re-probe cycle can later auto-unfreeze it
  * without an operator. Lossless — no data mutated. The fence is injected so the op is testable without the live
  * quarantine store (production passes a fence that quarantines the served collections).
+ *
+ * **Flap re-activation (anti-thrash).** A successful unfreeze leaves a RELEASED tombstone rather than deleting the
+ * record (see `runFreezeReprobe`). When this freeze lands on such a tombstone WITHIN the flap window it is a flap:
+ * re-activate the record (null-clear the released / back-off / contained markers) but INHERIT the climbing
+ * `unfreezeAttempts`, so a repeatedly-flapping fault reaches the `contained` cap instead of resetting to zero each
+ * cycle and thrashing forever. A fresh fault — no record, or a tombstone past the window — starts a clean budget.
  * @param {Object} options
  * @param {String} options.freezeRecordsDir Durable freeze-record state directory.
  * @param {Function} options.fence `async ({collection, reason, now}) => fencedTargets` — lifts the collection out of serving.
+ * @param {Number} [options.flapWindowMs=DEFAULT_FLAP_WINDOW_MS] How recently a release must precede this freeze to count as a flap (inherit the count) vs a fresh fault (reset).
  * @returns {Function} The `async ({collection, evidence, now}) => {status, detail}` heal-operation.
  */
-export function createFreezeHealOperation({freezeRecordsDir, fence}) {
+export function createFreezeHealOperation({freezeRecordsDir, fence, flapWindowMs = DEFAULT_FLAP_WINDOW_MS}) {
     if (typeof fence !== 'function') {
         throw new TypeError('createFreezeHealOperation: a fence function is required');
     }
 
     return async ({collection, evidence, now} = {}) => {
         const faultFingerprint = evidence?.reasonCode ?? evidence?.mode ?? collection,
-              fenced           = await fence({collection, reason: faultFingerprint, now});
+              fenced           = await fence({collection, reason: faultFingerprint, now}),
+              existing         = await getFreezeRecord({dir: freezeRecordsDir, collectionName: collection}),
+              // A released tombstone from a RECENT unfreeze = a flap → inherit its climbing unfreezeAttempts so the
+              // freeze → unfreeze → re-freeze loop reaches the `contained` cap. No record, or a tombstone whose flap
+              // window has elapsed (the fault is considered recovered), is a fresh fault → reset the count.
+              flap             = Boolean(existing) && Number.isFinite(existing.unfrozenAt) && (now - existing.unfrozenAt) < flapWindowMs;
 
-        await upsertFreezeRecord({dir: freezeRecordsDir, collectionName: collection, faultFingerprint, frozenAt: now});
+        await upsertFreezeRecord({
+            dir           : freezeRecordsDir,
+            collectionName: collection,
+            faultFingerprint,
+            frozenAt      : now,
+            // Re-activate: null-clear the released / back-off / contained markers (a field delete, NOT a record
+            // delete), then inherit unfreezeAttempts on a flap (undefined = preserve) or reset it on a fresh fault.
+            unfrozenAt      : null,
+            lastProbeAt     : null,
+            containedAt     : null,
+            unfreezeAttempts: flap ? undefined : null
+        });
 
-        return {status: 'frozen', detail: {collection, fenced, faultFingerprint}};
+        return {status: 'frozen', detail: {collection, fenced, faultFingerprint, reactivated: flap}};
     };
 }
 
 /**
- * @summary Runs one freeze re-probe tick: read the durable freeze-records and, for each frozen collection,
+ * @summary Runs one freeze re-probe tick: read the durable freeze-records and, for each ACTIVELY-frozen collection,
  * auto-unfreeze a cleared fault / stay frozen on a persisting one / contain past the thrash cap — all under
  * `decideFreezeReprobe`'s back-off, never an operator. A no-op (one cheap read, no probe) when nothing is frozen,
- * so it is cheap to call every poll. The probe + unfence are injected; persist/clear are `freezeRecordStore`-backed.
- * A successful unfreeze lifts the fence, ledgers an `unfreeze` event (the heal-ledger frozen-set), and removes the
- * freeze-record; the next diagnosis re-heals any residue.
+ * so it is cheap to call every poll. The probe + unfence are injected; persist/release are `freezeRecordStore`-backed.
+ *
+ * **Anti-thrash release (not delete).** A successful unfreeze lifts the fence, ledgers an `unfreeze` event, and
+ * RELEASES the record to a tombstone (`unfrozenAt` set) — NOT a delete — so the just-climbed `unfreezeAttempts`
+ * survives. A re-freeze within the flap window inherits that count (see `createFreezeHealOperation`), so a flapping
+ * fault reaches `contained` instead of thrashing forever; a tombstone left untouched past the flap window is
+ * garbage-collected. Released tombstones are excluded from the active set, so they are never re-probed.
  * @param {Object} options
  * @param {String} options.freezeRecordsDir Durable freeze-record state directory.
  * @param {String} options.healLedgerDir Durable heal-event ledger directory (for the `unfreeze` event).
@@ -100,13 +140,25 @@ export function createFreezeHealOperation({freezeRecordsDir, fence}) {
  * @param {Function} options.probe `async (collectionName) => {embedderHealthy, dimensionConsistent}`.
  * @param {Function} options.unfence `async (collectionName) => void` — lifts the serving fence (production: unquarantine).
  * @param {Number} [options.containedCooldownMs=DEFAULT_CONTAINED_COOLDOWN_MS] How long a `contained` collection waits before it is re-opened for a fresh round of auto-unfreeze attempts — the bounded contained-recovery path (never a permanent strand).
- * @returns {Promise<Object[]>} Per-collection re-probe outcomes, or `[]` when nothing is frozen.
+ * @param {Number} [options.flapWindowMs=DEFAULT_FLAP_WINDOW_MS] Released-tombstone retention / flap horizon: a tombstone older than this is garbage-collected, and a re-freeze past it starts a fresh recovery budget.
+ * @returns {Promise<Object[]>} Per-collection re-probe outcomes, or `[]` when nothing is actively frozen.
  */
-export async function runFreezeReprobe({freezeRecordsDir, healLedgerDir, now, probe, unfence, containedCooldownMs = DEFAULT_CONTAINED_COOLDOWN_MS}) {
+export async function runFreezeReprobe({freezeRecordsDir, healLedgerDir, now, probe, unfence, containedCooldownMs = DEFAULT_CONTAINED_COOLDOWN_MS, flapWindowMs = DEFAULT_FLAP_WINDOW_MS}) {
     const freezeRecords = await readFreezeRecords({dir: freezeRecordsDir});
 
     if (Object.keys(freezeRecords).length === 0) {
-        return []; // nothing frozen → no probe, no unfreeze, no further I/O
+        return []; // nothing frozen or tombstoned → no probe, no unfreeze, no further I/O
+    }
+
+    // Garbage-collect released tombstones whose flap window has elapsed. A successful unfreeze leaves a tombstone
+    // (carrying the climbing unfreezeAttempts) so a re-freeze within the window inherits the count; once the window
+    // passes with no re-freeze the collection is considered recovered, so the tombstone is pruned — bounding tombstone
+    // accumulation to the flap horizon and letting a later fault start with a clean recovery budget.
+    for (const [collectionName, record] of Object.entries(freezeRecords)) {
+        if (Number.isFinite(record?.unfrozenAt) && (now - record.unfrozenAt) >= flapWindowMs) {
+            await removeFreezeRecord({dir: freezeRecordsDir, collectionName});
+            delete freezeRecords[collectionName];
+        }
     }
 
     // Contained-recovery (the reopen path the decider anticipates): a collection capped at the thrash limit is NOT
@@ -121,8 +173,18 @@ export async function runFreezeReprobe({freezeRecordsDir, healLedgerDir, now, pr
         }
     }
 
+    // The ACTIVE frozen set excludes released tombstones (`unfrozenAt` set): their fence is already lifted, so they
+    // are not frozen and must never be re-probed — they linger only as the anti-thrash memory a re-freeze inherits.
+    const activeRecords = Object.fromEntries(
+        Object.entries(freezeRecords).filter(([, record]) => !Number.isFinite(record?.unfrozenAt))
+    );
+
+    if (Object.keys(activeRecords).length === 0) {
+        return []; // only released tombstones remain → nothing actively frozen to re-probe this tick
+    }
+
     const outcomes = await runFreezeReprobeCycle({
-        freezeRecords,
+        freezeRecords    : activeRecords,
         now,
         probe,
         unfreezeAndReheal: async collectionName => {
@@ -131,7 +193,11 @@ export async function runFreezeReprobe({freezeRecordsDir, healLedgerDir, now, pr
             await appendHealEvent({type: 'unfreeze', collection: collectionName, status: 'unfrozen'}, {dir: healLedgerDir, now});
         },
         persistProbe: async ({collectionName, lastProbeAt, unfreezeAttempts}) => upsertFreezeRecord({dir: freezeRecordsDir, collectionName, lastProbeAt, unfreezeAttempts}),
-        clearFreeze : async collectionName => { await removeFreezeRecord({dir: freezeRecordsDir, collectionName}); }
+        // RELEASE (not delete) on a successful unfreeze: mark a tombstone (`unfrozenAt`) that carries the just-climbed
+        // unfreezeAttempts, so a re-freeze within the flap window inherits the count and the freeze↔unfreeze loop is
+        // bounded. The fence is already lifted; the tombstone holds no serving state, only anti-thrash memory — so the
+        // stale back-off / contained markers are null-cleared (a released collection is neither probed nor contained).
+        clearFreeze : async collectionName => { await upsertFreezeRecord({dir: freezeRecordsDir, collectionName, unfrozenAt: now, lastProbeAt: null, containedAt: null}); }
     });
 
     // Ledger the contained transition (the thrash-cap terminal) exactly once: a persistent fault that exhausted
@@ -139,7 +205,7 @@ export async function runFreezeReprobe({freezeRecordsDir, healLedgerDir, now, pr
     // contract says contained is "ledgered"), or a capped collection stays invisibly frozen. Dedup on the
     // `containedAt` marker so a collection that remains contained across polls is ledgered on the transition only.
     for (const outcome of outcomes) {
-        if (outcome.status === 'contained' && !freezeRecords[outcome.collectionName]?.containedAt) {
+        if (outcome.status === 'contained' && !activeRecords[outcome.collectionName]?.containedAt) {
             await appendHealEvent({type: 'contained', collection: outcome.collectionName, status: 'contained', detail: {reason: outcome.reason}}, {dir: healLedgerDir, now});
             await upsertFreezeRecord({dir: freezeRecordsDir, collectionName: outcome.collectionName, containedAt: now});
         }
