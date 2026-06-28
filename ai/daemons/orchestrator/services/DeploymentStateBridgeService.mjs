@@ -364,16 +364,29 @@ export class DeploymentStateBridgeService extends Base {
 
     /**
      * @summary Folds the durable heal-event ledger into the snapshot's operator-facing immune-system
-     * status: the `summarizeHealLedger` totals + currently-frozen set, plus the most-recent `recoveryRunLimit`
-     * heal events (newest-first). Read-only — never appends, never triggers a heal (the read-only contract): the observe
-     * path must not perturb the system it observes. `healLedgerDir` unset → a `disabled` envelope (graceful
-     * degrade — the snapshot still writes). Mirrors `collectRecoveryRunSnapshot`'s status/source/errors shape.
+     * status: the `summarizeHealLedger` totals + currently-frozen set, plus the most-recent
+     * `selfHealRecentEventLimit` heal events (newest-first). Read-only — never appends, never triggers a heal (the
+     * read-only contract): the observe path must not perturb the system it observes. `healLedgerDir` unset → a
+     * `disabled` envelope (graceful degrade — the snapshot still writes). An unreadable/corrupt ledger FILE makes
+     * `readHealLedger` throw, which this catches as `status: 'degraded'` + an error reason — a real storage fault
+     * is visible, NOT a false-empty `available` snapshot (a missing file stays `available` with empty counts).
+     * Mirrors `collectRecoveryRunSnapshot`'s status/source/errors shape.
      * @returns {Promise<Object>} `{status, source, limit, summary, recentEvents, errors}`.
      */
     async collectSelfHealSnapshot() {
         const
-            limit  = AiConfig.orchestrator.deploymentStateBridge.recoveryRunLimit,
+            limit  = AiConfig.orchestrator.deploymentStateBridge.selfHealRecentEventLimit,
             source = 'orchestrator-heal-event-ledger';
+
+        // Validate the recent-event cap as its OWN surface (mirrors collectRecoveryRunSnapshot). queryHealLedger
+        // treats a negative finite limit as "no cap", so an unvalidated negative would expand the snapshot to EVERY
+        // retained event — fail fast instead. 0 = the recent-event list is empty (the folded summary still writes).
+        if (!Number.isFinite(limit)) {
+            throw new TypeError(`DeploymentStateBridgeService: selfHealRecentEventLimit must be a finite number, got ${limit}`);
+        }
+        if (limit < 0) {
+            throw new RangeError(`DeploymentStateBridgeService: selfHealRecentEventLimit must be >= 0, got ${limit}`);
+        }
 
         if (!this.healLedgerDir) {
             return {status: 'disabled', source, limit, summary: null, recentEvents: [], errors: []};
@@ -388,7 +401,7 @@ export class DeploymentStateBridgeService extends Base {
                 source,
                 limit,
                 summary     : summarizeHealLedger(events),
-                recentEvents: Number.isFinite(limit) ? queryHealLedger(events, {limit}) : queryHealLedger(events),
+                recentEvents: queryHealLedger(events, {limit}), // validated >= 0; limit 0 → [] (queryHealLedger caps)
                 errors      : []
             };
         } catch (error) {

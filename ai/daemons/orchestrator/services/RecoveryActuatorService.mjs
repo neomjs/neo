@@ -420,7 +420,13 @@ export class RecoveryActuatorService extends Base {
                 targetIdentity: createRecoveryTargetIdentity(diagnosis.targetIdentity),
                 evidenceFacts : diagnosis.evidenceFacts || []
             }
-        }, {dir: this.healEventLedgerDir, now});
+        }, {
+            // Retention read from the AiConfig SSOT at the use-site (heal-time) + passed explicitly — the pure ledger
+            // helper owns no production default; this caps the shared observability ledger's disk growth.
+            dir         : this.healEventLedgerDir, now,
+            maxEvents   : AiConfig.orchestrator.recoveryActuator.healLedger.maxEvents,
+            triggerBytes: AiConfig.orchestrator.recoveryActuator.healLedger.pruneTriggerBytes
+        });
 
         const updatedAt = Date.now();
 
@@ -608,7 +614,11 @@ export class RecoveryActuatorService extends Base {
             collection: target.id,
             status    : 'recorded',
             detail    : recorded
-        }, {dir: this.healEventLedgerDir, now: Date.now()});
+        }, {
+            dir         : this.healEventLedgerDir, now: Date.now(),
+            maxEvents   : AiConfig.orchestrator.recoveryActuator.healLedger.maxEvents,
+            triggerBytes: AiConfig.orchestrator.recoveryActuator.healLedger.pruneTriggerBytes
+        });
 
         this.writeLog?.('INFO', `[RecoveryActuator] Redeploy required for ${target.id}; recorded to the heal-event ledger (no operator to page).`);
 

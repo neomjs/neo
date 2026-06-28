@@ -239,4 +239,43 @@ test.describe('pruneHealLedger + self-bounding append — bounded retention (#14
             await fs.rm(dir, {recursive: true, force: true});
         }
     });
+
+    test('appendHealEvent does NOT auto-prune when no retention policy is supplied — the helper owns no production default', async () => {
+        const dir = await tmpDir();
+        try {
+            // 6 tiny appends with NO triggerBytes/maxEvents → the size-gate is inert (no magic-number fallback fires).
+            // Bounding is the AiConfig-aware caller's job (it passes the retention leaves), not the helper's.
+            for (let i = 0; i < 6; i++) {
+                await appendHealEvent({type: 'heal', collection: 'c1', status: 'healed', at: i}, {dir});
+            }
+            expect((await readHealLedger({dir})).length).toBe(6); // un-pruned — no helper default applied
+        } finally {
+            await fs.rm(dir, {recursive: true, force: true});
+        }
+    });
+
+    test('pruneHealLedger requires an explicit finite, non-negative maxEvents (no helper-owned default)', async () => {
+        const dir = await tmpDir();
+        try {
+            await expect(pruneHealLedger({dir})).rejects.toThrow(/finite, non-negative maxEvents is required/);
+            await expect(pruneHealLedger({dir, maxEvents: -1})).rejects.toThrow(/finite, non-negative maxEvents is required/);
+            await expect(pruneHealLedger({dir, maxEvents: NaN})).rejects.toThrow(/finite, non-negative maxEvents is required/);
+        } finally {
+            await fs.rm(dir, {recursive: true, force: true});
+        }
+    });
+});
+
+test.describe('readHealLedger — fail-visible on an unreadable FILE (#14163 degradation surfaces)', () => {
+    test('THROWS on an unreadable ledger FILE (non-ENOENT) so the observability boundary degrades visibly', async () => {
+        const dir = await tmpDir();
+        try {
+            // A directory where the JSONL file should be → readFile throws EISDIR (NOT ENOENT). A MISSING file stays
+            // [] (nothing yet); an unreadable file is a real storage degradation that must surface, not read as empty.
+            await fs.mkdir(getHealLedgerFilePath(dir));
+            await expect(readHealLedger({dir})).rejects.toMatchObject({code: 'EISDIR'});
+        } finally {
+            await fs.rm(dir, {recursive: true, force: true});
+        }
+    });
 });

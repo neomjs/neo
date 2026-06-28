@@ -454,9 +454,28 @@ export class Orchestrator extends Base {
                     }
                 })
             },
-            recentRunsReader : async collectionName => healEventsToRecentRuns(queryHealLedger(await readHealLedger({dir: healLedgerDir}), {collections: [collectionName]})),
-            recordRun        : async ({action, collection, at}) => appendHealEvent({type: action, collection, status: 'attempt'}, {dir: healLedgerDir, now: at}),
-            recordHealOutcome: async ({action, collection, status, detail, healedAt}) => appendHealEvent({type: action, collection, status, detail}, {dir: healLedgerDir, now: healedAt})
+            // The ledger is observability, never a gate: readHealLedger now THROWS on an unreadable FILE, so an
+            // unreadable ledger must not block a heal — degrade the anti-thrash projection to "no recent runs".
+            recentRunsReader : async collectionName => {
+                let events = [];
+                try {
+                    events = await readHealLedger({dir: healLedgerDir});
+                } catch (error) {
+                    this.writeLog?.('WARN', `[Orchestrator] heal-ledger read failed for recentRuns; proceeding with none: ${error.message}`);
+                }
+                return healEventsToRecentRuns(queryHealLedger(events, {collections: [collectionName]}));
+            },
+            // Retention is read HERE (the AiConfig-aware boundary, at heal-time) and passed explicitly into the pure
+            // ledger helper — the helper owns no production default. Read inside the closure (call-time),
+            // never aliased at construction (a construction-time AiConfig read is an eager-read trap on a late leaf).
+            recordRun        : async ({action, collection, at}) => appendHealEvent(
+                {type: action, collection, status: 'attempt'},
+                {dir: healLedgerDir, now: at, maxEvents: AiConfig.orchestrator.recoveryActuator.healLedger.maxEvents, triggerBytes: AiConfig.orchestrator.recoveryActuator.healLedger.pruneTriggerBytes}
+            ),
+            recordHealOutcome: async ({action, collection, status, detail, healedAt}) => appendHealEvent(
+                {type: action, collection, status, detail},
+                {dir: healLedgerDir, now: healedAt, maxEvents: AiConfig.orchestrator.recoveryActuator.healLedger.maxEvents, triggerBytes: AiConfig.orchestrator.recoveryActuator.healLedger.pruneTriggerBytes}
+            )
         });
     }
 
@@ -477,6 +496,11 @@ export class Orchestrator extends Base {
         this.processSupervisorService.dataDir          = value;
         this.recoveryActuatorService.dataDir           = value;
         this.maintenanceBackpressureService.dataDir    = value;
+        // The bridge derives its heal-ledger dir from dataDir at construction — keep it coherent when dataDir
+        // changes at runtime, else the actuator writes the NEW ledger while the bridge keeps reading the OLD one.
+        if (this.deploymentStateBridgeService) {
+            this.deploymentStateBridgeService.healLedgerDir = path.join(value, 'data-heal-events');
+        }
     }
     afterSetTaskDefinitions(value, oldValue) {
         if (oldValue === undefined) return;

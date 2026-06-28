@@ -539,7 +539,11 @@ class Config extends ConfigProvider {
                     logMaxBytes                 : leaf(32 * 1024, 'NEO_DEPLOYMENT_STATE_BRIDGE_LOG_MAX_BYTES', 'number'),
                     statsSampleWindow           : leaf(2, 'NEO_DEPLOYMENT_STATE_BRIDGE_STATS_SAMPLE_WINDOW', 'number'),
                     providerResidencyServiceKeys: leaf(['local-model', 'model'], 'NEO_DEPLOYMENT_STATE_BRIDGE_PROVIDER_RESIDENCY_SERVICE_KEYS', 'csv'),
-                    recoveryRunLimit            : leaf(10, 'NEO_DEPLOYMENT_STATE_BRIDGE_RECOVERY_RUN_LIMIT', 'number')
+                    recoveryRunLimit            : leaf(10, 'NEO_DEPLOYMENT_STATE_BRIDGE_RECOVERY_RUN_LIMIT', 'number'),
+                    // Self-heal snapshot's recent-event cap — a DIFFERENT surface from recoveryRunLimit (heal-ledger
+                    // events vs recovery-run states). collectSelfHealSnapshot validates it finite/non-negative (0 = no
+                    // recent-event list) so a negative value can never expand the snapshot to every retained event.
+                    selfHealRecentEventLimit    : leaf(10, 'NEO_DEPLOYMENT_STATE_BRIDGE_SELF_HEAL_RECENT_EVENT_LIMIT', 'number')
                 },
                 /**
                  * Cross-process heavy-maintenance lease (Chroma / SQLite / LLM maintenance mutex).
@@ -823,6 +827,19 @@ class Config extends ConfigProvider {
                     maxBackoffMs               : leaf(HOUR_MS, 'NEO_RECOVERY_ACTUATOR_MAX_BACKOFF_MS', 'number'),
                     verifyCooldownMs           : leaf(60 * 1000, 'NEO_RECOVERY_ACTUATOR_VERIFY_COOLDOWN_MS', 'number'),
                     healthyObservationThreshold: leaf(1, 'NEO_RECOVERY_ACTUATOR_HEALTHY_OBSERVATION_THRESHOLD', 'number'),
+                    /**
+                     * Heal-event ledger retention (the observability sink must not become its own disk leak). The
+                     * append-time auto-prune keeps the newest `maxEvents` once the file crosses `pruneTriggerBytes`.
+                     * Read at the orchestrator/actuator boundary and passed EXPLICITLY into the pure ledger helper
+                     * (which owns no production default — this leaf is the source of truth). `maxEvents` sits well above the dispatch
+                     * anti-thrash window so a prune can never evict a within-window attempt; the byte-trigger
+                     * amortizes the O(N) prune (at ~150 B/entry the 5000-event cap is ~750 KB; a 1 MB trigger leaves headroom).
+                     * @type {Object}
+                     */
+                    healLedger: {
+                        maxEvents        : leaf(5000,        'NEO_RECOVERY_ACTUATOR_HEAL_LEDGER_MAX_EVENTS',          'number'),
+                        pruneTriggerBytes: leaf(1024 * 1024, 'NEO_RECOVERY_ACTUATOR_HEAL_LEDGER_PRUNE_TRIGGER_BYTES', 'number')
+                    },
                     /**
                      * Systemic-fault circuit-breaker bounds — the cross-collection layer above the per-collection
                      * anti-thrash (`maxAttemptsPerWindow`/`maxAttemptsWindowMs`). >= `systemicThreshold` DISTINCT
