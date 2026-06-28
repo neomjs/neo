@@ -8,8 +8,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const scriptRoot = path.resolve(__dirname, '../..');
 
-const DEFAULT_DIRS    = ['ai', 'src', 'test/playwright'];
-const DEFAULT_IGNORES = ['.claude', '.codex', 'dist', 'node_modules'];
+// Scan roots for the default audit + `--base` CI mode: a directory (scanned recursively) or a specific
+// file. Keep mirror-aligned with the `paths:` trigger of .github/workflows/ticket-archaeology-lint.yml so
+// every path that can trigger the gate is also scanned (else it passes vacuously). The guard lists ITSELF
+// here so it self-guards at the merge-gate, not only via the pre-commit lint-staged `*.mjs` glob.
+export const DEFAULT_SCAN_PATHS = ['ai', 'src', 'test/playwright', 'buildScripts/util/check-ticket-archaeology.mjs'];
+export const DEFAULT_IGNORES    = ['.claude', '.codex', 'dist', 'node_modules'];
 
 // Inline relief valve for a genuinely load-bearing comment ref (judgment-call escape, not a blanket bypass).
 export const ESCAPE_MARKER = 'ticket-ref-ok';
@@ -129,6 +133,22 @@ export function findTicketRefs(content) {
 }
 
 /**
+ * @summary True when a repo-relative path is in archaeology-scan scope: a `.mjs` file under one of the
+ * scan roots (a directory prefix, or an exact-file root such as the guard itself) and not under any
+ * ignored path fragment. The single in-scope contract shared by the `--base` CI selection and the
+ * default audit — exported so the base-mode scope is unit-testable without a live git diff.
+ * @param {String} file Repo-relative path.
+ * @param {String[]} scanPaths Scan roots — directories (prefix match) or specific files (exact match).
+ * @param {String[]} ignores Path fragments; a file is excluded when any path segment matches one.
+ * @returns {Boolean}
+ */
+export function isInScopePath(file, scanPaths, ignores) {
+    return file.endsWith('.mjs')
+        && scanPaths.some(p => file === p || file.startsWith(`${p}/`))
+        && !ignores.some(ignore => file.split('/').includes(ignore))
+}
+
+/**
  * @summary Built-in argv parser (no commander dep) so the guard runs in CI without `npm ci` — matching the
  * sibling lint-scripts (e.g. lint-skill-manifest). Supports `--dirs`/`--ignore` (`=value` or space-separated),
  * `--quiet`, `--skip`, `--base <ref>`, and bare positional file paths.
@@ -136,7 +156,7 @@ export function findTicketRefs(content) {
  * @returns {{options: {dirs: string, ignore: string, quiet: boolean, skip: boolean, base: ?string}, files: string[]}}
  */
 function parseArgs(argv = process.argv.slice(2)) {
-    const options = {dirs: DEFAULT_DIRS.join(','), ignore: DEFAULT_IGNORES.join(','), quiet: false, skip: false, base: null};
+    const options = {dirs: DEFAULT_SCAN_PATHS.join(','), ignore: DEFAULT_IGNORES.join(','), quiet: false, skip: false, base: null};
     const files   = [];
 
     for (let i = 0; i < argv.length; i++) {
@@ -172,7 +192,7 @@ function main() {
     }
 
     const {options, files: argvFiles} = parseArgs();
-    const scanDirs                    = options.dirs.split(',').map(s => s.trim()).filter(Boolean),
+    const scanPaths                   = options.dirs.split(',').map(s => s.trim()).filter(Boolean),
           ignores  = options.ignore.split(',').map(s => s.trim()).filter(Boolean);
 
     // Targeted skip for the generated-data class (data-sync pipeline / sync_all): they commit
@@ -187,7 +207,7 @@ function main() {
         const findArgs = ['-type', 'f', '-name', '*.mjs'];
         ignores.forEach(ignore => findArgs.push('-not', '-path', `*/${ignore}/*`));
 
-        const result = spawnSync('find', [...scanDirs, ...findArgs], {cwd: gitRoot, encoding: 'utf-8'});
+        const result = spawnSync('find', [...scanPaths, ...findArgs], {cwd: gitRoot, encoding: 'utf-8'});
         if (result.status !== 0) {
             console.error('\x1b[31mError: find command failed.\x1b[0m');
             console.error(result.stderr);
@@ -196,8 +216,9 @@ function main() {
         return result.stdout.trim().split('\n').filter(Boolean);
     }
 
-    // CI mode: the in-scope (.mjs, within scanDirs, not ignored) files CHANGED vs the base ref. Deletions
-    // (--diff-filter=d excludes them) cannot carry archaeology; renames/edits exist on HEAD → readable.
+    // CI mode: the in-scope (per isInScopePath — .mjs, within a scan root, not ignored) files CHANGED vs
+    // the base ref. Deletions (--diff-filter=d excludes them) cannot carry archaeology; renames/edits exist
+    // on HEAD → readable.
     function changedFilesVsBase(base) {
         const result = spawnSync('git', ['diff', '--name-only', '--diff-filter=d', `${base}...HEAD`], {cwd: gitRoot, encoding: 'utf-8'});
         if (result.status !== 0) {
@@ -206,9 +227,7 @@ function main() {
             process.exit(1);
         }
         return result.stdout.trim().split('\n').filter(Boolean)
-            .filter(f => f.endsWith('.mjs'))
-            .filter(f => scanDirs.some(dir => f === dir || f.startsWith(`${dir}/`)))
-            .filter(f => !ignores.some(ignore => f.split('/').includes(ignore)));
+            .filter(f => isInScopePath(f, scanPaths, ignores));
     }
 
     // File selection (all modes scan each selected file in FULL — boy-scout, no line scoping):

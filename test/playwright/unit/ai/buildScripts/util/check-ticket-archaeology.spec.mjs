@@ -1,10 +1,10 @@
-import {test, expect}                       from '@playwright/test';
-import {execFileSync}                       from 'node:child_process';
-import {mkdtempSync, rmSync, writeFileSync} from 'node:fs';
-import {tmpdir}                             from 'node:os';
-import path                                 from 'node:path';
-import {fileURLToPath}                      from 'node:url';
-import {extractComment, findTicketRefs}     from '../../../../../../buildScripts/util/check-ticket-archaeology.mjs';
+import {test, expect}                                                                       from '@playwright/test';
+import {execFileSync}                                                                       from 'node:child_process';
+import {mkdtempSync, rmSync, writeFileSync}                                                 from 'node:fs';
+import {tmpdir}                                                                             from 'node:os';
+import path                                                                                 from 'node:path';
+import {fileURLToPath}                                                                      from 'node:url';
+import {extractComment, findTicketRefs, isInScopePath, DEFAULT_SCAN_PATHS, DEFAULT_IGNORES} from '../../../../../../buildScripts/util/check-ticket-archaeology.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '../../../../../..');
@@ -83,8 +83,8 @@ test.describe('check-ticket-archaeology guard', () => {
  * exactly like check-block-alignment). This reduces the grandfathered backlog as files are naturally touched
  * (the prior added-lines-only scope froze it). Plus the generated-data skip-flag (data-sync / sync_all).
  *
- * CLI-invoked from REPO_ROOT (node_modules present for commander) against an isolated temp file, so the
- * real argv-mode path — including the whole-file scan + the skip gate — is exercised end-to-end.
+ * CLI-invoked from REPO_ROOT against an isolated temp file, so the real argv-mode path — including the
+ * whole-file scan + the skip gate — is exercised end-to-end.
  */
 test.describe('check-ticket-archaeology whole-touched-file + skip (#14279)', () => {
     let tempDir, probe;
@@ -122,5 +122,31 @@ test.describe('check-ticket-archaeology whole-touched-file + skip (#14279)', () 
     test('NEO_SKIP_TICKET_ARCHAEOLOGY=1 bypasses the gate', () => {
         const {code} = runGuard([probe], {NEO_SKIP_TICKET_ARCHAEOLOGY: '1'});
         expect(code).toBe(0);
+    });
+});
+
+/**
+ * Base-mode scope selection: isInScopePath is the in-scope contract the `--base` CI selection applies to
+ * each changed path. The guard script lives outside the ai/src/test-playwright roots, so it must be listed
+ * explicitly in DEFAULT_SCAN_PATHS — otherwise a PR touching the guard triggers the lint workflow but the
+ * scan selects 0 files and greens vacuously (the gap this covers). Pure predicate → no live git diff needed.
+ */
+test.describe('check-ticket-archaeology --base scope selection (#14279)', () => {
+    test('selects the guard script itself — it triggers the lint workflow, so it must self-scan', () => {
+        expect(isInScopePath('buildScripts/util/check-ticket-archaeology.mjs', DEFAULT_SCAN_PATHS, DEFAULT_IGNORES)).toBe(true)
+    });
+
+    test('selects in-scope ai / src / test-playwright .mjs files', () => {
+        expect(isInScopePath('ai/services/foo.mjs', DEFAULT_SCAN_PATHS, DEFAULT_IGNORES)).toBe(true);
+        expect(isInScopePath('src/core/Base.mjs', DEFAULT_SCAN_PATHS, DEFAULT_IGNORES)).toBe(true);
+        expect(isInScopePath('test/playwright/unit/x.spec.mjs', DEFAULT_SCAN_PATHS, DEFAULT_IGNORES)).toBe(true)
+    });
+
+    test('rejects non-.mjs, out-of-scope dirs, a buildScripts sibling, and ignored fragments', () => {
+        expect(isInScopePath('buildScripts/util/check-ticket-archaeology.yml', DEFAULT_SCAN_PATHS, DEFAULT_IGNORES)).toBe(false);
+        expect(isInScopePath('buildScripts/util/other-guard.mjs', DEFAULT_SCAN_PATHS, DEFAULT_IGNORES)).toBe(false);
+        expect(isInScopePath('apps/portal/foo.mjs', DEFAULT_SCAN_PATHS, DEFAULT_IGNORES)).toBe(false);
+        expect(isInScopePath('test/unit/legacy.mjs', DEFAULT_SCAN_PATHS, DEFAULT_IGNORES)).toBe(false);
+        expect(isInScopePath('ai/node_modules/dep.mjs', DEFAULT_SCAN_PATHS, DEFAULT_IGNORES)).toBe(false)
     });
 });

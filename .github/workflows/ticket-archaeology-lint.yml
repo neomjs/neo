@@ -8,10 +8,12 @@ name: Ticket Archaeology Lint
 on:
   pull_request:
     branches: [dev]
+    # Mirror DEFAULT_SCAN_PATHS in buildScripts/util/check-ticket-archaeology.mjs: every path that triggers
+    # this gate must also be in the guard's scan scope, or the gate passes vacuously (no in-scope file).
     paths:
       - 'ai/**/*.mjs'
       - 'src/**/*.mjs'
-      - 'test/**/*.mjs'
+      - 'test/playwright/**/*.mjs'
       - 'buildScripts/util/check-ticket-archaeology.mjs'
       - '.github/workflows/ticket-archaeology-lint.yml'
 
