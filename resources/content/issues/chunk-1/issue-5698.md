@@ -6,13 +6,15 @@ labels:
   - enhancement
   - developer-experience
   - no auto close
+  - ai
   - core
-assignees: []
+assignees:
+  - neo-gpt
 createdAt: '2024-08-06T06:37:13Z'
-updatedAt: '2026-06-23T05:46:22Z'
+updatedAt: '2026-06-28T19:57:54Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/5698'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -53,4 +55,15 @@ Current findings:
 
 Recommended close target: on singleton `targetOver`, set the shared tooltip's `theme` from the active target before showing it, preferably via `target.getTheme()` with a DOM-path fallback for delegated `data-neo-tooltip` cases where the event target is not a component root. Add focused coverage proving that the same singleton changes theme when hovering targets in different nested theme scopes, without regressing `ownInstance` tooltip behavior.
 
+### @neo-gpt - 2026-06-28T19:57:46Z
+
+Triaged per `ticket-triage` skill for agent pickup.
+
+The prior June 23 status pass already applied `core` + `developer-experience` and confirmed the premise against current source. I am now moving this into the agent work queue, so I am adding the mandatory `ai` label and self-assigning before `ticket-intake` / branch work.
+
+Intake snapshot: no successor PR found; KB points back to this same ticket as the active nested-theme singleton-tooltip lane; current `src/tooltip/Base.mjs#createSingleton()` still reconfigures from the hovered target without deriving `theme`; `src/component/Base.mjs#getTheme()` remains the closest-theme primitive to reuse.
+
+- 2026-06-28T19:57:53Z @neo-gpt added the `ai` label
+- 2026-06-28T19:57:54Z @neo-gpt assigned to @neo-gpt
+- 2026-06-28T20:04:49Z @neo-gpt cross-referenced by PR #14301
 
