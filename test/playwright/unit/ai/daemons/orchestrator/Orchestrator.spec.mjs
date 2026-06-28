@@ -764,18 +764,22 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             },
             taskStateService: {
                 getTaskState() {
-                    return {pid: 222};
-                }
+                    return {running: false, pid: null};
+                },
+                adoptRunning() {}
             },
             healthService: {recordTaskOutcome() {}},
             writeLog     : () => {}
         });
 
-        supervisor.listPortListeners = () => [111, 222];
-        supervisor.processCommand    = () => '/node ai/mcp/server/neural-link/run-bridge.mjs';
-        supervisor.killProcess       = pid => killed.push(pid);
+        supervisor.listPortListeners  = () => [111, 222];
+        supervisor.processCommand     = () => '/node ai/mcp/server/neural-link/run-bridge.mjs';
+        supervisor.killProcess        = pid => killed.push(pid);
+        supervisor.watchRecoveredTask = () => {};
+        supervisor.getTaskPidFile     = () => null;
 
-        expect(supervisor.reapDuplicateListeners('neuralLinkBridge')).toBe(0);
+        // defer policy adopts the externally-owned live holder; it must NEVER kill it.
+        expect(supervisor.reconcileSingletonPort('neuralLinkBridge')).toBe(0);
         expect(killed).toEqual([]);
     });
 
@@ -1882,7 +1886,7 @@ test.describe('Neo.ai.daemons.Orchestrator — chroma max-runtime recycle (#1213
 
     function recycleMock(sink) {
         return {
-            reapDuplicateListeners() {},
+            reconcileSingletonPort() {},
             killTask(taskName, reason) { sink.killed.push({taskName, reason}); },
             runTask(taskName, reason)  { sink.started.push({taskName, reason}); return true; }
         };
