@@ -127,7 +127,7 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
     test.beforeEach(() => {
         originalGetSummaryCollection = ChromaManager.getSummaryCollection;
         originalGraphDb              = GraphService.db;
-        originalHandoffPath          = aiConfig.data.handoffFilePath;
+        originalHandoffPath          = aiConfig.data.handoffFilePathTest;
         originalRemRunStateDir       = aiConfig.remRunStateDir;
         originalRemRunRecentLimit    = aiConfig.remRunRecentLimit;
 
@@ -138,7 +138,7 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
     test.afterEach(() => {
         ChromaManager.getSummaryCollection = originalGetSummaryCollection;
         GraphService.db                    = originalGraphDb;
-        aiConfig.data.handoffFilePath      = originalHandoffPath;
+        aiConfig.data.handoffFilePathTest  = originalHandoffPath;
         aiConfig.remRunStateDir            = originalRemRunStateDir;
         aiConfig.remRunRecentLimit         = originalRemRunRecentLimit;
     });
@@ -373,18 +373,18 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
                 'Some Golden Path content here, no Source Session marker.',
                 ''
             ].join('\n'), 'utf8');
-            aiConfig.data.handoffFilePath = handoffPath;
+            aiConfig.data.handoffFilePathTest = handoffPath;
 
             expect(await TopologyInferenceEngine.getTopologyConflictCount()).toBe(3);
         });
 
         test('returns 0 when handoff file does not exist (ENOENT)', async () => {
-            aiConfig.data.handoffFilePath = uniqueHandoffPath('never-existed');
+            aiConfig.data.handoffFilePathTest = uniqueHandoffPath('never-existed');
             expect(await TopologyInferenceEngine.getTopologyConflictCount()).toBe(0);
         });
 
         test('returns 0 when handoffFilePath is unset', async () => {
-            aiConfig.data.handoffFilePath = null;
+            aiConfig.data.handoffFilePathTest = null;
             expect(await TopologyInferenceEngine.getTopologyConflictCount()).toBe(0);
         });
 
@@ -392,7 +392,7 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
             const handoffPath = uniqueHandoffPath('empty');
             await mkdir(tmpRoot, {recursive: true});
             await writeFile(handoffPath,'', 'utf8');
-            aiConfig.data.handoffFilePath = handoffPath;
+            aiConfig.data.handoffFilePathTest = handoffPath;
 
             expect(await TopologyInferenceEngine.getTopologyConflictCount()).toBe(0);
         });
@@ -408,7 +408,7 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
                 'Some content, but zero conflict markers.',
                 ''
             ].join('\n'), 'utf8');
-            aiConfig.data.handoffFilePath = handoffPath;
+            aiConfig.data.handoffFilePathTest = handoffPath;
 
             expect(await TopologyInferenceEngine.getTopologyConflictCount()).toBe(0);
         });
@@ -445,10 +445,10 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
                 '- **[DUPLICATE]** `issue-101`: bar (Source Session: s2)',
                 ''
             ].join('\n'), 'utf8');
-            aiConfig.data.handoffFilePath = handoffPath;
+            aiConfig.data.handoffFilePathTest = handoffPath;
 
             const {callTool} = await import('../../../../../ai/mcp/server/memory-core/toolService.mjs');
-            const state = await callTool('get_rem_pipeline_state', {sessionId: 's1'});
+            const state      = await callTool('get_rem_pipeline_state', {sessionId: 's1'});
 
             expect(state).toEqual({
                 undigested       : 2,
@@ -476,7 +476,7 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
 
             try {
                 const {buildRemPipelineState} = await import('../../../../../ai/services/memory-core/HealthService.mjs');
-                const state = await buildRemPipelineState({axisTimeoutMs: 5});
+                const state                   = await buildRemPipelineState({axisTimeoutMs: 5});
 
                 expect(state).toMatchObject({
                     undigested       : 0,
@@ -530,7 +530,7 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
             }), {dir: aiConfig.remRunStateDir});
 
             const {callTool} = await import('../../../../../ai/mcp/server/memory-core/toolService.mjs');
-            const state = await callTool('get_rem_pipeline_state', {});
+            const state      = await callTool('get_rem_pipeline_state', {});
 
             expect(state.recentCycles).toEqual([{
                 runId              : 'rem-new',
