@@ -138,6 +138,42 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
         expect(pidFile).toBe(path.join(dataDir, 'mockTask.pid'));
     });
 
+    test('recoverTask clears a dead Chroma pidfile instead of adopting it (#14297)', () => {
+        const {service, dataDir} = createTestService();
+        const adopted            = [];
+        const watched            = [];
+        const probed             = [];
+        const pidFile            = path.join(dataDir, 'chroma.pid');
+        const originalKill       = process.kill;
+
+        service.taskDefinitions.chroma = {
+            label          : 'chroma daemon',
+            command        : 'chroma',
+            args           : ['run'],
+            pidFileName    : 'chroma.pid',
+            expectedCommand: 'chroma'
+        };
+        service.taskStateService.adoptRunning = (taskName, pid) => adopted.push({pid, taskName});
+        service.watchRecoveredTask            = (taskName, pid) => watched.push({pid, taskName});
+        fs.writeFileSync(pidFile, '4242');
+
+        process.kill = (pid, signal) => {
+            probed.push({pid, signal});
+            throw Object.assign(new Error('stale pid'), {code: 'ESRCH'});
+        };
+
+        try {
+            service.recoverTask('chroma');
+        } finally {
+            process.kill = originalKill;
+        }
+
+        expect(probed).toEqual([{pid: 4242, signal: 0}]);
+        expect(fs.existsSync(pidFile)).toBe(false);
+        expect(adopted).toEqual([]);
+        expect(watched).toEqual([]);
+    });
+
     test('runTask spawns child and updates state', () => {
         const { service, mockTaskStateService } = createTestService();
 
