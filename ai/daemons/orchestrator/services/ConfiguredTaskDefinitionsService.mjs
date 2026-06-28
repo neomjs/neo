@@ -34,6 +34,7 @@ export function buildConfiguredTaskDefinitions({
     const tasks = buildTaskDefinitions({
         scriptDir,
         nodeBin,
+        chromaHost                : AiConfig.engines.chroma.host,
         chromaPort                : AiConfig.engines.chroma.port,
         devServerPort             : AiConfig.orchestrator.devServer.port,
         devServerLivenessTimeoutMs: AiConfig.orchestrator.devServer.livenessProbeTimeoutMs,

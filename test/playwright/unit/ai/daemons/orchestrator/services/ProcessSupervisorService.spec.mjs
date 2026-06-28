@@ -956,6 +956,49 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
         expect(killed).toEqual([9999]);
     });
 
+    test('superviseTask recycles adopted/running Chroma when its service health fails (#14297)', async () => {
+        const {service, taskOutcomes} = createTestService();
+        const killed                  = [];
+        const recycled                = [];
+        const started                 = [];
+        const state                   = {running: true, lastRunAt: 0, pid: 4242};
+
+        service.taskDefinitions = {
+            chroma: {
+                label      : 'chroma daemon',
+                healthProbe: async () => false
+            }
+        };
+        service.taskStateService.getTaskState = () => state;
+        service.taskStateService.markRecycled = taskName => {
+            recycled.push(taskName);
+            state.running = false;
+            state.pid     = null;
+        };
+        service.killProcess = pid => killed.push(pid);
+        service.runTask     = (taskName, reason) => {
+            started.push({taskName, reason});
+            return true;
+        };
+
+        service.superviseTask('chroma', 1_000_000, 15000);
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(killed).toEqual([4242]);
+        expect(recycled).toEqual(['chroma']);
+        expect(taskOutcomes).toContainEqual(expect.objectContaining({
+            status  : 'recycled',
+            taskName: 'chroma',
+            details : expect.objectContaining({
+                reason: 'supervisor-health-recycle',
+                pid   : 4242
+            })
+        }));
+
+        service.superviseTask('chroma', 1_020_000, 15000);
+        expect(started).toEqual([{taskName: 'chroma', reason: 'supervisor-restart'}]);
+    });
+
     test('superviseTask leaves a RUNNING task healthy per its healthProbe (no recycle)', async () => {
         const {service} = createTestService();
         const killed    = [];

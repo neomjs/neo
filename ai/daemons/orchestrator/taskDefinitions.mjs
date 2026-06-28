@@ -9,6 +9,9 @@ export const DEFAULT_DB_PATH    = process.env.NEO_AI_DB_PATH || '.neo-ai-data/sq
 export const DEFAULT_DATA_DIR   = process.env.NEO_AI_ORCHESTRATOR_DIR || '.neo-ai-data/orchestrator-daemon';
 export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../../scripts');
 
+const DEFAULT_CHROMA_HEALTH_ENDPOINT   = '/api/v2/heartbeat';
+const DEFAULT_CHROMA_HEALTH_TIMEOUT_MS = 1000;
+
 /**
  * @summary Probes whether a local TCP port is accepting connections.
  * @param {Object} options
@@ -42,6 +45,95 @@ function probeTcpPort({port, timeoutMs}) {
         socket.once('timeout', () => finish(false));
         socket.once('error',   () => finish(false));
     });
+}
+
+/**
+ * @summary Builds a Chroma HTTP health URL from the configured host/port.
+ *
+ * Chroma can bind IPv6-only in local development while the config host stays `localhost`.
+ * Preserve the configured host instead of forcing `127.0.0.1`, and bracket literal IPv6
+ * hosts so `fetch` receives a valid URL.
+ * @param {Object} options
+ * @param {String} [options.host='localhost'] Configured Chroma host.
+ * @param {String|Number} options.port Configured Chroma port.
+ * @param {String} [options.endpoint='/api/v2/heartbeat'] Chroma health endpoint.
+ * @returns {String|null}
+ */
+export function buildChromaHealthUrl({
+    host     = 'localhost',
+    port,
+    endpoint = DEFAULT_CHROMA_HEALTH_ENDPOINT
+} = {}) {
+    const normalizedPort = Number(port);
+
+    if (!Number.isFinite(normalizedPort) || normalizedPort <= 0) {
+        return null;
+    }
+
+    const rawHost = String(host || 'localhost').trim();
+
+    if (!rawHost) {
+        return null;
+    }
+
+    try {
+        const hasScheme      = rawHost.includes('://'),
+              colonCount     = rawHost.split(':').length - 1,
+              isBareIpv6Host = colonCount > 1 && !rawHost.startsWith('['),
+              normalizedHost = isBareIpv6Host ? `[${rawHost}]` : rawHost,
+              url            = hasScheme ? new URL(rawHost) : new URL(`http://${normalizedHost}`);
+
+        url.port     = String(normalizedPort);
+        url.pathname = endpoint;
+        url.search   = '';
+        url.hash     = '';
+
+        return url.toString();
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * @summary Probes Chroma's HTTP API, not just PID or TCP liveness.
+ * @param {Object} options
+ * @param {String} [options.host='localhost'] Configured Chroma host.
+ * @param {String|Number} options.port Configured Chroma port.
+ * @param {Number} [options.timeoutMs=1000] Request timeout in milliseconds.
+ * @param {String} [options.endpoint='/api/v2/heartbeat'] Chroma health endpoint.
+ * @param {Function} [options.fetchFn=globalThis.fetch] Fetch implementation seam.
+ * @returns {Promise<Boolean>}
+ */
+export async function probeChromaHttpHealth({
+    host,
+    port,
+    timeoutMs = DEFAULT_CHROMA_HEALTH_TIMEOUT_MS,
+    endpoint,
+    fetchFn = globalThis.fetch
+} = {}) {
+    const url = buildChromaHealthUrl({host, port, endpoint});
+
+    if (!url || typeof fetchFn !== 'function') {
+        return false;
+    }
+
+    const controller = new AbortController(),
+          timeout    = Number(timeoutMs);
+    let timeoutId = null;
+
+    if (Number.isFinite(timeout) && timeout > 0) {
+        timeoutId = setTimeout(() => controller.abort(), timeout);
+        timeoutId.unref?.();
+    }
+
+    try {
+        const response = await fetchFn(url, {signal: controller.signal});
+        return Boolean(response?.ok);
+    } catch {
+        return false;
+    } finally {
+        clearTimeout(timeoutId);
+    }
 }
 
 /**
@@ -131,6 +223,9 @@ export function buildOllamaServeEnv({host, keepAlive, contextLength, requirePara
  * @param {String} [options.scriptDir] Script directory.
  * @param {String} [options.nodeBin] Node executable.
  * @param {String|Number} [options.chromaPort] Chroma daemon port — used for the `--port` arg and as the chroma task's `singletonPort` (the port the orchestrator reaps duplicate listeners on).
+ * @param {String} [options.chromaHost='localhost'] Chroma daemon host for HTTP service-health probes.
+ * @param {Number} [options.chromaHealthProbeTimeoutMs=1000] Chroma HTTP health probe timeout.
+ * @param {Function} [options.chromaHealthFetchFn] Optional fetch implementation seam for tests.
  * @param {String|Number} [options.devServerPort] Local webpack dev-server port — used for the `--port` arg, singleton detection, and TCP liveness probe.
  * @param {Number} [options.devServerLivenessTimeoutMs] TCP liveness probe timeout.
  * @param {String|Number} [options.neuralLinkBridgePort] Neural Link Bridge port — sourced from the Neural Link config provider by the orchestrator entrypoint.
@@ -140,7 +235,10 @@ export function buildOllamaServeEnv({host, keepAlive, contextLength, requirePara
 export function buildTaskDefinitions({
     scriptDir  = DEFAULT_SCRIPT_DIR,
     nodeBin    = process.argv[0],
+    chromaHost = 'localhost',
     chromaPort,
+    chromaHealthProbeTimeoutMs = DEFAULT_CHROMA_HEALTH_TIMEOUT_MS,
+    chromaHealthFetchFn,
     devServerPort,
     devServerLivenessTimeoutMs,
     neuralLinkBridgePort,
@@ -161,7 +259,13 @@ export function buildTaskDefinitions({
             args           : ['run', '--path', '.neo-ai-data/chroma/unified', '--port', String(chromaPort)],
             pidFileName    : 'chroma.pid',
             expectedCommand: 'chroma',
-            singletonPort  : chromaPort
+            singletonPort  : chromaPort,
+            healthProbe    : () => probeChromaHttpHealth({
+                host     : chromaHost,
+                port     : chromaPort,
+                timeoutMs: chromaHealthProbeTimeoutMs,
+                fetchFn  : chromaHealthFetchFn
+            })
         },
         // `bridgeDaemon` lane id is a frozen lane-taxonomy / continuousTasks wire constant —
         // kept verbatim on the wake-daemon rename so the orchestrator keeps scheduling the lane.
