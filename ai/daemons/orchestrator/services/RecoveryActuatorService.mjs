@@ -11,7 +11,10 @@ import {
     createRecoveryRunStateEntry,
     createRecoveryTargetIdentity
 } from '../../../services/memory-core/helpers/recoveryRunStateStore.mjs';
-import {appendHealEvent}  from '../../../services/memory-core/helpers/healEventLedgerStore.mjs';
+import {
+    appendHealEvent,
+    validateHealLedgerRetention
+} from '../../../services/memory-core/helpers/healEventLedgerStore.mjs';
 import {DEFAULT_DATA_DIR} from '../taskDefinitions.mjs';
 
 const DEFAULT_ACTIONS        = Object.freeze(['restart', 'redeploy', 'warm-provider']);
@@ -161,6 +164,18 @@ export class RecoveryActuatorService extends Base {
      */
     get healEventLedgerDir() {
         return path.join(path.dirname(this.recoveryRunStateDir), 'heal-events');
+    }
+
+    /**
+     * @summary The heal-ledger retention policy (maxEvents + prune byte-trigger), read from the AiConfig SSOT and
+     * VALIDATED at this use-site boundary. Invalid operator config fails visibly here rather than being swallowed
+     * inside appendHealEvent's prune gate (which would silently let the shared observability ledger grow unbounded).
+     */
+    get healLedgerRetention() {
+        return validateHealLedgerRetention(
+            AiConfig.orchestrator.recoveryActuator.healLedger.maxEvents,
+            AiConfig.orchestrator.recoveryActuator.healLedger.pruneTriggerBytes
+        );
     }
 
     /** @summary Resolves the configured compose-service recovery blocklist. */
@@ -420,13 +435,7 @@ export class RecoveryActuatorService extends Base {
                 targetIdentity: createRecoveryTargetIdentity(diagnosis.targetIdentity),
                 evidenceFacts : diagnosis.evidenceFacts || []
             }
-        }, {
-            // Retention read from the AiConfig SSOT at the use-site (heal-time) + passed explicitly — the pure ledger
-            // helper owns no production default; this caps the shared observability ledger's disk growth.
-            dir         : this.healEventLedgerDir, now,
-            maxEvents   : AiConfig.orchestrator.recoveryActuator.healLedger.maxEvents,
-            triggerBytes: AiConfig.orchestrator.recoveryActuator.healLedger.pruneTriggerBytes
-        });
+        }, {dir: this.healEventLedgerDir, now, ...this.healLedgerRetention});
 
         const updatedAt = Date.now();
 
@@ -614,11 +623,7 @@ export class RecoveryActuatorService extends Base {
             collection: target.id,
             status    : 'recorded',
             detail    : recorded
-        }, {
-            dir         : this.healEventLedgerDir, now: Date.now(),
-            maxEvents   : AiConfig.orchestrator.recoveryActuator.healLedger.maxEvents,
-            triggerBytes: AiConfig.orchestrator.recoveryActuator.healLedger.pruneTriggerBytes
-        });
+        }, {dir: this.healEventLedgerDir, now: Date.now(), ...this.healLedgerRetention});
 
         this.writeLog?.('INFO', `[RecoveryActuator] Redeploy required for ${target.id}; recorded to the heal-event ledger (no operator to page).`);
 

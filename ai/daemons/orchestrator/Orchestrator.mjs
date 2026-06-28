@@ -38,6 +38,7 @@ import DataRecoveryActuatorService                                              
 import {auditChromaVectorCoverage}                                                                  from '../../scripts/maintenance/checkChromaIntegrity.mjs';
 import {createReEmbedMissingHeal, createReEmbedMissingHealOperation}                                from '../../services/memory-core/helpers/reEmbedMissingHeal.mjs';
 import {appendHealEvent, healEventsToRecentRuns, queryHealLedger, readHealLedger}                   from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
+import {validateHealLedgerRetention}                                                                from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
 import {Memory_StorageRouter as StorageRouter, Memory_TextEmbeddingService as TextEmbeddingService} from '../../services.mjs';
 import {buildDataIntegrityCoverageDiagnosis}                                                        from './services/dataIntegrityCoverageDiagnosis.mjs';
 import {assembleDataIntegrityEvidence}                                                              from './services/dataIntegrityEvidenceAssembler.mjs';
@@ -434,6 +435,14 @@ export class Orchestrator extends Base {
 
         const healLedgerDir = path.join(this.dataDir, 'data-heal-events');
 
+        // The retention leaves, read + VALIDATED at this AiConfig boundary (call-time). An invalid operator-set
+        // maxEvents/pruneTriggerBytes fails VISIBLY here rather than being swallowed by appendHealEvent's prune gate
+        // (which would silently let the observability ledger grow unbounded).
+        const healLedgerRetention = () => validateHealLedgerRetention(
+            AiConfig.orchestrator.recoveryActuator.healLedger.maxEvents,
+            AiConfig.orchestrator.recoveryActuator.healLedger.pruneTriggerBytes
+        );
+
         return ClassSystemUtil.beforeSetInstance(value, DataRecoveryActuatorService, {
             healOperations: {
                 // The wal-stall heal terminal: the runtime<->op adapter (cross-store guard + re-audit-for-ids
@@ -466,16 +475,15 @@ export class Orchestrator extends Base {
                 }
                 return healEventsToRecentRuns(queryHealLedger(events, {collections: [collectionName]}));
             },
-            // Retention is read HERE (the AiConfig-aware boundary, at heal-time) and passed explicitly into the pure
-            // ledger helper — the helper owns no production default. Read inside the closure (call-time),
-            // never aliased at construction (a construction-time AiConfig read is an eager-read trap on a late leaf).
+            // Retention is read + VALIDATED at the AiConfig boundary (healLedgerRetention(), above) and passed explicit
+            // into the pure ledger helper (which owns no production default). Call-time, never aliased at construction.
             recordRun        : async ({action, collection, at}) => appendHealEvent(
                 {type: action, collection, status: 'attempt'},
-                {dir: healLedgerDir, now: at, maxEvents: AiConfig.orchestrator.recoveryActuator.healLedger.maxEvents, triggerBytes: AiConfig.orchestrator.recoveryActuator.healLedger.pruneTriggerBytes}
+                {dir: healLedgerDir, now: at, ...healLedgerRetention()}
             ),
             recordHealOutcome: async ({action, collection, status, detail, healedAt}) => appendHealEvent(
                 {type: action, collection, status, detail},
-                {dir: healLedgerDir, now: healedAt, maxEvents: AiConfig.orchestrator.recoveryActuator.healLedger.maxEvents, triggerBytes: AiConfig.orchestrator.recoveryActuator.healLedger.pruneTriggerBytes}
+                {dir: healLedgerDir, now: healedAt, ...healLedgerRetention()}
             )
         });
     }

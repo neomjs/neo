@@ -11,6 +11,7 @@ import {
     summarizeHealLedger,
     queryHealLedger,
     pruneHealLedger,
+    validateHealLedgerRetention,
     healEventsToRecentRuns
 } from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
 import {decideHealAction} from '../../../../../../../ai/services/memory-core/helpers/healActionDispatch.mjs';
@@ -276,6 +277,26 @@ test.describe('readHealLedger — fail-visible on an unreadable FILE (#14163 deg
             await expect(readHealLedger({dir})).rejects.toMatchObject({code: 'EISDIR'});
         } finally {
             await fs.rm(dir, {recursive: true, force: true});
+        }
+    });
+});
+
+test.describe('validateHealLedgerRetention — fail-visible boundary guard (#14163 cycle-4)', () => {
+    test('returns the validated pair for finite, non-negative values', () => {
+        expect(validateHealLedgerRetention(5000, 1024 * 1024)).toEqual({maxEvents: 5000, triggerBytes: 1024 * 1024});
+    });
+
+    test('THROWS on an invalid maxEvents so an invalid retention leaf cannot silently disable the bound', () => {
+        // The exact falsifier: maxEvents -1 made pruneHealLedger throw, which appendHealEvent's prune gate SWALLOWED
+        // → the ledger grew unbounded. This boundary guard rejects the invalid leaf BEFORE the append instead.
+        for (const bad of [-1, NaN, Infinity, '5000', null]) {
+            expect(() => validateHealLedgerRetention(bad, 1024)).toThrow(/maxEvents must be a finite, non-negative number/);
+        }
+    });
+
+    test('THROWS on an invalid pruneTriggerBytes', () => {
+        for (const bad of [-1, NaN, Infinity]) {
+            expect(() => validateHealLedgerRetention(5000, bad)).toThrow(/pruneTriggerBytes must be a finite, non-negative number/);
         }
     });
 });

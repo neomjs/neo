@@ -43,6 +43,27 @@ export function getHealLedgerFilePath(dir) {
 }
 
 /**
+ * @summary Validates a heal-ledger retention policy (the AiConfig `recoveryActuator.healLedger` leaves) at the
+ * AiConfig-consuming boundary, BEFORE it is handed to `appendHealEvent`. Invalid operator config must fail VISIBLY
+ * here: `appendHealEvent`'s prune gate swallows errors (the ledger is observability, never a gate), so a
+ * negative/non-finite `maxEvents` or `triggerBytes` would otherwise silently disable the bound and let the ledger
+ * grow unbounded. Pure (no I/O, no SSOT read): the boundary reads the leaves and calls this; the helper owns no
+ * production default, only this fail-closed validation.
+ * @param {Number} maxEvents Retention cap (the `healLedger.maxEvents` leaf).
+ * @param {Number} triggerBytes Prune byte-trigger (the `healLedger.pruneTriggerBytes` leaf).
+ * @returns {{maxEvents: Number, triggerBytes: Number}} The validated pair (spread straight into `appendHealEvent` options).
+ * @throws {TypeError} when either value is not a finite, non-negative number.
+ */
+export function validateHealLedgerRetention(maxEvents, triggerBytes) {
+    for (const [name, value] of [['maxEvents', maxEvents], ['pruneTriggerBytes', triggerBytes]]) {
+        if (!Number.isFinite(value) || value < 0) {
+            throw new TypeError(`heal-ledger retention: ${name} must be a finite, non-negative number (the AiConfig leaf), got ${value}`);
+        }
+    }
+    return {maxEvents, triggerBytes};
+}
+
+/**
  * @summary Appends one heal-event entry to the durable JSONL ledger (creating the dir if needed). Stamps
  * `at` from the injected clock when absent so every entry is time-ordered. Self-bounding ONLY when the
  * AiConfig-aware caller supplies the retention policy: with both `triggerBytes` and `maxEvents` finite, an O(1)
