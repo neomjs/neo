@@ -34,10 +34,15 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: '24'
+          cache: 'npm'
 
       - name: Fetch base branch
         run: git fetch origin ${{ github.base_ref }}
 
-      # No `npm ci` — the guard uses only Node built-ins (matches the sibling lint workflows).
+      # The guard parses argv with Commander (a declared dependency). --ignore-scripts skips the heavy
+      # postinstall (KB pull / server-config setup) we don't need — only node_modules must be present.
+      - name: Install dependencies (commander)
+        run: npm ci --ignore-scripts
+
       - name: Lint ticket-archaeology (boy-scout — whole touched-file vs base)
         run: node buildScripts/util/check-ticket-archaeology.mjs --base origin/${{ github.base_ref || 'dev' }}

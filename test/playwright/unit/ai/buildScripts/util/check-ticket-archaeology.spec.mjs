@@ -10,6 +10,16 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '../../../../../..');
 const GUARD     = path.join(REPO_ROOT, 'buildScripts/util/check-ticket-archaeology.mjs');
 
+// CLI-invoked from REPO_ROOT (where node_modules resolves Commander), capturing exit code + combined output.
+const runGuard = (args, env = {}) => {
+    try {
+        const stdout = execFileSync('node', [GUARD, ...args], {cwd: REPO_ROOT, encoding: 'utf8', env: {...process.env, ...env}});
+        return {code: 0, stdout};
+    } catch (e) {
+        return {code: e.status, stdout: `${e.stdout || ''}${e.stderr || ''}`};
+    }
+};
+
 /**
  * Self-test for the ticket-archaeology guard: the mechanical replacement for the discipline-only
  * "no decay-prone ticket refs in durable comments" rule. Verifies it flags comment/JSDoc refs,
@@ -89,15 +99,6 @@ test.describe('check-ticket-archaeology guard', () => {
 test.describe('check-ticket-archaeology whole-touched-file + skip (#14279)', () => {
     let tempDir, probe;
 
-    const runGuard = (args, env = {}) => {
-        try {
-            const stdout = execFileSync('node', [GUARD, ...args], {cwd: REPO_ROOT, encoding: 'utf8', env: {...process.env, ...env}});
-            return {code: 0, stdout};
-        } catch (e) {
-            return {code: e.status, stdout: `${e.stdout || ''}${e.stderr || ''}`};
-        }
-    };
-
     test.beforeEach(() => {
         tempDir = mkdtempSync(path.join(tmpdir(), 'neo-archaeology-boyscout-'));
         probe   = path.join(tempDir, 'probe.mjs');
@@ -148,5 +149,62 @@ test.describe('check-ticket-archaeology --base scope selection (#14279)', () => 
         expect(isInScopePath('apps/portal/foo.mjs', DEFAULT_SCAN_PATHS, DEFAULT_IGNORES)).toBe(false);
         expect(isInScopePath('test/unit/legacy.mjs', DEFAULT_SCAN_PATHS, DEFAULT_IGNORES)).toBe(false);
         expect(isInScopePath('ai/node_modules/dep.mjs', DEFAULT_SCAN_PATHS, DEFAULT_IGNORES)).toBe(false)
+    });
+});
+
+/**
+ * CLI parser contract: the guard parses argv with Commander (a declared dependency), so an invalid
+ * invocation must fail loudly rather than silently changing the scanned set or base ref. These cover the
+ * fail-loud paths (unknown option, missing option value) plus the accepted forms (=value, space value,
+ * boolean flag, positional file).
+ */
+test.describe('check-ticket-archaeology CLI parser contract (#14279)', () => {
+    let tempDir, probe;
+
+    test.beforeEach(() => {
+        tempDir = mkdtempSync(path.join(tmpdir(), 'neo-archaeology-parser-'));
+        probe   = path.join(tempDir, 'probe.mjs');
+        writeFileSync(probe, '// ref #11111\nexport const a = 1;\n');
+    });
+
+    test.afterEach(() => rmSync(tempDir, {recursive: true, force: true}));
+
+    test('fails loudly on an unknown option (not swallowed as a positional file path)', () => {
+        const {code, stdout} = runGuard(['--bogus']);
+        expect(code).not.toBe(0);
+        expect(stdout.toLowerCase()).toContain('unknown option');
+    });
+
+    test('fails loudly on a missing value for --base / --dirs / --ignore', () => {
+        for (const flag of ['--base', '--dirs', '--ignore']) {
+            const {code, stdout} = runGuard([flag]);
+            expect(code, `${flag} with no value must error`).not.toBe(0);
+            expect(stdout.toLowerCase()).toContain('argument missing');
+        }
+    });
+
+    test('accepts --dirs=<value> (equals form) and honors it', () => {
+        const {code, stdout} = runGuard([`--dirs=${tempDir}`]);
+        expect(code).toBe(1);
+        expect(stdout).toContain('#11111');
+    });
+
+    test('accepts --dirs <value> (space-separated form)', () => {
+        const {code, stdout} = runGuard(['--dirs', tempDir]);
+        expect(code).toBe(1);
+        expect(stdout).toContain('#11111');
+    });
+
+    test('accepts the -q boolean flag (suppresses the per-violation listing)', () => {
+        const {code, stdout} = runGuard(['-q', '--dirs', tempDir]);
+        expect(code).toBe(1);
+        expect(stdout).toContain('decay-prone');
+        expect(stdout).not.toContain('probe.mjs:');
+    });
+
+    test('accepts a positional file path', () => {
+        const {code, stdout} = runGuard([probe]);
+        expect(code).toBe(1);
+        expect(stdout).toContain('#11111');
     });
 });

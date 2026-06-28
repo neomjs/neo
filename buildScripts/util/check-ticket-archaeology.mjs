@@ -1,3 +1,4 @@
+import {program}             from 'commander';
 import {execSync, spawnSync} from 'node:child_process';
 import {readFileSync}        from 'node:fs';
 import path                  from 'node:path';
@@ -148,34 +149,6 @@ export function isInScopePath(file, scanPaths, ignores) {
         && !ignores.some(ignore => file.split('/').includes(ignore))
 }
 
-/**
- * @summary Built-in argv parser (no commander dep) so the guard runs in CI without `npm ci` — matching the
- * sibling lint-scripts (e.g. lint-skill-manifest). Supports `--dirs`/`--ignore` (`=value` or space-separated),
- * `--quiet`, `--skip`, `--base <ref>`, and bare positional file paths.
- * @param {string[]} [argv=process.argv.slice(2)]
- * @returns {{options: {dirs: string, ignore: string, quiet: boolean, skip: boolean, base: ?string}, files: string[]}}
- */
-function parseArgs(argv = process.argv.slice(2)) {
-    const options = {dirs: DEFAULT_SCAN_PATHS.join(','), ignore: DEFAULT_IGNORES.join(','), quiet: false, skip: false, base: null};
-    const files   = [];
-
-    for (let i = 0; i < argv.length; i++) {
-        const arg = argv[i];
-
-        if (arg === '-d' || arg === '--dirs')        { options.dirs   = argv[++i]; }
-        else if (arg.startsWith('--dirs='))          { options.dirs   = arg.slice('--dirs='.length); }
-        else if (arg === '-i' || arg === '--ignore') { options.ignore = argv[++i]; }
-        else if (arg.startsWith('--ignore='))        { options.ignore = arg.slice('--ignore='.length); }
-        else if (arg === '-q' || arg === '--quiet')  { options.quiet  = true; }
-        else if (arg === '-s' || arg === '--skip')   { options.skip   = true; }
-        else if (arg === '-b' || arg === '--base')   { options.base   = argv[++i]; }
-        else if (arg.startsWith('--base='))          { options.base   = arg.slice('--base='.length); }
-        else                                         { files.push(arg); }
-    }
-
-    return {options, files};
-}
-
 function main() {
     let gitRoot;
     try {
@@ -191,9 +164,23 @@ function main() {
         process.exit(1);
     }
 
-    const {options, files: argvFiles} = parseArgs();
-    const scanPaths                   = options.dirs.split(',').map(s => s.trim()).filter(Boolean),
-          ignores  = options.ignore.split(',').map(s => s.trim()).filter(Boolean);
+    program
+        .name('check-ticket-archaeology')
+        .description('Substrate gate against decay-prone ticket/Epic/Discussion/ADR refs in durable .mjs comments/JSDoc.')
+        .argument('[files...]', 'Specific .mjs files to scan (lint-staged passes staged paths). Omitted -> --base changes or the --dirs audit.')
+        .option('-d, --dirs <list>', 'Comma-separated scan roots (directories or specific files) for default/--base mode.', DEFAULT_SCAN_PATHS.join(','))
+        .option('-i, --ignore <list>', 'Comma-separated path fragments to exclude.', DEFAULT_IGNORES.join(','))
+        .option('-b, --base <ref>', 'CI mode: scan only the in-scope .mjs changed vs this base ref.')
+        .option('-s, --skip', 'Skip the gate (generated-data class; also via NEO_SKIP_TICKET_ARCHAEOLOGY=1).', false)
+        .option('-q, --quiet', 'Suppress the per-violation listing; print the summary only.', false)
+        .showHelpAfterError();
+
+    program.parse(process.argv);
+
+    const argvFiles = program.args,
+          options   = program.opts(),
+          scanPaths = options.dirs.split(',').map(s => s.trim()).filter(Boolean),
+          ignores   = options.ignore.split(',').map(s => s.trim()).filter(Boolean);
 
     // Targeted skip for the generated-data class (data-sync pipeline / sync_all): they commit
     // resources/content/ which legitimately carries ticket-refs (the actual issue/PR/discussion bodies),
