@@ -11,6 +11,9 @@ import logger                                                  from '../../mcp/s
 import {IDENTITIES}                                            from '../../graph/identityRoots.mjs';
 import {buildGraphProvider, resolveGraphModelProvider}         from './providerDispatch.mjs';
 import {
+    formatGoldenPathCapturedAt as formatGoldenPathTimestamp
+} from './goldenPathTimestamp.mjs';
+import {
     buildCurrentFocusCandidates as buildIssueFocusCurrentFocusCandidates,
     buildSilentThreadCandidates as buildIssueFocusSilentThreadCandidates,
     buildStaleAssignmentCandidates as buildIssueFocusStaleAssignmentCandidates,
@@ -421,7 +424,7 @@ class GoldenPathSynthesizer extends Base {
 
         if (focusCandidates.length === 0 || topNodes.length === 0) return null;
 
-        const focusIds = new Set(focusCandidates.map(candidate => `issue-${candidate.number}`));
+        const focusIds     = new Set(focusCandidates.map(candidate => `issue-${candidate.number}`));
         const blockedNodes = topNodes.filter(item => {
             const nodeId = String(item?.node?.id || '');
 
@@ -842,19 +845,13 @@ class GoldenPathSynthesizer extends Base {
     }
 
     /**
-     * @summary Formats the Computed Golden Path section capture timestamp.
+     * @summary Delegates Golden Path capture-timestamp formatting to the shared helper module.
      *
      * @param {Date|String} capturedAt Capture timestamp.
      * @returns {String}
      */
     static formatGoldenPathCapturedAt(capturedAt) {
-        const date = capturedAt instanceof Date ? capturedAt : new Date(capturedAt);
-
-        if (!Number.isFinite(date.getTime())) {
-            return 'unknown'
-        }
-
-        return `${date.toISOString().slice(0, 16).replace('T', ' ')} UTC`
+        return formatGoldenPathTimestamp(capturedAt)
     }
 
     /**
