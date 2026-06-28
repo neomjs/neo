@@ -10,6 +10,7 @@ import {
     DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES
 } from '../../../../../../ai/daemons/orchestrator/services/MaintenanceBackpressureService.mjs';
 import {
+    buildChromaHealthUrl,
     buildTaskDefinitions
 } from '../../../../../../ai/daemons/orchestrator/taskDefinitions.mjs';
 import TaskStateService, { createInitialTaskState } from '../../../../../../ai/daemons/orchestrator/services/TaskStateService.mjs';
@@ -586,6 +587,42 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             taskName: 'embedDaemon',
             reason  : 'supervisor-restart'
         });
+    });
+
+    test('defines Chroma with an HTTP health probe on the configured host (#14297)', async () => {
+        const fetchCalls      = [];
+        const taskDefinitions = buildTaskDefinitions({
+            scriptDir                 : '/repo/ai/scripts',
+            nodeBin                   : '/node',
+            chromaHost                : 'localhost',
+            chromaPort                : 8000,
+            chromaHealthProbeTimeoutMs: 25,
+            chromaHealthFetchFn       : async (url, options) => {
+                fetchCalls.push({url, hasSignal: Boolean(options.signal)});
+                return {ok: true};
+            }
+        });
+
+        expect(taskDefinitions.chroma).toMatchObject({
+            expectedCommand: 'chroma',
+            singletonPort  : 8000
+        });
+        expect(taskDefinitions.chroma.duplicateListenerPolicy).toBeUndefined();
+        expect(typeof taskDefinitions.chroma.healthProbe).toBe('function');
+        await expect(taskDefinitions.chroma.healthProbe()).resolves.toBe(true);
+        expect(fetchCalls).toEqual([{
+            url      : 'http://localhost:8000/api/v2/heartbeat',
+            hasSignal: true
+        }]);
+    });
+
+    test('buildChromaHealthUrl preserves IPv6-capable local Chroma hosts (#14297)', () => {
+        expect(buildChromaHealthUrl({host: '::1', port: 8000}))
+            .toBe('http://[::1]:8000/api/v2/heartbeat');
+        expect(buildChromaHealthUrl({host: '[::1]', port: 8000, endpoint: '/api/v2/healthcheck'}))
+            .toBe('http://[::1]:8000/api/v2/healthcheck');
+        expect(buildChromaHealthUrl({host: 'localhost:9999', port: 8000}))
+            .toBe('http://localhost:8000/api/v2/heartbeat');
     });
 
     test('defines the local dev-server task without browser auto-open (#13482)', () => {

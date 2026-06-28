@@ -128,7 +128,14 @@ export class ProcessSupervisorService extends Base {
     }
 
     /**
-     * Adopts or clears an existing child-task PID file during daemon boot.
+     * @summary Adopts or clears an existing child-task PID file during daemon boot.
+     *
+     * This is process adoption only: `process.kill(pid, 0)` plus `expectedCommand`
+     * proves the persisted PID still belongs to the intended executable, not that
+     * the service behind that process is usable. Long-running tasks that can be
+     * process-alive but service-dead must expose `healthProbe()`; the poll loop
+     * then recycles the adopted/running task through {@link gateRecycleOnHealthProbe}.
+     *
      * @param {String} taskName Task key.
      * @returns {void}
      */
@@ -859,12 +866,13 @@ export class ProcessSupervisorService extends Base {
 
         const task = this.taskDefinitions[taskName];
 
-        // Running-but-stuck recycle. A long-running child can be alive yet not serving — a stuck
-        // inference grinding CPU while a residency/process check still passes. A `healthProbe()`
-        // checks the RUNNING child; on a sustained-unhealthy result the child is recycled (killed,
-        // then respawned by the next poll). This is distinct from `livenessProbe()`, which answers
-        // "is the service up while my process flag says down" for a fire-and-exit launcher — the
-        // running-process branch below never reached the down-only liveness path.
+        // Running-but-stuck recycle. A long-running child can be alive yet not serving — Chroma can
+        // leave a process/PID that passes adoption while its HTTP API is dead; an inference runner can
+        // grind CPU while residency/process checks still pass. A `healthProbe()` checks the RUNNING
+        // child; on an unhealthy result the child is recycled (killed, then respawned by the next
+        // poll). This is distinct from `livenessProbe()`, which answers "is the service up while my
+        // process flag says down" for a fire-and-exit launcher — the running-process branch below
+        // never reaches the down-only liveness path.
         if (state.running) {
             if (typeof task?.healthProbe === 'function') {
                 this.gateRecycleOnHealthProbe(taskName, task, now, cooldownMs);
@@ -903,9 +911,10 @@ export class ProcessSupervisorService extends Base {
      *
      * Mirrors {@link gateRestartOnLivenessProbe}'s confirmed-at + in-flight de-dup (at most one
      * probe per cooldown, no overlap), but acts on the RUNNING-child surface: a healthy result is
-     * silent; a sustained-unhealthy result `killTask`s the child (recycle → respawn next poll). The
-     * task owns the actual "is it serving" check via `healthProbe()` (the sustained-stuck hysteresis
-     * lives there); this method only schedules it and acts on the boolean.
+     * silent; an unhealthy result `killTask`s the child (recycle → respawn next poll). The task owns
+     * the actual "is it serving" check via `healthProbe()` and may implement its own hysteresis
+     * (the Ollama stuck-runner path does; Chroma's heartbeat probe intentionally does not); this
+     * method only schedules the probe and acts on the boolean.
      *
      * A THROWN probe is treated as healthy (no recycle): unlike the liveness path, the child is
      * already running, so a probe fault must never kill a working process.
