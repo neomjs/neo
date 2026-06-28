@@ -5,8 +5,11 @@ import os             from 'node:os';
 import path           from 'node:path';
 
 import {
+    extractPromptingTextFromHookPayload,
     extractWakeSubmitNonce,
-    recordTurnStarted
+    getCodexPromptContextPath,
+    recordTurnStarted,
+    writePromptContextFromHookPayload
 } from '../../../../.codex/hooks/codex-context.mjs';
 import {recordClaudeTurnPresence} from '../../../../.claude/hooks/turnPresenceHook.mjs';
 
@@ -57,6 +60,82 @@ test.describe('codex-context hook - wake submit nonce', () => {
             expect(node.properties.wakeSubmitNonce).toBe(nonce);
         } finally {
             db.close();
+            fs.rmSync(dir, {recursive: true, force: true});
+        }
+    });
+
+    test('extracts operator prompt text from Codex payload-shaped hook records', () => {
+        expect(extractPromptingTextFromHookPayload({
+            payload: {
+                type   : 'message',
+                role   : 'user',
+                content: [{type: 'input_text', text: 'operator planning prompt'}]
+            }
+        })).toBe('operator planning prompt');
+
+        expect(extractPromptingTextFromHookPayload({
+            messages: [
+                {role: 'assistant', content: 'ignore'},
+                {role: 'user', content: [{type: 'text', text: 'latest user prompt'}]}
+            ]
+        })).toBe('latest user prompt');
+    });
+
+    test('writes bounded prompt context for the Stop hook fallback', () => {
+        const dir               = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-context-prompt-')),
+              promptContextPath = getCodexPromptContextPath({env: {NEO_AI_DAEMON_DIR: dir}});
+
+        try {
+            const result = writePromptContextFromHookPayload({
+                env        : {NEO_AI_DAEMON_DIR: dir},
+                hookPayload: {prompt: 'operator dialogue fallback'},
+                now        : new Date('2026-06-28T22:00:00.000Z')
+            });
+
+            expect(result).toMatchObject({
+                path      : promptContextPath,
+                source    : 'codex-user-prompt-submit',
+                status    : 'written',
+                textLength: 'operator dialogue fallback'.length
+            });
+
+            expect(JSON.parse(fs.readFileSync(promptContextPath, 'utf8'))).toEqual({
+                createdAt    : '2026-06-28T22:00:00.000Z',
+                promptingText: 'operator dialogue fallback',
+                source       : 'codex-user-prompt-submit'
+            });
+        } finally {
+            fs.rmSync(dir, {recursive: true, force: true});
+        }
+    });
+
+    test('clears stale prompt context when UserPromptSubmit exposes no prompt text', () => {
+        const dir               = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-context-prompt-')),
+              promptContextPath = getCodexPromptContextPath({env: {NEO_AI_DAEMON_DIR: dir}});
+
+        try {
+            writePromptContextFromHookPayload({
+                env        : {NEO_AI_DAEMON_DIR: dir},
+                hookPayload: {prompt: 'operator dialogue fallback'},
+                now        : new Date('2026-06-28T22:00:00.000Z')
+            });
+
+            const result = writePromptContextFromHookPayload({
+                env        : {NEO_AI_DAEMON_DIR: dir},
+                hookPayload: {hook_event_name: 'UserPromptSubmit'},
+                now        : new Date('2026-06-28T22:01:00.000Z')
+            });
+
+            expect(result).toMatchObject({
+                reason: 'no-prompting-text',
+                status: 'cleared'
+            });
+            expect(JSON.parse(fs.readFileSync(promptContextPath, 'utf8'))).toMatchObject({
+                promptingText: '',
+                reason       : 'no-prompting-text',
+                source       : 'codex-user-prompt-submit'
+            });
+        } finally {
             fs.rmSync(dir, {recursive: true, force: true});
         }
     });

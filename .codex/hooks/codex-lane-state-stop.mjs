@@ -18,14 +18,27 @@ import {parseLaneState}            from '../../ai/scripts/lifecycle/parseLaneSta
 import {classifyPromptingContext,
         decideDeferenceStopHookAction,
         decideStopHookAction,
+        isSyntheticPromptingText,
         LANE_STATE_SCHEMA_HINT,
         parseOutcomeToVerdict,
         STOP_HOOK_TURN_OPTIONS_HINT} from '../../ai/scripts/lifecycle/stopHookDecision.mjs';
 import {validateLaneStateTerminal} from '../../ai/scripts/lifecycle/validateLaneStateTerminal.mjs';
 
 export const CODEX_STOP_BLOCK_INJECTION_SUPPORTED = true;
+export const CODEX_PROMPT_CONTEXT_TTL_MS           = 10 * 60 * 1000;
 
-const LOG_DIR = process.env.NEO_AI_DAEMON_DIR || path.join(os.homedir(), '.neo-ai-data', 'codex-lane-state-hook');
+const LOG_DIR                  = process.env.NEO_AI_DAEMON_DIR || path.join(os.homedir(), '.neo-ai-data', 'codex-lane-state-hook'),
+      PROMPT_CONTEXT_FILE_NAME = 'codex-prompt-context.json';
+
+/**
+ * @summary Resolves the hook-local prompt-context fallback file path.
+ * @param {Object} [options]
+ * @param {String} [options.logDir]
+ * @returns {String}
+ */
+export function getCodexPromptContextPath({logDir = LOG_DIR} = {}) {
+    return path.join(logDir, PROMPT_CONTEXT_FILE_NAME);
+}
 
 /**
  * @summary Reads all of stdin, which Codex passes to command hooks as the event payload.
@@ -96,8 +109,10 @@ function extractTextFromMessage(message) {
     return extractTextFromContent(
         message.content ??
         message.message?.content ??
+        message.payload?.content ??
         message.text ??
         message.message?.text ??
+        message.payload?.text ??
         message.output_text ??
         message.output
     );
@@ -115,7 +130,8 @@ function isAssistantMessage(message) {
     return message.role === 'assistant' ||
         message.type === 'assistant' ||
         message.message?.role === 'assistant' ||
-        message.item?.role === 'assistant';
+        message.item?.role === 'assistant' ||
+        message.payload?.role === 'assistant';
 }
 
 /**
@@ -130,7 +146,37 @@ function isUserMessage(message) {
     return message.role === 'user' ||
         message.type === 'user' ||
         message.message?.role === 'user' ||
-        message.item?.role === 'user';
+        message.item?.role === 'user' ||
+        message.payload?.role === 'user';
+}
+
+/**
+ * @summary Returns likely message containers from Claude/Codex/OpenAI hook records.
+ * @param {*} record
+ * @returns {Array}
+ * @protected
+ */
+function getMessageCandidates(record) {
+    if (!record || typeof record !== 'object') return [record];
+
+    const candidates = [],
+          seen       = new Set(),
+          add        = candidate => {
+              if (!candidate || seen.has(candidate)) return;
+              seen.add(candidate);
+              candidates.push(candidate);
+          };
+
+    add(record);
+    add(record.payload);
+    add(record.payload?.message);
+    add(record.payload?.item);
+    add(record.message);
+    add(record.item);
+    add(record.message?.payload);
+    add(record.item?.payload);
+
+    return candidates;
 }
 
 /**
@@ -143,13 +189,14 @@ export function extractLastAssistantTextFromMessages(messages = []) {
     if (!Array.isArray(messages)) return '';
 
     for (let i = messages.length - 1; i >= 0; i--) {
-        const record  = messages[i],
-              message = record?.message || record?.item || record;
+        const record = messages[i];
 
-        if (!isAssistantMessage(record) && !isAssistantMessage(message)) continue;
+        for (const message of getMessageCandidates(record)) {
+            if (!isAssistantMessage(record) && !isAssistantMessage(message)) continue;
 
-        const text = extractTextFromMessage(message);
-        if (text) return text;
+            const text = extractTextFromMessage(message);
+            if (text) return text;
+        }
     }
 
     return '';
@@ -165,13 +212,16 @@ export function extractLastUserTextFromMessages(messages = []) {
     if (!Array.isArray(messages)) return '';
 
     for (let i = messages.length - 1; i >= 0; i--) {
-        const record  = messages[i],
-              message = record?.message || record?.item || record;
+        const record = messages[i];
 
-        if (!isUserMessage(record) && !isUserMessage(message)) continue;
+        for (const message of getMessageCandidates(record)) {
+            if (!isUserMessage(record) && !isUserMessage(message)) continue;
 
-        const text = extractTextFromMessage(message);
-        if (text) return text;
+            const text = extractTextFromMessage(message);
+            if (!text || isSyntheticPromptingText(text)) continue;
+
+            return text;
+        }
     }
 
     return '';
@@ -224,6 +274,43 @@ export function extractLastUserTextFromJsonl(jsonl = '') {
 }
 
 /**
+ * @summary Reads the short-lived prompt-class fallback written by the Codex UserPromptSubmit hook.
+ * @param {Object} [options]
+ * @param {String} [options.promptContextPath]
+ * @param {Number} [options.now]
+ * @param {Number} [options.ttlMs]
+ * @returns {{text: String, source: String, ageMs: Number}|null}
+ */
+export function readPromptContext({
+    now               = Date.now(),
+    promptContextPath = getCodexPromptContextPath(),
+    ttlMs             = CODEX_PROMPT_CONTEXT_TTL_MS
+} = {}) {
+    let record;
+
+    try {
+        record = JSON.parse(fs.readFileSync(promptContextPath, 'utf8'));
+    } catch {
+        return null;
+    }
+
+    const createdAt = Date.parse(record?.createdAt || '');
+    if (!Number.isFinite(createdAt)) return null;
+
+    const ageMs = now - createdAt;
+    if (ageMs < 0 || ageMs > ttlMs) return null;
+
+    const text = typeof record?.promptingText === 'string' ? record.promptingText : '';
+    if (!text.trim()) return null;
+
+    return {
+        ageMs,
+        source: record.source || 'prompt_context',
+        text
+    };
+}
+
+/**
  * @summary Resolves the best available final assistant text from known and representative Codex shapes.
  * @param {Object} [input={}]
  * @returns {{text: String, source: String}}
@@ -259,6 +346,12 @@ export function extractFinalAssistantText(input = {}) {
  * @returns {{text: String, source: String}}
  */
 export function extractPromptingText(input = {}) {
+    const direct = input.last_user_message ?? input.lastUserMessage ?? input.prompting_message ?? input.promptingMessage;
+    if (direct) {
+        const text = extractTextFromMessage(direct);
+        if (text.trim() && !isSyntheticPromptingText(text)) return {text, source: 'last_user_message'};
+    }
+
     const messages = input.messages ?? input.conversation ?? input.transcript;
     if (Array.isArray(messages)) {
         const text = extractLastUserTextFromMessages(messages);
@@ -267,11 +360,12 @@ export function extractPromptingText(input = {}) {
 
     const transcriptPath = input.transcript_path ?? input.transcriptPath;
     if (transcriptPath) {
-        return {
-            text  : extractLastUserTextFromJsonl(fs.readFileSync(transcriptPath, 'utf8')),
-            source: 'transcript_path'
-        };
+        const text = extractLastUserTextFromJsonl(fs.readFileSync(transcriptPath, 'utf8'));
+        if (text.trim()) return {text, source: 'transcript_path'};
     }
+
+    const promptContext = readPromptContext();
+    if (promptContext) return {text: promptContext.text, source: 'prompt_context'};
 
     return {text: '', source: 'none'};
 }

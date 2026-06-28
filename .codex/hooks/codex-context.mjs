@@ -1,10 +1,17 @@
-import {readFileSync}                 from 'node:fs';
-import {fileURLToPath, pathToFileURL} from 'node:url';
+import {mkdirSync, readFileSync, writeFileSync} from 'node:fs';
+import os                                       from 'node:os';
+import path                                     from 'node:path';
+import {fileURLToPath, pathToFileURL}           from 'node:url';
 import {
     extractWakeSubmitNonce,
     readHookPayload,
     recordTurnPresenceFromHook
 } from '../../ai/mcp/server/memory-core/helpers/TurnPresenceHookWriter.mjs';
+
+const LOG_DIR_NAME              = 'codex-lane-state-hook',
+      PROMPT_CONTEXT_FILE_NAME  = 'codex-prompt-context.json',
+      PROMPT_CONTEXT_TEXT_LIMIT = 4000,
+      PROMPT_CONTEXT_SOURCE     = 'codex-user-prompt-submit';
 
 /**
  * @summary Extracts a wake-submit nonce from a Codex hook payload or raw prompt text.
@@ -13,6 +20,136 @@ import {
  * @returns {String|null}
  */
 export {extractWakeSubmitNonce, readHookPayload};
+
+/**
+ * @summary Resolves the Codex prompt-context file shared by UserPromptSubmit and Stop hooks.
+ * @param {Object} [options]
+ * @param {Object} [options.env=process.env] Environment source.
+ * @returns {String}
+ */
+export function getCodexPromptContextPath({env = process.env} = {}) {
+    const logDir = env.NEO_AI_DAEMON_DIR || path.join(os.homedir(), '.neo-ai-data', LOG_DIR_NAME);
+
+    return path.join(logDir, PROMPT_CONTEXT_FILE_NAME);
+}
+
+/**
+ * @summary Extracts content text from Codex/OpenAI-style message content containers.
+ * @param {*} content
+ * @returns {String}
+ * @protected
+ */
+function extractTextFromContent(content) {
+    if (typeof content === 'string') return content;
+    if (Array.isArray(content)) {
+        return content.map(block => {
+            if (typeof block === 'string') return block;
+            if (typeof block?.text === 'string') return block.text;
+            if (typeof block?.content === 'string') return block.content;
+            return '';
+        }).filter(Boolean).join('\n');
+    }
+    if (content && typeof content === 'object') {
+        if (typeof content.text === 'string') return content.text;
+        if (typeof content.content === 'string') return content.content;
+    }
+    return '';
+}
+
+/**
+ * @summary Extracts the operator prompt text from representative Codex UserPromptSubmit payloads.
+ * @param {*} value Hook payload value.
+ * @param {Number} [depth=0] Recursion guard for untrusted hook payloads.
+ * @returns {String}
+ */
+export function extractPromptingTextFromHookPayload(value, depth = 0) {
+    if (depth > 8 || value == null) return '';
+    if (typeof value === 'string') return value;
+    if (Array.isArray(value)) {
+        for (let i = value.length - 1; i >= 0; i--) {
+            const text = extractPromptingTextFromHookPayload(value[i], depth + 1);
+            if (text.trim()) return text;
+        }
+        return '';
+    }
+    if (typeof value !== 'object') return '';
+
+    const role = value.role || value.payload?.role || value.message?.role || value.item?.role;
+    if (role === 'user') {
+        const text = extractTextFromContent(
+            value.content ??
+            value.payload?.content ??
+            value.message?.content ??
+            value.item?.content ??
+            value.text ??
+            value.payload?.text
+        );
+        if (text.trim()) return text;
+    }
+    if (role && role !== 'user') return '';
+
+    const priorityKeys = [
+        'prompt', 'user_prompt', 'userPrompt', 'last_user_message', 'lastUserMessage',
+        'messages', 'conversation', 'transcript', 'payload', 'message', 'item', 'content', 'text', 'input'
+    ];
+
+    for (const key of priorityKeys) {
+        if (!(key in value)) continue;
+
+        const text = extractPromptingTextFromHookPayload(value[key], depth + 1);
+        if (text.trim()) return text;
+    }
+
+    return '';
+}
+
+/**
+ * @summary Writes a bounded same-turn prompt provenance record for the Codex Stop hook fallback.
+ * @param {Object} [options]
+ * @param {Object} [options.env=process.env] Environment source.
+ * @param {*} [options.hookPayload] UserPromptSubmit hook payload.
+ * @param {Date} [options.now] Creation time.
+ * @returns {{status: String, path: String, source: String, textLength?: Number, reason?: String}}
+ */
+export function writePromptContextFromHookPayload({
+    env = process.env,
+    hookPayload,
+    now = new Date()
+} = {}) {
+    const text              = extractPromptingTextFromHookPayload(hookPayload).trim(),
+          promptContextPath = getCodexPromptContextPath({env});
+
+    mkdirSync(path.dirname(promptContextPath), {recursive: true});
+
+    if (!text) {
+        writeFileSync(promptContextPath, JSON.stringify({
+            createdAt    : now.toISOString(),
+            promptingText: '',
+            reason       : 'no-prompting-text',
+            source       : PROMPT_CONTEXT_SOURCE
+        }, null, 2), 'utf8');
+
+        return {
+            path  : promptContextPath,
+            reason: 'no-prompting-text',
+            source: PROMPT_CONTEXT_SOURCE,
+            status: 'cleared'
+        };
+    }
+
+    writeFileSync(promptContextPath, JSON.stringify({
+        createdAt    : now.toISOString(),
+        promptingText: text.slice(0, PROMPT_CONTEXT_TEXT_LIMIT),
+        source       : PROMPT_CONTEXT_SOURCE
+    }, null, 2), 'utf8');
+
+    return {
+        path      : promptContextPath,
+        source    : PROMPT_CONTEXT_SOURCE,
+        status    : 'written',
+        textLength: Math.min(text.length, PROMPT_CONTEXT_TEXT_LIMIT)
+    };
+}
 
 /**
  * @summary Emits a fail-soft Codex turn-start beacon without importing Neo singletons.
@@ -27,6 +164,12 @@ export async function recordTurnStarted({
     rootDir = fileURLToPath(new URL('../../', import.meta.url)),
     hookPayload
 } = {}) {
+    try {
+        writePromptContextFromHookPayload({env, hookPayload});
+    } catch {
+        // Fail-soft hook: prompt provenance improves Stop parity but must not block context loading.
+    }
+
     return recordTurnPresenceFromHook({
         env,
         hookPayload,

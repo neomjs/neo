@@ -15,12 +15,22 @@ import {
     extractLastUserTextFromJsonl,
     extractLastUserTextFromMessages,
     extractPromptingText,
+    getCodexPromptContextPath,
+    readPromptContext,
     summarizePayloadShape
 } from '../../../../.codex/hooks/codex-lane-state-stop.mjs';
 
 const block       = body => '```lane-state\n' + body + '\n```',
       fixturePath = new URL('./fixtures/codex-stop-payload.json', import.meta.url),
-      fixture     = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
+      fixture     = JSON.parse(fs.readFileSync(fixturePath, 'utf8')),
+      codexRecord = (role, text) => JSON.stringify({
+          type   : 'response_item',
+          payload: {
+              type   : 'message',
+              role,
+              content: [{type: role === 'assistant' ? 'output_text' : 'input_text', text}]
+          }
+      });
 
 test.describe('codex-lane-state-stop - contract boundary', () => {
     test('Codex block/inject is active, so enforced invalid terminals block', () => {
@@ -128,24 +138,66 @@ test.describe('codex-lane-state-stop - input resolution', () => {
         });
     });
 
-    test('JSONL fallback tolerates malformed lines and skips user records', () => {
+    test('message arrays normalize real Codex response_item.payload records', () => {
+        const records = [
+            {type: 'response_item', payload: {type: 'message', role: 'user', content: [{type: 'input_text', text: 'operator prompt'}]}},
+            {type: 'response_item', payload: {type: 'message', role: 'assistant', content: [{type: 'output_text', text: 'assistant answer'}]}}
+        ];
+
+        expect(extractLastUserTextFromMessages(records)).toBe('operator prompt');
+        expect(extractLastAssistantTextFromMessages(records)).toBe('assistant answer');
+    });
+
+    test('JSONL fallback tolerates malformed lines and reads Codex response_item.payload records', () => {
         const jsonl = [
             '{ not json }',
-            JSON.stringify({type: 'user', message: {role: 'user', content: 'question'}}),
-            JSON.stringify({type: 'assistant', message: {role: 'assistant', content: [{type: 'text', text: 'answer'}]}})
+            codexRecord('user', 'question'),
+            codexRecord('assistant', 'answer')
         ].join('\n');
 
         expect(extractLastAssistantTextFromJsonl(jsonl)).toBe('answer');
+        expect(extractLastUserTextFromJsonl(jsonl)).toBe('question');
     });
 
-    test('JSONL prompt fallback tolerates malformed lines and skips assistant records', () => {
+    test('JSONL prompt fallback skips synthetic hook user records and returns the human prompt', () => {
         const jsonl = [
             '{ not json }',
-            JSON.stringify({type: 'assistant', message: {role: 'assistant', content: 'answer'}}),
-            JSON.stringify({type: 'user', message: {role: 'user', content: [{type: 'text', text: '[WAKE][priority:normal] 1 events'}]}})
+            codexRecord('user', 'operator wants to stop for planning'),
+            codexRecord('assistant', 'answer'),
+            codexRecord('user', '<hook_prompt hook_run_id="stop:1">No-hold reminder</hook_prompt>'),
+            codexRecord('user', '<turn_aborted>interrupted by new prompt</turn_aborted>')
         ].join('\n');
 
-        expect(extractLastUserTextFromJsonl(jsonl)).toBe('[WAKE][priority:normal] 1 events');
+        expect(extractLastUserTextFromJsonl(jsonl)).toBe('operator wants to stop for planning');
+    });
+
+    test('prompt-context fallback is short-lived and ignores expired records', () => {
+        const dir               = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-prompt-context-')),
+              promptContextPath = getCodexPromptContextPath({logDir: dir}),
+              createdAt         = '2026-06-28T22:00:00.000Z';
+
+        try {
+            fs.writeFileSync(promptContextPath, JSON.stringify({
+                createdAt,
+                promptingText: 'operator dialogue fallback',
+                source       : 'codex-user-prompt-submit'
+            }), 'utf8');
+
+            expect(readPromptContext({
+                now: Date.parse('2026-06-28T22:05:00.000Z'),
+                promptContextPath
+            })).toMatchObject({
+                source: 'codex-user-prompt-submit',
+                text  : 'operator dialogue fallback'
+            });
+
+            expect(readPromptContext({
+                now: Date.parse('2026-06-28T22:20:01.000Z'),
+                promptContextPath
+            })).toBeNull();
+        } finally {
+            fs.rmSync(dir, {recursive: true, force: true});
+        }
     });
 });
 
@@ -175,6 +227,30 @@ test.describe('codex-lane-state-stop - lane-state classification', () => {
         expect(result.source).toBe('messages');
         expect(result.promptSource).toBe('messages');
         expect(result.operatorInLoop).toBe(true);
+    });
+
+    test('real Codex transcript_path payload records allow confirmed operator dialogue', () => {
+        const dir            = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-transcript-')),
+              transcriptPath = path.join(dir, 'transcript.jsonl'),
+              jsonl          = [
+                  codexRecord('user', 'please stop after this planning response'),
+                  codexRecord('assistant', fixture.last_assistant_message),
+                  codexRecord('user', '<hook_prompt hook_run_id="stop:1">No-hold reminder</hook_prompt>')
+              ].join('\n');
+
+        try {
+            fs.writeFileSync(transcriptPath, jsonl, 'utf8');
+
+            const result = classifyCodexStopPayload({transcript_path: transcriptPath}, {enforcing: true});
+
+            expect(result.action).toBe('allow');
+            expect(result.reason).toContain('live operator dialogue');
+            expect(result.source).toBe('transcript_path');
+            expect(result.promptSource).toBe('transcript_path');
+            expect(result.operatorInLoop).toBe(true);
+        } finally {
+            fs.rmSync(dir, {recursive: true, force: true});
+        }
     });
 
     test('handoff-to-autonomous operator prompt would-blocks instead of allowing', () => {
@@ -310,15 +386,23 @@ test.describe('codex-lane-state-stop - spawned hook', () => {
      * @param {Object} [options]
      * @param {Boolean} [options.enforce=false]
      * @param {Boolean} [options.capture=false]
+     * @param {String} [options.promptContextText]
      * @returns {Promise<{stdout: String, log: String}>}
      */
-    function runHook(payload, {enforce = false, capture = false} = {}) {
+    function runHook(payload, {enforce = false, capture = false, promptContextText} = {}) {
         return new Promise((resolve, reject) => {
             const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-lane-hook-')),
                   env = {...process.env, NEO_AI_DAEMON_DIR: dir};
 
             if (enforce) env.NEO_CODEX_LANE_STATE_ENFORCE = '1';
             if (capture) env.NEO_CODEX_LANE_STATE_CAPTURE = '1';
+            if (promptContextText) {
+                fs.writeFileSync(path.join(dir, 'codex-prompt-context.json'), JSON.stringify({
+                    createdAt    : new Date().toISOString(),
+                    promptingText: promptContextText,
+                    source       : 'codex-user-prompt-submit'
+                }), 'utf8');
+            }
 
             const proc = spawn('node', ['.codex/hooks/codex-lane-state-stop.mjs'], {
                 cwd  : path.resolve(new URL('../../../..', import.meta.url).pathname),
@@ -367,6 +451,48 @@ test.describe('codex-lane-state-stop - spawned hook', () => {
         expect(log).toContain('operatorInLoop=true');
     });
 
+    test('missing Stop prompt falls back to UserPromptSubmit prompt context and allows operator dialogue', async () => {
+        const {stdout, log} = await runHook({
+            session_id            : 'prompt-context-operator',
+            last_assistant_message: fixture.last_assistant_message
+        }, {
+            enforce          : true,
+            promptContextText: 'please end here; we are in live planning dialogue'
+        });
+
+        expect(stdout).toBe('');
+        expect(log).toContain('ALLOW');
+        expect(log).toContain('source=last_assistant_message');
+        expect(log).toContain('promptSource=prompt_context');
+        expect(log).toContain('operatorInLoop=true');
+    });
+
+    test('prompt-context fallback does not allow wake or hook-generated continuations', async () => {
+        const wake = await runHook({
+            session_id            : 'prompt-context-wake',
+            last_assistant_message: fixture.last_assistant_message
+        }, {
+            enforce          : true,
+            promptContextText: '[WAKE][priority:normal] 1 events for @neo-gpt'
+        });
+
+        expect(JSON.parse(wake.stdout).decision).toBe('block');
+        expect(wake.log).toContain('promptSource=prompt_context');
+        expect(wake.log).toContain('operatorInLoop=false');
+
+        const hook = await runHook({
+            session_id            : 'prompt-context-hook',
+            last_assistant_message: fixture.last_assistant_message
+        }, {
+            enforce          : true,
+            promptContextText: '<hook_prompt hook_run_id="stop:1">No-hold reminder</hook_prompt>'
+        });
+
+        expect(JSON.parse(hook.stdout).decision).toBe('block');
+        expect(hook.log).toContain('promptSource=prompt_context');
+        expect(hook.log).toContain('operatorInLoop=false');
+    });
+
     test('handoff-to-autonomous prompt logs autonomous context and blocks while enforcing', async () => {
         const {stdout, log} = await runHook({
             session_id: 'handoff',
@@ -395,6 +521,18 @@ test.describe('codex-lane-state-stop - spawned hook', () => {
         expect(log).toContain('promptSource=none');
         expect(log).toContain('operatorInLoop=false');
         expect(log).toContain('Unknown laneContinuation');
+    });
+
+    test('malformed transcript fallback fails open instead of trapping Stop', async () => {
+        const {stdout, log} = await runHook({
+            session_id            : 'missing-transcript',
+            last_assistant_message: fixture.last_assistant_message,
+            transcript_path       : path.join(os.tmpdir(), 'does-not-exist.jsonl')
+        }, {enforce: true});
+
+        expect(stdout).toBe('');
+        expect(log).toContain('HOOK-ERROR');
+        expect(log).toContain('allowing stop');
     });
 
     test('capture mode logs only the redacted payload shape', async () => {

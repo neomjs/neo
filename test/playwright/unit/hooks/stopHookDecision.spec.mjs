@@ -7,6 +7,7 @@ import {
     detectAutonomousHandoffPrompt,
     extractAutonomousHandoffWindowMs,
     isOperatorInLoop,
+    isSyntheticPromptingText,
     LANE_STATE_SCHEMA_HINT,
     parseOutcomeToVerdict,
     scanHoldLexicon,
@@ -81,6 +82,13 @@ test.describe('ai/scripts/lifecycle/stopHookDecision — shared no-hold decision
     test('isOperatorInLoop: a [WAKE] prompt is an autonomous injection, not an operator turn', () => {
         expect(isOperatorInLoop({stopHookActive: false, promptingText: '[WAKE] 1 event'})).toBe(false);
         expect(isOperatorInLoop({stopHookActive: false, promptingText: '  [WAKE] leading whitespace'})).toBe(false);
+    });
+
+    test('isOperatorInLoop: synthetic hook prompts are lifecycle noise, not operator turns', () => {
+        expect(isSyntheticPromptingText('<hook_prompt hook_run_id="stop:1">No-hold reminder</hook_prompt>')).toBe(true);
+        expect(isSyntheticPromptingText('<turn_aborted>interrupted by new prompt</turn_aborted>')).toBe(true);
+        expect(isOperatorInLoop({stopHookActive: false, promptingText: '<hook_prompt hook_run_id="stop:1">No-hold reminder</hook_prompt>'})).toBe(false);
+        expect(isOperatorInLoop({stopHookActive: false, promptingText: '<turn_aborted>interrupted by new prompt</turn_aborted>'})).toBe(false);
     });
 
     test('isOperatorInLoop: a genuine operator prompt is the one operator-in-loop signal', () => {
