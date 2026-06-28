@@ -1,6 +1,6 @@
 import fs                            from 'fs';
 import path                          from 'path';
-import { Memory_Config as aiConfig } from '../../services.mjs';
+import { Memory_Config as AiConfig } from '../../services.mjs';
 import Base                          from '../../../src/core/Base.mjs';
 import Json                          from '../../../src/util/Json.mjs';
 import logger                        from '../../mcp/server/memory-core/logger.mjs';
@@ -37,44 +37,14 @@ const
         additionalProperties: false
     };
 
-function estimateTopologyTokens(text) {
-    return bytesToTokens(Buffer.byteLength(text === undefined || text === null ? '' : String(text), 'utf8'));
-}
-
-function assertRequiredChatNumber(value, configPath) {
-    if (!Number.isFinite(value) || value <= 0) {
-        throw new Error(`[TopologyInferenceEngine] Required AiConfig leaf "${configPath}" is missing or invalid. Update ai/mcp/server/memory-core/config.mjs from config.template.mjs.`);
-    }
-
-    return value;
-}
-
-function assertRequiredChatString(value, configPath) {
-    if (typeof value !== 'string') {
-        throw new Error(`[TopologyInferenceEngine] Required AiConfig leaf "${configPath}" is missing or invalid. Update ai/mcp/server/memory-core/config.mjs from config.template.mjs.`);
-    }
-
-    return value;
-}
-
-function getCompletionFinishReason(result) {
-    return result?.finish_reason ||
-        result?.finishReason ||
-        result?.raw?.finish_reason ||
-        result?.raw?.finishReason ||
-        result?.raw?.choices?.[0]?.finish_reason ||
-        result?.raw?.choices?.[0]?.finishReason ||
-        result?.raw?.done_reason ||
-        result?.raw?.doneReason ||
-        '';
-}
-
-function isLengthTruncatedCompletion(finishReason) {
-    return ['length', 'max_tokens', 'max_completion_tokens', 'num_predict', 'token_limit']
-        .includes(String(finishReason || '').toLowerCase());
-}
-
 /**
+ * Infers ticket-level topology conflicts from REM session history.
+ *
+ * The engine keeps REM chunking, graph-provider invocation, conflict rendering,
+ * and run-state accounting in one service. It preserves turn boundaries,
+ * reserves provider output tokens before each request, reports provider failures
+ * through ConsumerFriction, and writes valid conflicts to `sandman_handoff.md`.
+ *
  * @class Neo.ai.daemons.services.TopologyInferenceEngine
  * @extends Neo.core.Base
  * @singleton
@@ -94,7 +64,73 @@ class TopologyInferenceEngine extends Base {
     }
 
     /**
-     * @summary Parses existing topological conflict handoff entries.
+     * Estimates topology prompt size using the shared guardrail heuristic.
+     * @param {String} text Provider prompt text.
+     * @returns {Number} Estimated token count.
+     * @protected
+     */
+    estimateTopologyTokens(text) {
+        return bytesToTokens(Buffer.byteLength(text === undefined || text === null ? '' : String(text), 'utf8'));
+    }
+
+    /**
+     * Resolves provider completion finish reasons across supported graph envelopes.
+     * @param {Object} result Provider generation result.
+     * @returns {String} Completion finish reason, or an empty string when unavailable.
+     * @protected
+     */
+    getCompletionFinishReason(result) {
+        return result?.finish_reason ||
+            result?.finishReason ||
+            result?.raw?.finish_reason ||
+            result?.raw?.finishReason ||
+            result?.raw?.choices?.[0]?.finish_reason ||
+            result?.raw?.choices?.[0]?.finishReason ||
+            result?.raw?.done_reason ||
+            result?.raw?.doneReason ||
+            '';
+    }
+
+    /**
+     * Tests whether a provider finish reason means output truncation.
+     * @param {String} finishReason Provider finish reason.
+     * @returns {Boolean} `true` when the provider reports a token-length cap.
+     * @protected
+     */
+    isLengthTruncatedCompletion(finishReason) {
+        return ['length', 'max_tokens', 'max_completion_tokens', 'num_predict', 'token_limit']
+            .includes(String(finishReason || '').toLowerCase());
+    }
+
+    /**
+     * Builds the graph-generation provider from resolved AiConfig leaves.
+     *
+     * AiConfig is read at the topology use site; `providerDispatch` receives the
+     * plain provider constructor shape and does not own the reactive config tree.
+     * @param {String} graphProvider Active graph-generation provider selector.
+     * @returns {{generate: Function}} Graph generation provider.
+     * @protected
+     */
+    buildConfiguredGraphProvider(graphProvider) {
+        return buildGraphProvider({
+            modelProvider: graphProvider,
+            ollamaConfig : {
+                host          : AiConfig.ollama.host,
+                model         : AiConfig.ollama.model,
+                embeddingModel: AiConfig.ollama.embeddingModel,
+                keep_alive    : AiConfig.ollama.keep_alive
+            },
+            openAiCompatibleConfig: {
+                apiKey    : AiConfig.openAiCompatible.apiKey,
+                host      : AiConfig.openAiCompatible.host,
+                keep_alive: AiConfig.openAiCompatible.keep_alive,
+                model     : AiConfig.openAiCompatible.model
+            }
+        });
+    }
+
+    /**
+     * Parses existing topological conflict handoff entries.
      * @param {String} content Current handoff markdown.
      * @returns {Object[]} Parsed conflict entries.
      */
@@ -108,7 +144,7 @@ class TopologyInferenceEngine extends Base {
     }
 
     /**
-     * @summary Renders one canonical topological conflict handoff entry.
+     * Renders one canonical topological conflict handoff entry.
      * @param {Object} conflict Conflict entry.
      * @returns {String}
      */
@@ -117,7 +153,7 @@ class TopologyInferenceEngine extends Base {
     }
 
     /**
-     * @summary Merges new conflicts into the handoff while keeping the alert list bounded.
+     * Merges new conflicts into the handoff while keeping the alert list bounded.
      *
      * New conflicts win ordering, then still-relevant existing alerts are retained up to the
      * compact handoff cap. Existing lines are rewritten as one bounded block so prior unbounded
@@ -169,7 +205,7 @@ class TopologyInferenceEngine extends Base {
     }
 
     /**
-     * @summary Builds the bounded topology-conflict prompt for one turn-aligned chunk.
+     * Builds the bounded topology-conflict prompt for one turn-aligned chunk.
      * @param {String} contextText Turn-aligned chunk text.
      * @param {Object} chunkInfo Chunk provenance.
      * @returns {String}
@@ -205,13 +241,13 @@ ${contextText}
     }
 
     /**
-     * @summary Creates deterministic turn chunks after reserving topology output and prompt overhead.
+     * Creates deterministic turn chunks after reserving topology output and prompt overhead.
      * @param {String[]} turnDocuments Complete raw memory turn documents.
      * @param {String} sessionId Source session id.
      * @returns {{chunked: Boolean, totalEstimatedTokens: Number, chunks: Object[]}}
      */
     createTopologyChunks(turnDocuments, sessionId) {
-        const envelopeTokens = estimateTopologyTokens(this.buildTopologyPrompt('', {
+        const envelopeTokens = this.estimateTopologyTokens(this.buildTopologyPrompt('', {
                   chunked    : true,
                   index      : 0,
                   chunkCount : 1,
@@ -222,33 +258,32 @@ ${contextText}
                   safeProcessingLimitTokens,
                   graphChunkLimitTokens,
                   graphOutputLimitTokens
-              } = aiConfig.localModels.chat,
+              } = AiConfig.localModels.chat,
               promptBudget   = Math.min(
-                  assertRequiredChatNumber(graphChunkLimitTokens, 'localModels.chat.graphChunkLimitTokens'),
-                  assertRequiredChatNumber(safeProcessingLimitTokens, 'localModels.chat.safeProcessingLimitTokens'),
-                  assertRequiredChatNumber(contextLimitTokens, 'localModels.chat.contextLimitTokens') -
-                      assertRequiredChatNumber(graphOutputLimitTokens, 'localModels.chat.graphOutputLimitTokens')
+                  graphChunkLimitTokens,
+                  safeProcessingLimitTokens,
+                  contextLimitTokens - graphOutputLimitTokens
               ),
               chunkBudget    = Math.max(1, promptBudget - envelopeTokens);
 
         return chunkSession(turnDocuments, {
             sessionId,
             safeProcessingLimitTokens: chunkBudget,
-            estimate                 : estimateTopologyTokens
+            estimate                 : text => this.estimateTopologyTokens(text)
         });
     }
 
     /**
-     * @summary Returns provider options that bound topology output across graph providers.
+     * Returns provider options that bound topology output across graph providers.
      * @returns {Object} Provider generation options.
      */
     getTopologyProviderOptions() {
         return {
-            reasoning_effort    : assertRequiredChatString(aiConfig.localModels.chat.graphReasoningEffort, 'localModels.chat.graphReasoningEffort'),
+            reasoning_effort    : AiConfig.localModels.chat.graphReasoningEffort,
             responseSchema      : topologyConflictSchema,
             responseSchemaName  : 'topologyConflicts',
             responseSchemaStrict: true,
-            maxCompletionTokens : assertRequiredChatNumber(aiConfig.localModels.chat.graphOutputLimitTokens, 'localModels.chat.graphOutputLimitTokens')
+            maxCompletionTokens : AiConfig.localModels.chat.graphOutputLimitTokens
         }
     }
 
@@ -259,7 +294,8 @@ ${contextText}
      * @param {String} sessionId The ID of the session being processed.
      * @param {Object} [options]
      * @param {String[]} [options.turnDocuments] Complete raw memory turn documents, preserving turn boundaries.
-     * @returns {Promise<Object|undefined>} Topology extraction summary.
+     * @returns {Promise<Object|undefined>} Topology extraction summary, or `undefined` when
+     *     provider/bootstrap errors are caught before a summary can be produced.
      */
     async extractTopology(contextText, sessionId, options = {}) {
         logger.info(`[TopologyInferenceEngine] Extracting Topological Conflicts for session ID: ${sessionId}`);
@@ -270,16 +306,14 @@ ${contextText}
                 : [contextText];
             const chunkPlan = this.createTopologyChunks(turnDocuments, sessionId);
 
-            const graphProvider = resolveGraphModelProvider(aiConfig),
-                  provider      = buildGraphProvider({
-                modelProvider         : graphProvider,
-                ollamaConfig          : aiConfig.ollama,
-                openAiCompatibleConfig: aiConfig.openAiCompatible
-            }),
-                  consumerModel         = aiConfig[graphProvider].model,
-                  consumerContextTokens = assertRequiredChatNumber(aiConfig.localModels.chat.contextLimitTokens, 'localModels.chat.contextLimitTokens'),
-                  consumerSafeTokens    = assertRequiredChatNumber(aiConfig.localModels.chat.safeProcessingLimitTokens, 'localModels.chat.safeProcessingLimitTokens'),
-                  outputLimitTokens     = assertRequiredChatNumber(aiConfig.localModels.chat.graphOutputLimitTokens, 'localModels.chat.graphOutputLimitTokens'),
+            const graphProvider = resolveGraphModelProvider(AiConfig),
+                  provider      = this.buildConfiguredGraphProvider(graphProvider),
+                  consumerModel = AiConfig[graphProvider].model,
+                  {
+                      contextLimitTokens       : consumerContextTokens,
+                      safeProcessingLimitTokens: consumerSafeTokens,
+                      graphOutputLimitTokens   : outputLimitTokens
+                  } = AiConfig.localModels.chat,
                   providerOptions       = this.getTopologyProviderOptions(),
                   conflicts             = [];
 
@@ -295,7 +329,7 @@ ${contextText}
                           turnIndices: chunk.turnIndices
                       }),
                       promptBytes          = Buffer.byteLength(prompt, 'utf8'),
-                      promptTokensEstimate = estimateTopologyTokens(prompt),
+                      promptTokensEstimate = this.estimateTopologyTokens(prompt),
                       promptPlusOutput     = promptTokensEstimate + outputLimitTokens,
                       chunkLabel           = `${index + 1}/${chunkPlan.chunks.length}`;
 
@@ -345,10 +379,10 @@ ${contextText}
                 }
 
                 const result       = guardrailed.result;
-                const finishReason = getCompletionFinishReason(result),
+                const finishReason = this.getCompletionFinishReason(result),
                       responseChars = String(result.content || '').length;
 
-                if (isLengthTruncatedCompletion(finishReason)) {
+                if (this.isLengthTruncatedCompletion(finishReason)) {
                     logger.warn(`[TopologyInferenceEngine] Provider reported finish_reason='${finishReason}' for session ${sessionId} chunk ${chunkLabel}; classifying as context-overflow before parsing.`);
 
                     emitConsumerFriction({
@@ -449,8 +483,8 @@ ${contextText}
             }
 
             // Write to sandman_handoff.md
-            const handoffFile = aiConfig.handoffFilePath;
-            const tmpFile = `${handoffFile}.tmp`;
+            const handoffFile = AiConfig.handoffFilePath;
+            const tmpFile     = `${handoffFile}.tmp`;
 
             let handoffContent = '';
             try {
@@ -489,7 +523,7 @@ ${contextText}
     }
 
     /**
-     * @summary Count topological-conflict entries emitted to `sandman_handoff.md`.
+     * Counts topological-conflict entries emitted to `sandman_handoff.md`.
      * This is **Axis D** of the 5-axis REM observability model: the count of
      * conflicts the engine has actually written to the handoff file, which is
      * the durable substrate consumers (next-session agents) read at boot.
@@ -497,16 +531,15 @@ ${contextText}
      * Counts lines matching the canonical conflict-entry suffix `(Source Session:`
      * — each conflict entry in `sandman_handoff.md` follows the shape
      * `- **[<TYPE>]** \`<issueId>\`: <description> (Source Session: <sessionId>)`
-     * (see {@link #extractTopology} line 83 for the writer). The suffix is
-     * distinctive enough to avoid false positives from Golden Path or other
-     * handoff sections.
+     * as written by {@link #extractTopology}. The suffix is distinctive enough
+     * to avoid false positives from Golden Path or other handoff sections.
      *
-     * **Important divergence semantic:** `extractTopology()` returns `undefined`
-     * (void) on both no-conflicts AND provider-error paths — meaning a zero
-     * count here does NOT distinguish "no conflicts detected" from "topology
-     * extraction silently failed for every session." The unified REM cycle
-     * state model closes this distinction by tracking per-cycle topology outcome
-     * explicitly.
+     * **Important divergence semantic:** `extractTopology()` returns an explicit
+     * `{conflictCount: 0}` summary when provider chunks complete with no conflicts,
+     * but caught provider/bootstrap errors can still return `undefined`. A zero count
+     * here therefore proves only that no conflict alerts are present in the handoff;
+     * REM run-state must still be consulted to distinguish no-conflict success from
+     * a cycle where topology extraction never produced a summary.
      *
      * Returns 0 on file-not-found, empty file, or read error — consistent with
      * sibling axis-count helpers' graceful-degradation contract.
@@ -515,7 +548,7 @@ ${contextText}
      *     0 if file absent / empty / unreadable
      */
     async getTopologyConflictCount() {
-        const handoffFile = aiConfig.handoffFilePath;
+        const handoffFile = AiConfig.handoffFilePath;
         if (!handoffFile) return 0;
 
         try {
