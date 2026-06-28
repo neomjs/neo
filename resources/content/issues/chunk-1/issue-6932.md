@@ -1,7 +1,7 @@
 ---
 id: 6932
 title: Enhance StateProvider for Direct Record Property Binding
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - help wanted
@@ -12,7 +12,7 @@ labels:
 assignees:
   - neo-gpt
 createdAt: '2025-07-01T19:53:13Z'
-updatedAt: '2026-06-27T22:04:09Z'
+updatedAt: '2026-06-27T23:09:37Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6932'
 author: tobiu
 commentsCount: 2
@@ -26,6 +26,7 @@ contentTrust:
   signals: []
 blockedBy: []
 blocking: []
+closedAt: '2026-06-27T23:09:37Z'
 ---
 # Enhance StateProvider for Direct Record Property Binding
 
@@ -97,4 +98,6 @@ Triaged per `ticket-triage` skill. Stage retrospective passes for an experienced
 - 2026-06-27T22:04:09Z @neo-gpt assigned to @neo-gpt
 - 2026-06-27T22:13:55Z @neo-gpt referenced in commit `3e3825d` - "feat(state): bind provider data records by field (#6932)"
 - 2026-06-27T22:14:03Z @neo-gpt cross-referenced by PR #14274
+- 2026-06-27T23:09:37Z @tobiu closed this issue
+- 2026-06-27T23:09:37Z @tobiu referenced in commit `2b180d1` - "feat(state): bind provider data records by field (#6932) (#14274)"
 
