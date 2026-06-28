@@ -8,7 +8,6 @@ import { Memory_TextEmbeddingService as TextEmbeddingService } from '../../servi
 import { Memory_GraphService as GraphService }                 from '../../services.mjs';
 import Json                                                    from '../../../src/util/Json.mjs';
 import logger                                                  from '../../mcp/server/memory-core/logger.mjs';
-import {IDENTITIES}                                            from '../../graph/identityRoots.mjs';
 import {buildGraphProvider, resolveGraphModelProvider}         from './providerDispatch.mjs';
 import {
     formatGoldenPathCapturedAt as formatGoldenPathTimestamp
@@ -18,6 +17,35 @@ import {
     getEmbeddingModelName,
     getEmbeddingVectorLength
 } from './embeddingDimension.mjs';
+import {
+    getAgentLogins            as resolveAgentLogins,
+    getCoreSwarmAgentFamilies as resolveCoreSwarmAgentFamilies,
+    getIdentityGithubLogin    as resolveIdentityGithubLogin,
+    hasCrossFamilyReview      as resolvePrCrossFamilyReview,
+    parseSelfIdLogin          as parsePrSelfIdLogin,
+    resolveAuthorFamily       as resolvePrAuthorFamily
+} from './agentFamilyResolution.mjs';
+import {
+    buildFailureOutcome                          as buildRouteFailureOutcome,
+    findComputedFocusContradiction               as findRouteFocusContradiction,
+    isActionableComputedRecommendation           as isActionableRouteRecommendation,
+    isContentComputedRecommendation              as isContentRouteRecommendation,
+    isRoutingConflictFocusCandidate              as isRouteConflictFocusCandidate,
+    renderComputedGoldenPathContradictionSection as renderRouteContradictionSection,
+    renderComputedGoldenPathEmptySection         as renderRouteEmptySection,
+    renderComputedGoldenPathFailureSection       as renderRouteFailureSection
+} from './computedGoldenPathRouting.mjs';
+import {
+    getActivePrCycleStatus                      as resolveActivePrCycleStatus,
+    renderActivePrCycleState                    as renderActivePrCycleStateSection,
+    renderRecentOpenPrSummary                   as renderRecentOpenPrSummarySection,
+    renderStrategicInterpretationDegradedReason as renderStrategicDegradedReason
+} from './activePrCycleSection.mjs';
+import {
+    getRecentSummaryDocuments      as resolveRecentSummaryDocuments,
+    pruneStaleFrontierGuideEdges   as pruneFrontierGuideEdges,
+    renderConsolidationGapsSection as renderConsolidationGaps
+} from './frontierConsolidation.mjs';
 import {
     buildCurrentFocusCandidates as buildIssueFocusCurrentFocusCandidates,
     buildSilentThreadCandidates as buildIssueFocusSilentThreadCandidates,
@@ -39,39 +67,6 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
-
-const COMPUTED_RECOMMENDATION_EXCLUDED_LABELS = Object.freeze(new Set([
-    'epic',
-    'needs-design',
-    'needs-re-triage',
-    'not-code-ready',
-    'not code ready'
-]));
-
-const COMPUTED_CONTENT_CONTRADICTION_LABELS = Object.freeze(new Set([
-    'blog post',
-    'documentation',
-    'docs',
-    'guide',
-    'content'
-]));
-
-const CURRENT_FOCUS_ROUTING_CONFLICT_REASONS = Object.freeze(new Set([
-    'incident',
-    'prio-zero',
-    'v13.1'
-]));
-
-/**
- * Social Name → `@`-stripped GitHub login, derived from the canonical identity roster. The PR-body
- * self-id leads with the Social Name (`Authored by <Social Name> (…)`); this resolves it to the login
- * the family map keys on. The legacy `@identity` form is still parsed for transitional / pre-trim bodies.
- */
-const SOCIAL_NAME_TO_LOGIN = Object.freeze(Object.fromEntries(
-    IDENTITIES
-        .filter(identity => identity.name && identity.properties?.githubLogin)
-        .map(identity => [identity.name, identity.properties.githubLogin.replace(/^@/, '')])
-));
 
 // The embedding-dimension helpers were extracted to ./embeddingDimension.mjs (the SRP decomposition). They are
 // imported above for the internal dimension guard, and re-exported here so the public API stays stable.
@@ -97,53 +92,28 @@ class GoldenPathSynthesizer extends Base {
     }
 
     /**
-     * @summary Normalizes an `identityRoots.mjs` GitHub login for local GitHub payload matching.
-     *
-     * AgentIdentity roots store canonical handles with a leading `@`, while GitHub API
-     * payloads expose bare login strings. Keeping the conversion in one helper prevents
-     * repo-enrichment projections from reintroducing hardcoded handle lists.
-     *
+     * @summary Delegates AgentIdentity GitHub-login normalization to `agentFamilyResolution.mjs`.
      * @param {Object} identity AgentIdentity root entry.
-     * @returns {String|null} Bare GitHub login, or `null` when unavailable.
+     * @returns {String|null}
      */
     static getIdentityGithubLogin(identity) {
-        const login = identity.properties?.githubLogin;
-
-        return typeof login === 'string' && login ? login.replace(/^@/, '') : null
+        return resolveIdentityGithubLogin(identity)
     }
 
     /**
-     * @summary Derives the core swarm login-to-family map from the AgentIdentity registry.
-     *
-     * `identityRoots.mjs` is the canonical handle indirection seam for named Neo maintainers.
-     * Golden Path renders must consume that registry instead of duplicating agent handles in
-     * daemon code.
-     *
+     * @summary Delegates the core-swarm login→family map to `agentFamilyResolution.mjs`.
      * @returns {Object<String,String>} GitHub login to model-family map.
      */
     static getCoreSwarmAgentFamilies() {
-        return Object.fromEntries(
-            IDENTITIES
-                .filter(identity =>
-                    identity.type === 'AgentIdentity' &&
-                    identity.properties?.accountType === 'agent' &&
-                    identity.properties?.githubLogin &&
-                    identity.properties?.modelFamily
-                )
-                .map(identity => [
-                    this.getIdentityGithubLogin(identity),
-                    identity.properties.modelFamily
-                ])
-        )
+        return resolveCoreSwarmAgentFamilies()
     }
 
     /**
-     * @summary Returns canonical Neo agent GitHub logins from `identityRoots.mjs`.
-     *
+     * @summary Delegates canonical agent-login enumeration to `agentFamilyResolution.mjs`.
      * @returns {String[]} Agent logins without leading `@`.
      */
     static getAgentLogins() {
-        return Object.keys(this.getCoreSwarmAgentFamilies())
+        return resolveAgentLogins()
     }
 
     /**
@@ -302,273 +272,97 @@ class GoldenPathSynthesizer extends Base {
     }
 
     /**
-     * @summary Determines whether a graph node can be an immediate computed recommendation.
-     *
-     * The Computed Golden Path is an execution steering surface. ISSUE (work-to-do) and
-     * DISCUSSION (an open convergence-to-drive) are both steerable next-focus; other node
-     * types (CONCEPT / ADR / CLASS / ...) and tickets explicitly marked not-ready are
-     * visibility, not immediate focus, and stay excluded — presenting those as "next
-     * immediate focus" causes release-blind governance drift.
-     *
+     * @summary Delegates computed-recommendation actionability to `computedGoldenPathRouting.mjs`.
      * @param {Object} nodeData Parsed graph node payload.
      * @returns {Boolean}
      */
     static isActionableComputedRecommendation(nodeData) {
-        const nodeId   = String(nodeData?.id || '');
-        const nodeType = String(nodeData?.type || nodeData?.properties?.type || '').toUpperCase();
-
-        // ISSUE = work-to-do, DISCUSSION = an open convergence-to-drive; both are execution-steerable.
-        if (nodeType && nodeType !== 'ISSUE' && nodeType !== 'DISCUSSION') return false;
-        if (!nodeId.startsWith('issue-') && !nodeId.startsWith('discussion-')) return false;
-
-        const labels = this.normalizeLabels(nodeData?.properties?.labels || nodeData?.labels);
-
-        return !labels.some(label => COMPUTED_RECOMMENDATION_EXCLUDED_LABELS.has(label))
+        return isActionableRouteRecommendation(nodeData)
     }
 
     /**
-     * @summary Determines whether a Current Focus candidate is strong enough to guard computed routing.
-     *
-     * Current Focus remains visibility-only. This guard does not boost focus nodes into
-     * routing; it only prevents contradictory content recommendations from being rendered
-     * as the machine-consumed immediate route while unresolved incident/release focus exists.
-     *
+     * @summary Delegates routing-conflict focus detection to `computedGoldenPathRouting.mjs`.
      * @param {Object} candidate Current Focus candidate.
      * @returns {Boolean}
      */
     static isRoutingConflictFocusCandidate(candidate) {
-        return Array.isArray(candidate?.reasons) &&
-            candidate.reasons.some(reason => CURRENT_FOCUS_ROUTING_CONFLICT_REASONS.has(reason))
+        return isRouteConflictFocusCandidate(candidate)
     }
 
     /**
-     * @summary Detects computed recommendations that are narrative/content work.
-     *
-     * Blog and docs tickets are valid Golden Path work when incident/release focus permits
-     * it. They become contradictory only when a live Current Focus incident/release signal
-     * exists and the computed section would otherwise route agents away from it.
-     *
+     * @summary Delegates content/narrative recommendation detection to `computedGoldenPathRouting.mjs`.
      * @param {Object} nodeData Parsed computed recommendation node.
      * @returns {Boolean}
      */
     static isContentComputedRecommendation(nodeData) {
-        const labels = this.normalizeLabels(nodeData?.properties?.labels || nodeData?.labels);
-        if (labels.some(label => COMPUTED_CONTENT_CONTRADICTION_LABELS.has(label))) return true;
-
-        const title = String(nodeData?.properties?.title || nodeData?.properties?.name || nodeData?.title || nodeData?.name || '');
-
-        return /\b(?:blog|docs?|documentation|guide|narrative)\b/i.test(title)
+        return isContentRouteRecommendation(nodeData)
     }
 
     /**
-     * @summary Finds content recommendations that contradict live Current Focus incident work.
-     *
+     * @summary Delegates computed-vs-focus contradiction detection to `computedGoldenPathRouting.mjs`.
      * @param {Object} options
      * @param {Array<Object>} [options.topNodes=[]] Computed Golden Path recommendations.
      * @param {Array<Object>} [options.currentFocusCandidates=[]] Current Focus candidates.
      * @returns {{focusCandidates: Array<Object>, blockedNodes: Array<Object>, blockedIds: Set<String>}|null}
      */
-    static findComputedFocusContradiction({
-        topNodes = [],
-        currentFocusCandidates = []
-    } = {}) {
-        const focusCandidates = currentFocusCandidates.filter(candidate =>
-            this.isRoutingConflictFocusCandidate(candidate)
-        );
-
-        if (focusCandidates.length === 0 || topNodes.length === 0) return null;
-
-        const focusIds     = new Set(focusCandidates.map(candidate => `issue-${candidate.number}`));
-        const blockedNodes = topNodes.filter(item => {
-            const nodeId = String(item?.node?.id || '');
-
-            return nodeId &&
-                !focusIds.has(nodeId) &&
-                this.isContentComputedRecommendation(item.node)
-        });
-
-        if (blockedNodes.length === 0) return null;
-
-        return {
-            blockedIds: new Set(blockedNodes.map(item => item.node.id)),
-            blockedNodes,
-            focusCandidates
-        }
+    static findComputedFocusContradiction(options) {
+        return findRouteFocusContradiction(options)
     }
 
     /**
-     * @summary Renders the computed-route contradiction diagnostic.
-     *
-     * The section intentionally contains no numbered `**issue-N**:` entries, so
-     * `AgentOrchestrator.parseGoldenPath()` will not treat filtered content work
-     * as an immediate route.
-     *
+     * @summary Delegates the computed-route contradiction diagnostic to `computedGoldenPathRouting.mjs`.
      * @param {Object} options
      * @param {Object} options.contradiction Result from `findComputedFocusContradiction`.
      * @param {Object} [options.stats={}] Candidate-count diagnostics for the current pass.
      * @param {Date|String} [options.capturedAt=new Date()] Current pass capture timestamp.
      * @returns {String} Markdown section.
      */
-    static renderComputedGoldenPathContradictionSection({
-        contradiction,
-        stats      = {},
-        capturedAt = new Date()
-    } = {}) {
-        const count     = value => Number.isFinite(Number(value)) ? Number(value) : 0;
-        const focusRefs = (contradiction?.focusCandidates || [])
-            .slice(0, 3)
-            .map(candidate => `#${candidate.number}`)
-            .join(', ') || 'none';
-        const blockedRefs = (contradiction?.blockedNodes || [])
-            .map(item => item.node.id)
-            .join(', ') || 'none';
-
-        return [
-            '',
-            '## Computed Golden Path (Strategic Recommendation)',
-            '',
-            `Captured at: ${this.formatGoldenPathCapturedAt(capturedAt)}`,
-            '',
-            'Computed routing paused because the surviving content/narrative recommendation contradicts live Current Release / Incident Focus.',
-            '',
-            `- Active incident/release focus candidates: ${focusRefs}`,
-            `- Contradictory computed candidates filtered: ${blockedRefs}`,
-            `- Semantic candidates: ${count(stats.semanticCandidates)}`,
-            `- SQLite OPEN matches: ${count(stats.sqliteOpenMatches)}`,
-            `- Scored actionable candidates: ${count(stats.scoredCandidates)}`,
-            `- Selected routed nodes: ${count(stats.selectedTopNodes)}`,
-            `- Stale frontier GUIDES pruned: ${count(stats.prunedGuideEdges)}`,
-            '',
-            'No numbered immediate recommendation is rendered for this pass; use the Current Release / Incident Focus section for visibility and rerun after the incident/release focus clears or the computed route aligns.',
-            ''
-        ].join('\n')
+    static renderComputedGoldenPathContradictionSection(options) {
+        return renderRouteContradictionSection(options)
     }
 
     /**
-     * @summary Removes stale Computed Golden Path guide edges from the frontier.
-     *
-     * `frontier -> GUIDES` edges are a machine-consumed steering surface. Each
-     * synthesis pass must remove recommendations that are no longer present in
-     * the current computed result; otherwise a zero-node render can leave old
-     * guidance active in the graph after the handoff stops rendering it.
-     *
+     * @summary Delegates stale frontier GUIDE-edge pruning to `frontierConsolidation.mjs`.
      * @param {Object} [options]
      * @param {Object} [options.graphService=GraphService] Graph service instance.
      * @param {Set<String>} [options.currentTargetIds=new Set()] Current computed target ids.
      * @returns {Number} Count of stale guide edges removed.
      */
-    static pruneStaleFrontierGuideEdges({
-        graphService = GraphService,
-        currentTargetIds = new Set()
-    } = {}) {
-        graphService?.db?.getAdjacentNodes?.('frontier', 'out');
-
-        const staleEdges = (graphService?.db?.edges?.getByIndex?.('source', 'frontier') || [])
-            .filter(edge => edge.type === 'GUIDES' && !currentTargetIds.has(edge.target));
-
-        if (staleEdges.length > 0) {
-            graphService.db.edges.remove(staleEdges.map(edge => edge.id));
-            // Drop the exact index references returned above in case the Store map points at refreshed edge objects.
-            graphService.db.edges.updateIndexMaps?.(null, staleEdges);
-        }
-
-        return staleEdges.length
+    static pruneStaleFrontierGuideEdges(options) {
+        return pruneFrontierGuideEdges(options)
     }
 
     /**
-     * @summary Renders the bounded diagnostic for an empty Computed Golden Path pass.
-     *
-     * The handoff should distinguish "no computed recommendation survived the
-     * filter chain" from "the handoff forgot to render the routing surface".
-     *
-     * @param {Object} stats Candidate-count diagnostics for the current pass.
+     * @summary Delegates the empty-pass Computed Golden Path diagnostic to `computedGoldenPathRouting.mjs`.
+     * @param {Object} [stats={}] Candidate-count diagnostics for the current pass.
      * @param {Date|String} [capturedAt=new Date()] Current pass capture timestamp.
      * @returns {String} Markdown section.
      */
-    static renderComputedGoldenPathEmptySection(stats = {}, capturedAt = new Date()) {
-        const count = value => Number.isFinite(Number(value)) ? Number(value) : 0;
-
-        return [
-            '',
-            '## Computed Golden Path (Strategic Recommendation)',
-            '',
-            `Captured at: ${this.formatGoldenPathCapturedAt(capturedAt)}`,
-            '',
-            'No actionable computed recommendations survived the current Tri-Vector filter pass.',
-            '',
-            `- Semantic candidates: ${count(stats.semanticCandidates)}`,
-            `- SQLite OPEN matches: ${count(stats.sqliteOpenMatches)}`,
-            `- Blocked candidates filtered: ${count(stats.blockedCandidates)}`,
-            `- Non-actionable candidates filtered: ${count(stats.nonActionableCandidates)}`,
-            `- Scored actionable candidates: ${count(stats.scoredCandidates)}`,
-            `- Selected top nodes: ${count(stats.selectedTopNodes)}`,
-            `- Stale frontier GUIDES pruned: ${count(stats.prunedGuideEdges)}`,
-            '',
-            'This is an empty-state diagnostic for the computed routing surface. Use the Current Release / Incident Focus section for visibility-only hot work while the computed candidate chain is empty.',
-            ''
-        ].join('\n')
+    static renderComputedGoldenPathEmptySection(stats, capturedAt) {
+        return renderRouteEmptySection(stats, capturedAt)
     }
 
     /**
-     * @summary Normalizes a Golden Path failure into the task outcome shape consumed by the scheduler.
-     *
-     * The Golden Path task is freshness-critical steering substrate: a caught ChromaDB / graph-store
-     * failure must not resolve as a successful run and refresh `lastSuccessAt`.
-     *
+     * @summary Delegates Golden Path failure-outcome shaping to `computedGoldenPathRouting.mjs`.
      * @param {String} reasonCode Stable machine-readable failure reason.
      * @param {*} error Error object or message payload.
      * @param {Object} [extra={}] Additional diagnostics for downstream task-state / health surfaces.
      * @returns {{status: String, reasonCode: String, error: String}} Failure outcome.
      */
-    static buildFailureOutcome(reasonCode, error, extra = {}) {
-        return {
-            status: 'failed',
-            reasonCode,
-            error : error instanceof Error ? error.message : String(error || reasonCode),
-            ...extra
-        }
+    static buildFailureOutcome(reasonCode, error, extra) {
+        return buildRouteFailureOutcome(reasonCode, error, extra)
     }
 
     /**
-     * @summary Renders a fail-loud Computed Golden Path section when the route cannot be trusted.
-     *
-     * No numbered recommendation entries are emitted, so downstream parsers cannot consume stale or
-     * partially-computed routing as an immediate lane.
-     *
+     * @summary Delegates the fail-loud Computed Golden Path section to `computedGoldenPathRouting.mjs`.
      * @param {Object} options
      * @param {Object} options.failure Failure outcome from `buildFailureOutcome()`.
      * @param {Object} [options.stats={}] Candidate-count diagnostics for the current pass.
      * @param {Date|String} [options.capturedAt=new Date()] Current pass capture timestamp.
      * @returns {String} Markdown section.
      */
-    static renderComputedGoldenPathFailureSection({
-        failure,
-        stats      = {},
-        capturedAt = new Date()
-    } = {}) {
-        const count      = value => Number.isFinite(Number(value)) ? Number(value) : 0;
-        const reasonCode = failure?.reasonCode || 'golden-path-failed';
-        const error      = failure?.error || 'unknown failure';
-
-        return [
-            '',
-            '## Computed Golden Path (Strategic Recommendation)',
-            '',
-            `Captured at: ${this.formatGoldenPathCapturedAt(capturedAt)}`,
-            '',
-            'Golden Path degraded: the semantic route could not be computed safely.',
-            '',
-            `- Reason: \`${reasonCode}\``,
-            `- Error: \`${error}\``,
-            `- Semantic candidates: ${count(stats.semanticCandidates)}`,
-            `- SQLite OPEN matches: ${count(stats.sqliteOpenMatches)}`,
-            `- Scored actionable candidates: ${count(stats.scoredCandidates)}`,
-            `- Selected routed nodes: ${count(stats.selectedTopNodes)}`,
-            `- Stale frontier GUIDES pruned: ${count(stats.prunedGuideEdges)}`,
-            '',
-            'No numbered immediate recommendation is rendered for this pass; do not claim a computed lane from stale handoff data until the next successful Golden Path run.',
-            ''
-        ].join('\n')
+    static renderComputedGoldenPathFailureSection(options) {
+        return renderRouteFailureSection(options)
     }
 
     /**
@@ -614,188 +408,75 @@ class GoldenPathSynthesizer extends Base {
     }
 
     /**
-     * @summary Extracts the canonical author login (`@`-stripped) from a PR body's `Authored by …`
-     * self-id line, resolving both the Social-Name-led form and the legacy `@identity` form.
-     *
-     * The body self-id is the drift-free author source: the GitHub PR opener can mis-resolve (an MCP
-     * `@me` identity-resolution drift stamps a different agent's login on the opener), but the body
-     * declares its own canonical author. The current convention leads with the **Social Name**
-     * (`Authored by <Social Name> (<Model>, <Wrapper>).`), resolved to a login via the identity roster;
-     * the legacy `Authored by … @identity` form is still parsed for transitional / pre-trim bodies.
-     * Returns null when no self-id is present (external bodies) or the Social Name is unregistered, so the
-     * caller falls back to the advisory login. The pattern is **line-anchored** (`^…/m`) to the self-id
-     * line, so a `Co-Authored by` trailer or prose that merely contains `Authored by` mid-line does not match.
+     * @summary Delegates PR-body `Authored by …` self-id login parsing to `agentFamilyResolution.mjs`.
      * @param {String} body
-     * @returns {(String|null)} The `@`-stripped author login, or null.
+     * @returns {(String|null)}
      */
     static parseSelfIdLogin(body) {
-        if (typeof body !== 'string') return null;
-
-        // Legacy form first: `Authored by … @identity` (transitional / pre-trim bodies).
-        const legacyMatch = body.match(/^Authored by[^\n]*?@([A-Za-z0-9-]+)/m);
-        if (legacyMatch) return legacyMatch[1];
-
-        // Current form: `Authored by <Social Name> (…)` — resolve the Social Name to a login via the roster.
-        const socialMatch = body.match(/^Authored by (.+?) \(/m);
-        return socialMatch ? (SOCIAL_NAME_TO_LOGIN[socialMatch[1].trim()] ?? null) : null
+        return parsePrSelfIdLogin(body)
     }
 
     /**
-     * @summary Resolves a PR author's model family from the canonical body self-id (Social-Name-led, or
-     * legacy `@identity`), falling back to the drift-prone GitHub login as an advisory source.
-     *
-     * The body's self-declared `@identity` wins; the GitHub author login is advisory-only (used when the
-     * body carries no self-id), and a body-vs-login family disagreement is logged as drift rather than
-     * silently trusted. Model-name substring inference is deliberately NOT used — the self-id is the
-     * canonical source, the login is the legacy bridge until every agent PR body carries `@identity`.
+     * @summary Delegates PR author model-family resolution to `agentFamilyResolution.mjs`.
      * @param {Object} pr GitHub PR payload (`author`, `body`, `number`).
      * @param {Object} agentFamilies Login-to-family map (`@`-stripped logins).
-     * @returns {(String|undefined)} The model family, or undefined when neither source resolves.
+     * @returns {(String|undefined)}
      */
     static resolveAuthorFamily(pr, agentFamilies) {
-        const selfIdLogin  = this.parseSelfIdLogin(pr?.body),
-              selfIdFamily = selfIdLogin ? agentFamilies[selfIdLogin] : undefined,
-              loginFamily  = agentFamilies[pr?.author?.login];
-
-        if (selfIdFamily) {
-            if (loginFamily && loginFamily !== selfIdFamily) {
-                logger.warn(`[GoldenPathSynthesizer] PR #${pr.number}: author identity drift — body self-id @${selfIdLogin} (${selfIdFamily}) != GitHub login @${pr.author?.login} (${loginFamily}); using the canonical self-id.`);
-            }
-
-            return selfIdFamily
-        }
-
-        return loginFamily
+        return resolvePrAuthorFamily(pr, agentFamilies)
     }
 
     /**
-     * @summary Determines whether a PR has cross-family review coverage.
-     *
+     * @summary Delegates PR cross-family review-coverage detection to `agentFamilyResolution.mjs`.
      * @param {Object} pr GitHub PR payload from `gh pr list`.
-     * @param {Object} [agentFamilies=this.getCoreSwarmAgentFamilies()] Login-to-family map.
+     * @param {Object} [agentFamilies] Login-to-family map.
      * @returns {Boolean}
      */
-    static hasCrossFamilyReview(pr, agentFamilies = this.getCoreSwarmAgentFamilies()) {
-        const authorFamily = this.resolveAuthorFamily(pr, agentFamilies);
-        const reviews      = Array.isArray(pr.reviews) ? pr.reviews : [];
-
-        return reviews.some(review => {
-            const reviewerLogin  = review.author?.login || review.author?.name || review.author?.login;
-            const reviewerFamily = agentFamilies[reviewerLogin];
-
-            if (!reviewerFamily) return false;
-            if (!authorFamily) return true;
-
-            return reviewerFamily !== authorFamily
-        })
+    static hasCrossFamilyReview(pr, agentFamilies) {
+        return resolvePrCrossFamilyReview(pr, agentFamilies)
     }
 
     /**
-     * @summary Renders a capped recent-open-PR list inside the existing Active PR Cycle section.
-     *
+     * @summary Delegates the recent-open-PR summary to `activePrCycleSection.mjs`.
      * @param {Object[]} prs GitHub PR payloads.
-     * @param {Object} options
+     * @param {Object} [options]
      * @param {Number} [options.limit=aiConfig.goldenPathRecentOpenPrRenderLimit] Maximum PRs to render.
      * @returns {String}
      */
-    static renderRecentOpenPrSummary(prs, {limit = aiConfig.goldenPathRecentOpenPrRenderLimit} = {}) {
-        const recent = [...prs]
-            .filter(pr => pr.createdAt)
-            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-            .slice(0, limit);
-
-        if (recent.length === 0) return '';
-
-        let section = `### Recent Open PRs (\`${recent.length}\` of \`${prs.length}\` items)\n`;
-
-        for (const pr of recent) {
-            const author = pr.author?.login || 'unknown';
-            section += `- **PR #${pr.number}**: ${pr.title} — author @${author} — opened ${pr.createdAt} — cross-family reviewed: ${this.hasCrossFamilyReview(pr) ? 'yes' : 'no'}\n`;
-        }
-
-        section += `\n`;
-
-        return section
+    static renderRecentOpenPrSummary(prs, options) {
+        return renderRecentOpenPrSummarySection(prs, options)
     }
 
     /**
-     * @summary Resolves whether an Active PR Cycle snapshot is still within its freshness SLA.
-     *
+     * @summary Delegates Active PR Cycle freshness status to `activePrCycleSection.mjs`.
      * @param {Object} options
      * @param {Date|String} options.capturedAt Snapshot timestamp.
      * @param {Date|String} options.now Freshness comparison timestamp.
      * @param {Number} options.freshnessMs Freshness SLA in milliseconds.
      * @returns {String}
      */
-    static getActivePrCycleStatus({capturedAt, now, freshnessMs}) {
-        const capturedMs = capturedAt instanceof Date ? capturedAt.getTime() : new Date(capturedAt).getTime(),
-              nowMs      = now        instanceof Date ? now.getTime()        : new Date(now).getTime();
-
-        if (!Number.isFinite(capturedMs) || !Number.isFinite(nowMs)) return 'unknown';
-
-        return nowMs - capturedMs > freshnessMs ? 'stale' : 'current'
+    static getActivePrCycleStatus(options) {
+        return resolveActivePrCycleStatus(options)
     }
 
     /**
-     * @summary Renders the complete Active PR Cycle State section.
-     *
-     * @param {Object} options
-     * @param {Object[]} [options.prs=[]] GitHub PR payloads.
-     * @param {Date|String} [options.capturedAt=new Date()] Snapshot timestamp.
-     * @param {Date|String} [options.now=options.capturedAt] Freshness comparison timestamp.
-     * @param {Error} [options.error=null] Fetch failure that makes the section degraded.
-     * @param {Number} [options.freshnessMs=aiConfig.goldenPathActivePrStateFreshnessMs] Freshness SLA.
-     * @param {Number} [options.limit=aiConfig.goldenPathRecentOpenPrRenderLimit] Maximum PR rows.
+     * @summary Delegates the Active PR Cycle State section to `activePrCycleSection.mjs`.
+     * @param {Object} [options] See `activePrCycleSection.renderActivePrCycleState`.
      * @returns {String}
      */
-    static renderActivePrCycleState({
-        prs         = [],
-        capturedAt  = new Date(),
-        now         = capturedAt,
-        error       = null,
-        freshnessMs = aiConfig.goldenPathActivePrStateFreshnessMs,
-        limit       = aiConfig.goldenPathRecentOpenPrRenderLimit
-    } = {}) {
-        const capturedDate = capturedAt instanceof Date ? capturedAt : new Date(capturedAt),
-              freshUntil   = new Date(capturedDate.getTime() + freshnessMs),
-              status       = error ? 'degraded' : this.getActivePrCycleStatus({capturedAt: capturedDate, now, freshnessMs});
-
-        let section = `\n## Active PR Cycle State\n\n`;
-        section += `*Captured at: ${capturedDate.toISOString()} (Source: GitHub Live; Status at generation: ${status}; Fresh until: ${freshUntil.toISOString()})*\n\n`;
-
-        if (error) {
-            section += `### Recent Open PRs (degraded)\n`;
-            section += `Live PR fetch failed; stale PR data was intentionally not reused.\n`;
-            section += `- Error: ${String(error.message || error).replace(/\s+/g, ' ').slice(0, 240)}\n\n`;
-            return section
-        }
-
-        const summary = this.renderRecentOpenPrSummary(prs, {limit});
-
-        if (summary) return section + summary;
-
-        section += `### Recent Open PRs (\`0\` of \`0\` items)\n`;
-        section += `No open PRs reported by GitHub at capture time.\n\n`;
-
-        return section
+    static renderActivePrCycleState(options) {
+        return renderActivePrCycleStateSection(options)
     }
 
     /**
-     * @summary Renders a degraded Strategic Interpretation reason without inventing route rationale.
-     *
+     * @summary Delegates the degraded Strategic Interpretation reason to `activePrCycleSection.mjs`.
      * @param {Object} options
      * @param {String} options.reasonCode Stable machine-readable degradation reason.
      * @param {String} [options.error=''] Sanitized provider or parser error.
      * @returns {String}
      */
-    static renderStrategicInterpretationDegradedReason({
-        reasonCode,
-        error = ''
-    }) {
-        const safeReason = reasonCode || 'strategic-interpretation-degraded',
-              safeError  = String(error || safeReason).replace(/\s+/g, ' ').slice(0, 240);
-
-        return `Strategic Interpretation degraded: the model-generated brief was not available (${safeReason}). The Computed Golden Path list above remains the mathematical route, but no synthetic rationale is generated for this pass. Error: ${safeError}`
+    static renderStrategicInterpretationDegradedReason(options) {
+        return renderStrategicDegradedReason(options)
     }
 
     /**
@@ -824,103 +505,24 @@ class GoldenPathSynthesizer extends Base {
     }
 
     /**
-     * @summary Reads the N most-recent session summaries by timestamp metadata (newest-first).
-     *
-     * ChromaDB `.get` has no `ORDER BY`, so `.get({limit})` returns storage-order — which anchored the
-     * Frontier Baseline Vector to arbitrary (often oldest) summaries, starving the Computed Golden Path
-     * of current work. This reads summary metadatas, sorts by the summary timestamp, and reads back only
-     * the most-recent N documents. The frontier must reflect CURRENT work because the semantic pillar is
-     * the designed pathway for surfacing new (correctly low-structural-weight) issues.
-     *
+     * @summary Delegates recency-ordered summary reads to `frontierConsolidation.mjs`.
      * @param {Object} collection Summary Chroma collection (exposes async `.get`).
      * @param {Number} n Number of most-recent summaries to return.
-     * @returns {Promise<{documents: String[]}>} The N most-recent summary documents, newest-first.
+     * @returns {Promise<{documents: String[]}>}
      */
-    static async getRecentSummaryDocuments(collection, n) {
-        const meta      = await collection.get({include: ['metadatas']});
-        const resolveTs = m => {
-            const raw = m?.timestamp ?? m?.lastActivity ?? m?.updatedAt ?? m?.createdAt;
-            return Number.isFinite(Number(raw)) ? Number(raw) : (Date.parse(raw) || 0);
-        };
-
-        const recentIds = (meta?.ids || [])
-            .map((id, idx) => ({id, ts: resolveTs(meta.metadatas?.[idx])}))
-            .sort((a, b) => b.ts - a.ts)
-            .slice(0, Math.max(0, n))
-            .map(entry => entry.id);
-
-        if (recentIds.length === 0) {
-            return {documents: []};
-        }
-
-        const recent = await collection.get({ids: recentIds, include: ['documents']});
-        // Chroma `.get({ids})` does not preserve request order — re-key to the recency ranking.
-        const byId = new Map((recent?.ids || []).map((id, idx) => [id, recent.documents?.[idx]]));
-
-        return {documents: recentIds.map(id => byId.get(id)).filter(doc => doc !== undefined && doc !== null)};
+    static getRecentSummaryDocuments(collection, n) {
+        return resolveRecentSummaryDocuments(collection, n)
     }
 
     /**
-     * @summary Renders the Consolidation Gaps section — undigested sessions made visible.
-     *
-     * Consolidation-liveness: the dream must **visibly record** sessions it has NOT digested,
-     * never silently. A fresh handoff over an undigested backlog reads healthy
-     * ("health-green-but-map-lying") unless the gap is surfaced — a lost walk must be *visibly*
-     * lost. Queries the summary collection for `graphDigested !== true` and renders the count +
-     * a bounded sample. Visibility-only: no routing change.
-     *
-     * **Failure must not read as healthy.** A thrown query OR a malformed (non-array) response
-     * renders an explicit `Status UNKNOWN` state — never blank and never a `0 undigested`
-     * all-clear (which would be the exact false-green this section exists to prevent). A valid
-     * empty response IS a real all-clear, but reports the checked-count so "0 checked" is
-     * distinguishable from "0 undigested of N".
-     *
+     * @summary Delegates the Consolidation Gaps section to `frontierConsolidation.mjs`.
      * @param {Object} summaryColl Summary Chroma collection (exposes async `.get`).
      * @param {Object} [options]
      * @param {Number} [options.limit=5] Max undigested sessions to sample.
-     * @returns {Promise<String>} The rendered section (always non-empty — gap, all-clear, or unknown).
+     * @returns {Promise<String>}
      */
-    static async renderConsolidationGapsSection(summaryColl, {limit = 5} = {}) {
-        const header = `\n## Consolidation Gaps\n\n*Consolidation-liveness: sessions the dream has NOT yet laid as trails. A lost walk is visibly lost, never silently absent — a fresh handoff must not read healthy over an undigested backlog.*\n\n`;
-
-        let raw;
-        try {
-            raw = await summaryColl.get({include: ['metadatas']});
-        } catch (e) {
-            // A failed query must NOT read as healthy — surface an explicit unknown state.
-            return `${header}❓ **Status UNKNOWN** — the summary collection query failed (\`${e.message}\`); consolidation health could not be determined. This is NOT an all-clear.\n`;
-        }
-
-        // A malformed response (no metadata array) is unknown, NOT zero-undigested.
-        if (!raw || !Array.isArray(raw.metadatas)) {
-            return `${header}❓ **Status UNKNOWN** — the summary collection returned a malformed response (no metadata array); consolidation health could not be determined. This is NOT an all-clear.\n`;
-        }
-
-        const metas      = raw.metadatas,
-              ids        = Array.isArray(raw.ids) ? raw.ids : [],
-              undigested = [];
-
-        for (let i = 0; i < metas.length; i++) {
-            const meta = metas[i];
-            // graphDigested is set true only after BOTH deterministic ingestion AND the
-            // semantic extractor complete (DreamService); anything else is an un-laid trail.
-            if (meta && meta.graphDigested !== true && meta.graphDigested !== 'true') {
-                undigested.push({id: ids[i], title: meta.title || meta.sessionId || ids[i]});
-            }
-        }
-
-        if (undigested.length === 0) {
-            return `${header}✅ 0 sessions undigested — consolidation is current (${metas.length} session(s) checked).\n`;
-        }
-
-        let section = `${header}⚠️ **${undigested.length} session(s) undigested** (\`graphDigested !== true\`)`;
-        section += undigested.length > limit ? `, showing ${limit}:\n` : `:\n`;
-
-        for (const item of undigested.slice(0, limit)) {
-            section += `- \`${item.id}\` — ${item.title}\n`;
-        }
-
-        return section
+    static renderConsolidationGapsSection(summaryColl, options) {
+        return renderConsolidationGaps(summaryColl, options)
     }
 
     async synthesizeGoldenPath({
