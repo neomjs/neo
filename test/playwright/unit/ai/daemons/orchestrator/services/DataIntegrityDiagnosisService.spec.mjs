@@ -197,4 +197,124 @@ test.describe('Neo.ai.daemons.services.DataIntegrityDiagnosisService', () => {
 
         expect(decision.heals).toHaveLength(0);                                                   // nothing fenced → nothing recorded
     });
+
+    test('systemic circuit TRIPPED → suppresses every heal + records circuit-open (no mass-heal storm)', async () => {
+        const actuator = fakeActuator(),
+              events   = [],
+              service  = createService({
+                  evidenceGatherer   : async () => [walStall('neo-agent-memory'), walStall('neo-agent-sessions')],
+                  recoveryActuator   : actuator,
+                  systemicCircuitGate: async () => ({open: true, status: 'tripped', reason: '3 distinct collections failing an embedder outage'}),
+                  recordCircuitEvent : async event => { events.push(event); }
+              });
+
+        const decision = await service.gatherAndDiagnose();
+
+        expect(decision.status).toBe('circuit-open');
+        expect(decision.heals).toHaveLength(0);                          // the per-collection storm was suppressed
+        expect(actuator.calls.applyHeal).toHaveLength(0);                // NOTHING hammered the dead embedder
+        expect(events).toContainEqual(expect.objectContaining({type: 'circuit-open'}));
+    });
+
+    test('circuit riding-out (circuit-open) → suppresses, but does NOT re-record (only the fresh trip opens)', async () => {
+        const events  = [],
+              service = createService({
+                  evidenceGatherer   : async () => [walStall()],
+                  recoveryActuator   : fakeActuator(),
+                  systemicCircuitGate: async () => ({open: true, status: 'circuit-open', reason: 'riding out the suppression window'}),
+                  recordCircuitEvent : async event => { events.push(event); }
+              });
+
+        const decision = await service.gatherAndDiagnose();
+
+        expect(decision.status).toBe('circuit-open');
+        expect(events).toHaveLength(0);                                  // riding-out is not a fresh trip
+    });
+
+    test('half-open probe that heals cleanly → the probe heal RUNS and the circuit closes', async () => {
+        const actuator = fakeActuator(),
+              events   = [],
+              service  = createService({
+                  evidenceGatherer   : async () => [walStall()],
+                  recoveryActuator   : actuator,
+                  systemicCircuitGate: async () => ({open: false, status: 'half-open-probe', reason: 'cooldown elapsed — one recovery probe'}),
+                  recordCircuitEvent : async event => { events.push(event); }
+              });
+
+        const decision = await service.gatherAndDiagnose();
+
+        expect(decision.status).toBe('healed');
+        expect(actuator.calls.applyHeal).toHaveLength(1);                // the single probe heal ran
+        expect(events).toContainEqual(expect.objectContaining({type: 'circuit-close'}));
+    });
+
+    test('half-open probe runs EXACTLY ONE actionable heal (not the full batch — no mini-storm)', async () => {
+        const actuator = fakeActuator(),
+              events   = [],
+              service  = createService({
+                  evidenceGatherer   : async () => [walStall('neo-agent-memory'), walStall('neo-agent-sessions')],
+                  recoveryActuator   : actuator,
+                  systemicCircuitGate: async () => ({open: false, status: 'half-open-probe', reason: 'cooldown elapsed'}),
+                  recordCircuitEvent : async event => { events.push(event); }
+              });
+
+        await service.gatherAndDiagnose();
+
+        expect(actuator.calls.applyHeal).toHaveLength(1);                              // ONE probe, NOT two (no re-storm)
+        expect(events).toContainEqual(expect.objectContaining({type: 'circuit-close'})); // the single probe healed → close
+    });
+
+    test('half-open probe that RE-FAILS refreshes the open circuit (circuit-open at observedAt, not circuit-close)', async () => {
+        const actuator = fakeActuator({failOn: 'neo-agent-memory'}),
+              events   = [],
+              service  = createService({
+                  evidenceGatherer   : async () => [walStall('neo-agent-memory')],
+                  recoveryActuator   : actuator,
+                  systemicCircuitGate: async () => ({open: false, status: 'half-open-probe', reason: 'cooldown elapsed'}),
+                  recordCircuitEvent : async event => { events.push(event); }
+              });
+
+        await service.gatherAndDiagnose();
+
+        expect(actuator.calls.applyHeal).toHaveLength(1);                              // the probe ran
+        expect(events).toContainEqual(expect.objectContaining({type: 'circuit-open'})); // re-opened → next fold rides it out
+        expect(events.some(event => event.type === 'circuit-close')).toBe(false);
+    });
+
+    test('circuit CLOSED → proceeds normally (heals run, no circuit event recorded)', async () => {
+        const actuator = fakeActuator(),
+              events   = [],
+              service  = createService({
+                  evidenceGatherer   : async () => [walStall()],
+                  recoveryActuator   : actuator,
+                  systemicCircuitGate: async () => ({open: false, status: 'closed', reason: 'not systemic'}),
+                  recordCircuitEvent : async event => { events.push(event); }
+              });
+
+        const decision = await service.gatherAndDiagnose();
+
+        expect(decision.status).toBe('healed');
+        expect(actuator.calls.applyHeal).toHaveLength(1);
+        expect(events).toHaveLength(0);
+    });
+
+    test('surfaces a chronic unsafe-input mis-wire in the decision (observability only — does not gate)', async () => {
+        const service = createService({
+            evidenceGatherer          : async () => [clean()],
+            recoveryActuator          : fakeActuator(),
+            chronicUnsafeInputDetector: async () => [{action: 're-embed-missing', collection: 'neo-agent-memory', count: 7}]
+        });
+
+        const decision = await service.gatherAndDiagnose();
+
+        expect(decision.chronicUnsafeInput).toEqual([{action: 're-embed-missing', collection: 'neo-agent-memory', count: 7}]);
+        expect(decision.status).toBe('clean'); // observability only — the detector does NOT change the heal status
+    });
+
+    test('no chronic detector wired → decision.chronicUnsafeInput defaults to []', async () => {
+        const service  = createService({evidenceGatherer: async () => [clean()], recoveryActuator: fakeActuator()}),
+              decision = await service.gatherAndDiagnose();
+
+        expect(decision.chronicUnsafeInput).toEqual([]);
+    });
 });

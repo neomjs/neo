@@ -38,8 +38,11 @@ import DataRecoveryActuatorService                                              
 import {auditChromaVectorCoverage}                                                                  from '../../scripts/maintenance/checkChromaIntegrity.mjs';
 import {createReEmbedMissingHeal, createReEmbedMissingHealOperation}                                from '../../services/memory-core/helpers/reEmbedMissingHeal.mjs';
 import {appendHealEvent, healEventsToRecentRuns, queryHealLedger, readHealLedger}                   from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
+import {detectChronicUnsafeInput}                                                                   from '../../services/memory-core/helpers/healActionDispatch.mjs';
 import {quarantineCollection, storeFenceTargets, unquarantineCollection}                            from '../../services/memory-core/helpers/quarantineStore.mjs';
 import {createFreezeHealOperation, createStoreFenceOperations, runFreezeReprobe}                    from '../../services/memory-core/helpers/freezeReprobeRunner.mjs';
+import {createThrottleShedHealOperation}                                                            from '../../services/memory-core/helpers/throttleShedHeal.mjs';
+import {decideSystemicCircuit, foldSystemicCircuitState}                                            from '../../services/memory-core/helpers/healSystemicCircuit.mjs';
 import {Memory_StorageRouter as StorageRouter, Memory_TextEmbeddingService as TextEmbeddingService} from '../../services.mjs';
 import {buildDataIntegrityCoverageDiagnosis}                                                        from './services/dataIntegrityCoverageDiagnosis.mjs';
 import {assembleDataIntegrityEvidence}                                                              from './services/dataIntegrityEvidenceAssembler.mjs';
@@ -482,6 +485,13 @@ export class Orchestrator extends Base {
                     // same `createStoreFenceOperations` factory, so a freeze and its later auto-unfreeze lift exactly
                     // the same served set (they cannot diverge into the unfreeze-lifts-only-the-record-key asymmetry).
                     fence: this.getStoreFenceOperations().fence
+                }),
+                // Throttle-shed: the resource-contention / exhaustion heal — open a bounded shed-window so the
+                // orchestrator defers ALL heavy-maintenance until the contended resource recovers, then auto-expires
+                // (no operator). The lazy closure resolves the live `maintenanceBackpressureService` at heal-time,
+                // so it is independent of reactive-config set ordering.
+                'throttle-shed': createThrottleShedHealOperation({
+                    setShedWindow: (durationMs, now) => this.maintenanceBackpressureService.setShedWindow(durationMs, now)
                 })
             },
             recentRunsReader : async collectionName => healEventsToRecentRuns(queryHealLedger(await readHealLedger({dir: healLedgerDir}), {collections: [collectionName]})),
@@ -558,7 +568,26 @@ export class Orchestrator extends Base {
             evidenceGatherer: this.dataIntegrityEvidenceGatherer,
             // Reversibility: a clean re-audit (terminalAction `none`) lifts the serving fence. The store-level
             // fence is per-served-collection, so each lifts as it re-audits clean.
-            liftQuarantine  : async collection => unquarantineCollection(collection, {dir: AiConfig.engines.chroma.dataDir})
+            liftQuarantine  : async collection => unquarantineCollection(collection, {dir: AiConfig.engines.chroma.dataDir}),
+            // Systemic circuit-breaker: fold the heal-ledger → decide whether a cross-collection embedder outage
+            // should suppress this cycle's heals (bounds read FRESH from the AiConfig recovery-actuator leaf).
+            systemicCircuitGate: async ({now}) => {
+                const dir                               = path.join(this.dataDir, 'data-heal-events'),
+                      bounds                            = AiConfig.orchestrator.recoveryActuator.systemicCircuit,
+                      {recentFailures, circuitOpenedAt} = foldSystemicCircuitState(await readHealLedger({dir}), {now, windowMs: bounds.windowMs});
+                return decideSystemicCircuit({recentFailures, circuitOpenedAt, now, bounds});
+            },
+            recordCircuitEvent: async ({type, at, detail}) => appendHealEvent(
+                {type, collection: '*', status: type === 'circuit-open' ? 'open' : 'close', detail},
+                {dir: path.join(this.dataDir, 'data-heal-events'), now: at}
+            ),
+            // Chronic unsafe-input mis-wire detector (observability): fold the heal-ledger for sustained
+            // unsafe-input per (action, collection); bounds read FRESH from the AiConfig recovery-actuator leaf.
+            chronicUnsafeInputDetector: async ({now}) => {
+                const dir    = path.join(this.dataDir, 'data-heal-events'),
+                      bounds = AiConfig.orchestrator.recoveryActuator.chronicUnsafeInput;
+                return detectChronicUnsafeInput(await readHealLedger({dir}), {threshold: bounds.threshold, windowMs: bounds.windowMs, now});
+            }
         });
     }
 
