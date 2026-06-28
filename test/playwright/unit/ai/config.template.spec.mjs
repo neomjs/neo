@@ -280,6 +280,21 @@ test.describe('Tier 1 Config Immutability', () => {
         });
     });
 
+    test('an invalid env-resolved heal-ledger retention leaf fails at the use-site guard, not silently (#14163)', async () => {
+        // The config layer type-checks the leaf as a number but does NOT range-check it; the bounded-retention
+        // contract is enforced at the AiConfig-consuming boundary (validateHealLedgerRetention). A negative operator
+        // value must throw THERE, driven through the canonical template leaf — never via a hand-rolled config overlay —
+        // rather than silently disarming appendHealEvent's prune gate and letting the shared ledger grow unbounded.
+        const {validateHealLedgerRetention} = await import('../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs');
+
+        Config.setEnvOverride('NEO_RECOVERY_ACTUATOR_HEAL_LEDGER_MAX_EVENTS', -1);
+        expect(() => validateHealLedgerRetention(
+            Config.orchestrator.recoveryActuator.healLedger.maxEvents,
+            Config.orchestrator.recoveryActuator.healLedger.pruneTriggerBytes
+        )).toThrow(/maxEvents must be a finite, non-negative number/);
+        Config.setEnvOverride('NEO_RECOVERY_ACTUATOR_HEAL_LEDGER_MAX_EVENTS', 5000);
+    });
+
     test('ships default-off GitLab-PAT hardening leaves as CSV-backed arrays', () => {
         expect(Config.auth.allowedClientIds).toEqual([]);
         expect(Config.auth.allowedUsers).toEqual([]);

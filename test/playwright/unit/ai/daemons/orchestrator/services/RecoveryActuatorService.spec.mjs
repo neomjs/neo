@@ -517,21 +517,9 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
         expect(runtimeCalls).toEqual([]);
     });
 
-    test('healLedgerRetention THROWS when the AiConfig retention leaf is invalid (fail-visible, not silently unbounded)', () => {
-        const {service} = createService(),
-              original  = AiConfig.orchestrator.recoveryActuator.healLedger.maxEvents;
-        try {
-            // An invalid operator-set retention leaf must fail VISIBLY at this boundary getter rather than being
-            // swallowed inside appendHealEvent's prune gate (which would silently let the ledger grow unbounded).
-            AiConfig.orchestrator.recoveryActuator.healLedger.maxEvents = -1;
-            expect(() => service.healLedgerRetention).toThrow(/maxEvents must be a finite, non-negative number/);
-        } finally {
-            AiConfig.orchestrator.recoveryActuator.healLedger.maxEvents = original;
-        }
-    });
-
-    test('healLedgerRetention returns the validated retention pair for a valid config', () => {
-        const {service} = createService();
-        expect(service.healLedgerRetention).toMatchObject({maxEvents: expect.any(Number), triggerBytes: expect.any(Number)});
-    });
+    // The healLedgerRetention boundary getter's VALID path is exercised by the heal-ledger append tests above
+    // (recordDiagnosis / deploy-target redeploy spread `...this.healLedgerRetention` into every appended event).
+    // Its fail-visible INVALID path is covered without mutating the shared AiConfig singleton: the pure-function
+    // validateHealLedgerRetention unit spec (healEventLedgerStore.spec) plus the config-template boundary spec,
+    // which drives an invalid env-resolved retention leaf through the same guard (config.template.spec).
 });
