@@ -252,7 +252,7 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
             pullRequestFeedback: 1
         });
         expect(commands.filter(command => command.startsWith('git status --porcelain '))).toHaveLength(2);
-        expect(commands.filter(command => command === 'git commit --no-verify -m "chore: ticket sync [skip ci]"')).toHaveLength(2);
+        expect(commands.filter(command => command === 'NEO_SKIP_TICKET_ARCHAEOLOGY=1 git commit --no-verify -m "chore: ticket sync [skip ci]"')).toHaveLength(2);
         expect(commands.filter(command => command === 'git pull --rebase --autostash')).toHaveLength(2);
         expect(commands.filter(command => command === 'git push')).toHaveLength(1);
         expect(commands).toContain('git rebase --abort');
@@ -324,7 +324,7 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
             pullRequestFeedback: 1
         });
         expect(commands.filter(command => command.startsWith('git status --porcelain '))).toHaveLength(2);
-        expect(commands.filter(command => command === 'git commit --no-verify -m "chore: ticket sync [skip ci]"')).toHaveLength(2);
+        expect(commands.filter(command => command === 'NEO_SKIP_TICKET_ARCHAEOLOGY=1 git commit --no-verify -m "chore: ticket sync [skip ci]"')).toHaveLength(2);
         expect(commands.filter(command => command === 'git pull --rebase --autostash')).toHaveLength(2);
         expect(commands).not.toContain('git push');
         expect(commands.filter(command => command === 'git rebase --abort')).toHaveLength(2);

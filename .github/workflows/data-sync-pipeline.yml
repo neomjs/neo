@@ -66,8 +66,10 @@ jobs:
             # Stage the files
             git add apps/devindex/resources/data/*.json* apps/portal/resources/data apps/portal/sitemap.xml apps/portal/llms.txt
 
-            # Commit
-            git commit --no-verify -m "chore(data): Hourly data sync pipeline update [skip ci]"
+            # Commit (neo repo). --no-verify: generated data fails whitespace hooks. NEO_SKIP_TICKET_ARCHAEOLOGY:
+            # the explicit archaeology-gate exemption for the generated-data class (declares intent + future-proofs;
+            # co-exists with --no-verify, which these commits still need for whitespace).
+            NEO_SKIP_TICKET_ARCHAEOLOGY=1 git commit --no-verify -m "chore(data): Hourly data sync pipeline update [skip ci]"
 
             # Discard any other unstaged changes to allow rebase
             git reset --hard
@@ -131,6 +133,8 @@ jobs:
             git add llms.txt 2>/dev/null || true
             git add -A node_modules/neo.mjs/resources/content/
 
+            # temp_pages is a clone of neomjs/pages (built output) — it carries no neo archaeology guard,
+            # so NEO_SKIP_TICKET_ARCHAEOLOGY is intentionally absent here (only --no-verify, for whitespace).
             git commit --no-verify -m "chore(data): Sync data and content from neo repo [skip ci]"
             git push origin main
           else
