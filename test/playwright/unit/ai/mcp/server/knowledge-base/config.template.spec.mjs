@@ -100,6 +100,10 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
         expect(config.port).toBe(TIER1_DEFAULTS.engines.chroma.portTest);
         expect(config.collectionName).toBe('neo-knowledge-base');
         expect(config.path).toBe(TIER1_DEFAULTS.engines.chroma.dataDirTest);
+        expect(config.collectionResolveRetry.maxAttempts).toBe(5);
+        expect(config.collectionResolveRetry.initialDelayMs).toBe(500);
+        expect(config.collectionResolveRetry.maxDelayMs).toBe(2000);
+        expect(config.collectionResolveRetry.maxTotalDelayMs).toBe(5000);
     });
 
     test('env overrides win — KB-local leaves at the child, Tier-1-owned leaves at the owner (inherited)', () => {

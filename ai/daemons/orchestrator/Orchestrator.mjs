@@ -62,6 +62,9 @@ import {
     DEFAULT_DATA_DIR,
     DEFAULT_SCRIPT_DIR
 } from './taskDefinitions.mjs';
+import {
+    inspectHeavyMaintenanceLeaseSync
+} from './services/heavyMaintenanceLeasePrimitives.mjs';
 
 /** @summary Opens/creates the orchestrator sqlite DB via the shared Memory Core schema bootstrap. */
 export async function initializeDatabaseSelfBootstrap(dbPath) {
@@ -218,6 +221,7 @@ export class Orchestrator extends Base {
     goldenPathGetDueTask     = goldenPathGetDueTaskImport
     embedDrainLivenessWatchdogGetDueTask = embedDrainLivenessWatchdogGetDueTaskImport
     buildConfiguredTaskDefinitionsService = buildConfiguredTaskDefinitionsImport
+    inspectHeavyMaintenanceLeaseFn = inspectHeavyMaintenanceLeaseSync
 
     isPolling                     = false
     pollHandle                    = null
@@ -887,6 +891,19 @@ export class Orchestrator extends Base {
         return Boolean(state?.running) && maxRuntimeMs > 0 && lastRunAt > 0 && (now - lastRunAt) > maxRuntimeMs;
     }
 
+    /** @summary Returns true while an active heavy-maintenance lease owns the shared Chroma substrate. */
+    isHeavyMaintenanceLeaseActive(now) {
+        try {
+            return Boolean(this.inspectHeavyMaintenanceLeaseFn({
+                leasePath: this.maintenanceBackpressureService.resolveHeavyMaintenanceLeasePath(),
+                now
+            }).active);
+        } catch (e) {
+            this.writeLog('ERROR', `[Orchestrator] Heavy-maintenance lease inspection failed; deferring Chroma recycle: ${e.message}`);
+            return true;
+        }
+    }
+
     /** @summary Resolves true when Chroma's TCP port accepts a connection. */
     probeChromaReady({timeoutMs = 2000} = {}) {
         return new Promise(resolve => {
@@ -925,6 +942,11 @@ export class Orchestrator extends Base {
             const state = this.taskStateService.getTaskState(taskName);
 
             if (taskName === 'chroma' && this.isChromaRecycleDue(state, now)) {
+                if (this.isHeavyMaintenanceLeaseActive(now)) {
+                    this.processSupervisorService.superviseTask(taskName, now, RESTART_COOLDOWN_MS);
+                    continue;
+                }
+
                 this.processSupervisorService.killTask('chroma', `max-runtime:${now - (state.lastRunAt || 0)}ms>${AiConfig.orchestrator.chroma.maxRuntimeMs}ms`);
                 this._chromaDefragPending = true;
                 continue;
@@ -932,7 +954,13 @@ export class Orchestrator extends Base {
 
             this.processSupervisorService.superviseTask(taskName, now, RESTART_COOLDOWN_MS);
 
-            if (taskName === 'chroma' && state?.running && this._chromaDefragPending && !this._chromaDefragInFlight) {
+            if (
+                taskName === 'chroma' &&
+                state?.running &&
+                this._chromaDefragPending &&
+                !this._chromaDefragInFlight &&
+                !this.isHeavyMaintenanceLeaseActive(now)
+            ) {
                 this._chromaDefragInFlight = true;
                 this.probeChromaReady()
                     .then(ready => {
