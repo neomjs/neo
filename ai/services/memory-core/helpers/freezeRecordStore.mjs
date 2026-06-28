@@ -19,6 +19,29 @@ import path                         from 'path';
 const FREEZE_RECORDS_FILENAME = 'freeze-records.json';
 
 /**
+ * Serializes every freeze-record read-modify-write through one in-process promise-chain. Both
+ * `upsertFreezeRecord` (freeze-apply) and `removeFreezeRecord` (re-probe unfreeze) rewrite the WHOLE map, so two
+ * concurrent async calls would each read a stale map and the later write would clobber the earlier — a lost
+ * freeze-record (a collection stuck frozen with no re-probe target) or a resurrected one. The source ticket named
+ * exactly this freeze-apply-vs-re-probe interleave. The frozen set is tiny + writes are rare, so an in-process
+ * mutation queue is the right weight; no cross-process file-lock is needed (freeze-records are per-daemon-dataDir,
+ * and cross-daemon heavy ops are already serialized by the heavy-maintenance lease). Reads stay unserialized.
+ * @type {Promise<*>}
+ */
+let freezeRecordWriteChain = Promise.resolve();
+
+/**
+ * @summary Runs a freeze-record mutation only after all prior mutations settle (serialized RMW — no lost update).
+ * @param {Function} mutate `async () => result` — the read-modify-write body.
+ * @returns {Promise<*>} The mutation's result (rejections propagate to the caller; the chain stays alive).
+ */
+function serializeFreezeRecordWrite(mutate) {
+    const run = freezeRecordWriteChain.then(mutate, mutate);
+    freezeRecordWriteChain = run.then(() => {}, () => {});
+    return run;
+}
+
+/**
  * @summary The freeze-records JSON path within a state directory.
  * @param {String} dir
  * @returns {String}
@@ -79,31 +102,45 @@ export async function getFreezeRecord({dir, collectionName} = {}) {
  * @param {Number} [options.frozenAt] Epoch ms the freeze was first recorded (preserved across updates).
  * @param {Number} [options.unfreezeAttempts] Auto-unfreeze attempts so far (the anti-thrash counter).
  * @param {Number} [options.lastProbeAt] Epoch ms of the last re-probe (the back-off clock).
+ * @param {Number} [options.containedAt] Epoch ms the collection became contained (thrash-cap terminal) — set once on transition so the `contained` heal-event ledgers exactly once, not every poll.
+ * @param {Number} [options.unfrozenAt] Epoch ms of the last successful auto-unfreeze — marks the record a RELEASED tombstone (no longer frozen, not re-probed) that lingers only so a re-freeze within the flap window can inherit its climbing `unfreezeAttempts`. Cleared (re-activated) on re-freeze.
  * @returns {Promise<Object>} The written record.
+ *
+ * Set-or-clear per field: `undefined` PRESERVES the prior value (a partial update), an explicit `null` DELETES the
+ * field, and any other value sets it. The null-clear is what lets a re-freeze re-activate a released tombstone
+ * (`unfrozenAt: null`) and reset its stale back-off / contained markers (`lastProbeAt: null`, `containedAt: null`).
  */
-export async function upsertFreezeRecord({dir, collectionName, faultFingerprint, frozenAt, unfreezeAttempts, lastProbeAt} = {}) {
+export async function upsertFreezeRecord({dir, collectionName, faultFingerprint, frozenAt, unfreezeAttempts, lastProbeAt, containedAt, unfrozenAt} = {}) {
     if (typeof collectionName !== 'string' || collectionName.length === 0) {
         throw new TypeError('upsertFreezeRecord: collectionName is required');
     }
 
-    const records  = await readFreezeRecords({dir}),
-          existing = Object.hasOwn(records, collectionName) && records[collectionName] && typeof records[collectionName] === 'object'
-              ? records[collectionName] : {},
-          merged   = {
-              ...existing,
-              collectionName,
-              ...(faultFingerprint !== undefined ? {faultFingerprint} : {}),
-              ...(frozenAt         !== undefined ? {frozenAt}         : {}),
-              ...(unfreezeAttempts !== undefined ? {unfreezeAttempts} : {}),
-              ...(lastProbeAt      !== undefined ? {lastProbeAt}      : {})
-          };
+    return serializeFreezeRecordWrite(async () => {
+        const records  = await readFreezeRecords({dir}),
+              existing = Object.hasOwn(records, collectionName) && records[collectionName] && typeof records[collectionName] === 'object'
+                  ? records[collectionName] : {},
+              merged   = {...existing, collectionName},
+              // undefined → preserve prior; null → delete the field; else → set it.
+              applyField = (key, value) => {
+                  if (value === undefined) return;
+                  if (value === null) { delete merged[key]; return; }
+                  merged[key] = value;
+              };
 
-    records[collectionName] = merged;
+        applyField('faultFingerprint', faultFingerprint);
+        applyField('frozenAt',         frozenAt);
+        applyField('unfreezeAttempts', unfreezeAttempts);
+        applyField('lastProbeAt',      lastProbeAt);
+        applyField('containedAt',      containedAt);
+        applyField('unfrozenAt',       unfrozenAt);
 
-    await mkdir(dir, {recursive: true});
-    await writeFile(getFreezeRecordsFilePath(dir), `${JSON.stringify(records, null, 2)}\n`, 'utf8');
+        records[collectionName] = merged;
 
-    return merged;
+        await mkdir(dir, {recursive: true});
+        await writeFile(getFreezeRecordsFilePath(dir), `${JSON.stringify(records, null, 2)}\n`, 'utf8');
+
+        return merged;
+    });
 }
 
 /**
@@ -118,16 +155,18 @@ export async function removeFreezeRecord({dir, collectionName} = {}) {
         return false;
     }
 
-    const records = await readFreezeRecords({dir});
+    return serializeFreezeRecordWrite(async () => {
+        const records = await readFreezeRecords({dir});
 
-    if (!Object.hasOwn(records, collectionName)) {
-        return false;
-    }
+        if (!Object.hasOwn(records, collectionName)) {
+            return false;
+        }
 
-    delete records[collectionName];
+        delete records[collectionName];
 
-    await mkdir(dir, {recursive: true});
-    await writeFile(getFreezeRecordsFilePath(dir), `${JSON.stringify(records, null, 2)}\n`, 'utf8');
+        await mkdir(dir, {recursive: true});
+        await writeFile(getFreezeRecordsFilePath(dir), `${JSON.stringify(records, null, 2)}\n`, 'utf8');
 
-    return true;
+        return true;
+    });
 }
