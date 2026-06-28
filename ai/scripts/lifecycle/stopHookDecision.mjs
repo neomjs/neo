@@ -32,6 +32,11 @@ const AUTONOMOUS_HANDOFF_PATTERNS = Object.freeze([
     {label: 'you-drive-window', re: /\byou drive\b[\s\S]{0,160}\b(?:for the next|next|until I|while I)\b/i}
 ]);
 
+const SYNTHETIC_PROMPT_PATTERNS = Object.freeze([
+    /^\s*<hook_prompt\b/i,
+    /^\s*<turn_aborted\b/i
+]);
+
 /**
  * @summary Extracts a bounded handoff window from operator prose when one is explicitly stated.
  * @param {String} text Operator prompting text.
@@ -74,15 +79,25 @@ export function detectAutonomousHandoffPrompt(promptingText = '') {
 }
 
 /**
+ * @summary Detects hook-generated user records that are lifecycle noise, not human operator prompts.
+ * @param {String} text Prompting text candidate.
+ * @returns {Boolean}
+ */
+export function isSyntheticPromptingText(text = '') {
+    return typeof text === 'string' && SYNTHETIC_PROMPT_PATTERNS.some(re => re.test(text));
+}
+
+/**
  * @summary Classifies the prompting text into operator-dialogue vs autonomous handoff.
  * @param {{stopHookActive: Boolean, promptingText: String}} signals
  * @returns {{operatorInLoop: Boolean, autonomousHandoff: Boolean, handoffReason: String|null, handoffWindowMs: Number|null}}
  */
 export function classifyPromptingContext({stopHookActive, promptingText = ''}) {
-    const handoff = detectAutonomousHandoffPrompt(promptingText);
+    const handoff   = detectAutonomousHandoffPrompt(promptingText),
+          synthetic = isSyntheticPromptingText(promptingText);
 
     return {
-        operatorInLoop   : !stopHookActive && !!promptingText.trim() && !/^\s*\[WAKE\]/.test(promptingText) && !handoff.active,
+        operatorInLoop   : !stopHookActive && !!promptingText.trim() && !/^\s*\[WAKE\]/.test(promptingText) && !synthetic && !handoff.active,
         autonomousHandoff: handoff.active,
         handoffReason    : handoff.reason,
         handoffWindowMs  : handoff.windowMs
