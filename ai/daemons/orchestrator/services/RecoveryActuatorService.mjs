@@ -11,7 +11,10 @@ import {
     createRecoveryRunStateEntry,
     createRecoveryTargetIdentity
 } from '../../../services/memory-core/helpers/recoveryRunStateStore.mjs';
-import {appendHealEvent}  from '../../../services/memory-core/helpers/healEventLedgerStore.mjs';
+import {
+    appendHealEvent,
+    validateHealLedgerRetention
+} from '../../../services/memory-core/helpers/healEventLedgerStore.mjs';
 import {DEFAULT_DATA_DIR} from '../taskDefinitions.mjs';
 
 const DEFAULT_ACTIONS        = Object.freeze(['restart', 'redeploy', 'warm-provider']);
@@ -84,7 +87,7 @@ export function isRecoveryActuatorTargetBlocked(target, blockedTargets) {
  * @class Neo.ai.daemons.services.RecoveryActuatorService
  * @extends Neo.core.Base
  *
- * B1 privileged recovery actuator for ADR-0026. The service is controller-blind:
+ * B1 privileged recovery actuator (the deny-by-default privilege-boundary design). The service is controller-blind:
  * callers pass an already-selected action, and this class only answers whether the
  * recovery target registry + persisted anti-thrash envelope admits it. Compose-service
  * lifecycle writes are delegated to the shared L0 deployment-runtime access holder,
@@ -163,6 +166,18 @@ export class RecoveryActuatorService extends Base {
         return path.join(path.dirname(this.recoveryRunStateDir), 'heal-events');
     }
 
+    /**
+     * @summary The heal-ledger retention policy (maxEvents + prune byte-trigger), read from the AiConfig SSOT and
+     * VALIDATED at this use-site boundary. Invalid operator config fails visibly here rather than being swallowed
+     * inside appendHealEvent's prune gate (which would silently let the shared observability ledger grow unbounded).
+     */
+    get healLedgerRetention() {
+        return validateHealLedgerRetention(
+            AiConfig.orchestrator.recoveryActuator.healLedger.maxEvents,
+            AiConfig.orchestrator.recoveryActuator.healLedger.pruneTriggerBytes
+        );
+    }
+
     /** @summary Resolves the configured compose-service recovery blocklist. */
     get blockedComposeServices() {
         return normalizeRecoveryActuatorTargets(this.cfg.blockedComposeServices, 'compose-service');
@@ -214,7 +229,7 @@ export class RecoveryActuatorService extends Base {
      * @param {String} serviceKey Stable recovery target key.
      * @param {String} action restart | redeploy | warm-provider.
      * @param {Object} [options]
-     * @param {Object|null} [options.diagnosisEvent=null] Optional ADR-0025 diagnosis event.
+     * @param {Object|null} [options.diagnosisEvent=null] Optional structured diagnosis event.
      * @param {Object|null} [options.targetIdentity=null] Optional typed target identity.
      * @param {String|null} [options.recoveryRunId=null] Optional stable recovery run id.
      * @param {Number} [options.now=Date.now()] Epoch milliseconds.
@@ -420,7 +435,7 @@ export class RecoveryActuatorService extends Base {
                 targetIdentity: createRecoveryTargetIdentity(diagnosis.targetIdentity),
                 evidenceFacts : diagnosis.evidenceFacts || []
             }
-        }, {dir: this.healEventLedgerDir, now});
+        }, {dir: this.healEventLedgerDir, now, ...this.healLedgerRetention});
 
         const updatedAt = Date.now();
 
@@ -608,7 +623,7 @@ export class RecoveryActuatorService extends Base {
             collection: target.id,
             status    : 'recorded',
             detail    : recorded
-        }, {dir: this.healEventLedgerDir, now: Date.now()});
+        }, {dir: this.healEventLedgerDir, now: Date.now(), ...this.healLedgerRetention});
 
         this.writeLog?.('INFO', `[RecoveryActuator] Redeploy required for ${target.id}; recorded to the heal-event ledger (no operator to page).`);
 

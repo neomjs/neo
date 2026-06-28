@@ -430,12 +430,15 @@ test.describe('Orchestrator parent-prop propagation (#11834 AC3)', () => {
         expect(summary?.args?.some(arg => typeof arg === 'string' && arg.includes('/ai/scripts/mutated/'))).toBe(true);
     });
 
-    test('mutating orchestrator.dataDir propagates to processSupervisorService + maintenanceBackpressureService', () => {
+    test('mutating orchestrator.dataDir propagates to processSupervisorService + maintenanceBackpressureService + the bridge heal-ledger dir', () => {
         const orchestrator = createMinimalOrchestrator();
         orchestrator.dataDir = '/tmp/orchestrator-test-mutated';
 
         expect(orchestrator.processSupervisorService.dataDir).toBe('/tmp/orchestrator-test-mutated');
         expect(orchestrator.maintenanceBackpressureService.dataDir).toBe('/tmp/orchestrator-test-mutated');
+        // The bridge derives its heal-ledger dir from dataDir at construction; a runtime dataDir change must keep it
+        // coherent, else the actuator writes the NEW ledger while the bridge keeps reading the OLD one (stale snapshot).
+        expect(orchestrator.deploymentStateBridgeService.healLedgerDir).toBe(path.join('/tmp/orchestrator-test-mutated', 'data-heal-events'));
     });
 
     test('the store-level fence fan-out resolves served collection names from the Memory Core config SSOT', () => {
