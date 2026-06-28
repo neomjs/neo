@@ -187,6 +187,42 @@ test.describe('freezeReprobeRunner — contained ledgering (#14276)', () => {
             await fs.rm(dir, {recursive: true, force: true});
         }
     });
+
+    test('all freeze re-probe heal-ledger appends honor the supplied retention policy (#14295)', async () => {
+        const dir       = await tmpDir(),
+              retention = {triggerBytes: 1, maxEvents: 2};
+
+        try {
+            await upsertFreezeRecord({dir, collectionName: 'contained', faultFingerprint: 'e', frozenAt: 1000, unfreezeAttempts: 3});
+            await runFreezeReprobe({
+                freezeRecordsDir   : dir,
+                healLedgerDir      : dir,
+                healLedgerRetention: retention,
+                now                : 2_000_000,
+                probe              : async () => ({embedderHealthy: false, dimensionConsistent: false}),
+                unfence            : async () => {}
+            });
+            await removeFreezeRecord({dir, collectionName: 'contained'});
+
+            await upsertFreezeRecord({dir, collectionName: 'recovered', faultFingerprint: 'e', frozenAt: 1000, unfreezeAttempts: 3, containedAt: 1000});
+            await runFreezeReprobe({
+                freezeRecordsDir   : dir,
+                healLedgerDir      : dir,
+                healLedgerRetention: retention,
+                now                : 1000 + 7 * 60 * 60 * 1000,
+                probe              : async () => ({embedderHealthy: true, dimensionConsistent: true}),
+                unfence            : async () => {}
+            });
+
+            const ledger = await readHealLedger({dir});
+
+            expect(ledger).toHaveLength(2);
+            expect(ledger.map(event => event.type)).toEqual(['contained-reopen', 'unfreeze']);
+            expect(ledger.every(event => event.collection === 'recovered')).toBe(true);
+        } finally {
+            await fs.rm(dir, {recursive: true, force: true});
+        }
+    });
 });
 
 test.describe('freezeReprobeRunner — contained recovery (#14276 no permanent strand)', () => {
