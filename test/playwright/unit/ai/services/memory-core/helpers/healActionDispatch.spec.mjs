@@ -259,3 +259,27 @@ test.describe('detectChronicUnsafeInput — chronic unsafe-input mis-wire detect
         expect(detectChronicUnsafeInput(events, {threshold: 1,   windowMs: 60_000, now: NaN })).toEqual([]);
     });
 });
+
+test.describe('healActionDispatch — throttle-shed vocabulary (#14284)', () => {
+    const NOW2 = 12_000_000;
+
+    test('throttle-shed is a dispatchable, NON-mutating containment action (not unknown-action)', () => {
+        expect(HEAL_ACTIONS).toContain('throttle-shed');
+        expect(MUTATING_HEAL_ACTIONS).not.toContain('throttle-shed'); // non-mutating like freeze/quarantine
+        // admitted by the vocabulary gate + exempt from the mutating rate-limit/anti-thrash bound
+        expect(decideHealAction({action: 'throttle-shed', collection: 'kbSync', now: NOW2})).toMatchObject({execute: true});
+    });
+
+    test('dispatchHeal invokes the throttle-shed operation + returns the shed outcome (was inert before the vocabulary fix)', async () => {
+        let   called  = false;
+        const outcome = await dispatchHeal({
+            action        : 'throttle-shed',
+            collection    : 'kbSync',
+            now           : NOW2,
+            healOperations: {'throttle-shed': async () => { called = true; return {status: 'shed', detail: {shedUntil: NOW2 + 300000}}; }}
+        });
+
+        expect(called).toBe(true); // reachable through the dispatch vocabulary — NOT rejected as unknown-action
+        expect(outcome).toMatchObject({action: 'throttle-shed', collection: 'kbSync', status: 'shed', healedAt: NOW2});
+    });
+});
