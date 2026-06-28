@@ -97,7 +97,8 @@ function resolveDeploymentEnabled(key) {
  * @returns {Boolean}
  */
 // Exported so a cross-module controller (e.g. the recovery actuator's B1 compose-service selection
-// point) can consult a cloudOnly mode-gate without scattering raw `deploymentMode` reads (ADR-0019).
+// point) can consult a cloudOnly mode-gate without scattering raw `deploymentMode` reads — the
+// reactive-config-as-single-source-of-truth pattern: read resolved leaves at the use site, never re-derive.
 export function resolveCloudOnlyEnabled(key) {
     const cfg = AiConfig.orchestrator.cloudOnly[key];
     if (cfg != null) return cfg;
