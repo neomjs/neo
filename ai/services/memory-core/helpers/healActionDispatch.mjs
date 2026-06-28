@@ -17,12 +17,12 @@
 
 /**
  * The DISPATCHABLE heal actions (the classifier's `terminalAction` vocabulary). Non-mutating containment
- * (`freeze` / `quarantine`) is always safe to apply; the rest are mutating (see `MUTATING_HEAL_ACTIONS`).
+ * (`freeze` / `quarantine` / `throttle-shed`) is always safe to apply; the rest are mutating (see `MUTATING_HEAL_ACTIONS`).
  * The no-op sentinel `none` (`NO_HEAL_ACTION`) is deliberately NOT in this set — it is resolved to `no-op`
  * before the vocabulary check, never dispatched.
  * @type {String[]}
  */
-export const HEAL_ACTIONS = Object.freeze(['re-embed-missing', 're-embed-rows', 'restore-delta-merge', 'quarantine', 'freeze', 'defrag']);
+export const HEAL_ACTIONS = Object.freeze(['re-embed-missing', 're-embed-rows', 'restore-delta-merge', 'quarantine', 'freeze', 'throttle-shed', 'defrag']);
 
 /**
  * The non-dispatchable no-op sentinel: the classifier emits `none` for a clean collection (nothing to heal).
@@ -35,7 +35,7 @@ export const NO_HEAL_ACTION = 'none';
 
 /**
  * Mutating heal actions — rate-limited + anti-thrash-bounded (they re-embed / restore / rewrite data).
- * `freeze` + `quarantine` are non-mutating containment and are exempt.
+ * `freeze`, `quarantine` + `throttle-shed` are non-mutating containment and are exempt.
  * @type {String[]}
  */
 export const MUTATING_HEAL_ACTIONS = Object.freeze(['re-embed-missing', 're-embed-rows', 'restore-delta-merge', 'defrag']);
