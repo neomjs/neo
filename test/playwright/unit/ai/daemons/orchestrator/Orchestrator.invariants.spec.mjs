@@ -1,6 +1,8 @@
 import {test, expect}   from '@playwright/test';
+import {execFile}       from 'child_process';
 import fs               from 'fs/promises';
 import path             from 'path';
+import {promisify}      from 'util';
 import {fileURLToPath}  from 'url';
 import Neo              from '../../../../../../src/Neo.mjs';
 import * as core        from '../../../../../../src/core/_export.mjs';
@@ -17,9 +19,10 @@ import {
 } from '../../../../../../ai/daemons/orchestrator/taskDefinitions.mjs';
 import TaskStateService, {createInitialTaskState} from '../../../../../../ai/daemons/orchestrator/services/TaskStateService.mjs';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
-const REPO_ROOT  = path.resolve(__dirname, '../../../../../..');
+const __filename    = fileURLToPath(import.meta.url);
+const __dirname     = path.dirname(__filename);
+const REPO_ROOT     = path.resolve(__dirname, '../../../../../..');
+const execFileAsync = promisify(execFile);
 
 const ORCHESTRATOR_MJS_PATH                    = path.join(REPO_ROOT, 'ai/daemons/orchestrator/Orchestrator.mjs');
 const ORCHESTRATOR_DAEMON_PATH                 = path.join(REPO_ROOT, 'ai/daemons/orchestrator/daemon.mjs');
@@ -76,14 +79,14 @@ function createMinimalOrchestrator() {
     TaskStateService.taskState = createInitialTaskState(taskDefinitions);
 
     return Neo.create(Orchestrator, {
-        dataDir  : '/tmp/orchestrator-test',
-        stateFile: '/tmp/orchestrator-test/state.json',
-        logFile  : null,
+        dataDir                  : '/tmp/orchestrator-test',
+        stateFile                : '/tmp/orchestrator-test/state.json',
+        logFile                  : null,
         heavyMaintenanceLeasePath: `/tmp/orchestrator-test/heavy-maintenance-lease-${process.pid}-${++invariantSeq}.json`,
         taskDefinitions,
-        taskStateService: TaskStateService,
-        healthService   : {recordTaskOutcome() {}},
-        spawnFn         : () => { throw new Error('spawnFn not expected'); }
+        taskStateService         : TaskStateService,
+        healthService            : {recordTaskOutcome() {}},
+        spawnFn                  : () => { throw new Error('spawnFn not expected'); }
     });
 }
 
@@ -441,6 +444,78 @@ test.describe('Orchestrator parent-prop propagation (#11834 AC3)', () => {
         expect(orchestrator.deploymentStateBridgeService.healLedgerDir).toBe(path.join('/tmp/orchestrator-test-mutated', 'data-heal-events'));
     });
 
+    test('systemic circuit ledger writes honor retention from the AiConfig provider (#14295)', async () => {
+        const script = `
+            const fs = await import('node:fs/promises');
+            const os = await import('node:os');
+            const path = await import('node:path');
+            const {default: Neo} = await import('./src/Neo.mjs');
+            await import('./src/core/_export.mjs');
+            const {default: AiConfig} = await import('./ai/config.mjs');
+            const {Orchestrator} = await import('./ai/daemons/orchestrator/Orchestrator.mjs');
+            const {buildTaskDefinitions} = await import('./ai/daemons/orchestrator/taskDefinitions.mjs');
+            const {default: TaskStateService, createInitialTaskState} = await import('./ai/daemons/orchestrator/services/TaskStateService.mjs');
+            const {readHealLedger} = await import('./ai/services/memory-core/helpers/healEventLedgerStore.mjs');
+
+            const root = await fs.mkdtemp(path.join(os.tmpdir(), 'orchestrator-14295-circuit-'));
+            try {
+                if (AiConfig.orchestrator.recoveryActuator.healLedger.maxEvents !== 2) {
+                    throw new Error('expected env-backed healLedger.maxEvents to resolve through AiConfig');
+                }
+                if (AiConfig.orchestrator.recoveryActuator.healLedger.pruneTriggerBytes !== 1) {
+                    throw new Error('expected env-backed healLedger.pruneTriggerBytes to resolve through AiConfig');
+                }
+
+                const taskDefinitions = buildTaskDefinitions({scriptDir: '/repo/ai/scripts', nodeBin: process.execPath});
+                TaskStateService.configure({stateFile: path.join(root, 'state.json'), taskDefinitions, writeLogFn: () => {}});
+                TaskStateService.taskState = createInitialTaskState(taskDefinitions);
+
+                const orchestrator = Neo.create(Orchestrator, {
+                    dataDir                  : root,
+                    stateFile                : path.join(root, 'state.json'),
+                    logFile                  : null,
+                    heavyMaintenanceLeasePath: path.join(root, 'heavy-maintenance-lease.json'),
+                    taskDefinitions,
+                    taskStateService         : TaskStateService,
+                    healthService            : {recordTaskOutcome() {}},
+                    spawnFn                  : () => { throw new Error('spawnFn not expected'); }
+                });
+
+                for (let i = 0; i < 5; i++) {
+                    await orchestrator.dataIntegrityDiagnosisService.recordCircuitEvent({
+                        type  : i % 2 === 0 ? 'circuit-open' : 'circuit-close',
+                        at    : i,
+                        detail: {i}
+                    });
+                }
+
+                const events = await readHealLedger({dir: path.join(root, 'data-heal-events')});
+                if (events.length !== 2) {
+                    throw new Error('expected retained ledger length 2, got ' + events.length);
+                }
+                if (JSON.stringify(events.map(event => event.at)) !== JSON.stringify([3, 4])) {
+                    throw new Error('expected newest retained event times [3,4], got ' + JSON.stringify(events.map(event => event.at)));
+                }
+                if (JSON.stringify(events.map(event => event.type)) !== JSON.stringify(['circuit-close', 'circuit-open'])) {
+                    throw new Error('expected newest circuit event types, got ' + JSON.stringify(events.map(event => event.type)));
+                }
+            } finally {
+                await fs.rm(root, {recursive: true, force: true});
+            }
+        `;
+
+        await execFileAsync(process.execPath, ['--input-type=module', '-e', script], {
+            cwd: REPO_ROOT,
+            env: {
+                ...process.env,
+                NEO_RECOVERY_ACTUATOR_HEAL_LEDGER_MAX_EVENTS         : '2',
+                NEO_RECOVERY_ACTUATOR_HEAL_LEDGER_PRUNE_TRIGGER_BYTES: '1',
+                UNIT_TEST_MODE                                       : 'true'
+            },
+            maxBuffer: 1024 * 1024
+        });
+    });
+
     test('the store-level fence fan-out resolves served collection names from the Memory Core config SSOT', () => {
         const orchestrator = createMinimalOrchestrator();
         // A store-level fault target (e.g. mc-server) is not itself a served collection, so it expands to the served
@@ -530,7 +605,7 @@ test.describe('Orchestrator source-level invariants (#11834 AC4)', () => {
         const configuredTaskDefinitionsSource = stripCommentsAndStrings(
             await fs.readFile(CONFIGURED_TASK_DEFINITIONS_SERVICE_PATH, 'utf8')
         );
-        const daemonSource = stripCommentsAndStrings(await fs.readFile(ORCHESTRATOR_DAEMON_PATH, 'utf8'));
+        const daemonSource     = stripCommentsAndStrings(await fs.readFile(ORCHESTRATOR_DAEMON_PATH, 'utf8'));
         const configReadSource = `${orchestratorSource}\n${configuredTaskDefinitionsSource}`;
 
         for (const snippet of [
@@ -595,7 +670,7 @@ test.describe('Orchestrator source-level invariants (#11834 AC4)', () => {
         const slotNames   = slotMatches.map(m => m[1]).filter(name => name !== 'class' && name !== 'static');
 
         const missingHook = slotNames.filter(name => {
-            const cap = name.charAt(0).toUpperCase() + name.slice(1);
+            const cap      = name.charAt(0).toUpperCase() + name.slice(1);
             const beforeRe = new RegExp(`\\bbeforeSet${cap}\\s*\\(`);
             const afterRe  = new RegExp(`\\bafterSet${cap}\\s*\\(`);
             return !beforeRe.test(codeLines) && !afterRe.test(codeLines);
