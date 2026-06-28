@@ -38,6 +38,7 @@ import DataRecoveryActuatorService                                              
 import {auditChromaVectorCoverage}                                                                  from '../../scripts/maintenance/checkChromaIntegrity.mjs';
 import {createReEmbedMissingHeal, createReEmbedMissingHealOperation}                                from '../../services/memory-core/helpers/reEmbedMissingHeal.mjs';
 import {appendHealEvent, healEventsToRecentRuns, queryHealLedger, readHealLedger}                   from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
+import {detectChronicUnsafeInput}                                                                   from '../../services/memory-core/helpers/healActionDispatch.mjs';
 import {quarantineCollection, storeFenceTargets, unquarantineCollection}                            from '../../services/memory-core/helpers/quarantineStore.mjs';
 import {decideSystemicCircuit, foldSystemicCircuitState}                                            from '../../services/memory-core/helpers/healSystemicCircuit.mjs';
 import {Memory_StorageRouter as StorageRouter, Memory_TextEmbeddingService as TextEmbeddingService} from '../../services.mjs';
@@ -502,7 +503,14 @@ export class Orchestrator extends Base {
             recordCircuitEvent: async ({type, at, detail}) => appendHealEvent(
                 {type, collection: '*', status: type === 'circuit-open' ? 'open' : 'close', detail},
                 {dir: path.join(this.dataDir, 'data-heal-events'), now: at}
-            )
+            ),
+            // Chronic unsafe-input mis-wire detector (observability): fold the heal-ledger for sustained
+            // unsafe-input per (action, collection); bounds read FRESH from the AiConfig recovery-actuator leaf.
+            chronicUnsafeInputDetector: async ({now}) => {
+                const dir    = path.join(this.dataDir, 'data-heal-events'),
+                      bounds = AiConfig.orchestrator.recoveryActuator.chronicUnsafeInput;
+                return detectChronicUnsafeInput(await readHealLedger({dir}), {threshold: bounds.threshold, windowMs: bounds.windowMs, now});
+            }
         });
     }
 

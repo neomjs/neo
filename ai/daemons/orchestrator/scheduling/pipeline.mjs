@@ -905,6 +905,14 @@ async function runDataIntegritySweepTask({taskName, reason, services, runtime}) 
         };
         if (decision.probeError) details.probeError = decision.probeError;
 
+        // Chronic unsafe-input mis-wire alert: a sustained fail-closed for the same (action, collection) means a
+        // caller is mis-wired and that heal silently never executes — surface it (the immune system's own
+        // self-observability), since a single fail-closed is correct but a chronic one is otherwise invisible.
+        if (Array.isArray(decision.chronicUnsafeInput) && decision.chronicUnsafeInput.length > 0) {
+            details.chronicUnsafeInput = decision.chronicUnsafeInput;
+            runtime.writeLog?.('WARN', `[Orchestrator] chronic unsafe-input mis-wire: ${decision.chronicUnsafeInput.map(c => `${c.action}/${c.collection}×${c.count}`).join(', ')} — a heal is silently never executing`);
+        }
+
         // Self-heal semantics: a clean store AND an autonomously-healed store are both healthy outcomes (the
         // immune system worked). Only an unavailable probe is a not-healthy signal — there is no escalate state.
         const notHealthy = decision.status === 'probe-unavailable';

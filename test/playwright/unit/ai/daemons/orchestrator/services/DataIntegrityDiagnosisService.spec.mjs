@@ -297,4 +297,24 @@ test.describe('Neo.ai.daemons.services.DataIntegrityDiagnosisService', () => {
         expect(actuator.calls.applyHeal).toHaveLength(1);
         expect(events).toHaveLength(0);
     });
+
+    test('surfaces a chronic unsafe-input mis-wire in the decision (observability only — does not gate)', async () => {
+        const service = createService({
+            evidenceGatherer          : async () => [clean()],
+            recoveryActuator          : fakeActuator(),
+            chronicUnsafeInputDetector: async () => [{action: 're-embed-missing', collection: 'neo-agent-memory', count: 7}]
+        });
+
+        const decision = await service.gatherAndDiagnose();
+
+        expect(decision.chronicUnsafeInput).toEqual([{action: 're-embed-missing', collection: 'neo-agent-memory', count: 7}]);
+        expect(decision.status).toBe('clean'); // observability only — the detector does NOT change the heal status
+    });
+
+    test('no chronic detector wired → decision.chronicUnsafeInput defaults to []', async () => {
+        const service  = createService({evidenceGatherer: async () => [clean()], recoveryActuator: fakeActuator()}),
+              decision = await service.gatherAndDiagnose();
+
+        expect(decision.chronicUnsafeInput).toEqual([]);
+    });
 });

@@ -3,6 +3,7 @@ import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 import {
     decideHealAction,
+    detectChronicUnsafeInput,
     dispatchHeal,
     DEFAULT_DISPATCH_BOUNDS,
     HEAL_ACTIONS,
@@ -224,5 +225,37 @@ test.describe('dispatchHeal — actuator core dispatch (safety gate + injected e
         expect(called).toBe(false); // never executed the mutation when the attempt could not be recorded
         expect(outcome).toMatchObject({status: 'failed'});
         expect(outcome.detail).toMatch(/recordRun failed pre-execution/);
+    });
+});
+
+test.describe('detectChronicUnsafeInput — chronic unsafe-input mis-wire detector', () => {
+    const NOW = 5_000_000;
+
+    test('>= threshold unsafe-input for the same (action, collection) in-window → flagged', () => {
+        const chronic = detectChronicUnsafeInput([
+            {type: 're-embed-missing', collection: 'a', status: 'unsafe-input', at: NOW - 1000},
+            {type: 're-embed-missing', collection: 'a', status: 'unsafe-input', at: NOW - 2000},
+            {type: 're-embed-missing', collection: 'a', status: 'unsafe-input', at: NOW - 3000},
+            {type: 're-embed-missing', collection: 'b', status: 'unsafe-input', at: NOW - 1000}, // below threshold
+            {type: 're-embed-missing', collection: 'a', status: 'healed',       at: NOW - 500}   // not unsafe-input
+        ], {threshold: 3, windowMs: 60_000, now: NOW});
+
+        expect(chronic).toEqual([{action: 're-embed-missing', collection: 'a', count: 3}]);
+    });
+
+    test('out-of-window unsafe-input does NOT count toward the threshold', () => {
+        const chronic = detectChronicUnsafeInput([
+            {type: 're-embed-missing', collection: 'a', status: 'unsafe-input', at: NOW - 1000},
+            {type: 're-embed-missing', collection: 'a', status: 'unsafe-input', at: NOW - 2000},
+            {type: 're-embed-missing', collection: 'a', status: 'unsafe-input', at: NOW - 9_000_000} // out of window
+        ], {threshold: 3, windowMs: 60_000, now: NOW});
+
+        expect(chronic).toEqual([]); // only 2 in-window < 3
+    });
+
+    test('non-finite bounds → no alert (indeterminate input never spuriously fires)', () => {
+        const events = [{type: 'x', collection: 'a', status: 'unsafe-input', at: 1000}];
+        expect(detectChronicUnsafeInput(events, {threshold: NaN, windowMs: 60_000, now: 5000})).toEqual([]);
+        expect(detectChronicUnsafeInput(events, {threshold: 1,   windowMs: 60_000, now: NaN })).toEqual([]);
     });
 });

@@ -180,3 +180,54 @@ export async function dispatchHeal({action, collection, evidence, recentRuns = [
         return {action, collection, status: 'failed', detail: error?.message ?? String(error), healedAt: now};
     }
 }
+
+/**
+ * @summary Detects a CHRONIC `unsafe-input` mis-wire from the heal-event ledger — the immune system observing
+ * ITSELF. `dispatchHeal` fails CLOSED to `unsafe-input` on under-specified input (no collection / non-finite
+ * clock / missing recordRun); that single fail-closed is correct safety. But a caller that CHRONICALLY fails to
+ * satisfy the safety context (a path that never threads the clock, a permanently-absent recordRun) would
+ * silently never heal — the fail-closed is right, the mis-wire is invisible unless something watches the ledger.
+ * This is that watcher: it groups recent `unsafe-input` outcomes by (action, collection) and returns the groups
+ * that crossed `threshold` inside `windowMs`. Pure (no I/O): the caller reads the ledger + surfaces/logs the
+ * result. Detection ONLY — it never touches the fail-closed gate.
+ *
+ * @param {Object[]} [events=[]] Heal-event ledger entries (`{type, collection, status, at}`, oldest to newest).
+ * @param {Object} options
+ * @param {Number} options.threshold Minimum same-(action, collection) `unsafe-input` count in-window to flag.
+ * @param {Number} options.windowMs The look-back window (an epoch-ms span ending at `now`).
+ * @param {Number} options.now Epoch ms (the window's upper bound).
+ * @returns {Object[]} `[{action, collection, count}]` (count >= threshold), worst-first. Empty when bounds are
+ *   non-finite (indeterminate input never spuriously alerts) or nothing is chronic.
+ */
+export function detectChronicUnsafeInput(events = [], {threshold, windowMs, now} = {}) {
+    // Indeterminate bounds -> no alert: a detector must not fire on un-evaluable input.
+    if (![threshold, windowMs, now].every(Number.isFinite) || threshold <= 0) {
+        return []
+    }
+
+    const lowerBound = now - windowMs,
+          counts     = new Map();
+
+    for (const event of Array.isArray(events) ? events : []) {
+        if (!event || typeof event !== 'object' || event.status !== 'unsafe-input')  continue;
+        if (!Number.isFinite(event.at) || event.at < lowerBound || event.at > now)   continue;
+        if (typeof event.collection !== 'string' || typeof event.type !== 'string')  continue;
+
+        // Text-safe tuple key: a JSON pair (never a raw separator byte in source). The ledger records the heal
+        // ACTION under the event `type` field (mirrors healEventsToRecentRuns).
+        const key = JSON.stringify([event.type, event.collection]);
+        counts.set(key, (counts.get(key) ?? 0) + 1)
+    }
+
+    const chronic = [];
+
+    for (const [key, count] of counts) {
+        if (count >= threshold) {
+            const [action, collection] = JSON.parse(key);
+            chronic.push({action, collection, count})
+        }
+    }
+
+    // Worst-first: descending count, then a stable JSON-key order for deterministic surfacing.
+    return chronic.sort((a, b) => b.count - a.count || JSON.stringify([a.action, a.collection]).localeCompare(JSON.stringify([b.action, b.collection])))
+}
