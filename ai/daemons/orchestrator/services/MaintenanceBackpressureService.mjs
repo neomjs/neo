@@ -252,6 +252,9 @@ export function recordDeferral({
 
         if (isLeaseHeld) {
             writeLog('INFO', `[Orchestrator] Deferring ${taskLabel}; cross-daemon heavy-maintenance lease held by ${holderOwner} (${reasonText}).`);
+        } else if (reasonCode === 'heavy-maintenance-shed-window') {
+            // The shed-window has no blocking task — a `throttle-shed` heal deferred all heavy-maintenance for a window.
+            writeLog('INFO', `[Orchestrator] Deferring ${taskLabel}; heavy-maintenance shed-window active (${reasonText}).`);
         } else {
             const blockingLabel = taskDefinitions?.[blockingTaskName]?.label || blockingTaskName;
             writeLog('INFO', `[Orchestrator] Deferring ${taskLabel}; ${reasonCode === 'golden-path-dependency-backpressure' ? 'dependency task' : 'heavy maintenance task'} ${blockingLabel} is active (${reasonText}).`);
@@ -369,6 +372,37 @@ export class MaintenanceBackpressureService extends Base {
      * @member {Set<String>} deferralLogKeys
      */
     deferralLogKeys = new Set()
+
+    /**
+     * Epoch ms until which heavy-maintenance is shed (deferred). `0` = no active window. Set by the `throttle-shed`
+     * heal via `setShedWindow`; auto-expires (bounded, self-healing — no operator un-shed).
+     * @member {Number} shedUntil=0
+     */
+    shedUntil = 0
+
+    /**
+     * @summary Opens an auto-expiring shed-window: until `now + durationMs`, `acquireLeaseAndExecute` defers ALL
+     * heavy-maintenance. The actuation primitive the `throttle-shed` heal calls to relieve resource contention —
+     * bounded (auto-expires), self-healing (no operator un-shed). Max-wins on overlap, so a shorter later window
+     * cannot curtail a longer active one (a heal never accidentally cuts a peer heal's shed short).
+     * @param {Number} durationMs How long to shed heavy-maintenance (non-positive / non-finite → no-op).
+     * @param {Number} [now=Date.now()] Injected clock (epoch ms).
+     * @returns {Number} The resulting `shedUntil`.
+     */
+    setShedWindow(durationMs, now = Date.now()) {
+        const until = now + (Number.isFinite(durationMs) && durationMs > 0 ? durationMs : 0);
+        this.shedUntil = Math.max(this.shedUntil, until);
+        return this.shedUntil;
+    }
+
+    /**
+     * @summary Whether a shed-window is currently active (heavy-maintenance should defer).
+     * @param {Number} [now=Date.now()] Injected clock (epoch ms).
+     * @returns {Boolean}
+     */
+    isShedActive(now = Date.now()) {
+        return now < this.shedUntil;
+    }
 
     // --- Predicate / finder delegations to module-level pure functions ---
 
@@ -511,12 +545,20 @@ export class MaintenanceBackpressureService extends Base {
      * @param {Object} options.activeHeavyTask Mutable `{name: String|null}` tracker for the current poll.
      * @returns {Boolean|Promise|*} `false` when deferred; otherwise whatever `executeFn` returns.
      */
-    acquireLeaseAndExecute({taskName, executeFn, reason, onSuccess = null, activeHeavyTask}) {
+    acquireLeaseAndExecute({taskName, executeFn, reason, onSuccess = null, activeHeavyTask, now = Date.now()}) {
         const reasonText = reason || 'scheduled';
 
         if (!this.isHeavyMaintenanceTask(taskName)) {
             this.clearDeferralLogState(taskName);
             return executeFn(taskName, reason, onSuccess);
+        }
+
+        // Shed-window: a `throttle-shed` heal has deferred ALL heavy-maintenance for a bounded window to relieve
+        // resource contention. Gate here (the single heavy-maintenance admission point) so the EXISTING deferral
+        // path handles it — non-interrupting: tasks already past this gate (running, holding a lease) finish.
+        if (this.isShedActive(now)) {
+            this.recordDeferral({taskName, reasonCode: 'heavy-maintenance-shed-window', reasonText});
+            return false;
         }
 
         let blockingTaskName = activeHeavyTask?.name && this.isHeavyMaintenanceConflict(taskName, activeHeavyTask.name)

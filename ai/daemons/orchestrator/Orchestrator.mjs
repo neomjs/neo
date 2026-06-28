@@ -40,6 +40,7 @@ import {createReEmbedMissingHeal, createReEmbedMissingHealOperation}            
 import {appendHealEvent, healEventsToRecentRuns, queryHealLedger, readHealLedger}                   from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
 import {detectChronicUnsafeInput}                                                                   from '../../services/memory-core/helpers/healActionDispatch.mjs';
 import {quarantineCollection, storeFenceTargets, unquarantineCollection}                            from '../../services/memory-core/helpers/quarantineStore.mjs';
+import {createThrottleShedHealOperation}                                                            from '../../services/memory-core/helpers/throttleShedHeal.mjs';
 import {decideSystemicCircuit, foldSystemicCircuitState}                                            from '../../services/memory-core/helpers/healSystemicCircuit.mjs';
 import {Memory_StorageRouter as StorageRouter, Memory_TextEmbeddingService as TextEmbeddingService} from '../../services.mjs';
 import {buildDataIntegrityCoverageDiagnosis}                                                        from './services/dataIntegrityCoverageDiagnosis.mjs';
@@ -472,7 +473,14 @@ export class Orchestrator extends Base {
                     }
 
                     return {status: 'quarantined', detail: {collection, fenced: targets}};
-                }
+                },
+                // Throttle-shed: the resource-contention / exhaustion heal — open a bounded shed-window so the
+                // orchestrator defers ALL heavy-maintenance until the contended resource recovers, then auto-expires
+                // (no operator). The lazy closure resolves the live `maintenanceBackpressureService` at heal-time,
+                // so it is independent of reactive-config set ordering.
+                'throttle-shed': createThrottleShedHealOperation({
+                    setShedWindow: (durationMs, now) => this.maintenanceBackpressureService.setShedWindow(durationMs, now)
+                })
             },
             recentRunsReader : async collectionName => healEventsToRecentRuns(queryHealLedger(await readHealLedger({dir: healLedgerDir}), {collections: [collectionName]})),
             recordRun        : async ({action, collection, at}) => appendHealEvent({type: action, collection, status: 'attempt'}, {dir: healLedgerDir, now: at}),
