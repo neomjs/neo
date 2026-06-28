@@ -184,3 +184,52 @@ test.describe('freezeReprobeRunner — contained ledgering (#14276)', () => {
         }
     });
 });
+
+test.describe('freezeReprobeRunner — contained recovery (#14276 no permanent strand)', () => {
+    const HOUR = 60 * 60 * 1000;
+
+    test('a contained collection past the cooldown is re-opened (reset + ledgered) → auto-unfreezes once the fault clears', async () => {
+        const dir = await tmpDir();
+        try {
+            // capped (contained) 7h ago — past the 6h default cooldown; the fault has since cleared
+            await upsertFreezeRecord({dir, collectionName: 'c1', faultFingerprint: 'e', frozenAt: 1000, unfreezeAttempts: 3, lastProbeAt: 1000, containedAt: 1000});
+
+            const unfenced = [],
+                  outcomes = await runFreezeReprobe({
+                      freezeRecordsDir: dir, healLedgerDir: dir, now: 1000 + 7 * HOUR,
+                      probe           : async () => ({embedderHealthy: true, dimensionConsistent: true}),
+                      unfence         : async collectionName => { unfenced.push(collectionName); }
+                  });
+
+            // reopened (attempts reset) → re-probed → healthy → unfrozen — never permanently stranded
+            expect(outcomes.find(o => o.collectionName === 'c1')).toMatchObject({status: 'unfrozen', unfroze: true});
+            expect(unfenced).toEqual(['c1']);
+            expect(await getFreezeRecord({dir, collectionName: 'c1'})).toBeNull();
+            const ledger = await readHealLedger({dir});
+            expect(ledger.some(e => e.type === 'contained-reopen' && e.collection === 'c1')).toBe(true);
+            expect(ledger.some(e => e.type === 'unfreeze'        && e.collection === 'c1')).toBe(true);
+        } finally {
+            await fs.rm(dir, {recursive: true, force: true});
+        }
+    });
+
+    test('a contained collection WITHIN the cooldown stays contained — not re-opened, not even probed', async () => {
+        const dir = await tmpDir();
+        try {
+            await upsertFreezeRecord({dir, collectionName: 'c1', faultFingerprint: 'e', frozenAt: 1000, unfreezeAttempts: 3, containedAt: 1000});
+
+            let   probed   = false;
+            const outcomes = await runFreezeReprobe({
+                freezeRecordsDir: dir, healLedgerDir: dir, now: 1000 + 1 * HOUR, // < 6h cooldown
+                probe           : async () => { probed = true; return {embedderHealthy: true, dimensionConsistent: true}; },
+                unfence         : async () => {}
+            });
+
+            expect(outcomes.find(o => o.collectionName === 'c1')).toMatchObject({status: 'contained'});
+            expect(probed).toBe(false);
+            expect((await readHealLedger({dir})).some(e => e.type === 'contained-reopen')).toBe(false);
+        } finally {
+            await fs.rm(dir, {recursive: true, force: true});
+        }
+    });
+});

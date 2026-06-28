@@ -13,6 +13,16 @@ import {runFreezeReprobeCycle}                                     from './freez
  */
 
 /**
+ * Default contained-recovery cooldown. A collection capped at the thrash limit (`contained`) is re-opened for a
+ * fresh round of auto-unfreeze attempts after this long — so a *transient* fault that happened to flap past the cap
+ * is never permanently stranded (the #1 weeks-bar risk the freeze cycle exists to kill), while thrash stays bounded to one
+ * recovery round per cooldown. This is the time-based realisation of the "reopen path" the decider anticipates.
+ * Overridable via `runFreezeReprobe`'s `containedCooldownMs` (e.g. an AiConfig leaf) per deployment.
+ * @type {Number}
+ */
+export const DEFAULT_CONTAINED_COOLDOWN_MS = 6 * 60 * 60 * 1000; // 6h
+
+/**
  * @summary Builds the SYMMETRIC store-level fence/unfence pair. A store-level fault (e.g. `mc-server`) fences
  * every served collection in the store (memory + session) via `expand` (`storeFenceTargets`); the matching
  * unfence MUST lift exactly that expanded set. Co-locating both in one factory makes them symmetric by
@@ -89,13 +99,26 @@ export function createFreezeHealOperation({freezeRecordsDir, fence}) {
  * @param {Number} options.now Injected clock (epoch ms).
  * @param {Function} options.probe `async (collectionName) => {embedderHealthy, dimensionConsistent}`.
  * @param {Function} options.unfence `async (collectionName) => void` — lifts the serving fence (production: unquarantine).
+ * @param {Number} [options.containedCooldownMs=DEFAULT_CONTAINED_COOLDOWN_MS] How long a `contained` collection waits before it is re-opened for a fresh round of auto-unfreeze attempts — the bounded contained-recovery path (never a permanent strand).
  * @returns {Promise<Object[]>} Per-collection re-probe outcomes, or `[]` when nothing is frozen.
  */
-export async function runFreezeReprobe({freezeRecordsDir, healLedgerDir, now, probe, unfence}) {
+export async function runFreezeReprobe({freezeRecordsDir, healLedgerDir, now, probe, unfence, containedCooldownMs = DEFAULT_CONTAINED_COOLDOWN_MS}) {
     const freezeRecords = await readFreezeRecords({dir: freezeRecordsDir});
 
     if (Object.keys(freezeRecords).length === 0) {
         return []; // nothing frozen → no probe, no unfreeze, no further I/O
+    }
+
+    // Contained-recovery (the reopen path the decider anticipates): a collection capped at the thrash limit is NOT
+    // permanently stranded. Once its containment is older than the cooldown, reset the attempt count + restart the
+    // cooldown clock so it re-enters the normal probe flow THIS cycle — a transient fault that has since cleared then
+    // auto-unfreezes; a still-flapping one simply re-caps. At most one recovery round per cooldown, so thrash stays
+    // bounded. Without this, a transient fault that flapped past the cap would freeze forever (the #1 weeks-bar risk).
+    for (const [collectionName, record] of Object.entries(freezeRecords)) {
+        if (Number.isFinite(record?.containedAt) && (now - record.containedAt) >= containedCooldownMs) {
+            freezeRecords[collectionName] = await upsertFreezeRecord({dir: freezeRecordsDir, collectionName, unfreezeAttempts: 0, containedAt: now});
+            await appendHealEvent({type: 'contained-reopen', collection: collectionName, status: 'reopened'}, {dir: healLedgerDir, now});
+        }
     }
 
     const outcomes = await runFreezeReprobeCycle({
