@@ -40,13 +40,17 @@ function createService({
     runtimeAccessService,
     diagnosisService,
     providerResidencyProbe = async () => null,
-    recoveryRunStateReader = null
+    recoveryRunStateReader = null,
+    healLedgerDir = null,
+    healLedgerReader = null
 } = {}) {
     return Neo.create(DeploymentStateBridgeService, {
         runtimeAccessService,
         diagnosisService,
         providerResidencyProbe,
         recoveryRunStateReader,
+        healLedgerDir,
+        healLedgerReader,
         nowFn: () => OBSERVED_AT
     });
 }
@@ -63,7 +67,8 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
             logMaxBytes                 : 32 * 1024,
             statsSampleWindow           : 2,
             providerResidencyServiceKeys: ['local-model', 'model'],
-            recoveryRunLimit            : 10
+            recoveryRunLimit            : 10,
+            selfHealRecentEventLimit    : 10
         });
         Object.assign(AiConfig.orchestrator.deploymentRuntimeAccess, {
             allowedServices: ['model']
@@ -143,9 +148,78 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
         });
     });
 
+    test('collectSelfHealSnapshot folds the heal-ledger into an operator-facing immune-status (#14163 AC2)', async () => {
+        const events = [
+            {type: 'freeze',           collection: 'c2', status: 'contained', at: 5},
+            {type: 're-embed-missing', collection: 'c1', status: 'healed',    at: 9}
+        ];
+        const service = createService({
+            healLedgerDir   : '/heal',
+            healLedgerReader: async ({dir}) => { expect(dir).toBe('/heal'); return events; }
+        });
+
+        const selfHeal = await service.collectSelfHealSnapshot();
+        expect(selfHeal.status).toBe('available');
+        expect(selfHeal.source).toBe('orchestrator-heal-event-ledger');
+        expect(selfHeal.summary).toMatchObject({total: 2, currentlyFrozen: ['c2'], byStatus: {contained: 1, healed: 1}});
+        expect(selfHeal.recentEvents.map(e => e.at)).toEqual([9, 5]); // newest-first, bounded by selfHealRecentEventLimit
+        expect(selfHeal.limit).toBe(10);                              // the snapshot reports its OWN recent-event cap
+    });
+
+    test('collectSelfHealSnapshot is disabled (graceful) when no heal-ledger dir is wired', async () => {
+        const selfHeal = await createService({}).collectSelfHealSnapshot();
+        expect(selfHeal).toMatchObject({status: 'disabled', summary: null, recentEvents: []});
+    });
+
+    test('collectSelfHealSnapshot degrades, never throws, when the ledger read fails (observe must not perturb)', async () => {
+        const service  = createService({healLedgerDir: '/heal', healLedgerReader: async () => { throw new Error('disk gone'); }}),
+              selfHeal = await service.collectSelfHealSnapshot();
+        expect(selfHeal.status).toBe('degraded');
+        expect(selfHeal.errors[0].reason).toBe('heal-ledger-read-failed');
+    });
+
+    test('collectSelfHealSnapshot degrades on an UNREADABLE ledger file via the REAL reader (production path, not an injected throw)', async () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bridge-heal-'));
+        // A directory where the JSONL file should be → the real readFile throws EISDIR (NOT ENOENT) → readHealLedger
+        // throws → the snapshot degrades visibly. The prior test only covered an INJECTED throwing reader.
+        fs.mkdirSync(path.join(dir, 'heal-events.jsonl'));
+        try {
+            const selfHeal = await createService({healLedgerDir: dir}).collectSelfHealSnapshot(); // NO injected reader
+            expect(selfHeal.status).toBe('degraded');
+            expect(selfHeal.errors[0]).toMatchObject({reason: 'heal-ledger-read-failed', code: 'EISDIR'});
+            expect(selfHeal.summary).toBeNull();
+        } finally {
+            fs.rmSync(dir, {recursive: true, force: true});
+        }
+    });
+
+    test('collectSelfHealSnapshot stays AVAILABLE (empty) on a MISSING ledger via the REAL reader — ENOENT is not a degradation', async () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bridge-heal-'));
+        try {
+            const selfHeal = await createService({healLedgerDir: dir}).collectSelfHealSnapshot(); // no ledger file yet
+            expect(selfHeal.status).toBe('available');
+            expect(selfHeal.summary.total).toBe(0);
+            expect(selfHeal.recentEvents).toEqual([]);
+        } finally {
+            fs.rmSync(dir, {recursive: true, force: true});
+        }
+    });
+
+    test('collectSelfHealSnapshot throws on a NEGATIVE selfHealRecentEventLimit — a negative cap must NOT expand the snapshot to every retained event', async () => {
+        AiConfig.orchestrator.deploymentStateBridge.selfHealRecentEventLimit = -1; // restored by afterEach
+        const service = createService({healLedgerDir: '/heal', healLedgerReader: async () => []});
+        await expect(service.collectSelfHealSnapshot()).rejects.toThrow(/selfHealRecentEventLimit must be >= 0/);
+    });
+
+    test('collectSelfHealSnapshot throws on a non-finite selfHealRecentEventLimit', async () => {
+        AiConfig.orchestrator.deploymentStateBridge.selfHealRecentEventLimit = NaN; // restored by afterEach
+        const service = createService({healLedgerDir: '/heal', healLedgerReader: async () => []});
+        await expect(service.collectSelfHealSnapshot()).rejects.toThrow(/selfHealRecentEventLimit must be a finite number/);
+    });
+
     test('includes bounded recent recovery-run ledger entries in the bridge snapshot', async () => {
         const
-            readerCalls = [],
+            readerCalls            = [],
             recoveryRunStateReader = async request => {
                 readerCalls.push(request);
 

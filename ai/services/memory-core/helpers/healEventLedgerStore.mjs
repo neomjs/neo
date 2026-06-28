@@ -1,5 +1,5 @@
-import {appendFile, mkdir, readFile} from 'fs/promises';
-import path                          from 'path';
+import {appendFile, mkdir, readFile, stat, writeFile} from 'fs/promises';
+import path                                           from 'path';
 
 /**
  * @module ai/services/memory-core/helpers/healEventLedgerStore
@@ -22,6 +22,15 @@ const HEAL_LEDGER_FILENAME = 'heal-events.jsonl';
 export const HEAL_LEDGER_FROZEN_TRANSITIONS = Object.freeze({FREEZE: 'freeze', UNFREEZE: 'unfreeze'});
 
 /**
+ * Retention policy (keep-most-recent cap + append-time prune-trigger) is NOT owned here. Retained event count,
+ * prune byte-trigger, and recent-event read-cap are operator-configurable RUNTIME policy, declared as `AiConfig`
+ * leaves (`orchestrator.recoveryActuator.healLedger.{maxEvents, pruneTriggerBytes}`) and passed explicitly into
+ * `appendHealEvent` / `pruneHealLedger` by the AiConfig-aware orchestrator boundary. This pure edge-I/O helper
+ * never reads the config SSOT and owns no production defaults — with no retention supplied the append-time
+ * auto-prune is simply inert (a forgotten policy is visibly unbounded growth, never a silent helper magic number).
+ */
+
+/**
  * @summary The JSONL ledger path within a state directory.
  * @param {String} dir
  * @returns {String}
@@ -34,16 +43,43 @@ export function getHealLedgerFilePath(dir) {
 }
 
 /**
+ * @summary Validates a heal-ledger retention policy (the AiConfig `recoveryActuator.healLedger` leaves) at the
+ * AiConfig-consuming boundary, BEFORE it is handed to `appendHealEvent`. Invalid operator config must fail VISIBLY
+ * here: `appendHealEvent`'s prune gate swallows errors (the ledger is observability, never a gate), so a
+ * negative/non-finite `maxEvents` or `triggerBytes` would otherwise silently disable the bound and let the ledger
+ * grow unbounded. Pure (no I/O, no SSOT read): the boundary reads the leaves and calls this; the helper owns no
+ * production default, only this fail-closed validation.
+ * @param {Number} maxEvents Retention cap (the `healLedger.maxEvents` leaf).
+ * @param {Number} triggerBytes Prune byte-trigger (the `healLedger.pruneTriggerBytes` leaf).
+ * @returns {{maxEvents: Number, triggerBytes: Number}} The validated pair (spread straight into `appendHealEvent` options).
+ * @throws {TypeError} when either value is not a finite, non-negative number.
+ */
+export function validateHealLedgerRetention(maxEvents, triggerBytes) {
+    for (const [name, value] of [['maxEvents', maxEvents], ['pruneTriggerBytes', triggerBytes]]) {
+        if (!Number.isFinite(value) || value < 0) {
+            throw new TypeError(`heal-ledger retention: ${name} must be a finite, non-negative number (the AiConfig leaf), got ${value}`);
+        }
+    }
+    return {maxEvents, triggerBytes};
+}
+
+/**
  * @summary Appends one heal-event entry to the durable JSONL ledger (creating the dir if needed). Stamps
- * `at` from the injected clock when absent so every entry is time-ordered.
+ * `at` from the injected clock when absent so every entry is time-ordered. Self-bounding ONLY when the
+ * AiConfig-aware caller supplies the retention policy: with both `triggerBytes` and `maxEvents` finite, an O(1)
+ * size stat-gate fires an amortized keep-most-recent prune once the ledger crosses `triggerBytes`, so the file
+ * never grows without bound — the observability sink must not become its own disk leak. With no policy supplied
+ * the auto-prune is inert; this helper owns no production default — the config-SSOT leaves do.
  * @param {Object} entry A JSON-serializable heal event (`{type, collection, status, detail, at?}`).
  * @param {Object} options
  * @param {String} options.dir The durable state directory.
  * @param {Number} [options.now] Epoch ms used to stamp `at` when the entry omits it.
+ * @param {Number} [options.triggerBytes] Byte threshold that arms the auto-prune (from the AiConfig retention leaf). The auto-prune is skipped unless both this and `maxEvents` are finite.
+ * @param {Number} [options.maxEvents] Retention cap the triggered auto-prune enforces (from the AiConfig retention leaf).
  * @returns {Promise<String>} The ledger file path written to.
  * @throws {TypeError} when `entry` is not an object or `dir` is missing/empty.
  */
-export async function appendHealEvent(entry, {dir, now} = {}) {
+export async function appendHealEvent(entry, {dir, now, triggerBytes, maxEvents} = {}) {
     if (!entry || typeof entry !== 'object') {
         throw new TypeError('appendHealEvent: entry object is required');
     }
@@ -57,15 +93,32 @@ export async function appendHealEvent(entry, {dir, now} = {}) {
     const filePath = getHealLedgerFilePath(dir);
     await appendFile(filePath, `${JSON.stringify(stamped)}\n`, 'utf8');
 
+    // Self-bound (mirrors acceptedLossAuditStore) ONLY when the AiConfig-aware caller supplied the retention
+    // policy — no helper-owned default. An O(1) size stat-gate triggers an amortized prune only once
+    // the ledger crosses the byte threshold (not a full read every append). A stat/prune failure must never break
+    // the heal path (the ledger is observability, never a gate), so it is swallowed.
+    if (Number.isFinite(triggerBytes) && Number.isFinite(maxEvents)) {
+        try {
+            const {size} = await stat(filePath);
+            if (size > triggerBytes) await pruneHealLedger({dir, maxEvents});
+        } catch (error) {
+            // a partial/failed prune leaves the prior ledger intact; the next append re-tries the gate
+        }
+    }
+
     return filePath;
 }
 
 /**
- * @summary Reads all heal-event entries (oldest → newest). A missing ledger returns `[]` (nothing healed yet);
- * a corrupt line is skipped rather than crashing the read (fail-safe — observability must never break the loop).
+ * @summary Reads all heal-event entries (oldest → newest). A MISSING ledger (`ENOENT`) returns `[]` (nothing
+ * healed yet); a corrupt LINE is skipped (a partial write must not break the read). But an unreadable/corrupt
+ * FILE (`EISDIR`, `EACCES`, …) THROWS — that is a real degradation, not "nothing yet", so the observability
+ * boundary sees it (the self-heal snapshot degrades visibly instead of reporting a false-empty 'available'). A
+ * heal-path caller that must never be gated by the ledger catches this itself and proceeds fail-safe.
  * @param {Object} options
  * @param {String} options.dir The durable state directory.
  * @returns {Promise<Object[]>} The parsed events in append order.
+ * @throws when the ledger file exists but is unreadable at the FILE level (any non-`ENOENT` read error).
  */
 export async function readHealLedger({dir} = {}) {
     let text;
@@ -73,7 +126,10 @@ export async function readHealLedger({dir} = {}) {
     try {
         text = await readFile(getHealLedgerFilePath(dir), 'utf8');
     } catch (error) {
-        return []; // ENOENT or any unreadable ledger → nothing recorded yet
+        if (error?.code === 'ENOENT') {
+            return []; // missing ledger → nothing recorded yet (not a degradation)
+        }
+        throw error; // unreadable/corrupt storage → surface so the observability boundary degrades visibly
     }
 
     const events = [];
@@ -86,6 +142,36 @@ export async function readHealLedger({dir} = {}) {
         }
     }
     return events;
+}
+
+/**
+ * @summary Bounds the durable ledger to the newest `maxEvents` entries (keep-most-recent), rewriting the file
+ * in place. Pure keep-most-recent is correct because the ledger is append-only telemetry — no entry's removal
+ * changes a heal decision (the anti-thrash gate reads only a recent window, far inside the retained set). A
+ * corrupt line is dropped on rewrite (it was already unreadable). I/O at the edge only.
+ * @param {Object} options
+ * @param {String} options.dir The durable state directory.
+ * @param {Number} options.maxEvents Max entries to retain (the AiConfig retention leaf; no helper-owned default).
+ * @returns {Promise<{pruned: Number, retained: Number}>} Counts; `pruned: 0` when no prune was needed.
+ * @throws {TypeError} when `dir` is missing/empty or `maxEvents` is not a finite, non-negative number.
+ */
+export async function pruneHealLedger({dir, maxEvents} = {}) {
+    if (typeof dir !== 'string' || dir.length === 0) {
+        throw new TypeError('pruneHealLedger: dir is required');
+    }
+    if (!Number.isFinite(maxEvents) || maxEvents < 0) {
+        throw new TypeError(`pruneHealLedger: a finite, non-negative maxEvents is required (the AiConfig retention leaf), got ${maxEvents}`);
+    }
+
+    const events = await readHealLedger({dir});
+    if (events.length <= maxEvents) {
+        return {pruned: 0, retained: events.length};
+    }
+
+    const retained = events.slice(events.length - maxEvents); // append order is oldest→newest; keep the tail
+    await writeFile(getHealLedgerFilePath(dir), retained.map(event => JSON.stringify(event)).join('\n') + '\n', 'utf8');
+
+    return {pruned: events.length - retained.length, retained: retained.length};
 }
 
 /**

@@ -38,6 +38,7 @@ import DataRecoveryActuatorService                                              
 import {auditChromaVectorCoverage}                                                                  from '../../scripts/maintenance/checkChromaIntegrity.mjs';
 import {createReEmbedMissingHeal, createReEmbedMissingHealOperation}                                from '../../services/memory-core/helpers/reEmbedMissingHeal.mjs';
 import {appendHealEvent, healEventsToRecentRuns, queryHealLedger, readHealLedger}                   from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
+import {validateHealLedgerRetention}                                                                from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
 import {detectChronicUnsafeInput}                                                                   from '../../services/memory-core/helpers/healActionDispatch.mjs';
 import {quarantineCollection, storeFenceTargets, unquarantineCollection}                            from '../../services/memory-core/helpers/quarantineStore.mjs';
 import {createFreezeHealOperation, createStoreFenceOperations, runFreezeReprobe}                    from '../../services/memory-core/helpers/freezeReprobeRunner.mjs';
@@ -393,6 +394,7 @@ export class Orchestrator extends Base {
         return ClassSystemUtil.beforeSetInstance(value, DeploymentStateBridgeService, {
             runtimeAccessService: this.deploymentRuntimeAccessService,
             diagnosisService    : this.containerHealthDiagnosisService,
+            healLedgerDir       : path.join(this.dataDir, 'data-heal-events'),
             writeLog            : this.deploymentStateBridgeWriteLog
         });
     }
@@ -438,6 +440,14 @@ export class Orchestrator extends Base {
 
         const healLedgerDir    = path.join(this.dataDir, 'data-heal-events');
         const freezeRecordsDir = path.join(this.dataDir, 'data-freeze-records');
+
+        // The retention leaves, read + VALIDATED at this AiConfig boundary (call-time). An invalid operator-set
+        // maxEvents/pruneTriggerBytes fails VISIBLY here rather than being swallowed by appendHealEvent's prune gate
+        // (which would silently let the observability ledger grow unbounded).
+        const healLedgerRetention = () => validateHealLedgerRetention(
+            AiConfig.orchestrator.recoveryActuator.healLedger.maxEvents,
+            AiConfig.orchestrator.recoveryActuator.healLedger.pruneTriggerBytes
+        );
 
         return ClassSystemUtil.beforeSetInstance(value, DataRecoveryActuatorService, {
             healOperations: {
@@ -497,9 +507,27 @@ export class Orchestrator extends Base {
                     setShedWindow: (durationMs, now) => this.maintenanceBackpressureService.setShedWindow(durationMs, now)
                 })
             },
-            recentRunsReader : async collectionName => healEventsToRecentRuns(queryHealLedger(await readHealLedger({dir: healLedgerDir}), {collections: [collectionName]})),
-            recordRun        : async ({action, collection, at}) => appendHealEvent({type: action, collection, status: 'attempt'}, {dir: healLedgerDir, now: at}),
-            recordHealOutcome: async ({action, collection, status, detail, healedAt}) => appendHealEvent({type: action, collection, status, detail}, {dir: healLedgerDir, now: healedAt})
+            // The ledger is observability, never a gate: readHealLedger now THROWS on an unreadable FILE, so an
+            // unreadable ledger must not block a heal — degrade the anti-thrash projection to "no recent runs".
+            recentRunsReader : async collectionName => {
+                let events = [];
+                try {
+                    events = await readHealLedger({dir: healLedgerDir});
+                } catch (error) {
+                    this.writeLog?.('WARN', `[Orchestrator] heal-ledger read failed for recentRuns; proceeding with none: ${error.message}`);
+                }
+                return healEventsToRecentRuns(queryHealLedger(events, {collections: [collectionName]}));
+            },
+            // Retention is read + VALIDATED at the AiConfig boundary (healLedgerRetention(), above) and passed explicit
+            // into the pure ledger helper (which owns no production default). Call-time, never aliased at construction.
+            recordRun        : async ({action, collection, at}) => appendHealEvent(
+                {type: action, collection, status: 'attempt'},
+                {dir: healLedgerDir, now: at, ...healLedgerRetention()}
+            ),
+            recordHealOutcome: async ({action, collection, status, detail, healedAt}) => appendHealEvent(
+                {type: action, collection, status, detail},
+                {dir: healLedgerDir, now: healedAt, ...healLedgerRetention()}
+            )
         });
     }
 
@@ -601,6 +629,11 @@ export class Orchestrator extends Base {
         this.processSupervisorService.dataDir          = value;
         this.recoveryActuatorService.dataDir           = value;
         this.maintenanceBackpressureService.dataDir    = value;
+        // The bridge derives its heal-ledger dir from dataDir at construction — keep it coherent when dataDir
+        // changes at runtime, else the actuator writes the NEW ledger while the bridge keeps reading the OLD one.
+        if (this.deploymentStateBridgeService) {
+            this.deploymentStateBridgeService.healLedgerDir = path.join(value, 'data-heal-events');
+        }
     }
     afterSetTaskDefinitions(value, oldValue) {
         if (oldValue === undefined) return;

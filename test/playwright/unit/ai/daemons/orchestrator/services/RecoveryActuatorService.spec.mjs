@@ -516,4 +516,10 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
         });
         expect(runtimeCalls).toEqual([]);
     });
+
+    // The healLedgerRetention boundary getter's VALID path is exercised by the heal-ledger append tests above
+    // (recordDiagnosis / deploy-target redeploy spread `...this.healLedgerRetention` into every appended event).
+    // Its fail-visible INVALID path is covered without mutating the shared AiConfig singleton: the pure-function
+    // validateHealLedgerRetention unit spec (healEventLedgerStore.spec) plus the config-template boundary spec,
+    // which drives an invalid env-resolved retention leaf through the same guard (config.template.spec).
 });

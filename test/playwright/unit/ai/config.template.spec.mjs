@@ -201,22 +201,35 @@ test.describe('Tier 1 Config Immutability', () => {
         });
 
         expect(Config.orchestrator.deploymentStateBridge).toMatchObject({
-            enabled          : true,
-            snapshotPath     : expect.stringContaining('.neo-ai-data/deployment-state/snapshot.json'),
-            writeIntervalMs  : 30000,
-            staleAfterMs     : 2 * 60 * 1000,
-            maxSnapshotBytes : 256 * 1024,
-            allowedServices  : [],
-            includeLogs      : true,
-            logTail          : 120,
-            logMaxBytes      : 32 * 1024,
-            statsSampleWindow: 2
+            enabled                 : true,
+            snapshotPath            : expect.stringContaining('.neo-ai-data/deployment-state/snapshot.json'),
+            writeIntervalMs         : 30000,
+            staleAfterMs            : 2 * 60 * 1000,
+            maxSnapshotBytes        : 256 * 1024,
+            allowedServices         : [],
+            includeLogs             : true,
+            logTail                 : 120,
+            logMaxBytes             : 32 * 1024,
+            statsSampleWindow       : 2,
+            recoveryRunLimit        : 10,
+            selfHealRecentEventLimit: 10
         });
 
         Config.setEnvOverride('NEO_DEPLOYMENT_STATE_BRIDGE_ENABLED', false);
         expect(Config.orchestrator.deploymentStateBridge.enabled).toBe(false);
         Config.setEnvOverride('NEO_DEPLOYMENT_STATE_BRIDGE_ENABLED', true);
         expect(Config.orchestrator.deploymentStateBridge.enabled).toBe(true);
+
+        // The self-heal snapshot's recent-event cap (a distinct surface from recoveryRunLimit) is env-bound.
+        Config.setEnvOverride('NEO_DEPLOYMENT_STATE_BRIDGE_SELF_HEAL_RECENT_EVENT_LIMIT', 25);
+        expect(Config.orchestrator.deploymentStateBridge.selfHealRecentEventLimit).toBe(25);
+        Config.setEnvOverride('NEO_DEPLOYMENT_STATE_BRIDGE_SELF_HEAL_RECENT_EVENT_LIMIT', 10);
+
+        // Heal-event ledger retention — operator-configurable runtime policy, not a helper magic number.
+        expect(Config.orchestrator.recoveryActuator.healLedger).toMatchObject({maxEvents: 5000, pruneTriggerBytes: 1024 * 1024});
+        Config.setEnvOverride('NEO_RECOVERY_ACTUATOR_HEAL_LEDGER_MAX_EVENTS', 1234);
+        expect(Config.orchestrator.recoveryActuator.healLedger.maxEvents).toBe(1234);
+        Config.setEnvOverride('NEO_RECOVERY_ACTUATOR_HEAL_LEDGER_MAX_EVENTS', 5000);
 
         // Provider-readiness probe parameters consumed by the orchestrator dream task
         // + standalone Sandman CLI runner. Values are concrete defaults — no module-level
@@ -265,6 +278,21 @@ test.describe('Tier 1 Config Immutability', () => {
                 maxDays    : 7
             }
         });
+    });
+
+    test('an invalid env-resolved heal-ledger retention leaf fails at the use-site guard, not silently (#14163)', async () => {
+        // The config layer type-checks the leaf as a number but does NOT range-check it; the bounded-retention
+        // contract is enforced at the AiConfig-consuming boundary (validateHealLedgerRetention). A negative operator
+        // value must throw THERE, driven through the canonical template leaf — never via a hand-rolled config overlay —
+        // rather than silently disarming appendHealEvent's prune gate and letting the shared ledger grow unbounded.
+        const {validateHealLedgerRetention} = await import('../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs');
+
+        Config.setEnvOverride('NEO_RECOVERY_ACTUATOR_HEAL_LEDGER_MAX_EVENTS', -1);
+        expect(() => validateHealLedgerRetention(
+            Config.orchestrator.recoveryActuator.healLedger.maxEvents,
+            Config.orchestrator.recoveryActuator.healLedger.pruneTriggerBytes
+        )).toThrow(/maxEvents must be a finite, non-negative number/);
+        Config.setEnvOverride('NEO_RECOVERY_ACTUATOR_HEAL_LEDGER_MAX_EVENTS', 5000);
     });
 
     test('ships default-off GitLab-PAT hardening leaves as CSV-backed arrays', () => {

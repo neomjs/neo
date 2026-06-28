@@ -31,6 +31,14 @@ test.describe('deploymentStateBridgeStore', () => {
         });
     });
 
+    test('carries the self-heal immune-system status when provided, null by default (#14163 AC2)', () => {
+        const selfHeal = {status: 'available', summary: {total: 3, currentlyFrozen: ['c2']}, recentEvents: [{type: 'heal', at: 9}]},
+              snapshot = createDeploymentStateSnapshot({generatedAt: 1710000000000, selfHeal});
+
+        expect(snapshot.selfHeal).toEqual(selfHeal);                       // passed through verbatim
+        expect(createDeploymentStateSnapshot({generatedAt: 1}).selfHeal).toBeNull(); // additive + back-compat (omitted → null)
+    });
+
     test('reports missing and stale snapshots explicitly', async () => {
         const dir      = await fs.mkdtemp(path.join(os.tmpdir(), 'deployment-state-bridge-')),
               filePath = path.join(dir, 'snapshot.json');

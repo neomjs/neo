@@ -10,6 +10,8 @@ import {
     readHealLedger,
     summarizeHealLedger,
     queryHealLedger,
+    pruneHealLedger,
+    validateHealLedgerRetention,
     healEventsToRecentRuns
 } from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
 import {decideHealAction} from '../../../../../../../ai/services/memory-core/helpers/healActionDispatch.mjs';
@@ -189,6 +191,112 @@ test.describe('healEventsToRecentRuns — the ledger→dispatch anti-thrash shap
             expect(buggy.status).toBe('execute');
         } finally {
             await fs.rm(dir, {recursive: true, force: true});
+        }
+    });
+});
+
+test.describe('pruneHealLedger + self-bounding append — bounded retention (#14163 AC3, sibling of #14128)', () => {
+    test('keep-most-recent: prunes the oldest, retains the newest maxEvents in append order', async () => {
+        const dir = await tmpDir();
+        try {
+            for (let i = 0; i < 6; i++) {
+                await appendHealEvent({type: 'heal', collection: 'c1', status: 'healed', at: i}, {dir, triggerBytes: Infinity});
+            }
+            expect(await pruneHealLedger({dir, maxEvents: 4})).toEqual({pruned: 2, retained: 4});
+            expect((await readHealLedger({dir})).map(e => e.at)).toEqual([2, 3, 4, 5]); // oldest 0,1 dropped; order kept
+        } finally {
+            await fs.rm(dir, {recursive: true, force: true});
+        }
+    });
+
+    test('no-op at/under the cap and on a missing ledger (pruned: 0)', async () => {
+        const dir = await tmpDir(), emptyDir = await tmpDir();
+        try {
+            await appendHealEvent({type: 'heal', collection: 'c1', status: 'healed', at: 1}, {dir, triggerBytes: Infinity});
+            expect(await pruneHealLedger({dir, maxEvents: 5})).toEqual({pruned: 0, retained: 1});
+            expect(await pruneHealLedger({dir: emptyDir, maxEvents: 5})).toEqual({pruned: 0, retained: 0});
+        } finally {
+            await fs.rm(dir, {recursive: true, force: true});
+            await fs.rm(emptyDir, {recursive: true, force: true});
+        }
+    });
+
+    test('guards the required dir arg', async () => {
+        await expect(pruneHealLedger({})).rejects.toThrow(/dir is required/);
+    });
+
+    test('self-bounding append: the byte-gate fires an amortized prune so the ledger never grows past the cap', async () => {
+        const dir = await tmpDir();
+        try {
+            // triggerBytes:1 arms the gate on every append; maxEvents:3 is the retained cap. Append 5 → the gate
+            // prunes to the newest 3 as soon as the file crosses 1 byte — proving the observability sink self-bounds.
+            for (let i = 0; i < 5; i++) {
+                await appendHealEvent({type: 'heal', collection: 'c1', status: 'healed', at: i}, {dir, triggerBytes: 1, maxEvents: 3});
+            }
+            const events = await readHealLedger({dir});
+            expect(events.length).toBeLessThanOrEqual(3);     // bounded — never unbounded growth under sustained operation
+            expect(events.at(-1).at).toBe(4);                 // the newest event always survives
+        } finally {
+            await fs.rm(dir, {recursive: true, force: true});
+        }
+    });
+
+    test('appendHealEvent does NOT auto-prune when no retention policy is supplied — the helper owns no production default', async () => {
+        const dir = await tmpDir();
+        try {
+            // 6 tiny appends with NO triggerBytes/maxEvents → the size-gate is inert (no magic-number fallback fires).
+            // Bounding is the AiConfig-aware caller's job (it passes the retention leaves), not the helper's.
+            for (let i = 0; i < 6; i++) {
+                await appendHealEvent({type: 'heal', collection: 'c1', status: 'healed', at: i}, {dir});
+            }
+            expect((await readHealLedger({dir})).length).toBe(6); // un-pruned — no helper default applied
+        } finally {
+            await fs.rm(dir, {recursive: true, force: true});
+        }
+    });
+
+    test('pruneHealLedger requires an explicit finite, non-negative maxEvents (no helper-owned default)', async () => {
+        const dir = await tmpDir();
+        try {
+            await expect(pruneHealLedger({dir})).rejects.toThrow(/finite, non-negative maxEvents is required/);
+            await expect(pruneHealLedger({dir, maxEvents: -1})).rejects.toThrow(/finite, non-negative maxEvents is required/);
+            await expect(pruneHealLedger({dir, maxEvents: NaN})).rejects.toThrow(/finite, non-negative maxEvents is required/);
+        } finally {
+            await fs.rm(dir, {recursive: true, force: true});
+        }
+    });
+});
+
+test.describe('readHealLedger — fail-visible on an unreadable FILE (#14163 degradation surfaces)', () => {
+    test('THROWS on an unreadable ledger FILE (non-ENOENT) so the observability boundary degrades visibly', async () => {
+        const dir = await tmpDir();
+        try {
+            // A directory where the JSONL file should be → readFile throws EISDIR (NOT ENOENT). A MISSING file stays
+            // [] (nothing yet); an unreadable file is a real storage degradation that must surface, not read as empty.
+            await fs.mkdir(getHealLedgerFilePath(dir));
+            await expect(readHealLedger({dir})).rejects.toMatchObject({code: 'EISDIR'});
+        } finally {
+            await fs.rm(dir, {recursive: true, force: true});
+        }
+    });
+});
+
+test.describe('validateHealLedgerRetention — fail-visible boundary guard (#14163 cycle-4)', () => {
+    test('returns the validated pair for finite, non-negative values', () => {
+        expect(validateHealLedgerRetention(5000, 1024 * 1024)).toEqual({maxEvents: 5000, triggerBytes: 1024 * 1024});
+    });
+
+    test('THROWS on an invalid maxEvents so an invalid retention leaf cannot silently disable the bound', () => {
+        // The exact falsifier: maxEvents -1 made pruneHealLedger throw, which appendHealEvent's prune gate SWALLOWED
+        // → the ledger grew unbounded. This boundary guard rejects the invalid leaf BEFORE the append instead.
+        for (const bad of [-1, NaN, Infinity, '5000', null]) {
+            expect(() => validateHealLedgerRetention(bad, 1024)).toThrow(/maxEvents must be a finite, non-negative number/);
+        }
+    });
+
+    test('THROWS on an invalid pruneTriggerBytes', () => {
+        for (const bad of [-1, NaN, Infinity]) {
+            expect(() => validateHealLedgerRetention(5000, bad)).toThrow(/pruneTriggerBytes must be a finite, non-negative number/);
         }
     });
 });
