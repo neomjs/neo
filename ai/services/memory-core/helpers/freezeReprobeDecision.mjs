@@ -109,7 +109,8 @@ export function decideFreezeReprobe({freezeRecord, probe, bounds = DEFAULT_REPRO
  * **Anti-hot-loop:** an unfreeze bumps `unfreezeAttempts` + `lastProbeAt` via `persistProbe` BEFORE executing the
  * unfreeze, so a collection that unfreezes then immediately re-freezes keeps a climbing attempt count and is
  * eventually `contained` rather than thrashing. A failed unfreeze leaves the record (the attempt is already
- * recorded); a successful one clears it via `clearFreeze`.
+ * recorded); a successful one is handed to `clearFreeze` — whose wired implementation RELEASES the record to a
+ * tombstone (not a delete), so that climbing count survives the re-freeze and the flap is what eventually caps.
  *
  * @param {Object} options
  * @param {Object} [options.freezeRecords={}] The keyed freeze-record map (`{[collectionName]: record}`) — the caller reads it from the store.
@@ -118,7 +119,7 @@ export function decideFreezeReprobe({freezeRecord, probe, bounds = DEFAULT_REPRO
  * @param {Object} [options.bounds] Re-probe bounds (defaults to `DEFAULT_REPROBE_BOUNDS` in `decideFreezeReprobe`).
  * @param {Function} [options.unfreezeAndReheal] `async (collectionName) => any` — the injected privileged unfreeze + re-enter-heal. Absent → an `unfreeze` disposition is recorded `deferred` (not executed).
  * @param {Function} [options.persistProbe] `async ({collectionName, lastProbeAt, unfreezeAttempts?}) => void` — persists the re-probe bookkeeping.
- * @param {Function} [options.clearFreeze] `async (collectionName) => void` — removes the freeze-record on a successful unfreeze.
+ * @param {Function} [options.clearFreeze] `async (collectionName) => void` — releases the freeze-record on a successful unfreeze. The wired runner tombstones it (`unfrozenAt` set, fence lifted) rather than deleting, so the climbing `unfreezeAttempts` survives a re-freeze (the anti-thrash count); a tombstone is excluded from the active set, so it is not re-probed.
  * @returns {Promise<Object[]>} `[{collectionName, status, reason, unfroze}]` per frozen collection.
  */
 export async function runFreezeReprobeCycle({freezeRecords = {}, probe, now, bounds, unfreezeAndReheal, persistProbe, clearFreeze} = {}) {
