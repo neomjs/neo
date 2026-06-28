@@ -461,14 +461,14 @@ class Config extends ConfigProvider {
                 /**
                  * L0 deployment-runtime access holder used by the self-healing stack.
                  *
-                 * The mechanism decision is ADR-0026 OQ-1 as resolved by #13920:
+                 * The deny-by-default mechanism (the recovery-actuator privilege-boundary design):
                  * docker-socket + deny-by-default wrapper is the MVP, while a privileged sidecar
                  * remains the hardening fallback if the wrapper cannot prove strict service
                  * identity and operation allowlisting. The holder exposes two separate
                  * capability envelopes over the same runtime handle:
                  *
-                 * - `readOperations`: logs / stats / inspect for #13914 observability.
-                 * - `lifecycleOperations`: restart for #13884/#13915 recovery.
+                 * - `readOperations`: logs / stats / inspect for observability.
+                 * - `lifecycleOperations`: restart for recovery.
                  *
                  * `allowedServices` names Docker Compose service labels, not arbitrary
                  * container ids. `composeProject` is optional for single-stack deployments;
@@ -665,7 +665,7 @@ class Config extends ConfigProvider {
                  * handoff for the whole run) interleaves; the next sweep re-acquires for the remaining work.
                  * A holder must only yield at a resumable checkpoint (a preserved shadow + resume-marker keep
                  * completed work), so the release window is torn-read-free. `0`/falsy ⇒ never yields
-                 * (byte-identical back-compat). Default 30min (the #14144 fairness Decision Record with
+                 * (byte-identical back-compat). Default 30min (the fairness decision with
                  * @neo-opus-grace): independent of `staleAfterMs` but kept smaller (a live holder yields before
                  * it would be stale-reclaimed); a SOFT knob — the holder yields at the first between-batch
                  * checkpoint after the bound, never mid-batch — so it is tunable on observed yield-churn.

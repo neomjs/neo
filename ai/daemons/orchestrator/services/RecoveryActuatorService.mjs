@@ -84,7 +84,7 @@ export function isRecoveryActuatorTargetBlocked(target, blockedTargets) {
  * @class Neo.ai.daemons.services.RecoveryActuatorService
  * @extends Neo.core.Base
  *
- * B1 privileged recovery actuator for ADR-0026. The service is controller-blind:
+ * B1 privileged recovery actuator (the deny-by-default privilege-boundary design). The service is controller-blind:
  * callers pass an already-selected action, and this class only answers whether the
  * recovery target registry + persisted anti-thrash envelope admits it. Compose-service
  * lifecycle writes are delegated to the shared L0 deployment-runtime access holder,
@@ -214,7 +214,7 @@ export class RecoveryActuatorService extends Base {
      * @param {String} serviceKey Stable recovery target key.
      * @param {String} action restart | redeploy | warm-provider.
      * @param {Object} [options]
-     * @param {Object|null} [options.diagnosisEvent=null] Optional ADR-0025 diagnosis event.
+     * @param {Object|null} [options.diagnosisEvent=null] Optional structured diagnosis event.
      * @param {Object|null} [options.targetIdentity=null] Optional typed target identity.
      * @param {String|null} [options.recoveryRunId=null] Optional stable recovery run id.
      * @param {Number} [options.now=Date.now()] Epoch milliseconds.
