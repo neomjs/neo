@@ -920,7 +920,7 @@ export class Orchestrator extends Base {
         ];
         const RESTART_COOLDOWN_MS = 15000;
         for (const taskName of continuousTasks) {
-            this.processSupervisorService.reapDuplicateListeners(taskName);
+            this.processSupervisorService.reconcileSingletonPort(taskName);
 
             const state = this.taskStateService.getTaskState(taskName);
 

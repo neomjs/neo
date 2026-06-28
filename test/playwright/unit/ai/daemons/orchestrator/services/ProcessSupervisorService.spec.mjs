@@ -649,7 +649,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
         expect(degradedLogs.length).toBe(1);
     });
 
-    test('reapDuplicateListeners SIGKILLs extra listeners but keeps the canonical pid', () => {
+    test('reconcileSingletonPort SIGKILLs extra listeners but keeps the canonical pid', () => {
         const { service, taskOutcomes } = createTestService();
         const killed                    = [];
 
@@ -659,14 +659,14 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
         service.processCommand    = () => 'echo serving';
         service.killProcess       = pid => killed.push(pid);
 
-        const reaped = service.reapDuplicateListeners('mockTask');
+        const reaped = service.reconcileSingletonPort('mockTask');
 
         expect(reaped).toBe(2);
         expect(killed).toEqual([200, 300]);
         expect(taskOutcomes.filter(o => o.status === 'reaped-duplicate').length).toBe(2);
     });
 
-    test('reapDuplicateListeners leaves a process whose command is not the task command', () => {
+    test('reconcileSingletonPort leaves a process whose command is not the task command', () => {
         const { service } = createTestService();
         const killed      = [];
 
@@ -676,36 +676,113 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
         service.processCommand    = () => 'unrelated-process';
         service.killProcess       = pid => killed.push(pid);
 
-        expect(service.reapDuplicateListeners('mockTask')).toBe(0);
+        expect(service.reconcileSingletonPort('mockTask')).toBe(0);
         expect(killed).toEqual([]);
     });
 
-    test('reapDuplicateListeners is a no-op for tasks without a singletonPort', () => {
+    test('reconcileSingletonPort is a no-op for tasks without a singletonPort', () => {
         const { service } = createTestService();
         let   probed      = false;
 
         service.listPortListeners = () => { probed = true; return [200]; };
 
-        expect(service.reapDuplicateListeners('mockTask')).toBe(0);
+        expect(service.reconcileSingletonPort('mockTask')).toBe(0);
         expect(probed).toBe(false);
     });
 
-    test('reapDuplicateListeners defers shared local services without touching listeners', () => {
-        const { service } = createTestService();
-        const killed      = [];
-        let   probed      = false;
+    test('reconcileSingletonPort (defer) adopts the live expectedCommand holder instead of re-spawning', () => {
+        const { service, taskOutcomes } = createTestService();
+        const killed                    = [];
+        const adopted                   = [];
+        const watched                   = [];
 
-        service.taskDefinitions.mockTask.singletonPort = 8000;
+        service.taskDefinitions.mockTask.singletonPort           = 8000;
         service.taskDefinitions.mockTask.duplicateListenerPolicy = 'defer';
-        service.listPortListeners = () => { probed = true; return [200]; };
-        service.killProcess       = pid => killed.push(pid);
+        service.taskDefinitions.mockTask.expectedCommand         = 'serve';
+        service.taskStateService.getTaskState = () => ({running: false, pid: null});
+        service.taskStateService.adoptRunning = (name, pid) => adopted.push({name, pid});
+        service.watchRecoveredTask = (name, pid) => watched.push({name, pid});
+        service.getTaskPidFile     = () => null; // pidfile write is try-guarded; skip the real FS write
+        service.listPortListeners  = () => [200];
+        service.processCommand     = () => 'node serve --port 8000';
+        service.killProcess        = pid => killed.push(pid);
 
-        expect(service.reapDuplicateListeners('mockTask')).toBe(0);
-        expect(probed).toBe(false);
-        expect(killed).toEqual([]);
+        const reaped = service.reconcileSingletonPort('mockTask');
+
+        expect(reaped).toBe(0);                                   // defer never reaps
+        expect(killed).toEqual([]);                              // never kills the externally-owned holder
+        expect(adopted).toEqual([{name: 'mockTask', pid: 200}]); // adopts the live holder into tracked state
+        expect(watched).toEqual([{name: 'mockTask', pid: 200}]); // watches it for exit
+        expect(taskOutcomes.filter(o => o.status === 'adopted').length).toBe(1);
     });
 
-    test('reapDuplicateListeners reaps every matching listener when no canonical pid is tracked', () => {
+    test('reconcileSingletonPort (defer) is a no-op when the task is already tracked-running', () => {
+        const { service } = createTestService();
+        const adopted     = [];
+        let   probed      = false;
+
+        service.taskDefinitions.mockTask.singletonPort           = 8000;
+        service.taskDefinitions.mockTask.duplicateListenerPolicy = 'defer';
+        service.taskStateService.getTaskState = () => ({running: true, pid: 100});
+        service.taskStateService.adoptRunning = (name, pid) => adopted.push({name, pid});
+        service.listPortListeners = () => { probed = true; return [200]; };
+
+        expect(service.reconcileSingletonPort('mockTask')).toBe(0);
+        expect(probed).toBe(false); // already running → does not probe the port or adopt
+        expect(adopted).toEqual([]);
+    });
+
+    test('reconcileSingletonPort (defer) does not adopt a foreign command holding the port', () => {
+        const { service } = createTestService();
+        const adopted     = [];
+        const killed      = [];
+
+        service.taskDefinitions.mockTask.singletonPort           = 8000;
+        service.taskDefinitions.mockTask.duplicateListenerPolicy = 'defer';
+        service.taskDefinitions.mockTask.expectedCommand         = 'serve';
+        service.taskStateService.getTaskState = () => ({running: false, pid: null});
+        service.taskStateService.adoptRunning = (name, pid) => adopted.push({name, pid});
+        service.listPortListeners  = () => [200];
+        service.processCommand     = () => 'some-unrelated-process';
+        service.killProcess        = pid => killed.push(pid);
+
+        expect(service.reconcileSingletonPort('mockTask')).toBe(0);
+        expect(adopted).toEqual([]); // foreign command → not adopted
+        expect(killed).toEqual([]);  // defer → never killed either
+    });
+
+    test('full poll (reconcileSingletonPort → superviseTask): a defer task with a FOREIGN port holder never adopts, kills, or spawns', async () => {
+        const { service, taskOutcomes } = createTestService();
+        const spawned                   = [];
+        const adopted                   = [];
+        const killed                    = [];
+
+        service.taskDefinitions.mockTask.singletonPort           = 8000;
+        service.taskDefinitions.mockTask.duplicateListenerPolicy = 'defer';
+        // mockTask.expectedCommand is 'echo'; the holder below is a foreign command.
+        service.taskDefinitions.mockTask.livenessProbe           = async () => false; // down → the restart path (the pre-fix spawn trigger)
+        service.taskStateService.getTaskState = () => ({running: false, pid: null, lastRunAt: 0});
+        service.taskStateService.adoptRunning = (name, pid) => adopted.push({name, pid});
+        service.listPortListeners = () => [4321];            // a process holds the port
+        service.processCommand    = () => 'node server.mjs'; // FOREIGN (does not include 'echo')
+        service.killProcess       = pid => killed.push(pid);
+        service.spawnFn           = (command, args) => { spawned.push({command, args}); return {pid: 9999, on: () => {}, stderr: {on: () => {}}, stdout: {on: () => {}}}; };
+
+        // Production poll order: reconcile THEN supervise.
+        service.reconcileSingletonPort('mockTask');
+        service.superviseTask('mockTask', 1000000, 0);
+
+        // Flush the async liveness-gate path — where the pre-fix code spawned into the held port.
+        await new Promise(resolve => setTimeout(resolve, 0));
+        await Promise.resolve();
+
+        expect(adopted).toEqual([]); // foreign command → not adopted
+        expect(killed).toEqual([]);  // defer → never killed
+        expect(spawned).toEqual([]); // gated on port occupancy → no spawn-into the held port (no EADDRINUSE)
+        expect(taskOutcomes.filter(o => o.status === 'deferred-port-held').length).toBe(1);
+    });
+
+    test('reconcileSingletonPort reaps every matching listener when no canonical pid is tracked', () => {
         const { service } = createTestService();
         const killed      = [];
 
@@ -715,7 +792,7 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
         service.processCommand    = () => 'echo';
         service.killProcess       = pid => killed.push(pid);
 
-        expect(service.reapDuplicateListeners('mockTask')).toBe(2);
+        expect(service.reconcileSingletonPort('mockTask')).toBe(2);
         expect(killed).toEqual([200, 300]);
     });
 
