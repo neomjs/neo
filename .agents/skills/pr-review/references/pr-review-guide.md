@@ -40,7 +40,9 @@ If you write a GitHub PR review, step out of Driver mode and follow this reviewe
 ## 3. Structural Evaluation Metrics
 Every PR review MUST score the work across the following categories on a scale of `0` to `100`:
 
-*   **`[ARCH_ALIGNMENT]`** (0-100): Does it follow Neo.mjs paradigms (e.g., worker delegation, push-based reactivity, config-driven components)?
+**Verdict weights:** 30% premise / right thing; 30% architecture / placement; 30% diff correctness; 10% AC/evidence/close-target/CI/contract sanity. Weights are importance-to-verdict, not effort budget; a tidy checklist over the wrong premise or folder still fails.
+
+*   **`[ARCH_ALIGNMENT]`** (0-100): Neo paradigms plus "does this belong here?" placement, cohesion, single responsibility, folder fit, and boundaries. Logic in definitions/config, provider specifics outside providers, or subsystem leakage into root surfaces caps the score; the #14298 placement miss would be ~45, not 94.
 *   **`[CONTENT_COMPLETENESS]`** (0-100): Are all new or modified methods documented with 'Anchor & Echo' JSDoc? Is the PR description a comprehensive "Fat Ticket"?
 *   **`[EXECUTION_QUALITY]`** (0-100): Code flow, absence of bugs, race condition safety, VDOM syncing correctness, and testing coverage.
 *   **`[PRODUCTIVITY]`** (0-100): Were the primary goals of the linked ticket achieved?
@@ -101,6 +103,8 @@ When challenging a specific architectural pattern or complex implementation deta
 
 ### 5.2 Close-Target Audit
 
+10% AC/scope sanity layer: binding on real close-target overclaim; never a premise, placement, or diff verdict substitute.
+
 Audit every magic close target in the PR body and commit messages: `Closes #N`, `Resolves #N`, `Fixes #N` (case-insensitive). For Neo agent / `ai` PRs, only newline-isolated `Resolves #N` may close a delivered leaf ticket; `Refs` / `Related` are non-closing extras. Epics are invalid close-targets. Branch commit bodies also matter because squash merge can carry stale magic keywords into `dev` (`#11185` / PR `#11183`).
 
 <!-- trigger: close-target over-claim or lint/body contradiction -> read ./close-target-remediation.md -->
@@ -120,6 +124,8 @@ When a PR touches `ai/mcp/server/*/openapi.yaml`, you MUST audit each modified o
 **Audit Protocol:** See [`audits/mcp-tool-description-budget.md`](./audits/mcp-tool-description-budget.md) for the trigger conditions, verbosity budgets, and required action templates.
 
 ### 5.4 Contract Completeness Audit
+
+10% AC/scope sanity layer: binding on real contract drift; a complete ledger is not premise or placement evidence.
 
 For PRs that introduce or modify public/consumed surfaces (e.g., configs, MCP tools, framework APIs, CLI arguments), the reviewer MUST audit the implementation against the **Contract Ledger matrix** defined in the originating ticket (see `contract-ledger.md`).
 
@@ -232,6 +238,8 @@ Future-work suggestions, non-blocking observations, and follow-up ideas are revi
 
 ### 7.5 Test-Execution & Location Audit
 
+10% AC/scope sanity layer unless execution disproves the diff. Verify claims and canonical test placement; green tests cannot override a wrong premise or owner.
+
 When reviewing a PR, you MUST empirically verify code execution and test file placement, but only for **RELATED** tests. Do NOT blindly run the entire automated test suite, as it destroys the focus window and wastes tokens.
 
 Reviewers MUST verify testing claims and canonical file placement:
@@ -241,6 +249,8 @@ Reviewers MUST verify testing claims and canonical file placement:
 4. If the author did not provide test evidence for structural logic changes, or placed tests in legacy/incorrect directories, flag this as a **Required Action**.
 
 ### 7.6 CI / Security Checks Audit
+
+10% AC/scope sanity layer unless CI/security reveals a defect. Green CI is eligibility evidence, not an architecture verdict.
 
 Formal reviews assume green current-head CI. Verify before `manage_pr_review`; if checks are pending, missing, failing, or a stacked PR is lint-only (`baseRefName` not `dev` / default), send a compact CI deferral. Full-CI stacked approvals must name base state + retarget status; child-green alone is delta evidence. Load `.agents/skills/pr-review/audits/ci-security-audit.md` only for security-sensitive changes or ambiguous/failing check surfaces.
 
@@ -267,27 +277,7 @@ Formal reviews assume green current-head CI. Verify before `manage_pr_review`; i
 | PR adds substantive rule body directly to always-loaded skill substrate (`SKILL.md`, `pr-review-guide.md`, `pull-request-workflow.md`, `AGENTS.md`) instead of conditionally loaded `references/` payload | **Progressive Disclosure violation** — Map (always-loaded) vs World Atlas (conditional reference) split bypassed; bloats per-turn token budget. Default disposition for new rules is `compress-to-trigger` per `pull-request-workflow.md §1.1`. Proactive companion: `/create-skill`. Required Action: reshape to Map (trigger line) → Atlas (rule body in `references/`) split, or cite per-turn frequency + irreversibility justifying `keep` slot |
 
 ## 7.8 Audit Spec: Loading-Runtime-Effect Substitution
-
-Reviewer-side audit for substrate-load mistakes. The canonical file list, placement tree, mechanical pre-flight, and empirical anchors live in [`turn-memory-pre-flight`](../../turn-memory-pre-flight/references/turn-memory-pre-flight-workflow.md); do not duplicate them here.
-
-### When this audit fires (reviewer-side)
-
-When a PR modifies any `/turn-memory-pre-flight` IN-SCOPE substrate file. Verify the author documented `/turn-memory-pre-flight` application and load-effect reasoning.
-
-### The Failure Mode (reviewer recognition shape)
-
-**Loading-runtime-effect substitution**: approving file-completeness ("all harness files updated") while missing runtime-load effect ("does this load once or twice per turn?"). It is a dimension miss, not lack of engagement.
-
-### Required Action template (reviewer-side)
-
-> *"Substrate-touching files modified ({list IN-SCOPE files from PR diff}). PR body does not document `/turn-memory-pre-flight` decision-tree application. Required: invoke `/turn-memory-pre-flight` retrospectively + document the 5-step decision-tree application + mechanical pre-flight commands run + harness-load-duplication risk audit in PR body."*
-
-### Cross-skill bridge
-
-- **Proactive companion (substrate-creation time)**: `/turn-memory-pre-flight` (Epic `#11256` substrate; `turn-memory-pre-flight` skill trigger)
-- **Architectural router (ambiguous cases)**: `/architecture-pre-flight` (Epic `#11256` substrate)
-- **Helpful-Assistant 4-sub-mode context**: Discussion `#11259` (CLOSED RESOLVED) → ticket `#11262` → PR `#11263` (substrate-load-time XML salience metadata)
-
+<!-- trigger: PR modifies turn-memory-pre-flight IN-SCOPE substrate -> read ../audits/loading-runtime-effect.md -->
 
 ## 8. Cross-Skill Integration Audit
 
@@ -321,7 +311,7 @@ After technical audits (§3-§8), decide the merge posture:
 
 1. **Approve** — default for a working PR (no blocking defect); ship as-is, nits inline.
 2. **Request Changes** — must-fix, only for code-shape/correctness/safety; a finding → same-PR fix/comment/AC, never a follow-up ticket.
-3. **Approve+Follow-Up** — least-desirable (spawns the follow-up flood). Mergeable→Approve; defect→Request Changes.
+3. **Approve+Follow-Up** — worst normal outcome (spawns the follow-up flood and negative-ROI CI/review loops). Mergeable -> Approve; defect or debt-creating quick win -> Request Changes; wrong premise -> Drop+Supersede. Reserve A+FU only for explicitly non-blocking residuals where same-PR repair would be less coherent than shipping.
 4. **Drop+Supersede** — premise is stale/wrong; recommend closure via Request Changes shape so author/human handles PR/ticket closure. Use for fundamentally wrong premise, operator-intent correction, or >5 cycles rearranging the same invalid abstraction.
 
 This is architectural judgment after defects are identified; it is not another defect audit.

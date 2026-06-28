@@ -14,6 +14,8 @@ An Epic body is **problem-scope + intended-solution** — the durable "why + wha
 
 ## What an Epic body SHOULD contain
 
+Epic creation uses the same importance order as ticket and PR review: the problem/premise and intended placement dominate the verdict. Sub AC detail belongs in leaf tickets; an Epic with exhaustive sub mechanics but a weak premise or wrong owning substrate is not ready.
+
 1. **Problem scope** — the friction / antipattern-cluster / goal, with empirical anchors. State why this needs an Epic (multi-sub coordination) rather than a single ticket.
 2. **Intended solution shape** — the architectural direction (the "what-shape"), NOT the per-sub task breakdown. Enough that a reader knows the convergent shape the subs will serve.
 3. **(If Discussion-graduated) the §6.6 Signal Ledger** — the graduation consensus record (family-keyed quorum, unresolved dissent / liveness, criteria-mapping) per `ideation-sandbox-workflow.md §6`. This is the one structured matrix that belongs in an Epic body, because it records the graduation event, not the sub-plan.
@@ -46,7 +48,7 @@ Each sub the decomposition creates MUST be a **leaf that a single PR can FULLY d
 ## Procedure
 
 1. **Confirm Epic-shape.** The work needs ≥2 coordinated subs. A single bounded artifact (≈1 PR's worth) is a standalone ticket (`ticket-create`), not an Epic.
-2. **Graduation gate (if from a Discussion).** High-blast Epics require the §6.2 family-keyed quorum + the §5.1 divergence matrix in the source Discussion before filing (per `ideation-sandbox-workflow.md` + `ideation-sandbox/audits/double-diamond-divergence-guard.md`). Carry the §6.6 ledger into the body.
+2. **Graduation gate (if from a Discussion).** High-blast Epics require the §6.2 family-keyed quorum + the §5.1 divergence matrix in the source Discussion before filing (per `ideation-sandbox-workflow.md` + `ideation-sandbox/audits/double-diamond-divergence-guard.md`). Carry the `Signal Ledger` / dissent / liveness / criteria-mapping sections into the body.
 3. **Author the body** = problem-scope + intended-solution (+ ledger if graduated). NO ACs, NO sub-list.
 4. **Label `epic`** + apply title hygiene (per `ticket-create`).
 5. **Create subs separately** (via `ticket-create` — each with its own ACs + Contract Ledger) and **link each via `update_issue_relationship`** (parent = the Epic). Add subs incrementally as the decomposition clarifies — never block Epic creation on a complete sub-list.
@@ -54,5 +56,5 @@ Each sub the decomposition creates MUST be a **leaf that a single PR can FULLY d
    - [ ] Body contains **no** `## Acceptance Criteria` block.
    - [ ] Body contains **no** hardcoded sub-registry (subs discoverable via parent-child relationship instead).
    - [ ] Body answers "why an Epic (multi-sub coordination), not a single ticket?".
-   - [ ] If Discussion-graduated: §6.6 Signal Ledger present + quorum met.
+   - [ ] If Discussion-graduated: `Signal Ledger` present + quorum met.
    - [ ] Each planned sub is a one-PR-deliverable **leaf** (no bundled separable deliverables); the Epic is `Refs`'d by subs, never a PR close-target.

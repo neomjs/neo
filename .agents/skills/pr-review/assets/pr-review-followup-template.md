@@ -23,7 +23,7 @@
 
 Per §9 Strategic-Fit Step-Back:
 - **Decision**: [Approve / Approve+Follow-Up / Request Changes / Drop+Supersede]
-- **Rationale**: [1-2 sentences on why this meta-decision fits the current delta context.]
+- **Rationale**: [1-2 sentences on why this meta-decision fits the current delta context. Treat Approve+Follow-Up as the worst normal outcome, not a convenient residual bucket.]
 
 ---
 
@@ -86,6 +86,8 @@ N/A across listed dimensions: <one-line reason for the delta-scope justification
 
 ### 🧪 Test-Execution & Location Audit
 
+*This is part of the 10% AC/audit sanity layer unless execution disproves the delta.*
+
 *   **Changed surface class:** [code / test / docs-template only / PR body only]
 *   **Location check:** [pass / incorrect placement flagged / N/A]
 *   **Related verification run:** [command + result, or "No tests required: docs/template-only delta"]
@@ -95,7 +97,7 @@ N/A across listed dimensions: <one-line reason for the delta-scope justification
 
 ### 📑 Contract Completeness Audit
 
-*(Required per guide §5.4 if the delta touches public/consumed surfaces)*
+*(Required per guide §5.4 if the delta touches public/consumed surfaces. This is part of the 10% AC/audit sanity layer: binding on real drift, not proof that the work belongs here.)*
 
 *   **Findings:** [Pass / new contract drift flagged / N/A]
 
@@ -103,9 +105,11 @@ N/A across listed dimensions: <one-line reason for the delta-scope justification
 
 ### 📊 Metrics Delta
 
+Verdict weights still apply: 30% premise / right thing, 30% architecture + placement, 30% diff correctness, 10% AC/audit sanity. These are importance-to-verdict weights, not effort budgets.
+
 Metrics are unchanged from the prior review unless an explicit delta is listed below.
 
-*   **`[ARCH_ALIGNMENT]`**: [unchanged from prior review, or previous -> current + reason]
+*   **`[ARCH_ALIGNMENT]`**: [unchanged from prior review, or previous -> current + reason; include placement/cohesion/folder-fit/boundary discipline when the delta touches ownership]
 *   **`[CONTENT_COMPLETENESS]`**: [unchanged from prior review, or previous -> current + reason]
 *   **`[EXECUTION_QUALITY]`**: [unchanged from prior review, or previous -> current + reason]
 *   **`[PRODUCTIVITY]`**: [unchanged from prior review, or previous -> current + reason]
