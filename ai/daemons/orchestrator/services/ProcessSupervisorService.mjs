@@ -316,6 +316,41 @@ export class ProcessSupervisorService extends Base {
     }
 
     /**
+     * @summary Whether any process currently holds a LISTEN socket on the given singleton port.
+     * @param {Number} port
+     * @returns {Boolean}
+     */
+    isSingletonPortHeld(port) {
+        return this.listPortListeners(port).length > 0
+    }
+
+    /**
+     * @summary Allows only the first defer-port-held restart-skip log per held-period.
+     * @param {String} taskName Task key.
+     * @returns {Boolean}
+     */
+    shouldLogDeferPortHeldSkip(taskName) {
+        this.deferPortHeldLogKeys ??= new Set();
+
+        if (this.deferPortHeldLogKeys.has(taskName)) {
+            return false;
+        }
+
+        this.deferPortHeldLogKeys.add(taskName);
+
+        return true
+    }
+
+    /**
+     * @summary Resets the defer-port-held skip-log guard once the port frees or is adopted.
+     * @param {String} taskName Task key.
+     * @returns {void}
+     */
+    clearDeferPortHeldLogState(taskName) {
+        this.deferPortHeldLogKeys?.delete(taskName)
+    }
+
+    /**
      * Maps child-process stderr log prefixes to daemon log severities.
      * @param {String} line Child stderr line.
      * @returns {String}
@@ -841,6 +876,21 @@ export class ProcessSupervisorService extends Base {
             return;
         }
 
+        // A `defer` singleton-port task must never (re)spawn into an already-held port. A matching
+        // holder would have been adopted by reconcileSingletonPort (running=true, handled above); if
+        // the port is still held here it is a foreign / non-adoptable instance — leave it untouched
+        // (never kill, never spawn-into) and wait for it to free. This gates the restart on PORT
+        // OCCUPANCY, not just tracked-running, which the restart path alone would check.
+        if (task?.duplicateListenerPolicy === 'defer' && task?.singletonPort && this.isSingletonPortHeld(task.singletonPort)) {
+            if (this.shouldLogDeferPortHeldSkip(taskName)) {
+                this.writeLog?.('WARN', `[ProcessSupervisor] ${task.label} port ${task.singletonPort} held by an external instance; deferring restart (no spawn-into, no kill).`);
+                this.recordTaskOutcome(taskName, 'deferred-port-held', {port: task.singletonPort, deferredAt: new Date().toISOString()});
+            }
+            return;
+        }
+
+        this.clearDeferPortHeldLogState(taskName);
+
         if (typeof task?.livenessProbe === 'function') {
             this.gateRestartOnLivenessProbe(taskName, task, now, cooldownMs);
         } else {
@@ -931,37 +981,35 @@ export class ProcessSupervisorService extends Base {
     }
 
     /**
-     * @summary Enforces or observes a single live process for a port-owning task.
+     * @summary Reconciles a port-owning task's tracked state against the live listener(s) on its `singletonPort`.
      *
      * Default policy is authoritative ownership: when more than one process binds the task's
      * `singletonPort`, keep the orchestrator-tracked pid and SIGKILL verified duplicates. This
      * is required for daemons like Chroma where duplicate writers corrupt a shared persist dir.
      *
-     * Tasks that expose shared local infrastructure may opt into
-     * `duplicateListenerPolicy: 'defer'`: matching listeners are treated as externally-owned
-     * live instances and are never killed by this supervisor. The task's liveness probe then
-     * decides whether a restart is needed.
+     * Tasks that expose shared local infrastructure opt into `duplicateListenerPolicy: 'defer'`:
+     * a matching listener is an externally-owned live instance that is never killed. For those this
+     * delegates to {@link adoptExistingSingletonListener} — it ADOPTS the live holder into tracked
+     * state so the supervisor resumes it instead of re-spawning into the held port (the EADDRINUSE
+     * this closes). The task's liveness probe then governs recycle.
      *
      * @param {String} taskName Task key.
-     * @returns {Number} Count of duplicate processes reaped.
+     * @returns {Number} Count of duplicate processes reaped (always 0 for `defer`).
      */
-    reapDuplicateListeners(taskName) {
+    reconcileSingletonPort(taskName) {
         const task = this.taskDefinitions[taskName];
         if (!task?.singletonPort) {
             return 0;
         }
 
         if (task.duplicateListenerPolicy === 'defer') {
+            this.adoptExistingSingletonListener(taskName);
             return 0;
         }
 
         const listenerPids = this.listPortListeners(task.singletonPort);
         const canonicalPid = this.taskStateService.getTaskState(taskName)?.pid;
         let   reaped       = 0;
-
-        if (task.duplicateListenerPolicy === 'defer') {
-            return 0;
-        }
 
         for (const pid of listenerPids) {
             if (!Number.isInteger(pid) || pid === canonicalPid) {
@@ -990,6 +1038,62 @@ export class ProcessSupervisorService extends Base {
         }
 
         return reaped;
+    }
+
+    /**
+     * @summary Adopts an externally-owned live listener on a `defer`-policy task's `singletonPort`.
+     *
+     * `defer` tasks (shared local infra — the Neural Link Bridge, the dev-server) treat a matching
+     * port listener as an externally-owned live instance. When tracked state shows the task as NOT
+     * running but a process whose command matches `expectedCommand` already holds the port, this
+     * adopts it (running flag + pid + pidfile + exit watch) so the supervisor resumes it rather than
+     * re-spawning into the held port — the `EADDRINUSE` failure mode. It NEVER kills (defer never
+     * reaps); a foreign command on the port is left untouched (no adopt, no kill, no spawn-into).
+     *
+     * @param {String} taskName Task key.
+     * @returns {Boolean} True when a live holder was adopted.
+     */
+    adoptExistingSingletonListener(taskName) {
+        const task  = this.taskDefinitions[taskName];
+        const state = this.taskStateService.getTaskState(taskName);
+
+        // Already tracked-running (or no state to mutate) → nothing to reconcile.
+        if (!state || state.running) {
+            return false;
+        }
+
+        for (const pid of this.listPortListeners(task.singletonPort)) {
+            if (!Number.isInteger(pid)) {
+                continue;
+            }
+
+            let command;
+            try {
+                command = this.processCommand(pid);
+            } catch (e) {
+                continue;
+            }
+
+            if (!command.includes(task.expectedCommand)) {
+                continue;
+            }
+
+            this.taskStateService.adoptRunning(taskName, pid);
+            this.watchRecoveredTask(taskName, pid);
+
+            try {
+                fs.writeFileSync(this.getTaskPidFile(taskName), pid.toString(), 'utf8');
+            } catch (e) {
+                this.writeLog?.('ERROR', `[ProcessSupervisor] Failed to write adopted ${task.label} PID: ${e.message}`);
+            }
+
+            this.writeLog?.('INFO', `[ProcessSupervisor] Adopting externally-owned ${task.label} (PID: ${pid}) on port ${task.singletonPort}; not re-spawning.`);
+            this.recordTaskOutcome(taskName, 'adopted', {pid, port: task.singletonPort, adoptedAt: new Date().toISOString()});
+
+            return true;
+        }
+
+        return false;
     }
 
     /**
