@@ -463,8 +463,10 @@ export class Orchestrator extends Base {
                 // re-audit lifts it. Lossless — no data mutated, no operator.
                 quarantine: async ({collection, evidence, now} = {}) => {
                     // A store-level fault (sqlite-integrity) targets the service id, not a served collection, so
-                    // fence every served collection in the store — else no query guard observes the fence.
-                    const targets = storeFenceTargets(collection, [AiConfig.collections.memory, AiConfig.collections.session]);
+                    // fence every served collection in the store — else no query guard observes the fence. The served
+                    // collection NAMES are owned by the Memory Core config (memoryCoreConfig.collections), the SSOT the
+                    // store consumers read — NOT top-level AiConfig (which has no `collections` key).
+                    const targets = storeFenceTargets(collection, [memoryCoreConfig.collections.memory, memoryCoreConfig.collections.session]);
 
                     for (const target of targets) {
                         await quarantineCollection(target, {
@@ -484,11 +486,7 @@ export class Orchestrator extends Base {
                     // Symmetric store-level fence (memory + session) — paired with the re-probe auto-unfence via the
                     // same `createStoreFenceOperations` factory, so a freeze and its later auto-unfreeze lift exactly
                     // the same served set (they cannot diverge into the unfreeze-lifts-only-the-record-key asymmetry).
-                    // LAZY closure: `getStoreFenceOperations()` reads `AiConfig.collections` (a reactive leaf unset at
-                    // singleton construction) — resolve it at HEAL-TIME, not while building this factory arg, mirroring
-                    // the quarantine op + throttle-shed (independent of reactive-config set ordering). The eager form
-                    // crashed `Neo.setupClass(Orchestrator)` on import once a sibling spec constructed the singleton.
-                    fence: args => this.getStoreFenceOperations().fence(args)
+                    fence: this.getStoreFenceOperations().fence
                 }),
                 // Throttle-shed: the resource-contention / exhaustion heal — open a bounded shed-window so the
                 // orchestrator defers ALL heavy-maintenance until the contended resource recovers, then auto-expires
@@ -532,10 +530,12 @@ export class Orchestrator extends Base {
      */
     getStoreFenceOperations() {
         return createStoreFenceOperations({
-            quarantine       : quarantineCollection,
-            unquarantine     : unquarantineCollection,
-            expand           : storeFenceTargets,
-            servedCollections: [AiConfig.collections.memory, AiConfig.collections.session],
+            quarantine  : quarantineCollection,
+            unquarantine: unquarantineCollection,
+            expand      : storeFenceTargets,
+            // Served collection NAMES come from the Memory Core config SSOT (memoryCoreConfig.collections — the same
+            // source the quarantine op + the store consumers read), NOT top-level AiConfig (no `collections` key).
+            servedCollections: [memoryCoreConfig.collections.memory, memoryCoreConfig.collections.session],
             quarantineOptions: {dir: AiConfig.engines.chroma.dataDir}
         });
     }
