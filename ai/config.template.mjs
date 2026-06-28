@@ -851,6 +851,19 @@ class Config extends ConfigProvider {
                         systemicThreshold: leaf(3,              'NEO_RECOVERY_ACTUATOR_SYSTEMIC_CIRCUIT_THRESHOLD',        'number'),
                         windowMs         : leaf(10 * 60 * 1000, 'NEO_RECOVERY_ACTUATOR_SYSTEMIC_CIRCUIT_WINDOW_MS',        'number'),
                         openDurationMs   : leaf(10 * 60 * 1000, 'NEO_RECOVERY_ACTUATOR_SYSTEMIC_CIRCUIT_OPEN_DURATION_MS', 'number')
+                    },
+                    /**
+                     * Chronic `unsafe-input` detector bounds — the immune system's self-observability for a
+                     * MIS-WIRE. `dispatchHeal` fails CLOSED to `unsafe-input` on under-specified input (no
+                     * collection / non-finite clock / missing recordRun); a single one is routine, but >=
+                     * `threshold` for the SAME (action, collection) inside `windowMs` means a caller is
+                     * chronically mis-wired and that heal silently never executes. Consumed by
+                     * `detectChronicUnsafeInput`: read at the use-site and passed as its bounds.
+                     * @type {Object}
+                     */
+                    chronicUnsafeInput: {
+                        threshold: leaf(5,              'NEO_RECOVERY_ACTUATOR_CHRONIC_UNSAFE_INPUT_THRESHOLD', 'number'),
+                        windowMs : leaf(60 * 60 * 1000, 'NEO_RECOVERY_ACTUATOR_CHRONIC_UNSAFE_INPUT_WINDOW_MS', 'number')
                     }
                 },
                 /**
