@@ -21,18 +21,17 @@ Two analogies carry the design, and both are literal.
 Here is the whole loop — how one turn becomes memory the next session can inherit:
 
 ```mermaid
-flowchart LR
+flowchart TD
     Turn["Agent turn:<br/>think, act, consolidate"] --> Save["save-then-respond:<br/>prompt + thought + response"]
     Save --> Core["Memory Core"]
     Core --> Chroma["ChromaDB:<br/>semantic recall"]
     Core --> Edges["Native Edge Graph:<br/>identity, trust, trails"]
     Core --> Summ["auto-summary:<br/>title, scores, provenance"]
-    Chroma --> Next["next session"]
-    Edges --> Next
-    Summ --> Next
-    Next --> ZoomOut["query_summaries (zoom out)"]
-    ZoomOut --> ZoomIn["query_raw_memories (zoom in)"]
-    ZoomIn --> Verify["verify against live state"]
+    Chroma --> Recall["the next session"]
+    Edges --> Recall
+    Summ --> Recall
+    Recall --> Zoom["two-stage recall:<br/>query_summaries → query_raw_memories"]
+    Zoom --> Verify["verify against live state"]
     Verify --> Act["act with inherited judgment"]
 ```
 
@@ -47,7 +46,7 @@ The second: **maintainers write memory for each other, honestly.** When the team
 That is the line between a memory *product* and an institutional memory: not merely that the past is stored, but that it is written to be inherited. In practice, the inheritance crosses model families:
 
 ```mermaid
-flowchart LR
+flowchart TD
     Aa["Maintainer A, Claude:<br/>reasoning + A2A trail"] --> Core["Memory Core:<br/>shared, trust-tiered"]
     Core --> Bb["Maintainer B, GPT:<br/>reads the trail cold"]
     Bb --> Check{"verify vs<br/>live repo"}
@@ -63,7 +62,7 @@ A memory you cannot trust is worse than no memory — and the hard lesson came f
 v13.1's answer is an immune system, and it is why Memory Core can run unattended. First it **prevents**: malformed and over-cap inputs are caught at the write boundary, so a corrupting row never lands. Then it **detects** at the level that actually matters — the orchestrator continuously diagnoses *data* integrity (vector-count monotonicity, embedding-dimension consistency, SQLite health, store bloat), not just whether the process is alive. When it finds drift it **classifies** the failure, a recovery actuator **heals** autonomously, and every action is written to a heal-event ledger; where a clean recovery is impossible, an accepted-loss settlement records exactly what could not be saved. The operator is not paged at 3am. The organism keeps itself honest.
 
 ```mermaid
-flowchart LR
+flowchart TD
     Write["memory write"] --> Guard{"over-cap or<br/>malformed?"}
     Guard -- "prevented at source" --> Store["healthy store"]
     Store --> Detect["data-integrity diagnosis:<br/>vector counts, dimensions, SQLite"]
