@@ -189,34 +189,16 @@ class Tooltip extends Container {
     static createSingleton(app) {
         if (!singletons[app.name]) {
             singletons[app.name] = Neo.create('Neo.tooltip.Base', {
-                appName     : app.name,
-                componentId : app.mainView.id,
-                delegate    : this.delegateFilter,
-                isShared    : true,
-                resetCfg    : {},
-                windowId    : app.mainView.windowId,
-                listeners : {
+                appName    : app.name,
+                componentId: app.mainView.id,
+                delegate   : this.delegateFilter,
+                isShared   : true,
+                resetCfg   : {},
+                windowId   : app.mainView.windowId,
+                listeners  : {
                     // Reconfigure on over a target
-                    targetOver({ target, data }) {
-                        let me = this,
-                            config, key;
-
-                        // Revert last pointerOver config set to initial setting.
-                        me.setSilent(me.resetCfg);
-                        me.resetCfg = {};
-
-                        // Use the tooltip config block that the target was configured with
-                        // to reconfigure this instance, or if there was none, check the
-                        // data-neo-tooltip property for a text string.
-                        config = target?._tooltip || {text: data.target.data.neoTooltip};
-
-                        // Cache things we have to reset
-                        for (key in config) {
-                            me.resetCfg[key] = me[key]
-                        }
-
-                        // Set ourself up as the target wants
-                        me.set(config)
+                    targetOver(event) {
+                        Tooltip.applySingletonTargetConfig(this, event)
                     }
                 }
             });
@@ -225,11 +207,68 @@ class Tooltip extends Container {
         return singletons[app.name]
     }
 
+    /**
+     * @summary Reconfigures the shared tooltip from the active delegated target, including the closest
+     * nested theme so a viewport-owned singleton visually follows the hovered component scope.
+     * @param {Neo.tooltip.Base} tooltip
+     * @param {Object} event
+     * @param {Neo.component.Base} [event.target]
+     * @param {Object} event.data
+     * @returns {Object} The config applied to the singleton.
+     */
+    static applySingletonTargetConfig(tooltip, {target, data} = {}) {
+        let config = target?._tooltip ? {...target._tooltip} : {text: data?.target?.data?.neoTooltip},
+            theme  = this.resolveTargetTheme(target, data),
+            key;
+
+        // Revert last pointerOver config set to initial setting.
+        tooltip.setSilent(tooltip.resetCfg);
+        tooltip.resetCfg = {};
+
+        // Explicit tooltip configs remain authoritative; otherwise inherit the active target theme.
+        if (theme && !config.theme) {
+            config.theme = theme
+        }
+
+        // Cache things we have to reset.
+        for (key in config) {
+            tooltip.resetCfg[key] = tooltip[key]
+        }
+
+        // Set ourself up as the target wants.
+        tooltip.set(config);
+
+        return config
+    }
+
     // Used as a delegate filter to activate on targets which have a tooltip configuration
     static delegateFilter(path) {
         for (let i = 0, { length } = path; i < length; i++) {
             if (path[i].cls.includes('neo-uses-shared-tooltip') || path[i].data['neoTooltip']) {
                 return i
+            }
+        }
+    }
+
+    /**
+     * @summary Returns the closest theme for a shared-tooltip target: first via component ownership,
+     * then via the delegated DOM path for data-attribute tooltips.
+     * @param {Neo.component.Base} target
+     * @param {Object} data
+     * @returns {String|undefined}
+     */
+    static resolveTargetTheme(target, data) {
+        let theme = target?.getTheme?.();
+
+        if (theme) {
+            return theme
+        }
+
+        for (const node of data?.path || []) {
+            theme = node.cls?.find?.(item => item.startsWith('neo-theme-'));
+
+            if (theme) {
+                return theme
             }
         }
     }
