@@ -8,22 +8,18 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const repoRoot   = path.resolve(__dirname, '../../../../../..');
 
-// Agent-consumed tool guides paired with their OpenAPI SSOT. A guide's curated domain tables are a
-// human-readable overview; this guard asserts they stay in TOOL-COVERAGE parity with the generated
-// operationId set, so a guide cannot silently drift from the surface it documents — the failure this
-// guards: a guide claiming "33 tools" while the live surface exposed 41 (the entire mutation surface
-// undocumented), caught only by a manual diff after it shipped. Per-tool DESCRIPTION prose stays
-// free-form; only tool-NAME presence is
-// checked. Extend the guard to another MCP-server guide by adding a {label, guide, openapi} row.
+// Agent-consumed tool guides paired with their OpenAPI SSOT. Conceptual guides should not copy the
+// generated operation catalog; duplicating it creates the same drift class as stale tables. This guard
+// asserts the guide delegates the exact contract to OpenAPI and the lazy tool handbook, while any
+// explicit operation-count claim stays anchored to the generated operationId set.
 const guidePairs = [
     {label: 'neural-link', guide: 'learn/agentos/NeuralLink.md', openapi: 'ai/mcp/server/neural-link/openapi.yaml'}
 ];
 
 /**
  * Extracts the documented tool names from a guide's markdown tool-tables — rows shaped ``| `tool_name` | … |``.
- * Assumes the tool tables are the guide's only backtick-first-column tables (true for the Neural Link guide);
- * a guide that ever violates this surfaces here as a drift mismatch, prompting either a guide fix or a scoped
- * extractor — the guard failing loud is the intended behavior, never a silent miss.
+ * A conceptual guide that starts copying the generated catalog again surfaces here. That duplication
+ * should either be removed from the guide or turned into a generated artifact, never hand-maintained.
  * @param {String} markdown
  * @returns {Set<String>}
  */
@@ -60,22 +56,31 @@ function openapiOperationIds(doc) {
     return ids
 }
 
-test.describe('Agent-guide ↔ OpenAPI tool-coverage parity', () => {
+test.describe('Agent-guide ↔ OpenAPI tool-contract references', () => {
     for (const {label, guide, openapi} of guidePairs) {
-        test(`${label}: ${guide} documents exactly the OpenAPI tool surface`, () => {
+        test(`${label}: ${guide} delegates the exact tool surface to OpenAPI`, () => {
             const
-                documented = documentedToolNames(fs.readFileSync(path.join(repoRoot, guide), 'utf8')),
-                exposed    = openapiOperationIds(yaml.load(fs.readFileSync(path.join(repoRoot, openapi), 'utf8'))),
-                missing    = [...exposed].filter(id => !documented.has(id)).sort(),   // exposed but undocumented
-                extra      = [...documented].filter(id => !exposed.has(id)).sort();   // documented but not exposed
+                markdown       = fs.readFileSync(path.join(repoRoot, guide), 'utf8'),
+                documentedRows = [...documentedToolNames(markdown)].sort(),
+                exposed        = openapiOperationIds(yaml.load(fs.readFileSync(path.join(repoRoot, openapi), 'utf8')));
 
-            expect(missing,
-                `${guide} is missing tools the OpenAPI exposes (drift — add the rows): ${missing.join(', ') || '—'}`
+            expect(exposed.size, `${openapi} should expose at least one operationId`).toBeGreaterThan(0);
+
+            expect(documentedRows,
+                `${guide} should not hand-maintain tool table rows; delegate exact coverage to ${openapi}: ${documentedRows.join(', ') || '—'}`
             ).toEqual([]);
 
-            expect(extra,
-                `${guide} documents tools absent from the OpenAPI (drift — stale rows): ${extra.join(', ') || '—'}`
-            ).toEqual([])
+            expect(markdown,
+                `${guide} should link the OpenAPI SSOT for the exact Neural Link tool contract`
+            ).toContain(openapi);
+
+            expect(markdown,
+                `${guide} should point agents to the lazy handbook for operation-level usage detail`
+            ).toContain('get_mcp_tool_handbook');
+
+            expect(markdown,
+                `${guide} claims a Neural Link operation count; keep it anchored to ${openapi}`
+            ).toContain(`${exposed.size} operation IDs`)
         })
     }
 });
