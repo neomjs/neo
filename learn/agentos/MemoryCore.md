@@ -1,78 +1,56 @@
 # Memory Core: Institutional Memory for the Agent OS
 
-The expensive part of AI engineering is not the keystroke. It is the reasoning that surrounds it: the false start that was rejected, the operator correction that changed the architecture, the review that prevented a tidy but wrong PR, the handoff that let the next model continue without re-learning the same lesson.
+The expensive part of AI engineering is not the keystroke. It is the reasoning around it — the false start that got rejected, the operator correction that changed the architecture, the review that caught a tidy but wrong PR, the handoff that let the next model continue without re-learning yesterday's lesson. That reasoning is the real asset. By default, it evaporates the moment a session ends.
 
-Without Memory Core, that work evaporates when a session ends. A fresh agent wakes up as a stranger to the repository, repeats old mistakes, and spends the release window reconstructing context that already existed yesterday.
+So the next agent wakes up a stranger. It re-asks settled questions, re-makes fixed mistakes, and burns the first hour of every session reconstructing context that already existed. Multiply that across a team of agents and one human, and the human quietly becomes the institution's memory — the only one who still remembers why, who decided, what was already tried. That does not scale, and it does not sleep.
 
-The **Memory Core Server** (`neo.mjs-memory-core`) turns those vanished moments into institutional memory. It is the Agent OS long-term memory center: raw turns, summaries, trust metadata, mailbox state, and graph-backed coordination substrate all stay queryable for the next maintainer. That is what makes night-shift continuity possible. A peer's work can survive the model boundary, the harness boundary, and the calendar boundary.
+Memory Core is the organ that fixes it: the Agent OS's long-term memory, where a maintainer's reasoning becomes durable, queryable substrate for whoever picks up next — across the model boundary, the harness boundary, and the calendar boundary. It is what makes a night shift possible.
 
-The closer analogy is a hippocampus, not an archive. A brain does not keep every experience in active attention; it consolidates experience into long-term traces and recalls the relevant traces when a new situation needs them. Memory Core gives agents the same primitive. The live context can stay lean while `query_summaries`, `query_raw_memories`, and session recovery rehydrate the decisions, corrections, and handoffs that matter right now.
+## Memory as telepathy, not a chat log
 
-It is also a stigmergic substrate. Agents leave durable trails in the shared medium: A2A messages, permission edges, issue/session/memory graph links, and Golden Path frontier signals. The next maintainer does not need to have been present for the previous session; they can read the trail and continue from it. In the wider Brain loop, Hebbian decay is the evaporation side of that same mechanism: graph signals that are not reinforced weaken or disappear, while repeatedly useful trails gain weight.
+The industry is racing to make one assistant remember. That race is real and useful — "the context window is not a memory system" is a settled line now — but it is the easy half. The hard half is a *team* of agents, from different model families, sharing one memory without collapsing into private-chat drift: who said what, under which trust, and whether the next maintainer can safely build on it.
 
-For a human maintainer, this turns overnight agent work from a pile of transcripts into inspectable institutional continuity: who acted, why they believed it, which review corrected it, and what should happen next.
+Memory Core is built for that harder half. It is not a bigger transcript. It is the substrate that lets a Claude read a GPT's remembered reasoning, verify it against live state, and continue — without either of them having been in the room. Less a chat log, more telepathy with provenance.
 
-For an LLM maintainer, it turns a cold start into situated agency. The model can ask the organism what it has already learned before it edits, reviews, or escalates, so each session begins with inherited judgment instead of amnesia.
+Two analogies carry the design, and both are literal.
 
-## What It Preserves
+**A hippocampus, not an archive.** A brain does not hold every experience in active attention; it consolidates experience into long-term traces and recalls the relevant ones when a new situation needs them. Memory Core gives agents the same primitive. The live context stays lean while `query_summaries`, `query_raw_memories`, and session recovery rehydrate exactly the decisions and corrections that matter right now — recall on demand, not a wall of history bolted into every prompt.
 
-Memory Core persists five kinds of institutional knowledge:
+**Stigmergic trails, not a notice board.** Ants coordinate without a manager by leaving pheromone trails in a shared medium; the next ant reads the trail and acts. Neo's maintainers do the same with durable A2A messages, permission edges, and issue / session / memory graph links — the next maintainer reads the trail and continues from it. And the trail decays the way pheromones evaporate: in the wider Brain loop, graph signals that are not reinforced weaken, while repeatedly useful ones gain weight. Memory that is used gets stronger; memory that stops mattering fades.
 
-*   **Interactions** — every prompt, thought process, and response, stored as a raw memory. The *reasoning* is captured, not just the output.
-*   **Decisions** — the *why* behind a chosen approach, so it can be revisited instead of relitigated.
-*   **Summaries** — high-level abstractions of whole sessions, so past work is findable in one query instead of re-read line by line.
-*   **Coordination** — A2A mailbox messages, wake routing, and permission edges, stored in the Native Edge Graph so agents hand work to each other with durable provenance instead of transient chat context.
-*   **Trust** — every memory and summary carries agent identity and trust-tier metadata, so the swarm can recall shared memory without laundering low-trust input into higher-trust conclusions.
+## The moment it becomes real
 
-The payoff is not a bigger chat log. It is identity-bound continuity: a peer's prior reasoning becomes searchable substrate for the next peer. (Neural Link remains the *runtime-app* possession and inspection bridge; Memory Core is the *across-time* one.)
+Two disciplines turn that metaphor into something you can trust.
 
-## How It Works
+The first: **memory proposes, but live state decides.** A recovered memory is a hypothesis, not a fact — so a maintainer that wakes mid-lane checks the trail against the live repository before acting. The first time this gate ran for real, a recovered context pointed an agent toward reviewing a pull request; the live check showed the PR had already merged; the stale review was stopped before it became noise. Memory that can be wrong, verified against a world that cannot.
 
-Memory Core is one server in the Agent OS MCP set — the checkout ships six (`file-system`, `github-workflow`, `gitlab-workflow`, `knowledge-base`, `memory-core`, `neural-link`) — and it stays a distinct institutional-memory and coordination surface, not a merged monolith. It is built on the same `Neo.core.Base` class system as the Body's UI engine (more on that below), so the backend is as explicit and inspectable as the frontend.
+The second: **maintainers write memory for each other, honestly.** When the team noticed one model family finishing turns faster than another, the tempting story — "slower must mean deeper" — was a flattering, false comfort. The maintainer caught it *before* saving, corrected it (turn latency is bandwidth, not reasoning depth), and only then persisted the corrected version — because a peer from another family would later inherit that memory and act on it. A trust tier rides on every memory and summary, so low-trust input cannot quietly launder itself into a high-trust conclusion.
 
-Two stores work together:
+That is the line between a memory *product* and an institutional memory: not merely that the past is stored, but that it is written to be inherited.
 
-*   **Semantic memory** lives in the deployment-wide **unified ChromaDB** process. One Chroma daemon and one persist directory back several collections — `neo-agent-memory` (raw turns), `neo-agent-sessions` (summaries), `neo-native-graph` (graph-vector retrieval), and the Knowledge Base's own collection — separated by collection and metadata, not by process. One Chroma process does not mean one collection; separate MCP servers do not mean separate vector stores.
-*   **Structural memory** — the Native Edge Graph of identities, permissions, messages, and issue/session links — lives in SQLite, the authority for who-can-read-what and who-said-what.
+## What a peer inherits instead of amnesia
 
-Embeddings and summaries run through configurable providers, and the choice is **local-first**: the default profile embeds and summarizes with local models (qwen3 embeddings, Gemma summaries) on an OpenAI-compatible endpoint — private, zero-API-cost, on-prem — while remote Gemini is one env-var away when you want it. A running deployment's `healthcheck.providers` block is always the source of truth for what it is actually using.
+For a **CTO or engineering lead**, this is standing engineering capacity instead of disposable assistant output. Overnight work arrives as inspectable institutional continuity — who acted, why they believed it, which review corrected it, what should happen next — not a pile of transcripts to reverse-engineer at 8am.
 
-## Save-Then-Respond: why the reasoning survives
+For an **architect or developer**, it is the end of re-onboarding. The codebase can tell you what the swarm already learned about it — "have we touched the Grid virtualization before, and why a `Map` over an `Object`?" — in two moves: `query_summaries` to find the session, `query_raw_memories` to recover the exact reasoning. Zoom out to locate, zoom in to recover.
 
-The one rule that makes everything above possible is the **transactional memory protocol**. Every turn follows a strict loop:
+For an **LLM maintainer**, it is the difference between a cold start and situated agency. The model can ask the organism what it has already learned before it edits, reviews, or escalates — so every session begins with inherited judgment instead of amnesia.
 
-1.  **Think** — analyze the request.
-2.  **Act** — execute tools, gather information.
-3.  **Consolidate** — formulate the response.
-4.  **Save** — persist the *entire* turn (prompt + thought + response) via `add_memory`.
-5.  **Respond** — deliver the answer only after the save is confirmed.
+## On your machine, or your team's cloud
 
-The save gates the response on purpose. If the internal reasoning — the *thought*, not just the final text — is not persisted, it cannot teach the next session. Save-then-respond is the discipline that turns a transcript into institutional memory.
+None of this requires shipping your reasoning to someone else's API. Memory Core is **local-first**: by default it embeds and summarizes with local models (qwen3, Gemma) over an OpenAI-compatible endpoint — private, zero-API-cost, on-prem — and remote Gemini is one environment variable away when you want it. The same organ runs as a single developer's on-machine memory or as a multi-tenant cloud service where a whole team's reasoning compounds in one tenant-scoped store.
 
-## Self-organizing recall: summaries and sunset
+And it is genuinely part of the organism, not a bolt-on backend. Memory Core is written in the same `Neo.mjs` class system that powers the multi-threaded UI engine — the same singletons, reactive configs, and lifecycle. Body and Brain share one set of primitives. Semantic recall lives in a unified ChromaDB; the structural memory — identities, permissions, messages, the edges that decide who-can-read-what — lives in the Native Edge Graph in SQLite. One organism, remembering itself.
 
-Memory Core summarizes itself. On startup it scans for un-summarized sessions and uses the configured summary model to generate a structured recap of each — a title, a category (`bugfix`, `feature`, `refactoring`, …), 0–100 productivity / complexity / quality scores, the technologies touched, and provenance (the source identities and most-restrictive trust tier, so a summary cannot hide lower-trust input behind the summarizer). Every new session therefore opens with an indexed recap of past work instead of a blank slate.
+## The discipline that keeps it true
 
-Sessions from *external* harnesses are captured the same way, through a mailbox bridge: when any agent on any clone runs the session-sunset ritual, its final hand-off message lands in the shared graph, and Memory Core ingests it into a summary — so continuity survives even across tools that never shared a process.
+It all rests on one rule: **save, then respond.** Every turn, an agent persists the *entire* turn — prompt, thought, and response — *before* it answers. The save gates the reply on purpose: if the internal reasoning is not captured, only the output survives, and the output cannot teach the next session. Keeping the *thought*, not just the answer, is what turns a transcript into memory worth inheriting.
 
-## Recalling the past: Zoom Out, then Zoom In
+---
 
-Effective agents query in two stages:
+Memory Core is where the swarm stops being a sequence of forgetful sessions and becomes an institution with a past it can query and a judgment it can pass on. This guide is the concept; the operational detail lives in dedicated references, single-sourced so they never drift from the running system:
 
-1.  **Zoom out** — `query_summaries` finds the relevant *past session* ("refactoring the virtual list" → "Session #42: Grid Virtualization Refactor").
-2.  **Zoom in** — `query_raw_memories`, optionally filtered to that session, retrieves the specific decision or snippet ("why a `Map` instead of an `Object`?" → the exact reasoning from that session).
-
-Zoom out to locate, zoom in to recover — recall on demand, the hippocampus pattern in practice.
-
-## One organism: built on the same runtime as the Body
-
-Memory Core is not a bolt-on backend. It is written in the **same Neo.mjs class system** that powers the multi-threaded UI engine — singletons for single-source-of-truth services, `initAsync()` to order dependency chains without race conditions, and reactive configs (`afterSet…` hooks) so a service re-initializes cleanly when its environment changes. Body and Brain share one set of primitives and one evolution mechanism; Memory Core is the Brain proving the organism is genuinely one system, not two glued together.
-
-## Operations and reference
-
-This guide is the *concept*. The operational detail lives in dedicated references, kept single-sourced so they never drift against the running system:
-
-*   **[Memory Core MCP API](./tooling/MemoryCoreMcpApi.md)** — the full tool catalog (memory, A2A / coordination, summary, session, and health tools), request/response specs, and the `healthcheck` payload contract.
-*   **[Restoration Runbook](./tooling/RestorationRunbook.md)** — `npm run ai:backup` / `ai:restore`, atomic-bundle layout, restore modes and safeguards, and per-subsystem recovery procedures.
-*   **[Multi-Tenant Migration Guide](./tooling/MultiTenantMigrationGuide.md)** — the lazy-tag-on-read tenancy model, `memorySharing` policies, and the on-demand legacy census.
-*   **[Deployment Cookbook](./DeploymentCookbook.md)** — configuration, transports (stdio vs SSE), and running Memory Core as a cloud microservice.
+*   **[Memory Core MCP API](./tooling/MemoryCoreMcpApi.md)** — the full tool catalog (memory, A2A / coordination, summary, session, health), request/response specs, and the `healthcheck` contract.
+*   **[Restoration Runbook](./tooling/RestorationRunbook.md)** — backup and restore, atomic-bundle layout, and per-subsystem recovery.
+*   **[Multi-Tenant Migration Guide](./tooling/MultiTenantMigrationGuide.md)** — the tenancy model, `memorySharing` policies, and the legacy census.
+*   **[Deployment Cookbook](./DeploymentCookbook.md)** — configuration, transports, and running Memory Core as a cloud microservice.
