@@ -162,6 +162,70 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         ]));
     });
 
+    test('scoreCurrentFocusIssue surfaces focused epic umbrellas without routing them (#14337)', () => {
+        const Synthesizer = GoldenPathSynthesizer.constructor;
+        const now         = new Date('2026-06-29T12:00:00Z');
+        const candidate   = issueFocusSections.scoreCurrentFocusIssue({
+            meta: {
+                id                : 14310,
+                title             : 'Documentation & learning-experience overhaul (v13.1)',
+                state             : 'OPEN',
+                labels            : ['documentation', 'epic', 'ai', 'architecture'],
+                createdAt         : '2026-06-29T08:46:57Z',
+                updatedAt         : '2026-06-29T09:44:27Z',
+                milestone         : 'v13.1',
+                subIssuesCompleted: 3,
+                subIssuesTotal    : 22
+            },
+            now
+        });
+
+        expect(candidate).toMatchObject({
+            isEpic           : true,
+            milestone        : 'v13.1',
+            number           : 14310,
+            openSubIssueCount: 19
+        });
+        expect(candidate.reasons).toContain('v13.1');
+        expect(Synthesizer.isActionableComputedRecommendation({
+            id        : 'issue-14310',
+            type      : 'ISSUE',
+            properties: {labels: ['epic', 'ai']}
+        })).toBe(false);
+        expect(issueFocusSections.scoreCurrentFocusIssue({
+            meta: {
+                id       : 14000,
+                title    : 'Generic architecture epic',
+                state    : 'OPEN',
+                labels   : ['epic', 'ai', 'architecture'],
+                createdAt: '2026-06-29T08:00:00Z',
+                updatedAt: '2026-06-29T09:00:00Z'
+            },
+            now
+        })).toBeNull();
+
+        const staleSyncCandidate = issueFocusSections.scoreCurrentFocusIssue({
+            meta: {
+                id                : 14310,
+                title             : 'Documentation & learning-experience overhaul (v13.1)',
+                state             : 'OPEN',
+                labels            : ['documentation', 'epic', 'ai', 'architecture'],
+                createdAt         : '2026-06-29T08:46:57Z',
+                updatedAt         : '2026-06-29T09:44:27Z',
+                subIssuesCompleted: 0,
+                subIssuesTotal    : 22
+            },
+            now
+        });
+
+        expect(staleSyncCandidate).toMatchObject({
+            isEpic           : true,
+            milestone        : undefined,
+            openSubIssueCount: 22
+        });
+        expect(staleSyncCandidate.reasons).toContain('v13.1');
+    });
+
     test('hasCrossFamilyReview accepts injected identity-family maps', () => {
         const Synthesizer = GoldenPathSynthesizer.constructor;
         const pr          = {
@@ -664,7 +728,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(capturedWhere).toEqual({type: {'$in': ['ISSUE', 'DISCUSSION']}})
     });
 
-    test('synthesizeGoldenPath surfaces current incidents and filters non-actionable computed recommendations', async () => {
+    test('synthesizeGoldenPath surfaces current incidents, focus epics, and filters non-actionable computed recommendations', async () => {
         const originalGetGraphCollection   = StorageRouter.getGraphCollection;
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
         const originalEmbedText            = TextEmbeddingService.embedText;
@@ -709,12 +773,15 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             'state: OPEN',
             'labels:',
             '  - enhancement',
+            '  - epic',
             '  - ai',
             '  - architecture',
             'assignees: []',
             "createdAt: '2026-06-10T00:00:00Z'",
             "updatedAt: '2026-06-21T09:00:00Z'",
             'milestone: v13.1',
+            'subIssuesCompleted: 5',
+            'subIssuesTotal: 22',
             '---',
             '# Agent Harness v13.1 release epic'
         ].join('\n'));
@@ -793,6 +860,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(directFocusCandidates.map(candidate => candidate.number)).toEqual([13750, 13012]);
         expect(focusSection).toContain('**#13750**');
         expect(focusSection).toContain('**#13012**');
+        expect(focusSection).toContain('**epic umbrella**');
+        expect(focusSection).toContain('17 open subs');
         expect(focusSection).not.toContain('Old generic AI enhancement');
         expect(handoffContent).toContain(readyId);
         expect(handoffContent).toContain(discussionId);  // discussions are now actionable (an open converge-to-drive)

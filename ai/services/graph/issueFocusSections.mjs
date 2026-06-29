@@ -12,6 +12,8 @@ import {IDENTITIES}                          from '../../graph/identityRoots.mjs
 
 const DAY_MS                  = 24 * 60 * 60 * 1000;
 const CURRENT_FOCUS_WINDOW_MS = 3 * DAY_MS;
+const EPIC_LABEL              = 'epic';
+const V13_1_PATTERN           = /\bv13\.1\b/i;
 
 const CURRENT_FOCUS_EXCLUDED_LABELS = Object.freeze(new Set([
     'deferred-by-design',
@@ -24,6 +26,12 @@ const CURRENT_FOCUS_EXCLUDED_LABELS = Object.freeze(new Set([
     'not code ready',
     'wontfix',
     'wont fix'
+]));
+
+const EPIC_CURRENT_FOCUS_REASONS = Object.freeze(new Set([
+    'incident',
+    'prio-zero',
+    'v13.1'
 ]));
 
 const MAINTAINER_PROGRESS_PATTERN = /\b(?:in[-\s]?progress|picking up|taking|claim(?:ed|ing)?|lane-claim|lane-state:\s*next-lane|working|implement(?:ing)?|opened\s+(?:PR|pull request)|PR\s*#\d+)\b/i;
@@ -568,6 +576,25 @@ export function normalizeLabels(labels = []) {
 }
 
 /**
+ * @summary Derives the visible open-sub count from synced issue frontmatter counters.
+ *
+ * GitHub issue sync records parent-child topology in deterministic frontmatter
+ * (`subIssuesTotal`, `subIssuesCompleted`). Current Focus consumes that local
+ * substrate rather than making live GitHub calls during Golden Path generation.
+ *
+ * @param {Object} meta Issue frontmatter.
+ * @returns {Number|null} Open sub-issue count, or `null` when counters are absent.
+ */
+export function getOpenSubIssueCount(meta = {}) {
+    const total = Number(meta.subIssuesTotal);
+    if (!Number.isFinite(total) || total < 0) return null;
+
+    const completed = Number(meta.subIssuesCompleted);
+
+    return Math.max(0, total - (Number.isFinite(completed) && completed > 0 ? completed : 0))
+}
+
+/**
  * @summary Scores one synced issue as a current release / incident focus candidate.
  *
  * This is deliberately a local-sync signal, not graph-centrality routing. It
@@ -590,7 +617,8 @@ export function scoreCurrentFocusIssue({
     if (!meta || meta.state !== 'OPEN') return null;
 
     const labels = normalizeLabels(meta.labels);
-    if (labels.some(label => CURRENT_FOCUS_EXCLUDED_LABELS.has(label))) return null;
+    const isEpic = labels.includes(EPIC_LABEL);
+    if (labels.some(label => CURRENT_FOCUS_EXCLUDED_LABELS.has(label) && label !== EPIC_LABEL)) return null;
 
     const nowDate      = now instanceof Date ? now : new Date(now);
     const createdAt    = new Date(meta.createdAt);
@@ -598,6 +626,7 @@ export function scoreCurrentFocusIssue({
     const freshCreated = !Number.isNaN(createdAt.getTime()) && nowDate - createdAt <= windowMs;
     const freshUpdated = !Number.isNaN(updatedAt.getTime()) && nowDate - updatedAt <= windowMs;
     const milestone    = typeof meta.milestone === 'string' ? meta.milestone : meta.milestone?.title;
+    const title        = String(meta.title || '');
     const issueText    = `${meta.title || ''}\n${content || ''}`;
 
     let score = 0;
@@ -614,7 +643,7 @@ export function scoreCurrentFocusIssue({
         reasons.push('incident');
         hasFocusSignal = true;
     }
-    if (milestone === 'v13.1') {
+    if (milestone === 'v13.1' || (isEpic && V13_1_PATTERN.test(title))) {
         score += 70;
         reasons.push('v13.1');
         hasFocusSignal = true;
@@ -630,17 +659,20 @@ export function scoreCurrentFocusIssue({
     }
 
     if (!hasFocusSignal || (!freshCreated && !freshUpdated && milestone !== 'v13.1')) return null;
+    if (isEpic && !reasons.some(reason => EPIC_CURRENT_FOCUS_REASONS.has(reason))) return null;
 
     const rawNumber = meta.id || meta.number;
 
     return {
+        isEpic,
         labels,
-        lastActivityAt: Number.isNaN(updatedAt.getTime()) ? null : updatedAt.toISOString(),
+        lastActivityAt   : Number.isNaN(updatedAt.getTime()) ? null : updatedAt.toISOString(),
         milestone,
-        number        : Number(rawNumber) || rawNumber,
-        reasons       : [...new Set(reasons)],
+        number           : Number(rawNumber) || rawNumber,
+        openSubIssueCount: isEpic ? getOpenSubIssueCount(meta) : null,
+        reasons          : [...new Set(reasons)],
         score,
-        title         : meta.title || '(no title)'
+        title            : meta.title || '(no title)'
     }
 }
 
@@ -718,11 +750,15 @@ export function renderCurrentFocusCandidatesSection(candidates, {
     }
 
     for (const candidate of visibleCandidates) {
-        const labels = candidate.labels.length > 0 ? ` [\`${candidate.labels.join('`, `')}\`]` : '';
+        const labels    = candidate.labels.length > 0 ? ` [\`${candidate.labels.join('`, `')}\`]` : '';
+        const epic      = candidate.isEpic ? ' — **epic umbrella**' : '';
         const milestone = candidate.milestone ? ` — milestone ${candidate.milestone}` : '';
+        const openSubs  = candidate.isEpic && Number.isFinite(candidate.openSubIssueCount)
+            ? ` — ${candidate.openSubIssueCount} open sub${candidate.openSubIssueCount === 1 ? '' : 's'}`
+            : '';
         const reasons = candidate.reasons.length > 0 ? ` — reasons: ${candidate.reasons.join(', ')}` : '';
 
-        section += `- **#${candidate.number}**${labels}${milestone} — score ${candidate.score}${reasons}\n`;
+        section += `- **#${candidate.number}**${epic}${labels}${milestone}${openSubs} — score ${candidate.score}${reasons}\n`;
         section += `  - *${candidate.title}*\n`;
     }
 
