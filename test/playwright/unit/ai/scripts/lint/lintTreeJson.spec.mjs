@@ -8,7 +8,7 @@ import {
     getLlmsLearnUrls,
     getSitemapLearnUrls,
     isGroup,
-    lintSeoOutputs,
+    lintGeneratedSeoRoutes,
     lintTree,
     runLint
 } from '../../../../../../ai/scripts/lint/lint-tree-json.mjs';
@@ -32,8 +32,8 @@ import {
  *                          forensics/benchmark artifact (learn/ is public docs)
  *   - NO_TOP_LEVEL_ORPHAN a depth-1 learn/agentos/*.md on disk that is neither a registered
  *                          tree.json leaf nor an intentionally-internal allowlist entry
- *   - SEO_OUTPUT_MISSING generated learn URL missing from checked-in llms.txt / sitemap.xml
- *   - SEO_OUTPUT_EXTRA   stale checked-in llms.txt / sitemap.xml learn URL
+ *   - SEO_GENERATED_MISSING generated learn URL missing from generated llms.txt / sitemap.xml
+ *   - SEO_GENERATED_EXTRA   stale generated llms.txt / sitemap.xml learn URL
  *   - DUP_ID / MISSING_ID / STRUCTURE  malformed input guards
  *   - happy path: a well-formed fixture + the real learn/tree.json both pass
  *
@@ -56,7 +56,7 @@ test.describe('ai/scripts/lint-tree-json (learn/tree.json mirrors learn/ folder 
         expect(result.stdout).toContain('LEAF_FILE');
         expect(result.stdout).toContain('FOLDER_UNIQUENESS');
         expect(result.stdout).toContain('EXPLORATION_ARTIFACT');
-        expect(result.stdout).toContain('SEO_SYNC');
+        expect(result.stdout).toContain('SEO_GENERATE');
         expect(result.stdout).toContain('NO_TOP_LEVEL_ORPHAN');
     });
 
@@ -213,7 +213,7 @@ test.describe('ai/scripts/lint-tree-json (learn/tree.json mirrors learn/ folder 
         })).toEqual(['agentos/OwnAgentTeam']);
     });
 
-    test('lintSeoOutputs: matching llms.txt + sitemap.xml URL sets pass', () => {
+    test('lintGeneratedSeoRoutes: matching generated llms.txt + sitemap.xml URL sets pass', () => {
         const treeData = {
             data: [
                 {id: 'AgentOS', isLeaf: false, parentId: null},
@@ -222,25 +222,13 @@ test.describe('ai/scripts/lint-tree-json (learn/tree.json mirrors learn/ folder 
             ]
         };
 
-        expect(lintSeoOutputs(treeData, {
-            llmsTxt: `
-                - [Provision Your Own Agent Team](https://neomjs.com/raw/learn/agentos/OwnAgentTeam.md)
-                - [Glossary](https://neomjs.com/raw/learn/Glossary.md)
-            `,
-            sitemapXml: `
-                <url>
-                    <loc>https://neomjs.com/learn/agentos/OwnAgentTeam</loc>
-                    <lastmod>2026-06-03T00:00:00Z</lastmod>
-                </url>
-                <url>
-                    <loc>https://neomjs.com/learn/Glossary</loc>
-                    <lastmod>2024-01-01T00:00:00Z</lastmod>
-                </url>
-            `
+        expect(lintGeneratedSeoRoutes(treeData, {
+            generatedLlmsIds   : new Set(['agentos/OwnAgentTeam', 'Glossary']),
+            generatedSitemapIds: new Set(['agentos/OwnAgentTeam', 'Glossary'])
         })).toEqual([]);
     });
 
-    test('lintSeoOutputs: accepts generator-specific llms.txt and sitemap.xml expected sets', () => {
+    test('lintGeneratedSeoRoutes: accepts generator-specific llms.txt and sitemap.xml expected sets', () => {
         const treeData = {
             data: [
                 {id: 'AgentOS', isLeaf: false, parentId: null},
@@ -249,18 +237,15 @@ test.describe('ai/scripts/lint-tree-json (learn/tree.json mirrors learn/ folder 
             ]
         };
 
-        expect(lintSeoOutputs(treeData, {
+        expect(lintGeneratedSeoRoutes(treeData, {
             expectedLlmsIds   : new Set(['agentos/OwnAgentTeam']),
             expectedSitemapIds: new Set(['agentos/OwnAgentTeam', 'Glossary']),
-            llmsTxt           : '- [Provision Your Own Agent Team](https://neomjs.com/raw/learn/agentos/OwnAgentTeam.md)',
-            sitemapXml        : `
-                <url><loc>https://neomjs.com/learn/agentos/OwnAgentTeam</loc></url>
-                <url><loc>https://neomjs.com/learn/Glossary</loc></url>
-            `
+            generatedLlmsIds   : new Set(['agentos/OwnAgentTeam']),
+            generatedSitemapIds: new Set(['agentos/OwnAgentTeam', 'Glossary'])
         })).toEqual([]);
     });
 
-    test('lintSeoOutputs: missing tree routes are flagged on both SEO surfaces', () => {
+    test('lintGeneratedSeoRoutes: missing tree routes are flagged on both SEO surfaces', () => {
         const treeData = {
             data: [
                 {id: 'AgentOS', isLeaf: false, parentId: null},
@@ -268,33 +253,19 @@ test.describe('ai/scripts/lint-tree-json (learn/tree.json mirrors learn/ folder 
             ]
         };
 
-        expect(lintSeoOutputs(treeData, {
-            llmsTxt   : '',
-            sitemapXml: ''
-        }).map(v => v.code)).toEqual(['SEO_OUTPUT_MISSING', 'SEO_OUTPUT_MISSING']);
+        expect(lintGeneratedSeoRoutes(treeData, {
+            generatedLlmsIds   : new Set(),
+            generatedSitemapIds: new Set()
+        }).map(v => v.code)).toEqual(['SEO_GENERATED_MISSING', 'SEO_GENERATED_MISSING']);
     });
 
-    test('lintSeoOutputs: stale generated routes are flagged on both SEO surfaces', () => {
+    test('lintGeneratedSeoRoutes: stale generated routes are flagged on both SEO surfaces', () => {
         const treeData = {data: []};
 
-        expect(lintSeoOutputs(treeData, {
-            llmsTxt   : '- [Gone](https://neomjs.com/raw/learn/agentos/Gone.md)',
-            sitemapXml: '<url><loc>https://neomjs.com/learn/agentos/Gone</loc></url>'
-        }).map(v => v.code)).toEqual(['SEO_OUTPUT_EXTRA', 'SEO_OUTPUT_EXTRA']);
-    });
-
-    test('lintSeoOutputs: sitemap lastmod changes are ignored when URLs match', () => {
-        const treeData = {data: [{id: 'Glossary', parentId: null}]};
-
-        expect(lintSeoOutputs(treeData, {
-            llmsTxt: '- [Glossary](https://neomjs.com/raw/learn/Glossary.md)',
-            sitemapXml: `
-                <url>
-                    <loc>https://neomjs.com/learn/Glossary</loc>
-                    <lastmod>1999-01-01T00:00:00Z</lastmod>
-                </url>
-            `
-        })).toEqual([]);
+        expect(lintGeneratedSeoRoutes(treeData, {
+            generatedLlmsIds   : new Set(['agentos/Gone']),
+            generatedSitemapIds: new Set(['agentos/Gone'])
+        }).map(v => v.code)).toEqual(['SEO_GENERATED_EXTRA', 'SEO_GENERATED_EXTRA']);
     });
 
     test('runLint: exported entry returns a numeric exit code on the real tree', async () => {
