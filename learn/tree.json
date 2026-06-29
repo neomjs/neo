@@ -4,6 +4,7 @@
         {"name": "Introduction",                                       "parentId": "Benefits",                                            "id": "benefits/Introduction"},
         {"name": "Architecture Overview",                              "parentId": "Benefits",                                            "id": "benefits/ArchitectureOverview"},
         {"name": "The AI Engineering Team",                            "parentId": "Benefits",                                            "id": "benefits/AIEngineeringTeam"},
+        {"name": "Identity, Rituals & Culture",                        "parentId": "Benefits",                                            "id": "benefits/IdentityRitualsCulture"},
         {"name": "Agent Memory & Knowledge",                           "parentId": "Benefits",                                            "id": "benefits/AgentMemory"},
         {"name": "Self-Evolution (Dream Pipeline)",                    "parentId": "Benefits",                                            "id": "benefits/SelfEvolution"},
         {"name": "The Agent OS on Your Codebase",                      "parentId": "Benefits",                                            "id": "benefits/AgentOSOnYourCodebase"},
