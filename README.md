@@ -158,7 +158,7 @@ Neo.mjs is split into two complementary layers (engine ↔ toolchain):
 
 ### The Toolchain (Agent OS)
 *Runs in Node.js. AI-native.*
-- **Knowledge Base MCP server** — semantic codebase understanding (ChromaDB + Gemini embeddings)
+- **Knowledge Base MCP server** — semantic codebase understanding in the unified Chroma store, embedded through local-or-remote providers.
 - **Memory Core MCP server** — agent persistent memory (SQLite Native Edge Graph + ChromaDB episodic)
 - **GitHub Workflow MCP server** — autonomous PR review, issue management, bi-directional sync
 - **Neural Link MCP server** — runtime introspection + mutation of the live App Worker heap

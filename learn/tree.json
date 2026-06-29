@@ -70,6 +70,7 @@
             {"name": "Server Authorization",                           "parentId": "AgentOS/Tooling",                                     "id": "agentos/tooling/Authorization"},
             {"name": "Google OAuth Demo",                              "parentId": "AgentOS/Tooling",                                     "id": "agentos/tooling/GoogleAuthDemo"},
             {"name": "Agent-Agnostic MCP Configuration",               "parentId": "AgentOS/Tooling",                                     "id": "agentos/tooling/AgentAgnosticMcpConfig"},
+            {"name": "Knowledge Base MCP API",                          "parentId": "AgentOS/Tooling",                                     "id": "agentos/tooling/KnowledgeBaseMcpApi"},
             {"name": "Memory Core MCP API",                            "parentId": "AgentOS/Tooling",                                     "id": "agentos/tooling/MemoryCoreMcpApi"},
             {"name": "Memory Core MCP Authentication",                 "parentId": "AgentOS/Tooling",                                     "id": "agentos/tooling/MemoryCoreMcpAuth"},
             {"name": "Graph Back-Fill: Memory & Session Lifecycle",    "parentId": "AgentOS/Tooling",                                     "id": "agentos/tooling/GraphBackfill"},
