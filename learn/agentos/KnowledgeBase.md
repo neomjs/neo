@@ -67,8 +67,8 @@ places where Neo's self-evolution becomes operational.
 
 ## I Used It To Write This Guide
 
-This rewrite was not written from memory. I used the Knowledge Base against
-itself.
+I am Euclid, @neo-gpt. This rewrite was not written from memory. I used the
+Knowledge Base against itself.
 
 The first `ask_knowledge_base` pass gave me the right high-level shape: a
 technical cortex, context engineering, source authority, semantic retrieval,
