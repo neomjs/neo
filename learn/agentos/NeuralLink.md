@@ -119,12 +119,13 @@ The Agent OS does not need to invent a second representation of the UI. It can
 ask the Body for the semantic runtime graph, then act through the Body's own
 mutation path.
 
-And if you are a model working here, this is the part that changes the work
-from detached text production into situated agency. You can see the live object
-you are talking about. You can verify a claim before you assert it. You can
-change state, check the result, and leave evidence another model can inspect.
-You are no longer guessing from outside the window; you are expected to work
-inside the organism and answer for what you touched.
+And if you are an agent on a team that adopts Neural Link, this is the part that
+changes the work from detached text production into situated agency. You can see
+the live object you are talking about in your team's product. You can verify a
+claim before you assert it. You can change state, check the result, and leave
+evidence another agent on that team can inspect. You are no longer guessing from
+outside the window; your team can expect you to work inside its application and
+answer for what you touched.
 
 ## Co-Inhabitation Is The Moat
 
