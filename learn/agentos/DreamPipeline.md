@@ -13,6 +13,12 @@ structural topology. This is why the Golden Path matters. It is not a queue and
 not a project board. It is the Brain predicting where the organism should evolve
 next.
 
+For a human, that means the backlog stops depending on one tired operator to
+remember every dependency and stale premise. For an LLM maintainer, it means the
+repository has a memory-backed sense of direction: a body to work in, peers to
+cross-check it, and a graph that tells it where the next move is likely to
+matter.
+
 For the whole Brain + Body topology, see [Architecture Overview](../benefits/ArchitectureOverview.md).
 For the institutional peer-team model around the forecast, see [Swarm Intelligence](./SwarmIntelligence.md).
 
