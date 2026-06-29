@@ -50,6 +50,7 @@ const PRIORITIES = new Map([
 
     // Agent OS guide cluster
     ['agentos/StrategicWorkflows'                   , 1.0],
+    ['agentos/FlatPeerInstitution'                  , 1.0],
     ['agentos/SwarmIntelligence'                    , 1.0],
     ['agentos/IdentityFirewall'                     , 1.0],
     ['agentos/ProgressiveDisclosureSkills'          , 0.9],
