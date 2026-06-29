@@ -24,18 +24,29 @@ For the institutional peer-team model around the forecast, see [Swarm Intelligen
 
 ## Why It Exists
 
-The Golden Path borrows its name from two old forecasting stories:
+The Golden Path is borrowed from two literary traditions:
 
-- **Dune:** a path through time that preserves the future by forcing hard choices
-  in the present.
-- **Foundation:** a way to see structural direction through noisy individual
-  events.
+- **Frank Herbert's Dune:** Leto II's Golden Path is the single optimal trajectory
+  through time that ensures humanity's survival. He sacrifices everything to force
+  civilization onto this path.
+- **Isaac Asimov's Foundation:** Hari Seldon's psychohistory predicts the optimal
+  course for civilization by treating individual actions as statistical noise and
+  focusing on structural forces.
 
-Neo's version is deliberately concrete. Individual sessions are tactical and
-noisy. The REM cycle extracts what happened, maps it onto code, issues,
-discussions, concepts, tests, reviews, and identity-bound memory, then the Golden
-Path re-ranks open work against the current frontier.
+The DreamService operates on the same principle: individual agent sessions are
+noisy and tactical. But when you digest them into a graph — extracting concepts,
+relationships, capability gaps, blocking dependencies, and identity-bound
+memory — structural patterns emerge. The system can then predict which tasks
+will yield the highest self-improvement ROI.
 
+Neo's implementation makes that mythic idea operational. The REM cycle extracts
+what happened, maps it onto code, issues, discussions, concepts, tests, reviews,
+and memory, then the Golden Path re-ranks open work against the current frontier.
+The forecast is not a metaphor floating above the codebase; it is the graph
+pressing its accumulated evidence back into the next engineering decision.
+
+The key insight is the **closed feedback loop**: completed tasks change the graph,
+which changes future predictions, which changes what the swarm works on next.
 That makes the loop self-steering:
 
 1. Agents do work.
