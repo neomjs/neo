@@ -72,7 +72,7 @@ flowchart TD
 ### 1. `ticket-intake` (The Pre-Execution Reflection Gate)
 Invoked immediately upon picking up a ticket, before any code is written.
 - **Validation Sweep:** Forces the agent to ensure the ticket has enough architectural context to be actionable.
-- **ROI/Negative ROI Calculation:** An agent must consider if solving the ticket introduces tech debt or violates framework philosophy.
+- **ROI/Negative ROI Calculation:** An agent must consider if solving the ticket introduces tech debt or violates Neo's engine and organism philosophy.
 - **Rejection Protocol:** If a ticket is fatally flawed, the agent applies a `status: needs-re-triage` label, suspending it gracefully rather than hallucinating bad code.
 
 ### 2. `pull-request` (The Post-Implementation Gate)
@@ -154,6 +154,8 @@ ensuring the YAML frontmatter and folder consistency are perfectly formed.
 
 ## Related Guides
 
+- [Core Agent Skills](./CoreSkills.md) — Why the core lifecycle and collaboration
+  skills matter for a maintainable agent team.
 - [Swarm Intelligence](./SwarmIntelligence.md) — Autonomous sub-agent delegation
 - [Strategic Workflows](./StrategicWorkflows.md) — How multiple skills chain together in practice
 - [The Dream Pipeline & Golden Path](./DreamPipeline.md) — How issue lifecycle outcomes are forecasted

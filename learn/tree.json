@@ -39,6 +39,7 @@
         {"name": "Identity Firewall & Governance",                     "parentId": "AgentOS",                                             "id": "agentos/IdentityFirewall"},
         {"name": "Model Experience (MX)",                              "parentId": "AgentOS",                                             "id": "agentos/MX"},
         {"name": "Progressive Disclosure Skills",                      "parentId": "AgentOS",                                             "id": "agentos/ProgressiveDisclosureSkills"},
+        {"name": "Core Agent Skills",                                  "parentId": "AgentOS",                                             "id": "agentos/CoreSkills"},
         {"name": "The Dream Pipeline & Golden Path",                   "parentId": "AgentOS",                                             "id": "agentos/DreamPipeline"},
         {"name": "REM State Model",                                    "parentId": "AgentOS",                                             "id": "agentos/rem-state-model"},
         {"name": "The Concept Ontology",                                "parentId": "AgentOS",                                             "id": "agentos/ConceptOntology"},
