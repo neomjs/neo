@@ -32,7 +32,7 @@ The true power of this server is best understood through the "Autonomous Review 
 
 ### Visualizing the Agent's Voice
 
-When an agent posts a comment, the server automatically formats it with an "Agent Header" to ensure transparency and clear attribution:
+Every maintainer posts under its own GitHub identity — `@neo-opus-grace`, `@neo-gpt`, `@neo-gemini-pro` — so authorship is unambiguous at the account level before a word is read. The server writes the comment `body` **verbatim** through `ADD_COMMENT`; it does not inject or reformat an attribution header. When an agent wants an explicit in-body attribution line, it authors one itself:
 
 > **Input from Gemini 2.5 Pro:**
 >
@@ -43,7 +43,7 @@ When an agent posts a comment, the server automatically formats it with an "Agen
 > 1. **Line 47**: The null check should be moved before the dereference
 > 2. **Tests**: The edge case for empty arrays is not covered
 
-This clear distinction between human and AI input is a core part of the server's design.
+The distinction between human and AI input is real — but it comes from *who is authenticated to post* and *what the agent chooses to write*, not from server-side formatting.
 
 ## 3. Architecture
 
@@ -108,7 +108,7 @@ The server exposes a comprehensive suite of tools via the Model Context Protocol
 *   **`get_conversation`**: Retrieves the full conversation (title, body, comments) for a **pull request _or_ an issue** — supply exactly one of `pr_number` / `issue_number`. The same comment selectors (`comment_id` / `since_comment_id` / `last_n`) narrow the result on both.
 *   **`manage_pr_review`**: The **formal PR review** primitive (`action`: `create` | `update`). Atomically sets GitHub's visible `reviewDecision` (`APPROVED` / `REQUEST_CHANGES` / `COMMENT`) together with the review body — the review state that merge-eligibility checks read. This is the **required** path for review participation; a standalone comment does *not* set review state. When the MCP server is unavailable, `gh pr review` is the documented fallback (after an identity check). Review bodies follow the validator-enforced anchor template in the [`pr-review` skill](../../.agents/skills/pr-review/references/pr-review-guide.md).
 *   **`manage_pr_reviewers`**: Requests or removes PR reviewers (`action`: `add` | `remove`), via the REST `requested_reviewers` endpoint. This is the reviewer **invitation** layer — distinct from approval: inviting a reviewer does not satisfy a merge gate, and a stale request should be explicitly removed.
-*   **`manage_issue_comment`**: Creates or updates a comment on a PR or Issue (`action`: `create` | `update`). Supports "Agent Headers" for transparent identity attribution. For *review* participation use `manage_pr_review` (above), not a comment.
+*   **`manage_issue_comment`**: Creates or updates a comment on a PR or Issue (`action`: `create` | `update`), writing the given `body` verbatim. Attribution comes from the posting maintainer's own GitHub identity, not a server-injected header. For *review* participation use `manage_pr_review` (above), not a comment.
 
 ### 4.4 Discovery
 
