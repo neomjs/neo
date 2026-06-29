@@ -38,10 +38,10 @@ Measured against `resources/content/release-notes/chunk-2/v13.0.0.md` ("Memory B
 
 A guide is *explanation*; it does NOT inline tool catalogs, payload specs, CLI flag tables, or config formats. That *reference* is extracted to `tooling/` — preferentially **generated** from source (`openapi.yaml`, config schema) so it cannot stale. Link to it; never dump it. Before deleting inlined reference, verify the target actually holds the specific content (no-info-loss). Describe the **current paradigm**; demote or omit superseded manual procedures (e.g. manual restore is a backstop, not the data-integrity story) even when the old tool still exists.
 
-## 5. Mechanics — never hand-edit generated files — `MACHINE-ENFORCEABLE-CANDIDATE`
+## 5. Mechanics — register the guide; never commit the pipeline-owned SEO output — `MACHINE-ENFORCEABLE-CANDIDATE`
 
-- **File:** `learn/<section>/<slug>.md`. A new file registers in `learn/tree.json` (`npm run ai:lint-tree-json` green).
-- **Do NOT hand-edit the SEO surfaces.** `apps/portal/sitemap.xml` and `apps/portal/llms.txt` are **generated** by `buildScripts/docs/seo/generate.mjs` (via `buildScripts/docs/rebuildContentIndexesAndSeo.mjs`) and committed by the data-sync pipeline. A manual edit bypasses the generator and is overwritten on the next run — leave them to the pipeline (or regenerate; never hand-edit). *(KnowledgeBase #14346 was bounced for hand-editing these.)*
+- **File + registration (the inputs you edit).** A new guide is `learn/<section>/<slug>.md`, registered in **two source inputs**: (1) `learn/tree.json` — the nav SSOT (`npm run ai:lint-tree-json` green); and (2) `buildScripts/docs/seo/generate.mjs` — **add + rank the guide in the `PRIORITIES` map** (e.g. `['agentos/IdentityFirewall', 1.0]`). That map is where a guide's SEO weight is set.
+- **⛔ NEVER touch `apps/portal/sitemap.xml` or `apps/portal/llms.txt`** — not by hand, **not by running the generator**, not in your commit. They are **generated output owned by the data-sync pipeline**, which regenerates + commits them on its next run. Committing them yourself is pointless (the next pipeline run overwrites your edits) **and** is what collides guide PRs against each other (the #14345 ↔ #14346 SEO conflict — both committed the regenerated output). Edit the *inputs* (tree.json + the `PRIORITIES` map); leave the *output* to the pipeline.
 - **PR body:** `Evidence:` is L1/L2 (docs — no unit tests); zero client names (AGENTS.md §critical_gate).
 
 ## 6. The no-rubber-stamp reviewer gate — `DISCIPLINE-ONLY`
