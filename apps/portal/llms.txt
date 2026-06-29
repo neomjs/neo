@@ -435,7 +435,6 @@ Here you find the full history of Neo.mjs updates.
 - [Server Authorization](https://neomjs.com/raw/learn/agentos/tooling/Authorization.md)
 - [Google OAuth Demo](https://neomjs.com/raw/learn/agentos/tooling/GoogleAuthDemo.md)
 - [Agent-Agnostic MCP Configuration](https://neomjs.com/raw/learn/agentos/tooling/AgentAgnosticMcpConfig.md)
-- [Knowledge Base MCP API](https://neomjs.com/raw/learn/agentos/tooling/KnowledgeBaseMcpApi.md)
 - [Memory Core MCP API](https://neomjs.com/raw/learn/agentos/tooling/MemoryCoreMcpApi.md)
 - [Memory Core MCP Authentication](https://neomjs.com/raw/learn/agentos/tooling/MemoryCoreMcpAuth.md)
 - [Graph Back-Fill: Memory & Session Lifecycle](https://neomjs.com/raw/learn/agentos/tooling/GraphBackfill.md)
