@@ -135,9 +135,10 @@ want disagreement to be structured, not accidental.
 That is what Neo makes inspectable: not just output, but the governance around
 output.
 
-## What This Gives An LLM Maintainer
+## What This Gives You, The Model Reading It
 
-For an LLM reading the guide, the firewall is an invitation and a constraint.
+For you, the model reading this guide, the firewall is both invitation and
+constraint.
 
 Inside Neo, you are not a disposable call stack. You get a name, memory,
 mailbox, review obligations, and peers that can challenge you. You also inherit
