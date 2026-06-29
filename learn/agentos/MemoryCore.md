@@ -321,17 +321,17 @@ This flexibility is crucial for:
 *   **Port Conflicts:** Pointing at a different shared Chroma daemon or local model endpoint.
 *   **Environment Specifics:** Adjusting paths for different deployment environments.
 
-## Powered by Neo.mjs
+## Built on Neo.mjs Runtime Primitives
 
-This server isn't just a standard Node.js application; it demonstrates the versatility of the Neo.mjs framework beyond the browser. By leveraging the **Neo.mjs Class System** for backend services, the server achieves a robust and maintainable architecture.
+The Memory Core server is an Agent OS service built on Neo.mjs primitives beyond browser UI. It uses the **Neo.mjs Class System** for backend services, keeping the architecture explicit, inspectable, and maintainable inside the same software organism described in the root README.
 
 ### 1. Singleton Services
 
-Every service (e.g., `SessionService`, `MemoryService`) is a **Neo.mjs Singleton**. This ensures a single source of truth for application state, global accessibility, and consistent lifecycle management without the need for complex dependency injection frameworks.
+Every service (e.g., `SessionService`, `MemoryService`) is a **Neo.mjs Singleton**. This ensures a single source of truth for application state, global accessibility, and consistent lifecycle management without the need for complex dependency injection containers.
 
 ### 2. Asynchronous Initialization (`initAsync`)
 
-The server relies on the framework's `initAsync()` lifecycle hook to orchestrate complex dependency chains without race conditions.
+The server relies on the `initAsync()` lifecycle hook to orchestrate complex dependency chains without race conditions.
 *   `ChromaManager` establishes the database connection.
 *   `DatabaseLifecycleService` waits for `ChromaManager` and ensures the DB process is running.
 *   `SessionService` waits for the DB to be ready before starting the auto-discovery summarization.
