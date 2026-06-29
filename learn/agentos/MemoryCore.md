@@ -8,10 +8,16 @@ Without memory, every session is a blank slate. An agent fixing a bug today has 
 *   **Interactions:** Every prompt, thought process, and response is stored as a raw memory.
 *   **Decisions:** The reasoning behind *why* a certain approach was chosen.
 *   **Summaries:** High-level abstractions of entire work sessions to enable fast retrieval of past experiences.
+*   **Coordination:** A2A mailbox messages, wake routing, and permission edges are stored in the Native Edge Graph so agents can hand work to each other with durable provenance instead of transient chat context.
+*   **Trust:** Raw memories and summaries carry agent identity and trust-tier metadata, letting the swarm recall shared institutional memory without laundering low-trust or unclassified material into higher-trust conclusions.
+
+This is the Memory Core half of Neo's agent telepathy: a peer's prior reasoning becomes searchable substrate for the next peer, while Neural Link remains the runtime-app possession and inspection bridge. A2A is the enabling substrate here; the higher-order payoff is night-shift continuity, Golden Path handoffs, and identity-bound maintainers whose reasoning stays attributable across sessions.
 
 ## Architecture
 
-The server is built on a modular service architecture, extending `Neo.core.Base`. It uses **ChromaDB** as the vector database for semantic search and the configured AI providers for text embeddings and summarization. The Native Edge Graph persists in SQLite via `ai/graph/storage/SQLite.mjs`, which sets `PRAGMA foreign_keys=ON` at connection time so the schema-declared `Edges` `ON DELETE CASCADE` fires on Node deletion (#10856).
+The server is built on a modular service architecture, extending `Neo.core.Base`. It uses the deployment-wide **unified ChromaDB** process as the vector database for semantic search and the configured AI providers for text embeddings and summarization. The Native Edge Graph persists in SQLite via `ai/graph/storage/SQLite.mjs`, which sets `PRAGMA foreign_keys=ON` at connection time so the schema-declared `Edges` `ON DELETE CASCADE` fires on Node deletion (#10856).
+
+Memory Core is one server in the current Agent OS MCP server set. The checkout currently ships six server directories (`file-system`, `github-workflow`, `gitlab-workflow`, `knowledge-base`, `memory-core`, `neural-link`) plus shared support code; Memory Core remains a distinct institutional-memory and coordination surface rather than a merged monolith.
 
 ### Key Services
 
@@ -20,6 +26,8 @@ The server is built on a modular service architecture, extending `Neo.core.Base`
 *   **`SummaryService`**: Manages the high-level session summaries. It provides tools to query past work based on topics or categories (e.g., "refactoring", "bugfix").
 *   **`DatabaseLifecycleService`**: Reports the underlying ChromaDB process state so health diagnostics can explain whether the persistence layer is available.
 *   **`HealthService`**: A gatekeeper that ensures dependencies (ChromaDB connectivity, collections, and provider readiness) are healthy before allowing operations.
+*   **`MailboxService`**: Implements the A2A messaging substrate with server-stamped authorship, broadcast fan-out, wake routing, task envelopes, and collision-safe wake-suppression guards.
+*   **`PermissionService`**: Manages explicit cross-agent permission edges such as `CAN_READ_INBOX_OF`, `CAN_READ_MEMORIES_OF`, `CAN_READ_SESSIONS_OF`, `CAN_REPLY_TO`, and `BLOCKED_BY`.
 
 ## The "Save-Then-Respond" Protocol
 
@@ -37,15 +45,18 @@ To ensure a complete history, agents are required to follow a strict loop for ev
 ## Session Summarization (Auto-Discovery)
 
 The Memory Core is **self-organizing**.
-When the server starts, the `SessionService` automatically scans for previous sessions that haven't been summarized yet. It uses **Gemini 2.5 Flash** to analyze the raw interaction logs and generate a structured summary containing:
+When the server starts, the `SessionService` automatically scans for previous sessions that haven't been summarized yet. It uses the configured summary provider to analyze the raw interaction logs and generate a structured summary containing:
 
 *   **Title:** A concise name for the session (e.g., "Fixing Button Click Event").
 *   **Category:** One of: `bugfix`, `feature`, `refactoring`, `documentation`, `new-app`, `analysis`, `other`.
 *   **Quality Metrics:** Scores (0-100) for **Productivity**, **Complexity**, and **Quality**.
 *   **Summary:** A high-level textual overview of what was achieved.
 *   **Technologies:** A list of key technologies or modules touched during the session.
+*   **Provenance:** Source agent identities plus the most restrictive source trust tier, so a generated summary cannot hide lower-trust input behind the summarizing agent.
 
 This means the agent starts every new session with an indexed "Recap" of its past work, ready to pick up where it left off.
+
+The provider route is intentionally deployment-agnostic. In the local/default profile, `NEO_MODEL_PROVIDER=openAiCompatible` points at a local OpenAI-compatible chat server; the template default summary model is Gemma (`google/gemma-4-26b-a4b`). Operators can opt into Gemini by setting `NEO_MODEL_PROVIDER=gemini` and providing `GEMINI_API_KEY`. The `healthcheck.providers.summary` block is the source of truth for what a running deployment actually uses.
 
 ### Session Sunset Polling
 
@@ -65,6 +76,12 @@ The server exposes a suite of tools via the Model Context Protocol (MCP).
 *   **`add_memory`**: The core persistence tool. Saves the `{prompt, thought, response}` triplet.
 *   **`get_session_memories`**: Retrieves the full chronological history of a specific session. Useful for context recovery.
 *   **`query_raw_memories`**: Performs a semantic vector search across *all* raw memories. Use this to find specific details (e.g., "What was the error message in the grid component?").
+
+### A2A / Coordination Operations
+
+*   **`add_message`**: Sends direct or broadcast A2A messages with server-stamped authorship. The caller cannot spoof `from`; Memory Core derives `SENT_BY` from the bound `AgentIdentity`.
+*   **`list_messages` / `get_message` / `mark_read`**: Read and advance mailbox state. These tools let cloud agents poll messages at turn start while local agents can also receive wake events.
+*   **`grant_permission` / `revoke_permission` / `list_permissions`**: Manage explicit permission edges for cross-agent inbox, memory, and session visibility. `BLOCKED_BY` is the hard negative-intent primitive.
 
 ### Summary Operations
 
@@ -110,14 +127,14 @@ Operators running `healthcheck` (via MCP, or via the SSE `/healthcheck` endpoint
     "providers": {
         "embedding": {
             "active": "openAiCompatible",
-            "host": "http://127.0.0.1:8000",
-            "model": "text-embedding-qwen3-embedding-1.5b",
+            "host": "http://127.0.0.1:1234",
+            "model": "text-embedding-qwen3-embedding-8b",
             "dimensions": 4096
         },
         "summary": {
             "active": "openAiCompatible",
-            "host": "http://127.0.0.1:11434",
-            "model": "qwen3-8b",
+            "host": "http://127.0.0.1:1234",
+            "model": "google/gemma-4-26b-a4b",
             "local": true
         }
     },
@@ -163,7 +180,7 @@ Introduced for local chat-API provider validation (#10724). The block sits besid
 | `model` | `string \| null` | The configured generation model (`modelName` for Gemini, `openAiCompatible.model` for OpenAI-compatible chat APIs). |
 | `local` | `boolean` | `true` when the configured chat endpoint host is `localhost`, `127.0.0.1`, or `[::1]`. |
 
-For Qwen3-8b or another local OpenAI-compatible chat model, set `NEO_MODEL_PROVIDER=openAiCompatible`, `NEO_OPENAI_COMPATIBLE_HOST`, and `NEO_OPENAI_COMPATIBLE_MODEL`, then verify `providers.summary` before relying on disconnect-triggered summaries.
+For Gemma, Qwen, or another local OpenAI-compatible chat model, set `NEO_MODEL_PROVIDER=openAiCompatible`, `NEO_OPENAI_COMPATIBLE_HOST`, and `NEO_OPENAI_COMPATIBLE_MODEL`, then verify `providers.summary` before relying on disconnect-triggered summaries. For Gemini, set `NEO_MODEL_PROVIDER=gemini`; the `model` field then comes from `modelName`.
 
 ## Two-Stage Query Workflow
 
@@ -178,12 +195,15 @@ Effective agents use the search tools in a "Zoom In / Zoom Out" sequence:
 
 ## Internals: Text Embeddings & ChromaDB
 
-The server uses **ChromaDB** as its embedding store.
+The server uses the shared **ChromaDB** process as its embedding store. Memory Core, Knowledge Base, and graph-vector retrieval share one daemon and one persist directory (`AiConfig.engines.chroma`), while collection boundaries preserve semantics.
 
-*   **`TextEmbeddingService`**: Wraps the `text-embedding-004` model from Google. It converts all text (prompts, thoughts, summaries) into high-dimensional vectors.
-*   **`ChromaManager`**: A singleton that manages the connection to ChromaDB. It lazily initializes two collections:
+*   **`TextEmbeddingService`**: Requires an explicit provider key on every embedding call and supports `openAiCompatible`, `ollama`, and `gemini`. The default selector is `embeddingProvider` / `NEO_EMBEDDING_PROVIDER`, which resolves to `openAiCompatible`; the template default embedding model is `text-embedding-qwen3-embedding-8b` through an OpenAI-compatible endpoint. Native Ollama uses `qwen3-embedding`; Gemini uses `gemini-embedding-001` when explicitly selected with a key. Unsupported providers fail loudly instead of falling back.
+*   **`ChromaManager`**: A singleton that manages the connection to ChromaDB. It lazily initializes Memory Core's collections:
     *   `neo-agent-memory`: Stores the raw interaction logs.
     *   `neo-agent-sessions`: Stores the generated summaries.
+    *   `neo-native-graph`: Stores graph-vector retrieval data; the structural graph authority remains SQLite.
+
+The Knowledge Base stores indexed repo content in its own `neo-knowledge-base` collection in the same unified Chroma daemon. One Chroma process does not mean one collection, and separate MCP servers do not mean separate vector stores.
 
 ## Backup and Restore from Atomic Bundle
 
@@ -277,20 +297,28 @@ You can provide a JSON file or an ES Module (`.mjs`) that exports a configuratio
 ```json readonly
 {
     "debug": true,
-    "modelName": "gemini-2.5-pro",
     "transport": "sse",
     "mcpHttpPort": 3001,
-    "memoryDb": {
-        "port": 8005,
-        "collectionName": "my-custom-memory"
+    "modelProvider": "openAiCompatible",
+    "embeddingProvider": "openAiCompatible",
+    "openAiCompatible": {
+        "host": "http://127.0.0.1:1234",
+        "model": "google/gemma-4-26b-a4b",
+        "embeddingModel": "text-embedding-qwen3-embedding-8b"
+    },
+    "engines": {
+        "chroma": {
+            "host": "127.0.0.1",
+            "port": 8000
+        }
     }
 }
 ```
 
 This flexibility is crucial for:
 *   **Cloud Deployments:** Switching `transport` to `"sse"` allows the server to run as a microservice in Docker, accepting connections on `mcpHttpPort` (default 3001; env var `MCP_HTTP_PORT` per #10808; `SSE_PORT` legacy alias remains readable during deprecation window). See the [Deployment Cookbook](DeploymentCookbook.md) for the current Agent OS deployment authority.
-*   **Custom Models:** Switching to a different Gemini model version.
-*   **Port Conflicts:** Running multiple instances or avoiding conflicts with other services.
+*   **Custom Models:** Switching between local OpenAI-compatible, native Ollama, or explicit Gemini model routes while keeping the healthcheck provider blocks honest.
+*   **Port Conflicts:** Pointing at a different shared Chroma daemon or local model endpoint.
 *   **Environment Specifics:** Adjusting paths for different deployment environments.
 
 ## Powered by Neo.mjs
