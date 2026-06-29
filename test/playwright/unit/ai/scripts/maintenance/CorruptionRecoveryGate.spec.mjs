@@ -13,7 +13,7 @@ import {classifyDataIntegrityMode}                                        from '
 import {createReEmbedMissingHeal,
         createReEmbedMissingHealOperation} from '../../../../../../ai/services/memory-core/helpers/reEmbedMissingHeal.mjs';
 import DataRecoveryActuatorService from '../../../../../../ai/daemons/orchestrator/services/DataRecoveryActuatorService.mjs';
-import {DEFAULT_DISPATCH_BOUNDS}    from '../../../../../../ai/services/memory-core/helpers/healActionDispatch.mjs';
+import {DEFAULT_DISPATCH_BOUNDS}   from '../../../../../../ai/services/memory-core/helpers/healActionDispatch.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -162,11 +162,14 @@ function mockCollection(docsById = {}) {
 }
 
 test.describe('v13.1 release gate — corruption injection → detect → diagnose → autonomous HEAL', () => {
-    test('injected vector-loss is DETECTED, DIAGNOSED (wal-stall), and autonomously HEALED — re-embedded in place, never paged', async () => {
+    test('injected vector-loss / drain-stall coverage shape is DETECTED, DIAGNOSED (wal-stall), and autonomously HEALED — re-embedded in place, never paged', async () => {
         const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-corruption-gate-'));
 
         try {
             // 1. INJECT — the "up but data-gutted" shape: metadata + documents present, vectors absent.
+            //    This is the drain-stall disposition at the recovery-gate layer: once the stalled deferred-embed
+            //    drain leaves persisted rows without vectors, the coverage audit is deliberately provenance-blind
+            //    and the same wal-stall → re-embed-missing gate is the recovery proof.
             const snapshotPath = await injectMemoryCoreSnapshot(tmpDir, {writeVectorPickle: false});
 
             // 2. DETECT — the audit SEES the gutted store (the container-health blind spot, closed).
@@ -376,7 +379,7 @@ test.describe('v13.1 release gate — corruption injection → detect → diagno
 });
 
 /*
- * v13.1 release gate — the self-heal SOAK proof (#14165): the single-shot gate above proves ONE corruption
+ * v13.1 release gate — the self-heal SOAK proof: the single-shot gate above proves ONE corruption
  * heals; this proves the immune system survives SUSTAINED operation — the "runs autonomously for weeks (~95%)"
  * bar. It drives N inject→detect→diagnose→HEAL cycles on an accelerated clock through the REAL `applyHeal`
  * dispatch (default bounds: 3 mutating runs / hour, 10-min cooldown), threading the anti-thrash ledger across
@@ -386,14 +389,14 @@ test.describe('v13.1 release gate — corruption injection → detect → diagno
  *                       (they do NOT grow 1:1 with the cycle count); the anti-thrash demonstrably engages.
  *   - BOUNDED STATE   — the active anti-thrash working set (the windowed recentRuns) stays ≤ the per-window cap
  *                       across the whole run; old attempts age out, so it never grows with the cycle count.
- * Reuses the proven injector + pipeline above — no parallel harness (#14165 AC3).
+ * Reuses the proven injector + pipeline above — no parallel harness.
  */
 test.describe('v13.1 release gate — self-heal SOAK: N corruption+heal cycles survive sustained operation (#14165)', () => {
     test('N accelerated cycles converge, never hot-loop, and keep the anti-thrash working set bounded', async () => {
         const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-corruption-soak-'));
 
         try {
-            const CYCLES        = 24,             // weeks in miniature
+            const CYCLES = 24,             // weeks in miniature
                   CYCLE_STEP_MS = 12 * 60 * 1000, // 12 min/cycle on the accelerated clock (> the 10-min cooldown)
                   WINDOW_MS     = 3600000,        // mirror DEFAULT_DISPATCH_BOUNDS.windowMs (the anti-thrash window)
                   ledger        = [];             // the heal-event ledger — append-only attempt log; the recentRuns source
@@ -423,7 +426,7 @@ test.describe('v13.1 release gate — self-heal SOAK: N corruption+heal cycles s
                 expect(drifted.ok).toBe(false); // every cycle's injection is seen — the detect never goes blind
 
                 const decision = classifyDataIntegrityMode({
-                    collection: 'neo-agent-memory', rowCount: METADATA_IDS.length,
+                    collection            : 'neo-agent-memory', rowCount: METADATA_IDS.length,
                     missingFromVectorCount: drifted.missingFromVectorCount, documentsPresentCount: drifted.missingFromVectorCount
                 });
                 expect(decision).toMatchObject({mode: 'wal-stall', terminalAction: 're-embed-missing', autonomous: true});
@@ -432,8 +435,8 @@ test.describe('v13.1 release gate — self-heal SOAK: N corruption+heal cycles s
                     METADATA_IDS.map(id => [id, {document: `surviving document for ${id} (cycle ${cycle})`, metadata: {kind: 'turn'}}])
                 ));
                 const reEmbedMissing = createReEmbedMissingHeal({
-                    embedFn: async documents => documents.map(() => DETERMINISTIC_VECTOR.slice()),
-                    auditCoverage: async ({evidence}) => ({missingVectorIds: evidence.missingVectorIds}),
+                    embedFn          : async documents => documents.map(() => DETERMINISTIC_VECTOR.slice()),
+                    auditCoverage    : async ({evidence}) => ({missingVectorIds: evidence.missingVectorIds}),
                     expectedDimension: DETERMINISTIC_VECTOR.length
                 });
                 const healOperation = createReEmbedMissingHealOperation({
@@ -450,7 +453,7 @@ test.describe('v13.1 release gate — self-heal SOAK: N corruption+heal cycles s
                 });
 
                 const outcome = await actuator.applyHeal({
-                    action: decision.terminalAction, collection: 'neo-agent-memory',
+                    action  : decision.terminalAction, collection: 'neo-agent-memory',
                     evidence: {missingVectorIds: [...METADATA_IDS]}, now
                 });
 
