@@ -119,6 +119,9 @@
 {"source":"swarm-intelligence","target":"file:learn/agentos/SwarmIntelligence.md","type":"EXPLAINED_BY"}
 {"source":"progressive-disclosure-skills","target":"file:learn/agentos/ProgressiveDisclosureSkills.md","type":"EXPLAINED_BY"}
 {"source":"dream-pipeline","target":"file:learn/agentos/DreamPipeline.md","type":"EXPLAINED_BY"}
+{"source":"golden-path","target":"file:learn/agentos/DreamPipeline.md","type":"EXPLAINED_BY"}
+{"source":"native-edge-graph","target":"file:learn/benefits/ArchitectureOverview.md","type":"EXPLAINED_BY"}
+{"source":"native-edge-graph","target":"file:learn/agentos/decisions/0024-native-edge-graph-model.md","type":"EXPLAINED_BY"}
 {"source":"neural-link","target":"file:learn/agentos/NeuralLink.md","type":"EXPLAINED_BY"}
 {"source":"knowledge-base","target":"file:learn/agentos/KnowledgeBase.md","type":"EXPLAINED_BY"}
 {"source":"memory-core","target":"file:learn/agentos/MemoryCore.md","type":"EXPLAINED_BY"}
