@@ -28,7 +28,7 @@ The true power of this server is best understood through the "Autonomous Review 
     *   It analyzes the code changes with **`get_pull_request_diff`**.
     *   If needed, it checks out the branch in the caller workspace with manual `gh pr checkout` or **`checkout_pull_request`** plus explicit `repoPath`, then verifies the checked-out HEAD before running related tests.
 3.  **Analysis & Review:** The agent synthesizes this information to form a review.
-4.  **Participation:** The agent posts a structured review comment using **`create_comment`**.
+4.  **Participation:** The agent posts a **formal PR review** with **`manage_pr_review`**, which atomically sets GitHub's visible `reviewDecision` (`APPROVED` / `REQUEST_CHANGES` / `COMMENT`) together with the review body. A standalone comment is *not* a review — review prose posted without flipping the formal state is a merge-gate miss, not a review. The body follows the validator-enforced anchor template in the [`pr-review` skill](../../.agents/skills/pr-review/references/pr-review-guide.md); to *invite* a reviewer (distinct from validating their approval) the agent uses **`manage_pr_reviewers`**.
 
 ### Visualizing the Agent's Voice
 
@@ -106,8 +106,9 @@ The server exposes a comprehensive suite of tools via the Model Context Protocol
 *   **`checkout_pull_request`**: Checks out a PR branch in an explicitly supplied caller workspace using `gh pr checkout`; missing `repoPath` is rejected so a shared MCP server cannot silently mutate its own checkout.
 *   **`get_pull_request_diff`**: Fetches the code difference via `gh pr diff`.
 *   **`get_conversation`**: Retrieves the full conversation (title, body, comments) for a **pull request _or_ an issue** — supply exactly one of `pr_number` / `issue_number`. The same comment selectors (`comment_id` / `since_comment_id` / `last_n`) narrow the result on both.
-*   **`create_comment`**: Posts a new comment to a PR or Issue. Supports "Agent Headers" to identify which AI identity is speaking.
-*   **`update_comment`**: Edits an existing comment.
+*   **`manage_pr_review`**: The **formal PR review** primitive (`action`: `create` | `update`). Atomically sets GitHub's visible `reviewDecision` (`APPROVED` / `REQUEST_CHANGES` / `COMMENT`) together with the review body — the review state that merge-eligibility checks read. This is the **required** path for review participation; a standalone comment does *not* set review state. When the MCP server is unavailable, `gh pr review` is the documented fallback (after an identity check). Review bodies follow the validator-enforced anchor template in the [`pr-review` skill](../../.agents/skills/pr-review/references/pr-review-guide.md).
+*   **`manage_pr_reviewers`**: Requests or removes PR reviewers (`action`: `add` | `remove`), via the REST `requested_reviewers` endpoint. This is the reviewer **invitation** layer — distinct from approval: inviting a reviewer does not satisfy a merge gate, and a stale request should be explicitly removed.
+*   **`manage_issue_comment`**: Creates or updates a comment on a PR or Issue (`action`: `create` | `update`). Supports "Agent Headers" for transparent identity attribution. For *review* participation use `manage_pr_review` (above), not a comment.
 
 ### 4.4 Discovery
 
