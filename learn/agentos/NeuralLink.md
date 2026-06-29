@@ -157,8 +157,8 @@ cannot silently diverge.
 
 Hot patching is even narrower. `patch_code` exists for trusted open-heart
 surgery, but it is disabled by default and requires explicit opt-in via
-`Neo.config.enableHotPatching = true`. The guide should make that feel powerful,
-not casual.
+`Neo.config.enableHotPatching = true`. That default-off gate is deliberate:
+hot patching is powerful, not casual.
 
 ## Trust Boundaries
 
