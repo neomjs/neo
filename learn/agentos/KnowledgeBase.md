@@ -41,7 +41,7 @@ The Knowledge Base is the answer to that drift:
   sharper.
 
 ```mermaid
-flowchart LR
+flowchart TD
     A["Repository sources<br/>code, guides, ADRs, issues, PRs"] --> B["Extract and normalize<br/>docs, tree.json, GitHub artifacts"]
     B --> C["Chunk and hash<br/>stable source identities"]
     C --> D["Embedding guardrail<br/>split or skip oversized input"]
@@ -118,7 +118,7 @@ parser metadata, applies deletion signals, and then hands safe chunks to the
 vector layer.
 
 ```mermaid
-flowchart LR
+flowchart TD
     T["Tenant source push<br/>parsed chunks or raw files"] --> V["IngestionService<br/>tenant, schema, parser validation"]
     V --> S["Server-owned stamping<br/>tenantId, repoSlug, source identity"]
     S --> X["Deletion and manifest signals<br/>remove stale chunks"]
