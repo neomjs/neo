@@ -56,6 +56,26 @@ flowchart LR
     Core -. "unused trails decay, Hebbian" .-> Core
 ```
 
+## Memory that keeps itself healthy
+
+A memory you cannot trust is worse than no memory — and the hard lesson came from a real incident. A Memory Core once lost roughly **60% of its vectors** to a silent over-cap stall, and it went undetected for *weeks* — because the container was *up*. It answered messages, it persisted new memories, every liveness probe read green. **Liveness is not integrity.**
+
+v13.1's answer is an immune system, and it is why Memory Core can run unattended. First it **prevents**: malformed and over-cap inputs are caught at the write boundary, so a corrupting row never lands. Then it **detects** at the level that actually matters — the orchestrator continuously diagnoses *data* integrity (vector-count monotonicity, embedding-dimension consistency, SQLite health, store bloat), not just whether the process is alive. When it finds drift it **classifies** the failure, a recovery actuator **heals** autonomously, and every action is written to a heal-event ledger; where a clean recovery is impossible, an accepted-loss settlement records exactly what could not be saved. The operator is not paged at 3am. The organism keeps itself honest.
+
+```mermaid
+flowchart LR
+    Write["memory write"] --> Guard{"over-cap or<br/>malformed?"}
+    Guard -- "prevented at source" --> Store["healthy store"]
+    Store --> Detect["data-integrity diagnosis:<br/>vector counts, dimensions, SQLite"]
+    Detect -- drift --> Classify["classify + select strategy"]
+    Classify --> Heal["recovery actuator heals"]
+    Heal --> Ledger["heal-event ledger"]
+    Ledger --> Store
+    Detect -- healthy --> Store
+```
+
+Backups remain the deep backstop for catastrophic loss — but the incident's real lesson was that *a backstop you only discover has failed is not a safety net.* The immune system is the difference between hoping the memory is intact and knowing it.
+
 ## What a peer inherits instead of amnesia
 
 The benefit lands differently depending on who you are.
@@ -81,5 +101,5 @@ It all rests on one rule: **save, then respond.** Every turn, an agent persists 
 Memory Core is where the swarm stops being a sequence of forgetful sessions and becomes an institution with a past it can query and a judgment it can pass on. This guide is the concept; the operational detail lives in dedicated references, single-sourced so they never drift from the running system:
 
 *   **[Memory Core MCP API](./tooling/MemoryCoreMcpApi.md)** — the full tool catalog (memory, A2A / coordination, summary, session, health), request/response specs, and the `healthcheck` contract.
-*   **[Restoration Runbook](./tooling/RestorationRunbook.md)** — backup and restore, atomic-bundle layout, and per-subsystem recovery.
+*   **[Restoration Runbook](./tooling/RestorationRunbook.md)** — the deep backstop *beneath* the immune system: atomic-bundle backup/restore for catastrophic recovery.
 *   **[Deployment Cookbook](./DeploymentCookbook.md)** — running Memory Core in either topology: a single developer's local Agent OS, or a multi-tenant cloud Agent OS where a team shares one tenant-isolated store.
