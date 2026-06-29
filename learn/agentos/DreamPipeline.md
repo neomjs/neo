@@ -201,14 +201,14 @@ rendered from the current graph.
 ```mermaid
 flowchart TD
     classDef vector fill:#0f3460,stroke:#16c79a,stroke-width:2px,color:#fff
-    classDef graph fill:#1a1a2e,stroke:#e94560,stroke-width:1px,color:#eee
+    classDef structural fill:#1a1a2e,stroke:#e94560,stroke-width:1px,color:#eee
     classDef handoff fill:#1a3c34,stroke:#2ecc71,stroke-width:1px,color:#eee
 
     Summaries["Recent session summaries"]:::vector
     Frontier["Frontier baseline embedding"]:::vector
     Chroma["Chroma graph query: ISSUE + DISCUSSION"]:::vector
-    SQLite["SQLite open-state, blocker, and edge-weight checks"]:::graph
-    Score["priority = semanticScore * 2 + structuralWeight"]:::graph
+    SQLite["SQLite open-state, blocker, and edge-weight checks"]:::structural
+    Score["priority = semanticScore * 2 + structuralWeight"]:::structural
     Handoff["sandman_handoff.md"]:::handoff
 
     Summaries --> Frontier --> Chroma --> SQLite --> Score --> Handoff
