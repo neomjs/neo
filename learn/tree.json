@@ -36,6 +36,7 @@
         {"name": "Strategic Workflows",                                "parentId": "AgentOS",                                             "id": "agentos/StrategicWorkflows"},
         {"name": "The Flat-Peer Institution",                          "parentId": "AgentOS",                                             "id": "agentos/FlatPeerInstitution"},
         {"name": "Swarm Intelligence & Sub-Agents",                    "parentId": "AgentOS",                                             "id": "agentos/SwarmIntelligence"},
+        {"name": "A2A Messaging & Wake Routing",                       "parentId": "AgentOS",                                             "id": "agentos/A2A"},
         {"name": "Identity Firewall & Governance",                     "parentId": "AgentOS",                                             "id": "agentos/IdentityFirewall"},
         {"name": "Content Trust Self-Defense",                         "parentId": "AgentOS",                                             "id": "agentos/ContentTrust"},
         {"name": "Model Experience (MX)",                              "parentId": "AgentOS",                                             "id": "agentos/MX"},
