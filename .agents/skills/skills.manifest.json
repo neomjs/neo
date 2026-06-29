@@ -141,7 +141,8 @@
       "payloadBudget": 80000,
       "claudeSymlinkRequired": true,
       "downstreamDocsTargets": [
-        "learn/agentos/ProgressiveDisclosureSkills.md"
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
       ]
     },
     "hostile-content-quarantine": {
