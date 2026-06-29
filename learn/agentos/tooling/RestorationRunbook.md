@@ -13,6 +13,31 @@ Backups are stored in `.neo-ai-data/backups/backup-<timestamp>/` and contain the
 ## Prerequisites
 Before initiating any restoration, ensure that all AI MCP servers and daemon processes are stopped (terminate any running `npm run ai:server` processes).
 
+## Atomic-Bundle Restore CLI (`ai:restore`)
+
+`npm run ai:restore -- <bundle-path>` (entrypoint `ai/scripts/maintenance/restore.mjs`) inverts the Daily Snapshot Pipeline: it reads a bundle, validates structure + JSONL parseability + topology compatibility, then restores each subsystem (KB, MC memories/summaries, graph, concepts, RLAIF trajectories) through the canonical Zod-validated SDK boundary. Use this for a full-bundle restore; the per-subsystem procedures below are the manual fallback when you need to recover a single store.
+
+### Flags
+
+| Flag | Effect |
+|---|---|
+| `--mode merge` (default) | Idempotent. Embedded substrates upsert (graph SQLite uses `INSERT OR IGNORE`); flat substrates (`concepts/`, `trajectories.jsonl`) skip-if-target-exists, preserving operator additions. No `--force` required. |
+| `--mode replace` | Gated + destructive. Each embedded subsystem fires `assertDestructiveTargetAllowed()` before truncating + restoring; refuses if any target is non-empty without `--force`. |
+| `--force` | Required when `--mode replace` AND any target is populated (acknowledges overwrite). Also overrides the flat-file skip-if-non-empty rule under `--mode merge`. |
+| `--force-topology-mismatch` | Bypasses the topology-compatibility refusal when restoring a legacy federated-topology bundle into a unified deployment (collection IDs may diverge across topologies). |
+
+### Pre-flight validation
+
+Before any write touches a service, the orchestrator validates the bundle: the required subdirectories exist, each `.jsonl` is parseable (a torn write / corruption fails fast), and `bundle-meta.json` (when present) parses and passes the topology check. A torn or partial bundle aborts with a clear error and zero side effects on the live substrate.
+
+### Production-target safeguard
+
+When `--mode replace` targets canonical `.neo-ai-data/` paths, the destructive-operation guard requires both an environment opt-in AND an explicit confirmation token before the truncate fires; otherwise the restore aborts. Disposable targets (under `tmp/`, the OS temp dir, or `:memory:` SQLite) bypass the requirement so tests can exercise replace mode safely.
+
+### Programmatic use
+
+The orchestrator is also exported as `runRestore({ bundleRoot, mode, force, forceTopologyMismatch })` from `ai/scripts/maintenance/restore.mjs`, for embedding in higher-level recovery substrate (e.g. the daily snapshot pipeline or cold-restore harnesses). It returns per-subsystem result blocks, the parsed `bundle-meta.json` (or `null` for legacy bundles), and the topology-check verdict. Companion exports `validateBundle(...)` and `checkTopology(...)` expose the pre-flight checks for callers that want to gate before restoring.
+
 ## Restoration Procedures
 
 ### 1. Knowledge Base (KB)
@@ -33,7 +58,7 @@ Memory Core memories and session summaries live as the `neo-agent-memory` and `n
    ```bash
    node -e "import('./ai/services.mjs').then(s => s.default.memory.manageDatabaseBackup({action: 'import', file: '.neo-ai-data/backups/backup-<timestamp>/mc/memory-backup-<timestamp>.jsonl', mode: 'replace'}))"
    ```
-   *(Note: A dedicated `restore.mjs` CLI is deferred to #10871. Do **not** `rm -rf` the `chroma/unified` folder — it is shared with the Knowledge Base; MC restore is collection-scoped via the SDK above.)*
+   *(Note: For full-bundle restores, prefer the Atomic-Bundle Restore CLI above. The direct SDK import remains the manual per-subsystem fallback. Do **not** `rm -rf` the `chroma/unified` folder — it is shared with the Knowledge Base; MC restore is collection-scoped via the SDK above.)*
 
 ### 3. Chroma FTS5 Integrity Repair
 The unified Chroma store is a shared physical SQLite database. `pragma quick_check`
