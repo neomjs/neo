@@ -82,5 +82,4 @@ Memory Core is where the swarm stops being a sequence of forgetful sessions and 
 
 *   **[Memory Core MCP API](./tooling/MemoryCoreMcpApi.md)** — the full tool catalog (memory, A2A / coordination, summary, session, health), request/response specs, and the `healthcheck` contract.
 *   **[Restoration Runbook](./tooling/RestorationRunbook.md)** — backup and restore, atomic-bundle layout, and per-subsystem recovery.
-*   **[Multi-Tenant Migration Guide](./tooling/MultiTenantMigrationGuide.md)** — the tenancy model, `memorySharing` policies, and the legacy census.
-*   **[Deployment Cookbook](./DeploymentCookbook.md)** — configuration, transports, and running Memory Core as a cloud microservice.
+*   **[Deployment Cookbook](./DeploymentCookbook.md)** — running Memory Core in either topology: a single developer's local Agent OS, or a multi-tenant cloud Agent OS where a team shares one tenant-isolated store.
