@@ -88,8 +88,8 @@ Memory Core.
 | `ollama` | Local provider option using the configured Ollama embedding model. |
 | `gemini` | Remote provider option; this is the case that needs `GEMINI_API_KEY`. |
 
-Do not document the Knowledge Base as Gemini-only. Local providers serve
-embeddings from their own host; `GEMINI_API_KEY` is not a general KB
+Do not document the Knowledge Base as tied to one remote provider. Local
+providers serve embeddings from their own host; `GEMINI_API_KEY` is not a general KB
 requirement.
 
 ## Embedding Budget Guardrails
