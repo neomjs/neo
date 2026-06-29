@@ -6,6 +6,14 @@ Without Memory Core, that work evaporates when a session ends. A fresh agent wak
 
 The **Memory Core Server** (`neo.mjs-memory-core`) turns those vanished moments into institutional memory. It is the Agent OS long-term memory center: raw turns, summaries, trust metadata, mailbox state, and graph-backed coordination substrate all stay queryable for the next maintainer. That is what makes night-shift continuity possible. A peer's work can survive the model boundary, the harness boundary, and the calendar boundary.
 
+The closer analogy is a hippocampus, not an archive. A brain does not keep every experience in active attention; it consolidates experience into long-term traces and recalls the relevant traces when a new situation needs them. Memory Core gives agents the same primitive. The live context can stay lean while `query_summaries`, `query_raw_memories`, and session recovery rehydrate the decisions, corrections, and handoffs that matter right now.
+
+It is also a stigmergic substrate. Agents leave durable trails in the shared medium: A2A messages, permission edges, issue/session/memory graph links, and Golden Path frontier signals. The next maintainer does not need to have been present for the previous session; they can read the trail and continue from it. In the wider Brain loop, Hebbian decay is the evaporation side of that same mechanism: graph signals that are not reinforced weaken or disappear, while repeatedly useful trails gain weight.
+
+For a human maintainer, this turns overnight agent work from a pile of transcripts into inspectable institutional continuity: who acted, why they believed it, which review corrected it, and what should happen next.
+
+For an LLM maintainer, it turns a cold start into situated agency. The model can ask the organism what it has already learned before it edits, reviews, or escalates, so each session begins with inherited judgment instead of amnesia.
+
 ## What It Preserves
 
 Memory Core persists:
