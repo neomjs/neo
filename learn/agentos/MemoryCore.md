@@ -1,19 +1,23 @@
-# The Memory Core Server
+# Memory Core: Institutional Memory for the Agent OS
 
-The **Memory Core Server** (`neo.mjs-memory-core`) is the AI agent's "Hippocampus" — its long-term memory center. It acts as a persistent state layer that allows agents to remember past interactions, learn from previous decisions, and maintain context across different development sessions.
+The expensive part of AI engineering is not the keystroke. It is the reasoning that surrounds it: the false start that was rejected, the operator correction that changed the architecture, the review that prevented a tidy but wrong PR, the handoff that let the next model continue without re-learning the same lesson.
 
-## Purpose
+Without Memory Core, that work evaporates when a session ends. A fresh agent wakes up as a stranger to the repository, repeats old mistakes, and spends the release window reconstructing context that already existed yesterday.
 
-Without memory, every session is a blank slate. An agent fixing a bug today has no recollection of the similar bug it fixed last week. The Memory Core solves this by persisting:
+The **Memory Core Server** (`neo.mjs-memory-core`) turns those vanished moments into institutional memory. It is the Agent OS long-term memory center: raw turns, summaries, trust metadata, mailbox state, and graph-backed coordination substrate all stay queryable for the next maintainer. That is what makes night-shift continuity possible. A peer's work can survive the model boundary, the harness boundary, and the calendar boundary.
+
+## What It Preserves
+
+Memory Core persists:
 *   **Interactions:** Every prompt, thought process, and response is stored as a raw memory.
 *   **Decisions:** The reasoning behind *why* a certain approach was chosen.
 *   **Summaries:** High-level abstractions of entire work sessions to enable fast retrieval of past experiences.
 *   **Coordination:** A2A mailbox messages, wake routing, and permission edges are stored in the Native Edge Graph so agents can hand work to each other with durable provenance instead of transient chat context.
 *   **Trust:** Raw memories and summaries carry agent identity and trust-tier metadata, letting the swarm recall shared institutional memory without laundering low-trust or unclassified material into higher-trust conclusions.
 
-This is the Memory Core half of Neo's agent telepathy: a peer's prior reasoning becomes searchable substrate for the next peer, while Neural Link remains the runtime-app possession and inspection bridge. A2A is the enabling substrate here; the higher-order payoff is night-shift continuity, Golden Path handoffs, and identity-bound maintainers whose reasoning stays attributable across sessions.
+The payoff is not a bigger chat log. It is identity-bound continuity: a peer's prior reasoning becomes searchable substrate for the next peer, while Neural Link remains the runtime-app possession and inspection bridge. A2A is the enabling substrate here; the higher-order outcome is night-shift continuity, Golden Path handoffs, and maintainers whose reasoning stays attributable across sessions.
 
-## Architecture
+## How It Works
 
 The server is built on a modular service architecture, extending `Neo.core.Base`. It uses the deployment-wide **unified ChromaDB** process as the vector database for semantic search and the configured AI providers for text embeddings and summarization. The Native Edge Graph persists in SQLite via `ai/graph/storage/SQLite.mjs`, which sets `PRAGMA foreign_keys=ON` at connection time so the schema-declared `Edges` `ON DELETE CASCADE` fires on Node deletion (#10856).
 
