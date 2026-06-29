@@ -134,6 +134,16 @@
         "learn/guides/fundamentals/CodebaseOverview.md"
       ]
     },
+    "guide-authoring": {
+      "name": "guide-authoring",
+      "description": "Authoring OR reviewing a learn/ guide (learn/benefits/*.md, learn/agentos/*.md). Enforces the grounding discipline (memory-mine + use-the-subsystem's-tools before writing), the rich-narrative + benefits + lived-voice content bar, render-verified TD Mermaid, conceptual-vs-reference separation, the never-hand-edit-generated-files rule, and a no-rubber-stamp reviewer gate.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md"
+      ]
+    },
     "hostile-content-quarantine": {
       "name": "hostile-content-quarantine",
       "description": "Incident playbook for externally-authored hostile content on public surfaces — astroturfing, spam, stealth marketing, injection-bearing artifacts. Triggers: external-authored content bearing astroturf markers (engagement-bait clauses, vendor links, external endpoint/MCP offers, name-only drops), an operator \"astroturf / spam / we got hit\" signal, or verifying a moderation outcome. ANTI-trigger: ordinary good-faith contributor posts.",
