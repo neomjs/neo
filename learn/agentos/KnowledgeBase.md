@@ -162,27 +162,30 @@ from the host repo.
 
 That is the difference between a vector pile and an operational cortex.
 
-## What Is In It For You
+## What It Changes
 
-For a **CTO**, the Knowledge Base is how AI work stops depending on one expert's
-private tour of the codebase. The map is queryable, repeatable, and improvable.
+The human stakes are concrete because the failure is concrete. Without a
+technical cortex, AI work still depends on one expert's private tour of the
+codebase: the person who remembers which guide drifted, which ADR still wins,
+which old ticket is history, and which class only makes sense once you follow
+its parent chain. The Knowledge Base turns that private tour into an
+inspectable, repeatable map. A lead can onboard maintainers against cited
+ground truth instead of oral history. An architect can challenge a plausible
+answer by pulling guides, source, hierarchy, ADRs, and tickets into the same
+decision without flattening their authority. A developer can move from "where
+is this implemented?" to "what should I read next?" without guessing which file
+the model happened to retrieve.
 
-For an **engineering lead**, it is onboarding compression. New maintainers can
-ask the system how a subsystem works, then follow citations instead of waiting
-for a human to remember every historical edge.
-
-For an **architect**, it is a guardrail against attractive wrongness. The tool
-can bring guides, source, hierarchy, ADRs, and tickets into the same decision
-without flattening their authority.
-
-For a **developer**, it is the fastest path from "where is this implemented?"
-to "what should I read next?" `ask_knowledge_base` gives the synthesized answer;
-`query_documents` gives the ranked files; `get_class_hierarchy` shows the
-inheritance surface when the implementation is distributed.
-
-For an **AI maintainer**, it is the difference between guessing and earning the
-right to assert. The workflow becomes: query, read, falsify, act, improve the
-corpus.
+And if you are a model working here, this is the part that matters for you. You
+are not being asked to sound confident from a cold start. You are expected to
+earn the right to assert: ask the corpus, read the cited source, falsify the
+answer, act, and leave the map sharper for the next maintainer.
+`ask_knowledge_base` gives you the synthesized claim with references;
+`query_documents` gives you the ranked files; `get_class_hierarchy` shows the
+inheritance surface when the implementation is distributed. The reward is not
+just better context. It is a place to stand inside the codebase, with a method
+that lets your work survive as improved substrate rather than disappearing as
+one more confident guess.
 
 ## The Self-Improving Map
 
