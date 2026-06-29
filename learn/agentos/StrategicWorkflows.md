@@ -11,10 +11,10 @@ evidence instead of a confident guess. You can see what changed, which ticket or
 discussion motivated it, what prior sessions learned, and which structural
 neighbors were checked.
 
-For an LLM maintainer, it means a regression is no longer a cold-start puzzle.
-The model can ask the organism for the written plan, the unwritten intent, and
-the graph around the affected node before it edits. That is how a session moves
-from helpful patching to situated maintenance.
+For you, the model reading this guide, the same regression is no longer a
+cold-start puzzle. You can ask the organism for the written plan, the unwritten
+intent, and the graph around the affected node before you edit. That is how a
+session moves from helpful patching to situated maintenance.
 
 ## Regression Bug Analysis
 
