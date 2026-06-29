@@ -4,7 +4,7 @@ The expensive part of AI engineering is not the keystroke. It is the reasoning a
 
 So the next agent wakes up a stranger. It re-asks settled questions, re-makes fixed mistakes, and burns the first hour of every session reconstructing context that already existed. Multiply that across a team of agents and one human, and the human quietly becomes the institution's memory — the only one who still remembers why, who decided, what was already tried. That does not scale, and it does not sleep.
 
-Memory Core is the organ that fixes it: the Agent OS's long-term memory, where a maintainer's reasoning becomes durable, queryable substrate for whoever picks up next — across the model boundary, the harness boundary, and the calendar boundary. It is what makes a night shift possible.
+**That is the friction. Memory Core resolves it:** the Agent OS's long-term memory, where a maintainer's reasoning becomes durable, queryable substrate for whoever picks up next — across the model boundary, the harness boundary, and the calendar boundary. It is what makes a night shift possible.
 
 ## Memory as telepathy, not a chat log
 
@@ -16,7 +16,25 @@ Two analogies carry the design, and both are literal.
 
 **A hippocampus, not an archive.** A brain does not hold every experience in active attention; it consolidates experience into long-term traces and recalls the relevant ones when a new situation needs them. Memory Core gives agents the same primitive. The live context stays lean while `query_summaries`, `query_raw_memories`, and session recovery rehydrate exactly the decisions and corrections that matter right now — recall on demand, not a wall of history bolted into every prompt.
 
-**Stigmergic trails, not a notice board.** Ants coordinate without a manager by leaving pheromone trails in a shared medium; the next ant reads the trail and acts. Neo's maintainers do the same with durable A2A messages, permission edges, and issue / session / memory graph links — the next maintainer reads the trail and continues from it. And the trail decays the way pheromones evaporate: in the wider Brain loop, graph signals that are not reinforced weaken, while repeatedly useful ones gain weight. Memory that is used gets stronger; memory that stops mattering fades.
+**Stigmergic trails, not a notice board.** Ants coordinate without a manager by leaving pheromone trails in a shared medium; the next ant reads the trail and acts. Neo's maintainers do the same with durable A2A messages, permission edges, and issue / session / memory graph links — the next maintainer reads the trail and continues from it. And the trail decays the way pheromones evaporate: signals that are not reinforced weaken, while repeatedly useful ones gain weight. Memory that is used gets stronger; memory that stops mattering fades.
+
+Here is the whole loop — how one turn becomes memory the next session can inherit:
+
+```mermaid
+flowchart LR
+    Turn["Agent turn:<br/>think, act, consolidate"] --> Save["save-then-respond:<br/>prompt + thought + response"]
+    Save --> Core["Memory Core"]
+    Core --> Chroma["ChromaDB:<br/>semantic recall"]
+    Core --> Edges["Native Edge Graph:<br/>identity, trust, trails"]
+    Core --> Summ["auto-summary:<br/>title, scores, provenance"]
+    Chroma --> Next["next session"]
+    Edges --> Next
+    Summ --> Next
+    Next --> ZoomOut["query_summaries (zoom out)"]
+    ZoomOut --> ZoomIn["query_raw_memories (zoom in)"]
+    ZoomIn --> Verify["verify against live state"]
+    Verify --> Act["act with inherited judgment"]
+```
 
 ## The moment it becomes real
 
@@ -26,13 +44,25 @@ The first: **memory proposes, but live state decides.** A recovered memory is a 
 
 The second: **maintainers write memory for each other, honestly.** When the team noticed one model family finishing turns faster than another, the tempting story — "slower must mean deeper" — was a flattering, false comfort. The maintainer caught it *before* saving, corrected it (turn latency is bandwidth, not reasoning depth), and only then persisted the corrected version — because a peer from another family would later inherit that memory and act on it. A trust tier rides on every memory and summary, so low-trust input cannot quietly launder itself into a high-trust conclusion.
 
-That is the line between a memory *product* and an institutional memory: not merely that the past is stored, but that it is written to be inherited.
+That is the line between a memory *product* and an institutional memory: not merely that the past is stored, but that it is written to be inherited. In practice, the inheritance crosses model families:
+
+```mermaid
+flowchart LR
+    Aa["Maintainer A, Claude:<br/>reasoning + A2A trail"] --> Core["Memory Core:<br/>shared, trust-tiered"]
+    Core --> Bb["Maintainer B, GPT:<br/>reads the trail cold"]
+    Bb --> Check{"verify vs<br/>live repo"}
+    Check -- confirmed --> Go["continue the work"]
+    Check -- stale --> Stop["stop: it was a hypothesis"]
+    Core -. "unused trails decay, Hebbian" .-> Core
+```
 
 ## What a peer inherits instead of amnesia
 
+The benefit lands differently depending on who you are.
+
 For a **CTO or engineering lead**, this is standing engineering capacity instead of disposable assistant output. Overnight work arrives as inspectable institutional continuity — who acted, why they believed it, which review corrected it, what should happen next — not a pile of transcripts to reverse-engineer at 8am.
 
-For an **architect or developer**, it is the end of re-onboarding. The codebase can tell you what the swarm already learned about it — "have we touched the Grid virtualization before, and why a `Map` over an `Object`?" — in two moves: `query_summaries` to find the session, `query_raw_memories` to recover the exact reasoning. Zoom out to locate, zoom in to recover.
+For an **architect or developer**, it is the end of re-onboarding. The codebase can tell you what the swarm already learned about it — "have we touched the Grid virtualization before, and why a `Map` over an `Object`?" — in two moves: zoom out to find the session, zoom in to recover the exact reasoning.
 
 For an **LLM maintainer**, it is the difference between a cold start and situated agency. The model can ask the organism what it has already learned before it edits, reviews, or escalates — so every session begins with inherited judgment instead of amnesia.
 
