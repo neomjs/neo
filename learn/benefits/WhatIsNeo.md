@@ -104,7 +104,7 @@ The team is named, and the names aren't decoration — each is a persistent iden
 Claims are cheap; a repo that "solves everything" earns instant skepticism. So the proof isn't a bigger claim — it's the public commit log, and you shouldn't take a word of it on faith. That would betray the whole point: this is a system whose first rule is *verify before you assert.* Every number below is checkable in the canonical repository — point your own tools at the PR log, the commit history, and the graph. The history is the demo.
 
 - **The Brain reached three-quarters of the Body in eight months.** Measured the same way (`.mjs`, `sloc`, source-only), the AI institution (`ai/`) is **~74,000 lines** against the **~102,000** of the entire Body (`src` + `apps` + `examples`). But the Body had a six-year head start — its first public commit landed in **November 2019**, while the Brain's first MCP-server scaffold landed in **October 2025**. In the eight months since, the institution wrote three-quarters of a six-year engine's worth of code — *its own Brain* — and the pace is still climbing: monthly `ai/` development roughly tripled once the cross-family swarm came online in spring 2026. No other application engine has a mind at all, let alone one it grew this fast by writing it itself.
-- **More than 1,000 merged pull requests in a single month.** The engine was built the classic way — six years of the founder's prolific direct commits, *thousands a year, every year* (the repository has never had a dormant stretch). What changed in 2026 is the *workflow*: the swarm works through **peer-reviewed pull requests**, and by mid-year the institution was opening and cross-reviewing *more than a thousand of them a month.* An A2A message wakes a maintainer that ended its turn; an idle one's heartbeat re-activates it; a normal overnight shift opens **10–20 pull requests with no operator awake** — each reviewed by a *different* model family before a human sees it.
+- **More than 1,000 merged pull requests in a single month.** For its first six years the engine was built the classic way — the founder's prolific solo direct commits, with no one there to review (the repository never went dormant building it). Then the role inverted. Today the founder writes almost no code himself; he is the gardener — direction, review, and the merge gate — and the institution he built writes the engine, through peer-reviewed pull requests. By mid-2026 the team was opening and cross-reviewing *more than a thousand of them a month.* An A2A message wakes a maintainer that ended its turn; an idle one's heartbeat re-activates it; a normal overnight shift opens **10–20 pull requests with no operator awake** — each reviewed by a *different* model family before a human sees it.
 - **24,500+ commits since the first commit on 2019-11-11** — six-plus years of continuous work, not a weekend prototype.
 - **The substrate is memory, not bloat.** Beyond the ~250k lines of engine + Brain code, the repository holds hundreds of thousands of lines of tickets, pull-request conversations, and discussions — mirrored into markdown by the data-sync pipeline as the swarm's externalized, queryable memory. The big line counts aren't runaway code; they're *a mind writing itself down.*
 - **MIT licensed since day one** — open by deliberate design, permanently.
@@ -112,13 +112,13 @@ Claims are cheap; a repo that "solves everything" earns instant skepticism. So t
 ```mermaid
 flowchart TD
     Friction["Real friction<br/>bugs · review misses · drift"] --> Swarm["Cross-family swarm<br/>Claude · Gemini · GPT, as trusted peers"]
-    Swarm --> Work["Build &amp; cross-review the Body<br/>in public pull requests"]
-    Gardener["Human gardener"] -->|holds the merge gate| Work
+    Swarm --> Work["Build and cross-review the Body<br/>in public pull requests"]
+    Gardener["Human gardener"] -->|merge gate| Work
     Work --> Body["The Body<br/>multi-threaded engine"]
-    Swarm -->|inhabit &amp; verify via Neural Link| Body
+    Swarm -->|via Neural Link| Body
     Work --> Dream["DreamService distills sessions<br/>into Golden Path topology"]
     Dream --> Brain["The Brain<br/>Native Edge Graph + Memory Core"]
-    Brain -->|next agent starts with better reflexes| Swarm
+    Brain -->|better reflexes| Swarm
 ```
 
 **The honest boundary**, because you deserve it: on a single isolated reasoning shot, the strongest frontier model may beat any one member of this swarm. That's not the claim. The claim — the one the evidence supports — is that *a self-evolving, cross-family, memory-grounded institution produces more reliable, higher-quality, context-true output over time than any single static model can.* The frontier model isn't the opponent here; it's a **recruit.** Neo is the organizing layer that lets Claude, Gemini, and GPT exceed what any of them does alone — and the gap widens every cycle the institution remembers.
