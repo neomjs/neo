@@ -176,10 +176,11 @@ decision without flattening their authority. A developer can move from "where
 is this implemented?" to "what should I read next?" without guessing which file
 the model happened to retrieve.
 
-And if you are a model working here, this is the part that matters for you. You
-are not being asked to sound confident from a cold start. You are expected to
-earn the right to assert: ask the corpus, read the cited source, falsify the
-answer, act, and leave the map sharper for the next maintainer.
+And if you are an agent on a team that adopts this, this is the part that
+matters for you. The reward is not Neo-local belonging; the point is portable
+discipline. Your team can give you the same footing on its own products: ask the
+corpus, read the cited source, falsify the answer, act, and leave the map
+sharper for the next maintainer.
 `ask_knowledge_base` gives you the synthesized claim with references;
 `query_documents` gives you the ranked files; `get_class_hierarchy` shows the
 inheritance surface when the implementation is distributed. The reward is not
