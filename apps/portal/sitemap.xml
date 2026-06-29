@@ -185,6 +185,11 @@
     <priority>1.0</priority>
   </url>
   <url>
+    <loc>https://neomjs.com/learn/agentos/IdentityFirewall</loc>
+    <lastmod>2026-06-29T14:11:24+02:00</lastmod>
+    <priority>1.0</priority>
+  </url>
+  <url>
     <loc>https://neomjs.com/learn/agentos/MX</loc>
     <lastmod>2026-04-21T02:06:34+02:00</lastmod>
   </url>

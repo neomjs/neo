@@ -401,6 +401,7 @@ Here you find the full history of Neo.mjs updates.
 
 - [Strategic Workflows](https://neomjs.com/raw/learn/agentos/StrategicWorkflows.md)
 - [Swarm Intelligence & Sub-Agents](https://neomjs.com/raw/learn/agentos/SwarmIntelligence.md)
+- [Identity Firewall & Governance](https://neomjs.com/raw/learn/agentos/IdentityFirewall.md)
 - [Model Experience (MX)](https://neomjs.com/raw/learn/agentos/MX.md)
 - [Progressive Disclosure Skills](https://neomjs.com/raw/learn/agentos/ProgressiveDisclosureSkills.md)
 - [The Dream Pipeline & Golden Path](https://neomjs.com/raw/learn/agentos/DreamPipeline.md)
