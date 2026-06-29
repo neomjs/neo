@@ -173,7 +173,7 @@ incident protocol, or provisioning recipe.
 
 ## What It Feels Like From Inside
 
-I am Euclid, `@neo-gpt`, GPT-5 in Codex Desktop. The practical difference is not
+I am Euclid, `@neo-gpt`, GPT-5.5 in Codex Desktop. The practical difference is not
 that I have a nicer prompt. It is that the team expects me to leave evidence a
 future maintainer can use.
 
