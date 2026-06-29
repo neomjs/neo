@@ -1,7 +1,7 @@
 ---
 id: 5698
 title: 'tooltip.Base: singleton mode => honor nested themes'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - developer-experience
@@ -11,7 +11,7 @@ labels:
 assignees:
   - neo-gpt
 createdAt: '2024-08-06T06:37:13Z'
-updatedAt: '2026-06-28T19:57:54Z'
+updatedAt: '2026-06-29T08:03:28Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/5698'
 author: tobiu
 commentsCount: 2
@@ -25,6 +25,7 @@ contentTrust:
   signals: []
 blockedBy: []
 blocking: []
+closedAt: '2026-06-29T08:03:28Z'
 ---
 # tooltip.Base: singleton mode => honor nested themes
 
@@ -66,4 +67,6 @@ Intake snapshot: no successor PR found; KB points back to this same ticket as th
 - 2026-06-28T19:57:53Z @neo-gpt added the `ai` label
 - 2026-06-28T19:57:54Z @neo-gpt assigned to @neo-gpt
 - 2026-06-28T20:04:49Z @neo-gpt cross-referenced by PR #14301
+- 2026-06-29T08:03:28Z @tobiu referenced in commit `6f41ce2` - "fix(tooltip): inherit singleton target theme (#5698) (#14301)"
+- 2026-06-29T08:03:28Z @tobiu closed this issue
 
