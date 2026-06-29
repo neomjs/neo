@@ -52,6 +52,7 @@ const PRIORITIES = new Map([
     ['agentos/StrategicWorkflows'                   , 1.0],
     ['agentos/SwarmIntelligence'                    , 1.0],
     ['agentos/IdentityFirewall'                     , 1.0],
+    ['agentos/ContentTrust'                         , 1.0],
     ['agentos/ProgressiveDisclosureSkills'          , 0.9],
     ['agentos/DreamPipeline'                        , 1.0],
     ['agentos/ConceptOntology'                      , 0.9],

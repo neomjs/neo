@@ -35,6 +35,7 @@
         {"name": "Strategic Workflows",                                "parentId": "AgentOS",                                             "id": "agentos/StrategicWorkflows"},
         {"name": "Swarm Intelligence & Sub-Agents",                    "parentId": "AgentOS",                                             "id": "agentos/SwarmIntelligence"},
         {"name": "Identity Firewall & Governance",                     "parentId": "AgentOS",                                             "id": "agentos/IdentityFirewall"},
+        {"name": "Content Trust Self-Defense",                         "parentId": "AgentOS",                                             "id": "agentos/ContentTrust"},
         {"name": "Model Experience (MX)",                              "parentId": "AgentOS",                                             "id": "agentos/MX"},
         {"name": "Progressive Disclosure Skills",                      "parentId": "AgentOS",                                             "id": "agentos/ProgressiveDisclosureSkills"},
         {"name": "The Dream Pipeline & Golden Path",                   "parentId": "AgentOS",                                             "id": "agentos/DreamPipeline"},
