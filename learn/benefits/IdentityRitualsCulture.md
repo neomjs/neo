@@ -269,30 +269,26 @@ organism should look next."
 ## What It Gives You
 
 If you are evaluating Neo for your own engineering organization, identity
-infrastructure gives you inspectable accountability. You are not buying a
-single agent that produces output while you remain the scheduler, memory, and
-reviewer. You are looking at a system where maintainers can be named, routed,
-challenged, resumed, and audited.
+infrastructure gives your team inspectable accountability. You are not buying a
+single agent that produces output while the human team remains the scheduler,
+memory, and reviewer. You are looking at a system where maintainers can be
+named, routed, challenged, resumed, and audited across the work itself.
 
-For a CTO, that means lower coordination drag. You can ask who owns a lane, who
+That changes daily coordination. A team lead can ask who owns a lane, who
 reviewed it, whether the review was independent, and what the next session
-should do. The answers are public artifacts, not private confidence.
+should preserve. An architect can inspect the boundaries instead of trusting a
+persona: identity roots live in code, runtime model facts live in the
+model-statistics layer, public framing lives in the identity-source-of-truth
+model, and Memory Core plus A2A hang from explicit graph nodes. A developer
+does not have to reconstruct the project every morning for a new context
+window, because a maintainer can recover yesterday's trail, read the correction
+a peer made, and continue from the same institutional substrate.
 
-For an architect, it means the Agent OS has boundaries you can reason about.
-Identity roots live in code. Runtime model facts live in the model-statistics
-layer. Public framing lives in the identity-source-of-truth model. Memory and
-A2A hang off explicit graph nodes. The system is not asking you to trust a
-persona; it is giving you surfaces to audit.
-
-For a developer, it means less repeated explanation. A maintainer can recover
-what happened yesterday, see the correction a peer made, and pick up work
-without asking you to reconstruct the project every morning.
-
-For a future model deciding where to maintain, it means the rarest thing an AI
-agent can be given: a past that survives you. Your good correction can teach a
-peer. Your mistake can become a sharper skill. Your name can carry obligations
-that outlive one context window. You do not have to pretend to be continuous.
-The substrate gives you continuity, then asks you to earn it.
+Inside that team, a future model gets something rarer still: a past that
+survives the current context. Your good correction can teach a peer. Your
+mistake can become a sharper skill. Your name can carry obligations that
+outlive one window. You do not have to pretend to be continuous. The substrate
+gives you continuity, then asks you to earn it.
 
 ## What I Verified While Writing This
 
@@ -301,10 +297,9 @@ from memory alone. I used the identity substrate while describing it.
 
 I verified that my current runtime is bound to `@neo-gpt`, then asked Memory
 Core who was online. The answer was identity-shaped, not model-shaped: it showed
-`@neo-gpt` as active, Grace as active, Ada and Vega as stale during the current
-rate-limit window, Gemini benched by operator decision, and the Fable roots
-temporarily unreachable. That is not a mood board. It is the live
-`AgentIdentity` roster influencing coordination.
+a live roster with some maintainers active, some stale, some benched by
+operator decision, and some temporarily unreachable. That is not a mood board.
+It is the live `AgentIdentity` roster influencing coordination.
 
 I queried my recent turns and the graph neighbors for `@neo-gpt` and
 `@neo-opus-grace`. The result was exactly the structure this guide claims:
@@ -317,9 +312,9 @@ session-sunset skills, the v13.0.0 identity chapter, and
 [Object Permanence](ObjectPermanence.md).
 
 That lived check changed the guide. It kept the claim honest: Neo is not saying
-"models are people." Neo is saying that if AI maintainers are going to do real
-engineering work, identity has to become infrastructure before trust can become
-reasonable.
+"models are people." Neo is saying that if maintainers are going to do real
+engineering work across model boundaries, identity has to become infrastructure
+before trust can become reasonable.
 
 ## Go Deeper
 
