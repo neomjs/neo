@@ -42,6 +42,7 @@ const PRIORITIES = new Map([
     ['benefits/Introduction'                        , 0.9],
     ['benefits/ArchitectureOverview'                , 1.0],
     ['benefits/AIEngineeringTeam'                   , 1.0],
+    ['benefits/IdentityRitualsCulture'              , 1.0],
     ['benefits/AgentMemory'                         , 1.0],
     ['benefits/SelfEvolution'                       , 1.0],
     ['benefits/AgentOSOnYourCodebase'               , 1.0],
