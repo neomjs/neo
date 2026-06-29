@@ -58,7 +58,7 @@ Memory Core memories and session summaries live as the `neo-agent-memory` and `n
    ```bash
    node -e "import('./ai/services.mjs').then(s => s.default.memory.manageDatabaseBackup({action: 'import', file: '.neo-ai-data/backups/backup-<timestamp>/mc/memory-backup-<timestamp>.jsonl', mode: 'replace'}))"
    ```
-   *(Note: A dedicated `restore.mjs` CLI is deferred to #10871. Do **not** `rm -rf` the `chroma/unified` folder — it is shared with the Knowledge Base; MC restore is collection-scoped via the SDK above.)*
+   *(Note: For full-bundle restores, prefer the Atomic-Bundle Restore CLI above. The direct SDK import remains the manual per-subsystem fallback. Do **not** `rm -rf` the `chroma/unified` folder — it is shared with the Knowledge Base; MC restore is collection-scoped via the SDK above.)*
 
 ### 3. Chroma FTS5 Integrity Repair
 The unified Chroma store is a shared physical SQLite database. `pragma quick_check`
