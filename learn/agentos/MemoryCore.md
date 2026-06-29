@@ -52,6 +52,8 @@ flowchart TD
     Bb --> Check{"verify vs<br/>live repo"}
     Check -- confirmed --> Go["continue the work"]
     Check -- stale --> Stop["stop: it was a hypothesis"]
+    Core -- "weak trails" --> Decay["Hebbian decay"]
+    Decay -- "keeps memory lean" --> Core
 ```
 
 ## Memory that keeps itself healthy
