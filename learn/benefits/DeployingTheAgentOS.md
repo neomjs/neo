@@ -2,12 +2,12 @@
 
 **Most AI coding deployments give a team a larger prompt window and a longer bill. Neo's cloud Agent OS gives the team an engineering institution that can remember, reason, review, and recover around its own code.**
 
-The local Agent OS is what a single developer runs beside a checkout: memory,
-Knowledge Base, A2A, and orchestration on one machine. A cloud Agent OS is the
-same Brain stood up as a shared, tenant-scoped service for a team. There is no
-user-facing path-conversion story between them. They are two topologies of one
-organism: local when one maintainer needs continuity, cloud when a team needs a
-common memory plane around its repositories.
+The local Agent OS is what a single developer runs beside a checkout: Memory
+Core (including A2A), Knowledge Base, and orchestration on one machine. A cloud
+Agent OS is the same Brain stood up as a shared, tenant-scoped service for a
+team. There is no user-facing path-conversion story between them. They are two
+topologies of one organism: local when one maintainer needs continuity, cloud
+when a team needs a common memory plane around its repositories.
 
 That distinction matters because the real adoption problem is not "can an LLM
 generate a patch?" It is whether the work survives the night. A useful
@@ -22,40 +22,55 @@ standing capacity.
 ```mermaid
 flowchart TD
     classDef input fill:#222,stroke:#f5a623,stroke-width:2px,color:#fff
-    classDef brain fill:#0f3460,stroke:#16c79a,stroke-width:2px,color:#fff
+    classDef mcp fill:#0f3460,stroke:#16c79a,stroke-width:2px,color:#fff
+    classDef store fill:#243447,stroke:#8ecae6,stroke-width:1px,color:#fff
     classDef control fill:#3d1f00,stroke:#f39c12,stroke-width:2px,color:#eee
+    classDef model fill:#4a1942,stroke:#e74c3c,stroke-width:2px,color:#fff
     classDef team fill:#4a1942,stroke:#e74c3c,stroke-width:2px,color:#fff
 
-    Repos["your repos and content"]:::input
-    Models["local or remote models"]:::input
+    Corpus["Neo + tenant corpus<br/>code, guides, ADRs, issues, PRs,<br/>discussions, releases, tests"]:::input
+    Sessions["agent turns, summaries,<br/>A2A messages + task state"]:::input
 
     subgraph Cloud["cloud Agent OS"]
-        KB["Knowledge Base:<br/>semantic code understanding"]:::brain
-        MC["Memory Core + Native Edge Graph:<br/>durable team memory"]:::brain
-        Orchestrator["orchestrator:<br/>dream, backup, golden path, self-heal"]:::control
-        A2A["A2A mailbox:<br/>peer coordination"]:::brain
+        KB["Knowledge Base MCP<br/>corpus RAG + source authority"]:::mcp
+        MC["Memory Core MCP<br/>memory, graph, summaries,<br/>A2A mailbox"]:::mcp
+        Chroma["unified Chroma<br/>separate KB + MC collections"]:::store
+        SQLite["shared SQLite graph<br/>identity, tenancy, recency"]:::store
+        Orchestrator["orchestrator<br/>scheduler, supervisor,<br/>health/self-heal, forecasts"]:::control
+        LocalModel["optional local-model provider<br/>Ollama / OpenAI-compatible"]:::model
     end
 
+    RemoteModel["remote provider endpoint<br/>optional alternative"]:::model
     Team["reviewed cross-family<br/>engineering team"]:::team
 
-    Repos --> KB
-    Repos --> MC
-    Models --> KB
-    Models --> MC
-    Models --> Orchestrator
-    KB --> Orchestrator
+    Corpus --> KB
+    Sessions --> MC
+    KB --> Chroma
+    MC --> Chroma
+    KB --> SQLite
+    MC --> SQLite
     MC --> Orchestrator
-    A2A --> Team
+    KB --> Orchestrator
+    LocalModel -.-> KB
+    LocalModel -.-> MC
+    LocalModel -.-> Orchestrator
+    RemoteModel -.-> KB
+    RemoteModel -.-> MC
+    RemoteModel -.-> Orchestrator
     Orchestrator --> Team
-    Team -.->|"reviewed work + remembered decisions"| Repos
+    MC --> Team
+    Team -.->|"reviewed work + remembered decisions"| Corpus
 ```
 
-The first change is **shared memory**. The [Memory Core and Knowledge Base](AgentMemory.md)
-stop being one agent's scratchpad and become a team substrate: decisions,
-source-grounded answers, issue history, and A2A handoffs are written into a
-durable plane that the next maintainer can query. This is why cloud deployment
-is more than "run the MCP servers somewhere." It gives the team a place where
-reasoning compounds.
+The first change is **shared institutional substrate**. The [Knowledge Base](../agentos/KnowledgeBase.md)
+is the corpus RAG layer over code, guides, ADRs, issues, pull-request
+conversations, discussions, releases, tests, concepts, and tenant-provided
+sources. The [Memory Core](AgentMemory.md) is the durable continuity layer:
+agent turns, session summaries, the Native Edge Graph, identity, recency, and
+the A2A mailbox. `add_message` and `list_messages` are Memory Core surfaces;
+A2A is not a separate deployed service. Together they give the next maintainer
+a place where reasoning compounds instead of being trapped inside one model
+session.
 
 The second change is **model choice on your terms**. The Agent OS does not make
 remote Gemini the price of admission. The current provider surface separates
@@ -63,17 +78,17 @@ chat/summaries, embeddings, graph extraction, and Knowledge Base answer
 synthesis, and those roles can be routed to local OpenAI-compatible or Ollama
 providers, or to remote providers when managed capacity is the better trade. In
 compose, the optional `local-model` profile is a separate provider service that
-KB, Memory Core, and the orchestrator consume; the orchestrator does not need to
-own the model process to use it. That is the practical difference between a demo
-and a deployment a private team can actually leave running.
+KB, Memory Core, and the orchestrator consume inside the deployment network.
+Remote providers remain an alternative endpoint outside the stack. The
+orchestrator does not need to own the model process to use it. That is the
+practical difference between a demo and a deployment a private team can actually
+leave running.
 
-The public shape is deliberately smaller than the internal topology. A deployed
-team does not expose every moving part as a tool surface. The Knowledge Base MCP
-server and the Memory Core MCP server are the two public MCP surfaces, path-routed
-through ingress as `/kb/*` and `/mc/*`. Chroma, the cloud-safe orchestrator, the
-optional local model provider, and the persistent volumes stay behind that
-boundary. That separation is the reason the deployment can be understandable to
-operators without collapsing back into a mono-container.
+The public shape is deliberately smaller than the internal topology. The
+Knowledge Base MCP server and the Memory Core MCP server are the two public MCP
+surfaces, path-routed through ingress as `/kb/*` and `/mc/*`. The rest is the
+private runtime that makes those surfaces trustworthy: Chroma, SQLite, the
+cloud-safe orchestrator, provider endpoints, and redeploy-safe volumes.
 
 ```mermaid
 flowchart TD
@@ -87,14 +102,14 @@ flowchart TD
     Clients["agents, hooks, and MCP clients"]:::public
     Ingress["ingress container<br/>TLS + path routing"]:::public
 
-    subgraph Network["internal neo-mcp-network"]
+    subgraph Network["internal neo-mcp-network<br/>reference compose: six service containers"]
         KB["kb-server container<br/>Knowledge Base MCP<br/>public path: /kb/*"]:::mcp
         MC["mc-server container<br/>Memory Core MCP<br/>public path: /mc/*"]:::mcp
         Chroma["chroma container<br/>shared vector store"]:::infra
-        Orchestrator["orchestrator container<br/>cloud-safe maintenance lanes"]:::control
-        LocalModel["local-model container<br/>optional Ollama / OpenAI-compatible provider"]:::model
+        Orchestrator["orchestrator container<br/>scheduler + supervisor<br/>health, recovery, forecasts"]:::control
+        LocalModel["local-model container<br/>optional provider profile"]:::model
         SQLite["shared SQLite volume<br/>graph, sessions, WAL"]:::volume
-        Backups["backup + tenant mirror volumes<br/>redeploy-safe state"]:::volume
+        State["tenant mirror + backup volumes<br/>redeploy-safe state"]:::volume
     end
 
     Clients --> Ingress
@@ -108,19 +123,26 @@ flowchart TD
     Orchestrator --> MC
     Orchestrator --> Chroma
     Orchestrator --> SQLite
-    Orchestrator --> Backups
+    Orchestrator --> State
     KB -.-> LocalModel
     MC -.-> LocalModel
     Orchestrator -.-> LocalModel
 ```
 
+The public repository's reference compose currently defines those six service
+containers: `chroma`, `kb-server`, `mc-server`, `orchestrator`, `ingress`, and
+the opt-in `local-model` provider. Production deployments commonly add an
+operator-owned auth proxy in front of ingress; that is a deployment-specific
+seventh container, not part of the baseline compose file.
+
 The third change is **unattended operation**. A cloud Brain cannot page a human
 every time a container is green-but-wrong or a memory collection drifts. Neo's
-self-healing loop separates liveness from integrity: diagnostics observe data
-reality, classifiers choose a bounded terminal, and recovery actuators repair,
-quarantine, freeze, or record honest accepted loss. The point is not that every
-failure is magically restored. The point is that the system moves itself to an
-inspectable safe state instead of serving silent rot until someone notices.
+self-healing loop separates liveness from integrity: container diagnostics,
+embed-drain and REM-consolidation watchdogs, data-integrity sweeps, classifiers,
+and recovery actuators repair, quarantine, freeze, shed load, or record honest
+accepted loss. The point is not that every failure is magically restored. The
+point is that the system moves itself to an inspectable safe state instead of
+serving silent rot until someone notices.
 
 For a human evaluator, that changes the operating model. The value is no longer
 "we can ask a model for code." The value is an accountable team that learns your
@@ -140,11 +162,12 @@ public today: Memory Core, Knowledge Base, A2A, Dream Pipeline, cross-family
 review, and the self-healing substrate all exist in the repository. The cloud
 deployment stack packages those pieces as a tenant-scoped service: Chroma for
 the shared vector store, two public MCP server containers (Knowledge Base and
-Memory Core), a cloud-safe orchestrator, optional ingress, optional local-model
-provider, persistent state volumes, and bounded runtime access for recovery. In
-the reference compose file that is six service containers when all current
-profiles are enabled; deployment-specific auth proxies can add another container,
-but they are not part of the public repo's baseline.
+Memory Core), a cloud-safe orchestrator, ingress, an optional local-model
+provider, persistent state volumes, and bounded runtime access for recovery.
+The orchestrator is the control plane, not a two-lane cron wrapper: in current
+source it supervises local continuous processes where enabled, runs scheduled
+maintenance and forecasting lanes, writes deployment-state snapshots, and owns
+the health/self-heal loops that keep the cloud profile honest.
 
 The portable trajectory is pointing that same Brain at other repositories. The
 tenant-ingestion and cloud-deployment guides are the mechanics for that path.
