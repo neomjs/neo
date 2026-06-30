@@ -418,6 +418,7 @@ Here you find the full history of Neo.mjs updates.
 - [The Knowledge Base Server](https://neomjs.com/raw/learn/agentos/KnowledgeBase.md)
 - [Knowledge Base Enhancement (Anchor & Echo)](https://neomjs.com/raw/learn/agentos/KnowledgeBaseEnhancement.md)
 - [The Memory Core Server](https://neomjs.com/raw/learn/agentos/MemoryCore.md)
+- [Self-Healing Immune System](https://neomjs.com/raw/learn/agentos/SelfHealing.md)
 - [The GitHub Workflow Server](https://neomjs.com/raw/learn/agentos/GitHubWorkflow.md)
 - [Code Execution (AI SDK)](https://neomjs.com/raw/learn/agentos/CodeExecution.md)
 - [Shared KB/MC Team Deployment](https://neomjs.com/raw/learn/agentos/SharedDeployment.md)
