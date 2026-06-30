@@ -36,11 +36,11 @@
   </url>
   <url>
     <loc>https://neomjs.com/learn/benefits/WhatIsNeo</loc>
+    <lastmod>2026-05-31T12:47:26+02:00</lastmod>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/benefits/Introduction</loc>
-    <lastmod>2026-05-31T12:47:26+02:00</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
@@ -190,11 +190,15 @@
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/FlatPeerInstitution</loc>
+    <lastmod>2026-05-10T04:25:59+02:00</lastmod>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/SwarmIntelligence</loc>
-    <lastmod>2026-05-10T04:25:59+02:00</lastmod>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/agentos/A2A</loc>
     <priority>1.0</priority>
   </url>
   <url>
@@ -203,12 +207,16 @@
     <priority>1.0</priority>
   </url>
   <url>
+    <loc>https://neomjs.com/learn/agentos/Hooks</loc>
+    <priority>1.0</priority>
+  </url>
+  <url>
     <loc>https://neomjs.com/learn/agentos/ContentTrust</loc>
+    <lastmod>2026-04-21T02:06:34+02:00</lastmod>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/MX</loc>
-    <lastmod>2026-04-21T02:06:34+02:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/ProgressiveDisclosureSkills</loc>
@@ -217,11 +225,11 @@
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/CoreSkills</loc>
+    <lastmod>2026-05-27T14:09:31+02:00</lastmod>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/DreamPipeline</loc>
-    <lastmod>2026-05-27T14:09:31+02:00</lastmod>
     <priority>1.0</priority>
   </url>
   <url>
@@ -268,6 +276,10 @@
     <priority>1.0</priority>
   </url>
   <url>
+    <loc>https://neomjs.com/learn/agentos/ModelProviders</loc>
+    <priority>1.0</priority>
+  </url>
+  <url>
     <loc>https://neomjs.com/learn/agentos/OwnAgentTeam</loc>
     <lastmod>2026-06-04T18:04:49+02:00</lastmod>
   </url>
@@ -290,26 +302,9 @@
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://neomjs.com/learn/agentos/cloud-deployment/Overview</loc>
-    <lastmod>2026-06-01T12:41:43+02:00</lastmod>
-    <priority>1.0</priority>
-  </url>
-  <url>
     <loc>https://neomjs.com/learn/agentos/cloud-deployment/Day0Tutorial</loc>
     <lastmod>2026-06-02T17:39:05+02:00</lastmod>
     <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/cloud-deployment/Troubleshooting</loc>
-    <lastmod>2026-06-02T17:39:05+02:00</lastmod>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/cloud-deployment/LlamaCppProfile</loc>
-    <lastmod>2026-06-01T12:41:43+02:00</lastmod>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/cloud-deployment/McpInspectorCompatibility</loc>
-    <lastmod>2026-06-02T17:53:03+02:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/cloud-deployment/TenantIngestionModel</loc>
@@ -320,6 +315,32 @@
     <loc>https://neomjs.com/learn/agentos/cloud-deployment/Configuration</loc>
     <lastmod>2026-06-01T12:41:43+02:00</lastmod>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/agentos/cloud-deployment/Security</loc>
+    <lastmod>2026-06-01T08:02:43+02:00</lastmod>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/agentos/cloud-deployment/Overview</loc>
+    <lastmod>2026-06-01T12:41:43+02:00</lastmod>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/agentos/cloud-deployment/Troubleshooting</loc>
+    <lastmod>2026-06-02T17:39:05+02:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/agentos/cloud-deployment/ClientAuthentication</loc>
+    <lastmod>2026-06-02T21:34:35+02:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/agentos/cloud-deployment/McpInspectorCompatibility</loc>
+    <lastmod>2026-06-02T17:53:03+02:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/agentos/cloud-deployment/LlamaCppProfile</loc>
+    <lastmod>2026-06-01T12:41:43+02:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/cloud-deployment/CustomSources</loc>
@@ -340,15 +361,6 @@
     <loc>https://neomjs.com/learn/agentos/cloud-deployment/PipelineWiring</loc>
     <lastmod>2026-06-01T08:02:43+02:00</lastmod>
     <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/cloud-deployment/Security</loc>
-    <lastmod>2026-06-01T08:02:43+02:00</lastmod>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/cloud-deployment/ClientAuthentication</loc>
-    <lastmod>2026-06-02T21:34:35+02:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/cloud-deployment/MigrationPath</loc>
@@ -850,7 +862,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/devindex/index.html</loc>
-    <lastmod>2026-06-30T00:27:27Z</lastmod>
+    <lastmod>2026-06-30T05:26:51Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/email/index.html</loc>
