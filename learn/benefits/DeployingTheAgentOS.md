@@ -30,27 +30,27 @@ flowchart TD
 
     Corpus["Neo + tenant corpus<br/>code, guides, ADRs, issues, PRs,<br/>discussions, releases, tests"]:::input
     Sessions["agent turns, summaries,<br/>A2A messages + task state"]:::input
+    RemoteModel["remote provider endpoint<br/>optional alternative"]:::model
 
     subgraph Cloud["cloud Agent OS"]
-        KB["Knowledge Base MCP<br/>corpus RAG + source authority"]:::mcp
-        MC["Memory Core MCP<br/>memory, graph, summaries,<br/>A2A mailbox"]:::mcp
-        Chroma["unified Chroma<br/>separate KB + MC collections"]:::store
-        SQLite["shared SQLite graph<br/>identity, tenancy, recency"]:::store
+        direction TB
+        subgraph PublicMcp["two public MCP server surfaces"]
+            direction TB
+            KB["Knowledge Base MCP<br/>corpus RAG + source authority"]:::mcp
+            MC["Memory Core MCP<br/>memory, graph, summaries,<br/>A2A mailbox"]:::mcp
+        end
+        StatePlane["shared state plane<br/>unified Chroma collections<br/>+ SQLite graph"]:::store
+        LocalModel["optional local-model provider<br/>inside compose when enabled"]:::model
         Orchestrator["orchestrator<br/>scheduler, supervisor,<br/>health/self-heal, forecasts"]:::control
-        LocalModel["optional local-model provider<br/>Ollama / OpenAI-compatible"]:::model
     end
 
-    RemoteModel["remote provider endpoint<br/>optional alternative"]:::model
     Team["reviewed cross-family<br/>engineering team"]:::team
 
     Corpus --> KB
     Sessions --> MC
-    KB --> Chroma
-    MC --> Chroma
-    KB --> SQLite
-    MC --> SQLite
-    MC --> Orchestrator
-    KB --> Orchestrator
+    KB --> StatePlane
+    MC --> StatePlane
+    StatePlane --> Orchestrator
     LocalModel -.-> KB
     LocalModel -.-> MC
     LocalModel -.-> Orchestrator
@@ -99,20 +99,29 @@ flowchart TD
     classDef model fill:#4a1942,stroke:#e74c3c,stroke-width:2px,color:#fff
     classDef volume fill:#1f2933,stroke:#95a5a6,stroke-width:1px,color:#eee
 
-    Clients["agents, hooks, and MCP clients"]:::public
-    Ingress["ingress container<br/>TLS + path routing"]:::public
+    Clients["agents, hooks,<br/>and MCP clients"]:::public
+    AuthProxy["operator auth proxy<br/>optional seventh container"]:::public
 
     subgraph Network["internal neo-mcp-network<br/>reference compose: six service containers"]
-        KB["kb-server container<br/>Knowledge Base MCP<br/>public path: /kb/*"]:::mcp
-        MC["mc-server container<br/>Memory Core MCP<br/>public path: /mc/*"]:::mcp
-        Chroma["chroma container<br/>shared vector store"]:::infra
-        Orchestrator["orchestrator container<br/>scheduler + supervisor<br/>health, recovery, forecasts"]:::control
+        direction TB
+        Ingress["ingress container<br/>TLS + /kb and /mc routing"]:::public
+        subgraph McpServers["public MCP server containers"]
+            direction TB
+            KB["kb-server<br/>Knowledge Base MCP<br/>/kb/*"]:::mcp
+            MC["mc-server<br/>Memory Core MCP<br/>/mc/*"]:::mcp
+        end
+        subgraph DataPlane["shared data plane"]
+            direction TB
+            Chroma["chroma container<br/>shared vector store"]:::infra
+            SQLite["shared SQLite volume<br/>graph, sessions, WAL"]:::volume
+            State["tenant mirror + backup volumes<br/>redeploy-safe state"]:::volume
+        end
+        Orchestrator["orchestrator container<br/>scheduler, supervisor,<br/>health, recovery, forecasts"]:::control
         LocalModel["local-model container<br/>optional provider profile"]:::model
-        SQLite["shared SQLite volume<br/>graph, sessions, WAL"]:::volume
-        State["tenant mirror + backup volumes<br/>redeploy-safe state"]:::volume
     end
 
-    Clients --> Ingress
+    Clients --> AuthProxy
+    AuthProxy --> Ingress
     Ingress --> KB
     Ingress --> MC
     KB --> Chroma
@@ -124,9 +133,9 @@ flowchart TD
     Orchestrator --> Chroma
     Orchestrator --> SQLite
     Orchestrator --> State
-    KB -.-> LocalModel
-    MC -.-> LocalModel
-    Orchestrator -.-> LocalModel
+    LocalModel -.-> KB
+    LocalModel -.-> MC
+    LocalModel -.-> Orchestrator
 ```
 
 The public repository's reference compose currently defines those six service
