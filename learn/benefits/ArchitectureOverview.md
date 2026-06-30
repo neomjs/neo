@@ -32,7 +32,7 @@ graph LR
 Both hemispheres are built on the same `Neo.core.Base` class system. `DreamService`,
 `GraphService`, `Agent`, `Loop`, and every MCP service extend `Neo.core.Base` and use
 `Neo.setupClass()` exactly like `Neo.button.Base` or `Neo.grid.Container`. The AI
-infrastructure is not a separate project — it is a native inhabitant of the framework
+infrastructure is not a separate project — it is a native inhabitant of the platform
 it maintains.
 
 ## Left Hemisphere: The Runtime Engine
@@ -346,7 +346,7 @@ The Golden Path (`sandman_handoff.md`) is an **advisory forecast**, not a work q
 maintainers self-select what to work on, while the human operator steers direction and holds
 the merge gate rather than assigning tickets.
 
-The agent's improvements to the framework also improve the agent's knowledge base,
+The agent's improvements to the platform also improve the agent's knowledge base,
 which improves the agent's future decisions. This is what distinguishes Neo.mjs from tools
 that provide memory, orchestration, or multi-agent roles in isolation — Neo builds the
 complete organism where the codebase and the agent co-evolve.
@@ -409,6 +409,10 @@ The map-as-pointer principle: the Structural Inventory above links each subsyste
 
 ## Next Steps
 
+- [Deploying the Agent OS](DeployingTheAgentOS.md) — Benefit-altitude path into
+  the cloud-deployment guide set
+- [Why Deploy the Agent OS](../agentos/cloud-deployment/WhyDeploy.md) — The
+  cloud-deployment hub and ordered learning path
 - [Strategic Workflows](../agentos/StrategicWorkflows.md) — Advanced agent workflow patterns
 - [Swarm Intelligence & Sub-Agents](../agentos/SwarmIntelligence.md) — Delegation, profiles, and capability gating
 - [The Dream Pipeline & Golden Path](../agentos/DreamPipeline.md) — Forecasting engine and scoring algorithm

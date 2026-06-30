@@ -6,9 +6,36 @@
 
 Neo's Knowledge Base (KB) is a Chroma-backed vector index over source content — guides, ADRs, skills, API docs, tickets, PRs, test specs. In a single-repo deployment, the KB indexes exactly one repository: Neo's own.
 
-A **cloud-native deployment** runs Agent OS as a service for external client workspaces. Each client workspace is a distinct **tenant** with its own source content (its own repos, possibly in languages and layouts unlike Neo's). The cloud deployment must let every tenant ingest *its own* content into the KB while continuing to serve Neo's curated content (guides, ADRs, skills) to all tenants.
+A **cloud-native deployment** runs Agent OS as a service for external tenant workspaces. Each workspace is a distinct **tenant** with its own source content (its own repos, possibly in languages and layouts unlike Neo's). The cloud deployment must let every tenant ingest *its own* content into the KB while continuing to serve Neo's curated content (guides, ADRs, skills) to all tenants.
 
 The substrate that makes this possible is the **per-tenant ingestion contract**: every chunk in the KB carries an authoritative identity tuple, content is server-stamped at write time, and reads are tenant-scoped. No tenant can read another tenant's `private` content; every tenant can read Neo's `team`-visible curated corpus.
+
+Read this guide after [Why Deploy the Agent OS](./WhyDeploy.md), the
+[Day-0 Tutorial](./Day0Tutorial.md), [Tenant Ingestion Model](./TenantIngestionModel.md),
+[Configuration](./Configuration.md), and [Security](./Security.md). At that point
+the reader already knows why the Brain exists, how to stand it up, and which
+identity boundary protects it; this page explains the contract that keeps
+arbitrary tenant content useful without letting it blur together.
+
+```mermaid
+flowchart TD
+    classDef src fill:#222,stroke:#f5a623,stroke-width:2px,color:#fff
+    classDef contract fill:#0f3460,stroke:#16c79a,stroke-width:1px,color:#eee
+    classDef store fill:#2c2c2c,stroke:#bbb,stroke-width:1px,color:#ddd
+    classDef reader fill:#4a1942,stroke:#e74c3c,stroke-width:2px,color:#fff
+
+    TenantContent["Tenant repos + content"]:::src
+    NeoLibrary["Neo shared guides / ADRs / skills"]:::src
+    SourceRegistry["SourceRegistry + Parsers"]:::contract
+    Stamp["Server stamps tenantId / repoSlug / visibility"]:::contract
+    UnifiedChroma[("Unified Chroma KB collection")]:::store
+    QueryFilter["Read filter: tenant content + neo-shared"]:::contract
+    TenantAgent["Tenant-scoped agent query"]:::reader
+
+    TenantContent --> SourceRegistry --> Stamp --> UnifiedChroma
+    NeoLibrary --> Stamp
+    UnifiedChroma --> QueryFilter --> TenantAgent
+```
 
 ## The contract split (Phase 0/1)
 
