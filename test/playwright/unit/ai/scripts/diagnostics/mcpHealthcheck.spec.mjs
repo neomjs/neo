@@ -1,6 +1,6 @@
 import {test, expect} from '@playwright/test';
 import fs             from 'fs';
-import yaml           from 'js-yaml';
+import * as yaml      from 'js-yaml';
 
 test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
     let parseArgs;
