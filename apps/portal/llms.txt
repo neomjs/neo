@@ -365,6 +365,7 @@ Here you find the full history of Neo.mjs updates.
 
 ## Benefits
 
+- [What Is Neo?](https://neomjs.com/raw/learn/benefits/WhatIsNeo.md)
 - [Introduction](https://neomjs.com/raw/learn/benefits/Introduction.md)
 - [Architecture Overview](https://neomjs.com/raw/learn/benefits/ArchitectureOverview.md)
 - [The AI Engineering Team](https://neomjs.com/raw/learn/benefits/AIEngineeringTeam.md)
@@ -401,10 +402,13 @@ Here you find the full history of Neo.mjs updates.
 ## Agentos
 
 - [Strategic Workflows](https://neomjs.com/raw/learn/agentos/StrategicWorkflows.md)
+- [The Flat-Peer Institution](https://neomjs.com/raw/learn/agentos/FlatPeerInstitution.md)
 - [Swarm Intelligence & Sub-Agents](https://neomjs.com/raw/learn/agentos/SwarmIntelligence.md)
 - [Identity Firewall & Governance](https://neomjs.com/raw/learn/agentos/IdentityFirewall.md)
+- [Content Trust Self-Defense](https://neomjs.com/raw/learn/agentos/ContentTrust.md)
 - [Model Experience (MX)](https://neomjs.com/raw/learn/agentos/MX.md)
 - [Progressive Disclosure Skills](https://neomjs.com/raw/learn/agentos/ProgressiveDisclosureSkills.md)
+- [Core Agent Skills](https://neomjs.com/raw/learn/agentos/CoreSkills.md)
 - [The Dream Pipeline & Golden Path](https://neomjs.com/raw/learn/agentos/DreamPipeline.md)
 - [REM State Model](https://neomjs.com/raw/learn/agentos/rem-state-model.md)
 - [The Concept Ontology](https://neomjs.com/raw/learn/agentos/ConceptOntology.md)
