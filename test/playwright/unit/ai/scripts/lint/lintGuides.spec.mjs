@@ -143,10 +143,13 @@ test.describe('ai/scripts/lint-guides (#14354 — mechanical guide-quality lint)
         expect(findings.filter(f => f.rule === 'identity-framework')).toHaveLength(1);
     });
 
+    // A non-empty operation surface, so the guard tests exercise the heading/fence SCOPING logic
+    // rather than the empty-set no-op (pinned separately below).
+    const PARITY_OPS = new Set(['get_namespace_tree', 'query_raw_memories']);
+
     test('checkOpenApiToolParity: hallucinated tool under a Tools heading is HARD; real op passes (#14366)', () => {
-        const ops     = new Set(['get_namespace_tree', 'query_raw_memories']);
         const content = ['## Tools', '', '| Tool | Desc |', '|---|---|', '| `get_namespace_tree` | real |', '| `totally_fake_tool` | fake |'].join('\n');
-        const found   = checkOpenApiToolParity(content, ops);
+        const found   = checkOpenApiToolParity(content, PARITY_OPS);
 
         expect(found).toHaveLength(1);
         expect(found[0]).toMatchObject({severity: 'HARD', rule: 'openapi-tool-parity'});
@@ -155,16 +158,23 @@ test.describe('ai/scripts/lint-guides (#14354 — mechanical guide-quality lint)
 
     test('checkOpenApiToolParity: config/property tables OUTSIDE a Tools heading are NOT flagged (the 56-false-HARD guard)', () => {
         const content = ['## Configuration', '', '| Key | Default |', '|---|---|', '| `id` | null |', '| `tier` | 0 |', '| `schema` | {} |'].join('\n');
-        expect(checkOpenApiToolParity(content, new Set())).toHaveLength(0);
+        expect(checkOpenApiToolParity(content, PARITY_OPS)).toHaveLength(0);
     });
 
     test('checkOpenApiToolParity: a "Build Tools" heading does NOT scope rows in (narrow-heading guard)', () => {
         const content = ['## Build Tools', '', '| Name | Use |', '|---|---|', '| `webpack` | bundler |'].join('\n');
-        expect(checkOpenApiToolParity(content, new Set())).toHaveLength(0);
+        expect(checkOpenApiToolParity(content, PARITY_OPS)).toHaveLength(0);
     });
 
     test('checkOpenApiToolParity: a tool table inside a fenced code block is skipped', () => {
         const content = ['## Tools', '', '```', '| `totally_fake_tool` | x |', '```'].join('\n');
+        expect(checkOpenApiToolParity(content, PARITY_OPS)).toHaveLength(0);
+    });
+
+    test('checkOpenApiToolParity: empty operationIds is a no-op, NOT flag-everything (fallback-contract pin, #14382 CR)', () => {
+        const content = ['## Tools', '', '| Tool | Desc |', '|---|---|', '| `totally_fake_tool` | hallucinated |'].join('\n');
+        // No operation surface loaded → the forward-guard degrades to no-op; it must NOT HARD-flag
+        // every tool-table row (the empty-set `!has()` fail-loud bug — the cross-family CR catch).
         expect(checkOpenApiToolParity(content, new Set())).toHaveLength(0);
     });
 

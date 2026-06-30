@@ -237,9 +237,15 @@ function checkDeadScriptRefs(content, scriptKeys) {
  * @returns {Array<{severity: string, rule: string, line: number, detail: string}>}
  */
 function checkOpenApiToolParity(content, operationIds) {
-    const findings   = [];
-    let   underTools = false;
-    let   inFence    = false;
+    const findings = [];
+
+    // Empty surface (missing servers dir / empty injection) → no-op, NOT flag-everything: without
+    // this guard `!operationIds.has(...)` is always true and HARD-fails every tool-table row. This
+    // check is a forward-guard, so a missing surface degrades to "can't verify, don't block".
+    if (!operationIds || operationIds.size === 0) return findings;
+
+    let underTools = false;
+    let inFence    = false;
 
     content.split('\n').forEach((raw, i) => {
         const line = raw.trim();
