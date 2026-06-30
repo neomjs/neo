@@ -64,6 +64,7 @@ const PRIORITIES = new Map([
     ['agentos/NeuralLink'                           , 1.0],
     ['agentos/KnowledgeBase'                        , 1.0],
     ['agentos/MemoryCore'                           , 1.0],
+    ['agentos/SelfHealing'                          , 1.0],
     ['agentos/GitHubWorkflow'                       , 0.8],
     ['agentos/CodeExecution'                        , 0.8],
     ['agentos/SharedDeployment'                     , 1.0],
