@@ -32,7 +32,7 @@ graph LR
 Both hemispheres are built on the same `Neo.core.Base` class system. `DreamService`,
 `GraphService`, `Agent`, `Loop`, and every MCP service extend `Neo.core.Base` and use
 `Neo.setupClass()` exactly like `Neo.button.Base` or `Neo.grid.Container`. The AI
-infrastructure is not a separate project — it is a native inhabitant of the platform
+infrastructure is not a separate project — it is a native inhabitant of the organism
 it maintains.
 
 ## Left Hemisphere: The Runtime Engine
@@ -346,7 +346,7 @@ The Golden Path (`sandman_handoff.md`) is an **advisory forecast**, not a work q
 maintainers self-select what to work on, while the human operator steers direction and holds
 the merge gate rather than assigning tickets.
 
-The agent's improvements to the platform also improve the agent's knowledge base,
+The agent's improvements to the codebase also improve the agent's knowledge base,
 which improves the agent's future decisions. This is what distinguishes Neo.mjs from tools
 that provide memory, orchestration, or multi-agent roles in isolation — Neo builds the
 complete organism where the codebase and the agent co-evolve.
@@ -387,7 +387,7 @@ Post-M6 ([#10986](https://github.com/neomjs/neo/issues/10986)) the per-MCP-serve
 | `ai/services/shared/vector/` | Cross-server vector-engine primitives consumed by per-server ChromaManager classes (KB + MC); functional helpers, not Neo classes | `chromaClientPrimitives.mjs` (`chromaConnect`, `createSilentExecutor`, `chromaDeleteCollection`) | — |
 | `ai/services/shared/contentTrust/` | Cross-service self-defense content helpers — GitHub author-tier classification + astroturf sanitization (URL defang / name redaction / stealth-intent flags), consumed by github-workflow read paths + KB ingestion; functional helpers, not Neo classes | `authorTrustClassifier.mjs`, `astroturfSanitizer.mjs` | [#10291](https://github.com/neomjs/neo/issues/10291) (P8 self-defense) |
 | `ai/scripts/` | One-shot operator scripts + thin helper wrappers | `lifecycle/`, `maintenance/` | — |
-| `ai/daemons/` | Long-running daemon classes and entry points | `Orchestrator`, `orchestrator/daemon.mjs`, `wake/daemon.mjs`, `DreamService`, `SwarmHeartbeatService` | [ADR 0002](../agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md) |
+| `ai/daemons/` | Long-running daemon classes and entry points | `Orchestrator`, `orchestrator/daemon.mjs`, `wake/daemon.mjs`, `DreamService`, `SwarmHeartbeatService`, recovery and data-integrity services | [ADR 0002](../agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md), [ADR 0025](../agentos/decisions/0025-orchestrator-container-health-self-healing.md), [ADR 0026](../agentos/decisions/0026-recovery-actuator.md), [ADR 0027](../agentos/decisions/0027-autonomous-data-recovery-actuator.md) |
 | `ai/graph/` | Native Edge Graph (SQLite-backed knowledge graph) | `Database`, `Store`, `NodeModel` | [ADR 0001](../agentos/decisions/0001-cross-process-cache-coherence.md), [ADR 0015](../agentos/decisions/0015-graph-store-backend-posture.md) |
 | `ai/mcp/server/knowledge-base/` | KB MCP-server entry point + config | `Server`, `config` | — |
 | `ai/mcp/server/memory-core/` | MC MCP-server entry point + config | `Server`, `config` | [ADR 0001](../agentos/decisions/0001-cross-process-cache-coherence.md) |
@@ -406,6 +406,9 @@ The map-as-pointer principle: the Structural Inventory above links each subsyste
 | [0001](../agentos/decisions/0001-cross-process-cache-coherence.md) | Cross-Process Cache Coherence for Memory Core Graph | `ai/services/memory-core/`, `ai/graph/`, `ai/mcp/server/memory-core/` | Proposed (#10186 / #10189) |
 | [0002](../agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md) | Phase 3 Wake-Substrate Standards Alignment (MCP + A2A schema mappings) | `ai/daemons/wake/`, `ai/daemons/`, `ai/services/memory-core/` (MailboxService A2A primitives) | Proposed (#10311 / #10355) |
 | [0015](../agentos/decisions/0015-graph-store-backend-posture.md) | Graph Store Backend Posture - SQLite WAL First, Networked SQL Deferred | `ai/graph/`, `ai/services/memory-core/`, cloud deployment docs | Accepted - 2026-05-22 (#11732; PR #11779) |
+| [0025](../agentos/decisions/0025-orchestrator-container-health-self-healing.md) | Orchestrator Container-Health Diagnostics Daemon | `ai/daemons/orchestrator/services/`, `ai/deploy/` | Proposed (#13861) |
+| [0026](../agentos/decisions/0026-recovery-actuator.md) | Orchestrator Recovery Actuator | `ai/daemons/orchestrator/services/`, `ai/deploy/` | Proposed (#13880) |
+| [0027](../agentos/decisions/0027-autonomous-data-recovery-actuator.md) | Autonomous Memory Core Data-Recovery Actuator | `ai/daemons/orchestrator/services/`, `ai/services/memory-core/` | Proposed (#14134) |
 
 ## Next Steps
 
@@ -419,5 +422,6 @@ The map-as-pointer principle: the Structural Inventory above links each subsyste
 - [Neural Link: Live Application Mutability](../agentos/NeuralLink.md) — Deep dive into the Neural Link bridge
 - [The Knowledge Base Server](../agentos/KnowledgeBase.md) — Semantic RAG architecture
 - [The Memory Core Server](../agentos/MemoryCore.md) — Episodic memory and graph storage
+- [Self-Healing Immune System](../agentos/SelfHealing.md) — Detect, diagnose, and bounded autonomous recovery
 - [The GitHub Workflow Server](../agentos/GitHubWorkflow.md) — Offline-first issue management
 - [Code Execution (AI SDK)](../agentos/CodeExecution.md) — The SDK Bouncer pattern in detail
