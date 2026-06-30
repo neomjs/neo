@@ -28,18 +28,23 @@ flowchart TD
     classDef model fill:#4a1942,stroke:#e74c3c,stroke-width:2px,color:#fff
     classDef team fill:#4a1942,stroke:#e74c3c,stroke-width:2px,color:#fff
 
-    Inputs["tenant corpus + agent sessions<br/>code, docs, issues, PRs,<br/>turns, summaries"]:::input
-    PublicMcp["cloud Agent OS MCP layer<br/>KB: corpus RAG + source authority<br/>MC: memory, graph, A2A mailbox"]:::mcp
-    StatePlane["shared state plane<br/>Chroma collections<br/>+ SQLite graph"]:::store
-    Provider["provider boundary<br/>local-model inside compose<br/>remote endpoint outside"]:::model
-    Orchestrator["cloud-safe orchestrator<br/>scheduler, supervisor,<br/>health/self-heal, forecasts"]:::control
-    Team["reviewed cross-family<br/>engineering team"]:::team
-    Outcome["standing capacity<br/>remembered decisions + reviewed work"]:::input
+    Corpus["tenant corpus<br/>code, guides, blog posts,<br/>issues, PRs, discussions"]:::input
+    Continuity["team continuity<br/>turns, summaries,<br/>A2A mailbox"]:::input
+    KB["Knowledge Base MCP<br/>corpus RAG + source authority"]:::mcp
+    MC["Memory Core MCP<br/>memory, graph, A2A"]:::mcp
+    State["shared state plane<br/>Chroma collections<br/>+ SQLite graph"]:::store
+    Provider["provider boundary<br/>local-model or remote endpoint"]:::model
+    Orchestrator["cloud-safe orchestrator<br/>scheduler, supervisor,<br/>health + recovery"]:::control
+    Team["cross-family review team"]:::team
+    Outcome["standing capacity<br/>remembered decisions<br/>+ reviewed work"]:::input
 
-    Inputs --> PublicMcp
-    PublicMcp --> StatePlane
-    StatePlane --> Provider
-    Provider --> Orchestrator
+    Corpus --> KB
+    Continuity --> MC
+    KB --> State
+    MC --> State
+    State --> Provider
+    State --> Orchestrator
+    Provider -.-> Orchestrator
     Orchestrator --> Team
     Team --> Outcome
 ```
@@ -73,30 +78,32 @@ private runtime that makes those surfaces trustworthy: Chroma, SQLite, the
 cloud-safe orchestrator, provider endpoints, and redeploy-safe volumes.
 
 ```mermaid
-flowchart TD
+block
+    columns 3
+    Stack["cloud deployment topology<br/>six compose containers + optional auth proxy"]:3
+    Clients["agents, hooks,<br/>MCP clients"] Auth["auth proxy<br/>optional seventh"] space
+    space Ingress["ingress<br/>TLS + /kb/* + /mc/*"] space
+    Runtime["runtime support<br/>orchestrator<br/>local-model"] PublicMcp["public MCP server containers<br/>kb-server<br/>mc-server + A2A"] space
+    space StatePlane["state plane<br/>chroma vectors<br/>SQLite graph + WAL"] space
+    space Persist["persistent volumes<br/>tenant mirrors<br/>backups + model data"] space
+
+    Clients --> Auth
+    Auth --> Ingress
+    Ingress --> PublicMcp
+    PublicMcp --> StatePlane
+    Runtime --> PublicMcp
+    StatePlane --> Persist
+
     classDef public fill:#222,stroke:#f5a623,stroke-width:2px,color:#fff
     classDef mcp fill:#0f3460,stroke:#16c79a,stroke-width:2px,color:#fff
     classDef infra fill:#243447,stroke:#8ecae6,stroke-width:1px,color:#fff
     classDef control fill:#3d1f00,stroke:#f39c12,stroke-width:2px,color:#eee
-    classDef model fill:#4a1942,stroke:#e74c3c,stroke-width:2px,color:#fff
     classDef volume fill:#1f2933,stroke:#95a5a6,stroke-width:1px,color:#eee
-
-    Clients["agents, hooks,<br/>and MCP clients"]:::public
-    AuthProxy["operator auth proxy<br/>deployment-specific<br/>seventh container"]:::public
-    Ingress["ingress container<br/>TLS termination<br/>routes /kb/* + /mc/*"]:::public
-    McpServers["MCP server containers<br/>kb-server: Knowledge Base<br/>mc-server: Memory Core + A2A"]:::mcp
-    DataPlane["shared data plane<br/>chroma: vectors<br/>SQLite: graph, sessions, WAL"]:::infra
-    Orchestrator["orchestrator container<br/>scheduler, supervisor,<br/>health, recovery, forecasts"]:::control
-    Provider["provider layer<br/>optional local-model container<br/>or remote endpoint outside"]:::model
-    State["persistent volumes<br/>tenant mirrors, backups,<br/>local model data"]:::volume
-
-    Clients --> AuthProxy
-    AuthProxy --> Ingress
-    Ingress --> McpServers
-    McpServers --> DataPlane
-    DataPlane --> Orchestrator
-    Orchestrator --> Provider
-    Provider --> State
+    class Clients,Auth,Ingress public
+    class PublicMcp mcp
+    class StatePlane infra
+    class Runtime control
+    class Persist,Stack volume
 ```
 
 The public repository's reference compose currently defines those six service
