@@ -28,38 +28,20 @@ flowchart TD
     classDef model fill:#4a1942,stroke:#e74c3c,stroke-width:2px,color:#fff
     classDef team fill:#4a1942,stroke:#e74c3c,stroke-width:2px,color:#fff
 
-    Corpus["Neo + tenant corpus<br/>code, guides, ADRs, issues, PRs,<br/>discussions, releases, tests"]:::input
-    Sessions["agent turns, summaries,<br/>A2A messages + task state"]:::input
-    RemoteModel["remote provider endpoint<br/>optional alternative"]:::model
-
-    subgraph Cloud["cloud Agent OS"]
-        direction TB
-        subgraph PublicMcp["two public MCP server surfaces"]
-            direction TB
-            KB["Knowledge Base MCP<br/>corpus RAG + source authority"]:::mcp
-            MC["Memory Core MCP<br/>memory, graph, summaries,<br/>A2A mailbox"]:::mcp
-        end
-        StatePlane["shared state plane<br/>unified Chroma collections<br/>+ SQLite graph"]:::store
-        LocalModel["optional local-model provider<br/>inside compose when enabled"]:::model
-        Orchestrator["orchestrator<br/>scheduler, supervisor,<br/>health/self-heal, forecasts"]:::control
-    end
-
+    Inputs["tenant corpus + agent sessions<br/>code, docs, issues, PRs,<br/>turns, summaries"]:::input
+    PublicMcp["cloud Agent OS MCP layer<br/>KB: corpus RAG + source authority<br/>MC: memory, graph, A2A mailbox"]:::mcp
+    StatePlane["shared state plane<br/>Chroma collections<br/>+ SQLite graph"]:::store
+    Provider["provider boundary<br/>local-model inside compose<br/>remote endpoint outside"]:::model
+    Orchestrator["cloud-safe orchestrator<br/>scheduler, supervisor,<br/>health/self-heal, forecasts"]:::control
     Team["reviewed cross-family<br/>engineering team"]:::team
+    Outcome["standing capacity<br/>remembered decisions + reviewed work"]:::input
 
-    Corpus --> KB
-    Sessions --> MC
-    KB --> StatePlane
-    MC --> StatePlane
-    StatePlane --> Orchestrator
-    LocalModel -.-> KB
-    LocalModel -.-> MC
-    LocalModel -.-> Orchestrator
-    RemoteModel -.-> KB
-    RemoteModel -.-> MC
-    RemoteModel -.-> Orchestrator
+    Inputs --> PublicMcp
+    PublicMcp --> StatePlane
+    StatePlane --> Provider
+    Provider --> Orchestrator
     Orchestrator --> Team
-    MC --> Team
-    Team -.->|"reviewed work + remembered decisions"| Corpus
+    Team --> Outcome
 ```
 
 The first change is **shared institutional substrate**. The [Knowledge Base](../agentos/KnowledgeBase.md)
@@ -100,42 +82,21 @@ flowchart TD
     classDef volume fill:#1f2933,stroke:#95a5a6,stroke-width:1px,color:#eee
 
     Clients["agents, hooks,<br/>and MCP clients"]:::public
-    AuthProxy["operator auth proxy<br/>optional seventh container"]:::public
-
-    subgraph Network["internal neo-mcp-network<br/>reference compose: six service containers"]
-        direction TB
-        Ingress["ingress container<br/>TLS + /kb and /mc routing"]:::public
-        subgraph McpServers["public MCP server containers"]
-            direction TB
-            KB["kb-server<br/>Knowledge Base MCP<br/>/kb/*"]:::mcp
-            MC["mc-server<br/>Memory Core MCP<br/>/mc/*"]:::mcp
-        end
-        subgraph DataPlane["shared data plane"]
-            direction TB
-            Chroma["chroma container<br/>shared vector store"]:::infra
-            SQLite["shared SQLite volume<br/>graph, sessions, WAL"]:::volume
-            State["tenant mirror + backup volumes<br/>redeploy-safe state"]:::volume
-        end
-        Orchestrator["orchestrator container<br/>scheduler, supervisor,<br/>health, recovery, forecasts"]:::control
-        LocalModel["local-model container<br/>optional provider profile"]:::model
-    end
+    AuthProxy["operator auth proxy<br/>deployment-specific<br/>seventh container"]:::public
+    Ingress["ingress container<br/>TLS termination<br/>routes /kb/* + /mc/*"]:::public
+    McpServers["MCP server containers<br/>kb-server: Knowledge Base<br/>mc-server: Memory Core + A2A"]:::mcp
+    DataPlane["shared data plane<br/>chroma: vectors<br/>SQLite: graph, sessions, WAL"]:::infra
+    Orchestrator["orchestrator container<br/>scheduler, supervisor,<br/>health, recovery, forecasts"]:::control
+    Provider["provider layer<br/>optional local-model container<br/>or remote endpoint outside"]:::model
+    State["persistent volumes<br/>tenant mirrors, backups,<br/>local model data"]:::volume
 
     Clients --> AuthProxy
     AuthProxy --> Ingress
-    Ingress --> KB
-    Ingress --> MC
-    KB --> Chroma
-    MC --> Chroma
-    KB --> SQLite
-    MC --> SQLite
-    Orchestrator --> KB
-    Orchestrator --> MC
-    Orchestrator --> Chroma
-    Orchestrator --> SQLite
-    Orchestrator --> State
-    LocalModel -.-> KB
-    LocalModel -.-> MC
-    LocalModel -.-> Orchestrator
+    Ingress --> McpServers
+    McpServers --> DataPlane
+    DataPlane --> Orchestrator
+    Orchestrator --> Provider
+    Provider --> State
 ```
 
 The public repository's reference compose currently defines those six service
