@@ -52,11 +52,23 @@ Tenant isolation is enforced by identity + write-stamping + read-filtering, not 
 
 ## Recommended path (top-down)
 
-1. **[Day-0 Tutorial](./Day0Tutorial.md)** — the recommended first end-to-end deployment.
-2. **[Tenant Ingestion Model](./TenantIngestionModel.md)** — how your content enters the Brain (the identity tuple + visibility).
-3. **[Configuration](./Configuration.md)** — profiles and the knobs each deployment sets.
-4. **[Security](./Security.md)** — tenant identity and visibility boundaries.
-5. **[Cloud-Native KB Ingestion Overview](./Overview.md)** plus the contract / pipeline guides — the deep ingestion mechanics.
+This page is the hub for the cloud-deployment guide set. Read from the benefit
+altitude down into the mechanics:
+
+1. **[Deploying the Agent OS](../../benefits/DeployingTheAgentOS.md)** — the
+   Brain-benefit entry point: why a team would point Neo at its own code.
+2. **Why Deploy the Agent OS** — this hub: what actually stands up and why it is
+   more than KB ingestion.
+3. **[Day-0 Tutorial](./Day0Tutorial.md)** — the recommended first end-to-end
+   deployment.
+4. **[Tenant Ingestion Model](./TenantIngestionModel.md)** — how your content
+   enters the Brain (the identity tuple + visibility).
+5. **[Configuration](./Configuration.md)** — profiles and the knobs each
+   deployment sets.
+6. **[Security](./Security.md)** — tenant identity and visibility boundaries.
+7. **[Cloud-Native KB Ingestion Overview](./Overview.md)** plus the contract /
+   pipeline guides — the deep ingestion mechanics once the reader knows why the
+   deployment exists.
 
 ## Boundaries
 

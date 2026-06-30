@@ -27,13 +27,24 @@ This is capability framing, not a product offer: it describes what the architect
 
 ## Where the mechanics live
 
-This page is the *why* and *what*. The end-to-end *how* — profiles, ingestion contracts, security boundaries, and the day-0 path — lives in the cloud-deployment guides:
+This page is the *why* and *what*. The ordered *how* starts at the
+cloud-deployment hub, then descends into the runnable path and the deep
+mechanics:
 
-- [Cloud Deployment Overview](../agentos/cloud-deployment/Overview.md) — what cloud-native deployment means
-- [Day-0 Tutorial](../agentos/cloud-deployment/Day0Tutorial.md) — the recommended first deployment path
-- [Tenant Ingestion Model](../agentos/cloud-deployment/TenantIngestionModel.md) — how content enters the Brain
-- [Security](../agentos/cloud-deployment/Security.md) — tenant identity and visibility boundaries
-- [Deployment Cookbook](../agentos/DeploymentCookbook.md) — deployment profiles and operational recipes
+- [Why Deploy the Agent OS](../agentos/cloud-deployment/WhyDeploy.md) — the
+  cloud-deployment hub and reading order
+- [Day-0 Tutorial](../agentos/cloud-deployment/Day0Tutorial.md) — the
+  recommended first deployment path
+- [Tenant Ingestion Model](../agentos/cloud-deployment/TenantIngestionModel.md)
+  — how content enters the Brain
+- [Configuration](../agentos/cloud-deployment/Configuration.md) — deployment
+  profiles and operational knobs
+- [Security](../agentos/cloud-deployment/Security.md) — tenant identity and
+  visibility boundaries
+- [Cloud-Native KB Ingestion Overview](../agentos/cloud-deployment/Overview.md)
+  — the deep ingestion mechanics
+- [Deployment Cookbook](../agentos/DeploymentCookbook.md) — deployment profiles
+  and operational recipes
 
 ## Go deeper
 
