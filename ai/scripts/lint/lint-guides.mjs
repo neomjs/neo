@@ -18,6 +18,8 @@
  *   - Dead local doc links — `](./x.md)` / `](../x.md)` targets absent on disk.
  *   - Dead `ai:*` script refs — `` `ai:foo` `` / `npm run ai:foo` not in `package.json` scripts
  *     (the hallucinated-command class).
+ *   - Tool-table refs under a Tools heading that resolve to no `ai/mcp/server/*​/openapi.yaml`
+ *     operationId — the MCP-tool analogue of the hallucinated-command class.
  *
  * **WARN (report-only, exit 0) — heuristics a human confirms:**
  *   - No Mermaid block at all (the bar wants >=1 diagram that carries the story).
@@ -63,6 +65,19 @@ const LR_NODE_WARN = 6;
  * Matched case-insensitively as a whole `##`/`###` heading line.
  */
 const FEATURE_LIST_HEADING = /^#{2,3}\s+(available\s+)?(tools?|configuration|config|api|reference|commands?|options|parameters|flags|endpoints?|methods?|properties)\s*$/i;
+
+/**
+ * Tool-table parity (the OpenAPI-operation analogue of the dead-`ai:*`-script check). A guide that
+ * inlines an MCP tool table must reference real `ai/mcp/server/*​/openapi.yaml` operationIds.
+ *
+ * **Why heading-scoped, not every `| `name` |` row:** config / property / schema tables share the
+ * exact same row shape, so an unscoped scan flags `id`/`name`/`tier`/`schema` etc. as "hallucinated
+ * tools" — empirically 56 false HARDs across the live guide corpus. We only scan rows under a
+ * *tools-catalog* heading. The heading match is deliberately narrow (`(available|mcp|agent|the)? tools?`
+ * anchored at the heading start) so `## Build Tools` / `## Debugging Tools` cannot match either.
+ */
+const TOOLS_HEADING  = /^#{2,4}\s+(available\s+|mcp\s+|agent\s+|the\s+)?tools?\b/i;
+const TOOL_TABLE_ROW = /^\|\s*`([a-z][a-z0-9_]*)`\s*\|/;
 
 /**
  * Returns the 1-based line number of a character index within `content`.
@@ -212,6 +227,45 @@ function checkDeadScriptRefs(content, scriptKeys) {
 }
 
 /**
+ * HARD check: tool-table rows that reference an MCP tool no server exposes — the OpenAPI-operation
+ * analogue of {@link checkDeadScriptRefs}. Scoped to rows under a {@link TOOLS_HEADING} so config /
+ * property / schema tables (same `| `name` |` shape) never false-positive. Generalizes the
+ * per-guide `GuideToolParity` spec into the shared lint. Fenced code is skipped so an example table
+ * in a code block doesn't trip it.
+ * @param {string} content
+ * @param {Set<string>} operationIds union of every MCP server's openapi.yaml operationIds
+ * @returns {Array<{severity: string, rule: string, line: number, detail: string}>}
+ */
+function checkOpenApiToolParity(content, operationIds) {
+    const findings = [];
+
+    // Empty surface (missing servers dir / empty injection) → no-op, NOT flag-everything: without
+    // this guard `!operationIds.has(...)` is always true and HARD-fails every tool-table row. This
+    // check is a forward-guard, so a missing surface degrades to "can't verify, don't block".
+    if (!operationIds || operationIds.size === 0) return findings;
+
+    let underTools = false;
+    let inFence    = false;
+
+    content.split('\n').forEach((raw, i) => {
+        const line = raw.trim();
+
+        if (line.startsWith('```')) { inFence = !inFence; return; }
+        if (inFence) return;
+        if (line.startsWith('#'))   { underTools = TOOLS_HEADING.test(line); return; }
+        if (!underTools) return;
+
+        const match = line.match(TOOL_TABLE_ROW);
+        if (match && !operationIds.has(match[1])) {
+            findings.push({severity: 'HARD', rule: 'openapi-tool-parity', line: i + 1,
+                detail: `tool-table ref \`${match[1]}\` resolves to no ai/mcp/server/*/openapi.yaml operationId — hallucinated/stale tool (or the heading is not an MCP-tool catalog)`});
+        }
+    });
+
+    return findings;
+}
+
+/**
  * WARN checks: feature-list-skeleton headings + identity-guard `framework` hits, both scanned
  * outside fenced code blocks so example code doesn't trip them.
  * @param {string} content
@@ -245,7 +299,7 @@ function checkProse(content) {
  * Lints one guide's content and returns all findings. Pure: no fs/process access beyond the
  * injectable `existsFn`, so it is unit-testable in isolation.
  * @param {string} content
- * @param {{filePath: string, fileDir: string, scriptKeys: Set, existsFn: Function}} ctx scriptKeys is a Set of package.json script names; existsFn is optional (defaults to fs.existsSync)
+ * @param {{filePath: string, fileDir: string, scriptKeys: Set, operationIds: Set, existsFn: Function}} ctx scriptKeys = package.json script names; operationIds = MCP openapi operationIds (defaults to empty → tool-parity is a no-op); existsFn is optional (defaults to fs.existsSync)
  * @returns {Array<{severity: string, rule: string, line: number, detail: string}>}
  */
 function lintGuide(content, ctx) {
@@ -264,6 +318,7 @@ function lintGuide(content, ctx) {
     findings.push(
         ...checkDeadLinks(content, ctx.fileDir, ctx.existsFn),
         ...checkDeadScriptRefs(content, ctx.scriptKeys),
+        ...checkOpenApiToolParity(content, ctx.operationIds || new Set()),
         ...checkProse(content)
     );
 
@@ -298,6 +353,33 @@ function loadScriptKeys() {
 }
 
 /**
+ * Union of every MCP server's openapi.yaml `operationId`s — the canonical tool surface a guide's
+ * tool tables must resolve against. Regex-extracted (no YAML dependency); a missing servers dir
+ * yields an empty set, which makes {@link checkOpenApiToolParity} a no-op rather than a false alarm.
+ * @returns {Set<string>}
+ */
+function loadOperationIds() {
+    const ids       = new Set();
+    const serverDir = path.join(ROOT_DIR, 'ai/mcp/server');
+
+    if (!existsSync(serverDir)) return ids;
+
+    for (const entry of readdirSync(serverDir, {withFileTypes: true})) {
+        if (!entry.isDirectory()) continue;
+
+        const oapi = path.join(serverDir, entry.name, 'openapi.yaml');
+        if (!existsSync(oapi)) continue;
+
+        for (const raw of readFileSync(oapi, 'utf8').split('\n')) {
+            const m = raw.match(/^\s*operationId:\s*['"]?([A-Za-z0-9_]+)/);
+            if (m) ids.add(m[1]);
+        }
+    }
+
+    return ids;
+}
+
+/**
  * Parses `--warn-as-error` / `--help` plus optional explicit file paths (default: discover all).
  * @param {string[]} argv
  * @returns {{files: string[], warnAsError: boolean, help: boolean}}
@@ -321,15 +403,16 @@ function parseArgs(argv = process.argv.slice(2)) {
  * @returns {{exitCode: number, hard: number, warn: number}}
  */
 function runLint(options = {}) {
-    const scriptKeys = loadScriptKeys();
-    const files      = options.files?.length ? options.files : discoverGuides();
+    const scriptKeys   = loadScriptKeys();
+    const operationIds = loadOperationIds();
+    const files        = options.files?.length ? options.files : discoverGuides();
 
     let hard = 0, warn = 0;
 
     for (const file of files) {
         const abs      = path.isAbsolute(file) ? file : path.join(ROOT_DIR, file);
         const content  = readFileSync(abs, 'utf8');
-        const findings = lintGuide(content, {filePath: file, fileDir: path.dirname(abs), scriptKeys});
+        const findings = lintGuide(content, {filePath: file, fileDir: path.dirname(abs), scriptKeys, operationIds});
 
         if (findings.length === 0) continue;
 
@@ -356,7 +439,7 @@ function main() {
     if (options.help) {
         console.log('Usage: node ai/scripts/lint/lint-guides.mjs [files...] [--warn-as-error]');
         console.log('  Mechanical guide-quality lint for learn/agentos/*.md + learn/benefits/*.md.');
-        console.log('  HARD (exit 1): mermaid reserved-word / self-loop, dead local links, dead ai:* script refs.');
+        console.log('  HARD (exit 1): mermaid reserved-word / self-loop, dead local links, dead ai:* script refs, openapi tool-parity.');
         console.log('  WARN:          no-mermaid, LR-squish, feature-list headings, "framework".');
         console.log('  --warn-as-error  treat warnings as failures too.');
         process.exit(0);
@@ -374,13 +457,16 @@ export {
     GUIDE_DIRS,
     LR_NODE_WARN,
     MERMAID_RESERVED,
+    TOOLS_HEADING,
     checkDeadLinks,
     checkDeadScriptRefs,
     checkMermaidBlock,
     checkMermaidOrientation,
+    checkOpenApiToolParity,
     checkProse,
     discoverGuides,
     extractMermaidBlocks,
+    loadOperationIds,
     lintGuide,
     parseArgs,
     runLint
