@@ -66,6 +66,7 @@ const PRIORITIES = new Map([
     ['agentos/GitHubWorkflow'                       , 0.8],
     ['agentos/CodeExecution'                        , 0.8],
     ['agentos/SharedDeployment'                     , 1.0],
+    ['agentos/ModelProviders'                       , 1.0],
     ['agentos/DeploymentCookbook'                   , 1.0],
 
     // Cloud deployment: team-ready operational surface
