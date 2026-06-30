@@ -1,6 +1,6 @@
 import chalk           from 'chalk';
 import {spawnSync}     from 'child_process';
-import {Command}       from 'commander/esm.mjs';
+import {Command}       from 'commander';
 import envinfo         from 'envinfo';
 import fs              from 'fs-extra';
 import inquirer        from 'inquirer';
