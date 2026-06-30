@@ -67,6 +67,53 @@ KB, Memory Core, and the orchestrator consume; the orchestrator does not need to
 own the model process to use it. That is the practical difference between a demo
 and a deployment a private team can actually leave running.
 
+The public shape is deliberately smaller than the internal topology. A deployed
+team does not expose every moving part as a tool surface. The Knowledge Base MCP
+server and the Memory Core MCP server are the two public MCP surfaces, path-routed
+through ingress as `/kb/*` and `/mc/*`. Chroma, the cloud-safe orchestrator, the
+optional local model provider, and the persistent volumes stay behind that
+boundary. That separation is the reason the deployment can be understandable to
+operators without collapsing back into a mono-container.
+
+```mermaid
+flowchart TD
+    classDef public fill:#222,stroke:#f5a623,stroke-width:2px,color:#fff
+    classDef mcp fill:#0f3460,stroke:#16c79a,stroke-width:2px,color:#fff
+    classDef infra fill:#243447,stroke:#8ecae6,stroke-width:1px,color:#fff
+    classDef control fill:#3d1f00,stroke:#f39c12,stroke-width:2px,color:#eee
+    classDef model fill:#4a1942,stroke:#e74c3c,stroke-width:2px,color:#fff
+    classDef volume fill:#1f2933,stroke:#95a5a6,stroke-width:1px,color:#eee
+
+    Clients["agents, hooks, and MCP clients"]:::public
+    Ingress["ingress container<br/>TLS + path routing"]:::public
+
+    subgraph Network["internal neo-mcp-network"]
+        KB["kb-server container<br/>Knowledge Base MCP<br/>public path: /kb/*"]:::mcp
+        MC["mc-server container<br/>Memory Core MCP<br/>public path: /mc/*"]:::mcp
+        Chroma["chroma container<br/>shared vector store"]:::infra
+        Orchestrator["orchestrator container<br/>cloud-safe maintenance lanes"]:::control
+        LocalModel["local-model container<br/>optional Ollama / OpenAI-compatible provider"]:::model
+        SQLite["shared SQLite volume<br/>graph, sessions, WAL"]:::volume
+        Backups["backup + tenant mirror volumes<br/>redeploy-safe state"]:::volume
+    end
+
+    Clients --> Ingress
+    Ingress --> KB
+    Ingress --> MC
+    KB --> Chroma
+    MC --> Chroma
+    KB --> SQLite
+    MC --> SQLite
+    Orchestrator --> KB
+    Orchestrator --> MC
+    Orchestrator --> Chroma
+    Orchestrator --> SQLite
+    Orchestrator --> Backups
+    KB -.-> LocalModel
+    MC -.-> LocalModel
+    Orchestrator -.-> LocalModel
+```
+
 The third change is **unattended operation**. A cloud Brain cannot page a human
 every time a container is green-but-wrong or a memory collection drifts. Neo's
 self-healing loop separates liveness from integrity: diagnostics observe data
@@ -92,9 +139,12 @@ The honest boundary is the strong one. Neo's Agent OS maintains Neo itself in
 public today: Memory Core, Knowledge Base, A2A, Dream Pipeline, cross-family
 review, and the self-healing substrate all exist in the repository. The cloud
 deployment stack packages those pieces as a tenant-scoped service: Chroma for
-the shared vector store, separate Knowledge Base and Memory Core MCP containers,
-a cloud-safe orchestrator, optional ingress, optional local-model provider, and
-bounded runtime access for recovery.
+the shared vector store, two public MCP server containers (Knowledge Base and
+Memory Core), a cloud-safe orchestrator, optional ingress, optional local-model
+provider, persistent state volumes, and bounded runtime access for recovery. In
+the reference compose file that is six service containers when all current
+profiles are enabled; deployment-specific auth proxies can add another container,
+but they are not part of the public repo's baseline.
 
 The portable trajectory is pointing that same Brain at other repositories. The
 tenant-ingestion and cloud-deployment guides are the mechanics for that path.
