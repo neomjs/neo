@@ -54,6 +54,7 @@ const PRIORITIES = new Map([
     ['agentos/FlatPeerInstitution'                  , 1.0],
     ['agentos/SwarmIntelligence'                    , 1.0],
     ['agentos/IdentityFirewall'                     , 1.0],
+    ['agentos/Hooks'                                , 1.0],
     ['agentos/ContentTrust'                         , 1.0],
     ['agentos/ProgressiveDisclosureSkills'          , 0.9],
     ['agentos/CoreSkills'                           , 1.0],

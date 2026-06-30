@@ -37,6 +37,7 @@
         {"name": "The Flat-Peer Institution",                          "parentId": "AgentOS",                                             "id": "agentos/FlatPeerInstitution"},
         {"name": "Swarm Intelligence & Sub-Agents",                    "parentId": "AgentOS",                                             "id": "agentos/SwarmIntelligence"},
         {"name": "Identity Firewall & Governance",                     "parentId": "AgentOS",                                             "id": "agentos/IdentityFirewall"},
+        {"name": "Hooks & Mechanical Enforcement",                     "parentId": "AgentOS",                                             "id": "agentos/Hooks"},
         {"name": "Content Trust Self-Defense",                         "parentId": "AgentOS",                                             "id": "agentos/ContentTrust"},
         {"name": "Model Experience (MX)",                              "parentId": "AgentOS",                                             "id": "agentos/MX"},
         {"name": "Progressive Disclosure Skills",                      "parentId": "AgentOS",                                             "id": "agentos/ProgressiveDisclosureSkills"},
