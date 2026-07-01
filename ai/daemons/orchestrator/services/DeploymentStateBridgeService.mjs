@@ -1,3 +1,4 @@
+import {createHash}                         from 'node:crypto';
 import Base                                 from '../../../../src/core/Base.mjs';
 import AiConfig                             from '../../../config.mjs';
 import {probeProviderParallelModelCapacity} from '../../../services/graph/providerReadinessHelper.mjs';
@@ -17,6 +18,10 @@ import {
     calculateDockerCpuPercent,
     calculateDockerMemoryPercent
 } from './ContainerHealthDiagnosisService.mjs';
+import {
+    buildTenantRepoSyncTrigger,
+    isRepoDue
+} from '../scheduling/tenantRepoSync.mjs';
 
 /**
  * @summary Writes a bounded, graph-independent deployment-state snapshot for KB/MC tools.
@@ -47,6 +52,21 @@ export class DeploymentStateBridgeService extends Base {
          * @protected
          */
         diagnosisService: null,
+        /**
+         * @member {Object|null} taskStateService=null
+         * @protected
+         */
+        taskStateService: null,
+        /**
+         * @member {Object|null} tenantRepoSyncService=null
+         * @protected
+         */
+        tenantRepoSyncService: null,
+        /**
+         * @member {Function|null} tenantRepoSyncEnabledReader=null
+         * @protected
+         */
+        tenantRepoSyncEnabledReader: null,
         /**
          * @member {Function|null} nowFn=null
          * @protected
@@ -158,14 +178,16 @@ export class DeploymentStateBridgeService extends Base {
             services.push(await this.collectServiceSnapshot({serviceKey, observedAt: generatedAt}));
         }
 
-        const recoveryRuns = await this.collectRecoveryRunSnapshot();
-        const selfHeal     = await this.collectSelfHealSnapshot();
+        const recoveryRuns   = await this.collectRecoveryRunSnapshot();
+        const selfHeal       = await this.collectSelfHealSnapshot();
+        const tenantRepoSync = await this.collectTenantRepoSyncSnapshot({observedAt: generatedAt});
 
         return createDeploymentStateSnapshot({
             generatedAt,
             services,
             recoveryRuns,
-            selfHeal
+            selfHeal,
+            tenantRepoSync
         });
     }
 
@@ -419,6 +441,118 @@ export class DeploymentStateBridgeService extends Base {
     }
 
     /**
+     * @summary Projects tenant-repo-sync scheduler, task, config, and revision state into the
+     * deployment diagnostic snapshot without exposing repo names, clone URLs, credentials, or logs.
+     * @param {Object} options
+     * @param {Number} options.observedAt Epoch ms.
+     * @returns {Promise<Object>}
+     */
+    async collectTenantRepoSyncSnapshot({observedAt}) {
+        const
+            taskName  = 'tenant-repo-sync',
+            source    = 'orchestrator-tenant-repo-sync',
+            scheduler = {
+                globalCadenceMs: AiConfig.orchestrator.intervals.tenantRepoSyncMs,
+                sweepCadenceMs : AiConfig.orchestrator.tenantRepoSync.sweepCadenceMs,
+                jitterRatio    : AiConfig.orchestrator.tenantRepoSync.jitterRatio,
+                due            : null
+            },
+            errors         = [];
+
+        let enabled       = null,
+            taskState     = null,
+            configSummary = {
+                status       : 'unavailable',
+                repoCount    : 0,
+                disabledCount: 0,
+                tierCounts   : {},
+                errors       : []
+            },
+            repos              = [],
+            persistedRevisions = {};
+
+        try {
+            if (typeof this.tenantRepoSyncEnabledReader !== 'function') {
+                throw createDiagnosticError('tenant-repo-sync-enabled-reader-missing');
+            }
+            enabled = Boolean(this.tenantRepoSyncEnabledReader());
+        } catch (error) {
+            errors.push(summarizeDiagnosticError(error, 'tenant-repo-sync-enabled-read-failed'));
+        }
+
+        try {
+            if (!this.taskStateService?.getTaskState) {
+                throw createDiagnosticError('task-state-service-missing');
+            }
+            taskState = this.taskStateService.getTaskState(taskName) || null;
+        } catch (error) {
+            errors.push(summarizeDiagnosticError(error, 'task-state-read-failed'));
+        }
+
+        if (taskState) {
+            scheduler.due = Boolean(buildTenantRepoSyncTrigger({
+                enabled   : enabled === true,
+                now       : observedAt,
+                intervalMs: scheduler.sweepCadenceMs,
+                lastRunAt : taskState.lastRunAt || 0
+            }));
+        }
+
+        try {
+            if (!this.tenantRepoSyncService?.resolveTenantReposConfig) {
+                throw createDiagnosticError('tenant-repo-sync-service-missing');
+            }
+
+            const resolvedConfig = await this.tenantRepoSyncService.resolveTenantReposConfig();
+            repos = Array.isArray(resolvedConfig.tenantRepos) ? resolvedConfig.tenantRepos : [];
+            configSummary = summarizeTenantRepoConfig(repos);
+        } catch (error) {
+            errors.push(summarizeDiagnosticError(error, 'tenant-repo-config-read-failed'));
+            configSummary = {
+                ...configSummary,
+                status: 'degraded',
+                errors: [summarizeDiagnosticError(error, 'tenant-repo-config-read-failed')]
+            };
+        }
+
+        try {
+            if (!this.tenantRepoSyncService?.readPersistedRevisions || !this.tenantRepoSyncService?.defaultRevisionsFilePath) {
+                throw createDiagnosticError('tenant-repo-revision-reader-missing');
+            }
+
+            persistedRevisions = await this.tenantRepoSyncService.readPersistedRevisions({
+                filePath: this.tenantRepoSyncService.defaultRevisionsFilePath(),
+                strict  : true
+            });
+        } catch (error) {
+            errors.push(summarizeDiagnosticError(error, 'tenant-repo-revision-state-read-failed'));
+        }
+
+        const repoStates = repos.map(repo => summarizeTenantRepoState({
+            repo,
+            observedAt,
+            taskState,
+            persistedRepoState: persistedRevisions[createTenantRepoLabel(repo)] || null,
+            globalCadenceMs   : scheduler.globalCadenceMs,
+            jitterRatio       : scheduler.jitterRatio
+        }));
+
+        return {
+            schemaVersion: 1,
+            recordType   : 'tenant-repo-sync-deployment-state',
+            source,
+            observedAt,
+            status       : classifyTenantRepoSyncStatus({enabled, taskState, repoCount: repos.length, schedulerDue: scheduler.due, errors}),
+            enabled,
+            scheduler,
+            task         : summarizeTenantRepoTaskState(taskState),
+            config       : configSummary,
+            repos        : repoStates,
+            errors
+        };
+    }
+
+    /**
      * Returns current time in epoch ms.
      * @returns {Number}
      */
@@ -493,6 +627,229 @@ function buildServiceStateSignature(services) {
         .map(service => `${service.serviceKey}:${service.status}`)
         .sort()
         .join(',');
+}
+
+function createDiagnosticError(code) {
+    const error = new Error(code);
+
+    error.code = code;
+
+    return error;
+}
+
+function summarizeDiagnosticError(error, reason) {
+    return {
+        reason,
+        code        : error.code || null,
+        messageClass: error.name || 'Error'
+    };
+}
+
+function summarizeTenantRepoConfig(repos) {
+    const tierCounts    = {};
+    let   disabledCount = 0;
+
+    for (const repo of repos) {
+        const tier = repo.configTier || 'unreported';
+        tierCounts[tier] = (tierCounts[tier] || 0) + 1;
+
+        if (isTenantRepoDisabled(repo)) {
+            disabledCount++;
+        }
+    }
+
+    return {
+        status   : 'available',
+        repoCount: repos.length,
+        disabledCount,
+        tierCounts,
+        errors   : []
+    };
+}
+
+function summarizeTenantRepoTaskState(taskState) {
+    if (!taskState || typeof taskState !== 'object') {
+        return null;
+    }
+
+    return {
+        running       : taskState.running === true,
+        pid           : Number.isFinite(taskState.pid) ? taskState.pid : null,
+        lastRunAt     : Number.isFinite(taskState.lastRunAt) && taskState.lastRunAt > 0 ? new Date(taskState.lastRunAt).toISOString() : null,
+        lastSuccessAt : taskState.lastSuccessAt || null,
+        lastErrorAt   : taskState.lastErrorAt || null,
+        lastExitCode  : Number.isFinite(taskState.lastExitCode) ? taskState.lastExitCode : null,
+        lastReason    : taskState.lastReason || null,
+        lastCompletion: summarizeTenantRepoTaskCompletion(taskState.lastCompletion)
+    };
+}
+
+function summarizeTenantRepoTaskCompletion(completion) {
+    if (!completion || typeof completion !== 'object') {
+        return null;
+    }
+
+    const summary = {
+        status        : completion.status || null,
+        reason        : completion.reason || null,
+        reasonCode    : completion.reasonCode || null,
+        repoCount     : numberOrNull(completion.repoCount),
+        completedCount: numberOrNull(completion.completedCount),
+        failedCount   : numberOrNull(completion.failedCount),
+        notDueCount   : numberOrNull(completion.notDueCount),
+        repos         : []
+    };
+
+    if (Array.isArray(completion.repos)) {
+        summary.repos = completion.repos.slice(0, 50).map(summarizeTenantRepoOutcome);
+    }
+
+    return summary;
+}
+
+function summarizeTenantRepoOutcome(outcome) {
+    if (!outcome || typeof outcome !== 'object') {
+        return null;
+    }
+
+    return {
+        identityHash        : hashTenantRepoIdentity(outcome),
+        status              : outcome.status || null,
+        lastIngestedRev     : shortRevision(outcome.lastIngestedRev || outcome.headRevision),
+        lastErrorCode       : outcome.lastErrorCode || outcome.code || null,
+        lastSyncDeletedCount: numberOrNull(outcome.lastSyncDeletedCount ?? outcome.deleted),
+        consecutiveFailures : numberOrNull(outcome.consecutiveFailures)
+    };
+}
+
+function summarizeTenantRepoState({repo, observedAt, taskState, persistedRepoState, globalCadenceMs, jitterRatio}) {
+    const
+        disabled = isTenantRepoDisabled(repo),
+        dueState = disabled
+            ? {due: false, effectiveCadenceMs: null, jitterMs: null, backoffMultiplier: null, lastRunAttemptAt: persistedRepoState?.lastRunAttemptAt || 0}
+            : isRepoDue({repo, persistedRepoState, now: observedAt, globalCadenceMs, jitterRatio}),
+        nextDueAtMs  = Number.isFinite(dueState.effectiveCadenceMs)
+            ? ((dueState.lastRunAttemptAt || 0) > 0 ? dueState.lastRunAttemptAt + dueState.effectiveCadenceMs : observedAt)
+            : null,
+        lastOutcome  = findTenantRepoOutcome(taskState?.lastCompletion, repo),
+        lastAttempt  = persistedRepoState?.lastRunAttemptAt || 0,
+        failures     = persistedRepoState?.consecutiveFailures ?? 0;
+
+    return {
+        identityHash       : hashTenantRepoIdentity(repo),
+        tenantHash         : hashValue(repo.tenantId),
+        repoHash           : hashValue(repo.repoSlug),
+        configTier         : repo.configTier || 'unreported',
+        disabled,
+        status             : classifyTenantRepoState({disabled, due: dueState.due, persistedRepoState, lastOutcome}),
+        due                : disabled ? false : dueState.due,
+        nextDueAt          : Number.isFinite(nextDueAtMs) ? new Date(nextDueAtMs).toISOString() : null,
+        lastIngestedRev    : shortRevision(persistedRepoState?.lastIngestedRev),
+        lastRunAttemptAt   : lastAttempt > 0 ? new Date(lastAttempt).toISOString() : null,
+        consecutiveFailures: failures,
+        effectiveCadenceMs : dueState.effectiveCadenceMs,
+        jitterMs           : dueState.jitterMs,
+        backoffMultiplier  : dueState.backoffMultiplier,
+        lastOutcome
+    };
+}
+
+function classifyTenantRepoSyncStatus({enabled, taskState, repoCount, schedulerDue, errors}) {
+    if (errors.length > 0) {
+        return 'degraded';
+    }
+
+    if (enabled === false) {
+        return 'disabled';
+    }
+
+    if (taskState?.running) {
+        return 'running';
+    }
+
+    if (taskState && isLatestTaskOutcomeFailure(taskState)) {
+        return 'failed';
+    }
+
+    if (repoCount === 0) {
+        return 'no-configured-repos';
+    }
+
+    if (schedulerDue === false) {
+        return 'not-due';
+    }
+
+    if (taskState?.lastSuccessAt) {
+        return 'completed';
+    }
+
+    return 'idle';
+}
+
+function classifyTenantRepoState({disabled, due, persistedRepoState, lastOutcome}) {
+    if (disabled) {
+        return 'disabled';
+    }
+
+    if (lastOutcome?.status) {
+        return lastOutcome.status;
+    }
+
+    if (!due) {
+        return 'not-due';
+    }
+
+    if ((persistedRepoState?.consecutiveFailures ?? 0) > 0) {
+        return 'degraded';
+    }
+
+    if (persistedRepoState?.lastIngestedRev) {
+        return 'active';
+    }
+
+    return 'due';
+}
+
+function findTenantRepoOutcome(completion, repo) {
+    if (!completion || !Array.isArray(completion.repos)) {
+        return null;
+    }
+
+    const match = completion.repos.find(entry => entry?.tenantId === repo.tenantId && entry?.repoSlug === repo.repoSlug);
+
+    return match ? summarizeTenantRepoOutcome(match) : null;
+}
+
+function isLatestTaskOutcomeFailure(taskState) {
+    const
+        errorAt   = Date.parse(taskState.lastErrorAt || ''),
+        successAt = Date.parse(taskState.lastSuccessAt || '');
+
+    return Number.isFinite(errorAt) && (!Number.isFinite(successAt) || errorAt >= successAt);
+}
+
+function createTenantRepoLabel(repo) {
+    return `${repo.tenantId}/${repo.repoSlug}`;
+}
+
+function hashTenantRepoIdentity(value) {
+    return hashValue(createTenantRepoLabel(value));
+}
+
+function hashValue(value) {
+    return createHash('sha256').update(String(value || '')).digest('hex').slice(0, 12);
+}
+
+function shortRevision(value) {
+    return value ? String(value).slice(0, 12) : null;
+}
+
+function isTenantRepoDisabled(repo) {
+    return repo.disabled === true || repo.enabled === false;
+}
+
+function numberOrNull(value) {
+    return Number.isFinite(value) ? value : null;
 }
 
 export default Neo.setupClass(DeploymentStateBridgeService);

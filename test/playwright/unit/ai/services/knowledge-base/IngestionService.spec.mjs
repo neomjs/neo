@@ -22,7 +22,7 @@ import fs             from 'fs-extra';
 import aiConfig       from '../../../../../../ai/mcp/server/knowledge-base/config.mjs';
 
 /**
- * Contract coverage for IngestionService (#11633).
+ * Contract coverage for IngestionService.
  *
  * The suite uses mock VectorService / Chroma / telemetry dependencies so it verifies the
  * Phase 2A orchestration contract without touching the real ChromaDB collection or external
@@ -135,7 +135,7 @@ test.describe('IngestionService.ingestSourceFiles', () => {
             getKnowledgeBaseCollection: async () => collection
         };
         Service.graphService = createGraphStub();
-        // ingestSourceFiles resolves the tenant-config version for chunk stamping (#11637);
+        // ingestSourceFiles resolves the tenant-config version for chunk stamping;
         // stubbed here so this suite stays focused on ingestion orchestration.
         Service.getTenantConfig = async () => ({version: 0});
         Service.recorderService = {
@@ -800,9 +800,9 @@ test.describe('IngestionService.tenantConfig (#11637)', () => {
         await Service.setTenantConfig({tenantId: 'tenant-a', config: {}});
 
         // `GraphService.upsertNode` stamps the request identity onto `properties.userId`; without an
-        // explicit `visibility:'team'` marker the node is invisible to the offline #11640 reconciliation
+        // explicit `visibility:'team'` marker the node is invisible to the offline reconciliation
         // daemon (which reads `getTenantConfig` with no request context). The marker is the offline-read
-        // authorization, parallel to the `kb-manifest` sibling node (#11711).
+        // authorization, parallel to the `kb-manifest` sibling node.
         const node = graphStub.store.get('kb-config:tenant-a');
         expect(node.type).toBe('KnowledgeBaseTenantConfig');
         expect(node.properties.visibility).toBe('team');
@@ -976,10 +976,10 @@ test.describe('IngestionService.listConfiguredTenantRepos (#12145)', () => {
 
         expect(tenantRepos).toHaveLength(2);
         expect(tenantRepos.find(r => r.tenantId === 'tenant-a')).toMatchObject({
-            cloneUrl: 'https://github.com/neomjs/a.git', credentialRef: 'env:A', repoSlug: 'github.com/neomjs/a'
+            cloneUrl: 'https://github.com/neomjs/a.git', credentialRef: 'env:A', repoSlug: 'github.com/neomjs/a', configTier: 'yaml'
         });
         expect(tenantRepos.find(r => r.tenantId === 'tenant-b')).toMatchObject({
-            cloneUrl: 'https://github.com/neomjs/b.git', credentialRef: 'env:B'
+            cloneUrl: 'https://github.com/neomjs/b.git', credentialRef: 'env:B', configTier: 'yaml'
         });
     });
 
@@ -993,7 +993,7 @@ test.describe('IngestionService.listConfiguredTenantRepos (#12145)', () => {
 
         expect(tenantRepos).toHaveLength(1);
         expect(tenantRepos[0]).toMatchObject({
-            tenantId: 'tenant-a', cloneUrl: 'https://github.com/neomjs/graph.git', credentialRef: 'env:G'
+            tenantId: 'tenant-a', cloneUrl: 'https://github.com/neomjs/graph.git', credentialRef: 'env:G', configTier: 'graph'
         });
     });
 

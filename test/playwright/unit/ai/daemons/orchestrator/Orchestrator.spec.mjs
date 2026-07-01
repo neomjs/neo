@@ -238,13 +238,14 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         expect(state.mlx).toBeUndefined();
         expect(state.memoryCoreChroma).toBeUndefined();
         expect(state.summary).toMatchObject({
-            running      : false,
-            pid          : null,
-            lastRunAt    : 0,
-            lastSuccessAt: null,
-            lastErrorAt  : null,
-            lastExitCode : null,
-            lastReason   : null
+            running       : false,
+            pid           : null,
+            lastRunAt     : 0,
+            lastSuccessAt : null,
+            lastErrorAt   : null,
+            lastExitCode  : null,
+            lastReason    : null,
+            lastCompletion: null
         });
         expect(state.kbSync).not.toBe(state.summary);
     });
@@ -458,6 +459,12 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             .toBe(orchestrator.deploymentRuntimeAccessService);
         expect(orchestrator.deploymentStateBridgeService.diagnosisService)
             .toBe(orchestrator.containerHealthDiagnosisService);
+        expect(orchestrator.deploymentStateBridgeService.taskStateService)
+            .toBe(orchestrator.taskStateService);
+        expect(orchestrator.deploymentStateBridgeService.tenantRepoSyncService)
+            .toBe(orchestrator.tenantRepoSyncService);
+        expect(orchestrator.deploymentStateBridgeService.tenantRepoSyncEnabledReader())
+            .toBe(false);
     });
 
     test('refreshes golden path while dream graph mutation is active — decoupled for hourly freshness', async () => {

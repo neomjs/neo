@@ -42,11 +42,17 @@ function createService({
     providerResidencyProbe = async () => null,
     recoveryRunStateReader = null,
     healLedgerDir = null,
-    healLedgerReader = null
+    healLedgerReader = null,
+    taskStateService = null,
+    tenantRepoSyncService = null,
+    tenantRepoSyncEnabledReader = null
 } = {}) {
     return Neo.create(DeploymentStateBridgeService, {
         runtimeAccessService,
         diagnosisService,
+        taskStateService,
+        tenantRepoSyncService,
+        tenantRepoSyncEnabledReader,
         providerResidencyProbe,
         recoveryRunStateReader,
         healLedgerDir,
@@ -336,6 +342,255 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
                 missingModels: ['gemma4:26b'],
                 target       : {kind: 'compose-service', id: 'model'}
             }
+        });
+    });
+
+    test('collectTenantRepoSyncSnapshot distinguishes no configured repos from a missing KB ingest', async () => {
+        const service = createService({
+            taskStateService: {
+                getTaskState(taskName) {
+                    expect(taskName).toBe('tenant-repo-sync');
+
+                    return {
+                        running       : false,
+                        pid           : null,
+                        lastRunAt     : OBSERVED_AT - 10_000,
+                        lastSuccessAt : null,
+                        lastErrorAt   : null,
+                        lastExitCode  : null,
+                        lastReason    : 'periodic-sweep:60000',
+                        lastCompletion: {
+                            status   : 'skipped',
+                            reason   : 'periodic-sweep:60000',
+                            repoCount: 0
+                        }
+                    };
+                }
+            },
+            tenantRepoSyncService: {
+                async resolveTenantReposConfig() {
+                    return {tenantRepos: []};
+                },
+                defaultRevisionsFilePath() {
+                    return '/state/tenant-repo-sync-revisions.json';
+                },
+                async readPersistedRevisions({filePath, strict}) {
+                    expect(filePath).toBe('/state/tenant-repo-sync-revisions.json');
+                    expect(strict).toBe(true);
+
+                    return {};
+                }
+            },
+            tenantRepoSyncEnabledReader: () => true
+        });
+
+        const tenantRepoSync = await service.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
+
+        expect(tenantRepoSync).toMatchObject({
+            status : 'no-configured-repos',
+            enabled: true,
+            config : {
+                status   : 'available',
+                repoCount: 0
+            },
+            task: {
+                lastCompletion: {
+                    status   : 'skipped',
+                    repoCount: 0
+                }
+            },
+            repos : [],
+            errors: []
+        });
+    });
+
+    test('collectTenantRepoSyncSnapshot reports not-due repos with hashed identities only', async () => {
+        const service = createService({
+            taskStateService: {
+                getTaskState() {
+                    return {
+                        running       : false,
+                        pid           : null,
+                        lastRunAt     : OBSERVED_AT - 1,
+                        lastSuccessAt : '2024-03-09T16:00:00.000Z',
+                        lastErrorAt   : null,
+                        lastExitCode  : 0,
+                        lastReason    : 'periodic-sweep:60000',
+                        lastCompletion: null
+                    };
+                }
+            },
+            tenantRepoSyncService: {
+                async resolveTenantReposConfig() {
+                    return {
+                        tenantRepos: [{
+                            tenantId     : 'tenant-a',
+                            repoSlug     : 'private/repo',
+                            cloneUrl     : 'https://git.example/private/repo.git',
+                            credentialRef: 'env:TOKEN',
+                            cadenceMs    : 60_000,
+                            configTier   : 'yaml'
+                        }]
+                    };
+                },
+                defaultRevisionsFilePath() {
+                    return '/state/revisions.json';
+                },
+                async readPersistedRevisions() {
+                    return {
+                        'tenant-a/private/repo': {
+                            lastIngestedRev    : 'abcdef1234567890',
+                            lastRunAttemptAt   : OBSERVED_AT - 1_000,
+                            consecutiveFailures: 0
+                        }
+                    };
+                }
+            },
+            tenantRepoSyncEnabledReader: () => true
+        });
+
+        const tenantRepoSync = await service.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
+
+        expect(tenantRepoSync.status).toBe('not-due');
+        expect(tenantRepoSync.config).toMatchObject({
+            repoCount : 1,
+            tierCounts: {yaml: 1}
+        });
+        expect(tenantRepoSync.repos[0]).toMatchObject({
+            configTier         : 'yaml',
+            disabled           : false,
+            status             : 'not-due',
+            due                : false,
+            lastIngestedRev    : 'abcdef123456',
+            consecutiveFailures: 0
+        });
+        expect(JSON.stringify(tenantRepoSync)).not.toContain('tenant-a');
+        expect(JSON.stringify(tenantRepoSync)).not.toContain('private/repo');
+        expect(JSON.stringify(tenantRepoSync)).not.toContain('TOKEN');
+    });
+
+    test('collectTenantRepoSyncSnapshot surfaces bounded failure outcome codes', async () => {
+        const service = createService({
+            taskStateService: {
+                getTaskState() {
+                    return {
+                        running       : false,
+                        pid           : null,
+                        lastRunAt     : OBSERVED_AT - 60_000,
+                        lastSuccessAt : '2024-03-09T14:00:00.000Z',
+                        lastErrorAt   : '2024-03-09T15:00:00.000Z',
+                        lastExitCode  : null,
+                        lastReason    : 'periodic-sweep:60000',
+                        lastCompletion: {
+                            status     : 'failed',
+                            reason     : 'periodic-sweep:60000',
+                            repoCount  : 1,
+                            failedCount: 1,
+                            repos      : [{
+                                tenantId           : 'tenant-a',
+                                repoSlug           : 'private/repo',
+                                status             : 'degraded',
+                                lastErrorCode      : 'KB_TENANT_REPO_SYNC_SYNC_FAILED',
+                                consecutiveFailures: 2
+                            }]
+                        }
+                    };
+                }
+            },
+            tenantRepoSyncService: {
+                async resolveTenantReposConfig() {
+                    return {
+                        tenantRepos: [{
+                            tenantId     : 'tenant-a',
+                            repoSlug     : 'private/repo',
+                            cloneUrl     : 'https://git.example/private/repo.git',
+                            credentialRef: 'env:TOKEN',
+                            configTier   : 'graph'
+                        }]
+                    };
+                },
+                defaultRevisionsFilePath() {
+                    return '/state/revisions.json';
+                },
+                async readPersistedRevisions() {
+                    return {
+                        'tenant-a/private/repo': {
+                            lastIngestedRev    : 'fedcba9876543210',
+                            lastRunAttemptAt   : OBSERVED_AT - 60_000,
+                            consecutiveFailures: 2
+                        }
+                    };
+                }
+            },
+            tenantRepoSyncEnabledReader: () => true
+        });
+
+        const tenantRepoSync = await service.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
+
+        expect(tenantRepoSync.status).toBe('failed');
+        expect(tenantRepoSync.task.lastCompletion).toMatchObject({
+            status     : 'failed',
+            repoCount  : 1,
+            failedCount: 1
+        });
+        expect(tenantRepoSync.repos[0]).toMatchObject({
+            configTier         : 'graph',
+            status             : 'degraded',
+            consecutiveFailures: 2,
+            lastOutcome        : {
+                status       : 'degraded',
+                lastErrorCode: 'KB_TENANT_REPO_SYNC_SYNC_FAILED'
+            }
+        });
+    });
+
+    test('collectTenantRepoSyncSnapshot degrades when revision state is unreadable', async () => {
+        const error = new Error('bad json');
+        error.code = 'KB_TENANT_REPO_SYNC_REVISIONS_READ_FAILED';
+
+        const service = createService({
+            taskStateService: {
+                getTaskState() {
+                    return {
+                        running       : false,
+                        pid           : null,
+                        lastRunAt     : OBSERVED_AT - 60_000,
+                        lastSuccessAt : null,
+                        lastErrorAt   : null,
+                        lastExitCode  : null,
+                        lastReason    : null,
+                        lastCompletion: null
+                    };
+                }
+            },
+            tenantRepoSyncService: {
+                async resolveTenantReposConfig() {
+                    return {
+                        tenantRepos: [{
+                            tenantId     : 'tenant-a',
+                            repoSlug     : 'private/repo',
+                            cloneUrl     : 'https://git.example/private/repo.git',
+                            credentialRef: 'env:TOKEN',
+                            configTier   : 'aiConfig'
+                        }]
+                    };
+                },
+                defaultRevisionsFilePath() {
+                    return '/state/revisions.json';
+                },
+                async readPersistedRevisions() {
+                    throw error;
+                }
+            },
+            tenantRepoSyncEnabledReader: () => true
+        });
+
+        const tenantRepoSync = await service.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
+
+        expect(tenantRepoSync.status).toBe('degraded');
+        expect(tenantRepoSync.errors[0]).toMatchObject({
+            reason: 'tenant-repo-revision-state-read-failed',
+            code  : 'KB_TENANT_REPO_SYNC_REVISIONS_READ_FAILED'
         });
     });
 
