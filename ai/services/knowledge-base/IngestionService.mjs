@@ -20,7 +20,7 @@ import logger               from '../../mcp/server/knowledge-base/logger.mjs';
 import mcConfig             from '../../mcp/server/memory-core/config.mjs';
 import os                   from 'os';
 import path                 from 'path';
-import yaml                 from 'js-yaml';
+import * as yaml       from 'js-yaml';
 import {fileURLToPath}      from 'url';
 
 const __filename = fileURLToPath(import.meta.url);

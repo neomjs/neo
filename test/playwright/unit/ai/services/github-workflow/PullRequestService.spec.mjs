@@ -18,7 +18,7 @@ import {test, expect}  from '@playwright/test';
 import fs              from 'fs';
 import path            from 'path';
 import vm              from 'vm';
-import yaml            from 'js-yaml';
+import * as yaml       from 'js-yaml';
 import Neo             from '../../../../../../src/Neo.mjs';
 import * as core       from '../../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../../src/manager/Instance.mjs';

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import chalk       from 'chalk';
-import { Command } from 'commander/esm.mjs';
+import { Command }     from 'commander';
 import envinfo     from 'envinfo';
 import fs          from 'fs-extra';
 import inquirer    from 'inquirer';

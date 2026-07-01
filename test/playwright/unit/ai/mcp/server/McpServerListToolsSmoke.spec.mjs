@@ -19,7 +19,7 @@ import fs             from 'fs';
 import path           from 'path';
 import {fileURLToPath,
         pathToFileURL}   from 'url';
-import yaml        from 'js-yaml';
+import * as yaml   from 'js-yaml';
 import Neo         from '../../../../../../src/Neo.mjs';
 import * as core   from '../../../../../../src/core/_export.mjs';
 import AiConfig    from '../../../../../../ai/config.mjs';

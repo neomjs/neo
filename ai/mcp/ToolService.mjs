@@ -1,7 +1,9 @@
 import fs                                                 from 'fs';
-import yaml                                               from 'js-yaml';
-import {zodToJsonSchema}                                  from 'zod-to-json-schema';
-import {buildZodSchema, buildOutputZodSchema, resolveRef} from './validation/openApiValidator.mjs';
+import * as yaml from 'js-yaml';
+import {buildZodSchema,
+        buildOutputZodSchema,
+        resolveRef,
+        toOpenApiJsonSchema}                              from './validation/openApiValidator.mjs';
 import Base                                               from '../../src/core/Base.mjs';
 
 /**
@@ -135,15 +137,12 @@ class ToolService_tmp extends Base {
                     const toolTier = operation['x-neo-tool-tier'] || null;
 
                     const inputZodSchema  = buildZodSchema(openApiDocument, operation);
-                    const inputJsonSchema = zodToJsonSchema(inputZodSchema, {
-                        target      : 'openApi3',
-                        $refStrategy: 'none'
-                    });
+                    const inputJsonSchema = toOpenApiJsonSchema(inputZodSchema);
 
                     const outputZodSchema = buildOutputZodSchema(openApiDocument, operation);
                     let outputJsonSchema  = null;
                     if (outputZodSchema) {
-                        outputJsonSchema = zodToJsonSchema(outputZodSchema);
+                        outputJsonSchema = toOpenApiJsonSchema(outputZodSchema);
                     }
 
                     const argNames = (operation.parameters || []).map(p => p.name);
