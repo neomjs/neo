@@ -1386,6 +1386,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             'memory-summary-backfill',
             'message-concept-harvest',
             'primary-dev-sync',
+            'tenant-repo-sync',
             'dream',
             'summary'
         ].sort());

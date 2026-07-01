@@ -66,6 +66,29 @@ test.describe('orchestrator/scheduling/registry (#11862 Sub 18)', () => {
         })).toBeNull();
     });
 
+    test('tenant-repo-sync is registered as an exclusive-heavy cloud-ingestion lane (#14400)', () => {
+        const descriptor = TASK_REGISTRY.find(d => d.taskName === 'tenant-repo-sync');
+        expect(descriptor, 'tenant-repo-sync is registered').toBeTruthy();
+        expect(descriptor.executionKind).toBe('service-runner');
+        expect(descriptor.maintenanceClass).toBe('heavy');
+        expect(descriptor.backpressure).toBe('exclusive-heavy');
+        expect(descriptor.dependencies).toEqual([]);
+        expect(descriptor.getDueTask({
+            state    : {'tenant-repo-sync': {lastRunAt: 0}},
+            now      : 6000,
+            intervals: {tenantRepoSync: 5000},
+            enables  : {tenantRepoSync: true},
+            hooks    : {}
+        })).toMatchObject({taskName: 'tenant-repo-sync'});
+        expect(descriptor.getDueTask({
+            state    : {'tenant-repo-sync': {lastRunAt: 2000}},
+            now      : 6000,
+            intervals: {tenantRepoSync: 5000},
+            enables  : {tenantRepoSync: true},
+            hooks    : {}
+        })).toBeNull();
+    });
+
     test('embed-drain-liveness-watchdog is registered as a read-only, no-backpressure health-check (#13551)', () => {
         const descriptor = TASK_REGISTRY.find(d => d.taskName === 'embed-drain-liveness-watchdog');
         expect(descriptor, 'embed-drain-liveness-watchdog is registered').toBeTruthy();

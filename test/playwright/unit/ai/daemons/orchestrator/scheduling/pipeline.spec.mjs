@@ -328,7 +328,7 @@ test.describe('orchestrator/scheduling/pipeline (#11862/#11900)', () => {
                 makeCandidateDescriptor({
                     taskName        : 'tenant-repo-sync',
                     executionKind   : 'service-runner',
-                    maintenanceClass: 'continuous'
+                    maintenanceClass: 'heavy'
                 })
             ],
             context : makeContext(),
@@ -811,6 +811,7 @@ test.describe('orchestrator/scheduling/pipeline staleness selector (#13586)', ()
     test('buildTaskStalenessMeta: builds {lastRunAt, cadenceMs} only for staleness-eligible candidates', () => {
         const candidates = [
             {taskName: 'summary'},
+            {taskName: 'tenant-repo-sync'},
             {taskName: 'golden-path'},
             {taskName: 'message-concept-harvest'},
             {taskName: 'swarm-heartbeat'},               // light → omitted
@@ -818,11 +819,13 @@ test.describe('orchestrator/scheduling/pipeline staleness selector (#13586)', ()
         ];
         const state = {
             summary                  : {lastRunAt: 5_000},
+            'tenant-repo-sync'       : {lastRunAt: 3_000},
             'golden-path'            : {lastRunAt: 1_000},
             'message-concept-harvest': {lastRunAt: 2_000}
         };
         const intervals = {
             summarySweep         : 600_000,
+            tenantRepoSync       : 60_000,
             goldenPath           : 3_600_000,
             messageConceptHarvest: 21_600_000
         };
@@ -831,6 +834,7 @@ test.describe('orchestrator/scheduling/pipeline staleness selector (#13586)', ()
 
         expect(meta).toEqual({
             summary                  : {lastRunAt: 5_000, cadenceMs: 600_000},
+            'tenant-repo-sync'       : {lastRunAt: 3_000, cadenceMs: 60_000},
             'golden-path'            : {lastRunAt: 1_000, cadenceMs: 3_600_000},
             'message-concept-harvest': {lastRunAt: 2_000, cadenceMs: 21_600_000}
         });
@@ -848,11 +852,11 @@ test.describe('orchestrator/scheduling/pipeline staleness selector (#13586)', ()
         expect(meta['memory-summary-backfill']).toEqual({lastRunAt: 0, cadenceMs: 600_000});
     });
 
-    test('TASK_STALENESS_CADENCE_KEY: excludes lightweight / health / continuous tasks', () => {
+    test('TASK_STALENESS_CADENCE_KEY: excludes lightweight / health tasks and includes tenant-repo-sync heavy work', () => {
         expect(TASK_STALENESS_CADENCE_KEY['swarm-heartbeat']).toBeUndefined();
         expect(TASK_STALENESS_CADENCE_KEY['embed-drain-liveness-watchdog']).toBeUndefined();
         expect(TASK_STALENESS_CADENCE_KEY['rem-consolidation-liveness-watchdog']).toBeUndefined();
-        expect(TASK_STALENESS_CADENCE_KEY['tenant-repo-sync']).toBeUndefined();
+        expect(TASK_STALENESS_CADENCE_KEY['tenant-repo-sync']).toBe('tenantRepoSync');
         expect(TASK_STALENESS_CADENCE_KEY['message-concept-harvest']).toBe('messageConceptHarvest');
         expect(TASK_STALENESS_CADENCE_KEY['golden-path']).toBe('goldenPath');
         expect(TASK_STALENESS_CADENCE_KEY.summary).toBe('summarySweep');
