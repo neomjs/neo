@@ -188,7 +188,7 @@ A freshly deployed Knowledge Base can be **healthy but empty**: `healthcheck` re
 
 For push-mode deployments, trigger the deployment's ingestion entry point once, then query again.
 
-For pull-mode deployments with configured `tenantRepos[]`, call `inspect_deployment` or `get_deployment_state_snapshot` and inspect the `tenantRepoSync` section before taking manual action. It distinguishes disabled, no configured repos, not-due, running, completed, failed, and degraded/unreadable state without exposing credentials or raw logs. If the task is configured but has not advanced, use the stable reason code and per-repo hashed state there to decide whether to wait for the next due sweep, fix credentials/config, or run `node ./ai/scripts/maintenance/syncTenantRepos.mjs` inside the orchestrator container.
+For pull-mode deployments with configured `tenantRepos[]`, call `inspect_deployment` or `get_deployment_state_snapshot` and inspect the `tenantRepoSync` section before taking manual action. It distinguishes disabled, no configured repos, not-due, running, completed, failed, and degraded/unreadable state without exposing credentials or raw logs. If the task is configured but has not advanced, use the stable reason code and per-repo hashed state there to decide whether to wait for the next due sweep, fix credentials/config, or run `node ./ai/scripts/maintenance/syncTenantRepos.mjs` inside the orchestrator container. When `lastErrorCode` is `KB_TENANT_REPO_SYNC_SYNC_FAILED`, check `lastSourceErrorCode`: `KB_GITMIRROR_CREDENTIAL_REF_INVALID`, `KB_GITMIRROR_CLONE_FAILED`, or `KB_GITMIRROR_FETCH_FAILED` points to the credential/ref/upstream access path before generic ingestion debugging.
 
 ## See also
 
