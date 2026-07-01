@@ -329,7 +329,16 @@ class AuthService extends Base {
                 username : user.name || user.username,
                 // Provenance tag read by RequestContextService.getSource(); distinguishes a GitLab-PAT
                 // identity from OIDC / stdio env-var / gh-CLI sources.
-                source   : 'gitlab-pat'
+                source   : 'gitlab-pat',
+                // Provider-neutral identity metadata consumed by Memory Core's request-time
+                // AgentIdentity auto-provisioner. The raw bearer token remains in AuthInfo only for
+                // the SDK middleware boundary and is never copied into graph identity properties.
+                authProvider       : 'gitlab',
+                authSource         : 'gitlab-pat',
+                providerBaseUrl    : apiBaseUrl,
+                providerUserId     : user.id == null ? undefined : String(user.id),
+                providerUsername   : user.username,
+                providerDisplayName: user.name || user.username
             }
         };
 

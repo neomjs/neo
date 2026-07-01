@@ -115,7 +115,9 @@ class Config extends ConfigProvider {
                 // Optional GitLab OAuth app binding for 'gitlab-pat' mode. Empty means no app gate.
                 allowedClientIds  : leaf([], 'NEO_AUTH_ALLOWED_CLIENT_IDS', 'csv'),
                 // Optional GitLab username allowlist for 'gitlab-pat' mode. Empty means any resolved GitLab user.
-                allowedUsers      : leaf([], 'NEO_AUTH_ALLOWED_USERS', 'csv')
+                allowedUsers      : leaf([], 'NEO_AUTH_ALLOWED_USERS', 'csv'),
+                // Auth provenance sources that may create missing AgentIdentity graph nodes at request time.
+                autoProvisionIdentitySources: leaf(['gitlab-pat'], 'NEO_AUTH_AUTO_PROVISION_IDENTITY_SOURCES', 'csv')
             },
             /**
              * @summary Deployment-wide chat / generation model provider.
