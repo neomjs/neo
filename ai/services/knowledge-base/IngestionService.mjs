@@ -1355,17 +1355,25 @@ class IngestionService extends Base {
             // non-empty array: a graph record / yaml entry that declares `tenantRepos: []`
             // intentionally means "no repos for this tenant" and MUST suppress lower tiers
             // wholesale — selecting on `length > 0` would leak lower-tier repos through.
-            let repos;
+            let repos,
+                configTier;
 
             if (graphRecord?.properties) {
-                repos = graphRecord.properties.tenantRepos || [];
+                repos       = graphRecord.properties.tenantRepos || [];
+                configTier  = 'graph';
             } else if (yamlEntry) {
-                repos = yamlEntry.tenantRepos || [];
+                repos       = yamlEntry.tenantRepos || [];
+                configTier  = 'yaml';
             } else {
-                repos = defaultRepos.filter(entry => (normalizeUserId(entry.tenantId) || entry.tenantId) === tenantId);
+                repos       = defaultRepos.filter(entry => (normalizeUserId(entry.tenantId) || entry.tenantId) === tenantId);
+                configTier  = 'aiConfig';
             }
 
-            repos.forEach(repo => effective.push(repo.tenantId ? repo : {...repo, tenantId}));
+            repos.forEach(repo => effective.push({
+                ...repo,
+                tenantId: repo.tenantId || tenantId,
+                configTier
+            }));
         }
 
         return normalizeTenantRepoConfig({tenantRepos: effective});

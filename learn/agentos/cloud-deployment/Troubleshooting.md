@@ -147,7 +147,11 @@ A healthy server returns `event: message` SSE framing carrying the JSON-RPC resu
 
 ## First query returns nothing — the empty-KB gap
 
-A freshly deployed Knowledge Base is **healthy but empty**: `healthcheck` reports `count: 0` and queries return nothing until an ingest runs. In the cloud-safe profile the continuous ingestion lane is off by design, so the first ingest is a deliberate step — trigger the deployment's ingestion entry point once, then queries return results. A `count: 0` immediately after deploy is expected, not a failure.
+A freshly deployed Knowledge Base can be **healthy but empty**: `healthcheck` reports `count: 0` and queries return nothing until an ingest writes chunks. Treat that as an ingestion-state question, not a Chroma readiness question.
+
+For push-mode deployments, trigger the deployment's ingestion entry point once, then query again.
+
+For pull-mode deployments with configured `tenantRepos[]`, call `inspect_deployment` or `get_deployment_state_snapshot` and inspect the `tenantRepoSync` section before taking manual action. It distinguishes disabled, no configured repos, not-due, running, completed, failed, and degraded/unreadable state without exposing credentials or raw logs. If the task is configured but has not advanced, use the stable reason code and per-repo hashed state there to decide whether to wait for the next due sweep, fix credentials/config, or run `node ./ai/scripts/maintenance/syncTenantRepos.mjs` inside the orchestrator container.
 
 ## See also
 

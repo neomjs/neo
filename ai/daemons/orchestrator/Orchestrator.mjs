@@ -396,10 +396,13 @@ export class Orchestrator extends Base {
      */
     beforeSetDeploymentStateBridgeService(value) {
         return ClassSystemUtil.beforeSetInstance(value, DeploymentStateBridgeService, {
-            runtimeAccessService: this.deploymentRuntimeAccessService,
-            diagnosisService    : this.containerHealthDiagnosisService,
-            healLedgerDir       : path.join(this.dataDir, 'data-heal-events'),
-            writeLog            : this.deploymentStateBridgeWriteLog
+            runtimeAccessService       : this.deploymentRuntimeAccessService,
+            diagnosisService           : this.containerHealthDiagnosisService,
+            taskStateService           : this.taskStateService,
+            tenantRepoSyncService      : this.tenantRepoSyncService,
+            tenantRepoSyncEnabledReader: () => this.tenantRepoSyncEnabled,
+            healLedgerDir              : path.join(this.dataDir, 'data-heal-events'),
+            writeLog                   : this.deploymentStateBridgeWriteLog
         });
     }
 
@@ -682,6 +685,9 @@ export class Orchestrator extends Base {
         if (oldValue === undefined) return;
         this.processSupervisorService.taskStateService       = value;
         this.maintenanceBackpressureService.taskStateService = value;
+        if (this.deploymentStateBridgeService) {
+            this.deploymentStateBridgeService.taskStateService = value;
+        }
     }
     afterSetHealthService(value, oldValue) {
         if (oldValue === undefined) return;
