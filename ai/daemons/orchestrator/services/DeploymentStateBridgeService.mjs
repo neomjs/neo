@@ -178,13 +178,15 @@ export class DeploymentStateBridgeService extends Base {
             services.push(await this.collectServiceSnapshot({serviceKey, observedAt: generatedAt}));
         }
 
-        const recoveryRuns   = await this.collectRecoveryRunSnapshot();
-        const selfHeal       = await this.collectSelfHealSnapshot();
-        const tenantRepoSync = await this.collectTenantRepoSyncSnapshot({observedAt: generatedAt});
+        const recoveryRuns      = await this.collectRecoveryRunSnapshot();
+        const selfHeal          = await this.collectSelfHealSnapshot();
+        const tenantRepoSync    = await this.collectTenantRepoSyncSnapshot({observedAt: generatedAt});
+        const bridgeDiagnostics = this.collectBridgeDiagnostics({services, observedAt: generatedAt});
 
         return createDeploymentStateSnapshot({
             generatedAt,
             services,
+            bridgeDiagnostics,
             recoveryRuns,
             selfHeal,
             tenantRepoSync
@@ -214,7 +216,7 @@ export class DeploymentStateBridgeService extends Base {
                 proofs.push(result.proof);
                 return result.data;
             } catch (error) {
-                errors.push({operation, message: error.message});
+                errors.push(summarizeRuntimeAccessError(error, {operation}));
                 return null;
             }
         };
@@ -259,6 +261,56 @@ export class DeploymentStateBridgeService extends Base {
             diagnosis,
             proofs,
             errors
+        };
+    }
+
+    /**
+     * Collects bridge-level diagnostics for broad runtime-access misconfiguration.
+     * @param {Object} options
+     * @param {Object[]} options.services Per-service deployment snapshots.
+     * @param {Number} options.observedAt Epoch ms.
+     * @returns {Object}
+     */
+    collectBridgeDiagnostics({services, observedAt}) {
+        const
+            serviceList          = Array.isArray(services) ? services : [],
+            degradedServices     = serviceList.filter(service => service.status === 'degraded'),
+            serviceFailureStates = serviceList.map(service => ({
+                serviceKey: service.serviceKey,
+                status    : service.status,
+                reasons   : unique((service.errors || []).map(error => error.reason).filter(Boolean))
+            })),
+            failureReasonCounts    = countBy(serviceList.flatMap(service => (service.errors || []).map(error => error.reason || 'unknown'))),
+            operationFailureCounts = countBy(serviceList.flatMap(service => (service.errors || []).map(error => error.operation || 'unknown'))),
+            lookupFailureCount     = serviceList.filter(hasLookupFailure).length,
+            allServicesDegraded    = serviceList.length > 0 && degradedServices.length === serviceList.length,
+            broadLookupFailure     = serviceList.length > 0 && lookupFailureCount === serviceList.length,
+            reason                 = broadLookupFailure
+                ? 'broad-service-lookup-failure'
+                : degradedServices.length > 0 ? 'partial-service-observation-failure' : null;
+
+        return {
+            schemaVersion: 1,
+            recordType   : 'deployment-state-bridge-diagnostics',
+            observedAt,
+            status       : degradedServices.length > 0 ? 'degraded' : 'available',
+            reason,
+            runtimeAccess: summarizeRuntimeAccessConfig(AiConfig.orchestrator.deploymentRuntimeAccess),
+            bridgeConfig : summarizeBridgeConfig({
+                bridgeConfig        : AiConfig.orchestrator.deploymentStateBridge,
+                effectiveServiceKeys: this.getServiceKeys()
+            }),
+            serviceResolution: {
+                serviceCount        : serviceList.length,
+                degradedServiceCount: degradedServices.length,
+                allServicesDegraded,
+                broadLookupFailure,
+                lookupFailureCount,
+                failureReasonCounts,
+                operationFailureCounts,
+                services            : serviceFailureStates
+            },
+            hints: buildBridgeHints({reason, failureReasonCounts})
         };
     }
 
@@ -609,6 +661,112 @@ function summarizeLogs(logs, maxBytes) {
         truncated: bounded.truncated,
         maxBytes : bounded.maxBytes
     };
+}
+
+function summarizeRuntimeAccessError(error, {operation}) {
+    return {
+        operation,
+        message: error.message,
+        reason : error.reason || 'runtime-access-error',
+        code   : error.code || null,
+        details: sanitizeRuntimeAccessDetails(error.details)
+    };
+}
+
+function sanitizeRuntimeAccessDetails(details) {
+    if (!details || typeof details !== 'object') {
+        return null;
+    }
+
+    return {
+        enabled             : Boolean(details.enabled),
+        mechanism           : details.mechanism || null,
+        composeProject      : details.composeProject || null,
+        allowedServices     : Array.isArray(details.allowedServices) ? [...details.allowedServices] : [],
+        readOperations      : Array.isArray(details.readOperations) ? [...details.readOperations] : [],
+        lifecycleOperations : Array.isArray(details.lifecycleOperations) ? [...details.lifecycleOperations] : [],
+        auditMode           : details.auditMode || null,
+        socketPathConfigured: Boolean(details.socketPathConfigured),
+        serviceKey          : details.serviceKey || null,
+        filters             : details.filters || null,
+        matchCount          : Number.isFinite(details.matchCount) ? details.matchCount : null,
+        hints               : Array.isArray(details.hints) ? unique(details.hints.filter(Boolean)) : []
+    };
+}
+
+function summarizeRuntimeAccessConfig(config = {}) {
+    return {
+        enabled             : Boolean(config.enabled),
+        mechanism           : config.mechanism || null,
+        composeProject      : config.composeProject || null,
+        allowedServices     : Array.isArray(config.allowedServices) ? [...config.allowedServices] : [],
+        readOperations      : Array.isArray(config.readOperations) ? [...config.readOperations] : [],
+        lifecycleOperations : Array.isArray(config.lifecycleOperations) ? [...config.lifecycleOperations] : [],
+        auditMode           : config.auditMode || null,
+        socketPathConfigured: Boolean(config.socketPath)
+    };
+}
+
+function summarizeBridgeConfig({bridgeConfig = {}, effectiveServiceKeys = []} = {}) {
+    return {
+        allowedServices             : Array.isArray(bridgeConfig.allowedServices) ? [...bridgeConfig.allowedServices] : [],
+        effectiveServiceKeys        : Array.isArray(effectiveServiceKeys) ? [...effectiveServiceKeys] : [],
+        includeLogs                 : Boolean(bridgeConfig.includeLogs),
+        logTail                     : Number.isFinite(bridgeConfig.logTail) ? bridgeConfig.logTail : null,
+        logMaxBytes                 : Number.isFinite(bridgeConfig.logMaxBytes) ? bridgeConfig.logMaxBytes : null,
+        statsSampleWindow           : Number.isFinite(bridgeConfig.statsSampleWindow) ? bridgeConfig.statsSampleWindow : null,
+        providerResidencyServiceKeys: Array.isArray(bridgeConfig.providerResidencyServiceKeys) ? [...bridgeConfig.providerResidencyServiceKeys] : []
+    };
+}
+
+function hasLookupFailure(service) {
+    return (service.errors || []).some(error => [
+        'compose-service-no-match',
+        'compose-service-ambiguous',
+        'docker-socket-forbidden',
+        'docker-socket-unavailable',
+        'docker-container-list-failed',
+        'docker-container-list-invalid-json',
+        'docker-container-list-invalid-shape',
+        'runtime-access-disabled',
+        'runtime-mechanism-unsupported',
+        'runtime-sidecar-unimplemented',
+        'runtime-service-not-allowlisted'
+    ].includes(error.reason));
+}
+
+function buildBridgeHints({reason, failureReasonCounts}) {
+    const hints = [];
+
+    if (reason === 'broad-service-lookup-failure') {
+        hints.push('All observed services failed runtime lookup; verify the orchestrator Docker socket mount and Compose project/service labels before investigating individual services.');
+    }
+
+    if (failureReasonCounts['compose-service-no-match']) {
+        hints.push('If the stack uses a non-default Compose project, set NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT to the project label shown by Docker Compose.');
+        hints.push('Ensure NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES and NEO_DEPLOYMENT_STATE_BRIDGE_ALLOWED_SERVICES name Docker com.docker.compose.service labels, not container names.');
+    }
+
+    if (failureReasonCounts['compose-service-ambiguous']) {
+        hints.push('Multiple containers matched a service label; configure NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT to disambiguate.');
+    }
+
+    if (failureReasonCounts['docker-socket-unavailable'] || failureReasonCounts['docker-socket-forbidden']) {
+        hints.push('Mount /var/run/docker.sock into the orchestrator with sufficient read permissions when B1 runtime diagnostics are intended, or disable runtime access explicitly.');
+    }
+
+    return unique(hints);
+}
+
+function countBy(values) {
+    return values.reduce((acc, value) => {
+        acc[value] = (acc[value] || 0) + 1;
+        return acc;
+    }, {});
+}
+
+function unique(values) {
+    return [...new Set(values)];
 }
 
 function isSafeServiceKey(value) {

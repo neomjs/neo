@@ -17,6 +17,7 @@ const DEFAULT_STALE_AFTER_MS     = 2 * 60 * 1000;
  * @param {Number} [options.generatedAt=Date.now()] Snapshot timestamp in epoch ms.
  * @param {String} [options.source='orchestrator-deployment-state-bridge'] Producer label.
  * @param {Object[]} [options.services=[]] Bounded per-service snapshots.
+ * @param {Object|null} [options.bridgeDiagnostics=null] Bounded bridge-level runtime-access diagnosis.
  * @param {Object|null} [options.recoveryRuns=null] Bounded recovery-run ledger snapshot.
  * @param {Object|null} [options.selfHeal=null] Bounded self-heal immune-system status (heal-ledger summary + recent events).
  * @param {Object|null} [options.tenantRepoSync=null] Bounded tenant-repo-sync scheduler/task/config snapshot.
@@ -26,6 +27,7 @@ export function createDeploymentStateSnapshot({
     generatedAt = Date.now(),
     source = 'orchestrator-deployment-state-bridge',
     services = [],
+    bridgeDiagnostics = null,
     recoveryRuns = null,
     selfHeal = null,
     tenantRepoSync = null
@@ -44,6 +46,7 @@ export function createDeploymentStateSnapshot({
         generatedAt,
         source,
         services,
+        bridgeDiagnostics,
         recoveryRuns,
         selfHeal,
         tenantRepoSync
