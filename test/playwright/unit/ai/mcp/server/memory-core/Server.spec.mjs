@@ -27,8 +27,10 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
     let GraphService;
     let aiConfig;
     let hadGraphStoragePath;
+    let hadGraphTestStoragePath;
     let hadStoragePaths;
     let originalGraphStoragePath;
+    let originalGraphTestStoragePath;
     const testDbName = `memory-core-server-test-${process.pid}-${Date.now()}.sqlite`;
     let testDbPath;
 
@@ -48,6 +50,11 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         return serverInstance;
     }
 
+    function rawGraphNode(id) {
+        const row = GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(id);
+        return row ? JSON.parse(row.data) : null;
+    }
+
     test.beforeAll(async () => {
         aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
 
@@ -59,10 +66,13 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
 
         hadStoragePaths       = Boolean(aiConfig.storagePaths);
         hadGraphStoragePath  = Object.prototype.hasOwnProperty.call(aiConfig.storagePaths || {}, 'graph');
+        hadGraphTestStoragePath = Object.prototype.hasOwnProperty.call(aiConfig.storagePaths || {}, 'graphTest');
         originalGraphStoragePath = aiConfig.storagePaths?.graph;
+        originalGraphTestStoragePath = aiConfig.storagePaths?.graphTest;
 
         if (!aiConfig.storagePaths) aiConfig.storagePaths = {};
         aiConfig.storagePaths.graph = testDbPath;
+        aiConfig.storagePaths.graphTest = testDbPath;
 
         Server = (await import('../../../../../../../ai/mcp/server/memory-core/Server.mjs')).default;
         GraphService = (await import('../../../../../../../ai/services/memory-core/GraphService.mjs')).default;
@@ -89,6 +99,14 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
             aiConfig.storagePaths.graph = originalGraphStoragePath;
         } else {
             delete aiConfig.storagePaths.graph;
+        }
+
+        if (hadStoragePaths) {
+            if (hadGraphTestStoragePath) {
+                aiConfig.storagePaths.graphTest = originalGraphTestStoragePath;
+            } else {
+                delete aiConfig.storagePaths.graphTest;
+            }
         }
     });
 
@@ -174,14 +192,246 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         serverInstance.destroy();
     });
 
-    test('#12199: onSessionClosed writes a pending summarization marker without summarizing inline', async () => {
-        const SDK = await import('../../../../../../../ai/services.mjs');
-        const serverInstance = await createServerWithoutBoot();
-        const mcpServerInstance = {id: 'mcp-session-server'};
-        const calls = [];
-        const removed = [];
+    test('#14388: GitLab-PAT request context auto-provisions a missing AgentIdentity', async () => {
+        await GraphService.initAsync();
 
-        const originalQueue = SDK.Memory_SessionService.queueSummarizationJob;
+        const serverInstance = await createServerWithoutBoot();
+
+        try {
+            const context = await serverInstance.buildRequestContext({
+                token              : 'glpat-secret-never-store',
+                userId             : 'gitlab-agent-14388',
+                username           : 'GitLab Agent 14388',
+                source             : 'gitlab-pat',
+                authProvider       : 'gitlab',
+                authSource         : 'gitlab-pat',
+                providerBaseUrl    : 'https://gitlab.example.com',
+                providerUserId     : 42001,
+                providerUsername   : 'gitlab-agent-14388',
+                providerDisplayName: 'GitLab Agent 14388'
+            });
+
+            expect(context).toMatchObject({
+                userId             : 'gitlab-agent-14388',
+                username           : 'GitLab Agent 14388',
+                agentIdentityNodeId: '@gitlab-agent-14388',
+                source             : 'gitlab-pat'
+            });
+
+            const [{default: RequestContextService}, {default: PermissionService}] = await Promise.all([
+                import('../../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs'),
+                import('../../../../../../../ai/services/memory-core/PermissionService.mjs')
+            ]);
+            const permissions = await RequestContextService.run(context, () => PermissionService.listPermissions());
+
+            expect(permissions.identity).toBe('@gitlab-agent-14388');
+
+            const node = rawGraphNode('@gitlab-agent-14388');
+
+            expect(node.label).toBe('AgentIdentity');
+            expect(node.properties.userId).toBeNull();
+            expect(node.properties.accountType).toBe('agent');
+            expect(node.properties.participationStatus).toBe('active');
+            expect(node.properties.trustTier).toBe('internal-authored');
+            expect(node.properties.authProvider).toBe('gitlab');
+            expect(node.properties.authSource).toBe('gitlab-pat');
+            expect(node.properties.providerBaseUrl).toBe('https://gitlab.example.com');
+            expect(node.properties.providerUserId).toBe('42001');
+            expect(node.properties.providerUsername).toBe('gitlab-agent-14388');
+            expect(node.properties.providerDisplayName).toBe('GitLab Agent 14388');
+            expect(node.properties.autoProvisioned).toBe(true);
+            expect(node.properties.createdAt).toBeTruthy();
+            expect(node.properties.lastAuthenticatedAt).toBeTruthy();
+            expect(JSON.stringify(node)).not.toContain('glpat-secret-never-store');
+        } finally {
+            serverInstance.destroy();
+        }
+    });
+
+    test('#14388: existing AgentIdentity is reused without provider metadata overwrite', async () => {
+        await GraphService.initAsync();
+
+        GraphService.upsertGlobalNode({
+            id        : '@existing-gitlab-agent-14388',
+            type      : 'AgentIdentity',
+            name      : 'Existing Agent',
+            properties: {
+                githubLogin: '@existing-gitlab-agent-14388',
+                accountType: 'agent',
+                trustTier  : 'peer-trusted',
+                customField: 'preserve-me',
+                createdAt  : '2026-01-01T00:00:00.000Z'
+            }
+        });
+
+        const serverInstance = await createServerWithoutBoot();
+
+        try {
+            const context = await serverInstance.buildRequestContext({
+                userId             : 'existing-gitlab-agent-14388',
+                username           : 'Provider Display',
+                source             : 'gitlab-pat',
+                providerBaseUrl    : 'https://gitlab.example.com',
+                providerUsername   : 'existing-gitlab-agent-14388',
+                providerDisplayName: 'Provider Display'
+            });
+
+            expect(context.agentIdentityNodeId).toBe('@existing-gitlab-agent-14388');
+
+            const node = rawGraphNode('@existing-gitlab-agent-14388');
+
+            expect(node.properties.githubLogin).toBe('@existing-gitlab-agent-14388');
+            expect(node.properties.trustTier).toBe('peer-trusted');
+            expect(node.properties.customField).toBe('preserve-me');
+            expect(node.properties.createdAt).toBe('2026-01-01T00:00:00.000Z');
+            expect(node.properties.lastAuthenticatedAt).toBeTruthy();
+            expect(node.properties.autoProvisioned).toBeUndefined();
+            expect(node.properties.providerBaseUrl).toBeUndefined();
+        } finally {
+            serverInstance.destroy();
+        }
+    });
+
+    test('#14388: malformed GitLab-PAT user ids and node-type collisions fail closed', async () => {
+        await GraphService.initAsync();
+
+        GraphService.upsertGlobalNode({
+            id        : '@colliding-gitlab-agent-14388',
+            type      : 'ISSUE',
+            name      : 'Colliding Issue',
+            properties: {createdAt: '2026-01-01T00:00:00.000Z'}
+        });
+
+        const serverInstance = await createServerWithoutBoot();
+
+        try {
+            await expect(serverInstance.buildRequestContext({
+                userId: 'bad/path',
+                source: 'gitlab-pat'
+            })).rejects.toThrow('not a valid provider username');
+
+            await expect(serverInstance.buildRequestContext({
+                userId: 'colliding-gitlab-agent-14388',
+                source: 'gitlab-pat'
+            })).rejects.toThrow('collides with existing ISSUE node');
+        } finally {
+            serverInstance.destroy();
+        }
+    });
+
+    test('#14388: auto-provisioning is gated to validated GitLab-PAT auth context', async () => {
+        await GraphService.initAsync();
+
+        const serverInstance = await createServerWithoutBoot();
+
+        try {
+            await expect(serverInstance.buildRequestContext()).resolves.toEqual({});
+
+            const context = await serverInstance.buildRequestContext({
+                userId  : 'oidc-agent-14388',
+                username: 'OIDC Agent',
+                source  : 'oidc'
+            });
+
+            expect(context).toMatchObject({
+                userId             : 'oidc-agent-14388',
+                username           : 'OIDC Agent',
+                agentIdentityNodeId: null,
+                source             : 'oidc'
+            });
+            expect(rawGraphNode('@oidc-agent-14388')).toBeNull();
+        } finally {
+            serverInstance.destroy();
+        }
+    });
+
+    test('#14388: concurrent first GitLab-PAT logins converge on one durable identity', async () => {
+        await GraphService.initAsync();
+
+        const serverInstance = await createServerWithoutBoot();
+
+        try {
+            const reqAuth = {
+                userId             : 'concurrent-gitlab-agent-14388',
+                username           : 'Concurrent Agent',
+                source             : 'gitlab-pat',
+                providerBaseUrl    : 'https://gitlab.example.com',
+                providerUserId     : 1438801,
+                providerUsername   : 'concurrent-gitlab-agent-14388',
+                providerDisplayName: 'Concurrent Agent'
+            };
+
+            const [first, second] = await Promise.all([
+                serverInstance.buildRequestContext(reqAuth),
+                serverInstance.buildRequestContext(reqAuth)
+            ]);
+
+            expect(first.agentIdentityNodeId).toBe('@concurrent-gitlab-agent-14388');
+            expect(second.agentIdentityNodeId).toBe('@concurrent-gitlab-agent-14388');
+
+            const count = GraphService.db.storage.db
+                .prepare('SELECT COUNT(*) as count FROM Nodes WHERE id = ?')
+                .get('@concurrent-gitlab-agent-14388')
+                .count;
+
+            expect(count).toBe(1);
+        } finally {
+            serverInstance.destroy();
+        }
+    });
+
+    test('#14388: a separate graph process can observe the provisioned SQLite identity', async () => {
+        await GraphService.initAsync();
+
+        const serverInstance = await createServerWithoutBoot();
+
+        try {
+            await serverInstance.buildRequestContext({
+                userId             : 'orchestrator-visible-agent-14388',
+                username           : 'Orchestrator Visible Agent',
+                source             : 'gitlab-pat',
+                providerBaseUrl    : 'https://gitlab.example.com',
+                providerUsername   : 'orchestrator-visible-agent-14388',
+                providerDisplayName: 'Orchestrator Visible Agent'
+            });
+
+            expect(rawGraphNode('@orchestrator-visible-agent-14388')).toBeTruthy();
+
+            const {default: Database} = await import('better-sqlite3');
+            const peerDb              = new Database(GraphService.db.storage.db.name, {readonly: true});
+
+            try {
+                const row = peerDb
+                    .prepare('SELECT data FROM Nodes WHERE id = ?')
+                    .get('@orchestrator-visible-agent-14388');
+                const log = peerDb
+                    .prepare('SELECT entity_id, entity_type FROM GraphLog WHERE entity_id = ? ORDER BY log_id DESC LIMIT 1')
+                    .get('@orchestrator-visible-agent-14388');
+                const node = row ? JSON.parse(row.data) : null;
+
+                expect(node).toBeTruthy();
+                expect(node.label).toBe('AgentIdentity');
+                expect(node.properties.providerUsername).toBe('orchestrator-visible-agent-14388');
+                expect(log).toEqual({
+                    entity_id  : '@orchestrator-visible-agent-14388',
+                    entity_type: 'nodes'
+                });
+            } finally {
+                peerDb.close();
+            }
+        } finally {
+            serverInstance.destroy();
+        }
+    });
+
+    test('#12199: onSessionClosed writes a pending summarization marker without summarizing inline', async () => {
+        const SDK               = await import('../../../../../../../ai/services.mjs');
+        const serverInstance    = await createServerWithoutBoot();
+        const mcpServerInstance = {id: 'mcp-session-server'};
+        const calls             = [];
+        const removed           = [];
+
+        const originalQueue  = SDK.Memory_SessionService.queueSummarizationJob;
         const originalRemove = SDK.Memory_CoalescingEngineService.removeMcpServer;
 
         SDK.Memory_SessionService.queueSummarizationJob = (sessionId) => {
@@ -206,10 +456,10 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
 
     test('#12838: mailbox + add_memory bypass the summary-degraded health gate (never-fail WAL); embed-dependent reads do not', async () => {
         const serverInstance = await createServerWithoutBoot();
-        const handlers = new Map();
-        const healthCalls = [];
-        const toolCalls = [];
-        const degradedError = new Error([
+        const handlers       = new Map();
+        const healthCalls    = [];
+        const toolCalls      = [];
+        const degradedError  = new Error([
             'Memory Core is not fully operational:',
             "  - Summary provider 'gemini' requires GEMINI_API_KEY - summarization features unavailable"
         ].join('\n'));
@@ -317,10 +567,10 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
 
     test('#12978: non-embedding reads (get_session_memories, query_recent_turns) bypass the embedder-degraded health gate; embed-dependent reads do not', async () => {
         const serverInstance = await createServerWithoutBoot();
-        const handlers = new Map();
-        const healthCalls = [];
-        const toolCalls = [];
-        const degradedError = new Error([
+        const handlers       = new Map();
+        const healthCalls    = [];
+        const toolCalls      = [];
+        const degradedError  = new Error([
             'Memory Core is not fully operational:',
             "  - Summary provider 'gemini' requires GEMINI_API_KEY - summarization features unavailable"
         ].join('\n'));
@@ -407,10 +657,10 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
 
     test('#14124: read-only diagnostics (get_rem_pipeline_state) bypass the embedder-degraded health gate; embedding queries still gate', async () => {
         const serverInstance = await createServerWithoutBoot();
-        const handlers      = new Map();
-        const healthCalls   = [];
-        const toolCalls     = [];
-        const degradedError = new Error([
+        const handlers       = new Map();
+        const healthCalls    = [];
+        const toolCalls      = [];
+        const degradedError  = new Error([
             'Memory Core is not fully operational:',
             '  - Embedding write canary timed out after 5000ms'
         ].join('\n'));
@@ -515,12 +765,12 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
     });
 
     test('#13312: boot keeps MCP handlers available when graph startup tiers degrade', async () => {
-        const SDK = await import('../../../../../../../ai/services.mjs');
-        const HealthService = (await import('../../../../../../../ai/services/memory-core/HealthService.mjs')).default;
-        const serverInstance = Neo.create('Neo.ai.mcp.server.memory-core.Server');
-        const calls = [];
-        const startupStates = [];
-        const wakeFailure = new Error('attempt to write a readonly database');
+        const SDK                   = await import('../../../../../../../ai/services.mjs');
+        const HealthService         = (await import('../../../../../../../ai/services/memory-core/HealthService.mjs')).default;
+        const serverInstance        = Neo.create('Neo.ai.mcp.server.memory-core.Server');
+        const calls                 = [];
+        const startupStates         = [];
+        const wakeFailure           = new Error('attempt to write a readonly database');
         const originalServerMethods = new Map([
             'loadCustomConfig',
             'createMcpServer',
@@ -545,12 +795,12 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         serverInstance.logIdentityStatus = () => calls.push('logIdentityStatus');
         serverInstance.logSiblingConcurrency = () => calls.push('logSiblingConcurrency');
 
-        const originalWakeInit = SDK.Memory_WakeSubscriptionService.init;
-        const originalInferenceReady = SDK.Memory_InferenceLifecycleService.ready;
-        const originalSessionReady = SDK.Memory_SessionService.ready;
-        const originalRecorderInitAsync = SDK.Memory_RecorderService.initAsync;
+        const originalWakeInit                = SDK.Memory_WakeSubscriptionService.init;
+        const originalInferenceReady          = SDK.Memory_InferenceLifecycleService.ready;
+        const originalSessionReady            = SDK.Memory_SessionService.ready;
+        const originalRecorderInitAsync       = SDK.Memory_RecorderService.initAsync;
         const originalRecordStartupDependency = HealthService.recordStartupDependency;
-        const originalSetStdioIdentityState = HealthService.setStdioIdentityState;
+        const originalSetStdioIdentityState   = HealthService.setStdioIdentityState;
 
         SDK.Memory_WakeSubscriptionService.init = async () => {
             calls.push('wakeInit');
