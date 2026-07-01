@@ -1,14 +1,17 @@
-import aiConfig             from '../../mcp/server/knowledge-base/config.mjs';
-import Base                 from '../../../src/core/Base.mjs';
-import {buildChatModel}     from '../../provider/buildChatModel.mjs';
-import {PROVIDER_TIMEOUT_CODE} from '../../provider/createTimeoutError.mjs';
-import ChromaManager        from './ChromaManager.mjs';
-import fs                   from 'fs-extra';
-import logger               from '../../mcp/server/knowledge-base/logger.mjs';
-import path                 from 'path';
-import QueryService         from './QueryService.mjs';
-import {checkAskRateLimit}  from './helpers/askRateLimit.mjs';
+import aiConfig                       from '../../mcp/server/knowledge-base/config.mjs';
+import Base                           from '../../../src/core/Base.mjs';
+import {buildChatModel}               from '../../provider/buildChatModel.mjs';
+import {PROVIDER_TIMEOUT_CODE}        from '../../provider/createTimeoutError.mjs';
+import ChromaManager                  from './ChromaManager.mjs';
+import fs                             from 'fs-extra';
+import logger                         from '../../mcp/server/knowledge-base/logger.mjs';
+import path                           from 'path';
+import QueryService                   from './QueryService.mjs';
+import {checkAskRateLimit}            from './helpers/askRateLimit.mjs';
 import {getMissingAskSynthesisLeaves} from './helpers/askSynthesisGuard.mjs';
+
+const LOCAL_EMPTY_COLLECTION_ANSWER  = "The knowledge base collection is empty. Populate it with the release artifact via 'npm run ai:download-kb' (or build locally with 'npm run ai:sync-kb').";
+const REMOTE_EMPTY_COLLECTION_ANSWER = "The knowledge base collection is empty. In a cloud or remote tenant-ingestion deployment, inspect ingestion state first: call get_ingestion_progress(), then inspect_deployment or get_deployment_state_snapshot for tenantRepoSync / deployment-state details. For push-mode tenants, run the configured ingest_source_files or bulk tenant-ingest path before retrying the query.";
 
 /**
  * @summary Orchestrates Retrieval-Augmented Generation (RAG) by combining semantic search with LLM synthesis.
@@ -101,11 +104,11 @@ class SearchService extends Base {
         const ask = aiConfig.askSynthesis;
 
         this.model = buildChatModel({
-            modelProvider          : ask.provider,
-            openAiCompatibleConfig : {...aiConfig.openAiCompatible, ...(ask.baseUrl ? {host: ask.baseUrl} : {}), model: ask.model},
-            ollamaConfig           : {...aiConfig.ollama, ...(ask.baseUrl ? {host: ask.baseUrl} : {}), model: ask.model},
-            geminiApiKey           : ask.apiKey,
-            geminiModelName        : ask.model
+            modelProvider         : ask.provider,
+            openAiCompatibleConfig: {...aiConfig.openAiCompatible, ...(ask.baseUrl ? {host: ask.baseUrl} : {}), model: ask.model},
+            ollamaConfig          : {...aiConfig.ollama, ...(ask.baseUrl ? {host: ask.baseUrl} : {}), model: ask.model},
+            geminiApiKey          : ask.apiKey,
+            geminiModelName       : ask.model
         });
     }
 
@@ -148,6 +151,20 @@ class SearchService extends Base {
         }
 
         return metadata.tenantId !== defaultTenantId;
+    }
+
+    /**
+     * Returns the operator-facing answer for a healthy but empty KB collection.
+     *
+     * Local stdio deployments need the curated Neo corpus download/sync hint. Remote SSE deployments
+     * expose tenant-ingestion tools, so an empty collection is first an ingestion-state diagnostic.
+     *
+     * @returns {String} The empty-collection remediation message.
+     */
+    getEmptyCollectionAnswer() {
+        return aiConfig.transport === 'sse'
+            ? REMOTE_EMPTY_COLLECTION_ANSWER
+            : LOCAL_EMPTY_COLLECTION_ANSWER;
     }
 
     /**
@@ -224,7 +241,7 @@ class SearchService extends Base {
         const degradedCode = code || (isTimeout ? 'synthesis_timeout' : 'synthesis_failed');
 
         return {
-            answer: `Knowledge-base retrieval succeeded, but answer synthesis is currently unavailable (${reason}). Use the references directly while the synthesis provider recovers.`,
+            answer  : `Knowledge-base retrieval succeeded, but answer synthesis is currently unavailable (${reason}). Use the references directly while the synthesis provider recovers.`,
             references,
             degraded: true,
             degradedCode,
@@ -273,7 +290,7 @@ class SearchService extends Base {
 
             return {
                 answer: count === 0
-                    ? "The knowledge base collection is empty. Populate it with the release artifact via 'npm run ai:download-kb' (or build locally with 'npm run ai:sync-kb')."
+                    ? this.getEmptyCollectionAnswer()
                     : "No relevant documents found in the knowledge base.",
                 references: []
             };
@@ -351,7 +368,7 @@ Instructions:
         // Interactive use sits far below the cap; a scripted runaway (the incident class) trips it and we
         // return the degraded references instead of issuing the (costly) remote call. State lives on the
         // singleton; the rate check is a pure helper (`checkAskRateLimit`) for isolated, mutation-free testing.
-        const nowMs = Date.now();
+        const nowMs           = Date.now();
         const {limited, kept} = checkAskRateLimit(this.askCallTimestamps, nowMs, aiConfig.askSynthesis.maxCallsPerMinute);
         this.askCallTimestamps = kept;
         if (limited) {
