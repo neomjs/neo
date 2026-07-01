@@ -84,6 +84,13 @@ function createGraphStub() {
         getNodeRecord({id}) {
             return store.has(id) ? {...store.get(id)} : null;
         },
+        listNodeRecordsByType({type, idPrefix}) {
+            const records = [...store.values()]
+                .filter(record => record.type === type && (!idPrefix || record.id.startsWith(idPrefix)))
+                .map(record => ({...record, properties: {...record.properties}}));
+
+            return {records};
+        },
         async upsertNode({id, type, properties}) {
             store.set(id, {id, type, properties: {...properties}});
         }
@@ -997,10 +1004,7 @@ test.describe('IngestionService.listConfiguredTenantRepos (#12145)', () => {
         });
     });
 
-    test('derives the tenant set from keyed tiers only — a graph-only tenant is not enumerated (no raw node scan)', async () => {
-        // A graph-only tenant (no yaml/aiConfig entry) is out of scope until a setTenantConfig
-        // operator tool exists. The resolver reads graph nodes per-tenant via getNodeRecord for
-        // tenants in the keyed set; it must NOT discover a node by scanning all graph rows.
+    test('includes graph-only tenantRepos discovered through the graph service enumeration surface', async () => {
         seedGraphConfig('graph-only-tenant', [{cloneUrl: 'https://github.com/neomjs/x.git', credentialRef: 'env:X'}]);
         Service.readKbConfigBootstrap = () => ({
             tenants: {'tenant-a': {tenantRepos: [{cloneUrl: 'https://github.com/neomjs/a.git', credentialRef: 'env:A'}]}}
@@ -1008,9 +1012,17 @@ test.describe('IngestionService.listConfiguredTenantRepos (#12145)', () => {
 
         const {tenantRepos} = await Service.listConfiguredTenantRepos();
 
-        expect(tenantRepos).toHaveLength(1);
-        expect(tenantRepos[0].tenantId).toBe('tenant-a');
-        expect(tenantRepos.some(r => r.cloneUrl.includes('/x.git'))).toBe(false);
+        expect(tenantRepos).toHaveLength(2);
+        expect(tenantRepos.find(r => r.tenantId === 'tenant-a')).toMatchObject({
+            cloneUrl  : 'https://github.com/neomjs/a.git',
+            configTier: 'yaml'
+        });
+        expect(tenantRepos.find(r => r.tenantId === 'graph-only-tenant')).toMatchObject({
+            cloneUrl     : 'https://github.com/neomjs/x.git',
+            credentialRef: 'env:X',
+            repoSlug     : 'github.com/neomjs/x',
+            configTier   : 'graph'
+        });
     });
 
     test('propagates the access-contract rejection for a yaml entry missing credentialRef', async () => {
@@ -1019,6 +1031,19 @@ test.describe('IngestionService.listConfiguredTenantRepos (#12145)', () => {
         });
 
         await expect(Service.listConfiguredTenantRepos()).rejects.toThrow();
+    });
+
+    test('propagates graph-only tenantRepos normalization failures', async () => {
+        seedGraphConfig('graph-only-tenant', [{cloneUrl: 'https://github.com/neomjs/x.git'}]);
+
+        await expect(Service.listConfiguredTenantRepos()).rejects.toThrow();
+    });
+
+    test('fails loud when graph-tier tenant discovery is unavailable', async () => {
+        delete graphStub.listNodeRecordsByType;
+        Service.readKbConfigBootstrap = () => ({tenants: {'tenant-a': {tenantRepos: []}}});
+
+        await expect(Service.listConfiguredTenantRepos()).rejects.toThrow('GraphService.listNodeRecordsByType');
     });
 
     test('returns an empty array when no tenant declares tenantRepos', async () => {

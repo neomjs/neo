@@ -12,16 +12,16 @@ import RequestContextService,
 import SourceRegistry       from './source/_export.mjs';
 import {normalizeTenantRepoConfig}
                             from './helpers/tenantRepoAccessContract.mjs';
-import VectorService        from './VectorService.mjs';
-import aiConfig             from '../../mcp/server/knowledge-base/config.mjs';
-import crypto               from 'crypto';
-import fs                   from 'fs-extra';
-import logger               from '../../mcp/server/knowledge-base/logger.mjs';
-import mcConfig             from '../../mcp/server/memory-core/config.mjs';
-import os                   from 'os';
-import path                 from 'path';
+import VectorService   from './VectorService.mjs';
+import aiConfig        from '../../mcp/server/knowledge-base/config.mjs';
+import crypto          from 'crypto';
+import fs              from 'fs-extra';
+import logger          from '../../mcp/server/knowledge-base/logger.mjs';
+import mcConfig        from '../../mcp/server/memory-core/config.mjs';
+import os              from 'os';
+import path            from 'path';
 import * as yaml       from 'js-yaml';
-import {fileURLToPath}      from 'url';
+import {fileURLToPath} from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -1326,18 +1326,31 @@ class IngestionService extends Base {
      * `getTenantConfig` uses, never a raw node scan. `kb-config:*` nodes carry `visibility:'team'`,
      * so the context-less orchestrator resolves them while per-tenant ownership isolation is preserved.
      *
-     * The tenant set is derived from the keyed tiers: `kb-config.yaml` `tenants.*` keys plus the
-     * distinct `tenantId`s in `aiConfig.tenantRepos[]`. A tenant configured ONLY via a graph node
-     * (no yaml / aiConfig entry) is out of scope until a `setTenantConfig` operator tool exists.
+     * The tenant set is derived from graph-tier `KnowledgeBaseTenantConfig` records, `kb-config.yaml`
+     * `tenants.*` keys, plus the distinct `tenantId`s in `aiConfig.tenantRepos[]`. Graph-tier
+     * enumeration stays inside `GraphService.listNodeRecordsByType()` so the resolver does not issue
+     * raw graph scans or bypass the graph service's RLS/visibility boundary.
      * @returns {Promise<{tenantRepos: Array<Object>}>} Contract-normalized; throws on a malformed entry.
      */
     async listConfiguredTenantRepos() {
         await this.graphService.initAsync();
 
-        const bootstrap    = this.readKbConfigBootstrap(),
-              yamlTenants  = (bootstrap && bootstrap.tenants) || {},
-              defaultRepos = Array.isArray(aiConfig.tenantRepos) ? aiConfig.tenantRepos : [],
-              tenantIds    = new Set();
+        const bootstrap       = this.readKbConfigBootstrap(),
+              yamlTenants     = (bootstrap && bootstrap.tenants) || {},
+              defaultRepos    = Array.isArray(aiConfig.tenantRepos) ? aiConfig.tenantRepos : [],
+              graphRecords    = this.listTenantConfigRecords(),
+              graphByTenantId = new Map(),
+              tenantIds       = new Set();
+
+        graphRecords.forEach(record => {
+            const rawTenantId = record?.properties?.tenantId || record?.id?.slice('kb-config:'.length),
+                  tenantId    = rawTenantId ? (normalizeUserId(rawTenantId) || rawTenantId) : null;
+
+            if (tenantId) {
+                tenantIds.add(tenantId);
+                graphByTenantId.set(tenantId, record);
+            }
+        });
 
         Object.keys(yamlTenants).forEach(key => tenantIds.add(key));
         defaultRepos.forEach(entry => {
@@ -1348,7 +1361,7 @@ class IngestionService extends Base {
         const effective = [];
 
         for (const tenantId of tenantIds) {
-            const graphRecord = this.graphService.getNodeRecord({id: `kb-config:${tenantId}`}),
+            const graphRecord = graphByTenantId.get(tenantId) || this.graphService.getNodeRecord({id: `kb-config:${tenantId}`}),
                   yamlEntry   = yamlTenants[tenantId];
 
             // Tier winner is chosen by tier PRESENCE (matching getTenantConfig), NOT by a
@@ -1377,6 +1390,27 @@ class IngestionService extends Base {
         }
 
         return normalizeTenantRepoConfig({tenantRepos: effective});
+    }
+
+    /**
+     * @summary Lists visible graph-tier tenant config records for pull-mode tenant-repo discovery.
+     *
+     * Pull-mode sync needs to discover tenants that exist only in the graph tier. The graph service
+     * owns the RLS-aware type enumeration; this method deliberately fails loud when that sanctioned
+     * surface is unavailable instead of silently degrading to "no configured repos".
+     * @returns {Object[]} Visible `KnowledgeBaseTenantConfig` records.
+     */
+    listTenantConfigRecords() {
+        if (typeof this.graphService.listNodeRecordsByType !== 'function') {
+            throw new Error('GraphService.listNodeRecordsByType is required for tenant config discovery.');
+        }
+
+        const result = this.graphService.listNodeRecordsByType({
+            type    : 'KnowledgeBaseTenantConfig',
+            idPrefix: 'kb-config:'
+        });
+
+        return Array.isArray(result?.records) ? result.records : [];
     }
 
     /**
@@ -1561,7 +1595,7 @@ class IngestionService extends Base {
      * @protected
      */
     async writeTempJsonl(chunks) {
-        const dir = path.join(os.tmpdir(), 'neo-kb-ingestion');
+        const dir  = path.join(os.tmpdir(), 'neo-kb-ingestion');
         const file = path.join(dir, `ingest-${process.pid}-${Date.now()}-${crypto.randomUUID()}.jsonl`);
 
         await fs.ensureDir(dir);
