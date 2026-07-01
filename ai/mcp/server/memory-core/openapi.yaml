@@ -204,7 +204,9 @@ paths:
         or any public daemon/orchestrator route. If the bridge is missing or stale, the response
         reports that explicitly instead of falling back to graph-only proof. The snapshot can
         include bridgeDiagnostics with redacted runtime-access config, Compose label filter
-        details, and stable lookup-failure reasons for service-observation failures.
+        details, and stable lookup-failure reasons for service-observation failures. Fresh
+        snapshots missing current-schema sections return a degraded status with stable
+        schemaDiagnostics reason codes.
       tags: [Diagnostics]
       requestBody:
         required: false
@@ -237,7 +239,9 @@ paths:
         Reads the bounded deployment inspection snapshot written by the internal orchestrator.
         This is a read-only public MC surface: it exposes allowlisted service state, bounded
         log tails, current diagnoses, and recent recovery-run ledger entries without exposing
-        Docker, shell, exec, restart, or any public daemon/orchestrator route.
+        Docker, shell, exec, restart, or any public daemon/orchestrator route. Fresh snapshots
+        missing current-schema sections return a degraded status with stable schemaDiagnostics
+        reason codes.
       tags: [Diagnostics]
       requestBody:
         required: false
