@@ -160,7 +160,7 @@ Indexes the local codebase and updates the vector database.
 ## `npm run ai:structure-map`
 **Script:** `ai/scripts/diagnostics/structureMap.mjs`
 
-Agent OS diagnostic that emits deterministic, sorted JSON for the current `ai/` folder structure. CI runs this on `ai/**` changes as a smoke anchor; future architecture drift linting can consume the same JSON.
+Agent OS diagnostic that emits deterministic, sorted JSON for the current `ai/` folder structure. The epic-create, ticket-create, and PR-review skills use this as mandatory placement evidence for architecture-sensitive work; future architecture drift linting can consume the same JSON.
 
 ```bash
 npm run --silent ai:structure-map -- --files --loc
