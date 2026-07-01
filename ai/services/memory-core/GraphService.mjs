@@ -122,8 +122,8 @@ class GraphService extends Base {
 
         this._initPromise = (async () => {
             try {
-                const dbPath              = aiConfig.storagePaths.graph;
-                let storage               = Neo.create(SQLite, {dbPath: dbPath});
+                const dbPath  = aiConfig.storagePaths.graph;
+                let   storage = Neo.create(SQLite, {dbPath: dbPath});
                 await storage.ready();
 
                 let memoryCoreGraph = Neo.get ? Neo.get('memory-core-graph') : Neo.idMap?.['memory-core-graph'];
@@ -274,7 +274,7 @@ class GraphService extends Base {
             }
 
             const currentProperties = node.isRecord ? node.get('properties') : node.properties;
-            let p = Object.assign({}, currentProperties || {});
+            let   p                 = Object.assign({}, currentProperties || {});
             if (name !== undefined) {
                 p.name = name;
             }
@@ -395,7 +395,7 @@ class GraphService extends Base {
         const executeLink = () => {
             // Enforce Foreign Key constraints preemptively to prevent SQLite crash from hallucinated paths
             const verifyStmt = this.db.storage.db.prepare('SELECT count(*) as count FROM Nodes WHERE id IN (?, ?)');
-            let count = verifyStmt.get(source, target).count;
+            let   count      = verifyStmt.get(source, target).count;
 
             let expectedCount = source === target ? 1 : 2;
 
@@ -418,7 +418,7 @@ class GraphService extends Base {
                  return;
             }
 
-            const stmt     = this.db.storage.db.prepare(`SELECT id, json_extract(data, '$.properties.weight') as weight
+            const stmt = this.db.storage.db.prepare(`SELECT id, json_extract(data, '$.properties.weight') as weight
                                                          FROM Edges
                                                          WHERE source = ?
                                                            AND target = ?
@@ -426,7 +426,7 @@ class GraphService extends Base {
             const existing = stmt.get(source, target, relationship);
 
             // Stamp the canonical normalized isolation key (mirrors the RLS read boundary) — never the @-form node id.
-            let currentUserId = resolveRlsUserId(this.db.storage?.RequestContextService) ?? undefined;
+            let currentUserId  = resolveRlsUserId(this.db.storage?.RequestContextService) ?? undefined;
             let edgeProperties = {weight, ...properties};
             if (currentUserId !== undefined && edgeProperties.userId === undefined) {
                 edgeProperties.userId = currentUserId;
@@ -446,7 +446,7 @@ class GraphService extends Base {
 
                 // Fetch the entire current JSON to merge new properties natively
                 const dataStmt = this.db.storage.db.prepare(`SELECT data FROM Edges WHERE id = ?`);
-                const row = dataStmt.get(existing.id);
+                const row      = dataStmt.get(existing.id);
                 if (row && row.data) {
                     let parsed = JSON.parse(row.data);
                     parsed.properties = { ...(parsed.properties || {}), ...edgeProperties, weight: newWeight };
@@ -561,7 +561,7 @@ class GraphService extends Base {
         }
 
         const {default: MemorySessionIngestor} = await import('../../services/ingestion/MemorySessionIngestor.mjs');
-        const result = await MemorySessionIngestor.ingestSingleRow(graphNodeId);
+        const result                           = await MemorySessionIngestor.ingestSingleRow(graphNodeId);
 
         if (!result.success) {
             if (result.reason !== 'unrecognized-prefix') {
@@ -627,8 +627,8 @@ class GraphService extends Base {
 
         const systemProperties = systemNode.isRecord ? systemNode.get('properties') : systemNode.properties;
         const lastDecayedAt    = systemProperties?.lastDecayedAt || 0;
-        const now = Date.now();
-        const hoursElapsed = (now - lastDecayedAt) / 3600000;
+        const now              = Date.now();
+        const hoursElapsed     = (now - lastDecayedAt) / 3600000;
 
         // 24-hour Algorithmic Lock
         if (!force && hoursElapsed < 24) {
@@ -656,7 +656,7 @@ class GraphService extends Base {
             WHERE type NOT IN (${protectedEdgePlaceholders})
               AND COALESCE(CAST(json_extract(data, '$.properties.weight') AS REAL), 1.0) < ?
         `);
-        const info      = pruneStmt.run(...PROTECTED_EDGE_TYPES, pruningThreshold);
+        const info = pruneStmt.run(...PROTECTED_EDGE_TYPES, pruningThreshold);
 
         // Commit global clock update
         this.upsertGlobalNode({
@@ -744,6 +744,78 @@ class GraphService extends Base {
     }
 
     /**
+     * @summary Lists full node records of one graph type through the same RLS boundary as single-node reads.
+     *
+     * This is the sanctioned enumeration companion to {@link GraphService#getNodeRecord}. It keeps
+     * type-level discovery under the graph service instead of forcing consumers to issue raw SQL or
+     * iterate the process-wide node cache directly, and it re-applies the same visibility predicate at
+     * the return boundary.
+     * @param {Object} data
+     * @param {String} data.type Node label/type to enumerate.
+     * @param {String|null} [data.idPrefix=null] Optional id prefix filter.
+     * @param {Number} [data.limit=500] Maximum records to return.
+     * @returns {{records: Object[]}} Full `{id, type, properties}` records.
+     */
+    listNodeRecordsByType({type, idPrefix = null, limit = 500} = {}) {
+        if (!Neo.isString(type) || type.length === 0) {
+            throw new TypeError('GraphService.listNodeRecordsByType: type must be a non-empty string');
+        }
+
+        const
+            max       = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 500,
+            prefix    = Neo.isString(idPrefix) && idPrefix.length > 0 ? idPrefix : null,
+            rlsUserId = resolveRlsUserId(this.db?.storage?.RequestContextService),
+            toRecord  = node => {
+                if (!node || !isRlsVisible(node, rlsUserId)) {
+                    return null;
+                }
+
+                const
+                    id         = node.isRecord ? node.get('id')         : node.id,
+                    nodeType   = node.isRecord ? node.get('label')      : node.label,
+                    properties = node.isRecord ? node.get('properties') : node.properties;
+
+                if (nodeType !== type || (prefix && !id.startsWith(prefix))) {
+                    return null;
+                }
+
+                return {id, type: nodeType, properties: properties || {}};
+            };
+
+        if (this.db?.storage?.db) {
+            // Match searchNodes' SQL-level RLS filter, then re-check in-memory visibility below.
+            const stmt = this.db.storage.db.prepare(`
+                SELECT data FROM Nodes
+                WHERE json_extract(data, '$.label') = ?
+                  AND (? IS NULL OR substr(id, 1, ?) = ?)
+                  AND (user_id = ?
+                       OR user_id = ?
+                       OR user_id IS NULL
+                       OR json_extract(data, '$.properties.sharedEntity') = 1
+                       OR json_extract(data, '$.properties.visibility') = 'team')
+                ORDER BY id
+                LIMIT ?
+            `);
+
+            const rows = stmt.all(type, prefix, prefix?.length || 0, prefix, rlsUserId, rlsUserId == null ? null : `@${rlsUserId}`, max);
+
+            return {
+                records: rows.map(row => toRecord(JSON.parse(row.data))).filter(Boolean)
+            };
+        }
+
+        const nodes = Array.isArray(this.db?.nodes?.items) ? this.db.nodes.items : [];
+
+        return {
+            records: nodes
+                .map(toRecord)
+                .filter(Boolean)
+                .sort((a, b) => a.id.localeCompare(b.id))
+                .slice(0, max)
+        };
+    }
+
+    /**
      * Dynamically computes the structural gravity (inbound/outbound edges) for a node natively via SQLite.
      * @param {String} id
      * @returns {Object} { in_degree, out_degree }
@@ -754,10 +826,10 @@ class GraphService extends Base {
         }
 
         try {
-            const inStmt = this.db.storage.db.prepare('SELECT count(*) as count FROM Edges WHERE target = ?');
+            const inStmt  = this.db.storage.db.prepare('SELECT count(*) as count FROM Edges WHERE target = ?');
             const inCount = inStmt.get(id).count || 0;
 
-            const outStmt = this.db.storage.db.prepare('SELECT count(*) as count FROM Edges WHERE source = ?');
+            const outStmt  = this.db.storage.db.prepare('SELECT count(*) as count FROM Edges WHERE source = ?');
             const outCount = outStmt.get(id).count || 0;
 
             return { in_degree: inCount, out_degree: outCount };
@@ -843,8 +915,8 @@ class GraphService extends Base {
             LIMIT 50
         `);
 
-        let matches = [];
-        const rows = stmt.all(q, q, q, userId, userId == null ? null : '@' + userId);
+        let   matches = [];
+        const rows    = stmt.all(q, q, q, userId, userId == null ? null : '@' + userId);
         for (const row of rows) {
             let node = JSON.parse(row.data);
             matches.push({
@@ -1041,7 +1113,7 @@ class GraphService extends Base {
         outbound.forEach(e => {
             if (e.target !== targetNodeId) {
                 // Decay by 50%
-                let currentWeight   = e.properties?.weight || 1.0;
+                let currentWeight = e.properties?.weight || 1.0;
                 e.properties.weight = currentWeight * 0.5;
                 edgesToUpdate.push(e);
             }

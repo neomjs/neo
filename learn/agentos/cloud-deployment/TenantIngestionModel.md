@@ -187,7 +187,7 @@ The pull lane (`tenant-repo-sync`) clones each configured repository into a depl
 
 ### Configuration
 
-The orchestrator's pull-mode sync (`TenantRepoSyncService.resolveTenantReposConfig`) resolves `tenantRepos` via `KnowledgeBaseIngestionService.listConfiguredTenantRepos()`. That resolver enumerates each configured tenant's *effective* config across three tiers — `kb-config:<tenantId>` graph node > `kb-config.yaml` bootstrap > `aiConfig.tenantRepos[]` default — single-winner per tenant (a tenant's highest present tier wins wholesale; tiers are not merged within a tenant), then flattens `tenantRepos` across tenants. Each entry is normalized through the `TenantRepoAccessContract`. Each entry:
+The orchestrator's pull-mode sync (`TenantRepoSyncService.resolveTenantReposConfig`) resolves `tenantRepos` via `KnowledgeBaseIngestionService.listConfiguredTenantRepos()`. That resolver enumerates each configured tenant's *effective* config across three tiers — `kb-config:<tenantId>` graph node > `kb-config.yaml` bootstrap > `aiConfig.tenantRepos[]` default — single-winner per tenant (a tenant's highest present tier wins wholesale; tiers are not merged within a tenant), then flattens `tenantRepos` across tenants. Graph-only tenant config nodes are discovered through the graph service's RLS-aware tenant-config enumeration surface, not through an unrestricted raw graph scan. Each entry is normalized through the `TenantRepoAccessContract`. Each entry:
 
 ```js
 {
@@ -288,7 +288,9 @@ For authenticated remote MCP diagnostics, the deployment-state bridge also proje
 `tenantRepoSync` section into `inspect_deployment` / `get_deployment_state_snapshot`. Use that
 surface when a cloud KB is healthy but empty: it combines the orchestrator enablement gate, task
 state, config-tier counts, per-repo due/backoff state, and bounded failure codes without exposing
-clone URLs, credentials, or raw logs.
+clone URLs, credentials, or raw logs. If tenant-config graph discovery itself fails, the snapshot
+reports a degraded/unreadable config state rather than flattening that failure into
+`no-configured-repos`.
 
 ### Repo Freshness Status Enum
 
