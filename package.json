@@ -69,6 +69,7 @@
         "ai:run-sandman"               : "node ./ai/scripts/runners/runSandman.mjs",
         "ai:server"                    : "chroma run --path ./.neo-ai-data/chroma/unified",
         "ai:server-neural-link"        : "node ./ai/mcp/server/neural-link/run-bridge.mjs",
+        "ai:structure-map"             : "node ./ai/scripts/diagnostics/structureMap.mjs",
         "ai:summarize-sessions"        : "node ./ai/scripts/lifecycle/summarize-sessions.mjs",
         "ai:sync-github-workflow"      : "node ./ai/scripts/maintenance/syncGithubWorkflow.mjs",
         "ai:sync-kb"                   : "node ./ai/scripts/maintenance/syncKnowledgeBase.mjs",
