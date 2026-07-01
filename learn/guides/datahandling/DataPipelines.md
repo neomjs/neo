@@ -194,6 +194,34 @@ The Pipeline catches this, passes it through the Parser and Normalizer, and forw
 
 The Store intercepts the `push` event, automatically looks up Record ID #4, and calls `record.set({ status: 'offline' })`. This triggers the surgical reactivity engine, updating **only that specific row** in the Grid, without ever reloading the collection.
 
+By default, pushed records whose id is not already present in the Store are ignored. This keeps filtered,
+remotely sorted, and paginated projections safe: a random unknown id does not prove that the record belongs
+in the visible dataset.
+
+Stores that own their local projection can opt into insert/upsert behavior:
+
+```javascript readonly
+const liveStore = Neo.create(Store, {
+    api               : 'MyApp.backend.LiveUsers',
+    model             : LiveUserModel,
+    pushInsertStrategy: 'upsert'
+});
+```
+
+The supported `pushInsertStrategy` values are:
+
+| Value | Unknown pushed id behavior |
+| --- | --- |
+| `false` | Ignore the push. This is the default. |
+| `'insert'` / `'upsert'` | Add the record through `Store#add()` when the Store owns a local projection. Existing ids still use `record.set()`. |
+| `'reload'` | Reload the Store for every unknown pushed id. |
+| `'reloadWhenUncertain'` | Insert locally when safe; reload instead for `remoteFilter`, `remoteSort`, or `pageSize > 0`. |
+
+Local filters and sorters are applied through the normal collection path, so a filtered-out pushed record
+does not become visible and a locally sorted insert lands in sorted order. For server-owned projections
+(`remoteFilter`, `remoteSort`, or pagination), prefer `'reloadWhenUncertain'` or `'reload'` unless your
+server payload explicitly proves visible membership and order.
+
 ## Migration Path for Legacy Configs
 
 If you are upgrading from an older version of Neo.mjs, your existing `url` and `api` configs on Stores are still fully supported.

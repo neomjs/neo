@@ -7,7 +7,9 @@ import Pipeline        from './Pipeline.mjs';
 import RecordFactory   from './RecordFactory.mjs';
 import StoreManager    from '../manager/Store.mjs';
 
-const initialIndexSymbol = Symbol.for('initialIndex');
+const
+    initialIndexSymbol   = Symbol.for('initialIndex'),
+    pushInsertStrategies = new Set(['insert', 'reload', 'reloadWhenUncertain', 'upsert']);
 
 /**
  * @class Neo.data.Store
@@ -159,6 +161,17 @@ class Store extends Collection {
          * @reactive
          */
         pipeline_: null,
+        /**
+         * Controls how unknown keyed pipeline pushes are handled.
+         *
+         * The default keeps the conservative existing behavior and ignores unknown ids. `insert` and
+         * `upsert` add unknown records only when the Store owns its local projection. `reload` always
+         * reloads for unknown ids. `reloadWhenUncertain` inserts locally, but reloads instead when
+         * remote filtering, remote sorting, or pagination means the pushed record cannot prove visible
+         * membership or order.
+         * @member {Boolean|String} pushInsertStrategy=false
+         */
+        pushInsertStrategy: false,
         /**
          * True to let the backend handle the filtering.
          * Useful for buffered stores
@@ -670,7 +683,7 @@ class Store extends Collection {
      * @returns {Object|Object[]|null}
      */
     find(property, value, returnFirstMatch=false) {
-        let me    = this,
+        let me     = this,
             result = super.find(property, value, returnFirstMatch);
 
         if (returnFirstMatch) {
@@ -1032,8 +1045,8 @@ class Store extends Collection {
                 // Fallback for non-browser based envs like nodejs
                 if (globalThis.process?.release) {
                     const { readFile } = await import(/* webpackIgnore: true */ 'fs/promises');
-                    const content = await me.trap(readFile(opts.url, 'utf-8'));
-                    let data = {json: JSON.parse(content)};
+                    const content      = await me.trap(readFile(opts.url, 'utf-8'));
+                    let   data         = {json: JSON.parse(content)};
 
                     if (data) {
                         me.data = Neo.ns(me.responseRoot, false, data.json) || data.json // fires the load event
@@ -1125,6 +1138,54 @@ class Store extends Collection {
     }
 
     /**
+     * @summary Returns true when the current visible projection is server-owned or page-bounded.
+     * Unknown pushed records cannot safely prove membership or order in these modes.
+     * @returns {Boolean}
+     * @protected
+     */
+    isPipelinePushProjectionUncertain() {
+        let me = this;
+
+        return me.remoteFilter || me.remoteSort || me.pageSize > 0
+    }
+
+    /**
+     * @summary Handles an unknown keyed pipeline push according to the configured insertion strategy.
+     * Local projections can accept inserted records through the normal Store.add() path, which keeps
+     * existing filter and sorter semantics. Server-owned or page-bounded projections reload instead.
+     * @param {Object} data
+     * @protected
+     */
+    onUnknownPipelinePush(data) {
+        let me       = this,
+            strategy = me.pushInsertStrategy;
+
+        if (!strategy) {
+            return
+        }
+
+        if (!pushInsertStrategies.has(strategy)) {
+            return
+        }
+
+        if (strategy === 'reload') {
+            me.load();
+            return
+        }
+
+        if (me.isPipelinePushProjectionUncertain()) {
+            if (strategy === 'reloadWhenUncertain') {
+                me.load()
+            }
+            return
+        }
+
+        if (strategy === 'insert' || strategy === 'upsert' || strategy === 'reloadWhenUncertain') {
+            me.add(data)
+        }
+    }
+
+    /**
      * @param {Object} data
      * @protected
      */
@@ -1139,8 +1200,7 @@ class Store extends Collection {
             if (record) {
                 record.set(data)
             } else {
-                // Future enhancement: handle inserts based on a config (e.g. autoInsertPushes)
-                // me.add(data);
+                me.onUnknownPipelinePush(data)
             }
         }
     }
