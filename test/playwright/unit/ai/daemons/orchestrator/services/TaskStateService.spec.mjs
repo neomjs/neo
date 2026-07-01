@@ -38,13 +38,14 @@ test.describe('Neo.ai.daemons.services.TaskStateService', () => {
         const state       = service.getTaskState('mockTask');
 
         expect(state).toMatchObject({
-            running      : false,
-            pid          : null,
-            lastRunAt    : 0,
-            lastSuccessAt: null,
-            lastErrorAt  : null,
-            lastExitCode : null,
-            lastReason   : null
+            running       : false,
+            pid           : null,
+            lastRunAt     : 0,
+            lastSuccessAt : null,
+            lastErrorAt   : null,
+            lastExitCode  : null,
+            lastReason    : null,
+            lastCompletion: null
         });
     });
 
@@ -134,6 +135,16 @@ test.describe('Neo.ai.daemons.services.TaskStateService', () => {
         service.markFailed('mockTask', 1);
         stateData = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
         expect(stateData.mockTask.lastCompletion).toBeNull();
+
+        const skippedCompletion = {status: 'skipped', reason: 'no-config'};
+        service.markSkipped('mockTask', skippedCompletion);
+        stateData = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+        expect(stateData.mockTask.lastCompletion).toEqual(skippedCompletion);
+
+        const failedCompletion = {status: 'failed', reasonCode: 'TEST_FAILURE'};
+        service.markFailed('mockTask', 1, failedCompletion);
+        stateData = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+        expect(stateData.mockTask.lastCompletion).toEqual(failedCompletion);
     });
 
     test('adoptRunning sets state without immediately writing to disk', () => {

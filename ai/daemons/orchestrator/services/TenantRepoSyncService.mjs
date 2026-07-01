@@ -242,13 +242,18 @@ class TenantRepoSyncService extends Base {
                 globalCadenceMs, jitterRatio, seedBootstrap
             });
             const status = result.status;
+            const lastCompletion = {
+                status,
+                reason,
+                ...result.details
+            };
 
             if (status === 'completed') {
-                taskStateService.markCompleted(taskName);
+                taskStateService.markCompleted(taskName, lastCompletion);
             } else if (status === 'failed') {
-                taskStateService.markFailed(taskName, null);
+                taskStateService.markFailed(taskName, null, lastCompletion);
             } else {
-                taskStateService.markSkipped(taskName);
+                taskStateService.markSkipped(taskName, lastCompletion);
             }
 
             healthService?.recordTaskOutcome?.(taskName, status, {reason, ...result.details});
@@ -267,7 +272,7 @@ class TenantRepoSyncService extends Base {
                 ...(meta ? {meta} : {})
             };
 
-            taskStateService.markFailed(taskName, null);
+            taskStateService.markFailed(taskName, null, {status: 'failed', ...details});
             writeLog?.('ERROR', `[TenantRepoSync] Failed: ${code} (${e.message})`);
             healthService?.recordTaskOutcome?.(taskName, 'failed', details);
             return {status: 'failed', details};
@@ -633,9 +638,10 @@ class TenantRepoSyncService extends Base {
      *
      * @param {Object} options
      * @param {String} options.filePath
+     * @param {Boolean} [options.strict=false] Throw on corrupt/unreadable files instead of returning an empty map.
      * @returns {Promise<Object<String, {lastIngestedRev: String, lastRunAttemptAt: Number, consecutiveFailures: Number}>>}
      */
-    async readPersistedRevisions({filePath}) {
+    async readPersistedRevisions({filePath, strict = false}) {
         if (!await fs.pathExists(filePath)) {
             return {};
         }
@@ -661,7 +667,12 @@ class TenantRepoSyncService extends Base {
                 }
             }
             return normalized;
-        } catch {
+        } catch (e) {
+            if (strict) {
+                const error = new Error(`Failed to read tenant-repo-sync revisions at ${filePath}: ${e.message}`);
+                error.code = e.code || 'KB_TENANT_REPO_SYNC_REVISIONS_READ_FAILED';
+                throw error;
+            }
             return {};
         }
     }

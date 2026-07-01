@@ -43,6 +43,13 @@ implementation surface.
 The deployment tools expose read-only bridge data. They do not expose Docker,
 shell, restart, or daemon control routes.
 
+Deployment snapshots include a bounded `tenantRepoSync` section for pull-mode
+cloud ingestion. Use it when a KB is healthy but empty and tenant repositories
+are expected: it reports the orchestrator enablement gate, scheduler cadence,
+task state, effective repo-config counts/tiers, redacted per-repo due state, and
+stable failure reason codes without exposing clone URLs, credentials, or raw
+logs.
+
 ## Admin Tools
 
 | Tool | Use |

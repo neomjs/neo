@@ -283,6 +283,12 @@ Per-repo freshness is surfaced through the existing Memory Core healthcheck orch
 
 The operator readiness endpoint reads this shape from `HealthService` — there is no need to read Chroma rows for freshness checks. Empty `tenantRepos[]` produces `repos: []`, not an omission.
 
+For authenticated remote MCP diagnostics, the deployment-state bridge also projects a redacted
+`tenantRepoSync` section into `inspect_deployment` / `get_deployment_state_snapshot`. Use that
+surface when a cloud KB is healthy but empty: it combines the orchestrator enablement gate, task
+state, config-tier counts, per-repo due/backoff state, and bounded failure codes without exposing
+clone URLs, credentials, or raw logs.
+
 ### Repo Freshness Status Enum
 
 | Status | Meaning | Transition |
