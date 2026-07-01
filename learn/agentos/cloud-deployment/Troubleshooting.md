@@ -104,6 +104,43 @@ docker compose -p <project> up -d --force-recreate kb-server mc-server orchestra
 
 This is an environment-only repair; no image rebuild is required.
 
+### `inspect_deployment` says `No Docker container found for compose service ...`
+
+**Layer:** the MCP server is reachable and the deployment-state bridge snapshot
+is fresh, but the orchestrator's runtime-access holder cannot resolve one or
+more allowlisted Compose services through Docker labels.
+
+Read `snapshot.bridgeDiagnostics` before changing service code:
+
+- `runtimeAccess.enabled: false` means the bridge is intentionally not using a
+  runtime handle. Set `NEO_ORCHESTRATOR_RUNTIME_ACCESS_ENABLED=true` only when
+  B1 runtime diagnostics/recovery are intended.
+- `reason: broad-service-lookup-failure` means most or all configured services
+  failed at the observation layer. Treat this as bridge configuration first,
+  not as four independent service outages.
+- `compose-service-no-match` means Docker returned no container for the label
+  filter shown in the error details. Align
+  `NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES` and
+  `NEO_DEPLOYMENT_STATE_BRIDGE_ALLOWED_SERVICES` with Docker
+  `com.docker.compose.service` labels, not container names.
+- `compose-service-ambiguous` means more than one container matched a service
+  label. Set `NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT=<project>` to the
+  Compose project label.
+- `docker-socket-unavailable` or `docker-socket-forbidden` means the
+  orchestrator cannot read the runtime socket. Mount `/var/run/docker.sock`
+  into the orchestrator with suitable permissions, or disable runtime access
+  explicitly when that deployment should not expose B1 diagnostics.
+- The default diagnostic set observes sibling services, not the orchestrator
+  container itself. When orchestrator logs/state are needed for a cloud
+  incident, add the Compose service label to both
+  `NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES` and
+  `NEO_DEPLOYMENT_STATE_BRIDGE_ALLOWED_SERVICES` (for the bundled compose file,
+  use `orchestrator`).
+
+The diagnostic intentionally exposes only non-secret config, service keys, and
+the label filter shape. It does not enumerate arbitrary containers or expose
+Docker, shell, restart, or daemon-control routes through public MCP tools.
+
 ## Test profile vs production auth profile
 
 Verify the wiring *before* real auth is enabled, but keep the two profiles distinct:

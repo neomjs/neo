@@ -152,6 +152,109 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
             limit  : 10,
             entries: []
         });
+        expect(snapshot.bridgeDiagnostics).toMatchObject({
+            status       : 'available',
+            reason       : null,
+            runtimeAccess: {
+                enabled        : false,
+                mechanism      : 'docker-socket',
+                composeProject : null,
+                allowedServices: ['model']
+            },
+            bridgeConfig: {
+                effectiveServiceKeys: ['model'],
+                includeLogs         : true
+            },
+            serviceResolution: {
+                serviceCount        : 1,
+                degradedServiceCount: 0,
+                broadLookupFailure  : false
+            }
+        });
+    });
+
+    test('adds bridge-level diagnosis when every service lookup fails', async () => {
+        Object.assign(AiConfig.orchestrator.deploymentStateBridge, {
+            allowedServices: ['kb-server', 'mc-server'],
+            includeLogs    : false
+        });
+        Object.assign(AiConfig.orchestrator.deploymentRuntimeAccess, {
+            enabled        : true,
+            composeProject : null,
+            allowedServices: ['kb-server', 'mc-server'],
+            readOperations : ['inspect', 'stats', 'logs']
+        });
+
+        const runtimeAccessService = {
+            async readObserve({serviceKey}) {
+                const error = new Error(`No Docker container found for compose service '${serviceKey}'`);
+
+                error.reason  = 'compose-service-no-match';
+                error.details = {
+                    enabled             : true,
+                    mechanism           : 'docker-socket',
+                    composeProject      : null,
+                    allowedServices     : ['kb-server', 'mc-server'],
+                    readOperations      : ['inspect', 'stats', 'logs'],
+                    lifecycleOperations : ['restart'],
+                    auditMode           : 'metadata',
+                    socketPathConfigured: true,
+                    serviceKey,
+                    filters             : {
+                        label: [`com.docker.compose.service=${serviceKey}`]
+                    },
+                    matchCount: 0,
+                    hints     : ['Align NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES with Docker com.docker.compose.service labels.']
+                };
+
+                throw error;
+            }
+        };
+
+        const snapshot = await createService({runtimeAccessService}).collectSnapshot();
+
+        expect(snapshot.services).toHaveLength(2);
+        expect(snapshot.services[0].errors[0]).toMatchObject({
+            operation: 'inspect',
+            reason   : 'compose-service-no-match',
+            details  : {
+                socketPathConfigured: true,
+                filters             : {
+                    label: ['com.docker.compose.service=kb-server']
+                }
+            }
+        });
+        expect(JSON.stringify(snapshot.bridgeDiagnostics)).not.toContain('/var/run/docker.sock');
+        expect(snapshot.bridgeDiagnostics).toMatchObject({
+            status       : 'degraded',
+            reason       : 'broad-service-lookup-failure',
+            runtimeAccess: {
+                enabled            : true,
+                mechanism          : 'docker-socket',
+                composeProject     : null,
+                allowedServices    : ['kb-server', 'mc-server'],
+                readOperations     : ['inspect', 'stats', 'logs'],
+                lifecycleOperations: ['restart']
+            },
+            bridgeConfig: {
+                allowedServices     : ['kb-server', 'mc-server'],
+                effectiveServiceKeys: ['kb-server', 'mc-server'],
+                includeLogs         : false
+            },
+            serviceResolution: {
+                serviceCount          : 2,
+                degradedServiceCount  : 2,
+                allServicesDegraded   : true,
+                broadLookupFailure    : true,
+                lookupFailureCount    : 2,
+                failureReasonCounts   : {'compose-service-no-match': 4},
+                operationFailureCounts: {
+                    inspect: 2,
+                    stats  : 2
+                }
+            }
+        });
+        expect(snapshot.bridgeDiagnostics.hints).toContain('All observed services failed runtime lookup; verify the orchestrator Docker socket mount and Compose project/service labels before investigating individual services.');
     });
 
     test('collectSelfHealSnapshot folds the heal-ledger into an operator-facing immune-status (#14163 AC2)', async () => {

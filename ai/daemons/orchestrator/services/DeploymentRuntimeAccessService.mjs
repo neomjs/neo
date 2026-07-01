@@ -16,7 +16,9 @@ export const DEPLOYMENT_RUNTIME_LIFECYCLE_OPERATIONS = Object.freeze([
     'restart'
 ]);
 
-const DEFAULT_RESPONSE_MAX_BYTES = 1024 * 1024;
+const DEFAULT_RESPONSE_MAX_BYTES      = 1024 * 1024;
+const DOCKER_SOCKET_FORBIDDEN_CODES   = new Set(['EACCES', 'EPERM']);
+const DOCKER_SOCKET_UNAVAILABLE_CODES = new Set(['ENOENT', 'ECONNREFUSED']);
 
 /**
  * @summary Performs one bounded HTTP request against the Docker Engine Unix socket.
@@ -231,7 +233,11 @@ export class DeploymentRuntimeAccessService extends Base {
      */
     assertEnabled() {
         if (!this.configValues.enabled) {
-            throw new Error('Deployment runtime access is disabled');
+            throw createRuntimeAccessError({
+                reason : 'runtime-access-disabled',
+                message: 'Deployment runtime access is disabled',
+                details: this.createEffectiveConfigSummary()
+            });
         }
     }
 
@@ -241,11 +247,19 @@ export class DeploymentRuntimeAccessService extends Base {
      */
     assertMechanismSupported() {
         if (!DEPLOYMENT_RUNTIME_MECHANISMS.includes(this.mechanism)) {
-            throw new Error(`Unsupported deployment runtime mechanism '${this.mechanism}'`);
+            throw createRuntimeAccessError({
+                reason : 'runtime-mechanism-unsupported',
+                message: `Unsupported deployment runtime mechanism '${this.mechanism}'`,
+                details: this.createEffectiveConfigSummary()
+            });
         }
 
         if (this.mechanism === 'sidecar') {
-            throw new Error('Deployment runtime sidecar mechanism is documented fallback only; docker-socket is the MVP implementation');
+            throw createRuntimeAccessError({
+                reason : 'runtime-sidecar-unimplemented',
+                message: 'Deployment runtime sidecar mechanism is documented fallback only; docker-socket is the MVP implementation',
+                details: this.createEffectiveConfigSummary()
+            });
         }
     }
 
@@ -261,7 +275,15 @@ export class DeploymentRuntimeAccessService extends Base {
             : this.configValues.lifecycleOperations;
 
         if (!Array.isArray(allowed) || !allowed.includes(operation)) {
-            throw new Error(`Deployment runtime ${envelope} operation '${operation}' is not allowlisted`);
+            throw createRuntimeAccessError({
+                reason : 'runtime-operation-not-allowlisted',
+                message: `Deployment runtime ${envelope} operation '${operation}' is not allowlisted`,
+                details: {
+                    ...this.createEffectiveConfigSummary(),
+                    envelope,
+                    operation
+                }
+            });
         }
     }
 
@@ -282,22 +304,50 @@ export class DeploymentRuntimeAccessService extends Base {
             filters.label.push(`com.docker.compose.project=${composeProject}`);
         }
 
-        const response = await this.dockerRequest({
-            method: 'GET',
-            path  : `/containers/json?all=true&filters=${encodeURIComponent(JSON.stringify(filters))}`
-        });
-        const containers = this.parseJson(response.body, 'container list');
+        let response,
+            containers;
+
+        try {
+            response = await this.dockerRequest({
+                method: 'GET',
+                path  : `/containers/json?all=true&filters=${encodeURIComponent(JSON.stringify(filters))}`
+            });
+        } catch (error) {
+            throw this.createDockerListError({serviceKey, filters, error});
+        }
+
+        try {
+            containers = this.parseJson(response.body, 'container list');
+        } catch (error) {
+            throw createRuntimeAccessError({
+                reason : 'docker-container-list-invalid-json',
+                message: error.message,
+                details: this.createLookupDetails({serviceKey, filters})
+            });
+        }
 
         if (!Array.isArray(containers)) {
-            throw new Error('Docker API container list response is not an array');
+            throw createRuntimeAccessError({
+                reason : 'docker-container-list-invalid-shape',
+                message: 'Docker API container list response is not an array',
+                details: this.createLookupDetails({serviceKey, filters})
+            });
         }
 
         if (containers.length === 0) {
-            throw new Error(`No Docker container found for compose service '${serviceKey}'`);
+            throw createRuntimeAccessError({
+                reason : 'compose-service-no-match',
+                message: `No Docker container found for compose service '${serviceKey}'`,
+                details: this.createLookupDetails({serviceKey, filters, matchCount: 0})
+            });
         }
 
         if (containers.length > 1) {
-            throw new Error(`Compose service '${serviceKey}' resolved to ${containers.length} containers; configure composeProject to disambiguate`);
+            throw createRuntimeAccessError({
+                reason : 'compose-service-ambiguous',
+                message: `Compose service '${serviceKey}' resolved to ${containers.length} containers; configure composeProject to disambiguate`,
+                details: this.createLookupDetails({serviceKey, filters, matchCount: containers.length})
+            });
         }
 
         const [container] = containers;
@@ -324,18 +374,108 @@ export class DeploymentRuntimeAccessService extends Base {
      */
     assertServiceKeyAllowed(serviceKey) {
         if (typeof serviceKey !== 'string' || serviceKey.length === 0) {
-            throw new TypeError('Deployment runtime serviceKey is required');
+            throw createRuntimeAccessError({
+                Type   : TypeError,
+                reason : 'runtime-service-key-required',
+                message: 'Deployment runtime serviceKey is required',
+                details: this.createEffectiveConfigSummary()
+            });
         }
 
         if (!/^[a-zA-Z0-9_.-]+$/.test(serviceKey)) {
-            throw new TypeError(`Deployment runtime serviceKey '${serviceKey}' contains unsupported characters`);
+            throw createRuntimeAccessError({
+                Type   : TypeError,
+                reason : 'runtime-service-key-invalid',
+                message: `Deployment runtime serviceKey '${serviceKey}' contains unsupported characters`,
+                details: {
+                    ...this.createEffectiveConfigSummary(),
+                    serviceKey
+                }
+            });
         }
 
         const allowedServices = this.configValues.allowedServices;
 
         if (!Array.isArray(allowedServices) || !allowedServices.includes(serviceKey)) {
-            throw new Error(`Deployment runtime service '${serviceKey}' is not allowlisted`);
+            throw createRuntimeAccessError({
+                reason : 'runtime-service-not-allowlisted',
+                message: `Deployment runtime service '${serviceKey}' is not allowlisted`,
+                details: {
+                    ...this.createEffectiveConfigSummary(),
+                    serviceKey
+                }
+            });
         }
+    }
+
+    /**
+     * Builds a non-secret summary of runtime-access config needed to debug service resolution.
+     * @returns {Object}
+     */
+    createEffectiveConfigSummary() {
+        const config = this.configValues;
+
+        return {
+            enabled             : Boolean(config.enabled),
+            mechanism           : this.mechanism,
+            composeProject      : config.composeProject || null,
+            allowedServices     : Array.isArray(config.allowedServices) ? [...config.allowedServices] : [],
+            readOperations      : Array.isArray(config.readOperations) ? [...config.readOperations] : [],
+            lifecycleOperations : Array.isArray(config.lifecycleOperations) ? [...config.lifecycleOperations] : [],
+            auditMode           : config.auditMode || 'metadata',
+            socketPathConfigured: Boolean(config.socketPath)
+        };
+    }
+
+    /**
+     * Builds bounded lookup context for compose-label resolution failures.
+     * @param {Object} options
+     * @param {String} options.serviceKey Compose service key.
+     * @param {Object} options.filters Docker label filter descriptor.
+     * @param {Number|null} [options.matchCount=null] Number of matched containers when known.
+     * @returns {Object}
+     */
+    createLookupDetails({serviceKey, filters, matchCount = null}) {
+        return {
+            ...this.createEffectiveConfigSummary(),
+            serviceKey,
+            filters,
+            matchCount,
+            hints: [
+                'Set NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT when multiple compose projects share the Docker socket.',
+                'Align NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES with Docker com.docker.compose.service labels.',
+                'Mount /var/run/docker.sock into the orchestrator only when B1 runtime diagnostics/recovery are intended.',
+                'Disable NEO_ORCHESTRATOR_RUNTIME_ACCESS_ENABLED when the deployment intentionally has no runtime handle.'
+            ]
+        };
+    }
+
+    /**
+     * Wraps Docker container-list transport failures with stable reason metadata.
+     * @param {Object} options
+     * @param {String} options.serviceKey Compose service key.
+     * @param {Object} options.filters Docker label filter descriptor.
+     * @param {Error} options.error Underlying request error.
+     * @returns {Error}
+     */
+    createDockerListError({serviceKey, filters, error}) {
+        let reason  = 'docker-container-list-failed',
+            message = error.message;
+
+        if (DOCKER_SOCKET_FORBIDDEN_CODES.has(error.code)) {
+            reason  = 'docker-socket-forbidden';
+            message = 'Docker socket access is forbidden';
+        } else if (DOCKER_SOCKET_UNAVAILABLE_CODES.has(error.code)) {
+            reason  = 'docker-socket-unavailable';
+            message = 'Docker socket is unavailable';
+        }
+
+        return createRuntimeAccessError({
+            reason,
+            message,
+            code   : error.code || null,
+            details: this.createLookupDetails({serviceKey, filters})
+        });
     }
 
     /**
@@ -469,10 +609,10 @@ export class DeploymentRuntimeAccessService extends Base {
             runtimeMechanism  : this.mechanism,
             capabilityEnvelope: envelope,
             operation,
-            auditLabel       : `${envelope}:${operation}`,
-            auditMode     : this.configValues.auditMode || 'metadata',
-            serviceKey    : target.serviceKey,
-            targetIdentity: {
+            auditLabel        : `${envelope}:${operation}`,
+            auditMode         : this.configValues.auditMode || 'metadata',
+            serviceKey        : target.serviceKey,
+            targetIdentity    : {
                 kind: 'compose-service',
                 id  : target.serviceKey
             },
@@ -489,6 +629,26 @@ export class DeploymentRuntimeAccessService extends Base {
             reason: reason || null
         };
     }
+}
+
+/**
+ * Creates a runtime-access error that remains compatible with callers expecting thrown Error objects.
+ * @param {Object} options
+ * @param {Function} [options.Type=Error] Error constructor.
+ * @param {String} options.reason Stable machine reason.
+ * @param {String} options.message Human-readable message.
+ * @param {String|null} [options.code=null] Optional low-level error code.
+ * @param {Object|null} [options.details=null] Bounded diagnostic details.
+ * @returns {Error}
+ */
+function createRuntimeAccessError({Type = Error, reason, message, code = null, details = null}) {
+    const error = new Type(message);
+
+    error.reason  = reason;
+    error.code    = code;
+    error.details = details;
+
+    return error;
 }
 
 export default Neo.setupClass(DeploymentRuntimeAccessService);

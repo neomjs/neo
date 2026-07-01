@@ -31,11 +31,14 @@ test.describe('deploymentStateBridgeStore', () => {
         });
     });
 
-    test('carries the self-heal immune-system status when provided, null by default (#14163 AC2)', () => {
-        const selfHeal = {status: 'available', summary: {total: 3, currentlyFrozen: ['c2']}, recentEvents: [{type: 'heal', at: 9}]},
-              snapshot = createDeploymentStateSnapshot({generatedAt: 1710000000000, selfHeal});
+    test('carries additive bridge diagnostics and self-heal status when provided, null by default (#14163 AC2)', () => {
+        const bridgeDiagnostics = {status: 'degraded', reason: 'broad-service-lookup-failure'},
+              selfHeal          = {status: 'available', summary: {total: 3, currentlyFrozen: ['c2']}, recentEvents: [{type: 'heal', at: 9}]},
+              snapshot          = createDeploymentStateSnapshot({generatedAt: 1710000000000, bridgeDiagnostics, selfHeal});
 
+        expect(snapshot.bridgeDiagnostics).toEqual(bridgeDiagnostics);
         expect(snapshot.selfHeal).toEqual(selfHeal);                       // passed through verbatim
+        expect(createDeploymentStateSnapshot({generatedAt: 1}).bridgeDiagnostics).toBeNull(); // additive + back-compat
         expect(createDeploymentStateSnapshot({generatedAt: 1}).selfHeal).toBeNull(); // additive + back-compat (omitted → null)
     });
 

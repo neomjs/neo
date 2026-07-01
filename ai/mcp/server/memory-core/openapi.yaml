@@ -202,7 +202,9 @@ paths:
         Reads the bounded deployment-state bridge snapshot written by the internal orchestrator.
         This is a read-only public MC surface: it does not expose Docker, shell, exec, restart,
         or any public daemon/orchestrator route. If the bridge is missing or stale, the response
-        reports that explicitly instead of falling back to graph-only proof.
+        reports that explicitly instead of falling back to graph-only proof. The snapshot can
+        include bridgeDiagnostics with redacted runtime-access config, Compose label filter
+        details, and stable lookup-failure reasons for service-observation failures.
       tags: [Diagnostics]
       requestBody:
         required: false
