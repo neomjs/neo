@@ -30,6 +30,14 @@ import {
 } from '../../../daemons/message/drainCycle.mjs';
 import {acquireMessageDrainLock}    from '../../../daemons/message/drainLock.mjs';
 import {getMissingMessageWalLeaves} from '../../../services/memory-core/helpers/messageWalStore.mjs';
+import {TRUST_TIERS}                from '../../../graph/identityRoots.mjs';
+
+// Security invariant, not deployment policy: graph ids must remain namespace/path/control safe.
+const AUTH_IDENTITY_USER_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$/;
+
+function compactDefinedProperties(properties) {
+    return Object.fromEntries(Object.entries(properties).filter(([, value]) => value !== undefined));
+}
 
 /**
  * @summary The Memory Core MCP Server application.
@@ -411,14 +419,181 @@ class Server extends BaseServer {
     async buildRequestContext(reqAuth) {
         if (!reqAuth?.userId) return {};
 
-        const agentIdentityNodeId = await this.bindAgentIdentity(reqAuth.userId);
+        const agentIdentityNodeId = this.shouldAutoProvisionAgentIdentity(reqAuth)
+            ? await this.ensureAgentIdentityForAuthContext(reqAuth)
+            : await this.bindAgentIdentity(reqAuth.userId);
 
         return {
             userId  : reqAuth.userId,
             username: reqAuth.username,
             agentIdentityNodeId,
-            source  : reqAuth.source || 'oidc'
+            source  : reqAuth.source || reqAuth.authSource || 'oidc'
         };
+    }
+
+    /**
+     * @summary Returns true when a validated HTTP auth source is allowed to create a missing
+     * durable AgentIdentity at request-context build time.
+     * @param {Object|undefined} reqAuth Server-stamped auth context from the bearer verifier.
+     * @returns {Boolean}
+     * @protected
+     */
+    shouldAutoProvisionAgentIdentity(reqAuth) {
+        return this.aiConfig.auth.autoProvisionIdentitySources.includes(reqAuth?.source) ||
+               this.aiConfig.auth.autoProvisionIdentitySources.includes(reqAuth?.authSource);
+    }
+
+    /**
+     * @summary Builds a fatal identity-provisioning error with a stable diagnostic code.
+     * @param {String} message Operator-facing error detail.
+     * @param {String} code Stable error code.
+     * @returns {Error}
+     * @protected
+     */
+    createIdentityProvisioningError(message, code) {
+        const error = new Error(`[neo-memory-core MCP] ${message}`);
+        error.code  = code;
+        return error;
+    }
+
+    /**
+     * @summary Validates the authenticated provider username before deriving the `@` graph id.
+     *
+     * Only server-stamped auth fields reach this helper. The conservative username contract rejects
+     * empty, `@`-prefixed, path-like, control-character, whitespace, and namespace-bearing values
+     * before a graph write can occur.
+     * @param {String} userId Authenticated provider username.
+     * @returns {String} Canonical bare username.
+     * @protected
+     */
+    validateAuthProvisionUserId(userId) {
+        const normalized = typeof userId === 'string' ? userId.trim() : '';
+
+        if (!normalized || !AUTH_IDENTITY_USER_ID_RE.test(normalized)) {
+            throw this.createIdentityProvisioningError(
+                `Cannot auto-provision AgentIdentity: authenticated userId '${String(userId)}' is not a valid provider username.`,
+                'NEO_AGENT_IDENTITY_INVALID'
+            );
+        }
+
+        return normalized;
+    }
+
+    /**
+     * @summary Reads the exact SQLite graph node row without RLS filtering.
+     *
+     * Provisioning must fail closed on an id collision even when the colliding row is not visible
+     * through the requester's RLS view. This read is used only for collision/provisioning policy;
+     * public graph reads still route through GraphService's RLS-aware APIs.
+     * @param {String} id Canonical graph node id.
+     * @returns {Object|null} Raw graph node projection.
+     * @protected
+     */
+    readRawGraphNode(id) {
+        const db = GraphService.db?.storage?.db;
+
+        if (!db?.open) {
+            throw GraphService.createUnavailableError('AgentIdentity provisioning');
+        }
+
+        const row = db.prepare('SELECT data FROM Nodes WHERE id = ?').get(id);
+        if (!row?.data) return null;
+
+        let data;
+        try {
+            data = JSON.parse(row.data);
+        } catch (error) {
+            throw this.createIdentityProvisioningError(
+                `Cannot auto-provision AgentIdentity ${id}: graph row JSON is unreadable (${error.message}).`,
+                'NEO_AGENT_IDENTITY_CORRUPT'
+            );
+        }
+
+        return {
+            id        : data.id,
+            type      : data.label,
+            properties: data.properties || {}
+        };
+    }
+
+    /**
+     * @summary Creates or refreshes a GitLab-PAT authenticated AgentIdentity from server-stamped
+     * auth context before graph-gated tools need `agentIdentityNodeId`.
+     *
+     * Missing identities are written as globally visible SQLite graph nodes (`userId: null`) so a
+     * separate orchestrator process can observe them through GraphLog invalidation and lazy-load.
+     * Existing AgentIdentity nodes are preserved; seeded nodes receive only `lastAuthenticatedAt`,
+     * while already-auto-provisioned nodes can refresh provider-neutral metadata. Non-identity
+     * collisions and malformed ids fail closed.
+     * @param {Object} reqAuth Server-stamped auth context from the validated bearer request.
+     * @returns {Promise<String|null>} Bound AgentIdentity node id, or null when graph startup is degraded.
+     * @protected
+     */
+    async ensureAgentIdentityForAuthContext(reqAuth) {
+        const userId      = this.validateAuthProvisionUserId(reqAuth?.userId),
+              graphNodeId = `@${userId}`;
+
+        try {
+            await GraphService.ready();
+
+            let existing = this.readRawGraphNode(graphNodeId);
+
+            if (existing && existing.type !== 'AgentIdentity') {
+                throw this.createIdentityProvisioningError(
+                    `Cannot auto-provision AgentIdentity ${graphNodeId}: id collides with existing ${existing.type || 'unknown'} node.`,
+                    'NEO_AGENT_IDENTITY_COLLISION'
+                );
+            }
+
+            const now             = new Date().toISOString(),
+                  existingProps   = existing?.properties || {},
+                  providerDisplay = reqAuth.providerDisplayName || reqAuth.username || reqAuth.providerUsername || userId,
+                  fullProperties  = compactDefinedProperties({
+                      accountType        : 'agent',
+                      participationStatus: 'active',
+                      trustTier          : TRUST_TIERS.INTERNAL_AUTHORED,
+                      authProvider       : reqAuth.authProvider || 'gitlab',
+                      authSource         : reqAuth.authSource || reqAuth.source || 'gitlab-pat',
+                      providerBaseUrl    : reqAuth.providerBaseUrl,
+                      providerUserId     : reqAuth.providerUserId == null ? undefined : String(reqAuth.providerUserId),
+                      providerUsername   : reqAuth.providerUsername || userId,
+                      providerDisplayName: providerDisplay,
+                      autoProvisioned    : true,
+                      createdAt          : existingProps.createdAt || now,
+                      lastAuthenticatedAt: now
+                  });
+
+            const properties = existing
+                ? existingProps.autoProvisioned === true
+                    ? {...fullProperties, createdAt: existingProps.createdAt || now}
+                    : {lastAuthenticatedAt: now}
+                : fullProperties;
+
+            GraphService.upsertGlobalNode({
+                id         : graphNodeId,
+                type       : 'AgentIdentity',
+                name       : existing ? undefined : providerDisplay,
+                description: existing ? undefined : 'Auto-provisioned Agent OS identity for a GitLab-authenticated Memory Core principal.',
+                properties
+            });
+
+            existing = this.readRawGraphNode(graphNodeId);
+            if (!existing || existing.type !== 'AgentIdentity') {
+                throw this.createIdentityProvisioningError(
+                    `Cannot auto-provision AgentIdentity ${graphNodeId}: durable graph write did not yield an AgentIdentity node.`,
+                    'NEO_AGENT_IDENTITY_WRITE_FAILED'
+                );
+            }
+
+            return graphNodeId;
+        } catch (error) {
+            if (error.code?.startsWith?.('NEO_AGENT_IDENTITY_')) {
+                throw error;
+            }
+
+            logger.warn(`[neo-memory-core MCP] AgentIdentity auto-provision failed for ${graphNodeId}: ${error.message}`);
+            return this.bindAgentIdentity(userId);
+        }
     }
 
     /**

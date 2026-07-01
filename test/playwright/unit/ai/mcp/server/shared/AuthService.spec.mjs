@@ -93,6 +93,12 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitLab-PAT veri
         expect(info.userId).toBe('octocat');
         expect(info.username).toBe('The Octocat');
         expect(info.source).toBe('gitlab-pat');
+        expect(info.authProvider).toBe('gitlab');
+        expect(info.authSource).toBe('gitlab-pat');
+        expect(info.providerBaseUrl).toBe('https://gitlab.example.com');
+        expect(info.providerUserId).toBe('42');
+        expect(info.providerUsername).toBe('octocat');
+        expect(info.providerDisplayName).toBe('The Octocat');
         expect(info.scopes).toEqual([]);
         // expiresAt is REQUIRED by the SDK requireBearerAuth middleware (numeric, future) — a
         // missing/non-numeric value is rejected with "Token has no expiration time".
@@ -108,6 +114,7 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitLab-PAT veri
 
         expect(info.username).toBe('anon');
         expect(info.userId).toBe('anon');
+        expect(info.providerDisplayName).toBe('anon');
     });
 
     test('allows a configured GitLab username and rejects an unlisted user without caching the failure', async () => {
@@ -339,6 +346,9 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitLab-PAT midd
         expect(res.ended).toBe(false);                       // no 401 short-circuit
         expect(req.auth?.userId).toBe('octocat');
         expect(req.auth?.source).toBe('gitlab-pat');
+        expect(req.auth?.authProvider).toBe('gitlab');
+        expect(req.auth?.providerUsername).toBe('octocat');
+        expect(req.auth?.providerUserId).toBe('7');
         expect(typeof req.auth?.expiresAt).toBe('number');   // the SDK requires + propagates this
     });
 
