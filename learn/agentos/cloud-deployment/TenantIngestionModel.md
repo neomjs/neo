@@ -275,7 +275,8 @@ Per-repo freshness is surfaced through the existing Memory Core healthcheck orch
             lastSyncAt           : '2026-05-25T05:30:00.000Z',
             status               : 'active',      // 'active' | 'degraded' | 'quarantined' | 'disabled'
             lastSyncDeletedCount : 0,
-            lastErrorCode        : null           // present only when status !== 'active'
+            lastErrorCode        : null,          // present only when status !== 'active'
+            lastSourceErrorCode  : null           // optional bounded source code, e.g. KB_GITMIRROR_FETCH_FAILED
         }
     ]
 }
@@ -302,7 +303,7 @@ Status is computed from per-repo `lastIngestedRev` + recent-failure-count state;
 
 ### Stable Error Code Taxonomy
 
-Per-repo failures carry a stable `lastErrorCode` field on the health payload; operators branch on `error.code`, not message prose. Codes live in [`TenantRepoSyncErrors.mjs`](../../../ai/daemons/orchestrator/services/TenantRepoSyncErrors.mjs).
+Per-repo failures carry a stable `lastErrorCode` field on the health payload; operators branch on `error.code`, not message prose. Codes live in [`TenantRepoSyncErrors.mjs`](../../../ai/daemons/orchestrator/services/TenantRepoSyncErrors.mjs). When a sibling subsystem such as `GitMirror` already produced a stable, redacted `KB_*` code, the health payload and deployment bridge also expose `lastSourceErrorCode` so operators can distinguish credential/clone/fetch failures from generic ingest failures without raw stderr or credentials.
 
 | Code | Where it surfaces | Trigger |
 |---|---|---|
@@ -313,15 +314,17 @@ Per-repo failures carry a stable `lastErrorCode` field on the health payload; op
 | `KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT` | reserved | Future concurrency-limit gate (tracked in [#11942](https://github.com/neomjs/neo/issues/11942) AC2); no current emitter. |
 
 The `KB_TENANT_REPO_SYNC_*` prefix distinguishes these codes from sibling-subsystem error families (`KB_GITMIRROR_*`, `KB_INGEST_*`, `KB_TENANT_REPO_ACCESS_*`).
+`lastSourceErrorCode` is optional and bounded to stable `KB_*` codes only; it never carries clone URLs, credential references, tokens, raw repository identities, or git stderr.
 
 ### Quarantine Runbook
 
 When a repo enters `quarantined`, the lane stops attempting it on periodic cycles until the operator acts. Steps:
 
 1. Read the per-repo `lastErrorCode` from the health payload. Stable codes follow the `KB_TENANT_REPO_SYNC_*` prefix (e.g., `KB_TENANT_REPO_SYNC_SYNC_FAILED`, `KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED`).
-2. Inspect operator logs filtered to `[TenantRepoSync] <tenantId>/<repoSlug>` for the redacted error message.
+2. If present, read `lastSourceErrorCode` to identify the failing subsystem before falling back to logs.
 3. Common cases:
-   - `KB_TENANT_REPO_SYNC_SYNC_FAILED` with git stderr indicating auth failure → rotate the `credentialRef` target; re-check the secret store.
+   - `lastSourceErrorCode: KB_GITMIRROR_CREDENTIAL_REF_INVALID` → confirm the env var or secret file named by `credentialRef` exists and is non-empty.
+   - `lastSourceErrorCode: KB_GITMIRROR_CLONE_FAILED` / `KB_GITMIRROR_FETCH_FAILED` → verify upstream access, token read scope, repo path, and network egress.
    - Persistent network/DNS error → the deployment can't reach the upstream remote; verify network egress.
    - Repository deleted / renamed upstream → update the `tenantRepos[]` config or remove the entry.
 4. Once the underlying issue is resolved, force a manual sync via `node ./ai/scripts/maintenance/syncTenantRepos.mjs --repo-slug <slug>`. A successful run returns the repo to `active`.

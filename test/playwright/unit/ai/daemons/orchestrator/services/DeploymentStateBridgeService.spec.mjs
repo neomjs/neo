@@ -594,6 +594,7 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
                                 repoSlug           : 'private/repo',
                                 status             : 'degraded',
                                 lastErrorCode      : 'KB_TENANT_REPO_SYNC_SYNC_FAILED',
+                                lastSourceErrorCode: 'KB_GITMIRROR_FETCH_FAILED',
                                 consecutiveFailures: 2
                             }]
                         }
@@ -641,10 +642,12 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
             status             : 'degraded',
             consecutiveFailures: 2,
             lastOutcome        : {
-                status       : 'degraded',
-                lastErrorCode: 'KB_TENANT_REPO_SYNC_SYNC_FAILED'
+                status             : 'degraded',
+                lastErrorCode      : 'KB_TENANT_REPO_SYNC_SYNC_FAILED',
+                lastSourceErrorCode: 'KB_GITMIRROR_FETCH_FAILED'
             }
         });
+        expect(JSON.stringify(tenantRepoSync)).not.toContain('env:TOKEN');
     });
 
     test('collectTenantRepoSyncSnapshot degrades when revision state is unreadable', async () => {

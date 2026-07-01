@@ -863,6 +863,7 @@ function summarizeTenantRepoOutcome(outcome) {
         status              : outcome.status || null,
         lastIngestedRev     : shortRevision(outcome.lastIngestedRev || outcome.headRevision),
         lastErrorCode       : outcome.lastErrorCode || outcome.code || null,
+        lastSourceErrorCode : safeKnowledgeBaseErrorCode(outcome.lastSourceErrorCode || outcome.sourceErrorCode),
         lastSyncDeletedCount: numberOrNull(outcome.lastSyncDeletedCount ?? outcome.deleted),
         consecutiveFailures : numberOrNull(outcome.consecutiveFailures)
     };
@@ -988,6 +989,10 @@ function hashValue(value) {
 
 function shortRevision(value) {
     return value ? String(value).slice(0, 12) : null;
+}
+
+function safeKnowledgeBaseErrorCode(value) {
+    return (typeof value === 'string' && /^KB_[A-Z0-9_]{1,120}$/.test(value)) ? value : null;
 }
 
 function isTenantRepoDisabled(repo) {
