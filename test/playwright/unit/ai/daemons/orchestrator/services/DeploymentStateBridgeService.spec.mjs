@@ -156,11 +156,10 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
             status       : 'available',
             reason       : null,
             runtimeAccess: {
-                enabled             : false,
-                mechanism           : 'docker-socket',
-                composeProject      : null,
-                allowedServices     : ['model'],
-                socketPathConfigured: true
+                enabled        : false,
+                mechanism      : 'docker-socket',
+                composeProject : null,
+                allowedServices: ['model']
             },
             bridgeConfig: {
                 effectiveServiceKeys: ['model'],
@@ -230,13 +229,12 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
             status       : 'degraded',
             reason       : 'broad-service-lookup-failure',
             runtimeAccess: {
-                enabled             : true,
-                mechanism           : 'docker-socket',
-                composeProject      : null,
-                allowedServices     : ['kb-server', 'mc-server'],
-                readOperations      : ['inspect', 'stats', 'logs'],
-                lifecycleOperations : ['restart'],
-                socketPathConfigured: true
+                enabled            : true,
+                mechanism          : 'docker-socket',
+                composeProject     : null,
+                allowedServices    : ['kb-server', 'mc-server'],
+                readOperations     : ['inspect', 'stats', 'logs'],
+                lifecycleOperations: ['restart']
             },
             bridgeConfig: {
                 allowedServices     : ['kb-server', 'mc-server'],

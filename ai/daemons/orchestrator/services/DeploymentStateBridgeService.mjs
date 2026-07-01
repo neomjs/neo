@@ -295,11 +295,24 @@ export class DeploymentStateBridgeService extends Base {
             observedAt,
             status       : degradedServices.length > 0 ? 'degraded' : 'available',
             reason,
-            runtimeAccess: summarizeRuntimeAccessConfig(AiConfig.orchestrator.deploymentRuntimeAccess),
-            bridgeConfig : summarizeBridgeConfig({
-                bridgeConfig        : AiConfig.orchestrator.deploymentStateBridge,
-                effectiveServiceKeys: this.getServiceKeys()
-            }),
+            runtimeAccess: {
+                enabled            : AiConfig.orchestrator.deploymentRuntimeAccess.enabled,
+                mechanism          : AiConfig.orchestrator.deploymentRuntimeAccess.mechanism,
+                composeProject     : AiConfig.orchestrator.deploymentRuntimeAccess.composeProject,
+                allowedServices    : Array.isArray(AiConfig.orchestrator.deploymentRuntimeAccess.allowedServices) ? [...AiConfig.orchestrator.deploymentRuntimeAccess.allowedServices] : [],
+                readOperations     : Array.isArray(AiConfig.orchestrator.deploymentRuntimeAccess.readOperations) ? [...AiConfig.orchestrator.deploymentRuntimeAccess.readOperations] : [],
+                lifecycleOperations: Array.isArray(AiConfig.orchestrator.deploymentRuntimeAccess.lifecycleOperations) ? [...AiConfig.orchestrator.deploymentRuntimeAccess.lifecycleOperations] : [],
+                auditMode          : AiConfig.orchestrator.deploymentRuntimeAccess.auditMode
+            },
+            bridgeConfig: {
+                allowedServices             : Array.isArray(AiConfig.orchestrator.deploymentStateBridge.allowedServices) ? [...AiConfig.orchestrator.deploymentStateBridge.allowedServices] : [],
+                effectiveServiceKeys        : this.getServiceKeys(),
+                includeLogs                 : AiConfig.orchestrator.deploymentStateBridge.includeLogs,
+                logTail                     : Number.isFinite(AiConfig.orchestrator.deploymentStateBridge.logTail) ? AiConfig.orchestrator.deploymentStateBridge.logTail : null,
+                logMaxBytes                 : Number.isFinite(AiConfig.orchestrator.deploymentStateBridge.logMaxBytes) ? AiConfig.orchestrator.deploymentStateBridge.logMaxBytes : null,
+                statsSampleWindow           : Number.isFinite(AiConfig.orchestrator.deploymentStateBridge.statsSampleWindow) ? AiConfig.orchestrator.deploymentStateBridge.statsSampleWindow : null,
+                providerResidencyServiceKeys: Array.isArray(AiConfig.orchestrator.deploymentStateBridge.providerResidencyServiceKeys) ? [...AiConfig.orchestrator.deploymentStateBridge.providerResidencyServiceKeys] : []
+            },
             serviceResolution: {
                 serviceCount        : serviceList.length,
                 degradedServiceCount: degradedServices.length,
@@ -691,31 +704,6 @@ function sanitizeRuntimeAccessDetails(details) {
         filters             : details.filters || null,
         matchCount          : Number.isFinite(details.matchCount) ? details.matchCount : null,
         hints               : Array.isArray(details.hints) ? unique(details.hints.filter(Boolean)) : []
-    };
-}
-
-function summarizeRuntimeAccessConfig(config = {}) {
-    return {
-        enabled             : Boolean(config.enabled),
-        mechanism           : config.mechanism || null,
-        composeProject      : config.composeProject || null,
-        allowedServices     : Array.isArray(config.allowedServices) ? [...config.allowedServices] : [],
-        readOperations      : Array.isArray(config.readOperations) ? [...config.readOperations] : [],
-        lifecycleOperations : Array.isArray(config.lifecycleOperations) ? [...config.lifecycleOperations] : [],
-        auditMode           : config.auditMode || null,
-        socketPathConfigured: Boolean(config.socketPath)
-    };
-}
-
-function summarizeBridgeConfig({bridgeConfig = {}, effectiveServiceKeys = []} = {}) {
-    return {
-        allowedServices             : Array.isArray(bridgeConfig.allowedServices) ? [...bridgeConfig.allowedServices] : [],
-        effectiveServiceKeys        : Array.isArray(effectiveServiceKeys) ? [...effectiveServiceKeys] : [],
-        includeLogs                 : Boolean(bridgeConfig.includeLogs),
-        logTail                     : Number.isFinite(bridgeConfig.logTail) ? bridgeConfig.logTail : null,
-        logMaxBytes                 : Number.isFinite(bridgeConfig.logMaxBytes) ? bridgeConfig.logMaxBytes : null,
-        statsSampleWindow           : Number.isFinite(bridgeConfig.statsSampleWindow) ? bridgeConfig.statsSampleWindow : null,
-        providerResidencyServiceKeys: Array.isArray(bridgeConfig.providerResidencyServiceKeys) ? [...bridgeConfig.providerResidencyServiceKeys] : []
     };
 }
 
