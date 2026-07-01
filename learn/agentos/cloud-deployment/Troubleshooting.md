@@ -130,6 +130,12 @@ Read `snapshot.bridgeDiagnostics` before changing service code:
   orchestrator cannot read the runtime socket. Mount `/var/run/docker.sock`
   into the orchestrator with suitable permissions, or disable runtime access
   explicitly when that deployment should not expose B1 diagnostics.
+- The default diagnostic set observes sibling services, not the orchestrator
+  container itself. When orchestrator logs/state are needed for a cloud
+  incident, add the Compose service label to both
+  `NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES` and
+  `NEO_DEPLOYMENT_STATE_BRIDGE_ALLOWED_SERVICES` (for the bundled compose file,
+  use `orchestrator`).
 
 The diagnostic intentionally exposes only non-secret config, service keys, and
 the label filter shape. It does not enumerate arbitrary containers or expose
