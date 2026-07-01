@@ -33,11 +33,22 @@ function makeContainer(overrides = {}) {
     };
 }
 
-function createService({config = {}, containers = [makeContainer()], inspectData = {Name: '/neo-mc-server-1'}, statsData = {cpu_stats: {}}, logText = 'ready'} = {}) {
+function createService({
+    config = {},
+    containers = [makeContainer()],
+    inspectData = {Name: '/neo-mc-server-1'},
+    statsData = {cpu_stats: {}},
+    logText = 'ready',
+    requestError = null
+} = {}) {
     const calls = [];
 
     const dockerRequestFn = async request => {
         calls.push(request);
+
+        if (requestError) {
+            throw requestError;
+        }
 
         if (request.path.startsWith('/containers/json')) {
             return {statusCode: 200, headers: {}, body: JSON.stringify(containers)};
@@ -194,6 +205,39 @@ test.describe('Neo.ai.daemons.services.DeploymentRuntimeAccessService', () => {
         expect(sidecar.calls).toHaveLength(0);
     });
 
+    test('adds structured config and filter details when a compose service has no match', async () => {
+        const {service} = createService({
+            config    : {composeProject: 'prod'},
+            containers: []
+        });
+
+        const error = await service.readObserve({serviceKey: 'mc-server', operation: 'inspect'}).catch(e => e);
+
+        expect(error).toMatchObject({
+            reason : 'compose-service-no-match',
+            message: "No Docker container found for compose service 'mc-server'",
+            details: {
+                enabled             : true,
+                mechanism           : 'docker-socket',
+                composeProject      : 'prod',
+                allowedServices     : ['chroma', 'kb-server', 'mc-server', 'local-model'],
+                readOperations      : ['inspect', 'logs', 'stats'],
+                lifecycleOperations : ['restart'],
+                auditMode           : 'metadata',
+                socketPathConfigured: true,
+                serviceKey          : 'mc-server',
+                filters             : {
+                    label: [
+                        'com.docker.compose.service=mc-server',
+                        'com.docker.compose.project=prod'
+                    ]
+                },
+                matchCount: 0
+            }
+        });
+        expect(error.details.hints).toContain('Align NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES with Docker com.docker.compose.service labels.');
+    });
+
     test('requires composeProject when a service label resolves ambiguously', async () => {
         const {service} = createService({
             containers: [
@@ -202,7 +246,37 @@ test.describe('Neo.ai.daemons.services.DeploymentRuntimeAccessService', () => {
             ]
         });
 
-        await expect(service.readObserve({serviceKey: 'mc-server', operation: 'inspect'}))
-            .rejects.toThrow(/resolved to 2 containers/);
+        const error = await service.readObserve({serviceKey: 'mc-server', operation: 'inspect'}).catch(e => e);
+
+        expect(error).toMatchObject({
+            reason : 'compose-service-ambiguous',
+            message: "Compose service 'mc-server' resolved to 2 containers; configure composeProject to disambiguate",
+            details: {
+                serviceKey: 'mc-server',
+                matchCount: 2,
+                filters   : {
+                    label: ['com.docker.compose.service=mc-server']
+                }
+            }
+        });
+    });
+
+    test('classifies socket transport failures during compose lookup', async () => {
+        const requestError = Object.assign(new Error('connect ENOENT /var/run/docker.sock'), {code: 'ENOENT'});
+        const {service}    = createService({requestError});
+
+        const error = await service.readObserve({serviceKey: 'mc-server', operation: 'inspect'}).catch(e => e);
+
+        expect(error).toMatchObject({
+            reason : 'docker-socket-unavailable',
+            code   : 'ENOENT',
+            message: 'Docker socket is unavailable',
+            details: {
+                serviceKey: 'mc-server',
+                filters   : {
+                    label: ['com.docker.compose.service=mc-server']
+                }
+            }
+        });
     });
 });

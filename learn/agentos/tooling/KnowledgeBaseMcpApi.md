@@ -50,6 +50,18 @@ task state, effective repo-config counts/tiers, redacted per-repo due state, and
 stable failure reason codes without exposing clone URLs, credentials, or raw
 logs.
 
+`inspect_deployment` and `get_deployment_state_snapshot` include a
+`bridgeDiagnostics` envelope when the orchestrator's deployment-state bridge
+can explain its own observation layer. That envelope reports non-secret
+runtime-access config such as the runtime mechanism, whether runtime access is
+enabled, the configured Compose project, allowlisted service keys, read
+operations, the bridge's effective service keys, and whether bounded logs are
+included. Per-service lookup failures also carry stable `reason` values and the
+Compose label filter used for the lookup, for example
+`compose-service-no-match` with
+`com.docker.compose.service=<service>`. This is diagnosis only: callers still
+receive no Docker socket, shell, restart, or arbitrary container enumeration.
+
 ## Admin Tools
 
 | Tool | Use |
