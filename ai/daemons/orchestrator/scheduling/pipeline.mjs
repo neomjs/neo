@@ -14,13 +14,13 @@ export const PRIORITY_ZERO_TASKS = Object.freeze(['backup']);
 /**
  * Maps a staleness-eligible task to the `context.intervals` cadence key the picker normalizes its
  * overdue-ness against. DELIBERATELY scoped to the lease-competing heavy tasks plus the
- * graph-dependent `golden-path` (the REM chain), and EXCLUDES the lightweight / health / continuous
- * tasks (`swarm-heartbeat`, `embed-drain-liveness-watchdog`, `tenant-repo-sync`): those keep
- * registry-order (a neutral staleness score of 0) so a frequently-due light task can never out-rank a
- * heavy one and starve the heavy pipeline — the inverse of the bug this ticket fixes. Backlog-driven
- * tasks (`summary`, `memory-summary-backfill`) have no real interval, so they share the summary-sweep
- * cadence as a nominal denominator; that reduces their comparison to least-recently-run, which is the
- * intended ordering (a starved backfill out-ages a constantly-running summary).
+ * graph-dependent `golden-path`, and EXCLUDES lightweight / health / continuous tasks
+ * (`swarm-heartbeat`, `embed-drain-liveness-watchdog`): those keep registry-order (a neutral
+ * staleness score of 0) so a frequently-due light task can never out-rank a heavy one and starve the
+ * heavy pipeline — the inverse of the bug this ticket fixes. Backlog-driven tasks (`summary`,
+ * `memory-summary-backfill`) have no real interval, so they share the summary-sweep cadence as a
+ * nominal denominator; that reduces their comparison to least-recently-run, which is the intended
+ * ordering (a starved backfill out-ages a constantly-running summary).
  * @type {Readonly<Object>}
  */
 export const TASK_STALENESS_CADENCE_KEY = Object.freeze({
@@ -31,6 +31,7 @@ export const TASK_STALENESS_CADENCE_KEY = Object.freeze({
     backup                   : 'backup',
     'graphlog-compaction'    : 'graphLogCompaction',
     'primary-dev-sync'       : 'primaryDevSync',
+    'tenant-repo-sync'       : 'tenantRepoSync',
     dream                    : 'dream',
     'message-concept-harvest': 'messageConceptHarvest',
     'golden-path'            : 'goldenPath'

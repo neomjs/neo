@@ -115,9 +115,10 @@ function filterUnmetDependencies(candidates, runningSet) {
  *      so a daily backup is never deferred behind a backlog-draining task. Registry order
  *      breaks ties among multiple priority-0 survivors.
  *   2. **Staleness-ratio (eligible set only)** — among candidates carrying `taskMeta` (the
- *      lease-competing REM chain), the most overdue by `(now - lastRunAt) / cadenceMs` is the single
- *      eligible representative, so a weeks-stale `golden-path` or a starved `memory-summary-backfill`
- *      outranks a just-drained `summary`. A never-run task (lastRunAt 0) scores very high.
+ *      lease-competing heavy tasks plus `golden-path`), the most overdue by `(now - lastRunAt) /
+ *      cadenceMs` is the single eligible representative, so a weeks-stale `golden-path` or a
+ *      starved `memory-summary-backfill` outranks a just-drained `summary`. A never-run task
+ *      (lastRunAt 0) scores very high.
  *   3. **Registry order across the class boundary** — NON-eligible candidates (no `taskMeta`:
  *      lightweight / health / continuous) keep their registry slot; the winner is the first in
  *      registry order among the non-eligible candidates plus the one eligible representative, so a
@@ -146,11 +147,11 @@ function selectByPriority(candidates, policyContext = {}) {
         if (priorityZeroWinner) return priorityZeroWinner;
     }
 
-    // Staleness reorders ONLY the eligible set (candidates carrying `taskMeta` — the lease-competing
-    // REM chain). The most-overdue eligible candidate is the single eligible representative; every
-    // NON-eligible candidate keeps its registry slot, so the cross-class boundary is unchanged
-    // (a registry-earlier non-heavy task still wins over a later overdue heavy one). Strict `>`
-    // keeps the earlier eligible candidate on equal ratios (registry-order tiebreak).
+    // Staleness reorders ONLY the eligible set (candidates carrying `taskMeta` — the
+    // lease-competing heavy tasks plus `golden-path`). The most-overdue eligible candidate is the
+    // single eligible representative; every NON-eligible candidate keeps its registry slot, so the
+    // cross-class boundary is unchanged (a registry-earlier non-heavy task still wins over a later
+    // overdue heavy one). Strict `>` keeps the earlier eligible candidate on equal ratios.
     let topEligible = null;
     let topRatio    = -Infinity;
 

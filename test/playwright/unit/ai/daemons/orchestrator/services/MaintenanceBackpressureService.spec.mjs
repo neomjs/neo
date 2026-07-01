@@ -75,6 +75,7 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
             'memory-summary-backfill',
             'message-concept-harvest',
             'primary-dev-sync',
+            'tenant-repo-sync',
             'summary'
         ].sort());
         expect(Object.isFrozen(DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES)).toBe(true);
@@ -105,6 +106,10 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
     test('isHeavyMaintenanceTask returns membership in heavy set', () => {
         expect(isHeavyMaintenanceTask({
             taskName                 : 'summary',
+            heavyMaintenanceTaskNames: DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES
+        })).toBe(true);
+        expect(isHeavyMaintenanceTask({
+            taskName                 : 'tenant-repo-sync',
             heavyMaintenanceTaskNames: DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES
         })).toBe(true);
         expect(isHeavyMaintenanceTask({
@@ -425,6 +430,39 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         expect(executions).toEqual([{taskName: NON_HEAVY_TASK_NAME, reason: 'periodic-heartbeat'}]);
         expect(result).toBe(true);
         expect(activeHeavyTask.name).toBeNull();
+    });
+
+    test('acquireLeaseAndExecute runs tenant-repo-sync through the heavy lease', () => {
+        const acquireCalls = [];
+        const releaseCalls = [];
+        const executions   = [];
+        const service      = buildService({
+            taskStateService: buildTaskStateService({}),
+            acquireLeaseFn  : opts => { acquireCalls.push(opts); return {acquired: true, lease: {token: 'tenant-token'}}; },
+            releaseLeaseFn  : opts => releaseCalls.push(opts)
+        });
+
+        const activeHeavyTask = {name: null};
+        const result          = service.acquireLeaseAndExecute({
+            taskName : 'tenant-repo-sync',
+            executeFn: (taskName, reason, onSuccess, taskOptions) => {
+                executions.push({taskName, reason, env: taskOptions.env});
+                taskOptions.onComplete?.();
+                return true;
+            },
+            reason: 'periodic-tenant-repo-sync',
+            activeHeavyTask
+        });
+
+        expect(result).toBe(true);
+        expect(acquireCalls).toHaveLength(1);
+        expect(executions).toEqual([{
+            taskName: 'tenant-repo-sync',
+            reason  : 'periodic-tenant-repo-sync',
+            env     : {NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN: 'tenant-token'}
+        }]);
+        expect(releaseCalls).toHaveLength(1);
+        expect(activeHeavyTask.name).toBe('tenant-repo-sync');
     });
 
     test('Sub 9 hypothesis 4: acquireLeaseAndExecute records intra-process backpressure as skipped (#12617)', () => {

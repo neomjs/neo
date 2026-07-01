@@ -24,6 +24,7 @@ export const DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES = Object.freeze([
     'backup',
     'graphlog-compaction',
     'primary-dev-sync',
+    'tenant-repo-sync',
     'dream',
     'message-concept-harvest'
 ]);

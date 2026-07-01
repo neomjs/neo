@@ -170,8 +170,8 @@ export const TASK_REGISTRY = Object.freeze([
     {
         taskName        : 'tenant-repo-sync',
         executionKind   : 'service-runner',
-        maintenanceClass: 'continuous',
-        backpressure    : 'none',
+        maintenanceClass: 'heavy',
+        backpressure    : 'exclusive-heavy',
         dependencies    : [],
         getDueTask({state, now, intervals, enables, hooks}) {
             return (hooks.tenantRepoSyncGetDueTask || getTenantRepoSyncDueTask)({
