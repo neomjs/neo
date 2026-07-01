@@ -30,7 +30,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
     let testDbPath;
 
     test.beforeAll(async () => {
-        const aiConfig                = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
 
         const tmpDir = path.resolve(process.cwd(), 'tmp');
         if (!fs.existsSync(tmpDir)) {
@@ -115,7 +115,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         await GraphService.linkNodes('EpicA', 'Task2', 'CONTAINS', 0.8);
         await GraphService.linkNodes('Task1', 'Task2', 'DEPENDENCY', 0.5);
 
-        const result = await GraphService.getNeighbors({id: 'EpicA'});
+        const result      = await GraphService.getNeighbors({id: 'EpicA'});
         const {neighbors} = result || {};
 
         // Validation of extraction
@@ -222,7 +222,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: SqliteError disk I/O - bucket G3 (#10924)');
         const RequestContextService = (await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
 
-        let mockIdentity    = '@tenant-alpha';
+        let   mockIdentity  = '@tenant-alpha';
         const originalGetId = RequestContextService.getAgentIdentityNodeId;
         RequestContextService.getAgentIdentityNodeId = () => mockIdentity;
 
@@ -250,16 +250,84 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         }
     });
 
+    test('listNodeRecordsByType enumerates visible typed records with optional id prefix (#14404)', async () => {
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: SqliteError disk I/O - bucket G3 (#10924)');
+
+        await GraphService.upsertNode({
+            id        : 'kb-config:tenant-alpha',
+            type      : 'KnowledgeBaseTenantConfig',
+            properties: {tenantId: 'tenant-alpha', tenantRepos: [], visibility: 'team'}
+        });
+        await GraphService.upsertNode({
+            id        : 'kb-config:tenant-beta',
+            type      : 'KnowledgeBaseTenantConfig',
+            properties: {tenantId: 'tenant-beta', tenantRepos: [], visibility: 'team'}
+        });
+        await GraphService.upsertNode({
+            id        : 'kb-manifest:tenant-alpha',
+            type      : 'KnowledgeBaseTenantManifest',
+            properties: {tenantId: 'tenant-alpha', visibility: 'team'}
+        });
+
+        const {records} = GraphService.listNodeRecordsByType({
+            type    : 'KnowledgeBaseTenantConfig',
+            idPrefix: 'kb-config:'
+        });
+
+        expect(records.map(record => record.id)).toEqual([
+            'kb-config:tenant-alpha',
+            'kb-config:tenant-beta'
+        ]);
+        expect(records[0]).toMatchObject({
+            id        : 'kb-config:tenant-alpha',
+            type      : 'KnowledgeBaseTenantConfig',
+            properties: {tenantId: 'tenant-alpha'}
+        });
+    });
+
+    test('listNodeRecordsByType applies the #10011 RLS visibility re-check (#14404)', async () => {
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: SqliteError disk I/O - bucket G3 (#10924)');
+        const RequestContextService = (await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
+
+        let   mockIdentity  = '@tenant-alpha';
+        const originalGetId = RequestContextService.getAgentIdentityNodeId;
+        RequestContextService.getAgentIdentityNodeId = () => mockIdentity;
+
+        try {
+            await GraphService.upsertNode({
+                id        : 'kb-config:tenant-alpha-private',
+                type      : 'KnowledgeBaseTenantConfig',
+                properties: {tenantId: 'tenant-alpha-private', tenantRepos: []}
+            });
+
+            GraphService.db.nodes.clearSilent();
+
+            mockIdentity = '@tenant-alpha';
+            expect(GraphService.listNodeRecordsByType({
+                type    : 'KnowledgeBaseTenantConfig',
+                idPrefix: 'kb-config:tenant-alpha'
+            }).records.map(record => record.id)).toEqual(['kb-config:tenant-alpha-private']);
+
+            mockIdentity = '@tenant-beta';
+            expect(GraphService.listNodeRecordsByType({
+                type    : 'KnowledgeBaseTenantConfig',
+                idPrefix: 'kb-config:tenant-alpha'
+            }).records).toEqual([]);
+        } finally {
+            RequestContextService.getAgentIdentityNodeId = originalGetId;
+        }
+    });
+
     test('cold SQLite lazy-load recovers an owner\'s own normalized-user_id node (#13571)', async () => {
         test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: SqliteError disk I/O - bucket G3 (#10924)');
         const RequestContextService = (await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
 
-        let mockIdentity    = '@tenant-gamma';
+        let   mockIdentity  = '@tenant-gamma';
         const originalGetId = RequestContextService.getAgentIdentityNodeId;
         RequestContextService.getAgentIdentityNodeId = () => mockIdentity;
 
         const recool = () => {
-            const wasAutoSave        = GraphService.db.autoSave;
+            const wasAutoSave = GraphService.db.autoSave;
             GraphService.db.autoSave = false;
             GraphService.db.nodes.clear();
             GraphService.db.vicinityLoadedNodes.clear();
@@ -317,7 +385,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         const MemoryService = (await import('../../../../../../ai/services/memory-core/MemoryService.mjs')).default;
 
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
-        const getCalls = [];
+        const getCalls                     = [];
 
         StorageRouter.getSummaryCollection = async () => ({
             async get(args) {
@@ -384,7 +452,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         // Let the asynchronous store mutations propagate to SQLite natively
         await new Promise(resolve => setTimeout(resolve, 50));
 
-        let wasAutoSave          = GraphService.db.autoSave;
+        let wasAutoSave = GraphService.db.autoSave;
         GraphService.db.autoSave = false;
 
         // Explicitly clear RAM cache WITHOUT cascading to SQLite
@@ -464,7 +532,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
 
         // Note: GraphService.getNode('@neo-opus-ada') directly would return null here.
         // We simulate the bindAgentIdentity retry logic that explicitly deletes the stuck cache.
-        let retries = 3;
+        let retries        = 3;
         let rehydratedNode = null;
         while (retries > 0) {
             rehydratedNode = await GraphService.getNode({id: '@neo-opus-ada'});
@@ -494,7 +562,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         // Let the asynchronous store mutations propagate to SQLite natively
         await new Promise(resolve => setTimeout(resolve, 50));
 
-        let wasAutoSave          = GraphService.db.autoSave;
+        let wasAutoSave = GraphService.db.autoSave;
         GraphService.db.autoSave = false;
 
         // Wipe RAM cache to simulate memory eviction over time WITHOUT cascading to SQLite
@@ -528,7 +596,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         // Let the asynchronous store mutations propagate to SQLite natively
         await new Promise(resolve => setTimeout(resolve, 50));
 
-        let wasAutoSave          = GraphService.db.autoSave;
+        let wasAutoSave = GraphService.db.autoSave;
         GraphService.db.autoSave = false;
 
         // Explicitly clear RAM cache WITHOUT cascading to SQLite
@@ -645,7 +713,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
 
         // Spy on getAdjacentNodes to simulate another process writing the node during the cache-warm retry
         const originalGetAdjacent = GraphService.db.getAdjacentNodes.bind(GraphService.db);
-        let cacheWarmTriggered = false;
+        let   cacheWarmTriggered  = false;
 
         GraphService.db.getAdjacentNodes = (nodeId, direction, type) => {
             if (nodeId === 'GhostNode') {
@@ -710,7 +778,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
 
     test('linkNodesAsync back-fills missing memory: target via MemorySessionIngestor', async () => {
         const MemorySessionIngestor = (await import('../../../../../../ai/services/ingestion/MemorySessionIngestor.mjs')).default;
-        const originalIngest = MemorySessionIngestor.ingestSingleRow;
+        const originalIngest        = MemorySessionIngestor.ingestSingleRow;
 
         // Mock the ingestor to simulate a successful back-fill — upsert a node and return success.
         MemorySessionIngestor.ingestSingleRow = async (id) => {
@@ -738,7 +806,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
 
     test('linkNodesAsync normalizes uppercase MEMORY: prefix to canonical lowercase', async () => {
         const MemorySessionIngestor = (await import('../../../../../../ai/services/ingestion/MemorySessionIngestor.mjs')).default;
-        const originalIngest = MemorySessionIngestor.ingestSingleRow;
+        const originalIngest        = MemorySessionIngestor.ingestSingleRow;
 
         MemorySessionIngestor.ingestSingleRow = async (id) => {
             // The resolver is called with the already-normalized id; verify that fact.
@@ -768,7 +836,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
 
     test('linkNodesAsync returns false when back-fill fails (hallucinated target)', async () => {
         const MemorySessionIngestor = (await import('../../../../../../ai/services/ingestion/MemorySessionIngestor.mjs')).default;
-        const originalIngest = MemorySessionIngestor.ingestSingleRow;
+        const originalIngest        = MemorySessionIngestor.ingestSingleRow;
 
         MemorySessionIngestor.ingestSingleRow = async (id) => ({
             success    : false,
@@ -868,7 +936,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         }
 
         // Mock identity A
-        let mockIdentity = '@identity-a';
+        let   mockIdentity  = '@identity-a';
         const originalGetId = RequestContextService.getAgentIdentityNodeId;
         RequestContextService.getAgentIdentityNodeId = () => mockIdentity;
 
@@ -943,7 +1011,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         }
 
         // Mock identity A
-        let mockIdentity = '@identity-a';
+        let   mockIdentity  = '@identity-a';
         const originalGetId = RequestContextService.getAgentIdentityNodeId;
         RequestContextService.getAgentIdentityNodeId = () => mockIdentity;
 

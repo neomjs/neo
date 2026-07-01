@@ -106,7 +106,7 @@ tenants:
         branchRef: dev                                        # optional; defaults to 'HEAD' = remote default branch
 ```
 
-The `tenantRepos:` block is the bootstrap tier for the pull-mode polling config — `listConfiguredTenantRepos()` resolves it under the graph node → `kb-config.yaml` → `aiConfig` tiering.
+The `tenantRepos:` block is the bootstrap tier for the pull-mode polling config — `listConfiguredTenantRepos()` resolves it under the graph node → `kb-config.yaml` → `aiConfig` tiering. Graph-only tenant config nodes are included through the graph service's RLS-aware tenant-config enumeration surface; an unreadable graph tier degrades deployment diagnostics instead of silently behaving like an empty pull-mode config.
 
 The YAML is bootstrap-only — the graph node is canonical once written. A malformed or absent file is fail-soft (logged, treated as absent → tier 3).
 
