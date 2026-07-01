@@ -15,7 +15,7 @@ import {Command}                        from 'commander';
 import fs                               from 'fs-extra';
 import path                             from 'path';
 import {fileURLToPath}                  from 'url';
-import yaml                             from 'js-yaml';
+import * as yaml                        from 'js-yaml';
 import dotenv                           from 'dotenv';
 import {exec}                           from 'child_process';
 import {promisify}                      from 'util';

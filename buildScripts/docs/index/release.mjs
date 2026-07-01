@@ -1,6 +1,6 @@
 import fs              from 'fs-extra';
 import path            from 'path';
-import {Command}       from 'commander/esm.mjs';
+import {Command}       from 'commander';
 import {fileURLToPath} from 'url';
 import fg              from 'fast-glob';
 import matter          from 'gray-matter';
@@ -41,7 +41,7 @@ const OUTPUT_FILE = path.resolve(ROOT_DIR, 'apps/portal/resources/data/releases.
 /**
  * Core logic to scan and index release note markdown files.
  *
- * 1.  Recursively scans `resources/content/release-notes` incl. chunk-N folders (per ADR 0004 §2.1).
+ * 1.  Recursively scans `resources/content/release-notes`, including chunk-N folders.
  * 2.  Extracts version numbers and dates (handling both frontmatter and filesystem fallbacks).
  * 3.  Groups releases into Major Version buckets (e.g., "v1", "v2").
  * 4.  Sorts majors and minors descending.
@@ -58,7 +58,7 @@ async function createReleaseIndex(options = {}) {
 
     console.log(`Scanning release notes in: ${inputDir}`);
 
-    // Find all markdown files recursively (release notes now live under chunk-N/ per ADR 0004 §2.1)
+    // Find all markdown files recursively, including release notes under chunk-N/.
     const files = await fg('**/*.md', { cwd: inputDir, absolute: true });
 
     if (files.length === 0) {

@@ -2,10 +2,10 @@ import {test, expect}        from '@playwright/test';
 import fs                    from 'fs';
 import path                  from 'path';
 import {fileURLToPath}       from 'url';
-import yaml                  from 'js-yaml';
-import {zodToJsonSchema}     from 'zod-to-json-schema';
+import * as yaml       from 'js-yaml';
 import {buildZodSchema,
-        buildOutputZodSchema} from '../../../../../../ai/mcp/validation/openApiValidator.mjs';
+        buildOutputZodSchema,
+        toOpenApiJsonSchema} from '../../../../../../ai/mcp/validation/openApiValidator.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -335,13 +335,12 @@ function getNeuralLinkServiceMappingKeys() {
 test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
     /**
      * Direct regression for https://github.com/neomjs/neo/issues/10064. Prior to the fix,
-     * `z.array(z.any())` emitted `{"type":"array"}` under `target:'openApi3'` — stripping
-     * the `items` field entirely — which caused GitHub Copilot to reject `call_method`.
-     * `z.unknown()` preserves `items: {}`, satisfying strict validators.
+     * `z.array(z.unknown())` must emit `{"type":"array","items":{}}`,
+     * satisfying strict validators that reject array schemas without `items`.
      */
-    test('z.array(z.unknown()) emits items under openApi3 target', async () => {
+    test('z.array(z.unknown()) emits items under Zod v4 OpenAPI target', async () => {
         const {z} = await import('zod');
-        const schema = zodToJsonSchema(z.array(z.unknown()), {target: 'openApi3', $refStrategy: 'none'});
+        const schema = toOpenApiJsonSchema(z.array(z.unknown()));
         expect(schema.type).toBe('array');
         expect(schema).toHaveProperty('items');
     });
@@ -354,8 +353,8 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
      */
     test('z.object(...).passthrough() emits additionalProperties:true', async () => {
         const {z} = await import('zod');
-        const strict  = zodToJsonSchema(z.object({a: z.string()}));
-        const lenient = zodToJsonSchema(z.object({a: z.string()}).passthrough());
+        const strict  = toOpenApiJsonSchema(z.object({a: z.string()}));
+        const lenient = toOpenApiJsonSchema(z.object({a: z.string()}).passthrough());
         expect(strict.additionalProperties).toBe(false);
         expect(lenient.additionalProperties).toBe(true);
     });
@@ -406,7 +405,7 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
             }
         };
         const op = doc.paths['/test'].post;
-        const schema = zodToJsonSchema(buildZodSchema(doc, op), {target: 'openApi3', $refStrategy: 'none'});
+        const schema = toOpenApiJsonSchema(buildZodSchema(doc, op));
 
         expect(schema.properties.action.type).toBe('string');
         expect(schema.properties.action.enum).toEqual(['start', 'stop']);
@@ -419,9 +418,9 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
      */
     test('memory-core input schemas preserve defaults, bounds, and choice enums (#10531)', async () => {
         const doc                = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/memory-core/openapi.yaml'), 'utf8')),
-              addMessageSchema   = zodToJsonSchema(buildZodSchema(doc, doc.paths['/mailbox/messages'].post), {target: 'openApi3', $refStrategy: 'none'}),
-              listMessagesSchema = zodToJsonSchema(buildZodSchema(doc, doc.paths['/mailbox/messages'].get),  {target: 'openApi3', $refStrategy: 'none'}),
-              wakeSchema         = zodToJsonSchema(buildZodSchema(doc, doc.paths['/wake-subscriptions/manage'].post), {target: 'openApi3', $refStrategy: 'none'}),
+              addMessageSchema   = toOpenApiJsonSchema(buildZodSchema(doc, doc.paths['/mailbox/messages'].post)),
+              listMessagesSchema = toOpenApiJsonSchema(buildZodSchema(doc, doc.paths['/mailbox/messages'].get)),
+              wakeSchema         = toOpenApiJsonSchema(buildZodSchema(doc, doc.paths['/wake-subscriptions/manage'].post)),
               adapter            = wakeSchema.properties.harnessTargetMetadata.properties.adapter,
               coalesceWindow     = wakeSchema.properties.harnessTargetMetadata.properties.coalesceWindow;
 
@@ -448,8 +447,8 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
               doc           = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/knowledge-base/openapi.yaml'), 'utf8')),
               queryOp       = doc.paths['/documents/query'].post,
               askOp         = doc.paths['/knowledge/ask'].post,
-              querySchema   = zodToJsonSchema(buildZodSchema(doc, queryOp), {target: 'openApi3', $refStrategy: 'none'}),
-              askSchema     = zodToJsonSchema(buildZodSchema(doc, askOp), {target: 'openApi3', $refStrategy: 'none'}),
+              querySchema   = toOpenApiJsonSchema(buildZodSchema(doc, queryOp)),
+              askSchema     = toOpenApiJsonSchema(buildZodSchema(doc, askOp)),
               queryType     = doc.components.schemas.QueryRequest.properties.type;
 
         expect(queryType.enum).toEqual(expectedTypes);
@@ -638,9 +637,9 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
                 for (const [, op] of Object.entries(pathItem)) {
                     if (!op?.operationId) continue;
 
-                    const inputSchema  = zodToJsonSchema(buildZodSchema(doc, op), {target: 'openApi3', $refStrategy: 'none'}),
+                    const inputSchema  = toOpenApiJsonSchema(buildZodSchema(doc, op)),
                           outputZod    = buildOutputZodSchema(doc, op),
-                          outputSchema = outputZod ? zodToJsonSchema(outputZod) : null;
+                          outputSchema = outputZod ? toOpenApiJsonSchema(outputZod) : null;
 
                     offenders.push(...findArraysWithoutItems(inputSchema,  `${op.operationId}.input`));
                     if (outputSchema) {
@@ -664,7 +663,7 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
                     const outputZod = buildOutputZodSchema(doc, op);
                     if (!outputZod) continue;
 
-                    offenders.push(...findStrictObjects(zodToJsonSchema(outputZod), `${op.operationId}.output`));
+                    offenders.push(...findStrictObjects(toOpenApiJsonSchema(outputZod), `${op.operationId}.output`));
                 }
             }
 
@@ -683,7 +682,7 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
                 for (const [, op] of Object.entries(pathItem)) {
                     if (!op?.operationId) continue;
 
-                    const inputSchema = zodToJsonSchema(buildZodSchema(doc, op), {target: 'openApi3', $refStrategy: 'none'});
+                    const inputSchema = toOpenApiJsonSchema(buildZodSchema(doc, op));
                     offenders.push(...findSilentlyStrippingOpenBags(inputSchema, `${op.operationId}.input`));
                 }
             }
@@ -704,7 +703,7 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
                 for (const [, op] of Object.entries(pathItem)) {
                     if (!op?.operationId) continue;
 
-                    const inputSchema = zodToJsonSchema(buildZodSchema(doc, op), {target: 'openApi3', $refStrategy: 'none'});
+                    const inputSchema = toOpenApiJsonSchema(buildZodSchema(doc, op));
 
                     // The root input schema is always `z.object(...)` — should NOT be passthrough.
                     // (Individual nested property objects may legitimately be lenient; we only

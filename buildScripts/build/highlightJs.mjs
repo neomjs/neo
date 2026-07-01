@@ -3,7 +3,7 @@ import {fileURLToPath} from 'url';
 import fs              from 'fs/promises';
 import os              from 'os';
 import path            from 'path';
-import {Command}       from 'commander/esm.mjs';
+import {Command}       from 'commander';
 import * as terser     from 'terser';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

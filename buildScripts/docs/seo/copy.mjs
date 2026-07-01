@@ -1,7 +1,7 @@
 import chalk           from 'chalk';
 import fs              from 'fs-extra';
 import path            from 'path';
-import {Command}       from 'commander/esm.mjs';
+import {Command}       from 'commander';
 import {sanitizeInput} from '../../util/sanitizer.mjs';
 
 const

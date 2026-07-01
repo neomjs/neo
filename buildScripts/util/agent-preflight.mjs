@@ -1,6 +1,6 @@
 import {execFileSync}             from 'node:child_process';
 import {existsSync, readFileSync} from 'node:fs';
-import {Command}                  from 'commander/esm.mjs';
+import {Command}                  from 'commander';
 import path                       from 'node:path';
 import process                    from 'node:process';
 import {fileURLToPath}            from 'node:url';

@@ -1,6 +1,6 @@
 import fs              from 'fs-extra';
 import path            from 'path';
-import {Command}       from 'commander/esm.mjs';
+import {Command}       from 'commander';
 import {execFileSync}  from 'child_process';
 import {fileURLToPath} from 'url';
 import fg              from 'fast-glob';

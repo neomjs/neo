@@ -12,7 +12,7 @@
  */
 
 import {Command}       from 'commander';
-import yaml            from 'js-yaml';
+import * as yaml       from 'js-yaml';
 import dotenv          from 'dotenv';
 import path            from 'path';
 import {fileURLToPath} from 'url';
