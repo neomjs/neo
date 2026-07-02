@@ -34,6 +34,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     let renderStaleAssignmentCandidatesSection;
     let buildSilentThreadCandidates;
     let renderSilentThreadCandidatesSection;
+    let renderGoldenPathRouteLedgerSection;
     let issueFocusSections;
 
     let StorageRouter;
@@ -76,6 +77,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         renderStaleAssignmentCandidatesSection = GoldenPathSynthesizer.constructor.renderStaleAssignmentCandidatesSection.bind(GoldenPathSynthesizer.constructor);
         buildSilentThreadCandidates = GoldenPathSynthesizer.constructor.buildSilentThreadCandidates.bind(GoldenPathSynthesizer.constructor);
         renderSilentThreadCandidatesSection = GoldenPathSynthesizer.constructor.renderSilentThreadCandidatesSection.bind(GoldenPathSynthesizer.constructor);
+        ({renderGoldenPathRouteLedgerSection} = await import('../../../../../../ai/services/graph/goldenPathRouteLedger.mjs'));
         GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         SystemLifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
         StorageRouter = (await import('../../../../../../ai/services.mjs')).Memory_StorageRouter;
@@ -621,7 +623,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const issuesDir                        = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-silent-render-issues-'));
         const chunkDir                         = path.join(issuesDir, 'chunk-1');
         const now                              = new Date('2026-05-28T00:00:00Z');
-        const goldenIssueId = `issue-silent-golden-${Date.now()}`;
+        const goldenIssueId                    = `issue-silent-golden-${Date.now()}`;
         aiConfig.vectorDimension = 2;
 
         fs.mkdirSync(chunkDir, {recursive: true});
@@ -876,8 +878,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(computedSection).toContain(`1. **${discussionId}**: Score 18.18 (Semantic: 9.09, Structural: 0.00)\n   - *Governance discussion*`);
         expect(computedSection).toContain(`2. **${readyId}**: Score 3.33 (Semantic: 1.67, Structural: 0.00)\n   - *Actionable release leaf*`);
         expect(computedSection).toContain('> **Strategic Interpretation:**\n> stub');
-        expect(handoffContent).not.toContain(epicId);    // epic label still excluded
-        expect(handoffContent).not.toContain(notReadyId);
+        expect(computedSection).not.toContain(epicId);    // epic label still excluded from rendered recommendations
+        expect(computedSection).not.toContain(notReadyId);
     });
 
     test('synthesizeGoldenPath renders a contradiction diagnostic for blog routing during PRIO-zero focus (#13849)', async () => {
@@ -968,9 +970,9 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
         const originalEmbedText            = TextEmbeddingService.embedText;
         const originalFetchOpenPRs         = GoldenPathSynthesizer.fetchOpenPRs;
-        const suffix = `${process.pid}-${Date.now()}`;
-        const staleId = `issue-stale-guide-${suffix}`;
-        const notReadyId = `issue-empty-not-ready-${suffix}`;
+        const suffix                       = `${process.pid}-${Date.now()}`;
+        const staleId                      = `issue-stale-guide-${suffix}`;
+        const notReadyId                   = `issue-empty-not-ready-${suffix}`;
         aiConfig.vectorDimension = 2;
 
         GraphService.upsertNode({
@@ -1026,13 +1028,123 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(guideTargets).not.toContain(staleId);
     });
 
+    test('synthesizeGoldenPath renders same-run route attribution ledger for scoring and rejection gates (#14454)', async () => {
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const originalFetchOpenPRs         = GoldenPathSynthesizer.fetchOpenPRs;
+        const OpenAiCompatible             = (await import('../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
+        const originalGenerate             = OpenAiCompatible.prototype.generate;
+        const suffix                       = `${process.pid}-${Date.now()}`;
+        const readyId                      = `issue-route-ledger-ready-${suffix}`;
+        const notReadyId                   = `issue-route-ledger-not-ready-${suffix}`;
+        const blockedId                    = `issue-route-ledger-blocked-${suffix}`;
+        const blockerId                    = `issue-route-ledger-blocker-${suffix}`;
+        const sourceAId                    = `issue-route-ledger-source-a-${suffix}`;
+        const sourceBId                    = `discussion-route-ledger-source-b-${suffix}`;
+        aiConfig.vectorDimension = 2;
+
+        GraphService.upsertNode({
+            id        : 'frontier',
+            type      : 'SYSTEM_TENET',
+            properties: {name: 'Active Context Frontier'}
+        });
+        [
+            {id: readyId, type: 'ISSUE', title: 'Implement same-run route ledger', labels: ['bug', 'ai']},
+            {id: notReadyId, type: 'ISSUE', title: 'Deferred not-ready route', labels: ['not-code-ready', 'ai']},
+            {id: blockedId, type: 'ISSUE', title: 'Blocked route', labels: ['bug', 'ai']},
+            {id: blockerId, type: 'ISSUE', title: 'Open blocker', labels: ['bug', 'ai']},
+            {id: sourceAId, type: 'ISSUE', title: 'Structural source A', labels: ['bug', 'ai']},
+            {id: sourceBId, type: 'DISCUSSION', title: 'Structural source B', labels: ['architecture', 'ai']}
+        ].forEach(node => GraphService.upsertNode({
+            id        : node.id,
+            type      : node.type,
+            properties: {
+                labels: node.labels,
+                state : 'OPEN',
+                title : node.title
+            }
+        }));
+        GraphService.linkNodes(sourceAId, readyId, 'RESOLVES', 2);
+        GraphService.linkNodes(sourceBId, readyId, 'ADVANCES', 1.5);
+        GraphService.linkNodes(blockerId, blockedId, 'BLOCKS', 1);
+
+        StorageRouter.getGraphCollection = async () => ({
+            query: async () => ({
+                ids      : [[readyId, notReadyId, blockedId]],
+                distances: [[0.1, 0.2, 0.3]]
+            })
+        });
+        StorageRouter.getSummaryCollection = async () => ({get: async () => ({documents: ['Golden Path route attribution focus']})});
+        TextEmbeddingService.embedText = async () => [0.1, 0.2];
+        GoldenPathSynthesizer.fetchOpenPRs = async () => [];
+        OpenAiCompatible.prototype.generate = async () => ({content: '{"strategic_brief":"stub"}'});
+
+        try {
+            await GoldenPathSynthesizer.synthesizeGoldenPath({
+                now                  : new Date('2026-07-02T08:40:00Z'),
+                repoEnrichmentEnabled: false
+            });
+        } finally {
+            StorageRouter.getGraphCollection   = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection = originalGetSummaryCollection;
+            TextEmbeddingService.embedText     = originalEmbedText;
+            GoldenPathSynthesizer.fetchOpenPRs = originalFetchOpenPRs;
+            OpenAiCompatible.prototype.generate = originalGenerate;
+        }
+
+        const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
+        const ledgerIndex    = handoffContent.indexOf('## Golden Path Route Attribution Ledger');
+        const computedIndex  = handoffContent.indexOf('## Computed Golden Path (Strategic Recommendation)');
+
+        expect(ledgerIndex).toBeGreaterThan(-1);
+        expect(computedIndex).toBeGreaterThan(ledgerIndex);
+        expect(handoffContent).toContain('Captured at: 2026-07-02 08:40 UTC');
+        expect(handoffContent).toContain('- Type gate: vector query constrained to `ISSUE` / `DISCUSSION`');
+        expect(handoffContent).toContain('- Label/actionability buckets: `not-code-ready`: 1');
+        expect(handoffContent).toContain(`| ${readyId} | 5.00 | OPEN | passed (ISSUE) | passed | passed | 3.50 | ADVANCES: 1.50, RESOLVES: 2.00 | 13.50 | rendered | 13.50 | Score 13.50 / Semantic 5.00 / Structural 3.50 |`);
+        expect(handoffContent).toContain(`| ${notReadyId} | 3.33 | OPEN | passed (ISSUE) | rejected (not-code-ready) | passed | 0.00 | - | - | non-actionable | - | - |`);
+        expect(handoffContent).toContain(`| ${blockedId} | 2.50 | OPEN | passed (ISSUE) | not-evaluated | blocked (${blockerId}) | 0.00 | - | - | blocked | - | - |`);
+        expect(handoffContent).toContain(`${readyId}**: Score 13.50 (Semantic: 5.00, Structural: 3.50)`);
+    });
+
+    test('renderGoldenPathRouteLedgerSection escapes markdown table cell metacharacters (#14454)', () => {
+        const ledger = new Map([
+            ['issue\\path|split', {
+                actionabilityGate   : 'rejected (needs\\owner|review\nnow)',
+                blockerGate         : 'blocked (issue\\blocker|root)',
+                finalScore          : 1.25,
+                guideWriteScore     : 1.25,
+                nodeId              : 'issue\\path|split',
+                renderedFinalScore  : 1.25,
+                renderedSemantic    : 0.5,
+                renderedStructural  : 0.75,
+                routeStatus         : 'rendered\\table|row',
+                semanticRank        : 1,
+                semanticScore       : 0.5,
+                stateGate           : 'OPEN',
+                structuralComponents: {'ADVANCES\\PIPE|EDGE': 0.75},
+                structuralScore     : 0.75,
+                typeGate            : 'passed (ISSUE)'
+            }]
+        ]);
+
+        const section = renderGoldenPathRouteLedgerSection({
+            capturedAt: new Date('2026-07-02T09:15:00Z'),
+            ledger,
+            stats     : {semanticCandidates: 1}
+        });
+
+        expect(section).toContain('| issue\\\\path\\|split | 0.50 | OPEN | passed (ISSUE) | rejected (needs\\\\owner\\|review now) | blocked (issue\\\\blocker\\|root) | 0.75 | ADVANCES\\\\PIPE\\|EDGE: 0.75 | 1.25 | rendered\\\\table\\|row | 1.25 | Score 1.25 / Semantic 0.50 / Structural 0.75 |');
+    });
+
     test('synthesizeGoldenPath renders degraded diagnostics when semantic vector query fails (#13978)', async () => {
         const originalGetGraphCollection   = StorageRouter.getGraphCollection;
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
         const originalEmbedText            = TextEmbeddingService.embedText;
-        const suffix     = `${process.pid}-${Date.now()}`;
-        const staleId    = `issue-stale-query-guide-${suffix}`;
-        const queryError = new Error('Error executing plan: Internal error: Error finding id');
+        const suffix                       = `${process.pid}-${Date.now()}`;
+        const staleId                      = `issue-stale-query-guide-${suffix}`;
+        const queryError                   = new Error('Error executing plan: Internal error: Error finding id');
         aiConfig.vectorDimension = 2;
 
         GraphService.upsertNode({
@@ -1112,9 +1224,9 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const originalFetchOpenPRs         = GoldenPathSynthesizer.fetchOpenPRs;
         const OpenAiCompatible             = (await import('../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
         const originalGenerate             = OpenAiCompatible.prototype.generate;
-        const suffix = `${process.pid}-${Date.now()}`;
-        const staleId = `issue-stale-guide-nonzero-${suffix}`;
-        const readyId = `issue-current-guide-${suffix}`;
+        const suffix                       = `${process.pid}-${Date.now()}`;
+        const staleId                      = `issue-stale-guide-nonzero-${suffix}`;
+        const readyId                      = `issue-current-guide-${suffix}`;
         aiConfig.vectorDimension = 2;
 
         GraphService.upsertNode({
@@ -1182,12 +1294,12 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         TextEmbeddingService.embedText = async () => [0.1, 0.2];
         GoldenPathSynthesizer.fetchOpenPRs = async () => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(number => ({
             number,
-            url: `https://github.com/neomjs/neo/pull/${number}`,
-            author: {login: 'external-dev'},
-            title: `PR ${number}`,
-            body: '',
-            createdAt: `2026-05-${String(number).padStart(2, '0')}T00:00:00Z`,
-            headRefOid: `sha-${number}`,
+            url           : `https://github.com/neomjs/neo/pull/${number}`,
+            author        : {login: 'external-dev'},
+            title         : `PR ${number}`,
+            body          : '',
+            createdAt     : `2026-05-${String(number).padStart(2, '0')}T00:00:00Z`,
+            headRefOid    : `sha-${number}`,
             reviewRequests: [],
             reviews       : number === 12 ? [{state: 'APPROVED', body: 'LGTM', submittedAt: '2026-05-12T01:00:00Z', author: {login: 'neo-opus-ada'}}] : [],
             comments      : []
@@ -1220,8 +1332,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const originalFetchOpenPRs         = GoldenPathSynthesizer.fetchOpenPRs;
         const OpenAiCompatible             = (await import('../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
         const originalGenerate             = OpenAiCompatible.prototype.generate;
-        const suffix = `${process.pid}-${Date.now()}`;
-        const readyId = `issue-strategic-fallback-${suffix}`;
+        const suffix                       = `${process.pid}-${Date.now()}`;
+        const readyId                      = `issue-strategic-fallback-${suffix}`;
         aiConfig.vectorDimension = 2;
 
         GraphService.upsertNode({
@@ -1305,8 +1417,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
 
     test('renderStaleAssignmentCandidatesSection caps noisy local issue sync output', () => {
         const candidates = Array.from({length: 3}, (_, index) => ({
-            assignees: ['neo-gpt'],
-            daysIdle : 10 + index,
+            assignees     : ['neo-gpt'],
+            daysIdle      : 10 + index,
             lastActivityAt: `2026-05-0${index + 1}T00:00:00.000Z`,
             lastActivityBy: 'neo-gpt',
             number        : 9200 + index,
@@ -1594,11 +1706,13 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             OpenAiCompatible.prototype.generate  = originalGenerate;
         }
 
-        const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
+        const handoffContent  = fs.readFileSync(tmpHandoffFile, 'utf-8');
+        const computedIndex   = handoffContent.indexOf('## Computed Golden Path');
+        const computedSection = handoffContent.slice(computedIndex);
 
         expect(handoffContent).toContain(issueId);
         expect(handoffContent).toContain(openId);        // open discussions are now actionable (converge-to-drive)
-        expect(handoffContent).not.toContain(closedId);  // closed discussions excluded by the state='OPEN' gate
+        expect(computedSection).not.toContain(closedId); // closed discussions excluded by the state='OPEN' gate
     });
 
     test('renderConsolidationGapsSection surfaces undigested sessions visibly (#13807)', async () => {

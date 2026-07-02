@@ -41,5 +41,13 @@ to live PR inspection, not the boot handoff.
 ### 5. Latest Priority Backlog
 A fallback queue of recent structurally significant tickets that are `OPEN` and not marked `needs-re-triage`. Used to guide execution when the Golden Path is fully blocked.
 
-### 6. Computed Golden Path
+### 6. Golden Path Route Attribution Ledger
+A same-run diagnostic for the current semantic candidate pool, showing how
+candidates move through the route chain and why they do or do not reach the
+rendered Golden Path. It is diagnostic and advisory only, mints no Native Edge
+Graph nodes or edge classes, and does not change orchestration consumption:
+`AgentOrchestrator.parseGoldenPath()` continues to consume only the
+`## Computed Golden Path` section.
+
+### 7. Computed Golden Path
 The configured top nodes mathematically recommended for execution, calculated via Hybrid GraphRAG (Semantic Vector Distance + Structural Edge Weight). A strategic brief synthesizing *why* these nodes represent the active frontier is appended to guide agent intuition; a deterministic fallback keeps the section present when the LLM brief is unavailable.

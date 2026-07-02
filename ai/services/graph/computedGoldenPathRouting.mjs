@@ -38,6 +38,22 @@ const CURRENT_FOCUS_ROUTING_CONFLICT_REASONS = Object.freeze(new Set([
 ]));
 
 /**
+ * @summary Returns labels that exclude a node from immediate computed routing.
+ *
+ * This exposes the same actionability contract used by
+ * {@link isActionableComputedRecommendation} so diagnostic ledgers can report the exact
+ * rejection bucket without duplicating the exclusion set.
+ *
+ * @param {Object} nodeData Parsed graph node payload.
+ * @returns {String[]} Normalized labels that made the node visibility-only / not-ready.
+ */
+export function getComputedRecommendationExclusionLabels(nodeData) {
+    const labels = normalizeLabels(nodeData?.properties?.labels || nodeData?.labels);
+
+    return labels.filter(label => COMPUTED_RECOMMENDATION_EXCLUDED_LABELS.has(label))
+}
+
+/**
  * @summary Determines whether a graph node can be an immediate computed recommendation.
  *
  * The Computed Golden Path is an execution steering surface. ISSUE (work-to-do) and
@@ -57,9 +73,7 @@ export function isActionableComputedRecommendation(nodeData) {
     if (nodeType && nodeType !== 'ISSUE' && nodeType !== 'DISCUSSION') return false;
     if (!nodeId.startsWith('issue-') && !nodeId.startsWith('discussion-')) return false;
 
-    const labels = normalizeLabels(nodeData?.properties?.labels || nodeData?.labels);
-
-    return !labels.some(label => COMPUTED_RECOMMENDATION_EXCLUDED_LABELS.has(label))
+    return getComputedRecommendationExclusionLabels(nodeData).length === 0
 }
 
 /**
