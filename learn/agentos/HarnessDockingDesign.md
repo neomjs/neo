@@ -141,18 +141,38 @@ Windows are render targets (§1); restoring a perspective restores **worker-owne
 
 ### The `CrossWindowDragTarget` contract (formalized)
 
-What `DragCoordinator` consumes as an informal duck-type becomes the named, manager-facing contract (Discussion #13370 Option-4 seam, carried verbatim). Any surface that wants to receive cross-window drags — dashboard sort zones today, dock workspaces next, any future canvas — implements:
+What `DragCoordinator` consumes as an informal duck-type becomes the named, manager-facing contract (Discussion #13370 Option-4 seam, carried verbatim — the graduated "native-titlebar hooks" expand to the four-member participation class below). Any surface that participates in cross-window drags — dashboard sort zones today, dock workspaces next, any future canvas — implements the classes that match its role. The mandatory/optional split below mirrors the landed invocation style: mandatory hooks are invoked bare; participation hooks are optional-chained (`?.`) by the coordinator.
+
+**Registry identity (mandatory, both roles):**
 
 | Member | Kind | Obligation |
 |---|---|---|
 | `sortGroup` | property | Registry key. Only targets sharing the source's `sortGroup` are candidates. |
-| `windowId` | property | The window this target renders in. |
-| `acceptsRemoteDrag(localX, localY)` | method | Cheap hit-test in window-local coordinates. No side effects. |
-| `onRemoteDragMove(payload)` | method | Hover feedback for a remote drag over this target. |
-| `onRemoteDragLeave()` | method | Clear hover feedback. |
-| `onRemoteDrop(draggedItem)` | method | Commit the drop on the target side. |
-| `onRemoteDropOut(draggedItem)` | method | Source-side release after a successful remote drop. |
-| `getNativeWindowDrag(windowId)` | method (optional) | Native-titlebar drag handoff: exposes the drag payload a detached OS window carries, enabling drop-candidate commit on window move. |
+| `windowId` | property | The window this surface renders in. |
+
+**Target-side hooks (mandatory for any registered target):**
+
+| Member | Obligation |
+|---|---|
+| `acceptsRemoteDrag(localX, localY)` | Cheap hit-test in window-local coordinates. No side effects. |
+| `onRemoteDragMove(payload)` | Hover feedback for a remote drag over this target (`{draggedItem, localX, localY, offsetX, offsetY, proxyRect}`). |
+| `onRemoteDragLeave()` | Clear hover feedback when the drag exits this target or the coordinator switches targets. |
+| `onRemoteDrop(draggedItem)` | Commit the drop on the target side. |
+
+**Source-side hooks (mandatory for any source whose drags can cross windows):**
+
+| Member | Obligation |
+|---|---|
+| `onRemoteDropOut(draggedItem)` | Release the item after a successful remote drop (the cross-document handoff's source half). |
+| `suspendWindowDrag(widgetName)` | Suspend the source's drag embodiment when a remote target engages (mid-gesture handoff: the source's proxy/popup yields while a target window hosts the hover) and before a native-window drop commits. Awaited on the commit path. |
+| `resumeWindowDrag(widgetName, proxyRect)` | Resume the source's drag embodiment when the drag leaves all remote targets back into the void (re-open the popup/proxy at the supplied rect). |
+
+**Native-OS-window participation hooks (optional class — only for surfaces whose items embody as native popup windows, the #13025/#13028 lineage; the coordinator invokes them `?.`-guarded):**
+
+| Member | Obligation |
+|---|---|
+| `getNativeWindowDrag(windowId)` | Expose the drag payload a detached OS window carries (`{draggedItem, …}`), enabling drop-candidate commit on native window movement. |
+| `onTerminalWindowDrop(draggedItem)` | Finalize when a native-window drag terminates as a standalone window (the drag ends detached rather than re-docking). |
 
 **Binding invariant — the coordinator stays dock-blind:** `DragCoordinator` arbitrates *which target* receives the drag; it MUST NOT import `DockZoneModel`, `DockLayoutAdapter`, or any preview module, and it never interprets dock semantics. This holds in landed code and is now contract. (Changing it triggers the ADR escalation named in §Decision-Record Disposition.)
 
