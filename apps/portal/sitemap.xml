@@ -37,7 +37,7 @@
   <url>
     <loc>https://neomjs.com/learn/benefits/Introduction</loc>
     <lastmod>2026-05-26T13:37:13+02:00</lastmod>
-    <priority>0.9</priority>
+    <priority>1.0</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/benefits/ArchitectureOverview</loc>
@@ -77,6 +77,7 @@
   <url>
     <loc>https://neomjs.com/learn/benefits/ApplicationEngine</loc>
     <lastmod>2026-07-02T17:59:50+02:00</lastmod>
+    <priority>0.9</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/benefits/ObjectPermanence</loc>
@@ -877,7 +878,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/devindex/index.html</loc>
-    <lastmod>2026-07-02T14:36:20Z</lastmod>
+    <lastmod>2026-07-02T17:13:22Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/email/index.html</loc>
@@ -897,7 +898,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/portal/index.html</loc>
-    <lastmod>2026-07-02T16:16:48Z</lastmod>
+    <lastmod>2026-07-02T17:13:24Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/realworld/index.html</loc>
@@ -1422,6 +1423,10 @@
   <url>
     <loc>https://neomjs.com/examples/worker/task/index.html</loc>
     <lastmod>2025-07-11T21:54:21+02:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/releases/13.1.0</loc>
+    <priority>0.9</priority>
   </url>
   <url>
     <loc>https://neomjs.com/news/releases/13.0.0</loc>
