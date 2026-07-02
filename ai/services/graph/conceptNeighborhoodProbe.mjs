@@ -293,7 +293,7 @@ export function buildConceptProbeReport({graphService, sample, maxHops = 2}) {
 }
 
 /**
- * @summary Escapes markdown table cells (sibling idiom: goldenPathRouteLedger).
+ * @summary Escapes markdown table cells.
  * @param {*} value Cell value.
  * @returns {String}
  */
