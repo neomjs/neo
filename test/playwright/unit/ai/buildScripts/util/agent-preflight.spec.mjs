@@ -32,10 +32,14 @@ const validBody = [
 test.describe('agent-preflight utility', () => {
     test('builds the Commander program with the expected option surface', () => {
         const program = createProgram();
+        const help    = program.helpInformation();
 
-        expect(program.helpInformation()).toContain('Usage: agent-preflight [options] [files...]');
-        expect(program.helpInformation()).toContain('--pr-body <file>');
-        expect(program.helpInformation()).toContain('--no-fix')
+        expect(help).toContain('Usage: agent-preflight [options] [files...]');
+        expect(help).toContain('default mode may repair');
+        expect(help).toContain('block alignment');
+        expect(help).toContain('--pr-body <file>');
+        expect(help).toContain('--no-fix');
+        expect(help).toContain('Check-only mode')
     });
 
     test('parses files, optional PR body, and fix mode through Commander', () => {
@@ -114,7 +118,43 @@ test.describe('agent-preflight utility', () => {
         ]);
         expect(calls[2].args).toContain('--fix');
         expect(calls[3].args).toContain('--staged');
+        expect(stdout).toContain('agent-preflight: repair mode enabled; running check-block-alignment --fix');
         expect(stdout).toContain('agent-preflight: no --pr-body provided; skipped PR-body lint.');
+        expect(stdout).toContain('agent-preflight: all requested gates passed.')
+    });
+
+    test('--no-fix skips the block-alignment repair gate but keeps staged checks', () => {
+        const calls = [];
+
+        const execFileSyncImpl = (cmd, args) => {
+            calls.push({cmd, args});
+
+            return `${path.basename(args[0])} ok\n`
+        };
+
+        let stdout = '';
+        let stderr = '';
+
+        const status = runAgentPreflight({
+            argv            : ['--no-fix', 'src/a.mjs'],
+            cwd             : '/repo',
+            execFileSyncImpl,
+            existsSyncImpl  : () => false,
+            readFileSyncImpl: () => '',
+            scriptDir       : '/repo/buildScripts/util',
+            stderr          : {write: value => { stderr += value }},
+            stdout          : {write: value => { stdout += value }}
+        });
+
+        expect(status).toBe(0);
+        expect(stderr).toBe('');
+        expect(calls.map(call => path.basename(call.args[0]))).toEqual([
+            'check-ticket-archaeology.mjs',
+            'check-block-alignment.mjs'
+        ]);
+        expect(calls.some(call => call.args.includes('--fix'))).toBe(false);
+        expect(calls[1].args).toContain('--staged');
+        expect(stdout).toContain('agent-preflight: check-only mode; skipped check-block-alignment --fix.');
         expect(stdout).toContain('agent-preflight: all requested gates passed.')
     });
 
