@@ -35,6 +35,8 @@
       "Bash(git push* -f *)",
       "Bash(git push origin dev*)",
       "Bash(git push origin main*)",
+      "Bash(git commit* --no-verify*)",
+      "Bash(git commit* -n *)",
       "Workflow"
     ],
     "ask": [
