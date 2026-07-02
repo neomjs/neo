@@ -9,6 +9,14 @@
             "path": null
         },
         {
+            "date": "2026-07-02",
+            "id": "blog/the-organism-already-existed",
+            "isLeaf": true,
+            "name": "An AI predicted its own project's future. Ten weeks later, another AI graded it.",
+            "parentId": "2026",
+            "path": "learn/blog/the-organism-already-existed.md"
+        },
+        {
             "date": "2026-06-18",
             "id": "blog/cross-family-verification",
             "isLeaf": true,
