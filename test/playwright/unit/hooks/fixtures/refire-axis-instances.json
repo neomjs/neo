@@ -1,0 +1,65 @@
+{
+  "_contractNote": "Empirical refusal instances for the #14420 re-fire axis (unbounded Stop-hook re-fire on autonomous valid-lane-state terminals). Mechanism under test: the decision layer admits only operatorInLoop and refuses every autonomous terminal regardless of same-turn artifact evidence (laneStateStopHook.mjs:104 contract note, verified 2026-07-02). Each instance below is a real emitted terminal from session 2251c81c-1446-4723-86b3-479322bbcc95 (2026-07-02): the exact fenced lane-state descriptor, the same-turn forward-artifact inventory (per the #14420 body-v2 artifact-class keying; turn-memory saves and the lane-state block itself are mandatory-gate-excluded and deliberately NOT listed), and the observed hook outcome. The future admission dimensions (same-turn artifact detection, echo-dismissal detection, bounded re-fire) MUST flip expectedAdmissibleUnderRefireFix=true instances to allow while instance 1 (artifact-empty echo-dismissal) stays policy-decided; L3 no-hold is preserved because admission still requires a valid lane-state terminal plus evidence, never a bare stop.",
+  "session": "2251c81c-1446-4723-86b3-479322bbcc95",
+  "triggerLabelObserved": "valid lane-state terminal",
+  "instances": [
+    {
+      "id": "instance-1-echo-dismissal",
+      "at": "2026-07-02T04:00:00Z",
+      "turnClass": "echo-dismissal",
+      "priorDrivenTurnWithinMinutes": 2,
+      "sameTurnForwardArtifacts": [],
+      "wakeEventsAllPreviouslyProcessed": true,
+      "mailboxVerifiedZeroActionable": true,
+      "laneState": {"laneContinuation": "next-lane", "namedGates": [{"ref": "PR #14425", "checkedAt": "2026-07-02T03:49:00Z"}, {"ref": "PR #14428", "checkedAt": "2026-07-02T03:57:30Z"}, {"ref": "PR #14431", "checkedAt": "2026-07-02T03:53:00Z"}], "considered": [{"lane": "#14431-review-cycle", "state": "chosen"}, {"lane": "narrative-lane", "state": "blocked-human"}]},
+      "hookOutcome": "refused",
+      "expectedAdmissibleUnderRefireFix": null,
+      "note": "Artifact-empty by the class keying; admission is a policy decision for the echo-dismissal dimension, not asserted by this fixture."
+    },
+    {
+      "id": "instance-2-artifact-bearing",
+      "at": "2026-07-02T04:05:00Z",
+      "turnClass": "artifact-bearing",
+      "sameTurnForwardArtifacts": [
+        {"class": "issue-comment", "ref": "https://github.com/neomjs/neo/issues/12679#issuecomment-4862079789", "what": "impl-leaf decomposition map"},
+        {"class": "issue-comment", "ref": "https://github.com/neomjs/neo/issues/14420#issuecomment-4862081882", "what": "calibration evidence"},
+        {"class": "a2a-broadcast", "what": "lane-progress #12679"}
+      ],
+      "laneState": {"wakeDisposition": "awareness", "laneContinuation": "next-lane", "namedGates": [{"ref": "PR #14425", "checkedAt": "2026-07-02T04:04:07Z"}, {"ref": "PR #14428", "checkedAt": "2026-07-02T04:04:07Z"}, {"ref": "PR #14431", "checkedAt": "2026-07-02T04:04:07Z"}], "awaitingOwnPrOnly": false},
+      "hookOutcome": "refused",
+      "expectedAdmissibleUnderRefireFix": true
+    },
+    {
+      "id": "instance-3-ticket-filing",
+      "at": "2026-07-02T04:10:00Z",
+      "turnClass": "artifact-bearing",
+      "sameTurnForwardArtifacts": [
+        {"class": "ticket-created", "ref": "https://github.com/neomjs/neo/issues/14433", "what": "Leaf A filed via full ticket-create chain"},
+        {"class": "native-sub-link", "ref": "#12679 -> #14433"},
+        {"class": "issue-comment-update", "ref": "https://github.com/neomjs/neo/issues/14420#issuecomment-4862081882", "what": "two-instance consolidation"},
+        {"class": "a2a-broadcast", "what": "ticket-filed #14433"}
+      ],
+      "laneState": {"wakeDisposition": "awareness", "laneContinuation": "next-lane", "namedGates": [{"ref": "PR #14425", "checkedAt": "2026-07-02T04:06:12Z"}, {"ref": "PR #14428", "checkedAt": "2026-07-02T04:06:11Z"}, {"ref": "PR #14431", "checkedAt": "2026-07-02T04:06:11Z"}], "awaitingOwnPrOnly": false},
+      "hookOutcome": "refused",
+      "expectedAdmissibleUnderRefireFix": true
+    },
+    {
+      "id": "instance-4-lane-claim-coordination",
+      "at": "2026-07-02T04:14:30Z",
+      "turnClass": "artifact-bearing",
+      "sameTurnForwardArtifacts": [
+        {"class": "ticket-created", "ref": "https://github.com/neomjs/neo/issues/14434", "what": "Leaf B filed"},
+        {"class": "ticket-created", "ref": "https://github.com/neomjs/neo/issues/14435", "what": "Leaf C filed"},
+        {"class": "lane-claim", "what": "#14420 re-fire axis claimed (author-settled co-lane)"},
+        {"class": "issue-comment", "ref": "https://github.com/neomjs/neo/issues/14420#issuecomment-4862132625", "what": "scope-split record + source-verified mechanism"}
+      ],
+      "laneState": {"wakeDisposition": "lifecycle", "laneContinuation": "next-lane", "namedGates": [{"ref": "#14420 re-fire axis (own claimed lane)", "checkedAt": "2026-07-02T04:13:41Z"}], "awaitingOwnPrOnly": false},
+      "hookOutcome": "refused",
+      "expectedAdmissibleUnderRefireFix": true
+    }
+  ],
+  "economicsCorpus": {
+    "source": "@neo-fable session 1d4262a2, A2A 2026-07-02T04:11:19Z",
+    "observation": "~40+ hook-forced cycles in one session-night, ~2 tool calls + one model turn each, nearly all artifact-empty under the body-v2 class keying; metered token burn pre-2026-07-07."
+  }
+}
