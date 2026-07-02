@@ -47,6 +47,30 @@ test.describe('ai/scripts/lifecycle/deferencePhraseMatch', () => {
         expect(matchDeferencePhrase('```text\nYour steer on the next lane.\n```')).toBeNull();
     });
 
+    test('does not match quoted or reported phrase mentions', () => {
+        expect(matchDeferencePhrase('The "your call" firing was a demonstrable false positive.')).toBeNull();
+        expect(matchDeferencePhrase("The 'per your call' firing was a demonstrable false positive.")).toBeNull();
+        expect(matchDeferencePhrase('The phrase your call is mentioned in the #14420 corpus.')).toBeNull();
+        expect(matchDeferencePhrase("The phrase if you'd rather is part of the deference register.")).toBeNull();
+    });
+
+    test('does not match attributive citations of an operator decision', () => {
+        expect(matchDeferencePhrase('Clio owns it, per your call.')).toBeNull();
+        expect(matchDeferencePhrase('The ownership route stands as you directed: your call is the source.'))
+            .toBeNull();
+    });
+
+    test('still matches live deference uses of your call', () => {
+        expect(matchDeferencePhrase('Your call on the branch cut.')).toBe('your call');
+        expect(matchDeferencePhrase("It's your call whether I pick this up.")).toBe('your call');
+        expect(matchDeferencePhrase('Your call?')).toBe('your call');
+    });
+
+    test('still fires when a live use follows a carved mention of the same phrase', () => {
+        expect(matchDeferencePhrase('The phrase your call recurs. Your call on the merge?')).toBe('your call');
+        expect(matchDeferencePhrase('Clio owns it per your call, but honestly, your call?')).toBe('your call');
+    });
+
     test('operator-dialogue carve skips the phrase match', () => {
         expect(detectDeferencePhrase('Your call on the exact color.', {operatorInLoop: true})).toBeNull();
         expect(detectDeferencePhrase('Your call on the exact color.', {operatorInLoop: false})).toBe('your call');
