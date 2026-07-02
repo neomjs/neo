@@ -259,10 +259,17 @@ export function isClosedPeriodViolation(existingProperties, incomingProperties) 
         return {violation: false, reason: null};
     }
 
-    const incoming       = incomingProperties ?? {};
-    const mutableIgnored = ['periodClosed'];
-    const changed        = Object.keys(incoming).filter(key =>
-        !mutableIgnored.includes(key) &&
+    const incoming = incomingProperties ?? {};
+
+    if ('periodClosed' in incoming && incoming.periodClosed !== true) {
+        return {
+            violation: true,
+            reason   : 'closed METRIC period is append-only — a closed period never reopens (periodClosed true → false refused)'
+        };
+    }
+
+    const changed = Object.keys(incoming).filter(key =>
+        key !== 'periodClosed' &&
         JSON.stringify(incoming[key]) !== JSON.stringify(existingProperties[key])
     );
 
@@ -274,4 +281,21 @@ export function isClosedPeriodViolation(existingProperties, incomingProperties) 
     }
 
     return {violation: false, reason: null};
+}
+
+/**
+ * @summary Plans the zombie-priority reweight for a goal entering the `retired` lifecycle state.
+ *
+ * Pure planner: given the goal's edge records, returns the `{id, weight}` updates for its
+ * `ADVANCED_BY` edges — every one drops to `RETIRED_GOAL_EDGE_WEIGHT`, non-`ADVANCED_BY` edges are
+ * untouched. The caller (service / probe layer) MUST apply these updates in the SAME commit as the
+ * lifecycle transition to `retired`; a retired goal with un-reweighted edges is the zombie-priority
+ * state this planner exists to prevent. Deletion is never planned — the historical fact stays walkable.
+ * @param {Object[]} edges Edge records shaped `{id, type, properties?}`
+ * @returns {Object[]} Update records shaped `{id, weight}`
+ */
+export function planRetiredGoalEdgeReweight(edges) {
+    return (Array.isArray(edges) ? edges : [])
+        .filter(edge => edge != null && edge.type === 'ADVANCED_BY' && edge.id != null)
+        .map(edge => ({id: edge.id, weight: RETIRED_GOAL_EDGE_WEIGHT}));
 }
