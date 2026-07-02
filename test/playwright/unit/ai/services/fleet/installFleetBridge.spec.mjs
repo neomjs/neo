@@ -16,8 +16,8 @@ setup({
 import {test, expect}       from '@playwright/test';
 import Neo                  from '../../../../../../src/Neo.mjs';
 import * as core            from '../../../../../../src/core/_export.mjs';
-import {installFleetBridge} from '../../../../../../ai/services/fleet/installFleetBridge.mjs';
-import {FLEET_WIRE_METHODS} from '../../../../../../ai/services/fleet/fleetWireMethods.mjs';
+import {installFleetBridge} from '../../../../../../src/ai/fleet/installFleetBridge.mjs';
+import {FLEET_WIRE_METHODS} from '../../../../../../src/ai/fleet/fleetWireMethods.mjs';
 
 // installFleetBridge is the App-Worker wiring that publishes globalThis.AgentOS.fleet.registryBridge.
 // Tests inject a `target` object (instead of the real globalThis) + a stub `fetchImpl`, so the global

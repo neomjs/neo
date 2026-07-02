@@ -1,5 +1,5 @@
 import FleetControlBridge   from './FleetControlBridge.mjs';
-import {FLEET_WIRE_METHODS} from './fleetWireMethods.mjs';
+import {FLEET_WIRE_METHODS} from '../../../src/ai/fleet/fleetWireMethods.mjs';
 
 /**
  * @summary Route one transport-delivered fleet request to the {@link FleetControlBridge} allowlist —
