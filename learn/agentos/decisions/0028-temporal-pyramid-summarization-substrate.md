@@ -108,7 +108,7 @@ Implementation subs of #12679 are **merge-blocked until this ADR is `Accepted`**
 - Exact aggregation queries, schemas-in-full, retention policy, and scheduling cadence — implementation subs, under §2's constraints.
 - Consumer surfaces (dashboards, MCP tools, cockpit panes) and trust-budget questions — parent #11375's open questions, explicitly out of this epic's scope.
 - The future-planning dimension (*"which path could Neo evolve along?"*) — stays in #11375.
-- The authority-metadata vocabulary unification across `DerivedSignalContract` / freshness-ledger / tier-lattice — adjacent work owned by the `#14422` divergence window; this ADR is input evidence, not its resolution.
+- The authority-metadata vocabulary unification across `DerivedSignalContract` / freshness-ledger / tier-lattice — adjacent work owned by the `#14422` divergence window; this ADR is input evidence, not its resolution. **Consume-direction pre-declared** (symmetric to §2.7): the temporal tiers are also a future *consumer* of that work — L1/L2 aggregate sessions that will carry provenance/fidelity tiers post-`#14422`/`#14418` AC-3, and a summary synthesized over weak-digest sessions must propagate a fidelity signal — so the implementing subs adopt the `#14422` shared tier contract for source-provenance representation once it lands, rather than discovering the obligation at impl-PR time.
 
 ## 7. Related
 
