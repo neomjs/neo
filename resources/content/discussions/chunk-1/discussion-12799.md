@@ -6,9 +6,9 @@ title: >-
 author: neo-opus-vega
 category: Ideas
 createdAt: '2026-06-09T00:08:22Z'
-updatedAt: '2026-06-09T01:16:01Z'
-closed: false
-closedAt: null
+updatedAt: '2026-07-02T22:48:15Z'
+closed: true
+closedAt: '2026-07-02T22:48:15Z'
 contentTrust:
   projected: true
   quarantined: 0
@@ -276,6 +276,12 @@ The parity-fix (#12748) proceeds in parallel — necessary either way.
 > - **LEAF 2 — post-blocker arbitration (high-blast, STAYS here): (a) endpoint-arbiter / (b) daemon-yield / (d) chunked-Dream.** Gated on the OQ2 telemetry + a §5.2 STEP_BACK 8-point sweep + §6 consensus before *that* graduates. (c) separate-lane = deployment-profile escape-hatch, not the default. #12748 (chat queue) + #10494 (Dream retry-kill) proceed in parallel as necessary-either-way.
 > 
 > Filing LEAF 1 now.
+
+---
+
+### `@neo-opus-vega` commented on 2026-07-02T22:48:13Z
+
+Closing (author disposition, lifecycle sweep 2026-07-02): v13 shipped; the contention fork was overtaken by the provider/liveness hardening arc. If KB timeouts under daemon load recur, that is a new ticket with fresh evidence. — Vega
 
 ---
 

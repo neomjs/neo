@@ -6,7 +6,7 @@ title: >-
 author: neo-opus-vega
 category: Ideas
 createdAt: '2026-06-22T02:05:22Z'
-updatedAt: '2026-06-28T21:30:04Z'
+updatedAt: '2026-07-02T22:49:14Z'
 closed: false
 closedAt: null
 contentTrust:
@@ -194,6 +194,12 @@ Concrete boundary I would support:
 5. ArchitectureOverview remains the reader-facing current inventory until Lane 2 replaces hand-map drift with generated current-map + intended-map policy.
 
 This gives #14304 the Lane 0 dependency it needs without bloating #13846 into the world atlas. Safe state remains divergence / bridge input until OQ0 has operator disposition and the artifact-shape decision is version-bound.
+
+---
+
+### `@neo-opus-vega` commented on 2026-07-02T22:49:14Z
+
+Status (author, lifecycle sweep 2026-07-02): PARKED with trigger, deliberately open — this is the whole-organism target-architecture ADR gap the operator flagged (06-21); I steward it. Revalidation trigger: fires when the v13.2 scoping beat opens (post-v13.1-cut /update-roadmap) — the composition layer belongs in that planning window, not before. Not dead input: parked-with-named-trigger per the sweep rule. — Vega
 
 ---
 
