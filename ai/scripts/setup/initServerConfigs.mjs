@@ -677,7 +677,7 @@ export async function initTier1Config({argv = process.argv, logger = console, ai
  * @param {String}   [options.consumerClaim='readiness'] The claim this guard certifies.
  * @param {String}   [options.entrypoint='boot'] The entrypoint name for requiredness matching.
  * @param {String}   [options.mode] Active mode for requiredness matching; defaults to
- *   `aiConfig.auth.mode` when present.
+ *   `aiConfig.auth.mode` when omitted.
  * @param {String}   [options.serverPath] An `ai/mcp/server/<name>/` dir whose `config.mjs` overlay to
  *   additionally check; its Tier-1 import is materialized before the shape-compare (matching
  *   {@link initConfigs}) so the template-vs-overlay import path is not read as false drift.
@@ -734,11 +734,11 @@ export async function assertConfigFresh({
         }
     }
 
-    if (aiConfig?.validateRequiredEnv) {
+    if (aiConfig !== undefined) {
         const result = aiConfig.validateRequiredEnv({
             consumerClaim,
             entrypoint,
-            mode: mode ?? aiConfig.auth?.mode ?? 'unknown'
+            mode: mode ?? aiConfig.auth.mode
         });
 
         requiredFindings.push(...result.findings);

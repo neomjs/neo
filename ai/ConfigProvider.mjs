@@ -193,16 +193,19 @@ class ConfigProvider extends Provider {
      * state cannot be checked fails closed for readiness-certifying consumers.
      * @param {Object} [options]
      * @param {String} [options.entrypoint='unknown'] Entry point performing the check.
-     * @param {String} [options.mode='unknown'] Active deployment/auth mode.
+     * @param {String} [options.mode] Active deployment/auth mode. Defaults to the resolved
+     *        `auth.mode` leaf so readiness checks do not carry a hidden fallback mode.
      * @param {String} [options.consumerClaim='readiness'] Claim made by the consumer.
      * @returns {{ok:Boolean, findings:Array<Object>}}
      */
-    validateRequiredEnv({entrypoint = 'unknown', mode = 'unknown', consumerClaim = 'readiness'} = {}) {
+    validateRequiredEnv({entrypoint = 'unknown', mode, consumerClaim = 'readiness'} = {}) {
         const
-            findings  = [],
-            providers = [];
+            findings             = [],
+            activeMode           = mode ?? this.getData('auth.mode'),
+            providers            = [],
+            shadowedRequiredness = new Set();
 
-        for (let provider = this; provider instanceof ConfigProvider; provider = provider.getParent?.()) {
+        for (let provider = this; provider instanceof ConfigProvider; provider = provider.getParent()) {
             if (providers.includes(provider)) {
                 break
             }
@@ -212,21 +215,29 @@ class ConfigProvider extends Provider {
 
         for (const provider of providers) {
             for (const [leafPath, meta] of provider.#leafMetadataRegistry) {
+                if (shadowedRequiredness.has(leafPath)) {
+                    continue
+                }
+
                 const requirements = Array.isArray(meta.requiredFor)
                     ? meta.requiredFor
                     : (meta.requiredFor ? [meta.requiredFor] : []);
 
+                if (requirements.length > 0) {
+                    shadowedRequiredness.add(leafPath)
+                }
+
                 for (const requirement of requirements) {
                     if (
-                        !matchesContext(requirement.entrypoints, entrypoint) ||
-                        !matchesContext(requirement.modes,       mode)       ||
+                        !matchesContext(requirement.entrypoints, entrypoint)  ||
+                        !matchesContext(requirement.modes,       activeMode)  ||
                         !matchesContext(requirement.consumerClaims, consumerClaim)
                     ) {
                         continue
                     }
 
                     const
-                        value     = provider.getData(leafPath),
+                        value     = this.getData(leafPath),
                         validator = meta.type ? typeValidators[meta.type] : null;
 
                     let valueState = 'present-valid';
@@ -243,7 +254,7 @@ class ConfigProvider extends Provider {
                             entrypoint,
                             env        : meta.env,
                             leafPath,
-                            mode,
+                            mode       : activeMode,
                             reason     : requirement.reason ?? null,
                             valueState,
                             disposition: requirement.disposition ?? 'fail-closed'

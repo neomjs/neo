@@ -941,6 +941,24 @@ test.describe('assertConfigFresh — boot freshness guard (#13560)', () => {
         expect(error.message).toContain('NEO_AUTH_GITLAB_API_BASE_URL (auth.gitlabApiBaseUrl): absent');
         expect(error.message).toContain('memory-core-mcp/gitlab-pat/readiness');
     });
+
+    test('a supplied config without validateRequiredEnv fails loud instead of skipping readiness validation (#13432)', async () => {
+        const root = buildTier1({
+            name            : 'malformed-ai-config',
+            templateContents: TEMPLATE_WITH_LEAF,
+            configContents  : TEMPLATE_WITH_LEAF
+        });
+
+        const error = await callGuard({
+            aiConfig  : {auth: {mode: 'gitlab-pat'}},
+            aiRoot    : root,
+            entrypoint: 'memory-core-mcp',
+            logger    : recordingLogger()
+        });
+
+        expect(error).not.toBeNull();
+        expect(error.message).toContain('validateRequiredEnv');
+    });
 });
 
 test.describe('initClaudeSettings — Claude Stop-hook auto-wire (#13641)', () => {

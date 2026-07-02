@@ -171,6 +171,48 @@ test.describe('Tier 1 Config Immutability', () => {
         }
     });
 
+    test('child configs validate requiredness against resolved child overrides (#13432)', () => {
+        const
+            envName      = 'NEO_UNIT_REQUIRED_ENV_VALIDATION_OVERRIDE_URL',
+            previousRoot = Neo.ai?.Config;
+
+        const rootConfig = Neo.create(ConfigProvider, {
+            data: {
+                auth: {
+                    mode            : leaf('gitlab-pat', null, 'string'),
+                    gitlabApiBaseUrl: leaf('', envName, 'string', {
+                        requiredFor: [{
+                            entrypoints   : ['memory-core-mcp'],
+                            modes         : ['gitlab-pat'],
+                            consumerClaims: ['readiness']
+                        }]
+                    })
+                }
+            }
+        });
+        const childConfig = Neo.create(ConfigProvider, {
+            data: {
+                auth: {
+                    gitlabApiBaseUrl: leaf('https://override.example.test', null, 'string')
+                }
+            }
+        });
+
+        Neo.ai.Config = rootConfig;
+
+        try {
+            expect(childConfig.validateRequiredEnv({
+                consumerClaim: 'readiness',
+                entrypoint   : 'memory-core-mcp',
+                mode         : 'gitlab-pat'
+            })).toEqual({findings: [], ok: true});
+        } finally {
+            Neo.ai.Config = previousRoot;
+            rootConfig.destroy();
+            childConfig.destroy();
+        }
+    });
+
     test('ships Tier-1 provider and unified Chroma defaults', async () => {
         expect(Config.chatProvider).toBe(process.env.NEO_MODEL_PROVIDER || 'openAiCompatible');
         expect(Config.modelProvider).toBe(Config.chatProvider);
