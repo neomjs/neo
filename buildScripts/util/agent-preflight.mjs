@@ -34,10 +34,10 @@ const
 export function createProgram() {
     return new Command()
         .name('agent-preflight')
-        .description('Runs the agent commit/PR preflight gates in one pass.')
+        .description('Runs the agent commit/PR preflight gates in one pass; default mode may repair block alignment.')
         .usage('[options] [files...]')
         .option('--pr-body <file>', 'Run local PR-body template lint against the given markdown file.')
-        .option('--no-fix', 'Skip the check-block-alignment --fix pass.')
+        .option('--no-fix', 'Check-only mode: skip the check-block-alignment --fix repair pass.')
         .argument('[files...]', 'Optional file paths. When omitted, staged ACMR files are read from git.')
 }
 
@@ -343,6 +343,12 @@ export function runAgentPreflight({
     if (mjsFiles.length === 0) {
         writeLine(stdout, 'agent-preflight: 0 .mjs files in scope; skipped source gates.');
     } else {
+        if (options.fix) {
+            writeLine(stdout, 'agent-preflight: repair mode enabled; running check-block-alignment --fix before staged checks. Use --no-fix for check-only validation.');
+        } else {
+            writeLine(stdout, 'agent-preflight: check-only mode; skipped check-block-alignment --fix.');
+        }
+
         const gateRuns = [
             runNodeGate({
                 args: [path.join(scriptDir, 'check-ticket-archaeology.mjs'), ...mjsFiles],

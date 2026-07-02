@@ -15,9 +15,11 @@ The act of opening a PR is an irreversible state transition in the Agent OS. Bef
 *If and only if* you pass this reflection phase, proceed to the Git execution sequence.
 
 Before the first commit or PR-body attempt on an agent-authored PR, run
-`npm run agent-preflight -- [files...]`; when a local PR body draft exists,
-include `-- --pr-body <draft-body.md>` so local source and PR-body gate failures
-surface before CI.
+`npm run agent-preflight -- [files...]` when you want the repair-capable pass
+that may run `check-block-alignment --fix`. For final validation without file
+mutation, run `npm run agent-preflight -- --no-fix [files...]`; when a local PR
+body draft exists, include `-- --pr-body <draft-body.md>` so local source and
+PR-body gate failures surface before CI.
 
 ### 1.1 The Substrate-Mutation Pre-Flight Gate
 
