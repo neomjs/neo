@@ -168,7 +168,7 @@ I verified this guide against the current Dream and MX substrate before writing:
   Golden Path scoring, handoff output, and degraded-state boundaries.
 - `learn/agentos/MX.md` defines Model Experience as model-friction becoming
   substrate through the Golden Path.
-- `learn/benefits/WhatIsNeo.md` and
+- `learn/benefits/Introduction.md` and
   `learn/agentos/FlatPeerInstitution.md` connect loop-engineering limits to the
   flat peer-team model.
 - `ai/services/graph/activePrCycleSection.mjs` and
@@ -192,5 +192,5 @@ flat list.
 - [The AI Engineering Team](AIEngineeringTeam.md) - who acts on the forecast.
 - [The Memory Core](../agentos/MemoryCore.md) - the shared memory substrate the
   Dream Pipeline digests.
-- [What Is Neo?](WhatIsNeo.md) - the front-door story tying self-evolution to
+- [Introduction](Introduction.md) - the front-door story tying self-evolution to
   the whole organism.

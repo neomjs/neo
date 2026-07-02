@@ -6,8 +6,8 @@
  *
  * `tree.json` is a flat `parentId` adjacency list — `{"data": [ {name, parentId, id,
  * isLeaf?, collapsed?} ... ]}` — not a nested tree. Hierarchy is encoded via `parentId`;
- * a **leaf**'s `id` is its `learn/`-relative path (`benefits/Introduction` →
- * `learn/benefits/Introduction.md`); a **group** carries `isLeaf:false` and a PascalCase
+ * a **leaf**'s `id` is its `learn/`-relative path (`benefits/ApplicationEngine` →
+ * `learn/benefits/ApplicationEngine.md`); a **group** carries `isLeaf:false` and a PascalCase
  * `id` referenced by its children's `parentId`.
  *
  * Because it is hand-edited JSON with no schema enforcement, drift is silent until it

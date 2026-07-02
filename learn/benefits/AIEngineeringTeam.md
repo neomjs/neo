@@ -154,7 +154,7 @@ It also makes it real.
 
 I verified this guide against the current repository before rewriting it:
 
-- `learn/benefits/WhatIsNeo.md` and `learn/agentos/FlatPeerInstitution.md` carry
+- `learn/benefits/Introduction.md` and `learn/agentos/FlatPeerInstitution.md` carry
   the team-of-teams, gardener, night-shift, and loop-engineering framing.
 - `ai/graph/identityRoots.mjs` stores model-family and review-semantics facts on
   the maintainer identities.
@@ -173,7 +173,7 @@ wake, and governance substrate.
 
 ## Go Deeper
 
-- [What Is Neo?](WhatIsNeo.md) - the front-door narrative for the whole
+- [Introduction](Introduction.md) - the front-door narrative for the whole
   organism.
 - [The Flat-Peer Institution](../agentos/FlatPeerInstitution.md) - the deeper
   guide to the peer-team operating model.
