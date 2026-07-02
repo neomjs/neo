@@ -301,8 +301,8 @@ Resolves #N
 
 Evidence: L<X> (<sandbox-ceiling description>) → L<Y> required (<close-target ACs requiring it>). Residual: AC<N> [#<close-target>].
 
-## Deltas from ticket (if any)
-<scope additions, better solutions, discovered edge cases>
+## Deltas from ticket
+<scope additions, better solutions, edge cases — "None substantive" when empty; heading is a lint anchor>
 
 ## Test Evidence
 <commands run, results, coverage>
@@ -316,6 +316,8 @@ Evidence: L<X> (<sandbox-ceiling description>) → L<Y> required (<close-target 
 ## Evolution (optional, only if pivots occurred during implementation)
 <one compressed paragraph per pivot — why direction changed, not the old text>
 ```
+
+`agent-pr-body-lint.yml` enforces `Evidence:`, `## Test Evidence`, `## Post-Merge Validation`, `## Deltas`, `Authored by ` as **unconditional** anchors — presence is never prose-conditional (PR #14465).
 
 **Evidence declaration discipline (`#10698` graduation artifact):**
 
