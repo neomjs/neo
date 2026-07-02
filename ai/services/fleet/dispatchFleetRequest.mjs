@@ -1,18 +1,5 @@
-import FleetControlBridge from './FleetControlBridge.mjs';
-
-/**
- * The wire-level capability allowlist: the EXACT method names a transport may route to
- * {@link Neo.ai.services.fleet.FleetControlBridge}. Deliberately **narrower than the class
- * surface** — it excludes the `getRegistry` / `getManager` resolver seams (which return the
- * lifecycle-powerful singletons) and every inherited `Object` / `Neo.core.Base` member, so a
- * crafted `{method:'getManager'}` / `{method:'constructor'}` / `{method:'__proto__'}` request
- * cannot reach a non-operation. Defense-in-depth over the class's own omission of the secret paths.
- * @type {String[]}
- */
-const FLEET_WIRE_METHODS = Object.freeze([
-    'defineAgent', 'listAgents', 'getAgent',
-    'startAgent', 'stopAgent', 'restartAgent', 'removeAgent', 'fleetStatus'
-]);
+import FleetControlBridge   from './FleetControlBridge.mjs';
+import {FLEET_WIRE_METHODS} from './fleetWireMethods.mjs';
 
 /**
  * @summary Route one transport-delivered fleet request to the {@link FleetControlBridge} allowlist —
