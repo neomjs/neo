@@ -302,7 +302,7 @@ Resolves #N
 Evidence: L<X> (<sandbox-ceiling description>) → L<Y> required (<close-target ACs requiring it>). Residual: AC<N> [#<close-target>].
 
 ## Deltas from ticket
-<scope additions, better solutions, discovered edge cases — state "None substantive" when empty; this heading is a CI lint anchor and MUST be present>
+<scope additions, better solutions, edge cases — "None substantive" when empty; heading is a lint anchor>
 
 ## Test Evidence
 <commands run, results, coverage>
@@ -317,7 +317,7 @@ Evidence: L<X> (<sandbox-ceiling description>) → L<Y> required (<close-target 
 <one compressed paragraph per pivot — why direction changed, not the old text>
 ```
 
-The `agent-pr-body-lint` workflow enforces these headings as **unconditional substring anchors** — visible: `Evidence:`, `## Test Evidence`, `## Post-Merge Validation`; invisible: `## Deltas`, `Authored by `. Prose conditionality never applies to heading presence (sync-by-convention with `.github/workflows/agent-pr-body-lint.yml`; empirical anchor: PR #14465's post-open red check).
+`agent-pr-body-lint.yml` enforces `Evidence:`, `## Test Evidence`, `## Post-Merge Validation`, `## Deltas`, `Authored by ` as **unconditional** anchors — presence is never prose-conditional (PR #14465).
 
 **Evidence declaration discipline (`#10698` graduation artifact):**
 
