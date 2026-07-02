@@ -36,7 +36,6 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     let renderSilentThreadCandidatesSection;
     let buildWorkGraphStallFindings;
     let renderWorkGraphStallFindingsSection;
-    let renderGoldenPathRouteLedgerSection;
     let issueFocusSections;
 
     let StorageRouter;
@@ -83,7 +82,6 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         renderSilentThreadCandidatesSection = GoldenPathSynthesizer.constructor.renderSilentThreadCandidatesSection.bind(GoldenPathSynthesizer.constructor);
         buildWorkGraphStallFindings = GoldenPathSynthesizer.constructor.buildWorkGraphStallFindings.bind(GoldenPathSynthesizer.constructor);
         renderWorkGraphStallFindingsSection = GoldenPathSynthesizer.constructor.renderWorkGraphStallFindingsSection.bind(GoldenPathSynthesizer.constructor);
-        ({renderGoldenPathRouteLedgerSection} = await import('../../../../../../ai/services/graph/goldenPathRouteLedger.mjs'));
         GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         SystemLifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
         StorageRouter = (await import('../../../../../../ai/services.mjs')).Memory_StorageRouter;
@@ -1040,7 +1038,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(guideTargets).not.toContain(staleId);
     });
 
-    test('synthesizeGoldenPath renders same-run route attribution ledger for scoring and rejection gates (#14454)', async () => {
+    test('synthesizeGoldenPath renders the computed recommendation for scored, actionable nodes', async () => {
         const originalGetGraphCollection   = StorageRouter.getGraphCollection;
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
         const originalEmbedText            = TextEmbeddingService.embedText;
@@ -1106,48 +1104,13 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         }
 
         const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
-        const ledgerIndex    = handoffContent.indexOf('## Golden Path Route Attribution Ledger');
         const computedIndex  = handoffContent.indexOf('## Computed Golden Path (Strategic Recommendation)');
 
-        expect(ledgerIndex).toBeGreaterThan(-1);
-        expect(computedIndex).toBeGreaterThan(ledgerIndex);
-        expect(handoffContent).toContain('Captured at: 2026-07-02 08:40 UTC');
-        expect(handoffContent).toContain('- Type gate: vector query constrained to `ISSUE` / `DISCUSSION`');
-        expect(handoffContent).toContain('- Label/actionability buckets: `not-code-ready`: 1');
-        expect(handoffContent).toContain(`| ${readyId} | 5.00 | OPEN | passed (ISSUE) | passed | passed | 3.50 | ADVANCES: 1.50, RESOLVES: 2.00 | 13.50 | rendered | 13.50 | Score 13.50 / Semantic 5.00 / Structural 3.50 |`);
-        expect(handoffContent).toContain(`| ${notReadyId} | 3.33 | OPEN | passed (ISSUE) | rejected (not-code-ready) | passed | 0.00 | - | - | non-actionable | - | - |`);
-        expect(handoffContent).toContain(`| ${blockedId} | 2.50 | OPEN | passed (ISSUE) | not-evaluated | blocked (${blockerId}) | 0.00 | - | - | blocked | - | - |`);
+        // The ready, actionable node is routed and rendered; the not-ready and blocked nodes are gated out.
+        expect(computedIndex).toBeGreaterThan(-1);
         expect(handoffContent).toContain(`${readyId}**: Score 13.50 (Semantic: 5.00, Structural: 3.50)`);
-    });
-
-    test('renderGoldenPathRouteLedgerSection escapes markdown table cell metacharacters (#14454)', () => {
-        const ledger = new Map([
-            ['issue\\path|split', {
-                actionabilityGate   : 'rejected (needs\\owner|review\nnow)',
-                blockerGate         : 'blocked (issue\\blocker|root)',
-                finalScore          : 1.25,
-                guideWriteScore     : 1.25,
-                nodeId              : 'issue\\path|split',
-                renderedFinalScore  : 1.25,
-                renderedSemantic    : 0.5,
-                renderedStructural  : 0.75,
-                routeStatus         : 'rendered\\table|row',
-                semanticRank        : 1,
-                semanticScore       : 0.5,
-                stateGate           : 'OPEN',
-                structuralComponents: {'ADVANCES\\PIPE|EDGE': 0.75},
-                structuralScore     : 0.75,
-                typeGate            : 'passed (ISSUE)'
-            }]
-        ]);
-
-        const section = renderGoldenPathRouteLedgerSection({
-            capturedAt: new Date('2026-07-02T09:15:00Z'),
-            ledger,
-            stats     : {semanticCandidates: 1}
-        });
-
-        expect(section).toContain('| issue\\\\path\\|split | 0.50 | OPEN | passed (ISSUE) | rejected (needs\\\\owner\\|review now) | blocked (issue\\\\blocker\\|root) | 0.75 | ADVANCES\\\\PIPE\\|EDGE: 0.75 | 1.25 | rendered\\\\table\\|row | 1.25 | Score 1.25 / Semantic 0.50 / Structural 0.75 |');
+        expect(handoffContent).not.toContain(notReadyId);
+        expect(handoffContent).not.toContain(blockedId);
     });
 
     test('synthesizeGoldenPath renders degraded diagnostics when semantic vector query fails (#13978)', async () => {
