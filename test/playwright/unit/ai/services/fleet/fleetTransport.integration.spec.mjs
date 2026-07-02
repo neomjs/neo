@@ -30,6 +30,11 @@ import path                     from 'path';
 // silently leaks the PAT across the wire".
 
 test.describe('fleet transport — full-chain integration (real server + real registry + real wiring)', () => {
+    // Stateful + order-dependent (test 1 defines the agent; the rest read it) against a shared real
+    // server + registry — force serial so fullyParallel can't split the reads onto a worker that never
+    // ran the define.
+    test.describe.configure({mode: 'serial'});
+
     let server, tmpDir, priorDataDir, registryBridge;
 
     test.beforeAll(async () => {

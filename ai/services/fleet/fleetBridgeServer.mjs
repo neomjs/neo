@@ -34,7 +34,11 @@ export function startFleetBridgeServer({port = 8083, host = '127.0.0.1', dispatc
             return res.end()
         }
 
-        if (req.method !== 'POST' || !req.url.startsWith('/fleet')) {
+        // Exact-path match — a sibling path like /fleetx must fail closed, never reach dispatch. Parse
+        // the pathname so a query string (/fleet?x=1) still routes, but /fleetx does not.
+        const {pathname} = new URL(req.url, 'http://127.0.0.1');
+
+        if (req.method !== 'POST' || pathname !== '/fleet') {
             res.writeHead(404, {'Content-Type': 'application/json'});
             return res.end(JSON.stringify({ok: false, error: 'fleet: POST /fleet only'}))
         }

@@ -56,6 +56,18 @@ test.describe('fleetBridgeServer — the Node HTTP end of the dev-server app<->f
         expect(seen).toEqual([])
     });
 
+    test('a sibling path (POST /fleetx) fails closed — exact /fleet match only, never reaching dispatch', async () => {
+        const res = await fetch(`${url}/fleetx`, {
+            method : 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body   : JSON.stringify({method: 'listAgents'})
+        });
+
+        expect(res.status).toBe(404);
+        expect((await res.json()).ok).toBe(false);
+        expect(seen).toEqual([])
+    });
+
     test('an invalid JSON body 400s without touching dispatch', async () => {
         const res = await fetch(`${url}/fleet`, {
             method : 'POST',
