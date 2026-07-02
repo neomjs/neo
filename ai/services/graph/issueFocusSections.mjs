@@ -14,6 +14,8 @@ const DAY_MS                  = 24 * 60 * 60 * 1000;
 const CURRENT_FOCUS_WINDOW_MS = 3 * DAY_MS;
 const EPIC_LABEL              = 'epic';
 const V13_1_PATTERN           = /\bv13\.1\b/i;
+const STALL_FINDING_TTL_MS    = 7 * DAY_MS;
+const PR_PARKED_ON_PATTERN    = /^Parked-on:\s*(#[0-9]+|https?:\/\/\S+)(?:\s+\[([^\]]+)\])?\s+[-\u2013\u2014]\s+(.+)$/im;
 
 const CURRENT_FOCUS_EXCLUDED_LABELS = Object.freeze(new Set([
     'deferred-by-design',
@@ -32,6 +34,19 @@ const EPIC_CURRENT_FOCUS_REASONS = Object.freeze(new Set([
     'incident',
     'prio-zero',
     'v13.1'
+]));
+
+const DEFER_LABELS = Object.freeze(new Set([
+    'deferred-by-design',
+    'needs-design',
+    'needs-re-triage',
+    'not-code-ready',
+    'not code ready'
+]));
+
+const INACTIVE_PARTICIPATION_STATUSES = Object.freeze(new Set([
+    'operator_benched',
+    'temporarily_unreachable'
 ]));
 
 const MAINTAINER_PROGRESS_PATTERN = /\b(?:in[-\s]?progress|picking up|taking|claim(?:ed|ing)?|lane-claim|lane-state:\s*next-lane|working|implement(?:ing)?|opened\s+(?:PR|pull request)|PR\s*#\d+)\b/i;
@@ -68,6 +83,74 @@ export function getStaleAssignmentMaintainers() {
             .map(identity => getIdentityGithubLogin(identity))
             .filter(Boolean)
     )]
+}
+
+/**
+ * @summary Returns AgentIdentity participation state keyed by GitHub login.
+ *
+ * Stall inference consumes the same structured participation ledger as
+ * family-keyed quorum. It does not infer absence from message recency or raw
+ * issue timestamps.
+ *
+ * @param {Object[]} identities AgentIdentity roots.
+ * @returns {Map<String, Object>} Login without leading `@` to identity metadata.
+ */
+export function getParticipationStatusByLogin(identities = IDENTITIES) {
+    const statusByLogin = new Map();
+
+    for (const identity of identities) {
+        const login = getIdentityGithubLogin(identity);
+        if (!login) continue;
+
+        statusByLogin.set(login, {
+            authority          : identity.properties?.authority || null,
+            identityId         : identity.id,
+            login,
+            participationStatus: identity.properties?.participationStatus || 'unknown',
+            reactivationTrigger: identity.properties?.reactivationTrigger || null,
+            since              : identity.properties?.since || null,
+            statusReason       : identity.properties?.statusReason || null
+        });
+    }
+
+    return statusByLogin
+}
+
+/**
+ * @summary Converts arbitrary dates into stable ISO strings for finding payloads.
+ * @param {*} value Candidate date.
+ * @param {Date} fallback Fallback date.
+ * @returns {String}
+ */
+function toIsoString(value, fallback = new Date()) {
+    const date = value instanceof Date ? value : new Date(value);
+    if (!Number.isNaN(date.getTime())) return date.toISOString();
+
+    const fallbackDate = fallback instanceof Date ? fallback : new Date(fallback);
+    return fallbackDate.toISOString()
+}
+
+/**
+ * @summary Extracts a canonical issue id from synced issue frontmatter.
+ * @param {Object} meta Parsed frontmatter.
+ * @param {String} filePath Markdown source path.
+ * @returns {String}
+ */
+function getIssueId(meta = {}, filePath = '') {
+    const rawId = meta.id || meta.number || path.basename(filePath, '.md').replace(/^issue-/, '');
+
+    return String(rawId).startsWith('issue-') ? String(rawId) : `issue-${rawId}`
+}
+
+/**
+ * @summary Extracts the numeric issue number where possible.
+ * @param {Object} meta Parsed frontmatter.
+ * @param {String} issueId Canonical issue id.
+ * @returns {Number|String}
+ */
+function getIssueNumber(meta = {}, issueId = '') {
+    const raw = meta.id || meta.number || String(issueId).replace(/^issue-/, '');
+    return Number(raw) || raw
 }
 
 /**
@@ -554,6 +637,439 @@ export function renderSilentThreadCandidatesSection(candidates, {
             `last activity ${candidate.lastActivityAt} by @${candidate.lastActivityBy}; ` +
             `structural weight ${candidate.structuralWeight.toFixed(2)}; ` +
             `silence score ${candidate.silenceScore.toFixed(2)} (${candidate.reason})\n`;
+    }
+
+    return section
+}
+
+/**
+ * @summary Reads synced issue markdown into deterministic work-item records.
+ *
+ * @param {String} issuesDir Local synced issue directory.
+ * @returns {Array<Object>} Parsed issue work records.
+ */
+export function readWorkGraphIssueRecords(issuesDir) {
+    const records = [];
+
+    for (const filePath of collectIssueMarkdownFiles(issuesDir)) {
+        let parsed;
+        try {
+            parsed = matter(fs.readFileSync(filePath, 'utf-8'));
+        } catch (error) {
+            logger.warn(`[GoldenPathSynthesizer] Failed to parse issue markdown for Stall Inference: ${filePath}`, error);
+            continue;
+        }
+
+        const meta    = parsed.data || {},
+              issueId = getIssueId(meta, filePath);
+
+        records.push({
+            assignees: Array.isArray(meta.assignees) ? meta.assignees.filter(Boolean) : [],
+            content  : parsed.content || '',
+            filePath,
+            issueId,
+            labels   : normalizeLabels(meta.labels),
+            meta,
+            number   : getIssueNumber(meta, issueId),
+            title    : meta.title || '(no title)',
+            url      : meta.githubUrl
+        });
+    }
+
+    return records
+}
+
+/**
+ * @summary Detects deliberate-defer state for an issue work item.
+ *
+ * @param {Object} issue Parsed issue work record.
+ * @param {Date} now Capture timestamp.
+ * @param {Object} graphService Graph service or test double.
+ * @returns {Object} Normalized defer disposition.
+ */
+export function getIssueDeferDisposition(issue, now = new Date(), graphService = GraphService) {
+    const deferredLabels = issue.labels.filter(label => DEFER_LABELS.has(label));
+    const observedAt     = toIsoString(now);
+
+    if (deferredLabels.length > 0) {
+        return {
+            anchorArtifact: `#${issue.number}`,
+            authority     : `issue-label:${deferredLabels[0]}`,
+            deferredAt    : toIsoString(issue.meta.updatedAt || issue.meta.createdAt, now),
+            evidenceRefs  : [`#${issue.number}`, `label:${deferredLabels[0]}`],
+            exitCondition : `remove ${deferredLabels[0]} or replace it with a narrower ready-state signal`,
+            state         : 'deferred'
+        }
+    }
+
+    const blockedBy = Array.isArray(issue.meta.blockedBy) ? issue.meta.blockedBy.filter(Boolean) : [];
+    if (blockedBy.length > 0) {
+        const hasOpenBlocker = hasOpenIssueBlocker({
+            issueId: issue.issueId,
+            issue  : issue.meta,
+            graphService
+        });
+
+        return {
+            anchorArtifact: `#${issue.number}`,
+            authority     : 'issue-blocker-edge',
+            deferredAt    : toIsoString(issue.meta.updatedAt || issue.meta.createdAt, now),
+            evidenceRefs  : [`#${issue.number}`, `blockedBy:${blockedBy.join(',')}`],
+            exitCondition : `close blocker ${blockedBy.map(id => `#${String(id).replace(/^issue-/, '')}`).join(', ')}`,
+            lastVerifiedAt: observedAt,
+            state         : hasOpenBlocker ? 'deferred' : 'stale-defer'
+        }
+    }
+
+    const marker = /DEFERRED-ON:\s*(.+)$/im.exec(issue.content || '');
+    if (marker) {
+        return {
+            anchorArtifact: `#${issue.number}`,
+            authority     : 'doc-marker',
+            deferredAt    : toIsoString(issue.meta.updatedAt || issue.meta.createdAt, now),
+            evidenceRefs  : [`#${issue.number}`, 'DEFERRED-ON marker'],
+            exitCondition : marker[1].trim(),
+            state         : marker[1].trim() ? 'deferred' : 'candidate-defer'
+        }
+    }
+
+    return {state: 'none'}
+}
+
+/**
+ * @summary Detects deliberate PR parking from the canonical `Parked-on:` adapter.
+ *
+ * @param {Object} pr GitHub PR payload.
+ * @param {Date} now Capture timestamp.
+ * @returns {Object} Normalized defer disposition.
+ */
+export function getPrDeferDisposition(pr, now = new Date()) {
+    const body = String(pr?.body || '');
+    if (!/\bParked-on:/i.test(body)) return {state: 'none'};
+
+    const match = PR_PARKED_ON_PATTERN.exec(body);
+    if (!match) {
+        return {
+            anchorArtifact: `PR #${pr.number}`,
+            authority     : 'pr-body',
+            deferredAt    : toIsoString(pr.updatedAt || pr.createdAt, now),
+            evidenceRefs  : [`PR #${pr.number}`, 'Parked-on line'],
+            exitCondition : null,
+            state         : 'candidate-defer'
+        }
+    }
+
+    return {
+        anchorArtifact: match[1],
+        authority     : 'pr-body',
+        deferredAt    : toIsoString(pr.updatedAt || pr.createdAt, now),
+        evidenceRefs  : [`PR #${pr.number}`, match[1], match[2] ? `[${match[2]}]` : null].filter(Boolean),
+        exitCondition : match[3].trim(),
+        state         : 'deferred'
+    }
+}
+
+/**
+ * @summary Resolves the latest per-reviewer state for a PR.
+ * @param {Object[]} reviews GitHub PR review payloads.
+ * @returns {Object[]} Latest review per author.
+ */
+function getLatestReviewsByAuthor(reviews = []) {
+    const latestByAuthor = new Map();
+
+    for (const review of Array.isArray(reviews) ? reviews : []) {
+        const author = review.author?.login || review.author || 'unknown';
+        const submittedAt = new Date(review.submittedAt || review.createdAt || 0);
+        const existing = latestByAuthor.get(author);
+
+        if (!existing || submittedAt > new Date(existing.submittedAt || existing.createdAt || 0)) {
+            latestByAuthor.set(author, review);
+        }
+    }
+
+    return [...latestByAuthor.values()]
+}
+
+/**
+ * @summary Returns approval-readiness derived from structured PR reviews.
+ *
+ * `updatedAt` is deliberately not a motion predicate. A PR leaves
+ * `DECISION_STARVED` only through merge/close, required changes, or loss of
+ * approval.
+ *
+ * @param {Object} pr GitHub PR payload.
+ * @returns {{approved: Boolean, approvedAt: String|null, changedRequested: Boolean}}
+ */
+export function getPrHumanGateState(pr) {
+    if (pr.reviewDecision === 'CHANGES_REQUESTED') {
+        return {approved: false, approvedAt: null, changedRequested: true}
+    }
+
+    const latestReviews    = getLatestReviewsByAuthor(pr.reviews);
+    const changedRequested = latestReviews.some(review => review.state === 'CHANGES_REQUESTED');
+    const approvals        = latestReviews.filter(review => review.state === 'APPROVED');
+
+    if (changedRequested || approvals.length === 0) {
+        return {approved: false, approvedAt: null, changedRequested}
+    }
+
+    approvals.sort((a, b) => new Date(b.submittedAt || b.createdAt || 0) - new Date(a.submittedAt || a.createdAt || 0));
+
+    return {
+        approved : true,
+        approvedAt: toIsoString(approvals[0].submittedAt || approvals[0].createdAt || pr.createdAt)
+    }
+}
+
+/**
+ * @summary Builds one durable stall finding object.
+ *
+ * @param {Object} options Finding fields.
+ * @returns {Object}
+ */
+function buildStallFinding({
+    capturedAt,
+    deferDisposition = {state: 'none'},
+    evidenceRefs = [],
+    findingClass,
+    grade = 'verified-stall',
+    motionPredicate,
+    presenceSource,
+    sourceFidelity = 'verified',
+    subject,
+    verificationSource,
+    waitingSince
+}) {
+    const observedAt = toIsoString(capturedAt);
+
+    return {
+        deferDisposition,
+        evidenceRefs: evidenceRefs.filter(Boolean),
+        findingClass,
+        firstSeen       : observedAt,
+        grade,
+        lastSeen        : observedAt,
+        lastVerifiedAt  : observedAt,
+        motionPredicate,
+        observedAt,
+        presenceSource,
+        sourceFidelity,
+        subject,
+        ttlExpiresAt    : new Date(new Date(observedAt).getTime() + STALL_FINDING_TTL_MS).toISOString(),
+        verificationSource,
+        waitingSince    : waitingSince ? toIsoString(waitingSince, capturedAt) : observedAt
+    }
+}
+
+/**
+ * @summary Builds deterministic work-graph stall findings for the handoff surface.
+ *
+ * This pass is visibility-only: it emits data for `sandman_handoff.md` and does
+ * not reassign work, file tickets, wake peers, or mutate Golden Path routing
+ * weights.
+ *
+ * @param {Object} options
+ * @param {String} options.issuesDir Local synced issue directory.
+ * @param {Object[]} [options.prs=[]] Open PR payloads from GitHub.
+ * @param {Date} [options.now=new Date()] Capture timestamp.
+ * @param {Object[]} [options.identities=IDENTITIES] AgentIdentity roots.
+ * @param {Object} [options.graphService=GraphService] Graph service or test double.
+ * @returns {Object[]} Stall findings.
+ */
+export function buildWorkGraphStallFindings({
+    issuesDir,
+    prs = [],
+    now = new Date(),
+    identities = IDENTITIES,
+    graphService = GraphService
+}) {
+    if (!issuesDir) return [];
+
+    const
+        findings      = [],
+        issueRecords  = readWorkGraphIssueRecords(issuesDir),
+        statusByLogin = getParticipationStatusByLogin(identities);
+
+    for (const issue of issueRecords) {
+        if (issue.meta.state !== 'OPEN') continue;
+
+        const deferDisposition = getIssueDeferDisposition(issue, now, graphService);
+        if (deferDisposition.state === 'deferred' || deferDisposition.state === 'candidate-defer') continue;
+
+        if (deferDisposition.state === 'stale-defer') {
+            findings.push(buildStallFinding({
+                capturedAt: now,
+                deferDisposition,
+                evidenceRefs: deferDisposition.evidenceRefs,
+                findingClass: 'STALE_DEFER',
+                grade       : 'candidate-stall',
+                motionPredicate: 'defer exit condition is satisfied and no class-specific motion has been recorded after the defer',
+                presenceSource : 'issue blocker/defer adapter',
+                sourceFidelity : 'candidate',
+                subject: {
+                    id    : issue.issueId,
+                    number: issue.number,
+                    title : issue.title,
+                    type  : 'ISSUE',
+                    url   : issue.url
+                },
+                verificationSource: 'local issue sync + graph blocker state',
+                waitingSince      : deferDisposition.deferredAt
+            }));
+        }
+
+        const inactiveAssignees = issue.assignees
+            .map(login => statusByLogin.get(String(login).replace(/^@/, '')))
+            .filter(status => status && INACTIVE_PARTICIPATION_STATUSES.has(status.participationStatus));
+
+        if (inactiveAssignees.length > 0) {
+            const assignee = inactiveAssignees[0];
+            findings.push(buildStallFinding({
+                capturedAt: now,
+                evidenceRefs: [`#${issue.number}`, `ai/graph/identityRoots.mjs:${assignee.login}:${assignee.participationStatus}`],
+                findingClass: 'OWNER_BENCHED_LANE',
+                motionPredicate: 'owned open work moves when AgentIdentity.participationStatus returns active, the lane is reassigned, or linked work advances under an active owner',
+                presenceSource : 'AgentIdentity.participationStatus',
+                subject: {
+                    id    : issue.issueId,
+                    number: issue.number,
+                    owner : assignee.login,
+                    title : issue.title,
+                    type  : 'ISSUE',
+                    url   : issue.url
+                },
+                verificationSource: 'identityRoots.mjs + local issue sync',
+                waitingSince      : assignee.since || issue.meta.createdAt
+            }));
+        }
+
+        if (issue.labels.includes(EPIC_LABEL)) {
+            const
+                total     = Number(issue.meta.subIssuesTotal),
+                completed = Number(issue.meta.subIssuesCompleted),
+                allSubsClosed = Number.isFinite(total) && total > 0 && Number.isFinite(completed) && completed >= total,
+                hasActiveAssignee = issue.assignees.some(login => {
+                    const status = statusByLogin.get(String(login).replace(/^@/, ''));
+                    return status?.participationStatus === 'active'
+                });
+
+            if (allSubsClosed && !hasActiveAssignee) {
+                findings.push(buildStallFinding({
+                    capturedAt: now,
+                    evidenceRefs: [`#${issue.number}`, `subIssuesCompleted:${completed}`, `subIssuesTotal:${total}`],
+                    findingClass: 'RESOLUTION_PENDING',
+                    motionPredicate: 'parent epic closes, /epic-resolution posts a verdict, or a required sub reopens',
+                    presenceSource : issue.assignees.length > 0 ? 'AgentIdentity.participationStatus' : 'issue assignee state',
+                    sourceFidelity : issue.assignees.length > 0 ? 'verified' : 'candidate',
+                    grade          : issue.assignees.length > 0 ? 'verified-stall' : 'candidate-stall',
+                    subject: {
+                        id    : issue.issueId,
+                        number: issue.number,
+                        title : issue.title,
+                        type  : 'ISSUE',
+                        url   : issue.url
+                    },
+                    verificationSource: 'local issue sync sub-issue counters',
+                    waitingSince      : issue.meta.updatedAt || issue.meta.createdAt
+                }));
+            }
+        }
+    }
+
+    for (const pr of Array.isArray(prs) ? prs : []) {
+        if (pr.state && pr.state !== 'OPEN') continue;
+        if (pr.isDraft) continue;
+        if (pr.mergedAt || pr.closedAt) continue;
+
+        const deferDisposition = getPrDeferDisposition(pr, now);
+        if (deferDisposition.state === 'deferred' || deferDisposition.state === 'candidate-defer') continue;
+
+        const gateState = getPrHumanGateState(pr);
+        if (!gateState.approved) continue;
+
+        findings.push(buildStallFinding({
+            capturedAt: now,
+            deferDisposition,
+            evidenceRefs: [`PR #${pr.number}`, pr.url, gateState.approvedAt ? `approvedAt:${gateState.approvedAt}` : null],
+            findingClass: 'DECISION_STARVED',
+            motionPredicate: 'PR merges, closes, receives a new required-change state, or loses approval/merge readiness',
+            presenceSource : 'GitHub PR review state',
+            subject: {
+                id    : `pr-${pr.number}`,
+                number: pr.number,
+                owner : 'human-merge-gate',
+                title : pr.title || '(no title)',
+                type  : 'PR',
+                url   : pr.url
+            },
+            verificationSource: 'GitHub PR list reviews',
+            waitingSince      : gateState.approvedAt || pr.createdAt
+        }));
+    }
+
+    findings.sort((a, b) =>
+        (a.grade === 'verified-stall' ? 0 : 1) - (b.grade === 'verified-stall' ? 0 : 1) ||
+        String(a.findingClass).localeCompare(String(b.findingClass)) ||
+        String(a.subject?.type).localeCompare(String(b.subject?.type)) ||
+        Number(a.subject?.number || 0) - Number(b.subject?.number || 0)
+    );
+
+    return findings
+}
+
+/**
+ * @summary Renders bounded work-graph stall findings into the Sandman handoff.
+ *
+ * @param {Object[]} findings Stall finding payloads.
+ * @param {Object} options
+ * @param {Date} [options.capturedAt=new Date()] Capture timestamp.
+ * @param {Number} [options.limit=aiConfig.goldenPathStallFindingRenderLimit] Maximum verified findings to render.
+ * @param {Boolean} [options.renderEnabled=aiConfig.goldenPathStallFindingRenderEnabled] Render flag.
+ * @returns {String}
+ */
+export function renderWorkGraphStallFindingsSection(findings = [], {
+    capturedAt = new Date(),
+    limit = aiConfig.goldenPathStallFindingRenderLimit,
+    renderEnabled = aiConfig.goldenPathStallFindingRenderEnabled
+} = {}) {
+    if (renderEnabled === false) return '';
+
+    let section = `\n## Work-Graph Stall Inference\n\n`;
+    section += `*Captured at: ${capturedAt.toISOString()} (Source: local issue sync + GitHub PR state; visibility-only, no wakes, no reassignment, no routing-weight changes)*\n\n`;
+
+    if (findings.length === 0) {
+        section += `No verified stall findings detected.\n`;
+        return section
+    }
+
+    const verified = findings.filter(finding => finding.grade === 'verified-stall');
+    const advisory = findings.filter(finding => finding.grade !== 'verified-stall');
+    const visibleVerified = verified.slice(0, limit);
+
+    section += `### Verified Stalls (\`${visibleVerified.length}\` of \`${verified.length}\` items)\n`;
+
+    for (const finding of visibleVerified) {
+        const subjectRef = finding.subject?.type === 'PR'
+            ? `PR #${finding.subject.number}`
+            : `#${finding.subject?.number}`;
+        const title = finding.subject?.title || '(no title)';
+
+        section += `- **${subjectRef}** — ${title} — \`${finding.findingClass}\`\n`;
+        section += `  - Motion predicate: ${finding.motionPredicate}\n`;
+        section += `  - waitingSince: ${finding.waitingSince}; grade: ${finding.grade}; fidelity: ${finding.sourceFidelity}\n`;
+        section += `  - Evidence: ${finding.evidenceRefs.join(' · ')}\n`;
+        section += `  - Unblock leverage: one stalled lane returns to motion when the predicate clears; detector takes no action.\n`;
+    }
+
+    if (advisory.length > 0) {
+        section += `\n<details><summary>Candidate / source-degraded findings (${advisory.length})</summary>\n\n`;
+        advisory.slice(0, limit).forEach(finding => {
+            const subjectRef = finding.subject?.type === 'PR'
+                ? `PR #${finding.subject.number}`
+                : `#${finding.subject?.number}`;
+            section += `- **${subjectRef}** — ${finding.subject?.title || '(no title)'} — \`${finding.findingClass}\` — ${finding.grade}; evidence: ${finding.evidenceRefs.join(' · ')}\n`;
+        });
+        section += `\n</details>\n`;
     }
 
     return section

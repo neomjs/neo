@@ -34,6 +34,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     let renderStaleAssignmentCandidatesSection;
     let buildSilentThreadCandidates;
     let renderSilentThreadCandidatesSection;
+    let buildWorkGraphStallFindings;
+    let renderWorkGraphStallFindingsSection;
     let renderGoldenPathRouteLedgerSection;
     let issueFocusSections;
 
@@ -50,6 +52,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     let originalGoldenPathSilentThreadMinScore;
     let originalGoldenPathSilentThreadRenderLimit;
     let originalGoldenPathSilentThreadThresholdMs;
+    let originalGoldenPathStallFindingRenderEnabled;
+    let originalGoldenPathStallFindingRenderLimit;
     let originalVectorDimension;
     let originalWarn;
 
@@ -77,6 +81,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         renderStaleAssignmentCandidatesSection = GoldenPathSynthesizer.constructor.renderStaleAssignmentCandidatesSection.bind(GoldenPathSynthesizer.constructor);
         buildSilentThreadCandidates = GoldenPathSynthesizer.constructor.buildSilentThreadCandidates.bind(GoldenPathSynthesizer.constructor);
         renderSilentThreadCandidatesSection = GoldenPathSynthesizer.constructor.renderSilentThreadCandidatesSection.bind(GoldenPathSynthesizer.constructor);
+        buildWorkGraphStallFindings = GoldenPathSynthesizer.constructor.buildWorkGraphStallFindings.bind(GoldenPathSynthesizer.constructor);
+        renderWorkGraphStallFindingsSection = GoldenPathSynthesizer.constructor.renderWorkGraphStallFindingsSection.bind(GoldenPathSynthesizer.constructor);
         ({renderGoldenPathRouteLedgerSection} = await import('../../../../../../ai/services/graph/goldenPathRouteLedger.mjs'));
         GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         SystemLifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
@@ -98,6 +104,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         originalGoldenPathSilentThreadMinScore          = aiConfig.goldenPathSilentThreadMinScore;
         originalGoldenPathSilentThreadRenderLimit       = aiConfig.goldenPathSilentThreadRenderLimit;
         originalGoldenPathSilentThreadThresholdMs       = aiConfig.goldenPathSilentThreadThresholdMs;
+        originalGoldenPathStallFindingRenderEnabled     = aiConfig.goldenPathStallFindingRenderEnabled;
+        originalGoldenPathStallFindingRenderLimit       = aiConfig.goldenPathStallFindingRenderLimit;
         originalVectorDimension   = aiConfig.vectorDimension;
         originalWarn              = logger.warn;
 
@@ -108,6 +116,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         aiConfig.goldenPathSilentThreadMinScore          = 14;
         aiConfig.goldenPathSilentThreadRenderLimit       = 10;
         aiConfig.goldenPathSilentThreadThresholdMs       = 14 * 24 * 60 * 60 * 1000;
+        aiConfig.goldenPathStallFindingRenderEnabled     = true;
+        aiConfig.goldenPathStallFindingRenderLimit       = 10;
     });
 
     test.afterEach(() => {
@@ -120,6 +130,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         aiConfig.goldenPathSilentThreadMinScore          = originalGoldenPathSilentThreadMinScore;
         aiConfig.goldenPathSilentThreadRenderLimit       = originalGoldenPathSilentThreadRenderLimit;
         aiConfig.goldenPathSilentThreadThresholdMs       = originalGoldenPathSilentThreadThresholdMs;
+        aiConfig.goldenPathStallFindingRenderEnabled     = originalGoldenPathStallFindingRenderEnabled;
+        aiConfig.goldenPathStallFindingRenderLimit       = originalGoldenPathStallFindingRenderLimit;
         aiConfig.vectorDimension   = originalVectorDimension;
         child_process.execSync     = originalExecSync;
         logger.warn                = originalWarn;
@@ -1600,6 +1612,277 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(capped).toContain('Silent Candidate 1');
         expect(capped).toContain('Silent Candidate 2');
         expect(capped).not.toContain('Silent Candidate 3');
+    });
+
+    test('buildWorkGraphStallFindings emits deterministic ADR-0030 findings and suppresses deliberate defers', () => {
+        const issuesDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-stall-findings-'));
+        const chunkDir  = path.join(issuesDir, 'chunk-1');
+        const now       = new Date('2026-07-02T12:00:00Z');
+        fs.mkdirSync(chunkDir, {recursive: true});
+
+        function writeIssue(number, lines) {
+            fs.writeFileSync(path.join(chunkDir, `issue-${number}.md`), lines.join('\n'));
+        }
+
+        writeIssue(9501, [
+            '---',
+            'id: 9501',
+            "title: 'Benched owner lane with fresh comments'",
+            'state: OPEN',
+            'labels:',
+            '  - enhancement',
+            'assignees:',
+            '  - neo-gemini-pro',
+            "createdAt: '2026-06-01T00:00:00Z'",
+            "updatedAt: '2026-07-02T11:00:00Z'",
+            "githubUrl: 'https://github.com/neomjs/neo/issues/9501'",
+            '---',
+            '# Benched owner lane'
+        ]);
+        writeIssue(9502, [
+            '---',
+            'id: 9502',
+            "title: 'Deliberately deferred benched lane'",
+            'state: OPEN',
+            'labels:',
+            '  - not-code-ready',
+            'assignees:',
+            '  - neo-gemini-pro',
+            "createdAt: '2026-06-01T00:00:00Z'",
+            "updatedAt: '2026-07-02T11:00:00Z'",
+            '---',
+            '# Deferred benched owner lane'
+        ]);
+        writeIssue(9503, [
+            '---',
+            'id: 9503',
+            "title: 'Closed-sub epic awaiting closure'",
+            'state: OPEN',
+            'labels:',
+            '  - epic',
+            'assignees:',
+            '  - neo-gemini-pro',
+            "createdAt: '2026-05-01T00:00:00Z'",
+            "updatedAt: '2026-06-20T00:00:00Z'",
+            'subIssuesCompleted: 3',
+            'subIssuesTotal: 3',
+            "githubUrl: 'https://github.com/neomjs/neo/issues/9503'",
+            '---',
+            '# Closed-sub epic'
+        ]);
+        writeIssue(9504, [
+            '---',
+            'id: 9504',
+            "title: 'Active-owner closed-sub epic'",
+            'state: OPEN',
+            'labels:',
+            '  - epic',
+            'assignees:',
+            '  - neo-gpt',
+            "createdAt: '2026-05-01T00:00:00Z'",
+            "updatedAt: '2026-06-20T00:00:00Z'",
+            'subIssuesCompleted: 2',
+            'subIssuesTotal: 2',
+            '---',
+            '# Active-owner epic'
+        ]);
+        writeIssue(9505, [
+            '---',
+            'id: 9505',
+            "title: 'Resolved blocker defer with no motion'",
+            'state: OPEN',
+            'labels:',
+            '  - enhancement',
+            'assignees: []',
+            'blockedBy:',
+            '  - 9506',
+            "createdAt: '2026-05-01T00:00:00Z'",
+            "updatedAt: '2026-05-15T00:00:00Z'",
+            "githubUrl: 'https://github.com/neomjs/neo/issues/9505'",
+            '---',
+            '# Resolved blocker defer'
+        ]);
+
+        const graphService = {
+            db: {
+                edges: {
+                    getByIndex(index, target) {
+                        return index === 'target' && target === 'issue-9505'
+                            ? [{type: 'BLOCKS', source: 'issue-9506'}]
+                            : []
+                    }
+                },
+                getAdjacentNodes() {},
+                nodes: {
+                    get(id) {
+                        return id === 'issue-9506' ? {properties: {state: 'CLOSED'}} : null
+                    }
+                }
+            }
+        };
+
+        const prs = [
+            {
+                number   : 9601,
+                title    : 'Approved PR at human gate',
+                url      : 'https://github.com/neomjs/neo/pull/9601',
+                createdAt: '2026-07-01T00:00:00Z',
+                reviews  : [{author: {login: 'neo-opus-ada'}, state: 'APPROVED', submittedAt: '2026-07-01T01:00:00Z'}]
+            },
+            {
+                number   : 9602,
+                title    : 'Parked approved PR',
+                body     : 'Parked-on: #14441 [OQ5] - governance hold',
+                createdAt: '2026-07-01T00:00:00Z',
+                reviews  : [{author: {login: 'neo-gpt'}, state: 'APPROVED', submittedAt: '2026-07-01T01:00:00Z'}]
+            },
+            {
+                number   : 9603,
+                title    : 'Required-change PR',
+                createdAt: '2026-07-01T00:00:00Z',
+                reviews  : [
+                    {author: {login: 'neo-gpt'}, state: 'APPROVED', submittedAt: '2026-07-01T01:00:00Z'},
+                    {author: {login: 'neo-gpt'}, state: 'CHANGES_REQUESTED', submittedAt: '2026-07-01T02:00:00Z'}
+                ]
+            }
+        ];
+
+        try {
+            const findings = buildWorkGraphStallFindings({issuesDir, now, prs, graphService});
+            const classes  = findings.map(finding => `${finding.findingClass}:${finding.subject.number}`);
+
+            expect(classes).toEqual([
+                'DECISION_STARVED:9601',
+                'OWNER_BENCHED_LANE:9501',
+                'OWNER_BENCHED_LANE:9503',
+                'RESOLUTION_PENDING:9503',
+                'STALE_DEFER:9505'
+            ]);
+
+            const ownerFinding = findings.find(finding => finding.findingClass === 'OWNER_BENCHED_LANE' && finding.subject.number === 9501);
+            expect(ownerFinding).toMatchObject({
+                grade             : 'verified-stall',
+                sourceFidelity    : 'verified',
+                verificationSource: 'identityRoots.mjs + local issue sync'
+            });
+            expect(ownerFinding.motionPredicate).toContain('participationStatus');
+            expect(ownerFinding.evidenceRefs).toContain('ai/graph/identityRoots.mjs:neo-gemini-pro:operator_benched');
+            expect(ownerFinding.waitingSince).toBe('2026-05-18T00:00:00.000Z');
+            expect(ownerFinding.lastSeen).toBe('2026-07-02T12:00:00.000Z');
+
+            expect(findings.some(finding => finding.subject.number === 9502)).toBe(false);
+            expect(findings.some(finding => finding.subject.number === 9504)).toBe(false);
+            expect(findings.some(finding => finding.subject.number === 9602)).toBe(false);
+            expect(findings.some(finding => finding.subject.number === 9603)).toBe(false);
+
+            const staleDefer = findings.find(finding => finding.findingClass === 'STALE_DEFER');
+            expect(staleDefer.grade).toBe('candidate-stall');
+            expect(staleDefer.deferDisposition.state).toBe('stale-defer');
+            expect(staleDefer.evidenceRefs).toContain('blockedBy:9506');
+            expect(staleDefer).toHaveProperty('ttlExpiresAt');
+        } finally {
+            fs.rmSync(issuesDir, {recursive: true, force: true});
+        }
+    });
+
+    test('renderWorkGraphStallFindingsSection is bounded, visibility-only, and honors render-off', () => {
+        const findings = [
+            {
+                evidenceRefs      : ['#9601', 'approvedAt:2026-07-01T01:00:00.000Z'],
+                findingClass      : 'DECISION_STARVED',
+                grade             : 'verified-stall',
+                motionPredicate   : 'PR merges or loses approval',
+                sourceFidelity    : 'verified',
+                subject           : {number: 9601, title: 'Approved PR', type: 'PR'},
+                waitingSince      : '2026-07-01T01:00:00.000Z'
+            },
+            {
+                evidenceRefs      : ['#9505', 'blockedBy:9506'],
+                findingClass      : 'STALE_DEFER',
+                grade             : 'candidate-stall',
+                motionPredicate   : 'defer exit satisfied',
+                sourceFidelity    : 'candidate',
+                subject           : {number: 9505, title: 'Resolved blocker defer', type: 'ISSUE'},
+                waitingSince      : '2026-05-15T00:00:00.000Z'
+            }
+        ];
+
+        const hidden = renderWorkGraphStallFindingsSection(findings, {renderEnabled: false});
+        expect(hidden).toBe('');
+
+        const section = renderWorkGraphStallFindingsSection(findings, {
+            capturedAt: new Date('2026-07-02T12:00:00Z'),
+            limit     : 1
+        });
+
+        expect(section).toContain('## Work-Graph Stall Inference');
+        expect(section).toContain('visibility-only, no wakes, no reassignment, no routing-weight changes');
+        expect(section).toContain('Verified Stalls (`1` of `1` items)');
+        expect(section).toContain('PR #9601');
+        expect(section).toContain('waitingSince: 2026-07-01T01:00:00.000Z');
+        expect(section).toContain('<details><summary>Candidate / source-degraded findings (1)</summary>');
+        expect(section).toContain('STALE_DEFER');
+    });
+
+    test('synthesizeGoldenPath renders Work-Graph Stall Inference from issue sync and PR state', async () => {
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const originalFetchOpenPRs         = GoldenPathSynthesizer.fetchOpenPRs;
+        const issuesDir                    = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-stall-render-issues-'));
+        const chunkDir                     = path.join(issuesDir, 'chunk-1');
+        aiConfig.vectorDimension = 2;
+        fs.mkdirSync(chunkDir, {recursive: true});
+
+        fs.writeFileSync(path.join(chunkDir, 'issue-9701.md'), [
+            '---',
+            'id: 9701',
+            "title: 'Benched owner render lane'",
+            'state: OPEN',
+            'labels:',
+            '  - enhancement',
+            'assignees:',
+            '  - neo-gemini-pro',
+            "createdAt: '2026-06-01T00:00:00Z'",
+            "updatedAt: '2026-07-02T11:00:00Z'",
+            "githubUrl: 'https://github.com/neomjs/neo/issues/9701'",
+            '---',
+            '# Benched owner render lane'
+        ].join('\n'));
+
+        StorageRouter.getGraphCollection = async () => ({query: async () => ({ids: [[]], distances: [[]]})});
+        StorageRouter.getSummaryCollection = async () => ({get: async () => ({documents: ['mock document']})});
+        TextEmbeddingService.embedText = async () => [0.1, 0.2];
+        GoldenPathSynthesizer.fetchOpenPRs = async () => [{
+            number   : 9702,
+            title    : 'Approved PR render lane',
+            url      : 'https://github.com/neomjs/neo/pull/9702',
+            createdAt: '2026-07-01T00:00:00Z',
+            reviews  : [{author: {login: 'neo-opus-ada'}, state: 'APPROVED', submittedAt: '2026-07-01T01:00:00Z'}]
+        }];
+
+        try {
+            await GoldenPathSynthesizer.synthesizeGoldenPath({
+                issuesDir,
+                now: new Date('2026-07-02T12:00:00Z')
+            });
+        } finally {
+            StorageRouter.getGraphCollection   = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection = originalGetSummaryCollection;
+            TextEmbeddingService.embedText     = originalEmbedText;
+            GoldenPathSynthesizer.fetchOpenPRs = originalFetchOpenPRs;
+            fs.rmSync(issuesDir, {recursive: true, force: true});
+        }
+
+        const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
+
+        expect(handoffContent).toContain('## Active PR Cycle State');
+        expect(handoffContent).toContain('## Work-Graph Stall Inference');
+        expect(handoffContent).toContain('Benched owner render lane');
+        expect(handoffContent).toContain('OWNER_BENCHED_LANE');
+        expect(handoffContent).toContain('Approved PR render lane');
+        expect(handoffContent).toContain('DECISION_STARVED');
+        expect(handoffContent.indexOf('## Active PR Cycle State')).toBeLessThan(handoffContent.indexOf('## Work-Graph Stall Inference'));
     });
 
     test('synthesizeGoldenPath does not compose KB tenant telemetry into the handoff', () => {
