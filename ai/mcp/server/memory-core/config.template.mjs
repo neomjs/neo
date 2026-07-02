@@ -536,6 +536,17 @@ class Config extends ConfigProvider {
              */
             goldenPathSilentThreadRenderLimit: leaf(5, 'NEO_GOLDEN_PATH_SILENT_THREAD_RENDER_LIMIT', 'number'),
             /**
+             * Render switch for the visibility-only Work-Graph Stall Inference handoff section.
+             * Detection remains data-only; disabling this leaf only removes the pull-surface.
+             * @type {boolean}
+             */
+            goldenPathStallFindingRenderEnabled: leaf(true, 'NEO_GOLDEN_PATH_STALL_FINDING_RENDER_ENABLED', 'boolean'),
+            /**
+             * Maximum verified/advisory stall findings rendered into the Sandman handoff.
+             * @type {number}
+             */
+            goldenPathStallFindingRenderLimit: leaf(5, 'NEO_GOLDEN_PATH_STALL_FINDING_RENDER_LIMIT', 'number'),
+            /**
              * Maximum recent open PR rows rendered inside `Active PR Cycle State`.
              * @type {number}
              */
