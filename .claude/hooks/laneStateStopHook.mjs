@@ -44,8 +44,10 @@ import {pathToFileURL} from 'node:url';
 
 import {parseLaneState} from '../../ai/scripts/lifecycle/parseLaneState.mjs';
 import {buildDeferenceStopHookDirective,
+        classifyForwardArtifacts,
         classifyPromptingContext,
         decideDeferenceStopHookAction,
+        decideRefireAdmission,
         decideStopHookAction,
         isOperatorInLoop,
         LANE_STATE_SCHEMA_HINT,
@@ -115,8 +117,8 @@ function auditLog(line) {
  * @param {Boolean} [operatorInLoop=false] True iff a genuine human-operator message prompted this turn.
  * @returns {{action: ('allow'|'block'|'would-block'), reason: String}}
  */
-export function decideHookAction(verdict, enforcing, operatorInLoop = false) {
-    return decideStopHookAction(verdict, {enforcing, operatorInLoop, blockInjectionSupported: true});
+export function decideHookAction(verdict, enforcing, operatorInLoop = false, refire = null) {
+    return decideStopHookAction(verdict, {enforcing, operatorInLoop, blockInjectionSupported: true, refire});
 }
 
 // The curated no-hold-state directive injected on a block. References the always-loaded
@@ -334,6 +336,79 @@ export function extractLastUserTextFromJsonl(jsonl = '') {
 }
 
 /**
+ * @summary Extracts the CURRENT TURN's tool-use events from a Claude Code JSONL transcript — every
+ * `tool_use` content block in assistant records AFTER the last text-bearing user record (the prompting
+ * boundary, mirroring {@link extractLastUserTextFromJsonl}). Feeds `classifyForwardArtifacts` for the
+ * declining-yield re-fire admission. Tolerant of malformed lines (skipped); returns `{name, command}`
+ * per event (`command` lifted from a `Bash` tool input for the code-change rules). Exported + tested.
+ * @param {String} jsonl
+ * @returns {Array<{name: String, command: String}>}
+ */
+export function extractTurnToolEventsFromJsonl(jsonl = '') {
+    const lines   = jsonl.split('\n'),
+          records = [];
+
+    for (const raw of lines) {
+        const line = raw.trim();
+        if (!line) continue;
+        try { records.push(JSON.parse(line)); } catch { /* skip malformed */ }
+    }
+
+    // The prompting boundary: the LAST user record carrying text (tool_result records carry none).
+    let boundary = -1;
+    for (let i = records.length - 1; i >= 0; i--) {
+        const message = records[i].message || records[i];
+        if ((message.role || records[i].type) !== 'user') continue;
+        if (extractTextFromContent(message.content)) { boundary = i; break; }
+    }
+
+    const events = [];
+    for (let i = boundary + 1; i < records.length; i++) {
+        const message = records[i].message || records[i];
+        if ((message.role || records[i].type) !== 'assistant' || !Array.isArray(message.content)) continue;
+
+        for (const block of message.content) {
+            if (block?.type === 'tool_use' && typeof block.name === 'string') {
+                events.push({name: block.name, command: typeof block.input?.command === 'string' ? block.input.command : ''});
+            }
+        }
+    }
+    return events;
+}
+
+// Per-session forced-continuation chain ledger for the declining-yield re-fire admission: the class-sets
+// of consecutive hook-forced continuations. Reset on any non-forced turn (a fresh prompt starts a new
+// chain) and on an admission (the chain ended). Same never-fail discipline as the audit log.
+const refireChainFile = session => path.join(LOG_DIR, `refire-chain-${String(session).replace(/[^\w.-]/g, '_')}.json`);
+
+/**
+ * @summary Reads the session's forced-continuation class-set chain. FAIL-OPEN: missing/corrupt → `[]`.
+ * @param {String} session
+ * @returns {String[][]}
+ */
+export function readRefireChain(session) {
+    try {
+        const chain = JSON.parse(fs.readFileSync(refireChainFile(session), 'utf8'));
+        return Array.isArray(chain) ? chain.filter(Array.isArray) : [];
+    } catch {
+        return [];
+    }
+}
+
+/**
+ * @summary Persists the session's chain (best-effort; a write failure only degrades future admission
+ * toward fail-closed, never gates this turn).
+ * @param {String} session
+ * @param {String[][]} chain
+ */
+export function writeRefireChain(session, chain) {
+    try {
+        fs.mkdirSync(LOG_DIR, {recursive: true});
+        fs.writeFileSync(refireChainFile(session), JSON.stringify(chain), 'utf8');
+    } catch { /* best-effort */ }
+}
+
+/**
  * @summary Resolves the agent's FINAL assistant message text — the surface the lane-state block is
  * emitted into. Prefers the Stop payload's `last_assistant_message` (already-decoded; a string or a
  * message object); falls back to JSONL-parsing `transcript_path` for the last assistant text. Raw
@@ -435,15 +510,40 @@ async function main() {
         process.exit(0);
     }
 
-    const session          = input.session_id || '?',
-          {action, reason} = decideHookAction(verdict, ENFORCING, operatorInLoop);
+    // Declining-yield re-fire admission: classify this turn's forward artifacts (transcript tool_use
+    // events), evaluate class-novelty against the session's forced-continuation chain, and maintain
+    // the ledger. ANY failure here is OUR failure → refire=null (today's fail-closed behavior); the
+    // artifact-class summary is logged on every decision per the ticket's observability AC.
+    const session = input.session_id || '?';
+    let   refire  = null, classSummary = 'refire-visibility-unavailable';
+    try {
+        if (input.stop_hook_active && input.transcript_path) {
+            const toolEvents     = extractTurnToolEventsFromJsonl(fs.readFileSync(input.transcript_path, 'utf8')),
+                  currentClasses = classifyForwardArtifacts(toolEvents),
+                  chain          = readRefireChain(session);
+
+            refire       = decideRefireAdmission(chain, currentClasses, {n: 2});
+            classSummary = `classes=[${refire.summary.currentClasses.join(', ') || 'none'}] new=[${refire.summary.newClasses.join(', ') || 'none'}] noNoveltyStreak=${refire.summary.consecutiveNoNovelty}`;
+
+            // Admission ends the chain; a refusal extends it with this continuation's classes.
+            writeRefireChain(session, refire.admit ? [] : [...chain, currentClasses]);
+        } else {
+            // A non-forced turn starts a fresh chain — never admission-eligible itself.
+            writeRefireChain(session, []);
+        }
+    } catch (e) {
+        refire       = null;
+        classSummary = `refire-error: ${e.message} — fail closed`;
+    }
+
+    const {action, reason} = decideHookAction(verdict, ENFORCING, operatorInLoop, refire);
 
     if (action === 'block') {
         // Costume-tripwire: scan the agent's OWN turn-final text for the sophisticated-hold lexicon so
         // the injected directive names the SPECIFIC relapse-phrase back (a sharper mirror). Never gates
         // the block (the decision is unchanged) — only enriches the reason.
         const holdMatches = scanHoldLexicon(finalText);
-        auditLog(`BLOCK (session=${session}, operatorInLoop=${operatorInLoop}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}${holdMatches.length ? ` [hold-costume: ${holdMatches.join(', ')}]` : ''}`);
+        auditLog(`BLOCK (session=${session}, operatorInLoop=${operatorInLoop}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}${holdMatches.length ? ` [hold-costume: ${holdMatches.join(', ')}]` : ''} [artifacts: ${classSummary}]`);
         // Block the stop + inject the curated no-hold-state directive — Claude uses the injected
         // `reason` as its next instruction; the audit log keeps the terse trigger cause.
         // Exit only AFTER stdout drains so the decision JSON is never truncated on a pipe.
@@ -452,7 +552,7 @@ async function main() {
         return;
     }
 
-    auditLog(`${action === 'would-block' ? 'WOULD-BLOCK' : 'ALLOW'} (session=${session}, operatorInLoop=${operatorInLoop}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}`);
+    auditLog(`${action === 'would-block' ? 'WOULD-BLOCK' : 'ALLOW'} (session=${session}, operatorInLoop=${operatorInLoop}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason} [artifacts: ${classSummary}]`);
     process.exit(0);
 }
 

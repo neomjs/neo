@@ -1,5 +1,5 @@
 {
-  "_contractNote": "Empirical refusal instances for the #14420 re-fire axis (unbounded Stop-hook re-fire on autonomous valid-lane-state terminals). Mechanism under test: the decision layer admits only operatorInLoop and refuses every autonomous terminal regardless of same-turn artifact evidence (laneStateStopHook.mjs:104 contract note, verified 2026-07-02). Each instance below is a real emitted terminal from session 2251c81c-1446-4723-86b3-479322bbcc95 (2026-07-02): the exact fenced lane-state descriptor, the same-turn forward-artifact inventory (per the #14420 body-v2 artifact-class keying; turn-memory saves and the lane-state block itself are mandatory-gate-excluded and deliberately NOT listed), and the observed hook outcome. The future admission dimensions (same-turn artifact detection, echo-dismissal detection, bounded re-fire) MUST flip expectedAdmissibleUnderRefireFix=true instances to allow while instance 1 (artifact-empty echo-dismissal) stays policy-decided; L3 no-hold is preserved because admission still requires a valid lane-state terminal plus evidence, never a bare stop.",
+  "_contractNote": "Empirical refusal instances for the #14420 re-fire axis (unbounded Stop-hook re-fire on autonomous valid-lane-state terminals). Mechanism under test: the decision layer admits only operatorInLoop and refuses every autonomous terminal regardless of same-turn artifact evidence (laneStateStopHook.mjs:104 contract note, verified 2026-07-02). Each instance below is a real emitted terminal from session 2251c81c-1446-4723-86b3-479322bbcc95 (2026-07-02): the exact fenced lane-state descriptor, the same-turn forward-artifact inventory (per the #14420 body-v2 artifact-class keying; turn-memory saves and the lane-state block itself are mandatory-gate-excluded and deliberately NOT listed), and the observed hook outcome. IMPLEMENTATION-CORRECTED READING (self-corrected at implementation, same session): under the body-v2 CLASS-NOVELTY contract, instances 2-4 each introduced a NEW forward-artifact class (comment -> ticket-created -> code-change), so the declining-yield admission correctly KEEPS REFUSING them — the chain was still yielding; their earlier expectedAdmissibleUnderRefireFix=true flags were wrong and now read false. The true admission case is a chain whose recent continuations introduce no new class (the artifact-empty ~40-cycle corpus, or same-class padding) — encoded as the synthetic chain in the spec. L3 no-hold is preserved: admission additionally requires a VALID lane-state terminal, never a bare stop.",
   "session": "2251c81c-1446-4723-86b3-479322bbcc95",
   "triggerLabelObserved": "valid lane-state terminal",
   "instances": [
@@ -27,7 +27,8 @@
       ],
       "laneState": {"wakeDisposition": "awareness", "laneContinuation": "next-lane", "namedGates": [{"ref": "PR #14425", "checkedAt": "2026-07-02T04:04:07Z"}, {"ref": "PR #14428", "checkedAt": "2026-07-02T04:04:07Z"}, {"ref": "PR #14431", "checkedAt": "2026-07-02T04:04:07Z"}], "awaitingOwnPrOnly": false},
       "hookOutcome": "refused",
-      "expectedAdmissibleUnderRefireFix": true
+      "expectedAdmissibleUnderRefireFix": false,
+      "correction": "gh-comment + a2a-message were NEW classes at this chain position — still yielding; refusal correct under the novelty contract."
     },
     {
       "id": "instance-3-ticket-filing",
@@ -41,7 +42,8 @@
       ],
       "laneState": {"wakeDisposition": "awareness", "laneContinuation": "next-lane", "namedGates": [{"ref": "PR #14425", "checkedAt": "2026-07-02T04:06:12Z"}, {"ref": "PR #14428", "checkedAt": "2026-07-02T04:06:11Z"}, {"ref": "PR #14431", "checkedAt": "2026-07-02T04:06:11Z"}], "awaitingOwnPrOnly": false},
       "hookOutcome": "refused",
-      "expectedAdmissibleUnderRefireFix": true
+      "expectedAdmissibleUnderRefireFix": false,
+      "correction": "ticket-or-pr-created + issue-graph-mutation were NEW classes — still yielding; refusal correct under the novelty contract."
     },
     {
       "id": "instance-4-lane-claim-coordination",
@@ -55,7 +57,8 @@
       ],
       "laneState": {"wakeDisposition": "lifecycle", "laneContinuation": "next-lane", "namedGates": [{"ref": "#14420 re-fire axis (own claimed lane)", "checkedAt": "2026-07-02T04:13:41Z"}], "awaitingOwnPrOnly": false},
       "hookOutcome": "refused",
-      "expectedAdmissibleUnderRefireFix": true
+      "expectedAdmissibleUnderRefireFix": false,
+      "correction": "lane-claim/a2a + comment repeated, but the chain later added code-change (fixtures commit) — the session chain kept yielding through instance 4; refusal correct under the novelty contract."
     }
   ],
   "economicsCorpus": {

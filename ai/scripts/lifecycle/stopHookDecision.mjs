@@ -136,25 +136,160 @@ export function isOperatorInLoop({stopHookActive, promptingText = ''}) {
 }
 
 /**
+ * @typedef {Object} ForwardArtifactRule
+ * @property {String} cls               The forward-artifact class this rule emits.
+ * @property {String[]} [names]         Exact tool names that emit the class.
+ * @property {RegExp} [bashRe]          For `Bash` tool events: a command-text matcher emitting the class.
+ */
+
+/**
+ * @summary The forward-artifact class rules for the declining-yield re-fire admission — the
+ * contract's artifact classes, keyed off tool-event names (harness-agnostic input shape). Classes:
+ * PR/commit/test changes · GitHub issue/discussion/PR comments · A2A messages that route ownership or
+ * contract state · ticket/PR creation · issue-graph mutations (labels/assignees/relationships — the
+ * verified-handoff class's mechanical face). MANDATORY-GATE EXCLUSION (load-bearing, per the ticket's
+ * cost-control ACs): the per-turn `add_memory` save and the lane-state block appear in every compliant
+ * cycle by construction, so they are deliberately ABSENT here and can never discriminate a productive
+ * cycle from an empty one. Read-only tools (list/get/mark_read/search) and harness-internal task
+ * bookkeeping are likewise non-artifacts.
+ * @type {ForwardArtifactRule[]}
+ */
+export const FORWARD_ARTIFACT_RULES = Object.freeze([
+    {cls: 'ticket-or-pr-created', names: ['mcp__neo-mjs-github-workflow__create_issue', 'create_issue']},
+    {cls: 'ticket-or-pr-created', bashRe: /\bgh\s+pr\s+create\b/},
+    {cls: 'gh-comment',           names: ['mcp__neo-mjs-github-workflow__manage_issue_comment', 'manage_issue_comment', 'mcp__neo-mjs-github-workflow__manage_pr_review', 'manage_pr_review', 'mcp__neo-mjs-github-workflow__create_discussion', 'create_discussion', 'mcp__neo-mjs-github-workflow__manage_discussion_comment', 'manage_discussion_comment']},
+    {cls: 'a2a-message',          names: ['mcp__neo-mjs-memory-core__add_message', 'add_message']},
+    {cls: 'code-change',          bashRe: /\bgit\s+(commit|push)\b/},
+    {cls: 'code-change',          names: ['Edit', 'Write', 'NotebookEdit', 'replace', 'write_file']},
+    {cls: 'issue-graph-mutation', names: ['mcp__neo-mjs-github-workflow__manage_issue_assignees', 'manage_issue_assignees', 'mcp__neo-mjs-github-workflow__update_issue_relationship', 'update_issue_relationship', 'mcp__neo-mjs-github-workflow__manage_issue_labels', 'manage_issue_labels']}
+]);
+
+/**
+ * @summary Classifies a turn's tool events into forward-artifact classes for the declining-yield
+ * admission. Pure + total (never throws): malformed input yields an empty classification, which the
+ * caller treats as fail-closed. Input shape is harness-agnostic: `{name, command?}` per event — Claude
+ * adapters lift `command` from a `Bash` tool_use input; other harnesses map their equivalents.
+ * @param {Array<{name: String, command: String}>} toolEvents The current turn's tool-use events.
+ * @returns {String[]} Sorted, deduped forward-artifact classes observed this turn.
+ */
+export function classifyForwardArtifacts(toolEvents) {
+    if (!Array.isArray(toolEvents)) return [];
+
+    const classes = new Set();
+
+    for (const event of toolEvents) {
+        if (!event || typeof event !== 'object' || typeof event.name !== 'string') continue;
+
+        for (const rule of FORWARD_ARTIFACT_RULES) {
+            if (rule.names?.includes(event.name)) {
+                classes.add(rule.cls);
+            } else if (rule.bashRe && event.name === 'Bash' && typeof event.command === 'string' && rule.bashRe.test(event.command)) {
+                classes.add(rule.cls);
+            }
+        }
+    }
+
+    return [...classes].sort();
+}
+
+/**
+ * @summary The declining-yield re-fire admission — decides whether a hook-forced continuation chain has
+ * stopped yielding NEW forward-artifact classes and the valid terminal may therefore be admitted.
+ * Novelty-keyed per the ticket's cost-control ACs: an admission requires the last `n` consecutive
+ * forced continuations (the current turn included) to have introduced NO artifact class that was not
+ * already seen earlier in the chain — mere artifact PRESENCE does not defeat admission (repeating the
+ * same classes is padding, not yield), and artifact ABSENCE alone does not admit before `n` is reached
+ * (fail-closed early). Pure + total: malformed input returns a non-admitting verdict with a
+ * fail-closed reason. This narrows DETECTION, not policy — L3 stands: admission additionally requires
+ * a VALID lane-state terminal at the call site ({@link decideStopHookAction}), so a bare stop is never
+ * admitted.
+ * @param {String[][]} chainClasses Class-sets of the PRIOR consecutive forced continuations (oldest → newest).
+ * @param {String[]} currentClasses The current turn's classes ({@link classifyForwardArtifacts}).
+ * @param {Object} [options]
+ * @param {Number} [options.n=2] Consecutive no-novelty continuations required to admit.
+ * @returns {{admit: Boolean, reason: String, summary: {currentClasses: String[], newClasses: String[], consecutiveNoNovelty: Number}}}
+ */
+export function decideRefireAdmission(chainClasses, currentClasses, {n = 2} = {}) {
+    const failClosed = reason => ({admit: false, reason, summary: {currentClasses: [], newClasses: [], consecutiveNoNovelty: 0}});
+
+    if (!Array.isArray(chainClasses) || !Array.isArray(currentClasses) || !Number.isInteger(n) || n < 1) {
+        return failClosed('refire-visibility-unavailable — fail closed (malformed admission input)');
+    }
+
+    const chain   = chainClasses.filter(Array.isArray).map(entry => entry.filter(cls => typeof cls === 'string')),
+          entries = [...chain, currentClasses.filter(cls => typeof cls === 'string')];
+
+    // Per-entry novelty against the union of everything BEFORE that entry.
+    const seen = new Set(), noveltyFlags = [];
+    for (const entry of entries) {
+        let novel = false;
+        for (const cls of entry) {
+            if (!seen.has(cls)) { novel = true; seen.add(cls); }
+        }
+        noveltyFlags.push(novel);
+    }
+
+    let consecutiveNoNovelty = 0;
+    for (let i = noveltyFlags.length - 1; i >= 0 && !noveltyFlags[i]; i--) consecutiveNoNovelty++;
+
+    const current    = entries[entries.length - 1],
+          newClasses = noveltyFlags[noveltyFlags.length - 1] ? current.filter(cls => {
+              const prior = new Set(chain.flat());
+              return !prior.has(cls);
+          }) : [],
+          summary    = {currentClasses: current, newClasses, consecutiveNoNovelty};
+
+    if (entries.length < n) {
+        return {admit: false, reason: `declining-yield window not reached (${entries.length}/${n} continuations) — fail closed`, summary};
+    }
+
+    if (consecutiveNoNovelty >= n) {
+        return {
+            admit : true,
+            reason: `declining-yield admission: ${consecutiveNoNovelty} consecutive continuations without a new forward-artifact class (current: [${current.join(', ') || 'none'}])`,
+            summary
+        };
+    }
+
+    return {
+        admit : false,
+        reason: `chain still yielding: new classes [${newClasses.join(', ')}] this continuation`,
+        summary
+    };
+}
+
+/**
  * @summary Shared no-hold Stop-hook decision. The one voluntary allow is live operator dialogue;
  * every other turn-end is blocked when the harness has a proven block/inject contract, or would-block
  * when dry-run / fail-open transport semantics apply. The `verdict` reason is evidence, not a gate.
+ *
+ * Re-fire bounding: a `refire` admission ({@link decideRefireAdmission}) additionally allows a
+ * turn-end when — and only when — the terminal is VALID (an invalid or absent lane-state emission is
+ * never admitted) and the forced-continuation chain has stopped yielding new forward-artifact classes.
+ * Absent `refire` (no transcript/tool-call visibility) preserves today's behavior — fail closed. This
+ * bounds the RE-FIRE, not the policy: L3's no-hold stance is unchanged for every yielding chain.
  * @param {{valid: Boolean, reason: String}} verdict
  * @param {Object} [options]
  * @param {Boolean} [options.enforcing=false]
  * @param {Boolean} [options.operatorInLoop=false]
  * @param {Boolean} [options.blockInjectionSupported=true]
  * @param {String} [options.blockUnsupportedReason='']
+ * @param {{admit: Boolean, reason: String}|null} [options.refire=null] Declining-yield admission verdict.
  * @returns {{action: ('allow'|'block'|'would-block'), reason: String}}
  */
 export function decideStopHookAction(verdict, {
     enforcing               = false,
     operatorInLoop          = false,
     blockInjectionSupported = true,
-    blockUnsupportedReason  = ''
+    blockUnsupportedReason  = '',
+    refire                  = null
 } = {}) {
     if (operatorInLoop) {
         return {action: 'allow', reason: 'live operator dialogue — yielding for the human turn'};
+    }
+
+    if (verdict?.valid && refire?.admit) {
+        return {action: 'allow', reason: refire.reason};
     }
 
     if (enforcing && blockInjectionSupported) {
