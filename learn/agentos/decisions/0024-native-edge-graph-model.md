@@ -27,16 +27,16 @@ An **active, multi-tenant, hybrid (graph + vector) knowledge substrate**. Agents
 
 ### 2.2 Node types
 
-Three layers. Source-of-truth in the right column (so this snapshot is re-verifiable as the model evolves).
+Core layers plus deterministic extensions. Source-of-truth in the right column (so this snapshot is re-verifiable as the model evolves).
 
 | Layer | Node types | Source of truth |
 |---|---|---|
 | **Knowledge** | `CONCEPT`, `CLASS`, `METHOD`, `FILE`, `GUIDE`, `BLOG`, `TEST`, `ADR` | `SemanticGraphExtractor.VALID_TYPES` (LLM-extracted) + curated `nodes.jsonl` (`CONCEPT`) + `AdrIngestor` (`ADR`, deterministic) |
-| **Work** | `SESSION`, `MEMORY`, `ARTIFACT_PLAN`, `ARTIFACT_TASK`, `ISSUE`, `STRATEGY` | `VALID_TYPES` + GitHub / session sync |
+| **Work** | `SESSION`, `MEMORY`, `ARTIFACT_PLAN`, `ARTIFACT_TASK`, `ISSUE`, `STRATEGY`, `STALL_FINDING` | `VALID_TYPES` + GitHub / session sync; `STALL_FINDING` is deterministic work-graph inference output governed by ADR 0030 (never LLM-extracted) |
 | **System** | `SYSTEM_ANCHOR`, `[Frontier]`, `AgentIdentity`, `MESSAGE`, `WAKE_SUBSCRIPTION`, `NL_ACTION_SEQUENCE` | operational (`GraphService`, `MailboxService`, `IdentitySchema` — ADR 0018, `GapInferenceEngine` Neural Link evidence digest) |
 | **Business** | `BUSINESS_GOAL`, `METRIC` | `businessSchema.mjs` (`BUSINESS_NODE_TYPES` — deterministic validator-gated writes; never LLM-extracted; a `METRIC` without a `falsifyingQuery` is invalid by construction) |
 
-The LLM extractor's `VALID_TYPES` enum is **14** (`SemanticGraphExtractor:265`); an unrecognized extracted type defaults to `CONCEPT`. `ADR` is added **deterministically** by `AdrIngestor` (no LLM inference), so decision records are graph-queryable without widening the extractor enum (ADR 0006). (`SYSTEM_ANCHOR` is grouped under System for its operational role but is itself one of the 14 `VALID_TYPES` — both LLM-extractable and operational.)
+The LLM extractor's `VALID_TYPES` enum is **14** (`SemanticGraphExtractor:265`); an unrecognized extracted type defaults to `CONCEPT`. `ADR` is added **deterministically** by `AdrIngestor` (no LLM inference), so decision records are graph-queryable without widening the extractor enum (ADR 0006). `STALL_FINDING` is likewise deterministic work telemetry governed by ADR 0030, not LLM extraction. (`SYSTEM_ANCHOR` is grouped under System for its operational role but is itself one of the 14 `VALID_TYPES` — both LLM-extractable and operational.)
 
 ### 2.3 Edge types
 
@@ -138,6 +138,14 @@ The Business layer extends the graph from reasoning over the *codebase* to reaso
 - **Ranking boundary (honesty contract):** business nodes are **NOT** Golden-Path prioritization substrate — `computedGoldenPathRouting` type-gates ranking to `ISSUE`/`DISCUSSION`. Until Golden-Path-v2 names the business labels, this layer is a reporting surface; consumers must not claim otherwise.
 - **Provenance boundary:** every business node carries `{claimClass, falsifyingQuery, windowSemantics, confoundDisclaimer, publicFlag}`; `publicFlag` travels with the node so redaction is schema-side. Metric *categories* may be public; targets and private business data never enter this graph.
 
+### 2.10 Work-graph stall findings
+
+ADR 0030 adds `STALL_FINDING` as deterministic work-telemetry over issues, PRs,
+Discussions, epics, and deliberate-defer markers. These nodes are active
+findings, not LLM-extracted concepts and not Golden Path routing edges. Active
+`STALL_FINDING` records are not decay/prune eligible; they leave active render
+through ADR 0030's `firstSeen` / `lastSeen` / TTL / `lastVerifiedAt` contract.
+
 ## 3. How it composes the slice-ADRs
 
 This ADR is the **index**; each slice owns its decision, this ADR shows how they form one substrate:
@@ -173,7 +181,7 @@ ADR 0023 (map-fidelity + consolidation-liveness) **governs** the substrate this 
 ## 7. Related
 
 - **Connects to:** ADR 0023 (#13805 / PR #13806). **Graduated-lineage:** Discussion #13802. **Resolves:** #13814.
-- **Composes:** ADR 0001, 0003, 0006 (#11377), 0015, 0017, 0018, 0021; guides `ConceptOntology.md`, `IdentitySchema.md`, `DreamPipeline.md`, `KnowledgeBase.md`, `MemoryCore.md`.
+- **Composes:** ADR 0001, 0003, 0006 (#11377), 0015, 0017, 0018, 0021, 0030; guides `ConceptOntology.md`, `IdentitySchema.md`, `DreamPipeline.md`, `KnowledgeBase.md`, `MemoryCore.md`.
 - **Substrate (V-B-A source):** `ai/services/graph/SemanticGraphExtractor.mjs`, `ai/services/memory-core/GraphService.mjs`, `ai/services/ingestion/{ConceptIngestor,AdrIngestor,ConceptDiscoveryService}.mjs`, `ai/services/graph/GapInferenceEngine.mjs`, the Memory Core MCP tool surface.
 
 ## 8. Status / Lifecycle
