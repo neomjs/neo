@@ -90,7 +90,7 @@ class MainContainerController extends Controller {
      */
     onRouteDefault(data) {
         if (!this.getStateProvider().data.currentPageRecord) {
-            this.onRouteLearnItem({itemId: 'benefits/WhatIsNeo'})
+            this.onRouteLearnItem({itemId: 'benefits/Introduction'})
         }
     }
 

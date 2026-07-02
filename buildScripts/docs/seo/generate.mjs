@@ -39,7 +39,7 @@ const PRIORITIES = new Map([
     ['/services', 0.7],
 
     // Identity apex: organism / Agent OS / AI engineering team
-    ['benefits/WhatIsNeo'                           , 1.0],
+    ['benefits/Introduction'                        , 1.0],
     ['benefits/ArchitectureOverview'                , 1.0],
     ['benefits/AIEngineeringTeam'                   , 1.0],
     ['benefits/IdentityRitualsCulture'              , 1.0],
