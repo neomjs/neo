@@ -1320,7 +1320,7 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
     });
 
     test('heartbeatAlivePath() reads the resolved AiConfig leaf (#12438)', async () => {
-        const path = await import('path');
+        const path         = await import('path');
         const overridePath = path.join(tmpDir, `alive-helper-${Date.now()}`);
 
         AiConfig.setEnvOverride('NEO_HEARTBEAT_ALIVE_PATH', overridePath);
@@ -1516,5 +1516,37 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
                 delete process.env.POLL_INTERVAL;
             }
         }
+    });
+});
+
+test.describe('HealthService — getTaskOutcome mutation boundary (#14492 review)', () => {
+    let healthService;
+
+    test.beforeAll(async () => {
+        healthService = (await import('../../../../../../ai/services/memory-core/HealthService.mjs')).default;
+    });
+
+    test('getTaskOutcome returns a deep clone — mutating the result cannot corrupt the stored outcome', () => {
+        healthService.recordTaskOutcome('mutation-boundary-probe', 'skipped', {
+            reason    : 'r',
+            reasonCode: 'heavy-maintenance-backpressure',
+            nested    : {count: 1}
+        });
+
+        const first = healthService.getTaskOutcome('mutation-boundary-probe');
+        expect(first.details.nested.count).toBe(1);
+
+        // A careless / hostile caller mutates the returned object AND its nested details.
+        first.status               = 'HACKED';
+        first.details.reasonCode   = 'tampered';
+        first.details.nested.count = 999;
+
+        const second = healthService.getTaskOutcome('mutation-boundary-probe');
+        expect(second.status).toBe('skipped');
+        expect(second.details.reasonCode).toBe('heavy-maintenance-backpressure');
+        expect(second.details.nested.count).toBe(1);
+        // fresh clone each call — distinct object graphs, never the stored reference
+        expect(second).not.toBe(first);
+        expect(second.details).not.toBe(first.details);
     });
 });

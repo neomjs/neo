@@ -1,15 +1,15 @@
-import fs                       from 'fs/promises';
-import fsExtra                  from 'fs-extra';
-import path                     from 'path';
-import {fileURLToPath}          from 'url';
-import aiConfig                 from '../../mcp/server/memory-core/config.mjs';
-import Base                     from '../../../src/core/Base.mjs';
-import RuntimeFreshnessService  from '../../mcp/server/shared/services/RuntimeFreshnessService.mjs';
-import ChromaManager            from './managers/ChromaManager.mjs';
-import StorageRouter            from './managers/StorageRouter.mjs';
-import ChromaLifecycleService   from './lifecycle/ChromaLifecycleService.mjs';
-import logger                   from '../../mcp/server/memory-core/logger.mjs';
-import {readGateState}          from '../../scripts/lifecycle/wakeSafetyGate.mjs';
+import fs                      from 'fs/promises';
+import fsExtra                 from 'fs-extra';
+import path                    from 'path';
+import {fileURLToPath}         from 'url';
+import aiConfig                from '../../mcp/server/memory-core/config.mjs';
+import Base                    from '../../../src/core/Base.mjs';
+import RuntimeFreshnessService from '../../mcp/server/shared/services/RuntimeFreshnessService.mjs';
+import ChromaManager           from './managers/ChromaManager.mjs';
+import StorageRouter           from './managers/StorageRouter.mjs';
+import ChromaLifecycleService  from './lifecycle/ChromaLifecycleService.mjs';
+import logger                  from '../../mcp/server/memory-core/logger.mjs';
+import {readGateState}         from '../../scripts/lifecycle/wakeSafetyGate.mjs';
 import {
     SHARED_USER_ID,
     hasCoreSwarmParticipant,
@@ -22,8 +22,8 @@ import {withTimeout}                  from './helpers/withTimeout.mjs';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const
-    configPath  = path.resolve(__dirname, '../../config.mjs'),
-    openApiPath = path.resolve(__dirname, '../../mcp/server/memory-core/openapi.yaml'),
+    configPath              = path.resolve(__dirname, '../../config.mjs'),
+    openApiPath             = path.resolve(__dirname, '../../mcp/server/memory-core/openapi.yaml'),
     runtimeFreshnessTracker = RuntimeFreshnessService.createTracker({
         files  : [{
             key       : 'configDigest',
@@ -114,9 +114,9 @@ export function buildIdentityBlock(stdioIdentityState) {
     }
 
     const {agentIdentityNodeId, source, userId} = stdioIdentityState,
-          resolvedSource = source || 'unresolved',
-          isEnvPinnedUnbound = resolvedSource === 'env-var' && !agentIdentityNodeId,
-          warning = isEnvPinnedUnbound
+          resolvedSource                        = source || 'unresolved',
+          isEnvPinnedUnbound                    = resolvedSource === 'env-var' && !agentIdentityNodeId,
+          warning                               = isEnvPinnedUnbound
               ? `NEO_AGENT_IDENTITY is pinned to '${userId || 'unknown'}' but resolved to no ` +
                 `AgentIdentity graph node (bound:false). Check for a stale checkout, run ` +
                 `ai/scripts/setup/seedAgentIdentities.mjs, or confirm the identity exists in ` +
@@ -124,9 +124,9 @@ export function buildIdentityBlock(stdioIdentityState) {
               : null;
 
     return {
-        source : resolvedSource,
-        bound  : !!agentIdentityNodeId,
-        nodeId : agentIdentityNodeId || null,
+        source: resolvedSource,
+        bound : !!agentIdentityNodeId,
+        nodeId: agentIdentityNodeId || null,
         warning
     };
 }
@@ -259,31 +259,31 @@ function buildSingleEmbeddingProviderBlock(cfg, active, configName) {
         case 'openAiCompatible':
             return {
                 active,
-                host      : cfg.openAiCompatible?.host || null,
-                model     : cfg.openAiCompatible?.embeddingModel || null,
+                host : cfg.openAiCompatible?.host || null,
+                model: cfg.openAiCompatible?.embeddingModel || null,
                 dimensions
             };
         case 'ollama':
             return {
                 active,
-                host      : cfg.ollama?.host || null,
-                model     : cfg.ollama?.embeddingModel || null,
+                host : cfg.ollama?.host || null,
+                model: cfg.ollama?.embeddingModel || null,
                 dimensions
             };
         case 'gemini':
             return {
                 active,
-                host      : null,
-                model     : cfg.embeddingModel || null,
+                host : null,
+                model: cfg.embeddingModel || null,
                 dimensions
             };
         default:
             return {
                 active,
-                host      : null,
-                model     : null,
+                host : null,
+                model: null,
                 dimensions,
-                error     : `Unrecognized ${configName}: '${active}'. Expected 'gemini' | 'openAiCompatible' | 'ollama'.`
+                error: `Unrecognized ${configName}: '${active}'. Expected 'gemini' | 'openAiCompatible' | 'ollama'.`
             };
     }
 }
@@ -389,7 +389,7 @@ export function buildProviderPrerequisiteBlock(cfg, env = process.env) {
           details = [summary.detail, embedding.detail].filter(Boolean);
 
     return {
-        ready: summary.ready && embedding.ready,
+        ready  : summary.ready && embedding.ready,
         summary: {
             provider: summaryProvider,
             ready   : summary.ready
@@ -481,9 +481,9 @@ export async function buildWakeFeaturesBlock(now = Date.now()) {
     };
 
     try {
-        const stat       = await fs.stat(heartbeatAlivePath());
-        const mtimeMs    = stat.mtime.getTime();
-        const ageMs      = Math.max(0, nowMs - mtimeMs);
+        const stat    = await fs.stat(heartbeatAlivePath());
+        const mtimeMs = stat.mtime.getTime();
+        const ageMs   = Math.max(0, nowMs - mtimeMs);
         livenessBlock = {
             daemonRunning        : ageMs < heartbeatLivenessStaleMs(),
             lastPulseAt          : stat.mtime.toISOString(),
@@ -566,13 +566,13 @@ export async function buildBackupStateBlock(backupPath, fs, path) {
 
         return {
             lastSuccessful: timestamp,
-            count: backupDirs.length
+            count         : backupDirs.length
         };
     } catch (e) {
         return {
             lastSuccessful: null,
-            count: 0,
-            error: e.message
+            count         : 0,
+            error         : e.message
         };
     }
 }
@@ -607,10 +607,10 @@ export function buildChromaMigrationStats(metadatas, {summaryCollection = false}
     (metadatas || []).forEach(metadata => {
         stats.totalRecords++;
 
-        const rawUserId = metadata?.userId;
+        const rawUserId     = metadata?.userId;
         const missingUserId = rawUserId === undefined || rawUserId === null || rawUserId === '';
-        const userId = normalizeUserId(rawUserId);
-        const hasCorePeer = summaryCollection && hasCoreSwarmParticipant(metadata?.participatingAgents);
+        const userId        = normalizeUserId(rawUserId);
+        const hasCorePeer   = summaryCollection && hasCoreSwarmParticipant(metadata?.participatingAgents);
 
         if (missingUserId) {
             stats.missingUserId++;
@@ -716,7 +716,7 @@ export async function buildRemPipelineState({sessionId, axisTimeoutMs = aiConfig
     ]);
 
     const [undigested, digested, sessionNodes, topologyConflicts] = axisEntries.map(entry => entry.value),
-          axisErrors = Object.fromEntries(
+          axisErrors                                              = Object.fromEntries(
               ['undigested', 'digested', 'sessionNodes', 'topologyConflicts']
                   .map((key, index) => [key, axisEntries[index].error])
                   .filter(([, error]) => error)
@@ -937,7 +937,7 @@ class HealthService extends Base {
      */
     async #checkDatabaseConnections(chromaProbeTimeoutMs) {
         try {
-            const engine = aiConfig.engine;
+            const engine  = aiConfig.engine;
             const engines = { chroma: false };
 
             // 2. Vector Chroma DB (Hybrid & Standalone Chroma)
@@ -1200,7 +1200,7 @@ class HealthService extends Base {
             // Dynamic import to avoid circular dependency with GraphService (GraphService
             // itself imports HealthService indirectly via other service chains).
             const {default: GraphService} = await import('./GraphService.mjs');
-            const sqliteDb = GraphService.db?.storage?.db;
+            const sqliteDb                = GraphService.db?.storage?.db;
 
             if (!sqliteDb) {
                 return {memory: 0, session: 0, total: 0, available: false};
@@ -1316,8 +1316,8 @@ class HealthService extends Base {
      */
     async #scanChromaMetadata(collection, options = {}) {
         const batchSize = 2000;
-        let metadatas   = [];
-        let offset      = 0;
+        let   metadatas = [];
+        let   offset    = 0;
 
         while (true) {
             const batch = await collection.get({limit: batchSize, offset, include: ['metadatas']});
@@ -1416,8 +1416,8 @@ class HealthService extends Base {
      * @private
      */
     async #getEmbeddingWriteCanary(embeddingWriteCanaryTimeoutMs) {
-        const now = Date.now(),
-              key = `${aiConfig.embeddingProvider}:${aiConfig.vectorDimension}:${embeddingWriteCanaryTimeoutMs}`,
+        const now    = Date.now(),
+              key    = `${aiConfig.embeddingProvider}:${aiConfig.vectorDimension}:${embeddingWriteCanaryTimeoutMs}`,
               cached = this.#embeddingWriteCanaryCache;
 
         if (cached &&
@@ -1496,10 +1496,10 @@ class HealthService extends Base {
             startup : {
                 dependencies: this.getStartupDependencyState()
             },
-            backup   : await buildBackupStateBlock(aiConfig.backupPath, fsExtra, path),
-            details  : [],
-            version  : process.env.npm_package_version || '1.0.0',
-            uptime   : process.uptime()
+            backup : await buildBackupStateBlock(aiConfig.backupPath, fsExtra, path),
+            details: [],
+            version: process.env.npm_package_version || '1.0.0',
+            uptime : process.uptime()
         };
 
         // Step 1: Check Database connectivity
@@ -1764,6 +1764,19 @@ class HealthService extends Base {
 
         // Clear the cache to ensure next healthcheck returns updated info
         this.clearCache();
+    }
+
+    /**
+     * Reads the most-recently recorded outcome for a task, or `null` when none is recorded.
+     * Returns a **defensive deep clone** of `{status, details, recordedAt}` (via `structuredClone`),
+     * so a caller mutating the result — including its nested `details` — can never corrupt the
+     * internal per-task outcome map. Read-only accessor over that map.
+     * @param {String} taskName
+     * @returns {{status:String, details:(Object|null), recordedAt:String}|null}
+     */
+    getTaskOutcome(taskName) {
+        const outcome = this.#taskOutcomes[taskName];
+        return outcome ? structuredClone(outcome) : null;
     }
 
     /**
