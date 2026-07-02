@@ -2,6 +2,7 @@ import {collectDueCandidates}                                  from './collector
 import {pickNextCandidate}                                     from './picker.mjs';
 import {evaluateStallAlarm, getEmbedDrainPendingAge}           from './embedDrainLivenessWatchdog.mjs';
 import {evaluateConsolidationStallAlarm, getRemCycleStaleness} from './remConsolidationLivenessWatchdog.mjs';
+import {classifyBootFreshness}                                 from '../services/bootIdentityFreshness.mjs';
 
 /**
  * Tasks that win the per-poll pick unconditionally when due. `backup` is data-safety:
@@ -828,13 +829,26 @@ async function runRemConsolidationLivenessWatchdogTask({taskName, reason, servic
         };
 
         if (stalled) {
+            // Advisory boot-identity classification: when a stall fires, distinguish a restart-lost
+            // scheduler (this process booted after the last recorded cycle) from an as-yet-unexplained
+            // gap, so the alarm carries its likely disposition rather than triggering a forensic hunt.
+            // Advisory only — it never changes WHETHER the stall alarms, only its recorded reason.
+            const bootFreshness = classifyBootFreshness({
+                bootAt        : now - Math.round(process.uptime() * 1000),
+                lastCycleAt   : lastCompletedAt,
+                now,
+                deferralReason: null
+            }, {designedCadenceMs: thresholdMs, marginMs: 0});
+
             services.healthService?.recordTaskOutcome?.(taskName, 'failed', {
                 ...details,
-                stalledSince: stalledSince === null ? null : new Date(stalledSince).toISOString()
+                stalledSince       : stalledSince === null ? null : new Date(stalledSince).toISOString(),
+                bootFreshness      : bootFreshness.classification,
+                bootFreshnessReason: bootFreshness.reason
             });
 
             if (shouldAlarm) {
-                runtime.writeLog?.('WARN', `[Orchestrator] rem-consolidation-liveness-watchdog: REM consolidation STALLED (hasCycle=${hasCycle}, stalenessMs=${stalenessMs}, thresholdMs=${thresholdMs}) — the dream stopped laying trails; the graph is rotting while the forecast looks fresh.`);
+                runtime.writeLog?.('WARN', `[Orchestrator] rem-consolidation-liveness-watchdog: REM consolidation STALLED (hasCycle=${hasCycle}, stalenessMs=${stalenessMs}, thresholdMs=${thresholdMs}, bootFreshness=${bootFreshness.classification}) — the dream stopped laying trails; the graph is rotting while the forecast looks fresh.`);
                 if (runtime.remConsolidationWatchdogAlarmEnabled) {
                     await dispatchRemConsolidationStallAlarm({
                         dispatcher     : services.remConsolidationLivenessAlarmDispatcher,
