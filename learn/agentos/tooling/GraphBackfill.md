@@ -13,7 +13,7 @@ Back-fill closes this asymmetry **lazily** (reactive — only materialize what's
 | Trigger | Path | When |
 |---|---|---|
 | `GraphService.linkNodesAsync(source, target, ...)` | Per-edge lazy resolution | On any edge-creation attempt with a missing `memory:` / `session:` endpoint |
-| `LazyEdgeDrainer.drainQueue()` | JSONL queue consumer | Once per REM cycle (or on-demand), drains `ai/data/memory-core/lazy-edges.jsonl` written by #10165's `SemanticGraphExtractor` |
+| `LazyEdgeDrainer.drainQueue()` | JSONL queue consumer | Once per REM cycle (or on-demand), drains `.neo-ai-data/memory-core/lazy-edges.jsonl` written by #10165's `SemanticGraphExtractor` |
 | `node ai/scripts/priorityBackfill.mjs` | Eager batch CLI | Operator-triggered before workloads that span many historical sessions |
 
 All three converge on the same primitive: `MemorySessionIngestor.ingestSingleRow(graphNodeId)`.
