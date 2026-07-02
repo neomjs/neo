@@ -47,9 +47,11 @@ const typeValidators = {
  * @param {String|null} [env=null] Env var name, or null for a non-env leaf.
  * @param {String|null} [type=null] One of `typeParsers` / `typeValidators` keys. Inferred from
  *        `defaultValue` via `Neo.typeOf` (lower-cased) when omitted and the default is non-null.
+ * @param {Object|null} [metadata=null] Additional declarative leaf metadata. Used for readiness
+ *        contracts such as mode/entrypoint requiredness; never for parallel env defaults.
  * @returns {{default:*, env:(String|null), type:(String|null), parse:(Function|null)}}
  */
-export function leaf(defaultValue, env = null, type = null) {
+export function leaf(defaultValue, env = null, type = null, metadata = null) {
     // Neo.typeOf returns undefined for objects carrying an own `constructor` key (e.g. the
     // dummy embedding fn's anti-legacy duck-type), so guard the inference. Such object leaves
     // simply resolve to a null type (no validator) — pass an explicit `type` to override.
@@ -60,9 +62,28 @@ export function leaf(defaultValue, env = null, type = null) {
     return {
         default: defaultValue,
         env,
-        type   : resolvedType,
-        parse  : env ? (typeParsers[resolvedType] ?? Env.parseString) : null
+        ...(metadata || {}),
+        type : resolvedType,
+        parse: env ? (typeParsers[resolvedType] ?? Env.parseString) : null
     }
+}
+
+function normalizeList(value) {
+    if (value === undefined || value === null || value === '*') {
+        return null
+    }
+
+    return Array.isArray(value) ? value : [value]
+}
+
+function matchesContext(value, actual) {
+    const list = normalizeList(value);
+
+    return !list || list.includes(actual)
+}
+
+function isEmptyRequiredValue(value) {
+    return value === undefined || value === null || (typeof value === 'string' && value.trim() === '')
 }
 
 /**
@@ -147,8 +168,9 @@ class ConfigProvider extends Provider {
 
                     Neo.assignToNs(path, value.default, plainData);
                     registry.set(dotted, {
-                        env  : value.env   ?? null,
-                        parse: value.parse ?? null,
+                        env        : value.env         ?? null,
+                        parse      : value.parse       ?? null,
+                        requiredFor: value.requiredFor ?? null,
                         // Guard inference: Neo.typeOf is undefined for objects with an own `constructor` key.
                         type : value.type  ?? (value.default == null
                             ? null
@@ -162,6 +184,90 @@ class ConfigProvider extends Provider {
 
         walk(tree, []);
         return {plainData, registry}
+    }
+
+    /**
+     * Classifies declarative required-env leaf state for one entrypoint/mode/consumer claim.
+     * The contract reads the existing leaf metadata registry; it never re-reads env vars or keeps
+     * a parallel required-var list. A required leaf whose value is invalid, absent, empty, or whose
+     * state cannot be checked fails closed for readiness-certifying consumers.
+     * @param {Object} [options]
+     * @param {String} [options.entrypoint='unknown'] Entry point performing the check.
+     * @param {String} [options.mode] Active deployment/auth mode. Defaults to the resolved
+     *        `auth.mode` leaf so readiness checks do not carry a hidden fallback mode.
+     * @param {String} [options.consumerClaim='readiness'] Claim made by the consumer.
+     * @returns {{ok:Boolean, findings:Array<Object>}}
+     */
+    validateRequiredEnv({entrypoint = 'unknown', mode, consumerClaim = 'readiness'} = {}) {
+        const
+            findings             = [],
+            activeMode           = mode ?? this.getData('auth.mode'),
+            providers            = [],
+            shadowedRequiredness = new Set();
+
+        for (let provider = this; provider instanceof ConfigProvider; provider = provider.getParent()) {
+            if (providers.includes(provider)) {
+                break
+            }
+
+            providers.push(provider);
+        }
+
+        for (const provider of providers) {
+            for (const [leafPath, meta] of provider.#leafMetadataRegistry) {
+                if (shadowedRequiredness.has(leafPath)) {
+                    continue
+                }
+
+                const requirements = Array.isArray(meta.requiredFor)
+                    ? meta.requiredFor
+                    : (meta.requiredFor ? [meta.requiredFor] : []);
+
+                if (requirements.length > 0) {
+                    shadowedRequiredness.add(leafPath)
+                }
+
+                for (const requirement of requirements) {
+                    if (
+                        !matchesContext(requirement.entrypoints, entrypoint)  ||
+                        !matchesContext(requirement.modes,       activeMode)  ||
+                        !matchesContext(requirement.consumerClaims, consumerClaim)
+                    ) {
+                        continue
+                    }
+
+                    const
+                        value     = this.getData(leafPath),
+                        validator = meta.type ? typeValidators[meta.type] : null;
+
+                    let valueState = 'present-valid';
+
+                    if (isEmptyRequiredValue(value)) {
+                        valueState = 'absent'
+                    } else if (validator && !validator(value)) {
+                        valueState = 'present-invalid'
+                    }
+
+                    if (valueState !== 'present-valid') {
+                        findings.push({
+                            consumerClaim,
+                            entrypoint,
+                            env        : meta.env,
+                            leafPath,
+                            mode       : activeMode,
+                            reason     : requirement.reason ?? null,
+                            valueState,
+                            disposition: requirement.disposition ?? 'fail-closed'
+                        })
+                    }
+                }
+            }
+        }
+
+        return {
+            findings,
+            ok: findings.length === 0
+        }
     }
 
     /**

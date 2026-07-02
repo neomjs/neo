@@ -26,17 +26,17 @@ import Neo             from '../../../src/Neo.mjs';
 import * as core       from '../../../src/core/_export.mjs';
 import InstanceManager from '../../../src/manager/Instance.mjs';
 
-import {fileURLToPath, pathToFileURL} from 'url';
-import fs                             from 'fs-extra';
-import path                           from 'path';
-import {execSync}                     from 'child_process';
-import AiConfig                       from '../../config.mjs';
+import {fileURLToPath, pathToFileURL}        from 'url';
+import fs                                    from 'fs-extra';
+import path                                  from 'path';
+import {execSync}                            from 'child_process';
+import AiConfig                              from '../../config.mjs';
 import Orchestrator, {rotateLogFileIfNewDay} from './Orchestrator.mjs';
-import {assertConfigFresh}            from '../../scripts/setup/initServerConfigs.mjs';
+import {assertConfigFresh}                   from '../../scripts/setup/initServerConfigs.mjs';
 
-const DAEMON_DATA_DIR = process.env.NEO_AI_ORCHESTRATOR_DIR || '.neo-ai-data/orchestrator-daemon';
-const PID_FILE        = path.join(DAEMON_DATA_DIR, 'orchestrator-daemon.pid');
-const LOG_FILE        = path.join(DAEMON_DATA_DIR, 'orchestrator.log');
+const DAEMON_DATA_DIR               = process.env.NEO_AI_ORCHESTRATOR_DIR || '.neo-ai-data/orchestrator-daemon';
+const PID_FILE                      = path.join(DAEMON_DATA_DIR, 'orchestrator-daemon.pid');
+const LOG_FILE                      = path.join(DAEMON_DATA_DIR, 'orchestrator.log');
 const ORCHESTRATOR_DAEMON_PATH_TAIL = 'ai/daemons/orchestrator/daemon.mjs';
 export const LOCAL_AI_CONFIG_FILE = fileURLToPath(new URL('../../config.mjs', import.meta.url));
 
@@ -189,7 +189,7 @@ export async function startOrchestrator(options = {}) {
     await loadLocalAiConfig();
 
     return Orchestrator.start({
-        dataDir: DAEMON_DATA_DIR,
+        dataDir                  : DAEMON_DATA_DIR,
         primaryDevSyncRootsConfig: AiConfig.orchestrator.devSyncRoots,
         ...options
     });
@@ -198,7 +198,7 @@ export async function startOrchestrator(options = {}) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
     // Boot guard: fail fast on a stale config overlay (missing a leaf its template added) with an
     // actionable --migrate-config message, rather than letting the orchestrator crash cryptically.
-    assertConfigFresh()
+    assertConfigFresh({aiConfig: AiConfig, entrypoint: 'orchestrator-daemon'})
         .then(() => startOrchestrator())
         .catch(err => {
             console.error(`[Orchestrator] Failed to start: ${err && err.stack ? err.stack : err}`);
