@@ -25,12 +25,22 @@ const block       = body => '```lane-state\n' + body + '\n```',
       fixture     = JSON.parse(fs.readFileSync(fixturePath, 'utf8')),
       codexRecord = (role, text) => JSON.stringify({
           type   : 'response_item',
-          payload: {
-              type   : 'message',
-              role,
-              content: [{type: role === 'assistant' ? 'output_text' : 'input_text', text}]
+	          payload: {
+	              type   : 'message',
+	              role,
+	              content: [{type: role === 'assistant' ? 'output_text' : 'input_text', text}]
           }
       });
+
+function classifyWithIsolatedPromptContext(input, options = {}) {
+    const logDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-lane-direct-'));
+
+    try {
+        return classifyCodexStopPayload(input, {...options, logDir});
+    } finally {
+        fs.rmSync(logDir, {recursive: true, force: true});
+    }
+}
 
 test.describe('codex-lane-state-stop - contract boundary', () => {
     test('Codex block/inject is active, so enforced invalid terminals block', () => {
@@ -203,7 +213,7 @@ test.describe('codex-lane-state-stop - input resolution', () => {
 
 test.describe('codex-lane-state-stop - lane-state classification', () => {
     test('valid representative payload without an operator prompt would-blocks', () => {
-        const result = classifyCodexStopPayload(fixture);
+        const result = classifyWithIsolatedPromptContext(fixture);
 
         expect(result.action).toBe('would-block');
         expect(result.reason).toContain('valid lane-state terminal');
@@ -212,6 +222,29 @@ test.describe('codex-lane-state-stop - lane-state classification', () => {
         expect(result.source).toBe('last_assistant_message');
         expect(result.promptSource).toBe('none');
         expect(result.operatorInLoop).toBe(false);
+    });
+
+    test('direct classification can isolate itself from prompt-context store pollution', () => {
+        const logDir            = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-lane-polluted-')),
+              promptContextPath = getCodexPromptContextPath({logDir});
+
+        try {
+            fs.writeFileSync(promptContextPath, JSON.stringify({
+                createdAt    : new Date().toISOString(),
+                promptingText: 'operator dialogue from another live Codex session',
+                source       : 'codex-user-prompt-submit'
+            }), 'utf8');
+
+            const polluted = classifyCodexStopPayload(fixture, {logDir});
+            expect(polluted.action).toBe('allow');
+            expect(polluted.promptSource).toBe('prompt_context');
+
+            const isolated = classifyWithIsolatedPromptContext(fixture);
+            expect(isolated.action).toBe('would-block');
+            expect(isolated.promptSource).toBe('none');
+        } finally {
+            fs.rmSync(logDir, {recursive: true, force: true});
+        }
     });
 
     test('live operator prompt is the only valid voluntary allow', () => {
@@ -300,7 +333,7 @@ test.describe('codex-lane-state-stop - lane-state classification', () => {
     });
 
     test('absent lane-state would-block with no-hold reminder', () => {
-        const result = classifyCodexStopPayload({
+        const result = classifyWithIsolatedPromptContext({
             session_id            : 'absent',
             last_assistant_message: 'Final prose without the structured block.'
         });
@@ -312,7 +345,7 @@ test.describe('codex-lane-state-stop - lane-state classification', () => {
     });
 
     test('malformed lane-state is distinct from absent', () => {
-        const result = classifyCodexStopPayload({
+        const result = classifyWithIsolatedPromptContext({
             session_id            : 'malformed',
             last_assistant_message: block('{laneContinuation: nope}')
         });
