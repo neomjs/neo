@@ -14,7 +14,7 @@ import logger  from '../../mcp/server/memory-core/logger.mjs';
  * `SemanticGraphExtractor` writes provenance edges (`MENTIONED_IN`, `DISCUSSED_IN`,
  * `REFERENCED_BY`) whose `MEMORY:` / `SESSION:` targets may not yet exist in the graph — those
  * edges get appended as JSONL lines to `aiConfig.lazyEdgesQueuePath` (defaults to
- * `ai/data/memory-core/lazy-edges.jsonl`) rather than being culled. This service drains that
+ * `.neo-ai-data/memory-core/lazy-edges.jsonl`) rather than being culled. This service drains that
  * queue: for each queued edge it calls `GraphService.linkNodesAsync`, which in turn triggers
  * `MemorySessionIngestor.ingestSingleRow` to back-fill the missing endpoint from its Chroma
  * source row before attempting the edge creation. Edges that still fail resolution (genuine
