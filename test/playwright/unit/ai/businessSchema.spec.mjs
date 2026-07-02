@@ -157,7 +157,27 @@ test.describe('businessSchema — deterministic identity', () => {
         const first    = createMetricId(identity);
         const second   = createMetricId({...identity});
         expect(first).toBe(second);
-        expect(first).toBe('metric-github-stars-total-day-utc-2026-07-01')
+        expect(first).toBe('metric-github--stars-total--day-utc--2026-07-01')
+    });
+
+    test('createMetricId is injective: distinct identities yield distinct ids (regression: single-dash join collision)', () => {
+        // The cross-family-verified falsifier pairs: with a single-`-` join, each pair collided
+        // onto one id because parts themselves contain `-`. The `--` join keeps part boundaries
+        // unambiguous (slugified parts can never contain `--` or edge dashes).
+        const pairs = [
+            [
+                {source: 'x',          metricName: 'y-z',            windowSemantics: 'w', periodStart: 'p'},
+                {source: 'x-y',        metricName: 'z',              windowSemantics: 'w', periodStart: 'p'}
+            ],
+            [
+                {source: 'git',        metricName: 'review-latency', windowSemantics: 'day:utc', periodStart: '2026-07-01'},
+                {source: 'git-review', metricName: 'latency',        windowSemantics: 'day:utc', periodStart: '2026-07-01'}
+            ]
+        ];
+        for (const [left, right] of pairs) {
+            expect(createMetricId(left), `${left.source}/${left.metricName} must not collide with ${right.source}/${right.metricName}`)
+                .not.toBe(createMetricId(right))
+        }
     });
 
     test('createMetricId throws on every missing identity part — incomplete identity cannot exist even transiently', () => {

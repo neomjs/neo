@@ -111,8 +111,12 @@ export function slugifyIdPart(value) {
  *
  * Identity contract: `(source, metricName, windowSemantics, periodStart)` → the same id on every
  * recomputation, so an upsert is idempotent and a `falsifyingQuery` re-run lands on the SAME node
- * instead of minting a rival. Throws on any missing/empty part — a metric with an incomplete
- * identity cannot exist, even transiently.
+ * instead of minting a rival — AND distinct tuples always yield distinct ids. Parts are joined
+ * with `--`, which is injective by construction: `slugifyIdPart` collapses every non-alphanumeric
+ * run to a single `-` and strips edge dashes, so no part can ever contain `--` or start/end with
+ * `-`, making the four part boundaries unambiguous (a single-`-` join is NOT collision-safe:
+ * `git`/`review-latency` would equal `git-review`/`latency`). Throws on any missing/empty part —
+ * a metric with an incomplete identity cannot exist, even transiently.
  * @param {Object} identity
  * @param {String} identity.source          Ingestion source key (e.g. `github`, `npm`)
  * @param {String} identity.metricName      Category-level metric name (never a private target)
@@ -129,7 +133,7 @@ export function createMetricId({source, metricName, windowSemantics, periodStart
         }
     }
 
-    return BUSINESS_ID_PREFIXES.METRIC + [parts.source, parts.metricName, parts.windowSemantics, parts.periodStart].map(slugifyIdPart).join('-');
+    return BUSINESS_ID_PREFIXES.METRIC + [parts.source, parts.metricName, parts.windowSemantics, parts.periodStart].map(slugifyIdPart).join('--');
 }
 
 /**

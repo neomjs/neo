@@ -165,7 +165,7 @@ test.describe('businessMetricsProbeCore — runProbe (gate → write → read-ba
         const result    = await runProbe(BASE_ARGS, deps);
 
         expect(result.exitCode).toBe(0);
-        expect(result.id).toBe('metric-git-merged-prs-day-utc-2026-07-01');
+        expect(result.id).toBe('metric-git--merged-prs--day-utc--2026-07-01');
         expect(result.written).toEqual([result.id]);
         expect(deps.graphService.calls.upserts[0].type).toBe('METRIC');
         expect(manifests[0].records).toEqual([{id: result.id, value: 3, periodStart: '2026-07-01'}]);
@@ -173,7 +173,7 @@ test.describe('businessMetricsProbeCore — runProbe (gate → write → read-ba
 
     test('closed-period mutation is refused (exit 2) before any write', async () => {
         const existing = {
-            id        : 'metric-git-merged-prs-day-utc-2026-07-01',
+            id        : 'metric-git--merged-prs--day-utc--2026-07-01',
             properties: {...buildMergedPrsMetric({gitLogText: '', periodStart: '2026-07-01', nowIso: NOW}), periodClosed: true}
         };
         const deps   = makeDeps({graphService: makeGraph({existing})});
@@ -185,7 +185,7 @@ test.describe('businessMetricsProbeCore — runProbe (gate → write → read-ba
 
     test('an idempotent re-run of the identical closed record is legal (same node, no violation)', async () => {
         const properties = buildMergedPrsMetric({gitLogText: GIT_LOG, periodStart: '2026-07-01', nowIso: NOW});
-        const existing   = {id: 'metric-git-merged-prs-day-utc-2026-07-01', properties};
+        const existing   = {id: 'metric-git--merged-prs--day-utc--2026-07-01', properties};
         const deps       = makeDeps({graphService: makeGraph({existing})});
         const result     = await runProbe(BASE_ARGS, deps);
         expect(result.exitCode).toBe(0);
@@ -206,7 +206,7 @@ test.describe('businessMetricsProbeCore — runProbe (gate → write → read-ba
 });
 
 test.describe('businessMetricsProbeCore — runVerify (the sync-survival canary)', () => {
-    const RECORD = {id: 'metric-git-merged-prs-day-utc-2026-07-01', value: 3, periodStart: '2026-07-01'};
+    const RECORD = {id: 'metric-git--merged-prs--day-utc--2026-07-01', value: 3, periodStart: '2026-07-01'};
 
     test('surviving ids with matching values pass (exit 0)', async () => {
         const graph  = makeGraph({existing: {id: RECORD.id, properties: {value: 3}}});
