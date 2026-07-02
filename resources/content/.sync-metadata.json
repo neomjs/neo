@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-07-01T22:44:51.407Z",
-  "releasesLastFetched": "2026-07-01T22:44:58.777Z",
+  "lastSync": "2026-07-02T00:58:09.538Z",
+  "releasesLastFetched": "2026-07-02T00:58:23.379Z",
   "pushFailures": [],
   "issues": {
     "1": {
@@ -82574,7 +82574,7 @@
       "path": "resources/content/issues/chunk-2/issue-13012.md",
       "closedAt": null,
       "updatedAt": "2026-06-27T23:07:27Z",
-      "contentHash": "9acdc6ad24cb33e4f325210cab5c112f16f1968c2e0be87fde3638d6a79e32dd",
+      "contentHash": "f763d7503f47e3cf04c420e5b1da92333474a5be01b8a9aac6d93154bdaa54ea",
       "milestone": null,
       "commentsTotal": 23
     },
@@ -84454,10 +84454,10 @@
       "state": "OPEN",
       "path": "resources/content/issues/chunk-5/issue-13444.md",
       "closedAt": null,
-      "updatedAt": "2026-06-17T18:51:00Z",
-      "contentHash": "a716f59917cff8ed697343ee83893e3044f11001a047ce2d9167100ee8f07b43",
+      "updatedAt": "2026-07-02T00:38:28Z",
+      "contentHash": "a37c97f452c1f678879961ffca1289968bf14e811fad1afe89b3dc284c24953d",
       "milestone": null,
-      "commentsTotal": 1
+      "commentsTotal": 2
     },
     "13445": {
       "state": "OPEN",
@@ -88388,7 +88388,7 @@
       "path": "resources/content/issues/chunk-9/issue-14310.md",
       "closedAt": null,
       "updatedAt": "2026-06-30T13:53:33Z",
-      "contentHash": "103e4fa824578220e17e7ca87a67f569c5093257157561067f4a7791f7b94cd2",
+      "contentHash": "6726853cc5a9aebcb0ee9f27049fd803901d27f0fbacaf3e37ccefe988f22dc5",
       "milestone": "v13.1",
       "commentsTotal": 8
     },
@@ -88868,6 +88868,15 @@
       "contentHash": "d46c3567336f4d00272fab0701e703880644cd1b6e7e027d470db9e36d8cb09f",
       "milestone": null,
       "commentsTotal": 0
+    },
+    "14414": {
+      "state": "OPEN",
+      "path": "resources/content/issues/chunk-9/issue-14414.md",
+      "closedAt": null,
+      "updatedAt": "2026-07-02T00:53:59Z",
+      "contentHash": "940ccaa0517e3c83ca8f2f5a00b56b96332b3bbffa03ba89e7b8bffe49ca5fe9",
+      "milestone": null,
+      "commentsTotal": 2
     }
   },
   "releases": {
@@ -92892,8 +92901,8 @@
       "closedAt": "2026-07-01T22:31:44Z",
       "mergedAt": "2026-07-01T22:31:44Z",
       "milestone": null,
-      "updatedAt": "2026-07-01T22:31:49Z",
-      "contentHash": "54e618aad87ba1a284df4c494a6baea884ab3701ae64dec95c9a80ef826c126c"
+      "updatedAt": "2026-07-02T00:48:58Z",
+      "contentHash": "858a313b6f39cbf1c6d2740550da1be49d95c846167405281c58a6578b4061e5"
     }
   },
   "discussions": {
