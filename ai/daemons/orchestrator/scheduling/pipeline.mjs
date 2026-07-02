@@ -833,11 +833,23 @@ async function runRemConsolidationLivenessWatchdogTask({taskName, reason, servic
             // scheduler (this process booted after the last recorded cycle) from an as-yet-unexplained
             // gap, so the alarm carries its likely disposition rather than triggering a forensic hunt.
             // Advisory only — it never changes WHETHER the stall alarms, only its recorded reason.
+            // A recent maintenance-deferral of the REM producer ('dream') explains the gap as a
+            // designed deferral, not a restart-lost scheduler: read its reason from the shared
+            // HealthService task-outcome surface, recency-bounded to the staleness window so a stale
+            // prior deferral can't mask a genuine gap. Advisory only — a present reason re-labels the
+            // disposition, never whether the stall alarms.
+            const dreamOutcome   = services.healthService?.getTaskOutcome?.('dream');
+            const deferralReason = (
+                dreamOutcome?.status === 'skipped' &&
+                Number.isFinite(Date.parse(dreamOutcome.recordedAt)) &&
+                (now - Date.parse(dreamOutcome.recordedAt)) <= thresholdMs
+            ) ? (dreamOutcome.details?.reason ?? dreamOutcome.details?.reasonCode ?? null) : null;
+
             const bootFreshness = classifyBootFreshness({
-                bootAt        : now - Math.round(process.uptime() * 1000),
-                lastCycleAt   : lastCompletedAt,
+                bootAt     : now - Math.round(process.uptime() * 1000),
+                lastCycleAt: lastCompletedAt,
                 now,
-                deferralReason: null
+                deferralReason
             }, {designedCadenceMs: thresholdMs, marginMs: 0});
 
             services.healthService?.recordTaskOutcome?.(taskName, 'failed', {

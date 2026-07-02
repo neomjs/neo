@@ -13,7 +13,8 @@ import {
     buildSchedulingContext,
     runSchedulingPipeline
 }                                     from '../../../../../../../ai/daemons/orchestrator/scheduling/pipeline.mjs';
-import {TASK_REGISTRY}               from '../../../../../../../ai/daemons/orchestrator/scheduling/registry.mjs';
+import {TASK_REGISTRY}        from '../../../../../../../ai/daemons/orchestrator/scheduling/registry.mjs';
+import {BOOT_FRESHNESS_CLASS} from '../../../../../../../ai/daemons/orchestrator/services/bootIdentityFreshness.mjs';
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -138,13 +139,14 @@ test.describe('orchestrator/scheduling/remConsolidationLivenessWatchdog — pipe
         };
     }
 
-    function makeServices({taskStateService, outcomes, dispatcher, undigestedCount = 5}) {
+    function makeServices({taskStateService, outcomes, dispatcher, undigestedCount = 5, taskOutcomes = {}}) {
         return {
             dreamService: {
                 findUndigestedSessions: async () => Array.from({length: undigestedCount}, (_, index) => ({id: `s-${index}`}))
             },
             healthService: {
-                recordTaskOutcome(taskName, status, details) { outcomes.push({taskName, status, details}); }
+                recordTaskOutcome(taskName, status, details) { outcomes.push({taskName, status, details}); },
+                getTaskOutcome(taskName) { return taskOutcomes[taskName] || null; }
             },
             maintenanceBackpressureService: {
                 getActiveHeavyMaintenanceTask() { return null; },
@@ -167,7 +169,7 @@ test.describe('orchestrator/scheduling/remConsolidationLivenessWatchdog — pipe
         };
     }
 
-    async function runWatchdogOnce({taskStateService, outcomes, dispatcher, runtime, undigestedCount = 5}) {
+    async function runWatchdogOnce({taskStateService, outcomes, dispatcher, runtime, undigestedCount = 5, taskOutcomes = {}}) {
         const context = buildSchedulingContext({
             db       : {},
             state    : taskStateService.getState(),
@@ -180,19 +182,44 @@ test.describe('orchestrator/scheduling/remConsolidationLivenessWatchdog — pipe
         runSchedulingPipeline({
             registry: [TASK_REGISTRY.find(d => d.taskName === 'rem-consolidation-liveness-watchdog')],
             context,
-            services: makeServices({taskStateService, outcomes, dispatcher, undigestedCount}),
+            services: makeServices({taskStateService, outcomes, dispatcher, undigestedCount, taskOutcomes}),
             runtime
         });
 
         await new Promise(resolve => setTimeout(resolve, 20));
     }
 
-    test('fires the active alarm once on stall-onset and latches subsequent stalled checks', async () => {
-        const outcomes = [];
-        const alarmCalls = [];
-        const dispatcher = async payload => { alarmCalls.push(payload); };
+    test('a recent dream deferral labels the stall designed-deferral WITHOUT suppressing the alarm (#14490)', async () => {
+        const now              = Date.now();
+        const outcomes         = [];
+        const alarmCalls       = [];
+        const dispatcher       = async payload => { alarmCalls.push(payload); };
         const taskStateService = makeTaskStateService();
-        const runtime = makeRuntime();
+        const runtime          = makeRuntime();
+        // A finite but STALE cycle (7h ago, beyond the 6h threshold) → the watchdog stalls; absent a
+        // deferral this gap would read as unexplained / restart-explains, not designed.
+        await appendRemRunState({runId: 'stale', completedAt: now - 7 * HOUR_MS}, {dir: remRunStateDir});
+        // A RECENT 'dream' maintenance-deferral sits on the shared health task-outcome surface.
+        const taskOutcomes = {
+            dream: {status: 'skipped', details: {reason: 'heavy-maintenance-backpressure'}, recordedAt: new Date().toISOString()}
+        };
+
+        await runWatchdogOnce({taskStateService, outcomes, dispatcher, runtime, taskOutcomes});
+
+        const failed = outcomes.find(outcome => outcome.status === 'failed');
+        expect(failed).toBeTruthy();
+        // The recent deferral re-labels the disposition as designed-deferral...
+        expect(failed.details.bootFreshness).toBe(BOOT_FRESHNESS_CLASS.designedDeferral);
+        // ...but ADVISORY-ONLY: the stall alarm still fires (OQ4 — a deferral never suppresses it).
+        expect(alarmCalls.length).toBeGreaterThanOrEqual(1);
+    });
+
+    test('fires the active alarm once on stall-onset and latches subsequent stalled checks', async () => {
+        const outcomes         = [];
+        const alarmCalls       = [];
+        const dispatcher       = async payload => { alarmCalls.push(payload); };
+        const taskStateService = makeTaskStateService();
+        const runtime          = makeRuntime();
 
         await runWatchdogOnce({taskStateService, outcomes, dispatcher, runtime});
         await runWatchdogOnce({taskStateService, outcomes, dispatcher, runtime});
@@ -211,9 +238,9 @@ test.describe('orchestrator/scheduling/remConsolidationLivenessWatchdog — pipe
     });
 
     test('suppresses the active alarm when the local dream lane is not owned here', async () => {
-        const outcomes = [];
-        const alarmCalls = [];
-        const dispatcher = async payload => { alarmCalls.push(payload); };
+        const outcomes         = [];
+        const alarmCalls       = [];
+        const dispatcher       = async payload => { alarmCalls.push(payload); };
         const taskStateService = makeTaskStateService();
 
         await runWatchdogOnce({
@@ -226,8 +253,8 @@ test.describe('orchestrator/scheduling/remConsolidationLivenessWatchdog — pipe
     });
 
     test('dispatcher failures are logged and swallowed after the passive failed outcome', async () => {
-        const outcomes = [];
-        const logs = [];
+        const outcomes         = [];
+        const logs             = [];
         const taskStateService = makeTaskStateService();
 
         await runWatchdogOnce({
@@ -250,8 +277,8 @@ test.describe('orchestrator/scheduling/remConsolidationLivenessWatchdog — pipe
         const now = Date.now();
         await appendRemRunState({runId: 'healthy', completedAt: now - HOUR_MS}, {dir: remRunStateDir});
 
-        const outcomes = [];
-        const alarmCalls = [];
+        const outcomes         = [];
+        const alarmCalls       = [];
         const taskStateService = makeTaskStateService();
         taskStateService.getTaskState('rem-consolidation-liveness-watchdog').remConsolidationAlarm = {
             alarmed     : true,
