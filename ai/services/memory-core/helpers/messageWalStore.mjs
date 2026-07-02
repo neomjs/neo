@@ -18,6 +18,7 @@ import {withAppendLock} from './walAppendLock.mjs';
  */
 
 const MESSAGE_WAL_SEGMENT_RE = /^message-wal-(\d{4}-\d{2}-\d{2})\.jsonl$/;
+const projectionStatsCache   = new Map();
 
 /**
  * @summary Names the `messageWal` config leaves missing from a config slice.
@@ -158,6 +159,35 @@ async function readJsonlEntries(filePath) {
 }
 
 /**
+ * @summary Builds a cacheable signature for graph-projection marker files.
+ * @param {String} dir Message WAL directory.
+ * @param {String[]} segmentKeys Segment keys newest first.
+ * @returns {Promise<Object[]>}
+ * @private
+ */
+async function getGraphMarkerFileStats(dir, segmentKeys) {
+    const stats = [];
+
+    for (const segmentKey of segmentKeys) {
+        const filePath = path.join(dir, getMessageWalGraphMarkersFileName(segmentKey));
+
+        try {
+            const stat = await fs.stat(filePath);
+            stats.push({
+                filePath,
+                segmentKey,
+                signature: `${segmentKey}:${stat.size}:${stat.mtimeMs}`
+            });
+        } catch (e) {
+            if (e?.code === 'ENOENT') continue;
+            throw e;
+        }
+    }
+
+    return stats;
+}
+
+/**
  * @summary Lists message WAL segment keys newest first.
  * @param {String} dir Message WAL directory.
  * @returns {Promise<String[]>}
@@ -194,6 +224,107 @@ export async function readWalMessages({dir} = {}) {
 
     for (const segmentKey of await listMessageWalSegmentKeys(dir)) {
         records.push(...await readJsonlEntries(path.join(dir, getMessageWalRecordsFileName(segmentKey))));
+    }
+
+    return records;
+}
+
+/**
+ * @summary Reads the graph-projection marker index for accepted message WAL records.
+ *
+ * The marker index is deliberately smaller than the accepted-message WAL and is safe to consult
+ * from read-path repair gates. It lets callers detect graph/WAL divergence or locate a targeted
+ * message id without parsing every accepted message record on the common path.
+ *
+ * @param {Object} options
+ * @param {String} options.dir Message WAL directory.
+ * @returns {Promise<{projectedCount: Number, projectedIds: Set<String>, segmentById: Map<String,String>}>}
+ */
+export async function getMessageWalGraphProjectionStats({dir} = {}) {
+    if (!dir) {
+        throw new TypeError('getMessageWalGraphProjectionStats: dir is required');
+    }
+
+    const segmentKeys = await listMessageWalSegmentKeys(dir);
+    const markerStats = await getGraphMarkerFileStats(dir, segmentKeys);
+    const signature   = markerStats.map(item => item.signature).join('|');
+    const cached      = projectionStatsCache.get(dir);
+
+    if (cached?.signature === signature) {
+        return cached.stats;
+    }
+
+    const segmentById = new Map();
+
+    for (const {filePath, segmentKey} of markerStats) {
+        for (const entry of await readJsonlEntries(filePath)) {
+            const id = entry?.id;
+
+            if (typeof id === 'string' && id.startsWith('MESSAGE:') && !segmentById.has(id)) {
+                segmentById.set(id, segmentKey);
+            }
+        }
+    }
+
+    const stats = {
+        projectedCount: segmentById.size,
+        projectedIds  : new Set(segmentById.keys()),
+        segmentById
+    };
+
+    projectionStatsCache.set(dir, {signature, stats});
+
+    return stats;
+}
+
+/**
+ * @summary Reads accepted message WAL records for specific ids only.
+ *
+ * Targeted read-path repair uses graph-projection markers as the id -> segment index, then opens
+ * only the segment(s) containing the requested ids. This avoids pulling the full deployment-age
+ * WAL when `getMessage` needs to rebuild one damaged MESSAGE projection.
+ *
+ * @param {Object} options
+ * @param {String} options.dir Message WAL directory.
+ * @param {String[]} options.ids Message ids to read.
+ * @param {Number} [options.limit] Maximum matching records to return.
+ * @returns {Promise<Object[]>}
+ */
+export async function readWalMessagesByIds({dir, ids, limit} = {}) {
+    if (!dir) {
+        throw new TypeError('readWalMessagesByIds: dir is required');
+    }
+
+    if (!Array.isArray(ids) || ids.length === 0) return [];
+
+    const idFilter  = new Set(ids.filter(id => typeof id === 'string' && id.startsWith('MESSAGE:')));
+    const bounded   = Number.isFinite(Number(limit)) && Number(limit) > 0 ? Number(limit) : Infinity;
+    const records   = [];
+    const {segmentById} = await getMessageWalGraphProjectionStats({dir});
+    const idsBySegment  = new Map();
+
+    for (const id of idFilter) {
+        const segmentKey = segmentById.get(id);
+
+        if (!segmentKey) continue;
+        if (!idsBySegment.has(segmentKey)) {
+            idsBySegment.set(segmentKey, new Set());
+        }
+        idsBySegment.get(segmentKey).add(id);
+    }
+
+    for (const [segmentKey, segmentIds] of idsBySegment) {
+        if (records.length >= bounded) break;
+
+        const segmentRecords = await readJsonlEntries(path.join(dir, getMessageWalRecordsFileName(segmentKey)));
+
+        for (const record of segmentRecords) {
+            if (records.length >= bounded) break;
+            if (record?.graphProjectionVersion !== 1) continue;
+            if (segmentIds.has(record.id)) {
+                records.push(record);
+            }
+        }
     }
 
     return records;
