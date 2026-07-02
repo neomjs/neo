@@ -42,7 +42,7 @@ In legacy frameworks, the code you write gets destroyed by the build step. The r
 **In Neo.mjs, the map IS the territory.**
 The runtime retains the semantic structure of your original intent. The **Neural Link** gives AI agents "Read/Write" access to the living runtime. An agent can query: *"Get me the Grid with reference 'sales-report'"*. The Engine replies with the live object. The AI sees that it has 10,000 records and sits in Window 2. 
 
-Coupled with a dedicated AI SDK and 5+ **MCP servers** spanning Knowledge Base, Memory Core, Neural Link, GitHub Workflow, GitLab Workflow, and File System access, Neo.mjs provides the tooling required for local or remote AI agents to fix bugs, invent new design patterns, and evolve the Engine itself.
+Coupled with a dedicated AI SDK and four frontier-harness **MCP servers** spanning Knowledge Base, Memory Core, Neural Link, and GitHub Workflow, plus a File System MCP server for local or remote AI agents, Neo.mjs provides the tooling required to fix bugs, invent new design patterns, and evolve the Engine itself.
 
 ## Conclusion: Build the Impossible
 

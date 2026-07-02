@@ -133,7 +133,7 @@ Bias: PR diff >> PR body. For us: PR Diff === PR Body. Rationale: PR body/review
 - **Body:** high-performance multi-threaded application engine and **Possession Interface** (App / VDom / Data / Canvas / SharedWorker). Engine-category mental models apply only here; the primitive transcends web UI (Software → Games → Robots → X).
 - **Evolution:** **MX (Model Experience)** converts agent friction into tickets and evolved skills; the **RLAIF** flywheel spans Memory Core + Git history; trajectory: **ANI (Autonomous Narrow Intelligence)** by accumulation on the gated-RSI path.
 
-**Category-Drift Defense Mandate:** Before architectural or external-positioning work, nullify both category drifts by reviewing `README.md`, `learn/benefits/Introduction.md`, Discussion #10119, and Discussion #10137. Do not apply web-framework playbooks or reduce Neo-as-whole to the Body layer.
+**Category-Drift Defense Mandate:** Before architectural or external-positioning work, nullify both category drifts by reviewing `README.md`, `learn/benefits/WhatIsNeo.md`, Discussion #10119, and Discussion #10137. Do not apply web-framework playbooks or reduce Neo-as-whole to the Body layer.
 </neo_core_overrides>
 
 <neo_core_overrides authority="repo-local" target="training-prior">
