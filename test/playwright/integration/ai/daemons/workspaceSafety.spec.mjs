@@ -6,8 +6,8 @@
  * daemon under `NEO_AI_DEPLOYMENT_MODE=cloud` without crashing on missing Neo-team
  * substrate (identityRoots entries, operator-only config, pre-existing data dir).
  * Companion to the AC1-AC4 invariant tests in `Orchestrator.externalConfig.spec.mjs`;
- * this is the runtime proof for #11837 Sub-5 AC5 that PR #11946 deferred as too
- * heavy for unit-test scope.
+ * this is the runtime proof for the workspace-safety AC5 invariant that an earlier
+ * unit-scoped PR deferred as too heavy for unit-test scope.
  *
  * Two probes:
  *  1. Cloud-deployment-mode boot: confirms the daemon reaches the `[Orchestrator]
@@ -25,13 +25,13 @@
  * @see ai/daemons/orchestrator/daemon.mjs
  * @see ai/daemons/orchestrator/scheduling/swarmHeartbeat.mjs
  */
-import {spawn}          from 'node:child_process';
-import fs               from 'node:fs/promises';
-import os               from 'node:os';
-import path             from 'node:path';
-import {fileURLToPath}  from 'node:url';
-import Database         from 'better-sqlite3';
-import {test, expect}   from '@playwright/test';
+import {spawn}         from 'node:child_process';
+import fs              from 'node:fs/promises';
+import os              from 'node:os';
+import path            from 'node:path';
+import {fileURLToPath} from 'node:url';
+import Database        from 'better-sqlite3';
+import {test, expect}  from '@playwright/test';
 
 const __filename   = fileURLToPath(import.meta.url);
 const __dirname    = path.dirname(__filename);
@@ -50,8 +50,8 @@ const SIGTERM_GRACE_MS = 5000;
  * @returns {Promise<String>} The matching content snapshot.
  */
 async function waitForLogContent(logPath, predicate, timeoutMs) {
-    const deadline = Date.now() + timeoutMs;
-    let lastContent = '';
+    const deadline    = Date.now() + timeoutMs;
+    let   lastContent = '';
 
     while (Date.now() < deadline) {
         try {
@@ -115,7 +115,7 @@ test.describe('Orchestrator workspace-safety integration (#11948 / Sub-5 AC5 of 
         dataDir      = path.join(workspaceDir, 'orchestrator-daemon');
         logPath      = path.join(dataDir, 'orchestrator.log');
         dbPath       = path.join(workspaceDir, 'memory-core-graph.sqlite');
-        // Per #12012 — orchestrator now self-bootstraps its sqlite + schema on
+        // The orchestrator now self-bootstraps its sqlite + schema on
         // fresh-workspace boot (via `initializeDatabaseSelfBootstrap` →
         // `SQLite.mjs::initSchema`). The previous `initSqliteSchema()` fixture
         // helper that pre-created the schema here is deleted; the integration
@@ -183,7 +183,7 @@ test.describe('Orchestrator workspace-safety integration (#11948 / Sub-5 AC5 of 
         // the graceful-degradation signal in this profile.
         expect(logContent).not.toMatch(/\[Orchestrator\] Swarm heartbeat init failed/i);
 
-        // AC1+AC2 (#12012) — orchestrator self-bootstrapped the sqlite file + schema
+        // AC1+AC2 — orchestrator self-bootstrapped the sqlite file + schema
         // even though the beforeEach hook no longer pre-creates them. Replaces the
         // deleted `initSqliteSchema(dbPath)` workaround fixture.
         const stats = await fs.stat(dbPath);
@@ -206,23 +206,25 @@ test.describe('Orchestrator workspace-safety integration (#11948 / Sub-5 AC5 of 
     });
 
     test('AC4 — swarm-heartbeat target resolver degrades-with-log when selfIdentity is missing', async () => {
-        // Local deployment mode keeps the swarm-heartbeat lane enabled so the resolver
-        // fires. A short pulse interval forces a pulse cycle within the test window.
-        // Empty NEO_AGENT_IDENTITY + targetSource='self' triggers the documented
-        // disables-with-log path in `swarmHeartbeat.resolveTargets`.
+        // The swarm-heartbeat lane now defaults OFF, so this test explicitly enables it
+        // (NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED) to make the resolver fire, rather than
+        // relying on the old local-default. A short pulse interval forces a pulse cycle
+        // within the test window. Empty NEO_AGENT_IDENTITY + targetSource='self' triggers
+        // the documented disables-with-log path in `swarmHeartbeat.resolveTargets`.
         daemonProcess = spawn('node', [DAEMON_ENTRY], {
             cwd: workspaceDir,
             env: {
                 ...process.env,
-                NEO_AI_DEPLOYMENT_MODE                          : 'local',
-                NEO_AI_ORCHESTRATOR_DIR                         : dataDir,
-                NEO_AI_DB_PATH                                  : dbPath,
-                NEO_HEARTBEAT_ALIVE_PATH                        : path.join(workspaceDir, 'heartbeat.alive'),
-                NEO_BACKUP_PATH                                 : path.join(workspaceDir, 'backups'),
-                NEO_AGENT_IDENTITY                              : '',
-                NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGET_SOURCE  : 'self',
-                NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS    : '1000',
-                NEO_ORCHESTRATOR_POLL_INTERVAL_MS               : '500',
+                NEO_AI_DEPLOYMENT_MODE                        : 'local',
+                NEO_AI_ORCHESTRATOR_DIR                       : dataDir,
+                NEO_AI_DB_PATH                                : dbPath,
+                NEO_HEARTBEAT_ALIVE_PATH                      : path.join(workspaceDir, 'heartbeat.alive'),
+                NEO_BACKUP_PATH                               : path.join(workspaceDir, 'backups'),
+                NEO_AGENT_IDENTITY                            : '',
+                NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED      : 'true',
+                NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGET_SOURCE: 'self',
+                NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS  : '1000',
+                NEO_ORCHESTRATOR_POLL_INTERVAL_MS             : '500',
                 // NEO_DEBUG=true unlocks the memory-core logger's stderr forward
                 // (stderrMode: 'debug' gates stderr behind aiConfig.debug). Without it
                 // the resolver log goes to the file-sink only — which by default lives
@@ -230,9 +232,9 @@ test.describe('Orchestrator workspace-safety integration (#11948 / Sub-5 AC5 of 
                 NEO_DEBUG                                       : 'true',
                 // Disable side-lanes that would spawn external binaries or touch other
                 // shared substrate during the test window.
-                NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED          : 'false',
-                NEO_ORCHESTRATOR_KB_SYNC_ENABLED                : 'false',
-                NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED       : 'false'
+                NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED   : 'false',
+                NEO_ORCHESTRATOR_KB_SYNC_ENABLED         : 'false',
+                NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED: 'false'
             },
             stdio: ['ignore', 'pipe', 'pipe']
         });
@@ -243,8 +245,8 @@ test.describe('Orchestrator workspace-safety integration (#11948 / Sub-5 AC5 of 
         // Wait for the resolver disable-with-log surface. The exact phrase comes from
         // ai/daemons/orchestrator/scheduling/swarmHeartbeat.mjs line ~115.
         const combinedSignal = () => `${stdoutBuf}\n${stderrBuf}`;
-        const deadline = Date.now() + PULSE_TIMEOUT_MS;
-        let matched = false;
+        const deadline       = Date.now() + PULSE_TIMEOUT_MS;
+        let   matched        = false;
         while (Date.now() < deadline) {
             if (/\[resolveSwarmHeartbeatTargets\][^\n]*selfIdentity is null[^\n]*disabled/i.test(combinedSignal())) {
                 matched = true;
