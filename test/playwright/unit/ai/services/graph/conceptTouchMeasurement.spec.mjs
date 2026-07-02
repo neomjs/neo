@@ -193,14 +193,14 @@ test.describe('Neo.ai.services.graph.conceptTouchMeasurement (#14506)', () => {
             sessionId     : 'session-1',
             visibilityTier: 'private',
             trustTier     : 'peer-trusted',
-            provenance    : 'curated'
+            weightBucket  : 'weight-1.0'
         });
 
         expect(events[2]).toMatchObject({
-            agentId   : '@neo-opus-vega',
-            conceptId : 'CONCEPT:DreamPipeline',
-            trustTier : 'external',
-            provenance: 'inferred-or-unknown'
+            agentId     : '@neo-opus-vega',
+            conceptId   : 'CONCEPT:DreamPipeline',
+            trustTier   : 'external',
+            weightBucket: 'weight-other'
         });
     });
 
@@ -274,7 +274,7 @@ test.describe('Neo.ai.services.graph.conceptTouchMeasurement (#14506)', () => {
 
         expect(md).toContain('Diagnostics-only measurement');
         expect(md).toContain('current substrate has no `privacyTier` field');
-        expect(md).toContain('| @neo-gpt | 2 | 1 | 1 | 1 | 0.5 | private:1, team:1 | peer-trusted:2 |');
+        expect(md).toContain('| @neo-gpt | 2 | 1 | 1 | 1 | 0.5 | private:1, team:1 | peer-trusted:2 | weight-1.0:2 |');
         expect(md).toContain('## Study Codebook Mapping');
         expect(md).toContain('#14504 retrieval events add');
     });

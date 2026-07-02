@@ -289,6 +289,15 @@ function incrementCounter(bucket, key) {
 }
 
 /**
+ * @summary Maps reinforced graph weights to honest snapshot buckets.
+ * @param {Number|null} weight
+ * @returns {String}
+ */
+function resolveWeightBucket(weight) {
+    return Number(weight) === 1 ? 'weight-1.0' : 'weight-other';
+}
+
+/**
  * @summary Extracts profile-eligible concept-touch events from `TAGGED_CONCEPT` edges.
  * @param {Object} options
  * @param {Object[]} [options.nodes=[]] Graph node records.
@@ -348,7 +357,7 @@ export function extractConceptTouchEvents({nodes = [], edges = []} = {}) {
             touchedAt     : timestamp,
             depth         : 1,
             weight        : edge.properties.weight ?? rawEdge.weight ?? null,
-            provenance    : (edge.properties.weight ?? rawEdge.weight) === 1 ? 'curated' : 'inferred-or-unknown',
+            weightBucket  : resolveWeightBucket(edge.properties.weight ?? rawEdge.weight),
             visibilityTier: aggregate.visibilityTier,
             trustTier
         })
@@ -400,7 +409,7 @@ export function buildConceptTouchProfiles(events = []) {
             concepts     : new Set(),
             visibilityMix: {},
             trustTierMix : {},
-            provenanceMix: {},
+            weightBucketMix: {},
             depths       : [],
             events       : []
         };
@@ -411,7 +420,7 @@ export function buildConceptTouchProfiles(events = []) {
         profile.events.push(event);
         incrementCounter(profile.visibilityMix, event.visibilityTier);
         incrementCounter(profile.trustTierMix, event.trustTier);
-        incrementCounter(profile.provenanceMix, event.provenance);
+        incrementCounter(profile.weightBucketMix, event.weightBucket);
         byAgent.set(event.agentId, profile)
     }
 
@@ -430,7 +439,7 @@ export function buildConceptTouchProfiles(events = []) {
                 touchDepth           : Number(avgDepth.toFixed(2)),
                 visibilityMix        : profile.visibilityMix,
                 trustTierMix         : profile.trustTierMix,
-                provenanceMix        : profile.provenanceMix,
+                weightBucketMix      : profile.weightBucketMix,
                 revisitIntervals     : intervals,
                 revisitCount,
                 normalizedRevisitRate: Number((revisitCount / Math.max(1, profile.touchCount)).toFixed(4))
@@ -579,6 +588,9 @@ export function renderConceptTouchMeasurementMarkdown(report, {maxCandidateRows 
         'provenance. Elements with no resolvable visibility boundary are excluded, never defaulted',
         'into a public/team aggregate.',
         '',
+        'Weight bucket note: `weight-1.0` / `weight-other` are current edge-weight buckets, not',
+        'extractor provenance. TAGGED_CONCEPT reinforcement can change weights after extraction.',
+        '',
         '## Measurement Counts',
         '',
         '| Field | Count |',
@@ -591,16 +603,16 @@ export function renderConceptTouchMeasurementMarkdown(report, {maxCandidateRows 
         '',
         '## Per-Agent Concept-Touch Profiles',
         '',
-        '| Agent | Touches | Concepts | Avg depth | Revisit count | Normalized revisit rate | Visibility mix | Trust mix |',
-        '|---|---:|---:|---:|---:|---:|---|---|'
+        '| Agent | Touches | Concepts | Avg depth | Revisit count | Normalized revisit rate | Visibility mix | Trust mix | Weight bucket mix |',
+        '|---|---:|---:|---:|---:|---:|---|---|---|'
     ];
 
     for (const profile of report.profiles || []) {
-        lines.push(`| ${profile.agentId} | ${profile.touchCount} | ${profile.conceptsTouched} | ${profile.touchDepth} | ${profile.revisitCount} | ${profile.normalizedRevisitRate} | ${formatMix(profile.visibilityMix)} | ${formatMix(profile.trustTierMix)} |`)
+        lines.push(`| ${profile.agentId} | ${profile.touchCount} | ${profile.conceptsTouched} | ${profile.touchDepth} | ${profile.revisitCount} | ${profile.normalizedRevisitRate} | ${formatMix(profile.visibilityMix)} | ${formatMix(profile.trustTierMix)} | ${formatMix(profile.weightBucketMix)} |`)
     }
 
     if ((report.profiles || []).length === 0) {
-        lines.push('| none | 0 | 0 | 0 | 0 | 0 | - | - |')
+        lines.push('| none | 0 | 0 | 0 | 0 | 0 | - | - | - |')
     }
 
     lines.push(
