@@ -109,7 +109,14 @@ class Config extends ConfigProvider {
                 // Authorization strategy selector: 'oidc' (default) | 'gitlab-pat'. See block doc above.
                 mode              : leaf('oidc', 'NEO_AUTH_MODE', 'string'),
                 // GitLab API base URL used by 'gitlab-pat' mode for token validation (self-managed configurable).
-                gitlabApiBaseUrl  : leaf('https://gitlab.com', 'NEO_AUTH_GITLAB_API_BASE_URL', 'string'),
+                gitlabApiBaseUrl  : leaf('https://gitlab.com', 'NEO_AUTH_GITLAB_API_BASE_URL', 'string', {
+                    requiredFor: [{
+                        entrypoints   : '*',
+                        modes         : ['gitlab-pat'],
+                        consumerClaims: ['readiness'],
+                        reason        : 'PAT validation cannot certify readiness without a GitLab API base URL.'
+                    }]
+                }),
                 // Bounded TTL (seconds) for the per-token PAT validation cache → a revoked PAT clears within this window.
                 patCacheTtlSeconds: leaf(300, 'NEO_AUTH_PAT_CACHE_TTL_SECONDS', 'number'),
                 // Optional GitLab OAuth app binding for 'gitlab-pat' mode. Empty means no app gate.

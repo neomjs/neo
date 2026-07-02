@@ -27,7 +27,7 @@ if (options.debug) {
     try {
         // Boot guard: fail fast with an actionable message if a materialized config overlay is missing
         // leaves its template added, rather than crashing cryptically on an undefined config leaf later.
-        await assertConfigFresh({serverPath: fileURLToPath(new URL('.', import.meta.url))});
+        await assertConfigFresh({aiConfig, entrypoint: 'neural-link-bridge', serverPath: fileURLToPath(new URL('.', import.meta.url))});
 
         if (options.config) {
             await aiConfig.load(options.config);

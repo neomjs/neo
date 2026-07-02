@@ -31,6 +31,7 @@ import logger                         from '../../mcp/server/knowledge-base/logg
 import KbReconciliationService        from './KbReconciliationService.mjs';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {assertConfigFresh}            from '../../scripts/setup/initServerConfigs.mjs';
+import AiConfig                       from '../../config.mjs';
 
 const cleanShutdown = signal => {
     logger.info(`[KbReconciliationService] Received ${signal}; stopping.`);
@@ -46,7 +47,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     process.on('SIGTERM', () => cleanShutdown('SIGTERM'));
     process.on('SIGINT',  () => cleanShutdown('SIGINT'));
 
-    assertConfigFresh({serverPath: fileURLToPath(new URL('../../mcp/server/memory-core/', import.meta.url))})
+    assertConfigFresh({
+        aiConfig  : AiConfig,
+        entrypoint: 'kb-reconciliation-daemon',
+        serverPath: fileURLToPath(new URL('../../mcp/server/memory-core/', import.meta.url))
+    })
         .then(() => KbReconciliationService.start())
         .catch(err => {
             logger.error('[KbReconciliationService] Daemon start failed:', err);

@@ -42,7 +42,7 @@ import { constants as fsConstants }     from 'fs';
 import { spawn, execSync }              from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname  = path.dirname(__filename);
 import {
     initializeDatabase,
     getLastSyncId,
@@ -80,15 +80,15 @@ let DAEMON_DATA_DIR;
 let STATE_FILE;
 let LOG_FILE;
 let WOKEN_WATERMARK_FILE;
-const LOG_RETENTION_DAYS       = 30;
-const POLL_INTERVAL_MS         = 3000;
-const DEFAULT_COALESCE_WINDOW_MS = 30000; // 30 seconds
-const CODEX_APP_SERVER_ADAPTER   = 'codex-app-server';
-const DEFAULT_CODEX_DESKTOP_CLI_PATH = '/Applications/Codex.app/Contents/Resources/codex';
+const LOG_RETENTION_DAYS                = 30;
+const POLL_INTERVAL_MS                  = 3000;
+const DEFAULT_COALESCE_WINDOW_MS        = 30000; // 30 seconds
+const CODEX_APP_SERVER_ADAPTER          = 'codex-app-server';
+const DEFAULT_CODEX_DESKTOP_CLI_PATH    = '/Applications/Codex.app/Contents/Resources/codex';
 const CODEX_TURN_START_PROOF_TIMEOUT_MS = Number(process.env.WAKE_CODEX_TURN_START_PROOF_TIMEOUT_MS) || 45000;
 const CODEX_TURN_START_PROOF_POLL_MS    = Number(process.env.WAKE_CODEX_TURN_START_PROOF_POLL_MS) || 1000;
 const CODEX_WAKE_SUBMIT_NONCE_PREFIX    = 'NEO_WAKE_SUBMIT_NONCE:';
-const WAKE_PRIORITY_RANKS      = {
+const WAKE_PRIORITY_RANKS               = {
     low   : 0,
     normal: 1,
     high  : 2
@@ -302,8 +302,8 @@ async function enforceSingleton() {
     }
 
     // Cleanup on exit
-    let cleanedUp = false;
-    const cleanup = () => {
+    let   cleanedUp = false;
+    const cleanup   = () => {
         if (cleanedUp) return;
         cleanedUp = true;
         try {
@@ -358,10 +358,10 @@ async function pollLoop() {
         }
 
         if (logs.length > 0) {
-            const invalidNodes = new Set();
-            const invalidEdges = new Set();
+            const invalidNodes    = new Set();
+            const invalidEdges    = new Set();
             const batchBaseSyncId = lastSyncId;
-            let maxId = lastSyncId;
+            let   maxId           = lastSyncId;
 
             for (const trace of logs) {
                 maxId = Math.max(maxId, trace.log_id);
@@ -763,8 +763,8 @@ async function flushSubscription(subId) {
  */
 function spawnAsync(command, args) {
     return new Promise((resolve, reject) => {
-        const child = spawn(command, args, { stdio: ['ignore', 'ignore', 'pipe'] });
-        let stderrData = '';
+        const child      = spawn(command, args, { stdio: ['ignore', 'ignore', 'pipe'] });
+        let   stderrData = '';
         child.stderr.on('data', (data) => {
             stderrData += data.toString();
         });
@@ -914,7 +914,7 @@ function buildWakeDeliveryEvidence({messages = [], tasks = [], permissions = [],
     };
 
     const actionableCount = counts.messages + counts.tasks + counts.permissions;
-    const correlation = {
+    const correlation     = {
         messageIds   : messages.map(message => message.messageId).filter(Boolean),
         taskIds      : tasks.map(task => task.taskId).filter(Boolean),
         permissionIds: permissions.map(permission => permission.logId).filter(Boolean),
@@ -1027,8 +1027,8 @@ function appendCodexWakeSubmitNonce(digest, wakeSubmitNonce) {
  * @returns {Object|null}
  */
 function findTurnPresenceAfter(sqlite, agentIdentity, sinceIso, {wakeSubmitNonce} = {}) {
-    const params = [agentIdentity, sinceIso];
-    let nonceFilter = '';
+    const params      = [agentIdentity, sinceIso];
+    let   nonceFilter = '';
 
     if (wakeSubmitNonce) {
         nonceFilter = `AND json_extract(data, '$.properties.wakeSubmitNonce') = ?`;
@@ -1077,10 +1077,10 @@ function scheduleCodexTurnStartProof(subscription, submitAttemptedAt, deliveryEv
 
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) return;
 
-    const agentIdentity = subscription.properties?.agentIdentity,
-          submitIso     = submitAttemptedAt.toISOString(),
-          deadlineAt    = Date.now() + timeoutMs,
-          correlation   = formatWakeCorrelationEvidence(deliveryEvidence),
+    const agentIdentity   = subscription.properties?.agentIdentity,
+          submitIso       = submitAttemptedAt.toISOString(),
+          deadlineAt      = Date.now() + timeoutMs,
+          correlation     = formatWakeCorrelationEvidence(deliveryEvidence),
           wakeSubmitNonce = deliveryEvidence.wakeSubmitNonce;
 
     if (!agentIdentity) {
@@ -1180,12 +1180,12 @@ const pendingDeliveryRetries = new Map(); // subscriptionId -> {subscription, id
  * @returns {Promise<String|undefined>}
  */
 async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
-    const meta = subscription.properties?.harnessTargetMetadata || {};
+    const meta                           = subscription.properties?.harnessTargetMetadata || {};
     const {instanceAddress, addressType} = resolveInstanceAddress(meta);
     // Fall back to osascript on macOS by default, tmux otherwise
-    const defaultAdapter = process.platform === 'darwin' ? 'osascript' : 'tmux';
-    const adapter       = meta.adapter || defaultAdapter;
-    const adapterSource = meta.adapter ? 'metadata' : 'platform-default';
+    const defaultAdapter  = process.platform === 'darwin' ? 'osascript' : 'tmux';
+    const adapter         = meta.adapter || defaultAdapter;
+    const adapterSource   = meta.adapter ? 'metadata' : 'platform-default';
     const wakeSubmitNonce = isCodexSubmitProofAdapter({adapter, appName: meta.appName}) ? crypto.randomUUID() : null;
     const dispatchDigest  = wakeSubmitNonce ? appendCodexWakeSubmitNonce(digest, wakeSubmitNonce) : digest;
     const proofEvidence   = wakeSubmitNonce ? {...deliveryEvidence, wakeSubmitNonce} : deliveryEvidence;
@@ -1236,9 +1236,9 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
                 return;
             }
             const metadataWithDefaults = applyHarnessMetadataDefaults(meta);
-            let tabShortcut            = metadataWithDefaults.tabShortcut;
-            let focusSeedKey           = metadataWithDefaults.focusSeedKey;
-            let focusSeedSequence      = metadataWithDefaults.focusSeedSequence;
+            let   tabShortcut          = metadataWithDefaults.tabShortcut;
+            let   focusSeedKey         = metadataWithDefaults.focusSeedKey;
+            let   focusSeedSequence    = metadataWithDefaults.focusSeedSequence;
 
             // Codex Desktop fail-closed guard. The wake daemon must not drive the destructive
             // Cmd+A/Cmd+X clear path unless subscription metadata provides a verified,
@@ -1754,7 +1754,11 @@ function initConfigDerivedState() {
 async function main() {
     // Fail-fast on a stale memory-core config overlay with the actionable --migrate-config message,
     // BEFORE initConfigDerivedState() derefs memoryCoreConfig.
-    await assertConfigFresh({serverPath: fileURLToPath(new URL('../../mcp/server/memory-core/', import.meta.url))});
+    await assertConfigFresh({
+        aiConfig  : memoryCoreConfig,
+        entrypoint: 'wake-daemon',
+        serverPath: fileURLToPath(new URL('../../mcp/server/memory-core/', import.meta.url))
+    });
 
     initConfigDerivedState();
 
