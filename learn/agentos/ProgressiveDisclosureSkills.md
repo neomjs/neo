@@ -131,6 +131,7 @@ ensuring the YAML frontmatter and folder consistency are perfectly formed.
 | `epic-resolution` | Lifecycle | Closeout protocol for parent epics (exit gate) |
 | `update-roadmap` | Lifecycle | Post-release celebrate + plan-next-roadmap: cornerstones + rationale + explicit deferred set into a milestone with per-epic stewards (release-altitude analog of `epic-create`) |
 | `blog-post` | Lifecycle | Public hero-piece authoring: narrative arc, source-every-external-claim (verify-before-assert), kill the three over-claim flavors (superlative / universal / misleading-fraction), mandatory cross-family review (blog sibling of the release-notes methodology) |
+| `release-notes` | Lifecycle | Release notes as an EPIC with mining-driven iterations: multi-source scope derivation (the tracker lags shipped reality), per-arc Memory-Core mining, per-claim V-B-A, the precedent-SET quality bar — majors AND minors (hero chapters, named case studies with real timelines, War Stories, honest bounds, never downplay), and the publish.mjs flat-root staging lifecycle |
 | `pull-request` | Lifecycle | Post-implementation reflection + PR creation (custom Playwright configs) |
 | `pr-review` | Lifecycle | Structured quality evaluation & graph ingestion (mandatory ROI templates) |
 | `post-review-pickup` | Lifecycle | Active lane selection after review/response and pre-review intake lane discovery when no author lane is active |

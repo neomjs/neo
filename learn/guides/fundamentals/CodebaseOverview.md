@@ -442,7 +442,7 @@ Offline cognitive maintenance runs as **Node.js scripts**, not MCP protocol oper
 
 ---
 
-### Swarm Skills & Workflows (`/.agents/skills/` - 31 skills)
+### Swarm Skills & Workflows (`/.agents/skills/` - 32 skills)
 
 Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. Listed in execution-lifecycle order, then tactical, creative, and meta. See [`learn/agentos/ProgressiveDisclosureSkills.md`](../../agentos/ProgressiveDisclosureSkills.md) for the full protocol reference and lifecycle flow diagram. Canonical skill-anatomy authority: [ADR 0008: SKILL.md Anatomy and Authoring Contract](../../agentos/decisions/0008-skill-anatomy-and-authoring-contract.md).
 
@@ -457,6 +457,7 @@ Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. L
 - `epic-resolution`: Closeout protocol for parent epics resolving the completion status (exit gate).
 - `update-roadmap`: Post-release celebrate + plan-next-roadmap — cornerstones + rationale + an explicit deferred set scoped into a GitHub milestone with a named steward per epic (release-altitude analog of `epic-create`; sibling to the parked release-cut skill #10321).
 - `blog-post`: Public-facing hero-piece authoring — narrative arc, sourcing every external claim (verify-before-assert; an authority's verbal statement is not a citable source), killing the three over-claim flavors (unsourced superlative / universal quantifier / misleading fraction), and a mandatory cross-family review bar (the blog sibling of the release-notes methodology).
+- `release-notes`: Release notes as an EPIC with mining-driven iterations — multi-source scope derivation (the tracker lags shipped reality), heavy per-arc Memory-Core mining, per-claim V-B-A, the precedent-SET quality bar — majors AND minors (hero chapters, named case studies with real timelines, War Stories, honest bounds, never downplay a release), and the `publish.mjs` flat-root staging lifecycle (staging file → atomic-hash → GitHub Release → chunk-N mirror).
 - `guide-authoring`: Per-sub enforcement for `learn/` guide quality — grounding discipline, rich narrative + benefits + lived voice, render-verified TD Mermaid, conceptual-vs-reference separation, generated-file hygiene, and no-rubber-stamp review.
 - `pull-request`: Post-implementation reflection + PR creation (stepping-back protocol, conventional-commit format, handoff sequence, explicit custom Playwright targeting).
 - `pr-review`: Evaluation matrix templates spanning `[ARCH_ALIGNMENT]` to `[EFFORT_PROFILE]` + graph ingestion tags for the Dream Pipeline + a Review-Loop Cost Circuit Breaker that classifies review convergence (micro-delta when semantically cleared; scope-too-big break-up via `epic-create` for non-converging churn) + a prior-art Memory Core sweep gate before scoring (CI-green ≠ AC-met) (enforces mandatory ROI template usage).
