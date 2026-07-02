@@ -7,30 +7,17 @@ Most of these scripts are exposed via `npm run` commands in the root `package.js
 
 ## Directory Structure
 
-- **`ai/`**: Model Context Protocol (MCP) servers and Knowledge Base management.
 - **`build/`**: Core build scripts (ES Modules, Themes, Workers).
 - **`create/`**: Scaffolding generators for apps, components, and classes.
 - **`docs/`**: Documentation generation and SEO tools.
 - **`helpers/`**: Development helpers (linters, token converters, watchers).
 - **`release/`**: Automated release and publishing workflows.
-- **`util/`**: Shared low-level utilities (file ops, sanitizers).
+- **`util/`**: Shared low-level utilities and CI checks.
 - **`webpack/`**: Webpack configurations for development and production.
 
 ---
 
-## 1. AI & Knowledge Base (`buildScripts/ai/`)
-
-Tools for managing the AI infrastructure, including Vector Database operations and Memory Core migration.
-
-| Script | NPM Command | Description |
-| :--- | :--- | :--- |
-| `defragChromaDB.mjs` | `npm run ai:defrag-kb`<br>`npm run ai:defrag-memory` | Vacuums and optimizes the ChromaDB collections to reclaim space. |
-| `downloadKnowledgeBase.mjs` | `npm run ai:download-kb` | Downloads the latest pre-indexed Knowledge Base from the remote source. |
-| `syncKnowledgeBase.mjs` | `npm run ai:sync-kb` | Indexes the local codebase and updates the vector database with changes. |
-
----
-
-## 2. Build Operations (`buildScripts/build/`)
+## 1. Build Operations (`buildScripts/build/`)
 
 The core build pipeline. Note that Neo.mjs in **development mode** requires **zero builds**. These scripts are for production deployment, publishing, or generating static assets.
 
@@ -44,7 +31,7 @@ The core build pipeline. Note that Neo.mjs in **development mode** requires **ze
 
 ---
 
-## 3. Scaffolding Generators (`buildScripts/create/`)
+## 2. Scaffolding Generators (`buildScripts/create/`)
 
 Generators to quickly scaffold new code structures following project conventions.
 
@@ -58,7 +45,7 @@ Generators to quickly scaffold new code structures following project conventions
 
 ---
 
-## 4. Documentation (`buildScripts/docs/`)
+## 3. Documentation (`buildScripts/docs/`)
 
 Tools for generating the API documentation and handling SEO for the portal.
 
@@ -69,7 +56,7 @@ Tools for generating the API documentation and handling SEO for the portal.
 
 ---
 
-## 5. Helpers & Maintenance (`buildScripts/helpers/`)
+## 4. Helpers & Maintenance (`buildScripts/helpers/`)
 
 Utilities for maintaining code quality and developer experience.
 
@@ -82,7 +69,7 @@ Utilities for maintaining code quality and developer experience.
 
 ---
 
-## 6. Release Automation (`buildScripts/release/`)
+## 5. Release Automation (`buildScripts/release/`)
 
 Scripts used by the maintainers to publish new versions of the platform.
 
@@ -93,7 +80,7 @@ Scripts used by the maintainers to publish new versions of the platform.
 
 ---
 
-## 7. Webpack Configurations (`buildScripts/webpack/`)
+## 6. Webpack Configurations (`buildScripts/webpack/`)
 
 Webpack is used **only** for:
 1. Running the development server (`npm run server-start`).
@@ -109,7 +96,7 @@ It is **not** used for the daily development workflow, which uses native ES modu
 
 ---
 
-## 8. Utilities (`buildScripts/util/`)
+## 7. Utilities (`buildScripts/util/`)
 
 Internal shared libraries used by the scripts above.
 
@@ -146,7 +133,7 @@ Automatically adds `@reactive` JSDoc tags to all reactive configuration properti
 *Note: This script has no CLI options.*
 
 ## `npm run ai:defrag-kb` / `ai:defrag-memory`
-**Script:** `buildScripts/ai/defragChromaDB.mjs`
+**Script:** `ai/scripts/maintenance/defragChromaDB.mjs`
 
 Maintenance tool to defragment and optimize Vector Database instances.
 
@@ -159,16 +146,25 @@ Options:
 ```
 
 ## `npm run ai:download-kb`
-**Script:** `buildScripts/ai/downloadKnowledgeBase.mjs`
+**Script:** `ai/scripts/maintenance/downloadKnowledgeBase.mjs`
 
 Downloads the pre-indexed Knowledge Base artifact matching the current `package.json` version from GitHub Releases.
 *Note: This script has no CLI options.*
 
 ## `npm run ai:sync-kb`
-**Script:** `buildScripts/ai/syncKnowledgeBase.mjs`
+**Script:** `ai/scripts/maintenance/syncKnowledgeBase.mjs`
 
 Indexes the local codebase and updates the vector database.
 *Note: This script has no CLI options.*
+
+## `npm run ai:structure-map`
+**Script:** `ai/scripts/diagnostics/structureMap.mjs`
+
+Agent OS diagnostic that emits deterministic, sorted JSON for the current `ai/` folder structure. The epic-create, ticket-create, and PR-review skills use this as mandatory placement evidence for architecture-sensitive work; future architecture drift linting can consume the same JSON.
+
+```bash
+npm run --silent ai:structure-map -- --files --loc
+```
 
 ## `npm run build-all`
 **Script:** `buildScripts/build/all.mjs`

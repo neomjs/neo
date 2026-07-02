@@ -10,7 +10,7 @@ Before the duplicate sweep or the Fat-Ticket body: is this the right work — do
 
 ## 1. Pre-Authoring Adjacency Sweeps (Gate 0)
 
-**Before drafting any title or body**, you MUST execute two specific sweeps to ensure swarm synchronicity and architectural discipline:
+**Before drafting any title or body**, you MUST execute the applicable sweeps below to ensure swarm synchronicity and architectural discipline:
 
 ### 1a. The Content Sweep (Duplicate Detection)
 Verify no equivalent ticket already exists. Redundant tickets pollute the Knowledge Base.
@@ -55,7 +55,11 @@ If an equivalent ticket exists: do NOT file a duplicate. Either comment on the e
 If the proposed ticket involves modifying any agent skill (i.e., any file within `.agents/skills/`), you MUST explicitly consult `.agents/skills/create-skill/SKILL.md` before finalizing the ticket body.
 **Pre-flight check:** *Have I verified this proposal adheres to the Progressive Disclosure routing pattern and does not bloat the top-level SKILL.md router?*
 
-### 1c. The Ungraduated-Discussion Cross-Check (High-Blast-Radius Mandatory)
+### 1c. Agent OS Structure Map Gate (Architecture-Creation Mandatory)
+
+Before creating any Epic, architecture/substrate ticket, or ticket touching `ai/`, Agent OS, MCP, Memory Core, orchestration, `.agents/skills`, or placement, run `npm run --silent ai:structure-map -- --files --loc`; cite the owning folder/sibling precedent or record N/A.
+
+### 1d. The Ungraduated-Discussion Cross-Check (High-Blast-Radius Mandatory)
 
 **Trigger:** if the proposed ticket is high-blast-radius (Epic, new skill / rule / workflow change, substrate-level architecture change) AND cites a Discussion (`#NNNN`) that has **not yet been formally graduated** (no `GRADUATED` marker in body, Discussion still open or graduation incomplete), the default action is **BLOCK ticket creation**.
 

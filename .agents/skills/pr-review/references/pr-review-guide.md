@@ -36,6 +36,7 @@ If you write a GitHub PR review, step out of Driver mode and follow this reviewe
 5. **Scope discipline:** polish minor misses inside the PR; ticket out-of-scope superior refactors instead of cramming them into the active close-target.
 6. **V-B-A:** falsify every factual/review claim before asserting it. Token presence is not meaning; use source reads for semantic claims.
 7. **Execution:** use `manage_pr_review` for the formal review state. If unavailable, use the legacy comment + `gh pr review` fallback; the visible GitHub `reviewDecision` must be set either way.
+8. **Structure map:** before verdict, run `npm run --silent ai:structure-map -- --files --loc` for PRs touching `ai/`, Agent OS, MCP, Memory Core, orchestration, `.agents/skills`, or placement; otherwise record N/A.
 
 ## 3. Structural Evaluation Metrics
 Every PR review MUST score the work across the following categories on a scale of `0` to `100`:
