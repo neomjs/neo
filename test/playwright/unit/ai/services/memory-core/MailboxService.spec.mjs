@@ -306,6 +306,47 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         expect(repairCheck).toMatchObject({scanned: 1, intact: 1, repaired: 0, failed: 0});
     });
 
+    test('healthy reads and targeted getMessage repair do not open unrelated WAL segments (#14426)', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        const res = await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            return await MailboxService.addMessage({
+                to     : '@bob',
+                subject: 'bounded repair',
+                body   : 'target body'
+            });
+        });
+
+        const unrelatedSegment = path.join(messageWalDir, 'message-wal-2001-01-01.jsonl');
+        fs.ensureDirSync(unrelatedSegment);
+
+        try {
+            const healthyInbox = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+                return await MailboxService.listMessages({status: 'all'});
+            });
+            expect(healthyInbox.messages.map(message => message.messageId)).toContain(res.messageId);
+
+            const healthyCount = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+                return await MailboxService.countMessages({status: 'all'});
+            });
+            expect(healthyCount.count).toBe(1);
+
+            GraphService.db.storage.db.prepare('DELETE FROM Nodes WHERE id = ?').run(res.messageId);
+            clearGraphCacheWithoutStorageMutation();
+
+            const repairedMessage = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+                return await MailboxService.getMessage({messageId: res.messageId});
+            });
+
+            expect(repairedMessage.subject).toBe('bounded repair');
+            expect(repairedMessage.body).toBe('target body');
+        } finally {
+            fs.removeSync(unrelatedSegment);
+        }
+    });
+
     test('post-sync canary: accepted unread self-message survives destructive graph clear (#14426)', async () => {
         const res = await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             return await MailboxService.addMessage({

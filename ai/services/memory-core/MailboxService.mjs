@@ -8,9 +8,11 @@ import WakeSubscriptionService                  from './WakeSubscriptionService.
 import {
     appendMessageWalGraphProjectionMarker,
     appendWalMessage,
+    getMessageWalGraphProjectionStats,
     getMessageWalSegmentKey,
     getMissingMessageWalLeaves,
     readWalMessages,
+    readWalMessagesByIds,
     readPendingMessageWalRecords
 } from './helpers/messageWalStore.mjs';
 import {IDENTITIES}                from '../../graph/identityRoots.mjs';
@@ -405,6 +407,72 @@ function hasGraphEdge(source, target, type) {
         getRecordField(edge, 'target') === target &&
         getRecordField(edge, 'type') === type
     );
+}
+
+function hasGraphEdgeOfType(source, type) {
+    return (GraphService.db?.edges?.items || []).some(edge =>
+        getRecordField(edge, 'source') === source &&
+        getRecordField(edge, 'type') === type
+    );
+}
+
+/**
+ * @summary Returns missing graph pieces visible from the currently loaded cache for one message id.
+ * @param {String} messageId Message graph node id.
+ * @returns {String[]}
+ * @private
+ */
+function getCachedMessageProjectionIssues(messageId) {
+    const db = GraphService.requireDb('MailboxService.getCachedMessageProjectionIssues');
+
+    if (typeof messageId !== 'string' || !messageId.startsWith('MESSAGE:')) {
+        return ['invalid-message-id'];
+    }
+
+    db.getAdjacentNodes(messageId, 'outbound');
+
+    const messageNode = db.nodes.get(messageId);
+    const issues      = [];
+
+    if (!messageNode || getRecordField(messageNode, 'label') !== 'MESSAGE') {
+        issues.push('missing-message-node');
+    }
+
+    if (!hasGraphEdgeOfType(messageId, 'SENT_BY')) issues.push('missing-sent-by');
+    if (!hasGraphEdgeOfType(messageId, 'SENT_TO')) issues.push('missing-sent-to');
+
+    return issues;
+}
+
+/**
+ * @summary Checks whether projected WAL count exceeds required graph projection counts.
+ *
+ * This is the mailbox read-path guard: healthy reads use cheap SQLite counts plus the compact
+ * graph-marker index and avoid parsing accepted message WAL records. A mismatch means the graph
+ * projection may be damaged, so callers should run the full WAL-backed repair path.
+ *
+ * @returns {Promise<Boolean>}
+ * @private
+ */
+async function hasMailboxGraphProjectionGap() {
+    const sqlite = GraphService.db?.storage?.db;
+
+    if (!sqlite) return true;
+
+    const {projectedCount} = await getMessageWalGraphProjectionStats({dir: aiConfig.messageWal.dir});
+
+    if (projectedCount === 0) return false;
+
+    const row = sqlite.prepare(`
+        SELECT
+            (SELECT COUNT(*) FROM Nodes WHERE id LIKE 'MESSAGE:%' AND json_extract(data, '$.label') = 'MESSAGE') AS messageCount,
+            (SELECT COUNT(DISTINCT source) FROM Edges WHERE source LIKE 'MESSAGE:%' AND type = 'SENT_BY') AS sentByCount,
+            (SELECT COUNT(DISTINCT source) FROM Edges WHERE source LIKE 'MESSAGE:%' AND type = 'SENT_TO') AS sentToCount
+    `).get();
+
+    return (row?.messageCount ?? 0) < projectedCount ||
+        (row?.sentByCount ?? 0) < projectedCount ||
+        (row?.sentToCount ?? 0) < projectedCount;
 }
 
 /**
@@ -1084,9 +1152,16 @@ class MailboxService extends Base {
             return summary;
         }
 
-        const idFilter      = Array.isArray(ids) ? new Set(ids) : null,
-            boundedLimit    = Number.isFinite(Number(limit)) && Number(limit) > 0 ? Number(limit) : MESSAGE_GRAPH_REPAIR_LIMIT,
-            acceptedRecords = await readWalMessages({dir: aiConfig.messageWal.dir});
+        const idFilter   = Array.isArray(ids) ? new Set(ids) : null,
+            boundedLimit = Number.isFinite(Number(limit)) && Number(limit) > 0 ? Number(limit) : MESSAGE_GRAPH_REPAIR_LIMIT;
+
+        if (!idFilter && !await hasMailboxGraphProjectionGap()) {
+            return summary;
+        }
+
+        const acceptedRecords = idFilter
+            ? await readWalMessagesByIds({dir: aiConfig.messageWal.dir, ids: [...idFilter], limit: boundedLimit})
+            : await readWalMessages({dir: aiConfig.messageWal.dir});
 
         for (const record of acceptedRecords) {
             if (summary.scanned >= boundedLimit) break;
@@ -1326,13 +1401,17 @@ class MailboxService extends Base {
         }
 
         const db = GraphService.requireDb('MailboxService.getMessage');
-        await this.repairMessageGraphIntegrity({ids: [messageId], limit: 1});
 
         // Trigger syncCache + lazy-reload vicinity for this message node.
         // Ensures peer-process writes to this message's edges (e.g. late PART_OF_THREAD
         // additions, read-receipt annotations) are visible. See listMessages for the
         // full rationale on why bare `syncCache()` is insufficient for edge-type scans.
         db.getAdjacentNodes(messageId, 'both');
+
+        if (getCachedMessageProjectionIssues(messageId).length > 0) {
+            await this.repairMessageGraphIntegrity({ids: [messageId], limit: 1});
+            db.getAdjacentNodes(messageId, 'both');
+        }
 
         const messageNode = db.nodes.get(messageId);
         if (!messageNode || messageNode.label !== 'MESSAGE') {
