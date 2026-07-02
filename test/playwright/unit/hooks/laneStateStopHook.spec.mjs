@@ -1,7 +1,7 @@
 import {test, expect}                                                                              from '@playwright/test';
 import {composeBlockDirective, composeDeferenceDirective, decideHookAction, isOperatorInLoop, parseOutcomeToVerdict,
         extractFinalAssistantText, extractLastAssistantTextFromJsonl, extractLastUserTextFromJsonl,
-        formatLifecycleBoard, formatHoldCostumeCallout} from '../../../../.claude/hooks/laneStateStopHook.mjs';
+        formatLifecycleBoard, formatGoldenPathDirection, formatHoldCostumeCallout} from '../../../../.claude/hooks/laneStateStopHook.mjs';
 import {spawn} from 'node:child_process';
 import fs      from 'node:fs';
 import os      from 'node:os';
@@ -182,6 +182,43 @@ test.describe('laneStateStopHook — pure idle-out decision logic', () => {
             expect(board).not.toContain('undefined');
         });
     });
+
+    test.describe('formatGoldenPathDirection — the release-goal ROI anchor (#13751, fail-open)', () => {
+        test('renders the producer-ranked lanes (id + optional score/title) as a numbered release-goal direction', () => {
+            const dir = formatGoldenPathDirection({goldenPathDirection: [
+                {id: 'issue-14442', score: 13.5, title: 'Business engine'},
+                {id: 'discussion-14422', score: 9.09}
+            ]});
+            expect(dir).toContain('Release-goal direction');
+            expect(dir).toContain('drive one of these over any-named-lane');
+            expect(dir).toContain('1. issue-14442 — score 13.50 — Business engine');
+            expect(dir).toContain('2. discussion-14422 — score 9.09');
+        });
+
+        test('fail-open: null / non-object / empty / no-writer-yet → "" (never starves the directive floor)', () => {
+            expect(formatGoldenPathDirection(null)).toBe('');
+            expect(formatGoldenPathDirection('garbage')).toBe('');
+            expect(formatGoldenPathDirection({})).toBe('');                        // no field yet (no producer)
+            expect(formatGoldenPathDirection({goldenPathDirection: []})).toBe('');
+            expect(formatGoldenPathDirection({goldenPathDirection: 'not-an-array'})).toBe('');
+        });
+
+        test('fail-open on malformed SHAPE — skips idless/null entries, never throws', () => {
+            expect(() => formatGoldenPathDirection({goldenPathDirection: [null, {}, {id: ''}]})).not.toThrow();
+            expect(formatGoldenPathDirection({goldenPathDirection: [null, {}, {id: '   '}]})).toBe(''); // no valid entry
+            const dir = formatGoldenPathDirection({goldenPathDirection: [null, {id: 'issue-9'}, {}]});
+            expect(dir).toContain('1. issue-9');       // the one valid entry survives its malformed neighbors
+            expect(dir).not.toContain('undefined');
+        });
+
+        test('score is optional + a non-finite score is omitted cleanly (no "score NaN")', () => {
+            const dir = formatGoldenPathDirection({goldenPathDirection: [{id: 'issue-1', score: 'x'}, {id: 'issue-2'}]});
+            expect(dir).toContain('1. issue-1');
+            expect(dir).toContain('2. issue-2');
+            expect(dir).not.toContain('NaN');
+            expect(dir).not.toContain('score');        // neither entry carries a finite score
+        });
+    });
 });
 
 test.describe('laneStateStopHook — formatHoldCostumeCallout + composeBlockDirective wiring', () => {
@@ -270,12 +307,16 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
      * @param {{enforce: Boolean, promptingText: (String|null), stopHookActive: Boolean}} [opts]
      * @returns {Promise<{stdout: String, log: String}>}
      */
-    function runHook(finalText, {enforce = false, promptingText = null, stopHookActive = false} = {}) {
+    function runHook(finalText, {enforce = false, promptingText = null, stopHookActive = false, lifecycleState = null} = {}) {
         return new Promise((resolve, reject) => {
             const dir            = fs.mkdtempSync(path.join(os.tmpdir(), 'lane-hook-e2e-')),
                   transcriptPath = path.join(dir, 'transcript.jsonl'),
                   env            = {...process.env, NEO_AI_DAEMON_DIR: dir},
                   payload        = {stop_hook_active: stopHookActive, session_id: 'e2e'};
+
+            if (lifecycleState !== null) {
+                fs.writeFileSync(path.join(dir, 'lifecycle-state.json'), JSON.stringify(lifecycleState), 'utf8');
+            }
 
             if (promptingText !== null) {
                 fs.writeFileSync(transcriptPath, [
@@ -389,5 +430,18 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
         const {stdout, log} = await runHook(validTerminal, {enforce: true, promptingText: 'please do X', stopHookActive: true});
         expect(log).toContain('BLOCK');
         expect(JSON.parse(stdout).decision).toBe('block');
+    });
+
+    test('ENFORCE block injects the Golden Path release-goal direction from lifecycle-state (#13751)', async () => {
+        const {stdout, log} = await runHook(block('{"laneContinuation":"verified-no-lane"}'), {
+            enforce       : true,
+            promptingText : '[WAKE] 1 event',
+            lifecycleState: {goldenPathDirection: [{id: 'issue-14442', score: 13.5, title: 'Business engine'}]}
+        });
+        expect(log).toContain('BLOCK');
+        const decision = JSON.parse(stdout);
+        expect(decision.decision).toBe('block');
+        expect(decision.reason).toContain('Release-goal direction');
+        expect(decision.reason).toContain('issue-14442 — score 13.50 — Business engine');
     });
 });
