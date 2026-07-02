@@ -215,20 +215,68 @@ export function formatLifecycleBoard(state) {
 }
 
 /**
+ * @summary Formats the Computed Golden Path release-goal direction — the top-N ROI-ranked lanes the
+ * Dream pipeline surfaced (`priority = 2×semantic + 1×structural`, sourced from the sandman handoff's
+ * Computed Golden Path route attribution) — into the block directive, so the forced next-action is
+ * anchored to the release goal, NOT rewarded for "any named lane" (the productive-derailment guard).
+ * This is the hook-READ consumer; the daemon-WRITE producer fills the `goldenPathDirection` field.
+ *
+ * Contract (`state.goldenPathDirection`): an array of `{id, score?, title?}`, pre-ranked by the
+ * producer (the hook does NOT rank — it renders the producer's order verbatim; ranking is the Golden
+ * Path's job, per the no-auto-action spine).
+ *
+ * FAIL-OPEN + ADDITIVE: a missing / empty / stale / malformed direction degrades to `''` (the bare
+ * reminder), NEVER blocks — a zero-signal (cold-start, no writer yet, stale handoff) must never starve
+ * the directive floor. Pure; total (never throws) — it runs inside the turn-end hook path where a throw
+ * would trap every turn, so a never-throwing function is the contract. Advisory only: the agent reads
+ * the direction and CHOOSES; the hook never auto-reprioritizes (the advisory-only, no-auto-action
+ * spine). Exported + unit-tested.
+ * @param {Object|null} state `{goldenPathDirection: [{id, score?, title?}], ...}` from {@link readLifecycleState}.
+ * @returns {String}
+ */
+export function formatGoldenPathDirection(state) {
+    try {
+        if (!state || typeof state !== 'object') return '';
+
+        const lanes = Array.isArray(state.goldenPathDirection) ? state.goldenPathDirection : [];
+
+        // Render ONLY entries carrying a usable id; skip null / non-object / idless entries so a single
+        // malformed element never crashes the formatter (the malformed-shape fail-open the board uses).
+        const valid = lanes.filter(lane => lane && typeof lane === 'object' &&
+            typeof lane.id === 'string' && lane.id.trim() !== '');
+        if (!valid.length) return '';
+
+        const rows = valid.map((lane, index) => {
+            const score = Number.isFinite(Number(lane.score)) ? ` — score ${Number(lane.score).toFixed(2)}` : '',
+                  title = typeof lane.title === 'string' && lane.title.trim() ? ` — ${lane.title.trim()}` : '';
+            return `  ${index + 1}. ${lane.id}${score}${title}`;
+        });
+
+        return `\nRelease-goal direction — Computed Golden Path top ROI (drive one of these over any-named-lane; advisory, not auto-reprioritization):\n${rows.join('\n')}`;
+    } catch {
+        // Belt-and-suspenders: any unforeseen shape degrades to the bare reminder, never throws.
+        return '';
+    }
+}
+
+/**
  * @summary Composes the directive injected on a block — the curated `IDLE_REMINDER` (lifecycle +
- * teeth-test) + the agent's live lane-state board (when the daemon-written file is present) + the
- * always-present mirror-pointer (discoverability) + the self-improvability clause (the floor is mutable
- * substrate) + the trigger `cause`. Reminder is WHAT-to-do, the board is WHAT'S-actionable-now, the
- * mirror-pointer is WHY-this-is-not-a-leash, the clause is HOW-to-fix-it-when-wrong, the cause is
- * WHY-blocked. Fail-open on the board (missing/bad file → bare reminder). One best-effort file read;
- * exported + unit-tested.
+ * teeth-test) + the Computed Golden Path release-goal direction (the release-goal anchor) + the agent's
+ * live lane-state board + the always-present mirror-pointer (discoverability) + the self-improvability
+ * clause (the floor is mutable substrate) + the trigger `cause`. Reminder is WHAT-to-do, the direction
+ * is WHICH-lane-serves-the-release-goal, the board is WHAT'S-actionable-now, the mirror-pointer is
+ * WHY-this-is-not-a-leash, the clause is HOW-to-fix-it-when-wrong, the cause is WHY-blocked. Fail-open
+ * on the direction + board (missing/bad file → bare reminder). ONE best-effort file read shared by both
+ * formatters; exported + unit-tested.
  * @param {String} cause The terminal-evidence violation that triggered the block (the verdict reason).
  * @returns {String}
  */
 export function composeBlockDirective(cause, holdMatches = []) {
-    const board   = formatLifecycleBoard(readLifecycleState()),
-          costume = formatHoldCostumeCallout(holdMatches);
-    return `${IDLE_REMINDER}${board}${costume}\n\n${MIRROR_POINTER}\n\n${SELF_IMPROVABILITY_CLAUSE}\n\n(Stop-hook trigger: ${cause})`;
+    const state     = readLifecycleState(),
+          direction = formatGoldenPathDirection(state),
+          board     = formatLifecycleBoard(state),
+          costume   = formatHoldCostumeCallout(holdMatches);
+    return `${IDLE_REMINDER}${direction}${board}${costume}\n\n${MIRROR_POINTER}\n\n${SELF_IMPROVABILITY_CLAUSE}\n\n(Stop-hook trigger: ${cause})`;
 }
 
 /**
