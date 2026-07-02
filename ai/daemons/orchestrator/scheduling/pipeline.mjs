@@ -39,6 +39,23 @@ export const TASK_STALENESS_CADENCE_KEY = Object.freeze({
 });
 
 /**
+ * The maintenance-backpressure deferral `reasonCode`s that `MaintenanceBackpressureService.recordDeferral`
+ * emits onto a deferred task's `skipped` outcome. The REM-consolidation watchdog re-labels a recent
+ * `dream` (REM producer) skip as a `designed-deferral` boot-freshness disposition ONLY when its
+ * `reasonCode` is one of these AND it carries a recency-bounded deferral-specific `deferredAt` — so a
+ * generic or unrecognized skip is NOT a designed deferral and can never mask a genuine stall. Keep in
+ * lockstep with the `recordDeferral` emitters in `MaintenanceBackpressureService`.
+ * @type {ReadonlyArray<String>}
+ */
+export const RECOGNIZED_DEFERRAL_REASON_CODES = Object.freeze([
+    'heavy-maintenance-shed-window',
+    'heavy-maintenance-backpressure',
+    'heavy-maintenance-lease-acquire-error',
+    'heavy-maintenance-lease-held',
+    'golden-path-dependency-backpressure'
+]);
+
+/**
  * @summary Builds the picker's per-candidate `{lastRunAt, cadenceMs}` staleness map.
  *
  * Only staleness-eligible candidates (keys of `TASK_STALENESS_CADENCE_KEY`) get an entry; the rest
@@ -838,12 +855,18 @@ async function runRemConsolidationLivenessWatchdogTask({taskName, reason, servic
             // HealthService task-outcome surface, recency-bounded to the staleness window so a stale
             // prior deferral can't mask a genuine gap. Advisory only — a present reason re-labels the
             // disposition, never whether the stall alarms.
-            const dreamOutcome   = services.healthService?.getTaskOutcome?.('dream');
-            const deferralReason = (
-                dreamOutcome?.status === 'skipped' &&
-                Number.isFinite(Date.parse(dreamOutcome.recordedAt)) &&
-                (now - Date.parse(dreamOutcome.recordedAt)) <= thresholdMs
-            ) ? (dreamOutcome.details?.reason ?? dreamOutcome.details?.reasonCode ?? null) : null;
+            const dreamOutcome = services.healthService?.getTaskOutcome?.('dream');
+            // A recent `dream` skip re-labels the stall as a DESIGNED deferral ONLY when it is a
+            // RECOGNIZED maintenance-backpressure deferral carrying a recency-bounded deferral-specific
+            // `deferredAt` — so a generic / unrecognized skip can never mask a genuine gap.
+            const deferralDetails = dreamOutcome?.status === 'skipped' ? dreamOutcome.details : null;
+            const deferredAtMs    = Date.parse(deferralDetails?.deferredAt);
+            const deferralReason  = (
+                deferralDetails &&
+                RECOGNIZED_DEFERRAL_REASON_CODES.includes(deferralDetails.reasonCode) &&
+                Number.isFinite(deferredAtMs) &&
+                (now - deferredAtMs) <= thresholdMs
+            ) ? (deferralDetails.reason ?? deferralDetails.reasonCode) : null;
 
             const bootFreshness = classifyBootFreshness({
                 bootAt     : now - Math.round(process.uptime() * 1000),

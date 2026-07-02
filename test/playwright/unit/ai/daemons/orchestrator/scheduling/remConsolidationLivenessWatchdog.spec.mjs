@@ -199,9 +199,15 @@ test.describe('orchestrator/scheduling/remConsolidationLivenessWatchdog — pipe
         // A finite but STALE cycle (7h ago, beyond the 6h threshold) → the watchdog stalls; absent a
         // deferral this gap would read as unexplained / restart-explains, not designed.
         await appendRemRunState({runId: 'stale', completedAt: now - 7 * HOUR_MS}, {dir: remRunStateDir});
-        // A RECENT 'dream' maintenance-deferral sits on the shared health task-outcome surface.
+        // A RECENT, RECOGNIZED 'dream' maintenance-deferral sits on the shared health task-outcome
+        // surface — the exact shape MaintenanceBackpressureService.recordDeferral emits (recognized
+        // reasonCode + deferral-specific deferredAt).
         const taskOutcomes = {
-            dream: {status: 'skipped', details: {reason: 'heavy-maintenance-backpressure'}, recordedAt: new Date().toISOString()}
+            dream: {
+                status    : 'skipped',
+                details   : {reason: 'heavy maintenance task backup is active', reasonCode: 'heavy-maintenance-backpressure', deferredAt: new Date(now).toISOString(), blockingTaskName: 'backup'},
+                recordedAt: new Date(now).toISOString()
+            }
         };
 
         await runWatchdogOnce({taskStateService, outcomes, dispatcher, runtime, taskOutcomes});
@@ -212,6 +218,37 @@ test.describe('orchestrator/scheduling/remConsolidationLivenessWatchdog — pipe
         expect(failed.details.bootFreshness).toBe(BOOT_FRESHNESS_CLASS.designedDeferral);
         // ...but ADVISORY-ONLY: the stall alarm still fires (OQ4 — a deferral never suppresses it).
         expect(alarmCalls.length).toBeGreaterThanOrEqual(1);
+    });
+
+    test('a dream skip that is NOT a recognized recent deferral does NOT become designed-deferral (#14492 review)', async () => {
+        const runtime = makeRuntime();
+
+        // Two ways a skip fails the narrowed gate: (1) a generic / unrecognized reasonCode (not a
+        // maintenance-backpressure deferral); (2) a recognized reasonCode but NO deferral-specific
+        // deferredAt (not a real recordDeferral outcome). Neither may masquerade as a designed deferral.
+        const negativeDetails = [
+            {reason: 'ad-hoc skip',      reasonCode: 'some-unrecognized-reason', deferredAt: new Date(Date.now()).toISOString()},
+            {reason: 'no deferredAt',    reasonCode: 'heavy-maintenance-backpressure'}
+        ];
+
+        for (const details of negativeDetails) {
+            const now              = Date.now();
+            const outcomes         = [];
+            const alarmCalls       = [];
+            const dispatcher       = async payload => { alarmCalls.push(payload); };
+            const taskStateService = makeTaskStateService();
+            await appendRemRunState({runId: 'stale', completedAt: now - 7 * HOUR_MS}, {dir: remRunStateDir});
+            const taskOutcomes = {dream: {status: 'skipped', details, recordedAt: new Date(now).toISOString()}};
+
+            await runWatchdogOnce({taskStateService, outcomes, dispatcher, runtime, taskOutcomes});
+
+            const failed = outcomes.find(outcome => outcome.status === 'failed');
+            expect(failed).toBeTruthy();
+            // The unrecognized / non-deferral skip is rejected — NOT a designed deferral.
+            expect(failed.details.bootFreshness).not.toBe(BOOT_FRESHNESS_CLASS.designedDeferral);
+            // ...and the alarm still fires regardless (advisory-only classification).
+            expect(alarmCalls.length).toBeGreaterThanOrEqual(1);
+        }
     });
 
     test('fires the active alarm once on stall-onset and latches subsequent stalled checks', async () => {

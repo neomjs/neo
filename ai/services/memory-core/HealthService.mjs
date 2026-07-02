@@ -1768,13 +1768,15 @@ class HealthService extends Base {
 
     /**
      * Reads the most-recently recorded outcome for a task, or `null` when none is recorded.
-     * Read-only accessor over the internal per-task outcome map; the returned shape is
-     * `{status, details, recordedAt}` exactly as written by {@link recordTaskOutcome}.
+     * Returns a **defensive deep clone** of `{status, details, recordedAt}` (via `structuredClone`),
+     * so a caller mutating the result — including its nested `details` — can never corrupt the
+     * internal per-task outcome map. Read-only accessor over that map.
      * @param {String} taskName
      * @returns {{status:String, details:(Object|null), recordedAt:String}|null}
      */
     getTaskOutcome(taskName) {
-        return this.#taskOutcomes[taskName] || null;
+        const outcome = this.#taskOutcomes[taskName];
+        return outcome ? structuredClone(outcome) : null;
     }
 
     /**
