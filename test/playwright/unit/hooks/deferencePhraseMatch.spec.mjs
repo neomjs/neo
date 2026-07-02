@@ -66,6 +66,11 @@ test.describe('ai/scripts/lifecycle/deferencePhraseMatch', () => {
         expect(matchDeferencePhrase('Your call?')).toBe('your call');
     });
 
+    test('still fires when a live use follows a carved mention of the same phrase', () => {
+        expect(matchDeferencePhrase('The phrase your call recurs. Your call on the merge?')).toBe('your call');
+        expect(matchDeferencePhrase('Clio owns it per your call, but honestly, your call?')).toBe('your call');
+    });
+
     test('operator-dialogue carve skips the phrase match', () => {
         expect(detectDeferencePhrase('Your call on the exact color.', {operatorInLoop: true})).toBeNull();
         expect(detectDeferencePhrase('Your call on the exact color.', {operatorInLoop: false})).toBe('your call');

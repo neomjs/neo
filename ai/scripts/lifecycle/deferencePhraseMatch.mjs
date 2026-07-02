@@ -104,17 +104,19 @@ export function matchDeferencePhrase(text = '', phrases = DEFERENCE_PHRASES) {
 
     return phrases.find(phrase => {
         const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'),
-              matcher = new RegExp(`(^|[^a-z0-9_])${escaped}(?=$|[^a-z0-9_])`, 'i');
-        const match = matcher.exec(searchableText);
+              matcher = new RegExp(`(^|[^a-z0-9_])${escaped}(?=$|[^a-z0-9_])`, 'ig');
+        let match;
 
-        if (!match) {
-            return false;
+        while ((match = matcher.exec(searchableText)) !== null) {
+            const startIndex = match.index + match[1].length;
+
+            if (!isReportedMentionContext(searchableText, startIndex) &&
+                !isAttributiveCitationContext(phrase, searchableText, startIndex)) {
+                return true;
+            }
         }
 
-        const startIndex = match.index + match[1].length;
-
-        return !isReportedMentionContext(searchableText, startIndex) &&
-               !isAttributiveCitationContext(phrase, searchableText, startIndex);
+        return false;
     }) || null;
 }
 
