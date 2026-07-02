@@ -2,6 +2,7 @@ import fs                                                      from 'fs';
 import path                                                    from 'path';
 import {fileURLToPath}                                         from 'url';
 import { Memory_Config as aiConfig }                           from '../../services.mjs';
+import { Memory_MailboxService as MailboxService }             from '../../services.mjs';
 import Base                                                    from '../../../src/core/Base.mjs';
 import { Memory_StorageRouter as StorageRouter }               from '../../services.mjs';
 import { Memory_TextEmbeddingService as TextEmbeddingService } from '../../services.mjs';
@@ -78,6 +79,10 @@ import {
     recordGoldenPathSelection          as recordRouteSelection,
     renderGoldenPathRouteLedgerSection as renderRouteLedgerSection
 } from './goldenPathRouteLedger.mjs';
+import {
+    buildLifecycleState     as buildHookLifecycleState,
+    writeLifecycleStateFile as writeHookLifecycleStateFile
+} from './lifecycleStateWriter.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -601,9 +606,31 @@ class GoldenPathSynthesizer extends Base {
         return renderConsolidationGaps(summaryColl, options)
     }
 
+    /**
+     * @summary Delegates hook lifecycle-state payload construction to the shared writer helper.
+     * @param {Object} options Lifecycle-state source payload.
+     * @returns {Promise<Object>}
+     */
+    static buildLifecycleState(options) {
+        return buildHookLifecycleState(options)
+    }
+
+    /**
+     * @summary Delegates atomic hook lifecycle-state writes to the shared writer helper.
+     * @param {Object} options Write target and state payload.
+     * @returns {String}
+     */
+    static writeLifecycleStateFile(options) {
+        return writeHookLifecycleStateFile(options)
+    }
+
     async synthesizeGoldenPath({
         repoEnrichmentEnabled = true,
         issuesDir = path.resolve(__dirname, '../../../resources/content/issues'),
+        lifecycleStateAgentIdentity = process.env.NEO_AGENT_IDENTITY,
+        lifecycleStateEnabled = repoEnrichmentEnabled && process.env.UNIT_TEST_MODE !== 'true',
+        lifecycleStateFile,
+        lifecycleStateMailboxService = MailboxService,
         now = new Date()
     } = {}) {
         logger.info('[GoldenPathSynthesizer] Initializing Hybrid GraphRAG Strategic Traversal...');
@@ -1228,6 +1255,26 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         fs.mkdirSync(path.dirname(handoffFile), {recursive: true});
         fs.writeFileSync(handoffFile, handoffContent.trim() + '\n', 'utf-8');
         logger.info(`[GoldenPathSynthesizer] sandman_handoff.md freshly generated via Centralized Pipeline. Golden Path integrated.`);
+
+        if (lifecycleStateEnabled) {
+            try {
+                const lifecycleState = await this.constructor.buildLifecycleState({
+                    agentIdentity : lifecycleStateAgentIdentity,
+                    generatedAt   : handoffTimestamp,
+                    mailboxService: lifecycleStateMailboxService,
+                    prs           : openPrs,
+                    routedTopNodes
+                });
+
+                this.constructor.writeLifecycleStateFile({
+                    agentIdentity: lifecycleStateAgentIdentity,
+                    filePath     : lifecycleStateFile,
+                    state        : lifecycleState
+                });
+            } catch (e) {
+                logger.warn('[GoldenPathSynthesizer] Failed to write lifecycle-state.json', e);
+            }
+        }
 
         logger.info(`[GoldenPathSynthesizer] Mathematical Golden Path established. Anchored ${topNodes.length} strategic nodes to frontier.`);
 

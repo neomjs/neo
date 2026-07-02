@@ -53,16 +53,22 @@ import {buildDeferenceStopHookDirective,
         scanHoldLexicon,
         STOP_HOOK_TURN_OPTIONS_HINT} from '../../ai/scripts/lifecycle/stopHookDecision.mjs';
 import {validateLaneStateTerminal} from '../../ai/scripts/lifecycle/validateLaneStateTerminal.mjs';
+import {
+    formatGoldenPathDirection,
+    formatLifecycleBoard,
+    readLifecycleState as readSharedLifecycleState
+} from '../../ai/scripts/lifecycle/lifecycleState.mjs';
 
-export {isOperatorInLoop, parseOutcomeToVerdict};
+export {formatGoldenPathDirection, formatLifecycleBoard, isOperatorInLoop, parseOutcomeToVerdict};
 
 // Enforce ONLY when the operator explicitly activates it; default is DRY-RUN (log-only, never blocks).
 const ENFORCING = process.env.NEO_LANE_STATE_ENFORCE === '1';
 
 // Append-only audit log — the WOULD-BLOCK / ALLOW record for auditing the dry-run before enforcement.
 // NEO_AI_DAEMON_DIR override keeps tests off the real store.
-const LOG_DIR  = process.env.NEO_AI_DAEMON_DIR || path.join(os.homedir(), '.neo-ai-data', 'lane-state-hook');
-const LOG_FILE = path.join(LOG_DIR, 'lane-state-stop-hook.log');
+const LOG_DIR                     = process.env.NEO_AI_DAEMON_DIR || path.join(os.homedir(), '.neo-ai-data', 'lane-state-hook');
+const LOG_FILE                    = path.join(LOG_DIR, 'lane-state-stop-hook.log');
+const LEGACY_LIFECYCLE_STATE_FILE = path.join(LOG_DIR, 'lifecycle-state.json');
 
 /**
  * @summary Reads all of stdin (the Stop-hook JSON payload) to a string.
@@ -151,12 +157,6 @@ const MIRROR_POINTER = `This hook is a MIRROR, not a leash: a hit means you slip
 // later) — else the clause becomes a new sophisticated-hold costume ("I'm friction→gold-ing the hook").
 const SELF_IMPROVABILITY_CLAUSE = `friction→gold applies to THIS hook: if it fired wrong — a false positive, or it reads as a leash not a mirror — open a ticket to sharpen it rather than silently absorbing it. But that ticket is a separate design-time lane, NOT a license to stop this turn: obey the hook now, improve it later. "I'm filing a friction→gold ticket" is not itself a valid stop. The hook is mutable substrate, not a command.`;
 
-// The orchestrator/wake daemon writes the current agent's lane-state here (computation preserved, the
-// wake-INTERRUPT dropped); this hook reads it on a block — cheap, no network, inside the 10s budget —
-// and injects the live board so the refuse-directive is ACTIONABLE at the moment the next-action
-// decision happens. This is the hook-READ side; the daemon-WRITE side is a sibling lane.
-const LIFECYCLE_STATE_FILE = path.join(LOG_DIR, 'lifecycle-state.json');
-
 /**
  * @summary Reads the daemon-written lane-state file. FAIL-OPEN by construction: a missing, unreadable,
  * or malformed file returns `null` — the hook then injects the bare reminder and never throws. The
@@ -165,98 +165,7 @@ const LIFECYCLE_STATE_FILE = path.join(LOG_DIR, 'lifecycle-state.json');
  * @returns {Object|null} `{openPRs, unreadCount, generatedAt}` or `null` on any read/parse failure.
  */
 export function readLifecycleState() {
-    try {
-        const state = JSON.parse(fs.readFileSync(LIFECYCLE_STATE_FILE, 'utf8'));
-        return state && typeof state === 'object' ? state : null;
-    } catch {
-        return null;
-    }
-}
-
-/**
- * @summary Formats the lane-state into a one-glance "live board" — the agent's own open PRs (+ state)
- * and unread-A2A count — so the forced next-action is informed, not generic. Returns `''` when there
- * is nothing actionable to show (the caller falls back to the bare reminder). Pure; exported + tested.
- * FAIL-OPEN on malformed SHAPE, not just a bad file read: a parsed-but-malformed object (null / non-object
- * / numberless `openPRs` entries, wrong-typed fields) degrades to `''` and NEVER throws — it runs inside
- * the turn-end hook path, where a throw would trap every turn, so a total (never-throwing) function is the
- * contract, not a nicety. (Per cross-family review by @neo-gpt: fail-open includes malformed schema,
- * not just a bad file read.)
- * @param {Object|null} state `{openPRs, unreadCount, generatedAt}` from {@link readLifecycleState}.
- * @returns {String}
- */
-export function formatLifecycleBoard(state) {
-    try {
-        if (!state || typeof state !== 'object') return '';
-
-        const prs   = Array.isArray(state.openPRs) ? state.openPRs : [],
-              lines = [];
-
-        // Render ONLY entries that carry a usable PR number; skip null / non-object / numberless entries.
-        // A malformed array element ({openPRs:[null]}) must not crash the formatter — validating each
-        // entry before dereferencing `pr.number`/`pr.state` is the core of the malformed-shape fail-open.
-        const validPRs = prs.filter(pr => pr && typeof pr === 'object' &&
-            (typeof pr.number === 'number' || typeof pr.number === 'string'));
-        if (validPRs.length) {
-            lines.push('  • your open PRs: ' +
-                validPRs.map(pr => `#${pr.number}${pr.state ? ` ${pr.state}` : ''}`).join(', '));
-        }
-        if (Number.isInteger(state.unreadCount) && state.unreadCount > 0) {
-            lines.push(`  • ${state.unreadCount} unread A2A — list_messages`);
-        }
-        if (!lines.length) return '';
-
-        const asOf = typeof state.generatedAt === 'string' ? ` (as of ${state.generatedAt})` : '';
-        return `\nYour live board${asOf} — concrete lanes right now:\n${lines.join('\n')}`;
-    } catch {
-        // Belt-and-suspenders: ANY unforeseen shape issue degrades to the bare reminder, never throws.
-        return '';
-    }
-}
-
-/**
- * @summary Formats the Computed Golden Path release-goal direction — the top-N ROI-ranked lanes the
- * Dream pipeline surfaced (`priority = 2×semantic + 1×structural`, sourced from the sandman handoff's
- * Computed Golden Path route attribution) — into the block directive, so the forced next-action is
- * anchored to the release goal, NOT rewarded for "any named lane" (the productive-derailment guard).
- * This is the hook-READ consumer; the daemon-WRITE producer fills the `goldenPathDirection` field.
- *
- * Contract (`state.goldenPathDirection`): an array of `{id, score?, title?}`, pre-ranked by the
- * producer (the hook does NOT rank — it renders the producer's order verbatim; ranking is the Golden
- * Path's job, per the no-auto-action spine).
- *
- * FAIL-OPEN + ADDITIVE: a missing / empty / stale / malformed direction degrades to `''` (the bare
- * reminder), NEVER blocks — a zero-signal (cold-start, no writer yet, stale handoff) must never starve
- * the directive floor. Pure; total (never throws) — it runs inside the turn-end hook path where a throw
- * would trap every turn, so a never-throwing function is the contract. Advisory only: the agent reads
- * the direction and CHOOSES; the hook never auto-reprioritizes (the advisory-only, no-auto-action
- * spine). Exported + unit-tested.
- * @param {Object|null} state `{goldenPathDirection: [{id, score?, title?}], ...}` from {@link readLifecycleState}.
- * @returns {String}
- */
-export function formatGoldenPathDirection(state) {
-    try {
-        if (!state || typeof state !== 'object') return '';
-
-        const lanes = Array.isArray(state.goldenPathDirection) ? state.goldenPathDirection : [];
-
-        // Render ONLY entries carrying a usable id; skip null / non-object / idless entries so a single
-        // malformed element never crashes the formatter (the malformed-shape fail-open the board uses).
-        const valid = lanes.filter(lane => lane && typeof lane === 'object' &&
-            typeof lane.id === 'string' && lane.id.trim() !== '');
-        if (!valid.length) return '';
-
-        const rows = valid.map((lane, index) => {
-            const score = Number.isFinite(Number(lane.score)) ? ` — score ${Number(lane.score).toFixed(2)}` : '',
-                  title = typeof lane.title === 'string' && lane.title.trim() ? ` — ${lane.title.trim()}` : '';
-            return `  ${index + 1}. ${lane.id}${score}${title}`;
-        });
-
-        return `\nRelease-goal direction — Computed Golden Path top ROI (drive one of these over any-named-lane; advisory, not auto-reprioritization):\n${rows.join('\n')}`;
-    } catch {
-        // Belt-and-suspenders: any unforeseen shape degrades to the bare reminder, never throws.
-        return '';
-    }
+    return readSharedLifecycleState({legacyFilePath: LEGACY_LIFECYCLE_STATE_FILE});
 }
 
 /**

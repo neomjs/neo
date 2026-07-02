@@ -23,6 +23,11 @@ import {classifyPromptingContext,
         parseOutcomeToVerdict,
         STOP_HOOK_TURN_OPTIONS_HINT} from '../../ai/scripts/lifecycle/stopHookDecision.mjs';
 import {validateLaneStateTerminal} from '../../ai/scripts/lifecycle/validateLaneStateTerminal.mjs';
+import {
+    formatGoldenPathDirection,
+    formatLifecycleBoard,
+    readLifecycleState
+} from '../../ai/scripts/lifecycle/lifecycleState.mjs';
 
 export const CODEX_STOP_BLOCK_INJECTION_SUPPORTED = true;
 export const CODEX_PROMPT_CONTEXT_TTL_MS           = 10 * 60 * 1000;
@@ -383,6 +388,7 @@ export function buildNoHoldReminder(verdictReason, {
     autonomousHandoff = false,
     handoffReason = '',
     handoffWindowMs = null,
+    lifecycleState,
     operatorInLoop = false,
     promptSource = ''
 } = {}) {
@@ -391,10 +397,13 @@ export function buildNoHoldReminder(verdictReason, {
               : '',
           handoffDiagnostic = autonomousHandoff
               ? `\nOperator prompt matched handoff-to-autonomous (${handoffReason || 'unknown'}${handoffWindowMs ? `, windowMs=${handoffWindowMs}` : ''}); treating this turn as autonomous no-hold.`
-        : '';
+              : '',
+          state             = lifecycleState === undefined ? readLifecycleState() : lifecycleState,
+          liveBoard         = `${formatGoldenPathDirection(state)}${formatLifecycleBoard(state)}`;
 
     return `No-hold reminder: ${verdictReason}. There is no hold state: continue concrete work on the active lane, perform an assigned review that advances a named lane, or pick a fresh claimable lane. Passive waiting is not a terminal.
 ${promptDiagnostic}${handoffDiagnostic}
+${liveBoard}
 
 ${STOP_HOOK_TURN_OPTIONS_HINT}
 
