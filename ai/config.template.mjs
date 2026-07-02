@@ -773,6 +773,9 @@ class Config extends ConfigProvider {
                  * without changing remote graph-backed A2A / Memory Core behavior.
                  * `null` means "use the deployment profile default" (`local` enables,
                  * `cloud` disables); set `true` only when explicitly opting a lane back in.
+                 * Exception: `bridgeDaemonEnabled` + `swarmHeartbeatEnabled` default `false`
+                 * (wake + heartbeat OFF) — the Stop hook makes them redundant flood; see their
+                 * inline notes. Both remain env-overridable to re-enable.
                  * @type {Object}
                  */
                 localOnly: {
@@ -782,7 +785,11 @@ class Config extends ConfigProvider {
                     // Local profile may supervise a child Chroma process; cloud profile
                     // reaches the compose-owned `chroma` peer container instead.
                     chromaDaemonEnabled    : leaf(null, 'NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED', 'boolean'),
-                    bridgeDaemonEnabled    : leaf(null, 'NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED', 'boolean'),
+                    // Desktop wake-DELIVERY gate. Defaults OFF: the lane-state Stop hook forces turn
+                    // continuation, so wake interrupts are redundant duplicate-flood at multi-peer
+                    // scale (A2A messages still persist + surface on the next list_messages).
+                    // Set `true` (or `NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED=true`) to restore delivery.
+                    bridgeDaemonEnabled    : leaf(false, 'NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED', 'boolean'),
                     neuralLinkBridgeEnabled: leaf(null, 'NEO_ORCHESTRATOR_NL_BRIDGE_ENABLED', 'boolean'),
                     // The embed daemon durably drains the add_memory WAL into the content store
                     // (ai/daemons/embed/daemon.mjs). Local profile supervises it as a child
@@ -794,9 +801,14 @@ class Config extends ConfigProvider {
                     // messageWal.inProcessDrain host mode instead.
                     messageDaemonEnabled           : leaf(null, 'NEO_ORCHESTRATOR_MESSAGE_DAEMON_ENABLED', 'boolean'),
                     goldenPathRepoEnrichmentEnabled: leaf(null, 'NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED', 'boolean'),
-                    // `null` = use the deployment-profile default (local enables, cloud disables);
-                    // the swarm-heartbeat lane emits wake-substrate pulses through bridge delivery.
-                    swarmHeartbeatEnabled          : leaf(null, 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED', 'boolean'),
+                    // Swarm-heartbeat lane: emits wake-substrate pulses + heartbeat-driven idle/swarm
+                    // wakes (`WakeDecisionService.decideWake` runs INSIDE `SwarmHeartbeatService.pulse()`).
+                    // Defaults OFF: the lane-state Stop hook covers turn continuation, so these pulses
+                    // are redundant duplicate-flood at multi-peer scale. Substrate maintenance
+                    // (GraphLog compaction, integrity sweep, embed/message daemons) runs via its own
+                    // separate task toggles and is unaffected. Set `true` (or
+                    // `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED=true`) to restore.
+                    swarmHeartbeatEnabled          : leaf(false, 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED', 'boolean'),
                     // Reserved policy placeholder: no runtime consumer yet.
                     // `bridgeDaemonEnabled` is the active scheduler gate for desktop wake delivery.
                     wakeDispatchEnabled            : leaf(null)

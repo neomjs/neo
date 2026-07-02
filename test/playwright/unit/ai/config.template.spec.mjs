@@ -161,12 +161,12 @@ test.describe('Tier 1 Config Immutability', () => {
             kbSyncEnabled                  : null,
             githubWorkflowSyncEnabled      : null,
             chromaDaemonEnabled            : null,
-            bridgeDaemonEnabled            : null,
+            bridgeDaemonEnabled            : false,
             neuralLinkBridgeEnabled        : null,
             embedDaemonEnabled             : null,
             messageDaemonEnabled           : null,
             goldenPathRepoEnrichmentEnabled: null,
-            swarmHeartbeatEnabled          : null,
+            swarmHeartbeatEnabled          : false,
             wakeDispatchEnabled            : null
         });
         expect(Config.orchestrator.devServer).toEqual({
