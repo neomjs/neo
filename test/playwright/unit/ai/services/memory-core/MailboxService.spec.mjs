@@ -21,8 +21,9 @@ import * as core      from '../../../../../../src/core/_export.mjs';
 import                            '../../../../../../src/manager/Instance.mjs';
 import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
 
+test.describe.configure({ mode: 'serial' });
+
 test.describe('Neo.ai.services.memory-core.MailboxService', () => {
-    test.describe.configure({ mode: 'serial' });
     let MailboxService, GraphService, PermissionService, LifecycleService, SwarmHeartbeatService, buildMailboxDelta, originalAutoSave, mailboxAiConfig, originalMailboxPolicy, readWalMessages, readPendingMessageWalRecords;
     let dbPath, messageWalDir;
 
@@ -116,6 +117,13 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         GraphService.db.storage.db.prepare(`
             UPDATE Nodes SET data = ? WHERE id = ?
         `).run(JSON.stringify(GraphService.db.nodes.get(messageId)), messageId);
+    }
+
+    function clearGraphCacheWithoutStorageMutation() {
+        GraphService.db.nodes.clear();
+        GraphService.db.edges.clear();
+        GraphService.db.vicinityLoadedNodes.clear();
+        GraphService.db.lastAccessMap.clear();
     }
 
     test('addMessage enforces identity and routes correctly', async () => {
@@ -260,6 +268,83 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
 
         expect(sentTo).toBeDefined();
         expect(await readPendingMessageWalRecords({dir: messageWalDir, ids: [res.messageId]})).toHaveLength(0);
+    });
+
+    test('listMessages/getMessage repair projected direct messages after graph row loss (#14426)', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        const res = await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            return await MailboxService.addMessage({
+                to     : '@bob',
+                subject: 'repair row loss',
+                body   : 'durable body'
+            });
+        });
+
+        expect(await readPendingMessageWalRecords({dir: messageWalDir, ids: [res.messageId]})).toHaveLength(0);
+
+        GraphService.db.storage.db.prepare('DELETE FROM Nodes WHERE id = ?').run(res.messageId);
+        clearGraphCacheWithoutStorageMutation();
+
+        const bobInbox = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            return await MailboxService.listMessages({status: 'all'});
+        });
+
+        expect(bobInbox.messages.map(message => message.messageId)).toContain(res.messageId);
+
+        const repairedMessage = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            return await MailboxService.getMessage({messageId: res.messageId});
+        });
+
+        expect(repairedMessage.subject).toBe('repair row loss');
+        expect(repairedMessage.body).toBe('durable body');
+        expect(repairedMessage.readAt).toBeNull();
+
+        const repairCheck = await MailboxService.repairMessageGraphIntegrity({ids: [res.messageId]});
+        expect(repairCheck).toMatchObject({scanned: 1, intact: 1, repaired: 0, failed: 0});
+    });
+
+    test('post-sync canary: accepted unread self-message survives destructive graph clear (#14426)', async () => {
+        const res = await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            return await MailboxService.addMessage({
+                to     : '@me',
+                subject: 'post-sync canary',
+                body   : 'still here'
+            });
+        });
+
+        expect(await readPendingMessageWalRecords({dir: messageWalDir, ids: [res.messageId]})).toHaveLength(0);
+
+        await GraphService.db.storage.clear();
+        clearGraphCacheWithoutStorageMutation();
+
+        const count = await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            return await MailboxService.countMessages({status: 'unread'});
+        });
+
+        expect(count.count).toBe(1);
+
+        const inbox = await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            return await MailboxService.listMessages({status: 'unread'});
+        });
+
+        expect(inbox.messages).toHaveLength(1);
+        expect(inbox.messages[0]).toMatchObject({
+            messageId: res.messageId,
+            subject  : 'post-sync canary',
+            from     : '@alice',
+            to       : '@alice',
+            readAt   : null
+        });
+
+        const message = await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            return await MailboxService.getMessage({messageId: res.messageId});
+        });
+
+        expect(message.body).toBe('still here');
+        expect(message.readAt).toBeNull();
     });
 
     test('drainPendingMessageGraphProjections leaves failed required-edge replay pending (#13892)', async () => {
@@ -2087,6 +2172,9 @@ test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (
     });
 
     test('#13411 related PR state echo: getMessage/listMessages surface live state', async () => {
+        const threadId = 'thread-related-pr-live-state';
+        GraphService.upsertNode({ id: threadId, type: 'THREAD', name: 'Related PR live state', properties: {} });
+
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
         });
@@ -2109,6 +2197,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (
                     to            : '@bob',
                     subject       : 'Review request',
                     body          : 'Please review the PR.',
+                    partOfThread  : threadId,
                     relatedTickets: ['#13411', '#13412']
                 });
                 msgId = res.messageId;
@@ -2123,7 +2212,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (
             ]);
 
             const bobList = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
-                return await MailboxService.listMessages({ status: 'all' });
+                return await MailboxService.listMessages({ status: 'all', threadId });
             });
             const found = bobList.messages.find(m => m.messageId === msgId);
             expect(found.relatedTickets).toEqual(['#13411', '#13412']);
@@ -2137,6 +2226,9 @@ test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (
     });
 
     test('#13411 related PR state echo: fetch failure omits echo but keeps message', async () => {
+        const threadId = 'thread-related-pr-fetch-failure';
+        GraphService.upsertNode({ id: threadId, type: 'THREAD', name: 'Related PR fetch failure', properties: {} });
+
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
         });
@@ -2155,6 +2247,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (
                     to            : '@bob',
                     subject       : 'Review request',
                     body          : 'Please review the PR.',
+                    partOfThread  : threadId,
                     relatedTickets: ['#13411']
                 });
                 msgId = res.messageId;
@@ -2168,7 +2261,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (
             expect(bobRead.body).toBe('Please review the PR.');
 
             const bobList = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
-                return await MailboxService.listMessages({ status: 'all' });
+                return await MailboxService.listMessages({ status: 'all', threadId });
             });
             const found = bobList.messages.find(m => m.messageId === msgId);
             expect(found.relatedPullRequests).toBeUndefined();
