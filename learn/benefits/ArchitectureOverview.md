@@ -1,8 +1,18 @@
 # Neo.mjs Architecture Overview
 
-This guide provides a top-level architectural map of the Neo.mjs Agent OS. It traces the vertical
-path of intelligence — from a user clicking a button, through the worker threads, up into the
-Agent OS, through the dream pipeline, and back down as an improved codebase.
+Neo has four areas a reader should keep separate before the details start:
+
+- **Body:** the multi-threaded application engine that runs apps off the main thread.
+- **Brain:** the Agent OS: Memory Core, Knowledge Base, Native Edge Graph, Dream Pipeline,
+  Golden Path, and the orchestration substrate around them.
+- **Neural Link:** the possession bridge between the Brain and a live Neo application Body.
+- **Deployment topology:** LOCAL Agent OS for one developer, or CLOUD Agent OS for a shared
+  team service. This is separate from whether the models themselves run locally or remotely.
+
+This guide is the map across those areas. It shows how the Body and Brain share one class
+system, how the Brain keeps one unified Chroma topology for logical Knowledge Base and Memory
+Core collections, and how Neural Link lets the Brain inhabit a running Neo application without
+turning repository learning into a browser-runtime requirement.
 
 For setup and configuration of individual MCP servers, see the dedicated guides linked at the bottom
 of this document.
@@ -13,20 +23,25 @@ Neo.mjs is a single platform with two distinct hemispheres that share a common n
 the Neo Class System:
 
 ```mermaid
-graph LR
+flowchart TD
     classDef runtime fill:#1a1a2e,stroke:#e94560,stroke-width:2px,color:#eee
     classDef agentOS fill:#0f3460,stroke:#16c79a,stroke-width:2px,color:#eee
+    classDef bridge fill:#4a1942,stroke:#e74c3c,stroke-width:2px,color:#eee
     classDef core fill:#222,stroke:#f5a623,stroke-width:3px,color:#fff
 
-    subgraph Platform["Neo.mjs Platform"]
-        direction TB
-        Core["Neo Class System"]:::core
-        Runtime["Frontend Runtime Engine"]:::runtime
-        AgentOS["Agent OS"]:::agentOS
+    Core["Neo Class System<br/>shared Body + Brain substrate"]:::core
+    Body["Body:<br/>Frontend Runtime Engine"]:::runtime
+    Brain["Brain:<br/>Agent OS"]:::agentOS
+    Link["Neural Link:<br/>live possession bridge"]:::bridge
+    LocalCloud["Topology:<br/>LOCAL or CLOUD Agent OS"]:::agentOS
+    Models["Models:<br/>local or remote providers"]:::agentOS
 
-        Core --- Runtime
-        Core --- AgentOS
-    end
+    Core --> Body
+    Core --> Brain
+    Brain --> Link
+    Link --> Body
+    Brain --> LocalCloud
+    Brain --> Models
 ```
 
 Both hemispheres are built on the same `Neo.core.Base` class system. `DreamService`,
@@ -106,8 +121,8 @@ without losing state. This is the foundation of Neo's multi-window application s
 ## Right Hemisphere: The Agent OS
 
 The Agent OS is a Node.js infrastructure that provides AI agents with persistent memory,
-semantic understanding of the codebase, and the ability to introspect the live running
-application:
+semantic understanding of the codebase, peer coordination, and optional access to a live
+Neo application through Neural Link:
 
 ```mermaid
 flowchart TD
@@ -150,23 +165,65 @@ flowchart TD
         KB["Knowledge Base"]:::mcp
         Mem["Memory Core"]:::mcp
         GH["GitHub Workflow"]:::mcp
+        GL["GitLab Workflow"]:::mcp
         NL["Neural Link"]:::mcp
         FS["File System"]:::mcp
     end
 
     SDKLayer <--> MCPServers
 
-    subgraph Storage["Persistence Layer"]
-        direction LR
-        ChromaKB[("ChromaDB KB")]:::db
-        ChromaMem[("ChromaDB Memory")]:::db
-        SQLite[("SQLite Graph")]:::db
+    subgraph Models["Model Provider Axes"]
+        direction TB
+        Chat["chatProvider / modelProvider"]:::agent
+        Embed["embeddingProvider"]:::agent
+        GraphGen["graphProvider"]:::agent
+        Ask["KB askSynthesis"]:::agent
     end
 
-    KB <--> ChromaKB
-    Mem <--> ChromaMem
+    CognitiveLoop <--> Models
+
+    subgraph Storage["Persistence Layer"]
+        direction TB
+        Chroma[("Unified ChromaDB process")]:::db
+        KBCollection["neo-knowledge-base"]:::db
+        MemoryCollection["neo-agent-memory"]:::db
+        SessionCollection["neo-agent-sessions"]:::db
+        GraphCollection["neo-native-graph"]:::db
+        SQLite[("SQLite Native Edge Graph")]:::db
+    end
+
+    Chroma --> KBCollection
+    Chroma --> MemoryCollection
+    Chroma --> SessionCollection
+    Chroma --> GraphCollection
+    KB <--> KBCollection
+    Mem <--> MemoryCollection
+    Mem <--> SessionCollection
+    Mem <--> GraphCollection
     Mem <--> SQLite
 ```
+
+The Chroma process is unified. Knowledge Base and Memory Core do **not** run separate
+ChromaDBs; they use separate logical collections against the shared Chroma backend. The
+orchestrator owns that Chroma lifecycle in deployed topologies, while each server connects as
+a client through its own `ChromaManager`.
+
+### LOCAL Brain vs. CLOUD Brain
+
+The Agent OS has two deployment topologies:
+
+- **LOCAL Agent OS:** a single developer's on-machine Brain beside a checkout. It is private
+  by default, simple to iterate on, and useful for solo maintenance.
+- **CLOUD Agent OS:** a shared, tenant-scoped team Brain around one or more repositories. It
+  gives the team shared Memory Core, shared Knowledge Base, shared A2A, and shared diagnostics.
+
+There is no guide-level conversion path between them. They are two topologies of the same
+organism. A team chooses the topology that matches its collaboration boundary.
+
+Model placement is a separate choice. A local Agent OS can call a remote Gemini provider while
+bootstrapping. A cloud Agent OS can use a local OpenAI-compatible or Ollama provider when privacy,
+cost, or residency requires it. The provider axes are role-specific: chat/summaries, embeddings,
+Dream graph generation, and Knowledge Base answer synthesis can each be routed deliberately.
 
 ### The Cognitive Loop
 
@@ -174,7 +231,7 @@ The agent runtime (`ai/agent/Loop.mjs`) implements a four-phase cognitive loop:
 
 1. **Perceive:** The `ContextAssembler` fetches long-term memory (session summaries via RAG),
    short-term memory (recent session history), and skill metadata to build the LLM context window.
-2. **Reason:** The assembled context is sent to the LLM (e.g., Claude Opus, Gemini) for inference,
+2. **Reason:** The assembled context is sent to the configured model provider for inference,
    producing a response that may include tool calls.
 3. **Act:** Tool calls are executed via the MCP protocol (for frontier models) or the SDK
    (for sub-agents with Zod validation).
@@ -186,21 +243,28 @@ The agent runtime (`ai/agent/Loop.mjs`) implements a four-phase cognitive loop:
 `ai/services.mjs` is the critical safety layer. It loads OpenAPI specs from each MCP server and
 wraps each method with `makeSafe()` — a function that generates Zod validators at startup.
 
-- **Frontier models** (Opus, Gemini) access services via MCP protocol (stdio) with unbounded
+- **Frontier models** access services via MCP protocol (stdio) with unbounded
   tool access.
-- **Sub-agents** (e.g., Gemma 4-31B for doc patching) access the same services via the SDK,
+- **Sub-agents** access the same services via the SDK,
   but every call is runtime-validated against the OpenAPI schema, preventing hallucinated JSON
   from reaching internal databases.
 
-### The Five MCP Servers
+### MCP Server Surfaces
 
 | Server | Purpose | Key Operations |
 |---|---|---|
 | **Knowledge Base** | Semantic RAG over the indexed codebase | `ask_knowledge_base`, `query_documents` |
 | **Memory Core** | Episodic memory, session summaries, native edge graph | `add_memory`, `query_raw_memories`, `get_context_frontier` |
 | **GitHub Workflow** | Offline-first issue and PR management | `create_issue`, `sync_all`, `manage_issue_labels` |
+| **GitLab Workflow** | GitLab issue and merge-request workflow support | `list_issues`, `list_merge_requests`, `manage_mr_reviewers` |
 | **Neural Link** | Live application introspection via WebSocket | `get_component_tree`, `patch_code`, `simulate_event` |
-| **File System** | Direct codebase read/write access | Standard file operations |
+| **File System** | Direct codebase read/write access | `read_file`, `write_file`, `list_directory`, `check_syntax` |
+
+Those MCP servers are tool surfaces, not the whole Brain. Long-running background work lives in
+`ai/daemons/`: the orchestrator schedules Dream, Golden Path, tenant repo sync, memory summary
+backfill, graph-log compaction, primary-dev sync, swarm heartbeat, and the data-integrity
+self-healing sweeps. Keep those inventories separate: an orchestrator data-integrity service is
+not an MCP server, and a model provider is not a daemon.
 
 ## The Neural Link Bridge
 
@@ -208,7 +272,7 @@ The Neural Link is the connection point between the two hemispheres. It allows t
 to reach *into* the running browser application:
 
 ```mermaid
-flowchart LR
+flowchart TD
     classDef agent fill:#0f3460,stroke:#16c79a,stroke-width:1px,color:#eee
     classDef bridge fill:#4a1942,stroke:#e74c3c,stroke-width:2px,color:#eee
     classDef runtime fill:#1a1a2e,stroke:#e94560,stroke-width:1px,color:#eee
@@ -289,7 +353,7 @@ flowchart TD
 1. **File Ingest:** `FileSystemIngestor.syncWorkspaceToGraph()` scans the repository and ingests
    issues, markdown files, and source files into the Native Edge Graph (SQLite).
 
-2. **Tri-Vector Extraction:** A local LLM (MLX / OpenAI-compatible) analyzes undigested session
+2. **Tri-Vector Extraction:** The configured graph provider analyzes undigested session
    memories and extracts three vectors: semantic graph nodes and edges, the feature namespace
    being worked on, and any roadmap impact.
 
@@ -383,16 +447,19 @@ Post-M6 ([#10986](https://github.com/neomjs/neo/issues/10986)) the per-MCP-serve
 | `ai/services/knowledge-base/` | Semantic RAG services (post-M6 SDK location) | `QueryService`, `SearchService`, `KBRecorderService` | — |
 | `ai/services/memory-core/` | Episodic memory services (post-M6 SDK location) | `MemoryService`, `SessionService`, `GraphService`, `MailboxService` | [ADR 0001](../agentos/decisions/0001-cross-process-cache-coherence.md), [ADR 0002](../agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md) |
 | `ai/services/github-workflow/` | Issue/PR management services (post-M6 SDK location) | `IssueService`, `SyncService`, `LabelService` | — |
+| `ai/services/gitlab-workflow/` | GitLab project workflow services when enabled | GitLab issue/MR service classes | — |
 | `ai/services/neural-link/` | Live app bridge services (post-M6 SDK location) | `ConnectionService`, `RecorderService` | — |
 | `ai/services/shared/vector/` | Cross-server vector-engine primitives consumed by per-server ChromaManager classes (KB + MC); functional helpers, not Neo classes | `chromaClientPrimitives.mjs` (`chromaConnect`, `createSilentExecutor`, `chromaDeleteCollection`) | — |
 | `ai/services/shared/contentTrust/` | Cross-service self-defense content helpers — GitHub author-tier classification + astroturf sanitization (URL defang / name redaction / stealth-intent flags), consumed by github-workflow read paths + KB ingestion; functional helpers, not Neo classes | `authorTrustClassifier.mjs`, `astroturfSanitizer.mjs` | [#10291](https://github.com/neomjs/neo/issues/10291) (P8 self-defense) |
 | `ai/scripts/` | One-shot operator scripts + thin helper wrappers | `lifecycle/`, `maintenance/` | — |
-| `ai/daemons/` | Long-running daemon classes and entry points | `Orchestrator`, `orchestrator/daemon.mjs`, `wake/daemon.mjs`, `DreamService`, `SwarmHeartbeatService`, recovery and data-integrity services | [ADR 0002](../agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md), [ADR 0025](../agentos/decisions/0025-orchestrator-container-health-self-healing.md), [ADR 0026](../agentos/decisions/0026-recovery-actuator.md), [ADR 0027](../agentos/decisions/0027-autonomous-data-recovery-actuator.md) |
+| `ai/daemons/` | Long-running daemon classes and entry points | `Orchestrator`, `orchestrator/daemon.mjs`, `wake/daemon.mjs`, `DreamService`, `SwarmHeartbeatService`, tenant sync, summary backfill, Golden Path, GraphLog compaction, recovery and data-integrity services | [ADR 0002](../agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md), [ADR 0025](../agentos/decisions/0025-orchestrator-container-health-self-healing.md), [ADR 0026](../agentos/decisions/0026-recovery-actuator.md), [ADR 0027](../agentos/decisions/0027-autonomous-data-recovery-actuator.md) |
 | `ai/graph/` | Native Edge Graph (SQLite-backed knowledge graph) | `Database`, `Store`, `NodeModel` | [ADR 0001](../agentos/decisions/0001-cross-process-cache-coherence.md), [ADR 0015](../agentos/decisions/0015-graph-store-backend-posture.md) |
 | `ai/mcp/server/knowledge-base/` | KB MCP-server entry point + config | `Server`, `config` | — |
 | `ai/mcp/server/memory-core/` | MC MCP-server entry point + config | `Server`, `config` | [ADR 0001](../agentos/decisions/0001-cross-process-cache-coherence.md) |
 | `ai/mcp/server/github-workflow/` | GH-WF MCP-server entry point + config | `Server`, `config` | — |
+| `ai/mcp/server/gitlab-workflow/` | GitLab Workflow MCP-server entry point + config | `Server`, `config` | — |
 | `ai/mcp/server/neural-link/` | NL MCP-server entry point + config | `Server`, `config` | — |
+| `ai/mcp/server/file-system/` | File System MCP-server entry point + services | `Server`, file operation services | — |
 | `ai/mcp/server/shared/` | Cross-cutting MCP infrastructure | `BaseServer`, `AuthMiddleware`, `RequestContextService`, `TransportService` | — |
 
 ## Architectural Decision Records
