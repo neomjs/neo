@@ -36,6 +36,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     let renderSilentThreadCandidatesSection;
     let renderGoldenPathRouteLedgerSection;
     let issueFocusSections;
+    let defaultLifecycleStateFile;
 
     let StorageRouter;
     let TextEmbeddingService;
@@ -78,6 +79,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         buildSilentThreadCandidates = GoldenPathSynthesizer.constructor.buildSilentThreadCandidates.bind(GoldenPathSynthesizer.constructor);
         renderSilentThreadCandidatesSection = GoldenPathSynthesizer.constructor.renderSilentThreadCandidatesSection.bind(GoldenPathSynthesizer.constructor);
         ({renderGoldenPathRouteLedgerSection} = await import('../../../../../../ai/services/graph/goldenPathRouteLedger.mjs'));
+        ({DEFAULT_LIFECYCLE_STATE_FILE: defaultLifecycleStateFile} = await import('../../../../../../ai/services/graph/lifecycleStateWriter.mjs'));
         GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         SystemLifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
         StorageRouter = (await import('../../../../../../ai/services.mjs')).Memory_StorageRouter;
@@ -126,6 +128,9 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
 
         if (fs.existsSync(tmpHandoffFile)) {
             try { fs.unlinkSync(tmpHandoffFile); } catch(e) {}
+        }
+        if (defaultLifecycleStateFile && fs.existsSync(defaultLifecycleStateFile)) {
+            try { fs.unlinkSync(defaultLifecycleStateFile); } catch(e) {}
         }
     });
 
@@ -272,6 +277,41 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(await Synthesizer.getRecentSummaryDocuments(collection, 2)).toEqual({documents: []});
     });
 
+    test('buildLifecycleState omits unavailable source fields instead of fabricating hook-board data (#14466)', async () => {
+        const Synthesizer = GoldenPathSynthesizer.constructor;
+        const contexts    = [];
+        const state       = await Synthesizer.buildLifecycleState({
+            agentIdentity       : 'neo-gpt',
+            generatedAt         : '2026-07-02T11:00:00.000Z',
+            mailboxService      : {
+                countMessages: async () => {
+                    throw new Error('mailbox unavailable')
+                }
+            },
+            prs                 : null,
+            requestContextService: {
+                getAgentIdentityNodeId: () => {
+                    throw new Error('unbound context')
+                },
+                run: async (context, callback) => {
+                    contexts.push(context);
+                    return callback()
+                }
+            },
+            routedTopNodes      : undefined
+        });
+
+        expect(state).toEqual({
+            generatedAt: '2026-07-02T11:00:00.000Z'
+        });
+        expect(contexts[0]).toMatchObject({
+            agentIdentityNodeId: '@neo-gpt',
+            source             : 'env-var',
+            userId             : 'neo-gpt',
+            username           : 'neo-gpt'
+        });
+    });
+
     test('findLastQualifyingAssignmentActivity treats owner identity comments as maintainer progress acknowledgements', () => {
         const Synthesizer = GoldenPathSynthesizer.constructor;
         const activity    = Synthesizer.findLastQualifyingAssignmentActivity({
@@ -344,6 +384,121 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(handoffContent).not.toContain('- **Reviewers**:');
         expect(handoffContent).not.toContain('- **Status**:');
         expect(handoffContent).not.toContain('- **Head SHA**:');
+    });
+
+    test('synthesizeGoldenPath writes the shared lifecycle-state hook board from resolved sources (#14466)', async () => {
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const originalFetchOpenPRs         = GoldenPathSynthesizer.fetchOpenPRs;
+        const OpenAiCompatible             = (await import('../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
+        const originalGenerate             = OpenAiCompatible.prototype.generate;
+        const tempDir                      = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-lifecycle-state-'));
+        const issuesDir                    = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-lifecycle-issues-'));
+        const lifecycleStateFile           = path.join(tempDir, 'lifecycle-state.json');
+        const now                          = new Date('2026-07-02T11:15:00.000Z');
+        const suffix                       = `${process.pid}-${Date.now()}`;
+        const readyId                      = `issue-lifecycle-${suffix}`;
+        let   countCalls                   = 0;
+        aiConfig.vectorDimension = 2;
+
+        GraphService.upsertNode({
+            id        : readyId,
+            type      : 'ISSUE',
+            state     : 'OPEN',
+            properties: {
+                labels: ['enhancement', 'ai'],
+                state : 'OPEN',
+                title : 'Emit lifecycle state writer'
+            }
+        });
+
+        StorageRouter.getGraphCollection = async () => ({
+            query: async () => ({
+                ids      : [[readyId]],
+                distances: [[0.1]]
+            })
+        });
+        StorageRouter.getSummaryCollection = async () => ({get: async () => ({documents: ['lifecycle writer context']})});
+        TextEmbeddingService.embedText = async () => [0.1, 0.2];
+        GoldenPathSynthesizer.fetchOpenPRs = async () => [
+            {
+                number        : 14466,
+                url           : 'https://github.com/neomjs/neo/pull/14466',
+                author        : {login: 'neo-gpt'},
+                title         : 'feat(hooks): emit lifecycle state writer',
+                body          : '',
+                createdAt     : '2026-07-02T10:41:08Z',
+                headRefOid    : 'abcdef1234567890',
+                reviewRequests: [{login: 'neo-opus-grace'}],
+                reviews       : [
+                    {state: 'CHANGES_REQUESTED', submittedAt: '2026-07-02T10:55:00Z', author: {login: 'neo-opus-grace'}}
+                ],
+                comments      : []
+            },
+            {
+                number        : 14465,
+                url           : 'https://github.com/neomjs/neo/pull/14465',
+                author        : {login: 'neo-fable'},
+                title         : 'docs(blog): publish time capsule',
+                body          : '',
+                createdAt     : '2026-07-02T10:00:00Z',
+                headRefOid    : 'fedcba0987654321',
+                reviewRequests: [],
+                reviews       : [],
+                comments      : []
+            }
+        ];
+        OpenAiCompatible.prototype.generate = async () => ({content: '{"strategic_brief":"Lifecycle state writer is the immediate route."}'});
+
+        try {
+            await GoldenPathSynthesizer.synthesizeGoldenPath({
+                issuesDir,
+                lifecycleStateAgentIdentity: '@neo-gpt',
+                lifecycleStateFile,
+                lifecycleStateMailboxService: {
+                    countMessages: async ({box, status}) => {
+                        countCalls++;
+                        expect({box, status}).toEqual({box: 'inbox', status: 'unread'});
+                        return {count: 3}
+                    }
+                },
+                now
+            });
+        } finally {
+            GoldenPathSynthesizer.fetchOpenPRs  = originalFetchOpenPRs;
+            StorageRouter.getGraphCollection   = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection = originalGetSummaryCollection;
+            TextEmbeddingService.embedText     = originalEmbedText;
+            OpenAiCompatible.prototype.generate = originalGenerate;
+            fs.rmSync(issuesDir, {recursive: true, force: true});
+        }
+
+        try {
+            const lifecycleState = JSON.parse(fs.readFileSync(lifecycleStateFile, 'utf-8'));
+
+            expect(countCalls).toBe(1);
+            expect(lifecycleState).toMatchObject({
+                generatedAt        : '2026-07-02T11:15:00.000Z',
+                goldenPathDirection: [
+                    {
+                        id   : readyId,
+                        title: 'Emit lifecycle state writer'
+                    }
+                ],
+                openPRs: [
+                    {
+                        number: 14466,
+                        state : 'CHANGES_REQUESTED'
+                    }
+                ],
+                unreadCount: 3
+            });
+            expect(lifecycleState.goldenPathDirection[0].score).toBeCloseTo(10, 5);
+            expect(fs.readdirSync(tempDir).filter(name => name.startsWith('.lifecycle-state.'))).toEqual([]);
+        } finally {
+            fs.rmSync(tempDir, {recursive: true, force: true});
+        }
     });
 
     test('synthesizeGoldenPath overwrites stale author sections when semantic candidates are empty', async () => {
