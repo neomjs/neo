@@ -40,7 +40,6 @@ const PRIORITIES = new Map([
 
     // Identity apex: organism / Agent OS / AI engineering team
     ['benefits/WhatIsNeo'                           , 1.0],
-    ['benefits/Introduction'                        , 0.9],
     ['benefits/ArchitectureOverview'                , 1.0],
     ['benefits/AIEngineeringTeam'                   , 1.0],
     ['benefits/IdentityRitualsCulture'              , 1.0],
@@ -85,6 +84,7 @@ const PRIORITIES = new Map([
     ['agentos/cloud-deployment/MigrationPath'       , 0.7],
 
     // Body/runtime benefits
+    ['benefits/ApplicationEngine'                   , 0.9],
     ['benefits/ObjectPermanence'                    , 0.9],
     ['benefits/JSONFirstUIs'                        , 0.9],
     ['benefits/OffTheMainThread'                    , 0.9],

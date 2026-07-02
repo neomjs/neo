@@ -18,11 +18,11 @@ To understand why Neo.mjs is the only platform truly ready for the AI era, we mu
 When a traditional framework renders a component, the output (the DOM) is just a visual snapshot. The "component" itself effectively ceases to exist. It is melted down. If state changes, the framework must aggressively diff and re-melt the entire blueprint against the bottlenecked Main Thread.
 
 **Neo.mjs is a Persistent Scene Graph.**
-Components in Neo.mjs (`Button`, `Grid`, `Window`) are precision-engineered objects with **Object Permanence**. They exist as live, stateful nodes within a dedicated App Worker. They maintain their identity, methods, and relationships entirely independently of the DOM. 
+Components in Neo.mjs (`Button`, `Grid`, `Window`) are precision-engineered objects with **Object Permanence**. They exist as live, stateful nodes within a dedicated App Worker. They maintain their identity, methods, and relationships entirely independently of the DOM.
 
 ### 2. The JSON-First AI Synergy
-Large Language Models (LLMs) natively excel at reading and generating JSON. 
-For 6 years, long before trends like Vercel's `json-render`, Neo.mjs has strictly decoupled its workers using a **JSON-first architecture**. 
+Large Language Models (LLMs) natively excel at reading and generating JSON.
+For 6 years, long before trends like Vercel's `json-render`, Neo.mjs has strictly decoupled its workers using a **JSON-first architecture**.
 
 Because workers physically cannot read the live DOM, the entire application UI is represented as pure, serializable JSON blueprints. This makes Neo.mjs the premiere target for AI generation. An LLM doesn't have to wrestle with HTML quirks or JSX compilation steps; it simply reads and writes structured JSON data that the Engine translates into blazing-fast UI.
 
@@ -42,7 +42,7 @@ In legacy frameworks, the code you write gets destroyed by the build step. The r
 **In Neo.mjs, the map IS the territory.**
 The runtime retains the semantic structure of your original intent. The **Neural Link** gives AI agents "Read/Write" access to the living runtime. An agent can query: *"Get me the Grid with reference 'sales-report'"*. The Engine replies with the live object. The AI sees that it has 10,000 records and sits in Window 2. 
 
-Coupled with a dedicated AI SDK and four frontier-harness **MCP Servers** (Knowledge Base, Memory Core, Neural Link, GitHub Workflow) plus a File System MCP server for internal `Neo.ai.Agent` local loops, Neo.mjs provides the tooling required for AI to fix bugs, invent new design patterns, and evolve the Engine itself.
+Coupled with a dedicated AI SDK and 5+ **MCP servers** spanning Knowledge Base, Memory Core, Neural Link, GitHub Workflow, GitLab Workflow, and File System access, Neo.mjs provides the tooling required for local or remote AI agents to fix bugs, invent new design patterns, and evolve the Engine itself.
 
 ## Conclusion: Build the Impossible
 
