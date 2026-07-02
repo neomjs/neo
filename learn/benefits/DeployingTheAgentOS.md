@@ -78,32 +78,46 @@ private runtime that makes those surfaces trustworthy: Chroma, SQLite, the
 cloud-safe orchestrator, provider endpoints, and redeploy-safe volumes.
 
 ```mermaid
-block
-    columns 3
-    Stack["cloud deployment topology<br/>six compose containers + optional auth proxy"]:3
-    Clients["agents, hooks,<br/>MCP clients"] Auth["auth proxy<br/>optional seventh"] space
-    space Ingress["ingress<br/>TLS + /kb/* + /mc/*"] space
-    Runtime["runtime support<br/>orchestrator<br/>local-model"] PublicMcp["public MCP server containers<br/>kb-server<br/>mc-server + A2A"] space
-    space StatePlane["state plane<br/>chroma vectors<br/>SQLite graph + WAL"] space
-    space Persist["persistent volumes<br/>tenant mirrors<br/>backups + model data"] space
-
-    Clients --> Auth
-    Auth --> Ingress
-    Ingress --> PublicMcp
-    PublicMcp --> StatePlane
-    Runtime --> PublicMcp
-    StatePlane --> Persist
-
+flowchart TD
     classDef public fill:#222,stroke:#f5a623,stroke-width:2px,color:#fff
     classDef mcp fill:#0f3460,stroke:#16c79a,stroke-width:2px,color:#fff
     classDef infra fill:#243447,stroke:#8ecae6,stroke-width:1px,color:#fff
     classDef control fill:#3d1f00,stroke:#f39c12,stroke-width:2px,color:#eee
     classDef volume fill:#1f2933,stroke:#95a5a6,stroke-width:1px,color:#eee
-    class Clients,Auth,Ingress public
-    class PublicMcp mcp
-    class StatePlane infra
-    class Runtime control
-    class Persist,Stack volume
+
+    Stack["cloud deployment topology<br/>six compose containers<br/>+ optional auth proxy"]:::volume
+
+    subgraph ingressPlane["ingress plane"]
+        Clients["agents, hooks,<br/>MCP clients"]:::public
+        Auth["auth proxy<br/>optional seventh"]:::public
+        Ingress["ingress<br/>TLS + /kb/* + /mc/*"]:::public
+        Clients --> Auth
+        Auth --> Ingress
+    end
+
+    subgraph mcpPlane["public MCP server plane"]
+        PublicMcp["kb-server<br/>mc-server + A2A"]:::mcp
+    end
+
+    subgraph runtimePlane["runtime support plane"]
+        Runtime["orchestrator<br/>local-model provider"]:::control
+    end
+
+    subgraph statePlane["state plane"]
+        State["chroma vectors<br/>SQLite graph + WAL"]:::infra
+    end
+
+    subgraph volumePlane["persistent volumes"]
+        Persist["tenant mirrors<br/>backups + model data"]:::volume
+    end
+
+    Stack -.-> Ingress
+    Stack -.-> Runtime
+    Ingress --> PublicMcp
+    Runtime --> PublicMcp
+    PublicMcp --> State
+    Runtime --> State
+    State --> Persist
 ```
 
 The public repository's reference compose currently defines those six service
