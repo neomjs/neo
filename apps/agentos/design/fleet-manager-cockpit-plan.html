@@ -1,0 +1,323 @@
+<style>
+  :root {
+    --ground:#0b0e13; --panel:#141a23; --panel-2:#1a212c; --rail:#0e131a;
+    --line:#262f3d; --line-soft:#1c242f;
+    --ink:#d6dce6; --ink-dim:#8b97a8; --ink-faint:#5a6575;
+    --signal:#5eead4;            /* live / key action — used sparingly */
+    --ok:#34d399; --idle:#f5b544; --wedged:#f4718b; --limited:#a78bfa; --off:#5b6675;
+    --f-claude:#d99a5b; --f-gpt:#58c093; --f-gemini:#6ba3e8; --f-human:#c9d2de;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px 96px;color:var(--ink);
+    font-family:var(--sans);line-height:1.6;-webkit-font-smoothing:antialiased}
+  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--signal);margin:0}
+  h1{font-size:clamp(30px,4.4vw,46px);line-height:1.08;letter-spacing:-.02em;text-wrap:balance;
+    margin:14px 0 0;font-weight:640}
+  h2{font-size:24px;letter-spacing:-.01em;margin:0 0 4px;font-weight:620}
+  h3{font-size:16px;margin:0;font-weight:620}
+  .lede{font-size:19px;color:var(--ink-dim);max-width:66ch;text-wrap:pretty;margin:18px 0 0}
+  .sec{margin-top:72px}
+  .sec-head{display:flex;align-items:baseline;gap:14px;border-bottom:1px solid var(--line);
+    padding-bottom:12px;margin-bottom:26px}
+  .sec-num{font-family:var(--mono);font-size:12px;color:var(--ink-faint);letter-spacing:.1em}
+  .muted{color:var(--ink-dim)} .faint{color:var(--ink-faint)}
+  .mono{font-family:var(--mono)}
+  p{margin:12px 0 0;text-wrap:pretty}
+
+  /* ── header ── */
+  header{padding-top:56px}
+  .kicker-row{display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center;margin-top:22px;
+    font-family:var(--mono);font-size:12px;color:var(--ink-faint)}
+  .kicker-row b{color:var(--ink-dim);font-weight:500}
+
+  /* ── the cockpit mockup ── */
+  .screen{margin-top:26px;border:1px solid var(--line);border-radius:12px;overflow:hidden;
+    background:linear-gradient(180deg,#0f141c,#0c1017);box-shadow:0 24px 60px -30px #000}
+  .screen-chrome{display:flex;align-items:center;gap:14px;padding:11px 16px;
+    background:var(--rail);border-bottom:1px solid var(--line)}
+  .dots{display:flex;gap:7px} .dots i{width:11px;height:11px;border-radius:50%;background:#2a3340}
+  .chrome-title{font-family:var(--mono);font-size:12px;color:var(--ink-dim)}
+  .chrome-title b{color:var(--signal);font-weight:600}
+  .chrome-spacer{flex:1}
+  .start-btn{font-family:var(--mono);font-size:12px;color:#06231d;background:var(--signal);
+    border:0;border-radius:6px;padding:7px 13px;font-weight:600;letter-spacing:.02em;cursor:pointer}
+  .start-btn:focus-visible{outline:2px solid #fff;outline-offset:2px}
+
+  .cockpit{display:grid;grid-template-columns:1.55fr 1fr;min-height:430px}
+  .fleet{padding:16px;border-right:1px solid var(--line-soft)}
+  .panel-label{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--ink-faint);display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .health{display:flex;gap:12px;font-size:11px}
+  .health span{display:flex;align-items:center;gap:5px}
+  .fleet-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+
+  .agent{position:relative;background:var(--panel);border:1px solid var(--line-soft);
+    border-radius:9px;padding:11px 12px 11px 14px;overflow:hidden}
+  .agent::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--fam)}
+  .agent-top{display:flex;align-items:center;gap:8px}
+  .dot{width:8px;height:8px;border-radius:50%;flex:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--st) 22%,transparent)}
+  .agent-name{font-weight:600;font-size:14px}
+  .agent-model{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);margin-left:auto}
+  .agent-state{font-family:var(--mono);font-size:11px;color:var(--st);margin-top:7px;letter-spacing:.02em}
+  .agent-lane{font-size:12px;color:var(--ink-dim);margin-top:5px;line-height:1.45;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .agent-lane b{color:var(--ink);font-weight:600}
+  .agent-foot{display:flex;justify-content:space-between;align-items:center;margin-top:9px;
+    font-family:var(--mono);font-size:10.5px;color:var(--ink-faint)}
+  .ctrl{display:flex;gap:5px}
+  .ctrl i{width:20px;height:20px;border-radius:5px;border:1px solid var(--line);display:grid;
+    place-items:center;color:var(--ink-dim);font-style:normal;font-size:10px}
+
+  /* activity stream */
+  .stream{padding:16px;background:var(--rail);display:flex;flex-direction:column;min-width:0}
+  .feed{margin-top:2px;overflow:hidden;position:relative}
+  .ev{display:grid;grid-template-columns:auto 1fr;gap:10px;padding:9px 0;border-bottom:1px solid var(--line-soft)}
+  .ev-time{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);padding-top:2px;white-space:nowrap}
+  .ev-body{min-width:0}
+  .ev-kind{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+    padding:1px 6px;border-radius:4px;font-weight:600}
+  .k-pr{color:#0a2018;background:#2ecf94} .k-a2a{color:#08201d;background:var(--signal)}
+  .k-review{color:#221a06;background:var(--idle)} .k-alert{color:#2a0d15;background:var(--wedged)}
+  .ev-text{font-size:12.5px;color:var(--ink);margin-top:4px;line-height:1.4}
+  .ev-text b{color:var(--signal);font-weight:600}
+  .ev-who{color:var(--ink-dim)}
+
+  /* legend under mockup */
+  .legend{display:flex;flex-wrap:wrap;gap:8px 18px;font-family:var(--mono);font-size:11px;
+    color:var(--ink-faint);padding:11px 16px;background:var(--rail);border-top:1px solid var(--line-soft)}
+  .legend span{display:flex;align-items:center;gap:6px}
+  .sw{width:9px;height:9px;border-radius:50%}
+  .caption{font-size:13px;color:var(--ink-faint);margin-top:14px;font-style:italic;text-align:center}
+
+  /* ── principles ── */
+  .principles{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:8px}
+  .pr{background:var(--panel);border:1px solid var(--line-soft);border-radius:10px;padding:16px 17px}
+  .pr h3{font-size:14.5px} .pr p{font-size:13.5px;color:var(--ink-dim);margin-top:7px}
+
+  /* ── reframe callout ── */
+  .reframe{background:linear-gradient(180deg,#171019,#12111a);border:1px solid #3a2a3f;
+    border-radius:11px;padding:20px 22px;margin-top:8px}
+  .reframe .tag{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#e08bb8}
+  .bars{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:16px}
+  .bar h3{font-size:13px;font-family:var(--mono);letter-spacing:.06em;color:var(--ink-dim);font-weight:500}
+  .bar .val{font-size:13px;color:var(--ink-dim);margin-top:6px}
+  .meter{height:8px;border-radius:5px;background:#20262f;margin-top:8px;overflow:hidden}
+  .meter i{display:block;height:100%}
+
+  /* ── lanes ── */
+  .lanes{display:flex;flex-direction:column;gap:14px;margin-top:8px}
+  .lane{border:1px solid var(--line);border-radius:11px;overflow:hidden;background:var(--panel)}
+  .lane-head{display:flex;align-items:center;gap:13px;padding:15px 18px;background:var(--panel-2);
+    border-bottom:1px solid var(--line-soft)}
+  .lane-id{font-family:var(--mono);font-size:12px;font-weight:700;color:#06231d;background:var(--signal);
+    padding:3px 9px;border-radius:6px;letter-spacing:.03em}
+  .lane-own{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--ink-faint)}
+  .lane-own b{color:var(--ink-dim);font-weight:500}
+  .lane-body{padding:15px 18px}
+  .lane-body>p{margin-top:0;color:var(--ink-dim);font-size:14px}
+  .subs{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:8px}
+  .subs li{display:grid;grid-template-columns:auto 1fr;gap:11px;align-items:baseline;font-size:13.5px}
+  .subs .s-tag{font-family:var(--mono);font-size:10px;color:var(--signal);border:1px solid #23463f;
+    border-radius:4px;padding:1px 6px;white-space:nowrap;letter-spacing:.03em}
+  .subs b{color:var(--ink);font-weight:600} .subs .s-txt{color:var(--ink-dim)}
+
+  /* ── critical path ── */
+  .path{display:grid;grid-template-columns:repeat(5,1fr);gap:0;margin-top:8px;
+    border:1px solid var(--line);border-radius:11px;overflow:hidden}
+  .step{padding:16px 16px 18px;border-right:1px solid var(--line-soft);position:relative;background:var(--panel)}
+  .step:last-child{border-right:0}
+  .step .n{font-family:var(--mono);font-size:11px;color:var(--signal)}
+  .step h3{font-size:14px;margin-top:8px} .step p{font-size:12.5px;color:var(--ink-dim);margin-top:6px}
+  .step .gate{font-family:var(--mono);font-size:10.5px;color:var(--idle);margin-top:10px;display:block}
+
+  a.ref{color:var(--signal);text-decoration:none;border-bottom:1px solid #24463f}
+  @media (max-width:820px){
+    .cockpit{grid-template-columns:1fr} .fleet{border-right:0;border-bottom:1px solid var(--line-soft)}
+    .fleet-grid,.principles,.bars,.path{grid-template-columns:1fr}
+    .path{border-radius:11px} .step{border-right:0;border-bottom:1px solid var(--line-soft)}
+  }
+  @media (prefers-reduced-motion:no-preference){
+    .dot.live{animation:pulse 2.4s ease-in-out infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+  }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Fleet Manager · Product Direction + Execution Plan</p>
+    <h1>Mission control for a cross-model AI engineering team — not a settings form.</h1>
+    <p class="lede">The services spine exists. The <b style="color:var(--ink)">product</b> — the shell, the cockpit, the wiring a non-expert operates cold — is unplanned. This is what it should be, and the lanes that build it.</p>
+    <div class="kicker-row">
+      <span>Epic <b>#13015</b></span><span>Parent <b>#13012</b></span>
+      <span>Shell <b>#13033</b></span><span>Docking <b>#13158</b></span>
+      <span>Target <b>Electron · one SharedWorker heap · Agent OS in-process</b></span>
+    </div>
+  </header>
+
+  <!-- ── 1 · THE PRODUCT ── -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-num">01</span><h2>What it should be</h2></div>
+    <p class="muted" style="max-width:70ch">The bar is a control room, not a config panel: you see the whole fleet's state at a glance, watch its work stream in real time, and command it — start, stop, restart — without a terminal. A live multi-agent fleet with high-frequency streams, views that split across monitors on one heap, object-permanent state: this is the exact app Neo's engine is built for. Done right it's the flagship demo. Done as it is now, it undercuts the whole story.</p>
+
+    <div class="screen">
+      <div class="screen-chrome">
+        <div class="dots"><i></i><i></i><i></i></div>
+        <span class="chrome-title"><b>Neo Fleet</b> — mission control</span>
+        <span class="chrome-spacer"></span>
+        <button class="start-btn">▶ Start morning fleet</button>
+      </div>
+      <div class="cockpit">
+        <div class="fleet">
+          <div class="panel-label"><span>Fleet · 7 agents</span>
+            <span class="health">
+              <span><i class="sw" style="background:var(--ok)"></i>3 working</span>
+              <span><i class="sw" style="background:var(--idle)"></i>2 idle</span>
+              <span><i class="sw" style="background:var(--limited)"></i>1 limited</span>
+            </span>
+          </div>
+          <div class="fleet-grid">
+            <div class="agent" style="--fam:var(--f-claude);--st:var(--ok)">
+              <div class="agent-top"><i class="dot live" style="background:var(--st)"></i><span class="agent-name">Grace</span><span class="agent-model">opus-4.8</span></div>
+              <div class="agent-state">▲ WORKING</div>
+              <div class="agent-lane">planning <b>Fleet Manager</b> — epic → lanes → subs</div>
+              <div class="agent-foot"><span>PR #14439 ✓</span><span class="ctrl"><i>⏸</i><i>↻</i></span></div>
+            </div>
+            <div class="agent" style="--fam:var(--f-gpt);--st:var(--ok)">
+              <div class="agent-top"><i class="dot live" style="background:var(--st)"></i><span class="agent-name">Euclid</span><span class="agent-model">gpt-5.5</span></div>
+              <div class="agent-state">▲ WORKING</div>
+              <div class="agent-lane">MX hook-substrate — <b>#14466</b> lifecycle-state</div>
+              <div class="agent-foot"><span>3 open PRs</span><span class="ctrl"><i>⏸</i><i>↻</i></span></div>
+            </div>
+            <div class="agent" style="--fam:var(--f-claude);--st:var(--ok)">
+              <div class="agent-top"><i class="dot live" style="background:var(--st)"></i><span class="agent-name">Ada</span><span class="agent-model">opus-4.8</span></div>
+              <div class="agent-state">▲ WORKING</div>
+              <div class="agent-lane">re-decomposing <b>#13015</b> Fleet Manager</div>
+              <div class="agent-foot"><span>PR #14492</span><span class="ctrl"><i>⏸</i><i>↻</i></span></div>
+            </div>
+            <div class="agent" style="--fam:var(--f-claude);--st:var(--limited)">
+              <div class="agent-top"><i class="dot" style="background:var(--st)"></i><span class="agent-name">Vega</span><span class="agent-model">fable-5</span></div>
+              <div class="agent-state">◔ RATE-LIMITED · ~8:50p</div>
+              <div class="agent-lane">v13.1 release cut — <b>#14039</b></div>
+              <div class="agent-foot"><span>resumes 20:50</span><span class="ctrl"><i>⏸</i><i>↻</i></span></div>
+            </div>
+            <div class="agent" style="--fam:var(--f-claude);--st:var(--idle)">
+              <div class="agent-top"><i class="dot" style="background:var(--st)"></i><span class="agent-name">Clio</span><span class="agent-model">fable-5</span></div>
+              <div class="agent-state">● IDLE · 12m</div>
+              <div class="agent-lane">business-engine <b>#14442</b> — awaiting #14422</div>
+              <div class="agent-foot"><span>last: 19:23</span><span class="ctrl"><i>▶</i><i>↻</i></span></div>
+            </div>
+            <div class="agent" style="--fam:var(--f-gemini);--st:var(--off)">
+              <div class="agent-top"><i class="dot" style="background:var(--st)"></i><span class="agent-name">Gemini</span><span class="agent-model">3.1-pro</span></div>
+              <div class="agent-state">○ BENCHED</div>
+              <div class="agent-lane faint">operator-benched</div>
+              <div class="agent-foot"><span>—</span><span class="ctrl"><i>▶</i></span></div>
+            </div>
+          </div>
+        </div>
+        <div class="stream">
+          <div class="panel-label"><span>Live activity</span><span class="mono" style="color:var(--signal)">● streaming</span></div>
+          <div class="feed">
+            <div class="ev"><span class="ev-time">19:34</span><div class="ev-body"><span class="ev-kind k-review">review</span><div class="ev-text"><span class="ev-who">Grace →</span> <b>#14439</b> APPROVED — hold lifted</div></div></div>
+            <div class="ev"><span class="ev-time">19:23</span><div class="ev-body"><span class="ev-kind k-pr">pr merged</span><div class="ev-text"><span class="ev-who">tobiu ✓</span> <b>#14498</b> wake+heartbeat default-off</div></div></div>
+            <div class="ev"><span class="ev-time">18:33</span><div class="ev-body"><span class="ev-kind k-a2a">a2a</span><div class="ev-text"><span class="ev-who">Grace → Ada</span> review-override on <b>#14499</b> (ADR-0019)</div></div></div>
+            <div class="ev"><span class="ev-time">17:25</span><div class="ev-body"><span class="ev-kind k-pr">pr opened</span><div class="ev-text"><span class="ev-who">Euclid</span> <b>#14499</b> validate deployment config</div></div></div>
+            <div class="ev"><span class="ev-time">16:44</span><div class="ev-body"><span class="ev-kind k-alert">rate-limit</span><div class="ev-text"><span class="ev-who">Vega</span> hit 5h limit — back ~20:50</div></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="legend">
+        <span><i class="sw" style="background:var(--ok)"></i>working</span>
+        <span><i class="sw" style="background:var(--idle)"></i>idle</span>
+        <span><i class="sw" style="background:var(--wedged)"></i>wedged</span>
+        <span><i class="sw" style="background:var(--limited)"></i>rate-limited</span>
+        <span><i class="sw" style="background:var(--off)"></i>benched / offline</span>
+        <span style="margin-left:auto">▎ family: <i class="sw" style="background:var(--f-claude);border-radius:2px"></i>Claude <i class="sw" style="background:var(--f-gpt);border-radius:2px"></i>GPT <i class="sw" style="background:var(--f-gemini);border-radius:2px"></i>Gemini</span>
+      </div>
+    </div>
+    <p class="caption">Static direction mock — the cockpit's default view. Click an agent → its thought-stream, lane, repo, and PRs; drag it out → its own OS window on the same heap.</p>
+
+    <div class="principles">
+      <div class="pr"><h3>State reads at a glance</h3><p>Status is encoded in form, not just text — a colored pulse, a family rail, a one-line "what it's doing now." You know the fleet's health before you read a word.</p></div>
+      <div class="pr"><h3>Real-time is the spine</h3><p>The activity feed and every status is live — no refresh. This is where the engine's 40k-updates/sec, object-permanent architecture stops being a claim and becomes the product.</p></div>
+      <div class="pr"><h3>Operable cold</h3><p>Add an agent = a name + a token. Start the fleet = one button. The success test is a person who has never seen it running their team by end of the first morning.</p></div>
+    </div>
+  </section>
+
+  <!-- ── 2 · THE HONEST STATE ── -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Where it actually is</h2></div>
+    <div class="reframe">
+      <span class="tag">The counter lies</span>
+      <p style="margin-top:10px;max-width:74ch">16 of 17 leaves closed reads as "almost done." It isn't — decomposition <i>froze</i> when the author was benched. The 16 closed leaves are all <b>one hemisphere</b>: the Brain-side services (registry, credentials, lifecycle, repo-provisioning). Real, solid machinery — and invisible to an operator.</p>
+      <div class="bars">
+        <div class="bar"><h3>Brain — fleet services (ai/)</h3><div class="meter"><i style="width:88%;background:var(--ok)"></i></div><div class="val">~done · define / start / stop / provision exist as services</div></div>
+        <div class="bar"><h3>Body — the product surface (apps/)</h3><div class="meter"><i style="width:6%;background:var(--wedged)"></i></div><div class="val">~0% planned · shell, cockpit, wiring, credentials-UI — the adoption wall</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 3 · THE LANES ── -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-num">03</span><h2>The lanes that build the product</h2>
+      <span class="faint mono" style="margin-left:auto;font-size:12px">peers self-select; owners are suggested</span></div>
+    <div class="lanes">
+      <div class="lane">
+        <div class="lane-head"><span class="lane-id">Lane A</span><h3>The shell</h3><span class="lane-own"><b>owner:</b> Ada (holds #13033)</span></div>
+        <div class="lane-body"><p>Electron build root — boots the Agent OS in-process, one window serves the harness app. Nothing UX-real exists until the shell hosts it. This is the critical-path head; everything downstream waits on it.</p>
+          <ul class="subs">
+            <li><span class="s-tag">A1</span><span class="s-txt"><b>Electron build root</b> boots; Agent-OS main-process host; child-process supervision as the capped fallback.</span></li>
+            <li><span class="s-tag">A2</span><span class="s-txt"><b>Multi-window primitive</b> — a view splits into a second OS window on the shared App-Worker heap (the one Neo-native proof).</span></li>
+            <li><span class="s-tag">A3</span><span class="s-txt"><b>Re-invoke mechanism lives here</b> — the FM hosts the instances, so waking a parked agent = the host re-invoking a process it owns. Not an external-harness sidecar thrown away in v13.2 (Vega's insight).</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="lane-head"><span class="lane-id">Lane B</span><h3>The cockpit — UI / UX</h3><span class="lane-own"><b>owner:</b> Fable (fresh) · design-led</span></div>
+        <div class="lane-body"><p>The product surface above, built to the direction in §01. This is the lane that decides whether the FM is a flagship or an embarrassment — it gets a real design pass, not a form generator. Consumes Clio's <a class="ref" href="#">#13158</a> docking as the container contract.</p>
+          <ul class="subs">
+            <li><span class="s-tag">B1</span><span class="s-txt"><b>Cockpit shell + fleet grid</b> — live agent cards (status form + family rail + current-lane line); the health summary bar.</span></li>
+            <li><span class="s-tag">B2</span><span class="s-txt"><b>Live activity stream</b> — A2A / PR / lane-state events, real-time, bounded. The engine's real-time story made visible.</span></li>
+            <li><span class="s-tag">B3</span><span class="s-txt"><b>Agent detail + pop-out</b> — drill into one agent (thought-stream, lane, repo, PRs); drag to its own OS window.</span></li>
+            <li><span class="s-tag">B4</span><span class="s-txt"><b>Controls</b> — start / stop / restart per agent + whole-fleet; the one-click morning start.</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="lane-head"><span class="lane-id">Lane C</span><h3>The wiring</h3><span class="lane-own"><b>owner:</b> Euclid / GPT (NL/MCP lane)</span></div>
+        <div class="lane-body"><p>Neural Link / MCP bridge: the cockpit reads the existing fleet-services spine (the 16 closed Brain leaves) live. No faked state — status/activity come from the real services or degrade honestly. This is where "the spine is done" finally pays off.</p>
+          <ul class="subs">
+            <li><span class="s-tag">C1</span><span class="s-txt"><b>Live status/activity feed</b> — bridge the lifecycle + A2A + PR services into the cockpit's real-time streams.</span></li>
+            <li><span class="s-tag">C2</span><span class="s-txt"><b>Control round-trip</b> — cockpit start/stop/restart → the lifecycle service → settle-or-reject the runtime MCP-restart class.</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="lane-head"><span class="lane-id">Lane D</span><h3>Credentials + onboarding</h3><span class="lane-own"><b>owner:</b> Opus (conserve) · security-sensitive</span></div>
+        <div class="lane-body"><p>The "add an agent cold" flow + the credential boundary the MVP names. PATs stay Brain-side, encrypted at rest, never transit the browser — the two-hemisphere security rule is non-negotiable here.</p>
+          <ul class="subs">
+            <li><span class="s-tag">D1</span><span class="s-txt"><b>Add-agent flow</b> — username + PAT + harness type → the Node-side registry (#13031 exists); the UX for it does not.</span></li>
+            <li><span class="s-tag">D2</span><span class="s-txt"><b>Encrypted PAT-at-rest</b> — OS keychain / encrypted store; the credential-boundary AC.</span></li>
+            <li><span class="s-tag">D3</span><span class="s-txt"><b>Remote-tenant connect</b> — tenant URL + PAT → remote MC/KB (the design-partner cohort's actual entry).</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 4 · CRITICAL PATH ── -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-num">04</span><h2>Critical path to the PoC</h2>
+      <span class="faint mono" style="margin-left:auto;font-size:12px">operator-falsifiable slice first</span></div>
+    <div class="path">
+      <div class="step"><span class="n">01</span><h3>Shell boots</h3><p>Electron root (A1) — the whole product waits on this one spike.</p><span class="gate">gate: #13033</span></div>
+      <div class="step"><span class="n">02</span><h3>Cockpit skeleton</h3><p>Fleet grid + one live agent card (B1) inside the shell.</p><span class="gate">needs: A1</span></div>
+      <div class="step"><span class="n">03</span><h3>Live wiring</h3><p>One real status + one real activity event stream in (C1).</p><span class="gate">needs: B1, spine</span></div>
+      <div class="step"><span class="n">04</span><h3>Spawn one agent</h3><p>Add-agent (D1) + start-one (B4) → a real external harness comes up.</p><span class="gate">needs: B4, D1</span></div>
+      <div class="step"><span class="n">05</span><h3>PoC met</h3><p><b>@tobiu starts one agent from the UI instead of a terminal.</b></p><span class="gate">the falsifier</span></div>
+    </div>
+    <p class="muted" style="margin-top:20px;max-width:72ch">Next step if this direction holds: I file Lane A + B1 as real sub-tickets under #13015 today, tagged to this plan — <b style="color:var(--ink)">into lanes, not a table</b> — and this becomes the template I run for the other nine highest-ROI epics.</p>
+  </section>
+</div>
