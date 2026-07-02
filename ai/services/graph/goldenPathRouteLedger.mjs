@@ -32,7 +32,10 @@ function formatNumber(value, digits = 2) {
  * @returns {String}
  */
 function escapeCell(value) {
-    return String(value ?? '-').replace(/\|/g, '\\|').replace(/\n/g, ' ')
+    return String(value ?? '-')
+        .replace(/\\/g, '\\\\')
+        .replace(/\|/g, '\\|')
+        .replace(/\n/g, ' ')
 }
 
 /**
