@@ -41,6 +41,20 @@ Underneath both sits the **Native Edge Graph**: issues, classes, sessions, and d
 
 Passive RAG retrieves the nearest text and hopes it's relevant. Active Hybrid GraphRAG *reasons over structure*: it knows that a class with many dependents is higher-leverage than an isolated one, that a blocked issue should sink, that the current frontier of work should pull related nodes up. The retrieval is steered by the system's own model of itself — which is exactly why the Brain can prioritize its own work instead of waiting to be told.
 
+## Local memory, shared memory, your model boundary
+
+The memory plane is local-first, but not local-only. A single developer can run
+it beside one checkout; a team can deploy it as a tenant-scoped cloud Agent OS
+where multiple maintainers share the same institutional memory. That topology
+choice is separate from the model-provider choice: chat, summaries, embeddings,
+and graph extraction can be routed to local OpenAI-compatible or Ollama
+providers, or to remote providers when that is the right trade.
+
+This is why the same memory story works for private repositories, on-prem
+teams, and public open-source work. The system's durable reasoning does not have
+to leave the environment just because the team wants memory, and it does not
+have to stay on one laptop just because the first proof started locally.
+
 ## Why this lives in *your* engine
 
 The Brain's memory philosophy is the same one the [runtime Body](ArchitectureOverview.md) is built on: state that **persists** with identity rather than melting away on every render. Components keep [Object Permanence](ObjectPermanence.md); agents keep memory permanence. In both halves of the organism, the system refuses to throw away the structure it just built — and that is what makes it something an AI can reason about, inhabit, and improve.
