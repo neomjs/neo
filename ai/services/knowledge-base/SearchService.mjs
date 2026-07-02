@@ -8,6 +8,7 @@ import logger                         from '../../mcp/server/knowledge-base/logg
 import path                           from 'path';
 import QueryService                   from './QueryService.mjs';
 import {checkAskRateLimit}            from './helpers/askRateLimit.mjs';
+import {isRemoteKnowledgeBaseDeployment} from './helpers/deploymentMode.mjs';
 import {getMissingAskSynthesisLeaves} from './helpers/askSynthesisGuard.mjs';
 
 const LOCAL_EMPTY_COLLECTION_ANSWER  = "The knowledge base collection is empty. Populate it with the release artifact via 'npm run ai:download-kb' (or build locally with 'npm run ai:sync-kb').";
@@ -162,7 +163,7 @@ class SearchService extends Base {
      * @returns {String} The empty-collection remediation message.
      */
     getEmptyCollectionAnswer() {
-        return aiConfig.transport === 'sse'
+        return isRemoteKnowledgeBaseDeployment(aiConfig)
             ? REMOTE_EMPTY_COLLECTION_ANSWER
             : LOCAL_EMPTY_COLLECTION_ANSWER;
     }
