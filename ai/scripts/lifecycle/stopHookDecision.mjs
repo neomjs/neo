@@ -156,12 +156,17 @@ export function isOperatorInLoop({stopHookActive, promptingText = ''}) {
  */
 export const FORWARD_ARTIFACT_RULES = Object.freeze([
     {cls: 'ticket-or-pr-created', names: ['mcp__neo-mjs-github-workflow__create_issue', 'create_issue']},
-    {cls: 'ticket-or-pr-created', bashRe: /\bgh\s+pr\s+create\b/},
+    {cls: 'ticket-or-pr-created', bashRe: /\bgh\s+(?:pr|issue)\s+create\b/},
     {cls: 'gh-comment',           names: ['mcp__neo-mjs-github-workflow__manage_issue_comment', 'manage_issue_comment', 'mcp__neo-mjs-github-workflow__manage_pr_review', 'manage_pr_review', 'mcp__neo-mjs-github-workflow__create_discussion', 'create_discussion', 'mcp__neo-mjs-github-workflow__manage_discussion_comment', 'manage_discussion_comment']},
+    {cls: 'gh-comment',           bashRe: /\bgh\s+(?:pr|issue)\s+comment\b|\bgh\s+pr\s+review\b/},
     {cls: 'a2a-message',          names: ['mcp__neo-mjs-memory-core__add_message', 'add_message']},
     {cls: 'code-change',          bashRe: /\bgit\s+(commit|push)\b/},
     {cls: 'code-change',          names: ['Edit', 'Write', 'NotebookEdit', 'replace', 'write_file']},
-    {cls: 'issue-graph-mutation', names: ['mcp__neo-mjs-github-workflow__manage_issue_assignees', 'manage_issue_assignees', 'mcp__neo-mjs-github-workflow__update_issue_relationship', 'update_issue_relationship', 'mcp__neo-mjs-github-workflow__manage_issue_labels', 'manage_issue_labels']}
+    {cls: 'issue-graph-mutation', names: ['mcp__neo-mjs-github-workflow__manage_issue_assignees', 'manage_issue_assignees', 'mcp__neo-mjs-github-workflow__update_issue_relationship', 'update_issue_relationship', 'mcp__neo-mjs-github-workflow__manage_issue_labels', 'manage_issue_labels']},
+    // Sanctioned CLI write fallbacks beyond create/comment: label/assignee/state edits and raw REST
+    // writes (e.g. the documented requested_reviewers POST fallback for token-scope gaps). Read-only
+    // `gh api` (GET, or no explicit -X/--method) deliberately does NOT match.
+    {cls: 'issue-graph-mutation', bashRe: /\bgh\s+(?:pr|issue)\s+edit\b|\bgh\s+api\b[^|;&]*(?:-X|--method)[=\s]+['"]?(?:POST|PATCH|PUT|DELETE)\b/i}
 ]);
 
 /**

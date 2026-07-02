@@ -1,5 +1,7 @@
 import fs              from 'node:fs';
+import os              from 'node:os';
 import path            from 'node:path';
+import {spawn}         from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {test, expect}  from '@playwright/test';
 import {
@@ -8,6 +10,7 @@ import {
     decideStopHookAction,
     FORWARD_ARTIFACT_RULES
 }                       from '../../../../ai/scripts/lifecycle/stopHookDecision.mjs';
+import {extractTurnToolEventsFromJsonl} from '../../../../.claude/hooks/laneStateStopHook.mjs';
 
 /**
  * Re-fire axis — declining-yield admission over forward-artifact classes.
@@ -90,6 +93,31 @@ test.describe('ai/scripts/lifecycle/stopHookDecision — declining-yield re-fire
         expect(decideRefireAdmission([['gh-comment'], ['gh-comment']], ['gh-comment'], {n: 2}).admit).toBe(true);
     });
 
+    // ── CLI write fallbacks (review RA: gh writes must not look artifact-empty) ────────────────
+    test('classify: sanctioned gh CLI write fallbacks are forward artifacts', () => {
+        expect(classifyForwardArtifacts([{name: 'Bash', command: 'gh issue create --title x'}]))
+            .toEqual(['ticket-or-pr-created']);
+        expect(classifyForwardArtifacts([{name: 'Bash', command: 'gh pr review 14437 --approve'}]))
+            .toEqual(['gh-comment']);
+        expect(classifyForwardArtifacts([{name: 'Bash', command: 'gh issue comment 14420 --body hi'}]))
+            .toEqual(['gh-comment']);
+        expect(classifyForwardArtifacts([{name: 'Bash', command: 'gh pr comment 14439 --body hi'}]))
+            .toEqual(['gh-comment']);
+        expect(classifyForwardArtifacts([{name: 'Bash', command: 'gh issue edit 14420 --add-label ai'}]))
+            .toEqual(['issue-graph-mutation']);
+        expect(classifyForwardArtifacts([{name: 'Bash', command: "gh api -X POST repos/neomjs/neo/pulls/14439/requested_reviewers -f 'reviewers[]=neo-gpt'"}]))
+            .toEqual(['issue-graph-mutation']);
+    });
+
+    test('classify: read-only gh stays non-artifact (view/list/checks and GET api)', () => {
+        expect(classifyForwardArtifacts([
+            {name: 'Bash', command: 'gh pr view 14439 --json state'},
+            {name: 'Bash', command: 'gh issue list --state open --limit 10'},
+            {name: 'Bash', command: 'gh pr checks 14439 --watch'},
+            {name: 'Bash', command: 'gh api repos/neomjs/neo/pulls/14437/requested_reviewers'}
+        ])).toEqual([]);
+    });
+
     // ── decideStopHookAction integration — L3 guards ────────────────────────────────────────────
     test('decision: a VALID terminal + admitted refire allows with the declining-yield reason', () => {
         const refire = {admit: true, reason: 'declining-yield admission: 2 consecutive…'};
@@ -142,5 +170,78 @@ test.describe('ai/scripts/lifecycle/stopHookDecision — declining-yield re-fire
 
         // The defect case the axis fixes: continuing with no new classes must admit after the window.
         expect(decideRefireAdmission(chain, ['a2a-message'], {n: 2}).admit).toBe(true);
+    });
+
+    // ── Adapter-level wiring (review RA: JSONL extraction + spawned-hook chain) ─────────────────
+    test('adapter: turn-scoped tool_use extraction is prompting-boundary-scoped and lifts Bash commands', () => {
+        // Only tool_use blocks AFTER the last text-bearing user record count; the Bash `command`
+        // input is lifted; tool_result-only user records do not move the boundary; malformed lines skip.
+        const jsonl = [
+            JSON.stringify({type: 'user',      message: {role: 'user',      content: [{type: 'text', text: 'old prompt'}]}}),
+            JSON.stringify({type: 'assistant', message: {role: 'assistant', content: [{type: 'tool_use', name: 'mcp__neo-mjs-github-workflow__create_issue', input: {}}]}}),
+            JSON.stringify({type: 'user',      message: {role: 'user',      content: [{type: 'text', text: '[WAKE] current prompt'}]}}),
+            JSON.stringify({type: 'assistant', message: {role: 'assistant', content: [
+                {type: 'tool_use', name: 'Bash', input: {command: 'git commit -m "x (#1)"'}},
+                {type: 'text', text: 'working'}
+            ]}}),
+            JSON.stringify({type: 'user',      message: {role: 'user',      content: [{type: 'tool_result', content: 'ok'}]}}),
+            JSON.stringify({type: 'assistant', message: {role: 'assistant', content: [{type: 'tool_use', name: 'mcp__neo-mjs-memory-core__add_memory', input: {}}]}}),
+            'not json at all'
+        ].join('\n');
+
+        const events = extractTurnToolEventsFromJsonl(jsonl);
+        expect(events).toEqual([
+            {name: 'Bash', command: 'git commit -m "x (#1)"'},
+            {name: 'mcp__neo-mjs-memory-core__add_memory', command: ''}
+        ]);
+        // With the classifier: the pre-boundary create_issue is excluded by the turn scope; add_memory
+        // is mandatory-gate-excluded — only the commit counts.
+        expect(classifyForwardArtifacts(events)).toEqual(['code-change']);
+    });
+
+    test('adapter e2e: a spawned forced-continuation chain refuses on turn 1, admits on turn 2, and resets the ledger', async () => {
+        // Mirrors the sibling spec's spawn harness: env goes to the CHILD (never process.env mutation);
+        // the SAME temp dir across spawns is the chain-persistence surface under test.
+        const dir            = fs.mkdtempSync(path.join(os.tmpdir(), 'refire-e2e-')),
+              transcriptPath = path.join(dir, 'transcript.jsonl'),
+              finalText      = 'Continuing.\n\n```lane-state\n{"laneContinuation":"active-lane"}\n```';
+
+        // An artifact-empty forced-continuation turn: [WAKE] prompt, one read-only tool, valid terminal.
+        fs.writeFileSync(transcriptPath, [
+            JSON.stringify({type: 'user',      message: {role: 'user',      content: [{type: 'text', text: '[WAKE][priority:normal] 1 events'}]}}),
+            JSON.stringify({type: 'assistant', message: {role: 'assistant', content: [
+                {type: 'tool_use', name: 'mcp__neo-mjs-memory-core__list_messages', input: {}},
+                {type: 'text', text: finalText}
+            ]}})
+        ].join('\n') + '\n');
+
+        const runHook = () => new Promise((resolve, reject) => {
+            const proc = spawn('node', ['.claude/hooks/laneStateStopHook.mjs'], {
+                stdio: ['pipe', 'pipe', 'pipe'],
+                env  : {...process.env, NEO_AI_DAEMON_DIR: dir, NEO_LANE_STATE_ENFORCE: '1'}
+            });
+            let stdout = '';
+            proc.stdout.on('data', chunk => stdout += chunk);
+            proc.on('error', reject);
+            proc.on('exit', () => {
+                const logPath = path.join(dir, 'lane-state-stop-hook.log');
+                resolve({stdout, log: fs.existsSync(logPath) ? fs.readFileSync(logPath, 'utf8') : ''});
+            });
+            proc.stdin.write(JSON.stringify({stop_hook_active: true, session_id: 'refire-e2e', transcript_path: transcriptPath}));
+            proc.stdin.end();
+        });
+
+        // Continuation 1: window not reached (1/2) → BLOCK, artifact summary logged, chain persisted.
+        const first = await runHook();
+        expect(JSON.parse(first.stdout).decision).toBe('block');
+        expect(first.log).toContain('[artifacts: classes=[none]');
+        expect(JSON.parse(fs.readFileSync(path.join(dir, 'refire-chain-refire-e2e.json'), 'utf8'))).toEqual([[]]);
+
+        // Continuation 2: two consecutive no-novelty continuations → declining-yield ALLOW; ledger resets.
+        const second = await runHook();
+        expect(second.stdout).toBe('');
+        expect(second.log).toContain('ALLOW');
+        expect(second.log).toContain('declining-yield admission');
+        expect(JSON.parse(fs.readFileSync(path.join(dir, 'refire-chain-refire-e2e.json'), 'utf8'))).toEqual([]);
     });
 });
