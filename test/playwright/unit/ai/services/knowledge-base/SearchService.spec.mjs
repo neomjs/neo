@@ -13,12 +13,12 @@ setup({
     }
 });
 
-import {test, expect}  from '@playwright/test';
-import Neo             from '../../../../../../src/Neo.mjs';
-import * as core       from '../../../../../../src/core/_export.mjs';
-import InstanceManager from '../../../../../../src/manager/Instance.mjs';
-import fs              from 'fs-extra';
-import path            from 'path';
+import {test, expect}          from '@playwright/test';
+import Neo                     from '../../../../../../src/Neo.mjs';
+import * as core               from '../../../../../../src/core/_export.mjs';
+import InstanceManager         from '../../../../../../src/manager/Instance.mjs';
+import fs                      from 'fs-extra';
+import path                    from 'path';
 import {PROVIDER_TIMEOUT_CODE} from '../../../../../../ai/provider/createTimeoutError.mjs';
 
 /**
@@ -37,6 +37,7 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
     let aiConfig;
     let originalQueryDocuments;
     let originalModel;
+    let originalTransport;
     let tmpFilePath;
     let tmpFileRelativeToRoot;
     const tmpFileContents = 'MOCK_FILE_CONTENT_abc123 — the SearchService should read this verbatim';
@@ -55,11 +56,13 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
 
         originalQueryDocuments = QueryService.queryDocuments.bind(QueryService);
         originalModel          = SearchService.model;
+        originalTransport      = aiConfig.transport;
     });
 
     test.afterAll(async () => {
         QueryService.queryDocuments = originalQueryDocuments;
         SearchService.model         = originalModel;
+        aiConfig.transport          = originalTransport;
         if (tmpFilePath) await fs.remove(path.dirname(tmpFilePath)).catch(() => {});
     });
 
@@ -333,7 +336,7 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
     });
 
     test('ask names the download/sync one-liners when the collection is EMPTY (post npm-prepare decouple cold-start)', async () => {
-        const ChromaManager = (await import('../../../../../../ai/services/knowledge-base/ChromaManager.mjs')).default;
+        const ChromaManager         = (await import('../../../../../../ai/services/knowledge-base/ChromaManager.mjs')).default;
         const originalGetCollection = ChromaManager.getKnowledgeBaseCollection;
 
         QueryService.queryDocuments = async () => ({results: []});
@@ -350,8 +353,32 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
         }
     });
 
+    test('ask points remote empty collections at tenant-ingestion diagnostics', async () => {
+        const ChromaManager         = (await import('../../../../../../ai/services/knowledge-base/ChromaManager.mjs')).default;
+        const originalGetCollection = ChromaManager.getKnowledgeBaseCollection;
+
+        QueryService.queryDocuments = async () => ({results: []});
+        ChromaManager.getKnowledgeBaseCollection = async () => ({count: async () => 0});
+        aiConfig.transport = 'sse';
+
+        try {
+            const result = await SearchService.ask({query: 'anything'});
+
+            expect(result.answer).toContain('get_ingestion_progress()');
+            expect(result.answer).toContain('inspect_deployment');
+            expect(result.answer).toContain('get_deployment_state_snapshot');
+            expect(result.answer).toContain('tenantRepoSync');
+            expect(result.answer).toContain('ingest_source_files');
+            expect(result.answer).not.toContain('npm run ai:download-kb');
+            expect(result.references).toEqual([]);
+        } finally {
+            ChromaManager.getKnowledgeBaseCollection = originalGetCollection;
+            aiConfig.transport = originalTransport;
+        }
+    });
+
     test('ask falls back to the generic no-documents answer when the count probe errors', async () => {
-        const ChromaManager = (await import('../../../../../../ai/services/knowledge-base/ChromaManager.mjs')).default;
+        const ChromaManager         = (await import('../../../../../../ai/services/knowledge-base/ChromaManager.mjs')).default;
         const originalGetCollection = ChromaManager.getKnowledgeBaseCollection;
 
         QueryService.queryDocuments = async () => ({results: []});
@@ -368,7 +395,7 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
     });
 
     test('ask keeps the generic no-documents answer when the collection has documents but none match', async () => {
-        const ChromaManager = (await import('../../../../../../ai/services/knowledge-base/ChromaManager.mjs')).default;
+        const ChromaManager         = (await import('../../../../../../ai/services/knowledge-base/ChromaManager.mjs')).default;
         const originalGetCollection = ChromaManager.getKnowledgeBaseCollection;
 
         QueryService.queryDocuments = async () => ({results: []});
