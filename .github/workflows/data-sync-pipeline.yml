@@ -102,9 +102,21 @@ jobs:
 
           # Copy the data files
           cp apps/devindex/resources/data/users.jsonl temp_pages/node_modules/neo.mjs/apps/devindex/resources/data/
-          cp -f apps/portal/resources/data/*.json temp_pages/node_modules/neo.mjs/apps/portal/resources/data/ 2>/dev/null || true
+
+          # Portal data: deletion-synced recursive copy — the previous flat *.json glob missed the
+          # chunked subdirectory trees (tickets/v*/, pulls/latest/), which drifted between full
+          # deploys (#14496).
+          rm -rf temp_pages/node_modules/neo.mjs/apps/portal/resources/data
+          cp -r apps/portal/resources/data temp_pages/node_modules/neo.mjs/apps/portal/resources/
+
           cp -f apps/portal/sitemap.xml temp_pages/ 2>/dev/null || true
           cp -f apps/portal/llms.txt temp_pages/ 2>/dev/null || true
+
+          # learn/** content + nav index (learn/tree.json): sitemap.xml and llms.txt advertise these
+          # routes hourly — advertising them without syncing the content they point at produced the
+          # human-traffic 404 class (#14496). Deletion sync makes route renames propagate natively.
+          rm -rf temp_pages/node_modules/neo.mjs/learn
+          cp -r learn temp_pages/node_modules/neo.mjs/
 
           # Copy resources content (syncing deletions natively via git).
           # Per Epic #11187 7-bucket fan-out: support both legacy paths (issue-archive/,
@@ -123,15 +135,16 @@ jobs:
           cd temp_pages
 
           # Check for changes and push
-          if [[ -n $(git status -s node_modules/neo.mjs/apps/devindex/resources/data/users.jsonl node_modules/neo.mjs/apps/portal/resources/data/*.json sitemap.xml llms.txt node_modules/neo.mjs/resources/content/) ]]; then
+          if [[ -n $(git status -s node_modules/neo.mjs/apps/devindex/resources/data/users.jsonl node_modules/neo.mjs/apps/portal/resources/data/ sitemap.xml llms.txt node_modules/neo.mjs/resources/content/ node_modules/neo.mjs/learn/) ]]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
             git add node_modules/neo.mjs/apps/devindex/resources/data/users.jsonl
-            git add node_modules/neo.mjs/apps/portal/resources/data/*.json 2>/dev/null || true
+            git add -A node_modules/neo.mjs/apps/portal/resources/data/
             git add sitemap.xml 2>/dev/null || true
             git add llms.txt 2>/dev/null || true
             git add -A node_modules/neo.mjs/resources/content/
+            git add -A node_modules/neo.mjs/learn/
 
             # temp_pages is a clone of neomjs/pages (built output) — it carries no neo archaeology guard,
             # so NEO_SKIP_TICKET_ARCHAEOLOGY is intentionally absent here (only --no-verify, for whitespace).
