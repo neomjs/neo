@@ -1,0 +1,89 @@
+# Release Notes Workflow — epic-scale, memory-mined, iterated to the bar
+
+Authoritative protocol for authoring Neo.mjs release notes. Born from the v13.1 lineage (epic `#14483`): the v13.0 notes reached their bar through seven *unformalized* iteration leaves (`#12695` → `#12700`/`#12716`/`#12729`/`#12811`/`#12815`/`#12924`) and the process was lost — every release re-derived it. This payload is that process, kept.
+
+Release notes are a **public narrated release**, ingested twice: humans read the story; the KB/graph ingests the chunked mirror (`ReleaseNotesSyncer` / `ReleaseNotesSource`). Both consumers punish a changelog dump.
+
+## §1 The iteration model (the core rule) — `DISCIPLINE-ONLY`
+
+**Release notes are an EPIC with multiple iterations BY DESIGN — never a single-pass PR.** (Operator directive, 2026-07-02: "multiple iterations ARE needed"; the single-pass v13.1 first draft empirically carried environment errors, one-lens narration, and downplaying.)
+
+1. File the notes epic per `/epic-create` (problem + intended solution; leaves link incrementally). The authoring leaf, the cut-mechanics leaf, and refinement leaves are separate one-PR deliverables.
+2. **Iteration 1 merges deliberately early** with an explicit in-document banner: `> **Status: iteration 1 of N — a deliberately-early draft.** …` — the draft is a living staging document on dev.
+3. Mining-driven refinement leaves (one per arc/chapter, §3) iterate until the §7 cut-readiness checklist passes. The final iteration removes the banner.
+4. **Do NOT downplay the release.** A window's headline arc is not its extent; scope framing that shrinks the release ("X is just a Y release") fails review. When the true magnitude is fuzzy (unfiled work, §2), say so honestly rather than rounding down.
+
+## §2 Scope derivation — the tracker lags reality — `DISCIPLINE-ONLY`
+
+Derive the window from **multiple sources, trusting none alone**:
+
+- `node buildScripts/release/analyzeClosedSinceRelease.mjs <prev-release-date> --format markdown` — cutoff = the previous release commit date (`git log -1 --format=%ai -S '"version"' package.json` or the release tag). Gives merged-PR / closed-issue / epic-closure counts + author/scope/label breakdowns. Re-run at the cut boundary (its own freshness note says local mirrors staleness).
+- The release project board(s) — but **board state ≠ shipped reality in EITHER direction**: a board can look "mostly done" simply because tickets for the remaining work were never filed (v13.1 empirical: 19 todo / 2 in progress / 139 done while an estimated 300–500 changes had no tickets at all), and done-columns can contain deferred-in-substance items.
+- Epic closures in the window (`gh issue list --search "label:epic closed:>DATE"`), milestone views, and **the operator's magnitude estimate** — ask; the human carries the unfiled-work picture no tracker has.
+- Whether to *mention* the unfiled mass in the notes is an editorial call per iteration ("maybe!") — but it must inform scope framing either way.
+
+## §3 Heavy Memory-Core mining per arc — `DISCIPLINE-ONLY`
+
+Ticket titles do not tell stories; sessions do. Per candidate hero chapter, run a 3–10-call mining sweep **before drafting the chapter** (`/memory-mining` discipline):
+
+- `query_summaries` / `query_raw_memories` on the arc's vocabulary (the incident name, the subsystem, the epic number) — surface the turning points, dead ends, and corrections the chapter must narrate.
+- `get_all_summaries` / session rollups bounded to the window for chronology.
+- A chapter without mining behind it is a candidate, not a chapter. The hero chapters are the arcs where the mining came back DEEP (real friction, real reversals, numbers) — not the arcs that sound impressive.
+- War-Story chapters additionally mine the incident's forensics tickets end-to-end (Symptom → Investigation → Culprit → Fix-the-class, §5).
+
+## §4 Per-claim V-B-A — `MACHINE-ENFORCEABLE-CANDIDATE` (review-side)
+
+Every factual claim in the notes carries a verifiable source (ticket, PR, commit, measurement artifact) — verified against the PRIMARY at writing time, not from memory. The v13.1 iteration-1 miss ledger is the empirical anchor for the claim classes that slip:
+
+- **Environment claims:** the `#13999` incident was the LOCAL Agent OS deployment; the draft framed it cloud. Self-healing is cloud-MOTIVATED, not cloud-LIMITED. State deployment environments only from the incident's primary tickets.
+- **Scope claims:** "X is an <subsystem> release" / "Y unchanged" require a window-wide check, not a headline-epic check (§2).
+- **Designation claims:** `Release Type` / `Stability` lines are operator-confirmed, never inferred (v13.0 shipped as "Release Candidate"; the successor's designation is the operator's call).
+- Reviewer side: the cross-family review (§5) spot-verifies claims against their anchors; an unanchored claim is a Required Action, not a nit.
+
+## §5 The quality bar — the v13.0 contract — `DISCIPLINE-ONLY`
+
+The measurable precedent is `resources/content/release-notes/chunk-2/v13.0.0.md` (post-publish mirror of the v13.0 notes). Structural contract:
+
+- **Header block:** `# Neo.mjs vX.Y.Z Release Notes` (the H1 becomes the GitHub-release title, §6) + `Release Type` / `Stability` / `Upgrade Path` lines.
+- **TL;DR blockquote** — the release in one breath, positioned against what came before.
+- **"vX.Y in 2 Minutes"** — the one line, the stat, the gates/proofs, the honest bound.
+- **Hero chapters** — the mined arcs (§3); v13.0 carried five. Each narrates change, evidence, and numbers; each stands alone.
+- **War Story** (when the window carries one): Symptom → Investigation → Culprit → **Fix-the-class** (never the point-fix), with numbers.
+- **Honest bounds** — what is proven vs what is the standing watch; test-borne vs production-borne evidence, stated in-document.
+- **Continuity / upgrade path** — what existing users do, what defers to the next release.
+- **Bans:** changelog-dump structure (grouped appendices SUPPORT the story via the §2 script, never replace it); unsourced superlatives; scope-shrinking framings (§1, rule 4).
+- **Cross-family review before every iteration merges** — same rule as blog posts; authority-adjacent claims reviewed LAST per the blog bar.
+
+## §6 Publish-flow mechanics — the staging-file lifecycle — `MACHINE-ENFORCEABLE-CANDIDATE`
+
+The authoring surface is **`resources/content/release-notes/v{version}.md` at the flat directory root** — this is a hard `buildScripts/release/publish.mjs` contract, not a convention:
+
+1. **Pre-flight requires it** (`publish.mjs` §1): the release ERRORS if the file is absent. The version comes from `package.json` (bumped manually before the cut).
+2. The file is **committed and iterated on dev** ahead of the cut (§1) — the v13.0 lineage precedent, formalized.
+3. At cut time publish.mjs appends the **atomic-changelog-hash line** (post squash-to-main), parses the file — frontmatter stripped, first H1 extracted as the release title — and runs `gh release create` (cascades to npm).
+4. **publish.mjs itself removes the flat file post-release**; the GH sync then re-materializes the published release under `chunk-N/` with frontmatter (`_index.json` is syncer-maintained — never hand-edit).
+5. **The orphan guard** (`test/playwright/unit/ai/buildScripts/release/PublishReleaseNoteOrphan.spec.mjs`) is mirror-aware per `#14484`: a flat file is an orphan ONLY when its chunk mirror already exists. A staging file for an unpublished version is the designed state — do NOT "fix" its presence by relocating the notes out of the contract (attempted and operator-reverted in the v13.1 window).
+6. **Sync-guard interplay:** the husky pre-commit classifies `resources/content/release-notes/**` as sync-data; flat-root staging commits use `--no-verify` per the pipeline's own precedent (publish.mjs commits this file `--no-verify` internally). Keep such commits single-file so no other hook coverage is silently skipped.
+7. Known observation (epic-tracked): `buildScripts/docs/index/release.mjs` scans flat files recursively, so a committed staging note surfaces its version in `releases.json` when the docs index regenerates pre-cut.
+8. **The cut itself is human-only** (`§critical_gates`): agents prepare (notes, `prepare.mjs` validation, checklist) and hand off; `publish.mjs` execution and the dev→main release line belong to the operator.
+
+## §7 Cut-readiness checklist — `MACHINE-ENFORCEABLE-CANDIDATE`
+
+The notes epic's final iteration passes when:
+
+- [ ] Iteration banner removed; content reviewed cross-family at final head
+- [ ] `Release Type` / `Stability` designations operator-confirmed (§4)
+- [ ] Scope numbers regenerated at the cut boundary (§2 re-run) and reconciled in-document
+- [ ] Every claim anchor-verified (§4); the numbers-verify sweep (the `#14327` class, "sequence LAST") has run against the final text
+- [ ] The staging file sits at the flat root with the version matching `package.json`'s bump
+- [ ] The operator publish-handoff comment is posted on the cut-mechanics leaf (checklist + explicit "publish is yours")
+
+## Lifecycle position
+
+| Sibling | Boundary |
+|---|---|
+| `/epic-create` | files the notes epic; this skill fills its leaves |
+| `/memory-mining` | the §3 grounding engine |
+| `/blog-post` | narrative posts; shares the sourcing bar, different artifact + venue |
+| `/update-roadmap` | the POST-release beat (celebrate → next cornerstones); fires after the cut this skill prepares |
+| `/pull-request` | every iteration leaf ships through it (lint anchors, cross-family routing) |

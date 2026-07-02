@@ -301,6 +301,17 @@
         "learn/guides/fundamentals/CodebaseOverview.md"
       ]
     },
+    "release-notes": {
+      "name": "release-notes",
+      "description": "Authoritative protocol for authoring release notes as an EPIC with mining-driven iterations — scope derivation (the tracker lags shipped reality), heavy per-arc Memory-Core mining, per-claim V-B-A, the v13.0 quality bar (hero chapters, War Stories, honest bounds, never downplay a release), and the publish.mjs flat-root staging lifecycle. Triggers: a release window opens, release notes are requested/authored/iterated, or cut-prep begins (staging file, atomic-hash line, orphan-guard interplay).",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
     "self-repair": {
       "name": "self-repair",
       "description": "Execute autonomous diagnostics, verify MCP server stability, and treat system degradation using tests and memory core forensics. Triggers: [Healthcheck, run health checklist, diagnose system collapse, MCP infrastructure failure, troubleshoot agent OS, system degraded, Sandman handoff verification failure, self-repair, system recovery]",
