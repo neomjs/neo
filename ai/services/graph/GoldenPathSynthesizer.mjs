@@ -51,6 +51,7 @@ import {
     buildCurrentFocusCandidates as buildIssueFocusCurrentFocusCandidates,
     buildSilentThreadCandidates as buildIssueFocusSilentThreadCandidates,
     buildStaleAssignmentCandidates as buildIssueFocusStaleAssignmentCandidates,
+    buildWorkGraphStallFindings as buildIssueFocusWorkGraphStallFindings,
     collectIssueMarkdownFiles as collectIssueFocusMarkdownFiles,
     extractAssignmentEvents as extractIssueFocusAssignmentEvents,
     extractIssueCommentBlocks as extractIssueFocusCommentBlocks,
@@ -63,6 +64,7 @@ import {
     renderCurrentFocusCandidatesSection as renderIssueFocusCurrentFocusCandidatesSection,
     renderSilentThreadCandidatesSection as renderIssueFocusSilentThreadCandidatesSection,
     renderStaleAssignmentCandidatesSection as renderIssueFocusStaleAssignmentCandidatesSection,
+    renderWorkGraphStallFindingsSection as renderIssueFocusWorkGraphStallFindingsSection,
     scoreCurrentFocusIssue as scoreIssueFocusCurrentIssue
 } from './issueFocusSections.mjs';
 import {
@@ -272,6 +274,25 @@ class GoldenPathSynthesizer extends Base {
      */
     static renderSilentThreadCandidatesSection(candidates, options = {}) {
         return renderIssueFocusSilentThreadCandidatesSection(candidates, options)
+    }
+
+    /**
+     * @summary Delegates deterministic work-graph stall finding construction to the issue-focus helper.
+     * @param {Object} options See `issueFocusSections.buildWorkGraphStallFindings`.
+     * @returns {Object[]} Work-graph stall finding payloads.
+     */
+    static buildWorkGraphStallFindings(options = {}) {
+        return buildIssueFocusWorkGraphStallFindings(options)
+    }
+
+    /**
+     * @summary Delegates visibility-only stall finding handoff rendering to the issue-focus helper.
+     * @param {Object[]} findings Stall finding payloads.
+     * @param {Object} options See `issueFocusSections.renderWorkGraphStallFindingsSection`.
+     * @returns {String}
+     */
+    static renderWorkGraphStallFindingsSection(findings, options = {}) {
+        return renderIssueFocusWorkGraphStallFindingsSection(findings, options)
     }
 
     /**
@@ -555,7 +576,7 @@ class GoldenPathSynthesizer extends Base {
      */
     async fetchOpenPRs() {
         const { execSync } = await import('child_process');
-        const rawPrData    = execSync('gh pr list --state open --json number,url,author,title,body,headRefOid,reviewRequests,reviews,comments,createdAt', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
+        const rawPrData    = execSync('gh pr list --state open --json number,url,author,title,body,headRefOid,reviewRequests,reviews,comments,createdAt,updatedAt,isDraft', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
         return JSON.parse(rawPrData);
     }
 
@@ -1120,6 +1141,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         }
 
         // --- Active PR Cycle State ---
+        let openPrs       = [];
         let prStateAppend = '';
         if (repoEnrichmentEnabled) {
             try {
@@ -1131,6 +1153,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                     throw new Error('fetchOpenPRs did not return an array');
                 }
 
+                openPrs       = prs;
                 prStateAppend = Synthesizer.renderActivePrCycleState({prs, capturedAt, now: capturedAt});
             } catch (e) {
                 logger.warn('[GoldenPathSynthesizer] Failed to generate Active PR Cycle State', e);
@@ -1139,6 +1162,24 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                     error     : e,
                     now       : now instanceof Date ? now : new Date(now)
                 });
+            }
+        }
+
+        // --- Work-Graph Stall Inference ---
+        let stallFindingsAppend = '';
+        if (repoEnrichmentEnabled) {
+            try {
+                const Synthesizer = this.constructor,
+                      capturedAt  = now instanceof Date ? now : new Date(now),
+                      findings    = Synthesizer.buildWorkGraphStallFindings({
+                          issuesDir,
+                          now: capturedAt,
+                          prs: openPrs
+                      });
+
+                stallFindingsAppend = Synthesizer.renderWorkGraphStallFindingsSection(findings, {capturedAt});
+            } catch (e) {
+                logger.warn('[GoldenPathSynthesizer] Failed to generate Work-Graph Stall Inference', e);
             }
         }
 
@@ -1181,7 +1222,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             }
         }
 
-        handoffContent += `${currentFocusAppend}${staleAssignmentAppend}${silentThreadsAppend}${prStateAppend}${backlogAppend}${routeLedgerAppend}${markdownAppend}`;
+        handoffContent += `${currentFocusAppend}${staleAssignmentAppend}${silentThreadsAppend}${prStateAppend}${stallFindingsAppend}${backlogAppend}${routeLedgerAppend}${markdownAppend}`;
 
         const handoffFile = aiConfig.handoffFilePath;
         fs.mkdirSync(path.dirname(handoffFile), {recursive: true});
