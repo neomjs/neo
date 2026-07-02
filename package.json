@@ -16,6 +16,7 @@
     "scripts"        : {
         "add-config"                   : "node ./buildScripts/create/addConfig.mjs",
         "agent-preflight"              : "node ./buildScripts/util/agent-preflight.mjs",
+        "agent-push"                   : "node ./buildScripts/util/agent-push.mjs",
         "add-reactive-tags"            : "node ./buildScripts/helpers/addReactiveTags.mjs",
         "ai:agent"                     : "node ./ai/scripts/runners/runAgent.mjs",
         "ai:analyze-nl-telemetry"      : "node ./ai/scripts/diagnostics/analyzeNlTelemetry.mjs",
