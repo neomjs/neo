@@ -409,6 +409,7 @@ The map-as-pointer principle: the Structural Inventory above links each subsyste
 | [0025](../agentos/decisions/0025-orchestrator-container-health-self-healing.md) | Orchestrator Container-Health Diagnostics Daemon | `ai/daemons/orchestrator/services/`, `ai/deploy/` | Proposed (#13861) |
 | [0026](../agentos/decisions/0026-recovery-actuator.md) | Orchestrator Recovery Actuator | `ai/daemons/orchestrator/services/`, `ai/deploy/` | Proposed (#13880) |
 | [0027](../agentos/decisions/0027-autonomous-data-recovery-actuator.md) | Autonomous Memory Core Data-Recovery Actuator | `ai/daemons/orchestrator/services/`, `ai/services/memory-core/` | Proposed (#14134) |
+| [0029](../agentos/decisions/0029-harness-docking-design.md) | Harness Docking Design — multi-window layout model, topology perspectives, cross-window drag, container contract | `src/dashboard/`, `src/manager/` (`DragCoordinator` seam), `apps/agentos/` | Proposed (#14423; PR #14425) |
 
 ## Next Steps
 
