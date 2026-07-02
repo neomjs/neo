@@ -40,6 +40,20 @@ and can drift independently of the Codex Desktop harness.
   local `.codex/config.toml` copy to `[features].hooks = true` or re-copy the
   template; do not commit `.codex/config.toml`.
 
+## Command ExecPolicy
+
+- Repo-local Codex command policy lives in `.codex/rules/pr-lifecycle.rules`.
+  It is a project `.rules` file, not a `.codex/config.template.toml` section.
+- Codex execpolicy is token-prefix based. Keep grammar-sensitive commands
+  prompt-gated unless a parser-shaped wrapper proves the unsafe forms cannot
+  slip through a broad prefix. Today that means `git commit`, `git checkout -b`,
+  and raw `git push` stay classified instead of blindly allowlisted.
+- Keep `gh pr merge` forbidden. PR merge remains human-only even when a PR is
+  approved, green, and reviewer requests are clear.
+- User-local `$CODEX_HOME/rules/*.rules` files can add broader approvals in a
+  maintainer's active session. Treat those as local operator state, not repo
+  policy; review the tracked `.codex/rules/` file for merge-gate claims.
+
 ## Identity & Prompt Firewall (L1 Anchor)
 
 See `AGENTS.md` `<prompt_firewall name="Helpful_Assistant_Regression_Defense">` for the canonical identity anchor. Do not deviate.
