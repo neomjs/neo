@@ -462,6 +462,7 @@ Here you find the full history of Neo.mjs updates.
 - [0019 — AiConfig Reactive Provider SSOT](https://neomjs.com/raw/learn/agentos/decisions/0019-aiconfig-reactive-provider-ssot.md)
 - [0020 — Agent Harness Concept Anchor](https://neomjs.com/raw/learn/agentos/decisions/0020-agent-harness-concept.md)
 - [0022 — Heavy-Maintenance Scheduling Fairness](https://neomjs.com/raw/learn/agentos/decisions/0022-heavy-maintenance-scheduling-fairness.md)
+- [0029 — Harness Docking Design](https://neomjs.com/raw/learn/agentos/decisions/0029-harness-docking-design.md)
 
 ## Guides
 
