@@ -33,6 +33,11 @@ test.describe('ai/scripts/lifecycle/stopHookDecision — shared no-hold decision
         expect(LANE_STATE_SCHEMA_HINT).toContain('field "mergedAt"');
     });
 
+    test('LANE_STATE_SCHEMA_HINT: states consumption honesty — namedGates is audit/coordination payload, not admission evidence (regression: demanded-but-unread contract)', () => {
+        expect(LANE_STATE_SCHEMA_HINT).toContain('Consumption honesty');
+        expect(LANE_STATE_SCHEMA_HINT).toContain('does NOT influence the block/allow decision');
+    });
+
     test('STOP_HOOK_TURN_OPTIONS_HINT: compactly names operator dialogue, memory, and fail-closed behavior', () => {
         expect(STOP_HOOK_TURN_OPTIONS_HINT).toContain('operator dialogue/planning');
         expect(STOP_HOOK_TURN_OPTIONS_HINT).toContain('[WAKE]/stop-hook continuations');

@@ -17,7 +17,8 @@ export const LANE_STATE_SCHEMA_HINT = `Machine lane-state block to emit with you
 \`\`\`lane-state
 {"wakeDisposition":"awareness","laneContinuation":"next-lane","namedGates":[],"awaitingOwnPrOnly":false}
 \`\`\`
-Validator gotchas: if an own PR is only awaiting merge/review/CI, use laneContinuation "next-lane"; "active-lane" + awaitingOwnPrOnly:true is invalid. Every namedGates[] entry needs a same-turn checkedAt; mergeClaim must use field "mergedAt".`;
+Validator gotchas: if an own PR is only awaiting merge/review/CI, use laneContinuation "next-lane"; "active-lane" + awaitingOwnPrOnly:true is invalid. Every namedGates[] entry needs a same-turn checkedAt; mergeClaim must use field "mergedAt".
+Consumption honesty: namedGates[] is audit/coordination payload (peer-visible gate state; the audit ledger) — it is validated for shape but does NOT influence the block/allow decision in autonomous mode.`;
 
 /**
  * @summary Compact cross-harness turn-end options hint for Stop-hook injections.
