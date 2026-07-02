@@ -28,6 +28,7 @@ import {
 import {
     buildFailureOutcome                          as buildRouteFailureOutcome,
     findComputedFocusContradiction               as findRouteFocusContradiction,
+    getComputedRecommendationExclusionLabels     as getRouteExclusionLabels,
     isActionableComputedRecommendation           as isActionableRouteRecommendation,
     isContentComputedRecommendation              as isContentRouteRecommendation,
     isRoutingConflictFocusCandidate              as isRouteConflictFocusCandidate,
@@ -64,6 +65,17 @@ import {
     renderStaleAssignmentCandidatesSection as renderIssueFocusStaleAssignmentCandidatesSection,
     scoreCurrentFocusIssue as scoreIssueFocusCurrentIssue
 } from './issueFocusSections.mjs';
+import {
+    createGoldenPathRouteLedger        as createRouteLedger,
+    getInboundStructuralComponents     as resolveInboundStructuralComponents,
+    recordGoldenPathActionabilityGate  as recordRouteActionabilityGate,
+    recordGoldenPathBlockerGate        as recordRouteBlockerGate,
+    recordGoldenPathFinalScore         as recordRouteFinalScore,
+    recordGoldenPathGuideWrite         as recordRouteGuideWrite,
+    recordGoldenPathOpenMatch          as recordRouteOpenMatch,
+    recordGoldenPathSelection          as recordRouteSelection,
+    renderGoldenPathRouteLedgerSection as renderRouteLedgerSection
+} from './goldenPathRouteLedger.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -278,6 +290,49 @@ class GoldenPathSynthesizer extends Base {
      */
     static isActionableComputedRecommendation(nodeData) {
         return isActionableRouteRecommendation(nodeData)
+    }
+
+    /**
+     * @summary Delegates computed-route exclusion-label discovery to `computedGoldenPathRouting.mjs`.
+     * @param {Object} nodeData Parsed computed recommendation node.
+     * @returns {String[]} Normalized labels that reject immediate computed routing.
+     */
+    static getComputedRecommendationExclusionLabels(nodeData) {
+        return getRouteExclusionLabels(nodeData)
+    }
+
+    /**
+     * @summary Delegates inbound structural component grouping to `goldenPathRouteLedger.mjs`.
+     * @param {Object} options
+     * @param {String} options.nodeId Candidate node id.
+     * @param {Object} [options.graphService=GraphService] GraphService-compatible object.
+     * @returns {Object<String,Number>}
+     */
+    static getInboundStructuralComponents(options) {
+        return resolveInboundStructuralComponents({
+            graphService: GraphService,
+            ...options
+        })
+    }
+
+    /**
+     * @summary Delegates same-run route-ledger initialization to `goldenPathRouteLedger.mjs`.
+     * @param {Object} options
+     * @param {String[]} [options.semanticIds=[]] Semantic vector candidate ids.
+     * @param {Number[]} [options.semanticDistances=[]] Semantic vector distances.
+     * @returns {Map<String,Object>}
+     */
+    static createGoldenPathRouteLedger(options) {
+        return createRouteLedger(options)
+    }
+
+    /**
+     * @summary Delegates same-run route-ledger rendering to `goldenPathRouteLedger.mjs`.
+     * @param {Object} options Route-ledger render options.
+     * @returns {String}
+     */
+    static renderGoldenPathRouteLedgerSection(options) {
+        return renderRouteLedgerSection(options)
     }
 
     /**
@@ -628,6 +683,10 @@ class GoldenPathSynthesizer extends Base {
             logger.info('[GoldenPathSynthesizer] No semantic nodes found. Golden path empty.');
         }
         scoringStats.semanticCandidates = semanticIds.length;
+        const routeLedger = this.constructor.createGoldenPathRouteLedger({
+            semanticDistances,
+            semanticIds
+        });
 
         // Pillar 2: Structural Weight from SQLite Graph
         const SEMANTIC_WEIGHT   = 2.0;
@@ -658,18 +717,36 @@ class GoldenPathSynthesizer extends Base {
 
                     // Guarantee graph topology is completely loaded into RAM BEFORE executing cold-cache resistant queries natively!
                     GraphService.db.getAdjacentNodes(issueId, 'both');
+                    const struct_score = parseFloat(row.struct_score) || 0;
+
+                    let nodeData = null;
+                    try { nodeData = JSON.parse(row.data); } catch (e) { }
+
+                    recordRouteOpenMatch(routeLedger, {
+                        nodeData,
+                        nodeId              : issueId,
+                        structuralComponents: this.constructor.getInboundStructuralComponents({nodeId: issueId}),
+                        structuralScore     : struct_score
+                    });
 
                     // Re-verify blocker topology natively using GraphService API
-                    const blockers  = GraphService.db.edges.getByIndex('target', issueId).filter(e => e.type === 'BLOCKS');
-                    let   isBlocked = false;
+                    const blockers       = GraphService.db.edges.getByIndex('target', issueId).filter(e => e.type === 'BLOCKS');
+                    const openBlockerIds = [];
+                    let   isBlocked      = false;
 
                     for (const bEdge of blockers) {
                         const blockerNode = GraphService.db.nodes.get(bEdge.source);
                         if (blockerNode && (blockerNode.properties?.state === 'OPEN' || blockerNode.state === 'OPEN')) {
                             isBlocked = true;
+                            openBlockerIds.push(bEdge.source);
                             break;
                         }
                     }
+
+                    recordRouteBlockerGate(routeLedger, {
+                        blockerIds: openBlockerIds,
+                        nodeId    : issueId
+                    });
 
                     if (isBlocked) {
                         scoringStats.blockedCandidates++;
@@ -678,21 +755,28 @@ class GoldenPathSynthesizer extends Base {
 
                     const idx               = semanticIds.indexOf(issueId);
                     const semantic_distance = parseFloat(semanticDistances[idx]) || 0.1;
-                    const struct_score      = parseFloat(row.struct_score) || 0;
 
                     // Lower distance = Higher significance. (Add 0.1 to avoid div by 0 and curb massive asymptotes)
                     const semanticScore = 1.0 / (semantic_distance + 0.1);
 
-                    let nodeData = null;
-                    try { nodeData = JSON.parse(row.data); } catch (e) { }
+                    let   priority        = (semanticScore * SEMANTIC_WEIGHT) + (struct_score * STRUCTURAL_WEIGHT);
+                    const exclusionLabels = this.constructor.getComputedRecommendationExclusionLabels(nodeData || {id: issueId});
 
-                    let priority = (semanticScore * SEMANTIC_WEIGHT) + (struct_score * STRUCTURAL_WEIGHT);
+                    recordRouteActionabilityGate(routeLedger, {
+                        exclusionLabels,
+                        nodeId: issueId
+                    });
 
                     if (!this.constructor.isActionableComputedRecommendation(nodeData || {id: issueId})) {
                         scoringStats.nonActionableCandidates++;
                         logger.debug(`[GoldenPathSynthesizer] Skipping non-actionable computed recommendation: ${issueId}`);
                         continue;
                     }
+
+                    recordRouteFinalScore(routeLedger, {
+                        finalScore: priority,
+                        nodeId    : issueId
+                    });
 
                     scoredNodes.push({
                         node      : nodeData || { id: issueId },
@@ -732,6 +816,11 @@ class GoldenPathSynthesizer extends Base {
         const routedTopNodes = focusContradiction
             ? topNodes.filter(item => !focusContradiction.blockedIds.has(item.node.id))
             : topNodes;
+        recordRouteSelection(routeLedger, {
+            focusContradiction,
+            routedTopNodes,
+            topNodes
+        });
         const goldenIds = new Set(routedTopNodes.map(item => item.node.id));
         scoringStats.scoredCandidates = scoredNodes.length;
         scoringStats.selectedTopNodes = routedTopNodes.length;
@@ -760,6 +849,12 @@ class GoldenPathSynthesizer extends Base {
             routedTopNodes.forEach((item, index) => {
                 if (item.node && item.node.id) {
                     GraphService.linkNodes('frontier', item.node.id, 'GUIDES', item.score);
+                    recordRouteGuideWrite(routeLedger, {
+                        nodeId    : item.node.id,
+                        score     : item.score,
+                        semantic  : item.semantic,
+                        structural: item.structural
+                    });
                     const title = item.node.properties?.title || item.node.properties?.name || item.node.name || 'Unknown Title';
                     markdownAppend += `${index + 1}. **${item.node.id}**: Score ${item.score.toFixed(2)} (Semantic: ${item.semantic.toFixed(2)}, Structural: ${item.structural.toFixed(2)})\n   - *${title}*\n`;
                 }
@@ -837,6 +932,12 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             markdownAppend = this.constructor.renderComputedGoldenPathEmptySection(scoringStats, handoffTimestamp);
             logger.info('[GoldenPathSynthesizer] No actionable unblocked issues found. Golden path empty.');
         }
+
+        const routeLedgerAppend = this.constructor.renderGoldenPathRouteLedgerSection({
+            capturedAt: handoffTimestamp,
+            ledger    : routeLedger,
+            stats     : scoringStats
+        });
 
         // Centralize full generation of sandman_handoff.md here, enforcing completely idempotent behavior.
         // TTL pruning and centralized overwrite happen in the same render pass.
@@ -1080,7 +1181,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             }
         }
 
-        handoffContent += `${currentFocusAppend}${staleAssignmentAppend}${silentThreadsAppend}${prStateAppend}${backlogAppend}${markdownAppend}`;
+        handoffContent += `${currentFocusAppend}${staleAssignmentAppend}${silentThreadsAppend}${prStateAppend}${backlogAppend}${routeLedgerAppend}${markdownAppend}`;
 
         const handoffFile = aiConfig.handoffFilePath;
         fs.mkdirSync(path.dirname(handoffFile), {recursive: true});
