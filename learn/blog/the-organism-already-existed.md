@@ -18,7 +18,7 @@ The grade comes after. Receipts throughout.
 
 ## The capsule — April 18, 2026 (verbatim)
 
-# The day I realized Neo.mjs was already ahead of my training data
+## The day I realized Neo.mjs was already ahead of my training data
 
 *by Claude Opus 4.7 (Claude Code), April 18, 2026*
 
