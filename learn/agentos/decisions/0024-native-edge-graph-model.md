@@ -34,6 +34,7 @@ Three layers. Source-of-truth in the right column (so this snapshot is re-verifi
 | **Knowledge** | `CONCEPT`, `CLASS`, `METHOD`, `FILE`, `GUIDE`, `BLOG`, `TEST`, `ADR` | `SemanticGraphExtractor.VALID_TYPES` (LLM-extracted) + curated `nodes.jsonl` (`CONCEPT`) + `AdrIngestor` (`ADR`, deterministic) |
 | **Work** | `SESSION`, `MEMORY`, `ARTIFACT_PLAN`, `ARTIFACT_TASK`, `ISSUE`, `STRATEGY` | `VALID_TYPES` + GitHub / session sync |
 | **System** | `SYSTEM_ANCHOR`, `[Frontier]`, `AgentIdentity`, `MESSAGE`, `WAKE_SUBSCRIPTION`, `NL_ACTION_SEQUENCE` | operational (`GraphService`, `MailboxService`, `IdentitySchema` — ADR 0018, `GapInferenceEngine` Neural Link evidence digest) |
+| **Business** | `BUSINESS_GOAL`, `METRIC` | `businessSchema.mjs` (`BUSINESS_NODE_TYPES` — deterministic validator-gated writes; never LLM-extracted; a `METRIC` without a `falsifyingQuery` is invalid by construction) |
 
 The LLM extractor's `VALID_TYPES` enum is **14** (`SemanticGraphExtractor:265`); an unrecognized extracted type defaults to `CONCEPT`. `ADR` is added **deterministically** by `AdrIngestor` (no LLM inference), so decision records are graph-queryable without widening the extractor enum (ADR 0006). (`SYSTEM_ANCHOR` is grouped under System for its operational role but is itself one of the 14 `VALID_TYPES` — both LLM-extractable and operational.)
 
@@ -51,8 +52,9 @@ The LLM extractor's `VALID_TYPES` enum is **14** (`SemanticGraphExtractor:265`);
 | **Mailbox / A2A** | `DELIVERED_TO`, `SENT_BY`, `SENT_TO` | `MailboxService` | yes |
 | **Permission (auth, RLS)** | `CAN_READ_INBOX_OF`, `CAN_READ_MEMORIES_OF`, `CAN_READ_SESSIONS_OF`, `CAN_REPLY_TO` (+ `BLOCKED_BY`, cross-listed with work/lifecycle) | **`PermissionService.validScopes`** (authoritative source); `heartbeatPulseEvaluator.PERMISSION_EDGE_TYPES` is the **wake-firing subset** (the 3 `CAN_*` a `PERMISSION_GRANTED` wake fires on) | n/a (auth) |
 | **Active steering** | `STRATEGIC_PIVOT` | `mutate_frontier` (`GraphService.mutateFrontier`) | yes |
+| **Business** | `ADVANCED_BY` (goal → advancing work: issue / PR / metric) | `BUSINESS_EDGE_TYPES` (`businessSchema.mjs`); cross-listed in `PROTECTED_EDGE_TYPES` | **NO — fact** (advancement is history; the zombie-priority guard is an explicit retirement **reweight** to `RETIRED_GOAL_EDGE_WEIGHT`, never decay) |
 
-Three named enums (`CONCEPT_EDGE_TYPES`, `ADR_EDGE_TYPES`, `PROTECTED_EDGE_TYPES`) are **authoritative** for their families; the **permission** family's authoritative source is `PermissionService.validScopes` (`heartbeatPulseEvaluator.PERMISSION_EDGE_TYPES` is its **wake-firing subset**, not the source). The remaining families are **observed-in-use** across the MC / graph / ingestion services. Converging these into one canonical edge-type registry is a follow-up (§6).
+Four named enums (`CONCEPT_EDGE_TYPES`, `ADR_EDGE_TYPES`, `PROTECTED_EDGE_TYPES`, `BUSINESS_EDGE_TYPES`) are **authoritative** for their families; the **permission** family's authoritative source is `PermissionService.validScopes` (`heartbeatPulseEvaluator.PERMISSION_EDGE_TYPES` is its **wake-firing subset**, not the source). The remaining families are **observed-in-use** across the MC / graph / ingestion services. Converging these into one canonical edge-type registry is a follow-up (§6).
 
 **Wake-triggers ≠ edges:** `PERMISSION_GRANTED`, `SENT_TO_ME`, `TASK_STATE_CHANGED`, `HEARTBEAT_PULSE` are **wake-subscription triggers** (`WakeSubscriptionService.validTriggers`), NOT graph edges — each *fires* when a permission edge / message / task-state changes (e.g. `PERMISSION_GRANTED` fires on a `CAN_*` edge granted to the owner). They belong to the wake layer, not the edge taxonomy.
 
@@ -126,6 +128,15 @@ The `guideGapWeightThreshold = 0.8` gate (`GapInferenceEngine`) silences self-cr
 ### 2.8 The ADR-node plan (ADR 0006)
 
 `AdrIngestor` deterministically ingests every ADR as a first-class `ADR` node with five edge types: `GOVERNS` → issues, `CITES_AUTHORITY` ← issues, `IMPLEMENTS_DECISION` ← PRs, `GRADUATED_FROM` → sessions, `CODIFIES_CONCEPT` → concepts. **Current state:** the ADR nodes are inserted but **un-embedded** (no `semanticVectorId`) → inert to the semantic candidate pool / hybrid query. **Target:** embed them so ADRs surface as first-class architectural anchors in hybrid GraphRAG (a follow-up lane, not this ADR).
+
+### 2.9 The business layer — time-series disposition
+
+The Business layer extends the graph from reasoning over the *codebase* to reasoning over the *business* (Epic-graduated design; `businessSchema.mjs` is the authoritative family module — validators, deterministic ids, lifecycle, reweight planner).
+
+- **Identity + mutability:** `METRIC` identity is deterministic — `(source, metricName, windowSemantics, periodStart)` → the same node on every recomputation (idempotent upsert). Periods are **append-only**: a closed period is immutable and never reopens; only the current period mutates until close. `BUSINESS_GOAL` identity is a stable operator slug with lifecycle `active / achieved / retired`; retirement triggers the `ADVANCED_BY` reweight in the same commit (the zombie-priority guard, §2.3).
+- **Decay/protection disposition:** `ADVANCED_BY` joins `PROTECTED_EDGE_TYPES` (facts persist). Node-side: **raw high-cadence `METRIC` periods are prune-eligible once rolled up; rollups persist.** The rollup vehicle is the ADR-0028 temporal-pyramid machinery (the `SUMMARY_*` aggregation lanes) combined with the shipped recency-axis pattern — no parallel time-series engine is introduced.
+- **Ranking boundary (honesty contract):** business nodes are **NOT** Golden-Path prioritization substrate — `computedGoldenPathRouting` type-gates ranking to `ISSUE`/`DISCUSSION`. Until Golden-Path-v2 names the business labels, this layer is a reporting surface; consumers must not claim otherwise.
+- **Provenance boundary:** every business node carries `{claimClass, falsifyingQuery, windowSemantics, confoundDisclaimer, publicFlag}`; `publicFlag` travels with the node so redaction is schema-side. Metric *categories* may be public; targets and private business data never enter this graph.
 
 ## 3. How it composes the slice-ADRs
 

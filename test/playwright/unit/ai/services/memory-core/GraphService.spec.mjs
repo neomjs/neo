@@ -195,6 +195,32 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         expect(edgeRow.get('AmbientSource', 'AmbientTarget', 'RELATES_TO')).toBeUndefined();
     });
 
+    test('decayGlobalTopology preserves business ADVANCED_BY edges — advancement is a fact, not scent (#14446)', async () => {
+        await GraphService.upsertNode({id: 'business-goal-search-share', type: 'BUSINESS_GOAL'});
+        await GraphService.upsertNode({id: 'issue-14446',                type: 'ISSUE'});
+        await GraphService.upsertNode({id: 'ScentSource',                type: 'TEST_NODE'});
+        await GraphService.upsertNode({id: 'ScentTarget',                type: 'TEST_NODE'});
+
+        GraphService.linkNodes('business-goal-search-share', 'issue-14446', 'ADVANCED_BY', 0.05);
+        GraphService.linkNodes('ScentSource', 'ScentTarget', 'RELATES_TO', 0.05);
+
+        GraphService.decayGlobalTopology(0.5, 0.2, true);
+
+        const edgeRow = GraphService.db.storage.db.prepare(`
+            SELECT data
+            FROM Edges
+            WHERE source = ?
+              AND target = ?
+              AND type = ?
+        `);
+
+        const advancedRow = edgeRow.get('business-goal-search-share', 'issue-14446', 'ADVANCED_BY');
+        expect(advancedRow).toBeTruthy();
+        expect(JSON.parse(advancedRow.data).properties.weight).toBe(0.05);
+
+        expect(edgeRow.get('ScentSource', 'ScentTarget', 'RELATES_TO')).toBeUndefined();
+    });
+
     test('getNodeRecord returns the properties blob that getNode strips (#11637)', async () => {
         test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: SqliteError disk I/O - bucket G3 (#10924)');
         await GraphService.upsertNode({

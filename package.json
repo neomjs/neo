@@ -48,6 +48,7 @@
         "ai:mcp-server-memory-core"    : "node ./ai/mcp/server/memory-core/mcp-server.mjs",
         "ai:mcp-server-neural-link"    : "node ./ai/mcp/server/neural-link/mcp-server.mjs",
         "ai:migration-census-report"   : "node ./ai/scripts/maintenance/migrationCensusReport.mjs",
+        "ai:probe-business-metrics"    : "node ./ai/scripts/maintenance/probeBusinessMetrics.mjs",
         "ai:probe-keep-alive"          : "node ./ai/scripts/benchmark/keep-alive-probe.mjs",
         "ai:prune-worktrees"           : "node ./ai/scripts/migrations/bootstrapWorktree.mjs --prune-stale",
         "ai:prune-worktrees:dry-run"   : "node ./ai/scripts/migrations/bootstrapWorktree.mjs --prune-stale --dry-run",
