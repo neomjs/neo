@@ -47,7 +47,7 @@ const ok = await GraphService.linkNodesAsync(source, target, relationship, weigh
 
 ## JSONL Lazy Queue (Producer/Consumer Contract with #10165 / #10172)
 
-Gemini 3.1 Pro's [PR #10165](https://github.com/neomjs/neo/pull/10165) (ticket #10152) shipped the **producer** side: `SemanticGraphExtractor` writes provenance edges whose `memory:` / `session:` targets aren't yet in the graph to `aiConfig.lazyEdgesQueuePath` (default `ai/data/memory-core/lazy-edges.jsonl`) as one JSON object per line. Pre-#10172 queue entries may still contain `MEMORY:` / `SESSION:` targets; the consumer path treats those as compatibility inputs and normalizes them before back-fill/linking.
+Gemini 3.1 Pro's [PR #10165](https://github.com/neomjs/neo/pull/10165) (ticket #10152) shipped the **producer** side: `SemanticGraphExtractor` writes provenance edges whose `memory:` / `session:` targets aren't yet in the graph to `aiConfig.lazyEdgesQueuePath` (default `.neo-ai-data/memory-core/lazy-edges.jsonl`) as one JSON object per line. Pre-#10172 queue entries may still contain `MEMORY:` / `SESSION:` targets; the consumer path treats those as compatibility inputs and normalizes them before back-fill/linking.
 
 This ticket (#10153) ships the **consumer** side: `LazyEdgeDrainer.drainQueue()` reads the queue, retries each edge via `linkNodesAsync` (which triggers `ingestSingleRow` for missing endpoints), writes failures back for the next cycle, and deletes the queue when fully drained.
 

@@ -752,7 +752,7 @@ class Config extends ConfigProvider {
              * Target file path for the lazy backfill queue of unresolved provenance edges.
              * @type {string}
              */
-            lazyEdgesQueuePath: leaf(path.resolve(cwd, 'ai/data/memory-core/lazy-edges.jsonl'), 'NEO_LAZY_EDGES_QUEUE_PATH', 'string')
+            lazyEdgesQueuePath: leaf(path.resolve(cwd, '.neo-ai-data/memory-core/lazy-edges.jsonl'), 'NEO_LAZY_EDGES_QUEUE_PATH', 'string')
         },
         /**
          * Reactive computed config values (`Neo.state.Provider` formulas — recompute when a dependency changes).
