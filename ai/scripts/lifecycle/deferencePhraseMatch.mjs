@@ -48,6 +48,48 @@ function stripMarkdownCode(text) {
 }
 
 /**
+ * @summary Replaces quoted prose spans that report a phrase instead of using it.
+ * @param {String} text Assistant final-turn text with code spans already removed.
+ * @returns {String}
+ */
+function stripQuotedMentions(text) {
+    return text
+        .replace(/"[^"\n]*"/g, ' ')
+        .replace(/(^|[^a-zA-Z0-9_])'[^'\n]*'(?=$|[^a-zA-Z0-9_])/g, '$1 ');
+}
+
+/**
+ * @summary Checks whether a local match is a reported phrase rather than deference.
+ * @param {String} text Searchable assistant final-turn text.
+ * @param {Number} startIndex Match start index.
+ * @returns {Boolean}
+ */
+function isReportedMentionContext(text, startIndex) {
+    const prefix = text.slice(Math.max(0, startIndex - 80), startIndex).toLowerCase();
+
+    return /\b(?:the|this|that)\s+(?:literal\s+)?(?:phrase|text|string|trigger|matched\s+text|wording)\s*$/.test(prefix) ||
+           /\b(?:quoted|reported|mention(?:ed|ing)?|document(?:ed|ing)?)\s*$/.test(prefix);
+}
+
+/**
+ * @summary Checks whether a local "your call" match cites a prior operator decision.
+ * @param {String} phrase Matched deference phrase.
+ * @param {String} text Searchable assistant final-turn text.
+ * @param {Number} startIndex Match start index.
+ * @returns {Boolean}
+ */
+function isAttributiveCitationContext(phrase, text, startIndex) {
+    if (phrase.toLowerCase() !== 'your call') {
+        return false;
+    }
+
+    const prefix = text.slice(Math.max(0, startIndex - 80), startIndex).toLowerCase();
+
+    return /\bper\s+$/.test(prefix) ||
+           /\bas\s+you\s+(?:said|directed|called)\W*$/.test(prefix);
+}
+
+/**
  * @summary Returns the first deference phrase found in text, using case-insensitive boundary match.
  * @param {String} text Assistant final-turn text.
  * @param {String[]} [phrases=DEFERENCE_PHRASES]
@@ -58,13 +100,21 @@ export function matchDeferencePhrase(text = '', phrases = DEFERENCE_PHRASES) {
         return null;
     }
 
-    const searchableText = stripMarkdownCode(text);
+    const searchableText = stripQuotedMentions(stripMarkdownCode(text));
 
     return phrases.find(phrase => {
         const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'),
               matcher = new RegExp(`(^|[^a-z0-9_])${escaped}(?=$|[^a-z0-9_])`, 'i');
+        const match = matcher.exec(searchableText);
 
-        return matcher.test(searchableText);
+        if (!match) {
+            return false;
+        }
+
+        const startIndex = match.index + match[1].length;
+
+        return !isReportedMentionContext(searchableText, startIndex) &&
+               !isAttributiveCitationContext(phrase, searchableText, startIndex);
     }) || null;
 }
 
