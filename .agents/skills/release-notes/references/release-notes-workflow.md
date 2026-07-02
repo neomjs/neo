@@ -40,17 +40,26 @@ Every factual claim in the notes carries a verifiable source (ticket, PR, commit
 - **Designation claims:** `Release Type` / `Stability` lines are operator-confirmed, never inferred (v13.0 shipped as "Release Candidate"; the successor's designation is the operator's call).
 - Reviewer side: the cross-family review (§5) spot-verifies claims against their anchors; an unanchored claim is a Required Action, not a nit.
 
-## §5 The quality bar — the v13.0 contract — `DISCIPLINE-ONLY`
+## §5 The quality bar — the precedent SET — `DISCIPLINE-ONLY`
 
-The measurable precedent is `resources/content/release-notes/chunk-2/v13.0.0.md` (post-publish mirror of the v13.0 notes). Structural contract:
+The measurable precedent is a **set, never one file** — majors AND minors both carry the bar (operator, 2026-07-02: the minors are "really really good quality too… I would not limit the bar to just one example"). All post-publish mirrors under `resources/content/release-notes/chunk-N/`:
+
+- `v13.0.0.md` — the major: five hero chapters, institution-scale narrative.
+- `v12.1.0.md` — TL;DR with an **honest velocity qualifier in the unflattering direction** (a lower tickets/day number contextualized by scope-depth, not hidden); `> [!NOTE]` alert-block sidebars carrying verbatim human-AI moments (the "Cyborg Guardrail" recovery-prompt, quoted).
+- `v11.24.0.md` — **named-paradox velocity case studies with actual clock-time** ("Stephanie++"; "architected, implemented, and polished in 3 hours, 33 minutes"), before/after Mermaid sequence diagrams, "Code in Action" snippets.
+- `v11.23.0.md` / `v11.22.0.md` — case-study-led and principle-led minor shapes; both close with a **Full Changelog** tail.
+
+**Minor releases are NOT lean changelogs** — same hero-piece discipline at scoped size: one named case study or principle may lead instead of five chapters, but the narrative, sourcing, and honesty contract is identical. Structural contract (shared across the set):
 
 - **Header block:** `# Neo.mjs vX.Y.Z Release Notes` (the H1 becomes the GitHub-release title, §6) + `Release Type` / `Stability` / `Upgrade Path` lines.
 - **TL;DR blockquote** — the release in one breath, positioned against what came before.
 - **"vX.Y in 2 Minutes"** — the one line, the stat, the gates/proofs, the honest bound.
 - **Hero chapters** — the mined arcs (§3); v13.0 carried five. Each narrates change, evidence, and numbers; each stands alone.
 - **War Story** (when the window carries one): Symptom → Investigation → Culprit → **Fix-the-class** (never the point-fix), with numbers.
-- **Honest bounds** — what is proven vs what is the standing watch; test-borne vs production-borne evidence, stated in-document.
-- **Continuity / upgrade path** — what existing users do, what defers to the next release.
+- **Honest bounds** — what is proven vs what is the standing watch; test-borne vs production-borne evidence, stated in-document. Velocity/scale numbers qualified in BOTH directions (`v12.1.0.md` contextualizes a *lower* number; silence is the failure mode).
+- **Named case studies with real timelines** — bug names as narrative hooks, actual clock-time, verbatim human moments in `> [!NOTE]` sidebars; Mermaid before/afters and code-in-action where the story is architectural.
+- **Continuity / upgrade path** — what existing users do, what defers to the next release (minors use the drop-in-replacement idiom where true, per `v11.24.0.md`).
+- **Full Changelog tail** — the grouped enumeration closes the document (regenerated at cut boundary, §2), after the narrative, never instead of it.
 - **Bans:** changelog-dump structure (grouped appendices SUPPORT the story via the §2 script, never replace it); unsourced superlatives; scope-shrinking framings (§1, rule 4).
 - **Cross-family review before every iteration merges** — same rule as blog posts; authority-adjacent claims reviewed LAST per the blog bar.
 
