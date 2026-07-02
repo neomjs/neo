@@ -979,6 +979,29 @@ class Config extends ConfigProvider {
                 }
             },
             /**
+             * Business-engine layer configuration (the graph-as-business-operating-system substrate).
+             * Read at the use site per the AiConfig SSOT discipline; the metric-ingestion probe is the
+             * first consumer. Source descriptors needing endpoints/cadences join this subtree when a
+             * source that reads them lands — no speculative leaves.
+             * @type {Object}
+             */
+            business: {
+                /**
+                 * Master switch for the read-only business-metric ingestion probe. The probe refuses
+                 * to run when disabled — fail-closed by construction, so metric writes into the
+                 * production graph are always an explicit operator decision.
+                 * @type {boolean}
+                 */
+                metricProbeEnabled: leaf(false, 'NEO_BUSINESS_METRIC_PROBE', 'boolean'),
+                /**
+                 * Comma-separated allowlist of metric categories (`metricName` values) the probe may
+                 * ingest with `publicFlag: true`. Categories are public by design; anything not listed
+                 * is refused at the probe boundary — the schema-side redaction gate's config half.
+                 * @type {string}
+                 */
+                publicCategoryAllowlist: leaf('merged-prs,review-latency,stars-total,npm-downloads', 'NEO_BUSINESS_PUBLIC_CATEGORIES', 'string')
+            },
+            /**
              * Agent OS maintenance policy shared by operator scripts and daemons.
              * @type {Object}
              */

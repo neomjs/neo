@@ -71,6 +71,7 @@ function isValidGraphNodeId(id) {
 }
 
 const PROTECTED_EDGE_TYPES = Object.freeze([
+    'ADVANCED_BY', // business layer: goal→work advancement is history, never scent; zombie-priority is handled by explicit retirement reweight (ai/graph/businessSchema.mjs), not decay
     'IMPLEMENTS',
     'EXTENDS',
     'SYSTEM_TENET',
