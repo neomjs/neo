@@ -1,5 +1,6 @@
 import aiConfig         from './config.mjs';
 import IngestionService from '../../../services/knowledge-base/IngestionService.mjs';
+import {isRemoteKnowledgeBaseDeployment} from '../../../services/knowledge-base/helpers/deploymentMode.mjs';
 
 const ingestToolName = 'ingest_source_files';
 
@@ -17,23 +18,23 @@ const getEffectiveToolName = toolName => {
 };
 
 /**
- * @summary Returns true when the KB MCP server is in its remote StreamableHTTP profile.
+ * @summary Returns true when the KB MCP server is in its remote tenant-ingestion deployment profile.
  * @returns {Boolean} True when remote tenant push clients may call `ingest_source_files`.
  */
-const isRemoteIngestTransport = () => aiConfig.transport === 'sse';
+const isRemoteIngestDeployment = () => isRemoteKnowledgeBaseDeployment(aiConfig);
 
 /**
  * @summary Returns true when the ingest tool should appear in MCP tools/list.
  * @returns {Boolean} True when the current transport exposes `ingest_source_files`.
  */
-const isIngestSourceFilesToolVisible = () => isRemoteIngestTransport();
+const isIngestSourceFilesToolVisible = () => isRemoteIngestDeployment();
 
 /**
  * @summary Fails closed when a local stdio client tries to invoke the remote push facade.
  * @param {String} toolName The requested MCP tool name.
  */
 const assertToolTransportAllowed = toolName => {
-    if (getEffectiveToolName(toolName) === ingestToolName && !isRemoteIngestTransport()) {
+    if (getEffectiveToolName(toolName) === ingestToolName && !isRemoteIngestDeployment()) {
         throw new Error(
             '`ingest_source_files` is only exposed when the Knowledge Base MCP server runs ' +
             'with `transport: "sse"` (StreamableHTTP). Use `npm run ai:ingest-tenant` or ' +
