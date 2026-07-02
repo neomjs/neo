@@ -190,6 +190,16 @@ For push-mode deployments, trigger the deployment's ingestion entry point once, 
 
 For pull-mode deployments with configured `tenantRepos[]`, call `inspect_deployment` or `get_deployment_state_snapshot` and inspect the `tenantRepoSync` section before taking manual action. It distinguishes disabled, true no-configured-repos, not-due, running, completed, failed, and degraded/unreadable state without exposing credentials or raw logs. A degraded config-read error means the graph/YAML/default config resolver could not prove the effective `tenantRepos`; treat that differently from a real empty config. If the task is configured but has not advanced, use the stable reason code and per-repo hashed state there to decide whether to wait for the next due sweep, fix credentials/config, or run `node ./ai/scripts/maintenance/syncTenantRepos.mjs` inside the orchestrator container. When `lastErrorCode` is `KB_TENANT_REPO_SYNC_SYNC_FAILED`, check `lastSourceErrorCode`: `KB_GITMIRROR_CREDENTIAL_REF_INVALID`, `KB_GITMIRROR_CLONE_FAILED`, or `KB_GITMIRROR_FETCH_FAILED` points to the credential/ref/upstream access path before generic ingestion debugging.
 
+If the deployment snapshot is fresh but the tool returns `status: degraded` with
+`reason: snapshot-section-missing` or `snapshot-producer-metadata-missing`, fix
+the bridge producer before debugging repo credentials or embeddings. Those
+reasons mean the public KB/MC server can read the snapshot file, but the
+orchestrator bridge that wrote it is older than the current diagnostic contract
+or omitted a required top-level section such as `tenantRepoSync`. Recreate the
+orchestrator with the current image/config, then re-run the public tool and only
+continue pull-mode ingestion debugging once `schemaDiagnostics.status` is
+`available`.
+
 ## See also
 
 - [Day-0 Tutorial](Day0Tutorial.md) — the first-deployment happy path.

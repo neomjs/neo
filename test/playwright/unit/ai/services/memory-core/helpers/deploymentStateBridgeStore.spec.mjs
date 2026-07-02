@@ -24,10 +24,15 @@ test.describe('deploymentStateBridgeStore', () => {
 
         expect(written.ok).toBe(true);
         expect(read).toMatchObject({
-            ok    : true,
-            status: 'available',
-            ageMs : 100,
-            snapshot
+            ok               : true,
+            status           : 'available',
+            ageMs            : 100,
+            snapshot,
+            schemaDiagnostics: {
+                status                 : 'available',
+                producerMetadataPresent: true,
+                missingSections        : []
+            }
         });
     });
 
@@ -38,8 +43,70 @@ test.describe('deploymentStateBridgeStore', () => {
 
         expect(snapshot.bridgeDiagnostics).toEqual(bridgeDiagnostics);
         expect(snapshot.selfHeal).toEqual(selfHeal);                       // passed through verbatim
+        expect(snapshot.producer).toMatchObject({
+            name    : 'orchestrator-deployment-state-bridge',
+            sections: expect.arrayContaining(['bridgeDiagnostics', 'selfHeal', 'tenantRepoSync'])
+        });
         expect(createDeploymentStateSnapshot({generatedAt: 1}).bridgeDiagnostics).toBeNull(); // additive + back-compat
         expect(createDeploymentStateSnapshot({generatedAt: 1}).selfHeal).toBeNull(); // additive + back-compat (omitted → null)
+    });
+
+    test('degrades fresh legacy snapshots without producer metadata (#14408)', async () => {
+        const dir      = await fs.mkdtemp(path.join(os.tmpdir(), 'deployment-state-bridge-')),
+              filePath = path.join(dir, 'snapshot.json'),
+              snapshot = {
+                  schemaVersion    : 1,
+                  recordType       : 'deployment-state-snapshot',
+                  generatedAt      : 1710000000000,
+                  source           : 'orchestrator-deployment-state-bridge',
+                  services         : [],
+                  bridgeDiagnostics: null,
+                  recoveryRuns     : null,
+                  selfHeal         : null,
+                  tenantRepoSync   : null
+              };
+
+        await writeDeploymentStateSnapshot({filePath, snapshot});
+
+        await expect(readDeploymentStateSnapshot({filePath, now: 1710000000100})).resolves.toMatchObject({
+            ok               : false,
+            status           : 'degraded',
+            reason           : 'snapshot-producer-metadata-missing',
+            schemaDiagnostics: {
+                status                 : 'degraded',
+                producerMetadataPresent: false,
+                missingSections        : []
+            }
+        });
+    });
+
+    test('degrades fresh snapshots missing current top-level sections (#14408)', async () => {
+        const dir      = await fs.mkdtemp(path.join(os.tmpdir(), 'deployment-state-bridge-')),
+              filePath = path.join(dir, 'snapshot.json'),
+              snapshot = {
+                  schemaVersion: 1,
+                  recordType   : 'deployment-state-snapshot',
+                  generatedAt  : 1710000000000,
+                  source       : 'orchestrator-deployment-state-bridge',
+                  producer     : {
+                      name         : 'orchestrator-deployment-state-bridge',
+                      schemaVersion: 1,
+                      sections     : ['services']
+                  },
+                  services: []
+              };
+
+        await writeDeploymentStateSnapshot({filePath, snapshot});
+
+        await expect(readDeploymentStateSnapshot({filePath, now: 1710000000100})).resolves.toMatchObject({
+            ok               : false,
+            status           : 'degraded',
+            reason           : 'snapshot-section-missing',
+            schemaDiagnostics: {
+                status         : 'degraded',
+                missingSections: expect.arrayContaining(['bridgeDiagnostics', 'recoveryRuns', 'selfHeal', 'tenantRepoSync'])
+            }
+        });
     });
 
     test('reports missing and stale snapshots explicitly', async () => {

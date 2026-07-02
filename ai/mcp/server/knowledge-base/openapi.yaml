@@ -158,7 +158,8 @@ paths:
         also includes redacted tenant-repo-sync scheduler/task/config state for pull-mode
         ingestion diagnostics. The snapshot can also include bridgeDiagnostics with redacted
         runtime-access config, Compose label filter details, and stable lookup-failure reasons
-        for service-observation failures.
+        for service-observation failures. Fresh snapshots missing current-schema sections return
+        a degraded status with stable schemaDiagnostics reason codes.
       tags: [Health]
       requestBody:
         required: false
@@ -192,7 +193,9 @@ paths:
         This is a read-only public KB surface: it exposes allowlisted service state, bounded
         log tails, current diagnoses, recent recovery-run ledger entries, and redacted
         tenant-repo-sync scheduler/task/config state without exposing
-        Docker, shell, exec, restart, or any public daemon/orchestrator route.
+        Docker, shell, exec, restart, or any public daemon/orchestrator route. Fresh snapshots
+        missing current-schema sections return a degraded status with stable schemaDiagnostics
+        reason codes.
       tags: [Health]
       requestBody:
         required: false
