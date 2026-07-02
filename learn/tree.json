@@ -59,6 +59,7 @@
         {"name": "Deployment Cookbook",                                "parentId": "AgentOS",                                             "id": "agentos/DeploymentCookbook"},
         {"name": "The aiConfig Configuration Model",                   "parentId": "AgentOS",                                             "id": "agentos/AiConfigModel"},
         {"name": "Agent Harness Dock-Zone Model",                      "parentId": "AgentOS",                                             "id": "agentos/HarnessDockZoneModel"},
+        {"name": "Agent Harness Docking Design Spec",                  "parentId": "AgentOS",                                             "id": "agentos/HarnessDockingDesign"},
         {"name": "Deploying the Agent OS",                             "parentId": "AgentOS",                            "isLeaf": false, "id": "AgentOS/CloudDeployment", "collapsed": true},
             {"name": "Why Deploy the Agent OS",                        "parentId": "AgentOS/CloudDeployment",                             "id": "agentos/cloud-deployment/WhyDeploy"},
             {"name": "Day-0 Tutorial",                                 "parentId": "AgentOS/CloudDeployment",                             "id": "agentos/cloud-deployment/Day0Tutorial"},
