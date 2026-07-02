@@ -30,7 +30,10 @@ export async function dispatchFleetRequest({method, params} = {}, bridge = Fleet
         const result = await bridge[method](params);
         return {ok: true, result};
     } catch (error) {
-        return {ok: false, error: error?.message || String(error)};
+        // Never expose the raw error across the wire — it can carry a stack trace / internal paths.
+        // Log it server-side; return a sanitized, method-scoped failure the pane can act on.
+        console.error(`[fleet] dispatch of '${method}' failed:`, error);
+        return {ok: false, error: `fleet: '${method}' failed`};
     }
 }
 

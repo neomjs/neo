@@ -60,12 +60,14 @@ export function startFleetBridgeServer({port = 8083, host = '127.0.0.1', dispatc
                 return res.end(JSON.stringify({ok: false, error: 'fleet: invalid JSON body'}))
             }
 
-            // dispatch never throws (it returns a fail-closed envelope), but guard the transport anyway
+            // dispatch never throws (it returns a fail-closed envelope), but guard the transport anyway —
+            // and never leak a raw error / stack to the client: log server-side, return a generic failure.
             let envelope;
             try {
                 envelope = await dispatch(request)
             } catch (error) {
-                envelope = {ok: false, error: error?.message || String(error)}
+                console.error('[fleet] request dispatch threw:', error);
+                envelope = {ok: false, error: 'fleet: request failed'}
             }
 
             res.writeHead(200, {'Content-Type': 'application/json'});

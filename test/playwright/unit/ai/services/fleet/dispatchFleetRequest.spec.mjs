@@ -65,10 +65,14 @@ test.describe('dispatchFleetRequest — the app↔fleet wire allowlist + routing
         expect(calls).toEqual([]);
     });
 
-    test('fails closed on a thrown / rejected operation — never throws to the transport', async () => {
-        const throwing = {startAgent: async () => { throw new Error('spawn failed'); }};
+    test('fails closed on a thrown op WITHOUT leaking the raw error / stack (sanitized, method-scoped)', async () => {
+        const throwing = {startAgent: async () => { throw new Error('spawn failed at /internal/secret/path.mjs:42'); }};
         const res      = await dispatchFleetRequest({method: 'startAgent', params: 'alice'}, throwing);
-        expect(res).toEqual({ok: false, error: 'spawn failed'});
+
+        expect(res.ok).toBe(false);
+        expect(res.error).toBe("fleet: 'startAgent' failed");
+        expect(res.error).not.toContain('spawn failed');       // the raw message never crosses the wire
+        expect(res.error).not.toContain('/internal/secret')    // no stack / internal-path leak
     });
 
     test('an absent request object fails closed, not throws', async () => {
