@@ -29,6 +29,7 @@ import logger                         from '../../mcp/server/knowledge-base/logg
 import KbAlertingService              from './KbAlertingService.mjs';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {assertConfigFresh}            from '../../scripts/setup/initServerConfigs.mjs';
+import AiConfig                       from '../../config.mjs';
 
 const cleanShutdown = signal => {
     logger.info(`[KbAlertingService] Received ${signal}; stopping.`);
@@ -44,7 +45,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     process.on('SIGTERM', () => cleanShutdown('SIGTERM'));
     process.on('SIGINT',  () => cleanShutdown('SIGINT'));
 
-    assertConfigFresh({serverPath: fileURLToPath(new URL('../../mcp/server/memory-core/', import.meta.url))})
+    assertConfigFresh({
+        aiConfig  : AiConfig,
+        entrypoint: 'kb-alerting-daemon',
+        serverPath: fileURLToPath(new URL('../../mcp/server/memory-core/', import.meta.url))
+    })
         .then(() => KbAlertingService.start())
         .catch(err => {
             logger.error('[KbAlertingService] Daemon start failed:', err);

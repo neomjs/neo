@@ -28,7 +28,7 @@ if (options.debug) {
 try {
     // Boot guard: fail fast with an actionable message if a materialized config overlay is missing
     // leaves its template added, rather than crashing cryptically on an undefined config leaf later.
-    await assertConfigFresh({serverPath: fileURLToPath(new URL('.', import.meta.url))});
+    await assertConfigFresh({aiConfig, entrypoint: 'gitlab-workflow-mcp', serverPath: fileURLToPath(new URL('.', import.meta.url))});
 
     await Neo.create(Server, {
         configFile: options.config

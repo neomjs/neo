@@ -564,6 +564,24 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
         ]);
     });
 
+    test('requiredness projection captures fourth-argument leaf contracts (#13432)', () => {
+        const src = [
+            `export default {auth: {`,
+            `    gitlabApiBaseUrl: leaf('https://gitlab.com', 'NEO_AUTH_GITLAB_API_BASE_URL', 'string', {`,
+            `        requiredFor: [{entrypoints: '*', modes: ['gitlab-pat'], consumerClaims: ['readiness']}]`,
+            `    }),`,
+            `    mode: leaf('oidc', 'NEO_AUTH_MODE', 'string')`,
+            `}};`,
+            ``
+        ].join('\n');
+
+        const shape = projectSourceShape(src);
+
+        expect(shape.requiredLeaves).toEqual([
+            `gitlabApiBaseUrl (NEO_AUTH_GITLAB_API_BASE_URL, string): { requiredFor: [{entrypoints: '*', modes: ['gitlab-pat'], consumerClaims: ['readiness']}] }`
+        ]);
+    });
+
     test('detectDrift reports same-env leaf default changes (#12767)', () => {
         const templateShape = projectSourceShape([
             `export default {`,
@@ -639,6 +657,32 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
         expect(drift.missingExports).toEqual([]);
     });
 
+    test('detectDrift reports missing requiredness metadata for an existing env leaf (#13432)', () => {
+        const templateShape = projectSourceShape([
+            `export default {auth: {`,
+            `    gitlabApiBaseUrl: leaf('https://gitlab.com', 'NEO_AUTH_GITLAB_API_BASE_URL', 'string', {requiredFor: [{modes: ['gitlab-pat']}]})`,
+            `}};`,
+            ``
+        ].join('\n'));
+        const configShape = projectSourceShape([
+            `export default {auth: {`,
+            `    gitlabApiBaseUrl: leaf('https://gitlab.com', 'NEO_AUTH_GITLAB_API_BASE_URL', 'string')`,
+            `}};`,
+            ``
+        ].join('\n'));
+
+        const drift = detectDrift(templateShape, configShape);
+
+        expect(drift.hasDrift).toBe(true);
+        expect(drift.missingImports).toEqual([]);
+        expect(drift.missingExports).toEqual([]);
+        expect(drift.missingEnvVars).toEqual([]);
+        expect(drift.changedLeafDefaults).toEqual([]);
+        expect(drift.missingRequiredLeaves).toEqual([
+            `gitlabApiBaseUrl (NEO_AUTH_GITLAB_API_BASE_URL, string): {requiredFor: [{modes: ['gitlab-pat']}]}`
+        ]);
+    });
+
     test('a template that adds an env-bound config leaf warns the existing config (env drift)', async () => {
         // Identical imports/exports — only a NEW leaf carrying NEO_AUTH_MODE is added. The
         // import/export projection alone is blind to this; env-var projection catches it.
@@ -699,6 +743,35 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
         const onDisk = fs.readFileSync(path.join(root, 'memory-core', 'config.mjs'), 'utf-8');
         expect(onDisk).toBe(materializeServerConfigTemplate(templateSrc));
         expect(onDisk).toContain('NEO_AUTH_MODE');
+    });
+
+    test('requiredness metadata drift forces a full migrate (NOT the materialize-only fast path)', async () => {
+        const templateSrc = [
+            `import AiConfig from '../../../config.template.mjs';`,
+            `export default {auth: {gitlabApiBaseUrl: leaf('https://gitlab.com', 'NEO_AUTH_GITLAB_API_BASE_URL', 'string', {requiredFor: [{modes: ['gitlab-pat']}]})}};`,
+            ``
+        ].join('\n');
+        const configSrc = [
+            `import AiConfig from '../../../config.template.mjs';`,
+            `export default {auth: {gitlabApiBaseUrl: leaf('https://gitlab.com', 'NEO_AUTH_GITLAB_API_BASE_URL', 'string')}};`,
+            ``
+        ].join('\n');
+        const root = buildServerSandbox({
+            sandboxName     : 'requiredness-drift-migrate',
+            templateContents: templateSrc,
+            configContents  : configSrc
+        });
+
+        const logger = recordingLogger();
+        const result = await initConfigs({argv: ['node', 'initServerConfigs.mjs', '--migrate-config'], logger, serversRoot: root});
+
+        const action = result.processed.find(p => p.serverName === 'memory-core');
+        expect(action.action).toBe('migrate');
+        expect(action.migration).toBeUndefined();
+
+        const onDisk = fs.readFileSync(path.join(root, 'memory-core', 'config.mjs'), 'utf-8');
+        expect(onDisk).toBe(materializeServerConfigTemplate(templateSrc));
+        expect(onDisk).toContain('requiredFor');
     });
 
     test.describe('listServersWithTemplates / hasConfigTemplate (shared enumeration)', () => {
@@ -777,7 +850,13 @@ test.describe('assertConfigFresh — boot freshness guard (#13560)', () => {
     });
 
     // The template adds an env-bound leaf; a stale overlay missing it is the crash-causing class.
-    const TEMPLATE_WITH_LEAF = `export default {section: {enabled: leaf(true, 'NEO_SECTION_ENABLED', 'bool')}};\n`;
+    const TEMPLATE_WITH_LEAF          = `export default {section: {enabled: leaf(true, 'NEO_SECTION_ENABLED', 'bool')}};\n`;
+    const TEMPLATE_WITH_REQUIRED_LEAF = [
+        `export default {auth: {`,
+        `    gitlabApiBaseUrl: leaf('https://gitlab.com', 'NEO_AUTH_GITLAB_API_BASE_URL', 'string', {requiredFor: [{modes: ['gitlab-pat']}]})`,
+        `}};`,
+        ``
+    ].join('\n');
 
     test('fails fast (throws) when the overlay is missing a leaf the template added', async () => {
         const root  = buildTier1({name: 'stale', templateContents: TEMPLATE_WITH_LEAF, configContents: 'export default {};\n'});
@@ -807,6 +886,78 @@ test.describe('assertConfigFresh — boot freshness guard (#13560)', () => {
 
         expect(error).toBeNull();
         expect(logger.entries.warn.some(w => w.includes('benign config drift'))).toBe(true);
+    });
+
+    test('fails fast when a stale overlay lacks requiredness metadata the template added', async () => {
+        const root = buildTier1({
+            name            : 'missing-requiredness',
+            templateContents: TEMPLATE_WITH_REQUIRED_LEAF,
+            configContents  : `export default {auth: {gitlabApiBaseUrl: leaf('https://gitlab.com', 'NEO_AUTH_GITLAB_API_BASE_URL', 'string')}};\n`
+        });
+        const error = await callGuard({aiRoot: root, logger: recordingLogger()});
+
+        expect(error).not.toBeNull();
+        expect(error.message).toMatch(/Stale config overlay/);
+        expect(error.message).toContain('NEO_AUTH_GITLAB_API_BASE_URL');
+        expect(error.message).toContain('requiredFor');
+        expect(error.message).toContain('--migrate-config');
+    });
+
+    test('required-env findings are fatal for readiness-certifying guards (#13432)', async () => {
+        const root = buildTier1({
+            name            : 'required-env-finding',
+            templateContents: TEMPLATE_WITH_LEAF,
+            configContents  : TEMPLATE_WITH_LEAF
+        });
+
+        const aiConfig = {
+            auth: {mode: 'gitlab-pat'},
+            validateRequiredEnv({consumerClaim, entrypoint, mode}) {
+                return {
+                    ok      : false,
+                    findings: [{
+                        consumerClaim,
+                        entrypoint,
+                        env        : 'NEO_AUTH_GITLAB_API_BASE_URL',
+                        leafPath   : 'auth.gitlabApiBaseUrl',
+                        mode,
+                        reason     : 'PAT validation cannot certify readiness without a GitLab API base URL.',
+                        valueState : 'absent',
+                        disposition: 'fail-closed'
+                    }]
+                }
+            }
+        };
+
+        const error = await callGuard({
+            aiConfig,
+            aiRoot    : root,
+            entrypoint: 'memory-core-mcp',
+            logger    : recordingLogger()
+        });
+
+        expect(error).not.toBeNull();
+        expect(error.message).toContain('Required deployment configuration is missing or invalid');
+        expect(error.message).toContain('NEO_AUTH_GITLAB_API_BASE_URL (auth.gitlabApiBaseUrl): absent');
+        expect(error.message).toContain('memory-core-mcp/gitlab-pat/readiness');
+    });
+
+    test('a supplied config without validateRequiredEnv fails loud instead of skipping readiness validation (#13432)', async () => {
+        const root = buildTier1({
+            name            : 'malformed-ai-config',
+            templateContents: TEMPLATE_WITH_LEAF,
+            configContents  : TEMPLATE_WITH_LEAF
+        });
+
+        const error = await callGuard({
+            aiConfig  : {auth: {mode: 'gitlab-pat'}},
+            aiRoot    : root,
+            entrypoint: 'memory-core-mcp',
+            logger    : recordingLogger()
+        });
+
+        expect(error).not.toBeNull();
+        expect(error.message).toContain('validateRequiredEnv');
     });
 });
 

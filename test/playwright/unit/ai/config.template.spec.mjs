@@ -4,7 +4,7 @@ import os               from 'os';
 import path             from 'path';
 import Neo              from '../../../../src/Neo.mjs';
 import '../../../../src/core/_export.mjs';
-import ConfigProvider         from '../../../../ai/ConfigProvider.mjs';
+import ConfigProvider, {leaf} from '../../../../ai/ConfigProvider.mjs';
 import {TIER1_DEFAULTS}       from '../../fixtures/aiConfigDefaults.mjs';
 import {CHROMA_TEST_DATABASE} from '../../../../ai/services/shared/vector/chromaTestIsolation.mjs';
 
@@ -57,6 +57,160 @@ test.describe('Tier 1 Config Immutability', () => {
 
     test('ships a machine-neutral orchestrator dev-sync root default', async () => {
         expect(Config.orchestrator.devSyncRoots).toEqual([]);
+    });
+
+    test('leaf-owned requiredness classifies entrypoint/mode readiness state (#13432)', () => {
+        const envName          = 'NEO_UNIT_REQUIRED_ENV_VALIDATION_URL';
+        const originalEnvValue = process.env[envName];
+        delete process.env[envName];
+
+        const requiredConfig = Neo.create(ConfigProvider, {
+            data: {
+                auth: {
+                    gitlabApiBaseUrl: leaf('', envName, 'string', {
+                        requiredFor: [{
+                            entrypoints   : ['memory-core-mcp'],
+                            modes         : ['gitlab-pat'],
+                            consumerClaims: ['readiness'],
+                            reason        : 'unit readiness requirement'
+                        }]
+                    })
+                }
+            }
+        });
+
+        try {
+            const missing = requiredConfig.validateRequiredEnv({
+                consumerClaim: 'readiness',
+                entrypoint   : 'memory-core-mcp',
+                mode         : 'gitlab-pat'
+            });
+
+            expect(missing.ok).toBe(false);
+            expect(missing.findings).toEqual([{
+                consumerClaim: 'readiness',
+                entrypoint   : 'memory-core-mcp',
+                env          : envName,
+                leafPath     : 'auth.gitlabApiBaseUrl',
+                mode         : 'gitlab-pat',
+                reason       : 'unit readiness requirement',
+                valueState   : 'absent',
+                disposition  : 'fail-closed'
+            }]);
+
+            expect(requiredConfig.validateRequiredEnv({
+                consumerClaim: 'readiness',
+                entrypoint   : 'github-workflow-mcp',
+                mode         : 'gitlab-pat'
+            })).toEqual({findings: [], ok: true});
+        } finally {
+            if (originalEnvValue === undefined) {
+                delete process.env[envName];
+            } else {
+                process.env[envName] = originalEnvValue;
+            }
+            requiredConfig.destroy();
+        }
+    });
+
+    test('child configs validate inherited Tier-1 requiredness metadata (#13432)', () => {
+        const
+            envName          = 'NEO_UNIT_REQUIRED_ENV_VALIDATION_PARENT_URL',
+            originalEnvValue = process.env[envName],
+            previousRoot     = Neo.ai?.Config;
+
+        delete process.env[envName];
+
+        const rootConfig = Neo.create(ConfigProvider, {
+            data: {
+                auth: {
+                    mode            : leaf('gitlab-pat', null, 'string'),
+                    gitlabApiBaseUrl: leaf('', envName, 'string', {
+                        requiredFor: [{
+                            entrypoints   : ['wake-daemon'],
+                            modes         : ['gitlab-pat'],
+                            consumerClaims: ['readiness']
+                        }]
+                    })
+                }
+            }
+        });
+        const childConfig = Neo.create(ConfigProvider, {
+            data: {
+                wakeDaemon: {
+                    enabled: leaf(true, null, 'boolean')
+                }
+            }
+        });
+
+        Neo.ai.Config = rootConfig;
+
+        try {
+            const result = childConfig.validateRequiredEnv({
+                consumerClaim: 'readiness',
+                entrypoint   : 'wake-daemon',
+                mode         : 'gitlab-pat'
+            });
+
+            expect(result.ok).toBe(false);
+            expect(result.findings).toHaveLength(1);
+            expect(result.findings[0]).toMatchObject({
+                env       : envName,
+                leafPath  : 'auth.gitlabApiBaseUrl',
+                valueState: 'absent'
+            });
+        } finally {
+            Neo.ai.Config = previousRoot;
+            if (originalEnvValue === undefined) {
+                delete process.env[envName];
+            } else {
+                process.env[envName] = originalEnvValue;
+            }
+            rootConfig.destroy();
+            childConfig.destroy();
+        }
+    });
+
+    test('child configs validate requiredness against resolved child overrides (#13432)', () => {
+        const
+            envName      = 'NEO_UNIT_REQUIRED_ENV_VALIDATION_OVERRIDE_URL',
+            previousRoot = Neo.ai?.Config;
+
+        const rootConfig = Neo.create(ConfigProvider, {
+            data: {
+                auth: {
+                    mode            : leaf('gitlab-pat', null, 'string'),
+                    gitlabApiBaseUrl: leaf('', envName, 'string', {
+                        requiredFor: [{
+                            entrypoints   : ['memory-core-mcp'],
+                            modes         : ['gitlab-pat'],
+                            consumerClaims: ['readiness']
+                        }]
+                    })
+                }
+            }
+        });
+        const childConfig = Neo.create(ConfigProvider, {
+            data: {
+                auth: {
+                    gitlabApiBaseUrl: leaf('https://override.example.test', null, 'string')
+                }
+            }
+        });
+
+        Neo.ai.Config = rootConfig;
+
+        try {
+            expect(childConfig.validateRequiredEnv({
+                consumerClaim: 'readiness',
+                entrypoint   : 'memory-core-mcp',
+                mode         : 'gitlab-pat'
+            })).toEqual({findings: [], ok: true});
+        } finally {
+            Neo.ai.Config = previousRoot;
+            rootConfig.destroy();
+            childConfig.destroy();
+        }
     });
 
     test('ships Tier-1 provider and unified Chroma defaults', async () => {
