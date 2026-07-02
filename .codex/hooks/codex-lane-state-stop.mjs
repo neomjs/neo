@@ -343,9 +343,11 @@ export function extractFinalAssistantText(input = {}) {
  * @summary Resolves the best available text that prompted this Codex turn. This is the external
  * operator-vs-wake signal; missing text fails closed to autonomous in `isOperatorInLoop`.
  * @param {Object} [input={}]
+ * @param {Object} [options]
+ * @param {String} [options.logDir]
  * @returns {{text: String, source: String}}
  */
-export function extractPromptingText(input = {}) {
+export function extractPromptingText(input = {}, {logDir} = {}) {
     const direct = input.last_user_message ?? input.lastUserMessage ?? input.prompting_message ?? input.promptingMessage;
     if (direct) {
         const text = extractTextFromMessage(direct);
@@ -364,7 +366,9 @@ export function extractPromptingText(input = {}) {
         if (text.trim()) return {text, source: 'transcript_path'};
     }
 
-    const promptContext = readPromptContext();
+    const promptContext = readPromptContext({
+        promptContextPath: getCodexPromptContextPath({logDir})
+    });
     if (promptContext) return {text: promptContext.text, source: 'prompt_context'};
 
     return {text: '', source: 'none'};
@@ -468,12 +472,13 @@ export function summarizePayloadShape(payload = {}) {
  * @param {Object} input
  * @param {Object} [options]
  * @param {Boolean} [options.enforcing=false]
+ * @param {String} [options.logDir]
  * @returns {{action: ('allow'|'block'|'would-block'), reason: String, source: String, promptSource: String, verdict: Object, phrase: (String|undefined)}}
  */
-export function classifyCodexStopPayload(input = {}, {enforcing = false} = {}) {
+export function classifyCodexStopPayload(input = {}, {enforcing = false, logDir} = {}) {
     const stopHookActive                                                      = !!(input.stop_hook_active || input.stopHookActive),
           {text, source}                                                      = extractFinalAssistantText(input),
-          {text: promptingText, source: promptSource}                         = extractPromptingText(input),
+          {text: promptingText, source: promptSource}                         = extractPromptingText(input, {logDir}),
           promptContext                                                       = classifyPromptingContext({stopHookActive, promptingText}),
           {autonomousHandoff, handoffReason, handoffWindowMs, operatorInLoop} = promptContext;
 
