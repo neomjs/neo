@@ -31,4 +31,4 @@ jobs:
           node-version: '24'
 
       - name: Check front-door integrity fingerprint (self-declaration stays true by construction)
-        run: npm run ai:front-door-fingerprint
+        run: node ./ai/scripts/lint/check-front-door-fingerprint.mjs
