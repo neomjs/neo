@@ -45,10 +45,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     process.on('SIGTERM', () => cleanShutdown('SIGTERM'));
     process.on('SIGINT',  () => cleanShutdown('SIGINT'));
 
+    const {findings} = AiConfig.validateRequiredEnv({entrypoint: 'kb-alerting-daemon'});
     assertConfigFresh({
-        aiConfig  : AiConfig,
-        entrypoint: 'kb-alerting-daemon',
-        serverPath: fileURLToPath(new URL('../../mcp/server/memory-core/', import.meta.url))
+        requiredFindings: findings,
+        serverPath      : fileURLToPath(new URL('../../mcp/server/memory-core/', import.meta.url))
     })
         .then(() => KbAlertingService.start())
         .catch(err => {

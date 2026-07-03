@@ -29,9 +29,11 @@ if (options.debug) {
 }
 
 try {
-    // Boot guard: fail fast with an actionable message if a materialized config overlay is missing
-    // leaves its template added, rather than crashing cryptically on an undefined config leaf later.
-    await assertConfigFresh({aiConfig, entrypoint: 'neural-link-mcp', serverPath: fileURLToPath(new URL('.', import.meta.url))});
+    // Boot guard: read this server's required-env findings at the use site (the entrypoint reads the
+    // SSOT; assertConfigFresh is a non-entrypoint that never does), then fail fast on a
+    // stale overlay or a missing required leaf instead of crashing cryptically on an undefined leaf.
+    const {findings} = aiConfig.validateRequiredEnv({entrypoint: 'neural-link-mcp'});
+    await assertConfigFresh({requiredFindings: findings, serverPath: fileURLToPath(new URL('.', import.meta.url))});
 
     await Neo.create(Server, {
         configFile        : options.config,

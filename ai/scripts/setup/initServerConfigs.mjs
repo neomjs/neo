@@ -389,6 +389,14 @@ export function projectSourceShape(src) {
         }
     }
 
+    // Bare side-effect imports (`import '<source>';` — no `from` clause): e.g. the Tier-1 realm-root load
+    // that makes a server config participate in the hierarchy. Track them so a template that ADDS a
+    // participation import registers as drift a config.mjs must materialize — the detection gap that let
+    // non-participating server overlays boot with getParent() unable to resolve the realm root.
+    for (const bare of src.matchAll(/^import\s+['"]([^'"]+)['"]/gm)) {
+        imports.push(bare[1]);
+    }
+
     imports.sort();
 
     const exports = [...src.matchAll(/^export\s+\{([^}]+)\}/gm)]
@@ -672,12 +680,10 @@ export async function initTier1Config({argv = process.argv, logger = console, ai
  * leaves + the `--migrate-config` fix instead of crashing every consumer cryptically.
  *
  * @param {Object}   [options]
- * @param {Object}   [options.aiConfig] ConfigProvider instance/proxy whose required-env leaf metadata
- *   should be validated for this entrypoint. Omit only for legacy callers without a live config.
- * @param {String}   [options.consumerClaim='readiness'] The claim this guard certifies.
- * @param {String}   [options.entrypoint='boot'] The entrypoint name for requiredness matching.
- * @param {String}   [options.mode] Active mode for requiredness matching; defaults to
- *   `aiConfig.auth.mode` when omitted.
+ * @param {Object[]} [options.requiredFindings=[]] Required-env findings the ENTRYPOINT already computed by
+ *   reading `AiConfig` / its own server config at its use site (`config.validateRequiredEnv(...)`) and
+ *   passed in as a value. This guard is a non-entrypoint, so it never reads the SSOT itself — the
+ *   entrypoint injects the computed findings (a narrow bootstrap boundary), never the config object.
  * @param {String}   [options.serverPath] An `ai/mcp/server/<name>/` dir whose `config.mjs` overlay to
  *   additionally check; its Tier-1 import is materialized before the shape-compare (matching
  *   {@link initConfigs}) so the template-vs-overlay import path is not read as false drift.
@@ -687,16 +693,12 @@ export async function initTier1Config({argv = process.argv, logger = console, ai
  * @throws {Error} on crash-causing overlay drift or missing required env state, naming the fix.
  */
 export async function assertConfigFresh({
-    aiConfig,
     aiRoot = aiDir,
-    consumerClaim = 'readiness',
-    entrypoint = 'boot',
     logger = console,
-    mode,
+    requiredFindings = [],
     serverPath
 } = {}) {
-    const stale            = [],
-          requiredFindings = [];
+    const stale = [];
 
     const record = (label, drift) => {
         const crashCausing = [
@@ -732,17 +734,6 @@ export async function assertConfigFresh({
 
             record(`${path.basename(serverPath)}/config.mjs`, detectDrift(templateShape, activeShape));
         }
-    }
-
-    if (aiConfig !== undefined) {
-        // `validateRequiredEnv` resolves the active mode itself (`mode ?? getData('auth.mode')`) through
-        // the provider hierarchy — re-deriving it here as `aiConfig.auth.mode` both duplicates the
-        // Provider's own resolution AND crashes on a config whose chain has no resolvable `auth` leaf (a
-        // server config that does not import the Tier-1 root, e.g. the neural-link bridge). Pass `mode`
-        // through and let the Provider resolve it.
-        const result = aiConfig.validateRequiredEnv({consumerClaim, entrypoint, mode});
-
-        requiredFindings.push(...result.findings);
     }
 
     if (stale.length > 0) {

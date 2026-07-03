@@ -1,3 +1,7 @@
+// Load the Tier-1 realm root so getParent() inheritance resolves `auth.*` and other shared leaves via
+// the SSOT chain — matches memory-core/knowledge-base. This server reads no Tier-1 leaf
+// directly; they resolve through the parent chain, not a binding.
+import '../../../config.template.mjs';
 import path                                      from 'path';
 import {fileURLToPath}                           from 'url';
 import ConfigProvider, {createConfigProxy, leaf} from '../../../ConfigProvider.mjs';
