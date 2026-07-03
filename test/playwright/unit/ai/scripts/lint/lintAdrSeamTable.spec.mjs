@@ -131,4 +131,32 @@ test.describe('ai.scripts.lint.lint-adr-seam-table (#14525)', () => {
         expect(result.file).toBeNull();
         fs.rmSync(dir, {recursive: true, force: true});
     });
+
+    test('checkSeamTable fails on DUPLICATE rows — set equality is not cardinality (gpt RA, PR #14527)', () => {
+        const dir = fixtureDir({
+            '0001-a.md'   : 'x',
+            '9990-comp.md': TABLE(['0001', '0001', '9990'])
+        });
+
+        const result = checkSeamTable(dir);
+
+        expect(result.ok).toBe(false);
+        expect(result.duplicateRows).toEqual(['0001']);
+        expect(result.missingRows).toEqual([]);
+        expect(result.ghostRows).toEqual([]);
+        fs.rmSync(dir, {recursive: true, force: true});
+    });
+
+    test('checkSeamTable fails on MULTIPLE marker files — exactly one composition record (Grace hardening)', () => {
+        const dir = fixtureDir({
+            '0001-a.md'   : TABLE(['0001', '0002']),
+            '0002-comp.md': TABLE(['0001', '0002'])
+        });
+
+        const result = checkSeamTable(dir);
+
+        expect(result.ok).toBe(false);
+        expect(result.ambiguousFiles).toEqual(['0001-a.md', '0002-comp.md']);
+        fs.rmSync(dir, {recursive: true, force: true});
+    });
 });

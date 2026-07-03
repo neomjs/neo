@@ -38,63 +38,80 @@ export function listPresentAdrIds(dir = DECISIONS_DIR) {
 }
 
 /**
- * @summary Finds the composition ADR by its seam-table content marker.
+ * @summary Finds the composition ADR by its seam-table content marker, enforcing marker uniqueness.
  * @param {String} [dir=DECISIONS_DIR] Decisions directory.
- * @returns {{file: String, content: String}|null}
+ * @returns {{file: String, content: String, ambiguousFiles: String[]}|null} null when no marker file
+ *          exists; `ambiguousFiles` lists every match when more than one file carries the marker.
  */
 export function findCompositionAdr(dir = DECISIONS_DIR) {
+    const matches = [];
+
     for (const name of fs.readdirSync(dir).sort()) {
         if (!/\.md$/.test(name)) continue;
 
         const content = fs.readFileSync(path.join(dir, name), 'utf8');
 
         if (content.includes(TABLE_MARKER)) {
-            return {file: name, content}
+            matches.push({file: name, content})
         }
     }
 
-    return null
+    if (matches.length === 0) return null;
+
+    return {
+        ...matches[0],
+        ambiguousFiles: matches.length > 1 ? matches.map(match => match.file) : []
+    }
 }
 
 /**
- * @summary Extracts the ADR ids that hold seam-table rows.
+ * @summary Extracts the ADR ids holding seam-table rows — ALL occurrences, duplicates preserved.
+ *
+ * Cardinality is part of the contract ("exactly one row per present id"), so this deliberately
+ * does NOT dedupe: duplicate detection happens in `checkSeamTable`.
+ *
  * @param {String} content Composition-ADR markdown.
- * @returns {String[]} Sorted unique row ids.
+ * @returns {String[]} Row ids in table order, duplicates included.
  */
 export function listSeamTableRowIds(content) {
     const
         section = content.split(TABLE_MARKER)[1] || '',
-        table   = section.split(/\n## /)[0] || '',
-        ids     = [...table.matchAll(/^\|\s*(\d{4})\s*\|/gm)].map(match => match[1]);
+        table   = section.split(/\n## /)[0] || '';
 
-    return [...new Set(ids)].sort()
+    return [...table.matchAll(/^\|\s*(\d{4})\s*\|/gm)].map(match => match[1])
 }
 
 /**
- * @summary Runs the seam-table check.
+ * @summary Runs the seam-table check: missing rows, ghost rows, duplicate rows, marker ambiguity.
  * @param {String} [dir=DECISIONS_DIR] Decisions directory.
- * @returns {{ok: Boolean, missingRows: String[], ghostRows: String[], file: String|null}}
+ * @returns {{ok: Boolean, missingRows: String[], ghostRows: String[], duplicateRows: String[],
+ *            ambiguousFiles: String[], file: String|null}}
  */
 export function checkSeamTable(dir = DECISIONS_DIR) {
     const composition = findCompositionAdr(dir);
 
     if (!composition) {
-        return {ok: false, missingRows: [], ghostRows: [], file: null}
+        return {ok: false, missingRows: [], ghostRows: [], duplicateRows: [], ambiguousFiles: [], file: null}
     }
 
     const
-        present     = listPresentAdrIds(dir),
-        rows        = listSeamTableRowIds(composition.content),
-        rowSet      = new Set(rows),
-        presentSet  = new Set(present),
-        missingRows = present.filter(id => !rowSet.has(id)),
-        ghostRows   = rows.filter(id => !presentSet.has(id));
+        present       = listPresentAdrIds(dir),
+        rows          = listSeamTableRowIds(composition.content),
+        rowSet        = new Set(rows),
+        presentSet    = new Set(present),
+        counts        = rows.reduce((map, id) => map.set(id, (map.get(id) || 0) + 1), new Map()),
+        missingRows   = present.filter(id => !rowSet.has(id)),
+        ghostRows     = [...rowSet].filter(id => !presentSet.has(id)).sort(),
+        duplicateRows = [...counts.entries()].filter(([, count]) => count > 1).map(([id]) => id).sort();
 
     return {
-        ok  : missingRows.length === 0 && ghostRows.length === 0,
-        file: composition.file,
+        ok: missingRows.length === 0 && ghostRows.length === 0 && duplicateRows.length === 0
+            && composition.ambiguousFiles.length === 0,
+        file          : composition.file,
+        ambiguousFiles: composition.ambiguousFiles,
         missingRows,
-        ghostRows
+        ghostRows,
+        duplicateRows
     }
 }
 
@@ -110,6 +127,8 @@ if (process.argv[1] === __filename) {
         console.error('[lint-adr-seam-table] FAILED');
         result.missingRows.length && console.error(`- present ADR ids WITHOUT a seam-table row: ${result.missingRows.join(', ')} (a new ADR merges WITH its row in the same diff)`);
         result.ghostRows.length && console.error(`- seam-table rows WITHOUT a present ADR file: ${result.ghostRows.join(', ')}`);
+        result.duplicateRows.length && console.error(`- DUPLICATE seam-table rows for: ${result.duplicateRows.join(', ')} (exactly one row per id — resolve the conflict, keep one)`);
+        result.ambiguousFiles.length && console.error(`- MULTIPLE files carry the seam-table marker: ${result.ambiguousFiles.join(', ')} (exactly one composition record may exist)`);
         process.exit(1)
     }
 

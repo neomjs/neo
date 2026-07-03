@@ -480,6 +480,7 @@ The map-as-pointer principle: the Structural Inventory above links each subsyste
 | [0028](../agentos/decisions/0028-temporal-pyramid-summarization-substrate.md) | Temporal-Pyramid Summarization Substrate | `ai/services/memory-core/`, `ai/daemons/`, temporal summary consumers | Proposed (#14427; PR #14428) |
 | [0029](../agentos/decisions/0029-harness-docking-design.md) | Harness Docking Design — multi-window layout model, topology perspectives, cross-window drag, container contract | `src/dashboard/`, `src/manager/` (`DragCoordinator` seam), `apps/agentos/` | Proposed (#14423; PR #14425) |
 | [0030](../agentos/decisions/0030-work-graph-stall-inference.md) | Work-Graph Stall Inference — `STALL_*` finding schema, defer tuple, and consumer boundaries | `ai/services/graph/`, `ai/services/memory-core/`, `ai/daemons/`, hook/wake/FM consumers | Proposed (#14461) |
+| [0031](../agentos/decisions/0031-target-architecture-composition.md) | Target-Architecture Composition — the whole-organism seam table + trajectory invariants + id-based staleness guard | Organism-level: no single Structural Inventory row owns this seam (it composes ALL of them — the boundary is deliberate); guard: `ai/scripts/lint/` | Proposed (#14525; PR #14527) |
 
 ## Next Steps
 
