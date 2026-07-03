@@ -157,6 +157,19 @@ class FleetControlBridge extends Base {
     }
 
     /**
+     * @summary Set an agent's working-repo coordinates (`metadata.repo = {cloneUrl, repoSlug}`) on its
+     * definition (fleet authority — the FM owns the registry, as with `defineAgent`). Functional
+     * end-to-end: the provisioner already honors `metadata.repo`, so the next start launches the agent in
+     * the set repo. A single-`params` payload, so it is pane-reachable over the wire. Non-destructive to
+     * the existing on-disk checkout.
+     * @param {Object} payload `{id, cloneUrl?, repoSlug?}` — the agent id + working-repo coordinates.
+     * @returns {Object|null} the updated public definition, or `null` if the agent doesn't exist.
+     */
+    setRepo(payload) {
+        return this.getManager().setRepo(payload);
+    }
+
+    /**
      * @summary The *observe* half of the MVP loop: the per-agent repo-provisioning state across the
      * whole fleet, at the resolved managed root. Read-only.
      * @returns {Object[]} one status entry per registered agent.

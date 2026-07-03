@@ -183,6 +183,34 @@ class FleetManager extends Base {
         await this.stopAgent(agentId);
         return this.getLifecycleService().getRegistry().removeAgent(agentId);
     }
+
+    /**
+     * @summary Set the agent's working-repo coordinates on its registry definition — `metadata.repo =
+     * {cloneUrl, repoSlug}`, the EXACT convention {@link Neo.ai.services.fleet.startAgentProvisioned}
+     * already honors (it clones/reuses that repo and pins the harness `cwd` to the checkout). So this is
+     * functional end-to-end: the next provisioned start launches the agent in the newly-set repo. Takes
+     * a SINGLE payload object (`{id, …}`) — mirroring `defineAgent` and the app↔fleet wire's single-
+     * `params` contract ({@link Neo.ai.services.fleet.dispatchFleetRequest}), so it is pane-reachable
+     * over the wire. A thin fleet-authority delegation to the registry's partial update (the FM owns the
+     * definition registry) — NOT a cross-agent control-plane op. **Non-destructive to disk**, mirroring
+     * {@link removeAgent}: it does not move or delete the agent's EXISTING checkout or its
+     * checkout-path-keyed auto-memory; the next provisioned start ensures the new checkout (clone-or-
+     * reuse, never clobber), and reconciling a now-stale old checkout is a Memory-Core policy, not
+     * orphaned here. Replaces `metadata.repo` wholesale (a repo is set as a unit); other metadata keys
+     * survive the merge.
+     * @param {Object}  payload
+     * @param {String}  payload.id        Registry agent id.
+     * @param {String} [payload.cloneUrl] The clone URL the provisioner clones from.
+     * @param {String} [payload.repoSlug] The repo slug (checkout-dir naming under the managed root).
+     * @returns {Object|null} The updated public definition, or `null` if the agent doesn't exist.
+     */
+    setRepo({id, cloneUrl, repoSlug} = {}) {
+        const repo = {};
+        if (cloneUrl != null) repo.cloneUrl = cloneUrl;
+        if (repoSlug != null) repo.repoSlug = repoSlug;
+
+        return this.getLifecycleService().getRegistry().updateAgent(id, {metadata: {repo}});
+    }
 }
 
 export default Neo.setupClass(FleetManager);
