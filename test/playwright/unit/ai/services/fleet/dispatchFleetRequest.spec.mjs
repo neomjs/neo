@@ -37,6 +37,7 @@ test.describe('dispatchFleetRequest — the app↔fleet wire allowlist + routing
             restartAgent: async id => { calls.push(['restartAgent', id]); return {id, state: 'running'}; },
             removeAgent : async id => { calls.push(['removeAgent', id]);  return {success: true, id}; },
             fleetStatus : () => { calls.push(['fleetStatus']); return [{id: 'a'}]; },
+            setRepo     : payload => { calls.push(['setRepo', payload]); return {id: payload.id, metadata: {repo: payload}}; },
             // resolver seams that MUST be unreachable over the wire (they return lifecycle-powerful singletons):
             getManager : () => { calls.push(['getManager']);  return {DANGER: 'lifecycle'}; },
             getRegistry: () => { calls.push(['getRegistry']); return {DANGER: 'registry'}; }
@@ -53,6 +54,14 @@ test.describe('dispatchFleetRequest — the app↔fleet wire allowlist + routing
         const res = await dispatchFleetRequest({method: 'startAgent', params: 'alice'}, bridge);
         expect(res).toEqual({ok: true, result: {id: 'alice', state: 'running'}});
         expect(calls).toEqual([['startAgent', 'alice']]);
+    });
+
+    test('routes setRepo, forwarding the single payload to the bridge (wire-compatible single-params)', async () => {
+        const payload = {id: 'alice', cloneUrl: 'https://github.com/x/y.git', repoSlug: 'x/y'},
+              res     = await dispatchFleetRequest({method: 'setRepo', params: payload}, bridge);
+
+        expect(res).toEqual({ok: true, result: {id: 'alice', metadata: {repo: payload}}});
+        expect(calls).toEqual([['setRepo', payload]]);
     });
 
     test('rejects a method NOT on the wire allowlist without ever calling the bridge', async () => {
@@ -82,7 +91,7 @@ test.describe('dispatchFleetRequest — the app↔fleet wire allowlist + routing
 
     test('the wire allowlist is exactly the pane operations — no resolver seams', () => {
         expect([...FLEET_WIRE_METHODS].sort()).toEqual(
-            ['defineAgent', 'fleetStatus', 'getAgent', 'listAgents', 'removeAgent', 'restartAgent', 'startAgent', 'stopAgent'].sort()
+            ['defineAgent', 'fleetStatus', 'getAgent', 'listAgents', 'removeAgent', 'restartAgent', 'setRepo', 'startAgent', 'stopAgent'].sort()
         );
         expect(FLEET_WIRE_METHODS).not.toContain('getManager');
         expect(FLEET_WIRE_METHODS).not.toContain('getRegistry');

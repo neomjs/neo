@@ -42,7 +42,8 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
             stopAgent      : async id => { calls.push(['stopAgent', id]);    return {success: true, id, state: 'stopped'}; },
             restartAgent   : async id => { calls.push(['restartAgent', id]); return {id, state: 'running'}; },
             removeAgent    : async id => { calls.push(['removeAgent', id]);  return {success: true, id}; },
-            fleetRepoStatus: ()       => { calls.push(['fleetRepoStatus']);  return [{id: 'alice', repo: 'clean'}]; }
+            fleetRepoStatus: ()       => { calls.push(['fleetRepoStatus']);  return [{id: 'alice', repo: 'clean'}]; },
+            setRepo        : payload  => { calls.push(['setRepo', payload]);   return {id: payload.id, metadata: {repo: payload}}; }
         };
 
         FleetControlBridge.registry = registryStub;
@@ -96,6 +97,12 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
     test('removeAgent delegates to the manager compose (stop + deregister)', async () => {
         await expect(FleetControlBridge.removeAgent('alice')).resolves.toEqual({success: true, id: 'alice'});
         expect(calls).toEqual([['removeAgent', 'alice']]);
+    });
+
+    test('setRepo delegates the single payload to the manager definition-update (fleet authority)', () => {
+        const payload = {id: 'alice', cloneUrl: 'https://github.com/x/y.git', repoSlug: 'x/y'};
+        expect(FleetControlBridge.setRepo(payload)).toEqual({id: 'alice', metadata: {repo: payload}});
+        expect(calls).toEqual([['setRepo', payload]]);
     });
 
     test('fleetStatus delegates to the manager repo-status aggregator', () => {
