@@ -913,6 +913,11 @@ test.describe('assertConfigFresh — boot freshness guard (#13560)', () => {
         const aiConfig = {
             auth: {mode: 'gitlab-pat'},
             validateRequiredEnv({consumerClaim, entrypoint, mode}) {
+                // Mirror the real ConfigProvider.validateRequiredEnv: it resolves the active mode
+                // internally (`mode ?? this.getData('auth.mode')`) and reports the RESOLVED mode. The guard
+                // must NOT pre-resolve `auth.mode` for it — that re-implements the Provider's resolution and
+                // crashes on a config whose chain has no resolvable `auth` leaf.
+                const activeMode = mode ?? this.auth.mode;
                 return {
                     ok      : false,
                     findings: [{
@@ -920,7 +925,7 @@ test.describe('assertConfigFresh — boot freshness guard (#13560)', () => {
                         entrypoint,
                         env        : 'NEO_AUTH_GITLAB_API_BASE_URL',
                         leafPath   : 'auth.gitlabApiBaseUrl',
-                        mode,
+                        mode       : activeMode,
                         reason     : 'PAT validation cannot certify readiness without a GitLab API base URL.',
                         valueState : 'absent',
                         disposition: 'fail-closed'

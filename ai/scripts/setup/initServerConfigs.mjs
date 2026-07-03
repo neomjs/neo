@@ -735,11 +735,12 @@ export async function assertConfigFresh({
     }
 
     if (aiConfig !== undefined) {
-        const result = aiConfig.validateRequiredEnv({
-            consumerClaim,
-            entrypoint,
-            mode: mode ?? aiConfig.auth.mode
-        });
+        // `validateRequiredEnv` resolves the active mode itself (`mode ?? getData('auth.mode')`) through
+        // the provider hierarchy — re-deriving it here as `aiConfig.auth.mode` both duplicates the
+        // Provider's own resolution AND crashes on a config whose chain has no resolvable `auth` leaf (a
+        // server config that does not import the Tier-1 root, e.g. the neural-link bridge). Pass `mode`
+        // through and let the Provider resolve it.
+        const result = aiConfig.validateRequiredEnv({consumerClaim, entrypoint, mode});
 
         requiredFindings.push(...result.findings);
     }
