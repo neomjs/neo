@@ -224,7 +224,7 @@ You should see: `Chroma server running at http://localhost:8000`
 ### For regular development (no AI):
 
 ```bash
-npm run dev
+npm run server-start
 ```
 
 ---

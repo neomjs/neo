@@ -40,7 +40,7 @@ MCP provides a robust security model. Our servers run over `stdio` (standard inp
 
 ## The "Agent OS" Architecture
 
-The Agent OS consists of four specialized MCP servers that work together to give the agent a complete "brain":
+The Agent OS exposes five package-backed MCP servers that work together to give agents a complete operating surface:
 
 ### 1. The Knowledge Base Server (`neo.mjs-knowledge-base`)
 
@@ -65,6 +65,12 @@ The Agent OS consists of four specialized MCP servers that work together to give
 *   **Role:** The Visual Cortex & Hands.
 *   **Function:** Connects directly to the running application runtime.
 *   **Capability:** Allows agents to see the component tree, inspect state, and manipulate the UI in real-time. It turns the "Blind Architect" into a "Sighted Developer" who can verify their own work.
+
+### 5. The File System Server (`neo.mjs-file-system`)
+
+*   **Role:** Sandboxed Hands for local agent loops.
+*   **Function:** Provides file IO when an agent profile does not already have a native filesystem tool.
+*   **Capability:** Keeps `Neo.ai.Agent` and harnessless local loops on the same MCP contract as the frontier-harness peers. Codex, Claude Code, Gemini CLI, and Antigravity usually use their native filesystem tools instead, so their default MCP set often exposes four servers while the package script surface contains five.
 
 ## Shared Architectural Patterns
 

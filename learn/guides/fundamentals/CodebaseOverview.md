@@ -519,7 +519,7 @@ This local infrastructure exposes five dedicated Model Context Protocol (MCP) se
 
 **1. Knowledge Base Server** (`ai/mcp/server/knowledge-base/`)
 - Indexes the entire platform: source code, examples, guides, release notes, tickets
-- Semantic search via vector embeddings (ChromaDB + Google Gemini)
+- Semantic search via vector embeddings (ChromaDB + local-or-remote embedding providers)
 - Sophisticated scoring algorithm prioritizing relevance
 - Pre-calculates class inheritance chains for fast queries
 - Transforms over 158k lines of code into queryable knowledge
