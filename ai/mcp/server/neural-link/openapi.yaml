@@ -99,6 +99,7 @@ paths:
       operationId: check_namespace
       x-neo-tool-tier: read
       x-handler: check_namespace
+      x-pass-as-object: true
       requestBody:
         required: true
         content:
@@ -175,6 +176,7 @@ paths:
       operationId: get_namespace_tree
       x-neo-tool-tier: read
       x-handler: get_namespace_tree
+      x-pass-as-object: true
       requestBody:
         required: true
         content:
