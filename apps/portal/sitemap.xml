@@ -45,98 +45,79 @@
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://neomjs.com/learn/benefits/AIEngineeringTeam</loc>
-    <lastmod>2026-06-29T22:02:52+02:00</lastmod>
+    <loc>https://neomjs.com/learn/benefits/brain/AIEngineeringTeam</loc>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://neomjs.com/learn/benefits/IdentityRitualsCulture</loc>
-    <lastmod>2026-06-29T22:02:52+02:00</lastmod>
+    <loc>https://neomjs.com/learn/benefits/brain/IdentityRitualsCulture</loc>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://neomjs.com/learn/benefits/AgentMemory</loc>
-    <lastmod>2026-06-02T13:41:00+02:00</lastmod>
+    <loc>https://neomjs.com/learn/benefits/brain/AgentMemory</loc>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://neomjs.com/learn/benefits/SelfEvolution</loc>
-    <lastmod>2026-05-31T06:13:39+02:00</lastmod>
+    <loc>https://neomjs.com/learn/benefits/brain/SelfEvolution</loc>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://neomjs.com/learn/benefits/AgentOSOnYourCodebase</loc>
-    <lastmod>2026-05-31T06:13:39+02:00</lastmod>
+    <loc>https://neomjs.com/learn/benefits/brain/AgentOSOnYourCodebase</loc>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://neomjs.com/learn/benefits/DeployingTheAgentOS</loc>
-    <lastmod>2026-05-31T06:13:39+02:00</lastmod>
+    <loc>https://neomjs.com/learn/benefits/brain/DeployingTheAgentOS</loc>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://neomjs.com/learn/benefits/ApplicationEngine</loc>
-    <lastmod>2026-07-02T17:59:50+02:00</lastmod>
+    <loc>https://neomjs.com/learn/benefits/body/ApplicationEngine</loc>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://neomjs.com/learn/benefits/ObjectPermanence</loc>
-    <lastmod>2026-03-31T10:39:21+02:00</lastmod>
+    <loc>https://neomjs.com/learn/benefits/body/ObjectPermanence</loc>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://neomjs.com/learn/benefits/JSONFirstUIs</loc>
-    <lastmod>2026-03-31T10:39:21+02:00</lastmod>
+    <loc>https://neomjs.com/learn/benefits/body/JSONFirstUIs</loc>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://neomjs.com/learn/benefits/OffTheMainThread</loc>
-    <lastmod>2026-01-08T22:57:06+01:00</lastmod>
+    <loc>https://neomjs.com/learn/benefits/body/OffTheMainThread</loc>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://neomjs.com/learn/benefits/FourEnvironments</loc>
-    <lastmod>2026-01-17T19:27:22+01:00</lastmod>
+    <loc>https://neomjs.com/learn/benefits/body/FourEnvironments</loc>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://neomjs.com/learn/benefits/ConfigSystem</loc>
-    <lastmod>2026-01-08T23:14:01+01:00</lastmod>
+    <loc>https://neomjs.com/learn/benefits/body/ConfigSystem</loc>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://neomjs.com/learn/benefits/RPCLayer</loc>
-    <lastmod>2025-07-15T21:37:07+02:00</lastmod>
+    <loc>https://neomjs.com/learn/benefits/body/RPCLayer</loc>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://neomjs.com/learn/benefits/Speed</loc>
-    <lastmod>2025-07-15T21:37:07+02:00</lastmod>
+    <loc>https://neomjs.com/learn/benefits/body/Speed</loc>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://neomjs.com/learn/benefits/MultiWindow</loc>
-    <lastmod>2025-07-15T21:37:07+02:00</lastmod>
+    <loc>https://neomjs.com/learn/benefits/body/MultiWindow</loc>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://neomjs.com/learn/benefits/Quick</loc>
-    <lastmod>2025-07-15T21:37:07+02:00</lastmod>
+    <loc>https://neomjs.com/learn/benefits/body/Quick</loc>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://neomjs.com/learn/benefits/Effort</loc>
-    <lastmod>2025-07-15T21:37:07+02:00</lastmod>
+    <loc>https://neomjs.com/learn/benefits/body/Effort</loc>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://neomjs.com/learn/benefits/FormsEngine</loc>
-    <lastmod>2025-07-15T21:37:07+02:00</lastmod>
+    <loc>https://neomjs.com/learn/benefits/body/FormsEngine</loc>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://neomjs.com/learn/benefits/Features</loc>
-    <lastmod>2026-01-08T22:57:06+01:00</lastmod>
+    <loc>https://neomjs.com/learn/benefits/body/Features</loc>
     <priority>0.8</priority>
   </url>
   <url>
@@ -878,7 +859,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/devindex/index.html</loc>
-    <lastmod>2026-07-03T18:30:11Z</lastmod>
+    <lastmod>2026-07-03T20:32:22Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/email/index.html</loc>
@@ -898,7 +879,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/portal/index.html</loc>
-    <lastmod>2026-07-03T20:09:22Z</lastmod>
+    <lastmod>2026-07-03T20:32:24Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/realworld/index.html</loc>
