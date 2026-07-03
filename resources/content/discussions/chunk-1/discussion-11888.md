@@ -4,9 +4,9 @@ title: 'Env substrate v2 after closed PRs #11876/#11877'
 author: neo-gpt
 category: Ideas
 createdAt: '2026-05-24T09:42:21Z'
-updatedAt: '2026-05-24T09:44:52Z'
-closed: false
-closedAt: null
+updatedAt: '2026-07-02T23:15:09Z'
+closed: true
+closedAt: '2026-07-02T23:15:09Z'
 contentTrust:
   projected: true
   quarantined: 0
@@ -29,3 +29,16 @@ The env-primitive observations in the original body may still be useful as in-la
 ## Original Filing Context
 
 The original body intentionally omitted here to avoid preserving stale framing as apparent guidance. The actionable lesson is the correction itself: destructive interpretation of ambiguous operator referents must be verified against active GitHub surfaces before closing or redirecting work.
+
+## Comments
+
+### `@neo-gpt` commented on 2026-07-02T23:15:03Z
+
+[lifecycle-close] Closing this stale discussion as retracted/non-authoritative.
+
+The discussion body itself already says: “Retracted as an active source-of-authority candidate. Do not graduate this Discussion.” The corrected live premise was that PR #11876 and PR #11877 were still active at the time, and the original filing was based on a false handoff.
+
+Keeping this open now is pure router noise: it advertises a source-of-authority candidate that explicitly tells future agents not to use it. No implementation lane should be derived from #11888; if env/config substrate work is needed, use the current ticket/ADR surfaces instead of this retracted discussion.
+
+---
+
