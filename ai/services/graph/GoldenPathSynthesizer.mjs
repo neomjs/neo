@@ -48,6 +48,11 @@ import {
     renderConsolidationGapsSection as renderConsolidationGaps
 } from './frontierConsolidation.mjs';
 import {
+    buildConceptSlice                as buildGraphConceptSlice,
+    renderConceptSliceHandoffSection as renderGraphConceptSliceHandoffSection,
+    renderConceptSliceSection        as renderGraphConceptSliceSection
+} from './conceptSliceBuilder.mjs';
+import {
     buildCurrentFocusCandidates as buildIssueFocusCurrentFocusCandidates,
     buildSilentThreadCandidates as buildIssueFocusSilentThreadCandidates,
     buildStaleAssignmentCandidates as buildIssueFocusStaleAssignmentCandidates,
@@ -556,6 +561,33 @@ class GoldenPathSynthesizer extends Base {
         return renderConsolidationGaps(summaryColl, options)
     }
 
+    /**
+     * @summary Delegates Sandman-v2 concept-slice construction to `conceptSliceBuilder.mjs`.
+     * @param {Object} options See `conceptSliceBuilder.buildConceptSlice`.
+     * @returns {Object}
+     */
+    static buildConceptSlice(options = {}) {
+        return buildGraphConceptSlice(options)
+    }
+
+    /**
+     * @summary Delegates concept-slice markdown rendering to `conceptSliceBuilder.mjs`.
+     * @param {Object} slice Concept-slice render tree.
+     * @returns {String}
+     */
+    static renderConceptSliceSection(slice = {}) {
+        return renderGraphConceptSliceSection(slice)
+    }
+
+    /**
+     * @summary Builds and renders the concept slice while preserving handoff generation on failure.
+     * @param {Object} options See `conceptSliceBuilder.renderConceptSliceHandoffSection`.
+     * @returns {String}
+     */
+    static renderConceptSliceHandoffSection(options = {}) {
+        return renderGraphConceptSliceHandoffSection(options)
+    }
+
     async synthesizeGoldenPath({
         repoEnrichmentEnabled = true,
         issuesDir = path.resolve(__dirname, '../../../resources/content/issues'),
@@ -875,6 +907,11 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         // TTL pruning and centralized overwrite happen in the same render pass.
         let handoffContent = `# Autonomous Handoff (Dream Pipeline & Golden Path)\n\n`;
         handoffContent += `The Native Edge Graph has audited the codebase structurally. The following architectural coverage gaps currently exist natively within the SQLite matrix.\n\n`;
+        handoffContent += this.constructor.renderConceptSliceHandoffSection({
+            capturedAt  : handoffTimestamp,
+            graphService: GraphService,
+            logger
+        });
 
         const TTL_MS           = 7 * 24 * 60 * 60 * 1000; // 7 days TTL (Time-to-Live)
         const gapNow           = Date.now();
