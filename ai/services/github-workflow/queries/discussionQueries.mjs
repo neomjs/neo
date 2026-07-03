@@ -185,3 +185,68 @@ export const FETCH_DISCUSSIONS_FOR_SYNC = `
     }
   }
 `;
+
+/**
+ * @summary Single-discussion variant of {@link FETCH_DISCUSSIONS_FOR_SYNC} for the force-refetch path.
+ *
+ * Returns the identical sync node shape (body + comments + nested replies + frontmatter fields) for
+ * ONE discussion by number, bypassing the bulk delta-by-`updatedAt` gating so a known-stale local
+ * mirror can be force-re-rendered from current GitHub state.
+ *
+ * Variables required:
+ * - $owner: String!
+ * - $repo: String!
+ * - $number: Int!
+ * - $maxComments: Int!
+ * - $maxReplies: Int!
+ */
+export const FETCH_SINGLE_DISCUSSION_FOR_SYNC = `
+  query FetchSingleDiscussionForSync(
+    $owner: String!
+    $repo: String!
+    $number: Int!
+    $maxComments: Int!
+    $maxReplies: Int!
+  ) {
+    repository(owner: $owner, name: $repo) {
+      discussion(number: $number) {
+        number
+        title
+        body
+        closed
+        closedAt
+        createdAt
+        updatedAt
+
+        author {
+          login
+        }
+
+        category {
+          name
+        }
+
+        comments(first: $maxComments) {
+          nodes {
+            author {
+              login
+            }
+            body
+            createdAt
+            isAnswer
+            replies(first: $maxReplies) {
+              nodes {
+                author {
+                  login
+                }
+                body
+                createdAt
+                isAnswer
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;

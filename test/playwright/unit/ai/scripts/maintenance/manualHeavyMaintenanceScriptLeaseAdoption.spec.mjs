@@ -32,7 +32,7 @@ import * as core      from '../../../../../../src/core/_export.mjs';
  */
 test.describe('Manual heavy-maintenance script lease adoption', () => {
     const scriptsRoot = path.resolve(process.cwd(), 'ai/scripts');
-    const scriptPath = file => path.join(scriptsRoot, file === 'runSandman.mjs' ? 'runners' : 'maintenance', file);
+    const scriptPath  = file => path.join(scriptsRoot, file === 'runSandman.mjs' ? 'runners' : 'maintenance', file);
 
     /**
      * Maps each script to its expected lease `owner` string. Owner strings are stable
@@ -40,13 +40,14 @@ test.describe('Manual heavy-maintenance script lease adoption', () => {
      * task names — keep these in sync with `MaintenanceBackpressureService.mjs` DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES.
      */
     const SCRIPTS = [
-        {file: 'runSandman.mjs',           owner: 'sandman',            invocation: 'withLease('},
-        {file: 'syncKnowledgeBase.mjs',    owner: 'kbSync',             invocation: 'withHeavyMaintenanceLease('},
-        {file: 'backup.mjs',               owner: 'backup',             invocation: 'withHeavyMaintenanceLease('},
-        {file: 'syncGithubWorkflow.mjs',   owner: 'syncGithubWorkflow', invocation: 'withHeavyMaintenanceLease('}
+        {file: 'runSandman.mjs',           owner: 'sandman',            invocation: 'withLease(',                 heldExitPattern: /exit\(0\)/},
+        {file: 'syncKnowledgeBase.mjs',    owner: 'kbSync',             invocation: 'withHeavyMaintenanceLease(', heldExitPattern: /process\.exit\(0\)/},
+        {file: 'defragChromaDB.mjs',       owner: 'defrag',             invocation: 'withLease(',                 heldExitPattern: /exit\(0\)/},
+        {file: 'backup.mjs',               owner: 'backup',             invocation: 'withHeavyMaintenanceLease(', heldExitPattern: /process\.exit\(0\)/},
+        {file: 'syncGithubWorkflow.mjs',   owner: 'syncGithubWorkflow', invocation: 'withHeavyMaintenanceLease(', heldExitPattern: /process\.exit\(0\)/}
     ];
 
-    for (const {file, owner, invocation} of SCRIPTS) {
+    for (const {file, owner, invocation, heldExitPattern} of SCRIPTS) {
         test(`${file}: imports withHeavyMaintenanceLease`, async () => {
             const source = await fs.readFile(scriptPath(file), 'utf-8');
             expect(source).toMatch(/import\s*\{[^}]*withHeavyMaintenanceLease[^}]*\}\s*from\s*['"]\.\.\/\.\.\/daemons\/orchestrator\/services\/HeavyMaintenanceLeaseService\.mjs['"]/);
@@ -69,7 +70,7 @@ test.describe('Manual heavy-maintenance script lease adoption', () => {
             // Assert the deferred message names the active owner (so the user sees who holds the lease)
             expect(source).toMatch(/Deferred:.*lease held by/i);
             // Assert process.exit(0) is called on held — non-error semantics per AC2
-            expect(source).toMatch(file === 'runSandman.mjs' ? /exit\(0\)/ : /process\.exit\(0\)/);
+            expect(source).toMatch(heldExitPattern);
         });
     }
 
@@ -141,9 +142,9 @@ test.describe('Manual heavy-maintenance script lease adoption', () => {
         ).toBeLessThan(postWrapperMarkerMatch.index);
     });
 
-    test('all four scripts share the same lease-wrapper pattern (no per-script private locks)', async () => {
+    test('all heavy maintenance scripts share the same lease-wrapper pattern (no per-script private locks)', async () => {
         // Empirical anchor: #11503 explicitly named "per-script private locks" as an avoided
-        // trap. This test pins that none of the four scripts introduces an alternative
+        // trap. This test pins that none of the heavy-maintenance scripts introduces an alternative
         // lock-file or in-process mutex — they all consume the shared lease primitive.
         for (const {file} of SCRIPTS) {
             const source = await fs.readFile(scriptPath(file), 'utf-8');

@@ -1,9 +1,7 @@
+import Accounts           from './Accounts.mjs';
 import BaseViewport       from '../../../src/container/Viewport.mjs';
 import Dashboard          from '../../../src/dashboard/Container.mjs';
-import Panel              from '../../../src/container/Panel.mjs';
-import Blackboard         from './Blackboard.mjs';
-import InterventionPanel  from './InterventionPanel.mjs';
-import StrategyPanel      from './StrategyPanel.mjs';
+import FleetSettingsPanel from './FleetSettingsPanel.mjs';
 import ViewportController from './ViewportController.mjs';
 
 /**
@@ -33,6 +31,8 @@ class Viewport extends BaseViewport {
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
+         * The cockpit: a header toolbar (logo, title, theme switch) above a dashboard hosting the
+         * Accounts + Fleet keeper-views. Renders through `neo-theme-neo-dark` / `neo-theme-neo-light`.
          * @member {Object[]} items
          */
         items: [{
@@ -42,54 +42,40 @@ class Viewport extends BaseViewport {
             items: [{
                 ntype: 'component',
                 cls  : ['agent-logo'],
-                html : '<img src="../../resources/images/logo/neo_logo_cyberpunk.svg" alt="Neo.mjs Logo">'
+                vdom : {cn: [{tag: 'img', src: '../../resources/images/logo/neo_logo_primary.svg', alt: 'Neo.mjs'}]}
             }, {
                 ntype: 'label',
-                text : 'Agent OS Command Center'
+                text : 'Agent OS'
             }, '->', {
-                ntype  : 'button',
-                cls    : ['agent-button'],
-                iconCls: 'fa fa-window-restore',
-                text   : 'Detach Swarm View',
-                handler: 'onOpenSwarmClick'
+                ntype    : 'button',
+                cls      : ['agent-button', 'agent-theme-button'],
+                handler  : 'onSwitchTheme',
+                iconCls  : 'fa-solid fa-moon',
+                reference: 'theme-switch-button',
+                tooltip  : {
+                    text     : 'Switch theme',
+                    showDelay: 0,
+                    hideDelay: 0
+                }
             }]
         }, {
             module           : Dashboard,
+            cls              : ['agent-dashboard'],
             dragProxyExtraCls: ['agent-os-viewport', 'neo-viewport'],
             flex             : 1,
             popupUrl         : 'apps/agentos/childapps/widget/index.html',
             reference        : 'dashboard',
             sortGroup        : 'neo-connected-dashboard',
-            cls              : ['agent-dashboard'],
             style            : {margin: '20px'},
 
             items: [{
-                module   : StrategyPanel,
-                flex     : 2,
-                reference: 'strategy'
+                module   : Accounts,
+                flex     : 1,
+                reference: 'accounts'
             }, {
-                module   : Panel,
-                cls      : ['agent-panel-swarm'],
-                flex     : 5,
-                popupUrl : 'apps/agentos/childapps/swarm/index.html',
-                reference: 'swarm',
-                headers  : [{
-                    dock: 'top',
-                    cls : ['neo-draggable'],
-                    text: 'Swarm View'
-                }],
-                items    : [{
-                    module   : Blackboard,
-                    style    : {
-                        backgroundColor: '#000',
-                        height         : '100%',
-                        width          : '100%'
-                    }
-                }]
-            }, {
-                module   : InterventionPanel,
-                flex     : 3,
-                reference: 'intervention'
+                module   : FleetSettingsPanel,
+                flex     : 1,
+                reference: 'fleet'
             }]
         }]
     }

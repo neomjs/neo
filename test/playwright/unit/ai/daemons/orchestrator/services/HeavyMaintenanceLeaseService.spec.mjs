@@ -5,16 +5,32 @@ import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 import {
     HeavyMaintenanceLeaseService,
-    acquireHeavyMaintenanceLease,
-    acquireHeavyMaintenanceLeaseSync,
+    acquireHeavyMaintenanceLease as _rawAcquireHeavyMaintenanceLease,
+    acquireHeavyMaintenanceLeaseSync as _rawAcquireHeavyMaintenanceLeaseSync,
     inspectHeavyMaintenanceLease,
     inspectHeavyMaintenanceLeaseSync,
     isPidAlive,
     isLeaseStale,
     releaseHeavyMaintenanceLease,
     releaseHeavyMaintenanceLeaseSync,
-    withHeavyMaintenanceLease
+    shouldYieldHeavyMaintenanceLease,
+    withHeavyMaintenanceLease as _rawWithHeavyMaintenanceLease
 } from '../../../../../../../ai/daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
+
+// Test convenience: the lease primitive now requires `staleAfterMs` (the AiConfig-aware boundary
+// resolves it; the Neo/Base-free primitive carries no default). These suites exercise
+// acquire/release/stale/inheritance semantics — not the TTL value — so they default a valid TTL
+// here; the required-`staleAfterMs` contract itself is covered by the dedicated guard test below.
+const TEST_LEASE_STALE_MS = 60000;
+
+const acquireHeavyMaintenanceLease = ({staleAfterMs = TEST_LEASE_STALE_MS, ...rest} = {}) =>
+    _rawAcquireHeavyMaintenanceLease({staleAfterMs, ...rest});
+
+const acquireHeavyMaintenanceLeaseSync = ({staleAfterMs = TEST_LEASE_STALE_MS, ...rest} = {}) =>
+    _rawAcquireHeavyMaintenanceLeaseSync({staleAfterMs, ...rest});
+
+const withHeavyMaintenanceLease = (task, {staleAfterMs = TEST_LEASE_STALE_MS, ...rest} = {}) =>
+    _rawWithHeavyMaintenanceLease(task, {staleAfterMs, ...rest});
 
 function createLeasePath(name) {
     const dir = path.join(process.cwd(), 'tmp', `heavy-maintenance-lease-${process.pid}-${Date.now()}-${Math.random()}`);
@@ -23,6 +39,16 @@ function createLeasePath(name) {
 }
 
 test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', () => {
+    test('#14205: buildLeasePayload requires staleAfterMs — the Neo/Base-free primitive fails loudly with no default', async () => {
+        const leasePath = createLeasePath('staleAfterMs-required-guard');
+        await expect(_rawAcquireHeavyMaintenanceLease({
+            leasePath,
+            owner: 'summary',
+            now  : new Date('2026-05-16T20:00:00.000Z'),
+            token: 'no-stale'
+        })).rejects.toThrow(/staleAfterMs.*required/);
+    });
+
     test('acquires and inspects a missing lease', async () => {
         const leasePath = createLeasePath('missing');
         const now       = new Date('2026-05-16T20:00:00.000Z');
@@ -69,6 +95,55 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
                 token: 'owner-token'
             }
         });
+    });
+
+    test('shouldYieldHeavyMaintenanceLease bounds the active hold (#13780)', () => {
+        const
+            acquiredAt      = '2026-05-16T20:00:00.000Z',
+            lease           = {owner: 'summary', acquiredAt},
+            maxActiveHoldMs = 5 * 60 * 1000; // 5 min
+
+        // active hold exceeds the budget → yield so an overdue peer can interleave
+        expect(shouldYieldHeavyMaintenanceLease(lease, {
+            now: new Date('2026-05-16T20:06:00.000Z'), maxActiveHoldMs
+        })).toBe(true);
+
+        // still within the budget → keep holding
+        expect(shouldYieldHeavyMaintenanceLease(lease, {
+            now: new Date('2026-05-16T20:03:00.000Z'), maxActiveHoldMs
+        })).toBe(false);
+
+        // exactly at the boundary → keep holding (strictly-greater contract)
+        expect(shouldYieldHeavyMaintenanceLease(lease, {
+            now: new Date('2026-05-16T20:05:00.000Z'), maxActiveHoldMs
+        })).toBe(false);
+
+        // unset / non-positive knob → never yields (byte-identical to today)
+        expect(shouldYieldHeavyMaintenanceLease(lease, {now: new Date('2026-05-16T23:00:00.000Z')})).toBe(false);
+        expect(shouldYieldHeavyMaintenanceLease(lease, {now: new Date('2026-05-16T23:00:00.000Z'), maxActiveHoldMs: 0})).toBe(false);
+
+        // fail-safe: missing lease / missing acquiredAt / unparseable timestamp → do not abandon work
+        expect(shouldYieldHeavyMaintenanceLease(null, {maxActiveHoldMs})).toBe(false);
+        expect(shouldYieldHeavyMaintenanceLease({owner: 'summary'}, {maxActiveHoldMs})).toBe(false);
+        expect(shouldYieldHeavyMaintenanceLease({acquiredAt: 'not-a-date'}, {
+            now: new Date('2026-05-16T23:00:00.000Z'), maxActiveHoldMs
+        })).toBe(false);
+    });
+
+    test('#14144: service.shouldYield() injects the reactive maxActiveHoldMs into the primitive', () => {
+        const acquiredAt = '2026-05-16T20:00:00.000Z',
+              lease      = {owner: 'summary', acquiredAt},
+              service    = Neo.create(HeavyMaintenanceLeaseService, {});
+        service.maxActiveHoldMs = 5 * 60 * 1000; // 5 min — through the reactive setter (config-default-independent)
+
+        // hold past the reactive bound → yield (the service injects this.maxActiveHoldMs, no per-call arg)
+        expect(service.shouldYield(lease, {now: new Date('2026-05-16T20:06:00.000Z')})).toBe(true);
+        // still within the reactive bound → keep holding
+        expect(service.shouldYield(lease, {now: new Date('2026-05-16T20:03:00.000Z')})).toBe(false);
+        // explicit per-call override wins over the reactive default
+        expect(service.shouldYield(lease, {now: new Date('2026-05-16T20:06:00.000Z'), maxActiveHoldMs: 30 * 60 * 1000})).toBe(false);
+        // fail-safe: a falsy bound → never yields (byte-identical back-compat; #14186's absent/0-leaf path)
+        expect(service.shouldYield(lease, {now: new Date('2026-05-16T23:00:00.000Z'), maxActiveHoldMs: 0})).toBe(false)
     });
 
     test('process liveness detects invalid owner pids', () => {
@@ -278,7 +353,7 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
     test('withLease releases after task completion and skips held tasks', async () => {
         const leasePath = createLeasePath('with-lease');
         const now       = new Date('2026-05-16T20:00:00.000Z');
-        let ran = false;
+        let   ran       = false;
 
         const completed = await withHeavyMaintenanceLease(() => {
             ran = true;
@@ -337,12 +412,12 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
         //
         // A future refactor that releases the lease before the task's inner finally runs would
         // fail probe 2 — exactly the consumer-side correctness invariant the JSDoc documents.
-        const leasePath = createLeasePath('release-timing');
-        const now       = new Date('2026-05-16T20:00:00.000Z');
-        const order     = [];
-        let leaseDuringBody    = null;
-        let leaseDuringFinally = null;
-        let leaseAfterAwait    = null;
+        const leasePath          = createLeasePath('release-timing');
+        const now                = new Date('2026-05-16T20:00:00.000Z');
+        const order              = [];
+        let   leaseDuringBody    = null;
+        let   leaseDuringFinally = null;
+        let   leaseAfterAwait    = null;
 
         const completed = await withHeavyMaintenanceLease(async () => {
             order.push('task-body');
@@ -475,10 +550,11 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
         try {
             const result = await withHeavyMaintenanceLease(() => 'fresh-acquire', {
                 leasePath,
-                owner       : 'kbSync',
+                owner                : 'kbSync',
                 now,
-                staleAfterMs: 60000,
-                token       : 'child-token'
+                staleAfterMs         : 60000,
+                token                : 'child-token',
+                onInheritedTokenStale: () => {} // AC8a hits the stale-inherited fall-through; pin no-op so the default warn does not leak into the suite
             });
 
             expect(result).toMatchObject({
@@ -520,15 +596,17 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
         const original = process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
         process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN = 'spurious-stale-token';
 
-        let taskRan = false;
+        let   taskRan        = false;
+        const staleHookCalls = [];
         try {
             const result = await withHeavyMaintenanceLease(() => {
                 taskRan = true;
             }, {
                 leasePath,
-                owner: 'kbSync',
+                owner                : 'kbSync',
                 now,
-                token: 'child-token'
+                token                : 'child-token',
+                onInheritedTokenStale: info => staleHookCalls.push(info)
             });
 
             expect(result).toMatchObject({
@@ -537,7 +615,59 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
                 lease   : {owner: 'summary', token: 'real-active-token'}
             });
             expect(taskRan).toBe(false);
+            // Hardening: this is the exact silent-skip scenario (stale inherited token + lease held).
+            // The deferral must be OBSERVABLE — a distinct previousStatus + the stale hook fired — so it
+            // can never again masquerade as a "completed" multi-day stall.
+            expect(result.previousStatus).toBe('inherited-token-stale');
+            expect(staleHookCalls).toHaveLength(1);
+            expect(staleHookCalls[0]).toMatchObject({inheritedToken: 'spurious-stale-token'});
         } finally {
+            if (original === undefined) {
+                delete process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
+            } else {
+                process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN = original;
+            }
+            await releaseHeavyMaintenanceLease({leasePath, token: 'real-active-token', now});
+        }
+    });
+
+    test('#13763: stale-inherited-token deferral defaults to a loud stderr warn (no hook override)', async () => {
+        // Same stale-inherited scenario as AC8b, but WITHOUT injecting onInheritedTokenStale — pins the
+        // deliberately-loud DEFAULT (reconciled): with 6+ maintenance callers, a no-op default +
+        // per-caller opt-in is the fragile discipline whose lapse caused the original silent-skip
+        // regression, so the wrapper warns by default. The structural previousStatus marker stays present.
+        const leasePath = createLeasePath('inherit-default-warn');
+        const now       = new Date('2026-05-16T20:00:00.000Z');
+
+        await acquireHeavyMaintenanceLease({
+            leasePath,
+            owner       : 'summary',
+            now,
+            staleAfterMs: 60000,
+            token       : 'real-active-token'
+        });
+
+        const original = process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
+        process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN = 'spurious-stale-token';
+
+        const originalWarn = console.warn;
+        const warnCalls    = [];
+        console.warn = (...args) => warnCalls.push(args.join(' '));
+
+        try {
+            const result = await withHeavyMaintenanceLease(() => {}, {
+                leasePath,
+                owner: 'kbSync',
+                now,
+                token: 'child-token'
+                // no onInheritedTokenStale → default loud warn
+            });
+
+            expect(result.previousStatus).toBe('inherited-token-stale');
+            expect(warnCalls).toHaveLength(1);
+            expect(warnCalls[0]).toContain('inherited lease token is stale');
+        } finally {
+            console.warn = originalWarn;
             if (original === undefined) {
                 delete process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
             } else {
@@ -588,9 +718,10 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
                 taskRan = true;
             }, {
                 leasePath,
-                owner: 'kbSync',
-                now  : t1,
-                token: 'child-token'
+                owner                : 'kbSync',
+                now                  : t1,
+                token                : 'child-token',
+                onInheritedTokenStale: () => {} // AC8c hits the stale-inherited fall-through; pin no-op so the default warn does not leak
             });
 
             expect(result).toMatchObject({
@@ -716,7 +847,7 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
     test('default singleton delegates to the reusable helpers', async () => {
         const leasePath = createLeasePath('service');
         const service   = Neo.create(HeavyMaintenanceLeaseService, {
-            leasePath_: leasePath,
+            leasePath_   : leasePath,
             staleAfterMs_: 60000
         });
 

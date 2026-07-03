@@ -5,6 +5,12 @@ import os                                        from 'os';
 import path                                      from 'path';
 import ConfigProvider, {createConfigProxy, leaf} from '../../../ConfigProvider.mjs';
 import {fileURLToPath}                           from 'url';
+import {
+    MEMORY_CORE_GRAPH_DB_ENV,
+    TURN_PRESENCE_DEFAULTS,
+    TURN_PRESENCE_ENV,
+    resolveMemoryCoreGraphPath
+} from './helpers/TurnPresenceConfig.mjs';
 
 function parseMemorySharingPolicy(envVarName, {env = process.env} = {}) {
     const rawValue = env[envVarName];
@@ -34,6 +40,13 @@ const testSessionCollection = `test-session-${Date.now()}-${Math.random().toStri
 // test collection names above): fullyParallel workers never share a write-ahead directory, and
 // unit tests never touch the repo-local `.neo-ai-data/memory-wal` production path.
 const testMemoryWalDir = path.join(os.tmpdir(), `neo-memory-wal-test-${Date.now()}-${Math.random().toString(36).substring(7)}`);
+
+// Per-worker-unique handoff test file under the OS temp root (same isolation rationale as the WAL
+// test dir): fullyParallel workers never share the handoff write target, and unit runs never touch
+// the tracked resources/content/sandman_handoff.md production file. The formula resolves this by
+// construction under UNIT_TEST_MODE — specs must NOT mutate aiConfig.handoffFilePath (the B4
+// singleton-mutation anti-pattern this isolation removes).
+const testHandoffFile = path.join(os.tmpdir(), `neo-sandman-handoff-test-${Date.now()}-${Math.random().toString(36).substring(7)}.md`);
 
 /**
  * @summary Configuration manager for the Memory Core MCP server.
@@ -116,11 +129,34 @@ class Config extends ConfigProvider {
              */
             summarizationBatchLimit: leaf(2000),
             /**
+             * Maximum sessions one summary sweep drains before the child exits + releases the
+             * heavy-maintenance lease, so the fair picker interleaves dream / golden-path / backfill
+             * frequently instead of waiting out a whole drift batch. The drift sweep self-continues
+             * (the next sweep re-derives the remainder), so this chunks the work, never drops it. A
+             * small default keeps holds short.
+             * @type {number}
+             */
+            maxSessionsPerSummarySweep: leaf(5, 'NEO_MC_MAX_SESSIONS_PER_SUMMARY_SWEEP', 'number'),
+            /**
              * Maximum number of undigested sessions the REM pipeline processes per cycle.
              * Keeps each sleep pass bounded even when the query batch is larger.
              * @type {number}
              */
             remSleepBatchLimit: leaf(10, 'NEO_REM_SLEEP_BATCH_LIMIT', 'number'),
+            /**
+             * Maximum failed graph-digest attempts before the REM pipeline bounds a retry-exhausted
+             * terminal schema failure out of the steady cadence. Provider-size parser failures bypass
+             * this threshold and are excluded immediately; transient ingestion failures remain retryable.
+             * @type {number}
+             */
+            maxDigestAttempts: leaf(3, 'NEO_REM_MAX_DIGEST_ATTEMPTS', 'number'),
+            /**
+             * Per-cycle reserve of the freshest (most-recent) undigested sessions the REM picker keeps
+             * for first-pass digestion, so a backlog of retry-eligible aged sessions never fully starves
+             * new work. The remainder of the per-cycle budget goes to the oldest aged sessions.
+             * @type {number}
+             */
+            undigestedSessionFreshReserve: leaf(2, 'NEO_REM_UNDIGESTED_FRESH_RESERVE', 'number'),
             /**
              * Maximum number of concurrent session summarization requests.
              * Prevents hitting LLM/Embedding API rate limits during bulk operations.
@@ -164,7 +200,7 @@ class Config extends ConfigProvider {
                  * Production graph SQLite path. Declarative leaf; env override via `NEO_MEMORY_DB_PATH`.
                  * @type {string}
                  */
-                graphProd      : leaf(path.resolve(cwd, '.neo-ai-data/sqlite/memory-core-graph.sqlite'), 'NEO_MEMORY_DB_PATH', 'string'),
+                graphProd      : leaf(resolveMemoryCoreGraphPath({env: {}, rootDir: cwd}), MEMORY_CORE_GRAPH_DB_ENV, 'string'),
                 /**
                  * Unit-test graph path: in-memory SQLite (ephemeral, per-process). Declarative leaf.
                  * @type {string}
@@ -181,9 +217,34 @@ class Config extends ConfigProvider {
              * Durable wake-daemon watermarks consumed by GraphLog maintenance.
              */
             wakeDaemon: {
-                dataDir: leaf(wakeDaemonDataDir, 'NEO_AI_DAEMON_DIR', 'string'),
-                bridgeLastSyncIdPath: leaf(path.join(wakeDaemonDataDir, 'lastSyncId'), 'NEO_BRIDGE_LAST_SYNC_ID_PATH', 'string'),
+                dataDir                       : leaf(wakeDaemonDataDir, 'NEO_AI_DAEMON_DIR', 'string'),
+                bridgeLastSyncIdPath          : leaf(path.join(wakeDaemonDataDir, 'lastSyncId'), 'NEO_BRIDGE_LAST_SYNC_ID_PATH', 'string'),
                 wakeSubscriptionLiveCursorPath: leaf(path.join(wakeDaemonDataDir, 'wakeSubscriptionLiveCursor'), 'NEO_AI_WAKE_SUBSCRIPTION_CURSOR_FILE', 'string')
+            },
+            /**
+             * Turn-presence interval writer configuration.
+             *
+             * `AGENT_TURN_PRESENCE` records are liveness intervals, not point beacons:
+             * `freshMs` is the online freshness window refreshed by start/progress writes,
+             * `ttlMs` is the hard expiry backstop, and `noteMaxChars` bounds hook diagnostics.
+             * Consumers read resolved leaves at use sites through the AiConfig Provider SSOT.
+             */
+            turnPresence: {
+                freshMs           : leaf(TURN_PRESENCE_DEFAULTS.freshMs,            TURN_PRESENCE_ENV.freshMs,            'number'),
+                ttlMs             : leaf(TURN_PRESENCE_DEFAULTS.ttlMs,              TURN_PRESENCE_ENV.ttlMs,              'number'),
+                noteMaxChars      : leaf(TURN_PRESENCE_DEFAULTS.noteMaxChars,       TURN_PRESENCE_ENV.noteMaxChars,       'number'),
+                hookWriteTimeoutMs: leaf(TURN_PRESENCE_DEFAULTS.hookWriteTimeoutMs, TURN_PRESENCE_ENV.hookWriteTimeoutMs, 'number')
+            },
+            /**
+             * Redacted Memory Core MCP tool-call telemetry. The recorder reads these resolved
+             * leaves at write/report time so deployments can tune observability without
+             * re-deriving defaults outside the Provider SSOT.
+             */
+            toolTelemetry: {
+                enabled          : leaf(true, 'NEO_MC_TOOL_TELEMETRY_ENABLED', 'boolean'),
+                errorMaxChars    : leaf(512, 'NEO_MC_TOOL_TELEMETRY_ERROR_MAX_CHARS', 'number'),
+                aggregateWindowMs: leaf(DAY_MS, 'NEO_MC_TOOL_TELEMETRY_WINDOW_MS', 'number'),
+                aggregateLimit   : leaf(50, 'NEO_MC_TOOL_TELEMETRY_LIMIT', 'number')
             },
             /**
              * Data Schema/Table Names
@@ -220,6 +281,13 @@ class Config extends ConfigProvider {
              */
             remRunStateDir: leaf(path.resolve(cwd, '.neo-ai-data/rem-runs'), 'NEO_REM_RUN_STATE_DIR', 'string'),
             /**
+             * Stall threshold for the REM consolidation-liveness watchdog: max age (ms) since the last
+             * successful REM cycle before the watchdog records/raises a consolidation stall. Default 6h
+             * (generous vs the hourly/off-peak dream cadence to avoid false alarms).
+             * @type {number}
+             */
+            remConsolidationStallThresholdMs: leaf(6 * 60 * 60 * 1000, 'NEO_REM_CONSOLIDATION_STALL_THRESHOLD_MS', 'number'),
+            /**
              * Number of recent REM cycles projected by `get_rem_pipeline_state`.
              * @type {number}
              */
@@ -231,6 +299,34 @@ class Config extends ConfigProvider {
              * @type {number}
              */
             remRunRetentionLimit: leaf(200, 'NEO_REM_RUN_RETENTION_LIMIT', 'number'),
+            /**
+             * Healthcheck probe budgets. These bound dependency probes so a stalled
+             * Chroma client, embedding provider, or REM axis returns unhealthy/degraded
+             * observability instead of keeping the MCP request open indefinitely.
+             * @type {Object}
+             */
+            healthcheck: {
+                /**
+                 * Max time to wait for Chroma readiness, connection, and collection-count probes.
+                 * @type {number}
+                 */
+                chromaProbeTimeoutMs: leaf(1500, 'NEO_MEMORY_HEALTHCHECK_CHROMA_PROBE_TIMEOUT_MS', 'number'),
+                /**
+                 * Max time to wait for the active embedding provider during the write canary.
+                 * Must tolerate a cold embedder load: an 8b embedding model VRAM-evicted under chat-model
+                 * pressure cold-reloads in ~11-19s, so a tighter bound false-negatives a healthy-but-slow
+                 * provider and trips the embed-canary health gate. Still a bound, not removal — the embed
+                 * operation itself budgets 300s, so this gate stays well under that while surviving a
+                 * realistic cold-load.
+                 * @type {number}
+                 */
+                embeddingWriteCanaryTimeoutMs: leaf(30000, 'NEO_MEMORY_HEALTHCHECK_EMBEDDING_WRITE_CANARY_TIMEOUT_MS', 'number'),
+                /**
+                 * Max time to wait for each REM pipeline-state axis.
+                 * @type {number}
+                 */
+                remAxisTimeoutMs: leaf(1500, 'NEO_MEMORY_HEALTHCHECK_REM_AXIS_TIMEOUT_MS', 'number')
+            },
             /**
              * Durable JSONL write-ahead store for `add_memory` payloads.
              *
@@ -306,6 +402,18 @@ class Config extends ConfigProvider {
                  */
                 backoffBaseMs  : leaf(1000, 'NEO_MEMORY_WAL_BACKOFF_BASE_MS', 'number'),
                 /**
+                 * Stall threshold for the embed-drain liveness watchdog: when the OLDEST un-embedded
+                 * WAL record is older than this, the (orchestrator-hosted, read-only) watchdog raises a
+                 * one-shot alarm. Conservative default of 6h — hours, NOT days: the whole point is to
+                 * catch a silently-stalled drain same-session, not after a week (the silent drain-death
+                 * incident went ~8 days unnoticed). It must exceed the worst-case healthy drain latency
+                 * (per-turn saves arrive minutes apart; the drain polls every `pollIntervalMs`) so a
+                 * healthy backlog never false-alarms. `<= 0` disables alarming. The watchdog only READS
+                 * the WAL — it never touches the never-fail `add_memory` write path.
+                 * @type {number}
+                 */
+                embedDrainStallThresholdMs: leaf(6 * 60 * 60 * 1000, 'NEO_MEMORY_WAL_EMBED_DRAIN_STALL_THRESHOLD_MS', 'number'),
+                /**
                  * Hosts the WAL drain loop INSIDE the memory-core server process — the
                  * containerized / single-process deployment shape (dockerized MC, npx-neo-app
                  * workspaces) where no orchestrator-supervised embed daemon exists.
@@ -320,10 +428,85 @@ class Config extends ConfigProvider {
                 inProcessDrain : leaf(false, 'NEO_MEMORY_WAL_IN_PROCESS_DRAIN', 'boolean')
             },
             /**
-             * Target markdown file used for autonomous agent-to-user reporting (offline jobs).
+             * Durable JSONL write-ahead store for accepted A2A mailbox messages.
+             *
+             * `dir` defaults by formula to `${memoryWal.dir}/messages`, so the message WAL follows
+             * the same local/cloud volume reachability as the proven memory WAL unless a deployment
+             * deliberately overrides it. The drain-host leaves mirror `memoryWal`: local setups can
+             * run an orchestrator-supervised daemon, while containerized/single-process deployments
+             * can host the loop inside Memory Core via `messageWal.inProcessDrain`.
+             */
+            messageWal: {
+                /**
+                 * Optional production message WAL directory override. Null means derive from
+                 * `memoryWal.dir` by formula; deployments should override only when the alternate
+                 * path is reachable by the configured drain host.
+                 * @type {string|null}
+                 */
+                dirProd       : leaf(null, 'NEO_MESSAGE_WAL_DIR', 'string'),
+                /**
+                 * Optional unit-test message WAL directory override. Null means derive from the
+                 * active test `memoryWal.dir`, preserving by-construction test isolation.
+                 * @type {string|null}
+                 */
+                dirTest       : leaf(null, 'NEO_MESSAGE_WAL_DIR_TEST', 'string'),
+                /**
+                 * Test-mode toggle (env-driven via `UNIT_TEST_MODE`). The `messageWal.dir` formula
+                 * reads this to select `dirTest`/`dirProd` override leaves before falling back to
+                 * the active `memoryWal.dir` sibling.
+                 * @type {boolean}
+                 */
+                useTestDatabase: leaf(false, 'UNIT_TEST_MODE', 'boolean'),
+                /**
+                 * Data directory (PID file, rotating log) for the local message WAL drain daemon.
+                 * @type {string}
+                 */
+                daemonDataDir : leaf(path.resolve(cwd, '.neo-ai-data/message-daemon'), 'NEO_MESSAGE_WAL_DAEMON_DIR', 'string'),
+                /**
+                 * Message WAL drain cadence. Mirrors memory WAL cadence; the replay semantics are
+                 * owned by the message drain processor, while this leaf owns host scheduling.
+                 * @type {number}
+                 */
+                pollIntervalMs: leaf(5000, 'NEO_MESSAGE_WAL_POLL_INTERVAL_MS', 'number'),
+                /**
+                 * Maximum message WAL records observed by one drain cycle.
+                 * @type {number}
+                 */
+                batchSize     : leaf(20, 'NEO_MESSAGE_WAL_BATCH_SIZE', 'number'),
+                /**
+                 * In-cycle whole-batch retry bound for transient message replay failures.
+                 * @type {number}
+                 */
+                maxRetries    : leaf(5, 'NEO_MESSAGE_WAL_MAX_RETRIES', 'number'),
+                /**
+                 * Exponential-backoff base for message replay retries.
+                 * @type {number}
+                 */
+                backoffBaseMs : leaf(1000, 'NEO_MESSAGE_WAL_BACKOFF_BASE_MS', 'number'),
+                /**
+                 * Hosts the message WAL drain loop INSIDE the memory-core server process. This is
+                 * the containerized / single-process shape where no orchestrator-supervised message
+                 * daemon exists. A per-directory drain lock enforces exactly one live message drain
+                 * host per message WAL directory.
+                 * @type {boolean}
+                 */
+                inProcessDrain: leaf(false, 'NEO_MESSAGE_WAL_IN_PROCESS_DRAIN', 'boolean')
+            },
+            /**
+             * Production handoff markdown file — autonomous agent-to-user reporting (offline jobs).
+             * The active `handoffFilePath` consumers read is a formula (below) resolving Prod/Test by
+             * construction from `UNIT_TEST_MODE`, so test runs that WRITE the handoff (runSandman /
+             * DreamService / TopologyInferenceEngine) never clobber the tracked production file.
              * @type {string}
              */
-            handoffFilePath: leaf(path.resolve(cwd, 'resources/content/sandman_handoff.md')),
+            handoffFilePathProd: leaf(path.resolve(cwd, 'resources/content/sandman_handoff.md'), 'NEO_HANDOFF_FILE_PATH', 'string'),
+            /**
+             * Unit-test handoff path — a per-worker-unique file under the OS temp root (see
+             * `testHandoffFile`), so fullyParallel workers never share a write target and test-mode
+             * writes stay off the tracked production file. Declarative leaf; test-mode by construction.
+             * @type {string}
+             */
+            handoffFilePathTest: leaf(testHandoffFile, 'NEO_HANDOFF_FILE_PATH_TEST', 'string'),
             /**
              * Stale-assignment idle threshold used by `GoldenPathSynthesizer` when rendering
              * Sandman handoff candidates. Defaults to the ticket-intake 7-day reassignment rule.
@@ -353,10 +536,27 @@ class Config extends ConfigProvider {
              */
             goldenPathSilentThreadRenderLimit: leaf(5, 'NEO_GOLDEN_PATH_SILENT_THREAD_RENDER_LIMIT', 'number'),
             /**
+             * Render switch for the visibility-only Work-Graph Stall Inference handoff section.
+             * Detection remains data-only; disabling this leaf only removes the pull-surface.
+             * @type {boolean}
+             */
+            goldenPathStallFindingRenderEnabled: leaf(true, 'NEO_GOLDEN_PATH_STALL_FINDING_RENDER_ENABLED', 'boolean'),
+            /**
+             * Maximum verified/advisory stall findings rendered into the Sandman handoff.
+             * @type {number}
+             */
+            goldenPathStallFindingRenderLimit: leaf(5, 'NEO_GOLDEN_PATH_STALL_FINDING_RENDER_LIMIT', 'number'),
+            /**
              * Maximum recent open PR rows rendered inside `Active PR Cycle State`.
              * @type {number}
              */
-            goldenPathRecentOpenPrRenderLimit: leaf(5, 'NEO_GOLDEN_PATH_RECENT_OPEN_PR_RENDER_LIMIT', 'number'),
+            goldenPathRecentOpenPrRenderLimit: leaf(10, 'NEO_GOLDEN_PATH_RECENT_OPEN_PR_RENDER_LIMIT', 'number'),
+            /**
+             * Freshness SLA for generated `Active PR Cycle State` data. Older PR-cycle snapshots
+             * are rendered as stale instead of implied-current.
+             * @type {number}
+             */
+            goldenPathActivePrStateFreshnessMs: leaf(60 * 60 * 1000, 'NEO_GOLDEN_PATH_ACTIVE_PR_STATE_FRESHNESS_MS', 'number'),
             /**
              * Maximum Golden Path priority nodes rendered into the Sandman handoff. The
              * Golden Path is the one section that earns more depth than the 5-row
@@ -385,6 +585,31 @@ class Config extends ConfigProvider {
              */
             guideGapWeightThreshold: leaf(0.8, 'NEO_GUIDE_GAP_WEIGHT_THRESHOLD', 'number'),
             /**
+             * Cycle-scoped Neural Link action digest tuning. The digest reads recent
+             * `nl_action_log` sequences and emits weak `NL_ACTION_SEQUENCE -> VALIDATES`
+             * evidence without removing `[TEST_GAP]`. Leaves stay in AiConfig so the REM
+             * pipeline can tune freshness, volume, success gate, and weak edge strength
+             * without re-deriving constants in `GapInferenceEngine`.
+             * @type {number}
+             */
+            nlActionDigestLookbackMs: leaf(14 * DAY_MS, 'NEO_NL_ACTION_DIGEST_LOOKBACK_MS', 'number'),
+            /**
+             * Maximum recent Neural Link action sequences inspected per digest pass.
+             * @type {number}
+             */
+            nlActionDigestSequenceLimit: leaf(1000, 'NEO_NL_ACTION_DIGEST_SEQUENCE_LIMIT', 'number'),
+            /**
+             * Minimum successful-action ratio for a sequence to qualify as weak evidence.
+             * @type {number}
+             */
+            nlActionDigestMinSuccessRate: leaf(0.8, 'NEO_NL_ACTION_DIGEST_MIN_SUCCESS_RATE', 'number'),
+            /**
+             * Decaying graph-edge weight for weak Neural Link runtime-interaction evidence.
+             * Permanent Playwright evidence remains stronger (`1.0`).
+             * @type {number}
+             */
+            nlActionDigestEvidenceWeight: leaf(0.35, 'NEO_NL_ACTION_DIGEST_EVIDENCE_WEIGHT', 'number'),
+            /**
              * Operator-tuning knobs for `ConceptDiscoveryService`. Both values are read live
              * at method-call time (not captured at module load) so tests + runtime overrides are honored.
              *
@@ -393,14 +618,23 @@ class Config extends ConfigProvider {
              *   discourse) process first. Capping bounds per-cycle LLM cost against the ~300+ PR corpus.
              * - `minSourceLength`: minimum source text length (chars) to trigger an LLM extraction call.
              *   Short bodies aren't worth the provider round-trip; 200 ≈ 30 words of coherent prose.
+             * - `messageHarvestBatchLimit`: maximum unharvested A2A MESSAGE nodes scanned per scheduled
+             *   process/MX concept-harvest cycle.
+             * - `messageHarvestTopN`: maximum frequency-ranked message terms promoted to the LLM
+             *   Teaching-Test source for the cycle.
+             * - `messageHarvestMinFrequency`: minimum subject/tag frequency before a message term can
+             *   spend LLM budget.
              *
              * Expected to migrate to SDK-layer config once daemon/service ownership is split:
              * these are daemon concerns, not memory-core concerns.
              * @type {Object}
              */
             conceptDiscovery: {
-                prScanLimit    : leaf(20, 'NEO_CONCEPT_DISCOVERY_PR_SCAN_LIMIT', 'number'),
-                minSourceLength: leaf(200, 'NEO_CONCEPT_DISCOVERY_MIN_SOURCE_LENGTH', 'number')
+                prScanLimit               : leaf(20, 'NEO_CONCEPT_DISCOVERY_PR_SCAN_LIMIT', 'number'),
+                minSourceLength           : leaf(200, 'NEO_CONCEPT_DISCOVERY_MIN_SOURCE_LENGTH', 'number'),
+                messageHarvestBatchLimit  : leaf(500, 'NEO_CONCEPT_DISCOVERY_MESSAGE_HARVEST_BATCH_LIMIT', 'number'),
+                messageHarvestTopN        : leaf(20, 'NEO_CONCEPT_DISCOVERY_MESSAGE_HARVEST_TOP_N', 'number'),
+                messageHarvestMinFrequency: leaf(2, 'NEO_CONCEPT_DISCOVERY_MESSAGE_HARVEST_MIN_FREQUENCY', 'number')
             },
             /**
              * Directory for the always-on Memory Core diagnostic log files. The MC server's
@@ -413,6 +647,21 @@ class Config extends ConfigProvider {
              * @type {string}
              */
             logPath: leaf(path.resolve(cwd, '.neo-ai-data/logs')),
+            /**
+             * @summary Retention policy for Memory Core MCP diagnostic log files.
+             *
+             * The shared logger applies this policy only to files matching the `mc-server`
+             * prefix in `logPath`. `maxFiles` and `maxTotalBytes` count historical files;
+             * the active current-day file is always preserved. Set `enabled=false` to
+             * delegate retention entirely to deployment infrastructure.
+             * @type {Object}
+             */
+            loggerRetention: {
+                enabled      : leaf(true, 'NEO_MEMORY_LOG_RETENTION_ENABLED', 'boolean'),
+                maxAgeDays   : leaf(14, 'NEO_MEMORY_LOG_RETENTION_MAX_AGE_DAYS', 'number'),
+                maxFiles     : leaf(30, 'NEO_MEMORY_LOG_RETENTION_MAX_FILES', 'number'),
+                maxTotalBytes: leaf(100 * 1024 * 1024, 'NEO_MEMORY_LOG_RETENTION_MAX_TOTAL_BYTES', 'number')
+            },
             /**
              * @summary Shared MCP logger policy for Memory Core.
              *
@@ -503,7 +752,7 @@ class Config extends ConfigProvider {
              * Target file path for the lazy backfill queue of unresolved provenance edges.
              * @type {string}
              */
-            lazyEdgesQueuePath: leaf(path.resolve(cwd, 'ai/data/memory-core/lazy-edges.jsonl'), 'NEO_LAZY_EDGES_QUEUE_PATH', 'string')
+            lazyEdgesQueuePath: leaf(path.resolve(cwd, '.neo-ai-data/memory-core/lazy-edges.jsonl'), 'NEO_LAZY_EDGES_QUEUE_PATH', 'string')
         },
         /**
          * Reactive computed config values (`Neo.state.Provider` formulas — recompute when a dependency changes).
@@ -516,7 +765,18 @@ class Config extends ConfigProvider {
             'storagePaths.graph' : data => data.storagePaths.useTestDatabase ? data.storagePaths.graphTest  : data.storagePaths.graphProd,
             'collections.memory' : data => data.collections.useTestDatabase  ? data.collections.memoryTest  : data.collections.memoryProd,
             'collections.session': data => data.collections.useTestDatabase  ? data.collections.sessionTest : data.collections.sessionProd,
-            'memoryWal.dir'      : data => data.memoryWal.useTestDatabase    ? data.memoryWal.dirTest       : data.memoryWal.dirProd
+            'memoryWal.dir'      : data => data.memoryWal.useTestDatabase    ? data.memoryWal.dirTest       : data.memoryWal.dirProd,
+            'messageWal.dir'     : data => {
+                const configuredDir = data.messageWal.useTestDatabase ? data.messageWal.dirTest : data.messageWal.dirProd;
+                if (configuredDir) return configuredDir;
+
+                const memoryWalDir = data.memoryWal.useTestDatabase ? data.memoryWal.dirTest : data.memoryWal.dirProd;
+                return path.join(memoryWalDir, 'messages');
+            },
+            // The active handoff path, resolved BY CONSTRUCTION from the canonical UNIT_TEST_MODE toggle
+            // (`storagePaths.useTestDatabase` — every `useTestDatabase` leaf binds the same env). Keeps
+            // test-mode handoff writes off the tracked `resources/content/sandman_handoff.md`.
+            'handoffFilePath'    : data => data.storagePaths.useTestDatabase ? data.handoffFilePathTest    : data.handoffFilePathProd
         }
     }
 }

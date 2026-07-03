@@ -38,9 +38,11 @@ Useful live-state checks:
 ```bash
 git status --short --branch
 rg -n "DreamService|SemanticGraphExtractor|TopologyInferenceEngine|GraphMaintenanceService|LazyEdgeDrainer|graphDigested|size-precheck|unsupported modelProvider" .neo-ai-data/logs/mc-server-$(date +%F).log
-find .neo-ai-data/orchestrator-daemon -maxdepth 2 -type f -print
-test -f ai/data/memory-core/lazy-edges.jsonl && wc -l ai/data/memory-core/lazy-edges.jsonl
+find .neo-ai-data/orchestrator-daemon-canonical -maxdepth 2 -type f -print
+test -f .neo-ai-data/memory-core/lazy-edges.jsonl && wc -l .neo-ai-data/memory-core/lazy-edges.jsonl
 ```
+
+In non-canonical worktrees, `.neo-ai-data/orchestrator-daemon/` is clone-local process-control state. Use the `orchestrator-daemon-canonical/` read alias after `bootstrapWorktree.mjs --link-data --canonical-root <canonical-checkout>` when validating the root daemon's task state or log.
 
 ## Intake Verdict
 
@@ -358,8 +360,8 @@ Mitigation spec:
 
 Detection:
 
-1. Check `ai/data/memory-core/lazy-edges.jsonl` line count and byte size.
-2. Check for `ai/data/memory-core/lazy-edges.jsonl.draining`.
+1. Check `.neo-ai-data/memory-core/lazy-edges.jsonl` line count and byte size.
+2. Check for `.neo-ai-data/memory-core/lazy-edges.jsonl.draining`.
 3. Run a dry-run drain only when safe:
    `node ai/scripts/migrations/priorityBackfill.mjs --dry-run`.
 4. Search current source for `LazyEdgeDrainer.drainQueue()` call sites.

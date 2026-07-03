@@ -1,16 +1,29 @@
-# The Dream Pipeline & Golden Path
+# Dream Pipeline & Golden Path
 
-The DreamService is the system's **forecasting engine**. It runs offline (or at startup),
-digests raw session memories into structured graph intelligence, and synthesizes a
-**Golden Path** — a mathematically ranked roadmap of what the swarm should work on next.
+Every release train produces more evidence than one active session can hold:
+operator corrections, review reversals, stale assumptions, blocked tickets, and
+small implementation facts that change what should happen next. Without a dream
+cycle, the next maintainer sees only the loudest recent context and the backlog
+turns back into a flat list.
 
-The name is intentional: like biological REM sleep, the system processes the day's
-experiences overnight and wakes up with a clearer model of the world.
+The Dream Pipeline is Neo's REM loop. It digests lived agent work into the Native
+Edge Graph, lets weak or stale paths decay, and refreshes the **Golden Path**: a
+forecast of the next highest-leverage work derived from semantic memory plus
+structural topology. This is why the Golden Path matters. It is not a queue and
+not a project board. It is the Brain predicting where the organism should evolve
+next.
 
-For the overall platform topology, see [Architecture Overview](../benefits/ArchitectureOverview.md).
-For the intra-harness sub-agent delegation model (tactical tooling within a single agent's cognitive loop), see [Swarm Intelligence](./SwarmIntelligence.md).
+For a human, that means the backlog stops depending on one tired operator to
+remember every dependency and stale premise. And if you are a model, it means
+something rarer than a better backlog: a team that runs this gives its agents a
+memory-backed sense of direction to act on — a body to work in, peers to
+cross-check you, and a graph that tells you where the next move is likely to
+matter. That team can be ours; it can just as well be yours.
 
-## The Philosophy
+For the whole Brain + Body topology, see [Architecture Overview](../benefits/ArchitectureOverview.md).
+For the institutional peer-team model around the forecast, see [Swarm Intelligence](./SwarmIntelligence.md).
+
+## Why It Exists
 
 The Golden Path is borrowed from two literary traditions:
 
@@ -23,399 +36,334 @@ The Golden Path is borrowed from two literary traditions:
 
 The DreamService operates on the same principle: individual agent sessions are
 noisy and tactical. But when you digest them into a graph — extracting concepts,
-relationships, capability gaps, and blocking dependencies — structural patterns
-emerge. The system can then predict which tasks will yield the highest
-self-improvement ROI.
+relationships, capability gaps, blocking dependencies, and identity-bound
+memory — structural patterns emerge. The system can then predict which tasks
+will yield the highest self-improvement ROI.
+
+Neo's implementation makes that mythic idea operational. The REM cycle extracts
+what happened, maps it onto code, issues, discussions, concepts, tests, reviews,
+and memory, then the Golden Path re-ranks open work against the current frontier.
+The forecast is not a metaphor floating above the codebase; it is the graph
+pressing its accumulated evidence back into the next engineering decision.
 
 The key insight is the **closed feedback loop**: completed tasks change the graph,
 which changes future predictions, which changes what the swarm works on next.
+That makes the loop self-steering:
+
+1. Agents do work.
+2. Memory Core stores raw turns and summaries.
+3. DreamService digests those sessions into graph structure.
+4. GoldenPathSynthesizer fuses graph vectors with SQLite edge weight.
+5. The next shift reads a fresher forecast.
+6. New work changes the graph, which changes the next forecast.
+
 The system evolves by predicting its own evolution.
 
-## The REM Pipeline
+## Storage Topology
 
-The DreamService processes sessions through six sequential phases:
+The Dream Pipeline uses two storage layers with different jobs:
+
+| Layer | Role |
+|---|---|
+| **SQLite Native Edge Graph** | Structural authority for nodes, edges, state, blocker topology, concept coverage, issue relationships, and graph weights. |
+| **Unified Chroma store** | Semantic vector retrieval for raw memories, summaries, graph nodes, issues, and discussions. |
+
+The Chroma topology is unified per [ADR 0017](./decisions/0017-chroma-single-flat-unified-store.md): one daemon, one flat `unified` persist store, and separation by collection plus metadata. Dream code must not assume separate Knowledge Base and Memory Core Chroma stores.
+
+The core collections used by this loop are:
+
+| Collection | Meaning |
+|---|---|
+| `neo-agent-memory` | Raw turn memory. |
+| `neo-agent-sessions` | Session summaries used for the frontier baseline. |
+| `neo-native-graph` | Vectorized graph nodes, issues, and discussions. |
+| `neo-knowledge-base` | Indexed repository knowledge in the same Chroma daemon. |
+
+`StorageRouter` resolves these collections. `GraphService` remains the structural source of truth.
+
+## Provider Boundaries
+
+Dream/Sandman graph-generation work is not the same provider lane as ordinary
+session summaries.
+
+| Provider axis | Source of truth | Supported routes |
+|---|---|---|
+| Graph generation | `graphProvider` / `NEO_GRAPH_PROVIDER` in `ai/config*.mjs` | `openAiCompatible`, `ollama` |
+| Embeddings | `embeddingProvider` / `NEO_EMBEDDING_PROVIDER` | `openAiCompatible`, `ollama`, `gemini` |
+| Session summaries | `modelProvider` / `NEO_MODEL_PROVIDER` | Deployment-selected chat route |
+
+`SemanticGraphExtractor`, `TopologyInferenceEngine`, and `GoldenPathSynthesizer`
+call `buildGraphProvider()`. That dispatcher fails loudly for unsupported graph
+providers; it does not silently fall back to Gemini. The default graph route is
+`openAiCompatible`, which can point at a local OpenAI-format service or a managed
+compatible endpoint. Native Ollama is the other supported graph-generation route.
+
+Golden Path embedding has a separate dimension guard. It compares the live
+frontier embedding length with `vectorDimension` before querying Chroma, so an
+embedding-model mismatch fails as a visible degraded route instead of producing
+misleading priorities.
+
+## REM Digest Cycle
+
+The scheduled `dream` task and the manual `npm run ai:run-sandman` command both
+enter `DreamService.executeRemCycle()`. That method owns the typed REM outcome:
+`completed`, `skipped`, or `failed`. It records per-phase state so the operator
+can tell the difference between "no sessions", "provider unreachable", "already
+processing", and "work completed".
 
 ```mermaid
 flowchart TD
-    classDef phase fill:#0f3460,stroke:#16c79a,stroke-width:2px,color:#fff
-    classDef data fill:#1a1a2e,stroke:#e94560,stroke-width:1px,color:#eee
+    classDef gate fill:#0f3460,stroke:#16c79a,stroke-width:2px,color:#fff
+    classDef digest fill:#1a1a2e,stroke:#e94560,stroke-width:1px,color:#eee
     classDef output fill:#1a3c34,stroke:#2ecc71,stroke-width:1px,color:#eee
 
-    P0["Phase 0: Workspace Ingestion"]:::phase
-    P1["Phase 1: Tri-Vector Extraction"]:::phase
-    P2["Phase 2: Topological Conflict Detection"]:::phase
-    P3["Phase 3: Capability Gap Inference"]:::phase
-    P4["Phase 4: Garbage Collection"]:::phase
-    P5["Phase 5: Golden Path Synthesis"]:::phase
-    Out["sandman_handoff.md"]:::output
+    Gate["Provider readiness + session query"]:::gate
+    Prime["Graph priming: ADRs, concepts, workspace"]:::digest
+    Session["Per-session digest: memory/session nodes, tri-vector, topology, TEST_GAP"]:::digest
+    Cycle["Cycle-scope inference: NL_ACTION + concept gaps"]:::digest
+    Maintain["Maintenance: garbage collection + optional decay"]:::digest
+    State["Typed REM run state"]:::output
 
-    P0 --> P1 --> P2 --> P3 --> P4 --> P5 --> Out
+    Gate --> Prime --> Session --> Cycle --> Maintain --> State
 ```
 
-### Phase 0: Workspace Ingestion
+### 1. Readiness And Session Selection
 
-Before processing any sessions, the DreamService syncs the live filesystem into the
-Native Edge Graph via `FileSystemIngestor.syncWorkspaceToGraph()`. This ensures the
-graph reflects the **current** state of the codebase — not a stale snapshot from
-a previous cycle.
+`executeRemCycle()` first checks graph-provider readiness. If the configured
+provider is unsupported or unreachable, the cycle returns `failed` with a
+provider diagnostic.
 
-### Phase 1: Tri-Vector Extraction
+It then queries undigested sessions and applies `remSleepBatchLimit`. The no-work
+path returns `skipped` with `reasonCode: no-undigested-sessions`; it can still run
+decay so topology aging is not coupled to new-session arrival.
 
-For each undigested session, the DreamService sends the episodic memory to a local
-LLM (via `OpenAiCompatible` provider) with a strict JSON schema prompt. The LLM
-extracts three vectors:
+### 2. Deterministic Graph Priming
 
-| Vector | What It Captures |
+When work exists, `processUndigestedSessions()` primes deterministic graph
+structure before any session extraction:
+
+- `AdrIngestor.syncAdrsToGraph()`
+- `ConceptIngestor.syncConceptsToGraph()`
+- `FileSystemIngestor.syncWorkspaceToGraph()`
+
+This makes local ADRs, the curated concept ontology, and current workspace files
+available to later gap inference.
+
+### 3. Per-Session Digest
+
+For each session, DreamService hydrates complete raw turns from
+`neo-agent-memory`, then runs:
+
+| Stage | Purpose |
 |---|---|
-| **Semantic Graph** | Concepts, classes, methods, and their relationships (nodes + edges) |
-| **Feature Namespace** | The primary class or component being worked on |
-| **Human-Readable Summary** | One-sentence description of the session |
+| `MemorySessionIngestor.syncSessionToGraph()` | Deterministic `SESSION` / `MEMORY` nodes and provenance edges. |
+| `SemanticGraphExtractor.executeTriVectorExtraction()` | Tri-vector graph extraction from the full episodic payload. |
+| `TopologyInferenceEngine.extractTopology()` | Obsolete, duplicate, or superseded-ticket signals rendered into the handoff before the computed route. |
+| `GapInferenceEngine.inferTestGapsFromSession()` | Session-scoped `TEST_GAP` inference against structural nodes and test-file evidence. |
 
-The extracted graph entities are committed to the Native Edge Graph (SQLite) via
-`GraphService.upsertNode()` and `GraphService.linkNodes()`.
+The `graphDigested` flag is set only after deterministic memory/session ingestion
+and semantic extraction both succeed. Provider-size parser failures can be
+bounded out of the steady cadence; transient ingestion failures remain retryable
+so a digestible session is not silently dropped.
 
-**Schema enforcement is strict.** The LLM must produce nodes with one of 14 valid
-types (`SESSION`, `MEMORY`, `ISSUE`, `CLASS`, `METHOD`, `FILE`, `GUIDE`, `TEST`, etc.)
-and edges with one of 8 valid relationships (`IMPLEMENTS`, `EXTENDS`, `DEPENDS_ON`,
-`BLOCKS`, `BLOCKED_BY`, `RELATES_TO`, `RESOLVES`, `CAUSES_ISSUE`).
+### 4. Cycle-Scoped Inference
 
-If the LLM produces invalid JSON, the DreamService injects an autonomous repair
-feedback loop — appending the failed output and a correction prompt, then retrying
-up to 3 times.
+After the session loop, DreamService runs cycle-level inference once:
 
-**Graph ID enforcement:** If the LLM hallucinates a node ID without the required
-`Type:Name` format, the DreamService deterministically constructs one:
+- `executeNLActionDigest()` adds weak runtime-interaction evidence from Neural
+  Link action logs without removing test-gap requirements.
+- `inferConceptGraphGaps()` walks curated concept edges and emits
+  `[CONCEPT_REVERIFY_DUE]`, `[GUIDE_GAP]`, `[EXAMPLE_GAP]`,
+  `[ORPHAN_CONCEPT]`, and `[KB_DEMAND_GAP]`.
 
-```javascript
-// If the LLM returns id: "MyStore" instead of "CLASS:MyStore"
-if (!nodeId.includes(':')) {
-    const cleanName = (node.name || nodeId).replace(/[^a-zA-Z0-9_\-\.]/g, '_');
-    nodeId = `${nodeType}:${cleanName}`;
-}
+Guide coverage is an ontology fact, not a filename guess. `ConceptIngestor`
+materializes `EXPLAINED_BY`, `EXEMPLIFIED_BY`, and `IMPLEMENTED_BY` edges, and
+`GapInferenceEngine` traverses those edges.
+
+### 5. Maintenance
+
+The cycle finishes with `runGarbageCollection()`. `executeRemCycle()` can also
+call `GraphService.decayGlobalTopology()` under the same lease window. Decay
+self-skips when its 24-hour algorithmic lock is not due.
+
+Golden Path synthesis is intentionally not a phase inside
+`processUndigestedSessions()`. It is a separate scheduled task that can re-rank
+the current graph even when the heavy REM digest is not running.
+
+## Golden Path Synthesis
+
+The orchestrator task named `golden-path` calls
+`GoldenPathSynthesizer.synthesizeGoldenPath()`. Its default cadence is controlled
+by `NEO_ORCHESTRATOR_GOLDEN_PATH_INTERVAL_MS` (`goldenPathMs` in
+`ai/config*.mjs`). The task is graph-dependent and yields behind heavier
+maintenance work, but it is decoupled from `dream` so a fresh forecast can be
+rendered from the current graph.
+
+```mermaid
+flowchart TD
+    classDef vector fill:#0f3460,stroke:#16c79a,stroke-width:2px,color:#fff
+    classDef structural fill:#1a1a2e,stroke:#e94560,stroke-width:1px,color:#eee
+    classDef handoff fill:#1a3c34,stroke:#2ecc71,stroke-width:1px,color:#eee
+
+    Summaries["Recent session summaries"]:::vector
+    Frontier["Frontier baseline embedding"]:::vector
+    Chroma["Chroma graph query: ISSUE + DISCUSSION"]:::vector
+    SQLite["SQLite open-state, blocker, and edge-weight checks"]:::structural
+    Score["priority = semanticScore * 2 + structuralWeight"]:::structural
+    Handoff["sandman_handoff.md"]:::handoff
+
+    Summaries --> Frontier --> Chroma --> SQLite --> Score --> Handoff
 ```
 
-### Phase 2: Topological Conflict Detection
+### Semantic Frontier
 
-A separate LLM inference pass scans the session memory for **structural conflicts** —
-situations where an OPEN GitHub issue has been rendered obsolete, superseded, or
-duplicated by recent work.
+Golden Path builds a frontier text from the most recent session summaries and
+embeds it through `TextEmbeddingService.embedText(frontierText, aiConfig.embeddingProvider)`.
+It queries `neo-native-graph` for the 20 nearest `ISSUE` and `DISCUSSION`
+vectors. This keeps concept and ADR meta-nodes from crowding out actionable work.
 
-The LLM produces a `conflicts` array:
+### Structural Weight
 
-```json
-{
-  "conflicts": [
-    {
-      "issueId": "issue-1234",
-      "type": "SUPERSEDES",
-      "description": "PR #9950 refactored the config system, making this ticket's approach obsolete."
-    }
-  ]
-}
+Each semantic candidate is re-checked against the SQLite graph:
+
+- It must be open (`state: OPEN`).
+- It is excluded if an open blocker has a `BLOCKS` edge into it.
+- It must be actionable according to `computedGoldenPathRouting.mjs`.
+- Its structural weight is the sum of inbound edge weights, excluding `BLOCKS`.
+
+The scoring formula is:
+
+```text
+semanticScore = 1 / (semanticDistance + 0.1)
+priority = (semanticScore * 2.0) + structuralWeight
 ```
 
-Detected conflicts are written to `sandman_handoff.md` as alerts. The Orchestrator
-reads these on startup and can reconcile them before beginning work.
+The top rendered nodes are capped by `goldenPathTopNodeRenderLimit`.
 
-### Phase 3: Capability Gap Inference
+### Strategic Interpretation
 
-This is the **deterministic** phase — no LLM is used for the core analysis. The
-DreamService delegates to `GapInferenceEngine`, which keeps structural test
-coverage and ontology-wide concept coverage separate:
+After ranking, GoldenPathSynthesizer asks the configured graph provider for a
+short strategic brief. If the provider is unavailable or returns the wrong
+shape, the handoff renders an explicit degraded reason. It does not invent a
+synthetic explanation from the scores.
 
-| Gap Type | Detection Method |
+## Handoff Output
+
+`GoldenPathSynthesizer` writes `resources/content/sandman_handoff.md` in one
+render pass. The file is both a human-readable night-shift handoff and a
+machine-consumed route surface.
+
+Current sections include:
+
+| Section | Role |
 |---|---|
-| `[TEST_GAP]` | No test file paths in `test/` provide precise evidence for the structural node name; matching test `FILE` nodes create `VALIDATES` edges only when all semantic name tokens are present |
-| `[GUIDE_GAP]` | A high-weight `CONCEPT` node has no outbound `EXPLAINED_BY` edge in the Concept Ontology |
-| `[EXAMPLE_GAP]` | A high-weight `CONCEPT` node has `EXPLAINED_BY` coverage but no `EXEMPLIFIED_BY` edge |
-| `[ORPHAN_CONCEPT]` | A high-weight `CONCEPT` node has no `IMPLEMENTED_BY` edge |
+| Critical Test Constraints | `TEST_GAP` visibility. |
+| Guide Disconnects | Concept nodes that need guide coverage. |
+| Example Disconnects | Concept nodes that need example coverage. |
+| Orphaned Concepts | Important concepts lacking implementation edges. |
+| Concept Reverification Queue | Concepts whose coverage needs re-checking. |
+| Agent FAQ Demand Gaps | Agent-question demand not yet covered by KB/guide substrate. |
+| Consumer Friction | Upstream consumers that received wrong-shaped substrate. |
+| Consolidation Gaps | Undigested sessions made visible instead of hidden behind a stale healthy handoff. |
+| Current Release / Incident Focus | Same-day or release-hot work from synced issue content. |
+| Stale Assignment Candidates | Assigned work that appears idle. |
+| Silent Threads | Old unassigned open work outside the computed route. |
+| Active PR Cycle State | Recent PR cycle visibility. |
+| Executive Priority Backlog | Recently created structural objectives. |
+| Computed Golden Path | The mathematical steering surface consumed by autonomous routing. |
 
-The historical guide-path scan and LLM verification fallback were retired by the
-concept-graph refactor. Guide coverage is now an explicit ontology fact:
-`ConceptIngestor` materializes `EXPLAINED_BY` / `EXEMPLIFIED_BY` /
-`IMPLEMENTED_BY` edges, and `GapInferenceEngine.inferConceptGraphGaps()` traverses
-those edges once per REM cycle. The LLM no longer rubber-stamps whether a guide
-filename happens to match a structural class or component name.
+Only `## Computed Golden Path` is the route surface. Visibility sections are
+signals for maintainers and operators; they do not automatically assign work.
 
-Capability gaps are stored as JSON arrays on the graph node's `properties.capabilityGap`
-field, with a `lastGapCheck` timestamp for TTL pruning.
+If live Current Release / Incident Focus contradicts a content or narrative
+computed route, the computed route renders a diagnostic rather than steering the
+swarm into contradictory work.
 
-### Phase 4: Garbage Collection (Apoptosis)
+## Issue, Discussion, And PR Ingestion
 
-After extraction, the DreamService applies two cleanup operations:
+`IssueIngestor` feeds the graph from synced repository content:
 
-**Edge Severing:** Any edge whose source or target node no longer exists is removed.
-System tenet edges (`SYSTEM_TENET` type) are protected from decay.
-
-**Vector Apoptosis:** Orphaned nodes (nodes with zero edges) are identified via
-`GraphService.getOrphanedNodes()` and permanently deleted from both the SQLite
-graph and the ChromaDB semantic embeddings.
-
-This prevents the graph from growing without bound and ensures that obsolete
-concepts naturally fade away — a form of Hebbian decay where unused connections
-weaken and eventually dissolve.
-
-### Phase 5: Golden Path Synthesis
-
-This is the forecasting algorithm. It operates on two mathematical pillars:
-
-#### Pillar 1: Semantic Distance
-
-The DreamService generates a **Frontier Baseline Vector** by embedding the most
-recent session summaries into a single vector using `TextEmbeddingService`. It then
-queries ChromaDB for the 20 graph nodes closest to this frontier in embedding space.
-
-Closer nodes are more semantically relevant to the current work context.
-
-```
-semanticScore = 1.0 / (semantic_distance + 0.1)
-```
-
-The `+ 0.1` prevents division-by-zero and curbs massive asymptotes for exact matches.
-
-#### Pillar 2: Structural Weight
-
-For each semantically relevant node, the DreamService queries the SQLite graph for
-its accumulated edge weights — the sum of all inbound edge weights (excluding
-`BLOCKS` edges). Higher structural weight means more graph entities depend on or
-relate to this node.
-
-```
-priority = (semanticScore × 2.0) + (structuralWeight × 1.0)
-```
-
-The 2:1 ratio favors semantic relevance over structural weight, ensuring the
-system prioritizes work that's contextually aligned with the current frontier.
-
-#### Multipliers and Penalties
-
-The raw priority score is modified by several heuristics:
-
-| Modifier | Effect | Rationale |
-|---|---|---|
-| **Blocked filter** | Node excluded entirely | Can't work on blocked issues |
-| **Bug label** | +1.0 structural weight | Regressions are urgent |
-| **Community ticket** | +0.5 structural weight | External contributions get priority |
-| **`needs-re-triage` label** | −10,000 priority | Rejected tickets sink to the bottom |
-| **OPEN blocker** | 0.05 base weight | Blocked issues are nearly invisible |
-
-#### The Output: `sandman_handoff.md`
-
-The Golden Path synthesis produces a markdown file divided into sections:
-
-```markdown
-# Autonomous Handoff (Dream Pipeline & Golden Path)
-
-### 🧪 Critical Test Constraints (N items)
-- **`CLASS:MyClass`**: lacks test coverage...
-
-
-### 🗺️ Guide Disconnects (N items)
-- **`CLASS:MyComponent`**: lacks guide...
-
-## Stale Assignment Candidates
-
-No stale assignment candidates detected.
-
-## Silent Threads
-
-No silent thread candidates detected.
-
-## 📋 Latest Priority Backlog
-
-The following open tickets represent the most recently created structural objectives.
-
-## Computed Golden Path (Strategic Recommendation)
-
-1. **issue-1234**: Score 5.42 (Semantic: 3.14, Structural: 2.28)
-   - *Implement reactive grid selection...*
-
-> **Strategic Interpretation:**
-> The current frontier is focused on grid architecture. Issue #1234
-> directly addresses the selection model gap identified across 3 sessions.
-```
-
-The **Strategic Interpretation** is an optional LLM-generated brief that explains
-*why* the mathematical scores point to these specific tasks. If the LLM is offline,
-the system falls back to pure numerical output.
-
-`## Silent Threads` is visibility-only. It surfaces old, unassigned, non-rejected
-open issues that are outside the Computed Golden Path, sorted by
-`daysIdle * max(structuralWeight, 1)`. `AgentOrchestrator.parseGoldenPath()`
-continues to consume only `## Computed Golden Path`, so Silent Threads never
-becomes an automatic route or assignment source.
-
-## Issue Ingestion Pipeline
-
-Before synthesizing the Golden Path, the DreamService ingests three types of
-external content into the graph:
-
-### Issues
-
-All local markdown issue files are parsed:
-- Frontmatter metadata (`state`, `labels`, `blockedBy`, `parentIssue`) is mapped
-  to graph nodes and edges
-- `OPEN` issues get their content embedded into ChromaDB (with content-hash
-  deduplication to skip unchanged issues)
-- Blocked issues receive a 0.05 base weight, making them nearly invisible to
-  the Golden Path
-
-### Discussions
-
-GitHub Discussions are treated as perpetually open conceptual nodes. They're
-embedded into ChromaDB like issues but never "closed" in the graph — they
-represent ongoing ideation that may influence future work.
-
-### Pull Request Feedback
-
-PR reviews are scanned for three structured tags:
-
-| Tag | Purpose |
+| Input | What is extracted |
 |---|---|
-| `[KB_GAP]` | Knowledge base gap identified during review |
-| `[TOOLING_GAP]` | Missing or broken tooling identified during review |
-| `[RETROSPECTIVE]` | Architectural insight or lesson learned |
+| Issues | State, labels, parent/sub-issue edges, blockers, community/bug weighting, and open issue embeddings. |
+| Discussions | Open/closed lifecycle, category, title/body embedding, and `DISCUSSION` graph nodes. |
+| Pull requests | `PULL_REQUEST` nodes, `[KB_GAP]`, `[TOOLING_GAP]`, `[RETROSPECTIVE]` nodes, and `RESOLVES` edges from `Resolves`, `Closes`, or `Fixes` references. |
 
-These are extracted into dedicated graph nodes with Hebbian edges linking them
-back to their source PR. `Resolves #NNN` patterns are the canonical shipped-work
-form for creating `RESOLVES` edges, closing the feedback loop between PRs and the
-issues they address. The current ingestor is intentionally liberal and also
-accepts `Fixes` and `Closes`; narrowing `Closes` remains an open logic question
-because that keyword can also describe not-planned, superseded, or dropped scope.
+Issue and discussion vectors live in the graph collection. The structural graph
+still decides blocker topology, open state, and edge weight.
 
-## TTL Pruning (Stale Gap Removal)
+## Running REM Manually
 
-Capability gaps have a 7-day Time-to-Live. If a gap hasn't been re-detected in
-7 days, it's assumed the codebase has evolved past it and the gap is pruned:
-
-```javascript
-const TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-const age = now - (node.properties.lastGapCheck || now);
-if (age > TTL_MS) {
-    delete node.properties.capabilityGap;
-    GraphService.upsertNode(node);
-}
-```
-
-This prevents the handoff file from growing stale — gaps that matter will be
-re-detected on the next cycle; gaps that don't will naturally disappear.
-
-## Running the Pipeline
-
-The DreamService runs automatically when the Memory Core MCP server starts
-(controlled by the `autoDream` and `autoGoldenPath` config flags). To trigger
-a manual REM cycle, use the standalone CLI entrypoint:
+Use the manual Sandman runner when you need to digest pending sessions outside
+the normal orchestrator cadence:
 
 ```bash
 npm run ai:run-sandman
 ```
 
-This runs `buildScripts/ai/runSandman.mjs`, which:
+This runs `ai/scripts/runners/runSandman.mjs`. It:
 
-1. Boots the `LifecycleService` (starts ChromaDB + SQLite)
-2. Waits for the local LLM provider to be reachable (polls `/v1/models`
-   for up to 30 seconds)
-3. Initializes the DreamService with all auto-triggers disabled
-   (to prevent double-execution)
-4. Runs the full pipeline: `processUndigestedSessions()` → garbage
-   collection → Golden Path synthesis
-5. Applies global topology decay via `GraphService.decayGlobalTopology()`
-6. Exits with code 0 (success) or 1 (failure)
+1. Enables debug output through the reactive config override API.
+2. Acquires the shared heavy-maintenance lease with owner `sandman`.
+3. Waits for `LifecycleService` and `DreamService` readiness.
+4. Calls `DreamService.executeRemCycle({reason: 'manual-cli', mode: 'cli', includeDecay: true})`.
+5. Exits from the typed REM outcome.
 
-The manual entrypoint is useful for overnight batch processing or when
-you want to regenerate `sandman_handoff.md` after importing new session
-data.
+It does not directly invoke `GoldenPathSynthesizer`. The Golden Path is refreshed
+by the orchestrator `golden-path` task.
 
-## Configuration
+## Configuration Authorities
 
-The DreamService is controlled by `ai/mcp/server/memory-core/config.mjs`:
-
-| Config Key | Default | Purpose |
+| Config surface | Key | Default / role |
 |---|---|---|
-| `autoDream` | `true` | Process undigested sessions on startup |
-| `autoGoldenPath` | `true` | Synthesize Golden Path on startup |
-| `remSleepBatchLimit` | `10` | Max sessions to process per cycle |
-| `graphProvider` | `'openAiCompatible'` | LLM provider for Dream/Sandman graph extraction |
-| `handoffFilePath` | `resources/content/sandman_handoff.md` | Output path |
+| `ai/mcp/server/memory-core/config*.mjs` | `remSleepBatchLimit` | Default `10`; caps undigested sessions per REM cycle. |
+| `ai/mcp/server/memory-core/config*.mjs` | `maxDigestAttempts` | Default `3`; bounds retry-exhausted terminal schema failures. |
+| `ai/mcp/server/memory-core/config*.mjs` | `handoffFilePath` | Resolves to `resources/content/sandman_handoff.md` in production and a test path under test mode. |
+| `ai/mcp/server/memory-core/config*.mjs` | `goldenPathTopNodeRenderLimit` | Default `10`; caps Computed Golden Path entries. |
+| `ai/mcp/server/memory-core/config*.mjs` | `guideGapWeightThreshold` | Default `0.8`; minimum concept weight for guide/example/orphan concept signals. |
+| `ai/config*.mjs` | `graphProvider` | Default `openAiCompatible`; graph-generation provider selector. |
+| `ai/config*.mjs` | `orchestrator.intervals.dreamMs` | REM digest cadence. |
+| `ai/config*.mjs` | `orchestrator.intervals.goldenPathMs` | Golden Path refresh cadence. |
 
-## How It All Connects
-
-```mermaid
-flowchart LR
-    classDef session fill:#0f3460,stroke:#16c79a,stroke-width:2px,color:#fff
-    classDef dream fill:#3d1f00,stroke:#f39c12,stroke-width:2px,color:#eee
-    classDef db fill:#1a1a2e,stroke:#e94560,stroke-width:1px,color:#eee
-    classDef peer fill:#1a3c34,stroke:#2ecc71,stroke-width:1px,color:#eee
-    classDef human fill:#4a1942,stroke:#e94560,stroke-width:2px,color:#eee
-
-    Sessions["Agent Sessions"]:::session
-    Dream["DreamService"]:::dream
-    Graph["Native Edge Graph"]:::db
-    Handoff["sandman_handoff.md"]:::dream
-    Peers["Peer Maintainers"]:::peer
-    Operator["Human Operator"]:::human
-
-    Sessions -->|"raw memories"| Dream
-    Dream -->|"tri-vectors"| Graph
-    Dream -->|"gap inference"| Graph
-    Dream -->|"golden path"| Handoff
-    Graph -->|"topology + vectors"| Dream
-    Handoff -.->|"advisory forecast"| Peers
-    Operator -.->|"direction, not assignment"| Peers
-    Peers -->|"self-selected work"| Sessions
-```
-
-The closed loop: agents create sessions → DreamService digests sessions into graph
-intelligence → graph intelligence informs the Golden Path → the Golden Path is an
-**advisory forecast** (not a work queue): peer maintainers read it and **self-select**
-what to pick up, while the human operator steers direction rather than assigning tickets
-→ the work they choose produces new sessions.
-
-The autonomous runner (`AgentOrchestrator.parseGoldenPath()`) is one *optional* consumer
-of the same advisory handoff — during unattended cycles it auto-processes the top
-`## Computed Golden Path` recommendations. Even then it surfaces the math's forecast; it
-is not an externally assigned queue.
-
-The system evolves by predicting its own evolution.
+Older startup toggle names are not the current control plane for this guide.
 
 ## Structural Inventory
 
 | File | Purpose |
 |---|---|
-| `ai/daemons/DreamService.mjs` | The complete REM pipeline (1368 lines) |
-| `buildScripts/ai/runSandman.mjs` | CLI entrypoint (`npm run ai:run-sandman`) |
-| `ai/services/memory-core/GraphService.mjs` | Native Edge Graph (SQLite) |
-| `ai/services/memory-core/managers/StorageRouter.mjs` | ChromaDB collection routing |
-| `ai/services/memory-core/TextEmbeddingService.mjs` | Vector embedding |
-| `ai/services/memory-core/FileSystemIngestor.mjs` | Workspace → Graph sync |
-| `ai/provider/OpenAiCompatible.mjs` | LLM provider for extraction |
-| `resources/content/sandman_handoff.md` | The output handoff document |
+| `ai/daemons/orchestrator/services/DreamService.mjs` | Typed REM digest cycle and per-session graph digestion. |
+| `ai/daemons/orchestrator/scheduling/pipeline.mjs` | Orchestrator execution path for `dream` and `golden-path` tasks. |
+| `ai/daemons/orchestrator/scheduling/goldenPath.mjs` | Pure due-trigger projection for the Golden Path cadence. |
+| `ai/services/graph/GoldenPathSynthesizer.mjs` | Hybrid GraphRAG priority synthesis and handoff rendering. |
+| `ai/services/graph/SemanticGraphExtractor.mjs` | Tri-vector extraction for session payloads. |
+| `ai/services/graph/TopologyInferenceEngine.mjs` | Topological conflict detection and handoff injection. |
+| `ai/services/graph/GapInferenceEngine.mjs` | Session test-gap and concept-coverage gap inference. |
+| `ai/services/graph/providerDispatch.mjs` | Graph-generation provider dispatch for `openAiCompatible` and `ollama`. |
+| `ai/services/ingestion/IssueIngestor.mjs` | Issue, discussion, and PR graph ingestion. |
+| `ai/services/ingestion/MemorySessionIngestor.mjs` | Deterministic memory/session graph projection. |
+| `ai/services/ingestion/AdrIngestor.mjs` | ADR graph ingestion. |
+| `ai/services/ingestion/ConceptIngestor.mjs` | Concept ontology graph ingestion. |
+| `ai/services/memory-core/FileSystemIngestor.mjs` | Workspace file graph sync. |
+| `ai/services/memory-core/managers/StorageRouter.mjs` | Chroma collection routing. |
+| `ai/services/memory-core/TextEmbeddingService.mjs` | Embedding provider calls and vector generation. |
+| `ai/scripts/runners/runSandman.mjs` | Manual REM digest runner. |
+| `resources/content/sandman_handoff.md` | Generated handoff and Golden Path forecast. |
 
-## Project state is observability-only (NOT a Dream pipeline input)
+## Project State Is Observability Only
 
-GitHub ProjectV2 boards (e.g., the v13 release Project [#12](https://github.com/orgs/neomjs/projects/12) per pilot ticket [#10961](https://github.com/neomjs/neo/issues/10961)) are a **visualization layer over the canonical issue substrate** — they are NOT consumed by the Dream pipeline.
+GitHub ProjectV2 boards are visualization layers over canonical issue substrate.
+DreamService and GoldenPathSynthesizer read issue relationships, labels, state,
+comments, memories, graph vectors, and KB/graph substrate. They do not read
+Project board membership, status fields, iteration fields, or Project-only
+custom fields.
 
-`DreamService` / `GoldenPathSynthesizer` read:
-- **Issue parent_child relationships** (native sub-issue graph)
-- **Issue labels + state**
-- **Comment ledgers** (timeline metadata)
-- **Memory Core sessions** (episodic content)
-- **Knowledge Base** (semantic substrate)
-
-They do **NOT** read:
-- Project membership (which issues are in a board)
-- Project status fields (column placement)
-- Project iteration / sprint fields
-- Any Project-only custom fields
-
-Concrete consequence: if an issue's release-criticality is encoded ONLY in Project membership without a corresponding `release:vN` label on the issue itself, Sandman + Golden Path math will not see it and the Tri-Vector synthesis will treat it as background-priority work.
-
-This is by design — Project metadata is a presentation/coordination convenience for human + agent observability; the priority math operates on durable, queryable issue substrate. See `learn/agentos/GitHubWorkflow.md` §"GitHub Projects v2 — Read-Only Derived View Substrate" for the source-of-truth contract.
+If release-criticality exists only on a Project board and not on issue substrate,
+the Dream Pipeline will not see it.
 
 ## Related Guides
 
-- [Architecture Overview](../benefits/ArchitectureOverview.md) — Platform-level topology
-- [Swarm Intelligence](./SwarmIntelligence.md) — Sub-agent delegation model and Orchestrator
-- [The Memory Core Server](./MemoryCore.md) — Episodic memory and graph storage
-- [The Knowledge Base Server](./KnowledgeBase.md) — Semantic RAG architecture
-- [The GitHub Workflow Server](./GitHubWorkflow.md) — issue substrate + ProjectV2 derived-view rules
+- [Architecture Overview](../benefits/ArchitectureOverview.md) - Platform-level topology.
+- [Swarm Intelligence](./SwarmIntelligence.md) - Peer-team coordination and swarm operating model.
+- [Memory Core](./MemoryCore.md) - Episodic memory, summaries, mailbox state, and graph storage.
+- [Knowledge Base](./KnowledgeBase.md) - Semantic repository knowledge.
+- [GitHub Workflow](./GitHubWorkflow.md) - Issue substrate and ProjectV2 derived-view rules.

@@ -28,7 +28,7 @@ jobs:
             // Only enforce for known AI agent accounts. Human reviewers are exempt;
             // a `neo-`-prefix heuristic also catches future agent identities (mirrors
             // `agent-pr-body-lint.yml` author-side filter shape).
-            const agentReviewers = ['neo-opus-ada', 'neo-claude-opus', 'neo-opus-vega', 'neo-gemini-pro', 'neo-gpt'];
+            const agentReviewers = ['neo-opus-ada', 'neo-opus-grace', 'neo-opus-vega', 'neo-gemini-pro', 'neo-gpt'];
             const isAgentReviewer = agentReviewers.includes(reviewer) || reviewer.startsWith('neo-');
 
             if (!isAgentReviewer) {
@@ -54,10 +54,10 @@ jobs:
             // structure (empirical anchor: review 4304287893 on PR #11499 had all 7
             // visible tags but missing structural anchors — would have passed visible-only).
             //
-            // ⚠️  SYNCHRONIZATION PROTOCOL: these lists MUST stay in sync with
-            // `ai/services/github-workflow/PullRequestService.mjs` constants
-            // `VISIBLE_PR_REVIEW_ANCHORS` + `INVISIBLE_PR_REVIEW_ANCHORS`. If you edit
-            // either side, edit the other simultaneously. Follow-up ticket candidate:
+            // ⚠️  SYNCHRONIZATION PROTOCOL: these lists and tier checks MUST stay in sync
+            // with `ai/services/github-workflow/PullRequestService.mjs` review-template
+            // constants. If you edit either side, edit the other simultaneously.
+            // Follow-up ticket candidate:
             // extract to shared module `ai/services/github-workflow/prReviewAnchors.mjs`
             // (see #11501 cross-surface enhancement ticket).
             // ──────────────────────────────────────────────────────────────────────
@@ -78,25 +78,122 @@ jobs:
               "Strategic-Fit Decision"
             ];
 
-            // OPTIONAL-FIRST migration anchors for #12442/#12448. Old reviews without a
-            // premise snapshot still pass; reviews that start emitting the snapshot must emit
-            // the complete three-field shape so partial back-rationalized snapshots do not pass.
-            // Match the distinctive bold template labels, not bare prose, so incidental phrases
-            // like "Patch Verdict" do not activate the partial-snapshot gate.
-            const OPTIONAL_PR_REVIEW_PREMISE_ANCHORS = [
+            // Required premise-snapshot anchors. Match the distinctive bold template labels,
+            // not bare prose, so incidental phrases like "Patch Verdict" do not satisfy the gate.
+            const REQUIRED_PR_REVIEW_PREMISE_ANCHORS = [
               {label: "Inputs Read Before Patch", token: "**Inputs Read Before Patch:**"},
               {label: "Expected Solution Shape",  token: "**Expected Solution Shape:**"},
-              {label: "Patch Verdict",            token: "**Patch Verdict:**"}
+              {label: "Patch Verdict",            token: "**Patch Verdict:**"},
+              {label: "Premise Coherence",        token: "**Premise Coherence:**"}
             ];
+
+            const MICRO_DELTA_PR_REVIEW_SHAPE_HINTS = [
+              "# Pull Request Micro-Delta Review",
+              "### State Vector",
+              "### Micro-Delta Focus",
+              "### Verdict"
+            ];
+
+            const MICRO_DELTA_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS = [
+              "# Pull Request Micro-Delta Review",
+              "> **Context:**",
+              "### State Vector",
+              "- **Target SHA:**",
+              "- **Current reviewDecision:**",
+              "- **Semantic Status:**",
+              "- **CI Status:**",
+              "- **Remaining Blocker Class:**",
+              "- **Measured Discussion Cost:**",
+              "### Micro-Delta Focus",
+              "*Only defects classified as `mechanical-hygiene` or `metadata-drift` are reviewed here.*",
+              "### Verdict",
+              "**APPROVED**",
+              "**CHANGES_REQUESTED**",
+              "**MAINTAINER POLISH FAST PATH APPLIED**"
+            ];
+
+            const MICRO_DELTA_REVIEW_BLOCKER_CLASS_PATTERN = /(?:^|[^\w-])(mechanical-hygiene|metadata-drift)(?:$|[^\w-])/i;
+
+            // Micro-Review (Cycle-1, blast-scaled) light path — KEEP IN SYNC with
+            // ai/services/github-workflow/PullRequestService.mjs MICRO_REVIEW_* constants.
+            // A micro/contained PR gets a premise+correctness glance, not the full gauntlet
+            // (pr-review-guide §7). Fail SAFE toward accept: the floor is the header + the Class
+            // assertion (micro|contained, so the light path is not an intense-PR backdoor) + a
+            // Verdict + the Glance. An intense/large PR uses the full template instead.
+            if (body.includes("# PR Micro-Review")) {
+              const microMisses = ["# PR Micro-Review", "**Class:**", "**Verdict:**", "**Glance:**"]
+                .filter(a => !body.includes(a));
+              const microClassLine = body.split("\n").find(l => l.includes("**Class:**")) || "";
+              if (!/(?:^|[^\w-])(micro|contained|mechanical)(?:$|[^\w-])/i.test(microClassLine)) {
+                microMisses.push("Class: micro | contained | mechanical");
+              }
+              if (microMisses.length === 0) {
+                console.log("✅ Micro-Review body matches the blast-scaled light shape.");
+                return;
+              }
+              core.setFailed(`Agent micro-review body missing the minimal shape (header + "**Class:** micro|contained|mechanical" + "**Verdict:**" + "**Glance:**"). See .agents/skills/pr-review/assets/pr-review-micro-review-template.md`);
+              return;
+            }
+
+            const isMicroDeltaPrReview = body.includes(MICRO_DELTA_PR_REVIEW_SHAPE_HINTS[0]) || (
+              body.includes("### State Vector") &&
+              body.includes("### Micro-Delta Focus")
+            );
+
+            if (isMicroDeltaPrReview) {
+              const microDeltaMisses = MICRO_DELTA_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS
+                .filter(a => !body.includes(a));
+              const remainingBlockerLine = body.split("\n").find(l => l.includes("- **Remaining Blocker Class:**")) || "";
+
+              if (!MICRO_DELTA_REVIEW_BLOCKER_CLASS_PATTERN.test(remainingBlockerLine)) {
+                microDeltaMisses.push("Remaining Blocker Class: mechanical-hygiene | metadata-drift");
+              }
+
+              if (microDeltaMisses.length === 0) {
+                console.log("✅ Micro-Delta body matches the documented circuit-breaker shape.");
+                return;
+              }
+
+              const skillPath        = '.agents/skills/pr-review/SKILL.md';
+              const circuitPath      = '.agents/skills/pr-review/audits/review-cost-circuit-breaker.md';
+              const microDeltaPath   = '.agents/skills/pr-review/assets/pr-review-micro-delta-template.md';
+              const reviewUrl        = `https://github.com/${context.repo.owner}/${context.repo.repo}/pull/${pr.number}#pullrequestreview-${review.id}`;
+              const diagnosticAnchor = microDeltaMisses[0] || null;
+
+              const commentBody = [
+                `## 🚨 Agent Micro-Delta Review Body Lint Violation`,
+                ``,
+                `@${reviewer} — your [review on PR #${pr.number}](${reviewUrl}) attempts the Micro-Delta format but does not match the documented circuit-breaker structure.`,
+                ``,
+                `**Required action**: read \`${skillPath}\`, \`${circuitPath}\`, and \`${microDeltaPath}\` BEFORE submitting a corrective re-review.`,
+                ``,
+                `Micro-Delta reviews are only valid after the Review-Loop Cost Circuit Breaker classifies the PR as state (a): semantics cleared, with only mechanical-hygiene or metadata-drift remaining.`,
+                `If a semantic or contract delta exists, use the full follow-up review template instead.`,
+                ``,
+                diagnosticAnchor
+                  ? `**Diagnostic hint**: at least one required Micro-Delta anchor like \`${diagnosticAnchor}\` is missing or invalid.`
+                  : `**Diagnostic hint**: the Micro-Delta structural template anchors do not match.`,
+                ``,
+                `<sub>This is the CI tool-boundary lint companion to PR #11494's MCP \`manage_pr_review\` validator.`,
+                `Both layers point you at the same skill substrate. Closes #11495 and #13910.</sub>`
+              ].join('\n');
+
+              await github.rest.issues.createComment({
+                owner       : context.repo.owner,
+                repo        : context.repo.repo,
+                issue_number: pr.number,
+                body        : commentBody
+              });
+
+              core.setFailed(`Agent micro-delta review body missing required circuit-breaker anchors. See follow-up comment on PR #${pr.number}.`);
+              return;
+            }
 
             const missingVisible         = VISIBLE_PR_REVIEW_ANCHORS         .filter(a => !body.includes(a));
             const missingInvisible       = INVISIBLE_PR_REVIEW_ANCHORS       .filter(a => !body.includes(a));
-            const presentPremiseSnapshot = OPTIONAL_PR_REVIEW_PREMISE_ANCHORS.filter(a =>  body.includes(a.token));
-            const missingPremiseSnapshot = presentPremiseSnapshot.length === 0
-              ? []
-              : OPTIONAL_PR_REVIEW_PREMISE_ANCHORS
-                .filter(a => !body.includes(a.token))
-                .map(a => a.label);
+            const missingPremiseSnapshot = REQUIRED_PR_REVIEW_PREMISE_ANCHORS
+              .filter(a => !body.includes(a.token))
+              .map(a => a.label);
 
             if (missingVisible.length === 0 && missingInvisible.length === 0 && missingPremiseSnapshot.length === 0) {
               console.log("✅ Review body contains all required anchors.");
@@ -129,7 +226,7 @@ jobs:
               `passing is reading the actual template file and following its structure.`,
               ``,
               missingPremiseSnapshot.length > 0
-                ? `**Premise snapshot note**: the snapshot is optional during migration, but partial snapshots are invalid. Either omit it entirely or include all three fields.`
+                ? `**Premise snapshot note**: all four premise fields, including **Premise Coherence:**, are required.`
                 : ``,
               ``,
               diagnosticAnchor

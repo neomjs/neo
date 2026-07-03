@@ -10,6 +10,20 @@ let _turnId = 0;
 export const getCurrentTurnId = () => _turnId;
 
 /**
+ * @summary Resolves the server-instance forced tool-projection mode from its launch sources, in
+ * precedence order: the explicit `--tool-projection-mode` CLI flag wins; else the
+ * `NEO_NL_TOOL_PROJECTION_MODE` env var (the channel the Fleet Manager spawner injects for embedded
+ * agents — a fixed cross-process contract name, not a configurable field on either side); else `null`
+ * (unforced → the full developer/operator
+ * surface, the trusted dev/operator launch). The single testable authority for this resolution.
+ * @param {String|null} [cliMode] The `--tool-projection-mode` value (null/undefined when the flag is absent).
+ * @param {Object} [env=process.env] Env source (injectable for tests).
+ * @returns {String|null}
+ */
+export const resolveToolProjectionMode = (cliMode, env = process.env) =>
+    cliMode ?? env.NEO_NL_TOOL_PROJECTION_MODE ?? null;
+
+/**
  * @summary The Neural Link MCP Server application.
  *
  * Bridges AI agents to the live browser application via WebSocket. Uses a non-canonical
@@ -64,11 +78,41 @@ class Server extends BaseServer {
     getToolService() {
         return {
             listTools,
-            callTool: async (name, args) => {
+            callTool: async (name, args, options) => {
                 _turnId++;
-                return callTool(name, args);
+                return callTool(name, args, options);
             }
         };
+    }
+
+    /**
+     * @summary Resolves the Neural Link harness projection context for ListTools / CallTool.
+     *
+     * **Server-instance forced mode is the ceiling.** When this instance was launched with a forced
+     * {@link toolProjectionMode} (the spawner / Fleet Manager pinning an embedded-agent server via
+     * `--tool-projection-mode`), every request is pinned to it and the client `_meta` is ignored — a
+     * client can NEVER widen its surface by omitting or altering `_meta`. Capability binds to what the
+     * server instance *is*, not to what the client *claims*.
+     *
+     * When NOT forced (trusted dev/operator launch), the client `_meta.neoToolProjection` hint selects
+     * the projection (`'harness-embedded'` → fail-closed read surface); absent → `null` → the full
+     * developer/operator surface (back-compat).
+     *
+     * @param {Object} context
+     * @param {Object} context.request The raw MCP request.
+     * @returns {Object|null}
+     */
+    buildToolProjectionContext({request}) {
+        // Forced server-instance mode wins and is the ceiling — client `_meta` cannot widen past it.
+        // Only null/undefined is "unset"; an empty/malformed configured value stays a forced mode and
+        // fails closed downstream (a truthiness check would erase `''` into full-surface — fail-OPEN).
+        if (this.toolProjectionMode != null) {
+            return {mode: this.toolProjectionMode};
+        }
+
+        // Unforced: the client hint selects the projection; absent → full developer/operator surface.
+        const projection = request?.params?._meta?.neoToolProjection;
+        return projection === undefined ? null : {mode: projection};
     }
 
     /**
@@ -109,7 +153,7 @@ class Server extends BaseServer {
 
         this.mcpServer = this.createMcpServer();
 
-        // Connect transport EARLY — see method JSDoc for rationale (#10455 lineage).
+        // Connect transport EARLY — see method JSDoc for rationale.
         await this.connectTransport();
         this.logger.info('Neural Link MCP Server transport connected');
 

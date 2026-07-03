@@ -5,23 +5,24 @@ state: OPEN
 labels:
   - enhancement
   - epic
+  - no auto close
   - ai
   - architecture
   - grid
 assignees:
   - tobiu
 createdAt: '2026-03-09T10:43:40Z'
-updatedAt: '2026-03-10T13:35:16Z'
+updatedAt: '2026-06-09T07:21:04Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9404'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues:
   - '[x] 9405 Create `Neo.data.TreeModel`'
   - '[x] 9406 Create `Neo.data.TreeStore`'
   - '[x] 9407 Create `Neo.grid.column.Tree` & Cell Component'
   - '[x] 9408 Grid Core Integration & TreeGrid Accessibility'
-  - '[ ] 9409 CSS Animations for TreeGrid Expand/Collapse'
+  - '[x] 9409 CSS Animations for TreeGrid Expand/Collapse'
   - '[x] 9410 TreeGrid Documentation & Examples'
   - '[x] 9411 TreeGrid Unit Tests (Data & Logic)'
   - '[x] 9412 TreeGrid Component Tests (UI & Interactions)'
@@ -49,7 +50,7 @@ subIssues:
   - '[x] 9445 TreeGrid Documentation: Create high-level architectural guide for TreeStore'
   - '[x] 9447 TreeGrid: Fix 7-click expand/collapse bug and redundant change events'
   - '[x] 9448 TreeGrid Component pooling accumulates `is-leaf` class leading to visual bugs'
-subIssuesCompleted: 31
+subIssuesCompleted: 32
 subIssuesTotal: 32
 blockedBy: []
 blocking: []
@@ -131,4 +132,12 @@ wip
 - 2026-03-12T14:21:17Z @tobiu removed sub-issue #9419
 - 2026-03-12T14:21:21Z @tobiu removed sub-issue #9420
 - 2026-03-17T18:48:48Z @tobiu cross-referenced by PR #9501
+- 2026-06-08T00:45:43Z @neo-opus-ada cross-referenced by #9409
+### @github-actions - 2026-06-09T05:37:11Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-06-09T05:37:11Z @github-actions added the `stale` label
+- 2026-06-09T07:21:04Z @tobiu removed the `stale` label
+- 2026-06-09T07:21:04Z @tobiu added the `no auto close` label
 

@@ -85,6 +85,7 @@ test.describe('aiConfigDefaults fixture contract (#11977 cycle-2)', () => {
         expect(Object.isFrozen(TIER1_DEFAULTS.engines.chroma)).toBe(true);
         expect(Object.isFrozen(TIER1_DEFAULTS.orchestrator)).toBe(true);
         expect(Object.isFrozen(TIER1_DEFAULTS.orchestrator.intervals)).toBe(true);
+        expect(Object.isFrozen(TIER1_DEFAULTS.orchestrator.recoveryActuator)).toBe(true);
     });
 
     test('nested groups are independent references from live AiConfig.data', () => {
@@ -97,10 +98,11 @@ test.describe('aiConfigDefaults fixture contract (#11977 cycle-2)', () => {
         expect(TIER1_DEFAULTS.engines).not.toBe(AiConfig.data.engines);
         expect(TIER1_DEFAULTS.engines.chroma).not.toBe(AiConfig.data.engines.chroma);
         expect(TIER1_DEFAULTS.orchestrator.intervals).not.toBe(AiConfig.data.orchestrator.intervals);
+        expect(TIER1_DEFAULTS.orchestrator.recoveryActuator).not.toBe(AiConfig.data.orchestrator.recoveryActuator);
     });
 
     test('mutating live AiConfig.data does NOT leak into TIER1_DEFAULTS snapshot', () => {
-        const originalRealm    = TIER1_DEFAULTS.auth.realm;
+        const originalRealm     = TIER1_DEFAULTS.auth.realm;
         const liveOriginalRealm = AiConfig.data.auth.realm;
 
         try {
@@ -120,5 +122,9 @@ test.describe('aiConfigDefaults fixture contract (#11977 cycle-2)', () => {
         expect(TIER1_DEFAULTS.modelProvider).toBe(process.env.NEO_MODEL_PROVIDER || 'openAiCompatible');
         expect(TIER1_DEFAULTS.embeddingProvider).toBe(process.env.NEO_EMBEDDING_PROVIDER || 'openAiCompatible');
         expect(TIER1_DEFAULTS.vectorDimension).toBe(Number(process.env.NEO_VECTOR_DIMENSION) || 4096);
+        expect(TIER1_DEFAULTS.orchestrator.recoveryActuator.enabled).toBe(true);
+        expect(TIER1_DEFAULTS.orchestrator.recoveryActuator.blockedSupervisedTasks).toEqual([]);
+        expect(TIER1_DEFAULTS.orchestrator.recoveryActuator.blockedComposeServices).toEqual([]);
+        expect(TIER1_DEFAULTS.orchestrator.recoveryActuator.blockedDeployTargets).toEqual([]);
     });
 });

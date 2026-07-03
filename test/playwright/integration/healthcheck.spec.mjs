@@ -25,16 +25,11 @@ test.describe('Dockerized KB/MC MCP healthcheck integration (#10805 Lane A)', ()
 
         expect(mcHealth.status).toBe('healthy');
         expect(mcHealth.database.connection.connected).toBe(true);
-        expect(mcHealth.database.topology.mode).toBe('unified');
-        expect(mcHealth.database.topology.resolvedVia).toBe('engines.chroma');
         expect(mcHealth.database.connection.collections.memories.exists).toBe(true);
         expect(mcHealth.database.connection.collections.summaries.exists).toBe(true);
         expect(mcHealth.providers.embedding.active).toBe('openAiCompatible');
         expect(mcHealth.providers.embedding.error).toBeUndefined();
         expect(mcHealth.providers.summary.active).toBe('openAiCompatible');
-        expect(mcHealth.providers.summary.credential.configured).toBe(true);
-        expect(mcHealth.providers.auth.configured).toBe('proxy-header');
-        expect(mcHealth.providers.auth.proxyHeader.trusted).toBe(true);
     });
 
     test('Sustained liveness composability check (Lane B helper) — 5s/1s', async () => {

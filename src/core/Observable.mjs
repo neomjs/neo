@@ -179,13 +179,38 @@ class Observable extends Base {
      * @protected
      */
     afterSetListeners(value, oldValue) {
-        // Unregister any listeners from the old config object
-        if (oldValue && Object.keys(oldValue).length > 0) {
-            this.un(oldValue)
-        }
-        // Register all listeners from the new config object
-        if (value && Object.keys(value).length > 0) {
-            this.on(value)
+        let me           = this,
+            oldConfig    = oldValue || {},
+            newConfig    = value    || {},
+            // delay/once/order/scope sit at the config top level and apply to EVERY event entry, so
+            // they must travel with each per-event slice — and a change to any of them changes every
+            // event's effective registration (→ full re-bind).
+            reservedKeys = ['delay', 'once', 'order', 'scope'],
+            pickShared   = config => reservedKeys.reduce((opts, key) => {
+                if (key in config) {opts[key] = config[key]}
+                return opts
+            }, {}),
+            oldShared    = pickShared(oldConfig),
+            newShared    = pickShared(newConfig),
+            sharedSame   = reservedKeys.every(key => oldShared[key] === newShared[key]),
+            eventNames   = config => Object.keys(config).filter(key => !reservedKeys.includes(key)),
+            names        = new Set([...eventNames(oldConfig), ...eventNames(newConfig)]);
+
+        // Diff per event name: only apply the delta. An event whose handler reference AND the shared
+        // opts are unchanged keeps its live registration untouched — avoiding the un()+on() churn the
+        // prior brute-force rebuild caused, and leaving imperatively-added on() listeners unaffected.
+        for (const name of names) {
+            let inOld = name in oldConfig,
+                inNew = name in newConfig;
+
+            if (inOld && inNew && sharedSame && oldConfig[name] === newConfig[name]) {
+                continue
+            }
+
+            // Pass FRESH per-event slices (event entry + shared opts): on()/un() delete the reserved
+            // keys off the object they receive, so reusing the stored config objects would corrupt them.
+            if (inOld) {me.un({[name]: oldConfig[name], ...oldShared})}
+            if (inNew) {me.on({[name]: newConfig[name], ...newShared})}
         }
     }
 
@@ -275,6 +300,8 @@ class Observable extends Base {
     }
 
     /**
+     * @summary Remove listeners by id, handler, or object-valued listener specs.
+     *
      * There are different syntax's how you can use this method.
      * Using the eventId:
      * ```
@@ -315,6 +342,11 @@ class Observable extends Base {
             }
 
             Object.entries(name).forEach(([key, value]) => {
+                const
+                    valueObject = Neo.isObject(value),
+                    fn          = valueObject ? value.fn : value,
+                    entryScope  = valueObject && Object.hasOwn(value, 'scope') ? value.scope : scope;
+
                 listeners = me[eventMapSymbol][key] || [];
                 i         = 0;
                 len       = listeners.length;
@@ -323,8 +355,11 @@ class Observable extends Base {
                     listener = listeners[i];
 
                     if (
-                        listener.fn.name === (Neo.isString(value) ? value : value.name) &&
-                        listener.scope   === scope
+                        (
+                            listener.fn === fn ||
+                            listener.fn?.name === (Neo.isString(fn) ? fn : fn?.name)
+                        ) &&
+                        listener.scope === entryScope
                     ) {
                         listeners.splice(i, 1);
                         break

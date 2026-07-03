@@ -1,6 +1,6 @@
 import fs                from 'fs-extra';
 import path              from 'path';
-import {Command}         from 'commander/esm.mjs';
+import {Command}         from 'commander';
 import {fileURLToPath}   from 'url';
 import {GH_LabelService} from '../../../ai/services.mjs';
 import {sanitizeInput}   from '../../util/sanitizer.mjs';
@@ -30,7 +30,7 @@ const OUTPUT_FILE = path.resolve(ROOT_DIR, 'apps/portal/resources/data/labels.js
  * Calculates the optimal text color (black or white) for a given background color
  * using the YIQ color space formula.
  * @param {string} hexcolor - The 6-digit hex color (e.g., "aabbcc")
- * @returns {string} - "#000000" or "#ffffff"
+ * @returns {string} - Black or white hex color.
  */
 function getContrastColor(hexcolor) {
     const r = parseInt(hexcolor.substring(0, 2), 16);
@@ -55,7 +55,7 @@ async function createLabelIndex(options = {}) {
     try {
         // GH_LabelService.listLabels throws on GraphQL failure (rate-limit, 5xx, network) —
         // the real error propagates through the outer catch below so CI logs surface the
-        // actual HTTP status and message rather than a generic "Invalid response" wrapper (#10112).
+        // actual HTTP status and message rather than a generic "Invalid response" wrapper.
         const response = await GH_LabelService.listLabels();
 
         const labels = response.labels.map(label => ({

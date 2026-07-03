@@ -30,6 +30,19 @@ tags:
   - name: Repository
     description: Operations related to the repository itself
 
+# Harness tool-projection policy (mirrors neural-link / knowledge-base). A maintainer harness spawned
+# with `--tool-projection-mode harness-embedded` loads the read + write (core-maintainer) tiers; the
+# `extended` (rare ops) + `admin` (dangerous) tiers are withheld, reachable on demand via
+# `get_mcp_tool_handbook`. gh's visible set includes `write` because a maintainer's core writes
+# (review, comment, create, assign, label, link, transition) are constant — unlike kb, whose writes are
+# all admin-destructive (visible=[read] there).
+x-neo-harness-tool-projection:
+  defaultVisibleTiers:
+    - read
+    - write
+  operatorOnlyTiers:
+    - admin
+
 paths:
   /docs:
     get:
@@ -48,6 +61,7 @@ paths:
     get:
       summary: Check GitHub CLI Health
       operationId: healthcheck
+      x-neo-tool-tier: read
       x-annotations:
         readOnlyHint: true
       description: |
@@ -70,10 +84,56 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /tool/handbook:
+    post:
+      summary: Tool Handbook
+      operationId: get_mcp_tool_handbook
+      x-neo-tool-tier: read
+      x-annotations:
+        readOnlyHint: true
+      description: Returns lazy-loaded usage detail for one GitHub Workflow MCP tool.
+      tags: [Repository]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [toolId]
+              properties:
+                toolId:
+                  type: string
+                  description: Tool operation id to inspect.
+      responses:
+        '200':
+          description: Tool handbook lookup result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  toolId:
+                    type: string
+                  found:
+                    type: boolean
+                  title:
+                    type: string
+                  description:
+                    type: string
+                  handbook:
+                    type: string
+                  source:
+                    type: string
+                  code:
+                    type: string
+                  message:
+                    type: string
+
   /labels:
     get:
       summary: List Repository Labels
       operationId: list_labels
+      x-neo-tool-tier: read
       x-annotations:
         readOnlyHint: true
       description: |
@@ -100,6 +160,7 @@ paths:
     get:
       summary: List Pull Requests
       operationId: list_pull_requests
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -158,22 +219,11 @@ paths:
     post:
       summary: Checkout PR Branch
       operationId: checkout_pull_request
+      x-neo-tool-tier: admin
+      x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
-      description: |
-        Checks out the branch for a given pull request locally using `gh pr checkout`.
-        This modifies the local filesystem to reflect the state of the pull request branch.
-
-        **When to Use:**
-        Use this tool when you need to locally inspect the code changes of a pull request, run tests, or perform a more detailed review.
-
-        **Workflow:**
-        1. **Ensure your current work is committed or stashed.** Before switching branches, make sure you save your current work to prevent losing changes (e.g., using `git stash`).
-        2. **Check out the pull request branch** using this tool.
-        3. **Review and test the code locally.**
-        4. **Return to your previous branch** when you are done (e.g., using `git checkout -`).
-
-        **Safety Note:** Always commit or stash your changes before checking out a new branch to avoid losing work.
+      description: Checks out a PR in explicit caller git-root `repoPath`; refuses with `CALLER_WORKSPACE_REQUIRED` when omitted. Use only for local review/test work after saving target workspace changes, then compare returned `headSha` with the current PR head. If you cannot supply `repoPath`, run manual `gh pr checkout` in your workspace.
       tags: [Pull Requests]
       parameters:
         - name: pr_number
@@ -183,13 +233,24 @@ paths:
           schema:
             type: integer
             example: 123
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                repoPath:
+                  type: string
+                  description: Absolute path to the caller workspace git root that may be mutated by `gh pr checkout`.
+                  example: "/Users/Shared/codex/neomjs/neo"
       responses:
         '200':
           description: Pull request branch checked out successfully.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
+                $ref: '#/components/schemas/CheckoutPullRequestResponse'
         '404':
           description: Pull request not found.
           content:
@@ -207,6 +268,7 @@ paths:
     get:
       summary: Get PR Diff
       operationId: get_pull_request_diff
+      x-neo-tool-tier: read
       x-annotations:
         readOnlyHint: true
       description: |
@@ -293,6 +355,8 @@ paths:
     get:
       summary: Get Conversation (Issue or PR)
       operationId: get_conversation
+      x-neo-tool-tier: read
+      x-neo-tool-summary: Fetch a pull request or issue conversation with optional comment-window selectors.
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -397,6 +461,7 @@ paths:
     post:
       summary: Manage Comments (Create or Update)
       operationId: manage_issue_comment
+      x-neo-tool-tier: write
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
@@ -406,8 +471,8 @@ paths:
 
         **Action: 'create'**
         - Creates a new comment on an issue or PR.
-        - Requires `agent`, `body`, and either `issue_number` or `pr_number`.
-        - Automatically formats the comment with the agent's identity.
+        - Requires `body` and either `issue_number` or `pr_number`.
+        - Posts `body` as-authored; GitHub's authenticated author is the attribution.
         - **When to use:** To provide feedback, approve PRs (with "LGTM"), or ask questions.
 
         **Action: 'update'**
@@ -446,10 +511,6 @@ paths:
                 body:
                   type: string
                   description: The content of the comment.
-                agent:
-                  type: string
-                  description: The agent identity in the format '[Model Name] ([Agent Wrapper])' (required for 'create').
-                  example: "Gemini 3.1 Pro (Antigravity)"
       responses:
         '200':
           description: |
@@ -486,6 +547,7 @@ paths:
     post:
       summary: Manage Issue Labels (Add or Remove)
       operationId: manage_issue_labels
+      x-neo-tool-tier: write
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
@@ -558,6 +620,7 @@ paths:
     post:
       summary: Manage Issue Assignees (Single Guarded MCP Operation — Add or Remove)
       operationId: manage_issue_assignees
+      x-neo-tool-tier: write
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
@@ -668,6 +731,8 @@ paths:
     post:
       summary: Manage PR Review (Create or Update — atomic body + formal-state in one call)
       operationId: manage_pr_review
+      x-neo-tool-tier: write
+      x-neo-tool-summary: Create or update one formal PR review with body and review state validation.
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
@@ -676,7 +741,7 @@ paths:
 
         Mandatory pre-step: read `.agents/skills/pr-review/SKILL.md` and use the cycle-appropriate template.
 
-        Validation: `body` must include the 7 visible metric anchors plus silent structural template anchors; failures return `PR_REVIEW_TEMPLATE_VALIDATION_FAILED` pointing at the skill/template. Do not synthesize substitute headings. #12448 premise-snapshot fields (`Inputs Read Before Patch`, `Expected Solution Shape`, `Patch Verdict`) are optional during migration: omit all three or include all three together.
+        Validation: `body` must include the 7 visible metric anchors plus silent structural template anchors and preserve the selected template's canonical skeleton; failures return `PR_REVIEW_TEMPLATE_VALIDATION_FAILED` pointing at the skill/template. Do not synthesize substitute headings. The four premise-snapshot fields (`Inputs Read Before Patch`, `Expected Solution Shape`, `Patch Verdict`, `Premise Coherence`) are ALL REQUIRED; `Premise Coherence` is the value-coherence verdict (does the PR's premise cohere with the core values?) — a specific verdict OR a scoped `N/A — no value-surface` for a trivial PR.
       tags: [PullRequests]
       parameters:
         - name: pr_number
@@ -760,16 +825,17 @@ paths:
     post:
       summary: Manage PR Reviewers (Add or Remove)
       operationId: manage_pr_reviewers
+      x-neo-tool-tier: write
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
       description: |
-        Unified add/remove of GitHub PR reviewer-requests via the `gh pr edit` CLI. Pairs with the cross-family review mandate (`pull-request §6.1`) as the **invitation layer** — the mandate is the validation layer (Approved-status before merge); this tool surfaces the active invitation primitive that pairs with it.
+        Unified add/remove of GitHub PR reviewer-requests via the REST `requested_reviewers` endpoint (`POST` add / `DELETE` remove). This needs only the `repo` scope — not the `read:org` scope `gh pr edit` requires to resolve logins via GraphQL, which agent tokens routinely lack. Pairs with the cross-family review mandate (`pull-request §6.1`) as the **invitation layer** — the mandate is the validation layer (Approved-status before merge); this tool surfaces the active invitation primitive that pairs with it.
 
-        **Action: 'add'** — requests review from the listed users/teams.
-        **Action: 'remove'** — withdraws review requests.
+        **Action: 'add'** — `POST`s a review request for the listed users/teams.
+        **Action: 'remove'** — `DELETE`s the review requests.
 
-        At least one of `reviewers` or `team_reviewers` is required. Permission errors are surfaced via the underlying `gh` CLI's exit code.
+        At least one of `reviewers` or `team_reviewers` is required. A leading `@` on a login is stripped. Errors surface as `GH_API_ERROR` carrying the REST `requested_reviewers` response (repo-scope semantics), not a `gh` CLI exit code.
       tags: [PullRequests]
       parameters:
         - name: pr_number
@@ -802,7 +868,7 @@ paths:
                   type: array
                   items:
                     type: string
-                  description: An array of team slugs (without owner prefix; the owner is auto-prepended).
+                  description: An array of team slugs — bare slug, no owner prefix (the REST requested_reviewers endpoint takes the slug directly; the owner is NOT prepended).
                   example: ["maintainers"]
       responses:
         '200':
@@ -818,7 +884,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '500':
-          description: GitHub CLI command failed (typically permission or network).
+          description: REST `requested_reviewers` call failed (`GH_API_ERROR` — typically a repo-scope/permission or network error).
           content:
             application/json:
               schema:
@@ -829,6 +895,7 @@ paths:
     get:
       summary: Get Local Issue Content by ID
       operationId: get_local_issue_by_id
+      x-neo-tool-tier: read
       x-annotations:
         readOnlyHint: true
       description: |
@@ -870,6 +937,7 @@ paths:
     get:
       summary: List Issues
       operationId: list_issues
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -937,6 +1005,7 @@ paths:
     post:
       summary: Create a new GitHub issue
       operationId: create_issue
+      x-neo-tool-tier: write
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
@@ -1007,6 +1076,7 @@ paths:
     post:
       summary: Manage Issue ProjectV2 Memberships (Add, Remove, or Update Field)
       operationId: manage_issue_projects
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
@@ -1096,6 +1166,7 @@ paths:
     post:
       summary: Create a new GitHub Discussion
       operationId: create_discussion
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
@@ -1144,6 +1215,7 @@ paths:
     post:
       summary: Manage GitHub Discussions (Update Body)
       operationId: manage_discussion
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
@@ -1215,6 +1287,7 @@ paths:
     get:
       summary: Get Discussion Conversation
       operationId: get_discussion_conversation
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -1374,6 +1447,7 @@ paths:
     post:
       summary: Manage Discussion Comments (Create or Update)
       operationId: manage_discussion_comment
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
@@ -1382,7 +1456,8 @@ paths:
 
         **Action: 'create'**
         - Creates a new comment on a discussion.
-        - Requires `agent`, `body`, and `discussion_number`.
+        - Requires `body` and `discussion_number`.
+        - Posts `body` as-authored; GitHub's authenticated author is the attribution.
         - Returns `commentId` for scoped hand-off via `get_discussion_conversation`.
 
         **Action: 'update'**
@@ -1415,10 +1490,6 @@ paths:
                 body:
                   type: string
                   description: The content of the comment.
-                agent:
-                  type: string
-                  description: The agent identity in the format '[Model Name] ([Agent Wrapper])' (required for 'create').
-                  example: "Gemini 3.1 Pro (Antigravity)"
       responses:
         '200':
           description: Comment created or updated successfully.
@@ -1443,6 +1514,8 @@ paths:
     post:
       summary: Manage Issue Relationships (Parent-Child and Blocked-By)
       operationId: update_issue_relationship
+      x-neo-tool-tier: write
+      x-neo-tool-summary: Create, replace, or remove issue parent-child and blocked-by relationships.
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
@@ -1531,6 +1604,7 @@ paths:
     post:
       summary: Sync GitHub Issues & Releases
       operationId: sync_all
+      x-neo-tool-tier: extended
       x-annotations:
         readOnlyHint: false
       description: |
@@ -1543,7 +1617,7 @@ paths:
         - DON'T: after `create_issue` or `create_comment` (already in context).
         - DON'T: for code changes (syncs only ticket metadata).
 
-        **How it works:** pulls remote data, creates `.md` files for new issues, pushes modified `.md` files to GitHub. Cached for fast no-ops.
+        **How it works:** pulls remote data, creates `.md` files for new issues, pushes modified `.md` files to GitHub, then rebuilds the derived Portal indexes, `sitemap.xml`, and `llms.txt`. Cached for fast no-ops; derive failures reject the sync instead of returning success with stale generated artifacts.
 
         **Rejection:** throws `sync_all REJECTED: working-tree is on branch '<name>', not 'dev'.` with remediation guidance pointing to switch-to-dev or daemon-driven sync.
       tags: [Issues]
@@ -1565,6 +1639,7 @@ paths:
     get:
       summary: Get Viewer Permission
       operationId: get_viewer_permission
+      x-neo-tool-tier: read
       x-annotations:
         readOnlyHint: true
       description: |
@@ -1598,6 +1673,7 @@ paths:
     post:
       summary: Signal State Transition
       operationId: signal_state_transition
+      x-neo-tool-tier: write
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
@@ -1831,6 +1907,30 @@ components:
           type: string
           description: Optional details from the CLI output.
           example: "Checked out branch 'some-contributor/my-feature-branch'"
+
+    CheckoutPullRequestResponse:
+      type: object
+      description: Verifiable result for `checkout_pull_request`; callers should compare `headSha` with the current PR head before executing tests.
+      properties:
+        message:
+          type: string
+          example: "Successfully checked out PR #123"
+        details:
+          type: string
+          description: Optional details from the CLI output.
+          example: "Switched to branch 'some-contributor/my-feature-branch'"
+        repoPath:
+          type: string
+          description: Verified git top-level mutated by the checkout.
+          example: "/Users/Shared/codex/neomjs/neo"
+        branch:
+          type: string
+          description: Current branch after checkout; empty when Git leaves the worktree detached.
+          example: "some-contributor/my-feature-branch"
+        headSha:
+          type: string
+          description: "`git rev-parse HEAD` read back from `repoPath` after checkout."
+          example: "0123456789abcdef0123456789abcdef01234567"
 
     CommentResponse:
       type: object

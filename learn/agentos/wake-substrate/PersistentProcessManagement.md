@@ -101,7 +101,6 @@ For a single-call observability check, the Memory Core healthcheck surfaces the 
 "features": {
     "wake": {
         "gateState": "enabled",       // 'enabled' | 'disabled' | 'tripped' | 'unknown'
-        "gateReason": "",
         "gateTrippedAt": null,
         "gateTrippedBy": null,
         "daemonRunning": true,        // mtime of heartbeat-liveness file < 2× POLL_INTERVAL
@@ -113,7 +112,7 @@ For a single-call observability check, the Memory Core healthcheck surfaces the 
 
 The `daemonRunning` heuristic reads the dedicated liveness file `.neo-ai-data/wake-daemon/heartbeat.alive` — touched by `SwarmHeartbeatService.touchLivenessFile()` at the top of every `pulse()` (the producer is the Orchestrator's swarm-heartbeat lane since #11766), NOT the producer-side concurrency lock above. `gateState` is read via `wakeSafetyGate.readGateState`. Field semantics + defensive defaults are documented inline at `HealthService.buildWakeFeaturesBlock`.
 
-**Use this for:** quick night-shift readiness check from the agent harness; integration tests asserting heartbeat-running invariants; operator dashboards consuming the healthcheck JSON. The Orchestrator's per-lane outcomes are additionally surfaced in the healthcheck `orchestrator.tasks` block.
+**Use this for:** quick night-shift readiness check from the agent harness; integration tests asserting heartbeat-running invariants; operator dashboards consuming the healthcheck JSON. (The Orchestrator's per-lane outcomes are recorded via `recordTaskOutcome`, but no longer surfaced as a healthcheck block — the verbose `orchestrator.tasks` block was trimmed to keep the probe lean.)
 
 ## 4. Disabling the heartbeat lane
 
@@ -122,7 +121,7 @@ The heartbeat lane is config-gated; there is no plist to uninstall. To disable i
 - `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED=false`, or
 - `orchestrator.localOnly.swarmHeartbeatEnabled: false` in the top-level `ai` config.
 
-The cloud `Orchestrator` deployment profile disables the lane by default (see ADR 0014 §2.1 — the heartbeat is a `local-only` lane delivering wakes via the `wake-daemon` adapter set: `osascript` for Claude Desktop, `codex debug app-server send-message-v2` for Codex Desktop, `antigravity-cli` / `claude-cli` for CLI shells, `tmux send-keys` for tmux sessions). Per Epic #11993 cycle-3 (graduated from Discussion #11992): the SwarmHeartbeatService no longer injects directly into tmux — pulses flow through `WakeSubscriptionService.emitHeartbeatPulse` → wake-daemon's adapter dispatch, gated by the 3-signal `active AND idle AND ready` decision per `WakeDecisionService.decideWake`. Stopping the Orchestrator process stops the heartbeat with it; the SQLite DB, ChromaDB, and Memory Core data are unaffected by daemon lifecycle.
+The cloud `Orchestrator` deployment profile disables the lane by default (see ADR 0014 §2.1 — the heartbeat is a `local-only` lane delivering wakes via the `wake-daemon` adapter set: `osascript` for Claude Desktop and the current Codex Desktop direct-wake route, explicitly configured `codex-app-server` routes for live-host-gated Codex probes, `antigravity-cli` / `claude-cli` for CLI shells, `tmux send-keys` for tmux sessions). Per Epic #11993 cycle-3 (graduated from Discussion #11992): the SwarmHeartbeatService no longer injects directly into tmux — pulses flow through `WakeSubscriptionService.emitHeartbeatPulse` → wake-daemon's adapter dispatch, gated by the 3-signal `active AND idle AND ready` decision per `WakeDecisionService.decideWake`. Stopping the Orchestrator process stops the heartbeat with it; the SQLite DB, ChromaDB, and Memory Core data are unaffected by daemon lifecycle.
 
 ## 5. Troubleshooting (common gotchas for the Orchestrator LaunchAgent)
 

@@ -7,6 +7,10 @@ createdAt: '2026-05-06T09:10:23Z'
 updatedAt: '2026-05-06T09:23:53Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 # Cloud deployment strategy: full-stack vs Chroma-only sharing
 
@@ -60,7 +64,7 @@ Developer harness → KB MCP + MC MCP servers (LOCAL, on each dev's machine) →
 
 ## Use case fit
 
-- **Strategy A fits** team-shared agent coordination scenarios where A2A is load-bearing — multi-agent debugging, shared review threads, cross-developer wake events. The current swarm topology (`@tobiu` + `@neo-opus-ada` + `@neo-gemini-pro` + `@neo-gpt`) is fundamentally A-shaped.
+- **Strategy A fits** team-shared agent coordination scenarios where A2A is load-bearing — multi-agent debugging, shared review threads, cross-developer wake events. The current swarm topology (`@tobiu` + `@neo-opus-4-7` + `@neo-gemini-3-1-pro` + `@neo-gpt`) is fundamentally A-shaped.
 
 - **Strategy B fits** retrieval-only-sharing scenarios — teams that want shared Knowledge Base + shared Memory Core summaries (semantic team-context awareness), but where each developer's agentic loop is independent and A2A coordination is not required. Lower operational complexity for teams that don't need full multi-agent orchestration.
 

@@ -148,6 +148,58 @@ test.describe('StorageRouter Query Re-Ranker Defensive Handling', () => {
         expect(result.results[0].relevanceScore).toBeGreaterThan(0);
     });
 
+    test('#13222: queryMemories requests distances in the chroma include (re-ranker semantic-score input)', async () => {
+        // Regression guard for the include that omitted 'distances'. The Dual-Pass re-ranker reads the
+        // vector distance as its Pass-1 semantic score; without 'distances' in the include, chroma
+        // returns none, the score collapses to a constant 1, and ranking silently degrades to
+        // topology-only (the pre-existing `relevanceScore > 0` assertion cannot catch a constant 1).
+        // Substrate-free: stub the collection to capture the include the service actually sends, so the
+        // guard runs without the seeded chroma data the behavioral path needs.
+        const StorageRouter = (await import('../../../../../../ai/services/memory-core/managers/StorageRouter.mjs')).default;
+        await StorageRouter.ready();
+
+        const originalGetCollection = StorageRouter.getMemoryCollection;
+        let capturedInclude;
+
+        StorageRouter.getMemoryCollection = async () => ({
+            query: async (args) => {
+                capturedInclude = args.include;
+                return {ids: [[]], distances: [[]], metadatas: [[]]};
+            }
+        });
+
+        try {
+            await SDK.Memory_Service.queryMemories({query: 'include probe', nResults: 3, sessionId: 'include-probe'});
+            expect(capturedInclude).toContain('distances');
+        } finally {
+            StorageRouter.getMemoryCollection = originalGetCollection;
+        }
+    });
+
+    test('#13222: querySummaries requests distances in the chroma include (summary-path parity)', async () => {
+        const SummaryService = (await import('../../../../../../ai/services/memory-core/SummaryService.mjs')).default;
+        await SummaryService.ready();
+        const StorageRouter = (await import('../../../../../../ai/services/memory-core/managers/StorageRouter.mjs')).default;
+        await StorageRouter.ready();
+
+        const originalGetCollection = StorageRouter.getSummaryCollection;
+        let capturedInclude;
+
+        StorageRouter.getSummaryCollection = async () => ({
+            query: async (args) => {
+                capturedInclude = args.include;
+                return {ids: [[]], distances: [[]], metadatas: [[]], documents: [[]]};
+            }
+        });
+
+        try {
+            await SummaryService.querySummaries({query: 'include probe', nResults: 3});
+            expect(capturedInclude).toContain('distances');
+        } finally {
+            StorageRouter.getSummaryCollection = originalGetCollection;
+        }
+    });
+
     test('SummaryService.querySummaries should not crash on empty collections', async () => {
         // The summary collection is empty (no summarization run)
         // This should return gracefully, not crash
@@ -222,13 +274,13 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
     async function addToolMemory({sessionId, agentIdentity, prompt = 'Externally active session memory'}) {
         const result = await callToolAs(agentIdentity, 'add_memory', {
             prompt,
-            thought: 'Unit test active-session fixture.',
-            response: 'Stored through the MCP add_memory tool shape.',
+            thought        : 'Unit test active-session fixture.',
+            response       : 'Stored through the MCP add_memory tool shape.',
             sessionId,
-            agent: agentIdentity,
-            model: 'unit-test-model',
+            agent          : agentIdentity,
+            model          : 'unit-test-model',
             amountToolCalls: 0,
-            toolsUsed: ['unit-test']
+            toolsUsed      : ['unit-test']
         });
 
         expect(result.error).toBeUndefined();
@@ -270,8 +322,10 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
         const storedTimestamp = stored.metadatas[0].timestamp;
         expect(typeof storedTimestamp).toBe('number');
 
-        // Now test drift detection — this session should be flagged
-        const sessionsToSummarize = await SDK.Memory_SessionService.findSessionsToSummarize(false);
+        // Now test drift detection — inject a `now` past the churn-gate idle window so the
+        // just-written session is eligible; this verifies epoch-timestamp drift DETECTION, not the
+        // gate's eligibility timing.
+        const sessionsToSummarize = await SDK.Memory_SessionService.findSessionsToSummarize({now: Date.now() + 60 * 60 * 1000});
 
         expect(sessionsToSummarize).toContain(driftSessionId);
     });
@@ -341,7 +395,7 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
 
     test('#9959: explicit named-session summarization should bypass the externally active drift filter', async () => {
         const activeSessionId = `explicit-active-${crypto.randomUUID()}`;
-        const agentIdentity   = '@neo-claude-opus';
+        const agentIdentity   = '@neo-opus-grace';
         const now             = Date.now();
 
         await seedExternallyActiveSession({
@@ -367,9 +421,9 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
             calls.push({type: 'summarize', sessionId});
             return {
                 sessionId,
-                summaryId   : `summary_${sessionId}`,
-                title       : 'Explicit Active Summary',
-                memoryCount : 1
+                summaryId  : `summary_${sessionId}`,
+                title      : 'Explicit Active Summary',
+                memoryCount: 1
             };
         };
         SDK.Memory_SessionService.completeSummarizationJob = (sessionId) => {
@@ -406,7 +460,7 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
         await seedExternallyActiveSession({
             sessionId: staleSessionId,
             agentIdentity,
-            prompt: 'Externally stale session memory'
+            prompt   : 'Externally stale session memory'
         });
 
         const externallyActiveSessionIds = SDK.Memory_SessionService.getExternallyActiveSessionIds({

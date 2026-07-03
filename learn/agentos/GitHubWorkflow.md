@@ -26,13 +26,13 @@ The true power of this server is best understood through the "Autonomous Review 
 2.  **Context Gathering:**
     *   It reads the conversation history with **`get_conversation`**.
     *   It analyzes the code changes with **`get_pull_request_diff`**.
-    *   If needed, it checks out the branch locally with **`checkout_pull_request`** to run tests (`npm test`).
+    *   If needed, it checks out the branch in the caller workspace with manual `gh pr checkout` or **`checkout_pull_request`** plus explicit `repoPath`, then verifies the checked-out HEAD before running related tests.
 3.  **Analysis & Review:** The agent synthesizes this information to form a review.
-4.  **Participation:** The agent posts a structured review comment using **`create_comment`**.
+4.  **Participation:** The agent posts a **formal PR review** with **`manage_pr_review`**, which atomically sets GitHub's visible `reviewDecision` (`APPROVED` / `REQUEST_CHANGES` / `COMMENT`) together with the review body. A standalone comment is *not* a review — review prose posted without flipping the formal state is a merge-gate miss, not a review. The body follows the validator-enforced anchor template in the [`pr-review` skill](../../.agents/skills/pr-review/references/pr-review-guide.md); to *invite* a reviewer (distinct from validating their approval) the agent uses **`manage_pr_reviewers`**.
 
 ### Visualizing the Agent's Voice
 
-When an agent posts a comment, the server automatically formats it with an "Agent Header" to ensure transparency and clear attribution:
+Every maintainer posts under its own GitHub identity — `@neo-opus-grace`, `@neo-gpt`, `@neo-gemini-pro` — so authorship is unambiguous at the account level before a word is read. The server writes the comment `body` **verbatim** through `ADD_COMMENT`; it does not inject or reformat an attribution header. When an agent wants an explicit in-body attribution line, it authors one itself:
 
 > **Input from Gemini 2.5 Pro:**
 >
@@ -43,7 +43,7 @@ When an agent posts a comment, the server automatically formats it with an "Agen
 > 1. **Line 47**: The null check should be moved before the dereference
 > 2. **Tests**: The edge case for empty arrays is not covered
 
-This clear distinction between human and AI input is a core part of the server's design.
+The distinction between human and AI input is real — but it comes from *who is authenticated to post* and *what the agent chooses to write*, not from server-side formatting.
 
 ## 3. Architecture
 
@@ -93,7 +93,7 @@ The server exposes a comprehensive suite of tools via the Model Context Protocol
 
 ### 4.2 Issue Management
 
-*   **`create_issue`**: **Authoritative** tool for creating tickets. Uses `gh issue create`.
+*   **`create_issue`**: **Authoritative** tool for creating tickets. Routes through `GraphqlService`'s cached-token REST path (`POST /issues`); the `@me` assignee alias is normalized to the authenticated login before the call.
 *   **`list_issues`**: Lists issues with filtering. Uses client-side filtering for labels/assignees to reduce API complexity.
 *   **`get_local_issue_by_id`**: Fast, offline retrieval of an issue's full Markdown content from the local file system.
 *   **`add_labels` / `remove_labels`**: Manages labels via GraphQL mutations.
@@ -103,11 +103,12 @@ The server exposes a comprehensive suite of tools via the Model Context Protocol
 ### 4.3 Pull Request Management
 
 *   **`list_pull_requests`**: Lists PRs with status filtering.
-*   **`checkout_pull_request`**: Checks out a PR branch locally using `gh pr checkout`.
+*   **`checkout_pull_request`**: Checks out a PR branch in an explicitly supplied caller workspace using `gh pr checkout`; missing `repoPath` is rejected so a shared MCP server cannot silently mutate its own checkout.
 *   **`get_pull_request_diff`**: Fetches the code difference via `gh pr diff`.
 *   **`get_conversation`**: Retrieves the full conversation (title, body, comments) for a **pull request _or_ an issue** — supply exactly one of `pr_number` / `issue_number`. The same comment selectors (`comment_id` / `since_comment_id` / `last_n`) narrow the result on both.
-*   **`create_comment`**: Posts a new comment to a PR or Issue. Supports "Agent Headers" to identify which AI identity is speaking.
-*   **`update_comment`**: Edits an existing comment.
+*   **`manage_pr_review`**: The **formal PR review** primitive (`action`: `create` | `update`). Atomically sets GitHub's visible `reviewDecision` (`APPROVED` / `REQUEST_CHANGES` / `COMMENT`) together with the review body — the review state that merge-eligibility checks read. This is the **required** path for review participation; a standalone comment does *not* set review state. When the MCP server is unavailable, `gh pr review` is the documented fallback (after an identity check). Review bodies follow the validator-enforced anchor template in the [`pr-review` skill](../../.agents/skills/pr-review/references/pr-review-guide.md).
+*   **`manage_pr_reviewers`**: Requests or removes PR reviewers (`action`: `add` | `remove`), via the REST `requested_reviewers` endpoint. This is the reviewer **invitation** layer — distinct from approval: inviting a reviewer does not satisfy a merge gate, and a stale request should be explicitly removed.
+*   **`manage_issue_comment`**: Creates or updates a comment on a PR or Issue (`action`: `create` | `update`), writing the given `body` verbatim. Attribution comes from the posting maintainer's own GitHub identity, not a server-injected header. For *review* participation use `manage_pr_review` (above), not a comment.
 
 ### 4.4 Discovery
 
@@ -233,7 +234,7 @@ The `create_issue` MCP tool accepts an optional `projects` parameter:
 }
 ```
 
-The issue is created via `gh issue create`, then attached to each ProjectV2 board via `addProjectV2ItemById`. Partial-attach is the graceful failure mode (issue exists; orphan-rollback would be worse for agent workflows).
+The issue is created via `GraphqlService`'s cached-token REST path (`POST /issues`; the `@me` assignee alias above is normalized to the authenticated login), then attached to each ProjectV2 board via `addProjectV2ItemById`. Partial-attach is the graceful failure mode (issue exists; orphan-rollback would be worse for agent workflows).
 
 ### Agent ergonomics — post-create membership management
 

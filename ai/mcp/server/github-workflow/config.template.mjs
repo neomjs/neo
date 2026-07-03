@@ -1,5 +1,9 @@
-import path            from 'path';
-import {fileURLToPath} from 'url';
+// Load the Tier-1 realm root so getParent() inheritance resolves `auth.*` and other shared leaves via
+// the SSOT chain — matches memory-core/knowledge-base. This server reads no Tier-1 leaf
+// directly; they resolve through the parent chain, not a binding.
+import '../../../config.template.mjs';
+import path                                        from 'path';
+import {fileURLToPath}                             from 'url';
 import ConfigProvider, { createConfigProxy, leaf } from '../../../ConfigProvider.mjs';
 
 const __filename     = fileURLToPath(import.meta.url);
@@ -145,6 +149,22 @@ class Config extends ConfigProvider {
                  * @type {string[]}
                  */
                 droppedLabels: leaf(['dropped', 'wontfix', 'duplicate']),
+                /**
+                 * Containment denylist: discussions whose `number` or `author.login` match are excluded
+                 * from sync — never written to `resources/content/**` or downstream KB chunks. Cached
+                 * copies are quarantined (file + content-index entry removed) by `number` even when
+                 * GitHub no longer lists them; `author` matching is fetch-time exclusion only (the sync
+                 * cache persists `number`, not author). Policy-free; the empty default is a no-op.
+                 * @type {{numbers: Number[], authors: String[]}}
+                 */
+                discussionDenylist: leaf({numbers: [], authors: []}),
+                /**
+                 * Product names to redact from untrusted GitHub-authored content when the content-trust
+                 * sanitizer projects sync/write-boundary Markdown. Empty by default; policy values belong
+                 * in local config, not in syncer code.
+                 * @type {string[]}
+                 */
+                productNameDenylist: leaf([]),
                 /**
                  * The date from which to start synchronizing issues and releases.
                  * @type {string}

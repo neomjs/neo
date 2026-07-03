@@ -13,15 +13,15 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core       from '../../../../../../src/core/_export.mjs';
-import InstanceManager from '../../../../../../src/manager/Instance.mjs';
-import AiConfig        from '../../../../../../ai/config.mjs';
-import ChromaManager   from '../../../../../../ai/services/memory-core/managers/ChromaManager.mjs';
-import StorageRouter   from '../../../../../../ai/services/memory-core/managers/StorageRouter.mjs';
+import {test, expect}         from '@playwright/test';
+import Neo                    from '../../../../../../src/Neo.mjs';
+import * as core              from '../../../../../../src/core/_export.mjs';
+import InstanceManager        from '../../../../../../src/manager/Instance.mjs';
+import AiConfig               from '../../../../../../ai/config.mjs';
+import ChromaManager          from '../../../../../../ai/services/memory-core/managers/ChromaManager.mjs';
+import StorageRouter          from '../../../../../../ai/services/memory-core/managers/StorageRouter.mjs';
 import ChromaLifecycleService from '../../../../../../ai/services/memory-core/lifecycle/ChromaLifecycleService.mjs';
-import MailboxService  from '../../../../../../ai/services/memory-core/MailboxService.mjs';
+import logger                 from '../../../../../../ai/mcp/server/memory-core/logger.mjs';
 
 /**
  * @summary Coverage for the identity observability block in the healthcheck payload.
@@ -102,7 +102,7 @@ test.describe('HealthService #10176 — buildIdentityBlock', () => {
         // login does not exist. The operator can immediately check identity seeding
         // instead of mining boot logs.
         const state = {
-            userId             : 'neo-claude-opus',
+            userId             : 'neo-opus-grace',
             agentIdentityNodeId: null,
             source             : 'env-var'
         };
@@ -112,7 +112,7 @@ test.describe('HealthService #10176 — buildIdentityBlock', () => {
         expect(block.source).toBe('env-var');
         expect(block.bound).toBe(false);
         expect(block.nodeId).toBeNull();
-        expect(block.warning).toContain("NEO_AGENT_IDENTITY is pinned to 'neo-claude-opus'");
+        expect(block.warning).toContain("NEO_AGENT_IDENTITY is pinned to 'neo-opus-grace'");
         expect(block.warning).toContain('stale checkout');
         expect(block.warning).toContain('ai/scripts/setup/seedAgentIdentities.mjs');
         expect(block.warning).toContain('ai/graph/identityRoots.mjs');
@@ -166,37 +166,58 @@ test.describe('HealthService #10176 — buildIdentityBlock', () => {
     });
 });
 
-/**
- * @summary Coverage for the orchestrator task outcome projection.
- *
- * The end-to-end healthcheck path requires mounted Memory Core dependencies. This spec
- * pins the pure projection used by `HealthService.recordTaskOutcome()` so operators get
- * an immutable per-task view under `healthcheck.orchestrator.tasks`.
- *
- * @see Neo.ai.services.memory-core.HealthService#buildTaskOutcomesBlock
- */
-test.describe('HealthService #11009 — buildTaskOutcomesBlock', () => {
-    let buildTaskOutcomesBlock;
+test.describe('HealthService #13312 — startup dependency observability', () => {
+    let HealthService;
 
     test.beforeAll(async () => {
-        const mod = await import('../../../../../../ai/services/memory-core/HealthService.mjs');
-        buildTaskOutcomesBlock = mod.buildTaskOutcomesBlock;
+        HealthService = (await import('../../../../../../ai/services/memory-core/HealthService.mjs')).default;
     });
 
-    test('clones task outcomes for healthcheck callers', () => {
-        const source = {
-            summary: {
-                status    : 'completed',
-                details   : {reason: 'periodic-sweep:600000'},
-                recordedAt: '2026-05-09T12:00:00.000Z'
-            }
-        };
+    test('records degraded startup tiers without exposing mutable internal state', () => {
+        const dependencyName = `unit-startup-dependency-${Date.now()}`;
 
-        const block = buildTaskOutcomesBlock(source);
+        try {
+            HealthService.recordStartupDependency(dependencyName, 'degraded', {
+                className: 'Test.Unit.MemoryCore.StartupDependency',
+                error    : 'attempt to write a readonly database'
+            });
 
-        expect(block).toEqual(source);
-        expect(block).not.toBe(source);
-        expect(block.summary).not.toBe(source.summary);
+            const state = HealthService.getStartupDependencyState();
+
+            expect(state[dependencyName]).toMatchObject({
+                status   : 'degraded',
+                className: 'Test.Unit.MemoryCore.StartupDependency',
+                error    : 'attempt to write a readonly database'
+            });
+            expect(state[dependencyName].recordedAt).toEqual(expect.any(String));
+
+            state[dependencyName].status = 'mutated';
+
+            expect(HealthService.getStartupDependencyState()[dependencyName].status).toBe('degraded');
+        } finally {
+            HealthService.clearStartupDependencyState();
+        }
+    });
+
+    test('clearCache writes file-only diagnostics without console debug spam (#13995)', () => {
+        const originalDebug     = logger.debug,
+              originalFileDebug = logger.fileDebug,
+              debugCalls        = [],
+              fileDebugCalls    = [];
+
+        logger.debug     = (...args) => debugCalls.push(args);
+        logger.fileDebug = (...args) => fileDebugCalls.push(args);
+
+        try {
+            HealthService.clearCache();
+
+            expect(debugCalls).toHaveLength(0);
+            expect(fileDebugCalls).toHaveLength(1);
+            expect(fileDebugCalls[0][0]).toContain('Cache cleared');
+        } finally {
+            logger.debug     = originalDebug;
+            logger.fileDebug = originalFileDebug;
+        }
     });
 });
 
@@ -352,6 +373,11 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         count: async () => countGetter(),
         get  : async () => ({ids: [], metadatas: []})
     });
+    const createNotFoundError = () => {
+        const error = new Error('The requested resource could not be found');
+        error.name  = 'ChromaNotFoundError';
+        return error
+    };
 
     test.beforeAll(async () => {
         HealthService = (await import('../../../../../../ai/services/memory-core/HealthService.mjs')).default;
@@ -371,13 +397,13 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         const summaryCollection = makeCollection(() => summaryCount);
 
         originals = {
-            chromaConnected         : ChromaManager.connected,
-            chromaReady             : ChromaManager.ready,
-            chromaConnect           : ChromaManager.connect,
-            getMemoryCollection     : StorageRouter.getMemoryCollection,
-            getSummaryCollection    : StorageRouter.getSummaryCollection,
-            getDatabaseStatus       : ChromaLifecycleService.getDatabaseStatus,
-            getHealthcheckPreview   : MailboxService.getHealthcheckPreview
+            chromaConnected          : ChromaManager.connected,
+            chromaReady              : ChromaManager.ready,
+            chromaConnect            : ChromaManager.connect,
+            invalidateCollectionCache: ChromaManager.invalidateCollectionCache,
+            getMemoryCollection      : StorageRouter.getMemoryCollection,
+            getSummaryCollection     : StorageRouter.getSummaryCollection,
+            getDatabaseStatus        : ChromaLifecycleService.getDatabaseStatus
         };
 
         ChromaManager.connected = true;
@@ -394,12 +420,12 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         };
 
         ChromaLifecycleService.getDatabaseStatus = () => ({running: true});
-        MailboxService.getHealthcheckPreview     = async () => ({unreadCount: 0, latestPreview: null});
         TextEmbeddingService.embedText            = async () => new Array(4096).fill(0.1);
         process.env.GEMINI_API_KEY               = 'unit-test-key';
 
         HealthService.setStdioIdentityState(null);
         HealthService.runtimeFreshnessReader = null;
+        HealthService.clearStartupDependencyState();
         HealthService.clearCache();
     });
 
@@ -415,21 +441,27 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         ChromaManager.connected = originals.chromaConnected;
         ChromaManager.ready     = originals.chromaReady;
         ChromaManager.connect   = originals.chromaConnect;
+        ChromaManager.invalidateCollectionCache = originals.invalidateCollectionCache;
         StorageRouter.getMemoryCollection      = originals.getMemoryCollection;
         StorageRouter.getSummaryCollection     = originals.getSummaryCollection;
         ChromaLifecycleService.getDatabaseStatus = originals.getDatabaseStatus;
-        MailboxService.getHealthcheckPreview     = originals.getHealthcheckPreview;
         TextEmbeddingService.embedText            = originalEmbedText;
 
         HealthService.setStdioIdentityState(null);
         HealthService.runtimeFreshnessReader = null;
+        HealthService.clearStartupDependencyState();
         HealthService.clearCache();
     });
 
     test('direct healthcheck refreshes cached timestamp and collection counts without mutating the cache', async () => {
         const cached = await HealthService.healthcheck();
 
-        expect(cached.status).toBe('healthy');
+        expect(cached.status, JSON.stringify({
+            details  : cached.details,
+            startup  : cached.startup,
+            identity : cached.identity,
+            providers: cached.providers
+        }, null, 2)).toBe('healthy');
         expect(cached.database.connection.collections.memories.count).toBe(10);
         expect(cached.database.connection.collections.summaries.count).toBe(20);
 
@@ -473,7 +505,12 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
 
         const cached = await HealthService.healthcheck();
 
-        expect(cached.status).toBe('healthy');
+        expect(cached.status, JSON.stringify({
+            details  : cached.details,
+            startup  : cached.startup,
+            identity : cached.identity,
+            providers: cached.providers
+        }, null, 2)).toBe('healthy');
         expect(cached.runtimeFreshness.status).toBe('current');
 
         currentConfigDigest = 'sha256:migrated-config';
@@ -516,10 +553,9 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
 
         expect(fresh.status).toBe('healthy');
         expect(fresh.database.connection.collections.memories.count).toBe(11);
-        expect(fresh.providers.embedding.writeCanary).toMatchObject({
-            status  : 'healthy',
-            provider: 'openAiCompatible'
-        });
+        // The verbose writeCanary sub-object is trimmed from the lean payload; a healthy probe
+        // leaves status healthy and re-uses the cached canary result (no second embed call).
+        expect(fresh.providers.embedding).not.toHaveProperty('writeCanary');
         expect(embedCalls).toBe(1);
     });
 
@@ -547,18 +583,16 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
 
         expect(embedCalls).toBe(2);
         expect(refreshed.status).toBe('degraded');
-        expect(refreshed.providers.embedding.writeCanary).toMatchObject({
-            status  : 'failed',
-            provider: 'openAiCompatible',
-            error   : 'embedding provider busy'
-        });
+        // Degradation DETECTION survives the trim via status + details; the verbose writeCanary
+        // sub-object no longer ships in the payload.
+        expect(refreshed.providers.embedding).not.toHaveProperty('writeCanary');
         expect(refreshed.details).toContain('Embedding write canary failed: embedding provider busy');
         expect(refreshed.details).not.toContain('All features are operational');
     });
 
     test('healthcheck degrades env-pinned unbound identity warning', async () => {
         HealthService.setStdioIdentityState({
-            userId             : 'neo-claude-opus',
+            userId             : 'neo-opus-grace',
             agentIdentityNodeId: null,
             source             : 'env-var'
         });
@@ -567,11 +601,11 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
 
         expect(result.status).toBe('degraded');
         expect(result.identity).toMatchObject({
-            source : 'env-var',
-            bound  : false,
-            nodeId : null
+            source: 'env-var',
+            bound : false,
+            nodeId: null
         });
-        expect(result.identity.warning).toContain("NEO_AGENT_IDENTITY is pinned to 'neo-claude-opus'");
+        expect(result.identity.warning).toContain("NEO_AGENT_IDENTITY is pinned to 'neo-opus-grace'");
         expect(result.details).toContain(`WARN: ${result.identity.warning}`);
         expect(result.details).not.toContain('All features are operational');
     });
@@ -594,6 +628,70 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         expect(refreshed.database.connection.collections.summaries.count).toBe(22);
     });
 
+    test('#13466: memory count stale handle invalidates and retries once', async () => {
+        let   memoryReads = 0;
+        const invalidated = [];
+
+        ChromaManager.invalidateCollectionCache = type => invalidated.push(type);
+        StorageRouter.getMemoryCollection = async () => {
+            memoryReads++;
+
+            return {
+                count: async () => {
+                    if (memoryReads === 1) {
+                        throw createNotFoundError()
+                    }
+
+                    return 13
+                },
+                get: async () => ({ids: [], metadatas: []})
+            }
+        };
+
+        const result = await HealthService.healthcheck();
+
+        expect(memoryReads).toBe(2);
+        expect(invalidated).toEqual(['memory']);
+        expect(result.status).toBe('healthy');
+        expect(result.database.connection.collections.memories).toMatchObject({
+            exists: true,
+            count : 13
+        });
+        expect(result.details).toContain('All features are operational');
+    });
+
+    test('#13466: summary count stale handle invalidates and retries once', async () => {
+        let   summaryReads = 0;
+        const invalidated  = [];
+
+        ChromaManager.invalidateCollectionCache = type => invalidated.push(type);
+        StorageRouter.getSummaryCollection = async () => {
+            summaryReads++;
+
+            return {
+                count: async () => {
+                    if (summaryReads === 1) {
+                        throw createNotFoundError()
+                    }
+
+                    return 23
+                },
+                get: async () => ({ids: [], metadatas: []})
+            }
+        };
+
+        const result = await HealthService.healthcheck();
+
+        expect(summaryReads).toBe(2);
+        expect(invalidated).toEqual(['summary']);
+        expect(result.status).toBe('healthy');
+        expect(result.database.connection.collections.summaries).toMatchObject({
+            exists: true,
+            count : 23
+        });
+        expect(result.details).toContain('All features are operational');
+    });
+
     test('embedding write canary failure degrades healthcheck status', async () => {
         TextEmbeddingService.embedText = async () => {
             throw new Error('embedding provider busy');
@@ -602,13 +700,42 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         const result = await HealthService.healthcheck();
 
         expect(result.status).toBe('degraded');
-        expect(result.providers.embedding.writeCanary).toMatchObject({
-            status  : 'failed',
-            provider: 'openAiCompatible',
-            error   : 'embedding provider busy'
-        });
+        // The lean payload omits the writeCanary sub-object; a failed probe still degrades the
+        // probe via status + a details entry naming the failure.
+        expect(result.providers.embedding).not.toHaveProperty('writeCanary');
         expect(result.details).toContain('Embedding write canary failed: embedding provider busy');
         expect(result.details).not.toContain('All features are operational');
+    });
+
+    test('#13458: embedding write canary timeout degrades healthcheck instead of hanging', async () => {
+        TextEmbeddingService.embedText = async () => new Promise(() => {});
+
+        const result = await HealthService.healthcheck({
+            embeddingWriteCanaryTimeoutMs: 5
+        });
+
+        expect(result.status).toBe('degraded');
+        expect(result.details).toContain('Embedding write canary failed: Embedding write canary timed out after 5ms');
+        expect(result.details).not.toContain('All features are operational');
+    });
+
+    test('#13458: collection count timeout makes healthcheck resolve unhealthy instead of hanging', async () => {
+        StorageRouter.getMemoryCollection = async () => ({
+            count: async () => new Promise(() => {}),
+            get  : async () => ({ids: [], metadatas: []})
+        });
+
+        const result = await HealthService.healthcheck({
+            chromaProbeTimeoutMs: 5
+        });
+
+        expect(result.status).toBe('unhealthy');
+        expect(result.database.connection.collections.memories).toMatchObject({
+            exists: true,
+            count : 0,
+            error : 'memory collection count health probe timed out after 5ms'
+        });
+        expect(result.details).toContain('Failed to access collections: memory collection count health probe timed out after 5ms');
     });
 });
 
@@ -662,63 +789,6 @@ test.describe('HealthService #11181 — buildChromaMigrationStats', () => {
         expect(result.coreSwarmParticipant).toBe(3);
         expect(result.coreSwarmParticipantHidden).toBe(2);
         expect(result.migrationDebt).toBe(3);
-    });
-});
-
-/**
- * @summary Coverage for the topology observability block in the healthcheck payload.
- *
- * Mirrors the identity-observability precedent above: the end-to-end integration path requires a live ChromaDB
- * plus the full StorageRouter/ChromaManager singleton bootstrap, which is out of scope for a
- * pure-projection unit test. This spec pins the contract of `buildTopologyBlock` — the module-scope
- * pure function consumed from `#performHealthCheck` to fill `database.topology`. Integration
- * correctness (does the value reach the MCP healthcheck response under both real topologies?) is
- * validated empirically post-merge via harness restart + healthcheck inspection.
- *
- * The function reads the current unified `engines.chroma` coordinates directly. Here we verify the
- * three surface properties operators consume: `mode` (unified), `coordinates` (pass-through of the
- * configured coordinates), and `resolvedVia` (the config-key-path string that names the source).
- *
- * @see Neo.ai.services.memory-core.HealthService#buildTopologyBlock
- */
-test.describe('HealthService #10127, #11011 — buildTopologyBlock', () => {
-    let buildTopologyBlock;
-
-    test.beforeAll(async () => {
-        const mod = await import('../../../../../../ai/services/memory-core/HealthService.mjs');
-        buildTopologyBlock = mod.buildTopologyBlock;
-    });
-
-    test('unified mode surfaces engines.chroma coordinates + resolvedVia path', () => {
-        // After federated-topology retirement, Memory Core reads the shared
-        // unified instance coordinates directly from `engines.chroma`.
-        const cfg = {
-            engines: {
-                chroma: {host: 'localhost', port: 8000}
-            }
-        };
-        expect(buildTopologyBlock(cfg)).toEqual({
-            mode       : 'unified',
-            coordinates: {host: 'localhost', port: 8000},
-            resolvedVia: 'engines.chroma'
-        });
-    });
-
-    test('missing engines.chroma surfaces error, does not throw', () => {
-        // Misconfig path: coordinates are missing or incomplete. Healthcheck
-        // must NOT propagate the throw — the remaining observability surface
-        // is still valuable. `coordinates: null` + `error` string aligns
-        // with the "surface, don't obscure" principle.
-        const cfg = {
-            engines: {
-                // chroma deliberately absent
-            }
-        };
-        const result = buildTopologyBlock(cfg);
-        expect(result.mode).toBe('unified');
-        expect(result.coordinates).toBeNull();
-        expect(result.resolvedVia).toBe('engines.chroma');
-        expect(result.error).toMatch(/engines\.chroma/);
     });
 });
 
@@ -835,7 +905,7 @@ test.describe('HealthService #10723/#10773/#10804 — buildEmbeddingProviderBloc
 
     test('dimensions fields always reflect vectorDimension regardless of provider', () => {
         for (const provider of ['gemini', 'openAiCompatible', 'ollama', 'unrecognized']) {
-            const cfg = {embeddingProvider: provider, vectorDimension: 768};
+            const cfg    = {embeddingProvider: provider, vectorDimension: 768};
             const result = buildEmbeddingProviderBlock(cfg);
             expect(result.dimensions).toBe(768);
         }
@@ -859,8 +929,8 @@ test.describe('HealthService #12487 — buildEmbeddingWriteCanaryBlock', () => {
     });
 
     test('reports healthy when the active provider returns a vector', async () => {
-        let nowCalls = 0;
-        const result = await buildEmbeddingWriteCanaryBlock({
+        let   nowCalls = 0;
+        const result   = await buildEmbeddingWriteCanaryBlock({
             cfg: {
                 embeddingProvider: 'openAiCompatible',
                 vectorDimension  : 3
@@ -904,6 +974,27 @@ test.describe('HealthService #12487 — buildEmbeddingWriteCanaryBlock', () => {
         });
     });
 
+    test('#13458: reports failed when the active provider never resolves', async () => {
+        const result = await buildEmbeddingWriteCanaryBlock({
+            cfg: {
+                embeddingProvider: 'openAiCompatible',
+                vectorDimension  : 4096
+            },
+            embedText: async () => new Promise(() => {}),
+            now      : () => 100,
+            timeoutMs: 5
+        });
+
+        expect(result).toMatchObject({
+            status            : 'failed',
+            provider          : 'openAiCompatible',
+            dimensions        : null,
+            expectedDimensions: 4096,
+            durationMs        : 0,
+            error             : 'Embedding write canary timed out after 5ms'
+        });
+    });
+
     test('reports failed when the provider returns no vector', async () => {
         const result = await buildEmbeddingWriteCanaryBlock({
             cfg: {
@@ -911,7 +1002,7 @@ test.describe('HealthService #12487 — buildEmbeddingWriteCanaryBlock', () => {
                 vectorDimension  : 4096
             },
             embedText: async () => [],
-            now: () => 100
+            now      : () => 100
         });
 
         expect(result).toMatchObject({
@@ -930,7 +1021,7 @@ test.describe('HealthService #12487 — buildEmbeddingWriteCanaryBlock', () => {
                 vectorDimension  : 4096
             },
             embedText: async () => [0.1, 0.2, 0.3],
-            now: () => 100
+            now      : () => 100
         });
 
         expect(result).toMatchObject({
@@ -974,16 +1065,17 @@ test.describe('EmbeddingProviderConfig #11596 — resolveEmbeddingProvider', () 
  * @see Neo.ai.services.memory-core.HealthService#buildSummaryProviderBlock
  */
 test.describe('HealthService #10724 — buildSummaryProviderBlock', () => {
-    let buildSummaryProviderBlock;
+    let buildProviderPrerequisiteBlock, buildSummaryProviderBlock;
 
     test.beforeAll(async () => {
         const mod = await import('../../../../../../ai/services/memory-core/HealthService.mjs');
+        buildProviderPrerequisiteBlock = mod.buildProviderPrerequisiteBlock;
         buildSummaryProviderBlock = mod.buildSummaryProviderBlock;
     });
 
-    test('openAiCompatible config surfaces Qwen3 chat endpoint without leaking API key value', () => {
+    test('openAiCompatible config surfaces the lean local-route shape without leaking API key value', () => {
         const result = buildSummaryProviderBlock({
-            modelProvider: 'openAiCompatible',
+            modelProvider   : 'openAiCompatible',
             openAiCompatible: {
                 host  : 'http://127.0.0.1:11434',
                 model : 'qwen3-8b',
@@ -992,174 +1084,96 @@ test.describe('HealthService #10724 — buildSummaryProviderBlock', () => {
         });
 
         expect(result).toEqual({
-            active    : 'openAiCompatible',
-            host      : 'http://127.0.0.1:11434',
-            model     : 'qwen3-8b',
-            endpoint  : 'http://127.0.0.1:11434/v1/chat/completions',
-            local     : true,
-            credential: {
-                env       : 'NEO_OPENAI_COMPATIBLE_API_KEY',
-                configured: true,
-                required  : false
-            }
+            active: 'openAiCompatible',
+            host  : 'http://127.0.0.1:11434',
+            model : 'qwen3-8b',
+            local : true
         });
+        // The lean probe drops the verbose credential/endpoint sub-details; the API key value
+        // must never surface regardless.
+        expect(JSON.stringify(result)).not.toContain('secret-value');
     });
 
-    test('gemini config surfaces the Gemini key requirement', () => {
+    test('gemini config surfaces the lean cloud-route shape', () => {
         const result = buildSummaryProviderBlock({
             modelProvider: 'gemini',
             modelName    : 'gemini-2.5-flash'
-        }, {GEMINI_API_KEY: ''});
+        });
 
         expect(result).toEqual({
-            active    : 'gemini',
-            host      : null,
-            model     : 'gemini-2.5-flash',
-            endpoint  : null,
-            local     : false,
-            credential: {
-                env       : 'GEMINI_API_KEY',
-                configured: false,
-                required  : true
-            }
+            active: 'gemini',
+            host  : null,
+            model : 'gemini-2.5-flash',
+            local : false
         });
     });
-});
 
-/**
- * @summary Coverage for the auth-provider observability block in the healthcheck payload.
- *
- * Pins the pure-projection contract of `buildAuthProviderBlock` — operators deploying the shared
- * MC/KB topology with multi-tenant identity isolation rely on this block to verify which auth
- * path is primary at boot (OIDC vs proxy-header vs single-tenant fallthrough). The runtime
- * precedence semantics are owned by `Server.mjs#buildRequestContext`; this spec covers the
- * static-config projection that operators observe via healthcheck without bouncing requests
- * through the server. Includes a defense-in-depth `clientSecret`-leak guard.
- *
- * @see Neo.ai.services.memory-core.HealthService#buildAuthProviderBlock
- */
-test.describe('HealthService #10770 — buildAuthProviderBlock', () => {
-    let buildAuthProviderBlock;
-
-    test.beforeAll(async () => {
-        const mod = await import('../../../../../../ai/services/memory-core/HealthService.mjs');
-        buildAuthProviderBlock = mod.buildAuthProviderBlock;
-    });
-
-    test('OIDC-only config surfaces oidc primary path with full block', () => {
-        const result = buildAuthProviderBlock({
-            auth: {
-                host              : 'http://127.0.0.1:8180',
-                issuerUrl         : 'http://127.0.0.1:8180/realms/master',
-                realm             : 'master',
-                clientId          : 'memory-core',
-                clientSecret      : 'should-never-leak',
-                trustProxyIdentity: false
+    test('#13300: missing summary provider defaults to local openAiCompatible, not Gemini', () => {
+        const result = buildSummaryProviderBlock({
+            openAiCompatible: {
+                host : 'http://localhost:1234',
+                model: 'local-summary'
             }
         });
 
         expect(result).toEqual({
-            configured: 'oidc',
-            oidc      : {
-                host      : 'http://127.0.0.1:8180',
-                issuerUrl : 'http://127.0.0.1:8180/realms/master',
-                realm     : 'master',
-                configured: true
+            active: 'openAiCompatible',
+            host  : 'http://localhost:1234',
+            model : 'local-summary',
+            local : true
+        });
+    });
+
+    test('#13300: local summary and embedding providers do not require GEMINI_API_KEY', () => {
+        const result = buildProviderPrerequisiteBlock({
+            engine           : 'chroma',
+            modelProvider    : 'openAiCompatible',
+            embeddingProvider: 'openAiCompatible'
+        }, {});
+
+        expect(result).toEqual({
+            ready  : true,
+            summary: {
+                provider: 'openAiCompatible',
+                ready   : true
             },
-            proxyHeader: {
-                trusted       : false,
-                headersChecked: ['x-preferred-username', 'x-auth-request-preferred-username']
-            }
-        });
-    });
-
-    test('proxy-header-only config surfaces proxy-header primary path with OIDC unconfigured', () => {
-        const result = buildAuthProviderBlock({
-            auth: {
-                host              : null,
-                issuerUrl         : null,
-                clientId          : null,
-                clientSecret      : '',
-                trustProxyIdentity: true
-            }
-        });
-
-        expect(result).toEqual({
-            configured: 'proxy-header',
-            oidc      : {
-                host      : null,
-                issuerUrl : null,
-                realm     : null,
-                configured: false
+            embedding: {
+                provider: 'openAiCompatible',
+                ready   : true
             },
-            proxyHeader: {
-                trusted       : true,
-                headersChecked: ['x-preferred-username', 'x-auth-request-preferred-username']
-            }
+            details: []
         });
+        expect(JSON.stringify(result)).not.toContain('GEMINI_API_KEY');
     });
 
-    test('both configured — OIDC wins per Server.mjs#buildRequestContext precedence', () => {
-        const result = buildAuthProviderBlock({
-            auth: {
-                host              : 'http://127.0.0.1:8180',
-                issuerUrl         : 'http://127.0.0.1:8180/realms/master',
-                realm             : 'master',
-                trustProxyIdentity: true
-            }
-        });
+    test('#13300: Gemini summary provider gets a summary-specific missing-key diagnostic', () => {
+        const result = buildProviderPrerequisiteBlock({
+            engine           : 'chroma',
+            modelProvider    : 'gemini',
+            embeddingProvider: 'openAiCompatible'
+        }, {});
 
-        expect(result.configured).toBe('oidc');
-        expect(result.oidc.configured).toBe(true);
-        expect(result.proxyHeader.trusted).toBe(true);
+        expect(result.ready).toBe(false);
+        expect(result.summary.ready).toBe(false);
+        expect(result.embedding.ready).toBe(true);
+        expect(result.details).toEqual([
+            "Summary provider 'gemini' requires GEMINI_API_KEY - summarization features unavailable"
+        ]);
     });
 
-    test('unconfigured fallthrough — single-tenant local-dev shape', () => {
-        const result = buildAuthProviderBlock({});
+    test('#13300: Gemini embedding provider gets an embedding-specific missing-key diagnostic', () => {
+        const result = buildProviderPrerequisiteBlock({
+            engine           : 'chroma',
+            modelProvider    : 'openAiCompatible',
+            embeddingProvider: 'gemini'
+        }, {});
 
-        expect(result).toEqual({
-            configured: 'unconfigured',
-            oidc      : {
-                host      : null,
-                issuerUrl : null,
-                realm     : null,
-                configured: false
-            },
-            proxyHeader: {
-                trusted       : false,
-                headersChecked: ['x-preferred-username', 'x-auth-request-preferred-username']
-            }
-        });
-    });
-
-    test('clientSecret never leaks into the healthcheck payload (security guard)', () => {
-        const result = buildAuthProviderBlock({
-            auth: {
-                host              : 'http://127.0.0.1:8180',
-                issuerUrl         : 'http://127.0.0.1:8180/realms/master',
-                clientSecret      : 'super-secret-value-that-must-never-leak',
-                trustProxyIdentity: false
-            }
-        });
-
-        const serialized = JSON.stringify(result);
-
-        expect(serialized).not.toContain('super-secret-value-that-must-never-leak');
-        expect(serialized).not.toContain('clientSecret');
-        expect(result.oidc).not.toHaveProperty('clientSecret');
-    });
-
-    test('partial OIDC (host without issuerUrl) projects to unconfigured', () => {
-        const result = buildAuthProviderBlock({
-            auth: {
-                host              : 'http://127.0.0.1:8180',
-                issuerUrl         : null,
-                trustProxyIdentity: false
-            }
-        });
-
-        expect(result.configured).toBe('unconfigured');
-        expect(result.oidc.configured).toBe(false);
+        expect(result.ready).toBe(false);
+        expect(result.summary.ready).toBe(true);
+        expect(result.embedding.ready).toBe(false);
+        expect(result.details).toEqual([
+            "Embedding provider 'gemini' requires GEMINI_API_KEY - semantic memory features unavailable"
+        ]);
     });
 });
 
@@ -1193,7 +1207,7 @@ test.describe('HealthService #10844 — buildBackupStateBlock', () => {
     test('returns null if no backup directories exist', async () => {
         const mockFs = {
             pathExists: async () => true,
-            readdir: async () => [
+            readdir   : async () => [
                 { isDirectory: () => false, name: 'backup-2023' },
                 { isDirectory: () => true, name: 'other-dir' }
             ]
@@ -1306,7 +1320,7 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
     });
 
     test('heartbeatAlivePath() reads the resolved AiConfig leaf (#12438)', async () => {
-        const path = await import('path');
+        const path         = await import('path');
         const overridePath = path.join(tmpDir, `alive-helper-${Date.now()}`);
 
         AiConfig.setEnvOverride('NEO_HEARTBEAT_ALIVE_PATH', overridePath);
@@ -1326,7 +1340,6 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
         const result = await buildWakeFeaturesBlock();
 
         expect(result.gateState).toBe('enabled');
-        expect(result.gateReason).toBe('');
         expect(result.daemonRunning).toBe(true);
         expect(result.lastPulseAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
         expect(result.secondsSinceLastPulse).toBeGreaterThanOrEqual(0);
@@ -1343,12 +1356,11 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
         const result = await buildWakeFeaturesBlock();
 
         expect(result.gateState).toBe('disabled');
-        expect(result.gateReason).toBe('maintenance pause');
         expect(result.gateTrippedBy).toBe('cli');
         expect(result.daemonRunning).toBe(true);
     });
 
-    test('gate tripped + liveness fresh → daemonRunning true, gateState tripped, reason surfaced', async () => {
+    test('gate tripped + liveness fresh → daemonRunning true, gateState tripped, trip metadata surfaced', async () => {
         const fs = await import('fs/promises');
 
         await fs.writeFile(process.env.WAKE_GATE_FILE_PATH, JSON.stringify({
@@ -1362,7 +1374,6 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
         const result = await buildWakeFeaturesBlock();
 
         expect(result.gateState).toBe('tripped');
-        expect(result.gateReason).toContain('orphan-spawn');
         expect(result.gateTrippedAt).toBe('2026-05-03T22:53:09.450Z');
         expect(result.gateTrippedBy).toBe('wake-substrate-monitor');
     });
@@ -1380,7 +1391,6 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
         const result = await buildWakeFeaturesBlock();
 
         expect(result.gateState).toBe('unknown');
-        expect(result.gateReason).toBe('');
         expect(result.gateTrippedAt).toBeNull();
         expect(result.gateTrippedBy).toBeNull();
     });
@@ -1449,7 +1459,6 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
 
         expect(result).toEqual({
             gateState            : 'unknown',
-            gateReason           : '',
             gateTrippedAt        : null,
             gateTrippedBy        : null,
             daemonRunning        : false,
@@ -1510,43 +1519,34 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
     });
 });
 
-/**
- * @summary Coverage for the features.dream observability block in the healthcheck payload.
- *
- * Pins the contract of `buildDreamFeaturesBlock` — it projects the orchestrator's last
- * dream / golden-path run timestamps from `taskOutcomes`. The boot-time auto-* feature flags
- * were retired (the orchestrator daemon is the sole driver of dream / golden-path / summarize /
- * ingest), so the block carries only run timestamps.
- *
- * @see Neo.ai.services.memory-core.HealthService#buildDreamFeaturesBlock
- */
-test.describe('HealthService #10779, #11309 — buildDreamFeaturesBlock', () => {
-    let buildDreamFeaturesBlock;
+test.describe('HealthService — getTaskOutcome mutation boundary (#14492 review)', () => {
+    let healthService;
 
     test.beforeAll(async () => {
-        const mod = await import('../../../../../../ai/services/memory-core/HealthService.mjs');
-        buildDreamFeaturesBlock = mod.buildDreamFeaturesBlock;
+        healthService = (await import('../../../../../../ai/services/memory-core/HealthService.mjs')).default;
     });
 
-    test('surfaces completedAt timestamp from task outcomes', () => {
-        const taskOutcomes = new Map();
-        taskOutcomes.set('dream', { details: { completedAt: '2026-05-13T20:00:00.000Z' } });
-        taskOutcomes.set('golden-path', { details: { completedAt: '2026-05-13T20:05:00.000Z' } });
+    test('getTaskOutcome returns a deep clone — mutating the result cannot corrupt the stored outcome', () => {
+        healthService.recordTaskOutcome('mutation-boundary-probe', 'skipped', {
+            reason    : 'r',
+            reasonCode: 'heavy-maintenance-backpressure',
+            nested    : {count: 1}
+        });
 
-        const result = buildDreamFeaturesBlock(taskOutcomes);
+        const first = healthService.getTaskOutcome('mutation-boundary-probe');
+        expect(first.details.nested.count).toBe(1);
 
-        expect(result.lastDreamRun).toBe('2026-05-13T20:00:00.000Z');
-        expect(result.lastGoldenPathRun).toBe('2026-05-13T20:05:00.000Z');
-    });
+        // A careless / hostile caller mutates the returned object AND its nested details.
+        first.status               = 'HACKED';
+        first.details.reasonCode   = 'tampered';
+        first.details.nested.count = 999;
 
-    test('surfaces failedAt timestamp from task outcomes when completedAt is absent', () => {
-        const taskOutcomes = new Map();
-        taskOutcomes.set('dream', { details: { failedAt: '2026-05-13T20:01:00.000Z' } });
-        taskOutcomes.set('golden-path', { details: { failedAt: '2026-05-13T20:06:00.000Z' } });
-
-        const result = buildDreamFeaturesBlock(taskOutcomes);
-
-        expect(result.lastDreamRun).toBe('2026-05-13T20:01:00.000Z');
-        expect(result.lastGoldenPathRun).toBe('2026-05-13T20:06:00.000Z');
+        const second = healthService.getTaskOutcome('mutation-boundary-probe');
+        expect(second.status).toBe('skipped');
+        expect(second.details.reasonCode).toBe('heavy-maintenance-backpressure');
+        expect(second.details.nested.count).toBe(1);
+        // fresh clone each call — distinct object graphs, never the stored reference
+        expect(second).not.toBe(first);
+        expect(second.details).not.toBe(first.details);
     });
 });

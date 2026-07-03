@@ -116,6 +116,57 @@ export async function drainMemoryWal({ids, collection, SDK} = {}) {
     });
 }
 
+/**
+ * @summary Snapshots the given dot-path `aiConfig` leaves and returns a `restore()` thunk.
+ *
+ * `aiConfig` is a Provider singleton imported once per module graph; a spec that writes its leaves
+ * in setup (e.g. `storagePaths.graph`, `autoIngestFileSystem`) without restoring leaks that state
+ * into the next `--workers=1` spec — the shared-singleton mutation hazard (B4) this isolation helper
+ * targets. Capture BEFORE the first mutation; call the returned thunk in `afterAll`/`afterEach`.
+ *
+ * **Contract — existing leaves only.** `restore()` reassigns each captured leaf via the proxy set
+ * trap (routed to the owning provider's `setData`), which faithfully restores a leaf that EXISTED at
+ * capture. A leaf that was ABSENT cannot be undone: the Provider exposes no delete API and the proxy
+ * has no `deleteProperty` trap, so neither `delete` nor a re-set to `undefined` removes the path a
+ * test added — the written value keeps resolving via the get trap. Rather than hand back a
+ * `restore()` that silently leaks, the helper throws on a path that does not already resolve to a
+ * leaf. Isolate leaves you ADD during a test by construction (`unitTestMode`), not with this helper.
+ *
+ * @param {Object} aiConfig The memory-core `aiConfig` Provider singleton (or a plain fixture).
+ * @param {String[]} paths Dot-paths to scalar leaves that EXIST at capture, e.g.
+ *     `['storagePaths.graph', 'handoffFilePath']`.
+ * @returns {Function} `restore()` — reassigns each captured leaf to its original value.
+ * @throws {Error} If any path does not resolve to an existing leaf at capture time.
+ * @see learn/agentos/decisions/0019-aiconfig-reactive-provider-ssot.md
+ */
+export function snapshotAiConfig(aiConfig, paths) {
+    const captured = paths.map(dotPath => {
+        const segments = dotPath.split('.'),
+              key      = segments.pop(),
+              parent   = segments.reduce((node, segment) => node?.[segment], aiConfig),
+              value    = parent ? parent[key] : undefined;
+
+        // Existence is judged by the resolved value, not `hasOwnProperty`: the proxy's
+        // getOwnPropertyDescriptor trap misses leaves its get trap resolves, so hasOwnProperty is
+        // unreliable here (it is false for `handoffFilePath` even though the leaf resolves to a value).
+        if (value === undefined) {
+            throw new Error(
+                `snapshotAiConfig: "${dotPath}" does not resolve to a value at capture time. The ` +
+                `Provider exposes no delete API, so a leaf a test adds cannot be undone — snapshot ` +
+                `only leaves that already resolve to a value.`
+            );
+        }
+
+        return {parent, key, value};
+    });
+
+    return function restore() {
+        captured.forEach(({parent, key, value}) => {
+            parent[key] = value
+        });
+    };
+}
+
 export class TestLifecycleHelper {
     static async cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, strategy = 'destroy') {
         if (strategy === 'clear') {

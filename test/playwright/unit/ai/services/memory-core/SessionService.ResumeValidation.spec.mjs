@@ -44,7 +44,6 @@ test.describe('SessionService validateSessionForResume (#10725)', () => {
         const tmpDir = path.resolve(process.cwd(), "tmp");
         aiConfig.storagePaths.graph = path.join(tmpDir, "test-graph-" + Date.now() + "-" + Math.random().toString(36).substring(7) + ".db");
 
-        
         if (!fs.existsSync(tmpDir)) {
             fs.mkdirSync(tmpDir, {recursive: true});
         }
@@ -85,6 +84,50 @@ test.describe('SessionService validateSessionForResume (#10725)', () => {
         expect(result.success).toBeUndefined();
         expect(result.code).toBe('SESSION_NOT_FOUND');
         expect(result.sessionId).toBe(sessionId);
+    });
+
+    test('#13458: stalled Chroma metadata read falls through to graph fallback', async () => {
+        const sessionId     = `graph-fallback-${crypto.randomUUID()}`;
+        const memoryNodeId  = `memory:${sessionId}`;
+        const timestamp     = new Date().toISOString();
+        const GraphService  = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+        const StorageRouter = (await import('../../../../../../ai/services/memory-core/managers/StorageRouter.mjs')).default;
+
+        await GraphService.ready();
+        const originalGetMemoryCollection = StorageRouter.getMemoryCollection;
+
+        StorageRouter.getMemoryCollection = async () => ({
+            get: async () => new Promise(() => {})
+        });
+
+        GraphService.upsertNode({
+            id        : memoryNodeId,
+            type      : 'AGENT_MEMORY',
+            properties: {
+                sessionId,
+                timestamp
+            }
+        });
+
+        try {
+            const result = await SDK.Memory_SessionService.validateSessionForResume({
+                sessionId,
+                chromaTimeoutMs: 5
+            });
+
+            expect(result).toMatchObject({
+                success            : true,
+                sessionId,
+                status             : 'resumable',
+                memoryCount        : 1,
+                lastActivityAt     : timestamp,
+                summarizationStatus: 'none'
+            });
+        } finally {
+            StorageRouter.getMemoryCollection = originalGetMemoryCollection;
+            GraphService.db?.storage?.db?.prepare('DELETE FROM Nodes WHERE id = ?').run(memoryNodeId);
+            GraphService.db?.nodes?.delete?.(memoryNodeId);
+        }
     });
 
     test('#12199: queueSummarizationJob writes an idempotent pending marker', async () => {
@@ -162,6 +205,89 @@ test.describe('SessionService validateSessionForResume (#10725)', () => {
             expect(row.retry_count).toBe(2);
         } finally {
             sqlite.prepare('DELETE FROM SummarizationJobs WHERE session_id = ?').run(sessionId);
+        }
+    });
+
+    test('#13462: claimSummarizationJob keeps completed rows terminal by default', async () => {
+        const sessionId    = `completed-terminal-${crypto.randomUUID()}`;
+        const GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+        await GraphService.ready();
+
+        const sqlite = GraphService.db?.storage?.db;
+        expect(sqlite).toBeTruthy();
+
+        sqlite.prepare(`
+            INSERT INTO SummarizationJobs (session_id, status, lease_token, expires_at, retry_count)
+            VALUES (?, 'completed', NULL, NULL, 2)
+        `).run(sessionId);
+
+        try {
+            expect(SDK.Memory_SessionService.claimSummarizationJob(sessionId, 'default-token')).toBe(false);
+
+            const row = sqlite.prepare('SELECT status, lease_token, expires_at, retry_count FROM SummarizationJobs WHERE session_id = ?').get(sessionId);
+
+            expect(row.status).toBe('completed');
+            expect(row.lease_token).toBeNull();
+            expect(row.expires_at).toBeNull();
+            expect(row.retry_count).toBe(2);
+        } finally {
+            sqlite.prepare('DELETE FROM SummarizationJobs WHERE session_id = ?').run(sessionId);
+        }
+    });
+
+    test('#13462: claimSummarizationJob can repair completed rows when drift was proven', async () => {
+        const sessionId    = `completed-repair-${crypto.randomUUID()}`;
+        const GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+        await GraphService.ready();
+
+        const sqlite = GraphService.db?.storage?.db;
+        expect(sqlite).toBeTruthy();
+
+        sqlite.prepare(`
+            INSERT INTO SummarizationJobs (session_id, status, lease_token, expires_at, retry_count)
+            VALUES (?, 'completed', NULL, NULL, 2)
+        `).run(sessionId);
+
+        try {
+            expect(SDK.Memory_SessionService.claimSummarizationJob(sessionId, 'repair-token', {allowCompletedRepair: true})).toBe(true);
+
+            const row = sqlite.prepare('SELECT status, lease_token, expires_at, retry_count FROM SummarizationJobs WHERE session_id = ?').get(sessionId);
+
+            expect(row.status).toBe('in_progress');
+            expect(row.lease_token).toBe('repair-token');
+            expect(row.expires_at).toBeGreaterThan(Date.now());
+            expect(row.retry_count).toBe(3);
+        } finally {
+            sqlite.prepare('DELETE FROM SummarizationJobs WHERE session_id = ?').run(sessionId);
+        }
+    });
+
+    test('#13462: summarizeSessions enables completed-row repair for drift candidates', async () => {
+        const originalFind      = SDK.Memory_SessionService.findSessionsToSummarize;
+        const originalClaim     = SDK.Memory_SessionService.claimSummarizationJob;
+        const originalSummarize = SDK.Memory_SessionService.summarizeSession;
+        const claimCalls        = [];
+
+        SDK.Memory_SessionService.findSessionsToSummarize = async () => ['drift-repair-candidate'];
+        SDK.Memory_SessionService.claimSummarizationJob = (sessionId, leaseToken, options) => {
+            claimCalls.push({sessionId, leaseToken, options});
+            return false;
+        };
+        SDK.Memory_SessionService.summarizeSession = async () => {
+            throw new Error('summarizeSession should not be called when claim fails');
+        };
+
+        try {
+            const result = await SDK.Memory_SessionService.summarizeSessions();
+
+            expect(result.processed).toBe(0);
+            expect(claimCalls).toHaveLength(1);
+            expect(claimCalls[0].sessionId).toBe('drift-repair-candidate');
+            expect(claimCalls[0].options).toEqual({allowCompletedRepair: true});
+        } finally {
+            SDK.Memory_SessionService.findSessionsToSummarize = originalFind;
+            SDK.Memory_SessionService.claimSummarizationJob   = originalClaim;
+            SDK.Memory_SessionService.summarizeSession        = originalSummarize;
         }
     });
 

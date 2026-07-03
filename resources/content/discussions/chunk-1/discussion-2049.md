@@ -7,6 +7,10 @@ createdAt: '2021-05-11T18:47:03Z'
 updatedAt: '2023-03-20T19:45:08Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 Could be pretty nice. If I just had more time...
 

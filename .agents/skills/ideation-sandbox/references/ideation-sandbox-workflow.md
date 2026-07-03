@@ -54,7 +54,7 @@ To enable the Retrospective daemon to ingest this negotiation, the author MUST u
 ## 5. Per-Domain Graduation Criteria
 A Discussion cannot graduate until it is clearly scoped. There is no universal checklist. Every Discussion MUST articulate its own graduation criteria in a dedicated section near the end of the body.
 - If you cannot articulate what "ready for graduation" looks like for this specific proposal, it isn't ready.
-- **Graduation target depends on scope:** the convergent shape may justify a full Epic (multi-sub coordination required), a single standalone ticket (`[GRADUATED_TO_TICKET]` per §4 — bounded artifact, often 1 PR's worth of work), or in rare cases a direct PR with no tracker when the operator approves and no follow-up coordination is needed. Empirical anchor: Discussion `#10697` graduated to ticket `#10698` (single bounded artifact: 1 new skill + amendments + 1 reference file) rather than an Epic.
+- **Graduation target depends on scope:** the convergent shape may justify a full Epic (multi-sub coordination required), a single standalone ticket (`[GRADUATED_TO_TICKET]` per §4 — bounded artifact, often 1 PR's worth of work), an ADR, or in rare cases a direct PR with no tracker when the operator approves and no follow-up coordination is needed. Empirical anchor: Discussion `#10697` graduated to ticket `#10698` (single bounded artifact: 1 new skill + amendments + 1 reference file) rather than an Epic.
 
 ### 5.1. Double Diamond Divergence Guard (High-Blast-Radius Mandatory)
 
@@ -100,7 +100,7 @@ The full divergence rules (valid-options-only, correlation-ceiling, option-cards
 
 **8-point cross-substrate sweep checklist** (canonical; adopted from Discussion `#11188` OQ4):
 
-1. **Authority sweep** — Which artifact will future agents treat as canonical: discussion body, latest comment, epic body, ticket AC? Are they consistent? If the proposal conflicts with an accepted ADR, apply the ADR successor-risk audit and make the keep / amend / supersede / retire disposition explicit before graduation.
+1. **Authority sweep** — Which artifact is canonical: discussion body, latest comment, epic body, ticket AC, or ADR? Are they consistent? If the proposal conflicts with an accepted ADR, apply the ADR successor-risk audit and make the keep / amend / supersede / retire disposition explicit before graduation. ADR handling records `Decision Record: REQUIRED|OPTIONAL|NOT_NEEDED`.
 2. **Consumer sweep** — Which readers consume the proposed shape? Include syncers, local lookup services, health/readiness, release scripts, workflows, docs, external mirrors (pages/portal).
 3. **Path determinism sweep** — Can the path/key be computed from stable identity alone? If not, name the metadata/index/search contract explicitly.
 4. **State mutability sweep** — Which fields decide lifecycle placement (`closedAt`, `mergedAt`, `answerChosenAt`, etc.)? Are they enforced by substrate, mutable, or only socially expected?
@@ -175,7 +175,7 @@ Inactive families (`participationStatus ∈ {operator_benched, temporarily_unrea
 
 ### 6.6 Graduated-Artifact Required Sections (AC11)
 
-The graduated Issue / Epic / PR body MUST include four explicit sections, even if empty: `## Signal Ledger` (family-keyed per §6.2), `## Unresolved Dissent`, `## Unresolved Liveness`, and `## Discussion Criteria Mapping`. Empty sections are positive signals (no dissent, no liveness gaps). Non-empty sections preserve the divergence trail per §15.6 transparent A2A introspection, and enable future Discussions to re-open if residual risks materialize.
+The graduated Issue / Epic / PR body MUST include any source `Decision Record:` line and four explicit sections, even if empty: `## Signal Ledger` (family-keyed per §6.2), `## Unresolved Dissent`, `## Unresolved Liveness`, and `## Discussion Criteria Mapping`. Empty sections are positive signals (no dissent, no liveness gaps). Non-empty sections preserve the divergence trail per §15.6 transparent A2A introspection, and enable future Discussions to re-open if residual risks materialize.
 
 For the canonical markdown template (post-Epic `#11796` family-keyed shape, same-family aggregation nesting, AUTHOR_SIGNAL distinction, Tier-2 revalidationTrigger placement), see [`audits/consensus-mandate.md §template-block`](../audits/consensus-mandate.md).
 
@@ -183,7 +183,9 @@ For the canonical markdown template (post-Epic `#11796` family-keyed shape, same
 
 **Precondition (if author's family has no other active identity):** author posts `[AUTHOR_SIGNAL]` at the current body anchor *before* the final non-author-APPROVED poll. The author-signal covers the author-family's quorum representation per §6.2 — without it the floor-2 cannot be reached when only one non-author family is active.
 
-When the Signal Ledger reaches the §6.2 quorum, the author executes a 4-step graduation sequence: (1) add `[GRADUATED_TO_TICKET: #N]` marker; (2) update body with the §6.6 four required sections; (3) file the resulting Epic / ticket / PR; (4) `closeDiscussion(reason: RESOLVED)` via GraphQL. Full step-by-step sequence + closed-Discussion-as-archaeological-source framing in [`audits/consensus-mandate.md §author-actions`](../audits/consensus-mandate.md).
+At §6.2 quorum, author graduates in order: add `[GRADUATED_TO_TICKET: #N]`; update §6.6 sections plus any `Decision Record:` line; file the ADR / Epic / ticket / PR; then `closeDiscussion(reason: RESOLVED)`. `Decision Record: REQUIRED` => file/update ADR; name merge gate. Full sequence + archaeological-source framing: [`audits/consensus-mandate.md §author-actions`](../audits/consensus-mandate.md).
+
+Closure: [`audits/discussion-lifecycle-closure.md`](../audits/discussion-lifecycle-closure.md); guard: `npm run ai:audit-discussion-lifecycle`.
 
 ### 6.8 Two-Axis Substrate: Discussion-Graduation + PR-Merge
 

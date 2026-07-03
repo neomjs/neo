@@ -1,5 +1,5 @@
 import {test, expect}                      from '@playwright/test';
-import {filterEventsByWatermark, maxLogId} from '../../../../../../ai/daemons/wake/wokenWatermark.mjs';
+import {clampWatermark, filterEventsByWatermark, maxLogId} from '../../../../../../ai/daemons/wake/wokenWatermark.mjs';
 
 test.describe('wake wokenWatermark (#12850)', () => {
     test('filterEventsByWatermark keeps only events strictly above the watermark', () => {
@@ -33,6 +33,24 @@ test.describe('wake wokenWatermark (#12850)', () => {
 
         expect(filterEventsByWatermark(events, undefined).map(e => e.messageId)).toEqual(['a', 'b']);
         expect(filterEventsByWatermark(events, NaN).map(e => e.messageId)).toEqual(['a', 'b']);
+    });
+
+    test('clampWatermark caps stale-high watermarks to the trusted pre-batch cursor', () => {
+        expect(clampWatermark(150, 99)).toBe(99);
+        expect(clampWatermark(150, 200, 99)).toBe(150);
+        expect(clampWatermark(42, 99)).toBe(42);
+        expect(clampWatermark('bad', 99)).toBe(0);
+        expect(clampWatermark(-1, 99)).toBe(0);
+    });
+
+    test('AC for #12862 — stale-high watermark no longer suppresses the first post-reset event', () => {
+        // GraphLog was restored/reset while woken-watermark.json survived at 150. The wake cursor
+        // has self-healed to the new pre-batch tip (99); the next event at 100 must wake.
+        const restoredEpochEvents = [{type: 'message', messageId: 'm-new-epoch', logId: 100}];
+        const effectiveWatermark  = clampWatermark(150, 99);
+
+        expect(filterEventsByWatermark(restoredEpochEvents, effectiveWatermark))
+            .toEqual(restoredEpochEvents);
     });
 
     test('maxLogId returns the highest finite logId, or null when none', () => {

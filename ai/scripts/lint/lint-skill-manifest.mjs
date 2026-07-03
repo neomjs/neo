@@ -6,11 +6,11 @@
  * data for CI and governance checks; this script enforces one-way consistency
  * plus local substrate-budget and harness-symlink invariants.
  */
-import fs from 'fs/promises';
+import fs                                                            from 'fs/promises';
 import {existsSync, lstatSync, readFileSync, readlinkSync, statSync} from 'fs';
-import path from 'path';
-import {execFileSync} from 'child_process';
-import {fileURLToPath} from 'url';
+import path                                                          from 'path';
+import {execFileSync}                                                from 'child_process';
+import {fileURLToPath}                                               from 'url';
 
 const __filename    = fileURLToPath(import.meta.url);
 const __dirname     = path.dirname(__filename);
@@ -20,6 +20,7 @@ const CLAUDE_DIR    = path.join(ROOT_DIR, '.claude/skills');
 const MANIFEST_PATH = path.join(SKILLS_DIR, 'skills.manifest.json');
 const SCHEMA_PATH   = path.join(SKILLS_DIR, 'skills.manifest.schema.json');
 const REPORT_TOP_N  = 15;
+const SKILL_GROWTH_JUSTIFIED_RE = /\[skill-growth-justified:\s*[^\]\n]+\]/i;
 
 function parseArgs(argv = process.argv.slice(2)) {
     const options = {
@@ -253,7 +254,7 @@ function parseSectionTriggers(text) {
         if (triggerMatch) {
             index.push({
                 anchor,
-                trigger: triggerMatch[1].trim(),
+                trigger    : triggerMatch[1].trim(),
                 subRulePath: triggerMatch[2].trim(),
                 bodySizeBytes
             });
@@ -699,7 +700,7 @@ function checkSkillReferenceIntegrity(changedRelPaths, allMarkdownFiles, {change
                 validateSectionRef({
                     sourceRelPath,
                     lineNo,
-                    target: sectionRef.target,
+                    target    : sectionRef.target,
                     sectionRef: sectionRef.sectionRef,
                     index,
                     errors
@@ -716,7 +717,7 @@ function checkSkillReferenceIntegrity(changedRelPaths, allMarkdownFiles, {change
                 validateSectionRef({
                     sourceRelPath,
                     lineNo,
-                    target: match[1],
+                    target    : match[1],
                     sectionRef: match[2],
                     index,
                     errors
@@ -1028,6 +1029,24 @@ function changedSkillNames(base) {
     return names;
 }
 
+function commitMessages(base) {
+    if (!base) return '';
+
+    try {
+        return execFileSync('git', ['log', `${base}...HEAD`, '--pretty=%B'], {
+            cwd     : ROOT_DIR,
+            encoding: 'utf8'
+        });
+    } catch (error) {
+        console.warn(`[lint-skill-manifest] Warning: could not parse git log for commit-message gates: ${error.message}`);
+        return '';
+    }
+}
+
+function hasSkillGrowthJustification(messages) {
+    return SKILL_GROWTH_JUSTIFIED_RE.test(messages);
+}
+
 function checkOversizedWorkflowMaps(changedFiles, oversizedFiles, maxDelta, getSizeFn, getBaseSizeFn) {
     const errors = [];
     for (const file of changedFiles) {
@@ -1046,6 +1065,42 @@ function checkOversizedWorkflowMaps(changedFiles, oversizedFiles, maxDelta, getS
     return errors;
 }
 
+/**
+ * @summary Blocks net-positive skill Markdown growth beyond the pointer allowance.
+ */
+function checkSkillMarkdownNetDelta(changedFiles, maxDelta, getSizeFn, getBaseSizeFn, options = {}) {
+    if (!Number.isInteger(maxDelta) || maxDelta < 0) return [];
+    if (options.allowJustifiedGrowth) return [];
+
+    const deltas = [];
+
+    for (const file of changedFiles) {
+        if (!file.startsWith('.agents/skills/') || !file.endsWith('.md')) continue;
+
+        const currentSize = getSizeFn(file);
+        const baseSize    = getBaseSizeFn(file);
+        const delta       = (currentSize === null ? 0 : currentSize) - baseSize;
+
+        if (delta !== 0) {
+            deltas.push({file, delta});
+        }
+    }
+
+    const netDelta = deltas.reduce((sum, entry) => sum + entry.delta, 0);
+
+    if (netDelta <= maxDelta) return [];
+
+    const details = deltas
+        .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta) || a.file.localeCompare(b.file))
+        .slice(0, 5)
+        .map(({file, delta}) => `${file} (${delta > 0 ? '+' : ''}${delta})`)
+        .join(', ');
+
+    return [
+        `Skill Markdown net grew by ${netDelta} bytes (max allowed net positive delta is ${maxDelta}). Reduce or replace existing .agents/skills Markdown so net growth stays pointer-sized; moving text into another skill file still counts. For new-skill or decay-mitigated exceptions, include [skill-growth-justified: <reason>] in a commit message. Largest deltas: ${details}`
+    ];
+}
+
 async function lint({base = null} = {}) {
     const schema       = readJson(SCHEMA_PATH);
     const manifest     = readJson(MANIFEST_PATH);
@@ -1059,6 +1114,7 @@ async function lint({base = null} = {}) {
 
     const changed = new Set(changedFiles(base));
     const touchedSkillNames = changedSkillNames(base);
+    const messages = commitMessages(base);
 
     if (base) {
         const oversizedFiles = manifest.defaults.oversizedWorkflowMaps || [];
@@ -1078,6 +1134,22 @@ async function lint({base = null} = {}) {
             (file) => getBaseFileSize(base, file)
         );
         errors.push(...oversizedErrors);
+
+        const skillMarkdownDeltaFiles = new Set([...changed, ...removedFiles(base)]);
+
+        errors.push(...checkSkillMarkdownNetDelta(
+            skillMarkdownDeltaFiles,
+            maxDelta,
+            (file) => {
+                try {
+                    return statSync(path.join(ROOT_DIR, file)).size;
+                } catch(e) {
+                    return null;
+                }
+            },
+            (file) => getBaseFileSize(base, file),
+            {allowJustifiedGrowth: hasSkillGrowthJustification(messages)}
+        ));
     }
 
     for (const skillName of skillDirs) {
@@ -1132,13 +1204,7 @@ async function lint({base = null} = {}) {
         }
 
         if (base && touchedSkillNames.has(skillName)) {
-            let skipDocs = false;
-            try {
-                const commitMsgs = execFileSync('git', ['log', `${base}...HEAD`, '--pretty=%B'], {cwd: ROOT_DIR, encoding: 'utf8'});
-                if (commitMsgs.includes('[skip docs]')) skipDocs = true;
-            } catch (e) {
-                console.warn(`[lint-skill-manifest] Warning: could not parse git log for skip-docs check: ${e.message}`);
-            }
+            const skipDocs = messages.includes('[skip docs]');
 
             if (!skipDocs) {
                 let routerDiffText = null;
@@ -1211,7 +1277,11 @@ async function main() {
         process.exit(1);
     }
 
-    console.log('[lint-skill-manifest] OK');
+    if (options.base) {
+        console.log('[lint-skill-manifest] OK');
+    } else {
+        console.log('[lint-skill-manifest] OK (structural checks only — byte-delta gates skipped; run with --base origin/dev, as CI does, to check the <=250 per-file + net skill-Markdown growth budgets)');
+    }
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
@@ -1228,8 +1298,10 @@ export {
     checkRemovedSkillFileReferences,
     checkSectionTriggers,
     checkSkillReferenceIntegrity,
+    checkSkillMarkdownNetDelta,
     classifySizeReportRow,
     formatSkillMarkdownSizeReport,
+    hasSkillGrowthJustification,
     parseSectionTriggers,
     parseUnifiedDiffChangedLines,
     shouldSkipDownstreamDocsTargetForLinkPathOnlyChange,

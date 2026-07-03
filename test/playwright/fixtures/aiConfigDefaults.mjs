@@ -1,12 +1,14 @@
 import path            from 'path';
 import {fileURLToPath} from 'url';
+import os              from 'os';
 import Neo             from '../../../src/Neo.mjs';
 
-const HOUR_MS = 60 * 60 * 1000;
-const DAY_MS  = 24 * HOUR_MS;
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
-const neoRootDir = path.resolve(__dirname, '../../..');
+const HOUR_MS               = 60 * 60 * 1000;
+const DAY_MS                = 24 * HOUR_MS;
+const __filename            = fileURLToPath(import.meta.url);
+const __dirname             = path.dirname(__filename);
+const neoRootDir            = path.resolve(__dirname, '../../..');
+const chromaUnitTestDataDir = path.join(os.tmpdir(), 'neo-chroma-unit-test');
 
 /**
  * @module test/playwright/fixtures/aiConfigDefaults
@@ -88,7 +90,7 @@ function parseKeepAlive(value, fallback) {
  */
 export const TIER1_DEFAULTS = deepFreeze(Neo.clone({
     backupPath: process.env.NEO_BACKUP_PATH || path.resolve(neoRootDir, '.neo-ai-data/backups'),
-    auth: {
+    auth      : {
         host              : process.env.NEO_AUTH_HOST || null,
         port              : Number(process.env.NEO_AUTH_PORT) || 8080,
         realm             : process.env.NEO_AUTH_REALM || 'master',
@@ -100,64 +102,99 @@ export const TIER1_DEFAULTS = deepFreeze(Neo.clone({
     modelProvider    : process.env.NEO_MODEL_PROVIDER || 'openAiCompatible',
     graphProvider    : process.env.NEO_GRAPH_PROVIDER || 'openAiCompatible',
     embeddingProvider: process.env.NEO_EMBEDDING_PROVIDER || 'openAiCompatible',
-    ollama: {
+    ollama           : {
         host                 : process.env.NEO_OLLAMA_HOST || 'http://127.0.0.1:11434',
-        model                : process.env.NEO_OLLAMA_MODEL || 'gemma4:31b',
+        model                : process.env.NEO_OLLAMA_MODEL || 'gemma4:26b',
         embeddingModel       : process.env.NEO_OLLAMA_EMBEDDING_MODEL || 'qwen3-embedding',
         keep_alive           : parseKeepAlive(process.env.NEO_OLLAMA_KEEP_ALIVE, -1),
         requireParallelModels: Number(process.env.NEO_OLLAMA_REQUIRE_PARALLEL_MODELS) || 2
     },
     openAiCompatible: {
-        host                    : process.env.NEO_OPENAI_COMPATIBLE_HOST || 'http://127.0.0.1:11434',
-        model                   : process.env.NEO_OPENAI_COMPATIBLE_MODEL || 'gemma-4-31b-it',
-        embeddingModel          : process.env.NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL || 'text-embedding-qwen3-embedding-8b',
-        apiKey                  : process.env.NEO_OPENAI_COMPATIBLE_API_KEY || '',
-        unloadRetryCount        : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT) || 3,
-        unloadRetryDelayMs      : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS) || 500,
-        contentionRetryCount    : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTENTION_RETRY_COUNT) || 2,
-        contentionRetryDelayMs  : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTENTION_RETRY_DELAY_MS) || 1000,
-        contentionTimeoutMs     : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTENTION_TIMEOUT_MS) || 15000,
+        host                   : process.env.NEO_OPENAI_COMPATIBLE_HOST || 'http://127.0.0.1:11434',
+        model                  : process.env.NEO_OPENAI_COMPATIBLE_MODEL || 'google/gemma-4-26b-a4b',
+        embeddingModel         : process.env.NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL || 'text-embedding-qwen3-embedding-8b',
+        apiKey                 : process.env.NEO_OPENAI_COMPATIBLE_API_KEY || '',
+        unloadRetryCount       : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT) || 3,
+        unloadRetryDelayMs     : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS) || 500,
+        contentionRetryCount   : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTENTION_RETRY_COUNT) || 2,
+        contentionRetryDelayMs : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTENTION_RETRY_DELAY_MS) || 1000,
+        contentionTimeoutMs    : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTENTION_TIMEOUT_MS) || 15000,
         batchEmbeddingChunkSize: Number(process.env.NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE) || 5,
-        batchEmbeddingYieldMs   : Number(process.env.NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_YIELD_MS) || 0,
-        keep_alive              : parseKeepAlive(process.env.NEO_OPENAI_COMPATIBLE_KEEP_ALIVE, -1),
-        requireParallelModels   : Number(process.env.NEO_OPENAI_COMPATIBLE_REQUIRE_PARALLEL_MODELS) || 2
+        batchEmbeddingYieldMs  : Number(process.env.NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_YIELD_MS) || 0,
+        keep_alive             : parseKeepAlive(process.env.NEO_OPENAI_COMPATIBLE_KEEP_ALIVE, -1),
+        requireParallelModels  : Number(process.env.NEO_OPENAI_COMPATIBLE_REQUIRE_PARALLEL_MODELS) || 2
     },
     localModels: {
         chat: {
-            contextLimitTokens      : Number(process.env.NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS) || 262144,
-            safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS) || 200000
+            contextLimitTokens       : Number(process.env.NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS) || 131072,
+            safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS) || 100000,
+            parallel                 : Number(process.env.NEO_LOCAL_MODELS_CHAT_PARALLEL) || 1
         },
         embedding: {
-            contextLimitTokens      : Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS) || 32768,
-            safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS) || 28672
+            contextLimitTokens       : Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS) || 32768,
+            safeProcessingLimitTokens: Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS) || 28672,
+            parallel                 : Number(process.env.NEO_LOCAL_MODELS_EMBEDDING_PARALLEL) || 1
         }
     },
     vectorDimension: Number(process.env.NEO_VECTOR_DIMENSION) || 4096,
     modelName      : 'gemini-3.5-flash',
     embeddingModel : 'gemini-embedding-001',
-    engines: {
+    engines        : {
         chroma: {
-            dataDir: path.resolve(neoRootDir, '.neo-ai-data/chroma/unified'),
-            host   : process.env.NEO_CHROMA_HOST || 'localhost',
-            port   : Number(process.env.NEO_CHROMA_PORT) || 8000
+            dataDirProd: path.resolve(neoRootDir, '.neo-ai-data/chroma/unified'),
+            dataDirTest: process.env.NEO_CHROMA_DATA_DIR_TEST || chromaUnitTestDataDir,
+            hostProd   : process.env.NEO_CHROMA_HOST || 'localhost',
+            hostTest   : process.env.NEO_CHROMA_HOST_TEST || 'localhost',
+            portProd   : Number(process.env.NEO_CHROMA_PORT) || 8000,
+            portTest   : Number(process.env.NEO_CHROMA_PORT_TEST) || 18180
         }
     },
     orchestrator: {
         providerReadiness: {
-            attempts : Number(process.env.NEO_ORCHESTRATOR_PROVIDER_READY_ATTEMPTS)   || 30,
-            delayMs  : Number(process.env.NEO_ORCHESTRATOR_PROVIDER_READY_DELAY_MS)   || 1000,
-            timeoutMs: Number(process.env.NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS) || 3000
+            attempts         : Number(process.env.NEO_ORCHESTRATOR_PROVIDER_READY_ATTEMPTS)             || 30,
+            delayMs          : Number(process.env.NEO_ORCHESTRATOR_PROVIDER_READY_DELAY_MS)             || 1000,
+            timeoutMs        : Number(process.env.NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS)           || 3000,
+            routineCacheTtlMs: Number(process.env.NEO_ORCHESTRATOR_PROVIDER_READY_ROUTINE_CACHE_TTL_MS) || 1000
         },
         intervals: {
-            pollMs           : 3000,
-            summarySweepMs   : 10 * 60 * 1000,
-            kbSyncMs         : 30 * 60 * 1000,
-            backupMs         : DAY_MS,
-            primaryDevSyncMs : 10 * 60 * 1000,
-            tenantRepoSyncMs : 30 * 60 * 1000,
-            dreamMs          : HOUR_MS,
-            goldenPathMs     : HOUR_MS,
-            swarmHeartbeatMs : 15 * 60 * 1000
+            pollMs                           : 3000,
+            summarySweepMs                   : 10 * 60 * 1000,
+            kbSyncMs                         : 30 * 60 * 1000,
+            backupMs                         : DAY_MS,
+            primaryDevSyncMs                 : 10 * 60 * 1000,
+            tenantRepoSyncMs                 : 30 * 60 * 1000,
+            dreamMs                          : HOUR_MS,
+            goldenPathMs                     : HOUR_MS,
+            swarmHeartbeatMs                 : 20 * 60 * 1000,
+            embedDrainLivenessWatchdogCheckMs: HOUR_MS
+        },
+        recoveryActuator: {
+            enabled                    : true,
+            blockedSupervisedTasks     : [],
+            blockedComposeServices     : [],
+            blockedDeployTargets       : [],
+            healAttemptsPath           : path.resolve(neoRootDir, '.neo-ai-data/orchestrator-daemon/heal-attempts.json'),
+            recoveryRunStateDir        : path.resolve(neoRootDir, '.neo-ai-data/orchestrator-daemon/recovery-runs'),
+            recoveryRunRetentionLimit  : 100,
+            maxAttemptsPerWindow       : 3,
+            maxAttemptsWindowMs        : HOUR_MS,
+            baseBackoffMs              : 5 * 60 * 1000,
+            maxBackoffMs               : HOUR_MS,
+            verifyCooldownMs           : 60 * 1000,
+            healthyObservationThreshold: 1
+        },
+        deploymentStateBridge: {
+            enabled                     : true,
+            snapshotPath                : path.resolve(neoRootDir, '.neo-ai-data/deployment-state/snapshot.json'),
+            writeIntervalMs             : 30000,
+            staleAfterMs                : 2 * 60 * 1000,
+            maxSnapshotBytes            : 256 * 1024,
+            allowedServices             : [],
+            includeLogs                 : true,
+            logTail                     : 120,
+            logMaxBytes                 : 32 * 1024,
+            statsSampleWindow           : 2,
+            providerResidencyServiceKeys: ['local-model', 'model']
         }
     }
 }, true, true));

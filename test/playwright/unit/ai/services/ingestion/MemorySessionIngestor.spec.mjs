@@ -18,7 +18,7 @@ import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import fs             from 'fs';
 import path           from 'path';
-import {TestLifecycleHelper} from '../../services/memory-core/util.mjs';
+import {snapshotAiConfig, TestLifecycleHelper} from '../../services/memory-core/util.mjs';
 
 test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
     // Serial within this describe — `beforeAll` performs a cold import cascade of the Neo
@@ -35,6 +35,7 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
 
     const testDbName = `memory-core-memory-session-ingestor-test-${process.pid}-${Date.now()}.sqlite`;
     let testDbPath;
+    let restoreAiConfig;
 
     let originalWarn;
     let warnMessages = [];
@@ -76,9 +77,10 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
         }
         testDbPath = path.join(tmpDir, testDbName);
 
-        aiConfig.storagePaths.graph   = testDbPath;
-        aiConfig.autoIngestFileSystem = false;
-        aiConfig.handoffFilePath      = path.join(tmpDir, 'mock_sandman_handoff_memory_session_ingestor.md');
+        restoreAiConfig = snapshotAiConfig(aiConfig, ['storagePaths.graph', 'handoffFilePath']);
+
+        aiConfig.storagePaths.graph = testDbPath;
+        aiConfig.handoffFilePath    = path.join(tmpDir, 'mock_sandman_handoff_memory_session_ingestor.md');
 
         GraphService           = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         MemorySessionIngestor  = (await import('../../../../../../ai/services/ingestion/MemorySessionIngestor.mjs')).default;
@@ -98,6 +100,10 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
         } else {
             await SystemLifecycleService.ready();
         }
+    });
+
+    test.afterAll(() => {
+        restoreAiConfig?.();
     });
 
     test.beforeEach(() => {
@@ -343,9 +349,9 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
     });
 
     // ------------------------------------------------------------------------------------------
-    // ingestSingleRow (#10153) — per-row back-fill primitive. Consumed by
+    // ingestSingleRow — per-row back-fill primitive. Consumed by
     // `GraphService.ensureNodeExists` when `linkNodesAsync` hits a missing `memory:`/`session:`
-    // endpoint, and by `LazyEdgeDrainer` when draining the #10165 lazy-edges JSONL queue.
+    // endpoint, and by `LazyEdgeDrainer` when draining the lazy-edges JSONL queue.
     // ------------------------------------------------------------------------------------------
 
     /**
@@ -465,7 +471,7 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
             {id: 'chroma-summary-upper', metadata: {sessionId: 'sess-upper', createdAt: '2026-04-21T09:00:00Z', userId: 'tobiu'}}
         ]);
 
-        // Caller passes the uppercase prefix (Gemini's #10165 extractor convention); the
+        // Caller passes the uppercase prefix (Gemini's extractor convention); the
         // back-fill must land under the canonical lowercase form so the node is discoverable
         // by the existing ingestor's `session:`/`memory:` ID contract.
         const result = await MemorySessionIngestor.ingestSingleRow('MEMORY:mem-upper', {memoryCollection, summaryCollection});
@@ -493,7 +499,7 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
         expect(sessionNode.properties.liveIngested).toBe(true);
         expect(memoryNode.properties.liveIngested).toBe(true);
         // `backfilled` should remain undefined on live-ingested nodes; the two markers are
-        // mutually exclusive provenance tags per ticket #10153.
+        // mutually exclusive provenance tags.
         expect(sessionNode.properties.backfilled).toBeUndefined();
         expect(memoryNode.properties.backfilled).toBeUndefined();
     });

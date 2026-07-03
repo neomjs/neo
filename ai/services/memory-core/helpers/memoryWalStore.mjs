@@ -1,5 +1,6 @@
-import fs   from 'fs/promises';
-import path from 'path';
+import fs               from 'fs/promises';
+import path             from 'path';
+import {withAppendLock} from './walAppendLock.mjs';
 
 /**
  * @summary Durable JSONL write-ahead store for `add_memory` payloads.
@@ -11,16 +12,20 @@ import path from 'path';
  * the orchestrator-managed `ai/daemons/embed/` drain daemon). A crash, embed failure, or stalled
  * embedding model never loses the payload: it stays pending in the WAL until an embed pass succeeds.
  *
- * ## File layout (two files per UTC-day segment, each with exactly ONE writer)
+ * ## File layout (two files per UTC-day segment, one writer at a time)
  *
- * - `wal-YYYY-MM-DD.jsonl`          — memory records; written only by the MCP-server process.
+ * - `wal-YYYY-MM-DD.jsonl`          — memory records; written by the MCP-server process(es).
  * - `wal-YYYY-MM-DD.embedded.jsonl` — embed markers; written only by the embedder of the era
  *                                     (Phase 1: the server's deferred embed; Phase 2: the daemon).
  *
- * Records and markers are deliberately split into separate single-writer files instead of one
- * shared append stream: POSIX `O_APPEND` atomicity is only dependable for small writes, and memory
- * records (multi-KB `thought` payloads) appended concurrently with tiny markers from a second
- * process could interleave. One writer per file removes the interleave class by construction.
+ * Records and markers are deliberately split into separate files instead of one shared append
+ * stream: POSIX `O_APPEND` atomicity is only dependable for small writes, and memory records
+ * (multi-KB `thought` payloads) appended concurrently with tiny markers from a second process could
+ * interleave. For a per-clone dir, one writer per file removes the interleave class by construction;
+ * for a SHARED dir (multiple harness clones draining through one embedder),
+ * {@link module:ai/services/memory-core/helpers/walAppendLock} serializes the record writers across
+ * processes to preserve the same no-interleave guarantee — best-effort, never blocking the never-fail
+ * `add_memory` turn-save.
  * A record is "pending" when its id has no marker; a segment is "reconciled" when no record in it
  * is pending. Reads tolerate corrupt lines (skip, never throw) — sibling discipline to
  * {@link module:ai/services/memory-core/helpers/remRunStateStore}.
@@ -87,6 +92,15 @@ export function getWalMarkersFileName(segmentKey) {
 }
 
 /**
+ * @summary Builds the graph-projection markers file name for a segment key.
+ * @param {String} segmentKey `YYYY-MM-DD` day key.
+ * @returns {String} JSONL graph-projection markers file name.
+ */
+export function getWalGraphMarkersFileName(segmentKey) {
+    return `wal-${segmentKey}.graph.jsonl`;
+}
+
+/**
  * @summary Appends one memory record to its UTC-day WAL segment. The durable write `addMemory`
  * awaits BEFORE any model-dependent work — this returning is what makes the turn save crash-safe.
  *
@@ -98,9 +112,11 @@ export function getWalMarkersFileName(segmentKey) {
  * @param {Object} options
  * @param {String} options.dir Directory for WAL segment files.
  * @param {Date|Number} [options.now] Clock source for the segment key (defaults to record.timestamp).
+ * @param {Object} [options.lockOptions] Forwarded to {@link withAppendLock} (tuning + spec injection of
+ *     fs/clock/liveness/sleep). Omit for the default per-append serialization.
  * @returns {Promise<{filePath: String, segmentKey: String}>}
  */
-export async function appendWalMemory(record, {dir, now} = {}) {
+export async function appendWalMemory(record, {dir, now, lockOptions} = {}) {
     if (!dir) {
         throw new TypeError('appendWalMemory: dir is required');
     }
@@ -112,8 +128,12 @@ export async function appendWalMemory(record, {dir, now} = {}) {
 
     const segmentKey = getWalSegmentKey(now ?? record.timestamp ?? new Date());
     const filePath   = path.join(dir, getWalRecordsFileName(segmentKey));
+    const line       = `${JSON.stringify({...record, segmentKey})}\n`;
 
-    await fs.appendFile(filePath, `${JSON.stringify({...record, segmentKey})}\n`, 'utf8');
+    // Serialize cross-process writers so a SHARED WAL dir cannot interleave multi-KB records; on a
+    // bounded acquire-timeout it falls through and writes UNLOCKED, so the never-fail turn-save
+    // (§critical_gates #5) is never blocked by a contended/hung lock.
+    await withAppendLock(filePath, () => fs.appendFile(filePath, line, 'utf8'), lockOptions);
 
     return {filePath, segmentKey};
 }
@@ -143,6 +163,38 @@ export async function appendWalEmbedMarker({id, segmentKey, embeddedAt}, {dir} =
     const filePath = path.join(dir, getWalMarkersFileName(segmentKey));
 
     await fs.appendFile(filePath, `${JSON.stringify({id, embeddedAt: embeddedAt ?? Date.now()})}\n`, 'utf8');
+
+    return filePath;
+}
+
+/**
+ * @summary Appends a graph-projection success marker for one WAL record.
+ *
+ * Separate from the embed marker by design: Chroma reconciliation and graph projection are two
+ * different derived states. A record may be embedded while graph projection is still pending, so
+ * recency overlays and retention must not rely on the embed marker as graph evidence.
+ *
+ * @param {Object} marker
+ * @param {String} marker.id          Memory UUID the graph projection succeeded for.
+ * @param {String} marker.segmentKey  Segment key the record was written under.
+ * @param {Number} [marker.projectedAt] Epoch-ms projection completion time.
+ * @param {Object} options
+ * @param {String} options.dir Directory for WAL segment files.
+ * @returns {Promise<String>} Written markers file path.
+ */
+export async function appendWalGraphProjectionMarker({id, segmentKey, projectedAt}, {dir} = {}) {
+    if (!dir) {
+        throw new TypeError('appendWalGraphProjectionMarker: dir is required');
+    }
+    if (typeof id !== 'string' || id.length === 0 || typeof segmentKey !== 'string' || segmentKey.length === 0) {
+        throw new TypeError('appendWalGraphProjectionMarker: id and segmentKey are required');
+    }
+
+    await fs.mkdir(dir, {recursive: true});
+
+    const filePath = path.join(dir, getWalGraphMarkersFileName(segmentKey));
+
+    await fs.appendFile(filePath, `${JSON.stringify({id, projectedAt: projectedAt ?? Date.now()})}\n`, 'utf8');
 
     return filePath;
 }
@@ -212,14 +264,17 @@ async function listWalSegmentKeys(dir) {
  * @param {String} options.dir Directory for WAL segment files.
  * @param {String[]} [options.ids] When given, only records with these ids are returned.
  * @param {Number} [options.limit] Maximum records to return (applied after the ids filter).
+ * @param {String} [options.markerType='embed'] Reconciliation marker stream: `'embed'` or `'graph'`;
+ *   graph-marker reads only treat versioned graph-projection records as pending work.
  * @returns {Promise<Object[]>} Pending records (each carries its `segmentKey`), newest segment first.
  */
-export async function readPendingWalRecords({dir, ids, limit} = {}) {
+export async function readPendingWalRecords({dir, ids, limit, markerType = 'embed'} = {}) {
     if (!dir) return [];
 
     const idFilter = Array.isArray(ids) ? new Set(ids) : null;
     const bounded  = Number.isFinite(limit) && limit > 0 ? limit : Infinity;
     const pending  = [];
+    const markerFileName = markerType === 'graph' ? getWalGraphMarkersFileName : getWalMarkersFileName;
 
     for (const segmentKey of await listWalSegmentKeys(dir)) {
         if (pending.length >= bounded) break;
@@ -228,12 +283,13 @@ export async function readPendingWalRecords({dir, ids, limit} = {}) {
         if (records.length === 0) continue;
 
         const markedIds = new Set(
-            (await readJsonlEntries(path.join(dir, getWalMarkersFileName(segmentKey)))).map(entry => entry.id)
+            (await readJsonlEntries(path.join(dir, markerFileName(segmentKey)))).map(entry => entry.id)
         );
 
         for (const record of records) {
             if (pending.length >= bounded) break;
             if (!record?.id || markedIds.has(record.id)) continue;
+            if (markerType === 'graph' && record.graphProjectionVersion !== 1) continue;
             if (idFilter && !idFilter.has(record.id)) continue;
             pending.push(record);
         }
@@ -272,8 +328,15 @@ export async function pruneReconciledWalSegments({dir, retentionLimit, activeSeg
         const marked  = new Set(
             (await readJsonlEntries(path.join(dir, getWalMarkersFileName(segmentKey)))).map(entry => entry.id)
         );
+        const graphMarked = new Set(
+            (await readJsonlEntries(path.join(dir, getWalGraphMarkersFileName(segmentKey)))).map(entry => entry.id)
+        );
 
-        if (records.every(record => record?.id && marked.has(record.id))) {
+        if (records.every(record =>
+            record?.id &&
+            marked.has(record.id) &&
+            (record.graphProjectionVersion !== 1 || graphMarked.has(record.id))
+        )) {
             reconciled.push(segmentKey);
         }
     }
@@ -283,7 +346,8 @@ export async function pruneReconciledWalSegments({dir, retentionLimit, activeSeg
 
     await Promise.all(toRemove.flatMap(segmentKey => [
         fs.rm(path.join(dir, getWalRecordsFileName(segmentKey)), {force: true}),
-        fs.rm(path.join(dir, getWalMarkersFileName(segmentKey)), {force: true})
+        fs.rm(path.join(dir, getWalMarkersFileName(segmentKey)), {force: true}),
+        fs.rm(path.join(dir, getWalGraphMarkersFileName(segmentKey)), {force: true})
     ]));
 
     return toRemove.length;

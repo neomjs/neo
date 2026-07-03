@@ -35,7 +35,7 @@ const cwd        = path.resolve(__dirname, '../../../');
 const serversDir = path.join(cwd, 'ai', 'mcp', 'server');
 const aiDir      = path.join(cwd, 'ai');
 
-const MIGRATE_FLAG = '--migrate-config';
+const MIGRATE_FLAG                = '--migrate-config';
 const MATERIALIZED_SERVER_IMPORTS = new Set([
     '../../../config.mjs',
     '../../../config.mjs:default'
@@ -84,8 +84,8 @@ export function listServersWithTemplates(serversRoot = serversDir) {
  * @returns {Number}
  */
 function findClosingParen(src, openIndex) {
-    let quote = null;
-    let depth = 0;
+    let quote  = null;
+    let depth  = 0;
     let escape = false;
 
     for (let i = openIndex; i < src.length; i++) {
@@ -127,11 +127,11 @@ function findClosingParen(src, openIndex) {
  * @returns {String[]}
  */
 function splitTopLevelArgs(src) {
-    const args = [];
-    let quote = null;
-    let depth = 0;
-    let start = 0;
-    let escape = false;
+    const args   = [];
+    let   quote  = null;
+    let   depth  = 0;
+    let   start  = 0;
+    let   escape = false;
 
     for (let i = 0; i < src.length; i++) {
         const char = src[i];
@@ -211,6 +211,16 @@ function leafDefaultIdentity(leaf) {
 }
 
 /**
+ * Builds the stable identity for requiredness metadata attached to an env-bound leaf.
+ *
+ * @param {{key: String, env: String, type: String, metadata: String}} leaf Leaf-requiredness descriptor.
+ * @returns {String}
+ */
+function leafRequirednessIdentity(leaf) {
+    return `${leaf.key} (${leaf.env}, ${leaf.type}): ${leaf.metadata}`
+}
+
+/**
  * Builds a stable sort key for projected leaf-default descriptors.
  *
  * @param {{key: String, env: String, type: String, default: String}} leaf Leaf-default descriptor.
@@ -253,6 +263,45 @@ function projectLeafDefaults(src) {
     }
 
     return leafDefaults.sort((a, b) => leafDefaultSortKey(a).localeCompare(leafDefaultSortKey(b)))
+}
+
+/**
+ * Projects `requiredFor` metadata on env-bound `leaf(...)` calls.
+ *
+ * A metadata-only addition to an existing leaf changes runtime readiness semantics while leaving
+ * imports and env-var literals unchanged. This projection makes stale gitignored overlays visible
+ * when a template adds the fourth-argument requiredness contract to an existing leaf.
+ *
+ * @param {String} src Source text.
+ * @returns {String[]} Stable requiredness descriptors.
+ */
+function projectRequiredLeaves(src) {
+    const requiredLeaves = [];
+    const leafPattern    = /([A-Za-z_$][\w$]*)\s*:\s*leaf\s*\(/g;
+
+    for (const match of src.matchAll(leafPattern)) {
+        const openIndex  = match.index + match[0].lastIndexOf('(');
+        const closeIndex = findClosingParen(src, openIndex);
+
+        if (closeIndex === -1) continue;
+
+        const args = splitTopLevelArgs(src.slice(openIndex + 1, closeIndex));
+        if (args.length < 4 || !/\brequiredFor\s*:/.test(args[3])) continue;
+
+        const env  = stringLiteralValue(args[1]);
+        const type = stringLiteralValue(args[2]);
+
+        if (!env || !type || !/^[A-Z][A-Z0-9_]+$/.test(env)) continue;
+
+        requiredLeaves.push(leafRequirednessIdentity({
+            key     : match[1],
+            env,
+            type,
+            metadata: normalizeLeafDefault(args[3])
+        }))
+    }
+
+    return requiredLeaves.sort()
 }
 
 /**
@@ -302,9 +351,11 @@ function formatChangedLeafDefault(leaf) {
  *   calls. Same-env default flips are semantic AiConfig drift; env-var projection alone treats
  *   `leaf('gemini', 'NEO_MODEL_PROVIDER', 'string')` and
  *   `leaf('openAiCompatible', 'NEO_MODEL_PROVIDER', 'string')` as equal.
+ * - **Required leaves**: stable descriptors for fourth-argument `requiredFor` metadata. This catches
+ *   a readiness-contract addition to an existing leaf, where imports/env vars/defaults are unchanged.
  *
  * @param {String} src Source text to project.
- * @returns {{imports: String[], exports: String[], envVars: String[], leafDefaults: Object[]}}
+ * @returns {{imports: String[], exports: String[], envVars: String[], leafDefaults: Object[], requiredLeaves: String[]}}
  */
 export function projectSourceShape(src) {
     const imports = [];
@@ -318,7 +369,7 @@ export function projectSourceShape(src) {
         const namedBlock = body.match(/\{([^}]+)\}/);
         if (namedBlock) {
             for (const raw of namedBlock[1].split(',')) {
-                const cleaned  = raw.trim();
+                const cleaned = raw.trim();
                 if (!cleaned) continue;
                 const imported = cleaned.split(/\s+as\s+/)[0].trim();
                 if (imported) {
@@ -338,6 +389,14 @@ export function projectSourceShape(src) {
         }
     }
 
+    // Bare side-effect imports (`import '<source>';` — no `from` clause): e.g. the Tier-1 realm-root load
+    // that makes a server config participate in the hierarchy. Track them so a template that ADDS a
+    // participation import registers as drift a config.mjs must materialize — the detection gap that let
+    // non-participating server overlays boot with getParent() unable to resolve the realm root.
+    for (const bare of src.matchAll(/^import\s+['"]([^'"]+)['"]/gm)) {
+        imports.push(bare[1]);
+    }
+
     imports.sort();
 
     const exports = [...src.matchAll(/^export\s+\{([^}]+)\}/gm)]
@@ -355,9 +414,11 @@ export function projectSourceShape(src) {
         [...src.matchAll(/['"]([A-Z][A-Z0-9_]+)['"]/g)].map(m => m[1])
     )].sort();
 
-    const leafDefaults = projectLeafDefaults(src);
+    const
+        leafDefaults   = projectLeafDefaults(src),
+        requiredLeaves = projectRequiredLeaves(src);
 
-    return {imports, exports, envVars, leafDefaults}
+    return {imports, exports, envVars, leafDefaults, requiredLeaves}
 }
 
 export async function projectShape(filePath) {
@@ -390,7 +451,7 @@ export function materializeServerConfigTemplate(src) {
  * Detects the narrow drift shape where an existing per-server `config.mjs`
  * only needs its Tier-1 import materialized, not a full template overwrite.
  *
- * @param {{missingImports: String[], missingExports: String[], missingEnvVars: String[], changedLeafDefaults: Object[], hasDrift: Boolean}} drift Drift shape (`missingEnvVars` / `changedLeafDefaults` optional on hand-built fixtures).
+ * @param {{missingImports: String[], missingExports: String[], missingEnvVars: String[], missingRequiredLeaves: String[], changedLeafDefaults: Object[], hasDrift: Boolean}} drift Drift shape (`missingEnvVars` / `missingRequiredLeaves` / `changedLeafDefaults` optional on hand-built fixtures).
  * @returns {Boolean}
  */
 export function isOnlyServerMaterializationDrift(drift) {
@@ -400,6 +461,7 @@ export function isOnlyServerMaterializationDrift(drift) {
         // A new env-bound leaf (data-tree drift) needs the full template refresh, not an
         // import-only patch — so env-var drift disqualifies the materialize-only fast path.
         (drift.missingEnvVars?.length ?? 0) === 0 &&
+        (drift.missingRequiredLeaves?.length ?? 0) === 0 &&
         (drift.changedLeafDefaults?.length ?? 0) === 0 &&
         drift.missingImports.length > 0 &&
         drift.missingImports.every(i => MATERIALIZED_SERVER_IMPORTS.has(i))
@@ -412,17 +474,18 @@ export function isOnlyServerMaterializationDrift(drift) {
  * config but not in template — operator-removed paths) is intentionally NOT
  * reported, since this is a one-way "template advanced, config stale" detector.
  *
- * @param {{imports: String[], exports: String[], envVars: String[], leafDefaults: Object[]}} templateShape Projected template shape (`envVars` / `leafDefaults` optional on hand-built fixtures).
- * @param {{imports: String[], exports: String[], envVars: String[], leafDefaults: Object[]}} configShape Projected config shape (same optionality).
- * @returns {{missingImports: String[], missingExports: String[], missingEnvVars: String[], changedLeafDefaults: Object[], hasDrift: Boolean}}
+ * @param {{imports: String[], exports: String[], envVars: String[], leafDefaults: Object[], requiredLeaves: String[]}} templateShape Projected template shape (`envVars` / `leafDefaults` / `requiredLeaves` optional on hand-built fixtures).
+ * @param {{imports: String[], exports: String[], envVars: String[], leafDefaults: Object[], requiredLeaves: String[]}} configShape Projected config shape (same optionality).
+ * @returns {{missingImports: String[], missingExports: String[], missingEnvVars: String[], missingRequiredLeaves: String[], changedLeafDefaults: Object[], hasDrift: Boolean}}
  */
 export function detectDrift(templateShape, configShape) {
     const missingImports = templateShape.imports.filter(i => !configShape.imports.includes(i));
     const missingExports = templateShape.exports.filter(e => !configShape.exports.includes(e));
     // `envVars` is optional on hand-built shapes (e.g. unit fixtures) → default to empty.
-    const missingEnvVars = (templateShape.envVars || []).filter(e => !(configShape.envVars || []).includes(e));
-    const configLeafDefaults = new Map((configShape.leafDefaults || []).map(leaf => [leafDefaultIdentity(leaf), leaf]));
-    const changedLeafDefaults = (templateShape.leafDefaults || [])
+    const missingEnvVars        = (templateShape.envVars || []).filter(e => !(configShape.envVars || []).includes(e));
+    const missingRequiredLeaves = (templateShape.requiredLeaves || []).filter(e => !(configShape.requiredLeaves || []).includes(e));
+    const configLeafDefaults    = new Map((configShape.leafDefaults || []).map(leaf => [leafDefaultIdentity(leaf), leaf]));
+    const changedLeafDefaults   = (templateShape.leafDefaults || [])
         .map(templateLeaf => {
             const configLeaf = configLeafDefaults.get(leafDefaultIdentity(templateLeaf));
 
@@ -444,8 +507,9 @@ export function detectDrift(templateShape, configShape) {
         missingImports,
         missingExports,
         missingEnvVars,
+        missingRequiredLeaves,
         changedLeafDefaults,
-        hasDrift: missingImports.length + missingExports.length + missingEnvVars.length + changedLeafDefaults.length > 0
+        hasDrift: missingImports.length + missingExports.length + missingEnvVars.length + missingRequiredLeaves.length + changedLeafDefaults.length > 0
     }
 }
 
@@ -501,7 +565,7 @@ export async function initConfigs({argv = process.argv, logger = console, server
         }
 
         const activeSrc = await fs.readFile(activePath, 'utf-8');
-        const drift = detectDrift(
+        const drift     = detectDrift(
             projectSourceShape(activeTemplateSrc),
             projectSourceShape(activeSrc)
         );
@@ -529,6 +593,7 @@ export async function initConfigs({argv = process.argv, logger = console, server
             drift.missingImports.forEach(i => logger.warn(`  + import: ${i}`));
             drift.missingExports.forEach(e => logger.warn(`  + export: ${e}`));
             drift.missingEnvVars.forEach(e => logger.warn(`  + env: ${e}`));
+            drift.missingRequiredLeaves.forEach(e => logger.warn(`  + required-leaf: ${e}`));
             drift.changedLeafDefaults.forEach(leaf => logger.warn(`  + leaf-default: ${formatChangedLeafDefault(leaf)}`));
             logger.warn(`  Run \`npm run prepare -- ${MIGRATE_FLAG}\` to refresh (gitignored; safe).`);
             processed.push({serverName, action: 'warn', drift});
@@ -595,16 +660,185 @@ export async function initTier1Config({argv = process.argv, logger = console, ai
     drift.missingImports.forEach(i => logger.warn(`  + import: ${i}`));
     drift.missingExports.forEach(e => logger.warn(`  + export: ${e}`));
     drift.missingEnvVars.forEach(e => logger.warn(`  + env: ${e}`));
+    drift.missingRequiredLeaves.forEach(e => logger.warn(`  + required-leaf: ${e}`));
     drift.changedLeafDefaults.forEach(leaf => logger.warn(`  + leaf-default: ${formatChangedLeafDefault(leaf)}`));
     logger.warn(`  Run \`npm run prepare -- ${MIGRATE_FLAG}\` to refresh (gitignored; safe).`);
 
     return {action: 'warn', drift}
 }
 
+/**
+ * @summary Boot-time freshness guard. Throws if a materialized overlay (`config.mjs`) is missing
+ * structural leaves its template (`config.template.mjs`) added — the crash-causing drift class that
+ * otherwise surfaces as a cryptic `reading '<x>' of undefined` at runtime (the stale-overlay-crash
+ * incident). Reuses the prepare-time {@link detectDrift} / {@link projectShape} detection but FAILS
+ * FAST at boot, scoped to CRASH-CAUSING drift (missing imports / exports / env-leaves); benign drift
+ * (a changed default for a leaf that still exists) warns rather than throws.
+ *
+ * Pairs with {@link initConfigs} / {@link initTier1Config}: those WARN at `npm prepare`; this is the
+ * last-line boot guard for the `git-pull-without-prepare` window, so a stale overlay names its missing
+ * leaves + the `--migrate-config` fix instead of crashing every consumer cryptically.
+ *
+ * @param {Object}   [options]
+ * @param {Object[]} [options.requiredFindings=[]] Required-env findings the ENTRYPOINT already computed by
+ *   reading `AiConfig` / its own server config at its use site (`config.validateRequiredEnv(...)`) and
+ *   passed in as a value. This guard is a non-entrypoint, so it never reads the SSOT itself — the
+ *   entrypoint injects the computed findings (a narrow bootstrap boundary), never the config object.
+ * @param {String}   [options.serverPath] An `ai/mcp/server/<name>/` dir whose `config.mjs` overlay to
+ *   additionally check; its Tier-1 import is materialized before the shape-compare (matching
+ *   {@link initConfigs}) so the template-vs-overlay import path is not read as false drift.
+ * @param {String}   [options.aiRoot=aiDir]  Tier-1 root; `ai/config.mjs` is always checked.
+ * @param {Object}   [options.logger=console] Log sink; injectable for tests.
+ * @returns {Promise<void>}
+ * @throws {Error} on crash-causing overlay drift or missing required env state, naming the fix.
+ */
+export async function assertConfigFresh({
+    aiRoot = aiDir,
+    logger = console,
+    requiredFindings = [],
+    serverPath
+} = {}) {
+    const stale = [];
+
+    const record = (label, drift) => {
+        const crashCausing = [
+            ...drift.missingImports,
+            ...drift.missingExports,
+            ...drift.missingEnvVars,
+            ...(drift.missingRequiredLeaves ?? [])
+        ];
+
+        if (crashCausing.length > 0) {
+            stale.push({label, missing: crashCausing});
+        } else if (drift.hasDrift) {
+            logger.warn(`[Neo AI] ${label}: benign config drift (changed default only) — run \`npm run prepare -- ${MIGRATE_FLAG}\` to refresh (non-fatal).`);
+        }
+    };
+
+    const tier1Template = path.join(aiRoot, 'config.template.mjs');
+    const tier1Active   = path.join(aiRoot, 'config.mjs');
+
+    if (fs.existsSync(tier1Template) && fs.existsSync(tier1Active)) {
+        record('Tier-1 ai/config.mjs', detectDrift(await projectShape(tier1Template), await projectShape(tier1Active)));
+    }
+
+    if (serverPath) {
+        const serverTemplate = path.join(serverPath, 'config.template.mjs');
+        const serverActive   = path.join(serverPath, 'config.mjs');
+
+        if (fs.existsSync(serverTemplate) && fs.existsSync(serverActive)) {
+            // Materialize the template's Tier-1 import before the compare so the template-vs-overlay
+            // import path is not itself flagged as drift (matches the initConfigs per-server path).
+            const templateShape = projectSourceShape(materializeServerConfigTemplate(await fs.readFile(serverTemplate, 'utf-8'))),
+                  activeShape   = projectSourceShape(await fs.readFile(serverActive, 'utf-8'));
+
+            record(`${path.basename(serverPath)}/config.mjs`, detectDrift(templateShape, activeShape));
+        }
+    }
+
+    if (stale.length > 0) {
+        const detail = stale.map(item => `  - ${item.label}: missing ${item.missing.join(', ')}`).join('\n');
+
+        throw new Error(
+            `[Neo AI] Stale config overlay — a materialized config.mjs is missing template-owned config shape:\n${detail}\n` +
+            `This can crash at runtime or skip readiness requiredness. Refresh: \`npm run prepare -- ${MIGRATE_FLAG}\` (gitignored; safe), then restart.`
+        );
+    }
+
+    if (requiredFindings.length > 0) {
+        const detail = requiredFindings.map(item => {
+            const target = item.env ? `${item.env} (${item.leafPath})` : item.leafPath;
+            return `  - ${target}: ${item.valueState}; needed for ${item.entrypoint}/${item.mode}/${item.consumerClaim}${item.reason ? ` — ${item.reason}` : ''}`
+        }).join('\n');
+
+        throw new Error(
+            `[Neo AI] Required deployment configuration is missing or invalid:\n${detail}\n` +
+            'Set the named env var or update the active config before certifying readiness.'
+        );
+    }
+}
+
+/**
+ * @summary Pure merge that ensures the template's `hooks` block is present in the active Claude
+ * settings object, preserving every other key (permissions, autoMode, operator-local edits) and any
+ * non-`Stop` hook events. Template hook events overwrite same-named active events (the template owns
+ * the canonical hook wiring); other active events are kept. Returns the merged settings plus a
+ * `changed` flag so an idempotent re-run is a no-op write.
+ *
+ * @param {Object} [activeSettings={}]   Parsed `.claude/settings.json` (or `{}` when absent).
+ * @param {Object} [templateSettings={}] Parsed `.claude/settings.template.json`.
+ * @returns {{settings: Object, changed: Boolean}}
+ */
+export function mergeClaudeHooks(activeSettings = {}, templateSettings = {}) {
+    const templateHooks = templateSettings.hooks;
+
+    if (!templateHooks || Object.keys(templateHooks).length === 0) {
+        return {settings: activeSettings, changed: false};
+    }
+
+    const mergedHooks = {...(activeSettings.hooks || {}), ...templateHooks};
+
+    if (JSON.stringify(activeSettings.hooks || {}) === JSON.stringify(mergedHooks)) {
+        return {settings: activeSettings, changed: false};
+    }
+
+    return {settings: {...activeSettings, hooks: mergedHooks}, changed: true};
+}
+
+/**
+ * @summary Materializes the tracked `.claude/settings.template.json` into the gitignored
+ * `.claude/settings.json` so every clone self-wires the Claude Stop hook (no-hold lane-state
+ * enforcement) without per-repo manual management — the Claude analog of {@link initConfigs} /
+ * {@link initTier1Config}. A missing active file is cloned whole from the template; an existing one
+ * gets only its `hooks` block ensured ({@link mergeClaudeHooks}), preserving operator-local keys.
+ * Idempotent: an already-wired settings file is a silent no-op. Runs at `npm prepare`. The tracked
+ * template carries `NEO_LANE_STATE_ENFORCE=1` in the Stop-hook command — the operator-directed enforce
+ * default (the forcing-function rollout: the hook blocks + injects the no-hold directive at an
+ * invalid idle-out turn-terminal, rather than only audit-logging it). Enforce is opted OUT locally by
+ * dropping that env prefix in the gitignored `.claude/settings.json`, not by changing the default.
+ *
+ * Distinct from the server/Tier-1 config path: Claude settings are JSON (not `.mjs`), so the regex
+ * shape-drift detector does not apply — a structural `hooks`-key merge is the right primitive.
+ *
+ * @param {Object} [options]
+ * @param {String} [options.claudeDir] `.claude/` dir; defaults to `<repo>/.claude`. Override for tests.
+ * @param {Object} [options.logger=console] Log sink; injectable for tests.
+ * @returns {Promise<{action: String}>} `action` is one of `clone` / `wired` / `silent` / `skip-no-template`.
+ */
+export async function initClaudeSettings({claudeDir = path.join(cwd, '.claude'), logger = console} = {}) {
+    const templatePath = path.join(claudeDir, 'settings.template.json');
+    const activePath   = path.join(claudeDir, 'settings.json');
+
+    if (!fs.existsSync(templatePath)) {
+        logger.warn('[Neo AI] .claude/settings.template.json not found; skipping Claude settings initialization.');
+        return {action: 'skip-no-template'};
+    }
+
+    const templateSettings = JSON.parse(await fs.readFile(templatePath, 'utf-8'));
+
+    if (!fs.existsSync(activePath)) {
+        await fs.writeFile(activePath, JSON.stringify(templateSettings, null, 2) + '\n', 'utf-8');
+        logger.log('[Neo AI] .claude/settings.json missing. Materialized from template (Stop hook wired).');
+        return {action: 'clone'};
+    }
+
+    const activeSettings      = JSON.parse(await fs.readFile(activePath, 'utf-8'));
+    const {settings, changed} = mergeClaudeHooks(activeSettings, templateSettings);
+
+    if (!changed) {
+        return {action: 'silent'};
+    }
+
+    await fs.writeFile(activePath, JSON.stringify(settings, null, 2) + '\n', 'utf-8');
+    logger.log('[Neo AI] Wired the Claude Stop hook into .claude/settings.json (auto-materialized from template).');
+    return {action: 'wired'};
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
     (async () => {
         await initTier1Config();
         await initConfigs();
+        await initClaudeSettings();
     })().catch(err => {
         console.error('[Neo AI] Failed to initialize configs:', err);
         process.exit(1);

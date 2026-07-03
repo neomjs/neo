@@ -1,6 +1,9 @@
-import {WebSocketServer} from 'ws';
-import Base              from '../../../../src/core/Base.mjs';
-import logger            from './logger.mjs';
+import {WebSocketServer}  from 'ws';
+import crypto             from 'crypto';
+import Base               from '../../../../src/core/Base.mjs';
+import logger             from './logger.mjs';
+import {createBridgeInfoPayload} from './BridgeProtocol.mjs';
+import {verifyBridgeToken} from './verifyBridgeToken.mjs';
 
 /**
  * @summary The central WebSocket Hub (Bridge) for Neural Link.
@@ -60,6 +63,9 @@ class Bridge extends Base {
      * @returns {Promise<void>}
      */
     async initAsync() {
+        // Skip the port bind under unitTestMode — tests instantiate the singleton (for handleConnection
+        // handshake-auth + verify coverage) without standing up a real WebSocket server.
+        if (Neo.config.unitTestMode) return;
         await this.startServer();
     }
 
@@ -117,6 +123,42 @@ class Bridge extends Base {
     }
 
     /**
+     * Lazily-resolved Ed25519 **public** verify key from `NEO_FLEET_BRIDGE_PUBLIC_KEY` (a trusted,
+     * harness/operator-set SPKI PEM — never agent-supplied). `undefined` = not yet resolved, `null` =
+     * no key configured (legacy unauthenticated dev mode), else the `crypto.KeyObject`.
+     * @member {Object|null} bridgePublicKey
+     * @protected
+     */
+    bridgePublicKey = undefined
+
+    /**
+     * @summary Resolve (once, cached) the Bridge's token-verify public key, or null when unset.
+     * @returns {Object|null}
+     * @protected
+     */
+    getBridgePublicKey() {
+        if (this.bridgePublicKey === undefined) {
+            const pem = process.env.NEO_FLEET_BRIDGE_PUBLIC_KEY;
+            this.bridgePublicKey = pem ? crypto.createPublicKey(pem) : null;
+        }
+        return this.bridgePublicKey;
+    }
+
+    /**
+     * @summary Verify a presented signed Bridge token; return the **signed** agentId or null.
+     *
+     * Thin wrapper over the pure {@link verifyBridgeToken} (kept Bridge-free so the security gate is
+     * unit-testable without the WebSocket singleton — mirrors `src/ai/parseAgentEnvelope.mjs`). The
+     * returned identity is the FM-signed `agentId`, trusted from the signature, never the `?id=` claim.
+     * @param {String} token `<base64url(payload)>.<base64url(signature)>`.
+     * @returns {String|null}
+     * @protected
+     */
+    verifyAgentToken(token) {
+        return verifyBridgeToken(token, this.getBridgePublicKey());
+    }
+
+    /**
      * Handles new connections.
      * @param {WebSocket} ws
      * @param {IncomingMessage} req
@@ -127,6 +169,7 @@ class Bridge extends Base {
             const role    = url.searchParams.get('role'); // 'app' or 'agent'
             const id      = url.searchParams.get('id') || url.searchParams.get('appWorkerId'); // Support legacy param
             const appName = url.searchParams.get('appName');
+            const token   = url.searchParams.get('token');
 
             if (!id) {
                 logger.warn('Bridge: Connection rejected. No ID provided.');
@@ -135,7 +178,21 @@ class Bridge extends Base {
             }
 
             if (role === 'agent') {
-                this.registerAgent(id, ws);
+                // Authenticate the agent when a verify key is provisioned (fleet mode): the identity
+                // is the agentId SIGNED into the token, never the untrusted `?id=` query claim (the
+                // spoofing hole this closes). With no key configured (no-FM dev), fall back to the
+                // legacy unauthenticated path — auth and multi-writer enforcement are a matched pair.
+                if (this.getBridgePublicKey()) {
+                    const verifiedId = this.verifyAgentToken(token);
+                    if (!verifiedId) {
+                        logger.warn('Bridge: Agent connection rejected — invalid or missing token.');
+                        ws.close(1008, 'Authentication required');
+                        return;
+                    }
+                    this.registerAgent(verifiedId, ws);
+                } else {
+                    this.registerAgent(id, ws);
+                }
             } else if (role === 'test') {
                 logger.info(`Bridge: Test client connected [${id}]`);
                 this.registerAgent(id, ws);
@@ -158,6 +215,11 @@ class Bridge extends Base {
         logger.info(`Bridge: Agent connected [${id}]`);
         this.agents.set(id, ws);
 
+        // A stable, Bridge-authoritative per-connection id (minted here, lives for the connection's
+        // lifetime) stamped into the agent_message sidecar + the disconnect notice, so the app-side
+        // write-guard can key locks on the (agentId, sessionId) pair.
+        ws.sessionId = crypto.randomUUID();
+
         ws.on('message', (data) => this.handleAgentMessage(id, data));
         ws.on('close',   ()     => {
             logger.info(`Bridge: Agent disconnected [${id}]`);
@@ -166,8 +228,17 @@ class Bridge extends Base {
                 type   : 'agent_disconnected',
                 agentId: id
             });
+            // Lets the app-side write-guard release locks held by the now-dead writer; idempotent so a
+            // blanket app broadcast is safe.
+            this.broadcastToApps({
+                type     : 'agent_disconnected',
+                agentId  : id,
+                sessionId: ws.sessionId
+            });
         });
         ws.on('error', (err) => logger.error(`Bridge: Agent error [${id}]`, err));
+
+        this.sendBridgeInfo(ws);
 
         // Notify other agents
         this.broadcastToAgents({
@@ -184,6 +255,16 @@ class Bridge extends Base {
                     appName    : appWs.appName || 'Unknown'
                 }));
             }
+        }
+    }
+
+    /**
+     * @summary Sends the freshness/protocol stamp expected by current agent clients.
+     * @param {WebSocket} ws
+     */
+    sendBridgeInfo(ws) {
+        if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify(createBridgeInfoPayload()))
         }
     }
 
@@ -238,11 +319,17 @@ class Bridge extends Base {
                 return;
             }
 
-            const appWs = this.apps.get(payload.target);
+            const agentWs = this.agents.get(agentId);
+            const appWs   = this.apps.get(payload.target);
 
             if (appWs) {
-                // Forward transparently
-                appWs.send(JSON.stringify(payload.message));
+                // Forward, wrapping the message in the Bridge-stamped sidecar (the app-side Client unwraps it)
+                appWs.send(JSON.stringify({
+                    type     : 'agent_message',
+                    agentId,
+                    sessionId: agentWs?.sessionId,
+                    message  : payload.message
+                }));
             } else {
                 logger.warn(`Bridge: Target App [${payload.target}] not found for Agent [${agentId}]`);
 
@@ -296,6 +383,17 @@ class Bridge extends Base {
     broadcastToAgents(payload) {
         const data = JSON.stringify(payload);
         for (const ws of this.agents.values()) {
+            ws.send(data);
+        }
+    }
+
+    /**
+     * Sends a message to all connected Apps.
+     * @param {Object} payload
+     */
+    broadcastToApps(payload) {
+        const data = JSON.stringify(payload);
+        for (const ws of this.apps.values()) {
             ws.send(data);
         }
     }

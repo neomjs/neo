@@ -1,6 +1,7 @@
-import path from 'path';
-import Neo  from '../../../../src/Neo.mjs';
-import Base from '../../../../src/core/Base.mjs';
+import path     from 'path';
+import Neo      from '../../../../src/Neo.mjs';
+import Base     from '../../../../src/core/Base.mjs';
+import AiConfig from '../../../config.mjs';
 import {
     acquireHeavyMaintenanceLeaseSync,
     releaseHeavyMaintenanceLeaseSync
@@ -19,20 +20,46 @@ export const DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES = Object.freeze([
     'summary',
     'memory-summary-backfill',
     'kbSync',
+    'githubWorkflowSync',
     'backup',
     'graphlog-compaction',
     'primary-dev-sync',
-    'dream'
+    'tenant-repo-sync',
+    'dream',
+    'message-concept-harvest'
 ]);
 
 /**
- * Tasks whose graph writes must complete before Golden Path frontier refresh runs.
+ * Heavy-maintenance pairs whose resource envelopes are compatible enough to run
+ * concurrently.
+ *
+ * Currently EMPTY — the heavy-maintenance mutex is fully serialized. The prior
+ * `['kbSync','memory-summary-backfill']` pair raced on the inherited-lease-token bypass:
+ * `memory-summary-backfill` released the lease before the spawned `kbSync` child finished
+ * booting, so the inherited token went stale, `withHeavyMaintenanceLease` fell through, and
+ * `kbSync` SKIPPED its `syncDatabase` — a silent multi-day embedding stall. miniSummary
+ * serializing behind KB embedding is the lesser cost than a silent embed stall. Re-introduce
+ * a pair ONLY with a race-free handshake: the spawned child must be guaranteed its run
+ * regardless of parent-lease release timing.
+ *
+ * @type {ReadonlyArray<ReadonlyArray<String>>}
+ */
+export const DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS = Object.freeze([]);
+
+/**
+ * Tasks whose graph writes must complete before a Golden Path frontier refresh runs.
+ *
+ * Empty by default: Golden Path is intentionally decoupled from `dream`. The hourly re-rank
+ * reads the CURRENT graph directly (not the dream digest — verified via the synthesizer-coupling
+ * check), so it must not block behind the multi-hour REM digest — that coupling froze the
+ * forecast for days. Accepted trade-off: a refresh racing an in-progress digest may not yet
+ * reflect it (bounded staleness, "better than empty/stale"; the next hourly run picks it up).
+ * Stays a reactive config leaf (`goldenPathDependencyTaskNames`), so a deployment can
+ * re-introduce a write-completion dependency if a specific store needs it.
  *
  * @type {ReadonlyArray<String>}
  */
-export const DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES = Object.freeze([
-    'dream'
-]);
+export const DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES = Object.freeze([]);
 
 // ============================================================================
 // Group 1 — Read-only predicates / finders (pure functions, no side effects)
@@ -63,21 +90,51 @@ export function isGoldenPathDependencyTask({taskName, goldenPathDependencyTaskNa
 }
 
 /**
- * @summary Finds the first running heavy-maintenance task other than the excluded one.
+ * @summary Checks whether two heavy-maintenance tasks are a documented compatible pair.
+ *
+ * @param {Object} options
+ * @param {String|null|undefined} options.taskName Stable orchestrator task name.
+ * @param {String|null|undefined} options.otherTaskName Stable orchestrator task name.
+ * @param {ReadonlyArray<ReadonlyArray<String>>} options.compatibleHeavyMaintenanceTaskPairs Pair allow-list.
+ * @returns {Boolean}
+ */
+export function areHeavyMaintenanceTasksCompatible({
+    taskName,
+    otherTaskName,
+    compatibleHeavyMaintenanceTaskPairs = []
+}) {
+    if (!taskName || !otherTaskName || taskName === otherTaskName) return false;
+
+    return compatibleHeavyMaintenanceTaskPairs.some(pair => (
+        pair.includes(taskName) && pair.includes(otherTaskName)
+    ));
+}
+
+/**
+ * @summary Finds the first running heavy-maintenance task that conflicts with a candidate.
  *
  * @param {Object} options
  * @param {ReadonlyArray<String>} options.heavyMaintenanceTaskNames Heavy-classification set.
  * @param {Object} options.taskStateService Service exposing `getTaskState(name)`.
  * @param {String|null} [options.excludeTaskName=null] Task name to ignore.
+ * @param {String|null} [options.candidateTaskName=null] Candidate task whose compatibility is checked.
+ * @param {ReadonlyArray<ReadonlyArray<String>>} [options.compatibleHeavyMaintenanceTaskPairs=[]] Pair allow-list.
  * @returns {String|null}
  */
 export function getActiveHeavyMaintenanceTask({
     heavyMaintenanceTaskNames,
     taskStateService,
-    excludeTaskName = null
+    excludeTaskName = null,
+    candidateTaskName = null,
+    compatibleHeavyMaintenanceTaskPairs = []
 }) {
     for (const taskName of heavyMaintenanceTaskNames) {
         if (taskName === excludeTaskName) continue;
+        if (areHeavyMaintenanceTasksCompatible({
+            taskName     : candidateTaskName,
+            otherTaskName: taskName,
+            compatibleHeavyMaintenanceTaskPairs
+        })) continue;
         if (taskStateService.getTaskState(taskName)?.running) return taskName;
     }
     return null;
@@ -182,15 +239,23 @@ export function recordDeferral({
 }) {
     const isLeaseHeld = reasonCode === 'heavy-maintenance-lease-held';
     const holderOwner = holdingLease?.owner || 'unknown';
-    const dedupKey    = isLeaseHeld
-        ? `${taskName}:lease-held-by-${holderOwner}:${reasonText}`
-        : `${taskName}:${blockingTaskName}:${reasonText}`;
+    // Dedup on STABLE identifiers only — the deferred task, its blocker, and the deferral reasonCode —
+    // never the volatile `reasonText`: its `:<count>` / `:<interval>` suffix changes every poll and its
+    // source-class is already implied by `taskName`, so including it churns the key (the dedup never
+    // fires) without adding a real distinction. The full reasonText (with count) stays in the log
+    // message + the recordTaskOutcome payload below.
+    const dedupKey = isLeaseHeld
+        ? `${taskName}:lease-held-by-${holderOwner}`
+        : `${taskName}:${blockingTaskName}:${reasonCode}`;
 
     if (!deferralLogKeys.has(dedupKey)) {
         const taskLabel = taskDefinitions?.[taskName]?.label || taskName;
 
         if (isLeaseHeld) {
             writeLog('INFO', `[Orchestrator] Deferring ${taskLabel}; cross-daemon heavy-maintenance lease held by ${holderOwner} (${reasonText}).`);
+        } else if (reasonCode === 'heavy-maintenance-shed-window') {
+            // The shed-window has no blocking task — a `throttle-shed` heal deferred all heavy-maintenance for a window.
+            writeLog('INFO', `[Orchestrator] Deferring ${taskLabel}; heavy-maintenance shed-window active (${reasonText}).`);
         } else {
             const blockingLabel = taskDefinitions?.[blockingTaskName]?.label || blockingTaskName;
             writeLog('INFO', `[Orchestrator] Deferring ${taskLabel}; ${reasonCode === 'golden-path-dependency-backpressure' ? 'dependency task' : 'heavy maintenance task'} ${blockingLabel} is active (${reasonText}).`);
@@ -230,6 +295,12 @@ export function recordDeferral({
  * replace them. Lease IO (acquire / release / inspect) remains in that service; this
  * service owns the policy of WHEN to acquire, defer, or record.
  *
+ * `DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS` is the compatibility allow-list,
+ * currently EMPTY: the heavy-maintenance mutex is fully serialized after the prior
+ * `kbSync`/`memory-summary-backfill` pair raced on the inherited-lease-token bypass and
+ * silently skipped KB embedding. Any future pair must be justified here AND prove it is
+ * race-free (the spawned child guaranteed its run regardless of parent-lease timing).
+ *
  * @class Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureService
  * @extends Neo.core.Base
  */
@@ -245,6 +316,11 @@ export class MaintenanceBackpressureService extends Base {
          * @reactive
          */
         heavyMaintenanceTaskNames_: DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
+        /**
+         * @member {ReadonlyArray<ReadonlyArray<String>>} compatibleHeavyMaintenanceTaskPairs_=DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS
+         * @reactive
+         */
+        compatibleHeavyMaintenanceTaskPairs_: DEFAULT_COMPATIBLE_HEAVY_MAINTENANCE_TASK_PAIRS,
         /**
          * @member {ReadonlyArray<String>} goldenPathDependencyTaskNames_=DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES
          * @reactive
@@ -298,6 +374,37 @@ export class MaintenanceBackpressureService extends Base {
      */
     deferralLogKeys = new Set()
 
+    /**
+     * Epoch ms until which heavy-maintenance is shed (deferred). `0` = no active window. Set by the `throttle-shed`
+     * heal via `setShedWindow`; auto-expires (bounded, self-healing — no operator un-shed).
+     * @member {Number} shedUntil=0
+     */
+    shedUntil = 0
+
+    /**
+     * @summary Opens an auto-expiring shed-window: until `now + durationMs`, `acquireLeaseAndExecute` defers ALL
+     * heavy-maintenance. The actuation primitive the `throttle-shed` heal calls to relieve resource contention —
+     * bounded (auto-expires), self-healing (no operator un-shed). Max-wins on overlap, so a shorter later window
+     * cannot curtail a longer active one (a heal never accidentally cuts a peer heal's shed short).
+     * @param {Number} durationMs How long to shed heavy-maintenance (non-positive / non-finite → no-op).
+     * @param {Number} [now=Date.now()] Injected clock (epoch ms).
+     * @returns {Number} The resulting `shedUntil`.
+     */
+    setShedWindow(durationMs, now = Date.now()) {
+        const until = now + (Number.isFinite(durationMs) && durationMs > 0 ? durationMs : 0);
+        this.shedUntil = Math.max(this.shedUntil, until);
+        return this.shedUntil;
+    }
+
+    /**
+     * @summary Whether a shed-window is currently active (heavy-maintenance should defer).
+     * @param {Number} [now=Date.now()] Injected clock (epoch ms).
+     * @returns {Boolean}
+     */
+    isShedActive(now = Date.now()) {
+        return now < this.shedUntil;
+    }
+
     // --- Predicate / finder delegations to module-level pure functions ---
 
     /**
@@ -317,15 +424,43 @@ export class MaintenanceBackpressureService extends Base {
     }
 
     /**
+     * @param {String} taskName Stable orchestrator task name.
+     * @param {String|null|undefined} otherTaskName Stable orchestrator task name.
+     * @returns {Boolean}
+     */
+    areHeavyMaintenanceTasksCompatible(taskName, otherTaskName) {
+        return areHeavyMaintenanceTasksCompatible({
+            taskName,
+            otherTaskName,
+            compatibleHeavyMaintenanceTaskPairs: this.compatibleHeavyMaintenanceTaskPairs
+        });
+    }
+
+    /**
+     * @param {String} taskName Candidate heavy-maintenance task name.
+     * @param {String|null|undefined} otherTaskName Running or lease-holding task name.
+     * @returns {Boolean}
+     */
+    isHeavyMaintenanceConflict(taskName, otherTaskName) {
+        if (!taskName || !otherTaskName || taskName === otherTaskName) return false;
+        return this.isHeavyMaintenanceTask(taskName)
+            && this.isHeavyMaintenanceTask(otherTaskName)
+            && !this.areHeavyMaintenanceTasksCompatible(taskName, otherTaskName);
+    }
+
+    /**
      * @param {Object} [options]
      * @param {String|null} [options.excludeTaskName=null]
+     * @param {String|null} [options.candidateTaskName=null]
      * @returns {String|null}
      */
-    getActiveHeavyMaintenanceTask({excludeTaskName = null} = {}) {
+    getActiveHeavyMaintenanceTask({excludeTaskName = null, candidateTaskName = null} = {}) {
         return getActiveHeavyMaintenanceTask({
-            heavyMaintenanceTaskNames: this.heavyMaintenanceTaskNames,
-            taskStateService         : this.taskStateService,
-            excludeTaskName
+            heavyMaintenanceTaskNames          : this.heavyMaintenanceTaskNames,
+            taskStateService                   : this.taskStateService,
+            excludeTaskName,
+            candidateTaskName,
+            compatibleHeavyMaintenanceTaskPairs: this.compatibleHeavyMaintenanceTaskPairs
         });
     }
 
@@ -411,7 +546,7 @@ export class MaintenanceBackpressureService extends Base {
      * @param {Object} options.activeHeavyTask Mutable `{name: String|null}` tracker for the current poll.
      * @returns {Boolean|Promise|*} `false` when deferred; otherwise whatever `executeFn` returns.
      */
-    acquireLeaseAndExecute({taskName, executeFn, reason, onSuccess = null, activeHeavyTask}) {
+    acquireLeaseAndExecute({taskName, executeFn, reason, onSuccess = null, activeHeavyTask, now = Date.now()}) {
         const reasonText = reason || 'scheduled';
 
         if (!this.isHeavyMaintenanceTask(taskName)) {
@@ -419,9 +554,24 @@ export class MaintenanceBackpressureService extends Base {
             return executeFn(taskName, reason, onSuccess);
         }
 
-        const blockingTaskName = activeHeavyTask?.name && activeHeavyTask.name !== taskName
+        // Shed-window: a `throttle-shed` heal has deferred ALL heavy-maintenance for a bounded window to relieve
+        // resource contention. Gate here (the single heavy-maintenance admission point) so the EXISTING deferral
+        // path handles it — non-interrupting: tasks already past this gate (running, holding a lease) finish.
+        if (this.isShedActive(now)) {
+            this.recordDeferral({taskName, reasonCode: 'heavy-maintenance-shed-window', reasonText});
+            return false;
+        }
+
+        let blockingTaskName = activeHeavyTask?.name && this.isHeavyMaintenanceConflict(taskName, activeHeavyTask.name)
             ? activeHeavyTask.name
-            : this.getActiveHeavyMaintenanceTask({excludeTaskName: taskName});
+            : null;
+
+        if (!blockingTaskName) {
+            blockingTaskName = this.getActiveHeavyMaintenanceTask({
+                excludeTaskName  : taskName,
+                candidateTaskName: taskName
+            });
+        }
 
         if (blockingTaskName) {
             this.recordDeferral({
@@ -436,10 +586,11 @@ export class MaintenanceBackpressureService extends Base {
         let acquisition;
         try {
             acquisition = this.acquireLeaseFn({
-                owner    : taskName,
-                reason   : reasonText,
-                metadata : {source: 'orchestrator'},
-                leasePath: this.resolveHeavyMaintenanceLeasePath()
+                owner       : taskName,
+                reason      : reasonText,
+                metadata    : {source: 'orchestrator'},
+                leasePath   : this.resolveHeavyMaintenanceLeasePath(),
+                staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs
             });
         } catch (e) {
             this.writeLog('ERROR', `[Orchestrator] Heavy-maintenance lease acquire failed for ${taskName}: ${e.message}`);
@@ -452,7 +603,12 @@ export class MaintenanceBackpressureService extends Base {
             return false;
         }
 
-        if (!acquisition.acquired) {
+        // Compatible-pair bypass: the incumbent keeps the global lease token; the
+        // candidate runs without inheriting it so every non-compatible heavy task
+        // remains serialized by the existing cross-daemon lease.
+        const leaseToken = acquisition.acquired ? acquisition.lease.token : null;
+
+        if (!acquisition.acquired && !this.areHeavyMaintenanceTasksCompatible(taskName, acquisition.lease?.owner)) {
             this.recordDeferral({
                 taskName,
                 reasonCode  : 'heavy-maintenance-lease-held',
@@ -465,9 +621,10 @@ export class MaintenanceBackpressureService extends Base {
         this.clearDeferralLogState(taskName);
 
         const releaseLease = () => {
+            if (!leaseToken) return;
             try {
                 this.releaseLeaseFn({
-                    token    : acquisition.lease.token,
+                    token    : leaseToken,
                     leasePath: this.resolveHeavyMaintenanceLeasePath()
                 });
             } catch (e) {
@@ -476,7 +633,7 @@ export class MaintenanceBackpressureService extends Base {
         };
 
         const taskOptions = {
-            env       : {NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN: acquisition.lease.token},
+            env       : leaseToken ? {NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN: leaseToken} : {},
             onComplete: releaseLease
         };
 
@@ -517,7 +674,7 @@ export class MaintenanceBackpressureService extends Base {
      * @returns {Boolean|*} `false` when deferred; otherwise whatever `executeFn` returns.
      */
     executeWithGoldenPathDependencyGate({taskName, executeFn, reason, activeHeavyTask}) {
-        const reasonText = reason || 'scheduled';
+        const reasonText       = reason || 'scheduled';
         const blockingTaskName = this.getActiveGoldenPathDependencyTask({
             activeTaskName: activeHeavyTask?.name
         });

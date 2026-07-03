@@ -70,6 +70,9 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
     let WakeSubscriptionService;
     let originalEmitHeartbeatPulse;
     let heartbeatAlivePath;
+    let githubNotificationWakeStatePath;
+    let isGitHubRemoteUrl;
+    let extractPullRequestNumberFromNotificationUrl;
     let GraphService;
     let originalLifecycleInit;
     let originalGraphServiceInit;
@@ -79,8 +82,11 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
 
     test.beforeAll(async () => {
         const swarmHeartbeatModule = await import('../../../../../../../ai/daemons/orchestrator/services/SwarmHeartbeatService.mjs');
-        SwarmHeartbeatService = swarmHeartbeatModule.default;
-        heartbeatAlivePath    = swarmHeartbeatModule.heartbeatAlivePath;
+        SwarmHeartbeatService            = swarmHeartbeatModule.default;
+        heartbeatAlivePath               = swarmHeartbeatModule.heartbeatAlivePath;
+        githubNotificationWakeStatePath  = swarmHeartbeatModule.githubNotificationWakeStatePath;
+        isGitHubRemoteUrl                = swarmHeartbeatModule.isGitHubRemoteUrl;
+        extractPullRequestNumberFromNotificationUrl = swarmHeartbeatModule.extractPullRequestNumberFromNotificationUrl;
 
         const wakeSubscriptionModule = await import('../../../../../../../ai/services/memory-core/WakeSubscriptionService.mjs');
         WakeSubscriptionService      = wakeSubscriptionModule.default;
@@ -140,6 +146,8 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         SwarmHeartbeatService.idleOutNudge       = async () => {};
         SwarmHeartbeatService.checkAllAgentIdle  = async () => null;
         SwarmHeartbeatService.swarmWakeCooldown  = async () => {};
+        SwarmHeartbeatService.emitGitHubNotificationWakes = async () => {};
+        delete SwarmHeartbeatService._volatileGitHubNotificationSeenIds;
         SwarmHeartbeatService.getWakeSubscriptionIdentities = async () => [];
         SwarmHeartbeatService.runScriptJson      = async () => null;
         SwarmHeartbeatService.runScript          = async () => '';
@@ -168,6 +176,7 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         SwarmHeartbeatService.pollIntervalMs  = 5 * 60 * 1000;
         SwarmHeartbeatService.targetSource    = null;
         SwarmHeartbeatService.explicitTargets = null;
+        delete SwarmHeartbeatService._volatileGitHubNotificationSeenIds;
         delete SwarmHeartbeatService.getGraphDb;
     });
 
@@ -789,6 +798,215 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         expect(capturedArgs[0]).toEqual(['@neo-gpt', 'mcp-notifications', 'a2a-webhook', 'bridge-daemon']);
     });
 
+    test('isGitHubRemoteUrl gates GitHub remotes without Neo-team coupling (#12937)', async () => {
+        expect(isGitHubRemoteUrl('git@github.com:some-org/some-repo.git')).toBe(true);
+        expect(isGitHubRemoteUrl('https://github.com/some-org/some-repo.git')).toBe(true);
+        expect(isGitHubRemoteUrl('git@gitlab.com:some-org/some-repo.git')).toBe(false);
+        expect(isGitHubRemoteUrl('/Users/example/local-repo')).toBe(false);
+        expect(isGitHubRemoteUrl('')).toBe(false);
+    });
+
+    test('#13411 GitHub notification enrichment carries live PR state and degrades safe', async () => {
+        applyDefaultStubs();
+        const serviceProto = Object.getPrototypeOf(SwarmHeartbeatService);
+
+        expect(extractPullRequestNumberFromNotificationUrl('https://api.github.com/repos/acme/repo/pulls/13411')).toBe(13411);
+        expect(extractPullRequestNumberFromNotificationUrl('https://api.github.com/repos/acme/repo/issues/13411')).toBe(13411);
+        expect(extractPullRequestNumberFromNotificationUrl('https://api.github.com/repos/acme/repo')).toBeNull();
+
+        SwarmHeartbeatService.resolvePullRequestState = async (number) => {
+            if (number === 13411) return { number, state: 'OPEN', mergedAt: null, checkedAt: '2026-06-16T10:19:00Z' };
+            if (number === 13412) return { number, state: 'MERGED', mergedAt: '2026-06-16T10:20:00Z', checkedAt: '2026-06-16T10:21:00Z' };
+            return null
+        };
+
+        const enriched = await serviceProto.enrichGitHubNotificationsWithPullRequestState.call(SwarmHeartbeatService, [{
+            id    : 'ghn-open',
+            reason: 'mention',
+            type  : 'PullRequest',
+            title : 'Open PR',
+            url   : 'https://api.github.com/repos/acme/repo/pulls/13411'
+        }, {
+            id    : 'ghn-merged',
+            reason: 'review_requested',
+            type  : 'PullRequest',
+            title : 'Merged PR',
+            url   : 'https://api.github.com/repos/acme/repo/pulls/13412'
+        }, {
+            id    : 'ghn-fail',
+            reason: 'mention',
+            type  : 'PullRequest',
+            title : 'Fetch fails',
+            url   : 'https://api.github.com/repos/acme/repo/pulls/13413'
+        }, {
+            id    : 'ghn-issue',
+            reason: 'mention',
+            type  : 'Issue',
+            title : 'Issue mention',
+            url   : 'https://api.github.com/repos/acme/repo/issues/13414'
+        }]);
+
+        expect(enriched[0].pullRequest).toEqual({ number: 13411, state: 'OPEN', mergedAt: null, checkedAt: '2026-06-16T10:19:00Z' });
+        expect(enriched[1].pullRequest).toEqual({ number: 13412, state: 'MERGED', mergedAt: '2026-06-16T10:20:00Z', checkedAt: '2026-06-16T10:21:00Z' });
+        expect(enriched[2].pullRequest).toBeUndefined();
+        expect(enriched[3].pullRequest).toBeUndefined();
+    });
+
+    test('getGitHubNotifications consumes the shared mention/review-request projection (#12937)', async () => {
+        applyDefaultStubs();
+        delete SwarmHeartbeatService.getGitHubNotifications;
+
+        SwarmHeartbeatService.runCmd = async () => JSON.stringify([{
+            id     : 'ghn-mention',
+            reason : 'mention',
+            subject: {type: 'Issue', title: 'Ping Euclid', url: 'https://api.github.com/repos/acme/repo/issues/1'}
+        }, {
+            id     : 'ghn-review',
+            reason : 'review_requested',
+            subject: {type: 'PullRequest', title: 'Review me', url: 'https://api.github.com/repos/acme/repo/pulls/2'}
+        }, {
+            id     : 'ghn-noise',
+            reason : 'subscribed',
+            subject: {type: 'Issue', title: 'Noise', url: 'https://api.github.com/repos/acme/repo/issues/3'}
+        }]);
+
+        const serviceProto = Object.getPrototypeOf(SwarmHeartbeatService);
+        const result       = await serviceProto.getGitHubNotifications.call(SwarmHeartbeatService);
+
+        expect(result).toEqual([{
+            id    : 'ghn-mention',
+            reason: 'mention',
+            type  : 'Issue',
+            title : 'Ping Euclid',
+            url   : 'https://api.github.com/repos/acme/repo/issues/1'
+        }, {
+            id    : 'ghn-review',
+            reason: 'review_requested',
+            type  : 'PullRequest',
+            title : 'Review me',
+            url   : 'https://api.github.com/repos/acme/repo/pulls/2'
+        }]);
+    });
+
+    test('emitGitHubNotificationWakes disables on non-GitHub remotes (#12937)', async () => {
+        applyDefaultStubs();
+        delete SwarmHeartbeatService.emitGitHubNotificationWakes;
+
+        let fetched = false;
+        const emitted = [];
+
+        SwarmHeartbeatService.getGitRemoteUrl = async () => 'git@gitlab.com:acme/repo.git';
+        SwarmHeartbeatService.getGitHubNotifications = async () => {
+            fetched = true;
+            return [{id: 'ghn-1', reason: 'mention'}]
+        };
+        WakeSubscriptionService.emitHeartbeatPulse = async ({targetIdentity}) => {
+            emitted.push(targetIdentity);
+            return {status: 'emitted'}
+        };
+
+        await SwarmHeartbeatService.emitGitHubNotificationWakes(['@test']);
+
+        expect(fetched).toBe(false);
+        expect(emitted).toEqual([]);
+    });
+
+    test('emitGitHubNotificationWakes emits once per unseen GitHub notification id (#12937)', async () => {
+        applyDefaultStubs();
+        delete SwarmHeartbeatService.emitGitHubNotificationWakes;
+
+        let state = {};
+        const emitted = [];
+
+        SwarmHeartbeatService.getGitRemoteUrl = async () => 'https://github.com/acme/repo.git';
+        SwarmHeartbeatService.getGitHubNotifications = async () => [{
+            id    : 'ghn-1',
+            reason: 'mention',
+            title : 'Ping Euclid'
+        }, {
+            id         : 'ghn-2',
+            reason     : 'review_requested',
+            title      : 'Review request',
+            pullRequest: {number: 13411, state: 'MERGED', mergedAt: '2026-06-16T10:20:00Z', checkedAt: '2026-06-16T10:21:00Z'}
+        }];
+        SwarmHeartbeatService.readGitHubNotificationWakeState  = async () => state;
+        SwarmHeartbeatService.writeGitHubNotificationWakeState = async (nextState) => {
+            state = JSON.parse(JSON.stringify(nextState))
+        };
+        WakeSubscriptionService.emitHeartbeatPulse = async ({targetIdentity, pulseId}) => {
+            emitted.push({targetIdentity, pulseId});
+            return {status: 'emitted', targetIdentity, pulseId, logId: emitted.length}
+        };
+
+        await SwarmHeartbeatService.emitGitHubNotificationWakes(['@test']);
+        await SwarmHeartbeatService.emitGitHubNotificationWakes(['@test']);
+
+        expect(emitted).toHaveLength(1);
+        expect(emitted[0].targetIdentity).toBe('@test');
+        expect(emitted[0].pulseId).toMatch(/^github-notification\./);
+        const summary = JSON.parse(Buffer.from(emitted[0].pulseId.slice('github-notification.'.length), 'base64url').toString('utf8'));
+        expect(summary).toMatchObject({
+            source: 'github-notification',
+            count : 2,
+            latest: {
+                id         : 'ghn-2',
+                reason     : 'review_requested',
+                title      : 'Review request',
+                pullRequest: {number: 13411, state: 'MERGED', mergedAt: '2026-06-16T10:20:00Z', checkedAt: '2026-06-16T10:21:00Z'}
+            }
+        });
+        expect(state['@test']).toEqual(['ghn-1', 'ghn-2']);
+    });
+
+    test('emitGitHubNotificationWakes leaves ids unconsumed when no wake route emits (#12937)', async () => {
+        applyDefaultStubs();
+        delete SwarmHeartbeatService.emitGitHubNotificationWakes;
+
+        let state = {};
+
+        SwarmHeartbeatService.getGitRemoteUrl = async () => 'git@github.com:acme/repo.git';
+        SwarmHeartbeatService.getGitHubNotifications = async () => [{id: 'ghn-1', reason: 'mention'}];
+        SwarmHeartbeatService.readGitHubNotificationWakeState  = async () => state;
+        SwarmHeartbeatService.writeGitHubNotificationWakeState = async (nextState) => {
+            state = JSON.parse(JSON.stringify(nextState))
+        };
+        WakeSubscriptionService.emitHeartbeatPulse = async ({targetIdentity}) => ({
+            status: 'skipped',
+            reason: 'no-active-bridge-daemon-subscription',
+            targetIdentity
+        });
+
+        await SwarmHeartbeatService.emitGitHubNotificationWakes(['@test']);
+
+        expect(state).toEqual({});
+    });
+
+    test('emitGitHubNotificationWakes keeps emitted ids volatile when wake-state persist fails (#12937)', async () => {
+        applyDefaultStubs();
+        delete SwarmHeartbeatService.emitGitHubNotificationWakes;
+
+        const emitted = [];
+
+        SwarmHeartbeatService.getGitRemoteUrl = async () => 'https://github.com/acme/repo.git';
+        SwarmHeartbeatService.getGitHubNotifications = async () => [{id: 'ghn-1', reason: 'mention'}];
+        SwarmHeartbeatService.readGitHubNotificationWakeState  = async () => ({});
+        SwarmHeartbeatService.writeGitHubNotificationWakeState = async () => {
+            throw new Error('simulated persist failure')
+        };
+        WakeSubscriptionService.emitHeartbeatPulse = async ({targetIdentity, pulseId}) => {
+            emitted.push({targetIdentity, pulseId});
+            return {status: 'emitted', targetIdentity, pulseId}
+        };
+
+        await expect(SwarmHeartbeatService.emitGitHubNotificationWakes(['@test'])).resolves.toBeUndefined();
+        await expect(SwarmHeartbeatService.emitGitHubNotificationWakes(['@test'])).resolves.toBeUndefined();
+
+        // First pulse is delivered, then the failed persist is retained in process
+        // memory so a persistent fs failure cannot re-emit the same id every heartbeat.
+        expect(emitted).toHaveLength(1);
+        expect(emitted[0].targetIdentity).toBe('@test');
+    });
+
     test('heartbeatAlivePath() reads AiConfig.wakeDaemonHeartbeatAlivePath verbatim (#11872)', async () => {
         const original = AiConfig.wakeDaemonHeartbeatAlivePath;
 
@@ -803,6 +1021,30 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
             expect(heartbeatAlivePath()).toBe(overridePath);
         } finally {
             AiConfig.wakeDaemonHeartbeatAlivePath = original;
+        }
+    });
+
+    test('GitHub notification wake-state lives beside the heartbeat liveness file (#12937)', async () => {
+        const original = AiConfig.wakeDaemonHeartbeatAlivePath;
+        const tmpDir   = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-github-notification-state-'));
+
+        try {
+            AiConfig.wakeDaemonHeartbeatAlivePath = path.join(tmpDir, 'heartbeat.alive');
+            expect(githubNotificationWakeStatePath()).toBe(path.join(tmpDir, 'github-notification-wake-ids.json'));
+
+            applyDefaultStubs();
+            delete SwarmHeartbeatService.readGitHubNotificationWakeState;
+            delete SwarmHeartbeatService.writeGitHubNotificationWakeState;
+
+            const serviceProto = Object.getPrototypeOf(SwarmHeartbeatService);
+            await serviceProto.writeGitHubNotificationWakeState.call(SwarmHeartbeatService, {'@test': ['ghn-1']});
+
+            await expect(serviceProto.readGitHubNotificationWakeState.call(SwarmHeartbeatService)).resolves.toEqual({
+                '@test': ['ghn-1']
+            });
+        } finally {
+            AiConfig.wakeDaemonHeartbeatAlivePath = original;
+            await fs.rm(tmpDir, {recursive: true, force: true});
         }
     });
 

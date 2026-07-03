@@ -3,10 +3,8 @@ import Base              from '../../../src/core/Base.mjs';
 import GraphqlService    from './GraphqlService.mjs';
 import RepositoryService from './RepositoryService.mjs';
 import logger            from '../../mcp/server/github-workflow/logger.mjs';
-import {exec}            from 'child_process';
-import {promisify}       from 'util';
-import {spawn}           from 'child_process';
-import {GET_ISSUE_AND_LABEL_IDS, GET_ISSUE_PARENT, GET_BLOCKED_BY, GET_ISSUE_ASSIGNEES, GET_ISSUE_CONVERSATION, FETCH_ISSUES_FOR_SYNC, FETCH_ISSUES_LIST} from './queries/issueQueries.mjs';
+import {projectConversationTrust} from './shared/conversationTrust.mjs';
+import {GET_ISSUE_LABEL_IDS, GET_PULL_REQUEST_LABEL_IDS, GET_ISSUE_PARENT, GET_BLOCKED_BY, GET_ISSUE_ASSIGNEES, GET_ISSUE_CONVERSATION, FETCH_ISSUES_FOR_SYNC, FETCH_ISSUES_LIST} from './queries/issueQueries.mjs';
 import {GET_PULL_REQUEST_ID} from './queries/pullRequestQueries.mjs';
 import {
     ADD_LABELS,
@@ -24,15 +22,6 @@ import {
     FIND_PROJECT_V2_ITEM_BY_CONTENT,
     UPDATE_PROJECT_V2_ITEM_SINGLE_SELECT
 } from './queries/mutations.mjs';
-
-const execAsync = promisify(exec);
-
-const AGENT_ICONS = {
-    gemini : '✦',
-    claude : '❋',
-    gpt    : '●',
-    default: '◆'
-};
 
 /**
  * @summary Service for interacting with GitHub issues via the GraphQL API.
@@ -81,7 +70,9 @@ class IssueService extends Base {
      * @param {String} [options.comment_id]       Return only the matching comment; others elided. Issue title/body still returned.
      * @param {String} [options.since_comment_id] Return comments strictly after the matching comment (by createdAt order). Unknown id → empty comments.
      * @param {Number} [options.last_n]           Return only the last N comments (by createdAt order).
-     * @returns {Promise<Object>} Conversation data (optionally filtered) or a structured error.
+     * @returns {Promise<Object>} Conversation data (optionally filtered) or a structured error. Payloads
+     *          are trust-projected: authored nodes carry `authorTrust`, untrusted-author bodies arrive
+     *          defanged, and the root carries a `contentTrust` summary (see `shared/conversationTrust.mjs`).
      */
     async getConversation(options) {
         const {issue_number, comment_id, since_comment_id, last_n} = options || {};
@@ -104,8 +95,11 @@ class IssueService extends Base {
         };
 
         try {
-            const data        = await GraphqlService.query(GET_ISSUE_CONVERSATION, variables);
-            const issue       = data.repository.issue;
+            const data = await GraphqlService.query(GET_ISSUE_CONVERSATION, variables);
+            // Trust-project at the read boundary: every authored node gains `authorTrust`,
+            // untrusted-author bodies are defanged, the root carries a `contentTrust` summary.
+            // Applied before selector filtering so all return paths inherit projected nodes.
+            const issue       = projectConversationTrust(data.repository.issue);
             const allComments = issue.comments?.nodes || [];
 
             // Selector precedence: comment_id > since_comment_id > last_n > full.
@@ -189,7 +183,7 @@ class IssueService extends Base {
      * never simultaneous co-ownership.
      *
      * **Clear mode (empty assignees):** unchanged — clearing is always safe (no
-     * precondition needed); proceeds via `gh issue edit --remove-assignee ""`.
+     * precondition needed); proceeds via a REST `PATCH` with an empty `assignees` array.
      *
      * @param {object}   options                       The options object
      * @param {number}   options.issue_number          The number of the issue to modify.
@@ -217,9 +211,10 @@ class IssueService extends Base {
             // CLEAR MODE: empty assignees — no precondition needed; proceeds directly.
             if (!assignees || assignees.length === 0) {
                 logger.info(`Attempting to unassign all users from issue #${issue_number}`);
-                // Passing an empty string to --remove-assignee has been experimentally verified to clear all assignees.
-                const command  = `gh issue edit ${issue_number} --remove-assignee "" --repo ${aiConfig.owner}/${aiConfig.repo}`;
-                await execAsync(command);
+                // REST PATCH with an empty assignees array clears the full set atomically — the
+                // equivalent of the prior `gh issue edit --remove-assignee ""`, with no fetch and no
+                // intermediate state. (PATCH sends only `assignees`, so other issue fields are untouched.)
+                await GraphqlService.rest('PATCH', `/repos/${aiConfig.owner}/${aiConfig.repo}/issues/${issue_number}`, {assignees: []});
                 const message  = `Successfully unassigned all users from issue #${issue_number}`;
                 logger.info(message);
                 return {message};
@@ -247,19 +242,19 @@ class IssueService extends Base {
                 };
             }
 
-            // Step 3 — strict-replacement override: clear existing first.
-            const isOverride = currentAssignees.length > 0 && acknowledgedReassign;
-            if (isOverride) {
-                logger.info(`Strict-replacement override on #${issue_number} (reason: "${acknowledgedReassign}"): clearing existing [${currentAssignees.join(',')}] before assigning [${assignees.join(',')}]`);
-                const clearCommand = `gh issue edit ${issue_number} --remove-assignee "" --repo ${aiConfig.owner}/${aiConfig.repo}`;
-                await execAsync(clearCommand);
-            }
+            // Step 3 — mutate: PATCH replaces the full assignee set. The conflict gate above
+            // guarantees we only reach here on an unassigned issue (fresh add) OR an acknowledged
+            // override (strict replacement) — replacing the set is the correct semantics for both,
+            // atomically (no intermediate empty state the prior clear-then-add carried). `@me` is
+            // normalized to the authenticated login first (REST takes concrete logins).
+            const isOverride        = currentAssignees.length > 0 && acknowledgedReassign;
+            const resolvedAssignees = await this.#resolveAssigneeAliases(assignees);
 
-            // Step 4 — mutate: add the new assignees.
-            logger.info(`Attempting to assign issue #${issue_number} to: ${assignees.join(', ')}`);
-            const assigneeFlags = assignees.map(a => `--add-assignee "${a}"`).join(' ');
-            const command       = `gh issue edit ${issue_number} ${assigneeFlags} --repo ${aiConfig.owner}/${aiConfig.repo}`;
-            await execAsync(command);
+            logger.info(isOverride
+                ? `Strict-replacement override on #${issue_number} (reason: "${acknowledgedReassign}"): replacing [${currentAssignees.join(',')}] with [${assignees.join(',')}]`
+                : `Attempting to assign issue #${issue_number} to: ${assignees.join(', ')}`);
+
+            await GraphqlService.rest('PATCH', `/repos/${aiConfig.owner}/${aiConfig.repo}/issues/${issue_number}`, {assignees: resolvedAssignees});
 
             // Step 5 — post-verify: re-fetch and confirm the resulting assignee state.
             const verifiedAssignees = await this.#fetchCurrentAssignees(issue_number);
@@ -288,9 +283,9 @@ class IssueService extends Base {
         } catch (error) {
             logger.error(`Error updating assignees for issue #${issue_number}:`, error);
             return {
-                error  : 'GitHub CLI command failed',
+                error  : 'GitHub API request failed',
                 message: error.message,
-                code   : 'GH_CLI_ERROR'
+                code   : 'GITHUB_API_ERROR'
             };
         }
     }
@@ -320,9 +315,8 @@ class IssueService extends Base {
      * graph-readable provenance via the Native Edge Graph + Retrospective daemon's
      * comment-ingestion path.
      *
-     * Posts the comment via raw `ADD_COMMENT` (not via `createComment`) to avoid the
-     * agent-attribution header (`**Input from <agent>:**`); the audit comment is system-
-     * generated, not agent-authored.
+     * Posts the comment via raw `ADD_COMMENT` because the audit comment is system-
+     * generated provenance rather than caller-authored feedback.
      *
      * Comment failure does NOT roll back the assignee mutation — graceful degradation,
      * mirroring `createIssue`'s projectAttach partial-failure pattern. Audit-trail tests
@@ -365,10 +359,9 @@ class IssueService extends Base {
      * @param {number} [options.issue_number] The number of the issue.
      * @param {number} [options.pr_number]    The number of the pull request.
      * @param {string} options.body           The raw content of the comment.
-     * @param {string} options.agent          The identity of the calling agent.
      * @returns {Promise<object>} A promise that resolves to a success message.
      */
-    async createComment({issue_number, pr_number, body, agent}) {
+    async createComment({issue_number, pr_number, body}) {
         // Input Validation
         if (issue_number && pr_number) {
             return {
@@ -394,22 +387,6 @@ class IssueService extends Base {
             [isPR ? 'prNumber' : 'number']: number
         };
 
-        // Agent Header Formatting
-        const header       = `**Input from ${agent}:**\n\n`;
-        const agentIcon    = AGENT_ICONS[this.getAgentType(agent)];
-        const headingMatch = body.match(/^(#+\s*)(.*)$/);
-        let processedBody;
-
-        if (headingMatch) {
-            const headingMarkers = headingMatch[1];
-            const headingContent = headingMatch[2];
-            processedBody = `${headingMarkers}${agentIcon} ${headingContent}\n${body.substring(headingMatch[0].length)}`;
-        } else {
-            processedBody = `${agentIcon} ${body}`;
-        }
-
-        const finalBody = `${header}${processedBody.split('\n').map(line => `> ${line}`).join('\n')}`;
-
         try {
             // Divergent ID Lookup
             const query = isPR ? GET_PULL_REQUEST_ID : GET_ISSUE_ID;
@@ -425,7 +402,7 @@ class IssueService extends Base {
             // via mailbox DM to the author; the author fetches just-this-comment via
             // `get_conversation({comment_id: ...})` instead of re-walking the whole thread.
             // Symmetric with `updateComment`'s existing `{commentId, url, updatedAt}` shape.
-            const result = await GraphqlService.query(ADD_COMMENT, { subjectId, body: finalBody });
+            const result = await GraphqlService.query(ADD_COMMENT, { subjectId, body });
             const node   = result.addComment.commentEdge.node;
 
             return {
@@ -490,51 +467,36 @@ class IssueService extends Base {
             }
         }
 
-        const ghArgs = [
-            'issue', 'create',
-            '--title', title,
-            '--body', body || 'No additional details provided.',
-            '--repo', `${aiConfig.owner}/${aiConfig.repo}`
-        ];
+        // Route issue creation through GraphqlService's cached-token, retry-equipped REST path
+        // rather than a fresh per-call `spawn('gh', ['issue','create'])` that re-resolves
+        // gh-auth on every invocation. REST `POST /issues` accepts label names + assignee logins
+        // directly — identical semantics to `gh issue create`, with none of the label/user
+        // node-ID resolution a GraphQL `createIssue` mutation would require. The ProjectV2 attach
+        // below already runs through GraphqlService, so creation is now a single auth path.
+        const payload = {
+            title,
+            body: body || 'No additional details provided.'
+        };
 
         if (labels && labels.length > 0) {
-            labels.forEach(label => {
-                ghArgs.push('--label', label);
-            });
-        }
-
-        if (assignees && assignees.length > 0) {
-            assignees.forEach(assignee => {
-                ghArgs.push('--assignee', assignee);
-            });
+            payload.labels = labels;
         }
 
         try {
-            const ghProcess = spawn('gh', ghArgs);
-
-            let stdout = '';
-            let stderr = '';
-
-            for await (const chunk of ghProcess.stdout) {
-                stdout += chunk;
-            }
-            for await (const chunk of ghProcess.stderr) {
-                stderr += chunk;
+            if (assignees && assignees.length > 0) {
+                // `@me` is a gh-CLI alias the create_issue contract advertises (assigns the authenticated
+                // user); the REST issues endpoint expects concrete logins, so normalize it first. Inside
+                // the try so an alias-resolution failure returns the structured error rather than throwing.
+                payload.assignees = await this.#resolveAssigneeAliases(assignees);
             }
 
-            const exitCode = await new Promise(resolve => {
-                ghProcess.on('close', resolve);
-            });
+            const issue = await GraphqlService.rest('POST', `/repos/${aiConfig.owner}/${aiConfig.repo}/issues`, payload);
 
-            if (exitCode !== 0) {
-                throw new Error(stderr || 'Failed to create GitHub issue.');
-            }
-
-            const issueUrl = stdout.trim();
-            const issueNumber = parseInt(issueUrl.split('/').pop(), 10);
+            const issueNumber = issue?.number,
+                  issueUrl    = issue?.html_url;
 
             if (!issueNumber) {
-                throw new Error('Could not parse issue number from gh CLI output.');
+                throw new Error('Could not resolve the new issue number from the GitHub REST response.');
             }
 
             logger.info(`Successfully created GitHub issue #${issueNumber}: ${issueUrl}`);
@@ -557,11 +519,37 @@ class IssueService extends Base {
         } catch (error) {
             logger.error('Error creating GitHub issue:', error);
             return {
-                error  : 'GitHub CLI command failed',
+                error  : 'GitHub API request failed',
                 message: error.message,
-                code   : 'GH_CLI_ERROR'
+                code   : 'GITHUB_API_ERROR'
             };
         }
+    }
+
+    /**
+     * @summary Resolves the `@me` assignee alias to the authenticated user's login.
+     *
+     * `create_issue` advertises `@me` (the gh-CLI convenience the prior `gh issue create` path relied
+     * on) as a valid assignee; GitHub's REST issues endpoint expects concrete user logins, so `@me`
+     * must be normalized before the REST call. Resolution uses the cached-token `GET /user` — a single
+     * round-trip, made only when the alias is actually present. Non-alias logins pass through unchanged.
+     * @param {String[]} assignees
+     * @returns {Promise<String[]>}
+     * @private
+     */
+    async #resolveAssigneeAliases(assignees) {
+        if (!assignees.includes('@me')) {
+            return assignees;
+        }
+
+        const viewer = await GraphqlService.rest('GET', '/user'),
+              login  = viewer?.login;
+
+        if (!login) {
+            throw new Error('Could not resolve the `@me` assignee alias: GitHub REST /user returned no login.');
+        }
+
+        return assignees.map(assignee => assignee === '@me' ? login : assignee);
     }
 
     /**
@@ -939,21 +927,6 @@ class IssueService extends Base {
     }
 
     /**
-     * Extracts the agent type from the agent string for icon selection.
-     * @param {string} agent The full agent identifier
-     * @returns {string} The agent type key for AGENT_ICONS lookup
-     */
-    getAgentType(agent) {
-        const agentLower = agent.toLowerCase();
-
-        if (agentLower.includes('gemini')) return 'gemini';
-        if (agentLower.includes('claude')) return 'claude';
-        if (agentLower.includes('gpt'))    return 'gpt';
-
-        return 'default';
-    }
-
-    /**
      * Convenience shortcut
      * @returns {Promise<Boolean>}
      */
@@ -1000,11 +973,10 @@ class IssueService extends Base {
      * @param {number} [options.pr_number]    The number of the pull request (required for create if issue_number omitted).
      * @param {string} [options.comment_id]   The global node ID of the comment (required for update).
      * @param {string} options.body           The content of the comment.
-     * @param {string} [options.agent]        The identity of the calling agent (required for create).
      * @param {string} options.action         The action to perform: 'create' or 'update'.
      * @returns {Promise<object>}
      */
-    async manageIssueComment({issue_number, pr_number, comment_id, body, agent, action}) {
+    async manageIssueComment({issue_number, pr_number, comment_id, body, action}) {
         if (!['create', 'update'].includes(action)) {
             return {
                 error: 'Bad Request',
@@ -1014,14 +986,7 @@ class IssueService extends Base {
         }
 
         if (action === 'create') {
-            if (!agent) {
-                return {
-                    error: 'Bad Request',
-                    message: "Missing required argument: 'agent' is required for creating comments.",
-                    code: 'MISSING_ARGUMENTS'
-                };
-            }
-            return this.createComment({issue_number, pr_number, body, agent});
+            return this.createComment({issue_number, pr_number, body});
         } else {
             if (!comment_id) {
                 return {
@@ -1093,10 +1058,9 @@ class IssueService extends Base {
         logger.info(`Attempting to unassign issue #${issue_number} from: ${assignees.join(', ')}`);
 
         try {
-            const assigneeFlags = assignees.map(a => `--remove-assignee "${a}"`).join(' ');
-            const command       = `gh issue edit ${issue_number} ${assigneeFlags} --repo ${aiConfig.owner}/${aiConfig.repo}`;
-
-            await execAsync(command);
+            // DELETE removes the specified logins from the issue's assignee set (incremental remove,
+            // the equivalent of `gh issue edit --remove-assignee`); other assignees are preserved.
+            await GraphqlService.rest('DELETE', `/repos/${aiConfig.owner}/${aiConfig.repo}/issues/${issue_number}/assignees`, {assignees});
 
             const message = `Successfully unassigned ${assignees.join(', ')} from issue #${issue_number}`;
             logger.info(message);
@@ -1105,9 +1069,9 @@ class IssueService extends Base {
         } catch (error) {
             logger.error(`Error unassigning from issue #${issue_number}:`, error);
             return {
-                error  : 'GitHub CLI command failed',
+                error  : 'GitHub API request failed',
                 message: error.message,
-                code   : 'GH_CLI_ERROR'
+                code   : 'GITHUB_API_ERROR'
             };
         }
     }
@@ -1142,13 +1106,26 @@ class IssueService extends Base {
     }
 
     /**
-     * Fetches the GraphQL node IDs for an issue or pull request and a set of labels.
-     * @param {number}   issueNumber The number of the issue or PR.
-     * @param {string[]} labelNames  An array of label names.
-     * @returns {Promise<{labelableId: string, labelIds: string[]}>} The node IDs.
+     * @summary Detects GitHub's missing-number GraphQL error for one labelable branch.
+     * @param {Error}  error       GraphQL failure.
+     * @param {String} type        GitHub type name (`Issue` or `PullRequest`).
+     * @param {Number} issueNumber Repository issue/PR number.
+     * @returns {Boolean}
      * @private
      */
-    async #getIds(issueNumber, labelNames) {
+    #isMissingLabelableError(error, type, issueNumber) {
+        return new RegExp(`Could not resolve to an? ${type} with the number of ${issueNumber}`).test(error?.message || '');
+    }
+
+    /**
+     * @summary Fetches one labelable branch while converting "missing target" to null.
+     * @param {String} query       GraphQL query to execute.
+     * @param {Number} issueNumber Repository issue/PR number.
+     * @param {String} type        GitHub type name (`Issue` or `PullRequest`).
+     * @returns {Promise<Object|null>}
+     * @private
+     */
+    async #queryLabelableIds(query, issueNumber, type) {
         const variables = {
             owner      : aiConfig.owner,
             repo       : aiConfig.repo,
@@ -1156,19 +1133,61 @@ class IssueService extends Base {
             maxLabels  : aiConfig.issueSync.maxRepoLabels
         };
 
-        const data = await GraphqlService.query(GET_ISSUE_AND_LABEL_IDS, variables);
+        try {
+            return await GraphqlService.query(query, variables);
+        } catch (error) {
+            if (this.#isMissingLabelableError(error, type, issueNumber)) {
+                return null;
+            }
+            throw error;
+        }
+    }
 
+    /**
+     * @summary Resolves repository label names into GraphQL IDs.
+     * @param {Object}   data        GraphQL repository payload.
+     * @param {String[]} labelNames  Requested labels.
+     * @param {Number}   issueNumber Repository issue/PR number.
+     * @returns {String[]}
+     * @private
+     */
+    #resolveLabelIds(data, labelNames, issueNumber) {
         const
-            labelableId = data.repository.issue?.id || data.repository.pullRequest?.id,
-            repoLabels   = data.repository.labels.nodes,
-            labelIds     = labelNames.map(name => {
+            repoLabels = data?.repository?.labels?.nodes || [],
+            labelIds   = labelNames.map(name => {
                 const label = repoLabels.find(l => l.name === name);
                 return label ? label.id : null;
             }).filter(Boolean);
 
-        if (!labelableId || labelIds.length !== labelNames.length) {
+        if (labelIds.length !== labelNames.length) {
             throw new Error(`Could not find issue or pull request #${issueNumber} or one of the labels: ${labelNames.join(', ')}`);
         }
+
+        return labelIds;
+    }
+
+    /**
+     * Fetches the GraphQL node IDs for an issue or pull request and a set of labels.
+     * @param {number}   issueNumber The number of the issue or PR.
+     * @param {string[]} labelNames  An array of label names.
+     * @returns {Promise<{labelableId: string, labelIds: string[]}>} The node IDs.
+     * @private
+     */
+    async #getIds(issueNumber, labelNames) {
+        let
+            data        = await this.#queryLabelableIds(GET_ISSUE_LABEL_IDS, issueNumber, 'Issue'),
+            labelableId = data?.repository?.issue?.id;
+
+        if (!labelableId) {
+            data        = await this.#queryLabelableIds(GET_PULL_REQUEST_LABEL_IDS, issueNumber, 'PullRequest');
+            labelableId = data?.repository?.pullRequest?.id;
+        }
+
+        if (!labelableId) {
+            throw new Error(`Could not find issue or pull request #${issueNumber} or one of the labels: ${labelNames.join(', ')}`);
+        }
+
+        const labelIds = this.#resolveLabelIds(data, labelNames, issueNumber);
 
         return { labelableId, labelIds };
     }

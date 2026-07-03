@@ -45,6 +45,100 @@ test.describe('core/Base Timeout Handling', () => {
         expect(error).toBe(Neo.isDestroyed);
     });
 
+    test('destroy() should clear Node Timeout object ids from timeout()', async () => {
+        class TestClass extends core.Base {
+            static config = {
+                className: 'Neo.test.NodeTimeoutDestroyTestClass'
+            }
+        }
+        TestClass = Neo.setupClass(TestClass);
+
+        const
+            instance     = Neo.create(TestClass),
+            clearTimeout = globalThis.clearTimeout,
+            clearedIds   = [];
+
+        globalThis.clearTimeout = id => {
+            clearedIds.push(id);
+            return clearTimeout(id)
+        };
+
+        try {
+            const timeoutPromise = instance.timeout(500);
+
+            instance.destroy();
+
+            await expect(timeoutPromise).rejects.toBe(Neo.isDestroyed);
+        } finally {
+            globalThis.clearTimeout = clearTimeout
+        }
+
+        expect(clearedIds).toHaveLength(1);
+        expect(typeof clearedIds[0]).toBe('object');
+        expect(clearedIds[0]?.constructor?.name).toBe('Timeout');
+    });
+
+    test('destroy() should still clear browser-style numeric timeout ids', () => {
+        class TestClass extends core.Base {
+            static config = {
+                className: 'Neo.test.NumericTimeoutDestroyTestClass'
+            }
+        }
+        TestClass = Neo.setupClass(TestClass);
+
+        const
+            instance     = Neo.create(TestClass),
+            clearTimeout = globalThis.clearTimeout,
+            clearedIds   = [];
+
+        let rejectedWith;
+
+        globalThis.clearTimeout = id => {
+            clearedIds.push(id);
+            return clearTimeout(id)
+        };
+
+        try {
+            instance.registerAsync(42, reason => { rejectedWith = reason });
+            instance.destroy()
+        } finally {
+            globalThis.clearTimeout = clearTimeout
+        }
+
+        expect(clearedIds).toEqual([42]);
+        expect(rejectedWith).toBe(Neo.isDestroyed);
+    });
+
+    test('destroy() should not pass trap() Symbol ids to clearTimeout', async () => {
+        class TestClass extends core.Base {
+            static config = {
+                className: 'Neo.test.TrapSymbolDestroyTestClass'
+            }
+        }
+        TestClass = Neo.setupClass(TestClass);
+
+        const
+            instance     = Neo.create(TestClass),
+            clearTimeout = globalThis.clearTimeout,
+            clearedIds   = [],
+            trapped      = instance.trap(new Promise(() => {}));
+
+        globalThis.clearTimeout = id => {
+            clearedIds.push(id);
+            return clearTimeout(id)
+        };
+
+        try {
+            instance.destroy();
+
+            await expect(trapped).rejects.toBe(Neo.isDestroyed);
+        } finally {
+            globalThis.clearTimeout = clearTimeout
+        }
+
+        expect(clearedIds).toEqual([]);
+    });
+
     test('Multiple timeouts should be handled correctly', async () => {
         class TestClass extends core.Base {
             static config = {

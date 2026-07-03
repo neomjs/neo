@@ -85,7 +85,7 @@ const MCP_FACT_MIRRORS = [
         expectations: context => context.functionalServers.map(server => `${server.label} MCP server`)
     },
     {
-        file       : 'learn/benefits/Introduction.md',
+        file       : 'learn/benefits/ApplicationEngine.md',
         expectations: context => [
             `${toWord(context.frontierServers.length)} frontier-harness`,
             ...context.frontierServers.map(server => server.label),

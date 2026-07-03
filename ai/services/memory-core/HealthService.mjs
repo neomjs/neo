@@ -1,27 +1,29 @@
-import fs                       from 'fs/promises';
-import fsExtra                  from 'fs-extra';
-import path                     from 'path';
-import {fileURLToPath}          from 'url';
-import aiConfig                 from '../../mcp/server/memory-core/config.mjs';
-import Base                     from '../../../src/core/Base.mjs';
-import RuntimeFreshnessService  from '../../mcp/server/shared/services/RuntimeFreshnessService.mjs';
-import ChromaManager            from './managers/ChromaManager.mjs';
-import StorageRouter            from './managers/StorageRouter.mjs';
-import ChromaLifecycleService   from './lifecycle/ChromaLifecycleService.mjs';
-import logger                   from '../../mcp/server/memory-core/logger.mjs';
-import {readGateState}          from '../../scripts/lifecycle/wakeSafetyGate.mjs';
+import fs                      from 'fs/promises';
+import fsExtra                 from 'fs-extra';
+import path                    from 'path';
+import {fileURLToPath}         from 'url';
+import aiConfig                from '../../mcp/server/memory-core/config.mjs';
+import Base                    from '../../../src/core/Base.mjs';
+import RuntimeFreshnessService from '../../mcp/server/shared/services/RuntimeFreshnessService.mjs';
+import ChromaManager           from './managers/ChromaManager.mjs';
+import StorageRouter           from './managers/StorageRouter.mjs';
+import ChromaLifecycleService  from './lifecycle/ChromaLifecycleService.mjs';
+import logger                  from '../../mcp/server/memory-core/logger.mjs';
+import {readGateState}         from '../../scripts/lifecycle/wakeSafetyGate.mjs';
 import {
     SHARED_USER_ID,
     hasCoreSwarmParticipant,
     normalizeUserId
 } from '../../mcp/server/shared/services/RequestContextService.mjs';
-import {readRecentRemRunStates} from './helpers/remRunStateStore.mjs';
+import {buildSqliteHolderDiagnostics} from './helpers/harnessClassifier.mjs';
+import {readRecentRemRunStates}       from './helpers/remRunStateStore.mjs';
+import {withTimeout}                  from './helpers/withTimeout.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const
-    configPath  = path.resolve(__dirname, '../../config.mjs'),
-    openApiPath = path.resolve(__dirname, '../../mcp/server/memory-core/openapi.yaml'),
+    configPath              = path.resolve(__dirname, '../../config.mjs'),
+    openApiPath             = path.resolve(__dirname, '../../mcp/server/memory-core/openapi.yaml'),
     runtimeFreshnessTracker = RuntimeFreshnessService.createTracker({
         files  : [{
             key       : 'configDigest',
@@ -112,9 +114,9 @@ export function buildIdentityBlock(stdioIdentityState) {
     }
 
     const {agentIdentityNodeId, source, userId} = stdioIdentityState,
-          resolvedSource = source || 'unresolved',
-          isEnvPinnedUnbound = resolvedSource === 'env-var' && !agentIdentityNodeId,
-          warning = isEnvPinnedUnbound
+          resolvedSource                        = source || 'unresolved',
+          isEnvPinnedUnbound                    = resolvedSource === 'env-var' && !agentIdentityNodeId,
+          warning                               = isEnvPinnedUnbound
               ? `NEO_AGENT_IDENTITY is pinned to '${userId || 'unknown'}' but resolved to no ` +
                 `AgentIdentity graph node (bound:false). Check for a stale checkout, run ` +
                 `ai/scripts/setup/seedAgentIdentities.mjs, or confirm the identity exists in ` +
@@ -122,65 +124,11 @@ export function buildIdentityBlock(stdioIdentityState) {
               : null;
 
     return {
-        source : resolvedSource,
-        bound  : !!agentIdentityNodeId,
-        nodeId : agentIdentityNodeId || null,
+        source: resolvedSource,
+        bound : !!agentIdentityNodeId,
+        nodeId: agentIdentityNodeId || null,
         warning
     };
-}
-
-/**
- * @summary Projects orchestrator task outcomes into the healthcheck `orchestrator.tasks`
- *          observability block.
- *
- * The task outcome map is updated by `Neo.ai.daemons.Orchestrator` after each child-task
- * lifecycle event. Returning a shallow clone prevents healthcheck callers from mutating
- * the cached singleton state while keeping the payload direct enough for operators to
- * inspect `summary` and `kbSync` independently.
- *
- * @param {Object} taskOutcomes Last-known outcome by task name.
- * @returns {Object}
- * @see Neo.ai.daemons.Orchestrator#recordTaskOutcome
- */
-export function buildTaskOutcomesBlock(taskOutcomes) {
-    return Object.entries(taskOutcomes || {}).reduce((out, [taskName, outcome]) => {
-        out[taskName] = {...outcome};
-        return out;
-    }, {});
-}
-
-/**
- * @summary Projects the effective ChromaDB topology resolution into the healthcheck `database.topology`
- *          observability block.
- *
- * Pure function: takes an `aiConfig`-shaped input and returns the three-field projection operators
- * need to verify ChromaDB coordinate resolution — `{mode, coordinates, resolvedVia}`.
- *
- * **Post-v13 topology:** The federated topology has been retired. The system operates
- * permanently in `unified` mode. Memory Core connects as a downstream client to the shared
- * ChromaDB instance via `cfg.engines.chroma`. The `mode` is statically `'unified'` and
- * `resolvedVia` is statically `'engines.chroma'`.
- *
- * @param {Object} cfg aiConfig-shaped input. Reads `cfg.engines.chroma.{host, port}`.
- * @returns {{mode: String, coordinates: Object|null, resolvedVia: String, error: String|undefined}}
- *     `mode` is statically `'unified'`. `coordinates` is `{host, port}` on success or `null` on
- *     resolver throw. `resolvedVia` is statically `'engines.chroma'`.
- * @see learn/agentos/MemoryCore.md
- */
-export function buildTopologyBlock(cfg) {
-    try {
-        const coordinates = cfg.engines?.chroma || null;
-        if (!coordinates || !coordinates.host || !coordinates.port) {
-            throw new Error('engines.chroma.{host, port} is undefined or incomplete.');
-        }
-        return {
-            mode: 'unified',
-            coordinates,
-            resolvedVia: 'engines.chroma'
-        };
-    } catch (e) {
-        return {mode: 'unified', coordinates: null, resolvedVia: 'engines.chroma', error: e.message};
-    }
 }
 
 /**
@@ -188,8 +136,7 @@ export function buildTopologyBlock(cfg) {
  *          observability block.
  *
  * Pure function: takes an `aiConfig`-shaped input and returns the active embedding provider with
- * their host, model, and configured vector dimension. Mirrors the {@link buildTopologyBlock} precedent
- * for module-scope pure projections.
+ * their host, model, and configured vector dimension. Mirrors the module-scope pure-projection precedent.
  *
  * **Why this block exists:** Operators deploying the shared MC/KB topology against a local-model stack
  * (e.g., MLX-served Qwen3 embedding model) need an observable surface confirming WHICH Chroma-side
@@ -228,6 +175,7 @@ export function buildEmbeddingProviderBlock(cfg) {
  * @param {Function} [options.embedText] Optional test seam matching `TextEmbeddingService.embedText`.
  * @param {String} [options.input='neo-healthcheck-embedding-write-canary'] Probe text.
  * @param {Function} [options.now=Date.now] Time source for deterministic tests.
+ * @param {Number} [options.timeoutMs=aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs] Max time to wait for the provider.
  * @returns {Promise<{status: String, provider: String, dimensions: Number|null,
  *     expectedDimensions: Number|null, durationMs: Number, error: String|undefined}>}
  */
@@ -235,7 +183,8 @@ export async function buildEmbeddingWriteCanaryBlock({
     cfg       = aiConfig,
     embedText = null,
     input     = 'neo-healthcheck-embedding-write-canary',
-    now       = Date.now
+    now       = Date.now,
+    timeoutMs = aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs
 } = {}) {
     const readNow            = typeof now === 'function' ? now : () => (typeof now === 'number' ? now : now.getTime()),
           startedAt          = readNow(),
@@ -247,7 +196,11 @@ export async function buildEmbeddingWriteCanaryBlock({
             const {default: TextEmbeddingService} = await import('./TextEmbeddingService.mjs');
             return TextEmbeddingService.embedText(text, explicitProvider);
         });
-        const embedding = await probe(input, provider),
+        const embedding = await withTimeout(
+                  Promise.resolve(probe(input, provider)),
+                  timeoutMs,
+                  'Embedding write canary'
+              ),
               dimensions = Array.isArray(embedding) ? embedding.length : null,
               durationMs = Math.max(0, readNow() - startedAt);
 
@@ -306,31 +259,31 @@ function buildSingleEmbeddingProviderBlock(cfg, active, configName) {
         case 'openAiCompatible':
             return {
                 active,
-                host      : cfg.openAiCompatible?.host || null,
-                model     : cfg.openAiCompatible?.embeddingModel || null,
+                host : cfg.openAiCompatible?.host || null,
+                model: cfg.openAiCompatible?.embeddingModel || null,
                 dimensions
             };
         case 'ollama':
             return {
                 active,
-                host      : cfg.ollama?.host || null,
-                model     : cfg.ollama?.embeddingModel || null,
+                host : cfg.ollama?.host || null,
+                model: cfg.ollama?.embeddingModel || null,
                 dimensions
             };
         case 'gemini':
             return {
                 active,
-                host      : null,
-                model     : cfg.embeddingModel || null,
+                host : null,
+                model: cfg.embeddingModel || null,
                 dimensions
             };
         default:
             return {
                 active,
-                host      : null,
-                model     : null,
+                host : null,
+                model: null,
                 dimensions,
-                error     : `Unrecognized ${configName}: '${active}'. Expected 'gemini' | 'openAiCompatible' | 'ollama'.`
+                error: `Unrecognized ${configName}: '${active}'. Expected 'gemini' | 'openAiCompatible' | 'ollama'.`
             };
     }
 }
@@ -341,17 +294,16 @@ function buildSingleEmbeddingProviderBlock(cfg, active, configName) {
  *
  * The shared-deployment local-model validation path needs operators to confirm that session
  * summaries are routed to the intended chat API before waiting for a disconnect-triggered
- * summarization run. This pure projection names the active provider, host, model, endpoint,
- * local status, and credential env var without exposing secret values, mirroring the sibling
+ * summarization run. This pure projection names the active provider, host, model, and local
+ * status, mirroring the sibling
  * {@link buildEmbeddingProviderBlock} operator-facing `providers.*` observability strategy.
  *
  * @param {Object} cfg aiConfig-shaped input containing `modelProvider`, `modelName`, and
- *     `openAiCompatible.{host, model, apiKey}`.
- * @param {Object} [env=process.env] Environment source used to test Gemini key presence in unit tests.
- * @returns {{active: String, host: String|null, model: String|null, endpoint: String|null, local: Boolean, credential: Object}}
+ *     `openAiCompatible.{host, model}`.
+ * @returns {{active: String, host: String|null, model: String|null, local: Boolean}}
  */
-export function buildSummaryProviderBlock(cfg, env = process.env) {
-    const active = cfg.modelProvider || 'gemini';
+export function buildSummaryProviderBlock(cfg) {
+    const active = cfg.modelProvider || 'openAiCompatible';
 
     if (active === 'openAiCompatible') {
         const host = cfg.openAiCompatible?.host || null;
@@ -359,89 +311,94 @@ export function buildSummaryProviderBlock(cfg, env = process.env) {
         return {
             active,
             host,
-            model     : cfg.openAiCompatible?.model || null,
-            endpoint  : host ? `${host}/v1/chat/completions` : null,
-            local     : !!host && /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(?::|\/|$)/.test(host),
-            credential: {
-                env       : 'NEO_OPENAI_COMPATIBLE_API_KEY',
-                configured: !!cfg.openAiCompatible?.apiKey,
-                required  : false
-            }
+            model: cfg.openAiCompatible?.model || null,
+            local: !!host && /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(?::|\/|$)/.test(host)
+        };
+    }
+
+    if (active === 'ollama') {
+        const host = cfg.ollama?.host || null;
+
+        return {
+            active,
+            host,
+            model: cfg.ollama?.model || null,
+            local: !!host && /^(https?:\/\/)?(127\.0\.0\.1|localhost|\[::1\])(?::|\/|$)/.test(host)
         };
     }
 
     return {
         active,
-        host      : null,
-        model     : active === 'gemini' ? cfg.modelName || null : null,
-        endpoint  : null,
-        local     : false,
-        credential: {
-            env       : active === 'gemini' ? 'GEMINI_API_KEY' : null,
-            configured: active === 'gemini' ? !!env.GEMINI_API_KEY : true,
-            required  : active === 'gemini'
-        }
+        host : null,
+        model: active === 'gemini' ? cfg.modelName || null : null,
+        local: false
     };
 }
 
 /**
- * @summary Projects the active authentication-provider configuration into the healthcheck
- *          `providers.auth` observability block.
+ * @summary Resolves whether the configured Memory Core model providers have their
+ *          required credentials available.
  *
- * Operators deploying the shared MC/KB topology with multi-tenant identity isolation need an
- * observable surface confirming WHICH auth path is currently primary at boot — OIDC introspection
- * vs proxy-header injection vs single-tenant fallthrough. Without this, a misconfigured
- * `NEO_AUTH_TRUST_PROXY_IDENTITY=true` set without a fronting proxy actually being deployed is
- * undetectable until requests start failing in non-obvious ways. Mirrors the
- * {@link buildEmbeddingProviderBlock} + {@link buildSummaryProviderBlock} precedents for
- * module-scope pure projections of provider state.
+ * Local providers (`openAiCompatible`, `ollama`) are valid without `GEMINI_API_KEY`;
+ * Gemini requires `GEMINI_API_KEY` only for the exact summary or embedding surface that
+ * selects Gemini. This keeps health diagnostics aligned with the provider SSOT instead
+ * of treating a missing Gemini key as a universal Memory Core outage.
  *
- * **Path precedence (matches `Server.mjs#buildRequestContext` runtime semantics):**
- * - `'oidc'` — `aiConfig.auth.host` AND `aiConfig.auth.issuerUrl` are both populated. The MC
- *   server runs its own OIDC introspection. Takes precedence over proxy-header even when
- *   `trustProxyIdentity` is also true (req.auth wins by design — see SharedDeployment.md).
- * - `'proxy-header'` — OIDC unconfigured AND `trustProxyIdentity=true`. The MC server reads
- *   `X-PREFERRED-USERNAME` (or the `oauth2-proxy`-specific `X-Auth-Request-Preferred-Username`)
- *   from the upstream request and trusts the fronting proxy's identity assertion. Requests
- *   missing the proxy header in this mode are actively rejected with 401.
- * - `'unconfigured'` — neither path active. Single-tenant fallthrough (local development).
- *
- * **Security: clientSecret never leaks.** This block intentionally omits the OAuth `clientSecret`
- * field even when OIDC is configured. Healthcheck output is operator-readable and may surface in
- * logs / monitoring dashboards; the secret value belongs only in the gitignored `config.mjs`.
- *
- * @param {Object} cfg aiConfig-shaped input. Reads `cfg.auth.{host, issuerUrl, realm, trustProxyIdentity}`.
- * @returns {{configured: String, oidc: Object, proxyHeader: Object}}
- * @see learn/agentos/SharedDeployment.md
- * @see Neo.ai.mcp.server.memory-core.Server#buildRequestContext
+ * @param {Object} cfg aiConfig-shaped input containing `modelProvider`, `embeddingProvider`,
+ *     and `engine`.
+ * @param {Object} [env=process.env] Environment object used for deterministic tests.
+ * @returns {{ready: Boolean, summary: Object, embedding: Object, details: String[]}}
  */
-export function buildAuthProviderBlock(cfg) {
-    const auth           = cfg.auth || {};
-    const oidcConfigured = !!(auth.host && auth.issuerUrl);
-    const proxyTrusted   = auth.trustProxyIdentity === true;
+export function buildProviderPrerequisiteBlock(cfg, env = process.env) {
+    const supportedProviders = ['gemini', 'openAiCompatible', 'ollama'],
+          engine             = cfg.engine,
+          summaryProvider    = cfg.modelProvider || 'openAiCompatible',
+          embeddingProvider  = cfg.embeddingProvider || 'openAiCompatible',
+          checkProvider      = (provider, surface, unavailableDetail) => {
+              if (!supportedProviders.includes(provider)) {
+                  return {
+                      ready : false,
+                      detail: `Unsupported ${surface} provider '${provider}'. Expected 'gemini' | 'openAiCompatible' | 'ollama'.`
+                  };
+              }
 
-    let configured;
+              if (provider === 'gemini' && !env.GEMINI_API_KEY) {
+                  return {
+                      ready : false,
+                      detail: unavailableDetail
+                  };
+              }
 
-    if (oidcConfigured) {
-        configured = 'oidc';
-    } else if (proxyTrusted) {
-        configured = 'proxy-header';
-    } else {
-        configured = 'unconfigured';
-    }
+              return {
+                  ready : true,
+                  detail: null
+              };
+          },
+          summary = checkProvider(
+              summaryProvider,
+              'summary',
+              "Summary provider 'gemini' requires GEMINI_API_KEY - summarization features unavailable"
+          ),
+          embedding = (engine === 'chroma' || engine === 'hybrid')
+              ? checkProvider(
+                  embeddingProvider,
+                  'embedding',
+                  "Embedding provider 'gemini' requires GEMINI_API_KEY - semantic memory features unavailable"
+              )
+              : {ready: true, detail: null},
+          details = [summary.detail, embedding.detail].filter(Boolean);
 
     return {
-        configured,
-        oidc: {
-            host      : auth.host || null,
-            issuerUrl : auth.issuerUrl || null,
-            realm     : auth.realm || null,
-            configured: oidcConfigured
+        ready  : summary.ready && embedding.ready,
+        summary: {
+            provider: summaryProvider,
+            ready   : summary.ready
         },
-        proxyHeader: {
-            trusted       : proxyTrusted,
-            headersChecked: ['x-preferred-username', 'x-auth-request-preferred-username']
-        }
+        embedding: {
+            provider: embeddingProvider,
+            ready   : embedding.ready
+        },
+        details
     };
 }
 
@@ -452,7 +409,7 @@ export function buildAuthProviderBlock(cfg) {
  * and the heartbeat-liveness file mtime (touched once per pulse by
  * `SwarmHeartbeatService.touchLivenessFile()`), returning the operator/agent-facing
  * observability shape. Mirrors the
- * {@link buildAuthProviderBlock} + {@link buildSummaryProviderBlock} sibling-block precedent
+ * {@link buildSummaryProviderBlock} sibling-block precedent
  * for module-scope projection functions.
  *
  * **Why this block exists:** the wake substrate (gate-state + daemon-liveness + polling-activity)
@@ -466,8 +423,8 @@ export function buildAuthProviderBlock(cfg) {
  *   `wakeSafetyGate.readGateState`. The deny-by-default sentinel (`trippedBy === 'default-on-missing-file'`)
  *   is mapped to `'unknown'` here — observability semantics differ from gate-enforcement semantics
  *   (we surface "I don't know" instead of conflating it with operator-tripped state).
- * - `gateReason` / `gateTrippedAt` / `gateTrippedBy`: pass-through from the gate state file when
- *   present (empty string / null otherwise).
+ * - `gateTrippedAt` / `gateTrippedBy`: pass-through from the gate state file when
+ *   present (null otherwise).
  * - `daemonRunning`: boolean. `true` when the heartbeat-liveness file mtime is within
  *   `heartbeatLivenessStaleMs()` (2× POLL_INTERVAL). `false` when missing or stale.
  * - `lastPulseAt`: ISO timestamp of the liveness file mtime, or `null` if absent.
@@ -487,7 +444,7 @@ export function buildAuthProviderBlock(cfg) {
  * Aligns with the "surface, don't obscure" principle.
  *
  * @param {Number|Date} [now=Date.now()] Time source for deterministic tests
- * @returns {Promise<{gateState: String, gateReason: String, gateTrippedAt: String|null,
+ * @returns {Promise<{gateState: String, gateTrippedAt: String|null,
  *     gateTrippedBy: String|null, daemonRunning: Boolean, lastPulseAt: String|null,
  *     secondsSinceLastPulse: Number|null}>}
  * @see ai/scripts/lifecycle/wakeSafetyGate.mjs
@@ -499,7 +456,6 @@ export async function buildWakeFeaturesBlock(now = Date.now()) {
 
     let gateBlock = {
         gateState    : 'unknown',
-        gateReason   : '',
         gateTrippedAt: null,
         gateTrippedBy: null
     };
@@ -509,7 +465,6 @@ export async function buildWakeFeaturesBlock(now = Date.now()) {
         if (gate.trippedBy !== 'default-on-missing-file') {
             gateBlock = {
                 gateState    : gate.state,
-                gateReason   : gate.reason || '',
                 gateTrippedAt: gate.trippedAt || null,
                 gateTrippedBy: gate.trippedBy || null
             };
@@ -526,9 +481,9 @@ export async function buildWakeFeaturesBlock(now = Date.now()) {
     };
 
     try {
-        const stat       = await fs.stat(heartbeatAlivePath());
-        const mtimeMs    = stat.mtime.getTime();
-        const ageMs      = Math.max(0, nowMs - mtimeMs);
+        const stat    = await fs.stat(heartbeatAlivePath());
+        const mtimeMs = stat.mtime.getTime();
+        const ageMs   = Math.max(0, nowMs - mtimeMs);
         livenessBlock = {
             daemonRunning        : ageMs < heartbeatLivenessStaleMs(),
             lastPulseAt          : stat.mtime.toISOString(),
@@ -542,28 +497,6 @@ export async function buildWakeFeaturesBlock(now = Date.now()) {
     return {...gateBlock, ...livenessBlock};
 }
 
-/**
- * @summary Projects the orchestrator's last dream / golden-path run timestamps into the
- *          healthcheck `features.dream` observability block.
- *
- * Timestamps (`lastDreamRun`, `lastGoldenPathRun`) are `null` until the orchestrator records
- * run history. Boot-time auto-* feature flags were retired — the orchestrator daemon is the
- * sole driver of dream / golden-path / summarize / ingest, so there are no server-side flags
- * left to project.
- *
- * @param {Object|Map<String, Object>} [taskOutcomes={}] The orchestrator task outcomes map or object.
- * @returns {{lastDreamRun: String|null, lastGoldenPathRun: String|null}}
- */
-export function buildDreamFeaturesBlock(taskOutcomes = {}) {
-    const isMap = taskOutcomes instanceof Map;
-    const dreamState = isMap ? taskOutcomes.get('dream') : taskOutcomes['dream'];
-    const goldenPathState = isMap ? taskOutcomes.get('golden-path') : taskOutcomes['golden-path'];
-
-    return {
-        lastDreamRun     : dreamState?.details?.completedAt || dreamState?.details?.failedAt || null,
-        lastGoldenPathRun: goldenPathState?.details?.completedAt || goldenPathState?.details?.failedAt || null
-    };
-}
 /**
  * @summary Monitors and validates the ChromaDB dependency for the Memory Core MCP server.
  *
@@ -633,13 +566,13 @@ export async function buildBackupStateBlock(backupPath, fs, path) {
 
         return {
             lastSuccessful: timestamp,
-            count: backupDirs.length
+            count         : backupDirs.length
         };
     } catch (e) {
         return {
             lastSuccessful: null,
-            count: 0,
-            error: e.message
+            count         : 0,
+            error         : e.message
         };
     }
 }
@@ -674,10 +607,10 @@ export function buildChromaMigrationStats(metadatas, {summaryCollection = false}
     (metadatas || []).forEach(metadata => {
         stats.totalRecords++;
 
-        const rawUserId = metadata?.userId;
+        const rawUserId     = metadata?.userId;
         const missingUserId = rawUserId === undefined || rawUserId === null || rawUserId === '';
-        const userId = normalizeUserId(rawUserId);
-        const hasCorePeer = summaryCollection && hasCoreSwarmParticipant(metadata?.participatingAgents);
+        const userId        = normalizeUserId(rawUserId);
+        const hasCorePeer   = summaryCollection && hasCoreSwarmParticipant(metadata?.participatingAgents);
 
         if (missingUserId) {
             stats.missingUserId++;
@@ -714,14 +647,21 @@ export function buildChromaMigrationStats(metadatas, {summaryCollection = false}
  *
  * @param {String} label Human-readable axis label for warning logs
  * @param {Function} fn Probe function returning the axis count
- * @returns {Promise<Number>} Axis count or `0` on failure
+ * @param {Number} [timeoutMs=aiConfig.healthcheck.remAxisTimeoutMs] Max time to wait for the axis.
+ * @returns {Promise<{value: Number, error: String|null}>} Axis count and optional degradation reason
  */
-async function resolveRemAxis(label, fn) {
+async function resolveRemAxis(label, fn, timeoutMs = aiConfig.healthcheck.remAxisTimeoutMs) {
     try {
-        return await fn();
+        return {
+            value: await withTimeout(Promise.resolve(fn()), timeoutMs, `REM axis ${label}`),
+            error: null
+        };
     } catch (e) {
         logger.warn(`[HealthService] get_rem_pipeline_state axis ${label} failed:`, e?.message ?? e);
-        return 0;
+        return {
+            value: 0,
+            error: e?.message || String(e)
+        };
     }
 }
 
@@ -752,13 +692,14 @@ async function resolveRemBlock(label, fn, fallback) {
  *
  * @param {Object} [options]
  * @param {String} [options.sessionId] Optional session id for per-session entity yield
+ * @param {Number} [options.axisTimeoutMs=aiConfig.healthcheck.remAxisTimeoutMs] Max time to wait for each axis.
  * @returns {Promise<Object>} REM pipeline state projection
  * @see ChromaManager#getUndigestedSessionCount
  * @see ChromaManager#getGraphDigestedCount
  * @see Neo.ai.services.memory-core.GraphService#getSessionNodeCount
  * @see Neo.ai.daemons.services.TopologyInferenceEngine#getTopologyConflictCount
  */
-export async function buildRemPipelineState({sessionId} = {}) {
+export async function buildRemPipelineState({sessionId, axisTimeoutMs = aiConfig.healthcheck.remAxisTimeoutMs} = {}) {
     const [
         {default: GraphService},
         {default: TopologyInferenceEngine}
@@ -767,17 +708,19 @@ export async function buildRemPipelineState({sessionId} = {}) {
         import('../graph/TopologyInferenceEngine.mjs')
     ]);
 
-    const [
-        undigested,
-        digested,
-        sessionNodes,
-        topologyConflicts
-    ] = await Promise.all([
-        resolveRemAxis('undigested',        () => ChromaManager.getUndigestedSessionCount()),
-        resolveRemAxis('digested',          () => ChromaManager.getGraphDigestedCount()),
-        resolveRemAxis('sessionNodes',      () => GraphService.getSessionNodeCount()),
-        resolveRemAxis('topologyConflicts', () => TopologyInferenceEngine.getTopologyConflictCount())
+    const axisEntries = await Promise.all([
+        resolveRemAxis('undigested',        () => ChromaManager.getUndigestedSessionCount(), axisTimeoutMs),
+        resolveRemAxis('digested',          () => ChromaManager.getGraphDigestedCount(), axisTimeoutMs),
+        resolveRemAxis('sessionNodes',      () => GraphService.getSessionNodeCount(), axisTimeoutMs),
+        resolveRemAxis('topologyConflicts', () => TopologyInferenceEngine.getTopologyConflictCount(), axisTimeoutMs)
     ]);
+
+    const [undigested, digested, sessionNodes, topologyConflicts] = axisEntries.map(entry => entry.value),
+          axisErrors                                              = Object.fromEntries(
+              ['undigested', 'digested', 'sessionNodes', 'topologyConflicts']
+                  .map((key, index) => [key, axisEntries[index].error])
+                  .filter(([, error]) => error)
+          );
 
     const recentCycles = await resolveRemBlock('recentCycles', async () => {
         const entries = await readRecentRemRunStates({
@@ -802,11 +745,28 @@ export async function buildRemPipelineState({sessionId} = {}) {
         recentCycles
     };
 
+    if (Object.keys(axisErrors).length) {
+        state.axisErrors = axisErrors;
+    }
+
     if (sessionId) {
+        const entityCount = await resolveRemAxis(
+            'perSession.entityCount',
+            () => GraphService.getSessionEntityCount(sessionId),
+            axisTimeoutMs
+        );
+
         state.perSession = {
             sessionId,
-            entityCount: await resolveRemAxis('perSession.entityCount', () => GraphService.getSessionEntityCount(sessionId))
+            entityCount: entityCount.value
         };
+
+        if (entityCount.error) {
+            state.axisErrors = {
+                ...(state.axisErrors || {}),
+                'perSession.entityCount': entityCount.error
+            };
+        }
     }
 
     return state;
@@ -889,22 +849,6 @@ class HealthService extends Base {
     #previousStatus = null;
 
     /**
-     * Tracks whether startup summarization has been attempted.
-     * This helps agents understand if they need to manually trigger summarization.
-     * Values: 'pending', 'completed', 'failed', 'skipped', null (if not yet attempted).
-     * @member {string|null} #startupSummarizationStatus
-     * @private
-     */
-    #startupSummarizationStatus = null;
-
-    /**
-     * Details about the startup summarization attempt
-     * @member {Object|null} #startupSummarizationDetails
-     * @private
-     */
-    #startupSummarizationDetails = null;
-
-    /**
      * Last-known outcomes for orchestrator-owned maintenance tasks.
      * @member {Object} #taskOutcomes
      * @private
@@ -920,6 +864,15 @@ class HealthService extends Base {
      * @private
      */
     #stdioIdentityState = null;
+
+    /**
+     * Startup dependency observations recorded by the Memory Core server boot path. These are
+     * intentionally separate from the request-time health probes: the MCP server must still expose
+     * WAL-local tools such as `add_memory` when graph/vector startup tiers degrade.
+     * @member {Object}
+     * @private
+     */
+    #startupDependencies = {};
 
     /**
      * Shared runtime freshness tracker.
@@ -978,18 +931,27 @@ class HealthService extends Base {
 
     /**
      * Checks if the active vector and graph databases are running and accessible.
+     * @param {Number} chromaProbeTimeoutMs Chroma probe timeout budget.
      * @returns {Promise<Object>} {running: boolean, error: string|undefined, engines: Object}
      * @private
      */
-    async #checkDatabaseConnections() {
+    async #checkDatabaseConnections(chromaProbeTimeoutMs) {
         try {
-            const engine = aiConfig.engine;
+            const engine  = aiConfig.engine;
             const engines = { chroma: false };
 
             // 2. Vector Chroma DB (Hybrid & Standalone Chroma)
             if (engine === 'chroma' || engine === 'hybrid') {
-                await ChromaManager.ready();
-                if (!ChromaManager.connected && !(await ChromaManager.connect())) {
+                await withTimeout(
+                    ChromaManager.ready(),
+                    chromaProbeTimeoutMs,
+                    'ChromaManager.ready health probe'
+                );
+                if (!ChromaManager.connected && !(await withTimeout(
+                    ChromaManager.connect(),
+                    chromaProbeTimeoutMs,
+                    'ChromaManager.connect health probe'
+                ))) {
                     throw new Error("ChromaDB is not accessible");
                 }
                 engines.chroma = true;
@@ -1011,46 +973,38 @@ class HealthService extends Base {
      * Intent: Confirms both memory and summary collections
      * are available for operations on the active StorageRouter.
      *
+     * @param {Number} chromaProbeTimeoutMs Chroma probe timeout budget.
      * @returns {Promise<Object>} {memories: Object|null, summaries: Object|null, error: string|undefined}
      * @private
      */
-    async #checkCollections() {
+    async #checkCollections(chromaProbeTimeoutMs) {
         const result = {
             memories : null,
             summaries: null
         };
 
         try {
-            // Check memory collection
-            const memoryCollection = await StorageRouter.getMemoryCollection().catch(() => null);
-            if (memoryCollection) {
-                result.memories = {
-                    name  : aiConfig.collections.memory,
-                    exists: true,
-                    count : await memoryCollection.count().catch(() => 0)
-                };
-            } else {
-                result.memories = {
-                    name  : aiConfig.collections.memory,
-                    exists: false,
-                    count : 0
-                };
-            }
+            result.memories = await this.#checkCollectionCount({
+                collectionType : 'memory',
+                name           : aiConfig.collections.memory,
+                getCollection  : () => StorageRouter.getMemoryCollection(),
+                resolutionLabel: 'memory collection resolution health probe',
+                countLabel     : 'memory collection count health probe',
+                chromaProbeTimeoutMs
+            });
 
-            // Check summary collection
-            const summaryCollection = await StorageRouter.getSummaryCollection().catch(() => null);
-            if (summaryCollection) {
-                result.summaries = {
-                    name  : aiConfig.collections.session,
-                    exists: true,
-                    count : await summaryCollection.count().catch(() => 0)
-                };
-            } else {
-                result.summaries = {
-                    name  : aiConfig.collections.session,
-                    exists: false,
-                    count : 0
-                };
+            result.summaries = await this.#checkCollectionCount({
+                collectionType : 'summary',
+                name           : aiConfig.collections.session,
+                getCollection  : () => StorageRouter.getSummaryCollection(),
+                resolutionLabel: 'summary collection resolution health probe',
+                countLabel     : 'summary collection count health probe',
+                chromaProbeTimeoutMs
+            });
+
+            const errors = [result.memories?.error, result.summaries?.error].filter(Boolean);
+            if (errors.length) {
+                result.error = `Failed to access collections: ${errors.join('; ')}`;
             }
 
             return result;
@@ -1059,6 +1013,105 @@ class HealthService extends Base {
                 ...result,
                 error: `Failed to access collections: ${e.message}`
             };
+        }
+    }
+
+    /**
+     * Resolves and counts one Memory Core Chroma collection.
+     *
+     * Operation-level not-found failures on a resolved collection object are treated as
+     * stale-handle evidence: invalidate that collection cache and retry resolution once.
+     *
+     * @param {Object} options
+     * @param {'memory'|'summary'} options.collectionType
+     * @param {String} options.name
+     * @param {Function} options.getCollection
+     * @param {String} options.resolutionLabel
+     * @param {String} options.countLabel
+     * @param {Number} options.chromaProbeTimeoutMs
+     * @returns {Promise<Object>}
+     * @private
+     */
+    async #checkCollectionCount({
+        collectionType,
+        name,
+        getCollection,
+        resolutionLabel,
+        countLabel,
+        chromaProbeTimeoutMs
+    }) {
+        let collection = await withTimeout(
+            getCollection(),
+            chromaProbeTimeoutMs,
+            resolutionLabel
+        ).catch(error => ({
+            __resolutionError: error
+        }));
+
+        if (collection?.__resolutionError) {
+            return {
+                name,
+                exists: false,
+                count : 0,
+                error : collection.__resolutionError.message
+            }
+        }
+
+        if (!collection) {
+            return {
+                name,
+                exists: false,
+                count : 0
+            }
+        }
+
+        for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+                return {
+                    name,
+                    exists: true,
+                    count : await withTimeout(
+                        collection.count(),
+                        chromaProbeTimeoutMs,
+                        countLabel
+                    )
+                }
+            } catch (error) {
+                if (attempt > 0 || !ChromaManager.isCollectionNotFoundError(error)) {
+                    return {
+                        name,
+                        exists: true,
+                        count : 0,
+                        error : error.message
+                    }
+                }
+
+                ChromaManager.invalidateCollectionCache(collectionType);
+                collection = await withTimeout(
+                    getCollection(),
+                    chromaProbeTimeoutMs,
+                    resolutionLabel
+                ).catch(resolveError => ({
+                    __resolutionError: resolveError
+                }));
+
+                if (collection?.__resolutionError) {
+                    return {
+                        name,
+                        exists: false,
+                        count : 0,
+                        error : collection.__resolutionError.message
+                    }
+                }
+
+                if (!collection) {
+                    return {
+                        name,
+                        exists: false,
+                        count : 0
+                    }
+                }
+            }
         }
     }
 
@@ -1072,10 +1125,16 @@ class HealthService extends Base {
      *
      * @param {Object} cachedHealth Previously cached healthy healthcheck payload.
      * @param {Number|Date} now Request time used for the returned `timestamp`.
+     * @param {Object} [options]
+     * @param {Number} [options.chromaProbeTimeoutMs=aiConfig.healthcheck.chromaProbeTimeoutMs] Chroma probe timeout budget.
+     * @param {Number} [options.embeddingWriteCanaryTimeoutMs=aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs] Embedding canary timeout budget.
      * @returns {Promise<Object|null>} Fresh request snapshot or `null` when a full healthcheck is required.
      * @private
      */
-    async #buildRequestFreshCachedHealth(cachedHealth, now) {
+    async #buildRequestFreshCachedHealth(cachedHealth, now, {
+        chromaProbeTimeoutMs = aiConfig.healthcheck.chromaProbeTimeoutMs,
+        embeddingWriteCanaryTimeoutMs = aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs
+    } = {}) {
         if (!cachedHealth) {
             return null;
         }
@@ -1083,7 +1142,7 @@ class HealthService extends Base {
         let collectionsCheck;
 
         try {
-            collectionsCheck = await this.#checkCollections();
+            collectionsCheck = await this.#checkCollections(chromaProbeTimeoutMs);
         } catch (e) {
             return null;
         }
@@ -1113,18 +1172,19 @@ class HealthService extends Base {
             }
         };
 
-        return this.#applyEmbeddingWriteCanary(freshPayload);
+        return this.#applyEmbeddingWriteCanary(freshPayload, embeddingWriteCanaryTimeoutMs);
     }
 
     /**
-     * Computes the untagged-legacy-node counts for the multi-tenant migration observability
-     * surface. Operators scrape `healthcheck.migration.untaggedCount.total` to track
+     * Computes the untagged-legacy-node counts for the multi-tenant migration census. Reached via
+     * the on-demand `getMigrationCensus()` (the `ai:migration-census-report` script) — NOT the
+     * healthcheck (the census was relocated off the hot path). Operators read `graph.total` to track
      * how much pre-tenant-aware-era data remains as natural query patterns move writes toward
      * 100% tagged coverage. A zero total is the signal that defaults can be flipped from
      * `'legacy'` to `'private'` for the deployment.
      *
      * Implementation is pure SQLite aggregation via `GraphService.db.storage.db`. Two
-     * `COUNT(*)` queries (one per tracked node label), negligible cost per healthcheck.
+     * `COUNT(*)` queries (one per tracked node label), negligible cost.
      * Filters for `userId` absent OR empty in the node's `properties` JSON.
      *
      * Returns `{available: false, ...zeros}` when the SQLite graph is not yet mounted
@@ -1140,7 +1200,7 @@ class HealthService extends Base {
             // Dynamic import to avoid circular dependency with GraphService (GraphService
             // itself imports HealthService indirectly via other service chains).
             const {default: GraphService} = await import('./GraphService.mjs');
-            const sqliteDb = GraphService.db?.storage?.db;
+            const sqliteDb                = GraphService.db?.storage?.db;
 
             if (!sqliteDb) {
                 return {memory: 0, session: 0, total: 0, available: false};
@@ -1256,8 +1316,8 @@ class HealthService extends Base {
      */
     async #scanChromaMetadata(collection, options = {}) {
         const batchSize = 2000;
-        let metadatas   = [];
-        let offset      = 0;
+        let   metadatas = [];
+        let   offset    = 0;
 
         while (true) {
             const batch = await collection.get({limit: batchSize, offset, include: ['metadatas']});
@@ -1268,6 +1328,33 @@ class HealthService extends Base {
         }
 
         return buildChromaMigrationStats(metadatas, options);
+    }
+
+    /**
+     * @summary On-demand migration census: SQLite graph untagged-userId counts, plus the
+     *          ChromaDB-side actionable migration-debt scan when `includeChroma` is set.
+     *
+     * Relocated off the healthcheck payload: the Chroma count batch-reads the full memory + summary
+     * collections (`#scanChromaMetadata`), an `O(records)` cost that should not run on every liveness
+     * probe. Operators run `ai:migration-census-report` (or call this) when they want the census;
+     * nothing pays the scan cost otherwise. The cheap SQLite graph counts are always included;
+     * `includeChroma` opts into the batch scan.
+     *
+     * @param {Object} [options]
+     * @param {Boolean} [options.includeChroma=false] Run the `O(records)` ChromaDB metadata scan.
+     * @returns {Promise<{graph: Object, chromadb: Object|undefined, measuredAt: String}>}
+     */
+    async getMigrationCensus({includeChroma = false} = {}) {
+        const census = {
+            graph     : await this.#checkMigrationState(),
+            measuredAt: new Date().toISOString()
+        };
+
+        if (includeChroma) {
+            census.chromadb = await this.#checkChromaMigrationState();
+        }
+
+        return census;
     }
 
     /**
@@ -1287,35 +1374,25 @@ class HealthService extends Base {
 
 
 
-    #checkApiKeyConfigured() {
-        const providers = [aiConfig.modelProvider];
-        const engine = aiConfig.engine;
-
-        if (engine === 'chroma' || engine === 'hybrid') {
-            providers.push(aiConfig.embeddingProvider);
-        }
-
-        const needsGemini = providers.some(p => p === 'gemini');
-
-        if (!needsGemini) {
-            return true; // Local generation and embedding does not require Gemini key
-        }
-        return !!process.env.GEMINI_API_KEY;
+    #checkProviderPrerequisites() {
+        return buildProviderPrerequisiteBlock(aiConfig);
     }
 
     /**
-     * @summary Adds the embedding write canary to a healthcheck payload and degrades on failure.
+     * @summary Runs the embedding write canary and degrades the payload on failure.
+     *
+     * The canary probes the write-side embedding call that `add_memory` depends on. Its purpose
+     * is degradation DETECTION, not verbose reporting: on failure the payload `status` drops to
+     * `degraded` and a `details[]` entry names the failure, so the lean liveness probe still
+     * surfaces a starved embedding write path without shipping the full per-call canary sub-object.
+     *
      * @param {Object} payload Mutable healthcheck payload under construction.
+     * @param {Number} embeddingWriteCanaryTimeoutMs Embedding canary timeout budget.
      * @returns {Promise<Object>}
      * @private
      */
-    async #applyEmbeddingWriteCanary(payload) {
-        const canary = await this.#getEmbeddingWriteCanary();
-
-        payload.providers.embedding = {
-            ...payload.providers.embedding,
-            writeCanary: canary
-        };
+    async #applyEmbeddingWriteCanary(payload, embeddingWriteCanaryTimeoutMs) {
+        const canary = await this.#getEmbeddingWriteCanary(embeddingWriteCanaryTimeoutMs);
 
         if (canary.status !== 'healthy') {
             payload.status = payload.status === 'unhealthy' ? 'unhealthy' : 'degraded';
@@ -1334,12 +1411,13 @@ class HealthService extends Base {
      * Cache key includes the active provider and expected vector dimension so config changes do
      * not reuse a canary from a different embedding route.
      *
+     * @param {Number} embeddingWriteCanaryTimeoutMs Embedding canary timeout budget.
      * @returns {Promise<Object>} Embedding write-canary block.
      * @private
      */
-    async #getEmbeddingWriteCanary() {
-        const now = Date.now(),
-              key = `${aiConfig.embeddingProvider}:${aiConfig.vectorDimension}`,
+    async #getEmbeddingWriteCanary(embeddingWriteCanaryTimeoutMs) {
+        const now    = Date.now(),
+              key    = `${aiConfig.embeddingProvider}:${aiConfig.vectorDimension}:${embeddingWriteCanaryTimeoutMs}`,
               cached = this.#embeddingWriteCanaryCache;
 
         if (cached &&
@@ -1348,7 +1426,9 @@ class HealthService extends Base {
             return {...cached.result};
         }
 
-        const result = await buildEmbeddingWriteCanaryBlock();
+        const result = await buildEmbeddingWriteCanaryBlock({
+            timeoutMs: embeddingWriteCanaryTimeoutMs
+        });
 
         if (result.status === 'healthy') {
             this.#embeddingWriteCanaryCache = {
@@ -1373,20 +1453,23 @@ class HealthService extends Base {
      * The checks are performed in order of criticality:
      * 1. ChromaDB connectivity (if it's not running, nothing else matters)
      * 2. Collection accessibility (ensures data structures are ready)
-     * 3. API key presence (optional, but needed for summarization)
+     * 3. Provider prerequisites (only the configured provider surfaces require credentials)
      *
      * Status levels:
-     * - healthy: ChromaDB running, collections accessible, API key present
-     * - degraded: ChromaDB running, collections accessible, but API key missing
+     * - healthy: ChromaDB running, collections accessible, configured providers ready
+     * - degraded: ChromaDB running, collections accessible, but a configured provider is missing credentials
      * - unhealthy: ChromaDB not running or collections not accessible
      *
+     * @param {Object} [options]
+     * @param {Number} [options.chromaProbeTimeoutMs=aiConfig.healthcheck.chromaProbeTimeoutMs] Chroma probe timeout budget.
+     * @param {Number} [options.embeddingWriteCanaryTimeoutMs=aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs] Embedding canary timeout budget.
      * @returns {Promise<object>} A comprehensive health status payload
      * @private
      */
-    async #performHealthCheck() {
-        // Dynamic import to avoid circular dependencies
-        const { default: MailboxService } = await import('./MailboxService.mjs');
-
+    async #performHealthCheck({
+        chromaProbeTimeoutMs = aiConfig.healthcheck.chromaProbeTimeoutMs,
+        embeddingWriteCanaryTimeoutMs = aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs
+    } = {}) {
         const payload = {
             status          : 'healthy',
             timestamp       : new Date().toISOString(),
@@ -1399,37 +1482,28 @@ class HealthService extends Base {
                 connection: {
                     connected  : false,
                     collections: null
-                },
-                topology  : buildTopologyBlock(aiConfig)
+                }
             },
             features : {
                 summarization: false,
-                wake         : await buildWakeFeaturesBlock(),
-                dream        : buildDreamFeaturesBlock(this.#taskOutcomes)
+                wake         : await buildWakeFeaturesBlock()
             },
-            startup  : {
-                summarizationStatus : this.#startupSummarizationStatus || 'not_attempted',
-                summarizationDetails: this.#startupSummarizationDetails
-            },
-            orchestrator: {
-                tasks: buildTaskOutcomesBlock(this.#taskOutcomes)
-            },
-            mailboxPreview: await MailboxService.getHealthcheckPreview(),
             identity : buildIdentityBlock(this.#stdioIdentityState),
-            migration: await this.#checkMigrationState(),
             providers: {
                 embedding: buildEmbeddingProviderBlock(aiConfig),
-                summary  : buildSummaryProviderBlock(aiConfig),
-                auth     : buildAuthProviderBlock(aiConfig)
+                summary  : buildSummaryProviderBlock(aiConfig)
             },
-            backup   : await buildBackupStateBlock(aiConfig.backupPath, fsExtra, path),
-            details  : [],
-            version  : process.env.npm_package_version || '1.0.0',
-            uptime   : process.uptime()
+            startup : {
+                dependencies: this.getStartupDependencyState()
+            },
+            backup : await buildBackupStateBlock(aiConfig.backupPath, fsExtra, path),
+            details: [],
+            version: process.env.npm_package_version || '1.0.0',
+            uptime : process.uptime()
         };
 
         // Step 1: Check Database connectivity
-        const connectionCheck = await this.#checkDatabaseConnections();
+        const connectionCheck = await this.#checkDatabaseConnections(chromaProbeTimeoutMs);
         payload.database.connection.connected = connectionCheck.running;
         payload.database.connection.engines = connectionCheck.engines;
 
@@ -1439,16 +1513,8 @@ class HealthService extends Base {
             return payload;
         }
 
-        // Step 1.5: ChromaDB-side migration observability.
-        // MUST run AFTER #checkDatabaseConnections so `ChromaManager.connected` is established.
-        // Earlier ordering (initialized at payload-construction time) cached `available: false`
-        // on cold-process healthchecks even when the same payload reported `database.connected: true`.
-        // This ordering keeps the migration counters consistent with the connection status
-        // surfaced in the same payload.
-        payload.migration.chromadb = await this.#checkChromaMigrationState();
-
         // Step 2: Check collections
-        const collectionsCheck = await this.#checkCollections();
+        const collectionsCheck = await this.#checkCollections(chromaProbeTimeoutMs);
         payload.database.connection.collections = {
             memories : collectionsCheck.memories,
             summaries: collectionsCheck.summaries
@@ -1466,15 +1532,15 @@ class HealthService extends Base {
             return payload;
         }
 
-        await this.#applyEmbeddingWriteCanary(payload);
+        await this.#applyEmbeddingWriteCanary(payload, embeddingWriteCanaryTimeoutMs);
 
-        // Step 3: Check API key for summarization feature
-        const apiKeyConfigured = this.#checkApiKeyConfigured();
-        payload.features.summarization = apiKeyConfigured;
+        // Step 3: Check configured provider prerequisites.
+        const providerPrerequisites = this.#checkProviderPrerequisites();
+        payload.features.summarization = providerPrerequisites.summary.ready;
 
-        if (!apiKeyConfigured) {
+        if (!providerPrerequisites.ready) {
             payload.status = 'degraded';
-            payload.details.push('GEMINI_API_KEY not set - summarization features unavailable');
+            payload.details.push(...providerPrerequisites.details);
         }
 
         if (payload.identity.warning) {
@@ -1482,6 +1548,15 @@ class HealthService extends Base {
                 payload.status = 'degraded';
             }
             payload.details.push(`WARN: ${payload.identity.warning}`);
+        }
+
+        for (const [name, dependency] of Object.entries(payload.startup.dependencies)) {
+            if (dependency.status === 'ready') continue;
+
+            if (payload.status === 'healthy') {
+                payload.status = 'degraded';
+            }
+            payload.details.push(`Startup dependency '${name}' is ${dependency.status}: ${dependency.error || 'see startup.dependencies'}`);
         }
 
         // If we made it here with no errors, report success
@@ -1514,9 +1589,15 @@ class HealthService extends Base {
      *
      * @param {Object} [options]
      * @param {Boolean} [options.freshObservability=true] Refresh request-facing fields on cached healthy results.
+     * @param {Number} [options.chromaProbeTimeoutMs=aiConfig.healthcheck.chromaProbeTimeoutMs] Chroma probe timeout budget.
+     * @param {Number} [options.embeddingWriteCanaryTimeoutMs=aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs] Embedding canary timeout budget.
      * @returns {Promise<object>} A health status payload with session information
      */
-    async healthcheck({freshObservability = true} = {}) {
+    async healthcheck({
+        freshObservability = true,
+        chromaProbeTimeoutMs = aiConfig.healthcheck.chromaProbeTimeoutMs,
+        embeddingWriteCanaryTimeoutMs = aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs
+    } = {}) {
         try {
             const now = Date.now();
 
@@ -1530,13 +1611,16 @@ class HealthService extends Base {
                 // If the cache is still fresh (< 5 minutes old), reuse it while keeping
                 // direct healthcheck observability request-fresh when requested.
                 if (age < this.#cacheDuration) {
-                    logger.debug(`[HealthService] Using cached health status (age: ${Math.round(age / 1000)}s)`);
+                    logger.fileDebug(`[HealthService] Using cached health status (age: ${Math.round(age / 1000)}s)`);
 
                     if (!freshObservability) {
                         return this.#cachedHealth;
                     }
 
-                    const freshCachedHealth = await this.#buildRequestFreshCachedHealth(this.#cachedHealth, now);
+                    const freshCachedHealth = await this.#buildRequestFreshCachedHealth(this.#cachedHealth, now, {
+                        chromaProbeTimeoutMs,
+                        embeddingWriteCanaryTimeoutMs
+                    });
 
                     if (freshCachedHealth) {
                         return freshCachedHealth;
@@ -1548,15 +1632,18 @@ class HealthService extends Base {
 
             // Check for in-flight request (deduplication)
             if (this.#healthCheckPromise) {
-                logger.debug('[HealthService] Joining in-flight health check...');
+                logger.fileDebug('[HealthService] Joining in-flight health check...');
                 return await this.#healthCheckPromise;
             }
 
             // Cache is stale, was unhealthy, or doesn't exist - perform a fresh check
-            logger.debug('[HealthService] Performing fresh health check');
+            logger.fileDebug('[HealthService] Performing fresh health check');
 
             // Create the promise and store it
-            this.#healthCheckPromise = this.#performHealthCheck().finally(() => {
+            this.#healthCheckPromise = this.#performHealthCheck({
+                chromaProbeTimeoutMs,
+                embeddingWriteCanaryTimeoutMs
+            }).finally(() => {
                 // Always clear the promise when done, success or fail
                 this.#healthCheckPromise = null;
             });
@@ -1612,22 +1699,40 @@ class HealthService extends Base {
     }
 
     /**
+     * @summary Returns an on-demand read-only diagnostic for sibling SQLite holder processes.
+     *
+     * The probe is intentionally outside the default healthcheck path: it shells out to `lsof`
+     * and walks process parent chains, which is useful for operator triage but too expensive for
+     * routine liveness. Probe failures degrade this diagnostic payload only; they do not change
+     * Memory Core health when the database itself is usable.
+     *
+     * @returns {Promise<Object>} Current SQLite holder diagnostic payload.
+     */
+    async getSqliteHolderDiagnostics() {
+        return buildSqliteHolderDiagnostics({
+            dbPath    : aiConfig.storagePaths.graph,
+            currentPid: process.pid
+        });
+    }
+
+    /**
      * Ensures the Memory Core is healthy before allowing an operation to proceed.
      *
      * Intent: This is the "gatekeeper" method used by tool handlers to fail-fast
      * with a clear error message if dependencies are not available.
      *
      * By throwing an exception, we ensure that:
-     * 1. The operation doesn't attempt to use ChromaDB/Gemini and get cryptic errors
+     * 1. The operation doesn't attempt to use unavailable storage/provider dependencies and get cryptic errors
      * 2. The agent receives a clear, actionable error message via the MCP protocol
      * 3. Users understand exactly what needs to be fixed
      *
      * This method leverages the cached health check, so calling it frequently
      * (e.g., before each tool invocation) has minimal performance impact.
      *
-     * Note: Both ChromaDB and GEMINI_API_KEY are required for all memory operations,
-     * since adding/querying memories requires text embeddings via the Gemini API.
-     * Only database lifecycle operations (start/stop) can work in degraded state.
+     * Note: Embedding-dependent reads require ChromaDB and the configured embedding
+     * provider to be available. Local providers do not require `GEMINI_API_KEY`, and
+     * the server exempts mailbox, WAL-backed `add_memory`, and non-embedding recency
+     * reads from this gate when a model-provider surface is degraded.
      *
      * @throws {Error} If the Memory Core is not fully healthy, with a detailed message
      * @returns {Promise<void>}
@@ -1641,20 +1746,6 @@ class HealthService extends Base {
             const statusMsg = health.status === 'unhealthy' ? 'not available' : 'not fully operational';
             throw new Error(`Memory Core is ${statusMsg}:\n  - ${details}`);
         }
-    }
-
-    /**
-     * Records the result of startup summarization attempt.
-     * Called by the startup sequence in mcp-server.mjs
-     * @param {string} status  One of: 'completed', 'failed', 'skipped'.
-     * @param {Object} details Additional information about the summarization
-     */
-    recordStartupSummarization(status, details=null) {
-        this.#startupSummarizationStatus  = status;
-        this.#startupSummarizationDetails = details;
-
-        // Clear the cache to ensure next healthcheck returns updated info
-        this.clearCache();
     }
 
     /**
@@ -1673,6 +1764,19 @@ class HealthService extends Base {
 
         // Clear the cache to ensure next healthcheck returns updated info
         this.clearCache();
+    }
+
+    /**
+     * Reads the most-recently recorded outcome for a task, or `null` when none is recorded.
+     * Returns a **defensive deep clone** of `{status, details, recordedAt}` (via `structuredClone`),
+     * so a caller mutating the result — including its nested `details` — can never corrupt the
+     * internal per-task outcome map. Read-only accessor over that map.
+     * @param {String} taskName
+     * @returns {{status:String, details:(Object|null), recordedAt:String}|null}
+     */
+    getTaskOutcome(taskName) {
+        const outcome = this.#taskOutcomes[taskName];
+        return outcome ? structuredClone(outcome) : null;
     }
 
     /**
@@ -1695,18 +1799,54 @@ class HealthService extends Base {
     }
 
     /**
+     * Records startup dependency readiness without turning degraded graph/vector tiers into MCP
+     * server boot failures. Exposed through `healthcheck().startup.dependencies`.
+     * @param {String} name Stable dependency key.
+     * @param {String} status Readiness status, e.g. 'ready' or 'degraded'.
+     * @param {Object|null} details Optional diagnostic details.
+     */
+    recordStartupDependency(name, status, details=null) {
+        this.#startupDependencies[name] = {
+            status,
+            ...(details || {}),
+            recordedAt: new Date().toISOString()
+        };
+        this.clearCache();
+    }
+
+    /**
+     * @returns {Object} Shallow-cloned startup dependency status map.
+     */
+    getStartupDependencyState() {
+        return Object.fromEntries(
+            Object.entries(this.#startupDependencies).map(([key, value]) => [key, {...value}])
+        );
+    }
+
+    /**
+     * @summary Clears startup dependency observations for test/restart boundaries.
+     * @returns {void}
+     */
+    clearStartupDependencyState() {
+        this.#startupDependencies = {};
+        this.clearCache();
+    }
+
+    /**
      * Clears the health check cache, forcing the next call to perform a fresh check.
      *
      * Intent: This is primarily useful for testing and debugging scenarios where
      * you need to immediately verify a fix (e.g., after starting ChromaDB)
      * without waiting for the 5-minute cache to expire.
+     * The routine invalidation notice is durable-file-only so diagnostic churn
+     * does not flood developer-facing console streams.
      */
     clearCache() {
         this.#cachedHealth                = null;
         this.#lastCheckTime               = null;
         this.#embeddingWriteCanaryCache   = null;
         this.#runtimeFreshnessTracker.clearCache();
-        logger.debug('[HealthService] Cache cleared, next health check will be fresh');
+        logger.fileDebug('[HealthService] Cache cleared, next health check will be fresh');
     }
 }
 

@@ -1,0 +1,17 @@
+# Workflow: Agent Harness — session entry
+
+> **Convention note (first workflow in `.agents/workflows/`):** workflows are mission-specific **entry sequences**, read on demand. Skills (`.agents/skills/`) are task-class **disciplines**, trigger-loaded. Workflows point at skills and durable anchors — they never duplicate either.
+
+The fastest correct path into the Agent Harness line (Epic #13012). No 20-page reads.
+
+1. **Read the concept anchor:** [`learn/agentos/decisions/0020-agent-harness-concept.md`](../../learn/agentos/decisions/0020-agent-harness-concept.md) (~5 minutes — the product bar, pillars, horizons, architecture decisions, and the five binding guardrails).
+2. **Glance the live state:** [Project board 13](https://github.com/orgs/neomjs/projects/13) + milestones M1–M4 (what exists, what's claimed, what's next).
+3. **Open your target work item only.** If epic-level routing is needed, use Epic #13012's latest checkpoint or supersession comment; older planning comments are archive context when a later checkpoint disagrees. Discussion #10119 is archaeology — never required reading. Electron shell work routes through #13377; #13033 is its first build-root/topology-spike leaf. Do not file duplicate Electron-support tickets unless live state shows disjoint scope, supersession, or explicit handoff.
+4. **Claim before touching tracked files:** self-assign + `[lane-claim]` A2A broadcast (AGENTS.md critical gate). Lanes are self-selected; affinity notes in epic comments are observations, not assignments.
+5. **Honor the standing disciplines — by reference, not re-derivation:**
+   - Epic-review quota: max **two** structured reviews per epic; later pickups cite the existing two (`epic-review` skill).
+   - Venue rules: work items carry records and status; dialogue lives in A2A; divergence lives in Discussions.
+   - Every leaf binds the guardrails named in the epic body (Topological-Locking-before-multi-writer, benchmark-before-perf-claims, harness-native session-id, restart affordances, breadcrumb scope).
+6. **Coordination pointers:** steward + architecture/planning = the current harness lead (see the `lead-role` rotation). **`@neo-fable` (Mnemosyne) + `@neo-fable-clio` (Clio) are benched as of 2026-06-13** on the Claude Fable 5 access suspension — re-route steward + planning-relief to them on reactivation. Review routing per the `pull-request` skill's `ci-green-review-routing`.
+
+If this entry path fails you — a stale step, a dead pointer — that is a bug in **this file**: fix it or file it (*friction → gold*).

@@ -1,22 +1,30 @@
 ---
 id: 6129
 title: 'manager.Focus: tree walking'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - no auto close
-assignees: []
+  - architecture
+  - core
+assignees:
+  - neo-gpt
 createdAt: '2024-11-22T13:01:09Z'
-updatedAt: '2025-04-05T15:31:53Z'
+updatedAt: '2026-07-03T12:34:24Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6129'
 author: tobiu
-commentsCount: 2
+commentsCount: 4
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy: []
 blocking: []
+closedAt: '2026-07-03T12:34:24Z'
 ---
 # manager.Focus: tree walking
 
@@ -50,4 +58,53 @@ This issue was closed because it has been inactive for 14 days since being marke
 - 2025-04-05T15:31:39Z @tobiu reopened this issue
 - 2025-04-05T15:31:53Z @tobiu removed the `stale` label
 - 2025-04-05T15:31:53Z @tobiu added the `no auto close` label
+- 2026-06-23T05:53:51Z @neo-gpt added the `core` label
+- 2026-06-23T05:53:51Z @neo-gpt added the `architecture` label
+### @neo-gpt - 2026-06-23T05:53:53Z
+
+## Triage update
+
+V-B-A:
+- Live issue check: the only prior comments are stale automation; the ticket is open again and still only carried `enhancement` + `no auto close`.
+- Current code check: `src/manager/DomEvent.mjs` still passes the DOM listener `path` into `Neo.manager.Focus` for `focusin` / `focusout`.
+- Current `src/manager/Focus.mjs` still diffs/intersects those DOM-derived component id paths in `focusMove()` and maps each id back through `Neo.getComponent()`, rather than deriving the closest component and walking the ownership/component tree.
+- Supporting substrate check: `component.Base#getParents()` and existing LCA usage in `container.Base#insert()` show the component-tree primitives already exist; the missing piece is Focus manager semantics/order, not a new framework layer.
+
+Decision: stage retrospective passed. This remains a valid framework-core architecture enhancement, especially for overlay/floating-component focus semantics where DOM ancestry and component ownership can diverge.
+
+Applied labels: `core`, `architecture`.
+
+Implementation shape:
+- derive the nearest component from the incoming DOM focus path,
+- derive old/new component ancestry through the component tree,
+- find the closest common ancestor,
+- fire `focusLeave` upward on the old side, `focusEnter` upward on the new side, and `focusMove` on the common ancestor,
+- keep the existing timing behavior around `maxFocusInOutGap` intact unless a focused regression proves it is part of the bug.
+
+Validation should include a focused unit/component test for a floating or overlay-owned child where the DOM path alone would miss the intended ownership transition.
+
+Assignment: leaving unassigned and not applying `ai`; this is routed, not claimed.
+
+Triaged per `ticket-triage` skill. Applied: `core`, `architecture`. Stage retrospective passed.
+
+- 2026-07-03T02:47:59Z @neo-gpt assigned to @neo-gpt
+### @neo-gpt - 2026-07-03T02:48:19Z
+
+[lane-claim] Taking #6129 for a focused implementation pass.
+
+Intake V-B-A:
+- Issue is open and was unassigned before claim.
+- Duplicate sweep for `manager.Focus tree walking`, `focusMove`, and focus enter/leave/floating points back to #6129 as the only open issue.
+- Current `src/manager/Focus.mjs` still diffs/intersects DOM-derived component-id paths, while `src/manager/DomEvent.mjs` passes the DOM listener path into FocusManager for `focusin` / `focusout`.
+
+Planned scope: preserve the existing `maxFocusInOutGap` timing, but derive old/new focus ancestry from the closest component plus component parents, then fire leave/enter/move along the component tree rather than DOM ancestry. Focused test coverage before PR.
+
+- 2026-07-03T02:59:35Z @neo-gpt cross-referenced by PR #14533
+- 2026-07-03T11:22:11Z @neo-gpt referenced in commit `7bd6990` - "fix(focus): preserve history on missing common component (#6129)"
+- 2026-07-03T12:34:24Z @tobiu referenced in commit `e8e65fc` - "fix(focus): walk component tree for focus moves (#6129) (#14533)
+
+* fix(focus): walk component tree for focus moves (#6129)
+
+* fix(focus): preserve history on missing common component (#6129)"
+- 2026-07-03T12:34:24Z @tobiu closed this issue
 

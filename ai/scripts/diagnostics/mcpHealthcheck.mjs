@@ -19,6 +19,27 @@ import {pathToFileURL}                 from 'url';
  */
 
 export const DEFAULT_URL = 'http://127.0.0.1:3000';
+export const DEFAULT_TIMEOUT_MS = 8000;
+
+/**
+ * @summary Bounds an MCP SDK operation and aborts the underlying HTTP transport on timeout.
+ * @param {Promise} promise Operation promise returned by the SDK.
+ * @param {Number} timeoutMs Maximum wait time before rejecting.
+ * @param {String} label Human-readable operation label for the error message.
+ * @param {AbortController} abortController Controller tied to the transport requestInit.
+ * @returns {Promise<*>}
+ */
+function withAbortableTimeout(promise, timeoutMs, label, abortController) {
+    let timer;
+    const timeout = new Promise((resolve, reject) => {
+        timer = setTimeout(() => {
+            abortController?.abort?.();
+            reject(new Error(`${label} timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
+    });
+
+    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
 
 /**
  * @summary Parses CLI arguments and dotenv-backed environment defaults.
@@ -38,7 +59,8 @@ export function parseArgs(argv = [], env = process.env) {
         .option('--identity <identity>', 'Trusted proxy identity header value.', env.NEO_MCP_HEALTHCHECK_IDENTITY || 'neo-container-healthcheck')
         .option('--bearer-token-env <name>', 'Environment variable containing an OAuth bearer token.', env.NEO_MCP_HEALTHCHECK_TOKEN_ENV || 'NEO_MCP_HEALTHCHECK_TOKEN')
         .option('--expected-status <status>', 'Expected healthcheck status value.', env.NEO_MCP_HEALTHCHECK_EXPECTED_STATUS || 'healthy')
-        .option('--client-name <name>', 'MCP client name.', env.NEO_MCP_HEALTHCHECK_CLIENT_NAME || 'neo-container-healthcheck');
+        .option('--client-name <name>', 'MCP client name.', env.NEO_MCP_HEALTHCHECK_CLIENT_NAME || 'neo-container-healthcheck')
+        .option('--timeout-ms <ms>', 'Maximum time to wait for MCP connect/tool-call operations.', env.NEO_MCP_HEALTHCHECK_TIMEOUT_MS || String(DEFAULT_TIMEOUT_MS));
 
     program.parse(argv, {from: 'user'});
 
@@ -48,8 +70,10 @@ export function parseArgs(argv = [], env = process.env) {
         url           : options.url,
         identity      : options.identity,
         bearerToken   : env[options.bearerTokenEnv] || null,
+        bearerTokenEnv: options.bearerTokenEnv,
         expectedStatus: options.expectedStatus,
-        clientName    : options.clientName
+        clientName    : options.clientName,
+        timeoutMs     : Number(options.timeoutMs) || DEFAULT_TIMEOUT_MS
     };
 }
 
@@ -100,6 +124,7 @@ export function readToolJson(result) {
  * @param {String|null} [options.bearerToken]
  * @param {String} [options.expectedStatus='healthy']
  * @param {String} [options.clientName='neo-container-healthcheck']
+ * @param {Number} [options.timeoutMs=DEFAULT_TIMEOUT_MS]
  * @param {Function} [options.ClientClass=Client] Injectable SDK client constructor for tests.
  * @param {Function} [options.TransportClass=StreamableHTTPClientTransport] Injectable transport constructor for tests.
  * @returns {Promise<Object>}
@@ -110,14 +135,19 @@ export async function runHealthcheck({
     bearerToken    = null,
     expectedStatus = 'healthy',
     clientName     = 'neo-container-healthcheck',
+    timeoutMs      = DEFAULT_TIMEOUT_MS,
     ClientClass    = Client,
     TransportClass = StreamableHTTPClientTransport
 }) {
     const baseUrl = new URL(url);
     const headers = buildHeaders({identity, bearerToken});
+    const abortController = new AbortController();
 
     const transport = new TransportClass(new URL('/mcp', baseUrl), {
-        requestInit: {headers}
+        requestInit: {
+            headers,
+            signal: abortController.signal
+        }
     });
 
     const client = new ClientClass({
@@ -127,10 +157,20 @@ export async function runHealthcheck({
         capabilities: {}
     });
 
-    await client.connect(transport);
-
     try {
-        const result = await client.callTool({name: 'healthcheck', arguments: {}});
+        await withAbortableTimeout(
+            client.connect(transport),
+            timeoutMs,
+            'MCP healthcheck connect',
+            abortController
+        );
+
+        const result = await withAbortableTimeout(
+            client.callTool({name: 'healthcheck', arguments: {}}),
+            timeoutMs,
+            'MCP healthcheck tool call',
+            abortController
+        );
 
         if (result?.isError) {
             throw new Error('MCP healthcheck tool returned isError=true.');
@@ -151,6 +191,27 @@ export async function runHealthcheck({
     }
 }
 
+/**
+ * @summary Augments a healthcheck failure message with an actionable bearer-token hint when
+ * no token was configured. Under `NEO_AUTH_MODE=gitlab-pat` the in-container self-probe 401s
+ * with an opaque transport error; this surfaces the likely cause at the failure site (visible
+ * in `docker logs`) instead of leaving it only in the troubleshooting doc.
+ * @param {Error} error The failure thrown by `runHealthcheck` / the transport.
+ * @param {Object} [options]
+ * @param {String|null} [options.bearerToken] The configured bearer token (`null` when unset).
+ * @param {String} [options.bearerTokenEnv='NEO_MCP_HEALTHCHECK_TOKEN'] The env var the token reads from.
+ * @returns {String} `error.message`, plus the hint when no bearer token was sent.
+ */
+export function formatHealthcheckError(error, {bearerToken = null, bearerTokenEnv = 'NEO_MCP_HEALTHCHECK_TOKEN'} = {}) {
+    const message = error?.message || String(error);
+
+    if (bearerToken) {
+        return message;
+    }
+
+    return `${message}\nNo bearer token was sent (${bearerTokenEnv} is unset). If the server runs NEO_AUTH_MODE=gitlab-pat, that is the likely cause of a 401 — set ${bearerTokenEnv} to a GitLab token that validates at /api/v4/user (a read_user PAT, or a read_api OAuth-app / group token). See learn/agentos/cloud-deployment/Troubleshooting.md.`;
+}
+
 async function main() {
     let options;
 
@@ -167,7 +228,7 @@ async function main() {
         const result = await runHealthcheck(options);
         console.log(JSON.stringify(result));
     } catch (error) {
-        console.error(error.message);
+        console.error(formatHealthcheckError(error, options));
         process.exitCode = 1;
     }
 }

@@ -1,22 +1,27 @@
 ---
 id: 8020
 title: 'Enhance container.SortZone for Complex Layouts (reopened from #7207)'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - no auto close
 assignees: []
 createdAt: '2025-12-04T02:59:32Z'
-updatedAt: '2025-12-04T03:00:01Z'
+updatedAt: '2026-06-23T04:35:04Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8020'
 author: github-actions
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy: []
 blocking: []
+closedAt: '2026-06-23T04:35:04Z'
 ---
 # Enhance container.SortZone for Complex Layouts (reopened from #7207)
 
@@ -57,4 +62,20 @@ To refactor and enhance `Neo.draggable.container.SortZone` to support more compl
 - 2025-12-04T02:59:33Z @github-actions cross-referenced by #7207
 - 2025-12-04T03:00:01Z @tobiu removed the `stale` label
 - 2025-12-04T03:00:01Z @tobiu added the `no auto close` label
+### @neo-gpt - 2026-06-23T04:35:04Z
+
+[TRIAGE_COMPLETED]
+
+Fresh pass against current source shows this stale-bot reopen is already resolved in the codebase for its concrete implementation scope:
+
+- `src/draggable/container/SortZone.mjs` already exposes `dragHandleSelector` with the default `null` contract.
+- `SortZone#onDragStart()` already gates on the handle, resolves the owning parent component, filters sortable items to those containing the handle, and falls back to the original behavior when the selector is not configured.
+- `src/draggable/dashboard/SortZone.mjs` already configures `dragHandleSelector: '.neo-draggable'`.
+- Unit coverage exists in `test/playwright/unit/draggable/container/SortZone.spec.mjs` for mixed sortable/non-sortable content with `dragHandleSelector`.
+- The original #7207 commit trail is present in git history: `61692a53c3`, `6f2a206521`, `2e26e1f6a5`.
+
+The remaining AC wording, "DashboardSortZone can be refactored into a minimal subclass", is not a valid current target. `DashboardSortZone` now owns dashboard-specific DragCoordinator / remote-window / terminal-window-drop behavior, and `learn/agentos/HarnessDockZoneModel.md` keeps that split explicit: base/dashboard SortZones keep drag lifecycle and reorder math; DragCoordinator keeps cross-window arbitration; DockZoneModel records the accepted semantic workspace shape after a drop.
+
+So I am closing this as completed rather than opening fresh work from the stale wording. Any future docking work should route through the #13158 / dock-zone model line, not through broadening this old #8020 prescription.
+
 

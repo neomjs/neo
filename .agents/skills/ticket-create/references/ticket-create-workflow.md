@@ -10,7 +10,7 @@ Before the duplicate sweep or the Fat-Ticket body: is this the right work — do
 
 ## 1. Pre-Authoring Adjacency Sweeps (Gate 0)
 
-**Before drafting any title or body**, you MUST execute two specific sweeps to ensure swarm synchronicity and architectural discipline:
+**Before drafting any title or body**, you MUST execute the applicable sweeps below to ensure swarm synchronicity and architectural discipline:
 
 ### 1a. The Content Sweep (Duplicate Detection)
 Verify no equivalent ticket already exists. Redundant tickets pollute the Knowledge Base.
@@ -55,7 +55,11 @@ If an equivalent ticket exists: do NOT file a duplicate. Either comment on the e
 If the proposed ticket involves modifying any agent skill (i.e., any file within `.agents/skills/`), you MUST explicitly consult `.agents/skills/create-skill/SKILL.md` before finalizing the ticket body.
 **Pre-flight check:** *Have I verified this proposal adheres to the Progressive Disclosure routing pattern and does not bloat the top-level SKILL.md router?*
 
-### 1c. The Ungraduated-Discussion Cross-Check (High-Blast-Radius Mandatory)
+### 1c. Agent OS Structure Map Gate (Architecture-Creation Mandatory)
+
+Before creating any Epic, architecture/substrate ticket, or ticket touching `ai/`, Agent OS, MCP, Memory Core, orchestration, `.agents/skills`, or placement, run `npm run --silent ai:structure-map -- --files --loc`; cite the owning folder/sibling precedent or record N/A.
+
+### 1d. The Ungraduated-Discussion Cross-Check (High-Blast-Radius Mandatory)
 
 **Trigger:** if the proposed ticket is high-blast-radius (Epic, new skill / rule / workflow change, substrate-level architecture change) AND cites a Discussion (`#NNNN`) that has **not yet been formally graduated** (no `GRADUATED` marker in body, Discussion still open or graduation incomplete), the default action is **BLOCK ticket creation**.
 
@@ -69,11 +73,9 @@ If the proposed ticket involves modifying any agent skill (i.e., any file within
 
 For source anchors (`#11078` / `#11082` / `#11083` / `#11084`), Discussion `#11091` authority context, and substrate-decay review, read [`../../ideation-sandbox/audits/double-diamond-divergence-guard.md`](../../ideation-sandbox/audits/double-diamond-divergence-guard.md).
 
-### 1d. Project Attachment Pre-Flight (during release cycle)
-
-Before draft, make the §4 scope judgment — does this ticket **block or belong to** the release? If yes, confirm the target project number is current and cite it in your Pre-Flight statement (e.g., *"Release-blocking → Project 12 per §4."*); if no, it is **boardless** — state the `Release classification:` in the body instead. Prevents both stale-project-number drift and board over-attachment.
-
 ## 2. Six-Stage Challenge Chain
+
+Apply the same importance weighting used by PR review at creation time: premise / right thing to build = 30%; substrate / what belongs where = 30%; deliverable correctness = 30%; AC and evidence checklist sanity = 10%. These are importance-to-verdict weights, not drafting effort budgets. A perfectly detailed AC list for the wrong work or wrong owning substrate still fails the ticket.
 
 Apply at creation time — not just at intake. Every stage must pass before the ticket is drafted.
 
@@ -109,12 +111,6 @@ Keep titles under ~70 characters. PR titles derive from ticket titles; length di
 - **Primary — exactly one:** `epic`, `enhancement`, or `bug`.
 - **Secondary — as applicable:** `architecture`, `performance`, `regression`, `refactoring`, `documentation`, `testing`, plus domain labels (`core`, `grid`, `build`, etc.).
 - Before filing: call `list_labels` to confirm the labels exist. Do not invent label names.
-- **Project attachment is a SCOPE JUDGMENT, not an unconditional mandate.** Attach a new ticket to Project 12 ([Neo v13 Release board](https://github.com/orgs/neomjs/projects/12)) **IFF it blocks or belongs to the release** — bugs in release-scoped subsystems, ship-hardening, release-process work. Everything else defaults **boardless**. ProjectV2 memberships supersede the deprecated `release:v*` label family per [ProjectV2 migration ticket](https://github.com/neomjs/neo/issues/11233).
-  - **Why a judgment, not attach-everything:** "created during the v13 cycle" ≠ "required for v13". Unconditional attachment composes with `pr-review` §9 `Approve+Follow-Up` into a **release asymptote** — every merge that spawns a board-attached follow-up grows the release, so the faster the swarm merges the further the release recedes. Resolving invariant: **a follow-up that must land before release contradicts the `Approve+Follow-Up` verdict that spawned it** (the verdict certifies "shippable without it"), so its follow-ups are post-release by construction; a release-blocking gap means the verdict should have been `Request Changes`.
-  - **Default boardless + classify:** `Approve+Follow-Up`-born tickets, hypothesis validations, and post-release hardening skip the board and state a one-line **`Release classification:`** in the body (greppable, reviewable, operator-reversible) — e.g. `Release classification: post-release (Approve+Follow-Up follow-up — non-blocking)` or `Release classification: ON the board — <why it blocks the release>`.
-  - **`create_issue` MCP tool path:** release-blocking → pass `projects: [{projectNumber: 12}]` atomically with the create; boardless → `projects: []` (the default).
-  - **`gh issue create` CLI bypass path:** release-blocking only → follow with `gh project item-add 12 --owner neomjs --url <new-issue-url>` (inseparable two-step); skip it for boardless tickets.
-  - **Project anchor** is currently `12` (v13). When v14 release work begins, update the project number here AND any hard-coded `create_issue` call-sites naming the release project. Sunset condition: once v13 ships, this rule needs disposition review (`keep` with updated project number, OR `compress-to-trigger`).
 
 ## 5. Fat Ticket Body Structure
 
@@ -126,6 +122,7 @@ Skeleton tickets are forbidden. Every ticket body MUST contain:
 - **The Fix** — concrete prescription: files, symbols, architectural primitives touched. What changes, and where.
 - **Contract Ledger Matrix** *(when applicable)* — For any ticket introducing, modifying, or deprecating a surface consumed by humans, agents, or external systems (e.g. public methods, configs, MCP tools), you MUST include a formal Contract Ledger matrix. This matrix defines Target Surface, Source of Authority, Proposed Behavior, Fallback, Docs, and Evidence. Rows that name existing fields, methods, helpers, tools, config keys, docs paths, or runtime surfaces must satisfy the row-level Surface-Anchor V-B-A discipline in `learn/agentos/process/contract-ledger.md` before the ticket asserts them.
 - **Decision Record impact** *(architecture/substrate tickets)* — Declare `none`, `aligned-with ADR ####`, `depends-on ADR ####`, `amends ADR ####`, `supersedes ADR ####`, or `challenges ADR ####`. Use the ADR successor-risk audit when the ticket conflicts with or depends on accepted ADR authority.
+- **Decision Record** *(Discussion-origin tickets)* — Preserve the source Discussion's ADR classification when present: `Not needed`, `Optional: <ADR/ticket/discussion anchor>`, or `Required: ADR #### / PR #N / ticket #N`. This is distinct from `Decision Record impact`: the classification records the Discussion graduation's authority target; the impact line records what this ticket itself does to ADR authority.
 - **Discussion Criteria Mapping** *(when graduating from a Discussion)* — A section mapping the upstream Discussion's `[RESOLVED_TO_AC]` criteria to this Epic's ACs. See `ideation-sandbox-workflow.md §6.6` for the required format. This satisfies the `epic-resolution` Closeout Gates upfront.
 - **Acceptance Criteria** — bulleted checklist. Each item independently verifiable. Post-merge-only items explicitly flagged. **Epic exception:** for `epic`-labeled tickets, ACs live in the **SUB** tickets (not the epic body) — author the epic per `epic-create` (epic body = problem-scope + intended-solution; subs linked via `update_issue_relationship`, each a one-PR-deliverable leaf). See `.agents/skills/epic-create/`.
 - **Out of Scope** — what this ticket deliberately does NOT do. Prevents scope creep during implementation.
@@ -158,8 +155,7 @@ When drafting ticket bodies, read [`learn/agentos/process/reference-hygiene.md`]
 | Skipping duplicate sweep | Pollutes Knowledge Base; splits swarm attention |
 | Inventing label names | Breaks label taxonomy; causes silent GitHub API rejections |
 | Precedent-following without skill check | Propagates anti-patterns from prior sessions (e.g., `[enhancement]` prefix spread this way) |
-| Cross-scope bundling | `epic` label on a single-commit ticket; hurts granularity |
-| Boarding a non-release-blocking ticket, OR the `gh issue create` → `gh project item-add` bypass on a release-blocking one | §4 is a scope judgment (board IFF release-blocking, else boardless + `Release classification:`); over-attaching inflates the release surface (the asymptote `#12865` fixes), and the CLI two-step stays inseparable for release-blocking tickets |
+| Over-fragmentation | one-PR work split into micro-tickets; bundle by default — a split replaces scope, not adds |
 
 ## 9. When to Escalate to Discussion Instead
 
@@ -171,12 +167,11 @@ The `create_issue` tool returns the new issue number. Typical immediate follow-u
 
 - **`manage_issue_assignees(action: 'add', issue_number: N, assignees: ['@me'])`** — **MANDATORY** if you intend to start working immediately (AGENTS.md §0 Invariant 7). Do this *before* editing any tracked files. (Note: once `#11308` is resolved, atomic assignee injection at creation will replace this post-hoc call).
 - **`manage_issue_labels(action: 'add', ...)`** — only if the label set needs adjustment post-creation (e.g., label list was incomplete at `create_issue` time). Prefer getting labels right in the initial call.
-- **`manage_issue_projects(action: 'add', issue_number, projectNumbers: [12])`** — only if project membership needs adjustment post-creation. Prefer the `projects` parameter on `create_issue` for atomic attach. Use `action: 'update_field'` to set Status/Priority on the project board after creation.
 - **`update_issue_relationship(parent_id: N, child_id: M, type: 'SUB_ISSUE')`** — required when filing sub-issues under an Epic. Native graph linkage only; do NOT rely on inline `- [ ] #N` markdown checkboxes (see §6).
 - **Ticket body edits:** Edit the local `.md` file and use the `sync_all` tool to push the local version back to GitHub. The local `.md` file is canonical after `sync_all`.
 - **Picking up the ticket:** If you intend to start working on this newly created ticket immediately, you MUST run the `ticket-intake` skill next (your assignee claim fulfills the primary gate).
 
-Minimize chained calls where possible — a well-formed `create_issue` call with complete `title`, `body`, `labels`, and `projects` at creation time avoids all of the above except `update_issue_relationship` (which can only run after the issue exists).
+Minimize chained calls where possible — a well-formed `create_issue` call with complete `title`, `body`, and `labels` at creation time avoids all of the above except `update_issue_relationship` (which can only run after the issue exists).
 
 ## 11. Authorship Respect
 

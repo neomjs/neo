@@ -1,79 +1,27 @@
 .agent-os-viewport.neo-viewport {
-    --neo-background-color          : var(--agent-bg-dark);
-    --neo-color                     : var(--agent-text-primary);
-    --panel-header-background-color : var(--agent-bg-panel);
-    --panel-body-background-color   : var(--agent-bg-dark);
-    --toolbar-background-color      : var(--agent-bg-panel);
-    --container-background-color    : var(--agent-bg-dark);
-    --container-color               : var(--agent-text-primary);
-
-    background-color                : var(--neo-background-color);
-    color                           : var(--neo-color);
-    font-family                     : var(--agent-font-ui);
-
-    /* Toolbar Overrides */
     .agent-top-toolbar {
-        background-color : var(--agent-bg-panel);
-        border-bottom    : 1px solid var(--agent-border);
-        min-height       : 50px;
-        padding          : 0 20px;
-
-        .neo-button {
-            background     : transparent;
-            border         : 1px solid var(--agent-accent-swarm);
-            color          : var(--agent-accent-swarm);
-            text-transform : uppercase;
-            font-family    : var(--agent-font-mono);
-            font-weight    : bold;
-            transition     : all 0.3s ease;
-
-            &:hover {
-                background : rgba(0, 210, 255, 0.1);
-                box-shadow : 0 0 10px var(--agent-accent-swarm);
-            }
-        }
+        min-height : 50px;
+        padding    : 0 20px;
     }
 
-    /* Dashboard Layout */
     .agent-dashboard {
-        gap     : 20px;
-        /* Add gaps between panels */
         display : flex;
-        /* Ensure gap works if it's a flex container */
+        gap     : 20px;
     }
 
-    /* Panel Overrides */
-    .neo-panel-header-text {
-        font-family    : var(--agent-font-mono);
-        text-transform : uppercase;
-        letter-spacing : 1px;
-        font-weight    : bold;
-    }
-
-    /* Logo */
     .agent-logo {
-        display      : flex;
         align-items  : center;
+        display      : flex;
         margin-right : 15px;
 
         img {
             height : 30px;
-            filter : drop-shadow(0 0 10px var(--agent-accent-swarm));
         }
     }
+}
 
-    /* Swarm Panel */
-    .agent-panel-swarm {
-        background-color : var(--agent-bg-panel);
-        border           : 1px solid var(--agent-border);
-
-        .neo-panel-header {
-            background-color : var(--agent-bg-panel);
-            border-bottom    : 2px solid var(--agent-accent-swarm);
-        }
-
-        .neo-panel-header-text {
-            color : var(--agent-accent-swarm);
-        }
+@media (max-width: 560px) {
+    .agent-os-viewport.neo-viewport .agent-top-toolbar {
+        padding : 0 12px;
     }
 }

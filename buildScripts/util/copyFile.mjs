@@ -1,4 +1,4 @@
-import {Command}       from 'commander/esm.mjs';
+import {Command}       from 'commander';
 import fs              from 'fs-extra';
 import path            from 'path';
 import {sanitizeInput} from './sanitizer.mjs';

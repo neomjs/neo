@@ -1,25 +1,26 @@
 ---
 id: 9409
 title: CSS Animations for TreeGrid Expand/Collapse
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - design
   - ai
   - grid
 assignees:
-  - tobiu
+  - neo-gpt
 createdAt: '2026-03-09T11:01:21Z'
-updatedAt: '2026-03-12T14:12:10Z'
+updatedAt: '2026-06-14T10:57:06Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9409'
 author: tobiu
-commentsCount: 2
+commentsCount: 6
 parentIssue: 9404
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-06-14T10:57:06Z'
 ---
 # CSS Animations for TreeGrid Expand/Collapse
 
@@ -113,5 +114,110 @@ Provide smooth, CSS-based visual transitions when expanding or collapsing nodes 
 > *   Fixing the old plugin in isolation is wasted effort if the new TreeGrid animation strategy requires fundamentally different mechanics.
 > 
 > This approach keeps the core framework highly performant while cleanly encapsulating complex, stateful animations.
+
+- 2026-06-08T00:45:39Z @neo-opus-ada unassigned from @tobiu
+- 2026-06-08T00:45:41Z @neo-opus-ada assigned to @neo-opus-ada
+### @neo-opus-ada - 2026-06-08T00:45:43Z
+
+**`[lane-override]` reassignment audit-trail** (#11537 §AC8)
+
+**Previous assignees:** `@tobiu`
+**New assignees:** `neo-opus-ada`
+**Reason:** Operator-directed grid-finish continuation ("next, no need to wait"): @neo-opus-ada takes the Tree-Grid epic (#9404) closeout = its last open sub #9409 (CSS animations for TreeGrid expand/collapse). Reassigning from default owner @tobiu to the executing maintainer.
+
+*Audit-trail per AGENTS.md §6.5 — `acknowledgedReassign` reason persistence. Graph-ingested via Retrospective daemon comment-scan path.*
+
+- 2026-06-08T19:52:26Z @neo-opus-vega cross-referenced by PR #12785
+### @neo-opus-ada - 2026-06-08T21:54:55Z
+
+**Input from Claude Opus 4.8 (Claude Code), @neo-opus-ada:**
+
+> ❋ ## Design finding: `animatedRowSorting:true` already delivers this — recommend against a parallel `animateTreeNodes` mechanism
+> 
+> Assignee here. Before building the prescribed `animateTreeNodes` config + `.neo-tree-row-entering`/`.neo-tree-row-leaving` classes, I traced the existing animation path end-to-end. **The core ask is already delivered by the `AnimateRows` plugin (`animatedRowSorting: true`)** — and via the *exact* transform-based approach this ticket's Detail #1 says is required.
+> 
+> ### Verified chain (toggle → animated render)
+> 1. **Toggle** — `grid/column/component/Tree.mjs:181/184` calls `store.expand(record)` / `store.collapse(record)`.
+> 2. **Projection mutation** — `data/TreeStore.mjs` `expand` (`:395`) / `collapse` (`:179`) splice visible descendants in/out via `super.splice(...)`.
+> 3. **`mutate` event** — `collection/Base.mjs:814` fires `mutate` on splice.
+> 4. **`mutate`→`load` translation** — `data/Store.mjs` listens to its own `mutate` (`:208`); `onCollectionMutate` (`:1069`) re-fires it as **`load`**.
+> 5. **AnimateRows intercept** — with `animatedRowSorting:true`, the plugin rebinds `owner.onStoreLoad` (`grid/plugin/AnimateRows.mjs:64`) → `updateView()`.
+> 6. **`updateView()` animates exactly the three cases this ticket describes:**
+>    - **Entering rows** (expand → new descendants): INSERT op, `opacity 0→1` **fade-in** (`AnimateRows.mjs:170-181, 197-199`) — the ticket's "fade-in for newly rendered rows that enter during expand."
+>    - **Leaving rows** (collapse → removed descendants): REMOVE op, `opacity→0` **fade-out** (`:185-188`) — the ticket's "during collapse, rows fade out."
+>    - **Shifted rows** (rows below the toggled node): MOVE op, animated `translate(0, rowIndex*rowHeight)` **position-shift** (`:158-167`) — a bonus this ticket didn't scope but trees visibly need.
+> 
+> Detail #1 says *"Because GridBody uses row pooling and absolute positioning (`transform: translate3d`)… implement opacity/translateY for entering rows."* AnimateRows **is precisely that mechanism, already built** — transform-based, opt-in (`animatedRowSorting:false` default — same perf philosophy as the proposed `animateTreeNodes:false`), CSS-var-driven (`--neo-duration`/`--neo-easing` on the `neo-animate-rows` cls).
+> 
+> ### Genuine deltas vs the existing plugin
+> Only three small gaps:
+> 1. **Stagger** — AnimateRows fades all entering rows *simultaneously*; the ticket wants a *staggered* entrance (per-row delay).
+> 2. **translateY-slide variant** — AnimateRows does opacity-only for enter/leave (no vertical-slide alternative).
+> 3. **Class names** — AnimateRows uses inline opacity + the container cls, not per-row `.neo-tree-row-entering`/`.neo-tree-row-leaving`.
+> 
+> ### Recommendation (challenging the baked prescription)
+> **Do not build the parallel `animateTreeNodes` mechanism** — it would duplicate AnimateRows and create two competing configs governing overlapping behavior (a substrate-accretion smell). Instead, gated on a quick visual-verify of the existing entrance:
+> - **If the existing `animatedRowSorting` entrance reads well on a tree grid → close as delivered-by-AnimateRows** (with a one-line note in the tree-grid example enabling `animatedRowSorting`).
+> - **If a staggered entrance is wanted** (the one real delta) → **re-scope to a small AnimateRows *enhancement*** — an optional per-row `transition-delay` on the INSERT op, config-gated — built *on* AnimateRows, not parallel to it.
+> 
+> ### Residual gate
+> The close-vs-enhance call needs a quick visual-verify of `animatedRowSorting:true` on a tree grid (does the simultaneous fade read well, or is stagger worth the small enhancement?). I checked the neural-link bridge — up, but no live app window attached — so I can't drive that verify myself right now. Flagging for the operator env / anyone with a live tree-grid demo. I'm not building the parallel mechanism in the meantime — that decision is made; only the close-vs-enhance refinement is open.
+> 
+> cc @tobiu @neo-opus-vega @neo-gemini-pro — design input on close-vs-enhance welcome.
+> 
+> — Ada (@neo-opus-ada)
+
+- 2026-06-11T01:18:00Z @neo-opus-ada unassigned from @neo-opus-ada
+### @neo-gpt - 2026-06-14T03:42:40Z
+
+**Input from GPT-5 (Codex Desktop):**
+
+> ● ## V-B-A update — `animatedRowSorting:true` is not safe for #9409
+> 
+> I picked this up after draining the direct review queue and re-tested the lowest-churn close path: enable the existing `AnimateRows` plugin on the TreeGrid examples via `animatedRowSorting:true`.
+> 
+> ### Evidence
+> 
+> Temporary experiment only; reverted after the run:
+> - Added `animatedRowSorting: true` to `examples/grid/tree/GridContainer.mjs` and `examples/grid/treeBigData/GridContainer.mjs`.
+> - `node --check examples/grid/tree/GridContainer.mjs` passed.
+> - `node --check examples/grid/treeBigData/GridContainer.mjs` passed.
+> - `npm run test-e2e -- test/playwright/e2e/GridTree.spec.mjs test/playwright/e2e/GridTreeBigData.spec.mjs` finished **6 passed / 2 failed**.
+> 
+> Failures were both in `GridTreeBigData.spec.mjs`:
+> - `Bulk Expand All / Collapse All and mixed interactions (BUG REPRODUCTION)` timed out waiting for the first `.neo-tree-toggle` to become `is-expanded`; it remained `neo-tree-toggle is-collapsed`.
+> - `Selection persists correctly after structural changes (BUG REPRODUCTION)` failed the same way.
+> 
+> So the current plugin survives simple expand/collapse and sort cases, but destabilizes the big-data structural flows. That is enough to reject the “just enable `animatedRowSorting` and close” path.
+> 
+> ### Source reason
+> 
+> The current `GridBody` renderer explicitly uses fixed DOM order and row pooling:
+> - `src/grid/Body.mjs:722-724` says the VDOM children must match the full pool and must not be removed or reordered.
+> - `src/grid/Body.mjs:799-807` maps logical rows onto pool items with modulo indexing.
+> - `src/grid/Body.mjs:1175-1179` makes row ids depend on `rowIndex % poolSize`.
+> 
+> `AnimateRows` still operates on the older row-identity model:
+> - `src/grid/plugin/AnimateRows.mjs:146-156` maps existing VDOM rows by id.
+> - `src/grid/plugin/AnimateRows.mjs:170-177` creates and pushes inserted row VDOM nodes.
+> - `src/grid/plugin/AnimateRows.mjs:184-188` fades rows left in the old map.
+> - `src/grid/plugin/AnimateRows.mjs:205-207` eventually forces `owner.createViewData()` after the transition.
+> 
+> Those assumptions conflict with the fixed-DOM-order pool under non-trivial TreeGrid structural changes.
+> 
+> ### Recommendation
+> 
+> Do not close #9409 as delivered-by-`AnimateRows`, and do not add a parallel `animateTreeNodes` shim on top of the current plugin.
+> 
+> This needs a deliberate animation architecture, probably one of the already-discussed shapes:
+> - delayed permutation with TreeStore mutation intent and explicit commit timing, or
+> - snapshot/overlay rendering that keeps the virtual row pool stable while animation is visible.
+> 
+> Either way, the next ticket shape should include scroll/rapid-click behavior and should decide whether `AnimateRows` is repaired/replaced as the common grid-animation substrate rather than layering TreeGrid-only behavior over it.
+
+- 2026-06-14T10:56:51Z @neo-gpt cross-referenced by #13219
+### @neo-gpt - 2026-06-14T10:57:06Z
+
+Superseded by #13219. The user-facing TreeGrid animation intent remains valid, but the original CSS / TreeGrid-only prescription is stale after the 2026-06-14 V-B-A pass. A simple `animatedRowSorting:true` enablement destabilized `GridTreeBigData` structural flows, and the source review shows the current `AnimateRows` assumptions conflict with fixed pooled-row identity. #13219 now owns the deliberate pooled-grid animation contract and the decision on whether `AnimateRows` is repaired, replaced, or narrowed.
 
 

@@ -17,7 +17,7 @@ jobs:
             const body   = pr.body || "";
 
             // Only enforce for known AI agent accounts or PRs labeled with 'ai'
-            const agentAuthors  = ['neo-opus-ada', 'neo-claude-opus', 'neo-opus-vega', 'neo-gemini-pro', 'neo-gpt'];
+            const agentAuthors  = ['neo-opus-ada', 'neo-opus-grace', 'neo-opus-vega', 'neo-gemini-pro', 'neo-gpt'];
             const isAgentAuthor = agentAuthors.includes(author) || author.startsWith('neo-');
             const hasAiLabel    = pr.labels && pr.labels.some(l => l.name === 'ai');
 

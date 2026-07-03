@@ -73,7 +73,7 @@ class Server extends BaseServer {
      * @returns {Array<String>}
      */
     getHealthExemptTools() {
-        return ['healthcheck', 'list_agent_faqs'];
+        return ['healthcheck', 'get_ingestion_progress', 'list_agent_faqs', 'manage_knowledge_base'];
     }
 
     /**
@@ -128,9 +128,10 @@ class Server extends BaseServer {
             logger.warn('⚠️  [Startup] Knowledge Base is unhealthy. Server will start but tools will fail until resolved.');
             health.details.forEach(detail => logger.warn(`    ${detail}`));
 
-            if (!health.database.process.running) {
-                logger.warn('    💡 Tip: Start ChromaDB externally, or run:');
-                logger.warn(`       chroma run --path ${process.env.CHROMA_DATA_PATH || './data/chroma'} --port ${process.env.CHROMA_PORT || '8000'}`);
+            if (!health.database.connection.connected) {
+                logger.warn('    💡 Tip: Start or recover the orchestrator-managed ChromaDB instance.');
+            } else if (!health.database.process.running) {
+                logger.info('    Unified topology: Knowledge Base is connected to the orchestrator-managed ChromaDB instance.');
             }
             logger.warn('    The server will periodically retry and recover automatically once dependencies are met.');
         } else if (health.status === 'degraded') {
@@ -150,8 +151,11 @@ class Server extends BaseServer {
      * @param {Object} health
      */
     logCollectionStats(health) {
-        if (health.database.connection.collections) {
-            logger.info(`   - Knowledge Base: ${health.database.connection.collections.knowledgeBase.count}`);
+        const knowledgeBase = health.database.connection.collections?.knowledgeBase;
+
+        if (knowledgeBase) {
+            const suffix = knowledgeBase.exists ? knowledgeBase.count : 'unavailable';
+            logger.info(`   - Knowledge Base: ${suffix}`);
         }
     }
 }

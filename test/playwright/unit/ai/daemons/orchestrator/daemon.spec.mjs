@@ -1,6 +1,6 @@
 import {test, expect} from '@playwright/test';
-import fs from 'fs';
-import path from 'path';
+import fs             from 'fs';
+import path           from 'path';
 import '../../../../../../src/Neo.mjs';
 import '../../../../../../src/core/_export.mjs';
 import {
@@ -9,6 +9,9 @@ import {
     loadLocalAiConfig
 } from '../../../../../../ai/daemons/orchestrator/daemon.mjs';
 import {
+    buildOllamaServeEnv,
+    getMaxOllamaContextLength,
+    resolveOllamaHostPort,
     buildTaskDefinitions
 } from '../../../../../../ai/daemons/orchestrator/taskDefinitions.mjs';
 
@@ -34,6 +37,10 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         expect(tasks.kbSync.args).toEqual([path.join(scriptDir, 'maintenance', 'syncKnowledgeBase.mjs')]);
         expect(tasks.kbSync.expectedCommand).toBe('syncKnowledgeBase.mjs');
 
+        expect(tasks.githubWorkflowSync.command).toBe('/test/node');
+        expect(tasks.githubWorkflowSync.args).toEqual([path.join(scriptDir, 'maintenance', 'syncGithubWorkflow.mjs')]);
+        expect(tasks.githubWorkflowSync.expectedCommand).toBe('syncGithubWorkflow.mjs');
+
         expect(tasks.backup.command).toBe('/test/node');
         expect(tasks.backup.args).toEqual([path.join(scriptDir, 'maintenance', 'backup.mjs')]);
         expect(tasks.backup.label).toBe('agent OS backup');
@@ -54,8 +61,9 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         );
 
         expect(source).toContain('withHeavyMaintenanceLease');
-        expect(source).toContain("owner   : 'memory-summary-backfill'");
-        expect(source).toContain("reason  : 'manual-cli'");
+        expect(source).toContain("owner       : 'memory-summary-backfill'");
+        expect(source).toContain("reason      : 'manual-cli'");
+        expect(source).toContain('staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs');
     });
 
     test('buildTaskDefinitions is pure: tasks.mlx is omitted when mlxEnabled is false', () => {
@@ -65,13 +73,11 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         expect(tasks.mlx).toBeUndefined();
     });
 
-    test('buildTaskDefinitions is pure: no env-var lookups; concrete mlxModel/mlxPort flow through', () => {
-        // Architectural contract: taskDefinitions.mjs has no embedded MLX
-        // defaults and no env-var reads. Caller (Orchestrator via its mlx* getters
-        // reading AiConfig + env-vars) forwards concrete values. This test documents
-        // the pure-function contract by setting env-vars that would have been picked
-        // up by the old behavior and verifying they are ignored.
-        const scriptDir = path.resolve(process.cwd(), 'ai/scripts');
+    test('buildTaskDefinitions is pure: MLX composition stays outside the task table', () => {
+        // Architectural contract: taskDefinitions.mjs has no embedded MLX defaults
+        // and no env-var reads. The daemon entrypoint composes MLX after reading
+        // AiConfig, so stale caller params and env-vars are ignored here.
+        const scriptDir          = path.resolve(process.cwd(), 'ai/scripts');
         const originalMlxModel   = process.env.NEO_ORCHESTRATOR_MLX_MODEL;
         const originalMlxEnabled = process.env.NEO_ORCHESTRATOR_MLX_ENABLED;
         const originalMlxPort    = process.env.NEO_ORCHESTRATOR_MLX_PORT;
@@ -81,29 +87,17 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         process.env.NEO_ORCHESTRATOR_MLX_PORT    = '99999';
 
         try {
-            // Default: mlxEnabled=false; env-vars are ignored.
             const tasks = buildTaskDefinitions({scriptDir, nodeBin: '/test/node'});
             expect(tasks.mlx).toBeUndefined();
 
-            // Explicit values are passed through verbatim; env-vars are still ignored.
-            const explicitTasks = buildTaskDefinitions({
+            const staleCallerParams = buildTaskDefinitions({
                 scriptDir,
                 nodeBin   : '/test/node',
                 mlxEnabled: true,
                 mlxModel  : 'explicit-model',
                 mlxPort   : 12345
             });
-
-            expect(explicitTasks.mlx.args).toEqual([
-                '-m',
-                'mlx_lm.server',
-                '--model',
-                'explicit-model',
-                '--port',
-                '12345'
-            ]);
-            expect(explicitTasks.mlx.args).not.toContain('env-leaked-model');
-            expect(explicitTasks.mlx.args).not.toContain('99999');
+            expect(staleCallerParams.mlx).toBeUndefined();
         } finally {
             for (const [key, value] of [
                 ['NEO_ORCHESTRATOR_MLX_MODEL',   originalMlxModel],
@@ -143,13 +137,11 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         expect(tasks.lms).toBeUndefined();
     });
 
-    test('buildTaskDefinitions is pure: no env-var lookups; concrete lmsModel/lmsPort flow through', () => {
+    test('buildTaskDefinitions is pure: LM Studio composition stays outside the task table', () => {
         // Architectural contract: taskDefinitions.mjs has no embedded LM Studio
-        // defaults and no env-var reads. Caller (Orchestrator via its lms* getters
-        // reading AiConfig + env-vars) forwards concrete values. This test documents
-        // the pure-function contract by setting env-vars that would have been picked
-        // up if the implementation leaked and verifying they are ignored.
-        const scriptDir = path.resolve(process.cwd(), 'ai/scripts');
+        // defaults and no env-var reads. The daemon entrypoint composes LMS after
+        // reading AiConfig, so stale caller params and env-vars are ignored here.
+        const scriptDir          = path.resolve(process.cwd(), 'ai/scripts');
         const originalLmsModel   = process.env.NEO_ORCHESTRATOR_LMS_MODEL;
         const originalLmsEnabled = process.env.NEO_ORCHESTRATOR_LMS_ENABLED;
         const originalLmsPort    = process.env.NEO_ORCHESTRATOR_LMS_PORT;
@@ -159,29 +151,20 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         process.env.NEO_ORCHESTRATOR_LMS_PORT    = '99999';
 
         try {
-            // Default: lmsEnabled=false; env-vars are ignored.
             const tasks = buildTaskDefinitions({scriptDir, nodeBin: '/test/node'});
             expect(tasks.lms).toBeUndefined();
 
-            // Explicit values are passed through verbatim; env-vars are still ignored.
-            const explicitTasks = buildTaskDefinitions({
+            const staleCallerParams = buildTaskDefinitions({
                 scriptDir,
-                nodeBin   : '/test/node',
-                lmsEnabled: true,
-                lmsModel  : 'explicit-model',
-                lmsModels : ['chat-model', 'embedding-model'],
-                lmsHost   : 'http://127.0.0.1:4242',
-                providerReadiness: {attempts: 2, delayMs: 0, timeoutMs: 50},
-                lmsPort   : 4242
+                nodeBin          : '/test/node',
+                lmsEnabled       : true,
+                lmsModel         : 'explicit-model',
+                lmsModels        : ['chat-model', 'embedding-model'],
+                lmsHost          : 'http://127.0.0.1:4242',
+                providerReadiness: {attempts: 2, delayMs: 0, timeoutMs: 50, routineCacheTtlMs: 1000},
+                lmsPort          : 4242
             });
-
-            expect(explicitTasks.lms.command).toBe('lms');
-            expect(explicitTasks.lms.args).toEqual(['server', 'start', '--port', '4242']);
-            expect(explicitTasks.lms.expectedCommand).toBe('lms server');
-            expect(explicitTasks.lms.pidFileName).toBe('lms.pid');
-            expect(explicitTasks.lms.requiredModels).toEqual(['chat-model', 'embedding-model']);
-            expect(typeof explicitTasks.lms.postSpawn).toBe('function');
-            expect(explicitTasks.lms.args).not.toContain('99999');
+            expect(staleCallerParams.lms).toBeUndefined();
         } finally {
             for (const [key, value] of [
                 ['NEO_ORCHESTRATOR_LMS_MODEL',   originalLmsModel],
@@ -197,7 +180,7 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         }
     });
 
-    test('buildTaskDefinitions honors an explicit empty lmsModels list without legacy fallback (#12264)', async () => {
+    test('buildTaskDefinitions ignores legacy LMS params, including an explicit empty lmsModels list (#12264)', () => {
         const tasks = buildTaskDefinitions({
             scriptDir : path.resolve(process.cwd(), 'ai/scripts'),
             nodeBin   : '/test/node',
@@ -208,13 +191,7 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
             lmsPort   : 4242
         });
 
-        expect(tasks.lms.requiredModels).toEqual([]);
-        await expect(tasks.lms.postSpawn()).resolves.toMatchObject({
-            ready         : true,
-            requiredModels: [],
-            skipped       : true,
-            reason        : 'no-openai-compatible-local-roles'
-        });
+        expect(tasks.lms).toBeUndefined();
     });
 
     test('AiConfig.orchestrator.lms ships default-enabled LM Studio launch defaults', () => {
@@ -230,11 +207,86 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         );
     });
 
+    // -----------------------------------------------------------------------------
+    // Native Ollama (`ollama serve`) orchestrator-managed lifecycle (local-dev only)
+    // -----------------------------------------------------------------------------
+
+    test('buildTaskDefinitions is pure: Ollama composition stays outside the task table', () => {
+        const scriptDir = path.resolve(process.cwd(), 'ai/scripts');
+
+        expect(buildTaskDefinitions({scriptDir, nodeBin: '/test/node'}).ollama).toBeUndefined();
+        expect(buildTaskDefinitions({
+            scriptDir,
+            nodeBin      : '/test/node',
+            ollamaEnabled: true,
+            ollamaHost   : 'http://127.0.0.1:11434',
+            ollamaRoles  : [{model: 'gemma4:31b'}]
+        }).ollama).toBeUndefined();
+    });
+
+    test('native Ollama serve env helpers are pure and ignore process env', () => {
+        const originalEnv = {
+            OLLAMA_HOST                    : process.env.OLLAMA_HOST,
+            OLLAMA_CONTEXT_LENGTH          : process.env.OLLAMA_CONTEXT_LENGTH,
+            OLLAMA_MAX_LOADED_MODELS       : process.env.OLLAMA_MAX_LOADED_MODELS,
+            NEO_ORCHESTRATOR_OLLAMA_ENABLED: process.env.NEO_ORCHESTRATOR_OLLAMA_ENABLED
+        };
+
+        process.env.OLLAMA_HOST = 'env-leaked-host:9999';
+        process.env.OLLAMA_CONTEXT_LENGTH = '777';
+        process.env.OLLAMA_MAX_LOADED_MODELS = '9';
+        process.env.NEO_ORCHESTRATOR_OLLAMA_ENABLED = 'false';
+
+        try {
+            const roles = [{
+                role         : 'chat',
+                providerRole : 'graphProvider',
+                model        : 'gemma4:31b',
+                contextLength: 131072
+            }, {
+                role         : 'embedding',
+                providerRole : 'embeddingProvider',
+                model        : 'qwen3-embedding',
+                contextLength: 32768
+            }];
+
+            expect(resolveOllamaHostPort('http://127.0.0.1:11445')).toBe(11445);
+            expect(getMaxOllamaContextLength(roles)).toBe(131072);
+            expect(buildOllamaServeEnv({
+                host                 : 'http://127.0.0.1:11445',
+                keepAlive            : -1,
+                contextLength        : getMaxOllamaContextLength(roles),
+                requireParallelModels: 2
+            })).toEqual({
+                OLLAMA_HOST             : '127.0.0.1:11445',
+                OLLAMA_KEEP_ALIVE       : '-1',
+                OLLAMA_CONTEXT_LENGTH   : '131072',
+                OLLAMA_MAX_LOADED_MODELS: '2'
+            });
+        } finally {
+            for (const [key, value] of Object.entries(originalEnv)) {
+                if (value === undefined) {
+                    delete process.env[key];
+                } else {
+                    process.env[key] = value;
+                }
+            }
+        }
+    });
+
+    test('AiConfig.orchestrator.ollama ships default-enabled local-dev launch gate', () => {
+        const templateSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/config.template.mjs'), 'utf8');
+
+        expect(templateSource).toMatch(
+            /ollama:\s*\{[\s\S]*?leaf\(true,\s*'NEO_ORCHESTRATOR_OLLAMA_ENABLED'/
+        );
+    });
+
     test('keeps wake-daemon wake-only and routes maintenance ownership to the daemon class', () => {
         const bridgeSource       = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/wake/daemon.mjs'), 'utf8');
         const orchestratorSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/orchestrator/daemon.mjs'), 'utf8');
         const daemonSource       = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/orchestrator/Orchestrator.mjs'), 'utf8');
-        const taskDefSource        = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/orchestrator/taskDefinitions.mjs'), 'utf8');
+        const taskDefSource      = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/orchestrator/taskDefinitions.mjs'), 'utf8');
 
         expect(bridgeSource).not.toContain('summarize-sessions.mjs');
         expect(bridgeSource).not.toContain('Piece C periodic summarization sweep');
@@ -277,7 +329,7 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
 
     test('loads gitignored top-level AI config only when present', async () => {
         const loadedPaths = [];
-        const aiConfig = {
+        const aiConfig    = {
             async load(configPath) {
                 loadedPaths.push(configPath);
             }
@@ -288,7 +340,7 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
             aiConfig,
             existsSync: () => false
         })).resolves.toEqual({
-            loaded: false,
+            loaded    : false,
             configPath: '/tmp/missing-ai-config.mjs'
         });
 
@@ -297,7 +349,7 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
             aiConfig,
             existsSync: () => true
         })).resolves.toEqual({
-            loaded: true,
+            loaded    : true,
             configPath: '/tmp/local-ai-config.mjs'
         });
 

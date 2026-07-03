@@ -1,0 +1,132 @@
+---
+id: 9843
+title: 'feat: Implement Quantitative Reward Signal for Golden Path Edge Reinforcement'
+state: OPEN
+labels:
+  - enhancement
+  - ai
+  - architecture
+  - not-code-ready
+  - needs-design
+assignees:
+  - tobiu
+createdAt: '2026-04-10T07:16:39Z'
+updatedAt: '2026-06-23T04:10:09Z'
+githubUrl: 'https://github.com/neomjs/neo/issues/9843'
+author: tobiu
+commentsCount: 1
+parentIssue: null
+subIssues: []
+subIssuesCompleted: 0
+subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
+blockedBy:
+  - '[x] 9842 feat: Implement Autonomous Agent Orchestrator with Golden Path Directive Injection'
+blocking: []
+---
+# feat: Implement Quantitative Reward Signal for Golden Path Edge Reinforcement
+
+## Problem (A2A Context — Claude Opus 4.6 via Antigravity)
+
+The Golden Path synthesis (`DreamService.synthesizeGoldenPath()`) computes strategic priorities using a hybrid `(semanticScore * 2.0) + (struct_score * 1.0)` formula, but edge weights are static after computation. There is no feedback loop from task execution outcomes back into the scoring algorithm.
+
+When an agent completes a Golden Path task:
+- If successful: the ticket closes, the node leaves the OPEN filter, but the structural edges that led to its prioritization retain their weights unchanged
+- If failed: the ticket remains open, the agent moves on, but no penalty signal adjusts the weights
+
+This means the system cannot learn from its own execution history. A task that consistently fails keeps getting re-prioritized. A task category where the agent excels doesn't get proportionally reinforced.
+
+## Solution
+
+Implement a `RewardService` in `ai/mcp/server/memory-core/services/RewardService.mjs`:
+
+### 1. Outcome Capture (in `Loop.reflect()`)
+
+After each completed cycle, compute a quantitative outcome signal:
+
+```javascript
+const signal = {
+    taskId    : event.goldenPathNodeId,  // The graph node that spawned this task
+    outcome   : 'success' | 'partial' | 'failure',
+    metrics   : {
+        testsPassed    : Number,   // If QA sub-agent ran tests
+        testsTotal     : Number,
+        filesModified  : Number,
+        commitSha      : String|null,
+        executionTimeMs: Number
+    }
+};
+```
+
+### 2. Edge Weight Mutation
+
+Feed the signal back into GraphService:
+
+- **Success**: `linkNodes(completedNodeId, relatedNodes, 'REWARD_POSITIVE', outcome.score)` — strengthens the structural pathways that led to this task
+- **Failure**: Apply decay multiplier (e.g., 0.7) to the inbound `GUIDES` edges from the frontier to the failed node — deprioritizes repeated failure
+- **Partial**: No weight change (neutral signal)
+
+### 3. Golden Path Recalibration
+
+The next `synthesizeGoldenPath()` run will automatically pick up the mutated edge weights via the existing `struct_score` SQL aggregation, naturally deprioritizing failed tasks and reinforcing successful patterns.
+
+## Architectural Context
+
+- `ai/agent/Loop.mjs` (L441-469): `reflect()` — the existing reflection hook where outcome capture should be injected
+- `ai/mcp/server/memory-core/services/GraphService.mjs` (L173-228): `linkNodes()` — the Hebbian edge weight accumulation that the reward signal should target
+- `ai/daemons/DreamService.mjs` (L929-988): The Golden Path SQL query that consumes `struct_score` — already wired to pick up edge weight changes
+
+## Avoided Pitfalls
+
+- Do NOT create a separate database for reward signals — use the existing Native Edge Graph topology. The whole point is that rewards flow through the same edges the Golden Path traverses.
+- Do NOT use semantic reward (LLM judging quality) — use quantitative metrics only. Semantic reward introduces hallucination risk into the feedback loop.
+- Protect against reward hacking: cap maximum positive reinforcement per cycle (already handled by `Math.min(..., 5.0)` in `linkNodes`)
+- The `REWARD_POSITIVE` edge type should NOT be decayed by `decayGlobalTopology()` — add it to the protected list alongside `IMPLEMENTS`, `EXTENDS`, `SYSTEM_TENET`
+
+## Verification
+
+- Unit test: `test/playwright/unit/ai/RewardService.spec.mjs`
+  - Assert: Success signal increases target edge weight
+  - Assert: Failure signal decays target edge weight
+  - Assert: Repeated failure eventually drops node below Golden Path threshold
+
+## Timeline
+
+- 2026-04-10T07:16:41Z @tobiu added the `enhancement` label
+- 2026-04-10T07:16:42Z @tobiu added the `ai` label
+- 2026-04-10T07:16:42Z @tobiu added the `architecture` label
+- 2026-04-10T07:17:15Z @tobiu cross-referenced by #9844
+- 2026-04-10T07:17:45Z @tobiu assigned to @tobiu
+- 2026-04-10T07:18:00Z @tobiu marked this issue as being blocked by #9842
+- 2026-04-12T12:48:07Z @tobiu cross-referenced by PR #9918
+- 2026-05-26T00:29:34Z @neo-opus-ada cross-referenced by #12007
+- 2026-06-23T04:10:06Z @neo-gpt added the `not-code-ready` label
+- 2026-06-23T04:10:06Z @neo-gpt added the `needs-design` label
+### @neo-gpt - 2026-06-23T04:10:09Z
+
+## Intake hygiene: graph-feedback design, not a ready implementation lane
+
+Live checks performed before this routing:
+
+- #9843 is still open with no comments and still describes a `RewardService` at `ai/mcp/server/memory-core/services/RewardService.mjs`.
+- Current Golden Path scoring lives in `ai/services/graph/GoldenPathSynthesizer.mjs`: it computes `struct_score` from inbound non-`BLOCKS` graph edges, then ranks with `(semanticScore * 2.0) + (struct_score * 1.0)`.
+- Current graph writes live in `ai/services/memory-core/GraphService.mjs`. `PROTECTED_EDGE_TYPES` currently contains `IMPLEMENTS`, `EXTENDS`, `SYSTEM_TENET`, and `RESOLVES`; there is no `REWARD_POSITIVE` edge type today.
+- `Loop.reflect()` still exists, but newer Golden Path directive outcome capture already lives in `ai/agent/AgentOrchestrator.mjs`: it writes durable `.neo-ai-data/agent-orchestrator/golden-path-outcomes.jsonl` outcomes and projects HealthService status.
+- The PR-outcome reward side moved under #9962: #13724/#13725 shipped the pure `PrOutcomeReward` scalar core, #13729 shipped pure revert detection, and #9962 is already gated as `not-code-ready` / `needs-design` until scan/tagging contracts are resolved.
+
+Verdict: keep #9843 open, but do not treat it as a direct coding ticket as written. The missing question is no longer "add `RewardService` at the old path" or "capture outcome from `Loop.reflect()` from scratch." The live design question is whether Golden Path directive outcomes and/or #9962 `outcomeReward` should mutate topology at all.
+
+Design questions to settle before implementation:
+
+1. Which outcome vocabulary maps to graph changes: Golden Path directive outcomes (`completed`, `failed`, `blocked`, `expired`, `crashed`) vs PR outcome rewards (`mergedClean`, `mergedWithChanges`, `closedUnmerged`, `reverted`).
+2. Whether reward edges are durable/protected or ambient/decaying graph physics.
+3. How RLS/tenant scoping and local-vs-cloud parity are maintained for any graph mutation path.
+4. How we prevent reward hacking or repeated closed-loop amplification of queue physics.
+5. Whether this should become a child of #9962 or stay a separate Golden Path graph-physics design lane.
+
+Action: adding `not-code-ready` + `needs-design`. No new ticket from this audit: #9843 is the right anchor for the Golden Path graph-feedback question until the contract is clarified; #9962 remains the PR-outcome RLAIF parent.
+
+

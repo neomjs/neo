@@ -6,7 +6,7 @@ import Base                          from '../../../src/core/Base.mjs';
 import {Memory_Config as aiConfig}   from '../../services.mjs';
 import ChromaManager                 from '../../services/knowledge-base/ChromaManager.mjs';
 import KBRecorderService             from '../../services/knowledge-base/KBRecorderService.mjs';
-import KnowledgeBaseIngestionService from '../../services/knowledge-base/KnowledgeBaseIngestionService.mjs';
+import IngestionService              from '../../services/knowledge-base/IngestionService.mjs';
 import logger                        from '../../mcp/server/knowledge-base/logger.mjs';
 import {
     diffTenantChunks,
@@ -292,7 +292,7 @@ class KbReconciliationService extends Base {
      * @protected
      */
     async fetchTenantConfigVersion(tenantId) {
-        const config = await KnowledgeBaseIngestionService.getTenantConfig({tenantId});
+        const config = await IngestionService.getTenantConfig({tenantId});
 
         return config?.version ?? 0
     }
@@ -304,7 +304,7 @@ class KbReconciliationService extends Base {
      * @protected
      */
     async fetchTenantManifests(tenantId) {
-        return KnowledgeBaseIngestionService.getTenantManifests({tenantId})
+        return IngestionService.getTenantManifests({tenantId})
     }
 
     /**
@@ -340,7 +340,7 @@ class KbReconciliationService extends Base {
      * @summary Test-stubbable seam — fetches all of a tenant's Chroma rows, batched.
      *
      * Mirrors the batched `collection.get({where: {tenantId}})` idiom of
-     * `KnowledgeBaseIngestionService.getTenantRows`; kept local rather than calling that
+     * `IngestionService.getTenantRows`; kept local rather than calling that
      * `@protected` method so reconciliation remains additive to ingestion internals.
      *
      * @param {Object} collection The Chroma `knowledge-base` collection.

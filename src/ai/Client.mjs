@@ -7,6 +7,9 @@ import InteractionService from './client/InteractionService.mjs';
 import RuntimeService     from './client/RuntimeService.mjs';
 import Socket             from '../data/connection/WebSocket.mjs';
 import WindowManager      from '../manager/Window.mjs';
+import WriteGuard         from './WriteGuard.mjs';
+import TransactionService from './TransactionService.mjs';
+import {parseAgentEnvelope} from './parseAgentEnvelope.mjs';
 
 /**
  * The AI Client establishes a WebSocket connection to the Neural Link MCP Server.
@@ -67,6 +70,23 @@ class Client extends Base {
      * @protected
      */
     socket = null
+    /**
+     * The per-heap multi-writer write-lock authority — owns the live held-lock table for this App-Worker heap.
+     * One {@link Neo.ai.Client} (a singleton) ⇒ one {@link Neo.ai.WriteGuard} ⇒ the heap's shared write truth, so a
+     * write-class service can deny a *different* writer's overlapping subtree write. See {@link Neo.ai.admitWrite}.
+     * @member {Neo.ai.WriteGuard|null} writeGuard=null
+     * @protected
+     */
+    writeGuard = null
+    /**
+     * The per-heap undo authority — the in-heap per-session transaction stack ({@link Neo.ai.TransactionService})
+     * that records the *reverse* of each enforcement-granted Neural Link write so an agent can undo it. Sibling to
+     * {@link Neo.ai.Client#writeGuard}: one Client ⇒ one stack authority, keyed on the same `(agentId, sessionId)`
+     * writer pair, so the lock + undo lifecycles align.
+     * @member {Neo.ai.TransactionService|null} transactionService=null
+     * @protected
+     */
+    transactionService = null
 
     /**
      * @param {Object} config
@@ -75,6 +95,9 @@ class Client extends Base {
         super.construct(config);
 
         let me = this;
+
+        me.writeGuard         = Neo.create(WriteGuard);
+        me.transactionService = Neo.create(TransactionService);
 
         me.services = {
             component  : Neo.create(ComponentService,   {client: me}),
@@ -100,9 +123,17 @@ class Client extends Base {
             verify_component      : component,
 
             call_method            : instance,
+            create_instance         : instance,
+            destroy_instance        : instance,
             find_instances         : instance,
             get_instance_properties: instance,
             set_instance_properties: instance,
+            undo                   : instance,
+            redo                   : instance,
+            abort_transaction      : instance,
+            begin_transaction      : instance,
+            commit_transaction     : instance,
+            list_transactions      : instance,
 
             get_record            : data,
             inspect_state_provider: data,
@@ -111,6 +142,7 @@ class Client extends Base {
             modify_state_provider : data,
 
             check_namespace       : runtime,
+            focus_window          : runtime,
             get_dom_event         : runtime,
             get_drag              : runtime,
             get_method_source     : runtime,
@@ -119,7 +151,9 @@ class Client extends Base {
             get_route             : runtime,
             get_window            : runtime,
             inspect_class         : runtime,
+            open_component_window : runtime,
             patch_code            : runtime,
+            position_window       : runtime,
             reload_page           : runtime,
             set_route             : runtime,
             simulate_event        : interaction
@@ -181,9 +215,11 @@ class Client extends Base {
      * This method acts as the central dispatcher for all AI-driven commands.
      * @param {String} method The JSON-RPC method name
      * @param {Object} params The parameters associated with the method
+     * @param {Object} [context] Optional request context (e.g. `{agentId}`) threaded from the
+     * agent-message envelope; the write services key topological-lock enforcement on it.
      * @returns {Promise<*>} The result of the operation
      */
-    async handleRequest(method, params) {
+    async handleRequest(method, params, context) {
         let me      = this,
             service = null,
             prefix;
@@ -203,14 +239,14 @@ class Client extends Base {
             const fn = service[fnName];
 
             if (Neo.isFunction(fn)) {
-                return fn.call(service, params)
+                return fn.call(service, params, context)
             } else if (Neo.isPromise(fn)) {
-                return await fn.call(service, params)
+                return await fn.call(service, params, context)
             }
         }
 
         if (service && typeof service[fnName] === 'function') {
-            return service[fnName](params)
+            return service[fnName](params, context)
         }
 
         throw new Error(`Unknown method: ${method}`);
@@ -246,18 +282,58 @@ class Client extends Base {
     }
 
     /**
+     * @summary Release held write locks AND sweep the open transaction for one Bridge-stamped disconnected
+     * agent session — both on the same frame, so the lock and transaction lifecycles cannot diverge silently.
+     * App-side `agent_disconnected` frames are lifecycle notifications, not JSON-RPC. Require the full
+     * `(agentId, sessionId)` writer key before calling {@link Neo.ai.WriteGuard#releaseAgent} +
+     * {@link Neo.ai.TransactionService#sweep}; a half-stamped frame is dropped so it can neither release a
+     * whole agent (or every agent sharing a session id) nor sweep a transaction stack it cannot key.
+     * @param {Object} [frame={}]
+     * @param {String} [frame.agentId]
+     * @param {String} [frame.sessionId]
+     * @returns {{released: Number, swept: Boolean}}
+     */
+    handleAgentDisconnected(frame = {}) {
+        const
+            {agentId, sessionId}             = frame,
+            {transactionService, writeGuard} = this;
+
+        if (typeof agentId !== 'string' || agentId === '' ||
+            typeof sessionId !== 'string' || sessionId === '' ||
+            !writeGuard) {
+            return {released: 0, swept: false}
+        }
+
+        // The transaction lifecycle must not outlive the lock lifecycle: release the agent's held write-locks
+        // AND sweep its open transaction + undo stack on the same `agent_disconnected` frame — otherwise a
+        // disconnect (or worker restart) leaks an open transaction. `sweep` is the transaction-side counterpart
+        // to `releaseAgent`; both key on the same `(agentId, sessionId)` pair validated above.
+        const {released}      = writeGuard.releaseAgent({agentId, sessionId}),
+              {swept = false} = transactionService?.sweep({id: {agentId, sessionId}}) ?? {};
+
+        return {released, swept}
+    }
+
+    /**
      * Handles incoming messages from the WebSocket.
      * Parses the JSON-RPC payload and delegates valid requests to `handleRequest`.
      * @param {Object} data
      */
     async onSocketMessage({data}) {
-        if (data.method) {
+        if (data?.type === 'agent_disconnected') {
+            this.handleAgentDisconnected(data);
+            return
+        }
+
+        const {jsonrpc, context} = parseAgentEnvelope(data);
+
+        if (jsonrpc?.method) {
             try {
-                const result = await this.handleRequest(data.method, data.params);
-                this.sendResponse(data.id, result)
+                const result = await this.handleRequest(jsonrpc.method, jsonrpc.params, context);
+                this.sendResponse(jsonrpc.id, result)
             } catch (e) {
                 console.error('Neo.ai.Client: Failed to handle message', e);
-                this.sendError(data.id, e.message, e.stack)
+                this.sendError(jsonrpc.id, e.message, e.stack)
             }
         }
     }
@@ -301,6 +377,20 @@ class Client extends Base {
                 windowId : win.id
             })
         })
+
+        // 2b. A non-SharedWorker app never fires the App-worker `connect` event that populates
+        // WindowManager.items, so the rehydration above sends nothing — the bridge never learns
+        // about the single implicit window, leaving `get_window_topology` empty and `simulate_event`
+        // unroutable (every event needs a windowId). Register each app's window explicitly from the
+        // windowId-keyed `Neo.apps` registry. Rects stay optional here (the SharedWorker path also
+        // omits them until a WindowManager entry exists); routing only needs the windowId.
+        if (!appWorker.isSharedWorker) {
+            Object.entries(Neo.apps).forEach(([windowId, app]) => {
+                if (!WindowManager.get(windowId)) {
+                    this.sendNotification('window_connected', {appName: app.name, windowId})
+                }
+            })
+        }
 
         // 3. Rehydrate drag state (if active)
         const dragCoordinator = Neo.manager?.DragCoordinator;

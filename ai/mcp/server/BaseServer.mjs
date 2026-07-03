@@ -24,6 +24,9 @@ import Base                                            from '../../../src/core/B
  *   Default `null` means "no health gate"; appropriate for file-system-style minimal servers.
  * - `wrapDispatch(dispatch)` — wrap each tool dispatch in a context (e.g. `RequestContextService.run(...)`
  *   for memory-core's stdio identity binding). Default returns `dispatch()` unchanged.
+ * - `buildToolProjectionContext({request, phase, toolName?, args?})` — return an explicit tool
+ *   projection context for embedded harness agents. Default `null` preserves the full
+ *   developer/operator surface.
  * - `logStartupStatus(health)` — per-server startup log formatting.
  * - `buildRequestContext(reqAuth)` — SSE-only hook called by `TransportService.setup()` for per-request
  *   context construction. Default returns `{}`.
@@ -74,6 +77,17 @@ class BaseServer extends Base {
      * @member {String|null} configFile=null
      */
     configFile = null
+    /**
+     * Server-instance forced tool-projection mode — the security *ceiling* for the tool surface this
+     * instance exposes, set at boot by the spawner (the Fleet Manager when it launches a server for an
+     * embedded agent; neural-link's `--tool-projection-mode harness-embedded` CLI flag). When set,
+     * {@link buildToolProjectionContext} pins every request to this mode, so a client can NEVER widen
+     * its surface by omitting or altering request `_meta` — the projection becomes a server-bound
+     * capability, not a client-asserted convention. Default `null` = no ceiling: the full
+     * developer/operator surface, for trusted dev/operator-launched servers (back-compat).
+     * @member {String|null} toolProjectionMode=null
+     */
+    toolProjectionMode = null
     /**
      * Per-server `logger` module. Subclasses assign at class-body level.
      * Falls back to `console.error` when null.
@@ -153,6 +167,31 @@ class BaseServer extends Base {
     }
 
     /**
+     * @summary Override: resolve the tool-projection context for ListTools / CallTool.
+     * Returning `null` preserves the existing full developer/operator surface. Returning
+     * `{mode: 'harness-embedded'}` asks the underlying ToolService to apply its OpenAPI-root
+     * `x-neo-harness-tool-projection` policy before listing or dispatching tools.
+     *
+     * This default honors the server-instance {@link toolProjectionMode} ceiling: when the spawner
+     * pinned this instance to a mode, every request gets it. Subclasses that read a client narrowing
+     * hint (e.g. neural-link's `_meta`) MUST keep the forced mode as the ceiling — a client can never
+     * widen past it.
+     *
+     * **Only `null` / `undefined` is "unset"** (the trusted full-surface launch). Any *configured*
+     * value — including an empty/whitespace string from a misconfigured spawner — stays a forced mode
+     * and fails CLOSED downstream (`ToolService.isToolAllowedForProjection` returns no tools for any
+     * non-`harness-embedded` mode). A truthiness check would erase `''` into the unset/full-surface
+     * case — a fail-OPEN on a security launch parameter — so the nullish check is load-bearing.
+     * @param {Object} context
+     * @param {Object} context.request The raw MCP request.
+     * @param {String} context.phase   `listTools` or `callTool`.
+     * @returns {Object|String|null}
+     */
+    buildToolProjectionContext(context) {
+        return this.toolProjectionMode != null ? {mode: this.toolProjectionMode} : null;
+    }
+
+    /**
      * @summary Override: per-server startup status logging from healthcheck output. Default
      * logs a generic "Server started" line.
      * @param {Object|null} health The healthcheck result, or `null` if no health service.
@@ -193,6 +232,7 @@ class BaseServer extends Base {
      * @param {Object} context
      * @param {String} context.toolName The MCP tool name being invoked.
      * @param {Object} context.args     The arguments passed to the tool call.
+     * @param {Number} context.t0       The Date.now() timestamp captured at handler entry.
      */
     async beforeToolDispatch(context) {
         // No-op default
@@ -286,7 +326,8 @@ class BaseServer extends Base {
         mcpServer.server.setRequestHandler(ListToolsRequestSchema, async (request) => {
             try {
                 const {cursor, limit}     = request.params || {};
-                const {tools, nextCursor} = toolService.listTools({cursor, limit});
+                const toolProjection      = await this.buildToolProjectionContext({request, phase: 'listTools'});
+                const {tools, nextCursor} = toolService.listTools({cursor, limit, toolProjection});
 
                 const mcpTools = tools.map(tool => ({
                     name        : tool.name,
@@ -316,10 +357,11 @@ class BaseServer extends Base {
 
             try {
                 this.logger?.debug?.(`[MCP] Calling tool: ${name} with args:`, JSON.stringify(args));
+                const toolProjection = await this.buildToolProjectionContext({request, phase: 'callTool', toolName: name, args});
 
                 // Pre-dispatch validation hook (e.g., memory-core's identity-spoof guard).
                 // Throws bubble to the outer catch and route to formatToolError.
-                await this.beforeToolDispatch({toolName: name, args});
+                await this.beforeToolDispatch({toolName: name, args, t0});
 
                 if (healthService && !exemptTools.includes(name)) {
                     try {
@@ -338,7 +380,7 @@ class BaseServer extends Base {
                     }
                 }
 
-                const dispatch = () => toolService.callTool(name, args);
+                const dispatch = () => toolService.callTool(name, args, {toolProjection});
                 const result   = await this.wrapDispatch(dispatch);
 
                 return this.formatToolResult(result);

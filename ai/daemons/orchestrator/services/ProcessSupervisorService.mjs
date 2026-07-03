@@ -1,7 +1,11 @@
-import Base from '../../../../src/core/Base.mjs';
-import fs from 'fs-extra';
-import path from 'path';
-import {execSync} from 'child_process';
+import Base                           from '../../../../src/core/Base.mjs';
+import fs                             from 'fs-extra';
+import path                           from 'path';
+import {execSync}                     from 'child_process';
+import {buildSupervisedTaskDiagnosis} from './taskOutcomeDiagnosis.mjs';
+
+const DEFAULT_STDOUT_JSON_MAX_BYTES = 65536;
+const ESCALATING_TASK_OUTCOMES      = Object.freeze(new Set(['backup']));
 
 /**
  * @class Neo.ai.daemons.services.ProcessSupervisorService
@@ -43,6 +47,12 @@ export class ProcessSupervisorService extends Base {
          * @reactive
          */
         healthService_: null,
+        /**
+         * @member {Object|null} recoveryActuatorService_=null
+         * @protected
+         * @reactive
+         */
+        recoveryActuatorService_: null,
         /**
          * @member {Function|null} writeLog_=null
          * @protected
@@ -118,7 +128,14 @@ export class ProcessSupervisorService extends Base {
     }
 
     /**
-     * Adopts or clears an existing child-task PID file during daemon boot.
+     * @summary Adopts or clears an existing child-task PID file during daemon boot.
+     *
+     * This is process adoption only: `process.kill(pid, 0)` plus `expectedCommand`
+     * proves the persisted PID still belongs to the intended executable, not that
+     * the service behind that process is usable. Long-running tasks that can be
+     * process-alive but service-dead must expose `healthProbe()`; the poll loop
+     * then recycles the adopted/running task through {@link gateRecycleOnHealthProbe}.
+     *
      * @param {String} taskName Task key.
      * @returns {void}
      */
@@ -166,7 +183,11 @@ export class ProcessSupervisorService extends Base {
     }
 
     /**
-     * Records task status into HealthService without letting observability failures break the loop.
+     * Records task status into HealthService and escalates critical task failures.
+     *
+     * Health recording is observability-only; escalation is alarm-only for allowlisted critical
+     * failed tasks, and never restarts the failed task from this sink.
+     *
      * @param {String} taskName Task key.
      * @param {String} status Outcome status.
      * @param {Object|null} [details=null] Outcome details.
@@ -178,6 +199,53 @@ export class ProcessSupervisorService extends Base {
         } catch (e) {
             this.writeLog?.('ERROR', `[ProcessSupervisor] Failed to record ${taskName} outcome: ${e.message}`);
         }
+
+        this.escalateFailedTaskOutcome({taskName, status, details});
+    }
+
+    /**
+     * @summary Escalates allowlisted failed task outcomes through the recovery diagnosis sink.
+     *
+     * This is alarm-only: it creates a `supervised-task` diagnosis and calls
+     * `RecoveryActuatorService.recordDiagnosis()` without restarting the task.
+     *
+     * @param {Object} options
+     * @param {String} options.taskName Task key.
+     * @param {String} options.status Outcome status.
+     * @param {Object|null} [options.details=null] Outcome details.
+     * @returns {Boolean} True when an escalation was attempted.
+     */
+    escalateFailedTaskOutcome({taskName, status, details}) {
+        if (status !== 'failed' || !ESCALATING_TASK_OUTCOMES.has(taskName)) {
+            return false;
+        }
+
+        const actuator = this.recoveryActuatorService;
+
+        if (typeof actuator?.recordDiagnosis !== 'function') {
+            return false;
+        }
+
+        // Consume the shared supervised-task diagnosis producer (single source of the failed/overdue
+        // diagnosis contract) instead of building the event inline. A failed maintenance task routes as
+        // `ambiguous` (escalate-only), not `crash` — the supervisor saw the failure, not its cause.
+        const observedAt = Date.now(),
+              diagnosis  = buildSupervisedTaskDiagnosis({
+                  taskName,
+                  outcome      : 'failed',
+                  observedAt,
+                  evidenceFacts: [{type: 'task-failure', taskName, status, details: details || {}, observedAt}],
+                  details      : {reasonCode: 'maintenance-task-failure', taskName, taskStatus: status, outcomeDetails: details || {}}
+              });
+
+        Promise.resolve(actuator.recordDiagnosis(diagnosis, {
+            now   : observedAt,
+            reason: 'maintenance-task-failure'
+        })).catch(error => {
+            this.writeLog?.('ERROR', `[ProcessSupervisor] Failed to escalate ${taskName} failure: ${error.message}`);
+        });
+
+        return true;
     }
 
     /**
@@ -221,6 +289,75 @@ export class ProcessSupervisorService extends Base {
     }
 
     /**
+     * @summary Resets stable-success logging when readiness leaves the healthy state.
+     *
+     * Clears a readiness-success log guard after degraded/failed/down states.
+     * @param {String} taskName Task key.
+     * @param {String} phase Readiness phase key.
+     * @returns {void}
+     */
+    clearReadinessSuccessLogState(taskName, phase) {
+        this.readinessSuccessLogKeys?.delete(`${taskName}:${phase}`);
+    }
+
+    /**
+     * @summary Allows only the first stable readiness success log for a task phase.
+     *
+     * Determines whether a stable readiness success transition should be logged.
+     * @param {String} taskName Task key.
+     * @param {String} phase Readiness phase key.
+     * @returns {Boolean}
+     */
+    shouldLogReadinessSuccess(taskName, phase) {
+        this.readinessSuccessLogKeys ??= new Set();
+
+        const key = `${taskName}:${phase}`;
+
+        if (this.readinessSuccessLogKeys.has(key)) {
+            return false;
+        }
+
+        this.readinessSuccessLogKeys.add(key);
+
+        return true;
+    }
+
+    /**
+     * @summary Whether any process currently holds a LISTEN socket on the given singleton port.
+     * @param {Number} port
+     * @returns {Boolean}
+     */
+    isSingletonPortHeld(port) {
+        return this.listPortListeners(port).length > 0
+    }
+
+    /**
+     * @summary Allows only the first defer-port-held restart-skip log per held-period.
+     * @param {String} taskName Task key.
+     * @returns {Boolean}
+     */
+    shouldLogDeferPortHeldSkip(taskName) {
+        this.deferPortHeldLogKeys ??= new Set();
+
+        if (this.deferPortHeldLogKeys.has(taskName)) {
+            return false;
+        }
+
+        this.deferPortHeldLogKeys.add(taskName);
+
+        return true
+    }
+
+    /**
+     * @summary Resets the defer-port-held skip-log guard once the port frees or is adopted.
+     * @param {String} taskName Task key.
+     * @returns {void}
+     */
+    clearDeferPortHeldLogState(taskName) {
+        this.deferPortHeldLogKeys?.delete(taskName)
+    }
+
+    /**
      * Maps child-process stderr log prefixes to daemon log severities.
      * @param {String} line Child stderr line.
      * @returns {String}
@@ -238,16 +375,19 @@ export class ProcessSupervisorService extends Base {
     }
 
     /**
-     * Writes child stderr lines using their child-provided severity prefix.
-     * @param {Object} task Task definition.
+     * Re-logs child stderr lines at the child's own severity (via {@link getChildLogLevel}), trimmed: the
+     * child's leading `[LEVEL]` is stripped — the outer logger already stamps that level, so it is not
+     * duplicated — and the `<task> stderr:` framing is dropped, so each line logs once as
+     * `[ProcessSupervisor] [<childSource>] <message>`. A line with no recognized `[LEVEL]` prefix passes
+     * through unstripped at the ERROR fail-safe (an unprefixed child failure is never silently downgraded).
      * @param {Buffer|String} data Stderr chunk.
      * @returns {void}
      */
-    writeChildStderr(task, data) {
+    writeChildStderr(data) {
         const lines = data.toString().split(/\r?\n/).map(line => line.trim()).filter(Boolean);
 
         for (const line of lines) {
-            this.writeLog?.(this.getChildLogLevel(line), `[ProcessSupervisor] ${task.label} stderr: ${line}`);
+            this.writeLog?.(this.getChildLogLevel(line), `[ProcessSupervisor] ${line.replace(/^\[(LOG|INFO|WARN|ERROR)\]\s*/, '')}`);
         }
     }
 
@@ -321,13 +461,75 @@ export class ProcessSupervisorService extends Base {
     }
 
     /**
+     * Runs the task readiness hook after an out-of-band service passes liveness.
+     *
+     * Fire-and-exit launchers such as `lms server start` can leave the HTTP endpoint healthy
+     * while their model-residency contract is stale. Reusing the task-owned readiness hook here
+     * lets the LM Studio task enforce configured model context even when no child spawn happens.
+     *
+     * @param {String} taskName Task key.
+     * @param {Object} task Task definition.
+     * @param {String} reason Scheduling reason.
+     * @param {Function} [onFailure] Callback for readiness-hook failures.
+     * @returns {Promise|null}
+     */
+    runLivenessReadinessHook(taskName, task, reason, onFailure) {
+        if (typeof task.postSpawn !== 'function') {
+            return null;
+        }
+
+        return Promise.resolve()
+            .then(() => task.postSpawn({
+                taskName,
+                task,
+                reason,
+                pid     : null,
+                writeLog: this.writeLog
+            }))
+            .then(result => {
+                if (result?.ready === false || result?.degraded === true) {
+                    this.clearReadinessSuccessLogState(taskName, 'liveness');
+                    this.writeLog?.('WARN', `[ProcessSupervisor] ${task.label} readiness hook completed with degraded readiness after liveness confirmation.`);
+                    this.recordTaskOutcome(taskName, 'degraded', {
+                        reason,
+                        pid      : null,
+                        readyAt  : new Date().toISOString(),
+                        readiness: result || null
+                    });
+                    return;
+                }
+
+                this.taskStateService.markReady?.(taskName);
+                if (this.shouldLogReadinessSuccess(taskName, 'liveness')) {
+                    this.writeLog?.('INFO', `[ProcessSupervisor] ${task.label} readiness hook completed successfully after liveness confirmation.`);
+                }
+                this.recordTaskOutcome(taskName, 'ready', {
+                    reason,
+                    pid      : null,
+                    readyAt  : new Date().toISOString(),
+                    readiness: result || null
+                });
+            })
+            .catch(error => {
+                this.clearReadinessSuccessLogState(taskName, 'liveness');
+                this.writeLog?.('ERROR', `[ProcessSupervisor] ${task.label} readiness hook failed after liveness confirmation: ${error.message}`);
+                this.recordTaskOutcome(taskName, 'failed', {
+                    reason,
+                    phase: 'liveness-readiness',
+                    error: error.message
+                });
+                onFailure?.();
+            });
+    }
+
+    /**
      * Starts a child task and wires completion status back into task state and HealthService.
      * @param {String} taskName Task key.
      * @param {String} reason Scheduling reason.
      * @param {Function} [onSuccess] Optional success hook.
      * @param {Object} [options] Optional configuration.
      * @param {Function} [options.onComplete] Optional completion hook called on both success and failure.
-     * @param {Object} [options.env] Optional extra environment variables to merge with process.env.
+     * @param {Object} [options.env] Optional call-site environment variables to merge after task env.
      * @returns {Boolean} True when a child was started.
      */
     runTask(taskName, reason, onSuccess, options = {}) {
@@ -343,17 +545,24 @@ export class ProcessSupervisorService extends Base {
         }
 
         this.clearRunningSkipLogState(taskName);
+        this.clearReadinessSuccessLogState(taskName, 'liveness');
         this.taskStateService.markStarted(taskName, reason);
 
         this.writeLog?.('INFO', `[ProcessSupervisor] Starting ${task.label} (${reason}).`);
 
         let child;
+        const stdoutCapture = this.createStdoutJsonCapture(task);
         try {
-            const env = options.env ? { ...process.env, ...options.env } : process.env;
-            child = this.spawnFn(task.command, task.args, {stdio: ['ignore', 'ignore', 'pipe'], env});
+            const env = task.env || options.env
+                ? {...process.env, ...(task.env || {}), ...(options.env || {})}
+                : process.env;
+            child = this.spawnFn(task.command, task.args, {stdio: stdoutCapture ? ['ignore', 'pipe', 'pipe'] : ['ignore', 'ignore', 'pipe'], env});
 
             child.stderr?.on('data', data => {
-                this.writeChildStderr(task, data);
+                this.writeChildStderr(data);
+            });
+            child.stdout?.on('data', data => {
+                this.captureStdoutJsonChunk(stdoutCapture, data);
             });
         } catch (e) {
             this.taskStateService.markSpawnFailed(taskName);
@@ -401,12 +610,33 @@ export class ProcessSupervisorService extends Base {
                 this.recordTaskOutcome(taskName, 'failed', {reason, phase, error: error.message});
             } else if (code === 0) {
                 try {
-                    const completedAt = new Date().toISOString();
+                    const completedAt   = new Date().toISOString();
+                    const stdoutOutcome = this.parseCapturedStdoutJson(stdoutCapture);
+                    const disposition   = this.classifySuccessfulChildOutcome(taskName, stdoutOutcome.outcome);
+
                     onSuccess?.();
-                    this.taskStateService.markCompleted(taskName);
-                    this.writeLog?.('INFO', `[ProcessSupervisor] ${task.label} completed successfully.`);
-                    if (readinessOutcome !== 'degraded') {
-                        this.recordTaskOutcome(taskName, 'completed', {reason, code, completedAt});
+
+                    if (disposition.status === 'skipped') {
+                        this.taskStateService.markSkipped(taskName);
+                        this.writeLog?.('INFO', `[ProcessSupervisor] ${task.label} skipped (${disposition.reasonCode}).`);
+                        this.recordTaskOutcome(taskName, 'skipped', {
+                            reason,
+                            code,
+                            reasonCode: disposition.reasonCode,
+                            skippedAt : completedAt,
+                            ...stdoutOutcome.details
+                        });
+                    } else {
+                        this.taskStateService.markCompleted(taskName);
+                        this.writeLog?.('INFO', `[ProcessSupervisor] ${task.label} completed successfully.`);
+                        if (readinessOutcome !== 'degraded') {
+                            this.recordTaskOutcome(taskName, 'completed', {
+                                reason,
+                                code,
+                                completedAt,
+                                ...stdoutOutcome.details
+                            });
+                        }
                     }
                 } catch (e) {
                     this.taskStateService.markFailed(taskName, null);
@@ -441,7 +671,7 @@ export class ProcessSupervisorService extends Base {
             reason,
             child,
             clear,
-            isCleared: () => cleared,
+            isCleared         : () => cleared,
             onReadinessOutcome: status => { readinessOutcome = status; }
         })?.finally(() => {
             readinessPending = false;
@@ -478,6 +708,139 @@ export class ProcessSupervisorService extends Base {
     }
 
     /**
+     * Creates the bounded stdout buffer for task definitions with a JSON outcome contract.
+     * @param {Object} task Task definition.
+     * @returns {Object|null}
+     */
+    createStdoutJsonCapture(task) {
+        if (!task.captureStdoutJson) {
+            return null;
+        }
+
+        return {
+            chunks  : [],
+            overflow: false,
+            bytes   : 0,
+            maxBytes: task.stdoutJsonMaxBytes || DEFAULT_STDOUT_JSON_MAX_BYTES
+        };
+    }
+
+    /**
+     * Buffers stdout for opted-in JSON outcome tasks without allowing unbounded child output.
+     * @param {Object|null} capture Active stdout capture state.
+     * @param {Buffer|String} data Child stdout chunk.
+     * @returns {void}
+     */
+    captureStdoutJsonChunk(capture, data) {
+        if (!capture || capture.overflow) {
+            return;
+        }
+
+        const chunk = Buffer.isBuffer(data) ? data : Buffer.from(String(data));
+        capture.bytes += chunk.length;
+
+        if (capture.bytes > capture.maxBytes) {
+            capture.overflow = true;
+            capture.chunks.length = 0;
+            return;
+        }
+
+        capture.chunks.push(chunk);
+    }
+
+    /**
+     * Parses the opted-in child stdout JSON and converts parse failures into bounded details.
+     * @param {Object|null} capture Active stdout capture state.
+     * @returns {{details: Object, outcome: Object|null}}
+     */
+    parseCapturedStdoutJson(capture) {
+        if (!capture) {
+            return {details: {}, outcome: null};
+        }
+
+        if (capture.overflow) {
+            return {
+                details: {
+                    stdoutJsonBytes   : capture.bytes,
+                    stdoutJsonMaxBytes: capture.maxBytes,
+                    stdoutJsonOverflow: true
+                },
+                outcome: null
+            };
+        }
+
+        const stdout = Buffer.concat(capture.chunks).toString('utf8').trim();
+
+        if (!stdout) {
+            return {details: {stdoutJsonMissing: true}, outcome: null};
+        }
+
+        try {
+            const outcome = JSON.parse(stdout);
+            return {
+                details: this.buildChildOutcomeDetails(outcome),
+                outcome
+            };
+        } catch (e) {
+            return {
+                details: {
+                    stdoutJsonParseError: e.message,
+                    stdoutJsonBytes     : Buffer.byteLength(stdout, 'utf8')
+                },
+                outcome: null
+            };
+        }
+    }
+
+    /**
+     * Flattens child outcome fields into task health details without overwriting scheduler fields.
+     * @param {Object} outcome Parsed child stdout JSON.
+     * @returns {Object}
+     */
+    buildChildOutcomeDetails(outcome) {
+        const details = {childOutcome: outcome};
+
+        for (const [key, value] of Object.entries(outcome)) {
+            details[key === 'reason' ? 'childReason' : key] = value;
+        }
+
+        return details;
+    }
+
+    /**
+     * Classifies successful child exits whose structured outcome is actually a deferred/no-op.
+     * @param {String} taskName Task key.
+     * @param {Object|null} outcome Parsed child stdout JSON.
+     * @returns {Object}
+     */
+    classifySuccessfulChildOutcome(taskName, outcome) {
+        if (!outcome || (taskName !== 'memory-summary-backfill' && taskName !== 'kbSync')) {
+            return {status: 'completed'};
+        }
+
+        // Generic deferred envelope: a child that exited 0 without doing work (lease-held /
+        // no-op) emits `{deferred: true, reason}`. Both kbSync (lease-held → no embedding) and
+        // the summary backfill use it — the false-green case that must NOT refresh lastSuccessAt.
+        if (outcome.deferred === true && outcome.reason) {
+            return {status: 'skipped', reasonCode: outcome.reason};
+        }
+
+        // Summary-specific: an all-deferred no-progress run (rows attempted, none updated).
+        if (taskName === 'memory-summary-backfill') {
+            const processed      = Number(outcome.processed || 0);
+            const updated        = Number(outcome.updated || 0);
+            const deferred       = Number(outcome.deferred || 0);
+            const missingContent = Number(outcome.missingContent || 0);
+
+            if (processed > 0 && updated === 0 && missingContent === 0 && deferred > 0) {
+                return {status: 'skipped', reasonCode: 'all-deferred'};
+            }
+        }
+
+        return {status: 'completed'};
+    }
+
+    /**
      * @summary Liveness-gated (re)start decision for one continuous task, evaluated once per poll.
      *
      * The orchestrator stays a thin scheduler: it forwards the poll timestamp and the restart
@@ -497,17 +860,91 @@ export class ProcessSupervisorService extends Base {
     superviseTask(taskName, now, cooldownMs) {
         const state = this.taskStateService.getTaskState(taskName);
 
-        if (!state || state.running || now - (state.lastRunAt || 0) <= cooldownMs) {
+        if (!state) {
             return;
         }
 
         const task = this.taskDefinitions[taskName];
+
+        // Running-but-stuck recycle. A long-running child can be alive yet not serving — Chroma can
+        // leave a process/PID that passes adoption while its HTTP API is dead; an inference runner can
+        // grind CPU while residency/process checks still pass. A `healthProbe()` checks the RUNNING
+        // child; on an unhealthy result the child is recycled (killed, then respawned by the next
+        // poll). This is distinct from `livenessProbe()`, which answers "is the service up while my
+        // process flag says down" for a fire-and-exit launcher — the running-process branch below
+        // never reaches the down-only liveness path.
+        if (state.running) {
+            if (typeof task?.healthProbe === 'function') {
+                this.gateRecycleOnHealthProbe(taskName, task, now, cooldownMs);
+            }
+            return;
+        }
+
+        if (now - (state.lastRunAt || 0) <= cooldownMs) {
+            return;
+        }
+
+        // A `defer` singleton-port task must never (re)spawn into an already-held port. A matching
+        // holder would have been adopted by reconcileSingletonPort (running=true, handled above); if
+        // the port is still held here it is a foreign / non-adoptable instance — leave it untouched
+        // (never kill, never spawn-into) and wait for it to free. This gates the restart on PORT
+        // OCCUPANCY, not just tracked-running, which the restart path alone would check.
+        if (task?.duplicateListenerPolicy === 'defer' && task?.singletonPort && this.isSingletonPortHeld(task.singletonPort)) {
+            if (this.shouldLogDeferPortHeldSkip(taskName)) {
+                this.writeLog?.('WARN', `[ProcessSupervisor] ${task.label} port ${task.singletonPort} held by an external instance; deferring restart (no spawn-into, no kill).`);
+                this.recordTaskOutcome(taskName, 'deferred-port-held', {port: task.singletonPort, deferredAt: new Date().toISOString()});
+            }
+            return;
+        }
+
+        this.clearDeferPortHeldLogState(taskName);
 
         if (typeof task?.livenessProbe === 'function') {
             this.gateRestartOnLivenessProbe(taskName, task, now, cooldownMs);
         } else {
             this.runTask(taskName, 'supervisor-restart');
         }
+    }
+
+    /**
+     * @summary Health-gated recycle for a long-running child that can be stuck-while-running.
+     *
+     * Mirrors {@link gateRestartOnLivenessProbe}'s confirmed-at + in-flight de-dup (at most one
+     * probe per cooldown, no overlap), but acts on the RUNNING-child surface: a healthy result is
+     * silent; an unhealthy result `killTask`s the child (recycle → respawn next poll). The task owns
+     * the actual "is it serving" check via `healthProbe()` and may implement its own hysteresis
+     * (the Ollama stuck-runner path does; Chroma's heartbeat probe intentionally does not); this
+     * method only schedules the probe and acts on the boolean.
+     *
+     * A THROWN probe is treated as healthy (no recycle): unlike the liveness path, the child is
+     * already running, so a probe fault must never kill a working process.
+     *
+     * @param {String} taskName Task key.
+     * @param {Object} task Task definition (carries `healthProbe`).
+     * @param {Number} now Epoch ms (poll timestamp).
+     * @param {Number} cooldownMs Minimum gap between probes / recycle attempts.
+     * @returns {void}
+     */
+    gateRecycleOnHealthProbe(taskName, task, now, cooldownMs) {
+        this._healthConfirmedAt   ??= {};
+        this._healthProbeInFlight ??= {};
+
+        if (now - (this._healthConfirmedAt[taskName] || 0) <= cooldownMs || this._healthProbeInFlight[taskName]) {
+            return;
+        }
+
+        this._healthProbeInFlight[taskName] = true;
+
+        task.healthProbe()
+            .then(healthy => {
+                if (healthy) {
+                    this._healthConfirmedAt[taskName] = Date.now();
+                } else {
+                    this.killTask(taskName, 'supervisor-health-recycle');
+                }
+            })
+            .catch(() => { /* probe fault on a running child: never recycle a working process */ })
+            .finally(() => { this._healthProbeInFlight[taskName] = false; });
     }
 
     /**
@@ -539,32 +976,43 @@ export class ProcessSupervisorService extends Base {
             .then(up => {
                 if (up) {
                     this._livenessConfirmedAt[taskName] = Date.now();
+                    this.runLivenessReadinessHook(taskName, task, 'liveness-confirmed', () => this.runTask(taskName, 'supervisor-restart'));
                 } else {
+                    this.clearReadinessSuccessLogState(taskName, 'liveness');
                     this.runTask(taskName, 'supervisor-restart');
                 }
             })
-            .catch(() => this.runTask(taskName, 'supervisor-restart'))
+            .catch(() => {
+                this.clearReadinessSuccessLogState(taskName, 'liveness');
+                this.runTask(taskName, 'supervisor-restart');
+            })
             .finally(() => { this._livenessProbeInFlight[taskName] = false; });
     }
 
     /**
-     * @summary Enforces a single live process for a port-owning ("singleton") task by
-     * SIGKILLing any extra listeners on its port.
+     * @summary Reconciles a port-owning task's tracked state against the live listener(s) on its `singletonPort`.
      *
-     * The orchestrator is the sole authority for these daemons (chroma). When more than one
-     * process binds the task's `singletonPort` — an externally-started instance, a
-     * pre-unification leftover, or a second orchestrator — the duplicates corrupt a shared
-     * persist dir. This keeps the orchestrator-tracked pid and SIGKILLs the rest. SIGTERM is
-     * deliberately not attempted: chroma does not honor it, so a graceful signal only delays
-     * the unavoidable SIGKILL. Each candidate's command is verified against `expectedCommand`
-     * first, so an unrelated process that merely happens to hold the port is never touched.
+     * Default policy is authoritative ownership: when more than one process binds the task's
+     * `singletonPort`, keep the orchestrator-tracked pid and SIGKILL verified duplicates. This
+     * is required for daemons like Chroma where duplicate writers corrupt a shared persist dir.
+     *
+     * Tasks that expose shared local infrastructure opt into `duplicateListenerPolicy: 'defer'`:
+     * a matching listener is an externally-owned live instance that is never killed. For those this
+     * delegates to {@link adoptExistingSingletonListener} — it ADOPTS the live holder into tracked
+     * state so the supervisor resumes it instead of re-spawning into the held port (the EADDRINUSE
+     * this closes). The task's liveness probe then governs recycle.
      *
      * @param {String} taskName Task key.
-     * @returns {Number} Count of duplicate processes reaped.
+     * @returns {Number} Count of duplicate processes reaped (always 0 for `defer`).
      */
-    reapDuplicateListeners(taskName) {
+    reconcileSingletonPort(taskName) {
         const task = this.taskDefinitions[taskName];
         if (!task?.singletonPort) {
+            return 0;
+        }
+
+        if (task.duplicateListenerPolicy === 'defer') {
+            this.adoptExistingSingletonListener(taskName);
             return 0;
         }
 
@@ -599,6 +1047,62 @@ export class ProcessSupervisorService extends Base {
         }
 
         return reaped;
+    }
+
+    /**
+     * @summary Adopts an externally-owned live listener on a `defer`-policy task's `singletonPort`.
+     *
+     * `defer` tasks (shared local infra — the Neural Link Bridge, the dev-server) treat a matching
+     * port listener as an externally-owned live instance. When tracked state shows the task as NOT
+     * running but a process whose command matches `expectedCommand` already holds the port, this
+     * adopts it (running flag + pid + pidfile + exit watch) so the supervisor resumes it rather than
+     * re-spawning into the held port — the `EADDRINUSE` failure mode. It NEVER kills (defer never
+     * reaps); a foreign command on the port is left untouched (no adopt, no kill, no spawn-into).
+     *
+     * @param {String} taskName Task key.
+     * @returns {Boolean} True when a live holder was adopted.
+     */
+    adoptExistingSingletonListener(taskName) {
+        const task  = this.taskDefinitions[taskName];
+        const state = this.taskStateService.getTaskState(taskName);
+
+        // Already tracked-running (or no state to mutate) → nothing to reconcile.
+        if (!state || state.running) {
+            return false;
+        }
+
+        for (const pid of this.listPortListeners(task.singletonPort)) {
+            if (!Number.isInteger(pid)) {
+                continue;
+            }
+
+            let command;
+            try {
+                command = this.processCommand(pid);
+            } catch (e) {
+                continue;
+            }
+
+            if (!command.includes(task.expectedCommand)) {
+                continue;
+            }
+
+            this.taskStateService.adoptRunning(taskName, pid);
+            this.watchRecoveredTask(taskName, pid);
+
+            try {
+                fs.writeFileSync(this.getTaskPidFile(taskName), pid.toString(), 'utf8');
+            } catch (e) {
+                this.writeLog?.('ERROR', `[ProcessSupervisor] Failed to write adopted ${task.label} PID: ${e.message}`);
+            }
+
+            this.writeLog?.('INFO', `[ProcessSupervisor] Adopting externally-owned ${task.label} (PID: ${pid}) on port ${task.singletonPort}; not re-spawning.`);
+            this.recordTaskOutcome(taskName, 'adopted', {pid, port: task.singletonPort, adoptedAt: new Date().toISOString()});
+
+            return true;
+        }
+
+        return false;
     }
 
     /**

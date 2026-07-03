@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import yaml from 'js-yaml';
+import * as yaml                                 from 'js-yaml';
 import {fileURLToPath} from 'url';
 import crypto from 'crypto';
 import Base from '../../../src/core/Base.mjs';

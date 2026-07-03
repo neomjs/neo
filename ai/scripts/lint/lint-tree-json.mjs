@@ -2,12 +2,12 @@
 /**
  * @summary Structural lint that verifies `learn/tree.json` (the docs-portal navigation
  * tree, which also feeds `buildScripts/docs/seo/generate.mjs` content URLs + sitemap)
- * mirrors the on-disk `learn/` folder structure.
+ * mirrors the on-disk `learn/` folder structure and remains consumable by the SEO generator.
  *
  * `tree.json` is a flat `parentId` adjacency list — `{"data": [ {name, parentId, id,
  * isLeaf?, collapsed?} ... ]}` — not a nested tree. Hierarchy is encoded via `parentId`;
- * a **leaf**'s `id` is its `learn/`-relative path (`benefits/Introduction` →
- * `learn/benefits/Introduction.md`); a **group** carries `isLeaf:false` and a PascalCase
+ * a **leaf**'s `id` is its `learn/`-relative path (`benefits/ApplicationEngine` →
+ * `learn/benefits/ApplicationEngine.md`); a **group** carries `isLeaf:false` and a PascalCase
  * `id` referenced by its children's `parentId`.
  *
  * Because it is hand-edited JSON with no schema enforcement, drift is silent until it
@@ -23,9 +23,9 @@
  *                         (`*Audit`/`*Plan`/`*Sweep`/`*Census`/`*Forensics`/`*Benchmark`);
  *                         learn/ is public docs, so these belong in a non-published subfolder
  *                         or the owning ticket, never the portal nav.
- *   6. SEO_SYNC         — checked-in `apps/portal/llms.txt` + `sitemap.xml` expose the
- *                         same learn/ URL sets as the SEO generator would emit now
- *                         (ignoring sitemap lastmod).
+ *   6. SEO_GENERATE     — the SEO generator can run from the current tree. The checked-in
+ *                         SEO outputs are pipeline-owned and are deliberately NOT compared
+ *                         or required in guide PRs.
  *   7. NO_TOP_LEVEL_ORPHAN — every depth-1 `learn/agentos/*.md` on disk is EITHER a
  *                         registered `tree.json` leaf (published nav) OR an intentionally-internal
  *                         allowlist entry. Catches the orphan-dump mode (5) misses: (5) is
@@ -59,7 +59,6 @@ const ROOT_DIR   = path.resolve(__dirname, '../../..');
 const LEARN_DIR  = path.join(ROOT_DIR, 'learn');
 const TREE_PATH  = path.join(LEARN_DIR, 'tree.json');
 const PORTAL_DIR = path.join(ROOT_DIR, 'apps/portal');
-const LLMS_PATH  = path.join(PORTAL_DIR, 'llms.txt');
 const SITEMAP_PATH      = path.join(PORTAL_DIR, 'sitemap.xml');
 const DEFAULT_BASE_URL = 'https://neomjs.com';
 
@@ -159,10 +158,10 @@ function getSitemapLearnUrls(sitemapXml, baseUrl=DEFAULT_BASE_URL) {
 }
 
 /**
- * Compares expected generated learn URLs against one checked-in SEO surface.
+ * Compares expected learn URLs against one generated SEO surface.
  * @param {String} surfaceName Human-readable surface name.
  * @param {ReadonlySet<String>} expectedIds Expected generated learn ids.
- * @param {ReadonlySet<String>} actualIds IDs parsed from the checked-in output.
+ * @param {ReadonlySet<String>} actualIds IDs parsed from the generated output.
  * @returns {Array<{code: string, message: string}>}
  */
 function compareSeoSurface(surfaceName, expectedIds, actualIds) {
@@ -172,15 +171,15 @@ function compareSeoSurface(surfaceName, expectedIds, actualIds) {
 
     if (missing.length > 0) {
         violations.push({
-            code   : 'SEO_OUTPUT_MISSING',
-            message: `${surfaceName} is missing ${missing.length} generated learn route(s): ${missing.join(', ')}. Regenerate apps/portal/llms.txt and apps/portal/sitemap.xml from the SEO prepare step.`
+            code   : 'SEO_GENERATED_MISSING',
+            message: `${surfaceName} is missing ${missing.length} generated learn route(s): ${missing.join(', ')}. Check buildScripts/docs/seo/generate.mjs.`
         });
     }
 
     if (extra.length > 0) {
         violations.push({
-            code   : 'SEO_OUTPUT_EXTRA',
-            message: `${surfaceName} contains ${extra.length} stale learn/ route(s) not present in generated output: ${extra.join(', ')}. Regenerate apps/portal/llms.txt and apps/portal/sitemap.xml from the SEO prepare step.`
+            code   : 'SEO_GENERATED_EXTRA',
+            message: `${surfaceName} contains ${extra.length} stale learn/ route(s) not present in tree.json: ${extra.join(', ')}. Check buildScripts/docs/seo/generate.mjs.`
         });
     }
 
@@ -188,27 +187,25 @@ function compareSeoSurface(surfaceName, expectedIds, actualIds) {
 }
 
 /**
- * Pure SEO-output validator. It compares expected generated learn routes against
- * checked-in SEO/LLM outputs and deliberately ignores sitemap `lastmod` values. Tests can
- * omit explicit expectations to fall back to tree-derived sets.
+ * Pure SEO-generator validator. It compares tree-derived learn routes against the
+ * generator's in-memory URL sets. It deliberately does not inspect checked-in
+ * `apps/portal/llms.txt` or `apps/portal/sitemap.xml`: those files are generated output
+ * owned by the data-sync pipeline, not guide PR input.
  * @param {{data: Array<object>}} treeData Parsed `tree.json`.
- * @param {{llmsTxt: string, sitemapXml: string, baseUrl: string, expectedLlmsIds: Set, expectedSitemapIds: Set}} options Only `llmsTxt` + `sitemapXml` required; the rest fall back to defaults / tree-derived sets.
+ * @param {{generatedLlmsIds: Set, generatedSitemapIds: Set, expectedLlmsIds: Set, expectedSitemapIds: Set}} options Generated sets required; expected sets fall back to tree-derived sets.
  * @returns {Array<{code: string, message: string}>}
  */
-function lintSeoOutputs(treeData, {
-    llmsTxt,
-    sitemapXml,
-    baseUrl = DEFAULT_BASE_URL,
+function lintGeneratedSeoRoutes(treeData, {
+    generatedLlmsIds,
+    generatedSitemapIds,
     expectedLlmsIds,
     expectedSitemapIds
 }) {
     const expectedIds = new Set(getLeafIds(treeData));
-    const llmsIds     = getLlmsLearnUrls(llmsTxt, baseUrl);
-    const sitemapIds  = getSitemapLearnUrls(sitemapXml, baseUrl);
 
     return [
-        ...compareSeoSurface('apps/portal/llms.txt', expectedLlmsIds ?? expectedIds, llmsIds),
-        ...compareSeoSurface('apps/portal/sitemap.xml', expectedSitemapIds ?? expectedIds, sitemapIds)
+        ...compareSeoSurface('generated llms.txt', expectedLlmsIds ?? expectedIds, generatedLlmsIds ?? new Set()),
+        ...compareSeoSurface('generated sitemap.xml', expectedSitemapIds ?? expectedIds, generatedSitemapIds ?? new Set())
     ];
 }
 
@@ -227,8 +224,8 @@ async function getGeneratedSeoLearnUrls({
     ]);
 
     return {
-        expectedLlmsIds   : getLlmsLearnUrls(llmsTxt, baseUrl),
-        expectedSitemapIds: getSitemapLearnUrls(sitemapXml, baseUrl)
+        generatedLlmsIds   : getLlmsLearnUrls(llmsTxt, baseUrl),
+        generatedSitemapIds: getSitemapLearnUrls(sitemapXml, baseUrl)
     };
 }
 
@@ -352,15 +349,14 @@ function lintTree(treeData, {fileExists, readDir} = {}) {
 
 /**
  * CLI entry. Reads + parses `tree.json`, runs `lintTree` with a real fs-backed probe,
- * verifies generated SEO outputs by URL set, prints a report, and returns a numeric exit
+ * verifies that SEO routes can be generated in memory, prints a report, and returns a numeric exit
  * code (so tests can drive it without triggering `process.exit`).
- * @param {{treePath: string, learnDir: string, llmsPath: string, sitemapPath: string, baseUrl: string, checkSeo: boolean}} [options] All keys optional (defaults applied).
+ * @param {{treePath: string, learnDir: string, sitemapPath: string, baseUrl: string, checkSeo: boolean}} [options] All keys optional (defaults applied).
  * @returns {Promise<{exitCode: number, violations: Array<{code: string, message: string}>}>}
  */
 async function runLint({
     treePath = TREE_PATH,
     learnDir = LEARN_DIR,
-    llmsPath = LLMS_PATH,
     sitemapPath = SITEMAP_PATH,
     baseUrl = DEFAULT_BASE_URL,
     checkSeo = true
@@ -385,10 +381,8 @@ async function runLint({
     const violations = lintTree(treeData, {fileExists, readDir});
 
     if (checkSeo) {
-        let generatedSeoLearnUrls;
-
         try {
-            generatedSeoLearnUrls = await getGeneratedSeoLearnUrls({
+            await getGeneratedSeoLearnUrls({
                 baseUrl,
                 sitemapPath
             });
@@ -399,38 +393,24 @@ async function runLint({
             });
         }
 
-        if (generatedSeoLearnUrls) {
-            try {
-                const llmsTxt    = fs.readFileSync(llmsPath, 'utf8');
-                const sitemapXml = fs.readFileSync(sitemapPath, 'utf8');
-
-                violations.push(...lintSeoOutputs(treeData, {
-                    baseUrl,
-                    ...generatedSeoLearnUrls,
-                    llmsTxt,
-                    sitemapXml
-                }));
-            } catch (error) {
-                violations.push({
-                    code   : 'SEO_OUTPUT_READ',
-                    message: `Cannot read checked-in SEO outputs (${path.relative(ROOT_DIR, llmsPath)}, ${path.relative(ROOT_DIR, sitemapPath)}): ${error.message}`
-                });
-            }
-        }
+        // The output surfaces intentionally differ (`llms.txt` excludes non-LLM guide
+        // routes such as Glossary). The CLI gate only verifies that the generator can
+        // consume the current tree without requiring guide PRs to commit pipeline-owned
+        // generated files.
     }
 
     if (violations.length === 0) {
-        console.log(`[lint-tree-json] OK — learn/tree.json mirrors the learn/ folder structure and checked-in SEO outputs (${treeData.data.length} nodes).`);
+        console.log(`[lint-tree-json] OK — learn/tree.json mirrors the learn/ folder structure and the SEO generator accepts it (${treeData.data.length} nodes).`);
         return {exitCode: 0, violations};
     }
 
-    console.error(`[lint-tree-json] FAILED — ${violations.length} violation(s) across learn/tree.json and generated SEO outputs:\n`);
+    console.error(`[lint-tree-json] FAILED — ${violations.length} violation(s) across learn/tree.json and generated SEO routes:\n`);
     for (const violation of violations) {
         console.error(`- [${violation.code}] ${violation.message}`);
     }
     console.error('\nlearn/tree.json must mirror the on-disk learn/ folder: every leaf id maps to learn/<id>.md,');
     console.error('every parentId references a real group, and each folder maps to exactly one nav group.');
-    console.error('apps/portal/llms.txt and apps/portal/sitemap.xml must also match the in-memory generated learn URL sets.');
+    console.error('buildScripts/docs/seo/generate.mjs must be able to consume tree.json without requiring checked-in generated outputs.');
     return {exitCode: 1, violations};
 }
 
@@ -446,7 +426,7 @@ async function main() {
         console.log('  3. GROUP_COHESION    a group\'s direct leaves share one folder');
         console.log('  4. FOLDER_UNIQUENESS each folder maps to one group (phantom-group guard)');
         console.log('  5. EXPLORATION_ARTIFACT no audit/plan/sweep/census/forensics/benchmark leaf in nav');
-        console.log('  6. SEO_SYNC          checked-in llms.txt + sitemap.xml match generated learn URLs');
+        console.log('  6. SEO_GENERATE      generator accepts tree.json; checked-in SEO outputs are pipeline-owned');
         console.log('  7. NO_TOP_LEVEL_ORPHAN every depth-1 learn/agentos/*.md is registered or allowlisted');
         process.exit(0);
     }
@@ -469,7 +449,7 @@ export {
     getLlmsLearnUrls,
     getSitemapLearnUrls,
     isGroup,
-    lintSeoOutputs,
+    lintGeneratedSeoRoutes,
     lintTree,
     runLint
 };

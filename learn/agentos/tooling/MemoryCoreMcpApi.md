@@ -4,7 +4,7 @@ This guide documents the design of the Memory Core Model Context Protocol (MCP) 
 
 ## Overview
 
-The Memory Core MCP server replaces the original shell-based memory scripts (`ai:add-memory`, `ai:query-memory`, etc.) with a formal set of tools. This provides:
+The Memory Core MCP server replaces the retired shell-based memory scripts with a formal set of tools (`add_memory`, `query_raw_memories`, `query_summaries`, and related graph/A2A operations). This provides:
 
 - **Structured Communication**: JSON-based tool calls and responses instead of parsing stdout.
 - **Better Error Handling**: Clear error messages within the tool response.
@@ -97,8 +97,8 @@ Adds a new agent interaction to the memory store.
 - `response` (string, required): The agent's final response.
 - `sessionId` (string, optional): The session ID. If not provided, one is generated.
 
-**Migration from CLI**:
-- **Old way**: `npm run ai:add-memory -- -p "..."`
+**Migration from retired CLI**:
+- **Old way**: retired shell memory script with prompt flags.
 - **New way**: `call_tool('add_memory', {prompt: "...", thought: "...", ...})`
 
 #### `get_session_memories`
@@ -117,8 +117,8 @@ Performs semantic search across all memories.
 - `nResults` (integer, optional): Number of results to return (default: 10).
 - `sessionId` (string, optional): An optional session ID to scope the search.
 
-**Migration from CLI**:
-- **Old way**: `npm run ai:query-memory -- -q "search query"`
+**Migration from retired CLI**:
+- **Old way**: retired shell memory-query script with query flags.
 - **New way**: `call_tool('query_raw_memories', {query: "search query"})`
 
 ### Summary Tools
@@ -147,8 +147,8 @@ Triggers the session summarization process.
 **Parameters**:
 - `sessionId` (string, optional): If provided, only this session will be summarized. If omitted, all unsummarized sessions are processed in batch.
 
-**Migration from CLI**:
-- **Old way**: `npm run ai:summarize-session`
+**Migration from retired CLI**:
+- **Old way**: retired shell summarization script.
 - **New way**: `call_tool('summarize_sessions', {})`
 
 ### Database Tools
@@ -159,8 +159,8 @@ Exports the entire memory database to a JSONL file.
 **Parameters**:
 - `include` (array, optional): Collections to export (`memories`, `summaries`, or both).
 
-**Migration from CLI**:
-- **Old way**: `npm run ai:export-memory`
+**Migration from retired CLI**:
+- **Old way**: retired shell export script.
 - **New way**: `call_tool('export_database', {})`
 
 #### `import_database`
@@ -170,8 +170,8 @@ Imports a previously exported JSONL file.
 - `file` (string, required): The path to the JSONL backup file.
 - `mode` (string, optional): `merge` (default) or `replace`.
 
-**Migration from CLI**:
-- **Old way**: `npm run ai:import-memory -- --file ...`
+**Migration from retired CLI**:
+- **Old way**: retired shell import script with a file flag.
 - **New way**: `call_tool('import_database', {file: "path/to/file.jsonl"})`
 
 ## Error Handling
@@ -212,9 +212,9 @@ The initial implementation runs locally with no authentication. Future versions 
 
 ### Monitoring & Logging
 - **Health Checks**: The `healthcheck` tool should be monitored periodically.
-- **Request Logging**: Log all tool calls with timing information.
-- **Error Tracking**: Capture and log all errors with stack traces.
-- **Metrics**: Track memory growth, query performance, and summarization success rates.
+- **Request Logging**: Memory Core records redacted MCP tool-call telemetry with `tool`, `success`, `duration_ms`, failure stage, bounded error metadata, and payload sizes only.
+- **Error Tracking**: Dispatch, policy, and health-gate failures are recorded without raw Memory Core arguments or result JSON.
+- **Metrics**: Use `get_memory_core_tool_metrics` for on-demand per-tool call counts, failures, and latency summaries without bloating `healthcheck`.
 
 ## OpenAPI Specification
 

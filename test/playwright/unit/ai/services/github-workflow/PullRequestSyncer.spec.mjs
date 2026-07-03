@@ -17,6 +17,7 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import fs             from 'fs-extra';
+import matter         from 'gray-matter';
 import path           from 'path';
 
 test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
@@ -100,7 +101,7 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         GraphqlService.query = async () => ({
             repository: {
                 pullRequests: {
-                    nodes: [buildPullRequest(prNumber)],
+                    nodes   : [buildPullRequest(prNumber)],
                     pageInfo: {
                         hasNextPage: false,
                         endCursor  : null
@@ -178,6 +179,56 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         await expect(fs.pathExists(archivePath)).resolves.toBe(false);
     });
 
+    test('sync write-boundary defangs untrusted PR bodies, comments, and reviews before local markdown persistence (#13691)', async () => {
+        const prNumber = 3292;
+        const pr       = buildPullRequest(prNumber);
+
+        pr.author = {login: 'external-pr-author'};
+        pr.body   = 'External PR root body https://pr-root.example/landing';
+        pr.comments = {nodes: [{
+            id       : 'PC_external',
+            author   : {login: 'external-commenter'},
+            body     : 'External PR comment https://pr-comment.example/payload',
+            createdAt: '2026-05-02T01:00:00Z'
+        }, {
+            id       : 'PC_trusted',
+            author   : {login: 'neo-gpt'},
+            body     : 'Trusted maintainer link remains raw https://github.com/neomjs/neo',
+            createdAt: '2026-05-02T02:00:00Z'
+        }]};
+        pr.reviews = {nodes: [{
+            id       : 'PRR_external',
+            author   : {login: 'external-reviewer'},
+            body     : 'External review body https://pr-review.example/payload',
+            state    : 'COMMENTED',
+            createdAt: '2026-05-02T03:00:00Z'
+        }]};
+
+        GraphqlService.query = async () => ({
+            repository: {
+                pullRequests: {
+                    nodes   : [pr],
+                    pageInfo: {hasNextPage: false, endCursor: null}
+                }
+            }
+        });
+
+        const stats      = await PullRequestSyncer.syncPullRequests({pulls: {}});
+        const targetPath = path.join(aiConfig.issueSync.pullsDir, 'chunk-1', `pr-${prNumber}.md`);
+        const parsed     = matter(await fs.readFile(targetPath, 'utf8'));
+
+        expect(stats.synced).toEqual([prNumber]);
+        expect(parsed.data.contentTrust.projected).toBe(true);
+        expect(parsed.data.contentTrust.quarantined).toBe(3);
+        expect(parsed.content).toContain('[QUARANTINED_URL: pr-root.example]');
+        expect(parsed.content).toContain('[QUARANTINED_URL: pr-comment.example]');
+        expect(parsed.content).toContain('[QUARANTINED_URL: pr-review.example]');
+        expect(parsed.content).not.toContain('https://pr-root.example');
+        expect(parsed.content).not.toContain('https://pr-comment.example');
+        expect(parsed.content).not.toContain('https://pr-review.example');
+        expect(parsed.content).toContain('https://github.com/neomjs/neo');
+    });
+
     test('routeByMilestone=true only routes semver milestones into already-cut archive buckets', async () => {
         const missingBucketPr = buildPullRequest(3289);
         missingBucketPr.milestone = {title: 'v99.0.0'};
@@ -206,12 +257,53 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         await expect(fs.pathExists(cutArchivePath)).resolves.toBe(true);
     });
 
+    test('syncPullRequests prunes emptied active chunk directories after archive moves (#13002)', async () => {
+        const prNumber = 3291;
+        const pr       = buildPullRequest(prNumber);
+        const oldPath  = path.join(aiConfig.issueSync.pullsDir, 'chunk-77', `pr-${prNumber}.md`);
+        const oldRel   = path.relative(aiConfig.projectRoot, oldPath);
+
+        ReleaseNotesSyncer.sortedReleases = [{tagName: 'v13.0.0', publishedAt: '2026-05-10T00:00:00Z'}];
+
+        await fs.ensureDir(path.dirname(oldPath));
+        await fs.writeFile(oldPath, 'OLD PR CONTENT', 'utf8');
+
+        GraphqlService.query = async () => ({
+            repository: {
+                pullRequests: {
+                    nodes   : [pr],
+                    pageInfo: {hasNextPage: false, endCursor: null}
+                }
+            }
+        });
+
+        const metadata = {
+            pulls: {
+                [prNumber]: {
+                    state    : 'OPEN',
+                    updatedAt: '2026-05-01T00:00:00Z',
+                    path     : oldRel
+                }
+            }
+        };
+
+        const stats      = await PullRequestSyncer.syncPullRequests(metadata);
+        const targetPath = path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v13.0.0', 'chunk-1', `pr-${prNumber}.md`);
+
+        expect(stats.synced).toEqual([prNumber]);
+        await expect(fs.pathExists(targetPath)).resolves.toBe(true);
+        await expect(fs.pathExists(oldPath)).resolves.toBe(false);
+        await expect(fs.pathExists(path.dirname(oldPath))).resolves.toBe(false);
+        await expect(fs.pathExists(aiConfig.issueSync.pullsDir)).resolves.toBe(true);
+        expect(metadata.pulls[prNumber].path).toBe(path.relative(aiConfig.projectRoot, targetPath));
+    });
+
     test('delta cutoff stops PR pagination once a batch predates the cached high-water mark (#12190)', async () => {
         // The `pullRequests` connection has no server-side `since`, so the syncer orders UPDATED_AT
         // DESC and stops paginating at the cached high-water mark. Pre-fix it scanned the full corpus.
         const metadata = {
             lastSync: '2026-05-01T00:00:00Z',
-            pulls: {
+            pulls   : {
                 9001: {state: 'MERGED', updatedAt: '2026-05-01T00:00:00Z', path: 'resources/content/archive/pulls/v12.0.0/chunk-1/pr-9001.md'}
             }
         };
@@ -234,6 +326,133 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         // Pre-fix (full-corpus scan) this would be 3.
         expect(queryCalls).toBe(2);
     });
+
+    // --- the missing pull reconcile (IssueSyncer had reconcileClosedIssueLocations; pulls had none,
+    //     so the delta-only sync left merged PRs marooned in active pulls/). ---
+
+    test('archives a marooned merged PR FILE with NO metadata entry — the production corpus case (#13001)', async () => {
+        const prNumber   = 11530,
+              activePath = path.join(aiConfig.issueSync.pullsDir, 'chunk-1', `pr-${prNumber}.md`);
+        await fs.ensureDir(path.dirname(activePath));
+        // The reconcile reads the FILE's frontmatter (number/state/closedAt), not metadata.
+        await fs.writeFile(activePath, `---\nnumber: ${prNumber}\nstate: MERGED\nclosedAt: '2026-05-01T00:00:00Z'\n---\nbody`, 'utf-8');
+
+        // NO metadata entry for this PR — exactly the marooned corpus the delta-only cache misses.
+        const metadata = {pulls: {}};
+        // A release published AFTER the merge → the closedAt→release resolution buckets it to v13.0.0.
+        ReleaseNotesSyncer.sortedReleases = [{tagName: 'v13.0.0', publishedAt: '2026-06-01T00:00:00Z'}];
+
+        const stats       = await PullRequestSyncer.reconcileClosedPullRequestLocations(metadata),
+              archivePath = path.join(aiConfig.issueSync.contentRoot, 'archive', 'pulls', 'v13.0.0', 'chunk-1', `pr-${prNumber}.md`);
+
+        expect(stats.count).toBe(1);
+        expect(stats.pullRequests).toEqual([prNumber]);
+        await expect(fs.pathExists(activePath)).resolves.toBe(false);   // moved out of active
+        await expect(fs.pathExists(archivePath)).resolves.toBe(true);   // archived under v13.0.0
+    });
+
+    test('also updates metadata.path when the moved PR IS tracked in the delta cache', async () => {
+        const prNumber   = 12000,
+              activePath = path.join(aiConfig.issueSync.pullsDir, 'chunk-1', `pr-${prNumber}.md`);
+        await fs.ensureDir(path.dirname(activePath));
+        await fs.writeFile(activePath, `---\nnumber: ${prNumber}\nstate: MERGED\nclosedAt: '2026-05-01T00:00:00Z'\n---\n`, 'utf-8');
+
+        const metadata = {pulls: {[prNumber]: {number: prNumber, state: 'MERGED', closedAt: '2026-05-01T00:00:00Z', path: path.relative(aiConfig.projectRoot, activePath)}}};
+        ReleaseNotesSyncer.sortedReleases = [{tagName: 'v13.0.0', publishedAt: '2026-06-01T00:00:00Z'}];
+
+        const stats       = await PullRequestSyncer.reconcileClosedPullRequestLocations(metadata),
+              archivePath = path.join(aiConfig.issueSync.contentRoot, 'archive', 'pulls', 'v13.0.0', 'chunk-1', `pr-${prNumber}.md`);
+
+        expect(stats.count).toBe(1);
+        await expect(fs.pathExists(archivePath)).resolves.toBe(true);
+        expect(metadata.pulls[prNumber].path).toBe(path.relative(aiConfig.projectRoot, archivePath));
+    });
+
+    test('leaves an OPEN PR file in active (never archives a non-terminal PR)', async () => {
+        const prNumber   = 22222,
+              activePath = path.join(aiConfig.issueSync.pullsDir, 'chunk-1', `pr-${prNumber}.md`);
+        await fs.ensureDir(path.dirname(activePath));
+        await fs.writeFile(activePath, `---\nnumber: ${prNumber}\nstate: OPEN\n---\n`, 'utf-8');
+        ReleaseNotesSyncer.sortedReleases = [{tagName: 'v13.0.0', publishedAt: '2026-06-01T00:00:00Z'}];
+
+        const stats = await PullRequestSyncer.reconcileClosedPullRequestLocations({pulls: {}});
+
+        expect(stats.count).toBe(0);
+        await expect(fs.pathExists(activePath)).resolves.toBe(true);    // untouched
+    });
+
+    test('is a no-op when no releases are loaded (fail-safe)', async () => {
+        const prNumber   = 44444,
+              activePath = path.join(aiConfig.issueSync.pullsDir, 'chunk-1', `pr-${prNumber}.md`);
+        await fs.ensureDir(path.dirname(activePath));
+        await fs.writeFile(activePath, `---\nnumber: ${prNumber}\nstate: MERGED\nclosedAt: '2026-05-01T00:00:00Z'\n---\n`, 'utf-8');
+        ReleaseNotesSyncer.sortedReleases = [];                          // no releases → cannot resolve buckets
+
+        const stats = await PullRequestSyncer.reconcileClosedPullRequestLocations({pulls: {}});
+
+        expect(stats.count).toBe(0);
+        await expect(fs.pathExists(activePath)).resolves.toBe(true);    // untouched (fail-safe skip)
+    });
+    test('refetchPullsByNumber force-re-renders a stale PR mirror, bypassing the delta/hash gate (#13794)', async () => {
+        const prNumber = 9876;
+
+        // The mirror is cached as current (matching updatedAt) with a STALE contentHash — the bulk
+        // delta-sync would skip it (updatedAt unchanged AND hash compare). refetchPullsByNumber must
+        // force a re-render from live GitHub state regardless.
+        const metadata = {
+            pulls: {
+                [prNumber]: {
+                    state      : 'MERGED',
+                    updatedAt  : '2026-05-02T00:00:00Z',
+                    contentHash: 'STALE-HASH',
+                    path       : `resources/content/pulls/chunk-1/pr-${prNumber}.md`
+                }
+            }
+        };
+
+        // No release published after the merge → the PR resolves to the ACTIVE bucket.
+        ReleaseNotesSyncer.sortedReleases = [];
+
+        let capturedQuery = null;
+        let capturedVars  = null;
+        GraphqlService.query = async (query, vars) => {
+            capturedQuery = query;
+            capturedVars  = vars;
+
+            return {repository: {pullRequest: buildPullRequest(prNumber)}};
+        };
+
+        const stats = await PullRequestSyncer.refetchPullsByNumber([prNumber], metadata);
+
+        // Used the single-PR query with the right number — not the bulk pagination query.
+        expect(capturedQuery).toContain('FetchSinglePullForSync');
+        expect(capturedVars.prNumber).toBe(prNumber);
+
+        // Re-rendered + written to the active bucket.
+        expect(stats.refetched).toEqual({count: 1, pulls: [prNumber]});
+        const targetPath = path.join(aiConfig.issueSync.pullsDir, 'chunk-1', `pr-${prNumber}.md`);
+        await expect(fs.pathExists(targetPath)).resolves.toBe(true);
+
+        const parsed = matter(await fs.readFile(targetPath, 'utf8'));
+        expect(parsed.data.number).toBe(prNumber);
+
+        // Metadata refreshed with the live hash (no longer the stale one) + the resolved path.
+        expect(metadata.pulls[prNumber].contentHash).not.toBe('STALE-HASH');
+        expect(metadata.pulls[prNumber].state).toBe('MERGED');
+        expect(metadata.pulls[prNumber].path).toBe(path.relative(aiConfig.projectRoot, targetPath));
+    });
+
+    test('refetchPullsByNumber skips a PR that no longer exists on GitHub (#13794)', async () => {
+        const prNumber = 4242;
+        const metadata = {pulls: {}};
+
+        GraphqlService.query = async () => ({repository: {pullRequest: null}});
+
+        const stats = await PullRequestSyncer.refetchPullsByNumber([prNumber], metadata);
+
+        expect(stats.refetched).toEqual({count: 0, pulls: []});
+        expect(metadata.pulls[prNumber]).toBeUndefined();
+    });
 });
 
 function buildPullRequest(number) {
@@ -249,9 +468,9 @@ function buildPullRequest(number) {
         headRefName: 'feature',
         baseRefName: 'dev',
         url        : `https://github.com/neomjs/neo/pull/${number}`,
-        body       : 'Merged body',
-        milestone  : null,
-        comments   : {nodes: []},
-        reviews    : {nodes: []}
+        body     : 'Merged body',
+        milestone: null,
+        comments : {nodes: []},
+        reviews  : {nodes: []}
     }
 }

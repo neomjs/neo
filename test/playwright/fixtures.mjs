@@ -8,6 +8,7 @@ import {
     NeuralLink_RuntimeService,
     NeuralLink_InteractionService
 } from '../../ai/services.mjs';
+import aiConfig from '../../ai/mcp/server/neural-link/config.mjs';
 
 export const test = base.extend({
     /**
@@ -83,6 +84,14 @@ export const test = base.extend({
         // 2. Define the Neural Link Fixture object
         const nl = {
             /**
+             * The live Neural Link Bridge port the fixture's `ConnectionService` connected (or spawned) on —
+             * the canonical `aiConfig.port`, NOT the hardcoded `:8081` literal the WriteGuard e2es used to
+             * carry. Raw-agent writers (`openRawAgent`) target the SAME Bridge the fixture uses via this.
+             * @member {Number} bridgePort
+             */
+            bridgePort: aiConfig.port,
+
+            /**
              * Waits for the Test's specific App Worker to connect to the Bridge and returns an SDK wrapper.
              *
              * Resolution order: the page's OWN App Worker id (identity-bind via the `getWorkerId`
@@ -124,8 +133,11 @@ export const test = base.extend({
                     // Ignore, page might not exist or be blank
                 }
 
-                // Prefer the page's own worker id (exact-id match); fall back to explicit / inferred appName
-                const targetId = workerId || appName || inferredAppName;
+                // Prefer the page's own worker id (exact-id match); fall back to explicit / inferred appName.
+                // A top-level app's getWorkerId() resolves to a string, but a childapp that joined an existing
+                // SharedWorker gets the raw remote-reply envelope ({action:'reply', data, ...}) instead — not a
+                // usable session-id match — so treat a non-string workerId as absent and use the appName fallback.
+                const targetId = (typeof workerId === 'string' && workerId ? workerId : null) || appName || inferredAppName;
                 if (!targetId) {
                     throw new Error('neuralLink.connectToApp requires either an initialized Neo environment or an explicit appName to wait for.');
                 }
@@ -216,6 +228,15 @@ export const test = base.extend({
                         return NeuralLink_InstanceService.setInstanceProperties({ sessionId, id, properties });
                     },
 
+                    /**
+                     * Creates any JSON-addressable Neo instance, optionally attaching it to a parent container.
+                     * @param {Object} opts
+                     * @returns {Promise<Object>}
+                     */
+                    async createInstance(opts) {
+                        return NeuralLink_InstanceService.createInstance({ sessionId, ...opts });
+                    },
+
                     // --- Component & VDOM Methods ---
 
                     /**
@@ -293,6 +314,27 @@ export const test = base.extend({
                         return NeuralLink_ComponentService.getComponentTree({ sessionId, rootId, depth, lean });
                     },
 
+                    /**
+                     * Creates a component inside a target container at runtime (the `create_component`
+                     * write-locked tool). Validates the config server-side, then delegates to `container.add()`.
+                     * @param {String} parentId The target container's component id.
+                     * @param {Object} config   A component config declaring `module`, `ntype`, or `className`.
+                     * @returns {Promise<Object>}
+                     */
+                    async createComponent(parentId, config) {
+                        return NeuralLink_ComponentService.createComponent({ sessionId, parentId, config });
+                    },
+
+                    /**
+                     * Removes (destroys) a live component by id (the `remove_component` write-locked tool).
+                     * Delegates to `component.destroy(true)` — detaches the DOM node, not just the instance.
+                     * @param {String} componentId The id of the component to destroy.
+                     * @returns {Promise<Object>}
+                     */
+                    async removeComponent(componentId) {
+                        return NeuralLink_ComponentService.removeComponent({ sessionId, componentId });
+                    },
+
 
                     // --- Interaction Methods ---
 
@@ -319,13 +361,17 @@ export const test = base.extend({
                     /**
                      * Samples component client rects over a time window (motion trace) — start it
                      * BEFORE page.mouse.down() to assert mid-drag geometry (whitebox-e2e §5.1).
-                     * @param {String[]} componentIds
+                     * @param {String[]|Object} componentIds Component ids, or an options object for nodeIds/windowId/cellsOf
                      * @param {Number} [durationMs]
                      * @param {Number} [intervalMs]
                      * @returns {Promise<Object>}
                      */
                     async observeMotion(componentIds, durationMs, intervalMs) {
-                        return NeuralLink_InteractionService.observeMotion({ sessionId, componentIds, durationMs, intervalMs });
+                        const opts = Array.isArray(componentIds) ?
+                            { componentIds, durationMs, intervalMs } :
+                            { ...(componentIds || {}) };
+
+                        return NeuralLink_InteractionService.observeMotion({ sessionId, ...opts });
                     },
 
                     /**
@@ -490,6 +536,33 @@ export const test = base.extend({
                         return NeuralLink_RuntimeService.manageNeoConfig({ sessionId, action, config, windowId });
                     },
 
+                    /**
+                     * Opens a live dashboard component in a popup window.
+                     * @param {Object} options
+                     * @returns {Promise<Object>}
+                     */
+                    async openComponentWindow(options) {
+                        return NeuralLink_RuntimeService.openComponentWindow({ sessionId, ...options });
+                    },
+
+                    /**
+                     * Moves a known popup window when the runtime exposes a native handle.
+                     * @param {Object} options
+                     * @returns {Promise<Object>}
+                     */
+                    async positionWindow(options) {
+                        return NeuralLink_RuntimeService.positionWindow({ sessionId, ...options });
+                    },
+
+                    /**
+                     * Focuses a known popup window when the runtime exposes a native handle.
+                     * @param {String} windowId
+                     * @returns {Promise<Object>}
+                     */
+                    async focusWindow(windowId) {
+                        return NeuralLink_RuntimeService.focusWindow({ sessionId, windowId });
+                    },
+
                     // --- Topology ---
 
                     /**
@@ -497,7 +570,7 @@ export const test = base.extend({
                      * @returns {Promise<Object>}
                      */
                     async getWorkerTopology() {
-                        return NeuralLink_ConnectionService.getWorkerTopology();
+                        return NeuralLink_RuntimeService.getWorkerTopology();
                     },
 
                     /**
@@ -505,7 +578,7 @@ export const test = base.extend({
                      * @returns {Promise<Object>}
                      */
                     async getWindowTopology() {
-                        return NeuralLink_ConnectionService.getWindowTopology();
+                        return NeuralLink_RuntimeService.getWindowTopology();
                     }
                 };
             }

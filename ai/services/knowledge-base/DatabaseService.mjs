@@ -6,19 +6,19 @@ import VectorService             from './VectorService.mjs';
 // SourceRegistry owns KB source discovery. Importing `./source/_export.mjs` triggers
 // auto-registration of Neo's default Source classes when `aiConfig.useDefaultSources !== false`,
 // plus declarative `aiConfig.customSources` entries.
-import SourceRegistry            from './source/_export.mjs';
-import crypto                    from 'crypto';
-import dotenv                    from 'dotenv';
-import fs                        from 'fs-extra';
-import logger                    from '../../mcp/server/knowledge-base/logger.mjs';
-import path                      from 'path';
-import readline                  from 'readline';
+import SourceRegistry from './source/_export.mjs';
+import crypto         from 'crypto';
+import dotenv         from 'dotenv';
+import fs             from 'fs-extra';
+import logger         from '../../mcp/server/knowledge-base/logger.mjs';
+import path           from 'path';
+import readline       from 'readline';
 
 const cwd       = aiConfig.neoRootDir;
 const insideNeo = process.env.npm_package_name?.includes('neo.mjs') ?? false;
 
 dotenv.config({
-    path: insideNeo ? path.resolve(cwd, '.env') : path.resolve(cwd, '../../.env'),
+    path : insideNeo ? path.resolve(cwd, '.env') : path.resolve(cwd, '../../.env'),
     quiet: true
 });
 
@@ -87,8 +87,8 @@ class DatabaseService extends Base {
             nestedKb.defaultVisibility !== undefined
         )) ? nestedKb : aiConfig;
         const contentString = JSON.stringify({
-            tenantId   : chunk.tenantId ?? kbConfig.defaultTenantId ?? 'neo-shared',
-            repoSlug   : chunk.repoSlug ?? kbConfig.defaultRepoSlug ?? 'neo',
+            tenantId   : chunk.tenantId ?? kbConfig.defaultTenantId,
+            repoSlug   : chunk.repoSlug ?? kbConfig.defaultRepoSlug,
             type       : chunk.type,
             name       : chunk.name,
             description: chunk.description,
@@ -112,14 +112,16 @@ class DatabaseService extends Base {
      *
      * @param {Object}  options
      * @param {String} [options.backupPath=aiConfig.backupPath] Directory for the JSONL artifact.
-     * @returns {Promise<{message: String}>}
+     * @returns {Promise<{message: String, count: Number}>} `count` is the numeric export row count,
+     *          consumed by the backup orchestrator's `verifyBundleIntegrity` for KB row-count parity
+     *          (without it the verifier reads a non-numeric source count and skips KB parity).
      */
     async exportDatabase({backupPath = aiConfig.backupPath} = {}) {
         try {
             logger.log('Starting knowledge base export...');
             const collection = await ChromaManager.getKnowledgeBaseCollection();
             const count      = await this.#exportCollection(collection, backupPath, 'knowledge-base-backup');
-            return {message: `Export complete. Exported ${count} knowledge base chunks.`};
+            return {message: `Export complete. Exported ${count} knowledge base chunks.`, count};
         } catch (error) {
             logger.error('[DatabaseService] Error exporting knowledge base:', error);
             const exportError = new Error(`DATABASE_EXPORT_ERROR: ${error.message}`);
@@ -153,12 +155,12 @@ class DatabaseService extends Base {
         logger.log(`Found ${count} documents in ${collection.name} to export.`);
 
         await fs.ensureDir(backupPath);
-        const timestamp   = new Date().toISOString().replace(/:/g, '-');
+        const timestamp = new Date().toISOString().replace(/:/g, '-');
         const backupFile  = path.join(backupPath, `${filePrefix}-${timestamp}.jsonl`);
         const writeStream = fs.createWriteStream(backupFile);
 
-        const limit = 2000;
-        let offset  = 0;
+        const limit  = 2000;
+        let   offset = 0;
 
         while (offset < count) {
             logger.log(`Fetching batch: ${offset} to ${Math.min(offset + limit, count)} of ${count}`);
@@ -307,7 +309,7 @@ class DatabaseService extends Base {
             logger.log(`Starting Knowledge Base import. Discovered ${sourceFiles.length} backup file(s) (mode: ${mode})...`);
 
             const collection = await ChromaManager.getKnowledgeBaseCollection();
-            let imported     = 0;
+            let   imported   = 0;
 
             for (const filePath of sourceFiles) {
                 logger.log(`Importing: ${filePath}`);
@@ -473,7 +475,7 @@ class DatabaseService extends Base {
         const outputPath = aiConfig.dataPath;
         await fs.ensureDir(path.dirname(outputPath));
         const writeStream = fs.createWriteStream(outputPath);
-        let totalChunks   = 0;
+        let   totalChunks = 0;
 
         // Sources are discovered via SourceRegistry instead of a hardcoded array. Default
         // Neo sources auto-register at import-time via `./source/_export.mjs` unless
@@ -520,11 +522,14 @@ class DatabaseService extends Base {
      *                                      threaded to VectorService.embed for the
      *                                      work-volume gate.
      * @param {String}  [opts.staleStrategy] Explicit stale-data handling strategy.
+     * @param {Function} [opts.shouldYield]  Cooperative heavy-maintenance-lease yield predicate,
+     *                                      threaded to VectorService.embed so a long re-embed releases the
+     *                                      lease at a batch boundary and resumes on the next sweep.
      * @returns {Promise<object>} A promise that resolves to a success message, OR a
      *     `{error, code: 'KB_SYNC_VOLUME_EXCEEDED', ...}` shape when the MCP gate fires.
      */
-    async embedKnowledgeBase({viaMcp = false, staleStrategy} = {}) {
-        return await VectorService.embed(aiConfig.dataPath, {viaMcp, staleStrategy});
+    async embedKnowledgeBase({viaMcp = false, staleStrategy, shouldYield} = {}) {
+        return await VectorService.embed(aiConfig.dataPath, {viaMcp, staleStrategy, shouldYield});
     }
 
     /**
@@ -560,12 +565,14 @@ class DatabaseService extends Base {
      * @param {Boolean} [opts.viaMcp=false] True when invoked via MCP tool dispatch;
      *                                      threaded to embed() for the work-volume gate.
      * @param {String}  [opts.staleStrategy] Explicit stale-data handling strategy.
+     * @param {Function} [opts.shouldYield]  Cooperative heavy-maintenance-lease yield predicate,
+     *                                      threaded to the embed step.
      * @returns {Promise<object>} A promise that resolves to the final success message from the embedding step.
      */
-    async syncDatabase({viaMcp = false, staleStrategy} = {}) {
+    async syncDatabase({viaMcp = false, staleStrategy, shouldYield} = {}) {
         logger.log('Starting full database synchronization...');
         await this.createKnowledgeBase();
-        return await this.embedKnowledgeBase({viaMcp, staleStrategy});
+        return await this.embedKnowledgeBase({viaMcp, staleStrategy, shouldYield});
     }
 }
 

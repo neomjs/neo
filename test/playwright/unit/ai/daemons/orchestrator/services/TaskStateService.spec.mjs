@@ -1,18 +1,18 @@
-import {test, expect} from '@playwright/test';
-import fs from 'fs-extra';
-import path from 'path';
-import Neo from '../../../../../../../src/Neo.mjs';
-import * as core from '../../../../../../../src/core/_export.mjs';
+import {test, expect}                               from '@playwright/test';
+import fs                                           from 'fs-extra';
+import path                                         from 'path';
+import Neo                                          from '../../../../../../../src/Neo.mjs';
+import * as core                                    from '../../../../../../../src/core/_export.mjs';
 import { TaskStateService, createInitialTaskState } from '../../../../../../../ai/daemons/orchestrator/services/TaskStateService.mjs';
 
 function createTestService() {
     const dataDir = `/tmp/task-state-service-test-${Date.now()}-${Math.random()}`;
     fs.ensureDirSync(dataDir);
 
-    const stateFile = path.join(dataDir, 'state.json');
+    const stateFile       = path.join(dataDir, 'state.json');
     const taskDefinitions = {
         mockTask: {
-            name: 'mockTask',
+            name      : 'mockTask',
             scriptPath: '/mock/script.mjs'
         }
     };
@@ -35,16 +35,17 @@ function createTestService() {
 test.describe('Neo.ai.daemons.services.TaskStateService', () => {
     test('initializes with default state when no file exists', () => {
         const { service } = createTestService();
-        const state = service.getTaskState('mockTask');
+        const state       = service.getTaskState('mockTask');
 
         expect(state).toMatchObject({
-            running      : false,
-            pid          : null,
-            lastRunAt    : 0,
-            lastSuccessAt: null,
-            lastErrorAt  : null,
-            lastExitCode : null,
-            lastReason   : null
+            running       : false,
+            pid           : null,
+            lastRunAt     : 0,
+            lastSuccessAt : null,
+            lastErrorAt   : null,
+            lastExitCode  : null,
+            lastReason    : null,
+            lastCompletion: null
         });
     });
 
@@ -89,6 +90,61 @@ test.describe('Neo.ai.daemons.services.TaskStateService', () => {
         expect(stateData.mockTask.running).toBe(false);
         expect(stateData.mockTask.pid).toBe(null);
         expect(stateData.mockTask.lastErrorAt).toEqual(expect.any(String));
+    });
+
+    test('markSkipped clears running state without recording a new success (#13767)', () => {
+        const { service, stateFile } = createTestService();
+
+        service.markStarted('mockTask', 'successful-run');
+        service.markCompleted('mockTask');
+
+        const previousStateData = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+        const previousSuccessAt = previousStateData.mockTask.lastSuccessAt;
+
+        service.markStarted('mockTask', 'deferred-run');
+        service.markSkipped('mockTask');
+
+        const stateData = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+
+        expect(stateData.mockTask.running).toBe(false);
+        expect(stateData.mockTask.pid).toBe(null);
+        expect(stateData.mockTask.lastExitCode).toBe(null);
+        expect(stateData.mockTask.lastReason).toBe('deferred-run');
+        expect(stateData.mockTask.lastSuccessAt).toBe(previousSuccessAt);
+    });
+
+    test('completion metadata is persisted and cleared by non-completed endings (#13971)', () => {
+        const { service, stateFile } = createTestService();
+        const completion             = {
+            rem: {
+                sessionsProcessed: 10,
+                batchLimit       : 10,
+                batchSaturated   : true
+            }
+        };
+
+        service.markCompleted('mockTask', completion);
+        let stateData = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+        expect(stateData.mockTask.lastCompletion).toEqual(completion);
+
+        service.markSkipped('mockTask');
+        stateData = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+        expect(stateData.mockTask.lastCompletion).toBeNull();
+
+        service.markCompleted('mockTask', completion);
+        service.markFailed('mockTask', 1);
+        stateData = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+        expect(stateData.mockTask.lastCompletion).toBeNull();
+
+        const skippedCompletion = {status: 'skipped', reason: 'no-config'};
+        service.markSkipped('mockTask', skippedCompletion);
+        stateData = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+        expect(stateData.mockTask.lastCompletion).toEqual(skippedCompletion);
+
+        const failedCompletion = {status: 'failed', reasonCode: 'TEST_FAILURE'};
+        service.markFailed('mockTask', 1, failedCompletion);
+        stateData = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+        expect(stateData.mockTask.lastCompletion).toEqual(failedCompletion);
     });
 
     test('adoptRunning sets state without immediately writing to disk', () => {

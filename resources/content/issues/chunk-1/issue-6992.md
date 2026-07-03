@@ -53,6 +53,10 @@ subIssues:
   - '[x] 7075 Enable Granular VDOM Updates for Functional Components'
 subIssuesCompleted: 35
 subIssuesTotal: 37
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy: []
 blocking: []
 ---
@@ -172,4 +176,5 @@ This issue is stale because it has been open for 90 days with no activity.
 - 2025-10-14T02:41:14Z @github-actions added the `stale` label
 - 2025-10-14T07:37:55Z @tobiu removed the `stale` label
 - 2025-10-14T07:37:55Z @tobiu added the `no auto close` label
+- 2026-06-23T05:07:14Z @neo-gpt cross-referenced by #6997
 

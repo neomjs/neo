@@ -13,6 +13,31 @@ Backups are stored in `.neo-ai-data/backups/backup-<timestamp>/` and contain the
 ## Prerequisites
 Before initiating any restoration, ensure that all AI MCP servers and daemon processes are stopped (terminate any running `npm run ai:server` processes).
 
+## Atomic-Bundle Restore CLI (`ai:restore`)
+
+`npm run ai:restore -- <bundle-path>` (entrypoint `ai/scripts/maintenance/restore.mjs`) inverts the Daily Snapshot Pipeline: it reads a bundle, validates structure + JSONL parseability + topology compatibility, then restores each subsystem (KB, MC memories/summaries, graph, concepts, RLAIF trajectories) through the canonical Zod-validated SDK boundary. Use this for a full-bundle restore; the per-subsystem procedures below are the manual fallback when you need to recover a single store.
+
+### Flags
+
+| Flag | Effect |
+|---|---|
+| `--mode merge` (default) | Idempotent. Embedded substrates upsert (graph SQLite uses `INSERT OR IGNORE`); flat substrates (`concepts/`, `trajectories.jsonl`) skip-if-target-exists, preserving operator additions. No `--force` required. |
+| `--mode replace` | Gated + destructive. Each embedded subsystem fires `assertDestructiveTargetAllowed()` before truncating + restoring; refuses if any target is non-empty without `--force`. |
+| `--force` | Required when `--mode replace` AND any target is populated (acknowledges overwrite). Also overrides the flat-file skip-if-non-empty rule under `--mode merge`. |
+| `--force-topology-mismatch` | Bypasses the topology-compatibility refusal when restoring a legacy federated-topology bundle into a unified deployment (collection IDs may diverge across topologies). |
+
+### Pre-flight validation
+
+Before any write touches a service, the orchestrator validates the bundle: the required subdirectories exist, each `.jsonl` is parseable (a torn write / corruption fails fast), and `bundle-meta.json` (when present) parses and passes the topology check. A torn or partial bundle aborts with a clear error and zero side effects on the live substrate.
+
+### Production-target safeguard
+
+When `--mode replace` targets canonical `.neo-ai-data/` paths, the destructive-operation guard requires both an environment opt-in AND an explicit confirmation token before the truncate fires; otherwise the restore aborts. Disposable targets (under `tmp/`, the OS temp dir, or `:memory:` SQLite) bypass the requirement so tests can exercise replace mode safely.
+
+### Programmatic use
+
+The orchestrator is also exported as `runRestore({ bundleRoot, mode, force, forceTopologyMismatch })` from `ai/scripts/maintenance/restore.mjs`, for embedding in higher-level recovery substrate (e.g. the daily snapshot pipeline or cold-restore harnesses). It returns per-subsystem result blocks, the parsed `bundle-meta.json` (or `null` for legacy bundles), and the topology-check verdict. Companion exports `validateBundle(...)` and `checkTopology(...)` expose the pre-flight checks for callers that want to gate before restoring.
+
 ## Restoration Procedures
 
 ### 1. Knowledge Base (KB)
@@ -33,9 +58,60 @@ Memory Core memories and session summaries live as the `neo-agent-memory` and `n
    ```bash
    node -e "import('./ai/services.mjs').then(s => s.default.memory.manageDatabaseBackup({action: 'import', file: '.neo-ai-data/backups/backup-<timestamp>/mc/memory-backup-<timestamp>.jsonl', mode: 'replace'}))"
    ```
-   *(Note: A dedicated `restore.mjs` CLI is deferred to #10871. Do **not** `rm -rf` the `chroma/unified` folder — it is shared with the Knowledge Base; MC restore is collection-scoped via the SDK above.)*
+   *(Note: For full-bundle restores, prefer the Atomic-Bundle Restore CLI above. The direct SDK import remains the manual per-subsystem fallback. Do **not** `rm -rf` the `chroma/unified` folder — it is shared with the Knowledge Base; MC restore is collection-scoped via the SDK above.)*
 
-### 3. Memory Core - Native Edge Graph
+### 3. Chroma FTS5 Integrity Repair
+The unified Chroma store is a shared physical SQLite database. `pragma quick_check`
+or `pragma integrity_check` can report `malformed inverted index for FTS5 table
+main.embedding_fulltext_search` while vector collections still answer normal
+queries. Treat this as a shared-store integrity incident: diagnose copy-first,
+stop all writers before touching the live database, and do not use Chroma defrag
+as a substitute for SQLite FTS5 repair.
+
+**Procedure:**
+1. Run the on-demand diagnostic and keep its copied SQLite snapshot:
+   ```bash
+   npm run ai:check-chroma-integrity -- --json --keep-snapshot
+   ```
+2. Validate the repair on the reported snapshot path, not on the live file:
+   ```bash
+   sqlite3 <snapshot>/chroma.sqlite3 "insert into embedding_fulltext_search(embedding_fulltext_search) values('rebuild'); pragma quick_check; pragma integrity_check;"
+   ```
+   Continue only if both pragmas return `ok`. If the copied snapshot remains
+   malformed, stop here and recover from backup or rebuild the affected
+   collection rather than experimenting on the live store.
+3. Stop every process that can reach the Chroma daemon or the unified Chroma
+   directory: Orchestrator, Memory Core, Knowledge Base, wake daemons, harness
+   MCP server instances, and the Chroma daemon itself.
+4. Capture a fresh backup bundle and a physical copy of the unified Chroma
+   directory:
+   ```bash
+   npm run ai:backup
+   cp -R .neo-ai-data/chroma/unified .neo-ai-data/chroma/unified.pre-fts5-rebuild-<timestamp>
+   ```
+5. Rebuild the live FTS5 table only after the writers are stopped and the
+   backups exist:
+   ```bash
+   sqlite3 .neo-ai-data/chroma/unified/chroma.sqlite3 "insert into embedding_fulltext_search(embedding_fulltext_search) values('rebuild'); pragma quick_check; pragma integrity_check;"
+   ```
+6. Restart Chroma and the dependent AI services, then verify both SQLite
+   integrity and API-level reachability:
+   ```bash
+   npm run ai:check-chroma-integrity -- --json
+   node ai/scripts/maintenance/probeCollectionQueryHealth.mjs
+   ```
+
+**Boundaries:**
+- `ai/scripts/maintenance/defragChromaDB.mjs` compacts collection storage; it is
+  not an FTS5 integrity repair tool.
+- KB rebuild (`npm run ai:sync-kb`) repairs the cache collection, not the shared
+  SQLite full-text index.
+- MC backup import restores collection rows, but it is not required when the
+  copied FTS5 rebuild validates cleanly.
+- API embedding-export failures such as `Error finding id` are a separate
+  Chroma read-path issue (see §7 for its repair); do not conflate them with FTS5 index repair.
+
+### 4. Memory Core - Native Edge Graph
 The Memory Core Edge Graph is persisted in SQLite.
 
 **Procedure:**
@@ -48,7 +124,7 @@ The Memory Core Edge Graph is persisted in SQLite.
    node -e "import('./ai/services.mjs').then(s => s.default.memory.manageDatabaseBackup({action: 'import', file: '.neo-ai-data/backups/backup-<timestamp>/graph/graph-backup-<timestamp>.jsonl', mode: 'replace'}))"
    ```
 
-### 4. Concept Ontology
+### 5. Concept Ontology
 The Concept Ontology consists of nodes and edges defined in JSONL.
 
 **Procedure:**
@@ -61,7 +137,7 @@ The Concept Ontology consists of nodes and edges defined in JSONL.
    cp -r .neo-ai-data/backups/backup-<timestamp>/concepts/* .neo-ai-data/concepts/
    ```
 
-### 5. RLAIF Trajectories
+### 6. RLAIF Trajectories
 The RLAIF trajectories capture interaction feedback and metadata for offline RL alignment.
 
 **Procedure:**
@@ -69,6 +145,38 @@ The RLAIF trajectories capture interaction feedback and metadata for offline RL 
    ```bash
    cp .neo-ai-data/backups/backup-<timestamp>/trajectories/trajectories.jsonl .neo-ai-data/datasets/rlaif/trajectories.jsonl
    ```
+
+### 7. Memory Core Stored-Embedding Export Repair
+A distinct failure from §3 (FTS5) and from a full restore (§2): `npm run ai:check-chroma-integrity` reports `get embedding by id: Error finding id` (stored-embedding export fails) for `neo-agent-memory` / `neo-agent-sessions` / `neo-native-graph` **while the query canary stays healthy** — Chroma metadata rows are present but many ids are missing from the persisted HNSW vector index (#13496 / #13467). Backup/export silently skips the missing-vector ids, so it is **not** a safe substitute. The repair re-embeds the missing vectors into a shadow collection and promotes copy-first (`defragChromaDB.mjs` `repairMemoryCoreCollectionsViaFullEnumeration`, #13635), behind the `--allow-memory-core` opt-in (default fails closed).
+
+**Procedure:**
+1. Confirm the diagnosis (read-only — a healthy query canary plus a failing exportability sample is the signature):
+   ```bash
+   node ai/scripts/maintenance/probeCollectionQueryHealth.mjs
+   npm run ai:check-chroma-integrity -- --exportability-sample-size 2 --json
+   ```
+2. Quiesce every **competing writer** — but **leave the Chroma server running** (both the backup and the repair use its API; unlike §3's file-level FTS5 repair, this does **not** stop Chroma). Stop the Orchestrator, Memory Core, Knowledge Base, wake daemons, and harness MCP server instances (the `npm run ai:server` processes) so nothing else mutates the collections during the repair.
+3. With the writers stopped (store quiescent, Chroma still up), capture the canonical SDK backup and a coarse physical rollback copy:
+   ```bash
+   npm run ai:backup
+   cp -R .neo-ai-data/chroma/unified .neo-ai-data/chroma/unified.pre-mc-repair-<timestamp>
+   ```
+   (`ai:backup` reads through Chroma's API, so Chroma must be up; the physical copy is a coarse rollback taken while no writers are active. `defragChromaDB` additionally takes its own private pre-promote snapshot.)
+4. Run the repair with Chroma running and no competing writers (the repair is the exclusive collection writer; opt-in — it shadow-extracts intact vectors, re-embeds the missing ids, validates the shadow collection, then promotes copy-first):
+   ```bash
+   node ai/scripts/maintenance/defragChromaDB.mjs --target memory-core --allow-memory-core
+   ```
+   A clean run clears its repair state-marker; a partial run rewrites an explicit `memory-core-repair-aborted` marker and exits non-zero — investigate before re-running.
+5. Verify export and query health are both green, then restart the AI services (see Verification below):
+   ```bash
+   npm run ai:check-chroma-integrity -- --json
+   node ai/scripts/maintenance/probeCollectionQueryHealth.mjs
+   ```
+
+**Boundaries:**
+- This repairs stored-embedding export (re-embed missing vectors); it is **not** the §3 FTS5 SQLite repair and **not** the §2 backup-restore — use those for their respective failures.
+- The repair is gated behind `--allow-memory-core` (default fails closed) and promotes copy-first; it never deletes/recreates the live collection in place.
+- The heavier exportability probe (`get embedding by id`) stays **on-demand** (the maintenance scripts above); the routine bounded healthcheck remains query-path only.
 
 ## Verification
 After restoration, restart the subsystem and verify health.

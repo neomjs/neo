@@ -24,7 +24,7 @@ import os              from 'os';
 import path            from 'path';
 import {fileURLToPath} from 'url';
 
-import TenantRepoSyncService from '../../../../../../../ai/daemons/orchestrator/services/TenantRepoSyncService.mjs';
+import TenantRepoSyncService        from '../../../../../../../ai/daemons/orchestrator/services/TenantRepoSyncService.mjs';
 import {deriveTenantRepoMirrorPath} from '../../../../../../../ai/services/knowledge-base/helpers/tenantRepoAccessContract.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -78,12 +78,12 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             async ingestSourceFiles(payload) {
                 captureCalls.push({op: 'ingestSourceFiles', payload});
                 return {
-                    ingested: payload.files?.length || 0,
-                    deleted : payload.deleted?.length || 0,
+                    ingested           : payload.files?.length || 0,
+                    deleted            : payload.deleted?.length || 0,
                     embeddingsGenerated: 0,
-                    errors  : [],
-                    tenantId: payload.tenantId,
-                    durationMs: 1
+                    errors             : [],
+                    tenantId           : payload.tenantId,
+                    durationMs         : 1
                 };
             }
         };
@@ -111,7 +111,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
 
     test.afterEach(async () => {
         await fs.remove(tmpDir);
-        // Restore the singleton's reactive config to default values so #11942-AC2
+        // Restore the singleton's reactive config to default values so
         // concurrency tests cannot leak short timeouts / serial-limit to siblings.
         TenantRepoSyncService.concurrencyLimit         = 2;
         TenantRepoSyncService.concurrencyGateTimeoutMs = 30000;
@@ -121,7 +121,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         const taskStateService = createInMemoryTaskStateService();
 
         const result = await TenantRepoSyncService.runTask({
-            reason          : 'manual-test',
+            reason           : 'manual-test',
             taskStateService,
             tenantReposConfig: {tenantRepos: []},
             revisionsFilePath: revisionsFile
@@ -138,7 +138,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         taskStateService.taskState['tenant-repo-sync'] = {running: true, pid: 12345};
 
         const result = await TenantRepoSyncService.runTask({
-            reason          : 'periodic',
+            reason           : 'periodic',
             taskStateService,
             tenantReposConfig: {tenantRepos: [{tenantId: 't1', repoSlug: 'org/repo', mirrorRoot: '/tmp/mirror', cloneUrl: 'https://github.com/neomjs/repo.git'}]},
             revisionsFilePath: revisionsFile
@@ -158,7 +158,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/repo-b'});
 
         const result = await TenantRepoSyncService.runTask({
-            reason          : 'periodic-sweep:60000',
+            reason           : 'periodic-sweep:60000',
             taskStateService,
             tenantReposConfig: {tenantRepos: [
                 {tenantId: 't1', repoSlug: 'org/repo-a', mirrorRoot, cloneUrl: 'https://github.com/neomjs/a.git'},
@@ -168,7 +168,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
             knowledgeBaseIngestionService: makeFakeIngestionService({captureCalls: ingestCalls}),
             revisionsFilePath            : revisionsFile,
-            // Bootstrap-seeding (#11942 AC1 cycle-2) defers fresh repos to a later sweep
+            // Bootstrap seeding defers fresh repos to a later sweep
             // within the jitter window; this test simulates the in-loop iteration path
             // and opts out so it can assert "first call processes all repos".
             seedBootstrap                : false
@@ -218,7 +218,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         };
 
         const result = await TenantRepoSyncService.runTask({
-            reason          : 'periodic',
+            reason           : 'periodic',
             taskStateService,
             tenantReposConfig: {tenantRepos: [
                 {tenantId: 't1', repoSlug: 'org/good',   mirrorRoot, cloneUrl: 'https://github.com/neomjs/good.git'},
@@ -245,9 +245,10 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         const failed = result.details.repos.find(r => r.status === 'degraded');
         expect(failed.tenantId).toBe('t1');
         expect(failed.repoSlug).toBe('org/broken');
-        // Service wraps non-prefixed errors as the stable KB_TENANT_REPO_SYNC_SYNC_FAILED code
-        // so test assertion uses the lastErrorCode the operator would actually see.
+        // Service wraps sibling-subsystem errors as the stable KB_TENANT_REPO_SYNC_SYNC_FAILED code
+        // and preserves the source code in a bounded non-secret field for diagnostics.
         expect(failed.lastErrorCode).toBe('KB_TENANT_REPO_SYNC_SYNC_FAILED');
+        expect(failed.lastSourceErrorCode).toBe('KB_GITMIRROR_FETCH_FAILED');
     });
 
     test('onlyRepoSlugs scoping: subset filtering for manual CLI path', async () => {
@@ -259,7 +260,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/c'});
 
         const result = await TenantRepoSyncService.runTask({
-            reason          : 'manual',
+            reason           : 'manual',
             taskStateService,
             tenantReposConfig: {tenantRepos: [
                 {tenantId: 't1', repoSlug: 'org/a', mirrorRoot, cloneUrl: 'https://github.com/neomjs/a.git'},
@@ -288,7 +289,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         await fs.ensureDir(path.dirname(revisionsFile));
         await fs.writeJson(revisionsFile, {revisions: {'t1/org/seeded': 'sha-prior-run'}});
 
-        let capturedLastIngestedRev = null;
+        let   capturedLastIngestedRev   = null;
         const envelopeWatchingGitMirror = {
             async cloneIfMissing() {},
             async fetch() {},
@@ -306,10 +307,10 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         };
 
         const result = await TenantRepoSyncService.runTask({
-            reason          : 'periodic',
+            reason           : 'periodic',
             taskStateService,
             tenantReposConfig: {tenantRepos: [{tenantId: 't1', repoSlug: 'org/seeded', mirrorRoot, cloneUrl: 'https://github.com/neomjs/seeded.git'}]},
-            gitMirror                    : envelopeWatchingGitMirror,
+            gitMirror        : envelopeWatchingGitMirror,
             // For the persistence test, use a real-shape envelope-builder fake that
             // calls gitMirror.resolveHead twice — once for HEAD, once for prior sha —
             // so the test can verify lastIngestedRev flows through.
@@ -317,9 +318,9 @@ test.describe('TenantRepoSyncService (#11790)', () => {
                 await args.gitMirror.resolveHead({...args, ref: args.newHead || 'HEAD'});
                 if (args.lastIngestedRev) await args.gitMirror.resolveHead({...args, ref: args.lastIngestedRev});
                 return {
-                    tenantId: args.tenantId,
-                    repoSlug: args.repoSlug,
-                    files: [], deleted: [],
+                    tenantId    : args.tenantId,
+                    repoSlug    : args.repoSlug,
+                    files       : [], deleted: [],
                     headRevision: 'sha-new-head'
                 };
             },
@@ -336,7 +337,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/repo-a'});
 
         const result = await TenantRepoSyncService.runTask({
-            reason          : 'periodic-sweep:60000',
+            reason           : 'periodic-sweep:60000',
             taskStateService,
             tenantReposConfig: {tenantRepos: [
                 {tenantId: 't1', repoSlug: 'org/repo-a', mirrorRoot, cloneUrl: 'https://github.com/neomjs/a.git'}
@@ -379,7 +380,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         };
 
         const result = await TenantRepoSyncService.runTask({
-            reason          : 'periodic-sweep:60000',
+            reason           : 'periodic-sweep:60000',
             taskStateService,
             tenantReposConfig: {tenantRepos: [
                 {tenantId: 't1', repoSlug: 'org/broken', mirrorRoot, cloneUrl: 'https://github.com/neomjs/broken.git'}
@@ -397,10 +398,57 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(repoState.status).toBe('degraded');
         // Underlying error code (KB_GITMIRROR_FETCH_FAILED) does NOT carry the
         // KB_TENANT_REPO_SYNC_ prefix, so the service wraps it as the stable
-        // KB_TENANT_REPO_SYNC_SYNC_FAILED code that operators branch on.
+        // KB_TENANT_REPO_SYNC_SYNC_FAILED code that operators branch on while
+        // preserving bounded source provenance.
         expect(repoState.lastErrorCode).toBe('KB_TENANT_REPO_SYNC_SYNC_FAILED');
+        expect(repoState.lastSourceErrorCode).toBe('KB_GITMIRROR_FETCH_FAILED');
         expect(repoState.tenantId).toBe('t1');
         expect(repoState.repoSlug).toBe('org/broken');
+    });
+
+    test('health payload: unresolved credentialRef preserves GitMirror source code', async () => {
+        const taskStateService = createInMemoryTaskStateService();
+
+        const failingMirror = {
+            async cloneIfMissing() {
+                const err = new Error('GitMirror env credentialRef could not be resolved');
+                err.code = 'KB_GITMIRROR_CREDENTIAL_REF_INVALID';
+                throw err;
+            },
+            async fetch() {},
+            async resolveHead() { return 'sha-current'; },
+            async isAncestor() { return true; },
+            async diffRevisions() { return {addedOrChanged: [], deleted: []}; }
+        };
+
+        const result = await TenantRepoSyncService.runTask({
+            reason           : 'periodic-sweep:60000',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [
+                {
+                    tenantId     : 't1',
+                    repoSlug     : 'org/private',
+                    mirrorRoot,
+                    cloneUrl     : 'https://github.com/neomjs/private.git',
+                    credentialRef: 'env:MISSING_TOKEN'
+                }
+            ]},
+            gitMirror                    : failingMirror,
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : revisionsFile,
+            seedBootstrap                : false
+        });
+
+        expect(result.status).toBe('failed');
+
+        const repoState = result.details.repos[0];
+        expect(repoState).toMatchObject({
+            status             : 'degraded',
+            lastErrorCode      : 'KB_TENANT_REPO_SYNC_SYNC_FAILED',
+            lastSourceErrorCode: 'KB_GITMIRROR_CREDENTIAL_REF_INVALID'
+        });
+        expect(JSON.stringify(repoState)).not.toContain('MISSING_TOKEN');
     });
 
     test('operator log: emits per-repo completed line + cycle summary in expected shape', async () => {
@@ -409,9 +457,9 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/repo-a'});
 
         await TenantRepoSyncService.runTask({
-            reason          : 'periodic-sweep:60000',
+            reason           : 'periodic-sweep:60000',
             taskStateService,
-            writeLog        : (level, msg) => logLines.push({level, msg}),
+            writeLog         : (level, msg) => logLines.push({level, msg}),
             tenantReposConfig: {tenantRepos: [
                 {tenantId: 't1', repoSlug: 'org/repo-a', mirrorRoot, cloneUrl: 'https://github.com/neomjs/a.git'}
             ]},
@@ -422,9 +470,9 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             seedBootstrap                : false
         });
 
-        const refreshLine = logLines.find(l => l.msg.includes('Refreshing t1/org/repo-a'));
+        const refreshLine   = logLines.find(l => l.msg.includes('Refreshing t1/org/repo-a'));
         const completedLine = logLines.find(l => l.msg.includes('t1/org/repo-a completed'));
-        const summaryLine = logLines.find(l => l.msg.includes('Cycle summary'));
+        const summaryLine   = logLines.find(l => l.msg.includes('Cycle summary'));
 
         expect(refreshLine).toBeDefined();
         expect(completedLine).toBeDefined();
@@ -442,9 +490,9 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/known'});
 
         const result = await TenantRepoSyncService.runTask({
-            reason          : 'manual',
+            reason           : 'manual',
             taskStateService,
-            writeLog        : (level, msg) => logLines.push({level, msg}),
+            writeLog         : (level, msg) => logLines.push({level, msg}),
             tenantReposConfig: {tenantRepos: [
                 {tenantId: 't1', repoSlug: 'org/known', mirrorRoot, cloneUrl: 'https://github.com/neomjs/known.git'}
             ]},
@@ -503,9 +551,9 @@ test.describe('TenantRepoSyncService (#11790)', () => {
 
         try {
             const result = await TenantRepoSyncService.runTask({
-                reason          : 'periodic-sweep:60000',
+                reason           : 'periodic-sweep:60000',
                 taskStateService,
-                writeLog        : (level, msg) => logLines.push({level, msg}),
+                writeLog         : (level, msg) => logLines.push({level, msg}),
                 tenantReposConfig: {tenantRepos: [
                     {tenantId: 't1', repoSlug: 'org/repo-a', mirrorRoot, cloneUrl: 'https://github.com/neomjs/a.git'}
                 ]},
@@ -530,7 +578,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         TenantRepoSyncService.concurrencyLimit = 1;
 
         const inFlightLog = [];
-        let inFlight      = 0;
+        let   inFlight    = 0;
 
         const trackingMirror = {
             async cloneIfMissing() {
@@ -550,8 +598,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         }
 
         const result = await TenantRepoSyncService.runTask({
-            reason          : 'periodic',
-            taskStateService: createInMemoryTaskStateService(),
+            reason           : 'periodic',
+            taskStateService : createInMemoryTaskStateService(),
             tenantReposConfig: {tenantRepos: ['org/r1', 'org/r2', 'org/r3'].map(s => ({
                 tenantId: 't1', repoSlug: s, mirrorRoot, cloneUrl: `https://github.com/neomjs/${s.split('/')[1]}.git`
             }))},
@@ -573,7 +621,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         TenantRepoSyncService.concurrencyLimit = 2;
 
         const inFlightLog = [];
-        let inFlight      = 0;
+        let   inFlight    = 0;
 
         const trackingMirror = {
             async cloneIfMissing() {
@@ -593,8 +641,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         }
 
         const result = await TenantRepoSyncService.runTask({
-            reason          : 'periodic',
-            taskStateService: createInMemoryTaskStateService(),
+            reason           : 'periodic',
+            taskStateService : createInMemoryTaskStateService(),
             tenantReposConfig: {tenantRepos: ['org/r1', 'org/r2', 'org/r3', 'org/r4'].map(s => ({
                 tenantId: 't1', repoSlug: s, mirrorRoot, cloneUrl: `https://github.com/neomjs/${s.split('/')[1]}.git`
             }))},
@@ -669,7 +717,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         await provisionMirrorDir({tenantId: 't1', repoSlug: 'neomjs/recent-repo'});
 
         const result = await TenantRepoSyncService.runTask({
-            reason          : 'periodic-sweep:1800000',
+            reason           : 'periodic-sweep:1800000',
             taskStateService,
             tenantReposConfig: {tenantRepos: [
                 {tenantId: 't1', repoSlug: 'neomjs/recent-repo', mirrorRoot, cloneUrl: 'https://github.com/neomjs/recent-repo.git'}
@@ -697,8 +745,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
     test('jitter+backoff: persists consecutiveFailures increment on failure (#11942 AC1)', async () => {
         const taskStateService = createInMemoryTaskStateService();
 
-        // Opts out of #11942 AC1 cycle-2 (#11962) bootstrap seeding so the
-        // simulated failure path actually fires this sweep (instead of being
+        // Opts out of bootstrap seeding so the simulated failure path
+        // actually fires this sweep (instead of being
         // deferred-as-seeded). Test verifies failure-increment semantics, not
         // bootstrap-spread behavior.
         const failingMirror = {
@@ -712,7 +760,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         await provisionMirrorDir({tenantId: 't1', repoSlug: 'neomjs/failing-repo'});
 
         const result = await TenantRepoSyncService.runTask({
-            reason          : 'periodic-sweep:1800000',
+            reason           : 'periodic-sweep:1800000',
             taskStateService,
             tenantReposConfig: {tenantRepos: [
                 {tenantId: 't1', repoSlug: 'neomjs/failing-repo', mirrorRoot, cloneUrl: 'https://github.com/neomjs/failing-repo.git'}
@@ -755,7 +803,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         await provisionMirrorDir({tenantId: 't1', repoSlug: 'neomjs/recovering-repo'});
 
         const result = await TenantRepoSyncService.runTask({
-            reason          : 'periodic-sweep:1800000',
+            reason           : 'periodic-sweep:1800000',
             taskStateService,
             tenantReposConfig: {tenantRepos: [
                 {tenantId: 't1', repoSlug: 'neomjs/recovering-repo', mirrorRoot, cloneUrl: 'https://github.com/neomjs/recovering-repo.git'}
@@ -788,7 +836,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         await provisionMirrorDir({tenantId: 't1', repoSlug: 'neomjs/legacy-repo'});
 
         const result = await TenantRepoSyncService.runTask({
-            reason          : 'periodic-sweep:1800000',
+            reason           : 'periodic-sweep:1800000',
             taskStateService,
             tenantReposConfig: {tenantRepos: [
                 {tenantId: 't1', repoSlug: 'neomjs/legacy-repo', mirrorRoot, cloneUrl: 'https://github.com/neomjs/legacy-repo.git'}
@@ -830,7 +878,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         await provisionMirrorDir({tenantId: 't1', repoSlug: 'neomjs/manual-repo'});
 
         const result = await TenantRepoSyncService.runTask({
-            reason          : 'manual',
+            reason           : 'manual',
             taskStateService,
             tenantReposConfig: {tenantRepos: [
                 {tenantId: 't1', repoSlug: 'neomjs/manual-repo', mirrorRoot, cloneUrl: 'https://github.com/neomjs/manual-repo.git'}
@@ -852,7 +900,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
     });
 
     // ─────────────────────────────────────────────────────────────────────────
-    // #11942 AC1 cycle-2 (#11962): bootstrap-spread seeding + decoupled-sweep
+    // Bootstrap-spread seeding + decoupled-sweep
     // composition + orchestrator-resolved cadence pass-through.
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -864,8 +912,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         const baseCadenceMs = 1800000; // 30min — matches AiConfig default
 
         const sweepStart = Date.now();
-        const result = await TenantRepoSyncService.runTask({
-            reason          : 'periodic-sweep:60000',
+        const result     = await TenantRepoSyncService.runTask({
+            reason           : 'periodic-sweep:60000',
             taskStateService,
             tenantReposConfig: {tenantRepos: [
                 {tenantId: 't1', repoSlug: 'org/repo-a', mirrorRoot, cloneUrl: 'https://github.com/neomjs/a.git'},
@@ -888,8 +936,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
 
         // Persisted state shows seeded `lastRunAttemptAt = sweepStart - baseCadenceMs`.
         const persisted = await fs.readJson(revisionsFile);
-        const stateA = persisted.revisions['t1/org/repo-a'];
-        const stateB = persisted.revisions['t1/org/repo-b'];
+        const stateA    = persisted.revisions['t1/org/repo-a'];
+        const stateB    = persisted.revisions['t1/org/repo-b'];
 
         expect(stateA).toBeTruthy();
         expect(stateA.lastIngestedRev).toBeNull();
@@ -910,7 +958,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         const baseCadenceMs = 100; // tiny so test can advance via real Date.now
 
         // Pre-write seeded state: lastRunAttemptAt = (now - baseCadence) → due at now + jitter
-        const seedTime  = Date.now() - baseCadenceMs;
+        const seedTime = Date.now() - baseCadenceMs;
         await fs.writeJson(revisionsFile, {
             revisions: {
                 't1/org/short-jitter': {lastIngestedRev: null, lastRunAttemptAt: seedTime, consecutiveFailures: 0},
@@ -928,8 +976,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         await new Promise(r => setTimeout(r, 60));
 
         const result = await TenantRepoSyncService.runTask({
-            reason          : 'periodic-sweep:1000',
-            taskStateService: createInMemoryTaskStateService(),
+            reason           : 'periodic-sweep:1000',
+            taskStateService : createInMemoryTaskStateService(),
             tenantReposConfig: {tenantRepos: [
                 {tenantId: 't1', repoSlug: 'org/short-jitter', mirrorRoot, cloneUrl: 'https://github.com/neomjs/short.git'},
                 {tenantId: 't1', repoSlug: 'org/long-jitter',  mirrorRoot, cloneUrl: 'https://github.com/neomjs/long.git'}
@@ -969,8 +1017,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         // is NOT due. Without explicit pass, the service would fall back to
         // AiConfig.data.orchestrator.intervals.tenantRepoSyncMs default.
         const result = await TenantRepoSyncService.runTask({
-            reason          : 'periodic-sweep:60000',
-            taskStateService: createInMemoryTaskStateService(),
+            reason           : 'periodic-sweep:60000',
+            taskStateService : createInMemoryTaskStateService(),
             tenantReposConfig: {tenantRepos: [
                 {tenantId: 't1', repoSlug: 'org/repo', mirrorRoot, cloneUrl: 'https://github.com/neomjs/repo.git'}
             ]},
@@ -991,7 +1039,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
     test('orchestrator-resolved jitterRatio flows through to isRepoDue (#11942 AC1 cycle-2 RA3)', async () => {
         // Pre-populate priorState with lastRunAttemptAt exactly at cadence-boundary
         // so jitterRatio=0 → due (cadence elapsed), jitterRatio=0.50 with large jitter → not-due.
-        const baseCadenceMs = 1000;
+        const baseCadenceMs            = 1000;
         const exactlyAtCadenceBoundary = Date.now() - baseCadenceMs;
         await fs.writeJson(revisionsFile, {
             revisions: {
@@ -1004,8 +1052,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         // jitterRatio=0.50 + tenantId/repoSlug → jitter > 0 → effectiveCadence > baseCadence → not-due
         // (because (now - lastRunAttemptAt) = baseCadenceMs < baseCadenceMs + jitter).
         const result = await TenantRepoSyncService.runTask({
-            reason          : 'periodic-sweep:60000',
-            taskStateService: createInMemoryTaskStateService(),
+            reason           : 'periodic-sweep:60000',
+            taskStateService : createInMemoryTaskStateService(),
             tenantReposConfig: {tenantRepos: [
                 {tenantId: 't1', repoSlug: 'org/repo', mirrorRoot, cloneUrl: 'https://github.com/neomjs/repo.git'}
             ]},
@@ -1031,7 +1079,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/manual-target'});
 
         const result = await TenantRepoSyncService.runTask({
-            reason          : 'manual',
+            reason           : 'manual',
             taskStateService,
             tenantReposConfig: {tenantRepos: [
                 {tenantId: 't1', repoSlug: 'org/manual-target', mirrorRoot, cloneUrl: 'https://github.com/neomjs/manual.git'}
@@ -1055,8 +1103,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         TenantRepoSyncService.concurrencyGateTimeoutMs = 50;
 
         let releaseFirstRepo;
-        const firstRepoGate = new Promise(resolve => { releaseFirstRepo = resolve; });
-        let cloneCallCount  = 0;
+        const firstRepoGate  = new Promise(resolve => { releaseFirstRepo = resolve; });
+        let   cloneCallCount = 0;
 
         const slowMirror = {
             async cloneIfMissing() {
@@ -1076,8 +1124,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/queued'});
 
         const resultPromise = TenantRepoSyncService.runTask({
-            reason          : 'periodic',
-            taskStateService: createInMemoryTaskStateService(),
+            reason           : 'periodic',
+            taskStateService : createInMemoryTaskStateService(),
             tenantReposConfig: {tenantRepos: [
                 {tenantId: 't1', repoSlug: 'org/slow',   mirrorRoot, cloneUrl: 'https://github.com/neomjs/slow.git'},
                 {tenantId: 't1', repoSlug: 'org/queued', mirrorRoot, cloneUrl: 'https://github.com/neomjs/queued.git'}
@@ -1118,7 +1166,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/repo-default'});
 
         await TenantRepoSyncService.runTask({
-            reason          : 'periodic-sweep:60000',
+            reason           : 'periodic-sweep:60000',
             taskStateService,
             tenantReposConfig: {tenantRepos: [
                 {tenantId: 't1', repoSlug: 'org/repo-with-branch', mirrorRoot, cloneUrl: 'https://github.com/neomjs/a.git', branchRef: 'dev'},
@@ -1146,7 +1194,7 @@ test.describe('TenantRepoSyncService.resolveIngestionService — export-drift gu
     /*
      * Other tests in this file inject `knowledgeBaseIngestionService` directly via
      * `runTask` arguments, bypassing `resolveIngestionService` entirely. That's how
-     * the export-drift bug fixed in PR #12037 (lookup of the non-existent
+     * the historical export-drift bug where the resolver looked up non-existent
      * `KB_KnowledgeBaseIngestionService` / `KnowledgeBaseIngestionService` names)
      * escaped unit-test detection. This block covers all three drift classes:
      *
@@ -1166,8 +1214,8 @@ test.describe('TenantRepoSyncService.resolveIngestionService — export-drift gu
      * bootstrap on fresh clone, so this is the green path. Operator checkouts whose
      * per-server `config.mjs` was generated before the materialization logic landed
      * will hit the collision until they re-run `npm run prepare -- --migrate-config`
-     * OR manually update the import path. Documented in #12047 (open) for the
-     * materialization-migration substrate work.
+     * OR manually update the import path. Keep this note until the
+     * materialization-migration substrate is retired.
      */
     const repoRoot     = path.resolve(__dirname, '../../../../../../../');
     const servicesPath = path.join(repoRoot, 'ai/services.mjs');
@@ -1236,7 +1284,7 @@ test.describe('TenantRepoSyncService.resolveTenantReposConfig — Tier-1 mirrorR
             ]})
         };
 
-        const result      = await TenantRepoSyncService.resolveTenantReposConfig({
+        const result = await TenantRepoSyncService.resolveTenantReposConfig({
             ingestionService: ingestionStub,
             tier1MirrorRoot : '/app/.neo-ai-data'
         });

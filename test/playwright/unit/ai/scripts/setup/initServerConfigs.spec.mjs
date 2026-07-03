@@ -15,13 +15,13 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
+import {test, expect}  from '@playwright/test';
+import Neo             from '../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../../src/manager/Instance.mjs';
-import fs             from 'fs';
-import fsExtra        from 'fs-extra';
-import path           from 'path';
+import fs              from 'fs';
+import fsExtra         from 'fs-extra';
+import path            from 'path';
 
 test.describe.configure({mode: 'serial'});
 
@@ -30,13 +30,13 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
     let workRoot;
 
     function recordingLogger() {
-        const log  = [];
-        const warn = [];
+        const log   = [];
+        const warn  = [];
         const error = [];
         return {
-            log:   (...args) => log.push(args.join(' ')),
-            warn:  (...args) => warn.push(args.join(' ')),
-            error: (...args) => error.push(args.join(' ')),
+            log    : (...args) => log.push(args.join(' ')),
+            warn   : (...args) => warn.push(args.join(' ')),
+            error  : (...args) => error.push(args.join(' ')),
             entries: {log, warn, error}
         }
     }
@@ -81,7 +81,7 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
 
     test('AC1: missing config.mjs is cloned from template', async () => {
         const templateSrc = `import path from 'path';\nexport default {x: 1};\n`;
-        const root = buildServerSandbox({
+        const root        = buildServerSandbox({
             sandboxName     : 'ac1-clone',
             templateContents: templateSrc,
             configContents  : undefined
@@ -398,7 +398,7 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
         // `import {parsePort as foo, parseBool} from '...'` projects as `:parsePort` + `:parseBool`,
         // not the local alias `:foo`. Ensures shape comparison is stable across
         // operator local-aliasing variations.
-        const src = `import {parsePort as foo, parseBool} from '../../../../src/util/Env.mjs';\n`;
+        const src      = `import {parsePort as foo, parseBool} from '../../../../src/util/Env.mjs';\n`;
         const filePath = path.join(workRoot, 'aliased.mjs');
         fs.writeFileSync(filePath, src);
 
@@ -508,7 +508,7 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
     });
 
     test('named exports projection: exports {a, b} blocks are extracted and trimmed', async () => {
-        const src = `export {first, second, third} from './re-export.mjs';\nexport {only} from './another.mjs';\n`;
+        const src      = `export {first, second, third} from './re-export.mjs';\nexport {only} from './another.mjs';\n`;
         const filePath = path.join(workRoot, 'exports.mjs');
         fs.writeFileSync(filePath, src);
 
@@ -562,6 +562,36 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
                 default: `'openAiCompatible'`
             }
         ]);
+    });
+
+    test('requiredness projection captures fourth-argument leaf contracts (#13432)', () => {
+        const src = [
+            `export default {auth: {`,
+            `    gitlabApiBaseUrl: leaf('https://gitlab.com', 'NEO_AUTH_GITLAB_API_BASE_URL', 'string', {`,
+            `        requiredFor: [{entrypoints: '*', modes: ['gitlab-pat'], consumerClaims: ['readiness']}]`,
+            `    }),`,
+            `    mode: leaf('oidc', 'NEO_AUTH_MODE', 'string')`,
+            `}};`,
+            ``
+        ].join('\n');
+
+        const shape = projectSourceShape(src);
+
+        expect(shape.requiredLeaves).toEqual([
+            `gitlabApiBaseUrl (NEO_AUTH_GITLAB_API_BASE_URL, string): { requiredFor: [{entrypoints: '*', modes: ['gitlab-pat'], consumerClaims: ['readiness']}] }`
+        ]);
+    });
+
+    test('bare side-effect imports are tracked so a missing participation import is drift (#14499)', () => {
+        // A server config participates in the Tier-1 hierarchy by loading the realm root via a bare
+        // side-effect import (`import '../../../config.mjs';`). The detector MUST see it — else a template
+        // that ADDS participation is invisible drift and the overlay boots non-participating — getParent()
+        // has no root, so `auth.*` is unresolvable.
+        const templateShape = projectSourceShape(`import '../../../config.mjs';\nimport os from 'os';\nexport default {};\n`);
+        const configShape   = projectSourceShape(`import os from 'os';\nexport default {};\n`);
+
+        expect(templateShape.imports).toContain('../../../config.mjs');
+        expect(detectDrift(templateShape, configShape).missingImports).toContain('../../../config.mjs');
     });
 
     test('detectDrift reports same-env leaf default changes (#12767)', () => {
@@ -639,6 +669,32 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
         expect(drift.missingExports).toEqual([]);
     });
 
+    test('detectDrift reports missing requiredness metadata for an existing env leaf (#13432)', () => {
+        const templateShape = projectSourceShape([
+            `export default {auth: {`,
+            `    gitlabApiBaseUrl: leaf('https://gitlab.com', 'NEO_AUTH_GITLAB_API_BASE_URL', 'string', {requiredFor: [{modes: ['gitlab-pat']}]})`,
+            `}};`,
+            ``
+        ].join('\n'));
+        const configShape = projectSourceShape([
+            `export default {auth: {`,
+            `    gitlabApiBaseUrl: leaf('https://gitlab.com', 'NEO_AUTH_GITLAB_API_BASE_URL', 'string')`,
+            `}};`,
+            ``
+        ].join('\n'));
+
+        const drift = detectDrift(templateShape, configShape);
+
+        expect(drift.hasDrift).toBe(true);
+        expect(drift.missingImports).toEqual([]);
+        expect(drift.missingExports).toEqual([]);
+        expect(drift.missingEnvVars).toEqual([]);
+        expect(drift.changedLeafDefaults).toEqual([]);
+        expect(drift.missingRequiredLeaves).toEqual([
+            `gitlabApiBaseUrl (NEO_AUTH_GITLAB_API_BASE_URL, string): {requiredFor: [{modes: ['gitlab-pat']}]}`
+        ]);
+    });
+
     test('a template that adds an env-bound config leaf warns the existing config (env drift)', async () => {
         // Identical imports/exports — only a NEW leaf carrying NEO_AUTH_MODE is added. The
         // import/export projection alone is blind to this; env-var projection catches it.
@@ -701,6 +757,35 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
         expect(onDisk).toContain('NEO_AUTH_MODE');
     });
 
+    test('requiredness metadata drift forces a full migrate (NOT the materialize-only fast path)', async () => {
+        const templateSrc = [
+            `import AiConfig from '../../../config.template.mjs';`,
+            `export default {auth: {gitlabApiBaseUrl: leaf('https://gitlab.com', 'NEO_AUTH_GITLAB_API_BASE_URL', 'string', {requiredFor: [{modes: ['gitlab-pat']}]})}};`,
+            ``
+        ].join('\n');
+        const configSrc = [
+            `import AiConfig from '../../../config.template.mjs';`,
+            `export default {auth: {gitlabApiBaseUrl: leaf('https://gitlab.com', 'NEO_AUTH_GITLAB_API_BASE_URL', 'string')}};`,
+            ``
+        ].join('\n');
+        const root = buildServerSandbox({
+            sandboxName     : 'requiredness-drift-migrate',
+            templateContents: templateSrc,
+            configContents  : configSrc
+        });
+
+        const logger = recordingLogger();
+        const result = await initConfigs({argv: ['node', 'initServerConfigs.mjs', '--migrate-config'], logger, serversRoot: root});
+
+        const action = result.processed.find(p => p.serverName === 'memory-core');
+        expect(action.action).toBe('migrate');
+        expect(action.migration).toBeUndefined();
+
+        const onDisk = fs.readFileSync(path.join(root, 'memory-core', 'config.mjs'), 'utf-8');
+        expect(onDisk).toBe(materializeServerConfigTemplate(templateSrc));
+        expect(onDisk).toContain('requiredFor');
+    });
+
     test.describe('listServersWithTemplates / hasConfigTemplate (shared enumeration)', () => {
         function buildMultiServerRoot(sandboxName, serverSpec) {
             const root = path.join(workRoot, sandboxName);
@@ -739,5 +824,233 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
             expect(hasConfigTemplate(path.join(root, 'with-template'))).toBe(true);
             expect(hasConfigTemplate(path.join(root, 'no-template'))).toBe(false);
         });
+    });
+});
+
+test.describe('assertConfigFresh — boot freshness guard (#13560)', () => {
+    let assertConfigFresh;
+    let guardRoot;
+
+    const recordingLogger = () => {
+        const warn = [];
+        return {warn: (...args) => warn.push(args.join(' ')), entries: {warn}};
+    };
+
+    // A Tier-1 sandbox: an aiRoot dir holding a config.template.mjs + config.mjs pair.
+    const buildTier1 = ({name, templateContents, configContents}) => {
+        const root = path.join(guardRoot, name);
+        fs.mkdirSync(root, {recursive: true});
+        if (templateContents !== undefined) fs.writeFileSync(path.join(root, 'config.template.mjs'), templateContents);
+        if (configContents   !== undefined) fs.writeFileSync(path.join(root, 'config.mjs'), configContents);
+        return root;
+    };
+
+    const callGuard = async opts => {
+        let error = null;
+        try { await assertConfigFresh(opts); } catch (e) { error = e; }
+        return error;
+    };
+
+    test.beforeAll(async () => {
+        ({assertConfigFresh} = await import('../../../../../../ai/scripts/setup/initServerConfigs.mjs'));
+        guardRoot = path.resolve(process.cwd(), 'tmp', `assert-config-fresh-${process.pid}-${Date.now()}`);
+        fs.mkdirSync(guardRoot, {recursive: true});
+    });
+
+    test.afterAll(() => {
+        if (guardRoot && fs.existsSync(guardRoot)) fs.rmSync(guardRoot, {recursive: true, force: true});
+    });
+
+    // The template adds an env-bound leaf; a stale overlay missing it is the crash-causing class.
+    const TEMPLATE_WITH_LEAF          = `export default {section: {enabled: leaf(true, 'NEO_SECTION_ENABLED', 'bool')}};\n`;
+    const TEMPLATE_WITH_REQUIRED_LEAF = [
+        `export default {auth: {`,
+        `    gitlabApiBaseUrl: leaf('https://gitlab.com', 'NEO_AUTH_GITLAB_API_BASE_URL', 'string', {requiredFor: [{modes: ['gitlab-pat']}]})`,
+        `}};`,
+        ``
+    ].join('\n');
+
+    test('fails fast (throws) when the overlay is missing a leaf the template added', async () => {
+        const root  = buildTier1({name: 'stale', templateContents: TEMPLATE_WITH_LEAF, configContents: 'export default {};\n'});
+        const error = await callGuard({aiRoot: root, logger: recordingLogger()});
+
+        expect(error).not.toBeNull();
+        expect(error.message).toMatch(/Stale config overlay/);
+        expect(error.message).toContain('NEO_SECTION_ENABLED'); // names the missing leaf
+        expect(error.message).toContain('--migrate-config');     // names the fix
+    });
+
+    test('passes (no throw) when the overlay matches the template shape', async () => {
+        const root  = buildTier1({name: 'fresh', templateContents: TEMPLATE_WITH_LEAF, configContents: TEMPLATE_WITH_LEAF});
+        const error = await callGuard({aiRoot: root, logger: recordingLogger()});
+
+        expect(error).toBeNull();
+    });
+
+    test('benign drift (changed default only) warns but does NOT throw', async () => {
+        const root = buildTier1({
+            name            : 'benign',
+            templateContents: `export default {model: leaf('a', 'NEO_MODEL', 'string')};\n`,
+            configContents  : `export default {model: leaf('b', 'NEO_MODEL', 'string')};\n`
+        });
+        const logger = recordingLogger();
+        const error  = await callGuard({aiRoot: root, logger});
+
+        expect(error).toBeNull();
+        expect(logger.entries.warn.some(w => w.includes('benign config drift'))).toBe(true);
+    });
+
+    test('fails fast when a stale overlay lacks requiredness metadata the template added', async () => {
+        const root = buildTier1({
+            name            : 'missing-requiredness',
+            templateContents: TEMPLATE_WITH_REQUIRED_LEAF,
+            configContents  : `export default {auth: {gitlabApiBaseUrl: leaf('https://gitlab.com', 'NEO_AUTH_GITLAB_API_BASE_URL', 'string')}};\n`
+        });
+        const error = await callGuard({aiRoot: root, logger: recordingLogger()});
+
+        expect(error).not.toBeNull();
+        expect(error.message).toMatch(/Stale config overlay/);
+        expect(error.message).toContain('NEO_AUTH_GITLAB_API_BASE_URL');
+        expect(error.message).toContain('requiredFor');
+        expect(error.message).toContain('--migrate-config');
+    });
+
+    test('required-env findings are fatal for readiness-certifying guards (#13432)', async () => {
+        const root = buildTier1({
+            name            : 'required-env-finding',
+            templateContents: TEMPLATE_WITH_LEAF,
+            configContents  : TEMPLATE_WITH_LEAF
+        });
+
+        // The ENTRYPOINT computes findings by reading its config at its use site (config.validateRequiredEnv);
+        // the guard is a non-entrypoint that never reads the SSOT — it throws on the injected value.
+        const error = await callGuard({
+            aiRoot          : root,
+            logger          : recordingLogger(),
+            requiredFindings: [{
+                consumerClaim: 'readiness',
+                entrypoint   : 'memory-core-mcp',
+                env          : 'NEO_AUTH_GITLAB_API_BASE_URL',
+                leafPath     : 'auth.gitlabApiBaseUrl',
+                mode         : 'gitlab-pat',
+                reason       : 'PAT validation cannot certify readiness without a GitLab API base URL.',
+                valueState   : 'absent',
+                disposition  : 'fail-closed'
+            }]
+        });
+
+        expect(error).not.toBeNull();
+        expect(error.message).toContain('Required deployment configuration is missing or invalid');
+        expect(error.message).toContain('NEO_AUTH_GITLAB_API_BASE_URL (auth.gitlabApiBaseUrl): absent');
+        expect(error.message).toContain('memory-core-mcp/gitlab-pat/readiness');
+    });
+
+});
+
+test.describe('initClaudeSettings — Claude Stop-hook auto-wire (#13641)', () => {
+    let initClaudeSettings, mergeClaudeHooks;
+    let claudeRoot;
+
+    const recordingLogger = () => {
+        const log = [], warn = [];
+        return {log: (...a) => log.push(a.join(' ')), warn: (...a) => warn.push(a.join(' ')), entries: {log, warn}};
+    };
+
+    // The tracked template the materializer reads — the Stop hook with the operator-directed
+    // enforce=1 default (the forcing-function rollout; NOT dry-run) plus PreToolUse guards.
+    const TEMPLATE = {
+        permissions: {allow: ['mcp__neo-mjs-memory-core__healthcheck']},
+        hooks      : {
+            PreToolUse: [{matcher: 'Bash', hooks: [{
+                type   : 'command',
+                command: '/usr/bin/env node "$(git rev-parse --show-toplevel)/.claude/hooks/rgReplaceGuardHook.mjs"',
+                timeout: 2
+            }]}],
+            Stop: [{hooks: [{
+                type   : 'command',
+                command: 'NEO_LANE_STATE_ENFORCE=1 /usr/bin/env node "$(git rev-parse --show-toplevel)/.claude/hooks/laneStateStopHook.mjs"',
+                timeout: 10
+            }]}]
+        }
+    };
+
+    const buildClaudeDir = (name, {template, settings} = {}) => {
+        const dir = path.join(claudeRoot, name);
+        fs.mkdirSync(dir, {recursive: true});
+        if (template !== undefined) fs.writeFileSync(path.join(dir, 'settings.template.json'), JSON.stringify(template, null, 2));
+        if (settings !== undefined) fs.writeFileSync(path.join(dir, 'settings.json'), JSON.stringify(settings, null, 2));
+        return dir;
+    };
+
+    test.beforeAll(async () => {
+        ({initClaudeSettings, mergeClaudeHooks} = await import('../../../../../../ai/scripts/setup/initServerConfigs.mjs'));
+        claudeRoot = path.resolve(process.cwd(), 'tmp', `init-claude-settings-${process.pid}-${Date.now()}`);
+        fs.mkdirSync(claudeRoot, {recursive: true});
+    });
+
+    test.afterAll(() => {
+        if (claudeRoot && fs.existsSync(claudeRoot)) fs.rmSync(claudeRoot, {recursive: true, force: true});
+    });
+
+    test('mergeClaudeHooks: ensures template hooks, preserves other keys + local-only events', () => {
+        const active              = {permissions: {allow: ['local-perm']}, hooks: {PostToolUse: [{hooks: []}]}};
+        const {settings, changed} = mergeClaudeHooks(active, TEMPLATE);
+
+        expect(changed).toBe(true);
+        expect(settings.permissions.allow).toEqual(['local-perm']);             // operator-local key preserved
+        expect(settings.hooks.PostToolUse).toEqual([{hooks: []}]);              // local-only event preserved
+        expect(settings.hooks.PreToolUse).toEqual(TEMPLATE.hooks.PreToolUse);   // PreToolUse wired from template
+        expect(settings.hooks.Stop).toEqual(TEMPLATE.hooks.Stop);               // Stop wired from template
+    });
+
+    test('mergeClaudeHooks: idempotent — already-wired hooks report changed=false', () => {
+        const {changed} = mergeClaudeHooks({hooks: TEMPLATE.hooks}, TEMPLATE);
+        expect(changed).toBe(false);
+    });
+
+    test('mergeClaudeHooks: a template without hooks is a no-op', () => {
+        const active              = {permissions: {allow: ['x']}};
+        const {settings, changed} = mergeClaudeHooks(active, {permissions: {}});
+        expect(changed).toBe(false);
+        expect(settings).toBe(active);
+    });
+
+    test('initClaudeSettings: missing settings.json → clone (full template, enforce=1 command wired)', async () => {
+        const dir = buildClaudeDir('clone', {template: TEMPLATE});
+        const r   = await initClaudeSettings({claudeDir: dir, logger: recordingLogger()});
+        expect(r.action).toBe('clone');
+
+        const written = JSON.parse(fs.readFileSync(path.join(dir, 'settings.json'), 'utf-8'));
+        const command = written.hooks.Stop[0].hooks[0].command;
+        // Operator-directed default: the tracked default DOES force enforce — the forcing-function
+        // rollout. A future drift to dry-run fails this assertion.
+        expect(command).toContain('NEO_LANE_STATE_ENFORCE=1');
+        expect(command).toContain('laneStateStopHook.mjs');
+        expect(written.hooks.PreToolUse[0].hooks[0].command).toContain('rgReplaceGuardHook.mjs');
+    });
+
+    test('initClaudeSettings: re-run is idempotent → silent', async () => {
+        const dir = buildClaudeDir('silent', {template: TEMPLATE});
+        await initClaudeSettings({claudeDir: dir, logger: recordingLogger()});
+        const r2 = await initClaudeSettings({claudeDir: dir, logger: recordingLogger()});
+        expect(r2.action).toBe('silent');
+    });
+
+    test('initClaudeSettings: existing settings.json (perms only) → wired, local keys preserved', async () => {
+        const dir = buildClaudeDir('wired', {template: TEMPLATE, settings: {permissions: {allow: ['my-local-perm']}}});
+        const r   = await initClaudeSettings({claudeDir: dir, logger: recordingLogger()});
+        expect(r.action).toBe('wired');
+
+        const written = JSON.parse(fs.readFileSync(path.join(dir, 'settings.json'), 'utf-8'));
+        expect(written.permissions.allow).toEqual(['my-local-perm']);                      // preserved
+        expect(written.hooks.Stop[0].hooks[0].command).toContain('NEO_LANE_STATE_ENFORCE=1');
+        expect(written.hooks.PreToolUse[0].hooks[0].command).toContain('rgReplaceGuardHook.mjs');
+    });
+
+    test('initClaudeSettings: no template → skip-no-template (no settings.json written)', async () => {
+        const dir = buildClaudeDir('no-template', {});
+        const r   = await initClaudeSettings({claudeDir: dir, logger: recordingLogger()});
+        expect(r.action).toBe('skip-no-template');
+        expect(fs.existsSync(path.join(dir, 'settings.json'))).toBe(false);
     });
 });

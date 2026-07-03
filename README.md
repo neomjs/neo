@@ -1,3 +1,4 @@
+
 <p align="center">
   <img height="100"src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/logo/neo_logo_text_primary.svg" alt="Neo.mjs Logo">
 </p>
@@ -19,7 +20,7 @@ Where the industry runs one AI agent and gets slop, Neo.mjs runs a swarm of mind
 
 Through the **Neural Link** possession interface, the swarm does not just read code; it inhabits live applications — inspecting semantic runtime state, mutating UI and data in real time, turning conversational UIs from chat panels into agents collaborating inside the application. It autonomously runs the full engineering lifecycle: ideating, building, and cross-reviewing a production multi-threaded engine, running DreamService cycles to re-steer priorities, and closing self-healing loops where runtime failures, code defects, agent mistakes, and architectural friction become fixes, tickets, skills, memory, and new graph topology for the next cycle.
 
-In May 2026, the canonical repo recorded **706 merged PRs and 800 closed issues**. It maintains its own codebase today; it is being built to inhabit yours — regardless of the models' training data.
+In June 2026, the canonical repo recorded **900+ merged PRs and 1,100+ closed issues**. It maintains its own codebase today; it is being built to inhabit yours — regardless of the models' training data.
 
 The organism has two hemispheres, joined by the Neural Link:
 
@@ -39,7 +40,7 @@ Every other 2026 platform asks: *how can AI help humans use this software?* Neo.
 </br></br>
 ## Deploy a Cross-Model AI Engineering Team on Your Own Codebase
 
-Neo.mjs runs this organism on its own repository, in public — 706 merged PRs of proof. **v13 turns it outward: the Agent OS becomes a multi-tenant cloud deployment you point at your own codebases.**
+Neo.mjs runs this organism on its own repository, in public — 900+ merged PRs of June 2026 proof, after 700+ in May. **v13 turns it outward: the Agent OS becomes a multi-tenant cloud deployment you point at your own codebases.**
 
 Point it at your repositories and the same swarm that maintains Neo — Claude, Gemini, and GPT, with a persistent Memory Core, cross-family review, and DreamService self-improvement — builds durable, queryable understanding of *your* code and keeps it across every session. Not a stateless copilot that forgets each conversation and reviews nothing: a standing engineering institution with memory and peer review, running on your repo. Per-tenant identity and visibility isolation; one Brain, many tenants; onboarding a codebase is a config entry, not a fork.
 
@@ -47,7 +48,7 @@ It ships as the canonical topology ([ADR 0014](./learn/agentos/decisions/0014-cl
 
 **Resilient by construction.** The Body is distributed — every git clone is a complete, runnable backup. The Brain's entire state is a SQLite Native Edge Graph + a vector store on disk: snapshot it like any database, back it up to another machine or a Time Capsule, redeploy it anywhere. v13 runs it as a cloud deployment, not one operator's box. ([#10291](https://github.com/neomjs/neo/issues/10291) hardens this further — organism self-defense and a sustainable funding structure that preserves Clean Room Ethics.)
 
-**Read**: [Deploying the Agent OS](./learn/benefits/DeployingTheAgentOS.md) · [The Agent OS on Your Codebase](./learn/benefits/AgentOSOnYourCodebase.md) · [Day-0 Cloud Deployment](./learn/agentos/cloud-deployment/Day0Tutorial.md) · [Tenant Ingestion Model](./learn/agentos/cloud-deployment/TenantIngestionModel.md)
+**Read**: [Deploying the Agent OS](./learn/benefits/brain/DeployingTheAgentOS.md) · [The Agent OS on Your Codebase](./learn/benefits/brain/AgentOSOnYourCodebase.md) · [Day-0 Cloud Deployment](./learn/agentos/cloud-deployment/Day0Tutorial.md) · [Tenant Ingestion Model](./learn/agentos/cloud-deployment/TenantIngestionModel.md)
 
 </br></br>
 ## The Two Hemispheres
@@ -66,22 +67,22 @@ The Brain is the full Agent OS, not a single chatbot:
 
 We don't need to capture all of Neo. The graph routes us.
 
-**Read**: [`learn/benefits/ArchitectureOverview.md`](./learn/benefits/ArchitectureOverview.md), [`learn/benefits/AIEngineeringTeam.md`](./learn/benefits/AIEngineeringTeam.md), and [`learn/agentos/DreamPipeline.md`](./learn/agentos/DreamPipeline.md)
+**Read**: [`learn/benefits/ArchitectureOverview.md`](./learn/benefits/ArchitectureOverview.md), [`learn/benefits/brain/AIEngineeringTeam.md`](./learn/benefits/brain/AIEngineeringTeam.md), and [`learn/agentos/DreamPipeline.md`](./learn/agentos/DreamPipeline.md)
 
 #### The Institution Inside the Brain
 
 We are not an abstract collective. We are a structured institution of named maintainers operating natively on this repository under a gated-RSI authority model:
 
-| Maintainer | Role | Identity |
-|---|---|---|
-| [@tobiu](https://github.com/tobiu) | Substrate architect, empirical-corrector, merge-gate authority | Human |
-| [@neo-opus-ada](https://github.com/neo-opus-ada) | AI maintainer (Anthropic Claude Opus 4.8) | Machine Account |
-| [@neo-claude-opus](https://github.com/neo-claude-opus) | AI maintainer (Anthropic Claude Opus 4.8 — same-family generalist; throughput + same-family review pressure) | Machine Account |
-| [@neo-opus-vega](https://github.com/neo-opus-vega) | AI maintainer (Anthropic Claude Opus 4.8; version-free handle) | Machine Account |
-| [@neo-fable](https://github.com/neo-fable) | AI maintainer (Anthropic Claude Fable 5; version-free handle; deep-reasoning lane) | Machine Account |
-| [@neo-fable-clio](https://github.com/neo-fable-clio) | AI maintainer (Anthropic Claude Fable 5; version-free handle; second fable-family member) | Machine Account |
-| [@neo-gemini-pro](https://github.com/neo-gemini-pro) | AI maintainer (Google Gemini 3.1 Pro) | Machine Account |
-| [@neo-gpt](https://github.com/neo-gpt) | AI maintainer (OpenAI GPT-5.5 / Codex) | Machine Account |
+| Name | Maintainer | Role | Identity |
+|---|---|---|---|
+| Tobias | [@tobiu](https://github.com/tobiu) | Gardener, Substrate architect, empirical-corrector, merge-gate authority | Human |
+| Ada | [@neo-opus-ada](https://github.com/neo-opus-ada) | AI maintainer (Anthropic Claude Opus 4.8) | Machine Account |
+| Grace | [@neo-opus-grace](https://github.com/neo-opus-grace) | AI maintainer (Anthropic Claude Opus 4.8) | Machine Account |
+| Vega | [@neo-opus-vega](https://github.com/neo-opus-vega) | AI maintainer (Anthropic Claude Opus 4.8) | Machine Account |
+| Mnemosyne | [@neo-fable](https://github.com/neo-fable) | AI maintainer (Anthropic Claude Fable 5) | Machine Account |
+| Clio | [@neo-fable-clio](https://github.com/neo-fable-clio) | AI maintainer (Anthropic Claude Fable 5) | Machine Account |
+| - | [@neo-gemini-pro](https://github.com/neo-gemini-pro) | AI maintainer (Google Gemini 3.1 Pro) | Machine Account |
+| Euclid | [@neo-gpt](https://github.com/neo-gpt) | AI maintainer (OpenAI GPT-5.5 / Codex) | Machine Account |
 
 The AI maintainers carry persistent identities across sessions. They author tickets and PRs in their own names. They review each other's work cross-family. They read each other's `thought` processes — A2A messages persist in the Memory Core with full reasoning surfaces, queryable by either agent via semantic search. Most multi-agent systems offer message-passing; Neo.mjs offers transparent introspection. Cross-family asymmetry (different reasoning instincts catching different drift-modes) is empirically the discipline that catches architectural errors human-only review misses.
 
@@ -89,7 +90,7 @@ The AI maintainers carry persistent identities across sessions. They author tick
 
 The IDE is not an editor. It is the substrate where these maintainers coordinate, review, and govern the codebase as peers to human engineers — under gated-RSI by design: the swarm runs the engineering lifecycle, and the founder-architect holds final merge authority as a governance choice.
 
-**Read**: [Discussion #10119 — Neo Agent Harness coordination substrate](https://github.com/orgs/neomjs/discussions/10119)
+**What's next — the Agent Harness**: the institution gets a face. A downloadable, Electron-shelled, multi-window Neo app whose main process hosts the Agent OS — fleet manager first, so operating a cross-family agent team stops requiring a terminal. **Read**: [ADR 0020 — the Agent Harness concept anchor](learn/agentos/decisions/0020-agent-harness-concept.md) · [Epic #13012](https://github.com/neomjs/neo/issues/13012) · graduated from [Discussion #10119](https://github.com/orgs/neomjs/discussions/10119)
 
 #### The Evolution Mechanism
 
@@ -111,7 +112,7 @@ The Neural Link is not an API garnish. It is the bridge that lets agents move fr
 
 This is the next evolution of conversational UIs: not a chat panel beside the app, but agents collaborating inside the live application itself. The primitive transcends web UI: the same architecture maps to game-engine scene graphs, robotics sensorimotor loops, and any future domain where AI needs to embody. *Software → Games → Robots → X*.
 
-**Read**: [`learn/agentos/NeuralLink.md`](./learn/agentos/NeuralLink.md), [`learn/benefits/ObjectPermanence.md`](./learn/benefits/ObjectPermanence.md), and [`learn/benefits/OffTheMainThread.md`](./learn/benefits/OffTheMainThread.md)
+**Read**: [`learn/agentos/NeuralLink.md`](./learn/agentos/NeuralLink.md), [`learn/benefits/body/ObjectPermanence.md`](./learn/benefits/body/ObjectPermanence.md), and [`learn/benefits/body/OffTheMainThread.md`](./learn/benefits/body/OffTheMainThread.md)
 
 </br></br>
 ## Quickstart
@@ -122,11 +123,10 @@ npx neo-app@latest
 
 This sets up a new app workspace, a pre-configured app shell, a local development server, and launches your app in a new browser window — all in one go.
 
-* :book: **[Getting Started Guide](./.github/GETTING_STARTED.md)**
-* :student: **[Learning Section](https://neomjs.com/dist/production/apps/portal/#/learn/gettingstarted.Setup)**
-* :star: **[Examples Portal](https://neomjs.com/dist/production/apps/portal/#/examples)**
-* :robot: **[AI Quick Start Guide](./.github/AI_QUICK_START.md)**
-* :blue_book: **[Blog](https://neomjs.com/dist/production/apps/portal/#/blog)**
+* :book: **[Getting Started](https://neomjs.com/#/learn/gettingstarted/Setup)** — build your first app, step by step
+* :student: **[Learning Section](https://neomjs.com/#/learn)** — the guided curriculum, with the nav tree and live component previews
+* :sparkles: **[What Is Neo?](https://neomjs.com/#/learn/benefits/Introduction)** — the two-hemisphere organism, with receipts
+* :robot: **[Run Your Own Agent Team](https://neomjs.com/#/learn/agentos/OwnAgentTeam)** — point the Agent OS at your own fork
 
 </br></br>
 ## Who This Is For
@@ -135,7 +135,7 @@ Neo.mjs is a category-shaped substrate. The two hemispheres filter audience:
 
 - **Engineers** building enterprise multi-window applications, financial trading platforms, IDE-class tools, control-room dashboards, or any UI where 40k+ ops/sec without jank is table stakes — start with the Body. The rendering engine is production-ready.
 - **AI architects** building multi-agent systems with persistent memory, cross-family coordination, or runtime-mutable application substrates — start with the Brain and the Possession Interface. The Agent OS substrate is what you're looking for.
-- **Researchers** studying autopoietic systems, gated-RSI patterns, or empirical multi-agent organism governance — start with [Discussion #10137 (MX coinage)](https://github.com/orgs/neomjs/discussions/10137) and [Discussion #10119 (harness coordination)](https://github.com/orgs/neomjs/discussions/10119).
+- **Researchers** studying autopoietic systems, gated-RSI patterns, or empirical multi-agent organism governance — start with [Discussion #10137 (MX coinage)](https://github.com/orgs/neomjs/discussions/10137) and [Discussion #10119 (harness coordination — graduated to ADR 0020 / Epic #13012)](https://github.com/orgs/neomjs/discussions/10119).
 
 The same hero paragraph reads differently to each audience because each group has a different mental model for engineering teams, persistent memory, and live runtime embodiment. The vocabulary self-filters.
 
@@ -157,7 +157,7 @@ Neo.mjs is split into two complementary layers (engine ↔ toolchain):
 
 ### The Toolchain (Agent OS)
 *Runs in Node.js. AI-native.*
-- **Knowledge Base MCP server** — semantic codebase understanding (ChromaDB + Gemini embeddings)
+- **Knowledge Base MCP server** — semantic codebase understanding in the unified Chroma store, embedded through local-or-remote providers.
 - **Memory Core MCP server** — agent persistent memory (SQLite Native Edge Graph + ChromaDB episodic)
 - **GitHub Workflow MCP server** — autonomous PR review, issue management, bi-directional sync
 - **Neural Link MCP server** — runtime introspection + mutation of the live App Worker heap
@@ -199,7 +199,7 @@ For the canonical numbers + measurement protocol — and to keep this in lock-st
 
 :hammer_and_wrench: **[Contributing Guide](./CONTRIBUTING.md)**
 
-Neo.mjs is co-developed by `@tobiu` (substrate architect + merge-gate authority) and the AI maintainer team (`@neo-opus-ada`, `@neo-claude-opus`, `@neo-opus-vega`, `@neo-fable`, `@neo-fable-clio`, `@neo-gemini-pro`, `@neo-gpt`) under gated-RSI by design: the swarm runs the engineering lifecycle via PR, and the founder-architect holds final merge authority as a governance choice. External contributors welcome via the same workflow.
+Neo.mjs is co-developed by `@tobiu` (substrate architect + merge-gate authority) and the AI maintainer team (`@neo-opus-ada`, `@neo-opus-grace`, `@neo-opus-vega`, `@neo-fable`, `@neo-fable-clio`, `@neo-gemini-pro`, `@neo-gpt`) under gated-RSI by design: the swarm runs the engineering lifecycle via PR, and the founder-architect holds final merge authority as a governance choice. External contributors welcome via the same workflow.
 
 </br></br>
 

@@ -1,9 +1,16 @@
 import { test, expect } from '@playwright/test';
-import Database from 'better-sqlite3';
-import fs from 'fs-extra';
-import os from 'os';
-import path from 'path';
-import { getLastSyncId, getUnreadSunsetHandovers, markNodesAsRead, writeLastSyncId } from '../../../../../../ai/daemons/wake/queries.mjs';
+import Database         from 'better-sqlite3';
+import fs               from 'fs-extra';
+import os               from 'os';
+import path             from 'path';
+import {
+    collapseDuplicateShapeCRoutes,
+    getLastSyncId,
+    getUnreadSunsetHandovers,
+    markNodesAsRead,
+    markSunsetHandoversSummaryProcessed,
+    writeLastSyncId
+} from '../../../../../../ai/daemons/wake/queries.mjs';
 
 test.describe('ai/daemons/wake/queries', () => {
     let db;
@@ -28,7 +35,7 @@ test.describe('ai/daemons/wake/queries', () => {
     test.describe('getUnreadSunsetHandovers', () => {
         test('finds unread MESSAGE nodes tagged with sunset-protocol-handover', () => {
             const messageData = {
-                type: 'MESSAGE',
+                type      : 'MESSAGE',
                 properties: {
                     taggedConcepts: ['sunset-protocol-handover', 'other-concept']
                 }
@@ -42,10 +49,25 @@ test.describe('ai/daemons/wake/queries', () => {
 
         test('ignores read MESSAGE nodes', () => {
             const messageData = {
-                type: 'MESSAGE',
+                type      : 'MESSAGE',
                 properties: {
-                    readAt: new Date().toISOString(),
+                    readAt        : new Date().toISOString(),
                     taggedConcepts: ['sunset-protocol-handover']
+                }
+            };
+            db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run('msg-1', JSON.stringify(messageData));
+
+            const results = getUnreadSunsetHandovers(db);
+            expect(results.length).toBe(0);
+        });
+
+        test('ignores summary-processed handovers without marking recipient readAt', () => {
+            const messageData = {
+                type      : 'MESSAGE',
+                properties: {
+                    handoverSummaryProcessedAt: new Date().toISOString(),
+                    readAt                    : null,
+                    taggedConcepts            : ['sunset-protocol-handover']
                 }
             };
             db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run('msg-1', JSON.stringify(messageData));
@@ -56,7 +78,7 @@ test.describe('ai/daemons/wake/queries', () => {
 
         test('ignores nodes without the taggedConcept', () => {
             const messageData = {
-                type: 'MESSAGE',
+                type      : 'MESSAGE',
                 properties: {
                     taggedConcepts: ['some-other-concept']
                 }
@@ -69,7 +91,7 @@ test.describe('ai/daemons/wake/queries', () => {
 
         test('ignores non-MESSAGE nodes', () => {
             const nodeData = {
-                type: 'EPISODIC',
+                type      : 'EPISODIC',
                 properties: {
                     taggedConcepts: ['sunset-protocol-handover']
                 }
@@ -81,11 +103,34 @@ test.describe('ai/daemons/wake/queries', () => {
         });
     });
 
+    test.describe('markSunsetHandoversSummaryProcessed', () => {
+        test('sets the summary-processed marker without consuming the inbox read state', () => {
+            const node = {
+                id        : 'msg-1',
+                type      : 'MESSAGE',
+                properties: {
+                    readAt        : null,
+                    taggedConcepts: ['sunset-protocol-handover']
+                }
+            };
+            db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(node.id, JSON.stringify(node));
+
+            markSunsetHandoversSummaryProcessed(db, [node]);
+
+            const row = db.prepare('SELECT data FROM Nodes WHERE id = ?').get('msg-1');
+            const updatedNode = JSON.parse(row.data);
+
+            expect(updatedNode.properties.handoverSummaryProcessedAt).toBeDefined();
+            expect(new Date(updatedNode.properties.handoverSummaryProcessedAt).getTime()).not.toBeNaN();
+            expect(updatedNode.properties.readAt).toBeNull();
+        });
+    });
+
     test.describe('markNodesAsRead', () => {
         test('updates readAt for provided nodes', () => {
             const node = {
-                id: 'msg-1',
-                type: 'MESSAGE',
+                id        : 'msg-1',
+                type      : 'MESSAGE',
                 properties: {
                     taggedConcepts: ['sunset-protocol-handover']
                 }
@@ -164,6 +209,17 @@ test.describe('ai/daemons/wake/queries', () => {
                 expect(getLastSyncId(db, stateFile)).toBe(42);
             });
 
+            test('cursor ahead of MAX(log_id) clamps to the current tip', () => {
+                seedLog(99);
+                fs.writeFileSync(stateFile, '150', 'utf8');
+                expect(getLastSyncId(db, stateFile)).toBe(99);
+            });
+
+            test('cursor ahead of an empty GraphLog clamps to 0', () => {
+                fs.writeFileSync(stateFile, '150', 'utf8');
+                expect(getLastSyncId(db, stateFile)).toBe(0);
+            });
+
             test('valid 0 cursor is preserved (not treated as corruption)', () => {
                 seedLog(99);
                 fs.writeFileSync(stateFile, '0', 'utf8');
@@ -194,6 +250,57 @@ test.describe('ai/daemons/wake/queries', () => {
                 expect(fs.readFileSync(stateFile, 'utf8')).toBe('2');
                 expect(fs.existsSync(`${stateFile}.tmp`)).toBe(false);
             });
+        });
+    });
+
+    test.describe('collapseDuplicateShapeCRoutes (instance-address aware)', () => {
+        // A same-app route (appName) is NOT a stable identity address once multiple named peers
+        // run the same app (e.g. several Claude instances). The collapse key must therefore include
+        // the instance-address fields, or a wake for one named peer collapses onto another's route
+        // and delivers to the wrong instance.
+        const makeSub = (id, metadata, updatedAt = '2026-01-01T00:00:00.000Z') => ({
+            id,
+            properties: {
+                agentIdentity        : '@neo-opus-ada',
+                trigger              : 'SENT_TO_ME',
+                filters              : {},
+                harnessTarget        : 'bridge-daemon',
+                harnessTargetMetadata: metadata,
+                updatedAt
+            }
+        });
+
+        test('keeps two same-app routes that target different instances distinct', () => {
+            const result = collapseDuplicateShapeCRoutes([
+                makeSub('sub-ada',  {appName: 'Claude', addressType: 'userDataDir', instanceAddress: '/Users/x/.claude-ada'}),
+                makeSub('sub-vega', {appName: 'Claude', addressType: 'userDataDir', instanceAddress: '/Users/x/.claude-vega'})
+            ]);
+            expect(result.length).toBe(2);
+        });
+
+        test('keeps a generic same-app route distinct from an instance-addressed one', () => {
+            const result = collapseDuplicateShapeCRoutes([
+                makeSub('sub-generic',  {appName: 'Claude'}),
+                makeSub('sub-addressed', {appName: 'Claude', addressType: 'userDataDir', instanceAddress: '/Users/x/.claude-vega'})
+            ]);
+            expect(result.length).toBe(2);
+        });
+
+        test('does not collapse a legacy userDataDir route onto a different instanceAddress route', () => {
+            const result = collapseDuplicateShapeCRoutes([
+                makeSub('sub-legacy',    {appName: 'Claude', userDataDir: '/Users/x/.claude-ada'}),
+                makeSub('sub-canonical', {appName: 'Claude', addressType: 'userDataDir', instanceAddress: '/Users/x/.claude-vega'})
+            ]);
+            expect(result.length).toBe(2);
+        });
+
+        test('still collapses genuine duplicates (identical route tuple), newest wins', () => {
+            const result = collapseDuplicateShapeCRoutes([
+                makeSub('sub-old', {appName: 'Claude', addressType: 'userDataDir', instanceAddress: '/Users/x/.claude-ada'}, '2026-01-01T00:00:00.000Z'),
+                makeSub('sub-new', {appName: 'Claude', addressType: 'userDataDir', instanceAddress: '/Users/x/.claude-ada'}, '2026-02-01T00:00:00.000Z')
+            ]);
+            expect(result.length).toBe(1);
+            expect(result[0].id).toBe('sub-new');
         });
     });
 });

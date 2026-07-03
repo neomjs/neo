@@ -1,12 +1,33 @@
-import {getDueTask as getSummaryDueTask}             from './summary.mjs';
-import {getDueTask as getBackupDueTask}              from './backup.mjs';
-import {getDueTask as getDreamDueTask}               from './dream.mjs';
-import {getDueTask as getGraphLogCompactionDueTask}  from './graphLogCompaction.mjs';
-import {getDueTask as getGoldenPathDueTask}          from './goldenPath.mjs';
-import {getDueTask as getMemorySummaryBackfillDueTask} from './memorySummaryBackfill.mjs';
-import {getDueTask as getPrimaryDevSyncDueTask}      from './primaryDevSync.mjs';
-import {getDueTask as getSwarmHeartbeatDueTask}      from './swarmHeartbeat.mjs';
-import {getDueTask as getTenantRepoSyncDueTask}      from './tenantRepoSync.mjs';
+import {getDueTask as getSummaryDueTask}                          from './summary.mjs';
+import {getDueTask as getBackupDueTask}                           from './backup.mjs';
+import {getDueTask as getDreamDueTask}                            from './dream.mjs';
+import {getDueTask as getGraphLogCompactionDueTask}               from './graphLogCompaction.mjs';
+import {getDueTask as getGoldenPathDueTask}                       from './goldenPath.mjs';
+import {getDueTask as getMemorySummaryBackfillDueTask}            from './memorySummaryBackfill.mjs';
+import {getDueTask as getPrimaryDevSyncDueTask}                   from './primaryDevSync.mjs';
+import {getDueTask as getSwarmHeartbeatDueTask}                   from './swarmHeartbeat.mjs';
+import {getDueTask as getTenantRepoSyncDueTask}                   from './tenantRepoSync.mjs';
+import {getDueTask as getEmbedDrainLivenessWatchdogDueTask}       from './embedDrainLivenessWatchdog.mjs';
+import {getDueTask as getRemConsolidationLivenessWatchdogDueTask} from './remConsolidationLivenessWatchdog.mjs';
+import {getDueTask as getDataIntegritySweepDueTask}               from './dataIntegritySweep.mjs';
+
+function toTimestampMs(value) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        return value;
+    }
+
+    if (typeof value === 'string' && value) {
+        const parsed = Date.parse(value);
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    return null;
+}
+
+function getLatestTimestampMs(...values) {
+    const timestamps = values.map(toTimestampMs).filter(Number.isFinite);
+    return timestamps.length ? Math.max(...timestamps) : null;
+}
 
 /**
  * Coordinator-descriptor registry for the Orchestrator scheduling pipeline.
@@ -81,6 +102,28 @@ export const TASK_REGISTRY = Object.freeze([
         }
     },
     {
+        taskName        : 'githubWorkflowSync',
+        executionKind   : 'supervised-child-process',
+        maintenanceClass: 'heavy',
+        backpressure    : 'exclusive-heavy',
+        dependencies    : [],
+        getDueTask({state, now, intervals, enables}) {
+            if (!enables.githubWorkflowSync) return null;
+            const taskState     = state.githubWorkflowSync || {};
+            const terminalAt    = getLatestTimestampMs(taskState.lastSuccessAt, taskState.lastErrorAt);
+            const cadenceAnchor = terminalAt ?? toTimestampMs(taskState.lastRunAt) ?? 0;
+            const intervalMs    = intervals.githubWorkflowSync;
+            if (intervalMs > 0 && now - cadenceAnchor >= intervalMs) {
+                return {
+                    taskName: 'githubWorkflowSync',
+                    source  : 'periodic-sync',
+                    reason  : `periodic-sync:${intervalMs}`
+                };
+            }
+            return null;
+        }
+    },
+    {
         taskName        : 'backup',
         executionKind   : 'supervised-child-process',
         maintenanceClass: 'heavy',
@@ -105,7 +148,7 @@ export const TASK_REGISTRY = Object.freeze([
                 state,
                 now,
                 graphLogCompactionIntervalMs: intervals.graphLogCompaction,
-                enabled                      : enables.graphLogCompaction
+                enabled                     : enables.graphLogCompaction
             });
         }
     },
@@ -127,8 +170,8 @@ export const TASK_REGISTRY = Object.freeze([
     {
         taskName        : 'tenant-repo-sync',
         executionKind   : 'service-runner',
-        maintenanceClass: 'continuous',
-        backpressure    : 'none',
+        maintenanceClass: 'heavy',
+        backpressure    : 'exclusive-heavy',
         dependencies    : [],
         getDueTask({state, now, intervals, enables, hooks}) {
             return (hooks.tenantRepoSyncGetDueTask || getTenantRepoSyncDueTask)({
@@ -147,11 +190,31 @@ export const TASK_REGISTRY = Object.freeze([
         dependencies    : [],
         getDueTask({state, now, intervals, hooks}) {
             return (hooks.dreamGetDueTask || getDreamDueTask)({
-                state                 : state.dream ?? {},
+                state                      : state.dream ?? {},
                 now,
-                dreamIntervalMs       : intervals.dream,
-                dreamOverflowThreshold: intervals.dreamOverflowThreshold
+                dreamIntervalMs            : intervals.dream,
+                dreamOverflowThreshold     : intervals.dreamOverflowThreshold,
+                remBacklogCatchupCooldownMs: intervals.remBacklogCatchupCooldown
             });
+        }
+    },
+    {
+        taskName        : 'message-concept-harvest',
+        executionKind   : 'in-process-async',
+        maintenanceClass: 'heavy',
+        backpressure    : 'exclusive-heavy',
+        dependencies    : [],
+        getDueTask({state, now, intervals}) {
+            const lastRunAt  = state['message-concept-harvest']?.lastRunAt ?? 0;
+            const intervalMs = intervals.messageConceptHarvest;
+            if (intervalMs > 0 && now - lastRunAt >= intervalMs) {
+                return {
+                    taskName: 'message-concept-harvest',
+                    source  : 'periodic-message-concept-harvest',
+                    reason  : `periodic-message-concept-harvest:${intervalMs}`
+                };
+            }
+            return null;
         }
     },
     {
@@ -159,7 +222,12 @@ export const TASK_REGISTRY = Object.freeze([
         executionKind   : 'in-process-async',
         maintenanceClass: 'graph-dependent',
         backpressure    : 'after-heavy',
-        dependencies    : ['dream'],
+        // Decoupled from `dream`: golden-path synthesis is cheap (rank + summarize the CURRENT
+        // graph) and must run hourly for FRESHNESS — it must NOT block behind the heavy daily REM
+        // digest (which can run hours, off-peak). A re-rank of the current graph is "not perfect,
+        // but better than empty/stale" — the fix for the multi-day stale forecast.
+        // `backpressure: 'after-heavy'` still yields briefly post-heavy-task.
+        dependencies    : [],
         getDueTask({state, now, intervals, hooks}) {
             return (hooks.goldenPathGetDueTask || getGoldenPathDueTask)({
                 state               : state['golden-path'] ?? {},
@@ -181,6 +249,59 @@ export const TASK_REGISTRY = Object.freeze([
                 state                   : state['swarm-heartbeat'] ?? {},
                 now,
                 swarmHeartbeatIntervalMs: intervals.swarmHeartbeat
+            });
+        }
+    },
+    {
+        taskName        : 'embed-drain-liveness-watchdog',
+        executionKind   : 'health-check',
+        maintenanceClass: 'health-monitor',
+        backpressure    : 'none',
+        dependencies    : [],
+        getDueTask({state, now, intervals, hooks}) {
+            return (hooks.embedDrainLivenessWatchdogGetDueTask || getEmbedDrainLivenessWatchdogDueTask)({
+                state                            : state['embed-drain-liveness-watchdog'] ?? {},
+                now,
+                embedDrainLivenessWatchdogCheckMs: intervals.embedDrainLivenessWatchdogCheck
+            });
+        }
+    },
+    {
+        // Consolidation-side analog of `embed-drain-liveness-watchdog` (one subsystem over): the REM
+        // dream cycle digests sessions into the graph but is decoupled from the Golden Path forecast,
+        // so a stalled consolidation produces NO user-visible error (the "green-but-rotting" state).
+        // This read-only, no-backpressure health-check alarms on a stale/absent REM cycle —
+        // consolidation-liveness observable, never assumed-green. Excluded from
+        // TASK_STALENESS_CADENCE_KEY like the embed-drain sibling (health tasks keep registry-order).
+        taskName        : 'rem-consolidation-liveness-watchdog',
+        executionKind   : 'health-check',
+        maintenanceClass: 'health-monitor',
+        backpressure    : 'none',
+        dependencies    : [],
+        getDueTask({state, now, intervals, hooks}) {
+            return (hooks.remConsolidationLivenessWatchdogGetDueTask || getRemConsolidationLivenessWatchdogDueTask)({
+                state                          : state['rem-consolidation-liveness-watchdog'] ?? {},
+                now,
+                remConsolidationWatchdogCheckMs: intervals.remConsolidationWatchdogCheck
+            });
+        }
+    },
+    {
+        // The data-integrity sweep: live scheduling of the data-integrity DETECT signal (the
+        // "up but data-gutted reports green" blind spot). A read-only, no-backpressure health-check
+        // that runs the DataIntegrityDiagnosisService runner (coverage audit -> diagnosis -> escalate
+        // sink) — never a privileged action. Excluded from TASK_STALENESS_CADENCE_KEY like the watchdog
+        // siblings (health tasks keep registry-order).
+        taskName        : 'data-integrity-sweep',
+        executionKind   : 'health-check',
+        maintenanceClass: 'health-monitor',
+        backpressure    : 'none',
+        dependencies    : [],
+        getDueTask({state, now, intervals}) {
+            return getDataIntegritySweepDueTask({
+                state                    : state['data-integrity-sweep'] ?? {},
+                now,
+                dataIntegritySweepCheckMs: intervals.dataIntegritySweepCheck
             });
         }
     }

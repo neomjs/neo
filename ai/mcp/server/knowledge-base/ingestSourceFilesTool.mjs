@@ -1,5 +1,6 @@
-import aiConfig                      from './config.mjs';
-import KnowledgeBaseIngestionService from '../../../services/knowledge-base/KnowledgeBaseIngestionService.mjs';
+import aiConfig         from './config.mjs';
+import IngestionService from '../../../services/knowledge-base/IngestionService.mjs';
+import {isRemoteKnowledgeBaseDeployment} from '../../../services/knowledge-base/helpers/deploymentMode.mjs';
 
 const ingestToolName = 'ingest_source_files';
 
@@ -17,23 +18,23 @@ const getEffectiveToolName = toolName => {
 };
 
 /**
- * @summary Returns true when the KB MCP server is in its remote StreamableHTTP profile.
+ * @summary Returns true when the KB MCP server is in its remote tenant-ingestion deployment profile.
  * @returns {Boolean} True when remote tenant push clients may call `ingest_source_files`.
  */
-const isRemoteIngestTransport = () => aiConfig.transport === 'sse';
+const isRemoteIngestDeployment = () => isRemoteKnowledgeBaseDeployment(aiConfig);
 
 /**
  * @summary Returns true when the ingest tool should appear in MCP tools/list.
  * @returns {Boolean} True when the current transport exposes `ingest_source_files`.
  */
-const isIngestSourceFilesToolVisible = () => isRemoteIngestTransport();
+const isIngestSourceFilesToolVisible = () => isRemoteIngestDeployment();
 
 /**
  * @summary Fails closed when a local stdio client tries to invoke the remote push facade.
  * @param {String} toolName The requested MCP tool name.
  */
 const assertToolTransportAllowed = toolName => {
-    if (getEffectiveToolName(toolName) === ingestToolName && !isRemoteIngestTransport()) {
+    if (getEffectiveToolName(toolName) === ingestToolName && !isRemoteIngestDeployment()) {
         throw new Error(
             '`ingest_source_files` is only exposed when the Knowledge Base MCP server runs ' +
             'with `transport: "sse"` (StreamableHTTP). Use `npm run ai:ingest-tenant` or ' +
@@ -43,7 +44,7 @@ const assertToolTransportAllowed = toolName => {
 };
 
 /**
- * @summary MCP facade for `KnowledgeBaseIngestionService.ingestSourceFiles`.
+ * @summary MCP facade for `IngestionService.ingestSourceFiles`.
  *
  * An agent-initiated `ingest_source_files` push embeds synchronously; an oversized batch
  * would freeze the calling agent. This facade counts the batch volume up-front and, when
@@ -62,7 +63,7 @@ const assertToolTransportAllowed = toolName => {
  * @param {Object}    args            The `ingest_source_files` tool envelope.
  * @param {String}   [args.tenantId]  Authenticated tenant id.
  * @param {Object[]} [args.files]     Raw file payloads or client-side parsed records.
- * @returns {Promise<Object>} The `KnowledgeBaseIngestionService.ingestSourceFiles` summary,
+ * @returns {Promise<Object>} The `IngestionService.ingestSourceFiles` summary,
  *     OR a `{error, message, code: 'KB_INGEST_VOLUME_EXCEEDED', bulkPath, batchSize, threshold}`
  *     refusal when the work-volume gate fires.
  * @see https://github.com/neomjs/neo/issues/11634
@@ -87,7 +88,7 @@ const ingestSourceFilesViaMcp = async args => {
         };
     }
 
-    return KnowledgeBaseIngestionService.ingestSourceFiles(args);
+    return IngestionService.ingestSourceFiles(args);
 };
 
 export {

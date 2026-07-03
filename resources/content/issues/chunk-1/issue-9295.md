@@ -20,6 +20,10 @@ subIssues:
   - '[ ] 9299 Implement Agent Self-Discovery via Neural Link Introspection'
 subIssuesCompleted: 0
 subIssuesTotal: 4
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy:
   - '[ ] 9297 External-agent identity/auth boundary after Moltbook API decision'
   - '[ ] 9915 [Blocked Research] Moltbook API / identity feasibility for Neo AgentOS demo'

@@ -9,8 +9,10 @@ import {
     checkRemovedSkillFileReferences,
     checkSectionTriggers,
     checkSkillReferenceIntegrity,
+    checkSkillMarkdownNetDelta,
     classifySizeReportRow,
     formatSkillMarkdownSizeReport,
+    hasSkillGrowthJustification,
     parseArgs,
     parseFrontmatter,
     parseSectionTriggers,
@@ -30,6 +32,30 @@ test.describe('ai/scripts/lint/lint-skill-manifest (#11275)', () => {
 
         expect(result.status, result.stderr).toBe(0);
         expect(result.stdout).toContain('[lint-skill-manifest] OK');
+    });
+
+    test('no-base success names the skipped byte-delta gates, not an indistinguishable bare OK (#13595)', () => {
+        const result = spawnSync('node', [scriptPath], {
+            cwd     : process.cwd(),
+            encoding: 'utf8'
+        });
+
+        expect(result.status, result.stderr).toBe(0);
+        // the false-green guard: a no-base run must name the skipped gates, not read as a full pass
+        expect(result.stdout).toContain('byte-delta gates skipped');
+        expect(result.stdout).toContain('--base origin/dev');
+        expect(result.stdout.trim()).not.toBe('[lint-skill-manifest] OK');
+    });
+
+    test('--base success keeps the bare OK unchanged, no skipped-gates notice (#13595)', () => {
+        const result = spawnSync('node', [scriptPath, '--base', 'HEAD'], {
+            cwd     : process.cwd(),
+            encoding: 'utf8'
+        });
+
+        expect(result.status, result.stderr).toBe(0);
+        expect(result.stdout).toContain('[lint-skill-manifest] OK');
+        expect(result.stdout).not.toContain('byte-delta gates skipped');
     });
 
     test('frontmatter parser preserves colon-bearing description text', () => {
@@ -116,15 +142,15 @@ test.describe('ai/scripts/lint/lint-skill-manifest (#11275)', () => {
             schemaVersion: 1,
             sourceOfTruth: 'test',
             defaults     : {
-                routerByteBudget    : 12,
+                routerByteBudget     : 12,
                 payloadBudget        : 80000,
                 claudeSymlinkRequired: true,
                 downstreamDocsTargets: []
             },
             skills: {
                 broken: {
-                    name                : 'broken',
-                    routerByteBudget    : 12,
+                    name                 : 'broken',
+                    routerByteBudget     : 12,
                     payloadBudget        : 80000,
                     claudeSymlinkRequired: true,
                     downstreamDocsTargets: []
@@ -145,7 +171,7 @@ test.describe('ai/scripts/lint/lint-skill-manifest (#11275)', () => {
             schemaVersion: 1,
             sourceOfTruth: 'test',
             defaults     : {
-                routerByteBudget    : 12,
+                routerByteBudget     : 12,
                 payloadBudget        : 80000,
                 claudeSymlinkRequired: true,
                 downstreamDocsTargets: [],
@@ -153,13 +179,13 @@ test.describe('ai/scripts/lint/lint-skill-manifest (#11275)', () => {
             },
             skills: {
                 extra: {
-                    name                : 'extra',
-                    description         : 'has extra key',
-                    routerByteBudget    : 12,
+                    name                 : 'extra',
+                    description          : 'has extra key',
+                    routerByteBudget     : 12,
                     payloadBudget        : 80000,
                     claudeSymlinkRequired: true,
                     downstreamDocsTargets: [],
-                    extraSkill          : true
+                    extraSkill           : true
                 }
             },
             extraRoot: true
@@ -180,16 +206,16 @@ test.describe('ai/scripts/lint/lint-skill-manifest (#11275)', () => {
             schemaVersion: 1,
             sourceOfTruth: 'test',
             defaults     : {
-                routerByteBudget    : 12,
+                routerByteBudget     : 12,
                 payloadBudget        : 80000,
                 claudeSymlinkRequired: true,
                 downstreamDocsTargets: []
             },
             skills: {
                 optional: {
-                    name                : 'optional',
-                    description         : 'relationship field omitted intentionally',
-                    routerByteBudget    : 12,
+                    name                 : 'optional',
+                    description          : 'relationship field omitted intentionally',
+                    routerByteBudget     : 12,
                     payloadBudget        : 80000,
                     claudeSymlinkRequired: true,
                     downstreamDocsTargets: []
@@ -215,9 +241,9 @@ test.describe('ai/scripts/lint/lint-skill-manifest (#11275)', () => {
             schemaVersion: 1,
             sourceOfTruth: 'test',
             defaults     : {
-                routerByteBudget    : 12,
-                payloadBudget       : 80000,
-                perFilePayloadBudget: 25000,
+                routerByteBudget     : 12,
+                payloadBudget        : 80000,
+                perFilePayloadBudget : 25000,
                 claudeSymlinkRequired: true,
                 downstreamDocsTargets: []
             },
@@ -238,18 +264,18 @@ test.describe('ai/scripts/lint/lint-skill-manifest (#11275)', () => {
             schemaVersion: 1,
             sourceOfTruth: 'test',
             defaults     : {
-                routerByteBudget    : 12,
-                payloadBudget       : 80000,
+                routerByteBudget     : 12,
+                payloadBudget        : 80000,
                 claudeSymlinkRequired: true,
                 downstreamDocsTargets: []
             },
             skills: {
                 'monolith-skill': {
-                    name                : 'monolith-skill',
-                    description         : 'temporary override for migration-period monolith',
-                    routerByteBudget    : 12,
-                    payloadBudget       : 80000,
-                    perFilePayloadBudget: 66000,
+                    name                 : 'monolith-skill',
+                    description          : 'temporary override for migration-period monolith',
+                    routerByteBudget     : 12,
+                    payloadBudget        : 80000,
+                    perFilePayloadBudget : 66000,
                     claudeSymlinkRequired: true,
                     downstreamDocsTargets: []
                 }
@@ -270,9 +296,9 @@ test.describe('ai/scripts/lint/lint-skill-manifest (#11275)', () => {
             schemaVersion: 1,
             sourceOfTruth: 'test',
             defaults     : {
-                routerByteBudget    : 12,
-                payloadBudget       : 80000,
-                perFilePayloadBudget: 0,
+                routerByteBudget     : 12,
+                payloadBudget        : 80000,
+                perFilePayloadBudget : 0,
                 claudeSymlinkRequired: true,
                 downstreamDocsTargets: []
             },
@@ -285,18 +311,18 @@ test.describe('ai/scripts/lint/lint-skill-manifest (#11275)', () => {
             schemaVersion: 1,
             sourceOfTruth: 'test',
             defaults     : {
-                routerByteBudget    : 12,
-                payloadBudget       : 80000,
+                routerByteBudget     : 12,
+                payloadBudget        : 80000,
                 claudeSymlinkRequired: true,
                 downstreamDocsTargets: []
             },
             skills: {
                 'bad-budget': {
-                    name                : 'bad-budget',
-                    description         : 'negative budget',
-                    routerByteBudget    : 12,
-                    payloadBudget       : 80000,
-                    perFilePayloadBudget: -100,
+                    name                 : 'bad-budget',
+                    description          : 'negative budget',
+                    routerByteBudget     : 12,
+                    payloadBudget        : 80000,
+                    perFilePayloadBudget : -100,
                     claudeSymlinkRequired: true,
                     downstreamDocsTargets: []
                 }
@@ -353,17 +379,17 @@ test.describe('ai/scripts/lint/lint-skill-manifest (#11275)', () => {
             schemaVersion: 1,
             sourceOfTruth: 'test',
             defaults     : {
-                routerByteBudget    : 12,
-                payloadBudget       : 80000,
+                routerByteBudget     : 12,
+                payloadBudget        : 80000,
                 claudeSymlinkRequired: true,
                 downstreamDocsTargets: []
             },
             skills: {
                 'legacy-skill': {
-                    name                : 'legacy-skill',
-                    description         : 'pre-#11320 manifest entry without perFilePayloadBudget',
-                    routerByteBudget    : 12,
-                    payloadBudget       : 80000,
+                    name                 : 'legacy-skill',
+                    description          : 'pre-#11320 manifest entry without perFilePayloadBudget',
+                    routerByteBudget     : 12,
+                    payloadBudget        : 80000,
                     claudeSymlinkRequired: true,
                     downstreamDocsTargets: []
                 }
@@ -470,6 +496,124 @@ ${padding}
 
         const errors = checkOversizedWorkflowMaps(changedFiles, oversizedFiles, maxDelta, getSizeFn, getBaseSizeFn);
         expect(errors).toEqual([]);
+    });
+
+    test('checkSkillMarkdownNetDelta fails when skill Markdown grows beyond the pointer allowance (#13533)', () => {
+        const changedFiles = new Set([
+            '.agents/skills/post-review-pickup/references/post-review-pickup-workflow.md',
+            'learn/agentos/notes.md'
+        ]);
+
+        const getSizeFn     = file => file.startsWith('.agents/') ? 1500 : 5000;
+        const getBaseSizeFn = file => file.startsWith('.agents/') ? 1000 : 0;
+
+        const errors = checkSkillMarkdownNetDelta(changedFiles, 250, getSizeFn, getBaseSizeFn);
+
+        expect(errors).toHaveLength(1);
+        expect(errors[0]).toContain('Skill Markdown net grew by 500 bytes');
+        expect(errors[0]).toContain('max allowed net positive delta is 250');
+        expect(errors[0]).toContain('moving text into another skill file still counts');
+    });
+
+    test('checkSkillMarkdownNetDelta passes when additions are offset by skill Markdown reductions (#13533)', () => {
+        const changedFiles = new Set([
+            '.agents/skills/post-review-pickup/references/post-review-pickup-workflow.md',
+            '.agents/skills/ticket-intake/references/ticket-intake-workflow.md'
+        ]);
+
+        const sizes = new Map([
+            ['.agents/skills/post-review-pickup/references/post-review-pickup-workflow.md', {current: 1600, base: 1000}],
+            ['.agents/skills/ticket-intake/references/ticket-intake-workflow.md', {current: 600, base: 1000}]
+        ]);
+
+        const getSizeFn     = file => sizes.get(file).current;
+        const getBaseSizeFn = file => sizes.get(file).base;
+
+        expect(checkSkillMarkdownNetDelta(changedFiles, 250, getSizeFn, getBaseSizeFn)).toEqual([]);
+    });
+
+    test('checkSkillMarkdownNetDelta passes for pure reductions and deleted skill Markdown (#13533)', () => {
+        const changedFiles = new Set([
+            '.agents/skills/post-review-pickup/references/old-rule.md',
+            '.agents/skills/ticket-intake/references/ticket-intake-workflow.md'
+        ]);
+
+        const getSizeFn     = file => file.endsWith('old-rule.md') ? null : 800;
+        const getBaseSizeFn = file => file.endsWith('old-rule.md') ? 1000 : 1000;
+
+        expect(checkSkillMarkdownNetDelta(changedFiles, 250, getSizeFn, getBaseSizeFn)).toEqual([]);
+    });
+
+    test('checkSkillMarkdownNetDelta does not treat a same-size skill Markdown rename as growth (#13533)', () => {
+        const changedFiles = new Set([
+            '.agents/skills/example/references/new-name.md',
+            '.agents/skills/example/references/old-name.md'
+        ]);
+
+        const getSizeFn     = file => file.endsWith('old-name.md') ? null : 1000;
+        const getBaseSizeFn = file => file.endsWith('old-name.md') ? 1000 : 0;
+
+        expect(checkSkillMarkdownNetDelta(changedFiles, 250, getSizeFn, getBaseSizeFn)).toEqual([]);
+    });
+
+    test('checkSkillMarkdownNetDelta ignores non-skill Markdown files (#13533)', () => {
+        const changedFiles = new Set([
+            'learn/agentos/notes.md',
+            '.agents/skills/create-skill/references/skill-authoring-guide.txt'
+        ]);
+
+        const getSizeFn     = () => 1000;
+        const getBaseSizeFn = () => 0;
+
+        expect(checkSkillMarkdownNetDelta(changedFiles, 250, getSizeFn, getBaseSizeFn)).toEqual([]);
+    });
+
+    test('checkSkillMarkdownNetDelta blocks new-skill growth without justification (#13533)', () => {
+        const changedFiles = new Set([
+            '.agents/skills/example/SKILL.md',
+            '.agents/skills/example/references/example-workflow.md'
+        ]);
+
+        const sizes = new Map([
+            ['.agents/skills/example/SKILL.md', 900],
+            ['.agents/skills/example/references/example-workflow.md', 5000]
+        ]);
+
+        const getSizeFn     = file => sizes.get(file);
+        const getBaseSizeFn = () => 0;
+
+        const errors = checkSkillMarkdownNetDelta(changedFiles, 250, getSizeFn, getBaseSizeFn);
+
+        expect(errors).toHaveLength(1);
+        expect(errors[0]).toContain('[skill-growth-justified: <reason>]');
+    });
+
+    test('checkSkillMarkdownNetDelta allows justified new-skill growth (#13533)', () => {
+        const changedFiles = new Set([
+            '.agents/skills/example/SKILL.md',
+            '.agents/skills/example/references/example-workflow.md'
+        ]);
+
+        const sizes = new Map([
+            ['.agents/skills/example/SKILL.md', 900],
+            ['.agents/skills/example/references/example-workflow.md', 5000]
+        ]);
+
+        const getSizeFn     = file => sizes.get(file);
+        const getBaseSizeFn = () => 0;
+
+        expect(checkSkillMarkdownNetDelta(
+            changedFiles,
+            250,
+            getSizeFn,
+            getBaseSizeFn,
+            {allowJustifiedGrowth: true}
+        )).toEqual([]);
+    });
+
+    test('hasSkillGrowthJustification requires a non-empty commit-marker reason (#13533)', () => {
+        expect(hasSkillGrowthJustification('[skill-growth-justified: new skill with retirement trigger]')).toBe(true);
+        expect(hasSkillGrowthJustification('[skill-growth-justified:]')).toBe(false);
     });
 
     test('checkSkillReferenceIntegrity flags dangling numeric section refs (#12493)', () => {

@@ -7,6 +7,10 @@ createdAt: '2026-04-09T08:41:28Z'
 updatedAt: '2026-04-09T08:47:24Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 # The Concept Node Architecture (Ideation Sandbox)
 

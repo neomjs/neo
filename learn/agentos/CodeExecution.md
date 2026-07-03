@@ -40,9 +40,9 @@ The heart of this system is the **Neo.mjs AI SDK**. It serves as a bridge, expor
 
 **Import Path:**
 ```javascript readonly
-import { 
-    KB_QueryService, 
-    GH_IssueService, 
+import {
+    KB_QueryService,
+    GH_IssueService,
     Memory_Service,
     // ... and more
 } from './ai/services.mjs';
@@ -191,7 +191,7 @@ Score:  5378
 
 --- "Smart" Filter: Top 3 Guides ---
 - /Users/Shared/github/neomjs/neo/learn/guides/fundamentals/ConfigSystemDeepDive.md (5378)
-- /Users/Shared/github/neomjs/neo/learn/benefits/ConfigSystem.md (4754)
+- /Users/Shared/github/neomjs/neo/learn/benefits/body/ConfigSystem.md (4754)
 - /Users/Shared/github/neomjs/neo/learn/guides/fundamentals/DeclarativeComponentTreesVsImperativeVdom.md (2811)
 ```
 
@@ -301,15 +301,15 @@ Instead of asking a human to manually fix the database, the agent leveraged Code
     // Snippet from debug_session_state.mjs
     // The agent accesses the raw collection to verify data integrity
     const memCol = Memory_SessionService.memoryCollection;
-    
+
     const memQuery = {
         include: ['metadatas'],
         limit: 2000
     };
-    
+
     // Direct query to inspect what's actually in the DB
     const batch = await memCol.get(memQuery);
-    
+
     // The agent then iterates through 'batch.metadatas' to check the 'timestamp' type
     // and identifying the mismatch between ISO strings and expected numbers.
     ```
@@ -332,11 +332,11 @@ Instead of asking a human to manually fix the database, the agent leveraged Code
         // Check if migration is needed (is it a string?)
         if (typeof currentTimestamp === 'string') {
             const numericTimestamp = Date.parse(currentTimestamp);
-            
+
             if (!isNaN(numericTimestamp)) {
                 // Create updated metadata with numeric timestamp
                 const newMetadata = { ...metadata, timestamp: numericTimestamp };
-                
+
                 updates.ids.push(id);
                 updates.metadatas.push(newMetadata);
             }

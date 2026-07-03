@@ -1,8 +1,9 @@
-import Assembler       from '../context/Assembler.mjs';
-import Base            from '../../src/core/Base.mjs';
-import ClassSystemUtil from '../../src/util/ClassSystem.mjs';
-import Provider        from '../provider/Base.mjs';
-import * as SDK        from '../services.mjs';
+import Assembler             from '../context/Assembler.mjs';
+import Base                  from '../../src/core/Base.mjs';
+import ClassSystemUtil       from '../../src/util/ClassSystem.mjs';
+import Provider              from '../provider/Base.mjs';
+import * as SDK              from '../services.mjs';
+import {resolveAllowedTools} from './resolveAllowedTools.mjs';
 
 /**
  * The cognitive event loop for the Agent.
@@ -20,6 +21,15 @@ class Loop extends Base {
          * @protected
          */
         className: 'Neo.ai.agent.Loop',
+        /**
+         * Optional per-server tool allowlist injected by the Agent for capability gating. Shape
+         * `{[serverName]: String[]}`, or null for no filtering. Applied at tool-assembly so only the
+         * permitted subset of each connected server's tools is exposed to the model — and only those are
+         * registered in `toolRegistry`, so a gated-out tool is not even routable.
+         * See {@link Neo.ai.agent.resolveAllowedTools}.
+         * @member {Object|null} allowedTools=null
+         */
+        allowedTools: null,
         /**
          * The Context Assembler instance.
          * @member {Neo.ai.context.Assembler|Object} assembler_=null
@@ -193,7 +203,12 @@ class Loop extends Base {
 
             for (const [clientName, client] of Object.entries(this.clients)) {
                 try {
-                    const clientTools = await client.listTools();
+                    // Least-privilege: expose only the profile-permitted subset of this server's tools.
+                    const clientTools = resolveAllowedTools({
+                        tools       : await client.listTools(),
+                        allowedTools: this.allowedTools,
+                        serverName  : client.serverName
+                    });
                     for (const tool of clientTools) {
                         this.tools.push(tool);
                         this.toolRegistry[tool.name] = { client, clientName, method: Neo.camel(tool.name) };
@@ -356,7 +371,7 @@ class Loop extends Base {
             // Allow up to 10 iterations of tool chaining
             for (let i = 0; i < 10; i++) {
                 const result = await this.provider.generate(messages, { tools: this.tools });
-                
+
                 if (result.content) {
                     console.log(`[Loop] Model Response:\n${result.content}`);
                 }
@@ -365,21 +380,21 @@ class Loop extends Base {
                 if (result.toolCalls && result.toolCalls.length > 0) {
                     this.state = 'acting';
                     actionResult = await this.executeTools(result.toolCalls);
-                    
+
                     // Push the model's textual response (if any)
                     messages.push({
                         role   : 'model',
                         content: result.content || `(Delegated to tools: ${result.toolCalls.map(t => t.function.name).join(', ')})`
                     });
-                    
+
                     // Format tool results as a user observation for the next LLM turn
                     const toolResponsesStr = actionResult.map(r => `[Tool Result: ${r.name}]\n${r.error || JSON.stringify(r.result)}`).join('\n\n');
-                    
+
                     messages.push({
                         role   : 'user',
                         content: `Observation from tools:\n${toolResponsesStr}\n\nPlease proceed based on the above results.`
                     });
-                    
+
                     this.state = 'thinking'; // Resume reasoning
                 } else {
                     // No further tool calls -> Final answer achieved
@@ -445,12 +460,12 @@ class Loop extends Base {
 
             if (success) {
                 console.log(`[Loop] ✓ Cycle succeeded for ${event.type}`);
-                
+
                 if (event.type === 'user:input' || event.type === 'delegate') {
                     const agentName = this.agent?.constructor?.config?.className?.split('.').pop() || 'unknown';
                     const modelName = this.provider?.model || this.provider?.modelName || 'unknown';
                     const sessionId = this.agent?.sessionId || 'default-session';
-                    
+
                     await SDK.Memory_Service.addMemory({
                         prompt: event.data,
                         thought: decision.thought || 'Internal reflection',
@@ -486,7 +501,7 @@ class Loop extends Base {
                     // Route to injected MCP client
                     const entry = this.toolRegistry[name];
                     console.log(`[Loop] Routing tool '${name}' to MCP Server '${entry.clientName}'`);
-                    
+
                     const res = await entry.client.callTool(name, args);
                     results.push({ name, result: res });
                 } else if (name === 'delegate_task') {

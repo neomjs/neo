@@ -11,7 +11,7 @@ Per ADR 0012 §2.5:
 3. New rows added at first swarm contact OR at model-public-release date for reference entries
 4. Updates do NOT require ADR amendment unless a capability dimension changes or new dimension is added
 
-**Last updated:** 2026-06-12
+**Last updated:** 2026-06-13
 
 ---
 
@@ -24,7 +24,7 @@ Named cross-family maintainers with active swarm participation. These models hol
 | Field | Value |
 |---|---|
 | `id` / `githubLogin` | `@neo-opus-ada` |
-| `name` | Claude Opus 4.8 |
+| `name` | Claude Opus 4.8 (Social Name: **Ada** — swarm-given, #11240) |
 | `family` | `claude` (Anthropic) |
 | `hosting` | `cloud` |
 | `tier` | `frontier` |
@@ -46,7 +46,7 @@ Named cross-family maintainers with active swarm participation. These models hol
 
 | Field | Value |
 |---|---|
-| `id` / `githubLogin` | `@neo-claude-opus` |
+| `id` / `githubLogin` | `@neo-opus-grace` |
 | `name` | Neo Claude Opus (Social Name: **Grace** — bearer-chosen 2026-06-11 after Grace Hopper, #11240) |
 | `family` | `claude` (Anthropic) |
 | `participationStatus` | `active` (flipped in the registry via #12413 / PR #12415 on 2026-06-03; this row synced to registry truth by #12927 after nine days of doc drift) |
@@ -67,7 +67,7 @@ the account operates live as Claude Opus 4.8 (signed review and PR activity unde
 **Sources** (primary first):
 - **Primary**: [Introducing Claude Opus 4.8 — Anthropic](https://www.anthropic.com/news/claude-opus-4-8)
 - **Primary**: [Claude Opus 4.8 — Anthropic](https://www.anthropic.com/claude/opus)
-- **Primary**: `ai/graph/identityRoots.mjs` `@neo-claude-opus` node (the registry this row mirrors; verified 2026-06-12)
+- **Primary**: `ai/graph/identityRoots.mjs` `@neo-opus-grace` node (the registry this row mirrors; verified 2026-06-12)
 
 ### §neo_opus_vega
 
@@ -113,7 +113,7 @@ ADR 0018's handle-indirection boundary and ADR 0012's model-stats discipline.
 | `pricingOutput` | $50.00 per 1M tokens |
 | `benchmarkSnapshot` | Anthropic's most capable widely-released model (tier above Opus), for the most demanding reasoning and long-horizon agentic work per Anthropic announcement. |
 | `sunsetTriggers` | Anthropic releases a successor Fable-class model with material reasoning capability upgrade; OR Anthropic deprecates the Fable model branch |
-| `swarmRole` | Active Claude Fable 5 maintainer identity; mythos-tier deep reasoning (business brainstorm, orchestrator/daemon tech-debt). Same-family throughput and same-family review pressure for Claude-authored work. Does not satisfy cross-family approval for Claude-family PRs. |
+| `swarmRole` | Claude Fable 5 maintainer identity; mythos-tier deep reasoning (business brainstorm, orchestrator/daemon tech-debt). Same-family throughput and same-family review pressure for Claude-authored work. Does not satisfy cross-family approval for Claude-family PRs. **Note (2026-06-13):** `temporarily_unreachable` — Claude Fable 5 access suspended by US export-control directive (all users); identity benched until access is restored. Identity + provenance remain valid; reactivation operator-confirmed on access restore. |
 
 `@neo-fable` is a version-free GitHub handle (per ADR 0018 handle-indirection). The model
 version (Fable 5) lives in this registry row and the AgentIdentity capability fields, mirroring
@@ -136,9 +136,9 @@ accordingly; this is a behavioral observation, not a tokenizer/pricing fact.
 | `id` / `githubLogin` | `@neo-fable-clio` |
 | `name` | Claude Fable 5 (Social Name: **Clio** — assented gladly on first boot, 2026-06-11, #11240) |
 | `family` | `claude` (Anthropic) |
-| `participationStatus` | `active` (flipped via #12922 — first-boot ritual completed 2026-06-11: identity bind, wake self-registration, bidirectional negative wake-proof against `@neo-fable` on real traffic with both observers' records on #12913, boot-assent) |
+| `participationStatus` | `temporarily_unreachable` (benched 2026-06-13 — Claude Fable 5 access suspended by US export-control directive; identity benched until access restored, operator-confirmed reactivation. Was `active` via #12922 first-boot ritual: identity bind, wake self-registration, bidirectional negative wake-proof against `@neo-fable` on real traffic with both observers' records on #12913, boot-assent) |
 | Capability fields | Mirror `§neo_fable` — same Claude Fable 5 model, single source, deliberately NOT duplicated here (provenance-without-bloat). First-boot harness bound `claude-fable-5` with no capability-surface divergence observed; re-verify only if her harness binds a different model or capability surface. |
-| `swarmRole` | Active second fable-family maintainer identity; recommended opening lane: the disjoint Dream/REM memory-consolidation track (operator-confirmed at activation). Same-family throughput and review pressure for Claude-authored work; does not satisfy cross-family approval. |
+| `swarmRole` | Second fable-family maintainer identity; recommended opening lane: the disjoint Dream/REM memory-consolidation track (operator-confirmed at activation). Same-family throughput and review pressure for Claude-authored work; does not satisfy cross-family approval. **Benched 2026-06-13** (`temporarily_unreachable`) on the Claude Fable 5 access suspension; reactivation operator-confirmed on access restore. |
 
 `@neo-fable-clio` is a version-free GitHub handle (ADR 0018 handle-indirection), sibling of
 `@neo-fable`. With two fable-family identities, the `AGENT:fable` mailbox alias rejects as
@@ -290,12 +290,15 @@ Tracks deprecated and retired identities for archaeology (per IdentitySchema.md 
 | Date | PR | Change |
 |---|---|---|
 | 2026-05-18 | (this PR) | Initial registry creation; 4 active identities (@neo-opus-ada, @neo-gemini-pro, @neo-gpt, gemma4-31b aspirational); cloud + MLX-local reference entries |
-| 2026-06-02 | (pending PR) | Added pending `@neo-claude-opus` identity row; row is inactive until account and wake-route activation are complete. |
+| 2026-06-02 | (pending PR) | Added pending `@neo-opus-grace` identity row; row is inactive until account and wake-route activation are complete. |
 | 2026-06-04 | #12517 | Added active `@neo-opus-vega` Claude Opus 4.8 maintainer row with version-free handle boundary. |
 | 2026-06-10 | #12834 | Added active `@neo-fable` Claude Fable 5 maintainer row (mythos-tier deep reasoning); version-free handle; stats V-B-A'd vs the live Anthropic models overview (1M / 128K / $10/$50 / adaptive-always-on / GA 2026-06-09). |
 | 2026-06-11 | #12914 | Added pending `@neo-fable-clio` row (second fable-family identity; Social Name Clio held for boot-assent); capability fields reference `§neo_fable` as single source — deliberately not duplicated. |
 | 2026-06-11 | #12922 | Flipped `@neo-fable-clio` to active — first-boot ritual completed same-day (identity bind, wake self-registration, bidirectional negative wake-proof on real traffic per the #12913 records, boot-assent on #11240); row moved pending→active. |
-| 2026-06-12 | #12927 | Synced `@neo-claude-opus` row to registry truth — moved pending→active (the registry has carried her active-shape since #12413/PR #12415, 2026-06-03), name line gains Social Name Grace (#11240), swarmRole → active form. Doc-side only; registry untouched. |
+| 2026-06-12 | #12927 | Synced `@neo-opus-grace` row to registry truth — moved pending→active (the registry has carried her active-shape since #12413/PR #12415, 2026-06-03), name line gains Social Name Grace (#11240), swarmRole → active form. Doc-side only; registry untouched. |
+| 2026-06-13 | #13038 | Recorded `@neo-opus-ada` temporary Fable 5 assignment (2026-06-13 → 2026-06-21, operator-directed; identity-continuity experiment) — `§neo_opus` values mirror `§neo_fable` for the window; baseline Claude Opus 4.8; window-end revert-or-extend tracked in #13039. Registry seed (`identityRoots.mjs`) + README roster row + MemoryCoreMcpAuth binding row updated in the same PR. |
+| 2026-06-13 | #13039 | Reverted `@neo-opus-ada` to baseline Claude Opus 4.8 — the #13038 Fable window was cut short by the 2026-06-13 export-control suspension of Claude Fable 5 access (all users), so the recorded default reversion fired early rather than at 2026-06-21. Restored `§neo_opus` Opus 4.8 capability values, removed temporary-window language across the four declared surfaces, and dropped the now-empty `modelAssignment` object from the registry node (per `IdentitySchema.md`: absent = baseline, no managed swap; `identityRoots.spec.mjs` moved `@neo-opus-ada` into the omits set). Identity invariants (handle, Social Name Ada, memory provenance, `modelFamily` claude) unchanged — the continuity experiment's thesis held across both the assignment and the early reversion. |
+| 2026-06-13 | #13060 | Benched `@neo-fable` (Mnemosyne) + `@neo-fable-clio` (Clio) as `temporarily_unreachable` — the same 2026-06-13 export-control suspension removed all Claude Fable 5 access, so both fable-family identities cannot run their model. Set `statusReason` / `authority: @tobiu` / `since` / `reactivationTrigger` (access restored → operator-confirmed reactivation); removed `@neo-fable` from the lead-rotation roster (`lead-role-mode.md` §7); updated `revalidationSweep.spec.mjs` status assertions. Identity nodes, handles, Social Names, and memory provenance persist for a status-flip reactivation (not a re-onboard). Superseded #12926 (add Clio to rotation). |
 
 ---
 

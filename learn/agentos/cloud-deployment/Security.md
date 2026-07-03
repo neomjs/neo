@@ -52,7 +52,37 @@ This asymmetry drives retention policy (see Phase 4 #11628): KB backup is cost-o
 
 ## Auth flow and tenant context
 
-The authenticated-ingestion-context resolution maps a tenant's push to its `tenantId` / `originAgentIdentity` before the ingestion service reaches Chroma. The invariant that holds regardless of the transport: **the tenant tuple is server-derived from the authenticated identity, never trusted from the payload.** Endpoint-exact auth wiring depends on the deployment's proxy/OIDC mode; see [Deployment Cookbook](../DeploymentCookbook.md) for the MCP deployment boundary and [Hook Wiring](./HookWiring.md) for ingestion facades.
+The authenticated-ingestion-context resolution maps a tenant's push to its
+`tenantId` / `originAgentIdentity` before the ingestion service reaches Chroma.
+The invariant that holds regardless of the transport: **the tenant tuple is
+server-derived from the authenticated identity, never trusted from the
+payload.**
+
+The shipped HTTP/SSE deployment has three identity shapes:
+
+- **OIDC server mode** (`NEO_AUTH_MODE=oidc`, the default) validates
+  `Authorization: Bearer <token>` through the configured issuer, enforces the
+  MCP server's `NEO_PUBLIC_URL` as the token audience, and derives identity from
+  `preferred_username` / `sub`.
+- **GitLab bearer mode** (`NEO_AUTH_MODE=gitlab-pat`) accepts a GitLab OAuth
+  access token or Personal Access Token as the bearer, validates it against
+  GitLab's `/api/v4/user`, and derives identity from the returned username. This
+  mode intentionally has no OIDC audience claim or protected-resource metadata;
+  failed requests return a bare `WWW-Authenticate: Bearer` challenge.
+- **Trusted proxy identity** (`NEO_AUTH_TRUST_PROXY_IDENTITY=true`) lets an
+  authenticated reverse proxy inject `X-Preferred-Username` /
+  `X-Auth-Request-Preferred-Username`. The reference Caddy ingress strips any
+  client-supplied copies before an optional auth layer injects trusted values.
+
+In `gitlab-pat` mode, the container healthchecks hit the same authenticated
+`/mcp` route as external callers. Set `NEO_MCP_HEALTHCHECK_TOKEN` to a bearer
+that validates under the selected mode, or the MCP server can be healthy but
+Compose will still mark the service unhealthy.
+
+Endpoint-exact auth wiring depends on the deployment's chosen mode; see
+[Client Authentication](./ClientAuthentication.md),
+[Deployment Cookbook](../DeploymentCookbook.md), and [Hook Wiring](./HookWiring.md)
+for the operator and ingestion facades.
 
 ## Post-MVP hardening review (#11736)
 
@@ -64,7 +94,7 @@ tree and which remain deferred to tracked residual work.
 
 | Hardening area | Current documented baseline | Disposition |
 |---|---|---|
-| Reverse proxy identity boundary | `ai/deploy/Caddyfile` strips spoofable identity headers before optional auth injection, and [Deployment Cookbook](../DeploymentCookbook.md) Section 4 names the same invariant. | Actioned for the reference ingress. Production deployments must enable an OIDC/proxy-auth layer or direct OIDC before serving mutually-untrusting tenants. |
+| Reverse proxy identity boundary | `ai/deploy/Caddyfile` strips spoofable identity headers before optional auth injection, and [Deployment Cookbook](../DeploymentCookbook.md) Section 4 names the same invariant. | Actioned for the reference ingress. Production deployments must enable OIDC server mode, GitLab bearer mode, or trusted proxy identity before serving mutually-untrusting tenants. |
 | Repo-push automation token | [Tenant Ingestion Model](./TenantIngestionModel.md) and [Hook Wiring](./HookWiring.md) define `NEO_KB_INGEST_TOKEN` as a tenant-scoped MCP authorization credential, never a Git credential and never part of `repoSlug`, logs, manifests, or graph-visible config. | Actioned for the push-based MVP path. Server-side Git credential transport remains deferred to [#11731](https://github.com/neomjs/neo/issues/11731). |
 | Secret storage | The guide tree consistently routes tokens through tenant hook/CI secret stores and deployment auth/provider config, not committed files. | Actioned at runbook level. Platform-specific secret-manager/KMS wiring belongs to downstream deployment-pipeline work ([#11733](https://github.com/neomjs/neo/issues/11733)) once a concrete platform is selected. |
 | Network policy | The reference compose profile keeps KB and MC internal behind Caddy (`expose`, public path routing through `/kb/*` and `/mc/*`). | Actioned for compose. Kubernetes network policies, managed ingress rules, and service-mesh variants are deferred platform work, tracked under [#11733](https://github.com/neomjs/neo/issues/11733) if adopted. |

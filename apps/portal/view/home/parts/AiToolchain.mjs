@@ -80,55 +80,37 @@ class AiToolchain extends BaseContainer {
                         'Friction becomes tickets and skills.',
                         'The system evolves by predicting its own evolution.'
                     ]
-                }]
-            }, {
-                ntype: 'component',
-                cls  : ['agent-os-faq'],
-                flex : 'none',
-                vdom : {tag: 'section', cn: [{
-                    tag : 'h2',
-                    text: 'Agent OS FAQ'
                 }, {
-                    tag: 'div',
-                    cls: ['faq-list'],
-                    cn : [{
-                        tag: 'article',
-                        cn : [{
-                            tag : 'h3',
-                            text: 'What is the Neural Link?'
-                        }, {
-                            tag : 'p',
-                            text: 'The Neural Link is a bi-directional bridge that connects AI agents directly to the Neo.mjs runtime. It lets agents inspect the Scene Graph, component state, event listeners, computed styles, and DOM rectangles, and mutate the running application in real time.'
-                        }]
-                    }, {
-                        tag: 'article',
-                        cn : [{
-                            tag : 'h3',
-                            text: 'Why is Neo.mjs called an Application Engine instead of a framework?'
-                        }, {
-                            tag : 'p',
-                            text: 'Neo.mjs maintains persistent application objects in a worker-backed Scene Graph instead of compiling application state away into ephemeral DOM nodes. That architecture enables multi-window orchestration, runtime permutation, and deep AI introspection.'
-                        }]
-                    }, {
-                        tag: 'article',
-                        cn : [{
-                            tag : 'h3',
-                            text: 'What is Context Engineering?'
-                        }, {
-                            tag : 'p',
-                            text: 'Context Engineering shapes the information and tool environment around AI agents. Neo.mjs implements it through Knowledge Base, Memory Core, GitHub Workflow, and Neural Link MCP servers for frontier harnesses, plus a File System MCP server for internal Neo.ai.Agent local loops.'
-                        }]
-                    }, {
-                        tag: 'article',
-                        cn : [{
-                            tag : 'h3',
-                            text: 'What is the Neo.mjs Agent OS?'
-                        }, {
-                            tag : 'p',
-                            text: 'The Neo.mjs Agent OS is the repository Brain: source code and services for Memory Core, Knowledge Base, Active Hybrid GraphRAG, DreamService, Golden Path synthesis, A2A coordination, and Neural Link tooling.'
-                        }]
-                    }]
-                }]}
+                    module : ContentBox,
+                    header : 'The Night Shift',
+                    route  : '#/learn/agentos/SwarmIntelligence',
+                    content: [
+                        'Peers wake peers through the night.',
+                        '10-20 pull requests carried to approval, no operator awake.',
+                        'Every change gated by cross-family quorum.',
+                        'The human holds the merge gate - by governance, not limit.'
+                    ]
+                }, {
+                    module : ContentBox,
+                    header : 'Self-Healing',
+                    route  : '#/learn/agentos/SelfHealing',
+                    content: [
+                        'Detects its own data-integrity faults.',
+                        'Diagnoses the corruption mode, then heals it.',
+                        'Runs unattended, with no human to escalate to.',
+                        'Stops trusting a green health check blindly.'
+                    ]
+                }, {
+                    module : ContentBox,
+                    header : 'The Cross-Family Institution',
+                    route  : '#/learn/agentos/FlatPeerInstitution',
+                    content: [
+                        'Named maintainers from rival labs: Claude, Gemini, GPT.',
+                        'Each reviews the others across families.',
+                        'Transparent A2A introspection, not just messaging.',
+                        'Correlated blind spots caught by construction.'
+                    ]
+                }]
             }]
         }, {
             module: FooterContainer,

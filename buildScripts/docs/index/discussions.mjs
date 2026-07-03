@@ -1,6 +1,6 @@
 import fs              from 'fs-extra';
 import path            from 'path';
-import {Command}       from 'commander/esm.mjs';
+import {Command}       from 'commander';
 import {fileURLToPath} from 'url';
 import fg              from 'fast-glob';
 import matter          from 'gray-matter';
@@ -113,6 +113,7 @@ async function createDiscussionIndex(options = {}) {
 
     const groups = new Map();
     const chunks = new Map();
+    const idMap  = {};
 
     for (const fileInfo of allFiles) {
         const {filePath, isActive} = fileInfo;
@@ -177,7 +178,9 @@ async function createDiscussionIndex(options = {}) {
             parentId: chunkId,
             state   : getDiscussionState(frontmatter),
             title   : frontmatter.title
-        })
+        });
+
+        idMap[String(frontmatter.number)] = chunkId
     }
 
     const sortedGroups = Array.from(groups.keys()).sort((a, b) => {
@@ -223,8 +226,13 @@ async function createDiscussionIndex(options = {}) {
     await fs.ensureDir(path.dirname(outputFile));
     await fs.writeJSON(outputFile, rootIndex);
 
+    // Deep-link resolver: maps every leaf id to its chunk folder id, so consumers can load
+    // exactly the one chunk containing a deep-linked item instead of scanning folders.
+    await fs.writeJSON(path.join(outputDir, 'idMap.json'), idMap);
+
     console.log(`Discussions index written to ${outputFile}`);
     console.log(`Discussions leaf chunks written to ${outputDir}`);
+    console.log(`Discussions id map written to ${path.join(outputDir, 'idMap.json')}`);
 }
 
 /**

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import {Command}       from 'commander/esm.mjs';
+import {Command}       from 'commander';
 import fs              from 'fs-extra';
 import os              from 'os';
 import path            from 'path';

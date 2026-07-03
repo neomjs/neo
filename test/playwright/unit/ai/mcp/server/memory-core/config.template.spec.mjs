@@ -1,8 +1,8 @@
-import { test, expect } from '@playwright/test';
-import path from 'path';
-import Neo from '../../../../../../../src/Neo.mjs';
+import { test, expect }                    from '@playwright/test';
+import path                                from 'path';
+import Neo                                 from '../../../../../../../src/Neo.mjs';
 import ConfigProvider, {createConfigProxy} from '../../../../../../../ai/ConfigProvider.mjs';
-import {TIER1_DEFAULTS} from '../../../../../fixtures/aiConfigDefaults.mjs';
+import {TIER1_DEFAULTS}                    from '../../../../../fixtures/aiConfigDefaults.mjs';
 
 test.describe('Memory Core Config (#10010)', () => {
     let originalEnv;
@@ -11,6 +11,8 @@ test.describe('Memory Core Config (#10010)', () => {
     let originalTier1ClassHierarchy;
     let originalConfig;
     let originalClassHierarchy;
+    let tier1TemplateData;
+    let tier1TemplateFormulas;
 
     test.beforeAll(async () => {
         originalEnv = { ...process.env };
@@ -43,8 +45,14 @@ test.describe('Memory Core Config (#10010)', () => {
         // (cached module) that's a no-op — so install a fresh Tier-1 root built from the canonical
         // template tree, making inheritance deterministic across workers.
         const tier1Template = (await import('../../../../../../../ai/config.template.mjs')).default;
+        tier1TemplateData     = tier1Template._data;
+        tier1TemplateFormulas = tier1Template._formulas;
         Neo.ai = Neo.ai || {};
-        Neo.ai.Config = Neo.create(ConfigProvider, {data: tier1Template._data});
+        delete Neo.ai.Config;
+        Neo.ai.Config = Neo.create(ConfigProvider, {
+            data    : tier1TemplateData,
+            formulas: tier1TemplateFormulas
+        });
     });
 
     test.afterAll(() => {
@@ -114,12 +122,13 @@ test.describe('Memory Core Config (#10010)', () => {
         expect(config.openAiCompatible.model).toBe(TIER1_DEFAULTS.openAiCompatible.model);
         expect(config.openAiCompatible.embeddingModel).toBe(TIER1_DEFAULTS.openAiCompatible.embeddingModel);
 
-        expect(config.engines.chroma.host).toBe(TIER1_DEFAULTS.engines.chroma.host);
-        expect(config.engines.chroma.port).toBe(TIER1_DEFAULTS.engines.chroma.port);
-        // MC reads the unified persist-dir SSOT, not a server-local dir.
-        // Was the stale `.neo-ai-data/chroma/memory-core` — the bug.
-        expect(config.engines.chroma.dataDir).toBe(TIER1_DEFAULTS.engines.chroma.dataDir);
-        expect(config.engines.chroma.dataDir).toContain('.neo-ai-data/chroma/unified');
+        expect(config.engines.chroma.host).toBe(TIER1_DEFAULTS.engines.chroma.hostTest);
+        expect(config.engines.chroma.port).toBe(TIER1_DEFAULTS.engines.chroma.portTest);
+        // MC reads the Tier-1 Chroma SSOT. Under UNIT_TEST_MODE the active endpoint is the
+        // isolated unit-test daemon/data dir, while the production leaf stays the unified store.
+        expect(config.engines.chroma.dataDir).toBe(TIER1_DEFAULTS.engines.chroma.dataDirTest);
+        expect(config.engines.chroma.dataDirProd).toContain('.neo-ai-data/chroma/unified');
+        expect(config.engines.chroma.dataDir).toContain('neo-chroma-unit-test');
     });
 
     test('inherits the Tier-1 active-session idle threshold (#9959)', () => {
@@ -160,17 +169,22 @@ test.describe('Memory Core Config (#10010)', () => {
         process.env.NEO_OLLAMA_REQUIRE_PARALLEL_MODELS = '3';
         process.env.NEO_OPENAI_COMPATIBLE_KEEP_ALIVE = '10m';
         process.env.NEO_OPENAI_COMPATIBLE_REQUIRE_PARALLEL_MODELS = '4';
+        process.env.UNIT_TEST_MODE = 'false';
         process.env.NEO_CHROMA_HOST = 'chroma';
         process.env.NEO_CHROMA_PORT = '8010';
 
         // Post-split, MC declares none of these locally — they are Tier-1-owned, so env
         // precedence lives at the OWNER. Build a fresh realm root WITH the env set, register it, and
         // a fresh MC child inherits the overrides up the getParent() chain. (config._data is the raw
-        // MC meta-leaf tree; Neo.ai.Config._data is the Tier-1 realm tree, loaded via MC's import.)
-        const prevRoot  = Neo.ai?.Config;
-        const freshRoot = Neo.create(ConfigProvider, {data: Neo.ai.Config._data});
+        // MC meta-leaf tree; tier1TemplateData is the raw Tier-1 meta-leaf tree.)
+        const prevRoot = Neo.ai?.Config;
+        delete Neo.ai.Config;
+        const freshRoot = Neo.create(ConfigProvider, {
+            data    : tier1TemplateData,
+            formulas: tier1TemplateFormulas
+        });
         Neo.ai.Config   = freshRoot;
-        const freshMC   = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
+        const freshMC = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
 
         try {
             expect(freshMC.modelProvider).toBe('openAiCompatible');
@@ -224,6 +238,65 @@ test.describe('Memory Core Config (#10010)', () => {
         expect(config.storagePaths.graph).toBe(config.storagePaths.graphTest);
     });
 
+    test('handoffFilePath resolves by construction to the test path under the toggle — never the tracked prod file (#13663)', () => {
+        // Mirrors storagePaths.graph: under the unit suite (UNIT_TEST_MODE=true) the formula resolves
+        // handoffFilePathTest, so a test run writing the handoff cannot clobber the tracked production
+        // resources/content/sandman_handoff.md — test-mode resolved by construction (the AiConfig SSOT
+        // sanctioned form: declarative Prod/Test leaves + a formula, never an inline-env leaf ternary).
+        expect(config.storagePaths.useTestDatabase).toBe(true);
+        expect(config.handoffFilePathProd).toContain('resources/content/sandman_handoff.md');
+        expect(config.handoffFilePathTest).toContain('neo-sandman-handoff-test-'); // per-worker-unique OS-temp file (fullyParallel race-safe)
+        expect(config.handoffFilePath).toBe(config.handoffFilePathTest);
+        expect(config.handoffFilePath).not.toContain('resources/content/sandman_handoff.md');
+    });
+
+    test('messageWal.dir resolves by construction from memoryWal.dir unless explicitly overridden (#13890)', () => {
+        expect(config.memoryWal.useTestDatabase).toBe(true);
+        expect(config.messageWal.useTestDatabase).toBe(true);
+        expect(config.messageWal.dirProd).toBe(null);
+        expect(config.messageWal.dirTest).toBe(null);
+        expect(config.messageWal.dir).toBe(path.join(config.memoryWal.dir, 'messages'));
+        expect(config.messageWal.daemonDataDir).toContain('.neo-ai-data/message-daemon');
+        expect(config.messageWal.inProcessDrain).toBe(false);
+
+        process.env.NEO_MESSAGE_WAL_DIR_TEST = '/tmp/neo-message-wal-override';
+        process.env.NEO_MESSAGE_WAL_IN_PROCESS_DRAIN = 'true';
+        process.env.NEO_MESSAGE_WAL_POLL_INTERVAL_MS = '250';
+
+        const freshCfg = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
+
+        try {
+            expect(freshCfg.messageWal.dirTest).toBe('/tmp/neo-message-wal-override');
+            expect(freshCfg.messageWal.inProcessDrain).toBe(true);
+            expect(freshCfg.messageWal.pollIntervalMs).toBe(250);
+        } finally {
+            freshCfg.destroy();
+        }
+    });
+
+    test('conceptDiscovery message-harvest leaves parse numeric env overrides (#13840)', () => {
+        expect(config.conceptDiscovery.messageHarvestBatchLimit).toBe(500);
+        expect(config.conceptDiscovery.messageHarvestTopN).toBe(20);
+        expect(config.conceptDiscovery.messageHarvestMinFrequency).toBe(2);
+
+        process.env.NEO_CONCEPT_DISCOVERY_MESSAGE_HARVEST_BATCH_LIMIT   = '77';
+        process.env.NEO_CONCEPT_DISCOVERY_MESSAGE_HARVEST_TOP_N         = '9';
+        process.env.NEO_CONCEPT_DISCOVERY_MESSAGE_HARVEST_MIN_FREQUENCY = '3';
+
+        const freshCfg = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
+
+        try {
+            expect(freshCfg.conceptDiscovery.messageHarvestBatchLimit).toBe(77);
+            expect(freshCfg.conceptDiscovery.messageHarvestTopN).toBe(9);
+            expect(freshCfg.conceptDiscovery.messageHarvestMinFrequency).toBe(3);
+        } finally {
+            delete process.env.NEO_CONCEPT_DISCOVERY_MESSAGE_HARVEST_BATCH_LIMIT;
+            delete process.env.NEO_CONCEPT_DISCOVERY_MESSAGE_HARVEST_TOP_N;
+            delete process.env.NEO_CONCEPT_DISCOVERY_MESSAGE_HARVEST_MIN_FREQUENCY;
+            freshCfg.destroy();
+        }
+    });
+
     test('collections.memory/session resolve by construction to per-worker-unique test names under the toggle (#12499)', () => {
         // The reshape replaced the inline `process.env.UNIT_TEST_MODE ? test-... : prod` leaf ternaries
         // with *Prod/*Test leaves + formulas; the test names are per-worker-unique module consts. Under
@@ -249,6 +322,22 @@ test.describe('Memory Core Config (#10010)', () => {
 
         try {
             expect(freshCfg.remRunRetentionLimit).toBe(50);
+        } finally {
+            freshCfg.destroy();
+        }
+    });
+
+    test('maxSessionsPerSummarySweep defaults to 5 and parses NEO_MC_MAX_SESSIONS_PER_SUMMARY_SWEEP as a number (#13592)', () => {
+        expect(config.maxSessionsPerSummarySweep).toBe(5);
+
+        process.env.NEO_MC_MAX_SESSIONS_PER_SUMMARY_SWEEP = '3';
+
+        // Fresh isolated instance picks up the env via #applyEnvLayer at construction —
+        // never mutate the shared singleton.
+        const freshCfg = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
+
+        try {
+            expect(freshCfg.maxSessionsPerSummarySweep).toBe(3);
         } finally {
             freshCfg.destroy();
         }

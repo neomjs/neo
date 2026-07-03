@@ -36,6 +36,17 @@ services:
       - NEO_CHROMA_PORT=8000
       - MCP_HTTP_PORT=3000
       - NEO_MEMORY_DB_PATH=/app/.neo-ai-data/sqlite/memory-core-graph.sqlite
+      # Ask-synthesis pass-throughs (ask_knowledge_base -> SearchService.ask): the synthesis
+      # provider + its DEDICATED budget-cappable key (NEO_KB_ASK_API_KEY, never the shared
+      # GEMINI_API_KEY). Empty default -> the config-template default applies; with no key the
+      # ask path fails soft to references-only (no crash). The secret VALUE stays runtime-only.
+      - NEO_KB_ASK_PROVIDER=${NEO_KB_ASK_PROVIDER:-}
+      - NEO_KB_ASK_MODEL=${NEO_KB_ASK_MODEL:-}
+      - NEO_KB_ASK_API_KEY=${NEO_KB_ASK_API_KEY:-}
+      - NEO_KB_ASK_BASE_URL=${NEO_KB_ASK_BASE_URL:-}
+      - NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS=${NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS:-}
+      - NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS_REMOTE=${NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS_REMOTE:-}
+      - NEO_KB_ASK_MAX_RPM=${NEO_KB_ASK_MAX_RPM:-}
 
     volumes:
       - ../..:/app
@@ -74,6 +85,9 @@ services:
       # daemon. Dev bind-mounts the source at /app, so the default WAL dir persists on the host.
       - NEO_MEMORY_WAL_IN_PROCESS_DRAIN=true
       - NEO_MEMORY_WAL_POLL_INTERVAL_MS=250
+      # Message WAL drain mirrors memory WAL topology; default dir derives from memoryWal.dir.
+      - NEO_MESSAGE_WAL_IN_PROCESS_DRAIN=true
+      - NEO_MESSAGE_WAL_POLL_INTERVAL_MS=250
 
     volumes:
       - ../..:/app

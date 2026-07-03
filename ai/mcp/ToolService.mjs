@@ -1,7 +1,9 @@
 import fs                                                 from 'fs';
-import yaml                                               from 'js-yaml';
-import {zodToJsonSchema}                                  from 'zod-to-json-schema';
-import {buildZodSchema, buildOutputZodSchema, resolveRef} from './validation/openApiValidator.mjs';
+import * as yaml from 'js-yaml';
+import {buildZodSchema,
+        buildOutputZodSchema,
+        resolveRef,
+        toOpenApiJsonSchema}                              from './validation/openApiValidator.mjs';
 import Base                                               from '../../src/core/Base.mjs';
 
 /**
@@ -22,7 +24,18 @@ class ToolService_tmp extends Base {
          * Path to the OpenAPI specification file.
          * @member {String|null} openApiFilePath=null
          */
-        openApiFilePath: null
+        openApiFilePath: null,
+        /**
+         * Enables compact `tools/list` descriptions while preserving full
+         * detail for `getToolHandbook()`.
+         * @member {Boolean} compactToolDescriptions=false
+         */
+        compactToolDescriptions: false,
+        /**
+         * Maximum description length emitted through compact `tools/list`.
+         * @member {Number} toolListDescriptionMaxLength=160
+         */
+        toolListDescriptionMaxLength: 160
     }
 
     /**
@@ -32,17 +45,35 @@ class ToolService_tmp extends Base {
      */
     allToolsForListing = null
     /**
+     * OpenAPI-root projection policy for harness-embedded tool surfaces.
+     * @member {Object|null} harnessToolProjection=null
+     * @protected
+     */
+    harnessToolProjection = null
+    /**
      * Map of service method handlers.
      * Only getting set for MCP servers.
      * @member {Object|null} serviceMapping=null
      */
     serviceMapping = null
     /**
+     * Tool projection tier by operationId. Populated from `x-neo-tool-tier`.
+     * @member {Object|null} toolProjectionTiers=null
+     * @protected
+     */
+    toolProjectionTiers = null
+    /**
      * Internal cache for parsed tool definitions.
      * @member {Object|null} toolMapping=null
      * @protected
      */
     toolMapping = null
+    /**
+     * Internal cache for lazy-loaded tool handbook entries.
+     * @member {Object|null} toolHandbookMapping=null
+     * @protected
+     */
+    toolHandbookMapping = null
 
     /**
      * Executes a specific tool with the given arguments.
@@ -50,19 +81,18 @@ class ToolService_tmp extends Base {
      * @param {Object} args
      * @returns {Promise<any>}
      */
-    async callTool(toolName, args) {
+    async callTool(toolName, args, options={}) {
         this.initializeToolMapping();
 
-        const lastDoubleUnderscoreIndex = toolName.lastIndexOf('__');
-        const effectiveToolName = lastDoubleUnderscoreIndex !== -1
-            ? toolName.substring(lastDoubleUnderscoreIndex + 2)
-            : toolName;
+        const effectiveToolName = this.resolveEffectiveToolName(toolName);
 
         const tool = this.toolMapping[effectiveToolName];
 
         if (!tool || !tool.handler) {
             throw new Error(`Tool "${effectiveToolName}" not found or not implemented.`);
         }
+
+        this.assertToolProjectionAllows(effectiveToolName, options.toolProjection);
 
         const validatedArgs = tool.zodSchema.parse(args);
 
@@ -92,26 +122,27 @@ class ToolService_tmp extends Base {
             return;
         }
 
-        me.toolMapping        = {};
-        me.allToolsForListing = [];
+        me.toolMapping         = {};
+        me.allToolsForListing  = [];
+        me.toolHandbookMapping = {};
+        me.toolProjectionTiers = {};
 
         const openApiDocument = yaml.load(fs.readFileSync(me.openApiFilePath, 'utf8'));
+        me.harnessToolProjection = openApiDocument['x-neo-harness-tool-projection'] || null;
 
         for (const pathItem of Object.values(openApiDocument.paths)) {
             for (const operation of Object.values(pathItem)) {
                 if (operation.operationId) {
                     const toolName = operation.operationId;
+                    const toolTier = operation['x-neo-tool-tier'] || null;
 
                     const inputZodSchema  = buildZodSchema(openApiDocument, operation);
-                    const inputJsonSchema = zodToJsonSchema(inputZodSchema, {
-                        target      : 'openApi3',
-                        $refStrategy: 'none'
-                    });
+                    const inputJsonSchema = toOpenApiJsonSchema(inputZodSchema);
 
                     const outputZodSchema = buildOutputZodSchema(openApiDocument, operation);
                     let outputJsonSchema  = null;
                     if (outputZodSchema) {
-                        outputJsonSchema = zodToJsonSchema(outputZodSchema);
+                        outputJsonSchema = toOpenApiJsonSchema(outputZodSchema);
                     }
 
                     const argNames = (operation.parameters || []).map(p => p.name);
@@ -125,16 +156,24 @@ class ToolService_tmp extends Base {
                         }
                     }
 
+                    const fullDescription = operation.description || operation.summary || toolName;
+                    const listDescription = me.compactToolDescriptions
+                        ? me.buildToolListDescription(operation, fullDescription)
+                        : fullDescription;
+
                     const tool = {
                         name        : toolName,
                         title       : operation.summary || toolName,
-                        description : operation.description || operation.summary,
+                        description : listDescription,
                         zodSchema   : inputZodSchema,
+                        toolTier,
                         argNames,
                         handler     : me.serviceMapping ? me.serviceMapping[toolName] : null,
                         passAsObject: operation['x-pass-as-object'] === true
                     };
                     me.toolMapping[toolName] = tool;
+                    me.toolProjectionTiers[toolName] = toolTier;
+                    me.toolHandbookMapping[toolName] = me.buildToolHandbookEntry(toolName, operation, fullDescription);
 
                     const toolForListing = {
                         name       : tool.name,
@@ -155,33 +194,186 @@ class ToolService_tmp extends Base {
     }
 
     /**
+     * @summary Builds the compact description emitted through `tools/list`.
+     * @param {Object} operation       Parsed OpenAPI operation.
+     * @param {String} fullDescription Full operation description fallback.
+     * @returns {String}
+     * @protected
+     */
+    buildToolListDescription(operation, fullDescription) {
+        const
+            source = operation['x-neo-tool-summary'] || operation.summary || fullDescription || '',
+            singleLine = String(source).replace(/\s+/g, ' ').trim(),
+            maxLength  = this.toolListDescriptionMaxLength;
+
+        if (!maxLength || singleLine.length <= maxLength) {
+            return singleLine;
+        }
+
+        return `${singleLine.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
+    }
+
+    /**
+     * @summary Builds one lazy-loaded handbook entry from OpenAPI metadata.
+     * @param {String} toolName        The operation id.
+     * @param {Object} operation       Parsed OpenAPI operation.
+     * @param {String} fullDescription Full operation description fallback.
+     * @returns {Object}
+     * @protected
+     */
+    buildToolHandbookEntry(toolName, operation, fullDescription) {
+        const
+            dedicated = operation['x-neo-tool-handbook'],
+            handbook  = dedicated || fullDescription || operation.summary || toolName;
+
+        return {
+            toolId     : toolName,
+            found      : true,
+            title      : operation.summary || toolName,
+            description: operation.description || operation.summary || '',
+            handbook,
+            source     : dedicated ? 'x-neo-tool-handbook' : (operation.description ? 'description' : 'summary')
+        };
+    }
+
+    /**
+     * @summary Returns the lazy-loaded handbook entry for one tool id/name.
+     * @param {String} toolId The OpenAPI operation id or namespaced MCP tool id.
+     * @returns {Object}
+     */
+    getToolHandbook(toolId) {
+        this.initializeToolMapping();
+
+        const
+            requestedToolId = String(toolId || ''),
+            effectiveToolId = this.resolveEffectiveToolName(requestedToolId),
+            entry           = this.toolHandbookMapping[effectiveToolId];
+
+        if (!entry) {
+            return {
+                toolId: requestedToolId,
+                found : false,
+                code  : 'TOOL_NOT_FOUND',
+                message: `Tool "${requestedToolId}" does not exist in this MCP server.`
+            };
+        }
+
+        return entry;
+    }
+
+    /**
      * Provides a paginated list of available tools.
      * @param {Object} [options]
      * @param {Number} [options.cursor=0]
      * @param {Number} [options.limit]
      * @returns {Object}
      */
-    listTools({cursor=0, limit} = {}) {
+    listTools({cursor=0, limit, toolProjection} = {}) {
         const me = this;
 
         me.initializeToolMapping();
+        const toolsForListing = me.getToolsForProjection(toolProjection);
 
         if (!limit) {
             return {
-                tools     : me.allToolsForListing,
+                tools     : toolsForListing,
                 nextCursor: undefined
             };
         }
 
         const start      = cursor;
         const end        = start + limit;
-        const toolsSlice = me.allToolsForListing.slice(start, end);
-        const nextCursor = end < me.allToolsForListing.length ? String(end) : undefined;
+        const toolsSlice = toolsForListing.slice(start, end);
+        const nextCursor = end < toolsForListing.length ? String(end) : undefined;
 
         return {
             tools: toolsSlice,
             nextCursor
         };
+    }
+
+    /**
+     * @summary Returns the server-declared harness projection policy.
+     * @returns {Object|null}
+     */
+    getToolProjectionPolicy() {
+        this.initializeToolMapping();
+        return this.harnessToolProjection;
+    }
+
+    /**
+     * @summary Returns tools visible through an explicit projection context.
+     * No context means the existing developer/operator surface stays full.
+     * @param {Object|String|null} toolProjection
+     * @returns {Array<Object>}
+     */
+    getToolsForProjection(toolProjection) {
+        const me      = this,
+              context = me.normalizeToolProjectionContext(toolProjection);
+
+        if (!context) {
+            return me.allToolsForListing;
+        }
+
+        return me.allToolsForListing.filter(tool => me.isToolAllowedForProjection(tool.name, context));
+    }
+
+    /**
+     * @summary Throws when a tool is not visible through the supplied projection context.
+     * @param {String}             toolName
+     * @param {Object|String|null} toolProjection
+     */
+    assertToolProjectionAllows(toolName, toolProjection) {
+        const me      = this,
+              context = me.normalizeToolProjectionContext(toolProjection);
+
+        if (!context || me.isToolAllowedForProjection(toolName, context)) {
+            return;
+        }
+
+        const error = new Error(`Tool "${toolName}" is not visible in the ${context.mode || 'unknown'} projection.`);
+        error.code   = 'POLICY_REFUSED';
+        error.reason = error.message;
+        throw error;
+    }
+
+    /**
+     * @summary Normalizes the projection context passed by a server boundary.
+     * @param {Object|String|null} toolProjection
+     * @returns {Object|null}
+     * @protected
+     */
+    normalizeToolProjectionContext(toolProjection) {
+        if (!toolProjection) {
+            return null;
+        }
+
+        if (Neo.isString(toolProjection)) {
+            return {mode: toolProjection};
+        }
+
+        return toolProjection;
+    }
+
+    /**
+     * @summary Applies the OpenAPI-root harness projection policy to one tool.
+     * Unknown projection modes and missing tiers fail closed.
+     * @param {String} toolName
+     * @param {Object} context
+     * @returns {Boolean}
+     * @protected
+     */
+    isToolAllowedForProjection(toolName, context) {
+        const me = this;
+
+        if (context.mode !== 'harness-embedded') {
+            return false;
+        }
+
+        const visibleTiers = me.harnessToolProjection?.defaultVisibleTiers || [],
+              toolTier     = me.toolProjectionTiers?.[toolName];
+
+        return Boolean(toolTier && visibleTiers.includes(toolTier));
     }
 
     /**
@@ -271,10 +463,7 @@ class ToolService_tmp extends Base {
 
         // 1. Try Server-side validation using internal Zod schemas
         if (me.toolMapping) {
-            const lastDoubleUnderscoreIndex = toolName.lastIndexOf('__');
-            const effectiveToolName = lastDoubleUnderscoreIndex !== -1
-                ? toolName.substring(lastDoubleUnderscoreIndex + 2)
-                : toolName;
+            const effectiveToolName = this.resolveEffectiveToolName(toolName);
 
             const tool = me.toolMapping[effectiveToolName];
             if (tool) {
@@ -289,6 +478,20 @@ class ToolService_tmp extends Base {
         }
 
         return true;
+    }
+
+    /**
+     * @summary Resolves namespaced MCP tool ids back to OpenAPI operation ids.
+     * @param {String} toolName
+     * @returns {String}
+     * @protected
+     */
+    resolveEffectiveToolName(toolName) {
+        const lastDoubleUnderscoreIndex = toolName.lastIndexOf('__');
+
+        return lastDoubleUnderscoreIndex !== -1
+            ? toolName.substring(lastDoubleUnderscoreIndex + 2)
+            : toolName;
     }
 }
 

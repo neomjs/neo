@@ -29,7 +29,10 @@ connect-error (Invalid Host, missing `Accept` header, the auth layers, the
 When using the optional ingress profile, `ai/deploy/Caddyfile` binds
 `tls internal` to `NEO_DEPLOY_HOSTNAME`, defaulting to `localhost`. Set
 `NEO_DEPLOY_HOSTNAME` before starting the ingress service when testing a named
-host.
+host. If you enable the `gitlab-pat` auth profile and compose reports unhealthy
+KB/MC containers or `dependency <svc> failed to start`, see the
+[Connection Troubleshooting](./Troubleshooting.md) entry for the required
+healthcheck bearer token.
 
 ## Prerequisites
 
@@ -223,9 +226,9 @@ Expected payload fields:
 {
   "status": "healthy",
   "database": {
-    "topology": {
-      "mode": "unified",
-      "resolvedVia": "engines.chroma"
+    "connection": {
+      "connected": true,
+      "engines": { "chroma": true }
     }
   },
   "providers": {
@@ -281,7 +284,6 @@ Failure signatures:
 |---|---|---|
 | `401 Unauthorized: Missing proxy identity header` | `NEO_AUTH_TRUST_PROXY_IDENTITY=true` but no trusted identity header reached the MCP server. | Verify ingress header stripping/injection and use the same auth path as real agents. |
 | `database.connected: false` | MC cannot reach Chroma or SQLite graph storage. | Check `NEO_CHROMA_HOST`, `NEO_CHROMA_PORT`, `NEO_MEMORY_DB_PATH`, and container networking. |
-| Missing `database.topology.mode: "unified"` | The deployment is not using the supported unified Chroma topology. | Check your compose/profile config: Chroma should run as a single unified store (`topology.mode: "unified"`). |
 
 ## Milestone 2 - Knowledge Base Connection Over Neo-Shared Content
 

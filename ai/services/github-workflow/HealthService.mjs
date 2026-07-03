@@ -5,6 +5,7 @@ import RuntimeFreshnessService from '../../mcp/server/shared/services/RuntimeFre
 import Base                    from '../../../src/core/Base.mjs';
 import logger                  from '../../mcp/server/github-workflow/logger.mjs';
 import semver                  from 'semver';
+import {assertExpectedIdentity} from '../../graph/assertExpectedIdentity.mjs';
 
 const
     execAsync               = promisify(exec),
@@ -22,6 +23,57 @@ const
         statusFields      : ['openApiDigest'],
         unavailableSummary: 'git metadata and OpenAPI digest'
     });
+
+/**
+ * GitHub notification reasons that should become active wake-content signals.
+ * `review_requested` is included alongside direct mentions because both are
+ * user-addressed GitHub notification primitives an agent must discover in-session.
+ * @type {String[]}
+ */
+export const GITHUB_WAKE_NOTIFICATION_REASONS = Object.freeze(['mention', 'review_requested']);
+
+/**
+ * @summary Projects a raw GitHub notification into the wake-safe shape shared by
+ * the health preview and swarm-heartbeat ingestion.
+ * @param {Object} notification Raw `gh api notifications` entry.
+ * @returns {Object}
+ */
+export function projectWakeNotification(notification = {}) {
+    return {
+        id    : notification.id,
+        reason: notification.reason,
+        type  : notification.subject?.type,
+        title : notification.subject?.title,
+        url   : notification.subject?.url
+    }
+}
+
+/**
+ * @summary Filters raw GitHub notifications down to wake-relevant reasons.
+ * @param {Object[]} notifications Raw `gh api notifications` payload.
+ * @returns {Object[]} Wake-safe projected notifications.
+ */
+export function getWakeRelevantNotifications(notifications = []) {
+    if (!Array.isArray(notifications)) return [];
+    return notifications
+        .filter(notification => GITHUB_WAKE_NOTIFICATION_REASONS.includes(notification?.reason))
+        .map(projectWakeNotification)
+        .filter(notification => notification.id)
+}
+
+/**
+ * @summary Builds the passive healthcheck preview from the same notification
+ * projection that the heartbeat lane consumes.
+ * @param {Object[]} notifications Raw `gh api notifications` payload.
+ * @returns {{unreadCount:Number,latest:Object[]}}
+ */
+export function buildNotificationPreview(notifications = []) {
+    const relevant = getWakeRelevantNotifications(notifications);
+    return {
+        unreadCount: relevant.length,
+        latest     : relevant.slice(0, 5)
+    }
+}
 
 /**
  * @summary Monitors and validates the GitHub CLI dependency for the MCP server.
@@ -134,6 +186,24 @@ class HealthService extends Base {
      * @member {Function|null} runtimeFreshnessReader
      */
     runtimeFreshnessReader = null;
+
+    /**
+     * Optional unit-test seam for injecting the authenticated GitHub login read. Defaults to
+     * resolving it via `gh api user --jq .login`; tests inject a drifted login to exercise the
+     * degraded path without a live `gh`.
+     * @member {Function|null} agentLoginReader
+     */
+    agentLoginReader = null;
+
+    /**
+     * Injectable reader for the Memory-Core self-identity — the second surface that shares the
+     * agent's token. Its source (the MCP request context) lives above this service layer, so the
+     * github-workflow server injects it at wire-up; left null elsewhere, where the GitHub-login leg
+     * still asserts. A null or unresolvable read skips the Memory-Core leg rather than failing the
+     * healthcheck on a missing supplementary signal. Mirrors {@link agentLoginReader}.
+     * @member {Function|null} memoryCoreIdentityReader
+     */
+    memoryCoreIdentityReader = null;
 
     /**
      * ISO timestamp captured when this server module was loaded.
@@ -290,7 +360,7 @@ class HealthService extends Base {
      * to 'healthy'), we log a clear message so users know their fix worked.
      * @returns {Promise<object>} A health status payload with structure:
      *   {
-     *     status: 'healthy' | 'unhealthy',
+     *     status: 'healthy' | 'degraded' | 'unhealthy',
      *     timestamp: ISO string,
      *     githubCli: {
      *       installed: boolean,
@@ -391,6 +461,55 @@ class HealthService extends Base {
     }
 
     /**
+     * @summary Asserts the live authenticated identity is the EXPECTED agent (`NEO_AGENT_IDENTITY`).
+     *
+     * A drifted `GH_TOKEN` authenticates cleanly yet acts as the wrong identity — the silent failure
+     * class that mis-attributes PRs and reviews. This resolves the live login (via {@link agentLoginReader},
+     * defaulting to `gh api user --jq .login`) and, when a {@link memoryCoreIdentityReader} is injected,
+     * the Memory-Core self-identity (the second surface sharing the token), then delegates the
+     * fail-closed comparison to the pure `assertExpectedIdentity` core — so a drift on EITHER surface
+     * degrades the healthcheck. Returns `{ok:true}` (a no-op) when no expected identity is configured,
+     * fails closed when the login cannot be resolved, and skips the Memory-Core leg when its reader is
+     * absent or yields nothing.
+     *
+     * @returns {Promise<{ok: Boolean, reason: (String|null)}>}
+     */
+    async checkAgentIdentity() {
+        const expectedIdentity = process.env.NEO_AGENT_IDENTITY;
+
+        // No expected identity declared (non-harness / unconfigured) — nothing to assert against.
+        if (!expectedIdentity) {
+            return {ok: true, reason: null};
+        }
+
+        let actualLogin;
+
+        try {
+            const readLogin = this.agentLoginReader || (async () => (await execAsync('gh api user --jq .login')).stdout.trim());
+            actualLogin = await readLogin();
+        } catch (e) {
+            // The authed login could not be resolved — fail closed; a drift cannot be ruled out.
+            return {ok: false, reason: `identity drift: could not resolve the authed GitHub login (${e.message})`};
+        }
+
+        // Second surface that shares the drifted token: the Memory-Core self-identity. Sourced via the
+        // injected reader (its MCP request context lives above this layer); absent or unresolvable ->
+        // left null so the core asserts the GitHub surface alone rather than failing the healthcheck on
+        // a missing supplementary signal.
+        let memoryCoreIdentity = null;
+
+        if (this.memoryCoreIdentityReader) {
+            try {
+                memoryCoreIdentity = await this.memoryCoreIdentityReader();
+            } catch (e) {
+                memoryCoreIdentity = null;
+            }
+        }
+
+        return assertExpectedIdentity({expected: expectedIdentity, actualLogin, memoryCoreIdentity});
+    }
+
+    /**
      * Performs a comprehensive health check without using the cache.
      *
      * Intent: This is the core health check logic, separated from the caching layer
@@ -461,22 +580,24 @@ class HealthService extends Base {
             payload.githubCli.details.push(authCheck.error);
             logger.info('[HealthService] gh-status: unauthenticated');
         } else {
-            // Step 3: Enrich with Notifications (Passive Inbox) if authenticated
+            // Step 3: Identity-drift assertion. The agent IS authenticated — but is it the EXPECTED
+            // agent? A drifted GH_TOKEN authenticates cleanly yet acts as the wrong identity — the
+            // silent failure that mis-attributes PRs and reviews. Degrade (not unhealthy: auth is
+            // valid) so a drifted token is surfaced loudly here, before any state-changing write.
+            const identityResult = await this.checkAgentIdentity();
+
+            if (!identityResult.ok) {
+                payload.status                  = 'degraded';
+                payload.githubCli.identityDrift = identityResult.reason;
+                payload.githubCli.details.push(identityResult.reason);
+                logger.warn(`[HealthService] gh-status: degraded; ${identityResult.reason}`);
+            }
+
+            // Step 4: Enrich with Notifications (Passive Inbox) if authenticated
             try {
                 const { stdout } = await execAsync("gh api 'notifications?participating=true'");
                 const notifications = JSON.parse(stdout);
-                const mentions = notifications.filter(n => n.reason === 'mention');
-
-                payload.notificationPreview = {
-                    unreadCount: mentions.length,
-                    latest: mentions.slice(0, 5).map(n => ({
-                        id: n.id,
-                        reason: n.reason,
-                        type: n.subject?.type,
-                        title: n.subject?.title,
-                        url: n.subject?.url
-                    }))
-                };
+                payload.notificationPreview = buildNotificationPreview(notifications);
             } catch (e) {
                 logger.warn(`[HealthService] Failed to fetch notifications for preview: ${e.message}`);
                 // Don't fail the healthcheck if notifications fail, just omit the preview

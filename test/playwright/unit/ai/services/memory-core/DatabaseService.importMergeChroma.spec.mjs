@@ -28,6 +28,7 @@ test.describe.configure({mode: 'serial'});
 test.describe('Memory_DatabaseService — Chroma preserve-live parity for #importMemories (#11144)', () => {
     let SDK, Memory_DatabaseService, Memory_StorageRouter;
     let originalGetMemory, originalGetSummary, tmpDir;
+    let validEmbedding;
 
     /**
      * Builds a recording fake Chroma collection used by the spec to assert that:
@@ -85,6 +86,11 @@ test.describe('Memory_DatabaseService — Chroma preserve-live parity for #impor
         aiConfig.collections.memory  = `test-memory-${process.pid}-${Date.now()}`;
         aiConfig.collections.session = `test-session-${process.pid}-${Date.now()}`;
 
+        // The atomic vector-write invariant validates each imported row's embedding length against the
+        // resolved aiConfig.vectorDimension. Build fixtures AT that dimension (READ it, never mutate — the
+        // reactive Provider SSOT must not be written from a test) so they pass the gate authentically.
+        validEmbedding = new Array(aiConfig.vectorDimension).fill(0);
+
         SDK                    = await import('../../../../../../ai/services.mjs');
         Memory_DatabaseService = SDK.Memory_DatabaseService;
         Memory_StorageRouter   = SDK.Memory_StorageRouter;
@@ -118,9 +124,9 @@ test.describe('Memory_DatabaseService — Chroma preserve-live parity for #impor
 
         const backupFile = path.join(tmpDir, `memory-backup-merge-collision-${Date.now()}.jsonl`);
         await writeJsonl(backupFile, [
-            {id: 'mem-1', embedding: [0.1], metadata: {tag: 'BACKUP'}, document: 'backup-doc-for-mem-1'},
-            {id: 'mem-3', embedding: [0.3], metadata: {tag: 'NEW'},    document: 'new-doc-mem-3'},
-            {id: 'mem-4', embedding: [0.4], metadata: {tag: 'NEW'},    document: 'new-doc-mem-4'}
+            {id: 'mem-1', embedding: validEmbedding, metadata: {tag: 'BACKUP'}, document: 'backup-doc-for-mem-1'},
+            {id: 'mem-3', embedding: validEmbedding, metadata: {tag: 'NEW'},    document: 'new-doc-mem-3'},
+            {id: 'mem-4', embedding: validEmbedding, metadata: {tag: 'NEW'},    document: 'new-doc-mem-4'}
         ]);
 
         const result = await Memory_DatabaseService.manageDatabaseBackup({
@@ -151,8 +157,8 @@ test.describe('Memory_DatabaseService — Chroma preserve-live parity for #impor
 
         const backupFile = path.join(tmpDir, `memory-backup-merge-full-collide-${Date.now()}.jsonl`);
         await writeJsonl(backupFile, [
-            {id: 'mem-1', embedding: [0.1], metadata: {tag: 'B'}, document: 'b1'},
-            {id: 'mem-2', embedding: [0.2], metadata: {tag: 'B'}, document: 'b2'}
+            {id: 'mem-1', embedding: validEmbedding, metadata: {tag: 'B'}, document: 'b1'},
+            {id: 'mem-2', embedding: validEmbedding, metadata: {tag: 'B'}, document: 'b2'}
         ]);
 
         const result = await Memory_DatabaseService.manageDatabaseBackup({
@@ -173,8 +179,8 @@ test.describe('Memory_DatabaseService — Chroma preserve-live parity for #impor
 
         const backupFile = path.join(tmpDir, `memory-backup-merge-no-collide-${Date.now()}.jsonl`);
         await writeJsonl(backupFile, [
-            {id: 'fresh-1', embedding: [0.1], metadata: {tag: 'N'}, document: 'f1'},
-            {id: 'fresh-2', embedding: [0.2], metadata: {tag: 'N'}, document: 'f2'}
+            {id: 'fresh-1', embedding: validEmbedding, metadata: {tag: 'N'}, document: 'f1'},
+            {id: 'fresh-2', embedding: validEmbedding, metadata: {tag: 'N'}, document: 'f2'}
         ]);
 
         const result = await Memory_DatabaseService.manageDatabaseBackup({
@@ -187,6 +193,71 @@ test.describe('Memory_DatabaseService — Chroma preserve-live parity for #impor
         expect(result.counts.memories.skippedExisting).toBe(0);
         expect(memoryCollection.addCalls[0].ids.sort()).toEqual(['fresh-1', 'fresh-2']);
         expect(memoryCollection.upsertCalls.length).toBe(0);
+    });
+
+    test('merge mode: atomic vector-write invariant rejects rows lacking a valid same-dimension vector', async () => {
+        // The gate (non-reEmbed) must reject missing / empty / wrong-dimension embeddings fail-loud, so a
+        // metadata-only row is never half-persisted (the corruption shape the invariant exists to prevent).
+        // expectedDimension is the resolved aiConfig.vectorDimension; only a same-dimension finite vector is valid.
+        const memoryCollection = buildFakeCollection({name: 'fake-memories', liveIds: []});
+        Memory_StorageRouter.getMemoryCollection  = async () => memoryCollection;
+        Memory_StorageRouter.getSummaryCollection = async () => buildFakeCollection({name: 'fake-summaries'});
+
+        const backupFile = path.join(tmpDir, `memory-backup-vector-invariant-${Date.now()}.jsonl`);
+        await writeJsonl(backupFile, [
+            {id: 'gate-valid',    embedding: validEmbedding,      metadata: {tag: 'OK'},  document: 'valid'},
+            {id: 'gate-wrongdim', embedding: [0.1, 0.2], metadata: {tag: 'BAD'}, document: 'wrong-dim'},
+            {id: 'gate-empty',    embedding: [],         metadata: {tag: 'BAD'}, document: 'empty'},
+            {id: 'gate-missing',  metadata: {tag: 'BAD'}, document: 'no-embedding'}
+        ]);
+
+        const result = await Memory_DatabaseService.manageDatabaseBackup({
+            action: 'import',
+            file  : backupFile,
+            mode  : 'merge'
+        });
+
+        // Only the valid row persists; the 3 invalid rows are rejected fail-loud (counted failed, never added).
+        expect(result.counts.memories.inserted).toBe(1);
+        expect(result.counts.memories.failed).toBe(3);
+        expect(memoryCollection.addCalls.length).toBe(1);
+        expect(memoryCollection.addCalls[0].ids).toEqual(['gate-valid']);
+    });
+
+    test('replace mode: atomic vector-write invariant rejects invalid vectors on the upsert path', async () => {
+        // The gate guards BOTH branches; replace-mode upsert must reject missing/wrong-dim the same way,
+        // adjusting fileInserted (records.length - rejected) so the count stays truthful.
+        const memoryCollection = buildFakeCollection({name: 'fake-memories', liveIds: []});
+        Memory_StorageRouter.getMemoryCollection  = async () => memoryCollection;
+        Memory_StorageRouter.getSummaryCollection = async () => buildFakeCollection({name: 'fake-summaries'});
+
+        // Replace mode truncates first; stub the destructive guard to isolate the upsert-gate path.
+        const originalTruncate = Memory_DatabaseService.truncateDatabase.bind(Memory_DatabaseService);
+        Memory_DatabaseService.truncateDatabase = async () => ({message: 'stubbed for replace-mode gate test'});
+
+        try {
+            const backupFile = path.join(tmpDir, `memory-backup-replace-gate-${Date.now()}.jsonl`);
+            await writeJsonl(backupFile, [
+                {id: 'r-valid',    embedding: validEmbedding,      metadata: {tag: 'OK'},  document: 'valid'},
+                {id: 'r-wrongdim', embedding: [0.1, 0.2], metadata: {tag: 'BAD'}, document: 'wrong-dim'},
+                {id: 'r-missing',  metadata: {tag: 'BAD'}, document: 'no-embedding'}
+            ]);
+
+            const result = await Memory_DatabaseService.manageDatabaseBackup({
+                action: 'import',
+                file  : backupFile,
+                mode  : 'replace'
+            });
+
+            // Only the valid row upserts; the 2 invalid rows are rejected fail-loud (never upserted).
+            expect(result.mode).toBe('replace');
+            expect(result.counts.memories.inserted).toBe(1);
+            expect(result.counts.memories.failed).toBe(2);
+            expect(memoryCollection.upsertCalls.length).toBe(1);
+            expect(memoryCollection.upsertCalls[0].ids).toEqual(['r-valid']);
+        } finally {
+            Memory_DatabaseService.truncateDatabase = originalTruncate;
+        }
     });
 
     test('replace mode: upsert() called for full record set; merge-mode counters stay 0', async () => {
@@ -205,8 +276,8 @@ test.describe('Memory_DatabaseService — Chroma preserve-live parity for #impor
         try {
             const backupFile = path.join(tmpDir, `memory-backup-replace-${Date.now()}.jsonl`);
             await writeJsonl(backupFile, [
-                {id: 'mem-1', embedding: [0.1], metadata: {tag: 'R'}, document: 'r1'},
-                {id: 'mem-2', embedding: [0.2], metadata: {tag: 'R'}, document: 'r2'}
+                {id: 'mem-1', embedding: validEmbedding, metadata: {tag: 'R'}, document: 'r1'},
+                {id: 'mem-2', embedding: validEmbedding, metadata: {tag: 'R'}, document: 'r2'}
             ]);
 
             const result = await Memory_DatabaseService.manageDatabaseBackup({
@@ -235,9 +306,9 @@ test.describe('Memory_DatabaseService — Chroma preserve-live parity for #impor
 
         const backupFile = path.join(tmpDir, `summaries-backup-merge-${Date.now()}.jsonl`);
         await writeJsonl(backupFile, [
-            {id: 'sum-1', embedding: [0.1], metadata: {tag: 'B'}, document: 'b1'}, // collides
-            {id: 'sum-3', embedding: [0.3], metadata: {tag: 'N'}, document: 'n3'}, // new
-            {id: 'sum-4', embedding: [0.4], metadata: {tag: 'N'}, document: 'n4'}  // new
+            {id: 'sum-1', embedding: validEmbedding, metadata: {tag: 'B'}, document: 'b1'}, // collides
+            {id: 'sum-3', embedding: validEmbedding, metadata: {tag: 'N'}, document: 'n3'}, // new
+            {id: 'sum-4', embedding: validEmbedding, metadata: {tag: 'N'}, document: 'n4'}  // new
         ]);
 
         const result = await Memory_DatabaseService.manageDatabaseBackup({
@@ -265,7 +336,7 @@ test.describe('Memory_DatabaseService — Chroma preserve-live parity for #impor
 
         const memoryFile = path.join(tmpDir, `memory-backup-shape-${Date.now()}.jsonl`);
         await writeJsonl(memoryFile, [
-            {id: 'shape-mem-1', embedding: [0.1], metadata: {}, document: 'd1'}
+            {id: 'shape-mem-1', embedding: validEmbedding, metadata: {}, document: 'd1'}
         ]);
 
         const result = await Memory_DatabaseService.manageDatabaseBackup({

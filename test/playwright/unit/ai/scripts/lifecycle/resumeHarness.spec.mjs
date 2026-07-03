@@ -65,8 +65,8 @@ test.describe('ai/scripts/resumeHarness', () => {
      *
      * Codex live-host opt-in: `codex debug app-server send-message-v2`
      * creates/injects into a real Codex Desktop thread. Default tests MUST use
-     * `CODEX_APP_SERVER_MOCK=1` plus a `CODEX_CLI_PATH` mock. Real probes require
-     * `RUN_LIVE_CODEX_APP_SERVER=1`.
+     * `CODEX_APP_SERVER_MOCK=1` plus a mock CLI path (`CODEX_CLI_PATH` or
+     * `CODEX_DESKTOP_CLI_PATH`). Real probes require `RUN_LIVE_CODEX_APP_SERVER=1`.
      */
     let gatePath, overrideEnv;
     const gateOnlyEnv = () => ({...process.env, WAKE_GATE_FILE_PATH: gatePath});
@@ -117,7 +117,7 @@ test.describe('ai/scripts/resumeHarness', () => {
             tabShortcut         : '3',
             freshSessionShortcut: 'n'
         });
-        expect(resolveHarnessTargetForIdentity('@neo-claude-opus')).toMatchObject({
+        expect(resolveHarnessTargetForIdentity('@neo-opus-grace')).toMatchObject({
             adapter             : 'osascript',
             appName             : 'Claude',
             tabShortcut         : '3',
@@ -392,6 +392,9 @@ test.describe('ai/scripts/resumeHarness', () => {
         // prose payload. Static-read the prompt builder to verify the shape.
         const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
         expect(scriptContent).toContain('@AGENTS_STARTUP.md');
+        expect(scriptContent).toContain('explicit non-empty prompt/thought/response fields');
+        expect(scriptContent).toContain('Boot heartbeat for ${identity}');
+        expect(scriptContent).not.toContain('call add_memory once as a boot heartbeat, then proceed normally');
         expect(scriptContent).toContain('resources/content/sandman_handoff.md');
         expect(scriptContent).toContain('Origin Session ID');
         // Negative assertion: the old Q1a prose payload must be gone
@@ -627,6 +630,42 @@ test.describe('ai/scripts/resumeHarness', () => {
             expect(args[0]).toBe('debug');
             expect(args[1]).toBe('app-server');
             expect(args[2]).toBe('send-message-v2');
+            expect(args[3]).toContain('@AGENTS_STARTUP.md');
+            expect(args[3]).toContain('testReason');
+        } finally {
+            if (fs.existsSync(mockPath)) fs.unlinkSync(mockPath);
+            if (fs.existsSync(outPath)) fs.unlinkSync(outPath);
+        }
+    });
+
+    test('Codex app-server: adapter resolves bundled Desktop CLI when PATH lacks bare codex (#13287)', async () => {
+        test.skip(process.platform !== 'darwin', 'Codex Desktop app-server adapter is currently mac-specific');
+        test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
+
+        const mockPath = path.join(os.tmpdir(), `mock-codex-desktop-${randomUUID()}`);
+        const outPath  = path.join(os.tmpdir(), `out-codex-desktop-${randomUUID()}`);
+
+        fs.writeFileSync(mockPath,
+            `#!/usr/bin/env node\n` +
+            `const fs = require('fs');\n` +
+            `fs.writeFileSync(${JSON.stringify(outPath)}, JSON.stringify(process.argv.slice(2)));\n`,
+            {mode: 0o755}
+        );
+
+        try {
+            const env = {
+                ...overrideEnv,
+                CODEX_APP_SERVER_MOCK : '1',
+                CODEX_CLI_PATH        : '',
+                CODEX_DESKTOP_CLI_PATH: mockPath,
+                PATH                  : path.dirname(process.execPath)
+            };
+
+            execFileSync('node', [scriptPath, '@neo-gpt', 'testReason'], { encoding: 'utf-8', stdio: 'pipe', env });
+
+            expect(fs.existsSync(outPath)).toBe(true);
+            const args = JSON.parse(fs.readFileSync(outPath, 'utf-8'));
+            expect(args.slice(0, 3)).toEqual(['debug', 'app-server', 'send-message-v2']);
             expect(args[3]).toContain('@AGENTS_STARTUP.md');
             expect(args[3]).toContain('testReason');
         } finally {

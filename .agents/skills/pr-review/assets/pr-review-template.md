@@ -8,7 +8,7 @@
 
 Per §9 Strategic-Fit Step-Back:
 - **Decision**: [Approve / Approve+Follow-Up / Request Changes / Drop+Supersede]
-- **Rationale**: [Why this decision shape vs the others — e.g., "Approve+Follow-Up because the substrate ships measurable value via the Antigravity path even with the cross-harness gap; cross-harness routing is better-tracked-as-follow-up ticket #NNNN than incremental cycles"]
+- **Rationale**: [Why this decision shape vs the others. Remember: Approve+Follow-Up is the worst normal outcome; debt-creating quick wins are Request Changes or Drop+Supersede, not follow-up-ticket fuel.]
 
 **Peer-Review Opening:** [Friendly Opening / General encouragement. e.g., "Thanks for putting this together! Great approach to solving [Problem]. I've left some review notes below. Let's get these squared away so we can merge."]
 
@@ -25,6 +25,7 @@ Per §9 Strategic-Fit Step-Back:
 *   **Inputs Read Before Patch:** [Ticket / issue, changed-file list, current `dev` source, sibling precedent, source-of-authority substrate read before treating the patch as evidence.]
 *   **Expected Solution Shape:** [1-3 sentences: expected surface, simplest acceptable shape, what boundary this must NOT hardcode, and what test isolation should exist.]
 *   **Patch Verdict:** [Matches / improves / contradicts the expected shape, with the specific diff/source evidence that confirmed or changed your premise.]
+*   **Premise Coherence:** [Does this PR's premise cohere with our core values — verify-before-assert · friction→gold · flat-peer-team · no-hold · the two-hemisphere organism? A specific verdict naming the value ("coheres: lead stays facilitator-not-delegator" / "conflicts: adds surveillance vs flat-peer-team"), NOT a bare yes/no. OR a scoped "N/A — no value-surface (scope: ...)" for a trivial PR. A green checklist over a wrong premise is theater.]
 
 ---
 
@@ -88,7 +89,7 @@ N/A across listed dimensions: <one-line reason for the PR-scope justification>.
 
 ### 🎯 Close-Target Audit
 
-*(Required per guide §5.2 when the PR body or commit messages contain `Closes #N` / `Resolves #N` / `Fixes #N` magic keywords. Mark N/A for PRs without close-target keywords.)*
+*(Required per guide §5.2 when the PR body or commit messages contain `Closes #N` / `Resolves #N` / `Fixes #N` magic keywords. This is part of the 10% AC/audit sanity layer: binding on real overclaims, not a substitute for premise or placement. Mark N/A for PRs without close-target keywords.)*
 
 For every issue named as close-target, verify it does NOT carry the `epic` label:
 
@@ -101,7 +102,7 @@ For every issue named as close-target, verify it does NOT carry the `epic` label
 
 ### 📑 Contract Completeness Audit
 
-*(Required per guide §5.4 when the PR introduces or modifies public/consumed surfaces. Mark N/A for PRs that don't touch these surfaces.)*
+*(Required per guide §5.4 when the PR introduces or modifies public/consumed surfaces. This is part of the 10% AC/audit sanity layer: binding on real drift, not proof that the work belongs here. Mark N/A for PRs that don't touch these surfaces.)*
 
 - [ ] Originating ticket (or parent epic) contains a Contract Ledger matrix
 - [ ] Implemented PR diff matches the Contract Ledger exactly (no drift)
@@ -112,7 +113,7 @@ For every issue named as close-target, verify it does NOT carry the `epic` label
 
 ### 🪜 Evidence Audit
 
-*(Required when the PR's close-target ACs include observable runtime effect on a surface the CI / agent sandbox cannot reach — substrate / harness / wake / restart / UI-with-visual-AC / CLI-with-host-behavior PRs. Mark N/A for PRs where ACs are fully covered by unit tests / static contract.)*
+*(Required when the PR's close-target ACs include observable runtime effect on a surface the CI / agent sandbox cannot reach — substrate / harness / wake / restart / UI-with-visual-AC / CLI-with-host-behavior PRs. This is part of the 10% AC/audit sanity layer: binding on real evidence mismatch, not a replacement for architecture review. Mark N/A for PRs where ACs are fully covered by unit tests / static contract.)*
 
 Reference: [`learn/agentos/process/evidence-ladder.md`](../../../../learn/agentos/process/evidence-ladder.md) for L1-L4 ladder + sandbox-vs-achievable ceiling distinction.
 
@@ -155,7 +156,7 @@ Expand these audits only when their trigger fires; otherwise omit them rather th
 - **🛂 Provenance Audit:** PR introduces a major architectural abstraction or core subsystem.
 - **📜 Source-of-Authority Audit:** review cites operator or peer authority for a demand.
 - **🔌 Wire-Format Compatibility Audit:** PR alters JSON-RPC notification schemas, payload envelopes, native API wire formats, event payloads, tool signatures, or database schemas.
-- **🧠 Turn-Memory / Substrate-Load Audit:** PR modifies files in `/turn-memory-pre-flight` IN-SCOPE list. Verify the author documented the decision-tree application and load-effect audit in the PR body; if missing, use the Loading-Runtime-Effect Required Action template from the guide.
+- **🧠 Turn-Memory / Substrate-Load Audit:** PR modifies files in `/turn-memory-pre-flight` IN-SCOPE list. Verify the author documented the decision-tree application and load-effect audit in the PR body; if missing, load `audits/loading-runtime-effect.md` and use its Required Action template.
 
 ---
 
@@ -175,7 +176,7 @@ Expand these audits only when their trigger fires; otherwise omit them rather th
 
 ### 🧪 Test-Execution & Location Audit
 
-*(Required per guide §7.5. Reviewers MUST verify RELATED tests and canonical placement before assigning an `[EXECUTION_QUALITY]` score.)*
+*(Required per guide §7.5. This is part of the 10% AC/audit sanity layer unless execution disproves the diff. Reviewers MUST verify RELATED tests and canonical placement before assigning an `[EXECUTION_QUALITY]` score.)*
 
 - [ ] Branch checked out locally (e.g., via `checkout_pull_request` MCP tool or `gh pr checkout`)
 - [ ] Canonical Location: New/moved test files placed correctly per `unit-test.md` (e.g., `test/playwright/unit/ai/mcp/server/`)
@@ -205,7 +206,9 @@ No required actions — eligible for human merge.
 ---
 
 ### 📊 Evaluation Metrics
-*   **`[ARCH_ALIGNMENT]`**: [0-100] - [Brief justification]
+*Verdict weights: 30% premise / right thing, 30% architecture + placement, 30% diff correctness, 10% AC/audit sanity. These are importance-to-verdict weights, not effort budgets.*
+
+*   **`[ARCH_ALIGNMENT]`**: [0-100] - [Neo paradigms + placement/cohesion/folder-fit/boundary discipline justification; placement violations cap the score]
 *   **`[CONTENT_COMPLETENESS]`**: [0-100] - [Brief justification]
 *   **`[EXECUTION_QUALITY]`**: [0-100] - [Brief justification]
 *   **`[PRODUCTIVITY]`**: [0-100] - [Brief justification]

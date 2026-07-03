@@ -1,9 +1,9 @@
 import {test, expect} from '@playwright/test';
-import Neo             from '../../../../../../src/Neo.mjs';
-import * as core       from '../../../../../../src/core/_export.mjs';
-import {mkdtemp, rm}   from 'fs/promises';
-import os              from 'os';
-import path            from 'path';
+import Neo            from '../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../src/core/_export.mjs';
+import {mkdtemp, rm}  from 'fs/promises';
+import os             from 'os';
+import path           from 'path';
 
 import {
     appendWalEmbedMarker,
@@ -57,30 +57,61 @@ test.describe('Neo.ai.daemons.embed.drainCycle', () => {
     const seed = async (id, timestampMs = Date.now()) =>
         (await appendWalMemory(record(id, timestampMs), {dir: tmpDir})).segmentKey;
 
+    // The post-add atomic-write verify reads vectors back and classifies them at this dimension.
+    const VECTOR_DIMENSION = 4;
+    const VALID_VECTOR     = [0.11, 0.22, 0.33, 0.44];
+
     /**
-     * Controllable content-store fake: records every add/delete, stores by id, and exposes
-     * `failNextAdds` (transient whole-batch failures) + `onAdd` (per-payload hook, e.g. poison
-     * records or mid-embed tombstones).
+     * Controllable content-store fake: records every add/get/delete, stores metadata + (simulated
+     * auto-embed) vectors by id, and exposes `failNextAdds` (transient whole-batch failures),
+     * `failNextGets` (transient verify-read failures), `onAdd` (per-payload hook), and `noVectorFor`
+     * — ids whose `add` "succeeds" but persists NO vector, simulating the non-atomic auto-embed that
+     * produces the metadata-only corruption row.
      */
     const createFakeCollection = () => {
         const fake = {
-            store      : new Map(),
-            addCalls   : [],
-            deleteCalls: [],
-            failNextAdds: 0,
-            onAdd      : null,
-            add: async payload => {
+            store               : new Map(),
+            vectors             : new Map(),
+            addCalls            : [],
+            getCalls            : [],
+            deleteCalls         : [],
+            failNextAdds        : 0,
+            failNextGets        : 0,
+            noVectorFor         : new Set(),
+            throwVectorAbsentFor: new Set(),
+            onAdd               : null,
+            add                 : async payload => {
                 fake.addCalls.push(payload);
                 if (fake.onAdd) await fake.onAdd(payload);
                 if (fake.failNextAdds > 0) {
                     fake.failNextAdds--;
                     throw new Error('store down (spec)');
                 }
-                payload.ids.forEach((id, i) => fake.store.set(id, payload.metadatas[i]));
+                payload.ids.forEach((id, i) => {
+                    fake.store.set(id, payload.metadatas[i]);
+                    // Simulate Chroma auto-embed: a valid vector lands UNLESS this id is marked non-atomic
+                    // (metadata persists, vector does not) — the metadata-only corruption shape.
+                    if (!fake.noVectorFor.has(id)) fake.vectors.set(id, [...VALID_VECTOR]);
+                });
+            },
+            get: async ({ids}) => {
+                fake.getCalls.push(ids);
+                if (fake.failNextGets > 0) {
+                    fake.failNextGets--;
+                    throw new Error('get down (spec)');
+                }
+                // Model the documented metadata-only read-back: Chroma throws `Error finding id` for a row
+                // whose vector never reached the index (rather than returning it with a null embedding).
+                const absent = ids.find(id => fake.throwVectorAbsentFor.has(id));
+                if (absent) {
+                    throw new Error(`Error finding id ${absent} in collection`);
+                }
+                const present = ids.filter(id => fake.vectors.has(id));
+                return {ids: present, embeddings: present.map(id => fake.vectors.get(id))};
             },
             delete: async ({ids}) => {
                 fake.deleteCalls.push(ids);
-                ids.forEach(id => fake.store.delete(id));
+                ids.forEach(id => { fake.store.delete(id); fake.vectors.delete(id); });
             }
         };
         return fake;
@@ -114,6 +145,80 @@ test.describe('Neo.ai.daemons.embed.drainCycle', () => {
         const second = await drain(collection);
         expect(second).toMatchObject({pending: 0, embedded: 0});
         expect(collection.addCalls).toHaveLength(1);
+    });
+
+    test('#14228 atomic-write Prevent: an add-success that persisted NO vector (non-atomic auto-embed) is NOT marked embedded — it is deleted + retried', async () => {
+        await seed('good');
+        await seed('bad');
+
+        const collection = createFakeCollection();
+        collection.noVectorFor.add('bad');   // auto-embed persists 'bad' metadata but no vector (the metadata-only shape)
+
+        const retryState = new Map();
+        const first      = await drain(collection, {expectedDimension: VECTOR_DIMENSION, retryState, now: () => 5_000_000});
+
+        // 'good' embedded + reconciled; 'bad' detected metadata-only → not marked, deleted, cooling for retry.
+        expect(first).toMatchObject({pending: 2, embedded: 1, metadataOnly: 1, failed: 0});
+        expect(collection.deleteCalls.flat()).toContain('bad');        // metadata-only row removed for clean re-embed
+        expect(collection.store.has('bad')).toBe(false);
+        expect(retryState.get('bad')).toMatchObject({failures: 1});
+        // 'good' reconciled (not pending); 'bad' stays pending — never marked embedded.
+        expect((await readPendingWalRecords({dir: tmpDir})).map(r => r.id)).toEqual(['bad']);
+
+        // Cycle 2: 'bad' now auto-embeds atomically (vector persists) → re-embedded + reconciled.
+        collection.noVectorFor.delete('bad');
+        const second = await drain(collection, {expectedDimension: VECTOR_DIMENSION, retryState, now: () => 6_000_000});
+        expect(second).toMatchObject({embedded: 1, metadataOnly: 0});
+        expect(await readPendingWalRecords({dir: tmpDir})).toHaveLength(0);
+    });
+
+    test('#14228 atomic-write Prevent: a transient (non-vector-absent) read failure → unverifiable, left pending, NOT deleted', async () => {
+        await seed('x');
+
+        const collection = createFakeCollection();
+        collection.failNextGets = 2;   // the batch read AND the per-id fallback read both throw a transient error
+
+        const summary = await drain(collection, {expectedDimension: VECTOR_DIMENSION, retryState: new Map(), now: () => 7_000_000});
+
+        expect(summary).toMatchObject({embedded: 0, unverifiable: 1, metadataOnly: 0});
+        expect(collection.deleteCalls.flat()).not.toContain('x');   // a transient read error must NOT destroy a possibly-valid row
+        expect((await readPendingWalRecords({dir: tmpDir})).map(r => r.id)).toEqual(['x']);   // stays pending for retry
+    });
+
+    test('#14228 atomic-write Prevent: a THROWN metadata-only signature (Error finding id) is caught + deleted + retried, not collapsed into transient', async () => {
+        await seed('good');
+        await seed('bad');
+
+        const collection = createFakeCollection();
+        collection.throwVectorAbsentFor.add('bad');   // get throws the documented vector-absent signature for 'bad'
+
+        const retryState = new Map();
+        const first      = await drain(collection, {expectedDimension: VECTOR_DIMENSION, retryState, now: () => 8_000_000});
+
+        // The batch read-back throws → per-id fallback isolates: 'good' verifies, 'bad' is the thrown vector-absent
+        // signature → confirmed metadata-only → deleted + retried (NOT left as unverifiable).
+        expect(first).toMatchObject({embedded: 1, metadataOnly: 1, unverifiable: 0});
+        expect(collection.deleteCalls.flat()).toContain('bad');
+        expect(retryState.get('bad')).toMatchObject({failures: 1});
+        expect((await readPendingWalRecords({dir: tmpDir})).map(r => r.id)).toEqual(['bad']);
+
+        // Cycle 2: 'bad' now reads back cleanly → re-embedded + reconciled.
+        collection.throwVectorAbsentFor.delete('bad');
+        const second = await drain(collection, {expectedDimension: VECTOR_DIMENSION, retryState, now: () => 9_000_000});
+        expect(second).toMatchObject({embedded: 1, metadataOnly: 0});
+        expect(await readPendingWalRecords({dir: tmpDir})).toHaveLength(0);
+    });
+
+    test('#14228 verify is opt-in: without expectedDimension, add-success is treated as embed-success (pre-#14228 behavior, verify skipped)', async () => {
+        await seed('legacy');
+
+        const collection = createFakeCollection();
+        collection.noVectorFor.add('legacy');   // even with no persisted vector, the skipped verify marks it embedded
+
+        const summary = await drain(collection);   // no expectedDimension → verify skipped
+        expect(summary).toMatchObject({embedded: 1, metadataOnly: 0});
+        expect(collection.getCalls).toHaveLength(0);   // verify did not run
+        expect(await readPendingWalRecords({dir: tmpDir})).toHaveLength(0);
     });
 
     test('retry/backoff: transient whole-batch failures retry with exponential delays, then succeed', async () => {
@@ -305,8 +410,8 @@ test.describe('Neo.ai.daemons.embed.drainCycle', () => {
 
         test('absorbs a failing cycle and keeps looping (collection resolution failure)', async () => {
             await seed('resilient');
-            const collection = createFakeCollection();
-            let resolutions  = 0;
+            const collection  = createFakeCollection();
+            let   resolutions = 0;
 
             const loop = startDrainLoop({
                 getCollection: async () => {

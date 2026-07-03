@@ -1,13 +1,17 @@
-import fs                                                              from 'fs';
-import path                                                            from 'path';
-import yaml                                                             from 'js-yaml';
-import {fileURLToPath}                                                 from 'url';
-import Base                                                             from '../../../src/core/Base.mjs';
-import ConceptService                                                   from '../../services/ConceptService.mjs';
-import {Memory_Config as aiConfig}                                      from '../../services.mjs';
-import Json                                                             from '../../../src/util/Json.mjs';
-import logger                                                           from '../../mcp/server/memory-core/logger.mjs';
-import OpenAiCompatible                                                 from '../../provider/OpenAiCompatible.mjs';
+import fs              from 'fs';
+import path            from 'path';
+import * as yaml       from 'js-yaml';
+import {fileURLToPath} from 'url';
+import Base            from '../../../src/core/Base.mjs';
+import ConceptService  from '../../services/ConceptService.mjs';
+import {
+    Memory_Config as aiConfig,
+    Memory_GraphService as GraphService
+} from '../../services.mjs';
+import Json                      from '../../../src/util/Json.mjs';
+import logger                    from '../../mcp/server/memory-core/logger.mjs';
+import OpenAiCompatible          from '../../provider/OpenAiCompatible.mjs';
+import {assertTestWriteIsolated} from '../shared/storeWriteGuard.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -80,6 +84,62 @@ const CANDIDATE_DEFAULTS = {
     verifiedAt : null,
     tags       : ['mined-candidate']
 };
+
+const PROCESS_MX_ONTOLOGY_LAYER = 'process-mx';
+
+const PROCESS_MX_CANDIDATE_DEFAULTS = {
+    ...CANDIDATE_DEFAULTS,
+    tags           : ['mined-candidate', 'process-mx', 'message-concept-harvest'],
+    ontologyLayer  : PROCESS_MX_ONTOLOGY_LAYER,
+    codeGapEligible: false
+};
+
+function normalizeConceptNameForDedupe(value) {
+    if (typeof value !== 'string') return '';
+
+    return value
+        .replace(/^CONCEPT:/i, '')
+        .replace(/^The\s+/i, '')
+        .replace(/([a-z])([A-Z])/g, '$1 $2')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '');
+}
+
+function getConceptDedupeKeys(value) {
+    if (typeof value !== 'string') return [];
+
+    const keys       = new Set();
+    const normalized = normalizeConceptNameForDedupe(value);
+    if (normalized) keys.add(normalized);
+
+    const firstToken = value.trim().split(/[\s_-]+/)[0] || '';
+    if (/^[A-Z]{2,6}$/.test(firstToken)) {
+        keys.add(firstToken.toLowerCase());
+    }
+
+    if (/^(?:[A-Z][-_]){1,5}[A-Z](?:[_-]|$)/.test(value.trim())) {
+        keys.add(value.trim().split(/[\s_-]+/).slice(0, 6).join('').toLowerCase());
+    }
+
+    return [...keys];
+}
+
+function getNodeProperties(node) {
+    return node?.isRecord ? node.get('properties') : node?.properties;
+}
+
+function getNodeId(node) {
+    return node?.isRecord ? node.get('id') : node?.id;
+}
+
+function getNodeLabel(node) {
+    return node?.isRecord ? node.get('label') : node?.label;
+}
+
+function getMessageSortTimestamp(message) {
+    const parsed = Date.parse(message.sentAt || message.properties?.sentAt || '');
+    return Number.isFinite(parsed) ? parsed : 0;
+}
 
 /**
  * @summary Service for LLM-driven discovery of "unknown unknowns" in the concept ontology.
@@ -177,6 +237,102 @@ class ConceptDiscoveryService extends Base {
     }
 
     /**
+     * @summary Normalizes concept names for duplicate analysis and write-gate dedupe.
+     *
+     * The Concept Ontology's historical duplicates differ mostly by punctuation, casing,
+     * `CONCEPT:` / `The` prefixes, and acronym separators. This helper is deliberately
+     * deterministic and local: it does not ask the LLM whether two concepts are semantically
+     * identical; it only collapses spelling variants before a candidate can hit `nodes.jsonl`.
+     * @param {String} value Raw concept name, alias, or id.
+     * @returns {String} Compact lower-case key.
+     */
+    normalizeConceptNameForDedupe(value) {
+        return normalizeConceptNameForDedupe(value);
+    }
+
+    /**
+     * @summary Returns all deterministic duplicate keys for a concept-ish term.
+     * @param {String} value Raw concept name, alias, or id.
+     * @returns {String[]}
+     */
+    getConceptDedupeKeys(value) {
+        return getConceptDedupeKeys(value);
+    }
+
+    /**
+     * @summary Builds a dedupe index from the loaded ConceptService graph.
+     * @returns {Set<String>} Normalized concept-name keys.
+     */
+    getKnownConceptNameKeys() {
+        if (!ConceptService.loaded) {
+            try {
+                ConceptService.loadGraph();
+            } catch (e) {
+                logger.warn('[ConceptDiscoveryService] ConceptService.loadGraph() failed while building dedupe index — continuing with an empty index.', e.message);
+                return new Set();
+            }
+        }
+
+        const keys = new Set();
+
+        for (const node of ConceptService.nodes.values()) {
+            for (const value of [node.id, node.name, ...(Array.isArray(node.aliases) ? node.aliases : [])]) {
+                for (const key of this.getConceptDedupeKeys(value)) {
+                    keys.add(key);
+                }
+            }
+        }
+
+        return keys;
+    }
+
+    /**
+     * @summary Checks a raw LLM candidate against the deterministic concept-name index.
+     * @param {Object} raw Raw LLM candidate.
+     * @param {Set<String>} knownConceptNameKeys Existing concept-name keys.
+     * @returns {Boolean}
+     */
+    isKnownConceptCandidate(raw, knownConceptNameKeys) {
+        const values = [
+            raw?.id,
+            raw?.name,
+            ...(Array.isArray(raw?.aliases) ? raw.aliases : [])
+        ];
+
+        return values.some(value => this.getConceptDedupeKeys(value).some(key => knownConceptNameKeys.has(key)));
+    }
+
+    /**
+     * @summary Dedupes candidates by normalized name/id/alias keys before writing JSONL.
+     * @param {Object[]} candidates Candidate records.
+     * @returns {Object[]} First-seen candidates by normalized concept-name key.
+     */
+    dedupeCandidatesByNormalizedName(candidates) {
+        const seen   = new Set();
+        const unique = [];
+
+        for (const candidate of candidates) {
+            const keys = [
+                ...this.getConceptDedupeKeys(candidate.id),
+                ...this.getConceptDedupeKeys(candidate.name),
+                ...(Array.isArray(candidate.aliases) ? candidate.aliases.flatMap(alias => this.getConceptDedupeKeys(alias)) : [])
+            ].filter(Boolean);
+
+            if (keys.some(key => seen.has(key))) {
+                continue;
+            }
+
+            for (const key of keys) {
+                seen.add(key);
+            }
+
+            unique.push(candidate);
+        }
+
+        return unique;
+    }
+
+    /**
      * Invokes the configured LLM provider on a single source and parses the response as the
      * candidate schema. Returns `[]` on any failure (provider offline, malformed JSON, no
      * candidates) — failure to extract is never fatal to `runDiscoveryCycle`, just a skip.
@@ -187,10 +343,16 @@ class ConceptDiscoveryService extends Base {
      * never propose a concept that already exists.
      * @param {String} sourceRef Human-readable identifier for the source (e.g., `'epic-10030'`, `'pull-10084'`)
      * @param {String} text      The raw markdown body + comments for that source
+     * @param {Object} [options]
+     * @param {Object} [options.candidateDefaults=CANDIDATE_DEFAULTS] Metadata defaults for accepted candidates.
+     * @param {Boolean} [options.failOnError=false] Rethrow provider / parse failures for scheduled drainers.
      * @returns {Promise<Object[]>} Candidate records ready for `appendCandidates`
      * @protected
      */
-    async extractConceptsFromSource(sourceRef, text) {
+    async extractConceptsFromSource(sourceRef, text, {
+        candidateDefaults = CANDIDATE_DEFAULTS,
+        failOnError       = false
+    } = {}) {
         const minSourceLength = aiConfig.conceptDiscovery.minSourceLength;
         if (!text || text.trim().length < minSourceLength) return [];
 
@@ -203,6 +365,7 @@ class ConceptDiscoveryService extends Base {
             });
         } catch (e) {
             logger.warn(`[ConceptDiscoveryService] OpenAiCompatible provider could not be constructed; skipping ${sourceRef}:`, e.message);
+            if (failOnError) throw e;
             return [];
         }
 
@@ -213,36 +376,40 @@ class ConceptDiscoveryService extends Base {
             result = await provider.generate(prompt);
         } catch (e) {
             logger.warn(`[ConceptDiscoveryService] LLM call failed for ${sourceRef}; skipping:`, e.message);
+            if (failOnError) throw e;
             return [];
         }
 
         const payload = Json.extract(result?.content || '');
         if (!payload || !Array.isArray(payload.candidates)) {
             logger.debug(`[ConceptDiscoveryService] No usable candidates parsed from ${sourceRef}.`);
+            if (failOnError) throw new Error(`No usable candidates parsed from ${sourceRef}`);
             return [];
         }
 
         // Envelope-level extraction_metadata describes THIS extraction pass; it is denormalized
         // onto each candidate row below so nodes.jsonl stays the single store, and is null for
         // legacy candidates-only responses so the candidate-row schema stays additive.
-        const extractionMetadata = this.normalizeExtractionMetadata(payload.extraction_metadata);
+        const extractionMetadata   = this.normalizeExtractionMetadata(payload.extraction_metadata);
+        const knownConceptNameKeys = this.getKnownConceptNameKeys();
 
         const accepted = [];
         for (const raw of payload.candidates) {
             if (!raw || typeof raw !== 'object' || !raw.id || !raw.name) continue;
 
-            // Dedupe against existing concepts (alias index is case-insensitive; also check node id)
+            // Dedupe against existing concepts by alias/id and by normalized name variants.
             if (ConceptService.resolveAlias(raw.name)) continue;
             if (ConceptService.nodes.has(raw.id)) continue;
+            if (this.isKnownConceptCandidate(raw, knownConceptNameKeys)) continue;
 
             accepted.push({
-                id         : raw.id,
-                name       : raw.name,
+                id  : raw.id,
+                name: raw.name,
                 description: raw.description || `Mined candidate from ${sourceRef}. Awaiting curator review — promote by flipping \`validated: true\` and adjusting tier/weight in nodes.jsonl.`,
-                aliases    : Array.isArray(raw.aliases) ? raw.aliases : [],
-                source     : sourceRef,
-                reasoning  : raw.reasoning || '',
-                ...CANDIDATE_DEFAULTS,
+                aliases  : Array.isArray(raw.aliases) ? raw.aliases : [],
+                source   : sourceRef,
+                reasoning: raw.reasoning || '',
+                ...candidateDefaults,
                 ...(extractionMetadata ? {extraction_metadata: extractionMetadata} : {})
             });
         }
@@ -399,6 +566,251 @@ class ConceptDiscoveryService extends Base {
     }
 
     /**
+     * @summary Loads unharvested A2A MESSAGE nodes for scheduled process/MX concept mining.
+     *
+     * Reads SQLite directly when available so the orchestrator sees messages written by peer
+     * processes that are not hot in this process' graph cache. Unit tests can pass explicit
+     * messages to `runMessageConceptHarvest` and bypass the live graph read.
+     * @param {Object} [options]
+     * @param {Number} [options.limit=aiConfig.conceptDiscovery.messageHarvestBatchLimit] Max messages.
+     * @returns {Object[]} Message records `{id, subject, bodyText, taggedConcepts, properties}`.
+     */
+    loadUnharvestedMessages({limit = aiConfig.conceptDiscovery.messageHarvestBatchLimit} = {}) {
+        const db = GraphService.requireDb('ConceptDiscoveryService.loadUnharvestedMessages');
+
+        if (db.storage?.db?.prepare) {
+            const rows = db.storage.db.prepare(`
+                SELECT id, data
+                  FROM Nodes
+                 WHERE json_extract(data, '$.label') = 'MESSAGE'
+                   AND COALESCE(json_extract(data, '$.properties.conceptHarvested'), 0) != 1
+                 ORDER BY COALESCE(json_extract(data, '$.properties.sentAt'), '') DESC
+                 LIMIT ?
+            `).all(limit);
+
+            return rows.map(row => {
+                const data       = JSON.parse(row.data),
+                      properties = data.properties || {};
+
+                return {
+                    id            : row.id,
+                    subject       : properties.subject || data.name || row.id,
+                    bodyText      : properties.bodyText || '',
+                    taggedConcepts: Array.isArray(properties.taggedConcepts) ? properties.taggedConcepts : [],
+                    sentAt        : properties.sentAt,
+                    properties
+                };
+            });
+        }
+
+        return db.nodes.items
+            .filter(node => getNodeLabel(node) === 'MESSAGE')
+            .map(node => {
+                const properties = getNodeProperties(node) || {};
+                return {
+                    id            : getNodeId(node),
+                    subject       : properties.subject || properties.name || getNodeId(node),
+                    bodyText      : properties.bodyText || '',
+                    taggedConcepts: Array.isArray(properties.taggedConcepts) ? properties.taggedConcepts : [],
+                    sentAt        : properties.sentAt,
+                    properties
+                };
+            })
+            .filter(message => message.id && message.properties?.conceptHarvested !== true)
+            .sort((a, b) => getMessageSortTimestamp(b) - getMessageSortTimestamp(a))
+            .slice(0, limit);
+    }
+
+    /**
+     * @summary Extracts bracketed process markers from an A2A message subject.
+     * @param {String} subject Message subject.
+     * @returns {String[]}
+     */
+    extractSubjectConceptTerms(subject) {
+        if (typeof subject !== 'string') return [];
+
+        return [...subject.matchAll(/\[([^\]]+)]/g)]
+            .map(match => match[1].trim())
+            .filter(Boolean);
+    }
+
+    /**
+     * @summary Builds the cheap frequency pre-filter for message-derived process/MX concepts.
+     * @param {Object[]} messages Message records.
+     * @param {Object} [options]
+     * @param {Number} [options.topN=aiConfig.conceptDiscovery.messageHarvestTopN] Candidate cap.
+     * @param {Number} [options.minFrequency=aiConfig.conceptDiscovery.messageHarvestMinFrequency] Minimum count.
+     * @returns {Object} Frequency report.
+     */
+    buildMessageConceptFrequencyReport(messages, {
+        topN         = aiConfig.conceptDiscovery.messageHarvestTopN,
+        minFrequency = aiConfig.conceptDiscovery.messageHarvestMinFrequency
+    } = {}) {
+        const byKey = new Map();
+
+        const record = ({term, sourceKind, subject}) => {
+            const keys = this.getConceptDedupeKeys(term);
+            if (keys.length === 0) return;
+
+            const key = keys[0];
+            if (!byKey.has(key)) {
+                byKey.set(key, {
+                    term,
+                    normalizedName : key,
+                    count          : 0,
+                    subjectTagCount: 0,
+                    curatedTagCount: 0,
+                    sampleSubjects : []
+                });
+            }
+
+            const entry = byKey.get(key);
+            entry.count++;
+            if (sourceKind === 'subject-tag') {
+                entry.subjectTagCount++;
+            } else {
+                entry.curatedTagCount++;
+            }
+            if (subject && entry.sampleSubjects.length < 3 && !entry.sampleSubjects.includes(subject)) {
+                entry.sampleSubjects.push(subject);
+            }
+        };
+
+        for (const message of messages) {
+            const subject = message.subject || message.properties?.subject || '';
+
+            for (const term of this.extractSubjectConceptTerms(subject)) {
+                record({term, sourceKind: 'subject-tag', subject});
+            }
+            for (const term of message.taggedConcepts || message.properties?.taggedConcepts || []) {
+                record({term, sourceKind: 'curated-tag', subject});
+            }
+        }
+
+        const terms = [...byKey.values()]
+            .filter(entry => entry.count >= minFrequency)
+            .sort((a, b) => b.count - a.count || a.term.localeCompare(b.term))
+            .slice(0, topN);
+
+        return {
+            messagesConsidered: messages.length,
+            distinctTerms     : byKey.size,
+            terms
+        };
+    }
+
+    /**
+     * @summary Formats frequency-filtered message terms into one bounded Teaching-Test source.
+     * @param {Object} report Frequency report from `buildMessageConceptFrequencyReport`.
+     * @returns {String}
+     */
+    buildMessageConceptHarvestSource(report) {
+        const lines = [
+            'Scheduled A2A process/MX concept harvest.',
+            'Evaluate these recurring message-derived terms with the process Teaching Test: does a maintainer need to understand this concept to operate in the swarm productively?',
+            'Reject routine lifecycle labels unless the surrounding samples show an actual reusable process or MX concept.'
+        ];
+
+        for (const term of report.terms) {
+            lines.push([
+                `TERM: ${term.term}`,
+                `frequency: ${term.count}`,
+                `subject-tag-count: ${term.subjectTagCount}`,
+                `curated-tag-count: ${term.curatedTagCount}`,
+                `sample-subjects: ${term.sampleSubjects.join(' | ')}`
+            ].join('\n'));
+        }
+
+        return lines.join('\n\n');
+    }
+
+    /**
+     * @summary Marks messages as harvested so the scheduled drainer does not re-pay the same scan.
+     * @param {Object[]} messages Message records.
+     * @param {Object} [options]
+     * @param {String} [options.timestamp=new Date().toISOString()] Harvest timestamp.
+     * @param {Function} [options.upsertNode=GraphService.upsertNode.bind(GraphService)] Test seam.
+     * @returns {Number} Messages marked.
+     */
+    markMessagesConceptHarvested(messages, {
+        timestamp  = new Date().toISOString(),
+        upsertNode = GraphService.upsertNode.bind(GraphService)
+    } = {}) {
+        let marked = 0;
+
+        for (const message of messages) {
+            if (!message?.id) continue;
+
+            const properties = {
+                ...(message.properties || {}),
+                conceptHarvested  : true,
+                conceptHarvestedAt: timestamp
+            };
+
+            upsertNode({
+                id  : message.id,
+                type: 'MESSAGE',
+                name: properties.subject || message.subject || message.id,
+                properties
+            });
+
+            marked++;
+        }
+
+        return marked;
+    }
+
+    /**
+     * @summary Runs the scheduled process/MX message-concept drainer.
+     * @param {Object} [options]
+     * @param {Object[]} [options.messages] Optional message fixture/test seam.
+     * @param {Boolean} [options.markHarvested=true] Persist `conceptHarvested` markers.
+     * @returns {Promise<Object>} Harvest stats and candidates.
+     */
+    async runMessageConceptHarvest({messages, markHarvested = true} = {}) {
+        if (!ConceptService.loaded) {
+            try {
+                ConceptService.loadGraph();
+            } catch (e) {
+                logger.warn('[ConceptDiscoveryService] ConceptService.loadGraph() failed — message dedupe will be loose.', e.message);
+            }
+        }
+
+        const messageBatch = messages || this.loadUnharvestedMessages();
+        const report       = this.buildMessageConceptFrequencyReport(messageBatch);
+        let   candidates   = [];
+
+        if (report.terms.length > 0) {
+            const sourceText = this.buildMessageConceptHarvestSource(report);
+            candidates = await this.extractConceptsFromSource('message-concept-harvest', sourceText, {
+                candidateDefaults: PROCESS_MX_CANDIDATE_DEFAULTS,
+                failOnError      : true
+            });
+            candidates = this.dedupeCandidatesByNormalizedName(candidates);
+        }
+
+        if (candidates.length > 0) {
+            await this.appendCandidates(candidates);
+        }
+
+        let messagesMarked = 0;
+        if (markHarvested) {
+            messagesMarked = this.markMessagesConceptHarvested(messageBatch);
+        }
+
+        logger.info(`[ConceptDiscoveryService] Message concept harvest: ${messageBatch.length} message(s), ${report.terms.length} term(s), ${candidates.length} candidate(s).`);
+
+        return {
+            candidatesAdded  : candidates.length,
+            candidates,
+            messagesProcessed: messageBatch.length,
+            messagesMarked,
+            termsConsidered  : report.terms.length,
+            distinctTerms    : report.distinctTerms
+        };
+    }
+
+    /**
      * Runs both mining strategies sequentially (PRs typically produce more candidates; running
      * in parallel would hit the LLM provider with too many concurrent requests), merges and
      * dedupes by candidate ID, and appends new rows to `nodes.jsonl`. Idempotent across runs:
@@ -429,7 +841,7 @@ class ConceptDiscoveryService extends Base {
             if (!byId.has(c.id)) byId.set(c.id, c);
         }
 
-        const unique = [...byId.values()];
+        const unique = this.dedupeCandidatesByNormalizedName([...byId.values()]);
 
         if (unique.length === 0) {
             logger.info('[ConceptDiscoveryService] No new candidates discovered this cycle.');
@@ -453,12 +865,20 @@ class ConceptDiscoveryService extends Base {
      * File is flush-written via `fs.promises.appendFile` which is atomic at the per-line level
      * on POSIX filesystems — safe for the single-writer REM pipeline pattern.
      * @param {Object[]} candidates
+     * @throws {Error} `STORE_WRITE_GUARD` when invoked from a test-runner context against the
+     *   production concepts dir (defense-in-depth via `assertTestWriteIsolated`) — never in production runtime.
      * @protected
      */
     async appendCandidates(candidates) {
         const
             conceptsDir = ConceptService.defaultConceptsDir || path.resolve(__dirname, '../../../.neo-ai-data/concepts'),
             nodesPath   = path.join(conceptsDir, 'nodes.jsonl');
+
+        // Defense-in-depth: refuse a concept-ontology write to the production concepts dir from a
+        // test-runner context (the orphan-bleed / backlog-corruption class). No-op in production
+        // runtime (no test signal) and for disposable/tmp dirs — the file-store parallel to the
+        // graph write-guard in SQLite.mjs.
+        assertTestWriteIsolated({storePath: conceptsDir, subsystem: 'concept-ontology'});
 
         let existing = '';
         try {

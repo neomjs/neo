@@ -142,18 +142,21 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
 
             expect(claudeIdentities.map(identity => identity.id)).toEqual(expect.arrayContaining([
                 '@neo-opus-ada',
-                '@neo-claude-opus',
+                '@neo-opus-grace',
                 '@neo-opus-vega'
             ]));
             expect(resolveIdentityForFamily('claude').id).toBe('@neo-opus-ada');
+            // resolveIdentitiesForFamily returns ACTIVE identities only, in identityRoots order. The
+            // two fable-family identities (Mnemosyne, Clio) were reactivated 2026-07-02 when Claude
+            // Fable 5 access was restored, so the active claude fan-out is ada/grace/vega/fable/fable-clio.
             expect(resolveIdentitiesForFamily('claude').map(identity => identity.id)).toEqual([
                 '@neo-opus-ada',
-                '@neo-claude-opus',
+                '@neo-opus-grace',
                 '@neo-opus-vega',
                 '@neo-fable',
                 '@neo-fable-clio'
             ]);
-            expect(claudeIdentities.find(identity => identity.id === '@neo-claude-opus')?.properties.participationStatus)
+            expect(claudeIdentities.find(identity => identity.id === '@neo-opus-grace')?.properties.participationStatus)
                 .toBe('active');
             expect(claudeIdentities.find(identity => identity.id === '@neo-opus-vega')?.properties.participationStatus)
                 .toBe('active');
@@ -189,12 +192,12 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
 
         test('includes same-family aggregation note for multi-active notification fan-out', () => {
             const body = buildNotificationBody({
-                family       : 'claude',
-                identityLogins: ['@neo-opus-ada', '@neo-claude-opus', '@neo-opus-vega'],
-                since        : '2026-05-18T00:00:00.000Z',
-                sweepAt      : '2026-06-01T12:00:00.000Z'
+                family        : 'claude',
+                identityLogins: ['@neo-opus-ada', '@neo-opus-grace', '@neo-opus-vega'],
+                since         : '2026-05-18T00:00:00.000Z',
+                sweepAt       : '2026-06-01T12:00:00.000Z'
             });
-            expect(body).toContain('@neo-opus-ada, @neo-claude-opus, @neo-opus-vega');
+            expect(body).toContain('@neo-opus-ada, @neo-opus-grace, @neo-opus-vega');
             expect(body).toContain('Same-family aggregation note');
             expect(body).toContain('no active same-family identity holds unresolved DEFERRED / VETO');
         });
@@ -210,11 +213,11 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
                 postComment: () => { throw new Error('should not post during dry-run'); }
             };
             const result = await revalidationSweep({
-                family : 'gemini',
-                since  : '2026-05-18T00:00:00.000Z',
-                until  : '2026-06-01T00:00:00.000Z',
-                dryRun : true,
-                io     : fakeIo
+                family: 'gemini',
+                since : '2026-05-18T00:00:00.000Z',
+                until : '2026-06-01T00:00:00.000Z',
+                dryRun: true,
+                io    : fakeIo
             });
             expect(result.candidates).toBe(2);
             expect(result.matches).toBe(1);
@@ -225,7 +228,7 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
 
         test('calls postComment and emits NOTIFIED when not dry-run', async () => {
             const postedNumbers = [];
-            const fakeIo = {
+            const fakeIo        = {
                 searchIssues: () => [
                     { number: 11796, title: 'Epic A', body: '## Unresolved Liveness\n- `gemini`: bench since X' }
                 ],
@@ -235,27 +238,27 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
                 }
             };
             const result = await revalidationSweep({
-                family : 'gemini',
-                since  : '2026-05-18T00:00:00.000Z',
-                until  : '2026-06-01T00:00:00.000Z',
-                dryRun : false,
-                io     : fakeIo
+                family: 'gemini',
+                since : '2026-05-18T00:00:00.000Z',
+                until : '2026-06-01T00:00:00.000Z',
+                dryRun: false,
+                io    : fakeIo
             });
             expect(postedNumbers).toEqual([11796]);
             expect(result.results[0].action).toBe('NOTIFIED');
         });
 
         test('falls back to identityRoots.mjs since when --since omitted', async () => {
-            let captured = null;
-            const fakeIo = {
+            let   captured = null;
+            const fakeIo   = {
                 searchIssues: (args) => { captured = args; return []; },
                 postComment : () => {}
             };
             await revalidationSweep({
-                family : 'gemini',
-                until  : '2026-06-01T00:00:00.000Z',
-                dryRun : true,
-                io     : fakeIo
+                family: 'gemini',
+                until : '2026-06-01T00:00:00.000Z',
+                dryRun: true,
+                io    : fakeIo
             });
             expect(captured.since).toBe('2026-05-18T00:00:00.000Z');
         });
@@ -280,15 +283,17 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
                 postComment : () => { throw new Error('should not post during dry-run'); }
             };
             const result = await revalidationSweep({
-                family : 'claude',
-                since  : '2026-05-18T00:00:00.000Z',
-                until  : '2026-06-01T00:00:00.000Z',
-                dryRun : true,
-                io     : fakeIo
+                family: 'claude',
+                since : '2026-05-18T00:00:00.000Z',
+                until : '2026-06-01T00:00:00.000Z',
+                dryRun: true,
+                io    : fakeIo
             });
             expect(result.identityLogin).toBe('@neo-opus-ada');
-            expect(result.identityLogins).toEqual(['@neo-opus-ada', '@neo-claude-opus', '@neo-opus-vega', '@neo-fable', '@neo-fable-clio']);
-            expect(result.results[0].notification).toContain('@neo-opus-ada, @neo-claude-opus, @neo-opus-vega');
+            // Active claude fan-out: the two fable-family identities were reactivated 2026-07-02, so
+            // they are now notified alongside ada/grace/vega in a multi-active family sweep.
+            expect(result.identityLogins).toEqual(['@neo-opus-ada', '@neo-opus-grace', '@neo-opus-vega', '@neo-fable', '@neo-fable-clio']);
+            expect(result.results[0].notification).toContain('@neo-opus-ada, @neo-opus-grace, @neo-opus-vega, @neo-fable, @neo-fable-clio');
         });
 
         test('returns empty results when no candidates match', async () => {
@@ -299,10 +304,10 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
                 postComment : () => { throw new Error('should not post'); }
             };
             const result = await revalidationSweep({
-                family : 'gemini',
-                since  : '2026-05-18T00:00:00.000Z',
-                dryRun : true,
-                io     : fakeIo
+                family: 'gemini',
+                since : '2026-05-18T00:00:00.000Z',
+                dryRun: true,
+                io    : fakeIo
             });
             expect(result.candidates).toBe(1);
             expect(result.matches).toBe(0);

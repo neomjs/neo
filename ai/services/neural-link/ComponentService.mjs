@@ -146,6 +146,76 @@ class ComponentService extends Base {
     async setComponentProperty({id, property, value, sessionId}) {
         return await ConnectionService.call(sessionId, 'set_component_property', {id, property, value});
     }
+
+    /**
+     * Creates a component inside a target container at runtime — a first-class, schema-validated,
+     * `write-locked` alternative to the generic `admin`-tier `call_method(container.add(...))`.
+     *
+     * Validates the config server-side (fail-fast with a semantic message, no dispatch on bad input),
+     * then delegates to the existing `call_method` dispatch — `container.add(config)` — reusing the
+     * worker-side handler (no new worker op). Pinning the method to `add` is exactly what keeps this
+     * a CONSTRAINED write tool (`write-locked`) rather than the arbitrary-method `admin` `call_method`:
+     * an agent can create components without being granted admin method-call access.
+     * @param {Object} opts             The options object.
+     * @param {String} opts.parentId    The target container's component ID.
+     * @param {Object} opts.config      The component configuration; declare an `ntype` (e.g. `button`) or `className` (e.g. `Neo.button.Base`). A `module` is a class reference that cannot cross the wire — use `ntype`/`className`.
+     * @param {String} [opts.sessionId] The target session ID.
+     * @returns {Promise<Object>} The result of adding the component to the container.
+     */
+    async createComponent({parentId, config, sessionId}) {
+        if (!parentId) {
+            throw new Error('create_component: `parentId` (the target container id) is required.');
+        }
+        if (!config || typeof config !== 'object' || Array.isArray(config)) {
+            throw new Error('create_component: `config` must be a component configuration object.');
+        }
+        // A `module` is a CLASS reference (the imported class, not its name-string). It cannot cross the
+        // Neural Link wire (JSON carries no class), and a string/non-class `module` would crash the
+        // worker-side `container.add` at `createItem` (`module.prototype.className` on a non-class). Fail
+        // fast with a pointer to the wire-usable forms instead of surfacing that cryptic downstream error.
+        if (config.module && typeof config.module !== 'function') {
+            throw new Error('create_component: `module` must be a class reference, which cannot cross the Neural Link wire — declare `ntype` (e.g. "button") or `className` (e.g. "Neo.button.Base") instead.');
+        }
+        if (!config.module && !config.ntype && !config.className) {
+            throw new Error('create_component: `config` must declare a `module`, `ntype`, or `className` to instantiate.');
+        }
+
+        // `undoKind` is a server-only capture marker (deliberately NOT in CallMethodRequest's schema): the app-side
+        // write-path records create's inverse (destroy the new child) so the `undo` tool can revert a creation. The
+        // generic `call_method` service forwards only {id, method, args}, so this marker cannot be injected by a
+        // public caller — generic call_method stays non-undoable.
+        return await ConnectionService.call(sessionId, 'call_method', {id: parentId, method: 'add', args: [config], undoKind: 'create_component'});
+    }
+
+    /**
+     * Removes (destroys) a live component by its ID — a first-class, `write-locked` alternative to the
+     * generic `admin`-tier `call_method(component.destroy(...))`. The symmetric counterpart to
+     * {@link #createComponent}.
+     *
+     * Validates `componentId` server-side (fail-fast with a semantic message, no dispatch on bad input),
+     * then delegates to the existing `call_method` dispatch — `component.destroy(true)` — reusing the
+     * worker-side handler (no new worker op). The pinned `true` is `destroy`'s `updateParentVdom` flag:
+     * it detaches the node from the parent's DOM so the component actually disappears from the live tree.
+     * The framework default `destroy(false)` unregisters the instance but ORPHANS its DOM node, so the
+     * flag is required for a correct removal. Pinning the method to `destroy` is exactly what keeps this
+     * a CONSTRAINED write tool (`write-locked`) rather than the arbitrary-method `admin` `call_method`:
+     * an agent can remove components without being granted admin method-call access.
+     * @param {Object} opts             The options object.
+     * @param {String} opts.componentId The id of the component to destroy.
+     * @param {String} [opts.sessionId] The target session ID.
+     * @returns {Promise<Object>} The result of destroying the component.
+     */
+    async removeComponent({componentId, sessionId}) {
+        if (!componentId) {
+            throw new Error('remove_component: `componentId` (the component to destroy) is required.');
+        }
+
+        // `undoKind` is a server-only capture marker (NOT in CallMethodRequest's schema): the app-side write-path
+        // snapshots the component's parent + index + config BEFORE destroy so the `undo` tool can re-insert it at its
+        // original position. The generic call_method service forwards only {id, method, args}, so a public caller
+        // cannot inject this marker — generic call_method stays non-undoable.
+        return await ConnectionService.call(sessionId, 'call_method', {id: componentId, method: 'destroy', args: [true], undoKind: 'remove_component'});
+    }
 }
 
 export default Neo.setupClass(ComponentService);

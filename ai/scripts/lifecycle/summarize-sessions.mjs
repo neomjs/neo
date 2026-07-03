@@ -22,12 +22,14 @@ import InstanceManager from '../../../src/manager/Instance.mjs';
 
 import { Memory_SessionService } from '../../services.mjs';
 
+const logInfo = message => console.error(`[INFO] ${message}`);
+
 async function summarize() {
-    console.log('[summarize-sessions] Initializing SessionService...');
+    logInfo('[summarize-sessions] Initializing SessionService...');
     try {
         await Memory_SessionService.initAsync();
 
-        console.log('[summarize-sessions] Draining pending session summarization markers...');
+        logInfo('[summarize-sessions] Draining pending session summarization markers...');
         const pendingResult = await Memory_SessionService.summarizePendingSessions();
 
         if (pendingResult && pendingResult.error) {
@@ -35,9 +37,9 @@ async function summarize() {
             process.exit(1);
         }
 
-        console.log(`[summarize-sessions] Pending drain complete. Pending: ${pendingResult?.pending || 0}; processed: ${pendingResult?.processed || 0}`);
+        logInfo(`[summarize-sessions] Pending drain complete. Pending: ${pendingResult?.pending || 0}; processed: ${pendingResult?.processed || 0}`);
 
-        console.log('[summarize-sessions] Starting drift-detection session summarization...');
+        logInfo('[summarize-sessions] Starting drift-detection session summarization...');
         // All-time scope: summarizes every unsummarized session (the 30-day window was removed).
         const result = await Memory_SessionService.summarizeSessions();
 
@@ -46,7 +48,7 @@ async function summarize() {
             process.exit(1);
         }
 
-        console.log(`[summarize-sessions] Summarization complete. Processed: ${result?.processed || 0}`);
+        logInfo(`[summarize-sessions] Summarization complete. Processed: ${result?.processed || 0}`);
         process.exit(0);
     } catch (err) {
         console.error('[summarize-sessions] Error:', err);

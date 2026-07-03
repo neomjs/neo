@@ -39,11 +39,12 @@ test.describe('Dockerized MC proxy identity rejection integration (#10895)', () 
         });
 
         try {
+            // The 401 rejection above (missing proxy identity) and this successful
+            // identity-bearing healthcheck together prove the proxy-header auth path is active.
+            // Auth-path observability is a runtime concern, no longer a static healthcheck field.
             const health = await callJsonTool(client, 'healthcheck');
 
             expect(health.status).toBe('healthy');
-            expect(health.providers.auth.configured).toBe('proxy-header');
-            expect(health.providers.auth.proxyHeader.trusted).toBe(true);
         } finally {
             await client.close();
         }

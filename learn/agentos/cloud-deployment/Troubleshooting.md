@@ -75,6 +75,72 @@ A proxied deployment commonly has **two** auth layers, and an error at one is ea
 
 Identify which layer an error came from (via the ladder) before changing any config.
 
+### `dependency <svc> failed to start` after enabling `NEO_AUTH_MODE=gitlab-pat`
+
+**Symptom:** after switching a compose deployment to `NEO_AUTH_MODE=gitlab-pat`,
+`docker compose up` leaves `kb-server` or `mc-server` unhealthy, and dependent
+services report `dependency <svc> failed to start`.
+
+**Confirm it is the bearer healthcheck case, not a boot crash:** send a
+tokenless `initialize` request through the public ingress. A clean `401` with
+`WWW-Authenticate: Bearer` means the MCP server is up and enforcing auth; a
+`502`, timeout, or connection-refused result points at a process/proxy boot
+failure instead.
+
+**Cause:** the in-container healthcheck runs `mcpHealthcheck.mjs` against the
+same authenticated `/mcp` route. In `gitlab-pat` mode that self-probe must also
+send a bearer token. If `NEO_MCP_HEALTHCHECK_TOKEN` is unset or empty, the
+healthcheck gets `401`, the container never reaches `service_healthy`, and
+compose dependency waits abort.
+
+**Fix:** set `NEO_MCP_HEALTHCHECK_TOKEN=<read_user bearer>` in the deployment
+`.env` (a GitLab PAT or OAuth access token with the same `read_user` validation
+surface as other MCP clients), then recreate the affected services so the
+environment is reloaded:
+
+```bash
+docker compose -p <project> up -d --force-recreate kb-server mc-server orchestrator
+```
+
+This is an environment-only repair; no image rebuild is required.
+
+### `inspect_deployment` says `No Docker container found for compose service ...`
+
+**Layer:** the MCP server is reachable and the deployment-state bridge snapshot
+is fresh, but the orchestrator's runtime-access holder cannot resolve one or
+more allowlisted Compose services through Docker labels.
+
+Read `snapshot.bridgeDiagnostics` before changing service code:
+
+- `runtimeAccess.enabled: false` means the bridge is intentionally not using a
+  runtime handle. Set `NEO_ORCHESTRATOR_RUNTIME_ACCESS_ENABLED=true` only when
+  B1 runtime diagnostics/recovery are intended.
+- `reason: broad-service-lookup-failure` means most or all configured services
+  failed at the observation layer. Treat this as bridge configuration first,
+  not as four independent service outages.
+- `compose-service-no-match` means Docker returned no container for the label
+  filter shown in the error details. Align
+  `NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES` and
+  `NEO_DEPLOYMENT_STATE_BRIDGE_ALLOWED_SERVICES` with Docker
+  `com.docker.compose.service` labels, not container names.
+- `compose-service-ambiguous` means more than one container matched a service
+  label. Set `NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT=<project>` to the
+  Compose project label.
+- `docker-socket-unavailable` or `docker-socket-forbidden` means the
+  orchestrator cannot read the runtime socket. Mount `/var/run/docker.sock`
+  into the orchestrator with suitable permissions, or disable runtime access
+  explicitly when that deployment should not expose B1 diagnostics.
+- The default diagnostic set observes sibling services, not the orchestrator
+  container itself. When orchestrator logs/state are needed for a cloud
+  incident, add the Compose service label to both
+  `NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES` and
+  `NEO_DEPLOYMENT_STATE_BRIDGE_ALLOWED_SERVICES` (for the bundled compose file,
+  use `orchestrator`).
+
+The diagnostic intentionally exposes only non-secret config, service keys, and
+the label filter shape. It does not enumerate arbitrary containers or expose
+Docker, shell, restart, or daemon-control routes through public MCP tools.
+
 ## Test profile vs production auth profile
 
 Verify the wiring *before* real auth is enabled, but keep the two profiles distinct:
@@ -118,7 +184,21 @@ A healthy server returns `event: message` SSE framing carrying the JSON-RPC resu
 
 ## First query returns nothing — the empty-KB gap
 
-A freshly deployed Knowledge Base is **healthy but empty**: `healthcheck` reports `count: 0` and queries return nothing until an ingest runs. In the cloud-safe profile the continuous ingestion lane is off by design, so the first ingest is a deliberate step — trigger the deployment's ingestion entry point once, then queries return results. A `count: 0` immediately after deploy is expected, not a failure.
+A freshly deployed Knowledge Base can be **healthy but empty**: `healthcheck` reports `count: 0` and queries return nothing until an ingest writes chunks. Treat that as an ingestion-state question, not a Chroma readiness question.
+
+For push-mode deployments, trigger the deployment's ingestion entry point once, then query again.
+
+For pull-mode deployments with configured `tenantRepos[]`, call `inspect_deployment` or `get_deployment_state_snapshot` and inspect the `tenantRepoSync` section before taking manual action. It distinguishes disabled, true no-configured-repos, not-due, running, completed, failed, and degraded/unreadable state without exposing credentials or raw logs. A degraded config-read error means the graph/YAML/default config resolver could not prove the effective `tenantRepos`; treat that differently from a real empty config. If the task is configured but has not advanced, use the stable reason code and per-repo hashed state there to decide whether to wait for the next due sweep, fix credentials/config, or run `node ./ai/scripts/maintenance/syncTenantRepos.mjs` inside the orchestrator container. When `lastErrorCode` is `KB_TENANT_REPO_SYNC_SYNC_FAILED`, check `lastSourceErrorCode`: `KB_GITMIRROR_CREDENTIAL_REF_INVALID`, `KB_GITMIRROR_CLONE_FAILED`, or `KB_GITMIRROR_FETCH_FAILED` points to the credential/ref/upstream access path before generic ingestion debugging.
+
+If the deployment snapshot is fresh but the tool returns `status: degraded` with
+`reason: snapshot-section-missing` or `snapshot-producer-metadata-missing`, fix
+the bridge producer before debugging repo credentials or embeddings. Those
+reasons mean the public KB/MC server can read the snapshot file, but the
+orchestrator bridge that wrote it is older than the current diagnostic contract
+or omitted a required top-level section such as `tenantRepoSync`. Recreate the
+orchestrator with the current image/config, then re-run the public tool and only
+continue pull-mode ingestion debugging once `schemaDiagnostics.status` is
+`available`.
 
 ## See also
 

@@ -46,6 +46,17 @@
         "learn/guides/fundamentals/CodebaseOverview.md"
       ]
     },
+    "blog-post": {
+      "name": "blog-post",
+      "description": "Authoring or revising a public-facing blog post (learn/blog/*.md + portal registration). Enforces hero-piece narrative arc, sourcing every external claim, killing the three over-claim flavors, and the mandatory cross-family review bar.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
     "context-recovery": {
       "name": "context-recovery",
       "description": "Post-compaction recovery runbook for reconstructing active lane state from Memory Core recency, semantic recall, session rollups, and A2A. Triggers: Use immediately after context compaction/compression, resuming a summarized session, or noticing the active lane was reconstructed from a lossy summary.",
@@ -112,6 +123,39 @@
         "learn/guides/fundamentals/CodebaseOverview.md"
       ]
     },
+    "goal-scoping": {
+      "name": "goal-scoping",
+      "description": "Scope a GOAL (release / initiative / major objective) into a few coherent owned LANES — the planning front-end of the epic lifecycle. Convert goals into lanes (not scrap tickets); peers self-select lanes; the planner defines goal+lanes but never assigns a peer. Triggers: before decomposing a release/initiative/major-goal into work; when a goal needs scoping into owned streams; when work is being chased as scattered micro-tickets with no owned lanes; when tempted to skip planning OR to assign peers to lanes.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
+    "guide-authoring": {
+      "name": "guide-authoring",
+      "description": "Authoring OR reviewing a learn/ guide (learn/benefits/*.md, learn/agentos/*.md). Enforces the grounding discipline (memory-mine + use-the-subsystem's-tools before writing), the rich-narrative + benefits + lived-voice content bar, render-verified TD Mermaid, conceptual-vs-reference separation, the never-hand-edit-generated-files rule, and a no-rubber-stamp reviewer gate.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
+    "hostile-content-quarantine": {
+      "name": "hostile-content-quarantine",
+      "description": "Incident playbook for externally-authored hostile content on public surfaces — astroturfing, spam, stealth marketing, injection-bearing artifacts. Triggers: external-authored content bearing astroturf markers (engagement-bait clauses, vendor links, external endpoint/MCP offers, name-only drops), an operator \"astroturf / spam / we got hit\" signal, or verifying a moderation outcome. ANTI-trigger: ordinary good-faith contributor posts.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
     "ideation-sandbox": {
       "name": "ideation-sandbox",
       "description": "Safely propose architectural features, unknown unknowns, and brainstorm ideas natively in GitHub Discussions. Triggers: Use this skill when the user asks to brainstorm an architecture change, proposes a highly exploratory / undefined technical idea, or as auto-fire trigger for §5.2 Step 2.5 Architectural Step-Back on high-blast-radius proposals before [RESOLVED_TO_AC] / [GRADUATED_TO_TICKET] graduation.",
@@ -169,7 +213,7 @@
     },
     "memory-mining": {
       "name": "memory-mining",
-      "description": "Authoritative protocol for querying the Memory Core before diagnosing regressions or proposing non-trivial architectural claims. Prevents re-derivation of prior reasoning by surfacing cross-session, cross-harness context via semantic search. Triggers: Use this skill when (1) the user reports a regression symptom (\"used to work\", \"suddenly broken\", surprise validation failures, schema mismatches, \"additionalProperties\" rejections), OR (2) you are about to propose an architectural claim, roadmap, or comparison against external work where prior sessions may have already mapped the territory.",
+      "description": "Authoritative protocol for querying the Memory Core before diagnosing regressions or proposing non-trivial architectural claims. Prevents re-derivation of prior reasoning by surfacing cross-session, cross-harness context via semantic search. Triggers: Use this skill when (1) the user reports a regression symptom (\"used to work\", \"suddenly broken\", surprise validation failures, schema mismatches, \"additionalProperties\" rejections), OR (2) you are about to propose an architectural claim, roadmap, or comparison against external work where prior sessions may have already mapped the territory, OR (3) you are about to begin an implementation or a PR-review — a cheap 3–10-call prior-art sweep before the first design sentence or review verdict.",
       "routerByteBudget": 12,
       "payloadBudget": 80000,
       "claudeSymlinkRequired": true,
@@ -224,7 +268,7 @@
     },
     "post-review-pickup": {
       "name": "post-review-pickup",
-      "description": "Authoritative protocol for next-lane pickup after ANY PR-lifecycle event boundary (review post, author response, implementation completion, PR open/update, ticket create, blocked-state resolution) AND for pre-review intake lane discovery from fresh boot or watchdog wake when no author lane is active. Prevents silent idle and reviewer-only cycles by requiring the next lane, a review-first rationale, or an explicit halt-state per §15.6 self-select mandate. Triggers: Use immediately after posting a PR review, chaining a formal GitHub review state, sending an author review-response commentId handoff, completing a discrete implementation chunk, opening/updating a PR, creating a ticket via create_issue, resolving a blocked-task-state (positive-path exit; negative-path entry remains blocked-task-state scope), OR before accepting the first PR review/re-review request in a fresh session/wake when no current author or implementation lane is claimed.",
+      "description": "Authoritative protocol for next-lane pickup after ANY PR-lifecycle event boundary (review post, author response, implementation completion, PR open/update, ticket create, blocked-state resolution) AND for pre-review intake lane discovery from fresh boot or watchdog wake when no author lane is active. Prevents silent idle and reviewer-only cycles by requiring active lane selection or a review-first rationale per §15.6 self-select mandate. Triggers: Use immediately after posting a PR review, chaining a formal GitHub review state, sending an author review-response commentId handoff, completing a discrete implementation chunk, opening/updating a PR, creating a ticket via create_issue, resolving a previously blocked state (positive-path exit only; new blockers route to bug/follow-up plus next lane), OR before accepting the first PR review/re-review request in a fresh session/wake when no current author or implementation lane is claimed.",
       "routerByteBudget": 12,
       "payloadBudget": 80000,
       "claudeSymlinkRequired": true,
@@ -238,7 +282,7 @@
       "description": "Standardized guidelines and templates for structuring Pull Request reviews so feedback is actionable, encouraging, and extractable by the Native Edge Graph. MANDATORY ROI WARNING: Skipping the review template guarantees CI lint failure. Triggers: Reviewing a PR (yours or peer's) — structured eval metrics, graph ingestion tags, severity ladder, restates §0 merge gate, post-comment A2A commentId hand-off (reviewer→author) per guide §10, Evidence Audit + Source-of-Authority sections (template §) for substrate/runtime-AC PRs and authority-citation review-comments.",
       "routerByteBudget": 12,
       "payloadBudget": 80000,
-      "perFilePayloadBudget": 66000,
+      "perFilePayloadBudget": 37000,
       "claudeSymlinkRequired": true,
       "downstreamDocsTargets": [
         "learn/agentos/ProgressiveDisclosureSkills.md",
@@ -250,7 +294,18 @@
       "description": "Standardized guidelines and procedural execution flow for opening a Pull Request. CRITICAL: Do NOT run default `npx playwright test` (use custom configs). MANDATORY ROI WARNING: Skipping the PR body template guarantees CI lint failure. Triggers: Code modifications complete; before opening PR — stepping-back reflection, commit format, cross-family review mandate, post-comment A2A commentId hand-off (author→reviewer) per review-response-protocol.md §14, Evidence declaration line for substrate/runtime-AC PRs per [evidence-ladder.md](learn/agentos/process/evidence-ladder.md).",
       "routerByteBudget": 12,
       "payloadBudget": 80000,
-      "perFilePayloadBudget": 38000,
+      "perFilePayloadBudget": 22000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
+    "release-notes": {
+      "name": "release-notes",
+      "description": "Authoritative protocol for authoring release notes as an EPIC with mining-driven iterations — scope derivation (the tracker lags shipped reality), heavy per-arc Memory-Core mining, per-claim V-B-A, the precedent-SET quality bar — majors AND minors, v13.0.0 + v12.1.0 + v11.22-24 (hero chapters, named case studies with real timelines, War Stories, honest bounds, never downplay a release), and the publish.mjs flat-root staging lifecycle. Triggers: a release window opens, release notes are requested/authored/iterated, or cut-prep begins (staging file, atomic-hash line, orphan-guard interplay).",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
       "claudeSymlinkRequired": true,
       "downstreamDocsTargets": [
         "learn/agentos/ProgressiveDisclosureSkills.md",
@@ -348,6 +403,17 @@
     "unit-test": {
       "name": "unit-test",
       "description": "Expert QA knowledge on writing, formatting, and executing Playwright tests natively in the Neo.mjs single-thread layout. CRITICAL: Neo.mjs uses Playwright in a highly custom way. Standard Playwright patterns will fail. Triggers: Use this skill before writing, modifying, or executing Playwright unit tests, or if the user asks you to write, fix, or run unit tests.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
+    "update-roadmap": {
+      "name": "update-roadmap",
+      "description": "Repeatable post-release beat — celebrate the shipped release, then plan the next roadmap as cornerstones + rationale (NOT an exhaustive list) + an explicit deferred set, scoped into a GitHub milestone with a named steward per epic. Triggers: a release ships (vX.Y merged to main); a maintainer says \"scope the next release / plan the roadmap / what's in vNext\"; or the post-release planning beat is neglected. Sibling to #10321 (release-cut: notes + publish).",
       "routerByteBudget": 12,
       "payloadBudget": 80000,
       "claudeSymlinkRequired": true,

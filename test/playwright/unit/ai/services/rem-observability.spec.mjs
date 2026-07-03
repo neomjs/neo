@@ -13,7 +13,7 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
+import {test, expect}     from '@playwright/test';
 import crypto             from 'node:crypto';
 import {mkdir, writeFile} from 'fs/promises';
 import os                 from 'node:os';
@@ -28,9 +28,9 @@ import {
 
 /**
  * @summary Cross-service unit coverage for the 5-axis REM observability primitive
- * shipped by Epic #12065 Sub 2 / #12068 Phase 1 Part A.
+ * shipped for REM pipeline divergence detection.
  *
- * The 5 axes per Discussion #12062 §2.6:
+ * The 5 axes covered by the REM divergence model:
  * - **A** — Chroma summary count (via existing tooling, not under test here)
  * - **A2 (positive)** — `ChromaManager.getGraphDigestedCount`
  * - **A2 (negative)** — `ChromaManager.getUndigestedSessionCount`
@@ -49,8 +49,6 @@ import {
  * @see ai/services/memory-core/managers/ChromaManager.mjs — axis helpers
  * @see ai/services/memory-core/GraphService.mjs — axis helpers
  * @see ai/services/graph/TopologyInferenceEngine.mjs — axis helper
- * @see Epic #12065 Sub 2 #12068 — 5-axis observability primitive ticket
- * @see Discussion #12062 §2.6 — axis-divergence framing
  */
 
 const __filename = fileURLToPath(import.meta.url);
@@ -129,7 +127,7 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
     test.beforeEach(() => {
         originalGetSummaryCollection = ChromaManager.getSummaryCollection;
         originalGraphDb              = GraphService.db;
-        originalHandoffPath          = aiConfig.data.handoffFilePath;
+        originalHandoffPath          = aiConfig.data.handoffFilePathTest;
         originalRemRunStateDir       = aiConfig.remRunStateDir;
         originalRemRunRecentLimit    = aiConfig.remRunRecentLimit;
 
@@ -140,7 +138,7 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
     test.afterEach(() => {
         ChromaManager.getSummaryCollection = originalGetSummaryCollection;
         GraphService.db                    = originalGraphDb;
-        aiConfig.data.handoffFilePath      = originalHandoffPath;
+        aiConfig.data.handoffFilePathTest  = originalHandoffPath;
         aiConfig.remRunStateDir            = originalRemRunStateDir;
         aiConfig.remRunRecentLimit         = originalRemRunRecentLimit;
     });
@@ -321,6 +319,43 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
     });
 
     test.describe('TopologyInferenceEngine.getTopologyConflictCount', () => {
+        test('mergeConflictAlerts caps handoff alerts at 5 and prunes older unbounded entries', () => {
+            const existing = [
+                '# Sandman Handoff Alerts',
+                '',
+                '## Active Conflicts',
+                '',
+                '- **[SUPERSEDES]** `issue-old-1`: old one (Source Session: old-1)',
+                '- **[OBSOLETES]** `issue-old-2`: old two (Source Session: old-2)',
+                '- **[DUPLICATE]** `issue-old-3`: old three (Source Session: old-3)',
+                '- **[SUPERSEDES]** `issue-old-4`: old four (Source Session: old-4)',
+                '- **[OBSOLETES]** `issue-old-5`: old five (Source Session: old-5)',
+                '- **[DUPLICATE]** `issue-old-6`: old six (Source Session: old-6)',
+                '',
+                '## Computed Golden Path',
+                '',
+                'Golden Path content.',
+                ''
+            ].join('\n');
+
+            const {content, changed} = TopologyInferenceEngine.mergeConflictAlerts(existing, [
+                {type: 'SUPERSEDES', issueId: 'issue-new-1', description: 'new one'},
+                {type: 'OBSOLETES', issueId: 'issue-new-2', description: 'new two'}
+            ], 'new-session');
+
+            const matches = content.match(/\(Source Session:/g) || [];
+
+            expect(changed).toBe(true);
+            expect(matches.length).toBe(5);
+            expect(content).toContain('- **[SUPERSEDES]** `issue-new-1`: new one (Source Session: new-session)');
+            expect(content).toContain('- **[OBSOLETES]** `issue-new-2`: new two (Source Session: new-session)');
+            expect(content).toContain('`issue-old-1`');
+            expect(content).toContain('`issue-old-3`');
+            expect(content).not.toContain('`issue-old-4`');
+            expect(content).not.toContain('`issue-old-6`');
+            expect(content.indexOf('`issue-new-1`')).toBeLessThan(content.indexOf('## Computed Golden Path'));
+        });
+
         test('counts (Source Session: lines in handoff file', async () => {
             const handoffPath = uniqueHandoffPath('counts');
             await mkdir(tmpRoot, {recursive: true});
@@ -338,18 +373,18 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
                 'Some Golden Path content here, no Source Session marker.',
                 ''
             ].join('\n'), 'utf8');
-            aiConfig.data.handoffFilePath = handoffPath;
+            aiConfig.data.handoffFilePathTest = handoffPath;
 
             expect(await TopologyInferenceEngine.getTopologyConflictCount()).toBe(3);
         });
 
         test('returns 0 when handoff file does not exist (ENOENT)', async () => {
-            aiConfig.data.handoffFilePath = uniqueHandoffPath('never-existed');
+            aiConfig.data.handoffFilePathTest = uniqueHandoffPath('never-existed');
             expect(await TopologyInferenceEngine.getTopologyConflictCount()).toBe(0);
         });
 
         test('returns 0 when handoffFilePath is unset', async () => {
-            aiConfig.data.handoffFilePath = null;
+            aiConfig.data.handoffFilePathTest = null;
             expect(await TopologyInferenceEngine.getTopologyConflictCount()).toBe(0);
         });
 
@@ -357,7 +392,7 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
             const handoffPath = uniqueHandoffPath('empty');
             await mkdir(tmpRoot, {recursive: true});
             await writeFile(handoffPath,'', 'utf8');
-            aiConfig.data.handoffFilePath = handoffPath;
+            aiConfig.data.handoffFilePathTest = handoffPath;
 
             expect(await TopologyInferenceEngine.getTopologyConflictCount()).toBe(0);
         });
@@ -373,7 +408,7 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
                 'Some content, but zero conflict markers.',
                 ''
             ].join('\n'), 'utf8');
-            aiConfig.data.handoffFilePath = handoffPath;
+            aiConfig.data.handoffFilePathTest = handoffPath;
 
             expect(await TopologyInferenceEngine.getTopologyConflictCount()).toBe(0);
         });
@@ -410,10 +445,10 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
                 '- **[DUPLICATE]** `issue-101`: bar (Source Session: s2)',
                 ''
             ].join('\n'), 'utf8');
-            aiConfig.data.handoffFilePath = handoffPath;
+            aiConfig.data.handoffFilePathTest = handoffPath;
 
             const {callTool} = await import('../../../../../ai/mcp/server/memory-core/toolService.mjs');
-            const state = await callTool('get_rem_pipeline_state', {sessionId: 's1'});
+            const state      = await callTool('get_rem_pipeline_state', {sessionId: 's1'});
 
             expect(state).toEqual({
                 undigested       : 2,
@@ -426,6 +461,39 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
                     entityCount: 9
                 }
             });
+        });
+
+        test('#13458: a stalled REM axis returns a bounded numeric fallback plus axisErrors', async () => {
+            const originalGetUndigestedSessionCount = ChromaManager.getUndigestedSessionCount;
+            const originalGetGraphDigestedCount     = ChromaManager.getGraphDigestedCount;
+            const originalGetSessionNodeCount       = GraphService.getSessionNodeCount;
+            const originalGetTopologyConflictCount  = TopologyInferenceEngine.getTopologyConflictCount;
+
+            ChromaManager.getUndigestedSessionCount = async () => new Promise(() => {});
+            ChromaManager.getGraphDigestedCount     = async () => 7;
+            GraphService.getSessionNodeCount        = async () => 11;
+            TopologyInferenceEngine.getTopologyConflictCount = async () => 2;
+
+            try {
+                const {buildRemPipelineState} = await import('../../../../../ai/services/memory-core/HealthService.mjs');
+                const state                   = await buildRemPipelineState({axisTimeoutMs: 5});
+
+                expect(state).toMatchObject({
+                    undigested       : 0,
+                    digested         : 7,
+                    sessionNodes     : 11,
+                    topologyConflicts: 2,
+                    recentCycles     : [],
+                    axisErrors       : {
+                        undigested: 'REM axis undigested timed out after 5ms'
+                    }
+                });
+            } finally {
+                ChromaManager.getUndigestedSessionCount = originalGetUndigestedSessionCount;
+                ChromaManager.getGraphDigestedCount     = originalGetGraphDigestedCount;
+                GraphService.getSessionNodeCount        = originalGetSessionNodeCount;
+                TopologyInferenceEngine.getTopologyConflictCount = originalGetTopologyConflictCount;
+            }
         });
 
         test('projects recent JSONL cycle state through the MCP tool', async () => {
@@ -462,7 +530,7 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
             }), {dir: aiConfig.remRunStateDir});
 
             const {callTool} = await import('../../../../../ai/mcp/server/memory-core/toolService.mjs');
-            const state = await callTool('get_rem_pipeline_state', {});
+            const state      = await callTool('get_rem_pipeline_state', {});
 
             expect(state.recentCycles).toEqual([{
                 runId              : 'rem-new',

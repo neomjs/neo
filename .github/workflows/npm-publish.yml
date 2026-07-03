@@ -2,10 +2,21 @@ name: Publish Package to npmjs
 on:
   release:
     types: [ published ]
+  # Manual re-publish path: a failed release-event run re-executes the workflow as committed at
+  # the ORIGINAL ref, so fixes here can never reach it — dispatching from dev publishes whatever
+  # version dev's package.json carries (the release pipeline bumps it before tagging).
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    # npm Trusted Publishing (OIDC): the id-token grant lets GitHub mint the per-run credential
+    # the npmjs-side trusted publisher (neomjs/neo + this filename) exchanges for publish rights.
+    # No NODE_AUTH_TOKEN — a token env takes precedence over OIDC and reintroduces the expiring-
+    # token failure class that killed the v13.0.0 publish (token expired 2026-03-27 → masked E404).
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v6
       # Setup .npmrc file to publish to npm
@@ -15,5 +26,3 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - run: npm ci
       - run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

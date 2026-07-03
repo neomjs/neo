@@ -7,7 +7,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-06T09:35:00Z'
-updatedAt: '2026-03-15T11:40:21Z'
+updatedAt: '2026-06-21T14:08:34Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9362'
 author: kmunk-klarso
 commentsCount: 1
@@ -15,6 +15,10 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 1
+  signals: []
 blockedBy: []
 blocking: []
 closedAt: '2026-03-07T15:01:26Z'
@@ -23,7 +27,7 @@ closedAt: '2026-03-07T15:01:26Z'
 
 Hamburger durch Such-Icon ersetzen
 
-<img width="334" height="661" alt="Image" src="https://github.com/user-attachments/assets/7792f187-722b-40d3-99cc-17fd2d275a75" />
+<img width="334" height="661" alt="Image" src="[QUARANTINED_URL: github.com]" />
 
 
 ## Timeline

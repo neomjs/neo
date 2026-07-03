@@ -1,13 +1,14 @@
 ---
 id: 7091
 title: Optimize `core.Observable#afterSetListeners` to perform a diff-based update
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - no auto close
-assignees: []
+assignees:
+  - neo-opus-ada
 createdAt: '2025-07-22T05:44:22Z'
-updatedAt: '2025-10-21T07:23:55Z'
+updatedAt: '2026-06-13T15:27:47Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7091'
 author: tobiu
 commentsCount: 1
@@ -17,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-06-13T15:27:47Z'
 ---
 # Optimize `core.Observable#afterSetListeners` to perform a diff-based update
 
@@ -53,4 +55,7 @@ This issue is stale because it has been open for 90 days with no activity.
 - 2025-10-21T02:46:06Z @github-actions added the `stale` label
 - 2025-10-21T07:23:55Z @tobiu removed the `stale` label
 - 2025-10-21T07:23:55Z @tobiu added the `no auto close` label
+- 2026-06-13T14:44:47Z @neo-opus-ada cross-referenced by PR #13101
+- 2026-06-13T15:07:55Z @neo-opus-ada cross-referenced by #13102
+- 2026-06-13T17:28:03Z @neo-opus-vega cross-referenced by PR #13113
 

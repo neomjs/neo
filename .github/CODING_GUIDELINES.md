@@ -21,6 +21,7 @@ In the long run, we are planning to convert as many of the rules as possible int
 8. Class methods
 9. data.Model fields
 10. Misc
+11. JSDoc type expressions
 
 
 ## 1. General rules
@@ -497,3 +498,28 @@ fields: [{
   + Bad: `let arr = [1,];`
   + Good: `let obj = {a: 1};`
   + Good: `let arr = [1];`
+
+## 11. JSDoc type expressions
+
+Neo's docs build parses every type expression with `jsdoc-x` and `catharsis` in JSDoc mode. This is the
+Closure/JSDoc grammar, not TypeScript. `node ./buildScripts/util/check-jsdoc-types.mjs` runs the same parser
+before `npm run generate-docs-json`, so fix the linted expression instead of treating the build failure as a
+docs-output problem.
+
+Verified parser outcomes:
+
+| Pattern checked | Catharsis result | Use |
+| --- | --- | --- |
+| `@returns {{value:Object|null}}` | Fails: no-space union inside a record value | `@returns {{value: Object|null}}` or `@returns {{value:(Object|null)}}` |
+| `@param {{name?:String}} data` | Fails: TypeScript optional-key syntax | `@param {Object} data` plus `@param {String} [data.name]` |
+| `@param {(value: String) => Boolean} fn` | Fails: TypeScript arrow-function syntax | `@param {function(String):Boolean} fn` |
+| `@returns {{value: Object|null}}` | Passes | Keep the space after the record colon |
+| `@returns {{value:(Object|null)}}` | Passes | Parenthesize ambiguous unions |
+| `@param {Array.<String>} items` | Passes | Prefer canonical JSDoc generic spelling in docs-facing code |
+| `@param {Object.<String, Number>} totals` | Passes | Prefer canonical JSDoc generic spelling in docs-facing code |
+
+If a type is hard to express in one line, define a named `@typedef` near the class or module and reference that
+name from `@param`, `@returns`, `@member`, or `@property`. The lint currently scans authored `.mjs` files in
+`src`, `ai`, `examples`, `apps`, and `docs/app`. `buildScripts` and `test` remain outside the CI scope because
+they are not consumed by the docs app today; extend the scope only with a ticket that also updates the relevant
+fixtures.

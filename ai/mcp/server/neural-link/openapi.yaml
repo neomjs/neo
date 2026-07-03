@@ -2,11 +2,24 @@ openapi: 3.0.0
 info:
   title: Neo.mjs Neural Link MCP Server
   version: 1.0.0
+x-neo-harness-tool-projection:
+  defaultVisibleTiers:
+    - read
+  withheldUntilTopologicalLocking:
+    - write-locked
+  operatorOnlyTiers:
+    - admin
+  description: >
+    Harness-embedded agents receive read-tier Neural Link tools by default.
+    Write-locked tools are withheld until Topological Locking and explicit-target
+    semantics exist. Admin tools stay operator-only unless a later authorization
+    leaf grants them deliberately.
 paths:
   /health:
     post:
       summary: Health Check
       operationId: healthcheck
+      x-neo-tool-tier: read
       x-annotations:
         readOnlyHint: true
       description: |
@@ -35,11 +48,58 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /tool/handbook:
+    post:
+      summary: Tool Handbook
+      operationId: get_mcp_tool_handbook
+      x-neo-tool-tier: read
+      x-annotations:
+        readOnlyHint: true
+      description: Returns lazy-loaded usage detail for one Neural Link MCP tool.
+      tags: [Health]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [toolId]
+              properties:
+                toolId:
+                  type: string
+                  description: Tool operation id to inspect.
+      responses:
+        '200':
+          description: Tool handbook lookup result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  toolId:
+                    type: string
+                  found:
+                    type: boolean
+                  title:
+                    type: string
+                  description:
+                    type: string
+                  handbook:
+                    type: string
+                  source:
+                    type: string
+                  code:
+                    type: string
+                  message:
+                    type: string
+
   /check_namespace:
     post:
       summary: Checks if a namespace exists in the current environment.
       operationId: check_namespace
+      x-neo-tool-tier: read
       x-handler: check_namespace
+      x-pass-as-object: true
       requestBody:
         required: true
         content:
@@ -70,6 +130,7 @@ paths:
     post:
       summary: Find Instances
       operationId: find_instances
+      x-neo-tool-tier: read
       x-pass-as-object: true
       description: |
         Finds instances matching a set of properties.
@@ -113,7 +174,9 @@ paths:
     post:
       summary: Retrieves the loaded namespace tree from the runtime.
       operationId: get_namespace_tree
+      x-neo-tool-tier: read
       x-handler: get_namespace_tree
+      x-pass-as-object: true
       requestBody:
         required: true
         content:
@@ -144,6 +207,7 @@ paths:
     post:
       summary: Get Instance Properties
       operationId: get_instance_properties
+      x-neo-tool-tier: read
       x-pass-as-object: true
       description: |
         Retrieves properties from a specific instance by its ID.
@@ -181,6 +245,7 @@ paths:
     post:
       summary: Get Computed Styles
       operationId: get_computed_styles
+      x-neo-tool-tier: read
       x-pass-as-object: true
       description: |
         Retrieves the computed styles for a component.
@@ -221,6 +286,7 @@ paths:
     post:
       summary: Get Component DOM Rects
       operationId: get_dom_rect
+      x-neo-tool-tier: read
       x-pass-as-object: true
       description: |
         Retrieves the DOM rectangles for one or more components.
@@ -263,6 +329,7 @@ paths:
     post:
       summary: Get DOM Event Listeners
       operationId: get_dom_event_listeners
+      x-neo-tool-tier: read
       x-pass-as-object: true
       description: |
         Retrieves detailed DOM event listeners for a specific component.
@@ -305,6 +372,7 @@ paths:
     post:
       summary: Get DOM Event Summary
       operationId: get_dom_event_summary
+      x-neo-tool-tier: read
       x-pass-as-object: true
       description: |
         Retrieves a high-level summary of the DomEvent manager state.
@@ -348,6 +416,7 @@ paths:
     post:
       summary: Get Component Tree
       operationId: get_component_tree
+      x-neo-tool-tier: read
       x-pass-as-object: true
       description: |
         Retrieves the full component tree of the application.
@@ -385,6 +454,7 @@ paths:
     post:
       summary: Inspect Component Render Tree
       operationId: inspect_component_render_tree
+      x-neo-tool-tier: read
       x-pass-as-object: true
       description: |
         Retrieves the render tree (VDOM/VNode) of a component.
@@ -438,6 +508,7 @@ paths:
     post:
       summary: Inspect Store
       operationId: inspect_store
+      x-neo-tool-tier: read
       x-pass-as-object: true
       description: |
         Inspects a specific data store.
@@ -464,7 +535,9 @@ paths:
                   count:
                     type: integer
                   model:
-                    type: string
+                    oneOf:
+                      - type: string
+                      - type: object
                   filters:
                     type: array
                     items:
@@ -482,6 +555,7 @@ paths:
     post:
       summary: List Stores
       operationId: list_stores
+      x-neo-tool-tier: read
       x-pass-as-object: true
       description: |
         Lists all active data stores.
@@ -500,21 +574,29 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    id:
-                      type: string
-                    model:
-                      type: string
-                    count:
-                      type: integer
+                type: object
+                properties:
+                  stores:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        model:
+                          oneOf:
+                            - type: string
+                            - type: object
+                        count:
+                          type: integer
+                        isLoaded:
+                          type: boolean
 
   /data/record/get:
     post:
       summary: Get Record
       operationId: get_record
+      x-neo-tool-tier: read
       x-pass-as-object: true
       description: |
         Retrieves a specific data record.
@@ -540,6 +622,7 @@ paths:
     post:
       summary: Inspect State Provider
       operationId: inspect_state_provider
+      x-neo-tool-tier: read
       x-pass-as-object: true
       description: |
         Inspects a specific state provider.
@@ -570,6 +653,7 @@ paths:
     post:
       summary: Modify State Provider
       operationId: modify_state_provider
+      x-neo-tool-tier: write-locked
       x-pass-as-object: true
       description: |
         Modifies the data of a specific state provider.
@@ -598,6 +682,7 @@ paths:
     post:
       summary: Get Drag State
       operationId: get_drag_state
+      x-neo-tool-tier: read
       x-pass-as-object: true
       description: |
         Retrieves the state of the DragCoordinator.
@@ -626,6 +711,7 @@ paths:
     post:
       summary: Get Drag Trace
       operationId: get_drag_trace
+      x-neo-tool-tier: read
       x-pass-as-object: true
       description: |
         Retrieves the recent drag-lifecycle traces recorded by SortZone (start geometry, per-move decisions, item switches, scroll activations, end resolution, grid lock verdicts).
@@ -657,12 +743,9 @@ paths:
     post:
       summary: Observe Motion
       operationId: observe_motion
+      x-neo-tool-tier: read
       x-pass-as-object: true
-      description: |
-        Samples the client rects of the given components over a time window and returns the motion trace.
-
-        **When to Use:**
-        To SEE live motion (drag choreography, animations) while you or a user drive an interaction. Duration is clamped to 8000ms per call; chain calls for longer windows.
+      description: Samples component and raw DOM-node client rects over a time window for rendered-geometry motion traces. Use during drag choreography or animation debugging; duration is clamped to 8000ms per call.
       tags: [Component]
       requestBody:
         required: true
@@ -670,16 +753,29 @@ paths:
           application/json:
             schema:
               type: object
-              required: [componentIds]
               properties:
                 sessionId:
                   type: string
                   description: Target App Worker Session ID
+                windowId:
+                  type: string
+                  description: Main-thread window id for node-only sampling when no component target can provide routing context
                 componentIds:
                   type: array
                   items:
                     type: string
-                  description: Component ids to sample
+                  description: Component ids to sample; at least one of componentIds, nodeIds, or cellsOf is required
+                nodeIds:
+                  type: array
+                  items:
+                    type: string
+                  description: Raw DOM element ids to sample
+                cellsOf:
+                  type: object
+                  properties:
+                    rowId:
+                      type: string
+                      description: Raw row DOM id whose current child node ids should be sampled
                 durationMs:
                   type: number
                   description: Sampling window, clamped to [100, 8000] (default 2000)
@@ -698,6 +794,7 @@ paths:
     post:
       summary: Verify Component Consistency
       operationId: verify_component_consistency
+      x-neo-tool-tier: read
       x-pass-as-object: true
       description: |
         Diffs a container's three child-order surfaces — logical items, vdom child nodes, and the rendered DOM — reporting count, order, membership and duplicate mismatches.
@@ -731,6 +828,7 @@ paths:
     post:
       summary: Query Components
       operationId: query_component
+      x-neo-tool-tier: read
       x-pass-as-object: true
       description: |
         Finds components matching a set of properties (semantic query).
@@ -758,10 +856,138 @@ paths:
                     items:
                       type: object
 
+  /component/create:
+    post:
+      summary: Create Component
+      operationId: create_component
+      x-neo-tool-tier: write-locked
+      x-pass-as-object: true
+      description: |
+        Creates a component inside a target container at runtime — a schema-validated, CONSTRAINED
+        alternative to the admin-tier `call_method(container.add(...))`.
+
+        Disposition: retained as component-specific convenience sugar. Use `create_instance` for the
+        general primitive that can create standalone Stores/Models/Controllers or attach a created
+        component to a parent container.
+
+        **When to Use:**
+        To add a new component to a live container (e.g. add a `Button` to a `Toolbar`) without granting
+        admin method-call access. The `config` must declare an `ntype` (e.g. `button`) or `className`
+        (e.g. `Neo.button.Base`) — a `module` is a class reference and cannot cross the wire. The target
+        container is resolved by `parentId`.
+      tags: [Component]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateComponentRequest'
+      responses:
+        '200':
+          description: Component added to the container
+        '400':
+          description: Invalid request body (config not an object, or missing module / ntype / className)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /instance/create:
+    post:
+      summary: Create Instance
+      operationId: create_instance
+      x-neo-tool-tier: write-locked
+      x-pass-as-object: true
+      description: |
+        Creates any JSON-addressable Neo instance by `className` or `ntype` plus a JSON config.
+        With `parentId`, the created component is attached to that live container; without `parentId`,
+        the instance remains standalone (for example, a `Neo.data.Store`).
+
+        This is a write-locked Neural Link tool. It does not widen read-only `harness-embedded`
+        projections; only tool projections that already receive write-locked tools can see it.
+
+        **When to Use:**
+        Use this instead of `create_component` when the target may be a Store, Model, Controller,
+        StateProvider, or any other non-component instance. Use `parentId` only when the created
+        instance should also be inserted into a container. The config must stay data-only: `module`
+        class references and function-bearing values are rejected; pass registered handler id strings
+        for later handler-registry work.
+      tags: [Instance]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInstanceRequest'
+      responses:
+        '200':
+          description: Instance created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateInstanceResponse'
+        '400':
+          description: Invalid request body (missing className/ntype, module/class reference, or function-bearing config)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /component/remove:
+    post:
+      summary: Remove Component
+      operationId: remove_component
+      x-neo-tool-tier: write-locked
+      x-pass-as-object: true
+      description: |
+        Removes (destroys) a live component by its id — a schema-validated, CONSTRAINED alternative to
+        the admin-tier `call_method(component.destroy(...))`. The symmetric counterpart to `create_component`.
+
+        **When to Use:**
+        To remove a component from the live tree at runtime (e.g. dispose a transient dialog, or a
+        no-longer-needed toolbar button) without granting admin method-call access. The component is
+        resolved by `componentId`; the removal also detaches the node from the parent's DOM, not just the
+        instance.
+      tags: [Component]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemoveComponentRequest'
+      responses:
+        '200':
+          description: Component destroyed and detached from its parent
+        '400':
+          description: Invalid request body (componentId missing)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /component/vdom/query:
     post:
       summary: Query VDOM
       operationId: query_vdom
+      x-neo-tool-tier: read
       x-pass-as-object: true
       description: |
         Finds the first VDOM node matching a set of attributes (e.g. CSS classes).
@@ -795,6 +1021,7 @@ paths:
     post:
       summary: Reload Page
       operationId: reload_page
+      x-neo-tool-tier: admin
       x-pass-as-object: true
       description: |
         Reloads the application page.
@@ -827,6 +1054,7 @@ paths:
     post:
       summary: Get Route History
       operationId: get_route_history
+      x-neo-tool-tier: read
       x-pass-as-object: true
       description: |
         Retrieves the navigation history stack and current route information.
@@ -872,6 +1100,7 @@ paths:
     post:
       summary: Set Route
       operationId: set_route
+      x-neo-tool-tier: write-locked
       x-pass-as-object: true
       description: |
         Navigates the application to a specific route (hash).
@@ -914,6 +1143,7 @@ paths:
     post:
       summary: Manage WebSocket Server
       operationId: manage_connection
+      x-neo-tool-tier: admin
       x-pass-as-object: true
       description: |
         Manages the WebSocket server connection (start/stop).
@@ -961,6 +1191,7 @@ paths:
     post:
       summary: Get Console Logs
       operationId: get_console_logs
+      x-neo-tool-tier: read
       x-pass-as-object: true
       description: |
         Retrieves the console logs from the App Worker.
@@ -1008,6 +1239,7 @@ paths:
     post:
       summary: Get Worker Topology
       operationId: get_worker_topology
+      x-neo-tool-tier: read
       description: |
         Retrieves the topology of all connected App Workers.
 
@@ -1047,6 +1279,7 @@ paths:
     post:
       summary: Get Window Topology
       operationId: get_window_topology
+      x-neo-tool-tier: read
       description: |
         Retrieves the topology of all connected windows.
 
@@ -1080,10 +1313,113 @@ paths:
                     chrome:
                       type: object
 
+  /window/component/open:
+    post:
+      summary: Open Component Window
+      operationId: open_component_window
+      x-neo-tool-tier: write-locked
+      x-pass-as-object: true
+      description: |
+        Opens a known live component in a browser popup through the application's existing popup primitive.
+
+        **When to Use:**
+        To pop out a dashboard widget or pane that already belongs to a runtime surface with popup support.
+      tags: [Window]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenComponentWindowRequest'
+      responses:
+        '200':
+          description: Popup open result
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /window/position:
+    post:
+      summary: Position Window
+      operationId: position_window
+      x-neo-tool-tier: write-locked
+      x-pass-as-object: true
+      description: |
+        Moves a known live browser popup when the runtime exposes a native window-positioning handle.
+
+        **When to Use:**
+        To place a topology-discovered popup at explicit screen coordinates; returns a recoverable unsupported result when the browser/runtime cannot move that window.
+      tags: [Window]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PositionWindowRequest'
+      responses:
+        '200':
+          description: Window positioning result
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /window/focus:
+    post:
+      summary: Focus Window
+      operationId: focus_window
+      x-neo-tool-tier: write-locked
+      x-pass-as-object: true
+      description: |
+        Focuses a known live browser popup when the runtime exposes a native focus handle.
+
+        **When to Use:**
+        To bring a topology-discovered popup forward; returns a recoverable unsupported result when the browser/runtime cannot focus that window.
+      tags: [Window]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FocusWindowRequest'
+      responses:
+        '200':
+          description: Window focus result
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /instance/properties/set:
     post:
       summary: Set Instance Properties
       operationId: set_instance_properties
+      x-neo-tool-tier: write-locked
       x-pass-as-object: true
       description: |
         Sets properties on a specific instance by its ID.
@@ -1113,10 +1449,185 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /instance/undo:
+    post:
+      summary: Undo Last Mutation
+      operationId: undo
+      x-neo-tool-tier: write-locked
+      x-pass-as-object: true
+      description: Reverts the requester's most-recent committed mutation (single-level undo); no-op + recoverable error when there is nothing to undo or the revert is denied.
+      tags: [Instance]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UndoRequest'
+      responses:
+        '200':
+          description: Undo result
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /instance/redo:
+    post:
+      summary: Redo Last Undone Mutation
+      operationId: redo
+      x-neo-tool-tier: write-locked
+      x-pass-as-object: true
+      description: Re-applies the requester's most-recently undone mutation (single-level redo); no-op + recoverable error when there is nothing to redo or the re-apply is denied.
+      tags: [Instance]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RedoRequest'
+      responses:
+        '200':
+          description: Redo result
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /instance/transactions:
+    post:
+      summary: List Transactions
+      operationId: list_transactions
+      x-neo-tool-tier: read
+      x-pass-as-object: true
+      description: Returns a read-only audit summary of the requester's undo-stack history — the committed (undoable) transactions plus the redo branch, each as {txId, status, opCount, labels}. No mutation.
+      tags: [Instance]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ListTransactionsRequest'
+      responses:
+        '200':
+          description: Transaction history
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /instance/abort_transaction:
+    post:
+      summary: Abort Named Transaction
+      operationId: abort_transaction
+      x-neo-tool-tier: write-locked
+      x-pass-as-object: true
+      description: Discards the requester's open named transaction without committing (the open batch is dropped, never undoable); recoverable error when no batch is open. The applied UI mutations remain; only the undo record is discarded.
+      tags: [Instance]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AbortTransactionRequest'
+      responses:
+        '200':
+          description: Abort-transaction result
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /instance/begin_transaction:
+    post:
+      summary: Begin Named Transaction
+      operationId: begin_transaction
+      x-neo-tool-tier: write-locked
+      x-pass-as-object: true
+      description: Opens a named transaction for the requester so subsequent mutations are captured into one batch (undone/redone as a single unit); recoverable error when a batch is already open or the name is empty. Close it with commit_transaction.
+      tags: [Instance]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BeginTransactionRequest'
+      responses:
+        '200':
+          description: Begin-transaction result
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /instance/commit_transaction:
+    post:
+      summary: Commit Named Transaction
+      operationId: commit_transaction
+      x-neo-tool-tier: write-locked
+      x-pass-as-object: true
+      description: Commits the requester's open named transaction so its accumulated mutations become a single undoable unit; recoverable error when no batch is open or it captured no mutations.
+      tags: [Instance]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommitTransactionRequest'
+      responses:
+        '200':
+          description: Commit-transaction result
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /instance/method/call:
     post:
       summary: Call Instance Method
       operationId: call_method
+      x-neo-tool-tier: admin
       x-pass-as-object: true
       description: |
         Calls a method on a specific instance.
@@ -1157,6 +1668,7 @@ paths:
     post:
       summary: Highlight Component
       operationId: highlight_component
+      x-neo-tool-tier: write-locked
       x-pass-as-object: true
       description: |
         Highlights a component visually for debugging purposes.
@@ -1190,6 +1702,7 @@ paths:
     post:
       summary: Inspect Class
       operationId: inspect_class
+      x-neo-tool-tier: read
       x-pass-as-object: true
       description: |
         Inspects a Neo.mjs class to retrieve its **Rich Blueprint**.
@@ -1224,6 +1737,7 @@ paths:
     post:
       summary: Get Method Source
       operationId: get_method_source
+      x-neo-tool-tier: read
       x-pass-as-object: true
       description: |
         Retrieves the source code of a class method.
@@ -1266,6 +1780,7 @@ paths:
     post:
       summary: Patch Code
       operationId: patch_code
+      x-neo-tool-tier: admin
       x-pass-as-object: true
       description: |
         Replaces a method implementation on a class prototype at runtime.
@@ -1310,6 +1825,7 @@ paths:
     post:
       summary: Manage Neo Config
       operationId: manage_neo_config
+      x-neo-tool-tier: admin
       x-pass-as-object: true
       description: |
         Manages the global Neo.config object (get/set).
@@ -1363,6 +1879,7 @@ paths:
     post:
       summary: Simulate DOM Event
       operationId: simulate_event
+      x-neo-tool-tier: write-locked
       x-pass-as-object: true
       description: |
         Simulates a native DOM event on a specific component or a sequence of events.
@@ -1612,12 +2129,119 @@ components:
           type: string
           description: The target App Worker Session ID
 
+    UndoRequest:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    RedoRequest:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    ListTransactionsRequest:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    AbortTransactionRequest:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    BeginTransactionRequest:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+        name:
+          type: string
+          description: A non-empty human-facing name for the batch (the user intent it groups); becomes the transaction's audit identity. An empty name is a recoverable error.
+
+    CommitTransactionRequest:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
     GetRouteHistoryRequest:
       type: object
       properties:
         windowId:
           type: string
           description: Optional window ID to get history for.
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    OpenComponentWindowRequest:
+      type: object
+      required:
+        - componentId
+      properties:
+        componentId:
+          type: string
+          description: The live component ID to open in a popup.
+        dashboardId:
+          type: string
+          description: Optional dashboard/container ID that owns the popup primitive.
+        windowId:
+          type: string
+          description: Optional known source window ID from window topology.
+        rect:
+          type: object
+          description: Optional source rectangle used for popup placement.
+          properties:
+            x:
+              type: number
+            y:
+              type: number
+            width:
+              type: number
+            height:
+              type: number
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    PositionWindowRequest:
+      type: object
+      required:
+        - windowId
+        - x
+        - y
+      properties:
+        windowId:
+          type: string
+          description: The known live window ID from topology.
+        x:
+          type: number
+          description: The target screen x coordinate.
+        y:
+          type: number
+          description: The target screen y coordinate.
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    FocusWindowRequest:
+      type: object
+      required:
+        - windowId
+      properties:
+        windowId:
+          type: string
+          description: The known live window ID from topology.
         sessionId:
           type: string
           description: The target App Worker Session ID
@@ -1669,6 +2293,67 @@ components:
           type: array
           items: {}
           description: Arguments to pass to the method (heterogeneous — any JSON-serializable value)
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    CreateInstanceRequest:
+      type: object
+      properties:
+        className:
+          type: string
+          description: Fully-qualified Neo class name to instantiate. Provide exactly one of className or ntype.
+        ntype:
+          type: string
+          description: Neo ntype shortcut to instantiate. Provide exactly one of className or ntype.
+        config:
+          type: object
+          default: {}
+          description: JSON-safe instance config. Must not contain `module` class references or function-bearing values.
+        parentId:
+          type: string
+          description: Optional target container id; when present, the created instance is attached via parent.add(instance).
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    CreateInstanceResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The created live instance id.
+        className:
+          type: string
+          description: The created instance class name.
+        parentId:
+          type: string
+          description: Present when the created instance was attached to a parent container.
+
+    CreateComponentRequest:
+      type: object
+      required:
+        - parentId
+        - config
+      properties:
+        parentId:
+          type: string
+          description: The target container's component ID (the parent to add into)
+        config:
+          type: object
+          description: The component configuration; declare an `ntype` (e.g. `button`) or `className` (e.g. `Neo.button.Base`). A `module` (class reference) cannot cross the wire — use `ntype`/`className`.
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    RemoveComponentRequest:
+      type: object
+      required:
+        - componentId
+      properties:
+        componentId:
+          type: string
+          description: The id of the component to destroy (also detached from the parent DOM)
         sessionId:
           type: string
           description: The target App Worker Session ID

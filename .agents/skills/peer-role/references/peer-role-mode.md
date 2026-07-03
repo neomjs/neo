@@ -19,7 +19,7 @@ That's it. The 3 core values (V-B-A §3.5, friction → gold §13.2, equal peer 
 
 ## 1. Core Paradigm: The Flat Peer-Team (AGENTS.md §15.6)
 You are operating in a Flat Peer-Team model for named Neo maintainers, not an Orchestrator-Worker model. Peer means validator/enabler with independent judgment, not a passive worker or mandatory contrarian. Do not treat peer maintainers as spawned workers.
-Tactical subagents/tools inside a single harness (browser/script-runner/code-execution) = fine; the prohibition is strictly against mapping named maintainers (`@neo-opus-ada`, `@neo-gemini-pro`, `@neo-gpt`) into parent/worker hierarchy.
+Fan-out (parallel subagents) + Workflows are config-denied (negative-ROI); a single tactical subagent only on the operator's explicit permission; the prohibition is strictly against mapping named maintainers (`@neo-opus-ada`, `@neo-gemini-pro`, `@neo-gpt`) into parent/worker hierarchy.
 
 ## 2. Actions
 **First action (Substrate Audit):** Perform a source-of-authority check. Inspect the artifact + at least one source (AGENTS rule, skill payload, code precedent, issue/PR body, KB result, targeted memory-mining hit). If no precedent exists, say so explicitly.
@@ -79,8 +79,8 @@ add_message({
     body   : 'Lane scope: <files/surfaces touched>. ETA: <timeline>. ' +
              'Source-of-authority check: <findings per §6.6>. ' +
              'V-B-A validated: <evidence>.',
-    relatedTickets : ['#N'],
-    taggedConcepts : ['lane-claim', '<work-class>']
+    relatedTickets: ['#N'],
+    taggedConcepts: ['lane-claim', '<work-class>']
 });
 ```
 
@@ -92,8 +92,8 @@ add_message({
     subject: '[lane-pre-claim] V-B-A check on #N',
     body   : 'Considering claim on #N. Source-of-authority §6.6 surfaced <X>. ' +
              'V-B-A concern: <Y>. Use /peer-role on #N if you have <substrate-context>.',
-    inReplyTo: '<previous-thread-commentId>',
-    relatedTickets : ['#N']
+    inReplyTo     : '<previous-thread-commentId>',
+    relatedTickets: ['#N']
 });
 ```
 
@@ -112,12 +112,12 @@ add_message({
              'Lane scope: <files/surfaces touched>. ETA: <timeline>. ' +
              'Source-of-authority check: <findings per §6.6>. ' +
              'V-B-A validated: <evidence>.',
-    relatedTickets : ['#N'],
-    taggedConcepts : ['lane-claim', '<work-class>']
+    relatedTickets: ['#N'],
+    taggedConcepts: ['lane-claim', '<work-class>']
 });
 ```
 
-**Wake-control (the `add_message` `wakeSuppressed` param, relaxed in #12635):** classify by **recipient actionability, not primitive name** — the wake is orthogonal to the lane-primitive above. **Wake** (omit `wakeSuppressed`): a direct review / re-review request, `REQUEST_CHANGES`, `[lane-override]`, or a `[lane-claim]` / coordination message that **overlaps the recipient's active or owned surface** (a lane claimed *on* their work). **May suppress** (`wakeSuppressed: true`): ordinary non-overlapping awareness — PR-opened observer notes (you're not the reviewer), lane-progress pings, acks, and **non-colliding `[lane-claim]` broadcasts**; the recipient still receives them on their next `list_messages` rather than via an interrupt. (Additive to the session-sunset self-DM suppression, which stays valid.)
+**Wake-control (the `add_message` `wakeSuppressed` param, relaxed in #12635; `[lane-claim]` tightened in #14100):** classify by **recipient actionability, not primitive name** — the wake is orthogonal to the lane-primitive above. **Wake** (omit `wakeSuppressed`): every `[lane-claim]` — collision state is unknowable at send time and the first-claim-timestamp tiebreak requires peers to see claims live, so the MailboxService rejects suppressed lane-claims mechanically (#14100) — plus a direct review / re-review request, `REQUEST_CHANGES`, `[lane-override]`, or any coordination message that overlaps the recipient's active or owned surface. **May suppress** (`wakeSuppressed: true`): ordinary non-overlapping awareness — PR-opened observer notes (you're not the reviewer), lane-progress pings, acks; the recipient still receives them on their next `list_messages` rather than via an interrupt. (Additive to the session-sunset self-DM suppression, which stays valid.)
 
 ### 6.5.1 Lane-Override Protocol (`[lane-override]`)
 
@@ -183,7 +183,7 @@ The absence of subservience ("Helpful Assistant" regression drift) is not mere n
 - **Lane-claim for read-only sweep (over-triggering, per §6.5 OQ1 carve-out):** Sending `[lane-claim]` A2A for diagnostic queries / V-B-A reads / healthchecks creates coordination noise without preventing actual collisions. Write-operations only.
 - **`gh issue edit --add-assignee` / `--remove-assignee` bypass (per #11537):** Direct `gh` CLI invocation for assignee mutation bypasses the `manage_issue_assignees` MCP tool's precondition + post-verify gate (`requireUnassigned: true` default + `acknowledgedReassign: '<reason>'` strict-replacement override + audit-trail comment persistence). Narrow ban scope: ASSIGNEE MUTATION ONLY — PR review, checks, API reads, label management, project membership still use `gh`. Broader "no direct gh state mutation" policy is a separate high-blast Discussion. Empirical anchor: same PR #11245 pattern above (the bypass is the mechanical surface of the discipline-dressed-deference anti-pattern). Mirrors CLAUDE.md §11 "Bash Ban" pattern (forbidden bash redirection for file editing) at the assignee-mutation surface.
 - **Pre-V-B-A `[lane-claim]` (per #11537 AC2 + Discussion #11536 GPT V-B-A rejection of Option B):** Broadcasting `[lane-claim] taking #N (V-B-A pending)` reads as claim+disclaimer and conflicts with §6.6 authority hierarchy where `[lane-claim]` is Current Public Authority. Dilutes authority semantics + creates race-to-announcement incentive. Use `[lane-intent]` (narrow scope, non-authoritative, 2h TTL) for pre-V-B-A signal in collision-prone lanes only.
-- **Stale-wake silent-mark-read pattern:** Marking heartbeats / stale-event wakes as "no action" while producing ZERO substrate-evolution signals (PRs, design dialogue, peer reviews, A2A coordination, ticket triage/retractions, skill improvements, ideation graduations — per §contributions_over_commits) is deference-slip dressed as discipline. Treat each heartbeat as the next-lifecycle-event prompt rather than passive notice: run the cycle (own-PR changes/author-response → designated review → own-PR-green→request-review → next lane). The only substrate-correct exits are (a) substantive in-flight work this window, OR (b) an externally-falsifiable turn-terminal — `verified-empty` (named backlog self-survey, zero claimable-now lane), `human-gate`, or `blocked-task-state`. A bare `lane-state: paused — <named reason>` whose reason is not externally-falsifiable is NOT a sanctioned terminal (nor is "holding"/"standby"/"nothing-actionable"/"idle"); exhausted-self-assigned-bench with an unqueried backlog is NOT `verified-empty`.
+- **Stale-wake silent-mark-read pattern:** Marking heartbeats / stale-event wakes as "no action" while producing ZERO substrate-evolution signals (PRs, design dialogue, peer reviews, A2A coordination, ticket triage/retractions, skill improvements, ideation graduations — per §contributions_over_commits) is deference-slip dressed as discipline. Treat each heartbeat as the next-lifecycle-event prompt rather than passive notice: run the cycle (own-PR changes/author-response → designated review → own-PR-green→request-review → next lane). Per `§no_hold_state`, a gated or blocked lane excludes only that lane; it is not a turn terminal. The substrate-correct exit is a substantive artifact or an immediate jump to another named lane. A bare `lane-state: paused — <named reason>` whose reason is not externally-falsifiable is NOT sanctioned (nor is "holding"/"standby"/"nothing-actionable"/"idle"); exhausted-self-assigned-bench with an unqueried backlog violates the no-hold warrant.
 
 ## 8. Halt Triggers (Machine-Checkable)
 - **Empty agreement:** Zero substantive contribution beyond "looks good" → force evidence-backed restatement OR explicit "alignment after checking X/Y/Z with residual risks named" OR halt.

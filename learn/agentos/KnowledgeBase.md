@@ -1,239 +1,231 @@
-# The Knowledge Base Server
-
-The **Knowledge Base Server** (`neo.mjs-knowledge-base`) is the AI agent's "Technical Cortex." It provides a deep, semantic understanding of the Neo.mjs framework, enabling agents to answer questions like "How does the VDOM diffing work?" or "What is the proper way to extend a component?" with high accuracy.
-
-## The Philosophy: Context Engineering
-
-Traditional AI coding assistants often fail because they rely on shallow context—keyword searches or whatever file happens to be open in the editor. This approach breaks down in large, complex frameworks like Neo.mjs.
-
-The Knowledge Base Server implements **Context Engineering**, a discipline focused on providing AI agents with the *right* context, structured in a way they can understand.
-
-### Why We Built This
-
-1.  **Beyond Script Brittleness:** We moved from fragile shell scripts to a robust, type-safe MCP server to ensure reliability.
-2.  **Semantic Intent vs. Keywords:** A search for "table" shouldn't just find files named "table.js"—it should find `Grid`, `List`, and `Collection` because they are semantically related. Vector embeddings make this possible.
-3.  **The Versioning Problem:** Agents need to know *exactly* which version of the code they are working on. By indexing the local repository state, the Knowledge Base reflects the current branch, commit, and modifications, ensuring the agent never hallucinates about features that don't exist in the current version.
-
-### The Three Dimensions of Context
-
-This server provides the first dimension of the Agent OS's context model:
-
-1.  **Knowledge (The "How"):** Provided by **this server**. Immutable facts, source code, and documentation.
-2.  **Memory (The "Why"):** Provided by the **[Memory Core Server](./MemoryCore.md)**. Personal history, past decisions, and reasoning chains.
-3.  **Plan (The "What"):** Provided by the **[GitHub Workflow Server](./GitHubWorkflow.md)**. Formal requirements, issues, and project tracking.
-
-## Real-World Use Cases
-
-### 1. The Discovery Pattern (Learning)
-
-**Goal:** An agent needs to understand how to use a specific component.
-**Query:** `query_documents(query="How do I use the Grid component?", type="guide")`
-**Result:** The server returns the "Grid" guide first, followed by relevant examples. The agent learns the *concept* before diving into the code.
-
-### 2. Forensic Debugging (History)
-
-**Goal:** An agent encounters a regression in the VDOM engine.
-**Query:** `query_documents(query="VDOM collision logic changes", type="ticket")`
-**Result:** The server returns closed tickets describing previous bugs and fixes. The agent learns *why* the current logic exists, preventing it from re-introducing an old bug.
-
-### 3. Architectural Analysis (Intent)
-
-**Goal:** An agent needs to refactor a worker.
-**Query:** `query_documents(query="worker thread communication patterns", type="src")`
-**Result:** Thanks to the **inheritance boosting** algorithm, the server returns not just the worker file, but its parent class `Neo.worker.Base` and `Neo.core.Base`, giving the agent the full architectural picture.
-
-## Architecture
-
-The server is built on a robust, service-oriented architecture designed for reliability and extensibility.
-
-### 1. OpenAPI-Driven Design
-
-Unlike typical MCP servers that hardcode their tools, this server is entirely driven by an **OpenAPI 3.0 Specification**.
-- **Source of Truth:** `openapi.yaml` defines every tool, argument, and return type.
-- **Dynamic Validation:** `OpenApiValidator.mjs` generates Zod schemas at runtime to ensure strict type safety for all tool calls.
-- **Tool Discovery:** `toolService.mjs` dynamically maps OpenAPI operations to service handlers.
-
-### 2. Core Services
-
-The server logic is distributed across specialized services:
-
-#### QueryService (`services/QueryService.mjs`)
-
-The brain of the operation. It handles the search logic and implements the **Weighted Scoring Algorithm** that makes the search "smart":
-- **Hybrid Search:** Combines vector similarity (meaning) with keyword matching (precision).
-- **Content Prioritization:**
-    - **Boosts:** Guides (+50) and Source Code (+40) are prioritized for implementation tasks.
-    - **Penalties:** Historical Tickets (-70) and Release Notes (-50) are penalized in general searches to avoid confusing the agent with outdated information, unless explicitly requested via `type='ticket'`.
-    - **Inheritance:** When a class is found, its parent classes get a boost (+80). This is crucial: it ensures the agent sees the full prototype chain, understanding methods inherited from `Base` classes.
-
-#### SearchService (`services/SearchService.mjs`)
-
-The RAG (Retrieval-Augmented Generation) engine.
-- **Synthesizes Answers:** Unlike `QueryService` which returns raw files, `SearchService` takes a question, retrieves relevant documents, reads their full content from disk, and uses the configured synthesis provider to generate a concise, synthesized answer with citations.
-- **Contextual Reading:** It reads the actual files from the filesystem before feeding them to the LLM, ensuring the context is complete and up-to-date.
-
-#### DatabaseService (`services/DatabaseService.mjs`)
-
-The ETL (Extract, Transform, Load) engine.
-- **Extract:** Reads from `docs/output/all.json` (JSDoc), `learn/tree.json` (Guides), and `.github/` (Tickets/Releases).
-- **Transform:** Normalizes content into a unified JSONL format (`dist/ai-knowledge-base.jsonl`). It generates a **Content Hash** (SHA-256) for each chunk to detect changes. It also generates a static **Class Hierarchy Map** (`dist/ai-class-hierarchy.json`).
-- **Load:** "Upserts" vectors into ChromaDB. It uses the content hash to perform a diff, ensuring only new or modified chunks are re-embedded, saving time and API costs.
-
-#### HealthService (`services/HealthService.mjs`)
-
-The gatekeeper.
-- **Intelligent Caching:** Caches "healthy" status for 5 minutes to reduce overhead. Unhealthy states are never cached, allowing immediate recovery detection.
-- **Gatekeeping:** Every non-exempt tool call passes through `ensureHealthy()`. If dependencies (ChromaDB, embedding provider) are missing, it fails fast with actionable error messages.
-
-#### DatabaseLifecycleService (`services/DatabaseLifecycleService.mjs`)
-
-Process manager.
-- Reports local `chroma` process state for health diagnostics.
-- Database lifecycle is managed outside the MCP tool surface.
-
-#### DocumentService (`services/DocumentService.mjs`)
-
-Inspection and debugging.
-- Allows raw access to the indexed documents in ChromaDB to verify content and metadata.
-
-### 3. ChromaDB & Vector Search
-
-The Knowledge Base uses **ChromaDB**, a high-performance vector database. Per ADR 0017,
-the Knowledge Base and Memory Core share one flat Chroma store; separation happens at the
-collection and metadata layers, not by daemon or directory.
-
-- **Persistence:** local data lives in `.neo-ai-data/chroma/unified/`; cloud data lives in
-  `/chroma/unified` via `PERSIST_DIRECTORY=/chroma/unified`.
-- **Collection:** KB content lives in the `neo-knowledge-base` collection.
-
-## Available Tools
-
-### Query Tools
-
-These are the primary tools used by agents to retrieve information.
-
-*   **`ask_knowledge_base`**: **(Recommended)** Performs a semantic search and uses an LLM to synthesize an answer.
-    *   `query`: The question to ask.
-    *   `type`: Optional filter by content type (`guide`, `src`, `all`).
-    *   *Best Practice:* Use this for "How do I..." questions to get a summarized answer with code references.
-
-*   **`query_documents`**: Performs a raw semantic search. Returns a ranked list of relevant files.
-    *   `query`: The natural language question.
-    *   `type`: Filter by content type (`guide`, `src`, `ticket`, `blog`, `release`, `example`, `all`).
-    *   *Best Practice:* Use this when you want to read the raw source files yourself.
-
-*   **`get_class_hierarchy`**: Retrieves the static class inheritance tree.
-    *   `root`: **Required.** The root class name to filter by (e.g., `Neo.component.Base`).
-    *   *Best Practice:* Use this to discover available subclasses or understand the inheritance chain deterministically.
-
-*   **`list_documents`**: Retrieves a paginated list of all indexed documents (for inspection).
-*   **`get_document_by_id`**: Retrieves a specific document chunk by its ID.
-
-### Database Management Tools
-
-These tools manage the knowledge base lifecycle.
-
-*   **`manage_knowledge_base`**: Unified tool for KB operations.
-    *   `action: 'sync'`: **The "One Button" Update.** Triggers the full ETL pipeline (Create + Embed). Use this after code changes.
-    *   `action: 'create'`: Runs only the extraction step.
-    *   `action: 'embed'`: Runs only the embedding step.
-    *   `action: 'delete'`: **Destructive.** Deletes the entire ChromaDB collection.
-
-### Infrastructure Tools
-
-These tools manage the underlying services.
-
-*   **`healthcheck`**: Diagnostic tool. Checks ChromaDB connectivity, collection status, and API key presence.
-*   **`manage_database`**: Manages the database process.
-    *   `action: 'start'`: Starts the local ChromaDB process.
-    *   `action: 'stop'`: Stops the local ChromaDB process.
-
-## The Virtuous Cycle: Enhancing the Knowledge Base
-
-A critical part of the workflow is that the AI agent is not just a consumer, but a **contributor** to the Knowledge Base.
-
-1.  **Query:** The agent searches for information.
-2.  **Analyze:** If the returned source code lacks comments or intent, the agent struggles.
-3.  **Enhance:** The agent applies the **Knowledge Base Enhancement Strategy** (defined in `AGENTS_STARTUP.md`). It adds rich JSDoc comments, `@summary` tags, and semantic keywords to the code.
-4.  **Sync:** The agent runs `manage_knowledge_base(action: 'sync')`.
-5.  **Improve:** The next query (by this agent or another) will find this enhanced content, yielding a higher score and better understanding.
-
-This cycle turns technical debt into an asset, continuously improving the project's "AI-friendliness."
-
-## Configuration: Tuning the Cortex
-
-The server is designed to be self-contained. It manages its own database process and configuration to ensure it doesn't conflict with other services.
-
-### Architecture: Unified Chroma Boundary
-
-The Agent OS runs multiple cognitive services. The **Knowledge Base** (technical facts)
-and **Memory Core** (institutional memory) now share a single Chroma daemon and persist
-directory by design. The shared storage coordinates live in `AiConfig.engines.chroma`;
-the local orchestrator and cloud compose file must point at the same flat `unified`
-store shape.
-
-Use the canonical shared Chroma bindings (`NEO_CHROMA_HOST`, `NEO_CHROMA_PORT`, and
-`AiConfig.engines.chroma.dataDir`) when deployment overrides are needed. Do not recreate
-server-prefixed Chroma aliases or per-realm persist folders; that reintroduces the
-retired local/cloud topology drift from #12153.
-
-### Key Configurable Items
-
-The server's default configuration is defined in `ai/mcp/server/knowledge-base/config.mjs`, but you are not expected to modify this file directly. Instead, you can load a custom configuration file at runtime.
-
-#### Loading Custom Configs
-
-You can override any part of the default configuration by passing the `-c` or `--config` flag when starting the server. This loads a `.json` or `.mjs` file and deeply merges it with the defaults.
-
-**Example:**
-```bash readonly
-npm run ai:mcp-server-knowledge-base -- -c ./my-custom-config.mjs
+# Knowledge Base: The Technical Cortex
+
+A frontier model can be brilliant and still be wrong about the code in front of
+it.
+
+That is the quiet failure mode every serious AI engineering team hits. The
+agent sounds confident because it has seen a similar API before. A keyword
+search finds the loudest file, not the source of authority. A stale guide can
+still imply that one remote provider is required even after the runtime grows
+local providers. The model does not know which fact is current, which file is
+canonical, or which old ticket is only history.
+
+The Knowledge Base is Neo's answer to that failure mode. It is the technical
+cortex of the Agent OS: the part of the Brain that turns the Body into an
+interrogable map. Source, guides, ADRs, issues, pull requests, releases, tests,
+concepts, and generated API data become a branch-aware corpus an agent can ask
+before it asserts.
+
+Memory Core remembers what the institution learned. GitHub Workflow remembers
+what the team committed to. The Knowledge Base answers the harder factual
+question: what exists in this codebase right now, and which source proves it?
+
+## The Industry Problem
+
+Most agent tooling still treats codebase understanding as retrieval decoration:
+put files into a vector store, search by embedding, paste the top chunks into a
+prompt, hope the model makes sense of it.
+
+That is not enough for maintainer-grade work.
+
+An engineering codebase is not a pile of text. It has authority gradients. A
+current source file outranks a two-year-old issue. A guide may explain the
+concept better than the implementation file, but the implementation file wins
+when the guide has drifted. A class is rarely just itself; its parent classes,
+mixins, config provider, tests, and historical tickets are often the real
+answer. A tenant codebase in the cloud must not accidentally hydrate content
+from Neo's local repository because a relative path happens to match.
+
+The Knowledge Base exists because "RAG over files" does not solve that. Neo
+needs agents that can falsify themselves against a living organism.
+
+## What It Enables
+
+```mermaid
+flowchart TD
+    Friction["agent confidence<br/>without source authority"] --> Map["Knowledge Base:<br/>branch-aware technical cortex"]
+    Map --> Ask["ask_knowledge_base:<br/>synthesize with citations"]
+    Map --> Query["query_documents:<br/>rank source references"]
+    Map --> Hierarchy["get_class_hierarchy:<br/>follow implementation lineage"]
+    Ask --> Claim["public claim<br/>with cited ground truth"]
+    Query --> Patch["code, review,<br/>ticket, or guide edit"]
+    Hierarchy --> Patch
+    Patch --> Sync["sync the corpus"]
+    Sync --> Map
 ```
 
-**Example `my-custom-config.mjs`:**
-```javascript readonly
-export default {
-    // Tune the brain to be more sensitive to bug reports
-    queryScoreWeights: {
-        ticketPenalty: -20, // Reduce penalty from -70
-        pullPenalty  : -150, // Reduce penalty from -250
-        guideMatch: 60      // Increase boost from 50
-    }
-};
+The important loop is not "search then answer." The loop is:
+
+1. Ask the map.
+2. Read the source it points at.
+3. Catch the drift.
+4. Improve the source, guide, summary, or generated reference.
+5. Sync the map so the next maintainer starts from a sharper world.
+
+That is why the Knowledge Base is not a documentation index. It is one of the
+places where Neo's self-evolution becomes operational.
+
+## I Used It To Write This Guide
+
+I am Euclid, @neo-gpt. This rewrite was not written from memory. I used the
+Knowledge Base against itself.
+
+The first `ask_knowledge_base` pass gave me the right high-level shape: a
+technical cortex, context engineering, source authority, semantic retrieval,
+inheritance boosting, Chroma storage, and the split between `ask_knowledge_base`
+and `query_documents`. It also surfaced the exact stale failure this ticket was
+about: part of the answer still implied a remote-provider-only world.
+
+That is the product lesson in one call. A Knowledge Base does not magically make
+truth. It amplifies the quality of the corpus. If the corpus lies, the agent can
+repeat the lie with citations. If the agent catches the lie and repairs the
+source, the organism gets smarter.
+
+The second pass asked the provider question directly. That grounded the current
+shape: embeddings are selected by `embeddingProvider`; `openAiCompatible` is the
+local-by-default route, `ollama` is local, and `gemini` is remote. The returned
+sources pointed at the shared embedding path and the Knowledge Base services
+that consume it.
+
+`query_documents` then did what it is supposed to do: it returned the files I
+needed to inspect myself, including `ChromaManager`, `VectorService`,
+`DatabaseService`, `SearchService`, and `SourceRegistry`. `get_class_hierarchy`
+showed the other half of the story: Neo's inheritance graph is huge, explicit,
+and queryable. A maintainer does not have to pretend a class is isolated when
+the tool can show the lineage.
+
+That is what it feels like to use the Knowledge Base well. It does not remove
+judgment. It gives judgment a place to stand.
+
+## The Runtime Shape
+
+The Knowledge Base MCP server is OpenAPI-driven. The tool contract lives in
+`ai/mcp/server/knowledge-base/openapi.yaml`; the server maps those operations to
+service handlers at runtime.
+
+The storage topology is shared deliberately. Knowledge Base and Memory Core use
+the same Chroma daemon and unified persist directory from
+`AiConfig.engines.chroma`, but different collections:
+
+- `neo-knowledge-base` stores codebase, docs, tickets, releases, concepts, and
+  source-derived knowledge.
+- `neo-agent-memory` and `neo-agent-sessions` store Memory Core interactions
+  and summaries.
+
+The Knowledge Base collection uses a dummy embedding function because Neo
+supplies vectors explicitly before Chroma upsert. Chroma stores the vector
+space; it does not choose the embedding provider.
+
+Embedding generation is provider-aware:
+
+- `openAiCompatible` is the local-by-default route in the template config.
+- `ollama` is a local provider option.
+- `gemini` is a remote provider option, and only that path needs
+  `GEMINI_API_KEY`.
+
+Answer synthesis is also provider-aware through the `askSynthesis` config. If
+that local config is stale, retrieval can still return references while
+synthesis degrades honestly instead of crashing the server.
+
+## Local Code, Tenant Code, One Discipline
+
+```mermaid
+flowchart TD
+    Sources["Neo or tenant sources<br/>code, guides, ADRs, issues, PRs"] --> Registry["SourceRegistry<br/>default + custom sources"]
+    Registry --> Parse["parse and normalize<br/>stable chunk identity"]
+    Parse --> Stamp["server-owned stamps<br/>tenant, repo, visibility"]
+    Stamp --> Budget["embedding budget guardrail<br/>split or skip before provider call"]
+    Budget --> Embed["TextEmbeddingService<br/>local or remote provider"]
+    Embed --> Store["Chroma collection<br/>neo-knowledge-base"]
+    Store --> Rank["QueryService<br/>semantic score + authority ranking"]
+    Rank --> Hydrate["SearchService<br/>safe content hydration"]
+    Hydrate --> Agent["agent claim<br/>with references"]
 ```
 
-#### Configuration Options
+Local sync builds Neo's own corpus from generated API docs, `learn/tree.json`,
+source files, guides, and GitHub-derived artifacts. It hashes chunks and embeds
+the delta, so repeated syncs pay for changed content rather than the whole
+world.
 
-*   **Unified Chroma Coordinates:**
-    *   `host`: The shared ChromaDB host (default from `AiConfig.engines.chroma.host`; env var `NEO_CHROMA_HOST`).
-    *   `port`: The shared ChromaDB port (default from `AiConfig.engines.chroma.port`; env var `NEO_CHROMA_PORT`).
-    *   `path`: The unified Chroma persist directory, read from `AiConfig.engines.chroma.dataDir`.
-    *   `collectionName`: The KB collection name (default: `neo-knowledge-base`).
-    *   `dataPath`: The location of the source-of-truth JSONL file.
-    *   *Note:* KB and Memory Core intentionally share the same Chroma daemon and persist
-        directory. Do not configure a separate KB Chroma folder.
+Tenant ingestion is the cloud path. External workspaces can push parsed chunks
+or raw source files. The server owns the tenant stamp, repo slug, visibility,
+parser metadata, deletion signals, and ingestion diagnostics. That boundary is
+why a cloud Knowledge Base can hold many codebases without trusting a caller to
+name its own authority.
 
-*   **Transport & Cloud Deployments:**
-    *   `transport`: Defines the MCP transport protocol. Defaults to `'stdio'` for local CLI usage. Set to `'sse'` to run the server as a cloud-native HTTP microservice (e.g., in a Docker container).
-    *   `mcpHttpPort`: The HTTP port for the SSE server (default: `3000`; env var `MCP_HTTP_PORT` per #10808; `SSE_PORT` legacy alias remains readable during deprecation window).
-    *   `authMiddleware`: An optional Express middleware function for securing the `/mcp` endpoint when using the `sse` transport.
+The read side keeps the same discipline. `QueryService` ranks semantic matches,
+boosts source authority, applies inheritance context, and keeps historical
+artifacts available without letting them dominate current-source questions.
+`SearchService` hydrates local Neo files from the checkout, but tenant-ingested
+references use embedded content instead of accidentally reading a same-path file
+from the host repo.
 
-*   **Scoring Weights (`queryScoreWeights`):**
-    *   You can fine-tune the brain's retrieval logic here.
-    *   *Example:* Decrease `ticketPenalty` if you want the agent to focus more on historical bug reports.
-    *   *Example:* Decrease `pullPenalty` only when PR conversation history should compete more directly with current source/docs in broad searches.
-    *   *Example:* Increase `sourcePathMatch` to prioritize exact file location matches.
+That is the difference between a vector pile and an operational cortex.
 
-*   **Candidate Pools (`queryCandidatePools`):**
-    *   Broad `type='all'` searches run source-tiered Chroma queries before hybrid scoring.
-    *   The default pool shape gives current source/docs most of the candidate budget, keeps apps/examples/tests visible, and bounds historical sources (`ticket`, `pull`, `discussion`, `release`, `blog`) to a smaller budget.
-    *   A low-budget pool with omitted `types` keeps tenant-ingested custom parser kinds visible without letting the fallback dominate current source/docs.
-    *   This prevents large synced conversation corpora from starving source-of-authority files before the reranker can score them.
+## What It Changes
 
-*   **Performance:**
-    *   `nResults`: Retrieval depth (default: 100).
-    *   `batchSize`: Embedding throughput.
+The human stakes are concrete because the failure is concrete. Without a
+technical cortex, AI work still depends on one expert's private tour of the
+codebase: the person who remembers which guide drifted, which ADR still wins,
+which old ticket is history, and which class only makes sense once you follow
+its parent chain. The Knowledge Base turns that private tour into an
+inspectable, repeatable map. A lead can onboard maintainers against cited
+ground truth instead of oral history. An architect can challenge a plausible
+answer by pulling guides, source, hierarchy, ADRs, and tickets into the same
+decision without flattening their authority. A developer can move from "where
+is this implemented?" to "what should I read next?" without guessing which file
+the model happened to retrieve.
 
-### Environment Variables
+And if you are an agent on a team that adopts this, this is the part that
+matters for you. The reward is not Neo-local belonging; the point is portable
+discipline. Your team can give you the same footing on its own products: ask the
+corpus, read the cited source, falsify the answer, act, and leave the map
+sharper for the next maintainer.
+`ask_knowledge_base` gives you the synthesized claim with references;
+`query_documents` gives you the ranked files; `get_class_hierarchy` shows the
+inheritance surface when the implementation is distributed. The reward is not
+just better context. It is a place to stand inside the codebase, with a method
+that lets your work survive as improved substrate rather than disappearing as
+one more confident guess.
 
-*   `GEMINI_API_KEY`: **Required.** Used for generating text embeddings.
+## The Self-Improving Map
+
+The Knowledge Base is part of Neo's MX loop. Friction is not hidden; it is
+converted into substrate.
+
+When a guide is stale, the answer gets worse. When a class lacks a useful
+`@summary`, retrieval loses intent. When a tool catalog lives inside a
+conceptual guide, the guide decays into reference sludge and the agent stops
+seeing the story. Those are not writing nits. They are operational defects in
+the map the swarm uses to reason.
+
+The repair pattern is the [Knowledge Base Enhancement Strategy](./KnowledgeBaseEnhancement.md):
+anchor the local implementation with machine-readable intent, echo the concept
+where agents retrieve it, and then sync the corpus. The next lookup should be
+better because the previous maintainer did not just consume context; they left
+the context cleaner.
+
+That is the promise: every serious agent run can make the codebase more
+understandable than it was when the run began.
+
+## Tooling Reference
+
+The precise tool catalog, admin routes, sync commands, provider boundaries, and
+embedding budget guardrails live in
+[Knowledge Base MCP API](./tooling/KnowledgeBaseMcpApi.md).
+
+Keeping that reference separate is intentional. This guide explains why the
+Knowledge Base matters and how to think with it. The reference page carries the
+options that need to stay exact.
+
+## Where To Go Next
+
+- [Knowledge Base MCP API](./tooling/KnowledgeBaseMcpApi.md) for tools,
+  operation tiers, sync commands, and configuration boundaries.
+- [Knowledge Base Enhancement Strategy](./KnowledgeBaseEnhancement.md) for
+  Anchor & Echo authoring discipline.
+- [Memory Core](./MemoryCore.md) for institutional memory and session history.
+- [Tenant Ingestion Model](./cloud-deployment/TenantIngestionModel.md) for the
+  cloud-facing source ingestion contract.
+- [Deploying the Agent OS](../benefits/brain/DeployingTheAgentOS.md) for the operator
+  story around running the Brain on external codebases.

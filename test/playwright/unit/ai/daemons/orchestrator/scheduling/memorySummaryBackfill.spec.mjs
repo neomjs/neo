@@ -3,10 +3,11 @@ import {
     buildNoProgressBackoffHook,
     buildMemorySummaryBackfillTrigger,
     getDueTask,
+    getPendingMemorySummaryBackfillCount,
     getPendingMemorySummaryBackfillJobs,
+    getStillPendingMemorySummaryBackfillJobs,
     isNoProgressBackoffActive,
-    NO_PROGRESS_BACKOFF_MS,
-    samePendingWindow
+    NO_PROGRESS_BACKOFF_MS
 } from '../../../../../../../ai/daemons/orchestrator/scheduling/memorySummaryBackfill.mjs';
 
 test.describe('orchestrator/scheduling/memorySummaryBackfill', () => {
@@ -65,35 +66,24 @@ test.describe('orchestrator/scheduling/memorySummaryBackfill', () => {
         });
     });
 
-    test('#12828: samePendingWindow pins ordered selected ids', () => {
-        expect(samePendingWindow(['mem-1', 'mem-2'], ['mem-1', 'mem-2'])).toBe(true);
-        expect(samePendingWindow(['mem-1', 'mem-2'], ['mem-2', 'mem-1'])).toBe(false);
-        expect(samePendingWindow(['mem-1'], ['mem-1', 'mem-2'])).toBe(false);
+    test('#12943: getStillPendingMemorySummaryBackfillJobs is fail-soft + empty-safe', () => {
+        expect(getStillPendingMemorySummaryBackfillJobs(null, ['a'])).toEqual([]);
+        expect(getStillPendingMemorySummaryBackfillJobs({prepare() { throw new Error('no table'); }}, ['a'])).toEqual([]);
+        expect(getStillPendingMemorySummaryBackfillJobs({prepare() {}}, [])).toEqual([]);
     });
 
-    test('#12828: active no-progress backoff suppresses the unchanged pending window only', () => {
+    test('#12943: active no-progress backoff holds for its full window regardless of new arrivals', () => {
         const taskState = {
             noProgressBackoffUntilMs: 20_000,
             noProgressPendingIds    : ['mem-1', 'mem-2']
         };
 
-        expect(isNoProgressBackoffActive({
-            taskState,
-            pendingJobs: ['mem-1', 'mem-2'],
-            now        : 10_000
-        })).toBe(true);
+        // Held while unexpired. The prior window-identity gate let a fresh miniSummary:NULL arrival
+        // shift the window and bypass this, re-firing the backfill every tick (the bug).
+        expect(isNoProgressBackoffActive({taskState, now: 10_000})).toBe(true);
 
-        expect(isNoProgressBackoffActive({
-            taskState,
-            pendingJobs: ['newer-mem', 'mem-1'],
-            now        : 10_000
-        })).toBe(false);
-
-        expect(isNoProgressBackoffActive({
-            taskState,
-            pendingJobs: ['mem-1', 'mem-2'],
-            now        : 20_000
-        })).toBe(false);
+        // Released once the window expires (strict >).
+        expect(isNoProgressBackoffActive({taskState, now: 20_000})).toBe(false);
     });
 
     test('#12828: getDueTask returns null while the same stuck window is backed off', () => {
@@ -111,8 +101,11 @@ test.describe('orchestrator/scheduling/memorySummaryBackfill', () => {
         })).toBeNull();
     });
 
-    test('#12828: getDueTask runs immediately when new pending work changes the backed-off window', () => {
-        const trigger = getDueTask({
+    test('#12943: getDueTask stays backed off even when new pending work arrives (no re-fire)', () => {
+        // The prior design ran immediately on any window change — but the newest arrivals are the
+        // un-summarizable head, so "run immediately" meant a re-fire every scheduler tick. The
+        // backoff now holds for its full window, yielding the heavy lane to session-summary + REM.
+        expect(getDueTask({
             db                                     : {},
             now                                    : 10_000,
             state                                  : {
@@ -123,26 +116,31 @@ test.describe('orchestrator/scheduling/memorySummaryBackfill', () => {
             },
             getPendingMemorySummaryBackfillJobsFn  : () => ['new-1', 'old-1'],
             getPendingMemorySummaryBackfillCountFn : () => 3334
+        })).toBeNull();
+    });
+
+    test('getDueTask returns a trigger carrying an onSuccess backoff hook when not backed off', () => {
+        const trigger = getDueTask({
+            db                                     : {},
+            getPendingMemorySummaryBackfillJobsFn  : () => ['mem-1', 'mem-2'],
+            getPendingMemorySummaryBackfillCountFn : () => 3334
         });
 
-        expect(trigger).toMatchObject({
-            taskName    : 'memory-summary-backfill',
-            reason      : 'pending-memory-minisummary:3334',
-            pendingCount: 2
-        });
+        expect(trigger).toMatchObject({taskName: 'memory-summary-backfill', pendingCount: 2});
         expect(typeof trigger.onSuccess).toBe('function');
     });
 
-    test('#12828: success hook records a bounded backoff when the selected window makes no progress', () => {
+    test('#12943: success hook arms the backoff when the run drains NONE of the attempted rows (a fresh row arriving is irrelevant)', () => {
         const taskState = {};
         const hook = buildNoProgressBackoffHook({
-            db                                     : {},
+            db                                         : {},
             taskState,
-            pendingJobs                            : ['mem-1', 'mem-2'],
-            totalPending                           : 3333,
-            nowFn                                  : () => 100_000,
-            getPendingMemorySummaryBackfillJobsFn  : () => ['mem-1', 'mem-2'],
-            getPendingMemorySummaryBackfillCountFn : () => 3333
+            pendingJobs                                : ['mem-1', 'mem-2'],
+            totalPending                               : 3333,
+            nowFn                                      : () => 100_000,
+            // Both attempted rows are STILL pending after the run = zero progress. A fresh new-3 may
+            // have landed at the DESC top — irrelevant; we re-query the specific attempted ids.
+            getStillPendingMemorySummaryBackfillJobsFn : () => ['mem-1', 'mem-2']
         });
 
         hook();
@@ -153,7 +151,7 @@ test.describe('orchestrator/scheduling/memorySummaryBackfill', () => {
         expect(taskState.noProgressPendingIds).toEqual(['mem-1', 'mem-2']);
     });
 
-    test('#12828: success hook clears stale backoff state once progress resumes', () => {
+    test('#12943: success hook clears the backoff when the run drains at least one attempted row', () => {
         const taskState = {
             noProgressBackoffUntilMs: 20_000,
             noProgressBackoffReason : 'no-progress:3333',
@@ -161,12 +159,12 @@ test.describe('orchestrator/scheduling/memorySummaryBackfill', () => {
             noProgressPendingIds    : ['mem-1', 'mem-2']
         };
         const hook = buildNoProgressBackoffHook({
-            db                                     : {},
+            db                                         : {},
             taskState,
-            pendingJobs                            : ['mem-1', 'mem-2'],
-            totalPending                           : 3333,
-            getPendingMemorySummaryBackfillJobsFn  : () => ['mem-3', 'mem-4'],
-            getPendingMemorySummaryBackfillCountFn : () => 3283
+            pendingJobs                                : ['mem-1', 'mem-2'],
+            totalPending                               : 3283,
+            // mem-1 drained (only mem-2 still pending) = real progress → clear any stale backoff.
+            getStillPendingMemorySummaryBackfillJobsFn : () => ['mem-2']
         });
 
         hook();
@@ -175,5 +173,26 @@ test.describe('orchestrator/scheduling/memorySummaryBackfill', () => {
         expect(taskState.noProgressBackoffReason).toBeUndefined();
         expect(taskState.noProgressBackoffAt).toBeUndefined();
         expect(taskState.noProgressPendingIds).toBeUndefined();
+    });
+
+    test('#13566: archived rows are excluded from fetch, count, and the no-progress re-check', () => {
+        const captured  = [],
+              captureDb = (rows = []) => ({
+                  prepare(sql) {
+                      captured.push(sql);
+                      return {all: () => rows, get: () => ({n: rows.length})};
+                  }
+              });
+
+        expect(getPendingMemorySummaryBackfillJobs(captureDb([{id: 'a'}]))).toEqual(['a']);
+        expect(getPendingMemorySummaryBackfillCount(captureDb([{}, {}]))).toBe(2);
+        expect(getStillPendingMemorySummaryBackfillJobs(captureDb([{id: 'a'}]), ['a'])).toEqual(['a']);
+
+        // All three pending surfaces must skip rows archived as structurally un-summarizable,
+        // so an archived no-content row stops inflating the metric + counts as backoff progress.
+        expect(captured).toHaveLength(3);
+        for (const sql of captured) {
+            expect(sql).toContain("'$.properties.archivedAt') IS NULL");
+        }
     });
 });

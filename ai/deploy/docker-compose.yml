@@ -63,6 +63,17 @@ services:
       - NEO_OPENAI_COMPATIBLE_API_KEY=${NEO_OPENAI_COMPATIBLE_API_KEY:-}
       - NEO_OLLAMA_KEEP_ALIVE=${NEO_OLLAMA_KEEP_ALIVE:-}
       - NEO_OPENAI_COMPATIBLE_KEEP_ALIVE=${NEO_OPENAI_COMPATIBLE_KEEP_ALIVE:-}
+      # Ask-synthesis pass-throughs (ask_knowledge_base -> SearchService.ask): the synthesis
+      # provider + its DEDICATED budget-cappable key (NEO_KB_ASK_API_KEY, never the shared
+      # GEMINI_API_KEY). Empty default -> the config-template default applies; with no key the
+      # ask path fails soft to references-only (no crash). The secret VALUE stays runtime-only.
+      - NEO_KB_ASK_PROVIDER=${NEO_KB_ASK_PROVIDER:-}
+      - NEO_KB_ASK_MODEL=${NEO_KB_ASK_MODEL:-}
+      - NEO_KB_ASK_API_KEY=${NEO_KB_ASK_API_KEY:-}
+      - NEO_KB_ASK_BASE_URL=${NEO_KB_ASK_BASE_URL:-}
+      - NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS=${NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS:-}
+      - NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS_REMOTE=${NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS_REMOTE:-}
+      - NEO_KB_ASK_MAX_RPM=${NEO_KB_ASK_MAX_RPM:-}
     volumes:
       - shared-sqlite-data:/app/.neo-ai-data/sqlite
     depends_on:
@@ -72,6 +83,9 @@ services:
       - neo-mcp-network
     expose:
       - "3000"
+    # If this deployment opts into NEO_AUTH_MODE=gitlab-pat, the in-container MCP
+    # self-probe must authenticate too. Ensure NEO_MCP_HEALTHCHECK_TOKEN is present
+    # in the container environment; mcpHealthcheck.mjs sends it as a bearer token.
     healthcheck:
       test: ["CMD", "node", "./ai/scripts/diagnostics/mcpHealthcheck.mjs", "--url", "http://127.0.0.1:3000", "--client-name", "neo-kb-container-healthcheck"]
       interval: 10s
@@ -113,6 +127,11 @@ services:
       - NEO_MEMORY_WAL_IN_PROCESS_DRAIN=true
       - NEO_MEMORY_WAL_POLL_INTERVAL_MS=250
       - NEO_MEMORY_WAL_DIR=/app/.neo-ai-data/sqlite/memory-wal
+      # Mirror the memory WAL host mode for accepted A2A messages. Defaults derive the message
+      # WAL below NEO_MEMORY_WAL_DIR, but the explicit path documents the shared volume boundary.
+      - NEO_MESSAGE_WAL_IN_PROCESS_DRAIN=true
+      - NEO_MESSAGE_WAL_POLL_INTERVAL_MS=250
+      - NEO_MESSAGE_WAL_DIR=/app/.neo-ai-data/sqlite/memory-wal/messages
       - NEO_MODEL_PROVIDER=${NEO_MODEL_PROVIDER:-}
       - NEO_EMBEDDING_PROVIDER=${NEO_EMBEDDING_PROVIDER:-}
       - NEO_OPENAI_COMPATIBLE_HOST=${NEO_OPENAI_COMPATIBLE_HOST:-}
@@ -130,6 +149,9 @@ services:
       - neo-mcp-network
     expose:
       - "3001"
+    # If this deployment opts into NEO_AUTH_MODE=gitlab-pat, the in-container MCP
+    # self-probe must authenticate too. Ensure NEO_MCP_HEALTHCHECK_TOKEN is present
+    # in the container environment; mcpHealthcheck.mjs sends it as a bearer token.
     healthcheck:
       test: ["CMD", "node", "./ai/scripts/diagnostics/mcpHealthcheck.mjs", "--url", "http://127.0.0.1:3001", "--client-name", "neo-mc-container-healthcheck"]
       interval: 10s
@@ -145,8 +167,8 @@ services:
   # The Agent OS maintenance orchestrator (ADR 0014 §2.3). Built from the shared
   # image via the generalized `SERVICE_ENTRYPOINT` arg. `NEO_AI_DEPLOYMENT_MODE=cloud`
   # activates the cloud-safe scheduler profile — only the cloud-deployable lanes
-  # (summary, backup, dream, golden-path) run; the local-only lanes (primary-dev-sync,
-  # kbSync, bridgeDaemon) are disabled via the Sub A #11722 deployment-mode toggles.
+  # (summary, backup, dream, golden-path) run; local-only lanes and local inference
+  # launchers (primary-dev-sync, kbSync, bridgeDaemon, MLX/LMS/Ollama) are disabled.
   # `cloud` profile — started by `docker compose --profile cloud up`.
   orchestrator:
     build:
@@ -162,6 +184,8 @@ services:
       - NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED=false
       - NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED=false
       - NEO_ORCHESTRATOR_MLX_ENABLED=false
+      - NEO_ORCHESTRATOR_LMS_ENABLED=false
+      - NEO_ORCHESTRATOR_OLLAMA_ENABLED=false
       - NEO_TENANT_REPO_MIRROR_ROOT=/app/.neo-ai-data
       - NEO_MODEL_PROVIDER=${NEO_MODEL_PROVIDER:-}
       - NEO_EMBEDDING_PROVIDER=${NEO_EMBEDDING_PROVIDER:-}
@@ -174,6 +198,13 @@ services:
       - NEO_CHROMA_HOST=chroma
       - NEO_CHROMA_PORT=8000
       - NEO_MEMORY_DB_PATH=/app/.neo-ai-data/sqlite/memory-core-graph.sqlite
+      - NEO_ORCHESTRATOR_RUNTIME_ACCESS_ENABLED=true
+      - NEO_ORCHESTRATOR_RUNTIME_ACCESS_MECHANISM=docker-socket
+      - NEO_ORCHESTRATOR_RUNTIME_ACCESS_SOCKET_PATH=/var/run/docker.sock
+      - NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT=${NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT:-}
+      - NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES=chroma,kb-server,mc-server,local-model
+      - NEO_ORCHESTRATOR_RUNTIME_ACCESS_READ_OPERATIONS=inspect,logs,stats
+      - NEO_ORCHESTRATOR_RUNTIME_ACCESS_LIFECYCLE_OPERATIONS=restart
     volumes:
       - shared-sqlite-data:/app/.neo-ai-data/sqlite
       - tenant-repo-mirrors:/app/.neo-ai-data/tenant-repos
@@ -189,6 +220,10 @@ services:
       # query time; without the mount the orchestrator silently falls back to the
       # aiConfig.tenantRepos[] default tier only. Example:
       #   - ./kb-config.yaml:/app/kb-config.yaml:ro
+      # Deployment-runtime access (#13920): the orchestrator owns one constrained Docker
+      # socket holder. `DeploymentRuntimeAccessService` resolves allowlisted compose
+      # service labels and exposes separate read-observe / lifecycle-write envelopes.
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       chroma:
         condition: service_healthy
@@ -267,7 +302,9 @@ services:
       - OLLAMA_HOST=0.0.0.0:11434
       - OLLAMA_MODELS=/root/.ollama
       - OLLAMA_KEEP_ALIVE=${NEO_LOCAL_MODEL_KEEP_ALIVE:--1}
-      - OLLAMA_CONTEXT_LENGTH=${NEO_LOCAL_MODEL_CONTEXT_LENGTH:-262144}
+      - OLLAMA_CONTEXT_LENGTH=${NEO_LOCAL_MODEL_CONTEXT_LENGTH:-131072}
+      - OLLAMA_NUM_PARALLEL=${NEO_LOCAL_MODEL_NUM_PARALLEL:-1}
+      - OLLAMA_MAX_LOADED_MODELS=${NEO_LOCAL_MODEL_MAX_LOADED_MODELS:-2}
     volumes:
       - local-model-data:/root/.ollama
     networks:

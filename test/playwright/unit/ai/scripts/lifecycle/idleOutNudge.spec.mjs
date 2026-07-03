@@ -174,6 +174,18 @@ test.describe('ai/scripts/idleOutNudge', () => {
         expect(scriptContent).not.toContain('NUDGE_BODY_TEMPLATE');
     });
 
+    test('Static script: emits machine-readable idle-out cycle-state in the pulse id (#12612)', async () => {
+        // Shape B pulses carry no body; the cycle-state (reason + next-action) rides the pulse id
+        // as `idle-out-nudge.<base64url-JSON>` so the wake digest surfaces the next lifecycle step
+        // instead of an opaque "N heartbeat pulses". The encoded summary is passed as the pulseId.
+        const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
+
+        expect(scriptContent).toContain('idle-out-nudge.');
+        expect(scriptContent).toContain('nextAction');
+        expect(scriptContent).toContain("toString('base64url')");
+        expect(scriptContent).toContain('emitHeartbeatPulse({targetIdentity: identity, pulseId})');
+    });
+
     // Note: the former `swarm-heartbeat.sh integration` test was removed with
     // the bash script. The `recommended_action: 'idle_out_nudge'` routing — ordered
     // after the sunset path and before the all-agent-idle path, gated by the wake

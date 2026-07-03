@@ -1,77 +1,84 @@
-import fs from 'fs';
-import matter from 'gray-matter';
-import path from 'path';
-import {fileURLToPath} from 'url';
-import { Memory_Config as aiConfig } from '../../services.mjs';
-import Base from '../../../src/core/Base.mjs';
-import { Memory_StorageRouter as StorageRouter } from '../../services.mjs';
+import fs                                                      from 'fs';
+import path                                                    from 'path';
+import {fileURLToPath}                                         from 'url';
+import { Memory_Config as aiConfig }                           from '../../services.mjs';
+import Base                                                    from '../../../src/core/Base.mjs';
+import { Memory_StorageRouter as StorageRouter }               from '../../services.mjs';
 import { Memory_TextEmbeddingService as TextEmbeddingService } from '../../services.mjs';
-import { Memory_GraphService as GraphService } from '../../services.mjs';
-import Json from '../../../src/util/Json.mjs';
-import logger from '../../mcp/server/memory-core/logger.mjs';
-import {IDENTITIES} from '../../graph/identityRoots.mjs';
-import {buildGraphProvider, resolveGraphModelProvider} from './providerDispatch.mjs';
+import { Memory_GraphService as GraphService }                 from '../../services.mjs';
+import Json                                                    from '../../../src/util/Json.mjs';
+import logger                                                  from '../../mcp/server/memory-core/logger.mjs';
+import {buildGraphProvider, resolveGraphModelProvider}         from './providerDispatch.mjs';
+import {
+    formatGoldenPathCapturedAt as formatGoldenPathTimestamp
+} from './goldenPathTimestamp.mjs';
+import {
+    buildEmbeddingDimensionMismatchMessage,
+    getEmbeddingModelName,
+    getEmbeddingVectorLength
+} from './embeddingDimension.mjs';
+import {
+    getAgentLogins            as resolveAgentLogins,
+    getCoreSwarmAgentFamilies as resolveCoreSwarmAgentFamilies,
+    getIdentityGithubLogin    as resolveIdentityGithubLogin,
+    hasCrossFamilyReview      as resolvePrCrossFamilyReview,
+    parseSelfIdLogin          as parsePrSelfIdLogin,
+    resolveAuthorFamily       as resolvePrAuthorFamily
+} from './agentFamilyResolution.mjs';
+import {
+    buildFailureOutcome                          as buildRouteFailureOutcome,
+    findComputedFocusContradiction               as findRouteFocusContradiction,
+    getComputedRecommendationExclusionLabels     as getRouteExclusionLabels,
+    isActionableComputedRecommendation           as isActionableRouteRecommendation,
+    isContentComputedRecommendation              as isContentRouteRecommendation,
+    isRoutingConflictFocusCandidate              as isRouteConflictFocusCandidate,
+    renderComputedGoldenPathContradictionSection as renderRouteContradictionSection,
+    renderComputedGoldenPathEmptySection         as renderRouteEmptySection,
+    renderComputedGoldenPathFailureSection       as renderRouteFailureSection
+} from './computedGoldenPathRouting.mjs';
+import {
+    getActivePrCycleStatus                      as resolveActivePrCycleStatus,
+    renderActivePrCycleState                    as renderActivePrCycleStateSection,
+    renderRecentOpenPrSummary                   as renderRecentOpenPrSummarySection,
+    renderStrategicInterpretationDegradedReason as renderStrategicDegradedReason
+} from './activePrCycleSection.mjs';
+import {
+    getRecentSummaryDocuments      as resolveRecentSummaryDocuments,
+    pruneStaleFrontierGuideEdges   as pruneFrontierGuideEdges,
+    renderConsolidationGapsSection as renderConsolidationGaps
+} from './frontierConsolidation.mjs';
+import {
+    buildConceptSlice                as buildGraphConceptSlice,
+    renderConceptSliceHandoffSection as renderGraphConceptSliceHandoffSection,
+    renderConceptSliceSection        as renderGraphConceptSliceSection
+} from './conceptSliceBuilder.mjs';
+import {
+    buildCurrentFocusCandidates as buildIssueFocusCurrentFocusCandidates,
+    buildSilentThreadCandidates as buildIssueFocusSilentThreadCandidates,
+    buildStaleAssignmentCandidates as buildIssueFocusStaleAssignmentCandidates,
+    buildWorkGraphStallFindings as buildIssueFocusWorkGraphStallFindings,
+    collectIssueMarkdownFiles as collectIssueFocusMarkdownFiles,
+    extractAssignmentEvents as extractIssueFocusAssignmentEvents,
+    extractIssueCommentBlocks as extractIssueFocusCommentBlocks,
+    findLastQualifyingAssignmentActivity as findIssueFocusLastQualifyingAssignmentActivity,
+    findLatestIssueActivity as findIssueFocusLatestActivity,
+    getIssueStructuralWeight as getIssueFocusStructuralWeight,
+    getStaleAssignmentMaintainers as getIssueFocusStaleAssignmentMaintainers,
+    hasOpenIssueBlocker as hasIssueFocusOpenBlocker,
+    normalizeLabels as normalizeIssueFocusLabels,
+    renderCurrentFocusCandidatesSection as renderIssueFocusCurrentFocusCandidatesSection,
+    renderSilentThreadCandidatesSection as renderIssueFocusSilentThreadCandidatesSection,
+    renderStaleAssignmentCandidatesSection as renderIssueFocusStaleAssignmentCandidatesSection,
+    renderWorkGraphStallFindingsSection as renderIssueFocusWorkGraphStallFindingsSection,
+    scoreCurrentFocusIssue as scoreIssueFocusCurrentIssue
+} from './issueFocusSections.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
-const DAY_MS     = 24 * 60 * 60 * 1000;
 
-const MAINTAINER_PROGRESS_PATTERN = /\b(?:in[-\s]?progress|picking up|taking|claim(?:ed|ing)?|lane-claim|lane-state:\s*next-lane|working|implement(?:ing)?|opened\s+(?:PR|pull request)|PR\s*#\d+)\b/i;
-
-/**
- * @summary Returns the vector length emitted by an embedding provider.
- *
- * Kept as a pure helper so the Golden Path query boundary can validate the provider output
- * before ChromaDB rejects a mismatched query shape.
- *
- * @param {*} embedding Provider-produced embedding payload.
- * @returns {Number|null} The embedding vector length, or null for invalid/non-vector payloads.
- */
-export function getEmbeddingVectorLength(embedding) {
-    return Number.isInteger(embedding?.length) ? embedding.length : null;
-}
-
-/**
- * @summary Resolves the configured embedding model name for the active provider.
- *
- * @param {Object} config Memory Core config object.
- * @param {String} provider Active embedding provider key.
- * @returns {String|null}
- */
-export function getEmbeddingModelName(config, provider) {
-    switch (provider) {
-        case 'openAiCompatible':
-            return config.openAiCompatible?.embeddingModel || null;
-        case 'ollama':
-            return config.ollama?.embeddingModel || null;
-        case 'gemini':
-            return config.embeddingModel || null;
-        default:
-            return null;
-    }
-}
-
-/**
- * @summary Builds the operator-facing Golden Path dimension mismatch warning.
- *
- * The message intentionally names both config and observed dimensions because this is the
- * runtime evidence operators need to align `NEO_EMBEDDING_PROVIDER`, `NEO_VECTOR_DIMENSION`,
- * and the existing Chroma collection dimension without destructive collection rebuilds.
- *
- * @param {Object} options
- * @param {String} options.provider Active embedding provider key.
- * @param {String|null} options.model Active embedding model name.
- * @param {Number} options.configuredDimension Configured vector dimension.
- * @param {Number|null} options.actualDimension Provider-produced vector length.
- * @returns {String}
- */
-export function buildEmbeddingDimensionMismatchMessage({provider, model, configuredDimension, actualDimension}) {
-    return `[GoldenPathSynthesizer] Embedding dimension mismatch before Chroma query: ` +
-        `provider=${provider || '<unset>'}, model=${model || '<unknown>'}, ` +
-        `configuredVectorDimension=${configuredDimension}, actualEmbeddingDimension=${actualDimension}. ` +
-        `Skipping semantic route. Align NEO_EMBEDDING_PROVIDER / NEO_VECTOR_DIMENSION with ` +
-        `the Chroma collection dimension, or rebuild the collection intentionally after backup.`;
-}
+// The embedding-dimension helpers were extracted to ./embeddingDimension.mjs (the SRP decomposition). They are
+// imported above for the internal dimension guard, and re-exported here so the public API stays stable.
+export {buildEmbeddingDimensionMismatchMessage, getEmbeddingModelName, getEmbeddingVectorLength};
 
 /**
  * @class Neo.ai.daemons.services.GoldenPathSynthesizer
@@ -93,53 +100,28 @@ class GoldenPathSynthesizer extends Base {
     }
 
     /**
-     * @summary Normalizes an `identityRoots.mjs` GitHub login for local GitHub payload matching.
-     *
-     * AgentIdentity roots store canonical handles with a leading `@`, while GitHub API
-     * payloads expose bare login strings. Keeping the conversion in one helper prevents
-     * repo-enrichment projections from reintroducing hardcoded handle lists.
-     *
+     * @summary Delegates AgentIdentity GitHub-login normalization to `agentFamilyResolution.mjs`.
      * @param {Object} identity AgentIdentity root entry.
-     * @returns {String|null} Bare GitHub login, or `null` when unavailable.
+     * @returns {String|null}
      */
     static getIdentityGithubLogin(identity) {
-        const login = identity.properties?.githubLogin;
-
-        return typeof login === 'string' && login ? login.replace(/^@/, '') : null
+        return resolveIdentityGithubLogin(identity)
     }
 
     /**
-     * @summary Derives the core swarm login-to-family map from the AgentIdentity registry.
-     *
-     * `identityRoots.mjs` is the canonical handle indirection seam for named Neo maintainers.
-     * Golden Path renders must consume that registry instead of duplicating agent handles in
-     * daemon code.
-     *
+     * @summary Delegates the core-swarm login→family map to `agentFamilyResolution.mjs`.
      * @returns {Object<String,String>} GitHub login to model-family map.
      */
     static getCoreSwarmAgentFamilies() {
-        return Object.fromEntries(
-            IDENTITIES
-                .filter(identity =>
-                    identity.type === 'AgentIdentity' &&
-                    identity.properties?.accountType === 'agent' &&
-                    identity.properties?.githubLogin &&
-                    identity.properties?.modelFamily
-                )
-                .map(identity => [
-                    this.getIdentityGithubLogin(identity),
-                    identity.properties.modelFamily
-                ])
-        )
+        return resolveCoreSwarmAgentFamilies()
     }
 
     /**
-     * @summary Returns canonical Neo agent GitHub logins from `identityRoots.mjs`.
-     *
+     * @summary Delegates canonical agent-login enumeration to `agentFamilyResolution.mjs`.
      * @returns {String[]} Agent logins without leading `@`.
      */
     static getAgentLogins() {
-        return Object.keys(this.getCoreSwarmAgentFamilies())
+        return resolveAgentLogins()
     }
 
     /**
@@ -152,113 +134,39 @@ class GoldenPathSynthesizer extends Base {
      * @returns {String[]} Maintainer logins without leading `@`.
      */
     static getStaleAssignmentMaintainers() {
-        return [...new Set(
-            IDENTITIES
-                .filter(identity =>
-                    identity.type === 'AgentIdentity' &&
-                    ['agent', 'human'].includes(identity.properties?.accountType) &&
-                    identity.properties?.githubLogin
-                )
-                .map(identity => this.getIdentityGithubLogin(identity))
-                .filter(Boolean)
-        )]
+        return getIssueFocusStaleAssignmentMaintainers()
     }
 
     /**
-     * @summary Collects local issue markdown files from the ordinal content tree.
-     *
-     * The GitHub content sync stores active issues in chunk directories under
-     * `resources/content/issues/`. This recursive helper keeps Golden Path
-     * enrichment compatible with the ordinal-100 content architecture without
-     * coupling stale-assignment logic to a single chunk layout.
-     *
+     * @summary Delegates issue markdown discovery to the focused issue-focus helper module.
      * @param {String} rootDir Directory containing synced issue markdown files.
      * @returns {String[]} Absolute markdown file paths sorted lexically for deterministic output.
      */
     static collectIssueMarkdownFiles(rootDir) {
-        const files = [];
-
-        function visit(dir) {
-            for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
-                const entryPath = path.join(dir, entry.name);
-
-                if (entry.isDirectory()) {
-                    visit(entryPath);
-                } else if (entry.isFile() && entry.name.endsWith('.md')) {
-                    files.push(entryPath);
-                }
-            }
-        }
-
-        visit(rootDir);
-
-        return files.sort()
+        return collectIssueFocusMarkdownFiles(rootDir)
     }
 
     /**
-     * @summary Extracts GitHub issue comment blocks from synced issue markdown.
-     *
-     * IssueSyncer renders comments as `### @user - timestamp` blocks. Regex is
-     * intentionally scoped to that stable serialized timeline shape; frontmatter is
-     * parsed separately through `gray-matter`.
-     *
+     * @summary Delegates issue comment parsing to the focused issue-focus helper module.
      * @param {String} content Markdown body without frontmatter.
      * @returns {Array<{author: String, createdAt: String, body: String}>}
      */
     static extractIssueCommentBlocks(content) {
-        const comments = [];
-        const commentRegex = /^### @([^\s]+) - ([^\n]+)\n\n([\s\S]*?)(?=^### @|^- \d{4}-\d{2}-\d{2}T|\n## |\s*$)/gm;
-        let match;
-
-        while ((match = commentRegex.exec(content)) !== null) {
-            comments.push({
-                author   : match[1],
-                createdAt: match[2].trim(),
-                body     : match[3].trim()
-            });
-        }
-
-        return comments
+        return extractIssueFocusCommentBlocks(content)
     }
 
     /**
-     * @summary Extracts assignment events for the currently assigned issue owners.
-     *
-     * Assignment events provide the conservative clock-start when no assignee or
-     * maintainer comment exists yet. They are not a substitute for the 7-day
-     * qualifying-activity rule; they only prevent missing-comment timelines from
-     * producing `unknown` last-activity rows.
-     *
+     * @summary Delegates assignment event parsing to the focused issue-focus helper module.
      * @param {String} content Markdown body without frontmatter.
      * @param {String[]} assignees Current assignee logins.
      * @returns {Array<{author: String, createdAt: String, assignee: String}>}
      */
     static extractAssignmentEvents(content, assignees = []) {
-        const assigneeSet = new Set(assignees);
-        const events = [];
-        const assignmentRegex = /^- (\d{4}-\d{2}-\d{2}T[^\s]+) @([^\s]+) assigned to @([^\s]+)/gm;
-        let match;
-
-        while ((match = assignmentRegex.exec(content)) !== null) {
-            if (assigneeSet.has(match[3])) {
-                events.push({
-                    createdAt: match[1],
-                    author   : match[2],
-                    assignee : match[3]
-                });
-            }
-        }
-
-        return events
+        return extractIssueFocusAssignmentEvents(content, assignees)
     }
 
     /**
-     * @summary Finds the last activity that satisfies the ticket-intake 7-day reassignment rule.
-     *
-     * Qualifying activity is an assignee comment or a maintainer progress
-     * acknowledgement. Assignment events and issue creation are conservative
-     * fallbacks for otherwise silent issues.
-     *
+     * @summary Delegates stale-assignment activity detection to the focused issue-focus helper module.
      * @param {Object} issue Parsed issue record.
      * @param {String[]} issue.assignees Current assignee logins.
      * @param {String} issue.createdAt Issue creation timestamp.
@@ -267,41 +175,11 @@ class GoldenPathSynthesizer extends Base {
      * @returns {{createdAt: Date, author: String, reason: String}}
      */
     static findLastQualifyingAssignmentActivity(issue, maintainers = this.getStaleAssignmentMaintainers()) {
-        const assigneeSet  = new Set(issue.assignees || []);
-        const maintainerSet = new Set(maintainers);
-        const candidates   = [];
-
-        for (const comment of this.extractIssueCommentBlocks(issue.content || '')) {
-            const createdAt = new Date(comment.createdAt);
-            if (Number.isNaN(createdAt.getTime())) continue;
-
-            if (assigneeSet.has(comment.author)) {
-                candidates.push({createdAt, author: comment.author, reason: 'assignee-comment'});
-            } else if (maintainerSet.has(comment.author) && MAINTAINER_PROGRESS_PATTERN.test(comment.body)) {
-                candidates.push({createdAt, author: comment.author, reason: 'maintainer-progress-ack'});
-            }
-        }
-
-        for (const event of this.extractAssignmentEvents(issue.content || '', issue.assignees || [])) {
-            const createdAt = new Date(event.createdAt);
-            if (!Number.isNaN(createdAt.getTime())) {
-                candidates.push({createdAt, author: event.author, reason: `assignment:${event.assignee}`});
-            }
-        }
-
-        const createdAt = new Date(issue.createdAt);
-        if (!Number.isNaN(createdAt.getTime())) {
-            candidates.push({createdAt, author: issue.author || 'unknown', reason: 'issue-created'});
-        }
-
-        candidates.sort((a, b) => b.createdAt - a.createdAt);
-
-        return candidates[0] || null
+        return findIssueFocusLastQualifyingAssignmentActivity(issue, maintainers)
     }
 
     /**
-     * @summary Builds stale-assignment candidates from local synced issue markdown.
-     *
+     * @summary Delegates stale-assignment candidate building to the focused issue-focus helper module.
      * @param {Object} options
      * @param {String} options.issuesDir Local synced issue directory.
      * @param {Date} [options.now=new Date()] Current clock for deterministic tests.
@@ -309,106 +187,27 @@ class GoldenPathSynthesizer extends Base {
      * @param {String[]} [options.maintainers=this.getStaleAssignmentMaintainers()] Maintainer logins.
      * @returns {Array<Object>} Stale candidates sorted by oldest qualifying activity first.
      */
-    static buildStaleAssignmentCandidates({
-        issuesDir,
-        now = new Date(),
-        thresholdMs = aiConfig.goldenPathStaleAssignmentThresholdMs,
-        maintainers = this.getStaleAssignmentMaintainers()
-    }) {
-        const candidates = [];
-        const nowDate    = now instanceof Date ? now : new Date(now);
-
-        for (const filePath of this.collectIssueMarkdownFiles(issuesDir)) {
-            let parsed;
-            try {
-                parsed = matter(fs.readFileSync(filePath, 'utf-8'));
-            } catch (error) {
-                logger.warn(`[GoldenPathSynthesizer] Failed to parse issue markdown for stale-assignment detector: ${filePath}`, error);
-                continue;
-            }
-
-            const meta      = parsed.data || {};
-            const labels    = Array.isArray(meta.labels) ? meta.labels : [];
-            const assignees = Array.isArray(meta.assignees) ? meta.assignees.filter(Boolean) : [];
-
-            if (meta.state !== 'OPEN' ||
-                assignees.length === 0 ||
-                labels.includes('needs-re-triage')) {
-                continue;
-            }
-
-            const lastActivity = this.findLastQualifyingAssignmentActivity({
-                assignees,
-                author   : meta.author,
-                content  : parsed.content,
-                createdAt: meta.createdAt
-            }, maintainers);
-
-            if (!lastActivity) continue;
-
-            const idleMs = nowDate - lastActivity.createdAt;
-            if (idleMs >= thresholdMs) {
-                candidates.push({
-                    assignees,
-                    daysIdle      : Math.floor(idleMs / DAY_MS),
-                    filePath,
-                    lastActivityAt: lastActivity.createdAt.toISOString(),
-                    lastActivityBy: lastActivity.author,
-                    number        : meta.id,
-                    reason        : lastActivity.reason,
-                    title         : meta.title || '(no title)',
-                    url           : meta.githubUrl
-                });
-            }
-        }
-
-        candidates.sort((a, b) => new Date(a.lastActivityAt) - new Date(b.lastActivityAt));
-
-        return candidates
+    static buildStaleAssignmentCandidates(options = {}) {
+        return buildIssueFocusStaleAssignmentCandidates({
+            ...options,
+            maintainers: options.maintainers || this.getStaleAssignmentMaintainers()
+        })
     }
 
     /**
-     * @summary Renders the Sandman handoff stale-assignment section.
-     *
+     * @summary Delegates stale-assignment rendering to the focused issue-focus helper module.
      * @param {Array<Object>} candidates Stale assignment candidates.
      * @param {Object} options
      * @param {Date} [options.capturedAt=new Date()] Capture timestamp.
      * @param {Number} [options.limit=aiConfig.goldenPathStaleAssignmentRenderLimit] Maximum candidates to render.
      * @returns {String}
      */
-    static renderStaleAssignmentCandidatesSection(candidates, {
-        capturedAt = new Date(),
-        limit = aiConfig.goldenPathStaleAssignmentRenderLimit
-    } = {}) {
-        let section = `\n## Stale Assignment Candidates\n\n`;
-        section += `*Captured at: ${capturedAt.toISOString()} (Source: local issue sync)*\n\n`;
-
-        if (candidates.length === 0) {
-            section += `No stale assignment candidates detected.\n`;
-            return section
-        }
-
-        const visibleCandidates = candidates.slice(0, limit);
-
-        if (candidates.length > visibleCandidates.length) {
-            section += `Showing ${visibleCandidates.length} of ${candidates.length} candidates, sorted oldest qualifying activity first.\n\n`;
-        }
-
-        for (const candidate of visibleCandidates) {
-            const assignees = candidate.assignees.map(assignee => `@${assignee}`).join(', ');
-            const issueRef  = `#${candidate.number}`;
-            section += `- **${issueRef}** — ${candidate.title} — assignee ${assignees} — last qualifying activity ${candidate.lastActivityAt} by @${candidate.lastActivityBy} (${candidate.daysIdle} days ago; ${candidate.reason})\n`;
-        }
-
-        return section
+    static renderStaleAssignmentCandidatesSection(candidates, options = {}) {
+        return renderIssueFocusStaleAssignmentCandidatesSection(candidates, options)
     }
 
     /**
-     * @summary Finds the latest reliable activity timestamp for an open issue.
-     *
-     * Silent Threads deliberately uses deterministic sync metadata rather than LLM triage:
-     * `updatedAt` first, then parsed timeline comments, then `createdAt` as the fallback.
-     *
+     * @summary Delegates latest issue activity detection to the focused issue-focus helper module.
      * @param {Object} issue Parsed issue record.
      * @param {String} issue.content Markdown body without frontmatter.
      * @param {String} issue.createdAt Issue creation timestamp.
@@ -416,102 +215,33 @@ class GoldenPathSynthesizer extends Base {
      * @returns {{createdAt: Date, author: String, reason: String}|null}
      */
     static findLatestIssueActivity(issue) {
-        const candidates = [];
-
-        const updatedAt = new Date(issue.updatedAt);
-        if (!Number.isNaN(updatedAt.getTime())) {
-            candidates.push({createdAt: updatedAt, author: 'github-sync', reason: 'updatedAt'});
-        }
-
-        for (const comment of this.extractIssueCommentBlocks(issue.content || '')) {
-            const createdAt = new Date(comment.createdAt);
-            if (!Number.isNaN(createdAt.getTime())) {
-                candidates.push({createdAt, author: comment.author, reason: 'comment'});
-            }
-        }
-
-        const createdAt = new Date(issue.createdAt);
-        if (!Number.isNaN(createdAt.getTime())) {
-            candidates.push({createdAt, author: issue.author || 'unknown', reason: 'issue-created'});
-        }
-
-        candidates.sort((a, b) => b.createdAt - a.createdAt);
-
-        return candidates[0] || null
+        return findIssueFocusLatestActivity(issue)
     }
 
     /**
-     * @summary Returns the Golden Path-style structural weight for an issue node.
-     *
-     * Uses the same inbound non-BLOCKS edge-weight shape as computed Golden Path scoring.
-     * Missing graph storage degrades to zero; Silent Threads then falls back to pure age.
-     *
+     * @summary Delegates Silent Threads structural weighting to the focused issue-focus helper module.
      * @param {String} issueId Canonical graph issue id (`issue-N`).
      * @param {Object} [graphService=GraphService] Memory GraphService singleton or test double.
      * @returns {Number}
      */
     static getIssueStructuralWeight(issueId, graphService = GraphService) {
-        try {
-            const sqliteDb = graphService?.db?.storage?.db;
-            if (!sqliteDb) return 0;
-
-            const row = sqliteDb.prepare(`
-                SELECT COALESCE(SUM(json_extract(e.data, '$.properties.weight')), 0.0) AS structuralWeight
-                FROM Edges e
-                WHERE e.target = ? AND e.type != 'BLOCKS'
-            `).get(issueId);
-
-            return Number(row?.structuralWeight || 0)
-        } catch (error) {
-            return 0
-        }
+        return getIssueFocusStructuralWeight(issueId, graphService)
     }
 
     /**
-     * @summary Determines whether an issue has an open blocker.
-     *
-     * Prefer graph topology when available. If graph topology is not mounted, fall back to
-     * synced frontmatter `blockedBy` so a visibility-only signal does not resurface known
-     * blocked work.
-     *
+     * @summary Delegates blocker detection for issue-focus visibility sections.
      * @param {Object} options
      * @param {String} options.issueId Canonical graph issue id (`issue-N`).
      * @param {Object} options.issue Parsed issue frontmatter.
      * @param {Object} [options.graphService=GraphService] Memory GraphService singleton or test double.
      * @returns {Boolean}
      */
-    static hasOpenIssueBlocker({issueId, issue, graphService = GraphService}) {
-        let graphChecked = false;
-
-        try {
-            if (graphService?.db?.edges?.getByIndex) {
-                graphChecked = true;
-                graphService.db.getAdjacentNodes?.(issueId, 'both');
-
-                const blockers = graphService.db.edges.getByIndex('target', issueId).filter(edge => edge.type === 'BLOCKS');
-                for (const edge of blockers) {
-                    const blockerNode = graphService.db.nodes?.get?.(edge.source);
-                    if (blockerNode && (blockerNode.properties?.state === 'OPEN' || blockerNode.state === 'OPEN')) {
-                        return true
-                    }
-                }
-            }
-        } catch (error) {
-            graphChecked = false;
-        }
-
-        const frontmatterBlockers = Array.isArray(issue.blockedBy) ? issue.blockedBy.filter(Boolean) : [];
-
-        return !graphChecked && frontmatterBlockers.length > 0
+    static hasOpenIssueBlocker(options) {
+        return hasIssueFocusOpenBlocker(options)
     }
 
     /**
-     * @summary Builds visibility-only Silent Threads from local synced issue markdown.
-     *
-     * Candidates are open, unassigned, non-rejected issues outside the Computed Golden Path.
-     * They are sorted by `silenceScore = daysIdle * max(structuralWeight, 1)`, keeping this
-     * section as an operator/swarm reading surface without changing orchestrator routing.
-     *
+     * @summary Delegates visibility-only Silent Threads candidate building to the issue-focus helper module.
      * @param {Object} options
      * @param {String} options.issuesDir Local synced issue directory.
      * @param {Date} [options.now=new Date()] Current clock for deterministic tests.
@@ -521,185 +251,278 @@ class GoldenPathSynthesizer extends Base {
      * @param {Object} [options.graphService=GraphService] Memory GraphService singleton or test double.
      * @returns {Array<Object>} Silent-thread candidates sorted by silence score.
      */
-    static buildSilentThreadCandidates({
-        issuesDir,
-        now = new Date(),
-        goldenIds = new Set(),
-        thresholdMs = aiConfig.goldenPathSilentThreadThresholdMs,
-        minScore = aiConfig.goldenPathSilentThreadMinScore,
-        graphService = GraphService
-    }) {
-        const candidates = [];
-        const nowDate    = now instanceof Date ? now : new Date(now);
-        const goldenSet  = new Set([...goldenIds].map(id => String(id)));
-        const excludedLabels = new Set([
-            'needs-re-triage',
-            'no-auto-close',
-            'no auto close',
-            'duplicate',
-            'invalid',
-            'wontfix',
-            'wont fix'
-        ]);
-
-        for (const filePath of this.collectIssueMarkdownFiles(issuesDir)) {
-            let parsed;
-            try {
-                parsed = matter(fs.readFileSync(filePath, 'utf-8'));
-            } catch (error) {
-                logger.warn(`[GoldenPathSynthesizer] Failed to parse issue markdown for Silent Threads: ${filePath}`, error);
-                continue;
-            }
-
-            const meta      = parsed.data || {};
-            const labels    = Array.isArray(meta.labels) ? meta.labels.map(label => String(label).toLowerCase()) : [];
-            const assignees = Array.isArray(meta.assignees) ? meta.assignees.filter(Boolean) : [];
-            const fileId    = path.basename(filePath, '.md');
-            const rawId     = meta.id || fileId.replace(/^issue-/, '');
-            const issueId   = String(rawId).startsWith('issue-') ? String(rawId) : `issue-${rawId}`;
-
-            if (meta.state !== 'OPEN' ||
-                assignees.length > 0 ||
-                goldenSet.has(issueId) ||
-                labels.some(label => excludedLabels.has(label))) {
-                continue;
-            }
-
-            if (this.hasOpenIssueBlocker({issueId, issue: meta, graphService})) {
-                continue;
-            }
-
-            const lastActivity = this.findLatestIssueActivity({
-                author   : meta.author,
-                content  : parsed.content,
-                createdAt: meta.createdAt,
-                updatedAt: meta.updatedAt
-            });
-
-            if (!lastActivity) continue;
-
-            const idleMs = nowDate - lastActivity.createdAt;
-            if (idleMs < thresholdMs) continue;
-
-            const daysIdle        = Math.floor(idleMs / DAY_MS);
-            const structuralWeight = this.getIssueStructuralWeight(issueId, graphService);
-            const silenceScore     = daysIdle * Math.max(structuralWeight, 1);
-
-            if (silenceScore < minScore) continue;
-
-            candidates.push({
-                daysIdle,
-                filePath,
-                issueId,
-                labels,
-                lastActivityAt: lastActivity.createdAt.toISOString(),
-                lastActivityBy: lastActivity.author,
-                number        : Number(String(issueId).replace(/^issue-/, '')) || rawId,
-                reason        : lastActivity.reason,
-                silenceScore,
-                structuralWeight,
-                title         : meta.title || '(no title)',
-                url           : meta.githubUrl
-            });
-        }
-
-        candidates.sort((a, b) =>
-            b.silenceScore - a.silenceScore ||
-            b.daysIdle - a.daysIdle ||
-            b.structuralWeight - a.structuralWeight ||
-            Number(a.number) - Number(b.number)
-        );
-
-        return candidates
+    static buildSilentThreadCandidates(options = {}) {
+        return buildIssueFocusSilentThreadCandidates({
+            ...options,
+            getStructuralWeight: options.getStructuralWeight || this.getIssueStructuralWeight.bind(this)
+        })
     }
 
     /**
-     * @summary Renders the Sandman handoff Silent Threads section.
-     *
+     * @summary Delegates Silent Threads rendering to the focused issue-focus helper module.
      * @param {Array<Object>} candidates Silent-thread candidates.
      * @param {Object} options
      * @param {Date} [options.capturedAt=new Date()] Capture timestamp.
      * @param {Number} [options.limit=aiConfig.goldenPathSilentThreadRenderLimit] Maximum candidates to render.
      * @returns {String}
      */
-    static renderSilentThreadCandidatesSection(candidates, {
-        capturedAt = new Date(),
-        limit = aiConfig.goldenPathSilentThreadRenderLimit
-    } = {}) {
-        let section = `\n## Silent Threads\n\n`;
-        section += `*Captured at: ${capturedAt.toISOString()} (Source: local issue sync + Native Edge Graph; visibility-only, no routing)*\n\n`;
-
-        if (candidates.length === 0) {
-            section += `No silent thread candidates detected.\n`;
-            return section
-        }
-
-        const visibleCandidates = candidates.slice(0, limit);
-
-        if (candidates.length > visibleCandidates.length) {
-            section += `Showing ${visibleCandidates.length} of ${candidates.length} candidates, sorted by silence score.\n\n`;
-        }
-
-        for (const candidate of visibleCandidates) {
-            const issueRef = `#${candidate.number}`;
-            section += `- **${issueRef}** — ${candidate.title} — ${candidate.daysIdle} days idle; ` +
-                `last activity ${candidate.lastActivityAt} by @${candidate.lastActivityBy}; ` +
-                `structural weight ${candidate.structuralWeight.toFixed(2)}; ` +
-                `silence score ${candidate.silenceScore.toFixed(2)} (${candidate.reason})\n`;
-        }
-
-        return section
+    static renderSilentThreadCandidatesSection(candidates, options = {}) {
+        return renderIssueFocusSilentThreadCandidatesSection(candidates, options)
     }
 
     /**
-     * @summary Determines whether a PR has cross-family review coverage.
-     *
-     * @param {Object} pr GitHub PR payload from `gh pr list`.
-     * @param {Object} [agentFamilies=this.getCoreSwarmAgentFamilies()] Login-to-family map.
+     * @summary Delegates deterministic work-graph stall finding construction to the issue-focus helper.
+     * @param {Object} options See `issueFocusSections.buildWorkGraphStallFindings`.
+     * @returns {Object[]} Work-graph stall finding payloads.
+     */
+    static buildWorkGraphStallFindings(options = {}) {
+        return buildIssueFocusWorkGraphStallFindings(options)
+    }
+
+    /**
+     * @summary Delegates visibility-only stall finding handoff rendering to the issue-focus helper.
+     * @param {Object[]} findings Stall finding payloads.
+     * @param {Object} options See `issueFocusSections.renderWorkGraphStallFindingsSection`.
+     * @returns {String}
+     */
+    static renderWorkGraphStallFindingsSection(findings, options = {}) {
+        return renderIssueFocusWorkGraphStallFindingsSection(findings, options)
+    }
+
+    /**
+     * @summary Delegates Golden Path label normalization to the issue-focus helper module.
+     * @param {Array<*>} labels Raw label values.
+     * @returns {String[]} Lowercase label names.
+     */
+    static normalizeLabels(labels = []) {
+        return normalizeIssueFocusLabels(labels)
+    }
+
+    /**
+     * @summary Delegates computed-recommendation actionability to `computedGoldenPathRouting.mjs`.
+     * @param {Object} nodeData Parsed graph node payload.
      * @returns {Boolean}
      */
-    static hasCrossFamilyReview(pr, agentFamilies = this.getCoreSwarmAgentFamilies()) {
-        const authorLogin  = pr.author?.login;
-        const authorFamily = agentFamilies[authorLogin];
-        const reviews      = Array.isArray(pr.reviews) ? pr.reviews : [];
-
-        return reviews.some(review => {
-            const reviewerLogin = review.author?.login || review.author?.name || review.author?.login;
-            const reviewerFamily = agentFamilies[reviewerLogin];
-
-            if (!reviewerFamily) return false;
-            if (!authorFamily) return true;
-
-            return reviewerFamily !== authorFamily
-        })
+    static isActionableComputedRecommendation(nodeData) {
+        return isActionableRouteRecommendation(nodeData)
     }
 
     /**
-     * @summary Renders a capped recent-open-PR list inside the existing Active PR Cycle section.
-     *
-     * @param {Object[]} prs GitHub PR payloads.
+     * @summary Delegates computed-route exclusion-label discovery to `computedGoldenPathRouting.mjs`.
+     * @param {Object} nodeData Parsed computed recommendation node.
+     * @returns {String[]} Normalized labels that reject immediate computed routing.
+     */
+    static getComputedRecommendationExclusionLabels(nodeData) {
+        return getRouteExclusionLabels(nodeData)
+    }
+
+    /**
+     * @summary Delegates routing-conflict focus detection to `computedGoldenPathRouting.mjs`.
+     * @param {Object} candidate Current Focus candidate.
+     * @returns {Boolean}
+     */
+    static isRoutingConflictFocusCandidate(candidate) {
+        return isRouteConflictFocusCandidate(candidate)
+    }
+
+    /**
+     * @summary Delegates content/narrative recommendation detection to `computedGoldenPathRouting.mjs`.
+     * @param {Object} nodeData Parsed computed recommendation node.
+     * @returns {Boolean}
+     */
+    static isContentComputedRecommendation(nodeData) {
+        return isContentRouteRecommendation(nodeData)
+    }
+
+    /**
+     * @summary Delegates computed-vs-focus contradiction detection to `computedGoldenPathRouting.mjs`.
      * @param {Object} options
+     * @param {Array<Object>} [options.topNodes=[]] Computed Golden Path recommendations.
+     * @param {Array<Object>} [options.currentFocusCandidates=[]] Current Focus candidates.
+     * @returns {{focusCandidates: Array<Object>, blockedNodes: Array<Object>, blockedIds: Set<String>}|null}
+     */
+    static findComputedFocusContradiction(options) {
+        return findRouteFocusContradiction(options)
+    }
+
+    /**
+     * @summary Delegates the computed-route contradiction diagnostic to `computedGoldenPathRouting.mjs`.
+     * @param {Object} options
+     * @param {Object} options.contradiction Result from `findComputedFocusContradiction`.
+     * @param {Object} [options.stats={}] Candidate-count diagnostics for the current pass.
+     * @param {Date|String} [options.capturedAt=new Date()] Current pass capture timestamp.
+     * @returns {String} Markdown section.
+     */
+    static renderComputedGoldenPathContradictionSection(options) {
+        return renderRouteContradictionSection(options)
+    }
+
+    /**
+     * @summary Delegates stale frontier GUIDE-edge pruning to `frontierConsolidation.mjs`.
+     * @param {Object} [options]
+     * @param {Object} [options.graphService=GraphService] Graph service instance.
+     * @param {Set<String>} [options.currentTargetIds=new Set()] Current computed target ids.
+     * @returns {Number} Count of stale guide edges removed.
+     */
+    static pruneStaleFrontierGuideEdges(options) {
+        return pruneFrontierGuideEdges(options)
+    }
+
+    /**
+     * @summary Delegates the empty-pass Computed Golden Path diagnostic to `computedGoldenPathRouting.mjs`.
+     * @param {Object} [stats={}] Candidate-count diagnostics for the current pass.
+     * @param {Date|String} [capturedAt=new Date()] Current pass capture timestamp.
+     * @returns {String} Markdown section.
+     */
+    static renderComputedGoldenPathEmptySection(stats, capturedAt) {
+        return renderRouteEmptySection(stats, capturedAt)
+    }
+
+    /**
+     * @summary Delegates Golden Path failure-outcome shaping to `computedGoldenPathRouting.mjs`.
+     * @param {String} reasonCode Stable machine-readable failure reason.
+     * @param {*} error Error object or message payload.
+     * @param {Object} [extra={}] Additional diagnostics for downstream task-state / health surfaces.
+     * @returns {{status: String, reasonCode: String, error: String}} Failure outcome.
+     */
+    static buildFailureOutcome(reasonCode, error, extra) {
+        return buildRouteFailureOutcome(reasonCode, error, extra)
+    }
+
+    /**
+     * @summary Delegates the fail-loud Computed Golden Path section to `computedGoldenPathRouting.mjs`.
+     * @param {Object} options
+     * @param {Object} options.failure Failure outcome from `buildFailureOutcome()`.
+     * @param {Object} [options.stats={}] Candidate-count diagnostics for the current pass.
+     * @param {Date|String} [options.capturedAt=new Date()] Current pass capture timestamp.
+     * @returns {String} Markdown section.
+     */
+    static renderComputedGoldenPathFailureSection(options) {
+        return renderRouteFailureSection(options)
+    }
+
+    /**
+     * @summary Scores one synced issue as a current release / incident focus candidate.
+     *
+     * This is deliberately a local-sync signal, not graph-centrality routing. It
+     * gives the handoff a deterministic "what is hot now" section even when the
+     * graph has not accumulated edges for a same-day regression or release ticket.
+     *
+     * @param {Object} options
+     * @param {Object} options.meta Issue frontmatter.
+     * @param {String} [options.content=''] Markdown body without frontmatter.
+     * @param {Date} [options.now=new Date()] Current clock.
+     * @param {Number} [options.windowMs=CURRENT_FOCUS_WINDOW_MS] Freshness window.
+     * @returns {Object|null}
+     */
+    static scoreCurrentFocusIssue(options) {
+        return scoreIssueFocusCurrentIssue(options)
+    }
+
+    /**
+     * @summary Delegates current release / incident focus candidate building to the helper module.
+     * @param {Object} options
+     * @param {String} options.issuesDir Local synced issue directory.
+     * @param {Date} [options.now=new Date()] Current clock for deterministic tests.
+     * @param {Number} [options.windowMs=CURRENT_FOCUS_WINDOW_MS] Freshness window.
+     * @returns {Array<Object>} Candidates sorted by score, freshness, then issue number.
+     */
+    static buildCurrentFocusCandidates(options) {
+        return buildIssueFocusCurrentFocusCandidates(options)
+    }
+
+    /**
+     * @summary Delegates current release / incident focus rendering to the helper module.
+     * @param {Array<Object>} candidates Current focus candidates.
+     * @param {Object} options
+     * @param {Date} [options.capturedAt=new Date()] Capture timestamp.
+     * @param {Number} [options.limit=5] Maximum candidates to render.
+     * @returns {String}
+     */
+    static renderCurrentFocusCandidatesSection(candidates, options = {}) {
+        return renderIssueFocusCurrentFocusCandidatesSection(candidates, options)
+    }
+
+    /**
+     * @summary Delegates PR-body `Authored by …` self-id login parsing to `agentFamilyResolution.mjs`.
+     * @param {String} body
+     * @returns {(String|null)}
+     */
+    static parseSelfIdLogin(body) {
+        return parsePrSelfIdLogin(body)
+    }
+
+    /**
+     * @summary Delegates PR author model-family resolution to `agentFamilyResolution.mjs`.
+     * @param {Object} pr GitHub PR payload (`author`, `body`, `number`).
+     * @param {Object} agentFamilies Login-to-family map (`@`-stripped logins).
+     * @returns {(String|undefined)}
+     */
+    static resolveAuthorFamily(pr, agentFamilies) {
+        return resolvePrAuthorFamily(pr, agentFamilies)
+    }
+
+    /**
+     * @summary Delegates PR cross-family review-coverage detection to `agentFamilyResolution.mjs`.
+     * @param {Object} pr GitHub PR payload from `gh pr list`.
+     * @param {Object} [agentFamilies] Login-to-family map.
+     * @returns {Boolean}
+     */
+    static hasCrossFamilyReview(pr, agentFamilies) {
+        return resolvePrCrossFamilyReview(pr, agentFamilies)
+    }
+
+    /**
+     * @summary Delegates the recent-open-PR summary to `activePrCycleSection.mjs`.
+     * @param {Object[]} prs GitHub PR payloads.
+     * @param {Object} [options]
      * @param {Number} [options.limit=aiConfig.goldenPathRecentOpenPrRenderLimit] Maximum PRs to render.
      * @returns {String}
      */
-    static renderRecentOpenPrSummary(prs, {limit = aiConfig.goldenPathRecentOpenPrRenderLimit} = {}) {
-        const recent = [...prs]
-            .filter(pr => pr.createdAt)
-            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-            .slice(0, limit);
+    static renderRecentOpenPrSummary(prs, options) {
+        return renderRecentOpenPrSummarySection(prs, options)
+    }
 
-        if (recent.length === 0) return '';
+    /**
+     * @summary Delegates Active PR Cycle freshness status to `activePrCycleSection.mjs`.
+     * @param {Object} options
+     * @param {Date|String} options.capturedAt Snapshot timestamp.
+     * @param {Date|String} options.now Freshness comparison timestamp.
+     * @param {Number} options.freshnessMs Freshness SLA in milliseconds.
+     * @returns {String}
+     */
+    static getActivePrCycleStatus(options) {
+        return resolveActivePrCycleStatus(options)
+    }
 
-        let section = `### Recent Open PRs\n`;
+    /**
+     * @summary Delegates the Active PR Cycle State section to `activePrCycleSection.mjs`.
+     * @param {Object} [options] See `activePrCycleSection.renderActivePrCycleState`.
+     * @returns {String}
+     */
+    static renderActivePrCycleState(options) {
+        return renderActivePrCycleStateSection(options)
+    }
 
-        for (const pr of recent) {
-            const author = pr.author?.login || 'unknown';
-            section += `- **PR #${pr.number}**: ${pr.title} — author @${author} — opened ${pr.createdAt} — cross-family reviewed: ${this.hasCrossFamilyReview(pr) ? 'yes' : 'no'}\n`;
-        }
+    /**
+     * @summary Delegates the degraded Strategic Interpretation reason to `activePrCycleSection.mjs`.
+     * @param {Object} options
+     * @param {String} options.reasonCode Stable machine-readable degradation reason.
+     * @param {String} [options.error=''] Sanitized provider or parser error.
+     * @returns {String}
+     */
+    static renderStrategicInterpretationDegradedReason(options) {
+        return renderStrategicDegradedReason(options)
+    }
 
-        section += `\n`;
-
-        return section
+    /**
+     * @summary Delegates Golden Path capture-timestamp formatting to the shared helper module.
+     *
+     * @param {Date|String} capturedAt Capture timestamp.
+     * @returns {String}
+     */
+    static formatGoldenPathCapturedAt(capturedAt) {
+        return formatGoldenPathTimestamp(capturedAt)
     }
 
     /**
@@ -713,8 +536,56 @@ class GoldenPathSynthesizer extends Base {
      */
     async fetchOpenPRs() {
         const { execSync } = await import('child_process');
-        const rawPrData = execSync('gh pr list --state open --json number,url,author,title,body,headRefOid,reviewRequests,reviews,comments,createdAt', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
+        const rawPrData    = execSync('gh pr list --state open --json number,url,author,title,body,headRefOid,reviewRequests,reviews,comments,createdAt,updatedAt,isDraft', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
         return JSON.parse(rawPrData);
+    }
+
+    /**
+     * @summary Delegates recency-ordered summary reads to `frontierConsolidation.mjs`.
+     * @param {Object} collection Summary Chroma collection (exposes async `.get`).
+     * @param {Number} n Number of most-recent summaries to return.
+     * @returns {Promise<{documents: String[]}>}
+     */
+    static getRecentSummaryDocuments(collection, n) {
+        return resolveRecentSummaryDocuments(collection, n)
+    }
+
+    /**
+     * @summary Delegates the Consolidation Gaps section to `frontierConsolidation.mjs`.
+     * @param {Object} summaryColl Summary Chroma collection (exposes async `.get`).
+     * @param {Object} [options]
+     * @param {Number} [options.limit=5] Max undigested sessions to sample.
+     * @returns {Promise<String>}
+     */
+    static renderConsolidationGapsSection(summaryColl, options) {
+        return renderConsolidationGaps(summaryColl, options)
+    }
+
+    /**
+     * @summary Delegates Sandman-v2 concept-slice construction to `conceptSliceBuilder.mjs`.
+     * @param {Object} options See `conceptSliceBuilder.buildConceptSlice`.
+     * @returns {Object}
+     */
+    static buildConceptSlice(options = {}) {
+        return buildGraphConceptSlice(options)
+    }
+
+    /**
+     * @summary Delegates concept-slice markdown rendering to `conceptSliceBuilder.mjs`.
+     * @param {Object} slice Concept-slice render tree.
+     * @returns {String}
+     */
+    static renderConceptSliceSection(slice = {}) {
+        return renderGraphConceptSliceSection(slice)
+    }
+
+    /**
+     * @summary Builds and renders the concept slice while preserving handoff generation on failure.
+     * @param {Object} options See `conceptSliceBuilder.renderConceptSliceHandoffSection`.
+     * @returns {String}
+     */
+    static renderConceptSliceHandoffSection(options = {}) {
+        return renderGraphConceptSliceHandoffSection(options)
     }
 
     async synthesizeGoldenPath({
@@ -724,25 +595,27 @@ class GoldenPathSynthesizer extends Base {
     } = {}) {
         logger.info('[GoldenPathSynthesizer] Initializing Hybrid GraphRAG Strategic Traversal...');
 
-        let graphColl = null;
+        let graphColl   = null;
         let summaryColl = null;
         try {
             graphColl = await StorageRouter.getGraphCollection();
             summaryColl = await StorageRouter.getSummaryCollection();
         } catch (e) {
             logger.warn('[GoldenPathSynthesizer] StorageRouter unavailable. Skipping Golden Path extraction.');
-            return;
+            return this.constructor.buildFailureOutcome('storage-router-unavailable', e);
         }
 
         if (!graphColl || !summaryColl) {
             logger.warn('[GoldenPathSynthesizer] Collections missing. Skipping Golden Path extraction.');
-            return;
+            return this.constructor.buildFailureOutcome('collections-missing', 'graph or summary collection missing');
         }
 
-        // Generate the Frontier Baseline Vector using the most recent session memory
+        // Generate the Frontier Baseline Vector from the N MOST-RECENT session summaries.
+        // (Was `summaryColl.get({limit:2})` — storage-order, not recency — which anchored the frontier
+        // to arbitrary/old summaries so recent work never ranked into the candidate pool.)
         let frontierEmbedding = null;
         try {
-            const recent = await summaryColl.get({ limit: 2, include: ['documents'] });
+            const recent = await this.constructor.getRecentSummaryDocuments(summaryColl, 2);
 
             let frontierText = "Neo.mjs Active Strategic Context: ";
             if (recent && recent.documents && recent.documents.length > 0) {
@@ -755,7 +628,7 @@ class GoldenPathSynthesizer extends Base {
             frontierEmbedding = await TextEmbeddingService.embedText(frontierText, aiConfig.embeddingProvider);
         } catch (e) {
             logger.warn('[GoldenPathSynthesizer] Failed to generate Frontier Baseline Vector. Aborting Hybrid route.', e);
-            return;
+            return this.constructor.buildFailureOutcome('frontier-embedding-failed', e);
         }
 
         const actualDimension     = getEmbeddingVectorLength(frontierEmbedding);
@@ -768,22 +641,42 @@ class GoldenPathSynthesizer extends Base {
             const provider = aiConfig.embeddingProvider;
             const model    = getEmbeddingModelName(aiConfig, provider);
 
-            logger.warn(buildEmbeddingDimensionMismatchMessage({
+            const message = buildEmbeddingDimensionMismatchMessage({
                 provider,
                 model,
                 configuredDimension,
                 actualDimension
-            }));
-            return;
+            });
+
+            logger.warn(message);
+            return this.constructor.buildFailureOutcome('embedding-dimension-mismatch', message);
         }
 
+        const scoredNodes  = [];
+        const scoringStats = {
+            semanticCandidates     : 0,
+            sqliteOpenMatches      : 0,
+            blockedCandidates      : 0,
+            nonActionableCandidates: 0,
+            scoredCandidates       : 0,
+            selectedTopNodes       : 0,
+            prunedGuideEdges       : 0
+        };
+        let routeFailure = null;
+
         // Pillar 1: Semantic Distance from ChromaDB
-        let semanticIds = [];
+        let semanticIds       = [];
         let semanticDistances = [];
         try {
             const semanticResults = await graphColl.query({
                 queryEmbeddings: [frontierEmbedding],
-                nResults: 20
+                nResults       : 20,
+                // Scope the candidate pool to actionable ISSUE + DISCUSSION vectors. Without this, the
+                // top-20 is taken across ALL embedded node types (the CONCEPT + ADR/GUIDES meta dominate),
+                // so the downstream state='OPEN' intersection yields nothing and the Computed Golden Path
+                // renders empty even when fresh open issues/discussions exist. Both are execution-steerable
+                // (work-to-do / converge-to-drive) and both embed with state='OPEN' metadata (IssueIngestor).
+                where          : {type: {'$in': ['ISSUE', 'DISCUSSION']}}
             });
             if (semanticResults && semanticResults.ids && semanticResults.ids.length > 0) {
                 semanticIds = semanticResults.ids[0];
@@ -791,110 +684,160 @@ class GoldenPathSynthesizer extends Base {
             }
         } catch (e) {
             logger.warn('[GoldenPathSynthesizer] Failed to query semantic vectors from ChromaDB.', e);
-            return;
+            routeFailure = this.constructor.buildFailureOutcome('semantic-query-failed', e);
         }
 
         if (semanticIds.length === 0) {
             logger.info('[GoldenPathSynthesizer] No semantic nodes found. Golden path empty.');
-            return;
         }
+        scoringStats.semanticCandidates = semanticIds.length;
 
         // Pillar 2: Structural Weight from SQLite Graph
-        const scoredNodes = [];
-        const SEMANTIC_WEIGHT = 2.0;
+        const SEMANTIC_WEIGHT   = 2.0;
         const STRUCTURAL_WEIGHT = 1.0;
 
-        try {
-            const placeholders = semanticIds.map(() => '?').join(',');
-            const stmt = GraphService.db.storage.db.prepare(`
-                SELECT
-                    n.id,
-                    n.data,
-                    COALESCE((
-                        SELECT SUM(json_extract(e.data, '$.properties.weight'))
-                        FROM Edges e
-                        WHERE e.target = n.id AND e.type != 'BLOCKS'
-                    ), 0.0) as struct_score
-                FROM Nodes n
-                WHERE (json_extract(n.data, '$.properties.state') = 'OPEN' OR json_extract(n.data, '$.state') = 'OPEN')
-                  AND n.id IN (${placeholders})
-            `);
+        if (semanticIds.length > 0 && !routeFailure) {
+            try {
+                const placeholders = semanticIds.map(() => '?').join(',');
+                const stmt         = GraphService.db.storage.db.prepare(`
+                    SELECT
+                        n.id,
+                        n.data,
+                        COALESCE((
+                            SELECT SUM(json_extract(e.data, '$.properties.weight'))
+                            FROM Edges e
+                            WHERE e.target = n.id AND e.type != 'BLOCKS'
+                        ), 0.0) as struct_score
+                    FROM Nodes n
+                    WHERE (json_extract(n.data, '$.properties.state') = 'OPEN' OR json_extract(n.data, '$.state') = 'OPEN')
+                      AND n.id IN (${placeholders})
+                `);
 
-            const results = stmt.all(...semanticIds);
+                const results = stmt.all(...semanticIds);
+                scoringStats.sqliteOpenMatches = results.length;
 
-            for (const row of results) {
-                const issueId = row.id;
+                for (const row of results) {
+                    const issueId = row.id;
 
-                // Guarantee graph topology is completely loaded into RAM BEFORE executing cold-cache resistant queries natively!
-                GraphService.db.getAdjacentNodes(issueId, 'both');
+                    // Guarantee graph topology is completely loaded into RAM BEFORE executing cold-cache resistant queries natively!
+                    GraphService.db.getAdjacentNodes(issueId, 'both');
+                    const struct_score = parseFloat(row.struct_score) || 0;
 
-                // Re-verify blocker topology natively using GraphService API
-                const blockers = GraphService.db.edges.getByIndex('target', issueId).filter(e => e.type === 'BLOCKS');
-                let isBlocked = false;
+                    let nodeData = null;
+                    try { nodeData = JSON.parse(row.data); } catch (e) { }
 
-                for (const bEdge of blockers) {
-                    const blockerNode = GraphService.db.nodes.get(bEdge.source);
-                    if (blockerNode && (blockerNode.properties?.state === 'OPEN' || blockerNode.state === 'OPEN')) {
-                        isBlocked = true;
-                        break;
+                    // Re-verify blocker topology natively using GraphService API
+                    const blockers       = GraphService.db.edges.getByIndex('target', issueId).filter(e => e.type === 'BLOCKS');
+                    const openBlockerIds = [];
+                    let   isBlocked      = false;
+
+                    for (const bEdge of blockers) {
+                        const blockerNode = GraphService.db.nodes.get(bEdge.source);
+                        if (blockerNode && (blockerNode.properties?.state === 'OPEN' || blockerNode.state === 'OPEN')) {
+                            isBlocked = true;
+                            openBlockerIds.push(bEdge.source);
+                            break;
+                        }
                     }
+
+                    if (isBlocked) {
+                        scoringStats.blockedCandidates++;
+                        continue; // Architecturally blocked issues cannot be Golden
+                    }
+
+                    const idx               = semanticIds.indexOf(issueId);
+                    const semantic_distance = parseFloat(semanticDistances[idx]) || 0.1;
+
+                    // Lower distance = Higher significance. (Add 0.1 to avoid div by 0 and curb massive asymptotes)
+                    const semanticScore = 1.0 / (semantic_distance + 0.1);
+
+                    const priority = (semanticScore * SEMANTIC_WEIGHT) + (struct_score * STRUCTURAL_WEIGHT);
+
+                    if (!this.constructor.isActionableComputedRecommendation(nodeData || {id: issueId})) {
+                        scoringStats.nonActionableCandidates++;
+                        logger.debug(`[GoldenPathSynthesizer] Skipping non-actionable computed recommendation: ${issueId}`);
+                        continue;
+                    }
+
+                    scoredNodes.push({
+                        node      : nodeData || { id: issueId },
+                        score     : priority,
+                        semantic  : semanticScore,
+                        structural: struct_score
+                    });
                 }
-
-                if (isBlocked) continue; // Architecturally blocked issues cannot be Golden
-
-                const idx = semanticIds.indexOf(issueId);
-                const semantic_distance = parseFloat(semanticDistances[idx]) || 0.1;
-                const struct_score = parseFloat(row.struct_score) || 0;
-
-                // Lower distance = Higher significance. (Add 0.1 to avoid div by 0 and curb massive asymptotes)
-                const semanticScore = 1.0 / (semantic_distance + 0.1);
-
-                let nodeData = null;
-                try { nodeData = JSON.parse(row.data); } catch (e) { }
-
-                let priority = (semanticScore * SEMANTIC_WEIGHT) + (struct_score * STRUCTURAL_WEIGHT);
-
-                // Apply the Negative ROI Protocol for automatically rejected Swarm tickets.
-                const labels = nodeData?.properties?.labels || [];
-                if (labels.includes('needs-re-triage')) {
-                    priority -= 10000;
-                    logger.debug(`[GoldenPathSynthesizer] Applied massive negative weight penalty to rejected node: ${issueId}`);
-                }
-
-                scoredNodes.push({
-                    node: nodeData || { id: issueId },
-                    score: priority,
-                    semantic: semanticScore,
-                    structural: struct_score
-                });
+            } catch (e) {
+                logger.warn('[GoldenPathSynthesizer] Error executing hybrid mapping across local Graph Store.', e);
+                routeFailure = this.constructor.buildFailureOutcome('graph-store-mapping-failed', e);
             }
-        } catch (e) {
-            logger.warn('[GoldenPathSynthesizer] Error executing hybrid mapping across local Graph Store.', e);
         }
 
         // Sort descending by calculated priority
         scoredNodes.sort((a, b) => b.score - a.score);
 
         // Remove mathematically rejected targets (Negative ROI), then slice
-        const topNodes = scoredNodes.filter(n => n.score > -5000).slice(0, aiConfig.goldenPathTopNodeRenderLimit);
-        const goldenIds = new Set(topNodes.map(item => item.node.id));
+        const topNodes = routeFailure ? [] : scoredNodes.filter(n => n.score > -5000).slice(0, aiConfig.goldenPathTopNodeRenderLimit);
 
-        let markdownAppend = '';
+        let currentFocusCandidates = [];
+        if (repoEnrichmentEnabled) {
+            try {
+                currentFocusCandidates = this.constructor.buildCurrentFocusCandidates({
+                    issuesDir,
+                    now
+                });
+            } catch (e) {
+                logger.warn('[GoldenPathSynthesizer] Failed to generate Current Release / Incident Focus', e);
+            }
+        }
 
-        if (topNodes.length > 0) {
-            logger.info(`[GoldenPathSynthesizer] Top Issue 1 (${topNodes[0].node.id}): Priority ${topNodes[0].score.toFixed(2)} [Sem: ${topNodes[0].semantic.toFixed(2)} / Struc: ${topNodes[0].structural.toFixed(2)}]`);
+        const focusContradiction = this.constructor.findComputedFocusContradiction({
+            currentFocusCandidates,
+            topNodes
+        });
+        const routedTopNodes = focusContradiction
+            ? topNodes.filter(item => !focusContradiction.blockedIds.has(item.node.id))
+            : topNodes;
+        const goldenIds = new Set(routedTopNodes.map(item => item.node.id));
+        scoringStats.scoredCandidates = scoredNodes.length;
+        scoringStats.selectedTopNodes = routedTopNodes.length;
+        scoringStats.prunedGuideEdges = this.constructor.pruneStaleFrontierGuideEdges({
+            currentTargetIds: goldenIds
+        });
+
+        const handoffTimestamp = now instanceof Date ? now : new Date(now);
+        let   markdownAppend   = '';
+
+        if (routeFailure) {
+            markdownAppend = this.constructor.renderComputedGoldenPathFailureSection({
+                capturedAt: handoffTimestamp,
+                failure   : routeFailure,
+                stats     : scoringStats
+            });
+            logger.warn(`[GoldenPathSynthesizer] Golden Path route failed loud: ${routeFailure.reasonCode} — rendered degraded handoff section.`);
+        } else if (routedTopNodes.length > 0) {
+            logger.info(`[GoldenPathSynthesizer] Top Issue 1 (${routedTopNodes[0].node.id}): Priority ${routedTopNodes[0].score.toFixed(2)} [Sem: ${routedTopNodes[0].semantic.toFixed(2)} / Struc: ${routedTopNodes[0].structural.toFixed(2)}]`);
 
             // Explicitly anchor this to the frontier context so the Agent NEVER loses sight of it
             markdownAppend = `\n## Computed Golden Path (Strategic Recommendation)\n\n`;
+            markdownAppend += `Captured at: ${this.constructor.formatGoldenPathCapturedAt(handoffTimestamp)}\n\n`;
             markdownAppend += `Based on the latest Tri-Vector Synthesis and Topological Priorities, the following tasks are mathematically recommended as the next immediate focus:\n\n`;
 
-            topNodes.forEach((item, index) => {
+            routedTopNodes.forEach((item, index) => {
                 if (item.node && item.node.id) {
                     GraphService.linkNodes('frontier', item.node.id, 'GUIDES', item.score);
                     const title = item.node.properties?.title || item.node.properties?.name || item.node.name || 'Unknown Title';
                     markdownAppend += `${index + 1}. **${item.node.id}**: Score ${item.score.toFixed(2)} (Semantic: ${item.semantic.toFixed(2)}, Structural: ${item.structural.toFixed(2)})\n   - *${title}*\n`;
                 }
             });
+
+            if (focusContradiction) {
+                const blockedRefs = focusContradiction.blockedNodes.map(item => item.node.id).join(', ');
+                markdownAppend += `\n> **Routing Guard:** Filtered content/narrative computed candidate(s) ${blockedRefs} because live Current Release / Incident Focus would make them contradictory immediate routes.\n\n`;
+            }
+
+            let strategicBrief                    = '',
+                strategicInterpretationReasonCode = 'strategic-brief-missing',
+                strategicInterpretationError      = '';
 
             try {
                 const graphProvider = resolveGraphModelProvider(aiConfig);
@@ -928,13 +871,35 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
 
                 const payload = Json.extract(result.content);
                 if (payload && payload.strategic_brief) {
-                    markdownAppend += `\n> **Strategic Interpretation:**\n> ${payload.strategic_brief}\n\n`;
+                    strategicBrief = payload.strategic_brief;
                     logger.info('[GoldenPathSynthesizer] Successfully appended semantic strategic brief to Golden Path.');
+                } else {
+                    strategicInterpretationReasonCode = 'strategic-brief-invalid-json';
+                    strategicInterpretationError      = 'Provider output did not contain strategic_brief.';
                 }
             } catch (e) {
-                logger.warn('[GoldenPathSynthesizer] Failed to generate semantic interpretation for Golden Path (LLM Offline). Proceeding with pure mathematical output.', e);
+                strategicInterpretationReasonCode = 'strategic-brief-provider-failed';
+                strategicInterpretationError      = e instanceof Error ? e.message : String(e || strategicInterpretationReasonCode);
+                logger.warn('[GoldenPathSynthesizer] Failed to generate semantic interpretation for Golden Path. Rendering degraded reason.', e);
             }
+
+            if (!strategicBrief) {
+                strategicBrief = this.constructor.renderStrategicInterpretationDegradedReason({
+                    error     : strategicInterpretationError,
+                    reasonCode: strategicInterpretationReasonCode
+                });
+            }
+
+            markdownAppend += `\n> **Strategic Interpretation:**\n> ${strategicBrief}\n\n`;
+        } else if (focusContradiction) {
+            markdownAppend = this.constructor.renderComputedGoldenPathContradictionSection({
+                capturedAt   : handoffTimestamp,
+                contradiction: focusContradiction,
+                stats        : scoringStats
+            });
+            logger.info('[GoldenPathSynthesizer] Computed route contradicted Current Focus; rendered diagnostic instead of routing content work.');
         } else {
+            markdownAppend = this.constructor.renderComputedGoldenPathEmptySection(scoringStats, handoffTimestamp);
             logger.info('[GoldenPathSynthesizer] No actionable unblocked issues found. Golden path empty.');
         }
 
@@ -942,18 +907,23 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         // TTL pruning and centralized overwrite happen in the same render pass.
         let handoffContent = `# Autonomous Handoff (Dream Pipeline & Golden Path)\n\n`;
         handoffContent += `The Native Edge Graph has audited the codebase structurally. The following architectural coverage gaps currently exist natively within the SQLite matrix.\n\n`;
+        handoffContent += this.constructor.renderConceptSliceHandoffSection({
+            capturedAt  : handoffTimestamp,
+            graphService: GraphService,
+            logger
+        });
 
-        const TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days TTL (Time-to-Live)
-        const gapNow = Date.now();
-        let gapElementsCount = 0;
-        let prunedGaps = 0;
+        const TTL_MS           = 7 * 24 * 60 * 60 * 1000; // 7 days TTL (Time-to-Live)
+        const gapNow           = Date.now();
+        let   gapElementsCount = 0;
+        let   prunedGaps       = 0;
 
-        let testGaps        = [];
-        let guideGaps       = [];
-        let exampleGaps     = [];
-        let orphanConcepts  = [];
-        let reverifyDue     = [];
-        let kbDemandGaps    = [];
+        let testGaps       = [];
+        let guideGaps      = [];
+        let exampleGaps    = [];
+        let orphanConcepts = [];
+        let reverifyDue    = [];
+        let kbDemandGaps   = [];
 
         GraphService.db.nodes.items.forEach(node => {
             if (node.properties?.capabilityGap) {
@@ -1054,7 +1024,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         // larger-context consumer choice).
         try {
             const {renderConsumerFrictionSection} = await import('../../services/memory-core/helpers/consumerFrictionHelper.mjs');
-            const frictionSection = renderConsumerFrictionSection();
+            const frictionSection                 = renderConsumerFrictionSection();
 
             if (frictionSection) {
                 handoffContent += frictionSection + '\n';
@@ -1065,11 +1035,31 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             logger.warn(`[GoldenPathSynthesizer] ConsumerFriction section render failed: ${err.message}`);
         }
 
+        // --- Consolidation Gaps (consolidation-liveness: undigested sessions made visible) ---
+        try {
+            const gapsSection = await this.constructor.renderConsolidationGapsSection(summaryColl);
+            if (gapsSection) {
+                handoffContent += gapsSection;
+            }
+        } catch (e) {
+            logger.warn(`[GoldenPathSynthesizer] Consolidation Gaps section render failed: ${e.message}`);
+        }
+
+        // --- Current Release / Incident Focus ---
+        let currentFocusAppend = '';
+        if (repoEnrichmentEnabled) {
+            try {
+                currentFocusAppend = this.constructor.renderCurrentFocusCandidatesSection(currentFocusCandidates, {capturedAt: now instanceof Date ? now : new Date(now)});
+            } catch (e) {
+                logger.warn('[GoldenPathSynthesizer] Failed to generate Current Release / Incident Focus', e);
+            }
+        }
+
         // --- Stale Assignment Candidates ---
         let staleAssignmentAppend = '';
         if (repoEnrichmentEnabled) {
             try {
-                const Synthesizer = this.constructor;
+                const Synthesizer     = this.constructor;
                 const staleCandidates = Synthesizer.buildStaleAssignmentCandidates({
                     issuesDir,
                     now
@@ -1085,7 +1075,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         let silentThreadsAppend = '';
         if (repoEnrichmentEnabled) {
             try {
-                const Synthesizer = this.constructor;
+                const Synthesizer            = this.constructor;
                 const silentThreadCandidates = Synthesizer.buildSilentThreadCandidates({
                     issuesDir,
                     now,
@@ -1099,91 +1089,45 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         }
 
         // --- Active PR Cycle State ---
+        let openPrs       = [];
         let prStateAppend = '';
         if (repoEnrichmentEnabled) {
             try {
-                const Synthesizer = this.constructor;
-                const prs = await this.fetchOpenPRs();
+                const Synthesizer = this.constructor,
+                      prs         = await this.fetchOpenPRs(),
+                      capturedAt  = now instanceof Date ? now : new Date(now);
 
-                const agentLogins = Synthesizer.getAgentLogins();
-                const agentPrs = prs.filter(pr => pr.author && agentLogins.includes(pr.author.login));
-
-                if (prs.length > 0) {
-                    prStateAppend += `\n## Active PR Cycle State\n\n`;
-                    prStateAppend += `*Captured at: ${new Date().toISOString()} (Source: GitHub Live)*\n\n`;
-                    prStateAppend += Synthesizer.renderRecentOpenPrSummary(prs);
-
-                    // Group by agent
-                    agentLogins.forEach(agent => {
-                        const myPrs = agentPrs.filter(pr => pr.author.login === agent);
-                        if (myPrs.length > 0) {
-                            prStateAppend += `### @${agent}\n`;
-                            myPrs.forEach(pr => {
-                                // Extract lane-state
-                                let laneState = 'unknown';
-                                const laneMatch = pr.body.match(/lane-state:\s*([^\s]+)/);
-                                if (laneMatch) {
-                                    laneState = laneMatch[1];
-                                }
-                                // Attempt to find cycle #. For example, "Cycle 3" in body or title.
-                                let cycle = '1';
-                                const cycleMatch = pr.body.match(/Cycle\s*(\d+)/i) || pr.title.match(/Cycle\s*(\d+)/i);
-                                if (cycleMatch) {
-                                    cycle = cycleMatch[1];
-                                }
-
-                                // Combine reviews and comments, sort by creation time (most recent first)
-                                const allInteractions = [
-                                    ...(pr.reviews || []).map(r => ({ body: r.body, date: new Date(r.submittedAt), state: r.state, type: 'review' })),
-                                    ...(pr.comments || []).map(c => ({ body: c.body, date: new Date(c.createdAt), type: 'comment' }))
-                                ].sort((a, b) => b.date - a.date);
-
-                                let foundCycle = false;
-                                for (const interaction of allInteractions) {
-                                    if (laneState === 'unknown') {
-                                        const rLaneMatch = interaction.body.match(/lane-state:\s*([^\s]+)/);
-                                        if (rLaneMatch) laneState = rLaneMatch[1];
-                                    }
-                                    if (!foundCycle) {
-                                        const rCycleMatch = interaction.body.match(/Cycle\s*(\d+)/i);
-                                        if (rCycleMatch) {
-                                            cycle = rCycleMatch[1];
-                                            foundCycle = true;
-                                        }
-                                    }
-                                    if (laneState !== 'unknown' && foundCycle) break;
-                                }
-
-                                // Determine primary reviewer
-                                let reviewers = pr.reviewRequests?.map(rr => rr.login).join(', ') || 'None';
-
-                                // Determine status
-                                let status = 'Pending';
-                                const latestReview = allInteractions.find(i => i.type === 'review');
-                                if (latestReview) {
-                                    status = latestReview.state;
-                                } else {
-                                    // Check if there's an approval or change request in comments (e.g. from a non-review PR comment)
-                                    const latestCommentStatus = allInteractions.find(i => i.body.match(/\*\*Status:\*\*\s*(Approved|Changes Requested|Pending)/i));
-                                    if (latestCommentStatus) {
-                                        const match = latestCommentStatus.body.match(/\*\*Status:\*\*\s*(Approved|Changes Requested|Pending)/i);
-                                        if (match) status = match[1].toUpperCase();
-                                    }
-                                }
-
-                                prStateAppend += `- **PR #${pr.number}**: ${pr.title}\n`;
-                                prStateAppend += `  - **Lane State**: \`${laneState}\`\n`;
-                                prStateAppend += `  - **Cycle**: \`${cycle}\`\n`;
-                                prStateAppend += `  - **Reviewers**: ${reviewers}\n`;
-                                prStateAppend += `  - **Status**: \`${status}\`\n`;
-                                prStateAppend += `  - **Head SHA**: \`${pr.headRefOid}\`\n`;
-                            });
-                            prStateAppend += `\n`;
-                        }
-                    });
+                if (!Array.isArray(prs)) {
+                    throw new Error('fetchOpenPRs did not return an array');
                 }
+
+                openPrs       = prs;
+                prStateAppend = Synthesizer.renderActivePrCycleState({prs, capturedAt, now: capturedAt});
             } catch (e) {
                 logger.warn('[GoldenPathSynthesizer] Failed to generate Active PR Cycle State', e);
+                prStateAppend = this.constructor.renderActivePrCycleState({
+                    capturedAt: now instanceof Date ? now : new Date(now),
+                    error     : e,
+                    now       : now instanceof Date ? now : new Date(now)
+                });
+            }
+        }
+
+        // --- Work-Graph Stall Inference ---
+        let stallFindingsAppend = '';
+        if (repoEnrichmentEnabled) {
+            try {
+                const Synthesizer = this.constructor,
+                      capturedAt  = now instanceof Date ? now : new Date(now),
+                      findings    = Synthesizer.buildWorkGraphStallFindings({
+                          issuesDir,
+                          now: capturedAt,
+                          prs: openPrs
+                      });
+
+                stallFindingsAppend = Synthesizer.renderWorkGraphStallFindingsSection(findings, {capturedAt});
+            } catch (e) {
+                logger.warn('[GoldenPathSynthesizer] Failed to generate Work-Graph Stall Inference', e);
             }
         }
 
@@ -1191,9 +1135,9 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         let backlogAppend = '';
         if (repoEnrichmentEnabled) {
             try {
-                const rawIssuesDir = path.resolve(__dirname, '../../../resources/content/issues');
-                const filesRaw = fs.readdirSync(rawIssuesDir);
-                const mdFiles = filesRaw.filter(f => f.endsWith('.md'));
+                const rawIssuesDir   = path.resolve(__dirname, '../../../resources/content/issues');
+                const filesRaw       = fs.readdirSync(rawIssuesDir);
+                const mdFiles        = filesRaw.filter(f => f.endsWith('.md'));
                 const openIssuesData = [];
                 for (const file of mdFiles) {
                     const issueId = file.replace(/\\.md$/, '');
@@ -1215,8 +1159,8 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                 if (latest5.length > 0) {
                     backlogAppend += `\n## 📋 Latest Priority Backlog\n\nThe following open tickets represent the most recently created structural objectives.\n\n`;
                     latest5.forEach((item, idx) => {
-                       const title = item.node.properties?.title || item.node.properties?.name || item.node.name || 'Unknown Title';
-                       const labels = item.node.properties?.labels || [];
+                       const title     = item.node.properties?.title || item.node.properties?.name || item.node.name || 'Unknown Title';
+                       const labels    = item.node.properties?.labels || [];
                        const labelTags = labels.length > 0 ? ' [\\`' + labels.join('\\`, \\`') + '\\`]' : '';
                        backlogAppend += `${idx + 1}. **${item.id}**${labelTags}\n   - *${title}*\n`;
                     });
@@ -1226,13 +1170,26 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             }
         }
 
-        handoffContent += `${staleAssignmentAppend}${silentThreadsAppend}${prStateAppend}${backlogAppend}${markdownAppend}`;
+        handoffContent += `${currentFocusAppend}${staleAssignmentAppend}${silentThreadsAppend}${prStateAppend}${stallFindingsAppend}${backlogAppend}${markdownAppend}`;
 
         const handoffFile = aiConfig.handoffFilePath;
+        fs.mkdirSync(path.dirname(handoffFile), {recursive: true});
         fs.writeFileSync(handoffFile, handoffContent.trim() + '\n', 'utf-8');
         logger.info(`[GoldenPathSynthesizer] sandman_handoff.md freshly generated via Centralized Pipeline. Golden Path integrated.`);
 
         logger.info(`[GoldenPathSynthesizer] Mathematical Golden Path established. Anchored ${topNodes.length} strategic nodes to frontier.`);
+
+        return routeFailure ? {
+            ...routeFailure,
+            wroteHandoff    : true,
+            selectedTopNodes: scoringStats.selectedTopNodes,
+            prunedGuideEdges: scoringStats.prunedGuideEdges
+        } : {
+            status          : 'completed',
+            wroteHandoff    : true,
+            selectedTopNodes: scoringStats.selectedTopNodes,
+            prunedGuideEdges: scoringStats.prunedGuideEdges
+        };
     }
 }
 

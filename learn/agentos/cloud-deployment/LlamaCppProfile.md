@@ -174,6 +174,8 @@ Neo health/readiness surfaces all agree.
 
 ## Related
 
+- [Model Providers: Local vs Remote](../ModelProviders.md) - why llama.cpp is
+  an OpenAI-compatible backend profile, not a separate provider selector.
 - [Day-0 Tutorial](./Day0Tutorial.md) - first-run cloud deployment proof.
 - [Configuration](./Configuration.md) - deployment config surface and provider-readiness env vars.
 - [Deployment Cookbook](../DeploymentCookbook.md) - broader Agent OS deployment topology.

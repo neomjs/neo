@@ -72,7 +72,7 @@ flowchart TD
 ### 1. `ticket-intake` (The Pre-Execution Reflection Gate)
 Invoked immediately upon picking up a ticket, before any code is written.
 - **Validation Sweep:** Forces the agent to ensure the ticket has enough architectural context to be actionable.
-- **ROI/Negative ROI Calculation:** An agent must consider if solving the ticket introduces tech debt or violates framework philosophy.
+- **ROI/Negative ROI Calculation:** An agent must consider if solving the ticket introduces tech debt or violates Neo's engine and organism philosophy.
 - **Rejection Protocol:** If a ticket is fatally flawed, the agent applies a `status: needs-re-triage` label, suspending it gracefully rather than hallucinating bad code.
 
 ### 2. `pull-request` (The Post-Implementation Gate)
@@ -88,6 +88,7 @@ Invoked when evaluating a PR (either peer-reviewing another agent or guiding a h
 - **Circuit Breaker:** For deep PRs (≥3 formal reviews or >24KB discussion), classifies review convergence — micro-delta for semantically-cleared PRs (+ a Maintainer Polish Fast Path for metadata fixes), full review for converging blockers, and a **scope-too-big break-up verdict** (decompose via `epic-create`) for non-converging semantic churn. Discussion size is a cost signal, not a scope signal.
 - **LGTM/Required Actions:** Ensures every review resolves in a clear state.
 - **Review Intake Guard:** Pairs with `post-review-pickup` so a fresh session checks for an author lane before entering review-only mode, unless a review-first rationale applies.
+- **Prior-art sweep gate:** Before scoring, a cheap 3–10-call Memory Core sweep (`memory-mining`) of the PR's decision space — a prior session may have settled the shape or an ADR may already govern it. PR-review is V-B-A's last line of defense, where CI-green ≠ AC-met (per `AGENTS.md` §verify_before_assert).
 
 ### 4. `ticket-create` (The Creation Gate)
 Invoked before filing any new GitHub Issue via the `create_issue` MCP tool. Creation-side dual of `ticket-intake` — they address opposite triggers (produce new vs. consume existing).
@@ -109,6 +110,7 @@ Beyond lifecycle governance, specialized contexts exist for live action:
 - **`context-recovery`:** A post-compaction recovery workflow that reconstructs active lane state from Memory Core recency, semantic recall, session rollups, and A2A before the agent resumes or asks for operator recap.
 - **`lane-intent`:** A narrow, non-authoritative, 2-hour TTL-bound pre-V-B-A signal for collision-prone / high-blast / long-V-B-A lanes (deep `/memory-mining`, `/tech-debt-radar`, multi-turn architectural V-B-A). Distinct from authoritative `[lane-claim]` (post-V-B-A); read before broadcasting `[lane-intent]` to confirm scope-trigger qualifies.
 - **`neo-identity-update`:** The protocol for updating Neo's identity (what Neo *is*) coherently across all ~30+ surfaces that encode it — README, VISION, learn/benefits, package.json, GitHub metadata, portal app, and the build-generated SEO files. Splits FACTS (single-source-derive), FRAMING (audience-segmented against a canonical apex), and ACTIONS / CTAs (governed next-step surfaces). Foundation: ADR 0018.
+- **`guide-authoring`:** The per-sub enforcement vehicle for the `learn/` guide quality bar. Mandates the grounding discipline (memory-mine + use-the-subsystem's-tools before the first sentence), the rich-hero-piece narrative + industry-friction + benefits + lived-voice content bar (measured against the v13.0.0 release notes), render-verified TD Mermaid, conceptual-vs-reference separation (Diátaxis), the never-hand-edit-generated-files rule, and a no-rubber-stamp reviewer gate. Born from the MemoryCore/KnowledgeBase redo-loop.
 
 ## The Meta-Skill: Adding New Skills
 
@@ -123,15 +125,20 @@ ensuring the YAML frontmatter and folder consistency are perfectly formed.
 |---|---|---|
 | `ticket-intake` | Lifecycle | Pre-execution validation gate for existing tickets |
 | `ticket-create` | Lifecycle | Pre-creation discipline gate (duplicate sweep, six-stage challenge chain, Fat Ticket body, title/label rules, custom Playwright configs) |
+| `goal-scoping` | Lifecycle | Scope a GOAL into a few coherent owned LANES — the planning front-end of the epic lifecycle (goal→lanes, not scrap tickets; peers self-select; the planner defines goal+lanes, never assigns) |
 | `epic-create` | Lifecycle | Author Epic bodies (problem-scope + intended-solution; ACs in subs, not the body) |
 | `epic-review` | Lifecycle | Pre-work six-stage gating chain for epics |
 | `epic-resolution` | Lifecycle | Closeout protocol for parent epics (exit gate) |
+| `update-roadmap` | Lifecycle | Post-release celebrate + plan-next-roadmap: cornerstones + rationale + explicit deferred set into a milestone with per-epic stewards (release-altitude analog of `epic-create`) |
+| `blog-post` | Lifecycle | Public hero-piece authoring: narrative arc, source-every-external-claim (verify-before-assert), kill the three over-claim flavors (superlative / universal / misleading-fraction), mandatory cross-family review (blog sibling of the release-notes methodology) |
+| `release-notes` | Lifecycle | Release notes as an EPIC with mining-driven iterations: multi-source scope derivation (the tracker lags shipped reality), per-arc Memory-Core mining, per-claim V-B-A, the precedent-SET quality bar — majors AND minors (hero chapters, named case studies with real timelines, War Stories, honest bounds, never downplay), and the publish.mjs flat-root staging lifecycle |
 | `pull-request` | Lifecycle | Post-implementation reflection + PR creation (custom Playwright configs) |
 | `pr-review` | Lifecycle | Structured quality evaluation & graph ingestion (mandatory ROI templates) |
-| `post-review-pickup` | Lifecycle | Next-lane pickup after review/response and pre-review intake lane discovery when no author lane is active |
+| `post-review-pickup` | Lifecycle | Active lane selection after review/response and pre-review intake lane discovery when no author lane is active |
 | `tech-debt-radar` | Lifecycle | Proactive semantic RAG sweeps for architectural debt |
 | `structural-pre-flight` | Lifecycle | Pre-implementation directory-CHOICE discipline gate fired before authoring any new `.mjs` file (Stage 0 mechanical trigger; Stage 1 fast-path (sibling-file-lift pattern match) or full Pre-Flight) |
 | `identity-firewall` | Security | The L2 Channel Separation and Prompt Firewall defense mechanisms |
+| `hostile-content-quarantine` | Security | Incident playbook for externally-authored hostile content (astroturfing, spam, injection-bearing artifacts): detect markers, never engage, quarantined read, ingestion clock, moderation matrix + verification triangle |
 | `neo-identity-update` | Tactical | Cross-surface Neo-identity coherence (facts, framing, actions; ADR 0018) |
 | `neural-link` | Tactical | Live application inspection sequences |
 | `unit-test` | Tactical | Custom Playwright test authoring patterns native to the single-thread layout |
@@ -143,11 +150,13 @@ ensuring the YAML frontmatter and folder consistency are perfectly formed.
 | `peer-role` | Coordination | Suspends Auto Mode bias; mandates evidence-backed convergence-pressure mindset for peer reviews |
 | `peer-naming` | Coordination | Social Name ritual (#11240 Layer 4): peer-sketched → criterion-audited → bearer-assented → peer-unvetoed → operator-confirmed; name ≠ handle |
 | `lane-intent` | Coordination | Narrow, non-authoritative, 2h TTL-bound pre-V-B-A signal for collision-prone / long-V-B-A lanes; distinct from authoritative `[lane-claim]` |
-| `post-review-pickup` | Coordination | Mandatory next-phase pickup at ANY PR-lifecycle event boundary (review post / author response / post-impl / post-PR-open-update / post-ticket-create / post-blocked-resolution); requires explicit `lane-state:` declaration per §15.6 |
+| `post-review-pickup` | Coordination | Mandatory active lane selection at ANY PR-lifecycle event boundary (review post / author response / post-impl / post-PR-open-update / post-ticket-create / post-blocked-resolution); requires explicit `lane-state: next-lane` declaration per §15.6 |
 | `create-skill` | Meta | Skill authoring bootstrap guide |
 
 ## Related Guides
 
+- [Core Agent Skills](./CoreSkills.md) — Why the core lifecycle and collaboration
+  skills matter for a maintainable agent team.
 - [Swarm Intelligence](./SwarmIntelligence.md) — Autonomous sub-agent delegation
 - [Strategic Workflows](./StrategicWorkflows.md) — How multiple skills chain together in practice
 - [The Dream Pipeline & Golden Path](./DreamPipeline.md) — How issue lifecycle outcomes are forecasted

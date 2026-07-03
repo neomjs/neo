@@ -53,10 +53,11 @@ class SortZone extends BaseSortZone {
     }
 
     /**
+     * Completes a table header drag under the base drag-end latch.
      * @param {Object} data
      */
-    async onDragEnd(data) {
-        await super.onDragEnd(data);
+    async processDragEnd(data) {
+        await super.processDragEnd(data);
 
         let {owner} = this;
 

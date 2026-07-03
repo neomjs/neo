@@ -1,6 +1,55 @@
 import {z} from 'zod';
 
 /**
+ * @summary Convert a Zod schema to the OpenAPI-compatible JSON Schema shape used by MCP tools.
+ *
+ * Zod v4 owns JSON Schema emission directly; using the former external bridge
+ * against v4 schemas emits hollow `{}` payloads. Zod's passthrough objects
+ * emit `additionalProperties: {}` which is JSON-Schema-equivalent to `true`; the
+ * MCP contract historically exposes `true`, so normalize that property while
+ * preserving empty schemas elsewhere (notably `items: {}` for unknown arrays).
+ *
+ * @param {z.ZodType} zodSchema Zod schema to expose through `tools/list`.
+ * @returns {object} OpenAPI 3.0-compatible JSON Schema.
+ */
+function toOpenApiJsonSchema(zodSchema) {
+    const jsonSchema = z.toJSONSchema(zodSchema, {target: 'openapi-3.0'});
+
+    return normalizeOpenApiJsonSchema(JSON.parse(JSON.stringify(jsonSchema)));
+}
+
+/**
+ * @summary Normalize Zod v4 JSON Schema output for Neo's MCP compatibility contract.
+ * @param {any} node JSON Schema node.
+ * @returns {any} The normalized node.
+ */
+function normalizeOpenApiJsonSchema(node) {
+    if (!node || typeof node !== 'object') {
+        return node;
+    }
+
+    if (Array.isArray(node)) {
+        node.forEach(normalizeOpenApiJsonSchema);
+        return node;
+    }
+
+    if (
+        node.additionalProperties &&
+        typeof node.additionalProperties === 'object' &&
+        !Array.isArray(node.additionalProperties) &&
+        Object.keys(node.additionalProperties).length === 0
+    ) {
+        node.additionalProperties = true;
+    }
+
+    for (const value of Object.values(node)) {
+        normalizeOpenApiJsonSchema(value);
+    }
+
+    return node;
+}
+
+/**
  * Dynamically constructs a Zod schema for a tool's input arguments based on its
  * OpenAPI operation definition. This schema is used for robust runtime validation
  * of incoming tool call arguments.
@@ -80,8 +129,8 @@ function resolveRef(doc, ref) {
  *                                    `additionalProperties` are emitted via `.passthrough()`
  *                                    so the resulting JSON Schema tolerates extra fields.
  *                                    Used for *output* schemas where implementations may
- *                                    return more fields than the OpenAPI contract declares
- *                                    (see #9837). Input schemas stay strict.
+ *                                    return more fields than the OpenAPI contract declares.
+ *                                    Input schemas stay strict.
  * @returns {z.ZodType} A Zod schema representing the OpenAPI schema.
  */
 function buildZodSchemaFromNode(doc, schema, opts = {}) {
@@ -128,7 +177,7 @@ function buildZodSchemaFromNode(doc, schema, opts = {}) {
         } else if (lenient) {
             // Output schemas tolerate server-side drift: emit `additionalProperties: true`
             // so strict MCP clients (e.g. GitHub Copilot) accept responses that carry
-            // fields the OpenAPI contract forgot to declare. See #9837.
+            // fields the OpenAPI contract forgot to declare.
             zodSchema = zodSchema.passthrough();
         } else if (!hasProperties && !hasAdditionalDef) {
             // Open-bag INPUT: OpenAPI declared `type: object` with no `properties` and no
@@ -137,17 +186,16 @@ function buildZodSchemaFromNode(doc, schema, opts = {}) {
             // `properties` field, `find_instances`'s `selector`, `modify_state_provider`'s
             // `data`). Without passthrough, Zod's strict parse silently strips the entire
             // payload to `{}`, producing hollow `{success: true}` responses while the
-            // worker executes `instance.set({})` — a no-op. See #10070.
+            // worker executes `instance.set({})` — a no-op.
             zodSchema = zodSchema.passthrough();
         }
     } else if (schema.type === 'array') {
         if (schema.items) {
             zodSchema = z.array(buildZodSchemaFromNode(doc, schema.items, opts));
         } else {
-            // Fallback for OpenAPI arrays declared without `items`. We use z.unknown() rather than
-            // z.any() because zod-to-json-schema with target:'openApi3' emits z.any() as the bare
-            // {"type":"array"} (stripping `items` entirely), which strict validators like GitHub
-            // Copilot reject. z.unknown() round-trips as {"type":"array","items":{}} — compliant.
+            // Fallback for OpenAPI arrays declared without `items`. We use
+            // z.unknown() because Zod v4's JSON Schema emitter preserves it as
+            // {"type":"array","items":{}}, which strict MCP clients accept.
             zodSchema = z.array(z.unknown());
         }
     } else if (schema.type === 'string') {
@@ -173,11 +221,9 @@ function buildZodSchemaFromNode(doc, schema, opts = {}) {
     } else if (schema.type === 'boolean') {
         zodSchema = z.boolean();
     } else {
-        // Catch-all for schemas without a declared type (e.g. `{}`, or an array `items: {}` sentinel).
-        // We use z.unknown() rather than z.any() because zod-to-json-schema with target:'openApi3'
-        // strips `items` from z.array(z.any()) but preserves it for z.array(z.unknown()). Runtime
-        // validation is identical (both accept any value); only the emitted JSON Schema differs,
-        // and only z.unknown() satisfies strict validators like GitHub Copilot's.
+        // Catch-all for schemas without a declared type (e.g. `{}`, or an array
+        // `items: {}` sentinel). Runtime validation accepts any value; z.unknown()
+        // keeps the JSON Schema emission explicit enough for strict MCP clients.
         zodSchema = z.unknown();
     }
 
@@ -211,7 +257,6 @@ function buildOutputZodSchema(doc, operation) {
     // JSON Schema sets `additionalProperties: true`. This is the output-side counterpart to
     // the input-side strictness: server implementations drift faster than OpenAPI contracts,
     // and strict MCP clients (GitHub Copilot) reject any response with undeclared fields.
-    // See #9837.
     const outputOpts  = {lenient: true};
 
     if (schema) {
@@ -242,5 +287,6 @@ function buildOutputZodSchema(doc, operation) {
 export {
     buildZodSchema,
     buildOutputZodSchema,
+    toOpenApiJsonSchema,
     resolveRef
 };

@@ -11,14 +11,21 @@
     /* Darker Cyan for contrast */
     --agent-accent-intervention     : #cf222e;
     /* Red */
+    --agent-accent-settings         : #8250df;
+    --agent-accent-chat             : #1a7f37;
+    --agent-accent-transcript       : #9a6700;
+    --agent-accent-grid             : #0969da;
+
+    --agent-surface-settings        : #f5f0ff;
+    --agent-surface-chat            : #eefcf3;
+    --agent-surface-transcript      : #fff8e5;
+    --agent-surface-grid            : #eef5ff;
+
+    --agent-state-focus             : #0969da;
+    --agent-state-muted             : #6e7781;
+    --agent-state-waiting           : #9a6700;
+    --agent-state-live              : #1a7f37;
 
     --agent-font-mono               : 'Courier New', monospace;
     --agent-font-ui                 : system-ui, -apple-system, sans-serif;
-
-    // Override Neo variables
-    --neo-background-color          : var(--agent-bg-dark);
-    --neo-color                     : var(--agent-text-primary);
-    --panel-header-background-color : var(--agent-bg-panel);
-    --panel-body-background-color   : var(--agent-bg-dark);
-    --toolbar-background-color      : var(--agent-bg-panel);
 }

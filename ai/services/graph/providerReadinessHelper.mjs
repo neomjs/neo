@@ -1,12 +1,63 @@
-import http from 'http';
+import http       from 'http';
 import {execFile} from 'child_process';
-import {Memory_Config as aiConfig} from '../../services.mjs';
-import logger from '../../mcp/server/memory-core/logger.mjs';
+import os         from 'os';
+import path       from 'path';
+import aiConfig   from '../../mcp/server/memory-core/config.mjs';
+import logger     from '../../mcp/server/memory-core/logger.mjs';
+import {
+    buildOllamaEvalAttribution,
+    extractOllamaEvalSample
+} from '../../provider/Ollama.mjs';
 import {
     isGraphModelProviderSupported,
     isOpenAiCompatibleProvider,
     resolveGraphModelProvider
 } from './providerDispatch.mjs';
+import {
+    withLmsEmbeddingInputSuffix
+} from '../shared/vector/lmsEmbeddingInputSuffix.mjs';
+
+let openAiCompatibleEmbeddingServingProbeQueue = Promise.resolve();
+
+const
+    providerDiscoveryCache         = new Map(),
+    providerDiscoveryForceInflight = new Map(),
+    PROVIDER_DISCOVERY_FORCE       = 'force',
+    PROVIDER_DISCOVERY_ROUTINE     = 'routine';
+
+/**
+ * Default LM Studio CLI bin directory. `lms bootstrap` installs the CLI here; an interactive shell
+ * has it on PATH, but a daemon / MCP-server launch env often does not — so a bare `execFile('lms', …)`
+ * ENOENTs and false-negatives the provider as unavailable while it is actually healthy (blocking
+ * KB + Memory Core embedding ops).
+ * @type {String}
+ */
+const LMS_DEFAULT_BIN_DIR = path.join(os.homedir(), '.lmstudio', 'bin');
+
+/**
+ * @summary Builds execFile options for the `lms` CLI with its bin dir guaranteed on PATH.
+ *
+ * Augmenting PATH here makes the `lms` readiness probe (`fetchLmsLoadedModels`) robust to the launch
+ * env, fixing `spawn lms ENOENT` false-negatives. Idempotent — never duplicates an already-present bin
+ * dir. The caller's extra options are preserved, INCLUDING a caller-supplied `extra.env` (merged, not
+ * clobbered). (The `lms` load/unload spawns carry the same fragility — a noted follow-up — but their
+ * tests assert a 3-arg execFile signature, so they stay out of this slice.)
+ *
+ * @param {Object} [extra={}] Extra execFile options (e.g. `{timeout}`, `{env}`) merged into the result.
+ * @returns {Object} execFile options carrying an augmented `PATH` env (caller `extra.env` preserved).
+ */
+export function lmsExecOptions(extra = {}) {
+    // Merge the caller's env (if any) over process.env, then derive + augment PATH from THAT merged env,
+    // so a caller-supplied `extra.env` (and its own PATH) is preserved rather than clobbered.
+    const baseEnv = {...process.env, ...(extra.env || {})},
+          sep     = process.platform === 'win32' ? ';' : ':',
+          curr    = baseEnv.PATH || '',
+          PATH    = curr.split(sep).includes(LMS_DEFAULT_BIN_DIR)
+              ? curr
+              : (curr ? `${curr}${sep}${LMS_DEFAULT_BIN_DIR}` : LMS_DEFAULT_BIN_DIR);
+
+    return {...extra, env: {...baseEnv, PATH}};
+}
 
 /**
  * @module ai/services/graph/ProviderReadinessHelper
@@ -19,6 +70,101 @@ import {
  */
 export function getOpenAiCompatibleHost(config = aiConfig) {
     return config.openAiCompatible?.host;
+}
+
+/**
+ * @summary Clears provider-discovery caches for deterministic tests and explicit diagnostics.
+ * @returns {void}
+ */
+export function clearProviderDiscoveryProbeCache() {
+    providerDiscoveryCache.clear();
+    providerDiscoveryForceInflight.clear();
+}
+
+/**
+ * @summary Validates the requested provider-discovery freshness contract.
+ * @param {Object} options
+ * @param {String} options.freshness Either `force` or `routine`.
+ * @param {Number} [options.cacheTtlMs] Routine-cache freshness window.
+ * @param {String} options.caller Caller name for fail-loud errors.
+ * @returns {void}
+ */
+function assertProviderDiscoveryFreshness({freshness, cacheTtlMs, caller}) {
+    if (![PROVIDER_DISCOVERY_FORCE, PROVIDER_DISCOVERY_ROUTINE].includes(freshness)) {
+        throw new TypeError(`${caller}: freshness must be '${PROVIDER_DISCOVERY_FORCE}' or '${PROVIDER_DISCOVERY_ROUTINE}'`);
+    }
+
+    if (freshness === PROVIDER_DISCOVERY_ROUTINE && (!Neo.isNumber(cacheTtlMs) || cacheTtlMs < 0)) {
+        throw new TypeError(`${caller}: cacheTtlMs must be a non-negative number for routine provider discovery`);
+    }
+}
+
+/**
+ * @summary Runs one provider-discovery probe with routine TTL caching or force-fresh coalescing.
+ * @param {Object} options
+ * @param {String} options.key Stable probe identity.
+ * @param {String} options.freshness Either `force` or `routine`.
+ * @param {Number} [options.cacheTtlMs] Routine-cache freshness window.
+ * @param {String} options.caller Caller name for fail-loud errors.
+ * @param {Function} options.runProbe Probe executor.
+ * @returns {Promise<*>}
+ */
+async function runProviderDiscoveryProbe({
+    key,
+    freshness = PROVIDER_DISCOVERY_FORCE,
+    cacheTtlMs,
+    caller,
+    runProbe
+}) {
+    assertProviderDiscoveryFreshness({freshness, cacheTtlMs, caller});
+
+    if (freshness === PROVIDER_DISCOVERY_ROUTINE) {
+        const
+            cached = providerDiscoveryCache.get(key),
+            now    = Date.now();
+
+        if (cached?.promise) {
+            return cached.promise;
+        }
+
+        if (cached && now <= cached.expiresAt) {
+            return cached.value;
+        }
+
+        const promise = Promise.resolve()
+            .then(runProbe)
+            .then(value => {
+                providerDiscoveryCache.set(key, {
+                    value,
+                    expiresAt: Date.now() + cacheTtlMs
+                });
+
+                return value;
+            })
+            .catch(error => {
+                if (providerDiscoveryCache.get(key)?.promise === promise) {
+                    providerDiscoveryCache.delete(key);
+                }
+
+                throw error;
+            });
+
+        providerDiscoveryCache.set(key, {promise});
+        return promise;
+    }
+
+    const forceKey = `${PROVIDER_DISCOVERY_FORCE}:${key}`;
+
+    if (providerDiscoveryForceInflight.has(forceKey)) {
+        return providerDiscoveryForceInflight.get(forceKey);
+    }
+
+    const promise = Promise.resolve()
+        .then(runProbe)
+        .finally(() => providerDiscoveryForceInflight.delete(forceKey));
+
+    providerDiscoveryForceInflight.set(forceKey, promise);
+    return promise;
 }
 
 /**
@@ -43,6 +189,275 @@ export function getOpenAiCompatibleModelIds(payload) {
 }
 
 /**
+ * @summary Converts CLI/API numeric fields into finite numbers when possible.
+ * @param {*} value Candidate numeric value.
+ * @returns {Number|undefined}
+ */
+function toFiniteNumber(value) {
+    if (Neo.isNumber(value)) {
+        return value;
+    }
+
+    if (typeof value === 'string' && value.trim() !== '') {
+        const parsed = Number(value);
+
+        if (Number.isFinite(parsed)) {
+            return parsed;
+        }
+    }
+}
+
+/**
+ * @summary Reads the first finite numeric value from a row using tolerant field aliases.
+ * @param {Object} row Parsed LM Studio `lms ps --json` row.
+ * @param {String[]} keys Candidate field names.
+ * @returns {Number|undefined}
+ */
+function readNumericField(row, keys) {
+    for (const key of keys) {
+        const value = toFiniteNumber(row?.[key]);
+
+        if (value !== undefined) {
+            return value;
+        }
+    }
+}
+
+/**
+ * @summary Checks an observed LM Studio parallel value only when the CLI exposes it.
+ *
+ * `lms ps --json` can report `parallel: null` for embedding rows even when the
+ * desktop UI shows a configured value. Unknown telemetry is diagnostic, not an
+ * unsatisfiable repair loop. Numeric mismatches still fail loud for roles whose
+ * parallel value is observable, such as chat rows.
+ *
+ * @param {*} observedParallel Loaded-model parallel value.
+ * @param {*} requiredParallel Configured required parallel value.
+ * @returns {Boolean}
+ */
+function isObservedLmsParallelSufficient(observedParallel, requiredParallel) {
+    return !Neo.isNumber(requiredParallel) ||
+        !Neo.isNumber(observedParallel) ||
+        observedParallel === requiredParallel;
+}
+
+/**
+ * @summary Checks whether an LM Studio loaded-model identifier belongs to a configured model.
+ *
+ * LM Studio appends numeric suffixes (`:2`, `:3`, etc.) when the same model is
+ * loaded more than once. Matching only numeric suffixes avoids conflating
+ * legitimate colon-bearing model keys with unrelated model identifiers.
+ *
+ * @param {String} id Loaded-model identifier reported by `lms ps`.
+ * @param {String} model Configured model id.
+ * @returns {Boolean}
+ */
+function matchesLmsLoadedModelId(id, model) {
+    if (!id || !model) {
+        return false;
+    }
+
+    if (id === model) {
+        return true;
+    }
+
+    if (!id.startsWith(`${model}:`)) {
+        return false;
+    }
+
+    return /^[1-9]\d*$/.test(id.slice(model.length + 1));
+}
+
+/**
+ * @summary Checks whether an exact LM Studio resident model satisfies the configured shape.
+ * @param {Object} options
+ * @param {Object} options.loadedModel Parsed `lms ps --json` row for the exact model id.
+ * @param {String} options.model Configured model id.
+ * @param {Object} [options.contextLengths] Per-model required context lengths.
+ * @param {Object} [options.parallels] Per-model required parallel slots.
+ * @returns {Boolean}
+ */
+function isLmsLoadedModelSufficient({
+    loadedModel,
+    model,
+    contextLengths = {},
+    parallels      = {}
+} = {}) {
+    if (!loadedModel) {
+        return false;
+    }
+
+    const requiredContext  = contextLengths?.[model],
+          requiredParallel = parallels?.[model],
+          hasContextGate   = Neo.isNumber(requiredContext),
+          hasParallelGate  = Neo.isNumber(requiredParallel);
+
+    if (hasContextGate && (!Neo.isNumber(loadedModel.contextLength) || loadedModel.contextLength < requiredContext)) {
+        return false;
+    }
+
+    if (hasParallelGate && !isObservedLmsParallelSufficient(loadedModel.parallel, requiredParallel)) {
+        return false;
+    }
+
+    return true;
+}
+
+/**
+ * @summary Extracts loaded LM Studio model metadata from `lms ps --json`.
+ *
+ * LM Studio CLI output has evolved across versions, so this normalizer accepts
+ * common array/object envelopes and field aliases while preserving only the
+ * readiness facts Neo needs: model id, loaded context length, and parallel slots.
+ *
+ * @param {Object[]|Object} payload Parsed JSON payload from `lms ps --json`.
+ * @returns {Object[]}
+ */
+export function getLmsLoadedModels(payload) {
+    const rows = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.models)
+            ? payload.models
+            : Array.isArray(payload?.data)
+                ? payload.data
+                : Array.isArray(payload?.loadedModels)
+                    ? payload.loadedModels
+                    : [];
+
+    const models = [];
+    const seen   = new Set();
+
+    for (const row of rows) {
+        const id = row?.id || row?.identifier || row?.model || row?.name || row?.path || row?.modelKey;
+
+        if (!id || seen.has(id)) {
+            continue;
+        }
+
+        seen.add(id);
+        const model = {
+            id,
+            contextLength: readNumericField(row, [
+                'contextLength',
+                'context_length',
+                'context',
+                'contextWindow',
+                'context_window',
+                'n_ctx',
+                'num_ctx'
+            ]),
+            parallel: readNumericField(row, [
+                'parallel',
+                'parallelism',
+                'slots',
+                'numParallel',
+                'num_parallel'
+            ])
+        };
+
+        for (const key of ['type', 'modelKey', 'format', 'displayName', 'publisher', 'path', 'indexedModelIdentifier', 'architecture']) {
+            if (row?.[key] !== undefined) {
+                model[key] = row[key];
+            }
+        }
+
+        models.push(model);
+    }
+
+    return models;
+}
+
+/**
+ * @summary Fetches loaded LM Studio model metadata using the CLI's JSON surface.
+ * @param {Object} options
+ * @param {Number} options.timeoutMs CLI timeout. Required; no module-level default.
+ * @param {Function} [options.execFileFn=execFile] Child-process seam for tests.
+ * @param {String} [options.freshness='force'] `routine` enables TTL caching; `force` bypasses completed cache.
+ * @param {Number} [options.cacheTtlMs] Required for routine caching.
+ * @returns {Promise<Object[]>}
+ */
+export function fetchLmsLoadedModels({
+    timeoutMs,
+    execFileFn = execFile,
+    freshness  = PROVIDER_DISCOVERY_FORCE,
+    cacheTtlMs
+} = {}) {
+    if (typeof timeoutMs !== 'number') {
+        return Promise.reject(new TypeError('fetchLmsLoadedModels: timeoutMs is required'));
+    }
+
+    return runProviderDiscoveryProbe({
+        key   : `lms-loaded-models:${timeoutMs}`,
+        freshness,
+        cacheTtlMs,
+        caller: 'fetchLmsLoadedModels',
+        runProbe() {
+            return new Promise((resolve, reject) => {
+                execFileFn('lms', ['ps', '--json'], lmsExecOptions({timeout: timeoutMs}), (error, stdout = '', stderr = '') => {
+                    if (error) {
+                        reject(new Error(`lms ps --json failed: ${error.message}${stderr ? `; stderr=${stderr.trim()}` : ''}`));
+                        return;
+                    }
+
+                    try {
+                        resolve(getLmsLoadedModels(JSON.parse(stdout || '[]')));
+                    } catch (parseError) {
+                        reject(new Error(`lms ps --json returned invalid JSON: ${parseError.message}`));
+                    }
+                });
+            });
+        }
+    });
+}
+
+/**
+ * @summary Finds loaded LM Studio siblings superseded by a verified exact model id.
+ *
+ * The configured model id must stay resident because downstream OpenAI-compatible
+ * calls target that id. Once that exact id has the desired context/parallel shape,
+ * suffixed duplicate siblings are stale resident memory and should be unloaded.
+ *
+ * @param {Object} options
+ * @param {Object[]} options.loadedModels Parsed `lms ps --json` models.
+ * @param {String[]} options.requiredModels Required configured model ids.
+ * @param {Object} [options.contextLengths] Per-model required context lengths.
+ * @param {Object} [options.parallels] Per-model required parallel slots.
+ * @returns {Object[]}
+ */
+export function getSupersededLmsLoadedModels({
+    loadedModels,
+    requiredModels,
+    contextLengths = {},
+    parallels      = {}
+} = {}) {
+    const models     = Array.isArray(loadedModels) ? loadedModels : [],
+          byId       = new Map(models.map(item => [item.id, item])),
+          superseded = [];
+
+    for (const model of requiredModels || []) {
+        if (!isLmsLoadedModelSufficient({
+            loadedModel: byId.get(model),
+            model,
+            contextLengths,
+            parallels
+        })) {
+            continue;
+        }
+
+        for (const item of models) {
+            if (item.id !== model && matchesLmsLoadedModelId(item.id, model)) {
+                superseded.push({
+                    ...item,
+                    model
+                });
+            }
+        }
+    }
+
+    return superseded;
+}
+
+/**
  * @summary Extracts currently loaded model identifiers from an Ollama `/api/ps` payload.
  *
  * Native Ollama exposes currently resident models as `models: [{name, model}]`.
@@ -53,13 +468,41 @@ export function getOpenAiCompatibleModelIds(payload) {
  * @returns {String[]}
  */
 export function getOllamaRunningModelIds(payload) {
+    return getOllamaRunningModels(payload).map(item => item.id);
+}
+
+/**
+ * @summary Extracts resident native Ollama model metadata from `/api/ps`.
+ *
+ * Ollama reports the loaded context as `context_length` per running model. The
+ * readiness layer preserves it so a model that is merely resident at the default
+ * 4K-ish context window cannot satisfy Neo's configured local-model context cap.
+ *
+ * @param {Object} payload Parsed `/api/ps` response.
+ * @returns {Object[]}
+ */
+export function getOllamaRunningModels(payload) {
     if (!Array.isArray(payload?.models)) {
         return [];
     }
 
-    return [...new Set(payload.models
-        .map(item => item?.name || item?.model || item?.id)
-        .filter(Boolean))];
+    const models = [];
+    const seen   = new Set();
+
+    for (const item of payload.models) {
+        const id = item?.name || item?.model || item?.id;
+        if (!id || seen.has(id)) {
+            continue;
+        }
+
+        seen.add(id);
+        models.push({
+            id,
+            contextLength: Neo.isNumber(item?.context_length) ? item.context_length : undefined
+        });
+    }
+
+    return models;
 }
 
 /**
@@ -69,9 +512,17 @@ export function getOllamaRunningModelIds(payload) {
  * @param {String} options.host Provider host.
  * @param {Number} options.timeoutMs HTTP timeout. Required; no module-level default.
  * @param {Function} [options.fetchFn=fetch] Fetch seam for tests.
+ * @param {String} [options.freshness='force'] `routine` enables TTL caching; `force` bypasses completed cache.
+ * @param {Number} [options.cacheTtlMs] Required for routine caching.
  * @returns {Promise<String[]>}
  */
-export async function fetchOpenAiCompatibleModelIds({host, timeoutMs, fetchFn = fetch} = {}) {
+export async function fetchOpenAiCompatibleModelIds({
+    host,
+    timeoutMs,
+    fetchFn    = fetch,
+    freshness  = PROVIDER_DISCOVERY_FORCE,
+    cacheTtlMs
+} = {}) {
     if (!host) {
         throw new TypeError('fetchOpenAiCompatibleModelIds: host is required');
     }
@@ -79,18 +530,165 @@ export async function fetchOpenAiCompatibleModelIds({host, timeoutMs, fetchFn = 
         throw new TypeError('fetchOpenAiCompatibleModelIds: timeoutMs is required');
     }
 
-    const url      = new URL('/v1/models', host).toString();
-    const response = await fetchFn(url, {
-        method: 'GET',
-        signal: AbortSignal.timeout(timeoutMs)
-    });
+    return runProviderDiscoveryProbe({
+        key   : `openai-compatible-models:${host}:${timeoutMs}`,
+        freshness,
+        cacheTtlMs,
+        caller: 'fetchOpenAiCompatibleModelIds',
+        async runProbe() {
+            const url      = new URL('/v1/models', host).toString();
+            const response = await fetchFn(url, {
+                method: 'GET',
+                signal: AbortSignal.timeout(timeoutMs)
+            });
 
-    if (!response.ok) {
-        const text = typeof response.text === 'function' ? await response.text() : '';
-        throw new Error(`OpenAI-compatible model enumeration failed: HTTP ${response.status}${text ? ` - ${text}` : ''}`);
+            if (!response.ok) {
+                const text = typeof response.text === 'function' ? await response.text() : '';
+                throw new Error(`OpenAI-compatible model enumeration failed: HTTP ${response.status}${text ? ` - ${text}` : ''}`);
+            }
+
+            return getOpenAiCompatibleModelIds(await response.json());
+        }
+    });
+}
+
+/**
+ * @summary Runs one tiny OpenAI-compatible embedding-serving canary.
+ *
+ * This probe verifies `/v1/embeddings` can serve the configured embedding model
+ * without returning or logging vector bodies. The caller owns load gating through
+ * `shouldRun`; a skipped decision returns an explicit degraded envelope instead
+ * of issuing a provider request during heavy maintenance or known contention.
+ *
+ * @param {Object} options
+ * @param {String} options.host Provider host.
+ * @param {String} options.model Embedding model identifier.
+ * @param {String} options.input Tiny canary text. Required and capped at 256 UTF-8 bytes.
+ * @param {Number} options.timeoutMs HTTP timeout. Required; no module-level default.
+ * @param {String} [options.apiKey] Optional OpenAI-compatible bearer token.
+ * @param {Object[]} [options.lmsLoadedModels] Optional LMS metadata rows for suffix parity with TextEmbeddingService.
+ * @param {Function} [options.fetchFn=fetch] Fetch seam for tests.
+ * @param {Function} [options.shouldRun] Optional load/backpressure gate.
+ * @returns {Promise<Object>}
+ */
+export async function checkOpenAiCompatibleEmbeddingServing({
+    host,
+    model,
+    input,
+    timeoutMs,
+    apiKey,
+    lmsLoadedModels = [],
+    fetchFn = fetch,
+    shouldRun
+} = {}) {
+    if (!host) {
+        throw new TypeError('checkOpenAiCompatibleEmbeddingServing: host is required');
+    }
+    if (!model) {
+        throw new TypeError('checkOpenAiCompatibleEmbeddingServing: model is required');
+    }
+    if (typeof timeoutMs !== 'number') {
+        throw new TypeError('checkOpenAiCompatibleEmbeddingServing: timeoutMs is required');
+    }
+    if (!Neo.isString(input) || input.length === 0) {
+        throw new TypeError('checkOpenAiCompatibleEmbeddingServing: non-empty input is required');
+    }
+    if (Buffer.byteLength(input, 'utf8') > 256) {
+        throw new TypeError('checkOpenAiCompatibleEmbeddingServing: input must be <= 256 UTF-8 bytes');
     }
 
-    return getOpenAiCompatibleModelIds(await response.json());
+    const gate = shouldRun ? await shouldRun({host, model, timeoutMs}) : true;
+
+    if (gate === false || gate?.run === false || gate?.skipped === true) {
+        return {
+            ready   : false,
+            degraded: true,
+            skipped : true,
+            provider: 'openAiCompatible',
+            host,
+            model,
+            reason  : gate?.reason || 'embedding-serving-canary-skipped',
+            warning : gate?.warning || `[provider/openAiCompatible] embedding-serving canary skipped for '${model}': ${gate?.reason || 'load gate returned false'}`
+        };
+    }
+
+    const headers = {'content-type': 'application/json'};
+    if (apiKey) {
+        headers.authorization = `Bearer ${apiKey}`;
+    }
+
+    const
+        loadedModel  = Array.isArray(lmsLoadedModels) ? lmsLoadedModels.find(item => item?.id === model) : null,
+        requestInput = withLmsEmbeddingInputSuffix(input, loadedModel);
+
+    const runProbe = async () => {
+        const response = await fetchFn(new URL('/v1/embeddings', host).toString(), {
+            method: 'POST',
+            headers,
+            body  : JSON.stringify({model, input: requestInput}),
+            signal: AbortSignal.timeout(timeoutMs)
+        });
+
+        if (!response.ok) {
+            const text = typeof response.text === 'function' ? await response.text() : '',
+                  message = `HTTP ${response.status}${text ? ` - ${text.slice(0, 256)}` : ''}`;
+
+            return {
+                ready   : false,
+                degraded: true,
+                provider: 'openAiCompatible',
+                host,
+                model,
+                status  : response.status,
+                error   : {message},
+                warning : `[provider/openAiCompatible] embedding-serving canary failed for '${model}': ${message}`
+            };
+        }
+
+        const payload = await response.json(),
+              vector  = payload?.data?.[0]?.embedding;
+
+        if (!Array.isArray(vector)) {
+            return {
+                ready   : false,
+                degraded: true,
+                provider: 'openAiCompatible',
+                host,
+                model,
+                error   : {message: 'response did not contain data[0].embedding[]'},
+                warning : `[provider/openAiCompatible] embedding-serving canary failed for '${model}': response did not contain data[0].embedding[]`
+            };
+        }
+
+        return {
+            ready       : true,
+            degraded    : false,
+            provider    : 'openAiCompatible',
+            host,
+            model,
+            vectorLength: vector.length
+        };
+    };
+
+    const queuedProbe = openAiCompatibleEmbeddingServingProbeQueue
+        .catch(() => {})
+        .then(runProbe)
+        .catch(error => ({
+            ready   : false,
+            degraded: true,
+            provider: 'openAiCompatible',
+            host,
+            model,
+            error   : {
+                message: error?.message || String(error),
+                code   : error?.code
+            },
+            warning : `[provider/openAiCompatible] embedding-serving canary failed for '${model}': ${error?.message || error}`
+        }));
+
+    openAiCompatibleEmbeddingServingProbeQueue = queuedProbe.catch(() => {});
+
+    return queuedProbe;
 }
 
 /**
@@ -103,11 +701,23 @@ export async function fetchOpenAiCompatibleModelIds({host, timeoutMs, fetchFn = 
  * @returns {Promise<String[]>}
  */
 export async function fetchOllamaRunningModelIds({host, timeoutMs, fetchFn = fetch} = {}) {
+    return (await fetchOllamaRunningModels({host, timeoutMs, fetchFn})).map(item => item.id);
+}
+
+/**
+ * @summary Fetches resident native Ollama model metadata from `/api/ps`.
+ * @param {Object} options
+ * @param {String} options.host Provider host.
+ * @param {Number} options.timeoutMs HTTP timeout. Required; no module-level default.
+ * @param {Function} [options.fetchFn=fetch] Fetch seam for tests.
+ * @returns {Promise<Object[]>}
+ */
+export async function fetchOllamaRunningModels({host, timeoutMs, fetchFn = fetch} = {}) {
     if (!host) {
-        throw new TypeError('fetchOllamaRunningModelIds: host is required');
+        throw new TypeError('fetchOllamaRunningModels: host is required');
     }
     if (typeof timeoutMs !== 'number') {
-        throw new TypeError('fetchOllamaRunningModelIds: timeoutMs is required');
+        throw new TypeError('fetchOllamaRunningModels: timeoutMs is required');
     }
 
     const url      = new URL('/api/ps', host).toString();
@@ -121,7 +731,7 @@ export async function fetchOllamaRunningModelIds({host, timeoutMs, fetchFn = fet
         throw new Error(`Ollama running-model enumeration failed: HTTP ${response.status}${text ? ` - ${text}` : ''}`);
     }
 
-    return getOllamaRunningModelIds(await response.json());
+    return getOllamaRunningModels(await response.json());
 }
 
 /**
@@ -137,6 +747,7 @@ export async function fetchOllamaRunningModelIds({host, timeoutMs, fetchFn = fet
  * @param {String} options.model Ollama model identifier.
  * @param {String} options.role Either `'chat'` or `'embedding'`.
  * @param {String|Number} [options.keepAlive] Ollama keep_alive value.
+ * @param {Number} [options.contextLength] Native Ollama `options.num_ctx` warm-up override.
  * @param {Number} options.timeoutMs HTTP timeout. Required; no module-level default.
  * @param {Function} [options.fetchFn=fetch] Fetch seam for tests.
  * @returns {Promise<Object>}
@@ -146,6 +757,7 @@ export async function warmOllamaRoleModel({
     model,
     role,
     keepAlive,
+    contextLength,
     timeoutMs,
     fetchFn = fetch
 } = {}) {
@@ -170,6 +782,12 @@ export async function warmOllamaRoleModel({
     if (keepAlive !== undefined) {
         payload.keep_alive = keepAlive;
     }
+    if (Neo.isNumber(contextLength)) {
+        payload.options = {
+            ...(payload.options || {}),
+            num_ctx: contextLength
+        };
+    }
 
     const response = await fetchFn(new URL(endpoint, host).toString(), {
         method : 'POST',
@@ -183,11 +801,32 @@ export async function warmOllamaRoleModel({
         throw new Error(`Ollama ${role} model warmup failed for '${model}': HTTP ${response.status}${text ? ` - ${text}` : ''}`);
     }
 
+    let raw = null;
+
     if (typeof response.text === 'function') {
-        await response.text();
+        const text = await response.text();
+
+        if (text.trim()) {
+            try {
+                raw = JSON.parse(text);
+            } catch (error) {
+                raw = null;
+            }
+        }
+    } else if (typeof response.json === 'function') {
+        try {
+            raw = await response.json();
+        } catch (error) {
+            raw = null;
+        }
     }
 
-    return {model, role, endpoint};
+    return {
+        model,
+        role,
+        endpoint,
+        evalSample: extractOllamaEvalSample(raw, {model, role})
+    };
 }
 
 /**
@@ -203,9 +842,14 @@ export async function warmOllamaRoleModel({
  * @param {Object} [options]
  * @param {Function} [options.execFileFn=execFile] Child-process seam for tests.
  * @param {Number} [options.contextLength] LM Studio loaded-model context-window override (tokens).
+ * @param {Number} [options.parallel] LM Studio loaded-model parallel-slot count (`--parallel`). Each
+ * slot holds an independent KV cache at the loaded context window, so the slot count multiplies the
+ * model's resident RAM. Omit to inherit the lms default; set low for a lease-serialized role whose
+ * concurrent demand is 1 (the chat model) to reclaim the idle KV-cache multiplier.
+ * @param {String} [options.identifier] Stable LM Studio loaded-model identifier.
  * @returns {Promise<{stdout: String, stderr: String}>}
  */
-export function loadLmsModel(model, {execFileFn = execFile, contextLength} = {}) {
+export function loadLmsModel(model, {execFileFn = execFile, contextLength, parallel, identifier} = {}) {
     if (!model) {
         return Promise.reject(new TypeError('loadLmsModel: model is required'));
     }
@@ -214,11 +858,41 @@ export function loadLmsModel(model, {execFileFn = execFile, contextLength} = {})
     if (Neo.isNumber(contextLength)) {
         args.push('--context-length', String(contextLength));
     }
+    if (Neo.isNumber(parallel)) {
+        args.push('--parallel', String(parallel));
+    }
+    if (Neo.isString(identifier) && identifier) {
+        args.push('--identifier', identifier);
+    }
 
     return new Promise((resolve, reject) => {
         execFileFn('lms', args, (error, stdout = '', stderr = '') => {
             if (error) {
                 reject(new Error(`lms load ${model} failed: ${error.message}${stderr ? `; stderr=${stderr.trim()}` : ''}`));
+                return;
+            }
+
+            resolve({stdout, stderr});
+        });
+    });
+}
+
+/**
+ * @summary Invokes `lms unload <identifier>` for one LM Studio resident model.
+ * @param {String} identifier LM Studio loaded-model identifier.
+ * @param {Object} [options]
+ * @param {Function} [options.execFileFn=execFile] Child-process seam for tests.
+ * @returns {Promise<{stdout: String, stderr: String}>}
+ */
+export function unloadLmsModel(identifier, {execFileFn = execFile} = {}) {
+    if (!identifier) {
+        return Promise.reject(new TypeError('unloadLmsModel: identifier is required'));
+    }
+
+    return new Promise((resolve, reject) => {
+        execFileFn('lms', ['unload', identifier], (error, stdout = '', stderr = '') => {
+            if (error) {
+                reject(new Error(`lms unload ${identifier} failed: ${error.message}${stderr ? `; stderr=${stderr.trim()}` : ''}`));
                 return;
             }
 
@@ -253,7 +927,7 @@ export function buildLmsContextLengthsMap({
     chatContextLength,
     embeddingContextLength
 } = {}) {
-    const map = {};
+    const map    = {};
     const setMax = (modelId, value) => {
         if (!modelId || !Neo.isNumber(value)) {
             return;
@@ -285,14 +959,16 @@ export function buildLmsContextLengthsMap({
  * - `embeddingProvider`: vector embedding role.
  *
  * @param {Object} config aiConfig-shaped provider config.
- * @returns {{models: String[], contextLengths: Object}} Role-aware LMS preload config.
+ * @returns {{models: String[], contextLengths: Object, parallels: Object}} Role-aware LMS preload config.
  */
 export function buildLmsPreloadConfig(config = aiConfig) {
-    const openAiCompatibleConfig = config.openAiCompatible ?? {},
+    const openAiCompatibleConfig = config.openAiCompatible,
           chatModel              = openAiCompatibleConfig.model,
           embeddingModel         = openAiCompatibleConfig.embeddingModel,
-          chatContextLength      = config.localModels?.chat?.contextLimitTokens,
-          embeddingContextLength = config.localModels?.embedding?.contextLimitTokens,
+          chatContextLength      = config.localModels.chat.contextLimitTokens,
+          embeddingContextLength = config.localModels.embedding.contextLimitTokens,
+          chatParallel           = config.localModels.chat.parallel,
+          embeddingParallel      = config.localModels.embedding.parallel,
           roles                  = [{
               provider     : config.modelProvider,
               model        : chatModel,
@@ -313,13 +989,34 @@ export function buildLmsPreloadConfig(config = aiConfig) {
     const models              = [...new Set(roles.map(role => role.model))],
           selectedContextRole = role => roles.some(({contextRole}) => contextRole === role),
           contextLengths      = buildLmsContextLengthsMap({
-              chatModel       : selectedContextRole('chat') ? chatModel : undefined,
-              embeddingModel  : selectedContextRole('embedding') ? embeddingModel : undefined,
+              chatModel     : selectedContextRole('chat') ? chatModel : undefined,
+              embeddingModel: selectedContextRole('embedding') ? embeddingModel : undefined,
               chatContextLength,
               embeddingContextLength
     });
 
-    return {models, contextLengths}
+    // `--parallel` is a per-model request-slot count (each slot = an independent KV cache = a RAM
+    // multiplier), distinct from `requireParallelModels` (how many DISTINCT models stay co-resident).
+    // Keyed by model id so it force-includes through the same path as contextLengths. When an operator
+    // points chat + embedding at one LM Studio id, keep the larger requested slot count.
+    const parallels   = {};
+    const setParallel = (model, value) => {
+        if (!model || !Neo.isNumber(value)) {
+            return;
+        }
+        if (parallels[model] === undefined || value > parallels[model]) {
+            parallels[model] = value;
+        }
+    };
+
+    if (selectedContextRole('chat')) {
+        setParallel(chatModel, chatParallel);
+    }
+    if (selectedContextRole('embedding')) {
+        setParallel(embeddingModel, embeddingParallel);
+    }
+
+    return {models, contextLengths, parallels}
 }
 
 /**
@@ -331,27 +1028,32 @@ export function buildLmsPreloadConfig(config = aiConfig) {
  * chat, graph, or embedding is routed to another provider family.
  *
  * @param {Object} config aiConfig-shaped provider config.
- * @returns {{provider: String, host: String, keepAlive: *, requireParallelModels: Number, model: String, embeddingModel: String, roles: Object[], models: String[]}}
+ * @returns {{provider: String, host: String, keepAlive: *, requireParallelModels: Number, model: String, embeddingModel: String, roles: Object[], models: String[], contextLengths: Object}}
  */
 export function buildOllamaReadinessConfig(config = aiConfig) {
-    const ollamaConfig   = config.ollama ?? {},
-          chatModel      = ollamaConfig.model,
-          embeddingModel = ollamaConfig.embeddingModel,
-          roles          = [{
-              provider    : config.modelProvider,
-              providerRole: 'modelProvider',
-              role        : 'chat',
-              model       : chatModel
+    const ollamaConfig           = config.ollama,
+          chatModel              = ollamaConfig.model,
+          embeddingModel         = ollamaConfig.embeddingModel,
+          chatContextLength      = config.localModels.chat.contextLimitTokens,
+          embeddingContextLength = config.localModels.embedding.contextLimitTokens,
+          roles                  = [{
+              provider     : config.modelProvider,
+              providerRole : 'modelProvider',
+              role         : 'chat',
+              model        : chatModel,
+              contextLength: chatContextLength
           }, {
-              provider    : config.graphProvider,
-              providerRole: 'graphProvider',
-              role        : 'chat',
-              model       : chatModel
+              provider     : config.graphProvider,
+              providerRole : 'graphProvider',
+              role         : 'chat',
+              model        : chatModel,
+              contextLength: chatContextLength
           }, {
-              provider    : config.embeddingProvider,
-              providerRole: 'embeddingProvider',
-              role        : 'embedding',
-              model       : embeddingModel
+              provider     : config.embeddingProvider,
+              providerRole : 'embeddingProvider',
+              role         : 'embedding',
+              model        : embeddingModel,
+              contextLength: embeddingContextLength
           }].filter(role => role.provider === 'ollama' && role.model);
 
     const dedupedRoles = [];
@@ -373,8 +1075,60 @@ export function buildOllamaReadinessConfig(config = aiConfig) {
         model                : chatModel,
         embeddingModel,
         roles                : dedupedRoles,
-        models               : [...new Set(dedupedRoles.map(role => role.model))]
+        models               : [...new Set(dedupedRoles.map(role => role.model))],
+        contextLengths       : buildLmsContextLengthsMap({
+            chatModel     : dedupedRoles.some(role => role.role === 'chat') ? chatModel : undefined,
+            embeddingModel: dedupedRoles.some(role => role.role === 'embedding') ? embeddingModel : undefined,
+            chatContextLength,
+            embeddingContextLength
+        })
     }
+}
+
+/**
+ * @summary Finds LM Studio models whose observed loaded context or parallel slots do not match config.
+ * @param {Object} options
+ * @param {Object[]} options.loadedModels Parsed `lms ps --json` models.
+ * @param {String[]} options.requiredModels Required model identifiers.
+ * @param {Object} [options.contextLengths] Per-model required context lengths.
+ * @param {Object} [options.parallels] Per-model required parallel slots.
+ * @returns {Object[]}
+ */
+export function getInsufficientLmsLoadedModels({
+    loadedModels,
+    requiredModels,
+    contextLengths = {},
+    parallels      = {}
+} = {}) {
+    const byId         = new Map((Array.isArray(loadedModels) ? loadedModels : []).map(item => [item.id, item]));
+    const insufficient = [];
+
+    for (const model of requiredModels || []) {
+        const requiredContext  = contextLengths?.[model],
+              requiredParallel = parallels?.[model],
+              hasContextGate   = Neo.isNumber(requiredContext),
+              hasParallelGate  = Neo.isNumber(requiredParallel);
+
+        if (!hasContextGate && !hasParallelGate) {
+            continue;
+        }
+
+        const observed    = byId.get(model),
+              contextGap  = hasContextGate && (!Neo.isNumber(observed?.contextLength) || observed.contextLength < requiredContext),
+              parallelGap = hasParallelGate && !isObservedLmsParallelSufficient(observed?.parallel, requiredParallel);
+
+        if (contextGap || parallelGap) {
+            insufficient.push({
+                model,
+                contextLength        : observed?.contextLength,
+                requiredContextLength: hasContextGate ? requiredContext : undefined,
+                parallel             : observed?.parallel,
+                requiredParallel     : hasParallelGate ? requiredParallel : undefined
+            });
+        }
+    }
+
+    return insufficient;
 }
 
 /**
@@ -400,9 +1154,17 @@ export function buildOllamaReadinessConfig(config = aiConfig) {
  * @param {Number} options.delayMs Delay between probes.
  * @param {Number} options.timeoutMs HTTP probe timeout.
  * @param {Object} [options.contextLengths] Per-model context-length override map keyed by model id.
+ * @param {Object} [options.parallels] Per-model `--parallel` slot-count override map keyed by model id. A
+ * model present here is force-included in the load set (like `contextLengths`) so the slot count is
+ * enforced on a resident model, not just a missing one.
  * @param {Boolean} [options.allowPartial=false] Return degraded readiness instead of throwing when one model cannot be loaded.
  * @param {Function} [options.fetchModelIds] Injectable model-list probe.
+ * @param {Function} [options.fetchLoadedModels] Injectable loaded-model metadata probe.
  * @param {Function} [options.loadModel] Injectable model-load function.
+ * @param {Function} [options.unloadModel] Injectable model-unload function.
+ * @param {Function} [options.embeddingServingProbe] Optional bounded embedding-serving canary seam.
+ * @param {String} [options.modelDiscoveryFreshness='force'] Routine callers may use `routine`; post-mutation probes force-refresh.
+ * @param {Number} [options.modelDiscoveryCacheTtlMs] Required when `modelDiscoveryFreshness` is `routine`.
  * @param {Object} [options.log=logger] Logger seam.
  * @returns {Promise<Object>}
  */
@@ -413,10 +1175,16 @@ export async function ensureLmsModelsLoaded({
     delayMs,
     timeoutMs,
     contextLengths = {},
+    parallels      = {},
     allowPartial   = false,
-    fetchModelIds = opts => fetchOpenAiCompatibleModelIds(opts),
-    loadModel     = (model, options) => loadLmsModel(model, options),
-    log           = logger
+    fetchModelIds     = opts => fetchOpenAiCompatibleModelIds(opts),
+    fetchLoadedModels = opts => fetchLmsLoadedModels(opts),
+    loadModel         = (model, options) => loadLmsModel(model, options),
+    unloadModel       = (identifier, options) => unloadLmsModel(identifier, options),
+    embeddingServingProbe,
+    modelDiscoveryFreshness = PROVIDER_DISCOVERY_FORCE,
+    modelDiscoveryCacheTtlMs,
+    log               = logger
 } = {}) {
     if (!Array.isArray(models) || models.length === 0) {
         throw new TypeError('ensureLmsModelsLoaded: models must contain at least one configured model');
@@ -430,15 +1198,68 @@ export async function ensureLmsModelsLoaded({
         throw new TypeError('ensureLmsModelsLoaded: models must contain at least one configured model');
     }
 
-    const getMissing = available => requiredModels.filter(model => !available.includes(model));
-    const probeModels = async phase => {
+    const getMissing          = available => requiredModels.filter(model => !available.includes(model));
+    const completeReadyResult = async result => {
+        if (result.ready !== true || typeof embeddingServingProbe !== 'function') {
+            return result;
+        }
+
+        let embeddingServing;
+
+        try {
+            embeddingServing = await embeddingServingProbe({
+                host,
+                timeoutMs,
+                requiredModels,
+                availableModels     : result.availableModels,
+                lmsLoadedModels     : result.lmsLoadedModels || [],
+                loadedContexts      : result.loadedContexts || {},
+                loadedParallels     : result.loadedParallels || {},
+                loadedParallelsKnown: Object.fromEntries((result.lmsLoadedModels || []).map(item => [item.id, Neo.isNumber(item.parallel)]))
+            });
+        } catch (error) {
+            embeddingServing = {
+                ready   : false,
+                degraded: true,
+                error   : {message: error?.message || String(error)},
+                warning : `[provider/openAiCompatible] embedding-serving canary failed: ${error?.message || error}`
+            };
+        }
+
+        if (embeddingServing?.ready === true) {
+            return {
+                ...result,
+                embeddingServing
+            };
+        }
+
+        if (embeddingServing?.warning) {
+            log.warn?.(`[ProviderReadinessHelper] ${embeddingServing.warning}`);
+        }
+
+        return {
+            ...result,
+            ready   : false,
+            degraded: true,
+            embeddingServing
+        };
+    };
+    const requiresObservedLoadCheck = requiredModels.some(model =>
+        Neo.isNumber(contextLengths?.[model]) || Neo.isNumber(parallels?.[model])
+    );
+    const probeModels = async (phase, freshness = modelDiscoveryFreshness) => {
         let lastError;
 
         for (let attempt = 1; attempt <= attempts; attempt++) {
             try {
                 return {
                     attempt,
-                    availableModels: await fetchModelIds({host, timeoutMs})
+                    availableModels: await fetchModelIds({
+                        host,
+                        timeoutMs,
+                        freshness,
+                        cacheTtlMs: freshness === PROVIDER_DISCOVERY_ROUTINE ? modelDiscoveryCacheTtlMs : undefined
+                    })
                 };
             } catch (error) {
                 lastError = error;
@@ -451,52 +1272,151 @@ export async function ensureLmsModelsLoaded({
         throw new Error(`LM Studio model readiness failed during ${phase}: ${lastError?.message || lastError}`);
     };
 
-    let {availableModels} = await probeModels('initial /v1/models probe');
-    const initialMissing  = getMissing(availableModels);
-    const failedModels   = [];
+    let   {availableModels} = await probeModels('initial /v1/models probe');
+    const initialMissing    = getMissing(availableModels),
+          initialLoadedModels  = [],
+          failedModels         = [],
+          cleanupFailedModels  = [],
+          unloadedModels       = [],
+          modelHasObservedGate = model => Neo.isNumber(contextLengths?.[model]) || Neo.isNumber(parallels?.[model]);
 
-    // Force-include context-configured models in the load set even when already
-    // resident in /v1/models. `/v1/models` reports presence only — it does NOT
-    // expose the loaded context window, so model-id presence is insufficient to
-    // confirm the loaded cap matches the operator-declared threshold. Without
-    // this re-load, the exact #12117 regression survives orchestrator restarts:
-    // a model loaded with the modelfile-default context window (~4K-8K) would
-    // be accepted as ready while every chat invocation silently overflows.
-    // Force-include each context-configured model in the load set even if resident,
-    // BUT preserve the declared requiredModels input order (filter rather than concat-dedupe).
+    const needsInitialLoadedProbe = requiresObservedLoadCheck && requiredModels.some(model =>
+        !initialMissing.includes(model) && modelHasObservedGate(model)
+    );
+
+    if (needsInitialLoadedProbe) {
+        try {
+            initialLoadedModels.push(...await fetchLoadedModels({
+                timeoutMs,
+                freshness : modelDiscoveryFreshness,
+                cacheTtlMs: modelDiscoveryFreshness === PROVIDER_DISCOVERY_ROUTINE ? modelDiscoveryCacheTtlMs : undefined
+            }));
+        } catch (error) {
+            log.warn?.(`[ProviderReadinessHelper] Initial LM Studio loaded-model probe failed: ${error.message}; falling back to reload enforcement.`);
+        }
+    }
+
+    const initialLoadedById = new Map(initialLoadedModels.map(item => [item.id, item]));
+
+    // `/v1/models` reports presence only. For models with context/parallel gates, use
+    // `lms ps --json` metadata to avoid reloading an already-correct resident model,
+    // but still replace an exact resident model whose loaded shape is stale.
     const modelsToLoad = requiredModels.filter(model => {
         if (initialMissing.includes(model)) return true;
-        return Neo.isNumber(contextLengths?.[model]);
+        if (!modelHasObservedGate(model)) return false;
+
+        return !isLmsLoadedModelSufficient({
+            loadedModel: initialLoadedById.get(model),
+            model,
+            contextLengths,
+            parallels
+        });
     });
     const attemptedModels = [...modelsToLoad];
     const loadedModels    = [];
 
+    const cleanupSupersededModels = async lmsLoadedModels => {
+        const superseded = getSupersededLmsLoadedModels({
+            loadedModels: lmsLoadedModels,
+            requiredModels,
+            contextLengths,
+            parallels
+        });
+
+        for (const item of superseded) {
+            log.info?.(`[ProviderReadinessHelper] Unloading superseded LM Studio model '${item.id}' after '${item.model}' reached the configured shape.`);
+
+            try {
+                await unloadModel(item.id);
+                unloadedModels.push(item.id);
+            } catch (error) {
+                const failure = {
+                    model: item.model,
+                    id   : item.id,
+                    error: error.message
+                };
+
+                cleanupFailedModels.push(failure);
+                log.warn?.(`[ProviderReadinessHelper] LM Studio model '${item.id}' unload failed: ${error.message}`);
+
+                if (!allowPartial) {
+                    throw error;
+                }
+            }
+        }
+
+        return cleanupFailedModels;
+    };
+
     if (modelsToLoad.length === 0) {
-        return {
-            ready       : true,
-            loadedModels: [],
+        if (requiresObservedLoadCheck && initialLoadedModels.length) {
+            await cleanupSupersededModels(initialLoadedModels);
+        }
+
+        return completeReadyResult({
+            ready          : cleanupFailedModels.length === 0,
+            degraded       : cleanupFailedModels.length > 0,
+            loadedModels   : [],
+            attemptedModels,
+            failedModels,
+            cleanupFailedModels,
+            unloadedModels,
             requiredModels,
             availableModels,
-            attempts    : 1
-        };
+            lmsLoadedModels: initialLoadedModels,
+            loadedContexts : Object.fromEntries(initialLoadedModels.map(item => [item.id, item.contextLength])),
+            loadedParallels: Object.fromEntries(initialLoadedModels.map(item => [item.id, item.parallel])),
+            attempts       : 1
+        });
     }
 
     for (const model of modelsToLoad) {
         const contextLength = contextLengths?.[model];
+        const parallel      = parallels?.[model];
         const contextSuffix = Neo.isNumber(contextLength)
             ? ` --context-length ${contextLength}`
             : '';
+        const parallelSuffix = Neo.isNumber(parallel)
+            ? ` --parallel ${parallel}`
+            : '';
         const reason = initialMissing.includes(model)
             ? 'missing from /v1/models'
-            : 'context-length enforcement on resident model';
-        log.info?.(`[ProviderReadinessHelper] Loading LM Studio model '${model}' via lms load${contextSuffix} (${reason}).`);
+            : 'context-length / parallel enforcement on resident model';
+        log.info?.(`[ProviderReadinessHelper] Loading LM Studio model '${model}' via lms load${contextSuffix}${parallelSuffix} (${reason}).`);
         try {
-            await loadModel(model, {contextLength});
+            const observed           = initialLoadedById.get(model),
+                  exactResident      = !initialMissing.includes(model),
+                  shouldReplaceExact = observed
+                      ? !isLmsLoadedModelSufficient({
+                          loadedModel: observed,
+                          model,
+                          contextLengths,
+                          parallels
+                      })
+                      : exactResident && modelHasObservedGate(model);
+
+            if (shouldReplaceExact) {
+                log.info?.(`[ProviderReadinessHelper] Unloading stale LM Studio model '${model}' before stable-identifier reload.`);
+                await unloadModel(model);
+                unloadedModels.push(model);
+            }
+
+            const loadOptions = {identifier: model};
+
+            if (Neo.isNumber(contextLength)) {
+                loadOptions.contextLength = contextLength;
+            }
+            if (Neo.isNumber(parallel)) {
+                loadOptions.parallel = parallel;
+            }
+
+            await loadModel(model, loadOptions);
             loadedModels.push(model);
         } catch (error) {
             failedModels.push({
                 model,
                 contextLength,
+                parallel,
                 error: error.message
             });
             log.warn?.(`[ProviderReadinessHelper] LM Studio model '${model}' preload failed: ${error.message}`);
@@ -511,7 +1431,7 @@ export async function ensureLmsModelsLoaded({
 
     const startedAt = Date.now();
     for (let attempt = 1; attempt <= attempts; attempt++) {
-        ({availableModels} = await probeModels('post-load /v1/models probe'));
+        ({availableModels} = await probeModels('post-load /v1/models probe', PROVIDER_DISCOVERY_FORCE));
         missingModels = getMissing(availableModels);
 
         const knownUnavailable = new Set([
@@ -519,19 +1439,128 @@ export async function ensureLmsModelsLoaded({
         ]);
         const serviceableMissing = missingModels.filter(model => !knownUnavailable.has(model));
 
-        if (missingModels.length === 0 || (allowPartial && serviceableMissing.length === 0)) {
-            const ready = missingModels.length === 0 && failedModels.length === 0;
-            return {
+        if (missingModels.length === 0) {
+            let lmsLoadedModels = [];
+
+            if (requiresObservedLoadCheck) {
+                try {
+                    lmsLoadedModels = await fetchLoadedModels({
+                        timeoutMs,
+                        freshness: PROVIDER_DISCOVERY_FORCE
+                    });
+                } catch (error) {
+                    const warning = `LM Studio loaded-model readiness failed: ${error.message}`;
+
+                    log.warn?.(`[ProviderReadinessHelper] ${warning}`);
+
+                    if (!allowPartial) {
+                        throw new Error(warning);
+                    }
+
+                    return {
+                        ready            : false,
+                        degraded         : true,
+                        loadedModels,
+                        attemptedModels,
+                        failedModels,
+                        cleanupFailedModels,
+                        unloadedModels,
+                        missingModels,
+                        observedLoadError: error.message,
+                        requiredModels,
+                        availableModels,
+                        attempts         : attempt,
+                        elapsedMs        : Date.now() - startedAt
+                    };
+                }
+            }
+
+            const insufficientLoadedModels = requiresObservedLoadCheck
+                ? getInsufficientLmsLoadedModels({
+                    loadedModels: lmsLoadedModels,
+                    requiredModels,
+                    contextLengths,
+                    parallels
+                })
+                : [];
+
+            if (insufficientLoadedModels.length) {
+                const warning = `LM Studio loaded-model readiness failed: ${insufficientLoadedModels.map(item => {
+                    const context = item.requiredContextLength !== undefined
+                        ? `context observed=${item.contextLength ?? 'unknown'} required>=${item.requiredContextLength}`
+                        : null;
+                    const parallel = item.requiredParallel !== undefined
+                        ? `parallel observed=${item.parallel ?? 'unknown'} required=${item.requiredParallel}`
+                        : null;
+
+                    return `${item.model} (${[context, parallel].filter(Boolean).join(', ')})`
+                }).join('; ')}`;
+
+                log.warn?.(`[ProviderReadinessHelper] ${warning}`);
+
+                if (!allowPartial) {
+                    throw new Error(warning);
+                }
+
+                return {
+                    ready          : false,
+                    degraded       : true,
+                    loadedModels,
+                    attemptedModels,
+                    failedModels,
+                    cleanupFailedModels,
+                    unloadedModels,
+                    missingModels,
+                    insufficientLoadedModels,
+                    requiredModels,
+                    availableModels,
+                    lmsLoadedModels,
+                    loadedContexts : Object.fromEntries(lmsLoadedModels.map(item => [item.id, item.contextLength])),
+                    loadedParallels: Object.fromEntries(lmsLoadedModels.map(item => [item.id, item.parallel])),
+                    attempts       : attempt,
+                    elapsedMs      : Date.now() - startedAt
+                };
+            }
+
+            if (requiresObservedLoadCheck && lmsLoadedModels.length) {
+                await cleanupSupersededModels(lmsLoadedModels);
+            }
+
+            const ready = missingModels.length === 0 && failedModels.length === 0 && cleanupFailedModels.length === 0;
+            return completeReadyResult({
                 ready,
-                degraded    : !ready,
+                degraded       : !ready,
                 loadedModels,
                 attemptedModels,
                 failedModels,
+                cleanupFailedModels,
+                unloadedModels,
                 missingModels,
                 requiredModels,
                 availableModels,
-                attempts    : attempt,
-                elapsedMs   : Date.now() - startedAt
+                lmsLoadedModels,
+                loadedContexts : Object.fromEntries(lmsLoadedModels.map(item => [item.id, item.contextLength])),
+                loadedParallels: Object.fromEntries(lmsLoadedModels.map(item => [item.id, item.parallel])),
+                attempts       : attempt,
+                elapsedMs      : Date.now() - startedAt
+            });
+        }
+
+        if (allowPartial && serviceableMissing.length === 0) {
+            const ready = false;
+            return {
+                ready,
+                degraded : !ready,
+                loadedModels,
+                attemptedModels,
+                failedModels,
+                cleanupFailedModels,
+                unloadedModels,
+                missingModels,
+                requiredModels,
+                availableModels,
+                attempts : attempt,
+                elapsedMs: Date.now() - startedAt
             };
         }
 
@@ -542,16 +1571,18 @@ export async function ensureLmsModelsLoaded({
 
     if (allowPartial) {
         return {
-            ready       : false,
-            degraded    : true,
+            ready    : false,
+            degraded : true,
             loadedModels,
             attemptedModels,
             failedModels,
+            cleanupFailedModels,
+            unloadedModels,
             missingModels,
             requiredModels,
             availableModels,
             attempts,
-            elapsedMs    : Date.now() - startedAt
+            elapsedMs: Date.now() - startedAt
         };
     }
 
@@ -566,9 +1597,9 @@ export async function ensureLmsModelsLoaded({
  * @summary Ensures native Ollama has all configured role models resident.
  *
  * Ollama has no `lms load` equivalent and must be warmed through its native API.
- * This helper probes `/api/ps`, warms only missing role/model pairs through
+ * This helper probes `/api/ps`, warms missing or under-context role/model pairs through
  * `/api/chat` or `/api/embed`, and then verifies that the required chat and
- * embedding models are resident together. Partial failure returns a degraded
+ * embedding models are resident together at the configured context. Partial failure returns a degraded
  * readiness envelope when `allowPartial` is true so callers can fail readiness
  * with operator-actionable diagnostics instead of emitting warning-only drift.
  *
@@ -581,7 +1612,7 @@ export async function ensureLmsModelsLoaded({
  * @param {Number} options.timeoutMs HTTP probe timeout.
  * @param {String|Number} [options.keepAlive] Ollama keep_alive value.
  * @param {Boolean} [options.allowPartial=false] Return degraded readiness instead of throwing when one role cannot be warmed.
- * @param {Function} [options.fetchModelIds] Injectable `/api/ps` probe.
+ * @param {Function} [options.fetchModelIds] Injectable `/api/ps` probe. May return model ids or `{id, contextLength}` entries.
  * @param {Function} [options.warmModel] Injectable warm-up function.
  * @param {Object} [options.log=logger] Logger seam.
  * @returns {Promise<Object>}
@@ -595,7 +1626,7 @@ export async function ensureOllamaModelsReady({
     timeoutMs,
     keepAlive,
     allowPartial = false,
-    fetchModelIds = opts => fetchOllamaRunningModelIds(opts),
+    fetchModelIds = opts => fetchOllamaRunningModels(opts),
     warmModel     = (role, options) => warmOllamaRoleModel({...role, ...options}),
     log           = logger
 } = {}) {
@@ -615,17 +1646,63 @@ export async function ensureOllamaModelsReady({
     }
 
     const requiredResidentModels = Math.min(requireParallelModels, requiredModels.length);
-    const getMissing             = available => requiredModels.filter(model => !available.includes(model));
-    const getWarning = ({availableModels, missingModels}) => createParallelModelCapacityWarning({
-        provider             : 'ollama',
-        model                : roles.find(role => role.role === 'chat')?.model,
-        embeddingModel       : roles.find(role => role.role === 'embedding')?.model,
-        requiredModels,
-        availableModels,
-        missingModels,
-        observedCount        : availableModels.length,
-        requireParallelModels: requiredResidentModels
+    const requiredModelSet       = new Set(requiredModels);
+    const normalizeAvailable     = available => [...new Map((Array.isArray(available) ? available : []).map(item => {
+        if (typeof item === 'string') {
+            return [item, {id: item, contextLength: undefined}];
+        }
+        const id = item?.id || item?.name || item?.model;
+        return id ? [id, {
+            id,
+            contextLength: Neo.isNumber(item.contextLength) ? item.contextLength :
+                Neo.isNumber(item.context_length) ? item.context_length : undefined
+        }] : null;
+    }).filter(Boolean)).values()];
+    const toIds                = available => available.map(item => item.id);
+    const getRequiredAvailable = available => available.filter(item => requiredModelSet.has(item.id));
+    const getExtraModels       = available => toIds(available.filter(item => !requiredModelSet.has(item.id)));
+    const contextRequirements  = roles.reduce((map, role) => {
+        if (!role.model || !Neo.isNumber(role.contextLength)) {
+            return map;
+        }
+
+        const current = map.get(role.model);
+        if (!Neo.isNumber(current) || role.contextLength > current) {
+            map.set(role.model, role.contextLength);
+        }
+
+        return map;
+    }, new Map());
+    const toRoleEnvelope = role => ({
+        model       : role.model,
+        role        : role.role,
+        providerRole: role.providerRole,
+        ...(Neo.isNumber(role.contextLength) ? {contextLength: role.contextLength} : {})
     });
+    const getMissing             = available => requiredModels.filter(model => !toIds(available).includes(model));
+    const getInsufficientContext = available => available
+        .filter(item => contextRequirements.has(item.id) && (!Neo.isNumber(item.contextLength) || item.contextLength < contextRequirements.get(item.id)))
+        .map(item => ({
+            model                : item.id,
+            contextLength        : item.contextLength,
+            requiredContextLength: contextRequirements.get(item.id)
+        }));
+    const getWarning = ({availableModels, missingModels, observedRequiredCount}) => {
+        const availableModelIds = toIds(availableModels);
+
+        return createParallelModelCapacityWarning({
+            provider             : 'ollama',
+            model                : roles.find(role => role.role === 'chat')?.model,
+            embeddingModel       : roles.find(role => role.role === 'embedding')?.model,
+            requiredModels,
+            availableModels      : availableModelIds,
+            missingModels,
+            extraModels          : getExtraModels(availableModels),
+            observedCount        : availableModelIds.length,
+            observedRequiredCount,
+            requireParallelModels: requiredResidentModels
+        });
+    };
 
     const probeModels = async phase => {
         let lastError;
@@ -634,7 +1711,7 @@ export async function ensureOllamaModelsReady({
             try {
                 return {
                     attempt,
-                    availableModels: [...new Set(await fetchModelIds({host, timeoutMs}))]
+                    availableModels: normalizeAvailable(await fetchModelIds({host, timeoutMs}))
                 };
             } catch (error) {
                 lastError = error;
@@ -658,45 +1735,66 @@ export async function ensureOllamaModelsReady({
         }
 
         return {
-            ready                : false,
-            degraded             : true,
-            provider             : 'ollama',
+            ready                    : false,
+            degraded                 : true,
+            provider                 : 'ollama',
             host,
             requiredModels,
-            availableModels      : [],
-            missingModels        : requiredModels,
-            observedCount        : 0,
+            availableModels          : [],
+            extraModels              : [],
+            missingModels            : requiredModels,
+            insufficientContextModels: [],
+            observedCount            : 0,
+            observedRequiredCount    : 0,
             requireParallelModels,
             requiredResidentModels,
-            warmedModels         : [],
-            attemptedModels      : [],
-            failedModels         : [],
-            error                : {message: error.message},
+            warmedModels             : [],
+            attemptedModels          : [],
+            failedModels             : [],
+            error                    : {message: error.message},
             warning              : `[provider/ollama] model residency probe failed: ${error.message}`,
             attempts,
             elapsedMs            : Date.now() - startedAt
         };
     }
 
-    const initialMissing = getMissing(availableModels);
-    const rolesToWarm    = roles.filter(role => initialMissing.includes(role.model));
-    const warmedModels   = [];
-    const failedModels   = [];
-    const attemptedModels = [];
+    const initialMissing             = getMissing(availableModels);
+    const initialInsufficientContext = getInsufficientContext(availableModels);
+    const initialContextModelIds     = new Set(initialInsufficientContext.map(item => item.model));
+    const rolesToWarm                = roles.filter(role => initialMissing.includes(role.model) || initialContextModelIds.has(role.model));
+    const warmedModels               = [];
+    const failedModels               = [];
+    const attemptedModels            = [];
+    const evalSamples                = [];
+    const getEvalAttribution         = () => evalSamples.length ? buildOllamaEvalAttribution(evalSamples) : null;
 
     for (const role of rolesToWarm) {
-        attemptedModels.push({model: role.model, role: role.role, providerRole: role.providerRole});
-        log.info?.(`[ProviderReadinessHelper] Warming native Ollama ${role.role} model '${role.model}' via ${role.role === 'embedding' ? '/api/embed' : '/api/chat'}.`);
+        const roleEnvelope = toRoleEnvelope(role);
+
+        attemptedModels.push(roleEnvelope);
+        const contextSuffix = Neo.isNumber(role.contextLength) ? ` with num_ctx ${role.contextLength}` : '';
+        log.info?.(`[ProviderReadinessHelper] Warming native Ollama ${role.role} model '${role.model}'${contextSuffix} via ${role.role === 'embedding' ? '/api/embed' : '/api/chat'}.`);
 
         try {
-            await warmModel(role, {host, keepAlive, timeoutMs});
-            warmedModels.push({model: role.model, role: role.role, providerRole: role.providerRole});
+            const warmOptions = {host, keepAlive, timeoutMs};
+            if (Neo.isNumber(role.contextLength)) {
+                warmOptions.contextLength = role.contextLength;
+            }
+
+            const warmResult = await warmModel(role, warmOptions);
+
+            if (warmResult?.evalSample) {
+                evalSamples.push(warmResult.evalSample);
+            }
+
+            warmedModels.push({
+                ...roleEnvelope,
+                ...(warmResult?.evalSample ? {evalSample: warmResult.evalSample} : {})
+            });
         } catch (error) {
             failedModels.push({
-                model       : role.model,
-                role        : role.role,
-                providerRole: role.providerRole,
-                error       : error.message
+                ...roleEnvelope,
+                error: error.message
             });
             log.warn?.(`[ProviderReadinessHelper] Ollama ${role.role} model '${role.model}' warm-up failed: ${error.message}`);
 
@@ -706,21 +1804,30 @@ export async function ensureOllamaModelsReady({
         }
     }
 
-    let missingModels = initialMissing;
+    let missingModels             = initialMissing;
+    let insufficientContextModels = initialInsufficientContext;
 
     for (let attempt = 1; attempt <= attempts; attempt++) {
         ({availableModels} = await probeModels('post-warm /api/ps probe'));
         missingModels = getMissing(availableModels);
+        insufficientContextModels = getInsufficientContext(availableModels);
 
-        const failedModelIds     = new Set(failedModels.map(item => item.model));
-        const serviceableMissing = missingModels.filter(model => !failedModelIds.has(model));
-        const observedCount      = availableModels.length;
-        const capacityReady      = observedCount >= requiredResidentModels;
-        const ready              = capacityReady && missingModels.length === 0 && failedModels.length === 0;
-        const capacityOnlyGap    = missingModels.length === 0 && !capacityReady;
+        const failedModelIds        = new Set(failedModels.map(item => item.model));
+        const serviceableMissing    = missingModels.filter(model => !failedModelIds.has(model));
+        const serviceableContext    = insufficientContextModels.filter(item => !failedModelIds.has(item.model));
+        const observedCount         = availableModels.length;
+        const observedRequiredCount = getRequiredAvailable(availableModels).length;
+        const capacityReady         = observedRequiredCount >= requiredResidentModels;
+        const ready                 = capacityReady && missingModels.length === 0 && insufficientContextModels.length === 0 && failedModels.length === 0;
+        const capacityOnlyGap       = missingModels.length === 0 && !capacityReady;
 
-        if (ready || (allowPartial && (serviceableMissing.length === 0 || capacityOnlyGap))) {
-            const degraded = !ready;
+        const contextOnlyGap = missingModels.length === 0 && serviceableContext.length > 0;
+
+        if (ready || (allowPartial && (serviceableMissing.length === 0 || capacityOnlyGap || contextOnlyGap))) {
+            const degraded       = !ready;
+            const contextWarning = serviceableContext.length
+                ? `[provider/ollama] loaded context too small: ${serviceableContext.map(item => `${item.model} observed=${item.contextLength ?? 'unknown'} required>=${item.requiredContextLength}`).join(', ')}; warm with options.num_ctx matching localModels context caps.`
+                : null;
             return {
                 ready,
                 degraded,
@@ -730,12 +1837,17 @@ export async function ensureOllamaModelsReady({
                 attemptedModels,
                 failedModels,
                 missingModels,
+                insufficientContextModels,
                 requiredModels,
-                availableModels,
+                availableModels      : toIds(availableModels),
+                extraModels          : getExtraModels(availableModels),
+                loadedContexts       : Object.fromEntries(availableModels.map(item => [item.id, item.contextLength])),
                 observedCount,
+                observedRequiredCount,
                 requireParallelModels,
                 requiredResidentModels,
-                warning              : degraded ? getWarning({availableModels, missingModels}) : null,
+                warning              : degraded ? (contextWarning || getWarning({availableModels, missingModels, observedRequiredCount})) : null,
+                ollamaEvalAttribution: getEvalAttribution(),
                 attempts             : attempt,
                 elapsedMs            : Date.now() - startedAt
             };
@@ -746,7 +1858,11 @@ export async function ensureOllamaModelsReady({
         }
     }
 
-    const warning = getWarning({availableModels, missingModels});
+    const contextWarning = insufficientContextModels.length
+        ? `[provider/ollama] loaded context too small: ${insufficientContextModels.map(item => `${item.model} observed=${item.contextLength ?? 'unknown'} required>=${item.requiredContextLength}`).join(', ')}; warm with options.num_ctx matching localModels context caps.`
+        : null;
+    const observedRequiredCount = getRequiredAvailable(availableModels).length;
+    const warning               = contextWarning || getWarning({availableModels, missingModels, observedRequiredCount});
     if (allowPartial) {
         return {
             ready                : false,
@@ -757,12 +1873,17 @@ export async function ensureOllamaModelsReady({
             attemptedModels,
             failedModels,
             missingModels,
+            insufficientContextModels,
             requiredModels,
-            availableModels,
+            availableModels      : toIds(availableModels),
+            extraModels          : getExtraModels(availableModels),
+            loadedContexts       : Object.fromEntries(availableModels.map(item => [item.id, item.contextLength])),
             observedCount        : availableModels.length,
+            observedRequiredCount,
             requireParallelModels,
             requiredResidentModels,
             warning,
+            ollamaEvalAttribution: getEvalAttribution(),
             attempts,
             elapsedMs            : Date.now() - startedAt
         };
@@ -771,6 +1892,126 @@ export async function ensureOllamaModelsReady({
     throw new Error(
         `Ollama model readiness failed: ${warning}`
     );
+}
+
+/**
+ * @summary Restores the active provider role-set residency before higher-cost recovery actions.
+ *
+ * This is the bounded recovery companion to the read-only parallel-capacity probe:
+ * LM Studio is repaired through the orchestrator-owned `lms load` path, while
+ * native Ollama is warmed through its role-specific HTTP endpoints. Remote or
+ * disabled OpenAI-compatible deployments remain observe-only and return a
+ * degraded envelope instead of attempting a local CLI mutation.
+ *
+ * @param {Object} options
+ * @param {Object} [options.config=aiConfig] Provider-source config.
+ * @param {Number} options.attempts Probe attempts after warm-up.
+ * @param {Number} options.delayMs Delay between probes.
+ * @param {Number} options.timeoutMs HTTP/CLI probe timeout.
+ * @param {Object} [options.log=logger] Logger seam.
+ * @param {Function} [options.lmsRepairFn=ensureLmsModelsLoaded] Test seam for LM Studio repair.
+ * @param {Function} [options.ollamaRepairFn=ensureOllamaModelsReady] Test seam for native Ollama repair.
+ * @returns {Promise<Object>} Provider readiness repair result.
+ */
+export async function repairProviderRoleSetResidency({
+    config = aiConfig,
+    attempts,
+    delayMs,
+    timeoutMs,
+    log = logger,
+    lmsRepairFn = ensureLmsModelsLoaded,
+    ollamaRepairFn = ensureOllamaModelsReady
+} = {}) {
+    if (!config || typeof config !== 'object') {
+        throw new TypeError('repairProviderRoleSetResidency: config is required');
+    }
+    if (typeof attempts !== 'number' || typeof delayMs !== 'number' || typeof timeoutMs !== 'number') {
+        throw new TypeError('repairProviderRoleSetResidency: attempts, delayMs, and timeoutMs are required');
+    }
+
+    const provider = resolveGraphModelProvider(config);
+
+    if (provider === 'ollama') {
+        const readinessConfig = buildOllamaReadinessConfig(config);
+
+        if (readinessConfig.roles.length === 0) {
+            return {
+                ready  : true,
+                skipped: true,
+                provider,
+                reason : 'no-active-ollama-roles'
+            };
+        }
+
+        const result = await ollamaRepairFn({
+            host                 : readinessConfig.host,
+            roles                : readinessConfig.roles,
+            keepAlive            : readinessConfig.keepAlive,
+            requireParallelModels: readinessConfig.requireParallelModels,
+            allowPartial         : true,
+            attempts,
+            delayMs,
+            timeoutMs,
+            log
+        });
+
+        return {
+            ...result,
+            provider,
+            action: 'warm-provider'
+        };
+    }
+
+    if (isOpenAiCompatibleProvider(provider)) {
+        if (config.orchestrator.lms.enabled !== true) {
+            return {
+                ready   : false,
+                degraded: true,
+                skipped : true,
+                provider,
+                reason  : 'lms-disabled',
+                warning : '[provider/openAiCompatible] provider role-set repair requires orchestrator.lms.enabled=true; non-LM-Studio OpenAI-compatible endpoints remain observe-only.'
+            };
+        }
+
+        const preloadConfig = buildLmsPreloadConfig(config);
+
+        if (preloadConfig.models.length === 0) {
+            return {
+                ready  : true,
+                skipped: true,
+                provider,
+                reason : 'no-active-openai-compatible-roles'
+            };
+        }
+
+        const result = await lmsRepairFn({
+            host          : getOpenAiCompatibleHost(config),
+            models        : preloadConfig.models,
+            contextLengths: preloadConfig.contextLengths,
+            parallels     : preloadConfig.parallels,
+            allowPartial  : true,
+            attempts,
+            delayMs,
+            timeoutMs,
+            log
+        });
+
+        return {
+            ...result,
+            provider,
+            host  : getOpenAiCompatibleHost(config),
+            action: 'warm-provider'
+        };
+    }
+
+    return {
+        ready    : true,
+        skipped  : true,
+        provider,
+        supported: false,
+        reason   : 'unsupported-provider'
+    };
 }
 
 /**
@@ -798,12 +2039,12 @@ export function getGraphProviderReadinessTarget(config = aiConfig) {
     const host     = isOllama
         ? config.ollama?.host
         : getOpenAiCompatibleHost(config);
-    const endpoint = isOllama ? '/api/tags' : '/v1/models';
-    const model    = isOllama ? config.ollama?.model : config.openAiCompatible?.model;
+    const endpoint       = isOllama ? '/api/tags' : '/v1/models';
+    const model          = isOllama ? config.ollama?.model : config.openAiCompatible?.model;
     const embeddingModel = isOllama
         ? config.ollama?.embeddingModel
         : config.openAiCompatible?.embeddingModel;
-    const url      = host ? `${host.replace(/\/+$/, '')}${endpoint}` : null;
+    const url = host ? `${host.replace(/\/+$/, '')}${endpoint}` : null;
 
     return {
         provider,
@@ -837,15 +2078,23 @@ export function createParallelModelCapacityWarning({
     requiredModels,
     availableModels,
     missingModels,
+    extraModels = [],
     observedCount,
+    observedRequiredCount,
     requireParallelModels
 }) {
-    const available = availableModels.length ? availableModels.join(', ') : 'none';
-    const missing   = missingModels.length ? missingModels.join(', ') : 'none';
-    const base      = `[provider/${provider}] expected ${requireParallelModels}+ models loaded ` +
-        `(chat=${model || 'unset'}, embedding=${embeddingModel || 'unset'}); observed ${observedCount} loaded ` +
-        `(available=${available}, required=${requiredModels.join(', ') || 'none'}, missing=${missing}); ` +
+    const available        = availableModels.length ? availableModels.join(', ') : 'none';
+    const missing          = missingModels.length ? missingModels.join(', ') : 'none';
+    const extra            = extraModels.length ? extraModels.join(', ') : 'none';
+    const requiredObserved = Neo.isNumber(observedRequiredCount) ? observedRequiredCount : observedCount;
+    const base      = `[provider/${provider}] expected ${requireParallelModels}+ required models loaded ` +
+        `(chat=${model || 'unset'}, embedding=${embeddingModel || 'unset'}); observed ${requiredObserved} required / ${observedCount} total loaded ` +
+        `(available=${available}, required=${requiredModels.join(', ') || 'none'}, missing=${missing}, extra=${extra}); ` +
         'model swap penalty likely;';
+
+    if (provider === 'ollama' && missingModels.length) {
+        return `${base} pull missing configured model(s): ${missingModels.map(item => `ollama pull ${item}`).join(' && ')}.`;
+    }
 
     return provider === 'ollama'
         ? `${base} set OLLAMA_MAX_LOADED_MODELS=${requireParallelModels} in the Ollama server environment.`
@@ -860,17 +2109,21 @@ export function createParallelModelCapacityWarning({
  * or fail based on the returned envelope.
  *
  * @param {Object} options
- * @param {Object} options.config Provider-source config (aiConfig-shaped).
+ * @param {Object} [options.config=aiConfig] Provider-source config (aiConfig-shaped).
  * @param {Number} options.timeoutMs HTTP probe timeout. Required; no module-level default.
  * @param {Function} [options.fetchOpenAiCompatibleModels] Injectable OpenAI-compatible model-list probe.
  * @param {Function} [options.fetchOllamaModels] Injectable Ollama running-model probe.
+ * @param {String} [options.modelDiscoveryFreshness='force'] Routine callers may use `routine`; diagnostics/recovery keep `force`.
+ * @param {Number} [options.modelDiscoveryCacheTtlMs] Required when `modelDiscoveryFreshness` is `routine`.
  * @returns {Promise<Object>}
  */
 export async function probeProviderParallelModelCapacity({
-    config,
+    config = aiConfig,
     timeoutMs,
     fetchOpenAiCompatibleModels = opts => fetchOpenAiCompatibleModelIds(opts),
-    fetchOllamaModels           = opts => fetchOllamaRunningModelIds(opts)
+    fetchOllamaModels           = opts => fetchOllamaRunningModelIds(opts),
+    modelDiscoveryFreshness     = PROVIDER_DISCOVERY_FORCE,
+    modelDiscoveryCacheTtlMs
 } = {}) {
     if (!config || typeof config !== 'object') {
         throw new TypeError('probeProviderParallelModelCapacity: config is required');
@@ -891,42 +2144,58 @@ export async function probeProviderParallelModelCapacity({
         };
     }
 
-    const providerConfig = config[target.provider];
+    const providerConfig        = config[target.provider];
     const requireParallelModels = providerConfig?.requireParallelModels;
 
     if (!Neo.isNumber(requireParallelModels)) {
         throw new TypeError(`probeProviderParallelModelCapacity: config.${target.provider}.requireParallelModels must be configured as a number`);
     }
 
-    const requiredModels = getRequiredProviderModels(target);
+    const requiredModels  = getRequiredProviderModels(target);
     const availableModels = target.provider === 'ollama'
         ? await fetchOllamaModels({host: target.host, timeoutMs})
-        : await fetchOpenAiCompatibleModels({host: target.host, timeoutMs});
-    const uniqueAvailable = [...new Set(availableModels)];
-    const missingModels   = requiredModels.filter(model => !uniqueAvailable.includes(model));
-    const observedCount   = uniqueAvailable.length;
-    const ready           = observedCount >= requireParallelModels && missingModels.length === 0;
+        : await fetchOpenAiCompatibleModels({
+            host      : target.host,
+            timeoutMs,
+            freshness : modelDiscoveryFreshness,
+            cacheTtlMs: modelDiscoveryFreshness === PROVIDER_DISCOVERY_ROUTINE
+                ? modelDiscoveryCacheTtlMs
+                : undefined
+        });
+    const uniqueAvailable        = [...new Set(availableModels)];
+    const missingModels          = requiredModels.filter(model => !uniqueAvailable.includes(model));
+    const requiredModelSet       = new Set(requiredModels);
+    const extraModels            = uniqueAvailable.filter(model => !requiredModelSet.has(model));
+    const observedCount          = uniqueAvailable.length;
+    const observedRequiredCount  = uniqueAvailable.filter(model => requiredModelSet.has(model)).length;
+    const requiredResidentModels = Math.min(requireParallelModels, requiredModels.length);
+    const ready                  = observedRequiredCount >= requiredResidentModels && missingModels.length === 0;
 
     return {
         ready,
-        provider             : target.provider,
-        host                 : target.host,
-        model                : target.model,
-        embeddingModel       : target.embeddingModel,
+        provider       : target.provider,
+        host           : target.host,
+        model          : target.model,
+        embeddingModel : target.embeddingModel,
         requireParallelModels,
         requiredModels,
-        availableModels      : uniqueAvailable,
+        availableModels: uniqueAvailable,
+        extraModels,
         missingModels,
         observedCount,
-        warning              : ready ? null : createParallelModelCapacityWarning({
-            provider: target.provider,
-            model   : target.model,
-            embeddingModel: target.embeddingModel,
+        observedRequiredCount,
+        requiredResidentModels,
+        warning        : ready ? null : createParallelModelCapacityWarning({
+            provider             : target.provider,
+            model                : target.model,
+            embeddingModel       : target.embeddingModel,
             requiredModels,
-            availableModels: uniqueAvailable,
+            availableModels      : uniqueAvailable,
             missingModels,
+            extraModels,
             observedCount,
-            requireParallelModels
+            observedRequiredCount,
+            requireParallelModels: requiredResidentModels
         })
     };
 }
@@ -939,13 +2208,13 @@ export async function probeProviderParallelModelCapacity({
  * owned by `waitForProvider()`.
  *
  * @param {Object} options
- * @param {Object} options.config Provider-source config (aiConfig-shaped).
+ * @param {Object} [options.config=aiConfig] Provider-source config (aiConfig-shaped).
  * @param {Number} options.timeoutMs HTTP probe timeout. Required; no module-level default.
  * @param {Object} [options.log=logger] Logger seam.
  * @returns {Promise<Object>}
  */
 export async function warnProviderParallelModelCapacity({
-    config,
+    config = aiConfig,
     timeoutMs,
     log = logger,
     ...probeOptions
@@ -964,10 +2233,10 @@ export async function warnProviderParallelModelCapacity({
         return result;
     } catch (error) {
         const provider = config ? resolveGraphModelProvider(config) : 'unknown';
-        const result = {
-            ready   : false,
+        const result   = {
+            ready: false,
             provider,
-            error   : {message: error?.message || String(error)},
+            error: {message: error?.message || String(error)},
             warning : `[provider/${provider}] parallel-model capacity probe failed: ${error?.message || error}`
         };
 
@@ -981,9 +2250,16 @@ export async function warnProviderParallelModelCapacity({
  * @param {Object} options
  * @param {Object} options.config Provider-source config (aiConfig-shaped).
  * @param {Number} options.timeoutMs HTTP probe abandon threshold. Required; no module-level default.
+ * @param {String} [options.modelDiscoveryFreshness='force'] Routine callers may use `routine`; diagnostics/recovery keep `force`.
+ * @param {Number} [options.modelDiscoveryCacheTtlMs] Required when `modelDiscoveryFreshness` is `routine`.
  * @returns {Promise<Boolean>}
  */
-export function checkProvider({config, timeoutMs} = {}) {
+export function checkProvider({
+    config,
+    timeoutMs,
+    modelDiscoveryFreshness = PROVIDER_DISCOVERY_FORCE,
+    modelDiscoveryCacheTtlMs
+} = {}) {
     if (typeof timeoutMs !== 'number') {
         throw new TypeError('checkProvider: timeoutMs is required (pass from config.orchestrator.providerReadiness.timeoutMs)');
     }
@@ -993,9 +2269,20 @@ export function checkProvider({config, timeoutMs} = {}) {
         return Promise.resolve(false);
     }
 
+    if (target.provider === 'openAiCompatible') {
+        return fetchOpenAiCompatibleModelIds({
+            host      : target.host,
+            timeoutMs,
+            freshness : modelDiscoveryFreshness,
+            cacheTtlMs: modelDiscoveryFreshness === PROVIDER_DISCOVERY_ROUTINE
+                ? modelDiscoveryCacheTtlMs
+                : undefined
+        }).then(() => true, () => false);
+    }
+
     return new Promise(resolve => {
-        let settled = false;
-        const settle = value => {
+        let   settled = false;
+        const settle  = value => {
             if (!settled) {
                 settled = true;
                 resolve(value);
@@ -1027,6 +2314,8 @@ export function checkProvider({config, timeoutMs} = {}) {
  * @param {Number} options.attempts Retry cap.
  * @param {Number} options.delayMs Between-probe wait.
  * @param {Number} options.timeoutMs HTTP probe abandon threshold (also flows into the default `checkProvider` when no override is provided).
+ * @param {String} [options.modelDiscoveryFreshness='force'] Routine callers may use `routine`; diagnostics/recovery keep `force`.
+ * @param {Number} [options.modelDiscoveryCacheTtlMs] Required when `modelDiscoveryFreshness` is `routine`.
  * @param {Object} [options.output] Writable stream for dot-progress (defaults to `process.stdout`).
  * @returns {Promise<Object>}
  */
@@ -1035,13 +2324,19 @@ export async function waitForProvider({
     attempts,
     delayMs,
     timeoutMs,
+    modelDiscoveryFreshness = PROVIDER_DISCOVERY_FORCE,
+    modelDiscoveryCacheTtlMs,
     output = process.stdout
 } = {}) {
     if (typeof attempts !== 'number' || typeof delayMs !== 'number' || typeof timeoutMs !== 'number') {
         throw new TypeError('waitForProvider: attempts, delayMs, and timeoutMs are required (pass from config.orchestrator.providerReadiness)');
     }
 
-    const probe = providerCheck ?? (() => checkProvider({timeoutMs}));
+    const probe = providerCheck ?? (() => checkProvider({
+        timeoutMs,
+        modelDiscoveryFreshness,
+        modelDiscoveryCacheTtlMs
+    }));
     const startedAt = Date.now();
 
     for (let i = 0; i < attempts; i++) {
@@ -1076,7 +2371,7 @@ export function assertProviderReadinessConfig(readinessConfig) {
         throw new TypeError('AiConfig.orchestrator.providerReadiness is required; copy the providerReadiness block from ai/config.template.mjs or set its env-backed values in ai/config.mjs');
     }
 
-    const missing = ['attempts', 'delayMs', 'timeoutMs'].filter(key => typeof readinessConfig[key] !== 'number');
+    const missing = ['attempts', 'delayMs', 'timeoutMs', 'routineCacheTtlMs'].filter(key => typeof readinessConfig[key] !== 'number');
     if (missing.length > 0) {
         throw new TypeError(`AiConfig.orchestrator.providerReadiness.${missing.join('|')} must be configured as number(s); no code-level fallback is applied`);
     }
@@ -1105,7 +2400,7 @@ export function createProviderFailureDiagnostic({
     reason = 'PROVIDER_READINESS_TIMEOUT',
     capacity
 } = {}) {
-    const target = getGraphProviderReadinessTarget(config);
+    const target      = getGraphProviderReadinessTarget(config);
     const unsupported = reason === 'UNSUPPORTED_GRAPH_PROVIDER';
     const degraded    = reason === 'PROVIDER_MODEL_RESIDENCY_DEGRADED';
 
@@ -1116,21 +2411,21 @@ export function createProviderFailureDiagnostic({
                 ? 'runSandman.provider_model_residency_degraded'
                 : 'runSandman.provider_readiness_timeout',
         reason,
-        provider       : target.provider,
-        graphProvider  : target.provider,
-        modelProvider  : config.modelProvider,
-        host           : target.host,
-        endpoint       : target.endpoint,
-        url            : target.url,
-        supported      : target.supported,
-        model          : target.model,
-        embeddingModel : target.embeddingModel,
-        attempts       : waitResult?.attempts,
-        elapsedMs      : waitResult?.elapsedMs,
-        timeoutMs      : waitResult?.timeoutMs,
+        provider      : target.provider,
+        graphProvider : target.provider,
+        modelProvider : config.modelProvider,
+        host          : target.host,
+        endpoint      : target.endpoint,
+        url           : target.url,
+        supported     : target.supported,
+        model         : target.model,
+        embeddingModel: target.embeddingModel,
+        attempts      : waitResult?.attempts,
+        elapsedMs     : waitResult?.elapsedMs,
+        timeoutMs     : waitResult?.timeoutMs,
         capacity,
         lifecycleStatus,
-        nextAction     : degraded && capacity?.warning
+        nextAction    : degraded && capacity?.warning
             ? capacity.warning
             : target.supported
             ? (

@@ -6,9 +6,9 @@ import createDiscussionIndex from '../../../../../../../buildScripts/docs/index/
 import createPullRequestIndex from '../../../../../../../buildScripts/docs/index/pulls.mjs';
 
 /**
- * @summary Verifies the Portal index generators: the PR generator emits a flat tree (group roots +
- * leaves carrying their markdown path, matching tickets.json); the Discussion generator emits the
- * chunked root-plus-leaves contract.
+ * @summary Verifies the Portal index generators: the PR generator emits the chunked
+ * root-plus-leaves contract (release-grouped); the Discussion generator emits the
+ * category-grouped chunked contract.
  */
 
 function frontmatter(data) {
@@ -55,14 +55,14 @@ test.describe('Portal content index generators (#12210)', () => {
         await fs.remove(tempDir)
     });
 
-    test('createPullRequestIndex emits a release-grouped legacy flat tree + chunked lazy surface (mirrors tickets)', async () => {
+    test('createPullRequestIndex emits a release-grouped chunked lazy surface (mirrors tickets)', async () => {
         const
             inputDir          = path.join(tempDir, 'resources/content/pulls'),
             archiveDir        = path.join(tempDir, 'resources/content/archive/pulls'),
-            outputFile        = path.join(tempDir, 'apps/portal/resources/data/pulls.json'),
-            outputDir         = path.join(tempDir, 'apps/portal/resources/data/pulls'),
-            chunkedOutputFile = path.join(tempDir, 'apps/portal/resources/data/pulls/index.json'),
-            manifestFile      = path.join(tempDir, 'apps/portal/resources/data/pulls/manifest.json');
+            dataDir           = path.join(tempDir, 'apps/portal/resources/data'),
+            outputDir         = path.join(dataDir, 'pulls'),
+            chunkedOutputFile = path.join(dataDir, 'pulls/index.json'),
+            manifestFile      = path.join(dataDir, 'pulls/manifest.json');
 
         // Active (unreleased) PRs → the `Latest` group. State (MERGED/OPEN/CLOSED) does NOT drive grouping.
         await fs.outputFile(path.join(inputDir, 'chunk-1/pr-4.md'), frontmatter({
@@ -94,36 +94,18 @@ test.describe('Portal content index generators (#12210)', () => {
             updatedAt: '2026-05-01T00:00:00Z'
         }));
 
-        await createPullRequestIndex({archiveDir, inputDir, outputDir, outputFile, chunkedOutputFile, manifestFile});
+        await createPullRequestIndex({archiveDir, dataDir, inputDir, outputDir, chunkedOutputFile, manifestFile});
 
-        // 1. Legacy flat tree: release group roots (`Latest` first, then versions desc) + PR leaves with
-        //    `path`, sorted by merged/closed/updated date desc within each group. Grouping is by RELEASE,
-        //    not PR state — all three active PRs land under `Latest` regardless of MERGED/OPEN/CLOSED.
-        const flat = await fs.readJson(outputFile);
-
-        expect(flat.map(record => record.id)).toEqual([
-            'Latest', '4', '3', '2',
-            'v12.1.0', '1'
-        ]);
-        expect(flat.find(record => record.id === 'Latest')).toEqual({
-            collapsed: true, id: 'Latest', isLeaf: false, parentId: null
-        });
-        expect(flat.find(record => record.id === 'v12.1.0')).toEqual({
-            collapsed: false, id: 'v12.1.0', isLeaf: false, parentId: null
-        });
-        expect(flat.find(record => record.id === '4')).toEqual({
-            id      : '4',
-            parentId: 'Latest',
-            path    : path.relative(process.cwd(), path.join(inputDir, 'chunk-1/pr-4.md')),
-            title   : 'Unreleased merged PR'
-        });
-
-        // 2. Chunked lazy surface: group roots + chunk nodes carrying reconstruction metadata
+        // 1. Chunked lazy surface: group roots (`Latest` first, then versions desc — grouping is by
+        //    RELEASE, not PR state) + chunk nodes carrying reconstruction metadata
         //    (`contentDir` + `filePrefix`); chunk leaves omit the repeated `path`.
         const index = await fs.readJson(chunkedOutputFile);
 
         expect(index.find(record => record.id === 'Latest')).toEqual({
             collapsed: true, id: 'Latest', isLeaf: false, parentId: null
+        });
+        expect(index.find(record => record.id === 'v12.1.0')).toEqual({
+            collapsed: false, id: 'v12.1.0', isLeaf: false, parentId: null
         });
         expect(index.find(record => record.id === 'Latest/active-chunk-1')).toMatchObject({
             childCount : 3,
@@ -140,21 +122,29 @@ test.describe('Portal content index generators (#12210)', () => {
             {id: '2', parentId: 'Latest/active-chunk-1', title: 'Unreleased open PR'}
         ]);
 
-        // 3. Crawler manifest enumerates the chunk leaf files.
+        // 2. Crawler manifest enumerates the chunk leaf files.
         const manifest = await fs.readJson(manifestFile);
 
         expect(manifest.indexUrl).toBe('pulls/index.json');
-        expect(manifest.chunks.some(chunk => chunk.childrenUrl === 'pulls/latest/active-chunk-1.json')).toBe(true)
+        expect(manifest.chunks.some(chunk => chunk.childrenUrl === 'pulls/latest/active-chunk-1.json')).toBe(true);
+
+        // 3. The deep-link id map names each leaf's chunk folder — active and archived alike.
+        await expect(fs.readJson(path.join(outputDir, 'idMap.json'))).resolves.toEqual({
+            '1': 'v12.1.0/archive-v12-1-0-chunk-1',
+            '2': 'Latest/active-chunk-1',
+            '3': 'Latest/active-chunk-1',
+            '4': 'Latest/active-chunk-1'
+        })
     });
 
     test('createPullRequestIndex orders chunk folders by chunk-number (desc), not by sortDate, matching the positional labels (#12309)', async () => {
         const
             inputDir          = path.join(tempDir, 'resources/content/pulls'),
             archiveDir        = path.join(tempDir, 'resources/content/archive/pulls'),
-            outputFile        = path.join(tempDir, 'apps/portal/resources/data/pulls.json'),
-            outputDir         = path.join(tempDir, 'apps/portal/resources/data/pulls'),
-            chunkedOutputFile = path.join(tempDir, 'apps/portal/resources/data/pulls/index.json'),
-            manifestFile      = path.join(tempDir, 'apps/portal/resources/data/pulls/manifest.json');
+            dataDir           = path.join(tempDir, 'apps/portal/resources/data'),
+            outputDir         = path.join(dataDir, 'pulls'),
+            chunkedOutputFile = path.join(dataDir, 'pulls/index.json'),
+            manifestFile      = path.join(dataDir, 'pulls/manifest.json');
 
         // Same Latest group, three chunk folders, NON-MONOTONIC dates: a sortDate ordering would emit
         // [chunk-1, chunk-3, chunk-2] — scrambled relative to the positional `treeNodeName` labels.
@@ -177,7 +167,7 @@ test.describe('Portal content index generators (#12210)', () => {
             updatedAt: '2026-05-15T00:00:00Z'
         }));
 
-        await createPullRequestIndex({archiveDir, inputDir, outputDir, outputFile, chunkedOutputFile, manifestFile});
+        await createPullRequestIndex({archiveDir, dataDir, inputDir, outputDir, chunkedOutputFile, manifestFile});
 
         // Chunk folders descend by chunk-number (newest/highest chunk first), regardless of sortDate.
         const index = await fs.readJson(chunkedOutputFile);
@@ -251,6 +241,13 @@ test.describe('Portal content index generators (#12210)', () => {
             parentId: 'Q&A/archive-v8-30-0-chunk-1',
             state   : 'closed',
             title   : 'Archived answer'
-        }])
+        }]);
+
+        // The deep-link id map spans categories and archive buckets alike.
+        await expect(fs.readJson(path.join(outputDir, 'idMap.json'))).resolves.toEqual({
+            '10': 'Ideas/active-chunk-1',
+            '11': 'Q&A/archive-v8-30-0-chunk-1',
+            '12': 'General/active-chunk-1'
+        })
     })
 });

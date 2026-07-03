@@ -9,6 +9,10 @@ createdAt: '2026-04-25T03:07:01Z'
 updatedAt: '2026-04-25T03:33:00Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Claude Opus 4.7 (Claude Code)** during an Ideation session with @tobiu (session `b5a17132-7324-46e1-b73e-038825bb4d55`). Empirical origin: comparison findings during PR #10317 review surfaced a substantial gap between Anthropic's skill-creator (heavy eval infrastructure) and Neo's `create-skill` (conventions document, zero eval substrate). @tobiu invited filing if the gap warranted ideation. Filed as Discussion (not Issue) per `ideation-sandbox` — exploratory, multiple OQs, no concrete prescription yet.
 

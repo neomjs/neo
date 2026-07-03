@@ -1,16 +1,16 @@
-import fs               from 'fs-extra';
-import path             from 'path';
-import {fileURLToPath}  from 'url';
+import fs              from 'fs-extra';
+import path            from 'path';
+import {fileURLToPath} from 'url';
 
 // Bootstrap Neo namespace BEFORE importing services that depend on Neo.gatekeep
 // (Compare.mjs:166). Without these two imports, ai/services.mjs → Compare.mjs
 // triggers `ReferenceError: Neo is not defined`. Mirrors the AI unit-test pattern
 // (e.g., restore-filters.spec.mjs).
-import Neo              from '../../../src/Neo.mjs';
-import * as core        from '../../../src/core/_export.mjs';
+import Neo       from '../../../src/Neo.mjs';
+import * as core from '../../../src/core/_export.mjs';
 
-import kbConfig         from '../../mcp/server/knowledge-base/config.mjs';
-import mcConfig         from '../../mcp/server/memory-core/config.mjs';
+import kbConfig from '../../mcp/server/knowledge-base/config.mjs';
+import mcConfig from '../../mcp/server/memory-core/config.mjs';
 
 import {
     KB_DatabaseService,
@@ -79,8 +79,8 @@ import {
  *
  * ## Intentionally-out-of-scope
  *
- * - Wake-daemon operational state (`bridge.log`, `lastSyncId`, `inflight-*.txt`) — owned
- *   by the live-orchestration recovery track, not substrate restore.
+ * - Wake-daemon operational state (`.neo-ai-data/wake-daemon/bridge.log`, `lastSyncId`,
+ *   `inflight-*.txt`) — owned by the live-orchestration recovery track, not substrate restore.
  * - Physical Chroma data dir snapshots — those live at `dist/chromadb-backups/` under
  *   `defragChromaDB.mjs`'s peer-architecture lockdown.
  * - Cross-version schema migrations — `bundle-meta.neoVersion` and `gitSha` are surfaced
@@ -182,7 +182,7 @@ export async function runRestore({
     // Per-substrate gate: null `onlySubstrate` = all subsystems (existing behavior).
     // Non-null array restricts to listed names. Validates against the known substrate set
     // so typos fail fast instead of silently no-op'ing the entire restore.
-    const ALL_SUBSTRATES   = ['kb', 'mc', 'graph', 'concepts', 'trajectories', 'mailbox'];
+    const ALL_SUBSTRATES = ['kb', 'mc', 'graph', 'concepts', 'trajectories', 'mailbox'];
     if (Array.isArray(onlySubstrate)) {
         const unknown = onlySubstrate.filter(s => !ALL_SUBSTRATES.includes(s));
         if (unknown.length > 0) {
@@ -216,8 +216,8 @@ export async function runRestore({
         // Stream-filter into a temp dir matching the bundle layout. Idempotent on re-run.
         // Filter goes through the FK-safe Stage-1/2/3 algorithm (per @neo-gpt review).
         // Empty filter sets short-circuit to original layout.graph (no extra work / no live read).
-        const filterStats   = {filteredNodes: 0, filteredEdges: 0, orphanEdges: 0, acceptedNodes: 0};
-        const filterActive  = filterLabels.length > 0 || filterEdgeTypes.length > 0;
+        const filterStats  = {filteredNodes: 0, filteredEdges: 0, orphanEdges: 0, acceptedNodes: 0};
+        const filterActive = filterLabels.length > 0 || filterEdgeTypes.length > 0;
 
         let graphInputDir = layout.graph;
         if (filterActive) {
@@ -225,11 +225,11 @@ export async function runRestore({
             // WAL mode lets us read concurrently with the running MC daemon.
             const liveNodeIds = await collectLiveGraphNodeIds({dbPath: mcConfig.storagePaths.graph});
             graphInputDir = await prepareFilteredGraphDir({
-                sourceDir       : layout.graph,
+                sourceDir: layout.graph,
                 filterLabels,
                 filterEdgeTypes,
                 liveNodeIds,
-                stats           : filterStats,
+                stats    : filterStats,
                 logger
             });
         }
@@ -251,12 +251,12 @@ export async function runRestore({
 
     if (shouldRestore('concepts')) {
         subsystems.concepts = await restoreFlatDir({
-            sourceDir : layout.concepts,
-            targetDir : conceptsTargetDir,
+            sourceDir: layout.concepts,
+            targetDir: conceptsTargetDir,
             mode,
             force,
             confirmation,
-            subsystem : 'concepts',
+            subsystem: 'concepts',
             logger
         });
     }
@@ -344,7 +344,7 @@ export async function validateBundle(bundleRoot, layout, logger = console) {
     // Stream-read the first non-empty line for JSONL parseability sanity-check.
     // Full-file readFile fails on JSONL files >512MB (V8 max-string-length cap):
     // empirical anchor 2026-05-10, kb backup 586MB → ERR_STRING_TOO_LONG.
-    const readline = (await import('readline')).default;
+    const readline   = (await import('readline')).default;
     const allSubdirs = [...REQUIRED_BUNDLE_SUBDIRS, ...OPTIONAL_BUNDLE_SUBDIRS];
     for (const subdir of allSubdirs) {
         const dir = layout[subdir];
@@ -352,9 +352,9 @@ export async function validateBundle(bundleRoot, layout, logger = console) {
         const entries    = await fs.readdir(dir);
         const jsonlFiles = entries.filter(f => f.endsWith('.jsonl'));
         for (const file of jsonlFiles) {
-            const stream = fs.createReadStream(path.join(dir, file), {encoding: 'utf8'});
-            const rl     = readline.createInterface({input: stream, crlfDelay: Infinity});
-            let firstLine = null;
+            const stream    = fs.createReadStream(path.join(dir, file), {encoding: 'utf8'});
+            const rl        = readline.createInterface({input: stream, crlfDelay: Infinity});
+            let   firstLine = null;
             for await (const line of rl) {
                 if (line.trim()) { firstLine = line; break; }
             }
@@ -381,6 +381,69 @@ export async function validateBundle(bundleRoot, layout, logger = console) {
 
     logger.warn?.('[Restore] bundle-meta.json absent; topology compatibility check will be skipped (legacy bundle).');
     return null
+}
+
+/**
+ * @summary Verifies the latest backup bundle is structurally restorable WITHOUT performing a restore.
+ *
+ * Backups are the recovery source of last resort, yet assumed-restorable-but-never-checked. This runs
+ * the same pre-flight `validateBundle` gate the restore path uses (required subdirs present, JSONL
+ * parseable, `bundle-meta.json` parseable) against the newest `backup-<ISO-ts>/` under `backupRoot`,
+ * returning a structured verdict. It performs NO writes and NO live-store import — a read-only
+ * restorability probe. The alert-on-failure wiring is the escalation-mechanism piece (it shares the
+ * AC1 sink decision, tracked on the parent backup-reliability ticket); this is the check that produces
+ * the verdict that piece consumes.
+ *
+ * @param {Object}    options
+ * @param {String}    options.backupRoot Absolute path to the `.neo-ai-data/backups` root.
+ * @param {Object}   [options.logger=console] Log sink.
+ * @param {Object}   [options.fsModule=fs] Filesystem seam (test injection).
+ * @param {Function} [options.validateFn=validateBundle] Bundle validator seam (test injection).
+ * @returns {Promise<{restorable: Boolean, bundleRoot: String|null, reason: String|null, checkedAt: String}>}
+ */
+export async function verifyLatestBackupRestorable({
+    backupRoot,
+    logger     = console,
+    fsModule   = fs,
+    validateFn = validateBundle
+} = {}) {
+    if (!backupRoot) {
+        throw new Error('verifyLatestBackupRestorable requires a `backupRoot` argument.');
+    }
+
+    const checkedAt = new Date().toISOString();
+
+    if (!await fsModule.pathExists(backupRoot)) {
+        return {restorable: false, bundleRoot: null, reason: `backup root not found: ${backupRoot}`, checkedAt};
+    }
+
+    // backup-<ISO-ts> names sort lexically by their ISO timestamp, so reverse-sort yields newest-first.
+    const bundleNames = (await fsModule.readdir(backupRoot, {withFileTypes: true}))
+        .filter(entry => entry.isDirectory() && entry.name.startsWith('backup-'))
+        .map(entry => entry.name)
+        .sort()
+        .reverse();
+
+    if (bundleNames.length === 0) {
+        return {restorable: false, bundleRoot: null, reason: `no backup-* bundles under ${backupRoot}`, checkedAt};
+    }
+
+    const bundleRoot = path.join(backupRoot, bundleNames[0]);
+    const layout     = {
+        kb          : path.join(bundleRoot, 'kb'),
+        mc          : path.join(bundleRoot, 'mc'),
+        graph       : path.join(bundleRoot, 'graph'),
+        concepts    : path.join(bundleRoot, 'concepts'),
+        trajectories: path.join(bundleRoot, 'trajectories'),
+        mailbox     : path.join(bundleRoot, 'mailbox')
+    };
+
+    try {
+        await validateFn(bundleRoot, layout, logger);
+        return {restorable: true, bundleRoot, reason: null, checkedAt};
+    } catch (error) {
+        return {restorable: false, bundleRoot, reason: error.message, checkedAt};
+    }
 }
 
 /**
@@ -497,9 +560,9 @@ async function restoreFlatDir({sourceDir, targetDir, mode, force, confirmation, 
         await Shared_DestructiveOperationGuard.assertDestructiveTargetAllowed({
             operation: `restore.${subsystem}.replace`,
             subsystem,
-            mode     : 'replace',
-            target   : {path: targetDir, repoRoot: PROJECT_ROOT},
-            source   : {path: sourceDir},
+            mode  : 'replace',
+            target: {path: targetDir, repoRoot: PROJECT_ROOT},
+            source: {path: sourceDir},
             confirmation
         });
         await fs.emptyDir(targetDir);
@@ -557,9 +620,9 @@ async function restoreFlatFile({sourceDir, targetFile, mode, force, confirmation
         await Shared_DestructiveOperationGuard.assertDestructiveTargetAllowed({
             operation: `restore.${subsystem}.replace`,
             subsystem,
-            mode     : 'replace',
-            target   : {path: targetFile, repoRoot: PROJECT_ROOT},
-            source   : {path: sourceFile},
+            mode  : 'replace',
+            target: {path: targetFile, repoRoot: PROJECT_ROOT},
+            source: {path: sourceFile},
             confirmation
         });
     } else if (await fs.pathExists(targetFile)) {
@@ -649,8 +712,8 @@ export async function prepareFilteredGraphDir({sourceDir, filterLabels, filterEd
     for (const fileName of sourceFiles) {
         const inPath  = path.join(sourceDir, fileName);
         const outPath = path.join(tempDir, fileName);
-        const rl  = readline.createInterface({input: fs.createReadStream(inPath), crlfDelay: Infinity});
-        const out = fs.createWriteStream(outPath);
+        const rl      = readline.createInterface({input: fs.createReadStream(inPath), crlfDelay: Infinity});
+        const out     = fs.createWriteStream(outPath);
         for await (const line of rl) {
             if (!line.trim()) continue;
             try {
@@ -741,14 +804,14 @@ export async function dispatchPostRestoreHook({hook, logger = console}) {
  * @returns {Object}
  */
 export function parseArgs(argv) {
-    const positional = [];
-    let mode                    = 'merge';
-    let force                   = false;
-    let forceTopologyMismatch   = false;
-    let filterLabels            = [];
-    let filterEdgeTypes         = [];
-    let onlySubstrate           = null;
-    let postRestoreHook         = null;
+    const positional            = [];
+    let   mode                  = 'merge';
+    let   force                 = false;
+    let   forceTopologyMismatch = false;
+    let   filterLabels          = [];
+    let   filterEdgeTypes       = [];
+    let   onlySubstrate         = null;
+    let   postRestoreHook       = null;
 
     const splitCsv = s => String(s).split(',').map(t => t.trim()).filter(Boolean);
 

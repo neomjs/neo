@@ -20,12 +20,17 @@ const generatedSyncPaths = [
     'resources/content/release-notes/',
     'resources/content/archive/',
     'resources/content/_index.json',
-    'resources/content/.sync-metadata.json'
+    'resources/content/.sync-metadata.json',
+    'apps/portal/resources/data/',
+    'apps/portal/sitemap.xml',
+    'apps/portal/llms.txt'
 ];
 
 const isGeneratedSyncFile = file => generatedSyncPaths.some(item =>
     item.endsWith('/') ? file.startsWith(item) : file === item
 );
+
+const generatedSyncStatusPaths = generatedSyncPaths.join(' ');
 
 /**
  * @summary Orchestrates the bi-directional synchronization of GitHub issues and releases with local Markdown files.
@@ -84,10 +89,33 @@ class SyncService extends Base {
     }
 
     /**
-     * The main public entry point for the synchronization process.
+     * @summary Rebuilds Portal indexes and SEO artifacts after GitHub Workflow content emission.
+     * @returns {Promise<Object>} Generated artifact paths.
+     */
+    async rebuildContentIndexesAndSeo() {
+        const {rebuildContentIndexesAndSeo} = await import('../../../buildScripts/docs/rebuildContentIndexesAndSeo.mjs');
+
+        return rebuildContentIndexesAndSeo({root: aiConfig.projectRoot});
+    }
+
+    /**
+     * @summary Executes a git command inside the sync checkout.
+     * @param {String} command Git command to run.
+     * @param {String} cwd Working directory for the command.
+     * @returns {Promise<{stdout: String, stderr: String}>}
+     */
+    async execGit(command, cwd) {
+        return execAsync(command, {cwd});
+    }
+
+    /**
+     * @summary Emits the generated GitHub Workflow content and derived Portal artifacts.
      *
-     * This method orchestrates the entire bi-directional sync workflow in a specific order
-     * to ensure data integrity and minimize conflicts:
+     * This method orchestrates the generated-content half of the full sync in a specific order
+     * to ensure data integrity and minimize conflicts. It is intentionally separated from the
+     * git delivery step so a failed rebase can reset the checkout, re-emit the generated files,
+     * and retry without leaving the repository mid-rebase.
+     *
      * 1.  Loads the persistent metadata from the last sync via `MetadataManager`.
      * 2.  Fetches and caches GitHub release data via `ReleaseNotesSyncer`.
      * 3.  Reconciles closed issue locations (archives stale issues) via `IssueSyncer`.
@@ -100,12 +128,10 @@ class SyncService extends Base {
      *     per-syncer cache populations survive `MetadataManager.save`.
      * 10. Caches releases in `newMetadata` for next run.
      * 11. Saves the updated, pruned metadata to disk via `MetadataManager`.
-     * @returns {Promise<object>} A comprehensive object containing detailed statistics and timing
-     * information about all operations performed during the sync.
+     * 12. Rebuilds Portal content indexes and SEO artifacts from the emitted content.
+     * @returns {Promise<object>} Statistics for the emitted generated content.
      */
-    async runFullSync() {
-        const startTime = new Date();
-
+    async emitGeneratedContentAndDerive() {
         const metadata = await MetadataManager.load();
 
         // 1. Fetch releases first, as they are needed for issue archiving
@@ -113,6 +139,12 @@ class SyncService extends Base {
 
         // 2. Reconcile closed issue locations - archive stale closed issues before pull
         const reconcileStats = await IssueSyncer.reconcileClosedIssueLocations(metadata);
+
+        // 2b. Reconcile closed PULL locations — the sibling reconcile that was missing. The
+        //     delta-only pull sync skips PRs untouched since the last cutoff, so old merged PRs marooned
+        //     in active pulls/ are never re-bucketed; this per-sync reconcile (mirroring the issue one)
+        //     archives them and keeps pulls archived going forward.
+        const pullReconcileStats = await PullRequestSyncer.reconcileClosedPullRequestLocations(metadata);
 
         // 3. Push local changes
         const pushStats = await IssueSyncer.pushToGitHub(metadata);
@@ -156,48 +188,141 @@ class SyncService extends Base {
         // 11. Save metadata.
         await MetadataManager.save(newMetadata);
 
+        await this.rebuildContentIndexesAndSeo();
+
+        return {
+            reconcileStats,
+            pullReconcileStats,
+            pushStats,
+            pullStats,
+            releaseStats,
+            discussionStats,
+            pullStats2
+        };
+    }
+
+    /**
+     * @summary Commits, rebases, and pushes generated GitHub Workflow content changes.
+     * @param {String} cwd Git checkout root.
+     * @returns {Promise<Boolean>} `true` when a generated-data commit was pushed.
+     */
+    async commitRebaseAndPushGeneratedContent(cwd) {
+        const {stdout} = await this.execGit(`git status --porcelain ${generatedSyncStatusPaths}`, cwd);
+        const lines    = stdout.trim().split('\n').filter(Boolean);
+
+        if (lines.length === 0) {
+            return false;
+        }
+
+        const onlyMetaChanged = lines.every(line => line.endsWith('.sync-metadata.json'));
+
+        if (onlyMetaChanged) {
+            logger.info('[SyncService] Only metadata changed. Rolling back metadata.');
+            await this.execGit('git restore resources/content/.sync-metadata.json', cwd);
+            return false;
+        }
+
+        logger.info('[SyncService] Detected real content changes. Committing and pushing.');
+        await this.execGit(`git add ${generatedSyncStatusPaths}`, cwd);
+        const {stdout: stagedStdout} = await this.execGit('git diff --cached --name-only', cwd);
+        const nonSyncFiles = stagedStdout.trim().split('\n').filter(Boolean).filter(file =>
+            !isGeneratedSyncFile(file)
+        );
+
+        if (nonSyncFiles.length > 0) {
+            throw new Error(`Automated sync commit rejected: non-sync files are staged: ${nonSyncFiles.join(', ')}`);
+        }
+
+        // Automated generated-data commits (neo repo): --no-verify because generated content fails whitespace
+        // hooks. NEO_SKIP_TICKET_ARCHAEOLOGY=1 is the explicit archaeology-gate exemption for this generated-data
+        // class — declares intent + future-proofs (co-exists with --no-verify, still required for whitespace).
+        await this.execGit('NEO_SKIP_TICKET_ARCHAEOLOGY=1 git commit --no-verify -m "chore: ticket sync [skip ci]"', cwd);
+
+        try {
+            await this.execGit('git pull --rebase --autostash', cwd);
+            await this.execGit('git push', cwd);
+        } catch (error) {
+            error.generatedSyncDeliveryFailure = true;
+            throw error;
+        }
+
+        logger.info('[SyncService] Successfully pushed changes to GitHub.');
+
+        return true;
+    }
+
+    /**
+     * @summary Restores the generated-data checkout to the latest remote `dev` after delivery failure.
+     * @param {String} cwd Git checkout root.
+     * @returns {Promise<void>}
+     */
+    async recoverGeneratedContentCheckout(cwd) {
+        try {
+            await this.execGit('git rebase --abort', cwd);
+        } catch (error) {
+            logger.warn(`[SyncService] git rebase --abort did not complete: ${error.message}`);
+        }
+
+        await this.execGit('git fetch origin dev:refs/remotes/origin/dev', cwd);
+        await this.execGit('git reset --hard origin/dev', cwd);
+    }
+
+    /**
+     * @summary Delivers generated GitHub Workflow content to git with bounded rebase recovery.
+     * @param {Function} rerunEmission Re-emits generated content after a reset.
+     * @param {Number}   [maxAttempts=2] Maximum commit/rebase/push attempts.
+     * @returns {Promise<void>}
+     */
+    async autoPushGeneratedContent({rerunEmission, maxAttempts = 2}) {
         if (aiConfig.pushToRepoAfterSync) {
             const {permission} = await RepositoryService.getViewerPermission();
             const writePermissions = ['ADMIN', 'MAINTAIN', 'WRITE'];
 
             if (writePermissions.includes(permission)) {
-                try {
-                    const cwd = aiConfig.projectRoot;
-                    const {stdout} = await execAsync('git status --porcelain resources/content', {cwd});
-                    const lines = stdout.trim().split('\n').filter(Boolean);
+                const cwd = aiConfig.projectRoot;
 
-                    if (lines.length > 0) {
-                        const onlyMetaChanged = lines.every(line => line.endsWith('.sync-metadata.json'));
-
-                        if (onlyMetaChanged) {
-                            logger.info('[SyncService] Only metadata changed. Rolling back metadata.');
-                            await execAsync('git restore resources/content/.sync-metadata.json', {cwd});
-                        } else {
-                            logger.info('[SyncService] Detected real content changes. Committing and pushing.');
-                            await execAsync('git add resources/content', {cwd});
-                            const {stdout: stagedStdout} = await execAsync('git diff --cached --name-only', {cwd});
-                            const nonSyncFiles = stagedStdout.trim().split('\n').filter(Boolean).filter(file =>
-                                !isGeneratedSyncFile(file)
-                            );
-
-                            if (nonSyncFiles.length > 0) {
-                                throw new Error(`Automated sync commit rejected: non-sync files are staged: ${nonSyncFiles.join(', ')}`);
-                            }
-
-                            // Automated generated-data commits bypass Husky; hooks are human-lane guards.
-                            await execAsync('git commit --no-verify -m "chore: ticket sync [skip ci]"', {cwd});
-                            await execAsync('git pull --rebase --autostash', {cwd});
-                            await execAsync('git push', {cwd});
-                            logger.info('[SyncService] Successfully pushed changes to GitHub.');
+                for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                    try {
+                        await this.commitRebaseAndPushGeneratedContent(cwd);
+                        return;
+                    } catch (error) {
+                        if (!error.generatedSyncDeliveryFailure) {
+                            logger.error('[SyncService] Auto-commit and push failed:', error.message);
+                            return;
                         }
+
+                        if (attempt >= maxAttempts) {
+                            logger.error(`[SyncService] Auto-push exhausted ${maxAttempts} attempts; recovering checkout before giving up: ${error.message}`);
+                            await this.recoverGeneratedContentCheckout(cwd);
+                            return;
+                        }
+
+                        logger.warn(`[SyncService] Auto-push attempt ${attempt} failed; aborting rebase, resetting to origin/dev, and re-emitting generated content before retry: ${error.message}`);
+                        await this.recoverGeneratedContentCheckout(cwd);
+                        await rerunEmission();
                     }
-                } catch (error) {
-                    logger.error('[SyncService] Auto-commit and push failed:', error.message);
                 }
             } else {
                 logger.info(`[SyncService] Skipping auto-push. Viewer permission '${permission}' lacks write access.`);
             }
         }
+    }
+
+    /**
+     * The main public entry point for the synchronization process.
+     *
+     * @returns {Promise<object>} A comprehensive object containing detailed statistics and timing
+     * information about all operations performed during the sync.
+     */
+    async runFullSync() {
+        const startTime = new Date();
+        let syncStats   = await this.emitGeneratedContentAndDerive();
+
+        await this.autoPushGeneratedContent({
+            rerunEmission: async () => {
+                syncStats = await this.emitGeneratedContentAndDerive();
+            }
+        });
 
         // Stage 2: Ingest into Native Graph Database
         try {
@@ -218,13 +343,14 @@ class SyncService extends Base {
         const durationMs = endTime - startTime;
 
         const finalStats = {
-            reconciled  : reconcileStats,
-            pushed      : pushStats,
-            pulled      : pullStats.pulled,
-            dropped     : pullStats.dropped,
-            releases    : releaseStats,
-            discussions : discussionStats,
-            pulls       : pullStats2
+            reconciled     : syncStats.reconcileStats,
+            reconciledPulls: syncStats.pullReconcileStats,
+            pushed         : syncStats.pushStats,
+            pulled         : syncStats.pullStats.pulled,
+            dropped        : syncStats.pullStats.dropped,
+            releases       : syncStats.releaseStats,
+            discussions    : syncStats.discussionStats,
+            pulls          : syncStats.pullStats2
         };
 
         const timing = {
@@ -235,6 +361,7 @@ class SyncService extends Base {
 
         logger.info('✨ Sync Complete');
         logger.info(`   Reconciled:  ${finalStats.reconciled.count} issues archived`);
+        logger.info(`   Reconciled:  ${finalStats.reconciledPulls.count} pull requests archived`);
         logger.info(`   Pushed:      ${finalStats.pushed.count} issues`);
         logger.info(`   Pulled:      ${finalStats.pulled.count} issues (${finalStats.pulled.created} new, ${finalStats.pulled.updated} updated, ${finalStats.pulled.moved} moved)`);
         logger.info(`   Dropped:     ${finalStats.dropped.count} issues`);
@@ -284,7 +411,61 @@ class SyncService extends Base {
     }
 
     /**
-     * Facade for the one-time archive re-bucket migration (#12194). Loads metadata, delegates to
+     * @summary Facade for the standalone pull-request force-refetch (archive-mirror drift healing).
+     *
+     * Loads metadata, delegates to `PullRequestSyncer.refetchPullsByNumber`, persists the updated
+     * metadata. Bypasses the bulk delta-by-`updatedAt` gate so known-stale closed/merged PR mirrors
+     * — which the pull-only bulk sync never re-pulls once their `updatedAt` is past the high-water
+     * mark — can be re-rendered from current GitHub state. Invoked out-of-band by
+     * `ai/scripts/migrations/refetchStalePulls.mjs` — never the regular `runFullSync` loop.
+     *
+     * @param {object}   params
+     * @param {number[]} params.numbers Pull-request numbers to force-refetch.
+     * @returns {Promise<{refetched: {count: number, pulls: number[]}, errors: Array<{prNumber: number, error: string}>}>}
+     */
+    async refetchPullsByNumber({numbers}) {
+        if (!Array.isArray(numbers) || numbers.length === 0) {
+            return {refetched: {count: 0, pulls: []}, errors: []};
+        }
+
+        const metadata = await MetadataManager.load();
+        const stats    = await PullRequestSyncer.refetchPullsByNumber(numbers, metadata);
+        await MetadataManager.save(metadata);
+
+        logger.info(`✨ Force-refetch complete: ${stats.refetched.count}/${numbers.length} pull requests refetched`);
+
+        return stats;
+    }
+
+    /**
+     * @summary Facade for the standalone discussion force-refetch (archive-mirror drift healing).
+     *
+     * Loads metadata, delegates to `DiscussionSyncer.refetchDiscussionsByNumber`, persists the updated
+     * metadata. Bypasses the bulk delta-by-`updatedAt` gate so known-stale discussion mirrors — which
+     * the pull-only bulk sync never re-pulls once their `updatedAt` is past the high-water mark — can be
+     * re-rendered from current GitHub state. Invoked out-of-band by
+     * `ai/scripts/migrations/refetchStaleDiscussions.mjs` — never the regular `runFullSync` loop.
+     *
+     * @param {object}   params
+     * @param {number[]} params.numbers Discussion numbers to force-refetch.
+     * @returns {Promise<{refetched: {count: number, discussions: number[]}, errors: Array<{discussionNumber: number, error: string}>}>}
+     */
+    async refetchDiscussionsByNumber({numbers}) {
+        if (!Array.isArray(numbers) || numbers.length === 0) {
+            return {refetched: {count: 0, discussions: []}, errors: []};
+        }
+
+        const metadata = await MetadataManager.load();
+        const stats    = await DiscussionSyncer.refetchDiscussionsByNumber(numbers, metadata);
+        await MetadataManager.save(metadata);
+
+        logger.info(`✨ Force-refetch complete: ${stats.refetched.count}/${numbers.length} discussions refetched`);
+
+        return stats;
+    }
+
+    /**
+     * Facade for the one-time archive re-bucket migration. Loads metadata, delegates to
      * `IssueSyncer.migrateArchiveBuckets`, then persists the updated metadata (unless `dryRun`).
      * Invoked out-of-band by `ai/scripts/migrations/rebucketArchive.mjs` — never the regular sync loop.
      * @param {object} [opts]

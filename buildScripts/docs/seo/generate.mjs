@@ -1,6 +1,6 @@
 import fs              from 'fs-extra';
 import path            from 'path';
-import {Command}       from 'commander/esm.mjs';
+import {Command}       from 'commander';
 import {execFileSync}  from 'child_process';
 import {fileURLToPath} from 'url';
 import fg              from 'fast-glob';
@@ -39,26 +39,35 @@ const PRIORITIES = new Map([
     ['/services', 0.7],
 
     // Identity apex: organism / Agent OS / AI engineering team
-    ['benefits/Introduction'                        , 0.9],
+    ['benefits/Introduction'                        , 1.0],
     ['benefits/ArchitectureOverview'                , 1.0],
-    ['benefits/AIEngineeringTeam'                   , 1.0],
-    ['benefits/AgentMemory'                         , 1.0],
-    ['benefits/SelfEvolution'                       , 1.0],
-    ['benefits/AgentOSOnYourCodebase'               , 1.0],
-    ['benefits/DeployingTheAgentOS'                 , 1.0],
+    ['benefits/brain/AIEngineeringTeam'             , 1.0],
+    ['benefits/brain/IdentityRitualsCulture'        , 1.0],
+    ['benefits/brain/AgentMemory'                   , 1.0],
+    ['benefits/brain/SelfEvolution'                 , 1.0],
+    ['benefits/brain/AgentOSOnYourCodebase'         , 1.0],
+    ['benefits/brain/DeployingTheAgentOS'           , 1.0],
 
     // Agent OS guide cluster
     ['agentos/StrategicWorkflows'                   , 1.0],
+    ['agentos/FlatPeerInstitution'                  , 1.0],
     ['agentos/SwarmIntelligence'                    , 1.0],
+    ['agentos/A2A'                                  , 1.0],
+    ['agentos/IdentityFirewall'                     , 1.0],
+    ['agentos/Hooks'                                , 1.0],
+    ['agentos/ContentTrust'                         , 1.0],
     ['agentos/ProgressiveDisclosureSkills'          , 0.9],
+    ['agentos/CoreSkills'                           , 1.0],
     ['agentos/DreamPipeline'                        , 1.0],
     ['agentos/ConceptOntology'                      , 0.9],
     ['agentos/NeuralLink'                           , 1.0],
     ['agentos/KnowledgeBase'                        , 1.0],
     ['agentos/MemoryCore'                           , 1.0],
+    ['agentos/SelfHealing'                          , 1.0],
     ['agentos/GitHubWorkflow'                       , 0.8],
     ['agentos/CodeExecution'                        , 0.8],
     ['agentos/SharedDeployment'                     , 1.0],
+    ['agentos/ModelProviders'                       , 1.0],
     ['agentos/DeploymentCookbook'                   , 1.0],
 
     // Cloud deployment: team-ready operational surface
@@ -75,18 +84,19 @@ const PRIORITIES = new Map([
     ['agentos/cloud-deployment/MigrationPath'       , 0.7],
 
     // Body/runtime benefits
-    ['benefits/ObjectPermanence'                    , 0.9],
-    ['benefits/JSONFirstUIs'                        , 0.9],
-    ['benefits/OffTheMainThread'                    , 0.9],
-    ['benefits/FourEnvironments'                    , 0.9],
-    ['benefits/ConfigSystem'                        , 0.9],
-    ['benefits/Quick'                               , 0.9],
-    ['benefits/RPCLayer'                            , 0.9],
-    ['benefits/Speed'                               , 0.9],
-    ['benefits/MultiWindow'                         , 0.9],
-    ['benefits/Effort'                              , 0.8],
-    ['benefits/FormsEngine'                         , 0.8],
-    ['benefits/Features'                            , 0.8],
+    ['benefits/body/ApplicationEngine'              , 0.9],
+    ['benefits/body/ObjectPermanence'               , 0.9],
+    ['benefits/body/JSONFirstUIs'                   , 0.9],
+    ['benefits/body/OffTheMainThread'               , 0.9],
+    ['benefits/body/FourEnvironments'               , 0.9],
+    ['benefits/body/ConfigSystem'                   , 0.9],
+    ['benefits/body/Quick'                          , 0.9],
+    ['benefits/body/RPCLayer'                       , 0.9],
+    ['benefits/body/Speed'                          , 0.9],
+    ['benefits/body/MultiWindow'                    , 0.9],
+    ['benefits/body/Effort'                         , 0.8],
+    ['benefits/body/FormsEngine'                    , 0.8],
+    ['benefits/body/Features'                       , 0.8],
 
     // High-value implementation guides
     ['guides/fundamentals/CodebaseOverview'         , 1.0],

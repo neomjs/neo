@@ -7,10 +7,10 @@
 The next great leap in frontend development will not be a new rendering pattern or state management library.
 It will be a fundamental shift in our partnership with artificial intelligence. For too long, we've treated AI as a
 clever autocomplete—a helpful but limited assistant. What if, instead, we built development platforms that treated AI as
-a first-class partner? 
+a first-class partner?
 
 This is the question at the heart of Neo.mjs v10.7,
-the first release to be architected from the ground up for an **AI-Native** future. 
+the first release to be architected from the ground up for an **AI-Native** future.
 
 This isn't about bolting on a chatbot; it's about a new development model where AI is a foundational part of the
 architecture, designed to be understood, queried, and even enhanced by the platform itself. At the core of this new
@@ -18,6 +18,8 @@ experience are two key innovations: a comprehensive, local **AI Knowledge Base**
 **AI Agent Protocol** ([AGENTS.md](https://github.com/neomjs/neo/blob/dev/AGENTS.md)).
 
 Together, they transform the developer experience from a monologue of reading docs into a dialogue with the platform itself.
+
+> **2026 update:** this v10.7-era post is a historical snapshot of Neo's first local Knowledge Base. The live Agent OS now exposes Knowledge Base access through MCP tools such as `ask_knowledge_base` and `query_documents`, backed by the current provider-configured embedding pipeline. Historical implementation excerpts below remain as archaeology; runnable query examples use the current MCP tool shape.
 
 ## The Problem with "AI-Assisted" Development
 
@@ -44,13 +46,12 @@ This architecture stands on four pillars:
 
 ### 1. The Local AI Knowledge Base
 
-At the heart of our AI-native approach is a powerful, local knowledge base built on a suite of simple scripts
-(`createKnowledgeBase.mjs`, `embedKnowledgeBase.mjs`, `queryKnowledgeBase.mjs`). Here's how it works:
+At the heart of the original AI-native approach was a powerful, local knowledge base built on a suite of simple scripts
+(`createKnowledgeBase.mjs`, `embedKnowledgeBase.mjs`, `queryKnowledgeBase.mjs`). The current Agent OS keeps the same query-first idea behind MCP tools and provider-configured services. Here's the durable model:
 
 -   **Comprehensive:** It indexes the *entire* project: `src`, `examples`, `guides`, `blog`, (demo) `apps` (including
     your own apps created inside the repo).
--   **Vectorized for Meaning:** Using Google's `text-embedding-004` Gemini model via your own private API key,
-    it converts the entire knowledge base into semantic vectors and stores them locally in a ChromaDB database.
+-   **Vectorized for Meaning:** The first implementation used a Gemini embedding model via a private API key; the current Agent OS uses provider-configured local-or-remote embeddings to convert the knowledge base into semantic vectors and store them locally in a ChromaDB database.
 -   **Always Current:** Because it runs locally, it's always up-to-date with your latest code changes.
     The AI is querying the reality of your project *right now*, not the state of the world a year ago.
 
@@ -72,8 +73,8 @@ revolutionary rule:
 **The Anti-Hallucination Policy: The AI MUST query the local knowledge base before writing any code.**
 
 This query-first development model requires the AI to ask questions like:
-- `npm run ai:query -- -q "How does push-based afterSet hooks integrate with pull-based effects?"`
-- `npm run ai:query -- -q "show me examples for Neo.tab.Container"`
+- `ask_knowledge_base({query: "How do push-based afterSet hooks integrate with pull-based effects?"})`
+- `ask_knowledge_base({query: "show me examples for Neo.tab.Container"})`
 
 But it goes a step further. It introduces a **Knowledge Base Enhancement Strategy**, turning the AI from a passive
 consumer of information into an active contributor to the platform's clarity. The workflow is as follows:
@@ -104,7 +105,7 @@ This combination of a queryable knowledge base and a strict agent protocol effec
 for connecting AI applications to external systems, and Neo.mjs has independently implemented its core philosophy.
 
 In this paradigm:
--   The **Server** is the combination of the local ChromaDB database and the `npm run ai:query` script, which exposes
+-   The **Server** is the Knowledge Base MCP surface backed by ChromaDB and the current query services, which expose
     the codebase as a queryable tool.
 -   The **Client** is any AI agent, like Gemini CLI or Claude, that can read the protocol and execute shell commands.
 -   The **Protocol** is defined by `AGENTS.md`, which serves as the manifest telling clients how to interact with the server.
@@ -244,7 +245,7 @@ the browser. In Neo.mjs, the generation happens in a worker, leaving the UI perf
 AI is doing in the background.
 
 More input:<br>
-[Off the Main Thread](https://github.com/neomjs/neo/blob/dev/learn/benefits/OffTheMainThread.md)<br>
+[Off the Main Thread](https://github.com/neomjs/neo/blob/dev/learn/benefits/body/OffTheMainThread.md)<br>
 [How JSON Blueprints & Shared Workers Power Next-Gen AI Interfaces](https://github.com/neomjs/neo/blob/dev/learn/blog/json-blueprints-and-shared-workers.md)
 
 ### A Query in Action: Understanding Reactivity
@@ -254,8 +255,8 @@ query three times, asking for a guide, a blog post, and the source code.
 
 **First, we ask for a high-level guide:**
 
-```bash readonly
-> npm run ai:query -- -q "reactivity" -t guide
+```text readonly
+> ask_knowledge_base({query: "reactivity", type: "guide"})
 
 Querying for: "reactivity" (type: guide)...
 
@@ -280,8 +281,8 @@ The system immediately points us to the primary guide for the config system, whi
 
 **Next, let's ask for a more narrative explanation from the blog:**
 
-```bash readonly
-> npm run ai:query -- -q "reactivity" -t blog
+```text readonly
+> ask_knowledge_base({query: "reactivity", type: "blog"})
 
 Querying for: "reactivity" (type: blog)...
 
@@ -302,8 +303,8 @@ with a massive score indicating high relevance.
 
 **Finally, let's find the source of truth:**
 
-```bash readonly
-> npm run ai:query -- -q "reactivity" -t src
+```text readonly
+> ask_knowledge_base({query: "reactivity", type: "src"})
 
 Querying for: "reactivity" (type: src)...
 
@@ -876,7 +877,7 @@ class QueryKnowledgeBase {
     static async run(query, type) {
         if (!query) {
             console.error('Error: A query string must be provided.');
-            console.log('Usage: npm run ai:query -- -q "your search query"');
+            console.log('Usage: call ask_knowledge_base({query: "your search query"})');
             return;
         }
 
@@ -897,7 +898,7 @@ class QueryKnowledgeBase {
             collection = await dbClient.getCollection({ name: 'neo_knowledge' });
             console.warn = originalLog;
         } catch (err) {
-            console.error('Could not connect to collection. Please run "npm run ai:build-kb" first.');
+            console.error('Could not connect to collection. Rebuild or resync the Knowledge Base before querying.');
             return;
         }
 

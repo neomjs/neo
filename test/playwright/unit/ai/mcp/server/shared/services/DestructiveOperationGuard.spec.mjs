@@ -21,17 +21,33 @@ import os             from 'os';
 import path           from 'path';
 import DestructiveOperationGuard, {
     DESTRUCTIVE_PRODUCTION_BYPASS_ENV,
-    DESTRUCTIVE_PRODUCTION_CONFIRMATION
+    DESTRUCTIVE_PRODUCTION_CONFIRMATION,
+    GUARDED_CANONICAL_COLLECTION_NAMES
 } from '../../../../../../../../ai/mcp/server/shared/services/DestructiveOperationGuard.mjs';
-import CollectionProxy from '../../../../../../../../ai/services/memory-core/managers/CollectionProxy.mjs';
+import CollectionProxy       from '../../../../../../../../ai/services/memory-core/managers/CollectionProxy.mjs';
 import MemoryDatabaseService from '../../../../../../../../ai/services/memory-core/DatabaseService.mjs';
-import KbChromaManager from '../../../../../../../../ai/services/knowledge-base/ChromaManager.mjs';
-import KbVectorService from '../../../../../../../../ai/services/knowledge-base/VectorService.mjs';
-import aiConfig from '../../../../../../../../ai/mcp/server/memory-core/config.mjs';
+import KbChromaManager       from '../../../../../../../../ai/services/knowledge-base/ChromaManager.mjs';
+import KbVectorService       from '../../../../../../../../ai/services/knowledge-base/VectorService.mjs';
+import kbConfig              from '../../../../../../../../ai/mcp/server/knowledge-base/config.mjs';
+import aiConfig              from '../../../../../../../../ai/mcp/server/memory-core/config.mjs';
 
 const repoRoot = process.cwd();
 
 test.describe('Neo.ai.mcp.server.shared.services.DestructiveOperationGuard (#10845)', () => {
+    test('the guarded canonical set stays in parity with the live config collection names (drift-catch)', () => {
+        // The guard hardcodes its set (deliberately, for the no-unit-test-isolation case), so this is the
+        // defense against it silently drifting from the live config — the gap that left the renamed graph
+        // collection (the stale neo-agent-graph vs the live neo-native-graph) unguarded at the name layer.
+        // Parity is checked against the PRODUCTION leaves: the guard protects production names regardless of
+        // the unit-test isolation toggle, so `collections.memory`/`.session` (test-toggled here) would be wrong.
+        for (const name of [aiConfig.collections.memoryProd, aiConfig.collections.sessionProd, aiConfig.collections.graph, kbConfig.collectionName]) {
+            expect(typeof name).toBe('string');
+            expect(GUARDED_CANONICAL_COLLECTION_NAMES.has(name)).toBe(true);
+        }
+
+        expect(GUARDED_CANONICAL_COLLECTION_NAMES.has('neo-agent-graph')).toBe(false);
+    });
+
     test('permits in-memory SQLite targets', async () => {
         const result = await DestructiveOperationGuard.assertDestructiveTargetAllowed({
             operation: 'memory-core.graph.truncate',
@@ -153,7 +169,7 @@ test.describe('Neo.ai.mcp.server.shared.services.DestructiveOperationGuard (#108
             subsystem: 'memory-core',
             mode     : 'drop',
             target,
-            env: {
+            env      : {
                 [DESTRUCTIVE_PRODUCTION_BYPASS_ENV]: 'true'
             }
         })).rejects.toMatchObject({
@@ -161,9 +177,9 @@ test.describe('Neo.ai.mcp.server.shared.services.DestructiveOperationGuard (#108
         });
 
         const result = await DestructiveOperationGuard.assertDestructiveTargetAllowed({
-            operation: 'memory-core.memory.drop',
-            subsystem: 'memory-core',
-            mode     : 'drop',
+            operation   : 'memory-core.memory.drop',
+            subsystem   : 'memory-core',
+            mode        : 'drop',
             target,
             confirmation: DESTRUCTIVE_PRODUCTION_CONFIRMATION,
             env         : {
@@ -195,34 +211,40 @@ test.describe('DestructiveOperationGuard call-site wiring (#10845)', () => {
     const skipCiSubstrateData = !!process.env.NEO_TEST_SKIP_CI;
 
     test('Memory Core CollectionProxy stops before deleting a production Chroma collection', async () => {
-        const proxy = Neo.create(CollectionProxy, {
-            collectionType: 'memory'
-        });
+        const
+            originalUseTestDatabase = aiConfig.engines.chroma.useTestDatabase,
+            proxy                   = Neo.create(CollectionProxy, {
+                collectionType: 'memory'
+            });
         let deleteCalls = 0;
 
-        proxy.getManagers = async () => [{
-            getMemoryCollection: async () => ({
-                name: 'neo-agent-memory'
-            }),
-            client: {
+        aiConfig.engines.chroma.useTestDatabase = false;
+
+        try {
+            proxy.getManagers = async () => [{
+                getMemoryCollection: async () => ({
+                    name: 'neo-agent-memory'
+                }),
                 deleteCollection: async () => {
                     deleteCalls++;
                 }
-            }
-        }];
+            }];
 
-        await expect(proxy.drop()).rejects.toMatchObject({
-            code: 'DESTRUCTIVE_TARGET_BLOCKED'
-        });
-        expect(deleteCalls).toBe(0);
+            await expect(proxy.drop()).rejects.toMatchObject({
+                code: 'DESTRUCTIVE_TARGET_BLOCKED'
+            });
+            expect(deleteCalls).toBe(0);
+        } finally {
+            aiConfig.engines.chroma.useTestDatabase = originalUseTestDatabase;
+        }
     });
 
     test('Memory Core graph truncate stops before SQLite deletion on the production graph path', async () => {
         test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
 
-        const originalGraphPath = aiConfig.storagePaths.graph;
+        const originalUseTestDatabase = aiConfig.storagePaths.useTestDatabase;
         try {
-            aiConfig.storagePaths.graph = path.join(repoRoot, '.neo-ai-data/sqlite/memory-core-graph.sqlite');
+            aiConfig.storagePaths.useTestDatabase = false;
 
             await expect(MemoryDatabaseService.truncateDatabase({
                 include: ['graph']
@@ -231,14 +253,17 @@ test.describe('DestructiveOperationGuard call-site wiring (#10845)', () => {
                 message: expect.stringContaining('DESTRUCTIVE_TARGET_BLOCKED')
             });
         } finally {
-            aiConfig.storagePaths.graph = originalGraphPath;
+            aiConfig.storagePaths.useTestDatabase = originalUseTestDatabase;
         }
     });
 
     test('Knowledge Base VectorService stops before deleting the production collection', async () => {
-        const originalClient = KbChromaManager.client;
-        let deleteCalls      = 0;
+        const
+            originalClient = KbChromaManager.client,
+            originalPath   = kbConfig.path;
+        let deleteCalls = 0;
 
+        kbConfig.path          = path.join(repoRoot, '.neo-ai-data/chroma/unified');
         KbChromaManager.client = {
             deleteCollection: async () => {
                 deleteCalls++;
@@ -252,6 +277,7 @@ test.describe('DestructiveOperationGuard call-site wiring (#10845)', () => {
             expect(deleteCalls).toBe(0);
         } finally {
             KbChromaManager.client = originalClient;
+            kbConfig.path          = originalPath;
         }
     });
 

@@ -1,16 +1,20 @@
 import {program}             from 'commander';
-import {execSync, spawnSync}  from 'node:child_process';
-import {readFileSync}         from 'node:fs';
-import path                   from 'node:path';
-import process                from 'node:process';
-import {fileURLToPath}        from 'node:url';
+import {execSync, spawnSync} from 'node:child_process';
+import {readFileSync}        from 'node:fs';
+import path                  from 'node:path';
+import process               from 'node:process';
+import {fileURLToPath}       from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const scriptRoot = path.resolve(__dirname, '../..');
 
-const DEFAULT_DIRS    = ['ai', 'src', 'test/playwright'];
-const DEFAULT_IGNORES = ['.claude', '.codex', 'dist', 'node_modules'];
+// Scan roots for the default audit + `--base` CI mode: a directory (scanned recursively) or a specific
+// file. Keep mirror-aligned with the `paths:` trigger of .github/workflows/ticket-archaeology-lint.yml so
+// every path that can trigger the gate is also scanned (else it passes vacuously). The guard lists ITSELF
+// here so it self-guards at the merge-gate, not only via the pre-commit lint-staged `*.mjs` glob.
+export const DEFAULT_SCAN_PATHS = ['ai', 'src', 'test/playwright', 'buildScripts/util/check-ticket-archaeology.mjs'];
+export const DEFAULT_IGNORES    = ['.claude', '.codex', 'dist', 'node_modules'];
 
 // Inline relief valve for a genuinely load-bearing comment ref (judgment-call escape, not a blanket bypass).
 export const ESCAPE_MARKER = 'ticket-ref-ok';
@@ -129,6 +133,22 @@ export function findTicketRefs(content) {
     return hits
 }
 
+/**
+ * @summary True when a repo-relative path is in archaeology-scan scope: a `.mjs` file under one of the
+ * scan roots (a directory prefix, or an exact-file root such as the guard itself) and not under any
+ * ignored path fragment. The single in-scope contract shared by the `--base` CI selection and the
+ * default audit — exported so the base-mode scope is unit-testable without a live git diff.
+ * @param {String} file Repo-relative path.
+ * @param {String[]} scanPaths Scan roots — directories (prefix match) or specific files (exact match).
+ * @param {String[]} ignores Path fragments; a file is excluded when any path segment matches one.
+ * @returns {Boolean}
+ */
+export function isInScopePath(file, scanPaths, ignores) {
+    return file.endsWith('.mjs')
+        && scanPaths.some(p => file === p || file.startsWith(`${p}/`))
+        && !ignores.some(ignore => file.split('/').includes(ignore))
+}
+
 function main() {
     let gitRoot;
     try {
@@ -147,24 +167,34 @@ function main() {
     program
         .name('check-ticket-archaeology')
         .description('Substrate gate against decay-prone ticket/Epic/Discussion/ADR refs in durable .mjs comments/JSDoc.')
-        .argument('[files...]', 'Specific .mjs files to scan (lint-staged passes staged paths here). When omitted, falls back to scanning --dirs.')
-        .option('-d, --dirs <list>', 'Comma-separated directories to scan in default mode.', DEFAULT_DIRS.join(','))
-        .option('-i, --ignore <list>', 'Comma-separated path fragments to exclude from default-mode scan.', DEFAULT_IGNORES.join(','))
-        .option('-q, --quiet', 'Suppress the per-violation listing; print summary only.', false)
+        .argument('[files...]', 'Specific .mjs files to scan (lint-staged passes staged paths). Omitted -> --base changes or the --dirs audit.')
+        .option('-d, --dirs <list>', 'Comma-separated scan roots (directories or specific files) for default/--base mode.', DEFAULT_SCAN_PATHS.join(','))
+        .option('-i, --ignore <list>', 'Comma-separated path fragments to exclude.', DEFAULT_IGNORES.join(','))
+        .option('-b, --base <ref>', 'CI mode: scan only the in-scope .mjs changed vs this base ref.')
+        .option('-s, --skip', 'Skip the gate (generated-data class; also via NEO_SKIP_TICKET_ARCHAEOLOGY=1).', false)
+        .option('-q, --quiet', 'Suppress the per-violation listing; print the summary only.', false)
         .showHelpAfterError();
 
     program.parse(process.argv);
 
     const argvFiles = program.args,
           options   = program.opts(),
-          scanDirs  = options.dirs.split(',').map(s => s.trim()).filter(Boolean),
+          scanPaths = options.dirs.split(',').map(s => s.trim()).filter(Boolean),
           ignores   = options.ignore.split(',').map(s => s.trim()).filter(Boolean);
+
+    // Targeted skip for the generated-data class (data-sync pipeline / sync_all): they commit
+    // resources/content/ which legitimately carries ticket-refs (the actual issue/PR/discussion bodies),
+    // so the archaeology gate does not apply. A clean opt-out, distinct from blunt `--no-verify`.
+    if (options.skip || process.env.NEO_SKIP_TICKET_ARCHAEOLOGY === '1') {
+        console.log('check-ticket-archaeology: skipped (generated-data class — --skip / NEO_SKIP_TICKET_ARCHAEOLOGY).');
+        process.exit(0);
+    }
 
     function collectDefaultFiles() {
         const findArgs = ['-type', 'f', '-name', '*.mjs'];
         ignores.forEach(ignore => findArgs.push('-not', '-path', `*/${ignore}/*`));
 
-        const result = spawnSync('find', [...scanDirs, ...findArgs], {cwd: gitRoot, encoding: 'utf-8'});
+        const result = spawnSync('find', [...scanPaths, ...findArgs], {cwd: gitRoot, encoding: 'utf-8'});
         if (result.status !== 0) {
             console.error('\x1b[31mError: find command failed.\x1b[0m');
             console.error(result.stderr);
@@ -173,9 +203,30 @@ function main() {
         return result.stdout.trim().split('\n').filter(Boolean);
     }
 
-    const files = argvFiles.length > 0
-        ? argvFiles.filter(f => f.endsWith('.mjs'))
-        : collectDefaultFiles();
+    // CI mode: the in-scope (per isInScopePath — .mjs, within a scan root, not ignored) files CHANGED vs
+    // the base ref. Deletions (--diff-filter=d excludes them) cannot carry archaeology; renames/edits exist
+    // on HEAD → readable.
+    function changedFilesVsBase(base) {
+        const result = spawnSync('git', ['diff', '--name-only', '--diff-filter=d', `${base}...HEAD`], {cwd: gitRoot, encoding: 'utf-8'});
+        if (result.status !== 0) {
+            console.error(`\x1b[31mError: git diff against '${base}' failed.\x1b[0m`);
+            console.error(result.stderr);
+            process.exit(1);
+        }
+        return result.stdout.trim().split('\n').filter(Boolean)
+            .filter(f => isInScopePath(f, scanPaths, ignores));
+    }
+
+    // File selection (all modes scan each selected file in FULL — boy-scout, no line scoping):
+    //   --base <ref> : CI — the in-scope files changed vs <ref>
+    //   file args    : pre-commit — lint-staged passes the staged paths
+    //   neither      : the default whole-repo audit
+    const hasFileArgs = argvFiles.length > 0;
+    const files       = options.base
+        ? changedFilesVsBase(options.base)
+        : hasFileArgs
+            ? argvFiles.filter(f => f.endsWith('.mjs'))
+            : collectDefaultFiles();
 
     if (files.length === 0) {
         console.log('check-ticket-archaeology: 0 .mjs files in scope, nothing to check.');
@@ -192,15 +243,20 @@ function main() {
             continue;
         }
 
-        findTicketRefs(content).forEach(({line, text}) => violations.push(`${file}:${line}: ${text}`));
+        // Boy-scout rule (operator-directed): scan the WHOLE touched file, exactly like
+        // check-block-alignment — touching a file obligates cleaning ALL its ticket-archaeology, not just
+        // the author's added lines. This reduces the grandfathered backlog as files are naturally touched;
+        // an added-lines-only scope (the prior shape) froze that debt instead.
+        findTicketRefs(content)
+            .forEach(({line, text}) => violations.push(`${file}:${line}: ${text}`));
     }
 
     if (violations.length > 0) {
-        console.error(`\x1b[31mcheck-ticket-archaeology: ${violations.length} ticket ref(s) in durable comments:\x1b[0m`);
+        console.error(`\x1b[31mcheck-ticket-archaeology: ${violations.length} decay-prone ref(s) (ticket/Epic/Discussion/ADR) in durable comments:\x1b[0m`);
         if (!options.quiet) {
             violations.forEach(v => console.error('  ' + v));
-            console.error('\nDurable comments/JSDoc must describe behavior, not cite tracking tickets (they rot when');
-            console.error('tickets close/rename). Move the ref to the PR body / commit subject, or — only if genuinely');
+            console.error('\nDurable comments/JSDoc must describe behavior, not cite tracking refs — tickets, Epics, Discussions, or ADRs (they rot when the');
+            console.error('referenced item closes/renames). Move the ref to the PR body / commit subject, or — only if genuinely');
             console.error(`load-bearing — add a "${ESCAPE_MARKER}: <reason>" marker on the line.`);
         }
         process.exit(1);

@@ -38,4 +38,4 @@ A unique advantage of Neo.mjs is its support for four distinct environments, all
 -   **dist/development**: A bundled, non-minified version with source maps, useful for debugging issues that might only appear in a bundled environment.
 
 For a detailed explanation of each environment and how they work together, please read our comprehensive guide:
-**[Learn more: The 4 Environments](../benefits/FourEnvironments.md)**
+**[Learn more: The 4 Environments](../benefits/body/FourEnvironments.md)**

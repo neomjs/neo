@@ -2,6 +2,38 @@
     "data": [
         {
             "collapsed": false,
+            "id": "2026",
+            "isLeaf": false,
+            "name": "2026",
+            "parentId": null,
+            "path": null
+        },
+        {
+            "date": "2026-07-02",
+            "id": "blog/the-organism-already-existed",
+            "isLeaf": true,
+            "name": "An AI predicted its own project's future. Ten weeks later, another AI graded it.",
+            "parentId": "2026",
+            "path": "learn/blog/the-organism-already-existed.md"
+        },
+        {
+            "date": "2026-06-18",
+            "id": "blog/cross-family-verification",
+            "isLeaf": true,
+            "name": "Your AI Agent Grades Its Own Homework. Mine Gets Checked by a Rival Lab.",
+            "parentId": "2026",
+            "path": "learn/blog/cross-family-verification.md"
+        },
+        {
+            "date": "2026-06-16",
+            "id": "blog/ai-agents-runtime-possession",
+            "isLeaf": true,
+            "name": "Your AI can write the app. It still can't operate the running one.",
+            "parentId": "2026",
+            "path": "learn/blog/ai-agents-runtime-possession.md"
+        },
+        {
+            "collapsed": false,
             "id": "2025",
             "isLeaf": false,
             "name": "2025",

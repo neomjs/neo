@@ -9,6 +9,10 @@ createdAt: '2026-04-09T08:18:50Z'
 updatedAt: '2026-04-09T08:18:50Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 ## The Concept: Semantic Ontology Ingestion
 Currently, the SQLite Native Edge Graph focuses primarily on physical/literal structure (e.g., mapping `CLASS` to `FILE` or `ISSUE`). However, Neo.mjs is heavily driven by abstract concepts—like "Application Engine", "Off the main thread", "Reactivity", and the "Agent SDK". 

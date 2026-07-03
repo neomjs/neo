@@ -411,9 +411,9 @@ test.describe('Memory Core Offline Summarization', () => {
 
         const massiveToolConfig = new Array(50000).fill('A').join('');
         const toolsUsed = [JSON.stringify({
-            name: undefined,
+            name      : undefined,
             toolAction: undefined,
-            content: massiveToolConfig
+            content   : massiveToolConfig
         })];
 
         const toolsAdd = await SDK.Memory_Service.addMemory({
@@ -494,8 +494,10 @@ test.describe('Memory Core Offline Summarization', () => {
         // metadata timestamp.)
         await drainMemoryWal({SDK, ids: [add1.id, add2.id, add3.id]});
 
-        // Use findSessionsToSummarize explicitly
-        const candidates = await SDK.Memory_SessionService.findSessionsToSummarize(true);
+        // Use findSessionsToSummarize explicitly. Inject a `now` well past the churn-gate idle window
+        // so all three just-written sessions are eligible — this test asserts candidate
+        // ORDERING (newest lastActivity first), not the gate's eligibility timing.
+        const candidates = await SDK.Memory_SessionService.findSessionsToSummarize({now: Date.now() + 60 * 60 * 1000});
 
         // candidates should contain s1, s2, s3. Since s3 is newest, its index should be smaller than s2 and s1.
         expect(candidates.includes(s3)).toBe(true);

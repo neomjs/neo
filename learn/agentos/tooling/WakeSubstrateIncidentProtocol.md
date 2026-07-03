@@ -55,13 +55,14 @@ ps aux | grep -E "daemons/wake/daemon" | grep -v grep
 # Orchestrator daemon — drives the swarm-heartbeat lane since #11766
 # (there is no standalone swarm-heartbeat process anymore)
 cat .neo-ai-data/orchestrator-daemon/orchestrator-daemon.pid 2>/dev/null
+ls -la .neo-ai-data/orchestrator-daemon/ .neo-ai-data/orchestrator-daemon-canonical/ 2>/dev/null
 ps aux | grep -E "orchestrator-daemon" | grep -v grep
 
 # Active resumeHarness invocations (should be zero in steady-state)
 ps aux | grep -E "resumeHarness" | grep -v grep
 ```
 
-Record every PID found, its start time, and the working directory. Multiple `orchestrator-daemon` instances are a hazard: duplicated heartbeat lanes amplify orphan-spawn under any cross-layer regression by multiplying scheduler cycles. The Orchestrator entry-point enforces a PID-file singleton, so a second instance usually indicates a stale PID file or a failed SIGTERM handoff.
+Record every PID found, its start time, and the working directory. Multiple `orchestrator-daemon` instances are a hazard: duplicated heartbeat lanes amplify orphan-spawn under any cross-layer regression by multiplying scheduler cycles. The Orchestrator entry-point enforces a PID-file singleton, so a second instance usually indicates a stale PID file or a failed SIGTERM handoff. In non-canonical checkouts, `.neo-ai-data/orchestrator-daemon/` is the local process-control dir; canonical task state and logs are inspected through `.neo-ai-data/orchestrator-daemon-canonical/` after `bootstrapWorktree.mjs --link-data --canonical-root <canonical-checkout>`.
 
 ### Wake safety gate state
 

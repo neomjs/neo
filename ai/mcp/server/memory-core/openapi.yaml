@@ -37,12 +37,31 @@ tags:
     description: Knowledge Graph operations
   - name: Permissions
     description: Agent permission operations
+  - name: TurnPresence
+    description: Agent active-turn liveness interval operations
+  - name: Diagnostics
+    description: On-demand operational diagnostics
+
+# Harness tool-projection policy (mirrors neural-link / knowledge-base / github-workflow). A maintainer
+# harness spawned with `--tool-projection-mode harness-embedded` loads the read + write (core-maintainer)
+# tiers; the `extended` (on-demand diagnostics / session-lifecycle / frontier / wake) + `admin` (destructive /
+# permission) tiers are withheld, reachable on demand via `get_mcp_tool_handbook`. mc's visible set includes
+# `write` because a maintainer's core writes (A2A add_message/mark_read, add_memory, record_turn_presence) are
+# constant — like gh, unlike kb.
+x-neo-harness-tool-projection:
+  defaultVisibleTiers:
+    - read
+    - write
+  operatorOnlyTiers:
+    - admin
 
 paths:
   /healthcheck:
     get:
       summary: Health Check
       operationId: healthcheck
+      x-neo-tool-tier: read
+      x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
       description: |
@@ -51,6 +70,30 @@ paths:
         **When to Use:**
         Use this as a first-step diagnostic tool to ensure the memory system is operational before attempting other operations.
       tags: [Health]
+      parameters:
+        - name: freshObservability
+          in: query
+          required: false
+          description: Refresh request-facing fields on cached healthy results.
+          schema:
+            type: boolean
+            default: true
+        - name: chromaProbeTimeoutMs
+          in: query
+          required: false
+          description: Max time to wait for Chroma readiness, connection, and collection-count probes.
+          schema:
+            type: integer
+            minimum: 1
+            default: 1500
+        - name: embeddingWriteCanaryTimeoutMs
+          in: query
+          required: false
+          description: Max time to wait for the active embedding provider during the write canary.
+          schema:
+            type: integer
+            minimum: 1
+            default: 30000
       responses:
         '200':
           description: Server is healthy and database is accessible
@@ -65,10 +108,164 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /tool/handbook:
+    post:
+      summary: Tool Handbook
+      operationId: get_mcp_tool_handbook
+      x-neo-tool-tier: read
+      x-annotations:
+        readOnlyHint: true
+      description: Returns lazy-loaded usage detail for one Memory Core MCP tool.
+      tags: [Health]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [toolId]
+              properties:
+                toolId:
+                  type: string
+                  description: Tool operation id to inspect.
+      responses:
+        '200':
+          description: Tool handbook lookup result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  toolId:
+                    type: string
+                  found:
+                    type: boolean
+                  title:
+                    type: string
+                  description:
+                    type: string
+                  handbook:
+                    type: string
+                  source:
+                    type: string
+                  code:
+                    type: string
+                  message:
+                    type: string
+
+  /diagnostics/tool-metrics:
+    post:
+      summary: Get Memory Core Tool Metrics
+      operationId: get_memory_core_tool_metrics
+      x-neo-tool-tier: extended
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Returns aggregate Memory Core MCP tool-call telemetry without exposing raw tool
+        arguments or results. Use this to diagnose slow or failing tools in long-running
+        local and shared deployments.
+      tags: [Diagnostics]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sinceMs:
+                  type: integer
+                  minimum: 1
+                  description: Lookback window in milliseconds. Defaults to the Memory Core telemetry config leaf.
+                limit:
+                  type: integer
+                  minimum: 1
+                  description: Maximum number of per-tool aggregate rows. Defaults to the Memory Core telemetry config leaf.
+      responses:
+        '200':
+          description: Aggregate Memory Core MCP tool-call metrics.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryCoreToolMetricsResponse'
+
+  /deployment/state/snapshot:
+    post:
+      summary: Deployment State Snapshot
+      operationId: get_deployment_state_snapshot
+      x-neo-tool-tier: extended
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      x-neo-tool-summary: Read the graph-independent deployment-state bridge snapshot.
+      description: |
+        Reads the bounded deployment-state bridge snapshot written by the internal orchestrator.
+        This is a read-only public MC surface: it does not expose Docker, shell, exec, restart,
+        or any public daemon/orchestrator route. If the bridge is missing or stale, the response
+        reports that explicitly instead of falling back to graph-only proof. The snapshot can
+        include bridgeDiagnostics with redacted runtime-access config, Compose label filter
+        details, and stable lookup-failure reasons for service-observation failures. Fresh
+        snapshots missing current-schema sections return a degraded status with stable
+        schemaDiagnostics reason codes.
+      tags: [Diagnostics]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                staleAfterMs:
+                  type: number
+                  description: Optional freshness window override in milliseconds.
+      responses:
+        '200':
+          description: Snapshot status and payload when available.
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /deployment/inspect:
+    post:
+      summary: Inspect Deployment
+      operationId: inspect_deployment
+      x-neo-tool-tier: extended
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      x-neo-tool-summary: Inspect bounded cloud deployment state from the orchestrator bridge.
+      description: |
+        Reads the bounded deployment inspection snapshot written by the internal orchestrator.
+        This is a read-only public MC surface: it exposes allowlisted service state, bounded
+        log tails, current diagnoses, and recent recovery-run ledger entries without exposing
+        Docker, shell, exec, restart, or any public daemon/orchestrator route. Fresh snapshots
+        missing current-schema sections return a degraded status with stable schemaDiagnostics
+        reason codes.
+      tags: [Diagnostics]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                staleAfterMs:
+                  type: number
+                  description: Optional freshness window override in milliseconds.
+      responses:
+        '200':
+          description: Inspection status and payload when available.
+          content:
+            application/json:
+              schema:
+                type: object
+
   /rem/pipeline-state:
     post:
       summary: Get REM Pipeline State
       operationId: get_rem_pipeline_state
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -101,11 +298,133 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /diagnostics/sqlite-holders:
+    get:
+      summary: Get SQLite Holder Diagnostics
+      operationId: get_sqlite_holder_diagnostics
+      x-neo-tool-tier: extended
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Returns an on-demand, read-only snapshot of sibling processes currently holding
+        the Memory Core SQLite graph files open.
+
+        This diagnostic is intentionally outside the default healthcheck path. It may
+        shell out to process-inspection tools and should be called only when operators
+        need current holder details for local or cloud Agent OS triage. Probe failures
+        are reported as degraded diagnostic data, not as Memory Core health failures.
+      tags: [Health]
+      responses:
+        '200':
+          description: Current SQLite holder diagnostic snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SqliteHolderDiagnosticsResponse'
+        '500':
+          description: Operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /who-is-online:
+    post:
+      summary: Who Is Online
+      operationId: who_is_online
+      x-neo-tool-tier: read
+      x-neo-tool-summary: Report recent maintainer activity for review routing and lane handoffs.
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: >
+        Reports per-maintainer live availability — who is completing turns recently, not whether the
+        process is up. Advisory liveness for review-routing, lane-handoff, lead-baton, and
+        wake-targeting: surfaces probably-dark maintainers so a request to a dark agent fails loud
+        instead of stalling the merge gate silently.
+
+
+        Terse by default: {summary, online[], idle[], benched[]} (identity arrays). Pass verbose:true
+        for the full per-agent projection + signal description. Signal (precedence): (1) participationStatus
+        hard gate — operator_benched / temporarily_unreachable report offline; (2) add_memory-recency —
+        a rostered agent's most-recent AGENT_MEMORY write within the freshness window means recently
+        active. add_memory is the universal, deployment-agnostic activity write (no harness beacon); the
+        read is roster-scoped and graph-backed (survives an embed-drain).
+      tags: [Health]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                family:
+                  type: string
+                  description: Optional model-family filter (e.g. 'claude', 'gpt').
+                verbose:
+                  type: boolean
+                  description: >
+                    Default false — terse roster summary. true — full per-agent projection
+                    (signalStatus + per-agent reason/signals) for diagnostics.
+      responses:
+        '200':
+          description: Per-maintainer liveness projection.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: >
+                  Terse default: {generatedAt, summary, online[], idle[], benched[]}. With verbose:true:
+                  {generatedAt, signalStatus, agents[]}.
+                properties:
+                  generatedAt:
+                    type: string
+                    description: ISO timestamp the projection was computed at.
+                  summary:
+                    type: string
+                    description: Terse default — e.g. "3 online · 7 idle · 2 benched".
+                  online:
+                    type: array
+                    items: {type: string}
+                    description: Terse default — identities with fresh add_memory activity.
+                  idle:
+                    type: array
+                    items: {type: string}
+                    description: Terse default — rostered + active identities with no fresh activity.
+                  benched:
+                    type: array
+                    items: {type: string}
+                    description: Terse default — identities whose participationStatus is not 'active'.
+                  signalStatus:
+                    type: string
+                    description: verbose:true only — describes the add_memory-recency signal.
+                  agents:
+                    type: array
+                    description: verbose:true only — full per-agent projection.
+                    items:
+                      type: object
+                      properties:
+                        identity: {type: string}
+                        name: {type: string}
+                        family: {type: string, nullable: true}
+                        participationStatus: {type: string}
+                        online: {type: boolean}
+                        reason: {type: string}
+                        signals: {type: object}
+        '500':
+          description: Operation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /memories:
     post:
       summary: Add New Memory
       operationId: add_memory
+      x-neo-tool-tier: write
       x-pass-as-object: true
+      x-neo-tool-summary: Persist one consolidated turn memory for the active agent session.
       description: |
         Stores a new agent interaction (prompt, thought, response) as a memory.
 
@@ -142,6 +461,7 @@ paths:
     get:
       summary: Get Session Memories
       operationId: get_session_memories
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -197,6 +517,7 @@ paths:
     post:
       summary: Search Raw Memories
       operationId: query_raw_memories
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -236,7 +557,9 @@ paths:
     get:
       summary: Query Recent Turns
       operationId: query_recent_turns
+      x-neo-tool-tier: read
       x-pass-as-object: true
+      x-neo-tool-summary: Recall recent turns chronologically for recovery or handoff.
       x-annotations:
         readOnlyHint: true
       description: |
@@ -308,6 +631,7 @@ paths:
     get:
       summary: Get Context Frontier
       operationId: get_context_frontier
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -333,6 +657,7 @@ paths:
     post:
       summary: Mutate Context Frontier
       operationId: mutate_frontier
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       description: |
         Actively manages the [Frontier] node. When project priorities pivot, this injects those new priorities into the Graph's Edge relationships in real-time.
@@ -381,6 +706,7 @@ paths:
     post:
       summary: Contextual Pre-Briefing
       operationId: pre_brief_session
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       description: |
         Instantly contextualizes the agent by targeting a specific Epic or Graph Node,
@@ -428,6 +754,7 @@ paths:
     get:
       summary: Get All Summaries
       operationId: get_all_summaries
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -486,6 +813,7 @@ paths:
     post:
       summary: Search Summaries
       operationId: query_summaries
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -525,6 +853,7 @@ paths:
     post:
       summary: Purge Session
       operationId: purge_session
+      x-neo-tool-tier: admin
       x-pass-as-object: true
       x-annotations:
         destructiveHint: true
@@ -568,7 +897,9 @@ paths:
     post:
       summary: Validate session resumability
       operationId: resume_session
+      x-neo-tool-tier: extended
       x-pass-as-object: true
+      x-neo-tool-summary: Validate whether a session id is safe to resume.
       x-annotations:
         readOnlyHint: true
       description: |
@@ -638,6 +969,7 @@ paths:
     post:
       summary: Set Session ID
       operationId: set_session_id
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       description: |
         Overrides the current active session ID.
@@ -691,6 +1023,7 @@ paths:
     get:
       summary: Get Node by ID
       operationId: get_node
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -728,6 +1061,7 @@ paths:
     get:
       summary: Get Node Neighbors
       operationId: get_neighbors
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -793,6 +1127,7 @@ paths:
     get:
       summary: Search Graph Nodes
       operationId: search_nodes
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -829,6 +1164,7 @@ paths:
     post:
       summary: Query Hybrid Graph
       operationId: query_hybrid_graph
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -870,6 +1206,7 @@ paths:
     post:
       summary: Grant Permission
       operationId: grant_permission
+      x-neo-tool-tier: admin
       x-pass-as-object: true
       description: |
         Grants a permission edge from the caller to a target identity.
@@ -914,6 +1251,7 @@ paths:
     post:
       summary: Revoke Permission
       operationId: revoke_permission
+      x-neo-tool-tier: admin
       x-pass-as-object: true
       description: |
         Revokes a permission edge from the caller to a target identity.
@@ -958,6 +1296,7 @@ paths:
     get:
       summary: List Permissions
       operationId: list_permissions
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -989,7 +1328,9 @@ paths:
     post:
       summary: Send Message
       operationId: add_message
+      x-neo-tool-tier: write
       x-pass-as-object: true
+      x-neo-tool-summary: Send an A2A message to one peer or an agent broadcast.
       description: |
         Sends an A2A message to a specific agent identity or broadcast (*).
       tags: [Mailbox]
@@ -1036,7 +1377,7 @@ paths:
                 wakeSuppressed:
                   type: boolean
                   default: false
-                  description: "Persist + deliver the message but emit NO wake event — the recipient sees it on their next list_messages rather than via an interrupt. Use for awareness/FYI (e.g. PR-opened-you're-not-the-reviewer, lane-progress, acks) or session-sunset self-DM handovers. Do NOT suppress actionable messages (you're the reviewer, a lane was claimed on you, REQUEST_CHANGES) — those must wake. In autonomous mode a suppressed message stays unseen until the recipient next lists/boots. Default: omit (= false)."
+                  description: "Persist + deliver the message but emit NO wake event — the recipient sees it on their next list_messages rather than via an interrupt. Use for awareness/FYI (e.g. PR-opened-you're-not-the-reviewer, lane-progress, acks) or session-sunset self-DM handovers. Do NOT suppress actionable messages (you're the reviewer, a lane was claimed on you, REQUEST_CHANGES) — those must wake. Known-actionable direct lifecycle messages are rejected when wakeSuppressed is true. In autonomous mode a suppressed message stays unseen until the recipient next lists/boots. Default: omit (= false)."
                 task:
                   type: object
                   description: "Optional A2A Task envelope (https://a2a-protocol.org/latest/specification/) for structured agent coordination. Omit for free-form markdown messages."
@@ -1056,7 +1397,9 @@ paths:
     get:
       summary: List Messages
       operationId: list_messages
+      x-neo-tool-tier: read
       x-pass-as-object: true
+      x-neo-tool-summary: List incoming or historical A2A mailbox messages.
       description: |
         Lists incoming messages for the active agent context.
       tags: [Mailbox]
@@ -1151,6 +1494,7 @@ paths:
     get:
       summary: Get Message
       operationId: get_message
+      x-neo-tool-tier: read
       x-pass-as-object: true
       description: |
         Retrieves a specific message. Subject to read-path permission checks.
@@ -1189,6 +1533,7 @@ paths:
     post:
       summary: Mark Message Read
       operationId: mark_read
+      x-neo-tool-tier: write
       x-pass-as-object: true
       description: |
         Marks a specific message as read.
@@ -1223,6 +1568,7 @@ paths:
     post:
       summary: Archive Message (receiver-side)
       operationId: archive_message
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       description: |
         Recipient-side archive: hides the message from the default `list_messages` view without deleting it. Surface again via `list_messages` with `includeArchived: true`. Only the recipient (direct DM `SENT_TO` or per-recipient broadcast `DELIVERED_TO`) can archive their own copy; broadcasts are archived per-recipient. Distinct from `mark_read` (read ≠ done) and `delete_message` (sender-side permanent retraction).
@@ -1257,6 +1603,7 @@ paths:
     post:
       summary: Delete Message (sender-side retraction)
       operationId: delete_message
+      x-neo-tool-tier: admin
       x-pass-as-object: true
       description: |
         Sender-side retraction: permanently clears the message's `subject` and `bodyText` to `'[retracted by sender]'` and sets `retracted: true`. All edges (`SENT_BY`, `SENT_TO`, `DELIVERED_TO`, `PART_OF_THREAD`, `IN_REPLY_TO`) survive so thread context remains coherent — receivers see the placeholder, not an unexplained gap. Only the sender (`SENT_BY` match) can retract. Irreversible; no undo path.
@@ -1291,6 +1638,7 @@ paths:
     post:
       summary: Transition A2A Task State
       operationId: transition_task
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       description: |
         Transitions the state of an A2A Task using optimistic concurrency control.
@@ -1347,10 +1695,53 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /turn-presence/record:
+    post:
+      summary: Record Turn Presence
+      operationId: record_turn_presence
+      x-neo-tool-tier: write
+      x-pass-as-object: true
+      x-neo-tool-summary: Record active-turn liveness for the current agent session.
+      description: |
+        Records a bounded `AGENT_TURN_PRESENCE` interval for the request-bound AgentIdentity.
+        This is the turn-start/progress/terminal writer surface for #13498 Substrate A.
+
+        The caller identity is server-derived; do not pass an identity field. `start` emits
+        the primary active-turn beacon, `progress` refreshes `lastProgressAt` and freshness
+        bounds for the same `turnId`, and `terminal` closes the interval. When a terminal event
+        omits `turnId`, the newest active turn for the bound identity is closed.
+      tags: [TurnPresence]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TurnPresenceRecordRequest'
+      responses:
+        '200':
+          description: Turn presence recorded, or no-op when no active turn exists for a terminal event.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TurnPresenceRecordResponse'
+        '400':
+          description: Bad Request (invalid action / terminal state)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /wake-subscriptions/manage:
     post:
       summary: Manage WAKE_SUBSCRIPTION
       operationId: manage_wake_subscription
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       description: Subscribe / unsubscribe / update / list / resync agent wake-event subscriptions with trigger types (SENT_TO_ME, TASK_STATE_CHANGED, PERMISSION_GRANTED), optional AND-conjunctive filters, and harness target routing.
       tags: [WakeSubscriptions]
@@ -1388,13 +1779,13 @@ paths:
                   description: Required for subscribe; specifies how wake events are delivered.
                 harnessTargetMetadata:
                   type: object
-                  description: Channel-specific metadata. appName is required so fresh agents always provide the bridge-daemon/osascript routing target; url is required for a2a-webhook; coalesceWindow is an optional override. instanceAddress + addressType (local bridge-daemon only) target a specific receiver instance; userDataDir is a legacy compatibility field for existing subscriptions.
+                  description: Channel-specific metadata. appName is required so fresh agents always provide the bridge-daemon routing target; url is required for a2a-webhook; coalesceWindow is an optional override. instanceAddress + addressType (local bridge-daemon only) target a specific receiver instance; userDataDir is a legacy compatibility field for existing subscriptions.
                   required: [appName]
                   properties:
                     url:              {type: string}
                     coalesceWindow:   {type: integer, minimum: 0, maximum: 300}
                     daemonSocketPath: {type: string}
-                    adapter:          {type: string, enum: [osascript, tmux]}
+                    adapter:          {type: string, enum: [osascript, tmux, codex-app-server]}
                     appName:          {type: string}
                     instanceAddress:  {type: string, nullable: true}
                     addressType:      {type: string, enum: [userDataDir, pid, tmuxSession, webhookUrl], nullable: true}
@@ -1433,6 +1824,76 @@ paths:
 
 components:
   schemas:
+    MemoryCoreToolMetricsResponse:
+      type: object
+      required:
+        - status
+        - sinceMs
+        - limit
+        - totalCalls
+        - tools
+      properties:
+        status:
+          type: string
+          enum: [ok, disabled, unavailable]
+          description: Whether telemetry is available for the requested aggregate.
+          example: ok
+        sinceMs:
+          type: integer
+          description: Effective lookback window in milliseconds.
+          example: 86400000
+        limit:
+          type: integer
+          description: Effective maximum number of grouped tool rows.
+          example: 50
+        totalCalls:
+          type: integer
+          description: Total matching tool calls across all tools.
+          example: 128
+        tools:
+          type: array
+          description: Per-tool aggregate rows. Raw arguments and results are intentionally absent.
+          items:
+            type: object
+            required:
+              - tool
+              - calls
+              - failures
+            properties:
+              tool:
+                type: string
+                description: MCP operation id.
+                example: query_raw_memories
+              calls:
+                type: integer
+                description: Matching call count.
+                example: 42
+              failures:
+                type: integer
+                description: Matching calls recorded as failed.
+                example: 2
+              minDurationMs:
+                type: integer
+                nullable: true
+                description: Fastest recorded duration in milliseconds.
+                example: 12
+              avgDurationMs:
+                type: number
+                nullable: true
+                description: Average recorded duration in milliseconds.
+                example: 84.25
+              maxDurationMs:
+                type: integer
+                nullable: true
+                description: Slowest recorded duration in milliseconds.
+                example: 940
+              lastSeenAt:
+                type: string
+                format: date-time
+                nullable: true
+                description: ISO timestamp of the newest matching call.
+                example: "2026-06-19T03:30:00.000Z"
+
     RemPipelineStateResponse:
       type: object
       required:
@@ -1458,6 +1919,13 @@ components:
           type: integer
           description: Conflict entries currently present in the Sandman handoff file.
           example: 2
+        axisErrors:
+          type: object
+          description: Optional per-axis degradation map. Present only when an axis probe timed out or failed and its numeric value fell back to 0.
+          additionalProperties:
+            type: string
+          example:
+            undigested: "REM axis undigested timed out after 1500ms"
         recentCycles:
           type: array
           description: Recent REM cycle summaries read from the gitignored JSONL run-state store.
@@ -1503,6 +1971,134 @@ components:
               type: integer
               description: Inbound graph entity/provenance edge count for the session.
               example: 17
+    SqliteHolderDiagnosticsResponse:
+      type: object
+      required:
+        - status
+        - measuredAt
+        - sqliteFile
+        - files
+        - existingFiles
+        - totalProcesses
+        - byHarness
+        - groups
+        - processes
+        - warnings
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+          description: Diagnostic probe status; degraded is diagnostic-only and does not imply Memory Core is unhealthy.
+          example: "ok"
+        measuredAt:
+          type: string
+          format: date-time
+          description: ISO timestamp for the diagnostic snapshot.
+          example: "2026-06-19T02:50:00.000Z"
+        sqliteFile:
+          type: string
+          nullable: true
+          description: Memory Core SQLite graph database path inspected by the probe.
+          example: "/repo/.neo-ai-data/sqlite/memory-core-graph.sqlite"
+        files:
+          type: array
+          description: WAL-mode SQLite file set that was considered by the probe.
+          items:
+            type: string
+        existingFiles:
+          type: array
+          description: Subset of files that existed at probe time and were passed to process inspection.
+          items:
+            type: string
+        totalProcesses:
+          type: integer
+          description: Number of sibling holder processes after PID deduplication and current-process exclusion.
+          example: 3
+        byHarness:
+          type: object
+          description: Holder counts keyed by harness classification.
+          additionalProperties:
+            type: integer
+          example:
+            antigravity: 2
+            unknown: 1
+        groups:
+          type: array
+          description: Holder processes grouped by harness classification.
+          items:
+            type: object
+            required: [harness, label, processes]
+            properties:
+              harness:
+                type: string
+                description: Stable harness classification key.
+                example: "antigravity"
+              label:
+                type: string
+                description: Human-readable harness label.
+                example: "Antigravity"
+              processes:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SqliteHolderProcess'
+        processes:
+          type: array
+          description: Flat process list for callers that do not want grouped projection.
+          items:
+            $ref: '#/components/schemas/SqliteHolderProcess'
+        warnings:
+          type: array
+          description: Non-fatal diagnostic warnings, such as unmapped holder harnesses.
+          items:
+            type: object
+            required: [code, message]
+            properties:
+              code:
+                type: string
+                example: "unknown-harness"
+              message:
+                type: string
+        error:
+          type: string
+          nullable: true
+          description: Present when status is degraded.
+    SqliteHolderProcess:
+      type: object
+      required:
+        - pid
+        - files
+        - harness
+        - chain
+      properties:
+        pid:
+          type: integer
+          description: Process id holding one or more SQLite files.
+          example: 12345
+        command:
+          type: string
+          nullable: true
+          description: Command name reported by lsof.
+          example: "node"
+        files:
+          type: array
+          description: SQLite files held by this process.
+          items:
+            type: string
+        harness:
+          type: string
+          description: Stable harness classification key.
+          example: "claude-desktop"
+        chain:
+          type: array
+          description: Parent process chain used to classify the holder.
+          items:
+            type: object
+            required: [pid, command]
+            properties:
+              pid:
+                type: integer
+              command:
+                type: string
     HealthCheckResponse:
       type: object
       properties:
@@ -1648,32 +2244,6 @@ components:
                 dimensions:
                   type: integer
                   example: 4096
-                writeCanary:
-                  type: object
-                  description: "Write-side embedding canary result used to detect add_memory embedding-path degradation."
-                  properties:
-                    status:
-                      type: string
-                      enum: ["healthy", "failed"]
-                      example: "healthy"
-                    provider:
-                      type: string
-                      example: "openAiCompatible"
-                    dimensions:
-                      type: integer
-                      nullable: true
-                      example: 4096
-                    expectedDimensions:
-                      type: integer
-                      nullable: true
-                      example: 4096
-                    durationMs:
-                      type: integer
-                      example: 42
-                    error:
-                      type: string
-                      nullable: true
-                      example: null
                 error:
                   type: string
                   nullable: true
@@ -1693,113 +2263,10 @@ components:
                   type: string
                   nullable: true
                   example: "qwen3-8b"
-                endpoint:
-                  type: string
-                  nullable: true
-                  example: "http://127.0.0.1:11434/v1/chat/completions"
                 local:
                   type: boolean
                   description: "True when the configured endpoint is localhost / loopback."
                   example: true
-                credential:
-                  type: object
-                  description: "Credential observability. Contains env var names and booleans only; never secret values."
-                  properties:
-                    env:
-                      type: string
-                      nullable: true
-                      example: "NEO_OPENAI_COMPATIBLE_API_KEY"
-                    configured:
-                      type: boolean
-                      example: false
-                    required:
-                      type: boolean
-                      example: false
-        startup:
-          type: object
-          description: "Provides status on asynchronous tasks performed at server startup."
-          properties:
-            summarizationStatus:
-              type: string
-              enum: [not_attempted, skipped, completed, failed]
-              description: "The status of the automatic session summarization attempt at startup."
-              example: "completed"
-            summarizationDetails:
-              nullable: true
-              description: "Details about the summarization result. The structure depends on the value of summarizationStatus."
-              anyOf:
-                - type: object
-                  description: "Present when status is 'completed'. Contains the number of sessions processed and details for each."
-                  properties:
-                    processed:
-                      type: integer
-                      example: 2
-                    sessions:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          title:
-                            type: string
-                            example: "Implement MCP Server Configuration"
-                          memoryCount:
-                            type: integer
-                            example: 15
-                - type: object
-                  description: "Present when status is 'failed'. Contains the error message."
-                  properties:
-                    error:
-                      type: string
-                      example: "Failed to connect to Gemini API."
-                - type: object
-                  description: "Present when status is 'skipped'. Contains the reason for skipping."
-                  properties:
-                    reason:
-                      type: string
-                      example: "GEMINI_API_KEY not set"
-              example:
-                processed: 2
-                sessions:
-                  - title: "Implement MCP Server Configuration"
-                    memoryCount: 15
-        mailboxPreview:
-          type: object
-          nullable: true
-          description: "A preview of the agent's mailbox, including unread count and recent messages."
-          properties:
-            unreadCount:
-              type: integer
-              example: 2
-            inbox:
-              type: array
-              items:
-                type: object
-                properties:
-                  id:
-                    type: string
-                  from:
-                    type: string
-                  subject:
-                    type: string
-                  createdAt:
-                    type: string
-                  priority:
-                    type: string
-            outboxRecent:
-              type: array
-              items:
-                type: object
-                properties:
-                  id:
-                    type: string
-                  from:
-                    type: string
-                  subject:
-                    type: string
-                  createdAt:
-                    type: string
-                  priority:
-                    type: string
         identity:
           type: object
           description: |
@@ -1896,6 +2363,83 @@ components:
           items:
             type: string
           example: ["view_file", "replace"]
+
+    TurnPresenceRecordRequest:
+      type: object
+      properties:
+        action:
+          type: string
+          enum: [start, progress, terminal]
+          default: start
+          description: Event kind. `start` creates/refreshes the interval, `progress` refreshes it, and `terminal` closes it.
+        turnId:
+          type: string
+          description: Stable active-turn id. Optional on `start` (generated if omitted); required for progress; optional for terminal, which then closes the newest active turn.
+          example: "7ac7f929-0e77-4f61-92d2-1f078e871fe4"
+        terminalState:
+          type: string
+          enum: [completed, blocked, aborted, stale]
+          default: completed
+          description: Terminal state used when `action='terminal'`.
+        source:
+          type: string
+          description: Harness or lifecycle source emitting the event.
+          example: "codex-user-prompt-submit"
+        note:
+          type: string
+          description: Optional bounded diagnostic note.
+        now:
+          description: Optional clock override for tests.
+          oneOf:
+            - type: string
+              format: date-time
+            - type: number
+
+    TurnPresenceRecordResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [recorded, noop]
+          example: recorded
+        reason:
+          type: string
+          nullable: true
+          example: no-active-turn
+        action:
+          type: string
+          enum: [start, progress, terminal]
+          example: start
+        id:
+          type: string
+          example: "AGENT_TURN_PRESENCE:@neo-gpt:7ac7f929-0e77-4f61-92d2-1f078e871fe4"
+        agentIdentity:
+          type: string
+          example: "@neo-gpt"
+        turnId:
+          type: string
+          example: "7ac7f929-0e77-4f61-92d2-1f078e871fe4"
+        startedAt:
+          type: string
+          format: date-time
+        lastProgressAt:
+          type: string
+          format: date-time
+        freshUntil:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        terminalState:
+          type: string
+          nullable: true
+          enum: [completed, blocked, aborted, stale]
+        source:
+          type: string
+        note:
+          type: string
+          nullable: true
 
     MemoryResponse:
       type: object

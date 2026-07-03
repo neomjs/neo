@@ -15,13 +15,14 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
+import {test, expect}  from '@playwright/test';
+import Neo             from '../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../../src/manager/Instance.mjs';
-import fs             from 'fs';
-import fsExtra        from 'fs-extra';
-import path           from 'path';
+import fs              from 'fs';
+import fsExtra         from 'fs-extra';
+import os              from 'os';
+import path            from 'path';
 
 // Serial mode: this file mutates SDK service methods and StorageRouter accessors across
 // beforeAll/beforeEach. Running in serial protects against intra-file races during
@@ -168,10 +169,10 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
     });
 
     test('happy-path merge: routes embedded substrates through SDK and copies flat files', async () => {
-        const bundleRoot   = buildSyntheticBundle({bundleName: 'happy-merge', shared_topology: true});
-        const conceptsTgt  = path.join(workRoot, 'happy-merge-targets', 'concepts');
-        const trajTgt      = path.join(workRoot, 'happy-merge-targets', 'trajectories.jsonl');
-        const mailboxTgt   = path.join(workRoot, 'happy-merge-targets', 'sent-to-cull.jsonl');
+        const bundleRoot  = buildSyntheticBundle({bundleName: 'happy-merge', shared_topology: true});
+        const conceptsTgt = path.join(workRoot, 'happy-merge-targets', 'concepts');
+        const trajTgt     = path.join(workRoot, 'happy-merge-targets', 'trajectories.jsonl');
+        const mailboxTgt  = path.join(workRoot, 'happy-merge-targets', 'sent-to-cull.jsonl');
 
         const result = await runRestore({
             bundleRoot,
@@ -235,11 +236,11 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
 
         const result = await runRestore({
             bundleRoot,
-            forceTopologyMismatch: true,
-            conceptsTargetDir    : path.join(workRoot, 'topo-targets', 'concepts'),
+            forceTopologyMismatch : true,
+            conceptsTargetDir     : path.join(workRoot, 'topo-targets', 'concepts'),
             trajectoriesTargetFile: path.join(workRoot, 'topo-targets', 'trajectories.jsonl'),
-            sentToCullTargetFile : path.join(workRoot, 'topo-targets', 'sent-to-cull.jsonl'),
-            logger               : silentLogger
+            sentToCullTargetFile  : path.join(workRoot, 'topo-targets', 'sent-to-cull.jsonl'),
+            logger                : silentLogger
         });
         expect(result.topology.match).toBe(false);
         expect(result.topology.forced).toBe(true);
@@ -261,10 +262,10 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
     });
 
     test('replace mode with --force fires guard for flat substrates and forwards mode through SDK', async () => {
-        const bundleRoot   = buildSyntheticBundle({bundleName: 'replace-force', shared_topology: true});
-        const conceptsTgt  = path.join(workRoot, 'replace-targets', 'concepts');
-        const trajTgt      = path.join(workRoot, 'replace-targets', 'trajectories.jsonl');
-        const mailboxTgt   = path.join(workRoot, 'replace-targets', 'sent-to-cull.jsonl');
+        const bundleRoot  = buildSyntheticBundle({bundleName: 'replace-force', shared_topology: true});
+        const conceptsTgt = path.join(workRoot, 'replace-targets', 'concepts');
+        const trajTgt     = path.join(workRoot, 'replace-targets', 'trajectories.jsonl');
+        const mailboxTgt  = path.join(workRoot, 'replace-targets', 'sent-to-cull.jsonl');
 
         // Targets empty so --force-not-needed-due-to-empty-targets passes the pre-flight occupancy check.
         // Goal of this test: assert guard fires for flat substrates AND mode=replace forwards through SDK.
@@ -304,10 +305,10 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
     });
 
     test('merge mode skips existing flat-file targets to preserve operator additions', async () => {
-        const bundleRoot   = buildSyntheticBundle({bundleName: 'merge-preserve', chromaUnified: true});
-        const conceptsTgt  = path.join(workRoot, 'preserve-targets', 'concepts');
-        const trajTgt      = path.join(workRoot, 'preserve-targets', 'trajectories.jsonl');
-        const mailboxTgt   = path.join(workRoot, 'preserve-targets', 'sent-to-cull.jsonl');
+        const bundleRoot  = buildSyntheticBundle({bundleName: 'merge-preserve', chromaUnified: true});
+        const conceptsTgt = path.join(workRoot, 'preserve-targets', 'concepts');
+        const trajTgt     = path.join(workRoot, 'preserve-targets', 'trajectories.jsonl');
+        const mailboxTgt  = path.join(workRoot, 'preserve-targets', 'sent-to-cull.jsonl');
 
         // Pre-populate targets with operator data
         fs.mkdirSync(conceptsTgt, {recursive: true});
@@ -413,7 +414,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
 
     test('validateBundle: standalone validation call returns parsed meta', async () => {
         const bundleRoot = buildSyntheticBundle({bundleName: 'validate-only', chromaUnified: true});
-        const layout = {
+        const layout     = {
             kb          : path.join(bundleRoot, 'kb'),
             mc          : path.join(bundleRoot, 'mc'),
             graph       : path.join(bundleRoot, 'graph'),
@@ -424,5 +425,58 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
         const meta = await validateBundle(bundleRoot, layout, silentLogger);
         expect(meta.bundleVersion).toBe(1);
         expect(meta.topology.chromaUnified).toBe(true);
+    });
+});
+
+test.describe('verifyLatestBackupRestorable — read-only restorability probe (#14030 AC2)', () => {
+    let verifyLatestBackupRestorable;
+    let probeRoot;
+    const silent = {log: () => {}, warn: () => {}, error: () => {}};
+
+    const writeBundle = (name, {torn = false} = {}) => {
+        const bundleRoot = path.join(probeRoot, name);
+        for (const sub of ['kb', 'mc', 'graph', 'concepts', 'trajectories']) {
+            fs.mkdirSync(path.join(bundleRoot, sub), {recursive: true});
+        }
+        fs.writeFileSync(path.join(bundleRoot, 'mc', 'memory-backup.jsonl'),
+            torn ? '{this is not valid json\n' : '{"id":"m-1"}\n');
+        return bundleRoot;
+    };
+
+    test.beforeAll(async () => {
+        ({verifyLatestBackupRestorable} = await import('../../../../../../ai/scripts/maintenance/restore.mjs'));
+    });
+
+    test.beforeEach(() => {
+        probeRoot = path.join(os.tmpdir(), `neo-restorable-probe-${process.pid}-${Date.now()}`);
+        fs.mkdirSync(probeRoot, {recursive: true});
+    });
+
+    test.afterEach(() => {
+        fsExtra.removeSync(probeRoot);
+    });
+
+    test('empty root, torn-newest, and valid-newest verdicts (#14030 AC2)', async () => {
+        // (1) no bundles → not restorable, with a clear reason.
+        const empty = await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent});
+        expect(empty.restorable).toBe(false);
+        expect(empty.reason).toMatch(/no backup-\* bundles/);
+        expect(empty.checkedAt).toBeTruthy();
+
+        // (2) an older valid bundle + a NEWER torn bundle → the newest is selected → not restorable.
+        writeBundle('backup-2026-05-01T00-00-00');
+        writeBundle('backup-2026-06-01T00-00-00', {torn: true});
+        const torn = await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent});
+        expect(torn.restorable).toBe(false);
+        expect(torn.bundleRoot).toContain('backup-2026-06-01T00-00-00');
+        expect(torn.reason).toMatch(/parse error/);
+
+        // (3) replace the newest with a valid bundle → restorable, no reason.
+        fsExtra.removeSync(path.join(probeRoot, 'backup-2026-06-01T00-00-00'));
+        writeBundle('backup-2026-06-02T00-00-00');
+        const ok = await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent});
+        expect(ok.restorable).toBe(true);
+        expect(ok.bundleRoot).toContain('backup-2026-06-02T00-00-00');
+        expect(ok.reason).toBeNull();
     });
 });

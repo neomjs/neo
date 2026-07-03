@@ -1,11 +1,12 @@
-import path         from 'path';
-import aiConfig     from '../../mcp/server/memory-core/config.mjs';
-import logger       from '../../mcp/server/memory-core/logger.mjs';
-import Base         from '../../../src/core/Base.mjs';
-import CoreDatabase from '../../../ai/graph/Database.mjs';
-import SQLite       from '../../../ai/graph/storage/SQLite.mjs';
-import { IDENTITIES } from '../../../ai/graph/identityRoots.mjs';
-import fsExtra       from 'fs-extra';
+import path                from 'path';
+import aiConfig            from '../../mcp/server/memory-core/config.mjs';
+import logger              from '../../mcp/server/memory-core/logger.mjs';
+import Base                from '../../../src/core/Base.mjs';
+import CoreDatabase        from '../../../ai/graph/Database.mjs';
+import SQLite              from '../../../ai/graph/storage/SQLite.mjs';
+import { IDENTITIES }      from '../../../ai/graph/identityRoots.mjs';
+import { normalizeUserId } from '../../mcp/server/shared/services/RequestContextService.mjs';
+import fsExtra             from 'fs-extra';
 
 /**
  * Row-level-security visibility predicate for an in-memory graph **node or edge**, mirroring
@@ -27,11 +28,36 @@ function isRlsVisible(entity, requesterUserId) {
     const properties  = (entity.isRecord ? entity.get('properties') : entity.properties) || {},
           ownerUserId = properties.userId;
 
-    return ownerUserId == null              ||
-           ownerUserId === requesterUserId  ||
-           properties.sharedEntity === 1    ||
-           properties.sharedEntity === true ||
+    // Compare canonical-to-canonical: the stored owner key (`properties.userId`) exists in BOTH the
+    // `@`-prefixed (getAgentIdentityNodeId) and normalized (normalizeUserId(getUserId)) forms across
+    // node types, while `requesterUserId` is resolved canonically (resolveRlsUserId). Normalizing the
+    // owner key here matches an agent's OWN nodes regardless of which form they were stored in, and
+    // never widens across tenants (distinct tenants normalize to distinct ids).
+    return ownerUserId == null                              ||
+           normalizeUserId(ownerUserId) === requesterUserId ||
+           properties.sharedEntity === 1                    ||
+           properties.sharedEntity === true                 ||
            properties.visibility === 'team';
+}
+
+/**
+ * Resolves the canonical (normalized, no-`@`) RLS tenant key for the acting request. The isolation
+ * key is the userId (`RequestContextService.getUserId`); `getAgentIdentityNodeId` is an `@`-prefixed
+ * node id explicitly NOT for isolation, used only as a fallback when no userId is bound. Returning the
+ * normalized form lets the RLS predicate match an owner's own nodes regardless of the (historically
+ * inconsistent) stored `user_id` form.
+ *
+ * Namespace-disjointness invariant (per Grace's identity-boundary review): the only id this collapses
+ * is `@X`↔`X` (one agent's two stamping forms). It therefore assumes tenant userIds and agent
+ * identities occupy DISJOINT namespaces — a tenant userId equal to an agent identity sans-`@` (e.g.
+ * tenant `neo-opus-grace` vs agent `@neo-opus-grace`) would normalize-collide and cross the boundary.
+ * This holds today (tenant ids are gitlab / SHARED_USER_ID-shaped, never `@neo-*`).
+ * @param {Object|null|undefined} rcs The request-bound RequestContextService.
+ * @returns {String|null} Normalized userId, or null when no identity is bound.
+ */
+function resolveRlsUserId(rcs) {
+    const raw = rcs?.getUserId?.() ?? rcs?.getAgentIdentityNodeId?.() ?? null;
+    return raw == null ? null : normalizeUserId(raw);
 }
 
 /**
@@ -45,6 +71,7 @@ function isValidGraphNodeId(id) {
 }
 
 const PROTECTED_EDGE_TYPES = Object.freeze([
+    'ADVANCED_BY', // business layer: goal→work advancement is history, never scent; zombie-priority is handled by explicit retirement reweight (ai/graph/businessSchema.mjs), not decay
     'IMPLEMENTS',
     'EXTENDS',
     'SYSTEM_TENET',
@@ -72,6 +99,10 @@ class GraphService extends Base {
          */
         db: null,
         /**
+         * @member {Object|null} graphInitError=null
+         */
+        graphInitError: null,
+        /**
          * @member {Boolean} singleton=true
          */
         singleton: true
@@ -91,89 +122,126 @@ class GraphService extends Base {
         }
 
         this._initPromise = (async () => {
-            const dbPath              = aiConfig.storagePaths.graph;
-            let storage               = Neo.create(SQLite, {dbPath: dbPath});
-            await storage.ready();
-
-            let memoryCoreGraph = Neo.get ? Neo.get('memory-core-graph') : Neo.idMap?.['memory-core-graph'];
-            if (memoryCoreGraph) {
-                this.db         = memoryCoreGraph;
-                this.db.storage = storage;
-            } else {
-                this.db = Neo.create(CoreDatabase, {
-                    id     : 'memory-core-graph',
-                    storage: storage
-                });
-            }
-
-            await storage.load();
-
-            // Ensure the frontier node exists to prevent context frontier errors
             try {
-                this.db.getAdjacentNodes('frontier', 'both'); // trigger lazy load
-                if (!this.db.nodes.has('frontier')) {
-                    this.upsertGlobalNode({
-                        id         : 'frontier',
-                        type       : 'SYSTEM_ANCHOR',
-                        name       : 'Active Context Frontier',
-                        description: 'The shifting focal point of the active Neo OS agent session.'
+                const dbPath  = aiConfig.storagePaths.graph;
+                let   storage = Neo.create(SQLite, {dbPath: dbPath});
+                await storage.ready();
+
+                let memoryCoreGraph = Neo.get ? Neo.get('memory-core-graph') : Neo.idMap?.['memory-core-graph'];
+                if (memoryCoreGraph) {
+                    this.db         = memoryCoreGraph;
+                    this.db.storage = storage;
+                } else {
+                    this.db = Neo.create(CoreDatabase, {
+                        id     : 'memory-core-graph',
+                        storage: storage
                     });
                 }
-            } catch (error) {
-                logger.warn(`[GraphService] Non-fatal DB contention during 'frontier' seed: ${error.message}`);
-            }
 
-            // --- 1. THE GLOBAL SYSTEM PRIMER ---
-            // Inject the Master Architecture Tenets directly into the Native Graph at boot.
-            // Because this is anchored to the 'frontier' with a protected SYSTEM_TENET edge,
-            // it acts as a deterministic onboarding payload for every agent session.
-            try {
-                this.db.getAdjacentNodes('Neo-Master-Architecture', 'both');
-                if (!this.db.nodes.has('Neo-Master-Architecture')) {
-                    this.upsertGlobalNode({
-                        id         : 'Neo-Master-Architecture',
-                        type       : 'System',
-                        name       : 'Global System Primer',
-                        description: 'Core framework tenets: 1. All Playwright tests must be run using "npm run test-unit -- [file]". No npx. 2. UI debugging and application state inspection must use the Neural Link MCP tools. 3. Look at .agents/skills for reusable agent workflows.'
-                    });
-                }
-                this.linkGlobalNodes('frontier', 'Neo-Master-Architecture', 'SYSTEM_TENET', 1.0);
-            } catch (error) {
-                logger.warn(`[GraphService] Non-fatal DB contention during Master Architecture seed: ${error.message}`);
-            }
+                await storage.load();
+                this.graphInitError = null;
 
-            // --- 2. AGENT IDENTITY SUBSTRATE SEEDING ---
-            // Eliminates the "seed → restart-again" recovery loop for fresh local setups.
-            // Auto-provision identity roots at boot so bindAgentIdentity doesn't throw on fresh setups.
-            try {
-                for (const identity of IDENTITIES) {
-                    // We use getAdjacentNodes as a trigger for lazy-loading into the cache
-                    this.db.getAdjacentNodes(identity.id, 'both');
-
-                    if (!this.db.nodes.has(identity.id)) {
-                        this.upsertGlobalNode(identity);
-                    } else {
-                        // Defensive createdAt retention: Peek SQLite to preserve original timestamp
-                        const row = storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(identity.id);
-                        if (row) {
-                            const rawData = JSON.parse(row.data);
-                            if (rawData.properties?.createdAt) {
-                                const preserved = {...identity, properties: {...identity.properties, createdAt: rawData.properties.createdAt}};
-                                this.upsertGlobalNode(preserved);
-                                continue;
-                            }
-                        }
-                        this.upsertGlobalNode(identity);
+                // Ensure the frontier node exists to prevent context frontier errors
+                try {
+                    this.db.getAdjacentNodes('frontier', 'both'); // trigger lazy load
+                    if (!this.db.nodes.has('frontier')) {
+                        this.upsertGlobalNode({
+                            id         : 'frontier',
+                            type       : 'SYSTEM_ANCHOR',
+                            name       : 'Active Context Frontier',
+                            description: 'The shifting focal point of the active Neo OS agent session.'
+                        });
                     }
+                } catch (error) {
+                    logger.warn(`[GraphService] Non-fatal DB contention during 'frontier' seed: ${error.message}`);
                 }
-            } catch (error) {
-                logger.warn(`[GraphService] Non-fatal DB contention during Identity Substrate seed: ${error.message}`);
-            }
 
-            logger.log('[GraphService] SQLite database mounted securely via ai.graph.Database.');
+                // --- 1. THE GLOBAL SYSTEM PRIMER ---
+                // Inject the Master Architecture Tenets directly into the Native Graph at boot.
+                // Because this is anchored to the 'frontier' with a protected SYSTEM_TENET edge,
+                // it acts as a deterministic onboarding payload for every agent session.
+                try {
+                    this.db.getAdjacentNodes('Neo-Master-Architecture', 'both');
+                    if (!this.db.nodes.has('Neo-Master-Architecture')) {
+                        this.upsertGlobalNode({
+                            id         : 'Neo-Master-Architecture',
+                            type       : 'System',
+                            name       : 'Global System Primer',
+                            description: 'Core framework tenets: 1. All Playwright tests must be run using "npm run test-unit -- [file]". No npx. 2. UI debugging and application state inspection must use the Neural Link MCP tools. 3. Look at .agents/skills for reusable agent workflows.'
+                        });
+                    }
+                    this.linkGlobalNodes('frontier', 'Neo-Master-Architecture', 'SYSTEM_TENET', 1.0);
+                } catch (error) {
+                    logger.warn(`[GraphService] Non-fatal DB contention during Master Architecture seed: ${error.message}`);
+                }
+
+                // --- 2. AGENT IDENTITY SUBSTRATE SEEDING ---
+                // Eliminates the "seed → restart-again" recovery loop for fresh local setups.
+                // Auto-provision identity roots at boot so bindAgentIdentity doesn't throw on fresh setups.
+                try {
+                    for (const identity of IDENTITIES) {
+                        // We use getAdjacentNodes as a trigger for lazy-loading into the cache
+                        this.db.getAdjacentNodes(identity.id, 'both');
+
+                        if (!this.db.nodes.has(identity.id)) {
+                            this.upsertGlobalNode(identity);
+                        } else {
+                            // Defensive createdAt retention: Peek SQLite to preserve original timestamp
+                            const row = storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(identity.id);
+                            if (row) {
+                                const rawData = JSON.parse(row.data);
+                                if (rawData.properties?.createdAt) {
+                                    const preserved = {...identity, properties: {...identity.properties, createdAt: rawData.properties.createdAt}};
+                                    this.upsertGlobalNode(preserved);
+                                    continue;
+                                }
+                            }
+                            this.upsertGlobalNode(identity);
+                        }
+                    }
+                } catch (error) {
+                    logger.warn(`[GraphService] Non-fatal DB contention during Identity Substrate seed: ${error.message}`);
+                }
+
+                logger.log('[GraphService] SQLite database mounted securely via ai.graph.Database.');
+            } catch (error) {
+                this.db = null;
+                this.graphInitError = {
+                    message: error.message,
+                    name   : error.name
+                };
+                logger.warn(`[GraphService] SQLite graph unavailable during init (degraded, graph-backed tools may fail): ${error.message}`);
+            }
         })();
 
         await this._initPromise;
+    }
+
+    /**
+     * Builds the canonical degraded-graph error surfaced by graph-backed Memory Core tools.
+     * @param {String} surface Consumer surface reporting the unavailable graph.
+     * @returns {Error}
+     */
+    createUnavailableError(surface='GraphService') {
+        const reason = this.graphInitError?.message || 'graph database is unavailable';
+        return new Error(`[${surface}] GraphService unavailable: ${reason}`);
+    }
+
+    /**
+     * @summary Returns the mounted graph database or throws the canonical degraded-graph error.
+     *
+     * WAL-only paths such as `add_memory` must stay callable during graph startup degradation, but
+     * graph-backed tool paths must fail closed with a stable error instead of leaking `TypeError`
+     * from a `null` database dereference.
+     * @param {String} surface Consumer surface requiring the graph.
+     * @returns {Neo.ai.graph.Database}
+     */
+    requireDb(surface='GraphService') {
+        if (!this.db) {
+            throw this.createUnavailableError(surface);
+        }
+
+        return this.db;
     }
 
     /**
@@ -193,7 +261,8 @@ class GraphService extends Base {
 
         let node = this.db.nodes.get(id);
 
-        let currentUserId = this.db.storage?.RequestContextService ? this.db.storage.RequestContextService.getAgentIdentityNodeId() : undefined;
+        // Stamp the canonical normalized isolation key (mirrors the RLS read boundary) — never the @-form node id.
+        let currentUserId = resolveRlsUserId(this.db.storage?.RequestContextService) ?? undefined;
 
         if (node) {
             const currentLabel = node.isRecord ? node.get('label') : node.label;
@@ -206,7 +275,7 @@ class GraphService extends Base {
             }
 
             const currentProperties = node.isRecord ? node.get('properties') : node.properties;
-            let p = Object.assign({}, currentProperties || {});
+            let   p                 = Object.assign({}, currentProperties || {});
             if (name !== undefined) {
                 p.name = name;
             }
@@ -327,7 +396,7 @@ class GraphService extends Base {
         const executeLink = () => {
             // Enforce Foreign Key constraints preemptively to prevent SQLite crash from hallucinated paths
             const verifyStmt = this.db.storage.db.prepare('SELECT count(*) as count FROM Nodes WHERE id IN (?, ?)');
-            let count = verifyStmt.get(source, target).count;
+            let   count      = verifyStmt.get(source, target).count;
 
             let expectedCount = source === target ? 1 : 2;
 
@@ -350,14 +419,15 @@ class GraphService extends Base {
                  return;
             }
 
-            const stmt     = this.db.storage.db.prepare(`SELECT id, json_extract(data, '$.properties.weight') as weight
+            const stmt = this.db.storage.db.prepare(`SELECT id, json_extract(data, '$.properties.weight') as weight
                                                          FROM Edges
                                                          WHERE source = ?
                                                            AND target = ?
                                                            AND type = ?`);
             const existing = stmt.get(source, target, relationship);
 
-            let currentUserId = this.db.storage?.RequestContextService ? this.db.storage.RequestContextService.getAgentIdentityNodeId() : undefined;
+            // Stamp the canonical normalized isolation key (mirrors the RLS read boundary) — never the @-form node id.
+            let currentUserId  = resolveRlsUserId(this.db.storage?.RequestContextService) ?? undefined;
             let edgeProperties = {weight, ...properties};
             if (currentUserId !== undefined && edgeProperties.userId === undefined) {
                 edgeProperties.userId = currentUserId;
@@ -377,7 +447,7 @@ class GraphService extends Base {
 
                 // Fetch the entire current JSON to merge new properties natively
                 const dataStmt = this.db.storage.db.prepare(`SELECT data FROM Edges WHERE id = ?`);
-                const row = dataStmt.get(existing.id);
+                const row      = dataStmt.get(existing.id);
                 if (row && row.data) {
                     let parsed = JSON.parse(row.data);
                     parsed.properties = { ...(parsed.properties || {}), ...edgeProperties, weight: newWeight };
@@ -492,7 +562,7 @@ class GraphService extends Base {
         }
 
         const {default: MemorySessionIngestor} = await import('../../services/ingestion/MemorySessionIngestor.mjs');
-        const result = await MemorySessionIngestor.ingestSingleRow(graphNodeId);
+        const result                           = await MemorySessionIngestor.ingestSingleRow(graphNodeId);
 
         if (!result.success) {
             if (result.reason !== 'unrecognized-prefix') {
@@ -548,9 +618,9 @@ class GraphService extends Base {
         let systemNode = this.db.nodes.get('_SYSTEM_STATE');
         if (!systemNode) {
             this.upsertGlobalNode({
-                id: '_SYSTEM_STATE',
-                type: 'SYSTEM_CLOCK',
-                name: 'Global System Clock',
+                id         : '_SYSTEM_STATE',
+                type       : 'SYSTEM_CLOCK',
+                name       : 'Global System Clock',
                 description: 'Tracks algorithmic time intervals for global physics.'
             });
             systemNode = this.db.nodes.get('_SYSTEM_STATE');
@@ -558,8 +628,8 @@ class GraphService extends Base {
 
         const systemProperties = systemNode.isRecord ? systemNode.get('properties') : systemNode.properties;
         const lastDecayedAt    = systemProperties?.lastDecayedAt || 0;
-        const now = Date.now();
-        const hoursElapsed = (now - lastDecayedAt) / 3600000;
+        const now              = Date.now();
+        const hoursElapsed     = (now - lastDecayedAt) / 3600000;
 
         // 24-hour Algorithmic Lock
         if (!force && hoursElapsed < 24) {
@@ -587,7 +657,7 @@ class GraphService extends Base {
             WHERE type NOT IN (${protectedEdgePlaceholders})
               AND COALESCE(CAST(json_extract(data, '$.properties.weight') AS REAL), 1.0) < ?
         `);
-        const info      = pruneStmt.run(...PROTECTED_EDGE_TYPES, pruningThreshold);
+        const info = pruneStmt.run(...PROTECTED_EDGE_TYPES, pruningThreshold);
 
         // Commit global clock update
         this.upsertGlobalNode({
@@ -619,7 +689,7 @@ class GraphService extends Base {
 
         // RLS: the node Store is a process-wide cache — re-check visibility at the
         // return boundary so a cross-requester cache-warmed node is not leaked.
-        let rlsUserId = this.db.storage?.RequestContextService?.getAgentIdentityNodeId() ?? null;
+        let rlsUserId = resolveRlsUserId(this.db.storage?.RequestContextService);
         if (!isRlsVisible(node, rlsUserId)) {
             return null;
         }
@@ -662,7 +732,7 @@ class GraphService extends Base {
 
         // RLS: the node Store is a process-wide cache — re-check visibility at the
         // return boundary so a cross-requester cache-warmed node is not leaked.
-        const rlsUserId = this.db.storage?.RequestContextService?.getAgentIdentityNodeId() ?? null;
+        const rlsUserId = resolveRlsUserId(this.db.storage?.RequestContextService);
         if (!isRlsVisible(node, rlsUserId)) {
             return null;
         }
@@ -671,6 +741,78 @@ class GraphService extends Base {
             id        : node.isRecord ? node.get('id') : node.id,
             type      : node.isRecord ? node.get('label') : node.label,
             properties: (node.isRecord ? node.get('properties') : node.properties) || {}
+        };
+    }
+
+    /**
+     * @summary Lists full node records of one graph type through the same RLS boundary as single-node reads.
+     *
+     * This is the sanctioned enumeration companion to {@link GraphService#getNodeRecord}. It keeps
+     * type-level discovery under the graph service instead of forcing consumers to issue raw SQL or
+     * iterate the process-wide node cache directly, and it re-applies the same visibility predicate at
+     * the return boundary.
+     * @param {Object} data
+     * @param {String} data.type Node label/type to enumerate.
+     * @param {String|null} [data.idPrefix=null] Optional id prefix filter.
+     * @param {Number} [data.limit=500] Maximum records to return.
+     * @returns {{records: Object[]}} Full `{id, type, properties}` records.
+     */
+    listNodeRecordsByType({type, idPrefix = null, limit = 500} = {}) {
+        if (!Neo.isString(type) || type.length === 0) {
+            throw new TypeError('GraphService.listNodeRecordsByType: type must be a non-empty string');
+        }
+
+        const
+            max       = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 500,
+            prefix    = Neo.isString(idPrefix) && idPrefix.length > 0 ? idPrefix : null,
+            rlsUserId = resolveRlsUserId(this.db?.storage?.RequestContextService),
+            toRecord  = node => {
+                if (!node || !isRlsVisible(node, rlsUserId)) {
+                    return null;
+                }
+
+                const
+                    id         = node.isRecord ? node.get('id')         : node.id,
+                    nodeType   = node.isRecord ? node.get('label')      : node.label,
+                    properties = node.isRecord ? node.get('properties') : node.properties;
+
+                if (nodeType !== type || (prefix && !id.startsWith(prefix))) {
+                    return null;
+                }
+
+                return {id, type: nodeType, properties: properties || {}};
+            };
+
+        if (this.db?.storage?.db) {
+            // Match searchNodes' SQL-level RLS filter, then re-check in-memory visibility below.
+            const stmt = this.db.storage.db.prepare(`
+                SELECT data FROM Nodes
+                WHERE json_extract(data, '$.label') = ?
+                  AND (? IS NULL OR substr(id, 1, ?) = ?)
+                  AND (user_id = ?
+                       OR user_id = ?
+                       OR user_id IS NULL
+                       OR json_extract(data, '$.properties.sharedEntity') = 1
+                       OR json_extract(data, '$.properties.visibility') = 'team')
+                ORDER BY id
+                LIMIT ?
+            `);
+
+            const rows = stmt.all(type, prefix, prefix?.length || 0, prefix, rlsUserId, rlsUserId == null ? null : `@${rlsUserId}`, max);
+
+            return {
+                records: rows.map(row => toRecord(JSON.parse(row.data))).filter(Boolean)
+            };
+        }
+
+        const nodes = Array.isArray(this.db?.nodes?.items) ? this.db.nodes.items : [];
+
+        return {
+            records: nodes
+                .map(toRecord)
+                .filter(Boolean)
+                .sort((a, b) => a.id.localeCompare(b.id))
+                .slice(0, max)
         };
     }
 
@@ -685,10 +827,10 @@ class GraphService extends Base {
         }
 
         try {
-            const inStmt = this.db.storage.db.prepare('SELECT count(*) as count FROM Edges WHERE target = ?');
+            const inStmt  = this.db.storage.db.prepare('SELECT count(*) as count FROM Edges WHERE target = ?');
             const inCount = inStmt.get(id).count || 0;
 
-            const outStmt = this.db.storage.db.prepare('SELECT count(*) as count FROM Edges WHERE source = ?');
+            const outStmt  = this.db.storage.db.prepare('SELECT count(*) as count FROM Edges WHERE source = ?');
             const outCount = outStmt.get(id).count || 0;
 
             return { in_degree: inCount, out_degree: outCount };
@@ -711,7 +853,7 @@ class GraphService extends Base {
 
         // RLS: resolve the requester once; do not expose the vicinity of a node the
         // requester cannot see, and filter each neighbor by node + edge visibility.
-        let rlsUserId = this.db.storage?.RequestContextService?.getAgentIdentityNodeId() ?? null,
+        let rlsUserId = resolveRlsUserId(this.db.storage?.RequestContextService),
             rootNode  = this.db.nodes.get(id);
 
         if (!rootNode || !isRlsVisible(rootNode, rlsUserId)) {
@@ -758,9 +900,12 @@ class GraphService extends Base {
 
         let q = `%${query.toLowerCase()}%`;
 
-        let userId = this.db.storage.RequestContextService ? this.db.storage.RequestContextService.getAgentIdentityNodeId() : null;
+        const userId = resolveRlsUserId(this.db.storage?.RequestContextService);
 
-        let rlsClause = `AND (user_id = ? OR user_id IS NULL OR json_extract(data, '$.properties.sharedEntity') = 1 OR json_extract(data, '$.properties.visibility') = 'team')`;
+        // Match the canonical (no-`@`) key AND its `@`-prefixed legacy form — the user_id column was
+        // written in both (see isRlsVisible) — so own-private rows stay visible to their owner
+        // regardless of stored form, without widening to other tenants.
+        let rlsClause = `AND (user_id = ? OR user_id = ? OR user_id IS NULL OR json_extract(data, '$.properties.sharedEntity') = 1 OR json_extract(data, '$.properties.visibility') = 'team')`;
 
         const stmt = this.db.storage.db.prepare(`
             SELECT data FROM Nodes
@@ -771,8 +916,8 @@ class GraphService extends Base {
             LIMIT 50
         `);
 
-        let matches = [];
-        const rows = stmt.all(q, q, q, userId || null);
+        let   matches = [];
+        const rows    = stmt.all(q, q, q, userId, userId == null ? null : '@' + userId);
         for (const row of rows) {
             let node = JSON.parse(row.data);
             matches.push({
@@ -804,7 +949,7 @@ class GraphService extends Base {
 
         // RLS: the frontier anchor is shared, but its strategic neighbors may be
         // tenant-private — filter them at the return boundary.
-        let rlsUserId = this.db.storage?.RequestContextService?.getAgentIdentityNodeId() ?? null;
+        let rlsUserId = resolveRlsUserId(this.db.storage?.RequestContextService);
 
         const topology = {
             frontier          : {
@@ -828,7 +973,7 @@ class GraphService extends Base {
                 let node       = this.db.nodes.get(adjacentId);
 
                 // Actively filter out CLOSED structural paths plus RLS-invisible nodes/edges.
-                if (node && isRlsVisible(node, rlsUserId) && isRlsVisible(e, rlsUserId) && node.properties?.state !== 'CLOSED') {
+                if (node && isRlsVisible(node, rlsUserId) && isRlsVisible(e, rlsUserId) && node.properties?.state !== 'CLOSED' && !node.properties?.archivedAt) {
                     topology.strategicNeighbors.push({
                         id              : node.id,
                         type            : node.label,
@@ -865,7 +1010,7 @@ class GraphService extends Base {
 
         // RLS: the node Store is a process-wide cache — re-check the cache-resident
         // root and every traversed node at the return boundary.
-        let rlsUserId = this.db.storage?.RequestContextService?.getAgentIdentityNodeId() ?? null;
+        let rlsUserId = resolveRlsUserId(this.db.storage?.RequestContextService);
         if (!isRlsVisible(rootNode, rlsUserId)) {
             logger.info(`[GraphService] Node ${nodeId} not visible to the active requester.`);
             return null;
@@ -969,7 +1114,7 @@ class GraphService extends Base {
         outbound.forEach(e => {
             if (e.target !== targetNodeId) {
                 // Decay by 50%
-                let currentWeight   = e.properties?.weight || 1.0;
+                let currentWeight = e.properties?.weight || 1.0;
                 e.properties.weight = currentWeight * 0.5;
                 edgesToUpdate.push(e);
             }
@@ -1018,7 +1163,7 @@ class GraphService extends Base {
 
     /**
      * Finds nodes that have lost all structural edges to trigger algorithmic forgetting.
-     * Protects structural-anchor node types (`SYSTEM_ANCHOR`, `System`, `ISSUE`, `DISCUSSION`,
+     * Protects structural-anchor node types (`SYSTEM_ANCHOR`, `System`, `ADR`, `ISSUE`, `DISCUSSION`,
      * `PULL_REQUEST`, `SESSION`, `MEMORY`, `AgentIdentity`, `BroadcastSentinel`, `WAKE_SUBSCRIPTION`) from pruning regardless of edge state. `SESSION` and
      * `MEMORY` are protected because they are load-bearing anchors for future mailbox
      * (`IN_REPLY_TO`), identity (`AUTHORED_BY`), and provenance (`MENTIONED_IN`) edges — they may
@@ -1027,7 +1172,8 @@ class GraphService extends Base {
      * `AgentIdentity` and `BroadcastSentinel` are protected to prevent silent wipes during
      * idle or fresh Memory Core states prior to their first activity edges.
      * `WAKE_SUBSCRIPTION` nodes are protected natively against GC race conditions during background
-     * maintenance sweeps.
+     * maintenance sweeps. `ADR` nodes are durable architectural authority records, so they remain
+     * graph-queryable even before relationship edges are materialized.
      * @returns {String[]} Array of node IDs mapping to orphaned vectors.
      */
     getOrphanedNodes() {
@@ -1048,7 +1194,7 @@ class GraphService extends Base {
                 data = JSON.parse(row.data);
             } catch(e) { continue; }
 
-            if (data.label !== 'SYSTEM_ANCHOR' && data.label !== 'System' && data.label !== 'ISSUE' && data.label !== 'DISCUSSION' && data.label !== 'PULL_REQUEST' && data.label !== 'SESSION' && data.label !== 'MEMORY' && data.label !== 'AgentIdentity' && data.label !== 'BroadcastSentinel' && data.label !== 'WAKE_SUBSCRIPTION') {
+            if (data.label !== 'SYSTEM_ANCHOR' && data.label !== 'System' && data.label !== 'ADR' && data.label !== 'ISSUE' && data.label !== 'DISCUSSION' && data.label !== 'PULL_REQUEST' && data.label !== 'SESSION' && data.label !== 'MEMORY' && data.label !== 'AgentIdentity' && data.label !== 'BroadcastSentinel' && data.label !== 'WAKE_SUBSCRIPTION') {
                 orphaned.push(row.id);
             }
         }
@@ -1079,7 +1225,7 @@ class GraphService extends Base {
 
         if (!sqliteDb || !dbPath) {
             return {
-                available: false, memoryNodes: 0, sessionNodes: 0,
+                available  : false, memoryNodes: 0, sessionNodes: 0,
                 sqliteBytes: 0, sqliteWalBytes: 0, sqliteShmBytes: 0,
                 measuredAt, error: 'Graph SQLite storage is unavailable.'
             };
@@ -1126,7 +1272,7 @@ class GraphService extends Base {
             return census;
         } catch (e) {
             return {
-                available: false, memoryNodes: 0, sessionNodes: 0,
+                available  : false, memoryNodes: 0, sessionNodes: 0,
                 sqliteBytes: 0, sqliteWalBytes: 0, sqliteShmBytes: 0,
                 measuredAt, error: e?.message || String(e)
             };

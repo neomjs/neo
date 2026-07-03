@@ -23,6 +23,7 @@ test.describe('Neo.ai.services.knowledge-base.ChromaManager', () => {
     let originalClient;
     let originalCollectionPromise;
     let originalKnowledgeBaseCollection;
+    let originalCollectionResolveRetrySleepFn;
 
     test.beforeAll(async () => {
         aiConfig      = (await import('../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
@@ -31,6 +32,7 @@ test.describe('Neo.ai.services.knowledge-base.ChromaManager', () => {
         originalClient                  = ChromaManager.client;
         originalCollectionPromise       = ChromaManager._knowledgeBaseCollectionPromise;
         originalKnowledgeBaseCollection = ChromaManager.knowledgeBaseCollection;
+        originalCollectionResolveRetrySleepFn = ChromaManager.collectionResolveRetrySleepFn;
     });
 
     test.beforeEach(() => {
@@ -43,6 +45,7 @@ test.describe('Neo.ai.services.knowledge-base.ChromaManager', () => {
         ChromaManager.connected                      = false;
         ChromaManager._knowledgeBaseCollectionPromise = originalCollectionPromise;
         ChromaManager.knowledgeBaseCollection        = originalKnowledgeBaseCollection;
+        ChromaManager.collectionResolveRetrySleepFn  = originalCollectionResolveRetrySleepFn;
     });
 
     test('connect marks the manager connected when heartbeat succeeds', async () => {
@@ -67,8 +70,8 @@ test.describe('Neo.ai.services.knowledge-base.ChromaManager', () => {
 
     test('getKnowledgeBaseCollection creates and caches the configured collection after missing get', async () => {
         let createCount = 0;
-        let getCount = 0;
-        let created = false;
+        let getCount    = 0;
+        let created     = false;
         let capturedOptions;
 
         ChromaManager.client = {
@@ -79,7 +82,7 @@ test.describe('Neo.ai.services.knowledge-base.ChromaManager', () => {
                 }
                 return {name: options.name};
             },
-            listCollections: async () => [],
+            listCollections : async () => [],
             createCollection: async options => {
                 createCount++;
                 created = true;
@@ -100,6 +103,61 @@ test.describe('Neo.ai.services.knowledge-base.ChromaManager', () => {
         });
     });
 
+    test('getKnowledgeBaseCollection retries transient ChromaConnectionError while resolving the canonical collection', async () => {
+        const delays   = [];
+        let   getCount = 0;
+
+        ChromaManager.collectionResolveRetrySleepFn = async delayMs => { delays.push(delayMs); };
+        ChromaManager.client = {
+            getCollection: async options => {
+                getCount++;
+
+                if (getCount < 3) {
+                    const error = new Error('Failed to connect to chromadb');
+                    error.name  = 'ChromaConnectionError';
+                    throw error;
+                }
+
+                return {name: options.name};
+            }
+        };
+
+        const collection = await ChromaManager.getKnowledgeBaseCollection();
+
+        expect(collection.name).toBe(aiConfig.collectionName);
+        expect(getCount).toBe(3);
+        expect(delays).toEqual([
+            aiConfig.collectionResolveRetry.initialDelayMs,
+            aiConfig.collectionResolveRetry.initialDelayMs * 2
+        ]);
+    });
+
+    test('getKnowledgeBaseCollection fails loud after bounded ChromaConnectionError retries', async () => {
+        let getCount = 0;
+
+        ChromaManager.collectionResolveRetrySleepFn = async () => {};
+        ChromaManager.client = {
+            getCollection: async () => {
+                getCount++;
+                const error = new Error('Failed to connect to chromadb');
+                error.name  = 'ChromaConnectionError';
+                throw error;
+            }
+        };
+
+        await expect(ChromaManager.getKnowledgeBaseCollection())
+            .rejects.toMatchObject({
+                name        : 'ChromaConnectionError',
+                retryContext: {
+                    maxAttempts: aiConfig.collectionResolveRetry.maxAttempts
+                }
+            });
+
+        expect(getCount).toBe(aiConfig.collectionResolveRetry.maxAttempts);
+        expect(ChromaManager._knowledgeBaseCollectionPromise).toBe(null);
+        expect(ChromaManager.knowledgeBaseCollection).toBe(null);
+    });
+
     test('getKnowledgeBaseCollection treats ChromaNotFoundError as missing canonical collection', async () => {
         let createCount = 0;
         let capturedOptions;
@@ -110,7 +168,7 @@ test.describe('Neo.ai.services.knowledge-base.ChromaManager', () => {
                 error.name  = 'ChromaNotFoundError';
                 throw error;
             },
-            listCollections: async () => [],
+            listCollections : async () => [],
             createCollection: async options => {
                 createCount++;
                 capturedOptions = options;
@@ -126,6 +184,15 @@ test.describe('Neo.ai.services.knowledge-base.ChromaManager', () => {
             name             : aiConfig.collectionName,
             embeddingFunction: aiConfig.dummyEmbeddingFunction
         });
+    });
+
+    test('isCollectionNotFoundError exposes the canonical Chroma not-found classifier', () => {
+        const namedError = new Error('The requested resource could not be found');
+        namedError.name  = 'ChromaNotFoundError';
+
+        expect(ChromaManager.isCollectionNotFoundError(namedError)).toBe(true);
+        expect(ChromaManager.isCollectionNotFoundError(new Error('collection does not exist'))).toBe(true);
+        expect(ChromaManager.isCollectionNotFoundError(new Error('connection refused'))).toBe(false);
     });
 
     test('getKnowledgeBaseCollection refuses to create canonical during active shadow-swap promotion', async () => {
@@ -148,8 +215,8 @@ test.describe('Neo.ai.services.knowledge-base.ChromaManager', () => {
 
         await expect(ChromaManager.getKnowledgeBaseCollection())
             .rejects.toMatchObject({
-                code                  : 'KB_COLLECTION_SWAP_IN_PROGRESS',
-                activeSwapCollections : [
+                code                 : 'KB_COLLECTION_SWAP_IN_PROGRESS',
+                activeSwapCollections: [
                     `${aiConfig.collectionName}-parking-123`,
                     `${aiConfig.collectionName}-shadow-123`
                 ]
@@ -174,7 +241,7 @@ test.describe('Neo.ai.services.knowledge-base.ChromaManager', () => {
 
     test('checkConnectivity returns heartbeat and cached collection name', async () => {
         ChromaManager.client = {
-            heartbeat: async () => 456,
+            heartbeat    : async () => 456,
             getCollection: async () => ({name: 'knowledge-base-test'})
         };
 

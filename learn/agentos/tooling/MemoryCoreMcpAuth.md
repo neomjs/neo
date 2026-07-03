@@ -16,7 +16,7 @@ Three invariants together close the contract:
 
 | Transport | Identity Source | Implementation |
 |---|---|---|
-| **SSE** | OIDC Bearer-token introspection | `AuthService.verifyAccessToken` (shipped in #10000) |
+| **SSE** | OIDC Bearer-token introspection, or GitLab bearer validation in `gitlab-pat` mode | `AuthService.verifyAccessToken` (shipped in #10000) and `AuthService.createGitlabPatVerifier()` |
 | **stdio** | `NEO_AGENT_IDENTITY` env-var, then `gh api user` fallback | `StdioIdentityResolver` (ticket #10145) |
 
 Both paths end at the same destination: a `RequestContextService.run(context, ...)` wrap around tool dispatch, where the `context` shape is identical. Service-layer code reading `RequestContextService.getUserId()` is transport-agnostic.
@@ -39,6 +39,14 @@ NEO_OAUTH_CLIENT_SECRET=<secret>
 > **Note on per-server env-var namespacing.** Operators running multiple MCP servers side-by-side (e.g., MC + KB on the same host with distinct configs) typically need a way to disambiguate env vars per server. The Memory Core's `config.template.mjs` consumes the unprefixed forms shown above (`NEO_TRANSPORT`, `MCP_HTTP_PORT`, `NEO_AUTH_ISSUER_URL`, etc.). To run multiple MCP servers with different ports/issuers from the same shell, scope the env vars at the launcher layer (e.g., per-process `.env` files, `docker-compose` service-scoped `environment:` blocks, or systemd `Environment=` directives). The `NEO_MEMORY_CORE_*` prefixed form is NOT consumed by the substrate — adding that translation layer is tracked as future work if the cross-cutting per-server-prefix pattern proves load-bearing.
 
 Once the server starts, every tool call from a client MUST arrive with `Authorization: Bearer <token>` where the token was issued by the configured issuer AND audience-matches the Memory Core's canonical public URL (configured via `NEO_PUBLIC_URL`). Tokens with `aud` claims targeting a different resource are rejected per RFC 9068.
+
+### SSE Path — GitLab Bearer via `gitlab-pat`
+
+Cloud deployments can opt into `NEO_AUTH_MODE=gitlab-pat`. In that mode the server validates the incoming bearer against the configured GitLab instance's `/api/v4/user` endpoint and stamps the request with the GitLab username plus provider-neutral metadata (`authProvider`, `authSource`, `providerBaseUrl`, `providerUserId`, `providerUsername`, `providerDisplayName`). User and client allowlists, when configured, are checked before request context is built.
+
+For Memory Core, a successful GitLab bearer login also creates the missing `AgentIdentity` graph node at request time when `gitlab-pat` is present in `NEO_AUTH_AUTO_PROVISION_IDENTITY_SOURCES` (default: `gitlab-pat`). The node id is the validated canonical username in the normal `@<username>` form, written as a globally visible SQLite graph node (`userId: null`) with `accountType: 'agent'`, `authSource: 'gitlab-pat'`, `autoProvisioned: true`, and a non-`unclassified` trust tier. Existing seeded `AgentIdentity` nodes are preserved; a non-`AgentIdentity` collision at the target id fails closed.
+
+The node is durable graph state, not a process-local cache entry. In the reference cloud topology the `mc-server` and `orchestrator` containers are separate processes that mount the same SQLite graph path, so the orchestrator observes the provisioned identity through the existing GraphLog invalidation and lazy-load path. Operators do not edit `ai/graph/identityRoots.mjs` for first-use GitLab-PAT deployment users.
 
 ### Stdio Path — `StdioIdentityResolver`
 
@@ -108,9 +116,9 @@ Ticket #10144 seeded three `AgentIdentity` nodes in the Native Edge Graph:
 
 Each seeded node carries `{githubLogin, displayName, modelFamily, accountType}` properties and is addressable by its `@`-prefixed ID.
 
-After identity resolution (SSE or stdio), the Memory Core `Server.bindAgentIdentity(userId)` helper looks up the matching graph node by prepending `@` to the bare GitHub login. The result (either the node ID or `null`) lands in `RequestContext.agentIdentityNodeId`, exposed via `RequestContextService.getAgentIdentityNodeId()`.
+After identity resolution, Memory Core binds the request to a graph node in one of two ways. Stdio and OIDC requests use `Server.bindAgentIdentity(userId)`, which looks up the matching graph node by prepending `@` to the resolved login. GitLab bearer requests first run the request-time auto-provisioning path described above, then return the same `@`-prefixed node id. The result (either the node ID or `null`) lands in `RequestContext.agentIdentityNodeId`, exposed via `RequestContextService.getAgentIdentityNodeId()`.
 
-Services building `AUTHORED_BY` / `OWNED_BY` / future provenance edges at write time terminate their edges on the resolved node ID. Missing node is non-fatal — unseeded agents can still accumulate memories; they just can't yet terminate graph edges until someone adds them to `ai/scripts/seedAgentIdentities.mjs` and re-runs the seed script.
+Services building `AUTHORED_BY` / `OWNED_BY` / future provenance edges at write time terminate their edges on the resolved node ID. Missing node remains non-fatal for local stdio and generic OIDC identities — unseeded agents can still accumulate memories; they just can't yet terminate graph edges until someone adds or seeds an identity. GitLab bearer cloud users are the exception: successful auth provisions the graph node dynamically so mailbox, broadcast, permission, and presence flows work on first use.
 
 ## The Anti-Spoof Invariant
 
@@ -147,7 +155,7 @@ To solve this, shared entities explicitly set `sharedEntity: true` on their node
     userId             : String,        // Bare GitHub login (no `@` prefix)
     username           : String,        // Human-readable display name
     agentIdentityNodeId: String | null, // `@`-prefixed graph node ID if bound
-    source             : String         // Provenance: 'oidc' | 'env-var' | 'gh-cli' | 'unresolved'
+    source             : String         // Provenance: 'oidc' | 'gitlab-pat' | 'env-var' | 'gh-cli' | 'unresolved'
 }
 ```
 
@@ -183,6 +191,8 @@ The three substantive states and their implied fixes:
 |---|---|---|---|
 | `env-var` or `gh-cli` | `true` | ✓ Fully operational. Agent bound to graph node. | None needed. |
 | `env-var` or `gh-cli` | `false` | Identity resolved but no matching AgentIdentity graph node. | Run `node ai/scripts/seedAgentIdentities.mjs` OR verify the #10232 boot-time self-seed fired. If new per-model account: add to `ai/graph/identityRoots.mjs` and restart. |
+| `gitlab-pat` | `true` | ✓ Fully operational. Authenticated GitLab bearer principal was bound to an existing or auto-provisioned graph node. | None needed. |
+| `gitlab-pat` | `false` | GitLab auth succeeded, but graph provisioning/binding could not complete because the graph substrate was degraded. | Check Memory Core graph/SQLite health and retry after recovery; do not seed `identityRoots.mjs` for ordinary cloud users. |
 | `unresolved` | `false` | Resolver yielded no userId at all. | See "Identity unresolved" section below. |
 
 `status` stays `healthy` regardless of `bound` — unbound identity is a valid single-tenant fallthrough, not a health failure. This is observability, not a gate.
@@ -404,7 +414,7 @@ Without these normalizations, `GraphService.linkNodes`' FK-style guard would sil
 - `ai/scripts/seedAgentIdentities.mjs` — AgentIdentity node seed script (#10144)
 - `learn/agentos/tooling/Authorization.md` — Server Authorization overview
 - `learn/agentos/tooling/MemoryCoreMcpApi.md` — Memory Core tool surface
-- `learn/agentos/tooling/MultiTenantMigrationGuide.md` — #10017 lazy-tag-on-read migration design; `memorySharing` flag semantics; `healthcheck.migration.untaggedCount` operator guidance
+- `learn/agentos/tooling/MultiTenantMigrationGuide.md` — #10017 lazy-tag-on-read migration design; `memorySharing` flag semantics; on-demand migration-census operator guidance (`ai:migration-census-report`)
 
 ## Related Tickets
 

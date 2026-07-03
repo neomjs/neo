@@ -7,6 +7,10 @@ createdAt: '2022-08-18T16:00:49Z'
 updatedAt: '2022-08-19T15:34:13Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 ---
 i wonder what the minimum browser versions of neo.mjs are? Unfortunately, I have not found anything about this in the documentation or in repo.
 

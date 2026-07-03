@@ -1,14 +1,20 @@
-import aiConfig                  from '../../mcp/server/knowledge-base/config.mjs';
-import TextEmbeddingService      from '../memory-core/TextEmbeddingService.mjs';
-import mcConfig                  from '../../mcp/server/memory-core/config.mjs';
-import Base                      from '../../../src/core/Base.mjs';
-import ChromaManager             from './ChromaManager.mjs';
-import crypto                    from 'crypto';
-import fs                        from 'fs-extra';
-import logger                    from '../../mcp/server/knowledge-base/logger.mjs';
-import path                      from 'path';
-import readline                  from 'readline';
-import DestructiveOperationGuard from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
+import aiConfig             from '../../mcp/server/knowledge-base/config.mjs';
+import TextEmbeddingService from '../memory-core/TextEmbeddingService.mjs';
+import mcConfig             from '../../mcp/server/memory-core/config.mjs';
+import Base                 from '../../../src/core/Base.mjs';
+import {
+    bytesToTokens,
+    emitConsumerFriction
+}                             from '../memory-core/helpers/consumerFrictionHelper.mjs';
+import ChromaManager                                                   from './ChromaManager.mjs';
+import crypto                                                          from 'crypto';
+import fs                                                              from 'fs-extra';
+import logger                                                          from '../../mcp/server/knowledge-base/logger.mjs';
+import path                                                            from 'path';
+import readline                                                        from 'readline';
+import DestructiveOperationGuard                                       from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
+import {computeCorpusFingerprint, decideResume, selectResumableChunks} from './helpers/resumableEmbedding.mjs';
+import {clearResumeState, readResumeState, writeResumeState}           from './helpers/kbEmbeddingResumeStore.mjs';
 
 const TENANT_GUARDED_FIELDS = ['tenantId', 'repoSlug', 'visibility', 'originAgentIdentity', 'tenantConfigVersion', 'ingestedAt'];
 const STALE_STRATEGIES      = Object.freeze(new Set(['delete-upfront', 'shadow-swap']));
@@ -147,10 +153,10 @@ class VectorService extends Base {
      */
     resolveTenantStamp(tenantContext = {}) {
         const config = this.getTenantIsolationConfig();
-        const stamp = {
-            tenantId           : tenantContext.tenantId ?? config.defaultTenantId ?? 'neo-shared',
-            repoSlug           : tenantContext.repoSlug ?? config.defaultRepoSlug ?? 'neo',
-            visibility         : tenantContext.visibility ?? config.defaultVisibility ?? 'team',
+        const stamp  = {
+            tenantId           : tenantContext.tenantId ?? config.defaultTenantId,
+            repoSlug           : tenantContext.repoSlug ?? config.defaultRepoSlug,
+            visibility         : tenantContext.visibility ?? config.defaultVisibility,
             tenantConfigVersion: tenantContext.configVersion ?? 0,
             ingestedAt         : Date.now()
         };
@@ -211,9 +217,9 @@ class VectorService extends Base {
                 field,
                 chunkId,
                 clientValue,
-                serverValue: serverValue ?? null,
-                tenantId: stamp.tenantId,
-                repoSlug: stamp.repoSlug,
+                serverValue        : serverValue ?? null,
+                tenantId           : stamp.tenantId,
+                repoSlug           : stamp.repoSlug,
                 originAgentIdentity: stamp.originAgentIdentity ?? null
             };
 
@@ -276,30 +282,376 @@ class VectorService extends Base {
     }
 
     /**
+     * Resolves the local embedding-model guardrail used before provider invocation.
+     *
+     * @returns {{enabled: Boolean, contextLimitTokens: Number, safeProcessingLimitTokens: Number, model: String}}
+     */
+    resolveEmbeddingGuardrail() {
+        const localEmbeddingProviders   = new Set(['openAiCompatible', 'ollama']);
+        const embeddingProvider         = mcConfig.embeddingProvider;
+        const contextLimitTokens        = Number(aiConfig.localModels.embedding.contextLimitTokens);
+        const safeProcessingLimitTokens = Number(aiConfig.localModels.embedding.safeProcessingLimitTokens);
+        const model                     = embeddingProvider === 'ollama'
+            ? aiConfig.ollama.embeddingModel
+            : embeddingProvider === 'openAiCompatible'
+                ? aiConfig.openAiCompatible.embeddingModel
+                : embeddingProvider;
+
+        return {
+            enabled                  : localEmbeddingProviders.has(embeddingProvider),
+            contextLimitTokens,
+            safeProcessingLimitTokens,
+            model
+        };
+    }
+
+    /**
+     * Builds the provider input string used by the embedding guardrail and provider call.
+     *
+     * @param {Object} chunk Parsed knowledge chunk.
+     * @returns {String} Provider input text.
+     */
+    buildEmbeddingInputText(chunk) {
+        return `${chunk.type}: ${chunk.name} in ${chunk.className || ''}\n${chunk.description || chunk.content || ''}`;
+    }
+
+    /**
+     * Expands recoverable over-budget text chunks before tenant stamping and diffing.
+     *
+     * The final `embedChunks()` guardrail still refuses any chunk that remains too large;
+     * this pass only prevents the full-corpus sync route from losing split-safe source
+     * files before they ever become Chroma rows.
+     *
+     * @param {Object[]} chunks Raw parsed knowledge chunks read from JSONL.
+     * @returns {Object[]} Original chunks plus deterministic split children.
+     */
+    expandOversizedEmbeddingChunks(chunks) {
+        const guardrail = this.resolveEmbeddingGuardrail();
+
+        if (!guardrail.enabled) {
+            return chunks;
+        }
+
+        const expanded = [];
+
+        for (const chunk of chunks) {
+            const inputText  = this.buildEmbeddingInputText(chunk),
+                  evaluation = this.measureEmbeddingInput({text: inputText, guardrail});
+
+            if (!evaluation.skip) {
+                expanded.push(chunk);
+                continue;
+            }
+
+            const splitChunks = this.splitOversizedEmbeddingChunk({chunk, guardrail});
+
+            expanded.push(...splitChunks);
+        }
+
+        return expanded;
+    }
+
+    /**
+     * Creates a deterministic pre-tenant split hash for a full-sync child chunk.
+     *
+     * @param {Object} options
+     * @param {Object} options.chunk     Source chunk before splitting.
+     * @param {String} options.content   Split content slice.
+     * @param {Number} options.index     Zero-based split index.
+     * @param {Number} options.total     Total split count.
+     * @param {Number} options.charStart Character offset where the split starts.
+     * @param {Number} options.charEnd   Character offset where the split ends.
+     * @returns {String} Stable SHA-256 hash.
+     */
+    createSplitChunkHash({chunk, content, index, total, charStart, charEnd}) {
+        const identityString = JSON.stringify({
+            parentHash             : chunk.hash,
+            type                   : chunk.type,
+            kind                   : chunk.kind,
+            name                   : chunk.name,
+            source                 : chunk.source,
+            content,
+            oversizedSplitIndex    : index,
+            oversizedSplitTotal    : total,
+            oversizedSplitCharStart: charStart,
+            oversizedSplitCharEnd  : charEnd
+        });
+
+        return crypto.createHash('sha256').update(identityString).digest('hex');
+    }
+
+    /**
+     * Splits a recoverable over-budget text chunk into deterministic sub-chunks.
+     *
+     * @param {Object} options
+     * @param {Object} options.chunk     Source chunk before tenant stamping.
+     * @param {Object} options.guardrail Resolved embedding guardrail.
+     * @param {Function} [options.createHash] Optional caller-specific split hash function.
+     * @returns {Object[]} Either split children or the original chunk.
+     */
+    splitOversizedEmbeddingChunk({chunk, guardrail, createHash}) {
+        const content = chunk.content || chunk.description;
+
+        if (typeof content !== 'string' || content.length === 0) {
+            return [chunk];
+        }
+
+        const maxInputBytes = Math.max(1, guardrail.safeProcessingLimitTokens * 3),
+              prefixBytes     = Buffer.byteLength(`${chunk.type}: ${chunk.name} in ${chunk.className || ''}\n`, 'utf8'),
+              maxContentBytes = Math.max(1, maxInputBytes - prefixBytes - 128),
+              parts           = this.splitTextByByteBudget(content, maxContentBytes);
+
+        if (parts.length <= 1) {
+            return [chunk];
+        }
+
+        let charStart = 0;
+
+        return parts.map((part, index) => {
+            const charEnd = charStart + part.length,
+                  child   = {
+                      ...chunk,
+                      content    : part,
+                      description: part,
+                      name       : `${chunk.name} [part ${index + 1}/${parts.length}]`,
+                      hashInputs : Array.from(new Set([
+                          ...(chunk.hashInputs || []),
+                          'oversizedSplitIndex',
+                          'oversizedSplitTotal',
+                          'oversizedSplitCharStart',
+                          'oversizedSplitCharEnd'
+                      ])),
+                      oversizedSplit         : true,
+                      oversizedSplitIndex    : index,
+                      oversizedSplitTotal    : parts.length,
+                      oversizedSplitCharStart: charStart,
+                      oversizedSplitCharEnd  : charEnd
+                  };
+
+            const hash = createHash
+                ? createHash(child)
+                : this.createSplitChunkHash({
+                    chunk,
+                    content: part,
+                    index,
+                    total  : parts.length,
+                    charStart,
+                    charEnd
+                });
+
+            child.hash = hash;
+            child.id   = hash;
+            charStart = charEnd;
+            return child;
+        });
+    }
+
+    /**
+     * Splits text on stable line boundaries, falling back to character slices for huge lines.
+     *
+     * @param {String} text Source text.
+     * @param {Number} maxBytes Maximum byte size per returned part.
+     * @returns {String[]} Split text parts.
+     */
+    splitTextByByteBudget(text, maxBytes) {
+        if (Buffer.byteLength(text, 'utf8') <= maxBytes) {
+            return [text];
+        }
+
+        const parts   = [];
+        let   current = '';
+
+        for (const line of text.match(/[^\n]*\n?|[^\n]+$/g).filter(Boolean)) {
+            if (Buffer.byteLength(line, 'utf8') > maxBytes) {
+                if (current) {
+                    parts.push(current);
+                    current = '';
+                }
+                parts.push(...this.splitLongStringByByteBudget(line, maxBytes));
+                continue;
+            }
+
+            if (current && Buffer.byteLength(current + line, 'utf8') > maxBytes) {
+                parts.push(current);
+                current = line;
+            } else {
+                current += line;
+            }
+        }
+
+        if (current) {
+            parts.push(current);
+        }
+
+        return parts.filter(part => part.length > 0);
+    }
+
+    /**
+     * Splits one oversized line without breaking JavaScript surrogate pairs.
+     *
+     * @param {String} value Source string.
+     * @param {Number} maxBytes Maximum byte size per part.
+     * @returns {String[]} Split text parts.
+     */
+    splitLongStringByByteBudget(value, maxBytes) {
+        const parts   = [];
+        let   current = '';
+
+        for (const char of value) {
+            if (current && Buffer.byteLength(current + char, 'utf8') > maxBytes) {
+                parts.push(current);
+                current = char;
+            } else {
+                current += char;
+            }
+        }
+
+        if (current) {
+            parts.push(current);
+        }
+
+        return parts;
+    }
+
+    /**
+     * Measures provider input size without recording a final refusal diagnostic.
+     *
+     * @param {Object} options
+     * @param {String} options.text Provider input text.
+     * @param {Object} options.guardrail Resolved embedding guardrail.
+     * @returns {{skip: Boolean, inputBytes: Number, inputTokensEstimate: Number}}
+     */
+    measureEmbeddingInput({text, guardrail}) {
+        if (!guardrail.enabled) {
+            return {skip: false, inputBytes: 0, inputTokensEstimate: 0};
+        }
+
+        const inputBytes          = Buffer.byteLength(text || '', 'utf8');
+        const inputTokensEstimate = bytesToTokens(inputBytes);
+
+        return {
+            skip: inputTokensEstimate > guardrail.safeProcessingLimitTokens,
+            inputBytes,
+            inputTokensEstimate
+        };
+    }
+
+    /**
+     * Emits a bounded, non-secret friction record for an over-budget embedding input.
+     *
+     * @param {Object} options
+     * @param {Object} options.chunk Tenant-stamped chunk.
+     * @param {String} options.text Provider input text.
+     * @param {Object} options.guardrail Resolved embedding guardrail.
+     * @returns {{skip: Boolean, inputBytes: Number, inputTokensEstimate: Number}}
+     */
+    evaluateEmbeddingInput({chunk, text, guardrail}) {
+        const {skip, inputBytes, inputTokensEstimate} = this.measureEmbeddingInput({text, guardrail});
+
+        if (!skip) {
+            return {skip: false, inputBytes, inputTokensEstimate};
+        }
+
+        emitConsumerFriction({
+            assetRef                 : chunk.id || chunk.source || chunk.name || 'kb-chunk',
+            consumer                 : 'VectorService.embedChunks',
+            model                    : guardrail.model,
+            symptom                  : 'size-precheck-skip',
+            emissionPoint            : 'pre-invocation',
+            suggestionKind           : 'split-document',
+            inputBytes,
+            inputTokensEstimate,
+            contextLimitTokens       : guardrail.contextLimitTokens,
+            safeProcessingLimitTokens: guardrail.safeProcessingLimitTokens,
+            serviceDomain            : 'other',
+            note                     : 'KB embedding input exceeds safe processing band; split or reduce the source chunk before embedding.'
+        });
+
+        logger.warn('[VectorService] Skipping over-budget embedding chunk before provider invocation.', {
+            chunkId                  : chunk.id,
+            tenantId                 : chunk.tenantId,
+            repoSlug                 : chunk.repoSlug,
+            source                   : chunk.source,
+            inputBytes,
+            inputTokensEstimate,
+            safeProcessingLimitTokens: guardrail.safeProcessingLimitTokens,
+            contextLimitTokens       : guardrail.contextLimitTokens
+        });
+
+        return {skip: true, inputBytes, inputTokensEstimate};
+    }
+
+    /**
      * Embeds a set of chunks into the provided Chroma collection.
      *
      * @param {Object}   options
      * @param {Object}   options.collection      Chroma collection target.
      * @param {Object[]} options.chunksToProcess Tenant-stamped chunks to embed.
-     * @returns {Promise<void>}
+     * @param {Function} [options.shouldYield]   Cooperative heavy-maintenance-lease yield predicate,
+     *     consulted BETWEEN batches. Returns truthy once the lease holder has exceeded the fairness bound
+     *     (`HeavyMaintenanceLeaseService.shouldYield`); the loop then stops so a starved heavy task can
+     *     interleave. Defaults to never-yield, so callers that do not hold the lease are unaffected.
+     * @returns {Promise<{embedded: Number, skipped: Number, yielded: Boolean}>}
      */
-    async embedChunks({collection, chunksToProcess}) {
+    async embedChunks({collection, chunksToProcess, shouldYield = () => false}) {
         if (chunksToProcess.length === 0) {
-            return;
+            return {embedded: 0, skipped: 0, yielded: false};
         }
 
         logger.log(`Using TextEmbeddingService with provider: ${mcConfig.embeddingProvider}.`);
         logger.log('Embedding chunks...');
 
         const {batchSize, batchDelay, maxRetries} = aiConfig;
+        const guardrail                           = this.resolveEmbeddingGuardrail();
+        let   embeddedCount                       = 0;
+        let   skippedCount                        = 0;
+        let   yielded                             = false;
 
         for (let i = 0; i < chunksToProcess.length; i += batchSize) {
+            // Cooperative heavy-maintenance-lease yield-point: BETWEEN batches (never before the
+            // first — so at least one batch lands per lease acquisition: a forward-progress guarantee, never a
+            // livelock), if the lease holder has exceeded the fairness bound, stop embedding so a starved heavy
+            // task (e.g. githubWorkflowSync) can interleave. The completed batches are already durably upserted
+            // into the shadow and indexed by the write-ahead resume marker, so the next sweep resumes here
+            // (decideResume -> selectResumableChunks). The caller releases the lease on the `yielded` signal.
+            if (i > 0 && shouldYield()) {
+                yielded = true;
+                logger.log(`Yielding the heavy-maintenance lease after ${i} chunk(s) (${embeddedCount} embedded); ${chunksToProcess.length - i} remaining will resume on the next sweep.`);
+                break;
+            }
+
             if (i > 0 && batchDelay) {
                 await this.timeout(batchDelay);
             }
 
-            const batch = chunksToProcess.slice(i, i + batchSize);
-            const textsToEmbed = batch.map(chunk => `${chunk.type}: ${chunk.name} in ${chunk.className || ''}\n${chunk.description || chunk.content || ''}`);
+            const batch       = chunksToProcess.slice(i, i + batchSize);
+            const batchInputs = batch.map(chunk => ({
+                chunk,
+                text: this.buildEmbeddingInputText(chunk)
+            }));
+            const embeddable = [];
+
+            for (const input of batchInputs) {
+                const result = this.evaluateEmbeddingInput({
+                    chunk: input.chunk,
+                    text : input.text,
+                    guardrail
+                });
+
+                if (result.skip) {
+                    skippedCount++;
+                } else {
+                    embeddable.push(input);
+                }
+            }
+
+            if (embeddable.length === 0) {
+                logger.warn(`[VectorService] Skipped embedding batch ${i / batchSize + 1}; all ${batch.length} chunk(s) exceeded the embedding safe-processing band.`);
+                continue;
+            }
+
+            const batchToEmbed = embeddable.map(input => input.chunk);
+            const textsToEmbed = embeddable.map(input => input.text);
 
             let retries = 0;
             let success = false;
@@ -308,7 +660,7 @@ class VectorService extends Base {
                 try {
                     const embeddings = await TextEmbeddingService.embedTexts(textsToEmbed, mcConfig.embeddingProvider);
 
-                    const metadatas = batch.map(chunk => {
+                    const metadatas = batchToEmbed.map(chunk => {
                         const metadata = {};
                         for (const [key, value] of Object.entries(chunk)) {
                             metadata[key] = (value === null) ? 'null' : (typeof value === 'object') ? JSON.stringify(value) : value;
@@ -317,12 +669,13 @@ class VectorService extends Base {
                     });
 
                     await collection.upsert({
-                        ids: batch.map(chunk => chunk.id),
+                        ids: batchToEmbed.map(chunk => chunk.id),
                         embeddings,
                         metadatas
                     });
 
-                    logger.log(`Processed and embedded batch ${i / batchSize + 1} of ${Math.ceil(chunksToProcess.length / batchSize)}`);
+                    embeddedCount += batchToEmbed.length;
+                    logger.log(`Processed and embedded batch ${i / batchSize + 1} of ${Math.ceil(chunksToProcess.length / batchSize)} (${batchToEmbed.length} embedded, ${batch.length - batchToEmbed.length} skipped).`);
                     success = true;
                 } catch (err) {
                     retries++;
@@ -335,6 +688,8 @@ class VectorService extends Base {
                 }
             }
         }
+
+        return {embedded: embeddedCount, skipped: skippedCount, yielded};
     }
 
     /**
@@ -360,24 +715,93 @@ class VectorService extends Base {
      * @param {Object}   options.liveCollection Existing canonical collection handle.
      * @param {Object[]} options.knowledgeBase   Full tenant-stamped corpus.
      * @param {Number}   options.idsToDeleteCount Logical stale-id count removed from the canonical view.
-     * @returns {Promise<Object>} Embedding result.
+     * @param {Function} [options.shouldYield]   Cooperative heavy-maintenance-lease yield predicate,
+     *     threaded to `embedChunks`. On a between-batch yield the shadow is preserved-not-promoted (the
+     *     write-ahead resume marker already indexes it) and a `{yielded: true}` envelope is returned so the
+     *     lease holder releases; the next sweep resumes from the preserved shadow.
+     * @returns {Promise<Object>} Embedding result (carries `yielded: true` when the lease was cooperatively released).
      */
-    async embedViaShadowSwap({liveCollection, knowledgeBase, idsToDeleteCount}) {
-        const shadowName  = this.createSwapCollectionName('shadow');
+    async embedViaShadowSwap({liveCollection, knowledgeBase, idsToDeleteCount, shouldYield = () => false}) {
+        const stateDir    = this.getResumeStateDir();
+        const fingerprint = computeCorpusFingerprint(knowledgeBase);
+        const resumeState = await readResumeState({dir: stateDir});
+        const decision    = decideResume({resumeState, currentFingerprint: fingerprint});
+
+        let shadowCollection = null;
+        let shadowName       = null;
+        let chunksToEmbed    = knowledgeBase;
+        let attempts         = 1;
+        let alreadyEmbedded  = 0;
+
+        // Resume into the preserved shadow (it holds the completed batches), skipping already-embedded chunks.
+        if (decision.resume) {
+            try {
+                shadowName       = resumeState.shadowName;
+                attempts         = decision.attempts;
+                shadowCollection = await ChromaManager.client.getCollection({name: shadowName, embeddingFunction: aiConfig.dummyEmbeddingFunction});
+
+                const selection = selectResumableChunks({chunks: knowledgeBase, existingIds: await this.readCollectionIds(shadowCollection)});
+
+                chunksToEmbed   = selection.remaining;
+                alreadyEmbedded = selection.alreadyEmbedded;
+                logger.log(`Resuming KB embedding into '${shadowName}' — ${alreadyEmbedded} already embedded, ${chunksToEmbed.length} remaining (attempt ${attempts}).`);
+            } catch (resumeError) {
+                logger.warn(`[VectorService] Could not resume into preserved shadow '${shadowName}' (${resumeError.message}); rebuilding fresh.`);
+                shadowCollection = null;
+            }
+        }
+
+        // Fresh build: discard any stale preserved shadow (corpus-drift / attempt-cap / vanished), then rebuild.
+        if (!shadowCollection) {
+            if (resumeState?.shadowName) {
+                await this.discardResumeShadow(resumeState.shadowName);
+            }
+            await clearResumeState({dir: stateDir});
+
+            shadowName      = this.createSwapCollectionName('shadow');
+            attempts        = 1;
+            chunksToEmbed   = knowledgeBase;
+            alreadyEmbedded = 0;
+            logger.log(`Building shadow knowledge-base collection '${shadowName}' (${decision.reason}).`);
+
+            // Write-ahead resume marker: record the shadow BEFORE creating + embedding it, so a non-promoted
+            // shadow is ALWAYS indexed by a marker. Otherwise a transient embed failure whose catch-path
+            // marker-write ALSO fails strands the shadow with no marker — the next fresh-build's
+            // discardResumeShadow(resumeState?.shadowName) then no-ops and the shadow orphans permanently. A
+            // failure here throws before createCollection, so no shadow is ever created without its marker.
+            await writeResumeState({dir: stateDir, fingerprint, shadowName, attempts});
+            shadowCollection = await ChromaManager.client.createCollection({name: shadowName, embeddingFunction: aiConfig.dummyEmbeddingFunction});
+        }
+
         const parkingName = this.createSwapCollectionName('parking');
-
-        logger.log(`Building shadow knowledge-base collection '${shadowName}'.`);
-
-        const shadowCollection = await ChromaManager.client.createCollection({
-            name             : shadowName,
-            embeddingFunction: aiConfig.dummyEmbeddingFunction
-        });
 
         let liveParked     = false;
         let shadowPromoted = false;
 
         try {
-            await this.embedChunks({collection: shadowCollection, chunksToProcess: knowledgeBase});
+            const embedResult = await this.embedChunks({collection: shadowCollection, chunksToProcess: chunksToEmbed, shouldYield});
+
+            if (embedResult.yielded) {
+                // Cooperative lease-yield: the shadow holds the completed batches and the write-ahead
+                // resume marker already indexes it, so DO NOT promote and DO NOT clear the marker — the next
+                // sweep resumes (decideResume -> selectResumableChunks). The live collection is untouched
+                // (preserved-not-promoted), so githubWorkflowSync can write resources/content/ freely while we
+                // are yielded; the resumed run re-reads the updated corpus. Torn-read-free by the same shadow
+                // isolation that protects a normal run.
+                logger.log(`Yielded the heavy-maintenance lease mid shadow-swap; preserving shadow '${shadowName}' for resume (${embedResult.embedded + alreadyEmbedded} embedded so far).`);
+                return {
+                    message         : `KB embedding yielded the heavy-maintenance lease after ${embedResult.embedded + alreadyEmbedded} chunk(s); the next sweep resumes from the preserved shadow.`,
+                    embedded        : embedResult.embedded + alreadyEmbedded,
+                    deleted         : idsToDeleteCount,
+                    staleStrategy   : 'shadow-swap',
+                    yielded         : true,
+                    shadowCollection: shadowName
+                };
+            }
+
+            if (embedResult.skipped > 0) {
+                throw new Error(`KB_EMBEDDING_INPUT_SIZE_EXCEEDED: shadow-swap refused to promote an incomplete corpus after skipping ${embedResult.skipped} over-budget embedding chunk(s).`);
+            }
 
             logger.log(`Promoting shadow collection '${shadowName}' to '${aiConfig.collectionName}'.`);
             await liveCollection.modify({name: parkingName});
@@ -386,6 +810,7 @@ class VectorService extends Base {
             shadowPromoted = true;
 
             ChromaManager.invalidateKnowledgeBaseCollectionCache();
+            await clearResumeState({dir: stateDir}); // promoted → nothing to resume
 
             const collection = await ChromaManager.getKnowledgeBaseCollection();
             const count      = await collection.count();
@@ -394,7 +819,7 @@ class VectorService extends Base {
 
             return {
                 message,
-                embedded           : knowledgeBase.length,
+                embedded           : embedResult.embedded + alreadyEmbedded,
                 deleted            : idsToDeleteCount,
                 staleStrategy      : 'shadow-swap',
                 shadowCollection   : shadowName,
@@ -414,9 +839,72 @@ class VectorService extends Base {
             }
 
             if (!shadowPromoted) {
-                await this.parkFailedShadowCollection({shadowCollection, shadowName});
+                // A too-big chunk (KB_EMBEDDING_INPUT_SIZE_EXCEEDED) will NEVER embed — resuming it is futile,
+                // so park the shadow as a dead artifact (the prior behavior) and clear its marker. A TRANSIENT
+                // embed failure (a provider blip) instead PRESERVES the shadow so the next run resumes from
+                // here. This re-write advances the attempt counter; fresh builds already wrote the marker
+                // ahead of embedding and resumes carry a prior marker, so the shadow is already indexed.
+                if (error?.message?.includes('KB_EMBEDDING_INPUT_SIZE_EXCEEDED')) {
+                    await this.parkFailedShadowCollection({shadowCollection, shadowName});
+                    await clearResumeState({dir: stateDir});
+                } else {
+                    try {
+                        await writeResumeState({dir: stateDir, fingerprint, shadowName, attempts});
+                        logger.warn(`[VectorService] Preserved shadow '${shadowName}' for resume (attempt ${attempts}) after a transient embedding failure: ${error.message}`);
+                    } catch (preserveError) {
+                        // The write-ahead (fresh build) or prior (resume) marker still indexes the shadow, so
+                        // it is not orphaned — only the attempt-counter refresh was lost.
+                        logger.error(`[VectorService] Could not refresh resume-state for '${shadowName}' (${preserveError.message}); the write-ahead marker still protects the shadow.`);
+                    }
+                }
             }
             throw error;
+        }
+    }
+
+    /**
+     * @summary Resolves the gitignored directory holding the KB embedding resume-state marker.
+     * @returns {String}
+     */
+    getResumeStateDir() {
+        return this.resumeStateDir ?? path.resolve(aiConfig.neoRootDir, '.neo-ai-data', 'kb-sync');
+    }
+
+    /**
+     * @summary Reads every document id present in a Chroma collection (paginated id-only fetch).
+     * Used to compute which chunks a preserved resume-shadow already holds.
+     * @param {Object} collection Chroma collection handle.
+     * @returns {Promise<Set<String>>}
+     */
+    async readCollectionIds(collection) {
+        const ids    = [];
+        const limit  = 1000;
+        let   offset = 0;
+
+        while (true) {
+            const batch    = await collection.get({include: [], limit, offset});
+            const batchIds = batch?.ids ?? [];
+
+            ids.push(...batchIds);
+            if (batchIds.length < limit) break;
+            offset += limit;
+        }
+
+        return new Set(ids);
+    }
+
+    /**
+     * @summary Parks a stale preserved resume-shadow (corpus drifted / attempt cap reached) so the fresh
+     * rebuild starts clean. Best-effort: a vanished/unreadable shadow is simply nothing to discard.
+     * @param {String} shadowName The preserved resume-shadow collection name.
+     * @returns {Promise<void>}
+     */
+    async discardResumeShadow(shadowName) {
+        try {
+            const shadowCollection = await ChromaManager.client.getCollection({name: shadowName, embeddingFunction: aiConfig.dummyEmbeddingFunction});
+            await this.parkFailedShadowCollection({shadowCollection, shadowName});
+        } catch (error) {
+            logger.warn(`[VectorService] Could not discard stale resume-shadow '${shadowName}': ${error.message}`);
         }
     }
 
@@ -467,10 +955,15 @@ class VectorService extends Base {
      *                                             preserves the historical behavior;
      *                                             `shadow-swap` rebuilds into a fresh collection
      *                                             before promoting it to the canonical name.
+     * @param {Function} [opts.shouldYield]        Cooperative heavy-maintenance-lease yield predicate
+     *                                             threaded to the shadow-swap embed loop so a long
+     *                                             re-embed releases the lease at a batch boundary for a starved
+     *                                             heavy task, then resumes from the preserved shadow. Default
+     *                                             never yields, so non-lease-held callers are unaffected.
      * @returns {Promise<object>} A promise that resolves to a success message, OR a
      *     `{error, code: 'KB_SYNC_VOLUME_EXCEEDED', ...}` shape when the MCP gate fires.
      */
-    async embed(knowledgeBasePath, {viaMcp = false, tenantContext = {}, deleteStale = true, staleStrategy} = {}) {
+    async embed(knowledgeBasePath, {viaMcp = false, tenantContext = {}, deleteStale = true, staleStrategy, shouldYield = () => false} = {}) {
         logger.log('Starting knowledge base embedding...');
         const resolvedStaleStrategy = this.resolveStaleStrategy({staleStrategy, deleteStale});
 
@@ -487,27 +980,28 @@ class VectorService extends Base {
         }
         logger.log(`Loaded ${knowledgeBase.length} knowledge chunks from file.`);
 
-        const tenantStamp = this.resolveTenantStamp(tenantContext);
+        const tenantStamp           = this.resolveTenantStamp(tenantContext);
+        const expandedKnowledgeBase = this.expandOversizedEmbeddingChunks(knowledgeBase);
 
-        for (let i = 0; i < knowledgeBase.length; i++) {
-            knowledgeBase[i] = this.applyTenantStamp(knowledgeBase[i], tenantStamp);
+        for (let i = 0; i < expandedKnowledgeBase.length; i++) {
+            expandedKnowledgeBase[i] = this.applyTenantStamp(expandedKnowledgeBase[i], tenantStamp);
         }
 
         // Enrich with inheritance chains
         const classNameToDataMap = {};
-        knowledgeBase.forEach(chunk => {
+        expandedKnowledgeBase.forEach(chunk => {
             if (chunk.kind === 'module-context' && chunk.className) {
                 classNameToDataMap[chunk.className] = {
-                    source : chunk.source,
-                    parent : chunk.extends || null
+                    source: chunk.source,
+                    parent: chunk.extends || null
                 };
             }
         });
 
-        knowledgeBase.forEach(chunk => {
-            let currentClass = chunk.className; // Metadata is now on every chunk
+        expandedKnowledgeBase.forEach(chunk => {
+            let   currentClass     = chunk.className; // Metadata is now on every chunk
             const inheritanceChain = [];
-            const visited = new Set();
+            const visited          = new Set();
 
             // If no className metadata (e.g. non-class files), skip
             if (!currentClass) return;
@@ -529,8 +1023,8 @@ class VectorService extends Base {
 
         logger.log('Fetching existing documents from ChromaDB...');
         const existingIds = new Set();
-        let offset = 0;
-        const limit = 2000;
+        let   offset      = 0;
+        const limit       = 2000;
         let batch;
 
         // ChromaDB has a default limit (usually 10) if not specified.
@@ -539,7 +1033,7 @@ class VectorService extends Base {
             batch = await collection.get({
                 include: [],
                 limit,
-                offset: offset
+                offset : offset
             });
 
             batch.ids.forEach(id => existingIds.add(id));
@@ -553,7 +1047,7 @@ class VectorService extends Base {
         const allIds          = new Set();
         const processedIds    = new Set();
 
-        knowledgeBase.forEach(chunk => {
+        expandedKnowledgeBase.forEach(chunk => {
             const chunkId = chunk.id;
             allIds.add(chunkId);
 
@@ -567,7 +1061,7 @@ class VectorService extends Base {
         const existingIdsArray = Array.from(existingIds);
         const idsToDelete      = resolvedStaleStrategy === STALE_STRATEGY_SKIP ? [] : existingIdsArray.filter(id => !allIds.has(id));
         const shouldShadowSwap = resolvedStaleStrategy === 'shadow-swap' && (chunksToProcess.length > 0 || idsToDelete.length > 0);
-        const workVolume       = shouldShadowSwap ? knowledgeBase.length : chunksToProcess.length;
+        const workVolume       = shouldShadowSwap ? expandedKnowledgeBase.length : chunksToProcess.length;
 
         logger.log(`${workVolume} chunks to add or update.`);
         logger.log(`${idsToDelete.length} chunks to delete.`);
@@ -593,7 +1087,7 @@ class VectorService extends Base {
         if (viaMcp && workVolume > mcpThreshold) {
             // `logPath` is a Provider-owned leaf; read it directly so malformed config
             // shape fails loud instead of silently re-deriving a local default.
-            const logDir = aiConfig.logPath;
+            const logDir       = aiConfig.logPath;
             const errorPayload = {
                 error  : `KB sync work volume exceeds MCP-callable threshold`,
                 message: `${workVolume} chunks need re-embedding (threshold: ${mcpThreshold}). ` +
@@ -610,9 +1104,10 @@ class VectorService extends Base {
 
         if (shouldShadowSwap) {
             return await this.embedViaShadowSwap({
-                liveCollection: collection,
-                knowledgeBase,
-                idsToDeleteCount: idsToDelete.length
+                liveCollection  : collection,
+                knowledgeBase   : expandedKnowledgeBase,
+                idsToDeleteCount: idsToDelete.length,
+                shouldYield
             });
         }
 
@@ -621,12 +1116,12 @@ class VectorService extends Base {
             logger.log(`Deleted ${idsToDelete.length} stale chunks.`);
         }
 
-        await this.embedChunks({collection, chunksToProcess});
+        const embedResult = await this.embedChunks({collection, chunksToProcess});
 
-        const count   = await collection.count();
+        const count = await collection.count();
         const message = `Embedding complete. Collection now contains ${count} items.`;
         logger.log(message);
-        return {message, embedded: chunksToProcess.length, deleted: idsToDelete.length};
+        return {message, embedded: embedResult.embedded, deleted: idsToDelete.length};
     }
 
     /**

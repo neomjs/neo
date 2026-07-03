@@ -1,25 +1,29 @@
-import aiConfig from '../../mcp/server/memory-core/config.mjs';
-import Base from '../../../src/core/Base.mjs';
-import {buildChatModel} from '../../provider/buildChatModel.mjs';
-import {invokeWithGuardrail} from './helpers/consumerFrictionHelper.mjs';
-import {withTimeout} from './helpers/withTimeout.mjs';
+import aiConfig                                      from '../../mcp/server/memory-core/config.mjs';
+import Base                                          from '../../../src/core/Base.mjs';
+import {buildChatModel}                              from '../../provider/buildChatModel.mjs';
+import {invokeWithGuardrail}                         from './helpers/consumerFrictionHelper.mjs';
+import {withTimeout}                                 from './helpers/withTimeout.mjs';
 import {appendWalEmbedMarker, readPendingWalRecords} from './helpers/memoryWalStore.mjs';
-import crypto from 'crypto';
-import GraphService from './GraphService.mjs';
-import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER} from '../../graph/identityRoots.mjs';
+import {verifyPersistedVector}                       from './helpers/verifyPersistedVector.mjs';
+import {resolveTurnDocumentForRead}                  from './helpers/turnDocumentText.mjs';
+import crypto                                        from 'crypto';
+import GraphService                                  from './GraphService.mjs';
+import {capSessionsForSweep}                         from './capSessionsForSweep.mjs';
+import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER}   from '../../graph/identityRoots.mjs';
 
 import StorageRouter from './managers/StorageRouter.mjs';
-import HealthService from './HealthService.mjs';
-import Json from '../../../src/util/Json.mjs';
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
-import logger from '../../mcp/server/memory-core/logger.mjs';
+import Json          from '../../../src/util/Json.mjs';
+import fs            from 'fs';
+import path          from 'path';
+import os            from 'os';
+import logger        from '../../mcp/server/memory-core/logger.mjs';
 import RequestContextService, {
     SHARED_USER_ID,
     normalizeUserId,
     resolveSummaryVisibilityUserId
 } from '../../mcp/server/shared/services/RequestContextService.mjs';
+
+const CHROMA_SESSION_READ_TIMEOUT_MS = 10000;
 
 /**
  * @summary Service for handling session summarization and drift detection.
@@ -99,7 +103,7 @@ class SessionService extends Base {
      */
     static resolveSummarySourceProvenance(metadatas = []) {
         const sourceAgentIdentities = new Set();
-        let sourceTrustTier         = null,
+        let   sourceTrustTier       = null,
             unclassifiedSourceCount = 0;
 
         for (const metadata of metadatas || []) {
@@ -107,7 +111,7 @@ class SessionService extends Base {
                 ? metadata.agentIdentity
                 : null;
             const knownTrustTier = agentIdentity ? this.identityTrustTiers.get(agentIdentity) : null;
-            const trustTier = agentIdentity
+            const trustTier      = agentIdentity
                 ? (knownTrustTier || TRUST_TIERS.UNCLASSIFIED)
                 : TRUST_TIERS.UNCLASSIFIED;
 
@@ -130,7 +134,7 @@ class SessionService extends Base {
 
         return {
             sourceAgentIdentities: [...sourceAgentIdentities],
-            sourceTrustTier     : sourceTrustTier || TRUST_TIERS.UNCLASSIFIED,
+            sourceTrustTier      : sourceTrustTier || TRUST_TIERS.UNCLASSIFIED,
             unclassifiedSourceCount
         };
     }
@@ -151,10 +155,9 @@ class SessionService extends Base {
         logger.info(`[SessionService] Initialized new fallback session: ${this._legacySessionId}`);
 
         if (aiConfig.modelProvider === 'gemini') {
-            const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+            const GEMINI_API_KEY = aiConfig.geminiApiKey;
             if (!GEMINI_API_KEY) {
                 logger.warn('⚠️  [Startup] GEMINI_API_KEY not set for generation model.');
-                HealthService.recordStartupSummarization('skipped', { reason: 'GEMINI_API_KEY not set' });
                 return;
             }
         }
@@ -170,11 +173,11 @@ class SessionService extends Base {
         }
 
         this.model = buildChatModel({
-            modelProvider          : aiConfig.modelProvider,
-            openAiCompatibleConfig : aiConfig.openAiCompatible,
-            ollamaConfig           : aiConfig.ollama,
-            geminiApiKey           : process.env.GEMINI_API_KEY,
-            geminiModelName        : aiConfig.modelName
+            modelProvider         : aiConfig.modelProvider,
+            openAiCompatibleConfig: aiConfig.openAiCompatible,
+            ollamaConfig          : aiConfig.ollama,
+            geminiApiKey          : aiConfig.geminiApiKey,
+            geminiModelName       : aiConfig.modelName
         });
     }
 
@@ -227,7 +230,7 @@ class SessionService extends Base {
         if (!Number.isFinite(nowMs)) return new Set();
 
         const thresholdMs = aiConfig.orchestrator.swarmHeartbeat.idleThresholdMs;
-        const cutoffMs = nowMs - thresholdMs;
+        const cutoffMs    = nowMs - thresholdMs;
 
         try {
             const rows = sqlite.prepare(`
@@ -324,18 +327,27 @@ class SessionService extends Base {
      * -   **Parallel / Crash Path:** Session A crashes after adding 5 memories. Summary has 10, DB has 15.
      *     Next startup sees Mismatch. Re-summarizes to capture the lost 5 memories.
      *
+     * 4.  **Churn-gate:** A session whose newest memory is within the swarm idle window
+     *     (`swarmHeartbeat.idleThresholdMs`) is still actively receiving turns; its DB count climbs
+     *     every turn while the last summary's count lags, so it trips the Case-B mismatch on *every*
+     *     sweep. Such sessions are skipped until they go quiet, collapsing the re-summarization ratio
+     *     toward ~1 (measured churn before the gate: 7 sessions re-summarized 16-22×/day).
+     *
+     * @param {Object} [options]
+     * @param {Number|Date|String} [options.now=Date.now()] Clock source (testable; also threaded to
+     *   `getExternallyActiveSessionIds` so a sweep uses one consistent clock).
      * @returns {Promise<String[]>} List of Session IDs requiring summarization.
      */
-    async findSessionsToSummarize() {
+    async findSessionsToSummarize({now = Date.now()} = {}) {
         // 1. Get metadata for memories — all-time scope. (The prior 30-day window was an obsolete
         // boot/healthcheck-timeout safeguard from when MC summarized on server boot.)
-        const limit = aiConfig.summarizationBatchLimit;
+        const limit         = aiConfig.summarizationBatchLimit;
         const maxIterations = 1000; // Safety break: max 2M records (2000 * 1000)
 
         let allMetadatas = [];
-        let offset = 0;
-        let hasMore = true;
-        let iterations = 0;
+        let offset       = 0;
+        let hasMore      = true;
+        let iterations   = 0;
 
         // Build query options dynamically to avoid passing `where: undefined`
         const baseQueryOptions = {
@@ -379,8 +391,12 @@ class SessionService extends Base {
             }
 
             sessions[m.sessionId].count++;
-            if (m.timestamp && m.timestamp > sessions[m.sessionId].lastActivity) {
-                sessions[m.sessionId].lastActivity = m.timestamp;
+            // Normalize to epoch-ms (numeric, numeric-string, ISO, and the legacy `Memory: <iso>`
+            // name formats are all in play) so lastActivity is a reliable clock for the churn-gate
+            // below — mirrors getExternallyActiveSessionIds' resolution.
+            const tsMs = this.resolveGraphTimestampMs(m.timestamp, m.name);
+            if (tsMs !== null && tsMs > sessions[m.sessionId].lastActivity) {
+                sessions[m.sessionId].lastActivity = tsMs;
             }
         });
 
@@ -423,19 +439,46 @@ class SessionService extends Base {
         });
 
         // 4. Determine candidates
-        const externallyActiveSessionIds = this.getExternallyActiveSessionIds();
-        const sessionsToUpdate = [];
+        const nowMs = typeof now === 'number' ? now : new Date(now).getTime();
+        // Re-summary churn-gate threshold. Reuses the swarm idle definition — one idle
+        // concept, no new config leaf. A session whose newest memory is within this window
+        // is still actively receiving turns, so summarizing it now is stale-on-write and re-churns.
+        const churnCooldownMs            = aiConfig.orchestrator.swarmHeartbeat.idleThresholdMs;
+        const externallyActiveSessionIds = this.getExternallyActiveSessionIds({now: nowMs});
+        const sessionsToUpdate           = [];
 
         Object.keys(sessions).forEach(sessionId => {
-            const sessionData = sessions[sessionId];
+            const sessionData  = sessions[sessionId];
             const summaryCount = summaryMap[sessionId];
 
-            // Explicitly exclude sessions that are still active in this process or another
-            // live harness. Stale/crashed sessions fall back into the self-healing drift path.
+            // Skip the in-process current session (it summarizes on its own sunset).
             if (sessionId === this.currentSessionId) {
                 return;
             }
 
+            // PRIMARY churn-gate: an actively-growing session trips the Case-B count mismatch
+            // below on EVERY sweep (measured: 7 sessions re-summarized 16-22×/day while holding the
+            // heavy-maintenance lease). Graph-truth via the memory timestamp closes the gap the
+            // WAKE_SUBSCRIPTION skip misses; once the session goes quiet past the window it is
+            // summarized once → counts match → no further churn. A crashed session IS idle, so the
+            // eventual-consistency capture still fires once it ages past the window (no regression).
+            //
+            // Timestamp-edge hardening:
+            //   • Future-skew: a clock-drifted memory (plausible across multi-machine / multi-tenant
+            //     deployments) gives lastActivity > nowMs, so a bare `nowMs - lastActivity` is
+            //     negative — perpetually below the cooldown — which would gate the session FOREVER.
+            //     The `idleMs >= 0` guard treats a future timestamp as eligible (summarize once)
+            //     rather than permanently stuck.
+            //   • Unparseable/missing timestamp: resolveGraphTimestampMs returns null, so lastActivity
+            //     stays 0 (falsy) and bypasses this gate — fail-open, since a session we cannot time
+            //     is better summarized than stranded.
+            const idleMs = nowMs - sessionData.lastActivity;
+            if (sessionData.lastActivity && idleMs >= 0 && idleMs < churnCooldownMs) {
+                return;
+            }
+
+            // Secondary cross-harness skip — now largely subsumed by the idle-gate above; retained as
+            // defense-in-depth pending the follow-up cleanup (idle-gate ⊇ this for fresh rows).
             if (externallyActiveSessionIds.has(sessionId)) {
                 logger.info(`[SessionService] Skipping externally active session ${sessionId} during drift detection.`);
                 return;
@@ -471,10 +514,47 @@ class SessionService extends Base {
             return null;
         }
 
-        const memories = await this.memoryCollection.get({
-            where: { sessionId },
-            include: ['documents', 'metadatas']
-        });
+        // Paginate — a single un-paginated .get (the prior behavior) hit Chroma's default page bound
+        // and undercounted larger sessions, so the written memoryCount fell below the drift-detector's
+        // paginated count and the session was re-summarized every sweep (and the summary was truncated
+        // to the first page). Real Chroma respects offset, so this gathers the full set; dedup-by-id +
+        // stop-when-a-page-adds-nothing-new is a defensive guard that safely terminates even if a backing
+        // collection (e.g. an offset-blind mock) repeats a page, instead of looping forever.
+        const memories   = {ids: [], documents: [], metadatas: []};
+        const pageLimit  = aiConfig.summarizationBatchLimit;
+        const seenIds    = new Set();
+        let   pageOffset = 0;
+
+        while (true) {
+            const page = await this.memoryCollection.get({
+                where  : {sessionId},
+                include: ['documents', 'metadatas'],
+                limit  : pageLimit,
+                offset : pageOffset
+            });
+            const pageCount = page.ids?.length || 0;
+
+            if (pageCount === 0) break;
+
+            let addedThisPage = 0;
+
+            for (let i = 0; i < pageCount; i++) {
+                if (seenIds.has(page.ids[i])) continue;
+                seenIds.add(page.ids[i]);
+                memories.ids.push(page.ids[i]);
+                // Field↔document de-dup: reconstruct a dropped turn-document from its split metadata
+                // (resolveTurnDocumentForRead no-ops on summaries via the type discriminator).
+                memories.documents.push(resolveTurnDocumentForRead({documents: [page.documents[i]], metadata: page.metadatas[i]}));
+                memories.metadatas.push(page.metadatas[i]);
+                addedThisPage++;
+            }
+
+            // No new ids — the collection ignored offset (an offset-blind mock) or repeated the last
+            // page; either way we've gathered everything, so stop instead of looping forever.
+            if (addedThisPage === 0) break;
+
+            pageOffset += pageCount;
+        }
 
         if (memories.ids.length === 0) return null;
 
@@ -484,12 +564,12 @@ class SessionService extends Base {
         // sufficient `n_ctx` capabilities (128k+).
         const aggregatedContent = memories.documents.join('\n\n---\n\n');
 
-        let lastActivity = Date.now();
-        let firstActivity = lastActivity;
+        let   lastActivity    = Date.now();
+        let   firstActivity   = lastActivity;
         const extractedAgents = new Set();
         const extractedModels = new Set();
-        let totalToolCalls = 0;
-        const allToolsUsed = new Set();
+        let   totalToolCalls  = 0;
+        const allToolsUsed    = new Set();
 
         if (memories.metadatas && memories.metadatas.length > 0) {
             const timestamps = memories.metadatas.map(m => m.timestamp).filter(Boolean);
@@ -512,7 +592,7 @@ class SessionService extends Base {
                                 if (t) {
                                     if (typeof t === 'string') {
                                         try {
-                                            const inner = JSON.parse(t);
+                                            const inner      = JSON.parse(t);
                                             const identifier = inner.name || inner.toolAction || inner.toolSummary || 'unknown_tool';
                                             allToolsUsed.add(String(identifier).substring(0, 50));
                                         } catch (e) {
@@ -535,7 +615,7 @@ class SessionService extends Base {
         }
 
         const participatingAgents = Array.from(extractedAgents);
-        const models = Array.from(extractedModels);
+        const models              = Array.from(extractedModels);
 
         const buildSummaryPrompt = sessionContent => `
 Analyze the following development session and provide a structured summary in JSON format. The JSON object should have the following properties:
@@ -575,6 +655,26 @@ ${sessionContent}
         const consumerSafeTokens    = aiConfig.localModels.chat.safeProcessingLimitTokens;
         const summaryTimeoutMs      = aiConfig.sessionSummaryTimeoutMs;
 
+        // Per-task no-think + grammar-constrained structured output for the summary.
+        // `summaryReasoningEffort` (default 'none') disables the gemma MoE's hidden thinking pass
+        // (~2× faster, no measured quality loss). `summarySchema` enforces valid, fence-free JSON via
+        // the provider's json_schema path. Passing `undefined` effort omits the param (model default).
+        const summaryReasoningEffort = aiConfig.localModels.chat.summaryReasoningEffort;
+        const summarySchema          = {
+            type      : 'object',
+            properties: {
+                summary     : {type: 'string'},
+                title       : {type: 'string'},
+                category    : {type: 'string'},
+                quality     : {type: 'number'},
+                productivity: {type: 'number'},
+                impact      : {type: 'number'},
+                complexity  : {type: 'number'},
+                technologies: {type: 'array', items: {type: 'string'}}
+            },
+            required: ['summary', 'title', 'category', 'quality', 'productivity', 'impact', 'complexity', 'technologies']
+        };
+
         // Bound the synthesis call: pass the interactive budget to the provider (both honor
         // `options.timeoutMs` and throw a uniform PROVIDER_TIMEOUT on overshoot) AND race a
         // `withTimeout` as a provider-agnostic backstop, mirroring `buildMiniSummary`. Without this an
@@ -583,7 +683,7 @@ ${sessionContent}
         // friction symptom, which the degraded fallback below treats like an oversize skip.
         const runGuardrailed = (prompt, note) => invokeWithGuardrail({
             invocationFn             : () => withTimeout(
-                this.model.generateContent(prompt, {timeoutMs: summaryTimeoutMs, operationLabel: 'session summarization'}),
+                this.model.generateContent(prompt, {timeoutMs: summaryTimeoutMs, operationLabel: 'session summarization', priority: 'batch', reasoning_effort: summaryReasoningEffort || undefined, responseSchema: summarySchema, responseSchemaName: 'sessionSummary'}),
                 summaryTimeoutMs,
                 'session summarization'
             ),
@@ -617,7 +717,7 @@ ${sessionContent}
         const skipSymptom     = guardrailed.friction?.symptom,
               recoverableSkip = skipSymptom === 'size-precheck-skip' || skipSymptom === 'timeout';
         if (!guardrailed.result && recoverableSkip) {
-            const FALLBACK_CHARS   = 280, // truncated-raw snippet cap (matches the per-turn miniSummary cap)
+            const FALLBACK_CHARS = 280, // truncated-raw snippet cap (matches the per-turn miniSummary cap)
                   miniByMemoryId   = this.getSessionMiniSummaries(sessionId),
                   degradedEntries  = (memories.ids || [])
                       .map((id, index) => ({
@@ -650,9 +750,9 @@ ${sessionContent}
             return null;
         }
 
-        const result = guardrailed.result;
+        const result       = guardrailed.result;
         const responseText = result.response.text();
-        const summaryData = Json.extract(responseText);
+        const summaryData  = Json.extract(responseText);
 
         if (!summaryData) {
             logger.warn(`Failed to parse summary for session ${sessionId}`);
@@ -676,11 +776,11 @@ ${sessionContent}
         const summaryMetadata = {
             sessionId, timestamp: lastActivity, memoryCount: memories.ids.length,
             title, category, quality, productivity, impact, complexity,
-            technologies: (technologies || []).join(','),
-            participatingAgents: participatingAgents.join(','),
-            models: models.join(','),
+            technologies         : (technologies || []).join(','),
+            participatingAgents  : participatingAgents.join(','),
+            models               : models.join(','),
             totalToolCalls,
-            toolsUsed: Array.from(allToolsUsed).join(','),
+            toolsUsed            : Array.from(allToolsUsed).join(','),
             sourceAgentIdentities: sourceProvenance.sourceAgentIdentities.join(','),
             sourceTrustTier      : sourceProvenance.sourceTrustTier,
             provenancePolicy     : 'most-restrictive-source',
@@ -694,19 +794,24 @@ ${sessionContent}
         if (userId) summaryMetadata.userId = userId;
 
         await this.sessionsCollection.upsert({
-            ids: [summaryId],
+            ids      : [summaryId],
             documents: [summary],
             metadatas: [summaryMetadata]
         });
 
+        // Atomic-write Prevent floor: the upsert relies on Chroma auto-embed (no explicit vector), so confirm
+        // a vector actually persisted. A metadata-only summary is logged loud for the recovery actuator; the
+        // row is expected data so it is never deleted, and a verify failure never breaks the persist.
+        await verifyPersistedVector(this.sessionsCollection, summaryId, aiConfig.vectorDimension, logger, 'session summary');
+
         // --- 1. Topological Ingestion (Graph Mapping) ---
         GraphService.upsertNode({
-            id: summaryId,
-            type: 'SESSION_SUMMARY',
-            name: title,
-            description: `${category} session by ${participatingAgents.join(', ')}`,
+            id              : summaryId,
+            type            : 'SESSION_SUMMARY',
+            name            : title,
+            description     : `${category} session by ${participatingAgents.join(', ')}`,
             semanticVectorId: summaryId,
-            properties: {
+            properties      : {
                 sessionId,
                 sourceAgentIdentities: sourceProvenance.sourceAgentIdentities,
                 sourceTrustTier      : sourceProvenance.sourceTrustTier,
@@ -726,14 +831,14 @@ ${sessionContent}
         for (const agentIdentity of graphAgentIdentities) {
             GraphService.linkNodes(summaryId, agentIdentity, 'AUTHORED_BY', 1.0, {
                 timestamp,
-                userId          : agentIdentity,
+                userId          : normalizeUserId(agentIdentity),
                 sharedEntity    : true,
                 provenancePolicy: 'most-restrictive-source'
             });
         }
 
         // --- 2. Semantic Extraction (Regex Linkage) ---
-        const issueRegex = /(?:#|issue-)(\d+)/gi;
+        const issueRegex   = /(?:#|issue-)(\d+)/gi;
         const linkedIssues = new Set();
         let match;
 
@@ -800,7 +905,7 @@ ${sessionContent}
      */
     async ingestAntigravityArtifacts(sessionId, summaryId, minTimeMs, maxTimeMs) {
         try {
-            const homeDir = os.homedir();
+            const homeDir  = os.homedir();
             const brainDir = path.join(homeDir, '.gemini', 'antigravity', 'brain');
 
             if (!fs.existsSync(brainDir)) return;
@@ -812,7 +917,7 @@ ${sessionContent}
                     const stats = fs.statSync(planPath);
                     // Match artifact to session timeframe
                     if (stats.mtimeMs >= minTimeMs && stats.mtimeMs <= maxTimeMs) {
-                        const content = fs.readFileSync(planPath, 'utf8');
+                        const content    = fs.readFileSync(planPath, 'utf8');
                         const artifactId = `plan_${convId}`;
 
                         logger.info(`[SessionService] Ingesting Antigravity artifact: ${planPath}`);
@@ -824,30 +929,34 @@ ${sessionContent}
                             // concurrent users summarizing overlapping time windows each produce
                             // their own tenant-tagged copy; cross-tenant isolation holds because
                             // the ChromaDB id is also conversation-scoped.
-                            const planUserId = RequestContextService.getUserId();
+                            const planUserId   = RequestContextService.getUserId();
                             const planMetadata = {
                                 sessionId,
                                 timestamp: stats.mtimeMs,
-                                type: 'implementation_plan',
-                                source: 'antigravity'
+                                type     : 'implementation_plan',
+                                source   : 'antigravity'
                             };
                             if (planUserId) planMetadata.userId = planUserId;
 
                             await this.memoryCollection.upsert({
-                                ids: [artifactId],
+                                ids      : [artifactId],
                                 metadatas: [planMetadata],
                                 documents: [content]
                             });
+
+                            // Atomic-write Prevent floor: confirm the auto-embed actually persisted a vector;
+                            // a metadata-only plan is logged for the recovery actuator (never deleted/thrown).
+                            await verifyPersistedVector(this.memoryCollection, artifactId, aiConfig.vectorDimension, logger, 'antigravity plan');
                         } catch (e) {
                             logger.warn(`[SessionService] Failed to vector-upsert plan: ${e.message}`);
                         }
 
                         // Tie it structurally into Graph
                         GraphService.upsertNode({
-                            id: artifactId,
-                            type: 'IMPLEMENTATION_PLAN',
-                            name: `Antigravity Plan (${convId})`,
-                            description: `Strategically generated implementation plan via Antigravity Brain for session ${sessionId}.`,
+                            id              : artifactId,
+                            type            : 'IMPLEMENTATION_PLAN',
+                            name            : `Antigravity Plan (${convId})`,
+                            description     : `Strategically generated implementation plan via Antigravity Brain for session ${sessionId}.`,
                             semanticVectorId: artifactId
                         });
 
@@ -884,7 +993,7 @@ ${sessionContent}
         if (RequestContextService.getSessionId()) {
             return {
                 error: 'Cannot manually override request-scoped sessions. Manage session identity via Mcp-Session-Id header.',
-                code: 'REQUEST_SCOPED_SESSION_ACTIVE'
+                code : 'REQUEST_SCOPED_SESSION_ACTIVE'
             };
         }
 
@@ -940,21 +1049,22 @@ ${sessionContent}
      *
      * @param {Object} args
      * @param {String} args.sessionId The session ID to validate.
+     * @param {Number} [args.chromaTimeoutMs=CHROMA_SESSION_READ_TIMEOUT_MS] Test seam for bounding Chroma metadata reads.
      * @returns {Promise<Object>} Either a success payload (`{success: true, sessionId, status:
      *     'resumable', memoryCount, lastActivityAt, summarizationStatus}`) OR a structured error
      *     with one of `INVALID_SESSION_ID`, `SESSION_NOT_FOUND`, `SESSION_FINALIZED`, `SESSION_BUSY`.
      * @see RequestContextService — transport-layer session binding
      * @see SummarizationJobs — lease semantics (TTL + status enum)
      */
-    async validateSessionForResume({sessionId} = {}) {
+    async validateSessionForResume({sessionId, chromaTimeoutMs = CHROMA_SESSION_READ_TIMEOUT_MS} = {}) {
         if (!sessionId || typeof sessionId !== 'string') {
             return {error: 'Invalid sessionId', code: 'INVALID_SESSION_ID'};
         }
 
         // Fast SQLite check on summarization-job state — gates FINALIZED + BUSY error paths
         // before the more expensive Chroma read.
-        const sqlite = GraphService.db?.storage?.db;
-        let summarizationStatus = 'none';
+        const sqlite              = GraphService.db?.storage?.db;
+        let   summarizationStatus = 'none';
         if (sqlite) {
             try {
                 const row = sqlite.prepare(
@@ -965,8 +1075,8 @@ ${sessionContent}
 
                     if (row.status === 'completed') {
                         return {
-                            error: 'Session has been finalized via summarization. Resuming would append to a closed-book session; start fresh instead.',
-                            code: 'SESSION_FINALIZED',
+                            error              : 'Session has been finalized via summarization. Resuming would append to a closed-book session; start fresh instead.',
+                            code               : 'SESSION_FINALIZED',
                             sessionId,
                             summarizationStatus: 'completed'
                         };
@@ -974,11 +1084,11 @@ ${sessionContent}
 
                     if (row.status === 'in_progress' && row.expires_at > Date.now()) {
                         return {
-                            error: 'Session is currently being summarized by another worker (lease active). Retry shortly or start fresh.',
-                            code: 'SESSION_BUSY',
+                            error              : 'Session is currently being summarized by another worker (lease active). Retry shortly or start fresh.',
+                            code               : 'SESSION_BUSY',
                             sessionId,
                             summarizationStatus: 'in_progress',
-                            leaseExpiresAt: new Date(row.expires_at).toISOString()
+                            leaseExpiresAt     : new Date(row.expires_at).toISOString()
                         };
                     }
                     // status === 'pending' / 'failed' / expired 'in_progress': resumable below.
@@ -994,17 +1104,25 @@ ${sessionContent}
         let memoryCount    = 0;
         let lastActivityAt = null;
         try {
-            const collection = await StorageRouter.getMemoryCollection();
+            const collection = await withTimeout(
+                StorageRouter.getMemoryCollection(),
+                chromaTimeoutMs,
+                'validateSessionForResume getMemoryCollection'
+            );
             if (collection) {
                 const userId = normalizeUserId(RequestContextService.getUserId());
                 const where  = userId
                     ? {$and: [{sessionId}, {$or: [{userId}, {userId: SHARED_USER_ID}]}]}
                     : {sessionId};
 
-                const result = await collection.get({
-                    where,
-                    include: ['metadatas']
-                });
+                const result = await withTimeout(
+                    collection.get({
+                        where,
+                        include: ['metadatas']
+                    }),
+                    chromaTimeoutMs,
+                    'validateSessionForResume collection.get'
+                );
 
                 memoryCount = result.ids?.length || 0;
 
@@ -1030,7 +1148,7 @@ ${sessionContent}
         // (same tenant predicate as the Chroma where above) before declaring SESSION_NOT_FOUND.
         if (memoryCount === 0 && sqlite) {
             try {
-                const userId = normalizeUserId(RequestContextService.getUserId());
+                const userId       = normalizeUserId(RequestContextService.getUserId());
                 const tenantClause = userId
                     ? `AND (json_extract(data, '$.properties.userId') = ? OR json_extract(data, '$.properties.userId') = ?)`
                     : '';
@@ -1057,7 +1175,7 @@ ${sessionContent}
         if (memoryCount === 0 && summarizationStatus === 'none') {
             return {
                 error: 'No session found with the supplied ID. Either the session never existed or its data has been purged.',
-                code: 'SESSION_NOT_FOUND',
+                code : 'SESSION_NOT_FOUND',
                 sessionId
             };
         }
@@ -1065,7 +1183,7 @@ ${sessionContent}
         return {
             success: true,
             sessionId,
-            status: 'resumable',
+            status : 'resumable',
             memoryCount,
             lastActivityAt,
             summarizationStatus
@@ -1181,15 +1299,24 @@ ${sessionContent}
      * @summary Provides exclusive lock acquisition for the background summarization coordinator loop.
      * @param {String} sessionId
      * @param {String} leaseToken
-     * @param {Number} [ttlMs=300000] Default 5-minute lease
+     * @param {Number|Object} [ttlMs=300000] Default 5-minute lease, or options.
+     * @param {Object} [options]
+     * @param {Boolean} [options.allowCompletedRepair=false] Reclaim `completed` rows when a caller
+     *     already proved summary-artifact drift and needs to rebuild the missing/outdated artifact.
      * @returns {Boolean} true if the lease was claimed successfully, false otherwise.
      */
-    claimSummarizationJob(sessionId, leaseToken, ttlMs = 300000) {
+    claimSummarizationJob(sessionId, leaseToken, ttlMs = 300000, options = {}) {
         const db = GraphService.db?.storage?.db;
         if (!db) return true; // Fallback: allow execution if DB is somehow missing
 
-        const now = Date.now();
-        const expiresAt = now + ttlMs;
+        if (ttlMs && typeof ttlMs === 'object') {
+            options = ttlMs;
+            ttlMs   = 300000;
+        }
+
+        const allowCompletedRepair = options.allowCompletedRepair === true;
+        const now                  = Date.now();
+        const expiresAt            = now + ttlMs;
 
         try {
             const claimTx = db.transaction(() => {
@@ -1204,6 +1331,14 @@ ${sessionContent}
                 }
 
                 if (existing.status === 'completed') {
+                    if (allowCompletedRepair) {
+                        db.prepare(`
+                            UPDATE SummarizationJobs
+                            SET status = 'in_progress', lease_token = ?, expires_at = ?, retry_count = retry_count + 1
+                            WHERE session_id = ?
+                        `).run(leaseToken, expiresAt, sessionId);
+                        return true;
+                    }
                     return false;
                 }
 
@@ -1282,7 +1417,7 @@ ${sessionContent}
      */
     async summarizeSessions({ sessionId } = {}) {
         try {
-            let processed = [];
+            let   processed  = [];
             const leaseToken = crypto.randomUUID();
 
             if (sessionId) {
@@ -1303,7 +1438,13 @@ ${sessionContent}
                     logger.info(`[SessionService] Skipping session ${sessionId} - active lease held by another instance or already completed.`);
                 }
             } else {
-                const sessionsToSummarize = await this.findSessionsToSummarize();
+                // Cap the per-sweep drain so the child releases the heavy-maintenance lease after a
+                // small batch — the fair picker then interleaves dream / golden-path / backfill rather
+                // than waiting out the whole drift list. The next sweep re-derives the remainder.
+                const sessionsToSummarize = capSessionsForSweep(
+                    await this.findSessionsToSummarize(),
+                    aiConfig.maxSessionsPerSummarySweep
+                );
 
                 // Hardware concurrency scaling
                 let batchSize;
@@ -1319,14 +1460,16 @@ ${sessionContent}
 
                 logger.info(`[SessionService] Found ${total} sessions to summarize. Processing in batches of ${batchSize}...`);
 
-                let completed = 0;
+                let completed     = 0,
+                    skippedClaims = 0;
 
                 for (let i = 0; i < total; i += batchSize) {
                     const chunk = sessionsToSummarize.slice(i, i + batchSize);
                     logger.info(`[SessionService] Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(total / batchSize)} (${chunk.length} sessions)...`);
 
                     const promises = chunk.map(async (id) => {
-                        if (!this.claimSummarizationJob(id, leaseToken)) {
+                        if (!this.claimSummarizationJob(id, leaseToken, {allowCompletedRepair: true})) {
+                            skippedClaims++;
                             logger.info(`[SessionService] Skipping session ${id} - active lease held by another instance or already completed.`);
                             return null;
                         }
@@ -1351,11 +1494,13 @@ ${sessionContent}
                         }
                     });
 
-                    const results = await Promise.all(promises);
+                    const results     = await Promise.all(promises);
                     const batchResult = results.filter(Boolean);
 
                     processed.push(...batchResult);
                 }
+
+                console.error(`[INFO] [SessionService] session summarization drift complete: candidates=${total}; processed=${processed.length}; skippedClaims=${skippedClaims}`);
             }
 
             return { processed: processed.length, sessions: processed };
@@ -1363,9 +1508,9 @@ ${sessionContent}
         } catch (error) {
             logger.error('[SessionService] Error during session summarization:', error);
             return {
-                error: 'Session summarization failed',
+                error  : 'Session summarization failed',
                 message: error.message,
-                code: 'SUMMARIZATION_ERROR'
+                code   : 'SUMMARIZATION_ERROR'
             };
         }
     }
@@ -1446,9 +1591,9 @@ ${sessionContent}
         } catch (error) {
             logger.error(`[SessionService] Error purging session ${sessionId}:`, error);
             return {
-                error: 'Failed to purge session',
+                error  : 'Failed to purge session',
                 message: error.message,
-                code: 'PURGE_SESSION_ERROR'
+                code   : 'PURGE_SESSION_ERROR'
             };
         }
     }

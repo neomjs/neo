@@ -6,6 +6,7 @@ import readline                  from 'readline';
 import Base                      from '../../../src/core/Base.mjs';
 import StorageRouter             from './managers/StorageRouter.mjs';
 import DestructiveOperationGuard from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
+import {partitionRowsByVectorValidity, summarizeVectorRejections} from './helpers/vectorWriteInvariant.mjs';
 
 /**
  * @summary Service for exporting and importing memory core data.
@@ -45,29 +46,45 @@ class DatabaseService extends Base {
      * @param {Object} collection The ChromaDB collection to export.
      * @param {String} backupPath The directory to save the backup file.
      * @param {String} filePrefix The prefix for the backup filename.
-     * @returns {Promise<number>} The number of exported documents.
+     * @param {String} collectionName Stable collection label for logs, stats, and fail-loud errors.
+     * @returns {Promise<{collection: String, backupFile: String|null, expected: Number, exported: Number, skipped: Number, skippedIds: String[]}>} Export statistics.
      * @private
      */
-    async #exportCollection(collection, backupPath, filePrefix) {
-        logger.log(`Fetching all documents from "${collection.name}"...`);
+    async #exportCollection(collection, backupPath, filePrefix, collectionName = collection.name || filePrefix) {
+        logger.log(`Fetching all documents from "${collectionName}"...`);
 
         // 1. Get total count first
         const count = await collection.count();
         if (count === 0) {
-            logger.log(`No documents found in ${collection.name} to export.`);
-            return 0;
+            logger.log(`No documents found in ${collectionName} to export.`);
+            return {
+                collection: collectionName,
+                backupFile: null,
+                expected  : 0,
+                exported  : 0,
+                skipped   : 0,
+                skippedIds: []
+            }
         }
 
-        logger.log(`Found ${count} documents in ${collection.name} to export.`);
+        logger.log(`Found ${count} documents in ${collectionName} to export.`);
 
         await fs.ensureDir(backupPath);
-        const timestamp   = new Date().toISOString().replace(/:/g, '-');
+        const timestamp = new Date().toISOString().replace(/:/g, '-');
         const backupFile  = path.join(backupPath, `${filePrefix}-${timestamp}.jsonl`);
         const writeStream = fs.createWriteStream(backupFile);
+        const stats       = {
+            collection: collectionName,
+            backupFile,
+            expected  : count,
+            exported  : 0,
+            skipped   : 0,
+            skippedIds: []
+        };
 
         // 2. Paginated Fetch
-        const limit = 2000; // Safe batch size
-        let offset  = 0;
+        const limit  = 2000; // Safe batch size
+        let   offset = 0;
 
         while (offset < count) {
             logger.log(`Fetching batch: ${offset} to ${Math.min(offset + limit, count)} of ${count}`);
@@ -105,7 +122,9 @@ class DatabaseService extends Base {
                             batch.embeddings.push(single.embeddings[0]);
                         }
                     } catch (singleErr) {
-                        logger.error(`Skipping corrupted vector ID during export: ${id}`);
+                        stats.skipped++;
+                        stats.skippedIds.push(id);
+                        logger.error(`Skipping corrupted vector ID during export: ${id} (${singleErr.message})`);
                     }
                 }
             }
@@ -120,14 +139,25 @@ class DatabaseService extends Base {
                     document : batch.documents[i]
                 };
                 writeStream.write(JSON.stringify(record) + '\n');
+                stats.exported++;
             }
 
             offset += limit;
         }
 
         await new Promise(resolve => writeStream.end(resolve));
-        logger.log(`Successfully exported ${count} documents to: ${backupFile}`);
-        return count;
+        if (stats.exported !== stats.expected) {
+            const error = new Error(
+                `PARTIAL_COLLECTION_EXPORT: ${collectionName} exported ${stats.exported}/${stats.expected} ` +
+                `records to ${backupFile}; skipped ${stats.skipped} corrupted vector id(s).`
+            );
+            error.code    = 'PARTIAL_COLLECTION_EXPORT';
+            error.details = stats;
+            throw error
+        }
+
+        logger.log(`Successfully exported ${stats.exported}/${stats.expected} documents from ${collectionName} to: ${backupFile}`);
+        return stats
     }
 
     /**
@@ -169,11 +199,11 @@ class DatabaseService extends Base {
 
         logger.log(`Found ${nodesCount} nodes and ${edgesCount} edges to export.`);
 
-        const fs        = (await import('fs-extra')).default;
-        const path      = (await import('path')).default;
+        const fs   = (await import('fs-extra')).default;
+        const path = (await import('path')).default;
         await fs.ensureDir(backupPath);
 
-        const timestamp   = new Date().toISOString().replace(/:/g, '-');
+        const timestamp = new Date().toISOString().replace(/:/g, '-');
         const backupFile  = path.join(backupPath, `${filePrefix}-${timestamp}.jsonl`);
         const writeStream = fs.createWriteStream(backupFile);
 
@@ -183,7 +213,7 @@ class DatabaseService extends Base {
         const nodesStmt = db.prepare('SELECT data FROM Nodes');
         for (const row of nodesStmt.iterate()) {
              try {
-                 const node = JSON.parse(row.data);
+                 const node   = JSON.parse(row.data);
                  const record = { type: 'node', data: node };
                  writeStream.write(JSON.stringify(record) + '\n');
                  exported++;
@@ -196,7 +226,7 @@ class DatabaseService extends Base {
         const edgesStmt = db.prepare('SELECT data FROM Edges');
         for (const row of edgesStmt.iterate()) {
              try {
-                 const edge = JSON.parse(row.data);
+                 const edge   = JSON.parse(row.data);
                  const record = { type: 'edge', data: edge };
                  writeStream.write(JSON.stringify(record) + '\n');
                  exported++;
@@ -241,11 +271,11 @@ class DatabaseService extends Base {
             db.prepare('DELETE FROM Edges').run();
         }
 
-        const fs = (await import('fs-extra')).default;
+        const fs       = (await import('fs-extra')).default;
         const readline = (await import('readline')).default;
 
         const fileStream = fs.createReadStream(filePath);
-        const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+        const rl         = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
 
         let imported = 0;
 
@@ -347,32 +377,46 @@ class DatabaseService extends Base {
      * @param {Object}    options
      * @param {String[]} [options.include=['memories','summaries','graph']] Array of collections to export.
      * @param {String}   [options.backupPath=aiConfig.backupPath]           Directory for the JSONL artifacts.
-     * @returns {Promise<{message: string}>}
+     * @returns {Promise<Object>}
      */
     async exportDatabase({include=['memories', 'summaries', 'graph'], backupPath = aiConfig.backupPath} = {}) {
         try {
             logger.log('Starting agent memory export...');
-            let memoryCount = 0, summaryCount = 0, graphCount = 0;
+            let memoryStats = null, summaryStats = null, graphStats = null;
 
             if (include.includes('memories')) {
                 const collection = await StorageRouter.getMemoryCollection();
-                memoryCount      = await this.#exportCollection(collection, backupPath, 'memory-backup');
+                memoryStats      = await this.#exportCollection(collection, backupPath, 'memory-backup', aiConfig.collections.memory);
             }
 
             if (include.includes('summaries')) {
                 const collection = await StorageRouter.getSummaryCollection();
-                summaryCount     = await this.#exportCollection(collection, backupPath, 'summaries-backup');
+                summaryStats     = await this.#exportCollection(collection, backupPath, 'summaries-backup', aiConfig.collections.session);
             }
 
             if (include.includes('graph')) {
-                graphCount = await this.#exportGraph(backupPath, 'graph-backup');
+                const graphCount = await this.#exportGraph(backupPath, 'graph-backup');
+                graphStats       = {expected: graphCount, exported: graphCount};
             }
 
-            return {message: `Export complete. Exported ${memoryCount} memories, ${summaryCount} summaries, and ${graphCount} graph elements.`};
+            const memoryCount  = memoryStats?.exported || 0,
+                  summaryCount = summaryStats?.exported || 0,
+                  graphCount   = graphStats?.exported || 0,
+                  result       = {
+                      message: `Export complete. Exported ${memoryCount} memories, ${summaryCount} summaries, and ${graphCount} graph elements.`,
+                      count  : memoryCount + summaryCount + graphCount
+                  };
+
+            if (memoryStats) result.memories = memoryStats;
+            if (summaryStats) result.summaries = summaryStats;
+            if (graphStats) result.graph = graphStats;
+
+            return result
         } catch (error) {
             logger.error('[DatabaseService] Error exporting database:', error);
             const exportError = new Error(`DATABASE_EXPORT_ERROR: ${error.message}`);
             exportError.code  = 'DATABASE_EXPORT_ERROR';
+            if (error.details) exportError.details = error.details;
             throw exportError;
         }
     }
@@ -462,6 +506,11 @@ class DatabaseService extends Base {
                 memoriesInserted: 0
             };
 
+            // Atomic vector-write invariant: an explicit-embedding import must carry a valid same-dimension
+            // vector — a row whose vector is missing/empty/wrong-dim/non-finite is rejected fail-loud rather
+            // than half-persisted as metadata-only (the corruption shape the invariant exists to prevent).
+            const expectedDimension = aiConfig.vectorDimension;
+
             for (const filePath of filesToImport) {
                 logger.log(`Importing: ${filePath}`);
 
@@ -477,7 +526,7 @@ class DatabaseService extends Base {
 
                 // Determine which collection to import into based on filename heuristics
                 const isMemoryBackup = path.basename(filePath).startsWith('memory-backup');
-                let collection       = isMemoryBackup
+                let   collection     = isMemoryBackup
                     ? await StorageRouter.getMemoryCollection()
                     : await StorageRouter.getSummaryCollection();
 
@@ -532,7 +581,7 @@ class DatabaseService extends Base {
                         existence.ids.forEach(id => existingIds.add(id));
                     }
 
-                    const missing       = records.filter(r => !existingIds.has(r.id));
+                    const missing = records.filter(r => !existingIds.has(r.id));
                     fileSkippedExisting = existingIds.size;
 
                     if (existingIds.size > 0) {
@@ -540,7 +589,21 @@ class DatabaseService extends Base {
                     }
 
                     for (let i = 0; i < missing.length; i += CHROMA_UPSERT_CHUNK_SIZE) {
-                        const chunk = missing.slice(i, i + CHROMA_UPSERT_CHUNK_SIZE);
+                        let chunk = missing.slice(i, i + CHROMA_UPSERT_CHUNK_SIZE);
+                        // reEmbed strips vectors (Chroma re-embeds), so the invariant guards only the
+                        // explicit-embedding path: reject any row lacking a valid same-dimension vector.
+                        if (!reEmbed) {
+                            const {valid, rejected} = partitionRowsByVectorValidity({rows: chunk, expectedDimension});
+                            if (rejected.length > 0) {
+                                const {count, byReason} = summarizeVectorRejections(rejected);
+                                logger.error(`[importMemories] vector-write invariant rejected ${count} row(s) without a valid same-dimension vector ${JSON.stringify(byReason)} — not persisted`);
+                                fileFailed += rejected.length;
+                            }
+                            chunk = valid;
+                        }
+                        if (chunk.length === 0) {
+                            continue;
+                        }
                         try {
                             await collection.add({
                                 ids       : chunk.map(r => r.id),
@@ -561,8 +624,23 @@ class DatabaseService extends Base {
                     // Replace mode: subsystem already truncated above; upsert is safe
                     // (no live rows to collide with). Fail-fast on chunk error matches
                     // fail-fast behavior; the outer try/catch wraps it as DATABASE_IMPORT_ERROR.
+                    let replaceRejected = 0;
                     for (let i = 0; i < records.length; i += CHROMA_UPSERT_CHUNK_SIZE) {
-                        const chunk = records.slice(i, i + CHROMA_UPSERT_CHUNK_SIZE);
+                        let chunk = records.slice(i, i + CHROMA_UPSERT_CHUNK_SIZE);
+                        // reEmbed strips vectors (Chroma re-embeds), so the invariant guards only the
+                        // explicit-embedding path: reject any row lacking a valid same-dimension vector.
+                        if (!reEmbed) {
+                            const {valid, rejected} = partitionRowsByVectorValidity({rows: chunk, expectedDimension});
+                            if (rejected.length > 0) {
+                                const {count, byReason} = summarizeVectorRejections(rejected);
+                                logger.error(`[importMemories] vector-write invariant rejected ${count} row(s) without a valid same-dimension vector ${JSON.stringify(byReason)} — not persisted`);
+                                replaceRejected += rejected.length;
+                            }
+                            chunk = valid;
+                        }
+                        if (chunk.length === 0) {
+                            continue;
+                        }
                         await collection.upsert({
                             ids       : chunk.map(r => r.id),
                             embeddings: chunk.map(r => r.embedding),
@@ -573,7 +651,8 @@ class DatabaseService extends Base {
                             logger.log(`  upserted chunk ${Math.floor(i / CHROMA_UPSERT_CHUNK_SIZE) + 1}/${Math.ceil(records.length / CHROMA_UPSERT_CHUNK_SIZE)} (${chunk.length} records)`);
                         }
                     }
-                    fileInserted = records.length;
+                    fileFailed   += replaceRejected;
+                    fileInserted  = records.length - replaceRejected;
                 }
 
                 chromaCounts.inserted            += fileInserted;
@@ -686,7 +765,7 @@ class DatabaseService extends Base {
             operation,
             subsystem: 'memory-core',
             mode,
-            target: {
+            target   : {
                 sqlitePath: aiConfig.storagePaths.graph,
                 path      : aiConfig.storagePaths.graph,
                 repoRoot  : process.cwd()

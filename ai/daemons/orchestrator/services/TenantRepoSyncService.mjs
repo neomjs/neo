@@ -1,11 +1,11 @@
-import fs from 'fs-extra';
-import path from 'node:path';
-import Base from '../../../../src/core/Base.mjs';
-import AiConfig from '../../../config.mjs';
-import {DEFAULT_DATA_DIR} from '../taskDefinitions.mjs';
-import GitMirror from '../../../services/knowledge-base/helpers/gitMirror.mjs';
+import fs                    from 'fs-extra';
+import path                  from 'node:path';
+import Base                  from '../../../../src/core/Base.mjs';
+import AiConfig              from '../../../config.mjs';
+import {DEFAULT_DATA_DIR}    from '../taskDefinitions.mjs';
+import GitMirror             from '../../../services/knowledge-base/helpers/gitMirror.mjs';
 import {buildIngestEnvelope} from '../../../services/knowledge-base/helpers/tenantRepoIngestEnvelopeBuilder.mjs';
-import {isRepoDue} from '../scheduling/tenantRepoSync.mjs';
+import {isRepoDue}           from '../scheduling/tenantRepoSync.mjs';
 import {
     KB_TENANT_REPO_SYNC_SYNC_FAILED,
     KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED,
@@ -36,7 +36,7 @@ const PERSISTED_REVISIONS_FILE_NAME = 'tenant-repo-sync-revisions.json';
  * @returns {{acquire: Function, release: Function}}
  */
 function createConcurrencySemaphore({limit, timeoutMs = 0}) {
-    let active = 0;
+    let   active  = 0;
     const waiters = [];
 
     const handoffSlot = () => {
@@ -77,6 +77,16 @@ function createConcurrencySemaphore({limit, timeoutMs = 0}) {
             handoffSlot();
         }
     };
+}
+
+function getSourceErrorCode(error, outerCode) {
+    const sourceCode = error?.code;
+
+    if (typeof sourceCode !== 'string' || sourceCode === outerCode) {
+        return null;
+    }
+
+    return /^KB_[A-Z0-9_]{1,120}$/.test(sourceCode) ? sourceCode : null;
 }
 
 /**
@@ -180,11 +190,16 @@ class TenantRepoSyncService extends Base {
      * Runs the tenant-repo-sync task under orchestrator state + health envelopes.
      *
      * Error code taxonomy (see `./TenantRepoSyncErrors.mjs`). Operators branch on
-     * `details.repos[i].lastErrorCode` for per-repo failures and `details.reasonCode`
-     * for outer-task structural failures. Underlying transport errors
+     * `details.repos[i].lastErrorCode` for per-repo failures,
+     * `details.repos[i].lastSourceErrorCode` for redacted sibling-subsystem
+     * provenance, and `details.reasonCode` for outer-task structural failures.
+     * Underlying transport errors
      * (GitMirror auth, ChromaDB write, etc.) are wrapped as
      * `KB_TENANT_REPO_SYNC_SYNC_FAILED` so callers can rely on the stable prefix
-     * without parsing message prose.
+     * without parsing message prose. When the underlying error already carried a
+     * stable `KB_*` code (for example `KB_GITMIRROR_FETCH_FAILED`), that code is
+     * preserved as `lastSourceErrorCode` without copying raw stderr, URLs, or
+     * credential material.
      *
      * | Code | Surface | Trigger |
      * |---|---|---|
@@ -241,14 +256,19 @@ class TenantRepoSyncService extends Base {
                 taskStateService, healthService, taskName, revisionsFilePath, envelopeBuilder,
                 globalCadenceMs, jitterRatio, seedBootstrap
             });
-            const status = result.status;
+            const status         = result.status;
+            const lastCompletion = {
+                status,
+                reason,
+                ...result.details
+            };
 
             if (status === 'completed') {
-                taskStateService.markCompleted(taskName);
+                taskStateService.markCompleted(taskName, lastCompletion);
             } else if (status === 'failed') {
-                taskStateService.markFailed(taskName, null);
+                taskStateService.markFailed(taskName, null, lastCompletion);
             } else {
-                taskStateService.markSkipped(taskName);
+                taskStateService.markSkipped(taskName, lastCompletion);
             }
 
             healthService?.recordTaskOutcome?.(taskName, status, {reason, ...result.details});
@@ -257,9 +277,9 @@ class TenantRepoSyncService extends Base {
             // Propagate stable error code + meta when the throw is a TenantRepoSyncError;
             // otherwise wrap as the unspecific KB_TENANT_REPO_SYNC_SYNC_FAILED so operators
             // can branch on `error.code` instead of message prose.
-            const code      = isTenantRepoSyncErrorCode(e.code) ? e.code : KB_TENANT_REPO_SYNC_SYNC_FAILED;
-            const meta      = (e instanceof TenantRepoSyncError) ? e.meta : undefined;
-            const details   = {
+            const code    = isTenantRepoSyncErrorCode(e.code) ? e.code : KB_TENANT_REPO_SYNC_SYNC_FAILED;
+            const meta    = (e instanceof TenantRepoSyncError) ? e.meta : undefined;
+            const details = {
                 reason,
                 phase     : 'tenant-repo-sync',
                 error     : e.message,
@@ -267,7 +287,7 @@ class TenantRepoSyncService extends Base {
                 ...(meta ? {meta} : {})
             };
 
-            taskStateService.markFailed(taskName, null);
+            taskStateService.markFailed(taskName, null, {status: 'failed', ...details});
             writeLog?.('ERROR', `[TenantRepoSync] Failed: ${code} (${e.message})`);
             healthService?.recordTaskOutcome?.(taskName, 'failed', details);
             return {status: 'failed', details};
@@ -299,11 +319,11 @@ class TenantRepoSyncService extends Base {
         if (repos.length === 0 && onlyRepoSlugs?.length > 0) {
             const knownSlugs   = allRepos.map(r => r.repoSlug);
             const unknownSlugs = onlyRepoSlugs.filter(s => !knownSlugs.includes(s));
-            const details = {
-                reason     : 'repo-not-configured',
-                reasonCode : KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED,
-                repoCount  : 0,
-                requestedSlugs: onlyRepoSlugs,
+            const details      = {
+                reason         : 'repo-not-configured',
+                reasonCode     : KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED,
+                repoCount      : 0,
+                requestedSlugs : onlyRepoSlugs,
                 unknownSlugs,
                 configuredSlugs: knownSlugs
             };
@@ -320,9 +340,9 @@ class TenantRepoSyncService extends Base {
         const resolvedRevisionsPath = revisionsFilePath || this.defaultRevisionsFilePath();
         const ingestionService      = knowledgeBaseIngestionService || await this.resolveIngestionService();
         const persistedRevisions    = await this.readPersistedRevisions({filePath: resolvedRevisionsPath});
-        const repoStates = [];
-        let   completedCount     = 0;
-        let   failedCount        = 0;
+        const repoStates            = [];
+        let   completedCount        = 0;
+        let   failedCount           = 0;
 
         // Per-runTask concurrency gate caps simultaneous git/ingest work.
         // Fresh instance per call so live `concurrencyLimit` / `concurrencyGateTimeoutMs`
@@ -369,9 +389,9 @@ class TenantRepoSyncService extends Base {
         }
 
         await Promise.all(repos.map(async (repo) => {
-            const repoLabel    = `${repo.tenantId}/${repo.repoSlug}`;
-            const priorState   = persistedRevisions[repoLabel] || null;
-            const startedMs    = Date.now();
+            const repoLabel  = `${repo.tenantId}/${repo.repoSlug}`;
+            const priorState = persistedRevisions[repoLabel] || null;
+            const startedMs  = Date.now();
 
             // Per-repo due check applies deterministic jitter + exponential backoff on
             // top of configured cadence. Manual CLI runs (onlyRepoSlugs filter)
@@ -411,28 +431,28 @@ class TenantRepoSyncService extends Base {
                 writeLog?.('INFO', `[TenantRepoSync] Refreshing ${repoLabel}.`);
 
                 await gitMirror.cloneIfMissing({
-                    tenantId      : repo.tenantId,
-                    repoSlug      : repo.repoSlug,
-                    mirrorRoot    : repo.mirrorRoot,
-                    cloneUrl      : repo.cloneUrl,
-                    credentialRef : repo.credentialRef
+                    tenantId     : repo.tenantId,
+                    repoSlug     : repo.repoSlug,
+                    mirrorRoot   : repo.mirrorRoot,
+                    cloneUrl     : repo.cloneUrl,
+                    credentialRef: repo.credentialRef
                 });
                 await gitMirror.fetch({
-                    tenantId      : repo.tenantId,
-                    repoSlug      : repo.repoSlug,
-                    mirrorRoot    : repo.mirrorRoot,
-                    credentialRef : repo.credentialRef
+                    tenantId     : repo.tenantId,
+                    repoSlug     : repo.repoSlug,
+                    mirrorRoot   : repo.mirrorRoot,
+                    credentialRef: repo.credentialRef
                 });
 
                 const envelope = await envelopeBuilder({
-                    tenantId        : repo.tenantId,
-                    repoSlug        : repo.repoSlug,
-                    mirrorRoot      : repo.mirrorRoot,
-                    lastIngestedRev : priorState?.lastIngestedRev || null,
-                    newHead         : repo.branchRef || 'HEAD',
-                    rootKind        : repo.rootKind || 'external-source',
-                    parserId        : repo.parserId,
-                    parserVersion   : repo.parserVersion,
+                    tenantId       : repo.tenantId,
+                    repoSlug       : repo.repoSlug,
+                    mirrorRoot     : repo.mirrorRoot,
+                    lastIngestedRev: priorState?.lastIngestedRev || null,
+                    newHead        : repo.branchRef || 'HEAD',
+                    rootKind       : repo.rootKind || 'external-source',
+                    parserId       : repo.parserId,
+                    parserVersion  : repo.parserVersion,
                     gitMirror
                 });
 
@@ -468,17 +488,19 @@ class TenantRepoSyncService extends Base {
                 });
                 completedCount++;
                 healthService?.recordTaskOutcome?.(taskName, 'completed', {
-                    repo            : repoLabel,
-                    tenantId        : repo.tenantId,
-                    repoSlug        : repo.repoSlug,
+                    repo        : repoLabel,
+                    tenantId    : repo.tenantId,
+                    repoSlug    : repo.repoSlug,
                     ingested,
                     deleted,
-                    headRevision    : shortHead,
+                    headRevision: shortHead,
                     durationMs
                 });
             } catch (e) {
-                const code = isTenantRepoSyncErrorCode(e.code) ? e.code : KB_TENANT_REPO_SYNC_SYNC_FAILED;
-                writeLog?.('ERROR', `[TenantRepoSync] ${repoLabel} failed: ${code} (${e.message})`);
+                const code            = isTenantRepoSyncErrorCode(e.code) ? e.code : KB_TENANT_REPO_SYNC_SYNC_FAILED;
+                const sourceErrorCode = getSourceErrorCode(e, code);
+                const sourceSuffix    = sourceErrorCode ? ` source=${sourceErrorCode}` : '';
+                writeLog?.('ERROR', `[TenantRepoSync] ${repoLabel} failed: ${code}${sourceSuffix} (${e.message})`);
 
                 // Increment consecutiveFailures on failure; preserve last good
                 // ingested revision so the next successful run starts from the correct base.
@@ -491,7 +513,7 @@ class TenantRepoSyncService extends Base {
                     consecutiveFailures: nextFailureCount
                 };
 
-                repoStates.push({
+                const failedRepoState = {
                     tenantId           : repo.tenantId,
                     repoSlug           : repo.repoSlug,
                     lastIngestedRev    : priorState?.lastIngestedRev ? priorState.lastIngestedRev.slice(0, 8) : null,
@@ -499,14 +521,21 @@ class TenantRepoSyncService extends Base {
                     status             : 'degraded',
                     lastErrorCode      : code,
                     consecutiveFailures: nextFailureCount
-                });
+                };
+
+                if (sourceErrorCode) {
+                    failedRepoState.lastSourceErrorCode = sourceErrorCode;
+                }
+
+                repoStates.push(failedRepoState);
                 failedCount++;
                 healthService?.recordTaskOutcome?.(taskName, 'failed', {
-                    repo               : repoLabel,
-                    tenantId           : repo.tenantId,
-                    repoSlug           : repo.repoSlug,
-                    error              : e.message,
+                    repo    : repoLabel,
+                    tenantId: repo.tenantId,
+                    repoSlug: repo.repoSlug,
+                    error   : e.message,
                     code,
+                    ...(sourceErrorCode ? {sourceErrorCode} : {}),
                     consecutiveFailures: nextFailureCount
                 });
                 // Continue with remaining repos — per-repo failure isolation is the
@@ -523,7 +552,7 @@ class TenantRepoSyncService extends Base {
         // each repo's decision was honored). 'failed' only when actual work failed and no
         // actual work succeeded.
         const attemptedCount = completedCount + failedCount;
-        const status = attemptedCount === 0
+        const status         = attemptedCount === 0
             ? 'completed' // all repos were not-due; cycle ran cleanly
             : (failedCount === 0 ? 'completed' : (completedCount > 0 ? 'completed' : 'failed'));
 
@@ -532,11 +561,11 @@ class TenantRepoSyncService extends Base {
         return {
             status,
             details: {
-                repoCount   : repos.length,
+                repoCount: repos.length,
                 completedCount,
                 failedCount,
                 notDueCount,
-                repos       : repoStates
+                repos    : repoStates
             }
         };
     }
@@ -580,8 +609,8 @@ class TenantRepoSyncService extends Base {
             ?? orchestratorConfig?.tenantRepoMirrorRoot
             ?? env.NEO_TENANT_REPO_MIRROR_ROOT
             ?? '/app/.neo-ai-data';
-        const kbService    = ingestionService || await this.resolveIngestionService();
-        const normalized   = await kbService.listConfiguredTenantRepos();
+        const kbService  = ingestionService || await this.resolveIngestionService();
+        const normalized = await kbService.listConfiguredTenantRepos();
 
         normalized.tenantRepos = normalized.tenantRepos.map(entry =>
             entry.mirrorRoot ? entry : {...entry, mirrorRoot: tier1Default}
@@ -633,9 +662,10 @@ class TenantRepoSyncService extends Base {
      *
      * @param {Object} options
      * @param {String} options.filePath
+     * @param {Boolean} [options.strict=false] Throw on corrupt/unreadable files instead of returning an empty map.
      * @returns {Promise<Object<String, {lastIngestedRev: String, lastRunAttemptAt: Number, consecutiveFailures: Number}>>}
      */
-    async readPersistedRevisions({filePath}) {
+    async readPersistedRevisions({filePath, strict = false}) {
         if (!await fs.pathExists(filePath)) {
             return {};
         }
@@ -661,7 +691,12 @@ class TenantRepoSyncService extends Base {
                 }
             }
             return normalized;
-        } catch {
+        } catch (e) {
+            if (strict) {
+                const error = new Error(`Failed to read tenant-repo-sync revisions at ${filePath}: ${e.message}`);
+                error.code = e.code || 'KB_TENANT_REPO_SYNC_REVISIONS_READ_FAILED';
+                throw error;
+            }
             return {};
         }
     }

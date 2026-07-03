@@ -2,9 +2,133 @@ import aiConfig  from '../../mcp/server/neural-link/config.mjs';
 import {spawn}   from 'child_process';
 import crypto    from 'crypto';
 import fs        from 'fs';
+import path      from 'path';
 import WebSocket from 'ws';
 import Base      from '../../../src/core/Base.mjs';
 import logger    from '../../mcp/server/neural-link/logger.mjs';
+import {
+    BRIDGE_INFO_TYPE,
+    STALE_BRIDGE_ERROR_CODE,
+    createStaleBridgeError,
+    isBridgeInfoPayloadFresh
+} from '../../mcp/server/neural-link/BridgeProtocol.mjs';
+import {resolveCallTarget} from './resolveCallTarget.mjs';
+
+/**
+ * @summary Validates the Neural Link bridge payload debug-log cap from AiConfig.
+ * @param {Number} maxChars
+ * @returns {Number}
+ */
+export const normalizeBridgePayloadDebugMaxChars = maxChars => {
+    const value = Number(maxChars);
+
+    if (!Number.isFinite(value) || value <= 0) {
+        throw new Error('Invalid aiConfig.bridgePayloadDebugMaxChars value')
+    }
+
+    return Math.floor(value)
+};
+
+/**
+ * @summary Serializes a bridge payload for opt-in debug logging, capped for file safety.
+ * @param {*} payload
+ * @param {Number} maxChars
+ * @returns {String}
+ */
+export const stringifyBridgePayloadForDebug = (payload, maxChars) => {
+    let serialized;
+
+    if (payload instanceof Error) {
+        serialized = `${payload.name}: ${payload.message}\n${payload.stack || ''}`.trim()
+    } else {
+        try {
+            serialized = JSON.stringify(payload)
+        } catch {
+            serialized = String(payload)
+        }
+    }
+
+    serialized ??= String(payload);
+
+    const limit = normalizeBridgePayloadDebugMaxChars(maxChars);
+
+    if (serialized.length <= limit) {
+        return serialized
+    }
+
+    return `${serialized.slice(0, limit)}... [truncated ${serialized.length - limit} chars]`
+};
+
+/**
+ * @summary Measures a payload's serialized byte size without exposing its body.
+ * @param {*} payload
+ * @returns {Number|null}
+ */
+export const getBridgePayloadByteLength = payload => {
+    try {
+        return Buffer.byteLength(JSON.stringify(payload) ?? String(payload), 'utf8')
+    } catch {
+        return null
+    }
+};
+
+/**
+ * @summary Resolves the detached Bridge process stdout/stderr log file.
+ * @param {Object} [options={}]
+ * @param {String} [options.logPath=aiConfig.logPath]
+ * @param {String} [options.neoRootDir=aiConfig.neoRootDir]
+ * @param {String} [options.cwd=process.cwd()]
+ * @returns {String}
+ */
+export const getBridgeStdioLogPath = ({
+    logPath   = aiConfig.logPath,
+    neoRootDir = aiConfig.neoRootDir,
+    cwd       = process.cwd()
+} = {}) => {
+    const logDir = logPath || path.resolve(neoRootDir || cwd, '.neo-ai-data/logs');
+
+    return path.join(logDir, 'neural-link-bridge-stdio.log')
+};
+
+/**
+ * @summary Creates a bounded, payload-free bridge receive log line.
+ * @param {Object} payload
+ * @returns {String}
+ */
+export const formatBridgePayloadSummary = payload => {
+    const message = payload?.message ?? {},
+          error   = message?.error ?? payload?.error,
+          fields  = [
+              ['type',         payload?.type],
+              ['appWorkerId',  payload?.appWorkerId],
+              ['agentId',      payload?.agentId],
+              ['messageId',    message?.id],
+              ['method',       message?.method],
+              ['errorCode',    error?.code],
+              ['payloadBytes', getBridgePayloadByteLength(payload) ?? 'unknown']
+          ];
+
+    return `[ConnectionService] Bridge message ${fields
+        .filter(([, value]) => value !== undefined && value !== null && value !== '')
+        .map(([key, value]) => `${key}=${value}`)
+        .join(' ')}`
+};
+
+/**
+ * @summary Logs a bridge payload without dumping its full body unless debug is enabled.
+ * @param {Object} payload
+ * @param {Object} options
+ * @param {Object} options.logger
+ * @param {Boolean} options.debug
+ * @param {Number} options.maxChars
+ */
+export const logBridgePayload = (payload, {logger, debug, maxChars}) => {
+    logger.info(formatBridgePayloadSummary(payload));
+
+    if (debug) {
+        logger.debug(`[ConnectionService] Bridge payload ${stringifyBridgePayloadForDebug(payload, maxChars)}`);
+    }
+};
 
 /**
  * @summary Manages the connection to the Neural Link Bridge and orchestrates RPC calls.
@@ -36,9 +160,15 @@ class ConnectionService extends Base {
         cwd: null,
         /**
          * @member {Number} port=8081
+         * Legacy prototype default; connection/spawn reads `aiConfig.port` at the use site.
          * @protected
          */
         port: 8081,
+        /**
+         * @member {Number} bridgeInfoTimeout=1000
+         * @protected
+         */
+        bridgeInfoTimeout: 1000,
         /**
          * @member {Boolean} singleton=true
          * @protected
@@ -83,9 +213,33 @@ class ConnectionService extends Base {
      * @returns {Promise<void>}
      */
     async initAsync() {
-        if (aiConfig.autoConnect) {
+        // Skip the Bridge auto-connect under unitTestMode: unit specs that import this singleton (e.g. via
+        // HealthService) must stay hermetic and must not reach or spawn the live Bridge. The e2e harness
+        // connects explicitly via manageConnection(); production (non-unitTestMode) auto-connects as before.
+        if (!Neo.config.unitTestMode && aiConfig.autoConnect) {
             await this.ensureBridgeAndConnect();
         }
+    }
+
+    /**
+     * @summary Builds the agent-side Bridge WebSocket URL from the resolved config leaf.
+     * @param {Object} [options={}]
+     * @param {String} [options.agentId=this.agentId]
+     * @param {Number} [options.port=aiConfig.port]
+     * @param {String} [options.token=process.env.NEO_FLEET_BRIDGE_TOKEN]
+     * @returns {String}
+     */
+    createBridgeUrl({agentId = this.agentId, port = aiConfig.port, token = process.env.NEO_FLEET_BRIDGE_TOKEN} = {}) {
+        const url = new URL(`ws://127.0.0.1:${port}`);
+
+        url.searchParams.set('role', 'agent');
+        url.searchParams.set('id', agentId);
+
+        if (token) {
+            url.searchParams.set('token', token)
+        }
+
+        return url.toString()
     }
 
     /**
@@ -100,18 +254,10 @@ class ConnectionService extends Base {
             throw new Error('Not connected to Neural Link Bridge');
         }
 
-        // If no sessionId, pick the most recent one (Auto-Targeting)
-        if (!sessionId) {
-            if (this.sessionData.size > 0) {
-                sessionId = Array.from(this.sessionData.keys()).pop();
-                logger.warn(`No sessionId provided. Defaulting to ${sessionId}`);
-            } else {
-                // Wait for a session?
-                throw new Error('No active App Worker sessions found.');
-            }
-        }
+        // Resolve the target session (explicit target honored; silent multi-session auto-targeting denied).
+        sessionId = resolveCallTarget(sessionId, Array.from(this.sessionData.keys()));
 
-        const id = ++this.msgId;
+        const id         = ++this.msgId;
         const rpcMessage = {
             jsonrpc: '2.0',
             method,
@@ -148,26 +294,89 @@ class ConnectionService extends Base {
      */
     async connectToBridge() {
         return new Promise((resolve, reject) => {
-            const url = `ws://127.0.0.1:${this.port}?role=agent&id=${this.agentId}`;
-            const ws  = new WebSocket(url);
+            // Present the FM-minted, asymmetrically-signed Bridge token (injected at spawn under
+            // NEO_FLEET_BRIDGE_TOKEN) so the Bridge authenticates this agent from the signature, not
+            // the `?id=` claim. Absent in no-FM dev → the Bridge's legacy unauthenticated path.
+            const port = aiConfig.port,
+                  url  = this.createBridgeUrl({port}),
+                  ws   = new WebSocket(url);
 
-            ws.on('open', () => {
-                logger.info(`Connected to Neural Link Bridge as ${this.agentId}`);
+            let settled = false;
+
+            const rejectOnce = (error, closeSocket = true) => {
+                if (settled) return;
+
+                settled = true;
+                clearTimeout(handshakeTimeout);
+
+                if (closeSocket && ws.readyState === WebSocket.OPEN) {
+                    ws.close()
+                }
+
+                reject(error);
+            };
+
+            const resolveOnce = () => {
+                if (settled) return;
+
+                settled = true;
+                clearTimeout(handshakeTimeout);
+
                 this.bridgeSocket = ws;
                 resolve();
+            };
+
+            const handshakeTimeout = setTimeout(() => {
+                rejectOnce(createStaleBridgeError(
+                    `Stale Neural Link Bridge on port ${port}: missing ${BRIDGE_INFO_TYPE} freshness handshake. ` +
+                    'Stop or refresh the existing bridge, or run against a dedicated fresh Bridge port.'
+                ));
+            }, this.bridgeInfoTimeout);
+
+            ws.on('open', () => {
+                logger.info(`Connected to Neural Link Bridge as ${this.agentId}; awaiting ${BRIDGE_INFO_TYPE}`);
             });
 
-            ws.on('message', (data) => this.handleBridgeMessage(data));
+            ws.on('message', (data) => {
+                if (!settled) {
+                    let payload;
+
+                    try {
+                        payload = JSON.parse(data.toString())
+                    } catch {
+                        return
+                    }
+
+                    if (payload?.type !== BRIDGE_INFO_TYPE) {
+                        return
+                    }
+
+                    if (!isBridgeInfoPayloadFresh(payload)) {
+                        rejectOnce(createStaleBridgeError(
+                            `Stale Neural Link Bridge on port ${port}: incompatible ${BRIDGE_INFO_TYPE} ` +
+                            `payload ${JSON.stringify(payload)}.`
+                        ));
+                        return
+                    }
+
+                    logger.info(`Verified Neural Link Bridge freshness on port ${port}`);
+                    resolveOnce();
+                    return
+                }
+
+                this.handleBridgeMessage(data)
+            });
 
             ws.on('close', () => {
                 logger.warn('Disconnected from Neural Link Bridge');
                 this.bridgeSocket = null;
+                rejectOnce(new Error('Neural Link Bridge closed before freshness handshake completed.'), false);
                 // Optional: Auto-reconnect logic could go here
             });
 
             ws.on('error', (err) => {
-                if (!this.bridgeSocket) {
-                    reject(err); // Reject if error happens during initial connect
+                if (!settled) {
+                    rejectOnce(err, false); // Reject if error happens during initial connect
                 } else {
                     logger.error('Bridge Socket Error:', err);
                 }
@@ -186,6 +395,11 @@ class ConnectionService extends Base {
             await this.connectToBridge();
             connected = true;
         } catch (e) {
+            if (e.code === STALE_BRIDGE_ERROR_CODE) {
+                logger.error(e.message);
+                throw e
+            }
+
             logger.info('Failed to connect to existing bridge:', e.message);
             logger.info('Assuming Bridge not running. Spawning new Bridge process...');
         }
@@ -351,7 +565,11 @@ class ConnectionService extends Base {
     handleBridgeMessage(data) {
         try {
             const payload = JSON.parse(data.toString());
-            logger.info(`[DEBUG] Received from Bridge: ${JSON.stringify(payload)}`);
+            logBridgePayload(payload, {
+                logger,
+                debug   : aiConfig.debug,
+                maxChars: aiConfig.bridgePayloadDebugMaxChars
+            });
 
             switch (payload.type) {
                 case 'app_connected':
@@ -490,17 +708,47 @@ class ConnectionService extends Base {
     }
 
     /**
+     * Opens the detached Bridge stdout/stderr log file.
+     * @param {String} [filePath=getBridgeStdioLogPath()]
+     * @returns {Number}
+     */
+    openBridgeLogFile(filePath = getBridgeStdioLogPath()) {
+        fs.mkdirSync(path.dirname(filePath), {recursive: true});
+
+        return fs.openSync(filePath, 'a')
+    }
+
+    /**
+     * Spawns a detached child process. Kept as a method so tests can verify spawn wiring without
+     * launching the live Bridge.
+     * @param {String} command
+     * @param {String[]} args
+     * @param {Object} options
+     * @returns {Object}
+     */
+    spawnBridgeProcess(command, args, options) {
+        return spawn(command, args, options)
+    }
+
+    /**
      * Spawns the Bridge process.
+     * @param {Object} [options={}]
+     * @param {String} [options.logPath=aiConfig.logPath] Directory for spawned Bridge stdout/stderr.
+     * @param {String} [options.neoRootDir=aiConfig.neoRootDir] Repo root fallback for log path resolution.
+     * @param {Number} [options.startupDelayMs=2000] Delay before resolving after spawning.
      * @returns {Promise<void>}
      */
-    async spawnBridge() {
-        return new Promise((resolve, reject) => {
+    async spawnBridge({logPath = aiConfig.logPath, neoRootDir = aiConfig.neoRootDir, startupDelayMs = 2000} = {}) {
+        return new Promise(resolve => {
             const args    = ['run', 'ai:server-neural-link'];
-            const logFile = fs.openSync('./bridge.log', 'a');
+            const file    = getBridgeStdioLogPath({logPath, neoRootDir});
+            const logFile = this.openBridgeLogFile(file);
+            const port    = aiConfig.port;
 
-            this.bridgeProcess = spawn('npm', args, {
+            this.bridgeProcess = this.spawnBridgeProcess('npm', args, {
                 cwd     : this.cwd || process.cwd(),
                 detached: true,
+                env     : {...process.env, NEO_NL_PORT: String(port)},
                 stdio   : ['ignore', logFile, logFile]
             });
 
@@ -519,9 +767,11 @@ class ConnectionService extends Base {
      */
     async waitForSession(target, timeout = 10000) {
         const check = () => {
-             const targetLower = target.toLowerCase();
+             // Tolerate a non-string target (e.g. an unresolved worker-id envelope): degrade to a clean
+             // timeout rather than a TypeError. Callers should pass a string appWorkerId or appName.
+             const targetLower = String(target ?? '').toLowerCase();
              for (const [id, meta] of this.sessionData.entries()) {
-                 if (id === target || (meta.appName && meta.appName.toLowerCase() === targetLower)) {
+                 if (id === target || meta.appName?.toLowerCase() === targetLower) {
                      return id;
                  }
              }
@@ -533,7 +783,7 @@ class ConnectionService extends Base {
 
         return new Promise((resolve, reject) => {
             const startTime = Date.now();
-            const interval = setInterval(() => {
+            const interval  = setInterval(() => {
                 found = check();
                 if (found) {
                     clearInterval(interval);

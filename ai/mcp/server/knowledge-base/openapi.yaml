@@ -27,11 +27,22 @@ tags:
   - name: Documents
     description: Operations for querying knowledge base documents
 
+# Harness tool-projection policy (mirrors neural-link). In a maintainer harness spawned with
+# `--tool-projection-mode harness-embedded`, only `read`-tier tools load by default; `extended` +
+# `admin` tools are withheld and reachable on demand via `get_mcp_tool_handbook`. This caps the
+# loaded surface against the harness ~100-tool ceiling without removing any capability.
+x-neo-harness-tool-projection:
+  defaultVisibleTiers:
+    - read
+  operatorOnlyTiers:
+    - admin
+
 paths:
   /healthcheck:
     get:
       summary: Health Check
       operationId: healthcheck
+      x-neo-tool-tier: read
       x-annotations:
         readOnlyHint: true
       description: |
@@ -56,10 +67,159 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /ingestion/progress:
+    get:
+      summary: Get Ingestion Progress
+      operationId: get_ingestion_progress
+      x-neo-tool-tier: extended
+      x-annotations:
+        readOnlyHint: true
+      x-neo-tool-summary: Inspect active or last ingestion progress.
+      description: |
+        Returns a read-only snapshot for the active ingestion run, or an idle state with the last
+        completed run summary. This diagnostics tool stays separate from `healthcheck` so liveness
+        payloads remain compact.
+      tags: [Health]
+      parameters:
+        - in: query
+          name: staleAfterMs
+          schema:
+            type: integer
+            minimum: 0
+            default: 60000
+          description: Mark an active run stalled when no progress has occurred for this many milliseconds.
+      responses:
+        '200':
+          description: Ingestion progress snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestionProgressResponse'
+
+  /tool/handbook:
+    post:
+      summary: Tool Handbook
+      operationId: get_mcp_tool_handbook
+      x-neo-tool-tier: read
+      x-annotations:
+        readOnlyHint: true
+      description: Returns lazy-loaded usage detail for one Knowledge Base MCP tool.
+      tags: [Documents]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [toolId]
+              properties:
+                toolId:
+                  type: string
+                  description: Tool operation id to inspect.
+      responses:
+        '200':
+          description: Tool handbook lookup result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  toolId:
+                    type: string
+                  found:
+                    type: boolean
+                  title:
+                    type: string
+                  description:
+                    type: string
+                  handbook:
+                    type: string
+                  source:
+                    type: string
+                  code:
+                    type: string
+                  message:
+                    type: string
+
+  /deployment/state/snapshot:
+    post:
+      summary: Deployment State Snapshot
+      operationId: get_deployment_state_snapshot
+      x-neo-tool-tier: extended
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      x-neo-tool-summary: Read the graph-independent deployment-state bridge snapshot.
+      description: |
+        Reads the bounded deployment-state bridge snapshot written by the internal orchestrator.
+        This is a read-only public KB surface: it does not expose Docker, shell, exec, restart,
+        or any public daemon/orchestrator route. It exists so MC-unhealthy / graph-unavailable
+        incidents still have a KB-hosted current-state path when KB is healthy. The snapshot
+        also includes redacted tenant-repo-sync scheduler/task/config state for pull-mode
+        ingestion diagnostics. The snapshot can also include bridgeDiagnostics with redacted
+        runtime-access config, Compose label filter details, and stable lookup-failure reasons
+        for service-observation failures. Fresh snapshots missing current-schema sections return
+        a degraded status with stable schemaDiagnostics reason codes.
+      tags: [Health]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                staleAfterMs:
+                  type: number
+                  description: Optional freshness window override in milliseconds.
+      responses:
+        '200':
+          description: Snapshot status and payload when available.
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /deployment/inspect:
+    post:
+      summary: Inspect Deployment
+      operationId: inspect_deployment
+      x-neo-tool-tier: extended
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      x-neo-tool-summary: Inspect bounded cloud deployment state from the orchestrator bridge.
+      description: |
+        Reads the bounded deployment inspection snapshot written by the internal orchestrator.
+        This is a read-only public KB surface: it exposes allowlisted service state, bounded
+        log tails, current diagnoses, recent recovery-run ledger entries, and redacted
+        tenant-repo-sync scheduler/task/config state without exposing
+        Docker, shell, exec, restart, or any public daemon/orchestrator route. Fresh snapshots
+        missing current-schema sections return a degraded status with stable schemaDiagnostics
+        reason codes.
+      tags: [Health]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                staleAfterMs:
+                  type: number
+                  description: Optional freshness window override in milliseconds.
+      responses:
+        '200':
+          description: Inspection status and payload when available.
+          content:
+            application/json:
+              schema:
+                type: object
+
   /db/data/manage:
     post:
       summary: Manage Knowledge Base Data
       operationId: manage_knowledge_base
+      x-neo-tool-tier: admin
       x-pass-as-object: true
       description: |
         Manages the content of the knowledge base.
@@ -106,6 +266,7 @@ paths:
     post:
       summary: Ingest Source Files
       operationId: ingest_source_files
+      x-neo-tool-tier: admin
       x-pass-as-object: true
       description: |
         Agent-native Knowledge Base ingestion for small batches of source files.
@@ -146,9 +307,11 @@ paths:
     post:
       summary: Query Documents
       operationId: query_documents
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
+      x-neo-tool-summary: Search the Knowledge Base and return ranked source references.
       description: |
         Performs a semantic search on the knowledge base using a natural language query.
         Returns a scored and ranked list of the most relevant source files.
@@ -279,7 +442,9 @@ paths:
     post:
       summary: Ask Knowledge Base (RAG)
       operationId: ask_knowledge_base
+      x-neo-tool-tier: read
       x-pass-as-object: true
+      x-neo-tool-summary: Ask the Knowledge Base for a synthesized answer with cited references.
       description: |
         Performs a semantic search and uses an LLM to synthesize an answer based on the top results.
         Use this tool to get a high-level answer without manually reading multiple files.
@@ -392,6 +557,7 @@ paths:
     post:
       summary: List Agent FAQs
       operationId: list_agent_faqs
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       description: |
         Lists frequently repeated Knowledge Base questions captured from agent calls to
@@ -444,6 +610,7 @@ paths:
     get:
       summary: Get Class Hierarchy
       operationId: get_class_hierarchy
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -492,6 +659,7 @@ paths:
     get:
       summary: List Documents
       operationId: list_documents
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -536,6 +704,7 @@ paths:
     get:
       summary: Get Document by ID
       operationId: get_document_by_id
+      x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -580,7 +749,7 @@ components:
       properties:
         status:
           type: string
-          description: Overall health status of the server.
+          description: Overall health status of the server. `unhealthy` means ChromaDB is unreachable; `degraded` means ChromaDB is reachable but corpus or provider readiness is incomplete.
           enum: [healthy, degraded, unhealthy]
           example: "healthy"
         timestamp:
@@ -626,7 +795,7 @@ components:
               properties:
                 running:
                   type: boolean
-                  description: True if the ChromaDB process is running.
+                  description: True if the ChromaDB process is locally observed as running. In unified topology this can be false while connection.connected is true because ChromaDB is orchestrator-managed.
                   example: true
                 pid:
                   type: integer
@@ -660,12 +829,15 @@ components:
                         count:
                           type: integer
                           example: 1234
+                        error:
+                          type: string
+                          description: Collection access error when the KB corpus is unavailable.
         features:
           type: object
           properties:
             embedding:
               type: boolean
-              description: "Indicates if the embedding feature is available (requires GEMINI_API_KEY)."
+              description: "Indicates if the configured embedding provider is available."
               example: true
         details:
           type: array
@@ -673,7 +845,7 @@ components:
             type: string
           description: "A list of human-readable details about the system's status."
           example:
-            - "ChromaDB is running and all collections are accessible"
+            - "Connected to the orchestrator-managed ChromaDB instance"
             - "All features are operational"
         version:
           type: string
@@ -921,7 +1093,7 @@ components:
 
     IngestSourceFilesResponse:
       type: object
-      description: Structured ingestion summary returned by KnowledgeBaseIngestionService.
+      description: Structured ingestion summary returned by IngestionService.
       properties:
         ingested:
           type: integer
@@ -932,6 +1104,9 @@ components:
         embeddingsGenerated:
           type: integer
           description: Count of embeddings generated for this push.
+        skippedOversized:
+          type: integer
+          description: Count of local-provider over-budget chunks skipped before embedding.
         errors:
           type: array
           description: Accumulated per-file caller errors; a non-empty array does not imply total failure.
@@ -944,6 +1119,80 @@ components:
         durationMs:
           type: integer
           description: Wall-clock duration of the ingestion in milliseconds.
+
+    IngestionProgressResponse:
+      type: object
+      description: Read-only active/idle ingestion progress snapshot.
+      additionalProperties: true
+      properties:
+        status:
+          type: string
+          enum: [idle, running, completed, completed_with_errors, failed]
+          description: Current progress state.
+        active:
+          type: boolean
+          description: True when an ingestion run is currently executing.
+        phase:
+          type: string
+          description: Current phase for an active run, or idle when no ingestion is running.
+        startedAt:
+          type: string
+          nullable: true
+          description: ISO timestamp for the active or last run start.
+        updatedAt:
+          type: string
+          nullable: true
+          description: ISO timestamp for the last progress ledger update.
+        lastProgressAt:
+          type: string
+          nullable: true
+          description: ISO timestamp for the last active progress event.
+        completedAt:
+          type: string
+          nullable: true
+          description: ISO timestamp for the last run completion.
+        durationMs:
+          type: integer
+          description: Elapsed wall-clock duration in milliseconds.
+        staleAfterMs:
+          type: integer
+          description: Staleness threshold used to compute stalled.
+        stalled:
+          type: boolean
+          description: True when an active run has not advanced within staleAfterMs.
+        tenantId:
+          type: string
+        repoSlug:
+          type: string
+        totalSources:
+          type: integer
+        seenSources:
+          type: integer
+        totalChunks:
+          type: integer
+        embeddedChunks:
+          type: integer
+        skippedChunks:
+          type: integer
+        remaining:
+          type: integer
+        deletedRows:
+          type: integer
+        errorCount:
+          type: integer
+        etaMs:
+          type: integer
+          nullable: true
+        rate:
+          type: object
+          additionalProperties: true
+          properties:
+            chunksPerSecond:
+              type: number
+        lastRunSummary:
+          type: object
+          nullable: true
+          additionalProperties: true
 
     KbIngestVolumeExceededResponse:
       type: object

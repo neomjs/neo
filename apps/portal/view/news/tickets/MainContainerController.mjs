@@ -21,6 +21,13 @@ class MainContainerController extends Controller {
     }
 
     /**
+     * Memoized promise for the build-emitted id→chunk map (see getIdMap()).
+     * @member {Promise<Object|null>|undefined} idMapPromise
+     * @protected
+     */
+    idMapPromise = undefined
+
+    /**
      * @param {String} item
      */
     navigateTo(item) {
@@ -92,6 +99,27 @@ class MainContainerController extends Controller {
     }
 
     /**
+     * Lazily fetches and memoizes the build-emitted id→chunk map for this content type.
+     * The map lets a deep link resolve its containing chunk folder directly instead of
+     * scanning folders sequentially; a missing or unreachable map degrades to null and
+     * callers fall back to the legacy folder scan.
+     * @returns {Promise<Object|null>}
+     */
+    getIdMap() {
+        let me = this;
+
+        if (me.idMapPromise === undefined) {
+            const tree = me.getReference('tree');
+
+            me.idMapPromise = fetch(`${tree.lazyChildUrlPrefix}tickets/idMap.json`)
+                .then(response => response.ok ? response.json() : null)
+                .catch(() => null)
+        }
+
+        return me.idMapPromise
+    }
+
+    /**
      * @param {String} itemId
      * @returns {Promise<Object|null>}
      */
@@ -104,6 +132,23 @@ class MainContainerController extends Controller {
 
         if (record) {
             return record
+        }
+
+        // Deterministic single-chunk resolution: the build-emitted id map names the chunk
+        // folder containing the item, so one targeted load replaces the sequential scan.
+        const
+            idMap  = await me.getIdMap(),
+            folder = idMap?.[itemId] && store.get(idMap[itemId]);
+
+        if (folder) {
+            await tree.onFolderItemClick(folder);
+
+            record = store.get(itemId);
+
+            if (record) {
+                me.getStateProvider().data.countPages = store.getCount();
+                return record
+            }
         }
 
         folders = store.items.filter(record => !record.isLeaf && record.childrenUrl && !record.isChildrenLoaded);

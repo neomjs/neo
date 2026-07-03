@@ -1,7 +1,7 @@
-import {test, expect}  from '@playwright/test';
-import Neo             from '../../../../../../../src/Neo.mjs';
+import {test, expect}                      from '@playwright/test';
+import Neo                                 from '../../../../../../../src/Neo.mjs';
 import ConfigProvider, {createConfigProxy} from '../../../../../../../ai/ConfigProvider.mjs';
-import {TIER1_DEFAULTS} from '../../../../../fixtures/aiConfigDefaults.mjs';
+import {TIER1_DEFAULTS}                    from '../../../../../fixtures/aiConfigDefaults.mjs';
 
 test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
     let originalEnv;
@@ -93,12 +93,17 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
         expect(config.auth.trustProxyIdentity).toBe(TIER1_DEFAULTS.auth.trustProxyIdentity);
         expect(config.backupPath).toBe(TIER1_DEFAULTS.backupPath);
 
-        // KB-local leaves: Chroma host/port stay local top-level aliases (pending the S3/S4
-        // consumer codemod to engines.chroma.*); collection + path are genuinely KB-owned.
-        expect(config.host).toBe(TIER1_DEFAULTS.engines.chroma.host);
-        expect(config.port).toBe(TIER1_DEFAULTS.engines.chroma.port);
+        // KB-local leaves snapshot the active Tier-1 Chroma endpoint as top-level aliases
+        // (pending the S3/S4 consumer codemod to engines.chroma.*). Under UNIT_TEST_MODE that
+        // active endpoint is the isolated unit-test daemon; collection + path are genuinely KB-owned.
+        expect(config.host).toBe(TIER1_DEFAULTS.engines.chroma.hostTest);
+        expect(config.port).toBe(TIER1_DEFAULTS.engines.chroma.portTest);
         expect(config.collectionName).toBe('neo-knowledge-base');
-        expect(config.path).toContain('.neo-ai-data/chroma/unified');
+        expect(config.path).toBe(TIER1_DEFAULTS.engines.chroma.dataDirTest);
+        expect(config.collectionResolveRetry.maxAttempts).toBe(5);
+        expect(config.collectionResolveRetry.initialDelayMs).toBe(500);
+        expect(config.collectionResolveRetry.maxDelayMs).toBe(2000);
+        expect(config.collectionResolveRetry.maxTotalDelayMs).toBe(5000);
     });
 
     test('env overrides win — KB-local leaves at the child, Tier-1-owned leaves at the owner (inherited)', () => {

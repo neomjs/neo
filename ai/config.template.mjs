@@ -1,12 +1,14 @@
-import path                                  from 'path';
-import {fileURLToPath}                       from 'url';
+import os                                        from 'os';
+import path                                      from 'path';
+import {fileURLToPath}                           from 'url';
 import ConfigProvider, {createConfigProxy, leaf} from './ConfigProvider.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const neoRootDir = path.resolve(__dirname, '../');
 // Fallback to neoRootDir if cwd is root (e.g., container/daemon edge cases)
-const projectRoot = process.cwd() === '/' ? neoRootDir : process.cwd();
+const projectRoot           = process.cwd() === '/' ? neoRootDir : process.cwd();
+const chromaUnitTestDataDir = path.join(os.tmpdir(), 'neo-chroma-unit-test');
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS  = 24 * HOUR_MS;
@@ -107,13 +109,22 @@ class Config extends ConfigProvider {
                 // Authorization strategy selector: 'oidc' (default) | 'gitlab-pat'. See block doc above.
                 mode              : leaf('oidc', 'NEO_AUTH_MODE', 'string'),
                 // GitLab API base URL used by 'gitlab-pat' mode for token validation (self-managed configurable).
-                gitlabApiBaseUrl  : leaf('https://gitlab.com', 'NEO_AUTH_GITLAB_API_BASE_URL', 'string'),
+                gitlabApiBaseUrl  : leaf('https://gitlab.com', 'NEO_AUTH_GITLAB_API_BASE_URL', 'string', {
+                    requiredFor: [{
+                        entrypoints   : '*',
+                        modes         : ['gitlab-pat'],
+                        consumerClaims: ['readiness'],
+                        reason        : 'PAT validation cannot certify readiness without a GitLab API base URL.'
+                    }]
+                }),
                 // Bounded TTL (seconds) for the per-token PAT validation cache → a revoked PAT clears within this window.
                 patCacheTtlSeconds: leaf(300, 'NEO_AUTH_PAT_CACHE_TTL_SECONDS', 'number'),
                 // Optional GitLab OAuth app binding for 'gitlab-pat' mode. Empty means no app gate.
                 allowedClientIds  : leaf([], 'NEO_AUTH_ALLOWED_CLIENT_IDS', 'csv'),
                 // Optional GitLab username allowlist for 'gitlab-pat' mode. Empty means any resolved GitLab user.
-                allowedUsers      : leaf([], 'NEO_AUTH_ALLOWED_USERS', 'csv')
+                allowedUsers      : leaf([], 'NEO_AUTH_ALLOWED_USERS', 'csv'),
+                // Auth provenance sources that may create missing AgentIdentity graph nodes at request time.
+                autoProvisionIdentitySources: leaf(['gitlab-pat'], 'NEO_AUTH_AUTO_PROVISION_IDENTITY_SOURCES', 'csv')
             },
             /**
              * @summary Deployment-wide chat / generation model provider.
@@ -161,10 +172,13 @@ class Config extends ConfigProvider {
              * @type {Object}
              */
             ollama: {
-                host                 : leaf('http://127.0.0.1:11434', 'NEO_OLLAMA_HOST', 'string'),
-                model                : leaf('gemma4:31b', 'NEO_OLLAMA_MODEL', 'string'),
-                embeddingModel       : leaf('qwen3-embedding', 'NEO_OLLAMA_EMBEDDING_MODEL', 'string'),
-                keep_alive           : leaf(-1, 'NEO_OLLAMA_KEEP_ALIVE', 'keepAlive'),
+                host          : leaf('http://127.0.0.1:11434', 'NEO_OLLAMA_HOST', 'string'),
+                model         : leaf('gemma4:26b', 'NEO_OLLAMA_MODEL', 'string'),
+                embeddingModel: leaf('qwen3-embedding', 'NEO_OLLAMA_EMBEDDING_MODEL', 'string'),
+                keep_alive    : leaf(-1, 'NEO_OLLAMA_KEEP_ALIVE', 'keepAlive'),
+                // Upper bound for one native Ollama embedding HTTP request. Keeps explicit
+                // `embeddingProvider: 'ollama'` deployments from stalling the WAL drain.
+                embeddingTimeoutMs   : leaf(300000, 'NEO_OLLAMA_EMBEDDING_TIMEOUT_MS', 'number'),
                 requireParallelModels: leaf(2, 'NEO_OLLAMA_REQUIRE_PARALLEL_MODELS', 'number')
             },
             /**
@@ -175,19 +189,26 @@ class Config extends ConfigProvider {
              * @type {Object}
              */
             openAiCompatible: {
-                host                    : leaf('http://127.0.0.1:11434', 'NEO_OPENAI_COMPATIBLE_HOST', 'string'),
-                model                   : leaf('gemma-4-31b-it', 'NEO_OPENAI_COMPATIBLE_MODEL', 'string'),
-                embeddingModel          : leaf('text-embedding-qwen3-embedding-8b', 'NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL', 'string'),
-                apiKey                  : leaf('', 'NEO_OPENAI_COMPATIBLE_API_KEY', 'string'),
-                unloadRetryCount        : leaf(3, 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT', 'number'),
-                unloadRetryDelayMs      : leaf(500, 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS', 'number'),
-                contentionRetryCount    : leaf(2, 'NEO_OPENAI_COMPATIBLE_CONTENTION_RETRY_COUNT', 'number'),
-                contentionRetryDelayMs  : leaf(1000, 'NEO_OPENAI_COMPATIBLE_CONTENTION_RETRY_DELAY_MS', 'number'),
-                contentionTimeoutMs     : leaf(15000, 'NEO_OPENAI_COMPATIBLE_CONTENTION_TIMEOUT_MS', 'number'),
+                host                   : leaf('http://127.0.0.1:11434', 'NEO_OPENAI_COMPATIBLE_HOST', 'string'),
+                // gemma-4-26b-a4b MoE (~4B active): ~15× faster cold prefill than the dense gemma-4-31b-it
+                // (3s vs ~47s on ~9k tok) at quality parity for summary + tri-vector extraction.
+                // Exact LM Studio identifier — keep the 'google/' org prefix. No-think toggle:
+                // localModels.chat.{summary,graph}ReasoningEffort. The ollama provider configures its own model.
+                model                  : leaf('google/gemma-4-26b-a4b', 'NEO_OPENAI_COMPATIBLE_MODEL', 'string'),
+                embeddingModel         : leaf('text-embedding-qwen3-embedding-8b', 'NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL', 'string'),
+                apiKey                 : leaf('', 'NEO_OPENAI_COMPATIBLE_API_KEY', 'string'),
+                unloadRetryCount       : leaf(3, 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT', 'number'),
+                unloadRetryDelayMs     : leaf(500, 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS', 'number'),
+                contentionRetryCount   : leaf(2, 'NEO_OPENAI_COMPATIBLE_CONTENTION_RETRY_COUNT', 'number'),
+                contentionRetryDelayMs : leaf(1000, 'NEO_OPENAI_COMPATIBLE_CONTENTION_RETRY_DELAY_MS', 'number'),
+                contentionTimeoutMs    : leaf(15000, 'NEO_OPENAI_COMPATIBLE_CONTENTION_TIMEOUT_MS', 'number'),
                 batchEmbeddingChunkSize: leaf(5, 'NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE', 'number'),
-                batchEmbeddingYieldMs   : leaf(0, 'NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_YIELD_MS', 'number'),
-                keep_alive              : leaf(-1, 'NEO_OPENAI_COMPATIBLE_KEEP_ALIVE', 'keepAlive'),
-                requireParallelModels   : leaf(2, 'NEO_OPENAI_COMPATIBLE_REQUIRE_PARALLEL_MODELS', 'number')
+                // Upper bound for one batch embedding HTTP request. Batch chunks can legitimately take
+                // longer than interactive single embeddings, but must not hold the provider queue forever.
+                batchEmbeddingTimeoutMs: leaf(300000, 'NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_TIMEOUT_MS', 'number'),
+                batchEmbeddingYieldMs  : leaf(0, 'NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_YIELD_MS', 'number'),
+                keep_alive             : leaf(-1, 'NEO_OPENAI_COMPATIBLE_KEEP_ALIVE', 'keepAlive'),
+                requireParallelModels  : leaf(2, 'NEO_OPENAI_COMPATIBLE_REQUIRE_PARALLEL_MODELS', 'number')
             },
             /**
              * @summary Local-model role-keyed context limits.
@@ -208,27 +229,72 @@ class Config extends ConfigProvider {
              */
             localModels: {
                 /**
-                 * @summary Chat-model context limits in tokens.
+                 * @summary Chat-model context limits in tokens — a WORKLOAD FLOOR, not a RAM-fit target.
                  *
-                 * Tuned for `gemma-4-31b-it` (native 256K context). Operators serving
-                 * smaller chat models should pin this to the actual loaded-model capacity;
-                 * `ConsumerFrictionHelper.invokeWithGuardrail` uses these values to fire
-                 * the upstream pre-check skip (emits `'context-overflow'` /
-                 * `'size-precheck-skip'` friction) when composed input exceeds the safe
-                 * processing band.
+                 * Default is HALF of `gemma-4-31b-it`'s native 256K context (131072). This is a
+                 * deliberate floor, NOT a value auto-shrunk to fit free host RAM: graph extraction
+                 * (`SemanticGraphExtractor`, `TopologyInferenceEngine`) and session summaries
+                 * (`SessionService`) read this via the AiConfig SSOT and degrade below ~half. The
+                 * host is sized to load the model at this window (free co-resident RAM / raise the
+                 * env), rather than the config shrinking the window to whatever RAM is spare — total
+                 * system RAM does not predict a co-resident model's actual headroom.
+                 * `ConsumerFrictionHelper.invokeWithGuardrail` uses these values to fire the upstream
+                 * pre-check skip (emits `'context-overflow'` / `'size-precheck-skip'` friction) when
+                 * composed input exceeds the safe-processing band.
                  *
-                 * `safeProcessingLimitTokens` is the explicit ~76% headroom band — leaves
-                 * ~62K tokens for system-prompt envelope + LLM response generation. Explicit
-                 * value avoids implicit `0.75 × cap` derivation drift if the cap moves.
+                 * `safeProcessingLimitTokens` is the explicit ~76% headroom band (100000) — leaves
+                 * ~31K tokens for system-prompt envelope + LLM response generation. Explicit value
+                 * avoids implicit `0.75 × cap` derivation drift if the cap moves.
                  *
-                 * Env overrides: `NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS`,
+                 * Per-host tuning is the env override, not a host-RAM heuristic:
+                 * `NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS`,
                  * `NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS`.
                  *
                  * @type {Object}
                  */
                 chat: {
-                    contextLimitTokens       : leaf(262144, 'NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS', 'number'),
-                    safeProcessingLimitTokens: leaf(200000, 'NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS', 'number')
+                    contextLimitTokens       : leaf(131072, 'NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS', 'number'),
+                    safeProcessingLimitTokens: leaf(100000, 'NEO_LOCAL_MODELS_CHAT_SAFE_PROCESSING_LIMIT_TOKENS', 'number'),
+                    // lms `--parallel` request-slot count for the chat model. Each slot holds an
+                    // independent KV cache at contextLimitTokens, so the count MULTIPLIES the chat
+                    // worker's resident RAM. Default 1: the chat roles (graph extraction / session
+                    // summary / miniSummary) are lease-serialized, so concurrent demand is 1 and any
+                    // slots beyond the first are idle KV bloat. PER-MODEL knob, distinct from
+                    // requireParallelModels (how many DISTINCT models stay co-resident); both the chat
+                    // and embedding models stay loaded regardless of this value.
+                    parallel                 : leaf(1, 'NEO_LOCAL_MODELS_CHAT_PARALLEL', 'number'),
+                    /**
+                     * @summary Output-token budget for REM graph structured-output calls.
+                     *
+                     * Input chunking protects the prompt side; this caps the provider's JSON response
+                     * side so an OpenAI-compatible or Ollama graph request cannot monopolize the chat
+                     * model while the REM backlog waits for a response.
+                     * @type {Number}
+                     */
+                    graphOutputLimitTokens   : leaf(8192, 'NEO_LOCAL_MODELS_CHAT_GRAPH_OUTPUT_LIMIT_TOKENS', 'number'),
+                    /**
+                     * @summary Prompt-token target for one REM Tri-Vector graph chunk.
+                     *
+                     * REM needs enough episodic context to infer useful graph structure, but this is an
+                     * input-side bundle size, not the completion cap. `SemanticGraphExtractor` clamps the
+                     * effective chunk budget to this leaf, `safeProcessingLimitTokens`, and
+                     * `contextLimitTokens - graphOutputLimitTokens` before subtracting the prompt envelope.
+                     * @type {Number}
+                     */
+                    graphChunkLimitTokens    : leaf(50000, 'NEO_LOCAL_MODELS_CHAT_GRAPH_CHUNK_LIMIT_TOKENS', 'number'),
+                    /**
+                     * @summary Per-task reasoning-effort for the chat model's two structured-output
+                     * consumers — passed straight through as the OpenAI / LM-Studio `reasoning_effort`
+                     * request param. Default `'none'` disables the gemma MoE's hidden "thinking" pass
+                     * (~2× faster, zero measured quality loss for summary OR extraction).
+                     * Kept per-task (not a single global) so a future hard-summary test can re-enable
+                     * thinking for summaries alone (`'low'|'medium'|'high'`) without touching extraction.
+                     * `SessionService.summarizeSession` reads `summaryReasoningEffort`;
+                     * `SemanticGraphExtractor.executeTriVectorExtraction` reads `graphReasoningEffort`.
+                     * @type {'none'|'low'|'medium'|'high'}
+                     */
+                    summaryReasoningEffort: leaf('none', 'NEO_LOCAL_MODELS_CHAT_SUMMARY_REASONING_EFFORT', 'string'),
+                    graphReasoningEffort  : leaf('none', 'NEO_LOCAL_MODELS_CHAT_GRAPH_REASONING_EFFORT', 'string')
                 },
                 /**
                  * @summary Embedding-model context limits in tokens.
@@ -243,14 +309,37 @@ class Config extends ConfigProvider {
                  * 4K-token margin below the advertised model maximum.
                  *
                  * Env overrides: `NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS`,
-                 * `NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS`.
+                 * `NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS`,
+                 * `NEO_LOCAL_MODELS_EMBEDDING_PARALLEL`.
                  *
                  * @type {Object}
                  */
                 embedding: {
                     contextLimitTokens       : leaf(32768, 'NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS', 'number'),
-                    safeProcessingLimitTokens: leaf(28672, 'NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS', 'number')
+                    safeProcessingLimitTokens: leaf(28672, 'NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS', 'number'),
+                    // lms `--parallel` request-slot count for the embedding model. Same primitive as
+                    // `localModels.chat.parallel`: each slot carries its own KV cache, so slot count
+                    // multiplies resident RAM. Default 1 keeps the embedding role resident without
+                    // letting the LM Studio default silently spend memory that can force chat/embedding
+                    // role-set churn. Distinct from requireParallelModels (distinct model residency).
+                    parallel                 : leaf(1, 'NEO_LOCAL_MODELS_EMBEDDING_PARALLEL', 'number')
                 }
+            },
+            /**
+             * Memory Core repair strategy controls that participate in durable accepted-loss fingerprints.
+             *
+             * `strategyVersion` must change whenever repair embeddability behavior changes in a way that can
+             * make previously terminal residue recoverable (for example, truncation/chunking/re-embed policy).
+             * Keeping it in AiConfig, not a maintenance-script export, preserves the Provider SSOT: consumers read
+             * the resolved leaf at the use site, and local overlays/env can make the active fingerprint explicit.
+             * @type {Object}
+             */
+            memoryRepair: {
+                /**
+                 * Accepted-loss fingerprint strategy version for Memory Core repair embeddability semantics.
+                 * @type {string}
+                 */
+                strategyVersion: leaf('mc-repair-v1', 'NEO_MEMORY_REPAIR_STRATEGY_VERSION', 'string')
             },
             /**
              * @summary Deployment-wide Gemini model defaults.
@@ -266,6 +355,13 @@ class Config extends ConfigProvider {
              */
             embeddingModel: leaf('gemini-embedding-001'),
             /**
+             * @summary Gemini API key (secret), sourced from the `GEMINI_API_KEY` env var via the leaf
+             * (mirrors the OpenAI-compatible `apiKey` leaf). Read at the use site (`aiConfig.geminiApiKey`);
+             * consumers must never read `process.env.GEMINI_API_KEY` directly.
+             * @type {String}
+             */
+            geminiApiKey: leaf('', 'GEMINI_API_KEY', 'string'),
+            /**
              * @summary Enforced vector dimension across shared vector collections.
              *
              * Hard-configured to prevent schema wipes when operators change embedding
@@ -277,20 +373,21 @@ class Config extends ConfigProvider {
             /**
              * @summary Deployment-wide storage engine coordinates.
              *
-             * `engines.chroma` is the unified Chroma topology: ONE daemon, ONE persist dir,
-             * shared by Knowledge Base + Memory Core. `dataDir` is the fixed canonical persist dir
-             * read by both server configs + the `defragChromaDB` maintenance script; the local
-             * orchestrator launches the daemon against the same fixed path. The leaf is named `unified`
-             * (identical local + cloud) — it holds every realm (KB + MC + graph + sessions), so a
-             * realm-specific name would misrepresent the store. Collection NAMES remain server-local;
-             * the persist DIR is unified.
+             * `engines.chroma` is the unified production topology: ONE daemon, ONE persist dir,
+             * shared by Knowledge Base + Memory Core. The active `host` / `port` / `dataDir` values are
+             * formulas (below) that resolve production vs unit-test coordinates from the existing
+             * `UNIT_TEST_MODE` toggle. Unit tests therefore connect to a separate daemon and separate
+             * persist directory by construction; a database-name swap alone is not isolation.
              * @type {Object}
              */
             engines: {
                 chroma: {
-                    dataDir : leaf(path.resolve(neoRootDir, '.neo-ai-data/chroma/unified')),
-                    host    : leaf('localhost', 'NEO_CHROMA_HOST', 'string'),
-                    port    : leaf(8000, 'NEO_CHROMA_PORT', 'port'),
+                    dataDirProd: leaf(path.resolve(neoRootDir, '.neo-ai-data/chroma/unified')),
+                    dataDirTest: leaf(chromaUnitTestDataDir, 'NEO_CHROMA_DATA_DIR_TEST', 'string'),
+                    hostProd   : leaf('localhost', 'NEO_CHROMA_HOST', 'string'),
+                    hostTest   : leaf('localhost', 'NEO_CHROMA_HOST_TEST', 'string'),
+                    portProd   : leaf(8000, 'NEO_CHROMA_PORT', 'port'),
+                    portTest   : leaf(18180, 'NEO_CHROMA_PORT_TEST', 'port'),
                     /**
                      * Chroma database selection — three declarative leaves, all SSOT-inline (config.template
                      * imports no config values):
@@ -309,6 +406,23 @@ class Config extends ConfigProvider {
                     databaseTest   : leaf('neo-unit-test', 'NEO_CHROMA_DATABASE_TEST', 'string'),
                     useTestDatabase: leaf(false, 'UNIT_TEST_MODE', 'boolean')
                 }
+            },
+            /**
+             * Memory Core service tuning — timeouts, retry, graph-projection cadence, miniSummary.
+             * All operator-tunable; consumers read `aiConfig.memoryService.*` at the use site.
+             * @type {Object}
+             */
+            memoryService: {
+                miniSummaryTimeoutMs           : leaf(30000, 'NEO_MC_MINI_SUMMARY_TIMEOUT_MS', 'number'),
+                miniSummaryBackfillMaxRunMs    : leaf(600000, 'NEO_MC_MINI_SUMMARY_BACKFILL_MAX_RUN_MS', 'number'),
+                miniSummaryBackfillFreshReserve: leaf(10, 'NEO_MC_MINI_SUMMARY_BACKFILL_FRESH_RESERVE', 'number'),
+                miniSummaryMaxChars            : leaf(280, 'NEO_MC_MINI_SUMMARY_MAX_CHARS', 'number'),
+                generateMiniSummaryTimeoutMs   : leaf(20000, 'NEO_MC_GENERATE_MINI_SUMMARY_TIMEOUT_MS', 'number'),
+                chromaFetchTimeoutMs           : leaf(10000, 'NEO_MC_CHROMA_FETCH_TIMEOUT_MS', 'number'),
+                graphProjectionMaxAttempts     : leaf(5, 'NEO_MC_GRAPH_PROJECTION_MAX_ATTEMPTS', 'number'),
+                graphProjectionRetryBaseMs     : leaf(250, 'NEO_MC_GRAPH_PROJECTION_RETRY_BASE_MS', 'number'),
+                graphProjectionRetryMaxMs      : leaf(5000, 'NEO_MC_GRAPH_PROJECTION_RETRY_MAX_MS', 'number'),
+                graphProjectionDrainIntervalMs : leaf(60000, 'NEO_MC_GRAPH_PROJECTION_DRAIN_INTERVAL_MS', 'number')
             },
             /**
              * Agent OS maintenance orchestrator configuration.
@@ -342,13 +456,130 @@ class Config extends ConfigProvider {
                  *
                  * Defaults are sized for a developer-laptop cold start (30 × 1s + 3s timeout
                  * per probe ≈ 2 min absolute ceiling). Cloud-deployment operators tune these
-                 * via gitignored `ai/config.mjs` or the env vars below.
+                 * via gitignored `ai/config.mjs` or the env vars below. Routine readiness
+                 * consumers share a short model-discovery cache to avoid flooding user-facing
+                 * provider logs; recovery and force-refresh diagnostics bypass it.
                  * @type {Object}
                  */
                 providerReadiness: {
-                    attempts : leaf(30, 'NEO_ORCHESTRATOR_PROVIDER_READY_ATTEMPTS', 'number'),
-                    delayMs  : leaf(1000, 'NEO_ORCHESTRATOR_PROVIDER_READY_DELAY_MS', 'number'),
-                    timeoutMs: leaf(3000, 'NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS', 'number')
+                    attempts         : leaf(30, 'NEO_ORCHESTRATOR_PROVIDER_READY_ATTEMPTS', 'number'),
+                    delayMs          : leaf(1000, 'NEO_ORCHESTRATOR_PROVIDER_READY_DELAY_MS', 'number'),
+                    timeoutMs        : leaf(3000, 'NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS', 'number'),
+                    routineCacheTtlMs: leaf(1000, 'NEO_ORCHESTRATOR_PROVIDER_READY_ROUTINE_CACHE_TTL_MS', 'number'),
+                    /**
+                     * Stuck-runner detection. A resident model can be alive yet stuck —
+                     * one pathological request (e.g. a too-large context prefill) grinding at
+                     * ~100%×N-cores while serving nothing, because `OLLAMA_NUM_PARALLEL=1` queues
+                     * everything behind it (the empirical anchor: a `gemma4` runner pegged 58h with
+                     * an idle orchestrator and no users). The supervised `healthProbe` restarts the
+                     * runner only after `consecutiveFailures` SUSTAINED inference-canary failures —
+                     * the false-positive guard against restarting a legitimately-long request — and
+                     * the supervisor restart cooldown bounds the cadence (no thrash).
+                     * @type {Object}
+                     */
+                    stuckRunner: {
+                        enabled            : leaf(true,  'NEO_ORCHESTRATOR_STUCK_RUNNER_ENABLED', 'boolean'),
+                        consecutiveFailures: leaf(3,     'NEO_ORCHESTRATOR_STUCK_RUNNER_CONSECUTIVE_FAILURES', 'number'),
+                        canaryTimeoutMs    : leaf(10000, 'NEO_ORCHESTRATOR_STUCK_RUNNER_CANARY_TIMEOUT_MS', 'number')
+                    }
+                },
+                /**
+                 * L0 deployment-runtime access holder used by the self-healing stack.
+                 *
+                 * The deny-by-default mechanism (the recovery-actuator privilege-boundary design):
+                 * docker-socket + deny-by-default wrapper is the MVP, while a privileged sidecar
+                 * remains the hardening fallback if the wrapper cannot prove strict service
+                 * identity and operation allowlisting. The holder exposes two separate
+                 * capability envelopes over the same runtime handle:
+                 *
+                 * - `readOperations`: logs / stats / inspect for observability.
+                 * - `lifecycleOperations`: restart for recovery.
+                 *
+                 * `allowedServices` names Docker Compose service labels, not arbitrary
+                 * container ids. `composeProject` is optional for single-stack deployments;
+                 * set it when a host runs multiple Neo compose projects on one Docker socket.
+                 *
+                 * Env overrides:
+                 * `NEO_ORCHESTRATOR_RUNTIME_ACCESS_ENABLED`,
+                 * `NEO_ORCHESTRATOR_RUNTIME_ACCESS_MECHANISM`,
+                 * `NEO_ORCHESTRATOR_RUNTIME_ACCESS_SOCKET_PATH`,
+                 * `NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT`,
+                 * `NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES`,
+                 * `NEO_ORCHESTRATOR_RUNTIME_ACCESS_READ_OPERATIONS`,
+                 * `NEO_ORCHESTRATOR_RUNTIME_ACCESS_LIFECYCLE_OPERATIONS`,
+                 * `NEO_ORCHESTRATOR_RUNTIME_ACCESS_TIMEOUT_MS`,
+                 * `NEO_ORCHESTRATOR_RUNTIME_ACCESS_RESPONSE_MAX_BYTES`,
+                 * `NEO_ORCHESTRATOR_RUNTIME_ACCESS_LOG_TAIL`,
+                 * `NEO_ORCHESTRATOR_RUNTIME_ACCESS_RESTART_TIMEOUT_SECONDS`,
+                 * `NEO_ORCHESTRATOR_RUNTIME_ACCESS_AUDIT_MODE`.
+                 *
+                 * @type {Object}
+                 */
+                deploymentRuntimeAccess: {
+                    enabled                     : leaf(false, 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_ENABLED', 'boolean'),
+                    mechanism                   : leaf('docker-socket', 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_MECHANISM', 'string'),
+                    socketPath                  : leaf('/var/run/docker.sock', 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_SOCKET_PATH', 'string'),
+                    composeProject              : leaf(null, 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT', 'string'),
+                    allowedServices             : leaf(['chroma', 'kb-server', 'mc-server', 'local-model'], 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES', 'csv'),
+                    readOperations              : leaf(['inspect', 'logs', 'stats'], 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_READ_OPERATIONS', 'csv'),
+                    lifecycleOperations         : leaf(['restart'], 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_LIFECYCLE_OPERATIONS', 'csv'),
+                    timeoutMs                   : leaf(5000, 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_TIMEOUT_MS', 'number'),
+                    responseMaxBytes            : leaf(1024 * 1024, 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_RESPONSE_MAX_BYTES', 'number'),
+                    logTail                     : leaf(200, 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_LOG_TAIL', 'number'),
+                    defaultRestartTimeoutSeconds: leaf(10, 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_RESTART_TIMEOUT_SECONDS', 'number'),
+                    auditMode                   : leaf('metadata', 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_AUDIT_MODE', 'string')
+                },
+                /**
+                 * Graph-independent deployment-state bridge. The orchestrator writes a bounded JSON
+                 * snapshot to shared storage; KB/MC read tools consume it without receiving Docker
+                 * socket, shell, exec, or actuator authority. Enabled by default: deployment
+                 * overlays may explicitly disable the writer, and must mount the same
+                 * `snapshotPath` into the public KB/MC containers.
+                 *
+                 * Env overrides:
+                 * `NEO_DEPLOYMENT_STATE_BRIDGE_ENABLED`,
+                 * `NEO_DEPLOYMENT_STATE_BRIDGE_SNAPSHOT_PATH`,
+                 * `NEO_DEPLOYMENT_STATE_BRIDGE_WRITE_INTERVAL_MS`,
+                 * `NEO_DEPLOYMENT_STATE_BRIDGE_STALE_AFTER_MS`,
+                 * `NEO_DEPLOYMENT_STATE_BRIDGE_MAX_BYTES`,
+                 * `NEO_DEPLOYMENT_STATE_BRIDGE_ALLOWED_SERVICES`,
+                 * `NEO_DEPLOYMENT_STATE_BRIDGE_INCLUDE_LOGS`,
+                 * `NEO_DEPLOYMENT_STATE_BRIDGE_LOG_TAIL`,
+                 * `NEO_DEPLOYMENT_STATE_BRIDGE_LOG_MAX_BYTES`,
+                 * `NEO_DEPLOYMENT_STATE_BRIDGE_STATS_SAMPLE_WINDOW`,
+                 * `NEO_DEPLOYMENT_STATE_BRIDGE_PROVIDER_RESIDENCY_SERVICE_KEYS`,
+                 * `NEO_DEPLOYMENT_STATE_BRIDGE_RECOVERY_RUN_LIMIT`.
+                 *
+                 * @type {Object}
+                 */
+                deploymentStateBridge: {
+                    enabled                     : leaf(true, 'NEO_DEPLOYMENT_STATE_BRIDGE_ENABLED', 'boolean'),
+                    snapshotPath                : leaf(path.resolve(neoRootDir, '.neo-ai-data/deployment-state/snapshot.json'), 'NEO_DEPLOYMENT_STATE_BRIDGE_SNAPSHOT_PATH', 'string'),
+                    writeIntervalMs             : leaf(30000, 'NEO_DEPLOYMENT_STATE_BRIDGE_WRITE_INTERVAL_MS', 'number'),
+                    staleAfterMs                : leaf(2 * 60 * 1000, 'NEO_DEPLOYMENT_STATE_BRIDGE_STALE_AFTER_MS', 'number'),
+                    maxSnapshotBytes            : leaf(256 * 1024, 'NEO_DEPLOYMENT_STATE_BRIDGE_MAX_BYTES', 'number'),
+                    allowedServices             : leaf([], 'NEO_DEPLOYMENT_STATE_BRIDGE_ALLOWED_SERVICES', 'csv'),
+                    includeLogs                 : leaf(true, 'NEO_DEPLOYMENT_STATE_BRIDGE_INCLUDE_LOGS', 'boolean'),
+                    logTail                     : leaf(120, 'NEO_DEPLOYMENT_STATE_BRIDGE_LOG_TAIL', 'number'),
+                    logMaxBytes                 : leaf(32 * 1024, 'NEO_DEPLOYMENT_STATE_BRIDGE_LOG_MAX_BYTES', 'number'),
+                    statsSampleWindow           : leaf(2, 'NEO_DEPLOYMENT_STATE_BRIDGE_STATS_SAMPLE_WINDOW', 'number'),
+                    providerResidencyServiceKeys: leaf(['local-model', 'model'], 'NEO_DEPLOYMENT_STATE_BRIDGE_PROVIDER_RESIDENCY_SERVICE_KEYS', 'csv'),
+                    recoveryRunLimit            : leaf(10, 'NEO_DEPLOYMENT_STATE_BRIDGE_RECOVERY_RUN_LIMIT', 'number'),
+                    // Self-heal snapshot's recent-event cap — a DIFFERENT surface from recoveryRunLimit (heal-ledger
+                    // events vs recovery-run states). collectSelfHealSnapshot validates it finite/non-negative (0 = no
+                    // recent-event list) so a negative value can never expand the snapshot to every retained event.
+                    selfHealRecentEventLimit    : leaf(10, 'NEO_DEPLOYMENT_STATE_BRIDGE_SELF_HEAL_RECENT_EVENT_LIMIT', 'number')
+                },
+                /**
+                 * Cross-process heavy-maintenance lease (Chroma / SQLite / LLM maintenance mutex).
+                 * `staleAfterMs`: a lease older than this is treated as abandoned and reclaimable — it must
+                 * exceed the longest legitimate heavy-maintenance run (scales with data size), so it is an
+                 * operator-tunable threshold, not a hardcoded ceiling. AiConfig-aware entrypoints pass the
+                 * resolved value into Neo/Base-free lease primitives; primitives carry no TTL default/env binding.
+                 * @type {Object}
+                 */
+                heavyMaintenanceLease: {
+                    staleAfterMs: leaf(6 * 60 * 60 * 1000, 'NEO_HEAVY_MAINTENANCE_LEASE_TTL_MS', 'number')
                 },
                 /**
                  * Maintenance-loop intervals consumed by the orchestrator daemon.
@@ -356,14 +587,16 @@ class Config extends ConfigProvider {
                  * @type {Object}
                  */
                 intervals: {
-                    pollMs                : leaf(3000, 'NEO_ORCHESTRATOR_POLL_INTERVAL_MS', 'number'),
-                    summarySweepMs        : leaf(10 * 60 * 1000, 'NEO_ORCHESTRATOR_SUMMARY_SWEEP_INTERVAL_MS', 'number'),
-                    kbSyncMs              : leaf(30 * 60 * 1000, 'NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS', 'number'),
-                    backupMs              : leaf(DAY_MS, 'NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS', 'number'),
-                    graphLogCompactionMs  : leaf(DAY_MS, 'NEO_ORCHESTRATOR_GRAPHLOG_COMPACTION_INTERVAL_MS', 'number'),
-                    primaryDevSyncMs      : leaf(10 * 60 * 1000, 'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS', 'number'),
-                    tenantRepoSyncMs      : leaf(30 * 60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_INTERVAL_MS', 'number'),
-                    dreamMs               : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_DREAM_INTERVAL_MS', 'number'),
+                    pollMs                 : leaf(3000, 'NEO_ORCHESTRATOR_POLL_INTERVAL_MS', 'number'),
+                    summarySweepMs         : leaf(10 * 60 * 1000, 'NEO_ORCHESTRATOR_SUMMARY_SWEEP_INTERVAL_MS', 'number'),
+                    kbSyncMs               : leaf(30 * 60 * 1000, 'NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS', 'number'),
+                    githubWorkflowSyncMs   : leaf(2 * HOUR_MS, 'NEO_ORCHESTRATOR_GITHUB_WORKFLOW_SYNC_INTERVAL_MS', 'number'),
+                    backupMs               : leaf(DAY_MS, 'NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS', 'number'),
+                    graphLogCompactionMs   : leaf(DAY_MS, 'NEO_ORCHESTRATOR_GRAPHLOG_COMPACTION_INTERVAL_MS', 'number'),
+                    primaryDevSyncMs       : leaf(10 * 60 * 1000, 'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS', 'number'),
+                    tenantRepoSyncMs       : leaf(30 * 60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_INTERVAL_MS', 'number'),
+                    dreamMs                : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_DREAM_INTERVAL_MS', 'number'),
+                    messageConceptHarvestMs: leaf(6 * HOUR_MS, 'NEO_ORCHESTRATOR_MESSAGE_CONCEPT_HARVEST_INTERVAL_MS', 'number'),
                     /**
                      * Fraction of `dreamMs` runtime that triggers completion-time cooldown for the
                      * next dream cycle. This is intentionally below the cycle-overflow telemetry
@@ -371,8 +604,49 @@ class Config extends ConfigProvider {
                      * cadence.
                      */
                     dreamOverflowThreshold: leaf(0.8, 'NEO_ORCHESTRATOR_DREAM_OVERFLOW_THRESHOLD', 'number'),
-                    goldenPathMs          : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_GOLDEN_PATH_INTERVAL_MS', 'number'),
-                    swarmHeartbeatMs      : leaf(15 * 60 * 1000, 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS', 'number')
+                    /**
+                     * Cooldown for REM backlog catch-up after a successful cycle saturates the configured
+                     * REM batch. This is shorter than `dreamMs`, but only activates for bounded
+                     * non-overflow cycles that prove backlog remains.
+                     */
+                    remBacklogCatchupCooldownMs: leaf(5 * 60 * 1000, 'NEO_ORCHESTRATOR_REM_BACKLOG_CATCHUP_COOLDOWN_MS', 'number'),
+                    goldenPathMs               : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_GOLDEN_PATH_INTERVAL_MS', 'number'),
+                    /**
+                     * Generic swarm-heartbeat / watchdog nudge cadence — the periodic pulse that fires a
+                     * wake digest even with no new messages. Set to 20 min so the generic watchdog nudge
+                     * sits in the operator's 20-30 min target, cutting wake noise. DIRECT actionable A2A
+                     * wakes (review-request / REQUEST_CHANGES / task-state) stay event-driven and are NOT
+                     * affected by this cadence — this slot is only the periodic pulse. The pulse cadence is
+                     * a layer ABOVE the wake-coalescing window (the 300s digest-batching cap, an orthogonal
+                     * mechanism), so widening it does not change coalescing semantics.
+                     */
+                    swarmHeartbeatMs      : leaf(20 * 60 * 1000, 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS', 'number'),
+                    /**
+                     * Cadence of the embed-drain liveness watchdog — the read-only, never-fail health
+                     * check that computes the age of the oldest un-embedded WAL record and raises a
+                     * one-shot alarm when it exceeds `memoryWal.embedDrainStallThresholdMs`. Hourly is
+                     * frequent enough to surface a stalled drain in hours (not the ~8 days of the silent
+                     * drain-death incident) while staying far below the threshold so the check itself adds
+                     * negligible load. `<= 0` disables the lane.
+                     */
+                    embedDrainLivenessWatchdogCheckMs: leaf(HOUR_MS, 'NEO_ORCHESTRATOR_EMBED_DRAIN_WATCHDOG_INTERVAL_MS', 'number'),
+                    /**
+                     * Cadence of the REM consolidation-liveness watchdog — the read-only, never-fail
+                     * health check (consolidation-side analog of the embed-drain watchdog) that computes
+                     * the age since the last successful REM cycle and raises a one-shot alarm when it
+                     * exceeds `memoryWal`-sibling `remConsolidationStallThresholdMs`.
+                     * Hourly surfaces a stalled dream in hours. `<= 0` disables the lane.
+                     */
+                    remConsolidationWatchdogCheckMs  : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_REM_CONSOLIDATION_WATCHDOG_INTERVAL_MS', 'number'),
+                    /**
+                     * Cadence of the data-integrity sweep — the read-only, never-fail health check that
+                     * audits Memory Core metadata-vs-vector coverage and emits a `data-integrity`
+                     * diagnosis on drift (the "up but data-gutted reports green" blind spot). The
+                     * diagnosis routes to the autonomous data-recovery actuator — the store is HEALED,
+                     * not paged: a cloud deployment has no operator to gate. Hourly surfaces a silent
+                     * vector-loss in hours, not weeks. `<= 0` disables the lane.
+                     */
+                    dataIntegritySweepCheckMs        : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_DATA_INTEGRITY_SWEEP_INTERVAL_MS', 'number')
                 },
                 /**
                  * Chroma daemon recycle policy. The orchestrator kills and respawns the supervised
@@ -386,6 +660,18 @@ class Config extends ConfigProvider {
                     maxRuntimeMs: leaf(DAY_MS, 'NEO_CHROMA_MAX_RUNTIME_MS', 'number')
                 },
                 /**
+                 * Local webpack dev-server supervision policy. `enabled: null` means the
+                 * deployment profile decides (local enables, cloud disables); explicit true/false
+                 * lets operators opt in/out without changing the manual `server-start --open`
+                 * command. The orchestrator-owned task never passes `--open`.
+                 * @type {Object}
+                 */
+                devServer: {
+                    enabled               : leaf(null, 'NEO_ORCHESTRATOR_DEV_SERVER_ENABLED', 'boolean'),
+                    port                  : leaf(8080, 'NEO_ORCHESTRATOR_DEV_SERVER_PORT', 'port'),
+                    livenessProbeTimeoutMs: leaf(1000, 'NEO_ORCHESTRATOR_DEV_SERVER_LIVENESS_TIMEOUT_MS', 'number')
+                },
+                /**
                  * GraphLog compaction policy. The scheduled lane invokes the existing
                  * `compactGraphLog.mjs --apply` maintenance script; the script owns retention
                  * safety and cursor handling. `vacuum` stays explicit because SQLite VACUUM is
@@ -395,6 +681,33 @@ class Config extends ConfigProvider {
                 graphLogCompaction: {
                     enabled: leaf(true, 'NEO_ORCHESTRATOR_GRAPHLOG_COMPACTION_ENABLED', 'boolean'),
                     vacuum : leaf(false, 'NEO_ORCHESTRATOR_GRAPHLOG_COMPACTION_VACUUM', 'boolean')
+                },
+                /**
+                 * Heavy-maintenance lease fairness — the bound on continuous lease hold. A long-running
+                 * heavy task (e.g. a multi-hour KB re-embed) yields the single heavy-maintenance lease
+                 * after `maxActiveHoldMs` of continuous hold — polled via `shouldYieldHeavyMaintenanceLease`
+                 * — so a starved heavy peer (e.g. `githubWorkflowSync`, which otherwise stales the sandman
+                 * handoff for the whole run) interleaves; the next sweep re-acquires for the remaining work.
+                 * A holder must only yield at a resumable checkpoint (a preserved shadow + resume-marker keep
+                 * completed work), so the release window is torn-read-free. `0`/falsy ⇒ never yields
+                 * (byte-identical back-compat). Default 30min (the fairness decision with
+                 * @neo-opus-grace): independent of `staleAfterMs` but kept smaller (a live holder yields before
+                 * it would be stale-reclaimed); a SOFT knob — the holder yields at the first between-batch
+                 * checkpoint after the bound, never mid-batch — so it is tunable on observed yield-churn.
+                 * Env override: `NEO_ORCHESTRATOR_HEAVY_MAINTENANCE_MAX_ACTIVE_HOLD_MS`.
+                 * @type {Object}
+                 */
+                heavyMaintenance: {
+                    maxActiveHoldMs: leaf(HOUR_MS / 2, 'NEO_ORCHESTRATOR_HEAVY_MAINTENANCE_MAX_ACTIVE_HOLD_MS', 'number')
+                },
+                /**
+                 * Neural Link Bridge local-supervision policy. The bridge port itself is owned
+                 * by `ai/mcp/server/neural-link/config.mjs` (`NEO_NL_PORT`); this block only
+                 * controls orchestrator-side probing.
+                 * @type {Object}
+                 */
+                neuralLinkBridge: {
+                    livenessProbeTimeoutMs: leaf(1000, 'NEO_ORCHESTRATOR_NL_BRIDGE_LIVENESS_TIMEOUT_MS', 'number')
                 },
                 /**
                  * Swarm-heartbeat target-resolver config. Controls which identity set
@@ -467,24 +780,42 @@ class Config extends ConfigProvider {
                  * without changing remote graph-backed A2A / Memory Core behavior.
                  * `null` means "use the deployment profile default" (`local` enables,
                  * `cloud` disables); set `true` only when explicitly opting a lane back in.
+                 * Exception: `bridgeDaemonEnabled` + `swarmHeartbeatEnabled` default `false`
+                 * (wake + heartbeat OFF) — the Stop hook makes them redundant flood; see their
+                 * inline notes. Both remain env-overridable to re-enable.
                  * @type {Object}
                  */
                 localOnly: {
-                    primaryDevSyncEnabled          : leaf(null, 'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED', 'boolean'),
-                    kbSyncEnabled                  : leaf(null, 'NEO_ORCHESTRATOR_KB_SYNC_ENABLED', 'boolean'),
+                    primaryDevSyncEnabled    : leaf(null, 'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED', 'boolean'),
+                    kbSyncEnabled            : leaf(null, 'NEO_ORCHESTRATOR_KB_SYNC_ENABLED', 'boolean'),
+                    githubWorkflowSyncEnabled: leaf(null, 'NEO_ORCHESTRATOR_GITHUB_WORKFLOW_SYNC_ENABLED', 'boolean'),
                     // Local profile may supervise a child Chroma process; cloud profile
                     // reaches the compose-owned `chroma` peer container instead.
-                    chromaDaemonEnabled            : leaf(null, 'NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED', 'boolean'),
-                    bridgeDaemonEnabled            : leaf(null, 'NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED', 'boolean'),
+                    chromaDaemonEnabled    : leaf(null, 'NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED', 'boolean'),
+                    // Desktop wake-DELIVERY gate. Defaults OFF: the lane-state Stop hook forces turn
+                    // continuation, so wake interrupts are redundant duplicate-flood at multi-peer
+                    // scale (A2A messages still persist + surface on the next list_messages).
+                    // Set `true` (or `NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED=true`) to restore delivery.
+                    bridgeDaemonEnabled    : leaf(false, 'NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED', 'boolean'),
+                    neuralLinkBridgeEnabled: leaf(null, 'NEO_ORCHESTRATOR_NL_BRIDGE_ENABLED', 'boolean'),
                     // The embed daemon durably drains the add_memory WAL into the content store
                     // (ai/daemons/embed/daemon.mjs). Local profile supervises it as a child
                     // process; cloud deployments own their drain story per-container (mirror of
                     // the chromaDaemonEnabled split).
                     embedDaemonEnabled             : leaf(null, 'NEO_ORCHESTRATOR_EMBED_DAEMON_ENABLED', 'boolean'),
+                    // The message daemon observes the accepted A2A-message WAL. Local profile may
+                    // supervise it as a child process; cloud deployments use Memory Core's
+                    // messageWal.inProcessDrain host mode instead.
+                    messageDaemonEnabled           : leaf(null, 'NEO_ORCHESTRATOR_MESSAGE_DAEMON_ENABLED', 'boolean'),
                     goldenPathRepoEnrichmentEnabled: leaf(null, 'NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED', 'boolean'),
-                    // `null` = use the deployment-profile default (local enables, cloud disables);
-                    // the swarm-heartbeat lane emits wake-substrate pulses through bridge delivery.
-                    swarmHeartbeatEnabled          : leaf(null, 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED', 'boolean'),
+                    // Swarm-heartbeat lane: emits wake-substrate pulses + heartbeat-driven idle/swarm
+                    // wakes (`WakeDecisionService.decideWake` runs INSIDE `SwarmHeartbeatService.pulse()`).
+                    // Defaults OFF: the lane-state Stop hook covers turn continuation, so these pulses
+                    // are redundant duplicate-flood at multi-peer scale. Substrate maintenance
+                    // (GraphLog compaction, integrity sweep, embed/message daemons) runs via its own
+                    // separate task toggles and is unaffected. Set `true` (or
+                    // `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED=true`) to restore.
+                    swarmHeartbeatEnabled          : leaf(false, 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED', 'boolean'),
                     // Reserved policy placeholder: no runtime consumer yet.
                     // `bridgeDaemonEnabled` is the active scheduler gate for desktop wake delivery.
                     wakeDispatchEnabled            : leaf(null)
@@ -501,7 +832,77 @@ class Config extends ConfigProvider {
                     // Tenant-repo-sync is a cloud-deployable lane: cloud profile defaults enabled
                     // when tenant repos are configured; local Neo-maintainer profile defaults
                     // disabled unless explicitly opted in.
-                    tenantRepoSyncEnabled: leaf(null, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_ENABLED', 'boolean')
+                    tenantRepoSyncEnabled: leaf(null, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_ENABLED', 'boolean'),
+                    // B1 docker-socket sibling-container recovery (the immune system's privileged tier).
+                    // Cloud profile defaults enabled (no operator present to manually restart a wedged
+                    // sibling); local profile defaults disabled (the operator IS present + autonomously
+                    // recycling a dev container is disruptive). B0 in-process recycle + data-integrity
+                    // re-embed + the read-only deployment-state bridge stay active locally regardless.
+                    // ORTHOGONAL to `recoveryActuator.blockedComposeServices` (ADR-26): this mode-gate is
+                    // "is B1 active in this deployment at all"; the blocklist is the per-service opt-out
+                    // WITHIN an active mode. They compose; do not overload the blocklist to express the mode gate.
+                    composeServiceRecoveryEnabled: leaf(null, 'NEO_ORCHESTRATOR_COMPOSE_SERVICE_RECOVERY_ENABLED', 'boolean')
+                },
+                /**
+                 * Recovery actuator envelope. Enabled by default so deployed immune-system
+                 * lanes can heal without per-deployment recovery target allowlists. Operators
+                 * can block specific supervised tasks, compose services, or deploy targets while
+                 * the runtime-access holder still gates compose services to known labels.
+                 * @type {Object}
+                 */
+                recoveryActuator: {
+                    enabled                    : leaf(true, 'NEO_RECOVERY_ACTUATOR_ENABLED', 'boolean'),
+                    blockedSupervisedTasks     : leaf([], 'NEO_RECOVERY_ACTUATOR_BLOCKED_SUPERVISED_TASKS', 'csv'),
+                    blockedComposeServices     : leaf([], 'NEO_RECOVERY_ACTUATOR_BLOCKED_COMPOSE_SERVICES', 'csv'),
+                    blockedDeployTargets       : leaf([], 'NEO_RECOVERY_ACTUATOR_BLOCKED_DEPLOY_TARGETS', 'csv'),
+                    healAttemptsPath           : leaf(path.resolve(neoRootDir, '.neo-ai-data/orchestrator-daemon/heal-attempts.json'), 'NEO_RECOVERY_ACTUATOR_HEAL_ATTEMPTS_PATH', 'string'),
+                    recoveryRunStateDir        : leaf(path.resolve(neoRootDir, '.neo-ai-data/orchestrator-daemon/recovery-runs'), 'NEO_RECOVERY_ACTUATOR_RUN_STATE_DIR', 'string'),
+                    recoveryRunRetentionLimit  : leaf(100, 'NEO_RECOVERY_ACTUATOR_RUN_RETENTION_LIMIT', 'number'),
+                    maxAttemptsPerWindow       : leaf(3, 'NEO_RECOVERY_ACTUATOR_MAX_ATTEMPTS_PER_WINDOW', 'number'),
+                    maxAttemptsWindowMs        : leaf(HOUR_MS, 'NEO_RECOVERY_ACTUATOR_MAX_ATTEMPTS_WINDOW_MS', 'number'),
+                    baseBackoffMs              : leaf(5 * 60 * 1000, 'NEO_RECOVERY_ACTUATOR_BASE_BACKOFF_MS', 'number'),
+                    maxBackoffMs               : leaf(HOUR_MS, 'NEO_RECOVERY_ACTUATOR_MAX_BACKOFF_MS', 'number'),
+                    verifyCooldownMs           : leaf(60 * 1000, 'NEO_RECOVERY_ACTUATOR_VERIFY_COOLDOWN_MS', 'number'),
+                    healthyObservationThreshold: leaf(1, 'NEO_RECOVERY_ACTUATOR_HEALTHY_OBSERVATION_THRESHOLD', 'number'),
+                    /**
+                     * Heal-event ledger retention (the observability sink must not become its own disk leak). The
+                     * append-time auto-prune keeps the newest `maxEvents` once the file crosses `pruneTriggerBytes`.
+                     * Read at the orchestrator/actuator boundary and passed EXPLICITLY into the pure ledger helper
+                     * (which owns no production default — this leaf is the source of truth). `maxEvents` sits well above the dispatch
+                     * anti-thrash window so a prune can never evict a within-window attempt; the byte-trigger
+                     * amortizes the O(N) prune (at ~150 B/entry the 5000-event cap is ~750 KB; a 1 MB trigger leaves headroom).
+                     * @type {Object}
+                     */
+                    healLedger: {
+                        maxEvents        : leaf(5000,        'NEO_RECOVERY_ACTUATOR_HEAL_LEDGER_MAX_EVENTS',          'number'),
+                        pruneTriggerBytes: leaf(1024 * 1024, 'NEO_RECOVERY_ACTUATOR_HEAL_LEDGER_PRUNE_TRIGGER_BYTES', 'number')
+                    },
+                    /**
+                     * Systemic-fault circuit-breaker bounds — the cross-collection layer above the per-collection
+                     * anti-thrash (`maxAttemptsPerWindow`/`maxAttemptsWindowMs`). >= `systemicThreshold` DISTINCT
+                     * collections failing with a shared embedder-outage signature inside `windowMs` trips the circuit
+                     * OPEN (suppress every heal) for `openDurationMs`, then allows one half-open recovery probe.
+                     * Consumed by `decideSystemicCircuit`: read at the actuator use-site and passed as its `bounds`.
+                     * @type {Object}
+                     */
+                    systemicCircuit: {
+                        systemicThreshold: leaf(3,              'NEO_RECOVERY_ACTUATOR_SYSTEMIC_CIRCUIT_THRESHOLD',        'number'),
+                        windowMs         : leaf(10 * 60 * 1000, 'NEO_RECOVERY_ACTUATOR_SYSTEMIC_CIRCUIT_WINDOW_MS',        'number'),
+                        openDurationMs   : leaf(10 * 60 * 1000, 'NEO_RECOVERY_ACTUATOR_SYSTEMIC_CIRCUIT_OPEN_DURATION_MS', 'number')
+                    },
+                    /**
+                     * Chronic `unsafe-input` detector bounds — the immune system's self-observability for a
+                     * MIS-WIRE. `dispatchHeal` fails CLOSED to `unsafe-input` on under-specified input (no
+                     * collection / non-finite clock / missing recordRun); a single one is routine, but >=
+                     * `threshold` for the SAME (action, collection) inside `windowMs` means a caller is
+                     * chronically mis-wired and that heal silently never executes. Consumed by
+                     * `detectChronicUnsafeInput`: read at the use-site and passed as its bounds.
+                     * @type {Object}
+                     */
+                    chronicUnsafeInput: {
+                        threshold: leaf(5,              'NEO_RECOVERY_ACTUATOR_CHRONIC_UNSAFE_INPUT_THRESHOLD', 'number'),
+                        windowMs : leaf(60 * 60 * 1000, 'NEO_RECOVERY_ACTUATOR_CHRONIC_UNSAFE_INPUT_WINDOW_MS', 'number')
+                    }
                 },
                 /**
                  * Optional local Neo repo roots for the primary-dev-sync lane.
@@ -554,6 +955,22 @@ class Config extends ConfigProvider {
                     port   : leaf('11435', 'NEO_ORCHESTRATOR_MLX_PORT', 'string')
                 },
                 /**
+                 * Orchestrator-owned native Ollama server config. Operators tune via gitignored
+                 * `ai/config.mjs` or env var `NEO_ORCHESTRATOR_OLLAMA_ENABLED`.
+                 *
+                 * - `enabled`: whether the orchestrator may supervise `ollama serve` for local-dev
+                 *   roles explicitly routed through the native `ollama` provider. The task is
+                 *   still omitted when no configured chat / embedding role targets `ollama`, so
+                 *   this default does not start Ollama for the standard OpenAI-compatible setup.
+                 *   When active, `OLLAMA_HOST`, `OLLAMA_KEEP_ALIVE`, `OLLAMA_CONTEXT_LENGTH`, and
+                 *   `OLLAMA_MAX_LOADED_MODELS` are derived from the canonical provider and
+                 *   local-model config leaves.
+                 * @type {Object}
+                 */
+                ollama: {
+                    enabled: leaf(true, 'NEO_ORCHESTRATOR_OLLAMA_ENABLED', 'boolean')
+                },
+                /**
                  * Orchestrator-owned LM Studio CLI (`lms`) inference server config. Operators
                  * tune via gitignored `ai/config.mjs` or env vars (`NEO_ORCHESTRATOR_LMS_ENABLED`,
                  * `NEO_ORCHESTRATOR_LMS_MODEL`, `NEO_ORCHESTRATOR_LMS_PORT`).
@@ -581,6 +998,29 @@ class Config extends ConfigProvider {
                 }
             },
             /**
+             * Business-engine layer configuration (the graph-as-business-operating-system substrate).
+             * Read at the use site per the AiConfig SSOT discipline; the metric-ingestion probe is the
+             * first consumer. Source descriptors needing endpoints/cadences join this subtree when a
+             * source that reads them lands — no speculative leaves.
+             * @type {Object}
+             */
+            business: {
+                /**
+                 * Master switch for the read-only business-metric ingestion probe. The probe refuses
+                 * to run when disabled — fail-closed by construction, so metric writes into the
+                 * production graph are always an explicit operator decision.
+                 * @type {boolean}
+                 */
+                metricProbeEnabled: leaf(false, 'NEO_BUSINESS_METRIC_PROBE', 'boolean'),
+                /**
+                 * Comma-separated allowlist of metric categories (`metricName` values) the probe may
+                 * ingest with `publicFlag: true`. Categories are public by design; anything not listed
+                 * is refused at the probe boundary — the schema-side redaction gate's config half.
+                 * @type {string}
+                 */
+                publicCategoryAllowlist: leaf('merged-prs,review-latency,stars-total,npm-downloads', 'NEO_BUSINESS_PUBLIC_CATEGORIES', 'string')
+            },
+            /**
              * Agent OS maintenance policy shared by operator scripts and daemons.
              * @type {Object}
              */
@@ -592,7 +1032,7 @@ class Config extends ConfigProvider {
                  */
                 backup: {
                     intervalMs: DAY_MS,
-                    retention: {
+                    retention : {
                         keepMinimum: 3,
                         maxDays    : 30
                     }
@@ -605,7 +1045,7 @@ class Config extends ConfigProvider {
                  * @type {Object}
                  */
                 defrag: {
-                    intervalMs: 7 * DAY_MS,
+                    intervalMs       : 7 * DAY_MS,
                     snapshotRetention: {
                         keepMinimum: 3,
                         maxDays    : 7
@@ -724,6 +1164,14 @@ class Config extends ConfigProvider {
                     })
                 }
             })
+        },
+        /**
+         * Reactive computed config values (`Neo.state.Provider` formulas).
+         */
+        formulas: {
+            'engines.chroma.dataDir': data => data.engines.chroma.useTestDatabase ? data.engines.chroma.dataDirTest : data.engines.chroma.dataDirProd,
+            'engines.chroma.host'   : data => data.engines.chroma.useTestDatabase ? data.engines.chroma.hostTest    : data.engines.chroma.hostProd,
+            'engines.chroma.port'   : data => data.engines.chroma.useTestDatabase ? data.engines.chroma.portTest    : data.engines.chroma.portProd
         }
     }
 }

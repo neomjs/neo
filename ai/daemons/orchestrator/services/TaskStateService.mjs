@@ -9,13 +9,14 @@ import Base from '../../../../src/core/Base.mjs';
 export function createInitialTaskState(taskDefinitions) {
     return Object.keys(taskDefinitions).reduce((state, taskName) => {
         state[taskName] = {
-            running      : false,
-            pid          : null,
-            lastRunAt    : 0,
-            lastSuccessAt: null,
-            lastErrorAt  : null,
-            lastExitCode : null,
-            lastReason   : null
+            running       : false,
+            pid           : null,
+            lastRunAt     : 0,
+            lastSuccessAt : null,
+            lastErrorAt   : null,
+            lastExitCode  : null,
+            lastReason    : null,
+            lastCompletion: null
         };
         return state;
     }, {});
@@ -185,14 +186,16 @@ export class TaskStateService extends Base {
     /**
      * Marks a task as successfully completed.
      * @param {String} taskName
+     * @param {Object|null} [lastCompletion=null] Bounded task-specific completion metadata.
      * @returns {void}
      */
-    markCompleted(taskName) {
+    markCompleted(taskName, lastCompletion=null) {
         const state = this.taskState[taskName];
         state.running       = false;
         state.pid           = null;
         state.lastExitCode  = 0;
         state.lastSuccessAt = new Date().toISOString();
+        state.lastCompletion = lastCompletion;
         this.writeState();
     }
 
@@ -211,13 +214,15 @@ export class TaskStateService extends Base {
     /**
      * Marks a task as skipped without treating the no-op as a successful run.
      * @param {String} taskName
+     * @param {Object|null} [lastCompletion=null] Bounded task-specific completion metadata.
      * @returns {void}
      */
-    markSkipped(taskName) {
+    markSkipped(taskName, lastCompletion=null) {
         const state = this.taskState[taskName];
         state.running      = false;
         state.pid          = null;
         state.lastExitCode = null;
+        state.lastCompletion = lastCompletion;
         this.writeState();
     }
 
@@ -240,14 +245,16 @@ export class TaskStateService extends Base {
      * Marks a task as failed.
      * @param {String} taskName
      * @param {Number|null} code
+     * @param {Object|null} [lastCompletion=null] Bounded task-specific completion metadata.
      * @returns {void}
      */
-    markFailed(taskName, code) {
+    markFailed(taskName, code, lastCompletion=null) {
         const state = this.taskState[taskName];
         state.running      = false;
         state.pid          = null;
         state.lastExitCode = code;
         state.lastErrorAt  = new Date().toISOString();
+        state.lastCompletion = lastCompletion;
         this.writeState();
     }
 

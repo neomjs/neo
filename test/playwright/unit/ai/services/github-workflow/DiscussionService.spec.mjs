@@ -54,6 +54,10 @@ test.describe('Neo.ai.services.github-workflow.DiscussionService — manageDiscu
                 }
                 if (callCount === 2) {
                     // ADD_DISCUSSION_COMMENT mutation
+                    expect(variables).toMatchObject({
+                        discussionId: DISCUSSION_NODE_ID,
+                        body        : 'Test comment body'
+                    });
                     return {
                         addDiscussionComment: {
                             comment: {
@@ -70,7 +74,6 @@ test.describe('Neo.ai.services.github-workflow.DiscussionService — manageDiscu
             const result = await DiscussionService.manageDiscussionComment({
                 discussion_number: 10841,
                 body             : 'Test comment body',
-                agent            : 'Gemini 3.1 Pro (Antigravity)',
                 action           : 'create'
             });
 
@@ -84,21 +87,6 @@ test.describe('Neo.ai.services.github-workflow.DiscussionService — manageDiscu
             expect(callCount).toBe(2);
         });
 
-        test('rejects missing agent on create', async () => {
-            let callCount = 0;
-            GraphqlService.query = async () => { callCount++; return null; };
-
-            const result = await DiscussionService.manageDiscussionComment({
-                discussion_number: 10841,
-                body             : 'Missing agent',
-                action           : 'create'
-            });
-
-            expect(result.error).toBe('Bad Request');
-            expect(result.code).toBe('MISSING_ARGUMENTS');
-            expect(callCount).toBe(0);
-        });
-
         test('propagates GraphQL error shape on API failure', async () => {
             GraphqlService.query = async () => {
                 throw new Error('GitHub API rate limit exceeded');
@@ -107,7 +95,6 @@ test.describe('Neo.ai.services.github-workflow.DiscussionService — manageDiscu
             const result = await DiscussionService.manageDiscussionComment({
                 discussion_number: 10841,
                 body             : 'Will fail',
-                agent            : 'Gemini 3.1 Pro (Antigravity)',
                 action           : 'create'
             });
 
@@ -215,7 +202,7 @@ test.describe('Neo.ai.services.github-workflow.DiscussionService — getConversa
                 },
                 {
                     id       : 'DC_second',
-                    author   : {login: 'neo-claude-opus'},
+                    author   : {login: 'neo-opus-grace'},
                     body     : 'Second comment',
                     createdAt: '2026-05-02T00:02:00Z',
                     updatedAt: '2026-05-02T00:02:00Z',

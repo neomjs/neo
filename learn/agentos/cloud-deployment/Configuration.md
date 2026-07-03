@@ -45,7 +45,18 @@ A deployment's `config.mjs` is gitignored and copied from `config.template.mjs`.
 | `transport` | `'stdio'` | `'stdio'` (local single-repo) or `'sse'` (StreamableHTTP — a cloud deployment serving remote tenants). |
 | `mcpHttpPort` | `3000` | The port the SSE transport listens on (only when `transport === 'sse'`). |
 | `publicUrl` | `null` | Canonical public URL — required behind a reverse proxy for OAuth 2.1 / OIDC audience claims + SSE callback advertising. |
-| `auth` | OIDC block | OAuth 2.1 / OIDC config (`host`, `port`, `realm`, `issuerUrl`, `clientId`, `clientSecret`, `trustProxyIdentity`) — used only when `transport === 'sse'`. |
+| `auth.mode` | `'oidc'` | Server-side bearer strategy for HTTP/SSE: `'oidc'` uses OIDC introspection + audience enforcement; `'gitlab-pat'` validates a GitLab OAuth token or PAT against `/api/v4/user` and returns a bare bearer challenge on failure. |
+| `auth.issuerUrl` / `auth.host` / `auth.realm` | `null` / `null` / `'master'` | OIDC authority inputs for the default server mode. `issuerUrl` is preferred when the provider publishes discovery metadata directly. |
+| `auth.clientId` / `auth.clientSecret` | `null` / `''` | OIDC introspection client credentials for deployments that require them. |
+| `auth.trustProxyIdentity` | `false` | Accept identity from a trusted reverse-proxy header after the ingress strips spoofable client-supplied headers. |
+| `auth.gitlabApiBaseUrl` | `'https://gitlab.com'` | GitLab API root used only by `auth.mode === 'gitlab-pat'`; set to a self-managed GitLab host when needed. |
+| `auth.allowedClientIds` / `auth.allowedUsers` | `[]` / `[]` | Optional hardening gates for GitLab bearer mode. Empty means any token that resolves to a valid GitLab user is accepted. |
+
+Compose healthchecks use `ai/scripts/diagnostics/mcpHealthcheck.mjs` against the
+same `/mcp` route as external callers. When a deployment sets
+`NEO_AUTH_MODE=gitlab-pat`, also set `NEO_MCP_HEALTHCHECK_TOKEN` (or
+`NEO_MCP_HEALTHCHECK_TOKEN_ENV`) to a GitLab bearer with `read_user`; otherwise
+the server can answer correctly while Compose keeps it unhealthy.
 
 Each key is also bindable via an environment variable (`NEO_KB_DEFAULT_TENANT_ID`, `NEO_TRANSPORT`, `MCP_HTTP_PORT`, …) — see `config.template.mjs`'s `envBindings` map for the full set.
 
@@ -57,12 +68,14 @@ Each key is also bindable via an environment variable (`NEO_KB_DEFAULT_TENANT_ID
 |---|---|---|
 | `NEO_KB_MCP_URL` | Yes unless `--url` is passed | Remote KB MCP endpoint URL, for example `https://agent-os.example.com/kb/mcp`. |
 | `NEO_KB_MCP_TRANSPORT` | No | MCP client transport; defaults to `streamable-http`, accepts `sse` for older endpoint wiring. |
-| `NEO_KB_INGEST_TOKEN` | Yes for production | Bearer token for the repo-push automation identity. |
+| `NEO_KB_INGEST_TOKEN` | Yes for production | Bearer token for the repo-push automation identity. In OIDC mode it is an access token whose audience matches the KB public URL; in GitLab bearer mode it is a GitLab OAuth access token or PAT accepted by `/api/v4/user`. |
 | `NEO_KB_TOKEN_ENV` | No | Name of the environment variable that holds the bearer token when the deployment does not use `NEO_KB_INGEST_TOKEN`. |
 | `NEO_KB_TENANT_ID` | No | Envelope default for tenant id; authenticated server context remains authoritative. |
 | `NEO_KB_REPO_SLUG` | No | Envelope default for repo slug; use a deterministic, secret-free value such as `neomjs/create-app`. |
 
-The token is a KB MCP authorization credential, not a Git credential. Store it in the tenant hook/CI secret store and rotate it using the deployment's normal OIDC or workload-identity policy.
+The token is a KB MCP authorization credential, not a Git credential. Store it
+in the tenant hook/CI secret store and rotate it using the deployment's normal
+OIDC, GitLab OAuth, or PAT-rotation policy.
 
 ## Per-tenant config storage — `KnowledgeBaseTenantConfig` (#11637)
 
@@ -93,7 +106,7 @@ tenants:
         branchRef: dev                                        # optional; defaults to 'HEAD' = remote default branch
 ```
 
-The `tenantRepos:` block is the bootstrap tier for the pull-mode polling config — `listConfiguredTenantRepos()` resolves it under the graph node → `kb-config.yaml` → `aiConfig` tiering.
+The `tenantRepos:` block is the bootstrap tier for the pull-mode polling config — `listConfiguredTenantRepos()` resolves it under the graph node → `kb-config.yaml` → `aiConfig` tiering. Graph-only tenant config nodes are included through the graph service's RLS-aware tenant-config enumeration surface; an unreadable graph tier degrades deployment diagnostics instead of silently behaving like an empty pull-mode config.
 
 The YAML is bootstrap-only — the graph node is canonical once written. A malformed or absent file is fail-soft (logged, treated as absent → tier 3).
 
@@ -105,7 +118,26 @@ The default-resolved tier means a single-repo deployment needs no tenant config 
 
 ## Model-provider runtime + orchestrator-readiness
 
-Beyond KB ingestion, a cloud deployment tunes the model-provider request behaviour and the orchestrator's provider-readiness probe through five env vars. All carry resident-friendly defaults — a zero-config deployment keeps local models warm across REM/Sandman cycles and probes patiently on cold start.
+Beyond KB ingestion, a cloud deployment chooses where model calls run. External
+provider endpoints remain the default operational posture; the optional
+`local-model` compose profile is a self-hosted OpenAI-compatible provider that
+operators opt into explicitly.
+
+### Provider selection
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `NEO_MODEL_PROVIDER` | `openAiCompatible` | Chat / summary / dream provider selector for Memory Core and the Orchestrator. Set `gemini` for the cloud API route. |
+| `NEO_EMBEDDING_PROVIDER` | `openAiCompatible` | Embedding provider selector for Knowledge Base and Memory Core. Set `gemini` for cloud embeddings. |
+| `NEO_OPENAI_COMPATIBLE_HOST` | deployment-specific | Base URL for a local or hosted OpenAI-compatible endpoint, for example `http://local-model:11434` when the compose profile is enabled. |
+| `NEO_OPENAI_COMPATIBLE_MODEL` | deployment-specific | Chat model id already resident or pullable on the selected OpenAI-compatible provider. |
+| `NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL` | deployment-specific | Embedding model id for the same provider; local deployments must keep chat + embedding roles available together. |
+| `NEO_OPENAI_COMPATIBLE_API_KEY` | optional | Bearer token for OpenAI-compatible providers that require one; normally empty for the internal `local-model` service. |
+
+The request behaviour and orchestrator-readiness probe below carry
+resident-friendly defaults — when a local provider profile is selected, Neo keeps
+the configured chat and embedding roles warm across REM/Sandman cycles and
+probes patiently on cold start.
 
 ### Provider request `keep_alive`
 

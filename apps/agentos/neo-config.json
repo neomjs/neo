@@ -3,9 +3,16 @@
     "basePath"                    : "../../",
     "environment"                 : "development",
     "mainPath"                    : "./Main.mjs",
-    "themes"                      : ["neo-theme-cyberpunk"],
+    "themes"                      : ["neo-theme-neo-dark", "neo-theme-neo-light"],
     "useAiClient"                 : true,
-    "useCanvasWorker"             : true,
-    "useCanvasWorkerStartingPoint": true,
-    "useSharedWorkers"            : true
+    "useCanvasWorker"             : false,
+    "useCanvasWorkerStartingPoint": false,
+    "useSharedWorkers"            : true,
+
+    "mainThreadAddons": [
+        "DragDrop",
+        "LocalStorage",
+        "Navigator",
+        "Stylesheet"
+    ]
 }

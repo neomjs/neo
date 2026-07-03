@@ -18,6 +18,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const repoRoot   = path.resolve(__dirname, '../../../../../../..');
 
+const RAW_EXTERNAL_URL = 'https://arkforge.tech/payload';
+const QUARANTINED_URL  = '[QUARANTINED_URL: arkforge.tech]';
+
 test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
     let IssueIngestor;
     let StorageRouter;
@@ -40,13 +43,26 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
         { type: 'issues', id: 2002, path: 'archive/issues/v1.0.0/issue-2002.md' },
         { type: 'discussions', id: 3001, path: 'discussions/discussion-3001.md' },
         { type: 'discussions', id: 3002, path: 'discussions/discussion-3002.md' },
-        { type: 'pulls', id: 4001, path: 'pulls/pr-4001.md' }
+        { type: 'pulls', id: 4001, path: 'pulls/pr-4001.md' },
+        { type: 'pulls', id: 4002, path: 'pulls/pr-4002.md' }
     ];
 
     const mockFiles = {
-        'resources/content/issues/issue-2001.md': '---\nstate: OPEN\n---\n# Active Issue',
+        'resources/content/issues/issue-2001.md': [
+            '---',
+            'id: 2001',
+            'title: Active Issue',
+            'state: OPEN',
+            'contentTrust:',
+            '  projected: true',
+            '  quarantined: 1',
+            '---',
+            '# Active Issue',
+            '',
+            `External source was defanged as ${QUARANTINED_URL}.`
+        ].join('\n'),
         'resources/content/archive/issues/v1.0.0/issue-2002.md': '---\nstate: CLOSED\n---\n# Archive Issue',
-        'resources/content/discussions/discussion-3001.md': [
+        'resources/content/discussions/discussion-3001.md'     : [
             '---',
             'number: 3001',
             'title: Open Discussion',
@@ -82,6 +98,30 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
             '## Summary',
             'Hardens the PR resolution graph path.'
         ].join('\n'),
+        'resources/content/pulls/pr-4002.md': [
+            '---',
+            'number: 4002',
+            'title: Review actionability proof',
+            'state: MERGED',
+            "createdAt: '2026-06-23T10:00:00Z'",
+            "updatedAt: '2026-06-23T15:22:40Z'",
+            '---',
+            '### `@neo-opus-grace` (CHANGES_REQUESTED) reviewed on 2026-06-23T09:33:00Z',
+            '',
+            '### Required Actions',
+            '- [ ] Hold for the L0 decision before this actuator can be considered routable.',
+            '- [ ] Extract shared runtime access instead of welding the privilege into B1.',
+            '',
+            '* **`[RETROSPECTIVE]`**: Required Actions are useful only when reduced to a concrete durable signal, not as raw review topology.',
+            '',
+            '### `@neo-opus-grace` (APPROVED) reviewed on 2026-06-23T15:22:40Z',
+            '',
+            'The L0 dependency landed, so the prior blocker is neutralized for this PR cycle.',
+            '',
+            '### Rubber stamp fixture',
+            '',
+            'LGTM.'
+        ].join('\n'),
         'resources/content/_index.json': JSON.stringify(mockIndexMap)
     };
 
@@ -94,11 +134,11 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
         _originalGraphDb = GraphService.db;
         _originalGetGraphCollection = StorageRouter.getGraphCollection;
         GraphService.db = {
-            nodes: { get: () => null },
-            edges: { items: [] },
+            nodes           : { get: () => null },
+            edges           : { items: [] },
             getAdjacentNodes: () => {},
-            addNode: node => graphNodes.push(node),
-            updateNode: () => {}
+            addNode         : node => graphNodes.push(node),
+            updateNode      : () => {}
         };
 
         _originalExistsSync = fs.existsSync;
@@ -162,7 +202,7 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
                 return [];
             }
             if (typeof dirPath === 'string' && dirPath.includes('resources/content/pulls')) {
-                return ['pr-4001.md'];
+                return ['pr-4001.md', 'pr-4002.md'];
             }
             return _originalReaddirSync.call(fs, dirPath, options);
         };
@@ -217,8 +257,8 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
     test('ingestIssueStates() maps issues correctly through _index.json', async () => {
         StorageRouter.getGraphCollection = async () => ({
             upsert: async () => {},
-            get: async () => ({ ids: [], metadatas: [], documents: [] }),
-            add: async () => {}
+            get   : async () => ({ ids: [], metadatas: [], documents: [] }),
+            add   : async () => {}
         });
 
         try {
@@ -234,12 +274,35 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
         }
     });
 
+    test('ingestIssueStates() emits sanitized persisted issue content without raw external URLs (#13703)', async () => {
+        const upserts = [];
+
+        StorageRouter.getGraphCollection = async () => ({
+            upsert: async payload => upserts.push(payload),
+            get   : async () => ({ ids: [], metadatas: [], documents: [] }),
+            add   : async () => {}
+        });
+
+        try {
+            const result       = await IssueIngestor.ingestIssueStates();
+            const activeIssue  = result.find(issue => issue.issueId === 'issue-2001');
+            const activeUpsert = upserts.find(payload => payload.ids[0] === 'issue-2001');
+
+            expect(activeIssue.body).toContain(QUARANTINED_URL);
+            expect(activeIssue.body).not.toContain(RAW_EXTERNAL_URL);
+            expect(activeUpsert.documents[0]).toContain(QUARANTINED_URL);
+            expect(activeUpsert.documents[0]).not.toContain(RAW_EXTERNAL_URL);
+        } finally {
+            StorageRouter.getGraphCollection = _originalGetGraphCollection;
+        }
+    });
+
     test('ingestDiscussionStates() maps closed frontmatter into graph and vector lifecycle metadata', async () => {
         const upserts = [];
 
         StorageRouter.getGraphCollection = async () => ({
             upsert: async payload => upserts.push(payload),
-            get: async () => ({ ids: [], metadatas: [], documents: [] })
+            get   : async () => ({ ids: [], metadatas: [], documents: [] })
         });
 
         try {
@@ -292,6 +355,49 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
                 justification: 'PR #4001 explicitly resolves Issue #2001.'
             }
         });
+    });
+
+    test('ingestPullRequestFeedback() keeps review actions non-routing unless mapped to sanctioned tags (#13967)', async () => {
+        await IssueIngestor.ingestPullRequestFeedback();
+
+        const prNode            = graphNodes.find(node => node.id === 'pr-4002');
+        const retrospectiveNode = graphNodes.find(node =>
+            node.label === 'RETROSPECTIVE' &&
+            node.properties.sourcePr === 'pr-4002'
+        );
+
+        expect(prNode).toMatchObject({
+            id   : 'pr-4002',
+            label: 'PULL_REQUEST'
+        });
+        expect(retrospectiveNode).toMatchObject({
+            label     : 'RETROSPECTIVE',
+            properties: {
+                description: 'Required Actions are useful only when reduced to a concrete durable signal, not as raw review topology.',
+                sourcePr   : 'pr-4002'
+            }
+        });
+
+        expect(graphEdges.filter(edge => edge.source === 'pr-4002')).toEqual([{
+            source      : 'pr-4002',
+            target      : retrospectiveNode.id,
+            relationship: 'EVALUATED_BY',
+            weight      : 1.0,
+            properties  : {
+                justification: 'Gap evaluated during PR #4002 review.'
+            }
+        }]);
+        expect(graphEdges.filter(edge => edge.target === 'pr-4002')).toEqual([{
+            source      : retrospectiveNode.id,
+            target      : 'pr-4002',
+            relationship: 'DISCOVERED_IN',
+            weight      : 1.0,
+            properties  : {
+                justification: 'Extracted from PR #4002 feedback.'
+            }
+        }]);
+        expect(graphNodes.some(node => ['PR_REVIEW', 'REQUIRED_ACTION', 'APPROVAL', 'BLOCKER'].includes(node.label))).toBe(false);
+        expect(graphEdges.some(edge => ['BLOCKS', 'APPROVES', 'REQUESTS_CHANGES', 'NEUTRALIZES'].includes(edge.relationship))).toBe(false);
     });
 });
 

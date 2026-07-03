@@ -41,12 +41,12 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
         TextEmbeddingService = (await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
         StorageRouter        = (await import('../../../../../../ai/services/memory-core/managers/StorageRouter.mjs')).default;
 
-        // CI unit has no ChromaDB server. The Chroma embed is DEFERRED (fire-and-
-        // forget after the durable WAL append + synchronous graph writes), so a missing Chroma no
-        // longer fails addMemory — but the deferred embed and the detail:'full' join still hit the
-        // content store. Back it with an in-memory fake so the spec exercises the real
-        // addMemory→queryRecentTurns flow without a live Chroma. The recency query reads the GRAPH;
-        // content comes from the fake store or, for not-yet-embedded turns, the WAL pending-overlay.
+        // CI unit has no ChromaDB server. The Chroma embed is DEFERRED after the durable WAL append,
+        // so a missing Chroma no longer fails addMemory — but the deferred embed and the detail:'full'
+        // join still hit the content store. Back it with an in-memory fake so the spec exercises the
+        // real addMemory→queryRecentTurns flow without a live Chroma. The recency query reads graph-
+        // projected rows plus WAL-pending rows whose graph projection has not caught up yet; content
+        // comes from the fake store or, for not-yet-embedded turns, the WAL pending-overlay.
         memStore = new Map();
         originalGetMemoryCollection = StorageRouter.getMemoryCollection;
         StorageRouter.getMemoryCollection = async () => ({
@@ -207,19 +207,19 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
         memStore.set('backfill-new', {prompt: 'new prompt', response: 'new response'});
 
         GraphService.upsertNode({
-            id: 'backfill-old', type: 'AGENT_MEMORY', name: 'Memory: old', description: 'old',
+            id              : 'backfill-old', type: 'AGENT_MEMORY', name: 'Memory: old', description: 'old',
             semanticVectorId: 'backfill-old',
             properties      : {agentIdentity: '@agent-a', userId: 'tenant-a', sessionId: 'backfill', timestamp: oldTs}
         });
         GraphService.upsertNode({
-            id: 'backfill-new', type: 'AGENT_MEMORY', name: 'Memory: new', description: 'new',
+            id              : 'backfill-new', type: 'AGENT_MEMORY', name: 'Memory: new', description: 'new',
             semanticVectorId: 'backfill-new',
             properties      : {agentIdentity: '@agent-a', userId: 'tenant-a', sessionId: 'backfill', timestamp: newTs}
         });
 
         const calls = [];
         const result = await MemoryService.backfillMiniSummaries({
-            limit: 1,
+            limit           : 1,
             buildMiniSummary: async ({prompt}) => {
                 calls.push(prompt);
                 return `summary:${prompt}`;
@@ -244,13 +244,13 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
 
         memStore.set('backfill-failure', {prompt: 'failure prompt', response: 'failure response'});
         GraphService.upsertNode({
-            id: 'backfill-failure', type: 'AGENT_MEMORY', name: 'Memory: failure', description: 'failure',
+            id              : 'backfill-failure', type: 'AGENT_MEMORY', name: 'Memory: failure', description: 'failure',
             semanticVectorId: 'backfill-failure',
             properties      : {agentIdentity: '@agent-a', userId: 'tenant-a', sessionId: 'backfill', timestamp: ts}
         });
 
         const result = await MemoryService.backfillMiniSummaries({
-            limit: 1,
+            limit           : 1,
             buildMiniSummary: async () => {
                 throw new Error('provider unavailable');
             }
@@ -279,9 +279,9 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
         let fakeNow   = 0;
         const calls   = [];
         const result  = await MemoryService.backfillMiniSummaries({
-            limit   : 3,
-            maxRunMs: 100,
-            now     : () => fakeNow,
+            limit           : 3,
+            maxRunMs        : 100,
+            now             : () => fakeNow,
             buildMiniSummary: async ({prompt}) => {
                 calls.push(prompt);
                 fakeNow += 1000;
@@ -301,5 +301,63 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
             return JSON.parse(seeded.data).properties.miniSummary !== undefined;
         });
         expect(summarized.length).toBe(1);
+    });
+
+    test('#13638: backfillMiniSummaries splits the batch across fresh + aged ends so the tail converges', async () => {
+        // A newest-only (LIFO) fetch starves the aged tail forever. The split takes BOTH ends:
+        // freshReserve newest + the remainder oldest. Extreme timestamps make the picks unambiguous
+        // against rows left pending by sibling serial tests; the MIDDLE row proves the window is the
+        // two ENDS, not a contiguous newest slice.
+        const seedRow = (id, ts) => {
+            memStore.set(id, {prompt: `p-${id}`, response: `r-${id}`});
+            GraphService.upsertNode({
+                id, type: 'AGENT_MEMORY', name: id, description: id, semanticVectorId: id,
+                properties: {agentIdentity: '@agent-a', userId: 'tenant-a', sessionId: 'split', timestamp: ts}
+            });
+        };
+        seedRow('split-aged',   '2000-01-01T00:00:00.000Z');  // oldest globally → the aged-drain pick
+        seedRow('split-middle', '2050-01-01T00:00:00.000Z');  // neither end → left for a later sweep
+        seedRow('split-fresh',  '2100-01-01T00:00:00.000Z');  // newest globally → the fresh-reserve pick
+
+        const calls  = [];
+        const result = await MemoryService.backfillMiniSummaries({
+            limit           : 2, freshReserve: 1,
+            buildMiniSummary: async ({prompt}) => { calls.push(prompt); return `summary:${prompt}`; }
+        });
+
+        // Both ends summarized in one run; the middle row deliberately untouched.
+        expect(result.updated).toBe(2);
+        expect(calls.sort()).toEqual(['p-split-aged', 'p-split-fresh']);
+
+        const mid = JSON.parse(GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get('split-middle').data);
+        expect(mid.properties.miniSummary).toBeUndefined();
+    });
+
+    test('#13566/#13638: backfillMiniSummaries skips rows already archived as un-summarizable', async () => {
+        // An archived row keeps miniSummary:NULL; the fetch must exclude it (the scheduler + count
+        // already do) so the aged drain does not burn budget re-archiving. Seed it as the NEWEST row,
+        // so a green test proves the filter rather than ordering luck.
+        memStore.set('arch-live', {prompt: 'live prompt', response: 'live response'});
+        GraphService.upsertNode({
+            id              : 'arch-archived', type: 'AGENT_MEMORY', name: 'arch-archived', description: 'archived',
+            semanticVectorId: 'arch-archived',
+            properties      : {agentIdentity: '@agent-a', userId: 'tenant-a', sessionId: 'arch',
+                         timestamp: '2103-01-01T00:00:00.000Z', archivedAt: '2103-01-02T00:00:00.000Z'}
+        });
+        GraphService.upsertNode({
+            id              : 'arch-live', type: 'AGENT_MEMORY', name: 'arch-live', description: 'live',
+            semanticVectorId: 'arch-live',
+            properties      : {agentIdentity: '@agent-a', userId: 'tenant-a', sessionId: 'arch',
+                         timestamp: '2102-01-01T00:00:00.000Z'}
+        });
+
+        const calls = [];
+        await MemoryService.backfillMiniSummaries({
+            limit           : 1, freshReserve: 1,
+            buildMiniSummary: async ({prompt}) => { calls.push(prompt); return `summary:${prompt}`; }
+        });
+
+        // The archived row is the newest, yet excluded by the fetch filter; only the live row runs.
+        expect(calls).toEqual(['live prompt']);
     });
 });

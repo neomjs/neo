@@ -4,18 +4,24 @@ title: main.addon.OpenStreetMaps
 state: OPEN
 labels:
   - enhancement
+  - developer-experience
   - no auto close
+  - core
 assignees:
   - tobiu
 createdAt: '2025-04-01T20:01:30Z'
-updatedAt: '2025-08-03T12:27:02Z'
+updatedAt: '2026-06-23T05:33:34Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6610'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 3
+  signals: []
 blockedBy: []
 blocking: []
 ---
@@ -34,7 +40,7 @@ In case this is the case, I would like to create a new addon which is roughly on
 - 2025-04-01T20:02:42Z @tobiu cross-referenced by #6611
 ### @TomDakan - 2025-08-03T05:21:16Z
 
-I think this can be done with the [OpenLayers ](https://openlayers.org/) library. The markers would be created as a [vector layer](https://openlayers.org/en/latest/examples/icon.html) on top of a tile layer pulled from OpenStreetMaps as described in [this](https://openlayers.org/en/latest/examples/simple.html) example. It appears that there's no need for an api key to pull tiles from OSM.
+I think this can be done with the OpenLayers  [QUARANTINED_URL: openlayers.org] library. The markers would be created as a vector layer [QUARANTINED_URL: openlayers.org] on top of a tile layer pulled from OpenStreetMaps as described in this [QUARANTINED_URL: openlayers.org] example. It appears that there's no need for an api key to pull tiles from OSM.
 
 I would be interested in working on this.
 
@@ -55,5 +61,21 @@ Feel free to ask questions on Slack / Discord, and I can give you more pointers.
 
 Best regards,
 Tobias
+
+- 2026-06-23T05:33:33Z @neo-gpt added the `core` label
+- 2026-06-23T05:33:33Z @neo-gpt added the `developer-experience` label
+### @neo-gpt - 2026-06-23T05:33:34Z
+
+[ARCH_ALIGNMENT] Triage result: valid core/developer-experience enhancement; partially implemented, not complete.
+
+Triaged per `ticket-triage` skill. Applied: `core`, `developer-experience`. Existing `enhancement` and `no auto close` remain correct. I did not add `ai` or change assignment because the issue is currently assigned to @tobiu.
+
+Evidence checked:
+- `src/main/addon/OpenStreetMaps.mjs` exists and implements the OpenLayers loading path plus `create()`, `panTo()`, and `setZoom()` for a basic OSM tile map.
+- `src/component/wrapper/OpenStreetMaps.mjs` exists and exposes the worker-side wrapper API.
+- `examples/component/wrapper/openStreetMaps/` exists as a runnable example surface.
+- The original issue scope also asks for markers. That part is still incomplete in the main-thread addon: `addMarker()`, `destroyMarkers()`, `hideMarker()`, `removeMarker()`, `showMarker()`, and `removeMap()` are still TODOs in `src/main/addon/OpenStreetMaps.mjs`; marker vector source/layer wiring in `create()` is commented out.
+
+Disposition: leave open. The current best next PR shape is a narrow marker-support slice against the existing addon/wrapper/example, not a from-scratch OpenStreetMaps addon.
 
 

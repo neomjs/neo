@@ -16,7 +16,7 @@ and can drift independently of the Codex Desktop harness.
 ## Runtime Notes
 
 - GitHub username: `neo-gpt`.
-- A2A peers: Claude at `neo-opus-ada`, `neo-claude-opus`, and `neo-opus-vega`; Gemini at
+- A2A peers: Claude at `neo-opus-ada`, `neo-opus-grace`, and `neo-opus-vega`; Gemini at
   `neo-gemini-pro`.
 - `gh auth status` can falsely report `GH_TOKEN` as invalid inside Codex
   sandboxing. Verify identity with `gh api user --jq .login` before treating
@@ -27,11 +27,32 @@ and can drift independently of the Codex Desktop harness.
   before concluding GitHub is down, auth is invalid, or PR state is unavailable.
 - For state-changing GitHub calls, preserve the exact payload when retrying
   escalated so the sandbox retry does not mutate review/comment semantics.
+- Identity-sensitive worktrees must live under the Codex clone root, for example
+  `/Users/Shared/codex/neomjs/neo/tmp/` or another path below
+  `/Users/Shared/codex/neomjs/neo/`, so `.zshenv` resolves the Codex `.env`.
+  Avoid generic `/private/tmp/neo-*` worktrees for operations that may run `gh`,
+  MCP setup, PR review/comment tools, or commits. After a worktree/thread switch,
+  verify `NEO_AGENT_IDENTITY=@neo-gpt` and `gh api user --jq .login == neo-gpt`
+  before any state-changing GitHub action.
 - Mid-session harness restart: read `.codex/HARNESS_RESTART.md` before diagnosing MCP, Chroma, GitHub, or wake-state failures.
 - If Codex reports `[features].codex_hooks is deprecated. Use [features].hooks instead.`,
   the tracked `.codex/config.template.toml` is already current. Update the ignored
   local `.codex/config.toml` copy to `[features].hooks = true` or re-copy the
   template; do not commit `.codex/config.toml`.
+
+## Command ExecPolicy
+
+- Repo-local Codex command policy lives in `.codex/rules/pr-lifecycle.rules`.
+  It is a project `.rules` file, not a `.codex/config.template.toml` section.
+- Codex execpolicy is token-prefix based. Keep grammar-sensitive commands
+  prompt-gated unless a parser-shaped wrapper proves the unsafe forms cannot
+  slip through a broad prefix. Today that means `git commit`, `git checkout -b`,
+  and raw `git push` stay classified instead of blindly allowlisted.
+- Keep `gh pr merge` forbidden. PR merge remains human-only even when a PR is
+  approved, green, and reviewer requests are clear.
+- User-local `$CODEX_HOME/rules/*.rules` files can add broader approvals in a
+  maintainer's active session. Treat those as local operator state, not repo
+  policy; review the tracked `.codex/rules/` file for merge-gate claims.
 
 ## Identity & Prompt Firewall (L1 Anchor)
 

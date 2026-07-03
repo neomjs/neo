@@ -199,6 +199,10 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueComme
                 }
                 if (callCount === 2) {
                     // ADD_COMMENT mutation — matches the shape IssueService.createComment consumes
+                    expect(variables).toMatchObject({
+                        subjectId: ISSUE_NODE_ID,
+                        body     : 'Test comment body'
+                    });
                     return {
                         addComment: {
                             commentEdge: {
@@ -217,7 +221,6 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueComme
             const result = await IssueService.manageIssueComment({
                 issue_number: 10272,
                 body        : 'Test comment body',
-                agent       : 'Claude Opus 4.7 (Claude Code)',
                 action      : 'create'
             });
 
@@ -248,6 +251,10 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueComme
                     return {repository: {pullRequest: {id: PR_NODE_ID}}};
                 }
                 if (callCount === 2) {
+                    expect(variables).toMatchObject({
+                        subjectId: PR_NODE_ID,
+                        body     : 'PR review comment body'
+                    });
                     return {
                         addComment: {
                             commentEdge: {
@@ -266,7 +273,6 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueComme
             const result = await IssueService.manageIssueComment({
                 pr_number: 10268,
                 body     : 'PR review comment body',
-                agent    : 'Claude Opus 4.7 (Claude Code)',
                 action   : 'create'
             });
 
@@ -287,27 +293,11 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueComme
                 issue_number: 10272,
                 pr_number   : 10268,
                 body        : 'Ambiguous',
-                agent       : 'Claude Opus 4.7 (Claude Code)',
                 action      : 'create'
             });
 
             expect(result.error).toBe('Bad Request');
             expect(result.code).toBe('INVALID_ARGUMENTS');
-            expect(callCount).toBe(0);
-        });
-
-        test('rejects missing agent on create', async () => {
-            let callCount = 0;
-            GraphqlService.query = async () => { callCount++; return null; };
-
-            const result = await IssueService.manageIssueComment({
-                issue_number: 10272,
-                body        : 'Missing agent',
-                action      : 'create'
-            });
-
-            expect(result.error).toBe('Bad Request');
-            expect(result.code).toBe('MISSING_ARGUMENTS');
             expect(callCount).toBe(0);
         });
 
@@ -319,7 +309,6 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueComme
             const result = await IssueService.manageIssueComment({
                 issue_number: 10272,
                 body        : 'Will fail',
-                agent       : 'Claude Opus 4.7 (Claude Code)',
                 action      : 'create'
             });
 
@@ -437,11 +426,12 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueLabel
             callCount++;
             if (callCount === 1) {
                 expect(variables.issueNumber).toBe(10077);
+                expect(query).toContain('issue(number: $issueNumber)');
+                expect(query).not.toContain('pullRequest(number: $issueNumber)');
                 return {
                     repository: {
-                        issue      : {id: ISSUE_NODE_ID},
-                        pullRequest: null,
-                        labels     : {nodes: repoLabels}
+                        issue : {id: ISSUE_NODE_ID},
+                        labels: {nodes: repoLabels}
                     }
                 };
             }
@@ -473,15 +463,21 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueLabel
             callCount++;
             if (callCount === 1) {
                 expect(variables.issueNumber).toBe(11695);
+                expect(query).toContain('issue(number: $issueNumber)');
+                expect(query).not.toContain('pullRequest(number: $issueNumber)');
+                throw new Error('GitHub API error: Could not resolve to an Issue with the number of 11695.');
+            }
+            if (callCount === 2) {
+                expect(query).toContain('pullRequest(number: $issueNumber)');
+                expect(query).not.toContain('issue(number: $issueNumber)');
                 return {
                     repository: {
-                        issue      : null,
                         pullRequest: {id: PR_NODE_ID},
                         labels     : {nodes: repoLabels}
                     }
                 };
             }
-            if (callCount === 2) {
+            if (callCount === 3) {
                 expect(variables).toEqual({
                     labelableId: PR_NODE_ID,
                     labelIds   : ['LA_ai']
@@ -498,7 +494,7 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueLabel
         });
 
         expect(result.message).toContain('Successfully added labels');
-        expect(callCount).toBe(2);
+        expect(callCount).toBe(3);
     });
 
     test('removes labels from a Pull Request using the pullRequest Labelable id', async () => {
@@ -508,15 +504,19 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueLabel
         GraphqlService.query = async (query, variables) => {
             callCount++;
             if (callCount === 1) {
+                expect(query).toContain('issue(number: $issueNumber)');
+                throw new Error('GitHub API error: Could not resolve to an Issue with the number of 11695.');
+            }
+            if (callCount === 2) {
+                expect(query).toContain('pullRequest(number: $issueNumber)');
                 return {
                     repository: {
-                        issue      : null,
                         pullRequest: {id: PR_NODE_ID},
                         labels     : {nodes: repoLabels}
                     }
                 };
             }
-            if (callCount === 2) {
+            if (callCount === 3) {
                 expect(variables).toEqual({
                     labelableId: PR_NODE_ID,
                     labelIds   : ['LA_bug']
@@ -533,21 +533,21 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueLabel
         });
 
         expect(result.message).toContain('Successfully removed labels');
-        expect(callCount).toBe(2);
+        expect(callCount).toBe(3);
     });
 
     test('returns a structured GraphQL error when neither issue nor Pull Request exists', async () => {
         let callCount = 0;
 
-        GraphqlService.query = async () => {
+        GraphqlService.query = async query => {
             callCount++;
-            return {
-                repository: {
-                    issue      : null,
-                    pullRequest: null,
-                    labels     : {nodes: repoLabels}
-                }
-            };
+            if (query.includes('issue(number: $issueNumber)')) {
+                throw new Error('GitHub API error: Could not resolve to an Issue with the number of 999999.');
+            }
+            if (query.includes('pullRequest(number: $issueNumber)')) {
+                throw new Error('GitHub API error: Could not resolve to a PullRequest with the number of 999999.');
+            }
+            throw new Error(`Unexpected query: ${query}`);
         };
 
         const result = await IssueService.manageIssueLabels({
@@ -559,7 +559,7 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueLabel
         expect(result.error).toBe('GraphQL API request failed');
         expect(result.code).toBe('GRAPHQL_API_ERROR');
         expect(result.message).toContain('issue or pull request #999999');
-        expect(callCount).toBe(1);
+        expect(callCount).toBe(2);
     });
 
     test('returns a structured GraphQL error when a requested label is missing', async () => {
@@ -569,9 +569,8 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueLabel
             callCount++;
             return {
                 repository: {
-                    issue      : {id: 'I_kwDOABcD_issue10077'},
-                    pullRequest: null,
-                    labels     : {nodes: repoLabels}
+                    issue : {id: 'I_kwDOABcD_issue10077'},
+                    labels: {nodes: repoLabels}
                 }
             };
         };
@@ -585,6 +584,27 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueLabel
         expect(result.error).toBe('GraphQL API request failed');
         expect(result.code).toBe('GRAPHQL_API_ERROR');
         expect(result.message).toContain('missing-label');
+        expect(callCount).toBe(1);
+    });
+
+    test('does not fall through to PR lookup on unrelated issue lookup errors', async () => {
+        let callCount = 0;
+
+        GraphqlService.query = async query => {
+            callCount++;
+            expect(query).toContain('issue(number: $issueNumber)');
+            throw new Error('GitHub API error: rate limit exceeded');
+        };
+
+        const result = await IssueService.manageIssueLabels({
+            issue_number: 10077,
+            action      : 'add',
+            labels      : ['bug']
+        });
+
+        expect(result.error).toBe('GraphQL API request failed');
+        expect(result.code).toBe('GRAPHQL_API_ERROR');
+        expect(result.message).toContain('rate limit exceeded');
         expect(callCount).toBe(1);
     });
 });
@@ -869,12 +889,13 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueProje
  * - Fetches current assignees via `GET_ISSUE_ASSIGNEES`.
  * - If non-empty and `requireUnassigned: true` (default), rejects with `ASSIGNEE_CONFLICT` (HTTP 409)
  *   unless `acknowledgedReassign: '<reason>'` is provided.
- * - On override, performs strict-replacement (clear + add) and posts an audit-trail comment on
- *   the issue capturing the reason (per GPT STEP_BACK AC8 carry-forward).
+ * - On override, performs strict-replacement (a single REST `PATCH` replacing the assignee set) and
+ *   posts an audit-trail comment on the issue capturing the reason (per GPT STEP_BACK AC8 carry-forward).
  *
- * This spec pins the **conflict-path** behavior — the substrate-discipline value-add of the gate.
- * Override/strict-replacement/audit-trail paths depend on `child_process.exec` (no ES-module-friendly
- * mock pattern in the current test harness), so this file keeps coverage at the service boundary.
+ * This spec pins the **conflict-path** behavior — the substrate-discipline value-add of the gate —
+ * plus the REST mutation paths (clear, fresh-add, `@me` normalization, strict-replacement override,
+ * and `GITHUB_API_ERROR` failure), hermetically covered by stubbing `GraphqlService.rest` (the
+ * assignee mutations route through it now; no `child_process.exec` remains).
  *
  * @see Neo.ai.services.github-workflow.IssueService#assignIssue
  * @see https://github.com/orgs/neomjs/discussions/11536 — graduation origin (Pre-Write Coordination Substrate)
@@ -884,6 +905,7 @@ test.describe('Neo.ai.services.github-workflow.IssueService — assignIssue prec
     let GraphqlService;
     let RepositoryService;
     let originalQuery;
+    let originalRest;
     let originalGetViewerPermission;
 
     test.beforeAll(async () => {
@@ -892,6 +914,7 @@ test.describe('Neo.ai.services.github-workflow.IssueService — assignIssue prec
         IssueService      = (await import('../../../../../../ai/services/github-workflow/IssueService.mjs')).default;
 
         originalQuery               = GraphqlService.query.bind(GraphqlService);
+        originalRest                = GraphqlService.rest.bind(GraphqlService);
         originalGetViewerPermission = RepositoryService.getViewerPermission.bind(RepositoryService);
 
         // Default permission stub — write-eligible for the duration of this describe block.
@@ -900,7 +923,17 @@ test.describe('Neo.ai.services.github-workflow.IssueService — assignIssue prec
 
     test.afterAll(() => {
         GraphqlService.query                  = originalQuery;
+        GraphqlService.rest                   = originalRest;
         RepositoryService.getViewerPermission = originalGetViewerPermission;
+    });
+
+    // Hermetic guard: the assignee mutations now route through GraphqlService.rest. Any test
+    // that reaches a mutation MUST stub rest explicitly; an unstubbed reach throws loudly here rather
+    // than hitting real GitHub. Conflict/permission tests return before the mutation and never trip it.
+    test.beforeEach(() => {
+        GraphqlService.rest = async (method, path) => {
+            throw new Error(`Unexpected GraphqlService.rest call in assignIssue test: ${method} ${path}`);
+        };
     });
 
     test.describe('conflict path (the substrate-discipline value-add)', () => {
@@ -998,26 +1031,186 @@ test.describe('Neo.ai.services.github-workflow.IssueService — assignIssue prec
     });
 
     test.describe('clear-mode preservation (no precondition gate for empty assignees)', () => {
-        test('clear-mode (empty assignees array) does NOT trigger precondition fetch', async () => {
-            // Clear-mode hits the `if (!assignees || assignees.length === 0)` branch BEFORE the precondition.
-            // execAsync may fail in the test env (no real gh CLI) — the key assertion is that GraphqlService.query
-            // is NOT called (precondition skipped for clear-mode), pinning the gate-boundary.
+        test('clear-mode (empty assignees) PATCHes an empty set without a precondition fetch', async () => {
+            // Clear-mode hits the empty-assignees branch BEFORE the precondition. Invariants: (1) the
+            // precondition/conflict fetch (GraphqlService.query) is NOT called; (2) the clear is a REST
+            // PATCH with an empty assignees array — not a fetch-then-delete.
             let graphqlCalled = false;
+            GraphqlService.query = async () => { graphqlCalled = true; return {}; };
+
+            let captured;
+            GraphqlService.rest = async (method, path, body) => {
+                captured = {method, path, body};
+                return null;
+            };
+
+            const result = await IssueService.assignIssue({issue_number: 10148, assignees: []});
+
+            expect(graphqlCalled).toBe(false);
+            expect(captured.method).toBe('PATCH');
+            expect(captured.path).toMatch(/^\/repos\/.+\/.+\/issues\/10148$/);
+            expect(captured.body.assignees).toEqual([]);
+            expect(result.message).toContain('Successfully unassigned all users');
+        });
+    });
+
+    test.describe('REST mutation path (#13400)', () => {
+        test('fresh add (unassigned issue) PATCHes the resolved assignee set', async () => {
+            // precondition fetch → empty (unassigned); post-verify fetch → the new set.
+            let queryCount = 0;
             GraphqlService.query = async () => {
-                graphqlCalled = true;
+                queryCount++;
+                const nodes = queryCount === 1 ? [] : [{login: 'neo-opus-vega'}];
+                return {repository: {issue: {assignees: {nodes}}}};
+            };
+
+            let captured;
+            GraphqlService.rest = async (method, path, body) => {
+                captured = {method, path, body};
+                return {};
+            };
+
+            const result = await IssueService.assignIssue({issue_number: 11235, assignees: ['neo-opus-vega']});
+
+            expect(captured.method).toBe('PATCH');
+            expect(captured.path).toMatch(/^\/repos\/.+\/.+\/issues\/11235$/);
+            expect(captured.body.assignees).toEqual(['neo-opus-vega']);
+            expect(result.message).toContain('Successfully assigned');
+            expect(result.verifiedAssignees).toEqual(['neo-opus-vega']);
+        });
+
+        test('normalizes the @me alias to the authenticated login before the PATCH', async () => {
+            let queryCount = 0;
+            GraphqlService.query = async () => {
+                queryCount++;
+                const nodes = queryCount === 1 ? [] : [{login: 'neo-opus-vega'}];
+                return {repository: {issue: {assignees: {nodes}}}};
+            };
+
+            let captured;
+            GraphqlService.rest = async (method, path, body) => {
+                if (method === 'GET' && path === '/user') {
+                    return {login: 'neo-opus-vega'};
+                }
+                captured = {method, path, body};
+                return {};
+            };
+
+            await IssueService.assignIssue({issue_number: 11235, assignees: ['@me']});
+
+            expect(captured.method).toBe('PATCH');
+            expect(captured.body.assignees).toEqual(['neo-opus-vega']);
+        });
+
+        test('strict-replacement override PATCHes the new set + records previous assignees', async () => {
+            // precondition → occupied; post-verify → new; getIssueNodeId + ADD_COMMENT (audit) degrade gracefully.
+            let assigneeFetchCount = 0;
+            GraphqlService.query = async (query, variables) => {
+                if (variables?.maxAssignees !== undefined) {
+                    assigneeFetchCount++;
+                    const nodes = assigneeFetchCount === 1 ? [{login: 'tobiu'}] : [{login: 'neo-opus-vega'}];
+                    return {repository: {issue: {assignees: {nodes}}}};
+                }
+                if (variables?.subjectId) {
+                    return {addComment: {commentEdge: {node: {id: 'C_audit'}}}};
+                }
+                return {repository: {issue: {id: 'I_1'}}};
+            };
+
+            let captured;
+            GraphqlService.rest = async (method, path, body) => {
+                captured = {method, path, body};
                 return {};
             };
 
             const result = await IssueService.assignIssue({
-                issue_number: 10148,
-                assignees   : []
+                issue_number        : 11235,
+                assignees           : ['neo-opus-vega'],
+                acknowledgedReassign: 'reassigning per handoff'
             });
 
-            expect(graphqlCalled).toBe(false);
-            // Result will be either GH_CLI_ERROR (execAsync threw in test env) or success message — both acceptable;
-            // we are testing the gate-boundary, not the underlying CLI shell-through.
-            expect(result.code === 'GH_CLI_ERROR' || result.message?.includes('Successfully unassigned')).toBe(true);
+            expect(captured.method).toBe('PATCH');
+            expect(captured.body.assignees).toEqual(['neo-opus-vega']);
+            expect(result.acknowledgedReassign).toBe('reassigning per handoff');
+            expect(result.previousAssignees).toEqual(['tobiu']);
+            expect(result.message).toContain('reassigned');
         });
+
+        test('returns GITHUB_API_ERROR (not a throw) when the PATCH fails', async () => {
+            GraphqlService.query = async () => ({repository: {issue: {assignees: {nodes: []}}}});
+            GraphqlService.rest  = async () => { throw new Error('GitHub REST request failed: PATCH /repos/o/r/issues/11235 -> 422 Unprocessable Entity'); };
+
+            const result = await IssueService.assignIssue({issue_number: 11235, assignees: ['neo-opus-vega']});
+
+            expect(result.error).toBe('GitHub API request failed');
+            expect(result.code).toBe('GITHUB_API_ERROR');
+        });
+    });
+});
+
+/**
+ * @summary Contract coverage for `IssueService.unassignIssue` REST routing.
+ *
+ * `unassignIssue` now removes specific assignees via `DELETE /issues/{n}/assignees` (incremental
+ * remove, the equivalent of `gh issue edit --remove-assignee`) instead of `execAsync`. Pins the
+ * REST call shape, the empty-array BAD_REQUEST guard (no REST call), and structured
+ * `GITHUB_API_ERROR` failure handling. Each test stubs `GraphqlService.rest` (hermetic).
+ *
+ * @see Neo.ai.services.github-workflow.IssueService#unassignIssue
+ */
+test.describe('Neo.ai.services.github-workflow.IssueService — unassignIssue REST routing (#13400)', () => {
+    let IssueService;
+    let GraphqlService;
+    let RepositoryService;
+    let originalRest;
+    let originalGetViewerPermission;
+
+    test.beforeAll(async () => {
+        GraphqlService    = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
+        RepositoryService = (await import('../../../../../../ai/services/github-workflow/RepositoryService.mjs')).default;
+        IssueService      = (await import('../../../../../../ai/services/github-workflow/IssueService.mjs')).default;
+
+        originalRest                = GraphqlService.rest.bind(GraphqlService);
+        originalGetViewerPermission = RepositoryService.getViewerPermission.bind(RepositoryService);
+        RepositoryService.getViewerPermission = async () => ({permission: 'WRITE'});
+    });
+
+    test.afterAll(() => {
+        GraphqlService.rest                   = originalRest;
+        RepositoryService.getViewerPermission = originalGetViewerPermission;
+    });
+
+    test('DELETEs the specified assignees (incremental remove)', async () => {
+        let captured;
+        GraphqlService.rest = async (method, path, body) => {
+            captured = {method, path, body};
+            return {};
+        };
+
+        const result = await IssueService.unassignIssue({issue_number: 11235, assignees: ['tobiu']});
+
+        expect(captured.method).toBe('DELETE');
+        expect(captured.path).toMatch(/^\/repos\/.+\/.+\/issues\/11235\/assignees$/);
+        expect(captured.body.assignees).toEqual(['tobiu']);
+        expect(result.message).toContain('Successfully unassigned');
+    });
+
+    test('rejects an empty assignees array with BAD_REQUEST (no REST call)', async () => {
+        let called = false;
+        GraphqlService.rest = async () => { called = true; return {}; };
+
+        const result = await IssueService.unassignIssue({issue_number: 11235, assignees: []});
+
+        expect(result.code).toBe('BAD_REQUEST');
+        expect(called).toBe(false);
+    });
+
+    test('returns GITHUB_API_ERROR when the DELETE fails', async () => {
+        GraphqlService.rest = async () => { throw new Error('GitHub REST request failed: DELETE /repos/o/r/issues/11235/assignees -> 404 Not Found'); };
+
+        const result = await IssueService.unassignIssue({issue_number: 11235, assignees: ['tobiu']});
+
+        expect(result.code).toBe('GITHUB_API_ERROR');
     });
 });
 
@@ -1180,5 +1373,163 @@ test.describe('Neo.ai.services.github-workflow.IssueService — getConversation 
         expect(result.error).toBe('GraphQL API request failed');
         expect(result.code).toBe('GRAPHQL_API_ERROR');
         expect(result.message).toContain('authentication');
+    });
+});
+
+/**
+ * @summary Contract coverage for `IssueService.createIssue` REST routing.
+ *
+ * `createIssue` now routes through `GraphqlService.rest` (cached-token, retry-equipped REST path)
+ * instead of a fresh per-call `spawn('gh', ['issue','create'])`. These tests pin: the REST request
+ * shape (`POST /repos/{owner}/{repo}/issues` with label NAMES + assignee LOGINS passed verbatim —
+ * no node-ID resolution), the empty-collection omission contract, success result mapping
+ * (`{issueNumber, url}` from REST `{number, html_url}`), and structured `GITHUB_API_ERROR`
+ * failure handling. Each test monkey-patches `GraphqlService.rest`, mirroring the established
+ * `GraphqlService.query` stub pattern used throughout this file.
+ *
+ * @see Neo.ai.services.github-workflow.IssueService#createIssue
+ */
+test.describe('Neo.ai.services.github-workflow.IssueService — createIssue REST routing (#13352)', () => {
+    let IssueService;
+    let GraphqlService;
+    let RepositoryService;
+    let originalRest;
+    let originalGetViewerPermission;
+
+    test.beforeAll(async () => {
+        GraphqlService    = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
+        RepositoryService = (await import('../../../../../../ai/services/github-workflow/RepositoryService.mjs')).default;
+        IssueService      = (await import('../../../../../../ai/services/github-workflow/IssueService.mjs')).default;
+
+        originalRest                = GraphqlService.rest.bind(GraphqlService);
+        originalGetViewerPermission = RepositoryService.getViewerPermission.bind(RepositoryService);
+
+        // Default permission stub — write-eligible for the duration of this describe block.
+        RepositoryService.getViewerPermission = async () => ({permission: 'WRITE'});
+    });
+
+    test.afterAll(() => {
+        GraphqlService.rest                   = originalRest;
+        RepositoryService.getViewerPermission = originalGetViewerPermission;
+    });
+
+    test('routes creation through GraphqlService.rest (POST /issues) and maps the response', async () => {
+        let captured;
+        GraphqlService.rest = async (method, path, body) => {
+            captured = {method, path, body};
+            return {number: 13999, html_url: 'https://github.com/neomjs/neo/issues/13999'};
+        };
+
+        const result = await IssueService.createIssue({title: 'Hello', body: 'World'});
+
+        expect(captured.method).toBe('POST');
+        expect(captured.path).toMatch(/^\/repos\/.+\/.+\/issues$/);
+        expect(captured.body.title).toBe('Hello');
+        expect(captured.body.body).toBe('World');
+        expect(result.issueNumber).toBe(13999);
+        expect(result.url).toBe('https://github.com/neomjs/neo/issues/13999');
+        expect(result.error).toBeUndefined();
+    });
+
+    test('passes label NAMES and concrete assignee LOGINS verbatim (no node-ID resolution)', async () => {
+        let captured;
+        GraphqlService.rest = async (method, path, body) => {
+            captured = {method, path, body};
+            return {number: 14000, html_url: 'https://github.com/neomjs/neo/issues/14000'};
+        };
+
+        await IssueService.createIssue({
+            title    : 'Tagged',
+            labels   : ['bug', 'ai'],
+            assignees: ['neo-opus-vega', 'tobiu']
+        });
+
+        expect(captured.body.labels).toEqual(['bug', 'ai']);
+        expect(captured.body.assignees).toEqual(['neo-opus-vega', 'tobiu']);
+    });
+
+    test('normalizes the @me assignee alias to the authenticated login before the REST call', async () => {
+        let captured;
+        GraphqlService.rest = async (method, path, body) => {
+            if (method === 'GET' && path === '/user') {
+                return {login: 'neo-opus-vega'};
+            }
+            captured = {method, path, body};
+            return {number: 14002, html_url: 'https://github.com/neomjs/neo/issues/14002'};
+        };
+
+        await IssueService.createIssue({
+            title    : 'Self-assigned',
+            assignees: ['@me', 'tobiu']
+        });
+
+        // The create_issue contract promises `@me` resolves to the authenticated user; REST takes
+        // concrete logins, so it must be normalized via GET /user. Concrete logins pass through.
+        expect(captured.body.assignees).toEqual(['neo-opus-vega', 'tobiu']);
+    });
+
+    test('returns GITHUB_API_ERROR (does not throw) when @me normalization GET /user fails', async () => {
+        GraphqlService.rest = async (method, path) => {
+            if (method === 'GET' && path === '/user') {
+                throw new Error('GET /user failed');
+            }
+            return {number: 1, html_url: 'https://github.com/neomjs/neo/issues/1'};
+        };
+
+        // The alias resolver runs inside createIssue's try, so a GET /user failure maps to the same
+        // structured error as a POST failure — it must NOT escape as a thrown exception.
+        const result = await IssueService.createIssue({title: 'Doomed alias', assignees: ['@me']});
+
+        expect(result.error).toBe('GitHub API request failed');
+        expect(result.code).toBe('GITHUB_API_ERROR');
+    });
+
+    test('returns GITHUB_API_ERROR when GET /user returns no login during @me normalization', async () => {
+        GraphqlService.rest = async (method, path) => {
+            if (method === 'GET' && path === '/user') {
+                return {};
+            }
+            return {number: 2, html_url: 'https://github.com/neomjs/neo/issues/2'};
+        };
+
+        const result = await IssueService.createIssue({title: 'No login', assignees: ['@me']});
+
+        expect(result.code).toBe('GITHUB_API_ERROR');
+        expect(result.message).toContain('@me');
+    });
+
+    test('omits labels/assignees keys entirely when the arrays are empty', async () => {
+        let captured;
+        GraphqlService.rest = async (method, path, body) => {
+            captured = {method, path, body};
+            return {number: 14001, html_url: 'https://github.com/neomjs/neo/issues/14001'};
+        };
+
+        await IssueService.createIssue({title: 'Bare'});
+
+        expect('labels' in captured.body).toBe(false);
+        expect('assignees' in captured.body).toBe(false);
+        expect(captured.body.body).toBe('No additional details provided.');
+    });
+
+    test('returns structured GITHUB_API_ERROR when the REST request fails', async () => {
+        GraphqlService.rest = async () => {
+            throw new Error('GitHub REST request failed: POST /repos/o/r/issues -> 422 Unprocessable Entity');
+        };
+
+        const result = await IssueService.createIssue({title: 'Doomed'});
+
+        expect(result.error).toBe('GitHub API request failed');
+        expect(result.code).toBe('GITHUB_API_ERROR');
+        expect(result.message).toContain('422');
+    });
+
+    test('returns GITHUB_API_ERROR when the REST response lacks an issue number', async () => {
+        GraphqlService.rest = async () => ({html_url: 'https://github.com/neomjs/neo/issues/?'});
+
+        const result = await IssueService.createIssue({title: 'Numberless'});
+
+        expect(result.code).toBe('GITHUB_API_ERROR');
+        expect(result.message).toContain('issue number');
     });
 });

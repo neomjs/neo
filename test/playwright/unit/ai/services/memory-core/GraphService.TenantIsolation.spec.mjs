@@ -28,8 +28,9 @@ import * as core      from '../../../../../../src/core/_export.mjs';
  * `GraphService.db` with a pre-warmed fake Store (the cache-warmed case) and assert the
  * `isRlsVisible` return-boundary predicate filters cross-tenant nodes and edges.
  *
- * RLS-visible to requester R iff: owner is null  OR  owner === R  OR  sharedEntity  OR
- * visibility === 'team' — mirroring the SQL clause.
+ * RLS-visible to requester R iff: owner is null  OR  normalizeUserId(owner) === canonical(R)  OR
+ * sharedEntity  OR  visibility === 'team'. The canonical comparison tolerates both stored user_id
+ * forms (`@`-prefixed identity vs normalized userId) — mirroring the SQL clause.
  */
 
 // Mutable holder so one fake db can switch the "active requester" between calls.
@@ -112,6 +113,23 @@ test.describe('GraphService — RLS read-side return boundary (#10011)', () => {
         requester.value = '@tenant-a';
 
         expect(GraphService.getNode({id: 'n-private-a'})?.id).toBe('n-private-a');
+    });
+
+    test('getNode returns the owner\'s own node regardless of stored user_id form (#13571)', () => {
+        // The user_id column was historically written in both `@`-prefixed (getAgentIdentityNodeId)
+        // and normalized (normalizeUserId(getUserId)) forms; the read key is resolved canonically, so
+        // an owner's own node resolves whichever form it was stored in — without widening across tenants.
+        GraphService.db = makeFakeDb([
+            node('n-own-atform',     {userId: '@tenant-b', name: 'own @-form'}),
+            node('n-own-normalized', {userId: 'tenant-b',  name: 'own normalized'}),
+            node('n-foreign-norm',   {userId: 'tenant-a',  name: 'foreign normalized'})
+        ]);
+        requester.value = '@tenant-b';
+
+        expect(GraphService.getNode({id: 'n-own-atform'})?.id).toBe('n-own-atform');
+        expect(GraphService.getNode({id: 'n-own-normalized'})?.id).toBe('n-own-normalized');
+        // No widening: a foreign tenant's normalized node stays hidden.
+        expect(GraphService.getNode({id: 'n-foreign-norm'})).toBeNull();
     });
 
     test('getNeighbors filters cross-tenant neighbor nodes', () => {
@@ -263,7 +281,7 @@ function makeWritableDb() {
     return {
         getAdjacentNodes() {},
         nodes: nodeMap,
-        edges  : {getByIndex() { return []; }},
+        edges: {getByIndex() { return []; }},
         addNode(spec) { nodeMap.set(spec.id, {id: spec.id, label: spec.label, properties: spec.properties}); },
         autoSave: false,
         storage : {RequestContextService: {getAgentIdentityNodeId: () => requester.value}}
@@ -349,8 +367,8 @@ test.describe('GraphService — global system-node provisioning (write-side null
         requester.value = '@tenant-a';
         GraphService.upsertNode({id: 'leaky', type: 'System', name: 'Leaky'});
 
-        // Baseline: without the helper the node is bound to @tenant-a and hidden from @tenant-b.
-        expect(GraphService.db.nodes.get('leaky').properties.userId).toBe('@tenant-a');
+        // Baseline: without the helper the node is bound to tenant-a (normalized) and hidden from @tenant-b.
+        expect(GraphService.db.nodes.get('leaky').properties.userId).toBe('tenant-a');
 
         requester.value = '@tenant-b';
         expect(GraphService.getNode({id: 'leaky'})).toBeNull();
@@ -381,10 +399,10 @@ test.describe('GraphService — global system-node provisioning (write-side null
         requester.value = '@tenant-a';
         GraphService.upsertGlobalNode({id: 'frontier', type: 'SYSTEM_ANCHOR', name: 'Frontier'});
         GraphService.upsertGlobalNode({id: 'Neo-Master-Architecture', type: 'System', name: 'Primer'});
-        GraphService.linkNodes('frontier', 'Neo-Master-Architecture', 'SYSTEM_TENET', 1.0);  // plain → edge stamped @tenant-a
+        GraphService.linkNodes('frontier', 'Neo-Master-Architecture', 'SYSTEM_TENET', 1.0);  // plain → edge stamped tenant-a (normalized)
 
         // Baseline: the node is global, but the tenant-stamped edge hides the primer from topology.
-        expect(GraphService.db.edges.getByIndex('source', 'frontier')[0].properties.userId).toBe('@tenant-a');
+        expect(GraphService.db.edges.getByIndex('source', 'frontier')[0].properties.userId).toBe('tenant-a');
 
         requester.value = '@tenant-b';
         const ids = GraphService.getContextFrontier({depth: 2}).strategicNeighbors.map(n => n.id);

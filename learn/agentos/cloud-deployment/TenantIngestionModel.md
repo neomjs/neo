@@ -84,15 +84,28 @@ If a future server-side clone path becomes necessary, [#11731](https://github.co
 
 ## Repo-Push Automation Identity
 
-For day-0 tenant push, create a machine/service account in the deployment's OIDC provider and scope it to the tenant repository source it represents. The tenant hook or CI job stores the resulting access token in its secret store and exposes it as `NEO_KB_INGEST_TOKEN`.
+For day-0 tenant push, create an automation identity accepted by the deployment's
+MCP auth mode and scope it to the tenant repository source it represents. The
+tenant hook or CI job stores the resulting bearer in its secret store and
+exposes it as `NEO_KB_INGEST_TOKEN`.
 
-The deployment's OAuth audience/resource must match the KB MCP public resource. Behind the reference ingress, the client URL is typically:
+For OIDC server mode, the deployment's OAuth audience/resource must match the
+KB MCP public resource. Behind the reference ingress, the KB MCP URL is
+typically:
 
 ```text
 https://agent-os.example.com/kb/mcp
 ```
 
-The token's resource should match the canonical KB public URL configured by `NEO_PUBLIC_URL` / the auth provider. The exact token acquisition flow is operator-owned — client credentials, workload identity, or CI OIDC exchange are all valid — but the resulting token must be short-lived or rotated, tenant-scoped, and stored outside the repository.
+In the default OIDC server mode, the token's resource should match the canonical
+KB public URL configured by `NEO_PUBLIC_URL` / the auth provider. In
+`NEO_AUTH_MODE=gitlab-pat`, the bearer is a GitLab OAuth access token or
+Personal Access Token with `read_user`; the server validates it against
+GitLab's `/api/v4/user` and derives the tenant identity from the returned
+username. The exact token acquisition flow is operator-owned — client
+credentials, workload identity, GitLab OAuth, or a rotated PAT are all valid —
+but the resulting bearer must be tenant-scoped, stored outside the repository,
+and rotated according to the deployment's auth policy.
 
 The server remains authoritative for tenant identity. `NEO_KB_TENANT_ID` is a client default for envelope construction; authenticated context still stamps or rejects tenant metadata according to deployment policy.
 
@@ -151,7 +164,7 @@ Incremental pushes should include deletion intent. Prefer this default shape:
 2. Build the source-family inventory.
 3. Choose dispatch for each family: raw server parse, registered server parser, client-side `parsed-chunk-v1`, unsupported, or excluded.
 4. Run initial import with `ai:ingest-tenant` when volume exceeds the MCP gate.
-5. Create the repo-push automation identity, configure token audience/resource, and store the token as `NEO_KB_INGEST_TOKEN` in the tenant hook or CI secret store.
+5. Create the repo-push automation identity, configure the OIDC audience or GitLab bearer policy, and store the token as `NEO_KB_INGEST_TOKEN` in the tenant hook or CI secret store.
 6. Wire incremental `pre-push` or CI pushes through `ai:kb-push-client` to the remote MCP endpoint.
 7. Include tombstones and revision boundaries; include manifests at reconciliation points.
 8. Fail the hook or CI job on structured ingestion errors instead of silently dropping files.
@@ -174,7 +187,7 @@ The pull lane (`tenant-repo-sync`) clones each configured repository into a depl
 
 ### Configuration
 
-The orchestrator's pull-mode sync (`TenantRepoSyncService.resolveTenantReposConfig`) resolves `tenantRepos` via `KnowledgeBaseIngestionService.listConfiguredTenantRepos()`. That resolver enumerates each configured tenant's *effective* config across three tiers — `kb-config:<tenantId>` graph node > `kb-config.yaml` bootstrap > `aiConfig.tenantRepos[]` default — single-winner per tenant (a tenant's highest present tier wins wholesale; tiers are not merged within a tenant), then flattens `tenantRepos` across tenants. Each entry is normalized through the `TenantRepoAccessContract`. Each entry:
+The orchestrator's pull-mode sync (`TenantRepoSyncService.resolveTenantReposConfig`) resolves `tenantRepos` via `KnowledgeBaseIngestionService.listConfiguredTenantRepos()`. That resolver enumerates each configured tenant's *effective* config across three tiers — `kb-config:<tenantId>` graph node > `kb-config.yaml` bootstrap > `aiConfig.tenantRepos[]` default — single-winner per tenant (a tenant's highest present tier wins wholesale; tiers are not merged within a tenant), then flattens `tenantRepos` across tenants. Graph-only tenant config nodes are discovered through the graph service's RLS-aware tenant-config enumeration surface, not through an unrestricted raw graph scan. Each entry is normalized through the `TenantRepoAccessContract`. Each entry:
 
 ```js
 {
@@ -262,13 +275,22 @@ Per-repo freshness is surfaced through the existing Memory Core healthcheck orch
             lastSyncAt           : '2026-05-25T05:30:00.000Z',
             status               : 'active',      // 'active' | 'degraded' | 'quarantined' | 'disabled'
             lastSyncDeletedCount : 0,
-            lastErrorCode        : null           // present only when status !== 'active'
+            lastErrorCode        : null,          // present only when status !== 'active'
+            lastSourceErrorCode  : null           // optional bounded source code, e.g. KB_GITMIRROR_FETCH_FAILED
         }
     ]
 }
 ```
 
 The operator readiness endpoint reads this shape from `HealthService` — there is no need to read Chroma rows for freshness checks. Empty `tenantRepos[]` produces `repos: []`, not an omission.
+
+For authenticated remote MCP diagnostics, the deployment-state bridge also projects a redacted
+`tenantRepoSync` section into `inspect_deployment` / `get_deployment_state_snapshot`. Use that
+surface when a cloud KB is healthy but empty: it combines the orchestrator enablement gate, task
+state, config-tier counts, per-repo due/backoff state, and bounded failure codes without exposing
+clone URLs, credentials, or raw logs. If tenant-config graph discovery itself fails, the snapshot
+reports a degraded/unreadable config state rather than flattening that failure into
+`no-configured-repos`.
 
 ### Repo Freshness Status Enum
 
@@ -283,7 +305,7 @@ Status is computed from per-repo `lastIngestedRev` + recent-failure-count state;
 
 ### Stable Error Code Taxonomy
 
-Per-repo failures carry a stable `lastErrorCode` field on the health payload; operators branch on `error.code`, not message prose. Codes live in [`TenantRepoSyncErrors.mjs`](../../../ai/daemons/orchestrator/services/TenantRepoSyncErrors.mjs).
+Per-repo failures carry a stable `lastErrorCode` field on the health payload; operators branch on `error.code`, not message prose. Codes live in [`TenantRepoSyncErrors.mjs`](../../../ai/daemons/orchestrator/services/TenantRepoSyncErrors.mjs). When a sibling subsystem such as `GitMirror` already produced a stable, redacted `KB_*` code, the health payload and deployment bridge also expose `lastSourceErrorCode` so operators can distinguish credential/clone/fetch failures from generic ingest failures without raw stderr or credentials.
 
 | Code | Where it surfaces | Trigger |
 |---|---|---|
@@ -294,15 +316,17 @@ Per-repo failures carry a stable `lastErrorCode` field on the health payload; op
 | `KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT` | reserved | Future concurrency-limit gate (tracked in [#11942](https://github.com/neomjs/neo/issues/11942) AC2); no current emitter. |
 
 The `KB_TENANT_REPO_SYNC_*` prefix distinguishes these codes from sibling-subsystem error families (`KB_GITMIRROR_*`, `KB_INGEST_*`, `KB_TENANT_REPO_ACCESS_*`).
+`lastSourceErrorCode` is optional and bounded to stable `KB_*` codes only; it never carries clone URLs, credential references, tokens, raw repository identities, or git stderr.
 
 ### Quarantine Runbook
 
 When a repo enters `quarantined`, the lane stops attempting it on periodic cycles until the operator acts. Steps:
 
 1. Read the per-repo `lastErrorCode` from the health payload. Stable codes follow the `KB_TENANT_REPO_SYNC_*` prefix (e.g., `KB_TENANT_REPO_SYNC_SYNC_FAILED`, `KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED`).
-2. Inspect operator logs filtered to `[TenantRepoSync] <tenantId>/<repoSlug>` for the redacted error message.
+2. If present, read `lastSourceErrorCode` to identify the failing subsystem before falling back to logs.
 3. Common cases:
-   - `KB_TENANT_REPO_SYNC_SYNC_FAILED` with git stderr indicating auth failure → rotate the `credentialRef` target; re-check the secret store.
+   - `lastSourceErrorCode: KB_GITMIRROR_CREDENTIAL_REF_INVALID` → confirm the env var or secret file named by `credentialRef` exists and is non-empty.
+   - `lastSourceErrorCode: KB_GITMIRROR_CLONE_FAILED` / `KB_GITMIRROR_FETCH_FAILED` → verify upstream access, token read scope, repo path, and network egress.
    - Persistent network/DNS error → the deployment can't reach the upstream remote; verify network egress.
    - Repository deleted / renamed upstream → update the `tenantRepos[]` config or remove the entry.
 4. Once the underlying issue is resolved, force a manual sync via `node ./ai/scripts/maintenance/syncTenantRepos.mjs --repo-slug <slug>`. A successful run returns the repo to `active`.

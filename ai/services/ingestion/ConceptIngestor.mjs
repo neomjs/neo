@@ -1,8 +1,8 @@
-import crypto                               from 'crypto';
-import Base                                 from '../../../src/core/Base.mjs';
-import ConceptService                       from '../../services/ConceptService.mjs';
+import crypto                                from 'crypto';
+import Base                                  from '../../../src/core/Base.mjs';
+import ConceptService                        from '../../services/ConceptService.mjs';
 import {Memory_GraphService as GraphService} from '../../services.mjs';
-import logger                               from '../../mcp/server/memory-core/logger.mjs';
+import logger                                from '../../mcp/server/memory-core/logger.mjs';
 
 /**
  * Canonical concept edge types. Enforced at ingestion time so downstream consumers
@@ -12,11 +12,11 @@ import logger                               from '../../mcp/server/memory-core/l
  * @private
  */
 const CONCEPT_EDGE_TYPES = {
-    ANALOGOUS_TO   : 'ANALOGOUS_TO',
-    EXEMPLIFIED_BY : 'EXEMPLIFIED_BY',
-    EXPLAINED_BY   : 'EXPLAINED_BY',
-    IMPLEMENTED_BY : 'IMPLEMENTED_BY',
-    PARENT_CONCEPT : 'PARENT_CONCEPT'
+    ANALOGOUS_TO  : 'ANALOGOUS_TO',
+    EXEMPLIFIED_BY: 'EXEMPLIFIED_BY',
+    EXPLAINED_BY  : 'EXPLAINED_BY',
+    IMPLEMENTED_BY: 'IMPLEMENTED_BY',
+    PARENT_CONCEPT: 'PARENT_CONCEPT'
 };
 
 /**
@@ -96,12 +96,14 @@ class ConceptIngestor extends Base {
      */
     computePayloadHash(conceptNode) {
         const payload = {
-            aliases    : conceptNode.aliases     ?? [],
-            description: conceptNode.description ?? '',
-            name       : conceptNode.name        ?? '',
-            tags       : conceptNode.tags        ?? [],
-            tier       : conceptNode.tier        ?? 0,
-            uniqueToNeo: !!conceptNode.uniqueToNeo,
+            aliases        : conceptNode.aliases     ?? [],
+            codeGapEligible: conceptNode.codeGapEligible !== false,
+            description    : conceptNode.description ?? '',
+            name           : conceptNode.name        ?? '',
+            ontologyLayer  : conceptNode.ontologyLayer ?? 'code',
+            tags           : conceptNode.tags        ?? [],
+            tier           : conceptNode.tier        ?? 0,
+            uniqueToNeo    : !!conceptNode.uniqueToNeo,
             // Unvalidated concepts are candidates from ConceptDiscoveryService awaiting human
             // curation. `undefined` from legacy rows is treated as validated.
             // Flipping `validated: false → true` during curator review must trigger re-upsert, so the
@@ -171,10 +173,10 @@ class ConceptIngestor extends Base {
      */
     replaceOutboundConceptEdges(sourceId, newEdges) {
         const
-            db                = GraphService.db,
-            existingOutbound  = db.edges.getByIndex('source', sourceId).slice(),
-            conceptEdgeTypes  = new Set(Object.values(CONCEPT_EDGE_TYPES)),
-            edgesToRemove     = existingOutbound.filter(e => conceptEdgeTypes.has(e.type));
+            db               = GraphService.db,
+            existingOutbound = db.edges.getByIndex('source', sourceId).slice(),
+            conceptEdgeTypes = new Set(Object.values(CONCEPT_EDGE_TYPES)),
+            edgesToRemove    = existingOutbound.filter(e => conceptEdgeTypes.has(e.type));
 
         if (edgesToRemove.length > 0) {
             db.edges.remove(edgesToRemove);
@@ -228,9 +230,9 @@ class ConceptIngestor extends Base {
 
                 try {
                     const
-                        payloadHash  = this.computePayloadHash(conceptNode),
-                        existingNode = db.nodes.get(conceptId),
-                        weight       = ConceptService.calculateWeight(conceptNode),
+                        payloadHash   = this.computePayloadHash(conceptNode),
+                        existingNode  = db.nodes.get(conceptId),
+                        weight        = ConceptService.calculateWeight(conceptNode),
                         outboundEdges = ConceptService.edgesBySource.get(conceptId) || [];
 
                     // Differential sync: skip upsert AND edge replacement if payload unchanged.
@@ -245,14 +247,16 @@ class ConceptIngestor extends Base {
                         type      : 'CONCEPT',
                         name      : conceptNode.name,
                         properties: {
-                            aliases    : conceptNode.aliases     ?? [],
-                            description: conceptNode.description ?? '',
+                            aliases        : conceptNode.aliases     ?? [],
+                            codeGapEligible: conceptNode.codeGapEligible !== false,
+                            description    : conceptNode.description ?? '',
+                            ontologyLayer  : conceptNode.ontologyLayer ?? 'code',
                             payloadHash,
-                            tags       : conceptNode.tags        ?? [],
-                            tier       : conceptNode.tier        ?? 0,
-                            uniqueToNeo: !!conceptNode.uniqueToNeo,
-                            validated  : conceptNode.validated !== false,
-                            verifiedAt : conceptNode.verifiedAt ?? null,
+                            tags           : conceptNode.tags        ?? [],
+                            tier           : conceptNode.tier        ?? 0,
+                            uniqueToNeo    : !!conceptNode.uniqueToNeo,
+                            validated      : conceptNode.validated !== false,
+                            verifiedAt     : conceptNode.verifiedAt ?? null,
                             weight
                         }
                     });

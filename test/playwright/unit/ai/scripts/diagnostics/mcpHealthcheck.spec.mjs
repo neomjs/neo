@@ -1,12 +1,13 @@
 import {test, expect} from '@playwright/test';
 import fs             from 'fs';
-import yaml           from 'js-yaml';
+import * as yaml      from 'js-yaml';
 
 test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
     let parseArgs;
     let buildHeaders;
     let readToolJson;
     let runHealthcheck;
+    let formatHealthcheckError;
     const readProductionCompose = () => yaml.load(fs.readFileSync(
         new URL('../../../../../../ai/deploy/docker-compose.yml', import.meta.url),
         'utf8'
@@ -19,10 +20,11 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
     test.beforeAll(async () => {
         const mod = await import('../../../../../../ai/scripts/diagnostics/mcpHealthcheck.mjs');
 
-        parseArgs      = mod.parseArgs;
-        buildHeaders   = mod.buildHeaders;
-        readToolJson   = mod.readToolJson;
-        runHealthcheck = mod.runHealthcheck;
+        parseArgs              = mod.parseArgs;
+        buildHeaders           = mod.buildHeaders;
+        readToolJson           = mod.readToolJson;
+        runHealthcheck         = mod.runHealthcheck;
+        formatHealthcheckError = mod.formatHealthcheckError;
     });
 
     test('parseArgs uses dotenv-compatible environment defaults', () => {
@@ -32,15 +34,18 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
             NEO_MCP_HEALTHCHECK_TOKEN_ENV      : 'TOKEN_SLOT',
             TOKEN_SLOT                         : 'secret-token',
             NEO_MCP_HEALTHCHECK_EXPECTED_STATUS: 'ready',
-            NEO_MCP_HEALTHCHECK_CLIENT_NAME    : 'deploy-client'
+            NEO_MCP_HEALTHCHECK_CLIENT_NAME    : 'deploy-client',
+            NEO_MCP_HEALTHCHECK_TIMEOUT_MS     : '7000'
         });
 
         expect(args).toEqual({
             url           : 'http://mc-server:3001',
             identity      : 'deploy-probe',
             bearerToken   : 'secret-token',
+            bearerTokenEnv: 'TOKEN_SLOT',
             expectedStatus: 'ready',
-            clientName    : 'deploy-client'
+            clientName    : 'deploy-client',
+            timeoutMs     : 7000
         });
     });
 
@@ -50,7 +55,8 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
             '--identity', 'cli-identity',
             '--bearer-token-env', 'CLI_TOKEN',
             '--expected-status', 'healthy',
-            '--client-name', 'cli-client'
+            '--client-name', 'cli-client',
+            '--timeout-ms', '6000'
         ], {
             NEO_MCP_HEALTHCHECK_URL      : 'http://ignored:3000',
             NEO_MCP_HEALTHCHECK_IDENTITY : 'ignored',
@@ -63,7 +69,8 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
             identity      : 'cli-identity',
             bearerToken   : 'cli-secret',
             expectedStatus: 'healthy',
-            clientName    : 'cli-client'
+            clientName    : 'cli-client',
+            timeoutMs     : 6000
         });
     });
 
@@ -151,6 +158,79 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
         })).rejects.toThrow("Expected healthcheck status 'healthy', got 'degraded'.");
     });
 
+    test('#13458: runHealthcheck times out a hanging MCP connect and closes the client', async () => {
+        const calls = [];
+
+        class FakeTransport {}
+        class FakeClient {
+            async connect() {
+                calls.push({type: 'connect'});
+                return new Promise(() => {});
+            }
+            async close() {
+                calls.push({type: 'close'});
+            }
+        }
+
+        await expect(runHealthcheck({
+            url           : 'http://127.0.0.1:3000',
+            timeoutMs     : 5,
+            ClientClass   : FakeClient,
+            TransportClass: FakeTransport
+        })).rejects.toThrow('MCP healthcheck connect timed out after 5ms');
+
+        expect(calls).toEqual([{type: 'connect'}, {type: 'close'}]);
+    });
+
+    test('#13458: runHealthcheck times out a hanging healthcheck tool call and closes the client', async () => {
+        const calls = [];
+
+        class FakeTransport {}
+        class FakeClient {
+            async connect() {
+                calls.push({type: 'connect'});
+            }
+            async callTool() {
+                calls.push({type: 'callTool'});
+                return new Promise(() => {});
+            }
+            async close() {
+                calls.push({type: 'close'});
+            }
+        }
+
+        await expect(runHealthcheck({
+            url           : 'http://127.0.0.1:3000',
+            timeoutMs     : 5,
+            ClientClass   : FakeClient,
+            TransportClass: FakeTransport
+        })).rejects.toThrow('MCP healthcheck tool call timed out after 5ms');
+
+        expect(calls).toEqual([{type: 'connect'}, {type: 'callTool'}, {type: 'close'}]);
+    });
+
+    test('formatHealthcheckError appends a bearer-token hint only when no token was configured', () => {
+        const error = new Error('HTTP 401');
+
+        const withToken = formatHealthcheckError(error, {bearerToken: 'secret'});
+        expect(withToken).toBe('HTTP 401');
+        expect(withToken).not.toContain('NEO_MCP_HEALTHCHECK_TOKEN');
+
+        const withoutToken = formatHealthcheckError(error, {bearerToken: null});
+        expect(withoutToken).toContain('HTTP 401');
+        expect(withoutToken).toContain('NEO_MCP_HEALTHCHECK_TOKEN is unset');
+        expect(withoutToken).toContain('NEO_AUTH_MODE=gitlab-pat');
+        expect(withoutToken).toContain('/api/v4/user');
+        expect(withoutToken).toContain('Troubleshooting.md');
+    });
+
+    test('formatHealthcheckError names the configured bearer-token env var', () => {
+        const hint = formatHealthcheckError(new Error('boom'), {bearerToken: null, bearerTokenEnv: 'TOKEN_SLOT'});
+
+        expect(hint).toContain('TOKEN_SLOT is unset');
+        expect(hint).not.toContain('NEO_MCP_HEALTHCHECK_TOKEN');
+    });
+
     test('production compose wires KB/MC MCP healthchecks before cloud orchestrator startup', () => {
         const compose = readProductionCompose();
 
@@ -184,12 +264,14 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
         const memoryCoreEnv     = environmentMap(compose.services['mc-server']);
 
         expect(orchestratorEnv).toMatchObject({
-            NEO_AI_DEPLOYMENT_MODE: 'cloud',
-            NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED: 'false',
-            NEO_ORCHESTRATOR_KB_SYNC_ENABLED: 'false',
-            NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED: 'false',
+            NEO_AI_DEPLOYMENT_MODE                              : 'cloud',
+            NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED           : 'false',
+            NEO_ORCHESTRATOR_KB_SYNC_ENABLED                    : 'false',
+            NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED              : 'false',
             NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED: 'false',
-            NEO_ORCHESTRATOR_MLX_ENABLED: 'false'
+            NEO_ORCHESTRATOR_MLX_ENABLED                        : 'false',
+            NEO_ORCHESTRATOR_LMS_ENABLED                        : 'false',
+            NEO_ORCHESTRATOR_OLLAMA_ENABLED                     : 'false'
         });
 
         expect(memoryCoreEnv.NEO_MAILBOX_DEFAULT_REPLY_POLICY).toBe('blocked');
@@ -210,7 +292,9 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
             'OLLAMA_HOST=0.0.0.0:11434',
             'OLLAMA_MODELS=/root/.ollama',
             'OLLAMA_KEEP_ALIVE=${NEO_LOCAL_MODEL_KEEP_ALIVE:--1}',
-            'OLLAMA_CONTEXT_LENGTH=${NEO_LOCAL_MODEL_CONTEXT_LENGTH:-262144}'
+            'OLLAMA_CONTEXT_LENGTH=${NEO_LOCAL_MODEL_CONTEXT_LENGTH:-131072}',
+            'OLLAMA_NUM_PARALLEL=${NEO_LOCAL_MODEL_NUM_PARALLEL:-1}',
+            'OLLAMA_MAX_LOADED_MODELS=${NEO_LOCAL_MODEL_MAX_LOADED_MODELS:-2}'
         ]));
         expect(localModel.healthcheck.test).toEqual(['CMD', 'ollama', 'list']);
         expect(localModel.deploy.resources.limits).toEqual({
@@ -221,14 +305,14 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
 
         for (const env of [knowledgeBaseEnv, memoryCoreEnv, orchestratorEnv]) {
             expect(env).toMatchObject({
-                NEO_MODEL_PROVIDER                     : '${NEO_MODEL_PROVIDER:-}',
-                NEO_EMBEDDING_PROVIDER                 : '${NEO_EMBEDDING_PROVIDER:-}',
-                NEO_OPENAI_COMPATIBLE_HOST             : '${NEO_OPENAI_COMPATIBLE_HOST:-}',
-                NEO_OPENAI_COMPATIBLE_MODEL            : '${NEO_OPENAI_COMPATIBLE_MODEL:-}',
-                NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL  : '${NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL:-}',
-                NEO_OPENAI_COMPATIBLE_API_KEY          : '${NEO_OPENAI_COMPATIBLE_API_KEY:-}',
-                NEO_OLLAMA_KEEP_ALIVE                  : '${NEO_OLLAMA_KEEP_ALIVE:-}',
-                NEO_OPENAI_COMPATIBLE_KEEP_ALIVE       : '${NEO_OPENAI_COMPATIBLE_KEEP_ALIVE:-}'
+                NEO_MODEL_PROVIDER                   : '${NEO_MODEL_PROVIDER:-}',
+                NEO_EMBEDDING_PROVIDER               : '${NEO_EMBEDDING_PROVIDER:-}',
+                NEO_OPENAI_COMPATIBLE_HOST           : '${NEO_OPENAI_COMPATIBLE_HOST:-}',
+                NEO_OPENAI_COMPATIBLE_MODEL          : '${NEO_OPENAI_COMPATIBLE_MODEL:-}',
+                NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL: '${NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL:-}',
+                NEO_OPENAI_COMPATIBLE_API_KEY        : '${NEO_OPENAI_COMPATIBLE_API_KEY:-}',
+                NEO_OLLAMA_KEEP_ALIVE                : '${NEO_OLLAMA_KEEP_ALIVE:-}',
+                NEO_OPENAI_COMPATIBLE_KEEP_ALIVE     : '${NEO_OPENAI_COMPATIBLE_KEEP_ALIVE:-}'
             });
         }
 

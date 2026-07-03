@@ -1,3 +1,7 @@
+// Load the Tier-1 realm root so getParent() inheritance resolves `auth.*` and other shared leaves via
+// the SSOT chain — matches memory-core/knowledge-base. This server reads no Tier-1 leaf
+// directly; they resolve through the parent chain, not a binding.
+import '../../../config.template.mjs';
 import os              from 'os';
 import path            from 'path';
 import {fileURLToPath} from 'url';
@@ -77,6 +81,21 @@ class Config extends ConfigProvider {
              */
             logPath: leaf(path.resolve(neoRootDir, '.neo-ai-data/logs')),
             /**
+             * @summary Retention policy for Neural Link MCP diagnostic log files.
+             *
+             * The shared logger applies this policy only to files matching the `nl-server`
+             * prefix in `logPath`. `maxFiles` and `maxTotalBytes` count historical files;
+             * the active current-day file is always preserved. Set `enabled=false` to
+             * delegate retention entirely to deployment infrastructure.
+             * @type {Object}
+             */
+            loggerRetention: {
+                enabled      : leaf(true, 'NEO_NL_LOG_RETENTION_ENABLED', 'boolean'),
+                maxAgeDays   : leaf(14, 'NEO_NL_LOG_RETENTION_MAX_AGE_DAYS', 'number'),
+                maxFiles     : leaf(30, 'NEO_NL_LOG_RETENTION_MAX_FILES', 'number'),
+                maxTotalBytes: leaf(100 * 1024 * 1024, 'NEO_NL_LOG_RETENTION_MAX_TOTAL_BYTES', 'number')
+            },
+            /**
              * @summary Shared MCP logger policy for Neural Link.
              *
              * Always-on file sink plus tier-gated stderr: info/warn/error write without
@@ -89,6 +108,12 @@ class Config extends ConfigProvider {
                 stderrMode    : 'tiered',
                 timestampStyle: 'bracketed'
             }),
+            /**
+             * Maximum characters written when `debug: true` enables full Bridge payload logging.
+             * Default/info Bridge receive logs always use bounded routing metadata instead.
+             * @type {number}
+             */
+            bridgePayloadDebugMaxChars: leaf(4096, 'NEO_NL_BRIDGE_PAYLOAD_DEBUG_MAX_CHARS', 'number'),
             /**
              * Number of days to retain Action logs in the Neural Link Database.
              * @type {number}

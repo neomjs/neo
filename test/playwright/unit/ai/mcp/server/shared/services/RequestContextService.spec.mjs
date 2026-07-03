@@ -222,7 +222,7 @@ test.describe('Module-scope exports: SHARED_USER_ID + normalizeUserId (#10556, #
     test('hasCoreSwarmParticipant detects comma-separated and array-form agent lists', () => {
         expect(hasCoreSwarmParticipant('@neo-gpt')).toBe(true);
         expect(hasCoreSwarmParticipant('@alice, @neo-opus-ada')).toBe(true);
-        expect(hasCoreSwarmParticipant('@neo-claude-opus')).toBe(true);
+        expect(hasCoreSwarmParticipant('@neo-opus-grace')).toBe(true);
         expect(hasCoreSwarmParticipant('@neo-opus-vega')).toBe(true);
         expect(hasCoreSwarmParticipant(['neo-gemini-pro', '@alice'])).toBe(true);
         expect(hasCoreSwarmParticipant('@alice,@bob')).toBe(false);
@@ -254,5 +254,44 @@ test.describe('Module-scope exports: SHARED_USER_ID + normalizeUserId (#10556, #
             userId: undefined,
             participatingAgents: ''
         })).toBeUndefined();
+    });
+});
+
+test.describe('RequestContextService.unboundIdentityError (#13488)', () => {
+    test('names the present-but-unresolvable handle, source, and remediation', () => {
+        // The stale-config regression: NEO_AGENT_IDENTITY resolved to a handle whose AgentIdentity
+        // node is missing. userId/source stay populated even though the node binding is null, so the
+        // fail-closed error names what was tried instead of a bare string.
+        const err = RequestContextService.run(
+            {userId: 'unseeded-agent', source: 'env-var', agentIdentityNodeId: null},
+            () => RequestContextService.unboundIdentityError('list messages')
+        );
+
+        expect(err).toBeInstanceOf(Error);
+        // Prefix preserved so existing /no agent identity context bound/ assertions still hold.
+        expect(err.message).toContain('Cannot list messages: no agent identity context bound.');
+        expect(err.message).toContain("'unseeded-agent'");
+        expect(err.message).toContain('env-var');
+        expect(err.message).toContain('no matching AgentIdentity node @unseeded-agent');
+        expect(err.message).toContain('seedAgentIdentities.mjs');
+    });
+
+    test('distinguishes the truly-unresolved (single-tenant) case when no userId is set', () => {
+        const err = RequestContextService.run(
+            {agentIdentityNodeId: null},
+            () => RequestContextService.unboundIdentityError('send message')
+        );
+
+        expect(err.message).toContain('Cannot send message: no agent identity context bound.');
+        expect(err.message).toContain('No identity resolved');
+        expect(err.message).toContain('NEO_AGENT_IDENTITY');
+    });
+
+    test('returns an Error (does not throw) and interpolates the operation verb', () => {
+        // Called with no active context → getUserId() undefined → single-tenant branch.
+        const err = RequestContextService.unboundIdentityError('archive message');
+
+        expect(err).toBeInstanceOf(Error);
+        expect(err.message).toContain('Cannot archive message: no agent identity context bound.');
     });
 });

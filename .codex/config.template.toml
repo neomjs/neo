@@ -10,6 +10,9 @@
 # note source-of-truth path.
 project_doc_max_bytes = 131072
 
+# Repo-local shell command execpolicy lives in .codex/rules/pr-lifecycle.rules.
+# Do not add invented command allow/deny keys to this template.
+
 # Neo.mjs marathon sessions routinely exceed Codex's conservative default effective
 # context budget. As of April 2026, GPT-5.5 / GPT-5.4 expose 1M-token context
 # windows, so keep compaction late enough for architectural continuity while
@@ -47,6 +50,7 @@ env_vars = [
     "NEO_CHROMA_EMBEDDING_PROVIDER",
     "NEO_CHROMA_UNIFIED",
     "NEO_EMBEDDING_PROVIDER",
+    "NEO_KB_ASK_API_KEY",
     "NEO_KB_AUTO_START_DATABASE",
     "NEO_OPENAI_COMPATIBLE_API_KEY",
     "NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL",

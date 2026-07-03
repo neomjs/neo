@@ -1,31 +1,33 @@
-import fs from 'fs';
-import path from 'path';
-import yaml from 'js-yaml';
-import { fileURLToPath } from 'url';
-import crypto from 'crypto';
-import { Memory_Config as aiConfig } from '../../../services.mjs';
-import Base from '../../../../src/core/Base.mjs';
-import { Memory_StorageRouter as StorageRouter } from '../../../services.mjs';
+import fs                                                      from 'fs';
+import path                                                    from 'path';
+import * as yaml                                               from 'js-yaml';
+import { fileURLToPath }                                       from 'url';
+import crypto                                                  from 'crypto';
+import { Memory_Config as aiConfig }                           from '../../../services.mjs';
+import Base                                                    from '../../../../src/core/Base.mjs';
+import { Memory_StorageRouter as StorageRouter }               from '../../../services.mjs';
 import { Memory_TextEmbeddingService as TextEmbeddingService } from '../../../services.mjs';
-import { Memory_GraphService as GraphService } from '../../../services.mjs';
-import Json from '../../../../src/util/Json.mjs';
-import logger from '../../../mcp/server/memory-core/logger.mjs';
-import ConceptDiscoveryService from '../../../services/ingestion/ConceptDiscoveryService.mjs';
-import ConceptIngestor from '../../../services/ingestion/ConceptIngestor.mjs';
-import FileSystemIngestor from '../../../services/memory-core/FileSystemIngestor.mjs';
-import GapInferenceEngine from '../../../services/graph/GapInferenceEngine.mjs';
-import GraphMaintenanceService from '../../../services/graph/GraphMaintenanceService.mjs';
-import IssueIngestor from '../../../services/ingestion/IssueIngestor.mjs';
-import MemorySessionIngestor from '../../../services/ingestion/MemorySessionIngestor.mjs';
-import SemanticGraphExtractor from '../../../services/graph/SemanticGraphExtractor.mjs';
-import TopologyInferenceEngine from '../../../services/graph/TopologyInferenceEngine.mjs';
-import GoldenPathSynthesizer from '../../../services/graph/GoldenPathSynthesizer.mjs';
-import AiConfig from '../../../config.mjs';
+import { Memory_GraphService as GraphService }                 from '../../../services.mjs';
+import Json                                                    from '../../../../src/util/Json.mjs';
+import logger                                                  from '../../../mcp/server/memory-core/logger.mjs';
+import AdrIngestor                                             from '../../../services/ingestion/AdrIngestor.mjs';
+import ConceptDiscoveryService                                 from '../../../services/ingestion/ConceptDiscoveryService.mjs';
+import ConceptIngestor                                         from '../../../services/ingestion/ConceptIngestor.mjs';
+import FileSystemIngestor                                      from '../../../services/memory-core/FileSystemIngestor.mjs';
+import GapInferenceEngine                                      from '../../../services/graph/GapInferenceEngine.mjs';
+import GraphMaintenanceService                                 from '../../../services/graph/GraphMaintenanceService.mjs';
+import IssueIngestor                                           from '../../../services/ingestion/IssueIngestor.mjs';
+import MemorySessionIngestor                                   from '../../../services/ingestion/MemorySessionIngestor.mjs';
+import SemanticGraphExtractor                                  from '../../../services/graph/SemanticGraphExtractor.mjs';
+import TopologyInferenceEngine                                 from '../../../services/graph/TopologyInferenceEngine.mjs';
+import GoldenPathSynthesizer                                   from '../../../services/graph/GoldenPathSynthesizer.mjs';
+import AiConfig                                                from '../../../config.mjs';
 import {
     assertProviderReadinessConfig,
     buildOllamaReadinessConfig,
     createProviderFailureDiagnostic,
     ensureOllamaModelsReady,
+    fetchOpenAiCompatibleModelIds,
     getGraphProviderReadinessTarget,
     waitForProvider,
     warnProviderParallelModelCapacity
@@ -35,13 +37,57 @@ import {
     createRemPhaseState,
     createRemRunStateEntry
 } from '../../../services/memory-core/helpers/remRunStateStore.mjs';
+import {bytesToTokens}              from '../../../services/memory-core/helpers/consumerFrictionHelper.mjs';
+import {resolveTurnDocumentForRead} from '../../../services/memory-core/helpers/turnDocumentText.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname  = path.dirname(__filename);
 
 function estimatePayloadTokens(payload) {
     const text = payload === undefined || payload === null ? '' : String(payload);
-    return Math.ceil(Buffer.byteLength(text, 'utf8') / 4);
+    return bytesToTokens(Buffer.byteLength(text, 'utf8'));
+}
+
+function isTriVectorFailureDescriptor(value) {
+    return value?.ok === false;
+}
+
+function getTriVectorFailureAttempts(failure) {
+    return Number.isFinite(failure?.evidence?.attempts) ? failure.evidence.attempts : 1;
+}
+
+function getTriVectorFailureKind(failure) {
+    return failure?.deferReason || failure?.frictionSymptom || 'typed-failure';
+}
+
+function getTriVectorFailureMessage(failure) {
+    return failure?.evidence?.note ||
+           failure?.evidence?.errorMessage ||
+           `tri-vector extraction failed (${getTriVectorFailureKind(failure)})`;
+}
+
+/**
+ * @summary Identifies parser-size failures that must leave the steady REM cadence immediately.
+ *
+ * Schema failures can still use the historical max-attempts gate; a provider-size
+ * failure has already proven that re-serving the same payload just re-pays the
+ * model lock cost next cycle.
+ *
+ * @param {Object|null} failure Typed Tri-Vector failure descriptor.
+ * @returns {Boolean}
+ */
+function isImmediateCadenceTerminalFailure(failure) {
+    return failure?.terminalForCadence === true &&
+        ['size-precheck-skip', 'context-overflow'].includes(failure?.frictionSymptom);
+}
+
+/**
+ * @summary Returns true for digest states excluded from the steady REM cadence.
+ * @param {String} state
+ * @returns {Boolean}
+ */
+function isSteadyCadenceExcludedDigestState(state) {
+    return state === 'deferred' || state === 'undigestible';
 }
 
 function toErrorMessage(error) {
@@ -71,19 +117,74 @@ function finishPhase(phase, startedAt, status, details = {}) {
     });
 }
 
-/**
- * @summary Reads a required numeric AiConfig leaf and fails loud when the imported config is stale.
- * @param {String} leafName The AiConfig leaf name.
- * @returns {Number}
- */
-function readRequiredNumberLeaf(leafName) {
-    const value = aiConfig[leafName];
+function resolveSessionTimestamp(meta = {}) {
+    const value = meta.timestamp ?? meta.lastActivity ?? meta.updatedAt ?? meta.createdAt;
 
-    if (!Number.isFinite(value)) {
-        throw new Error(`[DreamService] Required AiConfig leaf "${leafName}" is missing or invalid. Update ai/mcp/server/memory-core/config.mjs from config.template.mjs.`);
+    if (Number.isFinite(value)) {
+        return value;
     }
 
-    return value;
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) {
+        return numeric;
+    }
+
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function compareSessionRows(direction) {
+    return (a, b) => {
+        const diff = resolveSessionTimestamp(a.meta) - resolveSessionTimestamp(b.meta);
+
+        if (diff !== 0) {
+            return direction === 'ASC' ? diff : -diff;
+        }
+
+        return String(a.id).localeCompare(String(b.id));
+    }
+}
+
+function addUndigestedRowsFromBatch(batch, byId) {
+    if (!batch?.ids?.length) {
+        return;
+    }
+
+    for (let i = 0; i < batch.ids.length; i++) {
+        const meta = batch.metadatas?.[i];
+
+        // Exclude digested sessions plus terminal/legacy states that were already bounded out.
+        // `deferred` is kept as a back-compat alias for rows written by the first stop-re-serve kernel.
+        if (meta && meta.graphDigested !== true && meta.graphDigested !== 'true' && !isSteadyCadenceExcludedDigestState(meta.digestState)) {
+            byId.set(batch.ids[i], {
+                id      : batch.ids[i],
+                document: batch.documents?.[i],
+                meta
+            });
+        }
+    }
+}
+
+function splitFreshAndAgedUndigested(rows, maxToProcess) {
+    if (maxToProcess <= 0 || rows.length === 0) {
+        return [];
+    }
+
+    const undigestedSessionFreshReserve = aiConfig.undigestedSessionFreshReserve;
+
+    if (!Number.isFinite(undigestedSessionFreshReserve)) {
+        throw new Error('[DreamService] Required AiConfig leaf "undigestedSessionFreshReserve" is missing or invalid. Update ai/mcp/server/memory-core/config.mjs from config.template.mjs.');
+    }
+
+    const reserve  = maxToProcess > 1 ? Math.min(undigestedSessionFreshReserve, maxToProcess - 1) : maxToProcess;
+    const fresh    = [...rows].sort(compareSessionRows('DESC')).slice(0, reserve);
+    const freshIds = new Set(fresh.map(row => row.id));
+    const aged     = [...rows]
+        .filter(row => !freshIds.has(row.id))
+        .sort(compareSessionRows('ASC'))
+        .slice(0, maxToProcess - fresh.length);
+
+    return [...fresh, ...aged];
 }
 
 /**
@@ -145,38 +246,64 @@ class DreamService extends Base {
 
     /**
      * Identifies session summaries that do not have the 'graphDigested' metadata flag set to true.
+     *
+     * The scan samples both the fresh head and aged tail of the Chroma summary collection, then splits
+     * the returned REM batch across newest and oldest undigested summaries. This mirrors the
+     * miniSummary backfill pattern: keep a small fresh reserve for recent work, while the aged drain
+     * steadily reaches long-lived projection lag instead of re-serving the same head window forever.
+     *
      * @returns {Promise<Object[]>} List of metadata objects for undigested sessions
      */
     async findUndigestedSessions() {
         // Since ChromaDB filtering on missing attributes can be tricky depending on version,
-        // we'll fetch recent sessions and filter in memory if the dataset is reasonable.
-        // For production, we will just query specifically.
-        const limit = readRequiredNumberLeaf('summarizationBatchLimit');
-        const maxToProcess = readRequiredNumberLeaf('remSleepBatchLimit');
+        // filter in memory after sampling the collection head and tail. Chroma does not expose
+        // SQL-style ORDER BY, so metadata timestamps define the fresh/aged split.
+        const summarizationBatchLimit = aiConfig.summarizationBatchLimit,
+              remSleepBatchLimit      = aiConfig.remSleepBatchLimit;
+
+        if (!Number.isFinite(summarizationBatchLimit)) {
+            throw new Error('[DreamService] Required AiConfig leaf "summarizationBatchLimit" is missing or invalid. Update ai/mcp/server/memory-core/config.mjs from config.template.mjs.');
+        }
+        if (!Number.isFinite(remSleepBatchLimit)) {
+            throw new Error('[DreamService] Required AiConfig leaf "remSleepBatchLimit" is missing or invalid. Update ai/mcp/server/memory-core/config.mjs from config.template.mjs.');
+        }
+
+        const limit        = Math.max(1, Math.floor(summarizationBatchLimit));
+        const maxToProcess = Math.max(0, Math.floor(remSleepBatchLimit));
+
+        if (maxToProcess === 0) {
+            return [];
+        }
 
         try {
-            const batch = await this.sessionsCollection.get({
+            const byId      = new Map();
+            const readBatch = offset => this.sessionsCollection.get({
                 include: ['metadatas', 'documents'],
-                limit
+                limit,
+                offset
             });
 
-            if (!batch || !batch.ids.length) {
-                return [];
-            }
+            addUndigestedRowsFromBatch(await readBatch(0), byId);
 
-            const undigested = [];
-            for (let i = 0; i < batch.ids.length; i++) {
-                const meta = batch.metadatas[i];
-                if (meta && meta.graphDigested !== true && meta.graphDigested !== 'true') {
-                    undigested.push({
-                        id: batch.ids[i],
-                        document: batch.documents[i],
-                        meta
-                    });
+            let collectionCount = null;
+            if (typeof this.sessionsCollection.count === 'function') {
+                try {
+                    collectionCount = await this.sessionsCollection.count();
+                } catch (error) {
+                    logger.warn(`[DreamService] count() failed while preparing aged undigested-session scan; using head window only: ${error.message}`);
                 }
             }
 
-            return undigested.slice(0, maxToProcess);
+            const tailOffset = Number.isFinite(collectionCount) ? Math.max(0, collectionCount - limit) : 0;
+            if (tailOffset > 0) {
+                addUndigestedRowsFromBatch(await readBatch(tailOffset), byId);
+            }
+
+            if (byId.size === 0) {
+                return [];
+            }
+
+            return splitFreshAndAgedUndigested([...byId.values()], maxToProcess);
         } catch (error) {
             logger.error('[DreamService] Error querying undigested sessions:', error);
             return [];
@@ -209,9 +336,12 @@ class DreamService extends Base {
         if (aiConfig.modelProvider === 'openAiCompatible') {
             const providerStart = Date.now();
             try {
-                const url = new URL('/v1/models', aiConfig.openAiCompatible.host);
-                const ping = await fetch(url.toString(), { method: 'GET', signal: AbortSignal.timeout(5000) });
-                if (!ping.ok) throw new Error('API provider not running');
+                await fetchOpenAiCompatibleModelIds({
+                    host      : aiConfig.openAiCompatible.host,
+                    timeoutMs : AiConfig.orchestrator.providerReadiness.timeoutMs,
+                    freshness : 'routine',
+                    cacheTtlMs: AiConfig.orchestrator.providerReadiness.routineCacheTtlMs
+                });
                 perPhaseStates.push(finishPhase('legacyProviderProbe', providerStart, 'completed', {
                     provider: aiConfig.modelProvider
                 }));
@@ -238,7 +368,20 @@ class DreamService extends Base {
             } else {
                 logger.info(`[DreamService] Found ${sessions.length} undigested session(s). Beginning REM pipeline...`);
 
-                // Phase 0: Ingest the version-controlled Concept Ontology (.neo-ai-data/concepts/*.jsonl)
+                // Phase 0a: Ingest local ADRs as deterministic graph nodes before any LLM
+                // extraction while keeping ADRs out of the Tri-Vector VALID_TYPES enum.
+                const adrIngestStart = Date.now();
+                try {
+                    await AdrIngestor.syncAdrsToGraph();
+                    perPhaseStates.push(finishPhase('adrIngest', adrIngestStart, 'completed'));
+                } catch (e) {
+                    perPhaseStates.push(finishPhase('adrIngest', adrIngestStart, 'failed', {
+                        error: toErrorMessage(e)
+                    }));
+                    throw e;
+                }
+
+                // Phase 0b: Ingest the version-controlled Concept Ontology (.neo-ai-data/concepts/*.jsonl)
                 // into the Native Edge Graph as first-class CONCEPT nodes + typed edges. Runs BEFORE
                 // FileSystemIngestor so downstream gap inference can traverse concept-graph relationships
                 // deterministically instead of regex-matching token lists against file paths.
@@ -268,25 +411,30 @@ class DreamService extends Base {
                 for (const session of sessions) {
                     logger.info(`[DreamService] Preparing session ${session.meta.sessionId} ("${session.meta.title}") for REM extraction.`);
 
-                    let rawEpisodicMemory = session.document;
+                    let rawEpisodicMemory = session.document,
+                        turnDocuments     = [session.document];
                     try {
                         const memoryCollection = await StorageRouter.getMemoryCollection();
                         if (memoryCollection) {
                             const rawMemories = await memoryCollection.get({
-                                where: { sessionId: session.meta.sessionId },
-                                include: ['documents']
+                                where  : { sessionId: session.meta.sessionId },
+                                include: ['documents', 'metadatas']
                             });
                             if (rawMemories?.documents?.length > 0) {
                                 // Send the full raw memory to the LLM. Lossless context tracking is required.
                                 // If local APIs crash, it is a configuration issue with n_ctx, not a client logic error.
-                                rawEpisodicMemory = rawMemories.documents.join('\n\n---\n\n');
+                                // Field↔document de-dup: reconstruct a dropped turn-document from its split metadata
+                                // (resolveTurnDocumentForRead no-ops on summaries via the type discriminator).
+                                turnDocuments     = rawMemories.documents.map((doc, i) => resolveTurnDocumentForRead({documents: [doc], metadata: rawMemories.metadatas?.[i]}));
+                                rawEpisodicMemory = turnDocuments.join('\n\n---\n\n');
                             }
                         }
                     } catch (e) {
                         logger.warn(`[DreamService] Could not fetch raw memories for ${session.meta.sessionId}`, e);
                     }
 
-                    session.document = rawEpisodicMemory;
+                    session.document      = rawEpisodicMemory;
+                    session.turnDocuments = turnDocuments;
                     logger.info(`[DreamService]   -> Payload size (chars): ${session.document.length}`);
 
                     const sessionState = {
@@ -319,11 +467,12 @@ class DreamService extends Base {
                             sessionId: session.meta.sessionId,
                             error    : toErrorMessage(e)
                         }));
-                        throw e;
+                        logger.warn(`[DreamService] Session ${session.meta.sessionId} failed during memory/session graph ingestion; continuing REM batch.`, e);
+                        continue;
                     }
                     const rawIngestErrors = Array.isArray(ingestStats.errors) ? ingestStats.errors : [];
                     const ingestErrors    = rawIngestErrors.length;
-                    const ingestTime = ((Date.now() - ingestStart) / 1000).toFixed(1);
+                    const ingestTime      = ((Date.now() - ingestStart) / 1000).toFixed(1);
                     logger.info(`[DreamService]   -> Memory/Session graph ingestion took: ${ingestTime}s (${ingestStats.memoriesUpserted} upserted, ${ingestStats.memoriesSkipped} skipped, ${ingestErrors} errors)`);
 
                     const ingestErrorReasons = rawIngestErrors.map(item => toErrorMessage(item));
@@ -347,9 +496,9 @@ class DreamService extends Base {
                     }
 
                     const startTime = Date.now();
-                    let success;
+                    let extractionResult;
                     try {
-                        success = await SemanticGraphExtractor.executeTriVectorExtraction(session);
+                        extractionResult = await SemanticGraphExtractor.executeTriVectorExtraction(session);
                     } catch (e) {
                         sessionState.triVector = {
                             status   : 'failed',
@@ -361,25 +510,46 @@ class DreamService extends Base {
                             sessionId: session.meta.sessionId,
                             error    : toErrorMessage(e)
                         }));
-                        throw e;
+                        logger.warn(`[DreamService] Session ${session.meta.sessionId} failed during Tri-Vector extraction; continuing REM batch.`, e);
+                        continue;
                     }
                     const triVectorTime = ((Date.now() - startTime) / 1000).toFixed(1);
                     logger.info(`[DreamService]   -> Tri-Vector Synthesis took: ${triVectorTime}s`);
+                    const extractionFailure = isTriVectorFailureDescriptor(extractionResult) ? extractionResult : null;
+                    const success           = extractionResult && !extractionFailure;
                     sessionState.triVector = {
                         status   : success ? 'completed' : 'failed',
-                        attempts : 1,
-                        errorKind: success ? undefined : 'null-result'
+                        attempts : extractionFailure ? getTriVectorFailureAttempts(extractionFailure) : 1,
+                        errorKind: success ? undefined : (extractionFailure ? getTriVectorFailureKind(extractionFailure) : 'null-result')
                     };
+                    if (extractionFailure) {
+                        sessionState.triVector.deferReason        = extractionFailure.deferReason;
+                        sessionState.triVector.frictionSymptom    = extractionFailure.frictionSymptom;
+                        sessionState.triVector.terminalForCadence = extractionFailure.terminalForCadence === true;
+                        sessionState.triVector.evidence           = extractionFailure.evidence;
+                    }
                     if (!success) {
-                        sessionState.failureReasons.push('tri-vector extraction returned null');
+                        sessionState.failureReasons.push(extractionFailure ? getTriVectorFailureMessage(extractionFailure) : 'tri-vector extraction returned null');
                     }
                     perPhaseStates.push(finishPhase('triVector', startTime, success ? 'completed' : 'failed', {
-                        sessionId: session.meta.sessionId
+                        sessionId  : session.meta.sessionId,
+                        deferReason: extractionFailure?.deferReason
                     }));
 
-                    const topoStart = Date.now();
+                    const topoStart     = Date.now();
+                    let   conflictCount = 0,
+                          topologyDetails = {};
                     try {
-                        await TopologyInferenceEngine.extractTopology(session.document, session.meta.sessionId);
+                        const topologyResult = await TopologyInferenceEngine.extractTopology(session.document, session.meta.sessionId, {
+                            turnDocuments: session.turnDocuments
+                        });
+                        conflictCount = await TopologyInferenceEngine.getTopologyConflictCount();
+                        if (topologyResult?.chunks) {
+                            topologyDetails = {
+                                chunks : topologyResult.chunks,
+                                chunked: topologyResult.chunked
+                            };
+                        }
                     } catch (e) {
                         sessionState.topology = {
                             status       : 'failed',
@@ -390,23 +560,25 @@ class DreamService extends Base {
                             sessionId: session.meta.sessionId,
                             error    : toErrorMessage(e)
                         }));
-                        throw e;
+                        logger.warn(`[DreamService] Session ${session.meta.sessionId} failed during topology inference; continuing REM batch.`, e);
+                        continue;
                     }
                     const topoTime = ((Date.now() - topoStart) / 1000).toFixed(1);
                     logger.info(`[DreamService]   -> Topological Conflicts took: ${topoTime}s`);
-                    const conflictCount = await TopologyInferenceEngine.getTopologyConflictCount();
                     sessionState.topology = {
                         status: 'completed',
-                        conflictCount
+                        conflictCount,
+                        ...topologyDetails
                     };
                     perPhaseStates.push(finishPhase('topology', topoStart, 'completed', {
                         sessionId: session.meta.sessionId,
-                        conflictCount
+                        conflictCount,
+                        ...topologyDetails
                     }));
 
                     const capStart = Date.now();
                     try {
-                        await this.inferTestGapsFromSession(success);
+                        await this.inferTestGapsFromSession(success ? extractionResult : null);
                     } catch (e) {
                         sessionState.gapSession = {
                             status      : 'failed',
@@ -417,7 +589,8 @@ class DreamService extends Base {
                             sessionId: session.meta.sessionId,
                             error    : toErrorMessage(e)
                         }));
-                        throw e;
+                        logger.warn(`[DreamService] Session ${session.meta.sessionId} failed during TEST_GAP inference; continuing REM batch.`, e);
+                        continue;
                     }
                     const capTime = ((Date.now() - capStart) / 1000).toFixed(1);
                     logger.info(`[DreamService]   -> Session TEST_GAP Inference took: ${capTime}s`);
@@ -430,12 +603,65 @@ class DreamService extends Base {
 
                     if (success && ingestErrors === 0) {
                         await this.sessionsCollection.update({
-                            ids: [session.id],
-                            metadatas: [{ ...session.meta, graphDigested: true }]
+                            ids      : [session.id],
+                            metadatas: [{ ...session.meta, graphDigested: true, digestState: 'digested' }]
                         });
                         sessionState.graphDigestedFlag = true;
                         logger.info(`[DreamService] Session ${session.meta.sessionId} marked as graphDigested in Memory Core.`);
+                    } else {
+                        // Digest failed (typed extractor failure OR memory-ingestion errors). Bound the
+                        // re-serve immediately for provider-size failures; ingestion errors and legacy
+                        // bare-null returns stay retryable so a storage/transient failure never removes
+                        // a digestible session from the steady cadence.
+                        const digestAttempts    = (Number(session.meta.digestAttempts) || 0) + 1;
+                        const maxDigestAttempts = aiConfig.maxDigestAttempts;
+                        if (!Number.isFinite(maxDigestAttempts)) {
+                            throw new Error('[DreamService] Required AiConfig leaf "maxDigestAttempts" is missing or invalid. Update ai/mcp/server/memory-core/config.mjs from config.template.mjs.');
+                        }
+                        const terminalForCadence       = ingestErrors === 0 && extractionFailure?.terminalForCadence === true;
+                        const immediateTerminalCadence = ingestErrors === 0 && isImmediateCadenceTerminalFailure(extractionFailure);
+                        const deferReason              = ingestErrors > 0
+                            ? 'ingestion-failure'
+                            : (extractionFailure?.deferReason || 'schema-failure');
+                        const digestState = immediateTerminalCadence || (terminalForCadence && digestAttempts >= maxDigestAttempts)
+                            ? 'undigestible'
+                            : 'undigested';
+
+                        await this.sessionsCollection.update({
+                            ids      : [session.id],
+                            metadatas: [{ ...session.meta, digestState, digestAttempts, deferReason }]
+                        });
+                        sessionState.digestState        = digestState;
+                        sessionState.deferReason        = deferReason;
+                        sessionState.digestAttempts     = digestAttempts;
+                        sessionState.terminalForCadence = terminalForCadence;
+
+                        if (digestState === 'undigestible') {
+                            logger.warn(`[DreamService] Session ${session.meta.sessionId} marked 'undigestible' after ${digestAttempts} failed digest attempt(s) (reason: ${deferReason}); excluded from the steady REM cadence to stop the re-serve bleed.`);
+                        } else {
+                            logger.info(`[DreamService] Session ${session.meta.sessionId} digest failed (reason: ${deferReason}); attempt ${digestAttempts}/${maxDigestAttempts}, will retry next cycle.`);
+                        }
                     }
+                }
+
+                // Neural Link action digest is cycle-scoped: it reads the shared forward audit
+                // ledger once per REM cycle and adds weak runtime-interaction evidence without
+                // erasing TEST_GAPs or synthesizing permanent Playwright coverage.
+                const nlActionDigestStart = Date.now();
+                try {
+                    const nlActionDigest = await this.executeNLActionDigest();
+                    logger.info(`[DreamService] Cycle-scope NL_ACTION Digest took: ${((Date.now() - nlActionDigestStart) / 1000).toFixed(1)}s`);
+                    perPhaseStates.push(finishPhase(
+                        'nlActionDigest',
+                        nlActionDigestStart,
+                        nlActionDigest?.status === 'skipped' ? 'skipped' : 'completed',
+                        nlActionDigest
+                    ));
+                } catch (e) {
+                    perPhaseStates.push(finishPhase('nlActionDigest', nlActionDigestStart, 'failed', {
+                        error: toErrorMessage(e)
+                    }));
+                    throw e;
                 }
 
                 // Concept-graph gap inference is ontology-scoped: the output is identical
@@ -516,8 +742,8 @@ class DreamService extends Base {
         const startedAtMs = Date.now();
         const startedAt   = new Date(startedAtMs);
         const runId       = `rem-${crypto.randomUUID()}`;
-        const perPhaseStates = [];
-        let perSessionStates = [];
+        const perPhaseStates   = [];
+        let   perSessionStates = [];
 
         const baseOutcome = {
             runId,
@@ -527,6 +753,8 @@ class DreamService extends Base {
             completedAt      : null,
             durationMs       : null,
             sessionsProcessed: null,
+            remBatchLimit    : null,
+            remBatchSaturated: false,
             diagnostic       : null,
             skipReason       : null,
             error            : null
@@ -626,11 +854,17 @@ class DreamService extends Base {
         // work-completed `completed` path without requiring a return-value refactor on
         // processUndigestedSessions. A pre-call query is cheaper than the alternative
         // of inspecting graph state after the fact.
-        let sessionCount = 0;
+        let sessionCount  = 0,
+            remBatchLimit = null;
         const sessionQueryStart = Date.now();
         try {
-            const undigested = await this.findUndigestedSessions();
+            const undigested         = await this.findUndigestedSessions();
+            const remSleepBatchLimit = aiConfig.remSleepBatchLimit;
+            if (!Number.isFinite(remSleepBatchLimit)) {
+                throw new Error('[DreamService] Required AiConfig leaf "remSleepBatchLimit" is missing or invalid. Update ai/mcp/server/memory-core/config.mjs from config.template.mjs.');
+            }
             sessionCount = Array.isArray(undigested) ? undigested.length : 0;
+            remBatchLimit = Math.max(0, Math.floor(remSleepBatchLimit));
             perPhaseStates.push(finishPhase('sessionQuery', sessionQueryStart, 'completed', {sessionsFound: sessionCount}));
         } catch (e) {
             const message = toErrorMessage(e);
@@ -654,8 +888,8 @@ class DreamService extends Base {
                     const message = toErrorMessage(e);
                     perPhaseStates.push(finishPhase('decay', decayStart, 'failed', {error: message}));
                     return await finalize('failed', {
-                        reasonCode       : 'decay-failed',
-                        failurePhase     : 'decay',
+                        reasonCode  : 'decay-failed',
+                        failurePhase: 'decay',
                         error            : {message: `decayGlobalTopology threw on zero-session path: ${message}`, stack: e?.stack},
                         sessionsProcessed: 0
                     });
@@ -664,6 +898,8 @@ class DreamService extends Base {
             return await finalize('skipped', {
                 reasonCode       : 'no-undigested-sessions',
                 sessionsProcessed: 0,
+                remBatchLimit,
+                remBatchSaturated: false,
                 skipReason       : 'no undigested sessions'
             });
         }
@@ -671,7 +907,7 @@ class DreamService extends Base {
         // Work path: process sessions, then run decay as the cycle-finalization step
         // under the same lease window the caller already holds.
         try {
-            const processStart = Date.now();
+            const processStart  = Date.now();
             const processResult = await this.processUndigestedSessions();
             if (Array.isArray(processResult?.perPhaseStates)) {
                 perPhaseStates.push(...processResult.perPhaseStates);
@@ -694,7 +930,12 @@ class DreamService extends Base {
                 }
             }
 
-            return await finalize('completed', {reasonCode: 'ok', sessionsProcessed: sessionCount});
+            return await finalize('completed', {
+                reasonCode       : 'ok',
+                sessionsProcessed: sessionCount,
+                remBatchLimit,
+                remBatchSaturated: remBatchLimit > 0 && sessionCount >= remBatchLimit
+            });
         } catch (e) {
             if (e.remState) {
                 if (Array.isArray(e.remState.perPhaseStates)) {
@@ -744,10 +985,12 @@ class DreamService extends Base {
         }
 
         const waitResult = await waitForProvider({
-            attempts : readinessConfig.attempts,
-            delayMs  : readinessConfig.delayMs,
-            timeoutMs: readinessConfig.timeoutMs,
-            output   : {write: () => {}}
+            attempts                : readinessConfig.attempts,
+            delayMs                 : readinessConfig.delayMs,
+            timeoutMs               : readinessConfig.timeoutMs,
+            modelDiscoveryFreshness : 'routine',
+            modelDiscoveryCacheTtlMs: readinessConfig.routineCacheTtlMs,
+            output                  : {write: () => {}}
         });
 
         if (!waitResult.running) {
@@ -758,7 +1001,7 @@ class DreamService extends Base {
         }
 
         const ollamaReadinessConfig = buildOllamaReadinessConfig(AiConfig);
-        const capacity = ollamaReadinessConfig.roles.length > 0
+        const capacity              = ollamaReadinessConfig.roles.length > 0
             ? await ensureOllamaModelsReady({
                 ...ollamaReadinessConfig,
                 attempts    : readinessConfig.attempts,
@@ -767,8 +1010,10 @@ class DreamService extends Base {
                 allowPartial: true
             })
             : await warnProviderParallelModelCapacity({
-                config   : AiConfig,
-                timeoutMs: readinessConfig.timeoutMs
+                config                  : AiConfig,
+                timeoutMs               : readinessConfig.timeoutMs,
+                modelDiscoveryFreshness : 'routine',
+                modelDiscoveryCacheTtlMs: readinessConfig.routineCacheTtlMs
             });
 
         if (capacity?.degraded) {
@@ -786,16 +1031,6 @@ class DreamService extends Base {
     }
 
     /**
-     * Backward compatibility passthrough to GoldenPathSynthesizer.
-     * @deprecated Trigger GoldenPathSynthesizer directly or use MemoryService.mutateFrontier hook.
-     */
-    async synthesizeGoldenPath() {
-        // We dynamically import it here to avoid circular dependency loops during initialization
-        const { default: GoldenPathSynthesizer } = await import('./services/GoldenPathSynthesizer.mjs');
-        return GoldenPathSynthesizer.synthesizeGoldenPath();
-    }
-
-    /**
      * Cycle-scoped GUIDE_GAP / EXAMPLE_GAP inference entry point. Delegates to
      * `GapInferenceEngine` for deterministic concept-graph edge traversal (`EXPLAINED_BY` /
      * `EXEMPLIFIED_BY`). Output depends only on ontology state, not on any individual session —
@@ -805,6 +1040,17 @@ class DreamService extends Base {
      */
     async inferConceptGraphGaps() {
         return GapInferenceEngine.inferConceptGraphGaps();
+    }
+
+    /**
+     * Cycle-scoped Neural Link action digest entry point. Delegates to `GapInferenceEngine`
+     * for deterministic `nl_action_log` inspection and weak `NL_ACTION_SEQUENCE -> VALIDATES`
+     * evidence edges. Invoked once per REM cycle after the per-session TEST_GAP pass and before
+     * concept-graph gap inference; it never removes TEST_GAPs because live agent interaction is
+     * weaker than durable Playwright coverage.
+     */
+    async executeNLActionDigest() {
+        return GapInferenceEngine.inferNlActionDigest();
     }
 
     /**
@@ -833,6 +1079,17 @@ class DreamService extends Base {
      */
     async runConceptDiscovery() {
         return ConceptDiscoveryService.runDiscoveryCycle();
+    }
+
+    /**
+     * Scheduled process/MX concept discovery entry point. Delegates to
+     * `ConceptDiscoveryService` so A2A-message vocabulary is drained outside the mailbox
+     * hot path: cheap frequency pre-filter first, then one bounded Teaching-Test prompt for
+     * top recurring terms, then `conceptHarvested` markers on processed MESSAGE nodes.
+     * @returns {Promise<Object>} Message-harvest stats.
+     */
+    async runMessageConceptHarvest() {
+        return ConceptDiscoveryService.runMessageConceptHarvest();
     }
 
     /**

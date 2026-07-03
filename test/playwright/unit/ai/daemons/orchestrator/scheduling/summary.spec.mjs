@@ -1,6 +1,7 @@
 import {test, expect} from '@playwright/test';
 import {
     buildSummaryTrigger,
+    hasDrainableMemorySummaryBackfill,
     getPendingSummarizationJobs,
     getPendingSessionSummaryCount,
     getDueTask
@@ -94,12 +95,12 @@ test.describe('orchestrator/scheduling/summary (#11864 / Epic #11831)', () => {
 
     test('#12199: getDueTask reads pending markers when no handover is waiting', () => {
         const result = getDueTask({
-            db                            : 'mock-db',
-            state                         : {summary: {lastRunAt: 0}},
-            now                           : 100,
-            summarySweepIntervalMs        : 600000,
-            getUnreadSunsetHandoversFn    : () => [],
-            getPendingSummarizationJobsFn : () => ['session-1']
+            db                           : 'mock-db',
+            state                        : {summary: {lastRunAt: 0}},
+            now                          : 100,
+            summarySweepIntervalMs       : 600000,
+            getUnreadSunsetHandoversFn   : () => [],
+            getPendingSummarizationJobsFn: () => ['session-1']
         });
 
         expect(result).toEqual({
@@ -114,13 +115,13 @@ test.describe('orchestrator/scheduling/summary (#11864 / Epic #11831)', () => {
         const markCalls = [];
         const handovers = [{id: 'MESSAGE:1'}, {id: 'MESSAGE:2'}];
         const result = getDueTask({
-            db                        : 'mock-db',
-            state                     : {summary: {lastRunAt: 0}},
-            now                       : 100,
-            summarySweepIntervalMs    : 600000,
-            getUnreadSunsetHandoversFn: () => handovers,
-            markNodesAsReadFn         : (db, nodes) => markCalls.push({db, nodes}),
-            log                       : () => {}
+            db                                   : 'mock-db',
+            state                                : {summary: {lastRunAt: 0}},
+            now                                  : 100,
+            summarySweepIntervalMs               : 600000,
+            getUnreadSunsetHandoversFn           : () => handovers,
+            markSunsetHandoversSummaryProcessedFn: (db, nodes) => markCalls.push({db, nodes}),
+            log                                  : () => {}
         });
         expect(result.source).toBe('sunset-handover');
         expect(result.handoverCount).toBe(2);
@@ -152,7 +153,7 @@ test.describe('orchestrator/scheduling/summary (#11864 / Epic #11831)', () => {
     test('#12809: buildSummaryTrigger reports the TRUE backlog depth, not the fetch limit', () => {
         const fetched = Array.from({length: 50}, (_, i) => `session-${i}`);
         expect(buildSummaryTrigger({
-            now: 600000, lastRunAt: 0, intervalMs: 600000, handovers: [],
+            now        : 600000, lastRunAt: 0, intervalMs: 600000, handovers: [],
             pendingJobs: fetched, totalPending: 730
         })).toEqual({
             taskName    : 'summary',
@@ -178,11 +179,11 @@ test.describe('orchestrator/scheduling/summary (#11864 / Epic #11831)', () => {
         });
     });
 
-    test('#12821: buildSummaryTrigger appends the unsummarized-session count to the periodic-sweep reason', () => {
+    test('#12821/#13590: buildSummaryTrigger appends the graph-backed session-summary count to the periodic-sweep reason', () => {
         expect(buildSummaryTrigger({now: 600000, lastRunAt: 0, intervalMs: 600000, handovers: [], unsummarizedCount: 42})).toEqual({
             taskName: 'summary',
             source  : 'periodic-sweep',
-            reason  : 'periodic-sweep:600000 pending-session-summary:42'
+            reason  : 'periodic-sweep:600000 graph-pending-session-summary:42'
         });
     });
 
@@ -194,7 +195,7 @@ test.describe('orchestrator/scheduling/summary (#11864 / Epic #11831)', () => {
         });
     });
 
-    test('#12821: getDueTask threads the session-summary backlog count into the periodic-sweep reason', () => {
+    test('#12821/#13590: getDueTask threads the graph-backed session-summary backlog count into the periodic-sweep reason', () => {
         const result = getDueTask({
             db                             : 'mock-db',
             state                          : {summary: {lastRunAt: 0}},
@@ -206,8 +207,114 @@ test.describe('orchestrator/scheduling/summary (#11864 / Epic #11831)', () => {
         });
         expect(result).toMatchObject({
             source: 'periodic-sweep',
-            reason: 'periodic-sweep:600000 pending-session-summary:42'
+            reason: 'periodic-sweep:600000 graph-pending-session-summary:42'
         });
+    });
+
+    test('#13590: periodic drift sweep yields while miniSummary backfill has drainable work', () => {
+        const result = getDueTask({
+            db   : 'mock-db',
+            state: {
+                summary                  : {lastRunAt: 0},
+                'memory-summary-backfill': {}
+            },
+            now                                   : 600000,
+            summarySweepIntervalMs                : 600000,
+            getUnreadSunsetHandoversFn            : () => [],
+            getPendingSummarizationJobsFn         : () => [],
+            getPendingMemorySummaryBackfillJobsFn : () => ['memory-1'],
+            isMemorySummaryBackfillBackoffActiveFn: () => false,
+            getPendingSessionSummaryCountFn       : () => 42
+        });
+
+        expect(result).toBeNull();
+    });
+
+    test('#13590: periodic drift sweep proceeds when miniSummary backfill is in no-progress backoff', () => {
+        const result = getDueTask({
+            db   : 'mock-db',
+            state: {
+                summary                  : {lastRunAt: 0},
+                'memory-summary-backfill': {noProgressBackoffUntilMs: 700000}
+            },
+            now                                   : 600000,
+            summarySweepIntervalMs                : 600000,
+            getUnreadSunsetHandoversFn            : () => [],
+            getPendingSummarizationJobsFn         : () => [],
+            getPendingMemorySummaryBackfillJobsFn : () => ['memory-1'],
+            isMemorySummaryBackfillBackoffActiveFn: () => true,
+            getPendingSessionSummaryCountFn       : () => 42
+        });
+
+        expect(result).toMatchObject({
+            source: 'periodic-sweep',
+            reason: 'periodic-sweep:600000 graph-pending-session-summary:42'
+        });
+    });
+
+    test('#13590: sunset handovers are not blocked by miniSummary backfill', () => {
+        const result = getDueTask({
+            db                                    : 'mock-db',
+            state                                 : {summary: {lastRunAt: 0}},
+            now                                   : 600000,
+            summarySweepIntervalMs                : 600000,
+            getUnreadSunsetHandoversFn            : () => [{id: 'MESSAGE:1'}],
+            getPendingMemorySummaryBackfillJobsFn : () => ['memory-1'],
+            isMemorySummaryBackfillBackoffActiveFn: () => false,
+            markNodesAsReadFn                     : () => {}
+        });
+
+        expect(result).toMatchObject({
+            source       : 'sunset-handover',
+            reason       : 'sunset-handover:1',
+            handoverCount: 1
+        });
+    });
+
+    test('#13590: explicit pending summarization markers are not blocked by miniSummary backfill', () => {
+        const result = getDueTask({
+            db                                    : 'mock-db',
+            state                                 : {summary: {lastRunAt: 0}},
+            now                                   : 600000,
+            summarySweepIntervalMs                : 600000,
+            getUnreadSunsetHandoversFn            : () => [],
+            getPendingSummarizationJobsFn         : () => ['session-1'],
+            getPendingSummarizationCountFn        : () => 1,
+            getPendingMemorySummaryBackfillJobsFn : () => ['memory-1'],
+            isMemorySummaryBackfillBackoffActiveFn: () => false
+        });
+
+        expect(result).toMatchObject({
+            source      : 'pending-summarization',
+            reason      : 'pending-summarization:1',
+            pendingCount: 1
+        });
+    });
+
+    test('#13590: hasDrainableMemorySummaryBackfill reflects pending work minus no-progress backoff', () => {
+        expect(hasDrainableMemorySummaryBackfill({
+            db                                    : 'mock-db',
+            state                                 : {},
+            now                                   : 600000,
+            getPendingMemorySummaryBackfillJobsFn : () => [],
+            isMemorySummaryBackfillBackoffActiveFn: () => false
+        })).toBe(false);
+
+        expect(hasDrainableMemorySummaryBackfill({
+            db                                    : 'mock-db',
+            state                                 : {'memory-summary-backfill': {}},
+            now                                   : 600000,
+            getPendingMemorySummaryBackfillJobsFn : () => ['memory-1'],
+            isMemorySummaryBackfillBackoffActiveFn: () => false
+        })).toBe(true);
+
+        expect(hasDrainableMemorySummaryBackfill({
+            db                                    : 'mock-db',
+            state                                 : {'memory-summary-backfill': {noProgressBackoffUntilMs: 700000}},
+            now                                   : 600000,
+            getPendingMemorySummaryBackfillJobsFn : () => ['memory-1'],
+            isMemorySummaryBackfillBackoffActiveFn: () => true
+        })).toBe(false);
     });
 
     test('#12821: getPendingSessionSummaryCount is fail-soft when the graph table is unavailable', () => {

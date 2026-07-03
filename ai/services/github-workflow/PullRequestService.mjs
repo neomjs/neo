@@ -1,15 +1,17 @@
-import {exec, execFile}                        from 'child_process';
-import {promisify}                             from 'util';
-import Base                                    from '../../../src/core/Base.mjs';
-import GraphqlService                          from './GraphqlService.mjs';
-import aiConfig                                from '../../mcp/server/github-workflow/config.mjs';
-import logger                                  from '../../mcp/server/github-workflow/logger.mjs';
+import {exec, execFile} from 'child_process';
+import path             from 'path';
+import {promisify}      from 'util';
+import Base             from '../../../src/core/Base.mjs';
+import GraphqlService   from './GraphqlService.mjs';
+import aiConfig         from '../../mcp/server/github-workflow/config.mjs';
+import logger           from '../../mcp/server/github-workflow/logger.mjs';
 import {
     ADD_PULL_REQUEST_REVIEW,
     GET_PULL_REQUEST_ID,
     UPDATE_PULL_REQUEST_REVIEW
 }                                              from './queries/mutations.mjs';
 import {FETCH_PULL_REQUESTS, GET_CONVERSATION} from './queries/pullRequestQueries.mjs';
+import {projectConversationTrust}              from './shared/conversationTrust.mjs';
 
 const execAsync     = promisify(exec);
 const execFileAsync = promisify(execFile);
@@ -84,19 +86,473 @@ const INVISIBLE_PR_REVIEW_ANCHORS = [
 ];
 
 /**
- * Optional-first premise-snapshot anchors for the patch-blind review migration.
- *
- * Absence of all three labels is valid during the add-optional phase so in-flight reviews keep
- * passing. If an author starts emitting the snapshot, all three fields must be present together;
- * otherwise a partial snapshot reintroduces the same back-rationalized theater the snapshot is
- * meant to expose. Match the distinctive bold template labels, not bare prose, so incidental
- * phrases like "Patch Verdict" do not activate the partial-snapshot gate.
+ * REQUIRED premise-snapshot anchors — every agent PR review must carry all four. The fourth,
+ * **Premise Coherence**, forces the value-coherence verdict ("does this PR's premise cohere with our
+ * core values?") that fit-shape review skips — a green checklist over a wrong premise is theater.
+ * The forcing-function raises the floor by forcing ARTICULATION, not depth: the field is satisfied
+ * by a specific verdict ("coheres: lead stays facilitator-not-delegator" / "conflicts: adds
+ * surveillance vs flat-peer-team") OR a scoped "N/A — no value-surface (scope: ...)" for a trivial
+ * PR with no value-surface (the marginal-value skip). Match the distinctive bold template labels,
+ * not bare prose, so incidental phrases do not satisfy the gate.
  */
-const OPTIONAL_PR_REVIEW_PREMISE_ANCHORS = [
+const REQUIRED_PR_REVIEW_PREMISE_ANCHORS = [
     {label: 'Inputs Read Before Patch',  token: '**Inputs Read Before Patch:**'},
     {label: 'Expected Solution Shape',   token: '**Expected Solution Shape:**'},
-    {label: 'Patch Verdict',             token: '**Patch Verdict:**'}
+    {label: 'Patch Verdict',             token: '**Patch Verdict:**'},
+    {label: 'Premise Coherence',         token: '**Premise Coherence:**'}
 ];
+
+const FOLLOWUP_PR_REVIEW_SHAPE_HINTS = [
+    '# PR Review Follow-Up Summary',
+    '**Cycle:**',
+    '### ⚓ Prior Review Anchor',
+    '### 🔁 Delta Scope',
+    '### Prior Review Anchor',
+    '### Delta Scope',
+    '### ✅ Previous Required Actions Audit',
+    '### Previous Required Actions Audit',
+    '### 🔬 Delta Depth Floor',
+    '### Delta Depth Floor',
+    '### 📊 Metrics Delta',
+    '### Metrics Delta'
+];
+
+const MICRO_DELTA_PR_REVIEW_SHAPE_HINTS = [
+    '# Pull Request Micro-Delta Review',
+    '### State Vector',
+    '### Micro-Delta Focus',
+    '### Verdict'
+];
+
+const FULL_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS = [
+    '# PR Review Summary',
+    '### 🪜 Strategic-Fit Decision',
+    '### 🧭 Patch-Blind Premise Snapshot',
+    '### 🕸️ Context & Graph Linking',
+    '### 🔬 Depth Floor',
+    '### 🧠 Graph Ingestion Notes',
+    '### 📋 Required Actions',
+    '### 📊 Evaluation Metrics'
+];
+
+const FOLLOWUP_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS = [
+    '# PR Review Follow-Up Summary',
+    '**Cycle:**',
+    '### 🧭 Patch-Blind Premise Snapshot',
+    '### 🪜 Strategic-Fit Decision',
+    '### ⚓ Prior Review Anchor',
+    '### 🔁 Delta Scope',
+    '### ✅ Previous Required Actions Audit',
+    '### 🔬 Delta Depth Floor',
+    '### 📊 Metrics Delta',
+    '### 📋 Required Actions'
+];
+
+const MICRO_DELTA_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS = [
+    '# Pull Request Micro-Delta Review',
+    '> **Context:**',
+    '### State Vector',
+    '- **Target SHA:**',
+    '- **Current reviewDecision:**',
+    '- **Semantic Status:**',
+    '- **CI Status:**',
+    '- **Remaining Blocker Class:**',
+    '- **Measured Discussion Cost:**',
+    '### Micro-Delta Focus',
+    '*Only defects classified as `mechanical-hygiene` or `metadata-drift` are reviewed here.*',
+    '### Verdict',
+    '**APPROVED**',
+    '**CHANGES_REQUESTED**',
+    '**MAINTAINER POLISH FAST PATH APPLIED**'
+];
+
+const MICRO_DELTA_REVIEW_BLOCKER_CLASS_PATTERN = /(?:^|[^\w-])(mechanical-hygiene|metadata-drift)(?:$|[^\w-])/i;
+
+// Micro-Review (Cycle-1, blast-scaled): a MICRO / CONTAINED PR — none of the intense triggers (ADR /
+// new-subsystem / consumed-contract / security / migration) and a small diff — gets a premise+correctness
+// glance, not the full gauntlet (pr-review-guide §7 blast-scaling). The minimal shape stays opt-in via the
+// header so full/intense reviews keep validating heavy; the `**Class:**` token-check asserts the blast-class
+// so the light path cannot be a backdoor for an intense PR. Fail SAFE toward accept: the only enforced floor
+// is the header + class-assertion + a verdict + the glance — a wrongly-accepted-light review is recoverable
+// (human merge gate + peer review), a wrongly-rejected valid micro-review is the theater this tier removes.
+const MICRO_REVIEW_PR_REVIEW_SHAPE_HINTS = [
+    '# PR Micro-Review'
+];
+
+const MICRO_REVIEW_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS = [
+    '# PR Micro-Review',
+    '**Class:**',
+    '**Verdict:**',
+    '**Glance:**'
+];
+
+const MICRO_REVIEW_CLASS_PATTERN = /(?:^|[^\w-])(micro|contained|mechanical)(?:$|[^\w-])/i;
+
+/**
+ * @summary Returns missing cycle-template skeleton anchors for review-body validation.
+ *
+ * The broad visible/invisible anchor layers catch metric and structural omissions. This
+ * layer catches skeleton-fidelity regressions: review bodies that carry semantic anchors,
+ * but rename/drop the selected template's canonical icon-bearing scaffold.
+ *
+ * @param {String} body The candidate PR review body.
+ * @returns {String[]} Missing skeleton anchors, intentionally never exposed to callers.
+ */
+function getPrReviewTemplateSkeletonMisses(body) {
+    const hasFollowupShape = FOLLOWUP_PR_REVIEW_SHAPE_HINTS.some(anchor => body.includes(anchor));
+
+    if (hasFollowupShape) {
+        return FOLLOWUP_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS.filter(anchor => !body.includes(anchor));
+    }
+
+    return FULL_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS.filter(anchor => !body.includes(anchor));
+}
+
+/**
+ * @summary Returns `true` when a review body selects the Micro-Delta template.
+ *
+ * The Micro-Delta path is intentionally separate from full/follow-up review shapes: it is
+ * documented by the review-loop cost circuit breaker, not the normal pr-review templates,
+ * and carries a narrower state-vector contract instead of the full graph metric block.
+ *
+ * @param {String} body The candidate PR review body.
+ * @returns {Boolean} Whether the body appears to be a Micro-Delta review.
+ */
+function isMicroDeltaPrReview(body) {
+    return body.includes(MICRO_DELTA_PR_REVIEW_SHAPE_HINTS[0]) || (
+        body.includes('### State Vector') &&
+        body.includes('### Micro-Delta Focus')
+    );
+}
+
+/**
+ * @summary Returns missing documented Micro-Delta anchors.
+ *
+ * Micro-Delta reviews are only valid for review-loop cost-compression state (a), where
+ * semantics are already cleared and the remaining issue class is mechanical hygiene or
+ * metadata drift. The blocker-class token check prevents the short format from becoming
+ * a backdoor for semantic review shortcuts.
+ *
+ * @param {String} body The candidate Micro-Delta PR review body.
+ * @returns {String[]} Missing Micro-Delta anchors or state constraints.
+ */
+function getMicroDeltaPrReviewTemplateMisses(body) {
+    const misses = MICRO_DELTA_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS
+        .filter(anchor => !body.includes(anchor));
+
+    const remainingBlockerLine = body
+        .split('\n')
+        .find(line => line.includes('- **Remaining Blocker Class:**')) || '';
+
+    if (!MICRO_DELTA_REVIEW_BLOCKER_CLASS_PATTERN.test(remainingBlockerLine)) {
+        misses.push('Remaining Blocker Class: mechanical-hygiene | metadata-drift');
+    }
+
+    return misses;
+}
+
+/**
+ * @summary Returns a structured validation failure for malformed Micro-Delta review bodies.
+ *
+ * @param {String} body The candidate Micro-Delta PR review body.
+ * @returns {Object|null} Validation failure payload or `null` when valid.
+ */
+function getMicroDeltaPrReviewTemplateValidationFailure(body) {
+    const missingMicroDelta = getMicroDeltaPrReviewTemplateMisses(body);
+
+    if (missingMicroDelta.length === 0) {
+        return null;
+    }
+
+    const skillPath      = '.agents/skills/pr-review/SKILL.md';
+    const circuitPath    = '.agents/skills/pr-review/audits/review-cost-circuit-breaker.md';
+    const microDeltaPath = '.agents/skills/pr-review/assets/pr-review-micro-delta-template.md';
+
+    const message = [
+        `Review body attempts the Micro-Delta Review format but does not match the documented circuit-breaker structure.`,
+        ``,
+        `**Required action**: read \`${skillPath}\`, \`${circuitPath}\`, and \`${microDeltaPath}\` BEFORE retrying.`,
+        ``,
+        `Micro-Delta reviews are only valid after the Review-Loop Cost Circuit Breaker`,
+        `classifies the PR as state (a): semantics cleared, with only mechanical-hygiene`,
+        `or metadata-drift remaining. If a semantic or contract delta exists, use the`,
+        `full follow-up review template instead.`,
+        ``,
+        `Diagnostic hint: at least one required Micro-Delta state-vector or verdict anchor from \`${microDeltaPath}\` is missing or invalid.`
+    ].join('\n');
+
+    return {
+        error              : 'PR Review Template Validation Failed',
+        message,
+        code               : 'PR_REVIEW_TEMPLATE_VALIDATION_FAILED',
+        missing_micro_delta: missingMicroDelta,
+        skill              : skillPath,
+        circuitBreaker     : circuitPath,
+        template           : microDeltaPath
+    };
+}
+
+/**
+ * @summary Returns a structured validation failure for malformed full/follow-up review bodies.
+ *
+ * @param {String} body The candidate PR review body.
+ * @returns {Object|null} Validation failure payload or `null` when valid.
+ */
+function getCanonicalPrReviewTemplateValidationFailure(body) {
+    const missingVisible          = VISIBLE_PR_REVIEW_ANCHORS          .filter(anchor => !body.includes(anchor));
+    const missingInvisible        = INVISIBLE_PR_REVIEW_ANCHORS        .filter(anchor => !body.includes(anchor));
+    const missingTemplateSkeleton = getPrReviewTemplateSkeletonMisses(body);
+    const missingPremiseSnapshot  = REQUIRED_PR_REVIEW_PREMISE_ANCHORS
+        .filter(anchor => !body.includes(anchor.token))
+        .map(anchor => anchor.label);
+
+    if (
+        missingVisible.length === 0          &&
+        missingInvisible.length === 0        &&
+        missingTemplateSkeleton.length === 0 &&
+        missingPremiseSnapshot.length === 0
+    ) {
+        return null;
+    }
+
+    // Compose a message that guides toward the skill without enumerating invisible anchors.
+    // Even the visible-list naming is bounded — at most ONE diagnostic example, not the
+    // full list — to reduce the "stuff just these tags" attack surface further.
+    const diagnosticAnchor = missingVisible[0] ?? missingPremiseSnapshot[0] ?? null;
+
+    const skillPath    = '.agents/skills/pr-review/SKILL.md';
+    const templatePath = '.agents/skills/pr-review/assets/pr-review-template.md';
+    const followupPath = '.agents/skills/pr-review/assets/pr-review-followup-template.md';
+
+    const message = [
+        `Review body does not match the pr-review template structure.`,
+        ``,
+        `**Required action**: read \`${skillPath}\` BEFORE retrying. The skill points at:`,
+        `  - Cycle 1 (full template): \`${templatePath}\``,
+        `  - Cycle N (follow-up template): \`${followupPath}\``,
+        ``,
+        `Do NOT compose a substitute template or hallucinate section headings. The validator`,
+        `checks more structural anchors than this error names. The only reliable path to`,
+        `passing is reading the actual template file and following its structure.`,
+        missingPremiseSnapshot.length > 0
+            ? `\nPremise snapshot note: all four premise fields (incl. **Premise Coherence:**) are REQUIRED. The value-coherence field takes a specific verdict ("coheres: ..." / "conflicts: ...") OR a scoped "N/A — no value-surface (scope: ...)" for a trivial PR.`
+            : ``,
+        diagnosticAnchor
+            ? `\nDiagnostic hint: at least one recognized anchor like \`${diagnosticAnchor}\` is missing.`
+            : `\nDiagnostic hint: visible metric tags appear present but the structural template anchors do not.`
+    ].join('\n');
+
+    return {
+        error: 'PR Review Template Validation Failed',
+        message,
+        code : 'PR_REVIEW_TEMPLATE_VALIDATION_FAILED',
+        // `missing_visible` lists the named-in-message visible misses. Invisible misses
+        // are intentionally NOT enumerated in the response body — even programmatic
+        // callers should be nudged toward the skill rather than the anchor list.
+        missing_visible         : missingVisible,
+        missing_premise_snapshot: missingPremiseSnapshot,
+        skill                   : skillPath,
+        template                : templatePath
+    };
+}
+
+/**
+ * @summary Returns `true` when a review body opts into the Micro-Review (Cycle-1 blast-scaled) shape.
+ * @param {String} body The candidate PR review body.
+ * @returns {Boolean} Whether the body selects the Micro-Review light path.
+ */
+function isMicroReview(body) {
+    return MICRO_REVIEW_PR_REVIEW_SHAPE_HINTS.some(anchor => body.includes(anchor));
+}
+
+/**
+ * @summary Returns missing Micro-Review anchors (the minimal blast-scaled floor).
+ *
+ * Micro-Reviews are the Cycle-1 light path for a micro/contained PR (pr-review-guide §7 blast-scaling).
+ * The floor is intentionally minimal — header + `**Class:**` (asserting `micro`|`contained`, so the light
+ * path is not a backdoor for an intense PR) + `**Verdict:**` + `**Glance:**` (the premise+correctness check).
+ *
+ * @param {String} body The candidate Micro-Review body.
+ * @returns {String[]} Missing anchors or the class-assertion constraint.
+ */
+function getMicroReviewTemplateMisses(body) {
+    const misses = MICRO_REVIEW_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS
+        .filter(anchor => !body.includes(anchor));
+
+    const classLine = body.split('\n').find(line => line.includes('**Class:**')) || '';
+
+    if (!MICRO_REVIEW_CLASS_PATTERN.test(classLine)) {
+        misses.push('Class: micro | contained (the blast-class assertion)');
+    }
+
+    return misses;
+}
+
+/**
+ * @summary Returns a structured validation failure for malformed Micro-Review bodies.
+ *
+ * @param {String} body The candidate Micro-Review body.
+ * @returns {Object|null} Validation failure payload or `null` when valid.
+ */
+function getMicroReviewTemplateValidationFailure(body) {
+    const missing = getMicroReviewTemplateMisses(body);
+
+    if (missing.length === 0) {
+        return null;
+    }
+
+    const skillPath = '.agents/skills/pr-review/SKILL.md';
+
+    const message = [
+        `Review body attempts the Micro-Review format but does not match its minimal shape.`,
+        ``,
+        `The Micro-Review (Cycle-1, blast-scaled per pr-review-guide §7) is for a MECHANICAL PR with`,
+        `no architectural concept to teach (test / config-leaf / behavior-preserving), ANY size — so no`,
+        `\`[ARCH_ALIGNMENT]\` / \`[RETROSPECTIVE]\` graph-ingestion is lost (the gate that keeps the concept-graph`,
+        `fed). It needs only: the header, **Class:** (asserting micro | contained | mechanical), **Verdict:**,`,
+        `and **Glance:** (the premise + correctness check). A concept-bearing PR — touches an ADR / new`,
+        `abstraction / consumed contract / security / migration — uses the full template instead, regardless of size.`
+    ].join('\n');
+
+    return {
+        error              : 'PR Review Template Validation Failed',
+        message,
+        code               : 'PR_REVIEW_TEMPLATE_VALIDATION_FAILED',
+        missing_micro_review: missing,
+        skill              : skillPath
+    };
+}
+
+/**
+ * @summary Returns the selected review-template validation failure, if any.
+ *
+ * Tier dispatch (most-specific first): an opt-in Micro-Review (Cycle-1 blast-scaled light shape) → a
+ * Micro-Delta (Cycle-N cost-compression) → else the canonical full/follow-up template. The blast-scaled
+ * tiers fail SAFE toward accept (a minimal floor); the canonical path keeps validating heavy for
+ * full/intense reviews.
+ *
+ * @param {String} body The candidate PR review body.
+ * @returns {Object|null} Validation failure payload or `null` when valid.
+ */
+function getPrReviewTemplateValidationFailure(body) {
+    if (isMicroReview(body)) {
+        return getMicroReviewTemplateValidationFailure(body);
+    }
+
+    return isMicroDeltaPrReview(body)
+        ? getMicroDeltaPrReviewTemplateValidationFailure(body)
+        : getCanonicalPrReviewTemplateValidationFailure(body);
+}
+
+function normalizeCheckoutOptions(options) {
+    if (typeof options === 'number') {
+        return {pr_number: options};
+    }
+
+    return options || {};
+}
+
+/**
+ * @summary Builds the guarded `checkout_pull_request` executor.
+ *
+ * The MCP transport does not carry the caller's current working directory, so the
+ * checkout path must be explicit. The returned executor refuses caller-unknown
+ * mutations, verifies the supplied path is the git top-level, performs checkout
+ * there, and reads back git state for reviewer-side V-B-A.
+ *
+ * @param {Object}   [options]
+ * @param {Function} [options.execFileFn] Injectable command runner for unit tests.
+ * @param {String}   [options.projectRoot] Server process repo root used only for refusal diagnostics.
+ * @param {Object}   [options.log] Logger with an `error()` method.
+ * @returns {Function} Guarded checkout function.
+ */
+function buildCheckoutPullRequest({
+    execFileFn = execFileAsync,
+    projectRoot = aiConfig.projectRoot,
+    log = logger
+} = {}) {
+    return async function checkoutPullRequest(options) {
+        const {pr_number, repoPath} = normalizeCheckoutOptions(options);
+        const prNumber = Number(pr_number);
+
+        if (!Number.isInteger(prNumber) || prNumber <= 0) {
+            return {
+                error  : 'Bad Request',
+                message: "Missing or invalid required argument: 'pr_number' must be a positive integer.",
+                code   : 'INVALID_ARGUMENTS'
+            };
+        }
+
+        const serverRepoPath = path.resolve(projectRoot);
+
+        if (!repoPath) {
+            return {
+                error  : 'Unsafe checkout refused',
+                message: [
+                    '`checkout_pull_request` cannot infer the caller workspace over shared MCP transport. ',
+                    'Pass `repoPath` equal to the caller workspace git root, or run `gh pr checkout` manually in that workspace.'
+                ].join(''),
+                code    : 'CALLER_WORKSPACE_REQUIRED',
+                repoPath: serverRepoPath
+            };
+        }
+
+        const normalizedRepoPath = path.resolve(repoPath);
+        let gitTopLevel;
+
+        try {
+            const {stdout} = await execFileFn('git', ['rev-parse', '--show-toplevel'], {cwd: normalizedRepoPath});
+            gitTopLevel = path.resolve(stdout.trim());
+        } catch (error) {
+            log.error(`Error resolving git top-level for checkout_pull_request repoPath '${normalizedRepoPath}':`, error);
+            return {
+                error  : 'Invalid repoPath',
+                message: `repoPath '${normalizedRepoPath}' is not a readable git worktree root.`,
+                code    : 'INVALID_REPO_PATH',
+                repoPath: normalizedRepoPath,
+                details : error.stderr || error.message
+            };
+        }
+
+        if (gitTopLevel !== normalizedRepoPath) {
+            return {
+                error  : 'Unsafe checkout refused',
+                message: [
+                    `repoPath '${normalizedRepoPath}' resolves to git top-level '${gitTopLevel}'. `,
+                    'Pass the git top-level explicitly so the checkout target is unambiguous.'
+                ].join(''),
+                code    : 'REPO_PATH_NOT_GIT_ROOT',
+                repoPath: normalizedRepoPath,
+                gitTopLevel
+            };
+        }
+
+        try {
+            const {stdout}       = await execFileFn('gh', ['pr', 'checkout', String(prNumber)], {cwd: gitTopLevel});
+            const branchResult  = await execFileFn('git', ['branch', '--show-current'], {cwd: gitTopLevel});
+            const headShaResult = await execFileFn('git', ['rev-parse', 'HEAD'], {cwd: gitTopLevel});
+            const branch        = branchResult.stdout.trim();
+            const headSha       = headShaResult.stdout.trim();
+
+            return {
+                message: `Successfully checked out PR #${prNumber}`,
+                details : stdout.trim(),
+                repoPath: gitTopLevel,
+                branch,
+                headSha
+            };
+        } catch (error) {
+            log.error(`Error checking out PR #${prNumber}:`, error);
+            return {
+                error  : 'GitHub CLI command failed',
+                message: `gh pr checkout ${prNumber} failed with exit code ${error.code}`,
+                code    : 'GH_CLI_ERROR',
+                repoPath: gitTopLevel,
+                details : error.stderr || error.message
+            };
+        }
+    };
+}
 
 /**
  * @summary Service for interacting with GitHub Pull Requests via the `gh` CLI and GraphQL API.
@@ -125,22 +581,15 @@ class PullRequestService extends Base {
     }
 
     /**
-     * Checks out a specific pull request locally.
-     * @param {number} prNumber The number of the pull request to check out
-     * @returns {Promise<object>} A promise that resolves to a success message or a structured error.
+     * Checks out a pull request into an explicitly supplied caller workspace.
+     *
+     * @param {Object|Number} options Object form `{pr_number, repoPath}` or legacy
+     *                                positional PR number. Legacy numeric form now
+     *                                refuses until a caller workspace is explicit.
+     * @returns {Promise<object>} Structured checkout state or an explicit refusal/error.
      */
-    async checkoutPullRequest(prNumber) {
-        try {
-            const {stdout} = await execAsync(`gh pr checkout ${prNumber}`, {cwd: aiConfig.projectRoot});
-            return {message: `Successfully checked out PR #${prNumber}`, details: stdout.trim()};
-        } catch (error) {
-            logger.error(`Error checking out PR #${prNumber}:`, error);
-            return {
-                error  : 'GitHub CLI command failed',
-                message: `gh pr checkout ${prNumber} failed with exit code ${error.code}`,
-                code   : 'GH_CLI_ERROR'
-            };
-        }
+    async checkoutPullRequest(options) {
+        return buildCheckoutPullRequest()(options);
     }
 
     /**
@@ -176,7 +625,9 @@ class PullRequestService extends Base {
      *                                                  returns empty comments (callers can interpret as
      *                                                  "nothing new" or "id invalid").
      * @param {number}        [options.last_n]          Return only the last N comments (by createdAt order).
-     * @returns {Promise<object>} Conversation data (optionally filtered) or a structured error.
+     * @returns {Promise<object>} Conversation data (optionally filtered) or a structured error. Payloads
+     *          are trust-projected: authored nodes carry `authorTrust`, untrusted-author bodies arrive
+     *          defanged, and the root carries a `contentTrust` summary (see `shared/conversationTrust.mjs`).
      */
     async getConversation(options) {
         // Accept positional `prNumber` form for backward compatibility.
@@ -201,9 +652,12 @@ class PullRequestService extends Base {
         };
 
         try {
-            const data         = await GraphqlService.query(GET_CONVERSATION, variables);
-            const pullRequest  = data.repository.pullRequest;
-            const allComments  = pullRequest.comments?.nodes || [];
+            const data = await GraphqlService.query(GET_CONVERSATION, variables);
+            // Trust-project at the read boundary: every authored node gains `authorTrust`,
+            // untrusted-author bodies are defanged, the root carries a `contentTrust` summary.
+            // Applied before selector filtering so all return paths inherit projected nodes.
+            const pullRequest = projectConversationTrust(data.repository.pullRequest);
+            const allComments = pullRequest.comments?.nodes || [];
 
             // Selector precedence: comment_id > since_comment_id > last_n > full.
             let filtered;
@@ -307,10 +761,10 @@ class PullRequestService extends Base {
                     return { result: diffStdout };
                 }
 
-                const fileList = file.split(',').map(f => f.trim());
-                const lines = diffStdout.split('\n');
+                const fileList    = file.split(',').map(f => f.trim());
+                const lines       = diffStdout.split('\n');
                 const resultLines = [];
-                let capturing = false;
+                let   capturing   = false;
 
                 for (let i = 0; i < lines.length; i++) {
                     const line = lines[i];
@@ -374,7 +828,7 @@ class PullRequestService extends Base {
         };
 
         try {
-            const data = await GraphqlService.query(FETCH_PULL_REQUESTS, variables);
+            const data         = await GraphqlService.query(FETCH_PULL_REQUESTS, variables);
             const pullRequests = data.repository.pullRequests.nodes;
             return {
                 count: pullRequests.length,
@@ -440,69 +894,10 @@ class PullRequestService extends Base {
             };
         }
 
-        // Tool-boundary mechanical body-shape validation.
-        // The tool description points callers to the pr-review SKILL.md;
-        // this gate promotes that discipline-only guard to a mechanical floor with two layers:
-        //
-        // 1. VISIBLE layer — checked against VISIBLE_PR_REVIEW_ANCHORS; misses are named in the
-        //    error to guide good-faith authors back to the template.
-        // 2. INVISIBLE layer — checked against INVISIBLE_PR_REVIEW_ANCHORS; misses are NOT named
-        //    in the error. Defeats Goodhart anchor-stuffing where an agent receives a visible-only
-        //    error and hallucinates a body containing exactly the named anchors but skipping the
-        //    template structure. See INVISIBLE_PR_REVIEW_ANCHORS docstring for empirical anchor.
-        //
-        // Both layers point the agent at `.agents/skills/pr-review/SKILL.md` — the canonical
-        // primitive for resolving any validation failure is to read the skill + template, not
-        // to compose a substitute structure.
-        const missingVisible          = VISIBLE_PR_REVIEW_ANCHORS          .filter(anchor => !body.includes(anchor));
-        const missingInvisible        = INVISIBLE_PR_REVIEW_ANCHORS        .filter(anchor => !body.includes(anchor));
-        const presentPremiseSnapshot  = OPTIONAL_PR_REVIEW_PREMISE_ANCHORS .filter(anchor =>  body.includes(anchor.token));
-        const missingPremiseSnapshot  = presentPremiseSnapshot.length === 0
-            ? []
-            : OPTIONAL_PR_REVIEW_PREMISE_ANCHORS
-                .filter(anchor => !body.includes(anchor.token))
-                .map(anchor => anchor.label);
+        const templateValidationFailure = getPrReviewTemplateValidationFailure(body);
 
-        if (missingVisible.length > 0 || missingInvisible.length > 0 || missingPremiseSnapshot.length > 0) {
-            // Compose a message that guides toward the skill without enumerating invisible anchors.
-            // Even the visible-list naming is bounded — at most ONE diagnostic example, not the
-            // full list — to reduce the "stuff just these tags" attack surface further.
-            const diagnosticAnchor = missingVisible[0] ?? missingPremiseSnapshot[0] ?? null;
-
-            const skillPath    = '.agents/skills/pr-review/SKILL.md';
-            const templatePath = '.agents/skills/pr-review/assets/pr-review-template.md';
-            const followupPath = '.agents/skills/pr-review/assets/pr-review-followup-template.md';
-
-            const message = [
-                `Review body does not match the pr-review template structure.`,
-                ``,
-                `**Required action**: read \`${skillPath}\` BEFORE retrying. The skill points at:`,
-                `  - Cycle 1 (full template): \`${templatePath}\``,
-                `  - Cycle N (follow-up template): \`${followupPath}\``,
-                ``,
-                `Do NOT compose a substitute template or hallucinate section headings. The validator`,
-                `checks more structural anchors than this error names. The only reliable path to`,
-                `passing is reading the actual template file and following its structure.`,
-                missingPremiseSnapshot.length > 0
-                    ? `\nPremise snapshot note: the snapshot is optional during migration, but partial snapshots are invalid. Either omit it entirely or include all three fields.`
-                    : ``,
-                diagnosticAnchor
-                    ? `\nDiagnostic hint: at least one recognized anchor like \`${diagnosticAnchor}\` is missing.`
-                    : `\nDiagnostic hint: visible metric tags appear present but the structural template anchors do not.`
-            ].join('\n');
-
-            return {
-                error   : 'PR Review Template Validation Failed',
-                message,
-                code    : 'PR_REVIEW_TEMPLATE_VALIDATION_FAILED',
-                // `missing_visible` lists the named-in-message visible misses. Invisible misses
-                // are intentionally NOT enumerated in the response body — even programmatic
-                // callers should be nudged toward the skill rather than the anchor list.
-                missing_visible         : missingVisible,
-                missing_premise_snapshot: missingPremiseSnapshot,
-                skill                   : skillPath,
-                template                : templatePath
-            };
+        if (templateValidationFailure) {
+            return templateValidationFailure;
         }
 
         if (action === 'create') {
@@ -623,7 +1018,7 @@ class PullRequestService extends Base {
     }
 
     /**
-     * @summary Unified add/remove of GitHub PR reviewer-requests via the `gh pr edit` CLI.
+     * @summary Unified add/remove of GitHub PR reviewer-requests via the REST `requested_reviewers` endpoint.
      *
      * Sibling to `IssueService.manageIssueAssignees` for PR reviewer invitations — closes the
      * **invitation layer** of the cross-family review mandate (`pull-request §6.1`). The mandate
@@ -631,22 +1026,22 @@ class PullRequestService extends Base {
      * invitation primitive that pairs with it. Without invitation, reviewers learn about PRs
      * needing review via passive notification polling — the latency this tool closes.
      *
-     * Surfaces GitHub's `requested_reviewers` API (`POST /repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers`,
-     * mirrored as `gh pr edit <pr-number> --add-reviewer <login>` / `--remove-reviewer <login>`).
-     * Permission errors are surfaced via the underlying `gh` CLI's exit code rather than a
-     * pre-flight check — keeps the service-internal logic decoupled from `RepositoryService`'s
-     * permission cache while preserving end-to-end error visibility.
+     * Calls GitHub's `requested_reviewers` REST endpoint directly (`POST` to add / `DELETE` to remove,
+     * on `/repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers`) — it needs only the `repo`
+     * scope. The prior `gh pr edit --add/remove-reviewer` path resolved logins via GraphQL, which
+     * requires `read:org` (a scope agent tokens routinely lack), so it failed for every agent on that
+     * credential class. Permission errors still surface via the `gh` exit code.
      *
      * @param {object}    options
      * @param {number}    options.pr_number          The number of the pull request.
      * @param {string[]}  [options.reviewers]        Array of GitHub user logins to add or remove as reviewers.
-     * @param {string[]}  [options.team_reviewers]   Array of team slugs (without owner prefix). The owner is auto-prepended via `aiConfig.owner`.
+     * @param {string[]}  [options.team_reviewers]   Array of bare team slugs (no owner prefix — the REST endpoint takes slugs directly).
      * @param {string}    options.action             Either `'add'` or `'remove'`.
      * @returns {Promise<object>} Success message + reviewer payload on success, or structured error.
      *
      * @see pull-request-workflow.md §6.1 (cross-family mandate — invitation layer cross-reference)
      */
-    async managePrReviewers({pr_number, reviewers, team_reviewers, action}) {
+    async managePrReviewers({pr_number, reviewers, team_reviewers, action}, {execFn = execAsync} = {}) {
         if (!['add', 'remove'].includes(action)) {
             return {
                 error  : 'Bad Request',
@@ -655,8 +1050,9 @@ class PullRequestService extends Base {
             };
         }
 
-        const reviewerList     = reviewers || [];
-        const teamReviewerList = team_reviewers || [];
+        // Logins/slugs may arrive with a leading `@`; the REST body wants bare values.
+        const reviewerList     = (reviewers || []).map(r => r.replace(/^@/, ''));
+        const teamReviewerList = (team_reviewers || []).map(t => t.replace(/^@/, ''));
 
         if (reviewerList.length === 0 && teamReviewerList.length === 0) {
             return {
@@ -667,17 +1063,22 @@ class PullRequestService extends Base {
         }
 
         try {
-            const flagName        = action === 'add' ? '--add-reviewer' : '--remove-reviewer';
-            const reviewerFlags   = reviewerList.map(r => `${flagName} "${r}"`).join(' ');
-            // Team-reviewer syntax in `gh pr edit` requires the OWNER/team-slug form.
-            const teamFlags       = teamReviewerList.map(t => `${flagName} "${aiConfig.owner}/${t}"`).join(' ');
-            const allFlags        = [reviewerFlags, teamFlags].filter(Boolean).join(' ');
-            const allTargets      = [...reviewerList, ...teamReviewerList.map(t => `${aiConfig.owner}/${t}`)];
+            // Use the REST `requested_reviewers` endpoint rather than `gh pr edit --add/remove-reviewer`:
+            // the CLI resolves logins via GraphQL, which requires the `read:org` scope that agent tokens
+            // routinely lack (they carry `repo`/`project`/`user`/etc. but not `read:org`), so the CLI path
+            // fails for every agent on that credential class. REST needs only `repo`. Request body:
+            // `reviewers[]` (user logins) + `team_reviewers[]` (bare team slugs — REST takes the slug, not
+            // the `owner/slug` form `gh pr edit` requires).
+            const method = action === 'add' ? 'POST' : 'DELETE';
+            const reviewerFlags = reviewerList.map(r => `-f 'reviewers[]=${r}'`).join(' ');
+            const teamFlags     = teamReviewerList.map(t => `-f 'team_reviewers[]=${t}'`).join(' ');
+            const allFlags   = [reviewerFlags, teamFlags].filter(Boolean).join(' ');
+            const allTargets = [...reviewerList, ...teamReviewerList];
 
-            const command = `gh pr edit ${pr_number} ${allFlags} --repo ${aiConfig.owner}/${aiConfig.repo}`;
-            logger.info(`Attempting to ${action} reviewers on PR #${pr_number}: ${allTargets.join(', ')}`);
+            const command = `gh api repos/${aiConfig.owner}/${aiConfig.repo}/pulls/${pr_number}/requested_reviewers -X ${method} ${allFlags}`;
+            logger.info(`Attempting to ${action} reviewers on PR #${pr_number} via REST: ${allTargets.join(', ')}`);
 
-            await execAsync(command, {cwd: aiConfig.projectRoot});
+            await execFn(command, {cwd: aiConfig.projectRoot});
 
             const verb = action === 'add' ? 'requested' : 'removed';
             return {
@@ -689,13 +1090,16 @@ class PullRequestService extends Base {
         } catch (error) {
             logger.error(`Error managing reviewers on PR #${pr_number}:`, error);
             return {
-                error  : 'GitHub CLI command failed',
-                message: `Failed to ${action} reviewers on PR #${pr_number}: ${error.message}`,
-                code   : 'GH_CLI_ERROR',
+                error  : 'GitHub API request failed',
+                message: `Failed to ${action} reviewers on PR #${pr_number}: ${error.message} (REST requested_reviewers needs only the repo scope)`,
+                code   : 'GH_API_ERROR',
                 details: error.stderr || error.message
             };
         }
     }
 }
 
-export default Neo.setupClass(PullRequestService);
+const PullRequestServiceSingleton = Neo.setupClass(PullRequestService);
+
+export {buildCheckoutPullRequest};
+export default PullRequestServiceSingleton;

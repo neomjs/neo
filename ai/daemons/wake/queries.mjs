@@ -1,5 +1,5 @@
-import fs from 'fs-extra';
-import Database from 'better-sqlite3';
+import fs                              from 'fs-extra';
+import Database                        from 'better-sqlite3';
 import { SQLITE_IN_CLAUSE_BATCH_SIZE } from '../../graph/storage/constants.mjs';
 
 export function initializeDatabase(dbPath) {
@@ -24,22 +24,26 @@ export function initializeDatabase(dbPath) {
  * backlog as one volume-escalated HIGH wake (the full-backlog wake-flood this guards against).
  * Only a genuinely-parseable non-negative integer is trusted as a cursor: a legitimately
  * persisted `0` is preserved, while `NaN` (truncated/empty file) or a negative value falls
- * through to the safe tip.
+ * through to the safe tip. A cursor ahead of the current tip is also clamped back to the tip:
+ * stale wake-daemon state can survive graph restore/rebuild, and trusting that future cursor
+ * would silence the daemon until GraphLog catches up.
  *
  * @param {Database} db        SQLite database handle.
  * @param {String}   stateFile Path to the persisted cursor file.
  * @returns {Number} The log id to resume tail-sync from.
  */
 export function getLastSyncId(db, stateFile) {
+    const maxLogId = getMaxLogId(db);
+
     if (fs.existsSync(stateFile)) {
         const parsed = parseInt(fs.readFileSync(stateFile, 'utf8'), 10);
         // A valid cursor is a non-negative integer; anything else (NaN from a truncated/empty
         // file, or a negative value) is corruption → fail to the tip, never replay from 0.
-        return Number.isInteger(parsed) && parsed >= 0 ? parsed : getMaxLogId(db);
+        return Number.isInteger(parsed) && parsed >= 0 ? Math.min(parsed, maxLogId) : maxLogId;
     }
 
     // Missing cursor (first boot / fresh data dir) → resume at the tip, skip the backlog.
-    return getMaxLogId(db);
+    return maxLogId;
 }
 
 /**
@@ -179,7 +183,11 @@ export function isHarnessPresenceFresh(presence, {
  * active row survives an MCP restart, dispatching every row wakes the same agent multiple times
  * for the same mailbox event. This defense-in-depth guard mirrors the Memory Core
  * `subscribe` idempotency contract: one active route per `(agentIdentity, trigger, filters,
- * appName)` tuple, with the newest updated/created row winning when legacy duplicates exist.
+ * appName, adapter, addressType, instanceAddress, userDataDir)` tuple. The instance-address
+ * fields are load-bearing: two routes that share an app (e.g. multiple Claude instances) but
+ * target different instances MUST stay distinct, or a wake for one named peer can collapse onto
+ * another's route and deliver to the wrong instance. The newest updated/created row wins when
+ * genuine duplicates (same tuple) exist.
  *
  * @param {Object[]} subscriptions Parsed WAKE_SUBSCRIPTION graph nodes.
  * @returns {Object[]} Deduplicated subscriptions for wake delivery.
@@ -209,7 +217,11 @@ function buildShapeCRouteKey(subscription) {
         filters      : props.filters || {},
         harnessTarget: props.harnessTarget,
         routeMetadata: {
-            appName: metadata.appName || null
+            appName        : metadata.appName || null,
+            adapter        : metadata.adapter || null,
+            addressType    : metadata.addressType || null,
+            instanceAddress: metadata.instanceAddress || null,
+            userDataDir    : metadata.userDataDir || null
         }
     });
 }
@@ -282,6 +294,7 @@ export function getUnreadSunsetHandovers(db) {
         SELECT id, data FROM Nodes
         WHERE json_extract(data, '$.type') = 'MESSAGE'
           AND json_extract(data, '$.properties.readAt') IS NULL
+          AND json_extract(data, '$.properties.handoverSummaryProcessedAt') IS NULL
           AND json_extract(data, '$.properties.taggedConcepts') LIKE '%"sunset-protocol-handover"%'
     `);
     const rows = stmt.all();
@@ -301,6 +314,18 @@ export function getUnreadSunsetHandovers(db) {
         }
     }
     return unreadMessages;
+}
+
+export function markSunsetHandoversSummaryProcessed(db, nodes) {
+    if (nodes.length === 0) return;
+    const stmt = db.prepare('UPDATE Nodes SET data = ? WHERE id = ?');
+    db.transaction(() => {
+        for (const node of nodes) {
+            node.properties ??= {};
+            node.properties.handoverSummaryProcessedAt = new Date().toISOString();
+            stmt.run(JSON.stringify(node), node.id);
+        }
+    })();
 }
 
 export function markNodesAsRead(db, nodes) {

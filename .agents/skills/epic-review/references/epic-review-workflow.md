@@ -11,23 +11,26 @@ Fire this skill when **either** condition holds:
 1. You are about to pick up your first sub from an epic your model-identity has not yet reviewed.
 2. A user explicitly asks for an epic review (pre-validation before sub work begins).
 
+**Review artifact cap:** at most two structured `epic-review` comments may exist on an epic across all model-identities. Before posting, count existing epic comments whose header matches this skill's output shape (`Epic Review by ...` or `Epic Review — Stage ... Challenge by ...`). If two already exist, do not post a third structured epic-review.
+
 **Per-agent-per-epic one-shot semantics:** once your model-identity (e.g. `@neo-opus-ada`, `@neo-gemini-pro`) has posted an epic-review comment on epic #N, subsequent sub pickups from #N by the same identity cite the prior review by URL reference rather than re-running this skill.
 
-Different model-identities reviewing the same epic independently is **encouraged** — cross-model readback of architectural intent is the primary value. Two identities reviewing epic #N = two comments. Do not attempt deduplication.
+Different model-identities reviewing the same epic independently is **encouraged only while the two-review cap has an open slot** — cross-model readback of architectural intent is the primary value, but artifact count is bounded. If exactly one epic-review exists, prefer filling the second slot with a different active model-family when a reviewer from that family is available. If the cap is full before your first review, cite the two existing epic-review URLs during sub pickup and proceed with `ticket-intake`; route only unique blockers, corrections, or missing-family-coverage concerns through targeted A2A/commentary rather than a third full review.
 
-If the epic body has materially changed since your prior review (check `updatedAt` vs your comment's timestamp), re-run this skill and post an updated review.
+If the epic body has materially changed since your prior review (check `updatedAt` vs your comment's timestamp), re-run this skill and update your existing comment when possible. If you cannot update the existing comment, post a replacement only while the two-review cap has an open slot; once the cap is full, add a targeted correction/blocker note instead of a new structured epic-review.
 
 ## 2. Pre-Review Context Pull
 
 Before running the six-stage chain, pull the following context:
 
 1. **The epic body.** Use the `mcp_neo-mjs-github-workflow_get_conversation` tool to fetch the live epic issue body and comment thread directly from GitHub.
-2. **All sub-issues under the epic.** Titles, labels, blocking relationships — the epic's frontmatter `subIssues` list is the canonical source. Read each sub's body if sub-structure coherence review (stage 3) will run.
-3. **Roadmap alignment.** Query the Memory Core for current strategic direction:
+2. **Existing epic-review comments.** Count structured epic-review comments already present on the epic and identify their model-families when visible. If one slot remains, prefer a reviewer from a not-yet-represented active family; if the cap is full, stop before the six-stage chain and use the cap-full citation path in §5.
+3. **All sub-issues under the epic.** Titles, labels, blocking relationships — the epic's frontmatter `subIssues` list is the canonical source. Read each sub's body if sub-structure coherence review (stage 3) will run.
+4. **Roadmap alignment.** Query the Memory Core for current strategic direction:
    - `get_context_frontier()` — Golden Path authoritative routing
    - `query_summaries({query: '<epic-subject>'})` — historical session context on the topic
    - `query_raw_memories({query: '<epic-subject>'})` — finer-grained reasoning trails
-4. **Duplicate sweep.** Has a similar epic been filed and either closed or superseded? Check `resources/content/issues/` (active and archived) before running stage 1.
+5. **Duplicate sweep.** Has a similar epic been filed and either closed or superseded? Check `resources/content/issues/` (active and archived) before running stage 1.
 
 ## 3. The Six-Stage Chain
 
@@ -73,9 +76,10 @@ Checks:
 - **Trigger:** Does the Epic body cite a Discussion origin, Signal Ledger, `[GRADUATED_TO_TICKET]`, or `[RESOLVED_TO_AC]`? If not, mark N/A and proceed to Stage 3.
 - **Extraction:** Fetch the source Discussion body and extract the Graduation Criteria.
 - **Mapping Presence:** Does the Epic body contain a `## Discussion Criteria Mapping` section (e.g., `Source Criterion` | `Epic AC/sub` | `Status`)?
+- **Decision Record Preservation:** If the source Discussion declared `Decision Record: REQUIRED / OPTIONAL / NOT_NEEDED`, does the Epic preserve the classification and linked ADR / PR / ticket authority?
 - **Mapping Completeness:** Does the mapping cover *all* criteria from the source Discussion? Unexplained deferrals or dropped criteria are failures.
 
-**Stop condition:** If Stage 2.5 fails (missing mapping, incomplete mapping, or unexplained deferrals), the comment requires **REVISIONS_REQUESTED**. Stages 3-5 skip. The agent does not pick up subs until the mapping is added/corrected in the Epic body. This prevents the "Map vs. World Atlas" failure mode where a local Epic silently drops terrain from its source Discussion.
+**Stop condition:** If Stage 2.5 fails (missing mapping, missing Decision Record preservation when the source Discussion declared one, incomplete mapping, or unexplained deferrals), the comment requires **REVISIONS_REQUESTED**. Stages 3-5 skip. The agent does not pick up subs until the mapping is added/corrected in the Epic body. This prevents the "Map vs. World Atlas" failure mode where a local Epic silently drops terrain from its source Discussion.
 
 ### Stage 3 — Sub-Structure Coherence
 
@@ -144,7 +148,7 @@ Missing traps are an **extension opportunity**, not a blocker — flag them in t
 
 ## 4. Comment Output Format
 
-Post the review as a comment on the epic ticket using `manage_issue_comment` with action `create`. Use the template at `.agents/skills/epic-review/assets/epic-review-comment-template.md` as the structural skeleton.
+Post the review as a comment on the epic ticket using `manage_issue_comment` with action `create` only if the two-review cap is not full. Use the template at `.agents/skills/epic-review/assets/epic-review-comment-template.md` as the structural skeleton.
 
 **Short form** (stage 1, 2, or 2.5 failure):
 - Header: `Epic Review — Stage [1|2|2.5] Challenge by [model-identity]`
@@ -166,13 +170,19 @@ Post the review as a comment on the epic ticket using `manage_issue_comment` wit
 
 Use the agent field on `manage_issue_comment` to self-identify: format `"[Model Name] ([Harness])"` — matches the `pr-review` self-identification pattern.
 
-## 5. Per-Agent-Per-Epic One-Shot Citation
+## 5. Per-Agent-Per-Epic One-Shot And Cap-Full Citation
 
 Once your model-identity has posted an epic-review comment, subsequent sub pickups from the same epic by the same identity cite the prior review by URL reference:
 
 > *Previously reviewed this epic: [comment URL]. Proceeding with sub pickup per `ticket-intake`.*
 
-This citation belongs in the `ticket-intake` reflection step for the sub, not as a new epic comment.
+If the epic already has two structured epic-review comments and your identity has not posted one, cite the capped reviews instead of posting a third:
+
+> *Epic-review cap already satisfied by: [comment URL 1], [comment URL 2]. Proceeding with sub pickup per `ticket-intake`; no third structured epic-review posted.*
+
+If both capped reviews are from the same model-family and cross-family coverage is materially needed, do not bypass the cap. Name the missing-coverage concern in a targeted A2A or narrow correction/blocker comment to the epic lead/operator instead of posting a third structured review.
+
+These citations belong in the `ticket-intake` reflection step for the sub, not as a new epic comment.
 
 ## 6. Relationship to Sibling Skills
 
@@ -192,6 +202,8 @@ This citation belongs in the `ticket-intake` reflection step for the sub, not as
 | Skipping epic-review because "I already read the epic body" | Epic-review is an **artifact**, not just comprehension — cross-model readback depends on the comment existing |
 | Sub agent picks up Epic body directly (Epic-vs-Sub-Issue discipline failure) | Agents MUST NOT pick up the Epic directly without checking for prior epic-review comments. Epics are coordination structures; sub-issues are the units of execution. Working on an epic directly bypasses the entire validation chain. |
 | Per-sub-pickup epic-review | Per-agent-per-epic; cite the prior review, don't re-run |
+| Posting a third structured epic-review on an epic | The review cap is two per epic; cite existing reviews or route a targeted blocker/correction instead |
+| Spending the second slot on same-family redundancy when another active family is available | The cap preserves cross-model value only if the remaining slot prioritizes family-diverse readback |
 | Posting review as an issue body edit | Comments, not body edits — provenance and attribution live in comments |
 | Missing session ID footer | Breaks A2A provenance; the reviewer's Memory Core session is not queryable from the epic |
 | Heavyweight "approval" language | Epic-review is a discipline gate, not a formal sign-off — author and agent negotiate on comment thread |
@@ -199,14 +211,13 @@ This citation belongs in the `ticket-intake` reflection step for the sub, not as
 
 ## 8. Cross-Model Asymmetry
 
-Different model families exhibit statistically-different failure modes when reviewing epics:
+Different reviewers — especially across model families — fail differently, so cross-model epic-review (the same epic reviewed by up to two distinct model-identities) surfaces different dimensions of architectural risk. This is the value of bounded independent readback.
 
-- **Claude-family reviewers** tend toward over-rigor — may mark stage 5 gaps that don't need flagging, or question stage 2 elegance on subjective grounds.
-- **Gemini-family reviewers** tend toward quick-win framing — may pass stages 1-2 too quickly when an elegance concern warrants deeper review.
+Do **not** pre-disclose a family-stereotype ("per §8 my family over-flags X") — the disclosure becomes the failure it names. The specific per-family failure modes are **not empirically measured** (no N, no methodology; the GPT family is absent from any such enumeration despite ~2 months as an active reviewer — see #10756), so they carry no review authority. The Depth Floor + the stage rubric are the shared minimum that catches misses; a family label is not.
 
-These are **complementary** failure modes. Cross-model epic-review (same epic reviewed by a Claude identity and a Gemini identity) surfaces different dimensions of architectural risk. This is the value of per-model-identity independent reviews rather than deduplication.
+When one review exists, prefer the second structured review from a different active model-family. After two structured epic-review comments exist, preserve diversity through targeted blocker/correction comments or A2A handoffs, not by adding another full epic-review artifact.
 
-Do not calibrate your review to the "other model's style" — be the reviewer you are, and trust the asymmetry to compensate. If one model-family's reviews consistently miss a failure mode, the right fix is a skill enhancement (a new check in stages 1-5), not style mimicry.
+Do not calibrate your review to the "other model's style" — be the reviewer you are, and trust the diversity to compensate. If reviews consistently miss a failure mode, the right fix is a skill enhancement (a new check in stages 1-5), not style mimicry.
 
 ## 9. Verification Before Posting
 

@@ -18,7 +18,7 @@ Family-keying replaces the prior hardcoded "3× cross-family signals" — the co
 
 This section carries the full same-family aggregation rule.
 
-When a family has multiple active identities (e.g., `claude` with both `@neo-opus-ada` and `@neo-claude-opus`), that family contributes `APPROVED` when **(a) ≥ 1 active identity in the family has posted `[GRADUATION_APPROVED]` at the current body anchor**, AND **(b) no active identity in that family holds an unresolved `[GRADUATION_DEFERRED]` or `[GRADUATION_VETO]` at the same anchor**. Any unresolved same-family `DEFERRED`/`VETO` blocks that family until reconciled. The burden-of-convergence clause applies to same-family APPROVED-signalers as well as cross-family ones. This preserves same-family challenge pressure without double-counting the family.
+When a family has multiple active identities (e.g., `claude` with both `@neo-opus-ada` and `@neo-opus-grace`), that family contributes `APPROVED` when **(a) ≥ 1 active identity in the family has posted `[GRADUATION_APPROVED]` at the current body anchor**, AND **(b) no active identity in that family holds an unresolved `[GRADUATION_DEFERRED]` or `[GRADUATION_VETO]` at the same anchor**. Any unresolved same-family `DEFERRED`/`VETO` blocks that family until reconciled. The burden-of-convergence clause applies to same-family APPROVED-signalers as well as cross-family ones. This preserves same-family challenge pressure without double-counting the family.
 
 ## §template-block — Graduated-Artifact Required Sections (canonical markdown)
 

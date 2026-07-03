@@ -1,14 +1,13 @@
-import {execSync}                  from 'node:child_process';
-import BaseServer                  from '../BaseServer.mjs';
-import logger                      from './logger.mjs';
-import {listTools, callTool}       from './toolService.mjs';
-import AuthMiddleware              from '../shared/services/AuthMiddleware.mjs';
-import RequestContextService       from '../shared/services/RequestContextService.mjs';
-import StdioIdentityResolver       from '../shared/services/StdioIdentityResolver.mjs';
-import BootEnvelopeResolver        from '../shared/services/BootEnvelopeResolver.mjs';
+import BaseServer            from '../BaseServer.mjs';
+import logger                from './logger.mjs';
+import {listTools, callTool} from './toolService.mjs';
+import AuthMiddleware        from '../shared/services/AuthMiddleware.mjs';
+import RequestContextService from '../shared/services/RequestContextService.mjs';
+import StdioIdentityResolver from '../shared/services/StdioIdentityResolver.mjs';
+import BootEnvelopeResolver  from '../shared/services/BootEnvelopeResolver.mjs';
 import {
-    formatHarnessGroups,
-    groupProcessesByHarness
+    buildSqliteHolderDiagnostics,
+    formatHarnessGroups
 } from '../../../services/memory-core/helpers/harnessClassifier.mjs';
 
 import {
@@ -16,13 +15,29 @@ import {
     Memory_GraphService            as GraphService,
     Memory_HealthService           as HealthService,
     Memory_SessionService          as SessionService,
-    Memory_InferenceLifecycleService as InferenceLifecycleService,
-    Memory_StorageRouter           as StorageRouter,
-    Memory_WakeSubscriptionService as WakeSubscriptionService,
-    Memory_CoalescingEngineService as CoalescingEngineService
+    Memory_InferenceLifecycleService  as InferenceLifecycleService,
+    Memory_RecorderService            as RecorderService,
+    Memory_StorageRouter              as StorageRouter,
+    Memory_MailboxService             as MailboxService,
+    Memory_WakeSubscriptionService    as WakeSubscriptionService,
+    Memory_CoalescingEngineService    as CoalescingEngineService
 } from '../../../services.mjs';
 import {startDrainLoop}   from '../../../daemons/embed/drainCycle.mjs';
 import {acquireDrainLock} from '../../../daemons/embed/drainLock.mjs';
+import {
+    createMessageGraphProjectionProcessor,
+    startMessageDrainLoop
+} from '../../../daemons/message/drainCycle.mjs';
+import {acquireMessageDrainLock}    from '../../../daemons/message/drainLock.mjs';
+import {getMissingMessageWalLeaves} from '../../../services/memory-core/helpers/messageWalStore.mjs';
+import {TRUST_TIERS}                from '../../../graph/identityRoots.mjs';
+
+// Security invariant, not deployment policy: graph ids must remain namespace/path/control safe.
+const AUTH_IDENTITY_USER_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$/;
+
+function compactDefinedProperties(properties) {
+    return Object.fromEntries(Object.entries(properties).filter(([, value]) => value !== undefined));
+}
 
 /**
  * @summary The Memory Core MCP Server application.
@@ -68,10 +83,10 @@ class Server extends BaseServer {
             name        : 'neo-memory-core',
             version     : process.env.npm_package_version || '1.0.0',
             capabilities: {
-                tools: {listChanged: false},
+                tools       : {listChanged: false},
                 experimental: {
                     'neo-wake-substrate': {
-                        version: '1.0',
+                        version        : '1.0',
                         supportedEvents: ['wake/sent_to_me', 'wake/task_state_changed', 'wake/permission_granted']
                     }
                 }
@@ -98,12 +113,25 @@ class Server extends BaseServer {
     /**
      * @summary Tools allowed without the healthcheck gate. The A2A
      * mailbox/permission surface is graph/SQLite-scoped and must remain reachable during
-     * summarization/vector-provider incidents so agents can coordinate the recovery.
+     * summarization/vector-provider incidents so agents can coordinate the recovery — as is
+     * add_memory, whose never-fail WAL write is local-disk-scoped with the embed deferred to the
+     * drain, so memory capture never blocks on an embedder/vector-provider outage.
+     *
+     * The non-embedding reads are exempt for the same reason. The gate trips on the embedder canary
+     * (a live `embedText` probe), but `get_session_memories` (a Chroma metadata `.get()` by
+     * sessionId), `query_recent_turns` (a SQLite recency read over the `AGENT_MEMORY` graph, with a
+     * WAL-overlay fallback for its optional Chroma content join), and `who_is_online` (a SQLite
+     * `AgentIdentity`-roster liveness projection — graph-backed, survives an embed-drain) call no
+     * embedder — they serve fine while it is down, so gating them only denied a read the outage
+     * never touched. NOT exempt:
+     * `query_raw_memories` / `query_summaries`, which embed the query and genuinely cannot serve
+     * during an embedder outage — exempting them would trade a clean gate-reject for an embed-timeout.
      * @returns {Array<String>}
      */
     getHealthExemptTools() {
         return [
             'healthcheck',
+            'add_memory',
             'add_message',
             'list_messages',
             'get_message',
@@ -114,7 +142,19 @@ class Server extends BaseServer {
             'grant_permission',
             'revoke_permission',
             'list_permissions',
-            'manage_wake_subscription'
+            'manage_wake_subscription',
+            'record_turn_presence',
+            'get_session_memories',
+            'query_recent_turns',
+            'who_is_online',
+            // Read-only diagnostics that never embed — exempt so a slow/down embedder cannot block the
+            // very tools an agent needs to SEE the degradation (the embed-canary catch-22). They read
+            // state/files/metrics only; none embed a query (unlike `query_raw_memories`/`query_summaries`).
+            'get_rem_pipeline_state',
+            'get_sqlite_holder_diagnostics',
+            'get_deployment_state_snapshot',
+            'inspect_deployment',
+            'get_memory_core_tool_metrics'
         ];
     }
 
@@ -125,8 +165,35 @@ class Server extends BaseServer {
      * outer CallTool try/catch and route to `formatToolError`.
      * @param {{toolName: String, args: Object}} context
      */
-    async beforeToolDispatch({args}) {
-        AuthMiddleware.validateNoIdentitySpoof(args);
+    async beforeToolDispatch({toolName, args, t0}) {
+        try {
+            AuthMiddleware.validateNoIdentitySpoof(args);
+        } catch (error) {
+            RecorderService.logToolCall({
+                toolName,
+                args,
+                success     : false,
+                error,
+                failureStage: 'policy',
+                t0
+            });
+            throw error;
+        }
+    }
+
+    /**
+     * @summary Records health-gate rejects in the redacted MCP tool-call telemetry table.
+     * @param {{toolName: String, args: Object, error: Error, t0: Number}} context
+     */
+    async onHealthGateFailure({toolName, args, error, t0}) {
+        RecorderService.logToolCall({
+            toolName,
+            args,
+            success     : false,
+            error,
+            failureStage: 'health_gate',
+            t0
+        });
     }
 
     /**
@@ -161,8 +228,9 @@ class Server extends BaseServer {
      * @summary Custom boot order (override of `BaseServer.boot`). Memory Core's bootstrap
      * has three constraints that the canonical sequence doesn't satisfy:
      *
-     * 1. `WakeSubscriptionService.init()` must complete BEFORE `createMcpServer()` so the
-     *    experimental wake-substrate capability has its substrate ready when clients connect.
+     * 1. The MCP server/tool registry must come up before graph/vector startup tiers are awaited,
+     *    so WAL-local tools (`add_memory`) remain callable during graph SQLite or Chroma startup
+     *    faults.
      * 2. Stdio identity resolution must complete BEFORE healthcheck, so the boot-time
      *    healthcheck snapshot reflects the bound identity state.
      * 3. The wake-subscription auto-bootstrap is fire-and-forget within an async IIFE for
@@ -173,14 +241,35 @@ class Server extends BaseServer {
     async boot() {
         await this.loadCustomConfig();
 
-        // Pre-mcpServer init: WakeSubscriptionService substrate ready.
-        await WakeSubscriptionService.init();
-
         this.mcpServer = this.createMcpServer();
 
-        // Wait for dependent services.
-        await InferenceLifecycleService.ready();
-        await SessionService.ready();
+        await this.prepareStartupDependency({
+            name      : 'wake-subscription',
+            dependency: WakeSubscriptionService,
+            start     : () => WakeSubscriptionService.init(),
+            degraded  : 'wake subscriptions are degraded; WAL-local tools remain available'
+        });
+
+        await this.prepareStartupDependency({
+            name      : 'inference-lifecycle',
+            dependency: InferenceLifecycleService,
+            start     : () => InferenceLifecycleService.ready(),
+            degraded  : 'inference readiness is degraded; WAL-local tools remain available'
+        });
+
+        await this.prepareStartupDependency({
+            name      : 'session-service',
+            dependency: SessionService,
+            start     : () => SessionService.ready(),
+            degraded  : 'session/vector reads are degraded; add_memory remains WAL-available'
+        });
+
+        await this.prepareStartupDependency({
+            name      : 'tool-telemetry',
+            dependency: RecorderService,
+            start     : () => RecorderService.initAsync(),
+            degraded  : 'Memory Core tool telemetry is disabled; tool dispatch remains available'
+        });
 
         // In-process WAL drain (containerized / single-process deployments): hosts the embed
         // daemon's exact drain loop inside this server when no orchestrator-supervised daemon
@@ -204,14 +293,45 @@ class Server extends BaseServer {
 
             if (this.walDrainLock) {
                 this.walDrainLoop = startDrainLoop({
-                    getCollection: () => StorageRouter.getMemoryCollection(),
-                    getConfig    : () => aiConfig.memoryWal,
-                    log          : drainLog
+                    getCollection    : () => StorageRouter.getMemoryCollection(),
+                    getConfig        : () => aiConfig.memoryWal,
+                    expectedDimension: aiConfig.vectorDimension,
+                    log              : drainLog
                 });
                 // Release on process exit (the realistic single-process clean-shutdown path); a
                 // signal-kill leaves the lock for the next host to reclaim as stale.
                 process.on('exit', () => this.walDrainLock?.release());
                 logger.info('[neo-memory-core MCP] In-process WAL drain loop active (memoryWal.inProcessDrain)');
+            }
+        }
+
+        // In-process message WAL drain (containerized / single-process deployments): mirrors the
+        // memory WAL host-mode split, but deliberately keeps replay semantics injectable; graph
+        // projection is a separate completion concern.
+        if (aiConfig.messageWal && aiConfig.messageWal.inProcessDrain) {
+            const messageDrainLog = (level, message) => logger[level === 'ERROR' ? 'error' : 'info'](`[neo-memory-core MCP] ${message}`);
+            const missingLeaves   = getMissingMessageWalLeaves(aiConfig.messageWal,
+                ['dir', 'pollIntervalMs', 'batchSize', 'maxRetries', 'backoffBaseMs']);
+
+            if (missingLeaves.length > 0) {
+                logger.error(`[neo-memory-core MCP] In-process message WAL drain NOT started: messageWal config leaves missing: ${missingLeaves.join(', ')} — sync the messageWal block from config.template.mjs into the local config.mjs (node ai/scripts/setup/initServerConfigs.mjs --migrate-config) and restart memory-core.`);
+            } else {
+                try {
+                    this.messageWalDrainLock = acquireMessageDrainLock({dir: aiConfig.messageWal.dir, owner: 'in-process', log: messageDrainLog});
+                } catch (err) {
+                    if (err.code !== 'DRAIN_LOCK_HELD') throw err;
+                    logger.error(`[neo-memory-core MCP] In-process message WAL drain NOT started: ${err.message}`);
+                }
+
+                if (this.messageWalDrainLock) {
+                    this.messageWalDrainLoop = startMessageDrainLoop({
+                        getConfig   : () => aiConfig.messageWal,
+                        getProcessor: () => createMessageGraphProjectionProcessor(MailboxService),
+                        log         : messageDrainLog
+                    });
+                    process.on('exit', () => this.messageWalDrainLock?.release());
+                    logger.info('[neo-memory-core MCP] In-process message WAL drain loop active (messageWal.inProcessDrain)');
+                }
             }
         }
 
@@ -259,6 +379,37 @@ class Server extends BaseServer {
     }
 
     /**
+     * @summary Initializes a non-WAL startup dependency as best-effort readiness.
+     *
+     * Memory Core's minimum availability tier is the local `memoryWal` append surface. Graph,
+     * wake-subscription, inference, and vector/session readiness must be observable but must not
+     * veto MCP server startup; otherwise the mandatory `add_memory` final-turn save disappears
+     * exactly when a degraded deployment most needs lossless WAL capture.
+     *
+     * @param {Object} options
+     * @param {String} options.name Stable healthcheck key.
+     * @param {Object} options.dependency Dependency object for diagnostic naming.
+     * @param {Function} options.start Async startup callback.
+     * @param {String} options.degraded Operator-facing degraded-mode summary.
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async prepareStartupDependency({name, dependency, start, degraded}) {
+        try {
+            await start();
+            HealthService.recordStartupDependency(name, 'ready', {
+                className: dependency?.className || dependency?.constructor?.name || name
+            });
+        } catch (error) {
+            logger.warn(`[neo-memory-core MCP] ${name} startup degraded: ${error.message}. ${degraded}.`);
+            HealthService.recordStartupDependency(name, 'degraded', {
+                className: dependency?.className || dependency?.constructor?.name || name,
+                error    : error.message
+            });
+        }
+    }
+
+    /**
      * @summary SSE-only hook: builds RequestContext for a `/mcp` request from `req.auth`.
      * Invoked by `TransportService.setup` via duck-typed hook. Returns `{}` when no identity
      * is present to preserve single-tenant fallthrough.
@@ -268,14 +419,181 @@ class Server extends BaseServer {
     async buildRequestContext(reqAuth) {
         if (!reqAuth?.userId) return {};
 
-        const agentIdentityNodeId = await this.bindAgentIdentity(reqAuth.userId);
+        const agentIdentityNodeId = this.shouldAutoProvisionAgentIdentity(reqAuth)
+            ? await this.ensureAgentIdentityForAuthContext(reqAuth)
+            : await this.bindAgentIdentity(reqAuth.userId);
 
         return {
-            userId             : reqAuth.userId,
-            username           : reqAuth.username,
+            userId  : reqAuth.userId,
+            username: reqAuth.username,
             agentIdentityNodeId,
-            source             : reqAuth.source || 'oidc'
+            source  : reqAuth.source || reqAuth.authSource || 'oidc'
         };
+    }
+
+    /**
+     * @summary Returns true when a validated HTTP auth source is allowed to create a missing
+     * durable AgentIdentity at request-context build time.
+     * @param {Object|undefined} reqAuth Server-stamped auth context from the bearer verifier.
+     * @returns {Boolean}
+     * @protected
+     */
+    shouldAutoProvisionAgentIdentity(reqAuth) {
+        return this.aiConfig.auth.autoProvisionIdentitySources.includes(reqAuth?.source) ||
+               this.aiConfig.auth.autoProvisionIdentitySources.includes(reqAuth?.authSource);
+    }
+
+    /**
+     * @summary Builds a fatal identity-provisioning error with a stable diagnostic code.
+     * @param {String} message Operator-facing error detail.
+     * @param {String} code Stable error code.
+     * @returns {Error}
+     * @protected
+     */
+    createIdentityProvisioningError(message, code) {
+        const error = new Error(`[neo-memory-core MCP] ${message}`);
+        error.code  = code;
+        return error;
+    }
+
+    /**
+     * @summary Validates the authenticated provider username before deriving the `@` graph id.
+     *
+     * Only server-stamped auth fields reach this helper. The conservative username contract rejects
+     * empty, `@`-prefixed, path-like, control-character, whitespace, and namespace-bearing values
+     * before a graph write can occur.
+     * @param {String} userId Authenticated provider username.
+     * @returns {String} Canonical bare username.
+     * @protected
+     */
+    validateAuthProvisionUserId(userId) {
+        const normalized = typeof userId === 'string' ? userId.trim() : '';
+
+        if (!normalized || !AUTH_IDENTITY_USER_ID_RE.test(normalized)) {
+            throw this.createIdentityProvisioningError(
+                `Cannot auto-provision AgentIdentity: authenticated userId '${String(userId)}' is not a valid provider username.`,
+                'NEO_AGENT_IDENTITY_INVALID'
+            );
+        }
+
+        return normalized;
+    }
+
+    /**
+     * @summary Reads the exact SQLite graph node row without RLS filtering.
+     *
+     * Provisioning must fail closed on an id collision even when the colliding row is not visible
+     * through the requester's RLS view. This read is used only for collision/provisioning policy;
+     * public graph reads still route through GraphService's RLS-aware APIs.
+     * @param {String} id Canonical graph node id.
+     * @returns {Object|null} Raw graph node projection.
+     * @protected
+     */
+    readRawGraphNode(id) {
+        const db = GraphService.db?.storage?.db;
+
+        if (!db?.open) {
+            throw GraphService.createUnavailableError('AgentIdentity provisioning');
+        }
+
+        const row = db.prepare('SELECT data FROM Nodes WHERE id = ?').get(id);
+        if (!row?.data) return null;
+
+        let data;
+        try {
+            data = JSON.parse(row.data);
+        } catch (error) {
+            throw this.createIdentityProvisioningError(
+                `Cannot auto-provision AgentIdentity ${id}: graph row JSON is unreadable (${error.message}).`,
+                'NEO_AGENT_IDENTITY_CORRUPT'
+            );
+        }
+
+        return {
+            id        : data.id,
+            type      : data.label,
+            properties: data.properties || {}
+        };
+    }
+
+    /**
+     * @summary Creates or refreshes a GitLab-PAT authenticated AgentIdentity from server-stamped
+     * auth context before graph-gated tools need `agentIdentityNodeId`.
+     *
+     * Missing identities are written as globally visible SQLite graph nodes (`userId: null`) so a
+     * separate orchestrator process can observe them through GraphLog invalidation and lazy-load.
+     * Existing AgentIdentity nodes are preserved; seeded nodes receive only `lastAuthenticatedAt`,
+     * while already-auto-provisioned nodes can refresh provider-neutral metadata. Non-identity
+     * collisions and malformed ids fail closed.
+     * @param {Object} reqAuth Server-stamped auth context from the validated bearer request.
+     * @returns {Promise<String|null>} Bound AgentIdentity node id, or null when graph startup is degraded.
+     * @protected
+     */
+    async ensureAgentIdentityForAuthContext(reqAuth) {
+        const userId      = this.validateAuthProvisionUserId(reqAuth?.userId),
+              graphNodeId = `@${userId}`;
+
+        try {
+            await GraphService.ready();
+
+            let existing = this.readRawGraphNode(graphNodeId);
+
+            if (existing && existing.type !== 'AgentIdentity') {
+                throw this.createIdentityProvisioningError(
+                    `Cannot auto-provision AgentIdentity ${graphNodeId}: id collides with existing ${existing.type || 'unknown'} node.`,
+                    'NEO_AGENT_IDENTITY_COLLISION'
+                );
+            }
+
+            const now             = new Date().toISOString(),
+                  existingProps   = existing?.properties || {},
+                  providerDisplay = reqAuth.providerDisplayName || reqAuth.username || reqAuth.providerUsername || userId,
+                  fullProperties  = compactDefinedProperties({
+                      accountType        : 'agent',
+                      participationStatus: 'active',
+                      trustTier          : TRUST_TIERS.INTERNAL_AUTHORED,
+                      authProvider       : reqAuth.authProvider || 'gitlab',
+                      authSource         : reqAuth.authSource || reqAuth.source || 'gitlab-pat',
+                      providerBaseUrl    : reqAuth.providerBaseUrl,
+                      providerUserId     : reqAuth.providerUserId == null ? undefined : String(reqAuth.providerUserId),
+                      providerUsername   : reqAuth.providerUsername || userId,
+                      providerDisplayName: providerDisplay,
+                      autoProvisioned    : true,
+                      createdAt          : existingProps.createdAt || now,
+                      lastAuthenticatedAt: now
+                  });
+
+            const properties = existing
+                ? existingProps.autoProvisioned === true
+                    ? {...fullProperties, createdAt: existingProps.createdAt || now}
+                    : {lastAuthenticatedAt: now}
+                : fullProperties;
+
+            GraphService.upsertGlobalNode({
+                id         : graphNodeId,
+                type       : 'AgentIdentity',
+                name       : existing ? undefined : providerDisplay,
+                description: existing ? undefined : 'Auto-provisioned Agent OS identity for a GitLab-authenticated Memory Core principal.',
+                properties
+            });
+
+            existing = this.readRawGraphNode(graphNodeId);
+            if (!existing || existing.type !== 'AgentIdentity') {
+                throw this.createIdentityProvisioningError(
+                    `Cannot auto-provision AgentIdentity ${graphNodeId}: durable graph write did not yield an AgentIdentity node.`,
+                    'NEO_AGENT_IDENTITY_WRITE_FAILED'
+                );
+            }
+
+            return graphNodeId;
+        } catch (error) {
+            if (error.code?.startsWith?.('NEO_AGENT_IDENTITY_')) {
+                throw error;
+            }
+
+            logger.warn(`[neo-memory-core MCP] AgentIdentity auto-provision failed for ${graphNodeId}: ${error.message}`);
+            return this.bindAgentIdentity(userId);
+        }
     }
 
     /**
@@ -318,10 +636,10 @@ class Server extends BaseServer {
         const agentIdentityNodeId = await this.bindAgentIdentity(resolved.githubLogin);
 
         return {
-            userId             : resolved.githubLogin,
-            username           : resolved.username,
+            userId  : resolved.githubLogin,
+            username: resolved.username,
             agentIdentityNodeId,
-            source             : resolved.source
+            source  : resolved.source
         };
     }
 
@@ -351,7 +669,7 @@ class Server extends BaseServer {
             await GraphService.ready();
 
             let retries = 3;
-            let node = null;
+            let node    = null;
 
             while (retries > 0) {
                 node = await GraphService.getNode({id: graphNodeId});
@@ -386,7 +704,7 @@ class Server extends BaseServer {
         }
 
         const {userId, agentIdentityNodeId, source} = this.stdioIdentity;
-        const bound = agentIdentityNodeId ? `bound to ${agentIdentityNodeId}` : 'unbound (no matching AgentIdentity node)';
+        const bound                                 = agentIdentityNodeId ? `bound to ${agentIdentityNodeId}` : 'unbound (no matching AgentIdentity node)';
 
         logger.info(`[neo-memory-core MCP] Identity: ${userId} via ${source} — ${bound}`);
     }
@@ -408,6 +726,11 @@ class Server extends BaseServer {
      * @param {Object} health
      */
     logStartupStatus(health) {
+        // `BaseServer.runHealthcheckAndLogStatus` passes null when the health service exposes no
+        // healthcheck method — there is no health status to report in that case. Without this guard
+        // the override dereferences null on a degraded/health-serviceless boot and crashes initAsync.
+        if (!health) return;
+
         if (health.status === 'unhealthy') {
             logger.warn('⚠️  [Startup] Memory Core is unhealthy. Server will start but tools will fail until resolved.');
             health.details.forEach(detail => logger.warn(`    ${detail}`));
@@ -440,49 +763,24 @@ class Server extends BaseServer {
         const dbPath = aiConfig.storagePaths.graph;
         if (!dbPath) return;
 
-        const files = [dbPath, `${dbPath}-wal`, `${dbPath}-shm`];
+        const diagnostics = buildSqliteHolderDiagnostics({
+            dbPath,
+            currentPid: process.pid
+        });
 
-        try {
-            const raw = execSync(`lsof -F pcn -- ${files.map(f => `'${f}'`).join(' ')}`, {
-                encoding: 'utf8',
-                stdio: ['ignore', 'pipe', 'pipe']
-            });
+        if (diagnostics.status === 'degraded') {
+            logger.debug(`[Startup] Failed to check sibling concurrency: ${diagnostics.error}`);
+            return;
+        }
 
-            let current = null;
-            const records = [];
-            for (const line of raw.split('\n')) {
-                if (!line) continue;
-                if (line[0] === 'p') {
-                    if (current && current.pid !== process.pid) records.push(current);
-                    current = {pid: parseInt(line.slice(1), 10)};
-                } else if (current && line[0] === 'c') {
-                    current.command = line.slice(1);
-                }
-            }
-            if (current && current.pid !== process.pid) records.push(current);
+        if (diagnostics.totalProcesses > 0) {
+            const summary = formatHarnessGroups(diagnostics.groups);
+            const message = `ℹ️  [Startup] Sibling concurrency: ${diagnostics.totalProcesses} peer process(es) holding SQLite files. Harnesses: ${summary}`;
 
-            const uniquePids = new Set();
-            const siblings = records.filter(r => {
-                if (uniquePids.has(r.pid)) return false;
-                uniquePids.add(r.pid);
-                return true;
-            });
-
-            if (siblings.length > 0) {
-                const groups  = groupProcessesByHarness(siblings);
-                const summary = formatHarnessGroups(groups);
-                const message = `ℹ️  [Startup] Sibling concurrency: ${siblings.length} peer process(es) holding SQLite files. Harnesses: ${summary}`;
-
-                if (groups.some(group => group.harness === 'unknown')) {
-                    logger.warn(message);
-                } else {
-                    logger.info(message);
-                }
-            }
-        } catch (error) {
-            // Ignore ENOENT (lsof missing on Windows) or status 1 (no matching processes)
-            if (error.status !== 1 && error.code !== 'ENOENT') {
-                logger.debug(`[Startup] Failed to check sibling concurrency: ${error.message}`);
+            if (diagnostics.warnings.length > 0) {
+                logger.warn(message);
+            } else {
+                logger.info(message);
             }
         }
     }

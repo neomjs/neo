@@ -1,4 +1,5 @@
-import path from 'path';
+import path            from 'path';
+import net             from 'net';
 import {fileURLToPath} from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -8,16 +9,210 @@ export const DEFAULT_DB_PATH    = process.env.NEO_AI_DB_PATH || '.neo-ai-data/sq
 export const DEFAULT_DATA_DIR   = process.env.NEO_AI_ORCHESTRATOR_DIR || '.neo-ai-data/orchestrator-daemon';
 export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../../scripts');
 
+const DEFAULT_CHROMA_HEALTH_ENDPOINT   = '/api/v2/heartbeat';
+const DEFAULT_CHROMA_HEALTH_TIMEOUT_MS = 1000;
+
+/**
+ * @summary Probes whether a local TCP port is accepting connections.
+ * @param {Object} options
+ * @param {String|Number} options.port Port to probe.
+ * @param {Number} [options.timeoutMs] Optional timeout in milliseconds.
+ * @returns {Promise<Boolean>}
+ */
+function probeTcpPort({port, timeoutMs}) {
+    const normalizedPort = Number(port);
+
+    if (!Number.isFinite(normalizedPort) || normalizedPort <= 0) {
+        return Promise.resolve(false);
+    }
+
+    return new Promise(resolve => {
+        const socket  = net.connect({host: '127.0.0.1', port: normalizedPort});
+        let   settled = false;
+
+        const finish = result => {
+            if (settled) return;
+            settled = true;
+            socket.destroy();
+            resolve(result);
+        };
+
+        if (Number.isFinite(Number(timeoutMs)) && Number(timeoutMs) > 0) {
+            socket.setTimeout(Number(timeoutMs));
+        }
+
+        socket.once('connect', () => finish(true));
+        socket.once('timeout', () => finish(false));
+        socket.once('error',   () => finish(false));
+    });
+}
+
+/**
+ * @summary Builds a Chroma HTTP health URL from the configured host/port.
+ *
+ * Chroma can bind IPv6-only in local development while the config host stays `localhost`.
+ * Preserve the configured host instead of forcing `127.0.0.1`, and bracket literal IPv6
+ * hosts so `fetch` receives a valid URL.
+ * @param {Object} options
+ * @param {String} [options.host='localhost'] Configured Chroma host.
+ * @param {String|Number} options.port Configured Chroma port.
+ * @param {String} [options.endpoint='/api/v2/heartbeat'] Chroma health endpoint.
+ * @returns {String|null}
+ */
+export function buildChromaHealthUrl({
+    host     = 'localhost',
+    port,
+    endpoint = DEFAULT_CHROMA_HEALTH_ENDPOINT
+} = {}) {
+    const normalizedPort = Number(port);
+
+    if (!Number.isFinite(normalizedPort) || normalizedPort <= 0) {
+        return null;
+    }
+
+    const rawHost = String(host || 'localhost').trim();
+
+    if (!rawHost) {
+        return null;
+    }
+
+    try {
+        const hasScheme      = rawHost.includes('://'),
+              colonCount     = rawHost.split(':').length - 1,
+              isBareIpv6Host = colonCount > 1 && !rawHost.startsWith('['),
+              normalizedHost = isBareIpv6Host ? `[${rawHost}]` : rawHost,
+              url            = hasScheme ? new URL(rawHost) : new URL(`http://${normalizedHost}`);
+
+        url.port     = String(normalizedPort);
+        url.pathname = endpoint;
+        url.search   = '';
+        url.hash     = '';
+
+        return url.toString();
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * @summary Probes Chroma's HTTP API, not just PID or TCP liveness.
+ * @param {Object} options
+ * @param {String} [options.host='localhost'] Configured Chroma host.
+ * @param {String|Number} options.port Configured Chroma port.
+ * @param {Number} [options.timeoutMs=1000] Request timeout in milliseconds.
+ * @param {String} [options.endpoint='/api/v2/heartbeat'] Chroma health endpoint.
+ * @param {Function} [options.fetchFn=globalThis.fetch] Fetch implementation seam.
+ * @returns {Promise<Boolean>}
+ */
+export async function probeChromaHttpHealth({
+    host,
+    port,
+    timeoutMs = DEFAULT_CHROMA_HEALTH_TIMEOUT_MS,
+    endpoint,
+    fetchFn = globalThis.fetch
+} = {}) {
+    const url = buildChromaHealthUrl({host, port, endpoint});
+
+    if (!url || typeof fetchFn !== 'function') {
+        return false;
+    }
+
+    const controller = new AbortController(),
+          timeout    = Number(timeoutMs);
+    let timeoutId = null;
+
+    if (Number.isFinite(timeout) && timeout > 0) {
+        timeoutId = setTimeout(() => controller.abort(), timeout);
+        timeoutId.unref?.();
+    }
+
+    try {
+        const response = await fetchFn(url, {signal: controller.signal});
+        return Boolean(response?.ok);
+    } catch {
+        return false;
+    } finally {
+        clearTimeout(timeoutId);
+    }
+}
+
+/**
+ * @summary Converts an Ollama API host URL into the `OLLAMA_HOST` bind value.
+ * @param {String} host Configured Ollama API host.
+ * @returns {String|undefined}
+ */
+export function resolveOllamaHostEnv(host) {
+    if (!host) {
+        return undefined;
+    }
+
+    try {
+        return new URL(host).host || undefined;
+    } catch {
+        return String(host).replace(/^https?:\/\//, '').replace(/\/.*$/, '') || undefined;
+    }
+}
+
+/**
+ * @summary Extracts a numeric port from an Ollama host config.
+ * @param {String} host Configured Ollama API host.
+ * @returns {Number|undefined}
+ */
+export function resolveOllamaHostPort(host) {
+    const hostEnv = resolveOllamaHostEnv(host),
+          match   = hostEnv?.match(/:(\d+)$/);
+
+    return match ? Number(match[1]) : undefined;
+}
+
+/**
+ * @summary Computes the largest requested Ollama role context window.
+ * @param {Object[]} roles Native Ollama readiness roles.
+ * @returns {Number|undefined}
+ */
+export function getMaxOllamaContextLength(roles) {
+    const lengths = (Array.isArray(roles) ? roles : [])
+        .map(role => Number(role?.contextLength))
+        .filter(value => Number.isFinite(value) && value > 0);
+
+    return lengths.length ? Math.max(...lengths) : undefined;
+}
+
+/**
+ * @summary Builds the server environment for orchestrator-owned `ollama serve`.
+ * @param {Object} options
+ * @param {String} options.host Configured Ollama API host.
+ * @param {String|Number} options.keepAlive Ollama keep-alive policy.
+ * @param {Number} options.contextLength Largest configured local-model context.
+ * @param {Number} options.requireParallelModels Minimum resident-model count.
+ * @returns {Object}
+ */
+export function buildOllamaServeEnv({host, keepAlive, contextLength, requireParallelModels}) {
+    const env     = {},
+          hostEnv = resolveOllamaHostEnv(host);
+
+    if (hostEnv) {
+        env.OLLAMA_HOST = hostEnv;
+    }
+    if (keepAlive !== undefined && keepAlive !== null && keepAlive !== '') {
+        env.OLLAMA_KEEP_ALIVE = String(keepAlive);
+    }
+    if (Number.isFinite(Number(contextLength)) && Number(contextLength) > 0) {
+        env.OLLAMA_CONTEXT_LENGTH = String(Number(contextLength));
+    }
+    if (Number.isFinite(Number(requireParallelModels)) && Number(requireParallelModels) > 0) {
+        env.OLLAMA_MAX_LOADED_MODELS = String(Number(requireParallelModels));
+    }
+
+    return env;
+}
+
 /**
  * @summary Builds child-process commands for orchestrator-owned maintenance tasks.
  *
- * Pure function: receives concrete `mlxEnabled` / `mlxModel` / `mlxPort` and
- * `lmsEnabled` / `lmsModel` / `lmsPort` values from the caller; performs no env-var
- * lookups and carries no embedded MLX or LM Studio defaults. The canonical defaults
- * live in `ai/config.template.mjs` under `orchestrator.mlx` and `orchestrator.lms`;
- * `Orchestrator` exposes them via env-overrideable getters
- * (`mlxEnabled`/`mlxModel`/`mlxPort`/`lmsEnabled`/`lmsModel`/`lmsPort`) and forwards
- * the resolved values via `Orchestrator.start()`.
+ * Pure function: performs no env-var lookups and carries no embedded local-model
+ * defaults. Config-backed local inference tasks are composed by `Orchestrator`, which
+ * is the daemon entrypoint that may read the reactive AiConfig Provider SSOT.
  *
  * The orchestrator intentionally shells out to existing manual maintenance scripts for
  * Piece C instead of reimplementing their internals. This keeps orchestration separate
@@ -28,39 +223,34 @@ export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../../scripts');
  * @param {String} [options.scriptDir] Script directory.
  * @param {String} [options.nodeBin] Node executable.
  * @param {String|Number} [options.chromaPort] Chroma daemon port — used for the `--port` arg and as the chroma task's `singletonPort` (the port the orchestrator reaps duplicate listeners on).
- * @param {Boolean} [options.mlxEnabled=false] Whether to launch an orchestrator-owned mlx_lm.server.
- * @param {String} [options.mlxModel] MLX launch model: a Hugging Face repo id or local path.
- * @param {String|Number} [options.mlxPort] MLX OpenAI-compatible local inference port.
- * @param {Boolean} [options.lmsEnabled=false] Whether to launch an orchestrator-owned LM Studio CLI server.
- * @param {String} [options.lmsModel] Legacy single LM Studio model identifier.
- * @param {String[]} [options.lmsModels] LM Studio model identifiers that must be resident after spawn.
- * @param {String} [options.lmsHost] OpenAI-compatible host exposed by the LM Studio server.
- * @param {String|Number} [options.lmsPort] LM Studio OpenAI-compatible local inference port (CLI default `1234`).
- * @param {Object} [options.lmsContextLengths] Per-model `--context-length` override map keyed by model id (chat + embedding from `aiConfig.localModels.{chat,embedding}.contextLimitTokens`).
- * @param {Object} [options.providerReadiness] Provider-readiness retry / timeout config.
- * @param {Boolean} [options.graphLogCompactionVacuum] Whether scheduled GraphLog compaction also runs SQLite VACUUM.
+ * @param {String} [options.chromaHost='localhost'] Chroma daemon host for HTTP service-health probes.
+ * @param {Number} [options.chromaHealthProbeTimeoutMs=1000] Chroma HTTP health probe timeout.
+ * @param {Function} [options.chromaHealthFetchFn] Optional fetch implementation seam for tests.
+ * @param {String|Number} [options.devServerPort] Local webpack dev-server port — used for the `--port` arg, singleton detection, and TCP liveness probe.
+ * @param {Number} [options.devServerLivenessTimeoutMs] TCP liveness probe timeout.
+ * @param {String|Number} [options.neuralLinkBridgePort] Neural Link Bridge port — sourced from the Neural Link config provider by the orchestrator entrypoint.
+ * @param {Number} [options.neuralLinkBridgeLivenessTimeoutMs] TCP liveness probe timeout.
  * @returns {Object}
  */
 export function buildTaskDefinitions({
     scriptDir  = DEFAULT_SCRIPT_DIR,
     nodeBin    = process.argv[0],
+    chromaHost = 'localhost',
     chromaPort,
-    mlxEnabled = false,
-    mlxModel,
-    mlxPort,
-    lmsEnabled = false,
-    lmsModel,
-    lmsModels,
-    lmsHost,
-    lmsPort,
-    lmsContextLengths,
-    providerReadiness,
-    graphLogCompactionVacuum
+    chromaHealthProbeTimeoutMs = DEFAULT_CHROMA_HEALTH_TIMEOUT_MS,
+    chromaHealthFetchFn,
+    devServerPort,
+    devServerLivenessTimeoutMs,
+    neuralLinkBridgePort,
+    neuralLinkBridgeLivenessTimeoutMs
 } = {}) {
+    const hasDevServerPort        = devServerPort !== undefined && devServerPort !== null;
+    const hasNeuralLinkBridgePort = neuralLinkBridgePort !== undefined && neuralLinkBridgePort !== null;
+
     const tasks = {
         chroma: {
-            label          : 'chroma daemon',
-            command        : 'chroma',
+            label  : 'chroma daemon',
+            command: 'chroma',
             // The --path persist dir resolves to the same dir as AiConfig.engines.chroma.dataDir
             // — the SSOT that KB/MC configs + defragChromaDB read — under the standard
             // cwd==repoRoot. Kept as a relative literal here (not SSOT-sourced) for daemon-launch
@@ -69,7 +259,13 @@ export function buildTaskDefinitions({
             args           : ['run', '--path', '.neo-ai-data/chroma/unified', '--port', String(chromaPort)],
             pidFileName    : 'chroma.pid',
             expectedCommand: 'chroma',
-            singletonPort  : chromaPort
+            singletonPort  : chromaPort,
+            healthProbe    : () => probeChromaHttpHealth({
+                host     : chromaHost,
+                port     : chromaPort,
+                timeoutMs: chromaHealthProbeTimeoutMs,
+                fetchFn  : chromaHealthFetchFn
+            })
         },
         // `bridgeDaemon` lane id is a frozen lane-taxonomy / continuousTasks wire constant —
         // kept verbatim on the wake-daemon rename so the orchestrator keeps scheduling the lane.
@@ -80,12 +276,57 @@ export function buildTaskDefinitions({
             pidFileName    : 'wake-daemon.pid',
             expectedCommand: 'daemons/wake/daemon.mjs'
         },
+        ...(hasDevServerPort ? {
+            devServer: {
+                label  : 'local dev-server',
+                command: nodeBin,
+                args   : [
+                    path.resolve(scriptDir, '../../node_modules/webpack/bin/webpack.js'),
+                    'serve',
+                    '-c',
+                    './buildScripts/webpack/webpack.server.config.mjs',
+                    '--port',
+                    String(devServerPort)
+                ],
+                pidFileName            : 'dev-server.pid',
+                expectedCommand        : 'node_modules/webpack/bin/webpack.js',
+                singletonPort          : Number(devServerPort),
+                duplicateListenerPolicy: 'defer',
+                livenessProbe          : () => probeTcpPort({
+                    port     : devServerPort,
+                    timeoutMs: devServerLivenessTimeoutMs
+                })
+            }
+        } : {}),
+        ...(hasNeuralLinkBridgePort ? {
+            neuralLinkBridge: {
+                label                  : 'Neural Link Bridge',
+                command                : nodeBin,
+                args                   : [path.resolve(scriptDir, '../mcp/server/neural-link/run-bridge.mjs')],
+                pidFileName            : 'neural-link-bridge.pid',
+                expectedCommand        : 'mcp/server/neural-link/run-bridge.mjs',
+                env                    : {NEO_NL_PORT: String(neuralLinkBridgePort)},
+                singletonPort          : Number(neuralLinkBridgePort),
+                duplicateListenerPolicy: 'defer',
+                livenessProbe          : () => probeTcpPort({
+                    port     : neuralLinkBridgePort,
+                    timeoutMs: neuralLinkBridgeLivenessTimeoutMs
+                })
+            }
+        } : {}),
         embedDaemon: {
             label          : 'embed daemon (add_memory WAL drain)',
             command        : nodeBin,
             args           : [path.resolve(scriptDir, '../daemons/embed/daemon.mjs')],
             pidFileName    : 'embed-daemon.pid',
             expectedCommand: 'daemons/embed/daemon.mjs'
+        },
+        messageDaemon: {
+            label          : 'message daemon (A2A message WAL drain)',
+            command        : nodeBin,
+            args           : [path.resolve(scriptDir, '../daemons/message/daemon.mjs')],
+            pidFileName    : 'message-daemon.pid',
+            expectedCommand: 'daemons/message/daemon.mjs'
         },
         summary: {
             label          : 'session summarization',
@@ -95,21 +336,30 @@ export function buildTaskDefinitions({
             expectedCommand: 'summarize-sessions.mjs'
         },
         'memory-summary-backfill': {
-            label          : 'memory miniSummary backfill',
-            command        : nodeBin,
-            args           : [path.join(scriptDir, 'lifecycle', 'backfill-memory-summaries.mjs')],
-            pidFileName    : 'memory-summary-backfill.pid',
-            expectedCommand: 'backfill-memory-summaries.mjs',
+            label            : 'memory miniSummary backfill',
+            command          : nodeBin,
+            args             : [path.join(scriptDir, 'lifecycle', 'backfill-memory-summaries.mjs')],
+            pidFileName      : 'memory-summary-backfill.pid',
+            expectedCommand  : 'backfill-memory-summaries.mjs',
+            captureStdoutJson: true,
             // Watchdog backstop: a healthy 50-item backfill finishes in minutes. 15min bounds a
             // hang the per-call timeouts miss so one wedged child can't starve the maintenance loop.
-            maxRuntimeMs   : 900000
+            maxRuntimeMs     : 900000
         },
         kbSync: {
-            label          : 'knowledge base sync',
+            label            : 'knowledge base sync',
+            command          : nodeBin,
+            args             : [path.join(scriptDir, 'maintenance', 'syncKnowledgeBase.mjs')],
+            pidFileName      : 'kb-sync.pid',
+            expectedCommand  : 'syncKnowledgeBase.mjs',
+            captureStdoutJson: true
+        },
+        githubWorkflowSync: {
+            label          : 'github workflow sync',
             command        : nodeBin,
-            args           : [path.join(scriptDir, 'maintenance', 'syncKnowledgeBase.mjs')],
-            pidFileName    : 'kb-sync.pid',
-            expectedCommand: 'syncKnowledgeBase.mjs'
+            args           : [path.join(scriptDir, 'maintenance', 'syncGithubWorkflow.mjs')],
+            pidFileName    : 'github-workflow-sync.pid',
+            expectedCommand: 'syncGithubWorkflow.mjs'
         },
         backup: {
             label          : 'agent OS backup',
@@ -119,12 +369,11 @@ export function buildTaskDefinitions({
             expectedCommand: 'backup.mjs'
         },
         'graphlog-compaction': {
-            label          : 'GraphLog compaction',
-            command        : nodeBin,
-            args           : [
+            label  : 'GraphLog compaction',
+            command: nodeBin,
+            args   : [
                 path.join(scriptDir, 'maintenance', 'compactGraphLog.mjs'),
-                '--apply',
-                ...(graphLogCompactionVacuum ? ['--vacuum'] : [])
+                '--apply'
             ],
             pidFileName    : 'graphlog-compaction.pid',
             expectedCommand: 'compactGraphLog.mjs'
@@ -157,6 +406,12 @@ export function buildTaskDefinitions({
             expectedCommand: 'DreamService',
             serviceTask    : true
         },
+        'message-concept-harvest': {
+            label          : 'message concept harvest',
+            pidFileName    : 'message-concept-harvest.pid',
+            expectedCommand: 'ConceptDiscoveryService',
+            serviceTask    : true
+        },
         'golden-path': {
             label          : 'golden path synthesis',
             pidFileName    : 'golden-path.pid',
@@ -168,73 +423,30 @@ export function buildTaskDefinitions({
             pidFileName    : 'swarm-heartbeat.pid',
             expectedCommand: 'SwarmHeartbeatService',
             serviceTask    : true
+        },
+        // In-process read-only health-check (no child process is ever spawned): the embed-drain
+        // liveness watchdog runs entirely inside the orchestrator's scheduling pipeline. The entry
+        // exists only so the task gets a persisted state envelope (cadence `lastRunAt` + the
+        // one-shot stall-alarm latch). `pidFileName`/`expectedCommand` are inert — no PID file is
+        // ever written, so process recovery/supervision short-circuits on the missing file.
+        'embed-drain-liveness-watchdog': {
+            label          : 'embed-drain liveness watchdog',
+            pidFileName    : 'embed-drain-liveness-watchdog.pid',
+            expectedCommand: 'EmbedDrainLivenessWatchdog',
+            serviceTask    : true
+        },
+        // In-process read-only health-check (consolidation-side analog of the embed-drain watchdog,
+        // one subsystem over): the REM consolidation-liveness watchdog runs inside the scheduling
+        // pipeline. The entry exists only so the task gets a persisted state envelope (cadence
+        // `lastRunAt` + the one-shot stall-alarm latch `remConsolidationAlarm`). `pidFileName` /
+        // `expectedCommand` are inert — no PID file is ever written.
+        'rem-consolidation-liveness-watchdog': {
+            label          : 'REM consolidation liveness watchdog',
+            pidFileName    : 'rem-consolidation-liveness-watchdog.pid',
+            expectedCommand: 'RemConsolidationLivenessWatchdog',
+            serviceTask    : true
         }
     };
-
-    if (mlxEnabled) {
-        tasks.mlx = {
-            label          : 'mlx inference',
-            command        : path.resolve(scriptDir, '../mcp/server/memory-core/.venv/bin/python'),
-            args           : ['-m', 'mlx_lm.server', '--model', mlxModel, '--port', String(mlxPort)],
-            pidFileName    : 'mlx.pid',
-            expectedCommand: 'mlx_lm.server'
-        };
-    }
-
-    if (lmsEnabled) {
-        const requiredModels = Array.isArray(lmsModels)
-            ? [...new Set(lmsModels.filter(Boolean))]
-            : [lmsModel].filter(Boolean);
-
-        tasks.lms = {
-            label          : 'lms server (LM Studio CLI)',
-            command        : 'lms',
-            args           : ['server', 'start', '--port', String(lmsPort)],
-            pidFileName    : 'lms.pid',
-            expectedCommand: 'lms server',
-            requiredModels,
-            // `lms server start` is fire-and-exit: it wakes the LM Studio service and returns, so
-            // the launched server never matches `expectedCommand` for the supervisor's
-            // process-liveness check (`!state.running` stays permanently true). Liveness is the
-            // HTTP endpoint instead — the supervisor gates the restart on this probe so a healthy
-            // server is a silent no-op rather than a re-spawn loop.
-            livenessProbe  : async () => {
-                const {fetchOpenAiCompatibleModelIds} = await import('../../services/graph/providerReadinessHelper.mjs');
-
-                try {
-                    await fetchOpenAiCompatibleModelIds({host: lmsHost, timeoutMs: providerReadiness?.timeoutMs ?? 2000});
-                    return true;
-                } catch {
-                    return false;
-                }
-            },
-            postSpawn      : async () => {
-                const {ensureLmsModelsLoaded} = await import('../../services/graph/providerReadinessHelper.mjs');
-
-                if (requiredModels.length === 0) {
-                    return {
-                        ready          : true,
-                        loadedModels   : [],
-                        requiredModels,
-                        availableModels: [],
-                        attempts       : 0,
-                        skipped        : true,
-                        reason         : 'no-openai-compatible-local-roles'
-                    };
-                }
-
-                return ensureLmsModelsLoaded({
-                    host           : lmsHost,
-                    models         : requiredModels,
-                    contextLengths : lmsContextLengths,
-                    allowPartial   : true,
-                    attempts       : providerReadiness?.attempts,
-                    delayMs        : providerReadiness?.delayMs,
-                    timeoutMs      : providerReadiness?.timeoutMs
-                });
-            }
-        };
-    }
 
     return tasks;
 }

@@ -16,7 +16,7 @@ export const DESTRUCTIVE_PRODUCTION_CONFIRMATION = 'CONFIRM_PRODUCTION_DESTRUCTI
  *
  * - `neo-agent-memory`   — Memory Core memories collection (`aiConfig.collections.memory`).
  * - `neo-agent-sessions` — Memory Core summaries collection (`aiConfig.collections.session`).
- * - `neo-agent-graph`    — Memory Core graph collection (`aiConfig.collections.graph`).
+ * - `neo-native-graph`   — Memory Core graph collection (`aiConfig.collections.graph`).
  * - `neo-knowledge-base` — Knowledge Base canonical collection (`aiConfig.collectionName`).
  *
  * Names are hardcoded (not derived from config) so a caller that loads runtime config
@@ -27,7 +27,7 @@ export const DESTRUCTIVE_PRODUCTION_CONFIRMATION = 'CONFIRM_PRODUCTION_DESTRUCTI
 export const GUARDED_CANONICAL_COLLECTION_NAMES = Object.freeze(new Set([
     'neo-agent-memory',
     'neo-agent-sessions',
-    'neo-agent-graph',
+    'neo-native-graph',
     'neo-knowledge-base'
 ]));
 

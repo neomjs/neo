@@ -1,0 +1,7 @@
+{
+    "appPath"    : "examples/dashboard/dock/app.mjs",
+    "basePath"   : "../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs",
+    "useAiClient": true
+}

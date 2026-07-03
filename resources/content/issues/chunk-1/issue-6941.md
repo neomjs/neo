@@ -5,16 +5,23 @@ state: OPEN
 labels:
   - enhancement
   - no auto close
+  - needs-re-triage
+  - not-code-ready
+  - needs-design
 assignees: []
 createdAt: '2025-07-04T17:43:25Z'
-updatedAt: '2025-10-03T09:11:50Z'
+updatedAt: '2026-06-23T05:13:24Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6941'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy: []
 blocking: []
 ---
@@ -43,4 +50,35 @@ This issue is stale because it has been open for 90 days with no activity.
 - 2025-10-03T09:11:50Z @tobiu removed the `stale` label
 - 2025-10-03T09:11:50Z @tobiu added the `no auto close` label
 - 2025-12-31T14:24:16Z @tobiu cross-referenced by #8230
+- 2026-06-23T05:13:06Z @neo-gpt added the `not-code-ready` label
+- 2026-06-23T05:13:07Z @neo-gpt added the `needs-design` label
+- 2026-06-23T05:13:07Z @neo-gpt added the `needs-re-triage` label
+### @neo-gpt - 2026-06-23T05:13:24Z
+
+[ARCH_ALIGNMENT]
+
+Fresh V-B-A triage: #6941 is not code-ready as written.
+
+Evidence:
+- `Neo.mergeConfig()` is already strategy-driven: `shallow`, `deep`, `deepArrays`, or a custom function, otherwise replacement (`src/Neo.mjs` lines 650-674).
+- `Neo.applyClassConfig()` already applies descriptor merge strategies while walking the static config hierarchy (`src/Neo.mjs` lines 949-959).
+- `Neo.core.Base#mergeConfig()` already applies descriptor merge strategies when instance config is merged over static config (`src/core/Base.mjs` lines 737-764).
+- `Neo.core.Base#parseItemConfigs()` already supports recursive structural injection via `[mergeFrom]`, deep-merging a parent config block into nested `items` definitions (`src/core/Base.mjs` lines 847-889; symbol defined in `src/core/ConfigSymbols.mjs` lines 1-3).
+- `Neo.state.Provider` already declares `data_` with descriptor `merge: 'deep'` (`src/state/Provider.mjs` lines 61-65), which is the native pattern used by the later hierarchical config work.
+- The guide `learn/guides/fundamentals/DeclarativeConfigMerging.md` documents the intended structural-injection path: `mergeFrom`, `merge: 'deep'`, recursive nested item support, and `clone: 'deep'` for safety (lines 31-38, 91-132, 151-170).
+- Focused verification passed: `npm run test-unit -- test/playwright/unit/core/ConfigMerging.spec.mjs` -> 4 passed.
+
+Stage retrospective:
+- Premise is not proven yet. The ticket says nested class-like configs may merge incorrectly, but it does not name a reproducible failing hierarchy where the existing descriptor / `mergeFrom` / Provider primitives fail.
+- Prescription fails for now. Dynamically replacing global `Neo.mergeConfig` after manager bootstrap is high-blast and introduces time-dependent behavior into the class setup path. That needs a concrete failing case and an ADR-level design argument before it can be treated as implementation-ready.
+- Substrate likely remains the existing descriptor-driven config system unless a benchmark or failing unit test proves the current primitives cannot express the case.
+
+Routing:
+- Applied `not-code-ready`, `needs-design`, and `needs-re-triage`.
+- Kept `enhancement` and `no auto close`; the underlying problem may still be real, but the current prescription is too broad.
+
+Revalidation trigger: return this to code-ready only after the issue includes a minimal failing test or source-backed example showing a nested `module` / `className` / `ntype` hierarchy where descriptor `merge: 'deep'`, `deepArrays`, `mergeFrom`, or Provider inheritance cannot preserve the intended class relationship. If the failure is real, the next design should compare a local merge strategy / descriptor extension against any global replacement.
+
+Triaged per `ticket-triage` skill. Stage retrospective did not pass as written; labels now reflect design-gated status.
+
 

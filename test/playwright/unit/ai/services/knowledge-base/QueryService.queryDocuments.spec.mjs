@@ -166,7 +166,7 @@ test.describe('Neo.ai.services.knowledge-base.QueryService#queryDocuments', () =
     });
 
     test('deduplicates candidates returned by overlapping broad-search pools (#12719)', async () => {
-        const capture = {};
+        const capture   = {};
         const duplicate = {
             source          : 'learn/agentos/KnowledgeBase.md',
             type            : 'guide',
@@ -275,8 +275,8 @@ test.describe('Neo.ai.services.knowledge-base.QueryService#queryDocuments', () =
     });
 
     test('does not build the code-term rescue index for no-anchor semantic queries (#12715)', async () => {
-        const capture = {};
-        let indexBuilt = false;
+        const capture    = {};
+        let   indexBuilt = false;
         installQueryStub([{
             source          : 'learn/agentos/MemoryCore.md',
             type            : 'guide',
@@ -300,8 +300,8 @@ test.describe('Neo.ai.services.knowledge-base.QueryService#queryDocuments', () =
     });
 
     test('does not build the code-term rescue index for non-code typed searches (#12715)', async () => {
-        const capture = {};
-        let indexBuilt = false;
+        const capture    = {};
+        let   indexBuilt = false;
         installQueryStub([{
             source          : 'learn/agentos/DreamPipeline.md',
             type            : 'guide',
@@ -325,7 +325,7 @@ test.describe('Neo.ai.services.knowledge-base.QueryService#queryDocuments', () =
     });
 
     test('reuses the code-term rescue index across code-term queries (#12715)', async () => {
-        let indexBuilds = 0;
+        let   indexBuilds    = 0;
         const rescuedSources = [];
 
         QueryService.buildCodeTermRescueIndex = async () => {
@@ -366,7 +366,13 @@ test.describe('Neo.ai.services.knowledge-base.QueryService#queryDocuments', () =
         const result = await QueryService.queryDocuments({
             query: 'Neo graph database HybridRAG mutate_frontier Dream Pipeline Gemma4 31B graph processing ai/services/graph sandman_handoff.md',
             type : 'all',
-            limit: 15,
+            // The query path-matches the whole `ai/services/graph` dir, so the lexical rescue boosts every file in
+            // it; the final list is score-sorted then capped at `limit` (QueryService L235). The semantic top-k is
+            // stubbed above (the "miss" the rescue is proving it recovers from), so `limit` only sizes the final
+            // rescued set — it must exceed the graph dir size + the cross-dir anchors (e.g. memory-core
+            // GraphService.mjs), else simply adding a graph file evicts a boundary anchor. 25 = the production
+            // default, with headroom over the current dir size.
+            limit          : 25,
             includeMetadata: true
         });
         const sources = result.results.map(item => item.source);

@@ -94,7 +94,7 @@ export NEO_MODEL_PROVIDER=gemini
 
 This path uses the existing `Neo.ai.provider.OpenAiCompatible` chat-completions abstraction. Do not add a model-specific Qwen provider class for shared-deployment installs; local-model selection is an operator config concern.
 `NEO_OPENAI_COMPATIBLE_KEEP_ALIVE` and `NEO_OLLAMA_KEEP_ALIVE` default to `-1` so local providers keep the selected model resident across Agent OS calls unless operators explicitly choose a shorter retention window or `0` unload control.
-The optional `local-model` Docker profile mirrors that service primitive at the provider-runtime boundary: `OLLAMA_KEEP_ALIVE=-1`, `OLLAMA_CONTEXT_LENGTH=262144`, and a 32g default memory envelope for dual-resident chat + embedding deployments unless overridden by `NEO_LOCAL_MODEL_*` deployment variables.
+The optional `local-model` Docker profile mirrors that service primitive at the provider-runtime boundary: `OLLAMA_KEEP_ALIVE=-1`, `OLLAMA_CONTEXT_LENGTH=131072`, and a 32g default memory envelope for dual-resident chat + embedding deployments unless overridden by `NEO_LOCAL_MODEL_*` deployment variables.
 
 ### Local-provider model residency
 
@@ -184,26 +184,26 @@ Every authenticated request carries a `source` tag through `Server.mjs#buildRequ
 
 The source tag is graph-ingested into agent-identity memory writes; an audit query against memories can verify the proportion of `'oidc'` vs `'proxy-header'` writes against operator expectations.
 
-A symmetric healthcheck `providers.auth` block is shipped under [#10770](https://github.com/neomjs/neo/issues/10770) — see [Healthcheck Verification](#healthcheck-verification) below. The block provides static-config observability of the active auth path (OIDC vs proxy-header vs unconfigured) at boot; per-request source-tag observability remains via memory-write audit.
+The active auth path (OIDC vs proxy-header vs unconfigured) is asserted at runtime by `Server.mjs#buildRequestContext`; per-request source-tag observability is available via the memory-write audit described above, rather than as a static healthcheck field.
 
 ## Healthcheck Verification
 
-The Memory Core's `healthcheck` MCP tool exposes the effective topology so operators can verify shared mode took effect without inspecting logs or re-running config through `node -e`:
+The topology is **permanently unified** (§ above): Memory Core and the Knowledge Base always share a single ChromaDB instance, resolved from the `engines.chroma` config coordinate. There is no runtime topology toggle — so what operators verify is **connectivity to the shared instance**, not a topology field.
+
+The Memory Core's `healthcheck` MCP tool reports `database.connection` against the configured coordinate:
 
 ```json
 "database": {
-    "topology": {
-        "mode": "unified",
-        "coordinates": { "host": "team-chroma.example.com", "port": 8000 },
-        "resolvedVia": "engines.chroma"
+    "connection": {
+        "connected": true,
+        "engines": { "chroma": true },
+        "collections": {
+            "memories":  { "exists": true, "count": 8599 },
+            "summaries": { "exists": true, "count": 794 }
+        }
     }
 }
 ```
-
-Three diagnostic fields:
-- `mode`: Always `'unified'`. Memory Core shares the underlying ChromaDB instance with the KB.
-- `coordinates`: the actual `{host, port}` the Memory Core's client is targeting. In shared mode this should match the team's Chroma service. `null` indicates a misconfiguration (`engines.chroma` not populated).
-- `resolvedVia`: `'engines.chroma'`. Direct pointer to the config key path the resolver consulted.
 
 See [`MemoryCore.md` §Healthcheck Response Shape](./MemoryCore.md) for the full healthcheck payload contract.
 
@@ -211,7 +211,7 @@ The Knowledge Base's healthcheck mirrors the connectivity assertion (collection 
 
 The local staged-stack fixture verifies this deployed shape with `npm run test-integration-unified`: Playwright starts `ai/deploy/docker-compose.test.yml`, then calls both servers' MCP `healthcheck` tools over `/mcp` (see [HeartbeatPropagation.integration.spec.mjs](../../test/playwright/integration/HeartbeatPropagation.integration.spec.mjs)). This is the canonical local smoke path for KB + MC + shared Chroma healthcheck validation. It also writes and queries same-session memories as different proxy identities in `test/playwright/integration/CrossTenantIsolation.integration.spec.mjs`, proving tenant-scoped memory reads do not leak across the trusted proxy-identity boundary.
 
-The Memory Core's healthcheck additionally surfaces active provider observability under `providers.*` (#10723, #10724, #10770):
+The Memory Core's healthcheck additionally surfaces active provider observability under `providers.*` (#10723, #10724):
 
 ```json
 "providers": {
@@ -225,26 +225,7 @@ The Memory Core's healthcheck additionally surfaces active provider observabilit
         "active": "openAiCompatible",
         "host": "http://127.0.0.1:11434",
         "model": "qwen3-8b",
-        "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
-        "local": true,
-        "credential": {
-            "env": "NEO_OPENAI_COMPATIBLE_API_KEY",
-            "configured": false,
-            "required": false
-        }
-    },
-    "auth": {
-        "configured": "oidc",
-        "oidc": {
-            "host": "http://127.0.0.1:8180",
-            "issuerUrl": "http://127.0.0.1:8180/realms/master",
-            "realm": "master",
-            "configured": true
-        },
-        "proxyHeader": {
-            "trusted": false,
-            "headersChecked": ["x-preferred-username", "x-auth-request-preferred-username"]
-        }
+        "local": true
     }
 }
 ```
@@ -261,28 +242,11 @@ Summary diagnostic fields:
 - `active`: the provider key currently selected for session summarization (`'gemini'` | `'openAiCompatible'` | string).
 - `host`: chat provider host when applicable (`null` for cloud `gemini`).
 - `model`: resolved summary-generation model. Operators verify this matches the model running on the local server.
-- `endpoint`: chat-completions endpoint for OpenAI-compatible providers.
-- `local`: whether the endpoint is loopback / localhost.
-- `credential`: env var name plus `configured` / `required` booleans; secret values are never exposed.
+- `local`: whether the configured chat endpoint is loopback / localhost.
 
 For disconnect-triggered summarization, keep `NEO_AUTO_SUMMARIZE=true` only after the local model is reachable and healthcheck shows the intended provider/model. If the local chat API is unavailable, Memory Core logs the summarization failure and keeps raw memories intact so the operator can retry.
 
-Auth diagnostic fields:
-- `configured`: which auth path is primary at boot — `'oidc'`, `'proxy-header'`, or `'unconfigured'`. OIDC takes precedence when both are configured (matches `Server.mjs#buildRequestContext` runtime semantics — `req.auth` wins over the proxy header by design).
-- `oidc.{host, issuerUrl, realm}`: introspection-relevant config visibility (never the `clientSecret`).
-- `oidc.configured`: `true` only when both `host` AND `issuerUrl` are populated.
-- `proxyHeader.trusted`: whether `auth.trustProxyIdentity` is enabled in config.
-- `proxyHeader.headersChecked`: the canonical (`x-preferred-username`) and `oauth2-proxy`-specific (`x-auth-request-preferred-username`) header keys the server reads in proxy-header mode.
-
-Use `configured` as the at-a-glance indicator. A misconfigured `NEO_AUTH_TRUST_PROXY_IDENTITY=true` without OIDC and without a fronting proxy actually deployed will surface here as `'proxy-header'`; if requests then fail with `401`, that's the runtime gate ([PR #10785](https://github.com/neomjs/neo/pull/10785)) rejecting missing proxy headers per the [Authentication](#authentication) threat model. The healthcheck shows the *configured* posture; the 401 confirms the gate fires when the prerequisite is absent.
-
-Dream background daemon diagnostic fields (`features.dream`):
-- `autoDream`: whether the background Dream daemon is permitted to run.
-- `autoGoldenPath`: whether the background Golden Path pipeline is enabled.
-- `realTimeMemoryParsing`: whether the real-time continuous memory parsing worker is enabled.
-- `autoIngestFileSystem`: whether the file-system ingest watcher is enabled.
-- `lastDreamRun`: placeholder for the timestamp of the last Dream pipeline execution.
-- `lastGoldenPathRun`: placeholder for the timestamp of the last Golden Path pipeline execution.
+The active auth path is asserted at runtime and surfaced per-request via the memory-write source tag (see [Authentication](#authentication)); a misconfigured `NEO_AUTH_TRUST_PROXY_IDENTITY=true` without a fronting proxy actually deployed surfaces when requests fail with `401` at the runtime gate ([PR #10785](https://github.com/neomjs/neo/pull/10785)) rejecting missing proxy headers per the threat model.
 
 ## Asynchronous Session Summarization (Disconnect Trigger)
 
@@ -304,10 +268,10 @@ Teams adopting shared mode from per-developer local should follow this migration
 
 3. **Update each developer's config.** Each developer points their `engines.chroma.{host, port}` config at the shared instance. The setting can live in the developer's environment or in a shared `.env` template.
 
-4. **Verify via healthcheck.** Each developer runs `healthcheck` against both servers, but the proof shape differs per server:
-   - **Memory Core** surfaces the effective topology in its `database.topology` block — expect `mode === 'unified'`, matching `coordinates`, and `resolvedVia === 'engines.chroma'`. This is the canonical topology proof.
-   - **Knowledge Base** proves connectivity to the shared Chroma instance and reports collection availability/counts (the KB healthcheck does not surface a topology block; that diagnostic is MC-side per #10127).
-   - Cross-server consistency: when both servers report `connected: true` against matching `{host, port}`, the shared topology is verified end-to-end. Connection failures surface as structured `error` fields, not 500s.
+4. **Verify via healthcheck.** Each developer runs `healthcheck` against both servers and confirms connectivity to the shared instance:
+   - **Memory Core** reports `database.connection.connected === true` with `engines.chroma === true` and the expected collection counts. The topology is permanently `unified` by config (`engines.chroma`) — there is no separate runtime topology field to inspect.
+   - **Knowledge Base** proves connectivity to the same shared Chroma instance and reports collection availability/counts.
+   - Cross-server consistency: when both servers report `connected: true` against matching `engines.chroma` `{host, port}`, shared mode is verified end-to-end. Connection failures surface as structured `error` fields, not 500s.
 
 5. **First-session smoke test.** Have each developer's agent run a `query_summaries` query against Memory Core — this is the canonical cross-agent **memory visibility** proof. The first agent populates baseline; subsequent agents should see each other's summaries on subsequent queries. Optionally also run an `ask_knowledge_base` query against the Knowledge Base to validate **KB sharing** through the same Chroma instance — it's a separate retrieval surface, not a memory-visibility proof.
 

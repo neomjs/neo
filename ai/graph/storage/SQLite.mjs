@@ -1,5 +1,6 @@
-import Base from './Base.mjs';
-import { SQLITE_IN_CLAUSE_BATCH_SIZE } from './constants.mjs';
+import Base                                           from './Base.mjs';
+import { SQLITE_IN_CLAUSE_BATCH_SIZE }                from './constants.mjs';
+import { isDisposableStorePath, isTestRunnerContext } from '../../services/shared/storeWriteGuard.mjs';
 
 const GRAPH_SCHEMA_VERSION = 1;
 const GRAPH_SCHEMA_VERSION_ID = 'graph';
@@ -56,6 +57,7 @@ class SQLite extends Base {
         try {
             const rcs = await import('../../mcp/server/shared/services/RequestContextService.mjs');
             me.RequestContextService = rcs.default;
+            me.normalizeUserId       = rcs.normalizeUserId;
         } catch (e) {
             // Safe fallback for browser/UI isolated executions
         }
@@ -282,12 +284,60 @@ class SQLite extends Base {
     }
 
     /**
+     * @summary Classifies a SQLite path as disposable (test-isolated) versus a live production database.
+     *
+     * Delegates to the Agent-OS-wide `storeWriteGuard.isDisposableStorePath` classifier — one definition of
+     * "safe to mutate from a test" (`:memory:`, an OS-temp / repo-`tmp/`, or any `*test*` path) shared across
+     * the graph store and the file-stores so no per-store classifier drifts. Used here by both `clear()`'s
+     * production-wipe guard and `assertTestWriteIsolated()`.
+     * @param {String|null} [dbPath=this.dbPath]
+     * @returns {Boolean}
+     * @protected
+     */
+    isDisposableDbPath(dbPath=this.dbPath) {
+        return isDisposableStorePath(dbPath);
+    }
+
+    /**
+     * @summary Fail-closed guard: a test context MUST NOT write to a production graph database.
+     *
+     * The write-path twin of `clear()`'s production-wipe guard. Graph writes were otherwise unguarded, so a bare
+     * `npx playwright test` — which, unlike `playwright.config.unit.mjs`, never sets `UNIT_TEST_MODE`, so
+     * `storagePaths.graph` resolves to the live `graphProd` — would silently write test rows into the shared
+     * production graph (the live-DB orphan-bleed / backlog-corruption vector).
+     *
+     * Inserts are constant in production, so a target-path refusal (the shape that is correct for *destructive*
+     * ops in `DestructiveOperationGuard`) would break the live runtime. This therefore keys on the test
+     * **caller**, not the target: it fires only when a test runner is detected (`TEST_WORKER_INDEX`, which
+     * Playwright sets in every worker process, or `UNIT_TEST_MODE`) AND the resolved path is production-like.
+     * It is config-independent — it fires regardless of harness or config state (the prior live-collection-wipe
+     * lesson). Zero production blast: the live runtime sets neither signal, so this early-returns.
+     *
+     * @param {Object} [options]
+     * @param {String} [options.dbPath=this.dbPath] Resolved SQLite path; injectable for tests.
+     * @param {Object} [options.env=process.env]    Environment map; injectable for tests.
+     * @throws {Error} When a test context targets a production graph path.
+     * @protected
+     */
+    assertTestWriteIsolated({dbPath=this.dbPath, env=process.env}={}) {
+        if (!isTestRunnerContext(env) || this.isDisposableDbPath(dbPath)) return;
+
+        throw new Error(
+            `GRAPH_WRITE_GUARD: refusing a graph write to the production database "${dbPath}" from a test ` +
+            `context (TEST_WORKER_INDEX/UNIT_TEST_MODE detected). Tests MUST run with UNIT_TEST_MODE=true, so ` +
+            `storagePaths.graph resolves to the in-memory graphTest — a bare \`npx playwright test\` would ` +
+            `otherwise pollute the live graph.`
+        );
+    }
+
+    /**
      * Maps volatile Memory Node structures directly into SQLite standard JSON buffers using Upsert topologies natively.
      * @param {Object[]} nodes
      */
     addNodes(nodes) {
         if (!this.db || !nodes || nodes.length === 0) return;
         if (!this.db.open) throw new Error('SQLite connection is closed (lifecycle violation).');
+        this.assertTestWriteIsolated();
         const stmt = this.db.prepare(`
             INSERT INTO Nodes (id, user_id, data)
             VALUES (?, ?, ?)
@@ -298,8 +348,8 @@ class SQLite extends Base {
             for (const node of nodesList) {
                 const isRecord = node.isRecord;
                 const nodeData = {
-                    id: isRecord ? node.get('id') : node.id,
-                    label: isRecord ? node.get('label') : node.label,
+                    id        : isRecord ? node.get('id') : node.id,
+                    label     : isRecord ? node.get('label') : node.label,
                     properties: isRecord ? node.get('properties') : node.properties
                 };
 
@@ -321,6 +371,7 @@ class SQLite extends Base {
     addEdges(edges) {
         if (!this.db || !edges || edges.length === 0) return;
         if (!this.db.open) throw new Error('SQLite connection is closed (lifecycle violation).');
+        this.assertTestWriteIsolated();
         const stmt = this.db.prepare(`
             INSERT INTO Edges (id, user_id, source, target, type, data)
             VALUES (?, ?, ?, ?, ?, ?)
@@ -336,10 +387,10 @@ class SQLite extends Base {
             for (const edge of edgesList) {
                 const isRecord = edge.isRecord;
                 const edgeData = {
-                    id: isRecord ? edge.get('id') : edge.id,
-                    source: isRecord ? edge.get('source') : edge.source,
-                    target: isRecord ? edge.get('target') : edge.target,
-                    type: isRecord ? edge.get('type') : edge.type,
+                    id        : isRecord ? edge.get('id') : edge.id,
+                    source    : isRecord ? edge.get('source') : edge.source,
+                    target    : isRecord ? edge.get('target') : edge.target,
+                    type      : isRecord ? edge.get('type') : edge.type,
                     properties: isRecord ? edge.get('properties') : edge.properties
                 };
                 stmt.run(edgeData.id, edgeData.properties?.userId || null, edgeData.source, edgeData.target, edgeData.type || null, JSON.stringify(edgeData));
@@ -356,6 +407,7 @@ class SQLite extends Base {
     removeNodes(nodes) {
         if (!this.db || !nodes || nodes.length === 0) return;
         if (!this.db.open) throw new Error('SQLite connection is closed (lifecycle violation).');
+        this.assertTestWriteIsolated();
         const stmt = this.db.prepare('DELETE FROM Nodes WHERE id = ?');
 
         const removeMany = this.db.transaction((nodesList) => {
@@ -375,6 +427,7 @@ class SQLite extends Base {
     removeEdges(edges) {
         if (!this.db || !edges || edges.length === 0) return;
         if (!this.db.open) throw new Error('SQLite connection is closed (lifecycle violation).');
+        this.assertTestWriteIsolated();
         const stmt = this.db.prepare('DELETE FROM Edges WHERE id = ?');
 
         const removeMany = this.db.transaction((edgesList) => {
@@ -394,6 +447,7 @@ class SQLite extends Base {
     executeTransaction(diffLog) {
         if (!this.db || !diffLog || diffLog.length === 0) return;
         if (!this.db.open) throw new Error('SQLite connection is closed (lifecycle violation).');
+        this.assertTestWriteIsolated();
 
         const insertNodeStmt = this.db.prepare(`
             INSERT INTO Nodes (id, user_id, data) VALUES (?, ?, ?)
@@ -440,8 +494,9 @@ class SQLite extends Base {
         if (!this.db) return;
         if (!this.db.open) throw new Error('SQLite connection is closed (lifecycle violation).');
 
-        // Prevent accidental test-driven wipes of non-temporary graph databases.
-        if (this.dbPath && !this.dbPath.includes('tmp') && !this.dbPath.includes('test') && this.dbPath !== ':memory:') {
+        // Prevent accidental test-driven wipes of non-temporary graph databases (shares isDisposableDbPath
+        // with assertTestWriteIsolated so the destructive- and write-guards classify prod paths identically).
+        if (!this.isDisposableDbPath()) {
             throw new Error(`FATAL: Attempted to clear a non-temporary SQLite database natively! Path: ${this.dbPath}`);
         }
 
@@ -499,7 +554,7 @@ class SQLite extends Base {
         }
 
         return {
-            lastLogId: maxId,
+            lastLogId   : maxId,
             invalidNodes: Array.from(invalidNodes),
             invalidEdges: Array.from(invalidEdgesMap.values())
         };
@@ -519,9 +574,15 @@ class SQLite extends Base {
         let ids = Array.isArray(nodeIds) ? nodeIds : [nodeIds];
         if (ids.length === 0) return {nodes: [], edges: []};
 
-        // Resolve Identity for RLS natively synchronously
-        let userId = this.RequestContextService ? this.RequestContextService.getAgentIdentityNodeId() : null;
-        let rlsClause = `AND (user_id = ? OR user_id IS NULL OR json_extract(data, '$.properties.sharedEntity') = 1 OR json_extract(data, '$.properties.visibility') = 'team')`;
+        // Resolve the RLS key canonically (normalized, no-`@`) and match BOTH stored forms: the
+        // user_id column was written in @-prefixed AND normalized forms, so this cold lazy-load (the
+        // path getNode hits BEFORE GraphService.isRlsVisible) must tolerate both — recovering an
+        // owner's own normalized-user_id rows without widening across tenants. Mirrors searchNodes.
+        const rcs       = this.RequestContextService;
+        const rawUserId = rcs ? (rcs.getUserId?.() ?? rcs.getAgentIdentityNodeId?.()) : null;
+        const userId    = rawUserId == null ? null : (this.normalizeUserId ? this.normalizeUserId(rawUserId) : rawUserId);
+        const userIdAt  = userId == null ? null : '@' + userId;
+        let rlsClause = `AND (user_id = ? OR user_id = ? OR user_id IS NULL OR json_extract(data, '$.properties.sharedEntity') = 1 OR json_extract(data, '$.properties.visibility') = 'team')`;
 
         const chunkSize = SQLITE_IN_CLAUSE_BATCH_SIZE;
         let targetNodes = [];
@@ -532,10 +593,10 @@ class SQLite extends Base {
             let placeholders = chunk.map(() => '?').join(',');
 
             const nodesStmt = this.db.prepare(`SELECT data FROM Nodes WHERE id IN (${placeholders}) ${rlsClause}`);
-            targetNodes.push(...nodesStmt.all(...chunk, userId || null).map(r => JSON.parse(r.data)));
+            targetNodes.push(...nodesStmt.all(...chunk, userId, userIdAt).map(r => JSON.parse(r.data)));
 
             const edgesStmt = this.db.prepare(`SELECT data FROM Edges WHERE (source IN (${placeholders}) OR target IN (${placeholders})) ${rlsClause}`);
-            const edgesParams = [...chunk, ...chunk, userId || null];
+            const edgesParams = [...chunk, ...chunk, userId, userIdAt];
             edges.push(...edgesStmt.all(...edgesParams).map(r => JSON.parse(r.data)));
         }
 
@@ -552,7 +613,7 @@ class SQLite extends Base {
                 let chunk = adjIdsArray.slice(i, i + chunkSize);
                 let adjPl = chunk.map(() => '?').join(',');
                 let adjStmt = this.db.prepare(`SELECT data FROM Nodes WHERE id IN (${adjPl}) ${rlsClause}`);
-                adjacentNodes.push(...adjStmt.all(...chunk, userId || null).map(r => JSON.parse(r.data)));
+                adjacentNodes.push(...adjStmt.all(...chunk, userId, userIdAt).map(r => JSON.parse(r.data)));
             }
         }
 

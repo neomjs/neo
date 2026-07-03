@@ -1,18 +1,20 @@
-import aiConfig                                      from '../../../mcp/server/github-workflow/config.mjs';
-import Base                                          from '../../../../src/core/Base.mjs';
-import crypto                                        from 'crypto';
-import {existsSync}                                  from 'fs';
-import fs                                            from 'fs/promises';
-import logger                                        from '../../../mcp/server/github-workflow/logger.mjs';
-import matter                                        from 'gray-matter';
-import path                                          from 'path';
-import semver                                        from 'semver';
-import GraphqlService                                from '../GraphqlService.mjs';
-import ReleaseNotesSyncer                                 from './ReleaseNotesSyncer.mjs';
+import aiConfig                                                               from '../../../mcp/server/github-workflow/config.mjs';
+import Base                                                                   from '../../../../src/core/Base.mjs';
+import crypto                                                                 from 'crypto';
+import {existsSync}                                                           from 'fs';
+import fs                                                                     from 'fs/promises';
+import logger                                                                 from '../../../mcp/server/github-workflow/logger.mjs';
+import matter                                                                 from 'gray-matter';
+import path                                                                   from 'path';
+import semver                                                                 from 'semver';
+import GraphqlService                                                         from '../GraphqlService.mjs';
+import ReleaseNotesSyncer                                                     from './ReleaseNotesSyncer.mjs';
 import {FETCH_ISSUE_TIMELINE_PAGE, FETCH_ISSUES_FOR_SYNC, FETCH_SINGLE_ISSUE} from '../queries/issueQueries.mjs';
-import {GET_ISSUE_ID, UPDATE_ISSUE}                                                                        from '../queries/mutations.mjs';
-import contentPath                                      from '../shared/contentPath.mjs';
-import {createContentIndexEntry, updateContentIndex}    from '../shared/contentIndex.mjs';
+import {GET_ISSUE_FOR_PUSH, UPDATE_ISSUE}                                     from '../queries/mutations.mjs';
+import contentPath                                                            from '../shared/contentPath.mjs';
+import {createContentIndexEntry, updateContentIndex}                          from '../shared/contentIndex.mjs';
+import {createContentTrustSummary, projectAuthoredNodeTrust}                  from '../shared/conversationTrust.mjs';
+import pruneEmptyDirs                                                         from '../shared/pruneEmptyDirs.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
 const lineBreaksRegex = /[\r\n]+/g;
@@ -63,6 +65,29 @@ class IssueSyncer extends Base {
      */
     #calculateContentHash(content) {
         return crypto.createHash('sha256').update(content).digest('hex');
+    }
+
+    /**
+     * @summary Extracts the only Markdown fields that can be pushed back to GitHub.
+     *
+     * The local issue file also contains generated frontmatter and a read-only timeline.
+     * Those sections are useful for pull-side rendering and metadata checks, but GitHub's
+     * updateIssue mutation only accepts title/body. Keeping this projection explicit prevents
+     * generated-only drift from masquerading as local edit intent.
+     *
+     * @param {object} parsed Gray-matter parsed issue Markdown.
+     * @returns {{title: string, body: string}} Pushable issue title/body.
+     * @private
+     */
+    #getPushPayloadFromMarkdown(parsed) {
+        const bodyContent = parsed.content.split('## Timeline')[0].trim(),
+            titleMatch    = bodyContent.match(/^#\s+(.+)$/m),
+            title         = titleMatch ? titleMatch[1] : parsed.data.title,
+            body          = bodyContent
+                .replace(/^#\s+.+$/m, '')
+                .trim();
+
+        return {title, body};
     }
 
     /**
@@ -174,6 +199,22 @@ class IssueSyncer extends Base {
     }
 
     /**
+     * @summary Projects one GitHub-authored issue-sync node through the shared content-trust policy.
+     * @param {Object} node GitHub authored node carrying optional `author.login` and `body`.
+     * @param {Object} summary Machine-readable content-trust summary accumulator.
+     * @param {String} signalPath Stable path label for sanitizer signal metadata.
+     * @returns {Object} Projected node with sanitized body for untrusted authors.
+     * @private
+     */
+    #projectAuthoredNode(node, summary, signalPath) {
+        return projectAuthoredNodeTrust(node, {
+            summary,
+            path               : signalPath,
+            productNameDenylist: issueSyncConfig.productNameDenylist || []
+        }).node;
+    }
+
+    /**
      * Formats a GitHub issue and its comments into a single Markdown string with YAML frontmatter.
      * @param {object}   issue    The GitHub issue object.
      * @param {object[]} comments An array of comment objects associated with the issue.
@@ -181,27 +222,30 @@ class IssueSyncer extends Base {
      * @private
      */
     #formatIssueMarkdown(issue) {
+        const contentTrust   = createContentTrustSummary();
+        const projectedIssue = this.#projectAuthoredNode(issue, contentTrust, 'body');
         // GitHub GraphQL may return null authors or relationship nodes after users, labels, or
         // linked issues are deleted. Each dereference site uses optional chaining plus stable
         // fallback conventions: `Ghost` for users, `(no title)` for missing titles, and filtering
         // for null list entries so structured fields keep only real entities.
         const frontmatter = {
-            id                : issue.number,
-            title             : issue.title?.replace(lineBreaksRegex, ' ') || '(no title)',
-            state             : issue.state,
-            labels            : (issue.labels?.nodes || []).map(l => l?.name).filter(Boolean),
-            assignees         : (issue.assignees?.nodes || []).map(a => a?.login).filter(Boolean),
-            createdAt         : issue.createdAt,
-            updatedAt         : issue.updatedAt,
-            githubUrl         : issue.url,
-            author            : issue.author?.login || 'Ghost',
-            commentsCount     : this.#countTimelineComments(issue), // Derived from the exhausted timeline.
-            parentIssue       : issue.parent?.number ?? null,
-            subIssues         : (issue.subIssues?.nodes || []).map(sub =>
+            id           : issue.number,
+            title        : issue.title?.replace(lineBreaksRegex, ' ') || '(no title)',
+            state        : issue.state,
+            labels       : (issue.labels?.nodes || []).map(l => l?.name).filter(Boolean),
+            assignees    : (issue.assignees?.nodes || []).map(a => a?.login).filter(Boolean),
+            createdAt    : issue.createdAt,
+            updatedAt    : issue.updatedAt,
+            githubUrl    : issue.url,
+            author       : issue.author?.login || 'Ghost',
+            commentsCount: this.#countTimelineComments(issue), // Derived from the exhausted timeline.
+            parentIssue  : issue.parent?.number ?? null,
+            subIssues    : (issue.subIssues?.nodes || []).map(sub =>
                 sub ? `[${sub.state === 'CLOSED' ? 'x' : ' '}] ${sub.number} ${sub.title?.replace(lineBreaksRegex, ' ') || '(no title)'}` : null
             ).filter(Boolean),
             subIssuesCompleted: issue.subIssuesSummary?.completed || 0,
             subIssuesTotal    : issue.subIssuesSummary?.total || 0,
+            contentTrust,
             blockedBy         : (issue.blockedBy?.nodes || []).map(b =>
                 b ? `[${b.state === 'CLOSED' ? 'x' : ' '}] ${b.number} ${b.title?.replace(lineBreaksRegex, ' ') || '(no title)'}` : null
             ).filter(Boolean),
@@ -219,14 +263,14 @@ class IssueSyncer extends Base {
 
         let body = `# ${issue.title || '(no title)'}\n\n`;
 
-        body += issue.body || '*(No description provided)*';
+        body += projectedIssue.body || '*(No description provided)*';
         body += '\n\n';
 
         // Add Activity Log / Timeline section
         if (issue.timelineItems?.nodes.length > 0) {
             body += '## Timeline\n\n';
             for (const event of issue.timelineItems.nodes) {
-                body += this.#formatTimelineEvent(event);
+                body += this.#formatTimelineEvent(event, contentTrust);
             }
             body += '\n';
         }
@@ -237,14 +281,21 @@ class IssueSyncer extends Base {
     /**
      * Formats a single timeline event into a human-readable Markdown string.
      * @param {object} event The timeline event object.
+     * @param {object} contentTrust Content-trust summary accumulator for authored comments.
      * @returns {string} The formatted Markdown string for the event.
      * @private
      */
-    #formatTimelineEvent(event) {
+    #formatTimelineEvent(event, contentTrust) {
         const actor = event.actor?.login || event.author?.login || 'Ghost';
 
         if (event.__typename === 'IssueComment') {
-            return `### @${actor} - ${event.createdAt}\n\n${event.body}\n\n`;
+            const projected = this.#projectAuthoredNode(
+                event,
+                contentTrust,
+                `timeline:${event.id || event.createdAt || 'unknown'}`
+            );
+
+            return `### @${actor} - ${event.createdAt}\n\n${projected.body}\n\n`;
         }
 
         let details = '';
@@ -340,7 +391,7 @@ class IssueSyncer extends Base {
                 const absPath = path.resolve(aiConfig.projectRoot, issue.path);
                 if (absPath.startsWith(issueSyncConfig.archiveRoot)) {
                     const relativeToArchive = path.relative(issueSyncConfig.archiveRoot, absPath);
-                    const parts = relativeToArchive.split(path.sep);
+                    const parts             = relativeToArchive.split(path.sep);
                     if (parts.length >= 2 && parts[0] === 'issues') {
                         oldVersion = parts[1];
                     }
@@ -348,10 +399,10 @@ class IssueSyncer extends Base {
             }
 
             combined.set(parseInt(idStr, 10), {
-                number: parseInt(idStr, 10),
-                state: issue.state,
-                milestone: issue.milestone ? { title: issue.milestone } : null,
-                closedAt: issue.closedAt,
+                number     : parseInt(idStr, 10),
+                state      : issue.state,
+                milestone  : issue.milestone ? { title: issue.milestone } : null,
+                closedAt   : issue.closedAt,
                 oldVersion,
                 fromFetched: false
             });
@@ -379,17 +430,17 @@ class IssueSyncer extends Base {
                 existing.fromFetched = true;
             } else {
                 combined.set(issue.number, {
-                    number: issue.number,
-                    state: issue.state,
-                    milestone: issue.milestone,
-                    closedAt: issue.closedAt,
-                    oldVersion: null,
+                    number     : issue.number,
+                    state      : issue.state,
+                    milestone  : issue.milestone,
+                    closedAt   : issue.closedAt,
+                    oldVersion : null,
                     fromFetched: true
                 });
             }
         }
 
-        const buckets = new Map();
+        const buckets     = new Map();
         const activeItems = [];
 
         for (const issue of combined.values()) {
@@ -451,7 +502,7 @@ class IssueSyncer extends Base {
         const activeItemCount = activeItems.length;
         activeItems.forEach((issue, index) => {
             plans.set(issue.number, {
-                version: null,
+                version  : null,
                 itemCount: activeItemCount,
                 itemIndex: index
             });
@@ -497,12 +548,12 @@ class IssueSyncer extends Base {
         const plan = planBuckets.get(issue.number);
 
         const config = {
-            contentRoot: issueSyncConfig.contentRoot,
-            type: 'issues',
+            contentRoot  : issueSyncConfig.contentRoot,
+            type         : 'issues',
             filename,
-            itemIndex: plan?.itemIndex || 0,
+            itemIndex    : plan?.itemIndex || 0,
             itemsPerChunk: issueSyncConfig.archiveChunkThreshold,
-            chunkPrefix: issueSyncConfig.archiveChunkPrefix
+            chunkPrefix  : issueSyncConfig.archiveChunkPrefix
         };
 
         if (plan?.version) {
@@ -549,22 +600,22 @@ class IssueSyncer extends Base {
         // called later in the cycle reuse the same set, so each issue warns at most once per full sync.
         this.#warnedAnomalies.clear();
 
-        let allIssues   = [];
-        let hasNextPage = true;
-        let cursor      = null;
-        let totalCost   = 0;
-        const maxIssues = issueSyncConfig.maxIssues;
+        let   allIssues   = [];
+        let   hasNextPage = true;
+        let   cursor      = null;
+        let   totalCost   = 0;
+        const maxIssues   = issueSyncConfig.maxIssues;
 
         // Paginate through all issues
         while (hasNextPage && allIssues.length < maxIssues) {
             const data = await GraphqlService.query(
                 FETCH_ISSUES_FOR_SYNC,
                 {
-                    owner           : aiConfig.owner,
-                    repo            : aiConfig.repo,
-                    limit           : 100,
+                    owner : aiConfig.owner,
+                    repo  : aiConfig.repo,
+                    limit : 100,
                     cursor,
-                    states          : ['OPEN', 'CLOSED'],
+                    states: ['OPEN', 'CLOSED'],
                     // Clean-slate sync (`metadata.lastSync === null`) must traverse the full repo
                     // history per ADR 0004 (ticket-ref-ok: file-owned decision record). Falling back to the normal syncStartDate would miss old
                     // issues that have not been touched since that date. Use an explicit pre-Neo date,
@@ -607,16 +658,17 @@ class IssueSyncer extends Base {
             dropped: { count: 0, issues: [] }
         };
 
-        const indexMutations = {upsert: [], remove: []};
+        const indexMutations       = {upsert: [], remove: []};
+        let   shouldPruneEmptyDirs = false;
 
         const planBuckets = this.#planBuckets(metadata, allIssues);
 
         // Process each issue
         for (const issue of allIssues) {
             const issueNumber = issue.number;
-            let targetPath = this.#getIssuePath(issue, planBuckets);
+            let   targetPath  = this.#getIssuePath(issue, planBuckets);
 
-            const oldIssue = metadata.issues[issueNumber];
+            const oldIssue        = metadata.issues[issueNumber];
             const oldPathRelative = oldIssue?.path;
             const oldAbsolutePath = oldIssue ? this.#resolvePath(oldPathRelative) : null;
 
@@ -650,6 +702,7 @@ class IssueSyncer extends Base {
                     try {
                         const oldPath = this.#resolvePath(oldPathRelative);
                         await fs.unlink(oldPath);
+                        shouldPruneEmptyDirs = true;
                         logger.debug(`🗑️ Removed dropped issue #${issueNumber}: ${oldPath}`);
                     } catch (e) { /* File might not exist */ }
                 }
@@ -690,10 +743,11 @@ class IssueSyncer extends Base {
                     stats.pulled.moved++;
                     try {
                         await fs.rename(oldAbsolutePath, targetPath);
+                        shouldPruneEmptyDirs = true;
                         logger.debug(`📦 Moved #${issueNumber}: ${oldAbsolutePath} → ${targetPath}`);
                     } catch (e) {
                         logger.warn(`Could not rename #${issueNumber}, falling back to write. Error: ${e.message}`);
-                        await fs.unlink(oldAbsolutePath).catch(() => {});
+                        await fs.unlink(oldAbsolutePath).then(() => { shouldPruneEmptyDirs = true; }).catch(() => {});
                     }
                 } else {
                     stats.pulled.updated++;
@@ -702,12 +756,12 @@ class IssueSyncer extends Base {
             }
 
             newMetadata.issues[issueNumber] = {
-                state        : issue.state,
-                path         : this.#relativePath(targetPath), // Store relative path
-                updatedAt    : issue.updatedAt,
-                closedAt     : issue.closedAt || null,
-                milestone    : issue.milestone?.title || null,
-                title        : issue.title,
+                state    : issue.state,
+                path     : this.#relativePath(targetPath), // Store relative path
+                updatedAt: issue.updatedAt,
+                closedAt : issue.closedAt || null,
+                milestone: issue.milestone?.title || null,
+                title    : issue.title,
                 contentHash,                                    // Store hash for push comparison
                 commentsTotal: this.#countTimelineComments(issue) // Derived from the exhausted timeline.
             };
@@ -715,12 +769,12 @@ class IssueSyncer extends Base {
             const plan = planBuckets.get(issueNumber);
             indexMutations.upsert.push(createContentIndexEntry({
                 issueSyncConfig,
-                type: 'issues',
-                id: issueNumber,
-                filePath: this.#resolvePath(this.#relativePath(targetPath)),
+                type     : 'issues',
+                id       : issueNumber,
+                filePath : this.#resolvePath(this.#relativePath(targetPath)),
                 itemIndex: plan ? plan.itemIndex : issueNumber,
-                version: issue.state === 'OPEN' ? null : plan?.version || null,
-                bucket: null
+                version  : issue.state === 'OPEN' ? null : plan?.version || null,
+                bucket   : null
             }));
         }
 
@@ -742,7 +796,7 @@ class IssueSyncer extends Base {
          */
         // Identify related issues that need force-updating
         const relatedIssuesToUpdate = new Set();
-        const lastSyncDate = metadata.lastSync ? new Date(metadata.lastSync) : new Date(0);
+        const lastSyncDate          = metadata.lastSync ? new Date(metadata.lastSync) : new Date(0);
 
         allIssues.forEach(issue => {
             // 1. Parent field check for relationships already present on the fetched node.
@@ -787,6 +841,11 @@ class IssueSyncer extends Base {
             stats.pulled.count   += refetchStats.refetched.count;
             stats.pulled.updated += refetchStats.refetched.count;
             stats.pulled.issues.push(...refetchStats.refetched.issues);
+        }
+
+        await pruneEmptyDirs(issueSyncConfig.issuesDir);
+        if (shouldPruneEmptyDirs) {
+            await pruneEmptyDirs(path.join(issueSyncConfig.archiveRoot, 'issues'));
         }
 
         try {
@@ -849,7 +908,7 @@ class IssueSyncer extends Base {
                 await this.#exhaustTimelineItems(issue);
 
                 const planBuckets = this.#planBuckets(metadata, [issue]);
-                const targetPath = this.#getIssuePath(issue, planBuckets);
+                const targetPath  = this.#getIssuePath(issue, planBuckets);
                 if (!targetPath) {
                     if (indexMutations) {
                         indexMutations.remove.push({ type: 'issues', id: issueNumber });
@@ -882,12 +941,12 @@ class IssueSyncer extends Base {
                     const plan = planBuckets.get(issueNumber);
                     indexMutations.upsert.push(createContentIndexEntry({
                         issueSyncConfig,
-                        type: 'issues',
-                        id: issueNumber,
-                        filePath: this.#resolvePath(this.#relativePath(targetPath)),
+                        type     : 'issues',
+                        id       : issueNumber,
+                        filePath : this.#resolvePath(this.#relativePath(targetPath)),
                         itemIndex: plan ? plan.itemIndex : issueNumber,
-                        version: issue.state === 'OPEN' ? null : plan?.version || null,
-                        bucket: null
+                        version  : issue.state === 'OPEN' ? null : plan?.version || null,
+                        bucket   : null
                     }));
                 }
             } catch (e) {
@@ -907,7 +966,12 @@ class IssueSyncer extends Base {
      */
     async pushToGitHub(metadata) {
         logger.info('📤 Checking for local changes to push via GraphQL...');
-        const stats = { count: 0, issues: [], failures: [] };
+        const stats = {
+            count        : 0,
+            issues       : [],
+            failures     : [],
+            generatedOnly: {count: 0, issues: []}
+        };
 
         if (!metadata.lastSync) {
             logger.info('✨ No previous sync found, skipping push.');
@@ -955,35 +1019,36 @@ class IssueSyncer extends Base {
 
                 logger.debug(`📝 Content changed for #${issueNumber}`);
 
-                // Step 1: Get the issue's GraphQL ID
-                const idData = await GraphqlService.query(GET_ISSUE_ID, {
+                const localPayload = this.#getPushPayloadFromMarkdown(parsed);
+
+                // Step 1: Get the issue's current pushable fields.
+                const issueData = await GraphqlService.query(GET_ISSUE_FOR_PUSH, {
                     owner : aiConfig.owner,
                     repo  : aiConfig.repo,
                     number: issueNumber
                 });
 
-                const issueId = idData.repository.issue.id;
+                const remoteIssue = issueData.repository.issue;
 
-                // Step 2: Prepare the updated content
-                // Remove Timeline section and everything after it
-                // This prevents the read-only timeline from being pushed back to the issue body
-                const bodyContent = parsed.content.split('## Timeline')[0].trim();
-
-                // Extract title from the markdown
-                const titleMatch = bodyContent.match(/^#\s+(.+)$/m);
-                const title      = titleMatch ? titleMatch[1] : parsed.data.title;
-
-                // Remove only the title from body
-                const cleanBody = bodyContent
-                    .replace(/^#\s+.+$/m, '') // Remove title
-                    .trim();
+                if (remoteIssue.title === localPayload.title &&
+                    (remoteIssue.body || '') === localPayload.body) {
+                    oldIssue.contentHash = currentHash;
+                    logger.debug(`🩹 Generated-only drift for #${issueNumber}; metadata hash healed without GitHub mutation`);
+                    stats.generatedOnly.count++;
+                    stats.generatedOnly.issues.push(issueNumber);
+                    continue;
+                }
 
                 // Step 3: Execute the mutation
-                await GraphqlService.query(UPDATE_ISSUE, {
-                    issueId,
-                    title,
-                    body: cleanBody
+                const updateData = await GraphqlService.query(UPDATE_ISSUE, {
+                    issueId: remoteIssue.id,
+                    title  : localPayload.title,
+                    body   : localPayload.body
                 });
+
+                oldIssue.contentHash = currentHash;
+                oldIssue.title       = localPayload.title;
+                oldIssue.updatedAt   = updateData.updateIssue?.issue?.updatedAt || oldIssue.updatedAt;
 
                 logger.debug(`✅ Updated GitHub issue #${issueNumber} via GraphQL`);
                 stats.count++;
@@ -999,6 +1064,9 @@ class IssueSyncer extends Base {
 
         if (stats.count > 0) {
             logger.info(`📤 Pushed ${stats.count} local change(s) to GitHub`);
+        }
+        if (stats.generatedOnly.count > 0) {
+            logger.info(`🩹 Healed ${stats.generatedOnly.count} generated-only issue drift(s) without GitHub mutation`);
         }
         if (stats.failures.length > 0) {
             logger.warn(`⚠️ Encountered ${stats.failures.length} push failure(s).`);
@@ -1022,7 +1090,8 @@ class IssueSyncer extends Base {
     async reconcileClosedIssueLocations(metadata) {
         logger.info('🔄 Reconciling closed issue locations...');
 
-        const stats = { count: 0, issues: [] };
+        const stats                = { count: 0, issues: [] };
+        let   shouldPruneEmptyDirs = false;
 
         // Ensure releases are loaded
         if (!ReleaseNotesSyncer.sortedReleases || ReleaseNotesSyncer.sortedReleases.length === 0) {
@@ -1078,6 +1147,7 @@ class IssueSyncer extends Base {
 
                     // Move the file
                     await fs.rename(currentAbsolutePath, correctPath);
+                    shouldPruneEmptyDirs = true;
 
                     // Update metadata with relative path
                     metadata.issues[issueNumber].path = this.#relativePath(correctPath);
@@ -1091,6 +1161,8 @@ class IssueSyncer extends Base {
                 }
             }
         }
+
+        await pruneEmptyDirs(issueSyncConfig.issuesDir);
 
         if (stats.count > 0) {
             logger.info(`📦 Archived ${stats.count} closed issue(s)`);
@@ -1165,11 +1237,11 @@ class IssueSyncer extends Base {
         }
 
         const summary = {
-            moved    : dryRun ? 0 : moves.length,
+            moved: dryRun ? 0 : moves.length,
             unchanged,
             dryRun,
             byVersion,
-            moves    : moves.map(({number, from, to}) => ({number, from, to}))
+            moves: moves.map(({number, from, to}) => ({number, from, to}))
         };
 
         if (dryRun) {
@@ -1195,35 +1267,11 @@ class IssueSyncer extends Base {
         await updateContentIndex(issueSyncConfig, {upsert: upserts});
 
         // Prune chunk/version directories emptied by the relocation.
-        await this.#pruneEmptyDirs(path.join(issueSyncConfig.archiveRoot, 'issues'));
-        await this.#pruneEmptyDirs(issueSyncConfig.issuesDir);
+        await pruneEmptyDirs(path.join(issueSyncConfig.archiveRoot, 'issues'));
+        await pruneEmptyDirs(issueSyncConfig.issuesDir);
 
         logger.info(`[REBUCKET] moved ${moves.length} issue(s), ${unchanged} unchanged. Distribution: ${JSON.stringify(byVersion)}`);
         return summary;
-    }
-
-    /**
-     * Recursively removes now-empty directories under `root` (after a re-bucket relocation leaves
-     * source chunk/version folders empty). Children are pruned before parents; `root` is never removed.
-     * @param {string} root Absolute directory to prune within.
-     * @private
-     */
-    async #pruneEmptyDirs(root) {
-        let entries;
-        try {
-            entries = await fs.readdir(root, {withFileTypes: true});
-        } catch {
-            return; // root absent — nothing to prune
-        }
-
-        for (const entry of entries) {
-            if (!entry.isDirectory()) continue;
-            const child = path.join(root, entry.name);
-            await this.#pruneEmptyDirs(child);
-            try {
-                if ((await fs.readdir(child)).length === 0) await fs.rmdir(child);
-            } catch { /* race / already removed */ }
-        }
     }
 
     /**
@@ -1236,7 +1284,7 @@ class IssueSyncer extends Base {
      */
     async #scanLocalFiles() {
         const localFiles = [];
-        const scanDir = async (dir) => {
+        const scanDir    = async (dir) => {
             try {
                 const entries = await fs.readdir(dir, { withFileTypes: true });
                 for (const entry of entries) {

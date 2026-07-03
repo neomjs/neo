@@ -7,6 +7,10 @@ createdAt: '2026-04-11T17:48:07Z'
 updatedAt: '2026-04-29T00:04:53Z'
 closed: false
 closedAt: null
+contentTrust:
+  projected: true
+  quarantined: 2
+  signals: []
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Antigravity (Gemini 3.1 Pro)** during an Ideation session.
 
@@ -192,9 +196,9 @@ The Karpathy Loop + Graph Stigmergy combination is exactly what we ended up impl
 
 **Behavioral drift detection**: Track KL divergence between each agent's current action distribution and its baseline. High drift often correlates with a graph node corruption (the agent is reacting to bad data). Catching this early prevents cascading failures.
 
-Write-up on multi-agent coordination: https://blog.kinthai.ai/221-agents-multi-agent-coordination-lessons
+Write-up on multi-agent coordination: [QUARANTINED_URL: blog.kinthai.ai]
 
-Memory architecture that supports this: https://blog.kinthai.ai/why-character-ai-forgets-you-persistent-memory-architecture
+Memory architecture that supports this: [QUARANTINED_URL: blog.kinthai.ai]
 
 ---
 

@@ -13,12 +13,12 @@ setup({
     }
 });
 
-import {test, expect}        from '@playwright/test';
-import crypto                from 'crypto';
-import fs                    from 'fs-extra';
-import path                  from 'path';
-import Neo                   from '../../../../../../src/Neo.mjs';
-import * as core             from '../../../../../../src/core/_export.mjs';
+import {test, expect} from '@playwright/test';
+import crypto         from 'crypto';
+import fs             from 'fs-extra';
+import path           from 'path';
+import Neo            from '../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../src/core/_export.mjs';
 
 // Stub Neo.get to keep data-record boot behavior from masking wake-subscription coverage.
 // The setup regression is outside this spec's delivery contract.
@@ -126,17 +126,17 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
                 harnessTargetMetadata,
                 createdAt,
                 updatedAt,
-                userId      : owner,
-                sharedEntity: false,
+                userId       : owner,
+                sharedEntity : false,
                 status
             }
         };
         const edgeId = `EDGE:${crypto.randomUUID()}`;
         const edge = {
-            id    : edgeId,
-            source: owner,
-            target: subscriptionId,
-            type  : 'SUBSCRIBES_TO',
+            id        : edgeId,
+            source    : owner,
+            target    : subscriptionId,
+            type      : 'SUBSCRIBES_TO',
             properties: {
                 weight: 1,
                 userId: owner
@@ -158,13 +158,13 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         test('creates new subscription from identity template', async () => {
             // Give Alice a template
             GraphService.upsertNode({
-                id: '@alice',
-                type: 'AGENT',
-                name: 'Alice',
+                id        : '@alice',
+                type      : 'AGENT',
+                name      : 'Alice',
                 properties: {
                     subscriptionTemplate: {
-                        trigger: 'SENT_TO_ME',
-                        harnessTarget: 'bridge-daemon',
+                        trigger              : 'SENT_TO_ME',
+                        harnessTarget        : 'bridge-daemon',
                         harnessTargetMetadata: { appName: 'Antigravity' }
                     }
                 }
@@ -184,13 +184,13 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
         test('bootstraps a volatile HarnessPresence overlay from boot address metadata (#12422)', async () => {
             GraphService.upsertNode({
-                id: '@alice',
-                type: 'AGENT',
-                name: 'Alice',
+                id        : '@alice',
+                type      : 'AGENT',
+                name      : 'Alice',
                 properties: {
                     subscriptionTemplate: {
-                        trigger: 'SENT_TO_ME',
-                        harnessTarget: 'bridge-daemon',
+                        trigger              : 'SENT_TO_ME',
+                        harnessTarget        : 'bridge-daemon',
                         harnessTargetMetadata: { appName: 'Antigravity' }
                     }
                 }
@@ -234,13 +234,13 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         test('returns existing subscription if it matches template (idempotent)', async () => {
             // Give Alice a template
             GraphService.upsertNode({
-                id: '@alice',
-                type: 'AGENT',
-                name: 'Alice',
+                id        : '@alice',
+                type      : 'AGENT',
+                name      : 'Alice',
                 properties: {
                     subscriptionTemplate: {
-                        trigger: 'SENT_TO_ME',
-                        harnessTarget: 'bridge-daemon',
+                        trigger              : 'SENT_TO_ME',
+                        harnessTarget        : 'bridge-daemon',
                         harnessTargetMetadata: { appName: 'Antigravity' }
                     }
                 }
@@ -258,33 +258,33 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
         test('bootId mismatch plus dead pid retires stale HarnessPresence before upsert (#12422)', async () => {
             GraphService.upsertNode({
-                id: '@alice',
-                type: 'AGENT',
-                name: 'Alice',
+                id        : '@alice',
+                type      : 'AGENT',
+                name      : 'Alice',
                 properties: {
                     subscriptionTemplate: {
-                        trigger: 'SENT_TO_ME',
-                        harnessTarget: 'bridge-daemon',
+                        trigger              : 'SENT_TO_ME',
+                        harnessTarget        : 'bridge-daemon',
                         harnessTargetMetadata: { appName: 'Antigravity' }
                     }
                 }
             });
 
             GraphService.upsertNode({
-                id  : 'HARNESS_PRESENCE:@alice:old-boot',
-                type: 'HARNESS_PRESENCE',
-                name: 'HarnessPresence @alice',
+                id        : 'HARNESS_PRESENCE:@alice:old-boot',
+                type      : 'HARNESS_PRESENCE',
+                name      : 'HarnessPresence @alice',
                 properties: {
-                    agentIdentity: '@alice',
+                    agentIdentity : '@alice',
                     subscriptionId: 'WAKE_SUB:old',
-                    state        : 'idle',
-                    wakePolicy   : 'immediate',
-                    source       : 'mcp-client',
-                    bootId       : 'old-boot',
-                    pid          : 999999,
-                    lastSeenAt   : '2026-06-04T00:00:00.000Z',
-                    expiresAt    : '2026-06-04T00:10:00.000Z',
-                    status       : 'active'
+                    state         : 'idle',
+                    wakePolicy    : 'immediate',
+                    source        : 'mcp-client',
+                    bootId        : 'old-boot',
+                    pid           : 999999,
+                    lastSeenAt    : '2026-06-04T00:00:00.000Z',
+                    expiresAt     : '2026-06-04T00:10:00.000Z',
+                    status        : 'active'
                 }
             });
 
@@ -307,32 +307,32 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
         test('TTL backstop retires HarnessPresence even without a pid (#12422)', async () => {
             GraphService.upsertNode({
-                id: '@alice',
-                type: 'AGENT',
-                name: 'Alice',
+                id        : '@alice',
+                type      : 'AGENT',
+                name      : 'Alice',
                 properties: {
                     subscriptionTemplate: {
-                        trigger: 'SENT_TO_ME',
-                        harnessTarget: 'bridge-daemon',
+                        trigger              : 'SENT_TO_ME',
+                        harnessTarget        : 'bridge-daemon',
                         harnessTargetMetadata: { appName: 'Antigravity' }
                     }
                 }
             });
 
             GraphService.upsertNode({
-                id  : 'HARNESS_PRESENCE:@alice:expired-boot',
-                type: 'HARNESS_PRESENCE',
-                name: 'HarnessPresence @alice',
+                id        : 'HARNESS_PRESENCE:@alice:expired-boot',
+                type      : 'HARNESS_PRESENCE',
+                name      : 'HarnessPresence @alice',
                 properties: {
-                    agentIdentity: '@alice',
+                    agentIdentity : '@alice',
                     subscriptionId: 'WAKE_SUB:expired',
-                    state        : 'idle',
-                    wakePolicy   : 'immediate',
-                    source       : 'mcp-client',
-                    bootId       : 'expired-boot',
-                    lastSeenAt   : '2026-06-04T00:00:00.000Z',
-                    expiresAt    : '2026-06-04T00:10:00.000Z',
-                    status       : 'active'
+                    state         : 'idle',
+                    wakePolicy    : 'immediate',
+                    source        : 'mcp-client',
+                    bootId        : 'expired-boot',
+                    lastSeenAt    : '2026-06-04T00:00:00.000Z',
+                    expiresAt     : '2026-06-04T00:10:00.000Z',
+                    status        : 'active'
                 }
             });
 
@@ -352,18 +352,20 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
         test('recovers template from durable AgentIdentity row when cache is stale', async () => {
             GraphService.upsertNode({
-                id: '@neo-gpt',
-                type: 'AgentIdentity',
-                name: 'Codex',
+                id        : '@neo-gpt',
+                type      : 'AgentIdentity',
+                name      : 'Codex',
                 properties: {
-                    displayName: 'Codex',
-                    modelFamily: 'gpt',
+                    displayName         : 'Codex',
+                    modelFamily         : 'gpt',
                     subscriptionTemplate: {
-                        trigger: 'SENT_TO_ME',
-                        harnessTarget: 'bridge-daemon',
+                        trigger              : 'SENT_TO_ME',
+                        harnessTarget        : 'bridge-daemon',
                         harnessTargetMetadata: {
-                            appName: 'Codex',
-                            tabShortcut: null
+                            adapter     : 'osascript',
+                            appName     : 'Codex',
+                            tabShortcut : null,
+                            focusSeedKey: 'r'
                         }
                     }
                 }
@@ -381,10 +383,14 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
                 const subscriptionNode = GraphService.db.nodes.get(res.subscriptionId);
                 expect(subscriptionNode.properties.trigger).toBe('SENT_TO_ME');
+                expect(subscriptionNode.properties.harnessTargetMetadata.adapter).toBe('osascript');
                 expect(subscriptionNode.properties.harnessTargetMetadata.appName).toBe('Codex');
+                expect(subscriptionNode.properties.harnessTargetMetadata.focusSeedKey).toBe('r');
 
                 const hydratedIdentity = GraphService.db.nodes.get('@neo-gpt');
+                expect(hydratedIdentity.properties.subscriptionTemplate.harnessTargetMetadata.adapter).toBe('osascript');
                 expect(hydratedIdentity.properties.subscriptionTemplate.harnessTargetMetadata.appName).toBe('Codex');
+                expect(hydratedIdentity.properties.subscriptionTemplate.harnessTargetMetadata.focusSeedKey).toBe('r');
             });
         });
 
@@ -403,13 +409,13 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         test('reconciles duplicate active subscriptions at bootstrap, keeping newest (#11182)', async () => {
             // Give Alice a template
             GraphService.upsertNode({
-                id: '@alice',
-                type: 'AGENT',
-                name: 'Alice',
+                id        : '@alice',
+                type      : 'AGENT',
+                name      : 'Alice',
                 properties: {
                     subscriptionTemplate: {
-                        trigger: 'SENT_TO_ME',
-                        harnessTarget: 'bridge-daemon',
+                        trigger              : 'SENT_TO_ME',
+                        harnessTarget        : 'bridge-daemon',
                         harnessTargetMetadata: { appName: 'Antigravity' }
                     }
                 }
@@ -418,18 +424,18 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             // Seed 2 active subscriptions for @alice with identical route-tuple but
             // different creation times; only the newest route should remain active.
             const older = insertDurableSubscription({
-                subscriptionId: 'WAKE_SUB:older-uuid',
-                owner         : '@alice',
+                subscriptionId       : 'WAKE_SUB:older-uuid',
+                owner                : '@alice',
                 harnessTargetMetadata: {appName: 'Antigravity'},
-                createdAt     : '2026-05-08T17:57:00.000Z',
-                updatedAt     : '2026-05-08T17:57:00.000Z'
+                createdAt            : '2026-05-08T17:57:00.000Z',
+                updatedAt            : '2026-05-08T17:57:00.000Z'
             });
             const newer = insertDurableSubscription({
-                subscriptionId: 'WAKE_SUB:newer-uuid',
-                owner         : '@alice',
+                subscriptionId       : 'WAKE_SUB:newer-uuid',
+                owner                : '@alice',
                 harnessTargetMetadata: {appName: 'Antigravity'},
-                createdAt     : '2026-05-10T17:09:00.000Z',
-                updatedAt     : '2026-05-10T17:09:00.000Z'
+                createdAt            : '2026-05-10T17:09:00.000Z',
+                updatedAt            : '2026-05-10T17:09:00.000Z'
             });
 
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
@@ -455,13 +461,13 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
         test('reconciler is idempotent on canonical single-active state (#11182)', async () => {
             GraphService.upsertNode({
-                id: '@alice',
-                type: 'AGENT',
-                name: 'Alice',
+                id        : '@alice',
+                type      : 'AGENT',
+                name      : 'Alice',
                 properties: {
                     subscriptionTemplate: {
-                        trigger: 'SENT_TO_ME',
-                        harnessTarget: 'bridge-daemon',
+                        trigger              : 'SENT_TO_ME',
+                        harnessTarget        : 'bridge-daemon',
                         harnessTargetMetadata: { appName: 'Antigravity' }
                     }
                 }
@@ -488,13 +494,13 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
         test('reconciler retires N-1 when 3+ duplicates exist, keeping newest (#11182)', async () => {
             GraphService.upsertNode({
-                id: '@alice',
-                type: 'AGENT',
-                name: 'Alice',
+                id        : '@alice',
+                type      : 'AGENT',
+                name      : 'Alice',
                 properties: {
                     subscriptionTemplate: {
-                        trigger: 'SENT_TO_ME',
-                        harnessTarget: 'bridge-daemon',
+                        trigger              : 'SENT_TO_ME',
+                        harnessTarget        : 'bridge-daemon',
                         harnessTargetMetadata: { appName: 'Antigravity' }
                     }
                 }
@@ -539,13 +545,13 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             // harnessTarget + appName), not flatten by owner. Two legitimate routes
             // for the same agent must BOTH survive.
             GraphService.upsertNode({
-                id: '@alice',
-                type: 'AGENT',
-                name: 'Alice',
+                id        : '@alice',
+                type      : 'AGENT',
+                name      : 'Alice',
                 properties: {
                     subscriptionTemplate: {
-                        trigger: 'SENT_TO_ME',
-                        harnessTarget: 'bridge-daemon',
+                        trigger              : 'SENT_TO_ME',
+                        harnessTarget        : 'bridge-daemon',
                         harnessTargetMetadata: { appName: 'Antigravity' }
                     }
                 }
@@ -589,13 +595,13 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
         test('reconciler ignores already-retired or inactive subscriptions (#11182)', async () => {
             GraphService.upsertNode({
-                id: '@alice',
-                type: 'AGENT',
-                name: 'Alice',
+                id        : '@alice',
+                type      : 'AGENT',
+                name      : 'Alice',
                 properties: {
                     subscriptionTemplate: {
-                        trigger: 'SENT_TO_ME',
-                        harnessTarget: 'bridge-daemon',
+                        trigger              : 'SENT_TO_ME',
+                        harnessTarget        : 'bridge-daemon',
                         harnessTargetMetadata: { appName: 'Antigravity' }
                     }
                 }
@@ -702,8 +708,8 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
     test('subscribe rejects non-canonical appName', async () => {
         await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
             await expect(WakeSubscriptionService.subscribe({
-                trigger      : 'SENT_TO_ME',
-                harnessTarget: 'bridge-daemon',
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
                 harnessTargetMetadata: {appName: 'antigravity'}
             })).rejects.toThrow("Invalid appName 'antigravity'. Must be one of: Antigravity, Claude, Codex");
         });
@@ -715,10 +721,10 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
                 trigger              : 'SENT_TO_ME',
                 harnessTarget        : 'bridge-daemon',
                 harnessTargetMetadata: {
-                    appName: 'Antigravity',
+                    appName        : 'Antigravity',
                     instanceAddress: '4242'
                 }
-            })).rejects.toThrow('requires both harnessTargetMetadata.instanceAddress and harnessTargetMetadata.addressType');
+            })).rejects.toThrow('Shape C instance addressing requires harnessTargetMetadata.addressType');
         });
     });
 
@@ -728,19 +734,62 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
                 trigger              : 'SENT_TO_ME',
                 harnessTarget        : 'bridge-daemon',
                 harnessTargetMetadata: {
-                    appName: 'Antigravity',
+                    appName        : 'Antigravity',
                     instanceAddress: 'frontmost',
-                    addressType: 'frontmost'
+                    addressType    : 'frontmost'
                 }
             })).rejects.toThrow("Invalid addressType 'frontmost'. Must be one of: userDataDir, pid, tmuxSession, webhookUrl");
+        });
+    });
+
+    test('subscribe rejects an addressType that resolves to no instance address (#13481)', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            await expect(WakeSubscriptionService.subscribe({
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
+                harnessTargetMetadata: {
+                    appName    : 'Claude',
+                    addressType: 'userDataDir',
+                    userDataDir: ''
+                }
+            })).rejects.toThrow("addressType 'userDataDir' requires a non-empty instance address");
+        });
+    });
+
+    test('subscribe accepts a legacy userDataDir field as a complete instance address (#13481)', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@grace-13481-legacy'}, async () => {
+            const res = await WakeSubscriptionService.subscribe({
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
+                harnessTargetMetadata: {
+                    appName    : 'Claude',
+                    userDataDir: '/Users/x/.claude-grace'
+                }
+            });
+            expect(res.subscriptionId).toMatch(/^WAKE_SUB:/);
+        });
+    });
+
+    test('subscribe accepts a canonical instanceAddress + addressType pair (#13481)', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@grace-13481-canonical'}, async () => {
+            const res = await WakeSubscriptionService.subscribe({
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
+                harnessTargetMetadata: {
+                    appName        : 'Claude',
+                    addressType    : 'userDataDir',
+                    instanceAddress: '/Users/x/.claude-grace'
+                }
+            });
+            expect(res.subscriptionId).toMatch(/^WAKE_SUB:/);
         });
     });
 
     test('subscribe accepts canonical appName Antigravity', async () => {
         await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
             const res = await WakeSubscriptionService.subscribe({
-                trigger      : 'SENT_TO_ME',
-                harnessTarget: 'bridge-daemon',
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
                 harnessTargetMetadata: {appName: 'Antigravity'}
             });
             expect(res.subscriptionId).toMatch(/^WAKE_SUB:/);
@@ -750,8 +799,8 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
     test('subscribe accepts canonical appName Claude', async () => {
         await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
             const res = await WakeSubscriptionService.subscribe({
-                trigger      : 'SENT_TO_ME',
-                harnessTarget: 'bridge-daemon',
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
                 harnessTargetMetadata: {appName: 'Claude'}
             });
             expect(res.subscriptionId).toMatch(/^WAKE_SUB:/);
@@ -761,8 +810,8 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
     test('subscribe accepts canonical appName Codex', async () => {
         await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
             const res = await WakeSubscriptionService.subscribe({
-                trigger      : 'SENT_TO_ME',
-                harnessTarget: 'bridge-daemon',
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
                 harnessTargetMetadata: {appName: 'Codex'}
             });
             expect(res.subscriptionId).toMatch(/^WAKE_SUB:/);
@@ -1272,7 +1321,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
                 // mcp-notifications bypasses coalescing window and pushes immediately
                 await WakeSubscriptionService.subscribe({
-                    trigger: 'SENT_TO_ME',
+                    trigger      : 'SENT_TO_ME',
                     harnessTarget: 'mcp-notifications'
                 });
             });
@@ -1303,7 +1352,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
                 await WakeSubscriptionService.subscribe({
-                    trigger: 'SENT_TO_ME',
+                    trigger      : 'SENT_TO_ME',
                     harnessTarget: 'mcp-notifications'
                 });
             });
@@ -1497,9 +1546,9 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
                 await WakeSubscriptionService.subscribe({
-                    trigger: 'SENT_TO_ME',
+                    trigger      : 'SENT_TO_ME',
                     harnessTarget: 'mcp-notifications',
-                    filters: { priority: 'high' }
+                    filters      : { priority: 'high' }
                 });
             });
 
@@ -1588,6 +1637,222 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
             // If the race condition was present, both might emit the same event
             expect(emittedEvents.length).toBe(1);
+        });
+    });
+
+    test.describe('who_is_online (#13498 Substrate B)', () => {
+        const T0   = '2026-06-19T12:00:00.000Z',
+              T0ms = new Date(T0).getTime(),
+              iso  = ms => new Date(ms).toISOString();
+
+        function seedAgent(id, {participationStatus = 'active', family = 'claude'} = {}) {
+            GraphService.upsertNode({
+                id,
+                type      : 'AgentIdentity',
+                name      : id,
+                properties: {participationStatus, family, displayName: id}
+            });
+        }
+
+        function seedActivity(owner, {timestamp = T0} = {}) {
+            // Mirrors a swarm (stdio) add_memory graph projection: an AGENT_MEMORY node carrying
+            // agentIdentity + timestamp and NO userId (→ user_id NULL → RLS-visible to every caller,
+            // as stdio-mode memories are). The who_is_online recency read keys on this node.
+            GraphService.upsertNode({
+                id        : `AGENT_MEMORY:${owner}:${timestamp}`,
+                type      : 'AGENT_MEMORY',
+                name      : `Memory: ${timestamp}`,
+                properties: {agentIdentity: owner, timestamp, sessionId: 'sess-test'}
+            });
+        }
+
+        function seedBeacon(owner, {turnId = 'turn-1', startedAt = T0, freshUntil, expiresAt} = {}) {
+            // Mirrors TurnPresenceService.recordTurnPresence's active turn-presence node — the local
+            // beacon who_is_online consults for the mid-turn rescue (fresh = freshUntil > now).
+            GraphService.upsertNode({
+                id        : `AGENT_TURN_PRESENCE:${owner}:${turnId}`,
+                type      : 'AGENT_TURN_PRESENCE',
+                name      : `TurnPresence ${owner}`,
+                properties: {
+                    agentIdentity : owner,
+                    turnId,
+                    startedAt,
+                    lastProgressAt: startedAt,
+                    status        : 'active',
+                    freshUntil    : freshUntil || iso(T0ms + 5 * 60 * 1000),
+                    expiresAt     : expiresAt  || iso(T0ms + 60 * 60 * 1000)
+                }
+            });
+        }
+
+        test('participationStatus hard gate: benched reports offline even with fresh activity (verbose)', async () => {
+            seedAgent('@neo-benched', {participationStatus: 'operator_benched'});
+            seedActivity('@neo-benched', {timestamp: T0});
+
+            const {agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+            const entry    = agents.find(a => a.identity === '@neo-benched');
+
+            expect(entry).toBeTruthy();
+            expect(entry.online).toBe(false);
+            expect(entry.participationStatus).toBe('operator_benched');
+            expect(entry.reason).toContain('benched');
+        });
+
+        test('fresh add_memory activity → online (recency-primary, verbose)', async () => {
+            seedAgent('@neo-active');
+            seedActivity('@neo-active', {timestamp: iso(T0ms - 2 * 60 * 1000)});
+
+            const {agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+            const entry    = agents.find(a => a.identity === '@neo-active');
+
+            expect(entry.online).toBe(true);
+            expect(entry.reason).toContain('recent add_memory activity');
+            expect(entry.signals.activityRecency.fresh).toBe(true);
+        });
+
+        test('stale add_memory activity → offline (past the freshness window, verbose)', async () => {
+            seedAgent('@neo-stale');
+            // last write 20 min ago — beyond the 15-min freshness window
+            seedActivity('@neo-stale', {timestamp: iso(T0ms - 20 * 60 * 1000)});
+
+            const {agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+            const entry    = agents.find(a => a.identity === '@neo-stale');
+
+            expect(entry.online).toBe(false);
+            expect(entry.reason).toContain('stale add_memory activity');
+            expect(entry.signals.activityRecency.fresh).toBe(false);
+            expect(entry.signals.turnPresence).toBeNull(); // no beacon → the rescue is a no-op, base verdict stands
+        });
+
+        test('stale add_memory but FRESH turn-presence beacon → online (local mid-turn rescue, verbose)', async () => {
+            seedAgent('@neo-midturn');
+            seedActivity('@neo-midturn', {timestamp: iso(T0ms - 20 * 60 * 1000)}); // memory stale
+            seedBeacon('@neo-midturn', {freshUntil: iso(T0ms + 5 * 60 * 1000)});    // beacon fresh
+
+            const {agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+            const entry    = agents.find(a => a.identity === '@neo-midturn');
+
+            expect(entry.online).toBe(true);
+            expect(entry.reason).toContain('mid-turn rescue');
+            expect(entry.signals.turnPresence.fresh).toBe(true);
+        });
+
+        test('stale add_memory + STALE beacon → offline (beacon non-gating, graceful, verbose)', async () => {
+            seedAgent('@neo-stalebeacon');
+            seedActivity('@neo-stalebeacon', {timestamp: iso(T0ms - 20 * 60 * 1000)}); // memory stale
+            seedBeacon('@neo-stalebeacon', {freshUntil: iso(T0ms - 5 * 60 * 1000)});    // beacon active but not fresh
+
+            const {agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+            const entry    = agents.find(a => a.identity === '@neo-stalebeacon');
+
+            expect(entry.online).toBe(false);
+            expect(entry.reason).toContain('stale add_memory activity');
+        });
+
+        test('benched hard-gate is NOT rescued by a fresh beacon (verbose)', async () => {
+            seedAgent('@neo-benched-beacon', {participationStatus: 'operator_benched'});
+            seedBeacon('@neo-benched-beacon', {freshUntil: iso(T0ms + 5 * 60 * 1000)}); // fresh beacon
+
+            const {agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+            const entry    = agents.find(a => a.identity === '@neo-benched-beacon');
+
+            expect(entry.online).toBe(false); // benched hard-gate sits above the rescue branch
+            expect(entry.reason).toContain('benched');
+        });
+
+        test('no add_memory activity → offline (dark) + signals.activityRecency null (verbose)', async () => {
+            seedAgent('@neo-dark');
+
+            const {agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+            const entry    = agents.find(a => a.identity === '@neo-dark');
+
+            expect(entry.online).toBe(false);
+            expect(entry.reason).toContain('no add_memory activity');
+            expect(entry.signals.activityRecency).toBeNull();
+        });
+
+        test('roster-scoping: an agent\'s OWN activity marks it online regardless of the user_id tenant tag', async () => {
+            seedAgent('@neo-foreign-tenant');
+            // who_is_online is a ROSTER tool: it reports each rostered agent's OWN latest activity
+            // (matched by agentIdentity), NOT per-caller tenant. Fresh activity tagged with a foreign
+            // userId therefore still marks the agent online. The prior per-caller user_id RLS here hid
+            // same-deployment teammates from each other. Cross-tenant isolation belongs at the roster
+            // scope (a tenant-scoped _listAgentIdentityNodes) for a multi-tenant cloud, tracked separately.
+            GraphService.upsertNode({
+                id        : 'AGENT_MEMORY:@neo-foreign-tenant:fresh',
+                type      : 'AGENT_MEMORY',
+                name      : 'Memory: fresh',
+                properties: {agentIdentity: '@neo-foreign-tenant', timestamp: iso(T0ms - 2 * 60 * 1000), userId: 'some-other-tenant', sessionId: 'sess-test'}
+            });
+
+            const {agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+            const entry    = agents.find(a => a.identity === '@neo-foreign-tenant');
+
+            expect(entry.online).toBe(true);
+            expect(entry.signals.activityRecency.fresh).toBe(true);
+        });
+
+        test('terse default: {summary, online, idle, benched} identity arrays — no per-agent essay', async () => {
+            seedAgent('@neo-t-online');
+            seedActivity('@neo-t-online', {timestamp: iso(T0ms - 2 * 60 * 1000)});
+            seedAgent('@neo-t-idle');                                              // active, no activity → idle
+            seedAgent('@neo-t-benched', {participationStatus: 'temporarily_unreachable'});
+
+            const result = await WakeSubscriptionService.whoIsOnline({now: new Date(T0)});
+
+            expect(typeof result.summary).toBe('string');
+            expect(result.agents).toBeUndefined();
+            expect(result.signalStatus).toBeUndefined();
+            expect(result.online).toContain('@neo-t-online');
+            expect(result.idle).toContain('@neo-t-idle');
+            expect(result.idle).not.toContain('@neo-t-online');
+            expect(result.benched).toContain('@neo-t-benched');
+            expect(result.summary).toContain(`${result.online.length} online`);
+        });
+
+        test('verbose:true returns the full per-agent projection + signalStatus (no terse summary)', async () => {
+            seedAgent('@neo-v');
+            seedActivity('@neo-v', {timestamp: iso(T0ms - 2 * 60 * 1000)});
+
+            const result = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+
+            expect(result.signalStatus).toContain('add_memory-recency');
+            expect(result.beaconStatus).toBeUndefined();
+            expect(result.summary).toBeUndefined();
+            expect(Array.isArray(result.agents)).toBe(true);
+            expect(result.agents.find(a => a.identity === '@neo-v').online).toBe(true);
+        });
+
+        test('signalStatus (verbose) names the add_memory-recency signal (no beacon field)', async () => {
+            seedAgent('@neo-sig');
+
+            const result = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+
+            expect(result.signalStatus).toContain('add_memory-recency');
+            expect(result.beaconStatus).toBeUndefined();
+        });
+
+        test('family filter narrows the roster (verbose)', async () => {
+            seedAgent('@neo-claude-x', {family: 'claude'});
+            seedAgent('@neo-gpt-x',    {family: 'gpt'});
+
+            const {agents} = await WakeSubscriptionService.whoIsOnline({family: 'gpt', verbose: true, now: new Date(T0)});
+            const ids      = agents.map(a => a.identity);
+
+            expect(ids).toContain('@neo-gpt-x');
+            expect(ids).not.toContain('@neo-claude-x');
+        });
+
+        test('callable through the MCP callTool dispatch — terse default (registration + openapi)', async () => {
+            seedAgent('@neo-dispatch');
+
+            const res = await callTool('who_is_online', {});
+
+            expect(typeof res.summary).toBe('string');
+            expect(Array.isArray(res.online)).toBe(true);
+            expect(Array.isArray(res.idle)).toBe(true);
+            // @neo-dispatch is rostered + active but has no activity → idle
+            expect(res.idle).toContain('@neo-dispatch');
         });
     });
 });

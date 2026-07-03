@@ -1,7 +1,7 @@
 /**
- * Backoff window after a `memory-summary-backfill` run completes without changing the selected
- * pending row window. This releases the exclusive-heavy lane for session summarization while keeping
- * the residual `AGENT_MEMORY` rows intact for later classification or recovery.
+ * Backoff window after a `memory-summary-backfill` run drains none of the rows it attempted.
+ * This releases the exclusive-heavy lane for session summarization + REM digestion while
+ * keeping the residual `AGENT_MEMORY` rows intact for later classification or recovery.
  *
  * @type {Number}
  */
@@ -30,6 +30,8 @@ export function getPendingMemorySummaryBackfillJobs(db, {limit = 50} = {}) {
             FROM Nodes memory
             WHERE json_extract(memory.data, '$.label') = 'AGENT_MEMORY'
               AND json_extract(memory.data, '$.properties.miniSummary') IS NULL
+              -- exclude rows archived as structurally un-summarizable (no recoverable content)
+              AND json_extract(memory.data, '$.properties.archivedAt') IS NULL
             ORDER BY json_extract(memory.data, '$.properties.timestamp') DESC, memory.id DESC
             LIMIT ?
         `).all(numericLimit).map(row => row.id).filter(Boolean);
@@ -58,6 +60,8 @@ export function getPendingMemorySummaryBackfillCount(db) {
             FROM Nodes memory
             WHERE json_extract(memory.data, '$.label') = 'AGENT_MEMORY'
               AND json_extract(memory.data, '$.properties.miniSummary') IS NULL
+              -- exclude rows archived as structurally un-summarizable (no recoverable content)
+              AND json_extract(memory.data, '$.properties.archivedAt') IS NULL
         `).get();
 
         return Number.isInteger(row?.n) ? row.n : null;
@@ -67,49 +71,71 @@ export function getPendingMemorySummaryBackfillCount(db) {
 }
 
 /**
- * @summary Returns true when the scheduler is still seeing the same stuck pending window.
- * @param {String[]} left
- * @param {String[]} right
- * @returns {Boolean}
+ * Of a given id set, returns the subset still lacking `miniSummary` — the rows a run TRIED but did
+ * not drain.
+ *
+ * @summary Robust no-progress detection. Unlike {@link getPendingMemorySummaryBackfillJobs}
+ * (the shifting newest-N window), this checks the SPECIFIC ids a run attempted, so a fresh
+ * `miniSummary: NULL` arrival on a busy session cannot mask zero progress. Fail-soft: returns [].
+ * @param {Object} db SQLite database handle.
+ * @param {String[]} [ids=[]] Candidate ids (the rows a run attempted).
+ * @returns {String[]} The subset of `ids` still pending.
  */
-export function samePendingWindow(left = [], right = []) {
-    return left.length === right.length && left.every((id, index) => id === right[index]);
+export function getStillPendingMemorySummaryBackfillJobs(db, ids = []) {
+    if (!db?.prepare || !Array.isArray(ids) || ids.length === 0) {
+        return [];
+    }
+
+    try {
+        const placeholders = ids.map(() => '?').join(',');
+
+        return db.prepare(`
+            SELECT memory.id AS id
+            FROM Nodes memory
+            WHERE json_extract(memory.data, '$.label') = 'AGENT_MEMORY'
+              AND json_extract(memory.data, '$.properties.miniSummary') IS NULL
+              -- an archived row is no longer pending: it counts as progress, not a stuck attempt
+              AND json_extract(memory.data, '$.properties.archivedAt') IS NULL
+              AND memory.id IN (${placeholders})
+        `).all(...ids).map(row => row.id).filter(Boolean);
+    } catch {
+        return [];
+    }
 }
 
 /**
- * Checks whether the persisted no-progress backoff still suppresses the current pending window.
+ * Checks whether the persisted no-progress backoff still suppresses the backfill.
  *
- * The backoff is intentionally tied to the concrete selected ids, not just to the global pending
- * count. If new memories arrive above the stuck residual, the window changes and the scheduler lets
- * the backfill run immediately.
- *
+ * @summary The backoff holds for its full window regardless of new arrivals. It was previously
+ * gated on a `samePendingWindow(noProgressPendingIds, pendingJobs)` check, but every agent
+ * turn's `add_memory` writes a fresh `miniSummary: NULL` row at the DESC top — shifting the window
+ * and letting the backfill bypass the backoff and re-fire every scheduler tick while the newest
+ * rows stayed un-summarizable. Holding the window IS the heavy-lane yield (AC3): session
+ * summarization + REM digestion run while the backfill backs off.
  * @param {Object} options
  * @param {Object} options.taskState Persisted task state for `memory-summary-backfill`.
- * @param {String[]} options.pendingJobs Current selected pending ids.
  * @param {Number} options.now Epoch ms.
  * @returns {Boolean}
  */
-export function isNoProgressBackoffActive({taskState = {}, pendingJobs = [], now = Date.now()} = {}) {
-    const untilMs = Number(taskState.noProgressBackoffUntilMs) || 0;
-
-    return untilMs > now && samePendingWindow(taskState.noProgressPendingIds || [], pendingJobs);
+export function isNoProgressBackoffActive({taskState = {}, now = Date.now()} = {}) {
+    return (Number(taskState.noProgressBackoffUntilMs) || 0) > now;
 }
 
 /**
- * Builds the success hook that records a bounded no-progress backoff when a child run exits
- * successfully but leaves the same pending window untouched.
+ * Builds the success hook that records a bounded no-progress backoff when a child run drains NONE
+ * of the rows it attempted.
  *
- * This deliberately does NOT mutate the memory rows. The state lives on the orchestrator task entry
- * and expires automatically, preserving possible valuable turns while preventing a tight
- * exclusive-heavy spin loop.
- *
+ * @summary "No progress" = zero of the attempted `pendingJobs` were summarized (re-queried by id),
+ * NOT "the newest-N window is byte-identical". The old window check armed only when no new
+ * `miniSummary: NULL` row had arrived — impossible on a busy session, so the backfill re-fired every
+ * tick. This does NOT mutate the memory rows; the state lives on the orchestrator task entry and
+ * expires automatically.
  * @param {Object} options
  * @param {Object} options.db SQLite database handle.
  * @param {Object} options.taskState Mutable task state object.
- * @param {String[]} options.pendingJobs Pending ids selected before the child ran.
- * @param {Number|null} options.totalPending Uncapped pending count before the child ran.
- * @param {Function} [options.getPendingMemorySummaryBackfillJobsFn]
- * @param {Function} [options.getPendingMemorySummaryBackfillCountFn]
+ * @param {String[]} options.pendingJobs Pending ids selected before the child ran (the attempted set).
+ * @param {Number|null} options.totalPending Uncapped pending count before the child ran (logged reason).
+ * @param {Function} [options.getStillPendingMemorySummaryBackfillJobsFn] Test seam: still-pending subset.
  * @param {Function} [options.nowFn]
  * @param {Number} [options.backoffMs]
  * @returns {Function}
@@ -119,22 +145,24 @@ export function buildNoProgressBackoffHook({
     taskState = {},
     pendingJobs = [],
     totalPending,
-    getPendingMemorySummaryBackfillJobsFn  = getPendingMemorySummaryBackfillJobs,
-    getPendingMemorySummaryBackfillCountFn = getPendingMemorySummaryBackfillCount,
+    getStillPendingMemorySummaryBackfillJobsFn = getStillPendingMemorySummaryBackfillJobs,
     nowFn     = () => Date.now(),
     backoffMs = NO_PROGRESS_BACKOFF_MS
 } = {}) {
     return () => {
-        const afterJobs  = getPendingMemorySummaryBackfillJobsFn(db, {limit: pendingJobs.length || 50});
-        const afterCount = getPendingMemorySummaryBackfillCountFn(db);
-        const beforeCount = Number.isInteger(totalPending) ? totalPending : pendingJobs.length;
-        const stalled = afterCount === beforeCount && samePendingWindow(afterJobs, pendingJobs);
+        // Arm on REAL no-progress: did the run drain ANY of the rows it tried? Re-query the SPECIFIC
+        // attempted ids, so a fresh miniSummary:NULL arrival at the DESC top can't mask zero progress.
+        const stillStuck = pendingJobs.length > 0
+            ? getStillPendingMemorySummaryBackfillJobsFn(db, pendingJobs)
+            : [];
+        const noProgress = pendingJobs.length > 0 && stillStuck.length === pendingJobs.length;
 
-        if (stalled) {
+        if (noProgress) {
             const recordedAt = nowFn();
+            const backlog    = Number.isInteger(totalPending) ? totalPending : pendingJobs.length;
 
             taskState.noProgressBackoffUntilMs = recordedAt + backoffMs;
-            taskState.noProgressBackoffReason  = `no-progress:${beforeCount}`;
+            taskState.noProgressBackoffReason  = `no-progress:${backlog}`;
             taskState.noProgressBackoffAt       = new Date(recordedAt).toISOString();
             taskState.noProgressPendingIds      = [...pendingJobs];
             return;
@@ -189,8 +217,9 @@ export function buildMemorySummaryBackfillTrigger({pendingJobs = [], totalPendin
  */
 export function getDueTask({
     db,
-    getPendingMemorySummaryBackfillJobsFn  = getPendingMemorySummaryBackfillJobs,
-    getPendingMemorySummaryBackfillCountFn = getPendingMemorySummaryBackfillCount,
+    getPendingMemorySummaryBackfillJobsFn      = getPendingMemorySummaryBackfillJobs,
+    getPendingMemorySummaryBackfillCountFn     = getPendingMemorySummaryBackfillCount,
+    getStillPendingMemorySummaryBackfillJobsFn = getStillPendingMemorySummaryBackfillJobs,
     state = {},
     now = Date.now(),
     nowFn = () => Date.now(),
@@ -199,7 +228,7 @@ export function getDueTask({
     const pendingJobs = getPendingMemorySummaryBackfillJobsFn(db);
     const taskState   = state['memory-summary-backfill'] || {};
 
-    if (pendingJobs.length > 0 && isNoProgressBackoffActive({taskState, pendingJobs, now})) {
+    if (pendingJobs.length > 0 && isNoProgressBackoffActive({taskState, now})) {
         return null;
     }
 
@@ -214,8 +243,7 @@ export function getDueTask({
                 taskState,
                 pendingJobs,
                 totalPending,
-                getPendingMemorySummaryBackfillJobsFn,
-                getPendingMemorySummaryBackfillCountFn,
+                getStillPendingMemorySummaryBackfillJobsFn,
                 nowFn,
                 backoffMs
             })

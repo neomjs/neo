@@ -204,6 +204,203 @@ test.describe('Neo.ai.services.github-workflow.toolService — getConversationRo
 });
 
 /**
+ * Public GitHub write-boundary identity guard.
+ *
+ * Protects agent-authored public GitHub mutations from the GH_TOKEN drift
+ * class demonstrated on 2026-06-14: the harness can believe it is one agent while
+ * GitHub's effective viewer login is another account. The guard is injected at the
+ * GitHub Workflow MCP tool boundary, before service delegates mutate GitHub state.
+ */
+test.describe('Neo.ai.services.github-workflow.toolService — write identity guard (#13243)', () => {
+    let GITHUB_TOOL_ACCESS;
+    let assertCompleteGitHubToolAccessPolicy;
+    let buildGitHubWriteIdentityGuard;
+    let guardGitHubWriteTools;
+    let isPublicGitHubWriteTool;
+    let normalizeGitHubIdentityLogin;
+
+    test.beforeAll(async () => {
+        const mod = await import('../../../../../../ai/mcp/server/github-workflow/toolService.mjs');
+        GITHUB_TOOL_ACCESS                    = mod.GITHUB_TOOL_ACCESS;
+        assertCompleteGitHubToolAccessPolicy = mod.assertCompleteGitHubToolAccessPolicy;
+        buildGitHubWriteIdentityGuard         = mod.buildGitHubWriteIdentityGuard;
+        guardGitHubWriteTools                 = mod.guardGitHubWriteTools;
+        isPublicGitHubWriteTool               = mod.isPublicGitHubWriteTool;
+        normalizeGitHubIdentityLogin          = mod.normalizeGitHubIdentityLogin;
+    });
+
+    test('normalizes AgentIdentity node ids to GitHub logins', () => {
+        expect(normalizeGitHubIdentityLogin('@neo-gpt')).toBe('neo-gpt');
+        expect(normalizeGitHubIdentityLogin('neo-opus-ada')).toBe('neo-opus-ada');
+        expect(normalizeGitHubIdentityLogin('')).toBe(null);
+        expect(normalizeGitHubIdentityLogin(null)).toBe(null);
+    });
+
+    test('delegates a public write when expected agent and viewer login match', async () => {
+        let delegateCalls = 0;
+        const guarded = buildGitHubWriteIdentityGuard(async (...args) => {
+            delegateCalls++;
+            return {ok: true, args};
+        }, {
+            assertExpectedIdentity: async () => ({
+                ok    : true,
+                reason: null,
+                code  : 'OK'
+            })
+        });
+
+        const result = await guarded('payload');
+
+        expect(delegateCalls).toBe(1);
+        expect(result).toEqual({ok: true, args: ['payload']});
+    });
+
+    test('rejects a public write on identity mismatch before delegate invocation', async () => {
+        let delegateCalls = 0;
+        const guarded = buildGitHubWriteIdentityGuard(async () => {
+            delegateCalls++;
+            return {ok: true};
+        }, {
+            assertExpectedIdentity: async () => ({
+                ok    : false,
+                reason: 'identity drift: authed as neo-opus-ada, expected neo-gpt',
+                code  : 'LOGIN_MISMATCH'
+            })
+        });
+
+        await expect(guarded()).rejects.toMatchObject({
+            code  : 'GITHUB_IDENTITY_MISMATCH',
+            reason: 'identity drift: authed as neo-opus-ada, expected neo-gpt'
+        });
+        expect(delegateCalls).toBe(0);
+    });
+
+    test('rejects a public write when expected identity is unresolved', async () => {
+        let delegateCalls = 0;
+        const guarded = buildGitHubWriteIdentityGuard(async () => {
+            delegateCalls++;
+        }, {
+            assertExpectedIdentity: async () => ({
+                ok    : false,
+                reason: "identity drift: expected identity 'missing-agent' is missing or unmappable in identityRoots",
+                code  : 'EXPECTED_UNMAPPABLE'
+            })
+        });
+
+        await expect(guarded()).rejects.toMatchObject({
+            code: 'GITHUB_IDENTITY_UNRESOLVED'
+        });
+        expect(delegateCalls).toBe(0);
+    });
+
+    test('rejects a public write when viewer login probe fails', async () => {
+        let delegateCalls = 0;
+        const guarded = buildGitHubWriteIdentityGuard(async () => {
+            delegateCalls++;
+        }, {
+            assertExpectedIdentity: async () => ({
+                ok    : false,
+                reason: 'identity drift: no authed login resolved, expected neo-gpt',
+                code  : 'NO_AUTHED_LOGIN'
+            })
+        });
+
+        await expect(guarded()).rejects.toMatchObject({
+            code: 'GITHUB_VIEWER_UNRESOLVED'
+        });
+        expect(delegateCalls).toBe(0);
+    });
+
+    test('guards public GitHub writes but leaves read and health tools untouched', async () => {
+        const readHandler  = async () => ({read: true});
+        const writeHandler = async () => ({write: true});
+        const mapping = guardGitHubWriteTools({
+            get_conversation    : readHandler,
+            healthcheck         : readHandler,
+            manage_issue_comment: writeHandler,
+            sync_all            : writeHandler
+        }, {
+            assertExpectedIdentity: async () => ({
+                ok    : false,
+                reason: 'identity drift: authed as neo-opus-ada, expected neo-gpt',
+                code  : 'LOGIN_MISMATCH'
+            })
+        });
+
+        expect(isPublicGitHubWriteTool('manage_issue_comment')).toBe(true);
+        expect(isPublicGitHubWriteTool('sync_all')).toBe(true);
+        expect(isPublicGitHubWriteTool('get_conversation')).toBe(false);
+        expect(isPublicGitHubWriteTool('healthcheck')).toBe(false);
+        expect(mapping.get_conversation).toBe(readHandler);
+        expect(mapping.healthcheck).toBe(readHandler);
+
+        await expect(mapping.get_conversation()).resolves.toEqual({read: true});
+        await expect(mapping.healthcheck()).resolves.toEqual({read: true});
+        await expect(mapping.manage_issue_comment()).rejects.toMatchObject({
+            code: 'GITHUB_IDENTITY_MISMATCH'
+        });
+        await expect(mapping.sync_all()).rejects.toMatchObject({
+            code: 'GITHUB_IDENTITY_MISMATCH'
+        });
+    });
+
+    test('rejects service mappings with unclassified future tools (#13252)', () => {
+        expect(() => guardGitHubWriteTools({
+            get_conversation       : async () => {},
+            future_public_mutation : async () => {}
+        })).toThrow(/Missing classification: future_public_mutation/);
+    });
+
+    test('canonical access policy covers every registered GitHub Workflow tool (#13252)', async () => {
+        const {listTools} = await import('../../../../../../ai/mcp/server/github-workflow/toolService.mjs');
+
+        const registeredTools = listTools().tools.map(tool => tool.name).sort();
+        const policyTools     = Object.keys(GITHUB_TOOL_ACCESS).sort();
+
+        expect(policyTools).toEqual(registeredTools);
+        expect(assertCompleteGitHubToolAccessPolicy(
+            Object.fromEntries(registeredTools.map(toolName => [toolName, async () => {}]))
+        )).toBe(true);
+    });
+
+    test('classifies the public GitHub write boundary explicitly', () => {
+        [
+            'create_discussion',
+            'create_issue',
+            'manage_discussion',
+            'manage_discussion_comment',
+            'manage_issue_assignees',
+            'manage_issue_comment',
+            'manage_issue_labels',
+            'manage_issue_projects',
+            'manage_pr_review',
+            'manage_pr_reviewers',
+            'signal_state_transition',
+            'sync_all',
+            'update_issue_relationship'
+        ].forEach(toolName => {
+            expect(isPublicGitHubWriteTool(toolName), `${toolName} is a public write`).toBe(true);
+        });
+
+        [
+            'checkout_pull_request',
+            'get_conversation',
+            'get_discussion_conversation',
+            'get_local_issue_by_id',
+            'get_mcp_tool_handbook',
+            'get_pull_request_diff',
+            'get_viewer_permission',
+            'healthcheck',
+            'list_issues',
+            'list_labels',
+            'list_pull_requests'
+        ].forEach(toolName => {
+            expect(isPublicGitHubWriteTool(toolName), `${toolName} is not a public write`).toBe(false);
+        });
+    });
+});
+
+/**
  * Discussion conversation selective-fetch tool registration.
  *
  * `get_discussion_conversation` is intentionally a separate tool from the issue/PR

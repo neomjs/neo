@@ -1,17 +1,19 @@
-import aiConfig                   from '../../../mcp/server/github-workflow/config.mjs';
-import Base                       from '../../../../src/core/Base.mjs';
-import crypto                     from 'crypto';
-import {existsSync}               from 'fs';
-import fs                         from 'fs/promises';
-import logger                     from '../../../mcp/server/github-workflow/logger.mjs';
-import matter                     from 'gray-matter';
-import path                       from 'path';
-import semver                     from 'semver';
-import GraphqlService             from '../GraphqlService.mjs';
-import ReleaseNotesSyncer         from './ReleaseNotesSyncer.mjs';
-import {FETCH_PULL_REQUESTS_FOR_SYNC} from '../queries/pullRequestQueries.mjs';
-import contentPath                from '../shared/contentPath.mjs';
-import {createContentIndexEntry, updateContentIndex} from '../shared/contentIndex.mjs';
+import aiConfig                                                   from '../../../mcp/server/github-workflow/config.mjs';
+import Base                                                       from '../../../../src/core/Base.mjs';
+import crypto                                                     from 'crypto';
+import {existsSync}                                               from 'fs';
+import fs                                                         from 'fs/promises';
+import logger                                                     from '../../../mcp/server/github-workflow/logger.mjs';
+import matter                                                     from 'gray-matter';
+import path                                                       from 'path';
+import semver                                                     from 'semver';
+import GraphqlService                                             from '../GraphqlService.mjs';
+import ReleaseNotesSyncer                                         from './ReleaseNotesSyncer.mjs';
+import {FETCH_PULL_REQUESTS_FOR_SYNC, FETCH_SINGLE_PULL_FOR_SYNC} from '../queries/pullRequestQueries.mjs';
+import contentPath                                                from '../shared/contentPath.mjs';
+import {createContentIndexEntry, updateContentIndex}              from '../shared/contentIndex.mjs';
+import {createContentTrustSummary, projectAuthoredNodeTrust}      from '../shared/conversationTrust.mjs';
+import pruneEmptyDirs                                             from '../shared/pruneEmptyDirs.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
 const pullRequestConfig = aiConfig.pullRequest;
@@ -116,6 +118,22 @@ class PullRequestSyncer extends Base {
     }
 
     /**
+     * @summary Projects one GitHub-authored pull-request sync node through content trust policy.
+     * @param {Object} node GitHub authored node carrying optional `author.login` and `body`.
+     * @param {Object} summary Machine-readable content-trust summary accumulator.
+     * @param {String} signalPath Stable path label for sanitizer signal metadata.
+     * @returns {Object} Projected node with sanitized body for untrusted authors.
+     * @private
+     */
+    #projectAuthoredNode(node, summary, signalPath) {
+        return projectAuthoredNodeTrust(node, {
+            summary,
+            path               : signalPath,
+            productNameDenylist: issueSyncConfig.productNameDenylist || []
+        }).node;
+    }
+
+    /**
      * @summary Pre-computes bucket distribution for all pull requests based on historical milestones/releases.
      * @param {object} metadata Current sync metadata
      * @param {Array<object>} fetchedPullRequests PRs fetched in the current sync run
@@ -173,7 +191,7 @@ class PullRequestSyncer extends Base {
         const activeItemCount = activeItems.length;
         activeItems.forEach((pr, index) => {
             plans.set(pr.number, {
-                version: null,
+                version  : null,
                 itemCount: activeItemCount,
                 itemIndex: index
             });
@@ -207,12 +225,12 @@ class PullRequestSyncer extends Base {
         const plan = planBuckets.get(pr.number);
 
         const config = {
-            contentRoot: issueSyncConfig.contentRoot,
-            type: 'pulls',
+            contentRoot  : issueSyncConfig.contentRoot,
+            type         : 'pulls',
             filename,
-            itemIndex: plan?.itemIndex || 0,
+            itemIndex    : plan?.itemIndex || 0,
             itemsPerChunk: issueSyncConfig.archiveChunkThreshold,
-            chunkPrefix: issueSyncConfig.archiveChunkPrefix
+            chunkPrefix  : issueSyncConfig.archiveChunkPrefix
         };
 
         if (plan?.version) {
@@ -220,6 +238,181 @@ class PullRequestSyncer extends Base {
         }
 
         return contentPath(config);
+    }
+
+    /**
+     * @summary Reconcile closed/merged pull-request locations — archive any terminal PR still sitting in
+     * the active `pulls/` directory. The sibling of `IssueSyncer.reconcileClosedIssueLocations` that was
+     * missing: `SyncService` ran the issue reconcile every sync but had no pull equivalent, so
+     * closed/merged PRs accumulated in active `resources/content/pulls/` — the marooning this reconciles.
+     * `migrateArchiveBuckets`' own JSDoc named it — "pulls … are a sibling follow-up on their own
+     * syncers." Run every sync, it both archives the existing backlog and keeps pulls archived going
+     * forward; it mirrors the issue reconcile's relocate-only, archive-only, never-fetch contract.
+     *
+     * It scans the active **corpus** (the `pr-*.md` files on disk), NOT the sync metadata: the delta-sync
+     * rebuilds `metadata.pulls` from each run's delta fetch, so it is not a full index — the marooned
+     * backlog exists only as files. For each terminal (`CLOSED`/`MERGED`) PR file it reads the frontmatter
+     * bucketing inputs (`state` / `closedAt` / `mergedAt`), buckets via the same `#planBuckets` the live
+     * sync uses, and `fs.rename`s a mis-located file to its archive path (updating the metadata path when
+     * an entry exists). It NEVER moves a file back to active (sealed-chunk semantics), NEVER deletes, and
+     * NEVER re-fetches from GitHub.
+     *
+     * @param {object} metadata Sync metadata; a moved PR's `path` is updated in place when cached.
+     * @returns {Promise<{count: number, pullRequests: number[]}>} Archived count + the PR numbers moved.
+     */
+    async reconcileClosedPullRequestLocations(metadata) {
+        logger.info('🔄 Reconciling closed pull request locations...');
+
+        const stats = { count: 0, pullRequests: [] };
+
+        // Buckets are derived from release history; without it the correct archive version is unknown.
+        if (!ReleaseNotesSyncer.sortedReleases || ReleaseNotesSyncer.sortedReleases.length === 0) {
+            logger.warn('No releases available for pull-request reconciliation, skipping.');
+            return stats;
+        }
+
+        const pullsDir = issueSyncConfig.pullsDir;
+
+        // Nothing to reconcile if the active pulls dir does not exist yet.
+        if (!existsSync(pullsDir)) {
+            return stats;
+        }
+
+        // Scan the active CORPUS (files on disk), NOT metadata.pulls — the delta-sync rebuilds that cache
+        // from each run's delta fetch, so it is not a full index; the marooned backlog lives only as
+        // files. Read each file's frontmatter for the bucketing inputs.
+        const relFiles = (await fs.readdir(pullsDir, {recursive: true}))
+            .filter(rel => /(?:^|[\\/])pr-\d+\.md$/.test(rel));
+
+        const scanned = [];
+        for (const rel of relFiles) {
+            const absPath = path.join(pullsDir, rel);
+            try {
+                const {data} = matter(await fs.readFile(absPath, 'utf-8'));
+                if (data?.number == null) continue;
+                scanned.push({
+                    absPath,
+                    number   : data.number,
+                    state    : data.state,
+                    closedAt : data.closedAt,
+                    mergedAt : data.mergedAt,
+                    milestone: data.milestone ? {title: data.milestone} : null
+                });
+            } catch (e) {
+                logger.warn(`Skipping unreadable pull file ${rel}: ${e.message}`);
+            }
+        }
+
+        // Bucket the scanned corpus (+ any cached metadata) by release date, exactly as the live sync does.
+        const planBuckets = this.#planBuckets(metadata, scanned);
+
+        for (const pr of scanned) {
+            // Only terminal PRs (CLOSED or MERGED) are archive candidates; an open PR belongs in active.
+            if (pr.state !== 'CLOSED' && pr.state !== 'MERGED') {
+                continue;
+            }
+
+            const correctPath = this.#getPullRequestPath({number: pr.number}, planBuckets);
+
+            // No target, already correctly located, or the correct path is still active (no archive
+            // applies) → skip. Never relocate INTO active.
+            if (!correctPath || pr.absPath === correctPath || correctPath.startsWith(pullsDir)) {
+                continue;
+            }
+
+            logger.debug(`📦 Archiving closed PR #${pr.number}: ${pr.absPath} → ${correctPath}`);
+
+            try {
+                await fs.mkdir(path.dirname(correctPath), { recursive: true });
+                await fs.rename(pr.absPath, correctPath);
+
+                // Update the metadata path when this PR is tracked; marooned files outside the delta-only
+                // cache simply move (the next sync rebuilds metadata against the new location).
+                if (metadata.pulls?.[pr.number]) {
+                    metadata.pulls[pr.number].path = this.#relativePath(correctPath);
+                }
+
+                stats.count++;
+                stats.pullRequests.push(pr.number);
+            } catch (e) {
+                logger.error(`❌ Failed to archive PR #${pr.number}: ${e.message}`);
+            }
+        }
+
+        await pruneEmptyDirs(pullsDir);
+
+        logger.info(stats.count > 0
+            ? `📦 Archived ${stats.count} closed pull request(s)`
+            : '✓ No closed pull requests need archiving');
+
+        return stats;
+    }
+
+    /**
+     * @summary Renders a fetched PR node to its synced Markdown (frontmatter + body + comments + reviews),
+     * applying the content-trust sanitizer to each authored node. Extracted from {@link #syncPullRequests}
+     * so the single-PR force-refetch path renders identically (no drift between bulk-sync and refetch).
+     * @param {Object} pr The PR node (with `comments.nodes` / `reviews.nodes`).
+     * @returns {String} The gray-matter-serialized Markdown content.
+     */
+    #renderPullRequestMarkdown(pr) {
+        const contentTrust = createContentTrustSummary();
+        const projectedPr  = this.#projectAuthoredNode(pr, contentTrust, 'body');
+
+        const frontmatter = {
+            number   : pr.number,
+            title    : pr.title,
+            author   : pr.author?.login || 'unknown',
+            state    : pr.state,
+            createdAt: pr.createdAt,
+            updatedAt: pr.updatedAt,
+            closedAt : pr.closedAt,
+            mergedAt : pr.mergedAt,
+            head     : pr.headRefName,
+            base     : pr.baseRefName,
+            url      : pr.url,
+            contentTrust
+        };
+
+        let body = projectedPr.body || '';
+
+        // Build comments structure
+        if (pr.comments && pr.comments.nodes && pr.comments.nodes.length > 0) {
+            body += '\n\n## Comments\n\n';
+            for (const comment of pr.comments.nodes) {
+                const projectedComment = this.#projectAuthoredNode(
+                    comment,
+                    contentTrust,
+                    `comment:${comment.id || comment.createdAt || 'unknown'}`
+                );
+
+                body += `### \`@${comment.author?.login || 'unknown'}\` commented on ${comment.createdAt}\n\n${projectedComment.body}\n\n---\n\n`;
+            }
+        }
+
+        // Build reviews structure
+        if (pr.reviews && pr.reviews.nodes && pr.reviews.nodes.length > 0) {
+            body += '\n\n## Reviews\n\n';
+            for (const review of pr.reviews.nodes) {
+                const reviewState = review.state ? ` (${review.state})` : '';
+                body += `### \`@${review.author?.login || 'unknown'}\`${reviewState} reviewed on ${review.createdAt}\n\n`;
+                if (review.body && review.body.trim().length > 0) {
+                    const projectedReview = this.#projectAuthoredNode(
+                        review,
+                        contentTrust,
+                        `review:${review.id || review.createdAt || 'unknown'}`
+                    );
+
+                    body += `${projectedReview.body}\n\n`;
+                } else {
+                    body += `*No review body provided.*\n\n`;
+                }
+                body += `---\n\n`;
+            }
+        }
+
+        // Gray-matter serialization
+        return matter.stringify(body, frontmatter);
     }
 
     /**
@@ -249,13 +442,13 @@ class PullRequestSyncer extends Base {
 
         while (hasNextPage) {
             const data = await GraphqlService.query(FETCH_PULL_REQUESTS_FOR_SYNC, {
-                owner: aiConfig.owner,
-                repo : aiConfig.repo,
-                limit: pullRequestConfig.defaults.limit || 30,
+                owner      : aiConfig.owner,
+                repo       : aiConfig.repo,
+                limit      : pullRequestConfig.defaults.limit || 30,
                 cursor,
-                states: ['OPEN', 'CLOSED', 'MERGED'],
+                states     : ['OPEN', 'CLOSED', 'MERGED'],
                 maxComments: pullRequestConfig.maxCommentsPerPullRequest || 50,
-                maxReviews: 20
+                maxReviews : 20
             });
 
             const pullRequests = data.repository.pullRequests;
@@ -282,52 +475,12 @@ class PullRequestSyncer extends Base {
 
         const cachedPulls = metadata.pulls || {};
         const planBuckets = this.#planBuckets(metadata, allPullRequests);
+        let shouldPruneEmptyDirs = false;
 
         for (const pr of allPullRequests) {
             try {
-                const targetPath = this.#getPullRequestPath(pr, planBuckets);
-
-                const frontmatter = {
-                    number     : pr.number,
-                    title      : pr.title,
-                    author     : pr.author?.login || 'unknown',
-                    state      : pr.state,
-                    createdAt  : pr.createdAt,
-                    updatedAt  : pr.updatedAt,
-                    closedAt   : pr.closedAt,
-                    mergedAt   : pr.mergedAt,
-                    head       : pr.headRefName,
-                    base       : pr.baseRefName,
-                    url        : pr.url
-                };
-
-                let body = pr.body || '';
-
-                // Build comments structure
-                if (pr.comments && pr.comments.nodes && pr.comments.nodes.length > 0) {
-                    body += '\n\n## Comments\n\n';
-                    for (const comment of pr.comments.nodes) {
-                        body += `### \`@${comment.author?.login || 'unknown'}\` commented on ${comment.createdAt}\n\n${comment.body}\n\n---\n\n`;
-                    }
-                }
-
-                // Build reviews structure
-                if (pr.reviews && pr.reviews.nodes && pr.reviews.nodes.length > 0) {
-                    body += '\n\n## Reviews\n\n';
-                    for (const review of pr.reviews.nodes) {
-                        const reviewState = review.state ? ` (${review.state})` : '';
-                        body += `### \`@${review.author?.login || 'unknown'}\`${reviewState} reviewed on ${review.createdAt}\n\n`;
-                        if (review.body && review.body.trim().length > 0) {
-                            body += `${review.body}\n\n`;
-                        } else {
-                            body += `*No review body provided.*\n\n`;
-                        }
-                        body += `---\n\n`;
-                    }
-                }
-
-                // Gray-matter serialization
-                const content = matter.stringify(body, frontmatter);
+                const targetPath  = this.#getPullRequestPath(pr, planBuckets);
+                const content     = this.#renderPullRequestMarkdown(pr);
                 const currentHash = this.#calculateContentHash(content);
 
                 const cachedPull = cachedPulls[pr.number];
@@ -354,6 +507,7 @@ class PullRequestSyncer extends Base {
                 if (oldAbsolutePath && oldAbsolutePath !== targetPath) {
                     try {
                         await fs.unlink(oldAbsolutePath);
+                        shouldPruneEmptyDirs = true;
                         logger.debug(`📦 Moved PR #${pr.number}: ${oldAbsolutePath} → ${targetPath}`);
                     } catch (e) {
                         // File might not exist
@@ -370,6 +524,11 @@ class PullRequestSyncer extends Base {
             } catch (e) {
                 logger.warn(`⚠️ Could not sync pull request #${pr.number}: ${e.message}`);
             }
+        }
+
+        await pruneEmptyDirs(issueSyncConfig.pullsDir);
+        if (shouldPruneEmptyDirs) {
+            await pruneEmptyDirs(path.join(issueSyncConfig.archiveRoot, 'pulls'));
         }
 
         // Cache for the main orchestrator to merge
@@ -392,12 +551,12 @@ class PullRequestSyncer extends Base {
 
             indexEntries.push(createContentIndexEntry({
                 issueSyncConfig,
-                type: 'pulls',
-                id: p.number,
-                filePath: path.resolve(aiConfig.projectRoot, p.relativeOutputPath),
+                type     : 'pulls',
+                id       : p.number,
+                filePath : path.resolve(aiConfig.projectRoot, p.relativeOutputPath),
                 itemIndex: plan ? plan.itemIndex : 0,
-                version: p.state === 'OPEN' ? null : plan?.version || null,
-                bucket: null
+                version  : p.state === 'OPEN' ? null : plan?.version || null,
+                bucket   : null
             }));
         });
 
@@ -411,6 +570,98 @@ class PullRequestSyncer extends Base {
             logger.info(`✨ Synced ${stats.count} modified pull requests to disk.`);
         } else {
             logger.info(`✅ Synced 0 pull requests (all up to date).`);
+        }
+
+        return stats;
+    }
+
+    /**
+     * @summary Force-refetches specific pull requests from GitHub, bypassing the delta-by-`updatedAt`
+     * gate, and re-renders their local Markdown mirrors from current GitHub state.
+     *
+     * The bulk {@link #syncPullRequests} path is delta-gated (it stops paginating past the cached
+     * high-water mark) and PR mirrors are pull-only, so a mirror that drifted for a reason that does
+     * NOT bump `updatedAt` (e.g. an upstream body edit on an already-synced closed PR) is never
+     * re-pulled. This is the single recovery primitive: it fetches each PR via
+     * {@link FETCH_SINGLE_PULL_FOR_SYNC}, re-renders via {@link #renderPullRequestMarkdown}, writes the
+     * file, and mutates the passed `metadata` in place. The caller persists metadata afterwards.
+     * Mirrors `IssueSyncer#refetchIssuesByNumber`.
+     *
+     * @param {Array<Number>|Set<Number>} numbers The pull-request numbers to refetch.
+     * @param {Object} metadata The sync metadata object (mutated in place).
+     * @param {Object} [indexMutations=null] Optional accumulator for `_index.json` updates.
+     * @returns {Promise<{refetched: {count: Number, pulls: Number[]}, errors: Array<{prNumber: Number, error: String}>}>}
+     */
+    async refetchPullsByNumber(numbers, metadata, indexMutations = null) {
+        const stats = {refetched: {count: 0, pulls: []}, errors: []};
+        const list  = [...numbers];
+
+        for (const prNumber of list) {
+            try {
+                const data = await GraphqlService.query(
+                    FETCH_SINGLE_PULL_FOR_SYNC,
+                    {
+                        owner      : aiConfig.owner,
+                        repo       : aiConfig.repo,
+                        prNumber,
+                        maxComments: pullRequestConfig.maxCommentsPerPullRequest || 50,
+                        maxReviews : 20
+                    },
+                    true
+                );
+
+                const pr = data.repository.pullRequest;
+                if (!pr) {
+                    logger.warn(`Pull request #${prNumber} not found on GitHub, skipping refetch`);
+                    continue;
+                }
+
+                const planBuckets = this.#planBuckets(metadata, [pr]);
+                const targetPath  = this.#getPullRequestPath(pr, planBuckets);
+                if (!targetPath) {
+                    if (indexMutations) {
+                        indexMutations.remove.push({type: 'pulls', id: prNumber});
+                    }
+                    continue;
+                }
+
+                const content     = this.#renderPullRequestMarkdown(pr);
+                const contentHash = this.#calculateContentHash(content);
+
+                await fs.mkdir(path.dirname(targetPath), {recursive: true});
+                await fs.writeFile(targetPath, content, 'utf-8');
+
+                stats.refetched.count++;
+                stats.refetched.pulls.push(prNumber);
+                logger.debug(`✅ Refetched pull request #${prNumber}`);
+
+                metadata.pulls[prNumber] = {
+                    number   : pr.number,
+                    contentHash,
+                    state    : pr.state,
+                    updatedAt: pr.updatedAt,
+                    closedAt : pr.closedAt || null,
+                    mergedAt : pr.mergedAt || null,
+                    milestone: pr.milestone?.title || null,
+                    path     : this.#relativePath(targetPath)
+                };
+
+                if (indexMutations) {
+                    const plan = planBuckets.get(prNumber);
+                    indexMutations.upsert.push(createContentIndexEntry({
+                        issueSyncConfig,
+                        type     : 'pulls',
+                        id       : prNumber,
+                        filePath : this.#resolvePath(this.#relativePath(targetPath)),
+                        itemIndex: plan ? plan.itemIndex : 0,
+                        version  : pr.state === 'OPEN' ? null : plan?.version || null,
+                        bucket   : null
+                    }));
+                }
+            } catch (e) {
+                logger.error(`Failed to refetch pull request #${prNumber}: ${e.message}`);
+                stats.errors.push({prNumber, error: e.message});
+            }
         }
 
         return stats;

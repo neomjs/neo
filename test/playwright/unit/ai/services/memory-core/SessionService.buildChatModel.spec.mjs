@@ -13,10 +13,11 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import fs             from 'fs-extra';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
+import {test, expect}        from '@playwright/test';
+import fs                    from 'fs-extra';
+import Neo                   from '../../../../../../src/Neo.mjs';
+import * as core             from '../../../../../../src/core/_export.mjs';
+import InteractiveBatchQueue from '../../../../../../ai/provider/InteractiveBatchQueue.mjs';
 
 test.describe('buildChatModel provider selector (#11965 Sub-2)', () => {
     let buildChatModel;
@@ -49,9 +50,9 @@ test.describe('buildChatModel provider selector (#11965 Sub-2)', () => {
     test('modelProvider=ollama returns generateContent wrapping native Ollama provider', async () => {
         const captured = [];
         const fakeOllama = {
-            host         : 'fake://injected',
-            modelName    : 'fake-injected',
-            keepAlive    : null,
+            host     : 'fake://injected',
+            modelName: 'fake-injected',
+            keepAlive: null,
             async generate(promptText) {
                 captured.push({promptText, host: this.host, modelName: this.modelName, keepAlive: this.keepAlive});
                 return {content: 'fake-content-for: ' + promptText, raw: {message: {content: 'fake-content-for: ' + promptText}}};
@@ -59,9 +60,9 @@ test.describe('buildChatModel provider selector (#11965 Sub-2)', () => {
         };
 
         const model = buildChatModel({
-            modelProvider          : 'ollama',
-            ollamaConfig           : {host: 'http://ollama.test', model: 'test-gemma', embeddingModel: null, keep_alive: -1},
-            ollamaProviderFactory  : (cfg) => {
+            modelProvider        : 'ollama',
+            ollamaConfig         : {host: 'http://ollama.test', model: 'test-gemma', embeddingModel: null, keep_alive: -1},
+            ollamaProviderFactory: (cfg) => {
                 fakeOllama.host      = cfg.host;
                 fakeOllama.modelName = cfg.modelName;
                 fakeOllama.keepAlive = cfg.keepAlive;
@@ -103,9 +104,9 @@ test.describe('buildChatModel provider selector (#11965 Sub-2)', () => {
         // Pass a mutable ollamaConfig ref so we can change it between invocations.
         const ollamaConfig = {host: 'http://v1.test', model: 'model-v1', keep_alive: -1};
         const model = buildChatModel({
-            modelProvider         : 'ollama',
+            modelProvider        : 'ollama',
             ollamaConfig,
-            ollamaProviderFactory : () => fakeOllama
+            ollamaProviderFactory: () => fakeOllama
         });
 
         await model.generateContent('first');
@@ -204,6 +205,29 @@ test.describe('buildChatModel provider selector (#11965 Sub-2)', () => {
         expect(response.response.text()).toBe('local:hello');
     });
 
+    test('routes local requests through the injected queue and strips priority from provider options (#12748)', async () => {
+        const captured = [];
+        const fakeProvider = {
+            async generate(promptText, generationOptions) {
+                captured.push({promptText, generationOptions});
+                return {content: 'r:' + promptText};
+            }
+        };
+        const queue = new InteractiveBatchQueue();
+        const model = buildChatModel({
+            modelProvider                  : 'openAiCompatible',
+            openAiCompatibleConfig         : {host: 'http://oai.test', model: 'm'},
+            openAiCompatibleProviderFactory: () => fakeProvider,
+            chatRequestQueue               : queue
+        });
+
+        const response = await model.generateContent('hi', {timeoutMs: 100, priority: 'batch'});
+
+        expect(response.response.text()).toBe('r:hi');
+        // `priority` is a queue-control param — it MUST NOT leak into the provider request.
+        expect(captured[0].generationOptions).toEqual({timeoutMs: 100});
+    });
+
     test('modelProvider=gemini returns null when geminiApiKey is missing', () => {
         const model = buildChatModel({
             modelProvider: 'gemini',
@@ -216,10 +240,10 @@ test.describe('buildChatModel provider selector (#11965 Sub-2)', () => {
         const fakeGemini = {generateContent: async () => ({response: {text: () => 'gemini-mock'}})};
         const factoryCalls = [];
         const model = buildChatModel({
-            modelProvider       : 'gemini',
-            geminiApiKey        : 'gem-key',
-            geminiModelName     : 'gemini-pro',
-            geminiClientFactory : (apiKey, modelName) => {
+            modelProvider      : 'gemini',
+            geminiApiKey       : 'gem-key',
+            geminiModelName    : 'gemini-pro',
+            geminiClientFactory: (apiKey, modelName) => {
                 factoryCalls.push({apiKey, modelName});
                 return fakeGemini;
             }
@@ -375,7 +399,7 @@ test.describe('SessionService summary provenance (#10292)', () => {
         expect(authoredByEdges[0][0]).toBe(result.summaryId);
         expect(authoredByEdges[0][1]).toBe('@neo-gpt');
         expect(authoredByEdges[0][4]).toMatchObject({
-            userId          : '@neo-gpt',
+            userId          : 'neo-gpt',
             sharedEntity    : true,
             provenancePolicy: 'most-restrictive-source'
         });

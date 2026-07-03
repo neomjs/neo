@@ -35,10 +35,11 @@ class SortZone extends BaseSortZone {
     }
 
     /**
+     * Completes a tab header drag under the base drag-end latch.
      * @param {Object} data
      */
-    onDragEnd(data) {
-        super.onDragEnd(data);
+    async processDragEnd(data) {
+        const promise = super.processDragEnd(data);
 
         this.timeout(300).then(() => {
             let me      = this,
@@ -47,7 +48,9 @@ class SortZone extends BaseSortZone {
 
             NeoArray.remove(cls, 'neo-no-animation');
             owner.cls = cls
-        })
+        });
+
+        await promise
     }
 
     /**

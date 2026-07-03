@@ -12,12 +12,257 @@ import PullRequestService from '../../../services/github-workflow/PullRequestSer
 import RepositoryService  from '../../../services/github-workflow/RepositoryService.mjs';
 import ToolService        from '../../ToolService.mjs';
 import SyncService        from '../../../services/github-workflow/SyncService.mjs';
+import {assertExpectedIdentity as assertExpectedGitHubIdentity, IdentityAssertionCode} from '../../../graph/assertExpectedIdentity.mjs';
+import RequestContextService from '../shared/services/RequestContextService.mjs';
 import config             from './config.mjs';
 
 const execFileAsync   = promisify(execFile);
 const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
 const openApiFilePath = path.join(__dirname, 'openapi.yaml');
+
+const PUBLIC_GITHUB_WRITE_ACCESS     = 'public-write';
+const NON_PUBLIC_GITHUB_WRITE_ACCESS = 'non-public-write';
+const GITHUB_TOOL_ACCESS_TYPES       = Object.freeze(new Set([
+    PUBLIC_GITHUB_WRITE_ACCESS,
+    NON_PUBLIC_GITHUB_WRITE_ACCESS
+]));
+
+/**
+ * @summary Canonical access classification for every GitHub Workflow MCP tool.
+ *
+ * `public-write` tools can mutate github.com state and therefore must pass the
+ * GitHub write identity guard. `non-public-write` tools may read remote state or
+ * mutate only the caller-local workspace. Keeping every `serviceMapping` key in
+ * this policy turns future tool additions into an explicit classification step.
+ */
+const GITHUB_TOOL_ACCESS = Object.freeze({
+    checkout_pull_request      : NON_PUBLIC_GITHUB_WRITE_ACCESS,
+    create_discussion          : PUBLIC_GITHUB_WRITE_ACCESS,
+    create_issue               : PUBLIC_GITHUB_WRITE_ACCESS,
+    get_conversation           : NON_PUBLIC_GITHUB_WRITE_ACCESS,
+    get_discussion_conversation: NON_PUBLIC_GITHUB_WRITE_ACCESS,
+    get_local_issue_by_id      : NON_PUBLIC_GITHUB_WRITE_ACCESS,
+    get_mcp_tool_handbook      : NON_PUBLIC_GITHUB_WRITE_ACCESS,
+    get_pull_request_diff      : NON_PUBLIC_GITHUB_WRITE_ACCESS,
+    get_viewer_permission      : NON_PUBLIC_GITHUB_WRITE_ACCESS,
+    healthcheck                : NON_PUBLIC_GITHUB_WRITE_ACCESS,
+    list_issues                : NON_PUBLIC_GITHUB_WRITE_ACCESS,
+    list_labels                : NON_PUBLIC_GITHUB_WRITE_ACCESS,
+    list_pull_requests         : NON_PUBLIC_GITHUB_WRITE_ACCESS,
+    manage_discussion          : PUBLIC_GITHUB_WRITE_ACCESS,
+    manage_discussion_comment  : PUBLIC_GITHUB_WRITE_ACCESS,
+    manage_issue_assignees     : PUBLIC_GITHUB_WRITE_ACCESS,
+    manage_issue_comment       : PUBLIC_GITHUB_WRITE_ACCESS,
+    manage_issue_labels        : PUBLIC_GITHUB_WRITE_ACCESS,
+    manage_issue_projects      : PUBLIC_GITHUB_WRITE_ACCESS,
+    manage_pr_review           : PUBLIC_GITHUB_WRITE_ACCESS,
+    manage_pr_reviewers        : PUBLIC_GITHUB_WRITE_ACCESS,
+    signal_state_transition    : PUBLIC_GITHUB_WRITE_ACCESS,
+    sync_all                   : PUBLIC_GITHUB_WRITE_ACCESS,
+    update_issue_relationship  : PUBLIC_GITHUB_WRITE_ACCESS
+});
+
+const PUBLIC_GITHUB_WRITE_TOOLS = Object.freeze(new Set(
+    Object.entries(GITHUB_TOOL_ACCESS)
+        .filter(([, access]) => access === PUBLIC_GITHUB_WRITE_ACCESS)
+        .map(([toolName]) => toolName)
+));
+
+function getMissingGitHubToolAccessClassifications(mapping, accessPolicy = GITHUB_TOOL_ACCESS) {
+    return Object.keys(mapping).filter(toolName => !Object.hasOwn(accessPolicy, toolName));
+}
+
+function getInvalidGitHubToolAccessClassifications(accessPolicy = GITHUB_TOOL_ACCESS) {
+    return Object.entries(accessPolicy)
+        .filter(([, access]) => !GITHUB_TOOL_ACCESS_TYPES.has(access))
+        .map(([toolName]) => toolName);
+}
+
+/**
+ * @summary Fails closed when a service-mapped tool lacks an access classification.
+ * @param {Object} mapping Operation id to handler function.
+ * @param {Object} [accessPolicy] Tool access policy keyed by operation id.
+ * @returns {Boolean} True when every mapped tool is classified.
+ */
+function assertNoUnclassifiedGitHubTools(mapping, accessPolicy = GITHUB_TOOL_ACCESS) {
+    const missing = getMissingGitHubToolAccessClassifications(mapping, accessPolicy);
+    const invalid = getInvalidGitHubToolAccessClassifications(accessPolicy);
+
+    if (missing.length || invalid.length) {
+        throw new Error([
+            'GitHub tool access policy incomplete.',
+            missing.length ? `Missing classification: ${missing.sort().join(', ')}` : null,
+            invalid.length ? `Invalid classification: ${invalid.sort().join(', ')}` : null
+        ].filter(Boolean).join(' '));
+    }
+
+    return true;
+}
+
+/**
+ * @summary Verifies the canonical policy and runtime service mapping stay in lockstep.
+ * @param {Object} mapping Operation id to handler function.
+ * @param {Object} [accessPolicy] Tool access policy keyed by operation id.
+ * @returns {Boolean} True when mapping and policy cover the same operation ids.
+ */
+function assertCompleteGitHubToolAccessPolicy(mapping, accessPolicy = GITHUB_TOOL_ACCESS) {
+    assertNoUnclassifiedGitHubTools(mapping, accessPolicy);
+
+    const stale = Object.keys(accessPolicy).filter(toolName => !Object.hasOwn(mapping, toolName));
+
+    if (stale.length) {
+        throw new Error(`GitHub tool access policy has stale classification: ${stale.sort().join(', ')}`);
+    }
+
+    return true;
+}
+
+/**
+ * @summary Normalizes AgentIdentity-style and GitHub-login-style strings to a GitHub login.
+ * @param {String|null|undefined} identity AgentIdentity node id or GitHub login.
+ * @returns {String|null} Normalized login, or null when no non-empty identity exists.
+ */
+function normalizeGitHubIdentityLogin(identity) {
+    if (identity == null) {
+        return null;
+    }
+
+    const trimmed = String(identity).trim();
+
+    if (!trimmed) {
+        return null;
+    }
+
+    return trimmed.startsWith('@') ? trimmed.slice(1) : trimmed;
+}
+
+/**
+ * @summary Maps the shared assertion's stable {@link IdentityAssertionCode} into a write-boundary
+ * error code. Keys on the machine `code`, not the human-readable `reason` prose (which is free to
+ * reword); an unknown or absent code falls back to the generic assertion-failed code.
+ * @param {String} code The shared assertion's `code`.
+ * @returns {String}
+ */
+function getGitHubIdentityErrorCode(code) {
+    switch (code) {
+        case IdentityAssertionCode.EXPECTED_UNMAPPABLE:
+            return 'GITHUB_IDENTITY_UNRESOLVED';
+        case IdentityAssertionCode.NO_AUTHED_LOGIN:
+            return 'GITHUB_VIEWER_UNRESOLVED';
+        case IdentityAssertionCode.MEMORY_CORE_MISMATCH:
+            return 'GITHUB_MEMORY_CORE_IDENTITY_MISMATCH';
+        case IdentityAssertionCode.LOGIN_MISMATCH:
+            return 'GITHUB_IDENTITY_MISMATCH';
+        default:
+            return 'GITHUB_IDENTITY_ASSERTION_FAILED';
+    }
+}
+
+/**
+ * @summary Builds a structured identity guard error for GitHub write-boundary failures.
+ * @param {Object} assertion Shared identity assertion failure payload.
+ * @returns {Error}
+ */
+function createGitHubIdentityError(assertion) {
+    const message = assertion.reason || 'GitHub identity assertion failed.';
+    const error   = new Error(`GitHub write rejected: ${message}`);
+
+    Object.assign(error, {
+        ...assertion,
+        code: getGitHubIdentityErrorCode(assertion.code)
+    });
+
+    return error;
+}
+
+/**
+ * @summary Resolves the effective GitHub viewer login for the current process credentials.
+ * @returns {Promise<String|null>} Effective viewer login or null on failure.
+ */
+async function resolveGitHubViewerLogin() {
+    try {
+        const {stdout} = await execFileAsync('gh', ['api', 'user', '--jq', '.login'], {
+            cwd    : config.projectRoot,
+            timeout: 1500
+        });
+
+        return normalizeGitHubIdentityLogin(stdout);
+    } catch (error) {
+        return null;
+    }
+}
+
+/**
+ * @summary Runs the shared GitHub identity assertion from this server's request context.
+ * @returns {Promise<Object>}
+ */
+async function defaultGitHubIdentityAssertion() {
+    const memoryCoreIdentity = RequestContextService.getAgentIdentityNodeId() ||
+        RequestContextService.getUserId();
+
+    return assertExpectedGitHubIdentity({
+        expected: process.env.NEO_AGENT_IDENTITY ||
+            RequestContextService.getAgentIdentityNodeId() ||
+            RequestContextService.getUserId(),
+        actualLogin: await resolveGitHubViewerLogin(),
+        memoryCoreIdentity
+    });
+}
+
+/**
+ * @summary Wraps a public GitHub write with fail-closed identity-drift validation.
+ *
+ * The delegate is never invoked unless the expected agent identity and effective
+ * GitHub API viewer login match. The assertion seam is injectable so tests do
+ * not perform live GitHub calls.
+ *
+ * @param {Function} delegate The mutating GitHub tool handler.
+ * @param {Object} [options]
+ * @param {Function} [options.assertExpectedIdentity] Shared identity assertion seam.
+ * @returns {Function} Guarded async tool handler.
+ */
+function buildGitHubWriteIdentityGuard(delegate, {
+    assertExpectedIdentity = defaultGitHubIdentityAssertion
+} = {}) {
+    return async function githubWriteIdentityGuard(...args) {
+        const assertion = await assertExpectedIdentity();
+
+        if (!assertion.ok) {
+            throw createGitHubIdentityError(assertion);
+        }
+
+        return delegate(...args);
+    };
+}
+
+/**
+ * @summary Returns true for MCP tools that mutate public GitHub state.
+ * @param {String} toolName MCP operation id.
+ * @returns {Boolean}
+ */
+function isPublicGitHubWriteTool(toolName) {
+    return PUBLIC_GITHUB_WRITE_TOOLS.has(toolName);
+}
+
+/**
+ * @summary Applies the GitHub write-boundary identity guard to mutating tool handlers only.
+ * @param {Object} mapping Operation id to handler function.
+ * @param {Object} [guardOptions] Resolver injection for tests.
+ * @returns {Object} A mapping where public write handlers are guarded.
+ */
+function guardGitHubWriteTools(mapping, guardOptions) {
+    assertNoUnclassifiedGitHubTools(mapping);
+
+    return Object.fromEntries(
+        Object.entries(mapping).map(([toolName, handler]) => [
+            toolName,
+            isPublicGitHubWriteTool(toolName)
+                ? buildGitHubWriteIdentityGuard(handler, guardOptions)
+                : handler
+        ])
+    );
+}
 
 /**
  * Default branch detector. Exec's `git branch --show-current` against the MCP
@@ -135,6 +380,13 @@ async function getConversationRouter(options) {
     };
 }
 
+// The github-workflow healthcheck degrades on identity drift, including the Memory-Core self-identity
+// leg. That identity resolves from this MCP request context, which sits above HealthService's service
+// layer — so inject the reader here rather than have the service import the context upward. Mirrors the
+// write-guard's defaultGitHubIdentityAssertion sourcing.
+HealthService.memoryCoreIdentityReader = () =>
+    RequestContextService.getAgentIdentityNodeId() || RequestContextService.getUserId();
+
 const serviceMapping = {
     checkout_pull_request      : PullRequestService.checkoutPullRequest    .bind(PullRequestService),
     create_discussion          : DiscussionService .createDiscussion       .bind(DiscussionService),
@@ -142,6 +394,7 @@ const serviceMapping = {
     get_conversation           : getConversationRouter,
     get_discussion_conversation: DiscussionService .getConversation        .bind(DiscussionService),
     get_local_issue_by_id      : LocalFileService  .getIssueById           .bind(LocalFileService),
+    get_mcp_tool_handbook      : toolId => toolService.getToolHandbook(toolId),
     get_pull_request_diff      : PullRequestService.getPullRequestDiff     .bind(PullRequestService),
     get_viewer_permission      : RepositoryService .getViewerPermission    .bind(RepositoryService),
     healthcheck                : HealthService     .healthcheck            .bind(HealthService),
@@ -161,13 +414,30 @@ const serviceMapping = {
     update_issue_relationship  : IssueService      .updateIssueRelationship.bind(IssueService)
 };
 
+assertCompleteGitHubToolAccessPolicy(serviceMapping);
+
+const guardedServiceMapping = guardGitHubWriteTools(serviceMapping);
+
 // Exported for unit-test access. `buildDevBranchGuard` accepts injected
 // `delegate` + `getBranch` for fixture-driven testing without spawning real `git`.
-export {buildDevBranchGuard, getConversationRouter, syncAllOnDevOnly};
+export {
+    GITHUB_TOOL_ACCESS,
+    assertCompleteGitHubToolAccessPolicy,
+    assertNoUnclassifiedGitHubTools,
+    buildDevBranchGuard,
+    buildGitHubWriteIdentityGuard,
+    getConversationRouter,
+    guardGitHubWriteTools,
+    isPublicGitHubWriteTool,
+    normalizeGitHubIdentityLogin,
+    syncAllOnDevOnly
+};
 
 const toolService = Neo.create(ToolService, {
+    compactToolDescriptions    : true,
     openApiFilePath,
-    serviceMapping
+    serviceMapping: guardedServiceMapping,
+    toolListDescriptionMaxLength: 120
 });
 
 const callTool  = toolService.callTool .bind(toolService);

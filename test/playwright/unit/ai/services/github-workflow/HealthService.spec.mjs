@@ -128,3 +128,55 @@ test.describe.serial('Neo.ai.services.github-workflow.HealthService - runtimeFre
         expect(result.details).toContain('current gitHead unavailable: fixture');
     });
 });
+
+test.describe('Neo.ai.services.github-workflow.HealthService notification projection (#12937)', () => {
+    let buildNotificationPreview;
+    let getWakeRelevantNotifications;
+    let GITHUB_WAKE_NOTIFICATION_REASONS;
+
+    test.beforeAll(async () => {
+        ({
+            buildNotificationPreview,
+            getWakeRelevantNotifications,
+            GITHUB_WAKE_NOTIFICATION_REASONS
+        } = await import('../../../../../../ai/services/github-workflow/HealthService.mjs'));
+    });
+
+    test('wake notification projection includes mentions and review requests only', () => {
+        expect(GITHUB_WAKE_NOTIFICATION_REASONS).toEqual(['mention', 'review_requested']);
+
+        const notifications = [{
+            id     : 'ghn-mention',
+            reason : 'mention',
+            subject: {type: 'Issue', title: 'Mentioned', url: 'https://api.github.com/repos/acme/repo/issues/1'}
+        }, {
+            id     : 'ghn-review',
+            reason : 'review_requested',
+            subject: {type: 'PullRequest', title: 'Review requested', url: 'https://api.github.com/repos/acme/repo/pulls/2'}
+        }, {
+            id     : 'ghn-noise',
+            reason : 'subscribed',
+            subject: {type: 'Issue', title: 'Noise', url: 'https://api.github.com/repos/acme/repo/issues/3'}
+        }];
+
+        const relevant = getWakeRelevantNotifications(notifications);
+        expect(relevant).toEqual([{
+            id    : 'ghn-mention',
+            reason: 'mention',
+            type  : 'Issue',
+            title : 'Mentioned',
+            url   : 'https://api.github.com/repos/acme/repo/issues/1'
+        }, {
+            id    : 'ghn-review',
+            reason: 'review_requested',
+            type  : 'PullRequest',
+            title : 'Review requested',
+            url   : 'https://api.github.com/repos/acme/repo/pulls/2'
+        }]);
+
+        expect(buildNotificationPreview(notifications)).toEqual({
+            unreadCount: 2,
+            latest     : relevant
+        });
+    });
+});

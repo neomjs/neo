@@ -1,17 +1,18 @@
 // Neo namespace bootstrap (entry-point invariant) — KB data-plane CLI.
 // `InstanceManager` binds Neo.find/findFirst/get aliases + consumes pre-singleton
 // `Neo.idMap`; required for any consumer of the Neo singleton API.
-import Neo                          from '../../../src/Neo.mjs';
-import * as core                    from '../../../src/core/_export.mjs';
-import InstanceManager              from '../../../src/manager/Instance.mjs';
-import fs                           from 'fs';
-import readline                     from 'readline';
-import {pathToFileURL}              from 'url';
-import KB_Config                    from '../../mcp/server/knowledge-base/config.mjs';
-import KB_ChromaManager             from '../../services/knowledge-base/ChromaManager.mjs';
-import KB_IngestionService          from '../../services/knowledge-base/KnowledgeBaseIngestionService.mjs';
-import KB_LifecycleService          from '../../services/knowledge-base/DatabaseLifecycleService.mjs';
-import {withHeavyMaintenanceLease}  from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
+import Neo                         from '../../../src/Neo.mjs';
+import AiConfig                    from '../../config.mjs';
+import * as core                   from '../../../src/core/_export.mjs';
+import InstanceManager             from '../../../src/manager/Instance.mjs';
+import fs                          from 'fs';
+import readline                    from 'readline';
+import {pathToFileURL}             from 'url';
+import KB_Config                   from '../../mcp/server/knowledge-base/config.mjs';
+import KB_ChromaManager            from '../../services/knowledge-base/ChromaManager.mjs';
+import KB_IngestionService         from '../../services/knowledge-base/IngestionService.mjs';
+import KB_LifecycleService         from '../../services/knowledge-base/DatabaseLifecycleService.mjs';
+import {withHeavyMaintenanceLease} from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
 
 /**
  * @module ai/scripts/maintenance/ingestTenant
@@ -19,7 +20,7 @@ import {withHeavyMaintenanceLease}  from '../../daemons/orchestrator/services/He
  * @summary Bulk-facade CLI (`npm run ai:ingest-tenant`) for Cloud-Native KB Ingestion.
  *
  * Streams `parsed-chunk-v1` JSONL records (one record per line) from a file or stdin into the
- * Knowledge Base via {@link Neo.ai.services.knowledge-base.KnowledgeBaseIngestionService}. This is
+ * Knowledge Base via {@link Neo.ai.services.knowledge-base.IngestionService}. This is
  * the bulk data-plane counterpart to the `ingest_source_files` MCP small-batch facade:
  * initial tenant onboarding (5k–50k chunks) and large `git push` hook bursts exceed the
  * MCP work-volume gate (`aiConfig.mcpSyncMaxChunks`), so the CLI calls `ingestSourceFiles` with
@@ -85,8 +86,8 @@ function printUsage() {
  * @yields {{record: Object, lineNo: Number}|{parseError: String, lineNo: Number}}
  */
 async function* readJsonlRecords(input) {
-    const rl   = readline.createInterface({input, crlfDelay: Infinity});
-    let lineNo = 0;
+    const rl     = readline.createInterface({input, crlfDelay: Infinity});
+    let   lineNo = 0;
 
     for await (const line of rl) {
         lineNo++;
@@ -117,7 +118,7 @@ async function* readJsonlRecords(input) {
  */
 async function runIngest({records, batchSize, ingestFn, onBatch}) {
     const totals = {ingested: 0, embeddingsGenerated: 0, deleted: 0, batches: 0, parseErrors: 0, errors: []};
-    let batch    = [];
+    let   batch  = [];
 
     const flushBatch = async () => {
         if (batch.length === 0) return;
@@ -203,14 +204,14 @@ async function ingestTenant() {
                     records  : readJsonlRecords(input),
                     batchSize: args.batchSize,
                     // Bulk path: viaMcp:false bypasses the MCP work-volume gate for tenant-scale ingestion.
-                    ingestFn : files => KB_IngestionService.ingestSourceFiles({tenantId: args.tenantId, files, viaMcp: false}),
-                    onBatch  : (batchNumber, summary) => console.log(
+                    ingestFn: files => KB_IngestionService.ingestSourceFiles({tenantId: args.tenantId, files, viaMcp: false}),
+                    onBatch : (batchNumber, summary) => console.log(
                         `   batch ${batchNumber}: ${summary.ingested} ingested, ${summary.embeddingsGenerated} embedded` +
                         (summary.errors?.length ? `, ${summary.errors.length} error(s)` : '')
                     )
                 });
             },
-            {owner: 'kbIngest', reason: 'manual-cli', metadata: {script: 'ai/scripts/maintenance/ingestTenant.mjs', tenantId: args.tenantId}}
+            {owner: 'kbIngest', reason: 'manual-cli', staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs, metadata: {script: 'ai/scripts/maintenance/ingestTenant.mjs', tenantId: args.tenantId}}
         );
     } catch (error) {
         console.error('❌ ai:ingest-tenant failed:', error);

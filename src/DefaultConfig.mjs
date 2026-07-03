@@ -137,6 +137,27 @@ const DefaultConfig = {
      */
     logDeltaUpdates: false,
     /**
+     * true will track VDom delta batches in a per-window cross-batch live-id ledger
+     * (the coherence registry) in the main thread, logging cross-batch coherence findings
+     * (insert-on-live-id, retired-id targets, rename collisions) for measurement.
+     * Observe-mode only: findings never reject a batch.
+     * @default false
+     * @memberOf! module:Neo
+     * @name config.useDeltaCoherenceRegistry
+     * @type Boolean
+     */
+    useDeltaCoherenceRegistry: false,
+    /**
+     * true will validate VDom delta batches in the main thread before applying them.
+     * Guard-grade findings reject the whole batch before the first DOM mutation; candidate
+     * structural findings are logged for measurement only.
+     * @default false
+     * @memberOf! module:Neo
+     * @name config.useDeltaGrammarGuards
+     * @type Boolean
+     */
+    useDeltaGrammarGuards: false,
+    /**
      * true will log console warnings, in case a component tries to update() while a parent update is running.
      * A parent update results in a short delay, so you might want to resolve these collisions.
      * @default false
@@ -339,12 +360,12 @@ const DefaultConfig = {
     useVdomWorker: true,
     /**
      * buildScripts/injectPackageVersion.mjs will update this value
-     * @default '13.0.0'
+     * @default '13.1.0'
      * @memberOf! module:Neo
      * @name config.version
      * @type String
      */
-    version: '13.0.0'
+    version: '13.1.0'
 };
 
 Object.assign(DefaultConfig, {
