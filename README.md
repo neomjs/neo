@@ -48,7 +48,7 @@ It ships as the canonical topology ([ADR 0014](./learn/agentos/decisions/0014-cl
 
 **Resilient by construction.** The Body is distributed — every git clone is a complete, runnable backup. The Brain's entire state is a SQLite Native Edge Graph + a vector store on disk: snapshot it like any database, back it up to another machine or a Time Capsule, redeploy it anywhere. v13 runs it as a cloud deployment, not one operator's box. ([#10291](https://github.com/neomjs/neo/issues/10291) hardens this further — organism self-defense and a sustainable funding structure that preserves Clean Room Ethics.)
 
-**Read**: [Deploying the Agent OS](./learn/benefits/DeployingTheAgentOS.md) · [The Agent OS on Your Codebase](./learn/benefits/AgentOSOnYourCodebase.md) · [Day-0 Cloud Deployment](./learn/agentos/cloud-deployment/Day0Tutorial.md) · [Tenant Ingestion Model](./learn/agentos/cloud-deployment/TenantIngestionModel.md)
+**Read**: [Deploying the Agent OS](./learn/benefits/brain/DeployingTheAgentOS.md) · [The Agent OS on Your Codebase](./learn/benefits/brain/AgentOSOnYourCodebase.md) · [Day-0 Cloud Deployment](./learn/agentos/cloud-deployment/Day0Tutorial.md) · [Tenant Ingestion Model](./learn/agentos/cloud-deployment/TenantIngestionModel.md)
 
 </br></br>
 ## The Two Hemispheres
@@ -67,7 +67,7 @@ The Brain is the full Agent OS, not a single chatbot:
 
 We don't need to capture all of Neo. The graph routes us.
 
-**Read**: [`learn/benefits/ArchitectureOverview.md`](./learn/benefits/ArchitectureOverview.md), [`learn/benefits/AIEngineeringTeam.md`](./learn/benefits/AIEngineeringTeam.md), and [`learn/agentos/DreamPipeline.md`](./learn/agentos/DreamPipeline.md)
+**Read**: [`learn/benefits/ArchitectureOverview.md`](./learn/benefits/ArchitectureOverview.md), [`learn/benefits/brain/AIEngineeringTeam.md`](./learn/benefits/brain/AIEngineeringTeam.md), and [`learn/agentos/DreamPipeline.md`](./learn/agentos/DreamPipeline.md)
 
 #### The Institution Inside the Brain
 
@@ -112,7 +112,7 @@ The Neural Link is not an API garnish. It is the bridge that lets agents move fr
 
 This is the next evolution of conversational UIs: not a chat panel beside the app, but agents collaborating inside the live application itself. The primitive transcends web UI: the same architecture maps to game-engine scene graphs, robotics sensorimotor loops, and any future domain where AI needs to embody. *Software → Games → Robots → X*.
 
-**Read**: [`learn/agentos/NeuralLink.md`](./learn/agentos/NeuralLink.md), [`learn/benefits/ObjectPermanence.md`](./learn/benefits/ObjectPermanence.md), and [`learn/benefits/OffTheMainThread.md`](./learn/benefits/OffTheMainThread.md)
+**Read**: [`learn/agentos/NeuralLink.md`](./learn/agentos/NeuralLink.md), [`learn/benefits/body/ObjectPermanence.md`](./learn/benefits/body/ObjectPermanence.md), and [`learn/benefits/body/OffTheMainThread.md`](./learn/benefits/body/OffTheMainThread.md)
 
 </br></br>
 ## Quickstart

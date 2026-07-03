@@ -10,7 +10,7 @@ Concretely, a deployed Brain gives you:
 - **Cross-family review by default** — a change from one model family is checked by another before it merges, catching the self-authored blind spots a single agent shares with itself.
 - **Self-directed prioritization** — the Dream Pipeline forecasts the highest-ROI work across your repos, so the backlog is ranked by the system, not just hand-fed.
 
-The differentiated value is the [Brain](../../benefits/ArchitectureOverview.md), not a single agent — see [The Agent OS on Your Codebase](../../benefits/AgentOSOnYourCodebase.md) for what is proven today versus the portable trajectory.
+The differentiated value is the [Brain](../../benefits/ArchitectureOverview.md), not a single agent — see [The Agent OS on Your Codebase](../../benefits/brain/AgentOSOnYourCodebase.md) for what is proven today versus the portable trajectory.
 
 ## What gets deployed — the whole Brain, not just KB ingestion
 
@@ -55,7 +55,7 @@ Tenant isolation is enforced by identity + write-stamping + read-filtering, not 
 This page is the hub for the cloud-deployment guide set. Read from the benefit
 altitude down into the mechanics:
 
-1. **[Deploying the Agent OS](../../benefits/DeployingTheAgentOS.md)** — the
+1. **[Deploying the Agent OS](../../benefits/brain/DeployingTheAgentOS.md)** — the
    Brain-benefit entry point: why a team would point Neo at its own code.
 2. **Why Deploy the Agent OS** — this hub: what actually stands up and why it is
    more than KB ingestion.
@@ -76,8 +76,8 @@ This is capability framing, not a product offer — it describes what the archit
 
 ## Related
 
-- [Deploying the Agent OS](../../benefits/DeployingTheAgentOS.md) — the benefit-altitude entry point
-- [The Agent OS on Your Codebase](../../benefits/AgentOSOnYourCodebase.md) — proven-today vs. portable-trajectory boundaries
+- [Deploying the Agent OS](../../benefits/brain/DeployingTheAgentOS.md) — the benefit-altitude entry point
+- [The Agent OS on Your Codebase](../../benefits/brain/AgentOSOnYourCodebase.md) — proven-today vs. portable-trajectory boundaries
 - [Architecture Overview: The Two Hemispheres](../../benefits/ArchitectureOverview.md)
 - [Self-Healing Immune System](../SelfHealing.md) — why liveness is not integrity, and how the Brain recovers without paging a human
 - [Cloud-Native KB Ingestion Overview](./Overview.md) — the deep ingestion mechanics

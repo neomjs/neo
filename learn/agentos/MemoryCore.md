@@ -116,4 +116,4 @@ This guide is the concept. The operational surfaces are kept single-sourced so t
 
 *   **[Memory Core MCP API](./tooling/MemoryCoreMcpApi.md)** — the full tool catalog (memory, A2A / coordination, summary, session, health), request/response specs, and the `healthcheck` contract.
 *   **[Restoration Runbook](./tooling/RestorationRunbook.md)** — the deep backstop beneath the immune system: atomic-bundle backup and restore.
-*   **[Deploying the Agent OS](../benefits/DeployingTheAgentOS.md)** — running the Brain on your team's codebase: the multi-tenant cloud topology (running it locally needs no deployment).
+*   **[Deploying the Agent OS](../benefits/brain/DeployingTheAgentOS.md)** — running the Brain on your team's codebase: the multi-tenant cloud topology (running it locally needs no deployment).

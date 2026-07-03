@@ -6,7 +6,7 @@ A Declarative Approach to Application Building
 
 Modern JavaScript frameworks have revolutionized front-end development by providing declarative ways to build
 user interfaces, primarily centered around enhancing HTML with custom syntax like JSX or Angular directives.
-However, the complexity of applications extends far beyond the Document Object Model (DOM), encompassing crucial 
+However, the complexity of applications extends far beyond the Document Object Model (DOM), encompassing crucial
 non-DOM entities such as data stores, state providers, routers, view controllers, selection models, and layouts.
 
 While existing frameworks offer solutions for managing these aspects, they often lack a truly consistent, declarative,
@@ -160,7 +160,7 @@ class Button extends Component {
 
         // The virtual DOM structure of the button
         // (not used parts will not show up inside the live DOM)
-        _vdom: { 
+        _vdom: {
             tag: 'button', type: 'button', cn: [
                 {tag: 'span', cls: ['neo-button-glyph']},
                 {tag: 'span', cls: ['neo-button-text']},
@@ -317,7 +317,7 @@ class MainStore extends Store {
         amountRows_   : 1000,
 
         // Define default filters declaratively
-        filters: [{ 
+        filters: [{
             property: 'firstname',
             operator: 'like',
             value   : null
@@ -418,7 +418,7 @@ Neo.mjs provides several ways to configure these entities within the `static con
     ```javascript readonly
     // In MyContainer.mjs (a non-leaf component)
     import MyController from './MyController.mjs';
-    
+
     class MyContainer extends Container {
         static config = {
             controller: MyController // Neo.mjs will instantiate MyController
@@ -434,7 +434,7 @@ Neo.mjs provides several ways to configure these entities within the `static con
     ```javascript readonly
     // In MyContainer.mjs
     import MyController from './MyController.mjs';
-    
+
     class MyContainer extends Container {
         static config = {
             controller: {

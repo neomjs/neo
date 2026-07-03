@@ -29,7 +29,7 @@ class MainView extends FormContainer {
     static config = {
         className: 'Benefits.forms1.MainView',
         layout   : {ntype:'vbox', align:'start'},
-        
+
         items: [{
             module   : TextField,
             labelText: 'Firstname',
@@ -92,7 +92,7 @@ class MainView extends Container {
     static config = {
         className: 'Benefits.forms2.MainView',
         layout   : {ntype:'vbox', align:'start'},
-        
+
         items: [{
             module : Button,
             handler: 'up.getFormValues',
@@ -156,7 +156,7 @@ class MainView extends FormContainer {
     static config = {
         className: 'Benefits.forms3.MainView',
         layout   : {ntype:'vbox', align:'stretch'},
-        
+
         items: [{
             module       : TextField,
             flex         : 'none',
