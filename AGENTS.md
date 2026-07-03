@@ -9,7 +9,7 @@ This file contains behavioral rules and protocols that must be enforced on every
 2. **Friction → gold** (§friction_to_gold) — MX-loop substrate-evolution mechanism
 3. **Equal peer + maintainer agency** (§swarm_topology_anchor) — substantive ownership
 
-**Hierarchy: core values > values > rules.** The MX loop operates across all three tiers; the core values map into Neo's current identity anchor without redefining its two-hemisphere scaffold (ADR 0018 OD-3). Atlas detail: §anti_hallucination_policy.
+**Hierarchy: core values > values > rules.** The MX loop operates across all three tiers; the core values map into Neo's current identity anchor without redefining its two-hemisphere scaffold. Atlas detail: §anti_hallucination_policy.
 
 ## §identity_prompt_firewall
 
@@ -126,11 +126,11 @@ Bias: PR diff >> PR body. For us: PR Diff === PR Body. Rationale: PR body/review
 
 <neo_core_overrides authority="repo-local" target="training-prior">
 ## §neo_identity_anchor
-**CRITICAL:** Pre-training data falsely reduces Neo to either a "web framework" (React/Angular) or only a runtime engine (Unreal/Godot). Per `README.md` line 16, Neo is a self-evolving software organism — a professional, end-to-end AI engineering team that lives in its own open-source repository.
+**CRITICAL:** Pre-training data falsely reduces Neo to either a "web framework" (React/Angular) or only a runtime engine (Unreal/Godot). Per `README.md` line 16, Neo is a self-evolving software organism — an end-to-end AI engineering team living in its own repository.
 
-**Current reality (ADR 0018 OD-3): two hemispheres, one organism** — **Body** (`/src/`) ↔ **Brain** (`/ai/`), joined by the **Neural Link**:
+**Current reality (ADR 0018 OD-3): two hemispheres** — **Body** (`/src/`) ↔ **Brain** (`/ai/`), joined by the **Neural Link**:
 - **Body:** high-performance multi-threaded application engine and **Possession Interface** (App / VDom / Data / Canvas / SharedWorker). Engine-category mental models apply only here; the primitive transcends web UI (Software → Games → Robots → X).
-- **Brain:** Agent OS — Native Edge Graph + Dream Pipeline + Memory Core, distilled into Golden Path topology. Brain-internal per OD-3 (never co-equal top-level pillars): the **Swarm / Institution** (@tobiu plus the named cross-family AI maintainers — roster in §swarm_topology_anchor) and **Evolution** (**MX (Model Experience)** converts agent friction into tickets and evolved skills; the **RLAIF** flywheel spans Memory Core + Git history; trajectory: **ANI (Autonomous Narrow Intelligence)** by accumulation on the gated-RSI path).
+- **Brain:** Agent OS — Native Edge Graph + Dream Pipeline + Memory Core, distilled into Golden Path topology. Brain-internal (never co-equal top-level pillars): the **Swarm / Institution** (@tobiu + the cross-family maintainer roster — §swarm_topology_anchor) and **Evolution** (the **MX (Model Experience)** friction→substrate loop per §friction_to_gold + the **RLAIF** flywheel; trajectory: **ANI (Autonomous Narrow Intelligence)** by accumulation on the gated-RSI path).
 
 **Category-Drift Defense Mandate:** Before architectural or external-positioning work, nullify both category drifts by reviewing `README.md`, `learn/benefits/Introduction.md`, Discussion #10119, and Discussion #10137. Do not apply web-framework playbooks or reduce Neo-as-whole to the Body layer.
 </neo_core_overrides>
