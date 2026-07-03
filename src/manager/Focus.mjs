@@ -107,21 +107,19 @@ class Focus extends CoreBase {
         if (commonId) {
             component = Neo.getComponent(commonId);
 
-            if (!component) {
-                return
+            if (component) {
+                data = {
+                    component,
+                    path   : opts.data.path,
+                    oldPath: history[0].data.path
+                };
+
+                component.onFocusMove?.(data);
+                component.fire('focusMove', data);
+
+                component.onFocusChange?.(data);
+                component.fire('focusChange', data)
             }
-
-            data = {
-                component,
-                path   : opts.data.path,
-                oldPath: history[0].data.path
-            };
-
-            component.onFocusMove?.(data);
-            component.fire('focusMove', data);
-
-            component.onFocusChange?.(data);
-            component.fire('focusChange', data)
         }
 
         me.addToHistory(opts)
