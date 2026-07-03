@@ -24,7 +24,7 @@ To access bundled versions, prefix paths with `/dist/production/`, `/dist/develo
 
 ## Latest Updates
 
-- [v13.1.0 (2026-07-03): Update](https://neomjs.com/raw/news/releases/13.1.0.md)
+- [v13.1.0 (2026-07-02): Update](https://neomjs.com/raw/news/releases/13.1.0.md)
 - [v13.0.0 (2026-06-12): Update](https://neomjs.com/raw/news/releases/13.0.0.md)
 - [v12.1.0 (2026-03-27): Update](https://neomjs.com/raw/news/releases/12.1.0.md)
 - [v12.0.0 (2026-02-28): Update](https://neomjs.com/raw/news/releases/12.0.0.md)
@@ -576,6 +576,7 @@ Here you find the full history of Neo.mjs updates.
 
 Here you find historical technical discussions and GitHub issues.
 
+- [Ticket #14534](https://neomjs.com/raw/news/tickets/14534.md)
 - [Ticket #14531](https://neomjs.com/raw/news/tickets/14531.md)
 - [Ticket #14526](https://neomjs.com/raw/news/tickets/14526.md)
 - [Ticket #14525](https://neomjs.com/raw/news/tickets/14525.md)
