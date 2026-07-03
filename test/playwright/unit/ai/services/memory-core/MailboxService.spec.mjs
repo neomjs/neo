@@ -744,7 +744,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         expect(node.properties.to).toBe('@bob');
         expect(node.properties.inReplyTo).toBe('MESSAGE:abc');
         expect(node.properties.partOfThread).toBe('THREAD:xyz');
-        expect(node.properties.taggedConcepts).toEqual(['CONCEPT:test']);
+        expect(node.properties.taggedConcepts).toEqual(['test']);
         expect(node.properties.wakeSuppressed).toBe(false);
 
         let edges = GraphService.db.edges.items.filter(e => e.source === msgId);
@@ -753,7 +753,17 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         expect(edges.find(e => e.type === 'REFERENCES_TICKET' && e.target === 'ISSUE:10168')).toBeDefined();
         expect(edges.find(e => e.type === 'IN_REPLY_TO' && e.target === 'MESSAGE:abc')).toBeDefined();
         expect(edges.find(e => e.type === 'PART_OF_THREAD' && e.target === 'THREAD:xyz')).toBeDefined();
-        expect(edges.find(e => e.type === 'TAGGED_CONCEPT' && e.target === 'CONCEPT:test')).toBeDefined();
+        expect(edges.find(e => e.type === 'TAGGED_CONCEPT' && e.target === 'test')).toBeDefined();
+        expect(GraphService.db.nodes.get('test').properties.canonicalConceptId).toBe('test');
+
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            const byLegacyFilter = await MailboxService.listMessages({
+                status        : 'all',
+                taggedConcepts: ['CONCEPT:test']
+            });
+
+            expect(byLegacyFilter.messages.map(message => message.messageId)).toContain(msgId);
+        });
     });
 
     test('addMessage persists wakeSuppressed mailbox-only messages as unread inbox items', async () => {

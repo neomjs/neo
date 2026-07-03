@@ -2,6 +2,7 @@ import Base                                     from '../../../src/core/Base.mjs
 import aiConfig                                 from '../../mcp/server/memory-core/config.mjs';
 import logger                                   from '../../mcp/server/memory-core/logger.mjs';
 import RequestContextService, {normalizeUserId} from '../../mcp/server/shared/services/RequestContextService.mjs';
+import {canonicalizeTaggedConceptIds}           from '../graph/conceptSpineCanonicalization.mjs';
 import GraphService                             from './GraphService.mjs';
 import PermissionService                        from './PermissionService.mjs';
 import WakeSubscriptionService                  from './WakeSubscriptionService.mjs';
@@ -325,6 +326,26 @@ function getMessageWalArray(value) {
     return Array.isArray(value) ? value : [];
 }
 
+function buildTaggedConceptFilterGroups(values = []) {
+    if (!Array.isArray(values)) return [];
+
+    const groups = new Map();
+
+    for (const value of values) {
+        const
+            raw       = typeof value === 'string' ? value.trim() : '',
+            canonical = canonicalizeTaggedConceptIds([value])[0] || '',
+            key       = canonical || raw;
+
+        if (!key) continue;
+        if (!groups.has(key)) groups.set(key, new Set());
+        if (canonical) groups.get(key).add(canonical);
+        if (raw) groups.get(key).add(raw);
+    }
+
+    return [...groups.values()].map(group => [...group]);
+}
+
 /**
  * @summary Returns a safe endpoint spec for replaying accepted mailbox WAL records after graph loss.
  * @param {String} id Graph node id required by a delivery-critical mailbox edge.
@@ -398,6 +419,29 @@ function ensureMailboxProjectionEndpoint(id) {
     const spec = getMailboxEndpointRestoreSpec(id);
     if (spec) {
         GraphService.upsertGlobalNode(spec);
+    }
+}
+
+function ensureTaggedConceptNode(id) {
+    if (typeof id !== 'string' || id.length === 0) return;
+
+    try {
+        const db = GraphService.requireDb('MailboxService.ensureTaggedConceptNode');
+        // Cache-warm before checking existence so persisted rich nodes are not
+        // overwritten by a cold in-memory miss; mirrors GraphService.upsertNode.
+        db.getAdjacentNodes(id, 'both');
+        if (db.nodes.has(id)) return;
+
+        GraphService.upsertGlobalNode({
+            id,
+            type      : 'CONCEPT',
+            name      : id,
+            properties: {
+                canonicalConceptId: id
+            }
+        });
+    } catch (e) {
+        logger.warn(`[MailboxService] tagged concept node restore skipped for ${id}: ${e.message}`);
     }
 }
 
@@ -923,6 +967,8 @@ class MailboxService extends Base {
             throw new Error(`Invalid task state: ${task.state}. Must be one of: ${MailboxService.VALID_TASK_STATES.join(', ')}`);
         }
 
+        taggedConcepts = canonicalizeTaggedConceptIds(taggedConcepts);
+
         const wakeSuppressionRisk = getWakeSuppressionRisk({wakeSuppressed, to, subject, priority, taggedConcepts, task});
 
         if (wakeSuppressionRisk) {
@@ -1086,6 +1132,7 @@ class MailboxService extends Base {
             linkOptionalMailboxEdge(messageId, t, 'REFERENCES_TICKET', 1.0, edgeProperties);
         }
         for (const c of getMessageWalArray(optionalEdges.taggedConcepts)) {
+            ensureTaggedConceptNode(c);
             linkOptionalMailboxEdge(messageId, c, 'TAGGED_CONCEPT', 1.0, edgeProperties);
         }
 
@@ -1220,7 +1267,9 @@ class MailboxService extends Base {
             throw RequestContextService.unboundIdentityError('list messages');
         }
 
-        const target = to || me;
+        const
+            target                       = to || me,
+            requestedTaggedConceptGroups = buildTaggedConceptFilterGroups(taggedConcepts);
 
         if (target !== me && target !== 'AGENT:*') {
             if (!PermissionService.hasPermission(me, target, 'CAN_READ_INBOX_OF')) {
@@ -1342,10 +1391,10 @@ class MailboxService extends Base {
                     if (fromIdentity && sentByNodeId !== fromIdentity) continue;
                     if (threadId && foundThreadId !== threadId) continue;
 
-                    if (taggedConcepts && taggedConcepts.length > 0) {
+                    if (requestedTaggedConceptGroups.length > 0) {
                         let hasAllConcepts = true;
-                        for (const concept of taggedConcepts) {
-                            if (!messageTaggedConcepts.includes(concept)) {
+                        for (const conceptGroup of requestedTaggedConceptGroups) {
+                            if (!conceptGroup.some(concept => messageTaggedConcepts.includes(concept))) {
                                 hasAllConcepts = false;
                                 break;
                             }
