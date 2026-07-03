@@ -36,7 +36,7 @@ The same product reads differently per audience; these are kept as ONE coupled c
 |---|---|---|
 | "Application Engine for the AI Era" / Scene Graph | package.json, GitHub description, index.html, hero, llms.txt header | engineers searching npm/GitHub |
 | "self-maintaining codebase / autonomous AI engineering team" | README top, repo description, ROADMAP | AI-platform / agent-infra builders (the audience that funds the comparison tools) |
-| "self-evolving digital organism / Four Pillars" | VISION.md, AGENTS.md anchors, deeper learn/ docs | researchers, the swarm itself |
+| "self-evolving software organism / two hemispheres" | `.github/VISION.md`, AGENTS.md anchors, deeper learn/ docs | researchers, the swarm itself |
 
 All three are projections of the **canonical apex** — the self-evolving software organism (§ The canonical apex), with Body/Brain the two hemispheres beneath it. Members of a cluster must stay coherent with **each other** (don't let package.json and GitHub description diverge) and **compatible** with the apex (a narrower projection, not a contradiction). Note the audience shift the audit flagged: the README top + repo metadata should lead the AI-platform-builder cluster (institution framing), not the npm-engineer cluster — that is the §undersell re-categorization the skill propagates.
 
