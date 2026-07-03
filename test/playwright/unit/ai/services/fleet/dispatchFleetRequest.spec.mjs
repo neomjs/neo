@@ -38,6 +38,7 @@ test.describe('dispatchFleetRequest — the app↔fleet wire allowlist + routing
             removeAgent : async id => { calls.push(['removeAgent', id]);  return {success: true, id}; },
             fleetStatus : () => { calls.push(['fleetStatus']); return [{id: 'a'}]; },
             setRepo     : payload => { calls.push(['setRepo', payload]); return {id: payload.id, metadata: {repo: payload}}; },
+            setAvatar   : payload => { calls.push(['setAvatar', payload]); return {id: payload.id, metadata: {avatarUrl: payload.avatarUrl}}; },
             // resolver seams that MUST be unreachable over the wire (they return lifecycle-powerful singletons):
             getManager : () => { calls.push(['getManager']);  return {DANGER: 'lifecycle'}; },
             getRegistry: () => { calls.push(['getRegistry']); return {DANGER: 'registry'}; }
@@ -62,6 +63,14 @@ test.describe('dispatchFleetRequest — the app↔fleet wire allowlist + routing
 
         expect(res).toEqual({ok: true, result: {id: 'alice', metadata: {repo: payload}}});
         expect(calls).toEqual([['setRepo', payload]]);
+    });
+
+    test('routes setAvatar, forwarding the single payload to the bridge', async () => {
+        const payload = {id: 'alice', avatarUrl: 'https://cdn/x.png'},
+              res     = await dispatchFleetRequest({method: 'setAvatar', params: payload}, bridge);
+
+        expect(res).toEqual({ok: true, result: {id: 'alice', metadata: {avatarUrl: 'https://cdn/x.png'}}});
+        expect(calls).toEqual([['setAvatar', payload]]);
     });
 
     test('rejects a method NOT on the wire allowlist without ever calling the bridge', async () => {
@@ -91,7 +100,7 @@ test.describe('dispatchFleetRequest — the app↔fleet wire allowlist + routing
 
     test('the wire allowlist is exactly the pane operations — no resolver seams', () => {
         expect([...FLEET_WIRE_METHODS].sort()).toEqual(
-            ['defineAgent', 'fleetStatus', 'getAgent', 'listAgents', 'removeAgent', 'restartAgent', 'setRepo', 'startAgent', 'stopAgent'].sort()
+            ['defineAgent', 'fleetStatus', 'getAgent', 'listAgents', 'removeAgent', 'restartAgent', 'setAvatar', 'setRepo', 'startAgent', 'stopAgent'].sort()
         );
         expect(FLEET_WIRE_METHODS).not.toContain('getManager');
         expect(FLEET_WIRE_METHODS).not.toContain('getRegistry');

@@ -23,7 +23,7 @@ import FleetManager   from '../../../../../../ai/services/fleet/FleetManager.mjs
 // stub, so setRepo's fleet-authority delegation + its metadata construction are proven without
 // touching disk / spawning processes; afterEach resets the seam so no state leaks between tests.
 
-test.describe('Neo.ai.services.fleet.FleetManager.setRepo — fleet-authority definition-update delegation', () => {
+test.describe('Neo.ai.services.fleet.FleetManager — fleet-authority definition-update verbs (setRepo / setAvatar)', () => {
     let calls, registryStub;
 
     test.beforeEach(() => {
@@ -63,5 +63,18 @@ test.describe('Neo.ai.services.fleet.FleetManager.setRepo — fleet-authority de
         registryStub.updateAgent = (id, patch) => { calls.push(['updateAgent', id, patch]); return null; };
 
         expect(FleetManager.setRepo({id: 'ghost', cloneUrl: 'https://github.com/x/y.git'})).toBeNull();
+    });
+
+    test('setAvatar sets metadata.avatarUrl from the single payload (sibling fleet-authority verb)', () => {
+        const result = FleetManager.setAvatar({id: 'alice', avatarUrl: 'https://cdn/x.png'});
+
+        expect(calls).toEqual([['updateAgent', 'alice', {metadata: {avatarUrl: 'https://cdn/x.png'}}]]);
+        expect(result.metadata.avatarUrl).toBe('https://cdn/x.png');
+    });
+
+    test('setAvatar with no avatarUrl sends an empty metadata patch (safe no-op, not a wipe)', () => {
+        FleetManager.setAvatar({id: 'alice'});
+
+        expect(calls).toEqual([['updateAgent', 'alice', {metadata: {}}]]);
     });
 });
