@@ -39,7 +39,7 @@ function createGraphServiceFixture() {
                             capabilityGap: JSON.stringify([
                                 '[GUIDE_GAP] Golden Path guide coverage is thin.'
                             ]),
-                            authorityRef: '#14422',
+                            trustTier   : 'peer-trusted',
                             lastGapCheck: '2026-07-02T20:00:00Z'
                         }
                     },
@@ -69,11 +69,11 @@ function createGraphServiceFixture() {
                         target    : 'golden-path',
                         type      : 'TAGGED_CONCEPT',
                         properties: {
-                            authorityRef        : '#14422',
-                            extractionProvenance: 'curated',
-                            sourceTier          : 'peer-trusted',
-                            updatedAt           : '2026-07-02T21:00:00Z',
-                            weight              : 1
+                            provenance: 'curated',
+                            sourceTier: 'peer-trusted',
+                            state     : 'open',
+                            updatedAt : '2026-07-02T21:00:00Z',
+                            weight    : 1
                         }
                     },
                     {
@@ -83,6 +83,7 @@ function createGraphServiceFixture() {
                         type      : 'IMPLEMENTED_BY',
                         properties: {
                             lifecycle: 'observed',
+                            delta    : 'removed',
                             weight   : 0.9
                         }
                     }
@@ -100,16 +101,23 @@ test.describe('ai/services/graph/conceptSliceBuilder', () => {
 
     test('detectConceptSliceAxes reports the four annotation axes independently', () => {
         const axes = detectConceptSliceAxes({
-            authorityRef        : '#14422',
-            extractionProvenance: 'curated',
-            lifecycle           : 'observed',
-            sourceTier          : 'peer-trusted'
+            lifecycle : 'observed',
+            provenance: 'curated',
+            sourceTier: 'peer-trusted',
+            trustTier : 'peer-trusted'
         });
 
-        expect(axes.authorityRef).toEqual({present: true, keys: ['authorityRef']});
+        expect(axes.authority).toEqual({present: true, keys: ['trustTier']});
         expect(axes.fidelity).toEqual({present: true, keys: ['sourceTier']});
-        expect(axes.extractionProvenance).toEqual({present: true, keys: ['extractionProvenance']});
+        expect(axes.extractionProvenance).toEqual({present: true, keys: ['provenance']});
         expect(axes.lifecycle).toEqual({present: true, keys: ['lifecycle']});
+
+        const weightOnly = detectConceptSliceAxes({weight: 1, updatedAt: '2026-07-02T21:00:00Z'});
+
+        expect(weightOnly.authority.present).toBe(false);
+        expect(weightOnly.fidelity.present).toBe(false);
+        expect(weightOnly.extractionProvenance.present).toBe(false);
+        expect(weightOnly.lifecycle.present).toBe(false);
     });
 
     test('parseConceptSliceGaps accepts JSON arrays and line-delimited legacy payloads', () => {
@@ -143,6 +151,7 @@ test.describe('ai/services/graph/conceptSliceBuilder', () => {
             touchCount: 1
         });
         expect(slice.edgeDeltas.map(edge => edge.edgeId)).toContain('edge-touch');
+        expect(slice.edgeDeltas.find(edge => edge.edgeId === 'edge-implemented').delta).toBe('removed');
         expect(slice.perConceptGaps).toEqual([
             expect.objectContaining({
                 conceptId: 'golden-path',

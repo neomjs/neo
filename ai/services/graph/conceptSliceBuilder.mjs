@@ -8,12 +8,7 @@
  * render tree. This helper performs zero graph writes and mints no node or edge classes.
  */
 
-const AXIS_KEYS = Object.freeze({
-    authorityRef        : Object.freeze(['authorityRef', 'sourceRef', 'decisionRef', 'sourceAuthority', 'sourceUrl']),
-    fidelity            : Object.freeze(['sourceTier', 'trustTier', 'usedTier', 'degraded', 'confidence', 'weight']),
-    extractionProvenance: Object.freeze(['extractionProvenance', 'provenance', 'auto_extracted', 'curated']),
-    lifecycle           : Object.freeze(['lifecycle', 'state', 'createdAt', 'updatedAt', 'closedAt', 'mergedAt', 'lastSeenAt', 'lastGapCheck'])
-});
+import {CONTRACT_AXES} from './conceptNeighborhoodProbe.mjs';
 
 const GAP_LABELS = Object.freeze([
     'TEST_GAP',
@@ -91,7 +86,7 @@ export function normalizeConceptSliceEdge(edge = {}) {
  * @returns {Object<String,{present: Boolean, keys: String[]}>}
  */
 export function detectConceptSliceAxes(properties = {}) {
-    return Object.fromEntries(Object.entries(AXIS_KEYS).map(([axis, keys]) => {
+    return Object.fromEntries(Object.entries(CONTRACT_AXES).map(([axis, keys]) => {
         const present = keys.filter(key => properties[key] !== undefined && properties[key] !== null && properties[key] !== '');
 
         return [axis, {
@@ -233,7 +228,7 @@ export function buildConceptSlice({
         .filter(edge => getConceptEndpoint(edge, nodeById) && isInsideWindow(edge.properties, sessionWindow))
         .map(edge => ({
             axes     : detectConceptSliceAxes(edge.properties),
-            delta    : edge.properties.delta || edge.properties.lifecycle || edge.properties.updatedAt ? 'updated' : 'observed',
+            delta    : edge.properties.delta || ((edge.properties.lifecycle || edge.properties.updatedAt) ? 'updated' : 'observed'),
             edgeId   : edge.id,
             source   : edge.source,
             target   : edge.target,
@@ -264,7 +259,7 @@ export function buildConceptSlice({
             input     : 'bounded concept neighborhood + four-axis tier/provenance annotations',
             output    : 'render tree',
             renderOnly: true,
-            axes      : Object.keys(AXIS_KEYS)
+            axes      : Object.keys(CONTRACT_AXES)
         }
     }
 }
