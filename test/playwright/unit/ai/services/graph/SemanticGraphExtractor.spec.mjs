@@ -222,7 +222,7 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
 
             // Check if RELATES_TO edge was added to the GraphService (since frontier exists)
             const edges = GraphService.db.edges.items;
-            expect(edges.some(e => e.type === 'RELATES_TO' && e.source === 'CONCEPT:TestConcept')).toBe(true);
+            expect(edges.some(e => e.type === 'RELATES_TO' && e.source === 'test-concept')).toBe(true);
 
             // MENTIONED_IN shouldn't be in the DB directly because it targets a non-existent node
             expect(edges.some(e => e.type === 'MENTIONED_IN')).toBe(false);
@@ -257,9 +257,9 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             expect(result).not.toBeNull();
             expect(Array.isArray(result)).toBe(true);
             expect(result.length).toBe(3);
-            expect(result).toContain("CONCEPT:mailbox-service");
-            expect(result).toContain("CLASS:Neo.ai.services.memory-core.MailboxService");
-            expect(result).toContain("CONCEPT:auto-emit");
+            expect(result).toContain("mailbox-service");
+            expect(result).toContain("neo-ai-services-memory-core-mailbox-service");
+            expect(result).toContain("auto-emit");
             expect(result).not.toContain("invalid-concept"); // properly filtered
         } finally {
             // Restore global function
@@ -1002,8 +1002,8 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             expect(result.session_artifact.human_readable_summary).toContain('summary-0');
             expect(result.session_artifact.human_readable_summary).toContain('summary-1');
             expect(result.session_artifact.roadmap_impact).toBe('second chunk impact');
-            expect(GraphService.db.nodes.get('CLASS:Shared0')).toBeTruthy();
-            expect(GraphService.db.nodes.get('CLASS:Shared1')).toBeFalsy();
+            expect(GraphService.db.nodes.get('shared0')).toBeTruthy();
+            expect(GraphService.db.nodes.get('shared1')).toBeFalsy();
         } finally {
             OpenAiCompatible.prototype.generate = baseGenerate;
             setConfigOverrides(originalOverrides);

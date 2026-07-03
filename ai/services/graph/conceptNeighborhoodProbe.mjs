@@ -1,3 +1,5 @@
+import {normalizeConceptKey} from './conceptSpineCanonicalization.mjs';
+
 /**
  * @module ai/services/graph/conceptNeighborhoodProbe
  * @summary Read-only concept-neighborhood reachability probe with provenance/tier output (#14474; ticket-ref-ok: owning-leaf anchor).
@@ -38,13 +40,7 @@ export const CONTRACT_AXES = Object.freeze({
  * @returns {String} Cluster key, e.g. `CONCEPT:Golden Path Synthesis` → `golden-path-synthesis`.
  */
 export function conceptClusterKey(id) {
-    return String(id || '')
-        .replace(/^CONCEPT:/i, '')
-        .replace(/^CLASS:/i, '')
-        .trim()
-        .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
-        .replace(/[\s_]+/g, '-')
-        .toLowerCase()
+    return normalizeConceptKey(id)
 }
 
 /**
