@@ -15,8 +15,8 @@ import {fileURLToPath} from 'url';
  *
  * Usage:
  *   node buildScripts/release/analyzeClosedSinceRelease.mjs [cutoff-date-ISO]
- *   # defaults to v12.1 release (2026-03-27)
- *   node buildScripts/release/analyzeClosedSinceRelease.mjs 2026-03-27 --format markdown --include-items --output /tmp/v13-appendix.md
+ *   # defaults to cutoff 2026-03-27; pass an explicit previous-release cutoff for later releases
+ *   node buildScripts/release/analyzeClosedSinceRelease.mjs 2026-03-27 --format markdown --include-items --output /tmp/release-appendix.md
  *
  * Output:
  *   - Merged PR and closed issue counts
@@ -311,13 +311,13 @@ function renderText(report, options) {
 function renderMarkdown(report, options) {
     const {closedIssues, mergedPulls, labelCounts, parentCounts, epicIssues, authorCounts, scopeCounts} = report;
     const lines = [
-        '# v13 Release Appendix Report',
+        '# Release Appendix Report',
         '',
         `Generated from local recursive content mirrors on ${new Date().toISOString()}.`,
         '',
         '## Source Boundary',
         '',
-        `- Cutoff: \`${options.cutoff}\` (v12.1.0 release boundary).`,
+        `- Cutoff: \`${options.cutoff}\` (explicit previous-release boundary).`,
         '- PR source: `resources/content/pulls/**/*.md` with `state: MERGED` and `mergedAt >= cutoff`.',
         '- Issue source: `resources/content/issues/**/*.md` with `state: CLOSED` and `closedAt >= cutoff`.',
         '- Freshness: local mirror only. Run `sync_all` or live GitHub count checks immediately before release cut.',
@@ -387,7 +387,7 @@ function renderMarkdown(report, options) {
             'Run this command immediately before release cut to produce the full PR and issue tables:',
             '',
             '```bash',
-            `node buildScripts/release/analyzeClosedSinceRelease.mjs ${options.cutoff} --format markdown --include-items --output /tmp/v13-release-appendix.md`,
+            `node buildScripts/release/analyzeClosedSinceRelease.mjs ${options.cutoff} --format markdown --include-items --output /tmp/release-appendix.md`,
             '```'
         )
     }
