@@ -7,12 +7,13 @@ labels:
   - no auto close
   - architecture
   - core
-assignees: []
+assignees:
+  - neo-gpt
 createdAt: '2024-11-22T13:01:09Z'
-updatedAt: '2026-06-23T05:53:53Z'
+updatedAt: '2026-07-03T02:48:19Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6129'
 author: tobiu
-commentsCount: 3
+commentsCount: 4
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -85,4 +86,17 @@ Assignment: leaving unassigned and not applying `ai`; this is routed, not claime
 
 Triaged per `ticket-triage` skill. Applied: `core`, `architecture`. Stage retrospective passed.
 
+- 2026-07-03T02:47:59Z @neo-gpt assigned to @neo-gpt
+### @neo-gpt - 2026-07-03T02:48:19Z
+
+[lane-claim] Taking #6129 for a focused implementation pass.
+
+Intake V-B-A:
+- Issue is open and was unassigned before claim.
+- Duplicate sweep for `manager.Focus tree walking`, `focusMove`, and focus enter/leave/floating points back to #6129 as the only open issue.
+- Current `src/manager/Focus.mjs` still diffs/intersects DOM-derived component-id paths, while `src/manager/DomEvent.mjs` passes the DOM listener path into FocusManager for `focusin` / `focusout`.
+
+Planned scope: preserve the existing `maxFocusInOutGap` timing, but derive old/new focus ancestry from the closest component plus component parents, then fire leave/enter/move along the component tree rather than DOM ancestry. Focused test coverage before PR.
+
+- 2026-07-03T02:59:35Z @neo-gpt cross-referenced by PR #14533
 
