@@ -2,7 +2,7 @@
   "metadata": {
     "shardType": "release-notes",
     "chunkThreshold": 100,
-    "updatedAt": "2026-07-03T20:09:14.114Z"
+    "updatedAt": "2026-07-03T21:47:36.515Z"
   },
   "items": {
     "8.1.0": {
@@ -837,6 +837,11 @@
     },
     "13.0.0": {
       "itemIndex": 166,
+      "chunk": 2,
+      "chunkDir": "chunk-2"
+    },
+    "13.1.0": {
+      "itemIndex": 167,
       "chunk": 2,
       "chunkDir": "chunk-2"
     }
