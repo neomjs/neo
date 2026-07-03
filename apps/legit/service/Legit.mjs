@@ -242,7 +242,7 @@ class Legit extends Base {
     async #seedFileSystem() {
         const me = this;
 
-        let mdFile = await fetch('../../learn/benefits/FormsEngine.md');
+        let mdFile = await fetch('../../learn/benefits/body/FormsEngine.md');
         mdFile = await mdFile.text();
 
         await me.writeFile({
@@ -251,7 +251,7 @@ class Legit extends Base {
             skipReady: true
         });
 
-        mdFile = await fetch('../../learn/benefits/OffTheMainThread.md');
+        mdFile = await fetch('../../learn/benefits/body/OffTheMainThread.md');
         mdFile = await mdFile.text();
 
         await me.writeFile({

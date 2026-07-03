@@ -31,7 +31,7 @@ Let’s be honest: Neo.mjs commands a complex, multi-threaded engine architectur
 
 **But that is exactly the point.**
 
-The paradigm shift is that humans no longer need to write every line of code. Humans are the orchestrators; LLMs are the builders. 
+The paradigm shift is that humans no longer need to write every line of code. Humans are the orchestrators; LLMs are the builders.
 
 Because of its rigorous Object Permanence and JSON-first nature, Neo.mjs is incredibly easy for AI to understand and drive. Humans using LLMs—and even LLMs operating autonomously—can now craft stunning, next-level results that are physically impossible in legacy frameworks (like seamless multi-window browser apps).
 
@@ -40,7 +40,7 @@ Because of its rigorous Object Permanence and JSON-first nature, Neo.mjs is incr
 In legacy frameworks, the code you write gets destroyed by the build step. The reality of the browser looks nothing like the source. The AI is blind.
 
 **In Neo.mjs, the map IS the territory.**
-The runtime retains the semantic structure of your original intent. The **Neural Link** gives AI agents "Read/Write" access to the living runtime. An agent can query: *"Get me the Grid with reference 'sales-report'"*. The Engine replies with the live object. The AI sees that it has 10,000 records and sits in Window 2. 
+The runtime retains the semantic structure of your original intent. The **Neural Link** gives AI agents "Read/Write" access to the living runtime. An agent can query: *"Get me the Grid with reference 'sales-report'"*. The Engine replies with the live object. The AI sees that it has 10,000 records and sits in Window 2.
 
 Coupled with a dedicated AI SDK and four frontier-harness **MCP servers** spanning Knowledge Base, Memory Core, Neural Link, and GitHub Workflow, plus a File System MCP server for local or remote AI agents, Neo.mjs provides the tooling required to fix bugs, invent new design patterns, and evolve the Engine itself.
 

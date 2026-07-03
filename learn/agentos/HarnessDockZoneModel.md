@@ -17,7 +17,7 @@ The contract composes with these current Neo substrates:
 | Substrate | Current authority | Contract implication |
 |---|---|---|
 | Declarative layouts | `learn/guides/uibuildingblocks/Layouts.md`, `src/layout/HBox.mjs`, `src/layout/VBox.mjs`, `src/layout/Card.mjs` | Dock splits map to `hbox` / `vbox`; tabbed slots map to a tab header plus `card`-style active content. |
-| JSON-first UI state | `learn/benefits/JSONFirstUIs.md`, `learn/gettingstarted/DescribingTheUI.md` | Persist only pure JSON. Runtime component instances, DOMRects, and window objects stay out of the serialized model. |
+| JSON-first UI state | `learn/benefits/body/JSONFirstUIs.md`, `learn/gettingstarted/DescribingTheUI.md` | Persist only pure JSON. Runtime component instances, DOMRects, and window objects stay out of the serialized model. |
 | Dashboard drag substrate | `src/dashboard/Container.mjs`, `src/draggable/dashboard/SortZone.mjs` | Future dock rendering should adapt this model into dashboard/sort-zone mechanics instead of forking drag handling. |
 | Cross-window geometry | `src/manager/Window.mjs`, `src/manager/DragCoordinator.mjs`, `src/main/addon/WindowPosition.mjs` | Dock drop targeting uses existing screen-coordinate and remote-drag authority. The model stores the accepted result, not transient geometry. |
 | Harness self-use | `apps/agentos/view/Viewport.mjs`, ADR 0020 | The first independent use shape is the Agent Harness operator cockpit: strategy, swarm, intervention, terminal, transcript, and inspector panes arranged as a persistent workspace. |

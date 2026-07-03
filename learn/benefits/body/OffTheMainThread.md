@@ -5,7 +5,7 @@ In case you are using a Mac, you can click on the top-left Apple Icon,
 then on "About this Mac" and it will show you something like:
 
 > Processor 3,2 GHz 8-Core Intel Xeon W
- 
+
 With the Apple silicon series even more: "Apple M2 Ultra" provides 24 CPU cores.
 
 An iPhone has 6 CPU cores.
@@ -48,7 +48,7 @@ Source: <a target="_blank" href="https://developer.mozilla.org/en-US/docs/Web/AP
 > The W3C and WHATWG envision web workers as long-running scripts that are not interrupted by scripts that respond to
 > clicks or other user interactions. Keeping such workers from being interrupted by user activities should allow
 > Web pages to remain responsive at the same time as they are running long tasks in the background.
-> 
+>
 > The simplest use of workers is for performing a computationally expensive task without interrupting the user interface.
 
 Source: <a target="_blank" href="https://en.wikipedia.org/wiki/Web_worker">Wikipedia: Web worker</a>
