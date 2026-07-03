@@ -1,7 +1,7 @@
 ---
 id: 6129
 title: 'manager.Focus: tree walking'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - no auto close
@@ -10,7 +10,7 @@ labels:
 assignees:
   - neo-gpt
 createdAt: '2024-11-22T13:01:09Z'
-updatedAt: '2026-07-03T02:48:19Z'
+updatedAt: '2026-07-03T12:34:24Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6129'
 author: tobiu
 commentsCount: 4
@@ -24,6 +24,7 @@ contentTrust:
   signals: []
 blockedBy: []
 blocking: []
+closedAt: '2026-07-03T12:34:24Z'
 ---
 # manager.Focus: tree walking
 
@@ -99,4 +100,11 @@ Intake V-B-A:
 Planned scope: preserve the existing `maxFocusInOutGap` timing, but derive old/new focus ancestry from the closest component plus component parents, then fire leave/enter/move along the component tree rather than DOM ancestry. Focused test coverage before PR.
 
 - 2026-07-03T02:59:35Z @neo-gpt cross-referenced by PR #14533
+- 2026-07-03T11:22:11Z @neo-gpt referenced in commit `7bd6990` - "fix(focus): preserve history on missing common component (#6129)"
+- 2026-07-03T12:34:24Z @tobiu referenced in commit `e8e65fc` - "fix(focus): walk component tree for focus moves (#6129) (#14533)
+
+* fix(focus): walk component tree for focus moves (#6129)
+
+* fix(focus): preserve history on missing common component (#6129)"
+- 2026-07-03T12:34:24Z @tobiu closed this issue
 
