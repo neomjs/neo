@@ -582,6 +582,18 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
         ]);
     });
 
+    test('bare side-effect imports are tracked so a missing participation import is drift (#14499)', () => {
+        // A server config participates in the Tier-1 hierarchy by loading the realm root via a bare
+        // side-effect import (`import '../../../config.mjs';`). The detector MUST see it — else a template
+        // that ADDS participation is invisible drift and the overlay boots non-participating — getParent()
+        // has no root, so `auth.*` is unresolvable.
+        const templateShape = projectSourceShape(`import '../../../config.mjs';\nimport os from 'os';\nexport default {};\n`);
+        const configShape   = projectSourceShape(`import os from 'os';\nexport default {};\n`);
+
+        expect(templateShape.imports).toContain('../../../config.mjs');
+        expect(detectDrift(templateShape, configShape).missingImports).toContain('../../../config.mjs');
+    });
+
     test('detectDrift reports same-env leaf default changes (#12767)', () => {
         const templateShape = projectSourceShape([
             `export default {`,
@@ -910,30 +922,21 @@ test.describe('assertConfigFresh — boot freshness guard (#13560)', () => {
             configContents  : TEMPLATE_WITH_LEAF
         });
 
-        const aiConfig = {
-            auth: {mode: 'gitlab-pat'},
-            validateRequiredEnv({consumerClaim, entrypoint, mode}) {
-                return {
-                    ok      : false,
-                    findings: [{
-                        consumerClaim,
-                        entrypoint,
-                        env        : 'NEO_AUTH_GITLAB_API_BASE_URL',
-                        leafPath   : 'auth.gitlabApiBaseUrl',
-                        mode,
-                        reason     : 'PAT validation cannot certify readiness without a GitLab API base URL.',
-                        valueState : 'absent',
-                        disposition: 'fail-closed'
-                    }]
-                }
-            }
-        };
-
+        // The ENTRYPOINT computes findings by reading its config at its use site (config.validateRequiredEnv);
+        // the guard is a non-entrypoint that never reads the SSOT — it throws on the injected value.
         const error = await callGuard({
-            aiConfig,
-            aiRoot    : root,
-            entrypoint: 'memory-core-mcp',
-            logger    : recordingLogger()
+            aiRoot          : root,
+            logger          : recordingLogger(),
+            requiredFindings: [{
+                consumerClaim: 'readiness',
+                entrypoint   : 'memory-core-mcp',
+                env          : 'NEO_AUTH_GITLAB_API_BASE_URL',
+                leafPath     : 'auth.gitlabApiBaseUrl',
+                mode         : 'gitlab-pat',
+                reason       : 'PAT validation cannot certify readiness without a GitLab API base URL.',
+                valueState   : 'absent',
+                disposition  : 'fail-closed'
+            }]
         });
 
         expect(error).not.toBeNull();
@@ -942,23 +945,6 @@ test.describe('assertConfigFresh — boot freshness guard (#13560)', () => {
         expect(error.message).toContain('memory-core-mcp/gitlab-pat/readiness');
     });
 
-    test('a supplied config without validateRequiredEnv fails loud instead of skipping readiness validation (#13432)', async () => {
-        const root = buildTier1({
-            name            : 'malformed-ai-config',
-            templateContents: TEMPLATE_WITH_LEAF,
-            configContents  : TEMPLATE_WITH_LEAF
-        });
-
-        const error = await callGuard({
-            aiConfig  : {auth: {mode: 'gitlab-pat'}},
-            aiRoot    : root,
-            entrypoint: 'memory-core-mcp',
-            logger    : recordingLogger()
-        });
-
-        expect(error).not.toBeNull();
-        expect(error.message).toContain('validateRequiredEnv');
-    });
 });
 
 test.describe('initClaudeSettings — Claude Stop-hook auto-wire (#13641)', () => {

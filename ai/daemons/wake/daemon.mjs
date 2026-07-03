@@ -1754,10 +1754,10 @@ function initConfigDerivedState() {
 async function main() {
     // Fail-fast on a stale memory-core config overlay with the actionable --migrate-config message,
     // BEFORE initConfigDerivedState() derefs memoryCoreConfig.
+    const {findings} = memoryCoreConfig.validateRequiredEnv({entrypoint: 'wake-daemon'});
     await assertConfigFresh({
-        aiConfig  : memoryCoreConfig,
-        entrypoint: 'wake-daemon',
-        serverPath: fileURLToPath(new URL('../../mcp/server/memory-core/', import.meta.url))
+        requiredFindings: findings,
+        serverPath      : fileURLToPath(new URL('../../mcp/server/memory-core/', import.meta.url))
     });
 
     initConfigDerivedState();

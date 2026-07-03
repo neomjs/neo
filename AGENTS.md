@@ -46,7 +46,7 @@ This file contains behavioral rules and protocols that must be enforced on every
 > *"Compaction taxonomy is substrate-authoring guidance; before modifying turn-loaded or skill-loaded instruction substrate, load `learn/agentos/decisions/0007-agents-md-compaction-taxonomy.md`."*
 
 ## §critical_gates
-These nine rules are mechanically verifiable and have **no conditional exceptions** under any approval state, cross-family signal, or contextual nuance. Approval signals ("LGTM", "approved", "ready for merge", "no required actions") are **NOT** authorization to bypass any of them.
+These ten rules have **no conditional exceptions** under any approval state, cross-family signal, or contextual nuance. Approval signals ("LGTM", "approved", "ready for merge", "no required actions") are **NOT** authorization to bypass any of them.
 1. **No `gh pr merge` (Human-Only execution).**
     - **trigger:** agent considers executing a PR merge
     - **must:** hand off to @tobiu (human operator); cross-family approval = eligibility, not authority
@@ -61,6 +61,7 @@ These nine rules are mechanically verifiable and have **no conditional exception
 7. **No tracked file modification without a self-assigned ticket.** Self-assign + broadcast `[lane-claim]` to `AGENT:*` before any git-tracked edit; if the operator explicitly suppresses `AGENT:*` broadcasts, use the documented direct-DM fallback in peer-role/post-review-pickup instead; suppression is not a halt-state. Enforcement: `pull-request-workflow.md §1.2`, `ticket-create-workflow.md §10`. Reviewers executing the Maintainer Polish Fast Path (`pull-request-workflow.md §10`) operate under the PR's ticket authority and satisfy this invariant by fulfilling its strict gates: the Review-Loop Cost Circuit Breaker is active, the edit is strictly mechanical/metadata, Verification Evidence is documented, and an FYI A2A is broadcast.
 8. **No agent-authored PRs targeting `main`.** Agent-authored pull requests target `dev`. `main` is release-only; `main`-targeted PRs require explicit operator release direction. The normal release-line mutation is `buildScripts/release/publish.mjs`, whose low-level git plumbing creates the atomic release commit from `dev` onto `main`.
 9. **No client names in public-facing artifacts.** Never mention a client by name in any public artifact (public-repo issues/PRs/discussions/docs/comments); client specifics live only in private repos.
+10. **No AiConfig work without reading ADR-0019 first.** Before authoring OR reviewing ANY `ai/` config touch, read `learn/agentos/decisions/0019-aiconfig-reactive-provider-ssot.md` — no exception, no approval signal, no CI-green substitute (diligence is empirically insufficient: #12420 missed 4/4; #14499 shipped ≥2 violations past 2 reviews). The ADR §3 catalog is the forbidden-pattern list (pass-along/thread, re-derive/env-read, defensive `?.`, hidden defaults, runtime mutation, non-entrypoint `import AiConfig`/C1).
 
 ## §pre_commit_gates
 For any actionable request modifying the repository, you **MUST** pass two critical gating protocols *before* executing `git commit`.
@@ -182,7 +183,6 @@ Before triggering a lifecycle skill, state in your reasoning: *"I will read the 
 - **Visual Verification (§visual_verification_protocol):** Debugging frontend UI/layout.
 - **Authoring Discipline:** Read 1-2 sibling files to lift patterns before writing new classes.
 - **Ticket Creation Freshness:** Before any `create_issue` path, invoke `ticket-create`; its Content Sweep requires live latest-open issue queue evidence in addition to KB/local duplicate checks.
-- **AiConfig / ADR-0019 (`ai/` config touch):** STOP before code/review: read `learn/agentos/decisions/0019-aiconfig-reactive-provider-ssot.md`. `AiConfig` is the reactive Provider SSOT; local subtree refs are OK. Forbidden unless an ADR-19 boundary is named: config pass-through across methods/modules, re-derive/env-read, hidden defaults/type casts, defensive `?.`, runtime mutation.
 - **File Reading Efficiently:** Reading modified files; efficiency patterns.
 - **Verify-Before-Assert (§verify_before_assert):** core-value epistemic-prerequisite; before asserting any factual claim in a public artifact, run the falsifying tool. Tool inventory + empirical anchors (including #11089 self-Drop+Supersede recursion): §anti_hallucination_policy.
 - **Wake/Heartbeat → run the cycle (`/post-review-pickup`):** drain the lifecycle queue (own-PR changes/review → own-PR-green→request-review) before a new lane; there is no holding terminal (§identity_prompt_firewall L3_No_Hold_State). Three heartbeats with no forward artifact = critical failure → `/post-review-pickup` + `NightShiftLeasedDriver.md`.
