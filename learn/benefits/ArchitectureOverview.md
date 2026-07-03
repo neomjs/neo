@@ -469,6 +469,8 @@ The Agent OS subsystem records its load-bearing architectural trade-offs in [`le
 
 The map-as-pointer principle: the Structural Inventory above links each subsystem row to its relevant ADRs so readers who follow the map naturally encounter the architectural-decision substrate without needing to remember to consult `decisions/` separately. Authors of new ADRs MUST add the link to the affected Structural Inventory rows in the same PR (per [#10449](https://github.com/neomjs/neo/issues/10449) Sub-Issue 2 / `structural-pre-flight` map-maintenance discipline).
 
+**This table is a curated subset** — map-relevant highlights, deliberately NOT the complete corpus index. The authoritative every-ADR composition map is [ADR 0031's seam table](../agentos/decisions/0031-target-architecture-composition.md), kept complete **by construction** via the `lint-adr-seam-table` CI guard (one row per present ADR, enforced both directions). A new ADR always takes its seam-table row (CI fails otherwise) and additionally earns a row here only when it affects mapped Structural Inventory rows.
+
 | ADR | Subject | Subsystems Affected | Status |
 |---|---|---|---|
 | [0001](../agentos/decisions/0001-cross-process-cache-coherence.md) | Cross-Process Cache Coherence for Memory Core Graph | `ai/services/memory-core/`, `ai/graph/`, `ai/mcp/server/memory-core/` | Proposed (#10186 / #10189) |
@@ -480,6 +482,7 @@ The map-as-pointer principle: the Structural Inventory above links each subsyste
 | [0028](../agentos/decisions/0028-temporal-pyramid-summarization-substrate.md) | Temporal-Pyramid Summarization Substrate | `ai/services/memory-core/`, `ai/daemons/`, temporal summary consumers | Proposed (#14427; PR #14428) |
 | [0029](../agentos/decisions/0029-harness-docking-design.md) | Harness Docking Design — multi-window layout model, topology perspectives, cross-window drag, container contract | `src/dashboard/`, `src/manager/` (`DragCoordinator` seam), `apps/agentos/` | Proposed (#14423; PR #14425) |
 | [0030](../agentos/decisions/0030-work-graph-stall-inference.md) | Work-Graph Stall Inference — `STALL_*` finding schema, defer tuple, and consumer boundaries | `ai/services/graph/`, `ai/services/memory-core/`, `ai/daemons/`, hook/wake/FM consumers | Proposed (#14461) |
+| [0031](../agentos/decisions/0031-target-architecture-composition.md) | Target-Architecture Composition — the whole-organism seam table + trajectory invariants + id-based staleness guard | Organism-level: no single Structural Inventory row owns this seam (it composes ALL of them — the boundary is deliberate); guard: `ai/scripts/lint/` | Proposed (#14525; PR #14527) |
 
 ## Next Steps
 
