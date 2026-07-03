@@ -1,3 +1,7 @@
+// Loads the Tier-1 realm root (Neo.ai.Config) so getParent() resolves inherited leaves (auth.*)
+// through the provider chain — the same participation the memory-core and knowledge-base configs
+// use. Without it, any inherited-leaf read on this config throws at boot.
+import '../../../config.template.mjs';
 import path                                        from 'path';
 import {fileURLToPath}                             from 'url';
 import ConfigProvider, { createConfigProxy, leaf } from '../../../ConfigProvider.mjs';
