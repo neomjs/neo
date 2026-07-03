@@ -28,6 +28,7 @@
         "ai:bootstrap-codex-sandbox"           : "node ./ai/scripts/diagnostics/bootstrapCodexSandbox.mjs",
         "ai:check-chroma-integrity"            : "node ./ai/scripts/maintenance/checkChromaIntegrity.mjs",
         "ai:check-identity-facts"              : "node ./ai/scripts/diagnostics/check-identity-facts.mjs",
+        "ai:front-door-fingerprint"            : "node ./ai/scripts/lint/check-front-door-fingerprint.mjs",
         "ai:check-retired-primitives"          : "node ./ai/scripts/diagnostics/check-retired-primitives.mjs",
         "ai:check-substrate-size"              : "node ./ai/scripts/diagnostics/check-substrate-size.mjs",
         "ai:compact-graphlog"                  : "node ./ai/scripts/maintenance/compactGraphLog.mjs",
