@@ -170,6 +170,17 @@ class FleetControlBridge extends Base {
     }
 
     /**
+     * @summary Set an agent's profile-avatar reference (`metadata.avatarUrl`) on its definition (fleet
+     * authority — the FM owns the registry, as with `defineAgent`). A single-`params` payload, so it is
+     * pane-reachable over the wire. Non-destructive to other metadata.
+     * @param {Object} payload `{id, avatarUrl?}` — the agent id + avatar reference.
+     * @returns {Object|null} the updated public definition, or `null` if the agent doesn't exist.
+     */
+    setAvatar(payload) {
+        return this.getManager().setAvatar(payload);
+    }
+
+    /**
      * @summary The *observe* half of the MVP loop: the per-agent repo-provisioning state across the
      * whole fleet, at the resolved managed root. Read-only.
      * @returns {Object[]} one status entry per registered agent.

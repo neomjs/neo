@@ -211,6 +211,24 @@ class FleetManager extends Base {
 
         return this.getLifecycleService().getRegistry().updateAgent(id, {metadata: {repo}});
     }
+
+    /**
+     * @summary Set the agent's profile-avatar reference on its registry definition
+     * (`metadata.avatarUrl`) — a fleet-authority presentation-field control, like `setRepo`. Single
+     * `{id, …}` payload (wire-compatible via {@link Neo.ai.services.fleet.dispatchFleetRequest}); a thin
+     * delegation to the registry's partial update, so other metadata keys survive the merge. A display
+     * reference only — not cross-agent-privileged, so fleet authority, not control-plane.
+     * @param {Object}  payload
+     * @param {String}  payload.id         Registry agent id.
+     * @param {String} [payload.avatarUrl] The avatar image URL / reference to record.
+     * @returns {Object|null} The updated public definition, or `null` if the agent doesn't exist.
+     */
+    setAvatar({id, avatarUrl} = {}) {
+        const metadata = {};
+        if (avatarUrl != null) metadata.avatarUrl = avatarUrl;
+
+        return this.getLifecycleService().getRegistry().updateAgent(id, {metadata});
+    }
 }
 
 export default Neo.setupClass(FleetManager);
