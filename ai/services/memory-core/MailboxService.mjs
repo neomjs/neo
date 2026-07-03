@@ -427,6 +427,8 @@ function ensureTaggedConceptNode(id) {
 
     try {
         const db = GraphService.requireDb('MailboxService.ensureTaggedConceptNode');
+        // Cache-warm before checking existence so persisted rich nodes are not
+        // overwritten by a cold in-memory miss; mirrors GraphService.upsertNode.
         db.getAdjacentNodes(id, 'both');
         if (db.nodes.has(id)) return;
 

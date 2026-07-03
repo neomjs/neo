@@ -38,6 +38,19 @@ test.describe('conceptSpineCanonicalization', () => {
         ]);
     });
 
+    test('falls back to raw semantic ids when canonicalization would empty the key', () => {
+        expect(canonicalizeSemanticGraphNodeId({
+            id  : 'CONCEPT:日本語',
+            type: 'CONCEPT',
+            name: '日本語'
+        })).toBe('CONCEPT:日本語');
+
+        expect(canonicalizeSemanticGraphNodeId({
+            id  : 'CONCEPT:★★★',
+            type: 'CONCEPT'
+        })).toBe('CONCEPT:★★★');
+    });
+
     test('prefers existing bare canonical ids before deriving from prefixed aliases', () => {
         expect(chooseCanonicalConceptId(
             ['CONCEPT:GoldenPath', 'golden-path', 'CONCEPT:Golden Path Synthesis'],

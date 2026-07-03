@@ -69,7 +69,7 @@ export function canonicalizeSemanticGraphNodeId({id, type, name} = {}) {
         return id;
     }
 
-    return canonicalizeConceptId(id || name);
+    return canonicalizeConceptId(id || name) || id;
 }
 
 /**
