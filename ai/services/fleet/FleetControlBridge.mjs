@@ -157,6 +157,18 @@ class FleetControlBridge extends Base {
     }
 
     /**
+     * @summary Set an agent's target repo / data-dir override on its definition (fleet authority — the
+     * FM owns the registry, as with `defineAgent`). Non-destructive to the existing on-disk checkout;
+     * provisioning honoring the override is a separate follow-up leaf.
+     * @param {String} id Registry agent id.
+     * @param {Object} repo `{repoUrl?, dataDir?}` — the override facets to record.
+     * @returns {Object|null} the updated public definition, or `null` if the agent doesn't exist.
+     */
+    setRepo(id, repo) {
+        return this.getManager().setRepo(id, repo);
+    }
+
+    /**
      * @summary The *observe* half of the MVP loop: the per-agent repo-provisioning state across the
      * whole fleet, at the resolved managed root. Read-only.
      * @returns {Object[]} one status entry per registered agent.

@@ -183,6 +183,30 @@ class FleetManager extends Base {
         await this.stopAgent(agentId);
         return this.getLifecycleService().getRegistry().removeAgent(agentId);
     }
+
+    /**
+     * @summary Turnkey per-agent repo/data-dir override: record the agent's target repo + data-dir on
+     * its registry definition (under `metadata`) via the registry's partial update, so a later
+     * provisioned start can honor it. **Non-destructive to disk**, mirroring {@link removeAgent}: it
+     * does NOT move or delete the agent's existing checkout or its checkout-path-keyed auto-memory —
+     * that physical reconciliation is a Memory-Core policy that must land WITH the move, never orphan
+     * it here. Provisioning honoring the override is a separate follow-up leaf. A thin delegation:
+     * setting a definition facet needs no `managedRoot` / provisioning, so it forwards straight to the
+     * registry's `updateAgent` (fleet authority — the FM owns the definition registry, like
+     * `defineAgent`), not a cross-agent control-plane op.
+     * @param {String}  agentId Registry agent id.
+     * @param {Object}  repo
+     * @param {String} [repo.repoUrl] Target repository URL / override.
+     * @param {String} [repo.dataDir] Target data-dir override.
+     * @returns {Object|null} The updated public definition, or `null` if the agent doesn't exist.
+     */
+    setRepo(agentId, {repoUrl, dataDir} = {}) {
+        const metadata = {};
+        if (repoUrl != null) metadata.repoUrl = repoUrl;
+        if (dataDir != null) metadata.dataDir = dataDir;
+
+        return this.getLifecycleService().getRegistry().updateAgent(agentId, {metadata});
+    }
 }
 
 export default Neo.setupClass(FleetManager);

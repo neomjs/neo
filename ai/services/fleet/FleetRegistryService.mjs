@@ -153,6 +153,39 @@ class FleetRegistryService extends Base {
     }
 
     /**
+     * Partially update an existing agent definition: merge `metadata` (does NOT replace it) and
+     * override `modelProvider` if given, preserving every other field, `createdAt`, and the stored
+     * credential. The narrow patch path distinct from {@link defineAgent}'s full create-or-replace
+     * upsert — control verbs (e.g. `FleetManager.setRepo`) mutate one facet without re-supplying the
+     * whole definition (which would demand `githubUsername`/`harnessType` and wipe unspecified
+     * metadata). Non-destructive to on-disk checkout and credential. No-op-safe: an unknown id
+     * returns `null` rather than creating a partial definition.
+     * @param {String}  id
+     * @param {Object}  patch
+     * @param {Object} [patch.metadata]      Metadata keys merged into the existing metadata.
+     * @param {String} [patch.modelProvider] New model-provider login.
+     * @returns {Object|null} The updated public definition, or `null` when the agent doesn't exist.
+     */
+    updateAgent(id, {metadata, modelProvider} = {}) {
+        this.ensureLoaded();
+
+        const existing = this.agents.get(id);
+        if (!existing) return null;
+
+        const def = {
+            ...existing,
+            metadata     : metadata ? {...existing.metadata, ...metadata} : existing.metadata,
+            modelProvider: modelProvider || existing.modelProvider,
+            updatedAt    : new Date().toISOString()
+        };
+
+        this.agents.set(id, def);
+        this.writeRegistry();
+
+        return this.toPublic(def);
+    }
+
+    /**
      * List all agent definitions (no credentials).
      * @returns {Object[]}
      */
