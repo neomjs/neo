@@ -245,7 +245,7 @@ the browser. In Neo.mjs, the generation happens in a worker, leaving the UI perf
 AI is doing in the background.
 
 More input:<br>
-[Off the Main Thread](https://github.com/neomjs/neo/blob/dev/learn/benefits/OffTheMainThread.md)<br>
+[Off the Main Thread](https://github.com/neomjs/neo/blob/dev/learn/benefits/body/OffTheMainThread.md)<br>
 [How JSON Blueprints & Shared Workers Power Next-Gen AI Interfaces](https://github.com/neomjs/neo/blob/dev/learn/blog/json-blueprints-and-shared-workers.md)
 
 ### A Query in Action: Understanding Reactivity

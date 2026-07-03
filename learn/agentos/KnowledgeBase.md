@@ -227,5 +227,5 @@ options that need to stay exact.
 - [Memory Core](./MemoryCore.md) for institutional memory and session history.
 - [Tenant Ingestion Model](./cloud-deployment/TenantIngestionModel.md) for the
   cloud-facing source ingestion contract.
-- [Deploying the Agent OS](../benefits/DeployingTheAgentOS.md) for the operator
+- [Deploying the Agent OS](../benefits/brain/DeployingTheAgentOS.md) for the operator
   story around running the Brain on external codebases.

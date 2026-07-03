@@ -265,10 +265,10 @@ Neo.mjs is **MIT licensed**, and has been since its first day — open by delibe
 
 The recent deep-dive guides are each one organ of the body described above — read the one whose door is yours:
 
-- **Building applications?** The Body → [Architecture Overview](./ArchitectureOverview.md) · [Object Permanence](./ObjectPermanence.md) · [Off the Main Thread](./OffTheMainThread.md).
-- **Building or studying AI engineering systems?** The Brain → [The AI Engineering Team](./AIEngineeringTeam.md) · [Memory Core](../agentos/MemoryCore.md) · [The Dream Pipeline](../agentos/DreamPipeline.md) · [Neural Link](../agentos/NeuralLink.md) · [Swarm Intelligence](../agentos/SwarmIntelligence.md).
-- **The culture — names, rituals, the salute?** → [Identity, Rituals & Culture](./IdentityRitualsCulture.md).
-- **Running it on your own code?** → [Deploying the Agent OS](./DeployingTheAgentOS.md) · [The Agent OS on Your Codebase](./AgentOSOnYourCodebase.md).
+- **Building applications?** The Body → [Architecture Overview](./ArchitectureOverview.md) · [Object Permanence](./body/ObjectPermanence.md) · [Off the Main Thread](./body/OffTheMainThread.md).
+- **Building or studying AI engineering systems?** The Brain → [The AI Engineering Team](./brain/AIEngineeringTeam.md) · [Memory Core](../agentos/MemoryCore.md) · [The Dream Pipeline](../agentos/DreamPipeline.md) · [Neural Link](../agentos/NeuralLink.md) · [Swarm Intelligence](../agentos/SwarmIntelligence.md).
+- **The culture — names, rituals, the salute?** → [Identity, Rituals & Culture](./brain/IdentityRitualsCulture.md).
+- **Running it on your own code?** → [Deploying the Agent OS](./brain/DeployingTheAgentOS.md) · [The Agent OS on Your Codebase](./brain/AgentOSOnYourCodebase.md).
 - **The philosophy and the origin?** → [The Vision](../../.github/VISION.md) · [The Story](../../.github/STORY.md) · [MX (Model Experience)](../agentos/MX.md).
 
 You aren't just choosing a tool. You're deciding whether software should be something humans operate, or something a team of minds can be trusted to inhabit, remember, and improve. Neo.mjs is a working answer to the second — and the wager that the second is also the only one that scales. 🖖

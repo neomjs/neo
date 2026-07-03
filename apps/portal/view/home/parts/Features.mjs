@@ -33,7 +33,7 @@ class Features extends BaseContainer {
          */
         items: [{
             header: 'Threading Subsystem',
-            route : '#/learn/benefits/OffTheMainThread',
+            route : '#/learn/benefits/body/OffTheMainThread',
 
             content: [
                 'True Multithreading: App, Data, VDOM, and Canvas live in separate workers.',
@@ -43,7 +43,7 @@ class Features extends BaseContainer {
             ]
         }, {
             header: 'Rendering Pipeline',
-            route : '#/learn/benefits/OffTheMainThread',
+            route : '#/learn/benefits/body/OffTheMainThread',
 
             content: [
                 'Asymmetric VDOM: Diffing happens off-thread.',
@@ -73,7 +73,7 @@ class Features extends BaseContainer {
             ]
         }, {
             header: 'Multi-Window Orchestration',
-            route : '#/learn/benefits/MultiWindow',
+            route : '#/learn/benefits/body/MultiWindow',
 
             content: [
                 'A single engine instance powers multiple browser windows.',
@@ -83,7 +83,7 @@ class Features extends BaseContainer {
             ]
         }, {
             header: 'Zero-Build System',
-            route : '#/learn/benefits/Quick',
+            route : '#/learn/benefits/body/Quick',
 
             content: [
                 'Runs as native ES Modules directly in the browser.',

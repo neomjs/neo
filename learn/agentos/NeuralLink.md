@@ -213,7 +213,7 @@ keep explaining why the surface matters and how to think with it.
   hemispheres and the Body-to-Brain bridge.
 - [Swarm Intelligence](./SwarmIntelligence.md) for the cross-family peer-team
   that uses this surface.
-- [Agent OS on Your Codebase](../benefits/AgentOSOnYourCodebase.md) for the
+- [Agent OS on Your Codebase](../benefits/brain/AgentOSOnYourCodebase.md) for the
   broader operator story around running the Brain against real applications.
 - `ai/mcp/server/neural-link/openapi.yaml` for the exact tool contract.
 - `src/ai/Client.mjs` for the App Worker client, write guard, and transaction

@@ -30,7 +30,7 @@ we are taking a giant leap forward.
 >
 > Under human direction, the agents analyzed the old system and proposed a new architecture. A key insight from the human
 > developer was to leverage a multi-worker design, a core tenet of the Neo.mjs framework itself
-> (**[Off the Main Thread](https://github.com/neomjs/neo/blob/dev/learn/benefits/OffTheMainThread.md)**).
+> (**[Off the Main Thread](https://github.com/neomjs/neo/blob/dev/learn/benefits/body/OffTheMainThread.md)**).
 > By parallelizing the heavy lifting of parsing and transforming JSDoc comments across multiple CPU cores, the agents were
 > able to implement a solution that dramatically slashed build times.
 >
@@ -54,7 +54,7 @@ Here's what we built, how it works, and how you can replicate this in your own p
 
 Let’s start with a real scenario — the kind of complex problem every developer faces sooner or later: **fixing a regression bug.**
 
-A naive fix might solve the immediate issue but inadvertently reintroduce the original problem that a previous change was meant to solve.  
+A naive fix might solve the immediate issue but inadvertently reintroduce the original problem that a previous change was meant to solve.
 Our AI-native environment is designed to prevent this by building a **three-dimensional picture of the code’s history and intent.**
 
 Here’s how the agent uses the MCP servers to tackle this:
@@ -68,7 +68,7 @@ The commit message points to a ticket number.
 Using the **GitHub Workflow Server**, the agent has a local, queryable copy of this ticket.
 It can read the formal plan, the acceptance criteria, and the original problem description — the *what was supposed to happen.*
 
-**Dimension 3: What Was the Intent? (The Unwritten Context)**  
+**Dimension 3: What Was the Intent? (The Unwritten Context)**
 This is the most critical step. The ticket describes the plan, but the **Memory Core Server** holds the agent's memory of
 the conversation — the debates, the alternative approaches considered, and the specific constraints that shaped the final implementation.
 By querying its own memory with `query_raw_memories`, the agent uncovers the crucial **why** behind the code that is now causing a regression.
@@ -171,8 +171,8 @@ paths:
       x-annotations:
         readOnlyHint: true
       description: |
-        Performs a semantic search on the knowledge base using a natural 
-        language query. Returns a scored and ranked list of the most 
+        Performs a semantic search on the knowledge base using a natural
+        language query. Returns a scored and ranked list of the most
         relevant source files.
       requestBody:
         required: true
@@ -274,14 +274,14 @@ Here's the startup flow from `DatabaseService.mjs`:
 ```javascript
 async initAsync() {
     await super.initAsync();
-    
+
     // Wait for ChromaDB to be available
     await DatabaseLifecycleService.ready();
-    
+
     logger.info('[Startup] Checking knowledge base status...');
     const knowledgeBasePath = aiConfig.dataPath;
     const kbExists = await fs.pathExists(knowledgeBasePath);
-    
+
     try {
         if (!kbExists) {
             logger.info('[Startup] Knowledge base file not found. Starting full synchronization...');
@@ -313,11 +313,11 @@ Here's how `ensureHealthy()` works:
 ```javascript
 async ensureHealthy() {
     const health = await this.healthcheck();
-    
+
     if (health.status !== 'healthy') {
         const details = health.details.join('\n  - ');
-        const statusMsg = health.status === 'unhealthy' 
-            ? 'not available' 
+        const statusMsg = health.status === 'unhealthy'
+            ? 'not available'
             : 'not fully operational';
         throw new Error(`Knowledge Base is ${statusMsg}:\n  - ${details}`);
     }
@@ -362,28 +362,28 @@ const queryWords = queryLower
 
 results.metadatas[0].forEach((metadata, index) => {
     let score = (results.metadatas[0].length - index) * queryScoreWeights.baseIncrement;
-    
+
     queryWords.forEach(queryWord => {
         const keyword = queryWord;
-        const keywordSingular = keyword.endsWith('s') 
-            ? keyword.slice(0, -1) 
+        const keywordSingular = keyword.endsWith('s')
+            ? keyword.slice(0, -1)
             : keyword;
-        
+
         if (keywordSingular.length > 2) {
             // Path matching - highest weight
-            if (sourcePathLower.includes(`/${keywordSingular}/`)) 
+            if (sourcePathLower.includes(`/${keywordSingular}/`))
                 score += queryScoreWeights.sourcePathMatch; // +40
-            
+
             // Filename matching
-            if (fileName.includes(keywordSingular)) 
+            if (fileName.includes(keywordSingular))
                 score += queryScoreWeights.fileNameMatch; // +30
-            
+
             // Class name matching
-            if (metadata.className?.toLowerCase().includes(keywordSingular)) 
+            if (metadata.className?.toLowerCase().includes(keywordSingular))
                 score += queryScoreWeights.classNameMatch; // +20
-            
+
             // Content type bonuses
-            if (metadata.type === 'guide') 
+            if (metadata.type === 'guide')
                 score += queryScoreWeights.guideMatch; // +50
         }
     });
@@ -417,19 +417,19 @@ The system understands that not all content types are equally relevant:
 
 ```javascript
 // Closed tickets are historical context - penalize unless explicitly requested
-if (metadata.type === 'ticket' && type === 'all') 
+if (metadata.type === 'ticket' && type === 'all')
     score += queryScoreWeights.ticketPenalty; // -70
 
 // Release notes are usually too broad unless you're searching for a specific version
-if (metadata.type === 'release') 
+if (metadata.type === 'release')
     score += queryScoreWeights.releasePenalty; // -50
 
 // Base classes are often the best documentation
-if (fileName.endsWith('base.mjs')) 
+if (fileName.endsWith('base.mjs'))
     score += queryScoreWeights.baseFileBonus; // +20
 
 // Exact version match on release notes gets massive boost
-if (metadata.type === 'release' && queryLower.startsWith('v') && nameLower === queryLower) 
+if (metadata.type === 'release' && queryLower.startsWith('v') && nameLower === queryLower)
     score += queryScoreWeights.releaseExactMatch; // +1000
 ```
 
@@ -477,9 +477,9 @@ const learnTree = await fs.readJson('learn/tree.json');
 const classNameToDataMap = {};
 knowledgeBase.forEach(chunk => {
     if (chunk.kind === 'class') {
-        classNameToDataMap[chunk.name] = { 
-            source: chunk.source, 
-            parent: chunk.extends 
+        classNameToDataMap[chunk.name] = {
+            source: chunk.source,
+            parent: chunk.extends
         };
     }
 });
@@ -487,16 +487,16 @@ knowledgeBase.forEach(chunk => {
 knowledgeBase.forEach(chunk => {
     const inheritanceChain = [];
     let currentClass = chunk.className;
-    
+
     while (currentClass && classNameToDataMap[currentClass]?.parent) {
         const parentClassName = classNameToDataMap[currentClass].parent;
-        inheritanceChain.push({ 
-            className: parentClassName, 
-            source: classNameToDataMap[parentClassName].source 
+        inheritanceChain.push({
+            className: parentClassName,
+            source: classNameToDataMap[parentClassName].source
         });
         currentClass = parentClassName;
     }
-    
+
     chunk.inheritanceChain = inheritanceChain;
 });
 ```
@@ -512,7 +512,7 @@ existingDocs.ids.forEach((id, index) => {
 const chunksToProcess = [];
 knowledgeBase.forEach((chunk, index) => {
     const chunkId = `id_${index}`;
-    if (!existingDocsMap.has(chunkId) || 
+    if (!existingDocsMap.has(chunkId) ||
         existingDocsMap.get(chunkId) !== chunk.hash) {
         chunksToProcess.push({ ...chunk, id: chunkId });
     }
@@ -527,7 +527,7 @@ for (let i = 0; i < chunksToProcess.length; i += batchSize) {
             content: { parts: [{ text: `${chunk.type}: ${chunk.name}...` }] }
         }))
     });
-    
+
     await collection.upsert({
         ids: batch.map(chunk => chunk.id),
         embeddings: result.embeddings.map(e => e.values),
@@ -588,10 +588,10 @@ async addMemory({ prompt, response, thought, sessionId }) {
     const combinedText = `User Prompt: ${prompt}\nAgent Thought: ${thought}\nAgent Response: ${response}`;
     const timestamp    = new Date().toISOString();
     const memoryId     = `mem_${timestamp}`;
-    
+
     // Generate semantic embedding for the entire interaction
     const embedding = await TextEmbeddingService.embedText(combinedText);
-    
+
     await collection.add({
         ids: [memoryId],
         embeddings: [embedding],
@@ -605,7 +605,7 @@ async addMemory({ prompt, response, thought, sessionId }) {
         }],
         documents: [combinedText]
     });
-    
+
     return { id: memoryId, sessionId, timestamp, message: "Memory successfully added" };
 }
 ```
@@ -625,19 +625,19 @@ From `SessionService.mjs`:
 async initAsync() {
     await super.initAsync();
     await DatabaseLifecycleService.ready();
-    
+
     // Initialize collections
     this.memoryCollection   = await ChromaManager.getMemoryCollection();
     this.sessionsCollection = await ChromaManager.getSummaryCollection();
-    
+
     // Skip if GEMINI_API_KEY is missing
     if (!this.model) return;
-    
+
     logger.info('[Startup] Checking for unsummarized sessions...');
-    
+
     try {
         const result = await this.summarizeSessions({});
-        
+
         if (result.processed > 0) {
             logger.info(`✅ [Startup] Summarized ${result.processed} session(s):`);
             result.sessions.forEach(session => {
@@ -659,12 +659,12 @@ async summarizeSession(sessionId) {
         where: {sessionId},
         include: ['documents', 'metadatas']
     });
-    
+
     if (memories.ids.length === 0) return null;
-    
+
     // Aggregate all memories from the session
     const aggregatedContent = memories.documents.join('\n\n---\n\n');
-    
+
     const summaryPrompt = `
 Analyze the following development session and provide a structured summary in JSON format:
 
@@ -679,13 +679,13 @@ Analyze the following development session and provide a structured summary in JS
 
 ${aggregatedContent}
 `;
-    
+
     const result = await this.model.generateContent(summaryPrompt);
     const summaryData = JSON.parse(result.response.text());
-    
+
     // Embed the summary for semantic search
     const embeddingResult = await this.embeddingModel.embedContent(summaryData.summary);
-    
+
     await this.sessionsCollection.upsert({
         ids: [`summary_${sessionId}`],
         embeddings: [embeddingResult.embedding.values],
@@ -697,7 +697,7 @@ ${aggregatedContent}
         }],
         documents: [summaryData.summary]
     });
-    
+
     return { sessionId, title: summaryData.title, memoryCount: memories.ids.length };
 }
 ```
@@ -713,24 +713,24 @@ When you need high-level context about past work, query the summary collection f
 async querySummaries({ query, nResults, category }) {
     const collection = await ChromaManager.getSummaryCollection();
     const embedding  = await TextEmbeddingService.embedText(query);
-    
+
     const queryArgs = {
         queryEmbeddings: [embedding],
         nResults,
         include: ['metadatas', 'documents']
     };
-    
+
     if (category) {
         queryArgs.where = { category };
     }
-    
+
     const searchResult = await collection.query(queryArgs);
-    
+
     // Calculate relevance scores from vector distances
     const summaries = ids.map((id, index) => {
         const distance = Number(distances[index] ?? 0);
         const relevanceScore = Number((1 / (1 + distance)).toFixed(6));
-        
+
         return {
             id,
             sessionId: metadata.sessionId,
@@ -746,7 +746,7 @@ async querySummaries({ query, nResults, category }) {
             relevanceScore
         };
     });
-    
+
     return { query, count: summaries.length, results: summaries };
 }
 ```
@@ -758,20 +758,20 @@ Once you've identified relevant sessions, drill down into the raw interaction da
 async queryMemories({ query, nResults, sessionId }) {
     const collection = await ChromaManager.getMemoryCollection();
     const embedding  = await TextEmbeddingService.embedText(query);
-    
+
     const queryArgs = {
         queryEmbeddings: [embedding],
         nResults,
         include: ['metadatas']
     };
-    
+
     // Optional: Filter to specific session
     if (sessionId) {
         queryArgs.where = { sessionId };
     }
-    
+
     const searchResult = await collection.query(queryArgs);
-    
+
     return {
         query,
         count: memories.length,
@@ -935,9 +935,9 @@ This representation gives us several critical capabilities:
 **For Agents:**
 ```javascript
 // Semantic search over tickets (part of knowledge base)
-query_documents({ 
+query_documents({
   query: "VDOM lifecycle collision bugs",
-  type: "ticket"  
+  type: "ticket"
 })
 // Returns relevant issues instantly
 // No API rate limits, no network required
@@ -966,7 +966,7 @@ if (issue.state === 'OPEN') {
 
 **Rule 2: Dropped issues (wontfix, duplicate) are deleted**
 ```javascript
-const isDropped = issueSyncConfig.droppedLabels.some(label => 
+const isDropped = issueSyncConfig.droppedLabels.some(label =>
     labels.includes(label)
 );
 if (isDropped) {
@@ -978,8 +978,8 @@ if (isDropped) {
 ```javascript
 if (issue.state === 'CLOSED' && issue.milestone?.title) {
     return path.join(
-        issueSyncConfig.archiveDir, 
-        issue.milestone.title, 
+        issueSyncConfig.archiveDir,
+        issue.milestone.title,
         filename
     );
 }
@@ -994,8 +994,8 @@ const release = (ReleaseSyncer.sortedReleases || []).find(
 
 if (release) {
     return path.join(
-        issueSyncConfig.archiveDir, 
-        release.tagName, 
+        issueSyncConfig.archiveDir,
+        release.tagName,
         filename
     );
 }
@@ -1028,22 +1028,22 @@ The `reconcileClosedIssueLocations()` method handles this:
 ```javascript
 async reconcileClosedIssueLocations(metadata) {
     logger.info('📄 Reconciling closed issue locations...');
-    
+
     const stats = { count: 0, issues: [] };
-    
+
     for (const issueNumber in metadata.issues) {
         const issueData = metadata.issues[issueNumber];
-        
+
         // CRITICAL: Only process issues in the active directory
         if (!issueData.path.startsWith(issueSyncConfig.issuesDir)) {
             continue; // Already archived, skip it
         }
-        
+
         // Only process CLOSED issues
         if (issueData.state !== 'CLOSED') {
             continue;
         }
-        
+
         // Calculate where this closed issue SHOULD be
         const correctPath = this.#getIssuePath({
             number   : parseInt(issueNumber),
@@ -1052,21 +1052,21 @@ async reconcileClosedIssueLocations(metadata) {
             closedAt : issueData.closedAt,
             updatedAt: issueData.updatedAt
         });
-        
+
         // Move if necessary
-        if (issueData.path !== correctPath && 
+        if (issueData.path !== correctPath &&
             correctPath.includes(issueSyncConfig.archiveDir)) {
-            
+
             await fs.mkdir(path.dirname(correctPath), { recursive: true });
             await fs.rename(issueData.path, correctPath);
-            
+
             metadata.issues[issueNumber].path = correctPath;
             stats.count++;
-            
+
             logger.info(`✅ Archived #${issueNumber} to ${path.relative(process.cwd(), correctPath)}`);
         }
     }
-    
+
     return stats;
 }
 ```
@@ -1083,32 +1083,32 @@ of operations:
 ```javascript
 async runFullSync() {
     const metadata = await MetadataManager.load();
-    
+
     // 1. Fetch releases first (needed for issue archiving)
     await ReleaseSyncer.fetchAndCacheReleases(metadata);
-    
+
     // 2. Reconcile closed issue locations
     const reconcileStats = await IssueSyncer.reconcileClosedIssueLocations(metadata);
-    
+
     // 3. Push local changes to GitHub
     const pushStats = await IssueSyncer.pushToGitHub(metadata);
-    
+
     // 4. Pull remote changes from GitHub
     const { newMetadata, stats: pullStats } = await IssueSyncer.pullFromGitHub(metadata);
-    
+
     // 5. Sync release notes
     const releaseStats = await ReleaseSyncer.syncNotes(metadata);
-    
+
     // 6. Self-heal push failures
     if (newMetadata.pushFailures?.length > 0) {
         newMetadata.pushFailures = newMetadata.pushFailures.filter(
             failedId => !newMetadata.issues[failedId]
         );
     }
-    
+
     // 7. Save metadata
     await MetadataManager.save(newMetadata);
-    
+
     return { success: true, statistics: finalStats, timing };
 }
 ```
@@ -1214,27 +1214,27 @@ export const FETCH_ISSUES_FOR_SYNC = `
           updatedAt
           closedAt
           url
-          
+
           author {
             login
           }
-          
+
           labels(first: $maxLabels) {
             nodes {
               name
             }
           }
-          
+
           assignees(first: $maxAssignees) {
             nodes {
               login
             }
           }
-          
+
           milestone {
             title
           }
-          
+
           comments(first: $maxComments) {
             nodes {
               author {
@@ -1244,13 +1244,13 @@ export const FETCH_ISSUES_FOR_SYNC = `
               createdAt
             }
           }
-          
+
           # Parent/child relationships
           parent {
             number
             title
           }
-          
+
           subIssues(first: $maxSubIssues) {
             nodes {
               number
@@ -1258,7 +1258,7 @@ export const FETCH_ISSUES_FOR_SYNC = `
               state
             }
           }
-          
+
           subIssuesSummary {
             total
             completed
@@ -1267,7 +1267,7 @@ export const FETCH_ISSUES_FOR_SYNC = `
         }
       }
     }
-    
+
     # Monitor rate limit usage
     rateLimit {
       cost
@@ -1294,14 +1294,14 @@ The `IssueSyncer.pullFromGitHub()` method processes all of this in one pass:
 for (const issue of allIssues) {
     const issueNumber = issue.number;
     const targetPath  = this.#getIssuePath(issue);
-    
+
     // Comments are already in issue.comments - no separate fetch needed!
     const markdown = this.#formatIssueMarkdown(issue, issue.comments.nodes);
     const contentHash = this.#calculateContentHash(markdown);
-    
+
     await fs.mkdir(path.dirname(targetPath), { recursive: true });
     await fs.writeFile(targetPath, markdown, 'utf-8');
-    
+
     newMetadata.issues[issueNumber] = {
         state    : issue.state,
         path     : targetPath,
@@ -1325,14 +1325,14 @@ With issues now queryable and modifiable locally, the final piece was enabling a
 ```javascript
 async listPullRequests(options = {}) {
     const {limit = 30, state = 'open'} = options;
-    
+
     const variables = {
         owner : aiConfig.owner,
         repo  : aiConfig.repo,
         limit,
         states: state.toUpperCase()
     };
-    
+
     const data = await GraphqlService.query(FETCH_PULL_REQUESTS, variables);
     return {
         count: data.repository.pullRequests.nodes.length,
@@ -1358,7 +1358,7 @@ async getConversation(prNumber) {
         prNumber,
         maxComments: 100
     };
-    
+
     const data = await GraphqlService.query(GET_CONVERSATION, variables);
     return data.repository.pullRequest;
 }
@@ -1378,7 +1378,7 @@ async createComment(prNumber, body, agent) {
     const agentIcon    = AGENT_ICONS[this.getAgentType(agent)];
     const headingMatch = body.match(/^(#+\s*)(.*)$/);
     let processedBody;
-    
+
     if (headingMatch) {
         const headingMarkers = headingMatch[1];
         const headingContent = headingMatch[2];
@@ -1386,12 +1386,12 @@ async createComment(prNumber, body, agent) {
     } else {
         processedBody = `${agentIcon} ${body}`;
     }
-    
+
     const finalBody = `${header}${processedBody.split('\n').map(line => `> ${line}`).join('\n')}`;
-    
+
     const idData    = await GraphqlService.query(GET_PULL_REQUEST_ID, {owner, repo, prNumber});
     const subjectId = idData.repository.pullRequest.id;
-    
+
     await GraphqlService.query(ADD_COMMENT, { subjectId, body: finalBody });
     return { message: `Successfully created comment on PR #${prNumber}` };
 }
@@ -1425,7 +1425,7 @@ This clear attribution ensures:
 async checkoutPullRequest(prNumber) {
     const {stdout} = await execAsync(`gh pr checkout ${prNumber}`);
     return {
-        message: `Successfully checked out PR #${prNumber}`, 
+        message: `Successfully checked out PR #${prNumber}`,
         details: stdout.trim()
     };
 }
@@ -1538,12 +1538,12 @@ From `Neo.core.Base`:
 ```javascript
 construct(config={}) {
     // ... initialization code ...
-    
+
     // Storing a resolver to execute inside `afterSetIsReady`
     this.#readyPromise = new Promise(resolve => {
         this.#readyResolver = resolve
     });
-    
+
     // Triggers async logic after the construction chain is done
     Promise.resolve().then(async () => {
         await this.initAsync();
@@ -1554,7 +1554,7 @@ construct(config={}) {
 /**
  * You can use this method in subclasses to perform asynchronous initialization logic.
  * Make sure to use the parent call `await super.initAsync()` at the beginning.
- * 
+ *
  * Once the promise returned by this method is fulfilled, the `isReady` config will be set to `true`.
  * @returns {Promise<void>}
  */
@@ -1576,19 +1576,19 @@ This pattern enables **elegant dependency orchestration** throughout the server 
 ```javascript
 async initAsync() {
     await super.initAsync();
-    
+
     // Wait for DatabaseLifecycleService to ensure ChromaDB is available
     await DatabaseLifecycleService.ready();
-    
+
     // Use ChromaManager instead of direct client access
     this.memoryCollection   = await ChromaManager.getMemoryCollection();
     this.sessionsCollection = await ChromaManager.getSummaryCollection();
-    
+
     // Skip if GEMINI_API_KEY is missing
     if (!this.model) return;
-    
+
     logger.info('[Startup] Checking for unsummarized sessions...');
-    
+
     const result = await this.summarizeSessions({});
     // ... process results ...
 }
@@ -1608,10 +1608,10 @@ async function main() {
     // Wait for async services to initialize.
     // SessionService.ready() will internally wait for the DB and summarize sessions.
     await SessionService.ready();
-    
+
     // Perform initial health check
     const health = await HealthService.healthcheck();
-    
+
     // Report status and start server
     // ...
 }
@@ -1630,19 +1630,19 @@ class SessionService extends Base {
         model_: null,
         embeddingModel_: null
     }
-    
+
     construct(config) {
         super.construct(config);
-        
+
         const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
         if (!GEMINI_API_KEY) {
             logger.warn('⚠️  GEMINI_API_KEY not set - skipping summarization');
-            HealthService.recordStartupSummarization('skipped', { 
-                reason: 'GEMINI_API_KEY not set' 
+            HealthService.recordStartupSummarization('skipped', {
+                reason: 'GEMINI_API_KEY not set'
             });
             return;
         }
-        
+
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
         this.model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
         this.embeddingModel = genAI.getGenerativeModel({ model: 'text-embedding-004' });
@@ -1691,7 +1691,7 @@ Object.entries(cfg).forEach(([key, value]) => {
     const
         isReactive = key.slice(-1) === '_',
         baseKey    = isReactive ? key.slice(0, -1) : key;
-    
+
     // Handle reactive configs: Generate getters/setters
     if (isReactive) {
         delete cfg[key];      // Remove original key with underscore
@@ -1701,8 +1701,8 @@ Object.entries(cfg).forEach(([key, value]) => {
     // Non-reactive configs get set directly on prototype
     else if (!Neo.hasPropertySetter(element, key)) {
         Object.defineProperty(element, key, {
-            enumerable: true, 
-            value, 
+            enumerable: true,
+            value,
             writable: true
         })
     }
@@ -1740,7 +1740,7 @@ all instances. This is memory-efficient and enables the powerful `Neo.overwrites
 
 async healthcheck() {
     const now = Date.now();
-    
+
     // Smart caching: only cache healthy results
     if (this.#cachedHealth?.status === 'healthy' && this.#lastCheckTime) {
         const age = now - this.#lastCheckTime;
@@ -1749,14 +1749,14 @@ async healthcheck() {
             return this.#cachedHealth;
         }
     }
-    
+
     // Perform fresh check
     const health = await this.#performHealthCheck();
-    
+
     // Update cache
     this.#cachedHealth = health;
     this.#lastCheckTime = now;
-    
+
     return health;
 }
 ```
@@ -1768,22 +1768,22 @@ Services can use the **Observable mixin** for event-driven architecture:
 ```javascript
 class DatabaseLifecycleService extends Base {
     static observable = true; // Enables event system
-    
+
     async startDatabase() {
         // ... start ChromaDB ...
-        
-        this.fire('processActive', { 
-            pid: this.chromaProcess.pid, 
-            managedByService: true 
+
+        this.fire('processActive', {
+            pid: this.chromaProcess.pid,
+            managedByService: true
         });
     }
-    
+
     async stopDatabase() {
         // ... stop ChromaDB ...
-        
-        this.fire('processStopped', { 
-            pid, 
-            managedByService: true 
+
+        this.fire('processStopped', {
+            pid,
+            managedByService: true
         });
     }
 }

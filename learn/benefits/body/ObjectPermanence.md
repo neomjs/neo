@@ -2,7 +2,7 @@
 
 ## The Flawed Status Quo: The Transient Web
 
-Web UI development has long been trapped in a cycle of constant destruction. We build complex, stateful applications, but traditional Virtual DOM frameworks (like React or Vue) treat them like disposable documents. 
+Web UI development has long been trapped in a cycle of constant destruction. We build complex, stateful applications, but traditional Virtual DOM frameworks (like React or Vue) treat them like disposable documents.
 
 In these traditional, single-threaded frameworks, your source code acts as an ephemeral render function. When the application state changes, these functions execute to produce a transient blueprint of your UI. Once that blueprint is rendered into the real browser DOM, the original, structured identity of the component is lost—it melts away like plastic.
 
@@ -25,7 +25,7 @@ When building a UI in Neo.mjs, the engine employs two distinct layers of persist
 
 ### Layer 1: The Persistent Component Tree
 
-Neo.mjs relies on an Object-Oriented foundation (`Neo.component.Abstract`). All config objects in your code are consumed and permanently replaced by living, stateful class instances. 
+Neo.mjs relies on an Object-Oriented foundation (`Neo.component.Abstract`). All config objects in your code are consumed and permanently replaced by living, stateful class instances.
 
 These instances exist continuously inside the App Worker's memory. This is the core proof of true Object Permanence: because they are permanent memory references, `Neo.container.Base` classes expose powerful runtime mutation APIs:
 - `container.add(component)`
@@ -37,7 +37,7 @@ You do not just update props and hope the framework redraws the container correc
 
 ### Layer 2: The Persistent VDOM & VNode Trees
 
-Below the component abstraction, each instance maintains its own persistent **VDOM tree** (the intended *next* state) and **VNode tree** (the currently rendered *live* DOM state). 
+Below the component abstraction, each instance maintains its own persistent **VDOM tree** (the intended *next* state) and **VNode tree** (the currently rendered *live* DOM state).
 
 Because the VDOM is a living object you can directly address and modify, you can mutate a component's VDOM tree multiple times synchronously. The engine batches these changes logically before sending the final diff to the VDOM worker.
 
@@ -46,16 +46,16 @@ flowchart TD
     subgraph AppWorker ["App Worker (Persistent Layer)"]
         Container["Container Instance\n(Exposes: add, remove, move)"]
         Child["Child Instance\n(Stateful)"]
-        
+
         Container -->|Contains| Child
-        
+
         VDOM["Persistent VDOM Tree\n(Next State)"]
         VNode["Persistent VNode Tree\n(Live State)"]
-        
+
         Child -->|Maintains| VDOM
         Child -->|Maintains| VNode
     end
-    
+
     subgraph VDomWorker ["VDOM Worker"]
         DiffEngine["Batched VDOM Diffing"]
     end
@@ -63,7 +63,7 @@ flowchart TD
     subgraph MainThread ["Main Thread\n(Hardware Accelerated)"]
         LiveDOM["Live Browser DOM"]
     end
-    
+
     VDOM -- "1. VDOM Update (JSON)" --> DiffEngine
     VNode -- "1. VNode State (JSON)" --> DiffEngine
     DiffEngine -- "2. DOM Deltas (Diff)" --> LiveDOM
@@ -74,10 +74,10 @@ flowchart TD
 
 This robust double-layer of permanence unlocks architectural super-powers that are fundamentally impossible in traditional frameworks:
 
-1. **True Mobility (Multi-Window):** Because components are persistent memory instances, you can physically detach a complex component (like a data grid) using `remove(cmp, false)` and reattach it to another container—even across entirely different browser windows—without losing its internal state, its scrolling position, or resetting its VDOM structure. 
+1. **True Mobility (Multi-Window):** Because components are persistent memory instances, you can physically detach a complex component (like a data grid) using `remove(cmp, false)` and reattach it to another container—even across entirely different browser windows—without losing its internal state, its scrolling position, or resetting its VDOM structure.
 2. **AI-Native Introspection (Neural Link):** In transient frameworks, AI agents are essentially blind; they can only read static source code. Because Neo.mjs components exist as continuous, addressable objects in memory, AI Agents using the **Neural Link** can physically connect to the active runtime. They can introspect the entire living Scene Graph, trace data flows, and dynamically mutate state or hot-patch methods live without ever reloading the application. Neo.mjs is the first UI architecture built ground-up for autonomous AI collaboration.
 
 > [!TIP]
 > **Curious about the low-level implementation?**
-> Discover exactly how Neo.mjs separates the declarative component tree abstraction from the imperative VDOM layer in our deep-dive guide: 
+> Discover exactly how Neo.mjs separates the declarative component tree abstraction from the imperative VDOM layer in our deep-dive guide:
 > **[Declarative Component Trees VS Imperative Vdom](../guides/fundamentals/DeclarativeComponentTreesVsImperativeVdom.md)**
