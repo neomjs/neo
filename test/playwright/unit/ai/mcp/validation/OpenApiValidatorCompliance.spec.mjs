@@ -1,7 +1,7 @@
-import {test, expect}        from '@playwright/test';
-import fs                    from 'fs';
-import path                  from 'path';
-import {fileURLToPath}       from 'url';
+import {test, expect}  from '@playwright/test';
+import fs              from 'fs';
+import path            from 'path';
+import {fileURLToPath} from 'url';
 import * as yaml       from 'js-yaml';
 import {buildZodSchema,
         buildOutputZodSchema,
@@ -24,7 +24,7 @@ const servers = ['file-system', 'github-workflow', 'knowledge-base', 'memory-cor
  */
 function findArraysWithoutItems(node, pathLabel = '') {
     const findings = [];
-    const walk = (n, p) => {
+    const walk     = (n, p) => {
         if (!n || typeof n !== 'object') return;
         if (!Array.isArray(n) && n.type === 'array' && !('items' in n)) findings.push(p);
         if (Array.isArray(n)) n.forEach((v, i) => walk(v, `${p}[${i}]`));
@@ -49,7 +49,7 @@ function findArraysWithoutItems(node, pathLabel = '') {
  */
 function findStrictObjects(node, pathLabel = '') {
     const findings = [];
-    const walk = (n, p) => {
+    const walk     = (n, p) => {
         if (!n || typeof n !== 'object') return;
         if (!Array.isArray(n) && n.type === 'object' && n.additionalProperties === false) findings.push(p);
         if (Array.isArray(n)) n.forEach((v, i) => walk(v, `${p}[${i}]`));
@@ -74,7 +74,7 @@ function findStrictObjects(node, pathLabel = '') {
  */
 function findSilentlyStrippingOpenBags(node, pathLabel = '') {
     const findings = [];
-    const walk = (n, p, isRoot) => {
+    const walk     = (n, p, isRoot) => {
         if (!n || typeof n !== 'object') return;
         if (!isRoot && !Array.isArray(n) && n.type === 'object' && !n.properties && n.additionalProperties === false) {
             findings.push(p);
@@ -91,7 +91,7 @@ const neuralLinkToolTiers = ['read', 'write-locked', 'admin'];
 const expectedNeuralLinkToolTiers = {
     abort_transaction            : 'write-locked',
     begin_transaction            : 'write-locked',
-    call_method                 : 'admin',
+    call_method                  : 'admin',
     check_namespace              : 'read',
     commit_transaction           : 'write-locked',
     create_component             : 'write-locked',
@@ -339,7 +339,7 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
      * satisfying strict validators that reject array schemas without `items`.
      */
     test('z.array(z.unknown()) emits items under Zod v4 OpenAPI target', async () => {
-        const {z} = await import('zod');
+        const {z}    = await import('zod');
         const schema = toOpenApiJsonSchema(z.array(z.unknown()));
         expect(schema.type).toBe('array');
         expect(schema).toHaveProperty('items');
@@ -352,7 +352,7 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
      * tolerate server-side drift in returned fields.
      */
     test('z.object(...).passthrough() emits additionalProperties:true', async () => {
-        const {z} = await import('zod');
+        const {z}     = await import('zod');
         const strict  = toOpenApiJsonSchema(z.object({a: z.string()}));
         const lenient = toOpenApiJsonSchema(z.object({a: z.string()}).passthrough());
         expect(strict.additionalProperties).toBe(false);
@@ -367,8 +367,8 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
      * `z.object({}).passthrough()` in that case, preserving the caller's payload.
      */
     test('buildZodSchema preserves open-bag input payloads (set_instance_properties.properties)', async () => {
-        const doc = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/neural-link/openapi.yaml'), 'utf8'));
-        const op  = doc.paths['/instance/properties/set'].post;
+        const doc    = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/neural-link/openapi.yaml'), 'utf8'));
+        const op     = doc.paths['/instance/properties/set'].post;
         const parsed = buildZodSchema(doc, op).parse({
             id        : 'neo-button-1',
             properties: {text: 'KEEP_ME', arbitraryKey: 42}
@@ -392,7 +392,7 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
                             content: {
                                 'application/json': {
                                     schema: {
-                                        type: 'object',
+                                        type      : 'object',
                                         properties: {
                                             action: { type: 'string', enum: ['start', 'stop'] }
                                         }
@@ -404,7 +404,7 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
                 }
             }
         };
-        const op = doc.paths['/test'].post;
+        const op     = doc.paths['/test'].post;
         const schema = toOpenApiJsonSchema(buildZodSchema(doc, op));
 
         expect(schema.properties.action.type).toBe('string');
@@ -603,9 +603,36 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
         expect(operationIds).toEqual(mappingIds);
     });
 
+    test('neural-link check_namespace + get_namespace_tree pass their object payload to the handler (#14542)', () => {
+        const
+            doc        = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/neural-link/openapi.yaml'), 'utf8')),
+            operations = getOperationsById(doc);
+
+        // Both bind RuntimeService handlers that destructure a single {..., sessionId} object. Without
+        // x-pass-as-object, ToolService (ai/mcp/ToolService.mjs) spreads the validated args positionally
+        // and the destructure yields undefined — the tool silently mis-passes its arguments.
+        expect(operations.check_namespace['x-pass-as-object'], 'check_namespace must pass its object payload').toBe(true);
+        expect(operations.get_namespace_tree['x-pass-as-object'], 'get_namespace_tree must pass its object payload').toBe(true);
+    });
+
+    test('neural-link: every x-handler operation passes its payload as an object (#14542 recurrence guard)', () => {
+        const
+            doc        = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/neural-link/openapi.yaml'), 'utf8')),
+            operations = getOperationsById(doc);
+
+        // An x-handler operation routes to a custom RuntimeService handler; every such handler in the
+        // Neural Link surface destructures a single object, so the op MUST carry x-pass-as-object:true —
+        // otherwise ToolService spreads the args positionally and the handler receives the wrong shape.
+        const offenders = Object.entries(operations)
+            .filter(([, op]) => op['x-handler'] && op['x-pass-as-object'] !== true)
+            .map(([id]) => id);
+
+        expect(offenders, `x-handler ops missing x-pass-as-object (arg-shape mismatch):\n${offenders.join('\n')}`).toEqual([]);
+    });
+
     test('neural-link inspect_store + list_stores output schemas (object `model` #13372; list_stores `{stores:[]}` envelope + `isLoaded` #10072)', () => {
-        const doc         = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/neural-link/openapi.yaml'), 'utf8')),
-              opsById     = getOperationsById(doc),
+        const doc     = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/neural-link/openapi.yaml'), 'utf8')),
+              opsById = getOperationsById(doc),
               // A live store's `model` is the serialized Neo.data.Model — an object, not a className string.
               objectModel = {className: 'Neo.data.Model', fields: [{name: 'id', type: 'String'}], keyProperty: 'id'};
 
@@ -630,7 +657,7 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
             const yamlPath = path.join(repoRoot, 'ai/mcp/server', server, 'openapi.yaml');
             expect(fs.existsSync(yamlPath), `${yamlPath} missing`).toBe(true);
 
-            const doc     = yaml.load(fs.readFileSync(yamlPath, 'utf8'));
+            const doc       = yaml.load(fs.readFileSync(yamlPath, 'utf8'));
             const offenders = [];
 
             for (const [, pathItem] of Object.entries(doc.paths || {})) {
@@ -652,8 +679,8 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
         });
 
         test(`${server}: every emitted output schema tolerates extra properties (#9837)`, () => {
-            const yamlPath = path.join(repoRoot, 'ai/mcp/server', server, 'openapi.yaml');
-            const doc      = yaml.load(fs.readFileSync(yamlPath, 'utf8'));
+            const yamlPath  = path.join(repoRoot, 'ai/mcp/server', server, 'openapi.yaml');
+            const doc       = yaml.load(fs.readFileSync(yamlPath, 'utf8'));
             const offenders = [];
 
             for (const [, pathItem] of Object.entries(doc.paths || {})) {
@@ -674,8 +701,8 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
         });
 
         test(`${server}: no nested open-bag input objects silently strip payloads (#10070)`, () => {
-            const yamlPath = path.join(repoRoot, 'ai/mcp/server', server, 'openapi.yaml');
-            const doc      = yaml.load(fs.readFileSync(yamlPath, 'utf8'));
+            const yamlPath  = path.join(repoRoot, 'ai/mcp/server', server, 'openapi.yaml');
+            const doc       = yaml.load(fs.readFileSync(yamlPath, 'utf8'));
             const offenders = [];
 
             for (const [, pathItem] of Object.entries(doc.paths || {})) {
@@ -694,10 +721,10 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
         });
 
         test(`${server}: every emitted input schema stays strict at the root (regression guard against #9837 overreach)`, () => {
-            const yamlPath = path.join(repoRoot, 'ai/mcp/server', server, 'openapi.yaml');
-            const doc      = yaml.load(fs.readFileSync(yamlPath, 'utf8'));
-            let checkedOps = 0;
-            let strictOps  = 0;
+            const yamlPath   = path.join(repoRoot, 'ai/mcp/server', server, 'openapi.yaml');
+            const doc        = yaml.load(fs.readFileSync(yamlPath, 'utf8'));
+            let   checkedOps = 0;
+            let   strictOps  = 0;
 
             for (const [, pathItem] of Object.entries(doc.paths || {})) {
                 for (const [, op] of Object.entries(pathItem)) {
