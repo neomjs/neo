@@ -86,9 +86,9 @@ class AiToolchain extends BaseContainer {
                     route  : '#/learn/agentos/SwarmIntelligence',
                     content: [
                         'Peers wake peers through the night.',
-                        '10-20 pull requests merged with no operator awake.',
+                        '10-20 pull requests carried to approval, no operator awake.',
                         'Every change gated by cross-family quorum.',
-                        'Autonomy by construction, not a babysat loop.'
+                        'The human holds the merge gate - by governance, not limit.'
                     ]
                 }, {
                     module : ContentBox,
