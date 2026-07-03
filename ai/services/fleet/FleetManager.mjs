@@ -185,27 +185,29 @@ class FleetManager extends Base {
     }
 
     /**
-     * @summary Turnkey per-agent repo/data-dir override: record the agent's target repo + data-dir on
-     * its registry definition (under `metadata`) via the registry's partial update, so a later
-     * provisioned start can honor it. **Non-destructive to disk**, mirroring {@link removeAgent}: it
-     * does NOT move or delete the agent's existing checkout or its checkout-path-keyed auto-memory —
-     * that physical reconciliation is a Memory-Core policy that must land WITH the move, never orphan
-     * it here. Provisioning honoring the override is a separate follow-up leaf. A thin delegation:
-     * setting a definition facet needs no `managedRoot` / provisioning, so it forwards straight to the
-     * registry's `updateAgent` (fleet authority — the FM owns the definition registry, like
-     * `defineAgent`), not a cross-agent control-plane op.
-     * @param {String}  agentId Registry agent id.
+     * @summary Set the agent's working-repo coordinates on its registry definition — `metadata.repo =
+     * {cloneUrl, repoSlug}`, the EXACT convention {@link Neo.ai.services.fleet.startAgentProvisioned}
+     * already honors (it clones/reuses that repo and pins the harness `cwd` to the checkout). So this is
+     * functional end-to-end: the next provisioned start launches the agent in the newly-set repo. A thin
+     * fleet-authority delegation to the registry's partial update (the FM owns the definition registry,
+     * like `defineAgent`) — NOT a cross-agent control-plane op. **Non-destructive to disk**, mirroring
+     * {@link removeAgent}: it does not move or delete the agent's EXISTING checkout or its
+     * checkout-path-keyed auto-memory; the next provisioned start ensures the new checkout (clone-or-
+     * reuse, never clobber), and reconciling a now-stale old checkout is a Memory-Core policy, not
+     * orphaned here. Replaces `metadata.repo` wholesale (a repo is set as a unit); other metadata keys
+     * survive the merge.
+     * @param {String}  agentId  Registry agent id.
      * @param {Object}  repo
-     * @param {String} [repo.repoUrl] Target repository URL / override.
-     * @param {String} [repo.dataDir] Target data-dir override.
+     * @param {String} [repo.cloneUrl] The clone URL the provisioner clones from.
+     * @param {String} [repo.repoSlug] The repo slug (checkout-dir naming under the managed root).
      * @returns {Object|null} The updated public definition, or `null` if the agent doesn't exist.
      */
-    setRepo(agentId, {repoUrl, dataDir} = {}) {
-        const metadata = {};
-        if (repoUrl != null) metadata.repoUrl = repoUrl;
-        if (dataDir != null) metadata.dataDir = dataDir;
+    setRepo(agentId, {cloneUrl, repoSlug} = {}) {
+        const repo = {};
+        if (cloneUrl != null) repo.cloneUrl = cloneUrl;
+        if (repoSlug != null) repo.repoSlug = repoSlug;
 
-        return this.getLifecycleService().getRegistry().updateAgent(agentId, {metadata});
+        return this.getLifecycleService().getRegistry().updateAgent(agentId, {metadata: {repo}});
     }
 }
 

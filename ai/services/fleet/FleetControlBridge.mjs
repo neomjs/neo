@@ -157,11 +157,12 @@ class FleetControlBridge extends Base {
     }
 
     /**
-     * @summary Set an agent's target repo / data-dir override on its definition (fleet authority — the
-     * FM owns the registry, as with `defineAgent`). Non-destructive to the existing on-disk checkout;
-     * provisioning honoring the override is a separate follow-up leaf.
+     * @summary Set an agent's working-repo coordinates (`metadata.repo = {cloneUrl, repoSlug}`) on its
+     * definition (fleet authority — the FM owns the registry, as with `defineAgent`). Functional
+     * end-to-end: the provisioner already honors `metadata.repo`, so the next start launches the agent
+     * in the set repo. Non-destructive to the existing on-disk checkout.
      * @param {String} id Registry agent id.
-     * @param {Object} repo `{repoUrl?, dataDir?}` — the override facets to record.
+     * @param {Object} repo `{cloneUrl?, repoSlug?}` — the working-repo coordinates.
      * @returns {Object|null} the updated public definition, or `null` if the agent doesn't exist.
      */
     setRepo(id, repo) {

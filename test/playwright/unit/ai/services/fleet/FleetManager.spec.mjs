@@ -40,28 +40,28 @@ test.describe('Neo.ai.services.fleet.FleetManager.setRepo — fleet-authority de
         FleetManager.lifecycleService = null;
     });
 
-    test('records repoUrl + dataDir under metadata via the registry partial-update', () => {
-        const result = FleetManager.setRepo('alice', {repoUrl: 'https://github.com/x/y', dataDir: '/data/y'});
+    test('sets metadata.repo = {cloneUrl, repoSlug} — the convention the provisioner honors', () => {
+        const result = FleetManager.setRepo('alice', {cloneUrl: 'https://github.com/x/y.git', repoSlug: 'x/y'});
 
-        expect(calls).toEqual([['updateAgent', 'alice', {metadata: {repoUrl: 'https://github.com/x/y', dataDir: '/data/y'}}]]);
-        expect(result.metadata).toEqual({repoUrl: 'https://github.com/x/y', dataDir: '/data/y'});
+        expect(calls).toEqual([['updateAgent', 'alice', {metadata: {repo: {cloneUrl: 'https://github.com/x/y.git', repoSlug: 'x/y'}}}]]);
+        expect(result.metadata.repo).toEqual({cloneUrl: 'https://github.com/x/y.git', repoSlug: 'x/y'});
     });
 
-    test('omits an unset facet — no null/undefined leaks into the merged metadata', () => {
-        FleetManager.setRepo('alice', {repoUrl: 'https://github.com/x/y'});
+    test('omits an unset coordinate — no null/undefined leaks into metadata.repo', () => {
+        FleetManager.setRepo('alice', {cloneUrl: 'https://github.com/x/y.git'});
 
-        expect(calls).toEqual([['updateAgent', 'alice', {metadata: {repoUrl: 'https://github.com/x/y'}}]]);
+        expect(calls).toEqual([['updateAgent', 'alice', {metadata: {repo: {cloneUrl: 'https://github.com/x/y.git'}}}]]);
     });
 
-    test('with no facets passes an empty metadata patch (a safe no-op merge, not a wipe)', () => {
+    test('with no coordinates sets an empty metadata.repo (a safe no-op, not a wipe of other metadata)', () => {
         FleetManager.setRepo('alice', {});
 
-        expect(calls).toEqual([['updateAgent', 'alice', {metadata: {}}]]);
+        expect(calls).toEqual([['updateAgent', 'alice', {metadata: {repo: {}}}]]);
     });
 
     test('forwards the registry null (unknown agent) verbatim — no partial definition invented', () => {
         registryStub.updateAgent = (id, patch) => { calls.push(['updateAgent', id, patch]); return null; };
 
-        expect(FleetManager.setRepo('ghost', {repoUrl: 'https://github.com/x/y'})).toBeNull();
+        expect(FleetManager.setRepo('ghost', {cloneUrl: 'https://github.com/x/y.git'})).toBeNull();
     });
 });

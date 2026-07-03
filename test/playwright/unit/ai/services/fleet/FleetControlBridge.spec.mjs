@@ -100,7 +100,7 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
     });
 
     test('setRepo delegates to the manager definition-update (fleet authority, non-secret facet)', () => {
-        const repo = {repoUrl: 'https://github.com/x/y', dataDir: '/tmp/y'};
+        const repo = {cloneUrl: 'https://github.com/x/y.git', repoSlug: 'x/y'};
         expect(FleetControlBridge.setRepo('alice', repo)).toEqual({id: 'alice', metadata: repo});
         expect(calls).toEqual([['setRepo', 'alice', repo]]);
     });
