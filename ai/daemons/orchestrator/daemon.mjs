@@ -198,7 +198,8 @@ export async function startOrchestrator(options = {}) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
     // Boot guard: fail fast on a stale config overlay (missing a leaf its template added) with an
     // actionable --migrate-config message, rather than letting the orchestrator crash cryptically.
-    assertConfigFresh({aiConfig: AiConfig, entrypoint: 'orchestrator-daemon'})
+    const {findings} = AiConfig.validateRequiredEnv({entrypoint: 'orchestrator-daemon'});
+    assertConfigFresh({requiredFindings: findings})
         .then(() => startOrchestrator())
         .catch(err => {
             console.error(`[Orchestrator] Failed to start: ${err && err.stack ? err.stack : err}`);
