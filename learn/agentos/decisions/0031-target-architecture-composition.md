@@ -20,8 +20,8 @@ The canonical top-level scaffold is **Two Hemispheres** (ADR 0018 OD-3, operator
 2026-05-30): the **Body** — the multi-threaded application engine under `/src/` — and the
 **Brain** — the Agent OS under `/ai/` — joined by the **Neural Link** (the JSON-RPC WebSocket
 possession seam). Four-pillar language (Swarm / Evolution) is Brain-internal elaboration, never the
-top-level frame. The always-loaded `AGENTS.md` still carries two stale four-pillar anchors; their
-governed repair is #14526 (ADR 0018 + `neo-identity-update` + `turn-memory-pre-flight` apply).
+top-level frame. The always-loaded `AGENTS.md` carried two stale four-pillar anchors; #14526 is
+their governed repair (ADR 0018 + `neo-identity-update` + `turn-memory-pre-flight` apply).
 
 Beyond the two hemispheres, decisions also attach to two cross-cutting planes: the
 **Institution plane** (coordination, identity, process — how the swarm works the substrate) and
