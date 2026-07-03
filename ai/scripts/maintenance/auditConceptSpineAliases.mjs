@@ -2,6 +2,14 @@ import {Command}       from 'commander';
 import fs              from 'fs-extra';
 import path            from 'path';
 import {fileURLToPath} from 'url';
+import {
+    SEMANTIC_SPINE_NODE_TYPE_SET,
+    chooseCanonicalConceptId,
+    getConceptAliasKeys,
+    normalizeConceptKey
+} from '../../services/graph/conceptSpineCanonicalization.mjs';
+
+export {normalizeConceptKey};
 
 const __filename   = fileURLToPath(import.meta.url);
 const __dirname    = path.dirname(__filename);
@@ -9,7 +17,7 @@ const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 
 export const DEFAULT_OUTPUT_DIR = path.join(PROJECT_ROOT, 'learn', 'agentos', 'measurements');
 
-const SEMANTIC_NODE_LABELS = new Set(['CONCEPT', 'CLASS', 'PROCESS']);
+const SEMANTIC_NODE_LABELS = SEMANTIC_SPINE_NODE_TYPE_SET;
 const SEMANTIC_ID_PREFIXES = /^(CONCEPT|CLASS|PROCESS):/i;
 
 /**
@@ -50,27 +58,6 @@ export function parseArgs(argv, env = process.env) {
         json     : opts.json === true,
         help     : opts.help === true
     };
-}
-
-/**
- * @summary Normalizes a concept-ish id/name/alias into the detection key used for alias clustering.
- * @param {String} value Raw graph id, name, or alias.
- * @returns {String} Lowercase kebab-case key with known semantic prefixes stripped.
- */
-export function normalizeConceptKey(value) {
-    if (typeof value !== 'string') return '';
-
-    return value
-        .trim()
-        .replace(SEMANTIC_ID_PREFIXES, '')
-        .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
-        .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-        .normalize('NFKD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/&/g, ' and ')
-        .replace(/[^A-Za-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '')
-        .toLowerCase();
 }
 
 /**
@@ -137,7 +124,7 @@ export function createConceptSpineAliasReport({
         keyNodes      = new Map();
 
     for (const node of semanticNodes) {
-        const keys = getNodeAliasKeys(node);
+        const keys = getConceptAliasKeys(node);
         if (keys.length === 0) continue;
 
         nodeKeys.set(node.id, keys);
@@ -320,23 +307,13 @@ function isSemanticSpineNode(node) {
     return SEMANTIC_NODE_LABELS.has(node.label) || SEMANTIC_ID_PREFIXES.test(node.id);
 }
 
-function getNodeAliasKeys(node) {
-    const values = [
-        node.id,
-        node.name,
-        ...(Array.isArray(node.aliases) ? node.aliases : [])
-    ];
-
-    return [...new Set(values.map(normalizeConceptKey).filter(Boolean))];
-}
-
 function buildCluster(group, nodesById, nodeKeys, edges) {
     const
         nodeIds      = [...group.nodeIds].sort(),
         nodes        = nodeIds.map(id => nodesById.get(id)).filter(Boolean),
         keys         = [...group.keys].sort(),
         keySet       = new Set(keys),
-        canonical    = chooseCanonicalCandidate(nodeIds, keySet),
+        canonical    = chooseCanonicalConceptId(nodeIds, keySet),
         neighborhood = summarizeNeighborhood(nodeIds, edges);
 
     return {
@@ -352,19 +329,6 @@ function buildCluster(group, nodesById, nodeKeys, edges) {
         })),
         neighborhood
     };
-}
-
-function chooseCanonicalCandidate(nodeIds, keySet) {
-    const bareExact = nodeIds.find(id => !id.includes(':') && keySet.has(id) && normalizeConceptKey(id) === id);
-    if (bareExact) return bareExact;
-
-    const sorted = [...nodeIds].sort((a, b) => {
-        const aPrefix = a.includes(':') ? 1 : 0;
-        const bPrefix = b.includes(':') ? 1 : 0;
-        return aPrefix - bPrefix || a.length - b.length || a.localeCompare(b);
-    });
-
-    return normalizeConceptKey(sorted[0] || '');
 }
 
 function summarizeNeighborhood(nodeIds, edges) {

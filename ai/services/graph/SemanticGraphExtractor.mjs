@@ -15,6 +15,10 @@ import {
 } from '../../services/memory-core/helpers/remRunStateStore.mjs';
 import Json                                            from '../../../src/util/Json.mjs';
 import logger                                          from '../../mcp/server/memory-core/logger.mjs';
+import {
+    canonicalizeSemanticGraphNodeId,
+    canonicalizeTaggedConceptIds
+} from './conceptSpineCanonicalization.mjs';
 import {buildGraphProvider, resolveGraphModelProvider} from './providerDispatch.mjs';
 import {chunkSession}                                  from './sessionChunker.mjs';
 
@@ -829,6 +833,7 @@ class SemanticGraphExtractor extends Base {
                 nodeId = `${nodeType}:${cleanName}`;
             }
             nodeId = this.normalizeMemorySessionGraphNodeId(nodeId);
+            nodeId = canonicalizeSemanticGraphNodeId({id: nodeId, type: nodeType, name: node.name});
 
             GraphService.upsertNode({
                 id              : nodeId,
@@ -864,6 +869,8 @@ class SemanticGraphExtractor extends Base {
 
             resolvedSource = this.normalizeMemorySessionGraphNodeId(resolvedSource);
             resolvedTarget = this.normalizeMemorySessionGraphNodeId(resolvedTarget);
+            resolvedSource = canonicalizeSemanticGraphNodeId({id: resolvedSource});
+            resolvedTarget = canonicalizeSemanticGraphNodeId({id: resolvedTarget});
 
             const sourceExists = validNodeRefs.has(resolvedSource) || GraphService.db.nodes.has(resolvedSource);
             const targetExists = validNodeRefs.has(resolvedTarget) || GraphService.db.nodes.has(resolvedTarget);
@@ -1211,7 +1218,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                 return [];
             }
 
-            const validConcepts = payload.concepts.filter(c => typeof c === 'string' && c.includes(':'));
+            const validConcepts = canonicalizeTaggedConceptIds(payload.concepts.filter(c => typeof c === 'string' && c.includes(':')));
             logger.info(`[SemanticGraphExtractor] Extracted ${validConcepts.length} concepts from message.`);
             return validConcepts;
 
