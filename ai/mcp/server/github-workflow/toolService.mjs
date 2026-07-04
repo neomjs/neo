@@ -1,20 +1,20 @@
-import {execFile}         from 'child_process';
-import path               from 'path';
-import {fileURLToPath}    from 'url';
-import {promisify}        from 'util';
-import AgentStateService  from '../../../services/github-workflow/AgentStateService.mjs';
-import HealthService      from '../../../services/github-workflow/HealthService.mjs';
-import IssueService       from '../../../services/github-workflow/IssueService.mjs';
-import DiscussionService  from '../../../services/github-workflow/DiscussionService.mjs';
-import LabelService       from '../../../services/github-workflow/LabelService.mjs';
-import LocalFileService   from '../../../services/github-workflow/LocalFileService.mjs';
-import PullRequestService from '../../../services/github-workflow/PullRequestService.mjs';
-import RepositoryService  from '../../../services/github-workflow/RepositoryService.mjs';
-import ToolService        from '../../ToolService.mjs';
-import SyncService        from '../../../services/github-workflow/SyncService.mjs';
+import {execFile}                                                                      from 'child_process';
+import path                                                                            from 'path';
+import {fileURLToPath}                                                                 from 'url';
+import {promisify}                                                                     from 'util';
+import AgentStateService                                                               from '../../../services/github-workflow/AgentStateService.mjs';
+import HealthService                                                                   from '../../../services/github-workflow/HealthService.mjs';
+import IssueService                                                                    from '../../../services/github-workflow/IssueService.mjs';
+import DiscussionService                                                               from '../../../services/github-workflow/DiscussionService.mjs';
+import LabelService                                                                    from '../../../services/github-workflow/LabelService.mjs';
+import LocalFileService                                                                from '../../../services/github-workflow/LocalFileService.mjs';
+import PullRequestService                                                              from '../../../services/github-workflow/PullRequestService.mjs';
+import RepositoryService                                                               from '../../../services/github-workflow/RepositoryService.mjs';
+import ToolService                                                                     from '../../ToolService.mjs';
+import SyncService                                                                     from '../../../services/github-workflow/SyncService.mjs';
 import {assertExpectedIdentity as assertExpectedGitHubIdentity, IdentityAssertionCode} from '../../../graph/assertExpectedIdentity.mjs';
-import RequestContextService from '../shared/services/RequestContextService.mjs';
-import config             from './config.mjs';
+import RequestContextService                                                           from '../shared/services/RequestContextService.mjs';
+import config                                                                          from './config.mjs';
 
 const execFileAsync   = promisify(execFile);
 const __filename      = fileURLToPath(import.meta.url);
@@ -160,6 +160,25 @@ function getGitHubIdentityErrorCode(code) {
 }
 
 /**
+ * @summary Groups write-boundary identity failures into operator-actionable classes.
+ * @param {String} code The shared assertion's `code`.
+ * @returns {String}
+ */
+function getGitHubIdentityErrorClass(code) {
+    switch (code) {
+        case IdentityAssertionCode.NO_AUTHED_LOGIN:
+            return 'identity-resolution-transient';
+        case IdentityAssertionCode.LOGIN_MISMATCH:
+        case IdentityAssertionCode.MEMORY_CORE_MISMATCH:
+            return 'identity-mismatch';
+        case IdentityAssertionCode.EXPECTED_UNMAPPABLE:
+            return 'identity-configuration';
+        default:
+            return 'identity-assertion';
+    }
+}
+
+/**
  * @summary Builds a structured identity guard error for GitHub write-boundary failures.
  * @param {Object} assertion Shared identity assertion failure payload.
  * @returns {Error}
@@ -170,7 +189,8 @@ function createGitHubIdentityError(assertion) {
 
     Object.assign(error, {
         ...assertion,
-        code: getGitHubIdentityErrorCode(assertion.code)
+        code         : getGitHubIdentityErrorCode(assertion.code),
+        identityClass: getGitHubIdentityErrorClass(assertion.code)
     });
 
     return error;
@@ -211,6 +231,15 @@ async function defaultGitHubIdentityAssertion() {
 }
 
 /**
+ * @summary Returns true when an identity assertion is the retryable empty-login resolution class.
+ * @param {Object} assertion Shared identity assertion payload.
+ * @returns {Boolean}
+ */
+function shouldRetryGitHubIdentityAssertion(assertion) {
+    return assertion?.code === IdentityAssertionCode.NO_AUTHED_LOGIN;
+}
+
+/**
  * @summary Wraps a public GitHub write with fail-closed identity-drift validation.
  *
  * The delegate is never invoked unless the expected agent identity and effective
@@ -220,13 +249,19 @@ async function defaultGitHubIdentityAssertion() {
  * @param {Function} delegate The mutating GitHub tool handler.
  * @param {Object} [options]
  * @param {Function} [options.assertExpectedIdentity] Shared identity assertion seam.
+ * @param {Number} [options.identityResolutionRetries=1] Number of retry attempts for transient empty-login resolution.
  * @returns {Function} Guarded async tool handler.
  */
 function buildGitHubWriteIdentityGuard(delegate, {
-    assertExpectedIdentity = defaultGitHubIdentityAssertion
+    assertExpectedIdentity    = defaultGitHubIdentityAssertion,
+    identityResolutionRetries = 1
 } = {}) {
     return async function githubWriteIdentityGuard(...args) {
-        const assertion = await assertExpectedIdentity();
+        let assertion = await assertExpectedIdentity();
+
+        for (let retry = 0; !assertion.ok && retry < identityResolutionRetries && shouldRetryGitHubIdentityAssertion(assertion); retry++) {
+            assertion = await assertExpectedIdentity();
+        }
 
         if (!assertion.ok) {
             throw createGitHubIdentityError(assertion);
@@ -281,7 +316,7 @@ async function defaultBranchDetector() {
     }
 
     const normalizedProjectRoot = path.resolve(config.projectRoot);
-    const normalizedToplevel = path.resolve(toplevel);
+    const normalizedToplevel    = path.resolve(toplevel);
 
     if (normalizedProjectRoot !== normalizedToplevel) {
         throw new Error(
@@ -434,9 +469,9 @@ export {
 };
 
 const toolService = Neo.create(ToolService, {
-    compactToolDescriptions    : true,
+    compactToolDescriptions     : true,
     openApiFilePath,
-    serviceMapping: guardedServiceMapping,
+    serviceMapping              : guardedServiceMapping,
     toolListDescriptionMaxLength: 120
 });
 
