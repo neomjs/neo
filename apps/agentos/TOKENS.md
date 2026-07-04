@@ -10,6 +10,7 @@ The token vocabulary every cockpit view leaf consumes — the design floor of th
 | Signal | `--fm-signal` | live/key-action accent — used sparingly | chrome title, live badge, lane-line emphasis | static; sparing use is a design rule, lint-greppable by count |
 | Session states | `--fm-state-ok/idle/wedged/limited/off` | agent SESSION state — never identity (ADR 0032 §2.3.1) | state dots + health bar (`#14593`, `#14599`) | bound from the runtime-status wire (`#14595`) |
 | Family rails | `--fm-family-claude/gpt/gemini/human` | the resident's CURRENT episode family (ADR 0032 §2.3.3) | card rail (`#14598`), legend | **data-driven from the era key — never a per-agent constant; a family switch re-renders in place, same resident** |
+| Event kinds | `--fm-kind-pr/a2a/review/alert/neutral` | event CATEGORY — a SEPARATE axis from session state (kind = *what happened*, state = *agent health*); hues kept clear of the state health-hues so they never blur where they co-occur | event chips in the activity stream (`#14606`) + agent detail (`#14608`) | resolved via the kind registry (`#14639`); unknown kind → `--fm-kind-neutral` |
 | Type stacks | `--fm-font-mono` · `--fm-font-sans` | meta/labels vs body | all leaves | static |
 
 ## Motion

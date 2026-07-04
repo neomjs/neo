@@ -1,10 +1,10 @@
 /*
  * Fleet cockpit component primitives — geometry + motion over the --fm-* token layer.
  *
- * COLOR is never declared here: the component reads a --fm-dot custom property that it binds
- * from the token layer (tokens.css). These rules carry only shape and the reduced-motion-gated
- * pulse. The pulse is decoration — the dot's COLOR carries the signal, so reduced-motion users
- * lose nothing informational.
+ * COLOR is never declared here: each component reads a --fm-* custom property (--fm-dot, --fm-chip)
+ * that it binds from the token layer (tokens.css). These rules carry only shape and the
+ * reduced-motion-gated pulse. The pulse is decoration — the dot's COLOR carries the signal, so
+ * reduced-motion users lose nothing informational.
  */
 
 .fm-state-dot {
@@ -14,6 +14,23 @@
     border-radius: 50%;
     background   : var(--fm-dot, var(--fm-state-off));
     box-shadow   : 0 0 0 3px color-mix(in srgb, var(--fm-dot, var(--fm-state-off)) 22%, transparent);
+}
+
+/* Event-kind chip: a tinted-outline plate colored entirely by the kind token (--fm-chip) —
+   text, border, and faint fill are all color-mixed from that one custom property, so a kind
+   set that grows never adds a hand-rolled color and an unknown kind reads as neutral. */
+.fm-event-chip {
+    display       : inline-block;
+    padding       : 1px 6px;
+    border-radius : 4px;
+    font-family   : var(--fm-font-mono);
+    font-size     : 10px;
+    font-weight   : 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color         : var(--fm-chip, var(--fm-state-off));
+    background    : color-mix(in srgb, var(--fm-chip, var(--fm-state-off)) 14%, transparent);
+    border        : 1px solid color-mix(in srgb, var(--fm-chip, var(--fm-state-off)) 34%, transparent);
 }
 
 /* Pulse: decoration only, gated behind reduced-motion. The color already carries the signal. */
