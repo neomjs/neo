@@ -6,13 +6,16 @@
  * Consumption contract (neo-core idiom, load-bearing): the flow state itself LIVES on the
  * create-module's `state.Provider` — provider `data` (e.g. `flowState`, `flowReason`) that
  * views consume via bindings, with the transition admitted or refused by consulting
- * {@link nextCreationState} at the ONE place that writes it. A provider — not component-local
- * state — because the wedge's promote step moves the created panel into its own OS window BY
- * DESIGN: a provider on the app-worker heap stays reachable from component trees in different
- * browser windows, and it can expose the created-instances store via its `stores_` config for
- * the same cross-window reach. This module is that writer's ORACLE (which transitions are legal
- * — domain knowledge the class system does not provide); it is never a parallel state store,
- * and the view must not re-derive "which state" from a bag of booleans.
+ * {@link nextCreationState} at the ONE place that writes it. A provider — rather than a config
+ * on one component — because the flow state has MANY consumers across the module's tree (chat
+ * surface, blueprint preview, pane chrome, promote affordance): each gets a declarative `bind`
+ * to the same truth instead of locating and reaching into a specific component. All of this
+ * state lives in the shared app worker either way (windows are render targets — instances and
+ * their configs are naturally window-agnostic), so the promote step works across windows for
+ * free; the provider's contribution is the shared-binding surface, plus `stores_` exposure of
+ * the created-instances registry. This module is that writer's ORACLE (which transitions are
+ * legal — domain knowledge the class system does not provide); it is never a parallel state
+ * store, and the view must not re-derive "which state" from a bag of booleans.
  *
  * The oracle mirrors the pipeline's refusal vocabulary: `nextCreationState` never throws — an
  * illegal transition returns the CURRENT state plus a reason, so the hook cancels the update
