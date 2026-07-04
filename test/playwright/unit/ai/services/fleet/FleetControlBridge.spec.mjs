@@ -117,6 +117,12 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
         expect(calls).toEqual([['fleetRepoStatus']]);
     });
 
+    test('fleetRuntimeStatus delegates to the manager runtime aggregator', () => {
+        managerStub.fleetRuntimeStatus = () => { calls.push(['fleetRuntimeStatus']); return [{agentId: 'alice', state: 'running', running: true, confidence: 'observed', source: 'fleet:runtimeStatus'}]; };
+        expect(FleetControlBridge.fleetRuntimeStatus()).toEqual([{agentId: 'alice', state: 'running', running: true, confidence: 'observed', source: 'fleet:runtimeStatus'}]);
+        expect(calls).toEqual([['fleetRuntimeStatus']]);
+    });
+
     // ---- the security boundary: the allowlist OMITS the Brain-internal secret paths ----
 
     test('the surface exposes NO Brain-internal secret accessor (the capability allowlist)', () => {
