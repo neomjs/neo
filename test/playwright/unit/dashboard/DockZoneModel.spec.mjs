@@ -161,12 +161,74 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
                 title   : 'Operator Default'
             });
 
-            layout.schema = 'neo.harness.dockLayout.v2';
+            layout.schema = 'neo.harness.dockLayout.v3';
 
             const {document, errors} = DockZoneModel.restoreSavedLayout(layout);
 
             expect(document).toBe(null);
             expect(errors.join(' ')).toContain(DockZoneModel.LAYOUT_SCHEMA)
+        });
+
+        test('reads a legacy v1 record fail-open with honest perspective defaults', () => {
+            const {layout} = DockZoneModel.createSavedLayout(doc(), {
+                layoutId: 'legacy',
+                title   : 'Legacy Layout'
+            });
+
+            // shape a stored-era v1 record: old schema tag, no perspective fields
+            const v1 = {...layout, schema: DockZoneModel.LAYOUT_SCHEMA_V1};
+            delete v1.captureScope;
+            delete v1.windowFingerprint;
+
+            const restored = DockZoneModel.restoreSavedLayout(v1);
+
+            expect(restored.errors).toEqual([]);
+            expect(restored.document).toEqual(layout.dockZone);
+            // the input record is never mutated (pure migration)
+            expect(v1.schema).toBe(DockZoneModel.LAYOUT_SCHEMA_V1);
+            expect('captureScope' in v1).toBe(false)
+        });
+
+        test('migrateSavedLayout upgrades v1 with defaults and is idempotent on v2', () => {
+            const v1 = {schema: DockZoneModel.LAYOUT_SCHEMA_V1, layoutId: 'a', title: 'A', dockZone: {}};
+
+            const migrated = DockZoneModel.migrateSavedLayout(v1);
+
+            expect(migrated.schema).toBe(DockZoneModel.LAYOUT_SCHEMA);
+            expect(migrated.captureScope).toBe('window');
+            expect(migrated.windowFingerprint).toBe(null);
+            expect('perspectiveName' in migrated).toBe(false);
+            expect(DockZoneModel.migrateSavedLayout(migrated)).toBe(migrated)
+        });
+
+        test('round-trips the v2 perspective fields (topology scope, fingerprint, name)', () => {
+            const {layout, errors} = DockZoneModel.createSavedLayout(doc(), {
+                layoutId         : 'focus',
+                title            : 'Focus',
+                captureScope     : 'topology',
+                windowFingerprint: {windows: 2, splits: [2, 1]},
+                perspectiveName  : 'Focus Mode'
+            });
+
+            expect(errors).toEqual([]);
+            expect(layout.captureScope).toBe('topology');
+            expect(layout.windowFingerprint).toEqual({windows: 2, splits: [2, 1]});
+            expect(layout.perspectiveName).toBe('Focus Mode');
+            expect(DockZoneModel.restoreSavedLayout(layout).errors).toEqual([])
+        });
+
+        test('fails closed on perspective-field contract violations', () => {
+            const badScope = DockZoneModel.createSavedLayout(doc(), {layoutId: 'x', title: 'X', captureScope: 'galaxy'});
+            expect(badScope.layout).toBe(null);
+            expect(badScope.errors.join(' ')).toContain('captureScope');
+
+            const badPrint = DockZoneModel.createSavedLayout(doc(), {layoutId: 'x', title: 'X', windowFingerprint: 'w1'});
+            expect(badPrint.layout).toBe(null);
+            expect(badPrint.errors.join(' ')).toContain('windowFingerprint');
+
+            const badName = DockZoneModel.createSavedLayout(doc(), {layoutId: 'x', title: 'X', perspectiveName: '  '});
+            expect(badName.layout).toBe(null);
+            expect(badName.errors.join(' ')).toContain('perspectiveName')
         });
 
         test('fails closed for malformed wrapper identity fields', () => {
