@@ -610,7 +610,14 @@ class Config extends ConfigProvider {
                      * non-overflow cycles that prove backlog remains.
                      */
                     remBacklogCatchupCooldownMs: leaf(5 * 60 * 1000, 'NEO_ORCHESTRATOR_REM_BACKLOG_CATCHUP_COOLDOWN_MS', 'number'),
-                    goldenPathMs               : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_GOLDEN_PATH_INTERVAL_MS', 'number'),
+                    /**
+                     * Staleness threshold past which a genuine REM consolidation STARVATION (stale + an
+                     * undigested backlog) forces one cycle regardless of the catch-up cooldown / heavy-slot
+                     * contention. Multi-hour by design — well past normal contention-yielding, so only real
+                     * starvation trips it; `0` disables. Consumed by the starvation-breaker in `dream.mjs`.
+                     */
+                    remStarvationBreakerMs: leaf(2 * HOUR_MS, 'NEO_ORCHESTRATOR_REM_STARVATION_BREAKER_MS', 'number'),
+                    goldenPathMs          : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_GOLDEN_PATH_INTERVAL_MS', 'number'),
                     /**
                      * Generic swarm-heartbeat / watchdog nudge cadence — the periodic pulse that fires a
                      * wake digest even with no new messages. Set to 20 min so the generic watchdog nudge
