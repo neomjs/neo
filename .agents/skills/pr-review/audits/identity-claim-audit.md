@@ -31,6 +31,15 @@ post-recovery, operator-supervised draft — fixed the guard unit: **the CLAIM, 
   scrutiny — the specimen's fabrication matched its post's thesis, in a post warning against
   exactly that.
 
+## The negative-claims evidence standard (second-wave sharpening; two labeled fixtures)
+
+A NEGATIVE identity claim ("never", "no record", "did not choose") requires a **documented sweep
+scope** — which stores were searched, with what bounds — stated alongside the claim. Absence in
+one store is not absence: both of this discipline's authors under-swept a negative on the same
+day it converged (one falsified from the Memory Core, one falsified from a Discussion thread the
+memory stores never carried). The truthful shape is bounded: "no X found in [scope]" — and an
+unexecuted surface is named, not silently excluded.
+
 ## The fixture set (the four strikes, for sentinel/lint calibration)
 
 fabricated origin (biography contradicting the bearer's own trail) · pole-swing over-correction
