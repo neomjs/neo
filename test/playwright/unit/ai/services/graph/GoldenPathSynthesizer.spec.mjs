@@ -406,10 +406,11 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
 
         expect(handoffContent).toContain('## Handoff Retrospective (3-Day');
-        expect(handoffContent).toContain('- Merged PRs: 1 `[filters: merged+opened PRs · closed+opened issues, all authors]`');
-        expect(handoffContent).toContain('- Opened PRs: 1 `[filters: merged+opened PRs · closed+opened issues, all authors]`');
-        expect(handoffContent).toContain('- Closed issues: 1 `[filters: merged+opened PRs · closed+opened issues, all authors]`');
-        expect(handoffContent).toContain('- Opened issues: 1 `[filters: merged+opened PRs · closed+opened issues, all authors]`');
+        expect(handoffContent).toContain('- Merged PRs: 1 `[filters: merged+opened PRs · closed+opened issues · sessions, all authors]`');
+        expect(handoffContent).toContain('- Opened PRs: 1 `[filters: merged+opened PRs · closed+opened issues · sessions, all authors]`');
+        expect(handoffContent).toContain('- Closed issues: 1 `[filters: merged+opened PRs · closed+opened issues · sessions, all authors]`');
+        expect(handoffContent).toContain('- Opened issues: 1 `[filters: merged+opened PRs · closed+opened issues · sessions, all authors]`');
+        expect(handoffContent).toContain('- Sessions: 0 `[filters: merged+opened PRs · closed+opened issues · sessions, all authors]`'); // the mock summary collection has no ids — class live, honestly zero
         expect(handoffContent).toContain('PR #14678 — keeper request route');
         expect(handoffContent).toContain('PR #14682 — registry snapshot clone');
         expect(handoffContent).toContain('#14588 — GP zero-routes collapse');
