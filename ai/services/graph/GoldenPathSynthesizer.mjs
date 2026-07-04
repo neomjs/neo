@@ -53,6 +53,10 @@ import {
     renderConceptSliceSection        as renderGraphConceptSliceSection
 } from './conceptSliceBuilder.mjs';
 import {
+    STRUCTURAL_COLD_START_EPSILON,
+    inheritParentStructuralWeight
+} from './goldenPathPickupBridge.mjs';
+import {
     buildCurrentFocusCandidates as buildIssueFocusCurrentFocusCandidates,
     buildSilentThreadCandidates as buildIssueFocusSilentThreadCandidates,
     buildStaleAssignmentCandidates as buildIssueFocusStaleAssignmentCandidates,
@@ -721,7 +725,22 @@ class GoldenPathSynthesizer extends Base {
 
                     // Guarantee graph topology is completely loaded into RAM BEFORE executing cold-cache resistant queries natively!
                     GraphService.db.getAdjacentNodes(issueId, 'both');
-                    const struct_score = parseFloat(row.struct_score) || 0;
+                    const rawStructScore = parseFloat(row.struct_score) || 0;
+
+                    // #14659 fail-open parent-inheritance (ticket-ref-ok: owning-leaf anchor): a cold-start (~0)
+                    // leaf inherits alpha * its parent-epic structural weight, so tree-filed leaves are visible to
+                    // the normal formula, not just the fallback. Non-cold-start scores pass through untouched, so
+                    // the base route is preserved. Reuses the verified getIssueStructuralWeight query for the parent.
+                    let struct_score = rawStructScore;
+                    if (rawStructScore <= STRUCTURAL_COLD_START_EPSILON) {
+                        const parentEdge = GraphService.db.edges.getByIndex('target', issueId).find(e => e.type === 'PARENT_OF');
+                        if (parentEdge) {
+                            struct_score = inheritParentStructuralWeight({
+                                structuralWeight      : rawStructScore,
+                                parentStructuralWeight: getIssueFocusStructuralWeight(parentEdge.source)
+                            });
+                        }
+                    }
 
                     let nodeData = null;
                     try { nodeData = JSON.parse(row.data); } catch (e) { }
