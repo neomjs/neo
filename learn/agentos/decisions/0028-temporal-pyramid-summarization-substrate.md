@@ -59,6 +59,14 @@ Durable tiers carry structured fields, each with a **named source substrate**; p
 | `adrsLanded` | `learn/agentos/decisions/` + `AdrIngestor` ADR nodes |
 | `sandboxesGraduated` | Discussion graduation markers (GitHub Discussions sync) |
 
+> **Amended by ADR 0033 (the direction contract):** durable L1/L2 records additionally carry
+> `directionBreakdown` (`{"<directionKey>@<mappingVersion>": share}` — side-table fallback at the
+> cardinality probe) and `windowSemantics.filterSets` (declared motion-class filters; falsifier
+> symmetry). Per-direction `{v, s, r}` components aggregate FROM breakdowns on the SAME §2.3
+> deterministic lane — the single-writer invariant is unchanged. Field-level implementation lands
+> with ADR 0033's velocity leaf, which updates this table in the same PR (mirroring the §2.7
+> pre-declared obligation pattern).
+
 ### 2.5 Fidelity — citation discipline (Discussion OQ5)
 
 Higher tiers cite sessions with `impact >= 90` and accepted ADRs **directly**; PR fidelity flows through a named source (accepted-ADR links, epic labels, high-impact review metadata). **No invented universal PR impact score.**
