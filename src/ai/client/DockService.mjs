@@ -1,5 +1,6 @@
-import DockZoneModel from '../../dashboard/DockZoneModel.mjs';
-import Service       from './Service.mjs';
+import DockTopologyDiff from '../../dashboard/DockTopologyDiff.mjs';
+import DockZoneModel    from '../../dashboard/DockZoneModel.mjs';
+import Service          from './Service.mjs';
 
 /**
  * Handles dock-layout Neural Link requests: topology readout and semantic operation execution
@@ -91,6 +92,21 @@ class DockService extends Service {
             document  : this.readDocument(holder),
             operations: DockService.operations
         }
+    }
+
+    /**
+     * Computes a semantic, snapshot-stable diff between a supplied before-document and the
+     * holder's current live dock document.
+     * @param {Object} params
+     * @param {String} params.componentId     The dock workspace / holder component id
+     * @param {Object} params.beforeDocument  The earlier dockZone.v1 document to compare against
+     * @param {Number} [params.sizeEpsilon]   Optional resize tolerance on split size fractions
+     * @returns {Object} The {@link Neo.dashboard.DockTopologyDiff#diffDockDocuments} result
+     */
+    async diffDockTopology({componentId, beforeDocument, sizeEpsilon}) {
+        const holder = this.resolveHolder(componentId);
+
+        return DockTopologyDiff.diffDockDocuments(beforeDocument, this.readDocument(holder), {sizeEpsilon})
     }
 
     /**

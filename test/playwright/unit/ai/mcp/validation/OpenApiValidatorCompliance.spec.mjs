@@ -96,6 +96,7 @@ const expectedNeuralLinkToolTiers = {
     commit_transaction           : 'write-locked',
     create_component             : 'write-locked',
     create_instance              : 'write-locked',
+    diff_dock_topology           : 'read',
     execute_dock_operation       : 'write-locked',
     find_instances               : 'read',
     focus_window                 : 'write-locked',

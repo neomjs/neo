@@ -124,6 +124,7 @@ class Client extends Base {
             query_vdom         : component,
             verify_component   : component,
 
+            diff_dock_topology    : dock,
             execute_dock_operation: dock,
             get_dock_topology     : dock,
 
