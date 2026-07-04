@@ -234,6 +234,40 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             expect(DockZoneModel.restoreSavedLayout(layout).errors).toEqual([])
         });
 
+        test('stored fingerprint matches the PERSISTED document, not the pre-normalized input (single-child split collapse)', () => {
+            // a split with one child normalizes away — the persisted root becomes the child tabs
+            const d = splitDoc();
+            d.nodes['main-split'].children = ['main-tabs'];
+            d.nodes['main-split'].sizes    = [1];
+            delete d.nodes['side-tabs'];
+            delete d.items.terminal;
+
+            const {layout, errors} = DockZoneModel.capturePerspective(d, {layoutId: 'c', title: 'C'});
+
+            expect(errors).toEqual([]);
+            // the stored fingerprint must equal the persisted tree's fingerprint by construction…
+            expect(layout.windowFingerprint)
+                .toEqual(DockZoneModel.computeShapeFingerprint(layout.dockZone).fingerprint);
+            // …and must NOT carry the collapsed split wrapper the raw input had
+            expect(layout.windowFingerprint.shape)
+                .not.toBe(DockZoneModel.computeShapeFingerprint(d).fingerprint.shape);
+            expect(layout.windowFingerprint.shape).not.toContain('h(')
+        });
+
+        test('cyclic node graphs fail closed through the public return shapes, never a throw', () => {
+            const cyclic = doc();
+            cyclic.nodes['loop-split'] = {type: 'split', orientation: 'horizontal', children: ['main-tabs', 'loop-split'], sizes: [0.5, 0.5]};
+            cyclic.nodes.root.zones.center = 'loop-split';
+
+            const direct = DockZoneModel.computeShapeFingerprint(cyclic);
+            expect(direct.fingerprint).toBe(null);
+            expect(direct.errors.join(' ')).toContain('cycle');
+
+            const captured = DockZoneModel.capturePerspective(cyclic, {layoutId: 'x', title: 'X'});
+            expect(captured.layout).toBe(null);
+            expect(captured.errors.length).toBeGreaterThan(0)
+        });
+
         test('shape fingerprints are deterministic, id-free and shape-sensitive', () => {
             const a = DockZoneModel.computeShapeFingerprint(doc()),
                   b = DockZoneModel.computeShapeFingerprint(doc());

@@ -742,7 +742,8 @@ class DockZoneModel extends Base {
             return {fingerprint: null, errors: ['fingerprint requires a document with a nodes record']}
         }
 
-        const counts = {'edge-zone': 0, split: 0, tabs: 0};
+        const counts  = {'edge-zone': 0, split: 0, tabs: 0},
+              visited = new Set();
 
         const walk = nodeId => {
             const node = document.nodes[nodeId];
@@ -751,6 +752,15 @@ class DockZoneModel extends Base {
                 errors.push(`fingerprint walk found no node for id "${nodeId}"`);
                 return '?'
             }
+
+            // cycle guard: a node graph that references an ancestor would recurse forever —
+            // fail closed through the errors path, never a RangeError out of the public API
+            if (visited.has(nodeId)) {
+                errors.push(`fingerprint walk detected a cycle at node "${nodeId}"`);
+                return '?'
+            }
+
+            visited.add(nodeId);
 
             counts[node.type] = (counts[node.type] || 0) + 1;
 
@@ -791,26 +801,47 @@ class DockZoneModel extends Base {
      *
      * The single-window capture scope: layout truth only enters the record — the committed
      * document tree — never render projections, runtime handles or pane-internal state (panes
-     * are layout-blind, so their internals are not the layout's to save). The shape fingerprint
-     * is computed at capture time so restore paths can distinguish same-shape from
-     * changed-shape targets without ever comparing ids.
+     * are layout-blind, so their internals are not the layout's to save).
+     *
+     * Fingerprint-coherence by construction: the wrapper is written FIRST (validate + normalize
+     * through the one writer path), and the fingerprint is computed from the PERSISTED
+     * `layout.dockZone` — never the raw input — so the stored fingerprint cannot describe a
+     * tree the record does not contain (normalization collapses e.g. a single-child split to
+     * its child; a pre-normalization fingerprint would immortalize the collapsed wrapper).
      * @param {Object} document The committed dock-zone document to capture.
      * @param {Object} [metadata={}] {layoutId, title, revision, metadata, perspectiveName}
      * @returns {{layout:(Object|null), errors:String[]}}
      * @static
      */
     static capturePerspective(document, metadata={}) {
-        const {fingerprint, errors} = DockZoneModel.computeShapeFingerprint(document);
+        // pre-probe the RAW input purely as the cycle/shape gate: the writer's normalize pass
+        // recurses and must never see a cyclic graph; the probe's fingerprint is DISCARDED so
+        // coherence with the persisted tree is never at risk
+        const probe = DockZoneModel.computeShapeFingerprint(document);
+
+        if (probe.errors.length) {
+            return {layout: null, errors: probe.errors}
+        }
+
+        const written = DockZoneModel.createSavedLayout(document, {
+            ...metadata,
+            captureScope     : 'window',
+            windowFingerprint: null
+        });
+
+        if (written.errors.length) {
+            return written
+        }
+
+        const {fingerprint, errors} = DockZoneModel.computeShapeFingerprint(written.layout.dockZone);
 
         if (errors.length) {
             return {layout: null, errors}
         }
 
-        return DockZoneModel.createSavedLayout(document, {
-            ...metadata,
-            captureScope     : 'window',
-            windowFingerprint: fingerprint
-        })
+        written.layout.windowFingerprint = fingerprint;
+
+        return written
     }
 
     /**
