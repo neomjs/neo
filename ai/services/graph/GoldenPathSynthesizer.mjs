@@ -632,6 +632,31 @@ class GoldenPathSynthesizer extends Base {
     }
 
     /**
+     * @summary Fetches issues closed within a window — the same bounded day-granularity search
+     * pattern as the merged-PR reader; one fact class of the retrospective's declared coverage.
+     * @param {Date} since Lower window bound.
+     * @returns {Promise<Array<{number: Number, title: String, closedAt: String}>>}
+     */
+    async fetchRecentClosedIssues(since) {
+        const { execSync } = await import('child_process');
+        const sinceDate    = since.toISOString().slice(0, 10);
+        const raw          = execSync(`gh issue list --state closed --search "closed:>=${sinceDate}" --json number,title,closedAt --limit 50`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
+        return JSON.parse(raw);
+    }
+
+    /**
+     * @summary Fetches issues opened within a window — the opened-side sibling of the closed reader.
+     * @param {Date} since Lower window bound.
+     * @returns {Promise<Array<{number: Number, title: String, createdAt: String}>>}
+     */
+    async fetchRecentOpenedIssues(since) {
+        const { execSync } = await import('child_process');
+        const sinceDate    = since.toISOString().slice(0, 10);
+        const raw          = execSync(`gh issue list --state all --search "created:>=${sinceDate}" --json number,title,createdAt --limit 50`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
+        return JSON.parse(raw);
+    }
+
+    /**
      * @summary Assembles + renders the handoff retrospective section (the history leg) from window
      * facts. Static + pure over its inputs: the assembler folds, the render emits — this shim is
      * the synthesizer's stable seam to both, mirroring the computed-GP render shims.
@@ -1249,21 +1274,38 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         let retrospectiveAppend = '';
         if (repoEnrichmentEnabled) {
             try {
-                const capturedAt = now instanceof Date ? now : new Date(now),
-                      windowMs   = RETROSPECTIVE_GRAINS.THREE_DAY.windowHours * 3600 * 1000,
-                      mergedPrs  = (await this.fetchRecentMergedPRs(new Date(capturedAt.getTime() - windowMs)))
+                const capturedAt  = now instanceof Date ? now : new Date(now),
+                      windowMs    = RETROSPECTIVE_GRAINS.THREE_DAY.windowHours * 3600 * 1000,
+                      windowStart = new Date(capturedAt.getTime() - windowMs),
+                      mergedPrs   = (await this.fetchRecentMergedPRs(windowStart))
                           .map(pr => ({ref: `PR #${pr.number}`, headline: pr.title, at: pr.mergedAt})),
                       // opened-PRs-in-window come free from the already-fetched open-PR list
-                      openedPrs  = (Array.isArray(openPrs) ? openPrs : [])
+                      openedPrs   = (Array.isArray(openPrs) ? openPrs : [])
                           .map(pr => ({ref: `PR #${pr.number}`, headline: pr.title, at: pr.createdAt}));
 
+                // the issue pair is per-class best-effort: a failing reader drops ITS class and
+                // narrows the declared label, so coverage is never overstated
+                let closedIssues = [], openedIssues = [], issueClassesLive = false;
+
+                try {
+                    closedIssues = (await this.fetchRecentClosedIssues(windowStart))
+                        .map(issue => ({ref: `#${issue.number}`, headline: issue.title, at: issue.closedAt}));
+                    openedIssues = (await this.fetchRecentOpenedIssues(windowStart))
+                        .map(issue => ({ref: `#${issue.number}`, headline: issue.title, at: issue.createdAt}));
+                    issueClassesLive = true;
+                } catch (issueError) {
+                    logger.warn('[GoldenPathSynthesizer] Retrospective issue readers failed — dropping the issue classes', issueError);
+                }
+
                 retrospectiveAppend = this.constructor.renderHandoffRetrospectiveSection({
-                    facts: {mergedPrs, openedPrs},
+                    facts: {mergedPrs, openedPrs, closedIssues, openedIssues},
                     grain: RETROSPECTIVE_GRAINS.THREE_DAY,
                     now  : capturedAt,
-                    // declared honestly: only the PR classes are wired so far — the filter set names
-                    // exactly what these counts cover, so the render never overstates the window
-                    filterSets: 'merged+opened PRs, all authors'
+                    // the label names exactly what these counts cover, per class, so the render
+                    // never overstates the window's coverage
+                    filterSets: issueClassesLive
+                        ? 'merged+opened PRs · closed+opened issues, all authors'
+                        : 'merged+opened PRs, all authors'
                 })
             } catch (e) {
                 logger.warn('[GoldenPathSynthesizer] Failed to generate Handoff Retrospective', e);

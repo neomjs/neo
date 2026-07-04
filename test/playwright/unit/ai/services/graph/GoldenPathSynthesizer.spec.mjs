@@ -369,8 +369,10 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const now      = new Date();
         const hoursAgo = h => new Date(now.getTime() - h * 3600 * 1000).toISOString();
 
-        const originalFetchOpenPRs         = GoldenPathSynthesizer.fetchOpenPRs;
-        const originalFetchRecentMergedPRs = GoldenPathSynthesizer.fetchRecentMergedPRs;
+        const originalFetchOpenPRs            = GoldenPathSynthesizer.fetchOpenPRs;
+        const originalFetchRecentMergedPRs    = GoldenPathSynthesizer.fetchRecentMergedPRs;
+        const originalFetchRecentClosedIssues = GoldenPathSynthesizer.fetchRecentClosedIssues;
+        const originalFetchRecentOpenedIssues = GoldenPathSynthesizer.fetchRecentOpenedIssues;
 
         // opened-PRs come from the open-PR list (in-window); merged-PRs from the bounded merged query
         GoldenPathSynthesizer.fetchOpenPRs = async () => [
@@ -380,26 +382,41 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             {number: 14678, title: 'keeper request route', mergedAt: hoursAgo(3)},
             {number: 99999, title: 'ancient merge outside the window', mergedAt: hoursAgo(500)}
         ];
+        // the issue pair — one in-window each, plus an out-of-window closed issue the fold excludes
+        GoldenPathSynthesizer.fetchRecentClosedIssues = async () => [
+            {number: 14588, title: 'GP zero-routes collapse', closedAt: hoursAgo(6)},
+            {number: 88888, title: 'ancient close outside the window', closedAt: hoursAgo(400)}
+        ];
+        GoldenPathSynthesizer.fetchRecentOpenedIssues = async () => [
+            {number: 14731, title: 'identityRoots migration', createdAt: hoursAgo(1)}
+        ];
 
         try {
             await GoldenPathSynthesizer.synthesizeGoldenPath({now});
         } finally {
-            GoldenPathSynthesizer.fetchOpenPRs         = originalFetchOpenPRs;
-            GoldenPathSynthesizer.fetchRecentMergedPRs = originalFetchRecentMergedPRs;
-            StorageRouter.getGraphCollection           = originalGetGraphCollection;
-            StorageRouter.getSummaryCollection         = originalGetSummaryCollection;
-            TextEmbeddingService.embedText             = originalEmbedText;
+            GoldenPathSynthesizer.fetchOpenPRs            = originalFetchOpenPRs;
+            GoldenPathSynthesizer.fetchRecentMergedPRs    = originalFetchRecentMergedPRs;
+            GoldenPathSynthesizer.fetchRecentClosedIssues = originalFetchRecentClosedIssues;
+            GoldenPathSynthesizer.fetchRecentOpenedIssues = originalFetchRecentOpenedIssues;
+            StorageRouter.getGraphCollection              = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection            = originalGetSummaryCollection;
+            TextEmbeddingService.embedText                = originalEmbedText;
         }
 
         const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
 
         expect(handoffContent).toContain('## Handoff Retrospective (3-Day');
-        expect(handoffContent).toContain('- Merged PRs: 1 `[filters: merged+opened PRs, all authors]`');
-        expect(handoffContent).toContain('- Opened PRs: 1 `[filters: merged+opened PRs, all authors]`');
+        expect(handoffContent).toContain('- Merged PRs: 1 `[filters: merged+opened PRs · closed+opened issues, all authors]`');
+        expect(handoffContent).toContain('- Opened PRs: 1 `[filters: merged+opened PRs · closed+opened issues, all authors]`');
+        expect(handoffContent).toContain('- Closed issues: 1 `[filters: merged+opened PRs · closed+opened issues, all authors]`');
+        expect(handoffContent).toContain('- Opened issues: 1 `[filters: merged+opened PRs · closed+opened issues, all authors]`');
         expect(handoffContent).toContain('PR #14678 — keeper request route');
         expect(handoffContent).toContain('PR #14682 — registry snapshot clone');
-        // the 500h-old merge is outside the 3-day window — count stays 1, it never renders
+        expect(handoffContent).toContain('#14588 — GP zero-routes collapse');
+        expect(handoffContent).toContain('#14731 — identityRoots migration');
+        // out-of-window facts never render — counts stay honest per class
         expect(handoffContent).not.toContain('ancient merge outside the window');
+        expect(handoffContent).not.toContain('ancient close outside the window');
         // firewall: the retrospective introduces no numbered route entries into the handoff
         expect(handoffContent).not.toMatch(/\d+\.\s\*\*issue-\d+\*\*:[^\n]*\n\s+-\s\*.*?\*/);
     });
