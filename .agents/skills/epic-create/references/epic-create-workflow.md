@@ -52,7 +52,7 @@ Each sub the decomposition creates MUST be a **leaf that a single PR can FULLY d
 3. **Graduation gate (if from a Discussion).** High-blast Epics require the §6.2 family-keyed quorum + the §5.1 divergence matrix in the source Discussion before filing (per `ideation-sandbox-workflow.md` + `ideation-sandbox/audits/double-diamond-divergence-guard.md`). Carry the `Signal Ledger` / dissent / liveness / criteria-mapping sections into the body.
 4. **Author the body** = problem-scope + intended-solution (+ ledger if graduated). NO ACs, NO sub-list.
 5. **Label `epic`** + apply title hygiene (per `ticket-create`).
-6. **Create subs separately** (via `ticket-create` — each with its own ACs + Contract Ledger) and **link each via `update_issue_relationship`** (parent = the Epic). Add subs incrementally as the decomposition clarifies — never block Epic creation on a complete sub-list.
+6. **Create subs separately** (via `ticket-create` — each with its own ACs + Contract Ledger) and **link each via `update_issue_relationship`** (parent = the Epic). Add subs incrementally as decomposition clarifies; that governs Epic life. Goal-scoping graduation is stricter: full v1 leaves are filed/native-linked, while the Epic body stays sub-list-free.
 7. **Verify** (pre-flight, before `create_issue`):
    - [ ] Body contains **no** `## Acceptance Criteria` block.
    - [ ] Body contains **no** hardcoded sub-registry (subs discoverable via parent-child relationship instead).
