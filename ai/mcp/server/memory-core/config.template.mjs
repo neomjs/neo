@@ -33,8 +33,9 @@ const DAY_MS            = 24 * 60 * 60 * 1000;
 // separate process that re-evaluates this module → its own unique names, so fullyParallel workers
 // never collide on a shared collection. Generated here (not inside a `process.env` leaf default) so
 // the leaves stay declarative; selection is the `collections.useTestDatabase` toggle + formulas below.
-const testMemoryCollection  = `test-memory-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-const testSessionCollection = `test-session-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+const testMemoryCollection          = `test-memory-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+const testSessionCollection         = `test-session-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+const testTemporalSummaryCollection = `test-temporal-summary-${Date.now()}-${Math.random().toString(36).substring(7)}`;
 
 // Per-worker-unique WAL test directory under the OS temp root (same isolation rationale as the
 // test collection names above): fullyParallel workers never share a write-ahead directory, and
@@ -252,19 +253,21 @@ class Config extends ConfigProvider {
              */
             collections: {
                 /**
-                 * `memory` / `session` (the active names consumers read) are formulas (below) resolving
-                 * `*Prod` / `*Test` by construction from `useTestDatabase` — no inline `process.env` in a
-                 * leaf default. The test names are per-worker-unique (module consts above) for fullyParallel
-                 * isolation; consumers (HealthService, ChromaManager, defragChromaDB) read `collections.memory`
-                 * / `session` unchanged.
+                 * `memory` / `session` / `temporalSummary` (the active names consumers read) are formulas
+                 * (below) resolving `*Prod` / `*Test` by construction from `useTestDatabase` — no inline
+                 * `process.env` in a leaf default. The test names are per-worker-unique (module consts above)
+                 * for fullyParallel isolation; consumers (HealthService, ChromaManager, defragChromaDB) read
+                 * `collections.memory` / `session` / `temporalSummary` unchanged.
                  * @type {string}
                  */
-                memoryProd     : leaf('neo-agent-memory', 'NEO_MEMORY_COLLECTION_NAME', 'string'),
-                memoryTest     : leaf(testMemoryCollection, 'NEO_MEMORY_COLLECTION_NAME_TEST', 'string'),
-                sessionProd    : leaf('neo-agent-sessions', 'NEO_SESSION_COLLECTION_NAME', 'string'),
-                sessionTest    : leaf(testSessionCollection, 'NEO_SESSION_COLLECTION_NAME_TEST', 'string'),
-                useTestDatabase: leaf(false, 'UNIT_TEST_MODE', 'boolean'),
-                graph          : leaf('neo-native-graph', 'NEO_GRAPH_COLLECTION_NAME', 'string')
+                memoryProd         : leaf('neo-agent-memory', 'NEO_MEMORY_COLLECTION_NAME', 'string'),
+                memoryTest         : leaf(testMemoryCollection, 'NEO_MEMORY_COLLECTION_NAME_TEST', 'string'),
+                sessionProd        : leaf('neo-agent-sessions', 'NEO_SESSION_COLLECTION_NAME', 'string'),
+                sessionTest        : leaf(testSessionCollection, 'NEO_SESSION_COLLECTION_NAME_TEST', 'string'),
+                temporalSummaryProd: leaf('neo-temporal-summary', 'NEO_TEMPORAL_SUMMARY_COLLECTION_NAME', 'string'),
+                temporalSummaryTest: leaf(testTemporalSummaryCollection, 'NEO_TEMPORAL_SUMMARY_COLLECTION_NAME_TEST', 'string'),
+                useTestDatabase    : leaf(false, 'UNIT_TEST_MODE', 'boolean'),
+                graph              : leaf('neo-native-graph', 'NEO_GRAPH_COLLECTION_NAME', 'string')
             },
             /**
              * Datasets Schema/Paths
@@ -758,15 +761,16 @@ class Config extends ConfigProvider {
          * Reactive computed config values (`Neo.state.Provider` formulas — recompute when a dependency changes).
          */
         formulas: {
-            // The active graph SQLite path + memory/session collection names, resolved BY CONSTRUCTION
-            // from the `useTestDatabase` toggle. Consumers read `AiConfig.storagePaths.graph` /
-            // `collections.memory` / `collections.session` unchanged — the single resolution point.
-            // Replaces the prior inline-`process.env` leaf ternaries.
-            'storagePaths.graph' : data => data.storagePaths.useTestDatabase ? data.storagePaths.graphTest  : data.storagePaths.graphProd,
-            'collections.memory' : data => data.collections.useTestDatabase  ? data.collections.memoryTest  : data.collections.memoryProd,
-            'collections.session': data => data.collections.useTestDatabase  ? data.collections.sessionTest : data.collections.sessionProd,
-            'memoryWal.dir'      : data => data.memoryWal.useTestDatabase    ? data.memoryWal.dirTest       : data.memoryWal.dirProd,
-            'messageWal.dir'     : data => {
+            // The active graph SQLite path + memory/session/temporal-summary collection names, resolved
+            // BY CONSTRUCTION from the `useTestDatabase` toggle. Consumers read `AiConfig.storagePaths.graph` /
+            // `collections.memory` / `collections.session` / `collections.temporalSummary` unchanged —
+            // the single resolution point. Replaces the prior inline-`process.env` leaf ternaries.
+            'storagePaths.graph'         : data => data.storagePaths.useTestDatabase ? data.storagePaths.graphTest           : data.storagePaths.graphProd,
+            'collections.memory'         : data => data.collections.useTestDatabase  ? data.collections.memoryTest           : data.collections.memoryProd,
+            'collections.session'        : data => data.collections.useTestDatabase  ? data.collections.sessionTest          : data.collections.sessionProd,
+            'collections.temporalSummary': data => data.collections.useTestDatabase  ? data.collections.temporalSummaryTest  : data.collections.temporalSummaryProd,
+            'memoryWal.dir'              : data => data.memoryWal.useTestDatabase    ? data.memoryWal.dirTest       : data.memoryWal.dirProd,
+            'messageWal.dir'             : data => {
                 const configuredDir = data.messageWal.useTestDatabase ? data.messageWal.dirTest : data.messageWal.dirProd;
                 if (configuredDir) return configuredDir;
 

@@ -269,6 +269,25 @@ class ChromaManager extends AbstractVectorManager {
     /**
      * @returns {Promise<Object>}
      */
+    async getTemporalSummaryCollection() {
+        if (!this._temporalSummaryCollectionPromise) {
+            const collectionName = aiConfig.collections.temporalSummary;
+            this.assertCollectionNotProdBleed({name: collectionName, database: this.resolveChromaClientConfig(aiConfig).database});
+            this._temporalSummaryCollectionPromise = this.#executeSilently(async () => {
+                return await this.client.getOrCreateCollection({
+                    name             : collectionName,
+                    embeddingFunction: this.#createEmbeddingFunction()
+                });
+            }, {filter: MC_WARN_FILTER});
+        }
+
+        this.temporalSummaryCollection = await this._temporalSummaryCollectionPromise;
+        return this.temporalSummaryCollection;
+    }
+
+    /**
+     * @returns {Promise<Object>}
+     */
     async getGraphCollection() {
         if (!this._graphCollectionPromise) {
             const collectionName = aiConfig.collections.graph;
