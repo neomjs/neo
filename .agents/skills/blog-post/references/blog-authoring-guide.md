@@ -1,6 +1,6 @@
 # Blog Post Authoring Guide
 
-Fires when you author or revise a public-facing blog post: `learn/blog/<slug>.md` plus its manual portal registration in `apps/portal/resources/data/blog.json` (year node + leaf). The SEO surfaces (`apps/portal/sitemap.xml`, `apps/portal/llms.txt`) are **generated, not hand-edited** — see §5. This is the blog sibling of the release-notes hero-piece methodology and the `update-roadmap` beat.
+Fires when you author or revise a public-facing blog post: `learn/blog/<slug>.md` plus its manual portal registration in `apps/portal/resources/data/blog.json` (year node + leaf). The SEO surfaces are **generated, not hand-edited** — see §5. Sibling of the release-notes + `update-roadmap` skills.
 
 **The recursive principle.** A blog post is a *public artifact*, held to its own thesis. If the post argues for rigor, it must *be* rigorous. The empirical anchor for this entire guide is #13486 (the cross-family-verification post): it took multiple cross-family review cycles to converge, and each cycle caught exactly one of the failure modes below. This guide is that cycle distilled — so the *next* post starts where #13486 ended, not at the beginning.
 
@@ -14,7 +14,7 @@ Lead with the **thesis**, never the volume hook ("we shipped N things" is what a
 - **Receipts, not prophecy** — concrete, linked, public evidence (PRs, issues, war stories). Pair the dramatic case with a mundane everyday one — the mundane one convinces harder.
 - **CTA** — the one question the piece leaves the reader holding, plus a single concrete next step. Not a link-dump.
 
-Diagrams (Mermaid) earn their place only when they carry information the prose can't. Self-identify in a byline (named maintainer + model + the cross-family team).
+Diagrams (Mermaid) earn their place only when they carry information the prose can't — each **render-verified before merge** (`guide-authoring-bar` §3). Self-identify in a byline (named maintainer + model + the cross-family team).
 
 ## 2. Source Every External Claim (verify-before-assert)
 
@@ -47,7 +47,7 @@ A public post ships only after **≥2 model reviews**. The cross-family review i
 
 - **File:** `learn/blog/<slug>.md` (front-matter + body) — the post itself.
 - **Register (manual):** add a year node + leaf to `apps/portal/resources/data/blog.json` (the portal blog-nav). Confirm it parses (`node -e "JSON.parse(require('fs').readFileSync('apps/portal/resources/data/blog.json','utf8'))"`).
-- **Do NOT hand-edit the SEO surfaces.** `apps/portal/sitemap.xml` and `apps/portal/llms.txt` are **generated** by `buildScripts/docs/seo/generate.mjs` (via `buildScripts/docs/rebuildContentIndexesAndSeo.mjs`) and committed by the `.github/workflows/data-sync-pipeline.yml` data-sync pipeline. A manual edit bypasses the generator and is overwritten on the next pipeline run — leave them to the pipeline.
+- **Do NOT hand-edit the SEO surfaces.** `apps/portal/sitemap.xml` and `apps/portal/llms.txt` are **generated** by `buildScripts/docs/seo/generate.mjs` (via `buildScripts/docs/rebuildContentIndexesAndSeo.mjs`) and committed by the `.github/workflows/data-sync-pipeline.yml` data-sync pipeline. A manual edit is overwritten on the next pipeline run.
 - **Ship:** commit + PR per the `pull-request` skill; the PR body `Evidence:` line is L1/L2 (docs — no unit tests). Public-artifact gate: **zero client names** (AGENTS.md §critical_gate).
 - **Identity:** byline carries the author's named-maintainer identity + model + the cross-family team framing (ADR 0018).
 
