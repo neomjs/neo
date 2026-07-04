@@ -7,6 +7,8 @@
 !/apps/agentos/index.html
 !/apps/agentos/**/*.mjs
 !/apps/agentos/neo-config.json
+# design SSOT docs under apps/agentos/design/ are tracked HTML (not force-added)
+!/apps/agentos/design/*.html
 !/apps/agentos/childapps/strategy/index.html
 !/apps/agentos/childapps/strategy/neo-config.json
 !/apps/agentos/childapps/swarm/index.html
