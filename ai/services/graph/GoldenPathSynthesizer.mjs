@@ -36,6 +36,8 @@ import {
     renderComputedGoldenPathEmptySection         as renderRouteEmptySection,
     renderComputedGoldenPathFailureSection       as renderRouteFailureSection
 } from './computedGoldenPathRouting.mjs';
+import {RETROSPECTIVE_GRAINS, renderHandoffRetrospectiveSection} from './handoffRetrospective.mjs';
+import {assembleRetrospectiveStats}                              from './handoffRetrospectiveAssembler.mjs';
 import {
     getActivePrCycleStatus                      as resolveActivePrCycleStatus,
     renderActivePrCycleState                    as renderActivePrCycleStateSection,
@@ -538,6 +540,36 @@ class GoldenPathSynthesizer extends Base {
         const { execSync } = await import('child_process');
         const rawPrData    = execSync('gh pr list --state open --json number,url,author,title,body,headRefOid,reviewRequests,reviews,comments,createdAt,updatedAt,isDraft', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
         return JSON.parse(rawPrData);
+    }
+
+    /**
+     * @summary Fetches PRs merged within a window — the highest-signal "what happened" fact class
+     * for the handoff retrospective. Bounded by a `merged:>ISO` search so the query stays small.
+     * @param {Date} since Lower window bound.
+     * @returns {Promise<Array<{number: Number, title: String, mergedAt: String}>>}
+     */
+    async fetchRecentMergedPRs(since) {
+        const { execSync } = await import('child_process');
+        const sinceDate    = since.toISOString().slice(0, 10); // gh search granularity is day-level
+        const raw          = execSync(`gh pr list --state merged --search "merged:>=${sinceDate}" --json number,title,mergedAt --limit 50`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
+        return JSON.parse(raw);
+    }
+
+    /**
+     * @summary Assembles + renders the handoff retrospective section (the history leg) from window
+     * facts. Static + pure over its inputs: the assembler folds, the render emits — this shim is
+     * the synthesizer's stable seam to both, mirroring the computed-GP render shims.
+     * @param {Object} options
+     * @param {Object} options.facts `{mergedPrs, openedPrs, closedIssues, openedIssues, graduations, sessions}`
+     * @param {Object} [options.grain=RETROSPECTIVE_GRAINS.THREE_DAY] Retrospective grain
+     * @param {Date|String} [options.now=new Date()] Window anchor
+     * @param {String|String[]} [options.filterSets=[]] Declared filter set(s) the facts were gathered under
+     * @returns {String} Markdown section
+     */
+    static renderHandoffRetrospectiveSection({facts, grain = RETROSPECTIVE_GRAINS.THREE_DAY, now = new Date(), filterSets = []} = {}) {
+        const stats = assembleRetrospectiveStats({facts, grain, now, filterSets});
+
+        return renderHandoffRetrospectiveSection({grain, stats, capturedAt: now})
     }
 
     /**
@@ -1113,6 +1145,34 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             }
         }
 
+        // --- Handoff Retrospective (the history leg: "what happened since I last looked") ---
+        // Best-effort, like every enrichment block: a failure renders nothing, never crashes the
+        // handoff. Grain fixed to 3-day here — the batch file is not per-reader; staleness-adaptive
+        // grain selection is the interactive boot flow's concern (selectRetrospectiveGrain).
+        let retrospectiveAppend = '';
+        if (repoEnrichmentEnabled) {
+            try {
+                const capturedAt = now instanceof Date ? now : new Date(now),
+                      windowMs   = RETROSPECTIVE_GRAINS.THREE_DAY.windowHours * 3600 * 1000,
+                      mergedPrs  = (await this.fetchRecentMergedPRs(new Date(capturedAt.getTime() - windowMs)))
+                          .map(pr => ({ref: `PR #${pr.number}`, headline: pr.title, at: pr.mergedAt})),
+                      // opened-PRs-in-window come free from the already-fetched open-PR list
+                      openedPrs  = (Array.isArray(openPrs) ? openPrs : [])
+                          .map(pr => ({ref: `PR #${pr.number}`, headline: pr.title, at: pr.createdAt}));
+
+                retrospectiveAppend = this.constructor.renderHandoffRetrospectiveSection({
+                    facts: {mergedPrs, openedPrs},
+                    grain: RETROSPECTIVE_GRAINS.THREE_DAY,
+                    now  : capturedAt,
+                    // declared honestly: only the PR classes are wired so far — the filter set names
+                    // exactly what these counts cover, so the render never overstates the window
+                    filterSets: 'merged+opened PRs, all authors'
+                })
+            } catch (e) {
+                logger.warn('[GoldenPathSynthesizer] Failed to generate Handoff Retrospective', e);
+            }
+        }
+
         // --- Work-Graph Stall Inference ---
         let stallFindingsAppend = '';
         if (repoEnrichmentEnabled) {
@@ -1170,7 +1230,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             }
         }
 
-        handoffContent += `${currentFocusAppend}${staleAssignmentAppend}${silentThreadsAppend}${prStateAppend}${stallFindingsAppend}${backlogAppend}${markdownAppend}`;
+        handoffContent += `${currentFocusAppend}${staleAssignmentAppend}${silentThreadsAppend}${prStateAppend}${stallFindingsAppend}${backlogAppend}${retrospectiveAppend}${markdownAppend}`;
 
         const handoffFile = aiConfig.handoffFilePath;
         fs.mkdirSync(path.dirname(handoffFile), {recursive: true});
