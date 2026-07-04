@@ -52,8 +52,9 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
     });
 
     test.afterEach(() => {
-        FleetControlBridge.registry = null;
-        FleetControlBridge.manager  = null;
+        FleetControlBridge.registry           = null;
+        FleetControlBridge.manager            = null;
+        FleetControlBridge.bootIdentitySource = null;
     });
 
     // ---- delegation: the registry (define / list / get) half ----
@@ -76,6 +77,25 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
     test('getAgent delegates by id', () => {
         expect(FleetControlBridge.getAgent('alice')).toEqual({id: 'alice'});
         expect(calls).toEqual([['getAgent', 'alice']]);
+    });
+
+    // ---- read-observe: the boot-identity fact (advisory read verb; carries no lifecycle-write) ----
+
+    test('getBootIdentity returns the injected source advisory fact — read-observe, never a lifecycle-write', async () => {
+        const advisoryFact = {fact: {bootAt: '2026-07-04T00:00:00.000Z', sourceRef: 'abc123'}, classification: 'current', advisory: true, reason: 'fresh'};
+        FleetControlBridge.bootIdentitySource = {produceBootIdentityFact: async () => { calls.push(['produceBootIdentityFact']); return advisoryFact; }};
+
+        const result = await FleetControlBridge.getBootIdentity();
+
+        expect(result).toEqual(advisoryFact);
+        expect(result.advisory).toBe(true);   // advisory read — carries no restart / lifecycle-write command
+        expect(calls).toEqual([['produceBootIdentityFact']]);
+    });
+
+    test('getBootIdentity yields an advisory-empty fact when the source is unwired — never fabricated liveness', () => {
+        FleetControlBridge.bootIdentitySource = null;
+
+        expect(FleetControlBridge.getBootIdentity()).toEqual({fact: null, classification: 'unknown', advisory: true, reason: 'no-boot-identity-source'});
     });
 
     // ---- delegation: the lifecycle (start / stop / restart / remove / status) half ----

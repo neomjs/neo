@@ -98,10 +98,12 @@ test.describe('dispatchFleetRequest — the app↔fleet wire allowlist + routing
         expect(res.ok).toBe(false);
     });
 
-    test('the wire allowlist is exactly the pane operations — no resolver seams', () => {
+    test('the wire allowlist is exactly the pane operations (+ the read-observe getBootIdentity) — no resolver seams', () => {
         expect([...FLEET_WIRE_METHODS].sort()).toEqual(
-            ['defineAgent', 'fleetRuntimeStatus', 'fleetStatus', 'getAgent', 'listAgents', 'removeAgent', 'restartAgent', 'setAvatar', 'setRepo', 'startAgent', 'stopAgent'].sort()
+            // fleet-agent operations + the read-observe boot-identity fact (advisory read, no lifecycle-write)
+            ['defineAgent', 'fleetRuntimeStatus', 'fleetStatus', 'getAgent', 'getBootIdentity', 'listAgents', 'removeAgent', 'restartAgent', 'setAvatar', 'setRepo', 'startAgent', 'stopAgent'].sort()
         );
+        expect(FLEET_WIRE_METHODS).toContain('getBootIdentity');   // the read-observe verb rides the wire; the lifecycle-write restart actuator does NOT (R3)
         expect(FLEET_WIRE_METHODS).not.toContain('getManager');
         expect(FLEET_WIRE_METHODS).not.toContain('getRegistry');
     });
