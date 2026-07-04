@@ -166,7 +166,13 @@ export function renderConvergenceLedgerText(ledger) {
 
     const budget   = ledger.independenceBudget?.value,
           firewall = ledger.firewall || {},
-          axisKeys = Object.keys(CONTRACT_AXES);
+          axisKeys = Object.keys(CONTRACT_AXES),
+          // Provenance traceability (OQ1): a confident weight with no traceable producing run is
+          // authority-by-typography, even under the notAuthority banner. Surface it as a shared-run header
+          // when every row agrees, else as a per-row column.
+          provenances = [...new Set(ledger.rows.map(row => row.provenance).filter(Boolean))],
+          oneProvenance    = provenances.length === 1 ? provenances[0] : null,
+          columnProvenance = provenances.length > 1;
 
     const lines = [
         '# Convergence Terrain Ledger',
@@ -176,6 +182,8 @@ export function renderConvergenceLedgerText(ledger) {
         '',
         `- **Firewall (OQ8):** ${firewall.clean === true ? 'clean — compute read neither peer futures nor prior convergence' : firewall.clean === false ? '⚠ COMPROMISED — output may be self-fulfilling; discount heavily' : 'unknown (no manifest)'}${firewall.futureSource ? ` · futures: \`${firewall.futureSource}\`` : ''}`,
         `- **Independence budget (OQ7):** ${budget === null || budget === undefined ? 'n/a' : budget.toFixed(3)} — ${ledger.independenceBudget?.interpretation || ''}`,
+        `- **Provenance (OQ1):** ${provenances.length === 0 ? 'none recorded' : oneProvenance ? `\`${oneProvenance}\` (all rows)` : 'per-row — see column'}`,
+        `- **Generated at:** ${ledger.generatedAt || '— (unstamped; inject now at render for staleness-legibility)'}`,
         `- **Home surface:** \`${ledger.home}\` (interim: this standalone artifact) · agent-boot-consumable: ${ledger.agentBootConsumable}`,
         `- **Rows:** ${ledger.rowCount}`,
         ''
@@ -187,6 +195,9 @@ export function renderConvergenceLedgerText(ledger) {
     }
 
     const header = ['Rank', 'Convergence', 'Independence', 'Risk', 'Canonical Id', ...axisKeys, 'Remeasure At'];
+
+    // Only widen the table when rows disagree on provenance; the uniform case rode the header line above.
+    if (columnProvenance) header.push('Provenance');
 
     lines.push(
         `| ${header.join(' | ')} |`,
@@ -203,6 +214,8 @@ export function renderConvergenceLedgerText(ledger) {
             ...axisKeys.map(axis => row.axes[axis] === null || row.axes[axis] === undefined ? '—' : String(row.axes[axis])),
             row.remeasureAt || '—'
         ];
+
+        if (columnProvenance) cells.push(row.provenance ? `\`${row.provenance}\`` : '—');
 
         lines.push(`| ${cells.join(' | ')} |`);
     });

@@ -149,9 +149,30 @@ test.describe('convergenceRenderLedger', () => {
         expect(text).toContain('Independence budget (OQ7)');
         expect(text).toContain('fm-cockpit-terrain-panel');
         expect(text).toContain('agent-boot-consumable: false');
+        // Provenance (OQ1) traceable — a shared-run header, not a per-row column, when every row agrees.
+        expect(text).toContain('Provenance (OQ1)');
+        expect(text).toContain('`lattice-import:test` (all rows)');
+        expect(text).not.toContain('| Provenance |');
+        // Staleness-legible: the capture timestamp renders so the terrain can be judged against remeasureAt.
+        expect(text).toContain('Generated at:');
+        expect(text).toContain(now);
         // The terrain table ranks golden-path first.
         expect(text).toMatch(/\|\s*1\s*\|\s*3\s*\|.*golden-path/);
         expect(renderConvergenceLedgerText(null)).toBe('');   // fail-open on a null ledger
+    });
+
+    test('renders a per-row Provenance column when rows disagree on provenance — traceable without a false shared-run claim (#14636)', () => {
+        const a = buildConvergenceSnapshotNode({latticeNodeId: 'alpha', provenance: 'run-A'}),
+              b = buildConvergenceSnapshotNode({latticeNodeId: 'beta',  provenance: 'run-B'});
+        a.properties.convergenceWeight = 2;
+        b.properties.convergenceWeight = 1;
+
+        const text = renderConvergenceLedgerText(buildConvergenceRenderLedger({snapshots: [a, b]}, {now}));
+
+        expect(text).toContain('per-row — see column');   // header defers to the column, no false "all rows"
+        expect(text).toContain('| Provenance |');         // column widened in
+        expect(text).toContain('`run-A`');
+        expect(text).toContain('`run-B`');
     });
 
     test('an empty compute result renders a valid empty ledger, not a crash', () => {
