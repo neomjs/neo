@@ -24,6 +24,10 @@ import {buildHydrationIndex}                   from './identityHydration.mjs';
  * Fail-closed data-plane logic in the `identitySchema` / `identityHydration` sibling pattern:
  * pure, frozen, `{valid, reason, view}`, never throws. It defines the READ shape only — the
  * render-model's VISUAL design is a separate leaf (the constellation self-view SSOT).
+ *
+ * Scope: this leaf reads a resident's identity + era facts only. A resident's *direction* (the
+ * plan/forecast the render-model may also surface) is a later render concern consumed from the
+ * direction contract, not from here — noted so the boundary is explicit, not assumed.
  */
 
 /**
@@ -63,7 +67,8 @@ export function readResidentForRender({identityNode, episodes} = {}) {
             regenerable: true,                          // a derived VIEW — never persist as the self
             selfKey    : index.identityKey,             // the object-permanent key: a family switch keeps THIS
             display    : index.socialLayer,             // {name, salute, …} — the opt-in display layer (frozen)
-            current    : index.currentEra,              // {model, family, since, tier?, harness?, capabilities}
+            current    : index.currentEra,              // full head-era facts: {model, family, since, tier?, harness?, capabilities}
+            // compact era-boundary history — model/family/since/until/tier only; `current` carries the full facts (capabilities/harness) for "who now"
             timeline   : Object.freeze(ordered.map(era => Object.freeze({
                 model : era.model,
                 family: era.family,
