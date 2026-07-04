@@ -106,10 +106,14 @@ class CreateSurfaceController extends Controller {
         const generate = me.generateBlueprint || (async text => deterministicBlueprintFallback(text));
         const routed   = await routeCreationRequest({request, generate});
 
-        const outcome = provider.applyCreationRouteOutcome(routed);
+        if (!routed.accepted) {
+            provider.applyCreationRouteOutcome(routed); // generating → error, the route's reason verbatim
+            return
+        }
 
-        if (!routed.accepted || outcome.state !== 'materialized') return; // ERROR state carries the reason for the render
-
+        // MATERIALIZED is accept-path truth, never route truth: the provider only leaves
+        // `generating` after the accept path has actually put an instance into the stage. Both
+        // refusal sources (route above, accept-stage here) land ERROR from `generating`.
         const instanceId = `keeper-grid-${++instanceSeq}`,
               accepted   = acceptBlueprint({
                   blueprint: routed.blueprint,
@@ -119,10 +123,12 @@ class CreateSurfaceController extends Controller {
               });
 
         if (accepted.accepted) {
+            provider.applyCreationRouteOutcome(routed); // generating → materialized — now TRUE
             provider.setData({activeInstanceId: instanceId})
         } else {
-            // accept-stage refusal AFTER route acceptance (duplicate id, dead stage): honest error state
-            provider.applyFlowEvent(CREATION_EVENTS.REFUSED, {reason: accepted.reason})
+            // accept-stage refusal AFTER route acceptance (dead stage, duplicate id, coverage
+            // defect): honest ERROR carrying the ACCEPT PATH's reason; no active instance
+            provider.applyCreationRouteOutcome({accepted: false, reason: accepted.reason})
         }
     }
 

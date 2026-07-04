@@ -121,6 +121,29 @@ test.describe('CreateSurface — the wedge screen: five states, one provider, th
         provider.destroy(); controller.destroy()
     });
 
+    test('accept-stage refusal AFTER route acceptance lands ERROR with the ACCEPT reason — materialized is accept-path truth', async () => {
+        // valid blueprint, but the stage reference is dead — the accept path must refuse AFTER
+        // the route accepted, and the provider must never claim materialized
+        const {provider, controller} = await createRig();
+        const S                      = oracle.CREATION_STATES;
+
+        // sever the stage: route will accept, acceptBlueprint will refuse ("no live stage")
+        const originalGetReference = controller.getReference;
+        controller.getReference = name => name === 'create-stage' ? null : originalGetReference(name);
+
+        controller.onIntentChange();
+        await controller.onSubmitIntent();
+
+        expect(provider.getData('flowState')).toBe(S.ERROR);              // never materialized
+        expect(provider.getData('flowReason')).toContain('stage');        // the ACCEPT path's reason, not the route's
+        expect(provider.getData('activeInstanceId')).toBeNull();          // no phantom instance
+
+        controller.onRetry();
+        expect(provider.getData('flowState')).toBe(S.COMPOSING);          // recoverable like every refusal
+
+        provider.destroy(); controller.destroy()
+    });
+
     test('dispose returns to the empty invitation and flips the registry record', async () => {
         const {provider, controller, CreatedInstances} = await createRig();
         const S                                        = oracle.CREATION_STATES;
