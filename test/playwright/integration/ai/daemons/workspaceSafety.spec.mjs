@@ -43,27 +43,153 @@ const PULSE_TIMEOUT_MS = 30000;
 const SIGTERM_GRACE_MS = 5000;
 
 /**
+ * @summary Returns true when the path exists.
+ * @param {String} targetPath
+ * @returns {Promise<Boolean>}
+ */
+async function pathExists(targetPath) {
+    try {
+        await fs.access(targetPath);
+        return true
+    } catch {
+        return false
+    }
+}
+
+/**
+ * @summary Formats the first-level entries in a directory for failure diagnostics.
+ * @param {String} directoryPath
+ * @returns {Promise<String>}
+ */
+async function listDirectoryEntries(directoryPath) {
+    try {
+        const entries = await fs.readdir(directoryPath, {withFileTypes: true});
+
+        return entries
+            .map(entry => `${entry.isDirectory() ? 'd' : entry.isFile() ? 'f' : '?'} ${entry.name}`)
+            .sort()
+            .join('\n') || '(empty)'
+    } catch (err) {
+        return `(unavailable: ${err.code || err.message})`
+    }
+}
+
+/**
+ * @summary Builds the daemon-boot diagnostic payload for a failed log wait.
+ * @param {Object} options
+ * @param {String} options.reason
+ * @param {Number} options.timeoutMs
+ * @param {String} options.logPath
+ * @param {String} [options.dataDir]
+ * @param {String} options.lastContent
+ * @param {import('node:child_process').ChildProcess} [options.daemonProcess]
+ * @param {{code:Number|null, signal:String|null}} [options.processExit]
+ * @param {Error} [options.processError]
+ * @param {Function} [options.getStdout]
+ * @param {Function} [options.getStderr]
+ * @returns {Promise<String>}
+ */
+async function formatLogWaitDiagnostics({
+    dataDir,
+    daemonProcess,
+    getStderr = () => '',
+    getStdout = () => '',
+    lastContent,
+    logPath,
+    processError,
+    processExit,
+    reason,
+    timeoutMs
+}) {
+    const dataDirListing = dataDir ? await listDirectoryEntries(dataDir) : '(not provided)',
+          logExists      = await pathExists(logPath),
+          stderr         = getStderr(),
+          stdout         = getStdout();
+
+    return [
+        `Timed out after ${timeoutMs}ms waiting for log predicate.`,
+        `Reason: ${reason}`,
+        `Process: pid=${daemonProcess?.pid ?? 'n/a'} exitCode=${processExit?.code ?? daemonProcess?.exitCode ?? null} signal=${processExit?.signal ?? daemonProcess?.signalCode ?? null} killed=${daemonProcess?.killed ?? false}`,
+        processError ? `Process error: ${processError.stack || processError.message}` : null,
+        `Log: path=${logPath} exists=${logExists}`,
+        `Data dir: ${dataDir || '(not provided)'}\n${dataDirListing}`,
+        `Last log content (${lastContent.length} bytes):\n${lastContent || '(empty)'}`,
+        `stdout (${stdout.length} bytes):\n${stdout || '(empty)'}`,
+        `stderr (${stderr.length} bytes):\n${stderr || '(empty)'}`
+    ].filter(Boolean).join('\n\n')
+}
+
+/**
  * @summary Polls a log file until a predicate matches its content or the timeout elapses.
  * @param {String} logPath
  * @param {(content:String)=>Boolean} predicate
  * @param {Number} timeoutMs
+ * @param {Object} [options]
+ * @param {import('node:child_process').ChildProcess} [options.daemonProcess]
+ * @param {String} [options.dataDir]
+ * @param {Function} [options.getStdout]
+ * @param {Function} [options.getStderr]
  * @returns {Promise<String>} The matching content snapshot.
  */
-async function waitForLogContent(logPath, predicate, timeoutMs) {
+async function waitForLogContent(logPath, predicate, timeoutMs, {
+    daemonProcess,
+    dataDir,
+    getStderr,
+    getStdout
+} = {}) {
     const deadline    = Date.now() + timeoutMs;
-    let   lastContent = '';
+    let   lastContent = '',
+          processError = null,
+          processExit  = null;
 
-    while (Date.now() < deadline) {
-        try {
-            lastContent = await fs.readFile(logPath, 'utf8');
-            if (predicate(lastContent)) return lastContent;
-        } catch (err) {
-            if (err.code !== 'ENOENT') throw err;
+    const onError = err => { processError = err; },
+          onExit  = (code, signal) => { processExit = {code, signal}; };
+
+    daemonProcess?.once('error', onError);
+    daemonProcess?.once('exit', onExit);
+
+    try {
+        while (Date.now() < deadline) {
+            if (processError || processExit || daemonProcess?.exitCode !== null) {
+                throw new Error(await formatLogWaitDiagnostics({
+                    dataDir,
+                    daemonProcess,
+                    getStderr,
+                    getStdout,
+                    lastContent,
+                    logPath,
+                    processError,
+                    processExit,
+                    reason: processError
+                        ? 'daemon process emitted error before the log predicate matched'
+                        : 'daemon process exited before the log predicate matched',
+                    timeoutMs
+                }))
+            }
+
+            try {
+                lastContent = await fs.readFile(logPath, 'utf8');
+                if (predicate(lastContent)) return lastContent;
+            } catch (err) {
+                if (err.code !== 'ENOENT') throw err;
+            }
+            await new Promise(resolve => setTimeout(resolve, 200));
         }
-        await new Promise(resolve => setTimeout(resolve, 200));
-    }
 
-    throw new Error(`Timed out after ${timeoutMs}ms waiting for log predicate. Last content (${lastContent.length} bytes):\n${lastContent}`);
+        throw new Error(await formatLogWaitDiagnostics({
+            dataDir,
+            daemonProcess,
+            getStderr,
+            getStdout,
+            lastContent,
+            logPath,
+            reason: 'timeout elapsed before the log predicate matched',
+            timeoutMs
+        }))
+    } finally {
+        daemonProcess?.off('error', onError);
+        daemonProcess?.off('exit', onExit);
+    }
 }
 
 /**
@@ -104,6 +230,7 @@ test.describe('Orchestrator workspace-safety integration (#11948 / Sub-5 AC5 of 
 
     let workspaceDir;
     let dataDir;
+    let mcpLogPath;
     let logPath;
     let dbPath;
     let daemonProcess;
@@ -113,6 +240,7 @@ test.describe('Orchestrator workspace-safety integration (#11948 / Sub-5 AC5 of 
     test.beforeEach(async () => {
         workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-workspace-safety-'));
         dataDir      = path.join(workspaceDir, 'orchestrator-daemon');
+        mcpLogPath   = path.join(workspaceDir, '.neo-ai-data/logs');
         logPath      = path.join(dataDir, 'orchestrator.log');
         dbPath       = path.join(workspaceDir, 'memory-core-graph.sqlite');
         // The orchestrator now self-bootstraps its sqlite + schema on
@@ -147,6 +275,10 @@ test.describe('Orchestrator workspace-safety integration (#11948 / Sub-5 AC5 of 
                 NEO_AI_DEPLOYMENT_MODE  : 'cloud',
                 NEO_AI_ORCHESTRATOR_DIR : dataDir,
                 NEO_AI_DB_PATH          : dbPath,
+                NEO_KB_LOG_PATH         : mcpLogPath,
+                NEO_MEMORY_LOG_PATH     : mcpLogPath,
+                NEO_MEMORY_DB_PATH      : dbPath,
+                NEO_NL_LOG_PATH         : mcpLogPath,
                 NEO_HEARTBEAT_ALIVE_PATH: path.join(workspaceDir, 'heartbeat.alive'),
                 NEO_BACKUP_PATH         : path.join(workspaceDir, 'backups')
             },
@@ -159,7 +291,13 @@ test.describe('Orchestrator workspace-safety integration (#11948 / Sub-5 AC5 of 
         const logContent = await waitForLogContent(
             logPath,
             content => content.includes('[Orchestrator] Started.'),
-            BOOT_TIMEOUT_MS
+            BOOT_TIMEOUT_MS,
+            {
+                daemonProcess,
+                dataDir,
+                getStderr: () => stderrBuf,
+                getStdout: () => stdoutBuf
+            }
         );
 
         // AC3: Process is still alive after boot completion.
@@ -205,6 +343,48 @@ test.describe('Orchestrator workspace-safety integration (#11948 / Sub-5 AC5 of 
         }
     });
 
+    test('#14798 — cloud boot wait diagnostics include child exit, streams, log state, and data-dir listing', async () => {
+        await fs.mkdir(dataDir, {recursive: true});
+        await fs.writeFile(path.join(dataDir, 'probe.txt'), 'diagnostic marker');
+
+        daemonProcess = spawn(process.execPath, [
+            '-e',
+            'console.log("probe stdout"); console.error("probe stderr"); setTimeout(() => process.exit(42), 10);'
+        ], {
+            cwd  : workspaceDir,
+            stdio: ['ignore', 'pipe', 'pipe']
+        });
+
+        daemonProcess.stdout.on('data', chunk => { stdoutBuf += chunk.toString(); });
+        daemonProcess.stderr.on('data', chunk => { stderrBuf += chunk.toString(); });
+
+        let error;
+
+        try {
+            await waitForLogContent(
+                logPath,
+                content => content.includes('[Orchestrator] Started.'),
+                BOOT_TIMEOUT_MS,
+                {
+                    daemonProcess,
+                    dataDir,
+                    getStderr: () => stderrBuf,
+                    getStdout: () => stdoutBuf
+                }
+            )
+        } catch (err) {
+            error = err
+        }
+
+        expect(error?.message).toContain('daemon process exited before the log predicate matched');
+        expect(error.message).toContain('exitCode=42');
+        expect(error.message).toContain('Log: path=');
+        expect(error.message).toContain('exists=false');
+        expect(error.message).toContain('f probe.txt');
+        expect(error.message).toContain('probe stdout');
+        expect(error.message).toContain('probe stderr')
+    });
+
     test('AC4 — swarm-heartbeat target resolver degrades-with-log when selfIdentity is missing', async () => {
         // The swarm-heartbeat lane now defaults OFF, so this test explicitly enables it
         // (NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED) to make the resolver fire, rather than
@@ -218,6 +398,10 @@ test.describe('Orchestrator workspace-safety integration (#11948 / Sub-5 AC5 of 
                 NEO_AI_DEPLOYMENT_MODE                        : 'local',
                 NEO_AI_ORCHESTRATOR_DIR                       : dataDir,
                 NEO_AI_DB_PATH                                : dbPath,
+                NEO_KB_LOG_PATH                               : mcpLogPath,
+                NEO_MEMORY_LOG_PATH                           : mcpLogPath,
+                NEO_MEMORY_DB_PATH                            : dbPath,
+                NEO_NL_LOG_PATH                               : mcpLogPath,
                 NEO_HEARTBEAT_ALIVE_PATH                      : path.join(workspaceDir, 'heartbeat.alive'),
                 NEO_BACKUP_PATH                               : path.join(workspaceDir, 'backups'),
                 NEO_AGENT_IDENTITY                            : '',

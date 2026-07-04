@@ -649,7 +649,7 @@ class Config extends ConfigProvider {
              * `nl-server-`). Per-server file isolation, single tailable directory.
              * @type {string}
              */
-            logPath: leaf(path.resolve(cwd, '.neo-ai-data/logs')),
+            logPath: leaf(path.resolve(cwd, '.neo-ai-data/logs'), 'NEO_MEMORY_LOG_PATH', 'string'),
             /**
              * @summary Retention policy for Memory Core MCP diagnostic log files.
              *
