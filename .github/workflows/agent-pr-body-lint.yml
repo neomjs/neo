@@ -1,7 +1,7 @@
 name: Agent PR Body Lint
 on:
   pull_request:
-    types: [opened, edited, synchronize]
+    types: [opened, edited, synchronize, ready_for_review]
 
 
 jobs:
@@ -15,6 +15,7 @@ jobs:
             const pr     = context.payload.pull_request;
             const author = pr.user.login;
             const body   = pr.body || "";
+            const isDraft = Boolean(pr.draft);
 
             // Only enforce for known AI agent accounts or PRs labeled with 'ai'
             const agentAuthors  = ['neo-opus-ada', 'neo-opus-grace', 'neo-opus-vega', 'neo-gemini-pro', 'neo-gpt'];
@@ -76,10 +77,12 @@ jobs:
             //     superseded / dropped) — that outcome needs NO PR, so a PR must never carry it.
             //   - `Fixes #N`  is FORBIDDEN: ambiguous; use `Resolves` (bug fixes included).
             //   - `Refs #N` / `Related: #N` are allowed as ADDITIONAL references (e.g. a parent
-            //     epic), and multiple `Resolves` lines are fine — but they never substitute for
-            //     the mandatory `Resolves`.
-            const hasResolves    = /\bResolves:?\s+#\d+/i.test(body);
-            const forbiddenClose = body.match(/\b(Closes|Fixes):?\s+#\d+/i);
+            //     epic). Draft PRs may temporarily use `Refs #N` / `Related: #N`
+            //     without `Resolves #N`, but `ready_for_review` reruns this workflow and
+            //     restores the mandatory close-target gate before handoff.
+            const hasResolves            = /\bResolves:?\s+#\d+/i.test(body);
+            const hasNonClosingReference = /\b(Refs|Related):?\s+#\d+/i.test(body);
+            const forbiddenClose         = body.match(/\b(Closes|Fixes):?\s+#\d+/i);
 
             if (forbiddenClose) {
               missingVisible.push(
@@ -88,8 +91,10 @@ jobs:
               );
             }
 
-            if (!hasResolves) {
-              missingVisible.push("`Resolves #N` (mandatory closing keyword — `Refs`/`Related` alone is NOT sufficient)");
+            if (!hasResolves && !(isDraft && hasNonClosingReference)) {
+              missingVisible.push(isDraft
+                ? "`Refs #N` or `Related: #N` (draft-only non-closing reference required when `Resolves #N` is absent)"
+                : "`Resolves #N` (mandatory closing keyword — `Refs`/`Related` alone is NOT sufficient)");
             }
 
             if (missingVisible.length === 0 && missingInvisible.length === 0) {
