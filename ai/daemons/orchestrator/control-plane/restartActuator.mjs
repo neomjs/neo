@@ -38,9 +38,20 @@ export async function restartRuntimeTarget({runtimeAccess, serviceKey, reason = 
     }
 
     // Delegate to the lifecycle-write envelope: it enforces the allowlisted service key, the closed
-    // action set, and the persisted anti-thrash cap. This endpoint adds the R3 placement boundary, not a second
-    // restart path.
-    const result = await runtimeAccess.applyLifecycle({serviceKey, operation: 'restart', reason});
+    // action set, and the persisted anti-thrash cap. This endpoint adds the R3 placement boundary, not a
+    // second restart path. The envelope signals a refusal by THROWING (disabled / unsupported mechanism /
+    // disallowed op / unknown-or-non-allowlisted service key); catch it so the control-plane endpoint
+    // returns a clean {ok:false} instead of leaking a raw throw, and defensively treat an explicit
+    // {ok:false} envelope result as a refusal too — a false {ok:true} must be impossible on any refusal shape.
+    try {
+        const result = await runtimeAccess.applyLifecycle({serviceKey, operation: 'restart', reason});
 
-    return {ok: true, result};
+        if (result && typeof result === 'object' && result.ok === false) {
+            return {ok: false, error: result.error ?? 'control-plane: lifecycle-write envelope refused the restart', result};
+        }
+
+        return {ok: true, result};
+    } catch (error) {
+        return {ok: false, error: `control-plane: lifecycle-write envelope refused the restart — ${error.message}`};
+    }
 }
