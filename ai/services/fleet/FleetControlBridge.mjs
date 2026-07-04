@@ -63,6 +63,15 @@ class FleetControlBridge extends Base {
      * @member {Object|null} manager=null
      */
     manager = null
+    /**
+     * Boot-identity **read-observe** source — an injected collaborator exposing `produceBootIdentityFact()`
+     * (the orchestrator's `BootIdentityHealthService`). READ-OBSERVE ONLY: the fact it returns is advisory,
+     * never a lifecycle-write / restart command — the R3 read-observe ÷ lifecycle-write seam. A plain injectable
+     * field like `registry` / `manager` (no static default — the orchestrator wires the live instance); unwired
+     * → an advisory-empty fact, never fabricated liveness.
+     * @member {Object|null} bootIdentitySource=null
+     */
+    bootIdentitySource = null
 
     /**
      * @returns {Object} the registry collaborator (injected stub or the default singleton).
@@ -199,6 +208,19 @@ class FleetControlBridge extends Base {
      */
     fleetRuntimeStatus() {
         return this.getManager().fleetRuntimeStatus();
+    }
+
+    /**
+     * @summary READ-OBSERVE: the advisory boot-identity fact of this Agent-OS process. Rides the authenticated
+     * `registryBridge` as a **read** verb — it carries NO lifecycle-write / restart authority (the R3
+     * read-observe ÷ lifecycle-write seam). An unwired {@link #bootIdentitySource} yields an advisory-`unknown`
+     * fact, never a fabricated liveness.
+     * @returns {Promise<Object>|Object} `{fact, classification, advisory:true, reason}` — advisory, no command.
+     */
+    getBootIdentity() {
+        return this.bootIdentitySource
+            ? this.bootIdentitySource.produceBootIdentityFact()
+            : {fact: null, classification: 'unknown', advisory: true, reason: 'no-boot-identity-source'};
     }
 }
 
