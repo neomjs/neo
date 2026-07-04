@@ -605,7 +605,11 @@ class QueryService extends Base {
             if (stat.isFile()) {
                 await addCandidate(hint, `path:${hint}`, queryScoreWeights.sourcePathMatch);
             } else if (stat.isDirectory()) {
-                const files = await this.collectFiles(absolutePath, {limit: 12});
+                // Collect enough of a path-matched dir that a growing dir cannot evict its own exact anchors
+                // from the rescue BEFORE the outer result cap ranks them: the previous 12 silently dropped
+                // members of dirs larger than 12 (e.g. ai/services/graph @ 23 files), so simply adding a file
+                // shifted the collected slice and lost a boundary anchor. The outer `limit` still bounds results.
+                const files = await this.collectFiles(absolutePath, {limit: 40});
                 for (const file of files) {
                     await addCandidate(path.relative(aiConfig.neoRootDir, file), `path-dir:${hint}`, queryScoreWeights.sourcePathMatch);
                 }

@@ -21,14 +21,19 @@ import {buildConvergenceSnapshotNode} from './convergenceSnapshotSchema.mjs';
 /**
  * @summary OQ7 independence budget — the future set's mean pairwise Jaccard DISTANCE: `0` = all futures
  * identical (fully correlated; convergence is inflated), `1` = all disjoint (maximally independent). A
- * single future is trivially `1` (no correlation to measure).
+ * single real future is trivially `1` (no correlation to measure). Empty futures carry NO evidence and are
+ * dropped before budgeting, so `[[], []]` is not mis-read as two maximally-independent futures — an
+ * all-empty set is `0` (no-confidence), not `1`.
  * @param {Array<Iterable<String>>} futurePaths N imagined futures, each an iterable of canonical node ids.
  * @returns {Number} independence budget in `[0, 1]`.
  */
 export function computeIndependenceBudget(futurePaths) {
-    const futures = (Array.isArray(futurePaths) ? futurePaths : []).map(future => new Set(future));
+    const futures = (Array.isArray(futurePaths) ? futurePaths : [])
+        .map(future => new Set(future))
+        .filter(future => future.size > 0);   // empty futures carry no evidence — drop before budgeting
 
-    if (futures.length < 2) return 1;
+    if (futures.length === 0) return 0;   // no-confidence: nothing to measure
+    if (futures.length < 2)   return 1;   // a single real future is trivially independent
 
     let distanceSum = 0,
         pairCount   = 0;

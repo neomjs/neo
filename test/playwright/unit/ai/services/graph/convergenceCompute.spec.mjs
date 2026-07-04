@@ -14,6 +14,11 @@ test.describe('convergenceCompute', () => {
         const partial = computeIndependenceBudget([['a', 'b'], ['a', 'c']]);       // jaccard 1/3 → distance 2/3
         expect(partial).toBeGreaterThan(0);
         expect(partial).toBeLessThan(1);
+
+        // No-evidence semantics (empty futures dropped): all-empty is no-confidence 0, NOT "maximally independent".
+        expect(computeIndependenceBudget([[], []])).toBe(0);
+        expect(computeIndependenceBudget([['a'], []])).toBe(1);   // one real future after dropping the empty
+        expect(computeIndependenceBudget([])).toBe(0);
     });
 
     test('firewall manifest (OQ8): clean only when neither peer sets nor prior convergence were read', () => {
