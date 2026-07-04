@@ -29,6 +29,23 @@ const validBody = [
     '- None.'
 ].join('\n');
 
+const draftBody = [
+    'Refs #12345',
+    '',
+    'Authored by Euclid (GPT-5, Codex Desktop). Session test.',
+    '',
+    'Evidence: L2 local unit coverage. Draft-only helper; no close target yet.',
+    '',
+    '## Deltas from ticket',
+    '- Draft helper extracted before the leaf close target is complete.',
+    '',
+    '## Test Evidence',
+    '- npm run test-unit -- test/playwright/unit/ai/buildScripts/util/agent-preflight.spec.mjs',
+    '',
+    '## Post-Merge Validation',
+    '- None while draft.'
+].join('\n');
+
 test.describe('agent-preflight utility', () => {
     test('builds the Commander program with the expected option surface', () => {
         const program = createProgram();
@@ -38,16 +55,18 @@ test.describe('agent-preflight utility', () => {
         expect(help).toContain('default mode may repair');
         expect(help).toContain('block alignment');
         expect(help).toContain('--pr-body <file>');
+        expect(help).toContain('--pr-draft');
         expect(help).toContain('--no-fix');
         expect(help).toContain('Check-only mode')
     });
 
     test('parses files, optional PR body, and fix mode through Commander', () => {
-        expect(parseArgs(['--pr-body', 'body.md', '--no-fix', 'src/a.mjs'])).toEqual({
-            files : ['src/a.mjs'],
-            fix   : false,
-            help  : false,
-            prBody: 'body.md'
+        expect(parseArgs(['--pr-body', 'body.md', '--pr-draft', '--no-fix', 'src/a.mjs'])).toEqual({
+            files  : ['src/a.mjs'],
+            fix    : false,
+            help   : false,
+            prBody : 'body.md',
+            prDraft: true
         });
     });
 
@@ -62,6 +81,28 @@ test.describe('agent-preflight utility', () => {
 
     test('accepts a PR body that mirrors the template anchors', () => {
         expect(validatePrBody(validBody).valid).toBe(true)
+    });
+
+    test('accepts a draft PR body with a non-closing reference instead of Resolves', () => {
+        const result = validatePrBody(draftBody, {draft: true});
+
+        expect(result.valid).toBe(true);
+        expect(result.missingVisible).toEqual([]);
+        expect(result.missingInvisible).toEqual([])
+    });
+
+    test('keeps Refs-only bodies invalid for ready PR validation', () => {
+        const result = validatePrBody(draftBody);
+
+        expect(result.valid).toBe(false);
+        expect(result.missingVisible).toContain('`Resolves #N` is required')
+    });
+
+    test('requires at least a non-closing issue reference for draft bodies without Resolves', () => {
+        const result = validatePrBody(draftBody.replace('Refs #12345', 'Draft-only note.'), {draft: true});
+
+        expect(result.valid).toBe(false);
+        expect(result.missingVisible).toContain('Draft PR bodies without `Resolves #N` require `Refs #N` or `Related: #N`')
     });
 
     test('reports visible misses and forbidden close keywords without naming structural anchors', () => {
@@ -168,6 +209,26 @@ test.describe('agent-preflight utility', () => {
             execFileSyncImpl: cmd => cmd === 'git' ? '' : '',
             existsSyncImpl  : () => true,
             readFileSyncImpl: () => validBody,
+            stderr          : {write: value => { stderr += value }},
+            stdout          : {write: value => { stdout += value }}
+        });
+
+        expect(status).toBe(0);
+        expect(stderr).toBe('');
+        expect(stdout).toContain('agent-preflight: 0 .mjs files in scope; skipped source gates.');
+        expect(stdout).toContain('agent-preflight: PR body contains the required template anchors.')
+    });
+
+    test('runs the draft PR body gate when requested', () => {
+        let stdout = '';
+        let stderr = '';
+
+        const status = runAgentPreflight({
+            argv            : ['--pr-body', 'body.md', '--pr-draft'],
+            cwd             : '/repo',
+            execFileSyncImpl: cmd => cmd === 'git' ? '' : '',
+            existsSyncImpl  : () => true,
+            readFileSyncImpl: () => draftBody,
             stderr          : {write: value => { stderr += value }},
             stdout          : {write: value => { stdout += value }}
         });
