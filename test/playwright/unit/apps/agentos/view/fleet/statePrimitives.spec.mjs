@@ -1,6 +1,6 @@
 import {setup} from '../../../../../setup.mjs';
 
-const appName = 'FleetStatePrimitivesTest';
+const appName = 'FleetStateDotTest';
 
 setup({
     neoConfig: {
@@ -17,17 +17,14 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 
-test.describe('Fleet cockpit state primitives — token mapping + reduced-motion (#14593)', () => {
-    let StateDot, FamilyRail, HealthSwatch, stateToken, familyToken, stateLabel;
+test.describe('Fleet cockpit StateDot — session-state token mapping + reduced-motion (#14593)', () => {
+    let StateDot, stateToken;
 
     test.beforeAll(async () => {
-        const dot    = await import('../../../../../../../apps/agentos/view/fleet/StateDot.mjs');
-        const rail   = await import('../../../../../../../apps/agentos/view/fleet/FamilyRail.mjs');
-        const swatch = await import('../../../../../../../apps/agentos/view/fleet/HealthSwatch.mjs');
+        const dot = await import('../../../../../../../apps/agentos/view/fleet/StateDot.mjs');
 
-        StateDot     = dot.default;     stateToken  = dot.stateToken;
-        FamilyRail   = rail.default;    familyToken = rail.familyToken;
-        HealthSwatch = swatch.default;  stateLabel  = swatch.stateLabel
+        StateDot   = dot.default;
+        stateToken = dot.stateToken
     });
 
     test('stateToken maps each session state to its --fm-state-* token (session state, never identity)', () => {
@@ -39,21 +36,6 @@ test.describe('Fleet cockpit state primitives — token mapping + reduced-motion
         // unknown / undefined falls back to off — never throws, never a hand-rolled color
         expect(stateToken('nonsense')).toBe('--fm-state-off');
         expect(stateToken(undefined)).toBe('--fm-state-off')
-    });
-
-    test('familyToken maps each family to its --fm-family-* token (data-driven episode attribute)', () => {
-        expect(familyToken('claude')).toBe('--fm-family-claude');
-        expect(familyToken('gpt')).toBe('--fm-family-gpt');
-        expect(familyToken('gemini')).toBe('--fm-family-gemini');
-        expect(familyToken('human')).toBe('--fm-family-human');
-        expect(familyToken('unknown')).toBe('--fm-family-human')
-    });
-
-    test('stateLabel gives the canonical legend label, off as fallback', () => {
-        expect(stateLabel('ok')).toBe('working');
-        expect(stateLabel('limited')).toBe('rate-limited');
-        expect(stateLabel('off')).toBe('benched / offline');
-        expect(stateLabel('bogus')).toBe('benched / offline')
     });
 
     test('StateDot binds the token via --fm-dot and gates the pulse behind the live config', async () => {
@@ -81,33 +63,5 @@ test.describe('Fleet cockpit state primitives — token mapping + reduced-motion
         expect(dot.vdom.cls).not.toContain('fm-live');
 
         dot.destroy()
-    });
-
-    test('FamilyRail re-renders the SAME resident on a family swap (anti-lock-in episode binding)', async () => {
-        const rail = Neo.create(FamilyRail, {appName, family: 'claude'});
-        await rail.initVnode();
-
-        expect(rail.vdom.style['--fm-rail']).toBe('var(--fm-family-claude)');
-
-        // a family swap (e.g. Opus→Fable is still Claude-family; Claude→GPT here) is a re-render, not a new instance
-        const before = rail.id;
-        rail.family = 'gpt';
-        expect(rail.vdom.style['--fm-rail']).toBe('var(--fm-family-gpt)');
-        expect(rail.id).toBe(before);
-
-        rail.destroy()
-    });
-
-    test('HealthSwatch pairs the shared state token with its label and honors a label override', async () => {
-        const swatch = Neo.create(HealthSwatch, {appName, state: 'limited'});
-        await swatch.initVnode();
-
-        const dotNode = swatch.vdom.cn.find(n => n.cls?.includes('fm-sw-dot'));
-        const label   = swatch.vdom.cn.find(n => n.tag === 'span');
-
-        expect(dotNode.style['--fm-dot']).toBe('var(--fm-state-limited)');
-        expect(label.text).toBe('rate-limited');
-
-        swatch.destroy()
     });
 });
