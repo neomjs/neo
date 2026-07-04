@@ -1,0 +1,189 @@
+import {setup} from '../../../../setup.mjs'
+
+const appName = 'FleetA2AActivityAdapterTest'
+
+setup({
+    neoConfig: {
+        unitTestMode: true
+    },
+    appConfig: {
+        name             : appName,
+        isMounted        : () => true,
+        vnodeInitialising: false
+    }
+})
+
+import {test, expect} from '@playwright/test'
+import Neo            from '../../../../../../src/Neo.mjs'
+import * as core      from '../../../../../../src/core/_export.mjs'
+
+import {
+    createA2AMessageActivityEvents,
+    createFleetA2AActivitySnapshot,
+    readFleetA2AActivitySnapshot
+} from '../../../../../../ai/services/fleet/fleetA2AActivityAdapter.mjs'
+import {FLEET_COCKPIT_SOURCES} from '../../../../../../src/ai/fleet/fleetCockpitStatus.mjs'
+
+test.describe('fleetA2AActivityAdapter - Memory Core A2A activity mapping', () => {
+    test('maps mailbox summaries without exposing bodies or exact recipient ids', () => {
+        const [event] = createA2AMessageActivityEvents([{
+            messageId     : 'MESSAGE:123',
+            subject       : '[review-request] PR #14703 token=secret',
+            body          : 'full body ghp_secret must not reach the cockpit',
+            bodyText      : 'full body ghp_secret must not reach the cockpit',
+            from          : '@neo-opus-ada',
+            to            : '@neo-gpt',
+            priority      : 'normal',
+            sentAt        : '2026-07-04T06:00:00Z',
+            relatedTickets: ['#14572', '#14703'],
+            relatedPullRequests: [{number: 14703}],
+            task          : {state: 'Submitted', input: 'secret=hidden'},
+            wakeSuppressed: true
+        }])
+
+        expect(event).toMatchObject({
+            type      : 'a2a-activity',
+            source    : FLEET_COCKPIT_SOURCES.a2a,
+            agentId   : 'neo-opus-ada',
+            confidence: 'observed',
+            occurredAt: '2026-07-04T06:00:00.000Z',
+            payload   : {
+                kind              : 'a2a-message',
+                messageId         : 'MESSAGE:123',
+                from              : 'neo-opus-ada',
+                recipientClass    : 'agent',
+                relatedTickets    : [14572, 14703],
+                relatedPullRequests: [14703],
+                status            : 'unread',
+                taskState         : 'Submitted',
+                wakeSuppressed    : true
+            }
+        })
+
+        const serialized = JSON.stringify(event)
+
+        expect(serialized).toContain('token=[redacted]')
+        expect(serialized).not.toContain('ghp_secret')
+        expect(serialized).not.toContain('full body')
+        expect(serialized).not.toContain('neo-gpt')
+        expect(serialized).not.toContain('secret=hidden')
+    })
+
+    test('maps lane-claim broadcasts as bounded lane-claim events', () => {
+        const [event] = createA2AMessageActivityEvents([{
+            messageId: 'MESSAGE:lane',
+            subject  : '[lane-claim][#14572] Fleet cockpit A2A activity adapter',
+            from     : '@neo-gpt',
+            to       : 'AGENT:*',
+            sentAt   : '2026-07-04T06:02:00Z'
+        }])
+
+        expect(event).toMatchObject({
+            type   : 'lane-claim',
+            source : FLEET_COCKPIT_SOURCES.a2a,
+            agentId: 'neo-gpt',
+            payload: {
+                kind          : 'a2a-lane-claim',
+                recipientClass: 'broadcast',
+                status        : 'unread'
+            }
+        })
+    })
+
+    test('sorts newest first, applies timestamp bounds, and limits events', () => {
+        const snapshot = createFleetA2AActivitySnapshot({
+            capturedAt: '2026-07-04T06:10:00Z',
+            since     : '2026-07-04T06:02:00Z',
+            until     : '2026-07-04T06:04:00Z',
+            limit     : 1,
+            messages  : [{
+                messageId: 'MESSAGE:old',
+                subject  : 'old',
+                from     : '@neo-gpt',
+                to       : '@neo-opus-ada',
+                sentAt   : '2026-07-04T06:01:00Z'
+            }, {
+                messageId: 'MESSAGE:middle',
+                subject  : 'middle',
+                from     : '@neo-gpt',
+                to       : '@neo-opus-ada',
+                sentAt   : '2026-07-04T06:03:00Z'
+            }, {
+                messageId: 'MESSAGE:new',
+                subject  : 'new',
+                from     : '@neo-gpt',
+                to       : '@neo-opus-ada',
+                sentAt   : '2026-07-04T06:05:00Z'
+            }]
+        })
+
+        expect(snapshot.capability).toMatchObject({
+            source    : FLEET_COCKPIT_SOURCES.activity,
+            state     : 'wired',
+            confidence: 'observed'
+        })
+        expect(snapshot.events).toHaveLength(1)
+        expect(snapshot.events[0].payload.messageId).toBe('MESSAGE:middle')
+    })
+
+    test('reads through a MailboxService-compatible function with explicit bounds', async() => {
+        const seenArgs = []
+
+        const snapshot = await readFleetA2AActivitySnapshot({
+            capturedAt : '2026-07-04T06:12:00Z',
+            limit      : 2,
+            listArgs   : {box: 'inbox', status: 'unread', includeArchived: false},
+            listMessages: async(args) => {
+                seenArgs.push(args)
+
+                return {
+                    messages: [{
+                        messageId: 'MESSAGE:reader',
+                        subject  : 'reader path',
+                        from     : '@neo-opus-vega',
+                        to       : '@neo-gpt',
+                        sentAt   : '2026-07-04T06:11:00Z'
+                    }]
+                }
+            }
+        })
+
+        expect(seenArgs).toEqual([{
+            box            : 'inbox',
+            status         : 'unread',
+            limit          : 2,
+            includeArchived: false
+        }])
+        expect(snapshot.events).toHaveLength(1)
+        expect(snapshot.events[0].payload.messageId).toBe('MESSAGE:reader')
+    })
+
+    test('returns degraded capability when Memory Core is missing or errors', async() => {
+        const missing = await readFleetA2AActivitySnapshot({
+            capturedAt: '2026-07-04T06:12:00Z'
+        })
+        const failed = await readFleetA2AActivitySnapshot({
+            capturedAt : '2026-07-04T06:12:00Z',
+            listMessages: async() => {
+                throw new Error('Memory Core token=secret unavailable')
+            }
+        })
+
+        for (const snapshot of [missing, failed]) {
+            expect(snapshot.capability).toMatchObject({
+                source    : FLEET_COCKPIT_SOURCES.activity,
+                state     : 'degraded',
+                confidence: 'none'
+            })
+            expect(snapshot.events).toHaveLength(1)
+            expect(snapshot.events[0]).toMatchObject({
+                type      : 'source-degraded',
+                source    : FLEET_COCKPIT_SOURCES.a2a,
+                confidence: 'none'
+            })
+        }
+
+        expect(JSON.stringify(failed)).toContain('token=[redacted]')
+        expect(JSON.stringify(failed)).not.toContain('token=secret')
+    })
+})
