@@ -743,7 +743,7 @@ paths:
     post:
       summary: Execute Dock Operation
       operationId: execute_dock_operation
-      x-neo-tool-tier: write
+      x-neo-tool-tier: write-locked
       x-pass-as-object: true
       description: Applies one dockZone.v1 semantic operation (addTab, moveItem, splitNode, resizeSplit, detachItem, closeItem, setItemPinned, setItemAutoHidden) to a live dock workspace and returns the post-operation document plus executor errors. Unknown operations are rejected with the vocabulary enumerated.
       tags: [Dock]
