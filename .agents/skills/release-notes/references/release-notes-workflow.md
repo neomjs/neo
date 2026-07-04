@@ -57,7 +57,7 @@ The measurable precedent is a **set, never one file** — majors AND minors both
 - **Hero chapters** — the mined arcs (§3); v13.0 carried five. Each narrates change, evidence, and numbers; each stands alone.
 - **War Story** (when the window carries one): Symptom → Investigation → Culprit → **Fix-the-class** (never the point-fix), with numbers.
 - **Honest bounds** — what is proven vs what is the standing watch; test-borne vs production-borne evidence, stated in-document. Velocity/scale numbers qualified in BOTH directions (`v12.1.0.md` contextualizes a *lower* number; silence is the failure mode).
-- **Named case studies with real timelines** — bug names as narrative hooks, actual clock-time, verbatim human moments in `> [!NOTE]` sidebars; Mermaid before/afters and code-in-action where the story is architectural.
+- **Named case studies with real timelines** — bug names as narrative hooks, actual clock-time, verbatim human moments in `> [!NOTE]` sidebars; Mermaid before/afters (render-verified before merge — `guide-authoring-bar` §3) and code-in-action where the story is architectural.
 - **Continuity / upgrade path** — what existing users do, what defers to the next release (minors use the drop-in-replacement idiom where true, per `v11.24.0.md`).
 - **Full Changelog tail** — the grouped enumeration closes the document (regenerated at cut boundary, §2), after the narrative, never instead of it.
 - **Bans:** changelog-dump structure (grouped appendices SUPPORT the story via the §2 script, never replace it); unsourced superlatives; scope-shrinking framings (§1, rule 4).
