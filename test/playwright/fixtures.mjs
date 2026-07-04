@@ -1,10 +1,11 @@
 import { test as base, expect } from '@playwright/test';
-import * as RmaHelpers from './util/RmaHelpers.mjs';
+import * as RmaHelpers          from './util/RmaHelpers.mjs';
 import {
     NeuralLink_ConnectionService,
     NeuralLink_InstanceService,
     NeuralLink_ComponentService,
     NeuralLink_DataService,
+    NeuralLink_DockService,
     NeuralLink_RuntimeService,
     NeuralLink_InteractionService
 } from '../../ai/services.mjs';
@@ -68,7 +69,7 @@ export const test = base.extend({
             async getFragmentAnchors(id) {
                 return page.evaluate(fragmentId => {
                     const start = document.evaluate(`//comment()[contains(., ' ${fragmentId}-start ')]`, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-                    const end = document.evaluate(`//comment()[contains(., ' ${fragmentId}-end ')]`, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                    const end   = document.evaluate(`//comment()[contains(., ' ${fragmentId}-end ')]`, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
                     return { start: !!start, end: !!end };
                 }, id);
             }
@@ -191,7 +192,7 @@ export const test = base.extend({
                      */
                     async getComponent(id, properties) {
                         const propsToFetch = properties || ['ntype', 'windowId', 'cls', 'className', 'vnode'];
-                        const response = await NeuralLink_InstanceService.getInstanceProperties({ sessionId, id, properties: propsToFetch });
+                        const response     = await NeuralLink_InstanceService.getInstanceProperties({ sessionId, id, properties: propsToFetch });
                         return response.properties;
                     },
 
@@ -333,6 +334,27 @@ export const test = base.extend({
                      */
                     async removeComponent(componentId) {
                         return NeuralLink_ComponentService.removeComponent({ sessionId, componentId });
+                    },
+
+                    // --- Dock Methods ---
+
+                    /**
+                     * Reads a live dock workspace's serializable layout document.
+                     * @param {String} componentId The dock workspace / document-holder component id.
+                     * @returns {Promise<Object>}
+                     */
+                    async getDockTopology(componentId) {
+                        return NeuralLink_DockService.getDockTopology({ sessionId, componentId });
+                    },
+
+                    /**
+                     * Applies one semantic dockZone.v1 operation and returns the post-operation document.
+                     * @param {String} componentId The dock workspace / document-holder component id.
+                     * @param {Object} descriptor  The operation descriptor `{operation, ...}`.
+                     * @returns {Promise<Object>}
+                     */
+                    async executeDockOperation(componentId, descriptor) {
+                        return NeuralLink_DockService.executeDockOperation({ sessionId, componentId, descriptor });
                     },
 
 
