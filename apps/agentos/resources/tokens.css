@@ -44,6 +44,15 @@
     --fm-family-gemini : #6ba3e8;
     --fm-family-human  : #c9d2de;
 
+    /* event-kind chips — a SEPARATE axis from session-state: kind = what happened, state = agent
+       health. Kept clear of the state health-hues (green/amber/pink) so a kind chip never reads as
+       a health signal where the two co-occur in the activity stream. */
+    --fm-kind-pr      : #7aa2f7;
+    --fm-kind-a2a     : #2ac3de;
+    --fm-kind-review  : #bb9af7;
+    --fm-kind-alert   : #db4b4b;
+    --fm-kind-neutral : #737aa2;
+
     /* type stacks */
     --fm-font-mono : ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     --fm-font-sans : system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
