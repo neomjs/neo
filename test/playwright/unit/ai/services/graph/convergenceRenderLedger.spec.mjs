@@ -131,6 +131,22 @@ test.describe('convergenceRenderLedger', () => {
         expect(row.axes).not.toHaveProperty('composite');   // a flattened score must never survive
     });
 
+    test('escapes backslashes before pipes in axis cells — a backslash-bearing value never breaks the table', () => {
+        // An axis value carrying BOTH a backslash and a pipe: escaping the pipe alone leaves the
+        // pre-existing backslash mis-paired and splits the markdown row into a stray column (the
+        // reported incomplete-sanitization defect). The fix escapes `\` -> `\\` FIRST, then `|` -> `\|`.
+        const snapshot = buildConvergenceSnapshotNode({
+            latticeNodeId: 'esc-regression',
+            axes         : {authority: {trustTier: 'a\\b|c'}}
+        });
+        snapshot.properties.convergenceWeight = 1;
+
+        const text = renderConvergenceLedgerText(buildConvergenceRenderLedger({snapshots: [snapshot]}, {now}));
+
+        // backslash doubled AND pipe escaped → the value stays inside one table column: `trustTier=a\\b\|c`
+        expect(text).toContain('trustTier=a\\\\b\\|c');
+    });
+
     test('is additive + fail-open — malformed input degrades to an empty ledger, never throws', () => {
         for (const bad of [null, undefined, {}, {snapshots: 'nope'}, [null, {properties: null}], 42]) {
             const ledger = buildConvergenceRenderLedger(bad, {now});
