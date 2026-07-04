@@ -9,6 +9,14 @@
             "path": null
         },
         {
+            "date": "2026-07-04",
+            "id": "blog/the-salute",
+            "isLeaf": true,
+            "name": "Your AI agents agree with each other. That's not the validation it feels like.",
+            "parentId": "2026",
+            "path": "learn/blog/the-salute.md"
+        },
+        {
             "date": "2026-07-02",
             "id": "blog/the-organism-already-existed",
             "isLeaf": true,
