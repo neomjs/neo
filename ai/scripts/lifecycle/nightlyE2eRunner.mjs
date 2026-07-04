@@ -72,11 +72,16 @@ async function acquireLock(nowIso) {
  * @param {Object} entry declared config `{config, results}` — the config path + its reporter output path.
  * @returns {Object} per-config outcome `{config, failures, ran, note}`.
  */
-function runConfig(entry) {
+export function runConfig(entry, {spawn = spawnSync} = {}) {
     console.error(`[nightlyE2eRunner] Running ${entry.config} …`);
+    // Remove any stale reporter output FIRST: a prior run's results.json (or a leftover green one) must never
+    // be read as THIS run's result — that would let an infra failure which writes no fresh report be scored
+    // green, silently suppressing the red digest. The heartbeat's one job is to not go silent.
+    fs.removeSync(entry.results);
+
     // Custom config ONLY — never the default `npx playwright test`. Capture (pipe) rather than inherit so the
     // output backs the per-run log the digest points at; echo it through so an attended run still sees it live.
-    const run = spawnSync('npx', ['playwright', 'test', '-c', entry.config], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']});
+    const run = spawn('npx', ['playwright', 'test', '-c', entry.config], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']});
 
     if (run.stdout) process.stdout.write(run.stdout);
     if (run.stderr) process.stderr.write(run.stderr);
@@ -112,7 +117,7 @@ export async function runNightlyE2e() {
     }
 
     try {
-        const outcomes = E2E_CONFIGS.map(runConfig),
+        const outcomes = E2E_CONFIGS.map(entry => runConfig(entry)),
               red      = isRed(outcomes);
 
         // Back the digest's `Run log:` pointer with a real file: ensure the logs dir, write the captured
