@@ -66,6 +66,7 @@ decision owns; *Parent* = the composition record that already aggregates it, whe
 | 0029 | Body ↔ Brain seam | Harness docking design (multi-window layout, perspectives, cross-window drag) | extends 0020 |
 | 0030 | Brain / orchestration | Work-graph stall inference (`STALL_*` findings) | — |
 | 0031 | Organism | **This record**: composition seams + trajectory invariants + the staleness guard | — |
+| 0032 | Body ↔ Brain seam | Institution-Cockpit render-model (object-permanent selves + COP; identity anti-lock-in contract) | extends 0020 |
 
 ## §3 Trajectory Invariants
 
