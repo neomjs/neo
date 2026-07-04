@@ -120,8 +120,16 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
     }
 
     function clearGraphCacheWithoutStorageMutation() {
+        // Suspend autoSave around the store clears or they are NOT storage-neutral: store
+        // remove-mutations echo through onNodesMutate/onEdgesMutate into storage.removeNodes/
+        // removeEdges — the raw version of this helper silently DELETED every cached row from
+        // SQLite, invalidating any test premise that storage survives a cache reset.
+        // Production cache-management paths (syncCache, LRU eviction) suspend the same way.
+        const wasAutoSave = GraphService.db.autoSave;
+        GraphService.db.autoSave = false;
         GraphService.db.nodes.clear();
         GraphService.db.edges.clear();
+        GraphService.db.autoSave = wasAutoSave;
         GraphService.db.vicinityLoadedNodes.clear();
         GraphService.db.lastAccessMap.clear();
     }
@@ -626,6 +634,152 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
 
         const node = GraphService.db.nodes.get(msgId);
         expect(node.properties.readAt).toBeTruthy();
+    });
+
+    test('surgical repair preserves a DM readAt while restoring a lost routing edge (#14426)', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        let msgId;
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const res = await MailboxService.addMessage({ to: '@bob', subject: 'survives repair', body: 'read me' });
+            msgId = res.messageId;
+        });
+
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await MailboxService.markRead({ messageId: msgId });
+        });
+
+        // mark_read must be DURABLE, not a cache-only mutation — the storage row is what any
+        // cache reload (restart, peer process, repair) re-hydrates from.
+        const storedReadAt = GraphService.db.storage.db
+            .prepare(`SELECT json_extract(data, '$.properties.readAt') AS readAt FROM Nodes WHERE id = ?`)
+            .get(msgId);
+        expect(storedReadAt.readAt).toBeTruthy();
+
+        // Partial damage: the SENT_TO edge dies, the MESSAGE node (carrying readAt) stays intact.
+        // The pre-fix repair re-projected the WHOLE record from the WAL — whose properties carry
+        // the send-time readAt: null forever — resurrecting the message as unread.
+        GraphService.db.storage.db.prepare('DELETE FROM Edges WHERE source = ? AND target = ? AND type = ?')
+            .run(msgId, '@bob', 'SENT_TO');
+        clearGraphCacheWithoutStorageMutation();
+
+        const summary = await MailboxService.repairMessageGraphIntegrity({ids: [msgId]});
+        expect(summary).toMatchObject({scanned: 1, repaired: 1, failed: 0});
+
+        const restoredEdge = GraphService.db.storage.db
+            .prepare('SELECT count(*) as count FROM Edges WHERE source = ? AND target = ? AND type = ?')
+            .get(msgId, '@bob', 'SENT_TO');
+        expect(restoredEdge.count).toBe(1);
+
+        // The durable invariant: the repaired projection still carries the committed read-state
+        // in STORAGE — the row every process re-hydrates from.
+        const postRepair = GraphService.db.storage.db
+            .prepare(`SELECT json_extract(data, '$.properties.readAt') AS readAt FROM Nodes WHERE id = ?`)
+            .get(msgId);
+        expect(postRepair.readAt).toBeTruthy();
+
+        const readBack = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            return await MailboxService.getMessage({messageId: msgId});
+        });
+        expect(readBack.readAt).toBeTruthy();
+    });
+
+    test('unread counts are stable across consecutive cold-cache listMessages calls — reads never revert reads (#14797)', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        let msgId;
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const res = await MailboxService.addMessage({ to: '@bob', subject: 'stable', body: 'count me once' });
+            msgId = res.messageId;
+        });
+
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await MailboxService.markRead({ messageId: msgId });
+        });
+
+        clearGraphCacheWithoutStorageMutation();
+
+        const firstPass = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            return await MailboxService.listMessages({status: 'all'});
+        });
+        const secondPass = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            return await MailboxService.listMessages({status: 'all'});
+        });
+
+        const unreadOf = result => result.messages.filter(message => !message.readAt).length;
+        const target   = result => result.messages.find(message => message.messageId === msgId);
+
+        // The invariant: a read operation never reverts a committed mark_read — so two
+        // consecutive cold-cache reads agree with each other AND with the committed state.
+        expect(target(firstPass)?.readAt).toBeTruthy();
+        expect(target(secondPass)?.readAt).toBeTruthy();
+        expect(unreadOf(secondPass)).toBe(unreadOf(firstPass));
+    });
+
+    test('a pure cold-cache vicinity re-hydration is storage-neutral (#14426)', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        let msgId;
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const res = await MailboxService.addMessage({ to: '@bob', subject: 'probe', body: 'probe body' });
+            msgId = res.messageId;
+        });
+
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await MailboxService.markRead({ messageId: msgId });
+        });
+
+        const before = GraphService.db.storage.db
+            .prepare(`SELECT json_extract(data, '$.properties.readAt') AS readAt FROM Nodes WHERE id = ?`)
+            .get(msgId);
+        expect(before.readAt).toBeTruthy();
+
+        clearGraphCacheWithoutStorageMutation();
+
+        // Read-only operation: hydrate the vicinity from storage. Storage must be bit-identical after.
+        GraphService.db.getAdjacentNodes(msgId, 'outbound');
+
+        const after = GraphService.db.storage.db
+            .prepare(`SELECT json_extract(data, '$.properties.readAt') AS readAt FROM Nodes WHERE id = ?`)
+            .get(msgId);
+        expect(after.readAt).toBeTruthy();
+    });
+
+    test('surgical repair preserves a broadcast delivery readAt while restoring a lost sender edge (#14426)', async () => {
+        let msgId;
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const res = await MailboxService.addMessage({ to: 'AGENT:*', subject: 'broadcast survives', body: 'all hands' });
+            msgId = res.messageId;
+        });
+
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await MailboxService.markRead({ messageId: msgId });
+        });
+
+        // Partial damage away from the delivery edges: the read-state lives on @bob's
+        // DELIVERED_TO edge and must survive the repair of the unrelated SENT_BY loss.
+        GraphService.db.storage.db.prepare('DELETE FROM Edges WHERE source = ? AND target = ? AND type = ?')
+            .run(msgId, '@alice', 'SENT_BY');
+        clearGraphCacheWithoutStorageMutation();
+
+        const summary = await MailboxService.repairMessageGraphIntegrity({ids: [msgId]});
+        expect(summary).toMatchObject({scanned: 1, repaired: 1, failed: 0});
+
+        const readBack = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            return await MailboxService.getMessage({messageId: msgId});
+        });
+        expect(readBack.readAt).toBeTruthy();
+
+        const restoredEdge = GraphService.db.storage.db
+            .prepare('SELECT count(*) as count FROM Edges WHERE source = ? AND target = ? AND type = ?')
+            .get(msgId, '@alice', 'SENT_BY');
+        expect(restoredEdge.count).toBe(1);
     });
 
     test('listMessages outbox mode retrieves sent messages', async () => {

@@ -453,6 +453,31 @@ function hasGraphEdge(source, target, type) {
     );
 }
 
+/**
+ * @summary Storage-truth existence checks for the repair scan.
+ *
+ * The in-memory caches hydrate lazily per vicinity, so a cold cache reads as "missing" for
+ * structures SQLite holds — and a phantom missing-flag makes the repair rewrite intact pieces
+ * from the WAL, resurrecting send-time mutable state (`readAt: null`) over committed reads.
+ * Existence checks that GATE repairs therefore consult storage directly, exactly like
+ * `hasMailboxGraphProjectionGap` does; the cache scans above stay as the cheap fast-path.
+ */
+function hasGraphEdgeInStorage(source, target, type) {
+    const sqlite = GraphService.db?.storage?.db;
+    if (!sqlite) return false;
+
+    return (sqlite.prepare('SELECT count(*) AS count FROM Edges WHERE source = ? AND target = ? AND type = ?')
+        .get(source, target, type)?.count ?? 0) > 0;
+}
+
+function hasMessageNodeInStorage(messageId) {
+    const sqlite = GraphService.db?.storage?.db;
+    if (!sqlite) return false;
+
+    return (sqlite.prepare(`SELECT count(*) AS count FROM Nodes WHERE id = ? AND json_extract(data, '$.label') = 'MESSAGE'`)
+        .get(messageId)?.count ?? 0) > 0;
+}
+
 function hasGraphEdgeOfType(source, type) {
     return (GraphService.db?.edges?.items || []).some(edge =>
         getRecordField(edge, 'source') === source &&
@@ -541,8 +566,11 @@ function getMessageGraphProjectionIssues(record) {
 
     db.getAdjacentNodes(messageId, 'outbound');
 
+    // Every missing-flag below is a REPAIR TRIGGER, so each cache miss falls back to a
+    // storage-truth check: a cold cache flagging an intact piece is exactly the phantom
+    // that made the repair resurrect committed read-state from the WAL.
     const messageNode = db.nodes.get(messageId);
-    if (!messageNode || getRecordField(messageNode, 'label') !== 'MESSAGE') {
+    if ((!messageNode || getRecordField(messageNode, 'label') !== 'MESSAGE') && !hasMessageNodeInStorage(messageId)) {
         issues.push('missing-message-node');
     }
 
@@ -551,12 +579,12 @@ function getMessageGraphProjectionIssues(record) {
         return issues;
     }
 
-    if (!hasGraphEdge(messageId, sentBy, 'SENT_BY')) issues.push('missing-sent-by');
-    if (!hasGraphEdge(messageId, to, 'SENT_TO')) issues.push('missing-sent-to');
+    if (!hasGraphEdge(messageId, sentBy, 'SENT_BY') && !hasGraphEdgeInStorage(messageId, sentBy, 'SENT_BY')) issues.push('missing-sent-by');
+    if (!hasGraphEdge(messageId, to, 'SENT_TO') && !hasGraphEdgeInStorage(messageId, to, 'SENT_TO')) issues.push('missing-sent-to');
 
     if (to === 'AGENT:*') {
         for (const recipient of getMessageWalArray(routing.broadcastRecipients)) {
-            if (!hasGraphEdge(messageId, recipient, 'DELIVERED_TO')) {
+            if (!hasGraphEdge(messageId, recipient, 'DELIVERED_TO') && !hasGraphEdgeInStorage(messageId, recipient, 'DELIVERED_TO')) {
                 issues.push(`missing-delivered-to:${recipient}`);
             }
         }
@@ -1062,10 +1090,16 @@ class MailboxService extends Base {
      * @param {Object} record Accepted message WAL record.
      * @param {Object} [options]
      * @param {Boolean} [options.pumpWake=true] Whether to pump wake subscriptions after projection.
+     * @param {String[]|null} [options.onlyIssues=null] Surgical-repair mode: write ONLY the pieces
+     *   named in this issue list (the `getMessageGraphProjectionIssues` vocabulary). The WAL is
+     *   pure intake — its records carry send-time mutable state (`readAt: null`) forever — so a
+     *   FULL re-projection over existing structures resurrects unread state on top of committed
+     *   reads (the read-state-rollback defect: partial damage must never trigger a total rewrite).
+     *   `null` (accept/drain paths) keeps the full projection for never-projected records.
      * @returns {Promise<void>}
      * @private
      */
-    async _projectMessageWalRecord(record, {pumpWake = true} = {}) {
+    async _projectMessageWalRecord(record, {pumpWake = true, onlyIssues = null} = {}) {
         const messageId = record?.id || record?.message?.id;
         if (typeof messageId !== 'string' || !messageId.startsWith('MESSAGE:')) {
             throw new Error('[MailboxService] message WAL projection requires a MESSAGE:* id');
@@ -1092,19 +1126,28 @@ class MailboxService extends Base {
         ensureMailboxProjectionEndpoint(sentBy);
         ensureMailboxProjectionEndpoint(to);
 
-        GraphService.upsertNode({
-            id        : messageId,
-            type      : message.type || 'MESSAGE',
-            name      : message.name || messageProperties.subject || messageId,
-            properties: messageProperties
-        });
+        const needsPiece = piece => !onlyIssues || onlyIssues.includes(piece);
 
-        linkRequiredMailboxEdgeOrThrow(messageId, sentBy, 'SENT_BY', 1.0, edgeProperties, routingDiagnostics);
-        linkRequiredMailboxEdgeOrThrow(messageId, to, 'SENT_TO', 1.0, edgeProperties, routingDiagnostics);
+        if (needsPiece('missing-message-node')) {
+            GraphService.upsertNode({
+                id        : messageId,
+                type      : message.type || 'MESSAGE',
+                name      : message.name || messageProperties.subject || messageId,
+                properties: messageProperties
+            });
+        }
+
+        needsPiece('missing-sent-by') && linkRequiredMailboxEdgeOrThrow(messageId, sentBy, 'SENT_BY', 1.0, edgeProperties, routingDiagnostics);
+        needsPiece('missing-sent-to') && linkRequiredMailboxEdgeOrThrow(messageId, to, 'SENT_TO', 1.0, edgeProperties, routingDiagnostics);
 
         if (to === 'AGENT:*') {
             for (const recipient of getMessageWalArray(routing.broadcastRecipients)) {
+                if (!needsPiece(`missing-delivered-to:${recipient}`)) continue;
+
                 ensureMailboxProjectionEndpoint(recipient);
+                // A RECREATED delivery edge honestly starts unread — its prior read-state is the
+                // damage being repaired; intact sibling edges above are never rewritten, which is
+                // what keeps their committed readAt alive.
                 linkRequiredMailboxEdgeOrThrow(messageId, recipient, 'DELIVERED_TO', 1.0, {
                     deliveredAt : timestamp,
                     readAt      : null,
@@ -1115,25 +1158,29 @@ class MailboxService extends Base {
             }
         }
 
-        if (optionalEdges.originSessionId) {
-            linkOptionalMailboxEdge(messageId, optionalEdges.originSessionId, 'ORIGINATES_IN', 1.0, edgeProperties);
-        }
-        if (optionalEdges.inReplyTo) {
-            linkOptionalMailboxEdge(messageId, optionalEdges.inReplyTo, 'IN_REPLY_TO', 1.0, edgeProperties);
-        }
-        if (optionalEdges.partOfThread) {
-            linkOptionalMailboxEdge(messageId, optionalEdges.partOfThread, 'PART_OF_THREAD', 1.0, edgeProperties);
-        }
+        // Optional semantic edges are never issue-flagged by the repair scan, so surgical-repair
+        // passes skip them wholesale: only full projection (accept / pending-drain) links them.
+        if (!onlyIssues) {
+            if (optionalEdges.originSessionId) {
+                linkOptionalMailboxEdge(messageId, optionalEdges.originSessionId, 'ORIGINATES_IN', 1.0, edgeProperties);
+            }
+            if (optionalEdges.inReplyTo) {
+                linkOptionalMailboxEdge(messageId, optionalEdges.inReplyTo, 'IN_REPLY_TO', 1.0, edgeProperties);
+            }
+            if (optionalEdges.partOfThread) {
+                linkOptionalMailboxEdge(messageId, optionalEdges.partOfThread, 'PART_OF_THREAD', 1.0, edgeProperties);
+            }
 
-        for (const s of getMessageWalArray(optionalEdges.relatedSessions)) {
-            linkOptionalMailboxEdge(messageId, s, 'RELATED_SESSION', 1.0, edgeProperties);
-        }
-        for (const t of getMessageWalArray(optionalEdges.relatedTickets)) {
-            linkOptionalMailboxEdge(messageId, t, 'REFERENCES_TICKET', 1.0, edgeProperties);
-        }
-        for (const c of getMessageWalArray(optionalEdges.taggedConcepts)) {
-            ensureTaggedConceptNode(c);
-            linkOptionalMailboxEdge(messageId, c, 'TAGGED_CONCEPT', 1.0, edgeProperties);
+            for (const s of getMessageWalArray(optionalEdges.relatedSessions)) {
+                linkOptionalMailboxEdge(messageId, s, 'RELATED_SESSION', 1.0, edgeProperties);
+            }
+            for (const t of getMessageWalArray(optionalEdges.relatedTickets)) {
+                linkOptionalMailboxEdge(messageId, t, 'REFERENCES_TICKET', 1.0, edgeProperties);
+            }
+            for (const c of getMessageWalArray(optionalEdges.taggedConcepts)) {
+                ensureTaggedConceptNode(c);
+                linkOptionalMailboxEdge(messageId, c, 'TAGGED_CONCEPT', 1.0, edgeProperties);
+            }
         }
 
         // Per-message auto concept-extraction remains intentionally outside projection: curated
@@ -1227,7 +1274,10 @@ class MailboxService extends Base {
             summary.issues[record.id] = issues;
 
             try {
-                await this._projectMessageWalRecord(record, {pumpWake: false});
+                // Surgical mode: rebuild ONLY the flagged-missing pieces. A full re-projection
+                // here resurrects the WAL's send-time `readAt: null` over committed reads on
+                // every INTACT node/edge — the read-state-rollback defect this repair once was.
+                await this._projectMessageWalRecord(record, {pumpWake: false, onlyIssues: issues});
                 summary.repaired++;
             } catch (error) {
                 summary.failed++;
