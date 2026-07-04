@@ -1,6 +1,6 @@
 # Fleet Manager Cockpit — Design Token Reference (#14578)
 
-The token vocabulary every cockpit view leaf consumes. **Source of truth for the values:** the design SSOT [`apps/agentos/design/fleet-manager-cockpit-plan.html`](../agentos/design/fleet-manager-cockpit-plan.html) (committed via `#14512`; it stays at that path until Epic `#14560` closes — link integrity outranks tidiness, per the `#14577` decision record). Any delta from the SSOT is a recorded design decision on a ticket — never silent drift.
+The token vocabulary every cockpit view leaf consumes — the design floor of the **fleet-manager module inside this one harness app** (operator veto recorded on `#14577`: FM is a module of `apps/agentos`, never a sibling app). **Source of truth for the values:** the design SSOT [`fleet-manager-cockpit-plan.html`](./design/fleet-manager-cockpit-plan.html) (committed via `#14512`). Any delta from the SSOT is a recorded design decision on a ticket — never silent drift.
 
 | Token group | Tokens | Role | Example consumer | Binding rule |
 |---|---|---|---|---|
