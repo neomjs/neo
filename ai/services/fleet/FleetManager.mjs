@@ -147,7 +147,7 @@ class FleetManager extends Base {
      * Neo.ai.services.fleet.FleetLifecycleService#status} read, so every *registered* agent gets a row (an
      * agent with no live process reads `state:'stopped'`) and the cockpit renders the whole fleet, not
      * only running processes. Read-only; never carries a secret (`status` holds none — `stderrBytes` is a
-     * count). Lifecycle records expose running / stopped / exited directly; richer idle / wedged /
+     * count). Lifecycle records expose running / stopped directly; richer idle / wedged /
      * rate-limited states need watchdog signals this service does not yet surface (a separate
      * watchdog-signals follow-up), so a row is `observed` when a process record backs it and `inferred`
      * otherwise — the

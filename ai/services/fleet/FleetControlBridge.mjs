@@ -191,7 +191,7 @@ class FleetControlBridge extends Base {
 
     /**
      * @summary The live-process half of the *observe* MVP loop: per-agent process-runtime state across
-     * the whole fleet (running / stopped / exited), complementing {@link #fleetStatus}'s repo view.
+     * the whole fleet (running / stopped), complementing {@link #fleetStatus}'s repo view.
      * Read-only; carries no secret (the lifecycle status holds none). Richer idle / wedged / rate-limited
      * states are a watchdog-gated follow-up — this returns what the lifecycle records observe, never
      * an invented state.
