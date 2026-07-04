@@ -80,9 +80,9 @@ class CreatedInstances extends Store {
             title,
             blueprintSnapshot: snapshot.value,
             paneRef,
-            createdAt    : new Date().toISOString(),
-            creationIndex: this.nextCreationIndex(),
-            state        : 'live'
+            createdAt        : new Date().toISOString(),
+            creationIndex    : this.nextCreationIndex(),
+            state            : 'live'
         })[0];
 
         return {accepted: true, reason: null, record}
@@ -129,13 +129,10 @@ class CreatedInstances extends Store {
             }
         }
 
-        if ('title' in changes) {
-            record.title = changes.title
-        }
-
-        if (snapshot) {
-            record.blueprintSnapshot = snapshot.value
-        }
+        record.set({
+            ...('title' in changes ? {title: changes.title} : {}),
+            ...(snapshot ? {blueprintSnapshot: snapshot.value} : {})
+        });
 
         return {accepted: true, reason: null, record}
     }
@@ -157,7 +154,7 @@ class CreatedInstances extends Store {
             return {accepted: false, reason: `instanceId "${instanceId}" is already disposed`, record: null}
         }
 
-        record.state = 'disposed';
+        record.set({state: 'disposed'});
 
         return {accepted: true, reason: null, record}
     }

@@ -17,7 +17,7 @@ import * as core       from '../../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 
 test.describe('CreateSurface — the wedge screen: five states, one provider, the whole spine (#14720)', () => {
-    let Controller, Provider, oracle, deterministicBlueprintFallback;
+    let Controller, CreatedPane, Provider, oracle, deterministicBlueprintFallback;
 
     // a stage double honoring the container seam the controller drives
     const createStageDouble = () => {
@@ -67,6 +67,7 @@ test.describe('CreateSurface — the wedge screen: five states, one provider, th
 
     test.beforeAll(async () => {
         Controller = (await import('../../../../../../apps/agentos/view/create/CreateSurfaceController.mjs')).default;
+        CreatedPane = (await import('../../../../../../apps/agentos/view/create/CreatedPane.mjs')).default;
         Provider   = (await import('../../../../../../apps/agentos/view/create/CreationStateProvider.mjs')).default;
         oracle     = await import('../../../../../../apps/agentos/view/create/util/creationFlowState.mjs');
         deterministicBlueprintFallback = (await import('../../../../../../apps/agentos/view/create/CreateSurfaceController.mjs')).deterministicBlueprintFallback;
@@ -85,7 +86,8 @@ test.describe('CreateSurface — the wedge screen: five states, one provider, th
 
         expect(provider.getData('flowState')).toBe(S.MATERIALIZED);
         expect(stage.added).toHaveLength(1);                          // the ONE create path was used
-        expect(stage.added[0].ntype).toBe('grid-container');
+        expect(stage.added[0].ntype).toBe('agentos-created-pane');
+        expect(stage.added[0].content.ntype).toBe('grid-container');
 
         const instanceId = provider.getData('activeInstanceId');
         expect(instanceId).toMatch(/^keeper-grid-/);
@@ -93,6 +95,7 @@ test.describe('CreateSurface — the wedge screen: five states, one provider, th
         const record = CreatedInstances.resolveTarget({instanceId});
         expect(record.state).toBe('live');
         expect(record.blueprintSchema).toBe('grid@1');
+        expect(record.paneRef).toBe(`${instanceId}-pane`);
 
         provider.destroy(); controller.destroy()
     });
@@ -157,6 +160,44 @@ test.describe('CreateSurface — the wedge screen: five states, one provider, th
         expect(provider.getData('flowState')).toBe(S.EMPTY);
         expect(provider.getData('activeInstanceId')).toBeNull();
         expect(CreatedInstances.resolveTarget({instanceId}).state).toBe('disposed');
+
+        provider.destroy(); controller.destroy()
+    });
+
+    test('created pane chrome binds title, disposes via registry, and promotes by moving render target only', async () => {
+        const
+            {provider, stage, controller, CreatedInstances} = await createRig(),
+            S                                               = oracle.CREATION_STATES;
+
+        controller.onIntentChange();
+        await controller.onSubmitIntent();
+
+        const
+            instanceId = provider.getData('activeInstanceId'),
+            paneConfig = {...stage.added[0], content: {ntype: 'component', id: instanceId, reference: instanceId}},
+            pane       = Neo.create(CreatedPane, paneConfig),
+            titleLabel = pane.down({reference: 'created-pane-title'}),
+            target     = {added: [], add(item) { this.added.push(item); return item }};
+
+        pane.stateProvider.parent = provider;
+
+        expect(titleLabel.text).toBe(CreatedInstances.resolveTarget({instanceId}).title);
+
+        CreatedInstances.markMutated(instanceId, {title: 'Retitled Grid'});
+        expect(titleLabel.text).toBe('Retitled Grid');
+
+        pane.promoteTarget = () => target;
+        expect(pane.onPromote()).toMatchObject({accepted: true, pane});
+        expect(target.added[0]).toBe(pane);
+        expect(CreatedInstances.resolveTarget({instanceId}).state).toBe('live');
+
+        await pane.timeout(1);
+        pane.onDispose();
+
+        expect(provider.getData('flowState')).toBe(S.EMPTY);
+        expect(provider.getData('activeInstanceId')).toBeNull();
+        expect(CreatedInstances.resolveTarget({instanceId}).state).toBe('disposed');
+        expect(pane.isDestroying).toBe(true);
 
         provider.destroy(); controller.destroy()
     });

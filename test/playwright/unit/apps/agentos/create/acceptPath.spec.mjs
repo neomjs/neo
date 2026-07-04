@@ -62,10 +62,13 @@ test.describe('acceptPath — blueprint → live instance via the ONE create pat
         const result = accept.acceptBlueprint({blueprint: validGrid('Accept Grid'), instanceId: 'ap-1', stage});
 
         expect(result.accepted).toBe(true);
-        expect(result.config.ntype).toBe('grid-container');           // wire-safe, never a module ref
-        expect(result.config.id).toBe('ap-1');                        // instance-manager resolvable (Neo.get)
-        expect(result.config.reference).toBe('ap-1');
-        expect(result.config.columns).toEqual([{dataField: 'name', text: 'Name'}, {dataField: 'city', text: 'City'}]);
+        expect(result.config.ntype).toBe('agentos-created-pane');     // keeper chrome wraps the live widget
+        expect(result.config.id).toBe('ap-1-pane');                   // paneRef, not mutation target
+        expect(result.config.reference).toBe('ap-1-pane');
+        expect(result.config.content.id).toBe('ap-1');                // instance-manager resolvable (Neo.get)
+        expect(result.config.content.ntype).toBe('grid-container');   // wire-safe, never a module ref
+        expect(result.config.content.reference).toBe('ap-1');
+        expect(result.config.content.columns).toEqual([{dataField: 'name', text: 'Name'}, {dataField: 'city', text: 'City'}]);
         expect(stage.added).toHaveLength(1);                          // the ONE create path was used
 
         // the insert event wrote the registry record with the provenance stamp
@@ -73,7 +76,7 @@ test.describe('acceptPath — blueprint → live instance via the ONE create pat
 
         expect(record.state).toBe('live');
         expect(record.blueprintSchema).toBe('grid@1');
-        expect(record.paneRef).toBe('ap-1');
+        expect(record.paneRef).toBe('ap-1-pane');
         expect(record.blueprintSnapshot.title).toBe('Accept Grid');
     });
 
@@ -192,15 +195,15 @@ test.describe('acceptPath — blueprint → live instance via the ONE create pat
         stage.on('insert', registrar);
         accept.acceptBlueprint({blueprint: validGrid('Dispose Grid'), instanceId: 'ap-d1', stage});
 
-        let   destroyed = false;
-        const result    = accept.disposeInstance({
+        let   destroyedId = null;
+        const result      = accept.disposeInstance({
             instanceId      : 'ap-d1',
             registry        : CreatedInstances,
-            resolveComponent: () => ({destroy() { destroyed = true }})
+            resolveComponent: id => ({destroy() { destroyedId = id }})
         });
 
         expect(result.accepted).toBe(true);
-        expect(destroyed).toBe(true);
+        expect(destroyedId).toBe('ap-d1-pane');
         expect(CreatedInstances.resolveTarget({instanceId: 'ap-d1'}).state).toBe('disposed');
 
         // disposed instances refuse mutation through the accept path too

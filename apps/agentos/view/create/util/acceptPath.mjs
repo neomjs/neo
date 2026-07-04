@@ -1,3 +1,4 @@
+import CreatedPane                           from '../CreatedPane.mjs';
 import {validateBlueprint, validateMutation} from './blueprintSchema.mjs';
 
 /**
@@ -62,28 +63,37 @@ export const SCHEMA_MATERIALIZERS = Object.freeze({
          * @returns {Object} stage-insertable component config
          */
         materialize(blueprint, {instanceId}) {
-            const columns = blueprint.config.columns.map(column => ({dataField: column.field, text: column.text}));
+            const
+                columns = blueprint.config.columns.map(column => ({dataField: column.field, text: column.text})),
+                paneRef = `${instanceId}-pane`;
 
             return {
-                // id + reference both set to the instanceId (the shipped first-widget parity):
-                // the id makes the instance resolvable via the core instance manager
-                // (Neo.get); the reference keeps container-scoped getReference() lookups working
-                id       : instanceId,
-                ntype    : 'grid-container',
-                reference: instanceId,
-                title    : blueprint.title,
+                module   : CreatedPane,
+                ntype    : 'agentos-created-pane',
+                id       : paneRef,
+                reference: paneRef,
+                instanceId,
                 flex     : 1,
-                columns,
-                ...(blueprint.config.height !== undefined ? {height: blueprint.config.height} : {}),
-                ...(blueprint.config.width  !== undefined ? {width : blueprint.config.width}  : {}),
-                store: {
-                    model: {fields: columns.map(column => ({name: column.dataField, type: 'String'}))},
-                    data : blueprint.data
-                },
                 // provenance stamp: the insert-side registrar reads this to write the registry
-                // record at the same moment the provenance projection fires; external
-                // create_component inserts carry no stamp and are untouched by the registrar
-                blueprintMeta: {instanceId, schema: blueprint.schema, title: blueprint.title, blueprintSnapshot: blueprint}
+                // record at the same moment the pane lands. The child remains the mutation target.
+                blueprintMeta: {instanceId, schema: blueprint.schema, title: blueprint.title, blueprintSnapshot: blueprint},
+                content      : {
+                    // id + reference both set to the instanceId (the shipped first-widget parity):
+                    // the id makes the instance resolvable via the core instance manager
+                    // (Neo.get); the reference keeps container-scoped getReference() lookups working
+                    id       : instanceId,
+                    ntype    : 'grid-container',
+                    reference: instanceId,
+                    title    : blueprint.title,
+                    flex     : 1,
+                    columns,
+                    ...(blueprint.config.height !== undefined ? {height: blueprint.config.height} : {}),
+                    ...(blueprint.config.width  !== undefined ? {width : blueprint.config.width}  : {}),
+                    store: {
+                        model: {fields: columns.map(column => ({name: column.dataField, type: 'String'}))},
+                        data : blueprint.data
+                    }
+                }
             }
         },
         /**
@@ -249,13 +259,16 @@ export function mutateInstance({instanceId, mutation, registry, resolveComponent
  * @returns {{accepted: Boolean, reason: String|null, stage: String|null}}
  */
 export function disposeInstance({instanceId, registry, resolveComponent = resolveViaInstanceManager} = {}) {
-    const flipped = registry?.markDisposed?.(instanceId);
+    const
+        record  = registry?.resolveTarget?.({instanceId}),
+        paneRef = record?.paneRef,
+        flipped = registry?.markDisposed?.(instanceId);
 
     if (!flipped?.accepted) {
         return {accepted: false, reason: flipped?.reason || 'registry unavailable', stage: ACCEPT_STAGES.DISPOSE};
     }
 
-    const component = typeof resolveComponent === 'function' ? resolveComponent(instanceId) : null;
+    const component = typeof resolveComponent === 'function' ? (resolveComponent(paneRef || instanceId) || (paneRef ? resolveComponent(instanceId) : null)) : null;
 
     component?.destroy?.();
 
