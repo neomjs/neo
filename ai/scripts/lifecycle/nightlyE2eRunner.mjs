@@ -16,14 +16,15 @@
  * Out of scope (per the ticket): CI integration (the outside-CI discipline stands), fixing the reds (the digest
  * points; owners fix), and unit/integration suites (CI owns those).
  */
-import {spawnSync}           from 'node:child_process';
-import path                  from 'node:path';
-import {fileURLToPath}       from 'node:url';
-import fs                    from 'fs-extra';
-import GraphService          from '../../services/memory-core/GraphService.mjs';
-import LifecycleService      from '../../services/memory-core/lifecycle/SystemLifecycleService.mjs';
-import MailboxService        from '../../services/memory-core/MailboxService.mjs';
-import RequestContextService from '../../mcp/server/shared/services/RequestContextService.mjs';
+import {spawnSync}                            from 'node:child_process';
+import path                                   from 'node:path';
+import {fileURLToPath}                        from 'node:url';
+import fs                                     from 'fs-extra';
+import GraphService                           from '../../services/memory-core/GraphService.mjs';
+import LifecycleService                       from '../../services/memory-core/lifecycle/SystemLifecycleService.mjs';
+import MailboxService                         from '../../services/memory-core/MailboxService.mjs';
+import RequestContextService                  from '../../mcp/server/shared/services/RequestContextService.mjs';
+import {collectFailures, formatDigest, isRed} from './nightlyE2eDigest.mjs';
 
 /**
  * The whitebox-e2e configs the nightly run executes. ADDITIVE: append a config here as a suite lands
@@ -66,37 +67,6 @@ async function acquireLock(nowIso) {
 }
 
 /**
- * @summary Walks a Playwright JSON report and collects every failed spec as an actionable pointer.
- * A spec is failing when it is not `ok` (Playwright sets `ok:false` for unexpected outcomes). Returns the
- * spec title, its `file:line`, and the FIRST error line (no full stack — the digest points, the owner opens).
- * @param {Object} report Parsed Playwright `json` reporter output.
- * @returns {Object[]} failing specs — each `{title, location, firstError}`.
- */
-function collectFailures(report) {
-    const failures = [];
-
-    const walk = suite => {
-        for (const spec of suite.specs || []) {
-            if (spec.ok === false) {
-                const result    = spec.tests?.[0]?.results?.find(r => r.status !== 'passed' && r.status !== 'skipped') || spec.tests?.[0]?.results?.[0],
-                      rawError  = result?.errors?.[0]?.message || result?.error?.message || 'no error message captured',
-                      firstLine = String(rawError).split('\n').find(line => line.trim().length > 0)?.trim() || 'no error message captured';
-
-                failures.push({
-                    title     : spec.title,
-                    location  : `${spec.file || suite.file || '?'}:${spec.line ?? '?'}`,
-                    firstError: firstLine.length > 240 ? `${firstLine.slice(0, 240)}…` : firstLine
-                });
-            }
-        }
-        for (const child of suite.suites || []) walk(child);
-    };
-
-    for (const suite of report.suites || []) walk(suite);
-    return failures;
-}
-
-/**
  * @summary Runs one e2e config to completion and reads back its JSON reporter output. A non-zero exit with no
  * parseable results is itself a red (an infra/boot failure the digest must surface, not swallow).
  * @param {Object} entry declared config `{config, results}` — the config path + its reporter output path.
@@ -124,30 +94,6 @@ function runConfig(entry) {
 }
 
 /**
- * @summary Formats the red digest markdown: per-config failing specs + first errors + the run-log path, so it
- * is actionable without thread archaeology.
- * @param {Array} outcomes per-config outcomes.
- * @param {String} logPath the run-log path.
- * @returns {String} digest body.
- */
-function formatDigest(outcomes, logPath) {
-    const lines = ['Nightly whitebox-e2e run surfaced RED. Red-as-pointer — owners fix, this digest only points.', ''];
-
-    for (const outcome of outcomes) {
-        if (outcome.failures.length === 0 && outcome.ran && !outcome.note) continue;
-
-        lines.push(`**\`${outcome.config}\`** — ${outcome.failures.length} failing${outcome.note ? ` · ${outcome.note}` : ''}`);
-        for (const failure of outcome.failures) {
-            lines.push(`- \`${failure.location}\` — ${failure.title}: ${failure.firstError}`);
-        }
-        lines.push('');
-    }
-
-    lines.push(`Run log: \`${logPath}\``);
-    return lines.join('\n');
-}
-
-/**
  * @summary Executes the nightly run: hold the lock, run each declared config, and on ANY red push exactly one
  * normal-priority (mailbox-drain, never a wake storm) A2A digest. Green = silence. Always releases the lock.
  * @returns {Promise<Object>} run outcome `{red, sent, reason?}`.
@@ -162,7 +108,7 @@ export async function runNightlyE2e() {
 
     try {
         const outcomes = E2E_CONFIGS.map(runConfig),
-              red      = outcomes.some(o => o.failures.length > 0 || !o.ran);
+              red      = isRed(outcomes);
 
         await fs.writeJson(STATE_PATH, {
             at     : nowIso,
