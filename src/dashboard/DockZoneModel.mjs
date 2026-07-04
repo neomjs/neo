@@ -750,6 +750,12 @@ class DockZoneModel extends Base {
      * the composed topology term — so a single-document topology capture is structurally
      * identical to a window-scope capture apart from its declared scope and composed
      * fingerprint schema (the degenerate-case identity, asserted in the unit specs).
+     *
+     * Fingerprint-coherence by construction (same rule as {@link #capturePerspective}): raw
+     * inputs are fingerprint-PROBED first purely as the cycle/shape gate (results discarded —
+     * the writer's normalize pass must never see a cyclic graph), then the composed fingerprint
+     * derives exclusively from the PERSISTED trees, so it can never describe shapes the record
+     * does not contain.
      * @param {Object[]} documents Ordered committed dock-zone documents, primary first.
      * @param {Object} [metadata={}] {layoutId, title, revision, metadata, perspectiveName}
      * @returns {{layout:(Object|null), errors:String[]}}
@@ -760,13 +766,37 @@ class DockZoneModel extends Base {
             return {layout: null, errors: ['topology capture requires a non-empty ordered array of documents']}
         }
 
-        const fingerprints = [];
-
+        // probe every raw input first — the cycle/shape gate before any recursion-bearing pass
         for (let i = 0; i < documents.length; i++) {
-            const {fingerprint, errors} = DockZoneModel.computeShapeFingerprint(documents[i]);
+            const probe = DockZoneModel.computeShapeFingerprint(documents[i]);
+
+            if (probe.errors.length) {
+                return {layout: null, errors: probe.errors.map(error => `documents[${i}]: ${error}`)}
+            }
+        }
+
+        const written = DockZoneModel.createSavedLayout(documents[0], {
+            ...metadata,
+            captureScope     : 'topology',
+            windowFingerprint: null,
+            ...(documents.length > 1 && {
+                windowDocuments: documents.slice(1).map(DockZoneModel.normalizeTree)
+            })
+        });
+
+        if (written.errors.length) {
+            return written
+        }
+
+        // compose from the PERSISTED trees — the primary + the stored slots — never the raw inputs
+        const persisted    = [written.layout.dockZone, ...(written.layout.windowDocuments || [])],
+              fingerprints = [];
+
+        for (let i = 0; i < persisted.length; i++) {
+            const {fingerprint, errors} = DockZoneModel.computeShapeFingerprint(persisted[i]);
 
             if (errors.length) {
-                return {layout: null, errors: errors.map(error => `documents[${i}]: ${error}`)}
+                return {layout: null, errors: errors.map(error => `persisted[${i}]: ${error}`)}
             }
 
             fingerprints.push(fingerprint)
@@ -778,14 +808,9 @@ class DockZoneModel extends Base {
             return {layout: null, errors: composed.errors}
         }
 
-        return DockZoneModel.createSavedLayout(documents[0], {
-            ...metadata,
-            captureScope     : 'topology',
-            windowFingerprint: composed.fingerprint,
-            ...(documents.length > 1 && {
-                windowDocuments: documents.slice(1).map(DockZoneModel.normalizeTree)
-            })
-        })
+        written.layout.windowFingerprint = composed.fingerprint;
+
+        return written
     }
 
     /**

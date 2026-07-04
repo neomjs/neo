@@ -342,6 +342,24 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             expect(win.captureScope).toBe('window')
         });
 
+        test('topology fingerprint derives from the PERSISTED slot trees (collapsing-slot coherence)', () => {
+            // second window: a single-child split that normalizeTree collapses — the stored slot
+            // is the collapsed tree, and the composed fingerprint must describe THAT, not the input
+            const collapsing = splitDoc();
+            collapsing.nodes['main-split'].children = ['main-tabs'];
+            collapsing.nodes['main-split'].sizes    = [1];
+            delete collapsing.nodes['side-tabs'];
+            delete collapsing.items.terminal;
+
+            const {layout, errors} = DockZoneModel.captureTopologyPerspective([doc(), collapsing], {layoutId: 't', title: 'T'});
+
+            expect(errors).toEqual([]);
+            const slotTerm = DockZoneModel.computeShapeFingerprint(layout.windowDocuments[0]).fingerprint.shape;
+            expect(layout.windowFingerprint.shape).toContain(slotTerm);
+            expect(layout.windowFingerprint.shape).not.toContain('h(');
+            expect(slotTerm.startsWith('h(')).toBe(false)
+        });
+
         test('windowDocuments fails closed on window-scope records and on invalid slot trees', () => {
             const base = DockZoneModel.capturePerspective(doc(), {layoutId: 'x', title: 'X'}).layout;
 
