@@ -21,10 +21,11 @@ import {CONTRACT_AXES}       from './conceptNeighborhoodProbe.mjs';
  * extractionProvenance / lifecycle) from the concept-graph measurement floor — the four axes stay
  * SEPARATE, never flattened to a composite score.
  *
- * ADR-0024 disposition (native-edge-graph-model; ticket-ref-ok: leaf-AC decay anchor): the `CONVERGENCE_SNAPSHOT` node class is an ADDITIVE,
- * FAIL-OPEN annotation — DECAYING, not decay-protected. It is a re-derivable read over the lattice, not
- * durable authority, so it is deliberately excluded from `GraphService.PROTECTED_EDGE_TYPES`; a snapshot
- * stale past its `remeasureAt` is discarded and recomputed, never trusted.
+ * ADR-0024 disposition (native-edge-graph-model; ticket-ref-ok: leaf-AC decay anchor; registered in ADR-0024 §2.2):
+ * the `CONVERGENCE_SNAPSHOT` node class is ADDITIVE, FAIL-OPEN, re-derivable, and render-only / human-facing —
+ * a read over the goal→sub-goal lattice, NOT durable authority. It is therefore **node-side non-protected
+ * (DECAYING)**: a snapshot stale past its `remeasureAt` is discarded and recomputed, never trusted.
+ * (`PROTECTED_EDGE_TYPES` governs EDGE facts, not node-class membership — the two are orthogonal.)
  *
  * EVOLUTION_GOAL binding: the shared `EVOLUTION_GOAL` schema (from the sibling direction chain) is
  * unmerged at this leaf's authoring, so the snapshot references it through `EVOLUTION_GOAL_SCHEMA_REF`
