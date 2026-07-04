@@ -75,7 +75,7 @@ class DockZoneModel extends Base {
      */
     static savedLayoutKeys = new Set([
         'schema', 'layoutId', 'title', 'dockZone', 'metadata', 'revision',
-        'captureScope', 'windowFingerprint', 'perspectiveName'
+        'captureScope', 'windowFingerprint', 'perspectiveName', 'windowDocuments'
     ])
 
     /**
@@ -719,7 +719,73 @@ class DockZoneModel extends Base {
             errors.push('perspectiveName must be a non-empty string when present')
         }
 
+        // windowDocuments carries the ADDITIONAL windows' trees (slots 1..N; slot 0 stays
+        // `dockZone`, so the degenerate single-window topology record equals a window-scope
+        // capture by construction). Topology-scope-only: a window-scope record carrying it
+        // fails closed; every slot tree passes the full dock-zone validation, offender indexed.
+        if (Object.hasOwn(layout, 'windowDocuments')) {
+            if (layout.captureScope !== 'topology') {
+                errors.push('windowDocuments is only valid on captureScope "topology" records')
+            } else if (!Array.isArray(layout.windowDocuments)) {
+                errors.push('windowDocuments must be an array of dock-zone documents')
+            } else {
+                layout.windowDocuments.forEach((tree, index) => {
+                    const treeErrors = DockZoneModel.validate(tree);
+
+                    if (treeErrors.length) {
+                        errors.push(`windowDocuments[${index}] is not a valid dock-zone document: ${treeErrors[0]}`)
+                    }
+                })
+            }
+        }
+
         return errors
+    }
+
+    /**
+     * @summary Captures a whole multi-window topology as ONE v2 saved-layout perspective.
+     *
+     * Slot order is meaning: `documents[0]` becomes the primary `dockZone`, the remaining
+     * slots persist as `windowDocuments` (topology-scope-only), and `windowFingerprint` holds
+     * the composed topology term — so a single-document topology capture is structurally
+     * identical to a window-scope capture apart from its declared scope and composed
+     * fingerprint schema (the degenerate-case identity, asserted in the unit specs).
+     * @param {Object[]} documents Ordered committed dock-zone documents, primary first.
+     * @param {Object} [metadata={}] {layoutId, title, revision, metadata, perspectiveName}
+     * @returns {{layout:(Object|null), errors:String[]}}
+     * @static
+     */
+    static captureTopologyPerspective(documents, metadata={}) {
+        if (!Array.isArray(documents) || documents.length < 1) {
+            return {layout: null, errors: ['topology capture requires a non-empty ordered array of documents']}
+        }
+
+        const fingerprints = [];
+
+        for (let i = 0; i < documents.length; i++) {
+            const {fingerprint, errors} = DockZoneModel.computeShapeFingerprint(documents[i]);
+
+            if (errors.length) {
+                return {layout: null, errors: errors.map(error => `documents[${i}]: ${error}`)}
+            }
+
+            fingerprints.push(fingerprint)
+        }
+
+        const composed = DockZoneModel.composeTopologyFingerprint(fingerprints);
+
+        if (composed.errors.length) {
+            return {layout: null, errors: composed.errors}
+        }
+
+        return DockZoneModel.createSavedLayout(documents[0], {
+            ...metadata,
+            captureScope     : 'topology',
+            windowFingerprint: composed.fingerprint,
+            ...(documents.length > 1 && {
+                windowDocuments: documents.slice(1).map(DockZoneModel.normalizeTree)
+            })
+        })
     }
 
     /**
@@ -934,6 +1000,10 @@ class DockZoneModel extends Base {
 
         if (Object.hasOwn(metadata, 'perspectiveName')) {
             layout.perspectiveName = metadata.perspectiveName
+        }
+
+        if (Object.hasOwn(metadata, 'windowDocuments')) {
+            layout.windowDocuments = metadata.windowDocuments
         }
 
         if (typeof layout.layoutId !== 'string' || !layout.layoutId.trim()) {

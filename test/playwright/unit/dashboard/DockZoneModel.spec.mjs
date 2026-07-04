@@ -312,6 +312,50 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             expect(bad.errors.join(' ')).toContain('entry 1')
         });
 
+        test('captureTopologyPerspective: multi-window round-trip with slot-ordered windowDocuments', () => {
+            const second = doc();
+            second.nodes['main-tabs'].items.push('inspector');
+
+            const {layout, errors} = DockZoneModel.captureTopologyPerspective([doc(), second], {
+                layoutId       : 'fleet',
+                title          : 'Fleet',
+                perspectiveName: 'Fleet View'
+            });
+
+            expect(errors).toEqual([]);
+            expect(layout.captureScope).toBe('topology');
+            expect(layout.windowFingerprint.schema).toBe('neo.harness.dockTopologyShape.v1');
+            expect(layout.windowFingerprint.windowCount).toBe(2);
+            expect(layout.windowDocuments.length).toBe(1);
+            expect(DockZoneModel.validate(layout.windowDocuments[0])).toEqual([]);
+            expect(DockZoneModel.restoreSavedLayout(layout).errors).toEqual([])
+        });
+
+        test('degenerate single-document topology capture equals a window-scope capture modulo scope + fingerprint schema', () => {
+            const topo = DockZoneModel.captureTopologyPerspective([doc()], {layoutId: 'solo', title: 'Solo'}).layout,
+                  win  = DockZoneModel.capturePerspective(doc(), {layoutId: 'solo', title: 'Solo'}).layout;
+
+            expect('windowDocuments' in topo).toBe(false);
+            expect(topo.dockZone).toEqual(win.dockZone);
+            expect(topo.windowFingerprint.shape).toBe(`w[${win.windowFingerprint.shape}]`);
+            expect(topo.captureScope).toBe('topology');
+            expect(win.captureScope).toBe('window')
+        });
+
+        test('windowDocuments fails closed on window-scope records and on invalid slot trees', () => {
+            const base = DockZoneModel.capturePerspective(doc(), {layoutId: 'x', title: 'X'}).layout;
+
+            const smuggled = {...base, windowDocuments: [doc()]};
+            expect(DockZoneModel.restoreSavedLayout(smuggled).errors.join(' '))
+                .toContain('only valid on captureScope "topology"');
+
+            const badTree = doc();
+            badTree.root = 'ghost';
+            const {layout, errors} = DockZoneModel.captureTopologyPerspective([doc(), badTree], {layoutId: 'x', title: 'X'});
+            expect(layout).toBe(null);
+            expect(errors.join(' ')).toContain('documents[1]')
+        });
+
         test('fingerprint walk fails closed on dangling node refs', () => {
             const broken = doc();
             broken.root = 'missing-node';
