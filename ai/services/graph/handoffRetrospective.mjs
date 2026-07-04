@@ -13,9 +13,11 @@ import {formatGoldenPathCapturedAt as formatGoldenPathTimestamp} from './goldenP
  *
  * Firewall disposition (named because the handoff file is boot-consumed by agents as data):
  * this is a human-facing decision surface first; agents read it as catch-up FACTS, never as
- * routing (no numbered `**issue-N**:` entries are ever emitted, so route parsers cannot consume
- * history as an immediate lane). Content is bounded to counts and public event references —
- * private-tier material never enters the render.
+ * routing. Two structural guarantees: this module's own template emits no numbered
+ * `**issue-N**:` entries, and every INTERPOLATED display field passes
+ * {@link sanitizeEventText} — single-line, emphasis-free — so neither a fake section heading
+ * nor a parseable route entry can enter the handoff through event text. Content is bounded to
+ * counts and public event references — private-tier material never enters the render.
  *
  * Honesty contract on numbers: every rendered count carries its declared filter set; a stats
  * payload WITHOUT declared filter sets renders the withheld state instead of naked counts — a
@@ -40,6 +42,38 @@ export const RETROSPECTIVE_GRAINS = Object.freeze({
  * @type {Number}
  */
 export const MAX_NAMED_EVENTS = 7;
+
+/**
+ * @summary Length bound for one interpolated display field — a headline is a phrase, never a
+ * paragraph; oversized text is truncated with an ellipsis (display truncation, unlike request
+ * intake, does not change any decision).
+ * @type {Number}
+ */
+export const MAX_EVENT_TEXT_LENGTH = 160;
+
+/**
+ * @summary Normalizes interpolated display text so it can never carry route-parser structure.
+ *
+ * The orchestrator's handoff parser is line-oriented twice over: a `## Computed Golden Path`
+ * HEADING match delimits the section, and a numbered `**issue-N**:` two-line shape matches
+ * entries inside it. Both require line breaks to form — so collapsing every line break
+ * (including the Unicode line/paragraph separators) into a single space kills heading injection
+ * AND entry injection structurally, regardless of parser-regex details. Stripping `**`
+ * additionally neutralizes the entry token itself as defense in depth. Applied to EVERY
+ * interpolated field on this surface — event refs, headlines, filter-set ids — never to this
+ * module's own template lines.
+ * @param {*} value
+ * @returns {String} single-line, heading-free, emphasis-free, length-bounded display text
+ */
+export function sanitizeEventText(value) {
+    const text = String(value ?? '')
+        .replace(/[\r\n\u2028\u2029]+/g, ' ')
+        .replace(/#{2,}/g, '#')
+        .replace(/\*\*/g, '')
+        .trim();
+
+    return text.length > MAX_EVENT_TEXT_LENGTH ? `${text.slice(0, MAX_EVENT_TEXT_LENGTH - 1)}…` : text
+}
 
 /**
  * @summary Selects the retrospective grain from reader staleness, with explicit override.
@@ -74,7 +108,7 @@ export function selectRetrospectiveGrain({hoursSinceLastSeen = 0, override} = {}
  * take on this surface.
  * @param {String} label Human-readable count label
  * @param {*} value Count value (non-finite renders as 0)
- * @param {String} filterSet The declared filter set id the count was computed under
+ * @param {String} filterSet The declared (pre-sanitized) filter set label
  * @returns {String}
  */
 function renderCountLine(label, value, filterSet) {
@@ -89,7 +123,8 @@ function renderCountLine(label, value, filterSet) {
  * States, mirroring the routing sibling's discipline: counts render ONLY under declared filter
  * sets (undeclared → the withheld honesty state); zero activity renders a bounded empty
  * diagnostic (readers must distinguish "quiet window" from "section forgot to render"); named
- * events cap at {@link MAX_NAMED_EVENTS} with an explicit overflow line.
+ * events cap at {@link MAX_NAMED_EVENTS} with an explicit overflow line; every interpolated
+ * field passes {@link sanitizeEventText}.
  *
  * @param {Object} options
  * @param {Object} [options.grain=RETROSPECTIVE_GRAINS.DAILY] Selected grain (see `selectRetrospectiveGrain`)
@@ -116,7 +151,9 @@ export function renderHandoffRetrospectiveSection({
             'History surface only: no numbered immediate recommendation is rendered here; the Computed Golden Path section owns routing.',
             ''
         ],
-        filterSets = [].concat(stats?.filterSets || []).filter(entry => typeof entry === 'string' && entry.trim() !== '');
+        filterSets = [].concat(stats?.filterSets || [])
+            .filter(entry => typeof entry === 'string' && entry.trim() !== '')
+            .map(sanitizeEventText);
 
     if (filterSets.length === 0) {
         return header.concat([
@@ -161,11 +198,11 @@ export function renderHandoffRetrospectiveSection({
         body.push('Top events:', '');
 
         named.forEach(event => {
-            const ref      = event.ref ? `${event.ref} — ` : '';
-            const headline = event.headline || 'unnamed event';
+            const ref      = sanitizeEventText(event.ref);
+            const headline = sanitizeEventText(event.headline) || 'unnamed event';
             const at       = event.at ? ` (${formatGoldenPathTimestamp(event.at)})` : '';
 
-            body.push(`- ${ref}${headline}${at}`)
+            body.push(`- ${ref ? `${ref} — ` : ''}${headline}${at}`)
         });
 
         if (overflow > 0) {
