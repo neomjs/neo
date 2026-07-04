@@ -37,8 +37,9 @@ class DockService extends Service {
     ]
 
     /**
-     * Resolves a live dock-document holder — a component that carries a `dockZoneDocument`
-     * (or its own `applyDockZoneOperation` override). v1 deliberately requires the holder's
+     * Resolves a live dock-document holder — a component that carries a `dockZoneDocument`,
+     * exposes `getDockZoneDocument()` (the canonical workspace shape), or provides its own
+     * `applyDockZoneOperation` override. v1 deliberately requires the holder's
      * own component id (agents locate it via `find_instances` / `get_component_tree` first);
      * no parent-chain guessing, so a wrong id fails loudly instead of resolving surprisingly.
      * @param {String} componentId The dock workspace / holder component id
@@ -51,14 +52,32 @@ class DockService extends Service {
             throw new Error(`Component not found: ${componentId}`)
         }
 
-        if (!component.dockZoneDocument && typeof component.applyDockZoneOperation !== 'function') {
+        if (
+            !component.dockZoneDocument &&
+            typeof component.getDockZoneDocument !== 'function' &&
+            typeof component.applyDockZoneOperation !== 'function'
+        ) {
             throw new Error(
                 `Component ${componentId} holds no dock document: expected a component carrying ` +
-                '`dockZoneDocument` or `applyDockZoneOperation` (the dock workspace container)'
+                '`dockZoneDocument`, `getDockZoneDocument()` or `applyDockZoneOperation` ' +
+                '(the dock workspace container)'
             )
         }
 
         return component
+    }
+
+    /**
+     * Reads the holder's current dock document through the v1 holder contract:
+     * `getDockZoneDocument()` (the canonical workspace accessor — read-path twin of the
+     * `applyDockZoneOperation` write seam) first, then the plain `dockZoneDocument` field.
+     * Keeps the topology readable BEFORE any operation has run on holders that own their
+     * document state internally (e.g. the `examples/dashboard/dock` MainContainer's `dockModel`).
+     * @param {Neo.component.Base} holder The resolved dock-document holder
+     * @returns {Object|null} The current dockZone.v1 document
+     */
+    readDocument(holder) {
+        return holder.getDockZoneDocument?.() ?? holder.dockZoneDocument ?? null
     }
 
     /**
@@ -72,7 +91,7 @@ class DockService extends Service {
         const holder = this.resolveHolder(componentId);
 
         return {
-            document  : holder.dockZoneDocument || null,
+            document  : this.readDocument(holder),
             operations: DockService.operations
         }
     }
@@ -102,14 +121,14 @@ class DockService extends Service {
             if (typeof holder.applyDockZoneOperation === 'function') {
                 result = holder.applyDockZoneOperation(descriptor, this) || null
             } else {
-                result = DockZoneModel.applyOperation(holder.dockZoneDocument, descriptor)
+                result = DockZoneModel.applyOperation(this.readDocument(holder), descriptor)
             }
         } catch (e) {
             // the reducer contract assumes a well-formed document; a malformed holder document
             // (or a throwing holder override) surfaces as structured errors, never a raw RPC crash
             return {
                 applied : false,
-                document: holder.dockZoneDocument || null,
+                document: this.readDocument(holder),
                 errors  : [`Dock operation failed before commit: ${e.message}`]
             }
         }
@@ -117,13 +136,18 @@ class DockService extends Service {
         if (!result) {
             return {
                 applied : false,
-                document: holder.dockZoneDocument || null,
+                document: this.readDocument(holder),
                 errors  : ['The holder\'s applyDockZoneOperation() returned no result.']
             }
         }
 
         if (!result.errors?.length && result.document) {
-            holder.dockZoneDocument = result.document;
+            // Holders exposing `getDockZoneDocument()` own their document state internally and
+            // sync it inside `onDockZoneDocumentChange` (e.g. MainContainer advances `dockModel`
+            // there); writing `dockZoneDocument` onto them would create a stray divergent field.
+            if (typeof holder.getDockZoneDocument !== 'function') {
+                holder.dockZoneDocument = result.document
+            }
 
             if (typeof holder.onDockZoneDocumentChange === 'function') {
                 holder.onDockZoneDocumentChange(result.document, descriptor, this)
@@ -132,7 +156,7 @@ class DockService extends Service {
 
         return {
             applied : !result.errors?.length,
-            document: result.document || holder.dockZoneDocument || null,
+            document: result.document || this.readDocument(holder),
             errors  : result.errors || []
         }
     }

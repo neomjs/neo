@@ -73,6 +73,50 @@ test.describe.serial('Neo.ai.client.DockService', () => {
         expect(result.operations).toEqual(DockService.operations)
     });
 
+    test('the canonical workspace shape (getDockZoneDocument + override, no plain field) reads BEFORE any write and never gains a stray field', async () => {
+        // the examples/dashboard/dock MainContainer shape: document state lives in an internal
+        // `dockModel` exposed only through the contract's read accessor — a plain-field read
+        // would return null here before the first committed operation
+        const before       = {root: {type: 'split', items: ['before']}};
+        const nextDocument = {root: {type: 'split', items: ['after']}};
+        const seen         = {change: null};
+
+        const holder = {
+            id       : 'zone-canonical',
+            dockModel: before,
+            getDockZoneDocument() {
+                return this.dockModel
+            },
+            applyDockZoneOperation() {
+                return {document: nextDocument, errors: []}
+            },
+            onDockZoneDocumentChange(doc) {
+                seen.change = doc;
+                this.dockModel = doc
+            }
+        };
+
+        Neo.getComponent = () => holder;
+
+        // read works pre-write against the canonical holder (the live-topology AC)
+        const topology = await service.getDockTopology({componentId: 'zone-canonical'});
+        expect(topology.document).toBe(before);
+
+        const result = await service.executeDockOperation({
+            componentId: 'zone-canonical',
+            descriptor : {operation: 'setItemAutoHidden', itemId: 'pane-1', autoHidden: true}
+        });
+
+        expect(result.applied).toBe(true);
+        expect(result.document).toBe(nextDocument);
+        // the holder owns its state: synced through the callback, no stray divergent field
+        expect(seen.change).toBe(nextDocument);
+        expect(holder.dockModel).toBe(nextDocument);
+        expect('dockZoneDocument' in holder).toBe(false);
+        // and the post-write read reflects the commit through the same accessor
+        expect((await service.getDockTopology({componentId: 'zone-canonical'})).document).toBe(nextDocument)
+    });
+
     test('executeDockOperation prefers the holder applyDockZoneOperation override and commits on success', async () => {
         const nextDocument = {root: {type: 'split', items: ['after']}};
         const descriptor   = {operation: 'setItemAutoHidden', itemId: 'pane-1', autoHidden: true};
