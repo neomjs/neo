@@ -179,7 +179,7 @@ Before triggering a lifecycle skill, state in your reasoning: *"I will read the 
 - **Testing & Validation (§testing_validation_protocol):** Verifying code or persistent test failures. **Tripwire/Peer-Escalation:** tests fail 3-5 times → escalate via `add_message` before 25-turn limit.
 - **Sunset Protocol (§a2a_contextual_bridge_protocol):** Before session handover, read `.agents/skills/session-sunset/SKILL.md`. Must explicitly declare `scope: solo-refresh | convergent` to prevent scope contagion. Stale-wake invariant: wake messages in old transcripts are noise.
 - **Visual Verification (§visual_verification_protocol):** Debugging frontend UI/layout.
-- **Authoring Discipline:** Read 1-2 siblings; Body-side instance/state work reads neo-core contracts (intake 9.6).
+- **Authoring Discipline:** Read 1-2 siblings; instance/reactive-state work reads neo-core contracts (intake 9.6).
 - **Ticket Creation Freshness:** Before any `create_issue` path, invoke `ticket-create`; its Content Sweep requires live latest-open issue queue evidence in addition to KB/local duplicate checks.
 - **File Reading Efficiently:** Reading modified files; efficiency patterns.
 - **Verify-Before-Assert (§verify_before_assert):** core-value epistemic-prerequisite; before asserting any factual claim in a public artifact, run the falsifying tool. Tool inventory + empirical anchors (including #11089 self-Drop+Supersede recursion): §anti_hallucination_policy.
