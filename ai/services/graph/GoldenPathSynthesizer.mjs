@@ -400,12 +400,20 @@ class GoldenPathSynthesizer extends Base {
         // lazy, so this fallback (which exists to rescue exactly the cold cache) reads open issues, their
         // inbound edges, and neighbor (parent-epic / blocker) states straight from the SQLite source of
         // truth — never from a possibly-unhydrated `nodes.get` / `getByIndex` (per cross-family review).
+        // Bounded rescue: cap to the most-recent candidates so the per-item edge/state reads below can never
+        // blow the scheduling budget when the repo has hundreds of open issues (the frontier-empty fallback
+        // fires exactly when the backlog is large). The "~80 fat tickets" scenario is recent, and recency is
+        // the ranking tiebreak, so a recent-N cap keeps the surfaced tree leaves correct while bounding cost.
+        const FALLBACK_CANDIDATE_CAP = 250;
+
         let openIssues, inboundStmt, stateStmt;
         try {
             openIssues  = sqliteDb.prepare(`
                 SELECT n.id, n.data FROM Nodes n
                 WHERE n.id LIKE 'issue-%'
                   AND (json_extract(n.data, '$.properties.state') = 'OPEN' OR json_extract(n.data, '$.state') = 'OPEN')
+                ORDER BY json_extract(n.data, '$.properties.createdAt') DESC
+                LIMIT ${FALLBACK_CANDIDATE_CAP}
             `).all();
             inboundStmt = sqliteDb.prepare(`SELECT source, type FROM Edges WHERE target = ?`);
             stateStmt   = sqliteDb.prepare(`SELECT json_extract(data, '$.properties.state') AS s1, json_extract(data, '$.state') AS s2 FROM Nodes WHERE id = ?`);
