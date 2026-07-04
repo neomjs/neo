@@ -2433,8 +2433,8 @@ components:
           format: date-time
         terminalState:
           type: string
-          nullable: true
           enum: [completed, blocked, aborted, stale]
+          description: Present only on a `terminal` close; omitted for `start` / `progress` responses.
         source:
           type: string
         note:
