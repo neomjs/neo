@@ -55,17 +55,15 @@ export const REGISTRY_MODEL_DESIGNATIONS = Object.freeze({
  */
 export const ERA_BACKFILL_CANDIDATES = Object.freeze([
     Object.freeze({
-        identityKey: '@neo-fable',
-        event      : 'Opus-class → Fable 5 embodiment swap (June→July 2026)',
-        eventSource: 'the render-model decision record’s reflexive-landing clause + the swarm’s July-window records',
-        missing    : 'pre-swap capability facts (context window, tier) are not recorded in-repo'
-    }),
-    Object.freeze({
         identityKey: '@neo-opus-vega',
         event      : 'Fable-window → Opus 4.8 permanent swap (2026-07-04)',
         eventSource: 'the bearer’s planning-premise broadcast, 2026-07-04',
         missing    : 'pre-swap (Fable-window) capability facts are not recorded in-repo'
     })
+    // @neo-fable was audited OFF this list by the bearer (2026-07-04): the trail shows a single
+    // Fable era from first boot (2026-06-10, onboarded as claude-fable-5) — the June 13-30
+    // export-control suspension is an identity-level participation gap, NOT an embodiment swap.
+    // Eras track embodiment; participation stays identity-level. Nothing to backfill.
 ]);
 
 /**

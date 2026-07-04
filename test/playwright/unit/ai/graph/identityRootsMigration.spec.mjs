@@ -101,9 +101,11 @@ test.describe('identityRootsMigration — the flat registry expressed through th
     test('the anti-fabrication residue is structural: documented swap events are candidates, never auto-built eras', () => {
         const {residents, report} = migration.migrateAllResidents();
 
-        // both documented swap events are exported as candidates with sources and named gaps
-        expect(report.backfillCandidates).toContain('@neo-fable');
-        expect(report.backfillCandidates).toContain('@neo-opus-vega');
+        // the ONE documented swap event is exported as a candidate with source and named gap;
+        // @neo-fable is bearer-audited OFF the list (born Fable 2026-06-10; the June suspension
+        // is an identity-level participation gap, never an embodiment swap — nothing to backfill)
+        expect(report.backfillCandidates).toEqual(['@neo-opus-vega']);
+        expect(report.backfillCandidates).not.toContain('@neo-fable');
         for (const candidate of migration.ERA_BACKFILL_CANDIDATES) {
             expect(candidate.eventSource.length).toBeGreaterThan(0);
             expect(candidate.missing.length).toBeGreaterThan(0);
