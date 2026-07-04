@@ -92,3 +92,30 @@ export function rankByDeclaredIntent(items = []) {
         String(b.filedAt || '').localeCompare(String(a.filedAt || ''))
     );
 }
+
+/**
+ * @summary Renders the frontier-empty declared-intent fallback as a markdown section, LED by the
+ * provenance line so the handoff never masquerades as the semantic ranking. Bounded to `limit` items;
+ * returns an empty string when there is nothing to surface (the caller then renders the empty section).
+ * @param {Object[]} rankedItems Output of `rankByDeclaredIntent` (already sorted + provenance-tagged).
+ * @param {Number}   [limit=5]
+ * @returns {String} the markdown section, or `''` when there are no items.
+ */
+export function renderDeclaredIntentFallback(rankedItems = [], limit = 5) {
+    const items = (Array.isArray(rankedItems) ? rankedItems : []).slice(0, Math.max(0, limit));
+
+    if (items.length === 0) return '';
+
+    const lines = items.map((item, index) =>
+        `${index + 1}. #${item.id}${item.inOpenEpic ? ` — open-epic leaf (activity ${Number(item.epicActivity) || 0})` : ''}`
+    );
+
+    return [
+        `### Computed Golden Path — ${DECLARED_INTENT_PROVENANCE}`,
+        '',
+        `> The semantic frontier is empty (REM-starved / cold-start). Ranking ${items.length} unblocked open-epic-tree leaf/leaves by declared intent instead — **provisional, not the semantic ranking.**`,
+        '',
+        ...lines,
+        ''
+    ].join('\n');
+}

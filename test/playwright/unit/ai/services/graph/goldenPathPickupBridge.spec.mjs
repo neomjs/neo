@@ -5,6 +5,7 @@ import {
     PICKUP_BRIDGE_PARENT_ALPHA,
     inheritParentStructuralWeight,
     rankByDeclaredIntent,
+    renderDeclaredIntentFallback,
     shouldActivateFallback
 } from '../../../../../../ai/services/graph/goldenPathPickupBridge.mjs';
 
@@ -49,5 +50,25 @@ test.describe('goldenPathPickupBridge', () => {
     test('empty / non-array input yields an empty ranking (no throw)', () => {
         expect(rankByDeclaredIntent([])).toEqual([]);
         expect(rankByDeclaredIntent(undefined)).toEqual([]);
+    });
+
+    test('fallback render leads with the provenance line, lists items, respects the limit', () => {
+        const ranked = rankByDeclaredIntent([
+            {id: '101', inOpenEpic: true,  epicActivity: 2, filedAt: '2026-07-04T02:00:00Z'},
+            {id: '102', inOpenEpic: false, epicActivity: 0, filedAt: '2026-07-04T01:00:00Z'}
+        ]);
+        const md = renderDeclaredIntentFallback(ranked, 5);
+
+        expect(md).toContain(DECLARED_INTENT_PROVENANCE);          // never masquerades as the semantic ranking
+        expect(md).toContain('#101');
+        expect(md).toContain('open-epic leaf (activity 2)');
+        expect(md).toContain('#102');
+        // limit is honored
+        expect(renderDeclaredIntentFallback(ranked, 1)).not.toContain('#102');
+    });
+
+    test('fallback render is empty when there is nothing to surface (caller renders the empty section)', () => {
+        expect(renderDeclaredIntentFallback([])).toBe('');
+        expect(renderDeclaredIntentFallback(undefined)).toBe('');
     });
 });
