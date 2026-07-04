@@ -7,9 +7,6 @@
 !/apps/agentos/index.html
 !/apps/agentos/**/*.mjs
 !/apps/agentos/neo-config.json
-!/apps/fleetmanager/index.html
-!/apps/fleetmanager/**/*.mjs
-!/apps/fleetmanager/neo-config.json
 !/apps/agentos/childapps/strategy/index.html
 !/apps/agentos/childapps/strategy/neo-config.json
 !/apps/agentos/childapps/swarm/index.html
