@@ -82,6 +82,22 @@ test.describe('identityRootsMigration — the flat registry expressed through th
         }
     });
 
+    test('migrated model values are MODEL DESIGNATIONS — never handles or social strings (field-provenance guard)', () => {
+        const {residents} = migration.migrateAllResidents();
+
+        for (const {identity, episodes} of residents) {
+            const seed  = roots.IDENTITIES.find(entry => entry.id === identity.identityKey);
+            const model = episodes[0].model;
+
+            // designation shape: never an @handle, never the seed's identity/display string, and
+            // every designation in this registry carries a version digit — social strings never do
+            expect(model.startsWith('@')).toBe(false);
+            expect(model).not.toBe(seed.name);
+            expect(model).not.toBe(seed.properties.displayName);
+            expect(model).toMatch(/\d/);
+        }
+    });
+
     test('the anti-fabrication residue is structural: documented swap events are candidates, never auto-built eras', () => {
         const {residents, report} = migration.migrateAllResidents();
 
