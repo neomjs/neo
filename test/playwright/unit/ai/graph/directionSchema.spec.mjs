@@ -41,6 +41,30 @@ test.describe('directionSchema + directionAttribution — the direction contract
         expect(() => schema.createAttributionFactId({motionId: 'issue-1', directionKey: 'not-a-direction', mappingVersion: 1})).toThrow();
     });
 
+    test('minimal-key regressions: short cluster keys valid, empty suffixes invalid (review cycle-1 identity-contract fix)', () => {
+        // The drift class: a shared length bound tied cluster validity to the longer goal prefix.
+        expect(schema.isDirectionKey('cluster-x')).toBe(true);
+        expect(schema.isDirectionKey(schema.createClusterDirectionKey('x'))).toBe(true);
+
+        // Empty suffixes are never identities — for EITHER prefix.
+        expect(schema.isDirectionKey('evolution-goal-')).toBe(false);
+        expect(schema.isDirectionKey('cluster-')).toBe(false);
+        expect(() => schema.parseBreakdownKey('evolution-goal-@1')).toThrow();
+
+        // End-to-end: a 1-char cluster id attributes cleanly (the throw path the review caught).
+        const result = attribution.attributeMotion({
+            motionEvents   : [{id: 'issue-1', conceptIds: ['c']}],
+            declaredGoals  : [],
+            clusterMapping : {c: 'x'},
+            mappingVersion : 1,
+            filterSet      : 'excludeClasses:[chore]',
+            falsifyingQuery: 'replay'
+        });
+
+        expect(result.errors).toEqual([]);
+        expect(result.breakdown['cluster-x@1']).toBe(1);
+    });
+
     test('breakdown keys compose and parse symmetrically — the falsifier can pin the measured version (§2.4)', () => {
         const key = schema.composeBreakdownKey('cluster-memory-substrate', 3);
 

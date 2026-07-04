@@ -148,14 +148,19 @@ export function createClusterDirectionKey(clusterId) {
  * @returns {Boolean}
  */
 export function isDirectionKey(directionKey) {
-    return directionKey === UNATTRIBUTED_DIRECTION_KEY ||
-        (typeof directionKey === 'string' && (
-            directionKey.startsWith(DIRECTION_ID_PREFIXES.EVOLUTION_GOAL) ||
-            directionKey.startsWith(DIRECTION_ID_PREFIXES.CLUSTER_KEY)
-        ) && directionKey.length > Math.max(
-            DIRECTION_ID_PREFIXES.EVOLUTION_GOAL.length,
-            DIRECTION_ID_PREFIXES.CLUSTER_KEY.length
-        ) - 1);
+    if (directionKey === UNATTRIBUTED_DIRECTION_KEY) return true;
+    if (typeof directionKey !== 'string') return false;
+
+    // Per-prefix suffix check: a key is valid iff it carries a NON-EMPTY id after ITS OWN
+    // prefix — a shared length bound would tie short cluster keys to the longer goal prefix
+    // and admit empty declared-goal suffixes (the exact identity-contract drift class).
+    for (const prefix of [DIRECTION_ID_PREFIXES.EVOLUTION_GOAL, DIRECTION_ID_PREFIXES.CLUSTER_KEY]) {
+        if (directionKey.startsWith(prefix)) {
+            return directionKey.length > prefix.length;
+        }
+    }
+
+    return false;
 }
 
 /**
