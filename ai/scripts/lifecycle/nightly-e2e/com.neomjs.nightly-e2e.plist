@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  STAGED, NOT auto-installed (#14685). This is a template: substitute __NEO_REPO_ROOT__ with the absolute
+  repo path, then follow ai/scripts/lifecycle/nightly-e2e/README.md to install it as a per-user LaunchAgent.
+  The runner keeps e2e OUTSIDE CI (failing-honest discipline) but runs it nightly + pushes a RED-ONLY A2A
+  digest. RunAtLoad is false: it fires only on the schedule, never at load/boot.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.neomjs.nightly-e2e</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/env</string>
+        <string>node</string>
+        <string>ai/scripts/lifecycle/nightlyE2eRunner.mjs</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__NEO_REPO_ROOT__</string>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>3</integer>
+        <key>Minute</key>
+        <integer>17</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>__NEO_REPO_ROOT__/.neo-ai-data/nightly-e2e/logs/launchd.out.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>__NEO_REPO_ROOT__/.neo-ai-data/nightly-e2e/logs/launchd.err.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>
