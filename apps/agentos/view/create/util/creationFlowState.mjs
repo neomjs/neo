@@ -3,13 +3,16 @@
  * @summary The keeper creation flow's transition TABLE — the five SSOT states and which
  * transitions between them are legal, as pure data-plane logic with zero DOM.
  *
- * Consumption contract (neo-core idiom, load-bearing): the flow state itself LIVES as a
- * reactive config on the view layer — a `flowState_` config whose `beforeSetFlowState` hook
- * consults {@link nextCreationState} to admit or refuse the transition, with `afterSetFlowState`
- * driving the render side effects. That keeps the state visible to bindings, effects, state
- * providers, and Neural Link introspection for free. This module is the hook's ORACLE (which
- * transitions are legal — domain knowledge the class system does not provide); it is never a
- * parallel state store, and the view must not re-derive "which state" from a bag of booleans.
+ * Consumption contract (neo-core idiom, load-bearing): the flow state itself LIVES on the
+ * create-module's `state.Provider` — provider `data` (e.g. `flowState`, `flowReason`) that
+ * views consume via bindings, with the transition admitted or refused by consulting
+ * {@link nextCreationState} at the ONE place that writes it. A provider — not component-local
+ * state — because the wedge's promote step moves the created panel into its own OS window BY
+ * DESIGN: a provider on the app-worker heap stays reachable from component trees in different
+ * browser windows, and it can expose the created-instances store via its `stores_` config for
+ * the same cross-window reach. This module is that writer's ORACLE (which transitions are legal
+ * — domain knowledge the class system does not provide); it is never a parallel state store,
+ * and the view must not re-derive "which state" from a bag of booleans.
  *
  * The oracle mirrors the pipeline's refusal vocabulary: `nextCreationState` never throws — an
  * illegal transition returns the CURRENT state plus a reason, so the hook cancels the update
