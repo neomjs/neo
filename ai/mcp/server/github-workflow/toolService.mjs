@@ -60,7 +60,8 @@ const GITHUB_TOOL_ACCESS = Object.freeze({
     manage_pr_reviewers        : PUBLIC_GITHUB_WRITE_ACCESS,
     signal_state_transition    : PUBLIC_GITHUB_WRITE_ACCESS,
     sync_all                   : PUBLIC_GITHUB_WRITE_ACCESS,
-    update_issue_relationship  : PUBLIC_GITHUB_WRITE_ACCESS
+    update_issue_relationship  : PUBLIC_GITHUB_WRITE_ACCESS,
+    validate_pr_review_body    : NON_PUBLIC_GITHUB_WRITE_ACCESS
 });
 
 const PUBLIC_GITHUB_WRITE_TOOLS = Object.freeze(new Set(
@@ -411,7 +412,8 @@ const serviceMapping = {
     manage_pr_reviewers        : PullRequestService.managePrReviewers      .bind(PullRequestService),
     signal_state_transition    : AgentStateService .signalStateTransition  .bind(AgentStateService),
     sync_all                   : syncAllOnDevOnly,
-    update_issue_relationship  : IssueService      .updateIssueRelationship.bind(IssueService)
+    update_issue_relationship  : IssueService      .updateIssueRelationship.bind(IssueService),
+    validate_pr_review_body    : PullRequestService.validatePrReviewBody   .bind(PullRequestService)
 };
 
 assertCompleteGitHubToolAccessPolicy(serviceMapping);
