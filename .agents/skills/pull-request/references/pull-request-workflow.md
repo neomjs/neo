@@ -281,6 +281,9 @@ Before PR prose, read [`reference-hygiene.md`](../../../../learn/agentos/process
   `Resolves #N`. `Closes` and `Fixes` are forbidden; comma-separated
   `Resolves #X, #Y` is forbidden. Multiple delivered tickets get one standalone
   line each.
+- Draft-only exception: `Refs #N` / `Related: #N` may replace `Resolves #N`
+  only while the PR is draft. Before `ready_for_review`, add the honest delivered
+  leaf close target or split/file the narrow ticket; that event reruns lint.
 - For referenced tickets that must remain open, branch history must also avoid
   stale magic-close keywords. Before handoff, run:
 

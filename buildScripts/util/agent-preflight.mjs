@@ -24,8 +24,9 @@ export const INVISIBLE_PR_BODY_ANCHORS = [
 ];
 
 const
-    RESOLVES_PATTERN        = /\bResolves:?\s+#\d+/i,
-    FORBIDDEN_CLOSE_PATTERN = /\b(Closes|Fixes):?\s+#\d+/i;
+    RESOLVES_PATTERN              = /\bResolves:?\s+#\d+/i,
+    NON_CLOSING_REFERENCE_PATTERN = /\b(Refs|Related):?\s+#\d+/i,
+    FORBIDDEN_CLOSE_PATTERN       = /\b(Closes|Fixes):?\s+#\d+/i;
 
 /**
  * @summary Builds the Commander program for the agent preflight helper.
@@ -37,6 +38,7 @@ export function createProgram() {
         .description('Runs the agent commit/PR preflight gates in one pass; default mode may repair block alignment.')
         .usage('[options] [files...]')
         .option('--pr-body <file>', 'Run local PR-body template lint against the given markdown file.')
+        .option('--pr-draft', 'Validate --pr-body as a draft PR: Refs/Related may temporarily stand in for Resolves.')
         .option('--no-fix', 'Check-only mode: skip the check-block-alignment --fix repair pass.')
         .argument('[files...]', 'Optional file paths. When omitted, staged ACMR files are read from git.')
 }
@@ -56,10 +58,11 @@ export function parseArgs(argv) {
     const options = program.opts();
 
     return {
-        files : program.args,
-        fix   : options.fix,
-        help  : false,
-        prBody: options.prBody || null
+        files  : program.args,
+        fix    : options.fix,
+        help   : false,
+        prBody : options.prBody || null,
+        prDraft: options.prDraft || false
     }
 }
 
@@ -96,20 +99,26 @@ export function filterMjsFiles(files) {
 /**
  * @summary Mirrors the Agent PR Body Lint workflow's local body-shape checks.
  * @param {String} body
+ * @param {Object} [options]
+ * @param {Boolean} [options.draft=false]
  * @returns {Object}
  */
-export function validatePrBody(body) {
+export function validatePrBody(body, {draft = false} = {}) {
     const
-        missingVisible   = VISIBLE_PR_BODY_ANCHORS.filter(anchor => !body.includes(anchor)),
-        missingInvisible = INVISIBLE_PR_BODY_ANCHORS.filter(anchor => !body.includes(anchor)),
-        forbiddenClose   = body.match(FORBIDDEN_CLOSE_PATTERN);
+        missingVisible        = VISIBLE_PR_BODY_ANCHORS.filter(anchor => !body.includes(anchor)),
+        missingInvisible      = INVISIBLE_PR_BODY_ANCHORS.filter(anchor => !body.includes(anchor)),
+        forbiddenClose        = body.match(FORBIDDEN_CLOSE_PATTERN),
+        hasResolves           = RESOLVES_PATTERN.test(body),
+        hasNonClosingReference = NON_CLOSING_REFERENCE_PATTERN.test(body);
 
     if (forbiddenClose) {
         missingVisible.push(`\`${forbiddenClose[1]} #N\` is forbidden; use \`Resolves #N\``)
     }
 
-    if (!RESOLVES_PATTERN.test(body)) {
-        missingVisible.push('`Resolves #N` is required')
+    if (!hasResolves && !(draft && hasNonClosingReference)) {
+        missingVisible.push(draft
+            ? 'Draft PR bodies without `Resolves #N` require `Refs #N` or `Related: #N`'
+            : '`Resolves #N` is required')
     }
 
     return {
@@ -282,7 +291,7 @@ function runNodeGate({args, cwd, execFileSyncImpl, name}) {
     }
 }
 
-function runPrBodyGate({cwd, existsSyncImpl, prBody, readFileSyncImpl}) {
+function runPrBodyGate({cwd, existsSyncImpl, prBody, prDraft, readFileSyncImpl}) {
     const filePath = path.resolve(cwd, prBody);
 
     if (!existsSyncImpl(filePath)) {
@@ -293,7 +302,7 @@ function runPrBodyGate({cwd, existsSyncImpl, prBody, readFileSyncImpl}) {
         }
     }
 
-    return validatePrBody(readFileSyncImpl(filePath, 'utf8'))
+    return validatePrBody(readFileSyncImpl(filePath, 'utf8'), {draft: prDraft})
 }
 
 /**
@@ -387,6 +396,7 @@ export function runAgentPreflight({
             cwd,
             existsSyncImpl,
             prBody: options.prBody,
+            prDraft: options.prDraft,
             readFileSyncImpl
         });
 
