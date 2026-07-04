@@ -739,6 +739,69 @@ paths:
               schema:
                 type: object
 
+  /dock/executeDockOperation:
+    post:
+      summary: Execute Dock Operation
+      operationId: execute_dock_operation
+      x-neo-tool-tier: write
+      x-pass-as-object: true
+      description: Applies one dockZone.v1 semantic operation (addTab, moveItem, splitNode, resizeSplit, detachItem, closeItem, setItemPinned, setItemAutoHidden) to a live dock workspace and returns the post-operation document plus executor errors. Unknown operations are rejected with the vocabulary enumerated.
+      tags: [Dock]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [componentId, descriptor]
+              properties:
+                sessionId:
+                  type: string
+                  description: Target App Worker Session ID
+                componentId:
+                  type: string
+                  description: The dock workspace / document-holder component id
+                descriptor:
+                  type: object
+                  description: The operation descriptor with an operation field plus its operation-specific parameters
+      responses:
+        '200':
+          description: Post-operation state
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /dock/getDockTopology:
+    post:
+      summary: Get Dock Topology
+      operationId: get_dock_topology
+      x-neo-tool-tier: read
+      x-pass-as-object: true
+      description: Reads a live dock workspace's serializable layout document (splits, tabs, items, auto-hide states) plus the executable operation vocabulary. Use before and after execute_dock_operation to verify layout mutations.
+      tags: [Dock]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [componentId]
+              properties:
+                sessionId:
+                  type: string
+                  description: Target App Worker Session ID
+                componentId:
+                  type: string
+                  description: The dock workspace / document-holder component id
+      responses:
+        '200':
+          description: The layout document and operation vocabulary
+          content:
+            application/json:
+              schema:
+                type: object
+
   /component/observeMotion:
     post:
       summary: Observe Motion
