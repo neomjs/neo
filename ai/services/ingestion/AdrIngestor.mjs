@@ -4,6 +4,7 @@ import path                                                                     
 import Base                                                                         from '../../../src/core/Base.mjs';
 import {Memory_GraphService as GraphService, Memory_StorageRouter as StorageRouter} from '../../services.mjs';
 import logger                                                                       from '../../mcp/server/memory-core/logger.mjs';
+import {canonicalizeConceptId}                                                      from '../graph/conceptSpineCanonicalization.mjs';
 
 const
     ADR_EDGE_TYPES = Object.freeze({
@@ -179,7 +180,10 @@ class AdrIngestor extends Base {
         }
 
         for (const match of content.matchAll(CONCEPT_REF_REGEX)) {
-            addEdge(adrId, match[1], ADR_EDGE_TYPES.CODIFIES_CONCEPT);
+            // Route through the concept-spine SSOT so ADR CODIFIES_CONCEPT edges target the same canonical
+            // node the session/mailbox mints do (`GoldenPath` → `golden-path`); keep the raw ref if the
+            // canonicalization comes back empty — never drop the edge (Contract Ledger fallback).
+            addEdge(adrId, canonicalizeConceptId(match[1]) || match[1], ADR_EDGE_TYPES.CODIFIES_CONCEPT);
         }
 
         return Array.from(edges.values());

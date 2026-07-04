@@ -94,6 +94,18 @@ const PROCESS_MX_CANDIDATE_DEFAULTS = {
     codeGapEligible: false
 };
 
+/**
+ * @summary Internal dedupe key for mined concept CANDIDATES — deliberately NOT the graph-vocabulary SSOT
+ * (`conceptSpineCanonicalization.normalizeConceptKey`). It keys mining candidates only, never a graph id, and
+ * carries dedupe-specific heuristics the spine intentionally omits: a leading `The ` is stripped (so "The
+ * Golden Path" and "Golden Path" collapse to one candidate) and separators are dropped entirely (dash-less), a
+ * looser fold that groups candidates more aggressively than the graph vocabulary. Routing this through the
+ * SSOT would SPLIT those candidate groups (the spine keeps `the-` and the dash) — so this is documented
+ * divergence-by-purpose under the one-vocabulary-per-contract invariant, NOT a re-derived copy of the graph
+ * vocabulary that the invariant forbids.
+ * @param {String} value Raw candidate concept name.
+ * @returns {String} Internal dedupe key (never a graph id).
+ */
 function normalizeConceptNameForDedupe(value) {
     if (typeof value !== 'string') return '';
 
@@ -403,12 +415,12 @@ class ConceptDiscoveryService extends Base {
             if (this.isKnownConceptCandidate(raw, knownConceptNameKeys)) continue;
 
             accepted.push({
-                id  : raw.id,
-                name: raw.name,
+                id         : raw.id,
+                name       : raw.name,
                 description: raw.description || `Mined candidate from ${sourceRef}. Awaiting curator review — promote by flipping \`validated: true\` and adjusting tier/weight in nodes.jsonl.`,
-                aliases  : Array.isArray(raw.aliases) ? raw.aliases : [],
-                source   : sourceRef,
-                reasoning: raw.reasoning || '',
+                aliases    : Array.isArray(raw.aliases) ? raw.aliases : [],
+                source     : sourceRef,
+                reasoning  : raw.reasoning || '',
                 ...candidateDefaults,
                 ...(extractionMetadata ? {extraction_metadata: extractionMetadata} : {})
             });
