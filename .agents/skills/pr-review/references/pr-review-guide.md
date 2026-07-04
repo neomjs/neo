@@ -19,7 +19,7 @@ Build — and write down — your premise of the change **before** reading the p
 3. **Patch-verdict** — does the diff **match / improve / contradict** the expected shape? Name the specific evidence that changed (or confirmed) your mind. "Matches" with no evidence is not a verdict.
 4. **Premise-coherence** — the value-coherence verdict, or a scoped "N/A — no value-surface".
 
-**Night-shift provisional marker:** when the approval is single-family / human-asleep (no cross-family reviewer awake), label it `single-family — calibration-deferred-to-merge-gate`. §12 (Typed Calibration Loop) reads this marker at the merge-gate to apply calibration to a single-family / calibration-deferred approval.
+**Night-shift provisional marker:** when the approval is single-family / human-asleep (no cross-family reviewer awake), label it `single-family — calibration-deferred-to-merge-gate`; §12 reads the marker at the merge-gate.
 
 ## 1. Core Philosophy
 - **For Internal Agents (Peer-Review):** Be objective, clinical, and strict. Enforce the "Fat Ticket" protocol and strict JSDoc completeness.
@@ -252,6 +252,10 @@ Reviewers MUST verify testing claims and canonical file placement:
 ### 7.5.1 Core-Idiom Audit
 
 Instance/reactive-state diffs (any dir): load `audits/core-idiom-audit.md`.
+
+### 7.5.2 Identity-Claim Audit
+
+Identity prose naming any agent: load `audits/identity-claim-audit.md`.
 
 ### 7.6 CI / Security Checks Audit
 

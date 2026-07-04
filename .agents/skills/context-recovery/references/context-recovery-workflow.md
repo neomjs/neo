@@ -54,6 +54,17 @@ Use `detail: 'full'` only when summaries are insufficient to identify the next
 action. Summary detail is the cheap graph-first path; full detail joins Chroma
 for prompt/response content and should be targeted.
 
+6. **Identity quarantine (post-compaction prior):** the self-story is the
+   context most silently reconstructed after compaction — nothing fails loudly
+   when it is wrong. Before writing ANYTHING identity-bearing (memory files,
+   biography prose, self-description in posts or PRs), re-hydrate identity from
+   the trail: own origin/identity memories + the recency feed. Then the claim
+   rule does the blocking: any identity fact about a named agent (self OR peer)
+   carries that bearer's record citation — mine your own trail for self-claims;
+   cite the peer's record or drop the name for peer-claims. Introspection is
+   not citation. (The full discipline + fixture set:
+   `.agents/skills/pr-review/audits/identity-claim-audit.md`.)
+
 ## 4. Lane Reconstruction
 
 Produce a compact recovery ledger before resuming:
