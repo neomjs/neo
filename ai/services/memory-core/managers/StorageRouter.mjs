@@ -57,6 +57,18 @@ class StorageRouter extends Base {
     }
 
     /**
+     * @summary Resolves the temporal-summary collection (the pyramid's durable L1/L2 window
+     * records). Semantic window queries ("what happened this week") ride the same re-ranker
+     * the session-summary path uses.
+     * @returns {Promise<CollectionProxy>} A proxy respecting aiConfig.engine
+     */
+    async getTemporalSummaryCollection() {
+        const proxy = Neo.create(CollectionProxy, { collectionType: 'temporalSummary' });
+        this.injectQueryReRanker(proxy, 'temporalSummary');
+        return proxy;
+    }
+
+    /**
      * @summary On-demand probe of each collection's vector-query (HNSW) path.
      *
      * A populated-but-corrupt collection passes `count()` but throws on `query()` (e.g. a desynced
@@ -149,11 +161,11 @@ class StorageRouter extends Base {
                 logger.error(`[StorageRouter] Pass 1 semantic retrieval failed on the '${collectionType}' collection${isCorruptionSignature ? ' (HNSW corruption signature "Error finding id")' : ''}: ${e.message}`);
 
                 return {
-                    ids: [[]], distances: [[]], metadatas: [[]], documents: undefined,
-                    _degraded         : true,
-                    _degradedReason   : e.message,
+                    ids                : [[]], distances: [[]], metadatas: [[]], documents: undefined,
+                    _degraded          : true,
+                    _degradedReason    : e.message,
                     _degradedCollection: collectionType,
-                    _degradedSignature: isCorruptionSignature ? 'chroma-error-finding-id' : 'chroma-query-error'
+                    _degradedSignature : isCorruptionSignature ? 'chroma-error-finding-id' : 'chroma-query-error'
                 };
             }
 
@@ -184,7 +196,7 @@ class StorageRouter extends Base {
 
             // Compute composite scores
             const rankedResults = pass1Ids.map((id, index) => {
-                const vectorDist    = Number(distances[index] ?? 0);
+                const vectorDist = Number(distances[index] ?? 0);
                 // Vector distance (lower is better, typically L2 in ChromaDB) -> score
                 const semanticScore = 1 / (1 + vectorDist);
 

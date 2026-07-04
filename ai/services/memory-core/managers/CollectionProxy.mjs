@@ -21,7 +21,7 @@ class CollectionProxy extends Base {
 
     async getManagers() {
         const architecture = aiConfig.engine;
-        const managers = [];
+        const managers     = [];
 
         // In Hybrid RAG, vectors exclusively live in ChromaDB
         if (architecture === 'chroma' || architecture === 'hybrid') {
@@ -36,7 +36,8 @@ class CollectionProxy extends Base {
     async getCollections() {
         const managers = await this.getManagers();
         return Promise.all(managers.map(m => {
-            if (this.collectionType === 'graph') return m.getGraphCollection();
+            if (this.collectionType === 'graph')           return m.getGraphCollection();
+            if (this.collectionType === 'temporalSummary') return m.getTemporalSummaryCollection();
             return this.collectionType === 'memory' ? m.getMemoryCollection() : m.getSummaryCollection();
         }));
     }
@@ -91,6 +92,8 @@ class CollectionProxy extends Base {
             let coll;
             if (this.collectionType === 'graph') {
                 coll = await manager.getGraphCollection();
+            } else if (this.collectionType === 'temporalSummary') {
+                coll = await manager.getTemporalSummaryCollection();
             } else {
                 coll = this.collectionType === 'memory' ?
                     await manager.getMemoryCollection() :

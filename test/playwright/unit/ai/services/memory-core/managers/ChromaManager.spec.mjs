@@ -144,12 +144,14 @@ test.describe('Neo.ai.services.memory-core.managers.ChromaManager', () => {
     test('invalidateCollectionCache clears targeted and all collection handles', () => {
         const stalePromise = Promise.resolve({name: 'stale-collection'});
 
-        ChromaManager._memoryCollectionPromise  = stalePromise;
-        ChromaManager._summaryCollectionPromise = stalePromise;
-        ChromaManager._graphCollectionPromise   = stalePromise;
-        ChromaManager.memoryCollection  = {name: 'stale-memory'};
-        ChromaManager.summaryCollection = {name: 'stale-summary'};
-        ChromaManager.graphCollection   = {name: 'stale-graph'};
+        ChromaManager._memoryCollectionPromise          = stalePromise;
+        ChromaManager._summaryCollectionPromise         = stalePromise;
+        ChromaManager._temporalSummaryCollectionPromise = stalePromise;
+        ChromaManager._graphCollectionPromise           = stalePromise;
+        ChromaManager.memoryCollection          = {name: 'stale-memory'};
+        ChromaManager.summaryCollection         = {name: 'stale-summary'};
+        ChromaManager.temporalSummaryCollection = {name: 'stale-temporal-summary'};
+        ChromaManager.graphCollection           = {name: 'stale-graph'};
 
         ChromaManager.invalidateCollectionCache('summary');
 
@@ -157,16 +159,28 @@ test.describe('Neo.ai.services.memory-core.managers.ChromaManager', () => {
         expect(ChromaManager.memoryCollection).toEqual({name: 'stale-memory'});
         expect(ChromaManager._summaryCollectionPromise).toBeNull();
         expect(ChromaManager.summaryCollection).toBeNull();
+        // the name-adjacent temporalSummary handle must survive a targeted `summary` invalidation
+        expect(ChromaManager._temporalSummaryCollectionPromise).toBe(stalePromise);
+        expect(ChromaManager.temporalSummaryCollection).toEqual({name: 'stale-temporal-summary'});
         expect(ChromaManager._graphCollectionPromise).toBe(stalePromise);
         expect(ChromaManager.graphCollection).toEqual({name: 'stale-graph'});
+
+        ChromaManager.invalidateCollectionCache('temporalSummary');
+
+        expect(ChromaManager._temporalSummaryCollectionPromise).toBeNull();
+        expect(ChromaManager.temporalSummaryCollection).toBeNull();
+        expect(ChromaManager._memoryCollectionPromise).toBe(stalePromise);
+        expect(ChromaManager._graphCollectionPromise).toBe(stalePromise);
 
         ChromaManager.invalidateCollectionCache();
 
         expect(ChromaManager._memoryCollectionPromise).toBeNull();
         expect(ChromaManager._summaryCollectionPromise).toBeNull();
+        expect(ChromaManager._temporalSummaryCollectionPromise).toBeNull();
         expect(ChromaManager._graphCollectionPromise).toBeNull();
         expect(ChromaManager.memoryCollection).toBeNull();
         expect(ChromaManager.summaryCollection).toBeNull();
+        expect(ChromaManager.temporalSummaryCollection).toBeNull();
         expect(ChromaManager.graphCollection).toBeNull();
     });
 
