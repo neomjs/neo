@@ -1,6 +1,10 @@
 import {test, expect} from '@playwright/test';
+import fs             from 'fs-extra';
+import os             from 'node:os';
+import path           from 'node:path';
 
 import {
+    buildRunLog,
     collectFailures,
     formatDigest,
     isRed
@@ -82,5 +86,40 @@ test.describe('nightlyE2eDigest (#14685 — pure parse/format core)', () => {
     test('formatDigest surfaces an infra red (no failing specs, but ran:false + note)', () => {
         const digest = formatDigest([{config: 'c.mjs', failures: [], ran: false, note: 'runner exited 1 with no report (infra/boot failure)'}], 'log');
         expect(digest).toContain('**`c.mjs`** — 0 failing · runner exited 1 with no report (infra/boot failure)');
+    });
+
+    test('buildRunLog carries each config captured output into the log body (never a phantom)', () => {
+        const body = buildRunLog([
+            {config: 'a.mjs', output: '$ npx playwright test -c a.mjs\n42 passed'},
+            {config: 'b.mjs', note: 'runner exited 1 with no report (infra/boot failure)', output: '$ npx playwright test -c b.mjs\nboot timeout'}
+        ], '2026-07-04T00:00:00.000Z');
+
+        expect(body).toContain('# Nightly whitebox-e2e run 2026-07-04T00:00:00.000Z');
+        expect(body).toContain('## a.mjs');
+        expect(body).toContain('42 passed');
+        expect(body).toContain('## b.mjs — runner exited 1 with no report (infra/boot failure)');
+        expect(body).toContain('boot timeout');
+    });
+
+    test('buildRunLog marks a config that produced no captured output rather than emitting an empty section', () => {
+        expect(buildRunLog([{config: 'a.mjs'}])).toContain('(no captured output)');
+    });
+
+    test('the run-log path resolves to a real, non-empty file once written — the phantom-log regression', () => {
+        const outcomes = [{config: 'a.mjs', output: '$ npx playwright test -c a.mjs\n1 failed'}],
+              logPath  = path.join(os.tmpdir(), `neo-nightly-e2e-${Date.now()}-${Math.random().toString(36).slice(2)}`, 'run.log');
+
+        // Mirror the runner's write path exactly: ensure the logs dir, then write the built body.
+        fs.ensureDirSync(path.dirname(logPath));
+        fs.writeFileSync(logPath, buildRunLog(outcomes, '2026-07-04T00:00:00.000Z'), 'utf8');
+
+        try {
+            expect(fs.pathExistsSync(logPath)).toBe(true);
+            const onDisk = fs.readFileSync(logPath, 'utf8');
+            expect(onDisk.length).toBeGreaterThan(0);
+            expect(onDisk).toContain('1 failed');   // the digest's `Run log:` pointer now resolves to real content
+        } finally {
+            fs.removeSync(path.dirname(logPath));
+        }
     });
 });

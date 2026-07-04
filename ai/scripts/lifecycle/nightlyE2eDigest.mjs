@@ -72,3 +72,24 @@ export function formatDigest(outcomes, logPath) {
     lines.push(`Run log: \`${logPath}\``);
     return lines.join('\n');
 }
+
+/**
+ * @summary Assembles the per-run log body from each config's captured runner output — the concrete file the
+ * digest's `Run log:` pointer resolves to. Pure (outcomes → string); the runner writes the returned body and
+ * creates the log dir. Backed by real captured output so a red/infra-red digest can never point at a phantom
+ * file — the failure mode this closes.
+ * @param {Object[]} outcomes per-config outcomes, each optionally carrying `{config, note, output}`.
+ * @param {String} [at=''] ISO timestamp of the run, headlined at the top of the log.
+ * @returns {String} the run-log body.
+ */
+export function buildRunLog(outcomes, at = '') {
+    const sections = [`# Nightly whitebox-e2e run ${at}`.trimEnd(), ''];
+
+    for (const outcome of (outcomes || [])) {
+        sections.push(`## ${outcome.config}${outcome.note ? ` — ${outcome.note}` : ''}`);
+        sections.push(outcome.output ? String(outcome.output).trimEnd() : '(no captured output)');
+        sections.push('');
+    }
+
+    return sections.join('\n');
+}

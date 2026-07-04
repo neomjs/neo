@@ -16,15 +16,15 @@
  * Out of scope (per the ticket): CI integration (the outside-CI discipline stands), fixing the reds (the digest
  * points; owners fix), and unit/integration suites (CI owns those).
  */
-import {spawnSync}                            from 'node:child_process';
-import path                                   from 'node:path';
-import {fileURLToPath}                        from 'node:url';
-import fs                                     from 'fs-extra';
-import GraphService                           from '../../services/memory-core/GraphService.mjs';
-import LifecycleService                       from '../../services/memory-core/lifecycle/SystemLifecycleService.mjs';
-import MailboxService                         from '../../services/memory-core/MailboxService.mjs';
-import RequestContextService                  from '../../mcp/server/shared/services/RequestContextService.mjs';
-import {collectFailures, formatDigest, isRed} from './nightlyE2eDigest.mjs';
+import {spawnSync}                                         from 'node:child_process';
+import path                                                from 'node:path';
+import {fileURLToPath}                                     from 'node:url';
+import fs                                                  from 'fs-extra';
+import GraphService                                        from '../../services/memory-core/GraphService.mjs';
+import LifecycleService                                    from '../../services/memory-core/lifecycle/SystemLifecycleService.mjs';
+import MailboxService                                      from '../../services/memory-core/MailboxService.mjs';
+import RequestContextService                               from '../../mcp/server/shared/services/RequestContextService.mjs';
+import {buildRunLog, collectFailures, formatDigest, isRed} from './nightlyE2eDigest.mjs';
 
 /**
  * The whitebox-e2e configs the nightly run executes. ADDITIVE: append a config here as a suite lands
@@ -74,8 +74,13 @@ async function acquireLock(nowIso) {
  */
 function runConfig(entry) {
     console.error(`[nightlyE2eRunner] Running ${entry.config} …`);
-    // Custom config ONLY — never the default `npx playwright test`.
-    const run = spawnSync('npx', ['playwright', 'test', '-c', entry.config], {encoding: 'utf8', stdio: ['ignore', 'inherit', 'inherit']});
+    // Custom config ONLY — never the default `npx playwright test`. Capture (pipe) rather than inherit so the
+    // output backs the per-run log the digest points at; echo it through so an attended run still sees it live.
+    const run = spawnSync('npx', ['playwright', 'test', '-c', entry.config], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']});
+
+    if (run.stdout) process.stdout.write(run.stdout);
+    if (run.stderr) process.stderr.write(run.stderr);
+    const output = `$ npx playwright test -c ${entry.config}\n${run.stdout ?? ''}${run.stderr ?? ''}`;
 
     let report = null;
     try {
@@ -87,10 +92,10 @@ function runConfig(entry) {
     if (!report) {
         // No parseable report + non-zero exit = infra/boot red. Surface it explicitly rather than reporting green.
         const ran = run.status === 0;
-        return {config: entry.config, failures: [], ran, note: ran ? 'ran; no report emitted' : `runner exited ${run.status ?? 'signal'} with no report (infra/boot failure)`};
+        return {config: entry.config, failures: [], ran, note: ran ? 'ran; no report emitted' : `runner exited ${run.status ?? 'signal'} with no report (infra/boot failure)`, output};
     }
 
-    return {config: entry.config, failures: collectFailures(report), ran: true, note: ''};
+    return {config: entry.config, failures: collectFailures(report), ran: true, note: '', output};
 }
 
 /**
@@ -109,6 +114,11 @@ export async function runNightlyE2e() {
     try {
         const outcomes = E2E_CONFIGS.map(runConfig),
               red      = isRed(outcomes);
+
+        // Back the digest's `Run log:` pointer with a real file: ensure the logs dir, write the captured
+        // per-config output. Without this the logPath in last-run.json / the digest would be a phantom.
+        fs.ensureDirSync(path.dirname(logPath));
+        fs.writeFileSync(logPath, buildRunLog(outcomes, nowIso), 'utf8');
 
         await fs.writeJson(STATE_PATH, {
             at     : nowIso,
