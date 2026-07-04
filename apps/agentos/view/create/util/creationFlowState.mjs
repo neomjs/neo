@@ -45,7 +45,7 @@ export const CREATION_STATES = Object.freeze({
  */
 export const CREATION_EVENTS = Object.freeze({
     COMPOSE : 'compose',  // the user starts typing an intent
-    SUBMIT  : 'submit',   // the previewed blueprint is sent to the route
+    SUBMIT  : 'submit',   // the intent enters the create route or follow-up mutation route
     ACCEPTED: 'accepted', // the route returned a validated blueprint
     REFUSED : 'refused',  // the route/validator refused (carries a reason)
     EDIT    : 'edit',     // back to composing to refine words/blueprint
@@ -74,7 +74,8 @@ const TRANSITIONS = Object.freeze({
         [CREATION_EVENTS.RESET]   : CREATION_STATES.EMPTY   // the cancellable path
     }),
     [CREATION_STATES.MATERIALIZED]: Object.freeze({
-        [CREATION_EVENTS.EDIT]   : CREATION_STATES.COMPOSING, // mutate the live app via a follow-up
+        [CREATION_EVENTS.EDIT]   : CREATION_STATES.MATERIALIZED, // follow-up text edits do not dematerialize the app
+        [CREATION_EVENTS.SUBMIT] : CREATION_STATES.GENERATING,
         [CREATION_EVENTS.DISPOSE]: CREATION_STATES.EMPTY,
         [CREATION_EVENTS.RESET]  : CREATION_STATES.EMPTY
     }),

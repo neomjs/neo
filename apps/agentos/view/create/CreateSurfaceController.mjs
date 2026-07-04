@@ -1,8 +1,14 @@
-import Controller                                                from '../../../../src/controller/Component.mjs';
-import CreatedInstances                                          from './store/CreatedInstances.mjs';
-import {CREATION_EVENTS}                                         from './util/creationFlowState.mjs';
-import {routeCreationRequest}                                    from './util/requestRoute.mjs';
-import {acceptBlueprint, createInsertRegistrar, disposeInstance} from './util/acceptPath.mjs';
+import Controller                                   from '../../../../src/controller/Component.mjs';
+import CreatedInstances                             from './store/CreatedInstances.mjs';
+import {CREATION_EVENTS, CREATION_STATES}           from './util/creationFlowState.mjs';
+import {routeCreationRequest}                       from './util/requestRoute.mjs';
+import {parseMutationIntent, resolveMutationTarget} from './util/mutationIntent.mjs';
+import {
+    acceptBlueprint,
+    createInsertRegistrar,
+    disposeInstance,
+    mutateInstance
+} from './util/acceptPath.mjs';
 
 let instanceSeq = 0;
 
@@ -54,7 +60,14 @@ class CreateSurfaceController extends Controller {
          * fallback until the NL leaf lands the live generator.
          * @member {Function|null} generateBlueprint=null
          */
-        generateBlueprint: null
+        generateBlueprint: null,
+        /**
+         * Optional `(instanceId) => live component` mutation seam. Production leaves this null so the
+         * accept path resolves through `Neo.get`; tests can inject a stage double without registering
+         * real components in the instance manager.
+         * @member {Function|null} resolveComponent=null
+         */
+        resolveComponent: null
     }
 
     /**
@@ -84,20 +97,27 @@ class CreateSurfaceController extends Controller {
         const provider = this.getProvider(),
               state    = provider.getData('flowState');
 
-        provider.applyFlowEvent(state === 'empty' ? CREATION_EVENTS.COMPOSE : CREATION_EVENTS.EDIT)
+        provider.applyFlowEvent(state === CREATION_STATES.EMPTY ? CREATION_EVENTS.COMPOSE : CREATION_EVENTS.EDIT)
     }
 
     /**
      * The submit path — the whole spine in one handler, every step branching on bounded
      * `{accepted, reason}` shapes, nothing thrown into the render:
-     * composing → generating → (route) → materialized | error.
+     * composing → generating → create route → materialized | error; materialized → generating →
+     * mutation route → materialized | error.
      * @protected
      */
     async onSubmitIntent() {
         const me       = this,
               provider = me.getProvider(),
               field    = me.getReference('intent-field'),
-              request  = String(field?.value || '');
+              request  = String(field?.value || ''),
+              state    = provider.getData('flowState');
+
+        if (state === CREATION_STATES.MATERIALIZED) {
+            me.submitMutationIntent({provider, request});
+            return
+        }
 
         const submitted = provider.applyFlowEvent(CREATION_EVENTS.SUBMIT);
 
@@ -129,6 +149,47 @@ class CreateSurfaceController extends Controller {
             // accept-stage refusal AFTER route acceptance (dead stage, duplicate id, coverage
             // defect): honest ERROR carrying the ACCEPT PATH's reason; no active instance
             provider.applyCreationRouteOutcome({accepted: false, reason: accepted.reason})
+        }
+    }
+
+    /**
+     * Routes a follow-up intent against the created-instance registry, then lets the existing
+     * accept-path mutation primitive consume the validator-owned merged blueprint.
+     * @param {Object} options
+     * @param {AgentOS.view.create.CreationStateProvider} options.provider
+     * @param {String} options.request
+     * @protected
+     */
+    submitMutationIntent({provider, request}) {
+        const submitted = provider.applyFlowEvent(CREATION_EVENTS.SUBMIT);
+
+        if (submitted.state !== 'generating') return;
+
+        const parsed = parseMutationIntent(request);
+
+        if (!parsed.accepted) {
+            provider.applyCreationRouteOutcome(parsed);
+            return
+        }
+
+        const target = resolveMutationTarget({registry: CreatedInstances, selector: parsed.selector});
+
+        if (!target.accepted) {
+            provider.applyCreationRouteOutcome(target);
+            return
+        }
+
+        const mutation = mutateInstance({
+            instanceId: target.record.instanceId,
+            mutation  : parsed.mutation,
+            registry  : CreatedInstances,
+            ...(this.resolveComponent ? {resolveComponent: this.resolveComponent} : {})
+        });
+
+        provider.applyCreationRouteOutcome(mutation);
+
+        if (mutation.accepted) {
+            provider.setData({activeInstanceId: target.record.instanceId})
         }
     }
 

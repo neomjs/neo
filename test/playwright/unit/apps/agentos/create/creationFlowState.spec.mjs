@@ -31,6 +31,9 @@ test.describe('creationFlowState — the five keeper-flow states as a pure machi
         expect(next(S.EMPTY, E.COMPOSE)).toEqual({state: S.COMPOSING, reason: null, changed: true});
         expect(next(S.COMPOSING, E.SUBMIT).state).toBe(S.GENERATING);
         expect(next(S.GENERATING, E.ACCEPTED).state).toBe(S.MATERIALIZED);
+        expect(next(S.MATERIALIZED, E.EDIT).state).toBe(S.MATERIALIZED);
+        expect(next(S.MATERIALIZED, E.SUBMIT).state).toBe(S.GENERATING);
+        expect(next(S.GENERATING, E.ACCEPTED).state).toBe(S.MATERIALIZED);
         expect(next(S.MATERIALIZED, E.DISPOSE).state).toBe(S.EMPTY);
 
         // the error arm and its recovery: generating → error → (retry) composing
@@ -60,7 +63,6 @@ test.describe('creationFlowState — the five keeper-flow states as a pure machi
             [S.EMPTY, E.SUBMIT],
             [S.COMPOSING, E.ACCEPTED],
             [S.EMPTY, E.DISPOSE],
-            [S.MATERIALIZED, E.SUBMIT],
             [S.ERROR, E.ACCEPTED]
         ];
 

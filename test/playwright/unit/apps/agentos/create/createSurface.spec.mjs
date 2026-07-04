@@ -20,14 +20,19 @@ test.describe('CreateSurface — the wedge screen: five states, one provider, th
     let Controller, Provider, oracle, deterministicBlueprintFallback;
 
     // a stage double honoring the container seam the controller drives
-    const createStageDouble = () => {
+    const createStageDouble = liveComponents => {
         const observers = [];
         return {
             added: [],
             on(event, handler, scope) { event === 'insert' && observers.push([handler, scope]) },
             add(config) {
                 this.added.push(config);
-                const item = {...config};
+                const item = {
+                    ...config,
+                    set(values) { Object.assign(this, values) }
+                };
+
+                liveComponents[config.id] = item;
                 observers.forEach(([handler, scope]) => handler.call(scope || null, {item}));
                 return item
             }
@@ -37,9 +42,11 @@ test.describe('CreateSurface — the wedge screen: five states, one provider, th
     // a controller double: real class instance shape minus the component tree — we drive its
     // handlers with injected provider/stage/field seams
     const createRig = async ({generate, request = 'build me a neo grid'} = {}) => {
-        const provider = Neo.create(Provider, {});
-        const stage    = createStageDouble();
-        const field    = {value: request};
+        const
+            provider       = Neo.create(Provider, {}),
+            liveComponents = {},
+            stage          = createStageDouble(liveComponents),
+            field          = {value: request};
 
         // a minimal owning-component double: the controller's construct chain walks
         // component.parent, and getProvider reads component.getStateProvider()
@@ -51,7 +58,11 @@ test.describe('CreateSurface — the wedge screen: five states, one provider, th
             un              : () => {}
         };
 
-        const controller = Neo.create(Controller, {component: componentDouble, generateBlueprint: generate || null});
+        const controller = Neo.create(Controller, {
+            component        : componentDouble,
+            generateBlueprint: generate || null,
+            resolveComponent : id => liveComponents[id] || null
+        });
 
         // seam the reference lookups (the component tree is the SSOT-gated chrome; this
         // spec proves the CONTROLLER contract against the real provider + real spine)
@@ -62,7 +73,7 @@ test.describe('CreateSurface — the wedge screen: five states, one provider, th
         const {default: CreatedInstances} = await import('../../../../../../apps/agentos/view/create/store/CreatedInstances.mjs');
         stage.on('insert', createInsertRegistrar({registry: CreatedInstances}), controller);
 
-        return {provider, stage, field, controller, CreatedInstances}
+        return {provider, stage, field, controller, CreatedInstances, liveComponents}
     };
 
     test.beforeAll(async () => {
@@ -157,6 +168,33 @@ test.describe('CreateSurface — the wedge screen: five states, one provider, th
         expect(provider.getData('flowState')).toBe(S.EMPTY);
         expect(provider.getData('activeInstanceId')).toBeNull();
         expect(CreatedInstances.resolveTarget({instanceId}).state).toBe('disposed');
+
+        provider.destroy(); controller.destroy()
+    });
+
+    test('materialized follow-up submit mutates the latest live grid through the merged blueprint', async () => {
+        const {provider, field, controller, CreatedInstances, liveComponents} = await createRig();
+        const S                                                               = oracle.CREATION_STATES;
+
+        controller.onIntentChange();
+        await controller.onSubmitIntent();
+
+        const instanceId = provider.getData('activeInstanceId');
+        expect(provider.getData('flowState')).toBe(S.MATERIALIZED);
+
+        field.value = 'make it taller';
+        controller.onIntentChange();
+        expect(provider.getData('flowState')).toBe(S.MATERIALIZED);
+
+        await controller.onSubmitIntent();
+
+        const record = CreatedInstances.resolveTarget({instanceId});
+
+        expect(provider.getData('flowState')).toBe(S.MATERIALIZED);
+        expect(provider.getData('activeInstanceId')).toBe(instanceId);
+        expect(liveComponents[instanceId].height).toBe(520);
+        expect(record.blueprintSnapshot.config.height).toBe(520);
+        expect(record.blueprintSnapshot.config.columns).toHaveLength(2); // merge preserved creation columns
 
         provider.destroy(); controller.destroy()
     });
