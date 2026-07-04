@@ -70,6 +70,7 @@ export function createFleetCockpitStatus({agents = [], fleetStatus = [], events 
                 githubUsername: publicAgent.githubUsername ?? null,
                 harnessType   : publicAgent.harnessType ?? null,
                 displayName   : publicAgent.displayName ?? publicAgent.name ?? publicAgent.githubUsername ?? agentId ?? null,
+                avatarUrl     : publicAgent.metadata?.avatarUrl ?? null,
                 agent         : publicAgent,
                 repoStatus,
                 lifecycle     : {
