@@ -1,7 +1,7 @@
 /*
  * Fleet cockpit component primitives — geometry + motion over the --fm-* token layer.
  *
- * COLOR is never declared here: each component reads a --fm-* custom property (--fm-dot, --fm-chip)
+ * COLOR is never declared here: each component reads a --fm-* custom property (--fm-dot, --fm-chip, --fm-rail)
  * that it binds from the token layer (tokens.css). These rules carry only shape and the
  * reduced-motion-gated pulse. The pulse is decoration — the dot's COLOR carries the signal, so
  * reduced-motion users lose nothing informational.
@@ -31,6 +31,23 @@
     color         : var(--fm-chip, var(--fm-state-off));
     background    : color-mix(in srgb, var(--fm-chip, var(--fm-state-off)) 14%, transparent);
     border        : 1px solid color-mix(in srgb, var(--fm-chip, var(--fm-state-off)) 34%, transparent);
+}
+
+.fm-family-rail {
+    width        : 3px;
+    align-self   : stretch;
+    border-radius: 3px 0 0 3px;
+    background   : var(--fm-rail, var(--fm-state-off));
+}
+
+/* Unclassified family: a hatched neutral rail — the render marks "no recognized family" rather
+   than guessing one, so an unknown/absent family is visibly distinct from any real family color. */
+.fm-family-rail.fm-family-unclassified {
+    background: repeating-linear-gradient(
+        135deg,
+        var(--fm-state-off), var(--fm-state-off) 2px,
+        transparent 2px, transparent 4px
+    );
 }
 
 /* Pulse: decoration only, gated behind reduced-motion. The color already carries the signal. */
