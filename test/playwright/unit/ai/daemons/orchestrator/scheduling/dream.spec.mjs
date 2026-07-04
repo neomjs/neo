@@ -207,13 +207,13 @@ test.describe('orchestrator/scheduling/dream (#11858 / Epic #11831)', () => {
     });
 
     test('starvation-breaker forces one cycle when REM is stale past the threshold WITH a backlog (#14708)', () => {
-        const now = 14400000; // 4h; last SUCCESS at epoch (stale), last RUN 1 min ago (so periodic holds)
+        const now = 14400000; // 4h; last SUCCESS at epoch (stale), last RUN 3 min ago (periodic holds; past the re-fire bound)
         expect(getDueTask({
-            state                      : {lastRunAt: now - 60000, lastSuccessAt: new Date(0).toISOString()},
+            state                      : {lastRunAt: now - 180000, lastSuccessAt: new Date(0).toISOString()},
             now,
             dreamIntervalMs            : 3600000,   // 1h — not elapsed since lastRunAt
             dreamOverflowThreshold     : 0.5,
-            remBacklogCatchupCooldownMs: 120000,
+            remBacklogCatchupCooldownMs: 120000,    // 2min re-fire bound — the 3-min-old run is past it
             remStarvationBreakerMs     : 10800000,  // 3h — exceeded by the 4h-since-success staleness
             undigestedBacklog          : 5
         })).toEqual({taskName: 'dream', source: 'rem-starvation-breaker', reason: 'rem-starvation-breaker:10800000'});
@@ -256,5 +256,31 @@ test.describe('orchestrator/scheduling/dream (#11858 / Epic #11831)', () => {
             undigestedBacklog          : 5
             // remStarvationBreakerMs omitted → defaults 0 → disabled
         })).toBeNull();
+    });
+
+    test('starvation-breaker does NOT re-fire within the catch-up cooldown — a failed forced cycle retries at cooldown cadence, not every tick (#14708)', () => {
+        const now = 14400000; // 4h; success still stale (the forced cycle FAILED to update it), but a run happened 1s ago
+        expect(getDueTask({
+            state                      : {lastRunAt: now - 1000, lastSuccessAt: new Date(0).toISOString()},
+            now,
+            dreamIntervalMs            : 3600000,
+            dreamOverflowThreshold     : 0.5,
+            remBacklogCatchupCooldownMs: 120000,    // 2min re-fire bound — 1s since the failed run is well within it
+            remStarvationBreakerMs     : 10800000,  // stale past 3h, but the bound holds the hammer
+            undigestedBacklog          : 5
+        })).toBeNull();
+    });
+
+    test('starvation-breaker fires post-restart when task state carries no lastSuccessAt yet — the S4 scenario is not locked out (#14708)', () => {
+        const now = 14400000; // a restart nulled lastSuccessAt; a cycle ran 3 min ago but never succeeded, backlog persists
+        expect(getDueTask({
+            state                      : {lastRunAt: now - 180000, lastSuccessAt: null},
+            now,
+            dreamIntervalMs            : 3600000,   // periodic holds (run 3 min ago)
+            dreamOverflowThreshold     : 0.5,
+            remBacklogCatchupCooldownMs: 120000,    // 3-min-old run is past the re-fire bound
+            remStarvationBreakerMs     : 10800000,
+            undigestedBacklog          : 5
+        })).toEqual({taskName: 'dream', source: 'rem-starvation-breaker', reason: 'rem-starvation-breaker:10800000'});
     });
 });

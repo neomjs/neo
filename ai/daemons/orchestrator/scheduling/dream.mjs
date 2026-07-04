@@ -79,10 +79,13 @@ export function isRemBacklogCatchupEligible({state, dreamIntervalMs, dreamOverfl
  * @param {Number} options.dreamIntervalMs Periodic interval; `<= 0` disables.
  * @param {Number} options.dreamOverflowThreshold Config-owned fraction of cadence that makes
  * the completed prior cycle use completion-time cooldown.
- * @param {Number} options.remBacklogCatchupCooldownMs Short cooldown for saturated REM batches.
- * @param {Number} [options.remStarvationBreakerMs=0] Staleness threshold past which a genuine consolidation
- * STARVATION (stale + undigested backlog) forces one cycle regardless of the cooldown / contention yield.
- * `0` (default / unwired) disables it — fail-open, never fail-loud, so existing callers are unaffected.
+ * @param {Number} options.remBacklogCatchupCooldownMs Short cooldown for saturated REM batches; also bounds the
+ * starvation-breaker's re-fire cadence.
+ * @param {Number} [options.remStarvationBreakerMs=0] Staleness threshold past which a stuck undigested backlog
+ * forces one cycle regardless of the cooldown / contention yield — INCLUDING the post-restart case where
+ * `lastSuccessAt` is not yet set, so a nulled task state cannot lock the breaker out of its own motivating
+ * scenario. Re-fire is bounded to `remBacklogCatchupCooldownMs` so a FAILING forced cycle retries at cooldown
+ * cadence, never every tick. `0` (default / unwired) disables it — fail-open, never fail-loud.
  * @param {Number} [options.undigestedBacklog=0] Current undigested-session backlog count (the same signal the
  * consolidation-liveness watchdog pairs with staleness); `0` means nothing to rescue, so the breaker holds.
  * @returns {Object|null} A dream task trigger or null when no work is due.
@@ -119,14 +122,24 @@ export function getDueTask({state, now, dreamIntervalMs, dreamOverflowThreshold,
     }
 
     // Starvation-breaker (ticket-ref-ok: #14708 owning-leaf anchor): neither the periodic cadence nor the
-    // cooldown-gated / contention-yielding catch-up has fired, but REM has been stale past the starvation
-    // threshold WITH an undigested backlog — the exact stall the consolidation-liveness watchdog alarms on.
-    // Force ONE cycle regardless of the cooldown. A bounded max-deferral guard, NOT a cooldown removal:
-    // normal contention-yielding is untouched (no backlog OR within the threshold → this holds).
+    // cooldown-gated / contention-yielding catch-up has fired, but an undigested backlog is stuck while REM
+    // is stale — the exact stall the consolidation-liveness watchdog alarms on. A bounded max-deferral guard,
+    // NOT a cooldown removal — two guards keep it honest:
+    //   - staleOrNeverSucceeded: a long-stale success OR lastSuccessAt===null. The null case is the S4
+    //     scenario itself — a restart that nulls task state must NOT lock the breaker out of its own
+    //     motivating condition (post-restart starvation), so no-success-yet + backlog counts as starved.
+    //   - reFireBounded: re-fire is capped to the catch-up cooldown so a FORCED cycle that FAILS retries at
+    //     cooldown cadence, never every evaluation tick (a broken pipeline is precisely when starvation is
+    //     likely, and lastSuccessAt would stay stale — an unguarded breaker would hammer it every tick).
+    // Normal contention-yielding is untouched: no backlog, within the threshold, or a just-run cycle → holds.
+    const lastRunAt             = toTimestampMs(state?.lastRunAt),
+          staleOrNeverSucceeded = lastSuccessAt === null || now - lastSuccessAt >= remStarvationBreakerMs,
+          reFireBounded         = lastRunAt === null || now - lastRunAt >= remBacklogCatchupCooldownMs;
+
     if (remStarvationBreakerMs > 0 &&
         undigestedBacklog > 0 &&
-        lastSuccessAt !== null &&
-        now - lastSuccessAt >= remStarvationBreakerMs) {
+        staleOrNeverSucceeded &&
+        reFireBounded) {
         return {
             taskName: 'dream',
             source  : 'rem-starvation-breaker',
