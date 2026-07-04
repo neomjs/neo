@@ -2014,6 +2014,43 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(section).toContain('malformed');
         expect(section).not.toContain('0 sessions undigested') // a non-array response must not read as zero-undigested
     });
+
+    test('buildDeclaredIntentFallback surfaces unblocked open-epic leaves with the provenance line; drops blocked + non-actionable (#14659)', () => {
+        // An open epic, one actionable UNBLOCKED leaf under it, one BLOCKED leaf, and the open blocker.
+        GraphService.upsertNode({id: 'issue-900', type: 'ISSUE', properties: {state: 'OPEN', labels: ['epic', 'ai'], title: 'Convergence epic'}});
+        GraphService.upsertNode({id: 'issue-901', type: 'ISSUE', properties: {state: 'OPEN', labels: ['bug', 'ai'], title: 'Actionable tree leaf', createdAt: '2026-07-04T02:00:00Z'}});
+        GraphService.upsertNode({id: 'issue-902', type: 'ISSUE', properties: {state: 'OPEN', labels: ['bug', 'ai'], title: 'Blocked leaf'}});
+        GraphService.upsertNode({id: 'issue-903', type: 'ISSUE', properties: {state: 'OPEN', labels: ['bug', 'ai'], title: 'Open blocker'}});
+        GraphService.linkNodes('issue-900', 'issue-901', 'PARENT_OF', 1.0);
+        GraphService.linkNodes('issue-900', 'issue-902', 'PARENT_OF', 1.0);
+        GraphService.linkNodes('issue-903', 'issue-902', 'BLOCKS', 1);
+
+        const md = GoldenPathSynthesizer.constructor.buildDeclaredIntentFallback();
+
+        expect(md).toContain('fallback: declared-intent (frontier empty)'); // provenance line — never masquerades as semantic
+        expect(md).toContain('#901');                                        // actionable unblocked open-epic leaf surfaced
+        expect(md).not.toContain('#902');                                    // blocked → dropped
+        expect(md).not.toContain('#900');                                    // epic → non-actionable, not a leaf
+    });
+
+    test('buildDeclaredIntentFallback surfaces COLD-CACHE leaves — read straight from SQLite, no in-memory dependency (#14659)', () => {
+        // TRUE cold cache: insert the rows directly into SQLite so the in-memory node store NEVER sees them
+        // (the fresh-boot / REM-starved condition this fallback rescues). A get-before-load implementation
+        // drops these — its `nodes.get(id)` returns null; the SQLite-sourced fallback must still surface the leaf.
+        const db      = GraphService.db.storage.db,
+              putNode = (id, labels) => db.prepare('INSERT OR REPLACE INTO Nodes (id, user_id, data) VALUES (?, ?, ?)')
+                  .run(id, null, JSON.stringify({id, type: 'ISSUE', properties: {state: 'OPEN', labels}}));
+
+        putNode('issue-910', ['epic', 'ai']);
+        putNode('issue-911', ['bug', 'ai']);
+        db.prepare('INSERT OR REPLACE INTO Edges (id, user_id, source, target, type, data) VALUES (?, ?, ?, ?, ?, ?)')
+            .run('edge-910-911', null, 'issue-910', 'issue-911', 'PARENT_OF', JSON.stringify({properties: {weight: 1.0}}));
+
+        const md = GoldenPathSynthesizer.constructor.buildDeclaredIntentFallback();
+
+        expect(md).toContain('#911');                                        // surfaced from SQLite despite the cold node cache
+        expect(md).toContain('fallback: declared-intent (frontier empty)');
+    });
 });
 
 test.describe('GoldenPathSynthesizer.hasCrossFamilyReview — author family from canonical @identity', () => {

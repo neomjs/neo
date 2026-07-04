@@ -53,6 +53,12 @@ import {
     renderConceptSliceSection        as renderGraphConceptSliceSection
 } from './conceptSliceBuilder.mjs';
 import {
+    STRUCTURAL_COLD_START_EPSILON,
+    inheritParentStructuralWeight,
+    rankByDeclaredIntent,
+    renderDeclaredIntentFallback
+} from './goldenPathPickupBridge.mjs';
+import {
     buildCurrentFocusCandidates as buildIssueFocusCurrentFocusCandidates,
     buildSilentThreadCandidates as buildIssueFocusSilentThreadCandidates,
     buildStaleAssignmentCandidates as buildIssueFocusStaleAssignmentCandidates,
@@ -376,6 +382,76 @@ class GoldenPathSynthesizer extends Base {
      */
     static renderComputedGoldenPathEmptySection(stats, capturedAt) {
         return renderRouteEmptySection(stats, capturedAt)
+    }
+
+    /**
+     * @summary Frontier-empty declared-intent fallback (ticket-ref-ok: #14659 owning-leaf anchor): when the
+     * semantic route is empty, gather actionable UNBLOCKED open `ISSUE` nodes, rank them by declared intent
+     * (open-epic membership x parent activity, recency), and render the provenance-led section. Returns `''`
+     * when nothing qualifies, so the caller renders the normal empty section. Read-only + additive — it
+     * cannot zero or gate the base route; it only fires when the route already produced nothing.
+     * @returns {String}
+     */
+    static buildDeclaredIntentFallback() {
+        const sqliteDb = GraphService.db?.storage?.db;
+        if (!sqliteDb) return '';
+
+        // Fully SQLite-sourced — cold-cache correct BY CONSTRUCTION. The in-memory node/edge stores are
+        // lazy, so this fallback (which exists to rescue exactly the cold cache) reads open issues, their
+        // inbound edges, and neighbor (parent-epic / blocker) states straight from the SQLite source of
+        // truth — never from a possibly-unhydrated `nodes.get` / `getByIndex` (per cross-family review).
+        // Bounded rescue: cap to the most-recent candidates so the per-item edge/state reads below can never
+        // blow the scheduling budget when the repo has hundreds of open issues (the frontier-empty fallback
+        // fires exactly when the backlog is large). The "~80 fat tickets" scenario is recent, and recency is
+        // the ranking tiebreak, so a recent-N cap keeps the surfaced tree leaves correct while bounding cost.
+        const FALLBACK_CANDIDATE_CAP = 250;
+
+        let openIssues, inboundStmt, stateStmt;
+        try {
+            openIssues  = sqliteDb.prepare(`
+                SELECT n.id, n.data FROM Nodes n
+                WHERE n.id LIKE 'issue-%'
+                  AND (json_extract(n.data, '$.properties.state') = 'OPEN' OR json_extract(n.data, '$.state') = 'OPEN')
+                ORDER BY json_extract(n.data, '$.properties.createdAt') DESC
+                LIMIT ${FALLBACK_CANDIDATE_CAP}
+            `).all();
+            inboundStmt = sqliteDb.prepare(`SELECT source, type FROM Edges WHERE target = ?`);
+            stateStmt   = sqliteDb.prepare(`SELECT json_extract(data, '$.properties.state') AS s1, json_extract(data, '$.state') AS s2 FROM Nodes WHERE id = ?`);
+        } catch (error) {
+            return '';
+        }
+
+        const isOpenNode = nodeId => {
+            const row = stateStmt.get(nodeId);
+            return !!row && (row.s1 === 'OPEN' || row.s2 === 'OPEN');
+        };
+
+        const items = [];
+
+        for (const {id, data} of openIssues) {
+            let nodeData;
+            try { nodeData = JSON.parse(data); } catch (error) { continue; }
+            if (!this.isActionableComputedRecommendation(nodeData)) continue;
+
+            const inbound    = inboundStmt.all(id),
+                  blocked    = inbound.some(e => e.type === 'BLOCKS' && isOpenNode(e.source)),
+                  parentEdge = inbound.find(e => e.type === 'PARENT_OF'),
+                  inOpenEpic = !!(parentEdge && isOpenNode(parentEdge.source));
+
+            // Open-epic TREE leaves only (the AC): a standalone open issue is not a tree leaf, so an
+            // all-standalone empty pass still renders the normal empty section.
+            if (!inOpenEpic) continue;
+
+            items.push({
+                id          : String(id).replace(/^issue-/, ''),
+                inOpenEpic,
+                epicActivity: getIssueFocusStructuralWeight(parentEdge.source),
+                blocked,
+                filedAt     : nodeData.properties?.createdAt || nodeData.properties?.filedAt || null
+            });
+        }
+
+        return renderDeclaredIntentFallback(rankByDeclaredIntent(items), aiConfig.goldenPathTopNodeRenderLimit);
     }
 
     /**
@@ -721,7 +797,22 @@ class GoldenPathSynthesizer extends Base {
 
                     // Guarantee graph topology is completely loaded into RAM BEFORE executing cold-cache resistant queries natively!
                     GraphService.db.getAdjacentNodes(issueId, 'both');
-                    const struct_score = parseFloat(row.struct_score) || 0;
+                    const rawStructScore = parseFloat(row.struct_score) || 0;
+
+                    // #14659 fail-open parent-inheritance (ticket-ref-ok: owning-leaf anchor): a cold-start (~0)
+                    // leaf inherits alpha * its parent-epic structural weight, so tree-filed leaves are visible to
+                    // the normal formula, not just the fallback. Non-cold-start scores pass through untouched, so
+                    // the base route is preserved. Reuses the verified getIssueStructuralWeight query for the parent.
+                    let struct_score = rawStructScore;
+                    if (rawStructScore <= STRUCTURAL_COLD_START_EPSILON) {
+                        const parentEdge = GraphService.db.edges.getByIndex('target', issueId).find(e => e.type === 'PARENT_OF');
+                        if (parentEdge) {
+                            struct_score = inheritParentStructuralWeight({
+                                structuralWeight      : rawStructScore,
+                                parentStructuralWeight: getIssueFocusStructuralWeight(parentEdge.source)
+                            });
+                        }
+                    }
 
                     let nodeData = null;
                     try { nodeData = JSON.parse(row.data); } catch (e) { }
@@ -899,8 +990,14 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             });
             logger.info('[GoldenPathSynthesizer] Computed route contradicted Current Focus; rendered diagnostic instead of routing content work.');
         } else {
-            markdownAppend = this.constructor.renderComputedGoldenPathEmptySection(scoringStats, handoffTimestamp);
-            logger.info('[GoldenPathSynthesizer] No actionable unblocked issues found. Golden path empty.');
+            const declaredIntentFallback = this.constructor.buildDeclaredIntentFallback();
+            if (declaredIntentFallback) {
+                markdownAppend = declaredIntentFallback;
+                logger.info('[GoldenPathSynthesizer] Frontier empty — rendered declared-intent fallback (unblocked open-epic tree leaves).');
+            } else {
+                markdownAppend = this.constructor.renderComputedGoldenPathEmptySection(scoringStats, handoffTimestamp);
+                logger.info('[GoldenPathSynthesizer] No actionable unblocked issues found. Golden path empty.');
+            }
         }
 
         // Centralize full generation of sandman_handoff.md here, enforcing completely idempotent behavior.
