@@ -1,5 +1,6 @@
 const WIRE_SOURCES = Object.freeze({
         activity  : 'fleet:activity-adapters',
+        a2a       : 'memory-core:mailbox',
         githubPr  : 'github-workflow:pull-requests',
         githubIssue: 'github-workflow:issues',
         commentLane: 'github-workflow:issue-comments',
@@ -17,6 +18,7 @@ export const FLEET_COCKPIT_EVENT_TYPES = Object.freeze([
     'lifecycle-failure',
     'bridge-unavailable',
     'bridge-gated',
+    'a2a-activity',
     'pr-activity',
     'issue-activity',
     'lane-claim',
