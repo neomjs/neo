@@ -1,5 +1,10 @@
 const WIRE_SOURCES = Object.freeze({
         activity  : 'fleet:activity-adapters',
+        githubPr  : 'github-workflow:pull-requests',
+        githubIssue: 'github-workflow:issues',
+        commentLane: 'github-workflow:issue-comments',
+        graphLane : 'graph:lane-state',
+        graphStall: 'graph:work-stall',
         repoStatus: 'fleet:fleetStatus',
         roster    : 'fleet:listAgents',
         runtime   : 'fleet:runtimeStatus',
@@ -11,7 +16,12 @@ export const FLEET_COCKPIT_EVENT_TYPES = Object.freeze([
     'lifecycle-success',
     'lifecycle-failure',
     'bridge-unavailable',
-    'bridge-gated'
+    'bridge-gated',
+    'pr-activity',
+    'issue-activity',
+    'lane-claim',
+    'work-stall',
+    'source-degraded'
 ])
 
 /**
@@ -32,9 +42,12 @@ export const FLEET_COCKPIT_SOURCES = Object.freeze({...WIRE_SOURCES})
  * @param {Object[]} options.agents      Public agent definitions from `registryBridge.listAgents()`.
  * @param {Object[]} options.fleetStatus Repo-status entries from `registryBridge.fleetStatus()`.
  * @param {Object[]} options.events      Optional already-normalized cockpit events.
+ * @param {Object}   options.capabilities Optional source-capability overrides from wired adapters.
  * @returns {Object} serializable cockpit DTO `{sources, capabilities, rows, events}`.
  */
-export function createFleetCockpitStatus({agents = [], fleetStatus = [], events = []} = {}) {
+export function createFleetCockpitStatus({agents = [], fleetStatus = [], events = [], capabilities = {}} = {}) {
+    const suppliedCapabilities = capabilities || {}
+
     const statusByAgentId = new Map(
         fleetStatus.map(status => [status.agentId || status.id, sanitizePayload(status)])
     )
@@ -42,8 +55,8 @@ export function createFleetCockpitStatus({agents = [], fleetStatus = [], events 
     return {
         sources     : FLEET_COCKPIT_SOURCES,
         capabilities: {
-            activity: createNotWiredCapability(FLEET_COCKPIT_SOURCES.activity, 'A2A / PR / lane activity adapter not wired'),
-            runtime : createNotWiredCapability(FLEET_COCKPIT_SOURCES.runtime, 'runtime process status is pending the Fleet runtime-status wire method')
+            activity: suppliedCapabilities.activity || createNotWiredCapability(FLEET_COCKPIT_SOURCES.activity, 'A2A / PR / lane activity adapter not wired'),
+            runtime : suppliedCapabilities.runtime || createNotWiredCapability(FLEET_COCKPIT_SOURCES.runtime, 'runtime process status is pending the Fleet runtime-status wire method')
         },
         rows: agents.map(agent => {
             const publicAgent = sanitizePayload(agent),
