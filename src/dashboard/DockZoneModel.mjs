@@ -797,6 +797,46 @@ class DockZoneModel extends Base {
     }
 
     /**
+     * @summary Composes per-window shape fingerprints into one whole-topology fingerprint.
+     *
+     * Slot ORDER is meaning: the reconciliation of a restored topology maps captured slots onto
+     * live windows positionally-by-shape, so the composed term preserves input order verbatim.
+     * Envelope-agnostic by design — whichever record shape the topology capture persists,
+     * it carries this composition. Fails closed on an empty list or any entry that is not a
+     * window-shape fingerprint record.
+     * @param {Object[]} windowFingerprints Ordered per-window records from {@link #computeShapeFingerprint}.
+     * @returns {{fingerprint:(Object|null), errors:String[]}}
+     * @static
+     */
+    static composeTopologyFingerprint(windowFingerprints) {
+        let errors = [];
+
+        if (!Array.isArray(windowFingerprints) || windowFingerprints.length < 1) {
+            return {fingerprint: null, errors: ['topology fingerprint requires a non-empty ordered array of window fingerprints']}
+        }
+
+        windowFingerprints.forEach((entry, index) => {
+            if (entry?.schema !== 'neo.harness.dockShape.v1' || typeof entry.shape !== 'string') {
+                errors.push(`entry ${index} is not a window shape fingerprint record`)
+            }
+        });
+
+        if (errors.length) {
+            return {fingerprint: null, errors}
+        }
+
+        return {
+            fingerprint: {
+                schema     : 'neo.harness.dockTopologyShape.v1',
+                windowCount: windowFingerprints.length,
+                shape      : `w[${windowFingerprints.map(entry => entry.shape).join('|')}]`,
+                totalItems : windowFingerprints.reduce((sum, entry) => sum + (entry.itemCount || 0), 0)
+            },
+            errors
+        }
+    }
+
+    /**
      * @summary Captures the current window's dock document as a v2 saved-layout perspective.
      *
      * The single-window capture scope: layout truth only enters the record — the committed

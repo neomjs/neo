@@ -285,6 +285,33 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             expect(DockZoneModel.computeShapeFingerprint(mutated).fingerprint.shape).not.toBe(a.fingerprint.shape)
         });
 
+        test('topology fingerprints compose per-window terms in slot order and fail closed on bad input', () => {
+            const single = DockZoneModel.computeShapeFingerprint(doc()).fingerprint;
+
+            const two = DockZoneModel.composeTopologyFingerprint([single, single]);
+            expect(two.errors).toEqual([]);
+            expect(two.fingerprint.schema).toBe('neo.harness.dockTopologyShape.v1');
+            expect(two.fingerprint.windowCount).toBe(2);
+            expect(two.fingerprint.shape).toBe(`w[${single.shape}|${single.shape}]`);
+            expect(two.fingerprint.totalItems).toBe(single.itemCount * 2);
+
+            // slot order IS meaning: reversed input must produce a different term when shapes differ
+            const mutated = doc();
+            mutated.nodes['main-tabs'].items.push('extra-item');
+            const other = DockZoneModel.computeShapeFingerprint(mutated).fingerprint;
+            expect(DockZoneModel.composeTopologyFingerprint([single, other]).fingerprint.shape)
+                .not.toBe(DockZoneModel.composeTopologyFingerprint([other, single]).fingerprint.shape);
+
+            // degenerate single-window composition wraps the same term
+            expect(DockZoneModel.composeTopologyFingerprint([single]).fingerprint.shape).toBe(`w[${single.shape}]`);
+
+            // fail-closed: empty list + non-fingerprint entry
+            expect(DockZoneModel.composeTopologyFingerprint([]).fingerprint).toBe(null);
+            const bad = DockZoneModel.composeTopologyFingerprint([single, {shape: 42}]);
+            expect(bad.fingerprint).toBe(null);
+            expect(bad.errors.join(' ')).toContain('entry 1')
+        });
+
         test('fingerprint walk fails closed on dangling node refs', () => {
             const broken = doc();
             broken.root = 'missing-node';
