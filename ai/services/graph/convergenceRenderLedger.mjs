@@ -168,7 +168,8 @@ function formatAxisCell(value) {
         ? (Object.entries(value).map(([key, val]) => `${key}=${typeof val === 'object' ? JSON.stringify(val) : val}`).join(', ') || '{}')
         : String(value);
 
-    return cell.replace(/\|/g, '\\|');   // an axis payload must never break the markdown table
+    // escape the escape char first, then the pipe — else a pre-existing backslash mis-escapes the pipe
+    return cell.replace(/\\/g, '\\\\').replace(/\|/g, '\\|');   // an axis payload must never break the markdown table
 }
 
 /**
