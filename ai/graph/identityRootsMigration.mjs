@@ -39,8 +39,8 @@ export const MIGRATION_EPOCH = '2026-07-04T00:00:00Z';
  */
 export const REGISTRY_MODEL_DESIGNATIONS = Object.freeze({
     '@neo-opus-ada'  : 'Claude Opus 4.8',
-    '@neo-opus-grace': 'Neo Claude Opus',
-    '@neo-opus-vega' : 'Claude Opus Vega',
+    '@neo-opus-grace': 'Claude Opus 4.8',
+    '@neo-opus-vega' : 'Claude Opus 4.8',
     '@neo-fable'     : 'Claude Fable 5',
     '@neo-fable-clio': 'Claude Fable 5',
     '@neo-gemini-pro': 'Gemini 3.1 Pro',
