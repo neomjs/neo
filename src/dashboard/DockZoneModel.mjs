@@ -68,6 +68,21 @@ class DockZoneModel extends Base {
     static CAPTURE_SCOPES = ['window', 'topology']
 
     /**
+     * The semantic operation vocabulary `applyOperation()` dispatches — THE single exported
+     * source for every consumer that enumerates, validates, or advertises the executable
+     * operations (the Neural Link service tier reads this by reference; prose surfaces like
+     * tool descriptions mirror it under the dispatch-parity regression). A new operation
+     * lands here in the same change that adds its `applyOperation` case, or the parity spec
+     * fails the build.
+     * @member {ReadonlyArray<String>} operations
+     * @static
+     */
+    static operations = Object.freeze([
+        'addTab', 'moveItem', 'splitNode', 'resizeSplit',
+        'detachItem', 'closeItem', 'setItemPinned', 'setItemAutoHidden'
+    ])
+
+    /**
      * Top-level fields allowed in a saved-layout wrapper.
      * @member {Set<String>} savedLayoutKeys
      * @protected
@@ -1141,7 +1156,7 @@ class DockZoneModel extends Base {
             return {document: null, errors}
         }
 
-        let normalized = DockZoneModel.normalizeTree(savedLayout.dockZone),
+        let normalized       = DockZoneModel.normalizeTree(savedLayout.dockZone),
             normalizedErrors = DockZoneModel.validate(normalized);
 
         return normalizedErrors.length
