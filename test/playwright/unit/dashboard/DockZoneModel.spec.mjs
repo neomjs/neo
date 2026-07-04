@@ -312,6 +312,23 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             expect(bad.errors.join(' ')).toContain('entry 1')
         });
 
+        test('topology composition rejects incomplete window fingerprints — a missing itemCount never fakes a zero', () => {
+            // right schema, right shape, NO itemCount: must fail closed, never compose totalItems: 0
+            const incomplete = DockZoneModel.composeTopologyFingerprint([{schema: 'neo.harness.dockShape.v1', shape: 't1'}]);
+            expect(incomplete.fingerprint).toBe(null);
+            expect(incomplete.errors.join(' ')).toContain('entry 0');
+            expect(incomplete.errors.join(' ')).toContain('incomplete');
+
+            // malformed counts are rejected the same way, with the offending slot indexed
+            const single = DockZoneModel.computeShapeFingerprint(doc()).fingerprint;
+
+            for (const itemCount of [NaN, -1, 1.5, '3']) {
+                const malformed = DockZoneModel.composeTopologyFingerprint([single, {...single, itemCount}]);
+                expect(malformed.fingerprint).toBe(null);
+                expect(malformed.errors.join(' ')).toContain('entry 1')
+            }
+        });
+
         test('captureTopologyPerspective: multi-window round-trip with slot-ordered windowDocuments', () => {
             const second = doc();
             second.nodes['main-tabs'].items.push('inspector');

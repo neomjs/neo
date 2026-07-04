@@ -893,8 +893,10 @@ class DockZoneModel extends Base {
      * Slot ORDER is meaning: the reconciliation of a restored topology maps captured slots onto
      * live windows positionally-by-shape, so the composed term preserves input order verbatim.
      * Envelope-agnostic by design — whichever record shape the topology capture persists,
-     * it carries this composition. Fails closed on an empty list or any entry that is not a
-     * window-shape fingerprint record.
+     * it carries this composition. Fails closed on an empty list, any entry that is not a
+     * window-shape fingerprint record, and any INCOMPLETE record: the composition consumes
+     * `itemCount`, and a window fingerprint always emits an integer count ≥ 0, so a missing or
+     * malformed count is rejected — never defaulted into a fake zero.
      * @param {Object[]} windowFingerprints Ordered per-window records from {@link #computeShapeFingerprint}.
      * @returns {{fingerprint:(Object|null), errors:String[]}}
      * @static
@@ -909,6 +911,8 @@ class DockZoneModel extends Base {
         windowFingerprints.forEach((entry, index) => {
             if (entry?.schema !== 'neo.harness.dockShape.v1' || typeof entry.shape !== 'string') {
                 errors.push(`entry ${index} is not a window shape fingerprint record`)
+            } else if (!Number.isInteger(entry.itemCount) || entry.itemCount < 0) {
+                errors.push(`entry ${index} is an incomplete window fingerprint record: itemCount must be an integer >= 0`)
             }
         });
 
@@ -921,7 +925,7 @@ class DockZoneModel extends Base {
                 schema     : 'neo.harness.dockTopologyShape.v1',
                 windowCount: windowFingerprints.length,
                 shape      : `w[${windowFingerprints.map(entry => entry.shape).join('|')}]`,
-                totalItems : windowFingerprints.reduce((sum, entry) => sum + (entry.itemCount || 0), 0)
+                totalItems : windowFingerprints.reduce((sum, entry) => sum + entry.itemCount, 0)
             },
             errors
         }
