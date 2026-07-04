@@ -1,0 +1,50 @@
+/*
+ * Fleet cockpit component primitives — geometry + motion over the --fm-* token layer.
+ *
+ * COLOR is never declared here: every surface reads a --fm-dot / --fm-rail custom property that
+ * the component binds from the token layer (tokens.css). These rules carry only shape and the
+ * reduced-motion-gated pulse. The pulse is decoration — the dot's COLOR carries the signal, so
+ * reduced-motion users lose nothing informational.
+ */
+
+.fm-state-dot {
+    width        : 8px;
+    height       : 8px;
+    flex         : none;
+    border-radius: 50%;
+    background   : var(--fm-dot, var(--fm-state-off));
+    box-shadow   : 0 0 0 3px color-mix(in srgb, var(--fm-dot, var(--fm-state-off)) 22%, transparent);
+}
+
+.fm-family-rail {
+    width        : 3px;
+    align-self   : stretch;
+    border-radius: 3px 0 0 3px;
+    background   : var(--fm-rail, var(--fm-family-human));
+}
+
+.fm-health-swatch {
+    display    : inline-flex;
+    align-items: center;
+    gap        : 6px;
+    font-size  : 11px;
+}
+
+.fm-health-swatch .fm-sw-dot {
+    width        : 9px;
+    height       : 9px;
+    border-radius: 50%;
+    background   : var(--fm-dot, var(--fm-state-off));
+}
+
+/* Pulse: decoration only, gated behind reduced-motion. The color already carries the signal. */
+@media (prefers-reduced-motion: no-preference) {
+    .fm-state-dot.fm-live {
+        animation: fm-state-pulse 2.4s ease-in-out infinite;
+    }
+
+    @keyframes fm-state-pulse {
+        0%, 100% { opacity: 1 }
+        50%      { opacity: .5 }
+    }
+}
