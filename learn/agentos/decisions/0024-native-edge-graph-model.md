@@ -58,6 +58,14 @@ Four named enums (`CONCEPT_EDGE_TYPES`, `ADR_EDGE_TYPES`, `PROTECTED_EDGE_TYPES`
 
 **Wake-triggers ≠ edges:** `PERMISSION_GRANTED`, `SENT_TO_ME`, `TASK_STATE_CHANGED`, `HEARTBEAT_PULSE` are **wake-subscription triggers** (`WakeSubscriptionService.validTriggers`), NOT graph edges — each *fires* when a permission edge / message / task-state changes (e.g. `PERMISSION_GRANTED` fires on a `CAN_*` edge granted to the owner). They belong to the wake layer, not the edge taxonomy.
 
+> **Amended by ADR 0033 (the direction contract):** registers the incoming `EVOLUTION_GOAL` node
+> class (generalizing `BUSINESS_GOAL` — shared schema family, canonical-id minted) and the
+> direction-mapping edge classes; attribution facts and their edges **join `PROTECTED_EDGE_TYPES`**
+> (a velocity number built on decaying edges rots invisibly — measurement substrate is fact-class,
+> not scent). Table rows land with ADR 0033's attribution leaf, which updates §2.2/§2.1 in the same
+> PR per this record's own re-review trigger; new node classes ship with the post-sync integrity
+> canary.
+
 ### 2.4 Topology — how it connects
 
 ```mermaid
