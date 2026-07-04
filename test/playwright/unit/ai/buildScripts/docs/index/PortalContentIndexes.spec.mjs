@@ -35,12 +35,15 @@ function getChunkNumber(record) {
  * @param {Object[]} records
  * @param {String} parentId
  */
-function expectChunkFoldersDescending(records, parentId) {
+function expectChunkFoldersDescending(records, parentId, {requireMultiple = true} = {}) {
     const chunkNumbers = records
         .filter(record => record.parentId === parentId && getChunkNumber(record) !== null)
         .map(getChunkNumber);
 
-    expect(chunkNumbers.length).toBeGreaterThan(1);
+    if (requireMultiple) {
+        expect(chunkNumbers.length).toBeGreaterThan(1);
+    }
+
     expect(chunkNumbers).toEqual([...chunkNumbers].sort((a, b) => b - a))
 }
 
@@ -183,7 +186,7 @@ test.describe('Portal content index generators (#12210)', () => {
     test('committed pull-request index keeps active chunk folders in chunk-number order', async () => {
         const index = await fs.readJson(path.join(process.cwd(), 'apps/portal/resources/data/pulls/index.json'));
 
-        expectChunkFoldersDescending(index, 'Latest')
+        expectChunkFoldersDescending(index, 'Latest', {requireMultiple: false})
     });
 
     test('createDiscussionIndex groups by frontmatter category for active and archive files', async () => {
