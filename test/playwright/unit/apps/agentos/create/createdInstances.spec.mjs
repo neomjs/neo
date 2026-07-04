@@ -92,6 +92,43 @@ test.describe('created-instance registry: live widgets as first-class store reco
         expect(CreatedInstances.markDisposed('lc-grid-1').accepted).toBe(false);
     });
 
+    test('snapshots are registry-owned: caller mutations never rewrite recorded history', () => {
+        const original = gridSnapshot('Ownership Grid');
+
+        CreatedInstances.registerCreated({
+            instanceId       : 'own-1',
+            blueprintSchema  : 'grid@1',
+            title            : 'Ownership Grid',
+            blueprintSnapshot: original
+        });
+
+        // caller mutates their original AFTER registration — deep and shallow
+        original.title             = 'HIJACKED';
+        original.config.columns[0] = {field: 'evil', text: 'Evil'};
+        original.data.push({name: 'injected'});
+
+        const afterRegister = CreatedInstances.resolveTarget({instanceId: 'own-1'}).blueprintSnapshot;
+
+        expect(afterRegister.title).toBe('Ownership Grid');
+        expect(afterRegister.config.columns[0].field).toBe('name');
+        expect(afterRegister.data).toHaveLength(1);
+
+        // same rule on mutation: the caller's merged object stays theirs
+        const mutated = gridSnapshot('Ownership Grid v2');
+
+        CreatedInstances.markMutated('own-1', {blueprintSnapshot: mutated});
+        mutated.config.columns[0].field = 'evil-again';
+
+        expect(CreatedInstances.resolveTarget({instanceId: 'own-1'}).blueprintSnapshot.config.columns[0].field).toBe('name');
+
+        // non-snapshot-safe content (the executable class) refuses instead of throwing — it cannot even be stored
+        const withFunction = {...gridSnapshot('Fn Grid'), data: [{name: () => {}}]};
+
+        expect(CreatedInstances.registerCreated({instanceId: 'own-2', blueprintSchema: 'grid@1', title: 'Fn Grid', blueprintSnapshot: withFunction}).accepted).toBe(false);
+        expect(CreatedInstances.markMutated('own-1', {blueprintSnapshot: withFunction}).accepted).toBe(false);
+        expect(CreatedInstances.resolveTarget({instanceId: 'own-1'}).blueprintSnapshot.title).toBe('Ownership Grid v2');
+    });
+
     test('target resolution: by id, by title (latest live wins), latest-created fallback', () => {
         const register = (instanceId, title) => CreatedInstances.registerCreated({
             instanceId,
