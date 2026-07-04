@@ -229,7 +229,7 @@
   <p class="lead" style="margin-top:.8rem;font-size:.8rem">Non-view leaves are buildable <em>now</em> against this contract; only the view tranche waits on the rendered artifact.</p>
 
   <h2>Body-idiom binding — for the view-leaf builders (per #14714)</h2>
-  <p class="lead" style="font-size:.82rem">This surface is <b>Body-hemisphere</b> code (<span class="mono">apps/agentos</span>) — it follows <span class="mono">src/</span> framework idioms, not <span class="mono">ai/</span> ones (#14714, operator-ratified after two violations shipped). The state machine above binds to the framework contract this way:</p>
+  <p class="lead" style="font-size:.82rem">This surface is <b>Body-hemisphere</b> code (<span class="mono">apps/agentos</span>) — it follows <span class="mono">src/</span> neo-core idioms, not <span class="mono">ai/</span> ones (#14714, operator-ratified after two violations shipped). The state machine above binds to the core contracts this way:</p>
   <div class="two">
     <div class="col">
       <h3 style="color:var(--fm-signal)">The five states = ONE reactive config</h3>
@@ -241,7 +241,7 @@
     <div class="col">
       <h3 style="color:var(--fm-ink-dim)">Resolution, lifecycle &amp; the allowed plain half</h3>
       <ul>
-        <li><b><span class="mono">Neo.get(id)</span></b> resolves the materialized widget (auto-registered via <span class="mono">afterSetId</span>) — never a bespoke <span class="mono">resolveComponent</span> seam; the framework's <span class="mono">Symbol.hasInstance</span> already guarantees the instance shape.</li>
+        <li><b><span class="mono">Neo.get(id)</span></b> resolves the materialized widget (auto-registered via <span class="mono">afterSetId</span>) — never a bespoke <span class="mono">resolveComponent</span> seam; neo core's <span class="mono">Symbol.hasInstance</span> already guarantees the instance shape.</li>
         <li><b>Pure data-plane stays plain</b> — the intake <span class="mono">validateRequest</span>, the edit-grammar parser, and the transition table are plain util modules (childapp-precedented, #14714's explicitly-allowed half). The idiom boundary is <em>instance mutation + view state</em>, nothing below it.</li>
       </ul>
     </div>
