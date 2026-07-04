@@ -1,4 +1,5 @@
-import {defineComponent} from '../../../../src/functional/_export.mjs';
+import Component from '../../../../src/component/Base.mjs';
+import NeoArray  from '../../../../src/util/Array.mjs';
 
 /**
  * Maps a model-family key to its rail token (see `apps/agentos/resources/tokens.css`).
@@ -46,26 +47,53 @@ export function isKnownFamily(family) {
  * schema lands the first-class era attribute — the binding surface is stable; only the source of
  * the key changes.
  *
- * @summary Family-accent rail primitive — data-driven era attribute, unclassified-safe.
+ * @class AgentOS.view.fleet.FamilyRail
+ * @extends Neo.component.Base
  */
-export default defineComponent({
-    config: {
+class FamilyRail extends Component {
+    static config = {
+        /**
+         * @member {String} className='AgentOS.view.fleet.FamilyRail'
+         * @protected
+         */
         className: 'AgentOS.view.fleet.FamilyRail',
-        ntype    : 'fm-family-rail',
+        /**
+         * @member {String} ntype='fm-family-rail'
+         * @protected
+         */
+        ntype: 'fm-family-rail',
+        /**
+         * @member {String[]} baseCls=['fm-family-rail']
+         */
+        baseCls: ['fm-family-rail'],
         /**
          * The current-era family — `claude` · `gpt` · `gemini` · `human`. A data-driven episode
          * attribute, never a per-agent constant. Unknown / absent renders neutral + `unclassified`.
          * @member {String|null} family_=null
+         * @reactive
          */
         family_: null
-    },
-
-    createVdom(config) {
-        const known = isKnownFamily(config.family);
-
-        return {
-            cls  : ['fm-family-rail', !known && 'fm-family-unclassified'].filter(Boolean),
-            style: {'--fm-rail': `var(${familyToken(config.family)})`}
-        }
     }
-});
+
+    /**
+     * Triggered after the family config changed — data-driven rebind. A family swap re-renders the
+     * rail in place for the SAME resident (anti-lock-in). Known → its --fm-family-* token; unknown
+     * or absent → the neutral token + the `unclassified` marker (never a guessed family).
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetFamily(value, oldValue) {
+        let me    = this,
+            cls   = me.cls,
+            style = me.style || {};
+
+        NeoArray[isKnownFamily(value) ? 'remove' : 'add'](cls, 'fm-family-unclassified');
+        me.cls = cls;
+
+        style['--fm-rail'] = `var(${familyToken(value)})`;
+        me.style = style
+    }
+}
+
+export default Neo.setupClass(FamilyRail);

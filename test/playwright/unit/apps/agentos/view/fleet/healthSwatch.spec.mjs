@@ -49,7 +49,9 @@ test.describe('Fleet cockpit HealthSwatch — state-axis legend + count-bar unit
 
         expect(dot.style['--fm-dot']).toBe('var(--fm-state-wedged)');
         expect(label.text).toBe('wedged');
-        expect(count).toBeUndefined();
+        // class-idiom: the count node stays in cn, removeDom-toggled (not omitted) — so a plain
+        // legend row renders no count element in the DOM.
+        expect(count.removeDom).toBe(true);
 
         sw.destroy()
     });
