@@ -1,4 +1,5 @@
-import {defineComponent} from '../../../../src/functional/_export.mjs';
+import Component from '../../../../src/component/Base.mjs';
+import NeoArray  from '../../../../src/util/Array.mjs';
 
 /**
  * Maps a session-state key to its design token (see `apps/agentos/resources/tokens.css`).
@@ -30,33 +31,69 @@ export function stateToken(state) {
 /**
  * The atomic session-state indicator: a colored dot whose color is driven entirely by the
  * `--fm-state-*` token layer, with an optional live-pulse gated behind `prefers-reduced-motion`
- * in `fleet-components.css`. The color — not the motion — carries the signal, so the
- * primitive degrades cleanly for reduced-motion users. Composed by every fleet surface.
+ * in `fleet-components.css`. The color — not the motion — carries the signal, so the primitive
+ * degrades cleanly for reduced-motion users. Composed by every fleet surface.
  *
- * @summary Session-state dot primitive — token-driven, reduced-motion-honored.
+ * @class AgentOS.view.fleet.StateDot
+ * @extends Neo.component.Base
  */
-export default defineComponent({
-    config: {
-        className: 'AgentOS.view.fleet.StateDot',
-        ntype    : 'fm-state-dot',
+class StateDot extends Component {
+    static config = {
         /**
-         * The session state — one of `ok` · `idle` · `wedged` · `limited` · `off`.
-         * Encodes SESSION state, never identity. Unknown values render as `off`.
+         * @member {String} className='AgentOS.view.fleet.StateDot'
+         * @protected
+         */
+        className: 'AgentOS.view.fleet.StateDot',
+        /**
+         * @member {String} ntype='fm-state-dot'
+         * @protected
+         */
+        ntype: 'fm-state-dot',
+        /**
+         * @member {String[]} baseCls=['fm-state-dot']
+         */
+        baseCls: ['fm-state-dot'],
+        /**
+         * The session state — one of `ok` · `idle` · `wedged` · `limited` · `off`. Encodes SESSION
+         * state, never identity. Unknown values render as `off`.
          * @member {String} state_='off'
+         * @reactive
          */
         state_: 'off',
         /**
          * When true, adds the `fm-live` class that carries the pulse animation. The pulse is
-         * decoration and is gated behind `prefers-reduced-motion: no-preference` at the CSS layer.
+         * decoration, gated behind `prefers-reduced-motion: no-preference` at the CSS layer.
          * @member {Boolean} live_=false
+         * @reactive
          */
         live_: false
-    },
-
-    createVdom(config) {
-        return {
-            cls  : ['fm-state-dot', config.live && 'fm-live'].filter(Boolean),
-            style: {'--fm-dot': `var(${stateToken(config.state)})`}
-        }
     }
-});
+
+    /**
+     * Triggered after the state config changed — rebinds the `--fm-dot` color token from the
+     * closed-set resolver. State is session-state, never identity.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetState(value, oldValue) {
+        let style = this.style || {};
+        style['--fm-dot'] = `var(${stateToken(value)})`;
+        this.style = style
+    }
+
+    /**
+     * Triggered after the live config changed — toggles the reduced-motion-gated pulse class.
+     * The color already carries the signal, so the class is decoration only.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetLive(value, oldValue) {
+        let cls = this.cls;
+        NeoArray[value ? 'add' : 'remove'](cls, 'fm-live');
+        this.cls = cls
+    }
+}
+
+export default Neo.setupClass(StateDot);
