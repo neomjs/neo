@@ -98,10 +98,20 @@ class DockService extends Service {
         const holder = this.resolveHolder(componentId);
         let result;
 
-        if (typeof holder.applyDockZoneOperation === 'function') {
-            result = holder.applyDockZoneOperation(descriptor, this) || null
-        } else {
-            result = DockZoneModel.applyOperation(holder.dockZoneDocument, descriptor)
+        try {
+            if (typeof holder.applyDockZoneOperation === 'function') {
+                result = holder.applyDockZoneOperation(descriptor, this) || null
+            } else {
+                result = DockZoneModel.applyOperation(holder.dockZoneDocument, descriptor)
+            }
+        } catch (e) {
+            // the reducer contract assumes a well-formed document; a malformed holder document
+            // (or a throwing holder override) surfaces as structured errors, never a raw RPC crash
+            return {
+                applied : false,
+                document: holder.dockZoneDocument || null,
+                errors  : [`Dock operation failed before commit: ${e.message}`]
+            }
         }
 
         if (!result) {
