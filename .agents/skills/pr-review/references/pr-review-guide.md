@@ -47,7 +47,7 @@ Every PR review MUST score the work across the following categories on a scale o
 *   **`[CONTENT_COMPLETENESS]`** (0-100): Are all new or modified methods documented with 'Anchor & Echo' JSDoc? Is the PR description a comprehensive "Fat Ticket"?
 *   **`[EXECUTION_QUALITY]`** (0-100): Code flow, absence of bugs, race condition safety, VDOM syncing correctness, and testing coverage.
 *   **`[PRODUCTIVITY]`** (0-100): Were the primary goals of the linked ticket achieved?
-*   **`[IMPACT]`** (0-100): What is the significance of the change? (100 = critical framework architecture, 10 = trivial typo fix).
+*   **`[IMPACT]`** (0-100): What is the significance of the change? (100 = critical core architecture, 10 = trivial typo fix).
 *   **`[COMPLEXITY]`** (0-100): Factor in file touchpoints, depth of changes (core vs. app-level), and cognitive load.
 *   **`[EFFORT_PROFILE]`**: Categorize the effort relative to the Impact/Complexity ratio to establish explicit Native Graph labels. Valid values are: `Quick Win` (High ROI/Low Complexity), `Heavy Lift` (High Complexity/High Impact), `Maintenance` (Routine tasks), or `Architectural Pillar` (Fundamental shifts).
 
@@ -84,7 +84,7 @@ Cycle 1 / cold-cache reviews score every metric explicitly in the full template.
 To bridge the gap between human/agent code review and the internal Agent OS memory, you MUST use the following explicit markdown tags for any critical feedback.
 The Retrospective daemon explicitly regex-matches these tags during REM sleep:
 
-*   **`[KB_GAP]`**: Use this to document missing concepts, misunderstandings of framework logic, or areas where the developer (or agent) clearly lacked documentation.
+*   **`[KB_GAP]`**: Use this to document missing concepts, misunderstandings of neo core logic, or areas where the developer (or agent) clearly lacked documentation.
 *   **`[TOOLING_GAP]`**: Use this to document failures in the development workflow, broken test commands, or MCP tools that failed during the generation of the PR.
 *   **`[RETROSPECTIVE]`**: Use this for high-level takeaways or architectural praise.
 
@@ -128,7 +128,7 @@ When a PR touches `ai/mcp/server/*/openapi.yaml`, you MUST audit each modified o
 
 10% AC/scope sanity layer: binding on real contract drift; a complete ledger is not premise or placement evidence.
 
-For PRs that introduce or modify public/consumed surfaces (e.g., configs, MCP tools, framework APIs, CLI arguments), the reviewer MUST audit the implementation against the **Contract Ledger matrix** defined in the originating ticket (see `contract-ledger.md`).
+For PRs that introduce or modify public/consumed surfaces (e.g., configs, MCP tools, core APIs, CLI arguments), the reviewer MUST audit the implementation against the **Contract Ledger matrix** defined in the originating ticket (see `contract-ledger.md`).
 
 **Audit Protocol:**
 1. **Locate the Ledger:** Fetch the originating ticket (the close-target). Look for the "Contract Ledger" markdown table in the ticket body. If it is a sub-issue relying on a parent epic's ledger, fetch the parent epic to locate it.
@@ -248,6 +248,10 @@ Reviewers MUST verify testing claims and canonical file placement:
 2. **Location:** Verify that any new or moved test files are placed in the correct canonical directories as defined in `.agents/skills/unit-test/references/unit-test.md` (e.g., MCP tests MUST go to `test/playwright/unit/ai/mcp/server/`).
 3. If the PR is a documentation or template change, no tests are required. Do not demand tests for docs.
 4. If the author did not provide test evidence for structural logic changes, or placed tests in legacy/incorrect directories, flag this as a **Required Action**.
+
+### 7.5.1 Core-Idiom Audit
+
+Instance/reactive-state diffs (any dir): load `audits/core-idiom-audit.md`.
 
 ### 7.6 CI / Security Checks Audit
 
