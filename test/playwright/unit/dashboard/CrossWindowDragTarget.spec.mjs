@@ -106,6 +106,27 @@ test.describe('Neo.dashboard.CrossWindowDragTarget (#14670 / ADR 0029 §2.3)', (
         target.destroy()
     });
 
+    test('a throwing owner commit still ends the gesture clean — cleanup is unconditional', () => {
+        const cleared = [];
+        const target  = Neo.create(CrossWindowDragTarget, {
+            clearPreview      : () => cleared.push(true),
+            commitOperation   : () => {throw new Error('adapter refused the transfer')},
+            previewFor        : () => ({feedback: {state: 'accepted'}, itemId: 'pane-a'}),
+            previewToOperation: () => ({operation: 'addTab', itemId: 'pane-a', tabsNodeId: 't1', index: null}),
+            sortGroup         : 'dock-main',
+            windowId          : 2
+        });
+
+        target.onRemoteDragMove({draggedItem: {id: 'pane-a'}, localX: 4, localY: 4});
+
+        // the owner's error propagates (its bug to observe) — but hover state never survives it
+        expect(() => target.onRemoteDrop({id: 'pane-a'})).toThrow('adapter refused the transfer');
+        expect(target.currentPreview).toBeNull();
+        expect(cleared).toEqual([true]);
+
+        target.destroy()
+    });
+
     test('a drop with no accepted preview, or a converter rejection, commits nothing (fail-closed)', () => {
         const commits = [];
         const target  = Neo.create(CrossWindowDragTarget, {

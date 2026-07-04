@@ -166,11 +166,15 @@ class CrossWindowDragTarget extends Base {
             operation = preview ? me.previewToOperation?.(preview) : null,
             result    = null;
 
-        if (operation) {
-            result = me.commitOperation?.(operation, draggedItem) ?? null
+        try {
+            if (operation) {
+                result = me.commitOperation?.(operation, draggedItem) ?? null
+            }
+        } finally {
+            // cleanup is unconditional: a throwing owner commit must not leave hover state
+            // behind — the error stays the owner's to observe, the gesture still ends clean
+            me.onRemoteDragLeave()
         }
-
-        me.onRemoteDragLeave();
 
         return result
     }
