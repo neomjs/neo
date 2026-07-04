@@ -310,8 +310,24 @@ function projectRequiredLeaves(src) {
  * @param {{key: String, env: String, type: String, configDefault: String, templateDefault: String}} leaf Drift item.
  * @returns {String}
  */
-function formatChangedLeafDefault(leaf) {
+export function formatChangedLeafDefault(leaf) {
     return `${leaf.key} (${leaf.env}, ${leaf.type}): ${leaf.configDefault} -> ${leaf.templateDefault}`
+}
+
+/**
+ * Formats template-vs-overlay drift into stable operator-facing rows.
+ *
+ * @param {{missingImports: String[], missingExports: String[], missingEnvVars: String[], missingRequiredLeaves: String[], changedLeafDefaults: Object[]}} drift Drift shape.
+ * @returns {String[]}
+ */
+export function formatStaleOverlayDriftItems(drift) {
+    return [
+        ...drift.missingImports.map(item => `import: ${item}`),
+        ...drift.missingExports.map(item => `export: ${item}`),
+        ...drift.missingEnvVars.map(item => `env: ${item}`),
+        ...drift.missingRequiredLeaves.map(item => `required-leaf: ${item}`),
+        ...drift.changedLeafDefaults.map(item => `leaf-default: ${formatChangedLeafDefault(item)}`)
+    ]
 }
 
 /**
@@ -511,6 +527,127 @@ export function detectDrift(templateShape, configShape) {
         changedLeafDefaults,
         hasDrift: missingImports.length + missingExports.length + missingEnvVars.length + missingRequiredLeaves.length + changedLeafDefaults.length > 0
     }
+}
+
+/**
+ * @summary True for the class-subclass overlay shape introduced by the inheritance root fix.
+ *
+ * Snapshot overlays must receive full missing-leaf diffing. Subclass overlays inherit absent leaves
+ * by construction, so local preflight should only flag same-leaf conflicts that the subclass explicitly
+ * overrides.
+ *
+ * @param {String} src Active overlay source.
+ * @returns {Boolean}
+ */
+function isSubclassOverlaySource(src) {
+    return /\bextends\s+[A-Za-z_$][\w$]*\b/.test(src)
+}
+
+/**
+ * @summary Detects only residual conflicts in subclass-style overlays.
+ *
+ * A subclass overlay may omit most template leaves because inheritance supplies them. The residual stale
+ * class is an explicit leaf in the subclass that still targets a template-owned env/type identity but no
+ * longer matches the template default. New operator-only leaves stay local and are not template drift.
+ *
+ * @param {{leafDefaults: Object[]}} templateShape Projected template shape.
+ * @param {{leafDefaults: Object[]}} configShape Projected active overlay shape.
+ * @returns {{missingImports: String[], missingExports: String[], missingEnvVars: String[], missingRequiredLeaves: String[], changedLeafDefaults: Object[], hasDrift: Boolean}}
+ */
+function detectSubclassOverlayResidualDrift(templateShape, configShape) {
+    const templateLeafDefaults = new Map((templateShape.leafDefaults || []).map(leaf => [leafDefaultIdentity(leaf), leaf]));
+    const changedLeafDefaults  = (configShape.leafDefaults || [])
+        .map(configLeaf => {
+            const templateLeaf = templateLeafDefaults.get(leafDefaultIdentity(configLeaf));
+
+            if (!templateLeaf || configLeaf.default === templateLeaf.default) {
+                return null
+            }
+
+            return {
+                key            : configLeaf.key,
+                env            : configLeaf.env,
+                type           : configLeaf.type,
+                templateDefault: templateLeaf.default,
+                configDefault  : configLeaf.default
+            }
+        })
+        .filter(Boolean);
+
+    return {
+        missingImports       : [],
+        missingExports       : [],
+        missingEnvVars       : [],
+        missingRequiredLeaves: [],
+        changedLeafDefaults,
+        hasDrift             : changedLeafDefaults.length > 0
+    }
+}
+
+/**
+ * @summary Collects stale local config overlays for advisory local-dev preflight reporting.
+ *
+ * This is the read-only sibling of {@link initTier1Config} / {@link initConfigs}: it never clones,
+ * migrates, or throws. It exists for `agent-preflight`, where stale gitignored overlays should be
+ * visible before PR/review churn but must not turn an unrelated source preflight into a hard fail.
+ *
+ * @param {Object} [options]
+ * @param {String} [options.aiRoot=aiDir] Tier-1 root containing `config.template.mjs` / `config.mjs`.
+ * @param {String} [options.serversRoot=serversDir] Server root containing per-server config templates.
+ * @returns {Array<{label: String, drift: Object, items: String[]}>}
+ */
+export function collectStaleOverlayFindings({aiRoot = aiDir, serversRoot = serversDir} = {}) {
+    const findings = [];
+
+    const collectPair = ({activePath, label, materializeTemplate = source => source, templatePath}) => {
+        if (!fs.existsSync(templatePath) || !fs.existsSync(activePath)) {
+            return
+        }
+
+        const
+            templateSrc   = materializeTemplate(fs.readFileSync(templatePath, 'utf-8')),
+            activeSrc     = fs.readFileSync(activePath, 'utf-8'),
+            templateShape = projectSourceShape(templateSrc),
+            activeShape   = projectSourceShape(activeSrc),
+            drift         = isSubclassOverlaySource(activeSrc)
+                ? detectSubclassOverlayResidualDrift(templateShape, activeShape)
+                : detectDrift(templateShape, activeShape);
+
+        if (drift.hasDrift) {
+            findings.push({
+                label,
+                drift,
+                items: formatStaleOverlayDriftItems(drift)
+            })
+        }
+    };
+
+    collectPair({
+        activePath  : path.join(aiRoot, 'config.mjs'),
+        label       : 'Tier-1 ai/config.mjs',
+        templatePath: path.join(aiRoot, 'config.template.mjs')
+    });
+
+    if (!fs.existsSync(serversRoot)) {
+        return findings
+    }
+
+    for (const serverName of fs.readdirSync(serversRoot).sort()) {
+        const serverPath = path.join(serversRoot, serverName);
+
+        if (!fs.statSync(serverPath).isDirectory()) {
+            continue
+        }
+
+        collectPair({
+            activePath         : path.join(serverPath, 'config.mjs'),
+            label              : `${serverName}/config.mjs`,
+            materializeTemplate: materializeServerConfigTemplate,
+            templatePath       : path.join(serverPath, 'config.template.mjs')
+        })
+    }
+
+    return findings
 }
 
 /**
