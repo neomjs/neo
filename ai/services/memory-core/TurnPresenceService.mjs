@@ -136,12 +136,22 @@ class TurnPresenceService extends Base {
             properties
         });
 
-        return {
+        const response = {
             ...properties,
             status: 'recorded',
             action,
             id    : nodeId
         };
+
+        // `terminalState` is meaningful only on a `terminal` close. The declared output schema's enum
+        // carries no null member (the MCP structured-content validator does not honor OpenAPI
+        // `nullable: true`), so returning a non-terminal `terminalState: null` fails client-side
+        // validation — every `start` / `progress` call would error. Omit it off the terminal path.
+        if (action !== 'terminal') {
+            delete response.terminalState;
+        }
+
+        return response;
     }
 
     /**
