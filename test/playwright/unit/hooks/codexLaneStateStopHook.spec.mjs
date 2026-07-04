@@ -7,6 +7,7 @@ import path           from 'node:path';
 import {
     CODEX_STOP_BLOCK_INJECTION_SUPPORTED,
     buildNoHoldReminder,
+    collectCodexLaneStateEvidence,
     classifyCodexStopPayload,
     decideCodexHookAction,
     extractFinalAssistantText,
@@ -330,6 +331,42 @@ test.describe('codex-lane-state-stop - lane-state classification', () => {
         expect(result.reason).toContain('valid lane-state terminal');
         expect(result.promptSource).toBe('messages');
         expect(result.operatorInLoop).toBe(false);
+    });
+
+    test('PR-shaped namedGate without same-turn fetch evidence is invalid (#14713)', () => {
+        const prTerminal = block('{"laneContinuation":"next-lane","namedGates":[{"ref":"PR #14822","checkedAt":"2026-07-04T20:52:22Z"}],"awaitingOwnPrOnly":false}'),
+              result     = classifyWithIsolatedPromptContext({
+                  messages: [
+                      {role: 'user',      content: '[WAKE][priority:normal] 1 events'},
+                      {role: 'assistant', content: prTerminal}
+                  ]
+              });
+
+        expect(result.verdict.valid).toBe(false);
+        expect(result.verdict.reason).toContain('no same-turn PR fetch evidence');
+    });
+
+    test('PR-shaped namedGate with same-turn Codex tool evidence validates (#14713)', () => {
+        const prTerminal = block('{"laneContinuation":"next-lane","namedGates":[{"ref":"PR #14822","checkedAt":"2026-07-04T20:52:22Z"}],"awaitingOwnPrOnly":false}'),
+              toolRecord = {
+                  type   : 'response_item',
+                  payload: {
+                      type     : 'function_call',
+                      name     : 'functions.exec_command',
+                      arguments: '{"cmd":"gh pr view 14822 --json state,mergedAt,reviewDecision"}'
+                  }
+              },
+              result     = classifyWithIsolatedPromptContext({
+                  messages: [
+                      {role: 'user', content: '[WAKE][priority:normal] 1 events'},
+                      toolRecord,
+                      {role: 'assistant', content: prTerminal}
+                  ]
+              });
+
+        expect(collectCodexLaneStateEvidence({messages: [toolRecord]})).toContain('gh pr view 14822');
+        expect(result.verdict.valid).toBe(true);
+        expect(result.verdict.reason).toBe('valid lane-state terminal');
     });
 
     test('absent lane-state would-block with no-hold reminder', () => {

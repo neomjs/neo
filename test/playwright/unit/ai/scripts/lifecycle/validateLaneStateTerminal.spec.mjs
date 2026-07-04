@@ -8,7 +8,11 @@ setup({
 import {test, expect}              from '@playwright/test';
 import Neo                         from '../../../../../../src/Neo.mjs';
 import * as core                   from '../../../../../../src/core/_export.mjs';
-import {validateLaneStateTerminal} from '../../../../../../ai/scripts/lifecycle/validateLaneStateTerminal.mjs';
+import {collectLaneStateToolEvidenceFromJsonl,
+        collectLaneStateToolEvidenceFromMessages,
+        extractPrNumberFromGateRef,
+        hasSameTurnPrFetchEvidence,
+        validateLaneStateTerminal} from '../../../../../../ai/scripts/lifecycle/validateLaneStateTerminal.mjs';
 
 test.describe('validateLaneStateTerminal — turn-terminal evidence shape', () => {
     const NOW = '2026-06-20T00:00:00.000Z';
@@ -48,10 +52,29 @@ test.describe('validateLaneStateTerminal — turn-terminal evidence shape', () =
         expect(result.violations.join(' ')).toContain('checkedAt');
     });
 
-    test('a named gate WITH a same-turn checkedAt passes', () => {
+    test('an issue gate WITH a same-turn checkedAt passes without PR fetch evidence', () => {
+        const result = validateLaneStateTerminal({
+            laneContinuation: 'next-lane',
+            namedGates      : [{ref: 'issue #13572', checkedAt: NOW}]
+        });
+        expect(result.valid).toBe(true);
+    });
+
+    test('a PR gate with checkedAt but no same-turn PR fetch evidence fails (#14713)', () => {
         const result = validateLaneStateTerminal({
             laneContinuation: 'next-lane',
             namedGates      : [{ref: 'PR #13572', checkedAt: NOW}]
+        });
+        expect(result.valid).toBe(false);
+        expect(result.violations.join(' ')).toContain('no same-turn PR fetch evidence');
+    });
+
+    test('a PR gate WITH checkedAt and same-turn gh fetch evidence passes (#14713)', () => {
+        const result = validateLaneStateTerminal({
+            laneContinuation: 'next-lane',
+            namedGates      : [{ref: 'PR #13572', checkedAt: NOW}]
+        }, {
+            evidenceText: 'tool_call: gh pr view 13572 --json state,mergedAt,reviewDecision'
         });
         expect(result.valid).toBe(true);
     });
@@ -81,7 +104,46 @@ test.describe('validateLaneStateTerminal — turn-terminal evidence shape', () =
         const result = validateLaneStateTerminal({
             laneContinuation: 'next-lane',
             namedGates      : [{ref: 'PR #12619', checkedAt: NOW, mergeClaim: true, field: 'mergedAt'}]
+        }, {
+            evidenceText: 'tool_call: gh pr view 12619 --json state,mergedAt,reviewDecision'
         });
         expect(result.valid).toBe(true);
+    });
+
+    test('extractPrNumberFromGateRef only treats explicit PR refs as PR-shaped gates', () => {
+        expect(extractPrNumberFromGateRef('PR #14822')).toBe(14822);
+        expect(extractPrNumberFromGateRef('pull request 14822')).toBe(14822);
+        expect(extractPrNumberFromGateRef('issue #14822')).toBeNull();
+    });
+
+    test('same-turn evidence accepts scoped GitHub PR fetches, not unrelated PR text', () => {
+        expect(hasSameTurnPrFetchEvidence(14822, 'gh pr view 14822 --json state,mergedAt')).toBe(true);
+        expect(hasSameTurnPrFetchEvidence(14822, 'get_conversation {"pr_number":14822}')).toBe(true);
+        expect(hasSameTurnPrFetchEvidence(14822, 'mentioned PR #14822 in final prose')).toBe(false);
+    });
+
+    test('collects PR fetch evidence from Claude-style tool_use JSONL', () => {
+        const jsonl = [
+            JSON.stringify({type: 'assistant', message: {role: 'assistant', content: [
+                {type: 'tool_use', name: 'Bash', input: {command: 'gh pr view 14822 --json state,mergedAt'}}
+            ]}}),
+            JSON.stringify({type: 'assistant', message: {role: 'assistant', content: [
+                {type: 'text', text: 'Final text mentions gh pr view 1 but is not tool evidence'}
+            ]}})
+        ].join('\n');
+
+        const evidence = collectLaneStateToolEvidenceFromJsonl(jsonl);
+        expect(evidence).toContain('gh pr view 14822');
+        expect(evidence).not.toContain('Final text mentions');
+    });
+
+    test('collects PR fetch evidence from Codex-style function-call records', () => {
+        const evidence = collectLaneStateToolEvidenceFromMessages([
+            {type: 'response_item', payload: {type: 'function_call', name: 'functions.exec_command', arguments: '{"cmd":"gh pr view 14822 --json state"}'}},
+            {role: 'assistant', content: 'Final text mentions gh pr view 1 but is not tool evidence'}
+        ]);
+
+        expect(evidence).toContain('gh pr view 14822');
+        expect(evidence).not.toContain('Final text mentions');
     });
 });
