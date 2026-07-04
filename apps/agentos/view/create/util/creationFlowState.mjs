@@ -1,13 +1,19 @@
 /**
  * @module AgentOS.view.create.util.creationFlowState
- * @summary The keeper creation flow as a pure state machine — the five SSOT states and the legal
- * transitions between them, with zero DOM. The view Controller binds this; it never re-derives
- * "which state" from a bag of booleans (the multi-flag incoherence the object-permanent registry
- * avoids for instances, applied to flow state).
+ * @summary The keeper creation flow's transition TABLE — the five SSOT states and which
+ * transitions between them are legal, as pure data-plane logic with zero DOM.
  *
- * The machine mirrors the pipeline's refusal vocabulary: `nextCreationState` never throws — an
- * illegal transition returns the CURRENT state plus a reason, so the Controller logs or ignores
- * rather than corrupting state, exactly as every create surface branches on `{accepted, reason}`.
+ * Consumption contract (framework-idiom, load-bearing): the flow state itself LIVES as a
+ * reactive config on the view layer — a `flowState_` config whose `beforeSetFlowState` hook
+ * consults {@link nextCreationState} to admit or refuse the transition, with `afterSetFlowState`
+ * driving the render side effects. That keeps the state visible to bindings, effects, state
+ * providers, and Neural Link introspection for free. This module is the hook's ORACLE (which
+ * transitions are legal — domain knowledge the framework does not provide); it is never a
+ * parallel state store, and the view must not re-derive "which state" from a bag of booleans.
+ *
+ * The oracle mirrors the pipeline's refusal vocabulary: `nextCreationState` never throws — an
+ * illegal transition returns the CURRENT state plus a reason, so the hook cancels the update
+ * (the framework's return-`undefined`-from-beforeSet idiom) rather than corrupting state.
  *
  * The accept-path outcome drives the generating→terminal fork: an accepted route result advances
  * to MATERIALIZED; a refused one advances to ERROR carrying the refusal reason to the SSOT's
