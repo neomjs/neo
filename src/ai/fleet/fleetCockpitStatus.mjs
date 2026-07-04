@@ -34,6 +34,20 @@ export const FLEET_COCKPIT_EVENT_TYPES = Object.freeze([
  */
 export const FLEET_COCKPIT_SOURCES = Object.freeze({...WIRE_SOURCES})
 
+const GITHUB_AVATAR_SIZE = 80 // small cockpit-appropriate size (~2x the 40px card avatar); GitHub serves it via the `size` param
+
+/**
+ * @summary Derive an agent's profile-avatar URL from its GitHub account. The crafted per-agent avatars
+ * live on the agents' GitHub accounts, so the sized avatar is fetchable directly from the username via
+ * GitHub's `https://github.com/{username}.png?size=N` endpoint — no manual avatar write needed for the
+ * common case. Returns null when there is no username to derive from.
+ * @param {String|null} githubUsername
+ * @returns {String|null}
+ */
+function githubAvatarUrl(githubUsername) {
+    return githubUsername ? `https://github.com/${githubUsername}.png?size=${GITHUB_AVATAR_SIZE}` : null
+}
+
 /**
  * @summary Build the first Fleet Manager cockpit snapshot from the already-shipped bridge reads:
  * `listAgents()` for the redacted roster and `fleetStatus()` for repo-provisioning state. Runtime
@@ -70,7 +84,7 @@ export function createFleetCockpitStatus({agents = [], fleetStatus = [], events 
                 githubUsername: publicAgent.githubUsername ?? null,
                 harnessType   : publicAgent.harnessType ?? null,
                 displayName   : publicAgent.displayName ?? publicAgent.name ?? publicAgent.githubUsername ?? agentId ?? null,
-                avatarUrl     : publicAgent.metadata?.avatarUrl ?? null,
+                avatarUrl     : publicAgent.metadata?.avatarUrl ?? githubAvatarUrl(publicAgent.githubUsername),
                 agent         : publicAgent,
                 repoStatus,
                 lifecycle     : {
