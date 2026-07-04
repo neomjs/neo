@@ -723,6 +723,97 @@ class DockZoneModel extends Base {
     }
 
     /**
+     * @summary Computes the shape-only fingerprint of a dock-zone document.
+     *
+     * The fingerprint describes topology SHAPE — node types, nesting, child arity, zone
+     * occupancy — and deliberately contains no node ids, item ids, sizes, titles or window
+     * identity, so two structurally identical layouts fingerprint identically regardless of
+     * where or when they were captured (the persistence guardrail for `windowFingerprint`).
+     * Deterministic by construction: child arrays keep document order, edge zones walk in the
+     * fixed {@link #dockZoneEdgeKeys} order.
+     * @param {Object} document The committed dock-zone document.
+     * @returns {{fingerprint:(Object|null), errors:String[]}}
+     * @static
+     */
+    static computeShapeFingerprint(document) {
+        let errors = [];
+
+        if (!DockZoneModel.isJsonRecord(document) || !DockZoneModel.isJsonRecord(document.nodes)) {
+            return {fingerprint: null, errors: ['fingerprint requires a document with a nodes record']}
+        }
+
+        const counts = {'edge-zone': 0, split: 0, tabs: 0};
+
+        const walk = nodeId => {
+            const node = document.nodes[nodeId];
+
+            if (!node) {
+                errors.push(`fingerprint walk found no node for id "${nodeId}"`);
+                return '?'
+            }
+
+            counts[node.type] = (counts[node.type] || 0) + 1;
+
+            switch (node.type) {
+                case 'split':
+                    return `${node.orientation === 'horizontal' ? 'h' : 'v'}(${(node.children || []).map(walk).join(',')})`;
+                case 'tabs':
+                    return `t${node.items?.length || 0}`;
+                case 'edge-zone':
+                    return `e{${[...DockZoneModel.dockZoneEdgeKeys]
+                        .map(zone => node.zones?.[zone] ? `${zone}:${walk(node.zones[zone])}` : '')
+                        .filter(Boolean).join(',')}}`;
+                default:
+                    errors.push(`fingerprint walk found unsupported node type "${node.type}"`);
+                    return '?'
+            }
+        };
+
+        const shape = walk(document.root);
+
+        if (errors.length) {
+            return {fingerprint: null, errors}
+        }
+
+        return {
+            fingerprint: {
+                schema    : 'neo.harness.dockShape.v1',
+                shape,
+                nodeCounts: counts,
+                itemCount : Object.keys(document.items || {}).length
+            },
+            errors
+        }
+    }
+
+    /**
+     * @summary Captures the current window's dock document as a v2 saved-layout perspective.
+     *
+     * The single-window capture scope: layout truth only enters the record — the committed
+     * document tree — never render projections, runtime handles or pane-internal state (panes
+     * are layout-blind, so their internals are not the layout's to save). The shape fingerprint
+     * is computed at capture time so restore paths can distinguish same-shape from
+     * changed-shape targets without ever comparing ids.
+     * @param {Object} document The committed dock-zone document to capture.
+     * @param {Object} [metadata={}] {layoutId, title, revision, metadata, perspectiveName}
+     * @returns {{layout:(Object|null), errors:String[]}}
+     * @static
+     */
+    static capturePerspective(document, metadata={}) {
+        const {fingerprint, errors} = DockZoneModel.computeShapeFingerprint(document);
+
+        if (errors.length) {
+            return {layout: null, errors}
+        }
+
+        return DockZoneModel.createSavedLayout(document, {
+            ...metadata,
+            captureScope     : 'window',
+            windowFingerprint: fingerprint
+        })
+    }
+
+    /**
      * @summary Wraps a valid committed dock-zone document in a JSON-only saved-layout envelope.
      *
      * The wrapper and dock-zone tree are finite-schema: unknown fields fail closed. The explicit

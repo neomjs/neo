@@ -217,6 +217,50 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             expect(DockZoneModel.restoreSavedLayout(layout).errors).toEqual([])
         });
 
+        test('capturePerspective emits a v2 window-scope record with a shape-only fingerprint', () => {
+            const {layout, errors} = DockZoneModel.capturePerspective(doc(), {
+                layoutId       : 'capture-1',
+                title          : 'Capture One',
+                perspectiveName: 'Morning Focus'
+            });
+
+            expect(errors).toEqual([]);
+            expect(layout.schema).toBe(DockZoneModel.LAYOUT_SCHEMA);
+            expect(layout.captureScope).toBe('window');
+            expect(layout.perspectiveName).toBe('Morning Focus');
+            expect(layout.windowFingerprint.schema).toBe('neo.harness.dockShape.v1');
+            expect(typeof layout.windowFingerprint.shape).toBe('string');
+            expect(layout.windowFingerprint.itemCount).toBeGreaterThan(0);
+            expect(DockZoneModel.restoreSavedLayout(layout).errors).toEqual([])
+        });
+
+        test('shape fingerprints are deterministic, id-free and shape-sensitive', () => {
+            const a = DockZoneModel.computeShapeFingerprint(doc()),
+                  b = DockZoneModel.computeShapeFingerprint(doc());
+
+            expect(a.errors).toEqual([]);
+            expect(a.fingerprint).toEqual(b.fingerprint);
+
+            // rename every node id — the shape must not change (id-freedom)
+            const renamed = JSON.parse(JSON.stringify(doc()).replaceAll('main-tabs', 'renamed-tabs'));
+            expect(DockZoneModel.computeShapeFingerprint(renamed).fingerprint.shape).toBe(a.fingerprint.shape);
+
+            // structural change → different shape term
+            const mutated = doc();
+            mutated.nodes['main-tabs'].items.push('extra-item');
+            expect(DockZoneModel.computeShapeFingerprint(mutated).fingerprint.shape).not.toBe(a.fingerprint.shape)
+        });
+
+        test('fingerprint walk fails closed on dangling node refs', () => {
+            const broken = doc();
+            broken.root = 'missing-node';
+
+            const {fingerprint, errors} = DockZoneModel.computeShapeFingerprint(broken);
+
+            expect(fingerprint).toBe(null);
+            expect(errors.join(' ')).toContain('missing-node')
+        });
+
         test('fails closed on perspective-field contract violations', () => {
             const badScope = DockZoneModel.createSavedLayout(doc(), {layoutId: 'x', title: 'X', captureScope: 'galaxy'});
             expect(badScope.layout).toBe(null);
