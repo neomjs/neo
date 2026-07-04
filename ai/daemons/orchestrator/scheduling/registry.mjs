@@ -194,7 +194,11 @@ export const TASK_REGISTRY = Object.freeze([
                 now,
                 dreamIntervalMs            : intervals.dream,
                 dreamOverflowThreshold     : intervals.dreamOverflowThreshold,
-                remBacklogCatchupCooldownMs: intervals.remBacklogCatchupCooldown
+                remBacklogCatchupCooldownMs: intervals.remBacklogCatchupCooldown,
+                remStarvationBreakerMs     : intervals.remStarvationBreaker,
+                // The undigested-backlog count the watchdog pairs with staleness, persisted to the dream
+                // task state each pipeline tick (see the watchdog eval) so this pure projection stays I/O-free.
+                undigestedBacklog          : state.dream?.undigestedCount ?? 0
             });
         }
     },
