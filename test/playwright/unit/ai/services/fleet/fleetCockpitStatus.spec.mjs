@@ -68,6 +68,26 @@ test.describe('fleetCockpitStatus - Body-side cockpit DTO contract', () => {
         })
     })
 
+    test('hoists the avatar reference from metadata.avatarUrl to a flat row field (null when unset)', () => {
+        const snapshot = createFleetCockpitStatus({
+            agents: [{
+                id            : 'vega',
+                githubUsername: 'neo-opus-vega',
+                metadata      : {avatarUrl: 'https://cdn.neomjs.com/avatars/vega.png'}
+            }, {
+                id            : 'grace',
+                githubUsername: 'neo-opus-grace'
+            }],
+            fleetStatus: []
+        })
+
+        // the card binds row.avatarUrl (a flat display field, like displayName) — hoisted from the
+        // agent def's metadata.avatarUrl (the field FleetManager.setAvatar persists)
+        expect(snapshot.rows[0].avatarUrl).toBe('https://cdn.neomjs.com/avatars/vega.png')
+        // an agent with no avatar recorded surfaces null (never undefined — a clean bindable contract)
+        expect(snapshot.rows[1].avatarUrl).toBeNull()
+    })
+
     test('marks runtime and activity adapters as not wired instead of inventing state', () => {
         const snapshot = createFleetCockpitStatus({
             agents     : [{id: 'alice', githubUsername: 'alice-gh'}],
