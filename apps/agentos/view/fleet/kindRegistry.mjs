@@ -53,20 +53,23 @@ const KIND_LABEL = {
 /**
  * Pure kind → color-token resolver — the single source of truth for chip color, on the --fm-kind-*
  * axis. Unknown kinds degrade to the neutral kind token, so the chip absorbs kind-set growth
- * without a broken color.
+ * without a broken color. Uses an `Object.hasOwn` check (not `MAP[k] ||`) so a prototype-shaped key
+ * (`toString`, `constructor`, `__proto__`) degrades to neutral instead of leaking an inherited value.
  * @param {String} kind
  * @returns {String} the color custom-property name (e.g. `--fm-kind-pr`)
  */
 export function kindToken(kind) {
-    return KIND_TOKEN[kind] || '--fm-kind-neutral'
+    return Object.hasOwn(KIND_TOKEN, kind) ? KIND_TOKEN[kind] : '--fm-kind-neutral'
 }
 
 /**
  * Pure kind → short-label resolver. Unknown kinds fall back to the kind string itself, so a new
- * kind still renders a readable (if verbose) chip until it earns a short label here.
+ * kind still renders a readable (if verbose) chip until it earns a short label here. Uses an
+ * `Object.hasOwn` check (not `MAP[k] ||`) so a prototype-shaped key (`toString`, `constructor`,
+ * `__proto__`) falls back to its literal string instead of leaking an inherited Object.prototype value.
  * @param {String} kind
  * @returns {String}
  */
 export function kindLabel(kind) {
-    return KIND_LABEL[kind] || (kind ?? 'event')
+    return Object.hasOwn(KIND_LABEL, kind) ? KIND_LABEL[kind] : (kind ?? 'event')
 }

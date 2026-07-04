@@ -50,13 +50,21 @@ test.describe('Fleet event-kind registry — derived DTO coverage + --fm-kind-* 
         expect(kindToken('work-stall')).toBe('--fm-kind-alert');
         expect(kindToken('source-degraded')).toBe('--fm-kind-alert');
         expect(kindToken('some-brand-new-kind')).toBe('--fm-kind-neutral');
-        expect(kindToken(undefined)).toBe('--fm-kind-neutral')
+        expect(kindToken(undefined)).toBe('--fm-kind-neutral');
+        // prototype-shaped keys must not leak an inherited Object.prototype value past the closed set
+        expect(kindToken('toString')).toBe('--fm-kind-neutral');
+        expect(kindToken('constructor')).toBe('--fm-kind-neutral');
+        expect(kindToken('__proto__')).toBe('--fm-kind-neutral')
     });
 
     test('kindLabel gives short labels and falls back to the kind string for unknown kinds', () => {
         expect(kindLabel('lifecycle-request')).toBe('request');
         expect(kindLabel('work-stall')).toBe('stall');
         expect(kindLabel('pr-activity')).toBe('pr');
-        expect(kindLabel('a-new-kind')).toBe('a-new-kind')
+        expect(kindLabel('a-new-kind')).toBe('a-new-kind');
+        // prototype-shaped keys fall back to the literal kind string, never an inherited value
+        expect(kindLabel('toString')).toBe('toString');
+        expect(kindLabel('constructor')).toBe('constructor');
+        expect(kindLabel('__proto__')).toBe('__proto__')
     });
 });
