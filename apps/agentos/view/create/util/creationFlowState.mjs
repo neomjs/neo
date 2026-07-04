@@ -3,17 +3,17 @@
  * @summary The keeper creation flow's transition TABLE — the five SSOT states and which
  * transitions between them are legal, as pure data-plane logic with zero DOM.
  *
- * Consumption contract (framework-idiom, load-bearing): the flow state itself LIVES as a
+ * Consumption contract (neo-core idiom, load-bearing): the flow state itself LIVES as a
  * reactive config on the view layer — a `flowState_` config whose `beforeSetFlowState` hook
  * consults {@link nextCreationState} to admit or refuse the transition, with `afterSetFlowState`
  * driving the render side effects. That keeps the state visible to bindings, effects, state
  * providers, and Neural Link introspection for free. This module is the hook's ORACLE (which
- * transitions are legal — domain knowledge the framework does not provide); it is never a
+ * transitions are legal — domain knowledge the class system does not provide); it is never a
  * parallel state store, and the view must not re-derive "which state" from a bag of booleans.
  *
  * The oracle mirrors the pipeline's refusal vocabulary: `nextCreationState` never throws — an
  * illegal transition returns the CURRENT state plus a reason, so the hook cancels the update
- * (the framework's return-`undefined`-from-beforeSet idiom) rather than corrupting state.
+ * (neo core's return-`undefined`-from-beforeSet idiom) rather than corrupting state.
  *
  * The accept-path outcome drives the generating→terminal fork: an accepted route result advances
  * to MATERIALIZED; a refused one advances to ERROR carrying the refusal reason to the SSOT's
