@@ -89,10 +89,15 @@ test.describe('handoffRetrospectiveAssembler — the pure fold beneath the rende
         const undeclared = assemble({facts, grain: grains.DAILY, now: NOW});
         expect(undeclared.filterSets).toEqual([]);
 
-        // the assembler's output feeds the render directly: undeclared → withheld, not naked counts
-        const section = render({grain: grains.DAILY, stats: undeclared});
+        // the assembler's output feeds the render directly: undeclared → withheld, not naked counts.
+        // capturedAt is pinned so the render is deterministic — the default new Date() made this
+        // clock-dependent (the header's Captured-at timestamp), the root of the intermittent red.
+        const section = render({grain: grains.DAILY, stats: undeclared, capturedAt: NOW});
         expect(section).toContain('Counts withheld');
-        expect(section).not.toContain('1');
+        // honesty contract: withholding renders NO naked count line and NO event ref. Assert those
+        // shapes, not a bare '1' — a bare digit also matched the header timestamp, not just a leak.
+        expect(section).not.toContain('Merged PRs:');
+        expect(section).not.toContain('PR #1');
     });
 
     test('assembler output renders end-to-end through the real render module', () => {
