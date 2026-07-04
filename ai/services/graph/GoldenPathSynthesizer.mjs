@@ -396,47 +396,50 @@ class GoldenPathSynthesizer extends Base {
         const sqliteDb = GraphService.db?.storage?.db;
         if (!sqliteDb) return '';
 
-        let rows;
+        // Fully SQLite-sourced — cold-cache correct BY CONSTRUCTION. The in-memory node/edge stores are
+        // lazy, so this fallback (which exists to rescue exactly the cold cache) reads open issues, their
+        // inbound edges, and neighbor (parent-epic / blocker) states straight from the SQLite source of
+        // truth — never from a possibly-unhydrated `nodes.get` / `getByIndex` (per cross-family review).
+        let openIssues, inboundStmt, stateStmt;
         try {
-            // Source-of-truth read (mirrors the main formula's SQLite node query) — the in-memory node
-            // store is lazy-loaded, so a full-scan over it would miss unloaded nodes. Fail-open on error.
-            // `issue-` id prefix (reliable) + the state extraction the main formula proves; the node
-            // TYPE + actionability are then checked in-memory via isActionableComputedRecommendation.
-            rows = sqliteDb.prepare(`
-                SELECT n.id FROM Nodes n
+            openIssues  = sqliteDb.prepare(`
+                SELECT n.id, n.data FROM Nodes n
                 WHERE n.id LIKE 'issue-%'
                   AND (json_extract(n.data, '$.properties.state') = 'OPEN' OR json_extract(n.data, '$.state') = 'OPEN')
             `).all();
+            inboundStmt = sqliteDb.prepare(`SELECT source, type FROM Edges WHERE target = ?`);
+            stateStmt   = sqliteDb.prepare(`SELECT json_extract(data, '$.properties.state') AS s1, json_extract(data, '$.state') AS s2 FROM Nodes WHERE id = ?`);
         } catch (error) {
             return '';
         }
 
+        const isOpenNode = nodeId => {
+            const row = stateStmt.get(nodeId);
+            return !!row && (row.s1 === 'OPEN' || row.s2 === 'OPEN');
+        };
+
         const items = [];
 
-        for (const {id} of rows) {
-            const node = GraphService.db.nodes.get(id);
-            if (!node || !this.isActionableComputedRecommendation(node)) continue;
+        for (const {id, data} of openIssues) {
+            let nodeData;
+            try { nodeData = JSON.parse(data); } catch (error) { continue; }
+            if (!this.isActionableComputedRecommendation(nodeData)) continue;
 
-            // Load topology into RAM before the native edge queries (as the main formula does per node).
-            GraphService.db.getAdjacentNodes(id, 'both');
+            const inbound    = inboundStmt.all(id),
+                  blocked    = inbound.some(e => e.type === 'BLOCKS' && isOpenNode(e.source)),
+                  parentEdge = inbound.find(e => e.type === 'PARENT_OF'),
+                  inOpenEpic = !!(parentEdge && isOpenNode(parentEdge.source));
 
-            const inboundEdges = GraphService.db.edges.getByIndex('target', id),
-                  blocked      = inboundEdges.some(e => e.type === 'BLOCKS' && GraphService.db.nodes.get(e.source)?.properties?.state === 'OPEN'),
-                  parentEdge   = inboundEdges.find(e => e.type === 'PARENT_OF'),
-                  parentNode   = parentEdge && GraphService.db.nodes.get(parentEdge.source),
-                  inOpenEpic   = !!(parentNode && parentNode.properties?.state === 'OPEN');
-
-            // The fallback surfaces open-epic TREE leaves — the declared-intent substrate the "~80 fat
-            // tickets filed under epics" scenario produced. A standalone open issue is not a tree leaf, so
-            // it stays out of the fallback (and an all-standalone empty pass renders the normal empty section).
+            // Open-epic TREE leaves only (the AC): a standalone open issue is not a tree leaf, so an
+            // all-standalone empty pass still renders the normal empty section.
             if (!inOpenEpic) continue;
 
             items.push({
                 id          : String(id).replace(/^issue-/, ''),
                 inOpenEpic,
-                epicActivity: inOpenEpic ? getIssueFocusStructuralWeight(parentEdge.source) : 0,
+                epicActivity: getIssueFocusStructuralWeight(parentEdge.source),
                 blocked,
-                filedAt     : node.properties?.createdAt || node.properties?.filedAt || null
+                filedAt     : nodeData.properties?.createdAt || nodeData.properties?.filedAt || null
             });
         }
 

@@ -2032,6 +2032,25 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(md).not.toContain('#902');                                    // blocked → dropped
         expect(md).not.toContain('#900');                                    // epic → non-actionable, not a leaf
     });
+
+    test('buildDeclaredIntentFallback surfaces COLD-CACHE leaves — read straight from SQLite, no in-memory dependency (#14659)', () => {
+        // TRUE cold cache: insert the rows directly into SQLite so the in-memory node store NEVER sees them
+        // (the fresh-boot / REM-starved condition this fallback rescues). A get-before-load implementation
+        // drops these — its `nodes.get(id)` returns null; the SQLite-sourced fallback must still surface the leaf.
+        const db      = GraphService.db.storage.db,
+              putNode = (id, labels) => db.prepare('INSERT OR REPLACE INTO Nodes (id, user_id, data) VALUES (?, ?, ?)')
+                  .run(id, null, JSON.stringify({id, type: 'ISSUE', properties: {state: 'OPEN', labels}}));
+
+        putNode('issue-910', ['epic', 'ai']);
+        putNode('issue-911', ['bug', 'ai']);
+        db.prepare('INSERT OR REPLACE INTO Edges (id, user_id, source, target, type, data) VALUES (?, ?, ?, ?, ?, ?)')
+            .run('edge-910-911', null, 'issue-910', 'issue-911', 'PARENT_OF', JSON.stringify({properties: {weight: 1.0}}));
+
+        const md = GoldenPathSynthesizer.constructor.buildDeclaredIntentFallback();
+
+        expect(md).toContain('#911');                                        // surfaced from SQLite despite the cold node cache
+        expect(md).toContain('fallback: declared-intent (frontier empty)');
+    });
 });
 
 test.describe('GoldenPathSynthesizer.hasCrossFamilyReview — author family from canonical @identity', () => {
