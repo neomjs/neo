@@ -31,10 +31,16 @@ const COMPUTED_CONTENT_CONTRADICTION_LABELS = Object.freeze(new Set([
     'content'
 ]));
 
+/**
+ * Focus reasons strong enough to pause contradictory content routing. Deliberately
+ * limited to release-INDEPENDENT classes: a release-version literal in this set outlives
+ * its release and arms the guard forever — post-ship, every pass renders zero routes
+ * while the release tail stays open. Release-window guarding, if reintroduced, must ride
+ * a config/SSOT leaf with a publish-cleared lifecycle — never a hardcoded literal.
+ */
 const CURRENT_FOCUS_ROUTING_CONFLICT_REASONS = Object.freeze(new Set([
     'incident',
-    'prio-zero',
-    'v13.1'
+    'prio-zero'
 ]));
 
 /**
