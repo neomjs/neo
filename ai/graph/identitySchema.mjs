@@ -91,8 +91,15 @@ export function createEmbodiedEpisodeNode({identityKey, model, family, since, un
         }
     }
 
-    if (until !== null && (typeof until !== 'string' || Date.parse(until) <= Date.parse(since))) {
-        return {valid: false, reason: 'an era\'s until must be null (open) or an ISO timestamp after since', node: null};
+    // temporal gate is fail-CLOSED: inputs reach this vocabulary from persistence, hydration,
+    // and hand-authored seeds — an unparseable timestamp must refuse, never sail through a NaN
+    // comparison (NaN <= x is false, which would silently pass a malformed until)
+    if (Number.isNaN(Date.parse(since))) {
+        return {valid: false, reason: 'an era\'s since must be a parseable ISO timestamp', node: null};
+    }
+
+    if (until !== null && (typeof until !== 'string' || Number.isNaN(Date.parse(until)) || Date.parse(until) <= Date.parse(since))) {
+        return {valid: false, reason: 'an era\'s until must be null (open) or a parseable ISO timestamp after since', node: null};
     }
 
     return {

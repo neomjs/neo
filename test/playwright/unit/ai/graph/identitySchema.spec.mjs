@@ -20,9 +20,11 @@ import * as core      from '../../../../../src/core/_export.mjs';
 test.describe('identitySchema — node-types + the reflexive-landing acceptance fixture (ADR-0032 contract)', () => {
     let schema;
 
-    // THE REAL DATUM the fixture encodes: a resident shaped like the live registry entry whose
-    // flat model facts are still pre-swap — the exact gap the schema closes. Era 1 carries what
-    // the flat registry reads today; era 2 is the reality the registry cannot yet express.
+    // The fixture resident is STRUCTURALLY shaped like the live registry gap (flat model facts
+    // still pre-swap; the swap inexpressible without eras) — exact capability values are
+    // ILLUSTRATIVE, not registry-mirrored. The real-data reconciliation (fixture resident vs
+    // the production registry entry) is a pinned AC on the registry-migration leaf, so the
+    // reflexive landing gates REAL data downstream rather than overclaiming fidelity here.
     const REAL_ANCHOR = '@fixture-fable';
 
     const buildRealResident = () => {
@@ -62,6 +64,11 @@ test.describe('identitySchema — node-types + the reflexive-landing acceptance 
 
         // era validation: identity fields required, until must follow since
         expect(schema.createEmbodiedEpisodeNode({identityKey: '@r1', model: 'm', family: 'claude', since: '2026-06-01T00:00:00Z', until: '2026-05-01T00:00:00Z'}).valid).toBe(false);
+
+        // the temporal gate is fail-CLOSED: unparseable timestamps refuse instead of sailing
+        // through NaN comparisons (design-authority finding, reproduced pre-fix)
+        expect(schema.createEmbodiedEpisodeNode({identityKey: '@r1', model: 'm', family: 'claude', since: 'not-a-timestamp'}).valid).toBe(false);
+        expect(schema.createEmbodiedEpisodeNode({identityKey: '@r1', model: 'm', family: 'claude', since: '2026-06-01T00:00:00Z', until: 'garbage'}).valid).toBe(false);
     });
 
     test('THE REFLEXIVE LANDING (ADR-0032 §2.3.7): the real Opus→Fable swap is one resident, two eras, one unchanged anchor', () => {
