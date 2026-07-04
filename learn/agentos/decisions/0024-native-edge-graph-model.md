@@ -35,6 +35,7 @@ Core layers plus deterministic extensions. Source-of-truth in the right column (
 | **Work** | `SESSION`, `MEMORY`, `ARTIFACT_PLAN`, `ARTIFACT_TASK`, `ISSUE`, `STRATEGY`, `STALL_FINDING` | `VALID_TYPES` + GitHub / session sync; `STALL_FINDING` is deterministic work-graph inference output governed by ADR 0030 (never LLM-extracted) |
 | **System** | `SYSTEM_ANCHOR`, `[Frontier]`, `AgentIdentity`, `MESSAGE`, `WAKE_SUBSCRIPTION`, `NL_ACTION_SEQUENCE` | operational (`GraphService`, `MailboxService`, `IdentitySchema` — ADR 0018, `GapInferenceEngine` Neural Link evidence digest) |
 | **Business** | `BUSINESS_GOAL`, `METRIC` | `businessSchema.mjs` (`BUSINESS_NODE_TYPES` — deterministic validator-gated writes; never LLM-extracted; a `METRIC` without a `falsifyingQuery` is invalid by construction) |
+| **Temporal** | `SUMMARY_SESSION`, `SUMMARY_DAILY` | `temporalSummarySchema.mjs` (`DURABLE_SUMMARY_NODE_TYPES` — deterministic aggregation-lane writes only; never LLM-extracted; L3–L5 labels are reserved vocabulary with NO durable node class per ADR 0028 §2.2) |
 
 The LLM extractor's `VALID_TYPES` enum is **14** (`SemanticGraphExtractor:265`); an unrecognized extracted type defaults to `CONCEPT`. `ADR` is added **deterministically** by `AdrIngestor` (no LLM inference), so decision records are graph-queryable without widening the extractor enum (ADR 0006). `STALL_FINDING` is likewise deterministic work telemetry governed by ADR 0030, not LLM extraction. (`SYSTEM_ANCHOR` is grouped under System for its operational role but is itself one of the 14 `VALID_TYPES` — both LLM-extractable and operational.)
 
@@ -75,6 +76,16 @@ Four named enums (`CONCEPT_EDGE_TYPES`, `ADR_EDGE_TYPES`, `PROTECTED_EDGE_TYPES`
 > NODE-class disposition; `PROTECTED_EDGE_TYPES` (§2.3) governs EDGE facts, not node-class membership — the
 > two are orthogonal. Node writes + the post-sync integrity canary land with the compute leaf (#14634); this
 > leaf defines the schema only.
+
+> **Amended by #14433 (temporal-summary substrate, Leaf A of ADR 0028):** registers the durable
+> temporal-pyramid node classes `SUMMARY_SESSION` / `SUMMARY_DAILY` (`ai/graph/temporalSummarySchema.mjs`,
+> `DURABLE_SUMMARY_NODE_TYPES`) per ADR 0028 §2.7's pre-declared obligation. Written EXCLUSIVELY by the
+> deterministic aggregation lane (ADR 0028 §2.3 anti-anchor: never `SemanticGraphExtractor` — the extractor
+> enum stays 14); the dynamic tiers carry reserved label vocabulary but NO durable node class by construction
+> (no compression cascade above daily). Node-side disposition: **orphan-exempt** (an edge-less window record
+> is an aggregation fact, `GraphService.getOrphanedNodes` keep-list) and append-only under the `version`
+> metadata field — re-aggregation mints new documents, never rewrites. Graph-node writes land with the
+> L1/L2 lane leaf (Leaf B); this leaf registers schema + storage only.
 
 ### 2.4 Topology — how it connects
 

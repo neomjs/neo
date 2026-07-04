@@ -979,8 +979,9 @@ class HealthService extends Base {
      */
     async #checkCollections(chromaProbeTimeoutMs) {
         const result = {
-            memories : null,
-            summaries: null
+            memories         : null,
+            summaries        : null,
+            temporalSummaries: null
         };
 
         try {
@@ -1002,7 +1003,16 @@ class HealthService extends Base {
                 chromaProbeTimeoutMs
             });
 
-            const errors = [result.memories?.error, result.summaries?.error].filter(Boolean);
+            result.temporalSummaries = await this.#checkCollectionCount({
+                collectionType : 'temporalSummary',
+                name           : aiConfig.collections.temporalSummary,
+                getCollection  : () => StorageRouter.getTemporalSummaryCollection(),
+                resolutionLabel: 'temporal-summary collection resolution health probe',
+                countLabel     : 'temporal-summary collection count health probe',
+                chromaProbeTimeoutMs
+            });
+
+            const errors = [result.memories?.error, result.summaries?.error, result.temporalSummaries?.error].filter(Boolean);
             if (errors.length) {
                 result.error = `Failed to access collections: ${errors.join('; ')}`;
             }

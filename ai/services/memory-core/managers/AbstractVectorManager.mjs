@@ -46,6 +46,16 @@ class AbstractVectorManager extends Base {
     }
 
     /**
+     * @summary Resolves the temporal-summary collection abstraction from the Vector Storage Layer
+     * (the pyramid's durable L1/L2 window records — one collection, level-partitioned by metadata).
+     * @abstract
+     * @returns {Promise<Object>}
+     */
+    async getTemporalSummaryCollection() {
+        throw new Error('Abstract method: must be implemented by subclass');
+    }
+
+    /**
      * @summary Ingests data directly into the active Vector Storage Layer adapter.
      * @abstract
      * @param {Object} args

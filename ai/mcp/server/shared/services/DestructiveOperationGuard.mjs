@@ -14,10 +14,11 @@ export const DESTRUCTIVE_PRODUCTION_CONFIRMATION = 'CONFIRM_PRODUCTION_DESTRUCTI
  * wrappers so the guard fires uniformly regardless of which subsystem's manager
  * a caller imports. The set is the union of all production canonical names:
  *
- * - `neo-agent-memory`   — Memory Core memories collection (`aiConfig.collections.memory`).
- * - `neo-agent-sessions` — Memory Core summaries collection (`aiConfig.collections.session`).
- * - `neo-native-graph`   — Memory Core graph collection (`aiConfig.collections.graph`).
- * - `neo-knowledge-base` — Knowledge Base canonical collection (`aiConfig.collectionName`).
+ * - `neo-agent-memory`     — Memory Core memories collection (`aiConfig.collections.memory`).
+ * - `neo-agent-sessions`   — Memory Core summaries collection (`aiConfig.collections.session`).
+ * - `neo-native-graph`     — Memory Core graph collection (`aiConfig.collections.graph`).
+ * - `neo-temporal-summary` — Memory Core temporal-summary collection (`aiConfig.collections.temporalSummary`).
+ * - `neo-knowledge-base`   — Knowledge Base canonical collection (`aiConfig.collectionName`).
  *
  * Names are hardcoded (not derived from config) so a caller that loads runtime config
  * without the unit-test isolation layer still gets the canonical name blocked. This
@@ -28,6 +29,7 @@ export const GUARDED_CANONICAL_COLLECTION_NAMES = Object.freeze(new Set([
     'neo-agent-memory',
     'neo-agent-sessions',
     'neo-native-graph',
+    'neo-temporal-summary',
     'neo-knowledge-base'
 ]));
 
