@@ -29,10 +29,10 @@ export const ACCEPT_STAGES = Object.freeze({
 });
 
 /**
- * @summary The DEFAULT component resolution: the framework instance manager. Every created
+ * @summary The DEFAULT component resolution: the neo core instance manager. Every created
  * component self-registers by id (`afterSetId` → `Neo.manager.Instance`), and the materializer
  * stamps `id: instanceId`, so `Neo.get(instanceId)` returns the live `Neo.core.Base` instance or
- * null — instance shape is a framework guarantee on this path, never a hope. Passing a custom
+ * null — instance shape is a core-contract guarantee on this path, never a hope. Passing a custom
  * `resolveComponent` remains supported as a TEST seam only; production callers should not
  * override it.
  * @param {String} instanceId
@@ -66,7 +66,7 @@ export const SCHEMA_MATERIALIZERS = Object.freeze({
 
             return {
                 // id + reference both set to the instanceId (the shipped first-widget parity):
-                // the id makes the instance resolvable via the framework instance manager
+                // the id makes the instance resolvable via the core instance manager
                 // (Neo.get); the reference keeps container-scoped getReference() lookups working
                 id       : instanceId,
                 ntype    : 'grid-container',
@@ -87,7 +87,7 @@ export const SCHEMA_MATERIALIZERS = Object.freeze({
             }
         },
         /**
-         * Applies the merged blueprint through the framework's batched mutation path: ONE
+         * Applies the merged blueprint through neo core's batched mutation path: ONE
          * `component.set()` call for the component-level configs (the EffectManager pauses,
          * every beforeSet/afterSet hook sees the complete new value set, bindings/effects
          * cascade once), then a single store-level data assignment. Never a chain of direct
@@ -195,7 +195,7 @@ export function createInsertRegistrar({registry}) {
  * @param {Object} options.mutation Partial `{title?, config?, data?}`
  * @param {Object} options.registry The CreatedInstances singleton
  * @param {Function} [options.resolveComponent] `(instanceId) => live component|null`; defaults to
- *   the framework instance manager (`Neo.get`) — override only as a test seam
+ *   the core instance manager (`Neo.get`) — override only as a test seam
  * @returns {{accepted: Boolean, reason: String|null, stage: String|null, blueprint: Object|null}}
  */
 export function mutateInstance({instanceId, mutation, registry, resolveComponent = resolveViaInstanceManager} = {}) {
@@ -221,8 +221,8 @@ export function mutateInstance({instanceId, mutation, registry, resolveComponent
         return {accepted: false, reason: `no live component resolvable for "${instanceId}" — registry and stage disagree`, stage: ACCEPT_STAGES.MUTATION, blueprint: null};
     }
 
-    // Apply the merged blueprint through the framework's batched path. On the default
-    // (instance-manager) resolution the component shape is a framework guarantee; this guard is
+    // Apply the merged blueprint through the core's batched path. On the default
+    // (instance-manager) resolution the component shape is a core-contract guarantee; this guard is
     // belt-and-suspenders for ANY applier/set failure (a hook throwing, an injected test double):
     // fail closed with a bounded refusal and DO NOT record the mutation — a thrown applier must
     // never leave the registry claiming a change the component never took.
@@ -245,7 +245,7 @@ export function mutateInstance({instanceId, mutation, registry, resolveComponent
  * @param {String} options.instanceId
  * @param {Object} options.registry The CreatedInstances singleton
  * @param {Function} [options.resolveComponent] `(instanceId) => live component|null`; defaults to
- *   the framework instance manager (`Neo.get`) — override only as a test seam
+ *   the core instance manager (`Neo.get`) — override only as a test seam
  * @returns {{accepted: Boolean, reason: String|null, stage: String|null}}
  */
 export function disposeInstance({instanceId, registry, resolveComponent = resolveViaInstanceManager} = {}) {
