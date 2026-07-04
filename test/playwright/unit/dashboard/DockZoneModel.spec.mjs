@@ -395,11 +395,13 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             expect(saved.errors.join(' ')).toContain('autoHidden');
 
             const savedLayout = {
-                schema  : DockZoneModel.LAYOUT_SCHEMA,
-                layoutId: 'operator-default',
-                title   : 'Operator Default',
-                dockZone: doc(),
-                metadata: {}
+                schema           : DockZoneModel.LAYOUT_SCHEMA,
+                layoutId         : 'operator-default',
+                title            : 'Operator Default',
+                dockZone         : doc(),
+                metadata         : {},
+                captureScope     : 'window',
+                windowFingerprint: null
             };
 
             savedLayout.dockZone.items.strategy.pinned = 'yes';
@@ -427,11 +429,13 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             expect(saved.errors.join(' ')).toContain('cannot be pinned and autoHidden');
 
             const savedLayout = {
-                schema  : DockZoneModel.LAYOUT_SCHEMA,
-                layoutId: 'operator-default',
-                title   : 'Operator Default',
-                dockZone: doc(),
-                metadata: {}
+                schema           : DockZoneModel.LAYOUT_SCHEMA,
+                layoutId         : 'operator-default',
+                title            : 'Operator Default',
+                dockZone         : doc(),
+                metadata         : {},
+                captureScope     : 'window',
+                windowFingerprint: null
             };
 
             savedLayout.dockZone.items.terminal.pinned = true;
