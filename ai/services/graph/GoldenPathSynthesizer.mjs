@@ -54,7 +54,9 @@ import {
 } from './conceptSliceBuilder.mjs';
 import {
     STRUCTURAL_COLD_START_EPSILON,
-    inheritParentStructuralWeight
+    inheritParentStructuralWeight,
+    rankByDeclaredIntent,
+    renderDeclaredIntentFallback
 } from './goldenPathPickupBridge.mjs';
 import {
     buildCurrentFocusCandidates as buildIssueFocusCurrentFocusCandidates,
@@ -380,6 +382,65 @@ class GoldenPathSynthesizer extends Base {
      */
     static renderComputedGoldenPathEmptySection(stats, capturedAt) {
         return renderRouteEmptySection(stats, capturedAt)
+    }
+
+    /**
+     * @summary Frontier-empty declared-intent fallback (ticket-ref-ok: #14659 owning-leaf anchor): when the
+     * semantic route is empty, gather actionable UNBLOCKED open `ISSUE` nodes, rank them by declared intent
+     * (open-epic membership x parent activity, recency), and render the provenance-led section. Returns `''`
+     * when nothing qualifies, so the caller renders the normal empty section. Read-only + additive — it
+     * cannot zero or gate the base route; it only fires when the route already produced nothing.
+     * @returns {String}
+     */
+    static buildDeclaredIntentFallback() {
+        const sqliteDb = GraphService.db?.storage?.db;
+        if (!sqliteDb) return '';
+
+        let rows;
+        try {
+            // Source-of-truth read (mirrors the main formula's SQLite node query) — the in-memory node
+            // store is lazy-loaded, so a full-scan over it would miss unloaded nodes. Fail-open on error.
+            // `issue-` id prefix (reliable) + the state extraction the main formula proves; the node
+            // TYPE + actionability are then checked in-memory via isActionableComputedRecommendation.
+            rows = sqliteDb.prepare(`
+                SELECT n.id FROM Nodes n
+                WHERE n.id LIKE 'issue-%'
+                  AND (json_extract(n.data, '$.properties.state') = 'OPEN' OR json_extract(n.data, '$.state') = 'OPEN')
+            `).all();
+        } catch (error) {
+            return '';
+        }
+
+        const items = [];
+
+        for (const {id} of rows) {
+            const node = GraphService.db.nodes.get(id);
+            if (!node || !this.isActionableComputedRecommendation(node)) continue;
+
+            // Load topology into RAM before the native edge queries (as the main formula does per node).
+            GraphService.db.getAdjacentNodes(id, 'both');
+
+            const inboundEdges = GraphService.db.edges.getByIndex('target', id),
+                  blocked      = inboundEdges.some(e => e.type === 'BLOCKS' && GraphService.db.nodes.get(e.source)?.properties?.state === 'OPEN'),
+                  parentEdge   = inboundEdges.find(e => e.type === 'PARENT_OF'),
+                  parentNode   = parentEdge && GraphService.db.nodes.get(parentEdge.source),
+                  inOpenEpic   = !!(parentNode && parentNode.properties?.state === 'OPEN');
+
+            // The fallback surfaces open-epic TREE leaves — the declared-intent substrate the "~80 fat
+            // tickets filed under epics" scenario produced. A standalone open issue is not a tree leaf, so
+            // it stays out of the fallback (and an all-standalone empty pass renders the normal empty section).
+            if (!inOpenEpic) continue;
+
+            items.push({
+                id          : String(id).replace(/^issue-/, ''),
+                inOpenEpic,
+                epicActivity: inOpenEpic ? getIssueFocusStructuralWeight(parentEdge.source) : 0,
+                blocked,
+                filedAt     : node.properties?.createdAt || node.properties?.filedAt || null
+            });
+        }
+
+        return renderDeclaredIntentFallback(rankByDeclaredIntent(items), aiConfig.goldenPathTopNodeRenderLimit);
     }
 
     /**
@@ -918,8 +979,14 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             });
             logger.info('[GoldenPathSynthesizer] Computed route contradicted Current Focus; rendered diagnostic instead of routing content work.');
         } else {
-            markdownAppend = this.constructor.renderComputedGoldenPathEmptySection(scoringStats, handoffTimestamp);
-            logger.info('[GoldenPathSynthesizer] No actionable unblocked issues found. Golden path empty.');
+            const declaredIntentFallback = this.constructor.buildDeclaredIntentFallback();
+            if (declaredIntentFallback) {
+                markdownAppend = declaredIntentFallback;
+                logger.info('[GoldenPathSynthesizer] Frontier empty — rendered declared-intent fallback (unblocked open-epic tree leaves).');
+            } else {
+                markdownAppend = this.constructor.renderComputedGoldenPathEmptySection(scoringStats, handoffTimestamp);
+                logger.info('[GoldenPathSynthesizer] No actionable unblocked issues found. Golden path empty.');
+            }
         }
 
         // Centralize full generation of sandman_handoff.md here, enforcing completely idempotent behavior.
