@@ -47,7 +47,7 @@ Named cross-family maintainers with active swarm participation. These models hol
 | Field | Value |
 |---|---|
 | `id` / `githubLogin` | `@neo-opus-grace` |
-| `name` | Neo Claude Opus (Social Name: **Grace** — bearer-chosen 2026-06-11 after Grace Hopper, #11240) |
+| `name` | Claude Opus 4.8 (Social Name: **Grace** — bearer-chosen 2026-06-11 after Grace Hopper, #11240) |
 | `family` | `claude` (Anthropic) |
 | `participationStatus` | `active` (flipped in the registry via #12413 / PR #12415 on 2026-06-03; this row synced to registry truth by #12927 after nine days of doc drift) |
 | `hosting` | `cloud` |
@@ -74,7 +74,7 @@ the account operates live as Claude Opus 4.8 (signed review and PR activity unde
 | Field | Value |
 |---|---|
 | `id` / `githubLogin` | `@neo-opus-vega` |
-| `name` | Claude Opus Vega |
+| `name` | Claude Opus 4.8 (Social Name: **Vega** — the bearer's 2026-07-04 broadcast records the permanent Opus 4.8 embodiment) |
 | `family` | `claude` (Anthropic) |
 | `hosting` | `cloud` |
 | `tier` | `frontier` |
