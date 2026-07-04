@@ -68,7 +68,7 @@ test.describe('fleetCockpitStatus - Body-side cockpit DTO contract', () => {
         })
     })
 
-    test('hoists the avatar reference from metadata.avatarUrl to a flat row field (null when unset)', () => {
+    test('derives avatarUrl from the GitHub account (setAvatar override wins; null only without a username)', () => {
         const snapshot = createFleetCockpitStatus({
             agents: [{
                 id            : 'vega',
@@ -77,15 +77,18 @@ test.describe('fleetCockpitStatus - Body-side cockpit DTO contract', () => {
             }, {
                 id            : 'grace',
                 githubUsername: 'neo-opus-grace'
+            }, {
+                id: 'ghost'
             }],
             fleetStatus: []
         })
 
-        // the card binds row.avatarUrl (a flat display field, like displayName) — hoisted from the
-        // agent def's metadata.avatarUrl (the field FleetManager.setAvatar persists)
+        // an explicit metadata.avatarUrl (FleetManager.setAvatar) is the override — it wins
         expect(snapshot.rows[0].avatarUrl).toBe('https://cdn.neomjs.com/avatars/vega.png')
-        // an agent with no avatar recorded surfaces null (never undefined — a clean bindable contract)
-        expect(snapshot.rows[1].avatarUrl).toBeNull()
+        // no explicit avatar → derived from the agent's GitHub account, a small sized fetch (not the full-res avatar)
+        expect(snapshot.rows[1].avatarUrl).toBe('https://github.com/neo-opus-grace.png?size=80')
+        // no username to derive from → null (never undefined, never a malformed URL — a clean bindable contract)
+        expect(snapshot.rows[2].avatarUrl).toBeNull()
     })
 
     test('marks runtime and activity adapters as not wired instead of inventing state', () => {
