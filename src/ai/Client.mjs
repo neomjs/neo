@@ -1,14 +1,15 @@
-import Base             from '../core/Base.mjs';
-import ClassSystemUtil  from '../util/ClassSystem.mjs';
-import ComponentService   from './client/ComponentService.mjs';
-import DataService        from './client/DataService.mjs';
-import InstanceService    from './client/InstanceService.mjs';
-import InteractionService from './client/InteractionService.mjs';
-import RuntimeService     from './client/RuntimeService.mjs';
-import Socket             from '../data/connection/WebSocket.mjs';
-import WindowManager      from '../manager/Window.mjs';
-import WriteGuard         from './WriteGuard.mjs';
-import TransactionService from './TransactionService.mjs';
+import Base                 from '../core/Base.mjs';
+import ClassSystemUtil      from '../util/ClassSystem.mjs';
+import ComponentService     from './client/ComponentService.mjs';
+import DataService          from './client/DataService.mjs';
+import DockService          from './client/DockService.mjs';
+import InstanceService      from './client/InstanceService.mjs';
+import InteractionService   from './client/InteractionService.mjs';
+import RuntimeService       from './client/RuntimeService.mjs';
+import Socket               from '../data/connection/WebSocket.mjs';
+import WindowManager        from '../manager/Window.mjs';
+import WriteGuard           from './WriteGuard.mjs';
+import TransactionService   from './TransactionService.mjs';
 import {parseAgentEnvelope} from './parseAgentEnvelope.mjs';
 
 /**
@@ -102,29 +103,33 @@ class Client extends Base {
         me.services = {
             component  : Neo.create(ComponentService,   {client: me}),
             data       : Neo.create(DataService,        {client: me}),
+            dock       : Neo.create(DockService,        {client: me}),
             instance   : Neo.create(InstanceService,    {client: me}),
             interaction: Neo.create(InteractionService, {client: me}),
             runtime    : Neo.create(RuntimeService,     {client: me})
         };
 
-        const {component, data, instance, interaction, runtime} = me.services;
+        const {component, data, dock, instance, interaction, runtime} = me.services;
 
         me.serviceMap = {
-            get_component         : component,
-            get_computed_styles   : component,
-            get_dom_rect          : component,
-            get_vdom              : component,
-            get_vdom_vnode        : component,
-            get_vnode             : component,
-            highlight_component   : component,
-            observe_motion        : component,
-            query_component       : component,
-            query_vdom            : component,
-            verify_component      : component,
+            get_component      : component,
+            get_computed_styles: component,
+            get_dom_rect       : component,
+            get_vdom           : component,
+            get_vdom_vnode     : component,
+            get_vnode          : component,
+            highlight_component: component,
+            observe_motion     : component,
+            query_component    : component,
+            query_vdom         : component,
+            verify_component   : component,
+
+            execute_dock_operation: dock,
+            get_dock_topology     : dock,
 
             call_method            : instance,
-            create_instance         : instance,
-            destroy_instance        : instance,
+            create_instance        : instance,
+            destroy_instance       : instance,
             find_instances         : instance,
             get_instance_properties: instance,
             set_instance_properties: instance,
@@ -141,22 +146,22 @@ class Client extends Base {
             list_stores           : data,
             modify_state_provider : data,
 
-            check_namespace       : runtime,
-            focus_window          : runtime,
-            get_dom_event         : runtime,
-            get_drag              : runtime,
-            get_method_source     : runtime,
-            get_namespace_tree    : runtime,
-            get_neo_config        : runtime,
-            get_route             : runtime,
-            get_window            : runtime,
-            inspect_class         : runtime,
-            open_component_window : runtime,
-            patch_code            : runtime,
-            position_window       : runtime,
-            reload_page           : runtime,
-            set_route             : runtime,
-            simulate_event        : interaction
+            check_namespace      : runtime,
+            focus_window         : runtime,
+            get_dom_event        : runtime,
+            get_drag             : runtime,
+            get_method_source    : runtime,
+            get_namespace_tree   : runtime,
+            get_neo_config       : runtime,
+            get_route            : runtime,
+            get_window           : runtime,
+            inspect_class        : runtime,
+            open_component_window: runtime,
+            patch_code           : runtime,
+            position_window      : runtime,
+            reload_page          : runtime,
+            set_route            : runtime,
+            simulate_event       : interaction
         };
 
         Neo.currentWorker.on({
@@ -258,7 +263,7 @@ class Client extends Base {
     onAppWorkerWindowConnect(data) {
         if (this.isConnected) {
             const
-                win = WindowManager.get(data.windowId),
+                win                 = WindowManager.get(data.windowId),
                 {appName, windowId} = data;
 
             this.sendNotification('window_connected', {
@@ -308,8 +313,8 @@ class Client extends Base {
         // AND sweep its open transaction + undo stack on the same `agent_disconnected` frame — otherwise a
         // disconnect (or worker restart) leaks an open transaction. `sweep` is the transaction-side counterpart
         // to `releaseAgent`; both key on the same `(agentId, sessionId)` pair validated above.
-        const {released}      = writeGuard.releaseAgent({agentId, sessionId}),
-              {swept = false} = transactionService?.sweep({id: {agentId, sessionId}}) ?? {};
+        const {released} = writeGuard.releaseAgent({agentId, sessionId}),
+              {swept     = false} = transactionService?.sweep({id: {agentId, sessionId}}) ?? {};
 
         return {released, swept}
     }
@@ -429,10 +434,10 @@ class Client extends Base {
             this.socket.sendMessage({
                 jsonrpc: '2.0',
                 id,
-                error: {
-                    code   : -32603, // Internal error
+                error  : {
+                    code: -32603, // Internal error
                     message,
-                    data   : {stack}
+                    data: {stack}
                 }
             })
         }
