@@ -4,6 +4,7 @@ import ToolService        from '../../ToolService.mjs';
 import ComponentService   from '../../../services/neural-link/ComponentService.mjs';
 import ConnectionService  from '../../../services/neural-link/ConnectionService.mjs';
 import DataService        from '../../../services/neural-link/DataService.mjs';
+import DockService        from '../../../services/neural-link/DockService.mjs';
 import HealthService      from '../../../services/neural-link/HealthService.mjs';
 import InstanceService    from '../../../services/neural-link/InstanceService.mjs';
 import InteractionService from '../../../services/neural-link/InteractionService.mjs';
@@ -24,6 +25,7 @@ const serviceMapping = {
     commit_transaction           : InstanceService   .commitTransaction         .bind(InstanceService),
     create_component             : ComponentService  .createComponent           .bind(ComponentService),
     create_instance              : InstanceService   .createInstance            .bind(InstanceService),
+    execute_dock_operation       : DockService       .executeDockOperation      .bind(DockService),
     find_instances               : InstanceService   .findInstances             .bind(InstanceService),
     focus_window                 : RuntimeService    .focusWindow               .bind(RuntimeService),
     get_component_tree           : ComponentService  .getComponentTree          .bind(ComponentService),
@@ -31,6 +33,7 @@ const serviceMapping = {
     get_console_logs             : ConnectionService .getConsoleLogs            .bind(ConnectionService),
     get_dom_event_listeners      : RuntimeService    .getDomEventListeners      .bind(RuntimeService),
     get_dom_event_summary        : RuntimeService    .getDomEventSummary        .bind(RuntimeService),
+    get_dock_topology            : DockService       .getDockTopology           .bind(DockService),
     get_dom_rect                 : ComponentService  .getDomRect                .bind(ComponentService),
     get_drag_state               : InteractionService.getDragState              .bind(InteractionService),
     get_drag_trace               : InteractionService.getDragTrace              .bind(InteractionService),

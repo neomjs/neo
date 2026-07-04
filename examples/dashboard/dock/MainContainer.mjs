@@ -160,6 +160,17 @@ class MainContainer extends Viewport {
     }
 
     /**
+     * The read half of the dock-holder contract (`src/ai/client/DockService.mjs`): exposes the
+     * live committed document so Neural Link topology reads work BEFORE any operation has run.
+     * The write half is {@link #applyDockZoneOperation}; the state sync stays in
+     * {@link #onDockZoneDocumentChange}, which advances `dockModel` on each commit.
+     * @returns {Object} The current committed dockZone.v1 document.
+     */
+    getDockZoneDocument() {
+        return this.dockModel
+    }
+
+    /**
      * Builds a valid default collection from the example's seeded perspectives.
      * @returns {Object}
      */

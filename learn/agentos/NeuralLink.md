@@ -200,7 +200,7 @@ This guide is the concept. The tool catalog is intentionally not copied here.
 The authoritative operation surface lives in
 `ai/mcp/server/neural-link/openapi.yaml`, and the lazy handbook tool
 `get_mcp_tool_handbook` returns operation-level usage detail when an agent needs
-it. At the time of this rewrite, the OpenAPI surface exposes 50 operation IDs.
+it. At the time of this rewrite, the OpenAPI surface exposes 52 operation IDs.
 
 Keeping the catalog out of the conceptual guide prevents the old failure mode:
 a polished explanation slowly turning into stale reference sludge. When the
