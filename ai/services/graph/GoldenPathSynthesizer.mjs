@@ -664,7 +664,7 @@ class GoldenPathSynthesizer extends Base {
      * @param {Date} since Lower window bound.
      * @returns {Promise<Array<{ref: String, headline: String, at: String}>>}
      */
-    static async fetchRecentSessions(collection, since) {
+    async fetchRecentSessions(collection, since) {
         const meta      = await collection.get({include: ['metadatas']});
         const resolveTs = m => {
             const raw = m?.timestamp ?? m?.lastActivity ?? m?.updatedAt ?? m?.createdAt;
@@ -1326,7 +1326,9 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                 }
 
                 try {
-                    sessions         = await this.constructor.fetchRecentSessions(summaryColl, windowStart);
+                    // instance seam like every sibling reader — the singleton export IS the
+                    // patchable surface; a static here silently bypasses test doubles
+                    sessions         = await this.fetchRecentSessions(summaryColl, windowStart);
                     sessionClassLive = true;
                 } catch (sessionError) {
                     logger.warn('[GoldenPathSynthesizer] Retrospective session reader failed — dropping the session class', sessionError);
