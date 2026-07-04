@@ -143,6 +143,19 @@ export function validateEraChain(identityNode, episodes) {
         return {valid: false, reason: `every era must carry the chain's anchor "${identityNode.identityKey}"`};
     }
 
+    // The chain contract holds for RAW nodes too, not only builder output: NaN timestamps make
+    // every comparison below vacuously false (no overlap is ever detected), so unparseable
+    // temporal fields must refuse HERE — consumers rely on this validator without re-checking.
+    for (const era of episodes) {
+        if (!Number.isFinite(Date.parse(era.since))) {
+            return {valid: false, reason: `era "${era.id || String(era.since)}" has an unparseable since — temporal ordering would be vacuous`};
+        }
+
+        if (era.until !== null && !Number.isFinite(Date.parse(era.until))) {
+            return {valid: false, reason: `era "${era.id || String(era.since)}" has an unparseable until — overlap checks would be vacuous`};
+        }
+    }
+
     const ordered = [...episodes].sort((a, b) => Date.parse(a.since) - Date.parse(b.since));
     const open    = ordered.filter(era => era.until === null);
 

@@ -158,5 +158,13 @@ test.describe('identitySchema — node-types + the reflexive-landing acceptance 
         schema.migrateEra({identityNode: identity, episodes, newEra: {model: 'claude-fable-5', family: 'claude', since: '2026-07-02T00:00:00Z'}});
         expect(episodes).toHaveLength(1);
         expect(episodes[0].until).toBeNull();
+
+        // RAW nodes with unparseable timestamps refuse — NaN would make every ordering/overlap
+        // comparison vacuously false, so the validator enforces parseability itself (reviewer falsifier)
+        const rawBadSince = {id: 'raw-1', type: schema.IDENTITY_NODE_TYPES.EMBODIED_EPISODE, identityKey: REAL_ANCHOR, model: 'm', family: 'claude', since: 'not-a-date', until: null};
+        expect(schema.validateEraChain(identity, [rawBadSince]).reason).toContain('unparseable since');
+
+        const rawBadUntil = {id: 'raw-2', type: schema.IDENTITY_NODE_TYPES.EMBODIED_EPISODE, identityKey: REAL_ANCHOR, model: 'm', family: 'claude', since: '2026-06-01T00:00:00Z', until: 'garbage'};
+        expect(schema.validateEraChain(identity, [rawBadUntil, ...episodes]).reason).toContain('unparseable until');
     });
 });
