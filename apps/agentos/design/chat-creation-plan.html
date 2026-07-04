@@ -73,6 +73,24 @@
   footer{margin-top:3rem;border-top:1px solid var(--fm-line);padding-top:1rem;font-size:.74rem;color:var(--fm-ink-faint)}
   .fam{display:inline-flex;gap:.5rem;align-items:center;margin-left:.4rem}
   .sw{width:11px;height:4px;border-radius:2px;display:inline-block}
+  /* transcript treatment */
+  .script{background:var(--fm-rail);border:1px solid var(--fm-line-soft);border-radius:12px;padding:1rem;display:flex;flex-direction:column;gap:.7rem;margin-top:.4rem}
+  .turn{display:flex;gap:.6rem;align-items:flex-start}
+  .turn .who{font-family:var(--fm-font-mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--fm-ink-faint);flex:none;width:3rem;padding-top:.35rem}
+  .turn.agent .who{color:var(--fm-signal)}
+  .turn .msg{background:var(--fm-panel);border:1px solid var(--fm-line);border-radius:8px;padding:.5rem .65rem;font-size:.78rem;color:var(--fm-ink);flex:1}
+  .turn.human .msg{background:var(--fm-panel-2)}
+  /* provenance-as-inspector */
+  .prov{background:var(--fm-rail);border:1px solid var(--fm-line-soft);border-radius:8px;padding:.6rem;display:flex;flex-direction:column;gap:.45rem;margin-bottom:.7rem}
+  .prov-row{display:flex;gap:.6rem;align-items:center;font-size:.74rem;color:var(--fm-ink-dim)}
+  .prov-row .tag{width:2.6rem;flex:none}
+  .fam-chip{display:inline-flex;align-items:center;gap:.35rem;color:var(--fm-ink)}
+  /* M2 storyboard */
+  .board{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:.9rem;margin-top:.4rem}
+  .beat{background:var(--fm-panel);border:1px solid var(--fm-line);border-radius:12px;padding:.85rem .9rem}
+  .beat .bn{font-family:var(--fm-font-mono);font-size:.6rem;letter-spacing:.1em;color:var(--fm-signal)}
+  .beat .bt{font-size:.9rem;margin:.3rem 0 .25rem;color:var(--fm-ink)}
+  .beat .bd{font-size:.75rem;color:var(--fm-ink-dim);line-height:1.45}
 </style>
 </head>
 <body>
@@ -140,6 +158,53 @@
 
   </div>
 
+  <h2>Transcript treatment — the conversation is the medium</h2>
+  <p class="lead" style="font-size:.82rem">The keeper flow is a dialogue, not a form. The transcript renders under Neo's <b class="mono" style="color:var(--fm-ink)">markdown-VDOM</b> constraints — streamed tokens, fenced code, and the inline blueprint are VDOM nodes diffed in place, never <span class="mono">innerHTML</span>. Turns stay compact; the blueprint preview is a first-class turn, not a wall of prose.</p>
+  <div class="script">
+    <div class="turn human"><span class="who">you</span><div class="msg">build me a grid of the fleet's open PRs</div></div>
+    <div class="turn agent"><span class="who">keeper</span><div class="msg">A <b>Grid</b> over the open-PR store — title, author, state. Streaming as it resolves:
+      <div class="bp" style="margin-top:.4rem">blueprint · Grid · store: pulls · cols: title · author · state</div></div></div>
+    <div class="turn human"><span class="who">you</span><div class="msg">make state a coloured chip</div></div>
+  </div>
+  <p class="lead" style="font-size:.78rem;margin-top:.6rem">Constraints the treatment honours: streamed text appends via VDOM deltas (no layout thrash); code and blueprint blocks are <em>components</em>, not markdown-to-HTML; long transcripts virtualise; the newest turn stays in view. The transcript never becomes the app — it's the lane the app arrives through.</p>
+
+  <h2>Follow-up — the app is live; keep talking to it</h2>
+  <p class="lead" style="font-size:.82rem">Materialize is not the end of the conversation. The same thread iterates on the <em>live</em> app — every follow-up is another intent → blueprint-<b>diff</b> → apply, against the instance that already exists. No regeneration from scratch; the widget mutates in place.</p>
+  <div class="wedge">
+    <div class="step"><div class="n">live</div><div class="t">The Grid exists</div><div class="d">Docked, usable, still in the thread's context.</div></div>
+    <div class="step"><div class="n">refine</div><div class="t">"filter by author"</div><div class="d">Intent scoped to the live instance, not a new app.</div></div>
+    <div class="step"><div class="n">diff</div><div class="t">Blueprint delta</div><div class="d">Only the change previews — an add, not a rebuild.</div></div>
+    <div class="step"><div class="n">apply</div><div class="t">Mutates in place</div><div class="d">Same instance updates; state &amp; scroll preserved.</div></div>
+  </div>
+  <p class="lead" style="font-size:.78rem;margin-top:.6rem">The follow-up affordance lives where the eye already is — an inline input pinned under the live panel and the transcript's tail resolve to the same thread. Follow-ups route through the safety gate too (a refinement is an intent). Undo restores the previous blueprint, never a blank slate.</p>
+
+  <h2>The created-widget pane — chrome, promotion &amp; provenance-as-inspector</h2>
+  <div class="two">
+    <div class="col">
+      <h3 style="color:var(--fm-signal)">Pane chrome — dock-participating</h3>
+      <div class="mock" style="min-height:auto;margin-bottom:.7rem">
+        <div class="panelchip"><span class="dot" style="background:var(--fm-state-ok)"></span>Fleet PRs · Grid <span class="win">↗ window</span></div>
+      </div>
+      <ul>
+        <li><b>Participates in the dock</b> — split, tab, auto-hide like any dockZone item; never a modal.</li>
+        <li><b>Pop-out affordance</b> — <span class="mono">↗ window</span> promotes it to its own OS window on the shared heap.</li>
+        <li><b>Live-state indicator</b> — the dot speaks the cockpit's state vocabulary (ok · idle · wedged), so a stalled widget reads honestly.</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h3 style="color:var(--fm-ink-dim)">Provenance — a secondary inspector, never the centre</h3>
+      <div class="prov">
+        <div class="prov-row"><span class="tag">who</span><span class="fam-chip"><i class="sw" style="background:var(--fm-family-human)"></i>you · intent</span></div>
+        <div class="prov-row"><span class="tag">how</span><span class="mono">blueprint → route #14655 → registry #14656</span></div>
+        <div class="prov-row"><span class="tag">what</span><span class="mono">Grid · 3 cols · store:pulls · +authorFilter</span></div>
+      </div>
+      <ul>
+        <li><b>Inspector, not header</b> — provenance opens on demand (a disclosure strip), never occupying the widget's primary frame. The <span class="mono">#13349</span> scope correction: the app is the point, its lineage is reference.</li>
+        <li><b>Legible lineage</b> — which intent, which route, which mutations — so a human can trust or audit without reading code.</li>
+      </ul>
+    </div>
+  </div>
+
   <h2>Draw-vs-delegate — the boundary so leaves don't collide</h2>
   <div class="two">
     <div class="col">
@@ -174,6 +239,18 @@
       <span class="pill">materialize</span>
     </div>
   </div>
+
+  <h2>M2 demo — the one-shot gesture, beat by beat</h2>
+  <p class="lead" style="font-size:.82rem">The canonical M2 demo is a single unbroken take: a stranger goes from a sentence to a shared, running app without touching code or config. Storyboard for the recordable walkthrough (<span class="mono">#14646</span> binds these beats to NL-driven steps):</p>
+  <div class="board">
+    <div class="beat"><div class="bn">beat 1 · 0:00</div><div class="bt">Empty invitation</div><div class="bd">One field: "Describe an app to build." Nothing else on screen — the stranger isn't taught, they're invited.</div></div>
+    <div class="beat"><div class="bn">beat 2 · 0:04</div><div class="bt">Say it</div><div class="bd">Types <span class="mono">"build me a grid of the fleet's open PRs"</span>. The blueprint streams in as a preview turn.</div></div>
+    <div class="beat"><div class="bn">beat 3 · 0:09</div><div class="bt">Generate</div><div class="bd">Confirms. Honest progress; the Grid materializes as a docked panel — real data, not a mock.</div></div>
+    <div class="beat"><div class="bn">beat 4 · 0:15</div><div class="bt">Use it live</div><div class="bd">Sorts a column, follows up "colour the state" — the panel mutates in place. The app <em>works</em>.</div></div>
+    <div class="beat"><div class="bn">beat 5 · 0:22</div><div class="bt">Pop out</div><div class="bd">Drags the panel to its own OS window on the shared heap — object-permanent; nobody dragged a file.</div></div>
+    <div class="beat"><div class="bn">beat 6 · 0:27</div><div class="bt">Share</div><div class="bd">Copies the hosted URL; a second person opens the running app. Built &amp; shipped, code unread.</div></div>
+  </div>
+  <p class="lead" style="font-size:.78rem;margin-top:.6rem">The falsifier: a viewer who has never seen Neo follows every beat without narration. No performance numbers appear (per <span class="mono">#13032</span>) — the claim is legibility, not benchmarks.</p>
 
   <footer>
     Tokens: the <span class="mono">--fm-*</span> vocabulary (<span class="mono">apps/agentos/resources/tokens.css</span>) — native to the one harness app, visually consistent with the FM cockpit.
