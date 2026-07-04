@@ -30,13 +30,13 @@ test.describe('Fleet cockpit EventChip — renders a kind via the shared registr
 
         expect(chip.vdom.tag).toBe('span');
         expect(chip.vdom.cls).toContain('fm-event-chip');
-        expect(chip.vdom.style['--fm-chip']).toBe('var(--fm-state-wedged)');
+        expect(chip.vdom.style['--fm-chip']).toBe('var(--fm-kind-alert)');
         expect(chip.vdom.text).toBe('stall');
 
         // a kind swap re-renders the same instance
         const before = chip.id;
         chip.kind = 'review';
-        expect(chip.vdom.style['--fm-chip']).toBe('var(--fm-state-idle)');
+        expect(chip.vdom.style['--fm-chip']).toBe('var(--fm-kind-review)');
         expect(chip.vdom.text).toBe('review');
         expect(chip.id).toBe(before);
 
@@ -47,7 +47,7 @@ test.describe('Fleet cockpit EventChip — renders a kind via the shared registr
         const chip = Neo.create(EventChip, {appName, kind: 'graduation-signal'});
         await chip.initVnode();
 
-        expect(chip.vdom.style['--fm-chip']).toBe('var(--fm-state-off)');
+        expect(chip.vdom.style['--fm-chip']).toBe('var(--fm-kind-neutral)');
         expect(chip.vdom.text).toBe('graduation-signal');
 
         chip.destroy()
@@ -57,7 +57,7 @@ test.describe('Fleet cockpit EventChip — renders a kind via the shared registr
         const chip = Neo.create(EventChip, {appName, kind: 'pr', label: 'merged'});
         await chip.initVnode();
 
-        expect(chip.vdom.style['--fm-chip']).toBe('var(--fm-state-ok)');
+        expect(chip.vdom.style['--fm-chip']).toBe('var(--fm-kind-pr)');
         expect(chip.vdom.text).toBe('merged');
 
         chip.destroy()

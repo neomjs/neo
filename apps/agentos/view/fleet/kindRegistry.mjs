@@ -8,27 +8,27 @@
  * lifecycle-request/success/failure, bridge-unavailable/gated, pr-activity, issue-activity,
  * lane-claim, work-stall, source-degraded) plus the design mock's four (pr / a2a / review / alert).
  *
- * Colors REUSE the existing --fm-state-* / --fm-signal palette (per the mock — review→idle,
- * alert→wedged) rather than a dedicated --fm-kind-* layer. That palette choice is design-authority
- * owned; because every consumer reads the token through this one resolver, refining it (or moving
- * to a --fm-kind-* set) touches only this module, never a view.
+ * Colors bind the dedicated --fm-kind-* family — event kind is a SEPARATE visual axis from agent
+ * session-state (kind = what happened; state = agent health), so kinds never reuse the state
+ * health-hues and never blur with a state dot where the two co-occur in the activity stream. Kinds
+ * group into the design-vocabulary buckets pr / a2a / review / alert (+ a neutral for the unknown).
  */
 
 const KIND_TOKEN = {
-    'pr'                : '--fm-state-ok',
-    'pr-activity'       : '--fm-state-ok',
-    'lifecycle-success' : '--fm-state-ok',
-    'a2a'               : '--fm-signal',
-    'lane-claim'        : '--fm-signal',
-    'issue-activity'    : '--fm-signal',
-    'lifecycle-request' : '--fm-state-idle',
-    'review'            : '--fm-state-idle',
-    'bridge-gated'      : '--fm-state-idle',
-    'alert'             : '--fm-state-wedged',
-    'work-stall'        : '--fm-state-wedged',
-    'lifecycle-failure' : '--fm-state-wedged',
-    'bridge-unavailable': '--fm-state-wedged',
-    'source-degraded'   : '--fm-state-limited'
+    'pr'                : '--fm-kind-pr',
+    'pr-activity'       : '--fm-kind-pr',
+    'lifecycle-success' : '--fm-kind-pr',
+    'a2a'               : '--fm-kind-a2a',
+    'lane-claim'        : '--fm-kind-a2a',
+    'issue-activity'    : '--fm-kind-a2a',
+    'review'            : '--fm-kind-review',
+    'lifecycle-request' : '--fm-kind-review',
+    'bridge-gated'      : '--fm-kind-review',
+    'alert'             : '--fm-kind-alert',
+    'work-stall'        : '--fm-kind-alert',
+    'lifecycle-failure' : '--fm-kind-alert',
+    'bridge-unavailable': '--fm-kind-alert',
+    'source-degraded'   : '--fm-kind-alert'
 };
 
 const KIND_LABEL = {
@@ -38,8 +38,8 @@ const KIND_LABEL = {
     'a2a'               : 'a2a',
     'lane-claim'        : 'lane',
     'issue-activity'    : 'issue',
-    'lifecycle-request' : 'request',
     'review'            : 'review',
+    'lifecycle-request' : 'request',
     'bridge-gated'      : 'gated',
     'alert'             : 'alert',
     'work-stall'        : 'stall',
@@ -49,13 +49,14 @@ const KIND_LABEL = {
 };
 
 /**
- * Pure kind → color-token resolver — the single source of truth for chip color. Unknown kinds
- * degrade to the neutral token, so the chip absorbs kind-set growth without a broken color.
+ * Pure kind → color-token resolver — the single source of truth for chip color, on the --fm-kind-*
+ * axis. Unknown kinds degrade to the neutral kind token, so the chip absorbs kind-set growth
+ * without a broken color.
  * @param {String} kind
- * @returns {String} the color custom-property name (e.g. `--fm-state-ok`)
+ * @returns {String} the color custom-property name (e.g. `--fm-kind-pr`)
  */
 export function kindToken(kind) {
-    return KIND_TOKEN[kind] || '--fm-state-off'
+    return KIND_TOKEN[kind] || '--fm-kind-neutral'
 }
 
 /**
