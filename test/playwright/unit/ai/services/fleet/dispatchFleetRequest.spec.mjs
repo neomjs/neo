@@ -100,7 +100,7 @@ test.describe('dispatchFleetRequest — the app↔fleet wire allowlist + routing
 
     test('the wire allowlist is exactly the pane operations — no resolver seams', () => {
         expect([...FLEET_WIRE_METHODS].sort()).toEqual(
-            ['defineAgent', 'fleetStatus', 'getAgent', 'listAgents', 'removeAgent', 'restartAgent', 'setAvatar', 'setRepo', 'startAgent', 'stopAgent'].sort()
+            ['defineAgent', 'fleetRuntimeStatus', 'fleetStatus', 'getAgent', 'listAgents', 'removeAgent', 'restartAgent', 'setAvatar', 'setRepo', 'startAgent', 'stopAgent'].sort()
         );
         expect(FLEET_WIRE_METHODS).not.toContain('getManager');
         expect(FLEET_WIRE_METHODS).not.toContain('getRegistry');

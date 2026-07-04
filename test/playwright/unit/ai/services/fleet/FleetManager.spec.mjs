@@ -78,3 +78,38 @@ test.describe('Neo.ai.services.fleet.FleetManager — fleet-authority definition
         expect(calls).toEqual([['updateAgent', 'alice', {metadata: {}}]]);
     });
 });
+
+test.describe('Neo.ai.services.fleet.FleetManager — fleetRuntimeStatus (roster × lifecycle status)', () => {
+    test.afterEach(() => {
+        FleetManager.lifecycleService = null;
+    });
+
+    test('composes the roster with per-agent lifecycle status — every registered agent gets a row', () => {
+        const registryStub = {listAgents: () => [{id: 'alice'}, {id: 'bob'}]};
+
+        FleetManager.lifecycleService = {
+            getRegistry: () => registryStub,
+            status     : id => id === 'alice'
+                ? {id, state: 'running', running: true,  pid: 4242, startedAt: '2026-07-04T00:00:00Z', exitCode: null}
+                : {id, state: 'stopped', running: false, pid: null, startedAt: null,                    exitCode: null}
+        };
+
+        expect(FleetManager.fleetRuntimeStatus()).toEqual([
+            {agentId: 'alice', state: 'running', running: true,  confidence: 'observed', source: 'fleet:runtimeStatus'},
+            {agentId: 'bob',   state: 'stopped', running: false, confidence: 'inferred', source: 'fleet:runtimeStatus'}
+        ]);
+    });
+
+    test('a tracked-but-stopped agent reads observed (a process record backs it) — state never invented', () => {
+        const registryStub = {listAgents: () => [{id: 'alice'}]};
+
+        FleetManager.lifecycleService = {
+            getRegistry: () => registryStub,
+            status     : id => ({id, state: 'stopped', running: false, pid: null, startedAt: '2026-07-04T00:00:00Z', exitCode: 1})
+        };
+
+        expect(FleetManager.fleetRuntimeStatus()).toEqual([
+            {agentId: 'alice', state: 'stopped', running: false, confidence: 'observed', source: 'fleet:runtimeStatus'}
+        ]);
+    });
+});

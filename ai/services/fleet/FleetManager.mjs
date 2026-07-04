@@ -141,6 +141,37 @@ class FleetManager extends Base {
     }
 
     /**
+     * @summary Turnkey fleet runtime observability: the per-agent process-runtime state across the whole
+     * fleet — the live-process view complementing {@link fleetRepoStatus}'s repo view. Composes the
+     * registry roster with the lifecycle service's per-agent {@link
+     * Neo.ai.services.fleet.FleetLifecycleService#status} read, so every *registered* agent gets a row (an
+     * agent with no live process reads `state:'stopped'`) and the cockpit renders the whole fleet, not
+     * only running processes. Read-only; never carries a secret (`status` holds none — `stderrBytes` is a
+     * count). Lifecycle records expose running / stopped directly; richer idle / wedged /
+     * rate-limited states need watchdog signals this service does not yet surface (a separate
+     * watchdog-signals follow-up), so a row is `observed` when a process record backs it and `inferred`
+     * otherwise — the
+     * state is never invented.
+     * @returns {Object[]} one `{agentId, state, running, confidence, source}` entry per registered agent.
+     */
+    fleetRuntimeStatus() {
+        const lifecycle = this.getLifecycleService();
+
+        return lifecycle.getRegistry().listAgents().map(agent => {
+            const status   = lifecycle.status(agent.id),
+                  observed = status.pid != null || status.startedAt != null || status.exitCode != null;
+
+            return {
+                agentId   : agent.id,
+                state     : status.state,
+                running   : status.running,
+                confidence: observed ? 'observed' : 'inferred',
+                source    : 'fleet:runtimeStatus'
+            };
+        });
+    }
+
+    /**
      * @summary Turnkey stop: gracefully stop an agent's harness process (`SIGTERM`, then `SIGKILL` after
      * the timeout) via the lifecycle collaborator. A thin delegation — stopping a process needs no
      * `managedRoot` / provisioning, so it forwards straight to `FleetLifecycleService.stop`, mirroring how
