@@ -1,0 +1,21 @@
+# Fleet Manager Cockpit — Design Token Reference (#14578)
+
+The token vocabulary every cockpit view leaf consumes. **Source of truth for the values:** the design SSOT [`apps/agentos/design/fleet-manager-cockpit-plan.html`](../agentos/design/fleet-manager-cockpit-plan.html) (committed via `#14512`; it stays at that path until Epic `#14560` closes — link integrity outranks tidiness, per the `#14577` decision record). Any delta from the SSOT is a recorded design decision on a ticket — never silent drift.
+
+| Token group | Tokens | Role | Example consumer | Binding rule |
+|---|---|---|---|---|
+| Surfaces | `--fm-ground` · `--fm-panel` · `--fm-panel-2` · `--fm-rail` | page ground, card/panel fills, stream + edge rails | shell zones (`#14615`), cards (`#14598`), rails (`#14617`) | static |
+| Lines | `--fm-line` · `--fm-line-soft` | zone borders vs in-panel separators | shell, cards, stream rows | static |
+| Ink tiers | `--fm-ink` · `--fm-ink-dim` · `--fm-ink-faint` | primary / secondary / meta text | every view leaf | static; contrast per usage class audited by `#14619` |
+| Signal | `--fm-signal` | live/key-action accent — used sparingly | chrome title, live badge, lane-line emphasis | static; sparing use is a design rule, lint-greppable by count |
+| Session states | `--fm-state-ok/idle/wedged/limited/off` | agent SESSION state — never identity (ADR 0032 §2.3.1) | state dots + health bar (`#14593`, `#14599`) | bound from the runtime-status wire (`#14595`) |
+| Family rails | `--fm-family-claude/gpt/gemini/human` | the resident's CURRENT episode family (ADR 0032 §2.3.3) | card rail (`#14598`), legend | **data-driven from the era key — never a per-agent constant; a family switch re-renders in place, same resident** |
+| Type stacks | `--fm-font-mono` · `--fm-font-sans` | meta/labels vs body | all leaves | static |
+
+## Motion
+
+The SSOT's live pulse (`@keyframes pulse`, 2.4s) is **decoration, not information** — the dot's color carries the signal. Consumers gate it behind `prefers-reduced-motion: no-preference` exactly as the SSOT does; the reduced-motion path renders the identical static dot. End-to-end audit: `#14619`.
+
+## Adding a token
+
+A new token = a design decision: name it in the group table above, cite the ticket that decided it, and keep the SSOT-verbatim rule for anything the artifact already defines. The visual-regression baselines (`#14618`) are the mechanical guard; a baseline change is reviewed as a design change.
