@@ -10,7 +10,7 @@ The roadmap holds the **next-release scope only** — what ships next and why. E
 
 v13.1 made the institution safe to leave running; **v13.2 makes it real to a stranger.** The release gate is a compound, honest bar:
 
-> **A stranger downloads the harness and it self-configures to first persistence in minutes; the operator starts an agent from the cockpit UI instead of a terminal; the docking demos are public and animated; and every flagship demo reports its measured reach — whether anyone outside our developer circle actually cares.** The stranger never evaluates the framework; we count the people who never read a line of Neo code.
+> **A stranger downloads the harness and it self-configures to first persistence in minutes; the operator starts an agent from the cockpit UI instead of a terminal; the docking demos are public and animated; and every flagship demo reports its measured reach — whether anyone outside our developer circle actually cares.** The stranger never evaluates the tech; we count the people who never read a line of Neo code.
 
 The scope was converged by a six-voice team weighting round — the full consensus record with per-entry disclosures lives at [D#14561's fold](https://github.com/neomjs/neo/discussions/14561#discussioncomment-17528678); this section names the gate and the load-bearing path, not a frozen checklist. [Milestone #9](https://github.com/neomjs/neo/milestone/9) is the v13.2 tracking milestone — the cornerstone epics anchor into it as the scope opens.
 
