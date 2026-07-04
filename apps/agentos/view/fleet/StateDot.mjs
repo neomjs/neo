@@ -17,12 +17,14 @@ const STATE_TOKEN = {
 
 /**
  * Pure state → token mapping, exported so it is the single source of truth for the fleet
- * primitives (HealthSwatch reuses it) and is directly unit-testable without a render.
+ * primitives (HealthSwatch reuses it) and is directly unit-testable without a render. Uses an
+ * `Object.hasOwn` check (not `MAP[k] ||`) so a prototype-shaped key (`toString`, `constructor`,
+ * `__proto__`) degrades to the neutral `off` token instead of leaking an inherited value.
  * @param {String} state
  * @returns {String} the `--fm-state-*` custom-property name
  */
 export function stateToken(state) {
-    return STATE_TOKEN[state] || STATE_TOKEN.off
+    return Object.hasOwn(STATE_TOKEN, state) ? STATE_TOKEN[state] : STATE_TOKEN.off
 }
 
 /**

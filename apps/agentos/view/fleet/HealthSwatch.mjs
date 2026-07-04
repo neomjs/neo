@@ -17,12 +17,14 @@ const STATE_LABEL = {
 /**
  * Pure state → label resolver. A known category → its canonical label; an unknown category →
  * the LITERAL category string (never invisible, never silently re-labelled as `off`), so a new
- * runtime state still renders a readable swatch until it earns a canonical label here.
+ * runtime state still renders a readable swatch until it earns a canonical label here. Uses an
+ * `Object.hasOwn` check (not `MAP[k] ||`) so a prototype-shaped key (`toString`, `constructor`,
+ * `__proto__`) resolves to its literal text instead of leaking an inherited Object.prototype value.
  * @param {String} state
  * @returns {String}
  */
 export function stateLabel(state) {
-    return STATE_LABEL[state] || String(state ?? 'unknown')
+    return Object.hasOwn(STATE_LABEL, state) ? STATE_LABEL[state] : String(state ?? 'unknown')
 }
 
 /**

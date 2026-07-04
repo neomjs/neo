@@ -32,7 +32,11 @@ test.describe('Fleet cockpit HealthSwatch — state-axis legend + count-bar unit
         expect(stateLabel('limited')).toBe('rate-limited');
         expect(stateLabel('off')).toBe('benched / offline');
         expect(stateLabel('some-new-state')).toBe('some-new-state');
-        expect(stateLabel(undefined)).toBe('unknown')
+        expect(stateLabel(undefined)).toBe('unknown');
+        // prototype-shaped keys resolve to their literal text, never an inherited Object.prototype value
+        expect(stateLabel('toString')).toBe('toString');
+        expect(stateLabel('constructor')).toBe('constructor');
+        expect(stateLabel('__proto__')).toBe('__proto__')
     });
 
     test('renders a legend row (no count) — state dot + label, no count element', async () => {
@@ -73,6 +77,20 @@ test.describe('Fleet cockpit HealthSwatch — state-axis legend + count-bar unit
 
         expect(dot.style['--fm-dot']).toBe('var(--fm-state-off)');
         expect(label.text).toBe('mystery');
+
+        sw.destroy()
+    });
+
+    test('a prototype-shaped unknown state renders off-toned with its literal text (no inherited leak on either axis)', async () => {
+        const sw = Neo.create(HealthSwatch, {appName, state: 'toString'});
+        await sw.initVnode();
+
+        const dot   = sw.vdom.cn.find(n => n.cls?.includes('fm-sw-dot')),
+              label = sw.vdom.cn.find(n => n.cls?.includes('fm-sw-label'));
+
+        // both the dot token (via stateToken) and the label (via stateLabel) must be closed-set-safe
+        expect(dot.style['--fm-dot']).toBe('var(--fm-state-off)');
+        expect(label.text).toBe('toString');
 
         sw.destroy()
     });

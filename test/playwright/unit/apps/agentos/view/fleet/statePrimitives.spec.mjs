@@ -35,7 +35,11 @@ test.describe('Fleet cockpit StateDot — session-state token mapping + reduced-
         expect(stateToken('off')).toBe('--fm-state-off');
         // unknown / undefined falls back to off — never throws, never a hand-rolled color
         expect(stateToken('nonsense')).toBe('--fm-state-off');
-        expect(stateToken(undefined)).toBe('--fm-state-off')
+        expect(stateToken(undefined)).toBe('--fm-state-off');
+        // prototype-shaped keys must not leak an inherited Object.prototype value past the closed set
+        expect(stateToken('toString')).toBe('--fm-state-off');
+        expect(stateToken('constructor')).toBe('--fm-state-off');
+        expect(stateToken('__proto__')).toBe('--fm-state-off')
     });
 
     test('StateDot binds the token via --fm-dot and gates the pulse behind the live config', async () => {
