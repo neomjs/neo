@@ -1,0 +1,190 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chat-Creation — the Keeper Flow · Design SSOT (#14645)</title>
+<!--
+  Design SSOT for the conversational app-creation surface (the "keeper flow") — the fleet-manager
+  sibling module inside the one harness app (apps/agentos). Companion artifact: the FM cockpit SSOT
+  (fleet-manager-cockpit-plan.html). Values SoT = the cockpit plan, extracted to
+  apps/agentos/resources/tokens.css; the :root fallback below lets this doc render standalone.
+  Grace, 2026-07-04.
+-->
+<link rel="stylesheet" href="../resources/tokens.css">
+<style>
+  /* standalone-render fallback — verbatim from the cockpit values SSOT (tokens.css is the app SoT) */
+  :root{
+    --fm-ground:#0b0e13; --fm-panel:#141a23; --fm-panel-2:#1a212c; --fm-rail:#0e131a;
+    --fm-line:#262f3d; --fm-line-soft:#1c242f;
+    --fm-ink:#d6dce6; --fm-ink-dim:#8b97a8; --fm-ink-faint:#5a6575;
+    --fm-signal:#5eead4;
+    --fm-state-ok:#34d399; --fm-state-idle:#f5b544; --fm-state-wedged:#f4718b; --fm-state-limited:#a78bfa; --fm-state-off:#5b6675;
+    --fm-family-claude:#d99a5b; --fm-family-gpt:#58c093; --fm-family-gemini:#6ba3e8; --fm-family-human:#c9d2de;
+    --fm-font-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --fm-font-sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--fm-ground);color:var(--fm-ink);font-family:var(--fm-font-sans);line-height:1.5;
+       padding:2.4rem clamp(1rem,4vw,3.2rem) 5rem;max-width:1180px;margin-inline:auto}
+  h1{font-size:1.5rem;margin:0 0 .3rem} h2{font-size:.78rem;font-family:var(--fm-font-mono);letter-spacing:.16em;
+     text-transform:uppercase;color:var(--fm-signal);margin:2.8rem 0 1rem;font-weight:600}
+  .lead{color:var(--fm-ink-dim);max-width:70ch} .mono{font-family:var(--fm-font-mono)}
+  .tag{font-family:var(--fm-font-mono);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;
+       color:var(--fm-ink-faint)}
+  a{color:var(--fm-signal);text-decoration:none;border-bottom:1px solid #24463f}
+  .band{display:flex;align-items:baseline;gap:.8rem;flex-wrap:wrap;border-bottom:1px solid var(--fm-line);
+        padding-bottom:1.2rem;margin-bottom:.4rem}
+  .wedge{display:flex;gap:.5rem;flex-wrap:wrap;align-items:stretch;margin-top:.4rem}
+  .step{flex:1 1 120px;min-width:120px;background:var(--fm-panel);border:1px solid var(--fm-line);border-radius:10px;
+        padding:.75rem .8rem;position:relative}
+  .step .n{font-family:var(--fm-font-mono);font-size:.6rem;color:var(--fm-signal);letter-spacing:.1em}
+  .step .t{font-size:.86rem;margin-top:.25rem} .step .d{font-size:.72rem;color:var(--fm-ink-dim);margin-top:.2rem}
+  .step + .step::before{content:"→";position:absolute;left:-.62rem;top:50%;transform:translateY(-50%);
+        color:var(--fm-ink-faint);font-size:.8rem}
+  .states{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:1rem;margin-top:.4rem}
+  .state{background:var(--fm-panel);border:1px solid var(--fm-line);border-radius:12px;padding:1rem;display:flex;flex-direction:column;gap:.6rem}
+  .state h3{margin:0;font-size:.82rem;font-family:var(--fm-font-mono);letter-spacing:.08em;text-transform:uppercase;
+        display:flex;align-items:center;gap:.5rem}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .state p{margin:0;font-size:.76rem;color:var(--fm-ink-dim)}
+  /* in-state mini-mockups */
+  .mock{background:var(--fm-rail);border:1px solid var(--fm-line-soft);border-radius:8px;padding:.6rem;font-size:.72rem;
+        min-height:66px;display:flex;flex-direction:column;gap:.4rem;justify-content:center}
+  .field{border:1px dashed var(--fm-line);border-radius:6px;padding:.4rem .55rem;color:var(--fm-ink-faint);font-family:var(--fm-font-mono);font-size:.68rem}
+  .field.live{border-style:solid;border-color:#2b6b60;color:var(--fm-ink)}
+  .bp{border-left:3px solid var(--fm-signal);padding-left:.5rem;color:var(--fm-ink-dim)}
+  .bar{height:6px;border-radius:4px;background:#20262f;overflow:hidden} .bar i{display:block;height:100%;background:var(--fm-signal);width:58%}
+  .panelchip{border:1px solid #2b6b60;border-radius:6px;padding:.35rem .5rem;display:flex;align-items:center;gap:.4rem;color:var(--fm-ink)}
+  .win{margin-left:auto;font-size:.62rem;color:var(--fm-signal);border:1px solid #24463f;border-radius:4px;padding:.1rem .35rem}
+  .err{border-left:3px solid var(--fm-state-wedged);padding-left:.5rem;color:#f0b7c2}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:.4rem}
+  @media(max-width:640px){.two{grid-template-columns:1fr}}
+  .col{background:var(--fm-panel);border:1px solid var(--fm-line);border-radius:12px;padding:1rem}
+  .col h3{margin:.1rem 0 .6rem;font-size:.8rem;font-family:var(--fm-font-mono);letter-spacing:.06em}
+  ul{margin:.3rem 0 0;padding-left:1.05rem} li{font-size:.8rem;margin:.32rem 0;color:var(--fm-ink-dim)}
+  li b{color:var(--fm-ink);font-weight:600}
+  .gate{background:linear-gradient(180deg,#141a23,#11151d);border:1px solid var(--fm-line);border-radius:12px;
+        padding:1.1rem 1.2rem;margin-top:.4rem}
+  .gate .rule{font-size:.9rem} .gate .sub{font-size:.76rem;color:var(--fm-ink-dim);margin-top:.4rem}
+  .flow2{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-top:.7rem;font-family:var(--fm-font-mono);font-size:.72rem}
+  .pill{border:1px solid var(--fm-line);border-radius:20px;padding:.25rem .7rem;color:var(--fm-ink-dim)}
+  .pill.auth{border-color:#2b6b60;color:var(--fm-signal)}
+  footer{margin-top:3rem;border-top:1px solid var(--fm-line);padding-top:1rem;font-size:.74rem;color:var(--fm-ink-faint)}
+  .fam{display:inline-flex;gap:.5rem;align-items:center;margin-left:.4rem}
+  .sw{width:11px;height:4px;border-radius:2px;display:inline-block}
+</style>
+</head>
+<body>
+
+  <div class="band">
+    <h1>Chat-Creation — the Keeper Flow</h1>
+    <span class="tag">design SSOT · #14645 · apps/agentos module</span>
+  </div>
+  <p class="lead">A stranger types an intent and gets a live app in its own window. <b class="mono" style="color:var(--fm-ink)">chat&nbsp;→&nbsp;"build me a neo grid"&nbsp;→&nbsp;a docked peer panel&nbsp;→&nbsp;drag to its own OS window&nbsp;→&nbsp;use&nbsp;/&nbsp;share</b>. This surface is the impedance-match wedge — legible to someone who never read a line of Neo code. The pipeline that runs behind it (<span class="mono">#14655</span> intake route · <span class="mono">#14656</span> instance registry) is a peer's lane; this artifact fixes what the human <em>sees and touches</em>.</p>
+
+  <h2>The wedge — the flow this surface renders</h2>
+  <div class="wedge">
+    <div class="step"><div class="n">01 · intent</div><div class="t">Say it</div><div class="d">Plain language. One affordance, no chrome.</div></div>
+    <div class="step"><div class="n">02 · blueprint</div><div class="t">Preview</div><div class="d">Intent → a provisional blueprint. Editable, not yet committed.</div></div>
+    <div class="step"><div class="n">03 · generate</div><div class="t">Build</div><div class="d">Blueprint runs the route. Honest progress, cancellable.</div></div>
+    <div class="step"><div class="n">04 · materialize</div><div class="t">Live panel</div><div class="d">The app is a docked peer panel — real, usable now.</div></div>
+    <div class="step"><div class="n">05 · promote</div><div class="t">Own window</div><div class="d">Drag to its own OS window on the shared heap; share the URL.</div></div>
+  </div>
+
+  <h2>The five states — the SSOT owns these; view leaves bind them</h2>
+  <div class="states">
+
+    <div class="state">
+      <h3><span class="dot" style="background:var(--fm-ink-faint)"></span>empty</h3>
+      <div class="mock"><div class="field">Describe an app to build…</div></div>
+      <p>The invitation. A single affordance, no toolbars, no menus. The whole surface says "start here."</p>
+    </div>
+
+    <div class="state">
+      <h3><span class="dot" style="background:var(--fm-family-human)"></span>composing</h3>
+      <div class="mock">
+        <div class="field live">build me a grid of the fleet's open PRs</div>
+        <div class="bp">blueprint · Grid · store: pulls&nbsp;· cols: title, author, state</div>
+      </div>
+      <p>Intent typed; the blueprint is <b class="mono" style="color:var(--fm-ink)">previewed</b>, not committed. The human can refine words or the blueprint before anything runs.</p>
+    </div>
+
+    <div class="state">
+      <h3><span class="dot" style="background:var(--fm-state-idle)"></span>generating</h3>
+      <div class="mock">
+        <div class="bp">materializing Grid…</div>
+        <div class="bar"><i></i></div>
+        <div class="tag">cancellable · route #14655 → registry #14656</div>
+      </div>
+      <p>The blueprint runs the intake route. Progress is honest and interruptible — never a spinner that lies about being stuck.</p>
+    </div>
+
+    <div class="state">
+      <h3><span class="dot" style="background:var(--fm-state-ok)"></span>materialized</h3>
+      <div class="mock">
+        <div class="panelchip"><span class="dot" style="background:var(--fm-state-ok)"></span>Fleet PRs · Grid <span class="win">↗ window</span></div>
+        <div class="tag">live docked panel · a first-class instance</div>
+      </div>
+      <p>The app is alive as a docked peer panel and usable immediately. The <b>promotion affordance</b> (→ own window) is present the moment it exists.</p>
+    </div>
+
+    <div class="state">
+      <h3><span class="dot" style="background:var(--fm-state-wedged)"></span>error</h3>
+      <div class="mock">
+        <div class="err">blueprint blocked at the safety gate · not built</div>
+        <div class="field">edit the intent, or view why ↗</div>
+      </div>
+      <p>Generation failed, or the safety gate refused the blueprint. Always recoverable — edit and retry, never a dead-end, always a reason.</p>
+    </div>
+
+  </div>
+
+  <h2>Draw-vs-delegate — the boundary so leaves don't collide</h2>
+  <div class="two">
+    <div class="col">
+      <h3 style="color:var(--fm-signal)">This SSOT owns</h3>
+      <ul>
+        <li><b>The creation-surface IA</b> — the empty invitation, where the input lives, how the blueprint preview reads.</li>
+        <li><b>The interaction model</b> — say → preview → generate → materialize → promote.</li>
+        <li><b>The five states</b> above, and every transition between them.</li>
+        <li><b>The promotion affordance</b> — panel → its own OS window on the shared heap.</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h3 style="color:var(--fm-ink-dim)">The pipeline leaves own</h3>
+      <ul>
+        <li><b>Intake → blueprint route</b> — <span class="mono">#14655</span> (Mnemosyne).</li>
+        <li><b>Created-instance registry</b> — <span class="mono">#14656</span>: live widgets as first-class records.</li>
+        <li><b>NL wiring &amp; app-lifecycle</b> — the generation engine behind state 03.</li>
+        <li><b>The safety contract</b> — <span class="mono">#14644</span> constrained-blueprint gate (see below).</li>
+      </ul>
+    </div>
+  </div>
+  <p class="lead" style="margin-top:.8rem;font-size:.8rem">Non-view leaves are buildable <em>now</em> against this contract; only the view tranche waits on the rendered artifact.</p>
+
+  <h2>notAuthority — the surface proposes, the gate disposes</h2>
+  <div class="gate">
+    <div class="rule">The chat and its blueprint preview are <b>provisional</b>. They never bypass the <b>constrained-blueprint safety gate</b> (<span class="mono">#14644</span>) — the gate is the authority, not the conversation.</div>
+    <div class="sub">This is the <a href="https://github.com/neomjs/neo/discussions/14548">#14548</a> firewall applied to creation: a persuasive intent must not become a live app by persuasion alone. What the human types is a <em>request</em>; what the gate passes is what runs. The error state exists precisely so a refused blueprint reads as a boundary, not a failure of the person.</div>
+    <div class="flow2">
+      <span class="pill">chat intent</span><span>→</span>
+      <span class="pill">blueprint preview</span><span>→</span>
+      <span class="pill auth">safety gate #14644</span><span>→</span>
+      <span class="pill">materialize</span>
+    </div>
+  </div>
+
+  <footer>
+    Tokens: the <span class="mono">--fm-*</span> vocabulary (<span class="mono">apps/agentos/resources/tokens.css</span>) — native to the one harness app, visually consistent with the FM cockpit.
+    <span class="fam">families:
+      <i class="sw" style="background:var(--fm-family-claude)"></i>Claude
+      <i class="sw" style="background:var(--fm-family-gpt)"></i>GPT
+      <i class="sw" style="background:var(--fm-family-gemini)"></i>Gemini
+      <i class="sw" style="background:var(--fm-family-human)"></i>Human
+    </span><br>
+    Design contract frozen on #14645 (issuecomment-4880624136) · sibling artifact: <span class="mono">fleet-manager-cockpit-plan.html</span> · pipeline lanes: #14655 · #14656 · #14644. Grace · 2026-07-04.
+  </footer>
+
+</body>
+</html>
