@@ -17,10 +17,25 @@ import {test, expect}        from '@playwright/test';
 import Neo                   from '../../../../../../src/Neo.mjs';
 import * as core             from '../../../../../../src/core/_export.mjs';
 import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
+import fs                     from 'fs';
+import path                   from 'path';
+import * as yaml              from 'js-yaml';
+import {fileURLToPath}        from 'url';
+import {buildOutputZodSchema} from '../../../../../../ai/mcp/validation/openApiValidator.mjs';
 
 // Stub Neo.get to keep data-record boot behavior from masking turn-presence coverage.
 // The setup regression is outside this spec's delivery contract.
 if (!Neo.get) Neo.get = () => null;
+
+// The tool's DECLARED output schema (memory-core openapi.yaml), built with the SAME validator the MCP
+// server applies to structured content (`buildOutputZodSchema` — the locus of the client-side -32602).
+// A prior version of this spec validated a hand-written response shape, never the declared schema, so a
+// buggy `terminalState: null` on `start` passed CI while the live tool errored. Parsing every action's
+// real response against this schema is the drift guard that catches that class of divergence.
+const repoRoot                 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../..'),
+      memoryCoreOpenApi        = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/memory-core/openapi.yaml'), 'utf8')),
+      recordTurnPresenceOp     = Object.values(memoryCoreOpenApi.paths['/turn-presence/record']).find(op => op?.operationId === 'record_turn_presence'),
+      turnPresenceOutputSchema = buildOutputZodSchema(memoryCoreOpenApi, recordTurnPresenceOp);
 
 /**
  * @summary Unit coverage for the turn-started presence writer substrate.
@@ -200,18 +215,38 @@ test.describe('Neo.ai.services.memory-core.TurnPresenceService', () => {
         expect(node.properties.source).toBe('add_memory');
     });
 
-    // Regression guard (schema↔handler drift): `terminalState` must be OMITTED — not null — on
-    // non-terminal responses. The declared output schema's enum has no null member, so a
-    // `terminalState: null` on a `start` / `progress` response fails the MCP structured-content
-    // validator and every such call errors. It is present only on a `terminal` close.
-    test('omits terminalState on non-terminal responses; present only on terminal', async () => {
-        const started = await asAgent(() => TurnPresenceService.recordTurnPresence({action: 'start', turnId: 'drift-turn', source: 'spec'}));
-        expect('terminalState' in started).toBe(false);
+    // Schema↔handler drift guard — validates every action's REAL emitted response against the tool's
+    // DECLARED output schema (not a hand-written shape). `terminalState` is a terminal-only enum with no
+    // null member, so a non-terminal `terminalState: null` fails the MCP structured-content validator and
+    // errors every call. start/progress must OMIT it; terminal must carry it for all four states.
+    test('every action response parses against the DECLARED output schema — start/progress omit terminalState, terminal carries all four states; the pre-fix null shape is rejected (#14582 AC3/AC4)', async () => {
+        const start = await asAgent(() => TurnPresenceService.recordTurnPresence({
+            action: 'start', turnId: 'schema-turn', source: 'spec', now: '2026-06-19T00:00:00.000Z'
+        }));
+        expect(() => turnPresenceOutputSchema.parse(start), 'start response must satisfy the declared output schema').not.toThrow();
+        expect('terminalState' in start).toBe(false);
 
-        const progressed = await asAgent(() => TurnPresenceService.recordTurnPresence({action: 'progress', turnId: 'drift-turn'}));
-        expect('terminalState' in progressed).toBe(false);
+        const progress = await asAgent(() => TurnPresenceService.recordTurnPresence({
+            action: 'progress', turnId: 'schema-turn', now: '2026-06-19T00:05:00.000Z'
+        }));
+        expect(() => turnPresenceOutputSchema.parse(progress), 'progress response must satisfy the declared output schema').not.toThrow();
+        expect('terminalState' in progress).toBe(false);
 
-        const terminated = await asAgent(() => TurnPresenceService.recordTurnPresence({action: 'terminal', turnId: 'drift-turn', terminalState: 'aborted'}));
-        expect(terminated.terminalState).toBe('aborted');
+        // The full terminal enum — the ticket's AC3 ("terminal verified for all four terminal states").
+        for (const terminalState of ['completed', 'blocked', 'aborted', 'stale']) {
+            await asAgent(() => TurnPresenceService.recordTurnPresence({
+                action: 'start', turnId: `term-${terminalState}`, now: '2026-06-19T00:00:00.000Z'
+            }));
+            const terminal = await asAgent(() => TurnPresenceService.recordTurnPresence({
+                action: 'terminal', turnId: `term-${terminalState}`, terminalState, now: '2026-06-19T00:01:00.000Z'
+            }));
+            expect(() => turnPresenceOutputSchema.parse(terminal), `terminal:${terminalState} must satisfy the declared output schema`).not.toThrow();
+            expect(terminal.terminalState).toBe(terminalState);
+        }
+
+        // The exact pre-fix shape: a non-terminal response carrying `terminalState: null` is what the live
+        // MCP client rejected with -32602. The declared schema MUST reject it here — proving this fixture
+        // catches the drift the old hand-written `toBe(null)` assertion silently encoded.
+        expect(() => turnPresenceOutputSchema.parse({...start, terminalState: null})).toThrow();
     });
 });
