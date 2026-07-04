@@ -1195,7 +1195,9 @@ class GraphService extends Base {
                 data = JSON.parse(row.data);
             } catch(e) { continue; }
 
-            if (data.label !== 'SYSTEM_ANCHOR' && data.label !== 'System' && data.label !== 'ADR' && data.label !== 'ISSUE' && data.label !== 'DISCUSSION' && data.label !== 'PULL_REQUEST' && data.label !== 'SESSION' && data.label !== 'MEMORY' && data.label !== 'AgentIdentity' && data.label !== 'BroadcastSentinel' && data.label !== 'WAKE_SUBSCRIPTION') {
+            // SUMMARY_SESSION / SUMMARY_DAILY: durable temporal-pyramid records (ai/graph/temporalSummarySchema.mjs)
+            // are irreplaceable aggregation facts — an edge-less window record is still substrate, never orphan-collectable.
+            if (data.label !== 'SYSTEM_ANCHOR' && data.label !== 'System' && data.label !== 'ADR' && data.label !== 'ISSUE' && data.label !== 'DISCUSSION' && data.label !== 'PULL_REQUEST' && data.label !== 'SESSION' && data.label !== 'MEMORY' && data.label !== 'AgentIdentity' && data.label !== 'BroadcastSentinel' && data.label !== 'WAKE_SUBSCRIPTION' && data.label !== 'SUMMARY_SESSION' && data.label !== 'SUMMARY_DAILY') {
                 orphaned.push(row.id);
             }
         }

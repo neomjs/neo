@@ -1,11 +1,11 @@
-import aiConfig                  from '../../mcp/server/memory-core/config.mjs';
-import fs                        from 'fs-extra';
-import logger                    from '../../mcp/server/memory-core/logger.mjs';
-import path                      from 'path';
-import readline                  from 'readline';
-import Base                      from '../../../src/core/Base.mjs';
-import StorageRouter             from './managers/StorageRouter.mjs';
-import DestructiveOperationGuard from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
+import aiConfig                                                   from '../../mcp/server/memory-core/config.mjs';
+import fs                                                         from 'fs-extra';
+import logger                                                     from '../../mcp/server/memory-core/logger.mjs';
+import path                                                       from 'path';
+import readline                                                   from 'readline';
+import Base                                                       from '../../../src/core/Base.mjs';
+import StorageRouter                                              from './managers/StorageRouter.mjs';
+import DestructiveOperationGuard                                  from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
 import {partitionRowsByVectorValidity, summarizeVectorRejections} from './helpers/vectorWriteInvariant.mjs';
 
 /**
@@ -70,7 +70,7 @@ class DatabaseService extends Base {
         logger.log(`Found ${count} documents in ${collectionName} to export.`);
 
         await fs.ensureDir(backupPath);
-        const timestamp = new Date().toISOString().replace(/:/g, '-');
+        const timestamp   = new Date().toISOString().replace(/:/g, '-');
         const backupFile  = path.join(backupPath, `${filePrefix}-${timestamp}.jsonl`);
         const writeStream = fs.createWriteStream(backupFile);
         const stats       = {
@@ -203,7 +203,7 @@ class DatabaseService extends Base {
         const path = (await import('path')).default;
         await fs.ensureDir(backupPath);
 
-        const timestamp = new Date().toISOString().replace(/:/g, '-');
+        const timestamp   = new Date().toISOString().replace(/:/g, '-');
         const backupFile  = path.join(backupPath, `${filePrefix}-${timestamp}.jsonl`);
         const writeStream = fs.createWriteStream(backupFile);
 
@@ -286,8 +286,8 @@ class DatabaseService extends Base {
         //     still INSERT; live-only IDs untouched. This preserves live post-wipe re-ingestion
         //     while letting backups fill records that are genuinely missing.
         const conflictClause = mode === 'replace' ? 'OR REPLACE' : 'OR IGNORE';
-        const insertNode = db.prepare(`INSERT ${conflictClause} INTO Nodes (id, user_id, data) VALUES (?, ?, ?)`);
-        const insertEdge = db.prepare(`
+        const insertNode     = db.prepare(`INSERT ${conflictClause} INTO Nodes (id, user_id, data) VALUES (?, ?, ?)`);
+        const insertEdge     = db.prepare(`
             INSERT ${conflictClause} INTO Edges (id, user_id, source, target, type, data)
             VALUES (?, ?, ?, ?, ?, ?)
         `);
@@ -367,7 +367,7 @@ class DatabaseService extends Base {
     }
 
     /**
-     * Exports the memory database (memories, summaries, graph) to JSONL files.
+     * Exports the memory database (memories, summaries, temporal summaries, graph) to JSONL files.
      *
      * Accepts an optional `backupPath` so orchestrators (e.g. `ai/scripts/maintenance/backup.mjs`)
      * can direct artifacts into a subfolder of an atomic timestamped bundle without
@@ -375,14 +375,14 @@ class DatabaseService extends Base {
      * to `aiConfig.backupPath`).
      *
      * @param {Object}    options
-     * @param {String[]} [options.include=['memories','summaries','graph']] Array of collections to export.
+     * @param {String[]} [options.include=['memories','summaries','temporal-summaries','graph']] Array of collections to export.
      * @param {String}   [options.backupPath=aiConfig.backupPath]           Directory for the JSONL artifacts.
      * @returns {Promise<Object>}
      */
-    async exportDatabase({include=['memories', 'summaries', 'graph'], backupPath = aiConfig.backupPath} = {}) {
+    async exportDatabase({include=['memories', 'summaries', 'temporal-summaries', 'graph'], backupPath = aiConfig.backupPath} = {}) {
         try {
             logger.log('Starting agent memory export...');
-            let memoryStats = null, summaryStats = null, graphStats = null;
+            let memoryStats = null, summaryStats = null, temporalSummaryStats = null, graphStats = null;
 
             if (include.includes('memories')) {
                 const collection = await StorageRouter.getMemoryCollection();
@@ -394,21 +394,28 @@ class DatabaseService extends Base {
                 summaryStats     = await this.#exportCollection(collection, backupPath, 'summaries-backup', aiConfig.collections.session);
             }
 
+            if (include.includes('temporal-summaries')) {
+                const collection = await StorageRouter.getTemporalSummaryCollection();
+                temporalSummaryStats = await this.#exportCollection(collection, backupPath, 'temporal-summary-backup', aiConfig.collections.temporalSummary);
+            }
+
             if (include.includes('graph')) {
                 const graphCount = await this.#exportGraph(backupPath, 'graph-backup');
                 graphStats       = {expected: graphCount, exported: graphCount};
             }
 
-            const memoryCount  = memoryStats?.exported || 0,
-                  summaryCount = summaryStats?.exported || 0,
-                  graphCount   = graphStats?.exported || 0,
-                  result       = {
-                      message: `Export complete. Exported ${memoryCount} memories, ${summaryCount} summaries, and ${graphCount} graph elements.`,
-                      count  : memoryCount + summaryCount + graphCount
+            const memoryCount          = memoryStats?.exported || 0,
+                  summaryCount         = summaryStats?.exported || 0,
+                  temporalSummaryCount = temporalSummaryStats?.exported || 0,
+                  graphCount           = graphStats?.exported || 0,
+                  result               = {
+                      message: `Export complete. Exported ${memoryCount} memories, ${summaryCount} summaries, ${temporalSummaryCount} temporal summaries, and ${graphCount} graph elements.`,
+                      count  : memoryCount + summaryCount + temporalSummaryCount + graphCount
                   };
 
             if (memoryStats) result.memories = memoryStats;
             if (summaryStats) result.summaries = summaryStats;
+            if (temporalSummaryStats) result.temporalSummaries = temporalSummaryStats;
             if (graphStats) result.graph = graphStats;
 
             return result
@@ -480,9 +487,10 @@ class DatabaseService extends Base {
                 const subsystemsToWipe = new Set();
                 for (const filePath of filesToImport) {
                     const base = path.basename(filePath);
-                    if      (base.startsWith('graph-backup'))  subsystemsToWipe.add('graph');
-                    else if (base.startsWith('memory-backup')) subsystemsToWipe.add('memories');
-                    else                                       subsystemsToWipe.add('summaries');
+                    if      (base.startsWith('graph-backup'))            subsystemsToWipe.add('graph');
+                    else if (base.startsWith('memory-backup'))           subsystemsToWipe.add('memories');
+                    else if (base.startsWith('temporal-summary-backup')) subsystemsToWipe.add('temporal-summaries');
+                    else                                                 subsystemsToWipe.add('summaries');
                 }
 
                 if (subsystemsToWipe.size > 0) {
@@ -500,10 +508,11 @@ class DatabaseService extends Base {
             // mode runs `collection.upsert()` after subsystem truncate. `memoriesInserted` remains
             // as a backward-compatible aggregate of memories.inserted + summaries.inserted.
             const subsystemCounts = {
-                graph           : null,
-                memories        : {inserted: 0, skippedExisting: 0, failed: 0},
-                summaries       : {inserted: 0, skippedExisting: 0, failed: 0},
-                memoriesInserted: 0
+                graph            : null,
+                memories         : {inserted: 0, skippedExisting: 0, failed: 0},
+                summaries        : {inserted: 0, skippedExisting: 0, failed: 0},
+                temporalSummaries: {inserted: 0, skippedExisting: 0, failed: 0},
+                memoriesInserted : 0
             };
 
             // Atomic vector-write invariant: an explicit-embedding import must carry a valid same-dimension
@@ -525,16 +534,21 @@ class DatabaseService extends Base {
                 }
 
                 // Determine which collection to import into based on filename heuristics
-                const isMemoryBackup = path.basename(filePath).startsWith('memory-backup');
-                let   collection     = isMemoryBackup
+                const isMemoryBackup          = path.basename(filePath).startsWith('memory-backup');
+                const isTemporalSummaryBackup = path.basename(filePath).startsWith('temporal-summary-backup');
+                let   collection              = isMemoryBackup
                     ? await StorageRouter.getMemoryCollection()
-                    : await StorageRouter.getSummaryCollection();
+                    : isTemporalSummaryBackup
+                        ? await StorageRouter.getTemporalSummaryCollection()
+                        : await StorageRouter.getSummaryCollection();
 
                 targetCollectionName = collection.name; // roughly tracking target
 
                 // Route per-file counters into the right substrate bucket so memories vs summaries
-                // truthful counts stay separable across multi-file batches.
-                const chromaCounts = isMemoryBackup ? subsystemCounts.memories : subsystemCounts.summaries;
+                // vs temporal summaries truthful counts stay separable across multi-file batches.
+                const chromaCounts = isMemoryBackup
+                    ? subsystemCounts.memories
+                    : isTemporalSummaryBackup ? subsystemCounts.temporalSummaries : subsystemCounts.summaries;
 
                 const fileStream = fs.createReadStream(filePath);
                 const rl         = readline.createInterface({input: fileStream, crlfDelay: Infinity});
@@ -704,6 +718,12 @@ class DatabaseService extends Base {
                 const proxy = Neo.create('Neo.ai.services.memory-core.managers.CollectionProxy', { collectionType: 'session' });
                 await proxy.drop({confirmation});
                 truncated.push('summaries');
+            }
+
+            if (include.includes('temporal-summaries')) {
+                const proxy = Neo.create('Neo.ai.services.memory-core.managers.CollectionProxy', { collectionType: 'temporalSummary' });
+                await proxy.drop({confirmation});
+                truncated.push('temporal-summaries');
             }
 
             if (include.includes('graph')) {
