@@ -60,12 +60,28 @@ test.describe('keeper request→blueprint route + the ONE shared validator (cons
         }
     });
 
-    test('mutations run the same contract — no key creation could not add (§4)', () => {
-        expect(schema.validateMutation('grid@1', {config: {height: 400}})).toEqual({accepted: true, reason: null});
-        expect(schema.validateMutation('grid@1', {config: {renderer: 'x'}}).accepted).toBe(false);
-        expect(schema.validateMutation('grid@1', {vdom: {}}).accepted).toBe(false);
-        expect(schema.validateMutation('grid@1', {data: [{f: () => {}}]}).accepted).toBe(false);
-        expect(schema.validateMutation('nope@9', {config: {}}).accepted).toBe(false);
+    test('mutations run merge-then-validate — no state creation could not reach (§4)', () => {
+        const current = validGrid();
+
+        // config shallow-merges: "make it taller" preserves columns; the validator returns the merged result
+        const taller = schema.validateMutation(current, {config: {height: 400}});
+        expect(taller.accepted).toBe(true);
+        expect(taller.blueprint.config.height).toBe(400);
+        expect(taller.blueprint.config.columns).toEqual(current.config.columns);
+
+        // key-level refusals, unchanged
+        expect(schema.validateMutation(current, {config: {renderer: 'x'}}).accepted).toBe(false);
+        expect(schema.validateMutation(current, {vdom: {}}).accepted).toBe(false);
+        expect(schema.validateMutation(current, {data: [{f: () => {}}]}).accepted).toBe(false);
+
+        // schema-owned SHAPE symmetry: partials that would reach a creation-invalid state are refused
+        expect(schema.validateMutation(current, {title: 42}).accepted).toBe(false);
+        expect(schema.validateMutation(current, {data: 'not rows'}).accepted).toBe(false);
+        expect(schema.validateMutation(current, {data: ['not object']}).accepted).toBe(false);
+        expect(schema.validateMutation(current, {config: {columns: ['bad']}}).accepted).toBe(false);
+
+        // a corrupted current blueprint fails closed before any merge
+        expect(schema.validateMutation({schema: 'nope@9', title: 'x', config: {}, data: []}, {config: {}}).accepted).toBe(false);
     });
 
     test('route refusals are staged data, never exceptions', async () => {

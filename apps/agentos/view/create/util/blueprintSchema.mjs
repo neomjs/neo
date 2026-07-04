@@ -12,8 +12,9 @@
  *
  * Hard exclusions enforced by construction, everywhere in the payload (deep scan):
  * function values · `html`/`innerHTML`-class keys · event-handler configs (`listeners`,
- * `handler(s)`, `on*`) · unregistered schemas · non-allowlisted config keys. Mutations are partial
- * blueprints under the SAME validator — a follow-up can never introduce a key creation couldn't.
+ * `handler(s)`, `on*`) · unregistered schemas · non-allowlisted config keys. Mutations run
+ * merge-then-validate: the partial merges into the current blueprint and the merged result must
+ * pass the FULL creation validator — a follow-up can never reach a state creation couldn't.
  */
 
 /**
@@ -169,47 +170,52 @@ export function validateBlueprint(blueprint) {
 }
 
 /**
- * @summary Validates a follow-up MUTATION as a partial blueprint under the same contract: only
- * allowlisted config keys and/or data may change; schema and executable-surface rules apply
- * unchanged (a mutation can never introduce what creation couldn't).
- * @param {String} schema The live instance's registered schema id
+ * @summary Validates a follow-up MUTATION by merge-then-validate: the partial `{title?, config?,
+ * data?}` is merged into the CURRENT blueprint (title/data replace, config shallow-merges so
+ * "make it taller" preserves columns) and the merged result runs the FULL creation validator.
+ * A mutation is valid exactly when the merged result would be creation-valid — the symmetry is
+ * structural, not a second rule set that could drift from the first.
+ *
+ * On acceptance the merged blueprint is returned: the validator owns the merge semantics, so
+ * consumers never hand-merge (a second merge implementation is the same drift risk twice).
+ * @param {Object} currentBlueprint The live instance's current full blueprint
  * @param {Object} mutation Partial `{title?, config?, data?}`
- * @returns {{accepted: Boolean, reason: String|null}}
+ * @returns {{accepted: Boolean, reason: String|null, blueprint: Object|null}} `blueprint` is the
+ * merged result when accepted, null when refused
  */
-export function validateMutation(schema, mutation) {
-    const schemaDef = BLUEPRINT_SCHEMAS[schema];
+export function validateMutation(currentBlueprint, mutation) {
+    const current = validateBlueprint(currentBlueprint);
 
-    if (!schemaDef) {
-        return {accepted: false, reason: `unregistered blueprint schema "${schema}"`};
+    if (!current.accepted) {
+        return {accepted: false, reason: `current blueprint is not valid: ${current.reason}`, blueprint: null};
     }
 
     if (mutation == null || typeof mutation !== 'object' || Array.isArray(mutation)) {
-        return {accepted: false, reason: 'mutation must be a plain object'};
+        return {accepted: false, reason: 'mutation must be a plain object', blueprint: null};
     }
 
     const unknownKeys = Object.keys(mutation).filter(key => !['title', 'config', 'data'].includes(key));
 
     if (unknownKeys.length > 0) {
-        return {accepted: false, reason: `mutations may only touch title/config/data — unexpected: ${unknownKeys.join(', ')}`};
+        return {accepted: false, reason: `mutations may only touch title/config/data — unexpected: ${unknownKeys.join(', ')}`, blueprint: null};
     }
 
-    if ('config' in mutation) {
-        if (mutation.config == null || typeof mutation.config !== 'object' || Array.isArray(mutation.config)) {
-            return {accepted: false, reason: 'mutation config must be a plain object'};
-        }
-
-        const violations = Object.keys(mutation.config).filter(key => !schemaDef.configAllowlist.includes(key));
-
-        if (violations.length > 0) {
-            return {accepted: false, reason: `mutation config keys outside the ${schema} allowlist: ${violations.join(', ')}`};
-        }
+    if ('config' in mutation && (mutation.config == null || typeof mutation.config !== 'object' || Array.isArray(mutation.config))) {
+        return {accepted: false, reason: 'mutation config must be a plain object', blueprint: null};
     }
 
-    const executable = findExecutableSurface(mutation, 'mutation');
+    const merged = {
+        ...currentBlueprint,
+        ...('title'  in mutation ? {title: mutation.title} : {}),
+        ...('data'   in mutation ? {data: mutation.data}   : {}),
+        ...('config' in mutation ? {config: {...currentBlueprint.config, ...mutation.config}} : {})
+    };
 
-    if (executable) {
-        return {accepted: false, reason: executable};
+    const result = validateBlueprint(merged);
+
+    if (!result.accepted) {
+        return {accepted: false, reason: result.reason, blueprint: null};
     }
 
-    return {accepted: true, reason: null};
+    return {accepted: true, reason: null, blueprint: merged};
 }
