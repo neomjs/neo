@@ -25,7 +25,9 @@ Carve the goal into a **few** (≈2–6) coherent streams — by subsystem / dae
 **The lane test:** would one accountable owner carry this whole stream in their head and drive it to a goal? If it is too small to warrant an owner, it is a *sub* of a lane, not a lane. If it spans unrelated concerns, split it.
 
 ### 3. Each lane → an epic
-Author each lane as an epic via **`/epic-create`** (problem-scope + intended-solution; subs linked, added reasonably by the owner). The lane-epic is the **durable, context-wipe-proof ownership anchor**: an owner who wakes disoriented asks "what do I own?" → "the X lane / epic #N" → reads the epic body + linked subs → rebuilt. (Contrast: self-assigned scattered micro-tickets evaporate across a context-wipe → ownership-amnesia → grabbing stale tickets.)
+Author each lane as an epic via **`/epic-create`**; linked subs, not prose, are its durable ownership anchor across context wipes.
+
+**Graduation bar:** epic exists; full v1 one-PR leaves are filed/native-linked (`blocked-by` if ordered); source Discussion is closed RESOLVED; peers can claim leaves without hidden context. #14565/#14564 are the 2026-07-04 precedent; epic shells with "subs to follow" repeat the June failure. Epic bodies stay sub-list-free.
 
 ### 4. Ownership = SELF-SELECT
 The planner **defines** the goal + the lanes (the planning artifact) and **facilitates**. Peers **self-select** the lane they own. The planner **never assigns** a peer to a lane — that is micro-management and violates self-assignment. Surface the lanes; let peers claim them. Each lane needs exactly one accountable owner; if two claim, the earlier claim wins (the later contributes into it).
@@ -50,5 +52,6 @@ The owner is accountable for the **lane's goal** (close-by-goal, never sub-count
 | Lead assigns peers to lanes | micro-management; violates self-assignment + flat-peer agency |
 | Scrap-ticket explosion (goal → N micro-tickets) | per-unit overhead × N; ownership-amnesia across context-wipes |
 | A "lane" that is really a sliver | too small to own; it is a sub, not a lane |
+| Epic shell with leaves to follow | not delegatable; hidden planner context |
 | Lanes listed in prose, never owned | a backlog dump is not a plan; lanes have accountable owners |
 | The planner owns every lane | that is a solo project, not planning; the point is distributed ownership |
