@@ -94,4 +94,35 @@ test.describe('identityHydration — the regenerable index, never a snapshot-as-
         expect(fresh.currentEra.since).toBe('2026-07-04T00:00:00Z');
         expect(fresh.eraCount).toBe(3);
     });
+
+    test('staleness compares the FULL projected era shape — same since/model with changed facts reads stale (reviewer falsifier)', () => {
+        const {identity, episodes} = buildResident();
+        const index                = hydration.buildHydrationIndex({identityNode: identity, episodes}).index;
+
+        // same since + same model, but the head era's projected FACTS changed (capabilities bump):
+        // a partial-key check would serve the outdated index as current — the full-shape compare must not
+        const head    = episodes[episodes.length - 1];
+        const changed = [...episodes.slice(0, -1), Object.freeze({...head, capabilities: {...head.capabilities, contextWindowInput: 999}})];
+
+        expect(hydration.isIndexCurrent(index, changed)).toBe(false);
+
+        // tier drift with identical since/model reads stale too
+        const retiered = [...episodes.slice(0, -1), Object.freeze({...head, tier: 'mythos'})];
+        expect(hydration.isIndexCurrent(index, retiered)).toBe(false);
+    });
+
+    test('malformed RAW episodes do not hydrate — the chain gate refuses before any projection (reviewer falsifier)', () => {
+        const {identity, episodes} = buildResident();
+
+        const rawBad = {id: 'raw-x', type: schema.IDENTITY_NODE_TYPES.EMBODIED_EPISODE, identityKey: identity.identityKey, model: 'm', family: 'claude', since: 'not-a-date', until: null};
+        const result = hydration.buildHydrationIndex({identityNode: identity, episodes: [rawBad]});
+
+        expect(result.valid).toBe(false);
+        expect(result.index).toBeNull();
+        expect(result.reason).toContain('unparseable since');
+
+        // and a malformed row hiding inside an otherwise-valid chain refuses the same way
+        const mixed = hydration.buildHydrationIndex({identityNode: identity, episodes: [...episodes, {...rawBad, until: '2026-07-01T00:00:00Z', since: 'garbage'}]});
+        expect(mixed.valid).toBe(false);
+    });
 });

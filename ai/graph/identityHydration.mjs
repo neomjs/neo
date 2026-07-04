@@ -53,18 +53,29 @@ export function buildHydrationIndex({identityNode, episodes} = {}) {
             regenerable: true,
             identityKey: identityNode.identityKey,
             socialLayer: identityNode.socialLayer,
-            currentEra : Object.freeze({
-                model : head.model,
-                family: head.family,
-                since : head.since,
-                ...(head.tier    !== undefined ? {tier: head.tier}       : {}),
-                ...(head.harness !== undefined ? {harness: head.harness} : {}),
-                capabilities: head.capabilities
-            }),
-            eraCount  : ordered.length,
-            firstSince: ordered[0].since
+            currentEra : projectCurrentEra(head),
+            eraCount   : ordered.length,
+            firstSince : ordered[0].since
         })
     }
+}
+
+/**
+ * @summary The ONE current-era projection — used by the builder AND the staleness check, so the
+ * comparison can never drift from the projected shape (one rule set, two call sites: the same
+ * structural-symmetry move as merge-then-validate on the blueprint side).
+ * @param {Object} head The chain's open head era
+ * @returns {Object} frozen projection
+ */
+function projectCurrentEra(head) {
+    return Object.freeze({
+        model : head.model,
+        family: head.family,
+        since : head.since,
+        ...(head.tier    !== undefined ? {tier: head.tier}       : {}),
+        ...(head.harness !== undefined ? {harness: head.harness} : {}),
+        capabilities: head.capabilities
+    })
 }
 
 /**
@@ -80,7 +91,9 @@ export function isIndexCurrent(index, episodes) {
     const ordered = [...episodes].sort((a, b) => Date.parse(a.since) - Date.parse(b.since));
     const head    = ordered[ordered.length - 1];
 
+    // Full projected-shape comparison via the SAME projection the builder uses: an index whose
+    // head-era FACTS changed (capabilities, tier, harness, family) is stale even when since and
+    // model still match — a partial-key check would silently serve outdated facts as current.
     return index.eraCount === ordered.length &&
-        index.currentEra.since === head.since &&
-        index.currentEra.model === head.model
+        JSON.stringify(index.currentEra) === JSON.stringify(projectCurrentEra(head))
 }
