@@ -356,6 +356,54 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(handoffContent).not.toContain('- **Head SHA**:');
     });
 
+    test('synthesizeGoldenPath appends the Handoff Retrospective from merged + opened PR facts (#14706)', async () => {
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        aiConfig.vectorDimension = 2;
+
+        StorageRouter.getGraphCollection   = async () => ({ query: async () => ({ ids: [['mock-id']], distances: [[0.1]] }) });
+        StorageRouter.getSummaryCollection = async () => ({ get: async () => ({ documents: ['mock document'] }) });
+        TextEmbeddingService.embedText     = async () => [0.1, 0.2];
+
+        const now      = new Date();
+        const hoursAgo = h => new Date(now.getTime() - h * 3600 * 1000).toISOString();
+
+        const originalFetchOpenPRs         = GoldenPathSynthesizer.fetchOpenPRs;
+        const originalFetchRecentMergedPRs = GoldenPathSynthesizer.fetchRecentMergedPRs;
+
+        // opened-PRs come from the open-PR list (in-window); merged-PRs from the bounded merged query
+        GoldenPathSynthesizer.fetchOpenPRs = async () => [
+            {number: 14682, url: 'https://github.com/neomjs/neo/pull/14682', author: {login: 'neo-fable'}, title: 'registry snapshot clone', createdAt: hoursAgo(5), reviewRequests: [], reviews: [], comments: []}
+        ];
+        GoldenPathSynthesizer.fetchRecentMergedPRs = async () => [
+            {number: 14678, title: 'keeper request route', mergedAt: hoursAgo(3)},
+            {number: 99999, title: 'ancient merge outside the window', mergedAt: hoursAgo(500)}
+        ];
+
+        try {
+            await GoldenPathSynthesizer.synthesizeGoldenPath({now});
+        } finally {
+            GoldenPathSynthesizer.fetchOpenPRs         = originalFetchOpenPRs;
+            GoldenPathSynthesizer.fetchRecentMergedPRs = originalFetchRecentMergedPRs;
+            StorageRouter.getGraphCollection           = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection         = originalGetSummaryCollection;
+            TextEmbeddingService.embedText             = originalEmbedText;
+        }
+
+        const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
+
+        expect(handoffContent).toContain('## Handoff Retrospective (3-Day');
+        expect(handoffContent).toContain('- Merged PRs: 1 `[filters: merged+opened PRs, all authors]`');
+        expect(handoffContent).toContain('- Opened PRs: 1 `[filters: merged+opened PRs, all authors]`');
+        expect(handoffContent).toContain('PR #14678 — keeper request route');
+        expect(handoffContent).toContain('PR #14682 — registry snapshot clone');
+        // the 500h-old merge is outside the 3-day window — count stays 1, it never renders
+        expect(handoffContent).not.toContain('ancient merge outside the window');
+        // firewall: the retrospective introduces no numbered route entries into the handoff
+        expect(handoffContent).not.toMatch(/\d+\.\s\*\*issue-\d+\*\*:[^\n]*\n\s+-\s\*.*?\*/);
+    });
+
     test('synthesizeGoldenPath overwrites stale author sections when semantic candidates are empty', async () => {
         const originalGetGraphCollection   = StorageRouter.getGraphCollection;
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
@@ -1751,22 +1799,22 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     test('renderWorkGraphStallFindingsSection is bounded, visibility-only, and honors render-off', () => {
         const findings = [
             {
-                evidenceRefs      : ['#9601', 'approvedAt:2026-07-01T01:00:00.000Z'],
-                findingClass      : 'DECISION_STARVED',
-                grade             : 'verified-stall',
-                motionPredicate   : 'PR merges or loses approval',
-                sourceFidelity    : 'verified',
-                subject           : {number: 9601, title: 'Approved PR', type: 'PR'},
-                waitingSince      : '2026-07-01T01:00:00.000Z'
+                evidenceRefs   : ['#9601', 'approvedAt:2026-07-01T01:00:00.000Z'],
+                findingClass   : 'DECISION_STARVED',
+                grade          : 'verified-stall',
+                motionPredicate: 'PR merges or loses approval',
+                sourceFidelity : 'verified',
+                subject        : {number: 9601, title: 'Approved PR', type: 'PR'},
+                waitingSince   : '2026-07-01T01:00:00.000Z'
             },
             {
-                evidenceRefs      : ['#9505', 'blockedBy:9506'],
-                findingClass      : 'STALE_DEFER',
-                grade             : 'candidate-stall',
-                motionPredicate   : 'defer exit satisfied',
-                sourceFidelity    : 'candidate',
-                subject           : {number: 9505, title: 'Resolved blocker defer', type: 'ISSUE'},
-                waitingSince      : '2026-05-15T00:00:00.000Z'
+                evidenceRefs   : ['#9505', 'blockedBy:9506'],
+                findingClass   : 'STALE_DEFER',
+                grade          : 'candidate-stall',
+                motionPredicate: 'defer exit satisfied',
+                sourceFidelity : 'candidate',
+                subject        : {number: 9505, title: 'Resolved blocker defer', type: 'ISSUE'},
+                waitingSince   : '2026-05-15T00:00:00.000Z'
             }
         ];
 
