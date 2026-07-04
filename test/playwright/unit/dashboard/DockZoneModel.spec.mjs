@@ -217,6 +217,84 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             expect(DockZoneModel.restoreSavedLayout(layout).errors).toEqual([])
         });
 
+        test('capturePerspective emits a v2 window-scope record with a shape-only fingerprint', () => {
+            const {layout, errors} = DockZoneModel.capturePerspective(doc(), {
+                layoutId       : 'capture-1',
+                title          : 'Capture One',
+                perspectiveName: 'Morning Focus'
+            });
+
+            expect(errors).toEqual([]);
+            expect(layout.schema).toBe(DockZoneModel.LAYOUT_SCHEMA);
+            expect(layout.captureScope).toBe('window');
+            expect(layout.perspectiveName).toBe('Morning Focus');
+            expect(layout.windowFingerprint.schema).toBe('neo.harness.dockShape.v1');
+            expect(typeof layout.windowFingerprint.shape).toBe('string');
+            expect(layout.windowFingerprint.itemCount).toBeGreaterThan(0);
+            expect(DockZoneModel.restoreSavedLayout(layout).errors).toEqual([])
+        });
+
+        test('stored fingerprint matches the PERSISTED document, not the pre-normalized input (single-child split collapse)', () => {
+            // a split with one child normalizes away — the persisted root becomes the child tabs
+            const d = splitDoc();
+            d.nodes['main-split'].children = ['main-tabs'];
+            d.nodes['main-split'].sizes    = [1];
+            delete d.nodes['side-tabs'];
+            delete d.items.terminal;
+
+            const {layout, errors} = DockZoneModel.capturePerspective(d, {layoutId: 'c', title: 'C'});
+
+            expect(errors).toEqual([]);
+            // the stored fingerprint must equal the persisted tree's fingerprint by construction…
+            expect(layout.windowFingerprint)
+                .toEqual(DockZoneModel.computeShapeFingerprint(layout.dockZone).fingerprint);
+            // …and must NOT carry the collapsed split wrapper the raw input had
+            expect(layout.windowFingerprint.shape)
+                .not.toBe(DockZoneModel.computeShapeFingerprint(d).fingerprint.shape);
+            expect(layout.windowFingerprint.shape).not.toContain('h(')
+        });
+
+        test('cyclic node graphs fail closed through the public return shapes, never a throw', () => {
+            const cyclic = doc();
+            cyclic.nodes['loop-split'] = {type: 'split', orientation: 'horizontal', children: ['main-tabs', 'loop-split'], sizes: [0.5, 0.5]};
+            cyclic.nodes.root.zones.center = 'loop-split';
+
+            const direct = DockZoneModel.computeShapeFingerprint(cyclic);
+            expect(direct.fingerprint).toBe(null);
+            expect(direct.errors.join(' ')).toContain('cycle');
+
+            const captured = DockZoneModel.capturePerspective(cyclic, {layoutId: 'x', title: 'X'});
+            expect(captured.layout).toBe(null);
+            expect(captured.errors.length).toBeGreaterThan(0)
+        });
+
+        test('shape fingerprints are deterministic, id-free and shape-sensitive', () => {
+            const a = DockZoneModel.computeShapeFingerprint(doc()),
+                  b = DockZoneModel.computeShapeFingerprint(doc());
+
+            expect(a.errors).toEqual([]);
+            expect(a.fingerprint).toEqual(b.fingerprint);
+
+            // rename every node id — the shape must not change (id-freedom)
+            const renamed = JSON.parse(JSON.stringify(doc()).replaceAll('main-tabs', 'renamed-tabs'));
+            expect(DockZoneModel.computeShapeFingerprint(renamed).fingerprint.shape).toBe(a.fingerprint.shape);
+
+            // structural change → different shape term
+            const mutated = doc();
+            mutated.nodes['main-tabs'].items.push('extra-item');
+            expect(DockZoneModel.computeShapeFingerprint(mutated).fingerprint.shape).not.toBe(a.fingerprint.shape)
+        });
+
+        test('fingerprint walk fails closed on dangling node refs', () => {
+            const broken = doc();
+            broken.root = 'missing-node';
+
+            const {fingerprint, errors} = DockZoneModel.computeShapeFingerprint(broken);
+
+            expect(fingerprint).toBe(null);
+            expect(errors.join(' ')).toContain('missing-node')
+        });
+
         test('fails closed on perspective-field contract violations', () => {
             const badScope = DockZoneModel.createSavedLayout(doc(), {layoutId: 'x', title: 'X', captureScope: 'galaxy'});
             expect(badScope.layout).toBe(null);
