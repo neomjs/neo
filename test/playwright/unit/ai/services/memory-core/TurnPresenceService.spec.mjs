@@ -109,7 +109,7 @@ test.describe('Neo.ai.services.memory-core.TurnPresenceService', () => {
         expect(result.lastProgressAt).toBe('2026-06-19T00:00:00.000Z');
         expect(result.freshUntil).toBe('2026-06-19T00:30:00.000Z');
         expect(result.expiresAt).toBe('2026-06-19T01:00:00.000Z');
-        expect(result.terminalState).toBe(null);
+        expect(result.terminalState).toBeUndefined();
         expect(result.status).toBe('recorded');
 
         const node = getNode('turn-start');
@@ -198,5 +198,20 @@ test.describe('Neo.ai.services.memory-core.TurnPresenceService', () => {
         expect(node.properties.status).toBe('terminal');
         expect(node.properties.terminalState).toBe('completed');
         expect(node.properties.source).toBe('add_memory');
+    });
+
+    // Regression guard (schema↔handler drift): `terminalState` must be OMITTED — not null — on
+    // non-terminal responses. The declared output schema's enum has no null member, so a
+    // `terminalState: null` on a `start` / `progress` response fails the MCP structured-content
+    // validator and every such call errors. It is present only on a `terminal` close.
+    test('omits terminalState on non-terminal responses; present only on terminal', async () => {
+        const started = await asAgent(() => TurnPresenceService.recordTurnPresence({action: 'start', turnId: 'drift-turn', source: 'spec'}));
+        expect('terminalState' in started).toBe(false);
+
+        const progressed = await asAgent(() => TurnPresenceService.recordTurnPresence({action: 'progress', turnId: 'drift-turn'}));
+        expect('terminalState' in progressed).toBe(false);
+
+        const terminated = await asAgent(() => TurnPresenceService.recordTurnPresence({action: 'terminal', turnId: 'drift-turn', terminalState: 'aborted'}));
+        expect(terminated.terminalState).toBe('aborted');
     });
 });
