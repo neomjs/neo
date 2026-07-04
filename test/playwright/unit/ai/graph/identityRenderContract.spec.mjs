@@ -113,4 +113,18 @@ test.describe('identityRenderContract — the render-model consumer read-contrac
         expect(result.view).toBeNull();
         expect(result.reason).toContain('validated resident');
     });
+
+    test('sameResident FAILS CLOSED: anchorless / malformed render-view-shaped objects are NOT one resident', () => {
+        const T = contract.RENDER_VIEW_TYPE;
+
+        // two render-view-shaped objects with NO anchor must NOT collapse to true via `undefined === undefined`
+        expect(contract.sameResident({type: T}, {type: T})).toBe(false);
+        // blank or non-string anchors also fail closed
+        expect(contract.sameResident({type: T, selfKey: '   '}, {type: T, selfKey: '   '})).toBe(false);
+        expect(contract.sameResident({type: T, selfKey: null}, {type: T, selfKey: null})).toBe(false);
+        // and a real resident still matches itself across an era boundary (regression guard)
+        const {identity, episodes} = buildResident();
+        const view                 = contract.readResidentForRender({identityNode: identity, episodes}).view;
+        expect(contract.sameResident(view, view)).toBe(true);
+    });
 });

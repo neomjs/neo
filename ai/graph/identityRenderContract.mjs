@@ -84,9 +84,11 @@ export function readResidentForRender({identityNode, episodes} = {}) {
 
 /**
  * @summary The object-permanence predicate the render-model uses: two render-views are the SAME
- * resident exactly when they share the anchor `selfKey` — regardless of current model/family. This
- * is the reflexive-landing property at the consumer boundary: an Opus-era view and a
- * Fable-era view of the same anchor render as one continuous resident, never two selves.
+ * resident exactly when they share a **non-empty** anchor `selfKey` — regardless of current
+ * model/family. **Fail-closed:** a missing/blank/non-string anchor never matches, so two
+ * anchorless render-view-shaped objects are NOT one resident (never collapse via `undefined ===
+ * undefined`). This is the reflexive-landing property at the consumer boundary: an Opus-era view
+ * and a Fable-era view of the same anchor render as one continuous resident, never two selves.
  * @param {Object} viewA A render-view from {@link readResidentForRender}
  * @param {Object} viewB A render-view from {@link readResidentForRender}
  * @returns {Boolean}
@@ -94,5 +96,6 @@ export function readResidentForRender({identityNode, episodes} = {}) {
 export function sameResident(viewA, viewB) {
     return viewA?.type === RENDER_VIEW_TYPE &&
            viewB?.type === RENDER_VIEW_TYPE &&
+           typeof viewA.selfKey === 'string' && viewA.selfKey.trim() !== '' &&
            viewA.selfKey === viewB.selfKey;
 }
