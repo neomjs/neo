@@ -370,9 +370,10 @@ test.describe('Neo.ai.services.knowledge-base.QueryService#queryDocuments', () =
             // it; the final list is score-sorted then capped at `limit` (QueryService L235). The semantic top-k is
             // stubbed above (the "miss" the rescue is proving it recovers from), so `limit` only sizes the final
             // rescued set — it must exceed the graph dir size + the cross-dir anchors (e.g. memory-core
-            // GraphService.mjs), else simply adding a graph file evicts a boundary anchor. 25 = the production
-            // default, with headroom over the current dir size.
-            limit          : 25,
+            // GraphService.mjs), else simply adding a graph file evicts a boundary anchor. The graph dir has grown
+            // to 23 `.mjs` files; with the rescue now collecting the full dir (QueryService inner limit), the
+            // final cap must exceed the full rescued set (dir + cross-dir anchors), so this stresses at 40.
+            limit          : 40,
             includeMetadata: true
         });
         const sources = result.results.map(item => item.source);
