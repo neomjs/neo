@@ -1,5 +1,5 @@
-import {defineComponent} from '../../../../src/functional/_export.mjs';
-import {stateToken}      from './StateDot.mjs';
+import Component    from '../../../../src/component/Base.mjs';
+import {stateToken} from './StateDot.mjs';
 
 /**
  * Canonical legend label per session-state category. Kept beside the state→token map so the fleet
@@ -34,42 +34,109 @@ export function stateLabel(state) {
  * legend row (no count) and the count-carrying bar unit the health summary consumes (set `count`).
  * An unknown category renders off-toned with its literal text — never invisible.
  *
- * @summary Health-summary swatch — legend row + count-bar unit, agent-health axis.
+ * @class AgentOS.view.fleet.HealthSwatch
+ * @extends Neo.component.Base
  */
-export default defineComponent({
-    config: {
+class HealthSwatch extends Component {
+    static config = {
+        /**
+         * @member {String} className='AgentOS.view.fleet.HealthSwatch'
+         * @protected
+         */
         className: 'AgentOS.view.fleet.HealthSwatch',
-        ntype    : 'fm-health-swatch',
+        /**
+         * @member {String} ntype='fm-health-swatch'
+         * @protected
+         */
+        ntype: 'fm-health-swatch',
+        /**
+         * @member {String[]} baseCls=['fm-health-swatch']
+         */
+        baseCls: ['fm-health-swatch'],
         /**
          * The session-state category this swatch legends — `ok` · `idle` · `wedged` · `limited` · `off`.
          * An unknown category renders off-toned with its literal text.
          * @member {String} state_='ok'
+         * @reactive
          */
         state_: 'ok',
         /**
          * Optional count for the bar-unit shape (the health-summary consumer). `null` renders a plain
-         * legend row; a number renders a count beside the label (e.g. "3 working").
+         * legend row; a number renders a count beside the label (e.g. "3 working"). A zero still renders.
          * @member {Number|null} count_=null
+         * @reactive
          */
         count_: null,
         /**
          * Optional label override. Defaults to the canonical category label for `state`.
          * @member {String|null} label_=null
+         * @reactive
          */
-        label_: null
-    },
+        label_: null,
+        /**
+         * The dot (colored via the shared state token), an optional count (bar-unit shape), and the
+         * category label. The count node is `removeDom`-toggled so a plain legend row omits it.
+         * @member {Object} _vdom
+         */
+        _vdom:
+        {cn: [
+            {cls: ['fm-sw-dot']},
+            {tag: 'span', cls: ['fm-sw-count'], removeDom: true},
+            {tag: 'span', cls: ['fm-sw-label']}
+        ]}
+    }
 
-    createVdom(config) {
-        const cn = [
-            {cls: ['fm-sw-dot'], style: {'--fm-dot': `var(${stateToken(config.state)})`}}
-        ];
+    /**
+     * Triggered after the state config changed — rebinds the dot's `--fm-dot` token (shared with
+     * StateDot on the agent-health axis) and refreshes the label (when no override is set).
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetState(value, oldValue) {
+        this.vdom.cn[0].style = {'--fm-dot': `var(${stateToken(value)})`};
+        this.applyLabel();
+        this.update()
+    }
 
-        if (config.count != null) {
-            cn.push({tag: 'span', cls: ['fm-sw-count'], text: String(config.count)})
+    /**
+     * Triggered after the count config changed — a number renders the count node (a zero still
+     * renders, to confirm "none"); `null` removes it so the swatch is a plain legend row.
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetCount(value, oldValue) {
+        let countNode = this.vdom.cn[1];
+
+        if (value == null) {
+            countNode.removeDom = true
+        } else {
+            countNode.removeDom = false;
+            countNode.text      = String(value)
         }
 
-        cn.push({tag: 'span', cls: ['fm-sw-label'], text: config.label ?? stateLabel(config.state)});
-
-        return {cls: ['fm-health-swatch'], cn}
+        this.update()
     }
-});
+
+    /**
+     * Triggered after the label override changed — refreshes the label text.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetLabel(value, oldValue) {
+        this.applyLabel();
+        this.update()
+    }
+
+    /**
+     * The label is the override, else the canonical category label (unknown → its literal text).
+     * @protected
+     */
+    applyLabel() {
+        this.vdom.cn[2].text = this.label ?? stateLabel(this.state)
+    }
+}
+
+export default Neo.setupClass(HealthSwatch);
