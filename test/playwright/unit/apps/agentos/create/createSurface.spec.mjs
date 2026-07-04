@@ -17,7 +17,7 @@ import * as core       from '../../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 
 test.describe('CreateSurface — the wedge screen: five states, one provider, the whole spine (#14720)', () => {
-    let Controller, Provider, oracle, deterministicBlueprintFallback;
+    let Controller, Provider, oracle, deterministicBlueprintFallback, formatPreviewConfig;
 
     // a stage double honoring the container seam the controller drives
     const createStageDouble = () => {
@@ -70,9 +70,10 @@ test.describe('CreateSurface — the wedge screen: five states, one provider, th
         Provider   = (await import('../../../../../../apps/agentos/view/create/CreationStateProvider.mjs')).default;
         oracle     = await import('../../../../../../apps/agentos/view/create/util/creationFlowState.mjs');
         deterministicBlueprintFallback = (await import('../../../../../../apps/agentos/view/create/CreateSurfaceController.mjs')).deterministicBlueprintFallback;
+        formatPreviewConfig = (await import('../../../../../../apps/agentos/view/create/BlueprintPreview.mjs')).formatPreviewConfig;
     });
 
-    test('the happy wedge: compose → submit → materialized, instance in the stage AND the registry', async () => {
+    test('the happy wedge: compose → submit → preview → confirm → materialized, instance in the stage AND the registry', async () => {
         const {provider, stage, controller, CreatedInstances} = await createRig();
         const S                                               = oracle.CREATION_STATES;
 
@@ -83,7 +84,14 @@ test.describe('CreateSurface — the wedge screen: five states, one provider, th
 
         await controller.onSubmitIntent();
 
+        expect(provider.getData('flowState')).toBe(S.COMPOSING);
+        expect(provider.getData('candidateBlueprint').schema).toBe('grid@1');
+        expect(stage.added).toHaveLength(0);                          // route acceptance is preview only
+
+        controller.onConfirmPreview();
+
         expect(provider.getData('flowState')).toBe(S.MATERIALIZED);
+        expect(provider.getData('candidateBlueprint')).toBeNull();
         expect(stage.added).toHaveLength(1);                          // the ONE create path was used
         expect(stage.added[0].ntype).toBe('grid-container');
 
@@ -113,6 +121,7 @@ test.describe('CreateSurface — the wedge screen: five states, one provider, th
 
         expect(provider.getData('flowState')).toBe(S.ERROR);
         expect(provider.getData('flowReason')).toContain('forbidden key'); // the pipeline reason, verbatim
+        expect(provider.getData('candidateBlueprint')).toBeNull();          // refused candidates never preview
         expect(stage.added).toHaveLength(0);                              // nothing reached the stage
 
         controller.onRetry();
@@ -133,10 +142,15 @@ test.describe('CreateSurface — the wedge screen: five states, one provider, th
 
         controller.onIntentChange();
         await controller.onSubmitIntent();
+        expect(provider.getData('flowState')).toBe(S.COMPOSING);
+        expect(provider.getData('candidateBlueprint')).not.toBeNull();
+
+        controller.onConfirmPreview();
 
         expect(provider.getData('flowState')).toBe(S.ERROR);              // never materialized
         expect(provider.getData('flowReason')).toContain('stage');        // the ACCEPT path's reason, not the route's
         expect(provider.getData('activeInstanceId')).toBeNull();          // no phantom instance
+        expect(provider.getData('candidateBlueprint')).toBeNull();        // no stale candidate behind ERROR
 
         controller.onRetry();
         expect(provider.getData('flowState')).toBe(S.COMPOSING);          // recoverable like every refusal
@@ -150,6 +164,7 @@ test.describe('CreateSurface — the wedge screen: five states, one provider, th
 
         controller.onIntentChange();
         await controller.onSubmitIntent();
+        controller.onConfirmPreview();
         const instanceId = provider.getData('activeInstanceId');
 
         controller.onDispose();
@@ -159,6 +174,46 @@ test.describe('CreateSurface — the wedge screen: five states, one provider, th
         expect(CreatedInstances.resolveTarget({instanceId}).state).toBe('disposed');
 
         provider.destroy(); controller.destroy()
+    });
+
+    test('edit preview clears only the candidate and restores the composing affordance', async () => {
+        const {provider, stage, field, controller} = await createRig({request: 'make a fleet grid'});
+        const S                                    = oracle.CREATION_STATES;
+
+        controller.onIntentChange();
+        await controller.onSubmitIntent();
+
+        expect(provider.getData('flowState')).toBe(S.COMPOSING);
+        expect(provider.getData('candidateBlueprint')).not.toBeNull();
+
+        controller.onEditPreview();
+
+        expect(provider.getData('flowState')).toBe(S.COMPOSING);
+        expect(provider.getData('candidateBlueprint')).toBeNull();
+        expect(field.value).toBe('make a fleet grid');
+        expect(stage.added).toHaveLength(0);
+
+        provider.destroy(); controller.destroy()
+    });
+
+    test('preview config rendering follows the schema allowlist, never candidate keys', () => {
+        const hostile = {
+            schema: 'grid@1',
+            title : 'Hostile extra',
+            config: {
+                columns: [{field: 'safe', text: 'Safe'}],
+                height : 320,
+                evil   : 'must not render'
+            },
+            data: [{safe: 'yes'}]
+        };
+
+        const text = formatPreviewConfig(hostile);
+
+        expect(text).toContain('columns: safe -> Safe');
+        expect(text).toContain('height: 320');
+        expect(text).not.toContain('evil');
+        expect(text).not.toContain('must not render');
     });
 
     test('no flow booleans anywhere: state truth lives ONLY on the provider (the §7.5.1 audit line)', async () => {

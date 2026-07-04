@@ -87,6 +87,32 @@ test.describe('CreationStateProvider — the shared flow-state surface, oracle-g
         provider.destroy()
     });
 
+    test('an accepted route outcome parks an atomic candidate for preview, then edit clears it', () => {
+        const provider  = Neo.create(ProviderClass, {}),
+              blueprint = {
+                  schema: 'grid@1',
+                  title : 'Preview me',
+                  config: {columns: [{field: 'item', text: 'Item'}]},
+                  data  : [{item: 'one'}]
+              };
+
+        provider.applyFlowEvent(E.COMPOSE);
+        provider.applyFlowEvent(E.SUBMIT);
+
+        const previewed = provider.applyPreviewRouteOutcome({accepted: true, blueprint, reason: null});
+
+        expect(previewed.state).toBe(S.COMPOSING);
+        expect(provider.getData('flowState')).toBe(S.COMPOSING);
+        expect(provider.getData('candidateBlueprint')).toEqual(blueprint);
+
+        provider.applyPreviewEdit();
+
+        expect(provider.getData('flowState')).toBe(S.COMPOSING);
+        expect(provider.getData('candidateBlueprint')).toBeNull();
+
+        provider.destroy()
+    });
+
     test('the registry is exposed to bindings via stores', () => {
         const provider = Neo.create(ProviderClass, {});
 

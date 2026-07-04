@@ -21,9 +21,10 @@
  * illegal transition returns the CURRENT state plus a reason, so the hook cancels the update
  * (neo core's return-`undefined`-from-beforeSet idiom) rather than corrupting state.
  *
- * The accept-path outcome drives the generating→terminal fork: an accepted route result advances
- * to MATERIALIZED; a refused one advances to ERROR carrying the refusal reason to the SSOT's
- * "always a reason" error render.
+ * The route outcome first drives the generating→preview fork: an accepted route result parks the
+ * candidate and returns to COMPOSING; a refused one advances to ERROR carrying the refusal reason.
+ * The accept-path outcome later drives the generating→terminal fork: only a successfully inserted
+ * instance advances to MATERIALIZED.
  */
 
 /**
@@ -44,14 +45,15 @@ export const CREATION_STATES = Object.freeze({
  * @type {Object}
  */
 export const CREATION_EVENTS = Object.freeze({
-    COMPOSE : 'compose',  // the user starts typing an intent
-    SUBMIT  : 'submit',   // the previewed blueprint is sent to the route
-    ACCEPTED: 'accepted', // the route returned a validated blueprint
-    REFUSED : 'refused',  // the route/validator refused (carries a reason)
-    EDIT    : 'edit',     // back to composing to refine words/blueprint
-    RETRY   : 'retry',    // from ERROR, edit-and-retry
-    RESET   : 'reset',    // clear back to the empty invitation
-    DISPOSE : 'dispose'   // the materialized panel is disposed
+    COMPOSE  : 'compose',   // the user starts typing an intent
+    SUBMIT   : 'submit',    // the intent/candidate enters a guarded route or accept step
+    PREVIEWED: 'previewed', // the route returned a validated candidate for human confirmation
+    ACCEPTED : 'accepted',  // the accept path inserted the blueprint into the stage
+    REFUSED  : 'refused',   // the route/validator/accept path refused (carries a reason)
+    EDIT     : 'edit',      // back to composing to refine words/blueprint
+    RETRY    : 'retry',     // from ERROR, edit-and-retry
+    RESET    : 'reset',     // clear back to the empty invitation
+    DISPOSE  : 'dispose'    // the materialized panel is disposed
 });
 
 /**
@@ -69,9 +71,10 @@ const TRANSITIONS = Object.freeze({
         [CREATION_EVENTS.RESET] : CREATION_STATES.EMPTY
     }),
     [CREATION_STATES.GENERATING]: Object.freeze({
-        [CREATION_EVENTS.ACCEPTED]: CREATION_STATES.MATERIALIZED,
-        [CREATION_EVENTS.REFUSED] : CREATION_STATES.ERROR,
-        [CREATION_EVENTS.RESET]   : CREATION_STATES.EMPTY   // the cancellable path
+        [CREATION_EVENTS.PREVIEWED]: CREATION_STATES.COMPOSING,
+        [CREATION_EVENTS.ACCEPTED] : CREATION_STATES.MATERIALIZED,
+        [CREATION_EVENTS.REFUSED]  : CREATION_STATES.ERROR,
+        [CREATION_EVENTS.RESET]    : CREATION_STATES.EMPTY   // the cancellable path
     }),
     [CREATION_STATES.MATERIALIZED]: Object.freeze({
         [CREATION_EVENTS.EDIT]   : CREATION_STATES.COMPOSING, // mutate the live app via a follow-up
@@ -121,6 +124,24 @@ export function nextCreationState(current, event, {reason} = {}) {
     }
 
     return {state: target, reason: null, changed: target !== current};
+}
+
+/**
+ * @summary Maps an emit-side route outcome (`{accepted, reason, blueprint}`) to the preview fork
+ * from GENERATING. Accepted means a validated candidate can render for human confirmation; refused
+ * means the route/validator blocked it and the flow lands in ERROR with the refusal reason.
+ * @param {String} current Should be GENERATING; any other state returns unchanged with a reason
+ * @param {{accepted: Boolean, reason: String|null}} outcome The route result
+ * @returns {{state: String, reason: String|null, changed: Boolean}}
+ */
+export function applyPreviewOutcome(current, outcome) {
+    if (current !== CREATION_STATES.GENERATING) {
+        return {state: current, reason: `preview outcome only resolves from generating, not "${current}"`, changed: false};
+    }
+
+    return outcome?.accepted
+        ? nextCreationState(current, CREATION_EVENTS.PREVIEWED)
+        : nextCreationState(current, CREATION_EVENTS.REFUSED, {reason: outcome?.reason});
 }
 
 /**

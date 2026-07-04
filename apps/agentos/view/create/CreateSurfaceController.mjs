@@ -84,13 +84,18 @@ class CreateSurfaceController extends Controller {
         const provider = this.getProvider(),
               state    = provider.getData('flowState');
 
+        if (provider.getData('candidateBlueprint')) {
+            provider.applyPreviewEdit();
+            return
+        }
+
         provider.applyFlowEvent(state === 'empty' ? CREATION_EVENTS.COMPOSE : CREATION_EVENTS.EDIT)
     }
 
     /**
      * The submit path — the whole spine in one handler, every step branching on bounded
      * `{accepted, reason}` shapes, nothing thrown into the render:
-     * composing → generating → (route) → materialized | error.
+     * composing → generating → (route) → composing+candidate | error.
      * @protected
      */
     async onSubmitIntent() {
@@ -106,30 +111,51 @@ class CreateSurfaceController extends Controller {
         const generate = me.generateBlueprint || (async text => deterministicBlueprintFallback(text));
         const routed   = await routeCreationRequest({request, generate});
 
-        if (!routed.accepted) {
-            provider.applyCreationRouteOutcome(routed); // generating → error, the route's reason verbatim
-            return
-        }
+        provider.applyPreviewRouteOutcome(routed); // accepted → composing+candidate, refused → error
+    }
+
+    /**
+     * Confirms the previewed candidate and runs the existing accept path. MATERIALIZED remains
+     * accept-path truth: route acceptance only created the candidate, never the live instance.
+     * @protected
+     */
+    onConfirmPreview() {
+        const me        = this,
+              provider  = me.getProvider(),
+              blueprint = provider.getData('candidateBlueprint');
+
+        if (!blueprint) return;
+
+        const submitted = provider.applyFlowEvent(CREATION_EVENTS.SUBMIT);
+
+        if (submitted.state !== 'generating') return;
 
         // MATERIALIZED is accept-path truth, never route truth: the provider only leaves
         // `generating` after the accept path has actually put an instance into the stage. Both
         // refusal sources (route above, accept-stage here) land ERROR from `generating`.
         const instanceId = `keeper-grid-${++instanceSeq}`,
               accepted   = acceptBlueprint({
-                  blueprint: routed.blueprint,
+                  blueprint,
                   instanceId,
                   stage    : me.getReference('create-stage'),
                   registry : CreatedInstances
               });
 
         if (accepted.accepted) {
-            provider.applyCreationRouteOutcome(routed); // generating → materialized — now TRUE
-            provider.setData({activeInstanceId: instanceId})
+            provider.applyCreationRouteOutcome(accepted, instanceId); // generating → materialized — now TRUE
         } else {
             // accept-stage refusal AFTER route acceptance (dead stage, duplicate id, coverage
             // defect): honest ERROR carrying the ACCEPT PATH's reason; no active instance
-            provider.applyCreationRouteOutcome({accepted: false, reason: accepted.reason})
+            provider.applyCreationRouteOutcome(accepted)
         }
+    }
+
+    /**
+     * Returns from candidate preview to raw composing via the provider's recorded EDIT event.
+     * @protected
+     */
+    onEditPreview() {
+        this.getProvider().applyPreviewEdit()
     }
 
     /**
@@ -151,7 +177,7 @@ class CreateSurfaceController extends Controller {
 
         if (instanceId) {
             disposeInstance({instanceId, registry: CreatedInstances});
-            provider.setData({activeInstanceId: null})
+            provider.clearActiveInstance()
         }
 
         provider.applyFlowEvent(CREATION_EVENTS.DISPOSE)

@@ -1,3 +1,4 @@
+import BlueprintPreview        from './BlueprintPreview.mjs';
 import Button                  from '../../../../src/button/Base.mjs';
 import Container               from '../../../../src/container/Base.mjs';
 import CreateSurfaceController from './CreateSurfaceController.mjs';
@@ -93,6 +94,8 @@ class CreateSurface extends Container {
                     [CREATION_STATES.ERROR]       : `Blocked: ${data.flowReason || 'generation refused'} — edit and retry; never a dead-end.`
                 })[data.flowState] || ''
             }
+        }, {
+            module: BlueprintPreview
         }, {
             // The action strip — state-dependent affordances, all provider-event dispatchers.
             module: Container,

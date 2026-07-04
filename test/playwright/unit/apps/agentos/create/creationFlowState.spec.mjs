@@ -16,19 +16,22 @@ import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 
 test.describe('creationFlowState — the five keeper-flow states as a pure machine (#14711)', () => {
-    let S, E, next, applyRouteOutcome;
+    let S, E, next, applyPreviewOutcome, applyRouteOutcome;
 
     test.beforeAll(async () => {
         const mod = await import('../../../../../../apps/agentos/view/create/util/creationFlowState.mjs');
         S = mod.CREATION_STATES;
         E = mod.CREATION_EVENTS;
         next = mod.nextCreationState;
+        applyPreviewOutcome = mod.applyPreviewOutcome;
         applyRouteOutcome = mod.applyRouteOutcome;
     });
 
     test('the SSOT wedge flow runs end to end through legal transitions', () => {
-        // empty → composing → generating → materialized, then dispose back to empty
+        // empty → composing → generating → previewed/composing → generating → materialized
         expect(next(S.EMPTY, E.COMPOSE)).toEqual({state: S.COMPOSING, reason: null, changed: true});
+        expect(next(S.COMPOSING, E.SUBMIT).state).toBe(S.GENERATING);
+        expect(next(S.GENERATING, E.PREVIEWED).state).toBe(S.COMPOSING);
         expect(next(S.COMPOSING, E.SUBMIT).state).toBe(S.GENERATING);
         expect(next(S.GENERATING, E.ACCEPTED).state).toBe(S.MATERIALIZED);
         expect(next(S.MATERIALIZED, E.DISPOSE).state).toBe(S.EMPTY);
@@ -59,6 +62,7 @@ test.describe('creationFlowState — the five keeper-flow states as a pure machi
         const illegal = [
             [S.EMPTY, E.SUBMIT],
             [S.COMPOSING, E.ACCEPTED],
+            [S.COMPOSING, E.PREVIEWED],
             [S.EMPTY, E.DISPOSE],
             [S.MATERIALIZED, E.SUBMIT],
             [S.ERROR, E.ACCEPTED]
@@ -77,7 +81,7 @@ test.describe('creationFlowState — the five keeper-flow states as a pure machi
     });
 
     test('applyRouteOutcome maps a real-shaped route result to the terminal fork', () => {
-        // accepted → materialized
+        // accepted → materialized (accept path truth)
         expect(applyRouteOutcome(S.GENERATING, {accepted: true, reason: null}).state).toBe(S.MATERIALIZED);
 
         // refused → error, reason carried from the pipeline
@@ -88,5 +92,15 @@ test.describe('creationFlowState — the five keeper-flow states as a pure machi
         // only resolves from generating — a stray outcome elsewhere is a no-op with a reason
         expect(applyRouteOutcome(S.COMPOSING, {accepted: true}).changed).toBe(false);
         expect(applyRouteOutcome(S.MATERIALIZED, {accepted: false, reason: 'x'}).state).toBe(S.MATERIALIZED);
+    });
+
+    test('applyPreviewOutcome maps route acceptance to the human-confirmation card', () => {
+        expect(applyPreviewOutcome(S.GENERATING, {accepted: true, reason: null}).state).toBe(S.COMPOSING);
+
+        const refused = applyPreviewOutcome(S.GENERATING, {accepted: false, reason: 'blocked'});
+        expect(refused.state).toBe(S.ERROR);
+        expect(refused.reason).toBe('blocked');
+
+        expect(applyPreviewOutcome(S.EMPTY, {accepted: true}).changed).toBe(false);
     });
 });
