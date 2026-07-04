@@ -686,6 +686,40 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         expect(readBack.readAt).toBeTruthy();
     });
 
+    test('unread counts are stable across consecutive cold-cache listMessages calls — reads never revert reads (#14797)', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        let msgId;
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const res = await MailboxService.addMessage({ to: '@bob', subject: 'stable', body: 'count me once' });
+            msgId = res.messageId;
+        });
+
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await MailboxService.markRead({ messageId: msgId });
+        });
+
+        clearGraphCacheWithoutStorageMutation();
+
+        const firstPass = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            return await MailboxService.listMessages({status: 'all'});
+        });
+        const secondPass = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            return await MailboxService.listMessages({status: 'all'});
+        });
+
+        const unreadOf = result => result.messages.filter(message => !message.readAt).length;
+        const target   = result => result.messages.find(message => message.messageId === msgId);
+
+        // The invariant: a read operation never reverts a committed mark_read — so two
+        // consecutive cold-cache reads agree with each other AND with the committed state.
+        expect(target(firstPass)?.readAt).toBeTruthy();
+        expect(target(secondPass)?.readAt).toBeTruthy();
+        expect(unreadOf(secondPass)).toBe(unreadOf(firstPass));
+    });
+
     test('a pure cold-cache vicinity re-hydration is storage-neutral (#14426)', async () => {
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
