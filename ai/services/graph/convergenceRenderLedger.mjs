@@ -155,6 +155,23 @@ export function buildConvergenceRenderLedger(computeResult, {now} = {}) {
 }
 
 /**
+ * @summary Renders one contract-axis payload into a legible markdown-table cell. Axis values are small
+ * objects (e.g. `{trustTier: 'system'}`), so a naive `String(obj)` emits `[object Object]`; this folds them
+ * to compact `key=value` pairs (JSON-encoding any nested value) and escapes `|` so the table survives.
+ * @param {*} value the axis payload — object, primitive, or null.
+ * @returns {String} a table-safe cell; `—` when the axis is absent.
+ */
+function formatAxisCell(value) {
+    if (value === null || value === undefined) return '—';
+
+    const cell = typeof value === 'object'
+        ? (Object.entries(value).map(([key, val]) => `${key}=${typeof val === 'object' ? JSON.stringify(val) : val}`).join(', ') || '{}')
+        : String(value);
+
+    return cell.replace(/\|/g, '\\|');   // an axis payload must never break the markdown table
+}
+
+/**
  * @summary Renders a ledger (from `buildConvergenceRenderLedger`) as the interim standalone artifact: a
  * human-readable markdown terrain report, provisional banner first, then the OQ7/OQ8 context, then the
  * weighted rows. Pure string projection — reads the ledger, computes nothing.
@@ -211,7 +228,7 @@ export function renderConvergenceLedgerText(ledger) {
             row.independenceBudget === null ? '—' : row.independenceBudget.toFixed(3),
             row.riskNode ? '⚠' : '',
             `\`${row.canonicalId}\``,
-            ...axisKeys.map(axis => row.axes[axis] === null || row.axes[axis] === undefined ? '—' : String(row.axes[axis])),
+            ...axisKeys.map(axis => formatAxisCell(row.axes[axis])),
             row.remeasureAt || '—'
         ];
 

@@ -175,6 +175,21 @@ test.describe('convergenceRenderLedger', () => {
         expect(text).toContain('`run-B`');
     });
 
+    test('renders object-valued contract-axis payloads legibly — never [object Object] (GPT RC on #14725)', () => {
+        const snap = buildConvergenceSnapshotNode({
+            latticeNodeId: 'alpha',
+            axes         : {authority: {trustTier: 'system'}, lifecycle: {state: 'candidate', verifiedAt: '2026-07-04'}}
+        });
+        snap.properties.convergenceWeight = 2;
+
+        const text = renderConvergenceLedgerText(buildConvergenceRenderLedger({snapshots: [snap]}, {now}));
+
+        expect(text).not.toContain('[object Object]');    // the exact defect GPT reproduced
+        expect(text).toContain('trustTier=system');        // authority axis folded to key=value
+        expect(text).toContain('state=candidate');         // lifecycle axis — multi-field, comma-joined
+        expect(text).toContain('verifiedAt=2026-07-04');
+    });
+
     test('an empty compute result renders a valid empty ledger, not a crash', () => {
         const ledger = buildConvergenceRenderLedger({snapshots: [], independenceBudget: 0, manifest: null}, {now});
 
