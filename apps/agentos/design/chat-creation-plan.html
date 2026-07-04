@@ -232,10 +232,10 @@
   <p class="lead" style="font-size:.82rem">This surface is <b>Body-hemisphere</b> code (<span class="mono">apps/agentos</span>) — it follows <span class="mono">src/</span> neo-core idioms, not <span class="mono">ai/</span> ones (#14714, operator-ratified after two violations shipped). The state machine above binds to the core contracts this way:</p>
   <div class="two">
     <div class="col">
-      <h3 style="color:var(--fm-signal)">The five states = ONE reactive config</h3>
+      <h3 style="color:var(--fm-signal)">The five states = ONE shared surface (state.Provider)</h3>
       <ul>
-        <li><b><span class="mono">flowState_</span> reactive config</b> — empty→composing→generating→materialized→error is a single reactive config with an <span class="mono">afterSetFlowState</span> hook, <em>never a parallel store</em> (the #14712 lesson: the transition table is the oracle <em>for</em> the config, not a second copy of state beside it).</li>
-        <li><b>Transitions batch via <span class="mono">set()</span></b> — a state change plus its side-effects go through <span class="mono">component.set(…)</span> (one EffectManager cascade, coherent <span class="mono">beforeSet</span>/<span class="mono">afterSet</span>) — never chained direct property assignments.</li>
+        <li><b>a shared <span class="mono">state.Provider</span> · <span class="mono">data.flowState</span></b> — empty→composing→generating→materialized→error live on the create-module's <span class="mono">state.Provider</span> as ONE binding surface (the many consumers — chat surface, blueprint preview, pane chrome, promote affordance — <span class="mono">bind</span> to it rather than reaching into one component's config), <em>never a parallel store</em> (the #14712 lesson: the transition table is the pure legality oracle <em>for</em> the state, not a second copy beside it). Realized in <span class="mono">CreationStateProvider</span> (#14719).</li>
+        <li><b>Transitions batch via one guarded <span class="mono">setData()</span></b> — a state change + its reason go through the provider's ONE oracle-guarded writer (<span class="mono">applyFlowEvent</span>), one batched write; an illegal transition mutates nothing and returns a bounded reason (never chained assignments, never throws — mirroring the pipeline's <span class="mono">{accepted, reason}</span>).</li>
       </ul>
     </div>
     <div class="col">
