@@ -205,4 +205,56 @@ test.describe('orchestrator/scheduling/dream (#11858 / Epic #11831)', () => {
             remBacklogCatchupCooldownMs: 0
         })).toBeNull();
     });
+
+    test('starvation-breaker forces one cycle when REM is stale past the threshold WITH a backlog (#14708)', () => {
+        const now = 14400000; // 4h; last SUCCESS at epoch (stale), last RUN 1 min ago (so periodic holds)
+        expect(getDueTask({
+            state                      : {lastRunAt: now - 60000, lastSuccessAt: new Date(0).toISOString()},
+            now,
+            dreamIntervalMs            : 3600000,   // 1h — not elapsed since lastRunAt
+            dreamOverflowThreshold     : 0.5,
+            remBacklogCatchupCooldownMs: 120000,
+            remStarvationBreakerMs     : 10800000,  // 3h — exceeded by the 4h-since-success staleness
+            undigestedBacklog          : 5
+        })).toEqual({taskName: 'dream', source: 'rem-starvation-breaker', reason: 'rem-starvation-breaker:10800000'});
+    });
+
+    test('starvation-breaker holds when there is no undigested backlog — nothing to rescue (#14708)', () => {
+        const now = 14400000;
+        expect(getDueTask({
+            state                      : {lastRunAt: now - 60000, lastSuccessAt: new Date(0).toISOString()},
+            now,
+            dreamIntervalMs            : 3600000,
+            dreamOverflowThreshold     : 0.5,
+            remBacklogCatchupCooldownMs: 120000,
+            remStarvationBreakerMs     : 10800000,
+            undigestedBacklog          : 0
+        })).toBeNull();
+    });
+
+    test('starvation-breaker holds within the staleness threshold — normal contention-yielding untouched (#14708)', () => {
+        const now = 3600000; // 1h; success 1 min ago — well within the 3h breaker threshold
+        expect(getDueTask({
+            state                      : {lastRunAt: now - 60000, lastSuccessAt: new Date(now - 60000).toISOString()},
+            now,
+            dreamIntervalMs            : 7200000,   // 2h — periodic holds
+            dreamOverflowThreshold     : 0.5,
+            remBacklogCatchupCooldownMs: 120000,
+            remStarvationBreakerMs     : 10800000,  // 3h — not yet exceeded
+            undigestedBacklog          : 5
+        })).toBeNull();
+    });
+
+    test('starvation-breaker is disabled when unwired (remStarvationBreakerMs omitted) — fail-open, no behavior change (#14708)', () => {
+        const now = 14400000;
+        expect(getDueTask({
+            state                      : {lastRunAt: now - 60000, lastSuccessAt: new Date(0).toISOString()},
+            now,
+            dreamIntervalMs            : 3600000,
+            dreamOverflowThreshold     : 0.5,
+            remBacklogCatchupCooldownMs: 120000,
+            undigestedBacklog          : 5
+            // remStarvationBreakerMs omitted → defaults 0 → disabled
+        })).toBeNull();
+    });
 });

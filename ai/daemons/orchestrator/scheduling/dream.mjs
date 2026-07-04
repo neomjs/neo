@@ -80,9 +80,14 @@ export function isRemBacklogCatchupEligible({state, dreamIntervalMs, dreamOverfl
  * @param {Number} options.dreamOverflowThreshold Config-owned fraction of cadence that makes
  * the completed prior cycle use completion-time cooldown.
  * @param {Number} options.remBacklogCatchupCooldownMs Short cooldown for saturated REM batches.
+ * @param {Number} [options.remStarvationBreakerMs=0] Staleness threshold past which a genuine consolidation
+ * STARVATION (stale + undigested backlog) forces one cycle regardless of the cooldown / contention yield.
+ * `0` (default / unwired) disables it — fail-open, never fail-loud, so existing callers are unaffected.
+ * @param {Number} [options.undigestedBacklog=0] Current undigested-session backlog count (the same signal the
+ * consolidation-liveness watchdog pairs with staleness); `0` means nothing to rescue, so the breaker holds.
  * @returns {Object|null} A dream task trigger or null when no work is due.
  */
-export function getDueTask({state, now, dreamIntervalMs, dreamOverflowThreshold, remBacklogCatchupCooldownMs}) {
+export function getDueTask({state, now, dreamIntervalMs, dreamOverflowThreshold, remBacklogCatchupCooldownMs, remStarvationBreakerMs = 0, undigestedBacklog = 0}) {
     requireFiniteNumber('dreamIntervalMs', dreamIntervalMs);
     requireFiniteNumber('dreamOverflowThreshold', dreamOverflowThreshold);
     requireFiniteNumber('remBacklogCatchupCooldownMs', remBacklogCatchupCooldownMs);
@@ -110,6 +115,22 @@ export function getDueTask({state, now, dreamIntervalMs, dreamOverflowThreshold,
             taskName: 'dream',
             source  : 'rem-backlog-catchup',
             reason  : `rem-backlog-catchup:${remBacklogCatchupCooldownMs}`
+        };
+    }
+
+    // Starvation-breaker (ticket-ref-ok: #14708 owning-leaf anchor): neither the periodic cadence nor the
+    // cooldown-gated / contention-yielding catch-up has fired, but REM has been stale past the starvation
+    // threshold WITH an undigested backlog — the exact stall the consolidation-liveness watchdog alarms on.
+    // Force ONE cycle regardless of the cooldown. A bounded max-deferral guard, NOT a cooldown removal:
+    // normal contention-yielding is untouched (no backlog OR within the threshold → this holds).
+    if (remStarvationBreakerMs > 0 &&
+        undigestedBacklog > 0 &&
+        lastSuccessAt !== null &&
+        now - lastSuccessAt >= remStarvationBreakerMs) {
+        return {
+            taskName: 'dream',
+            source  : 'rem-starvation-breaker',
+            reason  : `rem-starvation-breaker:${remStarvationBreakerMs}`
         };
     }
 
