@@ -117,6 +117,7 @@ export function buildOrchestratorSchedulingOptions({orchestrator, config, now, r
                 messageConceptHarvest          : config.orchestrator.intervals.messageConceptHarvestMs,
                 dreamOverflowThreshold         : config.orchestrator.intervals.dreamOverflowThreshold,
                 remBacklogCatchupCooldown      : config.orchestrator.intervals.remBacklogCatchupCooldownMs,
+                remStarvationBreaker           : config.orchestrator.intervals.remStarvationBreakerMs,
                 goldenPath                     : config.orchestrator.intervals.goldenPathMs,
                 swarmHeartbeat                 : config.orchestrator.intervals.swarmHeartbeatMs,
                 embedDrainLivenessWatchdogCheck: config.orchestrator.intervals.embedDrainLivenessWatchdogCheckMs,
@@ -818,6 +819,14 @@ async function runRemConsolidationLivenessWatchdogTask({taskName, reason, servic
             undigestedCount  = Array.isArray(undigested) ? undigested.length : 0;
         } catch {
             backlogReadFault = true;
+        }
+
+        // Persist the backlog count to the DREAM lane's state so its starvation-breaker (dream.mjs getDueTask)
+        // can read it without a second scan — the watchdog already paid for this read. Fail-open: skip on a
+        // backlog-read fault (the count stays 0/stale and the breaker holds rather than firing on noise).
+        if (!backlogReadFault) {
+            const dreamTaskState = services.taskStateService.getTaskState('dream');
+            if (dreamTaskState) dreamTaskState.undigestedCount = undigestedCount;
         }
 
         const state       = services.taskStateService.getTaskState(taskName);
