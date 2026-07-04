@@ -311,6 +311,15 @@ test.describe('Memory Core Config (#10010)', () => {
         expect(config.collections.graph).toBe('neo-native-graph');
     });
 
+    test('collections.temporalSummary resolves by construction from the *Prod/*Test leaves under the toggle (#14433)', () => {
+        // Same by-construction shape as memory/session above: the active name is a formula over
+        // `useTestDatabase`, the prod leaf is the canonical collection, the test leaf is the
+        // per-worker-unique module const — a unit run can never resolve the production name.
+        expect(config.collections.temporalSummaryProd).toBe('neo-temporal-summary');
+        expect(config.collections.temporalSummary).toMatch(/^test-temporal-summary-/);
+        expect(config.collections.temporalSummary).toBe(config.collections.temporalSummaryTest);
+    });
+
     test('remRunRetentionLimit defaults to 200 and parses NEO_REM_RUN_RETENTION_LIMIT as a number (#12123)', () => {
         expect(config.remRunRetentionLimit).toBe(200);
 

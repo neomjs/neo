@@ -325,11 +325,11 @@ class ChromaManager extends AbstractVectorManager {
      * cached Chroma collection promises/objects, leaving service readiness and graph state
      * untouched so the next operation lazily re-resolves by canonical collection name.
      *
-     * @param {'memory'|'summary'|'graph'|'all'} [collectionType='all']
+     * @param {'memory'|'summary'|'temporalSummary'|'graph'|'all'} [collectionType='all']
      * @returns {void}
      */
     invalidateCollectionCache(collectionType = 'all') {
-        const types = collectionType === 'all' ? ['memory', 'summary', 'graph'] : [collectionType];
+        const types = collectionType === 'all' ? ['memory', 'summary', 'temporalSummary', 'graph'] : [collectionType];
 
         for (const type of types) {
             if (type === 'memory') {
@@ -338,6 +338,9 @@ class ChromaManager extends AbstractVectorManager {
             } else if (type === 'summary') {
                 this._summaryCollectionPromise = null;
                 this.summaryCollection         = null;
+            } else if (type === 'temporalSummary') {
+                this._temporalSummaryCollectionPromise = null;
+                this.temporalSummaryCollection         = null;
             } else if (type === 'graph') {
                 this._graphCollectionPromise = null;
                 this.graphCollection         = null;
