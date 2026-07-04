@@ -66,6 +66,16 @@ Four named enums (`CONCEPT_EDGE_TYPES`, `ADR_EDGE_TYPES`, `PROTECTED_EDGE_TYPES`
 > PR per this record's own re-review trigger; new node classes ship with the post-sync integrity
 > canary.
 
+> **Amended by #14633 (Convergence-weighted GP, Leaf 1 of #14581):** registers the `CONVERGENCE_SNAPSHOT`
+> node class (`ai/services/graph/convergenceSnapshotSchema.mjs`) — the convergence-terrain sibling of the
+> ADR-0033 `EVOLUTION_GOAL` chain. Disposition: **additive, fail-open, re-derivable** (a read over the
+> goal→sub-goal lattice, not durable authority) and **render-only / human-facing** (its render-target is a
+> `notAuthority` terrain ledger no agent boot-path consumes). It is therefore **node-side non-protected —
+> DECAYING**: a snapshot stale past its `remeasureAt` is discarded and recomputed, never trusted. This is a
+> NODE-class disposition; `PROTECTED_EDGE_TYPES` (§2.3) governs EDGE facts, not node-class membership — the
+> two are orthogonal. Node writes + the post-sync integrity canary land with the compute leaf (#14634); this
+> leaf defines the schema only.
+
 ### 2.4 Topology — how it connects
 
 ```mermaid
