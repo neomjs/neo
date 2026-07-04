@@ -13,12 +13,12 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
-import fs             from 'fs';
-import path           from 'path';
-import os             from 'os';
+import {test, expect}        from '@playwright/test';
+import Neo                   from '../../../../../../src/Neo.mjs';
+import * as core             from '../../../../../../src/core/_export.mjs';
+import fs                    from 'fs';
+import path                  from 'path';
+import os                    from 'os';
 import {TestLifecycleHelper} from '../../services/memory-core/util.mjs';
 
 test.describe('Neo.ai.daemons.services.AdrIngestor', () => {
@@ -30,7 +30,7 @@ test.describe('Neo.ai.daemons.services.AdrIngestor', () => {
     let tmpRoot;
     let decisionsDir;
     let StorageRouter;
-    let upsertedDocs = [];
+    let upsertedDocs  = [];
     let embeddedStore = new Map();
     let _originalGetGraphCollection;
 
@@ -274,15 +274,26 @@ Completely different body content.
 Ticket #456
         `);
 
-        const first = await AdrIngestor.syncAdrsToGraph(syncOptions());
+        const first           = await AdrIngestor.syncAdrsToGraph(syncOptions());
         const edgesAfterFirst = GraphService.db.edges.items.length;
-        const second = await AdrIngestor.syncAdrsToGraph(syncOptions());
+        const second          = await AdrIngestor.syncAdrsToGraph(syncOptions());
 
         expect(first.adrsUpserted).toBe(1);
         expect(second.adrsUpserted).toBe(0);
         expect(second.adrsSkipped).toBe(1);
         expect(second.edgesReplaced).toBe(0);
         expect(GraphService.db.edges.items.length).toBe(edgesAfterFirst);
+    });
+
+    test('CODIFIES_CONCEPT edge targets canonicalize through the concept-spine SSOT — PascalCase ref → kebab node (#14540)', () => {
+        const edges    = AdrIngestor.parseEdges('adr-0026', 'Codifies CONCEPT:GoldenPath and CONCEPT:mx-loop.'),
+              codifies = edges.filter(edge => edge.type === 'CODIFIES_CONCEPT').map(edge => edge.target);
+
+        // GoldenPath → the canonical kebab node the session/mailbox mints also target, not the raw PascalCase ref
+        expect(codifies).toContain('golden-path');
+        expect(codifies).not.toContain('GoldenPath');
+        // an already-canonical ref passes through unchanged
+        expect(codifies).toContain('mx-loop');
     });
 
     test('should isolate malformed files as errors while ingesting valid ADRs', async () => {
