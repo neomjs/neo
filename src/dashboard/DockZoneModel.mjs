@@ -35,18 +35,37 @@ class DockZoneModel extends Base {
     static SCHEMA = 'neo.harness.dockZone.v1'
 
     /**
-     * The saved layout wrapper schema around a normalized dock-zone document.
-     * @member {String} LAYOUT_SCHEMA='neo.harness.dockLayout.v1'
+     * The saved layout wrapper schema around a normalized dock-zone document. v2 adds the
+     * perspective fields (`captureScope`, `windowFingerprint`, `perspectiveName`); writes always
+     * emit v2, while v1 records stay readable through {@link #migrateSavedLayout} (fail-open read
+     * with honest defaults — a legacy record never errors, and never silently re-persists as v1).
+     * @member {String} LAYOUT_SCHEMA='neo.harness.dockLayout.v2'
      * @static
      */
-    static LAYOUT_SCHEMA = 'neo.harness.dockLayout.v1'
+    static LAYOUT_SCHEMA = 'neo.harness.dockLayout.v2'
 
     /**
-     * The saved layout collection schema for named layout perspectives.
+     * The legacy saved-layout wrapper schema, accepted on read via {@link #migrateSavedLayout}.
+     * @member {String} LAYOUT_SCHEMA_V1='neo.harness.dockLayout.v1'
+     * @static
+     */
+    static LAYOUT_SCHEMA_V1 = 'neo.harness.dockLayout.v1'
+
+    /**
+     * The saved layout collection schema for named layout perspectives. The collection envelope
+     * stays v1: its `layouts` values migrate individually at restore time.
      * @member {String} LAYOUT_COLLECTION_SCHEMA='neo.harness.dockLayoutCollection.v1'
      * @static
      */
     static LAYOUT_COLLECTION_SCHEMA = 'neo.harness.dockLayoutCollection.v1'
+
+    /**
+     * The capture scopes a saved layout may declare: one window's dock document, or the whole
+     * multi-window topology.
+     * @member {String[]} CAPTURE_SCOPES
+     * @static
+     */
+    static CAPTURE_SCOPES = ['window', 'topology']
 
     /**
      * Top-level fields allowed in a saved-layout wrapper.
@@ -54,7 +73,10 @@ class DockZoneModel extends Base {
      * @protected
      * @static
      */
-    static savedLayoutKeys = new Set(['schema', 'layoutId', 'title', 'dockZone', 'metadata', 'revision'])
+    static savedLayoutKeys = new Set([
+        'schema', 'layoutId', 'title', 'dockZone', 'metadata', 'revision',
+        'captureScope', 'windowFingerprint', 'perspectiveName'
+    ])
 
     /**
      * Top-level fields allowed in a named saved-layout collection.
@@ -645,13 +667,69 @@ class DockZoneModel extends Base {
     }
 
     /**
+     * @summary Migrates a saved-layout record to the current wrapper schema, read-side and pure.
+     *
+     * A legacy v1 record gains the perspective fields with honest defaults (`captureScope:
+     * 'window'` — v1 could only ever capture one window's document — and `windowFingerprint:
+     * null`, since no fingerprint was recorded at capture time); `perspectiveName` stays absent
+     * because it is optional by contract. Idempotent: current-schema records pass through
+     * untouched, and unknown schemas pass through for the caller's validation to reject, so this
+     * never masks a genuinely foreign envelope. Writers never emit v1 again.
+     * @param {Object} savedLayout A saved-layout record of any known schema revision.
+     * @returns {Object} The record at the current schema revision (a shallow-cloned upgrade for v1).
+     * @static
+     */
+    static migrateSavedLayout(savedLayout) {
+        if (savedLayout?.schema !== DockZoneModel.LAYOUT_SCHEMA_V1) {
+            return savedLayout
+        }
+
+        return {
+            ...savedLayout,
+            schema           : DockZoneModel.LAYOUT_SCHEMA,
+            captureScope     : 'window',
+            windowFingerprint: null
+        }
+    }
+
+    /**
+     * @summary Validates the perspective fields shared by the create and restore paths.
+     *
+     * `captureScope` must be one of {@link #CAPTURE_SCOPES}; `windowFingerprint` describes
+     * topology SHAPE only and must be a JSON object or null (never window ids or coordinates —
+     * the persistence guardrail); `perspectiveName`, when present, must be a non-empty string.
+     * @param {Object} layout The saved-layout record carrying the perspective fields.
+     * @returns {String[]} Validation errors, empty when the fields are contract-clean.
+     * @static
+     */
+    static validatePerspectiveFields(layout) {
+        let errors = [];
+
+        if (!DockZoneModel.CAPTURE_SCOPES.includes(layout.captureScope)) {
+            errors.push(`captureScope must be one of: ${DockZoneModel.CAPTURE_SCOPES.join(', ')}`)
+        }
+
+        if (layout.windowFingerprint !== null && !DockZoneModel.isJsonRecord(layout.windowFingerprint)) {
+            errors.push('windowFingerprint must be a JSON object or null')
+        }
+
+        if (Object.hasOwn(layout, 'perspectiveName') &&
+            (typeof layout.perspectiveName !== 'string' || !layout.perspectiveName.trim())
+        ) {
+            errors.push('perspectiveName must be a non-empty string when present')
+        }
+
+        return errors
+    }
+
+    /**
      * @summary Wraps a valid committed dock-zone document in a JSON-only saved-layout envelope.
      *
      * The wrapper and dock-zone tree are finite-schema: unknown fields fail closed. The explicit
      * `metadata` field is an opaque JSON-only non-secret annotation channel; callers must not place
      * credentials or runtime authority inside it.
      * @param {Object} document The committed dock-zone document to normalize and wrap.
-     * @param {Object} [metadata={}] {layoutId, title, revision, metadata}
+     * @param {Object} [metadata={}] {layoutId, title, revision, metadata, captureScope, windowFingerprint, perspectiveName}
      * @returns {{layout:(Object|null), errors:String[]}}
      * @static
      */
@@ -679,15 +757,21 @@ class DockZoneModel extends Base {
             layoutId   = Object.hasOwn(metadata, 'layoutId') ? metadata.layoutId : 'default',
             title      = Object.hasOwn(metadata, 'title') ? metadata.title : layoutId,
             layout     = {
-                schema  : DockZoneModel.LAYOUT_SCHEMA,
+                schema           : DockZoneModel.LAYOUT_SCHEMA,
                 layoutId,
                 title,
-                dockZone: normalized,
-                metadata: Object.hasOwn(metadata, 'metadata') ? metadata.metadata : {}
+                dockZone         : normalized,
+                metadata         : Object.hasOwn(metadata, 'metadata') ? metadata.metadata : {},
+                captureScope     : Object.hasOwn(metadata, 'captureScope') ? metadata.captureScope : 'window',
+                windowFingerprint: Object.hasOwn(metadata, 'windowFingerprint') ? metadata.windowFingerprint : null
             };
 
         if (Object.hasOwn(metadata, 'revision')) {
             layout.revision = metadata.revision
+        }
+
+        if (Object.hasOwn(metadata, 'perspectiveName')) {
+            layout.perspectiveName = metadata.perspectiveName
         }
 
         if (typeof layout.layoutId !== 'string' || !layout.layoutId.trim()) {
@@ -697,6 +781,8 @@ class DockZoneModel extends Base {
         if (typeof layout.title !== 'string' || !layout.title.trim()) {
             errors.push('title must be a non-empty string')
         }
+
+        errors.push(...DockZoneModel.validatePerspectiveFields(layout))
 
         if (!DockZoneModel.isJsonRecord(layout.metadata)) {
             errors.push('metadata must be a JSON object')
@@ -741,9 +827,13 @@ class DockZoneModel extends Base {
             return {document: null, errors: ['saved layout must be a JSON object']}
         }
 
+        savedLayout = DockZoneModel.migrateSavedLayout(savedLayout);
+
         if (savedLayout.schema !== DockZoneModel.LAYOUT_SCHEMA) {
             errors.push(`schema must be ${DockZoneModel.LAYOUT_SCHEMA}`)
         }
+
+        errors.push(...DockZoneModel.validatePerspectiveFields(savedLayout));
 
         if (typeof savedLayout.layoutId !== 'string' || !savedLayout.layoutId.trim()) {
             errors.push('layoutId must be a non-empty string')
