@@ -249,9 +249,9 @@ Reviewers MUST verify testing claims and canonical file placement:
 3. If the PR is a documentation or template change, no tests are required. Do not demand tests for docs.
 4. If the author did not provide test evidence for structural logic changes, or placed tests in legacy/incorrect directories, flag this as a **Required Action**.
 
-### 7.5.1 Core-Idiom Audit (instance & reactive-state work)
+### 7.5.1 Core-Idiom Audit
 
-For diffs that create, mutate, resolve, or destroy Neo instances — or manage reactive state — in ANY directory (the class system spans hemispheres: `ai/` services and daemons are `Neo.setupClass` classes too, with `initAsync`/`ready()` and destroy-cancellation contracts), verify the neo-core idioms hold: live-instance mutation through ONE batched `set()` call (never chained direct property writes); component resolution via the core instance manager (`Neo.get` — instance shape is a core-contract guarantee there); view state as reactive configs (`flowState_`-style with beforeSet/afterSet hooks) — on a `state.Provider` when multiple consumers bind it — never external state modules. Pure data-plane plain modules (parsers, validators, transition tables) pass — the audit covers instance mutation + view state only. A reviewer whose context window cannot afford the `src/core/Base.mjs` read MAY satisfy this via `ask_knowledge_base` on the specific idiom instead. A bespoke seam re-implementing something the core contracts guarantee (e.g. hand-rolled instance resolution, wrong-shape hardening the class system precludes) is a Required Action, not a style note.
+Instance/reactive-state diffs (any dir): load `audits/core-idiom-audit.md`.
 
 ### 7.6 CI / Security Checks Audit
 
