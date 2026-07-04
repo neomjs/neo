@@ -29,6 +29,20 @@ export const ACCEPT_STAGES = Object.freeze({
 });
 
 /**
+ * @summary The DEFAULT component resolution: the framework instance manager. Every created
+ * component self-registers by id (`afterSetId` → `Neo.manager.Instance`), and the materializer
+ * stamps `id: instanceId`, so `Neo.get(instanceId)` returns the live `Neo.core.Base` instance or
+ * null — instance shape is a framework guarantee on this path, never a hope. Passing a custom
+ * `resolveComponent` remains supported as a TEST seam only; production callers should not
+ * override it.
+ * @param {String} instanceId
+ * @returns {Neo.core.Base|null}
+ */
+function resolveViaInstanceManager(instanceId) {
+    return (typeof Neo !== 'undefined' && typeof Neo.get === 'function') ? (Neo.get(instanceId) || null) : null
+}
+
+/**
  * @summary Schema-keyed materializers — the render half of the schema registry: `materialize`
  * builds the stage-insertable component config from an accepted blueprint; `apply` writes an
  * accepted MERGED blueprint onto the live component. Adding a widget type here is ONE entry,
@@ -51,6 +65,10 @@ export const SCHEMA_MATERIALIZERS = Object.freeze({
             const columns = blueprint.config.columns.map(column => ({dataField: column.field, text: column.text}));
 
             return {
+                // id + reference both set to the instanceId (the shipped first-widget parity):
+                // the id makes the instance resolvable via the framework instance manager
+                // (Neo.get); the reference keeps container-scoped getReference() lookups working
+                id       : instanceId,
                 ntype    : 'grid-container',
                 reference: instanceId,
                 title    : blueprint.title,
@@ -69,19 +87,20 @@ export const SCHEMA_MATERIALIZERS = Object.freeze({
             }
         },
         /**
-         * @param {Object} component The live grid (title / store.data / dimension configs)
+         * Applies the merged blueprint through the framework's batched mutation path: ONE
+         * `component.set()` call for the component-level configs (the EffectManager pauses,
+         * every beforeSet/afterSet hook sees the complete new value set, bindings/effects
+         * cascade once), then a single store-level data assignment. Never a chain of direct
+         * property writes — each of those fires its own reactive cascade.
+         * @param {Neo.core.Base} component The live grid instance
          * @param {Object} merged The validator's merged blueprint
          */
         apply(component, merged) {
-            component.title = merged.title;
-
-            if (merged.config.height !== undefined) {
-                component.height = merged.config.height
-            }
-
-            if (merged.config.width !== undefined) {
-                component.width = merged.config.width
-            }
+            component.set({
+                title: merged.title,
+                ...(merged.config.height !== undefined ? {height: merged.config.height} : {}),
+                ...(merged.config.width  !== undefined ? {width : merged.config.width}  : {})
+            });
 
             component.store.data = merged.data
         }
@@ -175,10 +194,11 @@ export function createInsertRegistrar({registry}) {
  * @param {String} options.instanceId
  * @param {Object} options.mutation Partial `{title?, config?, data?}`
  * @param {Object} options.registry The CreatedInstances singleton
- * @param {Function} options.resolveComponent `(instanceId) => live component|null`
+ * @param {Function} [options.resolveComponent] `(instanceId) => live component|null`; defaults to
+ *   the framework instance manager (`Neo.get`) — override only as a test seam
  * @returns {{accepted: Boolean, reason: String|null, stage: String|null, blueprint: Object|null}}
  */
-export function mutateInstance({instanceId, mutation, registry, resolveComponent} = {}) {
+export function mutateInstance({instanceId, mutation, registry, resolveComponent = resolveViaInstanceManager} = {}) {
     const record = registry?.resolveTarget?.({instanceId});
 
     if (!record) {
@@ -201,10 +221,11 @@ export function mutateInstance({instanceId, mutation, registry, resolveComponent
         return {accepted: false, reason: `no live component resolvable for "${instanceId}" — registry and stage disagree`, stage: ACCEPT_STAGES.MUTATION, blueprint: null};
     }
 
-    // Apply the merged blueprint to the live component. A wrong-shaped or stale component (e.g.
-    // one missing the store the schema writes) is the same registry/stage-disagreement class as a
-    // missing one: fail closed with a bounded refusal and DO NOT record the mutation — a thrown
-    // applier must never leave the registry claiming a change the component never took.
+    // Apply the merged blueprint through the framework's batched path. On the default
+    // (instance-manager) resolution the component shape is a framework guarantee; this guard is
+    // belt-and-suspenders for ANY applier/set failure (a hook throwing, an injected test double):
+    // fail closed with a bounded refusal and DO NOT record the mutation — a thrown applier must
+    // never leave the registry claiming a change the component never took.
     try {
         SCHEMA_MATERIALIZERS[validation.blueprint.schema].apply(component, validation.blueprint);
     } catch (error) {
@@ -223,10 +244,11 @@ export function mutateInstance({instanceId, mutation, registry, resolveComponent
  * @param {Object} options
  * @param {String} options.instanceId
  * @param {Object} options.registry The CreatedInstances singleton
- * @param {Function} [options.resolveComponent] `(instanceId) => live component|null`
+ * @param {Function} [options.resolveComponent] `(instanceId) => live component|null`; defaults to
+ *   the framework instance manager (`Neo.get`) — override only as a test seam
  * @returns {{accepted: Boolean, reason: String|null, stage: String|null}}
  */
-export function disposeInstance({instanceId, registry, resolveComponent} = {}) {
+export function disposeInstance({instanceId, registry, resolveComponent = resolveViaInstanceManager} = {}) {
     const flipped = registry?.markDisposed?.(instanceId);
 
     if (!flipped?.accepted) {

@@ -63,6 +63,7 @@ test.describe('acceptPath — blueprint → live instance via the ONE create pat
 
         expect(result.accepted).toBe(true);
         expect(result.config.ntype).toBe('grid-container');           // wire-safe, never a module ref
+        expect(result.config.id).toBe('ap-1');                        // instance-manager resolvable (Neo.get)
         expect(result.config.reference).toBe('ap-1');
         expect(result.config.columns).toEqual([{dataField: 'name', text: 'Name'}, {dataField: 'city', text: 'City'}]);
         expect(stage.added).toHaveLength(1);                          // the ONE create path was used
@@ -110,7 +111,13 @@ test.describe('acceptPath — blueprint → live instance via the ONE create pat
         stage.on('insert', registrar);
         accept.acceptBlueprint({blueprint: validGrid('Mutate Grid'), instanceId: 'ap-m1', stage});
 
-        const component        = {title: 'Mutate Grid', store: {data: []}};
+        // a framework-shaped double: the applier goes through set() (the batched mutation path),
+        // so the double must honor that contract — a bare property bag correctly REFUSES now
+        const component = {
+            title: 'Mutate Grid',
+            store: {data: []},
+            set(values) { Object.assign(this, values) }
+        };
         const resolveComponent = id => id === 'ap-m1' ? component : null;
 
         const grown = accept.mutateInstance({
