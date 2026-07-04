@@ -71,7 +71,8 @@ function isValidGraphNodeId(id) {
 }
 
 const PROTECTED_EDGE_TYPES = Object.freeze([
-    'ADVANCED_BY', // business layer: goal→work advancement is history, never scent; zombie-priority is handled by explicit retirement reweight (ai/graph/businessSchema.mjs), not decay
+    'ADVANCED_BY',   // business layer: goal→work advancement is history, never scent; zombie-priority is handled by explicit retirement reweight (ai/graph/businessSchema.mjs), not decay
+    'ATTRIBUTED_TO', // direction layer: motion→direction attribution is measurement substrate — a velocity number built on decaying edges rots invisibly; fact-class per the direction contract (ai/graph/directionSchema.mjs)
     'IMPLEMENTS',
     'EXTENDS',
     'SYSTEM_TENET',
