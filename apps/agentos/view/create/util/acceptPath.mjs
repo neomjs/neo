@@ -98,9 +98,13 @@ export const SCHEMA_MATERIALIZERS = Object.freeze({
  * @param {Object} options.blueprint The route-accepted blueprint
  * @param {String} options.instanceId Caller-assigned unique instance id
  * @param {Object} options.stage The live stage container (must expose `add`)
+ * @param {Object} [options.registry] The CreatedInstances singleton. When provided, the id is
+ *   pre-checked for uniqueness BEFORE insertion so the insert-side registrar cannot refuse after
+ *   the component is already in the stage — closing the stage-truth vs registry-truth gap. Omit
+ *   only when the caller otherwise guarantees id uniqueness.
  * @returns {{accepted: Boolean, config: Object|null, reason: String|null, stage: String|null}}
  */
-export function acceptBlueprint({blueprint, instanceId, stage} = {}) {
+export function acceptBlueprint({blueprint, instanceId, stage, registry} = {}) {
     if (typeof instanceId !== 'string' || instanceId.trim() === '') {
         return {accepted: false, config: null, reason: 'accept requires a non-empty string instanceId', stage: ACCEPT_STAGES.ACCEPT};
     }
@@ -119,6 +123,15 @@ export function acceptBlueprint({blueprint, instanceId, stage} = {}) {
 
     if (!materializer) {
         return {accepted: false, config: null, reason: `schema "${blueprint.schema}" validates but has no registered materializer — registry coverage defect`, stage: ACCEPT_STAGES.ACCEPT};
+    }
+
+    // Refuse a duplicate id BEFORE touching the stage: the insert-side registrar would refuse
+    // registration for an already-known id, but only after the component is already inserted —
+    // leaving stage truth and registry truth diverged while the caller saw success. Pre-checking
+    // here makes registration-blocking refusal part of the accept outcome, so a truthful insert is
+    // the only insert that happens.
+    if (registry?.resolveTarget?.({instanceId})) {
+        return {accepted: false, config: null, reason: `instanceId "${instanceId}" is already registered — one record per instance`, stage: ACCEPT_STAGES.ACCEPT};
     }
 
     const config = materializer.materialize(blueprint, {instanceId});
@@ -188,7 +201,15 @@ export function mutateInstance({instanceId, mutation, registry, resolveComponent
         return {accepted: false, reason: `no live component resolvable for "${instanceId}" — registry and stage disagree`, stage: ACCEPT_STAGES.MUTATION, blueprint: null};
     }
 
-    SCHEMA_MATERIALIZERS[validation.blueprint.schema].apply(component, validation.blueprint);
+    // Apply the merged blueprint to the live component. A wrong-shaped or stale component (e.g.
+    // one missing the store the schema writes) is the same registry/stage-disagreement class as a
+    // missing one: fail closed with a bounded refusal and DO NOT record the mutation — a thrown
+    // applier must never leave the registry claiming a change the component never took.
+    try {
+        SCHEMA_MATERIALIZERS[validation.blueprint.schema].apply(component, validation.blueprint);
+    } catch (error) {
+        return {accepted: false, reason: `live component for "${instanceId}" could not take the mutation (registry/stage disagree): ${error instanceof Error ? error.message : String(error)}`, stage: ACCEPT_STAGES.MUTATION, blueprint: null};
+    }
 
     registry.markMutated(instanceId, {title: validation.blueprint.title, blueprintSnapshot: validation.blueprint});
 

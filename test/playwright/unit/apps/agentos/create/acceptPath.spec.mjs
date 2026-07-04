@@ -136,9 +136,46 @@ test.describe('acceptPath — blueprint → live instance via the ONE create pat
         expect(attack).toMatchObject({accepted: false, stage: accept.ACCEPT_STAGES.MUTATION});
         expect(CreatedInstances.resolveTarget({instanceId: 'ap-m1'}).blueprintSnapshot.config.height).toBe(500);
 
-        // registry/stage disagreement fails closed
+        // registry/stage disagreement fails closed — MISSING component
         expect(accept.mutateInstance({instanceId: 'ap-m1', mutation: {config: {width: 300}}, registry: CreatedInstances, resolveComponent: () => null}).reason)
             .toContain('disagree');
+
+        // registry/stage disagreement fails closed — WRONG-SHAPED component (no store the applier writes):
+        // the applier throws, but the result is a bounded refusal and the registry is NOT updated
+        const wrongShaped = accept.mutateInstance({
+            instanceId      : 'ap-m1',
+            mutation        : {config: {width: 300}},
+            registry        : CreatedInstances,
+            resolveComponent: () => ({}) // missing .store
+        });
+        expect(wrongShaped).toMatchObject({accepted: false, stage: accept.ACCEPT_STAGES.MUTATION});
+        expect(wrongShaped.reason).toContain('disagree');
+        // the registry still reflects the last GOOD mutation (height 500), never the failed width
+        const snapshot = CreatedInstances.resolveTarget({instanceId: 'ap-m1'}).blueprintSnapshot;
+        expect(snapshot.config.height).toBe(500);
+        expect(snapshot.config.width).toBeUndefined();
+    });
+
+    test('accept fails closed on a duplicate id BEFORE insertion — stage and registry truth never diverge', () => {
+        const stage     = createStageDouble();
+        const registrar = accept.createInsertRegistrar({registry: CreatedInstances});
+
+        stage.on('insert', registrar);
+
+        // first accept registers cleanly
+        const first = accept.acceptBlueprint({blueprint: validGrid('Dup Grid'), instanceId: 'ap-dup', stage, registry: CreatedInstances});
+        expect(first.accepted).toBe(true);
+        expect(stage.added).toHaveLength(1);
+
+        // second accept with the SAME id: refused at accept-stage, and crucially NOTHING new reaches
+        // the stage — the pre-registration gap (insert succeeds, registration refuses) cannot open
+        const second = accept.acceptBlueprint({blueprint: validGrid('Dup Grid 2'), instanceId: 'ap-dup', stage, registry: CreatedInstances});
+        expect(second).toMatchObject({accepted: false, stage: accept.ACCEPT_STAGES.ACCEPT});
+        expect(second.reason).toContain('already registered');
+        expect(stage.added).toHaveLength(1); // still just the first — no orphaned insert
+
+        // the registry still holds exactly the first record, unperturbed
+        expect(CreatedInstances.resolveTarget({instanceId: 'ap-dup'}).blueprintSnapshot.title).toBe('Dup Grid');
     });
 
     test('dispose destroys the component when resolvable and always flips the registry', () => {
