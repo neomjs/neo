@@ -362,15 +362,31 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const originalEmbedText            = TextEmbeddingService.embedText;
         aiConfig.vectorDimension = 2;
 
-        StorageRouter.getGraphCollection   = async () => ({ query: async () => ({ ids: [['mock-id']], distances: [[0.1]] }) });
-        StorageRouter.getSummaryCollection = async () => ({ get: async () => ({ documents: ['mock document'] }) });
-        TextEmbeddingService.embedText     = async () => [0.1, 0.2];
-
         const now      = new Date();
         const hoursAgo = h => new Date(now.getTime() - h * 3600 * 1000).toISOString();
 
-        const originalFetchOpenPRs         = GoldenPathSynthesizer.fetchOpenPRs;
-        const originalFetchRecentMergedPRs = GoldenPathSynthesizer.fetchRecentMergedPRs;
+        StorageRouter.getGraphCollection   = async () => ({ query: async () => ({ ids: [['mock-id']], distances: [[0.1]] }) });
+        // ONE collection double serving both consumers: document reads (semantic context) AND the
+        // session reader's metadata scope — real metadata path: one in-window session, one
+        // out-of-window, one undateable (no timestamp keys at all)
+        StorageRouter.getSummaryCollection = async () => ({
+            get: async ({include} = {}) => include?.includes('metadatas')
+                ? {
+                    ids      : ['abcdef1234567890', 'stale-session-id', 'undateable-id'],
+                    metadatas: [
+                        {timestamp: now.getTime() - 2 * 3600 * 1000, agent: '@neo-fable'},
+                        {timestamp: now.getTime() - 500 * 3600 * 1000, agent: '@neo-gpt'},
+                        {note: 'no timestamp keys'}
+                    ]
+                }
+                : {documents: ['mock document']}
+        });
+        TextEmbeddingService.embedText     = async () => [0.1, 0.2];
+
+        const originalFetchOpenPRs            = GoldenPathSynthesizer.fetchOpenPRs;
+        const originalFetchRecentMergedPRs    = GoldenPathSynthesizer.fetchRecentMergedPRs;
+        const originalFetchRecentClosedIssues = GoldenPathSynthesizer.fetchRecentClosedIssues;
+        const originalFetchRecentOpenedIssues = GoldenPathSynthesizer.fetchRecentOpenedIssues;
 
         // opened-PRs come from the open-PR list (in-window); merged-PRs from the bounded merged query
         GoldenPathSynthesizer.fetchOpenPRs = async () => [
@@ -380,28 +396,106 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             {number: 14678, title: 'keeper request route', mergedAt: hoursAgo(3)},
             {number: 99999, title: 'ancient merge outside the window', mergedAt: hoursAgo(500)}
         ];
+        // the issue pair — one in-window each, plus an out-of-window closed issue the fold excludes
+        GoldenPathSynthesizer.fetchRecentClosedIssues = async () => [
+            {number: 14588, title: 'GP zero-routes collapse', closedAt: hoursAgo(6)},
+            {number: 88888, title: 'ancient close outside the window', closedAt: hoursAgo(400)}
+        ];
+        GoldenPathSynthesizer.fetchRecentOpenedIssues = async () => [
+            {number: 14731, title: 'identityRoots migration', createdAt: hoursAgo(1)}
+        ];
 
         try {
             await GoldenPathSynthesizer.synthesizeGoldenPath({now});
         } finally {
-            GoldenPathSynthesizer.fetchOpenPRs         = originalFetchOpenPRs;
-            GoldenPathSynthesizer.fetchRecentMergedPRs = originalFetchRecentMergedPRs;
-            StorageRouter.getGraphCollection           = originalGetGraphCollection;
-            StorageRouter.getSummaryCollection         = originalGetSummaryCollection;
-            TextEmbeddingService.embedText             = originalEmbedText;
+            GoldenPathSynthesizer.fetchOpenPRs            = originalFetchOpenPRs;
+            GoldenPathSynthesizer.fetchRecentMergedPRs    = originalFetchRecentMergedPRs;
+            GoldenPathSynthesizer.fetchRecentClosedIssues = originalFetchRecentClosedIssues;
+            GoldenPathSynthesizer.fetchRecentOpenedIssues = originalFetchRecentOpenedIssues;
+            StorageRouter.getGraphCollection              = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection            = originalGetSummaryCollection;
+            TextEmbeddingService.embedText                = originalEmbedText;
         }
 
         const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
 
         expect(handoffContent).toContain('## Handoff Retrospective (3-Day');
-        expect(handoffContent).toContain('- Merged PRs: 1 `[filters: merged+opened PRs, all authors]`');
-        expect(handoffContent).toContain('- Opened PRs: 1 `[filters: merged+opened PRs, all authors]`');
+        expect(handoffContent).toContain('- Merged PRs: 1 `[filters: merged+opened PRs · closed+opened issues · sessions, all authors]`');
+        expect(handoffContent).toContain('- Opened PRs: 1 `[filters: merged+opened PRs · closed+opened issues · sessions, all authors]`');
+        expect(handoffContent).toContain('- Closed issues: 1 `[filters: merged+opened PRs · closed+opened issues · sessions, all authors]`');
+        expect(handoffContent).toContain('- Opened issues: 1 `[filters: merged+opened PRs · closed+opened issues · sessions, all authors]`');
+        // the real metadata path: exactly the in-window session counts; the rendered ref carries
+        // the 8-char id + agent headline; stale + undateable rows are excluded FROM THE SECTION
+        // (other handoff sections legitimately consume the same summary metadata — scope the
+        // exclusion to the retrospective slice)
+        const retroSection = handoffContent.split('## Handoff Retrospective')[1].split('\n## ')[0];
+        expect(handoffContent).toContain('- Sessions: 1 `[filters: merged+opened PRs · closed+opened issues · sessions, all authors]`');
+        expect(retroSection).toContain('session abcdef12 — session (@neo-fable)');
+        expect(retroSection).not.toContain('stale-se');
+        expect(retroSection).not.toContain('undateab');
         expect(handoffContent).toContain('PR #14678 — keeper request route');
         expect(handoffContent).toContain('PR #14682 — registry snapshot clone');
-        // the 500h-old merge is outside the 3-day window — count stays 1, it never renders
+        expect(handoffContent).toContain('#14588 — GP zero-routes collapse');
+        expect(handoffContent).toContain('#14731 — identityRoots migration');
+        // out-of-window facts never render — counts stay honest per class
         expect(handoffContent).not.toContain('ancient merge outside the window');
+        expect(handoffContent).not.toContain('ancient close outside the window');
         // firewall: the retrospective introduces no numbered route entries into the handoff
         expect(handoffContent).not.toMatch(/\d+\.\s\*\*issue-\d+\*\*:[^\n]*\n\s+-\s\*.*?\*/);
+    });
+
+    test('session reader failure drops ONLY the session class — handoff renders, label omits sessions (#14721)', async () => {
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        aiConfig.vectorDimension = 2;
+
+        const now      = new Date();
+        const hoursAgo = h => new Date(now.getTime() - h * 3600 * 1000).toISOString();
+
+        StorageRouter.getGraphCollection   = async () => ({ query: async () => ({ ids: [['mock-id']], distances: [[0.1]] }) });
+        StorageRouter.getSummaryCollection = async () => ({ get: async () => ({ documents: ['mock document'] }) });
+        TextEmbeddingService.embedText     = async () => [0.1, 0.2];
+
+        const originalFetchOpenPRs            = GoldenPathSynthesizer.fetchOpenPRs;
+        const originalFetchRecentMergedPRs    = GoldenPathSynthesizer.fetchRecentMergedPRs;
+        const originalFetchRecentClosedIssues = GoldenPathSynthesizer.fetchRecentClosedIssues;
+        const originalFetchRecentOpenedIssues = GoldenPathSynthesizer.fetchRecentOpenedIssues;
+        const originalFetchRecentSessions     = GoldenPathSynthesizer.fetchRecentSessions;
+
+        GoldenPathSynthesizer.fetchOpenPRs            = async () => [];
+        GoldenPathSynthesizer.fetchRecentMergedPRs    = async () => [
+            {number: 14678, title: 'keeper request route', mergedAt: hoursAgo(3)}
+        ];
+        GoldenPathSynthesizer.fetchRecentClosedIssues = async () => [];
+        GoldenPathSynthesizer.fetchRecentOpenedIssues = async () => [];
+        // the session READER fails (the enrichment try/catch seam — same class as a Chroma outage)
+        GoldenPathSynthesizer.fetchRecentSessions = async () => {
+            throw new Error('summary metadata read unavailable');
+        };
+
+        try {
+            await GoldenPathSynthesizer.synthesizeGoldenPath({now});
+        } finally {
+            GoldenPathSynthesizer.fetchOpenPRs            = originalFetchOpenPRs;
+            GoldenPathSynthesizer.fetchRecentMergedPRs    = originalFetchRecentMergedPRs;
+            GoldenPathSynthesizer.fetchRecentClosedIssues = originalFetchRecentClosedIssues;
+            GoldenPathSynthesizer.fetchRecentOpenedIssues = originalFetchRecentOpenedIssues;
+            GoldenPathSynthesizer.fetchRecentSessions     = originalFetchRecentSessions;
+            StorageRouter.getGraphCollection              = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection            = originalGetSummaryCollection;
+            TextEmbeddingService.embedText                = originalEmbedText;
+        }
+
+        const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
+
+        // the handoff still renders with the surviving classes; the coverage label OMITS sessions
+        expect(handoffContent).toContain('## Handoff Retrospective (3-Day');
+        expect(handoffContent).toContain('- Merged PRs: 1 `[filters: merged+opened PRs · closed+opened issues, all authors]`');
+        expect(handoffContent).not.toContain('· sessions,');
+        // the sessions COUNT line still renders (honest 0 under the declared label) — the class
+        // is absent from coverage, not silently faked
+        expect(handoffContent).toContain('- Sessions: 0 `[filters: merged+opened PRs · closed+opened issues, all authors]`');
     });
 
     test('synthesizeGoldenPath overwrites stale author sections when semantic candidates are empty', async () => {

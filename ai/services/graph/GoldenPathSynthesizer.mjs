@@ -632,6 +632,58 @@ class GoldenPathSynthesizer extends Base {
     }
 
     /**
+     * @summary Fetches issues closed within a window — the same bounded day-granularity search
+     * pattern as the merged-PR reader; one fact class of the retrospective's declared coverage.
+     * @param {Date} since Lower window bound.
+     * @returns {Promise<Array<{number: Number, title: String, closedAt: String}>>}
+     */
+    async fetchRecentClosedIssues(since) {
+        const { execSync } = await import('child_process');
+        const sinceDate    = since.toISOString().slice(0, 10);
+        const raw          = execSync(`gh issue list --state closed --search "closed:>=${sinceDate}" --json number,title,closedAt --limit 50`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
+        return JSON.parse(raw);
+    }
+
+    /**
+     * @summary Fetches issues opened within a window — the opened-side sibling of the closed reader.
+     * @param {Date} since Lower window bound.
+     * @returns {Promise<Array<{number: Number, title: String, createdAt: String}>>}
+     */
+    async fetchRecentOpenedIssues(since) {
+        const { execSync } = await import('child_process');
+        const sinceDate    = since.toISOString().slice(0, 10);
+        const raw          = execSync(`gh issue list --state all --search "created:>=${sinceDate}" --json number,title,createdAt --limit 50`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
+        return JSON.parse(raw);
+    }
+
+    /**
+     * @summary Reads sessions recorded within a window from the summary collection already in
+     * scope — metadata-only (no document bodies), using the same multi-key timestamp resolution
+     * as the recency-ordered summary reads. Returns retrospective fact shapes.
+     * @param {Object} collection Summary Chroma collection (exposes async `.get`).
+     * @param {Date} since Lower window bound.
+     * @returns {Promise<Array<{ref: String, headline: String, at: String}>>}
+     */
+    async fetchRecentSessions(collection, since) {
+        const meta      = await collection.get({include: ['metadatas']});
+        const resolveTs = m => {
+            const raw = m?.timestamp ?? m?.lastActivity ?? m?.updatedAt ?? m?.createdAt;
+            return Number.isFinite(Number(raw)) ? Number(raw) : (Date.parse(raw) || 0);
+        };
+        const sinceMs = since.getTime();
+
+        return (meta?.ids || [])
+            .map((id, idx) => ({id, ts: resolveTs(meta.metadatas?.[idx]), agent: meta.metadatas?.[idx]?.agent}))
+            .filter(entry => entry.ts >= sinceMs)
+            .sort((a, b) => b.ts - a.ts)
+            .map(entry => ({
+                ref     : `session ${String(entry.id).slice(0, 8)}`,
+                headline: entry.agent ? `session (${entry.agent})` : 'session recorded',
+                at      : new Date(entry.ts).toISOString()
+            }));
+    }
+
+    /**
      * @summary Assembles + renders the handoff retrospective section (the history leg) from window
      * facts. Static + pure over its inputs: the assembler folds, the render emits — this shim is
      * the synthesizer's stable seam to both, mirroring the computed-GP render shims.
@@ -1249,21 +1301,52 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         let retrospectiveAppend = '';
         if (repoEnrichmentEnabled) {
             try {
-                const capturedAt = now instanceof Date ? now : new Date(now),
-                      windowMs   = RETROSPECTIVE_GRAINS.THREE_DAY.windowHours * 3600 * 1000,
-                      mergedPrs  = (await this.fetchRecentMergedPRs(new Date(capturedAt.getTime() - windowMs)))
+                const capturedAt  = now instanceof Date ? now : new Date(now),
+                      windowMs    = RETROSPECTIVE_GRAINS.THREE_DAY.windowHours * 3600 * 1000,
+                      windowStart = new Date(capturedAt.getTime() - windowMs),
+                      mergedPrs   = (await this.fetchRecentMergedPRs(windowStart))
                           .map(pr => ({ref: `PR #${pr.number}`, headline: pr.title, at: pr.mergedAt})),
                       // opened-PRs-in-window come free from the already-fetched open-PR list
-                      openedPrs  = (Array.isArray(openPrs) ? openPrs : [])
+                      openedPrs   = (Array.isArray(openPrs) ? openPrs : [])
                           .map(pr => ({ref: `PR #${pr.number}`, headline: pr.title, at: pr.createdAt}));
 
+                // per-class best-effort: a failing reader drops ITS classes and narrows the
+                // declared label, so coverage is never overstated
+                let closedIssues = [], openedIssues = [], issueClassesLive = false,
+                    sessions     = [], sessionClassLive = false;
+
+                try {
+                    closedIssues = (await this.fetchRecentClosedIssues(windowStart))
+                        .map(issue => ({ref: `#${issue.number}`, headline: issue.title, at: issue.closedAt}));
+                    openedIssues = (await this.fetchRecentOpenedIssues(windowStart))
+                        .map(issue => ({ref: `#${issue.number}`, headline: issue.title, at: issue.createdAt}));
+                    issueClassesLive = true;
+                } catch (issueError) {
+                    logger.warn('[GoldenPathSynthesizer] Retrospective issue readers failed — dropping the issue classes', issueError);
+                }
+
+                try {
+                    // instance seam like every sibling reader — the singleton export IS the
+                    // patchable surface; a static here silently bypasses test doubles
+                    sessions         = await this.fetchRecentSessions(summaryColl, windowStart);
+                    sessionClassLive = true;
+                } catch (sessionError) {
+                    logger.warn('[GoldenPathSynthesizer] Retrospective session reader failed — dropping the session class', sessionError);
+                }
+
+                const coveredClasses = [
+                    'merged+opened PRs',
+                    ...(issueClassesLive  ? ['closed+opened issues'] : []),
+                    ...(sessionClassLive  ? ['sessions']             : [])
+                ];
+
                 retrospectiveAppend = this.constructor.renderHandoffRetrospectiveSection({
-                    facts: {mergedPrs, openedPrs},
+                    facts: {mergedPrs, openedPrs, closedIssues, openedIssues, sessions},
                     grain: RETROSPECTIVE_GRAINS.THREE_DAY,
                     now  : capturedAt,
-                    // declared honestly: only the PR classes are wired so far — the filter set names
-                    // exactly what these counts cover, so the render never overstates the window
-                    filterSets: 'merged+opened PRs, all authors'
+                    // the label names exactly what these counts cover, per class, so the render
+                    // never overstates the window's coverage
+                    filterSets: `${coveredClasses.join(' · ')}, all authors`
                 })
             } catch (e) {
                 logger.warn('[GoldenPathSynthesizer] Failed to generate Handoff Retrospective', e);
