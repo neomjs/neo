@@ -101,7 +101,7 @@ test.describe('fleetPrLaneActivityAdapter - PR/lane activity mapping', () => {
         })
         expect(events[1]).toMatchObject({
             type   : 'lane-claim',
-            source : FLEET_COCKPIT_SOURCES.graphLane,
+            source : FLEET_COCKPIT_SOURCES.commentLane,
             agentId: 'neo-gpt',
             payload: {
                 kind          : 'lane-claim',

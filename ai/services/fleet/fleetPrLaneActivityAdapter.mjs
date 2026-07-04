@@ -13,9 +13,10 @@ import {
  * @summary Maps GitHub Workflow / work-graph facts into the bounded Fleet cockpit activity DTO.
  *
  * This adapter is deliberately source-specific: GitHub PR/issue/lane-state and graph stall facts
- * become small, source-labeled cockpit events. It does not add a FleetControlBridge wire method and
- * does not stream full comment bodies into the Body-side DTO; bodies are only pattern input for
- * deriving ids, timestamps, and event class.
+ * become small, source-labeled cockpit events. Comment-derived lane claims are heuristic issue
+ * comment matches, not authoritative graph lane-state facts. It does not add a FleetControlBridge
+ * wire method and does not stream full comment bodies into the Body-side DTO; bodies are only
+ * pattern input for deriving ids, timestamps, and event class.
  */
 
 export const DEFAULT_FLEET_ACTIVITY_EVENT_LIMIT = 50
@@ -163,7 +164,7 @@ export function createIssueActivityEvents(issues = [], {capturedAt = new Date()}
 
             events.push(createFleetCockpitEvent({
                 type      : 'lane-claim',
-                source    : FLEET_COCKPIT_SOURCES.graphLane,
+                source    : FLEET_COCKPIT_SOURCES.commentLane,
                 agentId   : comment.author || null,
                 confidence: 'observed',
                 occurredAt: toIsoString(comment.createdAt, normalized.updatedAt || capturedAt),

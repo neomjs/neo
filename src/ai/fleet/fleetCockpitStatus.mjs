@@ -2,6 +2,7 @@ const WIRE_SOURCES = Object.freeze({
         activity  : 'fleet:activity-adapters',
         githubPr  : 'github-workflow:pull-requests',
         githubIssue: 'github-workflow:issues',
+        commentLane: 'github-workflow:issue-comments',
         graphLane : 'graph:lane-state',
         graphStall: 'graph:work-stall',
         repoStatus: 'fleet:fleetStatus',
