@@ -36,14 +36,20 @@ test.describe('Fleet cockpit FamilyRail — data-driven era attribute, unclassif
         // the key rule: unknown does NOT silently become human — it degrades to neutral
         expect(familyToken('some-new-family')).toBe('--fm-state-off');
         expect(familyToken(null)).toBe('--fm-state-off');
-        expect(familyToken(undefined)).toBe('--fm-state-off')
+        expect(familyToken(undefined)).toBe('--fm-state-off');
+        // prototype-shaped keys must not leak an inherited value past the closed set
+        expect(familyToken('toString')).toBe('--fm-state-off');
+        expect(familyToken('constructor')).toBe('--fm-state-off');
+        expect(familyToken('__proto__')).toBe('--fm-state-off')
     });
 
     test('isKnownFamily gates the unclassified marker', () => {
         expect(isKnownFamily('claude')).toBe(true);
         expect(isKnownFamily('human')).toBe(true);
         expect(isKnownFamily('mystery')).toBe(false);
-        expect(isKnownFamily(null)).toBe(false)
+        expect(isKnownFamily(null)).toBe(false);
+        expect(isKnownFamily('toString')).toBe(false);
+        expect(isKnownFamily('__proto__')).toBe(false)
     });
 
     test('FamilyRail binds --fm-rail from the family and marks unknown/absent as unclassified', async () => {

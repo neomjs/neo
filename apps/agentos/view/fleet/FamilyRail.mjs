@@ -16,12 +16,14 @@ const FAMILY_TOKEN = {
 };
 
 /**
- * Pure family → rail-token resolver. Unknown / absent family → the neutral token.
+ * Pure family → rail-token resolver. Unknown / absent family → the neutral token. Uses the
+ * `isKnownFamily` hasOwn check (not `MAP[k] ||`) so a prototype-shaped key (`toString`,
+ * `constructor`, `__proto__`) can't leak an inherited value past the closed set.
  * @param {String} family
  * @returns {String} a `--fm-family-*` name for a known family, else `--fm-state-off`
  */
 export function familyToken(family) {
-    return FAMILY_TOKEN[family] || '--fm-state-off'
+    return isKnownFamily(family) ? FAMILY_TOKEN[family] : '--fm-state-off'
 }
 
 /**
