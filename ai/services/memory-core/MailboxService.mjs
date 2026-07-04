@@ -1092,11 +1092,26 @@ class MailboxService extends Base {
         ensureMailboxProjectionEndpoint(sentBy);
         ensureMailboxProjectionEndpoint(to);
 
+        // The message WAL is pure intake: its record always carries creation-time read/archive state
+        // (readAt: null). A repair re-projection must therefore NOT re-materialize from the WAL
+        // blindly — that reverts a committed mark_read (or archive) which lives only on the live graph
+        // projection, resurrecting a read message as unread. Capture the current committed
+        // post-delivery state from the LIVE projection (which the re-projection is about to overwrite
+        // in place) and carry it forward, so repair is structure-only. On a genuine first projection
+        // the node does not exist yet, so this resolves to null and intake semantics are unchanged.
+        const existingMessageNode = GraphService.db?.nodes?.get?.(messageId) || null,
+            preservedNodeReadAt   = existingMessageNode?.properties?.readAt     ?? null,
+            preservedNodeArchived = existingMessageNode?.properties?.archivedAt ?? null;
+
         GraphService.upsertNode({
             id        : messageId,
             type      : message.type || 'MESSAGE',
             name      : message.name || messageProperties.subject || messageId,
-            properties: messageProperties
+            properties: {
+                ...messageProperties,
+                readAt    : preservedNodeReadAt   ?? messageProperties.readAt     ?? null,
+                archivedAt: preservedNodeArchived ?? messageProperties.archivedAt ?? null
+            }
         });
 
         linkRequiredMailboxEdgeOrThrow(messageId, sentBy, 'SENT_BY', 1.0, edgeProperties, routingDiagnostics);
@@ -1105,9 +1120,15 @@ class MailboxService extends Base {
         if (to === 'AGENT:*') {
             for (const recipient of getMessageWalArray(routing.broadcastRecipients)) {
                 ensureMailboxProjectionEndpoint(recipient);
+                // The per-recipient DELIVERED_TO edge is the SOLE carrier of a broadcast recipient's
+                // mark_read/archive — the WAL never holds it. Preserve any committed state across
+                // re-projection instead of hardcoding readAt: null (the resurrection wipe).
+                const existingDeliveryEdge = getBroadcastDeliveryEdge(messageId, recipient),
+                    existingDeliveryProps  = existingDeliveryEdge ? getRecordProperties(existingDeliveryEdge) : null;
                 linkRequiredMailboxEdgeOrThrow(messageId, recipient, 'DELIVERED_TO', 1.0, {
                     deliveredAt : timestamp,
-                    readAt      : null,
+                    readAt      : existingDeliveryProps?.readAt     ?? null,
+                    archivedAt  : existingDeliveryProps?.archivedAt ?? null,
                     deliveryKind: 'broadcast',
                     userId      : senderUserId,
                     sharedEntity: true

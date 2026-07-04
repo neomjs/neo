@@ -347,6 +347,84 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         }
     });
 
+    // Read-state resurrection: repairMessageGraphIntegrity re-projects the pure-intake WAL
+    // record (readAt: null) over the LIVE graph projection on every listMessages/getMessage. A
+    // committed mark_read lives only on the projection, never in the WAL. The DM carrier is the wipe
+    // vector — re-projection `upsertNode`s the MESSAGE node, overwriting its readAt (the node tests
+    // below fail without the preservation fix). The broadcast DELIVERED_TO edge is protected by
+    // `linkNodes` skipping an already-present edge, so an intact read survives re-projection; the
+    // edge-side preservation is the symmetric hardening for the re-create path. These exercise the
+    // re-projection directly over a live, read projection.
+    async function walRecordFor(messageId) {
+        return (await readWalMessages({ dir: messageWalDir })).find(record => (record.id || record.message?.id) === messageId);
+    }
+
+    test('re-projection preserves a committed mark_read on the broadcast DELIVERED_TO edge — read-state resurrection (#14797)', async () => {
+        const res = await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            return await MailboxService.addMessage({ to: 'AGENT:*', subject: 'broadcast read then repaired', body: 'durable body' });
+        });
+
+        // @bob reads it — readAt committed on his per-recipient DELIVERED_TO edge.
+        const readResult = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            return await MailboxService.markRead({ messageId: res.messageId });
+        });
+        expect(readResult.readAt).toBeTruthy();
+
+        // Re-project the WAL record over the live projection (the repair path). It must NOT re-link
+        // DELIVERED_TO with a hardcoded readAt: null over @bob's committed read.
+        await MailboxService._projectMessageWalRecord(await walRecordFor(res.messageId), { pumpWake: false });
+
+        const afterRepair = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            return await MailboxService.getMessage({ messageId: res.messageId });
+        });
+        expect(afterRepair.readAt).toBe(readResult.readAt);
+    });
+
+    test('re-projection preserves a committed mark_read on the DM node — read-state resurrection (#14797)', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        const res = await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            return await MailboxService.addMessage({ to: '@bob', subject: 'read then repaired', body: 'durable body' });
+        });
+
+        const readResult = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            return await MailboxService.markRead({ messageId: res.messageId });
+        });
+        expect(readResult.readAt).toBeTruthy();
+
+        // Re-project over the live projection — the DM node's committed readAt must survive.
+        await MailboxService._projectMessageWalRecord(await walRecordFor(res.messageId), { pumpWake: false });
+
+        const afterRepair = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            return await MailboxService.getMessage({ messageId: res.messageId });
+        });
+        expect(afterRepair.readAt).toBe(readResult.readAt);
+    });
+
+    test('re-projection keeps a read DM out of the unread count — read-state resurrection (#14797)', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        const res = await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            return await MailboxService.addMessage({ to: '@bob', subject: 'read count', body: 'durable body' });
+        });
+
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await MailboxService.markRead({ messageId: res.messageId });
+        });
+
+        // A read message must not re-enter the unread count when the projection is repaired.
+        await MailboxService._projectMessageWalRecord(await walRecordFor(res.messageId), { pumpWake: false });
+
+        const count = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            return await MailboxService.countMessages({ status: 'unread' });
+        });
+        expect(count.count).toBe(0);
+    });
+
     test('post-sync canary: accepted unread self-message survives destructive graph clear (#14426)', async () => {
         const res = await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             return await MailboxService.addMessage({
