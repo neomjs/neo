@@ -7,6 +7,8 @@ const environments = [
     { name: 'Dist Prod', path: '/dist/production/apps/portal/' }
 ];
 
+const formsEngineRoute = '#/learn/benefits/body/FormsEngine';
+
 async function verifyLivePreviewPopout(page, livePreviewLocatorOptions = undefined) {
     const livePreview = page.locator('.neo-code-live-preview', livePreviewLocatorOptions).first();
     await expect(livePreview).toBeVisible({ timeout: 30000 });
@@ -82,7 +84,7 @@ test.describe('LivePreview Multi-Window Functionality (Issue #9586)', () => {
             });
 
             test('Popout LivePreview from Learn Route (FormsEngine)', async ({ page }) => {
-                await page.goto(`${env.path}#/learn/benefits/FormsEngine`);
+                await page.goto(`${env.path}${formsEngineRoute}`);
                 await verifyLivePreviewPopout(page);
             });
 
@@ -93,7 +95,7 @@ test.describe('LivePreview Multi-Window Functionality (Issue #9586)', () => {
                 await verifyLivePreviewPopout(page);
 
                 // 2. Navigate to Learn Route via hash
-                await page.evaluate(() => window.location.hash = '#/learn/benefits/FormsEngine');
+                await page.evaluate(route => window.location.hash = route, formsEngineRoute);
 
                 // Wait for the new route to render and DOM to update
                 await page.waitForTimeout(3000);
@@ -103,7 +105,7 @@ test.describe('LivePreview Multi-Window Functionality (Issue #9586)', () => {
             });
 
             test('Sequential Route: Learn -> Home -> Popout', async ({ page }) => {
-                await page.goto(`${env.path}#/learn/benefits/FormsEngine`);
+                await page.goto(`${env.path}${formsEngineRoute}`);
 
                 // 1. Verify on Learn Route
                 await verifyLivePreviewPopout(page);
