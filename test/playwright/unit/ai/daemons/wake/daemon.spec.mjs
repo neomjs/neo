@@ -31,6 +31,7 @@ function writeMockPs(binDir, psOutput = '') {
 function insertWakeSubscription(db, {
     subId = 'sub_' + crypto.randomUUID(),
     agentId,
+    filters = {},
     harnessTargetMetadata
 }) {
     db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
@@ -44,6 +45,7 @@ function insertWakeSubscription(db, {
         label     : 'WAKE_SUBSCRIPTION',
         properties: {
             agentIdentity: agentId,
+            filters,
             harnessTarget: 'bridge-daemon',
             status       : 'active',
             trigger      : 'SENT_TO_ME',
@@ -79,26 +81,33 @@ function insertHarnessPresence(db, {
     }));
 }
 
-function insertMessageWake(db, {agentId, subject = 'Addressed Wake Event'}) {
+function insertMessageWake(db, {
+    agentId,
+    from = '@sender',
+    priority = 'normal',
+    subject = 'Addressed Wake Event',
+    target = agentId
+}) {
     const msgId = 'msg_' + crypto.randomUUID();
     db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
         id        : msgId,
         label     : 'MESSAGE',
         properties: {
-            from    : '@sender',
+            from,
+            priority,
             subject,
-            priority: 'normal'
+            to      : target
         }
     }));
     db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(msgId, 'nodes');
 
     const edgeId = 'edge_' + crypto.randomUUID();
     db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(edgeId, JSON.stringify({
-        id    : edgeId,
-        source: msgId,
-        target: agentId,
-        type  : 'SENT_TO'
-    }), msgId, agentId, 'SENT_TO');
+            id    : edgeId,
+            source: msgId,
+            target,
+            type  : 'SENT_TO'
+        }), msgId, target, 'SENT_TO');
     db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(edgeId, 'edges');
 
     return {msgId, edgeId};
@@ -289,6 +298,72 @@ test.describe('Wake Daemon', () => {
         expect(logContents).toMatch(/\[PID:\d+\]/);                                       // PID prefix
         expect(logContents).toMatch(/\[INFO\]/);                                          // level prefix
         expect(logContents).toContain('[Wake Daemon Test Adapter] Delivered');          // Same delivery line as stdout
+    });
+
+    test('#14576: priority-filtered subscriptions only deliver high-priority direct and broadcast wakes', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-priority-filter';
+
+        insertWakeSubscription(db, {
+            subId,
+            agentId,
+            filters              : {priority: 'high'},
+            harnessTargetMetadata: {
+                adapter       : 'test',
+                coalesceWindow: 1
+            }
+        });
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+        });
+
+        const deliveryPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon failed to deliver priority-filtered digest within timeout')), 10000);
+
+            daemonProcess.stdout.on('data', (data) => {
+                const out = data.toString();
+                if (out.includes('[Wake Daemon Test Adapter] Delivered')) {
+                    clearTimeout(timeout);
+                    resolve(out);
+                }
+            });
+            daemonProcess.stderr.on('data', data => console.error('[DAEMON STDERR]', data.toString()));
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        insertMessageWake(db, {
+            agentId,
+            subject: 'Normal Priority Direct'
+        });
+        insertMessageWake(db, {
+            agentId,
+            subject: 'Normal Priority Broadcast',
+            target : 'AGENT:*'
+        });
+        insertMessageWake(db, {
+            agentId,
+            priority: 'high',
+            subject : 'High Priority Direct'
+        });
+        insertMessageWake(db, {
+            agentId,
+            priority: 'high',
+            subject : 'High Priority Broadcast',
+            target  : 'AGENT:*'
+        });
+
+        const output = await deliveryPromise;
+        expect(output).toContain('[WAKE][priority:high]');
+        expect(output).toContain(`2 events for ${agentId}`);
+        expect(output).toContain('2 new messages');
+        expect(output).toContain('High Priority Broadcast');
+        expect(output).not.toContain('4 new messages');
+        expect(output).not.toContain('Normal Priority Direct');
+        expect(output).not.toContain('Normal Priority Broadcast');
     });
 
     test('#13480: Codex submit attempts log turn-start proof when turn presence appears', async () => {
