@@ -501,8 +501,24 @@ class DockLayoutAdapter extends Base {
             cls         : ['neo-dashboard-dock-tabs'],
             dockNodeId  : nodeId,
             dockNodeType: 'tabs',
-            items       : items.map(itemId => this.projectItem(itemId, context)),
-            ntype       : 'tab-container'
+            // Reuse the EXISTING tab-header SortZone for the gesture — no parallel drag system:
+            // `dragResortable` makes the headers draggable, and the `moveTo` the container fires on drop
+            // commits the reorder into the COMMITTED dock model through the landed operation seam. The
+            // tab.Container drags; the model owns the result. (Cross-zone drag rides the dashboard SortZone
+            // in a follow-up slice.)
+            dragResortable: true,
+            items         : items.map(itemId => this.projectItem(itemId, context)),
+            listeners     : {
+                moveTo: data => {
+                    let itemId = items[data.fromIndex],
+                        result = context.applyDockZoneOperation?.({operation: 'addTab', itemId, tabsNodeId: nodeId, index: data.toIndex});
+
+                    if (result && !result.errors?.length && result.document) {
+                        context.onDockZoneDocumentChange?.(result.document, {operation: 'addTab', itemId, tabsNodeId: nodeId, index: data.toIndex}, null)
+                    }
+                }
+            },
+            ntype: 'tab-container'
         }
     }
 }
