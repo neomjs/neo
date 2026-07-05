@@ -1726,4 +1726,56 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             expect(DockZoneModel.operations).toContain('transferNode')
         })
     });
+
+    test.describe('runtime-only preview keys never enter committed / persisted state', () => {
+        // a document smuggling a forbidden preview key through the opaque item metadata channel
+        const tainted = () => {
+            const d = doc();
+
+            d.items.terminal.metadata = {groupNodeId: 'tabs'};
+
+            return d
+        };
+
+        test('validate rejects a forbidden preview key nested in item metadata', () => {
+            expect(DockZoneModel.validate(tainted()).join(' ')).toContain('runtime-only preview field "groupNodeId"')
+        });
+
+        test('createSavedLayout refuses to persist a smuggled preview key (fail-closed, layout null)', () => {
+            const {layout, errors} = DockZoneModel.createSavedLayout(tainted(), {layoutId: 'x', title: 'X'});
+
+            expect(layout).toBeNull();
+            expect(errors.join(' ')).toContain('groupNodeId')
+        });
+
+        test('restoreSavedLayout rejects a saved layout whose dockZone carries a preview key', () => {
+            const wrapper = {
+                schema           : DockZoneModel.LAYOUT_SCHEMA,
+                layoutId         : 'x',
+                title            : 'X',
+                dockZone         : tainted(),
+                metadata         : {},
+                captureScope     : 'window',
+                windowFingerprint: null
+            };
+
+            const {document, errors} = DockZoneModel.restoreSavedLayout(wrapper);
+
+            expect(document).toBeNull();
+            expect(errors.join(' ')).toContain('groupNodeId')
+        });
+
+        test('a clean document round-trips through save + restore unaffected (no false positive)', () => {
+            const {layout, errors} = DockZoneModel.createSavedLayout(doc(), {layoutId: 'x', title: 'X'});
+
+            expect(errors).toEqual([]);
+            expect(layout).not.toBeNull();
+            expect(DockZoneModel.restoreSavedLayout(layout).errors).toEqual([])
+        });
+
+        test('the forbidden-preview-key set is the model-owned SSOT (adapter projection reads the same finder)', () => {
+            expect(DockZoneModel.forbiddenPreviewKeys.has('groupNodeId')).toBe(true);
+            expect(DockZoneModel.findForbiddenPreviewKey({items: {a: {metadata: {pointerX: 1}}}})).toBe('pointerX')
+        })
+    });
 });

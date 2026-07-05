@@ -160,6 +160,77 @@ class DockZoneModel extends Base {
     }
 
     /**
+     * Runtime-only preview / interaction keys that must never enter committed OR persisted dock-zone
+     * state (the JSON-first serialization contract). `validate` rejects a document carrying any of
+     * these ANYWHERE — including inside the opaque `metadata` channel — so they cannot be smuggled
+     * through a saved layout; `Neo.dashboard.DockLayoutAdapter` reads this same set at the projection
+     * boundary, so persistence-rejection and projection-rejection cannot drift.
+     * @member {Set<String>} forbiddenPreviewKeys
+     * @protected
+     * @static
+     */
+    static forbiddenPreviewKeys = new Set([
+        'appName',
+        'currentIndex',
+        'draggedItem',
+        'dockPreview',
+        'domRect',
+        'DOMRect',
+        'groupNodeId',
+        'isWindowDragging',
+        'placement',
+        'pointer',
+        'pointerX',
+        'pointerY',
+        'previewId',
+        'sourceSortZone',
+        'targetSortZone',
+        'windowId'
+    ])
+
+    /**
+     * @summary Recursively finds the first runtime-only preview key ({@link #forbiddenPreviewKeys})
+     * anywhere in an arbitrary JSON graph — including nested `metadata` — or null when the graph is
+     * clean. Both the persistence contract (`validate`) and the render boundary (adapter projection)
+     * scan through this one finder.
+     * @param {*} value
+     * @returns {String|null}
+     * @protected
+     * @static
+     */
+    static findForbiddenPreviewKey(value) {
+        if (!value || typeof value !== 'object') {
+            return null
+        }
+
+        if (Array.isArray(value)) {
+            for (let i = 0; i < value.length; i++) {
+                let match = DockZoneModel.findForbiddenPreviewKey(value[i]);
+
+                if (match) {
+                    return match
+                }
+            }
+
+            return null
+        }
+
+        for (let key of Object.keys(value)) {
+            if (DockZoneModel.forbiddenPreviewKeys.has(key)) {
+                return key
+            }
+
+            let match = DockZoneModel.findForbiddenPreviewKey(value[key]);
+
+            if (match) {
+                return match
+            }
+        }
+
+        return null
+    }
+
+    /**
      * Zone names allowed in an `edge-zone` node.
      * @member {Set<String>} dockZoneEdgeKeys
      * @protected
@@ -641,6 +712,15 @@ class DockZoneModel extends Base {
         if (!document || typeof document !== 'object') return ['document is not an object'];
         if (document.schema !== DockZoneModel.SCHEMA)   errors.push(`schema must be ${DockZoneModel.SCHEMA}`);
         if (!document.nodes || !document.nodes[document.root]) errors.push(`root node "${document.root}" is missing`);
+
+        // Runtime-only preview state is invalid at the model boundary — not just at render projection.
+        // The scan reaches into the opaque `metadata` channel, so a preview key cannot ride a saved
+        // layout through createSavedLayout / restoreSavedLayout (both validate through here).
+        let previewKey = DockZoneModel.findForbiddenPreviewKey(document);
+
+        if (previewKey) {
+            errors.push(`runtime-only preview field "${previewKey}" must not enter committed dock-zone state`)
+        }
 
         let items   = document.items || {},
             nodes   = document.nodes || {},
