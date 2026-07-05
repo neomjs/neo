@@ -153,6 +153,34 @@ test.describe('Neo.ai.services.memory-core.heartbeatPulseEvaluator — match() (
         expect(match(sub({filters: {priority: 'high'}}), data({type: 'SENT_TO', source: node.id, target: OWNER}, {node}), edgeTrace)).toBe(null);
     });
 
+    test('sent_to_me: the priority filter passes a matching direct message', () => {
+        const node = msg({priority: 'high'});
+        expect(match(sub({filters: {priority: 'high'}}), data({type: 'SENT_TO', source: node.id, target: OWNER}, {node}), edgeTrace))
+            .toMatchObject({type: 'sent_to_me', payload: {priority: 'high'}});
+    });
+
+    test('sent_to_me: the priority filter gates a non-matching legacy broadcast', () => {
+        const node = msg({priority: 'normal', to: 'AGENT:*'});
+        expect(match(sub({filters: {priority: 'high'}}), data({type: 'SENT_TO', source: node.id, target: 'AGENT:*'}, {node}), edgeTrace)).toBe(null);
+    });
+
+    test('sent_to_me: the priority filter passes a matching legacy broadcast', () => {
+        const node = msg({priority: 'high', to: 'AGENT:*'});
+        expect(match(sub({filters: {priority: 'high'}}), data({type: 'SENT_TO', source: node.id, target: 'AGENT:*'}, {node}), edgeTrace))
+            .toMatchObject({type: 'sent_to_me', payload: {isBroadcast: true, priority: 'high'}});
+    });
+
+    test('sent_to_me: the priority filter gates a non-matching receipt-backed broadcast', () => {
+        const node = msg({priority: 'normal', to: 'AGENT:*'});
+        expect(match(sub({filters: {priority: 'high'}}), data({type: 'DELIVERED_TO', source: node.id, target: OWNER, properties: {}}, {node}), edgeTrace)).toBe(null);
+    });
+
+    test('sent_to_me: the priority filter passes a matching receipt-backed broadcast', () => {
+        const node = msg({priority: 'high', to: 'AGENT:*'});
+        expect(match(sub({filters: {priority: 'high'}}), data({type: 'DELIVERED_TO', source: node.id, target: OWNER, properties: {}}, {node}), edgeTrace))
+            .toMatchObject({type: 'sent_to_me', payload: {isBroadcast: true, priority: 'high'}});
+    });
+
     test('sent_to_me: the senderFilter passes a whitelisted sender', () => {
         const node = msg({from: '@neo-gpt'});
         expect(match(sub({filters: {senderFilter: ['@neo-gpt']}}), data({type: 'SENT_TO', source: node.id, target: OWNER}, {node}), edgeTrace))

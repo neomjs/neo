@@ -88,6 +88,7 @@ export const IDENTITIES = [
             trustTier           : TRUST_TIERS.PEER_TRUSTED,
             subscriptionTemplate: {
                 trigger              : 'SENT_TO_ME',
+                filters              : {priority: 'high'},
                 harnessTarget        : 'bridge-daemon',
                 harnessTargetMetadata: {
                     appName     : 'Claude',
@@ -210,6 +211,7 @@ export const IDENTITIES = [
             // committing a per-operator path would break other forks and checkouts.
             subscriptionTemplate: {
                 trigger              : 'SENT_TO_ME',
+                filters              : {priority: 'high'},
                 harnessTarget        : 'bridge-daemon',
                 harnessTargetMetadata: {
                     appName     : 'Claude',
@@ -382,6 +384,7 @@ export const IDENTITIES = [
             trustTier           : TRUST_TIERS.PEER_TRUSTED,
             subscriptionTemplate: {
                 trigger              : 'SENT_TO_ME',
+                filters              : {priority: 'high'},
                 harnessTarget        : 'bridge-daemon',
                 harnessTargetMetadata: {
                     // The macOS app is `Antigravity` (Google's IDE forked from Cursor;
@@ -447,6 +450,7 @@ export const IDENTITIES = [
             trustTier           : TRUST_TIERS.PEER_TRUSTED,
             subscriptionTemplate: {
                 trigger              : 'SENT_TO_ME',
+                filters              : {priority: 'high'},
                 harnessTarget        : 'bridge-daemon',
                 harnessTargetMetadata: {
                     adapter     : 'osascript',
