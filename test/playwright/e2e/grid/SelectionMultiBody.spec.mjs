@@ -1,106 +1,110 @@
 import { test, expect } from '../../fixtures.mjs';
 
-test.describe('Desktop (1280x720): Grid Multi-Body Neural Link Selection Validation', () => {
-    test.setTimeout(90000); // DevIndex is heavy; give 90s for page render + NL mapping
-    test.use({ viewport: { width: 1280, height: 720 } });
+test.describe('Desktop (1920x1080): lockedColumns Multi-Body Neural Link Selection Validation', () => {
+    test.setTimeout(90000);
+    test.use({ viewport: { width: 1920, height: 1080 } });
 
     test.beforeEach(async ({ page }) => {
-        await page.goto('/apps/devindex/index.html');
+        await page.goto('/examples/grid/lockedColumns/');
 
-        // Wait for grid skeleton to mount
-        await page.waitForSelector('.neo-grid-container', { state: 'visible', timeout: 30000 });
-
-        // Wait for initial data stream to hit (Stop button becomes visible)
-        const stopButton = page.locator('.devindex-stop-stream-button');
-        await expect(stopButton).toBeVisible({ timeout: 10000 });
-
-        // Click the stop button immediately so we don't wait for thousands of rows.
-        // We use force in case it's animating, and ignore errors if it somehow already hid itself.
-        try {
-            await stopButton.click({ timeout: 2000, force: true });
-        } catch (e) {
-            // Stream finished extremely fast and button auto-hid
-        }
-
-        // Let UI settle for a moment after stopping
+        await page.waitForSelector('[role="grid"]', { state: 'visible', timeout: 30000 });
         await page.waitForTimeout(500);
     });
 
     test('Cross-Body Row Selection Synchronization and Verification via Neural Link', async ({ page, neuralLink }) => {
-        // Connect directly to the App Worker
-        const app = await neuralLink.connectToApp('DevIndex');
+        const app    = await neuralLink.connectToApp('Neo.examples.grid.lockedColumns');
+        const gridId = await resolveGridId(app);
 
-        // Locate the main GridContainer manually via Main Thread DOM to prove it works
-        const gridId = await page.evaluate(() => document.querySelector('.neo-grid-container').id);
-
-        // Activate RowModel natively using Neural Link (since DevIndex defaults to null on load)
         await app.setProperties(gridId, { 'body.selectionModel': { ntype: 'selection-grid-rowmodel' } });
 
-        // Let it initialize
-        await page.waitForTimeout(200);
+        await expect.poll(async () => {
+            const props = await app.getComponent(gridId, ['view.selectionModel.id']);
+            return props['view.selectionModel.id'];
+        }, { timeout: 5000 }).toBeTruthy();
 
-        // Inspect the Grid Component directly
-        const gridProps = await app.getComponent(gridId, ['bodyStart.id', 'body.id', 'bodyEnd.id', 'body.selectionModel', 'store', 'ntype']);
+        const gridProps = await app.getComponent(gridId, [
+            'bodyStart.id',
+            'body.id',
+            'bodyEnd.id',
+            'lockedStartColumns',
+            'lockedEndColumns',
+            'ntype',
+            'view.selectionModel.id'
+        ]);
 
         expect(gridProps.ntype).toBe('grid-container');
-        expect(gridProps['body.selectionModel']).toBeTruthy();
+        expect((gridProps.lockedStartColumns || []).length, 'fixture has locked-start columns').toBeGreaterThan(0);
+        expect((gridProps.lockedEndColumns || []).length, 'fixture has locked-end columns').toBeGreaterThan(0);
+        expect(gridProps['view.selectionModel.id']).toBeTruthy();
 
-        // We want to test clicking a row in the CENTER body to avoid locked-column interaction edge cases for now
-        const centerBodyId = gridProps['body.id'];
         const leftBodyId   = gridProps['bodyStart.id'];
+        const centerBodyId = gridProps['body.id'];
         const rightBodyId  = gridProps['bodyEnd.id'];
-        const storeId      = gridProps.store?.id || gridProps.store;
 
-        // Locate the first row in the center body
+        expect(leftBodyId,   'locked-start body id').toBeTruthy();
+        expect(centerBodyId, 'center body id').toBeTruthy();
+        expect(rightBodyId,  'locked-end body id').toBeTruthy();
+
         const centerBodyRow = page.locator(`#${centerBodyId} .neo-grid-row`).first();
+        await expect(centerBodyRow).toBeVisible();
 
-        // Grab the recordId mapped to this DOM node
         const recordId = await centerBodyRow.getAttribute('data-record-id');
+        expect(recordId, 'center row must expose a record id').toBeTruthy();
 
-        // It should NOT be selected yet
         await expect(centerBodyRow).not.toHaveClass(/neo-selected/);
 
-        // Native User Interaction (Clicking the center column row)
         await centerBodyRow.click();
 
-        // Visual Assertion: Wait for App Worker to reconcile and add selections
         await expect(centerBodyRow).toHaveClass(/neo-selected/);
 
-        // Mult-Body Validation: Check the left and right bodies for that same record ID
         const leftBodyRow  = page.locator(`#${leftBodyId} .neo-grid-row[data-record-id="${recordId}"]`);
         const rightBodyRow = page.locator(`#${rightBodyId} .neo-grid-row[data-record-id="${recordId}"]`);
 
-        // They should BOTH be selected as well due to multi-body orchestration
         await expect(leftBodyRow).toHaveClass(/neo-selected/);
         await expect(rightBodyRow).toHaveClass(/neo-selected/);
 
-        // God Mode Assertion: Verify the exact backend state mirrors our action.
-        // DevIndex Grid defaults to array-based selection since selectedRecordField ('selected')
-        // does not exist on the Contributor model prototype. We check the RowModel's selectedRows array.
-        const smId    = gridProps['body.selectionModel'].id;
-        const smProps = await app.getComponent(smId, ['selectedRows']);
-        expect(smProps.selectedRows.includes(recordId)).toBe(true);
+        const selectedRows = (await app.getComponent(gridId, ['view.selectionModel.selectedRows']))['view.selectionModel.selectedRows'];
+        expect(selectedRows).toContain(recordId);
     });
 
-    test('Live Property Updation (Column Width Alignment)', async ({ page, neuralLink }) => {
-        const app    = await neuralLink.connectToApp('DevIndex');
-        const gridId = await page.evaluate(() => document.querySelector('.neo-grid-container').id);
+    test('Live Body Resize Path Updates Center Cells and Width Cache', async ({ page, neuralLink }) => {
+        const app    = await neuralLink.connectToApp('Neo.examples.grid.lockedColumns');
+        const gridId = await resolveGridId(app);
+        const { 'body.id': centerBodyId } = await app.getComponent(gridId, ['body.id']);
 
-        // Get the structural columns from the Grid container
-        // Note: The dev index columns setup has multiple bodies. We need a visible column ID.
-        const headerCells       = page.locator('.neo-grid-header-button');
-        const firstCenterCellId = await headerCells.nth(2).getAttribute('id'); // Skip start columns
+        expect(centerBodyId, 'center body id').toBeTruthy();
 
-        // Just verify we can fetch the column config
-        const colProps = await app.getComponent(firstCenterCellId, ['width', 'dataField']);
-        const oldWidth = colProps.width;
+        const centerBodyRow = page.locator(`#${centerBodyId} .neo-grid-row`).first();
+        await expect(centerBodyRow).toBeVisible();
 
-        // Using God Mode, forcibly alter the width of a specific column component
-        const newWidth = oldWidth + 100;
-        await app.setProperties(firstCenterCellId, { width: newWidth });
+        const totalCell = centerBodyRow.locator('[role="gridcell"]').first();
+        await expect(totalCell).toBeVisible();
 
-        // Assert: Playwright observes the CSS strictly matches the new injected God Mode constraint
-        const targetCell = page.locator(`#${firstCenterCellId}`);
-        await expect(targetCell).toHaveCSS('width', `${newWidth}px`);
+        const beforeBox = await totalCell.boundingBox();
+        expect(beforeBox?.width, 'Total cell width before resize').toBeGreaterThan(0);
+
+        const beforeProps = await app.getComponent(centerBodyId, ['availableWidth']);
+        const newWidth    = Math.round(beforeBox.width + 40);
+
+        await app.callMethod(centerBodyId, 'updateCellPositions', ['totalContributions', newWidth]);
+
+        await expect(totalCell).toHaveCSS('width', `${newWidth}px`);
+
+        const afterProps = await app.getComponent(centerBodyId, ['availableWidth']);
+        expect(afterProps.availableWidth).toBe(beforeProps.availableWidth + 40);
     });
 });
+
+/**
+ * Resolves the grid-container instance id from the App Worker.
+ * @param {Object} app
+ * @returns {Promise<String>}
+ */
+async function resolveGridId(app) {
+    const grids  = await app.findInstances({ ntype: 'grid-container' }, ['id']);
+    const gridId = Array.isArray(grids) ? grids[0]?.id : grids?.id;
+
+    expect(gridId, 'a grid-container instance must exist in the bound App Worker').toBeTruthy();
+
+    return gridId;
+}
