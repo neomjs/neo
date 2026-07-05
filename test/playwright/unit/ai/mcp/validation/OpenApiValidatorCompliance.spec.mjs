@@ -205,6 +205,7 @@ const expectedGithubWorkflowToolTiers = {
     manage_issue_assignees     : 'write',
     manage_pr_review           : 'write',
     manage_pr_reviewers        : 'write',
+    validate_pr_review_body    : 'read',
     get_local_issue_by_id      : 'read',
     list_issues                : 'read',
     create_issue               : 'write',

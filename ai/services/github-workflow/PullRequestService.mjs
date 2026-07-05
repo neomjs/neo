@@ -1,4 +1,5 @@
 import {exec, execFile} from 'child_process';
+import {readFileSync}   from 'fs';
 import path             from 'path';
 import {promisify}      from 'util';
 import Base             from '../../../src/core/Base.mjs';
@@ -13,8 +14,133 @@ import {
 import {FETCH_PULL_REQUESTS, GET_CONVERSATION} from './queries/pullRequestQueries.mjs';
 import {projectConversationTrust}              from './shared/conversationTrust.mjs';
 
-const execAsync     = promisify(exec);
-const execFileAsync = promisify(execFile);
+const execAsync                        = promisify(exec);
+const execFileAsync                    = promisify(execFile);
+const PR_REVIEW_TEMPLATE_PATH          = '.agents/skills/pr-review/assets/pr-review-template.md';
+const PR_REVIEW_FOLLOWUP_TEMPLATE_PATH = '.agents/skills/pr-review/assets/pr-review-followup-template.md';
+
+const FULL_PR_REVIEW_TEMPLATE_SKELETON_LABELS = [
+    'PR Review Summary',
+    'Strategic-Fit Decision',
+    'Patch-Blind Premise Snapshot',
+    'Context & Graph Linking',
+    'Depth Floor',
+    'Graph Ingestion Notes',
+    'Required Actions',
+    'Evaluation Metrics'
+];
+
+const FOLLOWUP_PR_REVIEW_TEMPLATE_SKELETON_LABELS = [
+    'PR Review Follow-Up Summary',
+    'Patch-Blind Premise Snapshot',
+    'Strategic-Fit Decision',
+    'Prior Review Anchor',
+    'Delta Scope',
+    'Previous Required Actions Audit',
+    'Delta Depth Floor',
+    'Metrics Delta',
+    'Required Actions'
+];
+
+const FULL_PR_REVIEW_TEMPLATE_SKELETON_FALLBACK_BY_LABEL = Object.freeze({
+    'PR Review Summary'           : '# PR Review Summary',
+    'Strategic-Fit Decision'      : '### 🪜 Strategic-Fit Decision',
+    'Patch-Blind Premise Snapshot': '### 🧭 Patch-Blind Premise Snapshot',
+    'Context & Graph Linking'     : '### 🕸️ Context & Graph Linking',
+    'Depth Floor'                 : '### 🔬 Depth Floor',
+    'Graph Ingestion Notes'       : '### 🧠 Graph Ingestion Notes',
+    'Required Actions'            : '### 📋 Required Actions',
+    'Evaluation Metrics'          : '### 📊 Evaluation Metrics'
+});
+
+const FOLLOWUP_PR_REVIEW_TEMPLATE_SKELETON_FALLBACK_BY_LABEL = Object.freeze({
+    'PR Review Follow-Up Summary'    : '# PR Review Follow-Up Summary',
+    'Patch-Blind Premise Snapshot'   : '### 🧭 Patch-Blind Premise Snapshot',
+    'Strategic-Fit Decision'         : '### 🪜 Strategic-Fit Decision',
+    'Prior Review Anchor'            : '### ⚓ Prior Review Anchor',
+    'Delta Scope'                    : '### 🔁 Delta Scope',
+    'Previous Required Actions Audit': '### ✅ Previous Required Actions Audit',
+    'Delta Depth Floor'              : '### 🔬 Delta Depth Floor',
+    'Metrics Delta'                  : '### 📊 Metrics Delta',
+    'Required Actions'               : '### 📋 Required Actions'
+});
+
+const templateHeadingAnchorCache = new Map();
+
+function getTemplateHeadingAnchors(templatePath, {projectRoot = aiConfig.projectRoot} = {}) {
+    return readFileSync(path.resolve(projectRoot, templatePath), 'utf8')
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => /^#{1,6}\s+/.test(line));
+}
+
+function fallbackTemplateHeadingAnchorsByLabel(labels, fallbackByLabel) {
+    return labels.map(label => {
+        const anchor = fallbackByLabel[label];
+
+        if (!anchor) {
+            throw new Error(`Missing fallback heading for '${label}'`);
+        }
+
+        return anchor;
+    });
+}
+
+function warnTemplateAnchorFallback(message, {log = logger} = {}) {
+    const warn = log?.warn || log?.error || (() => {});
+
+    warn.call(log, message);
+}
+
+function getTemplateHeadingAnchorsByLabel(templatePath, labels, {
+    fallbackByLabel,
+    log = logger,
+    projectRoot = aiConfig.projectRoot
+} = {}) {
+    const cacheKey = `${projectRoot}\u0000${templatePath}\u0000${labels.join('\u0000')}`;
+
+    if (templateHeadingAnchorCache.has(cacheKey)) {
+        return templateHeadingAnchorCache.get(cacheKey);
+    }
+
+    let headings;
+
+    try {
+        headings = getTemplateHeadingAnchors(templatePath, {projectRoot});
+    } catch (error) {
+        const anchors = fallbackTemplateHeadingAnchorsByLabel(labels, fallbackByLabel);
+
+        warnTemplateAnchorFallback(
+            `[PullRequestService] Falling back to built-in pr-review template anchors because ${templatePath} could not be read from '${projectRoot}': ${error.message}`,
+            {log}
+        );
+        templateHeadingAnchorCache.set(cacheKey, anchors);
+        return anchors;
+    }
+
+    const anchors = labels.map(label => {
+        const anchor = headings.find(line => line.includes(label));
+
+        if (anchor) {
+            return anchor;
+        }
+
+        const fallbackAnchor = fallbackByLabel[label];
+
+        if (!fallbackAnchor) {
+            throw new Error(`Missing '${label}' heading in ${templatePath}`);
+        }
+
+        warnTemplateAnchorFallback(
+            `[PullRequestService] Falling back to built-in pr-review heading '${label}' because ${templatePath} no longer exposes it.`,
+            {log}
+        );
+        return fallbackAnchor;
+    });
+
+    templateHeadingAnchorCache.set(cacheKey, anchors);
+    return anchors;
+}
 
 /**
  * **Visible** template-anchor substrings — checked AND named in the error response on miss.
@@ -124,29 +250,20 @@ const MICRO_DELTA_PR_REVIEW_SHAPE_HINTS = [
     '### Verdict'
 ];
 
-const FULL_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS = [
-    '# PR Review Summary',
-    '### 🪜 Strategic-Fit Decision',
-    '### 🧭 Patch-Blind Premise Snapshot',
-    '### 🕸️ Context & Graph Linking',
-    '### 🔬 Depth Floor',
-    '### 🧠 Graph Ingestion Notes',
-    '### 📋 Required Actions',
-    '### 📊 Evaluation Metrics'
-];
+function getFullPrReviewTemplateSkeletonAnchors() {
+    return getTemplateHeadingAnchorsByLabel(PR_REVIEW_TEMPLATE_PATH, FULL_PR_REVIEW_TEMPLATE_SKELETON_LABELS, {
+        fallbackByLabel: FULL_PR_REVIEW_TEMPLATE_SKELETON_FALLBACK_BY_LABEL
+    });
+}
 
-const FOLLOWUP_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS = [
-    '# PR Review Follow-Up Summary',
-    '**Cycle:**',
-    '### 🧭 Patch-Blind Premise Snapshot',
-    '### 🪜 Strategic-Fit Decision',
-    '### ⚓ Prior Review Anchor',
-    '### 🔁 Delta Scope',
-    '### ✅ Previous Required Actions Audit',
-    '### 🔬 Delta Depth Floor',
-    '### 📊 Metrics Delta',
-    '### 📋 Required Actions'
-];
+function getFollowupPrReviewTemplateSkeletonAnchors() {
+    return [
+        ...getTemplateHeadingAnchorsByLabel(PR_REVIEW_FOLLOWUP_TEMPLATE_PATH, FOLLOWUP_PR_REVIEW_TEMPLATE_SKELETON_LABELS, {
+            fallbackByLabel: FOLLOWUP_PR_REVIEW_TEMPLATE_SKELETON_FALLBACK_BY_LABEL
+        }),
+        '**Cycle:**'
+    ];
+}
 
 const MICRO_DELTA_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS = [
     '# Pull Request Micro-Delta Review',
@@ -202,10 +319,10 @@ function getPrReviewTemplateSkeletonMisses(body) {
     const hasFollowupShape = FOLLOWUP_PR_REVIEW_SHAPE_HINTS.some(anchor => body.includes(anchor));
 
     if (hasFollowupShape) {
-        return FOLLOWUP_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS.filter(anchor => !body.includes(anchor));
+        return getFollowupPrReviewTemplateSkeletonAnchors().filter(anchor => !body.includes(anchor));
     }
 
-    return FULL_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS.filter(anchor => !body.includes(anchor));
+    return getFullPrReviewTemplateSkeletonAnchors().filter(anchor => !body.includes(anchor));
 }
 
 /**
@@ -296,9 +413,11 @@ function getMicroDeltaPrReviewTemplateValidationFailure(body) {
  * @summary Returns a structured validation failure for malformed full/follow-up review bodies.
  *
  * @param {String} body The candidate PR review body.
+ * @param {Object}  [options]
+ * @param {Boolean} [options.includeTemplateDiagnostics=false] Include exact skeleton misses for read-only preflight.
  * @returns {Object|null} Validation failure payload or `null` when valid.
  */
-function getCanonicalPrReviewTemplateValidationFailure(body) {
+function getCanonicalPrReviewTemplateValidationFailure(body, {includeTemplateDiagnostics = false} = {}) {
     const missingVisible          = VISIBLE_PR_REVIEW_ANCHORS          .filter(anchor => !body.includes(anchor));
     const missingInvisible        = INVISIBLE_PR_REVIEW_ANCHORS        .filter(anchor => !body.includes(anchor));
     const missingTemplateSkeleton = getPrReviewTemplateSkeletonMisses(body);
@@ -321,8 +440,8 @@ function getCanonicalPrReviewTemplateValidationFailure(body) {
     const diagnosticAnchor = missingVisible[0] ?? missingPremiseSnapshot[0] ?? null;
 
     const skillPath    = '.agents/skills/pr-review/SKILL.md';
-    const templatePath = '.agents/skills/pr-review/assets/pr-review-template.md';
-    const followupPath = '.agents/skills/pr-review/assets/pr-review-followup-template.md';
+    const templatePath = PR_REVIEW_TEMPLATE_PATH;
+    const followupPath = PR_REVIEW_FOLLOWUP_TEMPLATE_PATH;
 
     const message = [
         `Review body does not match the pr-review template structure.`,
@@ -342,7 +461,7 @@ function getCanonicalPrReviewTemplateValidationFailure(body) {
             : `\nDiagnostic hint: visible metric tags appear present but the structural template anchors do not.`
     ].join('\n');
 
-    return {
+    const failure = {
         error: 'PR Review Template Validation Failed',
         message,
         code : 'PR_REVIEW_TEMPLATE_VALIDATION_FAILED',
@@ -354,6 +473,12 @@ function getCanonicalPrReviewTemplateValidationFailure(body) {
         skill                   : skillPath,
         template                : templatePath
     };
+
+    if (includeTemplateDiagnostics) {
+        failure.missing_template_skeleton = missingTemplateSkeleton;
+    }
+
+    return failure;
 }
 
 /**
@@ -415,11 +540,11 @@ function getMicroReviewTemplateValidationFailure(body) {
     ].join('\n');
 
     return {
-        error              : 'PR Review Template Validation Failed',
+        error               : 'PR Review Template Validation Failed',
         message,
-        code               : 'PR_REVIEW_TEMPLATE_VALIDATION_FAILED',
+        code                : 'PR_REVIEW_TEMPLATE_VALIDATION_FAILED',
         missing_micro_review: missing,
-        skill              : skillPath
+        skill               : skillPath
     };
 }
 
@@ -432,16 +557,18 @@ function getMicroReviewTemplateValidationFailure(body) {
  * full/intense reviews.
  *
  * @param {String} body The candidate PR review body.
+ * @param {Object}  [options]
+ * @param {Boolean} [options.includeTemplateDiagnostics=false] Include exact skeleton misses for read-only preflight.
  * @returns {Object|null} Validation failure payload or `null` when valid.
  */
-function getPrReviewTemplateValidationFailure(body) {
+function getPrReviewTemplateValidationFailure(body, options) {
     if (isMicroReview(body)) {
         return getMicroReviewTemplateValidationFailure(body);
     }
 
     return isMicroDeltaPrReview(body)
         ? getMicroDeltaPrReviewTemplateValidationFailure(body)
-        : getCanonicalPrReviewTemplateValidationFailure(body);
+        : getCanonicalPrReviewTemplateValidationFailure(body, options);
 }
 
 function normalizeCheckoutOptions(options) {
@@ -473,7 +600,7 @@ function buildCheckoutPullRequest({
 } = {}) {
     return async function checkoutPullRequest(options) {
         const {pr_number, repoPath} = normalizeCheckoutOptions(options);
-        const prNumber = Number(pr_number);
+        const prNumber              = Number(pr_number);
 
         if (!Number.isInteger(prNumber) || prNumber <= 0) {
             return {
@@ -506,8 +633,8 @@ function buildCheckoutPullRequest({
         } catch (error) {
             log.error(`Error resolving git top-level for checkout_pull_request repoPath '${normalizedRepoPath}':`, error);
             return {
-                error  : 'Invalid repoPath',
-                message: `repoPath '${normalizedRepoPath}' is not a readable git worktree root.`,
+                error   : 'Invalid repoPath',
+                message : `repoPath '${normalizedRepoPath}' is not a readable git worktree root.`,
                 code    : 'INVALID_REPO_PATH',
                 repoPath: normalizedRepoPath,
                 details : error.stderr || error.message
@@ -528,14 +655,14 @@ function buildCheckoutPullRequest({
         }
 
         try {
-            const {stdout}       = await execFileFn('gh', ['pr', 'checkout', String(prNumber)], {cwd: gitTopLevel});
+            const {stdout}      = await execFileFn('gh', ['pr', 'checkout', String(prNumber)], {cwd: gitTopLevel});
             const branchResult  = await execFileFn('git', ['branch', '--show-current'], {cwd: gitTopLevel});
             const headShaResult = await execFileFn('git', ['rev-parse', 'HEAD'], {cwd: gitTopLevel});
             const branch        = branchResult.stdout.trim();
             const headSha       = headShaResult.stdout.trim();
 
             return {
-                message: `Successfully checked out PR #${prNumber}`,
+                message : `Successfully checked out PR #${prNumber}`,
                 details : stdout.trim(),
                 repoPath: gitTopLevel,
                 branch,
@@ -544,8 +671,8 @@ function buildCheckoutPullRequest({
         } catch (error) {
             log.error(`Error checking out PR #${prNumber}:`, error);
             return {
-                error  : 'GitHub CLI command failed',
-                message: `gh pr checkout ${prNumber} failed with exit code ${error.code}`,
+                error   : 'GitHub CLI command failed',
+                message : `gh pr checkout ${prNumber} failed with exit code ${error.code}`,
                 code    : 'GH_CLI_ERROR',
                 repoPath: gitTopLevel,
                 details : error.stderr || error.message
@@ -722,7 +849,7 @@ class PullRequestService extends Base {
         try {
             if (files_only) {
                 const {stdout} = await execFileAsync('gh', ['pr', 'view', String(prNumber), '--json', 'files'], {cwd: aiConfig.projectRoot});
-                const parsed = JSON.parse(stdout);
+                const parsed   = JSON.parse(stdout);
                 return { files: parsed.files || [] };
             }
 
@@ -746,10 +873,10 @@ class PullRequestService extends Base {
                 }
 
                 const {stdout: baseStdout} = await execFileAsync('gh', ['pr', 'view', String(prNumber), '--json', 'baseRefOid'], {cwd: aiConfig.projectRoot});
-                const baseRefOid = JSON.parse(baseStdout).baseRefOid;
+                const baseRefOid           = JSON.parse(baseStdout).baseRefOid;
 
                 const filePaths = file.split(',').map(f => f.trim());
-                const {stdout} = await execFileAsync('git', ['diff', `${baseRefOid}...${sha}`, '--', ...filePaths], {cwd: aiConfig.projectRoot});
+                const {stdout}  = await execFileAsync('git', ['diff', `${baseRefOid}...${sha}`, '--', ...filePaths], {cwd: aiConfig.projectRoot});
                 diffStdout = stdout;
             } else {
                 const {stdout} = await execFileAsync('gh', ['pr', 'diff', String(prNumber)], {cwd: aiConfig.projectRoot});
@@ -842,6 +969,49 @@ class PullRequestService extends Base {
                 code   : 'GRAPHQL_API_ERROR'
             };
         }
+    }
+
+    /**
+     * @summary Dry-run validates a PR review body against the canonical review templates.
+     *
+     * This is the pre-post lint companion for {@link #managePrReview}: it performs the same
+     * mechanical body-shape validation without resolving a PR id or sending a GitHub review
+     * mutation. The read-only path may return exact template-skeleton misses so composers can
+     * repair the body before the formal `manage_pr_review` call; the mutation path keeps its
+     * anti-stuffing response narrower.
+     *
+     * @param {Object} options
+     * @param {String} options.body Candidate PR review body.
+     * @returns {Object} `{valid: true}` on success, or the structured validation failure with
+     *                   `valid: false` and exact read-only diagnostics where safe.
+     */
+    validatePrReviewBody({body} = {}) {
+        if (!body) {
+            return {
+                valid  : false,
+                error  : 'Bad Request',
+                message: "Missing required argument: 'body' is required.",
+                code   : 'MISSING_ARGUMENTS'
+            };
+        }
+
+        const templateValidationFailure = getPrReviewTemplateValidationFailure(body, {
+            includeTemplateDiagnostics: true
+        });
+
+        if (templateValidationFailure) {
+            return {
+                valid: false,
+                ...templateValidationFailure
+            };
+        }
+
+        return {
+            valid   : true,
+            message : 'Review body matches the pr-review template structure.',
+            skill   : '.agents/skills/pr-review/SKILL.md',
+            template: PR_REVIEW_TEMPLATE_PATH
+        };
     }
 
     /**
@@ -1069,11 +1239,11 @@ class PullRequestService extends Base {
             // fails for every agent on that credential class. REST needs only `repo`. Request body:
             // `reviewers[]` (user logins) + `team_reviewers[]` (bare team slugs — REST takes the slug, not
             // the `owner/slug` form `gh pr edit` requires).
-            const method = action === 'add' ? 'POST' : 'DELETE';
+            const method        = action === 'add' ? 'POST' : 'DELETE';
             const reviewerFlags = reviewerList.map(r => `-f 'reviewers[]=${r}'`).join(' ');
             const teamFlags     = teamReviewerList.map(t => `-f 'team_reviewers[]=${t}'`).join(' ');
-            const allFlags   = [reviewerFlags, teamFlags].filter(Boolean).join(' ');
-            const allTargets = [...reviewerList, ...teamReviewerList];
+            const allFlags      = [reviewerFlags, teamFlags].filter(Boolean).join(' ');
+            const allTargets    = [...reviewerList, ...teamReviewerList];
 
             const command = `gh api repos/${aiConfig.owner}/${aiConfig.repo}/pulls/${pr_number}/requested_reviewers -X ${method} ${allFlags}`;
             logger.info(`Attempting to ${action} reviewers on PR #${pr_number} via REST: ${allTargets.join(', ')}`);
