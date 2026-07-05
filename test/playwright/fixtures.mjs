@@ -135,10 +135,12 @@ export const test = base.extend({
                 }
 
                 // Prefer the page's own worker id (exact-id match); fall back to explicit / inferred appName.
-                // A top-level app's getWorkerId() resolves to a string, but a childapp that joined an existing
-                // SharedWorker gets the raw remote-reply envelope ({action:'reply', data, ...}) instead — not a
-                // usable session-id match — so treat a non-string workerId as absent and use the appName fallback.
-                const targetId = (typeof workerId === 'string' && workerId ? workerId : null) || appName || inferredAppName;
+                // Some SharedWorker remotes return the raw reply envelope instead of unwrapping the data field.
+                // The `data` payload is still the App Worker id and remains the only same-name-safe target.
+                const normalizedWorkerId = typeof workerId === 'string' ? workerId : workerId?.data,
+                      targetId           = typeof normalizedWorkerId === 'string' && normalizedWorkerId ?
+                          normalizedWorkerId :
+                          appName || inferredAppName;
                 if (!targetId) {
                     throw new Error('neuralLink.connectToApp requires either an initialized Neo environment or an explicit appName to wait for.');
                 }

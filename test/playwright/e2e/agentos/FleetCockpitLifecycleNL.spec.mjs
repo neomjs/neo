@@ -1,7 +1,5 @@
 import {test, expect} from '../../fixtures.mjs';
 import {
-    NeuralLink_ComponentService,
-    NeuralLink_ConnectionService,
     NeuralLink_DataService,
     NeuralLink_InstanceService
 } from '../../../../ai/services.mjs';
@@ -129,25 +127,24 @@ test.describe('AgentOS Fleet cockpit lifecycle controls (Neural Link)', () => {
             await page.locator('.agent-shell').getByText('Control', {exact: true}).click();
             await expect(page.locator('.agent-panel-settings')).toBeVisible({timeout: 30000});
 
-            // Use the fixture to own bridge startup, then bind by app name: AgentOS SharedWorker
-            // exposes a page-local app id via getWorkerId(), while the bridge registers `agentos`.
+            // Use the fixture to own bridge startup and bind to this page's App Worker id.
+            // Raw app-name session lookup can pick an older same-name session.
             expect(neuralLink.bridgePort).toBeGreaterThan(0);
 
-            const sessionId = await NeuralLink_ConnectionService.waitForSession('agentos', 30000),
-                  panels    = await NeuralLink_ComponentService.queryComponent({
-                      sessionId,
-                      selector        : {className: 'AgentOS.view.FleetSettingsPanel'},
-                      returnProperties: ['id', 'className', 'reference', 'windowId']
-                  }),
-                  buttons   = await NeuralLink_ComponentService.queryComponent({
-                      sessionId,
-                      selector        : {ntype: 'button'},
-                      returnProperties: ['id', 'text', 'handler']
-                  }),
+            const app       = await neuralLink.connectToApp('AgentOS'),
+                  sessionId = app.sessionId,
+                  panels    = await app.queryComponent(
+                      {className: 'AgentOS.view.FleetSettingsPanel'},
+                      ['id', 'className', 'reference', 'windowId']
+                  ),
+                  buttons   = await app.queryComponent(
+                      {ntype: 'button'},
+                      ['id', 'text', 'handler']
+                  ),
                   storeId   = await getAgentDefinitionsStoreId(sessionId);
 
-            expect(panels.components).toHaveLength(1);
-            expect(buttons.components.map(button => button.properties.text)).toEqual(expect.arrayContaining([
+            expect(panels).toHaveLength(1);
+            expect(buttons.map(button => button.properties.text)).toEqual(expect.arrayContaining([
                 'Start',
                 'Stop',
                 'Restart'
@@ -186,7 +183,8 @@ test.describe('AgentOS Fleet cockpit lifecycle controls (Neural Link)', () => {
             await expect(page.locator('.agent-panel-settings')).toBeVisible({timeout: 30000});
             expect(neuralLink.bridgePort).toBeGreaterThan(0);
 
-            const sessionId = await NeuralLink_ConnectionService.waitForSession('agentos', 30000),
+            const app       = await neuralLink.connectToApp('AgentOS'),
+                  sessionId = app.sessionId,
                   storeId   = await getAgentDefinitionsStoreId(sessionId);
 
             await seedPublicAgentRow(sessionId, storeId);
