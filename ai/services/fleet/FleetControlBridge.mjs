@@ -1,6 +1,10 @@
 import Base                 from '../../../src/core/Base.mjs';
 import FleetManager         from './FleetManager.mjs';
 import FleetRegistryService from './FleetRegistryService.mjs';
+import {
+    createNotWiredCapability,
+    FLEET_COCKPIT_SOURCES
+} from '../../../src/ai/fleet/fleetCockpitStatus.mjs';
 
 /**
  * @class Neo.ai.services.fleet.FleetControlBridge
@@ -72,6 +76,17 @@ class FleetControlBridge extends Base {
      * @member {Object|null} bootIdentitySource=null
      */
     bootIdentitySource = null
+    /**
+     * Activity-feed **read-observe** source — an injected collaborator exposing
+     * `readActivitySnapshot(params)` that returns the bounded `{capability, events}` cockpit activity
+     * snapshot (the composed A2A + PR/lane adapters). The mailbox / PR read paths — and with them the
+     * identity binding + read permissions — stay owned by the wiring, per the adapters' DI contract
+     * (they consume an injected `listMessages`, never import the singleton). A plain injectable field
+     * like `bootIdentitySource` (no static default — the orchestrator wires the live source); unwired
+     * → an honest source-not-wired snapshot, never fabricated activity.
+     * @member {Object|null} activitySource=null
+     */
+    activitySource = null
 
     /**
      * @returns {Object} the registry collaborator (injected stub or the default singleton).
@@ -221,6 +236,26 @@ class FleetControlBridge extends Base {
         return this.bootIdentitySource
             ? this.bootIdentitySource.produceBootIdentityFact()
             : {fact: null, classification: 'unknown', advisory: true, reason: 'no-boot-identity-source'};
+    }
+
+    /**
+     * @summary READ-OBSERVE: the bounded fleet activity snapshot (A2A + PR/lane) as cockpit events —
+     * the real-time feed the FM cockpit's ActivityStream binds to. Rides the authenticated
+     * `registryBridge` as a **read** verb; it carries NO lifecycle-write / restart authority (the R3
+     * read-observe ÷ lifecycle-write seam). An unwired {@link #activitySource} yields an honest
+     * source-not-wired snapshot (degraded capability + empty events), never fabricated activity —
+     * mirroring {@link #getBootIdentity}'s advisory-empty degrade, so the cockpit renders a
+     * "feed not wired" state rather than a silent freeze or invented traffic.
+     * @param {Object} [params] Optional bounds forwarded to the source (`{limit, since, until}`).
+     * @returns {Promise<Object>|Object} `{capability, events}` — the bounded cockpit activity snapshot.
+     */
+    fleetActivity(params) {
+        return this.activitySource
+            ? this.activitySource.readActivitySnapshot(params)
+            : {
+                capability: createNotWiredCapability(FLEET_COCKPIT_SOURCES.activity, 'fleet activity source not wired'),
+                events    : []
+            };
     }
 }
 

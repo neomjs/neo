@@ -55,6 +55,7 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
         FleetControlBridge.registry           = null;
         FleetControlBridge.manager            = null;
         FleetControlBridge.bootIdentitySource = null;
+        FleetControlBridge.activitySource     = null;
     });
 
     // ---- delegation: the registry (define / list / get) half ----
@@ -96,6 +97,30 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
         FleetControlBridge.bootIdentitySource = null;
 
         expect(FleetControlBridge.getBootIdentity()).toEqual({fact: null, classification: 'unknown', advisory: true, reason: 'no-boot-identity-source'});
+    });
+
+    // ---- read-observe: the fleet activity snapshot (advisory read verb; carries no lifecycle-write) ----
+
+    test('fleetActivity returns the injected source snapshot — read-observe, never a lifecycle-write', async () => {
+        const snapshot = {
+            capability: {source: 'fleet:activity-adapters', state: 'wired', confidence: 'observed'},
+            events    : [{type: 'lane-claim', source: 'memory-core:mailbox', agentId: 'neo-opus-vega', occurredAt: '2026-07-05T00:00:00.000Z', payload: {kind: 'a2a-lane-claim', subject: '[lane-claim] #14606'}}]
+        };
+        FleetControlBridge.activitySource = {readActivitySnapshot: async params => { calls.push(['readActivitySnapshot', params]); return snapshot; }};
+
+        const result = await FleetControlBridge.fleetActivity({limit: 25});
+
+        expect(result).toEqual(snapshot);
+        expect(calls).toEqual([['readActivitySnapshot', {limit: 25}]]);   // bounds forwarded verbatim to the source
+    });
+
+    test('fleetActivity yields an honest source-not-wired snapshot when the source is unwired — never fabricated activity', () => {
+        FleetControlBridge.activitySource = null;
+
+        const result = FleetControlBridge.fleetActivity();
+
+        expect(result.events).toEqual([]);   // no invented traffic
+        expect(result.capability).toMatchObject({state: 'not-wired', confidence: 'none', reason: 'fleet activity source not wired'});
     });
 
     // ---- delegation: the lifecycle (start / stop / restart / remove / status) half ----
