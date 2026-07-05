@@ -1534,4 +1534,248 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             expect(DockZoneModel.operations).toContain('transferItem')
         })
     });
+
+    test.describe('moveNode (grouped-drag subtree re-parent)', () => {
+        test('split placement wraps target + moved subtree in a new split; old slot pruned; subtree intact', () => {
+            const {document, errors} = DockZoneModel.moveNode(doc(), {
+                nodeId: 'side-tabs', targetNodeId: 'main-tabs', placement: {orientation: 'vertical', position: 'after'}
+            });
+
+            expect(errors).toEqual([]);
+
+            const centerId = document.nodes.root.zones.center;
+
+            expect(document.nodes[centerId].type).toBe('split');
+            expect(document.nodes[centerId].children).toContain('main-tabs');
+            expect(document.nodes[centerId].children).toContain('side-tabs');
+            expect(document.nodes.root.zones.right).toBeUndefined();                            // moved out of its old edge slot
+            expect(DockZoneModel.findContainingTabsId(document, 'terminal')).toBe('side-tabs'); // the moved subtree is intact
+            expect(DockZoneModel.validate(document)).toEqual([])
+        });
+
+        test('tab-into placement merges the moved tabs items into the target in order, then drops the node', () => {
+            const {document, errors} = DockZoneModel.moveNode(doc(), {
+                nodeId: 'side-tabs', targetNodeId: 'main-tabs', placement: {kind: 'tab-into'}
+            });
+
+            expect(errors).toEqual([]);
+            expect(document.nodes['main-tabs'].items).toEqual(['strategy', 'swarm', 'terminal']);
+            expect(document.nodes['side-tabs']).toBeUndefined();
+            expect(document.nodes.root.zones.right).toBeUndefined();
+            expect(DockZoneModel.validate(document)).toEqual([])
+        });
+
+        test('cycle guard: moving a node into its own subtree fails closed, document untouched', () => {
+            const input              = splitDoc();
+            const {document, errors} = DockZoneModel.moveNode(input, {
+                nodeId: 'main-split', targetNodeId: 'main-tabs', placement: {orientation: 'vertical'}
+            });
+
+            expect(errors.join(' ')).toContain('own subtree');
+            expect(document).toEqual(input)
+        });
+
+        test('fails closed on unknown node, unknown target, the root, or a self-move', () => {
+            const move = args => DockZoneModel.moveNode(doc(), {placement: {orientation: 'vertical'}, ...args}).errors.join(' ');
+
+            expect(move({nodeId: 'ghost',     targetNodeId: 'main-tabs'})).toContain('unknown node');
+            expect(move({nodeId: 'side-tabs', targetNodeId: 'ghost'})).toContain('unknown target');
+            expect(move({nodeId: 'root',      targetNodeId: 'main-tabs'})).toContain('root');
+            expect(move({nodeId: 'main-tabs', targetNodeId: 'main-tabs'})).toContain('onto itself')
+        });
+
+        test('fails closed on a bad split orientation or a tab-into targeting a non-tabs node', () => {
+            expect(DockZoneModel.moveNode(doc(), {nodeId: 'side-tabs', targetNodeId: 'main-tabs', placement: {orientation: 'diagonal'}}).errors.join(' ')).toContain('orientation');
+            expect(DockZoneModel.moveNode(doc(), {nodeId: 'side-tabs', targetNodeId: 'root', placement: {kind: 'tab-into'}}).errors.join(' ')).toContain('tabs nodes')
+        });
+
+        test('renormalizes surviving sizes when a node leaves a 3-child split (ratios preserved, not reset to equal)', () => {
+            const d = doc();
+
+            d.nodes = {
+                root: {type: 'edge-zone', zones: {center: 'tri'}},
+                tri : {type: 'split', orientation: 'horizontal', children: ['a', 'b', 'c'], sizes: [0.2, 0.3, 0.5]},
+                a   : {type: 'tabs', items: ['strategy'], activeItemId: 'strategy'},
+                b   : {type: 'tabs', items: ['swarm'],    activeItemId: 'swarm'},
+                c   : {type: 'tabs', items: ['terminal'], activeItemId: 'terminal'}
+            };
+
+            // move 'a' (0.2) as a tab into 'c'; surviving [b, c] sizes (0.3, 0.5) renormalize to (0.375, 0.625)
+            const {document, errors} = DockZoneModel.moveNode(d, {nodeId: 'a', targetNodeId: 'c', placement: {kind: 'tab-into'}});
+
+            expect(errors).toEqual([]);
+            expect(document.nodes.tri.children).toEqual(['b', 'c']);
+            expect(document.nodes.tri.sizes[0]).toBeCloseTo(0.375);
+            expect(document.nodes.tri.sizes[1]).toBeCloseTo(0.625);
+            expect(DockZoneModel.validate(document)).toEqual([])
+        });
+
+        test('applyOperation dispatches moveNode; the op joins the exported vocabulary', () => {
+            const {document, errors} = DockZoneModel.applyOperation(doc(), {
+                operation: 'moveNode', nodeId: 'side-tabs', targetNodeId: 'main-tabs', placement: {kind: 'tab-into'}
+            });
+
+            expect(errors).toEqual([]);
+            expect(document.nodes['main-tabs'].items).toContain('terminal');
+            expect(DockZoneModel.operations).toContain('moveNode')
+        })
+    });
+
+    test.describe('transferNode (atomic two-document subtree transfer)', () => {
+        // A second workspace with a distinct catalog + a `main-tabs` to attach into.
+        const target = () => ({
+            schema: 'neo.harness.dockZone.v1',
+            root  : 'root',
+            items : {alpha: {componentRef: 'alpha', title: 'Alpha', kind: 'panel'}},
+            nodes : {
+                root       : {type: 'edge-zone', zones: {center: 'main-tabs'}},
+                'main-tabs': {type: 'tabs', items: ['alpha'], activeItemId: 'alpha'}
+            }
+        });
+
+        const splitInto = {targetNodeId: 'main-tabs', placement: {orientation: 'vertical', position: 'after'}};
+
+        test('transfers a subtree across documents: source loses it, target gains its nodes + member records, both valid', () => {
+            const {sourceDocument, targetDocument, errors} = DockZoneModel.transferNode(doc(), target(), {
+                nodeId: 'side-tabs', sourceWorkspaceId: 'A', targetWorkspaceId: 'B', target: splitInto
+            });
+
+            expect(errors).toEqual([]);
+            expect(sourceDocument.nodes['side-tabs']).toBeUndefined();
+            expect(sourceDocument.items.terminal).toBeUndefined();
+            expect(sourceDocument.nodes.root.zones.right).toBeUndefined();
+            expect(targetDocument.nodes['side-tabs']).toBeDefined();
+            expect(targetDocument.items.terminal).toBeDefined();
+            expect(DockZoneModel.findContainingTabsId(targetDocument, 'terminal')).toBe('side-tabs');
+            expect(DockZoneModel.validate(sourceDocument)).toEqual([]);
+            expect(DockZoneModel.validate(targetDocument)).toEqual([])
+        });
+
+        test('a multi-node subtree travels whole — every member node and item re-homes verbatim', () => {
+            const source = doc();
+
+            source.items.log   = {componentRef: 'log',   title: 'Log',   kind: 'panel'};
+            source.items.watch = {componentRef: 'watch', title: 'Watch', kind: 'panel'};
+            source.nodes['grp-a'] = {type: 'tabs', items: ['log'],   activeItemId: 'log'};
+            source.nodes['grp-b'] = {type: 'tabs', items: ['watch'], activeItemId: 'watch'};
+            source.nodes.grp      = {type: 'split', orientation: 'horizontal', children: ['grp-a', 'grp-b'], sizes: [0.5, 0.5]};
+            source.nodes.root.zones.right = 'grp';
+            delete source.nodes['side-tabs'];
+            delete source.items.terminal;
+
+            const {sourceDocument, targetDocument, errors} = DockZoneModel.transferNode(source, target(), {
+                nodeId: 'grp', target: {targetNodeId: 'main-tabs', placement: {orientation: 'vertical'}}
+            });
+
+            expect(errors).toEqual([]);
+            ['grp', 'grp-a', 'grp-b'].forEach(id => expect(sourceDocument.nodes[id]).toBeUndefined());
+            expect(sourceDocument.items.log).toBeUndefined();
+            ['grp', 'grp-a', 'grp-b'].forEach(id => expect(targetDocument.nodes[id]).toBeDefined());
+            expect(targetDocument.items.watch).toEqual(source.items.watch);   // verbatim
+            expect(DockZoneModel.validate(sourceDocument)).toEqual([]);
+            expect(DockZoneModel.validate(targetDocument)).toEqual([])
+        });
+
+        test('atomic: an attach failure after preconditions leaves BOTH documents untouched (source byte-identical)', () => {
+            const source  = doc();
+            const srcSnap = JSON.parse(JSON.stringify(source));
+
+            const {sourceDocument, targetDocument, errors} = DockZoneModel.transferNode(source, target(), {
+                nodeId: 'side-tabs', target: {targetNodeId: 'main-tabs', placement: {orientation: 'diagonal'}}
+            });
+
+            expect(errors.join(' ')).toContain('orientation');
+            expect(sourceDocument).toEqual(srcSnap);                       // source never half-transferred
+            expect(targetDocument.nodes['side-tabs']).toBeUndefined()      // target never received it
+        });
+
+        test('rejects a node-id already present in the target', () => {
+            const tgt = target();
+
+            tgt.nodes['side-tabs'] = {type: 'tabs', items: [], activeItemId: null};
+
+            const {errors} = DockZoneModel.transferNode(doc(), tgt, {nodeId: 'side-tabs', target: splitInto});
+            expect(errors.join(' ')).toContain('node "side-tabs" already exists')
+        });
+
+        test('rejects when a member item id already exists in the target', () => {
+            const tgt = target();
+
+            tgt.items.terminal = {componentRef: 'terminal', title: 'T', kind: 'terminal'};
+
+            const {errors} = DockZoneModel.transferNode(doc(), tgt, {nodeId: 'side-tabs', target: splitInto});
+            expect(errors.join(' ')).toContain('item "terminal" already exists')
+        });
+
+        test('rejects an unmovable member, the root node, and a same-workspace transfer', () => {
+            const src = doc();
+
+            src.items.terminal.movable = false;
+
+            expect(DockZoneModel.transferNode(src, target(), {nodeId: 'side-tabs', target: splitInto}).errors.join(' ')).toContain('movable');
+            expect(DockZoneModel.transferNode(doc(), target(), {nodeId: 'root', target: splitInto}).errors.join(' ')).toContain('root');
+            expect(DockZoneModel.transferNode(doc(), target(), {nodeId: 'side-tabs', sourceWorkspaceId: 'X', targetWorkspaceId: 'X', target: splitInto}).errors.join(' ')).toContain('distinct source and target')
+        });
+
+        test('applyOperation redirects transferNode to the two-document method; the op joins the vocabulary', () => {
+            const input              = doc();
+            const {document, errors} = DockZoneModel.applyOperation(input, {operation: 'transferNode', nodeId: 'side-tabs'});
+
+            expect(errors.join(' ')).toContain('two-document operation');
+            expect(document).toEqual(input);
+            expect(DockZoneModel.operations).toContain('transferNode')
+        })
+    });
+
+    test.describe('runtime-only preview keys never enter committed / persisted state', () => {
+        // a document smuggling a forbidden preview key through the opaque item metadata channel
+        const tainted = () => {
+            const d = doc();
+
+            d.items.terminal.metadata = {groupNodeId: 'tabs'};
+
+            return d
+        };
+
+        test('validate rejects a forbidden preview key nested in item metadata', () => {
+            expect(DockZoneModel.validate(tainted()).join(' ')).toContain('runtime-only preview field "groupNodeId"')
+        });
+
+        test('createSavedLayout refuses to persist a smuggled preview key (fail-closed, layout null)', () => {
+            const {layout, errors} = DockZoneModel.createSavedLayout(tainted(), {layoutId: 'x', title: 'X'});
+
+            expect(layout).toBeNull();
+            expect(errors.join(' ')).toContain('groupNodeId')
+        });
+
+        test('restoreSavedLayout rejects a saved layout whose dockZone carries a preview key', () => {
+            const wrapper = {
+                schema           : DockZoneModel.LAYOUT_SCHEMA,
+                layoutId         : 'x',
+                title            : 'X',
+                dockZone         : tainted(),
+                metadata         : {},
+                captureScope     : 'window',
+                windowFingerprint: null
+            };
+
+            const {document, errors} = DockZoneModel.restoreSavedLayout(wrapper);
+
+            expect(document).toBeNull();
+            expect(errors.join(' ')).toContain('groupNodeId')
+        });
+
+        test('a clean document round-trips through save + restore unaffected (no false positive)', () => {
+            const {layout, errors} = DockZoneModel.createSavedLayout(doc(), {layoutId: 'x', title: 'X'});
+
+            expect(errors).toEqual([]);
+            expect(layout).not.toBeNull();
+            expect(DockZoneModel.restoreSavedLayout(layout).errors).toEqual([])
+        });
+
+        test('the forbidden-preview-key set is the model-owned SSOT (adapter projection reads the same finder)', () => {
+            expect(DockZoneModel.forbiddenPreviewKeys.has('groupNodeId')).toBe(true);
+            expect(DockZoneModel.findForbiddenPreviewKey({items: {a: {metadata: {pointerX: 1}}}})).toBe('pointerX')
+        })
+    });
 });
