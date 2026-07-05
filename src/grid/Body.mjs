@@ -1254,11 +1254,12 @@ class GridBody extends Component {
     /**
      * @param {Object}   data
      * @param {Object[]} data.items
+     * @param {Boolean}  [data.forceViewData] True when rows must refresh even if record identity is stable.
      * @param {Boolean}  [data.postChunkLoad]
      * @param {Number}   [data.total]
      * @protected
      */
-    onStoreLoad({ items, postChunkLoad, total }) {
+    onStoreLoad({ forceViewData, items, postChunkLoad, total }) {
         let me = this,
             { windowId } = me;
 
@@ -1266,10 +1267,10 @@ class GridBody extends Component {
         // Render the entire chunk for immediate scrollability
         if (total && items.length < total) {
             me.#initialTotalSize = total;
-            me.createViewData();
+            me.createViewData(false, forceViewData === true);
             me.#initialTotalSize = 0
         } else {
-            me.createViewData()
+            me.createViewData(false, forceViewData === true)
         }
 
         if (me.mounted && !postChunkLoad) {

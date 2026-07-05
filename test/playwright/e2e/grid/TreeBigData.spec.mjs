@@ -102,15 +102,17 @@ test.describe('TreeGrid Big Data E2E', () => {
         // 1. Expand All
         await expandAllBtn.click({ force: true });
 
-        // Wait for the first toggle to become expanded
-        await expect(page.locator('.neo-tree-toggle').first()).toHaveClass(/is-expanded/, { timeout: 15000 });
+        const visibleTreeToggle = page.locator('.neo-grid-row:visible .neo-tree-toggle');
+
+        // Wait for the first visible toggle to become expanded
+        await expect(visibleTreeToggle.first()).toHaveClass(/is-expanded/, { timeout: 15000 });
 
         // Close the settings panel to make sure grid rows are clickable without obstruction
         await page.locator('.controls-container-button').click();
         await page.waitForTimeout(500);
 
         // 3. The Bug Reproduction: Collapse a single folder *after* Expand All
-        const firstExpandedFolderDynamic = page.locator('.neo-grid-row:has(.neo-tree-toggle.is-expanded)').first();
+        const firstExpandedFolderDynamic = page.locator('.neo-grid-row:visible:has(.neo-tree-toggle.is-expanded)').first();
         await expect(firstExpandedFolderDynamic).toBeVisible();
 
         const recordId  = await firstExpandedFolderDynamic.getAttribute('data-record-id');
@@ -139,8 +141,8 @@ test.describe('TreeGrid Big Data E2E', () => {
         // 4. Collapse All
         await collapseAllBtn.click({ force: true });
 
-        // Wait for the first toggle to become collapsed
-        await expect(page.locator('.neo-tree-toggle').first()).toHaveClass(/is-collapsed/, { timeout: 15000 });
+        // Wait for the first visible toggle to become collapsed
+        await expect(visibleTreeToggle.first()).toHaveClass(/is-collapsed/, { timeout: 15000 });
 
         // Close the settings panel
         await page.locator('.controls-container-button').click();
@@ -201,8 +203,8 @@ test.describe('TreeGrid Big Data E2E', () => {
         const expandAllBtn = page.locator('.neo-button:has-text("Expand All")');
         await expandAllBtn.click({ force: true });
 
-        // Wait for the first toggle to become expanded
-        await expect(page.locator('.neo-tree-toggle').first()).toHaveClass(/is-expanded/, { timeout: 15000 });
+        // Wait for the first visible toggle to become expanded
+        await expect(page.locator('.neo-grid-row:visible .neo-tree-toggle').first()).toHaveClass(/is-expanded/, { timeout: 15000 });
 
         // Close the settings panel
         await page.locator('.controls-container-button').click();
