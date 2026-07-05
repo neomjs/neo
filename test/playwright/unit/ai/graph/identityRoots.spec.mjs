@@ -41,6 +41,7 @@ test.describe('ai/graph/identityRoots — same-app Claude wake routes', () => {
 
     const expectedTemplate = {
         trigger              : 'SENT_TO_ME',
+        filters              : {priority: 'high'},
         harnessTarget        : 'bridge-daemon',
         harnessTargetMetadata: {appName: 'Claude', tabShortcut: '3', focusSeedKey: 'space'}
     };
@@ -112,6 +113,7 @@ test.describe('ai/graph/identityRoots — Codex wake route', () => {
         expect(entry, '@neo-gpt must be a registered AgentIdentity root').toBeTruthy();
         expect(entry.properties.subscriptionTemplate).toMatchObject({
             trigger              : 'SENT_TO_ME',
+            filters              : {priority: 'high'},
             harnessTarget        : 'bridge-daemon',
             harnessTargetMetadata: {
                 adapter     : 'osascript',

@@ -164,6 +164,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
                 properties: {
                     subscriptionTemplate: {
                         trigger              : 'SENT_TO_ME',
+                        filters              : {priority: 'high'},
                         harnessTarget        : 'bridge-daemon',
                         harnessTargetMetadata: { appName: 'Antigravity' }
                     }
@@ -178,6 +179,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
                 const node = GraphService.db.nodes.get(res.subscriptionId);
                 expect(node.properties.trigger).toBe('SENT_TO_ME');
+                expect(node.properties.filters.priority).toBe('high');
                 expect(node.properties.harnessTargetMetadata.appName).toBe('Antigravity');
             });
         });
@@ -360,6 +362,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
                     modelFamily         : 'gpt',
                     subscriptionTemplate: {
                         trigger              : 'SENT_TO_ME',
+                        filters              : {priority: 'high'},
                         harnessTarget        : 'bridge-daemon',
                         harnessTargetMetadata: {
                             adapter     : 'osascript',
@@ -383,11 +386,13 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
                 const subscriptionNode = GraphService.db.nodes.get(res.subscriptionId);
                 expect(subscriptionNode.properties.trigger).toBe('SENT_TO_ME');
+                expect(subscriptionNode.properties.filters.priority).toBe('high');
                 expect(subscriptionNode.properties.harnessTargetMetadata.adapter).toBe('osascript');
                 expect(subscriptionNode.properties.harnessTargetMetadata.appName).toBe('Codex');
                 expect(subscriptionNode.properties.harnessTargetMetadata.focusSeedKey).toBe('r');
 
                 const hydratedIdentity = GraphService.db.nodes.get('@neo-gpt');
+                expect(hydratedIdentity.properties.subscriptionTemplate.filters.priority).toBe('high');
                 expect(hydratedIdentity.properties.subscriptionTemplate.harnessTargetMetadata.adapter).toBe('osascript');
                 expect(hydratedIdentity.properties.subscriptionTemplate.harnessTargetMetadata.appName).toBe('Codex');
                 expect(hydratedIdentity.properties.subscriptionTemplate.harnessTargetMetadata.focusSeedKey).toBe('r');
