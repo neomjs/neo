@@ -1,6 +1,7 @@
-import Base          from '../core/Base.mjs';
-import DockSplitter  from './DockSplitter.mjs';
-import DockZoneModel from './DockZoneModel.mjs';
+import Base            from '../core/Base.mjs';
+import DockSplitter    from './DockSplitter.mjs';
+import DockTabSortZone from './DockTabSortZone.mjs';
+import DockZoneModel   from './DockZoneModel.mjs';
 
 /**
  * @summary Projects Agent Harness dock-zone model nodes into existing Neo layout and tab configs.
@@ -210,6 +211,7 @@ class DockLayoutAdapter extends Base {
             dockZoneDocument        : options.dockZoneDocument || model,
             items                   : model.items || {},
             nodes                   : model.nodes,
+            onDockCrossZoneDrop     : options.onDockCrossZoneDrop,
             onDockZoneDocumentChange: options.onDockZoneDocumentChange,
             resolveComponentRef     : options.resolveComponentRef || (() => null)
         })
@@ -507,8 +509,23 @@ class DockLayoutAdapter extends Base {
             // tab.Container drags; the model owns the result. (Cross-zone drag rides the dashboard SortZone
             // in a follow-up slice.)
             dragResortable: true,
-            items         : items.map(itemId => this.projectItem(itemId, context)),
-            listeners     : {
+            // The header toolbar's SortZone is the dock-aware subclass: within-toolbar drops fire `moveTo`
+            // (below), cross-zone drops report their release point to `onDockCrossZoneDrop` so the owner can
+            // hit-test the target zone and commit a `moveItem`. Still one drag system — no parallel pipeline.
+            headerToolbar : {
+                sortZoneConfig: {
+                    module          : DockTabSortZone,
+                    dockItemIds     : items,
+                    dockSourceNodeId: nodeId
+                }
+            },
+            items    : items.map(itemId => this.projectItem(itemId, context)),
+            listeners: {
+                // Cross-zone: the dock-aware SortZone fires `dockCrossZoneDrop` on this tab.Container; the
+                // closure holds `context` (captured here, not serialized), so the reducer survives config
+                // cloning and needs no component-tree walk. The reducer hit-tests the target zone + commits.
+                dockCrossZoneDrop: data => context.onDockCrossZoneDrop?.(data),
+                // Within-container reorder rides the container's own `moveTo` event.
                 moveTo: data => {
                     let itemId = items[data.fromIndex],
                         result = context.applyDockZoneOperation?.({operation: 'addTab', itemId, tabsNodeId: nodeId, index: data.toIndex});
