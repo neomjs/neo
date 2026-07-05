@@ -150,7 +150,7 @@ await page.mouse.move(targetX, targetY, { steps: 60 });
 await page.mouse.up();
 ```
 
-See `test/playwright/e2e/grid/GridColumnCrossBodyDnD.spec.mjs` for a worked locked-column drag (in-region landing + cross-region re-home) that pairs the gesture with Neural Link worker assertions.
+See `test/playwright/e2e/grid/ColumnCrossBodyDnD.spec.mjs` for a worked locked-column drag (in-region landing + cross-region re-home) that pairs the gesture with Neural Link worker assertions.
 
 ### Topology, Nodes, & Namespaces
 Get a bird's eye view of the entire runtime environment, discovering connected workers or resolving the class hierarchy.

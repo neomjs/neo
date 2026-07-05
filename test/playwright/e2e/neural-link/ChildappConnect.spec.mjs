@@ -11,7 +11,7 @@ import {test, expect} from '../../fixtures.mjs';
  * back the live viewport — proving the fixture resolves a childapp end to end.
  *
  * @see test/playwright/fixtures.mjs (connectToApp targetId resolution)
- * @see test/playwright/e2e/neural-link/NeuralLinkCreateGrid.spec.mjs (the top-level-app counterpart)
+ * @see test/playwright/e2e/neural-link/CreateGrid.spec.mjs (the top-level-app counterpart)
  */
 test.describe('Neural Link — childapp connect (SharedWorker topology)', () => {
     test.setTimeout(90000);

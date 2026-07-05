@@ -4,8 +4,8 @@ import { test, expect } from '../../fixtures.mjs';
  * @summary H2 Agent Harness proof: create a real grid inside a live Neo app through Neural Link.
  *
  * This intentionally combines two existing whitebox patterns:
- * - `NeuralLinkCreateComponent.spec.mjs`: the agent writes through `create_component`.
- * - `GridBigDataNL.spec.mjs`: the test asserts grid truth inside the App Worker.
+ * - `CreateComponent.spec.mjs`: the agent writes through `create_component`.
+ * - `BigDataNL.spec.mjs`: the test asserts grid truth inside the App Worker.
  *
  * The point is NOT to render a static blueprint that looks like a grid. The proof is that normal
  * Neo grid config can cross the Neural Link create path into a running app, then remain queryable

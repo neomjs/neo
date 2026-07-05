@@ -4,7 +4,7 @@ import { openRawAgent } from '../../util/rawAgent.mjs';
 /**
  * @summary Live e2e proof that a writer's disconnect RELEASES its held WriteGuard lock, re-admitting an
  * overlapping second writer — the release half of the lock lifecycle, symmetric to the deny-while-held
- * proof in `WriteGuardMultiWriterNL.spec.mjs`. The shipped implementation sweeps a disconnected writer's
+ * proof in `MultiWriterNL.spec.mjs`. The shipped implementation sweeps a disconnected writer's
  * held locks; the unit coverage lives in InstanceService/TransactionService. This exercises the full live path
  * the unit coverage cannot reach: Bridge `agent_disconnected` (app-side, `sessionId`-stamped) →
  * `Client.handleAgentDisconnected` → `WriteGuard.releaseAgent` → the subtree is writable again.

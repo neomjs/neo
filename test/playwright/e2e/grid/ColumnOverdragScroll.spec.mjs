@@ -31,7 +31,7 @@ import { test, expect } from '../../fixtures.mjs';
  *   - Worker truth (region column arrays) and the rendered DOM agree on the landing.
  *
  * Gesture notes: page.mouse with `{steps}` arms Neo's Mouse drag sensor (see
- * GridColumnCrossBodyDnD.spec.mjs). While the pointer HOLDS past a region edge, the worker-side
+ * ColumnCrossBodyDnD.spec.mjs). While the pointer HOLDS past a region edge, the worker-side
  * overdrag loop self-feeds — no further mouse events are needed; the spec polls the scrollbar
  * element until each leg settles instead of sleeping fixed amounts.
  *
@@ -202,7 +202,7 @@ async function resolveGridId(app) {
 
 /**
  * Reads the grid's three region-grouped column arrays from the App Worker as ordered dataField
- * lists — the engine's authoritative region+index model (see GridColumnCrossBodyDnD.spec.mjs).
+ * lists — the engine's authoritative region+index model (see ColumnCrossBodyDnD.spec.mjs).
  * @returns {Promise<{center: String[], lockedStart: String[], lockedEnd: String[]}>}
  */
 async function regionColumns(app, gridId) {

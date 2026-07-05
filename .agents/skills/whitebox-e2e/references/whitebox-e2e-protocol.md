@@ -118,7 +118,7 @@ const idless = await page.evaluate(() => window.__idlessInserts);
 expect(idless, 'id-less insertNode deltas at the apply boundary').toBe(0);
 ```
 
-This is the single best lever for VDOM/rendering divergences: a wrong delta sits in the stream even when every individual end-state surface looks internally consistent. See `test/playwright/e2e/grid/GridLockedDnDDuplication.spec.mjs` for a full multi-oracle net built on it.
+This is the single best lever for VDOM/rendering divergences: a wrong delta sits in the stream even when every individual end-state surface looks internally consistent. See `test/playwright/e2e/grid/LockedDnDDuplication.spec.mjs` for a full multi-oracle net built on it.
 
 ## 6. Deep Dive Documentation
 For the complete API of the `neuralLink` test SDK (`nlApp`) including simulating native VNode events, VDOM querying, and complex store inspection, you MUST reference the foundational guide:

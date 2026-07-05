@@ -5,15 +5,15 @@ test.describe('Neural Link Driven Playwright Integration', () => {
     test.setTimeout(90000);
 
     test('God Mode access to internal worker state', async ({ page, neuralLink }) => {
-        console.log('[NeuralLink.spec.mjs] Loading Portal App...');
+        console.log('[WorkerStateMutation.spec.mjs] Loading Portal App...');
         // 1. Setup - Let Playwright load the actual App UI
         await page.goto('/apps/portal/');
 
         // 2. Connect via Neural Link SDK (bypassing normal DOM observation)
-        console.log('[NeuralLink.spec.mjs] Requesting SDK connection...');
+        console.log('[WorkerStateMutation.spec.mjs] Requesting SDK connection...');
         const app = await neuralLink.connectToApp('Portal');
 
-        console.log(`[NeuralLink.spec.mjs] Connected to App Session ID: ${app.sessionId}`);
+        console.log(`[WorkerStateMutation.spec.mjs] Connected to App Session ID: ${app.sessionId}`);
 
         // Get the dynamic ID of the Viewport to avoid guessing "neo-viewport-1"
         await page.waitForSelector('.neo-viewport', { timeout: 30000 });

@@ -7,11 +7,11 @@ test.describe('Desktop: Neural Link Baseline Validation (Grid BigData)', () => {
         // Navigate to the Grid Big Data Example
         await page.goto('/examples/grid/bigData/index.html');
 
-        console.log('[GridBigDataNL.spec.mjs] Loading Grid Big Data Example...');
+        console.log('[BigDataNL.spec.mjs] Loading Grid Big Data Example...');
 
         // Wait for connection to App Worker
         const app = await neuralLink.connectToApp('Neo.examples.grid.bigData');
-        console.log(`[GridBigDataNL.spec.mjs] Connected to App Session ID: ${app.sessionId}`);
+        console.log(`[BigDataNL.spec.mjs] Connected to App Session ID: ${app.sessionId}`);
 
         // Wait for the grid to be visible in the DOM
         await page.waitForSelector('.neo-grid-container', { state: 'visible', timeout: 30000 });
