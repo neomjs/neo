@@ -231,7 +231,7 @@ class Config extends ConfigProvider {
              * trail observable from the host shell. Default: `<neoRootDir>/.neo-ai-data/logs/`.
              * @type {string}
              */
-            logPath: leaf(path.resolve(neoRootDir, '.neo-ai-data/logs')),
+            logPath: leaf(path.resolve(neoRootDir, '.neo-ai-data/logs'), 'NEO_KB_LOG_PATH', 'string'),
             /**
              * @summary Retention policy for Knowledge Base MCP diagnostic log files.
              *
