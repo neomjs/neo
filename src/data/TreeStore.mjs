@@ -186,7 +186,7 @@ class TreeStore extends Store {
      *
      * Iterates through the entire structural layer, silently setting `collapsed = true`
      * on all non-leaf nodes. The visible projection (`_items`) is then completely
-     * re-calculated from the roots, and a single `load` event is fired to trigger a UI refresh.
+     * re-calculated from the roots, and a single `load` event is fired to trigger a forced UI refresh.
      * This avoids the O(N^2) cost of triggering individual `splice` operations.
      *
      * @param {Boolean} [silent=false] True to prevent firing the 'load' event
@@ -216,7 +216,10 @@ class TreeStore extends Store {
         me.calcValueBands();
 
         if (!silent && me[updatingIndex] === 0) {
-            me.fire('load', {items: me._items})
+            me.fire('load', {
+                forceViewData: true,
+                items        : me._items
+            })
         }
     }
 
@@ -441,7 +444,7 @@ class TreeStore extends Store {
      *
      * Iterates through the entire structural layer, silently setting `collapsed = false`
      * on all non-leaf nodes. The visible projection (`_items`) is then completely
-     * re-calculated from the roots, and a single `load` event is fired to trigger a UI refresh.
+     * re-calculated from the roots, and a single `load` event is fired to trigger a forced UI refresh.
      * This avoids the O(N^2) cost of triggering individual `splice` operations.
      *
      * @param {Boolean} [silent=false] True to prevent firing the 'load' event
@@ -471,7 +474,10 @@ class TreeStore extends Store {
         me.calcValueBands();
 
         if (!silent && me[updatingIndex] === 0) {
-            me.fire('load', {items: me._items})
+            me.fire('load', {
+                forceViewData: true,
+                items        : me._items
+            })
         }
     }
 

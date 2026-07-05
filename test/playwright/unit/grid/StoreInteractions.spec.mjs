@@ -33,6 +33,8 @@ import * as core          from '../../../../src/core/_export.mjs';
 import GridContainer      from '../../../../src/grid/Container.mjs';
 import InstanceManager    from '../../../../src/manager/Instance.mjs';
 import Store              from '../../../../src/data/Store.mjs';
+import TreeModel          from '../../../../src/data/TreeModel.mjs';
+import TreeStore          from '../../../../src/data/TreeStore.mjs';
 import VdomHelper         from '../../../../src/vdom/Helper.mjs';
 
 test.describe('Grid & Store Interactions', () => {
@@ -306,5 +308,98 @@ test.describe('Grid & Store Interactions', () => {
         // Content updates for the 2 remaining rows (2 * 3 = 6).
         // Total deltas roughly 18-20.
         expect(deltas.length).toBeLessThanOrEqual(30);
+    });
+});
+
+test.describe('Grid & TreeStore Bulk Projection Interactions', () => {
+    let grid, store;
+
+    class TreeStoreBulkProjectionModel extends TreeModel {
+        static config = {
+            className: 'Test.Unit.Grid.StoreInteractions.TreeStoreBulkProjectionModel',
+            fields: [
+                {name: 'id',   type: 'String'},
+                {name: 'name', type: 'String'}
+            ]
+        }
+    }
+
+    const BulkProjectionModel = Neo.setupClass(TreeStoreBulkProjectionModel);
+
+    test.beforeEach(async () => {
+        store = Neo.create(TreeStore, {
+            autoInitRecords: false,
+            data           : [{
+                id: '1', name: 'Root A', isLeaf: false, collapsed: true
+            }, {
+                id: '1-1', parentId: '1', name: 'Child A1', isLeaf: true
+            }, {
+                id: '2', name: 'Root B', isLeaf: false, collapsed: true
+            }, {
+                id: '2-1', parentId: '2', name: 'Child B1', isLeaf: true
+            }],
+            model: BulkProjectionModel
+        });
+
+        grid = Neo.create(GridContainer, {
+            appName          : 'GridStoreInteractionsTest',
+            bufferColumnRange: 0,
+            bufferRowRange   : 1,
+            columns          : [{
+                dataField: 'name',
+                text     : 'Tree',
+                type     : 'tree',
+                width    : 250
+            }],
+            height            : 240,
+            rowHeight         : 40,
+            store,
+            width             : 300
+        });
+
+        await grid.initVnode();
+        grid.mounted = true;
+
+        grid.body.columnPositions.clear();
+        grid.body.columnPositions.add([{
+            dataField: 'name',
+            width    : 250,
+            x        : 0
+        }]);
+
+        grid.body.set({
+            availableHeight: 200,
+            containerWidth : 300
+        });
+
+        await grid.timeout(50);
+    });
+
+    test.afterEach(async () => {
+        await grid.timeout(20);
+        grid?.destroy();
+        store?.destroy();
+    });
+
+    test('TreeStore bulk projections refresh same-record tree cell state', async () => {
+        const firstRow      = grid.body.items.find(row => row.rowIndex === 0),
+              treeComponent = firstRow.components.name;
+
+        expect(treeComponent.collapsed).toBe(true);
+        expect(treeComponent.vdom.cn[1].cls).toContain('is-collapsed');
+
+        store.expandAll();
+        await grid.timeout(50);
+
+        expect(firstRow.record).toBe(store.getAt(0));
+        expect(treeComponent.collapsed).toBe(false);
+        expect(treeComponent.vdom.cn[1].cls).toContain('is-expanded');
+
+        store.collapseAll();
+        await grid.timeout(50);
+
+        expect(firstRow.record).toBe(store.getAt(0));
+        expect(treeComponent.collapsed).toBe(true);
+        expect(treeComponent.vdom.cn[1].cls).toContain('is-collapsed');
     });
 });
