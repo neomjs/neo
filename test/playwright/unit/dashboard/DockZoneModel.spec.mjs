@@ -1396,5 +1396,142 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
                 expect(DockZoneModel.validate(document)).toEqual([])
             })
         }
-    })
+    });
+
+    test.describe('transferItem (atomic two-document transfer)', () => {
+        // A second workspace document with a distinct catalog, so a transfer into it never
+        // collides on item id with the source doc()'s 'terminal'.
+        const target = () => ({
+            schema: 'neo.harness.dockZone.v1',
+            root  : 'root',
+            items : {alpha: {componentRef: 'alpha', title: 'Alpha', kind: 'panel'}},
+            nodes : {
+                root       : {type: 'edge-zone', zones: {center: 'main-tabs'}},
+                'main-tabs': {type: 'tabs', items: ['alpha'], activeItemId: 'alpha'}
+            }
+        });
+
+        const addTabTarget = {operation: 'addTab', tabsNodeId: 'main-tabs'};
+
+        test('moves an item across documents: source loses it (tree + catalog), target gains it, both valid', () => {
+            const {sourceDocument, targetDocument, errors} = DockZoneModel.transferItem(doc(), target(), {
+                itemId: 'terminal', sourceWorkspaceId: 'A', targetWorkspaceId: 'B', target: addTabTarget
+            });
+
+            expect(errors).toEqual([]);
+            // source: terminal gone from catalog + tree; the emptied side-tabs collapsed + its edge zone pruned
+            expect(sourceDocument.items.terminal).toBeUndefined();
+            expect(DockZoneModel.findContainingTabsId(sourceDocument, 'terminal')).toBeNull();
+            expect(sourceDocument.nodes['side-tabs']).toBeUndefined();
+            expect(sourceDocument.nodes.root.zones.right).toBeUndefined();
+            // target: terminal now in catalog + main-tabs tree
+            expect(targetDocument.items.terminal).toBeDefined();
+            expect(targetDocument.nodes['main-tabs'].items).toContain('terminal');
+            // both documents remain contract-valid
+            expect(DockZoneModel.validate(sourceDocument)).toEqual([]);
+            expect(DockZoneModel.validate(targetDocument)).toEqual([])
+        });
+
+        test('the item record travels verbatim — policy hints, metadata, and a railed autoHidden state intact', () => {
+            const record = {componentRef: 'terminal', title: 'Terminal', kind: 'terminal', closable: false, pinnable: true, movable: true, autoHidden: true, metadata: {pid: 42}};
+            const source = doc();
+
+            source.items.terminal = {...record};
+
+            const {targetDocument, errors} = DockZoneModel.transferItem(source, target(), {itemId: 'terminal', target: addTabTarget});
+
+            expect(errors).toEqual([]);
+            expect(targetDocument.items.terminal).toEqual(record);        // verbatim, incl. autoHidden
+            expect(DockZoneModel.validate(targetDocument)).toEqual([])    // a railed item is a valid arrival
+        });
+
+        test('atomic: a target-side placement failure leaves BOTH documents untouched (source byte-identical)', () => {
+            const source         = doc();
+            const tgt            = target();
+            const sourceSnapshot = JSON.parse(JSON.stringify(source));
+            const tgtSnapshot    = JSON.parse(JSON.stringify(tgt));
+
+            // the nested target points at a node that does not exist → placement fails
+            const {sourceDocument, targetDocument, errors} = DockZoneModel.transferItem(source, tgt, {
+                itemId: 'terminal', target: {operation: 'addTab', tabsNodeId: 'ghost-tabs'}
+            });
+
+            expect(errors.length).toBeGreaterThan(0);
+            expect(sourceDocument).toEqual(sourceSnapshot);   // source never half-transferred
+            expect(targetDocument).toEqual(tgtSnapshot);      // target never received it
+            expect(sourceDocument.items.terminal).toBeDefined()
+        });
+
+        test('rejects an unmovable item fail-closed, both documents untouched', () => {
+            const source = doc();
+
+            source.items.terminal.movable = false;
+
+            const {sourceDocument, targetDocument, errors} = DockZoneModel.transferItem(source, target(), {itemId: 'terminal', target: addTabTarget});
+
+            expect(errors.join(' ')).toContain('movable');
+            expect(sourceDocument.items.terminal).toBeDefined();
+            expect(targetDocument.items.terminal).toBeUndefined()
+        });
+
+        test('rejects an unknown item fail-closed', () => {
+            const {errors} = DockZoneModel.transferItem(doc(), target(), {itemId: 'ghost', target: addTabTarget});
+            expect(errors.join(' ')).toContain('unknown item')
+        });
+
+        test('rejects a transfer when the target already holds the item id', () => {
+            const tgt = target();
+
+            tgt.items.terminal = {componentRef: 'terminal', title: 'Terminal', kind: 'terminal'};
+
+            const {errors} = DockZoneModel.transferItem(doc(), tgt, {itemId: 'terminal', target: addTabTarget});
+            expect(errors.join(' ')).toContain('already exists in the target')
+        });
+
+        test('rejects a same-workspace transfer (that is a moveItem, not a transfer)', () => {
+            const {errors} = DockZoneModel.transferItem(doc(), target(), {
+                itemId: 'terminal', sourceWorkspaceId: 'A', targetWorkspaceId: 'A', target: addTabTarget
+            });
+
+            expect(errors.join(' ')).toContain('distinct source and target')
+        });
+
+        test('rejects a nested target that is not a placement descriptor (addTab / splitNode)', () => {
+            const {errors} = DockZoneModel.transferItem(doc(), target(), {itemId: 'terminal', target: {operation: 'closeItem'}});
+            expect(errors.join(' ')).toContain('addTab or splitNode')
+        });
+
+        test('reuses the landed placement validation — a malformed nested target fails closed, source untouched', () => {
+            const {sourceDocument, errors} = DockZoneModel.transferItem(doc(), target(), {
+                itemId: 'terminal', target: {operation: 'splitNode', targetNodeId: 'main-tabs', orientation: 'sideways'}
+            });
+
+            expect(errors.length).toBeGreaterThan(0);
+            expect(sourceDocument.items.terminal).toBeDefined()
+        });
+
+        test('places via a splitNode target descriptor', () => {
+            const {targetDocument, errors} = DockZoneModel.transferItem(doc(), target(), {
+                itemId: 'terminal',
+                target: {operation: 'splitNode', targetNodeId: 'main-tabs', orientation: 'vertical', position: 'after', sizes: [0.5, 0.5]}
+            });
+
+            expect(errors).toEqual([]);
+            expect(targetDocument.items.terminal).toBeDefined();
+            expect(DockZoneModel.findContainingTabsId(targetDocument, 'terminal')).not.toBeNull();
+            expect(DockZoneModel.validate(targetDocument)).toEqual([])
+        });
+
+        test('applyOperation redirects a single-document transferItem descriptor to the two-document method', () => {
+            const input              = doc();
+            const {document, errors} = DockZoneModel.applyOperation(input, {operation: 'transferItem', itemId: 'terminal'});
+
+            expect(errors.join(' ')).toContain('two-document operation');
+            expect(document).toEqual(input)   // untouched
+        });
+
+        test('transferItem joins the exported operation vocabulary (SSOT)', () => {
+            expect(DockZoneModel.operations).toContain('transferItem')
+        })
+    });
 });
