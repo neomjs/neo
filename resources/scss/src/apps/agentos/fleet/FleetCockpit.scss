@@ -2,8 +2,8 @@
    activity stream). A soft divider separates the zones; the surface is the ground tone. */
 .fm-fleet-cockpit {
     background: var(--fm-ground);
-}
 
-.fm-fleet-cockpit > .fm-fleet-grid {
-    border-right: 1px solid var(--fm-line-soft);
+    > .fm-fleet-grid {
+        border-right: 1px solid var(--fm-line-soft);
+    }
 }

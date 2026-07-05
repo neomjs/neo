@@ -1,16 +1,16 @@
-/* Model-family rail — a thin colored spine bound from the current-era family token (--fm-rail). An
-   unclassified/absent family renders a hatched neutral rail, visibly distinct from any real family. */
+/* Model-family rail — a thin spine bound from the current-era family token; an unclassified/absent
+   family renders a hatched neutral rail, visibly distinct from any real family. */
 .fm-family-rail {
     width        : 3px;
     align-self   : stretch;
     border-radius: 3px 0 0 3px;
     background   : var(--fm-rail, var(--fm-state-off));
-}
 
-.fm-family-rail.fm-family-unclassified {
-    background: repeating-linear-gradient(
-        135deg,
-        var(--fm-state-off), var(--fm-state-off) 2px,
-        transparent 2px, transparent 4px
-    );
+    &.fm-family-unclassified {
+        background: repeating-linear-gradient(
+            135deg,
+            var(--fm-state-off), var(--fm-state-off) 2px,
+            transparent 2px, transparent 4px
+        );
+    }
 }

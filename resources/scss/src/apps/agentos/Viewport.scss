@@ -1,132 +1,133 @@
+/* The harness shell — everything scoped under the viewport root (its cls) for isolation:
+   top chrome, the left-rail keeper-view nav, the agent-button hierarchy, and the Home/Chat surfaces. */
 .agent-os-viewport.neo-viewport {
     .agent-top-toolbar {
-        min-height : 50px;
-        padding    : 0 20px;
+        min-height: 50px;
+        padding   : 0 20px;
+
+        @media (max-width: 560px) {
+            padding: 0 12px;
+        }
     }
 
     .agent-dashboard {
-        display : flex;
-        gap     : 20px;
+        display: flex;
+        gap    : 20px;
     }
 
     .agent-logo {
-        align-items  : center;
-        display      : flex;
-        margin-right : 15px;
+        align-items : center;
+        display     : flex;
+        margin-right: 15px;
 
         img {
-            height : 30px;
+            height: 30px;
         }
     }
-}
 
-@media (max-width: 560px) {
-    .agent-os-viewport.neo-viewport .agent-top-toolbar {
-        padding : 0 12px;
-    }
-}
-
-/* Button hierarchy: agent-button base (quiet, panel-toned) + the single signal-accent primary.
-   .neo-button.agent-button is specificity-robust against the default neo-button theme. */
-.neo-button.agent-button {
-    border       : 1px solid var(--fm-line);
-    border-radius: 6px;
-    background   : var(--fm-panel-2);
-    color        : var(--fm-ink);
-    box-shadow   : none;
-    font-family  : var(--fm-font-sans);
-    font-weight  : 500;
-    transition   : background .15s ease, border-color .15s ease, color .15s ease;
-
-    &:hover {
-        border-color: var(--fm-ink-dim);
-        background   : var(--fm-panel);
+    /* Button hierarchy — a quiet, panel-toned base; only the primary action reaches for the signal. */
+    .neo-button.agent-button {
+        border       : 1px solid var(--fm-line);
+        border-radius: 6px;
+        background   : var(--fm-panel-2);
         color        : var(--fm-ink);
+        box-shadow   : none;
+        font-family  : var(--fm-font-sans);
+        font-weight  : 500;
+        transition   : background .15s ease, border-color .15s ease, color .15s ease;
+
+        &:hover {
+            border-color: var(--fm-ink-dim);
+            background   : var(--fm-panel);
+            color        : var(--fm-ink);
+        }
+
+        .neo-button-glyph,
+        .neo-button-text {
+            color: inherit;
+        }
     }
 
-    .neo-button-glyph,
-    .neo-button-text {
-        color: inherit;
-    }
-}
-
-.neo-button.agent-submit-button {
-    border-color: color-mix(in srgb, var(--fm-signal) 55%, var(--fm-line));
-    background   : color-mix(in srgb, var(--fm-signal) 14%, var(--fm-panel-2));
-    color        : var(--fm-signal);
-
-    &:hover {
-        border-color: var(--fm-signal);
-        background   : color-mix(in srgb, var(--fm-signal) 24%, var(--fm-panel-2));
+    .neo-button.agent-submit-button {
+        border-color: color-mix(in srgb, var(--fm-signal) 55%, var(--fm-line));
+        background   : color-mix(in srgb, var(--fm-signal) 14%, var(--fm-panel-2));
         color        : var(--fm-signal);
-    }
-}
 
-/* Action toolbars wrap so long-text buttons space cleanly instead of colliding. */
-.neo-flex-container.neo-toolbar.agent-form-actions,
-.neo-flex-container.neo-toolbar.agent-fleet-actions {
-    flex-wrap : wrap;
-    gap       : 8px;
-    background: transparent;
-}
-
-/* The harness shell: the left-rail keeper-view nav over the token surfaces. */
-.agent-shell .neo-tab-header-toolbar {
-    background   : var(--fm-rail);
-    border-right : 1px solid var(--fm-line);
-}
-
-/* Home: the transient first-open welcome landing. */
-.agent-welcome {
-    display    : grid;
-    place-items: center;
-    padding    : 48px;
-    background : var(--fm-ground);
-
-    .agent-welcome-inner {
-        max-width: 660px;
+        &:hover {
+            border-color: var(--fm-signal);
+            background   : color-mix(in srgb, var(--fm-signal) 24%, var(--fm-panel-2));
+            color        : var(--fm-signal);
+        }
     }
 
-    .agent-welcome-eyebrow {
-        font-family   : var(--fm-font-mono);
-        font-size     : 12px;
-        letter-spacing: .22em;
-        text-transform: uppercase;
-        color         : var(--fm-signal);
-        margin        : 0;
+    /* Action toolbars wrap so long-text buttons space cleanly instead of colliding. */
+    .neo-toolbar.agent-form-actions,
+    .neo-toolbar.agent-fleet-actions {
+        flex-wrap : wrap;
+        gap       : 8px;
+        background: transparent;
     }
 
-    .agent-welcome-h1 {
-        font-family   : var(--fm-font-sans);
-        font-size     : clamp(26px, 3.4vw, 42px);
-        line-height   : 1.1;
-        letter-spacing: -.02em;
-        color         : var(--fm-ink);
-        margin        : 14px 0 0;
+    /* The left-rail keeper-view nav shell. */
+    .agent-shell .neo-tab-header-toolbar {
+        background  : var(--fm-rail);
+        border-right: 1px solid var(--fm-line);
     }
 
-    .agent-welcome-lede {
-        font-size  : 17px;
-        line-height: 1.6;
-        color      : var(--fm-ink-dim);
-        margin     : 18px 0 0;
+    /* Home — the transient first-open welcome landing. */
+    .agent-welcome {
+        display    : grid;
+        place-items: center;
+        padding    : 48px;
+        background : var(--fm-ground);
 
-        b { color: var(--fm-ink); }
+        .agent-welcome-inner {
+            max-width: 660px;
+        }
+
+        .agent-welcome-eyebrow {
+            font-family   : var(--fm-font-mono);
+            font-size     : 12px;
+            letter-spacing: .22em;
+            text-transform: uppercase;
+            color         : var(--fm-signal);
+            margin        : 0;
+        }
+
+        .agent-welcome-h1 {
+            font-family   : var(--fm-font-sans);
+            font-size     : clamp(26px, 3.4vw, 42px);
+            line-height   : 1.1;
+            letter-spacing: -.02em;
+            color         : var(--fm-ink);
+            margin        : 14px 0 0;
+        }
+
+        .agent-welcome-lede {
+            font-size  : 17px;
+            line-height: 1.6;
+            color      : var(--fm-ink-dim);
+            margin     : 18px 0 0;
+
+            b {
+                color: var(--fm-ink);
+            }
+        }
     }
-}
 
-/* Chat: the dockable work-area seam (placeholder until the live-pane lands). */
-.agent-placeholder {
-    display    : grid;
-    place-items: center;
-    padding    : 48px;
-    background : var(--fm-ground);
+    /* Chat — the dockable work-area seam (placeholder until the live-pane lands). */
+    .agent-placeholder {
+        display    : grid;
+        place-items: center;
+        padding    : 48px;
+        background : var(--fm-ground);
 
-    .agent-placeholder-inner {
-        max-width  : 520px;
-        text-align : center;
-        font-size  : 15px;
-        line-height: 1.6;
-        color      : var(--fm-ink-dim);
+        .agent-placeholder-inner {
+            max-width  : 520px;
+            text-align : center;
+            font-size  : 15px;
+            line-height: 1.6;
+            color      : var(--fm-ink-dim);
+        }
     }
 }
