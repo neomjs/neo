@@ -996,7 +996,17 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
     });
 
     test.describe('operation vocabulary (SSOT)', () => {
-        test('every exported operation dispatches — no vocabulary entry without a switch case', () => {
+        test('the vocabulary IS the dispatch table — derived keys, bidirectional by construction', () => {
+            // one structure carries both: a handler cannot exist without being exported,
+            // and an exported name cannot exist without its handler
+            expect(DockZoneModel.operations).toEqual(Object.keys(DockZoneModel.operationHandlers));
+
+            for (const operation of DockZoneModel.operations) {
+                expect(typeof DockZoneModel.operationHandlers[operation]).toBe('function')
+            }
+        });
+
+        test('every exported operation dispatches through the executor contract', () => {
             for (const operation of DockZoneModel.operations) {
                 const {errors} = DockZoneModel.applyOperation(doc(), {operation});
 
@@ -1014,8 +1024,17 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             expect(document).toEqual(input)
         });
 
-        test('the vocabulary is frozen — consumers cannot mutate the shared export', () => {
+        test('inherited object keys never resolve to handlers — own-key dispatch only', () => {
+            for (const hostile of ['constructor', '__proto__', 'toString', 'hasOwnProperty']) {
+                const {errors} = DockZoneModel.applyOperation(doc(), {operation: hostile});
+
+                expect(errors).toEqual([`unknown operation "${hostile}"`])
+            }
+        });
+
+        test('the vocabulary and the dispatch table are frozen against consumer mutation', () => {
             expect(Object.isFrozen(DockZoneModel.operations)).toBe(true);
+            expect(Object.isFrozen(DockZoneModel.operationHandlers)).toBe(true);
             expect(() => DockZoneModel.operations.push('rogueOp')).toThrow()
         });
     });

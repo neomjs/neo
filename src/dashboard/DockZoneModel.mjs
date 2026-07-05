@@ -68,19 +68,43 @@ class DockZoneModel extends Base {
     static CAPTURE_SCOPES = ['window', 'topology']
 
     /**
-     * The semantic operation vocabulary `applyOperation()` dispatches — THE single exported
-     * source for every consumer that enumerates, validates, or advertises the executable
-     * operations (the Neural Link service tier reads this by reference; prose surfaces like
-     * tool descriptions mirror it under the dispatch-parity regression). A new operation
-     * lands here in the same change that adds its `applyOperation` case, or the parity spec
-     * fails the build.
+     * Dispatch table for `applyOperation()` — operation name → executor. THE single source of
+     * the dockZone.v1 semantic vocabulary: `operations` derives from these keys, so an
+     * operation cannot exist in dispatch without being exported, nor be exported without
+     * dispatching — the two directions cannot diverge by construction. Handlers share the
+     * executor signature `(document, descriptor)` and the fail-closed `{document, errors}`
+     * result contract. The `addTab` entry carries the contract's "addTab or moveItem"
+     * downgrade: a `tab-*` descriptor dispatches as a move when its item already lives
+     * in the tree.
+     * @member {Object} operationHandlers
+     * @protected
+     * @static
+     */
+    static operationHandlers = Object.freeze({
+        addTab: (document, descriptor) =>
+            DockZoneModel.findContainingTabsId(document, descriptor.itemId)
+                ? DockZoneModel.moveItem(document, {itemId: descriptor.itemId, targetNodeId: descriptor.tabsNodeId, index: descriptor.index})
+                : DockZoneModel.addTab(document, descriptor),
+        moveItem         : (document, descriptor) => DockZoneModel.moveItem(document, descriptor),
+        splitNode        : (document, descriptor) => DockZoneModel.splitNode(document, descriptor),
+        resizeSplit      : (document, descriptor) => DockZoneModel.resizeSplit(document, descriptor),
+        detachItem       : (document, descriptor) => DockZoneModel.detachItem(document, descriptor),
+        closeItem        : (document, descriptor) => DockZoneModel.closeItem(document, descriptor),
+        setItemPinned    : (document, descriptor) => DockZoneModel.setItemPinned(document, descriptor),
+        setItemAutoHidden: (document, descriptor) => DockZoneModel.setItemAutoHidden(document, descriptor)
+    })
+
+    /**
+     * The semantic operation vocabulary — derived from the dispatch table's keys, never
+     * hand-listed, so vocabulary and dispatch agree in both directions by construction.
+     * Consumers that enumerate, validate, or advertise executable operations read this
+     * export (the Neural Link service tier reads it by reference). Prose surfaces (e.g.
+     * OpenAPI tool descriptions) remain manual mirrors with NO mechanical guard — they
+     * update by review discipline.
      * @member {ReadonlyArray<String>} operations
      * @static
      */
-    static operations = Object.freeze([
-        'addTab', 'moveItem', 'splitNode', 'resizeSplit',
-        'detachItem', 'closeItem', 'setItemPinned', 'setItemAutoHidden'
-    ])
+    static operations = Object.freeze(Object.keys(DockZoneModel.operationHandlers))
 
     /**
      * Top-level fields allowed in a saved-layout wrapper.
@@ -1657,38 +1681,27 @@ class DockZoneModel extends Base {
 
     /**
      * @summary Applies an operation descriptor (the shape `DockPreview.previewToOperation()` emits)
-     * to the document, dispatching to the matching semantic operation.
+     * to the document, dispatching through {@link #operationHandlers} — the table whose keys ARE
+     * the exported vocabulary, so dispatch and `operations` cannot diverge.
      *
      * A `tab-*` descriptor (`operation: 'addTab'`) is dispatched as a move when its item already
-     * lives in the tree — the contract's "addTab or moveItem" downgrade, decided here.
+     * lives in the tree — the contract's "addTab or moveItem" downgrade, carried by the table's
+     * `addTab` entry.
      * @param {Object} document
      * @param {Object} descriptor {operation, ...}
      * @returns {{document:Object, errors:String[]}}
      * @static
      */
     static applyOperation(document, descriptor = {}) {
-        switch (descriptor.operation) {
-            case 'addTab':
-                return DockZoneModel.findContainingTabsId(document, descriptor.itemId)
-                    ? DockZoneModel.moveItem(document, {itemId: descriptor.itemId, targetNodeId: descriptor.tabsNodeId, index: descriptor.index})
-                    : DockZoneModel.addTab(document, descriptor);
-            case 'moveItem':
-                return DockZoneModel.moveItem(document, descriptor);
-            case 'splitNode':
-                return DockZoneModel.splitNode(document, descriptor);
-            case 'resizeSplit':
-                return DockZoneModel.resizeSplit(document, descriptor);
-            case 'detachItem':
-                return DockZoneModel.detachItem(document, descriptor);
-            case 'closeItem':
-                return DockZoneModel.closeItem(document, descriptor);
-            case 'setItemPinned':
-                return DockZoneModel.setItemPinned(document, descriptor);
-            case 'setItemAutoHidden':
-                return DockZoneModel.setItemAutoHidden(document, descriptor);
-            default:
-                return {document, errors: [`unknown operation "${descriptor.operation}"`]}
-        }
+        // Own-key lookup only: inherited names ('constructor', '__proto__', …) must reject
+        // exactly like any unknown operation, never resolve to a prototype member.
+        const handler = Object.hasOwn(DockZoneModel.operationHandlers, descriptor.operation)
+            ? DockZoneModel.operationHandlers[descriptor.operation]
+            : null;
+
+        return handler
+            ? handler(document, descriptor)
+            : {document, errors: [`unknown operation "${descriptor.operation}"`]}
     }
 }
 
