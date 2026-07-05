@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Grid Scroll Pinning Timeout Pause', () => {
+test.describe('Grid Scroll Pinning Thumb Drag Pause', () => {
     test.beforeEach(async ({ page }) => {
         await page.goto('/apps/devindex/index.html');
         // Wait for the grid rows to stabilize
@@ -8,7 +8,7 @@ test.describe('Grid Scroll Pinning Timeout Pause', () => {
         await page.waitForTimeout(1000);
     });
 
-    test('Pausing during thumb drag clears pinning state', async ({ page }) => {
+    test('Pausing during thumb drag keeps pinning active', async ({ page }) => {
         const wrapperNode = await page.locator('.neo-grid-view');
         const box         = await wrapperNode.boundingBox();
 
@@ -18,17 +18,21 @@ test.describe('Grid Scroll Pinning Timeout Pause', () => {
         await page.mouse.move(startX, startY);
         await page.mouse.down();
 
-        // Emulate a pause of 2500ms
+        // Emulate a pause longer than the removed timeout window.
         await page.waitForTimeout(2500);
 
         // Emulate a massive snap drag after the pause
-        // Since pinning was cleared, this should result in blank visual rows
+        // Pinning must survive the pause, so this should not blank visual rows.
         await page.evaluate(() => {
             window.__BLANK = false;
             const wrapper = document.querySelector('.neo-grid-view');
             wrapper.addEventListener('scroll', () => {
                 const rows        = Array.from(wrapper.querySelectorAll('.neo-grid-row'));
                 const wrapperRect = wrapper.getBoundingClientRect();
+                if (rows.length === 0) {
+                    window.__BLANK = true;
+                    return
+                }
                 const rowsTop     = Math.min(...rows.map(r => r.getBoundingClientRect().top));
                 const rowsBottom  = Math.max(...rows.map(r => r.getBoundingClientRect().bottom));
                 if (rowsBottom < wrapperRect.top || rowsTop > wrapperRect.bottom) {
@@ -42,6 +46,6 @@ test.describe('Grid Scroll Pinning Timeout Pause', () => {
 
         const isBlank = await page.evaluate(() => window.__BLANK);
         await page.mouse.up();
-        expect(isBlank).toBe(true); // Expected to BE blank because pinning was cleared!
+        expect(isBlank).toBe(false);
     });
 });

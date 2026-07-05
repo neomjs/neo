@@ -101,7 +101,7 @@ test.describe('Desktop (1920x1080): BigData Grid Row Pinning Validation', () => 
                                     isBounce = true;
                                 }
 
-                                if (isBounce) {
+                                if (isBounce && window.__COUNT_BOUNCES !== false) {
                                     bounces++;
                                     const myBody = trackingRow.closest('.neo-grid-body');
                                     window.__DEBUG_BOUNCES = window.__DEBUG_BOUNCES || [];
@@ -225,19 +225,21 @@ test.describe('Desktop (1920x1080): BigData Grid Row Pinning Validation', () => 
 
         console.log('--- Profile 5: OS Compositor Saturation (Raw ScrollTop Flood) ---');
         const saturationMetrics = await page.evaluate(async () => {
-            const wrapper = document.querySelector('.neo-grid-view');
-            if(!wrapper) return null;
+            const wrapper   = document.querySelector('.neo-grid-view');
+            const scrollbar = document.querySelector('.neo-grid-vertical-scrollbar');
+            if(!wrapper || !scrollbar) return {error: 'Grid components not found'};
 
             window.__RESET_METRICS = true;
-            const box = wrapper.getBoundingClientRect();
-            // Trick the GridRowScrollPinning addon into thinking the thumb is being dragged
+            window.__COUNT_BOUNCES = false;
+            const box = scrollbar.getBoundingClientRect();
+            // Activate the same dedicated scrollbar target that GridRowScrollPinning listens to.
             const evt = new MouseEvent('mousedown', {
                 clientX   : box.right - 5,
                 clientY   : box.top + 40,
                 bubbles   : true,
                 cancelable: true
             });
-            wrapper.dispatchEvent(evt);
+            scrollbar.dispatchEvent(evt);
 
             let currentScroll = wrapper.scrollTop;
             for (let i = 0; i < 90; i++) {
@@ -255,7 +257,11 @@ test.describe('Desktop (1920x1080): BigData Grid Row Pinning Validation', () => 
             }
 
             window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+            window.__COUNT_BOUNCES = true;
+            return {};
         });
+
+        expect(saturationMetrics?.error).toBeUndefined();
 
         await page.waitForTimeout(1000);
 
