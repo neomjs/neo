@@ -30,12 +30,13 @@ test.describe('ai/scripts/lifecycle/stopHookDecision — shared no-hold decision
         expect(LANE_STATE_SCHEMA_HINT).toContain('"awaitingOwnPrOnly":false');
         expect(LANE_STATE_SCHEMA_HINT).toContain('awaitingOwnPrOnly:true is invalid');
         expect(LANE_STATE_SCHEMA_HINT).toContain('same-turn checkedAt');
+        expect(LANE_STATE_SCHEMA_HINT).toContain('same-turn fetch evidence');
         expect(LANE_STATE_SCHEMA_HINT).toContain('field "mergedAt"');
     });
 
-    test('LANE_STATE_SCHEMA_HINT: states consumption honesty — namedGates is audit/coordination payload, not admission evidence (regression: demanded-but-unread contract)', () => {
+    test('LANE_STATE_SCHEMA_HINT: states consumption honesty — namedGates is audit/coordination payload, not a stop-license', () => {
         expect(LANE_STATE_SCHEMA_HINT).toContain('Consumption honesty');
-        expect(LANE_STATE_SCHEMA_HINT).toContain('does NOT influence the block/allow decision');
+        expect(LANE_STATE_SCHEMA_HINT).toContain('not a stop-license');
     });
 
     test('STOP_HOOK_TURN_OPTIONS_HINT: compactly names operator dialogue, memory, and fail-closed behavior', () => {

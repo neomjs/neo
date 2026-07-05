@@ -51,7 +51,9 @@ test.describe('parseLaneState — fenced lane-state block extraction', () => {
     test('round-trips into validateLaneStateTerminal — the hook seam end-to-end (#12633)', () => {
         // A valid next-lane terminal emitted as a block parses + validates clean (the wired path fires PASS).
         const ok = '```lane-state\n{"wakeDisposition":"actionable","laneContinuation":"next-lane","namedGates":[{"ref":"PR #99","checkedAt":"2026-06-20T03:41:00Z","mergeClaim":false}],"awaitingOwnPrOnly":false}\n```';
-        expect(validateLaneStateTerminal(parseLaneState(ok)).valid).toBe(true);
+        expect(validateLaneStateTerminal(parseLaneState(ok), {
+            evidenceText: 'tool_call: gh pr view 99 --json state,mergedAt,reviewDecision'
+        }).valid).toBe(true);
 
         // A stale-gate terminal (gate named without checkedAt) parses, then the validator REJECTS it —
         // proving the parse-then-validate seam fires the gate on real emitted text.
