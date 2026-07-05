@@ -47,10 +47,6 @@ class FleetSettingsPanel extends DashboardPanel {
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
-         * @member {Function|String|null} popupUrl='apps/agentos/childapps/widget/index.html'
-         */
-        popupUrl: 'apps/agentos/childapps/widget/index.html',
-        /**
          * @member {Object[]} items
          */
         items: [{
