@@ -39,7 +39,8 @@ has accepted the action.
 `highlight_component`, `manage_connection`, `manage_neo_config`,
 `modify_state_provider`, `open_component_window`, `patch_code`,
 `position_window`, `redo`, `reload_page`, `remove_component`,
-`set_instance_properties`, `set_route`, `simulate_event`, `undo`
+`replay_transaction`, `save_transaction`, `set_instance_properties`,
+`set_route`, `simulate_event`, `undo`
 <!-- nl-capability-matrix:never-model-drivable:end -->
 
 ## Verb Matrix
@@ -94,6 +95,8 @@ has accepted the action.
 | `redo` | Re-apply the requester's most recently undone transaction. | `InstanceService` -> transaction replay through enforced dispatch. | `write-locked` | Consumes redo branch only on full success. | Recoverable `{redone:false, reason}` for expected misses; server errors use `{error}`. | Trusted controller/e2e only; never direct from model-generated payload. | Direct SDK specs exist; no fixture wrapper. |
 | `reload_page` | Reload the application page/window. | `RuntimeService` -> page lifecycle. | `admin` | None; invalidates session ids. | Reload result or `{error}`. | Operator/admin only; never direct from model-generated payload. | Fixture wrapper: `reloadPage`; caller must rediscover session. |
 | `remove_component` | Destroy and detach a live component by id. | `ComponentService` -> App Worker `call_method` with server-stamped `undoKind`. | `write-locked` | Captured when Bridge-stamped; named-batch aware. | Fail-fast missing component id; downstream errors use `{error}`. | Trusted controller/e2e only; never direct from model-generated payload. | Fixture wrapper: `removeComponent`. |
+| `replay_transaction` | Replay an archived transaction's forward ops into the current session as a new undoable transaction. | `InstanceService` -> `RecorderService` archive + App Worker enforced dispatch. | `write-locked` | Opens a fresh replay transaction captured under the current writer. | Recoverable `{replayed:false, reason}` for missing archive, invalid archive, or replay denial; schema/server errors use `{error}`. | Trusted controller/e2e only; never direct from model-generated payload. | Direct SDK/MCP only; no fixture wrapper. |
+| `save_transaction` | Persist one committed transaction snapshot to the Brain-side archive. | `InstanceService` -> App Worker `Neo.ai.TransactionService` stack + `RecorderService` archive. | `write-locked` | Archives a committed stack entry; no live mutation. | Recoverable `{saved:false, reason}` for missing transaction or archive-store failures; schema/server errors use `{error}`. | Trusted controller/e2e only; never direct from model-generated payload. | Direct SDK/MCP only; no fixture wrapper. |
 | `set_instance_properties` | Set properties/configs on a live instance. | `InstanceService` -> live instance `set`. | `write-locked` | Captured when Bridge-stamped; named-batch aware. | Missing instance or setter errors use `{error}`. | Trusted controller/e2e only; never direct from model-generated payload. | Fixture wrapper: `setProperties`. |
 | `set_route` | Drive a window/session to a hash route. | `RuntimeService` -> navigation. | `write-locked` | Navigation mutation; not transaction-captured. | Route result or `{error}`. | Trusted controller/e2e only; never direct from model-generated payload. | Fixture wrapper: `setRoute`. |
 | `simulate_event` | Dispatch native DOM events against target DOM ids. | `InteractionService` -> browser/main-thread event dispatch. | `write-locked` | Interaction side effects are not transaction-captured. | Event dispatch result or `{error}`. | Trusted controller/e2e only; never direct from model-generated payload. | Fixture wrapper: `simulateEvent`. |

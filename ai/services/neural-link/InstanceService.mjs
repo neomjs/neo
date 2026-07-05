@@ -1,5 +1,6 @@
 import Base              from '../../../src/core/Base.mjs';
 import ConnectionService from './ConnectionService.mjs';
+import RecorderService   from './RecorderService.mjs';
 
 /**
  * @summary Manages generic instance inspection and manipulation for the Neural Link MCP Server.
@@ -118,7 +119,7 @@ class InstanceService extends Base {
         return {
             className: resolvedClassName,
             config,
-            ntype: resolvedNtype,
+            ntype    : resolvedNtype,
             parentId
         }
     }
@@ -230,6 +231,62 @@ class InstanceService extends Base {
      */
     async redo({sessionId}) {
         return await ConnectionService.call(sessionId, 'redo', {})
+    }
+
+    /**
+     * Archives one committed Neural Link transaction for later replay after the App Worker session disconnects.
+     * The App Worker returns the writer-scoped transaction snapshot; the Brain side persists it in the Memory Core
+     * archive so replay does not depend on the live heap.
+     * @param {Object} opts
+     * @param {String} opts.sessionId
+     * @param {String} opts.txId
+     * @param {String} [opts.name]
+     * @returns {Promise<Object>}
+     */
+    async saveTransaction({sessionId, txId, name}) {
+        const appSessionId = sessionId ?? ConnectionService.getDefaultSessionId();
+        const snapshot     = await ConnectionService.call(sessionId, 'save_transaction', {txId});
+
+        if (!snapshot?.saved) {
+            return snapshot
+        }
+
+        return RecorderService.saveTransactionArchive({
+            appSessionId,
+            name,
+            transaction : snapshot.transaction
+        })
+    }
+
+    /**
+     * Replays an archived transaction's forward ops into the target App Worker session as a new undoable transaction.
+     * The archived ops are passed back through the standard App Worker dispatch path, so write locks, target
+     * resolution, and per-writer transaction capture remain authoritative.
+     * @param {Object} opts
+     * @param {String} opts.sessionId
+     * @param {String} opts.archiveId
+     * @returns {Promise<Object>}
+     */
+    async replayTransaction({sessionId, archiveId}) {
+        const archive = RecorderService.getTransactionArchive({archiveId});
+
+        if (!archive) {
+            return {replayed: false, reason: 'archive-not-found'}
+        }
+
+        const result = await ConnectionService.call(sessionId, 'replay_transaction', {
+            archiveId,
+            ops               : archive.ops,
+            sourceCommittedAt : archive.committedAt,
+            sourceOriginWriter: archive.originWriter,
+            sourceTxId        : archive.sourceTxId
+        });
+
+        if (result?.replayed) {
+            RecorderService.recordTransactionReplay({archiveId})
+        }
+
+        return result
     }
 
     /**
