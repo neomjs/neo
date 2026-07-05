@@ -15,7 +15,9 @@ setup({
 });
 
 import {test, expect}  from '@playwright/test';
+import {execFileSync}  from 'node:child_process';
 import fs              from 'fs';
+import os              from 'node:os';
 import path            from 'path';
 import vm              from 'vm';
 import * as yaml       from 'js-yaml';
@@ -725,6 +727,98 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
 
             return null;
         };
+    });
+
+    test('#14688: validatePrReviewBody dry-runs a valid body without GraphQL dispatch', () => {
+        let graphqlCallCount = 0;
+        GraphqlService.query = async () => {
+            graphqlCallCount++;
+            throw new Error('validatePrReviewBody must not query GitHub');
+        };
+
+        const result = PullRequestService.validatePrReviewBody({
+            body: VALID_REVIEW_BODY
+        });
+
+        expect(result).toEqual({
+            valid   : true,
+            message : 'Review body matches the pr-review template structure.',
+            skill   : '.agents/skills/pr-review/SKILL.md',
+            template: '.agents/skills/pr-review/assets/pr-review-template.md'
+        });
+        expect(graphqlCallCount).toBe(0);
+    });
+
+    test('#14688: validatePrReviewBody names the missing Graph Ingestion Notes skeleton anchor before posting', () => {
+        let graphqlCallCount = 0;
+        GraphqlService.query = async () => {
+            graphqlCallCount++;
+            throw new Error('validatePrReviewBody must not query GitHub');
+        };
+
+        const bodyWithoutGraphHeading = VALID_REVIEW_BODY
+            .replace('### 🧠 Graph Ingestion Notes\n', '');
+
+        const result = PullRequestService.validatePrReviewBody({
+            body: bodyWithoutGraphHeading
+        });
+
+        expect(result.valid).toBe(false);
+        expect(result.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+        expect(result.missing_template_skeleton).toEqual(['### 🧠 Graph Ingestion Notes']);
+        expect(result.message).toContain('.agents/skills/pr-review/SKILL.md');
+        expect(graphqlCallCount).toBe(0);
+    });
+
+    test('#14688: PullRequestService import stays total when template files are absent at projectRoot', () => {
+        const tmpDir      = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-pr-review-missing-template-')),
+              neoPath     = path.resolve('src/Neo.mjs'),
+              corePath    = path.resolve('src/core/_export.mjs'),
+              servicePath = path.resolve('ai/services/github-workflow/PullRequestService.mjs'),
+              script      = [
+                  `import ${JSON.stringify(neoPath)};`,
+                  `import ${JSON.stringify(corePath)};`,
+                  `const {default: PullRequestService} = await import(${JSON.stringify(servicePath)});`,
+                  `const result = PullRequestService.validatePrReviewBody({body: '# PR Review Summary\\n\\n[ARCH_ALIGNMENT]: 1'});`,
+                  `console.log(JSON.stringify({imported: true, valid: result.valid, missingTemplateSkeleton: result.missing_template_skeleton || []}));`
+              ].join('\n');
+
+        try {
+            const stdout = execFileSync(process.execPath, ['--input-type=module', '-e', script], {
+                      cwd     : tmpDir,
+                      encoding: 'utf8'
+                  }),
+                  payload = JSON.parse(stdout.trim().split('\n').at(-1));
+
+            expect(payload.imported).toBe(true);
+            expect(payload.valid).toBe(false);
+            expect(payload.missingTemplateSkeleton).toContain('### 🧠 Graph Ingestion Notes');
+        } finally {
+            fs.rmSync(tmpDir, {recursive: true, force: true});
+        }
+    });
+
+    test('#14688: managePrReview keeps exact skeleton misses out of the mutation-path response', async () => {
+        const bodyWithoutGraphHeading = VALID_REVIEW_BODY
+            .replace('### 🧠 Graph Ingestion Notes\n', '');
+
+        let graphqlCallCount = 0;
+        GraphqlService.query = async () => {
+            graphqlCallCount++;
+            return {repository: {pullRequest: {id: PR_NODE_ID}}};
+        };
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 14688,
+            state    : 'APPROVED',
+            body     : bodyWithoutGraphHeading
+        });
+
+        expect(result.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+        expect(result.missing_template_skeleton).toBeUndefined();
+        expect(result.message).toContain('structural template anchors do not');
+        expect(graphqlCallCount).toBe(0);
     });
 
     test('action:create + state:APPROVED → submits APPROVE event, returns review payload', async () => {

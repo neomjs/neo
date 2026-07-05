@@ -60,6 +60,24 @@ test.describe('GitHub Workflow MCP Server Tool Registration', () => {
         ).toBe(true);
     });
 
+    test('validate_pr_review_body is registered in toolService.mjs (#14688)', () => {
+        const filePath = path.resolve(__dirname, '../../../../../../../ai/mcp/server/github-workflow/toolService.mjs');
+
+        expect(fs.existsSync(filePath), `toolService.mjs not found at ${filePath}`).toBe(true);
+
+        const fileContent = fs.readFileSync(filePath, 'utf8');
+
+        const match = fileContent.match(/serviceMapping\s*=\s*\{([\s\S]*?)\};?/m);
+        expect(match, 'serviceMapping block not found in toolService.mjs').toBeDefined();
+
+        const body = match[1];
+        const keys = [...body.matchAll(/(?:['\\"])?([a-zA-Z0-9_]+)(?:['\\"])?\s*:/g)].map(x=>x[1]);
+
+        expect(keys.includes('validate_pr_review_body'),
+            `FAIL: validate_pr_review_body not found in toolService mapping — #14688 pre-post review-body lint primitive. Keys found: ${keys.join(', ')}`
+        ).toBe(true);
+    });
+
     test('create_issue documents @me for assignee self-assignment (#12038)', () => {
         const filePath = path.resolve(__dirname, '../../../../../../../ai/mcp/server/github-workflow/openapi.yaml');
 

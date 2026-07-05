@@ -727,6 +727,80 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /pulls/review/validate:
+    post:
+      summary: Validate PR Review Body
+      operationId: validate_pr_review_body
+      x-neo-tool-tier: read
+      x-neo-tool-summary: Dry-run validate a PR review body against the canonical pr-review template before posting.
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Read-only preflight for PR review composition. Validates `body` against the same `pr-review` template-shape rules used by `manage_pr_review`, without resolving a PR, creating a review, updating a review, or changing GitHub state.
+
+        Use before `manage_pr_review` when composing a review body: a failed result names the exact visible/premise/template-skeleton anchors that the read-only lint can safely expose. The formal mutation path remains narrower to preserve the anti-anchor-stuffing guard.
+      tags: [PullRequests]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - body
+              properties:
+                body:
+                  type: string
+                  description: Candidate PR review body to validate before posting.
+      responses:
+        '200':
+          description: |
+            Validation result. `valid: true` means the body matches a supported PR-review template shape; `valid: false` carries the same validation code plus read-only diagnostics.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                  message:
+                    type: string
+                  code:
+                    type: string
+                  error:
+                    type: string
+                  skill:
+                    type: string
+                  template:
+                    type: string
+                  missing_visible:
+                    type: array
+                    items:
+                      type: string
+                  missing_premise_snapshot:
+                    type: array
+                    items:
+                      type: string
+                  missing_template_skeleton:
+                    type: array
+                    items:
+                      type: string
+                  missing_micro_delta:
+                    type: array
+                    items:
+                      type: string
+                  missing_micro_review:
+                    type: array
+                    items:
+                      type: string
+        '400':
+          description: Missing body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /pulls/{pr_number}/review/manage:
     post:
       summary: Manage PR Review (Create or Update — atomic body + formal-state in one call)
