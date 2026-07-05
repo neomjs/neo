@@ -34,9 +34,9 @@ function doc() {
             inspector: {componentRef: 'inspector', title: 'Inspector', kind: 'inspector'}
         },
         nodes: {
-            root        : {type: 'edge-zone', zones: {center: 'main-tabs', right: 'side-tabs'}},
-            'main-tabs' : {type: 'tabs', items: ['strategy', 'swarm'], activeItemId: 'swarm'},
-            'side-tabs' : {type: 'tabs', items: ['terminal'], activeItemId: 'terminal'}
+            root       : {type: 'edge-zone', zones: {center: 'main-tabs', right: 'side-tabs'}},
+            'main-tabs': {type: 'tabs', items: ['strategy', 'swarm'], activeItemId: 'swarm'},
+            'side-tabs': {type: 'tabs', items: ['terminal'], activeItemId: 'terminal'}
         }
     }
 }
@@ -674,7 +674,7 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             input.nodes.root.zones.center = 'split';
             delete input.nodes.root.zones.right;
 
-            const snapshot = JSON.stringify(input),
+            const snapshot         = JSON.stringify(input),
                   {layout, errors} = DockZoneModel.createSavedLayout(input, {
                       layoutId: 'operator-default',
                       title   : 'Operator Default',
@@ -753,10 +753,10 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
         });
 
         test('upserts layouts by layoutId, clones replacements, and optionally activates them', () => {
-            const operator = savedLayout('operator-default', 'Operator Default'),
-                  review   = savedLayout('review-layout', 'Review Layout'),
+            const operator     = savedLayout('operator-default', 'Operator Default'),
+                  review       = savedLayout('review-layout', 'Review Layout'),
                   {collection} = DockZoneModel.createSavedLayoutCollection([operator]),
-                  updated = DockZoneModel.upsertSavedLayout(collection, review, {activate: true});
+                  updated      = DockZoneModel.upsertSavedLayout(collection, review, {activate: true});
 
             expect(updated.errors).toEqual([]);
             expect(updated.collection.activeLayoutId).toBe('review-layout');
@@ -777,10 +777,10 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
         });
 
         test('selects an existing active layout and fails closed for missing ids', () => {
-            const operator = savedLayout('operator-default', 'Operator Default'),
-                  review   = savedLayout('review-layout', 'Review Layout'),
+            const operator     = savedLayout('operator-default', 'Operator Default'),
+                  review       = savedLayout('review-layout', 'Review Layout'),
                   {collection} = DockZoneModel.createSavedLayoutCollection([operator, review]),
-                  selected = DockZoneModel.selectSavedLayout(collection, 'review-layout');
+                  selected     = DockZoneModel.selectSavedLayout(collection, 'review-layout');
 
             expect(selected.errors).toEqual([]);
             expect(selected.collection.activeLayoutId).toBe('review-layout');
@@ -793,17 +793,17 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
         });
 
         test('removes layouts and requires an explicit replacement for the active layout', () => {
-            const operator = savedLayout('operator-default', 'Operator Default'),
-                  review   = savedLayout('review-layout', 'Review Layout'),
+            const operator     = savedLayout('operator-default', 'Operator Default'),
+                  review       = savedLayout('review-layout', 'Review Layout'),
                   {collection} = DockZoneModel.createSavedLayoutCollection([operator, review]),
-                  denied = DockZoneModel.removeSavedLayout(collection, {layoutId: 'operator-default'});
+                  denied       = DockZoneModel.removeSavedLayout(collection, {layoutId: 'operator-default'});
 
             expect(denied.collection).toBe(collection);
             expect(denied.errors.join(' ')).toContain('replacementLayoutId');
 
             const removedActive = DockZoneModel.removeSavedLayout(collection, {
-                layoutId            : 'operator-default',
-                replacementLayoutId : 'review-layout'
+                layoutId           : 'operator-default',
+                replacementLayoutId: 'review-layout'
             });
 
             expect(removedActive.errors).toEqual([]);
@@ -870,14 +870,14 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
 
         function createExampleHarness() {
             const example = {
-                createDefaultLayoutCollection: MainContainer.prototype.createDefaultLayoutCollection,
-                createPerspectiveToolbar    : MainContainer.prototype.createPerspectiveToolbar,
+                createDefaultLayoutCollection  : MainContainer.prototype.createDefaultLayoutCollection,
+                createPerspectiveToolbar       : MainContainer.prototype.createPerspectiveToolbar,
                 loadLayoutCollectionFromStorage: MainContainer.prototype.loadLayoutCollectionFromStorage,
-                nextSavedPerspectiveId      : MainContainer.prototype.nextSavedPerspectiveId,
-                persistLayoutCollection     : MainContainer.prototype.persistLayoutCollection,
-                removeActivePerspective     : MainContainer.prototype.removeActivePerspective,
-                restorePerspective          : MainContainer.prototype.restorePerspective,
-                saveCurrentPerspective      : MainContainer.prototype.saveCurrentPerspective,
+                nextSavedPerspectiveId         : MainContainer.prototype.nextSavedPerspectiveId,
+                persistLayoutCollection        : MainContainer.prototype.persistLayoutCollection,
+                removeActivePerspective        : MainContainer.prototype.removeActivePerspective,
+                restorePerspective             : MainContainer.prototype.restorePerspective,
+                saveCurrentPerspective         : MainContainer.prototype.saveCurrentPerspective,
 
                 layoutCollectionStorageKey: 'test.dashboard.dock.layoutCollection',
                 refreshCount              : 0,
@@ -912,7 +912,7 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             };
 
             const example = createExampleHarness(),
-                toolbar = example.createPerspectiveToolbar();
+                toolbar   = example.createPerspectiveToolbar();
 
             expect(Object.keys(example.layoutCollection.layouts)).toEqual(['operator-default', 'review-focus']);
             expect(example.layoutCollection.activeLayoutId).toBe('operator-default');
@@ -975,7 +975,7 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             Neo.main.addon.LocalStorage.updateLocalStorageItem = async () => {};
 
             const hydrated = createExampleHarness(),
-                loaded = await hydrated.loadLayoutCollectionFromStorage();
+                loaded     = await hydrated.loadLayoutCollectionFromStorage();
 
             expect(loaded.loaded).toBe(true);
             expect(hydrated.layoutCollection.activeLayoutId).toBe('persisted-review');
@@ -984,7 +984,7 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
 
             readValue = JSON.stringify({schema: 'neo.harness.dockLayoutCollection.v0'});
 
-            const invalid = createExampleHarness(),
+            const invalid   = createExampleHarness(),
                 invalidLoad = await invalid.loadLayoutCollectionFromStorage();
 
             expect(invalidLoad.loaded).toBe(false);
@@ -993,6 +993,50 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             expect(invalid.dockModel).toEqual(invalid.layoutCollection.layouts['operator-default'].dockZone);
             expect(invalid.refreshCount).toBe(0)
         })
+    });
+
+    test.describe('operation vocabulary (SSOT)', () => {
+        test('the vocabulary IS the dispatch table — derived keys, bidirectional by construction', () => {
+            // one structure carries both: a handler cannot exist without being exported,
+            // and an exported name cannot exist without its handler
+            expect(DockZoneModel.operations).toEqual(Object.keys(DockZoneModel.operationHandlers));
+
+            for (const operation of DockZoneModel.operations) {
+                expect(typeof DockZoneModel.operationHandlers[operation]).toBe('function')
+            }
+        });
+
+        test('every exported operation dispatches through the executor contract', () => {
+            for (const operation of DockZoneModel.operations) {
+                const {errors} = DockZoneModel.applyOperation(doc(), {operation});
+
+                // per-operation validation errors are fine; the unknown-operation rejection
+                // firing for an EXPORTED name means vocabulary and dispatch have drifted
+                expect(errors.join('\n')).not.toContain('unknown operation')
+            }
+        });
+
+        test('an unexported operation is rejected fail-closed with the document untouched', () => {
+            const input              = doc();
+            const {document, errors} = DockZoneModel.applyOperation(input, {operation: 'renameItem'});
+
+            expect(errors).toEqual(['unknown operation "renameItem"']);
+            expect(document).toEqual(input)
+        });
+
+        test('inherited object keys never resolve to handlers — own-key dispatch only', () => {
+            for (const hostile of ['constructor', '__proto__', 'toString', 'hasOwnProperty']) {
+                const {errors} = DockZoneModel.applyOperation(doc(), {operation: hostile});
+
+                expect(errors).toEqual([`unknown operation "${hostile}"`])
+            }
+        });
+
+        test('the vocabulary and the dispatch table are frozen against consumer mutation', () => {
+            expect(Object.isFrozen(DockZoneModel.operations)).toBe(true);
+            expect(Object.isFrozen(DockZoneModel.operationHandlers)).toBe(true);
+            expect(() => DockZoneModel.operations.push('rogueOp')).toThrow()
+        });
     });
 
     test.describe('addTab', () => {
@@ -1015,7 +1059,7 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
         });
 
         test('fails closed on an unknown item (document untouched)', () => {
-            const input = doc();
+            const input              = doc();
             const {document, errors} = DockZoneModel.addTab(input, {itemId: 'ghost', tabsNodeId: 'main-tabs'});
             expect(errors.length).toBeGreaterThan(0);
             expect(document).toBe(input)
@@ -1095,9 +1139,9 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
 
     test.describe('resizeSplit', () => {
         test('updates split sizes with normalized finite positive values', () => {
-            const input    = splitDoc(),
-                  snapshot = JSON.stringify(input),
-                  ratios   = [3, 1],
+            const input              = splitDoc(),
+                  snapshot           = JSON.stringify(input),
+                  ratios             = [3, 1],
                   {document, errors} = DockZoneModel.resizeSplit(input, {
                       splitNodeId: 'main-split',
                       sizes      : ratios
@@ -1289,7 +1333,7 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
         });
 
         test('dispatches splitNode from a previewToOperation-shaped descriptor', () => {
-            const descriptor = {operation: 'splitNode', itemId: 'inspector', targetNodeId: 'main-tabs', orientation: 'horizontal', position: 'after', sizes: [0.5, 0.5]};
+            const descriptor         = {operation: 'splitNode', itemId: 'inspector', targetNodeId: 'main-tabs', orientation: 'horizontal', position: 'after', sizes: [0.5, 0.5]};
             const {document, errors} = DockZoneModel.applyOperation(doc(), descriptor);
             expect(errors).toEqual([]);
             expect(document.nodes[document.nodes.root.zones.center].type).toBe('split')
@@ -1337,7 +1381,7 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
         for (const c of cases) {
             test(`edge-${c.edge} places the new pane ${c.lead ? 'before (leading)' : 'after (trailing)'}`, () => {
                 // exact previewToOperation edge-descriptor shape: carries `edge`, no `position`
-                const descriptor = {operation: 'splitNode', itemId: 'inspector', targetNodeId: c.target, edge: c.edge, orientation: c.orientation, sizes: [0.5, 0.5]};
+                const descriptor         = {operation: 'splitNode', itemId: 'inspector', targetNodeId: c.target, edge: c.edge, orientation: c.orientation, sizes: [0.5, 0.5]};
                 const {document, errors} = DockZoneModel.applyOperation(doc(), descriptor);
                 expect(errors).toEqual([]);
 

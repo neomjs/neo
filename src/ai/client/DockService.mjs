@@ -25,16 +25,13 @@ class DockService extends Service {
     }
 
     /**
-     * The dockZone.v1 semantic operations `DockZoneModel.applyOperation()` dispatches,
-     * mirrored verbatim from its switch. The tool contract is fail-closed against exactly
+     * The dockZone.v1 semantic operation vocabulary — read by reference from the executor's
+     * exported SSOT, never mirrored. The tool contract stays fail-closed against exactly
      * this set: unknown operations are rejected with the vocabulary enumerated.
-     * @member {String[]} operations
+     * @member {ReadonlyArray<String>} operations
      * @static
      */
-    static operations = [
-        'addTab', 'moveItem', 'splitNode', 'resizeSplit',
-        'detachItem', 'closeItem', 'setItemPinned', 'setItemAutoHidden'
-    ]
+    static operations = DockZoneModel.operations
 
     /**
      * Resolves a live dock-document holder — a component that carries a `dockZoneDocument`,
