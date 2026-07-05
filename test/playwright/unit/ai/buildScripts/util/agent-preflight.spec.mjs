@@ -219,6 +219,36 @@ test.describe('agent-preflight utility', () => {
         expect(stdout).toContain('agent-preflight: PR body contains the required template anchors.')
     });
 
+    test('emits STALE_OVERLAY findings as a non-blocking local-dev warning (#14675)', () => {
+        let stdout = '';
+        let stderr = '';
+
+        const status = runAgentPreflight({
+            argv                           : ['--no-fix'],
+            collectStaleOverlayFindingsImpl: () => [{
+                label: 'Tier-1 ai/config.mjs',
+                items: [
+                    'env: NEO_AUTH_MODE',
+                    "leaf-default: modelProvider (NEO_MODEL_PROVIDER, string): 'gemini' -> 'openAiCompatible'"
+                ]
+            }],
+            cwd             : '/repo',
+            execFileSyncImpl: cmd => cmd === 'git' ? '' : '',
+            existsSyncImpl  : () => true,
+            readFileSyncImpl: () => validBody,
+            stderr          : {write: value => { stderr += value }},
+            stdout          : {write: value => { stdout += value }}
+        });
+
+        expect(status).toBe(0);
+        expect(stderr).toBe('');
+        expect(stdout).toContain('agent-preflight: 0 .mjs files in scope; skipped source gates.');
+        expect(stdout).toContain('agent-preflight: STALE_OVERLAY warning(s) (non-blocking):');
+        expect(stdout).toContain('Tier-1 ai/config.mjs');
+        expect(stdout).toContain('env: NEO_AUTH_MODE');
+        expect(stdout).toContain('leaf-default: modelProvider')
+    });
+
     test('runs the draft PR body gate when requested', () => {
         let stdout = '';
         let stderr = '';
@@ -375,8 +405,8 @@ test.describe('agent-preflight — Contract Ledger drift (#14119)', () => {
             },
             existsSyncImpl  : () => true,
             readFileSyncImpl: () => `${validBody}\n${ledgerBody}`,
-            stderr: {write: value => { stderr += value }},
-            stdout: {write: value => { stdout += value }}
+            stderr          : {write: value => { stderr += value }},
+            stdout          : {write: value => { stdout += value }}
         });
 
         expect(status).toBe(0); // drift is WARN-only — never fails the preflight

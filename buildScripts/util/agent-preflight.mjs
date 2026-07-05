@@ -4,6 +4,8 @@ import {Command}                  from 'commander';
 import path                       from 'node:path';
 import process                    from 'node:process';
 import {fileURLToPath}            from 'node:url';
+import {collectStaleOverlayFindings}
+                                   from '../../ai/scripts/setup/initServerConfigs.mjs';
 
 const
     __filename = fileURLToPath(import.meta.url),
@@ -312,6 +314,7 @@ function runPrBodyGate({cwd, existsSyncImpl, prBody, prDraft, readFileSyncImpl})
  */
 export function runAgentPreflight({
     argv             = process.argv.slice(2),
+    collectStaleOverlayFindingsImpl = collectStaleOverlayFindings,
     cwd              = process.cwd(),
     execFileSyncImpl = execFileSync,
     existsSyncImpl   = existsSync,
@@ -389,6 +392,23 @@ export function runAgentPreflight({
                 failures.push(result.name)
             }
         }
+    }
+
+    // Advisory-only local overlay drift check. Gitignored config.mjs overlays can go stale even when the
+    // staged source gates are green; surfacing the exact STALE_OVERLAY rows here prevents false-green PR
+    // churn without mutating operator-local files or failing unrelated preflight runs.
+    try {
+        const staleOverlayFindings = collectStaleOverlayFindingsImpl();
+
+        if (staleOverlayFindings.length > 0) {
+            writeLine(stdout, 'agent-preflight: STALE_OVERLAY warning(s) (non-blocking):');
+            staleOverlayFindings.forEach(finding => {
+                writeLine(stdout, `  - ${finding.label}`);
+                finding.items.forEach(item => writeLine(stdout, `    + ${item}`))
+            })
+        }
+    } catch (error) {
+        writeLine(stdout, `agent-preflight: STALE_OVERLAY check skipped (${error.message}).`)
     }
 
     if (options.prBody) {

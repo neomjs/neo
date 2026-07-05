@@ -26,7 +26,8 @@ import path            from 'path';
 test.describe.configure({mode: 'serial'});
 
 test.describe('initServerConfigs — template drift detection (#10815)', () => {
-    let initConfigs, projectSourceShape, projectShape, detectDrift, materializeServerConfigTemplate, listServersWithTemplates, hasConfigTemplate;
+    let initConfigs, projectSourceShape, projectShape, detectDrift, materializeServerConfigTemplate, listServersWithTemplates, hasConfigTemplate,
+        collectStaleOverlayFindings, formatStaleOverlayDriftItems;
     let workRoot;
 
     function recordingLogger() {
@@ -66,7 +67,9 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
             detectDrift,
             materializeServerConfigTemplate,
             listServersWithTemplates,
-            hasConfigTemplate
+            hasConfigTemplate,
+            collectStaleOverlayFindings,
+            formatStaleOverlayDriftItems
         } = await import('../../../../../../ai/scripts/setup/initServerConfigs.mjs'));
 
         workRoot = path.resolve(process.cwd(), 'tmp', `init-server-configs-${process.pid}-${Date.now()}`);
@@ -621,6 +624,126 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
             templateDefault: `'openAiCompatible'`,
             configDefault  : `'gemini'`
         }]);
+    });
+
+    test('formatStaleOverlayDriftItems names exact missing and conflicting leaves (#14675)', () => {
+        expect(formatStaleOverlayDriftItems({
+            missingImports       : ['../shared/newImport.mjs:newHelper'],
+            missingExports       : ['exportedHelper'],
+            missingEnvVars       : ['NEO_AUTH_MODE'],
+            missingRequiredLeaves: ['gitlabApiBaseUrl (NEO_AUTH_GITLAB_API_BASE_URL, string): {requiredFor: []}'],
+            changedLeafDefaults  : [{
+                key            : 'modelProvider',
+                env            : 'NEO_MODEL_PROVIDER',
+                type           : 'string',
+                configDefault  : `'gemini'`,
+                templateDefault: `'openAiCompatible'`
+            }]
+        })).toEqual([
+            'import: ../shared/newImport.mjs:newHelper',
+            'export: exportedHelper',
+            'env: NEO_AUTH_MODE',
+            'required-leaf: gitlabApiBaseUrl (NEO_AUTH_GITLAB_API_BASE_URL, string): {requiredFor: []}',
+            "leaf-default: modelProvider (NEO_MODEL_PROVIDER, string): 'gemini' -> 'openAiCompatible'"
+        ])
+    });
+
+    test('collectStaleOverlayFindings returns read-only advisory findings for Tier-1 and server overlays (#14675)', () => {
+        const root        = path.join(workRoot, 'collect-stale-overlay');
+        const aiRoot      = path.join(root, 'ai');
+        const serversRoot = path.join(root, 'server');
+        const serverRoot  = path.join(serversRoot, 'memory-core');
+
+        fs.mkdirSync(aiRoot, {recursive: true});
+        fs.mkdirSync(serverRoot, {recursive: true});
+
+        const tier1Template = [
+            `export default {auth: {`,
+            `    mode: leaf('oidc', 'NEO_AUTH_MODE', 'string'),`,
+            `    gitlabApiBaseUrl: leaf('https://gitlab.com', 'NEO_AUTH_GITLAB_API_BASE_URL', 'string', {requiredFor: [{modes: ['gitlab-pat']}]})`,
+            `}};`,
+            ``
+        ].join('\n');
+        const tier1Config = [
+            `export default {auth: {`,
+            `    gitlabApiBaseUrl: leaf('https://gitlab.com', 'NEO_AUTH_GITLAB_API_BASE_URL', 'string')`,
+            `}};`,
+            ``
+        ].join('\n');
+        const serverTemplate = [
+            `import AiConfig from '../../../config.template.mjs';`,
+            `export default {model: leaf('openAiCompatible', 'NEO_MODEL_PROVIDER', 'string')};`,
+            ``
+        ].join('\n');
+        const serverConfig = [
+            `import AiConfig from '../../../config.mjs';`,
+            `export default {model: leaf('gemini', 'NEO_MODEL_PROVIDER', 'string')};`,
+            ``
+        ].join('\n');
+
+        fs.writeFileSync(path.join(aiRoot, 'config.template.mjs'), tier1Template);
+        fs.writeFileSync(path.join(aiRoot, 'config.mjs'), tier1Config);
+        fs.writeFileSync(path.join(serverRoot, 'config.template.mjs'), serverTemplate);
+        fs.writeFileSync(path.join(serverRoot, 'config.mjs'), serverConfig);
+
+        const findings = collectStaleOverlayFindings({aiRoot, serversRoot});
+
+        expect(findings.map(finding => finding.label)).toEqual([
+            'Tier-1 ai/config.mjs',
+            'memory-core/config.mjs'
+        ]);
+        expect(findings[0].items).toEqual(expect.arrayContaining([
+            'env: NEO_AUTH_MODE',
+            expect.stringContaining('required-leaf: gitlabApiBaseUrl')
+        ]));
+        expect(findings[1].items).toEqual([
+            "leaf-default: model (NEO_MODEL_PROVIDER, string): 'gemini' -> 'openAiCompatible'"
+        ]);
+        expect(fs.readFileSync(path.join(aiRoot, 'config.mjs'), 'utf-8')).toBe(tier1Config);
+        expect(fs.readFileSync(path.join(serverRoot, 'config.mjs'), 'utf-8')).toBe(serverConfig);
+    });
+
+    test('collectStaleOverlayFindings limits subclass overlays to residual conflicts (#14675)', () => {
+        const root   = path.join(workRoot, 'collect-subclass-overlay');
+        const aiRoot = path.join(root, 'ai');
+
+        fs.mkdirSync(aiRoot, {recursive: true});
+
+        const templateSrc = [
+            `export class AiConfigBase {`,
+            `    static config = {data: {`,
+            `        modelProvider: leaf('openAiCompatible', 'NEO_MODEL_PROVIDER', 'string'),`,
+            `        timeout      : leaf(1000, 'NEO_TIMEOUT', 'number')`,
+            `    }}`,
+            `}`,
+            `export default AiConfigBase;`,
+            ``
+        ].join('\n');
+        const subclassOverlaySrc = [
+            `import {AiConfigBase} from './config.template.mjs';`,
+            `class AiConfig extends AiConfigBase {`,
+            `    static config = {data: {`,
+            `        modelProvider: leaf('gemini', 'NEO_MODEL_PROVIDER', 'string')`,
+            `    }}`,
+            `}`,
+            `export default AiConfig;`,
+            ``
+        ].join('\n');
+
+        fs.writeFileSync(path.join(aiRoot, 'config.template.mjs'), templateSrc);
+        fs.writeFileSync(path.join(aiRoot, 'config.mjs'), subclassOverlaySrc);
+
+        const findings = collectStaleOverlayFindings({
+            aiRoot,
+            serversRoot: path.join(root, 'missing-servers')
+        });
+
+        expect(findings).toHaveLength(1);
+        expect(findings[0].label).toBe('Tier-1 ai/config.mjs');
+        expect(findings[0].items).toEqual([
+            "leaf-default: modelProvider (NEO_MODEL_PROVIDER, string): 'gemini' -> 'openAiCompatible'"
+        ]);
+        expect(findings[0].items.some(item => item.includes('NEO_TIMEOUT'))).toBe(false);
     });
 
     test('same-env leaf default drift warns without overwriting (#12767)', async () => {
