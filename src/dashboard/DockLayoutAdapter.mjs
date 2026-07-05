@@ -1,5 +1,6 @@
-import Base         from '../core/Base.mjs';
-import DockSplitter from './DockSplitter.mjs';
+import Base          from '../core/Base.mjs';
+import DockSplitter  from './DockSplitter.mjs';
+import DockZoneModel from './DockZoneModel.mjs';
 
 /**
  * @summary Projects Agent Harness dock-zone model nodes into existing Neo layout and tab configs.
@@ -19,30 +20,6 @@ class DockLayoutAdapter extends Base {
          */
         className: 'Neo.dashboard.DockLayoutAdapter'
     }
-
-    /**
-     * Preview-only fields must not leak into committed layout projection.
-     * @member {Set<String>} forbiddenPreviewKeys
-     * @protected
-     * @static
-     */
-    static forbiddenPreviewKeys = new Set([
-        'appName',
-        'currentIndex',
-        'draggedItem',
-        'dockPreview',
-        'domRect',
-        'DOMRect',
-        'isWindowDragging',
-        'placement',
-        'pointer',
-        'pointerX',
-        'pointerY',
-        'previewId',
-        'sourceSortZone',
-        'targetSortZone',
-        'windowId'
-    ])
 
     /**
      * Default visual extent for projected splitter affordances.
@@ -129,45 +106,6 @@ class DockLayoutAdapter extends Base {
     }
 
     /**
-     * Returns the first preview-only key found in an arbitrary object graph.
-     * @param {*} value
-     * @returns {String|null}
-     * @protected
-     * @static
-     */
-    static findForbiddenPreviewKey(value) {
-        if (!value || typeof value !== 'object') {
-            return null
-        }
-
-        if (Array.isArray(value)) {
-            for (let i = 0; i < value.length; i++) {
-                let match = this.findForbiddenPreviewKey(value[i]);
-
-                if (match) {
-                    return match
-                }
-            }
-
-            return null
-        }
-
-        for (let key of Object.keys(value)) {
-            if (this.forbiddenPreviewKeys.has(key)) {
-                return key
-            }
-
-            let match = this.findForbiddenPreviewKey(value[key]);
-
-            if (match) {
-                return match
-            }
-        }
-
-        return null
-    }
-
-    /**
      * Returns normalized flex values for split children.
      * @param {Number[]} sizes
      * @param {Number} count
@@ -222,10 +160,10 @@ class DockLayoutAdapter extends Base {
         let isVertical = orientation === 'vertical';
 
         return {
-            applyDockZoneOperation    : context.applyDockZoneOperation,
+            applyDockZoneOperation: context.applyDockZoneOperation,
             boundaryIndex,
-            cls                       : ['neo-dashboard-dock-splitter', `neo-dashboard-dock-splitter-${orientation}`],
-            data                      : {
+            cls                   : ['neo-dashboard-dock-splitter', `neo-dashboard-dock-splitter-${orientation}`],
+            data                  : {
                 boundaryIndex,
                 dockNodeId  : splitNodeId,
                 dockSplitter: true,
@@ -257,7 +195,7 @@ class DockLayoutAdapter extends Base {
      * @static
      */
     static project(model, options={}) {
-        let forbiddenKey = this.findForbiddenPreviewKey(model);
+        let forbiddenKey = DockZoneModel.findForbiddenPreviewKey(model);
 
         if (forbiddenKey) {
             throw new Error(`DockLayoutAdapter input must be committed dock-zone model; preview-only field "${forbiddenKey}" is not allowed.`)
@@ -548,8 +486,8 @@ class DockLayoutAdapter extends Base {
      * @static
      */
     static projectTabsNode(nodeId, node, context) {
-        let allItems    = Array.isArray(node.items) ? node.items : [],
-            items       = context.railedItemIds
+        let allItems = Array.isArray(node.items) ? node.items : [],
+            items    = context.railedItemIds
                 ? allItems.filter(itemId => !context.railedItemIds.has(itemId))
                 : allItems,
             activeIndex = items.length ? items.indexOf(node.activeItemId) : null;

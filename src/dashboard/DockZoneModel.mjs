@@ -87,15 +87,17 @@ class DockZoneModel extends Base {
                 : DockZoneModel.addTab(document, descriptor),
         moveItem         : (document, descriptor) => DockZoneModel.moveItem(document, descriptor),
         splitNode        : (document, descriptor) => DockZoneModel.splitNode(document, descriptor),
+        moveNode         : (document, descriptor) => DockZoneModel.moveNode(document, descriptor),
         resizeSplit      : (document, descriptor) => DockZoneModel.resizeSplit(document, descriptor),
         detachItem       : (document, descriptor) => DockZoneModel.detachItem(document, descriptor),
         closeItem        : (document, descriptor) => DockZoneModel.closeItem(document, descriptor),
         setItemPinned    : (document, descriptor) => DockZoneModel.setItemPinned(document, descriptor),
         setItemAutoHidden: (document, descriptor) => DockZoneModel.setItemAutoHidden(document, descriptor),
-        // transferItem is a TWO-document operation; its single-document dispatch is a fail-closed
-        // redirect so the op still joins the derived `operations` vocabulary without a hand-listed
-        // entry. Execute it through DockZoneModel.transferItem(sourceDocument, targetDocument, …).
-        transferItem     : document => ({document, errors: ['transferItem is a two-document operation; call DockZoneModel.transferItem(sourceDocument, targetDocument, descriptor)']})
+        // transferItem / transferNode are TWO-document operations; their single-document dispatch is a
+        // fail-closed redirect so each still joins the derived `operations` vocabulary without a
+        // hand-listed entry. Execute them through the matching two-document DockZoneModel method.
+        transferItem: document => ({document, errors: ['transferItem is a two-document operation; call DockZoneModel.transferItem(sourceDocument, targetDocument, descriptor)']}),
+        transferNode: document => ({document, errors: ['transferNode is a two-document operation; call DockZoneModel.transferNode(sourceDocument, targetDocument, descriptor)']})
     })
 
     /**
@@ -155,6 +157,77 @@ class DockZoneModel extends Base {
         'edge-zone': new Set(['type', 'zones']),
         split      : new Set(['type', 'orientation', 'children', 'sizes']),
         tabs       : new Set(['type', 'items', 'activeItemId'])
+    }
+
+    /**
+     * Runtime-only preview / interaction keys that must never enter committed OR persisted dock-zone
+     * state (the JSON-first serialization contract). `validate` rejects a document carrying any of
+     * these ANYWHERE — including inside the opaque `metadata` channel — so they cannot be smuggled
+     * through a saved layout; `Neo.dashboard.DockLayoutAdapter` reads this same set at the projection
+     * boundary, so persistence-rejection and projection-rejection cannot drift.
+     * @member {Set<String>} forbiddenPreviewKeys
+     * @protected
+     * @static
+     */
+    static forbiddenPreviewKeys = new Set([
+        'appName',
+        'currentIndex',
+        'draggedItem',
+        'dockPreview',
+        'domRect',
+        'DOMRect',
+        'groupNodeId',
+        'isWindowDragging',
+        'placement',
+        'pointer',
+        'pointerX',
+        'pointerY',
+        'previewId',
+        'sourceSortZone',
+        'targetSortZone',
+        'windowId'
+    ])
+
+    /**
+     * @summary Recursively finds the first runtime-only preview key ({@link #forbiddenPreviewKeys})
+     * anywhere in an arbitrary JSON graph — including nested `metadata` — or null when the graph is
+     * clean. Both the persistence contract (`validate`) and the render boundary (adapter projection)
+     * scan through this one finder.
+     * @param {*} value
+     * @returns {String|null}
+     * @protected
+     * @static
+     */
+    static findForbiddenPreviewKey(value) {
+        if (!value || typeof value !== 'object') {
+            return null
+        }
+
+        if (Array.isArray(value)) {
+            for (let i = 0; i < value.length; i++) {
+                let match = DockZoneModel.findForbiddenPreviewKey(value[i]);
+
+                if (match) {
+                    return match
+                }
+            }
+
+            return null
+        }
+
+        for (let key of Object.keys(value)) {
+            if (DockZoneModel.forbiddenPreviewKeys.has(key)) {
+                return key
+            }
+
+            let match = DockZoneModel.findForbiddenPreviewKey(value[key]);
+
+            if (match) {
+                return match
+            }
+        }
+
+        return null
     }
 
     /**
@@ -515,6 +588,115 @@ class DockZoneModel extends Base {
     }
 
     /**
+     * @summary Mutating helper: unlinks the subtree rooted at `nodeId` from its parent, leaving the
+     * subtree's nodes in place (an unreferenced subtree the caller re-attaches, or `normalizeTree`
+     * prunes). A split parent has the child spliced out and its remaining sizes renormalized to sum 1
+     * (preserving the survivors' relative ratios); an edge-zone parent has the zone deleted.
+     * @param {Object} document the working (already-cloned) document
+     * @param {String} nodeId
+     * @protected
+     * @static
+     */
+    static detachNode(document, nodeId) {
+        let slot = DockZoneModel.findParentSlot(document, nodeId);
+
+        if (!slot) return;
+
+        let parent = document.nodes[slot.parentId];
+
+        if (typeof slot.slot === 'number') {
+            parent.children.splice(slot.slot, 1);
+
+            if (Array.isArray(parent.sizes)) {
+                parent.sizes.splice(slot.slot, 1);
+
+                let sum = parent.sizes.reduce((total, size) => total + size, 0);
+
+                if (sum > 0) {
+                    parent.sizes = parent.sizes.map(size => size / sum);
+
+                    // pin the last ratio to absorb float drift so the survivors sum to exactly 1
+                    let last = parent.sizes.length - 1;
+
+                    if (last > 0) {
+                        parent.sizes[last] = 1 - parent.sizes.slice(0, last).reduce((total, size) => total + size, 0)
+                    }
+                }
+            }
+        } else {
+            delete parent.zones[slot.slot]
+        }
+    }
+
+    /**
+     * @summary Mutating helper: grafts an already-present subtree root `nodeId` into `document` at
+     * `targetNodeId` per `placement`. A `{kind: 'tab-into'}` placement merges the moved tabs node's
+     * items into the target tabs node in order then drops the emptied node; otherwise a split
+     * placement (`{orientation, position|edge, sizes}`) wraps the target + the moved subtree in a new
+     * split — the same parent-slot swap `splitNode` performs, generalized from a fresh pane to an
+     * existing subtree. Assumes `nodeId` is already detached and its nodes are present. Returns the
+     * (possibly empty) errors — empty means it mutated `document`.
+     * @param {Object} document the working (already-cloned) document
+     * @param {String} nodeId the subtree root to attach
+     * @param {String} targetNodeId the node the placement is relative to
+     * @param {Object} placement `{kind:'tab-into'}` or `{orientation, position, edge, sizes}`
+     * @returns {String[]}
+     * @protected
+     * @static
+     */
+    static attachNode(document, nodeId, targetNodeId, placement = {}) {
+        let node   = document.nodes[nodeId],
+            target = document.nodes[targetNodeId];
+
+        if (!node)   return [`unknown node "${nodeId}"`];
+        if (!target) return [`unknown target node "${targetNodeId}"`];
+
+        if (placement.kind === 'tab-into') {
+            if (node.type !== 'tabs' || target.type !== 'tabs') {
+                return ['tab-into placement requires both the moved node and the target to be tabs nodes']
+            }
+
+            target.items = [...(target.items || []), ...(node.items || [])];
+
+            if ((target.activeItemId === null || target.activeItemId === undefined) && target.items.length) {
+                target.activeItemId = target.items[0]
+            }
+
+            delete document.nodes[nodeId];
+
+            return []
+        }
+
+        if (placement.orientation !== 'horizontal' && placement.orientation !== 'vertical') {
+            return [`invalid split orientation "${placement.orientation}"`]
+        }
+
+        let {edge, orientation, position, sizes} = placement,
+            newSplitId                           = DockZoneModel.genId(document, `split-${targetNodeId}`),
+            ratio                                = (Array.isArray(sizes) && sizes.length === 2) ? sizes : [0.5, 0.5],
+            atPosition                           = position || ((edge === 'top' || edge === 'left') ? 'before' : 'after'),
+            // Resolve the target's parent BEFORE inserting the new split (which references the target).
+            parentSlot = DockZoneModel.findParentSlot(document, targetNodeId);
+
+        document.nodes[newSplitId] = {
+            type    : 'split',
+            orientation,
+            children: atPosition === 'before' ? [nodeId, targetNodeId] : [targetNodeId, nodeId],
+            sizes   : ratio
+        };
+
+        if (!parentSlot) {
+            document.root = newSplitId
+        } else if (typeof parentSlot.slot === 'number') {
+            document.nodes[parentSlot.parentId].children[parentSlot.slot] = newSplitId
+        } else {
+            document.nodes[parentSlot.parentId].zones[parentSlot.slot] = newSplitId
+        }
+
+        return []
+    }
+
+    /**
      * @summary Validates a dock-zone document against the contract invariants.
      *
      * Checks: schema, root presence, reference integrity (split children / edge-zone zones / tabs
@@ -530,6 +712,15 @@ class DockZoneModel extends Base {
         if (!document || typeof document !== 'object') return ['document is not an object'];
         if (document.schema !== DockZoneModel.SCHEMA)   errors.push(`schema must be ${DockZoneModel.SCHEMA}`);
         if (!document.nodes || !document.nodes[document.root]) errors.push(`root node "${document.root}" is missing`);
+
+        // Runtime-only preview state is invalid at the model boundary — not just at render projection.
+        // The scan reaches into the opaque `metadata` channel, so a preview key cannot ride a saved
+        // layout through createSavedLayout / restoreSavedLayout (both validate through here).
+        let previewKey = DockZoneModel.findForbiddenPreviewKey(document);
+
+        if (previewKey) {
+            errors.push(`runtime-only preview field "${previewKey}" must not enter committed dock-zone state`)
+        }
 
         let items   = document.items || {},
             nodes   = document.nodes || {},
@@ -1761,6 +1952,122 @@ class DockZoneModel extends Base {
         targetWorking.items[itemId] = DockZoneModel.clone(record);
 
         let targetResult = DockZoneModel.applyOperation(targetWorking, {...target, itemId}),
+            errors       = [...sourceResult.errors, ...targetResult.errors];
+
+        // Commit-or-neither: any error on either side rolls the whole transfer back to both inputs.
+        if (errors.length) {
+            return fail(errors)
+        }
+
+        return {sourceDocument: sourceResult.document, targetDocument: targetResult.document, errors: []}
+    }
+
+    /**
+     * @summary Re-parents the subtree rooted at `nodeId` to `targetNodeId` within one document — the
+     * grouped-drag move. The dock tree already models a group as a `tabs` node, so grouped drag moves
+     * a NODE, not N items. A `{kind: 'tab-into'}` placement merges the moved tabs node's items into the
+     * target tabs node in order; otherwise a split placement (`{orientation, position|edge, sizes}`)
+     * wraps the target + the subtree in a new split. `normalizeTree` restores invariants (collapsing
+     * the emptied source slot) afterward.
+     *
+     * Fail-closed: unknown node/target, moving the root, moving a node onto itself, an invalid
+     * placement, or moving a node into its OWN subtree (the cycle guard, via the reachable-set walk
+     * rooted at `nodeId`) all return the document untouched + errors.
+     * @param {Object} document
+     * @param {Object} args {nodeId, targetNodeId, placement}
+     * @returns {{document:Object, errors:String[]}}
+     * @static
+     */
+    static moveNode(document, {nodeId, targetNodeId, placement = {}} = {}) {
+        let nodes = document?.nodes || {};
+
+        if (!nodes[nodeId])           return {document, errors: [`unknown node "${nodeId}"`]};
+        if (!nodes[targetNodeId])     return {document, errors: [`unknown target node "${targetNodeId}"`]};
+        if (nodeId === targetNodeId)  return {document, errors: [`cannot move node "${nodeId}" onto itself`]};
+        if (nodeId === document.root) return {document, errors: ['cannot move the root node']};
+
+        // cycle guard: the target must not live inside the moved subtree (walk rooted AT nodeId)
+        if (DockZoneModel.reachableNodeIds({nodes, root: nodeId}).has(targetNodeId)) {
+            return {document, errors: [`cannot move node "${nodeId}" into its own subtree`]}
+        }
+
+        let doc = DockZoneModel.clone(document);
+
+        DockZoneModel.detachNode(doc, nodeId);
+
+        let errors = DockZoneModel.attachNode(doc, nodeId, targetNodeId, placement);
+
+        return errors.length ? {document, errors} : DockZoneModel.commit(document, doc)
+    }
+
+    /**
+     * @summary Atomically transfers the subtree rooted at `nodeId` out of `sourceDocument` and into
+     * `targetDocument` in one commit-or-neither step — the cross-window grouped-drag transfer. It is
+     * the two-document sibling of `moveNode`: `transferItem` atomicity applied to a whole subtree. The
+     * subtree's nodes and all its member item records travel verbatim, and it re-homes at
+     * `target.targetNodeId` per `target.placement` (the `moveNode` attach grammar). Reuses the landed
+     * atomic path — no second atomicity implementation.
+     *
+     * Fail-closed and atomic: any error on either document returns BOTH inputs untouched + a non-empty
+     * `errors` array. A node-id or member-item-id already present in the target, an unmovable member,
+     * the root node, a same-workspace transfer, or a placement failure all reject with nothing committed.
+     * @param {Object} sourceDocument the committed dock-zone document the subtree leaves
+     * @param {Object} targetDocument the committed dock-zone document the subtree joins
+     * @param {Object} descriptor {nodeId, sourceWorkspaceId, targetWorkspaceId, target:{targetNodeId, placement}}
+     * @returns {{sourceDocument:Object, targetDocument:Object, errors:String[]}}
+     * @static
+     */
+    static transferNode(sourceDocument, targetDocument, {nodeId, sourceWorkspaceId, targetWorkspaceId, target} = {}) {
+        let fail        = errors => ({sourceDocument, targetDocument, errors}),
+            sourceNodes = sourceDocument?.nodes || {};
+
+        if (!sourceNodes[nodeId])           return fail([`unknown node "${nodeId}"`]);
+        if (nodeId === sourceDocument.root) return fail(['cannot transfer the root node']);
+        if (sourceWorkspaceId !== undefined && sourceWorkspaceId === targetWorkspaceId) {
+            return fail(['transferNode requires distinct source and target workspaces'])
+        }
+        if (!target || !targetDocument?.nodes?.[target.targetNodeId]) {
+            return fail(['transferNode target must name an existing target node'])
+        }
+
+        // The subtree: its node ids + the member item ids its tabs nodes carry.
+        let subtreeNodeIds = DockZoneModel.reachableNodeIds({nodes: sourceNodes, root: nodeId}),
+            memberItemIds  = [];
+
+        subtreeNodeIds.forEach(id => {
+            if (sourceNodes[id].type === 'tabs') memberItemIds.push(...(sourceNodes[id].items || []))
+        });
+
+        // Preconditions across BOTH documents before any mutation: no node-id or member-id may already
+        // exist in the target, and every member must be movable.
+        for (const id of subtreeNodeIds) {
+            if (targetDocument.nodes?.[id]) return fail([`node "${id}" already exists in the target document`])
+        }
+        for (const itemId of memberItemIds) {
+            if (sourceDocument.items?.[itemId]?.movable === false) return fail([`item "${itemId}" is not movable`]);
+            if (targetDocument.items?.[itemId])                    return fail([`item "${itemId}" already exists in the target document`])
+        }
+
+        // Source side: unlink the subtree, drop its nodes + member records, normalize + validate.
+        let sourceWorking = DockZoneModel.clone(sourceDocument);
+
+        DockZoneModel.detachNode(sourceWorking, nodeId);
+        subtreeNodeIds.forEach(id => delete sourceWorking.nodes[id]);
+        memberItemIds.forEach(itemId => delete sourceWorking.items[itemId]);
+
+        let sourceResult = DockZoneModel.commit(sourceDocument, sourceWorking);
+
+        // Target side: graft the member records + subtree nodes verbatim, then attach the subtree root
+        // through the shared moveNode placement grammar; normalize + validate.
+        let targetWorking = DockZoneModel.clone(targetDocument);
+
+        memberItemIds.forEach(itemId => targetWorking.items[itemId] = DockZoneModel.clone(sourceDocument.items[itemId]));
+        subtreeNodeIds.forEach(id => targetWorking.nodes[id] = DockZoneModel.clone(sourceDocument.nodes[id]));
+
+        let attachErrors = DockZoneModel.attachNode(targetWorking, nodeId, target.targetNodeId, target.placement || {}),
+            targetResult = attachErrors.length
+                ? {document: targetDocument, errors: attachErrors}
+                : DockZoneModel.commit(targetDocument, targetWorking),
             errors       = [...sourceResult.errors, ...targetResult.errors];
 
         // Commit-or-neither: any error on either side rolls the whole transfer back to both inputs.

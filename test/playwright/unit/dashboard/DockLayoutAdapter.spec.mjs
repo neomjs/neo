@@ -201,8 +201,8 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
     });
 
     test('creates resizeSplit operation descriptors from splitter affordance metadata', () => {
-        let model    = createModel(),
-            result   = DockLayoutAdapter.project(model, {
+        let model  = createModel(),
+            result = DockLayoutAdapter.project(model, {
                 resolveComponentRef: componentRef => ({
                     ntype    : 'dashboard-panel',
                     reference: componentRef
@@ -325,6 +325,16 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
         };
 
         expect(() => DockLayoutAdapter.project(model)).toThrow(/preview-only field "sourceSortZone"/);
+    });
+
+    test('rejects the grouped-drag runtime-only groupNodeId at the adapter boundary', () => {
+        let model = createModel();
+
+        model.items.strategy.metadata = {
+            groupNodeId: 'tabs-1'
+        };
+
+        expect(() => DockLayoutAdapter.project(model)).toThrow(/preview-only field "groupNodeId"/);
     });
 
     test('projects an autoHidden edge item into an edge rail and drops it from the tab flow', () => {
