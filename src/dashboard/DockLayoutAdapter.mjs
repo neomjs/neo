@@ -33,6 +33,7 @@ class DockLayoutAdapter extends Base {
         'dockPreview',
         'domRect',
         'DOMRect',
+        'groupNodeId',
         'isWindowDragging',
         'placement',
         'pointer',
@@ -222,10 +223,10 @@ class DockLayoutAdapter extends Base {
         let isVertical = orientation === 'vertical';
 
         return {
-            applyDockZoneOperation    : context.applyDockZoneOperation,
+            applyDockZoneOperation: context.applyDockZoneOperation,
             boundaryIndex,
-            cls                       : ['neo-dashboard-dock-splitter', `neo-dashboard-dock-splitter-${orientation}`],
-            data                      : {
+            cls                   : ['neo-dashboard-dock-splitter', `neo-dashboard-dock-splitter-${orientation}`],
+            data                  : {
                 boundaryIndex,
                 dockNodeId  : splitNodeId,
                 dockSplitter: true,
@@ -548,8 +549,8 @@ class DockLayoutAdapter extends Base {
      * @static
      */
     static projectTabsNode(nodeId, node, context) {
-        let allItems    = Array.isArray(node.items) ? node.items : [],
-            items       = context.railedItemIds
+        let allItems = Array.isArray(node.items) ? node.items : [],
+            items    = context.railedItemIds
                 ? allItems.filter(itemId => !context.railedItemIds.has(itemId))
                 : allItems,
             activeIndex = items.length ? items.indexOf(node.activeItemId) : null;
