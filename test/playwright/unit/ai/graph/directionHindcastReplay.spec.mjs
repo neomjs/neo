@@ -1,6 +1,6 @@
 import {setup} from '../../../setup.mjs';
 
-const appName = 'HindcastHarnessTest';
+const appName = 'DirectionHindcastReplayTest';
 
 setup({
     neoConfig: {
@@ -17,16 +17,16 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../src/Neo.mjs';
 import * as core      from '../../../../../src/core/_export.mjs';
 
-test.describe('hindcastHarness — only-in-W by construction, the June gate, the May lock', () => {
-    let harness;
+test.describe('directionHindcastReplay — only-in-W by construction, the June gate, the May lock', () => {
+    let replay;
 
     test.beforeAll(async () => {
-        harness = await import('../../../../../ai/graph/hindcastHarness.mjs');
+        replay = await import('../../../../../ai/graph/directionHindcastReplay.mjs');
     });
 
     test('THE JUNE GATE: the born-labeled fixture detects the starved design/UX direction — or the approach fails', () => {
-        const {window, history, mappingVersion, filterSet} = harness.JUNE_2026_FIXTURE;
-        const run                                          = harness.runHindcastWindow({window, history, mappingVersion, filterSet});
+        const {window, history, mappingVersion, filterSet} = replay.JUNE_2026_FIXTURE;
+        const run                                          = replay.runHindcastWindow({window, history, mappingVersion, filterSet});
 
         // the anchor set at June start: both declared intents active; the post-window goal invisible
         expect(run.anchorSet.map(goal => goal.id).sort()).toEqual(['evolution-goal-design-ux', 'evolution-goal-engine-hardening']);
@@ -47,7 +47,7 @@ test.describe('hindcastHarness — only-in-W by construction, the June gate, the
     });
 
     test('NO FUTURE LEAKAGE, by construction: post-window events and goals cannot alter the run', () => {
-        const {window, history, mappingVersion, filterSet} = harness.JUNE_2026_FIXTURE;
+        const {window, history, mappingVersion, filterSet} = replay.JUNE_2026_FIXTURE;
 
         // baseline: the fixture ALREADY contains July motion + a July goal — strip them for the control
         const strippedHistory = {
@@ -55,8 +55,8 @@ test.describe('hindcastHarness — only-in-W by construction, the June gate, the
             motionEvents : history.motionEvents.filter(event => Date.parse(event.at) < Date.parse(window.until))
         };
 
-        const withFuture    = harness.runHindcastWindow({window, history, mappingVersion, filterSet});
-        const withoutFuture = harness.runHindcastWindow({window, history: strippedHistory, mappingVersion, filterSet});
+        const withFuture    = replay.runHindcastWindow({window, history, mappingVersion, filterSet});
+        const withoutFuture = replay.runHindcastWindow({window, history: strippedHistory, mappingVersion, filterSet});
 
         // deep-equal outputs: the future was structurally invisible (the July design flood changed NOTHING)
         expect(JSON.stringify(withFuture.breakdown)).toBe(JSON.stringify(withoutFuture.breakdown));
@@ -72,7 +72,7 @@ test.describe('hindcastHarness — only-in-W by construction, the June gate, the
             {id: 'g-future',  matchers: ['c4'], declaredAt: '2026-07-05T00:00:00Z'}
         ];
 
-        const atJuneStart = harness.reconstructAnchorSet(goals, '2026-06-01T00:00:00Z');
+        const atJuneStart = replay.reconstructAnchorSet(goals, '2026-06-01T00:00:00Z');
         const ids         = atJuneStart.map(goal => goal.id).sort();
 
         // g-retired retires MID-window → still active AT window start; g-prior retired before → gone; g-future → invisible
@@ -81,15 +81,15 @@ test.describe('hindcastHarness — only-in-W by construction, the June gate, the
     });
 
     test('THE MAY LOCK: the holdout door refuses everything but the recorded ceremony', () => {
-        const {window, history, mappingVersion, filterSet} = harness.JUNE_2026_FIXTURE;
+        const {window, history, mappingVersion, filterSet} = replay.JUNE_2026_FIXTURE;
 
-        expect(() => harness.runHoldout({window, history, mappingVersion, filterSet})).toThrow(/scored ONCE/);
-        expect(() => harness.runHoldout({singleShot: false, operatorProvenance: 'x', window, history, mappingVersion, filterSet})).toThrow(/ceremony/);
-        expect(() => harness.runHoldout({singleShot: true, operatorProvenance: '', window, history, mappingVersion, filterSet})).toThrow(/ceremony/);
+        expect(() => replay.runHoldout({window, history, mappingVersion, filterSet})).toThrow(/scored ONCE/);
+        expect(() => replay.runHoldout({singleShot: false, operatorProvenance: 'x', window, history, mappingVersion, filterSet})).toThrow(/ceremony/);
+        expect(() => replay.runHoldout({singleShot: true, operatorProvenance: '', window, history, mappingVersion, filterSet})).toThrow(/ceremony/);
 
         // and WITH the ceremony, the door opens onto the same pure replay (proven on June data —
         // the May data itself never enters this repository)
-        const ceremonial = harness.runHoldout({singleShot: true, operatorProvenance: 'unit-proof: the adjudicated-protocol pointer goes here', window, history, mappingVersion, filterSet});
+        const ceremonial = replay.runHoldout({singleShot: true, operatorProvenance: 'unit-proof: the adjudicated-protocol pointer goes here', window, history, mappingVersion, filterSet});
         expect(ceremonial.conservation.valid).toBe(true);
     });
 });
