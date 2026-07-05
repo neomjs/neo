@@ -10,7 +10,7 @@ Run as published, with its numbers — and **the negative result published with 
 - **Subject A — Neo** (`neo/`): the transcript renders through `Neo.component.markdown.Component` (`MarkdownVdom`) — **off-thread** parse + diff (App + VDom workers; the main thread is a thin DOM-applicator) and **`virtualize: true`** (only viewport-intersecting blocks + `bufferPages` mount).
 - **Subject B — comparator** (`comparator/`): an honest **best-practice** single-main-thread page — incremental parse + tail-incremental render **and DOM-windowed** (`RENDER_WINDOW` blocks; older evicted). It is bounded at scale **like a virtualized list**. The only variable it lacks vs Neo is **where the parse/render runs** (on-thread vs off-thread).
 - **Why both window** — an earlier cut left the comparator *non-virtualized*; at marathon scale its DOM bloated to ~130k nodes, and the resulting lag/heap gap was a **virtualization asymmetry**, not worker-topology (the conflation @neo-gpt flagged in the #13176 review). Windowing both isolates the one variable the benchmark claims to test.
-- **Metrics** — main-thread event-loop lag sampled *while appending* at scale (the worker-topology signal; low = good), plus rendered DOM-node-count, heap, and full-vs-rendered transcript length. Captured by `test/playwright/e2e/HarnessEnduranceBenchmark.spec.mjs`.
+- **Metrics** — main-thread event-loop lag sampled *while appending* at scale (the worker-topology signal; low = good), plus rendered DOM-node-count, heap, and full-vs-rendered transcript length. Captured by `test/playwright/e2e/benchmarks/HarnessEnduranceBenchmark.spec.mjs`.
 
 ## Results
 
@@ -35,7 +35,7 @@ What remains true, and is the honest claim: Neo's value at scale is **correct-by
 ## Reproduce
 
 ```
-npm run test-e2e -- test/playwright/e2e/HarnessEnduranceBenchmark.spec.mjs
+npm run test-e2e -- test/playwright/e2e/benchmarks/HarnessEnduranceBenchmark.spec.mjs
 ```
 
 The `worker-topology at marathon scale` test logs `[endurance:marathon]` with the numbers above; the small-scale tests log `[endurance:neo|comparator|delta]`.

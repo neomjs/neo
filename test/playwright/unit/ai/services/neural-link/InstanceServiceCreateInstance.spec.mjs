@@ -18,13 +18,14 @@ import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 
 /**
- * @summary Server-side validation and dispatch coverage for the `create_instance` Neural Link tool.
+ * @summary Server-side validation and dispatch coverage for Neural Link instance service tools.
  *
  * The public MCP boundary must stay data-only: class identity is represented by `className` or `ntype`,
  * not a class reference, and function-bearing config is rejected before the request reaches the App Worker.
  */
-test.describe('Neo.ai.services.neural-link.InstanceService - createInstance', () => {
-    let ConnectionService, InstanceService, calls, originalCall, originalReady;
+test.describe('Neo.ai.services.neural-link.InstanceService - server boundary', () => {
+    let ConnectionService, InstanceService, RecorderService, calls, recorderCalls,
+        originalCall, originalDefaultSession, originalGetArchive, originalRecordReplay, originalReady, originalSaveArchive;
 
     test.beforeAll(async () => {
         (await import('../../../../../../ai/mcp/server/neural-link/config.mjs')).default.data.autoConnect = false;
@@ -33,6 +34,7 @@ test.describe('Neo.ai.services.neural-link.InstanceService - createInstance', ()
         originalReady      = ConnectionService.ready;
         ConnectionService.ready = async () => {};
         InstanceService    = (await import('../../../../../../ai/services/neural-link/InstanceService.mjs')).default;
+        RecorderService    = (await import('../../../../../../ai/services/neural-link/RecorderService.mjs')).default;
     });
 
     test.afterAll(() => {
@@ -40,17 +42,43 @@ test.describe('Neo.ai.services.neural-link.InstanceService - createInstance', ()
     });
 
     test.beforeEach(() => {
-        calls        = [];
-        originalCall = ConnectionService.call;
+        calls                  = [];
+        recorderCalls          = [];
+        originalCall           = ConnectionService.call;
+        originalDefaultSession = ConnectionService.getDefaultSessionId;
+        originalGetArchive     = RecorderService.getTransactionArchive;
+        originalRecordReplay   = RecorderService.recordTransactionReplay;
+        originalSaveArchive    = RecorderService.saveTransactionArchive;
 
         ConnectionService.call = async (sessionId, op, payload) => {
             calls.push({sessionId, op, payload});
             return {id: 'created-instance', className: payload.className || 'Neo.button.Base'}
         }
+
+        ConnectionService.getDefaultSessionId = () => 'default-session';
+        RecorderService.saveTransactionArchive = payload => {
+            recorderCalls.push({type: 'save', payload});
+            return {saved: true, archiveId: 'archive-1', sourceTxId: payload.transaction.txId}
+        };
+        RecorderService.getTransactionArchive = ({archiveId}) => archiveId === 'archive-1' ? {
+            archiveId,
+            committedAt : 1234,
+            ops         : [{forward: {tool: 'set_instance_properties', args: {id: 'leaf', properties: {x: 1}}}}],
+            originWriter: {agentId: 'agent-a', sessionId: 'sess-a'},
+            sourceTxId  : 'batch:add-grid'
+        } : null;
+        RecorderService.recordTransactionReplay = payload => {
+            recorderCalls.push({type: 'replay', payload});
+            return {updated: true}
+        }
     });
 
     test.afterEach(() => {
-        ConnectionService.call = originalCall
+        ConnectionService.call                = originalCall;
+        ConnectionService.getDefaultSessionId = originalDefaultSession;
+        RecorderService.saveTransactionArchive = originalSaveArchive;
+        RecorderService.getTransactionArchive  = originalGetArchive;
+        RecorderService.recordTransactionReplay = originalRecordReplay
     });
 
     test('rejects missing or ambiguous class identity before dispatch', async () => {
@@ -65,7 +93,7 @@ test.describe('Neo.ai.services.neural-link.InstanceService - createInstance', ()
 
     test('rejects module class references and function-bearing config before dispatch', async () => {
         await expect(InstanceService.createInstance({
-            config  : {module: 'Neo.button.Base'},
+            config   : {module: 'Neo.button.Base'},
             sessionId: 's1'
         })).rejects.toThrow(/module.*cannot cross/);
 
@@ -133,5 +161,82 @@ test.describe('Neo.ai.services.neural-link.InstanceService - createInstance', ()
             }
         }]);
         expect(result.id).toBe('created-instance')
+    });
+
+    test('saveTransaction archives the App Worker snapshot through RecorderService', async () => {
+        ConnectionService.call = async (sessionId, op, payload) => {
+            calls.push({sessionId, op, payload});
+            return {
+                saved      : true,
+                transaction: {
+                    txId        : payload.txId,
+                    status      : 'committed',
+                    originWriter: {agentId: 'agent-a', sessionId: 'sess-a'},
+                    ops         : []
+                }
+            }
+        };
+
+        const result = await InstanceService.saveTransaction({
+            name: 'Add grid',
+            txId: 'batch:add-grid'
+        });
+
+        expect(result).toEqual({saved: true, archiveId: 'archive-1', sourceTxId: 'batch:add-grid'});
+        expect(calls).toEqual([{sessionId: undefined, op: 'save_transaction', payload: {txId: 'batch:add-grid'}}]);
+        expect(recorderCalls).toEqual([{
+            type   : 'save',
+            payload: {
+                appSessionId: 'default-session',
+                name        : 'Add grid',
+                transaction : {
+                    txId        : 'batch:add-grid',
+                    status      : 'committed',
+                    originWriter: {agentId: 'agent-a', sessionId: 'sess-a'},
+                    ops         : []
+                }
+            }
+        }])
+    });
+
+    test('saveTransaction returns App Worker recoverable misses without archiving', async () => {
+        ConnectionService.call = async (sessionId, op, payload) => {
+            calls.push({sessionId, op, payload});
+            return {saved: false, reason: 'transaction-not-found'}
+        };
+
+        expect(await InstanceService.saveTransaction({sessionId: 's1', txId: 'missing'}))
+            .toEqual({saved: false, reason: 'transaction-not-found'});
+        expect(recorderCalls).toEqual([])
+    });
+
+    test('replayTransaction rehydrates an archive through App Worker dispatch and records success', async () => {
+        ConnectionService.call = async (sessionId, op, payload) => {
+            calls.push({sessionId, op, payload});
+            return {replayed: true, txId: `replay:${payload.archiveId}`, ops: payload.ops.length}
+        };
+
+        const result = await InstanceService.replayTransaction({sessionId: 's1', archiveId: 'archive-1'});
+
+        expect(result).toEqual({replayed: true, txId: 'replay:archive-1', ops: 1});
+        expect(calls).toEqual([{
+            sessionId: 's1',
+            op       : 'replay_transaction',
+            payload  : {
+                archiveId         : 'archive-1',
+                ops               : [{forward: {tool: 'set_instance_properties', args: {id: 'leaf', properties: {x: 1}}}}],
+                sourceCommittedAt : 1234,
+                sourceOriginWriter: {agentId: 'agent-a', sessionId: 'sess-a'},
+                sourceTxId        : 'batch:add-grid'
+            }
+        }]);
+        expect(recorderCalls).toEqual([{type: 'replay', payload: {archiveId: 'archive-1'}}])
+    });
+
+    test('replayTransaction fails closed when the archive is missing', async () => {
+        expect(await InstanceService.replayTransaction({sessionId: 's1', archiveId: 'missing'}))
+            .toEqual({replayed: false, reason: 'archive-not-found'});
+        expect(calls).toEqual([]);
+        expect(recorderCalls).toEqual([])
     });
 });

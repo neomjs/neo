@@ -29,7 +29,7 @@ Inside your application directory (`examples/yourApp/`), you must ensure your `n
 You MUST specify the E2E specific playwright config (`playwright.config.e2e.mjs`) when running these tests to ensure valid timeouts and environments.
 
 ```bash
-npx playwright test test/playwright/e2e/YourTestNL.spec.mjs -c test/playwright/playwright.config.e2e.mjs
+npx playwright test test/playwright/e2e/<domain>/YourTestNL.spec.mjs -c test/playwright/playwright.config.e2e.mjs
 ```
 
 ## Connecting the Neural Link (Fixtures)
@@ -150,7 +150,7 @@ await page.mouse.move(targetX, targetY, { steps: 60 });
 await page.mouse.up();
 ```
 
-See `test/playwright/e2e/GridColumnCrossBodyDnD.spec.mjs` for a worked locked-column drag (in-region landing + cross-region re-home) that pairs the gesture with Neural Link worker assertions.
+See `test/playwright/e2e/grid/ColumnCrossBodyDnD.spec.mjs` for a worked locked-column drag (in-region landing + cross-region re-home) that pairs the gesture with Neural Link worker assertions.
 
 ### Topology, Nodes, & Namespaces
 Get a bird's eye view of the entire runtime environment, discovering connected workers or resolving the class hierarchy.

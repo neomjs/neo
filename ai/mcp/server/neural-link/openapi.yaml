@@ -1635,6 +1635,64 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /instance/save_transaction:
+    post:
+      summary: Save Transaction
+      operationId: save_transaction
+      x-neo-tool-tier: write-locked
+      x-pass-as-object: true
+      description: Persists one committed writer-scoped transaction snapshot to the Brain-side archive for later replay after the App Worker session disconnects.
+      tags: [Instance]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveTransactionRequest'
+      responses:
+        '200':
+          description: Save-transaction archive result
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /instance/replay_transaction:
+    post:
+      summary: Replay Transaction
+      operationId: replay_transaction
+      x-neo-tool-tier: write-locked
+      x-pass-as-object: true
+      description: Replays an archived transaction's forward ops through the standard App Worker dispatch path as a fresh undoable transaction for the current writer.
+      tags: [Instance]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplayTransactionRequest'
+      responses:
+        '200':
+          description: Replay-transaction result
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /instance/abort_transaction:
     post:
       summary: Abort Named Transaction
@@ -2248,6 +2306,33 @@ components:
         sessionId:
           type: string
           description: The target App Worker Session ID
+
+    SaveTransactionRequest:
+      type: object
+      required:
+        - txId
+      properties:
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+        txId:
+          type: string
+          description: The committed transaction id to archive.
+        name:
+          type: string
+          description: Optional human-facing archive label.
+
+    ReplayTransactionRequest:
+      type: object
+      required:
+        - archiveId
+      properties:
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+        archiveId:
+          type: string
+          description: The archived transaction id to replay.
 
     AbortTransactionRequest:
       type: object

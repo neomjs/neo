@@ -22,7 +22,7 @@ class BenchmarkSystemReporter {
 
     const outputDir = path.dirname(this.outputFile);
     fs.ensureDirSync(outputDir);
-    
+
     fs.writeJsonSync(this.outputFile, fullSystemInfo, { spaces: 2 });
 
     console.log('');

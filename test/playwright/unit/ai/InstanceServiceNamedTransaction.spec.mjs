@@ -172,6 +172,153 @@ test.describe('Neo.ai.client.InstanceService — named-transaction batching', ()
         expect(committed[0]).toEqual({txId: 'batch:add-grid', status: 'committed', opCount: 2, labels: ['set width', 'set height']})
     });
 
+    test('save_transaction returns a committed data snapshot with provenance', async () => {
+        await service.beginTransaction({name: 'add-grid'}, ID);
+        service.recordUndo(ID, op('set width', 's1'));
+        await service.commitTransaction({}, ID);
+
+        const result = await service.saveTransaction({txId: 'batch:add-grid'}, ID);
+
+        expect(result.saved).toBe(true);
+        expect(result.transaction).toMatchObject({
+            txId        : 'batch:add-grid',
+            status      : 'committed',
+            originWriter: ID,
+            ops         : [op('set width', 's1')]
+        });
+        expect(result.transaction.committedAt).toEqual(expect.any(Number))
+    });
+
+    test('save_transaction fail-closed → no identity / missing tx id / not found', async () => {
+        expect(await service.saveTransaction({txId: 'batch:x'}, null)).toEqual({saved: false, reason: 'no-writer-identity'});
+        expect(await service.saveTransaction({}, ID)).toEqual({saved: false, reason: 'tx-id-required'});
+        expect(await service.saveTransaction({txId: 'batch:missing'}, ID)).toEqual({saved: false, reason: 'transaction-not-found'})
+    });
+
+    test('replay_transaction re-dispatches archived forwards into a fresh undoable transaction', async () => {
+        const
+            replayId = {agentId: 'agent-replay', sessionId: 'sess-replay'},
+            calls    = [],
+            client   = {
+                transactionService,
+                async handleRequest(tool, args, context) {
+                    calls.push({tool, args, undoReplay: context?.undoReplay});
+                    replayService.recordUndo(context, {
+                        sequenceId       : `replay-${calls.length}`,
+                        originWriter     : {agentId: context.agentId, sessionId: context.sessionId},
+                        targetSubtreePath: ['root', 'leaf'],
+                        forward          : {tool, args},
+                        reverse          : {tool: 'set_instance_properties', args: {id: args.id, properties: {}}},
+                        label            : `replay ${calls.length}`
+                    })
+                }
+            },
+            replayService = Neo.create(InstanceService, {client}),
+            archiveOps    = [
+                {...op('set x', 'a'), forward: {tool: 'set_instance_properties', args: {id: 'leaf', properties: {x: 1}}}},
+                {...op('set y', 'b'), forward: {tool: 'set_instance_properties', args: {id: 'leaf', properties: {y: 2}}}}
+            ];
+
+        const result = await replayService.replayTransaction({
+            archiveId         : 'archive-1',
+            ops               : archiveOps,
+            sourceCommittedAt : 1234,
+            sourceOriginWriter: ID,
+            sourceTxId        : 'batch:add-grid'
+        }, replayId);
+
+        expect(result).toEqual({replayed: true, txId: 'replay:archive-1', ops: 2, sourceArchiveId: 'archive-1'});
+        expect(calls).toEqual([
+            {tool: 'set_instance_properties', args: {id: 'leaf', properties: {x: 1}}, undoReplay: undefined},
+            {tool: 'set_instance_properties', args: {id: 'leaf', properties: {y: 2}}, undoReplay: undefined}
+        ]);
+
+        const {open, committed} = transactionService.stackOf({id: replayId});
+        expect(open).toBeNull();
+        expect(committed).toHaveLength(1);
+        expect(committed[0]).toMatchObject({
+            txId        : 'replay:archive-1',
+            originWriter: replayId,
+            metadata    : {
+                replayOf: {
+                    archiveId   : 'archive-1',
+                    committedAt : 1234,
+                    originWriter: ID,
+                    txId        : 'batch:add-grid'
+                },
+                replayWriter: replayId
+            }
+        });
+        expect(committed[0].ops.map(item => item.sequenceId)).toEqual(['replay-1', 'replay-2'])
+    });
+
+    test('replay_transaction rejects non-data archived forwards before dispatch', async () => {
+        class NonDataReplayValue {}
+
+        const cyclic = {};
+        cyclic.self = cyclic;
+
+        expect(await service.replayTransaction({
+            archiveId: 'archive-fn',
+            ops      : [{forward: {tool: 'set_instance_properties', args: {handler: () => {}}}}]
+        }, ID)).toEqual({replayed: false, reason: 'replay_transaction: non-data function value is not supported at archive.ops.handler.'});
+
+        expect(await service.replayTransaction({
+            archiveId: 'archive-module',
+            ops      : [{forward: {tool: 'set_instance_properties', args: {module: 'Neo.button.Base'}}}]
+        }, ID)).toEqual({replayed: false, reason: 'replay_transaction: `module` class references cannot be replayed at archive.ops.module.'});
+
+        expect(await service.replayTransaction({
+            archiveId: 'archive-class',
+            ops      : [{forward: {tool: 'set_instance_properties', args: {value: new NonDataReplayValue()}}}]
+        }, ID)).toEqual({replayed: false, reason: 'replay_transaction: class-backed data cannot be replayed at archive.ops.value.'});
+
+        expect(await service.replayTransaction({
+            archiveId: 'archive-cycle',
+            ops      : [{forward: {tool: 'set_instance_properties', args: cyclic}}]
+        }, ID)).toEqual({replayed: false, reason: 'replay_transaction: cyclic data is not supported at archive.ops.self.'});
+
+        expect(transactionService.stackOf({id: ID}).open).toBeNull()
+    });
+
+    test('replay_transaction aborts its open transaction record when dispatch fails', async () => {
+        let replayService, count = 0;
+
+        const client = {
+            transactionService,
+            async handleRequest(tool, args, context) {
+                count++;
+
+                if (count === 1) {
+                    replayService.recordUndo(context, {
+                        sequenceId       : 'partial-1',
+                        originWriter     : {agentId: context.agentId, sessionId: context.sessionId},
+                        targetSubtreePath: ['root', 'leaf'],
+                        forward          : {tool, args},
+                        reverse          : {tool: 'set_instance_properties', args: {id: args.id, properties: {}}},
+                        label            : 'partial replay'
+                    });
+                    return
+                }
+
+                throw new Error('denied')
+            }
+        };
+
+        replayService = Neo.create(InstanceService, {client});
+
+        const result = await replayService.replayTransaction({
+            archiveId: 'archive-denied',
+            ops      : [
+                {...op('set x', 'a'), forward: {tool: 'set_instance_properties', args: {id: 'leaf', properties: {x: 1}}}},
+                {...op('set y', 'b'), forward: {tool: 'set_instance_properties', args: {id: 'leaf', properties: {y: 2}}}}
+            ]
+        }, ID);
+
+        expect(result).toEqual({replayed: false, reason: 'replay-denied: denied', sourceArchiveId: 'archive-denied'});
+        expect(transactionService.stackOf({id: ID})).toEqual({open: null, committed: [], redo: []})
+    });
+
     test('abort_transaction discards the open batch — committed stack + redo branch untouched', async () => {
         await service.beginTransaction({name: 'keep'}, ID);
         service.recordUndo(ID, op('kept', 'k1'));
@@ -198,6 +345,11 @@ test.describe('Neo.ai.client.InstanceService — named-transaction batching', ()
 
         expect(await bare.beginTransaction({name: 'x'}, ID)).toEqual({opened: false, reason: 'no-transaction-service'});
         expect(await bare.commitTransaction({}, ID)).toEqual({committed: false, reason: 'no-transaction-service'});
-        expect(await bare.abortTransaction({}, ID)).toEqual({aborted: false, reason: 'no-transaction-service'})
+        expect(await bare.abortTransaction({}, ID)).toEqual({aborted: false, reason: 'no-transaction-service'});
+        expect(await bare.saveTransaction({txId: 'batch:x'}, ID)).toEqual({saved: false, reason: 'no-transaction-service'});
+        expect(await bare.replayTransaction({
+            archiveId: 'archive-x',
+            ops      : [{forward: {tool: 'set_instance_properties', args: {id: 'leaf', properties: {x: 1}}}}]
+        }, ID)).toEqual({replayed: false, reason: 'no-transaction-service'})
     });
 });

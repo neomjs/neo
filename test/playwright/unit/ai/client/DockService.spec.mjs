@@ -60,7 +60,9 @@ test.describe.serial('Neo.ai.client.DockService', () => {
         await expect(service.executeDockOperation({
             componentId: 'any',
             descriptor : {operation: 'teleportItem'}
-        })).rejects.toThrow(/Unknown dock operation: teleportItem.*addTab, moveItem, splitNode, resizeSplit, detachItem, closeItem, setItemPinned, setItemAutoHidden/)
+        // the enumerated vocabulary derives from the DockZoneModel SSOT (never hand-listed), so this
+        // stays green as the operation family grows rather than pinning a brittle literal snapshot
+        })).rejects.toThrow(new RegExp(`Unknown dock operation: teleportItem.*${DockService.operations.join(', ')}`))
     });
 
     test('executeDockOperation rejects a missing descriptor fail-closed', async () => {

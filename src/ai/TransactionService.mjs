@@ -23,7 +23,26 @@ const cloneOp = op => ({
  * @param {Object} tx
  * @returns {Object}
  */
-const cloneTx = tx => ({txId: tx.txId, status: tx.status, ops: tx.ops.map(cloneOp)});
+const cloneTx = tx => {
+    const clone = {txId: tx.txId, status: tx.status, ops: tx.ops.map(cloneOp)};
+
+    if (tx.originWriter) {
+        clone.originWriter = {
+            agentId  : tx.originWriter.agentId,
+            sessionId: tx.originWriter.sessionId
+        }
+    }
+
+    if (Number.isFinite(tx.committedAt)) {
+        clone.committedAt = tx.committedAt
+    }
+
+    if (tx.metadata) {
+        clone.metadata = JSON.parse(JSON.stringify(tx.metadata))
+    }
+
+    return clone
+};
 
 /**
  * The stable string key for a writer's undo stack — the `(agentId, sessionId)` writer pair, so two writers never
@@ -125,13 +144,24 @@ class TransactionService extends Base {
      * @param {Object} params
      * @param {Object} params.id   `{agentId, sessionId}` — the Bridge-stamped writer pair
      * @param {String} params.txId
+     * @param {Object} [params.metadata] Optional data-only transaction metadata, e.g. replay provenance.
      * @returns {{ok: Boolean, reason: (String|null)}}
      */
-    begin({id, txId}) {
+    begin({id, txId, metadata}) {
         const key = stackKey(id);
 
         if (!key || typeof txId !== 'string' || txId === '') {
             return {ok: false, reason: 'invalid-session-or-tx'}
+        }
+
+        let safeMetadata = null;
+
+        if (metadata !== undefined) {
+            try {
+                safeMetadata = JSON.parse(JSON.stringify(metadata))
+            } catch {
+                return {ok: false, reason: 'metadata-not-serializable'}
+            }
         }
 
         let entry = this.sessions.get(key);
@@ -145,7 +175,7 @@ class TransactionService extends Base {
             entry.open.status = 'aborted' // a prior open tx never committed — fail-safe abort, don't leak it
         }
 
-        entry.open = {txId, status: 'open', ops: []};
+        entry.open = {txId, status: 'open', ops: [], metadata: safeMetadata};
 
         return {ok: true, reason: null}
     }
@@ -245,6 +275,8 @@ class TransactionService extends Base {
         }
 
         tx.status = 'committed';
+        tx.originWriter = tx.ops[0]?.originWriter ? {...tx.ops[0].originWriter} : null;
+        tx.committedAt  = Date.now();
         entry.committed.push(tx);
         entry.redo.length = 0; // a new committed mutation diverges history — the redo branch is no longer valid
 
