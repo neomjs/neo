@@ -260,6 +260,48 @@ class InstanceService extends Service {
     }
 
     /**
+     * @summary Rejects non-data values in archived replay descriptors before they re-enter live dispatch.
+     * @param {*} value
+     * @param {String} [path='archive.ops']
+     * @param {WeakSet} [seen]
+     * @protected
+     */
+    rejectNonDataReplayValue(value, path='archive.ops', seen=new WeakSet()) {
+        if (typeof value === 'function') {
+            throw new Error(`replay_transaction: non-data function value is not supported at ${path}.`)
+        }
+
+        if (!value || typeof value !== 'object') {
+            return
+        }
+
+        if (seen.has(value)) {
+            throw new Error(`replay_transaction: cyclic data is not supported at ${path}.`)
+        }
+
+        seen.add(value);
+
+        const prototype = Object.getPrototypeOf(value);
+
+        if (!Array.isArray(value) && prototype && prototype !== Object.prototype) {
+            throw new Error(`replay_transaction: class-backed data cannot be replayed at ${path}.`)
+        }
+
+        if (Object.hasOwn(value, 'module')) {
+            throw new Error(`replay_transaction: \`module\` class references cannot be replayed at ${path}.module.`)
+        }
+
+        if (Array.isArray(value)) {
+            value.forEach((item, index) => this.rejectNonDataReplayValue(item, `${path}[${index}]`, seen));
+            return
+        }
+
+        Object.entries(value).forEach(([key, item]) => {
+            this.rejectNonDataReplayValue(item, `${path}.${key}`, seen)
+        })
+    }
+
+    /**
      * @summary Builds the reverse-op for a `create_instance` write.
      * @param {Object} params
      * @param {Object} params.config The normalized forward config.
@@ -739,6 +781,123 @@ class InstanceService extends Service {
             summarize         = tx => ({txId: tx.txId, status: tx.status, opCount: tx.ops.length, labels: tx.ops.map(op => op.label)});
 
         return {committed: committed.map(summarize), redo: redo.map(summarize)}
+    }
+
+    /**
+     * Returns a data-only snapshot of one committed transaction for Brain-side archive persistence.
+     * The archive writer may only save its own current writer stack: provenance is preserved on the snapshot, but
+     * the lookup remains keyed to the Bridge-stamped writer pair.
+     * @param {Object} params
+     * @param {String} params.txId
+     * @param {Object|null} [context] The Bridge-stamped `{agentId, sessionId}` writer pair.
+     * @returns {Promise<Object>} `{saved:Boolean, transaction?:Object, reason?:String}`
+     */
+    async saveTransaction({txId}={}, context) {
+        const transactionService = this.client?.transactionService;
+
+        if (!context?.agentId || !context?.sessionId) {
+            return {saved: false, reason: 'no-writer-identity'}
+        }
+
+        if (!transactionService) {
+            return {saved: false, reason: 'no-transaction-service'}
+        }
+
+        if (typeof txId !== 'string' || txId === '') {
+            return {saved: false, reason: 'tx-id-required'}
+        }
+
+        const {committed} = transactionService.stackOf({id: {agentId: context.agentId, sessionId: context.sessionId}}),
+              transaction = committed.find(tx => tx.txId === txId);
+
+        if (!transaction) {
+            return {saved: false, reason: 'transaction-not-found'}
+        }
+
+        return {saved: true, transaction}
+    }
+
+    /**
+     * Replays archived forward ops into the live heap as a fresh, undoable named transaction. Replay deliberately
+     * does NOT set `undoReplay`: each forward op re-enters normal write enforcement as the current requester and is
+     * captured into a new transaction, so the replay result can be undone normally. On a partial failure the replay
+     * transaction record is aborted to avoid publishing an incoherent undo unit; any already-applied UI mutation stays
+     * applied, matching the existing abort semantics.
+     * @param {Object} params
+     * @param {String} params.archiveId
+     * @param {String} params.sourceTxId
+     * @param {Number} [params.sourceCommittedAt]
+     * @param {Object} [params.sourceOriginWriter]
+     * @param {Object[]} params.ops
+     * @param {Object|null} [context] The Bridge-stamped `{agentId, sessionId}` writer pair.
+     * @returns {Promise<Object>} `{replayed:Boolean, txId?:String, ops?:Number, sourceArchiveId?:String, reason?:String}`
+     */
+    async replayTransaction({archiveId, sourceTxId, sourceCommittedAt, sourceOriginWriter, ops}={}, context) {
+        const transactionService = this.client?.transactionService;
+
+        if (!context?.agentId || !context?.sessionId) {
+            return {replayed: false, reason: 'no-writer-identity'}
+        }
+
+        if (!transactionService) {
+            return {replayed: false, reason: 'no-transaction-service'}
+        }
+
+        if (typeof archiveId !== 'string' || archiveId === '') {
+            return {replayed: false, reason: 'archive-id-required'}
+        }
+
+        if (!Array.isArray(ops) || ops.length === 0) {
+            return {replayed: false, reason: 'invalid-archive-ops'}
+        }
+
+        for (const op of ops) {
+            if (!op?.forward || typeof op.forward.tool !== 'string' || !op.forward.args || typeof op.forward.args !== 'object') {
+                return {replayed: false, reason: 'invalid-archive-ops'}
+            }
+
+            try {
+                this.rejectNonDataReplayValue(op.forward.args)
+            } catch (error) {
+                return {replayed: false, reason: error.message}
+            }
+        }
+
+        const
+            stackId = {agentId: context.agentId, sessionId: context.sessionId},
+            txId    = `replay:${archiveId}`,
+            opened  = transactionService.begin({
+                id      : stackId,
+                txId,
+                metadata: {
+                    replayOf: {
+                        archiveId,
+                        committedAt : sourceCommittedAt ?? null,
+                        originWriter: sourceOriginWriter ?? null,
+                        txId        : sourceTxId ?? null
+                    },
+                    replayWriter: stackId
+                }
+            });
+
+        if (!opened.ok) {
+            return {replayed: false, reason: opened.reason}
+        }
+
+        try {
+            for (const op of ops) {
+                await this.client.handleRequest(op.forward.tool, op.forward.args, context)
+            }
+        } catch (error) {
+            transactionService.abort({id: stackId, txId});
+            return {replayed: false, reason: `replay-denied: ${error.message}`, sourceArchiveId: archiveId}
+        }
+
+        const {ok, reason} = transactionService.commit({id: stackId, txId});
+
+        return ok
+            ? {replayed: true, txId, ops: ops.length, sourceArchiveId: archiveId}
+            : {replayed: false, reason, sourceArchiveId: archiveId}
     }
 
     /**

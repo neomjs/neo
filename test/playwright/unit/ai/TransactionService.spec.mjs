@@ -96,6 +96,38 @@ test.describe('Neo.ai.TransactionService — in-heap per-session undo stack', ()
         expect(s.stackOf({id: ID}).open.txId).toBe('tx-2');
     });
 
+    test('commit snapshots origin writer, commit time, and data-only metadata', () => {
+        const
+            s        = svc(),
+            metadata = {replayOf: {archiveId: 'archive-1'}, tags: ['replay']};
+
+        s.begin ({id: ID, txId: 'tx-1', metadata});
+        s.record({id: ID, txId: 'tx-1', op: op(1)});
+        s.commit({id: ID, txId: 'tx-1'});
+
+        const tx = s.stackOf({id: ID}).committed[0];
+
+        expect(tx.originWriter).toEqual(ID);
+        expect(tx.committedAt).toEqual(expect.any(Number));
+        expect(tx.metadata).toEqual(metadata);
+
+        tx.metadata.replayOf.archiveId = 'mutated';
+        expect(s.stackOf({id: ID}).committed[0].metadata.replayOf.archiveId).toBe('archive-1')
+    });
+
+    test('begin rejects non-serializable metadata before replacing an existing open transaction', () => {
+        const s = svc();
+
+        s.begin({id: ID, txId: 'keep'});
+
+        const cyclic = {};
+        cyclic.self = cyclic;
+
+        expect(s.begin({id: ID, txId: 'bad', metadata: cyclic}))
+            .toEqual({ok: false, reason: 'metadata-not-serializable'});
+        expect(s.stackOf({id: ID}).open.txId).toBe('keep')
+    });
+
     test('per-session isolation — two writers keep separate stacks', () => {
         const s = svc();
 

@@ -66,6 +66,8 @@ const serviceMapping = {
     redo                         : InstanceService   .redo                      .bind(InstanceService),
     reload_page                  : RuntimeService    .reloadPage                .bind(RuntimeService),
     remove_component             : ComponentService  .removeComponent           .bind(ComponentService),
+    replay_transaction           : InstanceService   .replayTransaction         .bind(InstanceService),
+    save_transaction             : InstanceService   .saveTransaction           .bind(InstanceService),
     set_instance_properties      : InstanceService   .setInstanceProperties     .bind(InstanceService),
     set_route                    : RuntimeService    .setRoute                  .bind(RuntimeService),
     simulate_event               : InteractionService.simulateEvent             .bind(InteractionService),

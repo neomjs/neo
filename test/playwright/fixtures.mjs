@@ -238,6 +238,27 @@ export const test = base.extend({
                         return NeuralLink_InstanceService.createInstance({ sessionId, ...opts });
                     },
 
+                    /**
+                     * Archives one committed transaction for later replay.
+                     * @param {Object} opts
+                     * @param {String} opts.txId
+                     * @param {String} [opts.name]
+                     * @returns {Promise<Object>}
+                     */
+                    async saveTransaction(opts) {
+                        return NeuralLink_InstanceService.saveTransaction({ sessionId, ...opts });
+                    },
+
+                    /**
+                     * Replays one archived transaction into this App Worker session as a new undoable transaction.
+                     * @param {Object} opts
+                     * @param {String} opts.archiveId
+                     * @returns {Promise<Object>}
+                     */
+                    async replayTransaction(opts) {
+                        return NeuralLink_InstanceService.replayTransaction({ sessionId, ...opts });
+                    },
+
                     // --- Component & VDOM Methods ---
 
                     /**
