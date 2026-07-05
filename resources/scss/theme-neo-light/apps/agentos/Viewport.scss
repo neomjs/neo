@@ -28,4 +28,38 @@
 
     --agent-font-mono               : 'Courier New', monospace;
     --agent-font-ui                 : system-ui, -apple-system, sans-serif;
+
+    /* Fleet Manager cockpit design tokens. The design SSOT is dark-native; these carry the design
+       values so the FM renders correctly regardless of active theme — light-native FM tuning (a proper
+       light palette for these) is #14681's scope. Structure lives in src/apps/agentos/fleet/*.scss. */
+    --fm-ground        : #0b0e13;
+    --fm-panel         : #141a23;
+    --fm-panel-2       : #1a212c;
+    --fm-rail          : #0e131a;
+    --fm-line          : #262f3d;
+    --fm-line-soft     : #1c242f;
+    --fm-ink           : #d6dce6;
+    --fm-ink-dim       : #8b97a8;
+    --fm-ink-faint     : #5a6575;
+    --fm-signal        : #5eead4;
+
+    --fm-state-ok      : #34d399;
+    --fm-state-idle    : #f5b544;
+    --fm-state-wedged  : #f4718b;
+    --fm-state-limited : #a78bfa;
+    --fm-state-off     : #5b6675;
+
+    --fm-family-claude : #d99a5b;
+    --fm-family-gpt    : #58c093;
+    --fm-family-gemini : #6ba3e8;
+    --fm-family-human  : #c9d2de;
+
+    --fm-kind-pr       : #7aa2f7;
+    --fm-kind-a2a      : #2ac3de;
+    --fm-kind-review   : #bb9af7;
+    --fm-kind-alert    : #db4b4b;
+    --fm-kind-neutral  : #737aa2;
+
+    --fm-font-mono     : ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --fm-font-sans     : system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }

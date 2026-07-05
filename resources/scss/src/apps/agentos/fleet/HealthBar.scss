@@ -1,0 +1,12 @@
+/* Health bar — the scale-to-a-glance strip of swatch units with live counts. The count VALUE carries
+   the signal; the transition is decoration, gated behind BOTH the animateCounts switch and
+   prefers-reduced-motion (reduced-motion users lose nothing informational). */
+.fm-health-bar {
+    gap: 12px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .fm-health-bar.fm-animate-counts .fm-sw-count {
+        transition: color .3s ease, opacity .3s ease;
+    }
+}

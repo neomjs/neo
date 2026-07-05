@@ -1,0 +1,54 @@
+/* Fleet grid — the cockpit's fleet zone: a health-summary header over a density-ranked card grid.
+   3-col desktop, collapsing responsively; every color from the token layer. */
+.fm-fleet-grid {
+    padding: 16px;
+    gap    : 12px;
+}
+
+.fm-fleet-grid .fm-fleet-head {
+    gap        : 10px;
+    font-family: var(--fm-font-mono);
+    font-size  : 11px;
+}
+
+.fm-fleet-grid .fm-fleet-title {
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color         : var(--fm-ink-faint);
+}
+
+.fm-fleet-grid .fm-fleet-stale {
+    color: var(--fm-ink-faint);
+}
+
+.fm-fleet-grid .fm-fleet-head.is-stale .fm-fleet-stale {
+    color: var(--fm-state-wedged);
+}
+
+.fm-fleet-grid .fm-fleet-cards {
+    display              : grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap                  : 9px;
+    align-content        : start;
+}
+
+@media (max-width: 1024px) {
+    .fm-fleet-grid .fm-fleet-cards { grid-template-columns: repeat(2, minmax(0, 1fr)) }
+}
+
+@media (max-width: 640px) {
+    .fm-fleet-grid .fm-fleet-cards { grid-template-columns: 1fr }
+}
+
+/* Collapsed-idle fold — the calm tier summarised as a count spanning the row (never a silent drop),
+   so the online tier stays in view at 12-20+ agent scale. */
+.fm-fleet-grid .fm-fleet-fold {
+    grid-column  : 1 / -1;
+    padding      : 8px 0;
+    font-family  : var(--fm-font-mono);
+    font-size    : 10.5px;
+    color        : var(--fm-ink-faint);
+    text-align   : center;
+    border       : 1px dashed var(--fm-line-soft);
+    border-radius: 8px;
+}

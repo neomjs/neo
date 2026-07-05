@@ -1,0 +1,61 @@
+/* Activity stream — the live feed: a liveness header over bounded event rows (time · kind chip · text)
+   plus the "N more" fold. Rail-toned surface; every color from the --fm-* token layer. */
+.fm-activity-stream {
+    padding   : 12px 14px;
+    background: var(--fm-rail);
+    overflow  : hidden;
+}
+
+.fm-activity-stream .fm-stream-head {
+    margin-bottom : 8px;
+    font-family   : var(--fm-font-mono);
+    font-size     : 11px;
+    letter-spacing: .06em;
+}
+
+.fm-activity-stream .fm-stream-label {
+    text-transform: uppercase;
+    color         : var(--fm-ink-faint);
+}
+
+.fm-activity-stream .fm-stream-state {
+    color: var(--fm-ink-faint);
+}
+
+.fm-activity-stream .fm-stream-head.is-live .fm-stream-state {
+    color: var(--fm-signal);
+}
+
+.fm-activity-stream .fm-stream-head.is-stale .fm-stream-state {
+    color: var(--fm-state-wedged);
+}
+
+.fm-activity-stream .fm-ev-row {
+    gap          : 10px;
+    padding      : 8px 0;
+    border-bottom: 1px solid var(--fm-line-soft);
+}
+
+.fm-activity-stream .fm-ev-time {
+    padding-top: 1px;
+    font-family: var(--fm-font-mono);
+    font-size  : 10.5px;
+    color      : var(--fm-ink-faint);
+    white-space: nowrap;
+}
+
+.fm-activity-stream .fm-ev-text {
+    font-size    : 12.5px;
+    color        : var(--fm-ink);
+    overflow     : hidden;
+    white-space  : nowrap;
+    text-overflow: ellipsis;
+}
+
+.fm-activity-stream .fm-stream-fold {
+    padding    : 8px 0 0;
+    font-family: var(--fm-font-mono);
+    font-size  : 10.5px;
+    color      : var(--fm-ink-faint);
+    text-align : center;
+}

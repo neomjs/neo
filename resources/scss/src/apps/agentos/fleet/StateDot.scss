@@ -1,0 +1,22 @@
+/* Session-state dot — geometry + the reduced-motion-gated pulse. COLOR is bound at the component via
+   the --fm-dot custom property (set from the state token); the pulse is decoration, the color carries
+   the signal, so reduced-motion users lose nothing informational. */
+.fm-state-dot {
+    width        : 8px;
+    height       : 8px;
+    flex         : none;
+    border-radius: 50%;
+    background   : var(--fm-dot, var(--fm-state-off));
+    box-shadow   : 0 0 0 3px color-mix(in srgb, var(--fm-dot, var(--fm-state-off)) 22%, transparent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .fm-state-dot.fm-live {
+        animation: fm-state-pulse 2.4s ease-in-out infinite;
+    }
+
+    @keyframes fm-state-pulse {
+        0%, 100% { opacity: 1 }
+        50%      { opacity: .5 }
+    }
+}

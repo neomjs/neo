@@ -1,0 +1,49 @@
+/* Agent card — the resident's anatomy: family rail · avatar · body (name-row + lane line). Geometry +
+   the avatar frame only; every color reads from the --fm-* token layer. */
+.fm-agent-card {
+    align-items: stretch;
+    gap        : 8px;
+    padding    : 8px 10px;
+}
+
+.fm-agent-card .fm-card-avatar {
+    width        : 40px;
+    height       : 40px;
+    flex         : none;
+    border-radius: 50%;
+    object-fit   : cover;
+    background   : color-mix(in srgb, var(--fm-ink-dim) 20%, transparent);
+}
+
+.fm-agent-card .fm-card-body {
+    gap     : 2px;
+    overflow: hidden;
+}
+
+.fm-agent-card .fm-card-name-row {
+    gap: 6px;
+}
+
+.fm-agent-card .fm-card-name {
+    flex         : 1;
+    font-weight  : 600;
+    color        : var(--fm-ink);
+    overflow     : hidden;
+    white-space  : nowrap;
+    text-overflow: ellipsis;
+}
+
+.fm-agent-card .fm-card-engine {
+    flex       : none;
+    font-family: var(--fm-font-mono);
+    font-size  : 10px;
+    color      : var(--fm-ink-dim);
+}
+
+.fm-agent-card .fm-card-lane {
+    font-size    : 11px;
+    color        : var(--fm-ink-dim);
+    overflow     : hidden;
+    white-space  : nowrap;
+    text-overflow: ellipsis;
+}
