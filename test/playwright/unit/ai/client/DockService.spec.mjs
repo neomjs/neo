@@ -21,11 +21,9 @@ test.describe.serial('Neo.ai.client.DockService', () => {
         service.destroy?.()
     });
 
-    test('the operation vocabulary mirrors the dockZone.v1 executor verbatim', () => {
-        expect(DockService.operations).toEqual([
-            'addTab', 'moveItem', 'splitNode', 'resizeSplit',
-            'detachItem', 'closeItem', 'setItemPinned', 'setItemAutoHidden'
-        ])
+    test('the operation vocabulary IS the executor export — one reference, no mirror to drift', () => {
+        expect(DockService.operations).toBe(DockZoneModel.operations);
+        expect(Object.isFrozen(DockService.operations)).toBe(true)
     });
 
     test('the executor honors its reducer contract on a well-formed document (returns, never throws)', () => {
