@@ -1,6 +1,7 @@
 import Accounts           from './Accounts.mjs';
 import BaseViewport       from '../../../src/container/Viewport.mjs';
 import FleetCockpit       from './fleet/FleetCockpit.mjs';
+import FleetSettingsPanel from './FleetSettingsPanel.mjs';
 import TabContainer       from '../../../src/tab/Container.mjs';
 import ViewportController from './ViewportController.mjs';
 
@@ -84,6 +85,9 @@ class Viewport extends BaseViewport {
             }, {
                 module: FleetCockpit,
                 header: {iconCls: 'fa-solid fa-satellite-dish', text: 'Fleet'}
+            }, {
+                module: FleetSettingsPanel,
+                header: {iconCls: 'fa-solid fa-sliders', text: 'Control'}
             }, {
                 module: Accounts,
                 header: {iconCls: 'fa-solid fa-id-badge', text: 'Accounts'}
