@@ -535,6 +535,22 @@ export const GET_PULL_REQUEST_ID = `
     repository(owner: $owner, name: $repo) {
       pullRequest(number: $prNumber) {
         id
+        headRefOid
+        reviewDecision
+        reviews(last: 100) {
+          nodes {
+            state
+            submittedAt
+            url
+            databaseId
+            author {
+              login
+            }
+            commit {
+              oid
+            }
+          }
+        }
       }
     }
   }

@@ -813,6 +813,8 @@ paths:
       description: |
         Atomic create/update of a formal PR review. `create` posts body + flips reviewDecision and requires `pr_number`, `state` (APPROVED/REQUEST_CHANGES/COMMENT), and `body`; `update` requires `review_id` (PRR_*) + `body` and cannot change state. Returns reviewId, state, url, and submittedAt.
 
+        State safety: `create` + `state: APPROVED` rejects when the live PR head still has outstanding `CHANGES_REQUESTED` reviews. To proceed after consciously applying the pr-review §9.1 Reviewer-Yield path, pass `acknowledgedRequestChanges` as an object mapping each outstanding RC reviewer login to either `addressed-by-<current-head-sha>` or `superior-evidence: <specific evidence>`.
+
         Mandatory pre-step: read `.agents/skills/pr-review/SKILL.md` and use the cycle-appropriate template.
 
         Validation: `body` must include the 7 visible metric anchors plus silent structural template anchors and preserve the selected template's canonical skeleton; failures return `PR_REVIEW_TEMPLATE_VALIDATION_FAILED` pointing at the skill/template. Do not synthesize substitute headings. The four premise-snapshot fields (`Inputs Read Before Patch`, `Expected Solution Shape`, `Patch Verdict`, `Premise Coherence`) are ALL REQUIRED; `Premise Coherence` is the value-coherence verdict (does the PR's premise cohere with the core values?) — a specific verdict OR a scoped `N/A — no value-surface` for a trivial PR.
@@ -855,6 +857,13 @@ paths:
                   type: string
                   description: The GraphQL node ID of the existing review (required for `update`, e.g. `PRR_*`).
                   example: "PRR_kwDOABcDef1234567890"
+                acknowledgedRequestChanges:
+                  type: object
+                  additionalProperties:
+                    type: string
+                  description: Optional reviewer-login to disposition map for consciously approving over live `CHANGES_REQUESTED` reviews after applying pr-review §9.1. Only used for `action: create` + `state: APPROVED`; dispositions must be `addressed-by-<current-head-sha>` or `superior-evidence: <specific evidence>`.
+                  example:
+                    neo-gpt: "addressed-by-abc1234"
       responses:
         '200':
           description: |
