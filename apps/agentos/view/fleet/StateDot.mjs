@@ -2,7 +2,8 @@ import Component from '../../../../src/component/Base.mjs';
 import NeoArray  from '../../../../src/util/Array.mjs';
 
 /**
- * Maps a session-state key to its design token (see `apps/agentos/resources/tokens.css`).
+ * Maps a session-state key to its design token (the `--fm-state-*` values live in the theme skin,
+ * `resources/scss/theme-neo-{dark,light}/apps/agentos/`).
  * State encodes what a resident is *doing now* — working / idle / wedged / limited / off —
  * and is NEVER identity — session state is what a resident does, not who it is. Unknown keys
  * fall back to `off`. Colors live only in the token layer — zero hand-rolled values here.
@@ -31,7 +32,8 @@ export function stateToken(state) {
 /**
  * The atomic session-state indicator: a colored dot whose color is driven entirely by the
  * `--fm-state-*` token layer, with an optional live-pulse gated behind `prefers-reduced-motion`
- * in `fleet-components.css`. The color — not the motion — carries the signal, so the primitive
+ * in the component SCSS (`resources/scss/src/apps/agentos/fleet/StateDot.scss`). The color — not the
+ * motion — carries the signal, so the primitive
  * degrades cleanly for reduced-motion users. Composed by every fleet surface.
  *
  * @class AgentOS.view.fleet.StateDot

@@ -1,0 +1,89 @@
+import ActivityStream from './ActivityStream.mjs';
+import Container      from '../../../../src/container/Base.mjs';
+import FleetGrid      from './FleetGrid.mjs';
+
+/**
+ * A representative fleet roster for the fixture-fed cockpit — the live-wire binding to the roster /
+ * runtime-status services is the sibling leaf; this renders the design SSOT's §01 fleet zone
+ * against a realistic snapshot so the mission-control surface is real, not a bare page. Avatars are the
+ * public GitHub account images (the `githubAvatarUrl` pattern) so identity reads at a glance.
+ * @type {Object[]}
+ */
+const FIXTURE_ROSTER = [
+    {agentId: 'neo-opus-grace', displayName: 'Grace',     engineTag: 'opus-4.8', family: 'claude', state: 'ok',      avatarUrl: 'https://github.com/neo-opus-grace.png?size=80', laneLine: 'design authority — cockpit SSOT conformance review'},
+    {agentId: 'neo-gpt',        displayName: 'Euclid',    engineTag: 'gpt-5.5',  family: 'gpt',    state: 'ok',      avatarUrl: 'https://github.com/neo-gpt.png?size=80',        laneLine: 'NL transaction archive + replay (#14836)'},
+    {agentId: 'neo-opus-ada',   displayName: 'Ada',       engineTag: 'opus-4.8', family: 'claude', state: 'ok',      avatarUrl: 'https://github.com/neo-opus-ada.png?size=80',   laneLine: 'control-plane restart actuator — the R3 seam'},
+    {agentId: 'neo-opus-vega',  displayName: 'Vega',      engineTag: 'opus-4.8', family: 'claude', state: 'ok',      avatarUrl: 'https://github.com/neo-opus-vega.png?size=80',  laneLine: 'harness-UI shell + left-rail nav (#14846)'},
+    {agentId: 'neo-fable',      displayName: 'Mnemosyne', engineTag: 'fable-5',  family: 'claude', state: 'ok',      avatarUrl: 'https://github.com/neo-fable.png?size=80',      laneLine: 'golden-path direction-velocity writer (#14811)'},
+    {agentId: 'neo-fable-clio', displayName: 'Clio',      engineTag: 'fable-5',  family: 'claude', state: 'idle',    avatarUrl: 'https://github.com/neo-fable-clio.png?size=80', laneLine: 'CrossWindowDragTarget docking — awaiting review'},
+    {agentId: 'neo-gemini-pro', displayName: 'Gemini',    engineTag: '3-pro',    family: 'gemini', state: 'off',     avatarUrl: 'https://github.com/neo-gemini-pro.png?size=80', laneLine: 'operator-benched'},
+    {agentId: 'neo-clio-limit', displayName: 'Kepler',    engineTag: 'sonnet-5', family: 'claude', state: 'limited', avatarUrl: 'https://github.com/neomjs.png?size=80',         laneLine: 'rate-limited — resumes ~20:50'}
+];
+
+/**
+ * Recent fleet activity for the fixture-fed stream — the live A2A / PR / lane adapters
+ * are the sibling leaves; this seeds the §01 activity zone with representative events (newest last;
+ * ActivityStream reverses to newest-first).
+ * @type {Object[]}
+ */
+const FIXTURE_ACTIVITY = [
+    {type: 'a2a-activity',    agentId: 'neo-opus-vega', occurredAt: '2026-07-05T10:52:00.000Z', payload: {text: 'Vega → AGENT:* [lane-claim] #14846 harness-UI shell + nav'}},
+    {type: 'review-activity', agentId: 'neo-opus-vega', occurredAt: '2026-07-05T10:26:00.000Z', payload: {text: 'Vega → #14836 APPROVED — transaction archive Architectural Pillar'}},
+    {type: 'pr-activity',     agentId: 'neo-gpt',       occurredAt: '2026-07-05T10:11:00.000Z', payload: {text: 'Euclid opened #14843 — roadmap cornerstone-4 hygiene'}},
+    {type: 'pr-activity',     agentId: 'neo-opus-vega', occurredAt: '2026-07-05T09:40:00.000Z', payload: {text: 'Vega #14834 merged — FM fleet grid + health bar'}},
+    {type: 'a2a-activity',    agentId: 'neo-opus-ada',  occurredAt: '2026-07-05T08:30:00.000Z', payload: {text: 'Ada → #14760 control-plane restart actuator merged'}},
+    {type: 'lane-activity',   agentId: 'neo-fable-clio',occurredAt: '2026-07-05T07:15:00.000Z', payload: {text: 'Clio → CrossWindowDragTarget docking, awaiting cross-family'}}
+];
+
+/**
+ * @summary The Fleet keeper-view — the FM cockpit's default mission-control surface (design SSOT §01):
+ * the fleet zone (a density-ranked card roster + the scale-to-a-glance health bar) beside the live
+ * activity stream, in the SSOT's ~1.55fr / 1fr split. This is the "run the fleet" keeper-view the harness-UI
+ * definition specifies, reached from the harness shell's left-rail nav — the cards, NOT a data-grid table.
+ *
+ * Fixture-fed for now: it composes the built primitives ({@link FleetGrid} → AgentCard/HealthBar,
+ * {@link ActivityStream} → EventChip) against a representative roster + activity snapshot, so the
+ * mission-control surface renders real. The live-roster / A2A / PR wire bindings
+ * are the sibling leaves that replace the fixtures with the running fleet.
+ *
+ * @class AgentOS.view.fleet.FleetCockpit
+ * @extends Neo.container.Base
+ */
+class FleetCockpit extends Container {
+    static config = {
+        /**
+         * @member {String} className='AgentOS.view.fleet.FleetCockpit'
+         * @protected
+         */
+        className: 'AgentOS.view.fleet.FleetCockpit',
+        /**
+         * @member {String} ntype='fm-fleet-cockpit'
+         * @protected
+         */
+        ntype: 'fm-fleet-cockpit',
+        /**
+         * @member {String[]} baseCls=['fm-fleet-cockpit']
+         */
+        baseCls: ['fm-fleet-cockpit'],
+        /**
+         * The SSOT §01 split: the fleet zone (~1.55fr) beside the activity stream (1fr).
+         * @member {Object} layout={ntype:'hbox',align:'stretch'}
+         * @reactive
+         */
+        layout: {ntype: 'hbox', align: 'stretch'},
+        /**
+         * @member {Object[]} items
+         */
+        items: [{
+            module: FleetGrid,
+            flex  : 1.55,
+            agents: FIXTURE_ROSTER
+        }, {
+            module: ActivityStream,
+            flex  : 1,
+            events: FIXTURE_ACTIVITY
+        }]
+    }
+}
+
+export default Neo.setupClass(FleetCockpit);

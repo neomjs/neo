@@ -125,6 +125,8 @@ test.describe('AgentOS Fleet cockpit lifecycle controls (Neural Link)', () => {
 
         try {
             await page.goto('/apps/agentos/index.html');
+            // the FleetSettingsPanel lifecycle surface is the 'Control' keeper-view in the shell rail
+            await page.locator('.agent-shell').getByText('Control', {exact: true}).click();
             await expect(page.locator('.agent-panel-settings')).toBeVisible({timeout: 30000});
 
             // Use the fixture to own bridge startup, then bind by app name: AgentOS SharedWorker
@@ -179,6 +181,8 @@ test.describe('AgentOS Fleet cockpit lifecycle controls (Neural Link)', () => {
 
         try {
             await page.goto('/apps/agentos/index.html');
+            // the FleetSettingsPanel lifecycle surface is the 'Control' keeper-view in the shell rail
+            await page.locator('.agent-shell').getByText('Control', {exact: true}).click();
             await expect(page.locator('.agent-panel-settings')).toBeVisible({timeout: 30000});
             expect(neuralLink.bridgePort).toBeGreaterThan(0);
 
