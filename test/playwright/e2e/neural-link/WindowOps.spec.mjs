@@ -42,7 +42,13 @@ test.describe('Neural Link window operations (e2e)', () => {
             parentId : dashboard.id
         });
 
-        const sourceWindows = (await app.getWindowTopology()).filter(win => win.sessionId === app.sessionId);
+        const getBoundWindows = async () => {
+            const windows = await app.getWindowTopology();
+
+            return windows.filter(win => win.appWorkerId === app.sessionId)
+        };
+
+        const sourceWindows = await getBoundWindows();
         expect(sourceWindows.some(win => win.appName === 'AgentOS')).toBe(true);
 
         try {
@@ -70,12 +76,12 @@ test.describe('Neural Link window operations (e2e)', () => {
             await expect(popup.locator('.agent-panel-settings')).toBeVisible({timeout: 30000});
 
             await expect.poll(async () => {
-                const windows = (await app.getWindowTopology()).filter(win => win.sessionId === app.sessionId);
+                const windows = await getBoundWindows();
                 return windows.length
             }, {timeout: 15000}).toBeGreaterThan(sourceWindows.length);
 
             const
-                windows     = (await app.getWindowTopology()).filter(win => win.sessionId === app.sessionId),
+                windows     = await getBoundWindows(),
                 popupWindow = windows.find(win => win.appName === 'AgentOSWidget');
 
             expect(popupWindow?.windowId, 'popup should register a logical window id').toBeTruthy();
