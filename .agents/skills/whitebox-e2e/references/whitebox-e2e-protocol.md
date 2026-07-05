@@ -31,7 +31,7 @@ test.describe('Button Base Feature (Neural Link)', () => {
 ```
 
 *Crucial Note: Tests must be executed using the specific E2E config:*
-`npx playwright test test/playwright/e2e/YourTest.spec.mjs -c test/playwright/playwright.config.e2e.mjs`
+`npx playwright test test/playwright/e2e/<domain>/YourTest.spec.mjs -c test/playwright/playwright.config.e2e.mjs`
 
 ## 3. The Pattern: Playwright Interaction -> Neural Link Validation
 
@@ -60,7 +60,7 @@ expect(queryResult.properties.value.id).toBe("40000");
 ## 4. Comprehensive Example
 
 Before authoring a new test, closely examine the following reference implementation which showcases deep state assertions, programmatic mutation, and DOM versus Worker Engine drift validation:
-`test/playwright/e2e/ButtonBaseNL.spec.mjs`
+`test/playwright/e2e/rendering/ButtonBaseNL.spec.mjs`
 
 ## 5. Telemetry & RLAIF Integration
 
@@ -118,7 +118,7 @@ const idless = await page.evaluate(() => window.__idlessInserts);
 expect(idless, 'id-less insertNode deltas at the apply boundary').toBe(0);
 ```
 
-This is the single best lever for VDOM/rendering divergences: a wrong delta sits in the stream even when every individual end-state surface looks internally consistent. See `test/playwright/e2e/GridLockedDnDDuplication.spec.mjs` for a full multi-oracle net built on it.
+This is the single best lever for VDOM/rendering divergences: a wrong delta sits in the stream even when every individual end-state surface looks internally consistent. See `test/playwright/e2e/grid/LockedDnDDuplication.spec.mjs` for a full multi-oracle net built on it.
 
 ## 6. Deep Dive Documentation
 For the complete API of the `neuralLink` test SDK (`nlApp`) including simulating native VNode events, VDOM querying, and complex store inspection, you MUST reference the foundational guide:
