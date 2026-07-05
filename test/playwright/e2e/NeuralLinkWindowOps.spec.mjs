@@ -61,7 +61,7 @@ test.describe('Neural Link window operations (e2e)', () => {
                 componentId: panel.id,
                 dashboardId: dashboard.id,
                 popupWidth : 420,
-                windowName : 'settings'
+                windowName : 'fleet'
             });
 
             await popup.waitForLoadState('domcontentloaded');
