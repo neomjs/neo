@@ -5,9 +5,9 @@ setup({
     appConfig: {name: 'ValidateLaneStateTerminalTest', isMounted: () => true, vnodeInitialising: false}
 });
 
-import {test, expect}              from '@playwright/test';
-import Neo                         from '../../../../../../src/Neo.mjs';
-import * as core                   from '../../../../../../src/core/_export.mjs';
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../src/core/_export.mjs';
 import {collectLaneStateToolEvidenceFromJsonl,
         collectLaneStateToolEvidenceFromMessages,
         extractPrNumberFromGateRef,
@@ -119,7 +119,30 @@ test.describe('validateLaneStateTerminal — turn-terminal evidence shape', () =
     test('same-turn evidence accepts scoped GitHub PR fetches, not unrelated PR text', () => {
         expect(hasSameTurnPrFetchEvidence(14822, 'gh pr view 14822 --json state,mergedAt')).toBe(true);
         expect(hasSameTurnPrFetchEvidence(14822, 'get_conversation {"pr_number":14822}')).toBe(true);
+        expect(hasSameTurnPrFetchEvidence(14822, 'github_tool {"pr_number":14822,"mergeStateStatus":"CLEAN"}')).toBe(true);
         expect(hasSameTurnPrFetchEvidence(14822, 'mentioned PR #14822 in final prose')).toBe(false);
+    });
+
+    test('same-turn PR mutation or diff calls do not satisfy PR state-fetch evidence (#14713)', () => {
+        const mutationEvidence = [
+            'manage_pr_review {"pr_number":14822,"state":"APPROVED"}',
+            'manage_pr_reviewers {"pr_number":14822,"reviewers":["neo-opus-grace"]}',
+            'get_pull_request_diff {"pr_number":14822}'
+        ];
+
+        for (const evidenceText of mutationEvidence) {
+            expect(hasSameTurnPrFetchEvidence(14822, evidenceText)).toBe(false);
+
+            const result = validateLaneStateTerminal({
+                laneContinuation: 'next-lane',
+                namedGates      : [{ref: 'PR #14822', checkedAt: NOW}]
+            }, {
+                evidenceText
+            });
+
+            expect(result.valid).toBe(false);
+            expect(result.violations.join(' ')).toContain('no same-turn PR fetch evidence');
+        }
     });
 
     test('collects PR fetch evidence from Claude-style tool_use JSONL', () => {

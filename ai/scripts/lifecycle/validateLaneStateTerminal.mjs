@@ -148,12 +148,14 @@ export function extractPrNumberFromGateRef(ref = '') {
 export function hasSameTurnPrFetchEvidence(prNumber, evidenceText = '') {
     if (!Number.isInteger(prNumber) || !evidenceText) return false;
 
-    const n        = String(prNumber),
-          patterns = [
+    const n                    = String(prNumber),
+          prNumberParamPattern = `\\b(?:pr_number|pullRequestNumber|pull_request_number)\\b\\D{0,20}${n}\\b`,
+          stateFieldPattern    = '\\b(?:mergedAt|mergeable|reviewDecision|statusCheckRollup|mergeStateStatus)\\b',
+          patterns             = [
               new RegExp(`\\bgh\\s+pr\\s+(?:view|checks)\\s+${n}\\b`, 'i'),
               new RegExp(`\\bgh\\s+api\\b[\\s\\S]{0,400}\\b(?:pulls|pullRequests|pullRequest)\\b[\\s\\S]{0,200}\\b${n}\\b`, 'i'),
               new RegExp(`\\b(?:get_pull_request|getPullRequest|get_conversation|getConversation)\\b[\\s\\S]{0,300}\\b(?:pr_number|pullRequestNumber|pull_request_number|number)\\b\\D{0,20}${n}\\b`, 'i'),
-              new RegExp(`\\b(?:pr_number|pullRequestNumber|pull_request_number)\\b\\D{0,20}${n}\\b`, 'i')
+              new RegExp(`${prNumberParamPattern}[\\s\\S]{0,300}${stateFieldPattern}|${stateFieldPattern}[\\s\\S]{0,300}${prNumberParamPattern}`, 'i')
           ];
 
     return patterns.some(pattern => pattern.test(evidenceText));
