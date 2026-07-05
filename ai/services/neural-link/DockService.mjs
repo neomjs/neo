@@ -28,6 +28,24 @@ class DockService extends Base {
     }
 
     /**
+     * Computes a semantic diff between a supplied before-document and a live workspace's
+     * current layout document.
+     * @param {Object} opts
+     * @param {String} opts.componentId    The dock workspace / document-holder component id
+     * @param {Object} opts.beforeDocument The earlier dockZone.v1 document to compare against
+     * @param {Number} [opts.sizeEpsilon]  Optional resize tolerance on split size fractions
+     * @param {String} [opts.sessionId]
+     * @returns {Promise<Object>}
+     */
+    async diffDockTopology({componentId, beforeDocument, sizeEpsilon, sessionId}) {
+        return await ConnectionService.call(sessionId, 'diff_dock_topology', {
+            beforeDocument,
+            componentId,
+            sizeEpsilon
+        })
+    }
+
+    /**
      * Applies one semantic dock operation to a live workspace's layout document and returns
      * the post-operation state for immediate verification.
      * @param {Object} opts

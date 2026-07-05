@@ -5,6 +5,28 @@ import DockService    from '../../../../../src/ai/client/DockService.mjs';
 import DockZoneModel  from '../../../../../src/dashboard/DockZoneModel.mjs';
 
 /**
+ * @summary Creates a valid dockZone.v1 fixture for diff-tool assertions.
+ * @returns {Object}
+ */
+function doc() {
+    return {
+        schema: 'neo.harness.dockZone.v1',
+        root  : 'root',
+        items : {
+            strategy: {componentRef: 'strategy', title: 'Strategy', kind: 'panel'},
+            swarm   : {componentRef: 'swarm',    title: 'Swarm',    kind: 'panel'},
+            terminal: {componentRef: 'terminal', title: 'Terminal', kind: 'terminal'}
+        },
+        nodes: {
+            root        : {type: 'edge-zone', zones: {center: 'main-split'}},
+            'main-split': {type: 'split', orientation: 'horizontal', children: ['main-tabs', 'side-tabs'], sizes: [0.5, 0.5]},
+            'main-tabs' : {type: 'tabs', items: ['strategy', 'swarm'], activeItemId: 'strategy'},
+            'side-tabs' : {type: 'tabs', items: ['terminal'], activeItemId: 'terminal'}
+        }
+    }
+}
+
+/**
  * @summary Tests for the worker-side Neural Link dock tools: fail-closed operation vocabulary,
  * holder resolution, and the landed dual commit path (override-preferred, reducer-fallback).
  */
@@ -69,6 +91,46 @@ test.describe.serial('Neo.ai.client.DockService', () => {
 
         expect(result.document).toBe(document);
         expect(result.operations).toEqual(DockService.operations)
+    });
+
+    test('diffDockTopology compares a supplied before-document against the live holder document', async () => {
+        const before = doc(),
+              after  = doc();
+
+        after.nodes['main-tabs'].items = ['swarm'];
+        after.nodes['side-tabs'].items = ['terminal', 'strategy'];
+        after.nodes['main-split'].sizes = [0.5005, 0.4995];
+
+        Neo.getComponent = () => ({dockZoneDocument: after, id: 'zone-diff'});
+
+        const result = await service.diffDockTopology({
+            beforeDocument: before,
+            componentId   : 'zone-diff',
+            sizeEpsilon   : 0.0001
+        });
+
+        expect(result.errors).toEqual([]);
+        expect(result.moves).toEqual([
+            {itemId: 'strategy', from: {nodeId: 'main-tabs', index: 0}, to: {nodeId: 'side-tabs', index: 1}}
+        ]);
+        expect(result.resizes).toEqual([
+            {nodeId: 'main-split', fromSizes: [0.5, 0.5], toSizes: [0.5005, 0.4995]}
+        ])
+    });
+
+    test('diffDockTopology returns structured errors for malformed before-documents', async () => {
+        const after = doc();
+
+        Neo.getComponent = () => ({dockZoneDocument: after, id: 'zone-diff-errors'});
+
+        const result = await service.diffDockTopology({
+            beforeDocument: {schema: 'wrong'},
+            componentId   : 'zone-diff-errors'
+        });
+
+        expect(result.moves).toEqual([]);
+        expect(result.errors.length).toBeGreaterThan(0);
+        expect(result.errors[0]).toContain('before document failed the shape gate')
     });
 
     test('the canonical workspace shape (getDockZoneDocument + override, no plain field) reads BEFORE any write and never gains a stray field', async () => {
