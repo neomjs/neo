@@ -224,10 +224,10 @@ class MainContainer extends Viewport {
      * @returns {Object}
      */
     createPerspectiveToolbar() {
-        let me            = this,
-            collection    = me.layoutCollection,
+        let me             = this,
+            collection     = me.layoutCollection,
             activeLayoutId = collection?.activeLayoutId,
-            layoutButtons = Object.values(collection?.layouts || {}).map(layout => ({
+            layoutButtons  = Object.values(collection?.layouts || {}).map(layout => ({
                 cls    : layout.layoutId === activeLayoutId ? ['neo-dashboard-dock-perspective-active'] : [],
                 data   : {layoutId: layout.layoutId},
                 handler: () => me.restorePerspective(layout.layoutId),
@@ -248,9 +248,9 @@ class MainContainer extends Viewport {
                     alignItems : 'center',
                     color      : '#777',
                     display    : 'flex',
-                    fontWeight  : 600,
-                    marginRight : '12px',
-                    whiteSpace  : 'nowrap'
+                    fontWeight : 600,
+                    marginRight: '12px',
+                    whiteSpace : 'nowrap'
                 },
                 html: 'Perspectives'
             }, ...layoutButtons, {
@@ -452,8 +452,8 @@ class MainContainer extends Viewport {
         }
 
         removed = DockZoneModel.removeSavedLayout(collection, {
-            layoutId            : activeLayoutId,
-            replacementLayoutId : replacementId
+            layoutId           : activeLayoutId,
+            replacementLayoutId: replacementId
         });
 
         if (removed.errors.length) {
@@ -500,9 +500,55 @@ class MainContainer extends Viewport {
 
         return DockLayoutAdapter.project(me.dockModel, {
             applyDockZoneOperation  : me.applyDockZoneOperation.bind(me),
+            onDockCrossZoneDrop     : me.onDockCrossZoneDrop.bind(me),
             onDockZoneDocumentChange: me.onDockZoneDocumentChange.bind(me),
             resolveComponentRef
         })
+    }
+
+    /**
+     * Cross-zone drop reducer: a dock tab-header released outside its own toolbar reports its release point
+     * here (via {@link Neo.dashboard.DockTabSortZone}). Resolves which tabs zone is under the pointer and,
+     * when it differs from the source, commits a semantic `moveItem` — relocating the item across zones in
+     * the committed dockZone.v1 document. A same-zone drop is a no-op (the within-toolbar reorder already
+     * committed via the `moveTo` listener).
+     * @param {Object} data
+     * @param {Number} data.clientX
+     * @param {Number} data.clientY
+     * @param {String} data.itemId       The dock item id being dragged.
+     * @param {String} data.sourceNodeId The tabs node the drag started in.
+     */
+    async onDockCrossZoneDrop({clientX, clientY, itemId, sourceNodeId}) {
+        let me    = this,
+            nodes = me.dockModel?.nodes || {},
+            zones = Object.keys(nodes)
+                .filter(nodeId => nodes[nodeId].type === 'tabs' && nodeId !== sourceNodeId)
+                .map(nodeId => ({nodeId, container: me.down({dockNodeId: nodeId})}))
+                .filter(zone => zone.container);
+
+        if (!zones.length) {
+            return
+        }
+
+        let rects        = await me.getDomRect(zones.map(zone => zone.container.id)),
+            targetNodeId = null;
+
+        zones.forEach((zone, index) => {
+            let rect = rects[index];
+
+            if (rect && clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
+                targetNodeId = zone.nodeId
+            }
+        });
+
+        if (targetNodeId) {
+            let descriptor = {operation: 'moveItem', itemId, targetNodeId},
+                result     = me.applyDockZoneOperation(descriptor);
+
+            if (result && !result.errors?.length && result.document) {
+                me.onDockZoneDocumentChange(result.document, descriptor, me)
+            }
+        }
     }
 }
 
