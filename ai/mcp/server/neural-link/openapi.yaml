@@ -739,6 +739,42 @@ paths:
               schema:
                 type: object
 
+  /dock/diffDockTopology:
+    post:
+      summary: Diff Dock Topology
+      operationId: diff_dock_topology
+      x-neo-tool-tier: read
+      x-pass-as-object: true
+      description: Computes the semantic diff (moves, adds, removes, resizes, tabReorders, autoHideFlips) between a supplied before-document and a live dock workspace's current layout document. Output is deterministic and fail-closed on malformed documents.
+      tags: [Dock]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [componentId, beforeDocument]
+              properties:
+                sessionId:
+                  type: string
+                  description: Target App Worker Session ID
+                componentId:
+                  type: string
+                  description: The dock workspace / document-holder component id
+                beforeDocument:
+                  type: object
+                  description: The earlier dockZone.v1 document to compare against the live current document
+                sizeEpsilon:
+                  type: number
+                  description: Optional resize tolerance on split size fractions
+      responses:
+        '200':
+          description: Semantic dock topology diff
+          content:
+            application/json:
+              schema:
+                type: object
+
   /dock/executeDockOperation:
     post:
       summary: Execute Dock Operation

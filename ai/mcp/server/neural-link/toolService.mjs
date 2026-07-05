@@ -25,6 +25,7 @@ const serviceMapping = {
     commit_transaction           : InstanceService   .commitTransaction         .bind(InstanceService),
     create_component             : ComponentService  .createComponent           .bind(ComponentService),
     create_instance              : InstanceService   .createInstance            .bind(InstanceService),
+    diff_dock_topology           : DockService       .diffDockTopology          .bind(DockService),
     execute_dock_operation       : DockService       .executeDockOperation      .bind(DockService),
     find_instances               : InstanceService   .findInstances             .bind(InstanceService),
     focus_window                 : RuntimeService    .focusWindow               .bind(RuntimeService),
