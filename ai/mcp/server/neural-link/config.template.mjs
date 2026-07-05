@@ -2,9 +2,9 @@
 // the SSOT chain — matches memory-core/knowledge-base. This server reads no Tier-1 leaf
 // directly; they resolve through the parent chain, not a binding.
 import '../../../config.template.mjs';
-import os              from 'os';
-import path            from 'path';
-import {fileURLToPath} from 'url';
+import os                                          from 'os';
+import path                                        from 'path';
+import {fileURLToPath}                             from 'url';
 import ConfigProvider, { createConfigProxy, leaf } from '../../../ConfigProvider.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -79,7 +79,7 @@ class Config extends ConfigProvider {
              * Per-server file isolation, single tailable directory.
              * @type {string}
              */
-            logPath: leaf(path.resolve(neoRootDir, '.neo-ai-data/logs')),
+            logPath: leaf(path.resolve(neoRootDir, '.neo-ai-data/logs'), 'NEO_NL_LOG_PATH', 'string'),
             /**
              * @summary Retention policy for Neural Link MCP diagnostic log files.
              *
