@@ -1,5 +1,6 @@
 import Accounts           from './Accounts.mjs';
 import BaseViewport       from '../../../src/container/Viewport.mjs';
+import Dashboard          from '../../../src/dashboard/Container.mjs';
 import FleetCockpit       from './fleet/FleetCockpit.mjs';
 import FleetSettingsPanel from './FleetSettingsPanel.mjs';
 import TabContainer       from '../../../src/tab/Container.mjs';
@@ -86,11 +87,34 @@ class Viewport extends BaseViewport {
                 module: FleetCockpit,
                 header: {iconCls: 'fa-solid fa-satellite-dish', text: 'Fleet'}
             }, {
-                module: FleetSettingsPanel,
-                header: {iconCls: 'fa-solid fa-sliders', text: 'Control'}
+                // FleetSettingsPanel is a dashboard.Panel, so its keeper-view rides a dashboard.Container
+                // to keep the detach-to-window (pop-out) host — the WindowOps E2E contract + the working
+                // lifecycle pop-out. The rail tab reads this wrapper's `header`.
+                module   : Dashboard,
+                cls      : ['agent-control-dashboard'],
+                header   : {iconCls: 'fa-solid fa-sliders', text: 'Control'},
+                popupUrl : 'apps/agentos/childapps/widget/index.html',
+                sortGroup: 'neo-connected-dashboard',
+
+                items: [{
+                    module   : FleetSettingsPanel,
+                    flex     : 1,
+                    reference: 'fleet'
+                }]
             }, {
-                module: Accounts,
-                header: {iconCls: 'fa-solid fa-id-badge', text: 'Accounts'}
+                // Accounts is likewise a dashboard.Panel — its own dashboard.Container host so the
+                // identity panel keeps the pop-out affordance and stays structurally idiomatic.
+                module   : Dashboard,
+                cls      : ['agent-accounts-dashboard'],
+                header   : {iconCls: 'fa-solid fa-id-badge', text: 'Accounts'},
+                popupUrl : 'apps/agentos/childapps/widget/index.html',
+                sortGroup: 'neo-connected-dashboard',
+
+                items: [{
+                    module   : Accounts,
+                    flex     : 1,
+                    reference: 'accounts'
+                }]
             }, {
                 ntype : 'component',
                 cls   : ['agent-placeholder'],
