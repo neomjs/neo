@@ -98,11 +98,14 @@ class FleetCockpit extends Container {
 
     /**
      * @summary Bind the activity stream to the live fleet feed: poll the read-observe `fleetActivity`
-     * verb on the injected registry bridge and route its honest capability state to the stream. Wired →
-     * live events (the feed returns newest-first; the stream renders chronological, so reverse); a
-     * not-wired source or absent bridge leaves the representative sample in place (honestly labelled by
-     * the stream header); a degraded source renders the stale banner. Never presents the sample as live,
-     * and fails closed to the sample rather than blanking the surface.
+     * verb on the injected registry bridge and route its honest capability state to the stream:
+     * - `wired` → **live** (the feed is newest-first; the stream renders chronological, so reverse). A
+     *   wired source is live even when momentarily empty — it is streaming, just quiet — so an empty
+     *   wired feed stays `live` (empty), never the sample: falling back to the sample would falsely
+     *   imply the source is not wired.
+     * - `degraded` → the **stale** banner.
+     * - not-wired / absent bridge / a thrown source → leave the representative **sample** in place
+     *   (honestly labelled by the stream header); fail closed rather than blanking the surface.
      * @protected
      */
     async loadActivity() {
@@ -117,12 +120,12 @@ class FleetCockpit extends Container {
         try {
             const {capability, events} = await bridge.fleetActivity() ?? {};
 
-            if (capability?.state === 'wired' && Array.isArray(events) && events.length > 0) {
-                stream.set({adapterState: 'live', events: events.slice().reverse()})
+            if (capability?.state === 'wired') {
+                stream.set({adapterState: 'live', events: Array.isArray(events) ? events.slice().reverse() : []})
             } else if (capability?.state === 'degraded') {
                 stream.adapterState = 'stale'
             }
-            // not-wired / empty → keep the honestly-labelled 'sample' seed
+            // not-wired / absent bridge → keep the honestly-labelled 'sample' seed
         } catch (error) {
             // fail-closed: the sample seed stays rather than blanking the feed
         }
