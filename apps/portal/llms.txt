@@ -457,6 +457,7 @@ Here you find the full history of Neo.mjs updates.
 - [AI Tooling WSL Setup](https://neomjs.com/raw/learn/agentos/tooling/AiToolingWslSetup.md)
 - [Agent OS Windows Support Audit](https://neomjs.com/raw/learn/agentos/tooling/WindowsSupport.md)
 - [Introduction to MCP](https://neomjs.com/raw/learn/agentos/tooling/Introduction.md)
+- [Neural Link Capability Matrix](https://neomjs.com/raw/learn/agentos/tooling/NeuralLinkCapabilityMatrix.md)
 - [Restoration Runbook](https://neomjs.com/raw/learn/agentos/tooling/RestorationRunbook.md)
 - [Wake Substrate Incident Protocol](https://neomjs.com/raw/learn/agentos/tooling/WakeSubstrateIncidentProtocol.md)
 - [0001 — Cross-Process Cache Coherence](https://neomjs.com/raw/learn/agentos/decisions/0001-cross-process-cache-coherence.md)
@@ -576,6 +577,7 @@ Here you find the full history of Neo.mjs updates.
 
 Here you find historical technical discussions and GitHub issues.
 
+- [Ticket #14833](https://neomjs.com/raw/news/tickets/14833.md)
 - [Ticket #14831](https://neomjs.com/raw/news/tickets/14831.md)
 - [Ticket #14830](https://neomjs.com/raw/news/tickets/14830.md)
 - [Ticket #14829](https://neomjs.com/raw/news/tickets/14829.md)
@@ -10707,6 +10709,11 @@ Here you find historical technical discussions and GitHub issues.
 
 Here you find problem-to-solution records from Neo.mjs pull requests.
 
+- [Pull Request #14837](https://neomjs.com/raw/news/pulls/14837.md)
+- [Pull Request #14836](https://neomjs.com/raw/news/pulls/14836.md)
+- [Pull Request #14835](https://neomjs.com/raw/news/pulls/14835.md)
+- [Pull Request #14834](https://neomjs.com/raw/news/pulls/14834.md)
+- [Pull Request #14832](https://neomjs.com/raw/news/pulls/14832.md)
 - [Pull Request #14828](https://neomjs.com/raw/news/pulls/14828.md)
 - [Pull Request #14827](https://neomjs.com/raw/news/pulls/14827.md)
 - [Pull Request #14825](https://neomjs.com/raw/news/pulls/14825.md)
