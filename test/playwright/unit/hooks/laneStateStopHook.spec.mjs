@@ -304,10 +304,10 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
      * operator-vs-wake classification surface. Otherwise the final text rides `last_assistant_message`
      * with no transcript → no confirmable prompt → fail-closed autonomous.
      * @param {String} finalText
-     * @param {{enforce: Boolean, promptingText: (String|null), stopHookActive: Boolean}} [opts]
+     * @param {{enforce: Boolean, promptingText: (String|null), stopHookActive: Boolean, toolCommand: String|null}} [opts]
      * @returns {Promise<{stdout: String, log: String}>}
      */
-    function runHook(finalText, {enforce = false, promptingText = null, stopHookActive = false, lifecycleState = null} = {}) {
+    function runHook(finalText, {enforce = false, promptingText = null, stopHookActive = false, lifecycleState = null, toolCommand = null} = {}) {
         return new Promise((resolve, reject) => {
             const dir            = fs.mkdtempSync(path.join(os.tmpdir(), 'lane-hook-e2e-')),
                   transcriptPath = path.join(dir, 'transcript.jsonl'),
@@ -319,10 +319,19 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
             }
 
             if (promptingText !== null) {
-                fs.writeFileSync(transcriptPath, [
-                    JSON.stringify({type: 'user',      message: {role: 'user',      content: promptingText}}),
-                    JSON.stringify({type: 'assistant', message: {role: 'assistant', content: [{type: 'text', text: finalText}]}})
-                ].join('\n') + '\n');
+                const records = [
+                    JSON.stringify({type: 'user', message: {role: 'user', content: promptingText}})
+                ];
+
+                if (toolCommand) {
+                    records.push(JSON.stringify({type: 'assistant', message: {role: 'assistant', content: [
+                        {type: 'tool_use', name: 'Bash', input: {command: toolCommand}}
+                    ]}}));
+                }
+
+                records.push(JSON.stringify({type: 'assistant', message: {role: 'assistant', content: [{type: 'text', text: finalText}]}}));
+
+                fs.writeFileSync(transcriptPath, records.join('\n') + '\n');
                 payload.transcript_path = transcriptPath;
             } else {
                 payload.last_assistant_message = finalText;
@@ -402,6 +411,26 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
         const {stdout, log} = await runHook(validTerminal, {enforce: true, promptingText: '[WAKE][priority:normal] 1 events'});
         expect(log).toContain('BLOCK');
         expect(JSON.parse(stdout).decision).toBe('block');
+    });
+
+    test('PR-shaped namedGate without same-turn fetch evidence is an invalid terminal (#14713)', async () => {
+        const prTerminal = `Live gate checked.\n\n${block('{"laneContinuation":"next-lane","namedGates":[{"ref":"PR #14822","checkedAt":"2026-07-04T20:52:22Z"}],"awaitingOwnPrOnly":false}')}`,
+              {log}      = await runHook(prTerminal, {promptingText: '[WAKE][priority:normal] 1 events'});
+
+        expect(log).toContain('WOULD-BLOCK');
+        expect(log).toContain('no same-turn PR fetch evidence');
+    });
+
+    test('PR-shaped namedGate with same-turn tool evidence validates (#14713)', async () => {
+        const prTerminal = `Live gate checked.\n\n${block('{"laneContinuation":"next-lane","namedGates":[{"ref":"PR #14822","checkedAt":"2026-07-04T20:52:22Z"}],"awaitingOwnPrOnly":false}')}`,
+              {log}      = await runHook(prTerminal, {
+                  promptingText: '[WAKE][priority:normal] 1 events',
+                  toolCommand  : 'gh pr view 14822 --json state,mergedAt,reviewDecision'
+              });
+
+        expect(log).toContain('WOULD-BLOCK');
+        expect(log).toContain('valid lane-state terminal');
+        expect(log).not.toContain('no same-turn PR fetch evidence');
     });
 
     test('an ABSENT emission (no operator) → WOULD-BLOCK (dry-run)', async () => {

@@ -52,7 +52,8 @@ import {buildDeferenceStopHookDirective,
         parseOutcomeToVerdict,
         scanHoldLexicon,
         STOP_HOOK_TURN_OPTIONS_HINT} from '../../ai/scripts/lifecycle/stopHookDecision.mjs';
-import {validateLaneStateTerminal} from '../../ai/scripts/lifecycle/validateLaneStateTerminal.mjs';
+import {collectLaneStateToolEvidenceFromJsonl,
+        validateLaneStateTerminal} from '../../ai/scripts/lifecycle/validateLaneStateTerminal.mjs';
 
 export {isOperatorInLoop, parseOutcomeToVerdict};
 
@@ -441,6 +442,15 @@ async function main() {
     } catch (e) {
         // best-effort; isOperatorInLoop falls back to stop_hook_active when promptingText is empty
     }
+    let evidenceText = '';
+    try {
+        if (input.transcript_path) {
+            evidenceText = collectLaneStateToolEvidenceFromJsonl(fs.readFileSync(input.transcript_path, 'utf8'));
+        }
+    } catch {
+        // Missing transcript evidence is an agent-proof failure, not a hook failure.
+        evidenceText = '';
+    }
     const promptContext = classifyPromptingContext({
         stopHookActive: !!input.stop_hook_active,
         promptingText
@@ -476,7 +486,10 @@ async function main() {
 
     let verdict;
     try {
-        verdict = parseOutcomeToVerdict({descriptor, parseError}, validateLaneStateTerminal);
+        verdict = parseOutcomeToVerdict(
+            {descriptor, parseError},
+            laneState => validateLaneStateTerminal(laneState, {evidenceText})
+        );
     } catch (e) {
         // A validator/mapping bug is OUR failure → never block; allow + audit.
         auditLog(`VALIDATOR-ERROR: ${e.message}; allowing stop.`);

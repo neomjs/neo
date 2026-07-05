@@ -22,7 +22,9 @@ import {classifyPromptingContext,
         LANE_STATE_SCHEMA_HINT,
         parseOutcomeToVerdict,
         STOP_HOOK_TURN_OPTIONS_HINT} from '../../ai/scripts/lifecycle/stopHookDecision.mjs';
-import {validateLaneStateTerminal} from '../../ai/scripts/lifecycle/validateLaneStateTerminal.mjs';
+import {collectLaneStateToolEvidenceFromJsonl,
+        collectLaneStateToolEvidenceFromMessages,
+        validateLaneStateTerminal} from '../../ai/scripts/lifecycle/validateLaneStateTerminal.mjs';
 
 export const CODEX_STOP_BLOCK_INJECTION_SUPPORTED = true;
 export const CODEX_PROMPT_CONTEXT_TTL_MS           = 10 * 60 * 1000;
@@ -375,6 +377,31 @@ export function extractPromptingText(input = {}, {logDir} = {}) {
 }
 
 /**
+ * @summary Collects same-turn tool-call evidence from Codex Stop payload records.
+ * @param {Object} [input={}]
+ * @returns {String}
+ */
+export function collectCodexLaneStateEvidence(input = {}) {
+    const chunks   = [],
+          messages = input.messages ?? input.conversation ?? input.transcript;
+
+    if (Array.isArray(messages)) {
+        chunks.push(collectLaneStateToolEvidenceFromMessages(messages));
+    }
+
+    const transcriptPath = input.transcript_path ?? input.transcriptPath;
+    if (transcriptPath) {
+        try {
+            chunks.push(collectLaneStateToolEvidenceFromJsonl(fs.readFileSync(transcriptPath, 'utf8')));
+        } catch {
+            // Missing evidence is handled by the validator as an unearned PR gate.
+        }
+    }
+
+    return chunks.filter(Boolean).join('\n');
+}
+
+/**
  * @summary Builds the no-hold reminder text without claiming Codex can inject it yet.
  * @param {String} verdictReason
  * @returns {String}
@@ -479,6 +506,7 @@ export function classifyCodexStopPayload(input = {}, {enforcing = false, logDir}
     const stopHookActive                                                      = !!(input.stop_hook_active || input.stopHookActive),
           {text, source}                                                      = extractFinalAssistantText(input),
           {text: promptingText, source: promptSource}                         = extractPromptingText(input, {logDir}),
+          evidenceText                                                        = collectCodexLaneStateEvidence(input),
           promptContext                                                       = classifyPromptingContext({stopHookActive, promptingText}),
           {autonomousHandoff, handoffReason, handoffWindowMs, operatorInLoop} = promptContext;
 
@@ -504,7 +532,10 @@ export function classifyCodexStopPayload(input = {}, {enforcing = false, logDir}
         parseError = e;
     }
 
-    const verdict = parseOutcomeToVerdict({descriptor, parseError}, validateLaneStateTerminal);
+    const verdict = parseOutcomeToVerdict(
+        {descriptor, parseError},
+        laneState => validateLaneStateTerminal(laneState, {evidenceText})
+    );
 
     return {
         ...decideCodexHookAction(verdict, {
