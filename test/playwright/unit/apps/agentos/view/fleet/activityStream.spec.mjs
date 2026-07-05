@@ -94,4 +94,31 @@ test.describe('Fleet cockpit ActivityStream — bounded, backpressure-aware feed
 
         stream.destroy()
     });
+
+    test('event text reads the live-adapter payload subject, not just the fixture text field', () => {
+        // the live A2A/PR/lane adapters carry the row text in payload.subject (fixtures use payload.text);
+        // both must render meaningfully rather than falling to the "agentId · type" fallback
+        const stream = Neo.create(ActivityStream, {
+            appName,
+            events: [{type: 'a2a-activity', agentId: 'neo-opus-vega', occurredAt: '2026-07-04T10:00:00.000Z', payload: {subject: '[lane-claim] #14606 activity live-binding'}}]
+        });
+
+        const textItem = rows(stream)[0].items.find(item => item.cls.includes('fm-ev-text'));
+        expect(textItem.text).toBe('[lane-claim] #14606 activity live-binding');
+
+        stream.destroy()
+    });
+
+    test('sample state labels a representative (source-not-wired) feed honestly — never "streaming"', () => {
+        const stream = Neo.create(ActivityStream, {appName, adapterState: 'sample', events: makeEvents(3)});
+
+        expect(head(stream).cls).toContain('is-sample');
+        const stateItem = head(stream).items.find(item => item.cls.includes('fm-stream-state'));
+        expect(stateItem.text).toBe('sample · live feed pending');
+        expect(stateItem.text).not.toContain('streaming');   // a sample must never pose as live
+        // the sample is shown, not blanked
+        expect(rows(stream).length).toBe(3);
+
+        stream.destroy()
+    });
 });

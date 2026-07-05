@@ -71,8 +71,9 @@ class ActivityStream extends Container {
          */
         maxVisible_: 15,
         /**
-         * Feed liveness — `live` streams; `stale` renders the degrade banner (adapter loss), never a
-         * silent freeze.
+         * Feed liveness — `live` streams; `sample` labels a representative (source-not-wired) feed so it
+         * is never mistaken for live; `stale` renders the degrade banner (adapter loss). None of the
+         * three is a silent freeze — the header always states which one is showing.
          * @member {String} adapterState_='live'
          * @reactive
          */
@@ -134,20 +135,24 @@ class ActivityStream extends Container {
     }
 
     /**
-     * @summary The liveness header — a label + a streaming/stale indicator (the honest-degrade surface).
+     * @summary The liveness header — a label + an honest state indicator: `● streaming` (live),
+     * `sample · live feed pending` (representative, source not wired), or `stale — reconnecting`
+     * (adapter loss). The state is always named so the feed can never silently pose as live.
      * @returns {Object}
      */
     headerConfig() {
-        const stale = this.adapterState === 'stale';
+        const state     = this.adapterState,
+              stateText = {sample: 'sample · live feed pending', stale: 'stale — reconnecting'}[state] ?? '● streaming',
+              stateCls  = {sample: 'is-sample', stale: 'is-stale'}[state] ?? 'is-live';
 
         return {
             module: Container,
-            cls   : ['fm-stream-head', stale ? 'is-stale' : 'is-live'],
+            cls   : ['fm-stream-head', stateCls],
             flex  : 'none',
             layout: {ntype: 'hbox', align: 'center'},
             items : [
                 {module: Component, cls: ['fm-stream-label'], flex: 1,      text: 'Live activity'},
-                {module: Component, cls: ['fm-stream-state'], flex: 'none', text: stale ? 'stale — reconnecting' : '● streaming'}
+                {module: Component, cls: ['fm-stream-state'], flex: 'none', text: stateText}
             ]
         }
     }
@@ -204,13 +209,14 @@ class ActivityStream extends Container {
     }
 
     /**
-     * @summary The row's human text — the event payload's summary when present, else an agent + type
-     * fallback so an un-summarized event still reads.
+     * @summary The row's human text — the event payload's summary/subject when present, else an agent +
+     * type fallback so an un-summarized event still reads. `subject` is the live A2A/PR/lane adapter's
+     * text field (fixtures carry `text`); both are honored so real feed events render meaningfully.
      * @param {Object} event
      * @returns {String}
      */
     eventText(event) {
-        return event?.payload?.text ?? event?.payload?.summary ?? `${event?.agentId ?? 'fleet'} · ${event?.type ?? 'event'}`
+        return event?.payload?.text ?? event?.payload?.summary ?? event?.payload?.subject ?? `${event?.agentId ?? 'fleet'} · ${event?.type ?? 'event'}`
     }
 }
 

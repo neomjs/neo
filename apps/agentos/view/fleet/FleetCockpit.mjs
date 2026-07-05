@@ -79,10 +79,53 @@ class FleetCockpit extends Container {
             flex  : 1.55,
             agents: FIXTURE_ROSTER
         }, {
-            module: ActivityStream,
-            flex  : 1,
-            events: FIXTURE_ACTIVITY
+            module      : ActivityStream,
+            flex        : 1,
+            reference   : 'activity-stream',
+            adapterState: 'sample', // the fixture is a representative sample until the live source is wired
+            events      : FIXTURE_ACTIVITY
         }]
+    }
+
+    /**
+     * @summary On construct, bind the activity stream to the live fleet feed.
+     * @param {...*} args
+     */
+    onConstructed(...args) {
+        super.onConstructed(...args);
+        this.loadActivity()
+    }
+
+    /**
+     * @summary Bind the activity stream to the live fleet feed: poll the read-observe `fleetActivity`
+     * verb on the injected registry bridge and route its honest capability state to the stream. Wired →
+     * live events (the feed returns newest-first; the stream renders chronological, so reverse); a
+     * not-wired source or absent bridge leaves the representative sample in place (honestly labelled by
+     * the stream header); a degraded source renders the stale banner. Never presents the sample as live,
+     * and fails closed to the sample rather than blanking the surface.
+     * @protected
+     */
+    async loadActivity() {
+        let me     = this,
+            stream = me.getReference('activity-stream'),
+            bridge = globalThis.AgentOS?.fleet?.registryBridge;
+
+        if (!stream || typeof bridge?.fleetActivity !== 'function') {
+            return
+        }
+
+        try {
+            const {capability, events} = await bridge.fleetActivity() ?? {};
+
+            if (capability?.state === 'wired' && Array.isArray(events) && events.length > 0) {
+                stream.set({adapterState: 'live', events: events.slice().reverse()})
+            } else if (capability?.state === 'degraded') {
+                stream.adapterState = 'stale'
+            }
+            // not-wired / empty → keep the honestly-labelled 'sample' seed
+        } catch (error) {
+            // fail-closed: the sample seed stays rather than blanking the feed
+        }
     }
 }
 
