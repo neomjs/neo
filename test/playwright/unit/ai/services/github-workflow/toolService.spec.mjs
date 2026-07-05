@@ -46,8 +46,8 @@ test.describe('Neo.ai.services.github-workflow.toolService — sync_all dev-bran
     });
 
     test('sync_all delegates to SyncService.runFullSync when on dev', async () => {
-        let delegateCalls = 0;
-        const delegate = async (...args) => {
+        let   delegateCalls = 0;
+        const delegate      = async (...args) => {
             delegateCalls++;
             return {message: 'sync ok', args};
         };
@@ -60,18 +60,18 @@ test.describe('Neo.ai.services.github-workflow.toolService — sync_all dev-bran
     });
 
     test('sync_all REJECTS when on a feature branch (no delegate call)', async () => {
-        let delegateCalls = 0;
-        const delegate = async () => { delegateCalls++; return {message: 'should not run'}; };
-        const guarded = buildDevBranchGuard(delegate, async () => 'agent/some-feature-branch');
+        let   delegateCalls = 0;
+        const delegate      = async () => { delegateCalls++; return {message: 'should not run'}; };
+        const guarded       = buildDevBranchGuard(delegate, async () => 'agent/some-feature-branch');
 
         await expect(guarded()).rejects.toThrow(/sync_all REJECTED.*'agent\/some-feature-branch'.*not 'dev'/);
         expect(delegateCalls).toBe(0);
     });
 
     test('sync_all REJECTS when on main (no delegate call)', async () => {
-        let delegateCalls = 0;
-        const delegate = async () => { delegateCalls++; };
-        const guarded = buildDevBranchGuard(delegate, async () => 'main');
+        let   delegateCalls = 0;
+        const delegate      = async () => { delegateCalls++; };
+        const guarded       = buildDevBranchGuard(delegate, async () => 'main');
 
         await expect(guarded()).rejects.toThrow(/sync_all REJECTED.*'main'.*not 'dev'/);
         expect(delegateCalls).toBe(0);
@@ -79,14 +79,14 @@ test.describe('Neo.ai.services.github-workflow.toolService — sync_all dev-bran
 
     test('sync_all REJECTS on detached HEAD (empty branch name)', async () => {
         const delegate = async () => { throw new Error('should not run'); };
-        const guarded = buildDevBranchGuard(delegate, async () => '');
+        const guarded  = buildDevBranchGuard(delegate, async () => '');
 
         await expect(guarded()).rejects.toThrow(/sync_all REJECTED.*'\(detached\)'/);
     });
 
     test('sync_all REJECTS immediately on root mismatch from branch detector', async () => {
         const delegate = async () => { throw new Error('should not run'); };
-        const guarded = buildDevBranchGuard(delegate, async () => {
+        const guarded  = buildDevBranchGuard(delegate, async () => {
             throw new Error('sync_all REJECTED: Root mismatch. MCP server projectRoot...');
         });
 
@@ -95,7 +95,7 @@ test.describe('Neo.ai.services.github-workflow.toolService — sync_all dev-bran
 
     test('sync_all REJECTS with git-error message when branch detector throws', async () => {
         const delegate = async () => { throw new Error('should not run'); };
-        const guarded = buildDevBranchGuard(delegate, async () => {
+        const guarded  = buildDevBranchGuard(delegate, async () => {
             throw new Error('git: not a git repository');
         });
 
@@ -125,7 +125,7 @@ test.describe('Neo.ai.services.github-workflow.toolService — getConversationRo
     let originalPrGetConversation;
 
     test.beforeAll(async () => {
-        const mod             = await import('../../../../../../ai/mcp/server/github-workflow/toolService.mjs');
+        const mod = await import('../../../../../../ai/mcp/server/github-workflow/toolService.mjs');
         getConversationRouter = mod.getConversationRouter;
         IssueService          = (await import('../../../../../../ai/services/github-workflow/IssueService.mjs')).default;
         PullRequestService    = (await import('../../../../../../ai/services/github-workflow/PullRequestService.mjs')).default;
@@ -237,8 +237,8 @@ test.describe('Neo.ai.services.github-workflow.toolService — write identity gu
     });
 
     test('delegates a public write when expected agent and viewer login match', async () => {
-        let delegateCalls = 0;
-        const guarded = buildGitHubWriteIdentityGuard(async (...args) => {
+        let   delegateCalls = 0;
+        const guarded       = buildGitHubWriteIdentityGuard(async (...args) => {
             delegateCalls++;
             return {ok: true, args};
         }, {
@@ -256,28 +256,34 @@ test.describe('Neo.ai.services.github-workflow.toolService — write identity gu
     });
 
     test('rejects a public write on identity mismatch before delegate invocation', async () => {
-        let delegateCalls = 0;
-        const guarded = buildGitHubWriteIdentityGuard(async () => {
+        let   delegateCalls  = 0;
+        let   assertionCalls = 0;
+        const guarded        = buildGitHubWriteIdentityGuard(async () => {
             delegateCalls++;
             return {ok: true};
         }, {
-            assertExpectedIdentity: async () => ({
-                ok    : false,
-                reason: 'identity drift: authed as neo-opus-ada, expected neo-gpt',
-                code  : 'LOGIN_MISMATCH'
-            })
+            assertExpectedIdentity: async () => {
+                assertionCalls++;
+                return {
+                    ok    : false,
+                    reason: 'identity drift: authed as neo-opus-ada, expected neo-gpt',
+                    code  : 'LOGIN_MISMATCH'
+                }
+            }
         });
 
         await expect(guarded()).rejects.toMatchObject({
-            code  : 'GITHUB_IDENTITY_MISMATCH',
-            reason: 'identity drift: authed as neo-opus-ada, expected neo-gpt'
+            code         : 'GITHUB_IDENTITY_MISMATCH',
+            identityClass: 'identity-mismatch',
+            reason       : 'identity drift: authed as neo-opus-ada, expected neo-gpt'
         });
         expect(delegateCalls).toBe(0);
+        expect(assertionCalls).toBe(1);
     });
 
     test('rejects a public write when expected identity is unresolved', async () => {
-        let delegateCalls = 0;
-        const guarded = buildGitHubWriteIdentityGuard(async () => {
+        let   delegateCalls = 0;
+        const guarded       = buildGitHubWriteIdentityGuard(async () => {
             delegateCalls++;
         }, {
             assertExpectedIdentity: async () => ({
@@ -293,28 +299,62 @@ test.describe('Neo.ai.services.github-workflow.toolService — write identity gu
         expect(delegateCalls).toBe(0);
     });
 
-    test('rejects a public write when viewer login probe fails', async () => {
-        let delegateCalls = 0;
-        const guarded = buildGitHubWriteIdentityGuard(async () => {
+    test('retries transient empty-login resolution before delegating', async () => {
+        let   delegateCalls  = 0;
+        let   assertionCalls = 0;
+        const guarded        = buildGitHubWriteIdentityGuard(async () => {
+            delegateCalls++;
+            return {ok: true};
+        }, {
+            assertExpectedIdentity: async () => {
+                assertionCalls++;
+                return assertionCalls === 1
+                    ? {
+                        ok    : false,
+                        reason: 'identity drift: no authed login resolved, expected neo-gpt',
+                        code  : 'NO_AUTHED_LOGIN'
+                    }
+                    : {
+                        ok    : true,
+                        reason: null,
+                        code  : 'OK'
+                    }
+            }
+        });
+
+        await expect(guarded()).resolves.toEqual({ok: true});
+        expect(delegateCalls).toBe(1);
+        expect(assertionCalls).toBe(2);
+    });
+
+    test('rejects a public write when viewer login probe still fails after bounded retry', async () => {
+        let   delegateCalls  = 0;
+        let   assertionCalls = 0;
+        const guarded        = buildGitHubWriteIdentityGuard(async () => {
             delegateCalls++;
         }, {
-            assertExpectedIdentity: async () => ({
-                ok    : false,
-                reason: 'identity drift: no authed login resolved, expected neo-gpt',
-                code  : 'NO_AUTHED_LOGIN'
-            })
+            assertExpectedIdentity: async () => {
+                assertionCalls++;
+                return {
+                    ok    : false,
+                    reason: 'identity drift: no authed login resolved, expected neo-gpt',
+                    code  : 'NO_AUTHED_LOGIN'
+                }
+            }
         });
 
         await expect(guarded()).rejects.toMatchObject({
-            code: 'GITHUB_VIEWER_UNRESOLVED'
+            code         : 'GITHUB_VIEWER_UNRESOLVED',
+            identityClass: 'identity-resolution-transient'
         });
         expect(delegateCalls).toBe(0);
+        expect(assertionCalls).toBe(2);
     });
 
     test('guards public GitHub writes but leaves read and health tools untouched', async () => {
         const readHandler  = async () => ({read: true});
         const writeHandler = async () => ({write: true});
-        const mapping = guardGitHubWriteTools({
+        const mapping      = guardGitHubWriteTools({
             get_conversation    : readHandler,
             healthcheck         : readHandler,
             manage_issue_comment: writeHandler,
@@ -346,8 +386,8 @@ test.describe('Neo.ai.services.github-workflow.toolService — write identity gu
 
     test('rejects service mappings with unclassified future tools (#13252)', () => {
         expect(() => guardGitHubWriteTools({
-            get_conversation       : async () => {},
-            future_public_mutation : async () => {}
+            get_conversation      : async () => {},
+            future_public_mutation: async () => {}
         })).toThrow(/Missing classification: future_public_mutation/);
     });
 
