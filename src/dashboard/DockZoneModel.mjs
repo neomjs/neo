@@ -91,7 +91,11 @@ class DockZoneModel extends Base {
         detachItem       : (document, descriptor) => DockZoneModel.detachItem(document, descriptor),
         closeItem        : (document, descriptor) => DockZoneModel.closeItem(document, descriptor),
         setItemPinned    : (document, descriptor) => DockZoneModel.setItemPinned(document, descriptor),
-        setItemAutoHidden: (document, descriptor) => DockZoneModel.setItemAutoHidden(document, descriptor)
+        setItemAutoHidden: (document, descriptor) => DockZoneModel.setItemAutoHidden(document, descriptor),
+        // transferItem is a TWO-document operation; its single-document dispatch is a fail-closed
+        // redirect so the op still joins the derived `operations` vocabulary without a hand-listed
+        // entry. Execute it through DockZoneModel.transferItem(sourceDocument, targetDocument, …).
+        transferItem     : document => ({document, errors: ['transferItem is a two-document operation; call DockZoneModel.transferItem(sourceDocument, targetDocument, descriptor)']})
     })
 
     /**
@@ -1702,6 +1706,69 @@ class DockZoneModel extends Base {
         return handler
             ? handler(document, descriptor)
             : {document, errors: [`unknown operation "${descriptor.operation}"`]}
+    }
+
+    /**
+     * @summary Atomically transfers `itemId` out of `sourceDocument` and into `targetDocument` in one
+     * commit-or-neither step: the item is removed from the source tree + catalog and placed into the
+     * target through the nested `target` placement descriptor. The item record travels verbatim — no
+     * re-instantiation semantics enter the executor, which operates on documents only.
+     *
+     * Fail-closed and atomic: a validation error on EITHER document returns BOTH inputs untouched plus
+     * a non-empty `errors` array, so a half-transferred item — removed here but not placed there, the
+     * contract's named violation — can never commit. The nested `target` is dispatched through the
+     * landed single-document placement path (`addTab` / `splitNode` via {@link #applyOperation}), so
+     * no second placement grammar is introduced.
+     *
+     * The executor is document-centric: `sourceWorkspaceId` / `targetWorkspaceId` are the caller's
+     * (adapter-tier) resolution keys, used here only to reject a same-workspace transfer — that is a
+     * `moveItem`, not a transfer.
+     * @param {Object} sourceDocument the committed dock-zone document the item leaves
+     * @param {Object} targetDocument the committed dock-zone document the item joins
+     * @param {Object} descriptor {itemId, sourceWorkspaceId, targetWorkspaceId, target}
+     * @returns {{sourceDocument:Object, targetDocument:Object, errors:String[]}}
+     * @static
+     */
+    static transferItem(sourceDocument, targetDocument, {itemId, sourceWorkspaceId, targetWorkspaceId, target} = {}) {
+        let fail   = errors => ({sourceDocument, targetDocument, errors}),
+            record = sourceDocument?.items?.[itemId];
+
+        // Preconditions checked against BOTH documents before any mutation (fail-closed).
+        if (!record)                         return fail([`unknown item "${itemId}"`]);
+        if (record.movable === false)        return fail([`item "${itemId}" is not movable`]);
+        if (targetDocument?.items?.[itemId]) return fail([`item "${itemId}" already exists in the target document`]);
+        if (sourceWorkspaceId !== undefined && sourceWorkspaceId === targetWorkspaceId) {
+            return fail(['transferItem requires distinct source and target workspaces'])
+        }
+        if (!target || (target.operation !== 'addTab' && target.operation !== 'splitNode')) {
+            return fail(['transferItem target must be an addTab or splitNode descriptor'])
+        }
+
+        // Source side: drop from the tree (a no-op for an already-detached item) + catalog, then
+        // normalize + validate through the shared fail-closed commit.
+        let sourceWorking = DockZoneModel.clone(sourceDocument);
+
+        DockZoneModel.detachFromTabs(sourceWorking, itemId);
+        delete sourceWorking.items[itemId];
+
+        let sourceResult = DockZoneModel.commit(sourceDocument, sourceWorking);
+
+        // Target side: insert the verbatim record into the catalog, then place it through the landed
+        // single-document dispatch (which normalizes + validates the target tree). The transfer's
+        // `itemId` overrides any id the caller left in the nested descriptor.
+        let targetWorking = DockZoneModel.clone(targetDocument);
+
+        targetWorking.items[itemId] = DockZoneModel.clone(record);
+
+        let targetResult = DockZoneModel.applyOperation(targetWorking, {...target, itemId}),
+            errors       = [...sourceResult.errors, ...targetResult.errors];
+
+        // Commit-or-neither: any error on either side rolls the whole transfer back to both inputs.
+        if (errors.length) {
+            return fail(errors)
+        }
+
+        return {sourceDocument: sourceResult.document, targetDocument: targetResult.document, errors: []}
     }
 }
 
