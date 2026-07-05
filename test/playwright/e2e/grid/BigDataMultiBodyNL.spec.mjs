@@ -60,8 +60,8 @@ test.describe('Grid BigData Multi-Body Neural Link Validation', () => {
         // God Mode Assertion: Verify the exact backend state mirrors our action.
         const grids = await app.findInstances({className: 'Neo.examples.grid.bigData.GridContainer'}, ['id']);
         if (grids.length > 0) {
-            const gridProps = await app.getInstanceProperties(grids[0].id, ['body.selectionModel.selectedRows']);
-            expect(gridProps.properties['body.selectionModel.selectedRows']).toContain('neo-record-1');
+            const gridProps = await app.getComponent(grids[0].id, ['view.selectionModel.selectedRows']);
+            expect(gridProps['view.selectionModel.selectedRows']).toContain('neo-record-1');
         }
     });
 
