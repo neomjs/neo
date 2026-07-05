@@ -11,9 +11,10 @@
  * `Object` / `Neo.core.Base` member, so a crafted `{method:'getManager'}` / `{method:'constructor'}`
  * request cannot reach a non-operation.
  *
- * `getBootIdentity` is a **read-observe** verb — the advisory boot-identity fact: it carries NO lifecycle-write
- * / restart authority. The R3 read-observe ÷ lifecycle-write seam keeps the daemon-core restart actuator
- * physically OFF this client wire — only advisory reads ride it.
+ * `getBootIdentity` and `fleetActivity` are **read-observe** verbs — the advisory boot-identity fact and
+ * the bounded fleet activity snapshot: they carry NO lifecycle-write / restart authority. The R3
+ * read-observe ÷ lifecycle-write seam keeps the daemon-core restart actuator physically OFF this client
+ * wire — only advisory reads ride it.
  *
  * **Dependency-free by design** — imported by both a Node module and an App-Worker (browser) module,
  * so it MUST NOT pull in the Node-only FleetControlBridge / crypto / fs chain.
@@ -22,5 +23,5 @@
 export const FLEET_WIRE_METHODS = Object.freeze([
     'defineAgent', 'setRepo', 'setAvatar', 'listAgents', 'getAgent',
     'startAgent', 'stopAgent', 'restartAgent', 'removeAgent', 'fleetStatus', 'fleetRuntimeStatus',
-    'getBootIdentity'
+    'getBootIdentity', 'fleetActivity'
 ]);
