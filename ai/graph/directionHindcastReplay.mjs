@@ -1,14 +1,14 @@
 import {attributeMotion, deriveAlignmentStates} from './directionAttribution.mjs';
 
 /**
- * @module ai/graph/hindcastHarness
- * @summary The hindcast validation harness — the falsifier between computation and render: a
+ * @module ai/graph/directionHindcastReplay
+ * @summary The direction hindcast replay — the falsifier between computation and render: a
  * forecastless replay of the attribution machinery over a HISTORICAL window, using only
- * information that existed inside that window. No rendered forecast exists until this harness
+ * information that existed inside that window. No rendered forecast exists until this replay
  * demonstrates skill; a prediction without a falsifying backtest is invalid by construction.
  *
  * The epistemics, mechanized:
- * - **Only-in-W by construction, not by discipline:** the harness CUTS history at the window
+ * - **Only-in-W by construction, not by discipline:** the replay CUTS history at the window
  *   boundaries before the attribution pass ever sees it — the anchor set is reconstructed as it
  *   stood at window start (declared before, not retired before), and motion is restricted to the
  *   window span. The leakage falsifier is executable: appending post-window events or goals to
@@ -76,7 +76,7 @@ export function cutWindowEvents(motionEvents, sinceIso, untilIso) {
  * merged attribution machinery over only-in-W inputs; no clock, no I/O, deterministic.
  * @param {Object} options
  * @param {Object} options.window `{since, until}` ISO bounds
- * @param {Object} options.history `{motionEvents, declaredGoals}` — FULL history; the harness cuts
+ * @param {Object} options.history `{motionEvents, declaredGoals}` — FULL history; the replay cuts
  * @param {Object} [options.clusterMapping={}] The versioned emergent mapping as-of the window
  * @param {Number} options.mappingVersion
  * @param {String} options.filterSet
