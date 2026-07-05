@@ -63,6 +63,7 @@ class Viewport extends BaseViewport {
             cls              : ['agent-dashboard'],
             dragProxyExtraCls: ['agent-os-viewport', 'neo-viewport'],
             flex             : 1,
+            popupUrl         : 'apps/agentos/childapps/widget/index.html',
             reference        : 'dashboard',
             sortGroup        : 'neo-connected-dashboard',
             style            : {margin: '20px'},

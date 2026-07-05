@@ -16,6 +16,8 @@ resources/content/
 !/apps/agentos/childapps/strategy/neo-config.json
 !/apps/agentos/childapps/swarm/index.html
 !/apps/agentos/childapps/swarm/neo-config.json
+!/apps/agentos/childapps/widget/index.html
+!/apps/agentos/childapps/widget/neo-config.json
 !/apps/ai/neural-link/index.html
 !/apps/ai/neural-link/**/*.mjs
 !/apps/ai/neural-link/neo-config.json
