@@ -19,8 +19,9 @@ test.describe('Neural Link — childapp connect (SharedWorker topology)', () => 
 
     test('connectToApp resolves a childapp + reads a live component', async ({page, neuralLink}) => {
         await page.goto('/apps/colors/childapps/widget/index.html');
-        // the childapp viewport mounts — the app is live before we connect
-        await page.waitForSelector('.neo-viewport', {state: 'visible', timeout: 30000});
+        // The childapp-connect proof is topology, not visual layout: an empty viewport may be
+        // attached but hidden, while still being a valid Neural Link readback target.
+        await page.waitForSelector('#colors-widget-viewport', {state: 'attached', timeout: 30000});
 
         // a childapp joins the parent SharedWorker session; `ColorsWidget` is a WINDOW within it,
         // so the session is reached via the worker appName.
