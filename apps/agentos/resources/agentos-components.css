@@ -59,3 +59,77 @@
     gap       : 8px;
     background: transparent;
 }
+
+/* ---------------------------------------------------------------- the harness shell ---------------- */
+/* The B3-hybrid stable shell: a left-rail keeper-view nav (tab.Container, left tab-bar) over
+   the token surfaces. The rail reads from --fm-rail; the active keeper-view surface is the ground. */
+.agent-shell .neo-tab-header-toolbar {
+    background   : var(--fm-rail);
+    border-right : 1px solid var(--fm-line);
+}
+
+.fm-fleet-cockpit {
+    background: var(--fm-ground);
+}
+
+/* the §01 two-zone split — a soft divider between the fleet zone and the activity stream */
+.fm-fleet-cockpit > .fm-fleet-grid {
+    border-right: 1px solid var(--fm-line-soft);
+}
+
+/* ---- Home: the transient first-open welcome landing (the "wow" → routes into the cockpit) ---- */
+.agent-welcome {
+    display    : grid;
+    place-items: center;
+    padding    : 48px;
+    background : var(--fm-ground);
+}
+
+.agent-welcome-inner {
+    max-width: 660px;
+}
+
+.agent-welcome-eyebrow {
+    font-family   : var(--fm-font-mono);
+    font-size     : 12px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color         : var(--fm-signal);
+    margin        : 0;
+}
+
+.agent-welcome-h1 {
+    font-family   : var(--fm-font-sans);
+    font-size     : clamp(26px, 3.4vw, 42px);
+    line-height   : 1.1;
+    letter-spacing: -.02em;
+    color         : var(--fm-ink);
+    margin        : 14px 0 0;
+}
+
+.agent-welcome-lede {
+    font-size  : 17px;
+    line-height: 1.6;
+    color      : var(--fm-ink-dim);
+    margin     : 18px 0 0;
+}
+
+.agent-welcome-lede b {
+    color: var(--fm-ink);
+}
+
+/* ---- Chat: the dockable work-area seam (placeholder until the live-pane lands) ---- */
+.agent-placeholder {
+    display    : grid;
+    place-items: center;
+    padding    : 48px;
+    background : var(--fm-ground);
+}
+
+.agent-placeholder-inner {
+    max-width  : 520px;
+    text-align : center;
+    font-size  : 15px;
+    line-height: 1.6;
+    color      : var(--fm-ink-dim);
+}
