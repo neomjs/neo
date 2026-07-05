@@ -105,8 +105,8 @@ active transition, user input continues to target the live pooled row layer.
 The first runtime PR that implements this contract must verify the following paths with
 the chosen animation config enabled:
 
-- `test/playwright/e2e/GridTree.spec.mjs`
-- `test/playwright/e2e/GridTreeBigData.spec.mjs`
+- `test/playwright/e2e/grid/GridTree.spec.mjs`
+- `test/playwright/e2e/grid/GridTreeBigData.spec.mjs`
 
 The verification must cover:
 
