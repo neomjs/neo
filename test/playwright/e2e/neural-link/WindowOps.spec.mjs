@@ -15,6 +15,8 @@ test.describe('Neural Link window operations (e2e)', () => {
         let popup;
 
         await page.goto('/apps/agentos/index.html');
+        // the FleetSettingsPanel is the 'Control' keeper-view in the shell rail
+        await page.locator('.agent-shell').getByText('Control', {exact: true}).click();
         await expect(page.locator('.agent-panel-settings')).toBeVisible({timeout: 60000});
 
         const app = await neuralLink.connectToApp('AgentOS');

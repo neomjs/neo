@@ -7,13 +7,12 @@
 <!--
   Design SSOT for the conversational app-creation surface (the "keeper flow") — the fleet-manager
   sibling module inside the one harness app (apps/agentos). Companion artifact: the FM cockpit SSOT
-  (fleet-manager-cockpit-plan.html). Values SoT = the cockpit plan, extracted to
-  apps/agentos/resources/tokens.css; the :root fallback below lets this doc render standalone.
+  (fleet-manager-cockpit-plan.html). Values SoT = the cockpit plan, extracted to the SCSS theme skin
+  (resources/scss/theme-neo-*/apps/agentos/); the :root fallback below lets this doc render standalone.
   Grace, 2026-07-04.
 -->
-<link rel="stylesheet" href="../resources/tokens.css">
 <style>
-  /* standalone-render fallback — verbatim from the cockpit values SSOT (tokens.css is the app SoT) */
+  /* standalone-render fallback — verbatim from the cockpit values SSOT (the SCSS theme skin owns the app tokens) */
   :root{
     --fm-ground:#0b0e13; --fm-panel:#141a23; --fm-panel-2:#1a212c; --fm-rail:#0e131a;
     --fm-line:#262f3d; --fm-line-soft:#1c242f;
@@ -272,7 +271,7 @@
   <p class="lead" style="font-size:.78rem;margin-top:.6rem">The falsifier: a viewer who has never seen Neo follows every beat without narration. No performance numbers appear (per <span class="mono">#13032</span>) — the claim is legibility, not benchmarks.</p>
 
   <footer>
-    Tokens: the <span class="mono">--fm-*</span> vocabulary (<span class="mono">apps/agentos/resources/tokens.css</span>) — native to the one harness app, visually consistent with the FM cockpit.
+    Tokens: the <span class="mono">--fm-*</span> vocabulary (the SCSS theme skin, <span class="mono">resources/scss/theme-neo-*/apps/agentos/</span>) — native to the one harness app, visually consistent with the FM cockpit.
     <span class="fam">families:
       <i class="sw" style="background:var(--fm-family-claude)"></i>Claude
       <i class="sw" style="background:var(--fm-family-gpt)"></i>GPT

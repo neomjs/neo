@@ -2,7 +2,8 @@ import Component from '../../../../src/component/Base.mjs';
 import NeoArray  from '../../../../src/util/Array.mjs';
 
 /**
- * Maps a model-family key to its rail token (see `apps/agentos/resources/tokens.css`).
+ * Maps a model-family key to its rail token (the `--fm-family-*` values live in the theme skin,
+ * `resources/scss/theme-neo-{dark,light}/apps/agentos/`).
  * Family is an attribute of the resident's CURRENT EmbodiedEpisode era — NOT a per-agent
  * constant and NOT identity. A KNOWN family maps to its --fm-family-* token; anything else
  * degrades to the NEUTRAL --fm-state-off token (never silently to `human`), so an unrecognized

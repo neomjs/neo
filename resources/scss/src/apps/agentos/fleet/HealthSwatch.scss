@@ -1,0 +1,23 @@
+/* Health-summary swatch — a legend row (dot + label) or a count-bar unit (dot + count + label), all
+   scoped under the component root. The dot reuses the state token via --fm-dot. */
+.fm-health-swatch {
+    display    : inline-flex;
+    align-items: center;
+    gap        : 6px;
+    font-family: var(--fm-font-mono);
+    font-size  : 11px;
+    color      : var(--fm-ink-dim);
+
+    .fm-sw-dot {
+        width        : 9px;
+        height       : 9px;
+        flex         : none;
+        border-radius: 50%;
+        background   : var(--fm-dot, var(--fm-state-off));
+    }
+
+    .fm-sw-count {
+        color      : var(--fm-ink);
+        font-weight: 600;
+    }
+}
