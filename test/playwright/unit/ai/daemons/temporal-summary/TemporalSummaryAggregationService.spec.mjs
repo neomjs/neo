@@ -21,13 +21,14 @@ import * as core from '../../../../../../src/core/_export.mjs';
 import {test, expect} from '@playwright/test';
 
 test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
-    let TemporalSummaryAggregationService, logger, originals = {};
+    let TemporalSummaryAggregationService, logger, StorageRouter, originals = {};
 
     test.beforeAll(async () => {
         TemporalSummaryAggregationService = (await import('../../../../../../ai/daemons/temporal-summary/TemporalSummaryAggregationService.mjs')).default;
         logger                            = (await import('../../../../../../ai/mcp/server/memory-core/logger.mjs')).default;
+        StorageRouter                     = (await import('../../../../../../ai/services.mjs')).Memory_StorageRouter;
 
-        originals = {info: logger.info, debug: logger.debug, error: logger.error};
+        originals = {info: logger.info, debug: logger.debug, error: logger.error, getTemporalSummaryCollection: StorageRouter.getTemporalSummaryCollection};
         logger.info  = () => {};
         logger.debug = () => {};
         logger.error = () => {}
@@ -40,6 +41,7 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
     });
 
     test.afterEach(() => {
+        StorageRouter.getTemporalSummaryCollection = originals.getTemporalSummaryCollection;
         TemporalSummaryAggregationService.stop();
         TemporalSummaryAggregationService.isPolling      = false;
         TemporalSummaryAggregationService.pollIntervalMs = null;
@@ -126,5 +128,24 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         await TemporalSummaryAggregationService.pulse();   // pulse swallows the cycle error
 
         expect(releasedToken).toBe('tok-2')   // finally released despite the throw
+    });
+
+    test('persistTemporalRecord upserts the record into the temporal-summary collection by its doc id', async () => {
+        const upserts = [];
+
+        StorageRouter.getTemporalSummaryCollection = async () => ({upsert: async args => { upserts.push(args) }});
+
+        const record = {
+            id            : 'temporal-summary-daily-unified-2026-07-05-v1',
+            metadata      : {level: 'daily', partition: 'unified', windowStart: '2026-07-05T00:00:00.000Z', windowEnd: '2026-07-06T00:00:00.000Z', version: 1},
+            velocityFields: {mergedPrs: 3}
+        };
+
+        await TemporalSummaryAggregationService.persistTemporalRecord(record);
+
+        expect(upserts).toHaveLength(1);
+        expect(upserts[0].ids).toEqual([record.id]);
+        expect(upserts[0].metadatas).toEqual([record.metadata]);
+        expect(JSON.parse(upserts[0].documents[0])).toEqual({mergedPrs: 3})
     })
 });

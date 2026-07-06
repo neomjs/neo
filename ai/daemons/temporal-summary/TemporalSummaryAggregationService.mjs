@@ -2,9 +2,10 @@
 // InstanceManager) lives in `ai/daemons/temporal-summary/daemon.mjs`, following the
 // canonical Orchestrator class+wrapper pattern. `Neo.setupClass(...)` at file bottom
 // uses `globalThis.Neo`, populated by the entry-point bootstrap chain.
-import Base                   from '../../../src/core/Base.mjs';
-import logger                 from '../../mcp/server/memory-core/logger.mjs';
-import {composeUnifiedRecord} from '../../services/memory-core/helpers/temporalSummaryAggregationEngine.mjs';
+import Base                                    from '../../../src/core/Base.mjs';
+import logger                                  from '../../mcp/server/memory-core/logger.mjs';
+import {composeUnifiedRecord}                  from '../../services/memory-core/helpers/temporalSummaryAggregationEngine.mjs';
+import {Memory_StorageRouter as StorageRouter} from '../../services.mjs';
 import {
     acquireHeavyMaintenanceLeaseSync,
     releaseHeavyMaintenanceLeaseSync
@@ -216,15 +217,23 @@ class TemporalSummaryAggregationService extends Base {
     }
 
     /**
-     * @summary Persists one composed temporal-summary record to the durable store — the Chroma upsert into
-     * the `temporal-summary` collection plus the `SUMMARY_*` graph label written by this lane only. The
-     * durable-store implementation lands with the source-fetch increment.
+     * @summary Persists one composed temporal-summary record via the Chroma upsert into the
+     * `temporal-summary` collection: the five-field metadata is the query contract, the velocity payload
+     * is the document body, keyed by the deterministic doc id (so a re-aggregation of the same
+     * window+track+version overwrites in place). The per-level `SUMMARY_*` graph label written by this lane
+     * lands with the node-type-table update.
      * @param {{id:String, metadata:Object, velocityFields:Object}} record
      * @returns {Promise<void>}
      * @protected
      */
     async persistTemporalRecord(record) {
-        logger.debug(`[TemporalSummaryAggregationService] (stub) would persist ${record?.id}`)
+        const collection = await StorageRouter.getTemporalSummaryCollection();
+
+        await collection.upsert({
+            ids      : [record.id],
+            documents: [JSON.stringify(record.velocityFields)],
+            metadatas: [record.metadata]
+        })
     }
 }
 
