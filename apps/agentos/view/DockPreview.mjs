@@ -1,4 +1,5 @@
-import Component from '../../../src/component/Base.mjs';
+import Component                from '../../../src/component/Base.mjs';
+import * as dockPreviewContract from '../../../src/dashboard/dockPreviewContract.mjs';
 
 /**
  * @class AgentOS.view.DockPreview
@@ -35,33 +36,28 @@ class DockPreview extends Component {
      * @member {String} PREVIEW_SCHEMA='neo.harness.dockPreview.v1'
      * @static
      */
-    static PREVIEW_SCHEMA = 'neo.harness.dockPreview.v1'
+    static PREVIEW_SCHEMA = dockPreviewContract.PREVIEW_SCHEMA
     /**
      * Every candidate `placement.kind` the contract defines.
      * @member {Set<String>} VALID_PLACEMENT_KINDS
      * @static
      */
-    static VALID_PLACEMENT_KINDS = new Set([
-        'edge-top', 'edge-right', 'edge-bottom', 'edge-left',
-        'split-before', 'split-after',
-        'tab-before', 'tab-after', 'tab-into',
-        'rejected'
-    ])
+    static VALID_PLACEMENT_KINDS = dockPreviewContract.VALID_PLACEMENT_KINDS
     /**
      * @member {Set<String>} EDGE_KINDS
      * @static
      */
-    static EDGE_KINDS = new Set(['edge-top', 'edge-right', 'edge-bottom', 'edge-left'])
+    static EDGE_KINDS = dockPreviewContract.EDGE_KINDS
     /**
      * @member {Set<String>} SPLIT_KINDS
      * @static
      */
-    static SPLIT_KINDS = new Set(['split-before', 'split-after'])
+    static SPLIT_KINDS = dockPreviewContract.SPLIT_KINDS
     /**
      * @member {Set<String>} TAB_KINDS
      * @static
      */
-    static TAB_KINDS = new Set(['tab-before', 'tab-after', 'tab-into'])
+    static TAB_KINDS = dockPreviewContract.TAB_KINDS
     /**
      * Thickness in px of an edge-zone affordance band.
      * @member {Number} edgeBandSize=24
@@ -120,23 +116,7 @@ class DockPreview extends Component {
      * @static
      */
     static isValidPreview(preview) {
-        if (!preview || typeof preview !== 'object')                  return false;
-        if (preview.schema !== this.PREVIEW_SCHEMA)                   return false;
-        if (typeof preview.itemId !== 'string' || !preview.itemId)    return false;
-
-        let {feedback, placement, target} = preview;
-
-        if (!target || typeof target.nodeId !== 'string' || !target.nodeId) return false;
-        if (!placement || !this.VALID_PLACEMENT_KINDS.has(placement.kind))  return false;
-        if (!feedback || (feedback.state !== 'accepted' && feedback.state !== 'rejected')) return false;
-
-        // Split placements MUST carry an orientation (contract: required for split previews).
-        if (this.SPLIT_KINDS.has(placement.kind) &&
-            placement.orientation !== 'horizontal' && placement.orientation !== 'vertical') {
-            return false
-        }
-
-        return true
+        return dockPreviewContract.isValidPreview(preview)
     }
 
     /**
@@ -191,33 +171,7 @@ class DockPreview extends Component {
      * @static
      */
     static previewToOperation(preview) {
-        if (!this.isValidPreview(preview)) return null;
-
-        let {feedback, itemId, placement, target} = preview,
-            {kind}                                = placement;
-
-        if (kind === 'rejected' || feedback.state !== 'accepted') return null;
-
-        let nodeId = target.nodeId;
-
-        if (this.TAB_KINDS.has(kind)) {
-            return {operation: 'addTab', itemId, tabsNodeId: nodeId, index: Number.isInteger(placement.index) ? placement.index : null}
-        }
-
-        if (this.SPLIT_KINDS.has(kind)) {
-            let position = kind.slice('split-'.length);
-            return {operation: 'splitNode', itemId, targetNodeId: nodeId, orientation: placement.orientation, position, sizes: this.ratioToSizes(placement.ratio, position)}
-        }
-
-        let edge = kind.slice('edge-'.length);
-        return {
-            operation   : 'splitNode',
-            itemId,
-            targetNodeId: nodeId,
-            edge,
-            orientation : (edge === 'left' || edge === 'right') ? 'horizontal' : 'vertical',
-            sizes       : this.ratioToSizes(placement.ratio, edge === 'bottom' || edge === 'right' ? 'after' : 'before')
-        }
+        return dockPreviewContract.previewToOperation(preview)
     }
 
     /**
@@ -228,8 +182,7 @@ class DockPreview extends Component {
      * @static
      */
     static ratioToSizes(ratio, position) {
-        let r = (typeof ratio === 'number' && ratio > 0 && ratio < 1) ? ratio : 0.5;
-        return position === 'after' ? [1 - r, r] : [r, 1 - r]
+        return dockPreviewContract.ratioToSizes(ratio, position)
     }
 
     /**
