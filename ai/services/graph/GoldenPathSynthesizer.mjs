@@ -393,9 +393,12 @@ class GoldenPathSynthesizer extends Base {
      * (open-epic membership x parent activity, recency), and render the provenance-led section. Returns `''`
      * when nothing qualifies, so the caller renders the normal empty section. Read-only + additive — it
      * cannot zero or gate the base route; it only fires when the route already produced nothing.
+     * @param {Object} [remState={}] Measured REM pipeline state (`{undigested, digested, recentCycles}`)
+     *   from `HealthService.getRemPipelineState()`, fetched by the async caller; feeds the honest cause
+     *   classification. A missing/partial object degrades to the `UNATTRIBUTED` phrase (never a guessed cause).
      * @returns {String}
      */
-    static buildDeclaredIntentFallback() {
+    static buildDeclaredIntentFallback(remState = {}) {
         const sqliteDb = GraphService.db?.storage?.db;
         if (!sqliteDb) return '';
 
@@ -454,15 +457,16 @@ class GoldenPathSynthesizer extends Base {
             });
         }
 
-        // Attribute the MEASURED frontier-empty cause (honest-states) instead of the former hardcoded
-        // "REM-starved" guess: this method runs BECAUSE the anchor is empty, and a nonzero
-        // digested-summary count distinguishes an unanchored frontier from a genuine cold-start. The
-        // precise REM backlog/cycle metrics are not available in this SQLite-sourced path, so an
-        // unreadable count degrades to the honest UNATTRIBUTED phrase — never a re-asserted mechanism.
-        let digestedHistory;
-        try { digestedHistory = sqliteDb.prepare("SELECT COUNT(*) AS c FROM Nodes WHERE id LIKE 'summary%'").get()?.c; }
-        catch (error) { digestedHistory = undefined; }
-        const cause = classifyFrontierEmptyCause({digested: digestedHistory, frontierAnchorEmpty: true});
+        // Attribute the MEASURED frontier-empty cause (honest-states) from the caller-supplied REM
+        // pipeline state: this method runs BECAUSE the anchor is empty, and undigested + recent-cycle
+        // counts let the classifier distinguish REM_STALLED (backlog, no recent cycle) from a merely
+        // FRONTIER_UNANCHORED anchor. A missing/partial remState degrades to the honest UNATTRIBUTED phrase.
+        const cause = classifyFrontierEmptyCause({
+            digested           : remState.digested,
+            undigested         : remState.undigested,
+            recentCycleCount   : Array.isArray(remState.recentCycles) ? remState.recentCycles.length : undefined,
+            frontierAnchorEmpty: true
+        });
 
         return renderDeclaredIntentFallback(rankByDeclaredIntent(items), aiConfig.goldenPathTopNodeRenderLimit, cause);
     }
@@ -1085,7 +1089,16 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             });
             logger.info('[GoldenPathSynthesizer] Computed route contradicted Current Focus; rendered diagnostic instead of routing content work.');
         } else {
-            const declaredIntentFallback = this.constructor.buildDeclaredIntentFallback();
+            // Fetch measured REM pipeline state so the fallback attributes the real cause (REM_STALLED vs
+            // FRONTIER_UNANCHORED); the async fetch lives here to keep the SQLite fallback builder sync.
+            let remState = {};
+            try {
+                const {default: HealthService} = await import('../../services/memory-core/HealthService.mjs');
+                remState = await HealthService.getRemPipelineState();
+            } catch (error) {
+                logger.warn(`[GoldenPathSynthesizer] REM pipeline state unavailable for fallback cause: ${error.message}`);
+            }
+            const declaredIntentFallback = this.constructor.buildDeclaredIntentFallback(remState);
             if (declaredIntentFallback) {
                 markdownAppend = declaredIntentFallback;
                 logger.info('[GoldenPathSynthesizer] Frontier empty — rendered declared-intent fallback (unblocked open-epic tree leaves).');

@@ -2193,6 +2193,26 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(md).toContain('#911');                                        // surfaced from SQLite despite the cold node cache
         expect(md).toContain('fallback: declared-intent (frontier empty)');
     });
+
+    test('buildDeclaredIntentFallback attributes the MEASURED REM cause from caller-supplied pipeline state (#14883)', () => {
+        GraphService.upsertNode({id: 'issue-920', type: 'ISSUE', properties: {state: 'OPEN', labels: ['epic', 'ai'], title: 'Epic'}});
+        GraphService.upsertNode({id: 'issue-921', type: 'ISSUE', properties: {state: 'OPEN', labels: ['bug', 'ai'], title: 'Leaf', createdAt: '2026-07-04T02:00:00Z'}});
+        GraphService.linkNodes('issue-920', 'issue-921', 'PARENT_OF', 1.0);
+
+        // Genuine REM stall — undigested backlog, no recent cycle → REM_STALLED (not the old "REM-starved" guess).
+        const stalled = GoldenPathSynthesizer.constructor.buildDeclaredIntentFallback({undigested: 40, digested: 100, recentCycles: []});
+        expect(stalled).toContain('REM consolidation stalled');
+        expect(stalled).not.toContain('REM-starved');
+
+        // Healthy digestion + recent cycles but an empty anchor → FRONTIER_UNANCHORED (the daemon-off case).
+        const unanchored = GoldenPathSynthesizer.constructor.buildDeclaredIntentFallback({undigested: 3, digested: 100, recentCycles: [{outcome: 'completed'}]});
+        expect(unanchored).toContain('frontier unanchored');
+
+        // No measured state (fetch failed) → honest UNATTRIBUTED, never a guessed mechanism.
+        const noState = GoldenPathSynthesizer.constructor.buildDeclaredIntentFallback();
+        expect(noState).toContain('unattributed');
+        expect(noState).not.toContain('REM-starved');
+    });
 });
 
 test.describe('GoldenPathSynthesizer.hasCrossFamilyReview — author family from canonical @identity', () => {
