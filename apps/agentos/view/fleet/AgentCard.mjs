@@ -1,8 +1,10 @@
-import Container     from '../../../../src/container/Base.mjs';
-import FamilyRail    from './FamilyRail.mjs';
-import Image         from '../../../../src/component/Image.mjs';
-import StateDot      from './StateDot.mjs';
-import StateProvider from '../../../../src/state/Provider.mjs';
+import AgentCardController from './AgentCardController.mjs';
+import Button              from '../../../../src/button/Base.mjs';
+import Container           from '../../../../src/container/Base.mjs';
+import FamilyRail          from './FamilyRail.mjs';
+import Image               from '../../../../src/component/Image.mjs';
+import StateDot            from './StateDot.mjs';
+import StateProvider       from '../../../../src/state/Provider.mjs';
 
 /**
  * The resident card: the cockpit's atom. Composes the class-based fleet primitives (FamilyRail +
@@ -43,6 +45,12 @@ class AgentCard extends Container {
          */
         baseCls: ['fm-agent-card'],
         /**
+         * Turns the controls-slot buttons into a single `lifecycleIntent` event (the B4 emit); the
+         * Lane C (C2) round-trip consumes it. See {@link AgentOS.view.fleet.AgentCardController}.
+         * @member {Object} controller={module:AgentCardController}
+         */
+        controller: {module: AgentCardController},
+        /**
          * @member {Object} layout={ntype:'hbox',align:'stretch'}
          * @reactive
          */
@@ -67,8 +75,9 @@ class AgentCard extends Container {
         },
         /**
          * The card anatomy — family rail · avatar · body (name-row [state dot + name + engine tag] +
-         * current-lane line). Each child binds to the per-card provider. Controls slot (T5) + foot
-         * meta are sibling leaves.
+         * current-lane line) · controls slot (start/stop/restart → a single `lifecycleIntent` event
+         * for the Lane C round-trip). Each child binds to the per-card provider; foot meta is a
+         * sibling leaf.
          * @member {Object[]} items
          */
         items: [{
@@ -110,6 +119,31 @@ class AgentCard extends Container {
                 ntype: 'component',
                 cls  : ['fm-card-lane'],
                 bind : {text: data => data.laneLine}
+            }]
+        }, {
+            ntype : 'container',
+            cls   : ['fm-card-controls'],
+            flex  : 'none',
+            layout: {ntype: 'hbox', align: 'center'},
+
+            items: [{
+                module : Button,
+                action : 'start',
+                iconCls: 'fa-solid fa-play',
+                handler: 'onLifecycleIntent',
+                bind   : {disabled: data => data.state === 'ok'}
+            }, {
+                module : Button,
+                action : 'stop',
+                iconCls: 'fa-solid fa-stop',
+                handler: 'onLifecycleIntent',
+                bind   : {disabled: data => data.state === 'off'}
+            }, {
+                module : Button,
+                action : 'restart',
+                iconCls: 'fa-solid fa-rotate',
+                handler: 'onLifecycleIntent',
+                bind   : {disabled: data => data.state === 'off'}
             }]
         }]
     }

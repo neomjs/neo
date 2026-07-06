@@ -77,4 +77,23 @@ test.describe('Fleet cockpit AgentCard — resident card composing the class pri
 
         card.destroy()
     });
+
+    test('B4: a control fires one lifecycleIntent {action, agentId} — the forward seam Lane-C (C2) consumes; the card never calls the bridge (#14611)', () => {
+        const card  = createCard({agentId: 'vega', state: 'off'});
+        const fired = [];
+
+        card.on('lifecycleIntent', data => fired.push(data));
+
+        // the per-agent controls slot composes the start / stop / restart verb buttons, in order
+        const controls = card.down({cls: ['fm-card-controls']});
+        expect(controls).toBeTruthy();
+        expect(controls.items.map(button => button.action)).toEqual(['start', 'stop', 'restart']);
+
+        // a control fires ONE intent carrying the verb + the durable agentId; the card itself never
+        // calls the fleet bridge — that round-trip is the Lane-C responsibility (the B4÷C2 boundary)
+        card.getController().onLifecycleIntent({component: controls.items[2]});
+        expect(fired).toEqual([{action: 'restart', agentId: 'vega'}]);
+
+        card.destroy()
+    });
 });
