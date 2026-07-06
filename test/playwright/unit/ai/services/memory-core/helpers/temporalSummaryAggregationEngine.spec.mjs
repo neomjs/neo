@@ -19,6 +19,7 @@ import {
     buildTemporalSummaryDocument,
     deriveVelocityFields,
     HIGH_IMPACT_THRESHOLD,
+    resolveDailyWindow,
     VELOCITY_FIELD_SOURCES
 } from '../../../../../../../ai/services/memory-core/helpers/temporalSummaryAggregationEngine.mjs';
 
@@ -119,5 +120,16 @@ test.describe('Neo.ai.services.memory-core.temporalSummaryAggregationEngine', ()
             version       : 1,
             velocityFields: {}
         })).toThrow(/windowStart must be strictly before windowEnd/)
+    });
+
+    test('resolveDailyWindow returns half-open UTC-day bounds for any anchor within the day', () => {
+        const {windowStart, windowEnd} = resolveDailyWindow('2026-07-05T14:37:12.500Z');
+
+        expect(windowStart).toBe('2026-07-05T00:00:00.000Z');
+        expect(windowEnd).toBe('2026-07-06T00:00:00.000Z')
+    });
+
+    test('resolveDailyWindow fails closed on an unparseable anchor', () => {
+        expect(() => resolveDailyWindow('not-a-timestamp')).toThrow(/invalid anchor/)
     })
 });

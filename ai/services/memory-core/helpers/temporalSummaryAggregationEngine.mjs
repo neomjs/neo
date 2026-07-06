@@ -109,3 +109,29 @@ export function buildTemporalSummaryDocument({level, partition, windowStart, win
         velocityFields
     }
 }
+
+/**
+ * @summary Resolves the half-open UTC-day window for an L2 (daily) aggregation anchored at any instant in
+ * the day: `windowStart` is the day's `00:00:00.000Z`, `windowEnd` is the next day's `00:00:00.000Z`. The
+ * half-open `[start, end)` shape guarantees one instant never falls in two daily windows — the aggregation
+ * lane fetches source rows in `[windowStart, windowEnd)` and folds them through {@link deriveVelocityFields}.
+ * @param {String|Date} anchor An ISO 8601 timestamp string or Date within the target UTC day.
+ * @returns {{windowStart:String, windowEnd:String}}
+ */
+export function resolveDailyWindow(anchor) {
+    const anchorMs = anchor instanceof Date ? anchor.getTime() : Date.parse(anchor);
+
+    if (Number.isNaN(anchorMs)) {
+        throw new Error(`resolveDailyWindow: invalid anchor — ${JSON.stringify(anchor)}`)
+    }
+
+    const start = new Date(anchorMs);
+
+    start.setUTCHours(0, 0, 0, 0);
+
+    const end = new Date(start.getTime());
+
+    end.setUTCDate(end.getUTCDate() + 1);
+
+    return {windowStart: start.toISOString(), windowEnd: end.toISOString()}
+}
