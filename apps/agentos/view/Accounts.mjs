@@ -130,25 +130,25 @@ class Accounts extends DashboardPanel {
                     cls    : ['agent-button', 'agent-submit-button'],
                     handler: 'up.onSubmitAgentClick',
                     iconCls: 'fa fa-lock',
-                    text   : 'Submit to Bridge'
+                    text   : 'Add agent'
                 }, {
                     module : Button,
                     cls    : ['agent-button'],
                     handler: 'up.onLoadSampleClick',
                     iconCls: 'fa fa-pen-to-square',
-                    text   : 'Edit Sample'
+                    text   : 'Use sample'
                 }, {
                     module : Button,
                     cls    : ['agent-button', 'agent-connect-button'],
                     handler: 'up.onConnectExternalHarnessClick',
                     iconCls: 'fa fa-plug',
-                    text   : 'Connect Harness (NL-MCP)'
+                    text   : 'Connect harness'
                 }]
             }, {
                 ntype    : 'component',
                 cls      : ['agent-bridge-status', 'is-waiting'],
                 reference: 'bridge-status',
-                vdom     : {cn: [{text: 'Fleet Registry bridge unavailable in dev-server mode. Submit fails closed; no PAT is stored in browser state.'}]}
+                vdom     : {cn: [{text: 'Agent setup is unavailable in dev-server mode. Add agent fails closed; no PAT is stored in browser state.'}]}
             }]
         }]
     }
@@ -165,7 +165,7 @@ class Accounts extends DashboardPanel {
             harnessType    : values.harnessType,
             credentialState: 'stored-node-side',
             lifecycleState : 'gated',
-            statusText     : 'Definition accepted by Fleet Registry bridge; lifecycle controls remain gated.',
+            statusText     : 'Agent added; lifecycle controls remain gated.',
             updatedAt      : new Date().toISOString()
         }
     }
@@ -185,7 +185,7 @@ class Accounts extends DashboardPanel {
 
         this.updateBridgeStatus(
             'is-waiting',
-            'Sample loaded for editing. Enter a PAT to submit; the value will be cleared after the bridge attempt.'
+            'Sample loaded. Enter a PAT to add the agent; the value clears after the attempt.'
         )
     }
 
@@ -202,7 +202,7 @@ class Accounts extends DashboardPanel {
         const githubUsername = values.githubUsername?.trim();
 
         if (!valid || !githubUsername || !values.harnessType || !values.credential) {
-            this.updateBridgeStatus('is-error', 'Definition incomplete. GitHub username, harness type, and PAT are required.');
+            this.updateBridgeStatus('is-error', 'Agent setup incomplete. GitHub username, harness type, and PAT are required.');
             return
         }
 
@@ -215,9 +215,9 @@ class Accounts extends DashboardPanel {
         try {
             await this.submitToFleetRegistryBridge(payload);
             this.upsertPublicAgentDefinition(this.createPublicAgentDefinition(payload));
-            this.updateBridgeStatus('is-live', 'Definition submitted through the Fleet Registry bridge. PAT was not retained in the app worker.')
+            this.updateBridgeStatus('is-live', 'Agent added. PAT was not retained in the app worker.')
         } catch (error) {
-            this.updateBridgeStatus('is-error', 'Fleet Registry bridge unavailable. Nothing was stored in browser state; PAT field was cleared.')
+            this.updateBridgeStatus('is-error', 'Could not add agent. Nothing was stored in browser state; PAT field was cleared.')
         } finally {
             await this.clearCredentialField()
         }
@@ -233,9 +233,9 @@ class Accounts extends DashboardPanel {
     async onConnectExternalHarnessClick() {
         try {
             const result = await this.connectExternalHarnessBridge({action: 'start'});
-            this.updateBridgeStatus('is-live', result?.message || 'External harness connected through the Neural Link bridge.')
+            this.updateBridgeStatus('is-live', result?.message || 'External harness connected.')
         } catch (error) {
-            this.updateBridgeStatus('is-error', 'Neural Link connection bridge unavailable in dev-server mode. Connect fails closed; no connection state was stored in the app worker.')
+            this.updateBridgeStatus('is-error', 'Harness connection unavailable in dev-server mode. Connect fails closed; no connection state was stored in the app worker.')
         }
     }
 
