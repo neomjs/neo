@@ -141,7 +141,7 @@ class AgentCard extends Container {
                     module : Button,
                     handler: 'onToggleLifecycle',
                     bind   : {
-                        disabled: data => Boolean(data.pendingAction),
+                        disabled: data => Boolean(data.pendingAction) || data.controlReason?.kind === 'unauthorized',
                         iconCls : data => data.state === 'off' ? 'fa-solid fa-play' : 'fa-solid fa-stop'
                     }
                 }, {
@@ -151,23 +151,40 @@ class AgentCard extends Container {
                     iconCls: 'fa-solid fa-rotate',
                     handler: 'onLifecycleIntent',
                     bind   : {
-                        disabled: data => Boolean(data.pendingAction),
+                        disabled: data => Boolean(data.pendingAction) || data.controlReason?.kind === 'unauthorized',
                         hidden  : data => data.state === 'off'
                     }
                 }]
             }, {
-                // Honest round-trip state: Lane-C sets pendingAction + controlReason on the provider (per
-                // the B4/C2 contract); the card only RENDERS them — a verb stays pending until C2 settles,
-                // and a rejection/unauthorized shows its reason. No optimistic success.
+                // Honest round-trip state per the B4/C2 contract — the card RENDERS what Lane-C writes,
+                // never fakes success, and each terminal kind renders DISTINCTLY:
+                //   unauthorized → the reason shows AND the cluster stays disabled (see the verb binds) —
+                //                  you cannot retry into a closed door;
+                //   timeout      → stale-pending: the outcome is UNKNOWN (the verb may still be running,
+                //                  we just lost the answer), so it reads as an unfinished "…", not a
+                //                  resolved "⚠" failure, and retry stays open;
+                //   rejected     → the "⚠ reason" with retry open.
                 ntype    : 'component',
                 cls      : ['fm-card-control-status'],
                 reference: 'control-status',
                 bind     : {
                     // pending takes visual priority over a prior reason, so a new attempt never shows a
                     // stale rejection (complements C2 clearing controlReason on a new accepted intent)
-                    text  : data => data.pendingAction
-                        ? `${data.pendingAction}…`
-                        : (data.controlReason ? `⚠ ${data.controlReason.kind}: ${data.controlReason.reason}` : ''),
+                    text  : data => {
+                        if (data.pendingAction) {
+                            return `${data.pendingAction}…`
+                        }
+
+                        const reason = data.controlReason;
+
+                        if (!reason) {
+                            return ''
+                        }
+
+                        return reason.kind === 'timeout'
+                            ? `${reason.action}… stale — no response`
+                            : `⚠ ${reason.kind}: ${reason.reason}`
+                    },
                     hidden: data => !data.pendingAction && !data.controlReason
                 }
             }]

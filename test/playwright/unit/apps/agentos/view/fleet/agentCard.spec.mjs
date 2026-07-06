@@ -138,4 +138,24 @@ test.describe('Fleet cockpit AgentCard — resident card composing the class pri
 
         card.destroy()
     });
+
+    test('B4 honest state: unauthorized disables the whole cluster with its reason; timeout renders stale-pending with retry still open (#14611)', () => {
+        const card   = createCard({agentId: 'vega', state: 'ok'});
+        const verbs  = () => card.down({reference: 'control-verbs'}).items;
+        const status = () => card.down({reference: 'control-status'});
+
+        // unauthorized (Lane-C denied / bridge unavailable) → the cluster DISABLES with the reason, not a
+        // live button beside a warning: you cannot retry into a closed door (the accepted B4/C2 contract)
+        card.setState({controlReason: {action: 'start', kind: 'unauthorized', reason: 'Fleet Registry bridge unavailable'}, pendingAction: null});
+        expect(verbs().every(button => button.disabled)).toBe(true);
+        expect(status().text).toBe('⚠ unauthorized: Fleet Registry bridge unavailable');
+
+        // timeout → the outcome is UNKNOWN (the verb may still be running, we lost the answer) → stale-pending:
+        // an unfinished "…", NOT a resolved "⚠" failure, and retry stays OPEN (the cluster re-enables)
+        card.setState({controlReason: {action: 'restart', kind: 'timeout', reason: 'restart timed out after 30000ms'}, pendingAction: null});
+        expect(status().text).toBe('restart… stale — no response');
+        expect(verbs()[0].disabled).toBe(false);
+
+        card.destroy()
+    });
 });
