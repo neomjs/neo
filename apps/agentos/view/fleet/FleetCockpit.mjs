@@ -73,7 +73,9 @@ class FleetCockpit extends Container {
          */
         controller: {module: FleetCockpitController},
         /**
-         * Vertical: the whole-fleet control bar over the SSOT §01 fleet/activity split.
+         * Vertical stack: the control bar over the full-width fleet grid over the full-width activity
+         * feed. The fleet zone gets the full width for its ranked card grid; the live feed is the
+         * bottom strip, not a right-hand column.
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @reactive
          */
@@ -93,23 +95,15 @@ class FleetCockpit extends Container {
                 handler: 'onStartFleet'
             }]
         }, {
-            ntype: 'container',
-            cls  : ['fm-cockpit-body'],
-            flex : 1,
-            // the SSOT §01 split: the fleet zone (~1.55fr) beside the activity stream (1fr)
-            layout: {ntype: 'hbox', align: 'stretch'},
-
-            items: [{
-                module: FleetGrid,
-                flex  : 1.55,
-                agents: FIXTURE_ROSTER
-            }, {
-                module      : ActivityStream,
-                flex        : 1,
-                reference   : 'activity-stream',
-                adapterState: 'sample', // the fixture is a representative sample until the live source is wired
-                events      : FIXTURE_ACTIVITY
-            }]
+            module: FleetGrid,
+            flex  : 1.55,
+            agents: FIXTURE_ROSTER
+        }, {
+            module      : ActivityStream,
+            flex        : 1,
+            reference   : 'activity-stream',
+            adapterState: 'sample', // the fixture is a representative sample until the live source is wired
+            events      : FIXTURE_ACTIVITY
         }]
     }
 
