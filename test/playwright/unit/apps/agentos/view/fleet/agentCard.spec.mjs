@@ -84,14 +84,29 @@ test.describe('Fleet cockpit AgentCard — resident card composing the class pri
 
         card.on('lifecycleIntent', data => fired.push(data));
 
-        // the controls slot composes the verb row (start / stop / restart), in order
-        const verbs = card.down({cls: ['fm-card-control-verbs']});
-        expect(verbs).toBeTruthy();
-        expect(verbs.items.map(button => button.action)).toEqual(['start', 'stop', 'restart']);
+        const verbs   = card.down({cls: ['fm-card-control-verbs']});
+        const toggle  = verbs.items[0];
+        const restart = verbs.items[1];
+        expect(restart.action).toBe('restart');
 
-        // a control fires ONE intent carrying the verb + the durable agentId; the card itself never
-        // calls the fleet bridge — that round-trip is the Lane-C responsibility (the B4÷C2 boundary)
-        card.getController().onLifecycleIntent({component: verbs.items[2]});
+        // off → the toggle IS start (▶) and restart is hidden (a stopped resident starts via the toggle;
+        // no disabled play beside a redundant restart)
+        expect(toggle.iconCls).toBe('fa-solid fa-play');
+        expect(restart.hidden).toBe(true);
+        card.getController().onToggleLifecycle();
+        expect(fired).toEqual([{action: 'start', agentId: 'vega'}]);
+
+        // running → the SAME toggle is now stop (■) and restart appears
+        fired.length = 0;
+        card.setState('state', 'ok');
+        expect(toggle.iconCls).toBe('fa-solid fa-stop');
+        expect(restart.hidden).toBe(false);
+        card.getController().onToggleLifecycle();
+        expect(fired).toEqual([{action: 'stop', agentId: 'vega'}]);
+
+        // restart fires restart; the card never calls the bridge — that round-trip is Lane-C (B4÷C2)
+        fired.length = 0;
+        card.getController().onLifecycleIntent({component: restart});
         expect(fired).toEqual([{action: 'restart', agentId: 'vega'}]);
 
         card.destroy()
@@ -102,11 +117,11 @@ test.describe('Fleet cockpit AgentCard — resident card composing the class pri
         const verbs  = () => card.down({cls: ['fm-card-control-verbs']}).items;
         const status = () => card.down({cls: ['fm-card-control-status']});
 
-        // idle + nothing pending: start is available, the status line is hidden
-        expect(verbs().find(button => button.action === 'start').disabled).toBe(false);
+        // idle + nothing pending: the power toggle is enabled, the status line is hidden
+        expect(verbs()[0].disabled).toBe(false);
         expect(status().hidden).toBe(true);
 
-        // Lane-C set a verb in flight → EVERY verb disabled (no second intent mid-round-trip); pending rendered
+        // Lane-C set a verb in flight → controls disabled (no second intent mid-round-trip); pending rendered
         card.setState('pendingAction', 'restart');
         expect(verbs().every(button => button.disabled)).toBe(true);
         expect(status().hidden).toBe(false);

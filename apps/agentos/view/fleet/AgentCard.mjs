@@ -134,23 +134,25 @@ class AgentCard extends Container {
                 layout: {ntype: 'hbox', align: 'center'},
 
                 items: [{
+                    // ONE power toggle — start when off, stop when running. Only one of the two is ever
+                    // valid for a given state, so we render the contextual action; a disabled play on a
+                    // running resident (or a disabled stop on a stopped one) is bloat, not safety.
                     module : Button,
-                    action : 'start',
-                    iconCls: 'fa-solid fa-play',
-                    handler: 'onLifecycleIntent',
-                    bind   : {disabled: data => data.pendingAction !== null || data.state === 'ok'}
+                    handler: 'onToggleLifecycle',
+                    bind   : {
+                        disabled: data => data.pendingAction !== null,
+                        iconCls : data => data.state === 'off' ? 'fa-solid fa-play' : 'fa-solid fa-stop'
+                    }
                 }, {
-                    module : Button,
-                    action : 'stop',
-                    iconCls: 'fa-solid fa-stop',
-                    handler: 'onLifecycleIntent',
-                    bind   : {disabled: data => data.pendingAction !== null || data.state === 'off'}
-                }, {
+                    // restart is meaningful only while running — a stopped resident starts via the toggle
                     module : Button,
                     action : 'restart',
                     iconCls: 'fa-solid fa-rotate',
                     handler: 'onLifecycleIntent',
-                    bind   : {disabled: data => data.pendingAction !== null || data.state === 'off'}
+                    bind   : {
+                        disabled: data => data.pendingAction !== null,
+                        hidden  : data => data.state === 'off'
+                    }
                 }]
             }, {
                 // Honest round-trip state: Lane-C sets pendingAction + controlReason on the provider (per

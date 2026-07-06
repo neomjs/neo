@@ -36,6 +36,23 @@ class AgentCardController extends Controller {
 
         me.component.fire('lifecycleIntent', {action, agentId})
     }
+
+    /**
+     * @summary Fires the contextual power intent — `start` when the resident is off, `stop` when running.
+     *
+     * The single power toggle replaces a start+stop pair: only one of the two is ever valid for a given
+     * session state, so rendering both (one disabled) is noise, not safety. Reads `state` + the durable
+     * `agentId` from the per-card provider; intent-only (Lane-C owns the round-trip).
+     * @param {Object} data The button click event.
+     */
+    onToggleLifecycle(data) {
+        let me       = this,
+            provider = me.getStateProvider(),
+            agentId  = provider.getData('agentId'),
+            action   = provider.getData('state') === 'off' ? 'start' : 'stop';
+
+        me.component.fire('lifecycleIntent', {action, agentId})
+    }
 }
 
 export default Neo.setupClass(AgentCardController);
