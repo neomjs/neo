@@ -152,3 +152,27 @@ export function resolvePartitionKeys(agentIdentities = []) {
 
     return [UNIFIED_PARTITION, ...perAgentTracks]
 }
+
+/**
+ * @summary Composes the unified-track record for one window — the whole-window fold (all sources) under
+ * the `'unified'` partition. The unified track is always present (per-agent tracks are additive); the
+ * service fetches the window's sources, calls this, and persists the returned record. Per-agent track
+ * composition is a separate step (its non-attributable-field semantics are still being pinned).
+ * @param {Object} params
+ * @param {String} params.level        `'session'` (L1) or `'daily'` (L2).
+ * @param {String} params.windowStart  ISO 8601 UTC.
+ * @param {String} params.windowEnd    ISO 8601 UTC.
+ * @param {Number} [params.version=1]  Positive-integer append-only re-aggregation counter.
+ * @param {Object} [params.sources={}] The window's fetched source arrays ({@link deriveVelocityFields} shape).
+ * @returns {{id:String, metadata:Object, velocityFields:Object}}
+ */
+export function composeUnifiedRecord({level, windowStart, windowEnd, version = 1, sources = {}}) {
+    return buildTemporalSummaryDocument({
+        level,
+        partition     : UNIFIED_PARTITION,
+        windowStart,
+        windowEnd,
+        version,
+        velocityFields: deriveVelocityFields(sources)
+    })
+}
