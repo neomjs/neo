@@ -77,4 +77,85 @@ test.describe('Fleet cockpit AgentCard — resident card composing the class pri
 
         card.destroy()
     });
+
+    test('B4: a control fires one lifecycleIntent {action, agentId} — the forward seam Lane-C (C2) consumes; the card never calls the bridge (#14611)', () => {
+        const card  = createCard({agentId: 'vega', state: 'off'});
+        const fired = [];
+
+        card.on('lifecycleIntent', data => fired.push(data));
+
+        const verbs   = card.down({reference: 'control-verbs'});
+        const toggle  = verbs.items[0];
+        const restart = verbs.items[1];
+        expect(restart.action).toBe('restart');
+
+        // off → the toggle IS start (▶) and restart is hidden (a stopped resident starts via the toggle;
+        // no disabled play beside a redundant restart)
+        expect(toggle.iconCls).toBe('fa-solid fa-play');
+        expect(restart.hidden).toBe(true);
+        card.getController().onToggleLifecycle();
+        expect(fired).toMatchObject([{action: 'start', agentId: 'vega'}]);
+
+        // running → the SAME toggle is now stop (■) and restart appears
+        fired.length = 0;
+        card.setState('state', 'ok');
+        expect(toggle.iconCls).toBe('fa-solid fa-stop');
+        expect(restart.hidden).toBe(false);
+        card.getController().onToggleLifecycle();
+        expect(fired).toMatchObject([{action: 'stop', agentId: 'vega'}]);
+
+        // restart fires restart; the card never calls the bridge — that round-trip is Lane-C (B4÷C2)
+        fired.length = 0;
+        card.getController().onLifecycleIntent({component: restart});
+        expect(fired).toMatchObject([{action: 'restart', agentId: 'vega'}]);
+
+        card.destroy()
+    });
+
+    test('B4 honest state: a pending action disables every verb + renders it pending; a controlReason renders the reason — no optimistic success (#14611)', () => {
+        const card   = createCard({agentId: 'vega', state: 'idle'});
+        const verbs  = () => card.down({reference: 'control-verbs'}).items;
+        const status = () => card.down({reference: 'control-status'});
+
+        // idle + nothing pending: the power toggle is enabled, the status line is hidden
+        expect(verbs()[0].disabled).toBe(false);
+        expect(status().hidden).toBe(true);
+
+        // Lane-C set a verb in flight → controls disabled (no second intent mid-round-trip); pending rendered
+        card.setState('pendingAction', 'restart');
+        expect(verbs().every(button => button.disabled)).toBe(true);
+        expect(status().hidden).toBe(false);
+        expect(status().text).toBe('restart…');
+
+        // Lane-C rejected it → the honest reason renders; never an optimistic success
+        card.setState({controlReason: {action: 'restart', kind: 'rejected', reason: 'harness offline'}, pendingAction: null});
+        expect(status().hidden).toBe(false);
+        expect(status().text).toBe('⚠ rejected: harness offline');
+
+        // a NEW attempt takes visual priority over a stale reason (the clear-on-new-intent nuance, render side)
+        card.setState('pendingAction', 'start');
+        expect(status().text).toBe('start…');
+
+        card.destroy()
+    });
+
+    test('B4 honest state: unauthorized disables the whole cluster with its reason; timeout renders stale-pending with retry still open (#14611)', () => {
+        const card   = createCard({agentId: 'vega', state: 'ok'});
+        const verbs  = () => card.down({reference: 'control-verbs'}).items;
+        const status = () => card.down({reference: 'control-status'});
+
+        // unauthorized (Lane-C denied / bridge unavailable) → the cluster DISABLES with the reason, not a
+        // live button beside a warning: you cannot retry into a closed door (the accepted B4/C2 contract)
+        card.setState({controlReason: {action: 'start', kind: 'unauthorized', reason: 'Fleet Registry bridge unavailable'}, pendingAction: null});
+        expect(verbs().every(button => button.disabled)).toBe(true);
+        expect(status().text).toBe('⚠ unauthorized: Fleet Registry bridge unavailable');
+
+        // timeout → the outcome is UNKNOWN (the verb may still be running, we lost the answer) → stale-pending:
+        // an unfinished "…", NOT a resolved "⚠" failure, and retry stays OPEN (the cluster re-enables)
+        card.setState({controlReason: {action: 'restart', kind: 'timeout', reason: 'restart timed out after 30000ms'}, pendingAction: null});
+        expect(status().text).toBe('restart… stale — no response');
+        expect(verbs()[0].disabled).toBe(false);
+
+        card.destroy()
+    });
 });
