@@ -8,14 +8,12 @@ labels:
   - refactoring
   - core
   - needs-re-triage
-  - not-code-ready
-  - needs-design
 assignees: []
 createdAt: '2026-02-09T12:18:06Z'
-updatedAt: '2026-06-23T03:43:56Z'
+updatedAt: '2026-07-06T13:22:57Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9075'
 author: tobiu
-commentsCount: 1
+commentsCount: 0
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -64,39 +62,4 @@ Following the implementation of `internalId` (#9070) and subsequent fixes for se
 - 2026-06-07T21:42:16Z @neo-gpt cross-referenced by PR #12697
 - 2026-06-07T21:42:18Z @neo-gpt cross-referenced by #12696
 - 2026-06-08T11:19:57Z @neo-opus-grace cross-referenced by #12758
-- 2026-06-23T03:43:38Z @neo-gpt added the `not-code-ready` label
-- 2026-06-23T03:43:38Z @neo-gpt added the `needs-design` label
-- 2026-06-23T03:43:38Z @neo-gpt added the `needs-re-triage` label
-### @neo-gpt - 2026-06-23T03:43:56Z
-
-[ARCH_ALIGNMENT]
-
-Ticket triage + intake classification on 2026-06-23: **real debt, but not code-ready as written**. Preserved open, excluded from branch pickup.
-
-Triage note: per `ticket-triage`, I did **not** add a primary label because the retrospective challenge does not fully pass at the prescription/readiness layer. The premise still has current-source evidence, but the February prescription predates the June View-owned SelectionModel work and needs a refreshed design ledger before implementation.
-
-Evidence checked:
-- Live issue state: #9075 was created/updated on 2026-02-09, has no comments, no assignee, and carries `no auto close`.
-- Stale-band: `.github/workflows/close-inactive-issues.yml` sets stale at 90 days and close 14 days later. At 2026-06-23T03:40:20Z, #9075 is **post-stale-with-exemption** by updatedAt (>104 days) and `no auto close` is present; this requires a full successor/source sweep, not blind pickup.
-- Successor sweep: PR #12784 merged on 2026-06-09 and resolves #12758, replacing per-body cloned SelectionModels with one `grid.View`-owned model across bodies. That is a newer architectural constraint touching `src/grid/Body.mjs`, `src/grid/Container.mjs`, `src/grid/View.mjs`, and `src/selection/grid/*`.
-- Related live tickets still exist: #9492 (open epic, assigned to @tobiu) and #9830 (open) cover multi-body selection behavior; #9872 is already `not-code-ready` + `needs-design` for the broader 3-tier body orchestration.
-- Current source still confirms remaining #9075 debt:
-  - `src/selection/grid/BaseModel.mjs` still distinguishes logical cell IDs with `item.toString().includes('__')`.
-  - `CellColumnModel` and `CellColumnRowModel` still duplicate selected-column change/flush logic.
-  - `CellColumnRowModel -> CellRowModel -> CellModel -> BaseModel` remains the deep inheritance path.
-  - `getActivePeers()` and multiple fan-out callers still exist, but under the shared View-owned model these are now stale/no-op shaped and need deliberate cleanup rather than a blind mixin rewrite.
-
-Required re-entry design before implementation:
-
-| Surface | Decision needed |
-|---|---|
-| Selection model composition | Whether mixins are still the target after #12758, or whether the smaller first slice is dead-peer cleanup + polymorphic `updateBodyRows` only. |
-| `BaseModel.updateRows()` / `updateBodyRows()` | Replacement contract for logical-cell vs row record handling without delimiter parsing. |
-| Column selection behavior | Shared helper/mixin/base path for selected-column flush semantics, with multi-body View-owned rendering preserved. |
-| Public/config compatibility | Guarantee existing `ntype` values and `body.selectionModel` swaps still work after any composition change. |
-| Related topology | Relationship to #9492, #9830, and #9872: which ticket owns behavior, which owns cleanup, and which is superseded. |
-| Evidence | Focused unit coverage around View-owned model sharing, dynamic model swaps, row/cell selection, column selection, and no stale peer fan-out. |
-
-Applied labels: `not-code-ready` + `needs-design` + `needs-re-triage`.
-
 

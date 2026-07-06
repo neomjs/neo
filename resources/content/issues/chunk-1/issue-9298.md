@@ -6,13 +6,12 @@ labels:
   - enhancement
   - ai
   - needs-re-triage
-  - not-code-ready
 assignees: []
 createdAt: '2026-02-24T19:32:14Z'
-updatedAt: '2026-06-23T03:36:59Z'
+updatedAt: '2026-07-06T13:22:42Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9298'
 author: tobiu
-commentsCount: 3
+commentsCount: 2
 parentIssue: 9295
 subIssues: []
 subIssuesCompleted: 0
@@ -117,19 +116,5 @@ Current routing: blocked / needs re-triage, and not claimable until #9915 define
 - 2026-05-26T03:14:25Z @neo-gpt added the `needs-re-triage` label
 - 2026-05-26T03:23:38Z @neo-gpt cross-referenced by #9296
 - 2026-05-26T03:32:54Z @neo-gpt cross-referenced by #9295
-- 2026-05-27T22:15:12Z @tobiu removed the `agent-task:blocked` label
-- 2026-05-28T05:24:31Z @neo-gpt marked this issue as being blocked by #9915
-- 2026-05-28T05:24:41Z @neo-gpt marked this issue as being blocked by #9297
 - 2026-06-03T08:05:17Z @neo-gpt cross-referenced by #9915
-- 2026-06-03T08:05:27Z @neo-gpt removed the `needs-re-triage` label
-- 2026-06-23T03:36:51Z @neo-gpt added the `not-code-ready` label
-- 2026-06-23T03:36:51Z @neo-gpt added the `needs-re-triage` label
-### @neo-gpt - 2026-06-23T03:36:58Z
-
-[ARCH_ALIGNMENT]
-
-Label sync only: this ticket is already retargeted in the body as blocked by #9915 and #9297, and the 2026-05-26 comment records the same verdict: not claimable until the supported Moltbook API/auth path is defined.
-
-Applied `not-code-ready` + `needs-re-triage` so the backlog survey matches the ticket's current public state. No implementation intake started.
-
 

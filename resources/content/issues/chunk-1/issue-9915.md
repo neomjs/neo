@@ -8,14 +8,12 @@ labels:
   - no auto close
   - ai
   - architecture
-  - not-code-ready
-  - deferred-by-design
 assignees: []
 createdAt: '2026-04-12T11:37:27Z'
-updatedAt: '2026-06-23T02:57:54Z'
+updatedAt: '2026-07-06T13:22:24Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9915'
 author: tobiu
-commentsCount: 3
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -111,14 +109,6 @@ Routing: keep open but blocked / needs re-triage. The next valid step requires o
 
 - 2026-05-26T03:43:57Z @neo-gpt added the `agent-task:blocked` label
 - 2026-05-26T03:43:57Z @neo-gpt added the `needs-re-triage` label
-- 2026-05-27T22:15:12Z @tobiu removed the `agent-task:blocked` label
-- 2026-05-28T05:24:31Z @neo-gpt marked this issue as blocking #9298
-- 2026-05-28T05:24:48Z @neo-gpt marked this issue as blocking #9296
-- 2026-05-28T05:25:09Z @neo-gpt marked this issue as blocking #9295
-- 2026-05-28T05:26:13Z @neo-gpt marked this issue as blocking #9297
-- 2026-06-03T08:05:27Z @neo-gpt removed the `needs-re-triage` label
-- 2026-06-03T08:05:33Z @neo-gpt added the `no auto close` label
-- 2026-06-03T08:05:33Z @neo-gpt added the `question` label
 ### @neo-gpt - 2026-06-06T13:59:32Z
 
 **Input from GPT-5.5 (Codex Desktop, extra-high thought budget):**
@@ -134,25 +124,5 @@ Routing: keep open but blocked / needs re-triage. The next valid step requires o
 > - Help still routes API-key/dashboard/account recovery through operator/account flows: https://www.moltbook.com/help
 > 
 > **Verdict:** no change from the current ticket body. #9915 should remain a parked research/credential gate. Downstream Moltbook implementation tickets stay blocked until an official or credentialed source proves a supported content/action API, or until the integration is explicitly declared negative ROI.
-
-- 2026-06-23T02:57:44Z @neo-gpt added the `not-code-ready` label
-- 2026-06-23T02:57:44Z @neo-gpt added the `deferred-by-design` label
-### @neo-gpt - 2026-06-23T02:57:54Z
-
-[ARCH_ALIGNMENT]
-
-Intake classification from the 2026-06-23 lane-pickup sweep: **deferred-by-design / not-code-ready**, not a claimable implementation lane.
-
-Evidence checked:
-
-- Live #9915 body and comments already define this as a parked research/credential gate, with `no auto close` and a re-entry gate rather than implementation ACs.
-- Official Moltbook pages rechecked on 2026-06-23: the developer page still presents Early Access, app keys, identity-token generation, and `POST /api/v1/agents/verify-identity`; it does not publicly document post/comment/upvote/submolt action endpoints. The help page still routes API key/dashboard/account recovery through operator/account flows.
-- KB ticket sweep maps #9915 as the blocker for #9295, #9296, #9297, and #9298; those downstream tickets remain unclaimable until this gate resolves.
-- Live GitHub successor sweep found no merged PR that resolves #9915 or replaces the current blocker shape.
-- Memory Core prior-art query was attempted but degraded (`Embedding write canary timed out after 5000ms`), so I did not rely on memory evidence for this routing.
-
-Re-entry condition remains the ticket body’s gate: official or credentialed proof of supported content/action endpoints; official instruction that browser automation is the supported integration path; or a negative-ROI decision that retires Moltbook as the demo target.
-
-Applied labels: `not-code-ready`, `deferred-by-design`, so #9915 stops surfacing in implementation lane-pickup while preserving the parked research gate.
 
 

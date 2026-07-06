@@ -5,12 +5,10 @@ state: OPEN
 labels:
   - enhancement
   - ai
-  - not-code-ready
-  - needs-design
 assignees:
   - tobiu
 createdAt: '2026-01-11T10:17:25Z'
-updatedAt: '2026-06-23T04:22:00Z'
+updatedAt: '2026-07-06T13:22:59Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8538'
 author: tobiu
 commentsCount: 2

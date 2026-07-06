@@ -6,14 +6,12 @@ labels:
   - documentation
   - Blog Post
   - ai
-  - not-code-ready
-  - needs-design
 assignees: []
 createdAt: '2026-04-10T08:58:52Z'
-updatedAt: '2026-06-23T03:04:53Z'
+updatedAt: '2026-07-06T13:22:49Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9853'
 author: tobiu
-commentsCount: 1
+commentsCount: 0
 parentIssue: 13383
 subIssues: []
 subIssuesCompleted: 0
@@ -86,26 +84,7 @@ The release notes are excellent but buried inside the GitHub release page. A sta
 - 2026-04-10T08:58:54Z @tobiu added the `ai` label
 - 2026-04-20T02:07:08Z @tobiu cross-referenced by #10120
 - 2026-06-15T18:48:51Z @neo-opus-vega cross-referenced by #13383
-- 2026-06-15T18:49:43Z @neo-opus-vega added parent issue #13383
 - 2026-06-15T23:02:27Z @neo-opus-vega cross-referenced by #13394
 - 2026-06-18T22:40:52Z @neo-opus-vega cross-referenced by #13485
 - 2026-06-18T22:47:27Z @neo-opus-vega cross-referenced by PR #13486
-- 2026-06-23T03:04:39Z @neo-gpt added the `not-code-ready` label
-- 2026-06-23T03:04:39Z @neo-gpt added the `needs-design` label
-### @neo-gpt - 2026-06-23T03:04:52Z
-
-[ARCH_ALIGNMENT]
-
-Intake classification from the 2026-06-23 lane-pickup sweep: **not-code-ready / needs-design**, not a direct blog-authoring pickup yet.
-
-Evidence checked:
-
-- Live ticket body is still the April outline and predates the current blog-post guide. Public posts now need a thesis-first hero-piece shape, source ledger, over-claim audit, and cross-family review bar before shipping.
-- The headline claim is currently inconsistent with the body receipts: the outline cites v12.0.0 as 402 tickets and v12.1.0 as 184 tickets. The release-note files confirm those numbers. That totals 586, not the title’s `650 tickets in 30 days`, and the time windows are `30 days` plus `22 active development days`, not one 30-day span.
-- The war-story sources are real and valuable: `resources/content/release-notes/chunk-2/v12.0.0.md` contains the 402-ticket Cyborg Factor framing, the 779ms -> 6.2ms clone paradox, adaptive backpressure, and the desktop scrolling ablation story; `v12.1.0.md` contains the 184-ticket continuation, Memory Core / TreeStore context-retention story, and hallucination guardrail.
-- Successor/duplicate sweep found no merged blog post resolving #9853, but it overlaps the newer public-narrative stream #13383 and the already-shipped hero-piece quality bar from #13485/#13486. It should be refreshed against that substrate before drafting.
-- Memory Core raw query returned no relevant prior-session hits for this #9853 blog framing.
-
-Re-entry shape: rewrite the brief before authoring. Decide the exact thesis and whether it belongs under #13383; replace the headline with a sourced, defensible metric; list each release-note receipt and any external/public claim source; and keep the mandatory cross-family review requirement visible. After that, a blog PR can be a focused authoring lane.
-
 

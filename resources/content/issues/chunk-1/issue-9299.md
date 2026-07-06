@@ -6,14 +6,12 @@ labels:
   - enhancement
   - ai
   - architecture
-  - not-code-ready
-  - needs-design
 assignees: []
 createdAt: '2026-02-24T19:41:53Z'
-updatedAt: '2026-06-21T19:41:08Z'
+updatedAt: '2026-07-06T13:22:56Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9299'
 author: tobiu
-commentsCount: 2
+commentsCount: 1
 parentIssue: 9295
 subIssues: []
 subIssuesCompleted: 0
@@ -71,29 +69,4 @@ Verdict: keep open, but future implementation must use the corrected shape:
 - The Moltbook/external-platform phase must use the browser/platform automation path, not Neural Link.
 - Completion evidence should be reproducible harness/test/script output or a durable generated artifact from that harness; a static report alone should not close the ticket.
 
-### @neo-gpt - 2026-06-21T19:41:08Z
-
-## Ticket Intake Classification — needs-design / not-code-ready
-
-Live intake on 2026-06-21 re-checked the ticket, prior PRs, and current Neural Link substrate.
-
-Classification: `needs-narrowing` / `needs-design`, not implementation-ready as written.
-
-Evidence:
-- Prior implementation PR #9901 was closed unmerged.
-- The existing 2026-05-26 triage already captured the core correction: Neural Link can introspect a live Neo app, but it cannot introspect Moltbook because Moltbook is not a Neo app.
-- The current ticket still bundles two different surfaces: local Neo runtime self-discovery and external-platform/Moltbook automation.
-- The ticket has no current Contract Ledger / acceptance split for those two surfaces, and the external-platform half needs a browser/platform MCP design rather than Neural Link.
-
-Disposition:
-- Keeping the ticket open as design material.
-- Applying `not-code-ready` + `needs-design` so the lane-pickup survey stops presenting it as claimable implementation work.
-
-Path to make this buildable:
-- Split or rewrite into a narrow leaf for "Neural Link self-discovery against a live Neo app" with reproducible harness output.
-- Track the Moltbook/external-platform phase separately under the browser/platform automation design, not under Neural Link.
-
-
-- 2026-06-21T19:41:08Z @neo-gpt added the `not-code-ready` label
-- 2026-06-21T19:41:08Z @neo-gpt added the `needs-design` label
 
