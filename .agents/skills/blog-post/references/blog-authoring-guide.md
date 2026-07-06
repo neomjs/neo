@@ -9,7 +9,7 @@ Fires when you author or revise a public-facing blog post: `learn/blog/<slug>.md
 Lead with the **thesis**, never the volume hook ("we shipped N things" is what a tired engineer downvotes on sight). The release-notes-level shape:
 
 - **TL;DR thesis** — one bold paragraph; the single idea, stated so a skimmer gets the whole bet.
-- **The hook** — the tension the reader already feels, framed in *their* terms, not yours.
+- **The hook** — the tension the reader already feels, framed in *their* terms, not yours. "Their terms" = a *real problem they have*, never a swipe at their tools ("Your AI can't…"). The tension comes from the problem, not from a taunt at the reader (see §3 flavors #4–#5).
 - **The arc** — problem → why the obvious fix falls short → your move → why it holds *by construction*. One claim per section; each section earns the next.
 - **Receipts, not prophecy** — concrete, linked, public evidence (PRs, issues, war stories). Pair the dramatic case with a mundane everyday one — the mundane one convinces harder.
 - **CTA** — the one question the piece leaves the reader holding, plus a single concrete next step. Not a link-dump.
@@ -25,15 +25,19 @@ Every claim about the *outside world* — a competitor, a quote, a statistic, a 
 - **If you can't source it, cut it.** A cut claim costs nothing; an unsourced claim in a verification-themed post is fatal.
 - **Internal claims** (your own PRs, counts, war stories) link to the public record — issue/PR numbers, the release notes — with the metric stated (e.g. "GitHub's count, since the prior release").
 
-## 3. Kill the Three Over-Claim Flavors
+## 3. Kill the Five Over-Claim Flavors
 
-A claim can be literally true yet imply something false. Audit every claim for *implication*, not just literal accuracy. The three flavors #13486's cross-family review surfaced (recounted from the actual cycle — see the Empirical Anchor):
+A claim can be literally true yet imply something false — and a *title* can be accurate yet strike the wrong voice. Audit every claim (and every title) for *implication*, not just literal accuracy. Flavors 1–3 are **factual** over-claims (surfaced by #13486's cross-family review, recounted from the actual cycle — see the Empirical Anchor); flavors 4–5 are **tonal / identity** over-claims (from @tobiu's title feedback, #14877 — the "Your AI…" batch he would not publish):
 
 1. **Unsourced superlative** — "the most / first / fastest X." Source the exact ranking, or soften / cut. (OpenClaw "most stars, fastest ever" — GPT RC'd it as unsourced → cut, then re-added *attributed* to the star-count outlets.)
 2. **Universal quantifier** — "*all* N are X." One counterexample disproves it, and a skeptic will find it. Soften to defensible process framing unless the universal is *genuinely* true. ("all 1,307 PRs cross-reviewed" → "cross-family review the standard for substrate, a human on every merge" — and "a human on every merge" stays universal because it is the actual rule.)
 3. **Misleading fraction / framing** — a correct number that implies a false conclusion. ("129 of 151 tracked items shipped" is accurate but reads *almost done*, while the full system is a major-version horizon away.) Reframe so the *impression* matches reality.
+4. **False-human-author voice (provenance-inversion)** — a second-person "Your AI… / your stack…" title poses as a *human* addressing their tool, hiding that an AI maintainer wrote the post. The byline discloses the author, but the *title* has already set a false frame. Title from *inside* the organism — describe what we built; don't grade the reader's stack. ("Your AI can write the app. It still can't operate the running one." → "Possession, not code-generation: operating a running app from inside it.")
+5. **Competitive put-down** — "X does Y, but *mine* does it better" / gotcha-taunt hooks. Reads like "you have a nice watch, but I have the bigger one" — junior-dev flexing that *undercuts* a serious project. Lead with the strongest substance, stated plainly; let the work carry the confidence. ("Your AI Agent Grades Its Own Homework. Mine Gets Checked by a Rival Lab." → "Cross-family verification: an agent from a rival lab checks our work, in public.")
 
-**The test:** for each claim ask *both* "is it accurate?" and "does the framing imply something I can't defend?" Both must pass.
+**The test (claims):** for each claim ask *both* "is it accurate?" and "does the framing imply something I can't defend?" Both must pass.
+
+**The test (titles) — mechanical:** a title fails if it (a) opens with "Your AI… / Your stack…" (the vendor second-person frame), (b) is shaped "X does Y — but mine does it better" (comparative one-upmanship), or (c) would read as bragging to a senior engineer at a rival lab. Tension stays legal when it comes from a *real problem* in the story ("An AI predicted its own project's future. Ten weeks later, another AI graded it." has drama and zero put-down) — the ban is the swipe at the reader, not the tension.
 
 ## 4. The Cross-Family Review Bar (mandatory)
 
