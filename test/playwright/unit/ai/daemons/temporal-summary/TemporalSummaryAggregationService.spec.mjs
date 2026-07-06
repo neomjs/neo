@@ -47,7 +47,7 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         TemporalSummaryAggregationService.pollIntervalMs = null;
 
         // Drop instance-method seam overrides so the real prototype methods resurface for the next test.
-        for (const seam of ['scheduleNext', 'acquireLease', 'releaseLease', 'collectPendingWindows', 'persistTemporalRecord', 'runCycle', 'resolveAggregationAnchor', 'dailyWindowCount', 'fetchWindowSources']) {
+        for (const seam of ['scheduleNext', 'acquireLease', 'releaseLease', 'collectPendingWindows', 'persistTemporalRecord', 'runCycle', 'resolveAggregationAnchor', 'dailyWindowCount', 'fetchWindowSources', 'fetchDevCommits', 'execCommand']) {
             delete TemporalSummaryAggregationService[seam]
         }
     });
@@ -160,5 +160,21 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         expect(windows[0]).toMatchObject({level: 'daily', windowStart: '2026-07-06T00:00:00.000Z', windowEnd: '2026-07-07T00:00:00.000Z'});
         expect(windows[1].windowStart).toBe('2026-07-05T00:00:00.000Z');
         expect(windows[0].sources.mergedPrs[0].w).toBe('2026-07-06T00:00:00.000Z')
+    });
+
+    test('fetchWindowSources binds devCommits to the dev first-parent window log', async () => {
+        const commands = [];
+
+        TemporalSummaryAggregationService.execCommand = command => { commands.push(command); return 'abc123\ndef456\n' };
+
+        const sources = await TemporalSummaryAggregationService.fetchWindowSources({
+            windowStart: '2026-07-05T00:00:00.000Z',
+            windowEnd  : '2026-07-06T00:00:00.000Z'
+        });
+
+        expect(sources.devCommits).toEqual([{sha: 'abc123'}, {sha: 'def456'}]);
+        expect(commands[0]).toContain('git log --first-parent origin/dev');
+        expect(commands[0]).toContain('--since="2026-07-05T00:00:00.000Z"');
+        expect(commands[0]).toContain('--until="2026-07-06T00:00:00.000Z"')
     })
 });

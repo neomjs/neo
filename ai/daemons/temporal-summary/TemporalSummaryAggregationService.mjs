@@ -10,6 +10,7 @@ import {
     acquireHeavyMaintenanceLeaseSync,
     releaseHeavyMaintenanceLeaseSync
 } from '../orchestrator/services/heavyMaintenanceLeasePrimitives.mjs';
+import {execSync} from 'node:child_process';
 
 /**
  * @summary The heavy-maintenance lease owner label for this lane — the backpressure invariant keys on it
@@ -262,7 +263,32 @@ class TemporalSummaryAggregationService extends Base {
      * @protected
      */
     async fetchWindowSources(window) {
-        return {}
+        return {
+            devCommits: await this.fetchDevCommits(window)
+        }
+    }
+
+    /**
+     * @summary Binds `devCommits` to its named source — the `dev` first-parent commit log over the window.
+     * @param {{windowStart:String, windowEnd:String}} window
+     * @returns {Promise<Array<{sha:String}>>}
+     * @protected
+     */
+    async fetchDevCommits({windowStart, windowEnd}) {
+        const raw = this.execCommand(`git log --first-parent origin/dev --since="${windowStart}" --until="${windowEnd}" --format=%H`);
+
+        return (raw || '').split('\n').filter(Boolean).map(sha => ({sha}))
+    }
+
+    /**
+     * @summary Runs a read-only shell command + returns stdout. The injectable seam behind every source
+     * fetch, so tests drive the fetches with no `gh` / `git` process.
+     * @param {String} command
+     * @returns {String}
+     * @protected
+     */
+    execCommand(command) {
+        return execSync(command, {encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore']})
     }
 
     /**
