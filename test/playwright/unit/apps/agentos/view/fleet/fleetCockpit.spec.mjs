@@ -98,3 +98,29 @@ test.describe('Fleet cockpit — activity feed binding (loadActivity, #14868)', 
         expect(stream.events).toEqual([])
     });
 });
+
+test.describe('Fleet cockpit — whole-fleet control bar (B4, #14611)', () => {
+    let FleetCockpit;
+
+    test.beforeAll(async () => {
+        FleetCockpit = (await import('../../../../../../../apps/agentos/view/fleet/FleetCockpit.mjs')).default
+    });
+
+    test('the ▶ Start bar fires one lifecycleIntent {action:start, scope:fleet} — intent-only, no bridge call', () => {
+        const cockpit = Neo.create(FleetCockpit, {appName: 'FleetCockpitControlBarTest'});
+        const fired   = [];
+
+        cockpit.on('lifecycleIntent', data => fired.push(data));
+
+        // the control bar carries the whole-fleet start button (SSOT §01 "▶ Start morning fleet")
+        expect(cockpit.down({cls: ['fm-cockpit-bar']})).toBeTruthy();
+        expect(cockpit.down({cls: ['fm-fleet-start']})).toBeTruthy();
+
+        // the whole-fleet verb fires ONE intent scoped to the fleet; the cockpit never calls the
+        // bridge — that round-trip is the Lane-C responsibility (the B4/C2 boundary)
+        cockpit.getController().onStartFleet();
+        expect(fired).toEqual([{action: 'start', scope: 'fleet'}]);
+
+        cockpit.destroy()
+    });
+});

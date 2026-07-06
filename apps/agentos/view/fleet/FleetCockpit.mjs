@@ -1,6 +1,8 @@
-import ActivityStream from './ActivityStream.mjs';
-import Container      from '../../../../src/container/Base.mjs';
-import FleetGrid      from './FleetGrid.mjs';
+import ActivityStream         from './ActivityStream.mjs';
+import Button                 from '../../../../src/button/Base.mjs';
+import Container              from '../../../../src/container/Base.mjs';
+import FleetCockpitController from './FleetCockpitController.mjs';
+import FleetGrid              from './FleetGrid.mjs';
 
 /**
  * A representative fleet roster for the fixture-fed cockpit — the live-wire binding to the roster /
@@ -66,24 +68,48 @@ class FleetCockpit extends Container {
          */
         baseCls: ['fm-fleet-cockpit'],
         /**
-         * The SSOT §01 split: the fleet zone (~1.55fr) beside the activity stream (1fr).
-         * @member {Object} layout={ntype:'hbox',align:'stretch'}
+         * Fires the whole-fleet control intent (the SSOT §01 "▶ Start morning fleet"); the Lane-C
+         * round-trip consumes it. See {@link AgentOS.view.fleet.FleetCockpitController}.
+         * @member {Object} controller={module:FleetCockpitController}
+         */
+        controller: {module: FleetCockpitController},
+        /**
+         * Vertical: the whole-fleet control bar over the SSOT §01 fleet/activity split.
+         * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @reactive
          */
-        layout: {ntype: 'hbox', align: 'stretch'},
+        layout: {ntype: 'vbox', align: 'stretch'},
         /**
          * @member {Object[]} items
          */
         items: [{
-            module: FleetGrid,
-            flex  : 1.55,
-            agents: FIXTURE_ROSTER
+            ntype: 'toolbar',
+            cls  : ['fm-cockpit-bar'],
+            flex : 'none',
+            items: ['->', {
+                module : Button,
+                cls    : ['fm-fleet-start'],
+                iconCls: 'fa-solid fa-play',
+                text   : 'Start morning fleet',
+                handler: 'onStartFleet'
+            }]
         }, {
-            module      : ActivityStream,
-            flex        : 1,
-            reference   : 'activity-stream',
-            adapterState: 'sample', // the fixture is a representative sample until the live source is wired
-            events      : FIXTURE_ACTIVITY
+            ntype: 'container',
+            flex : 1,
+            // the SSOT §01 split: the fleet zone (~1.55fr) beside the activity stream (1fr)
+            layout: {ntype: 'hbox', align: 'stretch'},
+
+            items: [{
+                module: FleetGrid,
+                flex  : 1.55,
+                agents: FIXTURE_ROSTER
+            }, {
+                module      : ActivityStream,
+                flex        : 1,
+                reference   : 'activity-stream',
+                adapterState: 'sample', // the fixture is a representative sample until the live source is wired
+                events      : FIXTURE_ACTIVITY
+            }]
         }]
     }
 
