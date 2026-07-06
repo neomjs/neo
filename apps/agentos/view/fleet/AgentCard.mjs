@@ -159,9 +159,11 @@ class AgentCard extends Container {
                 ntype: 'component',
                 cls  : ['fm-card-control-status'],
                 bind : {
-                    text  : data => data.controlReason
-                        ? `⚠ ${data.controlReason.kind}: ${data.controlReason.reason}`
-                        : (data.pendingAction ? `${data.pendingAction}…` : ''),
+                    // pending takes visual priority over a prior reason, so a new attempt never shows a
+                    // stale rejection (complements C2 clearing controlReason on a new accepted intent)
+                    text  : data => data.pendingAction
+                        ? `${data.pendingAction}…`
+                        : (data.controlReason ? `⚠ ${data.controlReason.kind}: ${data.controlReason.reason}` : ''),
                     hidden: data => !data.pendingAction && !data.controlReason
                 }
             }]

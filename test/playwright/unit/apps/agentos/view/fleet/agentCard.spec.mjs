@@ -117,6 +117,10 @@ test.describe('Fleet cockpit AgentCard — resident card composing the class pri
         expect(status().hidden).toBe(false);
         expect(status().text).toBe('⚠ rejected: harness offline');
 
+        // a NEW attempt takes visual priority over a stale reason (the clear-on-new-intent nuance, render side)
+        card.setState('pendingAction', 'start');
+        expect(status().text).toBe('start…');
+
         card.destroy()
     });
 });
