@@ -5,10 +5,10 @@ import FleetCockpitController from './FleetCockpitController.mjs';
 import FleetGrid              from './FleetGrid.mjs';
 
 /**
- * A representative fleet roster for the fixture-fed cockpit — the live-wire binding to the roster /
- * runtime-status services is the sibling leaf; this renders the design SSOT's §01 fleet zone
- * against a realistic snapshot so the mission-control surface is real, not a bare page. Avatars are the
- * public GitHub account images (the `githubAvatarUrl` pattern) so identity reads at a glance.
+ * The seven real cross-family maintainer identities, for the fixture-fed cockpit — the live-wire
+ * binding to the roster / runtime-status services is the sibling leaf that replaces this. Identities +
+ * avatars are real (the `githubAvatarUrl` pattern, so identity reads at a glance); session state +
+ * lane-line are an illustrative snapshot until the live source is wired. NO invented agents.
  * @type {Object[]}
  */
 const FIXTURE_ROSTER = [
@@ -18,8 +18,7 @@ const FIXTURE_ROSTER = [
     {agentId: 'neo-opus-vega',  displayName: 'Vega',      engineTag: 'opus-4.8', family: 'claude', state: 'ok',      avatarUrl: 'https://github.com/neo-opus-vega.png?size=80',  laneLine: 'harness-UI shell + left-rail nav (#14846)'},
     {agentId: 'neo-fable',      displayName: 'Mnemosyne', engineTag: 'fable-5',  family: 'claude', state: 'ok',      avatarUrl: 'https://github.com/neo-fable.png?size=80',      laneLine: 'golden-path direction-velocity writer (#14811)'},
     {agentId: 'neo-fable-clio', displayName: 'Clio',      engineTag: 'fable-5',  family: 'claude', state: 'idle',    avatarUrl: 'https://github.com/neo-fable-clio.png?size=80', laneLine: 'CrossWindowDragTarget docking — awaiting review'},
-    {agentId: 'neo-gemini-pro', displayName: 'Gemini',    engineTag: '3-pro',    family: 'gemini', state: 'off',     avatarUrl: 'https://github.com/neo-gemini-pro.png?size=80', laneLine: 'operator-benched'},
-    {agentId: 'neo-clio-limit', displayName: 'Kepler',    engineTag: 'sonnet-5', family: 'claude', state: 'limited', avatarUrl: 'https://github.com/neomjs.png?size=80',         laneLine: 'rate-limited — resumes ~20:50'}
+    {agentId: 'neo-gemini-pro', displayName: 'Gemini',    engineTag: '3-pro',    family: 'gemini', state: 'off',     avatarUrl: 'https://github.com/neo-gemini-pro.png?size=80', laneLine: 'operator-benched'}
 ];
 
 /**
