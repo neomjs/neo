@@ -20,6 +20,7 @@ import {
     composeUnifiedRecord,
     deriveVelocityFields,
     HIGH_IMPACT_THRESHOLD,
+    planDailyWindows,
     resolveDailyWindow,
     resolvePartitionKeys,
     VELOCITY_FIELD_SOURCES
@@ -158,5 +159,19 @@ test.describe('Neo.ai.services.memory-core.temporalSummaryAggregationEngine', ()
         expect(record.velocityFields.mergedPrs).toBe(2);
         expect(record.velocityFields.highImpactSessions).toBe(1);
         expect(record.id).toContain('temporal-summary-daily-unified-')
+    });
+
+    test('planDailyWindows returns contiguous most-recent-first UTC-day windows, bounded by dayCount', () => {
+        const windows = planDailyWindows({anchor: '2026-07-06T14:00:00.000Z', dayCount: 3});
+
+        expect(windows).toEqual([
+            {windowStart: '2026-07-06T00:00:00.000Z', windowEnd: '2026-07-07T00:00:00.000Z'},
+            {windowStart: '2026-07-05T00:00:00.000Z', windowEnd: '2026-07-06T00:00:00.000Z'},
+            {windowStart: '2026-07-04T00:00:00.000Z', windowEnd: '2026-07-05T00:00:00.000Z'}
+        ]);
+        // contiguous: each window's end is the next-newer window's start
+        expect(windows[1].windowEnd).toBe(windows[0].windowStart);
+        // dayCount coerces to >= 1
+        expect(planDailyWindows({anchor: '2026-07-06T00:00:00.000Z', dayCount: 0})).toHaveLength(1)
     })
 });

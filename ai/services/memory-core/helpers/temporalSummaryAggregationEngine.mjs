@@ -176,3 +176,28 @@ export function composeUnifiedRecord({level, windowStart, windowEnd, version = 1
         velocityFields: deriveVelocityFields(sources)
     })
 }
+
+/**
+ * @summary Plans the most-recent-first daily (L2) windows to aggregate: the UTC day containing `anchor`
+ * plus the preceding `dayCount - 1` days. Bounded + deterministic — the lane plans a fixed trailing batch,
+ * never an unbounded history scan; the service fetches each window's sources + folds them. The returned
+ * windows are contiguous, non-overlapping, and ordered most-recent-first.
+ * @param {Object}      params
+ * @param {String|Date} params.anchor         Instant within the most-recent target day.
+ * @param {Number}      [params.dayCount=7]   Trailing day count to plan (coerced to >= 1).
+ * @returns {Array<{windowStart:String, windowEnd:String}>}
+ */
+export function planDailyWindows({anchor, dayCount = 7} = {}) {
+    const
+        count   = Number.isInteger(dayCount) && dayCount > 0 ? dayCount : 1,
+        windows = [resolveDailyWindow(anchor)];
+
+    for (let i = 1; i < count; i++) {
+        // 1ms before the prior window's start lands in the previous UTC day
+        const previousDayAnchor = new Date(Date.parse(windows[i - 1].windowStart) - 1);
+
+        windows.push(resolveDailyWindow(previousDayAnchor))
+    }
+
+    return windows
+}
