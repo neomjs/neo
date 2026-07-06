@@ -6,7 +6,14 @@ import Controller from '../../../src/controller/Component.mjs';
  */
 class ViewportController extends Controller {
     static config = {
-        className: 'AgentOS.view.ViewportController'
+        className: 'AgentOS.view.ViewportController',
+        routes   : {
+            '/accounts': 'onAccountsRoute',
+            '/chat'    : 'onChatRoute',
+            '/control' : 'onControlRoute',
+            '/fleet'   : 'onFleetRoute',
+            '/home'    : 'onHomeRoute'
+        }
     }
 
     /**
@@ -25,6 +32,54 @@ class ViewportController extends Controller {
                 me.setTheme('neo-theme-neo-dark', false)
             }
         })
+    }
+
+    /**
+     * @summary Activates the shell keeper-view whose header button owns the route.
+     * @param {String} route
+     */
+    activateRoute(route) {
+        let shell = this.getReference('shell'),
+            tab   = shell?.getTabBar()?.items?.find(button => button.route === route);
+
+        if (tab) {
+            shell.activeIndex = tab.index
+        }
+    }
+
+    /**
+     * @summary Activates the Accounts keeper-view from the route.
+     */
+    onAccountsRoute() {
+        this.activateRoute('/accounts')
+    }
+
+    /**
+     * @summary Activates the Chat keeper-view from the route.
+     */
+    onChatRoute() {
+        this.activateRoute('/chat')
+    }
+
+    /**
+     * @summary Activates the Control keeper-view from the route.
+     */
+    onControlRoute() {
+        this.activateRoute('/control')
+    }
+
+    /**
+     * @summary Activates the Fleet keeper-view from the route.
+     */
+    onFleetRoute() {
+        this.activateRoute('/fleet')
+    }
+
+    /**
+     * @summary Activates the Home keeper-view from the route.
+     */
+    onHomeRoute() {
+        this.activateRoute('/home')
     }
 
     /**
