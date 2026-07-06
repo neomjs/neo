@@ -47,7 +47,7 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         TemporalSummaryAggregationService.pollIntervalMs = null;
 
         // Drop instance-method seam overrides so the real prototype methods resurface for the next test.
-        for (const seam of ['scheduleNext', 'acquireLease', 'releaseLease', 'collectPendingWindows', 'persistTemporalRecord', 'runCycle']) {
+        for (const seam of ['scheduleNext', 'acquireLease', 'releaseLease', 'collectPendingWindows', 'persistTemporalRecord', 'runCycle', 'resolveAggregationAnchor', 'dailyWindowCount', 'fetchWindowSources']) {
             delete TemporalSummaryAggregationService[seam]
         }
     });
@@ -147,5 +147,18 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         expect(upserts[0].ids).toEqual([record.id]);
         expect(upserts[0].metadatas).toEqual([record.metadata]);
         expect(JSON.parse(upserts[0].documents[0])).toEqual({mergedPrs: 3})
+    });
+
+    test('collectPendingWindows plans the trailing daily windows + attaches each window fetched sources', async () => {
+        TemporalSummaryAggregationService.resolveAggregationAnchor = () => '2026-07-06T12:00:00.000Z';
+        TemporalSummaryAggregationService.dailyWindowCount         = () => 2;
+        TemporalSummaryAggregationService.fetchWindowSources       = async window => ({mergedPrs: [{w: window.windowStart}]});
+
+        const windows = await TemporalSummaryAggregationService.collectPendingWindows();
+
+        expect(windows).toHaveLength(2);
+        expect(windows[0]).toMatchObject({level: 'daily', windowStart: '2026-07-06T00:00:00.000Z', windowEnd: '2026-07-07T00:00:00.000Z'});
+        expect(windows[1].windowStart).toBe('2026-07-05T00:00:00.000Z');
+        expect(windows[0].sources.mergedPrs[0].w).toBe('2026-07-06T00:00:00.000Z')
     })
 });

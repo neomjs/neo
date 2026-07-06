@@ -2,10 +2,10 @@
 // InstanceManager) lives in `ai/daemons/temporal-summary/daemon.mjs`, following the
 // canonical Orchestrator class+wrapper pattern. `Neo.setupClass(...)` at file bottom
 // uses `globalThis.Neo`, populated by the entry-point bootstrap chain.
-import Base                                    from '../../../src/core/Base.mjs';
-import logger                                  from '../../mcp/server/memory-core/logger.mjs';
-import {composeUnifiedRecord}                  from '../../services/memory-core/helpers/temporalSummaryAggregationEngine.mjs';
-import {Memory_StorageRouter as StorageRouter} from '../../services.mjs';
+import Base                                     from '../../../src/core/Base.mjs';
+import logger                                   from '../../mcp/server/memory-core/logger.mjs';
+import {composeUnifiedRecord, planDailyWindows} from '../../services/memory-core/helpers/temporalSummaryAggregationEngine.mjs';
+import {Memory_StorageRouter as StorageRouter}  from '../../services.mjs';
 import {
     acquireHeavyMaintenanceLeaseSync,
     releaseHeavyMaintenanceLeaseSync
@@ -17,6 +17,13 @@ import {
  * @type {String}
  */
 const LEASE_OWNER = 'temporal-summary-aggregation';
+
+/**
+ * @summary Default trailing daily-window batch per pulse — the bounded, most-recent-first cap the lane
+ * re-aggregates each cycle (recent days are re-folded as their sources settle; older days are frozen).
+ * @type {Number}
+ */
+const DEFAULT_DAILY_WINDOW_COUNT = 7;
 
 /**
  * @summary The temporal-pyramid L1/L2 durable aggregation daemon — the deterministic lane that writes the
@@ -213,7 +220,49 @@ class TemporalSummaryAggregationService extends Base {
      * @protected
      */
     async collectPendingWindows() {
-        return []
+        const
+            anchor   = this.resolveAggregationAnchor(),
+            dayCount = this.dailyWindowCount(),
+            plan     = planDailyWindows({anchor, dayCount});
+
+        return Promise.all(plan.map(async window => ({
+            level      : 'daily',
+            windowStart: window.windowStart,
+            windowEnd  : window.windowEnd,
+            sources    : await this.fetchWindowSources(window)
+        })))
+    }
+
+    /**
+     * @summary The instant the daily-window plan anchors on (the most-recent target day). Overridable seam
+     * so the window plan is deterministic under test.
+     * @returns {String} ISO 8601 UTC.
+     * @protected
+     */
+    resolveAggregationAnchor() {
+        return new Date().toISOString()
+    }
+
+    /**
+     * @summary The trailing daily-window batch size per pulse. Overridable seam.
+     * @returns {Number}
+     * @protected
+     */
+    dailyWindowCount() {
+        return DEFAULT_DAILY_WINDOW_COUNT
+    }
+
+    /**
+     * @summary Fetches one window's source rows (the `deriveVelocityFields` shape) from the six named
+     * substrates — merged PRs, dev commits, sessions, high-impact sessions, decision records, graduations.
+     * The per-substrate reads (`gh` / `git` / Memory Core) land next; the default empty map keeps the lane
+     * honest (it persists true zero-count records) until they do.
+     * @param {{windowStart:String, windowEnd:String}} window
+     * @returns {Promise<Object>}
+     * @protected
+     */
+    async fetchWindowSources(window) {
+        return {}
     }
 
     /**
