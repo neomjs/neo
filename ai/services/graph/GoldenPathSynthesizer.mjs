@@ -1432,10 +1432,13 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
 
         // Graph-analytics companion — kept OUT of the strategic handoff, in a sibling file derived from
         // the resolved handoff path so the debug tables never bloat sandman_handoff.md.
+        // Idempotent like the handoff itself: ALWAYS overwrite, so a prior run's analytics can never
+        // survive as fresh output. On the renderer's empty-string degradation path, write an explicit
+        // current-run degraded marker rather than leaving the stale companion behind.
         const conceptSliceFile = path.join(path.dirname(handoffFile), 'sandman_concept_slice.md');
-        if (conceptSliceSection.trim()) {
-            fs.writeFileSync(conceptSliceFile, `# Concept Slice — Native Edge Graph analytics (companion to sandman_handoff.md)\n${conceptSliceSection.trim()}\n`, 'utf-8');
-        }
+        const conceptSliceBody = conceptSliceSection.trim() ||
+            '_No Concept Slice generated this run (renderer degraded or no graph data)._';
+        fs.writeFileSync(conceptSliceFile, `# Concept Slice — Native Edge Graph analytics (companion to sandman_handoff.md)\n${conceptSliceBody}\n`, 'utf-8');
 
         logger.info(`[GoldenPathSynthesizer] Mathematical Golden Path established. Anchored ${topNodes.length} strategic nodes to frontier.`);
 

@@ -137,6 +137,10 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         if (fs.existsSync(tmpHandoffFile)) {
             try { fs.unlinkSync(tmpHandoffFile); } catch(e) {}
         }
+        const tmpConceptSliceFile = path.join(path.dirname(tmpHandoffFile), 'sandman_concept_slice.md');
+        if (fs.existsSync(tmpConceptSliceFile)) {
+            try { fs.unlinkSync(tmpConceptSliceFile); } catch(e) {}
+        }
     });
 
     test.afterAll(async () => {
@@ -561,6 +565,54 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(handoffContent).not.toContain('### @neo-gpt');
         expect(handoffContent).not.toContain('### @neo-opus-grace');
         expect(handoffContent).not.toContain('stale author-grouped PR entry');
+    });
+
+    test('synthesizeGoldenPath splits the Concept Slice to a fresh idempotent companion, incl. the degraded path (#14885)', async () => {
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const originalFetchOpenPRs         = GoldenPathSynthesizer.fetchOpenPRs;
+        const originalRenderSlice          = GoldenPathSynthesizer.constructor.renderConceptSliceHandoffSection;
+        const issuesDir                    = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-concept-slice-split-'));
+        const companionFile                = path.join(path.dirname(tmpHandoffFile), 'sandman_concept_slice.md');
+        aiConfig.vectorDimension = 2;
+
+        StorageRouter.getGraphCollection   = async () => ({ query: async () => ({ ids: [[]], distances: [[]] }) });
+        StorageRouter.getSummaryCollection = async () => ({ get: async () => ({ documents: ['mock document'] }) });
+        TextEmbeddingService.embedText     = async () => [0.1, 0.2];
+        GoldenPathSynthesizer.fetchOpenPRs = async () => [];
+
+        try {
+            // (1) Normal render: a stale companion must be overwritten with the fresh slice; the handoff excludes it.
+            fs.mkdirSync(path.dirname(tmpHandoffFile), {recursive: true});
+            fs.writeFileSync(companionFile, '# STALE — must NOT survive\n');
+            await GoldenPathSynthesizer.synthesizeGoldenPath({issuesDir});
+
+            const handoff = fs.readFileSync(tmpHandoffFile, 'utf-8');
+            expect(handoff).not.toContain('## Concept Slice');
+            expect(handoff).not.toContain('### Edge Deltas');
+            expect(handoff).not.toContain('### Open Gaps per Concept');
+
+            const companion = fs.readFileSync(companionFile, 'utf-8');
+            expect(companion).toContain('Concept Slice — Native Edge Graph analytics'); // header present in the sibling
+            expect(companion).not.toContain('STALE');                                    // idempotent overwrite
+
+            // (2) Degraded render ('' path): the stale companion is still overwritten with a marker, never left fresh.
+            fs.writeFileSync(companionFile, '# STALE AGAIN — degraded path must overwrite\n');
+            GoldenPathSynthesizer.constructor.renderConceptSliceHandoffSection = () => '';
+            await GoldenPathSynthesizer.synthesizeGoldenPath({issuesDir});
+
+            const degraded = fs.readFileSync(companionFile, 'utf-8');
+            expect(degraded).not.toContain('STALE');
+            expect(degraded).toContain('No Concept Slice generated this run');
+        } finally {
+            GoldenPathSynthesizer.constructor.renderConceptSliceHandoffSection = originalRenderSlice;
+            GoldenPathSynthesizer.fetchOpenPRs = originalFetchOpenPRs;
+            StorageRouter.getGraphCollection   = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection = originalGetSummaryCollection;
+            TextEmbeddingService.embedText     = originalEmbedText;
+            fs.rmSync(issuesDir, {recursive: true, force: true});
+        }
     });
 
     test('synthesizeGoldenPath renders degraded Active PR Cycle State when GitHub PR fetch fails (#13985)', async () => {
