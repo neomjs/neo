@@ -695,6 +695,28 @@ class GoldenPathSynthesizer extends Base {
     }
 
     /**
+     * @summary Fetches Discussions graduated within a window — the last retrospective fact class.
+     * Graduations are Discussion closures carrying a graduation marker in their comments, and
+     * `gh search` does not cover Discussions, so this uses a bounded recency-ordered closed-Discussion
+     * GraphQL query and detects the marker vocabulary. Best-effort, like every sibling reader.
+     * @param {Date} since Lower window bound.
+     * @returns {Promise<Array<{ref: String, headline: String, at: String}>>}
+     */
+    async fetchRecentGraduations(since) {
+        const { execSync }       = await import('child_process');
+        const query              = 'query($owner:String!,$name:String!){repository(owner:$owner,name:$name){discussions(first:30,states:CLOSED,orderBy:{field:UPDATED_AT,direction:DESC}){nodes{number title closedAt comments(last:25){nodes{body}}}}}}';
+        const raw                = execSync(`gh api graphql -f owner=neomjs -f name=neo -f query='${query}'`, {encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore']});
+        const nodes              = JSON.parse(raw)?.data?.repository?.discussions?.nodes || [];
+        const sinceMs            = since.getTime();
+        const GRADUATION_MARKERS = ['[GRADUATED_TO_TICKET]', '[RESOLVED_TO_AC]'];
+
+        return nodes
+            .filter(node => node?.closedAt && Date.parse(node.closedAt) >= sinceMs)
+            .filter(node => (node.comments?.nodes || []).some(c => GRADUATION_MARKERS.some(m => (c?.body || '').includes(m))))
+            .map(node => ({ref: `discussion #${node.number}`, headline: node.title, at: node.closedAt}));
+    }
+
+    /**
      * @summary Assembles + renders the handoff retrospective section (the history leg) from window
      * facts. Static + pure over its inputs: the assembler folds, the render emits — this shim is
      * the synthesizer's stable seam to both, mirroring the computed-GP render shims.
@@ -1324,7 +1346,8 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                 // per-class best-effort: a failing reader drops ITS classes and narrows the
                 // declared label, so coverage is never overstated
                 let closedIssues = [], openedIssues = [], issueClassesLive = false,
-                    sessions     = [], sessionClassLive = false;
+                    sessions     = [], sessionClassLive = false,
+                    graduations  = [], graduationsClassLive = false;
 
                 try {
                     closedIssues = (await this.fetchRecentClosedIssues(windowStart))
@@ -1345,14 +1368,22 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                     logger.warn('[GoldenPathSynthesizer] Retrospective session reader failed — dropping the session class', sessionError);
                 }
 
+                try {
+                    graduations          = await this.fetchRecentGraduations(windowStart);
+                    graduationsClassLive = true;
+                } catch (graduationError) {
+                    logger.warn('[GoldenPathSynthesizer] Retrospective graduations reader failed — dropping the graduations class', graduationError);
+                }
+
                 const coveredClasses = [
                     'merged+opened PRs',
-                    ...(issueClassesLive  ? ['closed+opened issues'] : []),
-                    ...(sessionClassLive  ? ['sessions']             : [])
+                    ...(issueClassesLive     ? ['closed+opened issues'] : []),
+                    ...(sessionClassLive     ? ['sessions']             : []),
+                    ...(graduationsClassLive ? ['graduations']          : [])
                 ];
 
                 retrospectiveAppend = this.constructor.renderHandoffRetrospectiveSection({
-                    facts: {mergedPrs, openedPrs, closedIssues, openedIssues, sessions},
+                    facts: {mergedPrs, openedPrs, closedIssues, openedIssues, graduations, sessions},
                     grain: RETROSPECTIVE_GRAINS.THREE_DAY,
                     now  : capturedAt,
                     // the label names exactly what these counts cover, per class, so the render
