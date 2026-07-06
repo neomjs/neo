@@ -474,6 +474,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const originalFetchRecentClosedIssues = GoldenPathSynthesizer.fetchRecentClosedIssues;
         const originalFetchRecentOpenedIssues = GoldenPathSynthesizer.fetchRecentOpenedIssues;
         const originalFetchRecentSessions     = GoldenPathSynthesizer.fetchRecentSessions;
+        const originalFetchRecentGraduations  = GoldenPathSynthesizer.fetchRecentGraduations;
 
         GoldenPathSynthesizer.fetchOpenPRs            = async () => [];
         GoldenPathSynthesizer.fetchRecentMergedPRs    = async () => [
@@ -481,6 +482,9 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         ];
         GoldenPathSynthesizer.fetchRecentClosedIssues = async () => [];
         GoldenPathSynthesizer.fetchRecentOpenedIssues = async () => [];
+        // graduations reads successfully (empty) — a SURVIVING class, so it stays in the coverage
+        // label; stubbed to keep this unit hermetic (no live Discussions read leaking through)
+        GoldenPathSynthesizer.fetchRecentGraduations  = async () => [];
         // the session READER fails (the enrichment try/catch seam — same class as a Chroma outage)
         GoldenPathSynthesizer.fetchRecentSessions = async () => {
             throw new Error('summary metadata read unavailable');
@@ -494,6 +498,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             GoldenPathSynthesizer.fetchRecentClosedIssues = originalFetchRecentClosedIssues;
             GoldenPathSynthesizer.fetchRecentOpenedIssues = originalFetchRecentOpenedIssues;
             GoldenPathSynthesizer.fetchRecentSessions     = originalFetchRecentSessions;
+            GoldenPathSynthesizer.fetchRecentGraduations  = originalFetchRecentGraduations;
             StorageRouter.getGraphCollection              = originalGetGraphCollection;
             StorageRouter.getSummaryCollection            = originalGetSummaryCollection;
             TextEmbeddingService.embedText                = originalEmbedText;
@@ -503,11 +508,13 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
 
         // the handoff still renders with the surviving classes; the coverage label OMITS sessions
         expect(handoffContent).toContain('## Handoff Retrospective (3-Day');
-        expect(handoffContent).toContain('- Merged PRs: 1 `[filters: merged+opened PRs · closed+opened issues, all authors]`');
+        expect(handoffContent).toContain('- Merged PRs: 1 `[filters: merged+opened PRs · closed+opened issues · graduations, all authors]`');
         expect(handoffContent).not.toContain('· sessions,');
         // the sessions COUNT line still renders (honest 0 under the declared label) — the class
         // is absent from coverage, not silently faked
-        expect(handoffContent).toContain('- Sessions: 0 `[filters: merged+opened PRs · closed+opened issues, all authors]`');
+        expect(handoffContent).toContain('- Sessions: 0 `[filters: merged+opened PRs · closed+opened issues · graduations, all authors]`');
+        // graduations SURVIVES (read succeeded, empty) — present in the coverage label + honest 0 count
+        expect(handoffContent).toContain('- Graduations: 0 `[filters: merged+opened PRs · closed+opened issues · graduations, all authors]`');
     });
 
     test('synthesizeGoldenPath overwrites stale author sections when semantic candidates are empty', async () => {
