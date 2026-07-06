@@ -205,6 +205,10 @@ class FleetGrid extends Container {
     agentCardConfig(agent) {
         return {
             module       : AgentCard,
+            // The card's control cluster fires an intent-only `lifecycleIntent`; this listener resolves
+            // UP the controller chain (card → grid [no controller] → cockpit) to
+            // FleetCockpitController.onAgentLifecycleIntent — the C2 consumer that drives the round-trip.
+            listeners    : {lifecycleIntent: 'onAgentLifecycleIntent'},
             stateProvider: {
                 data: {
                     agentId    : agent?.agentId     ?? null,

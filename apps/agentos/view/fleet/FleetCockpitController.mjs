@@ -1,4 +1,5 @@
-import Controller from '../../../../src/controller/Component.mjs';
+import Controller                   from '../../../../src/controller/Component.mjs';
+import {handleFleetLifecycleIntent} from './fleetLifecycleIntentAdapter.mjs';
 
 /**
  * Controller for {@link AgentOS.view.fleet.FleetCockpit}: the whole-fleet control verb — the design
@@ -29,6 +30,23 @@ class FleetCockpitController extends Controller {
      */
     onStartFleet() {
         this.component.fire('lifecycleIntent', {action: 'start', scope: 'fleet'})
+    }
+
+    /**
+     * @summary Consume a card's `lifecycleIntent` and drive the honest round-trip — the B4÷C2 seam.
+     *
+     * A card's control cluster fires an intent-only `lifecycleIntent {action, agentId}` and never
+     * touches transport. The cockpit is the composition root that knows both the cards and the fleet
+     * bridge: it resolves the firing card from the event `source`, then hands the intent + that card's
+     * `state.Provider` to the C2 adapter (`handleFleetLifecycleIntent`). The adapter calls the registry
+     * bridge and writes honest pending / settled / rejected state back onto the provider the card
+     * renders — never an optimistic success.
+     * @param {Object} data The `lifecycleIntent` payload `{action, agentId, source}` — Neo stamps `source`.
+     */
+    onAgentLifecycleIntent(data) {
+        const card = Neo.getComponent(data.source);
+
+        card && handleFleetLifecycleIntent(data, card.getStateProvider())
     }
 }
 

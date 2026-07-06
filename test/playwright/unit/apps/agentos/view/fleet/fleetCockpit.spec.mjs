@@ -119,4 +119,27 @@ test.describe('Fleet cockpit — whole-fleet control (B4, #14611)', () => {
 
         expect(fired).toEqual([{action: 'start', scope: 'fleet'}])
     });
+
+    test('onAgentLifecycleIntent resolves the firing card + drives the C2 adapter — no bridge → fail-closed onto the card provider, never optimistic', () => {
+        // A card fires intent-only; the cockpit resolves the firing card from the event `source` and
+        // hands it + the card's provider to the adapter. With no registry bridge the adapter fails
+        // closed — an `unauthorized` controlReason lands on the provider, never an optimistic success.
+        delete globalThis.AgentOS;
+
+        const writes   = [],
+              provider = {setData(values) { writes.push(values) }},
+              card     = {getStateProvider: () => provider},
+              origGet  = Neo.getComponent;
+
+        Neo.getComponent = id => id === 'fm-card-x' ? card : null;
+
+        try {
+            const controller = Object.create(FleetCockpitController.prototype);
+            controller.onAgentLifecycleIntent({action: 'start', agentId: 'vega', source: 'fm-card-x'})
+        } finally {
+            Neo.getComponent = origGet
+        }
+
+        expect(writes.some(write => write.controlReason?.kind === 'unauthorized')).toBe(true)
+    });
 });
