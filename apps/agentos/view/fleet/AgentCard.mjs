@@ -64,13 +64,15 @@ class AgentCard extends Container {
         stateProvider: {
             module: StateProvider,
             data  : {
-                agentId    : null,
-                avatarUrl  : null,
-                displayName: null,
-                engineTag  : null,
-                family     : null,
-                laneLine   : null,
-                state      : 'off'
+                agentId      : null,
+                avatarUrl    : null,
+                controlReason: null, // {action, kind, reason} of the last reject/unauthorized/timeout, set by Lane-C
+                displayName  : null,
+                engineTag    : null,
+                family       : null,
+                laneLine     : null,
+                pendingAction: null, // the verb whose lifecycle round-trip is in flight, set by Lane-C; null when settled
+                state        : 'off'
             }
         },
         /**
@@ -124,26 +126,44 @@ class AgentCard extends Container {
             ntype : 'container',
             cls   : ['fm-card-controls'],
             flex  : 'none',
-            layout: {ntype: 'hbox', align: 'center'},
+            layout: {ntype: 'vbox', align: 'stretch'},
 
             items: [{
-                module : Button,
-                action : 'start',
-                iconCls: 'fa-solid fa-play',
-                handler: 'onLifecycleIntent',
-                bind   : {disabled: data => data.state === 'ok'}
+                ntype : 'container',
+                cls   : ['fm-card-control-verbs'],
+                layout: {ntype: 'hbox', align: 'center'},
+
+                items: [{
+                    module : Button,
+                    action : 'start',
+                    iconCls: 'fa-solid fa-play',
+                    handler: 'onLifecycleIntent',
+                    bind   : {disabled: data => data.pendingAction !== null || data.state === 'ok'}
+                }, {
+                    module : Button,
+                    action : 'stop',
+                    iconCls: 'fa-solid fa-stop',
+                    handler: 'onLifecycleIntent',
+                    bind   : {disabled: data => data.pendingAction !== null || data.state === 'off'}
+                }, {
+                    module : Button,
+                    action : 'restart',
+                    iconCls: 'fa-solid fa-rotate',
+                    handler: 'onLifecycleIntent',
+                    bind   : {disabled: data => data.pendingAction !== null || data.state === 'off'}
+                }]
             }, {
-                module : Button,
-                action : 'stop',
-                iconCls: 'fa-solid fa-stop',
-                handler: 'onLifecycleIntent',
-                bind   : {disabled: data => data.state === 'off'}
-            }, {
-                module : Button,
-                action : 'restart',
-                iconCls: 'fa-solid fa-rotate',
-                handler: 'onLifecycleIntent',
-                bind   : {disabled: data => data.state === 'off'}
+                // Honest round-trip state: Lane-C sets pendingAction + controlReason on the provider (per
+                // the B4/C2 contract); the card only RENDERS them — a verb stays pending until C2 settles,
+                // and a rejection/unauthorized shows its reason. No optimistic success.
+                ntype: 'component',
+                cls  : ['fm-card-control-status'],
+                bind : {
+                    text  : data => data.controlReason
+                        ? `⚠ ${data.controlReason.kind}: ${data.controlReason.reason}`
+                        : (data.pendingAction ? `${data.pendingAction}…` : ''),
+                    hidden: data => !data.pendingAction && !data.controlReason
+                }
             }]
         }]
     }

@@ -84,15 +84,38 @@ test.describe('Fleet cockpit AgentCard — resident card composing the class pri
 
         card.on('lifecycleIntent', data => fired.push(data));
 
-        // the per-agent controls slot composes the start / stop / restart verb buttons, in order
-        const controls = card.down({cls: ['fm-card-controls']});
-        expect(controls).toBeTruthy();
-        expect(controls.items.map(button => button.action)).toEqual(['start', 'stop', 'restart']);
+        // the controls slot composes the verb row (start / stop / restart), in order
+        const verbs = card.down({cls: ['fm-card-control-verbs']});
+        expect(verbs).toBeTruthy();
+        expect(verbs.items.map(button => button.action)).toEqual(['start', 'stop', 'restart']);
 
         // a control fires ONE intent carrying the verb + the durable agentId; the card itself never
         // calls the fleet bridge — that round-trip is the Lane-C responsibility (the B4÷C2 boundary)
-        card.getController().onLifecycleIntent({component: controls.items[2]});
+        card.getController().onLifecycleIntent({component: verbs.items[2]});
         expect(fired).toEqual([{action: 'restart', agentId: 'vega'}]);
+
+        card.destroy()
+    });
+
+    test('B4 honest state: a pending action disables every verb + renders it pending; a controlReason renders the reason — no optimistic success (#14611)', () => {
+        const card   = createCard({agentId: 'vega', state: 'idle'});
+        const verbs  = () => card.down({cls: ['fm-card-control-verbs']}).items;
+        const status = () => card.down({cls: ['fm-card-control-status']});
+
+        // idle + nothing pending: start is available, the status line is hidden
+        expect(verbs().find(button => button.action === 'start').disabled).toBe(false);
+        expect(status().hidden).toBe(true);
+
+        // Lane-C set a verb in flight → EVERY verb disabled (no second intent mid-round-trip); pending rendered
+        card.setState('pendingAction', 'restart');
+        expect(verbs().every(button => button.disabled)).toBe(true);
+        expect(status().hidden).toBe(false);
+        expect(status().text).toBe('restart…');
+
+        // Lane-C rejected it → the honest reason renders; never an optimistic success
+        card.setState({controlReason: {action: 'restart', kind: 'rejected', reason: 'harness offline'}, pendingAction: null});
+        expect(status().hidden).toBe(false);
+        expect(status().text).toBe('⚠ rejected: harness offline');
 
         card.destroy()
     });
