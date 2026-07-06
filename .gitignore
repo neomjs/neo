@@ -129,6 +129,7 @@ test-results/
 
 # Autonomous AI Output files
 resources/content/sandman_handoff.md
+resources/content/sandman_concept_slice.md
 
 # Agent Harness Scratch Artifacts (Issue #11563)
 .gemini/*
