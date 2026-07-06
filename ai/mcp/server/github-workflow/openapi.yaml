@@ -861,7 +861,8 @@ paths:
                   type: object
                   additionalProperties:
                     type: string
-                  description: Optional reviewer-login to disposition map for consciously approving over live `CHANGES_REQUESTED` reviews after applying pr-review §9.1. Only used for `action: create` + `state: APPROVED`; dispositions must be `addressed-by-<current-head-sha>` or `superior-evidence: <specific evidence>`.
+                  description: |
+                    Optional reviewer-login to disposition map for consciously approving over live `CHANGES_REQUESTED` reviews after applying pr-review §9.1. Only used for `action: create` + `state: APPROVED`; dispositions must be `addressed-by-<current-head-sha>` or `superior-evidence: <specific evidence>`.
                   example:
                     neo-gpt: "addressed-by-abc1234"
       responses:
