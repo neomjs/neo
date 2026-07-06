@@ -46,4 +46,10 @@
         white-space  : nowrap;
         text-overflow: ellipsis;
     }
+
+    .fm-card-controls {
+        flex       : none;
+        gap        : 2px;
+        align-items: center;
+    }
 }

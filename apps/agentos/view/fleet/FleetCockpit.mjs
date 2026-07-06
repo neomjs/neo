@@ -95,6 +95,7 @@ class FleetCockpit extends Container {
             }]
         }, {
             ntype: 'container',
+            cls  : ['fm-cockpit-body'],
             flex : 1,
             // the SSOT §01 split: the fleet zone (~1.55fr) beside the activity stream (1fr)
             layout: {ntype: 'hbox', align: 'stretch'},
