@@ -555,6 +555,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
     let originalQuery;
 
     const PR_NODE_ID  = 'PR_kwDOABcD9999999999';
+    const PR_HEAD_OID = 'abcdef1234567890abcdef1234567890abcdef12';
     const REVIEW_NODE = {
         id         : 'PRR_kwDOABcD1111111111',
         url        : 'https://github.com/neomjs/neo/pull/11273#pullrequestreview-12345',
@@ -562,6 +563,13 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         submittedAt: '2026-05-13T00:00:00Z',
         databaseId : 12345
     };
+    const pullRequestNode = (overrides = {}) => ({
+        id            : PR_NODE_ID,
+        headRefOid    : PR_HEAD_OID,
+        reviewDecision: 'APPROVED',
+        reviews       : {nodes: []},
+        ...overrides
+    });
 
     // Compact review body that passes BOTH layers of the tool-boundary template-anchor validator:
     // - VISIBLE layer: the 7 evaluation-metric tags from pr-review-template.md / pr-review-followup-template.md
@@ -714,7 +722,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         // Tests override per-case via reassigning GraphqlService.query.
         GraphqlService.query = async (queryString) => {
             if (queryString.includes('GetPullRequestId')) {
-                return {repository: {pullRequest: {id: PR_NODE_ID}}};
+                return {repository: {pullRequest: pullRequestNode()}};
             }
 
             if (queryString.includes('AddPullRequestReview')) {
@@ -805,7 +813,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         let graphqlCallCount = 0;
         GraphqlService.query = async () => {
             graphqlCallCount++;
-            return {repository: {pullRequest: {id: PR_NODE_ID}}};
+            return {repository: {pullRequest: pullRequestNode()}};
         };
 
         const result = await PullRequestService.managePrReview({
@@ -838,12 +846,156 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         expect(result.databaseId).toBe(12345);
     });
 
+    test('#14534: action:create + state:APPROVED rejects over outstanding current-head CHANGES_REQUESTED', async () => {
+        let mutationCallCount = 0;
+
+        GraphqlService.query = async (queryString) => {
+            if (queryString.includes('GetPullRequestId')) {
+                return {
+                    repository: {
+                        pullRequest: {
+                            id            : PR_NODE_ID,
+                            headRefOid    : PR_HEAD_OID,
+                            reviewDecision: 'CHANGES_REQUESTED',
+                            reviews       : {
+                                nodes: [{
+                                    state      : 'CHANGES_REQUESTED',
+                                    submittedAt: '2026-07-03T01:34:00Z',
+                                    url        : 'https://github.com/neomjs/neo/pull/14527#pullrequestreview-1',
+                                    databaseId : 1,
+                                    author     : {login: 'neo-gpt'},
+                                    commit     : {oid: PR_HEAD_OID}
+                                }, {
+                                    state      : 'COMMENTED',
+                                    submittedAt: '2026-07-03T02:00:00Z',
+                                    url        : 'https://github.com/neomjs/neo/pull/14527#pullrequestreview-2',
+                                    databaseId : 2,
+                                    author     : {login: 'neo-gpt'},
+                                    commit     : {oid: PR_HEAD_OID}
+                                }]
+                            }
+                        }
+                    }
+                };
+            }
+
+            if (queryString.includes('AddPullRequestReview')) {
+                mutationCallCount++;
+                return {addPullRequestReview: {pullRequestReview: REVIEW_NODE}};
+            }
+
+            return null;
+        };
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 14527,
+            state    : 'APPROVED',
+            body     : VALID_REVIEW_BODY
+        });
+
+        expect(result.error).toBe('PR Review State Validation Failed');
+        expect(result.code).toBe('PR_REVIEW_STATE_VALIDATION_FAILED');
+        expect(result.message).toContain('@neo-gpt');
+        expect(result.message).toContain(PR_HEAD_OID);
+        expect(result.message).toContain('pr-review §9.1 Reviewer-Yield');
+        expect(result.outstandingRequestChanges.map(({reviewer}) => reviewer)).toEqual(['neo-gpt']);
+        expect(mutationCallCount).toBe(0);
+    });
+
+    test('#14534: action:create + state:APPROVED accepts complete current-head acknowledgment', async () => {
+        let capturedVariables;
+
+        GraphqlService.query = async (queryString, variables) => {
+            if (queryString.includes('GetPullRequestId')) {
+                return {
+                    repository: {
+                        pullRequest: {
+                            id            : PR_NODE_ID,
+                            headRefOid    : PR_HEAD_OID,
+                            reviewDecision: 'CHANGES_REQUESTED',
+                            reviews       : {
+                                nodes: [{
+                                    state      : 'CHANGES_REQUESTED',
+                                    submittedAt: '2026-07-03T01:34:00Z',
+                                    url        : 'https://github.com/neomjs/neo/pull/14527#pullrequestreview-1',
+                                    databaseId : 1,
+                                    author     : {login: 'neo-gpt'},
+                                    commit     : {oid: PR_HEAD_OID}
+                                }]
+                            }
+                        }
+                    }
+                };
+            }
+
+            if (queryString.includes('AddPullRequestReview')) {
+                capturedVariables = variables;
+                return {addPullRequestReview: {pullRequestReview: REVIEW_NODE}};
+            }
+
+            return null;
+        };
+
+        const result = await PullRequestService.managePrReview({
+            acknowledgedRequestChanges: {
+                'neo-gpt': `addressed-by-${PR_HEAD_OID.slice(0, 12)}`
+            },
+            action   : 'create',
+            pr_number: 14527,
+            state    : 'APPROVED',
+            body     : VALID_REVIEW_BODY
+        });
+
+        expect(result.error).toBeUndefined();
+        expect(capturedVariables.event).toBe('APPROVE');
+        expect(result.state).toBe('APPROVED');
+    });
+
+    test('#14534: action:create + state:APPROVED rejects stale acknowledgment', async () => {
+        GraphqlService.query = async (queryString) => {
+            if (queryString.includes('GetPullRequestId')) {
+                return {
+                    repository: {
+                        pullRequest: {
+                            id            : PR_NODE_ID,
+                            headRefOid    : PR_HEAD_OID,
+                            reviewDecision: 'CHANGES_REQUESTED',
+                            reviews       : {
+                                nodes: [{
+                                    state : 'CHANGES_REQUESTED',
+                                    author: {login: 'neo-gpt'},
+                                    commit: {oid: PR_HEAD_OID}
+                                }]
+                            }
+                        }
+                    }
+                };
+            }
+
+            throw new Error('review mutation must not run');
+        };
+
+        const result = await PullRequestService.managePrReview({
+            acknowledgedRequestChanges: {
+                'neo-gpt': 'addressed-by-deadbee'
+            },
+            action   : 'create',
+            pr_number: 14527,
+            state    : 'APPROVED',
+            body     : VALID_REVIEW_BODY
+        });
+
+        expect(result.code).toBe('PR_REVIEW_STATE_VALIDATION_FAILED');
+        expect(result.message).toContain('Invalid acknowledgment disposition(s): @neo-gpt');
+    });
+
     test('action:create + state:REQUEST_CHANGES → state enum maps to REQUEST_CHANGES event', async () => {
         // Mock returns CHANGES_REQUESTED state to mirror real GitHub semantics
         // (event REQUEST_CHANGES → review state CHANGES_REQUESTED).
         let capturedVariables;
         GraphqlService.query = async (queryString, variables) => {
-            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: {id: PR_NODE_ID}}};
+            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: pullRequestNode()}};
             if (queryString.includes('AddPullRequestReview')) {
                 capturedVariables = variables;
                 return {addPullRequestReview: {pullRequestReview: {...REVIEW_NODE, state: 'CHANGES_REQUESTED'}}};
@@ -867,7 +1019,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
     test('action:create + state:COMMENT → state enum maps to COMMENT event', async () => {
         let capturedVariables;
         GraphqlService.query = async (queryString, variables) => {
-            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: {id: PR_NODE_ID}}};
+            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: pullRequestNode()}};
             if (queryString.includes('AddPullRequestReview')) {
                 capturedVariables = variables;
                 return {addPullRequestReview: {pullRequestReview: {...REVIEW_NODE, state: 'COMMENTED'}}};
@@ -1023,7 +1175,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         let graphqlCallCount = 0;
         GraphqlService.query = async () => {
             graphqlCallCount++;
-            return {repository: {pullRequest: {id: PR_NODE_ID}}};
+            return {repository: {pullRequest: pullRequestNode()}};
         };
 
         const result = await PullRequestService.managePrReview({
@@ -1083,7 +1235,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         let graphqlCallCount = 0;
         GraphqlService.query = async () => {
             graphqlCallCount++;
-            return {repository: {pullRequest: {id: PR_NODE_ID}}};
+            return {repository: {pullRequest: pullRequestNode()}};
         };
 
         const result = await PullRequestService.managePrReview({
@@ -1148,7 +1300,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         let graphqlCallCount = 0;
         GraphqlService.query = async () => {
             graphqlCallCount++;
-            return {repository: {pullRequest: {id: PR_NODE_ID}}};
+            return {repository: {pullRequest: pullRequestNode()}};
         };
 
         const result = await PullRequestService.managePrReview({
@@ -1169,7 +1321,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         let graphqlCallCount = 0;
         GraphqlService.query = async (queryString) => {
             graphqlCallCount++;
-            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: {id: PR_NODE_ID}}};
+            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: pullRequestNode()}};
             if (queryString.includes('AddPullRequestReview')) return {addPullRequestReview: {pullRequestReview: REVIEW_NODE}};
             return null;
         };
@@ -1190,7 +1342,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         let graphqlCallCount = 0;
         GraphqlService.query = async (queryString) => {
             graphqlCallCount++;
-            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: {id: PR_NODE_ID}}};
+            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: pullRequestNode()}};
             if (queryString.includes('AddPullRequestReview')) return {addPullRequestReview: {pullRequestReview: REVIEW_NODE}};
             return null;
         };
@@ -1214,7 +1366,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         let graphqlCallCount = 0;
         GraphqlService.query = async () => {
             graphqlCallCount++;
-            return {repository: {pullRequest: {id: PR_NODE_ID}}};
+            return {repository: {pullRequest: pullRequestNode()}};
         };
 
         const result = await PullRequestService.managePrReview({
@@ -1239,7 +1391,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         let graphqlCallCount = 0;
         GraphqlService.query = async () => {
             graphqlCallCount++;
-            return {repository: {pullRequest: {id: PR_NODE_ID}}};
+            return {repository: {pullRequest: pullRequestNode()}};
         };
 
         const result = await PullRequestService.managePrReview({
@@ -1316,7 +1468,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         let graphqlCallCount = 0;
         GraphqlService.query = async (queryString) => {
             graphqlCallCount++;
-            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: {id: PR_NODE_ID}}};
+            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: pullRequestNode()}};
             if (queryString.includes('AddPullRequestReview')) return {addPullRequestReview: {pullRequestReview: REVIEW_NODE}};
             return null;
         };
@@ -1340,7 +1492,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
             .replace('**Class:** micro — a one-line doc typo fix', '**Class:** a one-line doc typo fix');
 
         let graphqlCallCount = 0;
-        GraphqlService.query = async () => { graphqlCallCount++; return {repository: {pullRequest: {id: PR_NODE_ID}}}; };
+        GraphqlService.query = async () => { graphqlCallCount++; return {repository: {pullRequest: pullRequestNode()}}; };
 
         const result = await PullRequestService.managePrReview({
             action   : 'create',
@@ -1369,7 +1521,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         let graphqlCallCount = 0;
         GraphqlService.query = async () => {
             graphqlCallCount++;
-            return {repository: {pullRequest: {id: PR_NODE_ID}}};
+            return {repository: {pullRequest: pullRequestNode()}};
         };
 
         const result = await PullRequestService.managePrReview({
@@ -1426,7 +1578,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         let graphqlCallCount = 0;
         GraphqlService.query = async (queryString) => {
             graphqlCallCount++;
-            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: {id: PR_NODE_ID}}};
+            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: pullRequestNode()}};
             if (queryString.includes('AddPullRequestReview')) return {addPullRequestReview: {pullRequestReview: REVIEW_NODE}};
             return null;
         };
@@ -1450,7 +1602,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         let graphqlCallCount = 0;
         GraphqlService.query = async (queryString) => {
             graphqlCallCount++;
-            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: {id: PR_NODE_ID}}};
+            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: pullRequestNode()}};
             if (queryString.includes('AddPullRequestReview')) return {addPullRequestReview: {pullRequestReview: REVIEW_NODE}};
             return null;
         };
@@ -1482,7 +1634,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         let graphqlCallCount = 0;
         GraphqlService.query = async () => {
             graphqlCallCount++;
-            return {repository: {pullRequest: {id: PR_NODE_ID}}};
+            return {repository: {pullRequest: pullRequestNode()}};
         };
 
         const body = [
@@ -1540,7 +1692,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         let graphqlCallCount = 0;
         GraphqlService.query = async (queryString) => {
             graphqlCallCount++;
-            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: {id: PR_NODE_ID}}};
+            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: pullRequestNode()}};
             if (queryString.includes('AddPullRequestReview')) return {addPullRequestReview: {pullRequestReview: REVIEW_NODE}};
             return null;
         };

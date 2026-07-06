@@ -18,6 +18,8 @@ const execAsync                        = promisify(exec);
 const execFileAsync                    = promisify(execFile);
 const PR_REVIEW_TEMPLATE_PATH          = '.agents/skills/pr-review/assets/pr-review-template.md';
 const PR_REVIEW_FOLLOWUP_TEMPLATE_PATH = '.agents/skills/pr-review/assets/pr-review-followup-template.md';
+const ACKNOWLEDGED_RC_ADDRESSED_PREFIX = 'addressed-by-';
+const ACKNOWLEDGED_RC_EVIDENCE_PREFIX  = 'superior-evidence:';
 
 const FULL_PR_REVIEW_TEMPLATE_SKELETON_LABELS = [
     'PR Review Summary',
@@ -571,6 +573,127 @@ function getPrReviewTemplateValidationFailure(body, options) {
         : getCanonicalPrReviewTemplateValidationFailure(body, options);
 }
 
+function isPlainObject(value) {
+    return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function getReviewSubmittedMs(review) {
+    const time = Date.parse(review?.submittedAt || '');
+
+    return Number.isFinite(time) ? time : 0
+}
+
+function isAcknowledgedRequestChangesDisposition(value, headRefOid) {
+    if (typeof value !== 'string') return false;
+
+    const disposition = value.trim();
+
+    if (disposition.startsWith(ACKNOWLEDGED_RC_EVIDENCE_PREFIX)) {
+        return disposition.slice(ACKNOWLEDGED_RC_EVIDENCE_PREFIX.length).trim().length > 0
+    }
+
+    if (!disposition.startsWith(ACKNOWLEDGED_RC_ADDRESSED_PREFIX)) return false;
+
+    const sha = disposition.slice(ACKNOWLEDGED_RC_ADDRESSED_PREFIX.length).trim();
+
+    return /^[0-9a-f]{7,40}$/i.test(sha) && headRefOid.startsWith(sha)
+}
+
+/**
+ * @summary Finds current-head request-changes reviews that have not been superseded by the same reviewer.
+ * GitHub review comments do not clear a formal `CHANGES_REQUESTED`; only a later approving, dismissed,
+ * or request-changes review from the same reviewer changes the disposition this gate consumes.
+ * @param {Object} pullRequest PR GraphQL node including `headRefOid` and `reviews.nodes`.
+ * @returns {Object[]|null} Outstanding reviewer records, or `null` when the live-state shape is incomplete.
+ */
+function getOutstandingRequestChanges(pullRequest) {
+    const
+        headRefOid = pullRequest?.headRefOid,
+        reviews    = pullRequest?.reviews?.nodes;
+
+    if (!Array.isArray(reviews) || !headRefOid) return null;
+
+    const latestByReviewer = new Map();
+
+    [...reviews]
+        .filter(review => review?.author?.login && review?.commit?.oid === headRefOid)
+        .sort((a, b) => getReviewSubmittedMs(a) - getReviewSubmittedMs(b))
+        .forEach(review => {
+            if (['APPROVED', 'CHANGES_REQUESTED', 'DISMISSED'].includes(review.state)) {
+                latestByReviewer.set(review.author.login, review)
+            }
+        });
+
+    return [...latestByReviewer.values()]
+        .filter(review => review.state === 'CHANGES_REQUESTED')
+        .map(review => ({
+            reviewer   : review.author.login,
+            state      : review.state,
+            commitOid  : review.commit?.oid,
+            submittedAt: review.submittedAt,
+            url        : review.url,
+            databaseId : review.databaseId
+        }))
+}
+
+/**
+ * @summary Builds the fail-closed response for APPROVED reviews over live request-changes state.
+ * The MCP boundary requires explicit reviewer-keyed acknowledgments so approval intent cannot erase an
+ * unaddressed `CHANGES_REQUESTED` review by body-template validity alone.
+ * @param {Object} options Validation options.
+ * @param {Object} [options.acknowledgedRequestChanges] Reviewer-login to disposition map.
+ * @param {Number} options.pr_number Pull request number.
+ * @param {Object} options.pullRequest PR GraphQL node including review state.
+ * @returns {Object|null} Structured validation failure, or `null` when approval can proceed.
+ */
+function getPrReviewStateValidationFailure({acknowledgedRequestChanges, pr_number, pullRequest}) {
+    const headRefOid = pullRequest?.headRefOid,
+          reviews    = pullRequest?.reviews?.nodes;
+
+    if (!headRefOid || !Array.isArray(reviews)) {
+        return {
+            error  : 'PR Review State Validation Failed',
+            message: `Cannot validate live review state for PR #${pr_number}; GitHub did not return headRefOid + review nodes. Refusing to submit APPROVED review.`,
+            code   : 'PR_REVIEW_STATE_VALIDATION_FAILED'
+        }
+    }
+
+    const outstanding = getOutstandingRequestChanges(pullRequest);
+
+    if (!outstanding?.length) return null;
+
+    const ack     = isPlainObject(acknowledgedRequestChanges) ? acknowledgedRequestChanges : null,
+          missing = outstanding
+              .map(({reviewer}) => reviewer)
+              .filter(reviewer => !ack || !Object.hasOwn(ack, reviewer)),
+          invalid = ack
+              ? outstanding
+                  .map(({reviewer}) => reviewer)
+                  .filter(reviewer => Object.hasOwn(ack, reviewer) && !isAcknowledgedRequestChangesDisposition(ack[reviewer], headRefOid))
+              : [];
+
+    if (!missing.length && !invalid.length) return null;
+
+    const reviewerList = outstanding
+        .map(({reviewer, submittedAt, url}) => `@${reviewer}${submittedAt ? ` at ${submittedAt}` : ''}${url ? ` (${url})` : ''}`)
+        .join(', ');
+
+    return {
+        error  : 'PR Review State Validation Failed',
+        message: [
+            `Cannot create APPROVED review on PR #${pr_number} while current head ${headRefOid} has outstanding CHANGES_REQUESTED review(s): ${reviewerList}.`,
+            `Before retrying, follow pr-review §9.1 Reviewer-Yield: either address the request-changes at the current head or provide superior empirical evidence.`,
+            `Pass acknowledgedRequestChanges as an object mapping each RC reviewer login to '${ACKNOWLEDGED_RC_ADDRESSED_PREFIX}${headRefOid.slice(0, 12)}' or '${ACKNOWLEDGED_RC_EVIDENCE_PREFIX} <specific evidence>'.`,
+            missing.length ? `Missing acknowledgment(s): ${missing.map(reviewer => `@${reviewer}`).join(', ')}.` : null,
+            invalid.length ? `Invalid acknowledgment disposition(s): ${invalid.map(reviewer => `@${reviewer}`).join(', ')}.` : null
+        ].filter(Boolean).join(' '),
+        code: 'PR_REVIEW_STATE_VALIDATION_FAILED',
+        headRefOid,
+        reviewDecision: pullRequest.reviewDecision,
+        outstandingRequestChanges: outstanding
+    }
+}
+
 function normalizeCheckoutOptions(options) {
     if (typeof options === 'number') {
         return {pr_number: options};
@@ -1043,11 +1166,12 @@ class PullRequestService extends Base {
      * @param {String} [options.state]          Review state (required for `create`): `APPROVED` | `REQUEST_CHANGES` | `COMMENT`.
      * @param {String} options.body             The review body.
      * @param {String} [options.review_id]      The GraphQL node ID of the existing review (required for `update`; PRR_*).
+     * @param {Object} [options.acknowledgedRequestChanges] Reviewer-login → disposition map required when approving over live `CHANGES_REQUESTED`.
      * @returns {Promise<Object>} Review payload on success (`{message, reviewId, state, url, submittedAt, databaseId?}`) or structured error.
      *
      * @see Neo.ai.services.github-workflow.queries.mutations.ADD_PULL_REQUEST_REVIEW
      */
-    async managePrReview({action, pr_number, state, body, review_id}) {
+    async managePrReview({acknowledgedRequestChanges, action, pr_number, state, body, review_id}) {
         if (!['create', 'update'].includes(action)) {
             return {
                 error  : 'Bad Request',
@@ -1109,6 +1233,18 @@ class PullRequestService extends Base {
                         message: `Pull request #${pr_number} not found or returned no id.`,
                         code   : 'PR_NOT_FOUND'
                     };
+                }
+
+                if (event === 'APPROVE') {
+                    const stateValidationFailure = getPrReviewStateValidationFailure({
+                        acknowledgedRequestChanges,
+                        pr_number,
+                        pullRequest: idData?.repository?.pullRequest
+                    });
+
+                    if (stateValidationFailure) {
+                        return stateValidationFailure
+                    }
                 }
 
                 const reviewData = await GraphqlService.query(ADD_PULL_REQUEST_REVIEW, {
