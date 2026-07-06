@@ -2212,6 +2212,21 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const noState = GoldenPathSynthesizer.constructor.buildDeclaredIntentFallback();
         expect(noState).toContain('unattributed');
         expect(noState).not.toContain('REM-starved');
+
+        // Diagnostic-envelope safety: a FAILED axis projects a fallback 0/[] plus an axisErrors marker,
+        // which must NOT become an asserted cause. A failed `digested` axis (fallback 0) reads as unknown
+        // → UNATTRIBUTED, never a confident COLD_START.
+        const degradedDigested = GoldenPathSynthesizer.constructor.buildDeclaredIntentFallback(
+            {digested: 0, undigested: 0, recentCycles: [{outcome: 'completed'}], axisErrors: {digested: 'timeout'}});
+        expect(degradedDigested).toContain('unattributed');
+        expect(degradedDigested).not.toContain('cold-start');
+
+        // A failed recent-cycle read (fallback []) must NOT produce REM_STALLED from the sentinel; the
+        // measured digested backlog still resolves it honestly to FRONTIER_UNANCHORED.
+        const degradedCycles = GoldenPathSynthesizer.constructor.buildDeclaredIntentFallback(
+            {undigested: 40, digested: 100, recentCycles: [], axisErrors: {recentCycles: 'read-failed'}});
+        expect(degradedCycles).not.toContain('REM consolidation stalled');
+        expect(degradedCycles).toContain('frontier unanchored');
     });
 });
 

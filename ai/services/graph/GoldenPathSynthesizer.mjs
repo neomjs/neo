@@ -458,13 +458,16 @@ class GoldenPathSynthesizer extends Base {
         }
 
         // Attribute the MEASURED frontier-empty cause (honest-states) from the caller-supplied REM
-        // pipeline state: this method runs BECAUSE the anchor is empty, and undigested + recent-cycle
-        // counts let the classifier distinguish REM_STALLED (backlog, no recent cycle) from a merely
-        // FRONTIER_UNANCHORED anchor. A missing/partial remState degrades to the honest UNATTRIBUTED phrase.
-        const cause = classifyFrontierEmptyCause({
-            digested           : remState.digested,
-            undigested         : remState.undigested,
-            recentCycleCount   : Array.isArray(remState.recentCycles) ? remState.recentCycles.length : undefined,
+        // pipeline state. get_rem_pipeline_state is an operator-facing DIAGNOSTIC envelope: a failed axis
+        // projects a fallback 0 / [] plus an `axisErrors` marker. Those sentinels must NOT become asserted
+        // GP causes — a failed axis reads as unknown (undefined) so the classifier degrades to UNATTRIBUTED
+        // rather than a confident COLD_START / REM_STALLED from a fallback value.
+        const axisErrors = remState.axisErrors || {};
+        const cause      = classifyFrontierEmptyCause({
+            digested        : axisErrors.digested     ? undefined : remState.digested,
+            undigested      : axisErrors.undigested   ? undefined : remState.undigested,
+            recentCycleCount: axisErrors.recentCycles ? undefined
+                               : (Array.isArray(remState.recentCycles) ? remState.recentCycles.length : undefined),
             frontierAnchorEmpty: true
         });
 

@@ -722,20 +722,26 @@ export async function buildRemPipelineState({sessionId, axisTimeoutMs = aiConfig
                   .filter(([, error]) => error)
           );
 
-    const recentCycles = await resolveRemBlock('recentCycles', async () => {
+    // Tracked inline (not via resolveRemBlock's silent fallback) so a failed cycle read is marked in
+    // axisErrors below — a fallback [] must never masquerade as a measured empty cycle window downstream.
+    let recentCycles = [], recentCyclesError;
+    try {
         const entries = await readRecentRemRunStates({
             dir  : aiConfig.remRunStateDir,
             limit: aiConfig.remRunRecentLimit
         });
 
-        return entries.map(entry => ({
+        recentCycles = entries.map(entry => ({
             runId              : entry.runId,
             wallClockMs        : entry.wallClockMs,
             cycleOverflowSignal: entry.cycleOverflowSignal,
             cycleOverflowRatio : entry.cycleOverflowRatio,
             outcome            : entry.outcome
         }));
-    }, []);
+    } catch (e) {
+        logger.warn('[HealthService] get_rem_pipeline_state block recentCycles failed:', e?.message ?? e);
+        recentCyclesError = e;
+    }
 
     const state = {
         undigested,
@@ -744,6 +750,10 @@ export async function buildRemPipelineState({sessionId, axisTimeoutMs = aiConfig
         topologyConflicts,
         recentCycles
     };
+
+    if (recentCyclesError) {
+        axisErrors.recentCycles = recentCyclesError;
+    }
 
     if (Object.keys(axisErrors).length) {
         state.axisErrors = axisErrors;
