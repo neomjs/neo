@@ -212,13 +212,19 @@ Before an implementation `[lane-claim]`: `preBriefSession({ticket})` (+ `query_r
 
 ## 3. Author Pickup Matrix
 
-After posting review-response fixups and the author-side commentId handoff, the
-author MUST choose one of these next states before ending the turn:
+The author-side RC-response is **one atomic step, not three optional** (#14735);
+fixup commits alone do NOT discharge it:
+
+1. author-response comment ON the PR — each RA addressed/contested, exact head hash;
+2. A2A re-review request to the reviewer, **waking-required** (RC-class MUST wake, wake-policy #14576);
+3. only then lane-state moves off `own-pr-changes`.
+
+Then choose one of these next states before ending the turn:
 
 | Author state after response | Next pickup target |
 |---|---|
-| Fixup commits pushed and re-review requested | Start the next assigned ticket, draft the next ready PR, file the follow-up ticket discovered during the response, or review a separate PR if that is the current lane. |
-| Current PR still blocks all local work | That blocks only that lane; survey lifecycle, backlog, tech-debt, and ideation surfaces until a next lane is selected. "No independent lane assigned" with an unqueried broader backlog is NOT a terminal. |
+| RC-response discharged (all three above) | Start the next assigned ticket, draft the next ready PR, file the follow-up ticket discovered during the response, or review a separate PR if that is the current lane. |
+| Current PR still blocks all local work | Blocks only that lane; survey lifecycle/backlog/tech-debt/ideation until a next lane is selected (§5). "No independent lane assigned" + unqueried backlog is NOT a terminal. |
 | Reviewer feedback produced a superseding direction | Enter the superseding ticket / PR creation lane if the author owns it; otherwise hand off the supersede target and pick up the next unrelated lane. |
 
 ## 4. Author-Concentration Detector (Telemetry)
