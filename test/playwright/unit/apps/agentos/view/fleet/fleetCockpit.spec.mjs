@@ -106,18 +106,31 @@ test.describe('Fleet cockpit — whole-fleet control (B4, #14611)', () => {
         FleetCockpitController = (await import('../../../../../../../apps/agentos/view/fleet/FleetCockpitController.mjs')).default
     });
 
-    test('onStartFleet fires one lifecycleIntent {action:start, scope:fleet} — intent-only, no bridge call', () => {
-        // Controller-level isolation: the full FleetCockpit composes FleetGrid → the card wall, too heavy
-        // to instantiate bare (the loadActivity specs above mock for the same reason). onStartFleet reads
-        // no state — it just fires the fleet-scoped verb — so a spy component pins the emit precisely.
-        const fired      = [];
+    test('onStartFleet fans out start to every resident card via the C2 adapter (fold skipped; no bridge → fail-closed per card, never optimistic)', () => {
+        // The morning-start button drives the round-trip directly (the cockpit owns the wire): it
+        // enumerates the rendered cards — the collapsed-idle fold is filtered by ntype — and dispatches a
+        // start intent + each card's provider to the adapter. No bridge → each card takes an honest
+        // `unauthorized` controlReason, never an optimistic fleet-wide success.
+        delete globalThis.AgentOS;
+
+        const mkCard = agentId => {
+            const writes   = [],
+                  provider = {setData(values) { writes.push(values) }, getData: key => key === 'agentId' ? agentId : null};
+            return {ntype: 'fm-agent-card', writes, getStateProvider: () => provider}
+        };
+
+        const vega = mkCard('neo-opus-vega'),
+              ada  = mkCard('neo-opus-ada'),
+              fold = {ntype: 'component'}; // the collapsed-idle fold — no provider, must be skipped
+
         const controller = Object.create(FleetCockpitController.prototype);
 
-        controller.component = {fire(name, data) { if (name === 'lifecycleIntent') fired.push(data) }};
+        controller.getReference = name => name === 'fleet-cards' ? {items: [vega, fold, ada]} : null;
 
         controller.onStartFleet();
 
-        expect(fired).toEqual([{action: 'start', scope: 'fleet'}])
+        expect(vega.writes.some(write => write.controlReason?.kind === 'unauthorized')).toBe(true);
+        expect(ada.writes.some(write => write.controlReason?.kind === 'unauthorized')).toBe(true)
     });
 
     test('onAgentLifecycleIntent resolves the firing card + drives the C2 adapter — no bridge → fail-closed onto the card provider, never optimistic', () => {

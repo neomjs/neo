@@ -2,12 +2,16 @@ import Controller                   from '../../../../src/controller/Component.m
 import {handleFleetLifecycleIntent} from './fleetLifecycleIntentAdapter.mjs';
 
 /**
- * Controller for {@link AgentOS.view.fleet.FleetCockpit}: the whole-fleet control verb — the design
- * SSOT §01 "▶ Start morning fleet", the one-click morning start. Like the per-card
- * {@link AgentOS.view.fleet.AgentCardController}, it fires a lifecycle **intent** and stops there; the
- * cockpit→lifecycle round-trip is the Lane-C seam (per the accepted B4÷C2 cut — controls stay
- * intent-only). A whole-fleet intent carries `scope: 'fleet'` instead of an `agentId`, so the one
- * consumer distinguishes a fleet-wide fan-out from a single resident's verb.
+ * Controller for {@link AgentOS.view.fleet.FleetCockpit} — the cockpit is the **composition root** of
+ * the B4÷C2 seam: the one place that knows both the resident cards and the fleet bridge, so the wire
+ * lives here (the cards themselves stay intent-only and never touch transport).
+ *
+ * Two entry points, both driving the C2 adapter (`handleFleetLifecycleIntent`) → the registry bridge →
+ * honest per-card round-trip state, never an optimistic success:
+ * - `onAgentLifecycleIntent` — catches a single card's `lifecycleIntent` (resolved up the controller
+ *   chain via the card's listener) and dispatches it for that card.
+ * - `onStartFleet` — the design SSOT §01 "▶ Start morning fleet" one-click: fans `start` out to every
+ *   rendered card, so each resident drives its own honest round-trip.
  *
  * @class AgentOS.view.fleet.FleetCockpitController
  * @extends Neo.controller.Component
@@ -22,14 +26,30 @@ class FleetCockpitController extends Controller {
     }
 
     /**
-     * @summary Fires the whole-fleet start intent (the one-click morning start).
+     * @summary The one-click morning start — fan `start` out to every resident card via the C2 adapter.
      *
-     * Intent-only: fires one `lifecycleIntent {action: 'start', scope: 'fleet'}` on the cockpit and
-     * never calls the fleet bridge itself — the round-trip + honest settlement are the Lane-C
-     * responsibility (the B4÷C2 boundary).
+     * The cockpit owns the wire (the cards stay intent-only): it enumerates the rendered cards and hands
+     * each a `start` intent + that card's `state.Provider` to `handleFleetLifecycleIntent`, so every
+     * resident drives its own honest round-trip (pending → settled / rejected), never an optimistic
+     * fleet-wide success. Starting an already-running resident is the bridge's concern; the per-card
+     * honest state reflects whatever actually happens.
      */
     onStartFleet() {
-        this.component.fire('lifecycleIntent', {action: 'start', scope: 'fleet'})
+        this.getAgentCards().forEach(card => {
+            const provider = card.getStateProvider();
+
+            handleFleetLifecycleIntent({action: 'start', agentId: provider.getData('agentId')}, provider)
+        })
+    }
+
+    /**
+     * @summary The rendered resident cards — the fleet grid's card region (a no-controller container, so
+     * its `fleet-cards` reference resolves up to this controller); the collapsed-idle fold and the header
+     * sub-tree are excluded by ntype.
+     * @returns {Neo.component.Base[]}
+     */
+    getAgentCards() {
+        return (this.getReference('fleet-cards')?.items ?? []).filter(card => card.ntype === 'fm-agent-card')
     }
 
     /**

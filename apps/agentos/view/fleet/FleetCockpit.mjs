@@ -67,8 +67,9 @@ class FleetCockpit extends Container {
          */
         baseCls: ['fm-fleet-cockpit'],
         /**
-         * Fires the whole-fleet control intent (the SSOT §01 "▶ Start morning fleet"); the Lane-C
-         * round-trip consumes it. See {@link AgentOS.view.fleet.FleetCockpitController}.
+         * The B4÷C2 composition root: catches each card's `lifecycleIntent` and the whole-fleet
+         * "▶ Start morning fleet" click, driving both through the C2 adapter to honest per-card
+         * round-trip state. See {@link AgentOS.view.fleet.FleetCockpitController}.
          * @member {Neo.controller.Component} controller=FleetCockpitController
          */
         controller: FleetCockpitController,
