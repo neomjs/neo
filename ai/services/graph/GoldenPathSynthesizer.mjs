@@ -704,7 +704,7 @@ class GoldenPathSynthesizer extends Base {
      */
     async fetchRecentGraduations(since) {
         const { execSync }       = await import('child_process');
-        const query              = 'query($owner:String!,$name:String!){repository(owner:$owner,name:$name){discussions(first:30,states:CLOSED,orderBy:{field:UPDATED_AT,direction:DESC}){nodes{number title closedAt comments(last:25){nodes{body}}}}}}';
+        const query              = 'query($owner:String!,$name:String!){repository(owner:$owner,name:$name){discussions(first:50,states:CLOSED,orderBy:{field:UPDATED_AT,direction:DESC}){nodes{number title closedAt comments(last:25){nodes{body}}}}}}';
         const raw                = execSync(`gh api graphql -f owner=neomjs -f name=neo -f query='${query}'`, {encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore']});
         const nodes              = JSON.parse(raw)?.data?.repository?.discussions?.nodes || [];
         const sinceMs            = since.getTime();
