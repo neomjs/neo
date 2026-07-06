@@ -3,13 +3,14 @@ import { test, expect } from '../../fixtures.mjs';
 /**
  * Whitebox-e2e for "release a tab into a NEW target drop zone" — the cross-zone gesture beyond the
  * within-container reorder. Dragging a tab header OUT of its tabs node and dropping it over a DIFFERENT
- * zone relocates the item in the committed dockZone.v1 document (a semantic `moveItem` to the target
- * tabs node).
+ * zone relocates the item in the committed dockZone.v1 document.
  *
  * The gesture rides the existing tab-header drag lifecycle: `Neo.dashboard.DockTabSortZone` fires a
- * `dockCrossZoneDrop` on its tab.Container on drop; the owner reducer hit-tests the rendered zone under
- * the pointer and commits the `moveItem`. This slice commits the model move DIRECTLY from the hit-test —
- * the `dockPreview.v1` hover-affordance producer + `previewToOperation` rendering path is a follow-up leaf.
+ * `dockCrossZoneDrop` on its tab.Container on drop; the owner routes the release point + dragged item
+ * through the `dockPreview.v1` producer → `previewToOperation` → `applyDockZoneOperation` pipeline.
+ * An interior drop resolves to `tab-into` (an `addTab` that downgrades to `moveItem` for an in-tree item);
+ * the edge/split placements the same pipeline emits are unit-pinned in `DockPreviewProducer.spec` (the
+ * `produce → previewToOperation → applyOperation` deterministic pipeline test).
  *
  * Run: npx playwright test dashboard/DockCrossZoneDragNL -c test/playwright/playwright.config.e2e.mjs --workers=1
  */
@@ -58,7 +59,7 @@ test.describe('Dock cross-zone drag journey (Neural Link)', () => {
         const targetNode = tabsNodeHolding(after, 'strategy');
         console.log('[cross-zone] strategy:', sourceNode, '->', targetNode, '| terminal-tabs items:', JSON.stringify(after?.nodes?.['terminal-tabs']?.items));
 
-        // worker truth: the drop must have relocated strategy OUT of main-tabs INTO terminal-tabs
+        // worker truth: the drop relocated strategy OUT of main-tabs INTO terminal-tabs through the producer pipeline
         expect(targetNode, 'the cross-zone drop must move strategy to the Terminal zone — the producer contract')
             .toBe('terminal-tabs');
     });
