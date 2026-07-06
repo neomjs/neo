@@ -98,3 +98,61 @@ test.describe('Fleet cockpit — activity feed binding (loadActivity, #14868)', 
         expect(stream.events).toEqual([])
     });
 });
+
+test.describe('Fleet cockpit — whole-fleet control (B4, #14611)', () => {
+    let FleetCockpitController;
+
+    test.beforeAll(async () => {
+        FleetCockpitController = (await import('../../../../../../../apps/agentos/view/fleet/FleetCockpitController.mjs')).default
+    });
+
+    test('onStartFleet fans out start to every resident card via the C2 adapter (fold skipped; no bridge → fail-closed per card, never optimistic)', () => {
+        // The morning-start button drives the round-trip directly (the cockpit owns the wire): it
+        // enumerates the rendered cards — the collapsed-idle fold is filtered by ntype — and dispatches a
+        // start intent + each card's provider to the adapter. No bridge → each card takes an honest
+        // `unauthorized` controlReason, never an optimistic fleet-wide success.
+        delete globalThis.AgentOS;
+
+        const mkCard = agentId => {
+            const writes   = [],
+                  provider = {setData(values) { writes.push(values) }, getData: key => key === 'agentId' ? agentId : null};
+            return {ntype: 'fm-agent-card', writes, getStateProvider: () => provider}
+        };
+
+        const vega = mkCard('neo-opus-vega'),
+              ada  = mkCard('neo-opus-ada'),
+              fold = {ntype: 'component'}; // the collapsed-idle fold — no provider, must be skipped
+
+        const controller = Object.create(FleetCockpitController.prototype);
+
+        controller.getReference = name => name === 'fleet-cards' ? {items: [vega, fold, ada]} : null;
+
+        controller.onStartFleet();
+
+        expect(vega.writes.some(write => write.controlReason?.kind === 'unauthorized')).toBe(true);
+        expect(ada.writes.some(write => write.controlReason?.kind === 'unauthorized')).toBe(true)
+    });
+
+    test('onAgentLifecycleIntent resolves the firing card + drives the C2 adapter — no bridge → fail-closed onto the card provider, never optimistic', () => {
+        // A card fires intent-only; the cockpit resolves the firing card from the event `source` and
+        // hands it + the card's provider to the adapter. With no registry bridge the adapter fails
+        // closed — an `unauthorized` controlReason lands on the provider, never an optimistic success.
+        delete globalThis.AgentOS;
+
+        const writes   = [],
+              provider = {setData(values) { writes.push(values) }},
+              card     = {getStateProvider: () => provider},
+              origGet  = Neo.getComponent;
+
+        Neo.getComponent = id => id === 'fm-card-x' ? card : null;
+
+        try {
+            const controller = Object.create(FleetCockpitController.prototype);
+            controller.onAgentLifecycleIntent({action: 'start', agentId: 'vega', source: 'fm-card-x'})
+        } finally {
+            Neo.getComponent = origGet
+        }
+
+        expect(writes.some(write => write.controlReason?.kind === 'unauthorized')).toBe(true)
+    });
+});

@@ -115,6 +115,18 @@ function expectMinimalLifecyclePayload(request) {
     expect(JSON.stringify(request.params)).not.toMatch(/credential|pat|token/i)
 }
 
+/**
+ * @summary The lifecycle bridge calls only. Since the Fleet cockpit became the default keeper-view, its
+ * always-on activity stream (`FleetCockpit.loadActivity` -> `fleetActivity`) fires a read-observe poll on
+ * boot. That poll is orthogonal to a lifecycle verb and must not be counted when asserting that a
+ * Control-panel click crosses the wire as exactly one minimal lifecycle operation.
+ * @param {Object[]} requests
+ * @returns {Object[]}
+ */
+function lifecycleRequestsOnly(requests) {
+    return requests.filter(request => ['startAgent', 'stopAgent', 'restartAgent'].includes(request.method))
+}
+
 test.describe('AgentOS Fleet cockpit lifecycle controls (Neural Link)', () => {
     test.setTimeout(90000);
 
@@ -166,8 +178,9 @@ test.describe('AgentOS Fleet cockpit lifecycle controls (Neural Link)', () => {
 
             const row = await getAgentRow(sessionId, storeId, TEST_AGENT_ID);
             expect(row.statusText).toBe(`Agent ${TEST_AGENT_ID} → running.`);
-            expect(fleet.requests).toHaveLength(1);
-            expectMinimalLifecyclePayload(fleet.requests[0])
+            const lifecycle = lifecycleRequestsOnly(fleet.requests);
+            expect(lifecycle).toHaveLength(1);
+            expectMinimalLifecyclePayload(lifecycle[0])
         } finally {
             await fleet.close()
         }
@@ -197,8 +210,9 @@ test.describe('AgentOS Fleet cockpit lifecycle controls (Neural Link)', () => {
 
             const row = await getAgentRow(sessionId, storeId, TEST_AGENT_ID);
             expect(row.statusText).toBe('fleet: start rejected by test bridge');
-            expect(fleet.requests).toHaveLength(1);
-            expectMinimalLifecyclePayload(fleet.requests[0])
+            const lifecycle = lifecycleRequestsOnly(fleet.requests);
+            expect(lifecycle).toHaveLength(1);
+            expectMinimalLifecyclePayload(lifecycle[0])
         } finally {
             await fleet.close()
         }

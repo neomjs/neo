@@ -1,8 +1,10 @@
-import Container     from '../../../../src/container/Base.mjs';
-import FamilyRail    from './FamilyRail.mjs';
-import Image         from '../../../../src/component/Image.mjs';
-import StateDot      from './StateDot.mjs';
-import StateProvider from '../../../../src/state/Provider.mjs';
+import AgentCardController from './AgentCardController.mjs';
+import Button              from '../../../../src/button/Base.mjs';
+import Container           from '../../../../src/container/Base.mjs';
+import FamilyRail          from './FamilyRail.mjs';
+import Image               from '../../../../src/component/Image.mjs';
+import StateDot            from './StateDot.mjs';
+import StateProvider       from '../../../../src/state/Provider.mjs';
 
 /**
  * The resident card: the cockpit's atom. Composes the class-based fleet primitives (FamilyRail +
@@ -43,6 +45,12 @@ class AgentCard extends Container {
          */
         baseCls: ['fm-agent-card'],
         /**
+         * Turns the controls-slot buttons into a single `lifecycleIntent` event (the B4 emit); the
+         * Lane C (C2) round-trip consumes it. See {@link AgentOS.view.fleet.AgentCardController}.
+         * @member {Neo.controller.Component} controller=AgentCardController
+         */
+        controller: AgentCardController,
+        /**
          * @member {Object} layout={ntype:'hbox',align:'stretch'}
          * @reactive
          */
@@ -56,19 +64,22 @@ class AgentCard extends Container {
         stateProvider: {
             module: StateProvider,
             data  : {
-                agentId    : null,
-                avatarUrl  : null,
-                displayName: null,
-                engineTag  : null,
-                family     : null,
-                laneLine   : null,
-                state      : 'off'
+                agentId      : null,
+                avatarUrl    : null,
+                controlReason: null, // {action, kind, reason} of the last reject/unauthorized/timeout, set by Lane-C
+                displayName  : null,
+                engineTag    : null,
+                family       : null,
+                laneLine     : null,
+                pendingAction: null, // the verb whose lifecycle round-trip is in flight, set by Lane-C; null when settled
+                state        : 'off'
             }
         },
         /**
          * The card anatomy — family rail · avatar · body (name-row [state dot + name + engine tag] +
-         * current-lane line). Each child binds to the per-card provider. Controls slot (T5) + foot
-         * meta are sibling leaves.
+         * current-lane line) · controls slot (start/stop/restart → a single `lifecycleIntent` event
+         * for the Lane C round-trip). Each child binds to the per-card provider; foot meta is a
+         * sibling leaf.
          * @member {Object[]} items
          */
         items: [{
@@ -110,6 +121,72 @@ class AgentCard extends Container {
                 ntype: 'component',
                 cls  : ['fm-card-lane'],
                 bind : {text: data => data.laneLine}
+            }]
+        }, {
+            ntype : 'container',
+            cls   : ['fm-card-controls'],
+            flex  : 'none',
+            layout: {ntype: 'vbox', align: 'stretch'},
+
+            items: [{
+                ntype    : 'container',
+                cls      : ['fm-card-control-verbs'],
+                reference: 'control-verbs',
+                layout   : {ntype: 'hbox', align: 'center'},
+
+                items: [{
+                    // ONE power toggle — start when off, stop when running. Only one of the two is ever
+                    // valid for a given state, so we render the contextual action; a disabled play on a
+                    // running resident (or a disabled stop on a stopped one) is bloat, not safety.
+                    module : Button,
+                    handler: 'onToggleLifecycle',
+                    bind   : {
+                        disabled: data => Boolean(data.pendingAction) || data.controlReason?.kind === 'unauthorized',
+                        iconCls : data => data.state === 'off' ? 'fa-solid fa-play' : 'fa-solid fa-stop'
+                    }
+                }, {
+                    // restart is meaningful only while running — a stopped resident starts via the toggle
+                    module : Button,
+                    action : 'restart',
+                    iconCls: 'fa-solid fa-rotate',
+                    handler: 'onLifecycleIntent',
+                    bind   : {
+                        disabled: data => Boolean(data.pendingAction) || data.controlReason?.kind === 'unauthorized',
+                        hidden  : data => data.state === 'off'
+                    }
+                }]
+            }, {
+                // Honest round-trip state per the B4/C2 contract — the card RENDERS what Lane-C writes,
+                // never fakes success, and each terminal kind renders DISTINCTLY:
+                //   unauthorized → the reason shows AND the cluster stays disabled (see the verb binds) —
+                //                  you cannot retry into a closed door;
+                //   timeout      → stale-pending: the outcome is UNKNOWN (the verb may still be running,
+                //                  we just lost the answer), so it reads as an unfinished "…", not a
+                //                  resolved "⚠" failure, and retry stays open;
+                //   rejected     → the "⚠ reason" with retry open.
+                ntype    : 'component',
+                cls      : ['fm-card-control-status'],
+                reference: 'control-status',
+                bind     : {
+                    // pending takes visual priority over a prior reason, so a new attempt never shows a
+                    // stale rejection (complements C2 clearing controlReason on a new accepted intent)
+                    text  : data => {
+                        if (data.pendingAction) {
+                            return `${data.pendingAction}…`
+                        }
+
+                        const reason = data.controlReason;
+
+                        if (!reason) {
+                            return ''
+                        }
+
+                        return reason.kind === 'timeout'
+                            ? `${reason.action}… stale — no response`
+                            : `⚠ ${reason.kind}: ${reason.reason}`
+                    },
+                    hidden: data => !data.pendingAction && !data.controlReason
+                }
             }]
         }]
     }

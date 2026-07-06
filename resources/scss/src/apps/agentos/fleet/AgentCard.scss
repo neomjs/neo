@@ -46,4 +46,19 @@
         white-space  : nowrap;
         text-overflow: ellipsis;
     }
+
+    .fm-card-controls {
+        flex: none;
+        gap : 2px;
+    }
+
+    .fm-card-control-verbs {
+        gap        : 2px;
+        align-items: center;
+    }
+
+    .fm-card-control-status {
+        font-size: 10px;
+        color    : var(--fm-ink-dim);
+    }
 }
