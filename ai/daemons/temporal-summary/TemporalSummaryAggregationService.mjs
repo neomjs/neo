@@ -264,7 +264,8 @@ class TemporalSummaryAggregationService extends Base {
      */
     async fetchWindowSources(window) {
         return {
-            devCommits: await this.fetchDevCommits(window)
+            devCommits        : await this.fetchDevCommits(window),
+            sandboxesGraduated: await this.fetchSandboxesGraduated(window)
         }
     }
 
@@ -278,6 +279,29 @@ class TemporalSummaryAggregationService extends Base {
         const raw = this.execCommand(`git log --first-parent origin/dev --since="${windowStart}" --until="${windowEnd}" --format=%H`);
 
         return (raw || '').split('\n').filter(Boolean).map(sha => ({sha}))
+    }
+
+    /**
+     * @summary Binds `sandboxesGraduated` to its named source — closed Discussions carrying a graduation
+     * marker, window-filtered by `closedAt`. Best-effort, bounded recency query (the same reader family the
+     * handoff retrospective uses).
+     * @param {{windowStart:String, windowEnd:String}} window
+     * @returns {Promise<Array<{ref:String, headline:String, at:String}>>}
+     * @protected
+     */
+    async fetchSandboxesGraduated({windowStart, windowEnd}) {
+        const
+            query   = 'query($owner:String!,$name:String!){repository(owner:$owner,name:$name){discussions(first:50,states:CLOSED,orderBy:{field:UPDATED_AT,direction:DESC}){nodes{number title closedAt comments(last:25){nodes{body}}}}}}',
+            raw     = this.execCommand(`gh api graphql -f owner=neomjs -f name=neo -f query='${query}'`),
+            nodes   = JSON.parse(raw || '{}')?.data?.repository?.discussions?.nodes || [],
+            startMs = Date.parse(windowStart),
+            endMs   = Date.parse(windowEnd),
+            markers = ['[GRADUATED_TO_TICKET]', '[RESOLVED_TO_AC]'];
+
+        return nodes
+            .filter(node => node?.closedAt && Date.parse(node.closedAt) >= startMs && Date.parse(node.closedAt) < endMs)
+            .filter(node => (node.comments?.nodes || []).some(comment => markers.some(marker => (comment?.body || '').includes(marker))))
+            .map(node => ({ref: `discussion #${node.number}`, headline: node.title, at: node.closedAt}))
     }
 
     /**

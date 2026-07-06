@@ -47,7 +47,7 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         TemporalSummaryAggregationService.pollIntervalMs = null;
 
         // Drop instance-method seam overrides so the real prototype methods resurface for the next test.
-        for (const seam of ['scheduleNext', 'acquireLease', 'releaseLease', 'collectPendingWindows', 'persistTemporalRecord', 'runCycle', 'resolveAggregationAnchor', 'dailyWindowCount', 'fetchWindowSources', 'fetchDevCommits', 'execCommand']) {
+        for (const seam of ['scheduleNext', 'acquireLease', 'releaseLease', 'collectPendingWindows', 'persistTemporalRecord', 'runCycle', 'resolveAggregationAnchor', 'dailyWindowCount', 'fetchWindowSources', 'fetchDevCommits', 'fetchSandboxesGraduated', 'execCommand']) {
             delete TemporalSummaryAggregationService[seam]
         }
     });
@@ -165,7 +165,8 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
     test('fetchWindowSources binds devCommits to the dev first-parent window log', async () => {
         const commands = [];
 
-        TemporalSummaryAggregationService.execCommand = command => { commands.push(command); return 'abc123\ndef456\n' };
+        TemporalSummaryAggregationService.execCommand            = command => { commands.push(command); return 'abc123\ndef456\n' };
+        TemporalSummaryAggregationService.fetchSandboxesGraduated = async () => [];   // isolate the devCommits binding
 
         const sources = await TemporalSummaryAggregationService.fetchWindowSources({
             windowStart: '2026-07-05T00:00:00.000Z',
@@ -176,5 +177,26 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         expect(commands[0]).toContain('git log --first-parent origin/dev');
         expect(commands[0]).toContain('--since="2026-07-05T00:00:00.000Z"');
         expect(commands[0]).toContain('--until="2026-07-06T00:00:00.000Z"')
+    });
+
+    test('fetchSandboxesGraduated binds to in-window closed Discussions carrying a graduation marker', async () => {
+        const graphqlResponse = JSON.stringify({data: {repository: {discussions: {nodes: [
+            {number: 10, title: 'graduated in window',  closedAt: '2026-07-05T06:00:00.000Z', comments: {nodes: [{body: 'done [GRADUATED_TO_TICKET]'}]}},
+            {number: 11, title: 'closed but no marker', closedAt: '2026-07-05T07:00:00.000Z', comments: {nodes: [{body: 'just closed'}]}},
+            {number: 12, title: 'graduated out of window', closedAt: '2026-07-01T00:00:00.000Z', comments: {nodes: [{body: '[RESOLVED_TO_AC]'}]}}
+        ]}}}});
+
+        TemporalSummaryAggregationService.fetchDevCommits = async () => [];
+        TemporalSummaryAggregationService.execCommand     = () => graphqlResponse;
+
+        const sources = await TemporalSummaryAggregationService.fetchWindowSources({
+            windowStart: '2026-07-05T00:00:00.000Z',
+            windowEnd  : '2026-07-06T00:00:00.000Z'
+        });
+
+        // only the in-window, marker-bearing Discussion survives
+        expect(sources.sandboxesGraduated).toEqual([
+            {ref: 'discussion #10', headline: 'graduated in window', at: '2026-07-05T06:00:00.000Z'}
+        ])
     })
 });
