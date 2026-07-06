@@ -2,7 +2,9 @@ import {test, expect} from '@playwright/test';
 
 import {
     DECLARED_INTENT_PROVENANCE,
+    FRONTIER_EMPTY_CAUSE,
     PICKUP_BRIDGE_PARENT_ALPHA,
+    classifyFrontierEmptyCause,
     inheritParentStructuralWeight,
     rankByDeclaredIntent,
     renderDeclaredIntentFallback,
@@ -70,5 +72,34 @@ test.describe('goldenPathPickupBridge', () => {
     test('fallback render is empty when there is nothing to surface (caller renders the empty section)', () => {
         expect(renderDeclaredIntentFallback([])).toBe('');
         expect(renderDeclaredIntentFallback(undefined)).toBe('');
+    });
+
+    test('classifyFrontierEmptyCause attributes the MEASURED cause, never a fixed mechanism', () => {
+        // Genuine cold-start: no digested history to anchor.
+        expect(classifyFrontierEmptyCause({digested: 0, undigested: 0, recentCycleCount: 0, frontierAnchorEmpty: true}).code)
+            .toBe(FRONTIER_EMPTY_CAUSE.COLD_START);
+        // REM stalled: an undigested backlog with no recent cycle to drain it.
+        expect(classifyFrontierEmptyCause({digested: 1460, undigested: 40, recentCycleCount: 0, frontierAnchorEmpty: true}).code)
+            .toBe(FRONTIER_EMPTY_CAUSE.REM_STALLED);
+        // The daemon-off regression (2026-07-06): digestion healthy, cycles running, anchor STILL empty.
+        // This is exactly where the old code lied "REM-starved"; it must now read FRONTIER_UNANCHORED.
+        expect(classifyFrontierEmptyCause({digested: 1460, undigested: 7, recentCycleCount: 5, frontierAnchorEmpty: true}).code)
+            .toBe(FRONTIER_EMPTY_CAUSE.FRONTIER_UNANCHORED);
+        // Signals cannot distinguish a cause → assert nothing.
+        expect(classifyFrontierEmptyCause().code).toBe(FRONTIER_EMPTY_CAUSE.UNATTRIBUTED);
+    });
+
+    test('fallback render attributes the MEASURED cause and NEVER hardcodes "REM-starved"', () => {
+        const ranked = rankByDeclaredIntent([{id: '101', inOpenEpic: true, epicActivity: 2, filedAt: '2026-07-04T02:00:00Z'}]);
+
+        const unanchored = classifyFrontierEmptyCause({digested: 1460, undigested: 7, recentCycleCount: 5, frontierAnchorEmpty: true});
+        const md         = renderDeclaredIntentFallback(ranked, 5, unanchored);
+        expect(md).toContain(unanchored.phrase);   // the measured cause is rendered verbatim
+        expect(md).not.toContain('REM-starved');    // the old hardcoded lie is gone
+
+        // No cause supplied → honest UNATTRIBUTED default, still never the fixed mechanism.
+        const noCause = renderDeclaredIntentFallback(ranked, 5);
+        expect(noCause).toContain('unattributed');
+        expect(noCause).not.toContain('REM-starved');
     });
 });
