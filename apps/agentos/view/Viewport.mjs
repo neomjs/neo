@@ -77,7 +77,7 @@ class Viewport extends BaseViewport {
             items: [{
                 ntype : 'component',
                 cls   : ['agent-welcome'],
-                header: {iconCls: 'fa-solid fa-house', text: 'Home'},
+                header: {iconCls: 'fa-solid fa-house', route: '/home', text: 'Home'},
                 html  : '<div class="agent-welcome-inner">' +
                             '<p class="agent-welcome-eyebrow">Neo Agent OS</p>' +
                             '<h1 class="agent-welcome-h1">Mission control for a cross-model AI engineering team.</h1>' +
@@ -85,14 +85,14 @@ class Viewport extends BaseViewport {
                         '</div>'
             }, {
                 module: FleetCockpit,
-                header: {iconCls: 'fa-solid fa-satellite-dish', text: 'Fleet'}
+                header: {iconCls: 'fa-solid fa-satellite-dish', route: '/fleet', text: 'Fleet'}
             }, {
                 // FleetSettingsPanel is a dashboard.Panel, so its keeper-view rides a dashboard.Container
                 // to keep the detach-to-window (pop-out) host — the WindowOps E2E contract + the working
                 // lifecycle pop-out. The rail tab reads this wrapper's `header`.
                 module   : Dashboard,
                 cls      : ['agent-control-dashboard'],
-                header   : {iconCls: 'fa-solid fa-sliders', text: 'Control'},
+                header   : {iconCls: 'fa-solid fa-sliders', route: '/control', text: 'Control'},
                 popupUrl : 'apps/agentos/childapps/widget/index.html',
                 sortGroup: 'neo-connected-dashboard',
 
@@ -106,7 +106,7 @@ class Viewport extends BaseViewport {
                 // identity panel keeps the pop-out affordance and stays structurally idiomatic.
                 module   : Dashboard,
                 cls      : ['agent-accounts-dashboard'],
-                header   : {iconCls: 'fa-solid fa-id-badge', text: 'Accounts'},
+                header   : {iconCls: 'fa-solid fa-id-badge', route: '/accounts', text: 'Accounts'},
                 popupUrl : 'apps/agentos/childapps/widget/index.html',
                 sortGroup: 'neo-connected-dashboard',
 
@@ -118,7 +118,7 @@ class Viewport extends BaseViewport {
             }, {
                 ntype : 'component',
                 cls   : ['agent-placeholder'],
-                header: {iconCls: 'fa-solid fa-comments', text: 'Chat'},
+                header: {iconCls: 'fa-solid fa-comments', route: '/chat', text: 'Chat'},
                 html  : '<div class="agent-placeholder-inner">Chat — prompt an agent → a live widget pane you can dock and pop out. The dockable QT work-area lands here next.</div>'
             }]
         }]
