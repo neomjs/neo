@@ -1,5 +1,6 @@
 import {
     createTemporalSummaryDocId,
+    UNIFIED_PARTITION,
     validateTemporalSummaryMetadata
 } from '../../../graph/temporalSummarySchema.mjs';
 
@@ -134,4 +135,20 @@ export function resolveDailyWindow(anchor) {
     end.setUTCDate(end.getUTCDate() + 1);
 
     return {windowStart: start.toISOString(), windowEnd: end.toISOString()}
+}
+
+/**
+ * @summary Resolves the partition tracks a window aggregates into: the single `'unified'` track plus one
+ * `'@<identity>'` track per distinct agent seen in the window. Deterministic + de-duped, `'unified'` always
+ * first; blank or non-`'@'` identities are dropped (they are not valid partition keys). The service folds
+ * each returned partition separately so per-agent future-self continuity and the unified view stay in step.
+ * @param {String[]} [agentIdentities=[]] Canonical `'@<identity>'` ids observed in the window.
+ * @returns {String[]} `['unified', ...sorted per-agent tracks]`.
+ */
+export function resolvePartitionKeys(agentIdentities = []) {
+    const perAgentTracks = [...new Set(agentIdentities)]
+        .filter(identity => typeof identity === 'string' && identity.startsWith('@') && identity.length > 1)
+        .sort();
+
+    return [UNIFIED_PARTITION, ...perAgentTracks]
 }

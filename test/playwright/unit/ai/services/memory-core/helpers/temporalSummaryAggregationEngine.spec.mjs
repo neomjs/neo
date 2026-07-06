@@ -20,6 +20,7 @@ import {
     deriveVelocityFields,
     HIGH_IMPACT_THRESHOLD,
     resolveDailyWindow,
+    resolvePartitionKeys,
     VELOCITY_FIELD_SOURCES
 } from '../../../../../../../ai/services/memory-core/helpers/temporalSummaryAggregationEngine.mjs';
 
@@ -131,5 +132,14 @@ test.describe('Neo.ai.services.memory-core.temporalSummaryAggregationEngine', ()
 
     test('resolveDailyWindow fails closed on an unparseable anchor', () => {
         expect(() => resolveDailyWindow('not-a-timestamp')).toThrow(/invalid anchor/)
+    });
+
+    test('resolvePartitionKeys returns unified first + a sorted, de-duped per-agent track set', () => {
+        expect(resolvePartitionKeys(['@neo-gpt', '@neo-opus-ada', '@neo-gpt'])).toEqual([
+            'unified', '@neo-gpt', '@neo-opus-ada'
+        ]);
+        // blank / non-'@' identities are dropped; an empty window folds to the unified track only
+        expect(resolvePartitionKeys(['', 'plain', '@'])).toEqual(['unified']);
+        expect(resolvePartitionKeys()).toEqual(['unified'])
     })
 });
