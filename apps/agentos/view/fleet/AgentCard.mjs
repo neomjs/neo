@@ -47,9 +47,9 @@ class AgentCard extends Container {
         /**
          * Turns the controls-slot buttons into a single `lifecycleIntent` event (the B4 emit); the
          * Lane C (C2) round-trip consumes it. See {@link AgentOS.view.fleet.AgentCardController}.
-         * @member {Object} controller={module:AgentCardController}
+         * @member {Neo.controller.Component} controller=AgentCardController
          */
-        controller: {module: AgentCardController},
+        controller: AgentCardController,
         /**
          * @member {Object} layout={ntype:'hbox',align:'stretch'}
          * @reactive

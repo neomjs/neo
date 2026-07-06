@@ -69,9 +69,9 @@ class FleetCockpit extends Container {
         /**
          * Fires the whole-fleet control intent (the SSOT §01 "▶ Start morning fleet"); the Lane-C
          * round-trip consumes it. See {@link AgentOS.view.fleet.FleetCockpitController}.
-         * @member {Object} controller={module:FleetCockpitController}
+         * @member {Neo.controller.Component} controller=FleetCockpitController
          */
-        controller: {module: FleetCockpitController},
+        controller: FleetCockpitController,
         /**
          * Vertical stack: the control bar over the full-width fleet grid over the full-width activity
          * feed. The fleet zone gets the full width for its ranked card grid; the live feed is the
