@@ -265,8 +265,22 @@ class TemporalSummaryAggregationService extends Base {
     async fetchWindowSources(window) {
         return {
             devCommits        : await this.fetchDevCommits(window),
+            adrsLanded        : await this.fetchAdrsLanded(window),
             sandboxesGraduated: await this.fetchSandboxesGraduated(window)
         }
+    }
+
+    /**
+     * @summary Binds `adrsLanded` to its named source — the ADR decision records added to
+     * `learn/agentos/decisions/` within the window (the AdrIngestor's file source), via the git add-log.
+     * @param {{windowStart:String, windowEnd:String}} window
+     * @returns {Promise<Array<{path:String}>>}
+     * @protected
+     */
+    async fetchAdrsLanded({windowStart, windowEnd}) {
+        const raw = this.execCommand(`git log --first-parent origin/dev --since="${windowStart}" --until="${windowEnd}" --diff-filter=A --name-only --format= -- learn/agentos/decisions/`);
+
+        return [...new Set((raw || '').split('\n').filter(line => /^learn\/agentos\/decisions\/\d{4}-.+\.md$/.test(line)))].map(path => ({path}))
     }
 
     /**

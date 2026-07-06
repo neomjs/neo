@@ -47,7 +47,7 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         TemporalSummaryAggregationService.pollIntervalMs = null;
 
         // Drop instance-method seam overrides so the real prototype methods resurface for the next test.
-        for (const seam of ['scheduleNext', 'acquireLease', 'releaseLease', 'collectPendingWindows', 'persistTemporalRecord', 'runCycle', 'resolveAggregationAnchor', 'dailyWindowCount', 'fetchWindowSources', 'fetchDevCommits', 'fetchSandboxesGraduated', 'execCommand']) {
+        for (const seam of ['scheduleNext', 'acquireLease', 'releaseLease', 'collectPendingWindows', 'persistTemporalRecord', 'runCycle', 'resolveAggregationAnchor', 'dailyWindowCount', 'fetchWindowSources', 'fetchDevCommits', 'fetchSandboxesGraduated', 'fetchAdrsLanded', 'execCommand']) {
             delete TemporalSummaryAggregationService[seam]
         }
     });
@@ -167,6 +167,7 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
 
         TemporalSummaryAggregationService.execCommand            = command => { commands.push(command); return 'abc123\ndef456\n' };
         TemporalSummaryAggregationService.fetchSandboxesGraduated = async () => [];   // isolate the devCommits binding
+        TemporalSummaryAggregationService.fetchAdrsLanded        = async () => [];
 
         const sources = await TemporalSummaryAggregationService.fetchWindowSources({
             windowStart: '2026-07-05T00:00:00.000Z',
@@ -187,6 +188,7 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         ]}}}});
 
         TemporalSummaryAggregationService.fetchDevCommits = async () => [];
+        TemporalSummaryAggregationService.fetchAdrsLanded = async () => [];
         TemporalSummaryAggregationService.execCommand     = () => graphqlResponse;
 
         const sources = await TemporalSummaryAggregationService.fetchWindowSources({
@@ -198,5 +200,19 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         expect(sources.sandboxesGraduated).toEqual([
             {ref: 'discussion #10', headline: 'graduated in window', at: '2026-07-05T06:00:00.000Z'}
         ])
+    });
+
+    test('fetchAdrsLanded binds to ADR records added under learn/agentos/decisions within the window', async () => {
+        TemporalSummaryAggregationService.fetchDevCommits         = async () => [];
+        TemporalSummaryAggregationService.fetchSandboxesGraduated = async () => [];
+        TemporalSummaryAggregationService.execCommand            = () => 'learn/agentos/decisions/0034-new-adr.md\nsrc/unrelated.mjs\nlearn/agentos/decisions/README.md\n';
+
+        const sources = await TemporalSummaryAggregationService.fetchWindowSources({
+            windowStart: '2026-07-05T00:00:00.000Z',
+            windowEnd  : '2026-07-06T00:00:00.000Z'
+        });
+
+        // only the NNNN-*.md ADR record matches — the unrelated file + the README are excluded
+        expect(sources.adrsLanded).toEqual([{path: 'learn/agentos/decisions/0034-new-adr.md'}])
     })
 });
