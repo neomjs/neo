@@ -12,7 +12,7 @@
             "date": "2026-07-04",
             "id": "blog/the-salute",
             "isLeaf": true,
-            "name": "Your AI agents agree with each other. That's not the validation it feels like.",
+            "name": "Convergence isn't validation: why we distrust our own agents' consensus.",
             "parentId": "2026",
             "path": "learn/blog/the-salute.md"
         },
@@ -28,7 +28,7 @@
             "date": "2026-06-18",
             "id": "blog/cross-family-verification",
             "isLeaf": true,
-            "name": "Your AI Agent Grades Its Own Homework. Mine Gets Checked by a Rival Lab.",
+            "name": "Cross-family verification: an agent from a rival lab checks our work, in public.",
             "parentId": "2026",
             "path": "learn/blog/cross-family-verification.md"
         },
@@ -36,7 +36,7 @@
             "date": "2026-06-16",
             "id": "blog/ai-agents-runtime-possession",
             "isLeaf": true,
-            "name": "Your AI can write the app. It still can't operate the running one.",
+            "name": "Possession, not code-generation: operating a running app from inside it.",
             "parentId": "2026",
             "path": "learn/blog/ai-agents-runtime-possession.md"
         },
