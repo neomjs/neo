@@ -1,6 +1,8 @@
-import DockLayoutAdapter from '../../../src/dashboard/DockLayoutAdapter.mjs';
-import DockZoneModel     from '../../../src/dashboard/DockZoneModel.mjs';
-import Viewport          from '../../../src/container/Viewport.mjs';
+import DockLayoutAdapter    from '../../../src/dashboard/DockLayoutAdapter.mjs';
+import DockPreviewProducer  from '../../../src/dashboard/DockPreviewProducer.mjs';
+import DockZoneModel        from '../../../src/dashboard/DockZoneModel.mjs';
+import Viewport             from '../../../src/container/Viewport.mjs';
+import {previewToOperation} from '../../../src/dashboard/dockPreviewContract.mjs';
 import '../../../src/button/Base.mjs';    // registers the `button` ntype used by the perspective toolbar
 import '../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the projection emits for tab zones
 import '../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype used by the perspective toolbar
@@ -141,8 +143,9 @@ class MainContainer extends Viewport {
 
         let me = this;
 
-        me.layoutCollection = me.createDefaultLayoutCollection();
-        me.dockModel        = DockZoneModel.restoreActiveSavedLayout(me.layoutCollection).document || DockZoneModel.clone(initialDockModel);
+        me.dockPreviewProducer = Neo.create(DockPreviewProducer);
+        me.layoutCollection    = me.createDefaultLayoutCollection();
+        me.dockModel           = DockZoneModel.restoreActiveSavedLayout(me.layoutCollection).document || DockZoneModel.clone(initialDockModel);
 
         me.add(me.buildWorkspaceItems());
         me.layoutCollectionLoadPromise = me.loadLayoutCollectionFromStorage()
@@ -530,20 +533,24 @@ class MainContainer extends Viewport {
             return
         }
 
-        let rects        = await me.getDomRect(zones.map(zone => zone.container.id)),
-            targetNodeId = null;
+        let rects = await me.getDomRect(zones.map(zone => zone.container.id));
 
-        zones.forEach((zone, index) => {
-            let rect = rects[index];
+        // The producer resolves the placement KIND (tab-into / edge-* / split-*) from the pointer and
+        // each zone's rect; a tabs node's parent-split orientation lets it pick split-before/after vs an
+        // edge band. `previewToOperation` maps that dockPreview.v1 to the semantic op the reducer applies
+        // — replacing the former crude "which rect contains the pointer" → hardcoded moveItem shortcut.
+        let producerZones = zones
+                .map((zone, index) => ({
+                    nodeId     : zone.nodeId,
+                    rect       : rects[index],
+                    orientation: Object.values(nodes).find(node => node.type === 'split' && node.children?.includes(zone.nodeId))?.orientation ?? null
+                }))
+                .filter(zone => zone.rect),
+            preview    = me.dockPreviewProducer.produce({pointer: {x: clientX, y: clientY}, zones: producerZones, itemId, sourceNodeId}),
+            descriptor = previewToOperation(preview);
 
-            if (rect && clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
-                targetNodeId = zone.nodeId
-            }
-        });
-
-        if (targetNodeId) {
-            let descriptor = {operation: 'moveItem', itemId, targetNodeId},
-                result     = me.applyDockZoneOperation(descriptor);
+        if (descriptor) {
+            let result = me.applyDockZoneOperation(descriptor);
 
             if (result && !result.errors?.length && result.document) {
                 me.onDockZoneDocumentChange(result.document, descriptor, me)
