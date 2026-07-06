@@ -123,5 +123,43 @@ test.describe('Neo.dashboard.DockPreviewProducer (ADR 0029 §2.3 — the dock pr
         expect(producer.produce({pointer: {x: 50,  y: 50 }, zones, itemId: ''})).toBeNull();        // no item id
         expect(producer.produce({pointer: {x: 500, y: 500}, zones, itemId: 'strategy'})).toBeNull(); // over no zone
         expect(producer.produce()).toBeNull()                                                        // no args
+    });
+
+    test('the produce → previewToOperation → applyOperation pipeline SPLITS the target for an edge drop', async () => {
+        const DockZoneModel = (await import('../../../../src/dashboard/DockZoneModel.mjs')).default;
+
+        // a minimal dockZone.v1 doc: a vertical split of two single-tab zones
+        const doc = {
+            schema: 'neo.harness.dockZone.v1',
+            root  : 'root',
+            items : {a: {componentRef: 'A', title: 'A', kind: 'panel'}, b: {componentRef: 'B', title: 'B', kind: 'panel'}},
+            nodes : {
+                root    : {type: 'split', orientation: 'vertical', children: ['a-tabs', 'b-tabs'], sizes: [0.5, 0.5]},
+                'a-tabs': {type: 'tabs', items: ['a'], activeItemId: 'a'},
+                'b-tabs': {type: 'tabs', items: ['b'], activeItemId: 'b'}
+            }
+        };
+
+        // the initial tree has ONE split — the vertical root; no horizontal split yet
+        expect(Object.values(doc.nodes).some(n => n.type === 'split' && n.orientation === 'horizontal')).toBe(false);
+
+        // drop item 'a' near the LEFT edge of b-tabs (a vertical-split child) → edge-left → splitNode (perpendicular axis)
+        const zones   = [{nodeId: 'b-tabs', rect: RECT, orientation: 'vertical'}];
+        const preview = producer.produce({pointer: {x: 8, y: 50}, zones, itemId: 'a'}); // x=8 in a 100px rect (band 24) → edge-left
+        expect(preview.placement.kind).toBe('edge-left');
+
+        // the middle: preview → semantic operation descriptor
+        const descriptor = DockPreview.previewToOperation(preview);
+        expect(descriptor.operation).toBe('splitNode');
+        expect(descriptor.targetNodeId).toBe('b-tabs');
+
+        // the reducer applies it — a NEW split node appears (an interior tab-into move would not add one)
+        const result = DockZoneModel.applyOperation(doc, descriptor);
+        expect(result.errors ?? []).toEqual([]);
+        expect(DockZoneModel.validate(result.document)).toEqual([]);                    // the split produced a valid dockZone.v1 tree
+
+        // edge-left → a NEW horizontal split now exists (there were none before) → the pipeline genuinely split the target
+        expect(Object.values(result.document.nodes).some(n => n.type === 'split' && n.orientation === 'horizontal'),
+            'the edge-left drop created a horizontal split node').toBe(true)
     })
 });

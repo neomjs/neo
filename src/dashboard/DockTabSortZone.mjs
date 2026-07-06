@@ -67,6 +67,27 @@ class DockTabSortZone extends TabHeaderSortZone {
 
         await super.processDragEnd(data)
     }
+
+    /**
+     * Extends the base drag-move: after the base updates the proxy + sort state, fires a
+     * `dockCrossZoneDragMove` event on the owner tab.Container carrying the live pointer + dragged item
+     * id, so the owner can compute + render the transient dock-preview affordance under the pointer each
+     * frame. Purely additive + reactive — the base owns the proxy and the sort math; the affordance is a
+     * consumer of this hover signal, never a parallel drag system. Mirrors the {@link #processDragEnd} drop seam.
+     * @param {Object} data
+     */
+    async onDragMove(data) {
+        await super.onDragMove(data);
+
+        let me                 = this,
+            itemId             = me.dockItemIds?.[me.startIndex],
+            tabContainer       = me.owner?.up?.(),
+            {clientX, clientY} = data || {};
+
+        if (itemId && tabContainer && Neo.isNumber(clientX) && Neo.isNumber(clientY)) {
+            tabContainer.fire('dockCrossZoneDragMove', {clientX, clientY, itemId, sourceNodeId: me.dockSourceNodeId})
+        }
+    }
 }
 
 export default Neo.setupClass(DockTabSortZone);
