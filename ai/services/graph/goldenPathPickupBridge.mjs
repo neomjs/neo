@@ -32,6 +32,20 @@ export const STRUCTURAL_COLD_START_EPSILON = 1e-9;
 export const DECLARED_INTENT_PROVENANCE = 'fallback: declared-intent (frontier empty)';
 
 /**
+ * Stable, honest cause codes for WHY the semantic frontier is empty — the vocabulary the render
+ * attributes from MEASURED pipeline state instead of asserting a fixed mechanism. `UNATTRIBUTED` is
+ * the least-asserting default: when the signals cannot distinguish a cause, we say so rather than
+ * inventing one. (Distinct from `INTENT_STARVED` in `ai/graph/directionAttribution.mjs`, which is a
+ * declared-GOAL-attribution state, not a frontier-pipeline cause.)
+ */
+export const FRONTIER_EMPTY_CAUSE = Object.freeze({
+    COLD_START         : 'COLD_START',
+    REM_STALLED        : 'REM_STALLED',
+    FRONTIER_UNANCHORED: 'FRONTIER_UNANCHORED',
+    UNATTRIBUTED       : 'UNATTRIBUTED'
+});
+
+/**
  * @summary Fail-open activation predicate: the declared-intent fallback fires ONLY when the semantic
  * frontier anchor is empty OR the base route produced zero nodes. It can never fire alongside a healthy
  * route, so it cannot displace the semantic ranking.
@@ -42,6 +56,51 @@ export const DECLARED_INTENT_PROVENANCE = 'fallback: declared-intent (frontier e
  */
 export function shouldActivateFallback({frontierEmpty, routedCount} = {}) {
     return frontierEmpty === true || routedCount === 0;
+}
+
+/**
+ * @summary Honest cause classification for the frontier-empty fallback: maps MEASURED pipeline state
+ * to a stable {@link FRONTIER_EMPTY_CAUSE} code + human phrase, so the render attributes the real
+ * reason the semantic frontier is empty instead of asserting a fixed mechanism. The prior hardcoded
+ * "REM-starved / cold-start" was false whenever the frontier was empty for a different reason — e.g.
+ * the consolidation cycle not firing (the wake daemon off) while digestion itself was healthy
+ * (V-B-A 2026-07-06: `undigested` 7, cycles completing, yet the anchor was empty).
+ *
+ * Least-asserting by design: `recentCycleCount > 0` rules out a stall regardless of `undigested`, and
+ * when the inputs cannot distinguish a cause it returns `UNATTRIBUTED` — it never re-asserts a
+ * mechanism it did not measure.
+ *
+ * @param {Object}  [state]
+ * @param {Number}  [state.digested]           Digested-node count (`0` ⇒ genuine cold-start).
+ * @param {Number}  [state.undigested]         Undigested-node count (backlog signal).
+ * @param {Number}  [state.recentCycleCount]   Completed REM cycles in the recent window (`0` ⇒ not cycling).
+ * @param {Boolean} [state.frontierAnchorEmpty] The semantic frontier anchor set is empty.
+ * @returns {{code: String, phrase: String}}
+ */
+export function classifyFrontierEmptyCause({digested, undigested, recentCycleCount, frontierAnchorEmpty} = {}) {
+    const dig = Number(digested),
+          und = Number(undigested),
+          cyc = Number(recentCycleCount);
+
+    // Genuine cold-start: nothing has ever been digested, so there is no history to anchor.
+    if (Number.isFinite(dig) && dig === 0) {
+        return {code: FRONTIER_EMPTY_CAUSE.COLD_START, phrase: 'cold-start — no digested history to anchor yet'};
+    }
+
+    // REM stalled: undigested work exists but no recent cycle drained it (the consolidation pipeline
+    // is not running). `recentCycleCount > 0` below rules this out even under a transient backlog.
+    if (Number.isFinite(cyc) && cyc === 0 && Number.isFinite(und) && und > 0) {
+        return {code: FRONTIER_EMPTY_CAUSE.REM_STALLED, phrase: 'REM consolidation stalled — undigested work, no recent cycles'};
+    }
+
+    // Digestion is healthy (history exists) yet the anchor is empty: the cycle that repopulates the
+    // frontier is not running even though throughput is fine — the daemon-off case.
+    if (frontierAnchorEmpty === true && Number.isFinite(dig) && dig > 0) {
+        return {code: FRONTIER_EMPTY_CAUSE.FRONTIER_UNANCHORED, phrase: 'frontier unanchored — digested history exists but the anchor is empty'};
+    }
+
+    // Signals cannot distinguish a cause — assert nothing.
+    return {code: FRONTIER_EMPTY_CAUSE.UNATTRIBUTED, phrase: 'cause unattributed — frontier anchor empty for an unmeasured reason'};
 }
 
 /**
@@ -99,12 +158,19 @@ export function rankByDeclaredIntent(items = []) {
  * returns an empty string when there is nothing to surface (the caller then renders the empty section).
  * @param {Object[]} rankedItems Output of `rankByDeclaredIntent` (already sorted + provenance-tagged).
  * @param {Number}   [limit=5]
+ * @param {{code: String, phrase: String}} [cause] The MEASURED frontier-empty cause from
+ *   {@link classifyFrontierEmptyCause}. When omitted, the render attributes no mechanism (the honest
+ *   `UNATTRIBUTED` phrase) rather than the former hardcoded "REM-starved / cold-start".
  * @returns {String} the markdown section, or `''` when there are no items.
  */
-export function renderDeclaredIntentFallback(rankedItems = [], limit = 5) {
+export function renderDeclaredIntentFallback(rankedItems = [], limit = 5, cause) {
     const items = (Array.isArray(rankedItems) ? rankedItems : []).slice(0, Math.max(0, limit));
 
     if (items.length === 0) return '';
+
+    // Attribute the MEASURED cause; never re-assert an unmeasured mechanism (the honest-states fix).
+    // A malformed/absent `cause` degrades to the least-asserting UNATTRIBUTED phrase (single source).
+    const causePhrase = (cause && typeof cause.phrase === 'string' && cause.phrase) || classifyFrontierEmptyCause().phrase;
 
     const lines = items.map((item, index) =>
         `${index + 1}. #${item.id}${item.inOpenEpic ? ` — open-epic leaf (activity ${Number(item.epicActivity) || 0})` : ''}`
@@ -113,7 +179,7 @@ export function renderDeclaredIntentFallback(rankedItems = [], limit = 5) {
     return [
         `### Computed Golden Path — ${DECLARED_INTENT_PROVENANCE}`,
         '',
-        `> The semantic frontier is empty (REM-starved / cold-start). Ranking ${items.length} unblocked open-epic-tree leaf/leaves by declared intent instead — **provisional, not the semantic ranking.**`,
+        `> The semantic frontier is empty (${causePhrase}). Ranking ${items.length} unblocked open-epic-tree leaf/leaves by declared intent instead — **provisional, not the semantic ranking.**`,
         '',
         ...lines,
         ''

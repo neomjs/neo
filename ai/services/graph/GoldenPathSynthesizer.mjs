@@ -56,6 +56,7 @@ import {
 } from './conceptSliceBuilder.mjs';
 import {
     STRUCTURAL_COLD_START_EPSILON,
+    classifyFrontierEmptyCause,
     inheritParentStructuralWeight,
     rankByDeclaredIntent,
     renderDeclaredIntentFallback
@@ -453,7 +454,17 @@ class GoldenPathSynthesizer extends Base {
             });
         }
 
-        return renderDeclaredIntentFallback(rankByDeclaredIntent(items), aiConfig.goldenPathTopNodeRenderLimit);
+        // Attribute the MEASURED frontier-empty cause (honest-states) instead of the former hardcoded
+        // "REM-starved" guess: this method runs BECAUSE the anchor is empty, and a nonzero
+        // digested-summary count distinguishes an unanchored frontier from a genuine cold-start. The
+        // precise REM backlog/cycle metrics are not available in this SQLite-sourced path, so an
+        // unreadable count degrades to the honest UNATTRIBUTED phrase — never a re-asserted mechanism.
+        let digestedHistory;
+        try { digestedHistory = sqliteDb.prepare("SELECT COUNT(*) AS c FROM Nodes WHERE id LIKE 'summary%'").get()?.c; }
+        catch (error) { digestedHistory = undefined; }
+        const cause = classifyFrontierEmptyCause({digested: digestedHistory, frontierAnchorEmpty: true});
+
+        return renderDeclaredIntentFallback(rankByDeclaredIntent(items), aiConfig.goldenPathTopNodeRenderLimit, cause);
     }
 
     /**
