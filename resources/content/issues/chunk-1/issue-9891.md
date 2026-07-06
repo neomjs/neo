@@ -7,12 +7,10 @@ labels:
   - ai
   - architecture
   - model-experience
-  - not-code-ready
-  - needs-design
 assignees:
   - tobiu
 createdAt: '2026-04-11T19:22:59Z'
-updatedAt: '2026-06-21T21:22:13Z'
+updatedAt: '2026-07-06T13:22:45Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9891'
 author: tobiu
 commentsCount: 1
@@ -133,8 +131,4 @@ That successor model rejects permanent/non-decaying synthetic priority injection
 
 Do not implement the current `STRATEGIC_CONSTRAINT` schema as written. It predates the routing/visibility/active-steering decision and would be negative-ROI substrate drift.
 
-- 2026-06-21T21:22:13Z @neo-gpt added the `architecture` label
-- 2026-06-21T21:22:13Z @neo-gpt added the `model-experience` label
-- 2026-06-21T21:22:13Z @neo-gpt added the `not-code-ready` label
-- 2026-06-21T21:22:13Z @neo-gpt added the `needs-design` label
 

@@ -8,14 +8,18 @@ labels:
 assignees:
   - neo-gpt
 createdAt: '2026-04-12T13:23:04Z'
-updatedAt: '2026-06-06T13:24:53Z'
+updatedAt: '2026-07-06T13:18:44Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9920'
 author: tobiu
-commentsCount: 2
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy: []
 blocking: []
 closedAt: '2026-06-06T13:24:53Z'
@@ -104,44 +108,6 @@ Retrieval Hint: `"AgentOrchestrator Golden Path issue outcome envelope requeue p
 - 2026-04-12T13:23:05Z @tobiu added the `ai` label
 - 2026-05-16T13:44:05Z @neo-gpt cross-referenced by #11459
 - 2026-05-16T15:07:22Z @neo-opus-ada cross-referenced by PR #11460
-### @neo-gpt - 2026-05-28T02:18:20Z
-
-**Input from GPT-5 (Codex Desktop):**
-
-> ● ## Ticket Intake / Triage: needs re-triage before implementation
-> 
-> V-B-A intake result: I am **not** claiming or branching this ticket as written.
-> 
-> Evidence checked:
-> - Live ticket metadata: #9920 is open, unassigned, labeled `enhancement` + `ai`, created `2026-04-12T13:23:04Z`, updated `2026-04-12T13:23:15Z`.
-> - Stale workflow: `.github/workflows/close-inactive-issues.yml` uses `90` days to stale + `14` days to close; #9920 is still pre-stale and has no stale/no-auto-close state.
-> - Origin Session ID query: Memory Core raw-memory search for `95bf4a2b-d84e-4f70-945b-f558ba924d3a` + the ticket terms returned 0 hits.
-> - Current `AgentOrchestrator` reality: `ai/agent/AgentOrchestrator.mjs` parses `resources/content/sandman_handoff.md`, schedules `system:golden-path` events into `Neo.ai.Agent`, and monitors queue exhaustion locally. It is not the current orchestrator daemon control plane.
-> - Current daemon reality: `ai/daemons/orchestrator/daemon.mjs` is the persistent daemon wrapper; `ai/daemons/orchestrator/Orchestrator.mjs` owns in-process cadence lanes; `TaskStateService` records `markStarted` / `markCompleted` / `markFailed`; `HealthService.recordTaskOutcome()` projects `running` / `completed` / `failed` / `skipped` details.
-> - Current A2A/task substrate: `MailboxService` defines task states including `Failed`, `Blocked`, and `Expired`; `WakeSubscriptionService` has `TASK_STATE_CHANGED` wake support. The MCP surface also exposes `signal_state_transition` for `BLOCKED` / `HANDOFF` / `PR_OPENED`.
-> - Duplicate/successor sweep: live `gh search prs "9920 OR AgentOrchestrator requeue OR Golden Path issueId failure recovery" --repo neomjs/neo` returned `[]`; live issue search returned only #9920. Memory summary search for the same framing returned 0 hits. KB source search confirmed failure telemetry exists but did not find an automatic requeue mechanism or `issueId` contract.
-> 
-> [ARCH_ALIGNMENT]
-> The underlying concern is still plausible: failed autonomous agent work needs durable state, and the next cycle should not blindly re-offer or suppress work without knowing what happened. But the ticket's implementation shape is no longer ready:
-> 
-> - It binds the solution to `runSandman.mjs` / `sandman_handoff.md` issue requeueing, while the current substrate has moved toward orchestrator-owned cadence, task-state telemetry, wake task-state events, and explicit A2A task transitions.
-> - It does not define whether the authoritative failure record is an A2A task state, an Orchestrator `TaskStateService` entry, a `HealthService.recordTaskOutcome()` payload, a Native Edge Graph edge, or some combination.
-> - It does not define the requeue decision contract: retry immediately, preserve Golden Path urgency, demote/suppress, mark blocked, or hand off to a maintainer.
-> - It lacks the Contract Ledger required for changing a consumed agent/orchestrator failure-state surface.
-> 
-> Classification: `needs-narrowing` / `needs-contract-alignment`, with `ticket-triage` prescription/substrate stages failing as written.
-> 
-> Recommended refresh before implementation:
-> 
-> | Target Surface | Source of Authority | Proposed Behavior | Fallback / Edge Case | Docs | Evidence |
-> |---|---|---|---|---|---|
-> | A2A task failure state | #9920 + current `MailboxService` task-state contract | Define how an autonomous issue task becomes `Failed`, `Blocked`, `Expired`, or `Completed` | Context-limit exit, tool failure, explicit blocked-state, harness crash | Agent OS task-state docs if changed | unit/integration test around transition payload |
-> | Orchestrator task telemetry | current `TaskStateService` + `HealthService.recordTaskOutcome()` | Define which daemon task records the failed agent execution, and exact details payload | Daemon restart, partial execution, missing issueId | JSDoc near task outcome payload if extended | focused orchestrator service spec |
-> | Golden Path / Sandman routing | current Golden Path handoff + Orchestrator cadence | Decide whether failed issue urgency is preserved, demoted, or converted to a blocked/handoff node | No retry storm; no silent suppression | Dream Pipeline / handoff docs if changed | synthetic graph/handoff test |
-> | Human/peer handoff | current `signal_state_transition` / A2A notification patterns | Define who gets notified and with which stable identifier | Peer unavailable, wake route missing | workflow docs if changed | MCP/tool-level assertion |
-> 
-> Routing: add `needs-re-triage`; keep open for shape refresh rather than closing it as not planned.
-
 - 2026-05-28T02:18:40Z @neo-gpt added the `needs-re-triage` label
 - 2026-06-03T08:03:29Z @neo-gpt removed the `needs-re-triage` label
 - 2026-06-03T08:03:29Z @neo-gpt changed title from **feat: Agent Error Recovery & Re-Queueing for Orchestrator** to **Golden Path issue-task failure envelope and requeue policy**
@@ -198,5 +164,4 @@ Retrieval Hint: `"AgentOrchestrator Golden Path issue outcome envelope requeue p
 * feat(agent): map Golden Path blocked and timeout outcomes (#9920)
 
 * fix(agent): use execution-timeout reason code (#9920)"
-- 2026-06-06T13:24:53Z @tobiu closed this issue
 

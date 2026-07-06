@@ -7,12 +7,10 @@ labels:
   - design
   - ai
   - performance
-  - not-code-ready
-  - needs-design
 assignees:
   - tobiu
 createdAt: '2026-01-11T10:35:01Z'
-updatedAt: '2026-06-23T04:20:02Z'
+updatedAt: '2026-07-06T13:22:58Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8541'
 author: tobiu
 commentsCount: 2
@@ -65,5 +63,4 @@ Fresh V-B-A:
 
 Routing decision: this should stay as a design/performance exploration until it gets a concrete contract ledger. Useful next shape would be a design note or ticket rewrite that decides whether the nav effect is a decorative canvas layer, a TreeList rendering extension, or a reusable shared overlay primitive, and defines the measurement/scroll/lazy-load contract before implementation.
 
-- 2026-06-23T04:20:02Z @neo-gpt added the `needs-design` label
 

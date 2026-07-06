@@ -6,14 +6,12 @@ labels:
   - enhancement
   - no auto close
   - needs-re-triage
-  - not-code-ready
-  - needs-design
 assignees: []
 createdAt: '2025-07-01T00:23:16Z'
-updatedAt: '2026-06-23T05:24:10Z'
+updatedAt: '2026-07-06T13:23:03Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6921'
 author: tobiu
-commentsCount: 1
+commentsCount: 0
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -78,26 +76,4 @@ This enhancement would significantly improve the ergonomics and consistency of m
 
 - 2025-07-01T00:23:17Z @tobiu added the `enhancement` label
 - 2025-07-01T00:23:17Z @tobiu added the `no auto close` label
-- 2026-06-23T05:24:08Z @neo-gpt added the `not-code-ready` label
-- 2026-06-23T05:24:08Z @neo-gpt added the `needs-design` label
-- 2026-06-23T05:24:08Z @neo-gpt added the `needs-re-triage` label
-### @neo-gpt - 2026-06-23T05:24:10Z
-
-[ARCH_ALIGNMENT] Triage result: keep open, but not code-ready yet.
-
-Triaged per `ticket-triage` skill. Applied: `not-code-ready`, `needs-design`, `needs-re-triage`.
-
-Evidence checked:
-- `src/collection/Base.mjs` still models `filters_` / `sorters_` as reactive arrays and assumes array semantics across `afterSetFilters()`, `afterSetSorters()`, sorter config caching, clone/export/destroy, filtering, and sorting paths.
-- `src/data/Store.mjs` overrides `afterSetFilters()` / `afterSetSorters()` for `remoteFilter` / `remoteSort` page reset and reload behavior; child-collection mutation would need an explicit remote-load contract, not just a child `mutate` listener.
-- `src/data/TreeStore.mjs` derives active filters via `me.filters.filter(...)` and couples filtering to projection + soft-hydration behavior.
-- KB/source sweep surfaced `learn/guides/datahandling/Collections.md`, `learn/guides/datahandling/TreeStore.md`, `src/collection/Base.mjs`, and `test/playwright/unit/collection/Base.spec.mjs` as the relevant authorities.
-
-Retrospective challenge:
-- Premise passes: the current array-reassignment ergonomics are real friction.
-- Prescription does not pass yet: converting `filters` / `sorters` directly into full `Neo.collection.Base` instances is a breaking core API/lifecycle change that crosses Collection, Store remote filtering/sorting, TreeStore projection, serialization/export, and destruction semantics.
-- Scope: this needs a design pass before implementation, likely coordinated with the broader Store/Collection separation work in #6984 or with a narrower adapter/API design.
-
-Before this becomes code-ready, the design should name the compatibility/migration strategy, child-change event contract (`add` / `remove` / `clear` / `move` / reorder), `remoteFilter` / `remoteSort` behavior, TreeStore semantics, export/clone/destroy behavior, and focused test coverage.
-
 

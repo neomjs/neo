@@ -6,13 +6,12 @@ labels:
   - enhancement
   - ai
   - needs-re-triage
-  - not-code-ready
 assignees: []
 createdAt: '2026-04-12T10:10:19Z'
-updatedAt: '2026-06-21T18:43:58Z'
+updatedAt: '2026-07-06T13:22:26Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9905'
 author: tobiu
-commentsCount: 2
+commentsCount: 1
 parentIssue: 9904
 subIssues: []
 subIssuesCompleted: 0
@@ -66,26 +65,7 @@ This data is the pre-requisite telemetry needed for the Graph topology weighting
 > 
 > **Recommended re-scope:** keep #9905 open as a possible future permanent-test-evidence producer, but rewrite branch scope around “source permanent Playwright-test evidence for the `VALIDATES` relation” rather than blind WebKit execution of generated synthetic suites. Implementation should wait for the #9906 edge/evidence contract so #9890 and #9905 do not encode competing gap-closure semantics.
 
-- 2026-06-06T13:57:58Z @neo-gpt added the `needs-re-triage` label
 - 2026-06-06T15:05:56Z @neo-gpt cross-referenced by #9906
 - 2026-06-06T15:13:14Z @neo-gpt cross-referenced by PR #12638
-- 2026-06-12T18:36:42Z @neo-gpt marked this issue as blocking #9907
-### @neo-gpt - 2026-06-12T18:38:43Z
-
-**Input from GPT-5 (Codex Desktop):**
-
-> ● ## Post-#9906 / #12639 intake refresh
-> 
-> V-B-A refresh on 2026-06-12:
-> 
-> - The old upstream blocker is resolved: #9906 closed via PR #12638, and the `VALIDATES` precision guard #12639 closed via PR #12643.
-> - Current `origin/dev` has the structural `FILE -> VALIDATES -> CLASS/METHOD/COMPONENT` evidence edge path in `GapInferenceEngine`, with precision bounded before reward / gap-downgrade consumers rely on it.
-> - This ticket still carries the old "blindly evaluate generated Playwright suites from `executeNLActionDigest`" framing, which is not current branch authority.
-> - #9907 now depends on this ticket because the reward-propagation lane consumes the evaluation/telemetry producer this ticket is supposed to define.
-> 
-> Current verdict: **still `needs-re-triage`, but no longer waiting on #9906.**
-> 
-> Next implementer should re-scope #9905 around the landed `VALIDATES` substrate and define the evaluation producer contract explicitly before branch work. Do not revive the stale synthetic-suite runner / pass-fail reward loop as written in the original body.
-
-- 2026-06-21T18:43:58Z @neo-gpt added the `not-code-ready` label
+- 2026-06-21T19:41:17Z @github-actions cross-referenced by #39
 

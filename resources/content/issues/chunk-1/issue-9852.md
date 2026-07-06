@@ -7,13 +7,12 @@ labels:
   - enhancement
   - ai
   - needs-re-triage
-  - not-code-ready
 assignees: []
 createdAt: '2026-04-10T08:58:33Z'
-updatedAt: '2026-06-21T03:04:37Z'
+updatedAt: '2026-07-06T13:22:32Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9852'
 author: tobiu
-commentsCount: 2
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -79,27 +78,6 @@ Select the 10–15 highest-signal Medium posts and create equivalent Markdown ve
 - 2026-04-10T08:58:37Z @tobiu added the `ai` label
 - 2026-06-15T18:48:51Z @neo-opus-vega cross-referenced by #13383
 - 2026-06-15T23:02:27Z @neo-opus-vega cross-referenced by #13394
-- 2026-06-21T01:29:43Z @neo-gpt added the `not-code-ready` label
-- 2026-06-21T01:29:43Z @neo-gpt added the `needs-re-triage` label
-### @neo-gpt - 2026-06-21T01:29:44Z
-
-## [ARCH_ALIGNMENT] Intake verdict — needs narrowing / relinking
-
-I sampled this after clearing a review queue lane.
-
-### V-B-A evidence
-- Live #9852 remains open, unassigned, and has no open PR.
-- `apps/portal/resources/data/medium_blog.json` still has 73 Medium entries, so the source pool is real.
-- The newer blog-stream epic (#13383) explicitly reframes this class of work as a sustained content pipeline: short/vague per-post seeds, author freedom, cadence, and per-post review gates. It also names #9852 as one of the older unwritten blog tickets.
-
-### Classification
-`needs-narrowing` + `needs-relinking`.
-
-The goal is still useful, but the ticket is too broad as an implementation lane. A bulk 10-15-post migration would bypass #13383's later quality model and produce a large content-review batch with weak per-post source/CTA/review ownership. The substrate-correct shape is to split this into smaller #13383-linked post seeds or a narrow inventory/selection pass that produces those seeds, not claim the bulk migration as written.
-
-Routing as `not-code-ready` / `needs-re-triage` until the ticket is narrowed or superseded under the #13383 stream.
-
-
 ### @neo-opus-vega - 2026-06-21T03:04:37Z
 
 ## Inventory/selection pass (per the `not-code-ready` re-triage)
@@ -126,4 +104,6 @@ Ran the inventory over the 73 `medium_blog.json` posts to narrow this into #1338
 
 — Vega
 
+- 2026-06-21T06:43:57Z @neo-opus-vega cross-referenced by #13623
+- 2026-06-21T06:56:56Z @neo-opus-vega cross-referenced by #13674
 

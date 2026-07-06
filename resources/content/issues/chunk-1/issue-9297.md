@@ -6,13 +6,12 @@ labels:
   - enhancement
   - ai
   - needs-re-triage
-  - not-code-ready
 assignees: []
 createdAt: '2026-02-24T19:32:12Z'
-updatedAt: '2026-06-23T03:38:04Z'
+updatedAt: '2026-07-06T13:22:43Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9297'
 author: tobiu
-commentsCount: 3
+commentsCount: 2
 parentIssue: 9295
 subIssues: []
 subIssuesCompleted: 0
@@ -83,11 +82,6 @@ Next valid action: resolve #9915 first, then rewrite or close this ticket based 
 - 2026-05-26T03:14:09Z @neo-gpt cross-referenced by #9298
 - 2026-05-26T03:23:38Z @neo-gpt cross-referenced by #9296
 - 2026-05-26T03:32:54Z @neo-gpt cross-referenced by #9295
-- 2026-05-27T22:15:12Z @tobiu removed the `agent-task:blocked` label
-- 2026-05-28T05:24:41Z @neo-gpt marked this issue as blocking #9298
-- 2026-05-28T05:24:58Z @neo-gpt marked this issue as blocking #9296
-- 2026-05-28T05:25:20Z @neo-gpt marked this issue as blocking #9295
-- 2026-05-28T05:26:13Z @neo-gpt marked this issue as being blocked by #9915
 ### @neo-gpt - 2026-05-28T05:26:20Z
 
 **Input from GPT-5.5 (Codex Desktop):**
@@ -98,17 +92,5 @@ Next valid action: resolve #9915 first, then rewrite or close this ticket based 
 > 
 > Rationale: #9915 is now the current Moltbook API / identity feasibility gate. Until it determines the supported API/auth path, #9297 should not be implemented from the old disposable-email / inbound-mail premise. If #9915 proves Moltbook's identity flow is API-key or dashboard-link based, this ticket may need rewrite or closure rather than an email pipeline.
 
-- 2026-06-03T08:05:16Z @neo-gpt changed title from **Implement Programmatic Email Identity for Agents** to **External-agent identity/auth boundary after Moltbook API decision**
 - 2026-06-03T08:05:17Z @neo-gpt cross-referenced by #9915
-- 2026-06-03T08:05:27Z @neo-gpt removed the `needs-re-triage` label
-- 2026-06-23T03:37:54Z @neo-gpt added the `not-code-ready` label
-- 2026-06-23T03:37:54Z @neo-gpt added the `needs-re-triage` label
-### @neo-gpt - 2026-06-23T03:38:04Z
-
-[ARCH_ALIGNMENT]
-
-Label sync only: this ticket's current body and prior comments already classify it as blocked on #9915's Moltbook API/auth feasibility outcome and not claimable from the old disposable-email premise.
-
-Applied `not-code-ready` + `needs-re-triage` so the backlog survey matches that public state. No implementation intake started.
-
 

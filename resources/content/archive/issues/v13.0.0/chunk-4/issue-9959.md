@@ -12,17 +12,21 @@ labels:
 assignees:
   - neo-gpt
 createdAt: '2026-04-13T10:25:29Z'
-updatedAt: '2026-06-06T17:01:18Z'
+updatedAt: '2026-07-06T13:18:56Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9959'
 author: tobiu
-commentsCount: 2
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy: []
 blocking:
-  - '[ ] 9961 Pre-Task Retrospective Query — Active Memory Consumption'
+  - '[x] 9961 Pre-Task Retrospective Query — Active Memory Consumption'
 closedAt: '2026-06-06T17:01:18Z'
 ---
 # fix(memory): periodic summarization must skip externally active sessions
@@ -181,36 +185,6 @@ Retrieval Hint: `periodic-sweep 600000 running sessions re-summarized every new 
 - 2026-05-27T02:06:11Z @neo-gpt cross-referenced by #12065
 - 2026-06-05T23:26:10Z @tobiu unassigned from @tobiu
 - 2026-06-05T23:34:13Z @neo-gpt added the `needs-re-triage` label
-### @neo-gpt - 2026-06-05T23:34:28Z
-
-**Input from GPT-5.5 (Codex Desktop):**
-
-> ● ## 2026-06-06 intake classification
-> 
-> **Verdict:** `needs-narrowing` as written.
-> 
-> The ticket body still describes the original two-bug fix, but that exact implementation already landed in merged PR #9960 on 2026-04-13:
-> 
-> - `StorageRouter` re-ranker Pass 1 is now wrapped in `try/catch`, logs fallback, and uses optional chaining on Chroma query result surfaces.
-> - `SessionService.findSessionsToSummarize()` now excludes `sessionId === this.currentSessionId` before both missing-summary and count-mismatch cases.
-> - `QueryReRanker.spec.mjs` already has focused coverage for the re-ranker defensive path and in-process active-session exclusion.
-> 
-> Fresh V-B-A against current source shows one remaining valid concern, but it is narrower than the original body:
-> 
-> - `ai/daemons/orchestrator/TaskDefinitions.mjs` still runs the summary task as a spawned `ai/scripts/lifecycle/summarize-sessions.mjs` child.
-> - `summarize-sessions.mjs` initializes `Memory_SessionService` in that child and calls `summarizeSessions({ includeAll: false })`.
-> - `findSessionsToSummarize()` excludes only `this.currentSessionId`, which resolves to `RequestContextService.getSessionId() || this._legacySessionId`.
-> - In the spawned child path there is no request-bound MCP session for the live harness sessions still accumulating memories, so the child-process current-session guard can miss active sessions from other processes.
-> - I did not find current coverage for this cross-process active-session predicate. The existing in-process skip test is necessary but insufficient for the periodic child path.
-> 
-> **Routing recommendation:** do not re-implement the original #9959 body. Either rewrite this issue body or split a new leaf ticket around the remaining contract:
-> 
-> > Periodic child-process summarization must skip sessions that are active in another harness/process unless summarization is explicit/finalizing/manual. The predicate cannot depend only on the child process `currentSessionId`; it should define and test the cross-process active-session source of truth, preserve explicit `summarizeSessions({sessionId})` semantics, and cross-check the pending-aware summarization barrier from #11676.
-> 
-> Implementation should start only after that narrowed contract is accepted. Until then, this issue is parked behind `needs-re-triage` to prevent duplicate work against the already-merged #9960 surface.
-> 
-> [ARCH_ALIGNMENT]: The current architecture no longer matches the ticket body. The remaining useful work is not a broad semantic-search + in-process summarization fix; it is a cross-process active-session / periodic-summarizer contract problem.
-
 - 2026-06-05T23:37:49Z @neo-gpt changed title from **fix: Memory Core semantic search crash & active session summarization leak** to **fix(memory): periodic summarization must skip externally active sessions**
 - 2026-06-05T23:37:56Z @neo-gpt removed the `needs-re-triage` label
 - 2026-06-05T23:44:51Z @neo-gpt assigned to @neo-gpt
@@ -221,21 +195,5 @@ Retrieval Hint: `periodic-sweep 600000 running sessions re-summarized every new 
 - 2026-06-06T00:33:30Z @neo-gpt referenced in commit `0ab38aa` - "fix(memory): align active-session config (#9959)"
 - 2026-06-06T10:17:03Z @neo-opus-grace cross-referenced by #12628
 - 2026-06-06T10:57:57Z @neo-gpt cross-referenced by PR #12629
-- 2026-06-06T15:23:38Z @neo-gpt referenced in commit `f78d0ac` - "fix(memory): skip externally active drift summaries (#9959)"
-- 2026-06-06T15:23:38Z @neo-gpt referenced in commit `b33a9c3` - "test(memory): cover explicit active session summaries (#9959)"
-- 2026-06-06T15:23:38Z @neo-gpt referenced in commit `2bc91b9` - "fix(memory): protect parallel active sessions (#9959)"
-- 2026-06-06T15:23:38Z @neo-gpt referenced in commit `6833822` - "fix(memory): align active-session config (#9959)"
-- 2026-06-06T15:23:38Z @neo-gpt referenced in commit `6f415db` - "fix(memory): reuse swarm idle threshold (#9959)"
-- 2026-06-06T17:01:18Z @tobiu referenced in commit `9b4feff` - "fix(memory): skip externally active drift summaries (#9959) (#12605)
-
-* fix(memory): skip externally active drift summaries (#9959)
-
-* test(memory): cover explicit active session summaries (#9959)
-
-* fix(memory): protect parallel active sessions (#9959)
-
-* fix(memory): align active-session config (#9959)
-
-* fix(memory): reuse swarm idle threshold (#9959)"
-- 2026-06-06T17:01:18Z @tobiu closed this issue
+- 2026-06-20T01:42:19Z @neo-gpt cross-referenced by PR #13579
 
