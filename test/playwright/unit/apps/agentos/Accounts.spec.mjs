@@ -55,6 +55,22 @@ test.describe('AgentOS.view.Accounts credential boundary', () => {
         expect(source).toContain('AgentDefinitions.add');
         expect(source).toContain('createPublicAgentDefinition');
         expect(source).not.toMatch(/AgentDefinitions\.add\(\s*values/)
+    });
+
+    test('visible setup actions use product language instead of bridge/protocol labels', () => {
+        const source = fs.readFileSync(viewPath, 'utf8');
+
+        expect(source).toContain("text   : 'Add agent'");
+        expect(source).toContain("text   : 'Use sample'");
+        expect(source).toContain("text   : 'Connect harness'");
+        expect(source).toContain('Agent setup is unavailable in dev-server mode. Add agent fails closed');
+        expect(source).toContain('Harness connection unavailable in dev-server mode. Connect fails closed');
+
+        expect(source).not.toContain("text   : 'Submit to Bridge'");
+        expect(source).not.toContain("text   : 'Connect Harness (NL-MCP)'");
+        expect(source).not.toContain('Fleet Registry bridge unavailable in dev-server mode. Submit fails closed');
+        expect(source).not.toContain('Definition submitted through the Fleet Registry bridge');
+        expect(source).not.toContain('External harness connected through the Neural Link bridge')
     })
 });
 
