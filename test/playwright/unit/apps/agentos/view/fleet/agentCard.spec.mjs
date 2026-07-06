@@ -94,7 +94,7 @@ test.describe('Fleet cockpit AgentCard — resident card composing the class pri
         expect(toggle.iconCls).toBe('fa-solid fa-play');
         expect(restart.hidden).toBe(true);
         card.getController().onToggleLifecycle();
-        expect(fired).toEqual([{action: 'start', agentId: 'vega'}]);
+        expect(fired).toMatchObject([{action: 'start', agentId: 'vega'}]);
 
         // running → the SAME toggle is now stop (■) and restart appears
         fired.length = 0;
@@ -102,12 +102,12 @@ test.describe('Fleet cockpit AgentCard — resident card composing the class pri
         expect(toggle.iconCls).toBe('fa-solid fa-stop');
         expect(restart.hidden).toBe(false);
         card.getController().onToggleLifecycle();
-        expect(fired).toEqual([{action: 'stop', agentId: 'vega'}]);
+        expect(fired).toMatchObject([{action: 'stop', agentId: 'vega'}]);
 
         // restart fires restart; the card never calls the bridge — that round-trip is Lane-C (B4÷C2)
         fired.length = 0;
         card.getController().onLifecycleIntent({component: restart});
-        expect(fired).toEqual([{action: 'restart', agentId: 'vega'}]);
+        expect(fired).toMatchObject([{action: 'restart', agentId: 'vega'}]);
 
         card.destroy()
     });

@@ -141,7 +141,7 @@ class AgentCard extends Container {
                     module : Button,
                     handler: 'onToggleLifecycle',
                     bind   : {
-                        disabled: data => data.pendingAction !== null,
+                        disabled: data => Boolean(data.pendingAction),
                         iconCls : data => data.state === 'off' ? 'fa-solid fa-play' : 'fa-solid fa-stop'
                     }
                 }, {
@@ -151,7 +151,7 @@ class AgentCard extends Container {
                     iconCls: 'fa-solid fa-rotate',
                     handler: 'onLifecycleIntent',
                     bind   : {
-                        disabled: data => data.pendingAction !== null,
+                        disabled: data => Boolean(data.pendingAction),
                         hidden  : data => data.state === 'off'
                     }
                 }]
