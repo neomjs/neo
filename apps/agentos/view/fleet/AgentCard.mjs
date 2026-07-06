@@ -129,9 +129,10 @@ class AgentCard extends Container {
             layout: {ntype: 'vbox', align: 'stretch'},
 
             items: [{
-                ntype : 'container',
-                cls   : ['fm-card-control-verbs'],
-                layout: {ntype: 'hbox', align: 'center'},
+                ntype    : 'container',
+                cls      : ['fm-card-control-verbs'],
+                reference: 'control-verbs',
+                layout   : {ntype: 'hbox', align: 'center'},
 
                 items: [{
                     // ONE power toggle — start when off, stop when running. Only one of the two is ever
@@ -158,9 +159,10 @@ class AgentCard extends Container {
                 // Honest round-trip state: Lane-C sets pendingAction + controlReason on the provider (per
                 // the B4/C2 contract); the card only RENDERS them — a verb stays pending until C2 settles,
                 // and a rejection/unauthorized shows its reason. No optimistic success.
-                ntype: 'component',
-                cls  : ['fm-card-control-status'],
-                bind : {
+                ntype    : 'component',
+                cls      : ['fm-card-control-status'],
+                reference: 'control-status',
+                bind     : {
                     // pending takes visual priority over a prior reason, so a new attempt never shows a
                     // stale rejection (complements C2 clearing controlReason on a new accepted intent)
                     text  : data => data.pendingAction

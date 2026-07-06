@@ -99,28 +99,24 @@ test.describe('Fleet cockpit — activity feed binding (loadActivity, #14868)', 
     });
 });
 
-test.describe('Fleet cockpit — whole-fleet control bar (B4, #14611)', () => {
-    let FleetCockpit;
+test.describe('Fleet cockpit — whole-fleet control (B4, #14611)', () => {
+    let FleetCockpitController;
 
     test.beforeAll(async () => {
-        FleetCockpit = (await import('../../../../../../../apps/agentos/view/fleet/FleetCockpit.mjs')).default
+        FleetCockpitController = (await import('../../../../../../../apps/agentos/view/fleet/FleetCockpitController.mjs')).default
     });
 
-    test('the ▶ Start bar fires one lifecycleIntent {action:start, scope:fleet} — intent-only, no bridge call', () => {
-        const cockpit = Neo.create(FleetCockpit, {appName: 'FleetCockpitControlBarTest'});
-        const fired   = [];
+    test('onStartFleet fires one lifecycleIntent {action:start, scope:fleet} — intent-only, no bridge call', () => {
+        // Controller-level isolation: the full FleetCockpit composes FleetGrid → the card wall, too heavy
+        // to instantiate bare (the loadActivity specs above mock for the same reason). onStartFleet reads
+        // no state — it just fires the fleet-scoped verb — so a spy component pins the emit precisely.
+        const fired      = [];
+        const controller = Object.create(FleetCockpitController.prototype);
 
-        cockpit.on('lifecycleIntent', data => fired.push(data));
+        controller.component = {fire(name, data) { if (name === 'lifecycleIntent') fired.push(data) }};
 
-        // the control bar carries the whole-fleet start button (SSOT §01 "▶ Start morning fleet")
-        expect(cockpit.down({cls: ['fm-cockpit-bar']})).toBeTruthy();
-        expect(cockpit.down({cls: ['fm-fleet-start']})).toBeTruthy();
+        controller.onStartFleet();
 
-        // the whole-fleet verb fires ONE intent scoped to the fleet; the cockpit never calls the
-        // bridge — that round-trip is the Lane-C responsibility (the B4/C2 boundary)
-        cockpit.getController().onStartFleet();
-        expect(fired).toEqual([{action: 'start', scope: 'fleet'}]);
-
-        cockpit.destroy()
+        expect(fired).toEqual([{action: 'start', scope: 'fleet'}])
     });
 });

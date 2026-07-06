@@ -84,7 +84,7 @@ test.describe('Fleet cockpit AgentCard — resident card composing the class pri
 
         card.on('lifecycleIntent', data => fired.push(data));
 
-        const verbs   = card.down({cls: ['fm-card-control-verbs']});
+        const verbs   = card.down({reference: 'control-verbs'});
         const toggle  = verbs.items[0];
         const restart = verbs.items[1];
         expect(restart.action).toBe('restart');
@@ -114,8 +114,8 @@ test.describe('Fleet cockpit AgentCard — resident card composing the class pri
 
     test('B4 honest state: a pending action disables every verb + renders it pending; a controlReason renders the reason — no optimistic success (#14611)', () => {
         const card   = createCard({agentId: 'vega', state: 'idle'});
-        const verbs  = () => card.down({cls: ['fm-card-control-verbs']}).items;
-        const status = () => card.down({cls: ['fm-card-control-status']});
+        const verbs  = () => card.down({reference: 'control-verbs'}).items;
+        const status = () => card.down({reference: 'control-status'});
 
         // idle + nothing pending: the power toggle is enabled, the status line is hidden
         expect(verbs()[0].disabled).toBe(false);
