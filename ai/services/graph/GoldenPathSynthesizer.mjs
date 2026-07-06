@@ -1099,7 +1099,9 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         // TTL pruning and centralized overwrite happen in the same render pass.
         let handoffContent = `# Autonomous Handoff (Dream Pipeline & Golden Path)\n\n`;
         handoffContent += `The Native Edge Graph has audited the codebase structurally. The following architectural coverage gaps currently exist natively within the SQLite matrix.\n\n`;
-        handoffContent += this.constructor.renderConceptSliceHandoffSection({
+        // The Concept Slice is Native-Edge-Graph analytics, not strategic handoff — capture it here and
+        // write it to a sibling companion file below; it is never appended to the handoff itself.
+        const conceptSliceSection = this.constructor.renderConceptSliceHandoffSection({
             capturedAt  : handoffTimestamp,
             graphService: GraphService,
             logger
@@ -1427,6 +1429,13 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         fs.mkdirSync(path.dirname(handoffFile), {recursive: true});
         fs.writeFileSync(handoffFile, handoffContent.trim() + '\n', 'utf-8');
         logger.info(`[GoldenPathSynthesizer] sandman_handoff.md freshly generated via Centralized Pipeline. Golden Path integrated.`);
+
+        // Graph-analytics companion — kept OUT of the strategic handoff, in a sibling file derived from
+        // the resolved handoff path so the debug tables never bloat sandman_handoff.md.
+        const conceptSliceFile = path.join(path.dirname(handoffFile), 'sandman_concept_slice.md');
+        if (conceptSliceSection.trim()) {
+            fs.writeFileSync(conceptSliceFile, `# Concept Slice — Native Edge Graph analytics (companion to sandman_handoff.md)\n${conceptSliceSection.trim()}\n`, 'utf-8');
+        }
 
         logger.info(`[GoldenPathSynthesizer] Mathematical Golden Path established. Anchored ${topNodes.length} strategic nodes to frontier.`);
 
