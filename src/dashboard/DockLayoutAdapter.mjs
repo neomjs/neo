@@ -1,4 +1,5 @@
 import Base            from '../core/Base.mjs';
+import DockRail        from './DockRail.mjs';
 import DockSplitter    from './DockSplitter.mjs';
 import DockTabSortZone from './DockTabSortZone.mjs';
 import DockZoneModel   from './DockZoneModel.mjs';
@@ -257,10 +258,12 @@ class DockLayoutAdapter extends Base {
     }
 
     /**
-     * Projects one auto-hidden item id into a collapsed rail-tab affordance.
+     * Projects one auto-hidden item id into the rail-tab metadata `DockRail` renders.
      *
-     * The rail tab carries stable `dockItemId` + `dockEdge` metadata so a later reveal/pin slice
-     * can convert a click into a transient reveal or a `setItemPinned` operation.
+     * The metadata carries stable `dockItemId` + `dockEdge` so the rail's click (and the follow-up
+     * reveal/pin slice) can address the item semantically, plus the `restorable` policy projection
+     * (`pinnable !== false`) — a tab whose restore the model would reject renders disabled instead
+     * of lying about the affordance.
      * No DOMRect, hover, or open geometry is emitted — reveal/open state stays runtime-only per the
      * JSON-first guardrail (HarnessDockZoneModel.md §Serializable vs Runtime).
      * @param {String} itemId
@@ -274,18 +277,21 @@ class DockLayoutAdapter extends Base {
         let item = context.items[itemId] || {};
 
         return {
-            cls         : ['neo-dashboard-dock-rail-tab'],
-            data        : {dockEdge: edge, dockItemId: itemId, dockRailTab: true},
-            dockEdge    : edge,
-            dockItemId  : itemId,
-            dockNodeType: 'edge-rail-tab',
-            ntype       : 'button',
-            text        : item.title || itemId
+            dockEdge  : edge,
+            dockItemId: itemId,
+            restorable: item.pinnable !== false,
+            title     : item.title || itemId
         }
     }
 
     /**
-     * Projects a set of auto-hidden item ids into a thin edge-rail strip for the owning edge.
+     * Projects a set of auto-hidden item ids into a `Neo.dashboard.DockRail` affordance for the
+     * owning edge.
+     *
+     * Mirrors `createSplitterAffordance()`: the reducer callbacks thread from projection context into
+     * the component so restore commits ride the workspace's single operation path — no parallel
+     * mutation grammar. Rail extent and tab writing-mode are CSS concerns keyed off the per-edge cls
+     * hook (JSON-first: no pixel geometry in the projection).
      * @param {String[]} itemIds
      * @param {String} edge One of `top`, `right`, `bottom`, `left`.
      * @param {Object} context
@@ -294,15 +300,16 @@ class DockLayoutAdapter extends Base {
      * @static
      */
     static createEdgeRail(itemIds, edge, context) {
-        let isVertical = edge === 'left' || edge === 'right';
-
         return {
-            cls         : ['neo-dashboard-dock-edge-rail', `neo-dashboard-dock-edge-rail-${edge}`],
-            dockEdge    : edge,
-            dockNodeType: 'edge-rail',
-            items       : itemIds.map(itemId => this.createRailTab(itemId, edge, context)),
-            layout      : {ntype: isVertical ? 'vbox' : 'hbox', align: 'start'},
-            ntype       : 'container'
+            applyDockZoneOperation  : context.applyDockZoneOperation,
+            dockEdge                : edge,
+            dockNodeType            : 'edge-rail',
+            dockZoneDocument        : context.dockZoneDocument,
+            edge,
+            module                  : DockRail,
+            ntype                   : 'dashboard-dock-rail',
+            onDockZoneDocumentChange: context.onDockZoneDocumentChange,
+            railItems               : itemIds.map(itemId => this.createRailTab(itemId, edge, context))
         }
     }
 
