@@ -137,24 +137,54 @@ class FleetGrid extends Container {
      */
     onConstructed(...args) {
         super.onConstructed(...args);
-        this.refreshGrid()
+
+        let me = this;
+
+        // the health bar tallies from the SAME bound store (its own reactive record seam, no array copy)
+        me.getReference('fleet-health').store = me.store;
+        me.refreshGrid()
     }
 
     /**
      * Triggered after the store config changed — re-seats the reactive wire: the grid re-derives on
-     * the store's `load` and routes `recordChange` to a re-rank or an in-place card update.
+     * the store's `load` and routes `recordChange` to a re-rank or an in-place card update; the
+     * header's health bar is re-seated onto the same store (it tallies via its own record seam).
      * @param {Neo.data.Store|null} value
      * @param {Neo.data.Store|null} oldValue
      * @protected
      */
     afterSetStore(value, oldValue) {
         let me        = this,
-            listeners = {load: me.onStoreLoad, recordChange: me.onStoreRecordChange, scope: me};
+            listeners = me.getStoreListeners();
 
         oldValue?.un(listeners);
         value   ?.on(listeners);
 
-        me.isConstructed && me.refreshGrid()
+        if (me.isConstructed) {
+            me.getReference('fleet-health').store = value;
+            me.refreshGrid()
+        }
+    }
+
+    /**
+     * @summary The one listener set this grid seats on its bound store — kept in one place so
+     * `afterSetStore` re-seating and `destroy` teardown stay symmetric.
+     * @returns {Object}
+     * @protected
+     */
+    getStoreListeners() {
+        let me = this;
+
+        return {load: me.onStoreLoad, recordChange: me.onStoreRecordChange, scope: me}
+    }
+
+    /**
+     *
+     */
+    destroy() {
+        this.store?.un(this.getStoreListeners());
+
+        super.destroy()
     }
 
     /**
@@ -228,11 +258,10 @@ class FleetGrid extends Container {
               rank           = rankFleet(records, {foldThreshold: me.foldThreshold}),
               {adapterState} = me;
 
-        // header — updated in place; the health bar instance persists so counts animate, not flash
-        me.getReference('fleet-title').text    = `Fleet · ${rank.total} agents`;
-        me.getReference('fleet-stale').text    = adapterState === 'stale' ? 'stale — reconnecting' : adapterState === 'sample' ? 'sample roster' : '';
-        me.getReference('fleet-health').agents = records;
-        me.getReference('fleet-head').cls      = ['fm-fleet-head', `is-${adapterState}`];
+        // header — updated in place (the health bar is store-bound and tallies itself)
+        me.getReference('fleet-title').text = `Fleet · ${rank.total} agents`;
+        me.getReference('fleet-stale').text = adapterState === 'stale' ? 'stale — reconnecting' : adapterState === 'sample' ? 'sample roster' : '';
+        me.getReference('fleet-head').cls   = ['fm-fleet-head', `is-${adapterState}`];
 
         // card set — rebuilt (the visible cards change with the roster)
         const cards = [...rank.online.map(record => me.agentCardConfig(record))];

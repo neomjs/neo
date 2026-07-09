@@ -139,11 +139,20 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
         const first = rankFleet(store.items).online[0];
         expect(lastId()).not.toBe(first.agentId);
 
+        // the grid seats its store onto the header health bar — counts derive from the same records
+        const bar = grid.getReference('fleet-health');
+        expect(bar.store).toBe(store);
+        expect(swatchOf(bar, 'ok').count).toBe(2);
+
         first.set({state: 'off'});
 
         expect(agentCards(grid).length).toBe(3);           // still every card — a tier move, not a drop
         expect(lastId()).toBe(first.agentId);              // now the benched tail
         expect(agentCards(grid).at(-1).down({ntype: 'fm-state-dot'}).state).toBe('off');
+
+        // ...and the store-bound health bar re-tallied through ITS OWN record seam (no array push)
+        expect(swatchOf(bar, 'ok').count).toBe(1);
+        expect(swatchOf(bar, 'off').count).toBe(1);
 
         grid.destroy()
     });
@@ -183,8 +192,9 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
         grid.destroy()
     });
 
-    test('HealthBar renders the five swatches and updates counts IN PLACE across roster changes (no rebuild)', () => {
-        const bar = Neo.create(HealthBar, {appName, agents: roster(['ok', 'ok', 'idle', 'off'])});
+    test('HealthBar is Store-bound — counts tally from records and react through the store seam, swatches stable (no rebuild)', () => {
+        const store = makeStore(roster(['ok', 'ok', 'idle', 'off'])),
+              bar   = Neo.create(HealthBar, {appName, store});
 
         expect(bar.items.length).toBe(5);
         expect(swatchOf(bar, 'ok').count).toBe(2);
@@ -192,19 +202,22 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
         expect(swatchOf(bar, 'off').count).toBe(1);
         expect(swatchOf(bar, 'wedged').count).toBe(0);   // zero still renders (confirms "none")
 
-        // stable instances: capture ids, change the roster, assert SAME swatch instances updated
+        // stable instances: capture ids, mutate a RECORD, assert SAME swatch instances re-tallied
         const idsBefore = bar.items.map(sw => sw.id);
-        bar.agents = roster(['ok', 'ok', 'ok', 'wedged', 'wedged']);
+        store.items[2].set({state: 'wedged'});                   // idle → wedged, via the record seam
         expect(bar.items.map(sw => sw.id)).toEqual(idsBefore);   // not recreated → the count transition can animate
-        expect(swatchOf(bar, 'ok').count).toBe(3);
-        expect(swatchOf(bar, 'wedged').count).toBe(2);
         expect(swatchOf(bar, 'idle').count).toBe(0);
+        expect(swatchOf(bar, 'wedged').count).toBe(1);
+
+        // a store load (roster growth) re-tallies too
+        store.add({agentId: 'agent-99', state: 'ok'});
+        expect(swatchOf(bar, 'ok').count).toBe(3);
 
         // guest/unknown folds into the VISIBLE off swatch — the five-swatch bar never undercounts a roster
-        bar.agents = roster(['ok', 'guest', 'mysterious']);
+        store.items[0].set({state: 'mysterious'});
         expect(bar.items.length).toBe(5);              // still no 6th swatch
-        expect(swatchOf(bar, 'off').count).toBe(2);    // guest + mysterious rendered as benched
-        expect(swatchOf(bar, 'ok').count).toBe(1);
+        expect(swatchOf(bar, 'off').count).toBe(2);    // off + mysterious rendered as benched
+        expect(swatchOf(bar, 'ok').count).toBe(2);
 
         bar.destroy()
     });

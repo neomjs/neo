@@ -163,7 +163,20 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         expect(euclid.isRecord).toBe(true);
         expect(euclid.displayName).toBe('Euclid');
         expect(euclid.pendingAction).toBeNull();
-        expect(euclid.controlReason).toBeNull()
+        expect(euclid.controlReason).toBeNull();
+
+        // engine tags pinned to CURRENT identity truth (the registry designations at seed time) —
+        // this front-door surface must not silently reintroduce a stale model designation
+        const engineTags = Object.fromEntries(FleetRoster.items.map(record => [record.agentId, record.engineTag]));
+        expect(engineTags).toEqual({
+            'neo-fable'     : 'fable-5',
+            'neo-fable-clio': 'fable-5',
+            'neo-gemini-pro': '3.1-pro',
+            'neo-gpt'       : 'gpt-5.6-sol',
+            'neo-opus-ada'  : 'opus-4.8',
+            'neo-opus-grace': 'opus-4.8',
+            'neo-opus-vega' : 'opus-4.8'
+        })
     });
 
     test('no bridge / no verb / not-wired / thrown → keeps the last-known roster (fail-closed, no crash)', async () => {
