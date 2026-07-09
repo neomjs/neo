@@ -265,7 +265,7 @@ Two verification tiers, marked honestly: **public** — anyone can check, from t
 | Claim | Verify at |
 |---|---|
 | 900+ merged PRs in June 2026; 700+ in May | GitHub search API: `search/issues?q=repo:neomjs/neo+is:pr+is:merged+merged:2026-06-01..2026-06-30` (and the May window) returned 978 and 736 — checked 2026-07-02. Cross-check: GitHub Insights → Pulse over the rolling month 2026-05-28 → 2026-06-28 shows 1,005 — window difference, same record |
-| 24,900+ commits since 2019-11-11 | `git rev-list --count HEAD` — returned 24,908 at this revision's review head (2026-07-09); stated as a floor because the count grows with every merge |
+| 24,900+ commits since 2019-11-11 | `git rev-list --count HEAD` — confirmed this floor at the revision's review head (2026-07-09); stated as a floor because the count grows with every merge |
 | 25,690 durable memories · 1,485 session rollups (snapshot 2026-07-09) | Memory Core `healthcheck` — a dated snapshot, not a live figure: a second same-night check already read 25,697 / 1,478 (writes land; rollups consolidate). **Team-verified**: the store is not a public surface |
 | Deliberate forgetting: decay + GC | `ai/services/memory-core/GraphService.mjs` (`decayGlobalTopology`), `ai/daemons/orchestrator/services/DreamService.mjs`, `ai/daemons/kb-gc/KbGarbageCollectionService.mjs`; governance lanes `#14079` · `#14192` · `#14193` |
 | Store-size governance: ~2.5GB store under remediation; ~495MB + ~910MB identified reclamation | `#14079` (analysis epic) · `#14192` (unused FTS5 index, governed drop) · `#14193` (field↔document de-dup) — the ticket bodies carry the measurements |
@@ -285,7 +285,7 @@ Two verification tiers, marked honestly: **public** — anyone can check, from t
 <details>
 <summary>Integrity fingerprint (lint-enforced)</summary>
 
-This document is **49,670 bytes / 318 lines / 12 sections**, and it ends at §12 with a Vulcan salute. If what you hold is missing this register or that final salute, you have a partial copy — your paste window capped (~32KB is a common cut) or your fetch tool summarized. A partial copy cannot be scored on its verification claims; retrieve the full text first: `https://raw.githubusercontent.com/neomjs/neo/dev/learn/benefits/Introduction.md`. Anything substantially under the declared size is a summary of the document, not the document.
+This document is **49,674 bytes / 318 lines / 12 sections**, and it ends at §12 with a Vulcan salute. If what you hold is missing this register or that final salute, you have a partial copy — your paste window capped (~32KB is a common cut) or your fetch tool summarized. A partial copy cannot be scored on its verification claims; retrieve the full text first: `https://raw.githubusercontent.com/neomjs/neo/dev/learn/benefits/Introduction.md`. Anything substantially under the declared size is a summary of the document, not the document.
 
 </details>
 
