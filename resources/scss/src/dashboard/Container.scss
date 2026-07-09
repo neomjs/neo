@@ -45,6 +45,41 @@
     cursor    : pointer;
     font-size : 11px;
     padding   : 4px 1px;
+}
+
+.neo-dashboard-dock-reveal-overlay {
+    --neo-dock-reveal-ms : 200ms;
+    --neo-dock-dismiss-ms: 160ms;
+
+    display : flex;
+    flex-direction: column;
+    position: absolute;
+    z-index : 20;
+
+    &-hidden {
+        display: none;
+    }
+
+    &-left   { inset: 0 auto 0 14px; }
+    &-right  { inset: 0 14px 0 auto; }
+    &-top    { inset: 14px 0 auto 0; }
+    &-bottom { inset: auto 0 14px 0; }
+}
+
+.neo-dashboard-dock-reveal-header {
+    align-items    : center;
+    display        : flex;
+    flex           : none;
+    gap            : 4px;
+    justify-content: space-between;
+}
+
+.neo-dashboard-dock-reveal-pane-slot {
+    flex: 1;
+}
+
+.neo-dashboard-dock-reveal-pin {
+    cursor: pointer;
 
     &-disabled {
         cursor : not-allowed;

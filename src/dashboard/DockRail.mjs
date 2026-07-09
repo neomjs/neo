@@ -1,6 +1,7 @@
-import Component     from '../component/Base.mjs';
-import DockZoneModel from './DockZoneModel.mjs';
-import NeoArray      from '../util/Array.mjs';
+import Component              from '../component/Base.mjs';
+import DockRevealStateMachine from './DockRevealStateMachine.mjs';
+import DockZoneModel          from './DockZoneModel.mjs';
+import NeoArray               from '../util/Array.mjs';
 
 /**
  * @summary Runtime edge-rail affordance rendering committed auto-hidden items as labeled rail tabs,
@@ -12,14 +13,20 @@ import NeoArray      from '../util/Array.mjs';
  * than from the pane components themselves, so the pane never learns it is railed (pane-blindness) and
  * a destroyed or unresolvable pane cannot break its recall affordance.
  *
- * Interaction contract (current slice): click = restore, committed through the owning reducer callback
+ * Interaction contract: a tab click opens a TRANSIENT reveal (focus moves into the overlay); re-click,
+ * `Escape`, outside-click, or focus/pointer leaving dismiss it — reveal state is runtime-only and no
+ * operation descriptor exists for dismissal. Hover-reveal is a workspace opt-in (`autoHideRevealOnHover`;
+ * dwell-gated, never steals focus — hover reveals are an accessibility hazard by default). The PERSIST
+ * path is the overlay's pin control: `setItemPinned(true)` committed through the owning reducer callback
  * (`applyDockZoneOperation`) or a local `DockZoneModel.applyOperation()` — never a parallel mutation
- * path. The follow-up reveal/dismiss slice upgrades click to a transient reveal overlay and moves the
- * persist to the overlay's pin control; this component is the mount point for that state machine.
+ * path; the model clears `autoHidden` itself.
  *
- * Policy honesty: the model rejects `setItemAutoHidden(false)` for `pinnable: false` items, which is
- * reachable when an item's policy flips after it railed. Such a tab renders disabled and rejects locally
- * instead of emitting a doomed operation — the affordance mirrors what the executor would answer.
+ * Reveal is policy-free: even a `pinnable: false` item (whose PIN the model would reject) must stay
+ * reachable through reveal — anything else is item loss. The policy projection (`restorable`) therefore
+ * gates the overlay's pin control, not the tab.
+ *
+ * The reveal/dismiss timing brain lives in {@link DockRevealStateMachine} (documented state table);
+ * this component owns DOM wiring, overlay binding and the executor commit path.
  *
  * @class Neo.dashboard.DockRail
  * @extends Neo.component.Base
@@ -51,6 +58,14 @@ class DockRail extends Component {
          */
         applyDockZoneOperation: null,
         /**
+         * Workspace-level opt-in for hover-born reveals (dwell-gated, never steals focus).
+         * Default off — hover reveals are an accessibility hazard; click-reveal is the contract
+         * default. Not persisted per item: this is per-workspace interaction preference.
+         * @member {Boolean} autoHideRevealOnHover_=false
+         * @reactive
+         */
+        autoHideRevealOnHover_: false,
+        /**
          * Current committed dock-zone document. Used when no reducer callback is supplied.
          * @member {Object|null} dockZoneDocument_=null
          * @reactive
@@ -69,6 +84,18 @@ class DockRail extends Component {
          */
         onDockZoneDocumentChange: null,
         /**
+         * Dismiss-grace override in ms; `null` keeps the machine's named design constant.
+         * @member {Number|null} revealDismissGraceMs_=null
+         * @reactive
+         */
+        revealDismissGraceMs_: null,
+        /**
+         * Hover-dwell override in ms; `null` keeps the machine's named design constant.
+         * @member {Number|null} revealDwellMs_=null
+         * @reactive
+         */
+        revealDwellMs_: null,
+        /**
          * Rail tab metadata, in document order: `[{dockEdge, dockItemId, restorable, title}]`.
          * Projection input from `DockLayoutAdapter.createRailTab()` — model-derived, never persisted.
          * @member {Object[]|null} railItems_=null
@@ -77,6 +104,18 @@ class DockRail extends Component {
         railItems_: null
     }
 
+    /**
+     * The reveal/dismiss timing brain. Runtime-only; created per instance, torn down in `destroy()`.
+     * @member {DockRevealStateMachine|null} revealMachine=null
+     * @protected
+     */
+    revealMachine = null
+    /**
+     * The overlay bound via {@link Neo.dashboard.DockRail#bindRevealOverlay}, when one exists.
+     * @member {Neo.dashboard.DockRevealOverlay|null} revealOverlay=null
+     * @protected
+     */
+    revealOverlay = null
     /**
      * Maps projected tab node ids to dock item ids for delegate-click resolution.
      * Runtime-only lookup state, rebuilt on every `railItems` pass — id-based resolution avoids
@@ -95,8 +134,51 @@ class DockRail extends Component {
         let me = this;
 
         me.addDomListeners([
-            {click: me.onRailClick, delegate: '.neo-dashboard-dock-rail-tab', scope: me}
-        ])
+            {click     : me.onRailClick,   delegate: '.neo-dashboard-dock-rail-tab', scope: me},
+            {mouseenter: me.onTabHoverIn,  delegate: '.neo-dashboard-dock-rail-tab', scope: me},
+            {mouseleave: me.onTabHoverOut, delegate: '.neo-dashboard-dock-rail-tab', scope: me}
+        ]);
+
+        me.revealMachine = new DockRevealStateMachine({
+            dwellMs      : Number.isFinite(me.revealDwellMs)        ? me.revealDwellMs        : undefined,
+            graceMs      : Number.isFinite(me.revealDismissGraceMs) ? me.revealDismissGraceMs : undefined,
+            onChange     : me.onRevealStateChange.bind(me),
+            revealOnHover: me.autoHideRevealOnHover
+        })
+    }
+
+    /**
+     * Live-updates the machine when the workspace flips the hover opt-in.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetAutoHideRevealOnHover(value, oldValue) {
+        if (this.revealMachine) {
+            this.revealMachine.revealOnHover = value === true
+        }
+    }
+
+    /**
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetRevealDismissGraceMs(value, oldValue) {
+        if (this.revealMachine && Number.isFinite(value)) {
+            this.revealMachine.graceMs = value
+        }
+    }
+
+    /**
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetRevealDwellMs(value, oldValue) {
+        if (this.revealMachine && Number.isFinite(value)) {
+            this.revealMachine.dwellMs = value
+        }
     }
 
     /**
@@ -126,6 +208,10 @@ class DockRail extends Component {
     /**
      * Rebuilds the tab vdom in place — the component instance and its root node stay stable across
      * model flips (object permanence at the affordance level); only the tab children re-render.
+     *
+     * Tabs are never disabled: reveal is policy-free (a `pinnable: false` item must stay reachable),
+     * so the `restorable` projection gates the overlay's pin control instead. Items that left the
+     * rail fail-close any reveal of them (`itemCleared`).
      * @param {Object[]|null} value
      * @param {Object[]|null} oldValue
      * @protected
@@ -138,38 +224,67 @@ class DockRail extends Component {
         me.tabIdToItemId = {};
 
         vdom.cn = (value || []).map((railItem, index) => {
-            let tabId      = `${me.id}__tab-${index}`,
-                restorable = railItem.restorable !== false,
-                cls        = ['neo-dashboard-dock-rail-tab'];
-
-            if (!restorable) {
-                cls.push('neo-dashboard-dock-rail-tab-disabled')
-            }
+            let tabId = `${me.id}__tab-${index}`;
 
             me.tabIdToItemId[tabId] = railItem.dockItemId;
 
             return {
-                tag     : 'button',
-                cls,
-                data    : {dockEdge: railItem.dockEdge || edge, dockItemId: railItem.dockItemId, dockRailTab: true},
-                disabled: restorable ? null : true,
-                id      : tabId,
-                text    : railItem.title || railItem.dockItemId
+                tag : 'button',
+                cls : ['neo-dashboard-dock-rail-tab'],
+                data: {dockEdge: railItem.dockEdge || edge, dockItemId: railItem.dockItemId, dockRailTab: true},
+                id  : tabId,
+                text: railItem.title || railItem.dockItemId
             }
         });
 
-        me.update()
+        (oldValue || []).forEach(railItem => {
+            if (!(value || []).some(item => item.dockItemId === railItem.dockItemId)) {
+                me.revealMachine?.itemCleared(railItem.dockItemId)
+            }
+        });
+
+        me.update();
+        me.syncRevealOverlay()
     }
 
     /**
-     * Commits a restore descriptor through the owning reducer callback, falling back to a local
-     * `DockZoneModel.applyOperation()` — identical commit contract to `DockSplitter.commitResizeSplit()`
-     * so dashboard reducers handle both affordances with one code path.
+     * Binds a reveal overlay to this rail: overlay intents (pointer, focus, escape, pin) feed the
+     * state machine, and machine state pushes back into the overlay — the full focus-hold loop
+     * becomes testable without a live workspace.
+     * @param {Neo.dashboard.DockRevealOverlay} overlay
+     * @returns {Neo.dashboard.DockRevealOverlay}
+     */
+    bindRevealOverlay(overlay) {
+        let me = this;
+
+        me.revealOverlay = overlay;
+
+        overlay.on({
+            revealEscape      : me.onOverlayEscape,
+            revealFocusEnter  : me.onOverlayFocusEnter,
+            revealFocusLeave  : me.onOverlayFocusLeave,
+            revealPinRequested: me.onRevealPinRequested,
+            revealPointerEnter: me.onOverlayPointerEnter,
+            revealPointerLeave: me.onOverlayPointerLeave,
+            scope             : me
+        });
+
+        me.syncRevealOverlay();
+
+        return overlay
+    }
+
+    /**
+     * Commits a dock-zone operation descriptor through the owning reducer callback, falling back to
+     * a local `DockZoneModel.applyOperation()` — identical commit contract to
+     * `DockSplitter.commitResizeSplit()` so dashboard reducers handle every affordance with one
+     * code path. The rail commits `setItemPinned` (the overlay pin escape); reveal/dismiss never
+     * commit anything.
      * @param {Object} descriptor
      * @returns {{document:(Object|null), errors:String[]}}
      * @protected
      */
-    commitRestore(descriptor) {
+    commitOperation(descriptor) {
         let me     = this,
             result = null;
 
@@ -182,7 +297,7 @@ class DockRail extends Component {
         if (!result) {
             result = {
                 document: me.dockZoneDocument,
-                errors  : ['DockRail requires `dockZoneDocument` or `applyDockZoneOperation` to commit setItemAutoHidden.']
+                errors  : ['DockRail requires `dockZoneDocument` or `applyDockZoneOperation` to commit dock-zone operations.']
             }
         }
 
@@ -198,6 +313,21 @@ class DockRail extends Component {
     }
 
     /**
+     * Tears down the reveal machinery before component destruction — pending dwell/grace timers
+     * must never outlive the rail.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        let me = this;
+
+        me.revealMachine?.destroy();
+        me.revealMachine = null;
+        me.revealOverlay = null;
+
+        super.destroy(...args)
+    }
+
+    /**
      * @param {String} edge
      * @returns {String}
      * @protected
@@ -207,15 +337,73 @@ class DockRail extends Component {
     }
 
     /**
-     * Delegate click handler for rail tabs: resolves the clicked tab to its dock item, honours the
-     * restore policy, and commits `setItemAutoHidden(false)` through the reducer path.
-     * Fires `dockRailRestore` on commit, `dockRailRestoreRejected` on policy block or executor error.
+     * @protected
+     */
+    onOverlayEscape() {
+        this.revealMachine?.escape()
+    }
+
+    /**
+     * @protected
+     */
+    onOverlayFocusEnter() {
+        this.revealMachine?.overlayFocusEnter()
+    }
+
+    /**
+     * @protected
+     */
+    onOverlayFocusLeave() {
+        this.revealMachine?.overlayFocusLeave()
+    }
+
+    /**
+     * @protected
+     */
+    onOverlayPointerEnter() {
+        this.revealMachine?.overlayPointerEnter()
+    }
+
+    /**
+     * @protected
+     */
+    onOverlayPointerLeave() {
+        this.revealMachine?.overlayPointerLeave()
+    }
+
+    /**
+     * Delegate click handler for rail tabs: resolves the clicked tab to its dock item and feeds the
+     * reveal machine — click opens a focused transient reveal, re-click dismisses. No operation is
+     * committed here; the persist path is the overlay pin
+     * ({@link Neo.dashboard.DockRail#onRevealPinRequested}).
      * @param {Object} data
-     * @returns {{document:(Object|null), errors:String[]}|null}
+     * @returns {{revealedItemId:(String|null), state:String}|null} Machine snapshot after the input.
      */
     onRailClick(data={}) {
         let me     = this,
-            itemId = me.tabIdToItemId[data.currentTarget],
+            itemId = me.tabIdToItemId[data.currentTarget];
+
+        if (!itemId) {
+            return null
+        }
+
+        me.revealMachine.tabClick(itemId);
+
+        return {revealedItemId: me.revealMachine.revealedItemId, state: me.revealMachine.state}
+    }
+
+    /**
+     * The pin escape: honours the pin policy, commits `setItemPinned(true)` through the reducer
+     * path — the model clears `autoHidden` itself (landed guard) — and fail-closes the reveal.
+     * Fires `dockRailOperation` on commit, `dockRailOperationRejected` on policy block or executor
+     * error.
+     * @param {Object} data
+     * @param {String} [data.itemId] Defaults to the currently revealed item.
+     * @returns {{document:(Object|null), errors:String[]}|null}
+     */
+    onRevealPinRequested(data={}) {
+        let me     = this,
+            itemId = data.itemId || me.revealMachine?.revealedItemId,
             descriptor, railItem, result;
 
         if (!itemId) {
@@ -227,18 +415,22 @@ class DockRail extends Component {
         if (railItem?.restorable === false) {
             result = {
                 document: me.dockZoneDocument,
-                errors  : [`item "${itemId}" restore blocked by policy (pinnable: false)`]
+                errors  : [`item "${itemId}" pin blocked by policy (pinnable: false)`]
             };
 
-            me.fire('dockRailRestoreRejected', {descriptor: null, itemId, rail: me, result});
+            me.fire('dockRailOperationRejected', {descriptor: null, itemId, rail: me, result});
 
             return result
         }
 
-        descriptor = {autoHidden: false, itemId, operation: 'setItemAutoHidden'};
-        result     = me.commitRestore(descriptor);
+        descriptor = {itemId, operation: 'setItemPinned', pinned: true};
+        result     = me.commitOperation(descriptor);
 
-        me.fire(result.errors?.length ? 'dockRailRestoreRejected' : 'dockRailRestore', {
+        if (!result.errors?.length) {
+            me.revealMachine?.itemCleared(itemId)
+        }
+
+        me.fire(result.errors?.length ? 'dockRailOperationRejected' : 'dockRailOperation', {
             descriptor,
             itemId,
             rail: me,
@@ -246,6 +438,84 @@ class DockRail extends Component {
         });
 
         return result
+    }
+
+    /**
+     * Machine change hook: fires `dockRailRevealChange` and pushes the snapshot into a bound
+     * overlay. Reveal state is runtime-only — nothing here touches a document.
+     * @param {Object} next {revealedItemId, state}
+     * @param {Object} previous {revealedItemId, state}
+     * @protected
+     */
+    onRevealStateChange(next, previous) {
+        let me = this;
+
+        me.fire('dockRailRevealChange', {
+            next,
+            previous,
+            rail    : me,
+            railItem: (me.railItems || []).find(item => item.dockItemId === next.revealedItemId) || null
+        });
+
+        me.syncRevealOverlay()
+    }
+
+    /**
+     * @param {Object} data
+     * @protected
+     */
+    onTabHoverIn(data={}) {
+        let itemId = this.tabIdToItemId[data.currentTarget];
+
+        if (itemId) {
+            this.revealMachine.tabHoverIn(itemId)
+        }
+    }
+
+    /**
+     * @param {Object} data
+     * @protected
+     */
+    onTabHoverOut(data={}) {
+        this.revealMachine.tabHoverOut()
+    }
+
+    /**
+     * Resolves the overlay's free-dimension extent for an item: the share its owning split last
+     * committed (still in the document), else `null` — the overlay then falls back to its
+     * workspace-configurable default fraction.
+     * @param {String} itemId
+     * @returns {Number|null}
+     * @protected
+     */
+    resolveRevealExtent(itemId) {
+        let document = this.dockZoneDocument;
+
+        return document ? Neo.dashboard.DockLayoutAdapter.resolveRevealExtent(document, itemId) : null
+    }
+
+    /**
+     * Pushes the current reveal snapshot into the bound overlay, when one exists.
+     * @protected
+     */
+    syncRevealOverlay() {
+        let me      = this,
+            overlay = me.revealOverlay,
+            machine = me.revealMachine,
+            railItem;
+
+        if (!overlay || !machine) {
+            return
+        }
+
+        railItem = (me.railItems || []).find(item => item.dockItemId === machine.revealedItemId) || null;
+
+        overlay.set({
+            edge        : me.getValidatedEdge(me.edge),
+            revealExtent: railItem ? me.resolveRevealExtent(railItem.dockItemId) : null,
+            revealState : machine.state,
+            revealedItem: railItem
+        })
     }
 }
 

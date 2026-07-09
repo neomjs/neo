@@ -209,6 +209,7 @@ class DockLayoutAdapter extends Base {
 
         return this.projectNode(model.root, {
             applyDockZoneOperation  : options.applyDockZoneOperation,
+            autoHideRevealOnHover   : options.autoHideRevealOnHover === true,
             dockZoneDocument        : options.dockZoneDocument || model,
             items                   : model.items || {},
             nodes                   : model.nodes,
@@ -302,6 +303,7 @@ class DockLayoutAdapter extends Base {
     static createEdgeRail(itemIds, edge, context) {
         return {
             applyDockZoneOperation  : context.applyDockZoneOperation,
+            autoHideRevealOnHover   : context.autoHideRevealOnHover === true,
             dockEdge                : edge,
             dockNodeType            : 'edge-rail',
             dockZoneDocument        : context.dockZoneDocument,
@@ -311,6 +313,61 @@ class DockLayoutAdapter extends Base {
             onDockZoneDocumentChange: context.onDockZoneDocumentChange,
             railItems               : itemIds.map(itemId => this.createRailTab(itemId, edge, context))
         }
+    }
+
+    /**
+     * Resolves the reveal overlay's free-dimension extent for an item: the share its owning
+     * subtree holds at the nearest ancestor split, per that split's committed `sizes` — the
+     * "last committed extent, still in the document" rule. Returns `null` when no ancestor split
+     * carries usable sizes (e.g. a tabs node sitting directly in an edge-zone slot); the overlay
+     * then falls back to its workspace-configurable default fraction. Never reads DOM geometry.
+     * @param {Object} model Committed dock-zone document.
+     * @param {String} itemId
+     * @returns {Number|null} Fraction in `(0, 1]`, or `null`.
+     * @static
+     */
+    static resolveRevealExtent(model, itemId) {
+        let nodes   = model?.nodes || {},
+            childId = Object.keys(nodes).find(nodeId =>
+                nodes[nodeId].type === 'tabs' && (nodes[nodeId].items || []).includes(itemId)),
+            parent;
+
+        const findParent = id => {
+            for (const [nodeId, node] of Object.entries(nodes)) {
+                if (node.type === 'split' && (node.children || []).includes(id)) {
+                    return {index: node.children.indexOf(id), nodeId, split: true}
+                }
+                if (node.type === 'edge-zone' && Object.values(node.zones || {}).includes(id)) {
+                    return {nodeId, split: false}
+                }
+            }
+            return null
+        };
+
+        while (childId) {
+            parent = findParent(childId);
+
+            if (!parent) {
+                return null
+            }
+
+            if (parent.split) {
+                let sizes = nodes[parent.nodeId].sizes;
+
+                if (Array.isArray(sizes) && sizes.length) {
+                    let total = sizes.reduce((sum, value) => sum + (Number(value) || 0), 0),
+                        share = Number(sizes[parent.index]);
+
+                    return total > 0 && Number.isFinite(share) && share > 0 ? share / total : null
+                }
+
+                return null
+            }
+
+            childId = parent.nodeId
+        }
+
+        return null
     }
 
     /**
