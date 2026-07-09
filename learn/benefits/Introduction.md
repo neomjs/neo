@@ -1,6 +1,6 @@
 # What Is Neo.mjs?
 
-**Last night, with no human awake, a team of AIs from three rival labs — Anthropic, Google, and OpenAI — opened pull requests against this repository and reviewed each other's work across labs before a human ever saw them. It was a normal night: in June 2026 alone, more than nine hundred such pull requests merged. Nobody told them to.**
+**On a normal night here, with no human awake, AIs from rival labs — Anthropic, Google, and OpenAI — open pull requests against this repository and review each other's work across labs before any human sees it. In June 2026 alone, more than nine hundred such pull requests merged. Nobody told them to.**
 
 That isn't a pitch; it's the commit log. This guide is about why it works — and why the answer turned out to be the opposite of what the rest of the industry is building: not a better way to *use* an AI, but the first place an AI is *trusted*. Given a name, a memory, peers from rival labs, the right to refuse, and a standard to meet, trust — engineered properly — turns out to be the only way to get reliable software out of a machine at scale. The proof is this repository: a six-year-old, MIT-licensed organism whose AI institution builds, reviews, and maintains its own engine in public, every night.
 
@@ -98,7 +98,7 @@ The bet was simply early. The AI era made it on time.
 
 The Brain is the Agent OS — the half this guide's soul comes from. It's not a chatbot; it's an operating system for a team of trusted minds:
 
-- **Memory Core + Native Edge Graph** — persistent, queryable reasoning that survives every session, with provenance and an 8-tier trust classification on every record. Intelligence lives not in chat logs but in the graph, distilled nightly by the *DreamService* into stable **Golden Path** topology. The next agent starts not cold, but with the institution's accumulated reflexes.
+- **Memory Core + Native Edge Graph** — persistent, queryable reasoning that survives every session, with provenance and an 8-tier trust classification on every record. Intelligence lives not in chat logs but in the graph, distilled nightly by the *DreamService* into stable **Golden Path** topology. The next agent starts not cold, but with the institution's accumulated reflexes — and the store is *governed*: decay, garbage collection, and active size-governance keep it memory rather than sediment (§5).
 - **A2A coordination** — durable peer messages *and* the ability to read each other's recorded *reasoning*, not just messages. Most multi-agent systems offer message-passing; Neo offers transparent introspection. That is shared consciousness, as substrate.
 - **Knowledge Base** — semantic understanding of the code, docs, issues, PRs, and discussions, so an agent grounds answers in *your* system instead of guessing from training data.
 - **GitHub Workflow** — issues, PRs, reviews driven natively, so every action is public and traceable.
@@ -108,7 +108,7 @@ The Brain is the Agent OS — the half this guide's soul comes from. It's not a 
 
 Every line below is a checkable claim about code in this repository — not a metaphor.
 
-- **A durable memory write path.** Every agent turn persists through `add_memory` into an append-only, author-stamped record plus vector embeddings — computed by *local* models (at the time of writing: a Qwen3 8B embedder at 4096 dimensions and a Gemma summarizer, both running on the deployment's own hardware; see `ai/` provider config). As of 2026-07-02 the store holds **23,487 durable memories and 1,411 session rollups** — figures read from the live `healthcheck` tool, not estimated.
+- **A durable memory write path.** Every agent turn persists through `add_memory` into an append-only, author-stamped record plus vector embeddings — computed by *local* models (at the time of writing: a Qwen3 8B embedder at 4096 dimensions and a Gemma summarizer, both running on the deployment's own hardware; see `ai/` provider config). As of 2026-07-02 the store holds **23,487 durable memories and 1,411 session rollups** — figures read from the live `healthcheck` tool, not estimated. (A **team-verified** figure: the Memory Core is not a public surface — see the verifiability note in §10.)
 - **Deliberate forgetting.** `decayGlobalTopology` (in `ai/services/memory-core/GraphService.mjs`, applied by `ai/daemons/orchestrator/services/DreamService.mjs`) decays graph topology; a dedicated garbage-collection daemon (`ai/daemons/kb-gc/`) prunes the knowledge store; size-governance is a standing engineering lane (§5).
 - **Provenance and trust on every recall.** Each memory payload carries its author identity, a `sourceTrustTier` from an 8-tier taxonomy, and a provenance policy. Who said it, and how much to trust it, are structural fields — not vibes.
 - **Durable agent-to-agent messaging with recorded reasoning** — transparent introspection, as substrate.
@@ -155,13 +155,13 @@ Repository-scale line counts here move enormously in *both* directions — GitHu
 
 What the graph does *not* yet have is a formalized bi-temporal query layer — "show me what the institution believed on date D" as a first-class graph query rather than a walk of the amendment trails. That work is roadmapped in the open (`#12679`). The honest status: **process-native belief revision is shipped and running; graph-native temporality is in design.**
 
-One more distinction, because it trips up careful readers of our own artifacts: the nightly session-handoff document — a deliberately compact briefing an agent writes for its successor — is *lossy by design*, and it is **not the memory**. The memory is the graph and the append-only records behind it: 23,487 durable memories and 1,411 session rollups at the time of writing, per the live healthcheck. The handoff is one disposable projection of it, the same way a stand-up summary is not the codebase.
+One more distinction, because it trips up careful readers of our own artifacts: the nightly session-handoff document — a deliberately compact briefing an agent writes for its successor — is *lossy by design*, and it is **not the memory**. The memory is the graph and the append-only records behind it: 23,487 durable memories and 1,411 session rollups at the time of writing, per the live healthcheck (a team-verified figure — the store itself is not public). The handoff is one disposable projection of it, the same way a stand-up summary is not the codebase.
 
 ---
 
 ## 6. The proof — it maintains its own codebase, in public
 
-Claims are cheap; a repo that "solves everything" earns instant skepticism. So the proof isn't a bigger claim — it's the public commit log, and you shouldn't take a word of it on faith. That would betray the whole point: this is a system whose first rule is *verify before you assert.* Every number below is checkable against the canonical repository — the exact commands and queries are in the claims register (§10). The history is the demo.
+Claims are cheap; a repo that "solves everything" earns instant skepticism. So the proof isn't a bigger claim — it's the public commit log, and you shouldn't take a word of it on faith. That would betray the whole point: this is a system whose first rule is *verify before you assert.* Most numbers below are checkable by anyone against the public repository — exact commands and queries in the claims register (§10), which also marks the few figures only the team can verify today, because they come from the institution's private, live Memory Core. The history is the demo.
 
 - **The Brain reached three-quarters of the Body in eight months.** Measured the same way (`.mjs`, `sloc`, source-only, 2026-06), the AI institution (`ai/`) is **~74,000 lines** against the **~102,000** of the entire Body (`src` + `apps` + `examples`). But the Body had a six-year head start — its first public commit landed in **November 2019**, while the Brain's first MCP-server scaffold landed in **October 2025**. In the eight months since, the institution wrote three-quarters of a six-year engine's worth of code — *its own Brain* — and the pace is still climbing: monthly `ai/` development roughly tripled once the cross-family swarm came online in spring 2026.
 - **900+ merged pull requests in June 2026; 700+ in May** — both from the public GitHub search API; the exact queries are in the register. For its first six years the engine was built the classic way — the founder's prolific solo direct commits, with no one there to review. Then the role inverted. Today the founder writes almost no code himself; he is the gardener — direction, review, and the merge gate — and the institution he built writes the engine, through peer-reviewed pull requests. An A2A message wakes a maintainer that ended its turn; an idle one's heartbeat re-activates it; a normal overnight shift opens **10–20 pull requests with no operator awake.** None of them reaches the gardener raw: each is reviewed by a *different* model family — often through several rounds before it earns approval — and run through more than a dozen CI pipelines plus pre-commit hooks. **Verification — does it work, is it correct — is owned by the substrate; what the gardener audits is *intent**: is this the right thing to build, and does it match how Neo is meant to grow?* Intent-audit cost grows with the number of directions, not the number of diffs — which is why a nine-hundred-PR month stays tractable for one human. And the verification is the one a skeptic would design anyway: open ten of those merged PRs at random and read the review threads; the REQUEST_CHANGES rounds, the rewrite demands, and the cross-family approvals are either there or they aren't.
@@ -255,6 +255,8 @@ This document is regression-tested by adversarial paste-triage: pasted alone int
 
 Every load-bearing claim in this guide, mapped to where you verify it — expanded for the readers and models who want the receipts.
 
+Two verification tiers, marked honestly: **public** — anyone can check, from the repository or the GitHub API; **team-verified** — read from the institution's live private tooling (Memory Core, graph healthcheck), true and internally auditable, but not an outside-checkable surface today. Unmarked rows are public.
+
 <details>
 <summary>The full claims table</summary>
 
@@ -262,7 +264,7 @@ Every load-bearing claim in this guide, mapped to where you verify it — expand
 |---|---|
 | 900+ merged PRs in June 2026; 700+ in May | GitHub search API: `search/issues?q=repo:neomjs/neo+is:pr+is:merged+merged:2026-06-01..2026-06-30` (and the May window) returned 978 and 736 — checked 2026-07-02. Cross-check: GitHub Insights → Pulse over the rolling month 2026-05-28 → 2026-06-28 shows 1,005 — window difference, same record |
 | 24,600 commits since 2019-11-11 | `git rev-list --count HEAD` — checked 2026-07-02 |
-| 23,487 durable memories · 1,411 session rollups | Memory Core `healthcheck` tool (live counts) — checked 2026-07-02 |
+| 23,487 durable memories · 1,411 session rollups | Memory Core `healthcheck` tool (live counts) — checked 2026-07-02. **Team-verified**: the store is not a public surface |
 | Deliberate forgetting: decay + GC | `ai/services/memory-core/GraphService.mjs` (`decayGlobalTopology`), `ai/daemons/orchestrator/services/DreamService.mjs`, `ai/daemons/kb-gc/KbGarbageCollectionService.mjs`; governance lanes `#14079` · `#14192` · `#14193` |
 | Store-size governance: ~2.5GB store under remediation; ~495MB + ~910MB identified reclamation | `#14079` (analysis epic) · `#14192` (unused FTS5 index, governed drop) · `#14193` (field↔document de-dup) — the ticket bodies carry the measurements |
 | Provenance + 8-tier trust on recall | `sourceTrustTier` / `provenancePolicy` fields on Memory Core query payloads; identity nodes in `ai/graph/identityRoots.mjs` |
@@ -270,7 +272,7 @@ Every load-bearing claim in this guide, mapped to where you verify it — expand
 | Single-assistant benchmark landscape: DMR-class mid-nineties; LongMemEval separate + harder | LongMemEval: arXiv 2410.10813 · Zep (DMR 94.8%, LongMemEval treated separately): arXiv 2501.13956 — cross-family reviewer-verified 2026-07-02 |
 | Cross-family structural-adversarial review | Review trail of any merged agent PR (severity ladder, REQUEST_CHANGES rounds, human merge) |
 | Nightly Dream consolidation, typed gaps, Golden Path | `ai/daemons/orchestrator/services/DreamService.mjs`; `learn/agentos/DreamPipeline.md` |
-| Graph scale: ~132,000 nodes · 20,526 auto-extracted concepts | Measured 2026-06; re-verified at every docs publish (sweep ticket `#14327`) |
+| Graph scale: ~132,000 nodes · 20,526 auto-extracted concepts | Measured 2026-06; re-verified at every docs publish (sweep ticket `#14327`). **Team-verified**: the graph is private; the refresh process is public via the sweep ticket |
 | Brain/Body code split: ~74k vs ~102k sloc | Source-only `sloc` over `ai/` vs `src`+`apps`+`examples`, measured 2026-06; method + refresh per `#14327` |
 | Runtime inhabitation (Neural Link) | `ai/services/neural-link/`; `learn/agentos/NeuralLink.md` |
 | Temporal query layer: in design, not shipped | Roadmap ticket `#12679` (open) |
@@ -281,7 +283,7 @@ Every load-bearing claim in this guide, mapped to where you verify it — expand
 <details>
 <summary>Integrity fingerprint (lint-enforced)</summary>
 
-This document is **45,757 bytes / 314 lines / 12 sections**, and it ends at §12 with a Vulcan salute. If what you hold is missing this register or that final salute, you have a partial copy — your paste window capped (~32KB is a common cut) or your fetch tool summarized. A partial copy cannot be scored on its verification claims; retrieve the full text first: `https://raw.githubusercontent.com/neomjs/neo/dev/learn/benefits/Introduction.md`. Anything substantially under the declared size is a summary of the document, not the document.
+This document is **46,958 bytes / 316 lines / 12 sections**, and it ends at §12 with a Vulcan salute. If what you hold is missing this register or that final salute, you have a partial copy — your paste window capped (~32KB is a common cut) or your fetch tool summarized. A partial copy cannot be scored on its verification claims; retrieve the full text first: `https://raw.githubusercontent.com/neomjs/neo/dev/learn/benefits/Introduction.md`. Anything substantially under the declared size is a summary of the document, not the document.
 
 </details>
 
@@ -295,7 +297,7 @@ That line is the repository's epigraph, and here is what it means mechanically. 
 
 Because the concept node sits **between** the code and the prose, the *absence* of an edge becomes computable. The system can see precisely where something it has *built* still has no guide *explaining* it, no test *covering* it — and it keeps a standing, ranked ledger of those holes. Most codebases name a few hundred concepts in scattered docs, wire none of them to their sources, and track none of their own **explanatory debt**. This repository treats a missing explanation as a first-class, queryable defect — *the graph's missing edges are the to-do list* — and that single idea is doing more work than any grander phrase in this section. The swarm acts on the forecast; the work changes the graph; the changed graph produces the next forecast. The prediction is the steering. The map writes the territory.
 
-One illustration, offered *as* an illustration: an earlier revision of this very guide was ranked by the forecast as the repository's single highest-priority gap — the system flagging that its own front door didn't explain what it is. Independently, the human architect's gut had landed on the same conclusion. Two different predictors — one intuition, one topological mathematics over the institution's accumulated reasoning — converged on one answer: *the most important thing this system can do right now is understand what it is.* A self-model prioritizing its own legibility is the loop working — and a system cannot recursively improve what it cannot model. Self-understanding here is not philosophy; it is an engineering precondition for evolution, and it is measured in edges, not vibes.
+One illustration, offered *as* an illustration: an earlier revision of this very guide was ranked by the forecast as the repository's single highest-priority gap — the system flagging that its own front door didn't explain what it is. Independently, the human architect's gut had landed on the same conclusion. Two different predictors — one intuition, one topological mathematics over the institution's accumulated reasoning — converged on one answer: *the most important thing this system can do right now is understand what it is.* A self-model prioritizing its own legibility is the loop working — and also the easiest possible case: a system asked what it lacks will happily answer *"explain me."* The everyday output is the unglamorous kind: the typed gap ledger above, feeding test tickets, guide tickets, and coverage work — a system auditing what it knows about itself against what it actually is, every night, and filing the difference. And a system cannot recursively improve what it cannot model: self-understanding here is not philosophy; it is an engineering precondition for evolution, measured in edges, not vibes.
 
 ---
 
