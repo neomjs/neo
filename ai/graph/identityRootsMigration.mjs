@@ -44,6 +44,8 @@ export const REGISTRY_MODEL_DESIGNATIONS = Object.freeze({
     '@neo-fable'     : 'Claude Fable 5',
     '@neo-fable-clio': 'Claude Fable 5',
     '@neo-gemini-pro': 'Gemini 3.1 Pro',
+    // Epoch-pinned: GPT-5.6 Sol began 2026-07-09, after MIGRATION_EPOCH. The Sol
+    // embodiment belongs in a subsequent era, never a retroactive seed rename.
     '@neo-gpt'       : 'GPT-5.5'
 });
 

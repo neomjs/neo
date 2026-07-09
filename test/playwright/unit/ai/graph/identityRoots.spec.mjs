@@ -104,6 +104,40 @@ test.describe('ai/graph/identityRoots — model assignments', () => {
     }
 });
 
+/**
+ * @summary Model-lineage and operational-continuity contract for Euclid's Codex identity.
+ */
+test.describe('ai/graph/identityRoots — Codex model lineage', () => {
+    const findIdentity = id => IDENTITIES.find(node => node.type === 'AgentIdentity' && node.id === id);
+
+    test('@neo-gpt records GPT-5.6 Sol without changing Euclid operational identity (#14901)', () => {
+        const entry = findIdentity('@neo-gpt');
+
+        expect(entry).toMatchObject({
+            id         : '@neo-gpt',
+            name       : 'Euclid',
+            description: 'OpenAI Codex (GPT-5.6 Sol) Agent Identity',
+            properties : {
+                githubLogin        : '@neo-gpt',
+                displayName        : 'Neo GPT',
+                modelFamily        : 'gpt',
+                family             : 'gpt',
+                trustTier          : 'peer-trusted',
+                contextWindowInput : 353400,
+                thoughtBudget      : 'xhigh',
+                releaseDate        : '2026-07-09',
+                pricingInput       : 5,
+                pricingOutput      : 30,
+                participationStatus: 'active'
+            }
+        });
+        expect(entry.properties.sunsetTriggers).toEqual([
+            'OpenAI releases a successor Sol-tier model with material reasoning capability upgrade',
+            'GPT-5.x family deprecation'
+        ]);
+    });
+});
+
 test.describe('ai/graph/identityRoots — Codex wake route', () => {
     const findIdentity = id => IDENTITIES.find(node => node.type === 'AgentIdentity' && node.id === id);
 

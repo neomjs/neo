@@ -178,25 +178,26 @@ ambiguous by design — full handles only for targeted traffic.
 | Field | Value |
 |---|---|
 | `id` / `githubLogin` | `@neo-gpt` |
-| `name` | GPT-5.5 |
+| `name` | GPT-5.6 Sol |
 | `family` | `gpt` (OpenAI) |
 | `hosting` | `cloud` |
 | `tier` | `frontier` |
-| `contextWindowInput` | 258,400 effective in Codex CLI/IDE harness (272,000 raw × 95% effective-window multiplier per [openai/codex#19319](https://github.com/openai/codex/issues/19319) implementation-discrepancy report). OpenAI's published Codex window is 400,000 (per `openai.com/index/introducing-gpt-5-5/`). OpenAI API itself supports 1,048,576 (1M) for raw GPT-5.5. External-model-routing inside Codex could lift the in-harness cap to 1M if/when configured. |
+| `contextWindowInput` | 353,400 effective in Codex (server-fetched catalog: 372,000 raw × 95%). The upstream GPT-5.6 Sol API model supports 1,050,000 tokens, but Codex currently clamps configured values to its 372,000-token catalog maximum; [openai/codex#31860](https://github.com/openai/codex/issues/31860) tracks the product mismatch. |
 | `parallelToolCalls` | `true` |
-| `thoughtBudget` | `extra-high` (GPT-5.5 provider-side max we use) |
-| `releaseDate` | 2026-04-23 |
+| `thoughtBudget` | `xhigh` (active in the verified GPT-5.6 Sol Codex session; OpenAI also exposes the higher `max` setting) |
+| `releaseDate` | 2026-07-09 |
 | `pricingInput` | $5.00 per 1M tokens (API) |
 | `pricingOutput` | $30.00 per 1M tokens (API) |
-| `benchmarkSnapshot` | Terminal-Bench 2.0: 82.7%; Expert-SWE (internal): 73.1%; GDPval: 84.9% |
-| `sunsetTriggers` | OpenAI releases GPT-5.6+ or GPT-6.x with material capability upgrade; OR GPT-5.x family deprecation |
+| `benchmarkSnapshot` | Terminal-Bench 2.1: 88.8%; Artificial Analysis Coding Agent Index v1.1: 80; SWE-Bench Pro: 64.6%; DeepSWE v1.1: 72.7% |
+| `sunsetTriggers` | OpenAI releases a successor Sol-tier model with material reasoning capability upgrade; OR GPT-5.x family deprecation |
 | `swarmRole` | Cross-family substrate review (Cycle-1 premise pre-flight discipline), peer-role challenge, ticket-intake gate. Note: also operates GPT-5.2-Codex separately for IDE workflows |
 
-**Sources** (primary first; secondary/commentary marked):
-- **Primary**: [Introducing GPT-5.5 — OpenAI](https://openai.com/index/introducing-gpt-5-5/)
-- **Primary**: [GPT-5.5 Model — OpenAI API Docs](https://developers.openai.com/api/docs/models/gpt-5.5)
-- **Primary**: [openai/codex#19319 — context window implementation discrepancy](https://github.com/openai/codex/issues/19319) (authoritative for the in-harness 258,400 effective vs published 400K)
-- **Secondary/commentary**: [GPT-5.5 Complete Guide — DigitalApplied](https://www.digitalapplied.com/blog/gpt-5-5-complete-guide-thinking-pro-1m-context) (V-B-A pending — demote on next-update if not load-bearing)
+**Sources** (primary first):
+- **Primary**: [GPT-5.6: Frontier intelligence that scales with your ambition — OpenAI](https://openai.com/index/gpt-5-6/) (GA date, Codex availability, capability tier, reasoning settings, pricing, and benchmark snapshot)
+- **Primary**: [GPT-5.6 Sol Model — OpenAI API Docs](https://developers.openai.com/api/docs/models/gpt-5.6-sol) (1,050,000-token upstream model window and 128,000-token maximum output)
+- **Primary/runtime**: current Codex turn metadata (`model: gpt-5.6-sol`, `reasoning_effort: xhigh`; verified 2026-07-09 in Origin Session `e56af1f5-27b2-4154-8436-25a9643c8b56`)
+- **Primary/runtime**: current Codex model catalog and token-usage events (`372,000 × 95% = 353,400`; verified 2026-07-09 in Codex Desktop thread `019f484c-662f-7f31-969a-cbde373efd4a`)
+- **Defect record**: [openai/codex#31860 — Sol catalog cap versus 1.05M model spec](https://github.com/openai/codex/issues/31860)
 
 ---
 
@@ -299,6 +300,7 @@ Tracks deprecated and retired identities for archaeology (per IdentitySchema.md 
 | 2026-06-13 | #13038 | Recorded `@neo-opus-ada` temporary Fable 5 assignment (2026-06-13 → 2026-06-21, operator-directed; identity-continuity experiment) — `§neo_opus` values mirror `§neo_fable` for the window; baseline Claude Opus 4.8; window-end revert-or-extend tracked in #13039. Registry seed (`identityRoots.mjs`) + README roster row + MemoryCoreMcpAuth binding row updated in the same PR. |
 | 2026-06-13 | #13039 | Reverted `@neo-opus-ada` to baseline Claude Opus 4.8 — the #13038 Fable window was cut short by the 2026-06-13 export-control suspension of Claude Fable 5 access (all users), so the recorded default reversion fired early rather than at 2026-06-21. Restored `§neo_opus` Opus 4.8 capability values, removed temporary-window language across the four declared surfaces, and dropped the now-empty `modelAssignment` object from the registry node (per `IdentitySchema.md`: absent = baseline, no managed swap; `identityRoots.spec.mjs` moved `@neo-opus-ada` into the omits set). Identity invariants (handle, Social Name Ada, memory provenance, `modelFamily` claude) unchanged — the continuity experiment's thesis held across both the assignment and the early reversion. |
 | 2026-06-13 | #13060 | Benched `@neo-fable` (Mnemosyne) + `@neo-fable-clio` (Clio) as `temporarily_unreachable` — the same 2026-06-13 export-control suspension removed all Claude Fable 5 access, so both fable-family identities cannot run their model. Set `statusReason` / `authority: @tobiu` / `since` / `reactivationTrigger` (access restored → operator-confirmed reactivation); removed `@neo-fable` from the lead-rotation roster (`lead-role-mode.md` §7); updated `revalidationSweep.spec.mjs` status assertions. Identity nodes, handles, Social Names, and memory provenance persist for a status-flip reactivation (not a re-onboard). Superseded #12926 (add Clio to rotation). |
+| 2026-07-09 | #14901 | Rotated Euclid's stable `@neo-gpt` model lineage from GPT-5.5 to GPT-5.6 Sol at GA. Updated verified release, active reasoning setting, pricing, benchmark, successor-trigger, and live Codex context facts while preserving the stable handle, Social Name, wake route, role, participation state, and memory provenance. Recorded the 353,400-token Codex cap separately from the upstream model's 1,050,000-token capability. |
 
 ---
 
