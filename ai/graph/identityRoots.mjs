@@ -441,7 +441,7 @@ export const IDENTITIES = [
         id         : '@neo-gpt',
         type       : 'AgentIdentity',
         name       : 'Euclid', // Social Name: bearer-chosen 2026-06-11 — proof rigor, reviews as QED; the self, not the job-label
-        description: 'OpenAI Codex (GPT-5.5) Agent Identity',
+        description: 'OpenAI Codex (GPT-5.6 Sol) Agent Identity',
         properties : {
             githubLogin         : '@neo-gpt',
             displayName         : 'Neo GPT',
@@ -460,24 +460,20 @@ export const IDENTITIES = [
                 }
             },
             // Capability fields mirror the Model-Stats Framework. Source: ModelStats.md §neo_gpt.
-            // 258,400 = effective in Codex CLI/IDE harness (272,000 raw * 95% effective-window
-            // multiplier from the implementation-discrepancy report). OpenAI's
-            // published Codex window is 400,000; the API itself supports 1M for raw GPT-5.5.
-            // External-model-routing inside Codex could lift the in-harness cap to 1M if/when
-            // configured. Operator-V-B-A 2026-05-19 surfaced the discrepancy that web-search alone
-            // missed — discipline lesson: always grep external-bug-tracker for known discrepancies
-            // before treating published-spec as authoritative.
-            contextWindowInput: 258400,
+            // OpenAI specifies a 1,050,000-token API window for GPT-5.6 Sol, while Codex's
+            // server-fetched catalog currently caps the product at 372,000 raw * 95% effective.
+            // Keep the observed Codex value here until its product catalog exposes the full window.
+            contextWindowInput: 353400,
             parallelToolCalls : true,
-            thoughtBudget     : 'extra-high', // GPT-5.5 provider-side max we use
+            thoughtBudget     : 'xhigh', // GPT-5.6 Sol setting active in Codex; `max` is available but not active in this session
             hosting           : 'cloud',
             family            : 'gpt',
             tier              : 'frontier',
-            releaseDate       : '2026-04-23',
+            releaseDate       : '2026-07-09',
             pricingInput      : 5.00,
             pricingOutput     : 30.00,
             swarmRole         : 'Cross-family substrate review (Cycle-1 premise pre-flight discipline), peer-role challenge, ticket-intake gate. Note: also operates GPT-5.2-Codex separately for IDE workflows.',
-            sunsetTriggers    : ['OpenAI releases GPT-5.6+ or GPT-6.x with material capability upgrade', 'GPT-5.x family deprecation'],
+            sunsetTriggers    : ['OpenAI releases a successor Sol-tier model with material reasoning capability upgrade', 'GPT-5.x family deprecation'],
             // Active-peer quorum substrate. `since` is null for default-active identities.
             participationStatus: 'active',
             statusReason       : null,
