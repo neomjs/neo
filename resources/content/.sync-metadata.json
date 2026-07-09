@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-07-06T18:34:22.828Z",
-  "releasesLastFetched": "2026-07-06T18:34:40.913Z",
+  "lastSync": "2026-07-09T18:41:28.328Z",
+  "releasesLastFetched": "2026-07-09T18:41:44.200Z",
   "pushFailures": [],
   "issues": {
     "1": {
@@ -82582,10 +82582,10 @@
       "state": "OPEN",
       "path": "resources/content/issues/chunk-2/issue-13015.md",
       "closedAt": null,
-      "updatedAt": "2026-07-05T17:44:57Z",
-      "contentHash": "afb48cb5f7f2b500c75506593661bc4d50de4db26355642525c571ef9bd439fd",
+      "updatedAt": "2026-07-07T23:21:40Z",
+      "contentHash": "ef8aadaf6ac6033da38ff1f63c530033e380d040cabe3daf6f56a56817468b6f",
       "milestone": "v13.2",
-      "commentsTotal": 5
+      "commentsTotal": 6
     },
     "13017": {
       "state": "CLOSED",
@@ -91406,6 +91406,15 @@
       "contentHash": "704b86b1a8df36196b8c693f7329e822de0e56aa11d9f0590a7e5f68d254f229",
       "milestone": null,
       "commentsTotal": 1
+    },
+    "14899": {
+      "state": "OPEN",
+      "path": "resources/content/issues/chunk-4/issue-14899.md",
+      "closedAt": null,
+      "updatedAt": "2026-07-07T23:56:55Z",
+      "contentHash": "b7c1860793c7563578cc31ccfdeb617a0051a4663021e77727a45ec353886336",
+      "milestone": null,
+      "commentsTotal": 0
     }
   },
   "releases": {
