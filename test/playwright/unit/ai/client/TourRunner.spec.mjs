@@ -1,0 +1,401 @@
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../../src/Neo.mjs';
+import * as core      from '../../../../../src/core/_export.mjs';
+import DockService    from '../../../../../src/ai/client/DockService.mjs';
+import DockZoneModel  from '../../../../../src/dashboard/DockZoneModel.mjs';
+import TourRunner     from '../../../../../src/ai/client/TourRunner.mjs';
+
+import {
+    RESERVED_STEP_TYPES, STEP_TYPES, TOUR_SCRIPT_SCHEMA, evaluateExpectations, validateTourScript
+} from '../../../../../src/ai/client/tourScript.mjs';
+
+/**
+ * @summary Creates a valid dockZone.v1 fixture the real reducers accept.
+ *
+ * Shape parity note: mirrors the committed `examples/dashboard/dock` workspace class
+ * (edge-zone root, one horizontal split, two tabs nodes) so the unit smoke and the live
+ * example exercise the same document topology; the live-page replay belongs to the
+ * whitebox-e2e tier.
+ * @returns {Object}
+ */
+function doc() {
+    return {
+        schema: 'neo.harness.dockZone.v1',
+        root  : 'root',
+        items : {
+            strategy: {componentRef: 'strategy', title: 'Strategy', kind: 'panel'},
+            swarm   : {componentRef: 'swarm',    title: 'Swarm',    kind: 'panel'},
+            terminal: {componentRef: 'terminal', title: 'Terminal', kind: 'terminal'}
+        },
+        nodes: {
+            root        : {type: 'edge-zone', zones: {center: 'main-split'}},
+            'main-split': {type: 'split', orientation: 'horizontal', children: ['main-tabs', 'side-tabs'], sizes: [0.5, 0.5]},
+            'main-tabs' : {type: 'tabs', items: ['strategy', 'swarm'], activeItemId: 'strategy'},
+            'side-tabs' : {type: 'tabs', items: ['terminal'], activeItemId: 'terminal'}
+        }
+    }
+}
+
+/**
+ * @summary The canonical three-step smoke script: two real semantic operations plus a
+ * topology assert and a (tiny) pause — every step type of the v1 vocabulary except the
+ * reserved ones, executable against the real reducers with predictable post-state.
+ * @returns {Object}
+ */
+function smokeScript() {
+    return {
+        schema: TOUR_SCRIPT_SCHEMA,
+        id    : 'unit-smoke',
+        title : 'Unit smoke tour',
+        scenes: [{
+            id     : 's1',
+            title  : 'Auto-hide + resize',
+            caption: 'field flip, viewer beat, splitter settle',
+            steps  : [
+                {
+                    type      : 'op',
+                    caption   : 'terminal tucks away',
+                    descriptor: {operation: 'setItemAutoHidden', itemId: 'terminal', autoHidden: true},
+                    expect    : [{path: 'items.terminal.autoHidden', equals: true}]
+                },
+                {type: 'pause', ms: 1, caption: 'viewer beat'},
+                {
+                    type      : 'op',
+                    caption   : 'main split settles 70/30',
+                    descriptor: {operation: 'resizeSplit', splitNodeId: 'main-split', sizes: [0.7, 0.3]},
+                    expect    : [{path: 'nodes.main-split.sizes', equals: [0.7, 0.3]}]
+                },
+                {
+                    type  : 'topology-assert',
+                    expect: [
+                        {path: 'items.terminal.autoHidden', equals: true},
+                        {path: 'nodes.main-split.sizes.0',  equals: 0.7}
+                    ]
+                },
+                {
+                    type      : 'op',
+                    caption   : 'the wave rolls back',
+                    descriptor: {operation: 'setItemAutoHidden', itemId: 'terminal', autoHidden: false},
+                    expect    : [{path: 'items.terminal.autoHidden', equals: false}]
+                }
+            ]
+        }]
+    }
+}
+
+/**
+ * @summary Wires a fresh document holder into `Neo.getComponent` and returns it. The holder
+ * follows the plain-field commit path: the service writes each post-op document back onto
+ * `dockZoneDocument`, so the document advances across steps exactly like a live workspace.
+ * @returns {Object}
+ */
+function createHolder() {
+    const holder = {dockZoneDocument: doc(), id: 'tour-zone-1'};
+
+    Neo.getComponent = () => holder;
+
+    return holder
+}
+
+test.describe.serial('Neo.ai.client.TourRunner', () => {
+    let originalGetComponent, runner, service;
+
+    test.beforeEach(() => {
+        originalGetComponent = Neo.getComponent;
+        service              = Neo.create(DockService, {})
+    });
+
+    test.afterEach(() => {
+        Neo.getComponent = originalGetComponent;
+        runner?.destroy?.();
+        runner = null;
+        service.destroy?.()
+    });
+
+    /**
+     * Creates a runner against a fresh holder with the shared defaults.
+     * @param {Object} config
+     * @returns {Neo.ai.client.TourRunner}
+     */
+    function createRunner(config = {}) {
+        createHolder();
+
+        runner = Neo.create(TourRunner, {
+            componentId: 'tour-zone-1',
+            dockService: service,
+            mode       : 'spec',
+            script     : smokeScript(),
+            ...config
+        });
+
+        return runner
+    }
+
+    test.describe('tourScript validator (fail-closed)', () => {
+        const operations = DockZoneModel.operations;
+
+        test('the smoke script validates against the real executor vocabulary', () => {
+            const result = validateTourScript(smokeScript(), {operations});
+
+            expect(result.errors).toEqual([]);
+            expect(result.valid).toBe(true)
+        });
+
+        test('unknown step types are rejected with the vocabulary enumerated', () => {
+            const script = smokeScript();
+
+            script.scenes[0].steps.push({type: 'teleport'});
+
+            const {valid, errors} = validateTourScript(script, {operations});
+
+            expect(valid).toBe(false);
+            expect(errors.join('\n')).toContain(`unknown 'teleport'. The v1 vocabulary is: ${STEP_TYPES.join(', ')}`)
+        });
+
+        test('reserved step types are rejected as reserved, not unknown', () => {
+            RESERVED_STEP_TYPES.forEach(type => {
+                const script = smokeScript();
+
+                script.scenes[0].steps.push({type});
+
+                const {valid, errors} = validateTourScript(script, {operations});
+
+                expect(valid).toBe(false);
+                expect(errors.join('\n')).toContain(`'${type}' is reserved`)
+            })
+        });
+
+        test('unknown operations are rejected with the executable vocabulary enumerated', () => {
+            const script = smokeScript();
+
+            script.scenes[0].steps[0].descriptor.operation = 'teleportItem';
+
+            const {valid, errors} = validateTourScript(script, {operations});
+
+            expect(valid).toBe(false);
+            expect(errors.join('\n')).toContain(`unknown 'teleportItem'. The executable vocabulary is: ${operations.join(', ')}`)
+        });
+
+        test('function values violate the JSON-first contract', () => {
+            const script = smokeScript();
+
+            script.scenes[0].steps[0].onRun = () => {};
+
+            const {valid, errors} = validateTourScript(script, {operations});
+
+            expect(valid).toBe(false);
+            expect(errors.join('\n')).toContain('function values violate the JSON-first contract')
+        });
+
+        test('a pause without a valid ms is rejected', () => {
+            const script = smokeScript();
+
+            script.scenes[0].steps[1].ms = -5;
+
+            expect(validateTourScript(script, {operations}).valid).toBe(false)
+        });
+
+        test('a topology-assert without predicates is rejected', () => {
+            const script = smokeScript();
+
+            delete script.scenes[0].steps[3].expect;
+
+            const {valid, errors} = validateTourScript(script, {operations});
+
+            expect(valid).toBe(false);
+            expect(errors.join('\n')).toContain('requires at least one {path, equals} predicate')
+        });
+
+        test('a wrong schema tag is rejected fail-closed', () => {
+            const script = smokeScript();
+
+            script.schema = 'neo.tour.script.v2';
+
+            expect(validateTourScript(script, {operations}).valid).toBe(false)
+        });
+
+        test('evaluateExpectations reports path-level mismatches with actual values', () => {
+            const {passed, failures} = evaluateExpectations(
+                [{path: 'nodes.main-split.sizes.0', equals: 0.9}],
+                doc()
+            );
+
+            expect(passed).toBe(false);
+            expect(failures).toEqual([{actual: 0.5, expected: 0.9, path: 'nodes.main-split.sizes.0'}])
+        });
+
+        test('number predicates absorb IEEE float noise but still fail real differences', () => {
+            const document = {sizes: [0.7, 1 - 0.7]}; // 0.30000000000000004 — the normalized-reducer reality
+
+            expect(evaluateExpectations([{path: 'sizes.1', equals: 0.3}], document).passed).toBe(true);
+            expect(evaluateExpectations([{path: 'sizes.1', equals: 0.31}], document).passed).toBe(false);
+
+            // explicit per-predicate tolerance for authors who need coarser matching
+            expect(evaluateExpectations([{path: 'sizes.1', equals: 0.31, epsilon: 0.02}], document).passed).toBe(true);
+
+            // and the validator rejects a malformed epsilon fail-closed
+            const script = smokeScript();
+
+            script.scenes[0].steps[3].expect[0].epsilon = -1;
+
+            const {valid, errors} = validateTourScript(script, {operations});
+
+            expect(valid).toBe(false);
+            expect(errors.join('\n')).toContain('epsilon: must be a finite number >= 0')
+        });
+    });
+
+    test.describe('runner preflight (structured refusals)', () => {
+        test('a missing dock service aborts with a structured error, never a throw', async () => {
+            createRunner({dockService: null});
+
+            const result = await runner.start();
+
+            expect(result.completed).toBe(false);
+            expect(result.errors.join('\n')).toContain('dockService: required')
+        });
+
+        test('record mode refuses to start unless reducedMotion was probed false', async () => {
+            createRunner({mode: 'record'});
+
+            const result = await runner.start();
+
+            expect(result.completed).toBe(false);
+            expect(result.errors.join('\n')).toContain('record mode requires reducedMotion === false');
+
+            runner.destroy();
+            createRunner({mode: 'record', reducedMotion: false});
+
+            const ok = await runner.start();
+
+            expect(ok.errors).toEqual([]);
+            expect(ok.completed).toBe(true)
+        });
+
+        test('an invalid script surfaces the validator errors', async () => {
+            const script = smokeScript();
+
+            script.scenes[0].steps[0].descriptor.operation = 'teleportItem';
+            createRunner({script});
+
+            const result = await runner.start();
+
+            expect(result.completed).toBe(false);
+            expect(result.errors.join('\n')).toContain("unknown 'teleportItem'")
+        });
+    });
+
+    test.describe('execution against the real reducers', () => {
+        test('the smoke tour completes: documents advance, events fire in order', async () => {
+            const events = [];
+
+            createRunner();
+
+            const holder = Neo.getComponent('tour-zone-1');
+
+            runner.on({
+                beat    : data => events.push(`beat:${data.stepIndex}:${data.stepType}`),
+                complete: () => events.push('complete'),
+                scene   : data => events.push(`scene:${data.sceneId}`)
+            });
+
+            const result = await runner.start();
+
+            expect(result.completed).toBe(true);
+            expect(result.errors).toEqual([]);
+
+            // the holder's committed document advanced through the real commit path
+            // (close-to, not exact: the reducer normalizes split sizes to sum 1, so IEEE noise is inherent)
+            const {sizes} = holder.dockZoneDocument.nodes['main-split'];
+
+            expect(sizes[0]).toBeCloseTo(0.7, 9);
+            expect(sizes[1]).toBeCloseTo(0.3, 9);
+            expect(holder.dockZoneDocument.items.terminal.autoHidden).toBe(false);
+
+            expect(events).toEqual([
+                'scene:s1',
+                'beat:0:op', 'beat:1:pause', 'beat:2:op', 'beat:3:topology-assert', 'beat:4:op',
+                'complete'
+            ])
+        });
+
+        test('two consecutive runs produce identical operation logs (the determinism falsifier)', async () => {
+            createRunner();
+
+            const first = await runner.start();
+
+            expect(first.completed).toBe(true);
+
+            runner.destroy();
+            createRunner();
+
+            const second = await runner.start();
+
+            expect(second.completed).toBe(true);
+            expect(second.log).toEqual(first.log)
+        });
+
+        test('mode changes pace, never order: spec / demo / record logs are identical', async () => {
+            createRunner({mode: 'spec'});
+
+            const specRun = await runner.start();
+
+            runner.destroy();
+            createRunner({mode: 'demo', paceMultiplier: 0});
+
+            const demoRun = await runner.start();
+
+            runner.destroy();
+            createRunner({mode: 'record', reducedMotion: false});
+
+            const recordRun = await runner.start();
+
+            expect(specRun.completed && demoRun.completed && recordRun.completed).toBe(true);
+            expect(demoRun.log).toEqual(specRun.log);
+            expect(recordRun.log).toEqual(specRun.log)
+        });
+
+        test('a failed post-op expectation aborts with the path and both values', async () => {
+            const script = smokeScript();
+
+            script.scenes[0].steps[0].expect = [{path: 'items.terminal.autoHidden', equals: false}];
+            createRunner({script});
+
+            const errorEvents = [];
+
+            runner.on('error', data => errorEvents.push(data));
+
+            const result = await runner.start();
+
+            expect(result.completed).toBe(false);
+            expect(result.errors.join('\n')).toContain("expectation failed at 'items.terminal.autoHidden': expected false, got true");
+            expect(errorEvents).toHaveLength(1);
+
+            // the log keeps the entries up to and including the failed step — an honest partial record
+            expect(result.log).toHaveLength(1);
+            expect(result.log[0]).toMatchObject({applied: true, operation: 'setItemAutoHidden', type: 'op'})
+        });
+
+        test('an executor-rejected operation aborts with the structured executor errors', async () => {
+            const script = smokeScript();
+
+            script.scenes[0].steps[0].descriptor.itemId = 'ghost';
+            createRunner({script});
+
+            const result = await runner.start();
+
+            expect(result.completed).toBe(false);
+            expect(result.errors.join('\n')).toContain('rejected by the executor');
+            expect(result.errors.join('\n')).toContain('unknown item "ghost"')
+        });
+
+        test('start() while running throws — a programming error, not a tour failure', async () => {
+            createRunner();
+
+            const running = runner.start();
+
+            await expect(runner.start()).rejects.toThrow('already running');
+            await running
+        });
+    });
+});

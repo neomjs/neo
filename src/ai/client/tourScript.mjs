@@ -75,30 +75,43 @@ export const STEP_TYPES = Object.freeze(['op', 'pause', 'topology-assert']);
 export const RESERVED_STEP_TYPES = Object.freeze(['cross-window', 'perspective']);
 
 /**
+ * Default tolerance for number-to-number comparisons: IEEE floating-point noise scale, not a
+ * semantic size tolerance. Dock reducers normalize split sizes to sum 1 (`1 - 0.7` yields
+ * `0.30000000000000004`), so exact float equality is brittle by construction — the same
+ * reality the dock topology differ acknowledges with its `sizeEpsilon` option. `0.3` vs the
+ * normalized `0.30000000000000004` passes; `0.3` vs `0.31` still fails. Predicates needing a
+ * coarser tolerance declare their own `epsilon` explicitly.
+ * @type {Number}
+ */
+export const NUMBER_EPSILON = 1e-9;
+
+/**
  * Structural (JSON-value) equality: plain objects, arrays and primitives, with NaN treated
- * as equal to itself. Anything a tour script may legally contain compares correctly; anything
- * else was already rejected by the JSON-purity scan.
+ * as equal to itself and numbers compared within `epsilon` (IEEE-noise absorption — see
+ * {@link NUMBER_EPSILON}). Anything a tour script may legally contain compares correctly;
+ * anything else was already rejected by the JSON-purity scan.
  * @param {*} a
  * @param {*} b
+ * @param {Number} [epsilon=NUMBER_EPSILON] Number-comparison tolerance, threaded through recursion
  * @returns {Boolean}
  */
-export function deepEqual(a, b) {
+export function deepEqual(a, b, epsilon = NUMBER_EPSILON) {
     if (a === b) {
         return true
     }
 
     if (typeof a === 'number' && typeof b === 'number') {
-        return Number.isNaN(a) && Number.isNaN(b)
+        return (Number.isNaN(a) && Number.isNaN(b)) || Math.abs(a - b) <= epsilon
     }
 
     if (Array.isArray(a) && Array.isArray(b)) {
-        return a.length === b.length && a.every((item, index) => deepEqual(item, b[index]))
+        return a.length === b.length && a.every((item, index) => deepEqual(item, b[index], epsilon))
     }
 
     if (isPlainObject(a) && isPlainObject(b)) {
         const aKeys = Object.keys(a), bKeys = Object.keys(b);
 
-        return aKeys.length === bKeys.length && aKeys.every(key => deepEqual(a[key], b[key]))
+        return aKeys.length === bKeys.length && aKeys.every(key => deepEqual(a[key], b[key], epsilon))
     }
 
     return false
@@ -117,10 +130,10 @@ export function evaluateExpectations(expect, document) {
         predicates = normalizeExpect(expect),
         failures   = [];
 
-    predicates.forEach(({path, equals}) => {
+    predicates.forEach(({path, equals, epsilon}) => {
         const actual = resolvePath(document, path);
 
-        if (!deepEqual(actual, equals)) {
+        if (!deepEqual(actual, equals, epsilon ?? NUMBER_EPSILON)) {
             failures.push({actual, expected: equals, path})
         }
     });
@@ -232,6 +245,12 @@ function validateExpect(expect, path, errors, required = false) {
 
         if (!Object.hasOwn(predicate, 'equals')) {
             errors.push(`${predicatePath}.equals: required (the expected JSON value; null is allowed)`)
+        }
+
+        if (Object.hasOwn(predicate, 'epsilon') &&
+            (typeof predicate.epsilon !== 'number' || !Number.isFinite(predicate.epsilon) || predicate.epsilon < 0)
+        ) {
+            errors.push(`${predicatePath}.epsilon: must be a finite number >= 0 when present (number-comparison tolerance)`)
         }
     })
 }
