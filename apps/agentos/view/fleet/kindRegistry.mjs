@@ -63,6 +63,18 @@ export function kindToken(kind) {
 }
 
 /**
+ * Pure kind → CSS-class resolver — the kind token minus its `--` custom-property prefix (e.g.
+ * `fm-kind-pr`). The class binds `--fm-chip` in the chip SCSS, so color stays entirely in the
+ * token/skin layer: the chip swaps a class, never writes a style. Shares `kindToken`'s
+ * unknown → neutral degrade.
+ * @param {String} kind
+ * @returns {String} the kind class name (e.g. `fm-kind-pr`)
+ */
+export function kindClass(kind) {
+    return kindToken(kind).slice(2)
+}
+
+/**
  * Pure kind → short-label resolver. Unknown kinds fall back to the kind string itself, so a new
  * kind still renders a readable (if verbose) chip until it earns a short label here. Uses an
  * `Object.hasOwn` check (not `MAP[k] ||`) so a prototype-shaped key (`toString`, `constructor`,

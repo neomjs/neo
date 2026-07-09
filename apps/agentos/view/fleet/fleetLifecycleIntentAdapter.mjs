@@ -1,12 +1,14 @@
 /**
  * @summary C2 adapter for Fleet cockpit lifecycle intents: consume a per-card
  * `lifecycleIntent`, call the existing registry bridge lifecycle verb, and write the honest
- * round-trip state back to the card's `state.Provider`.
+ * round-trip state onto the card's roster record.
  *
  * The B4 control surface owns intent emission + rendering. This helper owns the transport-adapter
  * half only: no Node-side imports, no bespoke bridge path, and no optimistic success state. The
- * provider contract is the two-field seam consumed by the B4 control renderer:
- * `pendingAction:String|null` and `controlReason:{action,kind,reason}|null`.
+ * record contract is the two-field seam consumed by the B4 control renderer
+ * ({@link AgentOS.model.FleetAgent} fields): `pendingAction:String|null` and
+ * `controlReason:{action,kind,reason}|null` — written via `record.set()`, so the store's
+ * `recordChange` re-renders the card.
  * @module apps/agentos/view/fleet/fleetLifecycleIntentAdapter
  */
 
@@ -32,7 +34,7 @@ export function getFleetRegistryBridge() {
 }
 
 /**
- * @summary Redact secret-shaped material before a bridge error becomes UI/provider state.
+ * @summary Redact secret-shaped material before a bridge error becomes UI/record state.
  * @param {*} value
  * @param {String} fallback
  * @returns {String}
@@ -48,7 +50,7 @@ export function sanitizeControlReason(value, fallback='Lifecycle request failed'
 }
 
 /**
- * @summary Build the terminal non-success provider payload.
+ * @summary Build the terminal non-success control-reason payload.
  * @param {String} action
  * @param {'rejected'|'unauthorized'|'timeout'} kind
  * @param {*} reason
@@ -63,22 +65,23 @@ export function createControlReason(action, kind, reason) {
 }
 
 /**
- * @summary Write one or more lifecycle-control fields onto a StateProvider-like object.
- * @param {Object} stateProvider A Neo.state.Provider or a test double exposing `setData()` / `data`.
+ * @summary Write one or more lifecycle-control fields onto a card's record.
+ * @param {Object} record An AgentOS.model.FleetAgent record (or any record-like exposing `set()`),
+ *     or a plain field bag (dock-blueprint snapshot / test double) mutated in place.
  * @param {Object} values
  */
-export function writeLifecycleControlState(stateProvider, values) {
-    if (typeof stateProvider?.setData === 'function') {
-        stateProvider.setData(values);
+export function writeLifecycleControlState(record, values) {
+    if (typeof record?.set === 'function') {
+        record.set(values);
         return
     }
 
-    if (stateProvider?.data && typeof stateProvider.data === 'object') {
-        Object.assign(stateProvider.data, values);
+    if (record && typeof record === 'object') {
+        Object.assign(record, values);
         return
     }
 
-    throw new Error('fleet lifecycle intent adapter requires a card stateProvider')
+    throw new Error('fleet lifecycle intent adapter requires a card record')
 }
 
 /**
@@ -119,17 +122,17 @@ function withTimeout(promise, action, {
 }
 
 /**
- * @summary Consume one per-card lifecycle intent and write honest provider state for B4 to render.
+ * @summary Consume one per-card lifecycle intent and write honest record state for B4 to render.
  * @param {Object} intent
  * @param {'start'|'stop'|'restart'} intent.action
  * @param {String} intent.agentId Durable fleet agent id.
- * @param {Object} stateProvider The target card's `state.Provider`.
+ * @param {Object} record The target card's roster record (see writeLifecycleControlState).
  * @param {Object} [options]
  * @param {Object|null} [options.bridge=getFleetRegistryBridge()] Test seam or injected registry bridge.
  * @param {Number} [options.timeoutMs=30000] Timeout for settle-or-reject honesty.
  * @returns {Promise<Object>} Result metadata for controller/tests.
  */
-export async function handleFleetLifecycleIntent(intent={}, stateProvider, options={}) {
+export async function handleFleetLifecycleIntent(intent={}, record, options={}) {
     options ||= {};
 
     const
@@ -140,7 +143,7 @@ export async function handleFleetLifecycleIntent(intent={}, stateProvider, optio
     if (!method) {
         const controlReason = createControlReason(action, 'rejected', `Unsupported lifecycle action '${action}'`);
 
-        writeLifecycleControlState(stateProvider, {pendingAction: null, controlReason});
+        writeLifecycleControlState(record, {pendingAction: null, controlReason});
 
         return {accepted: false, action, method: null, ok: false, status: 'rejected', controlReason}
     }
@@ -148,7 +151,7 @@ export async function handleFleetLifecycleIntent(intent={}, stateProvider, optio
     if (!agentId) {
         const controlReason = createControlReason(action, 'rejected', 'Lifecycle intent is missing agentId');
 
-        writeLifecycleControlState(stateProvider, {pendingAction: null, controlReason});
+        writeLifecycleControlState(record, {pendingAction: null, controlReason});
 
         return {accepted: false, action, method, ok: false, status: 'rejected', controlReason}
     }
@@ -156,12 +159,12 @@ export async function handleFleetLifecycleIntent(intent={}, stateProvider, optio
     if (typeof bridge?.[method] !== 'function') {
         const controlReason = createControlReason(action, 'unauthorized', 'Fleet Registry bridge unavailable');
 
-        writeLifecycleControlState(stateProvider, {pendingAction: null, controlReason});
+        writeLifecycleControlState(record, {pendingAction: null, controlReason});
 
         return {accepted: false, action, method, ok: false, status: 'unauthorized', controlReason}
     }
 
-    writeLifecycleControlState(stateProvider, {
+    writeLifecycleControlState(record, {
         controlReason: null,
         pendingAction: action
     });
@@ -173,7 +176,7 @@ export async function handleFleetLifecycleIntent(intent={}, stateProvider, optio
             options
         );
 
-        writeLifecycleControlState(stateProvider, {
+        writeLifecycleControlState(record, {
             controlReason: null,
             pendingAction: null
         });
@@ -184,7 +187,7 @@ export async function handleFleetLifecycleIntent(intent={}, stateProvider, optio
             kind          = error?.isFleetLifecycleTimeout ? 'timeout' : 'rejected',
             controlReason = createControlReason(action, kind, error?.message);
 
-        writeLifecycleControlState(stateProvider, {pendingAction: null, controlReason});
+        writeLifecycleControlState(record, {pendingAction: null, controlReason});
 
         return {accepted: true, action, method, ok: false, status: kind, controlReason}
     }

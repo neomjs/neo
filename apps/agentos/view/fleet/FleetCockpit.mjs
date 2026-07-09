@@ -3,23 +3,7 @@ import Button                 from '../../../../src/button/Base.mjs';
 import Container              from '../../../../src/container/Base.mjs';
 import FleetCockpitController from './FleetCockpitController.mjs';
 import FleetGrid              from './FleetGrid.mjs';
-
-/**
- * The seven real cross-family maintainer identities, for the fixture-fed cockpit — the live-wire
- * binding to the roster / runtime-status services is the sibling leaf that replaces this. Identities +
- * avatars are real (the `githubAvatarUrl` pattern, so identity reads at a glance); session state +
- * lane-line are an illustrative snapshot until the live source is wired. NO invented agents.
- * @type {Object[]}
- */
-const FIXTURE_ROSTER = [
-    {agentId: 'neo-opus-grace', displayName: 'Grace',     engineTag: 'opus-4.8', family: 'claude', state: 'ok',      avatarUrl: 'https://github.com/neo-opus-grace.png?size=80', laneLine: 'design authority — cockpit SSOT conformance review'},
-    {agentId: 'neo-gpt',        displayName: 'Euclid',    engineTag: 'gpt-5.5',  family: 'gpt',    state: 'ok',      avatarUrl: 'https://github.com/neo-gpt.png?size=80',        laneLine: 'NL transaction archive + replay (#14836)'},
-    {agentId: 'neo-opus-ada',   displayName: 'Ada',       engineTag: 'opus-4.8', family: 'claude', state: 'ok',      avatarUrl: 'https://github.com/neo-opus-ada.png?size=80',   laneLine: 'control-plane restart actuator — the R3 seam'},
-    {agentId: 'neo-opus-vega',  displayName: 'Vega',      engineTag: 'opus-4.8', family: 'claude', state: 'ok',      avatarUrl: 'https://github.com/neo-opus-vega.png?size=80',  laneLine: 'harness-UI shell + left-rail nav (#14846)'},
-    {agentId: 'neo-fable',      displayName: 'Mnemosyne', engineTag: 'fable-5',  family: 'claude', state: 'ok',      avatarUrl: 'https://github.com/neo-fable.png?size=80',      laneLine: 'golden-path direction-velocity writer (#14811)'},
-    {agentId: 'neo-fable-clio', displayName: 'Clio',      engineTag: 'fable-5',  family: 'claude', state: 'idle',    avatarUrl: 'https://github.com/neo-fable-clio.png?size=80', laneLine: 'CrossWindowDragTarget docking — awaiting review'},
-    {agentId: 'neo-gemini-pro', displayName: 'Gemini',    engineTag: '3-pro',    family: 'gemini', state: 'off',     avatarUrl: 'https://github.com/neo-gemini-pro.png?size=80', laneLine: 'operator-benched'}
-];
+import FleetRoster            from '../../store/FleetRoster.mjs';
 
 /**
  * Recent fleet activity for the fixture-fed stream — the live A2A / PR / lane adapters
@@ -28,11 +12,11 @@ const FIXTURE_ROSTER = [
  * @type {Object[]}
  */
 const FIXTURE_ACTIVITY = [
-    {type: 'a2a-activity',    agentId: 'neo-opus-vega', occurredAt: '2026-07-05T10:52:00.000Z', payload: {text: 'Vega → AGENT:* [lane-claim] #14846 harness-UI shell + nav'}},
-    {type: 'review-activity', agentId: 'neo-opus-vega', occurredAt: '2026-07-05T10:26:00.000Z', payload: {text: 'Vega → #14836 APPROVED — transaction archive Architectural Pillar'}},
-    {type: 'pr-activity',     agentId: 'neo-gpt',       occurredAt: '2026-07-05T10:11:00.000Z', payload: {text: 'Euclid opened #14843 — roadmap cornerstone-4 hygiene'}},
-    {type: 'pr-activity',     agentId: 'neo-opus-vega', occurredAt: '2026-07-05T09:40:00.000Z', payload: {text: 'Vega #14834 merged — FM fleet grid + health bar'}},
-    {type: 'a2a-activity',    agentId: 'neo-opus-ada',  occurredAt: '2026-07-05T08:30:00.000Z', payload: {text: 'Ada → #14760 control-plane restart actuator merged'}},
+    {type: 'a2a-activity',    agentId: 'neo-opus-vega', occurredAt: '2026-07-05T10:52:00.000Z', payload: {text: 'Vega → AGENT:* [lane-claim] harness-UI shell + nav'}},
+    {type: 'review-activity', agentId: 'neo-opus-vega', occurredAt: '2026-07-05T10:26:00.000Z', payload: {text: 'Vega → APPROVED — transaction archive Architectural Pillar'}},
+    {type: 'pr-activity',     agentId: 'neo-gpt',       occurredAt: '2026-07-05T10:11:00.000Z', payload: {text: 'Euclid opened a PR — roadmap cornerstone-4 hygiene'}},
+    {type: 'pr-activity',     agentId: 'neo-opus-vega', occurredAt: '2026-07-05T09:40:00.000Z', payload: {text: 'Vega merged — FM fleet grid + health bar'}},
+    {type: 'a2a-activity',    agentId: 'neo-opus-ada',  occurredAt: '2026-07-05T08:30:00.000Z', payload: {text: 'Ada → control-plane restart actuator merged'}},
     {type: 'lane-activity',   agentId: 'neo-fable-clio',occurredAt: '2026-07-05T07:15:00.000Z', payload: {text: 'Clio → CrossWindowDragTarget docking, awaiting cross-family'}}
 ];
 
@@ -42,10 +26,11 @@ const FIXTURE_ACTIVITY = [
  * activity stream, in the SSOT's ~1.55fr / 1fr split. This is the "run the fleet" keeper-view the harness-UI
  * definition specifies, reached from the harness shell's left-rail nav — the cards, NOT a data-grid table.
  *
- * Fixture-fed for now: it composes the built primitives ({@link FleetGrid} → AgentCard/HealthBar,
- * {@link ActivityStream} → EventChip) against a representative roster + activity snapshot, so the
- * mission-control surface renders real. The live-roster / A2A / PR wire bindings
- * are the sibling leaves that replace the fixtures with the running fleet.
+ * The roster data layer is the shared {@link AgentOS.store.FleetRoster} Store of
+ * {@link AgentOS.model.FleetAgent} records — seeded with the honestly-labelled sample roster, bound
+ * to the {@link FleetGrid}, and re-pointed at the running fleet by {@link #loadRoster} when the
+ * registry bridge wires up. The activity zone composes {@link ActivityStream} → EventChip against a
+ * representative snapshot the same way ({@link #loadActivity}).
  *
  * @class AgentOS.view.fleet.FleetCockpit
  * @extends Neo.container.Base
@@ -96,9 +81,11 @@ class FleetCockpit extends Container {
                 handler: 'onStartFleet'
             }]
         }, {
-            module: FleetGrid,
-            flex  : 1.55,
-            agents: FIXTURE_ROSTER
+            module      : FleetGrid,
+            flex        : 1.55,
+            reference   : 'fleet-grid',
+            adapterState: 'sample', // the seeded roster is a representative sample until the live source is wired
+            store       : FleetRoster
         }, {
             module      : ActivityStream,
             flex        : 1,
@@ -109,12 +96,22 @@ class FleetCockpit extends Container {
     }
 
     /**
-     * @summary On construct, bind the activity stream to the live fleet feed.
+     * Set once {@link #loadRoster} has replaced the sample seed with a wired roster payload —
+     * subsequent wired payloads MERGE onto the existing records (runtime status refresh) instead of
+     * re-seeding the store.
+     * @member {Boolean} rosterWired=false
+     * @protected
+     */
+    rosterWired = false
+
+    /**
+     * @summary On construct, bind the fleet surfaces to their live feeds.
      * @param {...*} args
      */
     onConstructed(...args) {
         super.onConstructed(...args);
-        this.loadActivity()
+        this.loadActivity();
+        this.loadRoster()
     }
 
     /**
@@ -150,6 +147,69 @@ class FleetCockpit extends Container {
         } catch (error) {
             // fail-closed: the sample seed stays rather than blanking the feed
         }
+    }
+
+    /**
+     * @summary Bind the fleet roster to the running fleet: poll the read-observe `fleetRoster` verb
+     * on the injected registry bridge and route its honest capability state to the Store the grid
+     * renders from:
+     * - `wired` + rows → the FIRST wired payload **populates the Store** (replacing the sample
+     *   seed); every later one **merges onto the records** (`record.set(row)` per known `agentId`,
+     *   `store.add` for a new resident) — runtime status refresh, not a re-seed. Grid goes `live`.
+     * - `degraded` → the **stale** banner over the last-known roster.
+     * - `wired` + EMPTY / not-wired / absent bridge / a thrown source → keep the last-known roster
+     *   (the honestly-labelled sample seed at boot); fail closed rather than blanking the fleet. An
+     *   empty roster from a wired source is indistinguishable from a broken producer at this seam,
+     *   and a blanked cockpit hides exactly the fleet the operator must see.
+     * @protected
+     */
+    async loadRoster() {
+        let me     = this,
+            grid   = me.getReference('fleet-grid'),
+            bridge = globalThis.AgentOS?.fleet?.registryBridge;
+
+        if (!grid?.store || typeof bridge?.fleetRoster !== 'function') {
+            return
+        }
+
+        try {
+            const {capability, agents} = await bridge.fleetRoster() ?? {},
+                  rows                 = Array.isArray(agents) ? agents.filter(row => row?.agentId) : [];
+
+            if (capability?.state === 'wired' && rows.length > 0) {
+                if (me.rosterWired) {
+                    me.mergeRoster(grid.store, rows)
+                } else {
+                    grid.store.clear();
+                    grid.store.add(rows);
+                    me.rosterWired = true
+                }
+
+                grid.adapterState = 'live'
+            } else if (capability?.state === 'degraded') {
+                grid.adapterState = 'stale'
+            }
+            // wired-but-empty / not-wired / absent bridge → keep the last-known roster
+        } catch (error) {
+            // fail-closed: the last-known roster stays rather than blanking the fleet
+        }
+    }
+
+    /**
+     * @summary Merge a wired roster payload onto the Store's records: a known `agentId` updates its
+     * record in place (`record.set(row)` — the store's `recordChange` re-renders just that card), a
+     * new one joins the roster. Rows never silently remove residents; a departure is a `state`
+     * change from the source, not an absent row.
+     * @param {Neo.data.Store} store The bound roster store.
+     * @param {Object[]} rows Wired roster rows keyed by `agentId`.
+     * @protected
+     */
+    mergeRoster(store, rows) {
+        rows.forEach(row => {
+            const record = store.get(row.agentId);
+
+            record ? record.set(row) : store.add(row)
+        })
     }
 }
 
