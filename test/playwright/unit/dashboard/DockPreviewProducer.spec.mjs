@@ -283,13 +283,15 @@ test.describe('Neo.dashboard.DockPreviewProducer (ADR 0029 §2.3 — the dock pr
         const {isValidCandidateSet} = await import('../../../../src/dashboard/dockPreviewContract.mjs');
 
         const TALL  = {x: 0, y: 0, width: 400, height: 300};
-        const zones = [{nodeId: 'main-tabs', rect: TALL}];
-        const valid = () => producer.produceCandidates({
-            pointer: {x: 200, y: 150}, zones, itemId: 'terminal',
+        const valid = (orientation='vertical') => producer.produceCandidates({
+            pointer: {x: 200, y: 150}, zones: [{nodeId: 'main-tabs', orientation, rect: TALL}], itemId: 'terminal',
             root   : {nodeId: 'root', rect: {x: 0, y: 0, width: 800, height: 600}}
         });
 
-        expect(isValidCandidateSet(valid())).toBe(true); // the producer's own emission is the positive control
+        // Both producer grammar axes are positive controls: the stricter tuple gate must preserve
+        // every real emission while rejecting only contradictory direction/orientation payloads.
+        expect(isValidCandidateSet(valid('vertical'))).toBe(true);
+        expect(isValidCandidateSet(valid('horizontal'))).toBe(true);
 
         // a one-entry "menu" is a partial menu — rejected (completeness, not just per-entry validity)
         let set = valid();
@@ -330,6 +332,19 @@ test.describe('Neo.dashboard.DockPreviewProducer (ADR 0029 §2.3 — the dock pr
         // a split-kind on a TRAILING direction claiming `split-before` is rejected
         set = valid();
         set.cross.find(c => c.position === 'bottom').preview.placement = {kind: 'split-before', orientation: 'vertical'};
-        expect(isValidCandidateSet(set)).toBe(false)
+        expect(isValidCandidateSet(set)).toBe(false);
+
+        // Split direction + kind + axis form one semantic tuple. Each otherwise-valid split kind
+        // is rejected when it advertises the perpendicular axis.
+        for (const [position, kind, orientation] of [
+            ['top',    'split-before', 'horizontal'],
+            ['bottom', 'split-after',  'horizontal'],
+            ['left',   'split-before', 'vertical'],
+            ['right',  'split-after',  'vertical']
+        ]) {
+            set = valid(position === 'left' || position === 'right' ? 'horizontal' : 'vertical');
+            set.cross.find(candidate => candidate.position === position).preview.placement = {kind, orientation};
+            expect(isValidCandidateSet(set), `${position} ${kind} must reject ${orientation}`).toBe(false)
+        }
     })
 });

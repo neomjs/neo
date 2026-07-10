@@ -44,6 +44,10 @@
     --fm-state-idle    : #f5b544;
     --fm-state-wedged  : #f4718b;
     --fm-state-limited : #a78bfa;
+    // transitional (a lifecycle intent is in flight): sky = activating, slate = winding down.
+    // Distinct from the five resolved states; exact palette is design-owner-tunable.
+    --fm-state-starting: #38bdf8;
+    --fm-state-stopping: #94a3b8;
     --fm-state-off     : #5b6675;
 
     --fm-family-claude : #d99a5b;

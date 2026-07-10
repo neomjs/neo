@@ -95,22 +95,31 @@ function isValidRect(rect) {
 }
 
 /**
- * @summary One cross direction's legal placement kinds — the §06 grammar as a checkable rule.
+ * @summary One cross direction's legal placement tuple — the §06 grammar as a checkable rule.
  *
  * `center` is exactly the tab-merge. A directional indicator is either the node split for its
  * own side (`edge-<direction>`) or the along-axis sibling insert the producer's orientation
  * grammar resolves — `split-before` only from a LEADING direction (top/left), `split-after`
- * only from a TRAILING one (bottom/right). Anything else is a menu lying about its operation.
+ * only from a TRAILING one (bottom/right), with `vertical` for top/bottom and `horizontal` for
+ * left/right. Anything else is a menu lying about its operation.
  * @param {String} position a `CROSS_POSITIONS` entry
- * @param {String} kind the candidate preview's `placement.kind`
+ * @param {Object} placement the candidate preview's placement descriptor
  * @returns {Boolean}
  */
-function crossKindMatchesPosition(position, kind) {
+function crossPlacementMatchesPosition(position, placement) {
+    let {kind, orientation} = placement;
+
     if (position === 'center') return kind === 'tab-into';
 
     return kind === `edge-${position}` ||
-        (kind === 'split-before' && (position === 'top'    || position === 'left')) ||
-        (kind === 'split-after'  && (position === 'bottom' || position === 'right'))
+        (kind === 'split-before' && (
+            (position === 'top'  && orientation === 'vertical') ||
+            (position === 'left' && orientation === 'horizontal')
+        )) ||
+        (kind === 'split-after' && (
+            (position === 'bottom' && orientation === 'vertical') ||
+            (position === 'right'  && orientation === 'horizontal')
+        ))
 }
 
 /**
@@ -122,7 +131,7 @@ function crossKindMatchesPosition(position, kind) {
  * - a `cross` of EXACTLY the five unique positions (`CROSS_POSITIONS`), every candidate wrapping
  *   an individually valid preview that carries the SET's `itemId`, targets the hovered zone's
  *   node, and whose placement kind matches its position per the §06 grammar
- *   ({@link crossKindMatchesPosition});
+ *   ({@link crossPlacementMatchesPosition});
  * - a `root` that is either null (no distinct container target) or a node id + rect + EXACTLY
  *   the four unique edges (`CHIP_EDGES`), each chip's preview carrying the set's `itemId`,
  *   targeting the root node, with kind `edge-<edge>` exactly.
@@ -156,7 +165,7 @@ export function isValidCandidateSet(set) {
         isValidPreview(candidate.preview) &&
         candidate.preview.itemId === set.itemId &&
         candidate.preview.target.nodeId === zone.nodeId &&
-        crossKindMatchesPosition(candidate.position, candidate.preview.placement.kind)
+        crossPlacementMatchesPosition(candidate.position, candidate.preview.placement)
     )) {
         return false
     }

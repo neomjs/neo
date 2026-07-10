@@ -63,14 +63,15 @@ test.describe('Demo-A dock-choreography tour journey (Neural Link)', () => {
                 //     FAIL the run, never count as the reveal)
                 //   · positive rendered geometry via getClientRects() (covers display:none on
                 //     the element OR any ancestor, and detached nodes — a locally-"visible"
-                //     child under a hidden ancestor is not a reveal)
+                //     child under a hidden ancestor is not a reveal; also subsumes the
+                //     offsetParent shape the interim dev detector used)
                 //   · computed visibility neither hidden nor collapse
                 // The 3-part histogram (display/visibility/semantic) keeps a red run diagnosable
                 // from the output alone: semantic-hidden throughout = the unhide never reached
                 // the DOM (a wedged vdom update is the known signature — check the app-worker
                 // console for "vdom update wedged"; the owning regression ticket pins causality)
                 // vs semantic-visible-but-physically-hidden = a new divergence class entirely.
-                const overlays = [...document.querySelectorAll('[class*="reveal-overlay"]')];
+                const overlays = [...document.querySelectorAll('[class*="dock-reveal-overlay"]')];
                 window.__e2e.maxOverlays = Math.max(window.__e2e.maxOverlays || 0, overlays.length);
                 overlays.forEach(el => {
                     const cs  = getComputedStyle(el);

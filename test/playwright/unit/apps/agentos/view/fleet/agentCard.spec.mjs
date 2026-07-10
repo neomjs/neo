@@ -220,6 +220,50 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
         card.destroy()
     });
 
+    test('observe: a pending action renders the state dot as a distinct transitional state, never the stale resolved one (#14978)', () => {
+        const card = createCard({agentId: 'vega', state: 'off'});
+        const dot  = () => card.down({ntype: 'fm-state-dot'});
+
+        // off + nothing pending: the dot is the resolved off state
+        expect(dot().state).toBe('off');
+
+        // a start intent is in flight → the primary glyph must read 'starting', not the stale 'off'
+        // (which reads as "stopped" and disagrees with the 'start…' status text)
+        applySet(card, {pendingAction: 'start'});
+        expect(dot().state).toBe('starting');
+        expect(dot().live).toBe(false);
+
+        // a stop intent in flight → 'stopping'; restart (transitioning toward running) → 'starting'
+        applySet(card, {pendingAction: 'stop'});
+        expect(dot().state).toBe('stopping');
+        applySet(card, {pendingAction: 'restart'});
+        expect(dot().state).toBe('starting');
+
+        // the intent settles: pending clears, the dot returns to the resolved runtime state
+        applySet(card, {pendingAction: null, state: 'ok'});
+        expect(dot().state).toBe('ok');
+
+        card.destroy()
+    });
+
+    test('observe: a transitional state is a first-party fact — it renders even when the runtime source is not wired (#14978)', () => {
+        // runtime not-wired normally gates the resolved state to 'off' (missing evidence can't render live);
+        // but a pending action is something WE know (we sent the intent), so it takes precedence over the gate
+        const card = createCard({agentId: 'vega', state: 'ok', sources: {
+            roster    : {source: 'fleet:listAgents',    state: 'wired',     confidence: 'observed'},
+            repoStatus: {source: 'fleet:fleetStatus',   state: 'wired',     confidence: 'observed'},
+            runtime   : {source: 'fleet:runtimeStatus', state: 'not-wired', confidence: 'none'}
+        }});
+
+        // resolved state gates to 'off' with no pending action (no runtime evidence)
+        expect(card.down({ntype: 'fm-state-dot'}).state).toBe('off');
+
+        applySet(card, {pendingAction: 'start'});
+        expect(card.down({ntype: 'fm-state-dot'}).state).toBe('starting');
+
+        card.destroy()
+    });
+
     test('B4 honest state: unauthorized disables the whole cluster with its reason; timeout renders stale-pending with retry still open (#14611)', () => {
         const card   = createCard({agentId: 'vega', state: 'ok'});
         const verbs  = () => card.down({reference: 'control-verbs'}).items;
