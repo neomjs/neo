@@ -53,13 +53,11 @@ test.describe('Neo.main.addon.DockFlip', () => {
     let dockFlip,
         originalDocument,
         originalGetComputedStyle,
-        originalMatchMedia,
         originalRequestAnimationFrame;
 
     test.beforeEach(async () => {
         originalDocument              = globalThis.document;
         originalGetComputedStyle      = globalThis.getComputedStyle;
-        originalMatchMedia            = globalThis.matchMedia;
         originalRequestAnimationFrame = globalThis.requestAnimationFrame;
         dockFlip                      = Neo.create(DockFlip, {preloadFilesDelay: false});
 
@@ -74,7 +72,6 @@ test.describe('Neo.main.addon.DockFlip', () => {
         originalGetComputedStyle === undefined
             ? delete globalThis.getComputedStyle
             : globalThis.getComputedStyle = originalGetComputedStyle;
-        originalMatchMedia === undefined ? delete globalThis.matchMedia : globalThis.matchMedia = originalMatchMedia;
         originalRequestAnimationFrame === undefined
             ? delete globalThis.requestAnimationFrame
             : globalThis.requestAnimationFrame = originalRequestAnimationFrame
@@ -132,8 +129,6 @@ test.describe('Neo.main.addon.DockFlip', () => {
                 return id === 'dock-host' ? host : null
             }
         };
-        globalThis.matchMedia = () => ({matches: false});
-
         let tokenOwner;
 
         globalThis.getComputedStyle = element => {
@@ -155,8 +150,9 @@ test.describe('Neo.main.addon.DockFlip', () => {
 
         expect(tokenOwner).toBe(dashboard);
         expect(dockFlip.parseDurationToken('0ms')).toBe(0);
+        expect(dockFlip.parseDurationToken('260ms')).toBe(260);
         expect(dockFlip.parseDurationToken('0.26s')).toBe(260);
-        expect(dockFlip.parseDurationToken('bogus')).toBe(280)
+        expect(dockFlip.parseDurationToken('bogus')).toBe(0)
     });
 
     test('restores the host class and every temporary style when a post-invert frame fails', async () => {
@@ -177,7 +173,11 @@ test.describe('Neo.main.addon.DockFlip', () => {
                 return id === 'dock-host' ? host : null
             }
         };
-        globalThis.matchMedia = () => ({matches: false});
+        globalThis.getComputedStyle = () => ({
+            getPropertyValue(name) {
+                return name === '--dock-transition-duration' ? '1ms' : 'linear'
+            }
+        });
 
         dockFlip.captureFirst({hostId: 'dock-host', markerPrefix: 'dock-flip-item-'});
 
@@ -195,7 +195,6 @@ test.describe('Neo.main.addon.DockFlip', () => {
         };
 
         await expect(dockFlip.play({
-            duration    : 1,
             hostId      : 'dock-host',
             markerPrefix: 'dock-flip-item-'
         })).resolves.toBe(false);

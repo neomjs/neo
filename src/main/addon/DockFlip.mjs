@@ -96,16 +96,15 @@ class DockFlip extends Base {
      * reduced-motion contract collapses `--dock-transition-duration` to `0ms`, which must not
      * fall through to the visual fallback. Both CSS time units are accepted.
      * @param {String} value
-     * @param {Number} [fallback=280]
      * @returns {Number}
      * @protected
      */
-    parseDurationToken(value, fallback = 280) {
+    parseDurationToken(value) {
         const match = String(value ?? '').trim().match(/(-?(?:\d+(?:\.\d+)?|\.\d+))(ms|s)\s*\)?$/);
 
         return match
             ? Number(match[1]) * (match[2] === 's' ? 1000 : 1)
-            : fallback
+            : 0
     }
 
     /**
@@ -115,19 +114,15 @@ class DockFlip extends Base {
      * the layout simply lands.
      * Duration and easing resolve from the motion-contract tokens (`--dock-transition-duration`
      * / `--dock-transition-easing`) on the nearest descendant dashboard token scope — zero
-     * local duration policy;
-     * explicit opts override for special takes, and the hardcoded values are last-resort
-     * fallbacks for hosts outside any token scope. A token collapsed to `0ms` (the token-layer
-     * reduced-motion path) lands instantly, same as the media-query guard.
+     * local duration policy. Missing or invalid tokens fail safe to the instant path; a token
+     * collapsed to `0ms` is the token-layer reduced-motion path.
      * @param {Object} opts
      * @param {String} opts.hostId            The dock host element id
      * @param {String} opts.markerPrefix      The marker-class prefix used in `captureFirst()`
-     * @param {Number} [opts.duration]        Explicit override; default = the token, then 280ms
-     * @param {String} [opts.easing]          Explicit override; default = the token, then standard-decelerate
      * @param {Number} [opts.maxFrames=15]    Bounded frame-poll for the new tree to appear
      * @returns {Promise<Boolean>} true if an animation played (resolves AFTER the motion completes), false on any instant-landing path
      */
-    async play({hostId, markerPrefix, duration = null, easing = null, maxFrames = 15}) {
+    async play({hostId, markerPrefix, maxFrames = 15}) {
         const first = this.#firstRects[hostId];
 
         let hostEl,
@@ -152,7 +147,7 @@ class DockFlip extends Base {
 
         delete this.#firstRects[hostId];
 
-        if (!first?.rects.size || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        if (!first?.rects.size) {
             return false
         }
 
@@ -168,13 +163,12 @@ class DockFlip extends Base {
                 tokenHost = hostEl?.matches?.('.neo-dashboard')
                     ? hostEl
                     : hostEl?.querySelector?.('.neo-dashboard') || hostEl,
-                tokens    = tokenHost && globalThis.getComputedStyle?.(tokenHost);
+                tokens    = tokenHost && globalThis.getComputedStyle?.(tokenHost),
+                duration  = this.parseDurationToken(tokens?.getPropertyValue('--dock-transition-duration')),
+                easing    = tokens?.getPropertyValue('--dock-transition-easing')?.trim();
 
-            duration ??= this.parseDurationToken(tokens?.getPropertyValue('--dock-transition-duration'));
-            easing   ||= tokens?.getPropertyValue('--dock-transition-easing').trim() || 'cubic-bezier(0, 0, 0.2, 1)';
-
-            if (!(duration > 0)) {
-                return false // token-layer reduced-motion collapse: land instantly
+            if (!(duration > 0) || !easing) {
+                return false // token-layer reduced-motion collapse or missing contract: land instantly
             }
 
             let frame = 0;
