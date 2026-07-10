@@ -124,12 +124,16 @@ test.describe('onboardPeer — intent construction (pure half)', () => {
     });
 
     test('only curated harness families are accepted, with a named refusal', () => {
-        expect(CURATED_HARNESS_TYPES).toEqual(['claude-code', 'codex']);
+        // The curated set IS the launch-templated subset — one derived truth, widened in lockstep
+        // with deriveHarnessLaunchSpec. `native-neo` stays registered-but-unlaunchable.
+        expect(CURATED_HARNESS_TYPES).toEqual(['antigravity', 'claude-code', 'claude-desktop', 'codex']);
+        expect(CURATED_HARNESS_TYPES).not.toContain('native-neo');
 
         const built = buildOnboardingIntent({...BASE_OPTIONS, harnessType: 'gemini-cli'});
 
         expect(built.valid).toBe(false);
         expect(built.reason).toContain('claude-code');
+        expect(built.reason).toContain('antigravity');
     });
 
     test('malformed identifiers fail loud, and the @-prefix normalizes off', () => {
@@ -268,6 +272,15 @@ test.describe('onboardPeer — auth handoff', () => {
             .toContain("CLAUDE_CONFIG_DIR='/tmp/claude-home'");
         expect(() => buildLoginCommand({harnessType: 'codex', instanceHome: '<instance home>', launchCommand: '/opt/codex'})).toThrow(/absolute instanceHome/);
         expect(() => buildLoginCommand({harnessType: 'codex', instanceHome: '/tmp/x\nFAKE', launchCommand: '/opt/codex'})).toThrow(/control-character-free/);
+    });
+
+    test('GUI app-bundle families print the isolated relaunch line — auth is the in-app sign-in, no CLI login exists', () => {
+        expect(buildLoginCommand({harnessType: 'claude-desktop', instanceHome: '/srv/homes/a', launchCommand: '/Applications/Claude.app/Contents/MacOS/Claude'}))
+            .toBe("'/Applications/Claude.app/Contents/MacOS/Claude' --user-data-dir='/srv/homes/a'  # sign in inside the app window (relaunch if closed)");
+        expect(buildLoginCommand({harnessType: 'antigravity', instanceHome: '/srv/homes/b', launchCommand: '/Applications/Antigravity.app/Contents/MacOS/Antigravity'}))
+            .toContain("--user-data-dir='/srv/homes/b'");
+        // The curated guard still fronts the family switch — an unlaunchable family never renders a line.
+        expect(() => buildLoginCommand({harnessType: 'native-neo', instanceHome: '/srv/homes/c', launchCommand: '/bin/x'})).toThrow(/unsupported harnessType/);
     });
 
     test('the rendered login line executes through /bin/sh without command injection', async () => {

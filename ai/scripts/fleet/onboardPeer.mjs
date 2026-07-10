@@ -1,9 +1,10 @@
 #!/usr/bin/env node
-import * as acorn                   from 'acorn';
+import * as acorn                  from 'acorn';
 import {execFileSync}              from 'node:child_process';
 import path                        from 'node:path';
 import {fileURLToPath}             from 'node:url';
 import {createFleetRegistryBridge} from '../../../src/ai/fleet/createFleetRegistryBridge.mjs';
+import {LAUNCHABLE_HARNESS_TYPES}  from '../../services/fleet/deriveHarnessLaunchSpec.mjs';
 
 /**
  * @module ai/scripts/fleet/onboardPeer
@@ -43,8 +44,8 @@ import {createFleetRegistryBridge} from '../../../src/ai/fleet/createFleetRegist
  *
  * **Usage**:
  *   node ai/scripts/fleet/onboardPeer.mjs --resident-id <s> --github-username <s>
- *       --harness-type <codex|claude-code> [--clone-url <s> --repo-slug <s>]   # dry-run;
- *                                                      # pair required unless repo already exists
+ *       --harness-type <antigravity|claude-code|claude-desktop|codex>          # dry-run;
+ *           [--clone-url <s> --repo-slug <s>]          # pair required unless repo already exists
  *   node ai/scripts/fleet/onboardPeer.mjs ... --commit                          # execute phase delta
  *   node ai/scripts/fleet/onboardPeer.mjs --help
  */
@@ -53,17 +54,20 @@ const
     __filename       = fileURLToPath(import.meta.url),
     REPO_ROOT        = path.resolve(path.dirname(__filename), '../../..'),
     HARNESS_FAMILIES = Object.freeze({
-        'claude-code': 'claude',
-        codex        : 'gpt'
+        'antigravity'   : 'gemini',
+        'claude-code'   : 'claude',
+        'claude-desktop': 'claude',
+        codex           : 'gpt'
     });
 
 /**
- * @summary The curated harness families the conductor accepts — must stay a subset of the
- * registry's own `harnessTypes` vocabulary (the registry re-validates on define; this list only
- * gives the CLI an early, named refusal).
+ * @summary The curated harness families the conductor accepts — the launch-templated subset of the
+ * shared registry vocabulary, consumed from the launch seam itself (ONE derived truth: a family
+ * becomes onboardable exactly when its launch template lands; the registry re-validates on define,
+ * this list only gives the CLI an early, named refusal).
  * @type {ReadonlyArray<String>}
  */
-export const CURATED_HARNESS_TYPES = Object.freeze(['claude-code', 'codex']);
+export const CURATED_HARNESS_TYPES = LAUNCHABLE_HARNESS_TYPES;
 
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
 
@@ -424,9 +428,17 @@ export function buildLoginCommand({harnessType, instanceHome, launchCommand} = {
         quotedHome    = quote(instanceHome),
         quotedCommand = quote(launchCommand);
 
-    return harnessType === 'codex'
-        ? `CODEX_HOME=${quotedHome} ${quotedCommand} login`
-        : `CLAUDE_CONFIG_DIR=${quotedHome} ${quotedCommand}  # then /login inside the session`;
+    // Per-family operator-owned auth step: CLI families have a login command / in-session login;
+    // the app-bundle GUI families sign in INSIDE the launched window (no CLI login exists) — the
+    // printed line relaunches the same isolated instance if the operator closed it.
+    switch (harnessType) {
+        case 'codex':
+            return `CODEX_HOME=${quotedHome} ${quotedCommand} login`;
+        case 'claude-code':
+            return `CLAUDE_CONFIG_DIR=${quotedHome} ${quotedCommand}  # then /login inside the session`;
+        default:
+            return `${quotedCommand} --user-data-dir=${quotedHome}  # sign in inside the app window (relaunch if closed)`;
+    }
 }
 
 /**
@@ -482,7 +494,7 @@ export function parseOnboardArgs(argv = []) {
  */
 function printUsage() {
     console.log('Usage: node ai/scripts/fleet/onboardPeer.mjs --resident-id <s> --github-username <s>');
-    console.log('           --harness-type <codex|claude-code> [--clone-url <s> --repo-slug <s>] [--commit]');
+    console.log(`           --harness-type <${CURATED_HARNESS_TYPES.join('|')}> [--clone-url <s> --repo-slug <s>] [--commit]`);
     console.log('');
     console.log('  (no flags)  Dry-run — print the two-phase segment delta without touching anything.');
     console.log('  --commit    Execute the CURRENT phase\'s delta through the owning fleet services.');

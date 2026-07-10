@@ -1,5 +1,6 @@
-import {test, expect}            from '@playwright/test';
-import {deriveHarnessLaunchSpec} from '../../../../../../ai/services/fleet/deriveHarnessLaunchSpec.mjs';
+import {test, expect}                                      from '@playwright/test';
+import {HARNESS_TYPES}                                     from '../../../../../../src/ai/fleet/harnessTypes.mjs';
+import {LAUNCHABLE_HARNESS_TYPES, deriveHarnessLaunchSpec} from '../../../../../../ai/services/fleet/deriveHarnessLaunchSpec.mjs';
 
 // Pure function — imported directly (no fs / spawn / env / Neo runtime), so the suite has no
 // host-runtime side effects and each case is fully isolated. Mirrors deriveAgentRepoPath.spec.
@@ -11,16 +12,48 @@ test.describe('deriveHarnessLaunchSpec (per-family harness launch templates)', (
         // `app-server` is the LIVENESS half of the tuple: a bare codex launch exits immediately on a
         // non-TTY stdin (probed on the exact binary), so the mode arg is template-owned, never a
         // caller afterthought.
-        expect(spec).toEqual({command: '/opt/codex', args: ['app-server'], env: {CODEX_HOME: '/srv/instances/a/codex'}});
+        expect(spec).toEqual({
+            command         : '/opt/codex',
+            args            : ['app-server'],
+            env             : {CODEX_HOME: '/srv/instances/a/codex'},
+            versionProbeArgs: ['--version']
+        });
     });
 
     test('claude-code: the binary + the stream-json long-lived print mode + CLAUDE_CONFIG_DIR pinned to the instance home', () => {
         const spec = deriveHarnessLaunchSpec({harnessType: 'claude-code', instanceHome: '/srv/instances/a/claude', binaryPath: '/usr/local/bin/claude'});
 
         expect(spec).toEqual({
-            command: '/usr/local/bin/claude',
-            args   : ['--input-format', 'stream-json', '--output-format', 'stream-json', '--print', '--verbose'],
-            env    : {CLAUDE_CONFIG_DIR: '/srv/instances/a/claude'}
+            command         : '/usr/local/bin/claude',
+            args            : ['--input-format', 'stream-json', '--output-format', 'stream-json', '--print', '--verbose'],
+            env             : {CLAUDE_CONFIG_DIR: '/srv/instances/a/claude'},
+            versionProbeArgs: ['--version']
+        });
+    });
+
+    test('claude-desktop: the app-bundle main binary with --user-data-dir isolation riding ARGV — env stays empty', () => {
+        const spec = deriveHarnessLaunchSpec({harnessType: 'claude-desktop', instanceHome: '/srv/instances/a/claude-desktop', binaryPath: '/Applications/Claude.app/Contents/MacOS/Claude'});
+
+        // The profile switch is BOTH halves at once for an Electron app: it relocates the config
+        // home AND the single-instance lock (probed: two instances on distinct homes coexist,
+        // SIGTERM-clean). The version probe carries the SAME flag so the probe subprocess
+        // can never land inside another profile's single-instance scope.
+        expect(spec).toEqual({
+            command         : '/Applications/Claude.app/Contents/MacOS/Claude',
+            args            : ['--user-data-dir=/srv/instances/a/claude-desktop'],
+            env             : {},
+            versionProbeArgs: ['--user-data-dir=/srv/instances/a/claude-desktop', '--version']
+        });
+    });
+
+    test('antigravity: same argv isolation contract; the version probe derives NULL (the binary boots the app instead of answering)', () => {
+        const spec = deriveHarnessLaunchSpec({harnessType: 'antigravity', instanceHome: '/srv/instances/a/antigravity', binaryPath: '/Applications/Antigravity.app/Contents/MacOS/Antigravity'});
+
+        expect(spec).toEqual({
+            command         : '/Applications/Antigravity.app/Contents/MacOS/Antigravity',
+            args            : ['--user-data-dir=/srv/instances/a/antigravity'],
+            env             : {},
+            versionProbeArgs: null   // skip-the-probe marker: binaryVersion stays honestly null
         });
     });
 
@@ -30,15 +63,32 @@ test.describe('deriveHarnessLaunchSpec (per-family harness launch templates)', (
         expect(Object.keys(spec.env)).toEqual(['CODEX_HOME']);
     });
 
-    test('returns a FRESH spec per call — a caller mutating args/env never bleeds into the template or later calls', () => {
+    test('returns a FRESH spec per call — a caller mutating args/env/probe-args never bleeds into the template or later calls', () => {
         const
             a = deriveHarnessLaunchSpec({harnessType: 'codex', instanceHome: '/h', binaryPath: '/b'}),
             b = deriveHarnessLaunchSpec({harnessType: 'codex', instanceHome: '/h', binaryPath: '/b'});
 
         a.args.push('--extra');
+        a.versionProbeArgs.push('--extra');
 
-        expect(b.args).toEqual(['app-server']);   // the template stayed pristine
+        expect(b.args).toEqual(['app-server']);            // the template stayed pristine
+        expect(b.versionProbeArgs).toEqual(['--version']);
         expect(a.env).not.toBe(b.env);
+    });
+
+    test('LAUNCHABLE_HARNESS_TYPES is the frozen alphabetical template subset AND every entry is a registered harness type', () => {
+        expect(LAUNCHABLE_HARNESS_TYPES).toEqual(['antigravity', 'claude-code', 'claude-desktop', 'codex']);
+        expect(Object.isFrozen(LAUNCHABLE_HARNESS_TYPES)).toBe(true);
+
+        // The lockstep invariant the module also guards at import: launch vocabulary ⊆ the shared
+        // registry authority. `native-neo` stays registered-but-unlaunchable by design.
+        const registered = new Set(HARNESS_TYPES.map(entry => entry.type));
+
+        for (const type of LAUNCHABLE_HARNESS_TYPES) {
+            expect(registered.has(type), `'${type}' must be registered in src/ai/fleet/harnessTypes.mjs`).toBe(true);
+        }
+        expect(registered.has('native-neo')).toBe(true);
+        expect(LAUNCHABLE_HARNESS_TYPES).not.toContain('native-neo');
     });
 
     test('throws on an unknown harnessType, naming the supported set (classification, not a launcher)', () => {
@@ -47,6 +97,8 @@ test.describe('deriveHarnessLaunchSpec (per-family harness launch templates)', (
         expect(call).toThrow(/unsupported harnessType 'gemini-cli'/);
         expect(call).toThrow(/'claude-code'/);
         expect(call).toThrow(/'codex'/);
+        expect(call).toThrow(/'claude-desktop'/);
+        expect(call).toThrow(/'antigravity'/);
     });
 
     test('fails loud on contract violations (no silent default spec)', () => {
