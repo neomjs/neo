@@ -64,10 +64,10 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         // useTestDatabase toggle — the direct assignment below does NOT reliably re-point it, so
         // without the toggle a bare (non-runner) invocation resolves the PRODUCTION graph and the
         // fixtures pollute the live Computed Golden Path advisory (observed: fixture rows served
-        // as the top-ROI release lane). Refuse to run against a prod-resolved graph, ever.
-        if (aiConfig.storagePaths.useTestDatabase !== true) {
-            throw new Error('GoldenPathSynthesizer.spec: refusing to run — storagePaths.useTestDatabase is not true, so graph writes would hit the PRODUCTION database. Run through the unit-test runner (UNIT_TEST_MODE) instead of invoking the spec bare.');
-        }
+        // as the top-ROI release lane). The gate validates the RESOLVED target, not just the
+        // toggle — an env override aliasing the test path onto the prod path is refused too.
+        const {assertIsolatedGraphTarget} = await import('./graphIsolationGate.mjs');
+        assertIsolatedGraphTarget(aiConfig.storagePaths);
 
         const os     = await import('os');
         const tmpDir = path.resolve(process.cwd(), 'tmp');
@@ -2131,10 +2131,10 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
 
         aiConfig.vectorDimension = 2;
 
-        // Deterministic, realistic-shaped ids (NOT epoch-ms suffixed): the routing layer's
-        // fixture-provenance guard excludes 11+-digit numeric suffixes as the known leak idiom,
-        // and these fixtures must FLOW through scoring — they are this test's positive subjects.
-        // The fail-loud isolation gate in beforeAll is what keeps them out of any live graph.
+        // Deterministic, realistic-shaped ids: these fixtures are this test's positive subjects
+        // and must FLOW through scoring. The routing layer's provenance guard is STAMP-based
+        // (`isTestFixture`) and performs no id-pattern exclusion — the fail-loud isolation gate
+        // in beforeAll is the only thing keeping these out of any live graph, by design.
         const openId   = 'discussion-91001';
         const closedId = 'discussion-91002';
         const issueId  = 'issue-91003';
