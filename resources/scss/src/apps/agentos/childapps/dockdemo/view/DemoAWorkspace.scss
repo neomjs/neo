@@ -19,9 +19,9 @@
 .agentos-dockdemo-tourbar {
     background   : var(--fm-panel);
     border-bottom: 1px solid var(--fm-line);
-    flex         : 0 0 auto;
-    height       : 52px;
-    padding      : 8px 12px;
+    flex   : 0 0 auto;
+    height : 52px;
+    padding: 8px 12px;
 
     .agentos-dockdemo-tour-play {
         background   : var(--fm-signal);
@@ -38,14 +38,32 @@
     }
 }
 
+.agentos-dockdemo-tour-pips {
+    display: flex;
+    gap    : 5px;
+    padding: 0 4px;
+
+    .agentos-dockdemo-pip {
+        background   : var(--fm-line);
+        border-radius: 3px;
+        height    : 5px;
+        transition: background .25s ease;
+        width     : 14px;
+    }
+
+    .agentos-dockdemo-pip-done {
+        background: var(--fm-signal);
+    }
+}
+
 .agentos-dockdemo-dock-host {
     background: var(--fm-ground);
     padding   : 8px;
 }
 
 .agentos-dockdemo-pane {
-    background   : var(--fm-panel);
-    border       : 1px solid var(--fm-line-soft);
+    background: var(--fm-panel);
+    border    : 1px solid var(--fm-line-soft);
     border-radius: 8px;
     color        : var(--fm-ink-dim);
     font-family  : var(--fm-font-mono);
@@ -55,8 +73,8 @@
 
 .agentos-dockdemo-clock-pane {
     align-items    : center;
-    background     : var(--fm-panel-2);
-    display        : flex;
+    background: var(--fm-panel-2);
+    display   : flex;
     flex-direction : column;
     gap            : 6px;
     justify-content: center;

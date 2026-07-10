@@ -90,6 +90,11 @@ class DemoAWorkspace extends Container {
      * @member {Neo.ai.client.TourRunner|null} tourRunner=null
      */
     tourRunner = null
+    /**
+     * Beats executed in the current run — the pip strip's progress counter.
+     * @member {Number} beatCount=0
+     */
+    beatCount = 0
 
     /**
      * @param {Object} config
@@ -169,8 +174,23 @@ class DemoAWorkspace extends Container {
                 ntype    : 'component',
                 reference: 'tour-caption',
                 style    : {padding: '0 12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}
+            }, {
+                cls      : ['agentos-dockdemo-tour-pips'],
+                flex     : 'none',
+                ntype    : 'component',
+                reference: 'tour-pips',
+                vdom     : {cn: DemoAWorkspace.totalBeats().map(() => ({cls: ['agentos-dockdemo-pip']}))}
             }]
         }
+    }
+
+    /**
+     * One entry per script step — the pip strip's build source and the progress divisor.
+     * @returns {Object[]} The flattened step list of the screenplay.
+     * @static
+     */
+    static totalBeats() {
+        return demoATourScript.scenes.flatMap(scene => scene.steps)
     }
 
     /**
@@ -202,18 +222,25 @@ class DemoAWorkspace extends Container {
     }
 
     /**
-     * Caption feed: every step surfaces its narration before executing.
+     * Caption feed + progress strip: every step surfaces its narration before executing
+     * and lights its pip.
      * @param {Object} data The runner's beat payload.
      */
     onTourBeat(data) {
-        data.caption && this.setTourCaption(data.caption)
+        let me = this;
+
+        data.caption && me.setTourCaption(data.caption);
+        me.setPipProgress(++me.beatCount)
     }
 
     /**
      * @param {Object} data `{completed, errors, log}`
      */
     onTourComplete(data) {
-        this.setTourCaption(`Tour complete — ${data.log.length} beats, every transition a committed operation.`)
+        let me = this;
+
+        me.setTourCaption(`Tour complete — ${data.log.length} beats, every transition a committed operation.`);
+        me.setPipProgress(DemoAWorkspace.totalBeats().length)
     }
 
     /**
@@ -286,6 +313,26 @@ class DemoAWorkspace extends Container {
     }
 
     /**
+     * Lights the first `count` pips of the progress strip.
+     * @param {Number} count
+     */
+    setPipProgress(count) {
+        const pips = this.getReference('tour-pips');
+
+        if (pips) {
+            let {vdom} = pips;
+
+            vdom.cn.forEach((pip, index) => {
+                pip.cls = index < count
+                    ? ['agentos-dockdemo-pip', 'agentos-dockdemo-pip-done']
+                    : ['agentos-dockdemo-pip']
+            });
+
+            pips.update()
+        }
+    }
+
+    /**
      * Updates the caption feed component.
      * @param {String} text
      */
@@ -307,6 +354,9 @@ class DemoAWorkspace extends Container {
             me.dockModel = DockZoneModel.clone(initialDocument);
             me.refreshDockWorkspace()
         }
+
+        me.beatCount = 0;
+        me.setPipProgress(0);
 
         try {
             await me.tourRunner.start()
