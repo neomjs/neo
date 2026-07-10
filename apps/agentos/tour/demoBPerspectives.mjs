@@ -125,10 +125,10 @@ export const demoBTourScript = Object.freeze({
         ]
     }, {
         id     : 's4',
-        title  : 'Honest limits — a capture from a two-window world, restored into one',
-        caption: '"Detached" was captured while the workbench lived in another window. Restoring it here undocks the pane — the document tells the truth instead of inventing a slot.',
+        title  : 'Detached intent — one workspace, two render targets',
+        caption: '"Detached" captured the worker-owned workspace while the workbench rendered in the popup. Restoring it preserves that detached catalog state without persisting window identity or geometry.',
         steps  : [
-            {type: 'pause', ms: 1400, cue: {type: 'perspective-load', name: 'Detached'}, caption: 'load("Detached"): the workbench leaves the layout — this capture remembers it elsewhere. Fail-closed, shown, never silent.'},
+            {type: 'pause', ms: 1400, cue: {type: 'perspective-load', name: 'Detached'}, caption: 'load("Detached"): the workbench leaves the primary tree because the saved workspace records it detached. Window-scope restore, shown, never silent.'},
             {
                 type   : 'topology-assert',
                 caption: 'the catalog still knows the workbench (nothing was deleted) — the layout simply has no slot for it, visibly',
