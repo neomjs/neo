@@ -229,6 +229,27 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
         expect(row.engineTag).toBeNull();
     });
 
+    test('fleetRoster stamps launch-derived truth per row — templated families carry their auth mode, native-neo stays honestly unlaunchable', () => {
+        registryStub.listAgents = () => [
+            {id: 'desk',   githubUsername: 'desk-gh',   harnessType: 'claude-desktop'},
+            {id: 'cli',    githubUsername: 'cli-gh',    harnessType: 'codex'},
+            {id: 'native', githubUsername: 'native-gh', harnessType: 'native-neo'}
+        ];
+        managerStub.fleetRepoStatus    = () => [];
+        managerStub.fleetRuntimeStatus = () => [];
+        FleetControlBridge.identityResolver = () => ({family: null, engineTag: null});
+
+        const rows = FleetControlBridge.fleetRoster().rows;
+
+        // DERIVED at read time from the launch seam (LAUNCHABLE_HARNESS_TYPES / getHarnessAuthMode)
+        // — a family flips cockpit-launchable exactly when its launch template lands; there is no
+        // second hand-maintained list to drift. The start control renders these honestly BEFORE
+        // any wire call: native-neo disables with truth, in-app families announce their sign-in.
+        expect(rows[0]).toMatchObject({id: 'desk',   launchable: true,  authMode: 'in-app'});
+        expect(rows[1]).toMatchObject({id: 'cli',    launchable: true,  authMode: 'marker'});
+        expect(rows[2]).toMatchObject({id: 'native', launchable: false, authMode: null});
+    });
+
     // ---- the security boundary: the allowlist OMITS the Brain-internal secret paths ----
 
     test('the surface exposes NO Brain-internal secret accessor (the capability allowlist)', () => {

@@ -97,13 +97,18 @@ export function createFleetCockpitStatus({agents = [], fleetStatus = [], runtime
                 id            : agentId,
                 githubUsername: publicAgent.githubUsername ?? null,
                 harnessType   : publicAgent.harnessType ?? null,
-                displayName   : publicAgent.displayName ?? publicAgent.name ?? publicAgent.githubUsername ?? agentId ?? null,
-                avatarUrl     : publicAgent.metadata?.avatarUrl ?? githubAvatarUrl(publicAgent.githubUsername),
-                family        : publicAgent.family ?? null,
-                engineTag     : publicAgent.engineTag ?? null,
-                agent         : publicAgent,
+                // Launch-derived truth stamped by the Brain-side assembler (fleetRoster) — hoisted
+                // like the identity facts below, tri-state honest: null = not stamped/unknown
+                // ("not read back yet"), never a guessed boolean. This pure map derives nothing.
+                launchable : publicAgent.launchable ?? null,
+                authMode   : publicAgent.authMode ?? null,
+                displayName: publicAgent.displayName ?? publicAgent.name ?? publicAgent.githubUsername ?? agentId ?? null,
+                avatarUrl  : publicAgent.metadata?.avatarUrl ?? githubAvatarUrl(publicAgent.githubUsername),
+                family     : publicAgent.family ?? null,
+                engineTag  : publicAgent.engineTag ?? null,
+                agent      : publicAgent,
                 repoStatus,
-                lifecycle     : runtime
+                lifecycle  : runtime
                     ? {
                         source    : FLEET_COCKPIT_SOURCES.runtime,
                         state     : runtime.state ?? 'unknown',

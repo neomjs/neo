@@ -38,6 +38,21 @@ test.describe('fleetCockpitStatus - Body-side cockpit DTO contract', () => {
         expect(snapshot.rows[1]).toMatchObject({id: 'guest', family: null, engineTag: null})
     })
 
+    test('hoists assembler-stamped launch truth — tri-state null when un-stamped, never derived in this pure map', () => {
+        const snapshot = createFleetCockpitStatus({
+            agents: [
+                {id: 'desk', launchable: true, authMode: 'in-app'},
+                {id: 'bare'}
+            ]
+        })
+
+        // the Brain-side assembler (fleetRoster) is the ONLY deriver; this Body-pure map hoists
+        // the stamped facts like the identity facts above — absent stays an honest null
+        // ("not read back yet"), never a guessed boolean
+        expect(snapshot.rows[0]).toMatchObject({id: 'desk', launchable: true, authMode: 'in-app'})
+        expect(snapshot.rows[1]).toMatchObject({id: 'bare', launchable: null, authMode: null})
+    })
+
     test('composes runtimeStatus onto row lifecycle — observed process truth when present, honest not-wired when absent', () => {
         const snapshot = createFleetCockpitStatus({
             agents       : [{id: 'alice'}, {id: 'bob'}],
