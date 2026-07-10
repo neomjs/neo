@@ -11,6 +11,7 @@ import {
     composeAgentRecord,
     composeUnifiedRecord,
     planDailyWindows,
+    planSessionWindows,
     resolvePartitionKeys
 } from '../../services/memory-core/helpers/temporalSummaryAggregationEngine.mjs';
 import {
@@ -35,6 +36,14 @@ const LEASE_OWNER = 'temporal-summary-aggregation';
  * @type {Number}
  */
 const DEFAULT_DAILY_WINDOW_COUNT = 7;
+
+/**
+ * @summary Default trailing session-window batch per pulse — 24 hour-aligned L1 windows, a day's worth. Each
+ * hourly window nests within one L2 day, so the two durable tiers stay coherent; recent hours are re-folded as
+ * their sources settle.
+ * @type {Number}
+ */
+const DEFAULT_SESSION_WINDOW_COUNT = 24;
 
 /**
  * @summary The temporal-pyramid L1/L2 durable aggregation daemon — the deterministic lane that writes the
@@ -246,21 +255,24 @@ class TemporalSummaryAggregationService extends Base {
     }
 
     /**
-     * @summary Reads the most-recent-first, bounded batch of windows still needing aggregation, each with
-     * its fetched source rows (the {@link composeUnifiedRecord} input shape). The durable-store
-     * implementation (the six source fetches + the persisted-version diff) lands with the source-fetch
-     * increment; the default no-op keeps the loop inert until it does.
-     * @returns {Promise<Array<Object>>}
+     * @summary Reads the most-recent-first, bounded batch of windows still needing aggregation across BOTH
+     * durable tiers — the trailing L1 session (hourly) windows and the trailing L2 daily windows — each tagged
+     * with its `level` so {@link runCycle} mints the matching `SUMMARY_SESSION` / `SUMMARY_DAILY` records, and
+     * each carrying its fetched source rows (the {@link composeUnifiedRecord} input shape). Both tiers re-fold
+     * their recent windows every pulse; the idempotent doc id makes the re-aggregation an in-place overwrite.
+     * @returns {Promise<Array<{level:String, windowStart:String, windowEnd:String, sources:Object}>>}
      * @protected
      */
     async collectPendingWindows() {
         const
-            anchor   = this.resolveAggregationAnchor(),
-            dayCount = this.dailyWindowCount(),
-            plan     = planDailyWindows({anchor, dayCount});
+            anchor = this.resolveAggregationAnchor(),
+            plan   = [
+                ...planSessionWindows({anchor, hourCount: this.sessionWindowCount()}).map(window => ({level: 'session', window})),
+                ...planDailyWindows({anchor, dayCount: this.dailyWindowCount()}).map(window => ({level: 'daily', window}))
+            ];
 
-        return Promise.all(plan.map(async window => ({
-            level      : 'daily',
+        return Promise.all(plan.map(async ({level, window}) => ({
+            level,
             windowStart: window.windowStart,
             windowEnd  : window.windowEnd,
             sources    : await this.fetchWindowSources(window)
@@ -284,6 +296,15 @@ class TemporalSummaryAggregationService extends Base {
      */
     dailyWindowCount() {
         return DEFAULT_DAILY_WINDOW_COUNT
+    }
+
+    /**
+     * @summary The trailing session (hourly) L1 window batch size per pulse. Overridable seam.
+     * @returns {Number}
+     * @protected
+     */
+    sessionWindowCount() {
+        return DEFAULT_SESSION_WINDOW_COUNT
     }
 
     /**

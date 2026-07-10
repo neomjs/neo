@@ -54,7 +54,7 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         TemporalSummaryAggregationService.pollIntervalMs = null;
 
         // Drop instance-method seam overrides so the real prototype methods resurface for the next test.
-        for (const seam of ['scheduleNext', 'acquireLease', 'releaseLease', 'collectPendingWindows', 'persistTemporalRecord', 'runCycle', 'resolveAggregationAnchor', 'dailyWindowCount', 'fetchWindowSources', 'fetchDevCommits', 'fetchSandboxesGraduated', 'fetchAdrsLanded', 'fetchSessions', 'fetchMergedPrs', 'readContentRecords', 'execCommand']) {
+        for (const seam of ['scheduleNext', 'acquireLease', 'releaseLease', 'collectPendingWindows', 'persistTemporalRecord', 'runCycle', 'resolveAggregationAnchor', 'dailyWindowCount', 'sessionWindowCount', 'fetchWindowSources', 'fetchDevCommits', 'fetchSandboxesGraduated', 'fetchAdrsLanded', 'fetchSessions', 'fetchMergedPrs', 'readContentRecords', 'execCommand']) {
             delete TemporalSummaryAggregationService[seam]
         }
     });
@@ -360,17 +360,39 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         expect(persisted[0].metadata.partition).toBe('unified')
     });
 
-    test('collectPendingWindows plans the trailing daily windows + attaches each window fetched sources', async () => {
-        TemporalSummaryAggregationService.resolveAggregationAnchor = () => '2026-07-06T12:00:00.000Z';
+    test('collectPendingWindows plans both the L1 session + L2 daily trailing windows, each with fetched sources', async () => {
+        TemporalSummaryAggregationService.resolveAggregationAnchor = () => '2026-07-06T12:30:00.000Z';
+        TemporalSummaryAggregationService.sessionWindowCount       = () => 2;
         TemporalSummaryAggregationService.dailyWindowCount         = () => 2;
         TemporalSummaryAggregationService.fetchWindowSources       = async window => ({mergedPrs: [{w: window.windowStart}]});
 
-        const windows = await TemporalSummaryAggregationService.collectPendingWindows();
+        const
+            windows = await TemporalSummaryAggregationService.collectPendingWindows(),
+            session = windows.filter(window => window.level === 'session'),
+            daily   = windows.filter(window => window.level === 'daily');
 
-        expect(windows).toHaveLength(2);
-        expect(windows[0]).toMatchObject({level: 'daily', windowStart: '2026-07-06T00:00:00.000Z', windowEnd: '2026-07-07T00:00:00.000Z'});
-        expect(windows[1].windowStart).toBe('2026-07-05T00:00:00.000Z');
-        expect(windows[0].sources.mergedPrs[0].w).toBe('2026-07-06T00:00:00.000Z')
+        // both durable tiers are planned, each window tagged so runCycle mints SUMMARY_SESSION / SUMMARY_DAILY
+        expect(session).toHaveLength(2);
+        expect(daily).toHaveLength(2);
+
+        // L1: the trailing hourly windows, most-recent-first
+        expect(session[0]).toMatchObject({level: 'session', windowStart: '2026-07-06T12:00:00.000Z', windowEnd: '2026-07-06T13:00:00.000Z'});
+        expect(session[1].windowStart).toBe('2026-07-06T11:00:00.000Z');
+
+        // L2: the trailing daily windows, most-recent-first
+        expect(daily[0]).toMatchObject({level: 'daily', windowStart: '2026-07-06T00:00:00.000Z', windowEnd: '2026-07-07T00:00:00.000Z'});
+        expect(daily[1].windowStart).toBe('2026-07-05T00:00:00.000Z');
+
+        // every planned window gets its sources attached, keyed by its own start
+        expect(session[0].sources.mergedPrs[0].w).toBe('2026-07-06T12:00:00.000Z');
+        expect(daily[0].sources.mergedPrs[0].w).toBe('2026-07-06T00:00:00.000Z')
+    });
+
+    test('the trailing-window defaults: 24 hourly L1 windows (a day) + 7 daily L2 windows', () => {
+        // real defaults (the wiring test above overrides them) — pin the L1 default a full day wide so the
+        // 24 hourly windows nest exactly into one L2 day
+        expect(TemporalSummaryAggregationService.sessionWindowCount()).toBe(24);
+        expect(TemporalSummaryAggregationService.dailyWindowCount()).toBe(7)
     });
 
     test('fetchWindowSources binds devCommits to the dev first-parent window log', async () => {
