@@ -1,0 +1,13 @@
+{
+    "name": "spike-14786-electron-sharedworker",
+    "private": true,
+    "version": "0.0.2",
+    "description": "Empirical SharedWorker constraint-set spike for the Electron shell ADR (ticket 14786). Re-run on every Electron major bump (owner: the E2 leaf owner; ADR 0034 §6).",
+    "main": "main.mjs",
+    "scripts": {
+        "start": "electron main.mjs"
+    },
+    "devDependencies": {
+        "electron": "43.1.0"
+    }
+}
