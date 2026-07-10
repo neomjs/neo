@@ -142,6 +142,52 @@ test.describe('Neo.ai.services.fleet.FleetRegistryService', () => {
         expect(FleetRegistryService.resolveCredential('rollback-agent')).toBe('ghp_recovered')
     });
 
+    test('a failed rollback leaves an orphan that credentialless creation cannot inherit', () => {
+        const
+            writeCredentials = FleetRegistryService.writeCredentials,
+            writeRegistry    = FleetRegistryService.writeRegistry;
+
+        let credentialWrites = 0;
+
+        FleetRegistryService.writeCredentials = credentials => {
+            credentialWrites++;
+
+            if (credentialWrites === 2) {
+                throw new Error('rollback disk full')
+            }
+
+            return writeCredentials.call(FleetRegistryService, credentials)
+        };
+        FleetRegistryService.writeRegistry = () => { throw new Error('registry disk full') };
+
+        try {
+            expect(() => FleetRegistryService.defineAgent({
+                githubUsername: 'orphan-agent',
+                harnessType   : 'codex',
+                credential    : 'ORPHAN_SECRET'
+            })).toThrow(/registry disk full/)
+        } finally {
+            FleetRegistryService.writeCredentials = writeCredentials;
+            FleetRegistryService.writeRegistry    = writeRegistry
+        }
+
+        expect(FleetRegistryService.getAgent('orphan-agent')).toBeNull();
+        expect(FleetRegistryService.resolveCredential('orphan-agent')).toBe('ORPHAN_SECRET');
+
+        expect(() => FleetRegistryService.defineAgent({
+            githubUsername: 'orphan-agent',
+            harnessType   : 'codex'
+        })).toThrow(/orphan credential.*credentialless creation refused/);
+        expect(FleetRegistryService.getAgent('orphan-agent')).toBeNull();
+
+        expect(FleetRegistryService.defineAgent({
+            githubUsername: 'orphan-agent',
+            harnessType   : 'codex',
+            credential    : 'RECOVERED_SECRET'
+        }).id).toBe('orphan-agent');
+        expect(FleetRegistryService.resolveCredential('orphan-agent')).toBe('RECOVERED_SECRET')
+    });
+
     test('CRUD round-trip: define -> list -> get -> remove', () => {
         FleetRegistryService.defineAgent({githubUsername: 'agent-a', harnessType: 'codex',       credential: 'ghp_a'});
         FleetRegistryService.defineAgent({githubUsername: 'agent-b', harnessType: 'antigravity', credential: 'ghp_b'});
