@@ -1,4 +1,4 @@
-import Base from '../../../../../src/core/Base.mjs';
+import Base                  from '../../../../../src/core/Base.mjs';
 import RequestContextService from './RequestContextService.mjs';
 
 /**
@@ -58,9 +58,9 @@ class TransportService extends Base {
             const proxyUserId = req.headers['x-preferred-username'] || req.headers['x-auth-request-preferred-username'];
             if (proxyUserId) {
                 baseAuth = {
-                    userId: proxyUserId,
+                    userId  : proxyUserId,
                     username: proxyUserId,
-                    source: 'proxy-header'
+                    source  : 'proxy-header'
                 };
             } else {
                 req.app?.locals?.logger?.warn('Unauthorized: trustProxyIdentity is enabled but X-PREFERRED-USERNAME header is missing');
@@ -132,10 +132,10 @@ class TransportService extends Base {
     async setup(options) {
         const { server, aiConfig, logger, resourceName } = options;
 
-        const { createMcpExpressApp } = await import('@modelcontextprotocol/sdk/server/express.js');
+        const { createMcpExpressApp }           = await import('@modelcontextprotocol/sdk/server/express.js');
         const { StreamableHTTPServerTransport } = await import('@modelcontextprotocol/sdk/server/streamableHttp.js');
-        const crypto = await import('crypto');
-        const cors = await import('cors');
+        const crypto                            = await import('crypto');
+        const cors                              = await import('cors');
         // Host-allowlist for the SDK's DNS-rebinding protection. Always includes localhost (the
         // container healthcheck hits 127.0.0.1) plus the publicUrl hostname + NEO_MCP_ALLOWED_HOSTS,
         // so a cloud deployment behind a reverse proxy on a public hostname is not rejected with
@@ -145,7 +145,7 @@ class TransportService extends Base {
         this.app = app;
 
         app.use(cors.default({
-            origin: '*',
+            origin        : '*',
             exposedHeaders: ['Mcp-Session-Id'],
         }));
 
@@ -157,7 +157,10 @@ class TransportService extends Base {
             return new URL(`${protocol}://${host}:${port}`);
         };
 
-        const mcpServerUrl = aiConfig.publicUrl ? new URL(aiConfig.publicUrl) : getFullUrl(process.env.HOST || 'localhost', aiConfig.mcpHttpPort);
+        // The config owns the advertised transport host (default + the platform-standard `HOST`
+        // env binding on the `mcpHttpHost` leaf) — consumed at the use site, never re-derived
+        // from env here.
+        const mcpServerUrl = aiConfig.publicUrl ? new URL(aiConfig.publicUrl) : getFullUrl(aiConfig.mcpHttpHost, aiConfig.mcpHttpPort);
         this.mcpServerUrl = mcpServerUrl;
 
         // Optional Authorization: OIDC/OAuth (host / issuerUrl) OR the GitLab-PAT bearer mode.
@@ -189,7 +192,7 @@ class TransportService extends Base {
                 }
             } else {
                 transport = new StreamableHTTPServerTransport({
-                    sessionIdGenerator: () => crypto.randomUUID(),
+                    sessionIdGenerator  : () => crypto.randomUUID(),
                     onsessioninitialized: (id) => {
                         this.transports.set(id, transport);
                         if (mcpServerInstance) {
@@ -244,9 +247,9 @@ class TransportService extends Base {
                 requestContext = await server.buildRequestContext(baseAuth);
             } else {
                 requestContext = {
-                    userId: baseAuth?.userId,
+                    userId  : baseAuth?.userId,
                     username: baseAuth?.username,
-                    source: baseAuth?.source
+                    source  : baseAuth?.source
                 };
             }
 
