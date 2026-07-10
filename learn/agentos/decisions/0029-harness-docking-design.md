@@ -319,9 +319,9 @@ Sweep of the web docking field against the Qt-ADS bar and the multi-window requi
 
 | Capability | [Qt-ADS](https://github.com/githubuser0xFFFF/Qt-Advanced-Docking-System) (bar) | [Dockview](https://dockview.dev/docs/core/groups/popoutGroups/) | [GoldenLayout](https://golden-layout.com/docs/GoldenLayout.html) | [FlexLayout](https://github.com/caplin/FlexLayout) | [rc-dock](https://github.com/ticlo/rc-dock) | [Lumino](https://github.com/jupyterlab/lumino) | Neo target (this ADR) |
 |---|---|---|---|---|---|---|---|
-| Dock/split/tab + drag preview | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | landed (dockZone.v1) |
-| Auto-hide sidebars | ✓ (click/hover reveal, drag to borders) | — | — | — | — | — | §2.7 (rails landed; reveal = #13280) |
-| Named perspectives | ✓ (save/restore by name) | layout serialize | layout serialize | layout serialize | `saveLayout`/`loadLayout` | — | §2.2 (single-workspace landed; topology-scope specified) |
+| Dock/split/tab + drag preview | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | model + mechanics landed (dockZone.v1); **interaction grain: §4.1** |
+| Auto-hide sidebars | ✓ (click/hover reveal, drag to borders) | — | — | — | — | — | landed (§2.7 full arc: rails + click reveal + hover opt-in + pin, e2e-proven; #14654/#14660) |
+| Named perspectives | ✓ (save/restore by name) | layout serialize | layout serialize | layout serialize | `saveLayout`/`loadLayout` | — | §2.2 (single-workspace landed; topology-scope reconciler in review, #14668) |
 | Grouped drag | ✓ (title bar moves tab group) | — | — | — | — | — | §2.4 (`moveNode`/`transferNode`) |
 | Tab overflow | ✓ (dropdown) | — | — | ✓ | — | — | §2.4 (projection affordance) |
 | OS-window popout | native floating windows | ✓ popout groups (same-origin `popout.html`) | ✓ popout windows | ✓ popout tabs (`popout.html`) | ✓ popup panel | — | landed (detach/reintegrate, #13025/#13028) |
@@ -333,6 +333,21 @@ Two friction classes recur across the surveyed field and are dispositioned by th
 
 1. **The popout state problem.** The field's two answers are serialize-and-recreate (GoldenLayout — identity loss, transient state loss) and portal-into-child-window (FlexLayout, Dockview — live state, but owned by the opener window's main thread: opener reload/close tears down every popout, and the popout's interactivity competes with the opener's main-thread load). Neo's answer is architectural: state lives in a heap owned by **no** window (§2.1), so the question each library answers with a workaround does not arise. As of this sweep, no surveyed library offers window-independent live-state docking; this claim is capability-scoped (not a performance claim) and its re-validation trigger is the next sweep of the same five libraries.
 2. **Auto-hide as afterthought.** The most visible Qt-ADS affordance is absent across all five surveyed web libraries. It is specified here (§2.7) as committed model state + per-window runtime reveal — the same seam discipline as everything else, not a bolt-on.
+
+### 4.1 Row-1 interaction grain (amendment, 2026-07-10 — #14934)
+
+**Why this amendment exists.** Row 1 above compressed the entire drag interaction into one cell, and that grain is load-bearing: four independent analysis passes verified "drag preview ✓" at capability-list altitude while the operator's standing bar (#13158: *Qt-Advanced-Docking-System-class*) is **experience**-parity. A checklist row cannot distinguish a drag-preview proxy with parallel-visible dock guides from single-affordance pointer inference — list-parity checks systematically pass what experience-parity demands. Row 1 therefore decomposes into the interaction sub-rows below. The five web-library columns above deliberately STAY at capability grain (their original sweep verdicts stand un-revalidated); the sub-rows grade the bar and this design only — inventing per-library interaction detail without a fresh sweep would repeat the altitude error in the other direction.
+
+| Interaction sub-capability | Qt-ADS (bar) | Neo target (this ADR) — status as of 2026-07-10 |
+|---|---|---|
+| Drag proxy (visual travels with the pointer) | static pixmap or live-morphing preview proxy | landed in-window (`draggable` SortZone drag proxy); cross-window arbitration landed (§2.3); proxy visual language → #14930 design artifact |
+| Drop-indicator overlays | **parallel-visible** 5-position cross + container-edge indicators | single-affordance edge-band idiom (producer resolves ONE placement per hover frame, `dockPreview.v1`); compass-guide vs edge-band is an explicit design disposition owned by #14930 — the bar is a floor, not a blueprint |
+| Per-option target-area preview | translucent area preview per indicator | landed single-option at functional grade (accept translucent fill/border, reject red-dashed — `DockPreview`); flagship treatment + the parallel-option question follow the #14930 disposition |
+| Tab insertion cues | insertion marker in the target tab bar | landed functional grade (tab before/after markers, `DockPreview`); flagship polish = #14930 |
+| Escape-cancel mid-drag | ✓ cancels the gesture | **gap — no owning leaf** (surfaced by this amendment: no Escape path in the draggable layer, `DragCoordinator`, or the main-thread drag addon as of this date) |
+| Commit animation (drop lands smoothly) | not established by this sweep (the fetched Qt-ADS README documents the drag-preview/indicator tier, not committed-re-layout animation) | Neo house/experience target — above the bar, owned by #14779 (motion contract) / #14929 (FLIP layer, in flight) |
+
+**Closure-gate binding.** Epic #13158 MUST NOT resolve without an item-by-item experience-parity matrix against THIS sub-row inventory (plus the surviving capability rows above), each row evidenced by a recorded interaction, an e2e spec, or a live demo beat — evidence links, not assertions. The epic body carries the matching requirement (#14934).
 
 ## 5. Consequences — Decomposition, Guardrails, Acceptance
 
