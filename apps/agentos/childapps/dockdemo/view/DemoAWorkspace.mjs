@@ -110,7 +110,14 @@ class DemoAWorkspace extends Container {
             scope   : me
         });
 
-        me.add(me.buildWorkspaceItems())
+        me.add([me.createTourBar(), {
+            module   : Container,
+            cls      : ['agentos-dockdemo-dock-host'],
+            flex     : 1,
+            items    : [me.projectDockModel()],
+            layout   : {ntype: 'fit'},
+            reference: 'dock-host'
+        }])
     }
 
     /**
@@ -123,21 +130,6 @@ class DemoAWorkspace extends Container {
      */
     applyDockZoneOperation(descriptor) {
         return DockZoneModel.applyOperation(this.dockModel, descriptor)
-    }
-
-    /**
-     * Builds the tour bar + the dock projection from current state.
-     * @returns {Object[]}
-     */
-    buildWorkspaceItems() {
-        let dockConfig = this.projectDockModel();
-
-        dockConfig.flex = 1;
-
-        return [
-            this.createTourBar(),
-            dockConfig
-        ]
     }
 
     /**
@@ -246,12 +238,20 @@ class DemoAWorkspace extends Container {
     }
 
     /**
-     * Wholesale re-projection from the committed document — the current normative refresh.
+     * Re-projection from the committed document, scoped to the dock-host subtree — the tour
+     * bar lives OUTSIDE the refreshed container, so the caption feed's rapid per-beat
+     * updates never race a teardown of their own component (in-flight vdom replies to a
+     * destroyed component wedge, and ancestor updates then yield to the wedge forever).
+     * The dock subtree itself still rebuilds coarsely per the current normative pattern.
      * @protected
      */
     refreshDockWorkspace() {
-        this.removeAll();
-        this.add(this.buildWorkspaceItems())
+        const host = this.getReference('dock-host');
+
+        if (host) {
+            host.removeAll();
+            host.add(this.projectDockModel())
+        }
     }
 
     /**
