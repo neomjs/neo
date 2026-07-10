@@ -118,16 +118,23 @@ export const demoBTourScript = Object.freeze({
             {type: 'pause', ms: 900, cue: {type: 'perspective-load', name: 'Review'}, caption: 'back to "Review" — room to leave from'},
             {type: 'pause', ms: 900},
             {type: 'pause', ms: 900, cue: {type: 'popout', itemId: 'workbench'}, caption: 'pop-out(workbench): a real OS window opens on the shared heap. Watch the counter — it does not reset.'},
-            {type: 'pause', ms: 2500},
+            {type: 'pause', ms: 2000},
+            {type: 'pause', ms: 600, cue: {type: 'perspective-save', name: 'Detached'}, caption: 'save("Detached"): capturing THIS state — a perspective that remembers the workbench being elsewhere'},
             {type: 'pause', ms: 900, cue: {type: 'reattach', itemId: 'workbench'}, caption: 'reattach(workbench): home again. Same instance, same count — reparent, never recreate.'},
             {type: 'pause', ms: 1200}
         ]
     }, {
         id     : 's4',
-        title  : 'Finale — home',
-        caption: 'Back to "Focus": three named shapes, one OS-window round-trip, one unbroken counter — and every transition was a committed document.',
+        title  : 'Honest limits — a capture from a two-window world, restored into one',
+        caption: '"Detached" was captured while the workbench lived in another window. Restoring it here undocks the pane — the document tells the truth instead of inventing a slot.',
         steps  : [
-            {type: 'pause', ms: 900, cue: {type: 'perspective-load', name: 'Focus'}, caption: 'load("Focus"): the finale returns to where we started'},
+            {type: 'pause', ms: 1400, cue: {type: 'perspective-load', name: 'Detached'}, caption: 'load("Detached"): the workbench leaves the layout — this capture remembers it elsewhere. Fail-closed, shown, never silent.'},
+            {
+                type   : 'topology-assert',
+                caption: 'the catalog still knows the workbench (nothing was deleted) — the layout simply has no slot for it, visibly',
+                expect : [{path: 'items.workbench.title', equals: 'Workbench'}]
+            },
+            {type: 'pause', ms: 1400, cue: {type: 'perspective-load', name: 'Focus'}, caption: 'load("Focus"): the finale brings it home — and the counter STILL never reset, even undocked'},
             {type: 'pause', ms: 900}
         ]
     }]
