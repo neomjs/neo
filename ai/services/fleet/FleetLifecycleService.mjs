@@ -1,14 +1,11 @@
-import {spawn}                   from 'child_process';
+import {execFile, spawn}         from 'child_process';
+import fs                        from 'fs';
 import path                      from 'path';
-import {fileURLToPath}           from 'url';
+import AiConfig                  from '../../config.mjs';
 import Base                      from '../../../src/core/Base.mjs';
 import {deriveAgentInstanceHome} from './deriveAgentInstanceHome.mjs';
 import {deriveHarnessLaunchSpec} from './deriveHarnessLaunchSpec.mjs';
 import FleetRegistryService      from './FleetRegistryService.mjs';
-
-const
-    __filename = fileURLToPath(import.meta.url),
-    __dirname  = path.dirname(__filename);
 
 // The forced-projection env var is a CROSS-PROCESS CONTRACT: the FM sets it on the spawned child env,
 // and the Neural Link server's `resolveToolProjectionMode` reads this exact name as the fallback to
@@ -23,20 +20,34 @@ const TOOL_PROJECTION_MODE_ENV_VAR = 'NEO_NL_TOOL_PROJECTION_MODE';
 // NOT configurable — an override would set a var those consumers never read (fail-OPEN).
 const AGENT_IDENTITY_ENV_VAR = 'NEO_AGENT_IDENTITY';
 
-// Per-family harness binary env overrides + defaults — the env/default halves of the
-// `getHarnessBinaryPath` field → env → default resolution (the `FleetManager.getManagedRoot`
-// precedent, per family). The codex default is the ChatGPT-app-bundled CLI — an ALPHA channel that
-// self-updates with its app (V-B-A'd locally: `codex-cli 0.144.0-alpha.4`) — a deliberate,
-// version-guarded operator-convenience fallback, NOT a stability guarantee: production fleets pin
-// via the env var or the `harnessBinaryPaths` field. The claude-code default is the PATH-resolved
-// `claude` binary. An unknown family has no entry — `resolveLaunch` fails loud instead of guessing.
-const HARNESS_BINARY_ENV_VARS = {
-    'claude-code': 'NEO_FLEET_CLAUDE_CODE_BIN',
-    'codex'      : 'NEO_FLEET_CODEX_BIN'
+// The AiConfig `fleet.harnessBinaries` leaf key per harness family. An unknown family has no
+// entry — `resolveLaunch` fails loud instead of guessing a command for it.
+const HARNESS_BINARY_LEAF_KEYS = {
+    'claude-code': 'claudeCode',
+    'codex'      : 'codex'
 };
-const HARNESS_BINARY_DEFAULTS = {
-    'claude-code': 'claude',
-    'codex'      : '/Applications/ChatGPT.app/Contents/Resources/codex'
+
+// The ONLY ambient parent-env vars that cross into a spawned harness. The FM's own environment
+// carries operator secrets (provider API keys, tokens, session vars) that must never leak into
+// every peer: a tokenless instance silently inheriting the parent's `GH_TOKEN` would collapse the
+// per-agent credential boundary. Benign process-runtime vars only; everything else a child needs
+// arrives explicitly via the launch template or the reserved injections in `start`.
+const AMBIENT_ENV_ALLOWLIST = Object.freeze([
+    'HOME', 'LANG', 'LC_ALL', 'LOGNAME', 'PATH', 'SHELL', 'TERM', 'TMPDIR', 'USER'
+]);
+
+// Env keys that would mutate the merge target's prototype chain instead of (or in addition to)
+// defining an own property — a registry-authored `{"__proto__": …}` must be rejected, never
+// assigned. JSON.parse creates these as OWN keys, so they DO survive into Object.entries.
+const PROTO_ENV_KEYS = Object.freeze(['__proto__', 'constructor', 'prototype']);
+
+// Per-family auth-marker files inside an instance home: present ⇒ the home has completed its
+// operator-owned per-home login; absent ⇒ `authRequired` surfaces `true` so the cockpit shows the
+// onboarding step honestly. A HEURISTIC on documented CLI state layouts, not a credential read —
+// the marker's presence is checked, never its content.
+const HARNESS_AUTH_MARKERS = {
+    'claude-code': '.credentials.json',
+    'codex'      : 'auth.json'
 };
 
 /**
@@ -58,21 +69,29 @@ const HARNESS_BINARY_DEFAULTS = {
  *   {@link getInstanceRoot}, and {@link Neo.ai.services.fleet.deriveHarnessLaunchSpec} maps it onto
  *   the family template with the {@link getHarnessBinaryPath}-resolved binary. `harnessType` stays
  *   classification: the registry payload never carries a command.
- * - **Raw launch (SECURITY STOP-LINE — Brain/operator-only COMPATIBILITY path):** an explicit
- *   `metadata.launch = {command, args, env}` is honored as-is. It executes an ARBITRARY command in
- *   a credential-bearing child (the PAT + Bridge token ride that env), so it must NEVER become the
- *   Body-reachable normal form — a pane-supplied command string would be remote code execution with
- *   credentials attached.
+ * - **Raw launch (SECURITY STOP-LINE — Brain/operator-only by CONSTRUCTION):** an explicit
+ *   `metadata.launch = {command, args, env}` executes an ARBITRARY command in a credential-bearing
+ *   child (the PAT + Bridge token ride that env). The wire cannot author it: the registry's
+ *   `defineAgent` / `updateAgent` REJECT a `launch` key in metadata, so the only write path is the
+ *   registry-internal `setLaunchOverride` — a method that exists on no bridge and no wire allowlist.
+ *   Wire callers send curated `harnessType` intent, nothing more.
  *
- * **`metadata.launch.env` contract surface:** an optional plain Object of string values, merged onto
- * the fresh `{...process.env}` child-env copy BEFORE the reserved injections below — so the reserved
- * keys always win — and a `launch.env` key naming a reserved slot (`credentialEnvVar`,
- * `bridgeTokenEnvVar`, `NEO_NL_TOOL_PROJECTION_MODE`, `NEO_AGENT_IDENTITY`) is rejected fail-fast,
- * naming the colliding key. Template-derived launches use the same merge path for their isolation
- * var (`CODEX_HOME` / `CLAUDE_CONFIG_DIR`).
+ * **Supervision transport (the topology that keeps a CLI harness alive):** children spawn with
+ * `stdio: ['pipe', 'ignore', 'pipe']` — stdin is a HELD-OPEN pipe, because both supported harness
+ * CLIs exit immediately on an EOF'd/ignored stdin (probed on the exact binaries: codex `app-server`
+ * and claude-code stream-json both stay alive on a held pipe and exit without it). The launch
+ * templates pin the per-family long-lived mode args; stdout is discarded until a protocol consumer
+ * lands; stderr is drained byte-counted as below.
+ *
+ * **Child env (minimal by construction):** the child receives ONLY the `AMBIENT_ENV_ALLOWLIST`
+ * process-runtime vars — never a full parent-env copy, so ambient operator secrets cannot leak into
+ * a peer — plus the launch spec's own env (its isolation home var), plus the reserved injections.
+ * A `launch.env` key naming a reserved slot (`credentialEnvVar`, `bridgeTokenEnvVar`,
+ * `NEO_NL_TOOL_PROJECTION_MODE`, `NEO_AGENT_IDENTITY`) or a prototype-mutating key
+ * (`__proto__` / `constructor` / `prototype`) is rejected fail-fast, naming the offending key.
  *
  * **Credential security boundary** (inherited from the registry's two-hemisphere rule): the PAT is
- * injected into the spawned **child's environment only** — copied onto a fresh `{...process.env}`
+ * injected into the spawned **child's environment only** — onto the minimal allowlisted env above
  * (the parent env is never mutated), under a configurable var (`credentialEnvVar`, default
  * `GH_TOKEN`). It is **never** placed in `argv` (visible in `ps`), never written to the tracked
  * process record, and never logged. A status read can never surface a secret because the records
@@ -143,16 +162,16 @@ class FleetLifecycleService extends Base {
     /**
      * The absolute per-agent harness instance-home root — where the isolated harness config/state
      * homes (`CODEX_HOME` / `CLAUDE_CONFIG_DIR`) of template-launched agents are derived. `null` ⇒
-     * resolved (env, then a `__dirname`-relative default) via {@link getInstanceRoot} — the
-     * `FleetManager.getManagedRoot` precedent. Set a per-tenant / temp path to override.
+     * the AiConfig `fleet.instanceRoot` leaf (the config SSOT owning default + env binding).
+     * The field is the explicit test / per-tenant override seam, never a default shadow.
      * @member {String|null} instanceRoot=null
      */
     instanceRoot = null
 
     /**
      * Per-harness-family binary-path overrides, keyed by `harnessType` (e.g. `{codex: '/opt/codex'}`).
-     * `null` / missing key ⇒ resolved (per-family env, then the per-family default) via
-     * {@link getHarnessBinaryPath}.
+     * `null` / missing key ⇒ the family's AiConfig `fleet.harnessBinaries.*` leaf (the config
+     * SSOT). The field is the explicit test / per-tenant override seam, never a default shadow.
      * @member {Object|null} harnessBinaryPaths=null
      */
     harnessBinaryPaths = null
@@ -204,7 +223,8 @@ class FleetLifecycleService extends Base {
         const agent = this.getRegistry().getAgent(id);
         if (!agent) throw new Error(`FleetLifecycleService.start: unknown agent '${id}'.`);
 
-        const {command, args, env: launchEnv} = this.resolveLaunch(agent);
+        const launch                          = this.resolveLaunch(agent),
+              {command, args, env: launchEnv} = launch;
 
         // Env-key contract guard (fail-fast): each reserved class occupies a DISTINCT child-env slot.
         // The PAT + Bridge-token keys are configurable, so a misconfiguration that collides two (e.g.
@@ -227,13 +247,21 @@ class FleetLifecycleService extends Base {
             }
         }
 
-        // Secret handling: copy the parent env (never mutate process.env), merge the agent's launch
-        // env (its isolated harness home — `CODEX_HOME` / `CLAUDE_CONFIG_DIR` — plus any compat-path
-        // extras) BEFORE the reserved injections so the reserved keys always win, then inject the
-        // PAT — if any — under credentialEnvVar. Absent credential → start without it (a tokenless
-        // agent is valid).
-        const env = {...process.env, ...launchEnv},
-              pat = this.getRegistry().resolveCredential(id);
+        // Child env: the MINIMAL allowlisted base — never a full parent-env copy. A tokenless
+        // instance must not silently inherit the parent's `GH_TOKEN` or provider secrets; only
+        // benign process-runtime vars cross the boundary (see AMBIENT_ENV_ALLOWLIST). The launch
+        // env (the isolation home var, plus any Brain-set compat extras) merges BEFORE the reserved
+        // injections so the reserved keys always win, then the PAT — if any — lands under
+        // credentialEnvVar. Absent credential → start without it (a tokenless agent is valid).
+        const env = {};
+        for (const key of AMBIENT_ENV_ALLOWLIST) {
+            if (process.env[key] !== undefined) env[key] = process.env[key];
+        }
+        for (const [key, value] of Object.entries(launchEnv)) {
+            env[key] = value;
+        }
+
+        const pat = this.getRegistry().resolveCredential(id);
         if (pat != null) env[this.credentialEnvVar] = pat;
 
         // Bridge token: a credential class DISTINCT from the PAT. Mint one + inject it under
@@ -256,10 +284,23 @@ class FleetLifecycleService extends Base {
         // pre-load it (guard above).
         env[AGENT_IDENTITY_ENV_VAR] = id;
 
+        // Executable preflight (fail-closed): a path-shaped command must exist BEFORE any secret is
+        // minted or a spawn attempted — a typo'd/missing binary fails loud here, not as a child
+        // 'error' event racing the first status read. Bare commands (e.g. `claude`) resolve via the
+        // child's PATH; the spawn itself asserts their existence.
+        if (command.includes('/') && !fs.existsSync(command)) {
+            throw new Error(`FleetLifecycleService.start: harness binary not found at '${command}' for agent '${id}'. Pin the AiConfig fleet.harnessBinaries leaf or the harnessBinaryPaths field to a real executable.`);
+        }
+
         // The child's working directory: the agent's provisioned repo checkout when the caller supplies
         // it (the Fleet Manager turnkey path via startAgentProvisioned). Omitted ⇒ inherit this process's
         // cwd — but an FM-spawned harness is meant to operate on ITS repo, not the Fleet Manager's dir.
-        const spawnOptions = {stdio: ['ignore', 'ignore', 'pipe'], env};
+        //
+        // stdio topology is the LIVENESS contract: stdin MUST be a held-open pipe — both supported
+        // harness CLIs treat ignored/EOF'd stdin as session-end and exit immediately (probed on the
+        // exact binaries; see the class summary). stdout is discarded until a protocol consumer
+        // lands; stderr is drained byte-counted below.
+        const spawnOptions = {stdio: ['pipe', 'ignore', 'pipe'], env};
         if (opts.cwd != null) spawnOptions.cwd = opts.cwd;
 
         let child;
@@ -270,8 +311,33 @@ class FleetLifecycleService extends Base {
             throw error;
         }
 
-        const record = {id, child, cwd: opts.cwd ?? null, pid: child.pid ?? null, state: 'running', startedAt: new Date().toISOString(), exitCode: null, signal: null, exitedAt: null, stderrBytes: 0};
+        const record = {
+            id, child,
+            cwd        : opts.cwd ?? null,
+            pid        : child.pid ?? null,
+            state      : 'running',
+            startedAt  : new Date().toISOString(),
+            exitCode   : null,
+            signal     : null,
+            exitedAt   : null,
+            stderrBytes: 0,
+            // Curated-launch observability: the family + isolated home let `status` compute the live
+            // per-home `authRequired` heuristic; null for raw-launch agents (unknown layout).
+            harnessType  : launch.instanceHome ? agent.harnessType : null,
+            instanceHome : launch.instanceHome ?? null,
+            binaryVersion: null
+        };
         this.processes.set(id, record);
+
+        // Best-effort version surface (the pin/verify half of the executable preflight): capture
+        // `<binary> --version` async onto the record — the status read surfaces what actually runs,
+        // so an app-bundle alpha channel that self-updated is VISIBLE, not silently different.
+        // Failure is non-fatal (version stays null); the probe never blocks the spawn path.
+        try {
+            execFile(command, ['--version'], {timeout: 3000}, (error, stdout) => {
+                if (!error && stdout) record.binaryVersion = String(stdout).trim().split('\n')[0].slice(0, 80);
+            });
+        } catch (ignored) {}
 
         // Drain stderr so a noisy harness can't block on a full pipe buffer. Retain only a byte
         // COUNT, never the content: the child's stderr is untrusted and may echo the injected PAT,
@@ -351,25 +417,49 @@ class FleetLifecycleService extends Base {
     }
 
     /**
-     * Status snapshot for one agent (never carries a secret — `stderrBytes` is a count, not content).
+     * Status snapshot for one agent (never carries a secret — `stderrBytes` is a count, not content;
+     * `authRequired` checks a marker file's PRESENCE, never its content).
      * @param {String} id
-     * @returns {Object} `{id, state, running, pid, startedAt, uptimeMs, exitCode, exitedAt, stderrBytes}`
+     * @returns {Object} `{id, state, running, pid, startedAt, uptimeMs, exitCode, exitedAt,
+     *     stderrBytes, authRequired, binaryVersion}` — `authRequired` is the LIVE per-home
+     *     auth-marker heuristic for curated launches (`true` = the operator-owned per-home login has
+     *     not happened yet; recomputed each read so a completed login flips it without a restart);
+     *     `null` for raw-launch / untracked agents. `binaryVersion` is the best-effort
+     *     `--version` capture of what actually ran (`null` until/unless the probe answered).
      */
     status(id) {
         const record = this.processes.get(id);
-        if (!record) return {id, state: 'stopped', running: false, pid: null, startedAt: null, uptimeMs: null, exitCode: null, exitedAt: null, stderrBytes: 0};
+        if (!record) return {id, state: 'stopped', running: false, pid: null, startedAt: null, uptimeMs: null, exitCode: null, exitedAt: null, stderrBytes: 0, authRequired: null, binaryVersion: null};
 
         return {
             id,
-            state       : record.state,
-            running     : record.state === 'running',
-            pid         : record.pid,
-            startedAt   : record.startedAt,
-            uptimeMs    : record.state === 'running' && record.startedAt ? Date.now() - Date.parse(record.startedAt) : null,
-            exitCode    : record.exitCode,
-            exitedAt    : record.exitedAt,
-            stderrBytes : record.stderrBytes ?? 0
+            state        : record.state,
+            running      : record.state === 'running',
+            pid          : record.pid,
+            startedAt    : record.startedAt,
+            uptimeMs     : record.state === 'running' && record.startedAt ? Date.now() - Date.parse(record.startedAt) : null,
+            exitCode     : record.exitCode,
+            exitedAt     : record.exitedAt,
+            stderrBytes  : record.stderrBytes ?? 0,
+            authRequired : this.authRequiredForHome(record.harnessType, record.instanceHome),
+            binaryVersion: record.binaryVersion ?? null
         };
+    }
+
+    /**
+     * @summary The live per-home auth heuristic: `false` when the family's auth-marker file exists
+     * inside the instance home (the operator-owned per-home login completed), `true` when the home
+     * exists without it, `null` when the family/home is unknown (raw launches). Presence-only —
+     * the marker's content is never read.
+     * @param {String|null} harnessType
+     * @param {String|null} instanceHome
+     * @returns {Boolean|null}
+     */
+    authRequiredForHome(harnessType, instanceHome) {
+        const marker = harnessType && HARNESS_AUTH_MARKERS[harnessType];
+        if (!marker || !instanceHome) return null;
+
+        return !fs.existsSync(path.join(instanceHome, marker));
     }
 
     /**
@@ -421,13 +511,14 @@ class FleetLifecycleService extends Base {
             // root / binary path decide the launch — the registry payload contributes no command.
             const binaryPath = this.getHarnessBinaryPath(agent.harnessType);
             if (!binaryPath) {
-                throw new Error(`FleetLifecycleService: agent '${agent.id}' (harnessType '${agent.harnessType}') has no launch spec and no built-in launch template. Set metadata.launch = {command, args} or use a templated harnessType.`);
+                throw new Error(`FleetLifecycleService: agent '${agent.id}' (harnessType '${agent.harnessType}') has no launch template. Use a templated harnessType, or have the Brain/operator set a launch override via FleetRegistryService.setLaunchOverride.`);
             }
-            return deriveHarnessLaunchSpec({
-                harnessType : agent.harnessType,
-                instanceHome: deriveAgentInstanceHome({instanceRoot: this.getInstanceRoot(), agentId: agent.id, harnessType: agent.harnessType}),
-                binaryPath
-            });
+            const instanceHome = deriveAgentInstanceHome({instanceRoot: this.getInstanceRoot(), agentId: agent.id, harnessType: agent.harnessType});
+            return {
+                ...deriveHarnessLaunchSpec({harnessType: agent.harnessType, instanceHome, binaryPath}),
+                // carried for observability: `status` computes the live per-home authRequired from it
+                instanceHome
+            };
         }
 
         if (!launch.command) {
@@ -439,38 +530,44 @@ class FleetLifecycleService extends Base {
             throw new Error(`FleetLifecycleService: agent '${agent.id}' has an invalid metadata.launch.env — expected a plain Object of string values.`);
         }
         for (const [key, value] of Object.entries(env)) {
+            if (PROTO_ENV_KEYS.includes(key)) {
+                throw new Error(`FleetLifecycleService: agent '${agent.id}' has an invalid metadata.launch.env — prototype-mutating key '${key}' is rejected (JSON-parsed own keys survive into the merge; assigning them would mutate the prototype chain, never define an env var).`);
+            }
             if (typeof value !== 'string') {
                 throw new Error(`FleetLifecycleService: agent '${agent.id}' has an invalid metadata.launch.env — '${key}' must map to a String value.`);
             }
         }
 
-        return {command: launch.command, args: Array.isArray(launch.args) ? launch.args : [], env};
+        return {command: launch.command, args: Array.isArray(launch.args) ? launch.args : [], env, instanceHome: null};
     }
 
     /**
-     * @summary Resolve (field > env > default) the absolute per-agent harness instance-home root.
-     * Mirrors `FleetManager.getManagedRoot`: the `instanceRoot` field, then the
-     * `NEO_FLEET_INSTANCE_ROOT` env, then a `__dirname`-relative
-     * `<repoRoot>/.neo-ai-data/fleet/instances` default — the sibling of the managed checkouts root.
-     * No hidden fallback — an unset field + unset env yields exactly the default.
+     * @summary Resolve the absolute per-agent harness instance-home root: the `instanceRoot` field
+     * when explicitly injected (the test/tenant override seam), else the AiConfig
+     * `fleet.instanceRoot` leaf — the SSOT that owns the default AND its env binding
+     * (`NEO_FLEET_INSTANCE_ROOT`), per the config-is-SSOT contract: this service never re-derives from `process.env`
+     * and holds no hidden default.
      * @returns {String}
      */
     getInstanceRoot() {
-        return this.instanceRoot || process.env.NEO_FLEET_INSTANCE_ROOT || path.resolve(__dirname, '../../../.neo-ai-data/fleet/instances');
+        return this.instanceRoot || AiConfig.fleet.instanceRoot;
     }
 
     /**
-     * @summary Resolve (field > env > default) the harness binary path for one harness family —
-     * the same three-layer shape as {@link getInstanceRoot}, per family: the `harnessBinaryPaths`
-     * field entry, then the family env var (`NEO_FLEET_CODEX_BIN` / `NEO_FLEET_CLAUDE_CODE_BIN`),
-     * then the family default. The codex default is the ChatGPT-app-bundled CLI — an alpha channel
-     * that self-updates with its app, so production fleets pin via the env var or the field. An
-     * untemplated family resolves `null` — {@link resolveLaunch} fails loud rather than guessing.
+     * @summary Resolve the harness binary path for one harness family: the `harnessBinaryPaths`
+     * field entry when explicitly injected (the test/tenant override seam), else the family's
+     * AiConfig `fleet.harnessBinaries.*` leaf — the SSOT owning the default and its env binding
+     * (`NEO_FLEET_CODEX_BIN` / `NEO_FLEET_CLAUDE_CODE_BIN`). The codex leaf default is the
+     * ChatGPT-app-bundled CLI — an alpha channel that self-updates with its app, so production
+     * fleets pin the leaf; `status().binaryVersion` surfaces what actually ran. An untemplated
+     * family resolves `null` — {@link resolveLaunch} fails loud rather than guessing.
      * @param {String} harnessType
      * @returns {String|null}
      */
     getHarnessBinaryPath(harnessType) {
-        return this.harnessBinaryPaths?.[harnessType] || process.env[HARNESS_BINARY_ENV_VARS[harnessType]] || HARNESS_BINARY_DEFAULTS[harnessType] || null;
+        const leafKey = HARNESS_BINARY_LEAF_KEYS[harnessType];
+
+        return this.harnessBinaryPaths?.[harnessType] || (leafKey ? AiConfig.fleet.harnessBinaries[leafKey] : null);
     }
 
     /**

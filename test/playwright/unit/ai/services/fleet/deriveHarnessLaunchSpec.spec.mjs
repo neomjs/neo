@@ -5,16 +5,23 @@ import {deriveHarnessLaunchSpec} from '../../../../../../ai/services/fleet/deriv
 // host-runtime side effects and each case is fully isolated. Mirrors deriveAgentRepoPath.spec.
 
 test.describe('deriveHarnessLaunchSpec (per-family harness launch templates)', () => {
-    test('codex: the binary + empty args + CODEX_HOME pinned to the instance home', () => {
+    test('codex: the binary + the app-server long-lived mode + CODEX_HOME pinned to the instance home', () => {
         const spec = deriveHarnessLaunchSpec({harnessType: 'codex', instanceHome: '/srv/instances/a/codex', binaryPath: '/opt/codex'});
 
-        expect(spec).toEqual({command: '/opt/codex', args: [], env: {CODEX_HOME: '/srv/instances/a/codex'}});
+        // `app-server` is the LIVENESS half of the tuple: a bare codex launch exits immediately on a
+        // non-TTY stdin (probed on the exact binary), so the mode arg is template-owned, never a
+        // caller afterthought.
+        expect(spec).toEqual({command: '/opt/codex', args: ['app-server'], env: {CODEX_HOME: '/srv/instances/a/codex'}});
     });
 
-    test('claude-code: the binary + empty args + CLAUDE_CONFIG_DIR pinned to the instance home', () => {
+    test('claude-code: the binary + the stream-json long-lived print mode + CLAUDE_CONFIG_DIR pinned to the instance home', () => {
         const spec = deriveHarnessLaunchSpec({harnessType: 'claude-code', instanceHome: '/srv/instances/a/claude', binaryPath: '/usr/local/bin/claude'});
 
-        expect(spec).toEqual({command: '/usr/local/bin/claude', args: [], env: {CLAUDE_CONFIG_DIR: '/srv/instances/a/claude'}});
+        expect(spec).toEqual({
+            command: '/usr/local/bin/claude',
+            args   : ['--input-format', 'stream-json', '--output-format', 'stream-json', '--print', '--verbose'],
+            env    : {CLAUDE_CONFIG_DIR: '/srv/instances/a/claude'}
+        });
     });
 
     test('env carries ONLY the family home var — the isolation contract, no ambient / extra keys', () => {
@@ -23,14 +30,14 @@ test.describe('deriveHarnessLaunchSpec (per-family harness launch templates)', (
         expect(Object.keys(spec.env)).toEqual(['CODEX_HOME']);
     });
 
-    test('returns a FRESH spec per call — callers append headless/daemon args (exec, app-server) without cross-call bleed', () => {
+    test('returns a FRESH spec per call — a caller mutating args/env never bleeds into the template or later calls', () => {
         const
             a = deriveHarnessLaunchSpec({harnessType: 'codex', instanceHome: '/h', binaryPath: '/b'}),
             b = deriveHarnessLaunchSpec({harnessType: 'codex', instanceHome: '/h', binaryPath: '/b'});
 
-        a.args.push('exec');
+        a.args.push('--extra');
 
-        expect(b.args).toEqual([]);   // the template stayed pristine
+        expect(b.args).toEqual(['app-server']);   // the template stayed pristine
         expect(a.env).not.toBe(b.env);
     });
 

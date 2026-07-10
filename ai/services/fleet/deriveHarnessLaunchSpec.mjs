@@ -9,6 +9,20 @@ const HARNESS_HOME_ENV_VARS = {
     'codex'      : 'CODEX_HOME'
 };
 
+// Per-family LONG-LIVED mode args — the half of the launch tuple that keeps the process alive
+// under supervision. Both CLIs exit immediately when launched bare with a non-TTY/EOF'd stdin
+// (probed on the exact binaries), so a supervisable template MUST pin a protocol mode AND the
+// supervisor MUST hold stdin open as a pipe (the lifecycle service's stdio contract):
+// - codex `app-server`: the CLI's own long-lived JSON-RPC-over-stdio protocol mode — probed alive
+//   at 4s on a held pipe (codex-cli 0.144.0-alpha.4), clean SIGTERM stop.
+// - claude-code stream-json print mode: the CLI's long-lived stream-JSON session over stdio —
+//   probed alive at 4s on a held pipe (claude CLI 2.1.156), clean SIGTERM stop. `--verbose` is
+//   required by the CLI when combining `--print` with `--output-format stream-json`.
+const HARNESS_MODE_ARGS = {
+    'claude-code': ['--input-format', 'stream-json', '--output-format', 'stream-json', '--print', '--verbose'],
+    'codex'      : ['app-server']
+};
+
 /**
  * @summary Derive the per-family harness launch template for a Fleet Manager agent: the
  * `{command, args, env}` spec that starts one ISOLATED harness instance bound to its own
@@ -22,24 +36,29 @@ const HARNESS_HOME_ENV_VARS = {
  * never carries a command), keeping the correctness-and-security-critical mapping fully
  * unit-testable.
  *
- * Per-family isolation contracts (the env var each CLI honors as its home):
+ * Per-family contracts — isolation (the home env var each CLI honors) AND liveness (the
+ * long-lived protocol mode each CLI stays resident in; see the mode-args map above — a bare
+ * launch exits immediately without a TTY, so the mode args are part of the template, never a
+ * caller afterthought):
  *
- * - **`'codex'`** → `{command: binaryPath, args: [], env: {CODEX_HOME: instanceHome}}`.
- *   Empirically-proven isolation: the codex CLI honors `CODEX_HOME` — `codex doctor` against a
+ * - **`'codex'`** → `{command: binaryPath, args: ['app-server'], env: {CODEX_HOME: instanceHome}}`.
+ *   Isolation empirically proven: the codex CLI honors `CODEX_HOME` — `codex doctor` against a
  *   fresh home reports no-auth while the default `~/.codex` stays untouched, so per-agent homes
- *   never share auth or session state. Headless / daemon variants (`exec`, `app-server`) are args
- *   the CALLER may append to the returned (fresh, mutable) `args` array — the template pins the
- *   binary + home, not the mode. Two caveats: an app-bundled codex binary (e.g. the ChatGPT.app
- *   `Resources/codex`) is an ALPHA channel that self-updates with its app — callers should
- *   pin/verify the binary they pass in; and per-home `codex login` is the operator-owned auth step
- *   (a freshly-derived home starts unauthenticated by design).
+ *   never share auth or session state. Liveness empirically proven: `app-server` on a held-open
+ *   piped stdin stays resident and stops cleanly on SIGTERM. Two caveats: an app-bundled codex
+ *   binary (e.g. the ChatGPT.app `Resources/codex`) is an ALPHA channel that self-updates with its
+ *   app — pin the AiConfig `fleet.harnessBinaries.codex` leaf and read the lifecycle status's
+ *   `binaryVersion` surface; and per-home `codex login` is the operator-owned auth step (a
+ *   freshly-derived home starts unauthenticated by design — the lifecycle status's `authRequired`
+ *   surfaces it).
  *
- * - **`'claude-code'`** → `{command: binaryPath, args: [], env: {CLAUDE_CONFIG_DIR: instanceHome}}`.
- *   Empirically verified (claude CLI 2.1.156, macOS): pointing `CLAUDE_CONFIG_DIR` at a fresh dir
- *   yields a logged-out instance ("Not logged in · Please run /login") and the CLI materializes its
- *   config tree (`.claude.json`, `projects/`, `sessions/`) inside that dir, while the default
- *   `~/.claude` stays the untouched ambient auth home. Per-home `/login` is the operator-owned
- *   auth step.
+ * - **`'claude-code'`** → `{command: binaryPath, args: [<stream-json print mode>], env:
+ *   {CLAUDE_CONFIG_DIR: instanceHome}}`. Isolation empirically verified (claude CLI 2.1.156,
+ *   macOS): pointing `CLAUDE_CONFIG_DIR` at a fresh dir yields a logged-out instance materializing
+ *   its own config tree (`.claude.json`, `projects/`, `sessions/`) while the default `~/.claude`
+ *   stays the untouched ambient auth home. Liveness empirically verified: the stream-JSON session
+ *   on a held-open piped stdin stays resident and stops cleanly on SIGTERM. Per-home `/login` is
+ *   the operator-owned auth step.
  *
  * GUI launches (`open -n -a …`) are **excluded by design**: `open` detaches — the spawned process
  * is the launcher, not the harness — so the Fleet Manager could never supervise (signal, reap, or
@@ -72,7 +91,7 @@ export function deriveHarnessLaunchSpec({harnessType, instanceHome, binaryPath} 
         throw new Error(`deriveHarnessLaunchSpec: unsupported harnessType '${harnessType}'. Supported: ${supported}.`);
     }
 
-    return {command: binaryPath, args: [], env: {[homeEnvVar]: instanceHome}};
+    return {command: binaryPath, args: [...HARNESS_MODE_ARGS[harnessType]], env: {[homeEnvVar]: instanceHome}};
 }
 
 /**
