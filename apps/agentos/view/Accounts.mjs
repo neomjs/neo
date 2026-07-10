@@ -1,10 +1,12 @@
-import Button         from '../../../src/button/Base.mjs';
-import DashboardPanel from '../../../src/dashboard/Panel.mjs';
-import FormContainer  from '../../../src/form/Container.mjs';
-import PasswordField  from '../../../src/form/field/Password.mjs';
-import Radio          from '../../../src/form/field/Radio.mjs';
-import TextField      from '../../../src/form/field/Text.mjs';
-import Toolbar        from '../../../src/toolbar/Base.mjs';
+import AgentConfigCard    from './AgentConfigCard.mjs';
+import Button             from '../../../src/button/Base.mjs';
+import DashboardPanel     from '../../../src/dashboard/Panel.mjs';
+import FormContainer      from '../../../src/form/Container.mjs';
+import {listHarnessTypes} from '../config/harnessTypes.mjs';
+import PasswordField      from '../../../src/form/field/Password.mjs';
+import Radio              from '../../../src/form/field/Radio.mjs';
+import TextField          from '../../../src/form/field/Text.mjs';
+import Toolbar            from '../../../src/toolbar/Base.mjs';
 
 /**
  * @class AgentOS.view.Accounts
@@ -49,6 +51,13 @@ class Accounts extends DashboardPanel {
          */
         cls: ['agent-panel-accounts'],
         /**
+         * The durable id of the agent whose configuration renders in the card — the fleet is
+         * MULTIPLE agents; this view is scoped to one at a time via the selector strip.
+         * @member {String|null} selectedAgentId_=null
+         * @reactive
+         */
+        selectedAgentId_: null,
+        /**
          * @member {Number} flex=1
          */
         flex: 1,
@@ -73,6 +82,18 @@ class Accounts extends DashboardPanel {
          * @member {Object[]} items
          */
         items: [{
+            // the fleet is MULTIPLE agents: pick one here, configure IT below — the selector strip
+            // is rebuilt from the bound roster store (see syncAgentSelector)
+            module   : Toolbar,
+            cls      : ['agent-selector'],
+            flex     : 'none',
+            reference: 'agent-selector',
+            items    : []
+        }, {
+            module   : AgentConfigCard,
+            flex     : 'none',
+            reference: 'agent-config-card'
+        }, {
             module   : FormContainer,
             cls      : ['agent-definition-form'],
             flex     : 'none',
@@ -82,7 +103,7 @@ class Accounts extends DashboardPanel {
             items: [{
                 ntype: 'component',
                 cls  : ['agent-form-copy'],
-                vdom : {cn: [{tag: 'strong', text: 'Agent identity'}]}
+                vdom : {cn: [{tag: 'strong', text: 'Add an agent'}]}
             }, {
                 module         : TextField,
                 clearable      : true,
@@ -103,37 +124,18 @@ class Accounts extends DashboardPanel {
                 module: Toolbar,
                 cls   : ['agent-harness-picker'],
                 flex  : 'none',
-                items : [{
+                // one registration in config/harnessTypes.mjs = one more radio here — the form
+                // derives from the registry, labels are the registry's product language
+                items : listHarnessTypes().map((entry, index) => ({
                     module        : Radio,
-                    checked       : true,
+                    checked       : index === 0,
                     hideValueLabel: false,
-                    labelText     : 'Harness',
+                    labelText     : index === 0 ? 'Harness' : '',
                     labelWidth    : 118,
                     name          : 'harnessType',
-                    value         : 'codex',
-                    valueLabel    : 'Codex'
-                }, {
-                    module        : Radio,
-                    hideValueLabel: false,
-                    labelText     : '',
-                    name          : 'harnessType',
-                    value         : 'claude-desktop',
-                    valueLabel    : 'Claude'
-                }, {
-                    module        : Radio,
-                    hideValueLabel: false,
-                    labelText     : '',
-                    name          : 'harnessType',
-                    value         : 'antigravity',
-                    valueLabel    : 'Antigravity'
-                }, {
-                    module        : Radio,
-                    hideValueLabel: false,
-                    labelText     : '',
-                    name          : 'harnessType',
-                    value         : 'native-neo',
-                    valueLabel    : 'Native'
-                }]
+                    value         : entry.type,
+                    valueLabel    : entry.label
+                }))
             }, {
                 module: Toolbar,
                 cls   : ['agent-form-actions'],
@@ -164,6 +166,117 @@ class Accounts extends DashboardPanel {
                 vdom     : {cn: [{text: 'Agent setup is unavailable in dev-server mode. Add agent fails closed; no PAT is stored in browser state.'}]}
             }]
         }]
+    }
+
+    /**
+     * Triggered after the agentDefinitionsStore config got changed — the provider-bound roster
+     * arrives post-construct. Listener discipline: per-call copies (on()/un() consume keys off the
+     * object they receive), symmetric unbind of the old store.
+     * @param {Neo.data.Store|null} value
+     * @param {Neo.data.Store|null} oldValue
+     * @protected
+     */
+    afterSetAgentDefinitionsStore(value, oldValue) {
+        let me        = this,
+            listeners = {
+                load        : me.onAgentRosterChange,
+                recordChange: me.onAgentRosterChange,
+                scope       : me
+            };
+
+        value   ?.on({...listeners});
+        oldValue?.un({...listeners});
+
+        me.syncAgentSelector()
+    }
+
+    /**
+     * Triggered after the selectedAgentId config got changed — scope the configuration card to the
+     * selected agent's record and reflect the selection on the selector strip.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetSelectedAgentId(value, oldValue) {
+        let me   = this,
+            card = me.getReference('agent-config-card');
+
+        if (card) {
+            card.record = value ? (me.agentDefinitionsStore?.get(value) ?? null) : null
+        }
+
+        me.getReference('agent-selector')?.items?.forEach(item => {
+            item.pressed = item.agentId === value
+        })
+    }
+
+    /**
+     * @summary Any roster change (seed load, add, remove, field readback) re-derives the selector
+     * strip and refreshes the scoped card.
+     * @protected
+     */
+    onAgentRosterChange() {
+        this.syncAgentSelector()
+    }
+
+    /**
+     * @summary Selector click → scope the view to that agent.
+     * @param {Object} data Button click event data.
+     */
+    onSelectAgentClick(data) {
+        this.selectedAgentId = data.component.agentId
+    }
+
+    /**
+     * @summary Rebuild the selector strip from the bound roster store: one button per agent
+     * (product language: the display name, falling back to the GitHub username) plus the selection
+     * default — the first agent when nothing valid is selected. The card refreshes through
+     * {@link #afterSetSelectedAgentId}.
+     * @protected
+     */
+    syncAgentSelector() {
+        let me       = this,
+            selector = me.getReference('agent-selector'),
+            store    = me.agentDefinitionsStore,
+            records  = store?.items || [];
+
+        if (!selector) {
+            return
+        }
+
+        selector.items = records.map(record => ({
+            module : Button,
+            agentId: record.id,
+            cls    : ['agent-selector-button'],
+            pressed: record.id === me.selectedAgentId,
+            text   : record.displayName || record.githubUsername || record.id,
+            handler: 'up.onSelectAgentClick'
+        }));
+
+        const validSelection = me.selectedAgentId && store?.get(me.selectedAgentId);
+
+        if (!validSelection) {
+            me.selectedAgentId = records[0]?.id ?? null
+        } else {
+            // same selection, possibly new record data (readback) — refresh the card
+            me.afterSetSelectedAgentId(me.selectedAgentId, me.selectedAgentId)
+        }
+    }
+
+    /**
+     * @summary Detach the roster listeners; the provider owns the store's own teardown.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        let me        = this,
+            listeners = {
+                load        : me.onAgentRosterChange,
+                recordChange: me.onAgentRosterChange,
+                scope       : me
+            };
+
+        me.agentDefinitionsStore?.un({...listeners});
+        super.destroy(...args)
     }
 
     /**
@@ -309,7 +422,10 @@ class Accounts extends DashboardPanel {
         const store = this.agentDefinitionsStore;
 
         store.remove(definition.id);
-        store.add(definition)
+        store.add(definition);
+
+        // a just-added agent becomes the scoped one — the operator configures it next
+        this.selectedAgentId = definition.id
     }
 
     /**

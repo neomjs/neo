@@ -143,3 +143,123 @@ test.describe('AgentOS.view.Accounts NL-MCP connect entry (#13548)', () => {
         expect(source).toMatch(/connectExternalHarnessBridge\(\{action: 'start'\}\)/)
     })
 });
+
+test.describe('AgentOS.view.Accounts — agent-scoped configuration (multiple agents)', () => {
+    let AgentDefinition, Store;
+
+    test.beforeAll(async () => {
+        AgentDefinition = (await import('../../../../../apps/agentos/model/AgentDefinition.mjs')).default;
+        Store           = (await import('../../../../../src/data/Store.mjs')).default
+    });
+
+    // prototype-call rig with a REAL store attached through the REAL listener path (store
+    // mutations fire `load` themselves); selector + card are capture stubs. selectedAgentId is
+    // wired as an accessor so assignments run the real afterSet, mirroring the reactive config.
+    const makeScopedAccounts = store => {
+        const
+            selector = {items: []},
+            card     = {record: undefined};
+
+        const stub = {
+            id                     : `accounts-scoped-stub-${Math.abs(store.id.length)}-${store.id}`,
+            agentDefinitionsStore  : store,
+            card,
+            selector,
+            afterSetSelectedAgentId: Accounts.prototype.afterSetSelectedAgentId,
+            getReference           : reference => reference === 'agent-selector' ? selector
+                                               : reference === 'agent-config-card' ? card : null,
+            onAgentRosterChange: Accounts.prototype.onAgentRosterChange,
+            onSelectAgentClick : Accounts.prototype.onSelectAgentClick,
+            syncAgentSelector  : Accounts.prototype.syncAgentSelector,
+
+            _selectedAgentId: null,
+            get selectedAgentId() { return this._selectedAgentId },
+            set selectedAgentId(value) {
+                const oldValue = this._selectedAgentId;
+                this._selectedAgentId = value;
+                this.afterSetSelectedAgentId(value, oldValue)
+            }
+        };
+
+        Accounts.prototype.afterSetAgentDefinitionsStore.call(stub, store, null);
+
+        return stub
+    };
+
+    const makeAgentStore = data => Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data});
+
+    test('the selector strip derives one button per agent from the store; the first agent is scoped by default', () => {
+        const store = makeAgentStore([
+            {id: 'neo-gpt',  githubUsername: 'neo-gpt',  harnessType: 'codex'},
+            {id: 'neo-vega', githubUsername: 'neo-vega', harnessType: 'claude-desktop', displayName: 'Vega'}
+        ]);
+        const stub = makeScopedAccounts(store);
+
+        expect(stub.selector.items.map(item => item.agentId)).toEqual(['neo-gpt', 'neo-vega']);
+        // product language: the display name when present, the username otherwise
+        expect(stub.selector.items.map(item => item.text)).toEqual(['neo-gpt', 'Vega']);
+        expect(stub.selectedAgentId).toBe('neo-gpt');
+        expect(stub.card.record?.id).toBe('neo-gpt');
+
+        store.destroy()
+    });
+
+    test('selecting an agent scopes the configuration card to ITS record', () => {
+        const store = makeAgentStore([
+            {id: 'a', githubUsername: 'a', harnessType: 'codex'},
+            {id: 'b', githubUsername: 'b', harnessType: 'antigravity', mcpServers: {'github-workflow': true}}
+        ]);
+        const stub = makeScopedAccounts(store);
+
+        stub.onSelectAgentClick({component: {agentId: 'b'}});
+
+        expect(stub.selectedAgentId).toBe('b');
+        expect(stub.card.record?.id).toBe('b');
+        expect(stub.card.record?.mcpServers).toEqual({'github-workflow': true});
+
+        store.destroy()
+    });
+
+    test('roster changes flow through the REAL store listener: adds appear, removing the scoped agent falls back to the first', () => {
+        const store = makeAgentStore([{id: 'a', githubUsername: 'a', harnessType: 'codex'}]);
+        const stub  = makeScopedAccounts(store);
+
+        // an add fires the store's own load event → the selector re-derives
+        store.add({id: 'b', githubUsername: 'b', harnessType: 'codex'});
+        expect(stub.selector.items.map(item => item.agentId)).toEqual(['a', 'b']);
+
+        stub.onSelectAgentClick({component: {agentId: 'b'}});
+        store.remove('b');
+
+        // the scoped agent vanished — fail toward the first resident, never a dangling scope
+        expect(stub.selector.items.map(item => item.agentId)).toEqual(['a']);
+        expect(stub.selectedAgentId).toBe('a');
+        expect(stub.card.record?.id).toBe('a');
+
+        store.destroy()
+    });
+
+    test('adding an agent scopes the view to it (configure-next flow)', () => {
+        const store = makeAgentStore([{id: 'a', githubUsername: 'a', harnessType: 'codex'}]);
+        const stub  = makeScopedAccounts(store);
+
+        stub.upsertPublicAgentDefinition = Accounts.prototype.upsertPublicAgentDefinition;
+        stub.upsertPublicAgentDefinition(Accounts.prototype.createPublicAgentDefinition({
+            githubUsername: 'neo-new',
+            harnessType   : 'antigravity'
+        }));
+
+        expect(stub.selectedAgentId).toBe('neo-new');
+        expect(stub.card.record?.harnessType).toBe('antigravity');
+
+        store.destroy()
+    });
+
+    test('the harness radios derive from the registry — one registration reaches the form', () => {
+        const source = fs.readFileSync(viewPath, 'utf8');
+
+        expect(source).toContain('listHarnessTypes().map');
+        // no hand-rolled harness radio literals survive
+        expect(source).not.toMatch(/valueLabel\s*:\s*'(Codex|Claude|Antigravity|Native)'/)
+    });
+});
