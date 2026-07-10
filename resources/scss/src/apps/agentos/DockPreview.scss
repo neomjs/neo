@@ -7,11 +7,11 @@
         opacity        : 0.85;
         pointer-events : none;
         position       : absolute;
-        // motion rides the dock transition contract (fast tier); fallbacks hold today's
-        // behavior until the token substrate lands — zero local duration policy by design
-        transition     : opacity var(--dock-transition-duration-fast, 0.12s) var(--dock-transition-easing, ease),
-                         background-color var(--dock-transition-duration-fast, 0.12s) var(--dock-transition-easing, ease),
-                         border-color var(--dock-transition-duration-fast, 0.12s) var(--dock-transition-easing, ease);
+        // Motion rides the one dock transition contract. Reduced-motion collapses the duration
+        // at that authority, never at this call site.
+        transition     : opacity var(--dock-transition-duration) var(--dock-transition-easing),
+                         background-color var(--dock-transition-duration) var(--dock-transition-easing),
+                         border-color var(--dock-transition-duration) var(--dock-transition-easing);
     }
 
     // Zone highlights — edge bands and whole-node tab targets — read as a translucent filled region.
