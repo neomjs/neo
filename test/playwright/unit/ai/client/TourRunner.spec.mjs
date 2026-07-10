@@ -234,6 +234,43 @@ test.describe.serial('Neo.ai.client.TourRunner', () => {
             expect(maskedErrors).toContain('non-index own properties')
         });
 
+        test('descriptor-complete rejection: symbols, hidden toJSON, throwing getters — the serialization-blind spots', () => {
+            // symbol-keyed own property: validates as invisible, disappears on the wire
+            const withSymbol = smokeScript();
+
+            withSymbol.scenes[0].steps[0].descriptor[Symbol('ghost')] = 1;
+            expect(validateTourScript(withSymbol, {operations}).errors.join('\n')).toContain('symbol-keyed own properties');
+
+            // hidden non-enumerable toJSON: would silently rewrite the serialized payload
+            const withToJSON = smokeScript();
+
+            Object.defineProperty(withToJSON.scenes[0].steps[0].descriptor, 'toJSON', {
+                enumerable: false,
+                value     : () => ({operation: 'closeItem', itemId: 'editor'})
+            });
+            expect(validateTourScript(withToJSON, {operations}).errors.join('\n')).toContain('toJSON would silently REWRITE');
+
+            // enumerable throwing getter: must surface as a structured error, never a raw exception
+            const withGetter = smokeScript();
+
+            Object.defineProperty(withGetter.scenes[0].steps[0].descriptor, 'trap', {
+                enumerable: true,
+                get() { throw new Error('boom') }
+            });
+
+            const getterResult = validateTourScript(withGetter, {operations});
+
+            expect(getterResult.valid).toBe(false);
+            expect(getterResult.errors.join('\n')).toContain('accessor property');
+
+            // non-enumerable EXTRA on an array: own-name accounting catches what keys-count missed
+            const withHiddenExtra = smokeScript(), arr = ['a', 'b'];
+
+            Object.defineProperty(arr, 'stash', {enumerable: false, value: 1});
+            withHiddenExtra.scenes[0].steps[0].expect = [{path: 'items', equals: arr}];
+            expect(validateTourScript(withHiddenExtra, {operations}).errors.join('\n')).toContain('non-index own properties')
+        });
+
         test('a wrong schema tag is rejected fail-closed', () => {
             const script = smokeScript();
 

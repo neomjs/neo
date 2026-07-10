@@ -219,6 +219,18 @@ function scanJsonPurity(value, path, errors, seen = new WeakSet()) {
 
     seen.add(value);
 
+    // descriptor-complete audit: JSON-first is a guarantee about what SERIALIZES, so the scan
+    // must see what serialization sees — full own-property descriptors, never just enumerable
+    // values. Symbol keys are invisible to JSON; non-enumerable props (a hidden `toJSON`!) are
+    // dropped or silently REWRITE the payload; accessors can throw or drift between validation
+    // time and serialization time. Descriptors are inspected without evaluating getters, so a
+    // throwing getter surfaces as a structured error, never a raw exception.
+    if (Object.getOwnPropertySymbols(value).length > 0) {
+        errors.push(`${path}: symbol-keyed own properties are invisible to JSON — dropped on the wire`)
+    }
+
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+
     if (Array.isArray(value)) {
         // index-exact accounting: holes AND non-index own properties both fail a JSON
         // round-trip (holes emit null; extra properties are dropped), and neither can be
@@ -235,17 +247,44 @@ function scanJsonPurity(value, path, errors, seen = new WeakSet()) {
             errors.push(`${path}: sparse array (${holes} hole${holes > 1 ? 's' : ''}) — holes become null on the wire; use explicit values`)
         }
 
-        if (Object.keys(value).length !== value.length - holes) {
+        // own-NAME accounting (not just enumerable keys) so non-enumerable extras cannot hide
+        if (Object.getOwnPropertyNames(value).filter(name => name !== 'length').length !== value.length - holes) {
             errors.push(`${path}: array carries non-index own properties — JSON drops them silently`)
         }
 
-        if (errors.length === 0 || (holes === 0 && Object.keys(value).length === value.length)) {
-            value.forEach((item, index) => scanJsonPurity(item, `${path}[${index}]`, errors, seen))
+        for (i = 0; i < value.length; i++) {
+            const descriptor = descriptors[i];
+
+            if (!descriptor) {
+                continue // hole, already reported
+            }
+
+            if (descriptor.get || descriptor.set) {
+                errors.push(`${path}[${i}]: accessor property — scripts are plain data; a getter can throw or drift between validation and serialization`)
+            } else {
+                scanJsonPurity(descriptor.value, `${path}[${i}]`, errors, seen)
+            }
         }
     } else if (!isPlainObject(value)) {
         errors.push(`${path}: non-plain object (${value.constructor?.name || 'unknown type'}) violates the JSON-first contract`)
     } else {
-        Object.entries(value).forEach(([key, item]) => scanJsonPurity(item, `${path}.${key}`, errors, seen))
+        Object.entries(descriptors).forEach(([key, descriptor]) => {
+            const keyPath = `${path}.${key}`;
+
+            if (descriptor.get || descriptor.set) {
+                errors.push(`${keyPath}: accessor property — scripts are plain data; a getter can throw or drift between validation and serialization`);
+                return
+            }
+
+            if (!descriptor.enumerable) {
+                errors.push(key === 'toJSON'
+                    ? `${keyPath}: hidden non-enumerable toJSON would silently REWRITE the serialized payload`
+                    : `${keyPath}: non-enumerable own property — invisible to iteration, dropped on the wire`);
+                return
+            }
+
+            scanJsonPurity(descriptor.value, keyPath, errors, seen)
+        })
     }
 
     seen.delete(value)
