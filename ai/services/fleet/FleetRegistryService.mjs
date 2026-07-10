@@ -213,7 +213,9 @@ class FleetRegistryService extends Base {
      * @param {String}      id     Registry agent id.
      * @param {Object|null} launch `{command, args, env}` — validated for shape by the lifecycle
      *                             service at resolve time; `null` removes the override.
-     * @returns {Object|null} The updated public definition, or `null` when the agent doesn't exist.
+     * @returns {Object|null} The updated RAW definition (Brain-facing, launch visible — the public
+     *                        projection redacts launch, so it could not confirm this write), or
+     *                        `null` when the agent doesn't exist.
      */
     setLaunchOverride(id, launch) {
         this.ensureLoaded();
@@ -233,7 +235,7 @@ class FleetRegistryService extends Base {
         this.agents.set(id, def);
         this.writeRegistry();
 
-        return this.toPublic(def);
+        return this.getDefinition(id);
     }
 
     /**
@@ -254,6 +256,25 @@ class FleetRegistryService extends Base {
         this.ensureLoaded();
         const def = this.agents.get(id);
         return def ? this.toPublic(def) : null;
+    }
+
+    /**
+     * @summary Brain-internal raw definition read — the ONLY read surface that carries
+     * `metadata.launch`. Same authority posture as {@link setLaunchOverride}: registry-only method,
+     * no `FleetControlBridge` member, no `FLEET_WIRE_METHODS` entry (the dispatch allowlist spec
+     * pins that); the lifecycle spawn path is its consumer. Returns a deep clone (minus secrets) so
+     * no caller can mutate the registry cache through the result.
+     * @param {String} id
+     * @returns {Object|null}
+     */
+    getDefinition(id) {
+        this.ensureLoaded();
+
+        const def = this.agents.get(id);
+        if (!def) return null;
+
+        const {credential, pat, ...rest} = def;
+        return structuredClone(rest);
     }
 
     /**
@@ -325,13 +346,24 @@ class FleetRegistryService extends Base {
     // ---- internals ----------------------------------------------------------
 
     /**
+     * @summary The public projection: secrets stripped AND the Brain/operator-only launch override
+     * redacted. The result is a DEEP CLONE — a shallow spread would hand every get/list/wire caller
+     * the internal metadata object by shared reference, so mutating a returned definition would
+     * mutate the registry cache, and the launch redaction would be bypassable through the alias.
+     * The spawn path reads the launch through {@link getDefinition} instead.
      * @param {Object} def
-     * @returns {Object} A defensive copy of the definition, guaranteed to carry no secret.
+     * @returns {Object} A deep-cloned definition, guaranteed to carry no secret and no launch override.
      * @private
      */
     toPublic(def) {
         const {credential, pat, ...rest} = def;
-        return {...rest};
+        const pub                        = structuredClone(rest);
+
+        if (pub.metadata && Object.hasOwn(pub.metadata, 'launch')) {
+            delete pub.metadata.launch;
+        }
+
+        return pub;
     }
 
     /**

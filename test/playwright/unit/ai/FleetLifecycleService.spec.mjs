@@ -58,6 +58,9 @@ function makeSpawnStub() {
 function makeRegistry(agents, creds) {
     return {
         getAgent         : id => agents[id] || null,
+        // The spawn path reads the RAW definition (launch visible) — the public getAgent
+        // projection redacts metadata.launch, so the service consumes this surface instead.
+        getDefinition    : id => agents[id] || null,
         resolveCredential: id => (Object.hasOwn(creds, id) ? creds[id] : null),
         // Stub the Bridge-token mint with a deterministic per-id token, so spawn-injection specs can
         // assert env carriage without touching the real registry's crypto store.
@@ -65,7 +68,9 @@ function makeRegistry(agents, creds) {
     };
 }
 
-const LAUNCH = {command: 'my-harness', args: ['--serve']};
+// A REAL path-shaped binary: the spawn stays stubbed, but the executable preflight stats the
+// command for path-shaped AND bare forms, so the fixture must exist on disk.
+const LAUNCH = {command: process.execPath, args: ['--serve']};
 
 function agentDef(id, extra = {}) {
     return {id, githubUsername: id, harnessType: 'codex', metadata: {launch: LAUNCH}, ...extra};
@@ -76,6 +81,9 @@ function install({agents = {}, creds = {}} = {}) {
     const spawnStub = makeSpawnStub();
     FleetLifecycleService.processes.clear();
     FleetLifecycleService.spawnFn         = spawnStub;
+    // Stub the version probe by default so no spec spawns a real auxiliary subprocess; the
+    // env-boundary test injects its own recorder.
+    FleetLifecycleService.execFileFn      = () => {};
     FleetLifecycleService.registry        = makeRegistry(agents, creds);
     FleetLifecycleService.sigkillTimeoutMs = 50;
     // Reset the configurable env-key fields to their defaults so a collision test cannot bleed into
@@ -98,7 +106,7 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService', () => {
               status = FleetLifecycleService.start('a');
 
         expect(spawn.calls).toHaveLength(1);
-        expect(spawn.calls[0].command).toBe('my-harness');
+        expect(spawn.calls[0].command).toBe(process.execPath);
         expect(spawn.calls[0].args).toEqual(['--serve']);
         expect(status.running).toBe(true);
         expect(status.state).toBe('running');
@@ -377,7 +385,7 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService — curated launch + 
         install({agents: {ghostbin: curatedAgent('ghostbin')}, creds: {}});
         FleetLifecycleService.instanceRoot       = os.tmpdir();
         FleetLifecycleService.harnessBinaryPaths = {codex: '/definitely/not/a/real/binary'};
-        expect(() => FleetLifecycleService.start('ghostbin')).toThrow(/harness binary not found/);
+        expect(() => FleetLifecycleService.start('ghostbin')).toThrow(/harness binary .* not found/);
     });
 
     test('authRequired surfaces the LIVE per-home auth-marker state for curated launches — and flips without a restart', () => {
@@ -397,6 +405,47 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService — curated launch + 
         expect(FleetLifecycleService.status('peer2').authRequired).toBe(false); // marker present: recomputed live
 
         fs.rmSync(root, {recursive: true, force: true});
+    });
+
+    test('the version probe runs under the SAME minimal env as the supervised child — no ambient-secret leak through the auxiliary subprocess', () => {
+        const spawn     = install({agents: {a: agentDef('a')}, creds: {}}),
+              execCalls = [];
+
+        FleetLifecycleService.execFileFn = (command, args, opts) => execCalls.push({command, args, opts});
+
+        FleetLifecycleService.start('a');
+
+        expect(execCalls).toHaveLength(1);
+        expect(execCalls[0].args).toEqual(['--version']);
+        // identity, not similarity: the probe must receive the exact child-env object — a probe
+        // built from process.env would carry every ambient provider secret to the probed binary
+        expect(execCalls[0].opts.env).toBe(spawn.calls[0].opts.env);
+    });
+
+    test('a BARE command missing from the child PATH fails synchronously — never a transient running/pid:null state', () => {
+        const spawn = install({agents: {ghost: {id: 'ghost', githubUsername: 'ghost', harnessType: 'codex', metadata: {launch: {
+            command: 'definitely-not-a-real-harness-xyz',
+            args   : [],
+            env    : {}
+        }}}}, creds: {}});
+
+        expect(() => FleetLifecycleService.start('ghost')).toThrow(/harness binary .* not found/);
+        expect(spawn.calls).toHaveLength(0);                        // preflight fired BEFORE any spawn
+        expect(FleetLifecycleService.isRunning('ghost')).toBe(false);
+        expect(FleetLifecycleService.processes.has('ghost')).toBe(false);   // no zombie/false-running record
+    });
+
+    test('a bare command that DOES resolve on the child PATH passes preflight', () => {
+        const spawn = install({agents: {bare: {id: 'bare', githubUsername: 'bare', harnessType: 'codex', metadata: {launch: {
+            command: 'node',
+            args   : ['--version'],
+            env    : {}
+        }}}}, creds: {}});
+
+        FleetLifecycleService.start('bare');
+
+        expect(spawn.calls).toHaveLength(1);
+        expect(FleetLifecycleService.isRunning('bare')).toBe(true);
     });
 
     test('REAL-PROCESS liveness falsifier: the service topology keeps an actual child alive; SIGTERM stops it', async () => {

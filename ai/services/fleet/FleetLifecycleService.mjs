@@ -197,6 +197,14 @@ class FleetLifecycleService extends Base {
     spawnFn = null
 
     /**
+     * Auxiliary-subprocess implementation for the version probe. Defaults (via
+     * {@link getExecFileFn}) to `child_process.execFile`; inject a recorder in tests to assert the
+     * probe's env boundary without executing a binary.
+     * @member {Function|null} execFileFn=null
+     */
+    execFileFn = null
+
+    /**
      * Supervised processes keyed by agent id. Records carry NO secret.
      * @member {Map<String,Object>} processes
      * @private
@@ -220,7 +228,10 @@ class FleetLifecycleService extends Base {
     start(id, opts = {}) {
         if (this.isRunning(id)) return this.status(id);
 
-        const agent = this.getRegistry().getAgent(id);
+        // The RAW definition read (Brain-internal): the public getAgent projection deliberately
+        // redacts metadata.launch, so the spawn path — the one consumer entitled to the launch
+        // override — reads through the registry's definition surface instead.
+        const agent = this.getRegistry().getDefinition(id);
         if (!agent) throw new Error(`FleetLifecycleService.start: unknown agent '${id}'.`);
 
         const launch                          = this.resolveLaunch(agent),
@@ -284,12 +295,13 @@ class FleetLifecycleService extends Base {
         // pre-load it (guard above).
         env[AGENT_IDENTITY_ENV_VAR] = id;
 
-        // Executable preflight (fail-closed): a path-shaped command must exist BEFORE any secret is
-        // minted or a spawn attempted — a typo'd/missing binary fails loud here, not as a child
-        // 'error' event racing the first status read. Bare commands (e.g. `claude`) resolve via the
-        // child's PATH; the spawn itself asserts their existence.
-        if (command.includes('/') && !fs.existsSync(command)) {
-            throw new Error(`FleetLifecycleService.start: harness binary not found at '${command}' for agent '${id}'. Pin the AiConfig fleet.harnessBinaries leaf or the harnessBinaryPaths field to a real executable.`);
+        // Executable preflight (fail-closed): the command must exist BEFORE any secret is minted or
+        // a spawn attempted — for path-shaped commands via a direct stat, for bare commands (e.g.
+        // `claude`) by resolving against the CHILD's PATH. Without the bare-command half, a missing
+        // binary would let start() publish `running` with a null pid and flip to failed ~100ms
+        // later on the async ENOENT — a transient false-running state no supervisor may emit.
+        if (!this.resolveExecutable(command, env.PATH)) {
+            throw new Error(`FleetLifecycleService.start: harness binary '${command}' not found for agent '${id}' (path-shaped commands must exist; bare commands must resolve on the child's PATH). Pin the AiConfig fleet.harnessBinaries leaf or the harnessBinaryPaths field to a real executable.`);
         }
 
         // The child's working directory: the agent's provisioned repo checkout when the caller supplies
@@ -333,8 +345,11 @@ class FleetLifecycleService extends Base {
         // `<binary> --version` async onto the record — the status read surfaces what actually runs,
         // so an app-bundle alpha channel that self-updated is VISIBLE, not silently different.
         // Failure is non-fatal (version stays null); the probe never blocks the spawn path.
+        // The probe runs under the SAME minimal env as the supervised child: every subprocess this
+        // service creates shares one secret boundary — an auxiliary execFile inheriting the full
+        // parent env would hand ambient provider secrets to the probed binary.
         try {
-            execFile(command, ['--version'], {timeout: 3000}, (error, stdout) => {
+            this.getExecFileFn()(command, ['--version'], {timeout: 3000, env}, (error, stdout) => {
                 if (!error && stdout) record.binaryVersion = String(stdout).trim().split('\n')[0].slice(0, 80);
             });
         } catch (ignored) {}
@@ -584,6 +599,40 @@ class FleetLifecycleService extends Base {
      */
     getSpawnFn() {
         return this.spawnFn || spawn;
+    }
+
+    /**
+     * @returns {Function} the version-probe implementation (injected stub or `child_process.execFile`).
+     * @private
+     */
+    getExecFileFn() {
+        return this.execFileFn || execFile;
+    }
+
+    /**
+     * @summary Synchronous executable resolution for the spawn preflight: path-shaped commands
+     * stat directly; bare commands scan the CHILD's PATH (the allowlisted one — resolution must
+     * match what the spawn will actually see, not the parent's ambient PATH). Returns `null` when
+     * nothing resolves, which the preflight converts into a synchronous, named failure instead of
+     * a published-then-retracted running state.
+     * @param {String} command   The launch command (absolute/relative path or bare binary name).
+     * @param {String} [pathValue] The child env's PATH value.
+     * @returns {String|null} The resolved path, or `null` when the command cannot resolve.
+     * @private
+     */
+    resolveExecutable(command, pathValue) {
+        if (command.includes('/')) {
+            return fs.existsSync(command) ? command : null;
+        }
+
+        for (const dir of String(pathValue || '').split(path.delimiter)) {
+            if (dir) {
+                const candidate = path.join(dir, command);
+                if (fs.existsSync(candidate)) return candidate;
+            }
+        }
+
+        return null;
     }
 }
 

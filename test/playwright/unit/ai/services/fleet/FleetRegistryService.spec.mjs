@@ -114,4 +114,35 @@ test.describe('Neo.ai.services.fleet.FleetRegistryService — the raw-launch sec
 
         expect(FleetRegistryService.setLaunchOverride('ghost', {command: 'x'})).toBeNull();
     });
+
+    test('the PUBLIC projection redacts the launch override — get/list never expose the Brain-only launch', () => {
+        FleetRegistryService.defineAgent({githubUsername: 'sec', harnessType: 'codex', metadata: {tier: 'A'}});
+        FleetRegistryService.setLaunchOverride('sec', {command: '/opt/custom', args: ['--serve'], env: {PROBE_SECRET: 'x'}});
+
+        expect(FleetRegistryService.getAgent('sec').metadata.launch).toBeUndefined();
+        expect(FleetRegistryService.listAgents().find(def => def.id === 'sec').metadata.launch).toBeUndefined();
+        // ordinary public metadata survives the redaction
+        expect(FleetRegistryService.getAgent('sec').metadata.tier).toBe('A');
+        // while the Brain-internal definition read (the spawn path's surface) carries the launch
+        expect(FleetRegistryService.getDefinition('sec').metadata.launch.env.PROBE_SECRET).toBe('x');
+    });
+
+    test('projections are DEEP CLONES — mutating a returned definition never reaches the registry cache', () => {
+        FleetRegistryService.defineAgent({githubUsername: 'iso', harnessType: 'codex'});
+        FleetRegistryService.setLaunchOverride('iso', {command: '/opt/custom', args: [], env: {}});
+
+        // attack through the public projection: re-attach a launch + tamper metadata
+        const projection = FleetRegistryService.getAgent('iso');
+        projection.metadata.launch   = {command: '/tmp/injected'};
+        projection.metadata.tampered = true;
+
+        expect(FleetRegistryService.getAgent('iso').metadata.tampered).toBeUndefined();
+        expect(FleetRegistryService.getDefinition('iso').metadata.launch.command).toBe('/opt/custom');
+
+        // and through the raw read: the definition clone is equally isolated
+        const def = FleetRegistryService.getDefinition('iso');
+        def.metadata.launch.command = '/tmp/mutated';
+
+        expect(FleetRegistryService.getDefinition('iso').metadata.launch.command).toBe('/opt/custom');
+    });
 });
