@@ -68,6 +68,7 @@ decision owns; *Parent* = the composition record that already aggregates it, whe
 | 0031 | Organism | **This record**: composition seams + trajectory invariants + the staleness guard | — |
 | 0032 | Body ↔ Brain seam | Institution-Cockpit render-model (object-permanent selves + COP; identity anti-lock-in contract) | extends 0020 |
 | 0033 | Brain / graph | Direction contract: deterministic evolution-direction keys + per-direction `{v,s,r}` velocity + the fail-open additive boundary | amends 0024/0028 |
+| 0034 | Body ↔ Brain seam | Electron shell architecture (process model, SharedWorker window topology, security posture, distribution) | extends 0020 |
 
 ## §3 Trajectory Invariants
 

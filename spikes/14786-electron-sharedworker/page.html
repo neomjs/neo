@@ -1,0 +1,43 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>spike</title></head>
+<body>
+<script>
+    const params = new URLSearchParams(location.search);
+    const label  = params.get('label') || 'unlabeled';
+    const phase  = label.split('-')[0];
+    const doOpen = params.get('open') === '1';
+
+    function report(payload) {
+        // Popups opened via window.open() have no preload; relay through the opener.
+        if (window.spike) {
+            window.spike.report(payload);
+        } else if (window.opener?.spike) {
+            window.opener.spike.report(payload);
+        }
+    }
+
+    if (params.get('mode') === 'fetch') {
+        // the packaged origin must serve JSON via fetch() — the data.Store `url` seed path
+        fetch('data.json')
+            .then(response => response.json())
+            .then(json => report({label, origin: location.origin, fetchOk: json.ok === true}))
+            .catch(err => report({label, origin: location.origin, fetchOk: false, error: err.message}));
+    } else try {
+        // SharedWorker identity = (origin, URL, name) — phase-scoped URL isolates phases from each other.
+        const worker = new SharedWorker('worker.js?p=' + encodeURIComponent(phase));
+        worker.port.onmessage = e => {
+            report({label, origin: location.origin, protocol: location.protocol, connections: e.data.connections});
+
+            if (doOpen) {
+                // The Neo pattern: a renderer-initiated popup joining the heap.
+                window.open(location.pathname + '?label=' + encodeURIComponent(phase + '-popup'), '_blank', 'width=200,height=200');
+            }
+        };
+        worker.port.start();
+    } catch (err) {
+        report({label, origin: location.origin, protocol: location.protocol, error: err.message});
+    }
+</script>
+</body>
+</html>
