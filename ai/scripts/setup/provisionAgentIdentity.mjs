@@ -292,14 +292,17 @@ export function buildProvisionPlan(options = {}) {
 
     const writeSpecs = Object.freeze({
         // The durable resident node (the addressable A2A / wake / permission surface). Layer-1
-        // operational fields ONLY: name is the handle-derived display form, NOT a Social Name;
-        // engine facts are absent by design (observation-owned); modelFamily stays flat because
-        // the CURRENT operational surface reads it flat. fleetInstanceIds is ADDITIVE linkage —
-        // an operational pointer list, never a key.
+        // operational fields ONLY. The top-level `name` is ALWAYS handle-derived — it is the
+        // Social Name surface, and caller input must never reach it (naming sovereignty: names
+        // are granted post-boot by the peer ritual, never seeded); the `--display-name` override
+        // lands ONLY on the operational `properties.displayName`. Engine facts are absent by
+        // design (observation-owned); modelFamily stays flat because the CURRENT operational
+        // surface reads it flat. fleetInstanceIds is ADDITIVE linkage — an operational pointer
+        // list, never a key.
         identity: Object.freeze({
             id         : residentId,
             type       : 'AgentIdentity',
-            name       : displayForm,
+            name       : deriveDisplayForm(residentId),
             description: `Day-0 provisioned ${options.family}-family maintainer identity.`,
             properties : Object.freeze({
                 githubLogin     : github.handle,
@@ -406,7 +409,7 @@ export function parseNodeRow(row) {
  * connection.
  * @param {Object} sqlite Open better-sqlite3 connection (the graph storage's `db`)
  * @param {Object} plan A valid plan from {@link buildProvisionPlan}
- * @returns {{identityRow: Object|null, wakeRows: Object[], subscribesToEdges: Object[]}}
+ * @returns {{identityRow: Object|null, wakeRows: Object[], subscribesToEdges: Object[], plannedWakeIdRow: Object|null, foreignInstanceOwners: String[]}}
  */
 export function readExistingState(sqlite, plan) {
     const identityRow = parseNodeRow(sqlite.prepare('SELECT id, data FROM Nodes WHERE id = ? LIMIT 1').get(plan.residentId));
@@ -422,7 +425,28 @@ export function readExistingState(sqlite, plan) {
         WHERE source = ? AND type = 'SUBSCRIBES_TO'
     `).all(plan.residentId);
 
-    return {identityRow, wakeRows, subscribesToEdges}
+    // The exact planned deterministic wake id, read UNCONDITIONALLY: the owner-scoped wakeRows
+    // query above cannot see a squatter — a node under this id with a different type or a
+    // different owner — and scheduling upsertNode against an unseen squatter would destructively
+    // relabel it. The decision refuses on any incompatible occupant.
+    const plannedWakeIdRow = parseNodeRow(sqlite.prepare('SELECT id, data FROM Nodes WHERE id = ? LIMIT 1').get(plan.writeSpecs.wakeSubscription.id));
+
+    // Single-owner Fleet-instance linkage: any OTHER resident already carrying the requested
+    // instance token makes the linkage ambiguous — the decision refuses instead of silently
+    // creating a second owner.
+    const foreignInstanceOwners = plan.fleetInstanceId
+        ? sqlite.prepare(`
+            SELECT id FROM Nodes
+            WHERE json_extract(data, '$.label') = 'AgentIdentity'
+              AND id != ?
+              AND EXISTS (
+                  SELECT 1 FROM json_each(json_extract(data, '$.properties.fleetInstanceIds'))
+                  WHERE json_each.value = ?
+              )
+        `).all(plan.residentId, plan.fleetInstanceId).map(row => row.id)
+        : [];
+
+    return {identityRow, wakeRows, subscribesToEdges, plannedWakeIdRow, foreignInstanceOwners}
 }
 
 /**
@@ -464,14 +488,16 @@ export function decideProvision({plan, existing = {}, rosterIds = IDENTITIES.map
         return refuse('decideProvision requires a valid plan from buildProvisionPlan');
     }
 
-    const identityRow       = existing.identityRow || null,
-          wakeRows          = existing.wakeRows || [],
-          subscribesToEdges = existing.subscribesToEdges || [],
-          divergences       = [],
-          notes             = [],
-          writes            = [];
+    const identityRow           = existing.identityRow || null,
+          wakeRows              = existing.wakeRows || [],
+          subscribesToEdges     = existing.subscribesToEdges || [],
+          plannedWakeIdRow      = existing.plannedWakeIdRow || null,
+          foreignInstanceOwners = existing.foreignInstanceOwners || [],
+          divergences           = [],
+          notes                 = [],
+          writes                = [];
 
-    for (const row of [identityRow, ...wakeRows]) {
+    for (const row of [identityRow, plannedWakeIdRow, ...wakeRows]) {
         if (row && row.parseError) {
             return refuse(`existing graph row '${row.id}' is unparseable (${row.parseError}) — refusing to decide against corrupt state`);
         }
@@ -481,6 +507,26 @@ export function decideProvision({plan, existing = {}, rosterIds = IDENTITIES.map
     // seeding path and the committed roots file — Day-0 provisioning targets NEW residents only.
     if (rosterIds.includes(plan.residentId)) {
         return refuse(`${plan.residentId} is a committed-roster resident (ai/graph/identityRoots.mjs) — its identity substrate is owned by the committed seeding path; Day-0 provisioning targets new residents only`);
+    }
+
+    // Wake-id squatter refusal: the planned deterministic wake id may only be occupied by a
+    // compatible node — this resident's own WAKE_SUBSCRIPTION. Any other occupant (wrong type,
+    // or a wake node owned by ANOTHER resident) would be destructively relabeled by upsertNode,
+    // so the whole run refuses instead.
+    if (plannedWakeIdRow) {
+        if (plannedWakeIdRow.label !== 'WAKE_SUBSCRIPTION') {
+            return refuse(`node '${plannedWakeIdRow.id}' (the planned deterministic wake id) exists with type '${plannedWakeIdRow.label}', not WAKE_SUBSCRIPTION — refusing to overwrite a wrong-type occupant`);
+        }
+        if (plannedWakeIdRow.properties.agentIdentity !== plan.residentId) {
+            return refuse(`node '${plannedWakeIdRow.id}' (the planned deterministic wake id) is owned by '${plannedWakeIdRow.properties.agentIdentity}', not '${plan.residentId}' — refusing to reassign another resident's wake subscription`);
+        }
+    }
+
+    // Single-owner Fleet-instance refusal: an instance token already linked to a DIFFERENT
+    // resident makes ownership ambiguous — one Fleet instance embodies one resident at a time.
+    // Same-resident re-runs stay zero-op and one resident may still accrue MANY instances.
+    if (foreignInstanceOwners.length > 0) {
+        return refuse(`fleet instance '${plan.fleetInstanceId}' is already linked to ${foreignInstanceOwners.join(', ')} — refusing to create a second owner; unlink it from the current resident first`);
     }
 
     // --- identity surface -------------------------------------------------------------------

@@ -358,6 +358,55 @@ test.describe('provisionAgentIdentity — decideProvision (full read/compare/rep
         expect(decision.reason).toContain('committed-roster resident');
     });
 
+    test('WAKE-ID SQUATTER (wrong type): a non-WAKE_SUBSCRIPTION node under the planned deterministic id refuses the whole run', () => {
+        const plan     = buildPlan(),
+              decision = decideProvision({plan, existing: {
+                  plannedWakeIdRow: {id: plan.writeSpecs.wakeSubscription.id, label: 'Concept', properties: {}}
+              }, rosterIds: []});
+
+        expect(decision.valid).toBe(false);
+        expect(decision.reason).toContain('not WAKE_SUBSCRIPTION');
+        expect(decision.writes).toEqual([]);   // never a destructive relabel
+    });
+
+    test('WAKE-ID SQUATTER (foreign owner): another resident\'s wake node under the planned id refuses — never reassigned', () => {
+        const plan     = buildPlan(),
+              decision = decideProvision({plan, existing: {
+                  plannedWakeIdRow: {
+                      id        : plan.writeSpecs.wakeSubscription.id,
+                      label     : 'WAKE_SUBSCRIPTION',
+                      properties: {agentIdentity: '@someone-else', trigger: 'SENT_TO_ME', status: 'active'}
+                  }
+              }, rosterIds: []});
+
+        expect(decision.valid).toBe(false);
+        expect(decision.reason).toContain("owned by '@someone-else'");
+        expect(decision.writes).toEqual([]);
+    });
+
+    test('CROSS-RESIDENT INSTANCE CONFLICT: a fleet token already linked to another resident refuses — single owner, ever', () => {
+        const plan     = buildPlan({fleetInstanceId: 'euclid-2'}),
+              decision = decideProvision({plan, existing: {foreignInstanceOwners: ['@other-resident']}, rosterIds: []});
+
+        expect(decision.valid).toBe(false);
+        expect(decision.reason).toContain("already linked to @other-resident");
+        expect(decision.writes).toEqual([]);
+
+        // while same-resident additive multi-instance stays intact (no foreign owners → normal create)
+        const clean = decideProvision({plan, existing: {}, rosterIds: []});
+        expect(clean.valid).toBe(true);
+    });
+
+    test('NAMING SOVEREIGNTY: caller-controlled --display-name never reaches the top-level Social Name surface', () => {
+        const plan = buildPlan({displayName: 'Minerva The Chosen'});
+
+        // the override lands ONLY on the operational display property...
+        expect(plan.writeSpecs.identity.properties.displayName).toBe('Minerva The Chosen');
+        // ...while the top-level name (the Social Name surface) stays handle-derived, always
+        expect(plan.writeSpecs.identity.name).toBe('Neo Test Agent');
+        expect(plan.displayForm).toBe('Minerva The Chosen');
+    });
+
     test('an unparseable existing row refuses outright — never decide against corrupt state', () => {
         const plan     = buildPlan(),
               decision = decideProvision({plan, existing: {identityRow: {id: '@neo-test-agent', parseError: 'bad json'}}, rosterIds: []});
@@ -393,6 +442,38 @@ test.describe('provisionAgentIdentity — read-set + post-verify against a real 
         expect(existing.identityRow.name).toBe('Neo Test Agent');   // surfaced for non-clobbering repair
         expect(existing.wakeRows).toHaveLength(1);
         expect(existing.subscribesToEdges).toEqual([expect.objectContaining({source: '@neo-test-agent', type: 'SUBSCRIBES_TO'})]);
+        expect(existing.plannedWakeIdRow.id).toBe(plan.writeSpecs.wakeSubscription.id);   // the compatible own row
+        expect(existing.foreignInstanceOwners).toEqual([]);
+
+        sqlite.close();
+    });
+
+    test('the read-set SURFACES a wake-id squatter and a foreign instance owner from the real database', () => {
+        const plan                 = buildPlan({fleetInstanceId: 'euclid-2'}),
+              {sqlite, insertNode} = memoryGraph();
+
+        // a foreign-owner squatter under the planned deterministic wake id — invisible to the
+        // owner-scoped wakeRows query, visible ONLY through the planned-id read
+        insertNode({
+            id        : plan.writeSpecs.wakeSubscription.id,
+            type      : 'WAKE_SUBSCRIPTION',
+            properties: {agentIdentity: '@someone-else', trigger: 'SENT_TO_ME', status: 'active'}
+        });
+        // and another resident already carrying the requested instance token
+        insertNode({
+            id        : '@other-resident',
+            type      : 'AgentIdentity',
+            properties: {accountType: 'agent', fleetInstanceIds: ['euclid-2']}
+        });
+
+        const existing = readExistingState(sqlite, plan);
+
+        expect(existing.wakeRows).toHaveLength(0);                                        // the owner-scoped query cannot see it
+        expect(existing.plannedWakeIdRow.properties.agentIdentity).toBe('@someone-else'); // the planned-id read can
+        expect(existing.foreignInstanceOwners).toEqual(['@other-resident']);
+
+        const decision = decideProvision({plan, existing, rosterIds: []});
+        expect(decision.valid).toBe(false);   // and the decision refuses on the surfaced facts
 
         sqlite.close();
     });
