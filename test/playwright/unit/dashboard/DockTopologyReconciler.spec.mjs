@@ -69,15 +69,16 @@ test.describe('Neo.dashboard.DockTopologyReconciler', () => {
     });
 
     test('the greedy trap: optimal assignment maps BOTH slots where captured-order greedy strands one', () => {
-        // Slot 0 marginally prefers W0 (0.6 vs 0.5); slot 1 can ONLY use W0 (0.4, zero for W1).
-        // Greedy: slot 0 eats W0, slot 1 strands (cardinality 1). Optimal: both map (cardinality 2).
+        // Disjoint live catalogs (the workspace invariant); slot 0's items straddle both windows.
+        // Greedy: slot 0 eats W0 (its best, .5), stranding slot 1 (zero for W1) → cardinality 1.
+        // Optimal: slot 0 takes W1 (.25) so slot 1 keeps W0 (.25) → cardinality 2.
         let saved = capture([
-                tabsDoc(['a', 'b', 'c']),
-                tabsDoc(['d', 'e'])
+                tabsDoc(['p', 'q', 'r']),
+                tabsDoc(['s', 't'])
             ]),
             live  = [
-                tabsDoc(['a', 'b', 'c', 'd', 'e']),           // W0: slot0 j=3/5=.6 · slot1 j=2/5=.4
-                tabsDoc(['a', 'b', 'c', 'x', 'y', 'z'])       // W1: slot0 j=3/6=.5 · slot1 j=0
+                tabsDoc(['p', 'q', 's']),                     // W0: slot0 j=2/4=.5  · slot1 j=1/4=.25
+                tabsDoc(['r', 'u'])                           // W1: slot0 j=1/4=.25 · slot1 j=0
             ],
             result = DockTopologyReconciler.reconcile(saved, live);
 
@@ -88,20 +89,74 @@ test.describe('Neo.dashboard.DockTopologyReconciler', () => {
         expectConservation(saved, result)
     });
 
-    test('exact ties resolve content-stably: identical candidate windows + live permutation → same mapping content', () => {
-        let saved  = capture([tabsDoc(['alpha'])]),
-            cloneA = tabsDoc(['alpha']),
-            cloneB = tabsDoc(['alpha']),
-            first  = DockTopologyReconciler.reconcile(saved, [cloneA, cloneB]),
-            second = DockTopologyReconciler.reconcile(saved, [cloneB, cloneA]);
+    test('non-identical equal-aggregate ties resolve by CONTENT, permutation-stably: both live orders advance the same window content', () => {
+        // TWO cardinality-2 assignments tie on every affinity key ({S0→A,S1→B} vs {S0→B,S1→A}:
+        // all four pairs share jaccard 1/4 and identical structure) — but the candidate windows
+        // are NOT interchangeable: A={a,c,x} and B={b,d,y} differ in content. The content-
+        // signature tie rule must map S0={a,b} to A (smallest content key) under EITHER live
+        // order. (Live arity differs from captured so placements ride the adopt path — the
+        // landed planner refuses to invent missing items incrementally.)
+        let saved = capture([tabsDoc(['a', 'b']), tabsDoc(['c', 'd'])]),
+            docA  = () => tabsDoc(['a', 'c', 'x']),
+            docB  = () => tabsDoc(['b', 'd', 'y']),
 
-        // Identical candidates are interchangeable at affinity altitude: the tie rule picks the
-        // smallest live index deterministically, and the CONTENT of the outcome is permutation-stable.
-        expect(first.mapping).toEqual([expect.objectContaining({capturedIndex: 0, liveIndex: 0})]);
-        expect(second.mapping).toEqual([expect.objectContaining({capturedIndex: 0, liveIndex: 0})]);
-        expect(Object.keys(first.documents[0].items)).toEqual(Object.keys(second.documents[0].items));
+            first  = DockTopologyReconciler.reconcile(saved, [docA(), docB()]),
+            second = DockTopologyReconciler.reconcile(saved, [docB(), docA()]);
+
+        const contentOf = result => result.applied
+            .map(({capturedIndex, liveIndex}) => [capturedIndex, Object.keys(result.documents[liveIndex].items).sort().join(',')])
+            .sort();
+
         expect(first.errors).toEqual([]);
-        expect(second.errors).toEqual([])
+        expect(second.errors).toEqual([]);
+        // Same captured→content mapping, same restored set, same (empty) displaced set — the
+        // live ARRAY ORDER left no fingerprint on the outcome.
+        expect(contentOf(first)).toEqual(contentOf(second));
+        expect([...first.restored].sort()).toEqual([...second.restored].sort());
+        // displaced/unrestored compare by CONTENT — liveIndex legitimately follows the permutation.
+        expect(first.displaced.map(entry => entry.itemId).sort()).toEqual(second.displaced.map(entry => entry.itemId).sort());
+        expect(first.unrestored).toEqual(second.unrestored);
+        expectConservation(saved, first);
+        expectConservation(saved, second)
+    });
+
+    test('a straddling slot never emits a duplicate: the unmatched pass-through window convicts the placement, permutation-stably', () => {
+        // Captured {a,b} straddles two disjoint live windows ({a,c,x} / {b,d,y}) with equal
+        // aggregate affinity. WHICHEVER window it lands on, the OTHER stays live and keeps its
+        // copy — so placing would duplicate an item across the final workspace. The reconciler
+        // must route the slot to duplicate-item, leave BOTH windows reference-identical, and
+        // report identically under either live order.
+        let saved = capture([tabsDoc(['a', 'b'])]),
+            docA  = () => tabsDoc(['a', 'c', 'x']),
+            docB  = () => tabsDoc(['b', 'd', 'y']);
+
+        [[docA(), docB()], [docB(), docA()]].forEach(live => {
+            let result = DockTopologyReconciler.reconcile(saved, live);
+
+            expect(result.errors).toEqual([]);
+            expect(result.applied).toEqual([]);
+            expect(result.displaced).toEqual([]);
+            expect(result.documents[0]).toBe(live[0]);
+            expect(result.documents[1]).toBe(live[1]);
+            expect(result.unrestored).toEqual([
+                {capturedIndex: 0, itemId: 'a', reason: DockTopologyReconciler.REASON_DUPLICATE_ITEM},
+                {capturedIndex: 0, itemId: 'b', reason: DockTopologyReconciler.REASON_DUPLICATE_ITEM}
+            ]);
+            expectConservation(saved, result)
+        })
+    });
+
+    test('duplicate item ids ACROSS live windows are corrupt input: fail closed, mutate nothing', () => {
+        let saved  = capture([tabsDoc(['alpha'])]),
+            live   = [tabsDoc(['alpha', 'solo']), tabsDoc(['alpha'])],
+            result = DockTopologyReconciler.reconcile(saved, live);
+
+        expect(result.errors.join(' ')).toContain('both carry item "alpha"');
+        expect(result.applied).toEqual([]);
+        expect(result.documents[0]).toBe(live[0]);
+        expect(result.documents[1]).toBe(live[1]);
+        result.unrestored.forEach(entry =>
+            expect(entry.reason).toBe(DockTopologyReconciler.REASON_VALIDATION_FAILED))
     });
 
     test('grown topology: excess live windows stay reference-identical; no spawning surface exists', () => {
@@ -147,8 +202,10 @@ test.describe('Neo.dashboard.DockTopologyReconciler', () => {
         // Missing primary document.
         expectFailClosed((() => { let broken = {...valid}; delete broken.dockZone; return broken })(), 'missing dockZone');
 
-        // Non-array windowDocuments.
+        // Non-array windowDocuments — the string AND the plain-object shape (an object reaches
+        // a spread as a non-iterable: the total extractor must never throw on it).
         expectFailClosed({...valid, windowDocuments: 'nope'}, 'non-array windowDocuments');
+        expectFailClosed({...valid, windowDocuments: {}},     'object windowDocuments');
 
         // A malformed slot fails closed with its index preserved in the surfaced error.
         let badSlot = expectFailClosed({
@@ -166,9 +223,62 @@ test.describe('Neo.dashboard.DockTopologyReconciler', () => {
         expectFailClosed(null, 'null envelope')
     });
 
+    test('a null middle slot preserves ORIGINAL captured indices in the fail-closed report', () => {
+        // Slot layout: 0 = dockZone(a1), 1 = windowDocuments[0] → nulled, 2 = windowDocuments[1](c1).
+        // Compacting the null away would misreport slot 2 as index 1 — the extractor must not.
+        let saved = capture([tabsDoc(['a1']), tabsDoc(['b1']), tabsDoc(['c1'])]),
+            live  = [tabsDoc(['a1'])];
+
+        saved = {...saved, windowDocuments: [null, saved.windowDocuments[1]]};
+
+        let result;
+
+        expect(() => { result = DockTopologyReconciler.reconcile(saved, live) }).not.toThrow();
+        expect(result.errors.length).toBeGreaterThan(0);
+        expect(result.documents[0]).toBe(live[0]);
+        // Slot 2's items report under capturedIndex 2 — NOT 1 — with the null slot in between.
+        expect(result.unrestored).toEqual([
+            {capturedIndex: 0, itemId: 'a1', reason: DockTopologyReconciler.REASON_VALIDATION_FAILED},
+            {capturedIndex: 2, itemId: 'c1', reason: DockTopologyReconciler.REASON_VALIDATION_FAILED}
+        ])
+    });
+
+    test('the finite durable-field boundary applies to EVERY captured slot, not only the primary document', () => {
+        let saved = capture([tabsDoc(['a1']), tabsDoc(['b1'])]),
+            live  = [tabsDoc(['a1']), tabsDoc(['b1'])],
+            slot  = saved.windowDocuments[0];
+
+        // Runtime-bearing fields must not ride an ADDITIONAL window document into a restore:
+        // a document-level window fingerprint...
+        let fingerprinted = {...saved, windowDocuments: [{...slot, windowFingerprint: {windowId: 'w2'}}]},
+            first         = DockTopologyReconciler.reconcile(fingerprinted, live);
+
+        expect(first.errors.join(' ')).toContain('windowDocuments[0]');
+        expect(first.errors.join(' ')).toContain('windowFingerprint');
+        expect(first.applied).toEqual([]);
+        first.unrestored.forEach(entry =>
+            expect(entry.reason).toBe(DockTopologyReconciler.REASON_VALIDATION_FAILED));
+
+        // ...and an item-level runtime rect both fail the restore closed, offender indexed.
+        let rected = {
+                ...saved,
+                windowDocuments: [{...slot, items: {b1: {...slot.items.b1, runtimeRect: {x: 0, y: 0}}}}]
+            },
+            second = DockTopologyReconciler.reconcile(rected, live);
+
+        expect(second.errors.join(' ')).toContain('windowDocuments[0]');
+        expect(second.errors.join(' ')).toContain('runtimeRect');
+        expect(second.applied).toEqual([]);
+        second.unrestored.forEach(entry =>
+            expect(entry.reason).toBe(DockTopologyReconciler.REASON_VALIDATION_FAILED))
+    });
+
     test('workspace-global uniqueness: a slot whose placement would duplicate an item does not place', () => {
         // Hand-built envelope (schema-complete, passes the landed validator): two slots carrying
-        // the SAME item id — a state the capture producer does not emit, but a stored layout could.
+        // the SAME item id — a state the capture producer does not emit, but a stored layout
+        // could. Live catalogs are DISJOINT (the workspace invariant). 'shared' lives in W1;
+        // slot 1 restores it in place, so slot 0's placement would IMPORT a second copy into
+        // W0 — live ownership convicts the importer, and the id stays single in the output.
         let shared = {
                 schema           : DockZoneModel.LAYOUT_SCHEMA,
                 layoutId         : 'dup-test',
@@ -179,21 +289,23 @@ test.describe('Neo.dashboard.DockTopologyReconciler', () => {
                 dockZone         : tabsDoc(['shared', 'solo']),
                 windowDocuments  : [tabsDoc(['shared'])]
             },
-            live   = [tabsDoc(['shared', 'solo']), tabsDoc(['shared'])],
+            live   = [tabsDoc(['solo', 'filler', 'pad']), tabsDoc(['shared'])],
             result = DockTopologyReconciler.reconcile(shared, live);
 
-        // Exactly one PLACEMENT of 'shared' across the documents that received placements —
-        // a dup-blocked slot's window stays untouched (its pre-existing live content is not a
-        // placement and is not this module's to rewrite).
-        let placedIndexes = result.applied.map(entry => entry.liveIndex),
-            placedShared  = placedIndexes.filter(index => result.documents[index].items?.shared).length;
+        // 'shared' appears in EXACTLY ONE final document — the complete-output invariant, not
+        // merely a per-placement count (a placed copy next to an untouched live copy would
+        // still be a workspace duplicate).
+        let finalShared = result.documents.filter(doc => doc.items?.shared).length;
 
         expect(result.errors).toEqual([]);
-        expect(placedShared).toBe(1);
-        // The dup-blocked slot's window keeps reference identity.
-        expect(result.documents[1]).toBe(live[1]);
+        expect(finalShared).toBe(1);
+        expect(result.restored).toEqual(['shared']);
+        // The convicted importer's window keeps reference identity — slot-atomic: BOTH its
+        // items report, including the collision-free one.
+        expect(result.documents[0]).toBe(live[0]);
         expect(result.unrestored).toEqual([
-            {capturedIndex: 1, itemId: 'shared', reason: DockTopologyReconciler.REASON_DUPLICATE_ITEM}
+            {capturedIndex: 0, itemId: 'shared', reason: DockTopologyReconciler.REASON_DUPLICATE_ITEM},
+            {capturedIndex: 0, itemId: 'solo',   reason: DockTopologyReconciler.REASON_DUPLICATE_ITEM}
         ]);
         expectConservation(shared, result)
     });
