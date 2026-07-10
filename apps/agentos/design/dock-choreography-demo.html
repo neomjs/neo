@@ -127,16 +127,21 @@
     <div class="sec-head"><span class="sec-num">02</span><h2>Three scenes, storyboarded</h2>
       <span class="faint mono" style="margin-left:auto;font-size:12px">ops = shipped dockZone.v1 vocabulary only · exact JSON descriptors bind in the tour script (#14661) against the live schema — never invented here</span></div>
 
-    <!-- scene 1 -->
+    <!-- scene 1 · AMENDED (PR #14912 review cycle 2): the adapter rails auto-hidden items from EDGE
+         zones only (center fail-safe keeps main content visible) and the operation vocabulary has no
+         zone-assignment op — so scene 3's rails REQUIRE the dense column to be authored into
+         root.zones.right from the opening. The earlier single-pane opening could never produce the
+         rail beat; the staging amends, the dramatic arc stays. -->
     <div class="scene">
-      <div class="scene-head"><span class="scene-id">S1</span><h3>Split choreography — one pane becomes a studio</h3><span class="scene-dur">~25s · 4 ops</span></div>
+      <div class="scene-head"><span class="scene-id">S1</span><h3>Split choreography — the studio assembles</h3><span class="scene-dur">~20s · 2 ops</span></div>
       <div class="scene-body">
-        <div class="board"><div class="board-label">Before — single pane</div>
-          <div class="stage" style="grid-template:1fr / 1fr">
+        <div class="board"><div class="board-label">Before — the working pair (preview docked right by construction)</div>
+          <div class="stage" style="grid-template:1fr / 2fr 1fr">
             <div class="pane" style="background:var(--pane-a)">EDITOR <span style="opacity:.6">· clock 09:41:07 ⟳</span></div>
+            <div class="pane" style="background:var(--pane-b)">PREVIEW</div>
           </div>
         </div>
-        <div class="board"><div class="board-label">After — three-way studio</div>
+        <div class="board"><div class="board-label">After — the studio</div>
           <div class="stage" style="grid-template:2fr 1fr / 2fr 1fr">
             <div class="pane" style="background:var(--pane-a)">EDITOR ⟳</div>
             <div class="pane" style="background:var(--pane-b);grid-row:1/3">PREVIEW</div>
@@ -147,10 +152,8 @@
       <div class="scene-notes">
         <div class="note"><h4>Operation beats</h4>
           <ol>
-            <li><span class="op">split</span> editor → <b>right</b> (preview enters, 50/50)</li>
-            <li><span class="op">resizeSplit</span> → editor takes 2/3 (the golden-ratio settle)</li>
             <li><span class="op">split</span> editor → <b>bottom</b> (terminal enters low)</li>
-            <li><span class="op">resizeSplit</span> → terminal to 1/3 height</li>
+            <li><span class="op">resizeSplit</span> → terminal settles to 1/3 (the golden-ratio settle)</li>
           </ol>
         </div>
         <div class="note"><h4>Motion + camera</h4>
@@ -205,7 +208,7 @@
 
     <!-- scene 3 -->
     <div class="scene">
-      <div class="scene-head"><span class="scene-id">S3</span><h3>Auto-hide wave — the workspace breathes</h3><span class="scene-dur">~25s · 4 ops</span></div>
+      <div class="scene-head"><span class="scene-id">S3</span><h3>Auto-hide wave — the workspace breathes</h3><span class="scene-dur">~25s · 6 ops</span></div>
       <div class="scene-body">
         <div class="board"><div class="board-label">Before — the S2 den</div>
           <div class="stage" style="grid-template:2fr 1fr / 2fr 1fr">
@@ -214,21 +217,20 @@
             <div class="pane" style="background:var(--pane-d)">LOGS</div>
           </div>
         </div>
-        <div class="board"><div class="board-label">After — focus mode, rails armed</div>
-          <div class="stage" style="grid-template:1fr / 14px 1fr 14px">
-            <div class="rail-edge">LOGS</div>
+        <div class="board"><div class="board-label">After — focus mode, the right rail armed (edge-zone residency = rail-able, by the adapter's contract)</div>
+          <div class="stage" style="grid-template:1fr / 1fr 14px">
             <div class="pane" style="background:var(--pane-a)">EDITOR — full stage ⟳</div>
-            <div class="rail-edge">PREVIEW</div>
+            <div class="rail-edge">PREVIEW · TERMINAL · LOGS</div>
           </div>
         </div>
       </div>
       <div class="scene-notes">
-        <div class="note"><h4>Operation beats</h4>
+        <div class="note"><h4>Operation beats (per-item ops — descriptors bind the live schema, never shorthand)</h4>
           <ol>
-            <li><span class="op">setItemAutoHidden</span> logs → true (tucks to left rail, #14654's affordance)</li>
-            <li><span class="op">setItemAutoHidden</span> preview-group → true (right rail; editor floods the stage)</li>
-            <li>hover-reveal moment: preview slides over as overlay, releases (#14660's contract — shown, not persisted)</li>
-            <li><span class="op">setItemAutoHidden</span> ×2 → false: the wave rolls back, layout restores</li>
+            <li><span class="op">setItemAutoHidden</span> preview → true (first tuck; a labeled rail tab appears on the right edge)</li>
+            <li><span class="op">setItemAutoHidden</span> terminal → true, then logs → true (the wave; editor floods the stage)</li>
+            <li>hover-reveal moment: a rail pane slides over as overlay, releases (#14660's contract — shown, not persisted; workspace opts in via autoHideRevealOnHover)</li>
+            <li><span class="op">setItemAutoHidden</span> ×3 → false: the wave rolls back, layout restores</li>
           </ol>
         </div>
         <div class="note"><h4>Motion + camera</h4>
