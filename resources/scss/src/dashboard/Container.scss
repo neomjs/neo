@@ -65,12 +65,17 @@
 .neo-dashboard-dock-splitter {
     flex-shrink: 0;
     touch-action: none;
+}
 
-    &-horizontal {
+// Scoped to 0,3,0 on purpose: the generic sort affordance (`.neo-container .neo-draggable`,
+// 0,2,0 in SortZone.css) otherwise wins the cascade and paints the resize handles with a
+// `pointer` cursor — load-order ties are not a contract.
+.neo-dashboard .neo-dashboard-dock-splitter {
+    &.neo-dashboard-dock-splitter-horizontal {
         cursor: ew-resize;
     }
 
-    &-vertical {
+    &.neo-dashboard-dock-splitter-vertical {
         cursor: ns-resize;
     }
 }

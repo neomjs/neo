@@ -109,6 +109,14 @@ class MainContainer extends Viewport {
          */
         className: 'Neo.examples.dashboard.dock.MainContainer',
         /**
+         * The dock motion/token contract (`--dock-transition-*`, reveal keyframes, splitter
+         * cursors) lives in the `Neo.dashboard.Container` theme file — the projected dock tree
+         * is plain containers, so per-class loading never fetches it; the workspace declares
+         * the dependency (the projection root carries the matching `.neo-dashboard` scope).
+         * @member {String[]} additionalThemeFiles=['Neo.dashboard.Container']
+         */
+        additionalThemeFiles: ['Neo.dashboard.Container'],
+        /**
          * @member {Object} layout={ntype:'vbox', align:'stretch'}
          */
         layout: {ntype: 'vbox', align: 'stretch'}
