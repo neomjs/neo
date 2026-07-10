@@ -44,11 +44,16 @@
     &-bottom { animation-name: neo-dock-reveal-from-bottom }
 }
 
+// The slide SETTLES TOWARD the owning edge (workspace-side origin): an edge-ward origin
+// would overlap the rail strip mid-entry and intercept clicks meant for it — geometry the
+// tour's step-gated fast clicks and Playwright actionability both convict. Inward-origin
+// motion never touches the rail, needs no pointer guard, and still reads as the panel
+// seating itself into its edge.
 @keyframes neo-dock-reveal-fade        { from { opacity: 0.4 } }
-@keyframes neo-dock-reveal-from-left   { from { opacity: 0.4; transform: translateX(-10px) } }
-@keyframes neo-dock-reveal-from-right  { from { opacity: 0.4; transform: translateX(10px) } }
-@keyframes neo-dock-reveal-from-top    { from { opacity: 0.4; transform: translateY(-10px) } }
-@keyframes neo-dock-reveal-from-bottom { from { opacity: 0.4; transform: translateY(10px) } }
+@keyframes neo-dock-reveal-from-left   { from { opacity: 0.4; transform: translateX(8px) } }
+@keyframes neo-dock-reveal-from-right  { from { opacity: 0.4; transform: translateX(-8px) } }
+@keyframes neo-dock-reveal-from-top    { from { opacity: 0.4; transform: translateY(8px) } }
+@keyframes neo-dock-reveal-from-bottom { from { opacity: 0.4; transform: translateY(-8px) } }
 
 // Arrival settle: a brief outline pulse on the pane that just landed from another window
 // (§2.3 cross-window arrival) — the workspace toggles the class; the animation completes
