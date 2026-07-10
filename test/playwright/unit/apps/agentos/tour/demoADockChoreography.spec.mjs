@@ -162,13 +162,15 @@ test.describe.serial('apps/agentos/tour/demoADockChoreography', () => {
 
         opSteps.slice(0, 8).forEach(apply);
 
-        // the tucked stage: every right-column resident rails on the right edge
+        // the tucked stage: every right-column resident rails on the right edge, as a real
+        // DockRail affordance config carrying the rail-tab metadata contract
         const tuckedRails = collectRails(DockLayoutAdapter.project(document, {resolveComponentRef: stubPane}));
 
         expect(tuckedRails).toHaveLength(1);
         expect(tuckedRails[0].dockEdge).toBe('right');
-        expect(tuckedRails[0].items.map(tab => tab.dockItemId)).toEqual(['preview', 'terminal', 'logs']);
-        expect(tuckedRails[0].items.map(tab => tab.text)).toEqual(['Preview', 'Terminal', 'Logs']);
+        expect(tuckedRails[0].railItems.map(tab => tab.dockItemId)).toEqual(['preview', 'terminal', 'logs']);
+        expect(tuckedRails[0].railItems.map(tab => tab.title)).toEqual(['Preview', 'Terminal', 'Logs']);
+        expect(tuckedRails[0].railItems.every(tab => tab.restorable)).toBe(true);
 
         // the rollback: the finale projects zero rails
         opSteps.slice(8).forEach(apply);
