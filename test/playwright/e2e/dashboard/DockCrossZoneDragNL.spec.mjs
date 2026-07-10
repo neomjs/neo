@@ -47,11 +47,14 @@ test.describe('Dock cross-zone drag journey (Neural Link)', () => {
         const from = await strategyTab.boundingBox();
         const to   = await terminalTab.boundingBox();
 
-        // native cross-zone drag: Strategy header → onto the Terminal zone (the {steps} cadence arms the drag sensor)
+        // native cross-zone drag: Strategy header → onto the Terminal STRIP TOP (the {steps} cadence arms
+        // the drag sensor). Aiming 3px under the strip's top edge — inside the geometric edge band of the
+        // strip-shallow zone rect — pins the carve-out at its hardest point: a center-of-button drop stays
+        // green even without the carve-out (interior), the top-band drop is the aim that regressed.
         await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
         await page.mouse.down();
         await page.mouse.move(from.x + from.width / 2, from.y + from.height + 20, { steps: 20 }); // break out of the toolbar
-        await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 40 });          // travel to the target zone
+        await page.mouse.move(to.x + to.width / 2, to.y + 3, { steps: 40 });                      // strip-top aim — the falsifying drop point
         await page.mouse.up();
         await page.waitForTimeout(1000);
 
