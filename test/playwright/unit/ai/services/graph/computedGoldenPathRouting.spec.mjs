@@ -90,3 +90,47 @@ test.describe('computedGoldenPathRouting — the contradiction guard (routing-de
         expect(result).toBeNull();
     });
 });
+
+test.describe('computedGoldenPathRouting — the fixture-provenance guard (source-set hygiene)', () => {
+    let isActionableComputedRecommendation;
+
+    test.beforeAll(async () => {
+        ({isActionableComputedRecommendation} = await import('../../../../../../ai/services/graph/computedGoldenPathRouting.mjs'));
+    });
+
+    test('a stamped test fixture never enters the scored steering surface', () => {
+        expect(isActionableComputedRecommendation({
+            id        : 'issue-91003',
+            type      : 'ISSUE',
+            properties: {state: 'OPEN', title: 'Actionable Issue Fixture', isTestFixture: true}
+        })).toBe(false);
+    });
+
+    test('the stamp excludes both steerable prefixes — the exact shape that served as the live rank-1 "release lane"', () => {
+        expect(isActionableComputedRecommendation({
+            id        : 'discussion-open-1783347784287',
+            type      : 'DISCUSSION',
+            properties: {state: 'OPEN', title: 'Open Discussion Fixture', isTestFixture: true}
+        })).toBe(false);
+
+        expect(isActionableComputedRecommendation({
+            id        : 'issue-actionable-1783347784287',
+            type      : 'ISSUE',
+            properties: {state: 'OPEN', title: 'Actionable Issue Fixture', isTestFixture: true}
+        })).toBe(false);
+    });
+
+    test('realistic unstamped nodes still flow — the guard costs no live lane', () => {
+        expect(isActionableComputedRecommendation({
+            id        : 'issue-14926',
+            type      : 'ISSUE',
+            properties: {state: 'OPEN', title: 'Computed GP advisory surfaces fixture seed data', labels: ['ai']}
+        })).toBe(true);
+
+        expect(isActionableComputedRecommendation({
+            id        : 'discussion-14561',
+            type      : 'DISCUSSION',
+            properties: {state: 'OPEN', title: 'v13.2 planning'}
+        })).toBe(true);
+    });
+});

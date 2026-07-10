@@ -59,6 +59,16 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     test.beforeAll(async () => {
         aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
 
+        // FAIL-LOUD ISOLATION GATE: this suite writes DISCUSSION/ISSUE fixture nodes through
+        // GraphService. The graph db path is a READ-ONLY computed leaf derived from the
+        // useTestDatabase toggle — the direct assignment below does NOT reliably re-point it, so
+        // without the toggle a bare (non-runner) invocation resolves the PRODUCTION graph and the
+        // fixtures pollute the live Computed Golden Path advisory (observed: fixture rows served
+        // as the top-ROI release lane). Refuse to run against a prod-resolved graph, ever.
+        if (aiConfig.storagePaths.useTestDatabase !== true) {
+            throw new Error('GoldenPathSynthesizer.spec: refusing to run — storagePaths.useTestDatabase is not true, so graph writes would hit the PRODUCTION database. Run through the unit-test runner (UNIT_TEST_MODE) instead of invoking the spec bare.');
+        }
+
         const os     = await import('os');
         const tmpDir = path.resolve(process.cwd(), 'tmp');
         if (!fs.existsSync(tmpDir)) {
@@ -2121,9 +2131,13 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
 
         aiConfig.vectorDimension = 2;
 
-        const openId   = `discussion-open-${Date.now()}`;
-        const closedId = `discussion-closed-${Date.now()}`;
-        const issueId  = `issue-actionable-${Date.now()}`;
+        // Deterministic, realistic-shaped ids (NOT epoch-ms suffixed): the routing layer's
+        // fixture-provenance guard excludes 11+-digit numeric suffixes as the known leak idiom,
+        // and these fixtures must FLOW through scoring — they are this test's positive subjects.
+        // The fail-loud isolation gate in beforeAll is what keeps them out of any live graph.
+        const openId   = 'discussion-91001';
+        const closedId = 'discussion-91002';
+        const issueId  = 'issue-91003';
 
         GraphService.upsertNode({
             id        : openId,
