@@ -52,11 +52,13 @@ function createMarker(markerClass, rect) {
 test.describe('Neo.main.addon.DockFlip', () => {
     let dockFlip,
         originalDocument,
+        originalGetComputedStyle,
         originalMatchMedia,
         originalRequestAnimationFrame;
 
     test.beforeEach(async () => {
         originalDocument              = globalThis.document;
+        originalGetComputedStyle      = globalThis.getComputedStyle;
         originalMatchMedia            = globalThis.matchMedia;
         originalRequestAnimationFrame = globalThis.requestAnimationFrame;
         dockFlip                      = Neo.create(DockFlip, {preloadFilesDelay: false});
@@ -69,6 +71,9 @@ test.describe('Neo.main.addon.DockFlip', () => {
         dockFlip = null;
 
         originalDocument === undefined ? delete globalThis.document : globalThis.document = originalDocument;
+        originalGetComputedStyle === undefined
+            ? delete globalThis.getComputedStyle
+            : globalThis.getComputedStyle = originalGetComputedStyle;
         originalMatchMedia === undefined ? delete globalThis.matchMedia : globalThis.matchMedia = originalMatchMedia;
         originalRequestAnimationFrame === undefined
             ? delete globalThis.requestAnimationFrame
@@ -105,6 +110,53 @@ test.describe('Neo.main.addon.DockFlip', () => {
             'dock-flip-item-alpha%20pane',
             'dock-flip-item-beta%2Fpane'
         ])
+    });
+
+    test('reads the descendant dashboard token scope and preserves exact zero plus seconds', async () => {
+        const
+            markerClass = 'dock-flip-item-alpha',
+            marker      = createMarker(markerClass, {height: 100, left: 0, top: 0, width: 100}),
+            dashboard   = {},
+            host        = {
+                classList: createClassList(),
+                querySelector(selector) {
+                    return selector === '.neo-dashboard' ? dashboard : null
+                },
+                querySelectorAll() {
+                    return [marker]
+                }
+            };
+
+        globalThis.document = {
+            getElementById(id) {
+                return id === 'dock-host' ? host : null
+            }
+        };
+        globalThis.matchMedia = () => ({matches: false});
+
+        let tokenOwner;
+
+        globalThis.getComputedStyle = element => {
+            tokenOwner = element;
+
+            return {
+                getPropertyValue(name) {
+                    return name === '--dock-transition-duration' ? '0ms' : 'linear'
+                }
+            }
+        };
+
+        dockFlip.captureFirst({hostId: 'dock-host', markerPrefix: 'dock-flip-item-'});
+
+        await expect(dockFlip.play({
+            hostId      : 'dock-host',
+            markerPrefix: 'dock-flip-item-'
+        })).resolves.toBe(false);
+
+        expect(tokenOwner).toBe(dashboard);
+        expect(dockFlip.parseDurationToken('0ms')).toBe(0);
+        expect(dockFlip.parseDurationToken('0.26s')).toBe(260);
+        expect(dockFlip.parseDurationToken('bogus')).toBe(280)
     });
 
     test('restores the host class and every temporary style when a post-invert frame fails', async () => {

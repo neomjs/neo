@@ -92,12 +92,30 @@ class DockFlip extends Base {
     }
 
     /**
+     * Converts one computed CSS time token to milliseconds. Exact zero is meaningful: the
+     * reduced-motion contract collapses `--dock-transition-duration` to `0ms`, which must not
+     * fall through to the visual fallback. Both CSS time units are accepted.
+     * @param {String} value
+     * @param {Number} [fallback=280]
+     * @returns {Number}
+     * @protected
+     */
+    parseDurationToken(value, fallback = 280) {
+        const match = String(value ?? '').trim().match(/(-?(?:\d+(?:\.\d+)?|\.\d+))(ms|s)\s*\)?$/);
+
+        return match
+            ? Number(match[1]) * (match[2] === 's' ? 1000 : 1)
+            : fallback
+    }
+
+    /**
      * Phase 2: wait for the new tree's marker elements, invert them onto their old geometry,
      * then play the transition to their new geometry. Safe to call unconditionally after a
      * swap — with no prior `captureFirst()` snapshot, or under reduced motion, it no-ops and
      * the layout simply lands.
      * Duration and easing resolve from the motion-contract tokens (`--dock-transition-duration`
-     * / `--dock-transition-easing`) on the host's computed style — zero local duration policy;
+     * / `--dock-transition-easing`) on the nearest descendant dashboard token scope — zero
+     * local duration policy;
      * explicit opts override for special takes, and the hardcoded values are last-resort
      * fallbacks for hosts outside any token scope. A token collapsed to `0ms` (the token-layer
      * reduced-motion path) lands instantly, same as the media-query guard.
@@ -138,22 +156,27 @@ class DockFlip extends Base {
             return false
         }
 
-        hostEl = document.getElementById(hostId);
-
-        // environment-honest global access: the unit env's mocked DOM has no getComputedStyle,
-        // so token resolution degrades to the fallbacks there — exactly the intended contract
-        const tokens = hostEl && globalThis.getComputedStyle?.(hostEl);
-
-        duration ??= parseFloat(tokens?.getPropertyValue('--dock-transition-duration')) || 280;
-        easing   ||= tokens?.getPropertyValue('--dock-transition-easing').trim() || 'cubic-bezier(0, 0, 0.2, 1)';
-
-        if (!(duration > 0)) {
-            return false // token-layer reduced-motion collapse: land instantly
-        }
-
         const firstRects = first.rects;
 
         try {
+            // Both consumers pass a workspace host ABOVE the projected `.neo-dashboard`.
+            // Custom properties inherit downward only, so reading the outer host silently loses
+            // the contract and falls back. Resolve the actual token-bearing descendant instead.
+            hostEl = document.getElementById(hostId);
+
+            const
+                tokenHost = hostEl?.matches?.('.neo-dashboard')
+                    ? hostEl
+                    : hostEl?.querySelector?.('.neo-dashboard') || hostEl,
+                tokens    = tokenHost && globalThis.getComputedStyle?.(tokenHost);
+
+            duration ??= this.parseDurationToken(tokens?.getPropertyValue('--dock-transition-duration'));
+            easing   ||= tokens?.getPropertyValue('--dock-transition-easing').trim() || 'cubic-bezier(0, 0, 0.2, 1)';
+
+            if (!(duration > 0)) {
+                return false // token-layer reduced-motion collapse: land instantly
+            }
+
             let frame = 0;
 
             // stage A: the swap lands asynchronously through the delta pipeline — the OLD
