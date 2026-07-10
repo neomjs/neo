@@ -365,6 +365,11 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
         expect(terminalTabs.dockNodeId).toBe('terminal-tabs');
         expect(terminalTabs.items).toEqual([]);
         expect(terminalTabs.activeIndex).toBeNull();
+
+        // Geometry discipline: edge bands keep a fixed cross-extent, the center flexes.
+        expect(side.flex).toBe('none');
+        expect(side.cls).toEqual(expect.arrayContaining(['neo-dashboard-dock-edge-band', 'neo-dashboard-dock-edge-band-right']));
+        expect(row.items[0].flex).toBe(1);
     });
 
     test('does not rail an item that is pinned but not autoHidden', () => {
@@ -405,15 +410,36 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
 
         let result = DockLayoutAdapter.project(model, {
                 applyDockZoneOperation,
+                autoHideRevealOnHover: true,
                 onDockZoneDocumentChange,
-                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                resolveComponentRef  : componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
             }),
             rail = result.items[0].items.find(item => item.dockNodeType === 'edge-rail');
 
-        // Restore commits must ride the workspace's single operation path — same threading as splitters.
+        // Commits must ride the workspace's single operation path — same threading as splitters.
         expect(rail.applyDockZoneOperation).toBe(applyDockZoneOperation);
         expect(rail.onDockZoneDocumentChange).toBe(onDockZoneDocumentChange);
         expect(rail.dockZoneDocument).toBe(model);
+        // The workspace-level hover opt-in threads through; it defaults to false when absent.
+        expect(rail.autoHideRevealOnHover).toBe(true);
+        expect(DockLayoutAdapter.project(model, {
+            resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+        }).items[0].items.find(item => item.dockNodeType === 'edge-rail').autoHideRevealOnHover).toBe(false);
+    });
+
+    test('resolveRevealExtent returns the committed split share, else null', () => {
+        let model = createEdgeZoneModel();
+
+        // terminal-tabs is side-split child 0: sizes [0.55, 0.45] → 0.55 share.
+        expect(DockLayoutAdapter.resolveRevealExtent(model, 'terminal')).toBeCloseTo(0.55);
+        expect(DockLayoutAdapter.resolveRevealExtent(model, 'inspector')).toBeCloseTo(0.45);
+
+        // strategy's tabs node sits directly in an edge-zone slot — no ancestor split, no extent.
+        expect(DockLayoutAdapter.resolveRevealExtent(model, 'strategy')).toBeNull();
+
+        // Unknown items and absent models fail null-safe.
+        expect(DockLayoutAdapter.resolveRevealExtent(model, 'ghost')).toBeNull();
+        expect(DockLayoutAdapter.resolveRevealExtent(null, 'terminal')).toBeNull();
     });
 
     test('projects one rail per edge with correct membership (multi-edge grouping)', () => {

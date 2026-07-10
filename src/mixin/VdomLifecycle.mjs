@@ -341,7 +341,7 @@ class VdomLifecycle extends Base {
                 // Distribute results back to ALL components in the batch
                 for (const id in response.vnodes) {
                     if (Object.hasOwn(response.vnodes, id)) {
-                        const vnode = response.vnodes[id];
+                        const vnode     = response.vnodes[id];
                         const component = Neo.getComponent(id);
 
                         if (component && !component.isDestroyed) {
@@ -437,10 +437,10 @@ class VdomLifecycle extends Base {
      * @returns {Object} opts
      */
     getVdomUpdatePayload(mergedChildIds, depth) {
-        let me = this,
-            updateDepth = depth ?? me.updateDepth,
+        let me            = this,
+            updateDepth   = depth ?? me.updateDepth,
             {vdom, vnode} = me,
-            opts = {
+            opts          = {
                 vdom : TreeBuilder.getVdomTree(vdom,   updateDepth, mergedChildIds),
                 vnode: TreeBuilder.getVnodeTree(vnode, updateDepth, mergedChildIds)
             };
@@ -540,9 +540,9 @@ class VdomLifecycle extends Base {
      * @returns {Promise<any>} If getting there, we return the data from vdom.Helper: create(), containing the vnode.
      */
     async initVnode(mount) {
-        let me        = this,
-            autoMount = mount || me.autoMount,
-            {app}     = me,
+        let me                                                     = this,
+            autoMount                                              = mount || me.autoMount,
+            {app}                                                  = me,
             {allowVdomUpdatesInTests, unitTestMode, useVdomWorker} = Neo.config;
 
         if (unitTestMode && !allowVdomUpdatesInTests) return;
@@ -946,7 +946,11 @@ class VdomLifecycle extends Base {
             {config}                   = Neo;
 
         if (config.unitTestMode && !config.allowVdomUpdatesInTests) {
-            reject?.();
+            // Unit-test mode deliberately skips vdom updates — a skipped update is a SUCCESSFUL
+            // no-op, not a failure. Rejecting here turned every naked promiseUpdate().then() chain
+            // (container insert/remove and friends) into an unhandled `undefined` rejection the
+            // moment a spec structurally mutated an unmounted container.
+            resolve?.();
             return
         }
 

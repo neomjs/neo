@@ -6,11 +6,11 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../src/Neo.mjs';
-import * as core      from '../../../../src/core/_export.mjs';
-import Button         from '../../../../src/button/Base.mjs';
-import DockRail       from '../../../../src/dashboard/DockRail.mjs';
+import {test, expect}    from '@playwright/test';
+import Neo               from '../../../../src/Neo.mjs';
+import * as core         from '../../../../src/core/_export.mjs';
+import DockLayoutAdapter from '../../../../src/dashboard/DockLayoutAdapter.mjs';
+import DockRail          from '../../../../src/dashboard/DockRail.mjs';
 
 const createDocument = () => ({
     schema: 'neo.harness.dockZone.v1',
@@ -33,6 +33,23 @@ const createRailItems = () => ([
     {dockEdge: 'right', dockItemId: 'terminal', restorable: true, title: 'Terminal'}
 ]);
 
+// Rail children = tab buttons + the composed reveal overlay; tabs carry a dockItemId.
+const tabsOf = rail => (rail.items || []).filter(item => item.dockItemId != null);
+
+const createStubOverlay = () => ({
+    calls    : [],
+    listeners: {},
+    fire(name, data) {
+        this.listeners[name]?.call(this.listeners.scope, data)
+    },
+    on(map) {
+        Object.assign(this.listeners, map)
+    },
+    set(config) {
+        this.calls.push(config)
+    }
+});
+
 test.describe('Neo.dashboard.DockRail', () => {
     let rail;
 
@@ -50,13 +67,11 @@ test.describe('Neo.dashboard.DockRail', () => {
 
         expect(rail.cls).toContain('neo-dashboard-dock-edge-rail-right');
         expect(rail.layout.ntype).toContain('vbox');
-        expect(rail.items).toHaveLength(1);
-        expect(rail.items[0] instanceof Button.constructor || rail.items[0].ntype).toBeTruthy();
-        expect(rail.items[0].text).toBe('Terminal');
-        expect(rail.items[0].dockItemId).toBe('terminal');
-        expect(rail.items[0].disabled).toBe(false);
+        expect(tabsOf(rail)).toHaveLength(1);
+        expect(tabsOf(rail)[0].text).toBe('Terminal');
+        expect(tabsOf(rail)[0].dockItemId).toBe('terminal');
 
-        let terminalButton = rail.items[0];
+        let terminalButton = tabsOf(rail)[0];
 
         // Model flip: a second item rails — the surviving tab keeps its LIVE component instance.
         rail.railItems = [
@@ -64,82 +79,104 @@ test.describe('Neo.dashboard.DockRail', () => {
             {dockEdge: 'right', dockItemId: 'inspector', restorable: true, title: 'Inspector'}
         ];
 
-        expect(rail.items).toHaveLength(2);
-        expect(rail.items[0]).toBe(terminalButton);
-        expect(rail.items[1].text).toBe('Inspector');
+        expect(tabsOf(rail)).toHaveLength(2);
+        expect(tabsOf(rail)[0]).toBe(terminalButton);
+        expect(tabsOf(rail)[1].text).toBe('Inspector');
 
         // Title flips update the surviving instance in place; leavers are removed.
         rail.railItems = [{dockEdge: 'right', dockItemId: 'terminal', restorable: true, title: 'Console'}];
 
-        expect(rail.items).toHaveLength(1);
-        expect(rail.items[0]).toBe(terminalButton);
-        expect(rail.items[0].text).toBe('Console');
+        expect(tabsOf(rail)).toHaveLength(1);
+        expect(tabsOf(rail)[0]).toBe(terminalButton);
+        expect(tabsOf(rail)[0].text).toBe('Console');
 
-        // ...and the empty rail renders no tabs.
+        // ...and the empty rail renders no tabs (the composed overlay child remains).
         rail.railItems = [];
 
-        expect(rail.items).toHaveLength(0);
+        expect(tabsOf(rail)).toHaveLength(0);
     });
 
-    test('restore rides the reducer callback: tab click commits setItemAutoHidden(false)', () => {
-        let descriptors = [],
-            events      = [],
-            nextDoc     = createDocument();
-
-        nextDoc.items.terminal.autoHidden = false;
+    test('click opens a focused transient reveal WITHOUT emitting any operation; re-click dismisses', () => {
+        let committed = [],
+            reveals   = [];
 
         rail = Neo.create(DockRail, {
-            applyDockZoneOperation: (descriptor, railInstance) => {
-                descriptors.push({descriptor, railInstance});
-                return {document: nextDoc, errors: []}
+            applyDockZoneOperation: descriptor => {
+                committed.push(descriptor);
+                return {document: null, errors: []}
             },
             edge     : 'right',
-            id       : 'dock-rail-callback',
+            id       : 'dock-rail-click-reveal',
             railItems: createRailItems()
         });
 
-        rail.on('dockRailRestore', data => events.push(data));
+        rail.on('dockRailRevealChange', data => reveals.push(data));
 
         // The click path is button.Base's own handler contract; we invoke the handler the way
         // the button does: with the click data carrying the button component.
-        let result = rail.onTabClick({component: rail.items[0]});
+        let snapshot = rail.onTabClick({component: rail.items[0]});
 
-        expect(descriptors).toHaveLength(1);
-        expect(descriptors[0].descriptor).toEqual({autoHidden: false, itemId: 'terminal', operation: 'setItemAutoHidden'});
-        expect(descriptors[0].railInstance).toBe(rail);
-        expect(result.errors).toEqual([]);
-        // The config system clones object configs on set — value equality IS the contract here.
-        expect(rail.dockZoneDocument).toEqual(nextDoc);
-        expect(events).toHaveLength(1);
-        expect(events[0].itemId).toBe('terminal');
-        expect(events[0].descriptor.operation).toBe('setItemAutoHidden');
+        expect(snapshot).toEqual({revealedItemId: 'terminal', state: 'revealed-focused'});
+        expect(committed).toHaveLength(0);
+        expect(reveals).toHaveLength(1);
+        expect(reveals[0].railItem.dockItemId).toBe('terminal');
+
+        snapshot = rail.onTabClick({component: rail.items[0]});
+
+        expect(snapshot).toEqual({revealedItemId: null, state: 'idle'});
+        expect(committed).toHaveLength(0);
+        expect(reveals).toHaveLength(2);
     });
 
-    test('falls back to a local DockZoneModel commit and notifies the document listener', () => {
+    test('reveal state never persists: a full reveal/dismiss cycle leaves the document untouched', () => {
         let changes  = [],
-            document = createDocument();
+            document = createDocument(),
+            snapshot = JSON.stringify(document);
 
         rail = Neo.create(DockRail, {
             dockZoneDocument        : document,
             edge                    : 'right',
-            id                      : 'dock-rail-local',
-            onDockZoneDocumentChange: (doc, descriptor, railInstance) => changes.push({descriptor, doc, railInstance}),
+            id                      : 'dock-rail-no-persist',
+            onDockZoneDocumentChange: () => changes.push(1),
             railItems               : createRailItems()
         });
 
-        let result = rail.onTabClick({component: rail.items[0]});
+        rail.onTabClick({component: rail.items[0]});
+        rail.revealMachine.escape();
 
-        expect(result.errors).toEqual([]);
-        expect(result.document.items.terminal.autoHidden).toBe(false);
-        // The input document stays untouched — reducer immutability holds at the affordance level.
-        expect(document.items.terminal.autoHidden).toBe(true);
-        expect(rail.dockZoneDocument).toEqual(result.document);
-        expect(changes).toHaveLength(1);
-        expect(changes[0].doc).toBe(result.document);
-        expect(changes[0].railInstance).toBe(rail);
+        expect(JSON.stringify(document)).toBe(snapshot);
+        expect(JSON.parse(JSON.stringify(rail.dockZoneDocument))).toEqual(JSON.parse(snapshot));
+        expect(changes).toHaveLength(0);
     });
 
-    test('policy: a non-restorable tab renders as a disabled button and rejects locally without emitting an operation', () => {
+    test('pin escape rides the executor: setItemPinned(true) commits, model clears autoHidden, reveal closes', () => {
+        let changes    = [],
+            document   = createDocument(),
+            operations = [];
+
+        rail = Neo.create(DockRail, {
+            dockZoneDocument        : document,
+            edge                    : 'right',
+            id                      : 'dock-rail-pin',
+            onDockZoneDocumentChange: (doc, descriptor) => changes.push({descriptor, doc}),
+            railItems               : createRailItems()
+        });
+
+        rail.on('dockRailOperation', data => operations.push(data));
+        rail.onTabClick({component: rail.items[0]});
+
+        let result = rail.onRevealPinRequested({itemId: 'terminal'});
+
+        expect(result.errors).toEqual([]);
+        expect(result.document.items.terminal.pinned).toBe(true);
+        expect(result.document.items.terminal.autoHidden).toBe(false);
+        expect(rail.revealMachine.state).toBe('idle');
+        expect(changes).toHaveLength(1);
+        expect(operations).toHaveLength(1);
+        expect(operations[0].descriptor).toEqual({itemId: 'terminal', operation: 'setItemPinned', pinned: true});
+    });
+
+    test('pin policy: the tab stays a live enabled button (reveal is policy-free); pin rejects locally', () => {
         let committed = [],
             rejected  = [];
 
@@ -149,34 +186,28 @@ test.describe('Neo.dashboard.DockRail', () => {
                 return {document: null, errors: []}
             },
             edge     : 'right',
-            id       : 'dock-rail-policy',
+            id       : 'dock-rail-pin-policy',
             railItems: [{dockEdge: 'right', dockItemId: 'terminal', restorable: false, title: 'Terminal'}]
         });
 
-        rail.on('dockRailRestoreRejected', data => rejected.push(data));
+        rail.on('dockRailOperationRejected', data => rejected.push(data));
 
-        expect(rail.items[0].disabled).toBe(true);
+        // Reveal is policy-free: a disabled tab would make the item's content unreachable.
+        expect(rail.items[0].disabled).toBe(false);
 
-        let result = rail.onTabClick({component: rail.items[0]});
+        let snapshot = rail.onTabClick({component: rail.items[0]});
+        expect(snapshot.state).toBe('revealed-focused');
+
+        let result = rail.onRevealPinRequested({itemId: 'terminal'});
 
         expect(committed).toHaveLength(0);
         expect(result.errors.join(' ')).toContain('blocked by policy');
         expect(rejected).toHaveLength(1);
         expect(rejected[0].descriptor).toBeNull();
         expect(rejected[0].itemId).toBe('terminal');
-
-        // A live policy flip re-enables the surviving button instance in place.
-        let button = rail.items[0];
-
-        rail.railItems = [{dockEdge: 'right', dockItemId: 'terminal', restorable: true, title: 'Terminal'}];
-
-        expect(rail.items[0]).toBe(button);
-        expect(button.disabled).toBe(false);
     });
 
-    test('an executor rejection surfaces as dockRailRestoreRejected with the document unchanged', () => {
-        // Belt-and-braces: the projection says restorable, but the live document's policy flipped
-        // between projection and click — the model guard answers, the rail relays honestly.
+    test('a stale-projection pin surfaces the executor rejection with the document unchanged', () => {
         let document = createDocument(),
             rejected = [];
 
@@ -185,17 +216,126 @@ test.describe('Neo.dashboard.DockRail', () => {
         rail = Neo.create(DockRail, {
             dockZoneDocument: document,
             edge            : 'right',
-            id              : 'dock-rail-executor-reject',
+            id              : 'dock-rail-pin-executor-reject',
             railItems       : createRailItems()
         });
 
-        rail.on('dockRailRestoreRejected', data => rejected.push(data));
+        rail.on('dockRailOperationRejected', data => rejected.push(data));
 
-        let result = rail.onTabClick({component: rail.items[0]});
+        let result = rail.onRevealPinRequested({itemId: 'terminal'});
 
         expect(result.errors.join(' ')).toContain('not pinnable');
         expect(rail.dockZoneDocument.items.terminal.autoHidden).toBe(true);
         expect(rejected).toHaveLength(1);
+    });
+
+    test('hover input is inert without the workspace opt-in, live with it', () => {
+        rail = Neo.create(DockRail, {
+            edge     : 'right',
+            id       : 'dock-rail-hover-optin',
+            railItems: createRailItems()
+        });
+
+        rail.onTabHoverIn({component: rail.items[0]});
+        expect(rail.revealMachine.state).toBe('idle');
+
+        rail.autoHideRevealOnHover = true;
+
+        rail.onTabHoverIn({component: rail.items[0]});
+        expect(rail.revealMachine.state).toBe('dwell-pending');
+
+        rail.onTabHoverOut({});
+        expect(rail.revealMachine.state).toBe('idle');
+    });
+
+    test('bindRevealOverlay: state pushes into the overlay; overlay intents feed back; focus-hold holds', () => {
+        let overlay = createStubOverlay();
+
+        rail = Neo.create(DockRail, {
+            edge     : 'right',
+            id       : 'dock-rail-overlay-binding',
+            railItems: createRailItems()
+        });
+
+        rail.bindRevealOverlay(overlay);
+
+        // Initial sync pushes the idle snapshot.
+        expect(overlay.calls.at(-1)).toMatchObject({revealState: 'idle', revealedItem: null});
+
+        rail.onTabClick({component: rail.items[0]});
+
+        expect(overlay.calls.at(-1)).toMatchObject({
+            edge       : 'right',
+            revealState: 'revealed-focused'
+        });
+        expect(overlay.calls.at(-1).revealedItem.dockItemId).toBe('terminal');
+
+        // FOCUS-HOLD: pointer leaving a focused reveal must not dismiss it.
+        overlay.fire('revealPointerLeave', {});
+        expect(rail.revealMachine.state).toBe('revealed-focused');
+
+        // Focus leaving dismisses; the overlay receives the idle snapshot.
+        overlay.fire('revealFocusLeave', {});
+        expect(rail.revealMachine.state).toBe('idle');
+        expect(overlay.calls.at(-1)).toMatchObject({revealState: 'idle', revealedItem: null});
+
+        // Escape intent routes through as well.
+        rail.onTabClick({component: rail.items[0]});
+        overlay.fire('revealEscape', {});
+        expect(rail.revealMachine.state).toBe('idle');
+    });
+
+    test('self-hosts a composed reveal overlay child and materializes the pane through resolveComponentRef', () => {
+        rail = Neo.create(DockRail, {
+            dockZoneDocument   : createDocument(),
+            edge               : 'right',
+            id                 : 'dock-rail-composed-overlay',
+            railItems          : createRailItems(),
+            resolveComponentRef: componentRef => ({ntype: 'component', html: componentRef})
+        });
+
+        // Composed from construct: the overlay child exists idle-hidden before any reveal —
+        // the rail's subtree never changes shape post-mount for the reveal path.
+        expect(rail.revealOverlay?.ntype).toBe('dashboard-dock-reveal-overlay');
+        expect(rail.revealOverlay.visible).toBe(false);
+
+        rail.onTabClick({component: rail.items[0]});
+
+        let overlay = rail.revealOverlay;
+
+        expect(overlay?.ntype).toBe('dashboard-dock-reveal-overlay');
+        expect(rail.items).toContain(overlay);
+        expect(overlay.revealState).toBe('revealed-focused');
+        expect(overlay.titleLabel.text).toBe('Terminal');
+        expect(overlay.paneSlot.items).toHaveLength(1);
+        expect(overlay.paneSlot.items[0].html).toBe('terminal');
+
+        // Dismissal destroys the transient pane — reveal artifacts never outlive the reveal.
+        rail.revealMachine.escape();
+
+        expect(overlay.revealState).toBe('idle');
+        expect(overlay.visible).toBe(false);
+        expect(overlay.paneSlot.items).toHaveLength(0);
+
+        // The reconcile sweep must never mistake the overlay child for a leaving tab.
+        rail.railItems = [];
+
+        expect(rail.items).toContain(overlay);
+    });
+
+    test('an item leaving the rail fail-closes its reveal', () => {
+        rail = Neo.create(DockRail, {
+            edge     : 'right',
+            id       : 'dock-rail-fail-close',
+            railItems: createRailItems()
+        });
+
+        rail.onTabClick({component: rail.items[0]});
+        expect(rail.revealMachine.state).toBe('revealed-focused');
+
+        rail.railItems = [];
+
+        expect(rail.revealMachine.state).toBe('idle');
     });
 
     test('ignores clicks that do not resolve to a rail-tab button', () => {
