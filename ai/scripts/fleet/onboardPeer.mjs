@@ -1,6 +1,9 @@
 #!/usr/bin/env node
-import path            from 'node:path';
-import {fileURLToPath} from 'node:url';
+import * as acorn                   from 'acorn';
+import {execFileSync}              from 'node:child_process';
+import path                        from 'node:path';
+import {fileURLToPath}             from 'node:url';
+import {createFleetRegistryBridge} from '../../../src/ai/fleet/createFleetRegistryBridge.mjs';
 
 /**
  * @module ai/scripts/fleet/onboardPeer
@@ -24,26 +27,35 @@ import {fileURLToPath} from 'node:url';
  * wake route itself via the wake-subscription `bootstrap` action from the real boot envelope.
  *
  * **Phase B — after the gate (launch):**
- *   4. `preflight` — verify the roster entry exists in THIS checkout AND the graph node is
+ *   4. `preflight` — verify the roster entry exists on merged `origin/dev` AND the graph node is
  *      seeded (read-only probe). Refuse with the exact missing operator step named.
  *   5. `launch`    — `FleetManager.startAgent(id)` (provision-then-start, supervised child in
  *      its isolated instance home via the curated per-family template).
- *   6. `auth`      — read `status(id)`, print the per-home login line. Secrets never touch
- *      this script: authentication is the operator-owned step by design.
+ *   6. `auth`      — take `instanceHome` + `authRequired` from the long-lived lifecycle owner's
+ *      `startAgent` status and print the exact per-home login line. Secrets never touch this script:
+ *      authentication is the operator-owned step by design.
  *
- * Idempotent per segment because every underlying contract already is (define/setRepo upsert,
- * repo ensure-or-reuse, start short-circuits when running, boot seeding + wake bootstrap are
- * idempotent at their owners). Dry-run renders the true per-segment delta AND which phase the
- * onboarding is currently in; `--commit` executes exactly that delta.
+ * Idempotent per segment because every underlying contract already is (definition conflicts refuse,
+ * repo drift reconciles through `setRepo`, repo ensure-or-reuse, start short-circuits when running,
+ * boot seeding + wake bootstrap are idempotent at their owners). Dry-run renders the true
+ * per-segment delta AND which phase the onboarding is currently in; `--commit` executes exactly
+ * that delta.
  *
  * **Usage**:
  *   node ai/scripts/fleet/onboardPeer.mjs --resident-id <s> --github-username <s>
- *       --harness-type <codex|claude-code> [--clone-url <s> --repo-slug <s>]   # dry-run
+ *       --harness-type <codex|claude-code> [--clone-url <s> --repo-slug <s>]   # dry-run;
+ *                                                      # pair required unless repo already exists
  *   node ai/scripts/fleet/onboardPeer.mjs ... --commit                          # execute phase delta
  *   node ai/scripts/fleet/onboardPeer.mjs --help
  */
 
-const __filename = fileURLToPath(import.meta.url);
+const
+    __filename       = fileURLToPath(import.meta.url),
+    REPO_ROOT        = path.resolve(path.dirname(__filename), '../../..'),
+    HARNESS_FAMILIES = Object.freeze({
+        'claude-code': 'claude',
+        codex        : 'gpt'
+    });
 
 /**
  * @summary The curated harness families the conductor accepts — must stay a subset of the
@@ -52,6 +64,135 @@ const __filename = fileURLToPath(import.meta.url);
  * @type {ReadonlyArray<String>}
  */
 export const CURATED_HARNESS_TYPES = Object.freeze(['claude-code', 'codex']);
+
+const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
+
+/**
+ * @summary Parse the merged roster source without executing it and return only literal ids from
+ * the canonical exported `IDENTITIES` array. AST parsing makes comments and unrelated strings
+ * inert; a missing/non-literal authority shape fails closed rather than guessing membership.
+ * @param {String} source The `origin/dev:ai/graph/identityRoots.mjs` source text.
+ * @returns {Set<String>} Literal identity ids declared by the exported roster array.
+ */
+function parseIdentityRootIds(source) {
+    const ast = acorn.parse(String(source), {ecmaVersion: 'latest', sourceType: 'module'});
+
+    let identities;
+
+    for (const statement of ast.body) {
+        if (statement.type !== 'ExportNamedDeclaration' || statement.declaration?.type !== 'VariableDeclaration') continue;
+
+        const declarator = statement.declaration.declarations.find(item => item.id?.type === 'Identifier' && item.id.name === 'IDENTITIES');
+
+        if (declarator) {
+            identities = declarator.init;
+            break
+        }
+    }
+
+    if (identities?.type !== 'ArrayExpression') {
+        throw new Error('merged roster must export IDENTITIES as a literal array');
+    }
+
+    const ids = new Set();
+
+    for (const element of identities.elements) {
+        if (element?.type !== 'ObjectExpression') continue;
+
+        const idProperty = element.properties.find(property => property.type === 'Property'
+            && !property.computed
+            && (property.key?.name === 'id' || property.key?.value === 'id'));
+
+        if (idProperty?.value?.type === 'Literal' && typeof idProperty.value.value === 'string') {
+            ids.add(idProperty.value.value);
+        }
+    }
+
+    return ids
+}
+
+/**
+ * @summary Verify membership against the merged roster authority (`origin/dev`), never the
+ * conductor's current feature-branch worktree. This keeps Phase B locked until the ceremony PR
+ * actually merged and the operator refreshed the remote-tracking ref. Git is invoked shell-free;
+ * failures refuse instead of silently treating stale or unavailable authority as membership.
+ * @param {Object} options
+ * @param {String} options.residentId Normalized resident handle.
+ * @param {String} [options.repoRoot] Repository working directory.
+ * @param {Function} [options.execFileImpl] Injectable `execFileSync` seam.
+ * @returns {Boolean} Whether the merged roster contains the exact resident id.
+ */
+export function originDevRosterHasResident({residentId, repoRoot = REPO_ROOT, execFileImpl = execFileSync} = {}) {
+    const normalized = normalizeToken(residentId, 'residentId');
+
+    if (!normalized.valid) {
+        throw new Error(`originDevRosterHasResident: ${normalized.reason}`);
+    }
+
+    let source;
+
+    try {
+        source = execFileImpl('git', ['show', 'origin/dev:ai/graph/identityRoots.mjs'], {
+            cwd     : repoRoot,
+            encoding: 'utf8'
+        });
+    } catch (error) {
+        throw new Error("onboardPeer: cannot verify the merged roster at origin/dev; run 'git fetch origin dev' and re-run", {cause: error});
+    }
+
+    let ids;
+
+    try {
+        ids = parseIdentityRootIds(source)
+    } catch (error) {
+        throw new Error('onboardPeer: cannot parse the merged identity roster at origin/dev; refresh the ref and re-run', {cause: error});
+    }
+
+    return ids.has(`@${normalized.token}`)
+}
+
+/**
+ * @summary Build the CLI's client for the ONE long-lived Fleet lifecycle owner. Every independently
+ * invoked conductor process talks to this HTTP seam rather than constructing a private in-process
+ * `FleetLifecycleService`, so process state and idempotency survive across shells. The request seam
+ * is injectable for exact ephemeral-server tests; transport/envelope unwrapping stays on the shared
+ * {@link createFleetRegistryBridge} contract consumed by the cockpit.
+ * @param {Object} [options]
+ * @param {String} [options.url='http://127.0.0.1:8083/fleet'] Fleet owner endpoint.
+ * @param {Function} [options.fetchImpl=globalThis.fetch] Injectable Fetch implementation.
+ * @returns {Object} Async Fleet wire methods.
+ */
+export function createOnboardingFleetBridge({url = 'http://127.0.0.1:8083/fleet', fetchImpl = globalThis.fetch} = {}) {
+    if (typeof fetchImpl !== 'function') {
+        throw new Error('createOnboardingFleetBridge: fetchImpl must be a function.');
+    }
+
+    const send = async request => {
+        let response;
+
+        try {
+            response = await fetchImpl(url, {
+                method : 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body   : JSON.stringify(request)
+            });
+        } catch (error) {
+            throw new Error(`onboardPeer: long-lived Fleet owner is unreachable at ${url}; start it with 'npm run ai:fleet-server' and re-run`, {cause: error});
+        }
+
+        if (!response?.ok) {
+            throw new Error(`onboardPeer: Fleet owner at ${url} returned HTTP ${response?.status ?? 'unknown'}`);
+        }
+
+        try {
+            return await response.json()
+        } catch (error) {
+            throw new Error(`onboardPeer: Fleet owner at ${url} returned a non-JSON response`, {cause: error});
+        }
+    };
+
+    return createFleetRegistryBridge(send)
+}
 
 /**
  * @summary Normalizes a lowercase token input; fail-closed on empty or malformed values.
@@ -104,6 +245,31 @@ export function buildOnboardingIntent(options = {}) {
         return {valid: false, reason: '--clone-url and --repo-slug come together or not at all (one without the other cannot provision a checkout)', intent: null};
     }
 
+    if (hasCloneUrl) {
+        const
+            cloneUrl = options.cloneUrl.trim(),
+            repoSlug = options.repoSlug.trim();
+
+        if (CONTROL_CHARACTERS.test(cloneUrl) || CONTROL_CHARACTERS.test(repoSlug)) {
+            return {valid: false, reason: '--clone-url and --repo-slug may not contain control characters', intent: null};
+        }
+
+        try {
+            const parsedUrl = new URL(cloneUrl);
+
+            if (parsedUrl.password || (['http:', 'https:'].includes(parsedUrl.protocol) && parsedUrl.username)) {
+                return {valid: false, reason: '--clone-url must not embed credentials; Fleet registry metadata is non-secret', intent: null};
+            }
+            if (['http:', 'https:'].includes(parsedUrl.protocol) && (parsedUrl.search || parsedUrl.hash)) {
+                return {valid: false, reason: '--clone-url HTTP(S) URLs may not contain a query string or fragment; Fleet registry metadata is non-secret', intent: null};
+            }
+        } catch {
+            // SCP-like Git URLs (`git@host:owner/repo.git`) are valid clone inputs but not WHATWG
+            // URLs. The downstream provisioner uses `execFile('git', ['clone', '--', ...])`, so they
+            // remain shell-free; only control characters are rejected above.
+        }
+    }
+
     return {
         valid : true,
         reason: null,
@@ -122,10 +288,10 @@ export function buildOnboardingIntent(options = {}) {
 /**
  * @summary The pure two-phase decision: given the intent and the OBSERVED facts, decide the
  * current phase and the exact per-segment delta. Facts arrive observed (the CLI gathers them;
- * tests inject them) so the planner stays side-effect-free:
- * `agentDefined` / `repoConfigured` (registry reads), `rosterHasResident` (this checkout's
- * committed roster), `graphNodeSeeded` (read-only graph probe; `null` = no graph reachable),
- * `running` / `authRequired` (lifecycle status).
+ * tests inject them) so the planner stays side-effect-free: `agent` (the registry's public
+ * definition, or null), `rosterHasResident` (the merged `origin/dev` roster),
+ * `graphNodeSeeded` (read-only graph probe; `null` = no graph reachable), and `running` /
+ * `authRequired` (lifecycle status).
  * @param {Object} options
  * @param {Object} options.intent A valid intent from {@link buildOnboardingIntent}
  * @param {Object} options.facts Observed facts as described above
@@ -134,43 +300,66 @@ export function buildOnboardingIntent(options = {}) {
 export function planOnboarding({intent, facts = {}} = {}) {
     const
         segments = [],
-        push     = (key, action, detail) => segments.push({key, action, detail});
+        push     = (key, action, detail) => segments.push({key, action, detail}),
+        agent    = facts.agent ?? null;
 
     // --- Phase A segments (always evaluated: re-runs report EXISTS honestly) -----------------
-    push('define', facts.agentDefined ? 'EXISTS' : 'CREATE',
-        `fleet agent '${intent.agentId}' (githubUsername '${intent.githubUsername}', harnessType '${intent.harnessType}')`);
+    if (!agent) {
+        push('define', 'CREATE',
+            `fleet agent '${intent.agentId}' (githubUsername '${intent.githubUsername}', harnessType '${intent.harnessType}')`);
+    } else if (agent.githubUsername === intent.githubUsername && agent.harnessType === intent.harnessType) {
+        push('define', 'EXISTS',
+            `fleet agent '${intent.agentId}' matches githubUsername '${intent.githubUsername}' + harnessType '${intent.harnessType}'`);
+    } else {
+        push('define', 'REFUSE',
+            `fleet agent '${intent.agentId}' exists with a different githubUsername or harnessType — reconcile the occupied definition through the Fleet registry owner before onboarding`);
+    }
+
+    const existingRepo = agent?.metadata?.repo ?? null;
 
     if (intent.repo) {
-        push('repo', facts.repoConfigured ? 'EXISTS' : 'CREATE',
-            `metadata.repo → ${intent.repo.repoSlug} (${intent.repo.cloneUrl})`);
+        if (!existingRepo) {
+            push('repo', 'CREATE',
+                `metadata.repo → ${intent.repo.repoSlug} (clone source configured; credentials forbidden)`);
+        } else if (existingRepo.cloneUrl === intent.repo.cloneUrl && existingRepo.repoSlug === intent.repo.repoSlug) {
+            push('repo', 'EXISTS', `metadata.repo → ${intent.repo.repoSlug}`);
+        } else {
+            push('repo', 'UPDATE',
+                `existing metadata.repo differs — replace it through FleetManager.setRepo with ${intent.repo.repoSlug}`);
+        }
+    } else if (existingRepo) {
+        push('repo', 'EXISTS', 'existing metadata.repo coordinates retained');
     } else {
-        push('repo', 'SKIP', 'no --clone-url/--repo-slug given — the harness will start in the inherited cwd');
+        push('repo', 'REFUSE', 'no existing metadata.repo and no --clone-url/--repo-slug given — peer onboarding never launches in the Fleet process cwd');
     }
 
     // --- The gate: the roster ceremony decides which phase we are in --------------------------
     if (!facts.rosterHasResident) {
         push('roster', 'PRINT',
-            `node ai/scripts/setup/generateRosterOnboarding.mjs --resident-id ${intent.residentId} --github-username ${intent.githubUsername} --family <family>`);
+            `node ai/scripts/setup/generateRosterOnboarding.mjs --handle ${intent.residentId} --github-username ${intent.githubUsername} --family ${HARNESS_FAMILIES[intent.harnessType]}`);
 
         return {
             phase      : 'A',
             segments,
-            gateMessage: `'${intent.residentId}' is not in this checkout's committed roster. Next: run the roster generator above on a feature branch, open the PR (the cross-family-reviewed membership ceremony), merge it, pull, restart the Memory Core server (boot seeding creates the identity node + wake template), then re-run this command.`
+            gateMessage: `'${intent.residentId}' is not in the merged origin/dev roster. Next: run the roster generator above on a feature branch, open the PR (the cross-family-reviewed membership ceremony), merge it, pull/fetch origin/dev, restart the Memory Core server (boot seeding creates the identity node + wake template), then re-run this command.`
         }
     }
 
     // --- Phase B segments ----------------------------------------------------------------------
-    if (facts.graphNodeSeeded === false) {
+    if (segments.some(segment => segment.action === 'REFUSE')) {
+        return {phase: 'B', segments, gateMessage: null}
+    }
+
+    if (facts.graphNodeSeeded !== true) {
         push('preflight', 'REFUSE',
-            `roster entry present but the graph carries no '${intent.residentId}' AgentIdentity node — restart the Memory Core server so boot seeding materializes it, then re-run`);
+            facts.graphNodeSeeded === false
+                ? `roster entry present but the graph carries no '${intent.residentId}' AgentIdentity node — restart the Memory Core server so boot seeding materializes it, then re-run`
+                : 'the configured Memory Core graph is not reachable read-only — start or reconnect the owning Memory Core server and re-run; unverifiable identity state never reaches launch');
 
         return {phase: 'B', segments, gateMessage: null}
     }
 
-    push('preflight', facts.graphNodeSeeded === null ? 'WARN' : 'OK',
-        facts.graphNodeSeeded === null
-            ? 'no live graph reachable read-only — cannot verify seeding; the launch will still be attempted on --commit'
-            : `roster entry + seeded '${intent.residentId}' AgentIdentity node verified`);
+    push('preflight', 'OK', `roster entry + seeded '${intent.residentId}' AgentIdentity node verified`);
 
     push('launch', facts.running ? 'EXISTS' : 'CREATE',
         facts.running
@@ -180,7 +369,9 @@ export function planOnboarding({intent, facts = {}} = {}) {
     push('auth', 'PRINT',
         facts.authRequired === false
             ? 'per-home credentials already present — no login step required'
-            : `per-home login required once (surfaced via status().authRequired after launch)`);
+            : facts.authRequired === true
+                ? 'per-home login required once (surfaced via status().authRequired after launch)'
+                : 'auth state UNKNOWN until the long-lived owner returns live launch status');
 
     return {phase: 'B', segments, gateMessage: null}
 }
@@ -205,6 +396,37 @@ export function renderPlan(intent, plan) {
 
     lines.push('');
     return lines;
+}
+
+/**
+ * @summary Build the exact operator-owned login command from the instance home resolved by the
+ * lifecycle service. The home and executable are owned launch-contract outputs — never guessed
+ * from the resident id or PATH — and are single-quoted so shell metacharacters remain data.
+ * @param {Object} options
+ * @param {String} options.harnessType Curated harness family.
+ * @param {String} options.instanceHome Absolute instance home from lifecycle status.
+ * @param {String} options.launchCommand Absolute executable path from lifecycle status.
+ * @returns {String}
+ */
+export function buildLoginCommand({harnessType, instanceHome, launchCommand} = {}) {
+    if (!CURATED_HARNESS_TYPES.includes(harnessType)) {
+        throw new Error(`buildLoginCommand: unsupported harnessType '${String(harnessType)}'.`);
+    }
+    if (typeof instanceHome !== 'string' || !path.isAbsolute(instanceHome) || CONTROL_CHARACTERS.test(instanceHome)) {
+        throw new Error('buildLoginCommand: lifecycle status must provide a control-character-free absolute instanceHome.');
+    }
+    if (typeof launchCommand !== 'string' || !path.isAbsolute(launchCommand) || CONTROL_CHARACTERS.test(launchCommand)) {
+        throw new Error('buildLoginCommand: lifecycle status must provide a control-character-free absolute launchCommand.');
+    }
+
+    const
+        quote         = value => `'${value.replaceAll("'", "'\\''")}'`,
+        quotedHome    = quote(instanceHome),
+        quotedCommand = quote(launchCommand);
+
+    return harnessType === 'codex'
+        ? `CODEX_HOME=${quotedHome} ${quotedCommand} login`
+        : `CLAUDE_CONFIG_DIR=${quotedHome} ${quotedCommand}  # then /login inside the session`;
 }
 
 /**
@@ -264,6 +486,7 @@ function printUsage() {
     console.log('');
     console.log('  (no flags)  Dry-run — print the two-phase segment delta without touching anything.');
     console.log('  --commit    Execute the CURRENT phase\'s delta through the owning fleet services.');
+    console.log('  repo pair   Required for a new resident; omission reuses an existing metadata.repo only.');
     console.log('');
     console.log('  There is deliberately NO --model flag (engine truth is observation-owned) and NO');
     console.log('  name flag (Social Names are the post-boot peer ritual). Identity + wake substrate');
@@ -294,23 +517,23 @@ async function main() {
 
     const {intent} = built;
 
-    // Fact gathering (the side-effect half; every read is an owned surface). The Neo bootstrap +
-    // service imports are LAZY and sequenced so `--help` and the module import stay runnable in a
-    // bare fresh process.
+    // Fact gathering (the side-effect half; every Fleet read hits the ONE long-lived HTTP owner).
+    // The Neo bootstrap + graph/config imports stay LAZY so `--help` and the module import remain
+    // runnable in a bare fresh process.
     await import('../../../src/Neo.mjs');
     await import('../../../src/core/_export.mjs');
 
     const
-        {default: FleetRegistryService}  = await import('../../services/fleet/FleetRegistryService.mjs'),
-        {default: FleetLifecycleService} = await import('../../services/fleet/FleetLifecycleService.mjs'),
-        {default: FleetManager}          = await import('../../services/fleet/FleetManager.mjs'),
-        {IDENTITIES}                     = await import('../../graph/identityRoots.mjs'),
         // the graph db path is OWNED by the memory-core server config (its useTestDatabase-derived
         // formula), not the root config — same layering the Day-0 lineage established
-        {default: memoryCoreConfig}      = await import('../../mcp/server/memory-core/config.mjs'),
-        {existsSync}                     = await import('node:fs');
+        {default: memoryCoreConfig} = await import('../../mcp/server/memory-core/config.mjs'),
+        {existsSync}                = await import('node:fs'),
+        fleet                       = createOnboardingFleetBridge();
 
-    const agent = FleetRegistryService.getAgent(intent.agentId);
+    const [agent, runtimeRows] = await Promise.all([
+        fleet.getAgent(intent.agentId),
+        fleet.fleetRuntimeStatus()
+    ]);
 
     // Read-only graph probe: absent file / absent node are DISTINCT facts (null = unverifiable).
     let   graphNodeSeeded = null;
@@ -328,11 +551,10 @@ async function main() {
     }
 
     const facts = {
-        agentDefined     : Boolean(agent),
-        repoConfigured   : Boolean(agent?.metadata?.repo),
-        rosterHasResident: IDENTITIES.some(identity => identity.id === `@${intent.residentId}`),
+        agent,
+        rosterHasResident: originDevRosterHasResident({residentId: intent.residentId}),
         graphNodeSeeded,
-        running          : FleetLifecycleService.isRunning(intent.agentId),
+        running          : Boolean(runtimeRows.find(row => row.agentId === intent.agentId)?.running),
         authRequired     : null
     };
 
@@ -352,10 +574,10 @@ async function main() {
     }
 
     for (const segment of plan.segments) {
-        if (segment.action !== 'CREATE') continue;
+        if (!['CREATE', 'UPDATE'].includes(segment.action)) continue;
 
-        if (segment.key === 'define') {
-            FleetRegistryService.defineAgent({
+        if (segment.key === 'define' && segment.action === 'CREATE') {
+            await fleet.defineAgent({
                 id            : intent.agentId,
                 githubUsername: intent.githubUsername,
                 harnessType   : intent.harnessType
@@ -364,22 +586,32 @@ async function main() {
         }
 
         if (segment.key === 'repo') {
-            FleetManager.setRepo({id: intent.agentId, cloneUrl: intent.repo.cloneUrl, repoSlug: intent.repo.repoSlug});
+            await fleet.setRepo({id: intent.agentId, cloneUrl: intent.repo.cloneUrl, repoSlug: intent.repo.repoSlug});
             console.log(`  [DONE] repo — ${intent.repo.repoSlug}`);
         }
+    }
 
-        if (segment.key === 'launch') {
-            const status = await FleetManager.startAgent(intent.agentId);
-            console.log(`  [DONE] launch — state '${status.state}' (pid ${status.pid ?? 'n/a'})`);
+    // `startAgent` is idempotent at the long-lived owner: call it for CREATE *or* EXISTS so a
+    // cross-shell re-run returns the authoritative auth/home status without spawning a duplicate.
+    if (plan.segments.some(segment => segment.key === 'launch')) {
+        const status = await fleet.startAgent(intent.agentId);
 
-            if (status.authRequired) {
-                const home = status.instanceHome ?? '<instance home>';
-                console.log('');
-                console.log('  LOGIN REQUIRED (operator-owned, exactly once for this home):');
-                console.log(intent.harnessType === 'codex'
-                    ? `    CODEX_HOME=${home} codex login`
-                    : `    CLAUDE_CONFIG_DIR=${home} claude  # then /login inside the session`);
-            }
+        console.log(`  [DONE] launch — state '${status.state}' (pid ${status.pid ?? 'n/a'})`);
+
+        if (status.authRequired === true) {
+            const loginCommand = buildLoginCommand({
+                harnessType  : intent.harnessType,
+                instanceHome : status.instanceHome,
+                launchCommand: status.launchCommand
+            });
+
+            console.log('');
+            console.log('  LOGIN REQUIRED (operator-owned, exactly once for this home):');
+            console.log(`    ${loginCommand}`);
+        } else if (status.authRequired === false) {
+            console.log('  [DONE] auth — per-home credentials already present');
+        } else {
+            console.log('  [WARN] auth — the owner returned no curated auth state; no login command was guessed');
         }
     }
 
