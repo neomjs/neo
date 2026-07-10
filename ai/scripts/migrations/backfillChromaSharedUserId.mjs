@@ -40,8 +40,9 @@
  * @see ai/services/memory-core/SummaryService.mjs
  */
 
-import path from 'node:path';
+import path            from 'node:path';
 import {fileURLToPath} from 'node:url';
+import kbConfig        from '../../mcp/server/knowledge-base/config.mjs';
 import {
     createDynamicTextEmbeddingFunction,
     registerNeoChromaEmbeddingFunctions
@@ -77,13 +78,15 @@ registerNeoChromaEmbeddingFunctions();
 
 function parseArgs(argv) {
     const args = {
-        apply       : false,
-        help        : false,
-        host        : process.env.NEO_CHROMA_HOST || process.env.NEO_KB_CHROMA_HOST || 'localhost',
-        port        : Number(process.env.NEO_CHROMA_PORT || process.env.NEO_KB_CHROMA_PORT || 8000),
-        memoryOnly  : false,
-        sessionOnly : false,
-        debugHidden : false
+        apply: false,
+        help : false,
+        // The KB server config OWNS the chroma endpoint (default + the NEO_CHROMA_* env
+        // bindings) — consumed at the use site, never re-derived from env with a shadow default.
+        host       : kbConfig.host,
+        port       : kbConfig.port,
+        memoryOnly : false,
+        sessionOnly: false,
+        debugHidden: false
     };
     for (let i = 2; i < argv.length; i++) {
         const a = argv[i];
@@ -176,12 +179,12 @@ function hasCoreSwarmParticipant(participatingAgents) {
  */
 async function findRecordsToTag(collection, {promoteCoreSwarmSummaries = false, debugHidden = false} = {}) {
     const tagRecords           = [];
-    let totalScanned           = 0;
-    let alreadyTagged          = 0;
-    let untagged               = 0;
-    let alreadyShared          = 0;
-    let coreSwarmParticipant   = 0;
-    let batchOffset            = 0;
+    let   totalScanned         = 0;
+    let   alreadyTagged        = 0;
+    let   untagged             = 0;
+    let   alreadyShared        = 0;
+    let   coreSwarmParticipant = 0;
+    let   batchOffset          = 0;
 
     while (true) {
         const batch = await collection.get({
@@ -198,10 +201,10 @@ async function findRecordsToTag(collection, {promoteCoreSwarmSummaries = false, 
 
             // Treat both missing key AND empty-string as untagged. Mirrors the
             // COALESCE(...) IS NULL OR = '' pattern in HealthService graph-side checker.
-            const userId = metadata && metadata.userId;
+            const userId           = metadata && metadata.userId;
             const normalizedUserId = normalizeUserId(userId);
-            const missingUserId = userId === undefined || userId === null || userId === '';
-            const hasCorePeer = promoteCoreSwarmSummaries && hasCoreSwarmParticipant(metadata?.participatingAgents);
+            const missingUserId    = userId === undefined || userId === null || userId === '';
+            const hasCorePeer      = promoteCoreSwarmSummaries && hasCoreSwarmParticipant(metadata?.participatingAgents);
 
             if (missingUserId) {
                 untagged++;
@@ -278,7 +281,7 @@ async function processCollection(client, collectionName, args) {
     const total = await collection.count();
     console.log(`  total records: ${total}`);
 
-    const promoteCoreSwarmSummaries = collectionName === COLLECTION_SESSION;
+    const promoteCoreSwarmSummaries                                                                              = collectionName === COLLECTION_SESSION;
     const {tagRecords: recordsToTag, totalScanned, alreadyTagged, untagged, alreadyShared, coreSwarmParticipant} = await findRecordsToTag(collection, {
         promoteCoreSwarmSummaries,
         debugHidden: args.debugHidden
@@ -323,7 +326,7 @@ async function main() {
     console.log(`[backfillChromaSharedUserId] collections: ${[targetMemory && COLLECTION_MEMORY, targetSession && COLLECTION_SESSION].filter(Boolean).join(', ')}`);
 
     const {ChromaClient} = await import('chromadb');
-    const client = new ChromaClient({host: args.host, port: args.port, ssl: false});
+    const client         = new ChromaClient({host: args.host, port: args.port, ssl: false});
 
     // Quick reachability check
     try {
