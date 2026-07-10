@@ -190,6 +190,17 @@ class DockLayoutAdapter extends Base {
 
     /**
      * Projects the model root into a Neo-compatible config tree.
+     *
+     * The returned ROOT config carries the dock token SCOPE with it: the `--dock-transition-*`
+     * tokens, reveal keyframes and splitter cursors all live in the `Neo.dashboard.Container`
+     * theme file, scoped to `.neo-dashboard` — but a projected dock tree is plain containers,
+     * so no element ever carried the scope and the motion contract was invisible on every
+     * dock-zone surface. The projection root stamps the scope class itself, so it rides every
+     * re-projection by construction. The CSS-LOADING half cannot ride the projection — the
+     * worker reads `additionalThemeFiles` from the class prototype, never from instance
+     * configs — so each consuming workspace declares
+     * `additionalThemeFiles: ['Neo.dashboard.Container']` in its own static config (one line;
+     * the `DemoAWorkspace` token-bridge precedent).
      * @param {Object} model
      * @param {Object} [options={}]
      * @param {Function} [options.resolveComponentRef]
@@ -207,7 +218,7 @@ class DockLayoutAdapter extends Base {
             throw new Error('DockLayoutAdapter requires a model with `root` and `nodes`.')
         }
 
-        return this.projectNode(model.root, {
+        let config = this.projectNode(model.root, {
             applyDockZoneOperation  : options.applyDockZoneOperation,
             autoHideRevealOnHover   : options.autoHideRevealOnHover === true,
             defaultRevealFraction   : Number.isFinite(options.defaultRevealFraction) ? options.defaultRevealFraction : null,
@@ -217,7 +228,11 @@ class DockLayoutAdapter extends Base {
             onDockCrossZoneDrop     : options.onDockCrossZoneDrop,
             onDockZoneDocumentChange: options.onDockZoneDocumentChange,
             resolveComponentRef     : options.resolveComponentRef || (() => null)
-        })
+        });
+
+        config.cls = [...new Set([...(config.cls || []), 'neo-dashboard'])];
+
+        return config
     }
 
     /**
