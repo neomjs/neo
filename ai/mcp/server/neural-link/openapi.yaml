@@ -214,6 +214,13 @@ paths:
 
         **When to Use:**
         To inspect the current state of any Neo instance (e.g., Component, Store, Controller, Manager).
+
+        **Serialization contract (deep objects):** a property whose value is itself a Neo instance
+        (e.g. `vnode`, a hosted store) arrives as a compact identity SNAPSHOT via `toJSON()`, marked
+        `__truncated: 'neo-instance-snapshot'` — never as the full object graph. Treat a marked
+        payload as "structure not included", not as evidence about the structure's size or content.
+        For tree-shaped reads use `query_vdom`, `get_component_tree`, or
+        `inspect_component_render_tree` instead.
       tags: [Instance]
       requestBody:
         required: true
