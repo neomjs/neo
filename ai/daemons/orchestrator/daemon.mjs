@@ -34,11 +34,39 @@ import AiConfig                              from '../../config.mjs';
 import Orchestrator, {rotateLogFileIfNewDay} from './Orchestrator.mjs';
 import {assertConfigFresh}                   from '../../scripts/setup/initServerConfigs.mjs';
 
-const DAEMON_DATA_DIR               = process.env.NEO_AI_ORCHESTRATOR_DIR || '.neo-ai-data/orchestrator-daemon';
-const PID_FILE                      = path.join(DAEMON_DATA_DIR, 'orchestrator-daemon.pid');
-const LOG_FILE                      = path.join(DAEMON_DATA_DIR, 'orchestrator.log');
 const ORCHESTRATOR_DAEMON_PATH_TAIL = 'ai/daemons/orchestrator/daemon.mjs';
 export const LOCAL_AI_CONFIG_FILE = fileURLToPath(new URL('../../config.mjs', import.meta.url));
+
+/**
+ * @summary Resolves the orchestrator daemon's runtime data directory from the config provider.
+ *
+ * The provider owns the default AND the `NEO_AI_ORCHESTRATOR_DIR` env binding, so this
+ * entrypoint reads the resolved leaf instead of re-deriving it from `process.env` with a
+ * shadow default. Resolved lazily at each use site (all of which run after the boot-time
+ * config-freshness guard) rather than via an eager module-level `path.join`: on a stale
+ * config overlay the leaf is missing, and an eager join would crash module evaluation
+ * before the guard can name the actionable `--migrate-config` fix.
+ * @returns {String}
+ */
+function daemonDataDir() {
+    return AiConfig.orchestrator.dataDir;
+}
+
+/**
+ * @summary Resolves the daemon singleton PID-file path under {@link daemonDataDir}.
+ * @returns {String}
+ */
+function pidFilePath() {
+    return path.join(daemonDataDir(), 'orchestrator-daemon.pid');
+}
+
+/**
+ * @summary Resolves the shared orchestrator log-file path under {@link daemonDataDir}.
+ * @returns {String}
+ */
+function logFilePath() {
+    return path.join(daemonDataDir(), 'orchestrator.log');
+}
 
 /**
  * @summary Checks whether a process command belongs to this daemon entry point.
@@ -51,16 +79,18 @@ export function isOrchestratorDaemonCommand(cmd) {
 }
 
 function writeLog(level, message) {
+    const logFile = logFilePath();
+
     // Both this wrapper writer AND Orchestrator.writeLog append to the same orchestrator.log, so
     // BOTH must rotate-before-append: an unguarded append here would advance the file's mtime past
     // the day boundary and defeat the mtime-based daily rotation.
-    rotateLogFileIfNewDay(LOG_FILE);
+    rotateLogFileIfNewDay(logFile);
 
     const timestamp = new Date().toISOString();
     const line      = `[${timestamp}] [PID:${process.pid}] [${level}] ${message}`;
 
     try {
-        fs.appendFileSync(LOG_FILE, line + '\n', 'utf8');
+        fs.appendFileSync(logFile, line + '\n', 'utf8');
     } catch (e) {}
 
     if (level === 'ERROR') {
@@ -90,17 +120,21 @@ async function waitForExit(pid, timeoutMs) {
 }
 
 function removePidFile() {
+    const pidFile = pidFilePath();
+
     try {
-        if (fs.existsSync(PID_FILE) && parseInt(fs.readFileSync(PID_FILE, 'utf8'), 10) === process.pid) {
-            fs.unlinkSync(PID_FILE);
+        if (fs.existsSync(pidFile) && parseInt(fs.readFileSync(pidFile, 'utf8'), 10) === process.pid) {
+            fs.unlinkSync(pidFile);
         }
     } catch (e) {}
 }
 
 async function enforceSingleton() {
-    if (fs.existsSync(PID_FILE)) {
+    const pidFile = pidFilePath();
+
+    if (fs.existsSync(pidFile)) {
         try {
-            const oldPid = parseInt(fs.readFileSync(PID_FILE, 'utf8'), 10);
+            const oldPid = parseInt(fs.readFileSync(pidFile, 'utf8'), 10);
             if (!Number.isNaN(oldPid) && oldPid > 0 && oldPid !== process.pid) {
                 let isAlive = false;
 
@@ -128,7 +162,7 @@ async function enforceSingleton() {
         }
     }
 
-    fs.writeFileSync(PID_FILE, process.pid.toString(), 'utf8');
+    fs.writeFileSync(pidFile, process.pid.toString(), 'utf8');
 }
 
 function setupCleanupHandlers() {
@@ -183,13 +217,15 @@ export async function loadLocalAiConfig({
  * @returns {Promise<void>}
  */
 export async function startOrchestrator(options = {}) {
-    fs.ensureDirSync(DAEMON_DATA_DIR);
+    const dataDir = daemonDataDir();
+
+    fs.ensureDirSync(dataDir);
     await enforceSingleton();
     setupCleanupHandlers();
     await loadLocalAiConfig();
 
     return Orchestrator.start({
-        dataDir                  : DAEMON_DATA_DIR,
+        dataDir,
         primaryDevSyncRootsConfig: AiConfig.orchestrator.devSyncRoots,
         ...options
     });

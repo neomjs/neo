@@ -1179,6 +1179,27 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         expect(orchestrator.taskDefinitions.mlx).toBeUndefined();
     });
 
+    test('keeps the pre-start dbPath leaf reactive while an explicit override remains stable', () => {
+        const orchestrator = Neo.create(Orchestrator);
+        const originalPath = AiConfig.orchestrator.dbPath;
+
+        try {
+            orchestrator.dbPath = null;
+            AiConfig.setEnvOverride('NEO_AI_DB_PATH', '/tmp/orchestrator-provider-first.sqlite');
+            expect(orchestrator.dbPath).toBe('/tmp/orchestrator-provider-first.sqlite');
+
+            AiConfig.setEnvOverride('NEO_AI_DB_PATH', '/tmp/orchestrator-provider-refreshed.sqlite');
+            expect(orchestrator.dbPath).toBe('/tmp/orchestrator-provider-refreshed.sqlite');
+
+            orchestrator.dbPath = '/tmp/orchestrator-explicit.sqlite';
+            AiConfig.setEnvOverride('NEO_AI_DB_PATH', '/tmp/orchestrator-provider-third.sqlite');
+            expect(orchestrator.dbPath).toBe('/tmp/orchestrator-explicit.sqlite');
+        } finally {
+            orchestrator.dbPath = null;
+            AiConfig.setEnvOverride('NEO_AI_DB_PATH', originalPath);
+        }
+    });
+
     test('passes local mlx launch model config into task definitions', () => {
         const savedMlx = {...AiConfig.orchestrator.mlx};
 

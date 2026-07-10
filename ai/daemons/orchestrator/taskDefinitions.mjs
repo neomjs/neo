@@ -5,8 +5,15 @@ import {fileURLToPath} from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
-export const DEFAULT_DB_PATH    = process.env.NEO_AI_DB_PATH || '.neo-ai-data/sqlite/memory-core-graph.sqlite';
-export const DEFAULT_DATA_DIR   = process.env.NEO_AI_ORCHESTRATOR_DIR || '.neo-ai-data/orchestrator-daemon';
+/**
+ * Default maintenance-script directory, resolved relative to this module.
+ *
+ * The orchestrator's db path + runtime-state dir carry NO re-export here: consumers read the
+ * `AiConfig.orchestrator.dbPath` / `AiConfig.orchestrator.dataDir` leaves inline at each use
+ * site — exporting a resolved leaf freezes it at module load and hands consumers a
+ * config-shaped constant, both forbidden by the config-is-SSOT contract.
+ * @type {String}
+ */
 export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../../scripts');
 
 const DEFAULT_CHROMA_HEALTH_ENDPOINT   = '/api/v2/heartbeat';
