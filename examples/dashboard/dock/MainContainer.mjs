@@ -1,4 +1,5 @@
 import DockLayoutAdapter    from '../../../src/dashboard/DockLayoutAdapter.mjs';
+import DockMotionSignal     from '../../../src/dashboard/DockMotionSignal.mjs';
 import DockPreviewProducer  from '../../../src/dashboard/DockPreviewProducer.mjs';
 import DockZoneModel        from '../../../src/dashboard/DockZoneModel.mjs';
 import Viewport             from '../../../src/container/Viewport.mjs';
@@ -394,7 +395,14 @@ class MainContainer extends Viewport {
         this.add(this.buildWorkspaceItems());
 
         // FLIP phase 2: fire-and-forget — the addon self-waits for the swap, inverts, plays
-        flip?.play({hostId: this.id, markerPrefix: 'dock-flip-item-'})?.catch?.(() => {})
+        // the counted motion signal brackets the awaited animation window — ownership
+        // lives in DockMotionSignal (fail-safe backstopped), never in the addon
+        if (flip) {
+            DockMotionSignal.enter(this);
+            flip.play({hostId: this.id, markerPrefix: 'dock-flip-item-'})
+                .catch(() => {})
+                .finally(() => DockMotionSignal.leave(this))
+        }
     }
 
     /**

@@ -96,15 +96,20 @@ class DockFlip extends Base {
      * then play the transition to their new geometry. Safe to call unconditionally after a
      * swap — with no prior `captureFirst()` snapshot, or under reduced motion, it no-ops and
      * the layout simply lands.
+     * Duration and easing resolve from the motion-contract tokens (`--dock-transition-duration`
+     * / `--dock-transition-easing`) on the host's computed style — zero local duration policy;
+     * explicit opts override for special takes, and the hardcoded values are last-resort
+     * fallbacks for hosts outside any token scope. A token collapsed to `0ms` (the token-layer
+     * reduced-motion path) lands instantly, same as the media-query guard.
      * @param {Object} opts
      * @param {String} opts.hostId            The dock host element id
      * @param {String} opts.markerPrefix      The marker-class prefix used in `captureFirst()`
-     * @param {Number} [opts.duration=280]    Transition duration in ms (the design language's standard-decelerate beat)
-     * @param {String} [opts.easing='cubic-bezier(0,0,0.2,1)'] Transition timing function
+     * @param {Number} [opts.duration]        Explicit override; default = the token, then 280ms
+     * @param {String} [opts.easing]          Explicit override; default = the token, then standard-decelerate
      * @param {Number} [opts.maxFrames=15]    Bounded frame-poll for the new tree to appear
-     * @returns {Promise<Boolean>} true if an animation played, false on any instant-landing path
+     * @returns {Promise<Boolean>} true if an animation played (resolves AFTER the motion completes), false on any instant-landing path
      */
-    async play({hostId, markerPrefix, duration = 280, easing = 'cubic-bezier(0,0,0.2,1)', maxFrames = 15}) {
+    async play({hostId, markerPrefix, duration = null, easing = null, maxFrames = 15}) {
         const first = this.#firstRects[hostId];
 
         let hostEl,
@@ -131,6 +136,17 @@ class DockFlip extends Base {
 
         if (!first?.rects.size || matchMedia('(prefers-reduced-motion: reduce)').matches) {
             return false
+        }
+
+        hostEl = document.getElementById(hostId);
+
+        const tokens = hostEl && getComputedStyle(hostEl);
+
+        duration ??= parseFloat(tokens?.getPropertyValue('--dock-transition-duration')) || 280;
+        easing   ||= tokens?.getPropertyValue('--dock-transition-easing').trim() || 'cubic-bezier(0, 0, 0.2, 1)';
+
+        if (!(duration > 0)) {
+            return false // token-layer reduced-motion collapse: land instantly
         }
 
         const firstRects = first.rects;
@@ -187,12 +203,10 @@ class DockFlip extends Base {
                 return false
             }
 
-            // the motion-contract observability signal (owned by the dock transition-layer
-            // contract): hosts carry `dock-animating` for exactly the duration of the motion,
-            // so e2e observe_motion assertions consume ONE signal regardless of mechanism
-            hostEl = document.getElementById(hostId);
-
-            hostEl?.classList.add('dock-animating');
+            // the observability signal (`neo-dashboard-dock-animating`) is OWNED by the
+            // worker-side Neo.dashboard.DockMotionSignal (counted lifecycle) — consumers
+            // bracket enter/leave around this awaited promise; the addon never toggles it
+            // (cleanup still strips the legacy `dock-animating` class defensively)
 
             // Invert: place every survivor on its old geometry, entering panes at their birth state
             moves.forEach(({el, transform, fade}) => {
@@ -211,7 +225,12 @@ class DockFlip extends Base {
                 el.style.opacity    = ''
             });
 
-            setTimeout(cleanup, duration + 50);
+            // resolve AFTER the motion completes, so an awaiting consumer's signal bracket
+            // (DockMotionSignal enter/leave) covers the true animation window; the idempotent
+            // cleanup owns every temporary visual mutation (the hardening contract)
+            await new Promise(resolve => setTimeout(resolve, duration + 50));
+
+            cleanup();
 
             return true
         } catch (e) {
