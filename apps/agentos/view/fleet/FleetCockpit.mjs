@@ -122,6 +122,15 @@ class FleetCockpit extends Container {
      */
     lastLiveRows = null
     /**
+     * Re-entrancy latch for {@link #onRosterStoreLoad}: the store fires `load` for its own
+     * mutations (mutate → onCollectionMutate → load), so the guard's reconciliation adds/removals
+     * re-trigger the very listener that issued them — unlatched, that recursion is a real stack
+     * overflow (~524 frames on a 5k-row snapshot).
+     * @member {Boolean} reconcilingRoster=false
+     * @protected
+     */
+    reconcilingRoster = false
+    /**
      * Set once {@link #loadRoster} has replaced the sample seed with a wired roster payload —
      * subsequent wired payloads MERGE onto the existing records (runtime status refresh) instead of
      * re-seeding the store.
@@ -152,13 +161,21 @@ class FleetCockpit extends Container {
      * later `load` would silently replace live rows (the grid still claiming `live`). Any store
      * load landing AFTER live truth re-applies the last authoritative snapshot — idempotent,
      * fail-closed toward live. A load before live truth is the normal seed path and passes through.
+     * Latched via {@link #reconcilingRoster}: the reconciliation's own mutations fire `load` back
+     * into this listener.
      * @protected
      */
     onRosterStoreLoad() {
         let me = this;
 
-        if (me.rosterWired && me.lastLiveRows) {
-            me.reconcileRoster(me.getReference('fleet-grid').store, me.lastLiveRows)
+        if (!me.reconcilingRoster && me.rosterWired && me.lastLiveRows) {
+            me.reconcilingRoster = true;
+
+            try {
+                me.reconcileRoster(me.getReference('fleet-grid').store, me.lastLiveRows)
+            } finally {
+                me.reconcilingRoster = false
+            }
         }
     }
 
@@ -294,13 +311,18 @@ class FleetCockpit extends Container {
      * @protected
      */
     reconcileRoster(store, rows) {
-        const snapshotIds = new Set(rows.map(row => row.agentId));
+        const
+            snapshotIds = new Set(rows.map(row => row.agentId)),
+            joiners     = [];
 
         rows.forEach(row => {
             const record = store.get(row.agentId);
 
-            record ? record.set(row) : store.add(row)
+            record ? record.set(row) : joiners.push(row)
         });
+
+        // one batched add — every store mutation fires `load`, so per-row adds would fan out
+        joiners.length > 0 && store.add(joiners);
 
         store.items
             .filter(record => !snapshotIds.has(record.agentId))

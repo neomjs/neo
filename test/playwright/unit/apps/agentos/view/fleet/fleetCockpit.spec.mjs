@@ -302,25 +302,33 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
     });
 
     // Source precedence: the provider-hosted store autoLoads the JSON sample while loadRoster races
-    // the bridge. These run against a REAL isolated FleetRoster instance so the reconciliation is
-    // exercised end-to-end, with onRosterStoreLoad standing in for the store's late `load` event.
-    const makeLiveCockpit = store => {
+    // the bridge. These run against a REAL isolated FleetRoster instance with the REAL load
+    // listener attached (the store fires `load` for its own mutations, so the guard's recursion
+    // behavior is only observable through the live listener path — a manual handler call is a
+    // mock-hole).
+    const makeLiveCockpit = (store, index) => {
         const grid = {adapterState: 'sample', store};
 
-        return {
+        const cockpit = {
             getReference     : reference => reference === 'fleet-grid' ? grid : null,
             grid,
+            id               : `fake-fleet-cockpit-${index}`,
             lastLiveRows     : null,
             mapRosterRow     : FleetCockpit.prototype.mapRosterRow,
             onRosterStoreLoad: FleetCockpit.prototype.onRosterStoreLoad,
             reconcileRoster  : FleetCockpit.prototype.reconcileRoster,
+            reconcilingRoster: false,
             rosterWired      : false
-        }
+        };
+
+        store.on({load: cockpit.onRosterStoreLoad, scope: cockpit});
+
+        return cockpit
     };
 
     test('a sample seed landing AFTER live truth cannot overwrite the roster (fail-closed toward live)', async () => {
         const store   = Neo.create(FleetRoster, {data: []}),
-              cockpit = makeLiveCockpit(store);
+              cockpit = makeLiveCockpit(store, 1);
 
         globalThis.AgentOS = {fleet: {registryBridge: {fleetRoster: async () => ({rows: [
             {id: 'ada',  family: 'claude', lifecycle: {state: 'running'}},
@@ -334,10 +342,10 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         expect(cockpit.lastLiveRows.map(row => row.agentId)).toEqual(['ada', 'vega']);
         expect(store.getCount()).toBe(2);
 
-        // now the slower JSON seed lands: the url pipeline replaces the items and fires `load`
+        // now the slower JSON seed lands: replace the items — the store fires `load` itself,
+        // reaching the guard through the REAL listener
         store.clear();
         store.add([{agentId: 'sample-1'}, {agentId: 'sample-2'}, {agentId: 'sample-3'}]);
-        cockpit.onRosterStoreLoad();
 
         // live truth is re-asserted: sample rows evicted, live residents restored
         expect(store.getCount()).toBe(2);
@@ -350,14 +358,42 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
 
     test('a seed load BEFORE live truth passes through untouched (the normal boot path)', () => {
         const store   = Neo.create(FleetRoster, {data: []}),
-              cockpit = makeLiveCockpit(store);
+              cockpit = makeLiveCockpit(store, 2);
 
-        // the seed lands while nothing live exists yet
+        // the seed lands while nothing live exists yet — the store's own load fires the guard
         store.add([{agentId: 'sample-1'}, {agentId: 'sample-2'}]);
-        cockpit.onRosterStoreLoad();
 
         expect(store.getCount()).toBe(2);
         expect(store.get('sample-1')).toBeTruthy();
+
+        store.destroy()
+    });
+
+    test('guard re-entry is latched: reconciling a large snapshot through the live listener cannot overflow the stack', async () => {
+        const store   = Neo.create(FleetRoster, {data: []}),
+              cockpit = makeLiveCockpit(store, 3);
+
+        // 1,000 authoritative rows — the unlatched recursion overflowed at ~524 nested frames
+        const rows = Array.from({length: 1000}, (item, index) => ({
+            id: `agent-${index}`, lifecycle: {state: 'running'}
+        }));
+
+        globalThis.AgentOS = {fleet: {registryBridge: {fleetRoster: async () => ({rows})}}};
+
+        await FleetCockpit.prototype.loadRoster.call(cockpit);
+
+        expect(cockpit.rosterWired).toBe(true);
+        expect(store.getCount()).toBe(1000);
+
+        // a late seed load now triggers reconciliation of all 1,000 rows THROUGH the listener:
+        // every joiner add fires `load` back at the guard — the latch must hold
+        store.clear();
+        store.add([{agentId: 'sample-1'}]);
+
+        expect(store.getCount()).toBe(1000);
+        expect(store.get('agent-0')).toBeTruthy();
+        expect(store.get('agent-999')).toBeTruthy();
+        expect(store.get('sample-1')).toBeFalsy();
 
         store.destroy()
     });
