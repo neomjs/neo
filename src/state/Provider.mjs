@@ -161,7 +161,31 @@ class Provider extends Base {
          *     }
          * @reactive
          */
-        stores_: null,
+        stores_: {
+            [isDescriptor]: true,
+            /**
+             * Compares provider store maps by key and instance identity.
+             * @summary Allows same-id replacement instances to commit while suppressing identical mappings.
+             * @param {Object|null} value
+             * @param {Object|null} oldValue
+             * @returns {Boolean}
+             */
+            isEqual(value, oldValue) {
+                if (value === oldValue) {
+                    return true
+                }
+
+                if (!value || !oldValue) {
+                    return false
+                }
+
+                const keys = Object.keys(value);
+
+                return keys.length === Object.keys(oldValue).length
+                    && keys.every(key => value[key] === oldValue[key])
+            },
+            value: null
+        },
         /**
          * @member {String|null} windowId=null
          */
@@ -192,10 +216,9 @@ class Provider extends Base {
      */
     #ownedStores = new Set()
     /**
-     * Bumped on every reactive `stores` replacement and suffixed into the predictable provider-store
-     * ids. Reusing the exact id of a just-destroyed owned store would make the replacement look like
-     * a no-op to the config system's equality check (instances compare by their serialized id), so
-     * the new value would never get stored — a fresh generation keeps replacement ids unique.
+     * Bumped on every reactive `stores` replacement and suffixed into generated provider-store ids.
+     * A fresh generation keeps implicit ids unique; explicit caller-provided ids remain unchanged
+     * and replacement identity is detected by the `stores` config's reference comparator.
      * @member {Number} #storesGeneration=0
      * @private
      */
@@ -298,8 +321,8 @@ class Provider extends Base {
         // reactive replacement (or null-removal): an owned instance the provider no longer hosts
         // gets destroyed NOW — deferring it to provider destroy would leak a live, registered
         // store nothing can resolve anymore. Passed-in instances stay externally owned.
-        // ORDER MATTERS: this runs BEFORE the new value instantiates, and the generation bump
-        // gives same-key replacements a fresh predictable id (see #storesGeneration).
+        // ORDER MATTERS: this runs BEFORE the new value instantiates, freeing explicit ids for safe
+        // reuse while the generation bump gives implicit same-key replacements a fresh predictable id.
         if (oldValue) {
             const reusedInstances = new Set(
                 Object.values(value || {}).filter(storeValue => Neo.typeOf(storeValue) === 'NeoInstance')

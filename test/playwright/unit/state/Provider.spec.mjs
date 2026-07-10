@@ -797,4 +797,38 @@ test.describe('Neo.state.Provider hosted-store lifecycle', () => {
         expect(second.isDestroyed).toBe(true);
         expect(StoreManager.get(second.id)).toBeFalsy();
     });
+
+    test('SAME-key explicit-id replacement preserves identity and ownership across generations', () => {
+        const storeId  = 'provider-explicit-id-replacement-store';
+        const provider = Neo.create(StateProvider, {
+            stores: {roster: {module: Store, id: storeId, keyProperty: 'id'}}
+        });
+
+        const first = provider.getStore('roster');
+
+        provider.stores = {roster: {module: Store, id: storeId, keyProperty: 'id'}};
+
+        const second = provider.getStore('roster');
+
+        expect(first.isDestroyed).toBe(true);
+        expect(second.isDestroyed).toBeFalsy();
+        expect(second).not.toBe(first);
+        expect(second.id).toBe(storeId);
+        expect(StoreManager.get(storeId)).toBe(second);
+
+        provider.stores = {roster: {module: Store, id: storeId, keyProperty: 'id'}};
+
+        const third = provider.getStore('roster');
+
+        expect(second.isDestroyed).toBe(true);
+        expect(third.isDestroyed).toBeFalsy();
+        expect(third).not.toBe(second);
+        expect(third.id).toBe(storeId);
+        expect(StoreManager.get(storeId)).toBe(third);
+
+        provider.destroy();
+
+        expect(third.isDestroyed).toBe(true);
+        expect(StoreManager.get(storeId)).toBeFalsy();
+    });
 });
