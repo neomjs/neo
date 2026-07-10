@@ -4,7 +4,8 @@ import {execFileSync}              from 'node:child_process';
 import path                        from 'node:path';
 import {fileURLToPath}             from 'node:url';
 import {createFleetRegistryBridge} from '../../../src/ai/fleet/createFleetRegistryBridge.mjs';
-import {LAUNCHABLE_HARNESS_TYPES}  from '../../services/fleet/deriveHarnessLaunchSpec.mjs';
+
+import {LAUNCHABLE_HARNESS_TYPES, getHarnessAuthMode} from '../../services/fleet/deriveHarnessLaunchSpec.mjs';
 
 /**
  * @module ai/scripts/fleet/onboardPeer
@@ -370,12 +371,18 @@ export function planOnboarding({intent, facts = {}} = {}) {
             ? `'${intent.agentId}' is already running — start short-circuits to status`
             : `FleetManager.startAgent('${intent.agentId}') — provision-then-start via the curated '${intent.harnessType}' template`);
 
+    // The auth segment names the FAMILY's auth mode, not just the marker heuristic: in-app
+    // families carry a permanently-null `authRequired` (no marker exists), so their handoff is the
+    // in-window sign-in — rendered from the launch contract's authMode, mirroring the exact
+    // decision `deriveAuthHandoff` makes post-launch (dry-run and --commit cannot drift).
     push('auth', 'PRINT',
-        facts.authRequired === false
-            ? 'per-home credentials already present — no login step required'
-            : facts.authRequired === true
-                ? 'per-home login required once (surfaced via status().authRequired after launch)'
-                : 'auth state UNKNOWN until the long-lived owner returns live launch status');
+        getHarnessAuthMode(intent.harnessType) === 'in-app'
+            ? 'in-app sign-in inside the launched window (operator-owned; the isolated relaunch line prints after launch)'
+            : facts.authRequired === false
+                ? 'per-home credentials already present — no login step required'
+                : facts.authRequired === true
+                    ? 'per-home login required once (surfaced via status().authRequired after launch)'
+                    : 'auth state UNKNOWN until the long-lived owner returns live launch status');
 
     return {phase: 'B', segments, gateMessage: null}
 }
@@ -439,6 +446,49 @@ export function buildLoginCommand({harnessType, instanceHome, launchCommand} = {
         default:
             return `${quotedCommand} --user-data-dir=${quotedHome}  # sign in inside the app window (relaunch if closed)`;
     }
+}
+
+/**
+ * @summary The post-launch auth handoff DECISION — the one branch `--commit` executes after
+ * `startAgent` returns, extracted pure so tests enter where the real conductor does. Mode-first:
+ * an `'in-app'` family (permanently-null `authRequired` — no marker exists) ALWAYS hands off the
+ * in-window sign-in instruction; a `'marker'` family branches on the live heuristic (`true` →
+ * the login command, `false` → done, `null` → an honest WARN, never a guessed command).
+ * @param {Object} options
+ * @param {String} options.harnessType Curated harness family.
+ * @param {Object} options.status The long-lived owner's `startAgent`/`status` projection —
+ *                                `{authRequired, instanceHome, launchCommand}` consumed here.
+ * @returns {{kind: 'sign-in-app'|'login-required'|'done'|'unknown', lines: String[]}} printable
+ * lines in conductor voice; `kind` is the decision itself, assertable without string-matching.
+ */
+export function deriveAuthHandoff({harnessType, status} = {}) {
+    if (getHarnessAuthMode(harnessType) === 'in-app') {
+        return {
+            kind : 'sign-in-app',
+            lines: [
+                '',
+                '  SIGN-IN REQUIRED (operator-owned, inside the launched app window):',
+                `    ${buildLoginCommand({harnessType, instanceHome: status.instanceHome, launchCommand: status.launchCommand})}`
+            ]
+        };
+    }
+
+    if (status.authRequired === true) {
+        return {
+            kind : 'login-required',
+            lines: [
+                '',
+                '  LOGIN REQUIRED (operator-owned, exactly once for this home):',
+                `    ${buildLoginCommand({harnessType, instanceHome: status.instanceHome, launchCommand: status.launchCommand})}`
+            ]
+        };
+    }
+
+    if (status.authRequired === false) {
+        return {kind: 'done', lines: ['  [DONE] auth — per-home credentials already present']};
+    }
+
+    return {kind: 'unknown', lines: ['  [WARN] auth — the owner returned no curated auth state; no login command was guessed']};
 }
 
 /**
@@ -610,20 +660,10 @@ async function main() {
 
         console.log(`  [DONE] launch — state '${status.state}' (pid ${status.pid ?? 'n/a'})`);
 
-        if (status.authRequired === true) {
-            const loginCommand = buildLoginCommand({
-                harnessType  : intent.harnessType,
-                instanceHome : status.instanceHome,
-                launchCommand: status.launchCommand
-            });
-
-            console.log('');
-            console.log('  LOGIN REQUIRED (operator-owned, exactly once for this home):');
-            console.log(`    ${loginCommand}`);
-        } else if (status.authRequired === false) {
-            console.log('  [DONE] auth — per-home credentials already present');
-        } else {
-            console.log('  [WARN] auth — the owner returned no curated auth state; no login command was guessed');
+        // The auth handoff is the tested decision (`deriveAuthHandoff`): mode-first, so in-app
+        // families reach their sign-in instruction despite a permanently-null authRequired.
+        for (const line of deriveAuthHandoff({harnessType: intent.harnessType, status}).lines) {
+            console.log(line);
         }
     }
 

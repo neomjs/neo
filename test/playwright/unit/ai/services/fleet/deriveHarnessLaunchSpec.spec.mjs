@@ -1,6 +1,6 @@
 import {test, expect}                                      from '@playwright/test';
 import {HARNESS_TYPES}                                     from '../../../../../../src/ai/fleet/harnessTypes.mjs';
-import {LAUNCHABLE_HARNESS_TYPES, deriveHarnessLaunchSpec} from '../../../../../../ai/services/fleet/deriveHarnessLaunchSpec.mjs';
+import {LAUNCHABLE_HARNESS_TYPES, deriveHarnessLaunchSpec, getHarnessAuthMode} from '../../../../../../ai/services/fleet/deriveHarnessLaunchSpec.mjs';
 
 // Pure function — imported directly (no fs / spawn / env / Neo runtime), so the suite has no
 // host-runtime side effects and each case is fully isolated. Mirrors deriveAgentRepoPath.spec.
@@ -89,6 +89,15 @@ test.describe('deriveHarnessLaunchSpec (per-family harness launch templates)', (
         }
         expect(registered.has('native-neo')).toBe(true);
         expect(LAUNCHABLE_HARNESS_TYPES).not.toContain('native-neo');
+    });
+
+    test('getHarnessAuthMode: marker for the CLI families, in-app for the app bundles, null fail-closed for everything else', () => {
+        expect(getHarnessAuthMode('codex')).toBe('marker');
+        expect(getHarnessAuthMode('claude-code')).toBe('marker');
+        expect(getHarnessAuthMode('claude-desktop')).toBe('in-app');
+        expect(getHarnessAuthMode('antigravity')).toBe('in-app');
+        expect(getHarnessAuthMode('native-neo')).toBeNull();
+        expect(getHarnessAuthMode(undefined)).toBeNull();
     });
 
     test('throws on an unknown harnessType, naming the supported set (classification, not a launcher)', () => {

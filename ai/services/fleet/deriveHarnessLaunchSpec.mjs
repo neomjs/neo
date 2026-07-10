@@ -27,23 +27,32 @@ import {HARNESS_TYPES} from '../../../src/ai/fleet/harnessTypes.mjs';
 //   probe and `binaryVersion` stays honestly `null`. For `homeArgFlag` families the derivation
 //   prepends the isolation flag, so even the probe subprocess can never cross into another
 //   instance's (or the operator's own) single-instance scope.
+// - `authMode` — how the operator-owned per-home auth step happens for the family:
+//   `'marker'` = a documented marker file inside the home flips the lifecycle `authRequired`
+//   heuristic (CLI families; the login is a command). `'in-app'` = auth is the sign-in INSIDE the
+//   launched window — no marker exists, `authRequired` stays honestly `null`, and the handoff
+//   instruction must render from THIS mode, never from the (permanently null) heuristic.
 const HARNESS_LAUNCH_CONTRACTS = {
     'antigravity': {
+        authMode        : 'in-app',
         homeArgFlag     : '--user-data-dir',
         modeArgs        : [],
         versionProbeArgs: null
     },
     'claude-code': {
+        authMode        : 'marker',
         homeEnvVar      : 'CLAUDE_CONFIG_DIR',
         modeArgs        : ['--input-format', 'stream-json', '--output-format', 'stream-json', '--print', '--verbose'],
         versionProbeArgs: ['--version']
     },
     'claude-desktop': {
+        authMode        : 'in-app',
         homeArgFlag     : '--user-data-dir',
         modeArgs        : [],
         versionProbeArgs: ['--version']
     },
     'codex': {
+        authMode        : 'marker',
         homeEnvVar      : 'CODEX_HOME',
         modeArgs        : ['app-server'],
         versionProbeArgs: ['--version']
@@ -73,6 +82,19 @@ const HARNESS_LAUNCH_CONTRACTS = {
  * @type {ReadonlyArray<String>}
  */
 export const LAUNCHABLE_HARNESS_TYPES = Object.freeze(Object.keys(HARNESS_LAUNCH_CONTRACTS).sort());
+
+/**
+ * @summary The family's operator-owned auth mode — `'marker'` (a documented marker file inside the
+ * home drives the lifecycle `authRequired` heuristic; the login is a command) or `'in-app'` (auth
+ * is the sign-in inside the launched window; no marker exists and `authRequired` stays honestly
+ * `null`, so ANY auth handoff for these families must branch on THIS mode, never on the
+ * permanently-null heuristic). `null` for unlaunchable/unknown families — consumers fail closed.
+ * @param {String} harnessType
+ * @returns {'marker'|'in-app'|null}
+ */
+export function getHarnessAuthMode(harnessType) {
+    return HARNESS_LAUNCH_CONTRACTS[harnessType]?.authMode ?? null;
+}
 
 /**
  * @summary Derive the per-family harness launch template for a Fleet Manager agent: the

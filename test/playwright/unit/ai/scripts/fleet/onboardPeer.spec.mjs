@@ -18,6 +18,7 @@ import {
     buildLoginCommand,
     buildOnboardingIntent,
     createOnboardingFleetBridge,
+    deriveAuthHandoff,
     normalizeToken,
     originDevRosterHasResident,
     parseOnboardArgs,
@@ -281,6 +282,52 @@ test.describe('onboardPeer — auth handoff', () => {
             .toContain("--user-data-dir='/srv/homes/b'");
         // The curated guard still fronts the family switch — an unlaunchable family never renders a line.
         expect(() => buildLoginCommand({harnessType: 'native-neo', instanceHome: '/srv/homes/c', launchCommand: '/bin/x'})).toThrow(/unsupported harnessType/);
+    });
+
+    test('the REAL post-launch decision: an in-app family reaches its sign-in handoff despite authRequired null — the exact branch --commit executes', () => {
+        // This enters where main() enters: null previously fell through to the generic WARN, so the
+        // GUI instruction was unreachable in a real run. Mode-first fixes the decision itself.
+        const desktop = deriveAuthHandoff({
+            harnessType: 'claude-desktop',
+            status     : {authRequired: null, instanceHome: '/srv/homes/a', launchCommand: '/Applications/Claude.app/Contents/MacOS/Claude'}
+        });
+
+        expect(desktop.kind).toBe('sign-in-app');
+        expect(desktop.lines.join('\n')).toContain('SIGN-IN REQUIRED');
+        expect(desktop.lines.join('\n')).toContain("--user-data-dir='/srv/homes/a'");
+
+        expect(deriveAuthHandoff({
+            harnessType: 'antigravity',
+            status     : {authRequired: null, instanceHome: '/srv/homes/b', launchCommand: '/Applications/Antigravity.app/Contents/MacOS/Antigravity'}
+        }).kind).toBe('sign-in-app');
+    });
+
+    test('marker families keep the heuristic-driven branches unchanged: true → login command, false → done, null → honest WARN with no guessed command', () => {
+        const required = deriveAuthHandoff({harnessType: 'codex', status: {authRequired: true, instanceHome: '/srv/homes/c', launchCommand: '/opt/codex'}});
+
+        expect(required.kind).toBe('login-required');
+        expect(required.lines.join('\n')).toContain("CODEX_HOME='/srv/homes/c' '/opt/codex' login");
+
+        expect(deriveAuthHandoff({harnessType: 'codex', status: {authRequired: false, instanceHome: '/srv/homes/c', launchCommand: '/opt/codex'}}).kind).toBe('done');
+
+        const unknown = deriveAuthHandoff({harnessType: 'codex', status: {authRequired: null, instanceHome: '/srv/homes/c', launchCommand: '/opt/codex'}});
+
+        expect(unknown.kind).toBe('unknown');
+        expect(unknown.lines.join('\n')).not.toContain('codex login');
+    });
+
+    test('the dry-run planner names the in-app mode for GUI families — plan and post-launch decision cannot drift', () => {
+        const intent = buildIntent({harnessType: 'claude-desktop'}),
+              plan   = planOnboarding({intent, facts: {agent: buildAgent({harnessType: 'claude-desktop'}), rosterHasResident: true, graphNodeSeeded: true, running: false, authRequired: null}}),
+              auth   = plan.segments.find(segment => segment.key === 'auth');
+
+        expect(auth.detail).toContain('in-app sign-in');
+        expect(auth.detail).not.toContain('UNKNOWN');
+
+        // marker families keep the heuristic wording
+        const codexPlan = planOnboarding({intent: buildIntent(), facts: {agent: buildAgent(), rosterHasResident: true, graphNodeSeeded: true, running: false, authRequired: null}});
+
+        expect(codexPlan.segments.find(segment => segment.key === 'auth').detail).toContain('UNKNOWN');
     });
 
     test('the rendered login line executes through /bin/sh without command injection', async () => {
