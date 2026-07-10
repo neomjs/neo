@@ -1,3 +1,4 @@
+import ClockPane                          from './ClockPane.mjs';
 import Container                          from '../../../../../src/container/Base.mjs';
 import DockLayoutAdapter                  from '../../../../../src/dashboard/DockLayoutAdapter.mjs';
 import DockPreviewProducer                from '../../../../../src/dashboard/DockPreviewProducer.mjs';
@@ -255,13 +256,17 @@ class DemoAWorkspace extends Container {
     }
 
     /**
-     * Resolves a model `componentRef` to its rendered pane. Skeleton tier: labeled panes
-     * with stable cls hooks; the themed pane content (including the ticking-clock witness
-     * inside the editor pane) lands with the visual-polish slice against these same hooks.
+     * Resolves a model `componentRef` to its rendered pane. The editor carries the
+     * ticking-clock witness (the demo's continuity proof); the other panes stay labeled
+     * placeholders with stable cls hooks the SCSS skin targets.
      * @param {String} componentRef
      * @returns {Object}
      */
     resolvePane(componentRef) {
+        if (componentRef === 'Editor') {
+            return {module: ClockPane}
+        }
+
         return {
             cls  : ['agentos-dockdemo-pane', `agentos-dockdemo-pane-${componentRef.toLowerCase()}`],
             html : componentRef,

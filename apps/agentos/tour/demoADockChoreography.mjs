@@ -86,7 +86,7 @@ export const demoATourScript = Object.freeze({
     scenes: [{
         id     : 's1',
         title  : 'Split choreography — the studio assembles',
-        caption: 'An agent is re-docking this workspace, live. The clock keeps ticking: panes re-parent, they never reload.',
+        caption: 'An agent is re-docking this workspace, live. The clock keeps ticking: the layout is one committed document — nothing is lost.',
         steps  : [
             {
                 type      : 'op',
