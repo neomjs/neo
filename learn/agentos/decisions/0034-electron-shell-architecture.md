@@ -206,10 +206,15 @@ partial updates are the recorded alternative.
 
 ### §2.6 Dev/prod parity — one harness root, two origins, identical topology (Q6)
 
-1. **One boot path:** `npm run dev` (webpack-serve, localhost HTTP) and the packaged app
-   (`app://`, §2.2) load the **same built harness app root** — #13033's build-root is the
-   substrate; this section binds it. No packaged-only entry file, no dev-only worker wiring:
-   `neo-config` + worker URLs resolve identically relative to either origin.
+1. **One boot path — the shell serves the SAME tree the dev http origin serves** (the repo root
+   as document root), and the harness window loads the **zero-build SOURCE app** (dev mode), not
+   a minified bundle. *Amended 2026-07-10 (operator decision, #13033 slice 1):* the Neural Link
+   is a first-class consumer of the harness — its possession depth (`inspect_class`,
+   `get_method_source`, `patch_code`) requires real source ESM, which minified `dist` output
+   destroys. Parity is therefore the document root itself: no packaged-only entry file, no
+   dev-only worker wiring; `neo-config` + worker URLs resolve identically on either origin, and
+   `dist/*` stays reachable within the same root for size-sensitive arms (#13033's build-root
+   remains the substrate this section binds).
 2. **Parity is achievable BECAUSE of C1:** both origins are standard-scheme with fetch support
    (`supportFetchAPI` normative — JSON seeds via `data.Store` `url` behave identically), so every
    SharedWorker identity the app boots (App/VDom/Data/Canvas) shares the same way dev↔packaged.

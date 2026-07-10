@@ -463,6 +463,12 @@ Post-M6 ([#10986](https://github.com/neomjs/neo/issues/10986)) the per-MCP-serve
 | `ai/mcp/server/file-system/` | File System MCP-server entry point + services | `Server`, file operation services | — |
 | `ai/mcp/server/shared/` | Cross-cutting MCP infrastructure | `BaseServer`, `AuthMiddleware`, `RequestContextService`, `TransportService` | — |
 
+### Shell (Electron packaging root)
+
+| Package | Purpose | Key Classes | Decisions |
+|---|---|---|---|
+| `shell/` | The Electron packaging root: boots the harness app on the privileged `app://` origin (repo root as document root, dev-mode source app for Neural-Link depth) with the fail-closed window/navigation/permission posture; wraps what the repo serves — never a source hemisphere | `main.mjs`, `preload.cjs` | [ADR 0020](../agentos/decisions/0020-agent-harness-concept.md), [ADR 0034](../agentos/decisions/0034-electron-shell-architecture.md) |
+
 ## Architectural Decision Records
 
 The Agent OS subsystem records its load-bearing architectural trade-offs in [`learn/agentos/decisions/`](../agentos/decisions/). Every cross-system trade-off — i.e. one that touches multiple subsystems, sets a precedent for future code, or affects load-bearing invariants — earns an ADR (per the `structural-pre-flight` skill's Strategy-vs-Tactics threshold). Per-class localized constraints stay inline as Anchor & Echo guards instead.
