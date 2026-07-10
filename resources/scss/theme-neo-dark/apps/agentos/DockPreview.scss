@@ -1,6 +1,9 @@
+// §06 authority (dock-choreography design artifact): drag affordances speak the FM family —
+// accept = signal, reject = hot; the fills are those hues at translucent strength. The FM
+// vocabulary stays value authority; this layer only re-points the dock-preview aliases.
 :root .neo-theme-neo-dark {
-    --agent-dock-preview-accept      : var(--agent-state-focus, #58a6ff);
-    --agent-dock-preview-accept-fill : rgba(88, 166, 255, 0.22);
-    --agent-dock-preview-reject      : var(--agent-accent-intervention, #cf222e);
-    --agent-dock-preview-reject-fill : rgba(207, 34, 46, 0.16);
+    --agent-dock-preview-accept      : var(--fm-signal, #5eead4);
+    --agent-dock-preview-accept-fill : rgba(94, 234, 212, 0.20);
+    --agent-dock-preview-reject      : var(--fm-hot, #f4718b);
+    --agent-dock-preview-reject-fill : rgba(244, 113, 139, 0.16);
 }

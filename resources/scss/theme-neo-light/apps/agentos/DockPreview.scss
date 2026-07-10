@@ -1,6 +1,8 @@
+// §06 authority (dock-choreography design artifact): drag affordances speak the FM family —
+// accept = signal, reject = hot; light-mode hues per the artifact's light token column.
 :root .neo-theme-neo-light {
-    --agent-dock-preview-accept      : var(--agent-state-focus, #0969da);
-    --agent-dock-preview-accept-fill : rgba(9, 105, 218, 0.16);
-    --agent-dock-preview-reject      : var(--agent-accent-intervention, #cf222e);
-    --agent-dock-preview-reject-fill : rgba(207, 34, 46, 0.12);
+    --agent-dock-preview-accept      : var(--fm-signal, #0d9488);
+    --agent-dock-preview-accept-fill : rgba(13, 148, 136, 0.14);
+    --agent-dock-preview-reject      : var(--fm-hot, #be123c);
+    --agent-dock-preview-reject-fill : rgba(190, 18, 60, 0.12);
 }
