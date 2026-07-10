@@ -68,13 +68,32 @@ test.describe('Dock auto-hide reveal/pin journey (Neural Link)', () => {
         const hidden = await readModel();
         expect(hidden?.items?.inspector?.autoHidden, 'worker truth must carry autoHidden: true').toBe(true);
 
+        await page.evaluate(() => {
+            window.__neoDockRevealAnimationStarts = 0;
+
+            document.addEventListener('animationstart', event => {
+                if (event.animationName.startsWith('neo-dock-reveal-')) {
+                    window.__neoDockRevealAnimationStarts++
+                }
+            })
+        });
+
         // Native gesture: CLICK the rail tab -> transient reveal overlay.
         await railTab.click();
         await page.waitForTimeout(600);
 
-        const overlay = page.locator('.neo-dashboard-dock-reveal-overlay:not(.neo-dashboard-dock-reveal-overlay-hidden)');
+        // Keep the locator bound to the stable overlay node. A selector that excludes the hidden
+        // class disappears from the result set as soon as worker truth adds that class, which can
+        // make `toBeHidden()` pass even when a later equal-specificity layout rule keeps the real
+        // element painted as `display:flex`.
+        const overlay = page.locator('.neo-dashboard-dock-reveal-overlay').first();
         await expect(overlay, 'the reveal overlay must open on rail-tab click').toBeVisible({ timeout: 10000 });
         await expect(overlay.locator('.neo-dashboard-dock-reveal-title'), 'the overlay must title the revealed item').toHaveText('Inspector');
+        await expect.poll(() => page.evaluate(() => window.__neoDockRevealAnimationStarts), {
+            message: 'the token-scoped reveal animation must start on the first reveal'
+        }).toBeGreaterThan(0);
+
+        const firstRevealAnimationStarts = await page.evaluate(() => window.__neoDockRevealAnimationStarts);
 
         // Product truth #2: reveal is runtime-only — worker truth is byte-stable across the reveal.
         const revealed = await readModel();
@@ -95,6 +114,9 @@ test.describe('Dock auto-hide reveal/pin journey (Neural Link)', () => {
         await railTab.click();
         await page.waitForTimeout(400);
         await expect(overlay).toBeVisible();
+        await expect.poll(() => page.evaluate(() => window.__neoDockRevealAnimationStarts), {
+            message: 'the token-scoped reveal animation must restart on re-reveal'
+        }).toBeGreaterThan(firstRevealAnimationStarts);
         await page.locator('.neo-tab-header-button', { hasText: 'Strategy' }).first().click();
         await page.waitForTimeout(400);
         await expect(overlay, 'an outside click must dismiss the focused reveal').toBeHidden();
@@ -156,7 +178,7 @@ test.describe('Dock auto-hide reveal/pin journey (Neural Link)', () => {
         await railTab.click();
         await page.waitForTimeout(600);
 
-        const overlay = page.locator('.neo-dashboard-dock-reveal-overlay:not(.neo-dashboard-dock-reveal-overlay-hidden)');
+        const overlay = page.locator('.neo-dashboard-dock-reveal-overlay').first();
         await expect(overlay).toBeVisible({ timeout: 10000 });
         await overlay.locator('.neo-dashboard-dock-reveal-pin').first().click();
         await page.waitForTimeout(1500);

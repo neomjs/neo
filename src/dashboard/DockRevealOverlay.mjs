@@ -233,10 +233,17 @@ class DockRevealOverlay extends Container {
     /**
      * Moves REAL browser focus into the overlay (first focusable descendant — the pin control at
      * minimum, the hosted pane's focusables once mounted). The owning rail calls this when a
-     * click-born reveal opens: focus-hold must be embodied, not a state label.
+     * click-born reveal opens: focus-hold must be embodied, not a state label. Awaiting the
+     * component update is required because a genuinely hidden overlay cannot accept focus until
+     * the main thread has applied the visibility-class removal.
+     * @returns {Promise<void>}
      */
-    focusReveal() {
-        this.focus(this.id, true)
+    async focusReveal() {
+        await this.promiseUpdate();
+
+        if (this.visible && !this.isDestroyed) {
+            this.focus(this.id, true)
+        }
     }
 
     /**
