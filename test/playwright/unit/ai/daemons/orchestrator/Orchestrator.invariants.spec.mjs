@@ -661,7 +661,7 @@ test.describe('Orchestrator source-level invariants (#11834 AC4)', () => {
         }
     });
 
-    test('Orchestrator.mjs has no `_`-suffix reactive config slot without a corresponding `beforeSet*` or `afterSet*` hook', async () => {
+    test('Orchestrator.mjs has no `_`-suffix reactive config slot without a corresponding config hook', async () => {
         const source    = await fs.readFile(ORCHESTRATOR_MJS_PATH, 'utf8');
         const codeLines = stripCommentsAndStrings(source);
 
@@ -670,13 +670,14 @@ test.describe('Orchestrator source-level invariants (#11834 AC4)', () => {
         const slotNames   = slotMatches.map(m => m[1]).filter(name => name !== 'class' && name !== 'static');
 
         const missingHook = slotNames.filter(name => {
-            const cap      = name.charAt(0).toUpperCase() + name.slice(1);
-            const beforeRe = new RegExp(`\\bbeforeSet${cap}\\s*\\(`);
-            const afterRe  = new RegExp(`\\bafterSet${cap}\\s*\\(`);
-            return !beforeRe.test(codeLines) && !afterRe.test(codeLines);
+            const cap         = name.charAt(0).toUpperCase() + name.slice(1);
+            const beforeGetRe = new RegExp(`\\bbeforeGet${cap}\\s*\\(`);
+            const beforeSetRe = new RegExp(`\\bbeforeSet${cap}\\s*\\(`);
+            const afterSetRe  = new RegExp(`\\bafterSet${cap}\\s*\\(`);
+            return !beforeGetRe.test(codeLines) && !beforeSetRe.test(codeLines) && !afterSetRe.test(codeLines);
         });
 
-        expect(missingHook, `Reactive config slots with \`_\`-suffix MUST have a corresponding \`beforeSetX\` or \`afterSetX\` hook (Sub-1 anti-pattern: cargo-cult underscores without hooks). Offending slots: ${missingHook.join(', ')}.`).toEqual([]);
+        expect(missingHook, `Reactive config slots with \`_\`-suffix MUST have a corresponding \`beforeGetX\`, \`beforeSetX\`, or \`afterSetX\` hook (Sub-1 anti-pattern: cargo-cult underscores without hooks). Offending slots: ${missingHook.join(', ')}.`).toEqual([]);
     });
 });
 

@@ -15,7 +15,6 @@ import {
     appendHealEvent,
     validateHealLedgerRetention
 } from '../../../services/memory-core/helpers/healEventLedgerStore.mjs';
-import {DEFAULT_DATA_DIR} from '../taskDefinitions.mjs';
 
 const DEFAULT_ACTIONS        = Object.freeze(['restart', 'redeploy', 'warm-provider']);
 const DEFAULT_DEPLOY_TARGETS = Object.freeze(['cloud-deploy']);
@@ -107,11 +106,13 @@ export class RecoveryActuatorService extends Base {
          */
         actuatorConfig_: null,
         /**
-         * @member {String} dataDir_='.neo-ai-data/orchestrator-daemon'
+         * `null` = "resolve from the owning config leaf on read" (see `beforeGetDataDir`): a
+         * leaf value in this static block would freeze at module load, not at the use site.
+         * @member {String|null} dataDir_=null
          * @protected
          * @reactive
          */
-        dataDir_: DEFAULT_DATA_DIR,
+        dataDir_: null,
         /**
          * @member {Object|null} healthService_=null
          * @protected
@@ -458,6 +459,16 @@ export class RecoveryActuatorService extends Base {
             taskStatus: 'failed',
             updatedAt
         });
+    }
+
+    /**
+     * @summary Resolves the runtime-state directory from the owning config leaf when no explicit
+     * value was set — a per-read use-site resolution, never a module-load capture.
+     * @param {String|null} value
+     * @returns {String}
+     */
+    beforeGetDataDir(value) {
+        return value ?? AiConfig.orchestrator.dataDir
     }
 
     /**

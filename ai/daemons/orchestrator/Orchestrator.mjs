@@ -57,11 +57,7 @@ import {
     buildOrchestratorSchedulingOptions,
     runSchedulingPipeline
 } from './scheduling/pipeline.mjs';
-import {
-    DEFAULT_DB_PATH,
-    DEFAULT_DATA_DIR,
-    DEFAULT_SCRIPT_DIR
-} from './taskDefinitions.mjs';
+import {DEFAULT_SCRIPT_DIR} from './taskDefinitions.mjs';
 import {
     inspectHeavyMaintenanceLeaseSync
 } from './services/heavyMaintenanceLeasePrimitives.mjs';
@@ -198,7 +194,12 @@ export class Orchestrator extends Base {
         dataRecoveryActuatorService_    : null,
         dataIntegrityDiagnosisService_  : null,
         maintenanceBackpressureService_ : MaintenanceBackpressureService,
-        dataDir_                        : DEFAULT_DATA_DIR,
+        // null = "resolve from the owning config leaf on read" (see beforeGetDataDir): a leaf
+        // value in this static block would freeze at module load, not at the use site.
+        dataDir_                        : null,
+        // Same contract as dataDir_: the singleton is constructed during module import, so a
+        // class-field leaf read would still be a module-load capture.
+        dbPath_                         : null,
         taskDefinitions_                : null,
         taskStateService_               : TaskStateService,
         healthService_                  : HealthService,
@@ -226,7 +227,6 @@ export class Orchestrator extends Base {
     isPolling                     = false
     pollHandle                    = null
     db                            = null
-    dbPath                        = DEFAULT_DB_PATH
     logFile                       = null
     stateFile                     = null
     primaryDevSyncRootsConfig     = null
@@ -353,6 +353,26 @@ export class Orchestrator extends Base {
                 this.writeLog('ERROR', `[Orchestrator] REM consolidation stall-alarm wake pulse failed: ${e.message}`);
             }
         }
+    }
+
+    /**
+     * @summary Resolves the runtime-state directory from the owning config leaf when no explicit
+     * value was set — a per-read use-site resolution, never a module-load capture.
+     * @param {String|null} value
+     * @returns {String}
+     */
+    beforeGetDataDir(value) {
+        return value ?? AiConfig.orchestrator.dataDir
+    }
+
+    /**
+     * @summary Resolves the graph database path from the owning config leaf when no explicit value
+     * was set, preserving Provider refreshes before orchestrator start.
+     * @param {String|null} value
+     * @returns {String}
+     */
+    beforeGetDbPath(value) {
+        return value ?? AiConfig.orchestrator.dbPath
     }
 
     /**
@@ -811,7 +831,7 @@ export class Orchestrator extends Base {
         }
 
         const scriptDir = options.scriptDir || DEFAULT_SCRIPT_DIR;
-        const dataDir   = options.dataDir   || DEFAULT_DATA_DIR;
+        const dataDir   = options.dataDir   || AiConfig.orchestrator.dataDir;
 
         this.dataDir                   = dataDir;
         this.taskDefinitions   = options.taskDefinitions || this.buildConfiguredTaskDefinitions({
@@ -819,7 +839,7 @@ export class Orchestrator extends Base {
             nodeBin: options.nodeBin || process.argv[0]
         });
 
-        this.dbPath                    = options.dbPath   || DEFAULT_DB_PATH;
+        this.dbPath                    = options.dbPath   || AiConfig.orchestrator.dbPath;
         this.logFile                   = options.logFile  || path.join(dataDir, 'orchestrator.log');
         this.stateFile                 = options.stateFile || path.join(dataDir, 'orchestrator-state.json');
         this.heavyMaintenanceLeasePath = options.heavyMaintenanceLeasePath ?? this.heavyMaintenanceLeasePath;
