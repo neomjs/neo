@@ -79,6 +79,9 @@ function install({agents = {}, creds = {}} = {}) {
     // the next serial sibling (singleton-stateful service).
     FleetLifecycleService.credentialEnvVar  = 'GH_TOKEN';
     FleetLifecycleService.bridgeTokenEnvVar = 'NEO_FLEET_BRIDGE_TOKEN';
+    // Reset the curated-launch resolution fields too — fallback tests set them explicitly.
+    FleetLifecycleService.instanceRoot       = null;
+    FleetLifecycleService.harnessBinaryPaths = null;
     return spawnStub;
 }
 
@@ -199,8 +202,13 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService', () => {
         expect(() => FleetLifecycleService.start('ghost')).toThrow(/unknown agent/);
     });
 
-    test('start refuses an agent with no launch spec', () => {
-        install({agents: {a: {id: 'a', githubUsername: 'a', harnessType: 'codex', metadata: {}}}, creds: {}});
+    test('start refuses an agent with no launch spec and no built-in launch template (untemplated harnessType)', () => {
+        install({agents: {a: {id: 'a', githubUsername: 'a', harnessType: 'gemini-cli', metadata: {}}}, creds: {}});
+        expect(() => FleetLifecycleService.start('a')).toThrow(/no launch spec/);
+    });
+
+    test('start refuses an agent whose explicit metadata.launch carries no command', () => {
+        install({agents: {a: {id: 'a', githubUsername: 'a', harnessType: 'codex', metadata: {launch: {args: ['--serve']}}}}, creds: {}});
         expect(() => FleetLifecycleService.start('a')).toThrow(/no launch spec/);
     });
 
