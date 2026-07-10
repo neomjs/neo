@@ -61,17 +61,18 @@ test.describe('Demo-A dock-choreography tour journey (Neural Link)', () => {
                 // and physical rendering AGREE — each guard has a named falsifier it kills:
                 //   · no semantic hidden cls   (a ghost forced visible by a CSS regression must
                 //     FAIL the run, never count as the reveal)
-                //   · positive rendered geometry via getClientRects() (covers display:none on
-                //     the element OR any ancestor, and detached nodes — a locally-"visible"
-                //     child under a hidden ancestor is not a reveal; also subsumes the
-                //     offsetParent shape the interim dev detector used)
+                //   · POSITIVE-AREA rendered geometry: at least one client rect with width AND
+                //     height > 0 (covers display:none on the element OR any ancestor, detached
+                //     nodes, AND the 0×0-but-rendered case — Chromium yields a rect entry for a
+                //     zero-area box, so a bare length check lies; also subsumes the offsetParent
+                //     shape the interim dev detector used)
                 //   · computed visibility neither hidden nor collapse
                 // The 3-part histogram (display/visibility/semantic) keeps a red run diagnosable
                 // from the output alone: semantic-hidden throughout = the unhide never reached
                 // the DOM (a wedged vdom update is the known signature — check the app-worker
                 // console for "vdom update wedged"; the owning regression ticket pins causality)
                 // vs semantic-visible-but-physically-hidden = a new divergence class entirely.
-                const overlays = [...document.querySelectorAll('[class*="dock-reveal-overlay"]')];
+                const overlays = [...document.querySelectorAll('.neo-dashboard-dock-reveal-overlay')];
                 window.__e2e.maxOverlays = Math.max(window.__e2e.maxOverlays || 0, overlays.length);
                 overlays.forEach(el => {
                     const cs  = getComputedStyle(el);
@@ -81,7 +82,7 @@ test.describe('Demo-A dock-choreography tour journey (Neural Link)', () => {
                 overlays.some(el => {
                     const cs = getComputedStyle(el);
                     return !el.className.includes('reveal-overlay-hidden') &&
-                        el.getClientRects().length > 0 &&
+                        [...el.getClientRects()].some(rect => rect.width > 0 && rect.height > 0) &&
                         cs.visibility !== 'hidden' && cs.visibility !== 'collapse'
                 }) && (window.__e2e.revealSeen = true);
 
