@@ -275,3 +275,62 @@ export function planDailyWindows({anchor, dayCount = 7} = {}) {
 
     return windows
 }
+
+/**
+ * @summary Resolves the half-open UTC-hour window for an L1 (session) aggregation anchored at any instant in
+ * the hour: `windowStart` is the hour's `:00:00.000Z`, `windowEnd` is the next hour's `:00:00.000Z`. L1 is the
+ * session tier — `session` names the sub-daily granularity at which work sessions happen, NOT a per-session-id
+ * key: the metadata contract keys every record (all levels) by `{windowStart, windowEnd}` with no session id,
+ * and the document id embeds the window start, so L1 tiles the clock one unit finer than L2 rather than
+ * tracking individual (overlapping, ragged) session spans. Hour-aligned tiling keeps the half-open
+ * `[start, end)` non-overlap invariant — one instant never falls in two windows — so the window-scoped
+ * velocity facts (`mergedPrs`, `devCommits`) land in exactly one L1 window and roll up into the containing L2
+ * day without double-counting, the same single-attribution discipline the per-agent fold carries on the
+ * partition axis.
+ * @param {String|Date} anchor An ISO 8601 timestamp string or Date within the target UTC hour.
+ * @returns {{windowStart:String, windowEnd:String}}
+ */
+export function resolveSessionWindow(anchor) {
+    const anchorMs = anchor instanceof Date ? anchor.getTime() : Date.parse(anchor);
+
+    if (Number.isNaN(anchorMs)) {
+        throw new Error(`resolveSessionWindow: invalid anchor — ${JSON.stringify(anchor)}`)
+    }
+
+    const start = new Date(anchorMs);
+
+    start.setUTCMinutes(0, 0, 0);
+
+    const end = new Date(start.getTime());
+
+    end.setUTCHours(end.getUTCHours() + 1);
+
+    return {windowStart: start.toISOString(), windowEnd: end.toISOString()}
+}
+
+/**
+ * @summary Plans the most-recent-first hourly (L1 session) windows to aggregate: the UTC hour containing
+ * `anchor` plus the preceding `hourCount - 1` hours. Bounded + deterministic — the lane plans a fixed trailing
+ * batch, never an unbounded history scan; the service fetches each window's sources + folds them. The returned
+ * windows are contiguous, non-overlapping, and ordered most-recent-first. The default trailing batch is 24
+ * hourly windows — a day's worth; every hour-aligned window nests within exactly one L2 {@link planDailyWindows}
+ * day (it never straddles the UTC-day boundary), so the L1/L2 tiers stay coherent wherever the batch begins.
+ * @param {Object}      params
+ * @param {String|Date} params.anchor          Instant within the most-recent target hour.
+ * @param {Number}      [params.hourCount=24]  Trailing hour count to plan (coerced to >= 1).
+ * @returns {Array<{windowStart:String, windowEnd:String}>}
+ */
+export function planSessionWindows({anchor, hourCount = 24} = {}) {
+    const
+        count   = Number.isInteger(hourCount) && hourCount > 0 ? hourCount : 1,
+        windows = [resolveSessionWindow(anchor)];
+
+    for (let i = 1; i < count; i++) {
+        // 1ms before the prior window's start lands in the previous UTC hour
+        const previousHourAnchor = new Date(Date.parse(windows[i - 1].windowStart) - 1);
+
+        windows.push(resolveSessionWindow(previousHourAnchor))
+    }
+
+    return windows
+}

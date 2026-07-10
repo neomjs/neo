@@ -23,8 +23,10 @@ import {
     deriveVelocityFields,
     HIGH_IMPACT_THRESHOLD,
     planDailyWindows,
+    planSessionWindows,
     resolveDailyWindow,
     resolvePartitionKeys,
+    resolveSessionWindow,
     VELOCITY_FIELD_SOURCES,
     WINDOW_SCOPED_VELOCITY_FIELDS
 } from '../../../../../../../ai/services/memory-core/helpers/temporalSummaryAggregationEngine.mjs';
@@ -288,5 +290,68 @@ test.describe('Neo.ai.services.memory-core.temporalSummaryAggregationEngine', ()
         expect(windows[1].windowEnd).toBe(windows[0].windowStart);
         // dayCount coerces to >= 1
         expect(planDailyWindows({anchor: '2026-07-06T00:00:00.000Z', dayCount: 0})).toHaveLength(1)
+    });
+
+    test('resolveSessionWindow returns half-open UTC-hour bounds for any anchor within the hour', () => {
+        const {windowStart, windowEnd} = resolveSessionWindow('2026-07-05T14:37:12.500Z');
+
+        expect(windowStart).toBe('2026-07-05T14:00:00.000Z');
+        expect(windowEnd).toBe('2026-07-05T15:00:00.000Z')
+    });
+
+    test('resolveSessionWindow rolls the hour over the UTC-day boundary instead of minting an invalid 24:00', () => {
+        const {windowStart, windowEnd} = resolveSessionWindow('2026-07-05T23:59:59.999Z');
+
+        expect(windowStart).toBe('2026-07-05T23:00:00.000Z');
+        expect(windowEnd).toBe('2026-07-06T00:00:00.000Z')
+    });
+
+    test('resolveSessionWindow fails closed on an unparseable anchor', () => {
+        expect(() => resolveSessionWindow('not-a-timestamp')).toThrow(/invalid anchor/)
+    });
+
+    test('planSessionWindows returns contiguous most-recent-first UTC-hour windows, bounded by hourCount', () => {
+        const windows = planSessionWindows({anchor: '2026-07-06T14:20:00.000Z', hourCount: 3});
+
+        expect(windows).toEqual([
+            {windowStart: '2026-07-06T14:00:00.000Z', windowEnd: '2026-07-06T15:00:00.000Z'},
+            {windowStart: '2026-07-06T13:00:00.000Z', windowEnd: '2026-07-06T14:00:00.000Z'},
+            {windowStart: '2026-07-06T12:00:00.000Z', windowEnd: '2026-07-06T13:00:00.000Z'}
+        ]);
+        // contiguous: each window's end is the next-newer window's start
+        expect(windows[1].windowEnd).toBe(windows[0].windowStart);
+        // hourCount coerces to >= 1
+        expect(planSessionWindows({anchor: '2026-07-06T14:00:00.000Z', hourCount: 0})).toHaveLength(1)
+    });
+
+    test('planSessionWindows rolls the trailing batch across the UTC-day boundary', () => {
+        const windows = planSessionWindows({anchor: '2026-07-06T00:30:00.000Z', hourCount: 2});
+
+        expect(windows).toEqual([
+            {windowStart: '2026-07-06T00:00:00.000Z', windowEnd: '2026-07-06T01:00:00.000Z'},
+            {windowStart: '2026-07-05T23:00:00.000Z', windowEnd: '2026-07-06T00:00:00.000Z'}
+        ])
+    });
+
+    test('every hourly L1 window nests within exactly one L2 day — the tiers stay coherent', () => {
+        // a mid-day anchor: the default 24-window batch is a rolling day that straddles two calendar days,
+        // yet no individual hour window may straddle the UTC-day boundary
+        const hourly = planSessionWindows({anchor: '2026-07-05T14:37:00.000Z'});
+
+        expect(hourly).toHaveLength(24);
+
+        for (const window of hourly) {
+            const day = resolveDailyWindow(window.windowStart);
+
+            // opens on/after its day's start and closes on/before that same day's end (half-open: the 23:00
+            // window's end equals the day's end) — so each L1 window rolls up into exactly one L2 day
+            expect(Date.parse(window.windowStart)).toBeGreaterThanOrEqual(Date.parse(day.windowStart));
+            expect(Date.parse(window.windowEnd)).toBeLessThanOrEqual(Date.parse(day.windowEnd))
+        }
+
+        // contiguous with no gaps or overlaps across the whole batch
+        for (let i = 1; i < hourly.length; i++) {
+            expect(hourly[i].windowEnd).toBe(hourly[i - 1].windowStart)
+        }
     })
 });
