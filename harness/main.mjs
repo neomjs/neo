@@ -483,11 +483,18 @@ async function bootSmokeBrain() {
         fleet        = startBrainChild({entry: FLEET_SERVER_ENTRY, env: profile, onLog: brainLog, repoRoot});
 
     brainState.children.push(
-        {child: orchestrator, entry: ORCHESTRATOR_ENTRY, label: 'orchestrator'},
-        {child: fleet,        entry: FLEET_SERVER_ENTRY, label: 'fleet'}
+        {child: orchestrator, ...orchestrator.neoHarnessIdentity, label: 'orchestrator'},
+        {child: fleet,        ...fleet.neoHarnessIdentity,        label: 'fleet'}
     );
     brainState.isolationRoot = isolationRoot;
-    writeRunState({isolationRoot, children: brainState.children.map(entry => ({entry: entry.entry, pgid: entry.child.pid}))});
+    writeRunState({
+        isolationRoot,
+        children: brainState.children.map(({child, entry, ownershipToken}) => ({
+            entry,
+            ownershipToken,
+            pgid: child.pid
+        }))
+    });
 
     await Promise.all([
         awaitOrchestratorReady({child: orchestrator}),

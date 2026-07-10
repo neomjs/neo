@@ -19,6 +19,7 @@ import {
     probeFleetServing,
     probePort,
     resolveRealPath,
+    startBrainChild,
     stopBrainChild,
     stopBrainTree,
     sweepStaleRunState,
@@ -306,25 +307,59 @@ test.describe('harness brain lifecycle', () => {
         expect(report.orchestrator.groupEmpty).toBe(true)
     });
 
-    // A bare PGID is not ownership: the OS recycles ids, so the sweep must re-prove the recorded
-    // identity (the leader still runs OUR entry script) before signaling, and a CLEAN stop must
-    // clear the record so it can never outlive the run.
-    test('run-state sweep kills only identity-verified groups, skips recycled pids, clears state', () => {
-        const group = createFakeGroup({diesOn: ['SIGKILL'], pid: 7001});
+    test('startBrainChild exposes an absolute checkout entry and per-spawn argv identity', () => {
+        let invocation;
+
+        const child = startBrainChild({
+            entry             : ORCHESTRATOR_ENTRY,
+            ownershipTokenFn  : () => 'spawn-token-a',
+            repoRoot          : workDir,
+            spawnFn           : (command, args, options) => {
+                invocation = {args, command, options};
+                return createFakeChild()
+            }
+        });
+        const absoluteEntry = path.join(workDir, ORCHESTRATOR_ENTRY);
+
+        expect(invocation.args).toEqual([absoluteEntry, '--neo-harness-owner=spawn-token-a']);
+        expect(invocation.options.cwd).toBe(workDir);
+        expect(invocation.options.detached).toBe(true);
+        expect(child.neoHarnessIdentity).toEqual({entry: absoluteEntry, ownershipToken: 'spawn-token-a'})
+    });
+
+    test('startBrainChild rejects entries outside its checkout root', () => {
+        expect(() => startBrainChild({
+            entry             : path.join('..', 'sibling', ORCHESTRATOR_ENTRY),
+            ownershipTokenFn  : () => 'spawn-token-a',
+            repoRoot          : workDir,
+            spawnFn           : () => createFakeChild()
+        })).toThrow(/entry must resolve inside repoRoot/)
+    });
+
+    // A bare PGID OR program name is not ownership: ids are recycled and every checkout runs the
+    // same scripts. Cleanup requires this checkout's absolute entry AND this spawn's argv token.
+    test('run-state sweep requires exact checkout + spawn identity, skips recycled pids, clears state', () => {
+        const
+            group        = createFakeGroup({diesOn: ['SIGKILL'], pid: 7001}),
+            ownedEntry   = path.join(workDir, ORCHESTRATOR_ENTRY),
+            siblingEntry = path.join(workDir + '-sibling', ORCHESTRATOR_ENTRY);
 
         writeRunState({
             children     : [
-                {entry: ORCHESTRATOR_ENTRY, pgid: 7001},
-                {entry: FLEET_SERVER_ENTRY, pgid: 7002},
-                {entry: ORCHESTRATOR_ENTRY, pgid: 999999}
+                {entry: ownedEntry, ownershipToken: 'owned-token', pgid: 7001},
+                {entry: ownedEntry, ownershipToken: 'owned-token', pgid: 7002},
+                {entry: ownedEntry, ownershipToken: 'owned-token', pgid: 7003},
+                {entry: ownedEntry, pgid: 7004},
+                {entry: ownedEntry, ownershipToken: 'owned-token', pgid: 7005},
+                {entry: ownedEntry, ownershipToken: 'owned-token', pgid: 999999}
             ],
             isolationRoot: workDir
         });
 
         const killFn = (target, signal) => {
-            if ([7002, 999999].includes(Math.abs(target))) {
-                if (Math.abs(target) === 7002 && signal === 0) {
-                    return true // alive — but identity will mismatch below
+            if ([7002, 7003, 7004, 7005, 999999].includes(Math.abs(target))) {
+                if (Math.abs(target) !== 999999 && signal === 0) {
+                    return true // alive — but identity will fail closed below
                 }
 
                 const error = new Error('ESRCH');
@@ -335,11 +370,17 @@ test.describe('harness brain lifecycle', () => {
             return group.killFn(target, signal)
         };
 
-        const commandFn = pgid => pgid === 7001
-            ? `node ${ORCHESTRATOR_ENTRY}`
-            : '/usr/bin/unrelated-tool-that-recycled-the-pid';
+        const commandFn = pgid => ({
+            7001: `node ${ownedEntry} --neo-harness-owner=owned-token`,
+            7002: `node ${ownedEntry} --neo-harness-owner=later-spawn`,
+            7003: `node ${siblingEntry} --neo-harness-owner=owned-token`,
+            7004: `node ${ownedEntry}`,
+            7005: `node /prefix${ownedEntry} --neo-harness-owner=owned-token`
+        })[pgid] ?? '';
 
-        // 7001: alive + identity match → killed. 7002: alive but recycled → SKIPPED. 999999: dead.
+        // 7001 matches both identities. 7002 has a later token. 7003 is a sibling checkout.
+        // 7004 is a legacy record without a token; 7005 only contains the entry as a suffix.
+        // 999999 is dead. Only 7001 is signal-authorized.
         expect(sweepStaleRunState({commandFn, isolationRoot: workDir, killFn})).toEqual([7001]);
         expect(group.signals).toEqual(['SIGKILL']);
         expect(existsSync(path.join(workDir, 'run-state.json'))).toBe(false);
@@ -348,8 +389,30 @@ test.describe('harness brain lifecycle', () => {
         expect(sweepStaleRunState({commandFn, isolationRoot: workDir, killFn})).toEqual([])
     });
 
+    test('run-state sweep clears malformed JSON without signaling', () => {
+        const runStateFile = path.join(workDir, 'run-state.json');
+
+        writeFileSync(runStateFile, '{not-json', 'utf8');
+        expect(sweepStaleRunState({
+            isolationRoot: workDir,
+            killFn       : () => { throw new Error('must not signal') }
+        })).toEqual([]);
+        expect(existsSync(runStateFile)).toBe(false);
+
+        writeFileSync(runStateFile, JSON.stringify({children: [null, 'legacy', {}]}), 'utf8');
+        expect(sweepStaleRunState({isolationRoot: workDir})).toEqual([]);
+        expect(existsSync(runStateFile)).toBe(false)
+    });
+
     test('clearRunState removes the record after a clean stop and tolerates absence', () => {
-        writeRunState({children: [{entry: ORCHESTRATOR_ENTRY, pgid: 7100}], isolationRoot: workDir});
+        writeRunState({
+            children: [{
+                entry         : path.join(workDir, ORCHESTRATOR_ENTRY),
+                ownershipToken: 'clean-token',
+                pgid          : 7100
+            }],
+            isolationRoot: workDir
+        });
         expect(existsSync(path.join(workDir, 'run-state.json'))).toBe(true);
 
         clearRunState({isolationRoot: workDir});
@@ -428,9 +491,14 @@ test.describe('harness brain lifecycle', () => {
     });
 
     test('run-state file content carries the ownership token per group', () => {
-        writeRunState({children: [{entry: ORCHESTRATOR_ENTRY, pgid: 111}], isolationRoot: workDir});
+        const entry = path.join(workDir, ORCHESTRATOR_ENTRY);
+
+        writeRunState({
+            children: [{entry, ownershipToken: 'token-111', pgid: 111}],
+            isolationRoot: workDir
+        });
 
         expect(JSON.parse(readFileSync(path.join(workDir, 'run-state.json'), 'utf8')))
-            .toEqual({children: [{entry: ORCHESTRATOR_ENTRY, pgid: 111}]})
+            .toEqual({children: [{entry, ownershipToken: 'token-111', pgid: 111}]})
     })
 });

@@ -27,6 +27,7 @@
 // exactly why parent-only teardown leaks: the group is the only boundary that owns the whole tree.
 
 import {execFile, execFileSync, spawn} from 'node:child_process';
+import {randomUUID}                    from 'node:crypto';
 import fs                              from 'node:fs';
 import net                             from 'node:net';
 import path                            from 'node:path';
@@ -355,21 +356,46 @@ function forwardLines(child, onLog) {
  * @param {String}   options.entry Entry script, repo-relative.
  * @param {Object}   [options.env] Env fragment merged over process.env.
  * @param {Function} [options.onLog] Receives trimmed child stdout/stderr lines.
+ * @param {Function} [options.ownershipTokenFn=randomUUID] Per-spawn identity seam for tests.
  * @param {Function} [options.spawnFn=spawn] Injection seam for tests.
- * @returns {import('node:child_process').ChildProcess}
+ * @returns {import('node:child_process').ChildProcess & {neoHarnessIdentity: Object}}
  */
-export function startBrainChild({repoRoot, entry, env = {}, onLog, spawnFn = spawn}) {
+export function startBrainChild({
+    repoRoot,
+    entry,
+    env = {},
+    onLog,
+    ownershipTokenFn = randomUUID,
+    spawnFn = spawn
+}) {
     // The supervised tree resolves bare tool commands (the orchestrator's `chroma` task) via PATH.
     // npm-run contexts prepend the repo's node_modules/.bin by accident of cwd; a packaged shell
     // has no npm in the chain at all — so the lifecycle owner guarantees the resolution explicitly.
-    const binPath = path.join(repoRoot, 'node_modules', '.bin');
+    const
+        absoluteRepoRoot = path.resolve(repoRoot),
+        absoluteEntry    = path.resolve(absoluteRepoRoot, entry),
+        relativeEntry    = path.relative(absoluteRepoRoot, absoluteEntry),
+        binPath          = path.join(absoluteRepoRoot, 'node_modules', '.bin'),
+        ownershipToken   = ownershipTokenFn();
 
-    const child = spawnFn(nodeBin(), [entry], {
-        cwd     : repoRoot,
+    if (relativeEntry === '..' || relativeEntry.startsWith(`..${path.sep}`) || path.isAbsolute(relativeEntry)) {
+        throw new TypeError('entry must resolve inside repoRoot')
+    }
+
+    if (typeof ownershipToken !== 'string' || ownershipToken.length === 0 || /\s/.test(ownershipToken)) {
+        throw new TypeError('ownershipTokenFn must return a non-empty token without whitespace')
+    }
+
+    const child = spawnFn(nodeBin(), [absoluteEntry, `--neo-harness-owner=${ownershipToken}`], {
+        cwd     : absoluteRepoRoot,
         detached: true,
         env     : {...process.env, ...env, PATH: `${binPath}${path.delimiter}${process.env.PATH ?? ''}`},
         stdio   : ['ignore', 'pipe', 'pipe']
     });
+
+    // The parent persists this pair only for smoke crash recovery. The absolute entry distinguishes
+    // checkouts; the argv token distinguishes this exact process instance from every later spawn.
+    child.neoHarnessIdentity = Object.freeze({entry: absoluteEntry, ownershipToken});
 
     forwardLines(child, onLog);
     return child
@@ -601,14 +627,14 @@ export async function stopBrainTree(children, options = {}) {
 }
 
 /**
- * @summary Persists the process groups of a SMOKE run — WITH an ownership token per group (the
- * group leader's entry script) — so a crashed harness's next run can sweep its own leftovers
- * (the crash path bypasses will-quit). A bare PGID is not ownership evidence: the OS reuses ids,
- * so the sweep re-verifies the recorded identity before signaling. Product own-mode leftovers
- * are deliberately NOT recorded: a still-live default-paths Brain is attached to next boot.
+ * @summary Persists the process groups of a SMOKE run with checkout + process-instance identity
+ * so a crashed harness's next run can sweep only its own leftovers (the crash path bypasses
+ * will-quit). A PGID or program name is not ownership evidence: the OS reuses ids and every clone
+ * runs the same scripts. Product own-mode leftovers are deliberately NOT recorded: a still-live
+ * default-paths Brain is attached to next boot.
  * @param {Object} options
  * @param {String} options.isolationRoot
- * @param {Object[]} options.children `{pgid, entry}` per supervised group leader.
+ * @param {Object[]} options.children `{pgid, entry, ownershipToken}` per supervised group leader.
  */
 export function writeRunState({isolationRoot, children}) {
     fs.mkdirSync(isolationRoot, {recursive: true});
@@ -630,10 +656,10 @@ export function clearRunState({isolationRoot}) {
 }
 
 /**
- * @summary Sweeps a prior CRASHED smoke run's process groups — but only after re-proving
- * ownership: the group leader's current command line must still carry the recorded entry script.
- * An identity mismatch (recycled pid) drops the record without signaling. The state file is
- * cleared either way. No-op when no state exists.
+ * @summary Sweeps a prior CRASHED smoke run's process groups only after re-proving both checkout
+ * and process-instance identity: the current command must carry the recorded absolute entry and
+ * per-spawn argv token. Missing/legacy identity and recycled groups fail closed without signaling.
+ * The state file is cleared either way. No-op when no state exists.
  * @param {Object} options
  * @param {String} options.isolationRoot
  * @param {Function} [options.killFn=process.kill] Injection seam for tests.
@@ -655,19 +681,40 @@ export function sweepStaleRunState({isolationRoot, killFn = process.kill, comman
     let children = [];
 
     try {
-        children = JSON.parse(fs.readFileSync(runStateFile, 'utf8')).children ?? []
+        const parsed = JSON.parse(fs.readFileSync(runStateFile, 'utf8'));
+
+        children = Array.isArray(parsed?.children) ? parsed.children : []
     } catch (error) {
+        clearRunState({isolationRoot});
         return swept
     }
 
-    for (const {pgid, entry} of children) {
-        if (!Number.isInteger(pgid) || pgid <= 1 || typeof entry !== 'string' || !groupAlive(pgid, killFn)) {
+    for (const record of children) {
+        if (!record || typeof record !== 'object') {
             continue
         }
 
-        // Ownership re-proof: the recorded leader must still run OUR entry script. Mirrors the
-        // daemon's own isOrchestratorDaemonCommand guard against recycled pids.
-        if (!readCommand(pgid).includes(entry)) {
+        const {pgid, entry, ownershipToken} = record;
+
+        if (
+            !Number.isInteger(pgid)
+            || pgid <= 1
+            || typeof entry !== 'string'
+            || !path.isAbsolute(entry)
+            || typeof ownershipToken !== 'string'
+            || ownershipToken.length === 0
+            || /\s/.test(ownershipToken)
+            || !groupAlive(pgid, killFn)
+        ) {
+            continue
+        }
+
+        const command = readCommand(pgid);
+
+        // BOTH adjacent argv observations are required. Absolute entry separates sibling
+        // checkouts; the unique token separates later spawns. Boundary matching prevents a path
+        // or token that merely contains the recorded value from authorizing destruction.
+        if (!commandCarriesHarnessIdentity({command, entry, ownershipToken})) {
             continue
         }
 
@@ -682,5 +729,14 @@ export function sweepStaleRunState({isolationRoot, killFn = process.kill, comman
 }
 
 function execFileSyncCommand(pid) {
-    return execFileSync('ps', ['-p', String(pid), '-o', 'command=']).toString().trim()
+    return execFileSync('ps', ['-ww', '-p', String(pid), '-o', 'command=']).toString().trim()
+}
+
+function commandCarriesHarnessIdentity({command, entry, ownershipToken}) {
+    const
+        escapeRegExp = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+        entryArg     = escapeRegExp(entry),
+        ownerArg     = escapeRegExp(`--neo-harness-owner=${ownershipToken}`);
+
+    return new RegExp(`(?:^|\\s)${entryArg}\\s+${ownerArg}(?:\\s|$)`).test(command)
 }
