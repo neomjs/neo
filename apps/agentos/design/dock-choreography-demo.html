@@ -276,4 +276,62 @@
       <b>Real today (shipped dockZone.v1 + landed #14625 tools):</b> every S1–S3 operation class — split, resizeSplit, moveItem→tab, setItemAutoHidden — executes semantically with animated transitions, agent-drivable end-to-end. <b>Designed here, building in the tree:</b> the edge-rail affordance (#14654) and reveal/dismiss timing (#14660) for S3's beats 1–3; the tour runner (#14640) and this screenplay as its script (#14661). <b>Deliberately absent:</b> perspectives and multi-window pop-out — that is Demo B (#14590, spec-gated), and blending the two would blur both stories. No performance numbers appear anywhere in the demo (#13032 guardrail; the motion must simply LOOK effortless — a claim the viewer verifies with their own eyes).
     </div>
   </section>
+
+  <!-- 06 · DRAG AFFORDANCES (#14930) — the felt Qt-parity floor: parallel-visible drop options -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-num">06</span><h2>Drag affordances — show the menu, never make them guess</h2>
+      <p class="muted" style="margin:0 0 0 auto;font-size:13px">authority section for #14930; Qt-ADS is the floor, not the blueprint</p>
+    </div>
+
+    <p class="lede" style="font-size:16px">The disposition, decided here: <b style="color:var(--ink)">the indicator-overlay model is the primary drag affordance; pointer-zone inference demotes to fallback.</b> Rationale: discoverability is the felt difference — the floor system shows every valid drop option <i>simultaneously</i> while dragging (a 5-position cross on the hovered area, edge chips on the container); ours makes the user divine invisible zones from pointer position. Functional is not felt. The user picks from a visible menu; the menu is the affordance.</p>
+
+    <div class="scene" style="margin-top:18px">
+      <div class="scene-head"><span class="scene-id">DRAG</span><h3>Mid-drag: the option menu, lit</h3><span class="scene-dur">proxy + cross + edge chips + target preview</span></div>
+      <div class="scene-body">
+        <div class="board"><div class="board-label">Dragging TERMINAL over the editor area</div>
+          <div class="stage" style="grid-template:1fr / 2fr 1fr;position:relative">
+            <div class="pane" style="background:var(--pane-a)">EDITOR ⟳
+              <span style="position:absolute;inset:0;display:grid;place-items:center;pointer-events:none">
+                <span style="display:grid;grid-template:14px 14px 14px / 14px 14px 14px;gap:2px">
+                  <span></span><span style="background:var(--panel-2);border:1px solid var(--line);border-radius:3px"></span><span></span>
+                  <span style="background:var(--panel-2);border:1px solid var(--line);border-radius:3px"></span><span style="background:var(--signal);border-radius:3px"></span><span style="background:var(--panel-2);border:1px solid var(--line);border-radius:3px"></span>
+                  <span></span><span style="background:var(--panel-2);border:1px solid var(--line);border-radius:3px"></span><span></span>
+                </span>
+              </span>
+            </div>
+            <div class="pane" style="background:var(--pane-b);opacity:.55">PREVIEW</div>
+            <div class="pane" style="position:absolute;left:34%;top:58%;width:120px;height:34px;background:var(--pane-c);box-shadow:var(--shadow);border:1px solid var(--signal);font-size:9.5px">TERMINAL (proxy)</div>
+          </div>
+        </div>
+        <div class="board"><div class="board-label">Hovering the ◀ indicator: the target region previews</div>
+          <div class="stage" style="grid-template:1fr / 2fr 1fr">
+            <div class="pane" style="background:var(--pane-a);display:grid;grid-template:1fr / 1fr 1fr;gap:3px;place-items:stretch">
+              <span style="background:var(--signal);opacity:.28;border:2px solid var(--signal);border-radius:5px"></span>
+              <span style="display:grid;place-items:center">EDITOR ⟳</span>
+            </div>
+            <div class="pane" style="background:var(--pane-b);opacity:.55">PREVIEW</div>
+          </div>
+        </div>
+      </div>
+      <div class="scene-notes">
+        <div class="note"><h4>The affordance grammar</h4>
+          <ol>
+            <li><b>Drag proxy</b> — the tab travels with the pointer (content pixmap tier later; label chip now)</li>
+            <li><b>Indicator cross</b> on the hovered area: center = tab-merge · N/S/E/W = directional splits; <b>edge chips</b> on the container borders</li>
+            <li><b>Target preview</b> — hovering an indicator fills the exact post-drop region (accept: signal-tinted; reject: <span style="color:var(--hot)">hot</span> dashed, policy-honest)</li>
+            <li><b>Drop commits</b> through <span class="op">previewToOperation</span> unchanged; <b>Escape cancels</b> mid-flight (absorbs tree line C5, single-window)</li>
+          </ol>
+        </div>
+        <div class="note"><h4>Bindings &amp; boundaries</h4>
+          <ul>
+            <li>Tokens: chips on <span class="op">--fm-panel-2/--fm-line</span>, active option <span class="op">--fm-signal</span>, reject <span class="op">--fm-hot</span>; motion via the <span class="op">--dock-transition-*</span> contract — zero local duration policy</li>
+            <li>Producer extends one-affordance-from-pointer → <b>full candidate set for the hovered area</b>; presentation-tier only, reducer contract untouched</li>
+            <li>Edge-band inference stays as the <b>fallback</b> tier (touch, and mid-drag before any indicator is hovered)</li>
+            <li>Grouped-drag proxy (E-tranche) and cross-window drag scenes (#14772) stay out of scope here</li>
+            <li><b>The camera beat:</b> Demo A's cold open — ~15s of hand-drag with this menu lit, then "now watch an agent do it"</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
 </div>
