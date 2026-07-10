@@ -12,6 +12,7 @@ import * as core         from '../../../../src/core/_export.mjs';
 import Button            from '../../../../src/button/Base.mjs';
 import DockLayoutAdapter from '../../../../src/dashboard/DockLayoutAdapter.mjs';
 import DockRail          from '../../../../src/dashboard/DockRail.mjs';
+import Panel             from '../../../../src/dashboard/Panel.mjs';
 
 const createDocument = () => ({
     schema: 'neo.harness.dockZone.v1',
@@ -355,6 +356,55 @@ test.describe('Neo.dashboard.DockRail', () => {
 
         expect(slot.items[0]).toBe(livePane);
         expect(slot.items[0].id).toBe('dock-rail-live-pane');
+    });
+
+    test('blueprint fallback: a resolver miss materializes item.blueprint; identity survives re-reveal', () => {
+        let document = createDocument();
+
+        document.items.terminal.blueprint = {html: 'blueprint-pane', ntype: 'component'};
+
+        rail = Neo.create(DockRail, {
+            dockZoneDocument   : document,
+            edge               : 'right',
+            id                 : 'dock-rail-blueprint',
+            railItems          : createRailItems(),
+            resolveComponentRef: () => null
+        });
+
+        rail.onTabClick({component: tabsOf(rail)[0]});
+
+        let slot = rail.revealOverlay.paneSlot,
+            pane = slot.items[0];
+
+        expect(pane?.html).toBe('blueprint-pane');
+
+        // Parked on dismissal, re-parented on re-reveal — same cache discipline as live instances.
+        rail.revealMachine.escape();
+
+        expect(slot.items).toHaveLength(0);
+        expect(pane.isDestroyed).not.toBe(true);
+
+        rail.onTabClick({component: tabsOf(rail)[0]});
+
+        expect(slot.items[0]).toBe(pane);
+    });
+
+    test('recoverable placeholder when neither a live instance nor a blueprint resolves', () => {
+        rail = Neo.create(DockRail, {
+            dockZoneDocument   : createDocument(),
+            edge               : 'right',
+            id                 : 'dock-rail-placeholder',
+            railItems          : createRailItems(),
+            resolveComponentRef: () => null
+        });
+
+        rail.onTabClick({component: tabsOf(rail)[0]});
+
+        let pane = rail.revealOverlay.paneSlot.items[0];
+
+        expect(pane).toBeTruthy();
+        expect(pane.cls).toContain('neo-dashboard-dock-placeholder');
+        expect(pane.dockItemId).toBe('terminal');
     });
 
     test('threads the workspace default reveal fraction into the bound overlay', () => {

@@ -641,16 +641,18 @@ class DockRail extends Container {
      * Live-instance contract: a resolver-returned Neo INSTANCE is added as-is and PARKED on
      * dismissal (removed without destroy — moved/re-parented, never destroyed), so its identity
      * and transient state survive reveal/dismiss cycles and the pin transition back into the
-     * flow. A blueprint-created pane (config resolution — the no-live-instance fallback) is
-     * cached per item and parked the same way: mounted children are never destroyed mid-session
-     * (`revealPaneCache` tears down with the rail).
+     * flow. The resolution CASCADE mirrors the adapter's in-flow `projectItem()` exactly:
+     * live resolution → `item.blueprint` instantiation → recoverable placeholder (never a silent
+     * empty overlay). Blueprint- and placeholder-created panes are cached per item and parked
+     * the same way: mounted children are never destroyed mid-session (`revealPaneCache` tears
+     * down with the rail).
      * @param {Object|null} railItem
      * @protected
      */
     syncRevealPane(railItem) {
         let me   = this,
             slot = me.revealOverlay?.paneSlot,
-            child, componentRef, currentId, nextId, resolved;
+            child, currentId, item, nextId, resolved;
 
         // Stub/external overlays without a pane slot render header-only — valid by contract.
         if (!slot?.add) {
@@ -674,15 +676,24 @@ class DockRail extends Container {
             if (me.revealPaneCache[nextId] && !me.revealPaneCache[nextId].isDestroyed) {
                 slot.add(me.revealPaneCache[nextId])
             } else {
-                componentRef = me.dockZoneDocument?.items?.[nextId]?.componentRef;
-                resolved     = componentRef != null ? me.resolveComponentRef(componentRef) : null;
+                item     = me.dockZoneDocument?.items?.[nextId];
+                resolved = item?.componentRef != null ? me.resolveComponentRef(item.componentRef, item, nextId) : null;
 
-                if (resolved) {
-                    if (Neo.typeOf(resolved) === 'NeoInstance') {
-                        slot.add(resolved)
-                    } else {
-                        me.revealPaneCache[nextId] = slot.add({...resolved})
-                    }
+                if (!resolved && item?.blueprint) {
+                    resolved = Neo.clone(item.blueprint, true)
+                }
+
+                if (Neo.typeOf(resolved) === 'NeoInstance') {
+                    slot.add(resolved)
+                } else if (resolved) {
+                    me.revealPaneCache[nextId] = slot.add({...resolved})
+                } else if (item) {
+                    // Neither live instance nor blueprint resolves: recoverable placeholder,
+                    // never a silently empty overlay — the adapter's own policy.
+                    me.revealPaneCache[nextId] = slot.add(
+                        Neo.dashboard?.DockLayoutAdapter?.createPlaceholder?.(nextId, item) ??
+                        {cls: ['neo-dashboard-dock-placeholder'], dockItemId: nextId, ntype: 'component'}
+                    )
                 }
             }
         }
