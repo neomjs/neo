@@ -22,7 +22,7 @@
  * @type {String[]}
  */
 export const FLEET_WIRE_METHODS = Object.freeze([
-    'defineAgent', 'setRepo', 'setAvatar', 'listAgents', 'getAgent',
+    'defineAgent', 'configureAgent', 'setRepo', 'setAvatar', 'listAgents', 'getAgent',
     'startAgent', 'stopAgent', 'restartAgent', 'removeAgent', 'fleetStatus', 'fleetRuntimeStatus',
     'getBootIdentity', 'fleetActivity', 'fleetRoster'
 ]);

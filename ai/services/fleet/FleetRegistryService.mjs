@@ -4,6 +4,7 @@ import path            from 'path';
 import {fileURLToPath} from 'url';
 import aiConfig        from '../../config.mjs';
 import Base            from '../../../src/core/Base.mjs';
+import {HARNESS_TYPES} from '../../../src/ai/fleet/harnessTypes.mjs';
 
 const
     __filename = fileURLToPath(import.meta.url),
@@ -74,11 +75,13 @@ class FleetRegistryService extends Base {
     }
 
     /**
-     * Whitelist of supported harness types an agent definition may declare.
+     * Whitelist of supported harness types an agent definition may declare — derived from the ONE
+     * shared Body↔Brain registry (`src/ai/fleet/harnessTypes.mjs`): adding a harness there updates
+     * this validation set AND every Body picker/label in the same registration.
      * @member {String[]} harnessTypes
      * @protected
      */
-    harnessTypes = ['claude-code', 'claude-desktop', 'codex', 'antigravity', 'native-neo']
+    harnessTypes = HARNESS_TYPES.map(entry => entry.type)
 
     /**
      * Default lifetime of a minted Bridge session token, in milliseconds (1h). Short-lived by
@@ -193,6 +196,55 @@ class FleetRegistryService extends Base {
             metadata     : metadata ? {...existing.metadata, ...metadata} : existing.metadata,
             modelProvider: modelProvider || existing.modelProvider,
             updatedAt    : new Date().toISOString()
+        };
+
+        this.agents.set(id, def);
+        this.writeRegistry();
+
+        return this.toPublic(def);
+    }
+
+    /**
+     * Configure an existing agent's harness + per-agent runtime configuration — the scoped patch
+     * path Body configuration surfaces round-trip through (the {@link updateAgent} pattern, one
+     * facet class): validates `harnessType` against {@link harnessTypes}, boolean-coerces the MCP
+     * enable matrix, and preserves everything unspecified — identity, metadata, `createdAt`, and
+     * the stored credential are untouchable through this surface. The returned public definition
+     * IS the caller's readback: the Body renders what the registry persisted, never what it sent.
+     * No-op-safe: an unknown id returns `null` rather than creating a partial definition.
+     * @param {String}        id
+     * @param {Object}        config
+     * @param {String}       [config.harnessType]             New harness type — one of {@link harnessTypes}.
+     * @param {Object|null}  [config.mcpServers]              Per-agent MCP enable matrix (values boolean-coerced); `null` resets to catalog defaults.
+     * @param {Boolean|null} [config.hooksActive]             Configured hooks intent; `null` = not read back.
+     * @param {Boolean|null} [config.wakeSubscriptionsActive] Configured wake-subscription intent; `null` = not read back.
+     * @returns {Object|null} The updated public definition (no credential), or `null` when the agent doesn't exist.
+     */
+    configureAgent(id, {harnessType, mcpServers, hooksActive, wakeSubscriptionsActive} = {}) {
+        this.ensureLoaded();
+
+        const existing = this.agents.get(id);
+        if (!existing) return null;
+
+        if (harnessType != null && !this.harnessTypes.includes(harnessType)) {
+            throw new Error(`FleetRegistryService.configureAgent: invalid harnessType '${harnessType}'. Must be one of: ${this.harnessTypes.join(', ')}.`);
+        }
+
+        let matrix = existing.mcpServers ?? null;
+
+        if (mcpServers !== undefined) {
+            matrix = mcpServers === null
+                ? null
+                : Object.fromEntries(Object.entries(mcpServers).map(([key, value]) => [key, !!value]));
+        }
+
+        const def = {
+            ...existing,
+            harnessType            : harnessType ?? existing.harnessType,
+            mcpServers             : matrix,
+            hooksActive            : hooksActive !== undefined ? hooksActive : (existing.hooksActive ?? null),
+            wakeSubscriptionsActive: wakeSubscriptionsActive !== undefined ? wakeSubscriptionsActive : (existing.wakeSubscriptionsActive ?? null),
+            updatedAt              : new Date().toISOString()
         };
 
         this.agents.set(id, def);

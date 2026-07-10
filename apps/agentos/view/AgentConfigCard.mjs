@@ -1,0 +1,186 @@
+import Component                              from '../../../src/component/Base.mjs';
+import {listHarnessTypes, resolveHarnessType} from '../config/harnessTypes.mjs';
+import {listMcpServers, resolveMcpMatrix}     from '../config/mcpServers.mjs';
+
+/**
+ * @class AgentOS.view.AgentConfigCard
+ * @extends Neo.component.Base
+ *
+ * @summary The per-agent configuration card — renders ONE selected agent's configuration from its
+ * {@link AgentOS.model.AgentDefinition} record, entirely derived from the registries
+ * (`config/harnessTypes.mjs` + `config/mcpServers.mjs`): the harness (registry label, fail-closed
+ * "Unknown harness" for unregistered types), the MCP-server matrix (catalog order, effective
+ * enable-state via `resolveMcpMatrix` — null matrix = catalog defaults), and the operational
+ * toggles with tri-state honesty (On / Off / "Not read back yet" — never an optimistic guess).
+ * Every label is operator product language; transport vocabulary never renders.
+ */
+class AgentConfigCard extends Component {
+    static config = {
+        /**
+         * @member {String} className='AgentOS.view.AgentConfigCard'
+         * @protected
+         */
+        className: 'AgentOS.view.AgentConfigCard',
+        /**
+         * @member {String} ntype='agent-config-card'
+         * @protected
+         */
+        ntype: 'agent-config-card',
+        /**
+         * @member {String[]} baseCls=['agent-config-card']
+         */
+        baseCls: ['agent-config-card'],
+        /**
+         * The selected agent's record (an {@link AgentOS.model.AgentDefinition} row) — null renders
+         * the empty state ("Select an agent").
+         * @member {Object|null} record_=null
+         * @reactive
+         */
+        record_: null
+    }
+
+    /**
+     * @summary One delegated click listener resolves every interactive row (see {@link #onCardClick}).
+     */
+    construct(config) {
+        super.construct(config);
+        this.addDomListeners({click: this.onCardClick, scope: this})
+    }
+
+    /**
+     * Triggered after the record config got changed
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @protected
+     */
+    afterSetRecord(value, oldValue) {
+        this.refresh()
+    }
+
+    /**
+     * @summary Re-derive the card's vdom from the CURRENT record data. Public on purpose: a
+     * `recordChange` mutates record fields without changing record identity, so the reactive
+     * `record` config never re-fires — the owning view calls `refresh()` on roster changes to keep
+     * the card live (the same-record propagation contract).
+     */
+    refresh() {
+        this.vdom.cn = this.createCardContent(this.record);
+        this.update()
+    }
+
+    /**
+     * @summary Resolve a click on an interactive row into a `configIntent` event — the card never
+     * mutates anything itself (the owning view drives the bridge round-trip and writes the record
+     * from the RESPONSE). Rows encode their intent in DOM ids: `<cardId>__srv__<key>` toggles one
+     * MCP server; `<cardId>__harness__<type>` picks a harness.
+     * @param {Object} data DOM click event data.
+     * @protected
+     */
+    onCardClick(data) {
+        const
+            me     = this,
+            record = me.record,
+            node   = data.path?.find(item => item.id?.startsWith(`${me.id}__`));
+
+        if (!node || !record) {
+            return
+        }
+
+        const [, kind, key] = node.id.replace(`${me.id}__`, '__').split('__');
+
+        if (kind === 'srv') {
+            const matrix = resolveMcpMatrix(record.mcpServers);
+
+            me.fire('configIntent', {
+                agentId: record.id,
+                config : {mcpServers: {...matrix, [key]: !matrix[key]}}
+            })
+        } else if (kind === 'harness' && key !== record.harnessType) {
+            me.fire('configIntent', {
+                agentId: record.id,
+                config : {harnessType: key}
+            })
+        }
+    }
+
+    /**
+     * @summary Build the card's vdom from one record via the registries. Pure derivation — the
+     * record and the two registries are the only inputs, so the card can never drift from the
+     * configuration model. Server rows and harness chips are interactive (see {@link #onCardClick});
+     * operational rows are read-only observations.
+     * @param {Object|null} record
+     * @returns {Object[]} vdom child nodes
+     */
+    createCardContent(record) {
+        if (!record) {
+            return [{cls: ['agent-config-empty'], text: 'Select an agent to see its configuration.'}]
+        }
+
+        const
+            me      = this,
+            harness = resolveHarnessType(record.harnessType),
+            matrix  = resolveMcpMatrix(record.mcpServers);
+
+        return [{
+            cls: ['agent-config-identity'],
+            cn : [
+                {tag: 'strong', cls: ['agent-config-name'], text: record.displayName || record.githubUsername},
+                {cls: ['agent-config-status'], text: record.statusText || ''}
+            ]
+        }, {
+            cls: ['agent-config-row'],
+            cn : [
+                {cls: ['agent-config-label'], text: 'Harness'},
+                {cls: ['agent-config-value'], text: harness?.label ?? 'Unknown harness'}
+            ]
+        }, {
+            cls: ['agent-config-chips'],
+            cn : listHarnessTypes().map(entry => ({
+                id  : `${me.id}__harness__${entry.type}`,
+                cls : ['agent-config-chip', entry.type === record.harnessType ? 'is-selected' : 'is-selectable'],
+                text: entry.label
+            }))
+        }, {
+            cls: ['agent-config-section'],
+            cn : [
+                {tag: 'strong', cls: ['agent-config-heading'], text: 'Servers'},
+                ...listMcpServers().map(server => ({
+                    id : `${me.id}__srv__${server.key}`,
+                    cls: ['agent-config-row', 'agent-config-toggle', matrix[server.key] ? 'is-enabled' : 'is-disabled'],
+                    cn : [
+                        {cls: ['agent-config-label'], text: server.label},
+                        {cls: ['agent-config-value'], text: matrix[server.key] ? 'On' : 'Off'}
+                    ]
+                }))
+            ]
+        }, {
+            cls: ['agent-config-section'],
+            cn : [
+                {tag: 'strong', cls: ['agent-config-heading'], text: 'Operations'},
+                this.createToggleRow('Hooks',              record.hooksActive),
+                this.createToggleRow('Wake subscriptions', record.wakeSubscriptionsActive)
+            ]
+        }]
+    }
+
+    /**
+     * @summary One operational-toggle row with tri-state honesty: a boolean renders On/Off; null
+     * renders "Not read back yet" — the surface never invents a state it has not observed.
+     * @param {String} label Product-language row label.
+     * @param {Boolean|null} state
+     * @returns {Object} vdom node
+     */
+    createToggleRow(label, state) {
+        const known = state === true || state === false;
+
+        return {
+            cls: ['agent-config-row', known ? (state ? 'is-enabled' : 'is-disabled') : 'is-unknown'],
+            cn : [
+                {cls: ['agent-config-label'], text: label},
+                {cls: ['agent-config-value'], text: known ? (state ? 'On' : 'Off') : 'Not read back yet'}
+            ]
+        }
+    }
+}
+
+export default Neo.setupClass(AgentConfigCard);
