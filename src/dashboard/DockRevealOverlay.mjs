@@ -1,7 +1,8 @@
-import Button    from '../button/Base.mjs';
-import Container from '../container/Base.mjs';
-import Label     from '../component/Label.mjs';
-import NeoArray  from '../util/Array.mjs';
+import Button           from '../button/Base.mjs';
+import Container        from '../container/Base.mjs';
+import DockMotionSignal from './DockMotionSignal.mjs';
+import Label            from '../component/Label.mjs';
+import NeoArray         from '../util/Array.mjs';
 
 /**
  * @summary Presentation host for the transient reveal of an auto-hidden dock item — an
@@ -108,6 +109,20 @@ class DockRevealOverlay extends Container {
      * @protected
      */
     revealPaneItemId = null
+    /**
+     * Whether this overlay currently owns one reveal-animation entry in `DockMotionSignal`.
+     * Keeps matching end events, early dismissal, rapid re-entry and teardown idempotent.
+     * @member {Boolean} revealMotionActive=false
+     * @protected
+     */
+    revealMotionActive = false
+    /**
+     * Last computed `visible` value used to detect the actual hidden/visible boundary even when
+     * `revealedItem`, rather than `revealState`, causes the transition.
+     * @member {Boolean} revealWasVisible=false
+     * @protected
+     */
+    revealWasVisible = false
 
     /**
      * Assembles the fixed child skeleton (header: title label + pin button; pane slot) with
@@ -148,8 +163,71 @@ class DockRevealOverlay extends Container {
         me.addDomListeners([
             {keydown   : me.onKeyDown,      scope: me},
             {mouseenter: me.onPointerEnter, scope: me},
-            {mouseleave: me.onPointerLeave, scope: me}
+            {mouseleave: me.onPointerLeave, scope: me},
+            // not a global-registry event → mounts LOCALLY on this node; the reveal-slide
+            // keyframes bubble their end here (the motion-signal leave seam)
+            {animationend: me.onMotionAnimationEnd, scope: me}
         ])
+    }
+
+    /**
+     * Opens this reveal producer's counted motion window once.
+     * @protected
+     */
+    beginRevealMotion() {
+        if (!this.revealMotionActive) {
+            this.revealMotionActive = true;
+            DockMotionSignal.enter(this)
+        }
+    }
+
+    /**
+     * Settles this reveal producer's counted motion window once.
+     * @protected
+     */
+    finishRevealMotion() {
+        if (this.revealMotionActive) {
+            this.revealMotionActive = false;
+            DockMotionSignal.leave(this)
+        }
+    }
+
+    /**
+     * Reconciles the reveal producer with the overlay's computed visibility. Both state and item
+     * changes can cross this boundary because `visible` requires a visible state AND an item.
+     * @protected
+     */
+    syncRevealMotion() {
+        let me      = this,
+            visible = me.visible;
+
+        if (visible !== me.revealWasVisible) {
+            me.revealWasVisible = visible;
+            me[visible ? 'beginRevealMotion' : 'finishRevealMotion']()
+        }
+    }
+
+    /**
+     * Teardown may interrupt the CSS animation without an `animationend`; settle the producer's
+     * entry before the component lifecycle removes its remaining runtime state.
+     */
+    destroy() {
+        this.finishRevealMotion();
+        super.destroy()
+    }
+
+    /**
+     * The reveal-slide settle: closes the motion-signal window a visible-state flip opened.
+     * Local DOM-event serialization preserves the config-aware browser target id but omits
+     * `AnimationEvent.animationName`. Root-target identity therefore owns settlement: an
+     * overlay animation matches, while a hosted pane's bubbled animation keeps its child id and
+     * cannot leave a signal it did not enter.
+     * @param {Object} data
+     */
+    onMotionAnimationEnd(data) {
+        if (data?.target?.id === (this.vdom?.id || this.id)) {
+            this.finishRevealMotion()
+        }
     }
 
     /**
@@ -204,7 +282,13 @@ class DockRevealOverlay extends Container {
      * @protected
      */
     afterSetRevealState(value, oldValue) {
-        this.isConstructed && this.syncSnapshot()
+        let me = this;
+
+        // A hidden→visible flip re-runs the reveal-slide keyframes; a visible→hidden cut cancels
+        // CSS `animationend`. Reconcile synchronously so rapid re-entry starts from count zero.
+        me.syncRevealMotion();
+
+        me.isConstructed && me.syncSnapshot()
     }
 
     /**
@@ -213,7 +297,12 @@ class DockRevealOverlay extends Container {
      * @protected
      */
     afterSetRevealedItem(value, oldValue) {
-        this.isConstructed && this.syncSnapshot()
+        let me = this;
+
+        // `visible` requires an item, so item-only removal/re-addition crosses the same CSS
+        // display boundary even when the machine state remains `revealed`.
+        me.syncRevealMotion();
+        me.isConstructed && me.syncSnapshot()
     }
 
     /**

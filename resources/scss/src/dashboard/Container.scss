@@ -27,15 +27,61 @@
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────────────
+// The choreography classes — the non-FLIP motion tier. Every duration/easing below reads
+// the tokens ONLY (a literal is a contract violation); reduced-motion collapses all of it
+// through the token, by construction.
+// ─────────────────────────────────────────────────────────────────────────────────────
+
+// Auto-hide reveal slide: the overlay enters FROM its owning edge — the per-edge cls the
+// rail already stamps (`neo-dashboard-dock-reveal-overlay-<edge>`) picks the direction.
+.neo-dashboard-dock-reveal-overlay {
+    animation: neo-dock-reveal-fade var(--dock-transition-duration) var(--dock-transition-easing);
+
+    &-left   { animation-name: neo-dock-reveal-from-left }
+    &-right  { animation-name: neo-dock-reveal-from-right }
+    &-top    { animation-name: neo-dock-reveal-from-top }
+    &-bottom { animation-name: neo-dock-reveal-from-bottom }
+}
+
+@keyframes neo-dock-reveal-fade        { from { opacity: 0.4 } }
+@keyframes neo-dock-reveal-from-left   { from { opacity: 0.4; transform: translateX(-10px) } }
+@keyframes neo-dock-reveal-from-right  { from { opacity: 0.4; transform: translateX(10px) } }
+@keyframes neo-dock-reveal-from-top    { from { opacity: 0.4; transform: translateY(-10px) } }
+@keyframes neo-dock-reveal-from-bottom { from { opacity: 0.4; transform: translateY(10px) } }
+
+// Arrival settle: a brief outline pulse on the pane that just landed from another window
+// (§2.3 cross-window arrival) — the workspace toggles the class; the animation completes
+// itself. transform/opacity/outline only: no layout thrash.
+.neo-dashboard-dock-arrival {
+    animation: neo-dock-arrival-settle calc(var(--dock-transition-duration) * 1.5) var(--dock-transition-easing);
+}
+
+@keyframes neo-dock-arrival-settle {
+    from {
+        outline       : 2px solid var(--dock-arrival-outline, rgba(88, 166, 255, 0.55));
+        outline-offset: -2px;
+    }
+    to {
+        outline       : 2px solid transparent;
+        outline-offset: -2px;
+    }
+}
+
 .neo-dashboard-dock-splitter {
     flex-shrink: 0;
     touch-action: none;
+}
 
-    &-horizontal {
+// Scoped to 0,3,0 on purpose: the generic sort affordance (`.neo-container .neo-draggable`,
+// 0,2,0 in SortZone.css) otherwise wins the cascade and paints the resize handles with a
+// `pointer` cursor — load-order ties are not a contract.
+.neo-dashboard .neo-dashboard-dock-splitter {
+    &.neo-dashboard-dock-splitter-horizontal {
         cursor: ew-resize;
     }
 
-    &-vertical {
+    &.neo-dashboard-dock-splitter-vertical {
         cursor: ns-resize;
     }
 }
@@ -80,9 +126,6 @@
 }
 
 .neo-dashboard-dock-reveal-overlay {
-    --neo-dock-reveal-ms : 200ms;
-    --neo-dock-dismiss-ms: 160ms;
-
     position: absolute;
     z-index : 20;
 
