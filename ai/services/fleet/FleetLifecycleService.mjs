@@ -278,7 +278,9 @@ class FleetLifecycleService extends Base {
         // required (existence alone lets a mode-0644 candidate publish a running status, then flip
         // to failed on the child's asynchronous permission error — a transient false-running state
         // no supervisor may emit).
-        if (!this.resolveExecutable(command, env.PATH, opts.cwd)) {
+        const resolvedCommand = this.resolveExecutable(command, env.PATH, opts.cwd);
+
+        if (!resolvedCommand) {
             throw new Error(`FleetLifecycleService.start: harness binary '${command}' not found or not executable for agent '${id}' (path-shaped commands resolve against the child cwd; bare commands against the child's PATH; executable permission required). Pin the AiConfig fleet.harnessBinaries leaf or the harnessBinaryPaths field to a real executable.`);
         }
 
@@ -338,6 +340,7 @@ class FleetLifecycleService extends Base {
             // per-home `authRequired` heuristic; null for raw-launch agents (unknown layout).
             harnessType  : launch.instanceHome ? agent.harnessType : null,
             instanceHome : launch.instanceHome ?? null,
+            launchCommand: launch.instanceHome ? resolvedCommand : null,
             binaryVersion: null
         };
         this.processes.set(id, record);
@@ -437,15 +440,20 @@ class FleetLifecycleService extends Base {
      * `authRequired` checks a marker file's PRESENCE, never its content).
      * @param {String} id
      * @returns {Object} `{id, state, running, pid, startedAt, uptimeMs, exitCode, exitedAt,
-     *     stderrBytes, authRequired, binaryVersion}` — `authRequired` is the LIVE per-home
+     *     stderrBytes, authRequired, instanceHome, launchCommand, binaryVersion}` — `authRequired`
+     *     is the LIVE per-home
      *     auth-marker heuristic for curated launches (`true` = the operator-owned per-home login has
      *     not happened yet; recomputed each read so a completed login flips it without a restart);
-     *     `null` for raw-launch / untracked agents. `binaryVersion` is the best-effort
+     *     `null` for raw-launch / untracked agents. `instanceHome` is the non-secret, absolute
+     *     lifecycle-owned home needed for the operator login handoff; `launchCommand` is the
+     *     non-secret executable path resolved from AiConfig/the lifecycle owner (`null` for
+     *     raw/untracked agents). Both are intentionally safe for the dev-only unauthenticated
+     *     loopback Fleet bridge: they expose no auth contents. `binaryVersion` is the best-effort
      *     `--version` capture of what actually ran (`null` until/unless the probe answered).
      */
     status(id) {
         const record = this.processes.get(id);
-        if (!record) return {id, state: 'stopped', running: false, pid: null, startedAt: null, uptimeMs: null, exitCode: null, exitedAt: null, stderrBytes: 0, authRequired: null, binaryVersion: null};
+        if (!record) return {id, state: 'stopped', running: false, pid: null, startedAt: null, uptimeMs: null, exitCode: null, exitedAt: null, stderrBytes: 0, authRequired: null, instanceHome: null, launchCommand: null, binaryVersion: null};
 
         return {
             id,
@@ -458,6 +466,8 @@ class FleetLifecycleService extends Base {
             exitedAt     : record.exitedAt,
             stderrBytes  : record.stderrBytes ?? 0,
             authRequired : this.authRequiredForHome(record.harnessType, record.instanceHome),
+            instanceHome : record.instanceHome ?? null,
+            launchCommand: record.launchCommand ?? null,
             binaryVersion: record.binaryVersion ?? null
         };
     }
