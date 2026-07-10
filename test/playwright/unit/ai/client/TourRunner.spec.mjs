@@ -206,6 +206,23 @@ test.describe.serial('Neo.ai.client.TourRunner', () => {
             expect(errors.join('\n')).toContain('requires at least one {path, equals} predicate')
         });
 
+        test('non-finite numbers, sparse arrays and cycles are rejected — JSON-first is round-trip-checked', () => {
+            const nonFinite = smokeScript();
+
+            nonFinite.scenes[0].steps[1].ms = NaN;
+            expect(validateTourScript(nonFinite, {operations}).errors.join('\n')).toContain('non-finite number');
+
+            const sparse = smokeScript();
+
+            sparse.scenes[0].steps[0].expect = [{path: 'items', equals: ['a', , 'c']}]; // eslint-disable-line no-sparse-arrays
+            expect(validateTourScript(sparse, {operations}).errors.join('\n')).toContain('sparse array');
+
+            const cyclic = smokeScript();
+
+            cyclic.scenes[0].loop = cyclic.scenes[0]; // a cycle must reject, never overflow the stack
+            expect(validateTourScript(cyclic, {operations}).errors.join('\n')).toContain('cyclic reference')
+        });
+
         test('a wrong schema tag is rejected fail-closed', () => {
             const script = smokeScript();
 
@@ -317,6 +334,29 @@ test.describe.serial('Neo.ai.client.TourRunner', () => {
                 'beat:0:op', 'beat:1:pause', 'beat:2:op', 'beat:3:topology-assert', 'beat:4:op',
                 'complete'
             ])
+        });
+
+        test('log entries carry the complete cloned descriptor — the log IS the replay wire format', async () => {
+            createRunner();
+
+            const result = await runner.start();
+
+            expect(result.completed).toBe(true);
+            expect(result.log[0].descriptor).toEqual({operation: 'setItemAutoHidden', itemId: 'terminal', autoHidden: true});
+            // a clone, never a live reference into the script
+            expect(result.log[0].descriptor).not.toBe(smokeScript().scenes[0].steps[0].descriptor);
+            expect(result.log[0].descriptor).not.toBe(runner.script.scenes[0].steps[0].descriptor)
+        });
+
+        test('a live-seam failure aborts structured — the runner never leaks a raw throw', async () => {
+            createRunner();
+            Neo.getComponent = () => null; // the holder disappears before the first op
+
+            const result = await runner.start();
+
+            expect(result.completed).toBe(false);
+            expect(result.errors.join('\n')).toContain('dock seam failure');
+            expect(result.errors.join('\n')).toContain('Component not found')
         });
 
         test('two consecutive runs produce identical operation logs (the determinism falsifier)', async () => {

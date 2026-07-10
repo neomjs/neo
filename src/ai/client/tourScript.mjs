@@ -180,13 +180,17 @@ export function resolvePath(document, path) {
 
 /**
  * Recursive JSON-purity scan: rejects functions, symbols, bigints, non-plain object types
- * (Date, Map, class instances, …) and `undefined` values. This is what makes "JSON-first"
- * a checked property instead of a convention.
+ * (Date, Map, class instances, …), `undefined` values, non-finite numbers (`NaN` /
+ * `±Infinity` do not survive a JSON round-trip), sparse arrays (holes silently become
+ * `null` on the wire), and cyclic references (a cycle can never serialize). This is what
+ * makes "JSON-first" a checked property instead of a convention: a script that passes is
+ * guaranteed to round-trip `JSON.stringify` → `JSON.parse` byte-faithfully.
  * @param {*}        value
  * @param {String}   path   Human-readable location for the error message
  * @param {String[]} errors Collector, mutated in place
+ * @param {WeakSet}  seen   Ancestor objects on the current recursion path (cycle guard)
  */
-function scanJsonPurity(value, path, errors) {
+function scanJsonPurity(value, path, errors, seen = new WeakSet()) {
     const type = typeof value;
 
     if (value === undefined) {
@@ -199,21 +203,35 @@ function scanJsonPurity(value, path, errors) {
         return
     }
 
+    if (type === 'number' && !Number.isFinite(value)) {
+        errors.push(`${path}: non-finite number (${value}) does not survive a JSON round-trip`);
+        return
+    }
+
     if (type !== 'object' || value === null) {
         return
     }
 
+    if (seen.has(value)) {
+        errors.push(`${path}: cyclic reference — a cycle can never serialize`);
+        return
+    }
+
+    seen.add(value);
+
     if (Array.isArray(value)) {
-        value.forEach((item, index) => scanJsonPurity(item, `${path}[${index}]`, errors));
-        return
+        if (value.length !== Object.keys(value).length) {
+            errors.push(`${path}: sparse array — holes become null on the wire; use explicit values`)
+        } else {
+            value.forEach((item, index) => scanJsonPurity(item, `${path}[${index}]`, errors, seen))
+        }
+    } else if (!isPlainObject(value)) {
+        errors.push(`${path}: non-plain object (${value.constructor?.name || 'unknown type'}) violates the JSON-first contract`)
+    } else {
+        Object.entries(value).forEach(([key, item]) => scanJsonPurity(item, `${path}.${key}`, errors, seen))
     }
 
-    if (!isPlainObject(value)) {
-        errors.push(`${path}: non-plain object (${value.constructor?.name || 'unknown type'}) violates the JSON-first contract`);
-        return
-    }
-
-    Object.entries(value).forEach(([key, item]) => scanJsonPurity(item, `${path}.${key}`, errors))
+    seen.delete(value)
 }
 
 /**

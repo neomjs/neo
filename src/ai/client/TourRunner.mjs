@@ -272,15 +272,29 @@ class TourRunner extends Base {
                 });
 
                 if (step.type === 'op') {
-                    const
-                        result = await dockService.executeDockOperation({componentId, descriptor: step.descriptor}),
-                        entry  = {
-                            applied  : result.applied,
-                            operation: step.descriptor.operation,
-                            sceneId,
-                            stepIndex,
-                            type     : 'op'
-                        };
+                    let result;
+
+                    try {
+                        result = await dockService.executeDockOperation({componentId, descriptor: step.descriptor})
+                    } catch (e) {
+                        // a live-seam failure (holder unresolvable / gone mid-run) stays inside the
+                        // structured-outcome contract — the runner never leaks a raw throw
+                        if (e === Neo.isDestroyed) throw e;
+
+                        return me.#abort([`${sceneId}[${stepIndex}] dock seam failure executing '${step.descriptor.operation}': ${e.message}`])
+                    }
+
+                    const entry = {
+                        applied  : result.applied,
+                        // the log IS the replay wire format: the complete descriptor travels in every
+                        // entry (JSON-cloned — scripts are validated JSON-pure), so two runs with
+                        // different arguments can never produce identical logs
+                        descriptor: JSON.parse(JSON.stringify(step.descriptor)),
+                        operation : step.descriptor.operation,
+                        sceneId,
+                        stepIndex,
+                        type      : 'op'
+                    };
 
                     me.log.push(entry);
 
@@ -306,9 +320,17 @@ class TourRunner extends Base {
                 }
 
                 else if (step.type === 'topology-assert') {
-                    const
-                        {document}         = await dockService.getDockTopology({componentId}),
-                        {passed, failures} = evaluateExpectations(step.expect, document);
+                    let topology;
+
+                    try {
+                        topology = await dockService.getDockTopology({componentId})
+                    } catch (e) {
+                        if (e === Neo.isDestroyed) throw e;
+
+                        return me.#abort([`${sceneId}[${stepIndex}] dock seam failure reading topology: ${e.message}`])
+                    }
+
+                    const {passed, failures} = evaluateExpectations(step.expect, topology.document);
 
                     me.log.push({assertsPassed: passed, sceneId, stepIndex, type: 'topology-assert'});
 
