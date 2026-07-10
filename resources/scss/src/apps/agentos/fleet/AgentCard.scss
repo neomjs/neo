@@ -47,6 +47,14 @@
         text-overflow: ellipsis;
     }
 
+    .fm-card-source-health {
+        flex-wrap : wrap;
+        gap       : 4px 7px;
+        min-width : 0;
+        overflow  : visible;
+        padding-top: 2px;
+    }
+
     .fm-card-controls {
         flex: none;
         gap : 2px;

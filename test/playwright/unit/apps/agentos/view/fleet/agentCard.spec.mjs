@@ -20,12 +20,19 @@ import Instance       from '../../../../../../../src/manager/Instance.mjs';
 test.describe('Fleet cockpit AgentCard — resident card rendering its roster record (#14755)', () => {
     let AgentCard, FleetAgent, Store;
 
-    const stores = [];
+    const
+        stores          = [],
+        observedSources = {
+            roster    : {source: 'fleet:listAgents',    state: 'wired', confidence: 'observed'},
+            repoStatus: {source: 'fleet:fleetStatus',   state: 'wired', confidence: 'observed'},
+            runtime   : {source: 'fleet:runtimeStatus', state: 'wired', confidence: 'observed'}
+        };
 
     // a real store-backed record — the production shape (an AgentOS.store.FleetRoster row). The
     // store mirrors FleetRoster's keyProperty (the collection default 'id' would shadow the model's).
     const makeRecord = data => {
-        const store = Neo.create(Store, {keyProperty: 'agentId', model: FleetAgent, data: [data]});
+        const row   = {...data, sources: data.sources === undefined ? observedSources : data.sources},
+              store = Neo.create(Store, {keyProperty: 'agentId', model: FleetAgent, data: [row]});
 
         stores.push(store);
 
@@ -72,10 +79,52 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
     });
 
     test('a plain field-bag record renders the same snapshot — the dock-blueprint restore shape', () => {
-        const card = Neo.create(AgentCard, {appName, record: {agentId: 'ghost', displayName: 'Ghost', state: 'ok'}});
+        const card = Neo.create(AgentCard, {appName, record: {agentId: 'ghost', displayName: 'Ghost', sources: observedSources, state: 'ok'}});
 
         expect(card.down({reference: 'card-name'}).text).toBe('Ghost');
         expect(card.down({ntype: 'fm-state-dot'}).state).toBe('ok');
+
+        card.destroy()
+    });
+
+    test('source markers update in place; absent runtime fails the state dot closed and never pulses', () => {
+        const card     = createCard({agentId: 'vega', state: 'ok'}),
+              beforeId = card.id,
+              runtime  = card.down({reference: 'source-runtime'}),
+              markerId = runtime.id,
+              stateDot = card.down({ntype: 'fm-state-dot'});
+
+        expect(runtime.text).toBe('RUN OBSERVED');
+        expect(stateDot.state).toBe('ok');
+        expect(stateDot.live).toBe(true);
+
+        applySet(card, {sources: {
+            roster    : {source: 'fleet:listAgents',    state: 'wired', confidence: 'observed'},
+            repoStatus: {source: 'fleet:fleetStatus',   state: 'missing', confidence: 'none'},
+            runtime   : {source: 'fleet:runtimeStatus', state: 'not-wired', confidence: 'none'}
+        }});
+
+        expect(card.id).toBe(beforeId);
+        expect(card.down({reference: 'source-runtime'}).id).toBe(markerId);
+        expect(runtime.text).toBe('RUN NOT WIRED');
+        expect(card.down({reference: 'source-repo-status'}).text).toBe('REP MISSING');
+        expect(stateDot.state).toBe('off');
+        expect(stateDot.live).toBe(false);
+        expect(card.down({reference: 'control-toggle'}).iconCls).toBe('fa-solid fa-stop');
+        expect(card.down({reference: 'control-toggle'}).disabled).toBe(true);
+        expect(card.down({reference: 'control-restart'}).hidden).toBe(false);
+        expect(card.down({reference: 'control-restart'}).disabled).toBe(true);
+        expect(card.down({reference: 'control-status'}).text).toBe('NOT WIRED');
+
+        applySet(card, {sources: {
+            ...observedSources,
+            runtime: {source: 'fleet:runtimeStatus', state: 'wired', confidence: 'inferred'}
+        }});
+        expect(runtime.text).toBe('RUN INFERRED');
+        expect(stateDot.state).toBe('ok');
+        expect(stateDot.live).toBe(false);
+        expect(card.down({reference: 'control-toggle'}).disabled).toBe(false);
+        expect(card.down({reference: 'control-status'}).hidden).toBe(true);
 
         card.destroy()
     });
