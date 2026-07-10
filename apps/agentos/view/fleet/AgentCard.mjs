@@ -227,7 +227,15 @@ class AgentCard extends Container {
             runtime       = sources.runtime,
             sourceUsable  = runtime.state === 'wired',
             recordState   = record.state ?? 'off',
-            displayState  = sourceUsable ? recordState : 'off',
+            // a runtime observation only renders as a resolved state when the source is wired; a
+            // transitional state, in contrast, is a FIRST-PARTY fact (we sent the intent, it is in
+            // flight) so `pendingAction` takes precedence and needs no runtime-source gate.
+            resolvedState = sourceUsable ? recordState : 'off',
+            displayState  = pendingAction === 'stop'
+                ? 'stopping'
+                : pendingAction  // 'start' | 'restart' both transition toward running
+                    ? 'starting'
+                    : resolvedState,
             sourceReason  = sourceUsable
                 ? null
                 : runtime.state === 'missing'
