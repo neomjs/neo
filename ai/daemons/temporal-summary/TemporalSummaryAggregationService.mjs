@@ -2,6 +2,7 @@
 // InstanceManager) lives in `ai/daemons/temporal-summary/daemon.mjs`, following the
 // canonical Orchestrator class+wrapper pattern. `Neo.setupClass(...)` at file bottom
 // uses `globalThis.Neo`, populated by the entry-point bootstrap chain.
+import AiConfig                                from '../../config.mjs';
 import Base                                    from '../../../src/core/Base.mjs';
 import logger                                  from '../../mcp/server/memory-core/logger.mjs';
 import {UNIFIED_PARTITION}                     from '../../graph/temporalSummarySchema.mjs';
@@ -213,13 +214,19 @@ class TemporalSummaryAggregationService extends Base {
     }
 
     /**
-     * @summary Acquires the shared heavy-maintenance lease for this lane. Overridable seam (tests inject a
+     * @summary Acquires the shared heavy-maintenance lease for this lane. The stale TTL is read from the
+     * config SSOT at the use site — the lease primitive is Neo-free and carries no TTL default by design, so
+     * omitting it makes the primitive throw at the production boundary. Overridable seam (tests inject a
      * deterministic acquire result without touching the on-disk lease file).
      * @returns {{acquired:Boolean, lease:Object}}
      * @protected
      */
     acquireLease() {
-        return acquireHeavyMaintenanceLeaseSync({owner: LEASE_OWNER, reason: 'temporal-pyramid-l1-l2'})
+        return acquireHeavyMaintenanceLeaseSync({
+            owner       : LEASE_OWNER,
+            reason      : 'temporal-pyramid-l1-l2',
+            staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs
+        })
     }
 
     /**

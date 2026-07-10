@@ -149,6 +149,33 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         expect(JSON.parse(upserts[0].documents[0])).toEqual({mergedPrs: 3})
     });
 
+    test('acquireLease forwards the AiConfig stale TTL — the primitive carries no default and throws without it', async () => {
+        const
+            fs     = await import('node:fs'),
+            path   = await import('node:path'),
+            source = fs.readFileSync(
+                path.resolve(process.cwd(), 'ai/daemons/temporal-summary/TemporalSummaryAggregationService.mjs'),
+                'utf8'
+            );
+
+        // the lease seam is stubbed in every behavioral test above, so a missing staleAfterMs would only
+        // surface at the production boundary — this pins the use-site read that keeps it from regressing
+        expect(source).toContain('staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs');
+
+        const
+            {buildLeasePayload} = await import('../../../../../../ai/daemons/orchestrator/services/heavyMaintenanceLeasePrimitives.mjs'),
+            {default: AiConfig} = await import('../../../../../../ai/config.mjs'),
+            staleAfterMs        = AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs;
+
+        // the guard above is only meaningful if the leaf actually resolves to a positive TTL
+        expect(Number.isFinite(staleAfterMs)).toBe(true);
+        expect(staleAfterMs).toBeGreaterThan(0);
+
+        // the exact options acquireLease() passes are accepted by the primitive that would otherwise throw
+        expect(() => buildLeasePayload({owner: 'temporal-summary-aggregation', reason: 'temporal-pyramid-l1-l2', staleAfterMs})).not.toThrow();
+        expect(() => buildLeasePayload({owner: 'temporal-summary-aggregation', reason: 'temporal-pyramid-l1-l2'})).toThrow(/staleAfterMs/)
+    });
+
     test('runCycle persists the unified track plus one record per agent seen in the window', async () => {
         const persisted = [];
 
