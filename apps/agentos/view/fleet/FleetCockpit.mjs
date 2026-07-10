@@ -4,6 +4,7 @@ import Container              from '../../../../src/container/Base.mjs';
 import FleetCockpitController from './FleetCockpitController.mjs';
 import FleetGrid              from './FleetGrid.mjs';
 import FleetRoster            from '../../store/FleetRoster.mjs';
+import StateProvider          from '../../../../src/state/Provider.mjs';
 
 /**
  * Recent fleet activity for the fixture-fed stream — the live A2A / PR / lane adapters
@@ -26,10 +27,12 @@ const FIXTURE_ACTIVITY = [
  * activity stream, in the SSOT's ~1.55fr / 1fr split. This is the "run the fleet" keeper-view the harness-UI
  * definition specifies, reached from the harness shell's left-rail nav — the cards, NOT a data-grid table.
  *
- * The roster data layer is the shared {@link AgentOS.store.FleetRoster} Store of
- * {@link AgentOS.model.FleetAgent} records — seeded with the honestly-labelled sample roster, bound
- * to the {@link FleetGrid}, and re-pointed at the running fleet by {@link #loadRoster} when the
- * registry bridge wires up. The activity zone composes {@link ActivityStream} → EventChip against a
+ * The roster data layer is ONE {@link AgentOS.store.FleetRoster} Store of
+ * {@link AgentOS.model.FleetAgent} records, hosted by THIS view's `state.Provider` (`stores`
+ * block — the provider is the sharing scope; store classes are never singletons). The provider
+ * `autoLoad`s the honestly-labelled JSON sample seed, the {@link FleetGrid} binds the instance via
+ * `bind: {store: 'stores.fleetRoster'}`, and {@link #loadRoster} re-points it at the running fleet
+ * when the registry bridge wires up. The activity zone composes {@link ActivityStream} → EventChip against a
  * representative snapshot the same way ({@link #loadActivity}).
  *
  * @class AgentOS.view.fleet.FleetCockpit
@@ -59,6 +62,21 @@ class FleetCockpit extends Container {
          */
         controller: FleetCockpitController,
         /**
+         * The cockpit-level roster host — ONE provider-owned {@link AgentOS.store.FleetRoster}
+         * instance (autoLoaded from the JSON sample seed) that the grid + health bar bind; the
+         * provider is the sharing scope, never a store singleton.
+         * @member {Object} stateProvider
+         */
+        stateProvider: {
+            module: StateProvider,
+            stores: {
+                fleetRoster: {
+                    autoLoad: true,
+                    module  : FleetRoster
+                }
+            }
+        },
+        /**
          * Vertical stack: the control bar over the full-width fleet grid over the full-width activity
          * feed. The fleet zone gets the full width for its ranked card grid; the live feed is the
          * bottom strip, not a right-hand column.
@@ -85,7 +103,7 @@ class FleetCockpit extends Container {
             flex        : 1.55,
             reference   : 'fleet-grid',
             adapterState: 'sample', // the seeded roster is a representative sample until the live source is wired
-            store       : FleetRoster
+            bind        : {store: 'stores.fleetRoster'}
         }, {
             module      : ActivityStream,
             flex        : 1,
@@ -96,6 +114,23 @@ class FleetCockpit extends Container {
     }
 
     /**
+     * The last authoritative (bridge-sourced) roster snapshot, kept so a slower store load — the
+     * JSON sample seed racing {@link #loadRoster} — can never overwrite live truth
+     * (see {@link #onRosterStoreLoad}).
+     * @member {Object[]|null} lastLiveRows=null
+     * @protected
+     */
+    lastLiveRows = null
+    /**
+     * Re-entrancy latch for {@link #onRosterStoreLoad}: the store fires `load` for its own
+     * mutations (mutate → onCollectionMutate → load), so the guard's reconciliation adds/removals
+     * re-trigger the very listener that issued them — unlatched, that recursion is a real stack
+     * overflow (~524 frames on a 5k-row snapshot).
+     * @member {Boolean} reconcilingRoster=false
+     * @protected
+     */
+    reconcilingRoster = false
+    /**
      * Set once {@link #loadRoster} has replaced the sample seed with a wired roster payload —
      * subsequent wired payloads MERGE onto the existing records (runtime status refresh) instead of
      * re-seeding the store.
@@ -105,13 +140,54 @@ class FleetCockpit extends Container {
     rosterWired = false
 
     /**
-     * @summary On construct, bind the fleet surfaces to their live feeds.
+     * @summary On construct, bind the fleet surfaces to their live feeds, and guard the roster
+     * store's async seed load against clobbering a faster live source.
      * @param {...*} args
      */
     onConstructed(...args) {
         super.onConstructed(...args);
-        this.loadActivity();
-        this.loadRoster()
+
+        let me = this;
+
+        me.getReference('fleet-grid')?.store?.on({load: me.onRosterStoreLoad, scope: me});
+
+        me.loadActivity();
+        me.loadRoster()
+    }
+
+    /**
+     * @summary Source-precedence guard: the provider-hosted roster store `autoLoad`s the JSON
+     * sample seed while {@link #loadRoster} races the bridge. When the bridge wins, the sample's
+     * later `load` would silently replace live rows (the grid still claiming `live`). Any store
+     * load landing AFTER live truth re-applies the last authoritative snapshot — idempotent,
+     * fail-closed toward live. A load before live truth is the normal seed path and passes through.
+     * Latched via {@link #reconcilingRoster}: the reconciliation's own mutations fire `load` back
+     * into this listener.
+     * @protected
+     */
+    onRosterStoreLoad() {
+        let me = this;
+
+        if (!me.reconcilingRoster && me.rosterWired && me.lastLiveRows) {
+            me.reconcilingRoster = true;
+
+            try {
+                me.reconcileRoster(me.getReference('fleet-grid').store, me.lastLiveRows)
+            } finally {
+                me.reconcilingRoster = false
+            }
+        }
+    }
+
+    /**
+     * @summary Detach the roster-store load guard; the provider tears the owned store itself down.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        let me = this;
+
+        me.getReference('fleet-grid')?.store?.un({load: me.onRosterStoreLoad, scope: me});
+        super.destroy(...args)
     }
 
     /**
@@ -185,6 +261,8 @@ class FleetCockpit extends Container {
 
             const mapped = rows.filter(row => row?.id).map(row => me.mapRosterRow(row));
 
+            me.lastLiveRows = mapped;
+
             if (me.rosterWired) {
                 me.reconcileRoster(grid.store, mapped)
             } else {
@@ -233,13 +311,18 @@ class FleetCockpit extends Container {
      * @protected
      */
     reconcileRoster(store, rows) {
-        const snapshotIds = new Set(rows.map(row => row.agentId));
+        const
+            snapshotIds = new Set(rows.map(row => row.agentId)),
+            joiners     = [];
 
         rows.forEach(row => {
             const record = store.get(row.agentId);
 
-            record ? record.set(row) : store.add(row)
+            record ? record.set(row) : joiners.push(row)
         });
+
+        // one batched add — every store mutation fires `load`, so per-row adds would fan out
+        joiners.length > 0 && store.add(joiners);
 
         store.items
             .filter(record => !snapshotIds.has(record.agentId))

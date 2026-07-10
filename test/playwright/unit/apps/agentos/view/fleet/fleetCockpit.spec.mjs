@@ -12,10 +12,15 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../../src/core/_export.mjs';
-import Instance       from '../../../../../../../src/manager/Instance.mjs';
+import {test, expect}  from '@playwright/test';
+import {readFileSync}  from 'fs';
+import path            from 'path';
+import {fileURLToPath} from 'url';
+import Neo             from '../../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../../src/core/_export.mjs';
+import Instance        from '../../../../../../../src/manager/Instance.mjs';
+
+const seedPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../../../apps/agentos/resources/data/fleetRoster.json');
 
 /**
  * Covers the fail-closed matrix for `FleetCockpit.loadActivity()` — the app-side consumption of the
@@ -159,26 +164,22 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
 
     test.afterEach(() => clearBridge());
 
-    test('FleetRoster is the shared Store of FleetAgent records — durable agentId keying, honest sample seed', () => {
-        // ONE Store singleton is the roster SSOT; its Model fields ARE the card contract
-        expect(FleetRoster.getKeyProperty()).toBe('agentId');
-        expect(FleetRoster.model.className).toBe('AgentOS.model.FleetAgent');
+    test('FleetRoster is a provider-hosted Store CLASS — JSON-fetched seed, durable agentId keying, honest sample', () => {
+        // no singleton: the cockpit provider hosts + autoLoads the ONE shared instance; the class
+        // carries the url seed (the Portal.store.* house pattern)
+        expect(FleetRoster.isClass).toBe(true);
+        expect(FleetRoster.config.singleton).toBeFalsy();
+        expect(FleetRoster.config.url).toBe('../../apps/agentos/resources/data/fleetRoster.json');
 
-        // the seed is the seven REAL maintainer identities — an honest sample, no invented agents
-        expect(FleetRoster.count).toBe(7);
+        // the JSON sample seed: the seven REAL maintainer identities — no invented agents
+        const seed = JSON.parse(readFileSync(seedPath, 'utf8')).data;
+        expect(seed).toHaveLength(7);
         const knownHandles = ['neo-fable', 'neo-fable-clio', 'neo-gemini-pro', 'neo-gpt', 'neo-opus-ada', 'neo-opus-grace', 'neo-opus-vega'];
-        expect(FleetRoster.items.map(record => record.agentId).sort()).toEqual(knownHandles);
+        expect(seed.map(row => row.agentId).sort()).toEqual(knownHandles);
 
-        // rows hydrate as records exposing the model fields — incl the B4/C2 control seam defaults
-        const euclid = FleetRoster.get('neo-gpt');
-        expect(euclid.isRecord).toBe(true);
-        expect(euclid.displayName).toBe('Euclid');
-        expect(euclid.pendingAction).toBeNull();
-        expect(euclid.controlReason).toBeNull();
-
-        // engine tags pinned to CURRENT identity truth (the registry designations at seed time) —
-        // this front-door surface must not silently reintroduce a stale model designation
-        const engineTags = Object.fromEntries(FleetRoster.items.map(record => [record.agentId, record.engineTag]));
+        // engine tags pinned to the registry designations at seed time — this front-door surface
+        // must not silently reintroduce a stale model designation
+        const engineTags = Object.fromEntries(seed.map(row => [row.agentId, row.engineTag]));
         expect(engineTags).toEqual({
             'neo-fable'     : 'fable-5',
             'neo-fable-clio': 'fable-5',
@@ -187,7 +188,20 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
             'neo-opus-ada'  : 'opus-4.8',
             'neo-opus-grace': 'opus-4.8',
             'neo-opus-vega' : 'opus-4.8'
-        })
+        });
+
+        // seed rows hydrate as records exposing the model fields — incl the B4/C2 control seam defaults
+        const store = Neo.create(FleetRoster, {data: seed});
+        expect(store.getKeyProperty()).toBe('agentId');
+        expect(store.model.className).toBe('AgentOS.model.FleetAgent');
+
+        const euclid = store.get('neo-gpt');
+        expect(euclid.isRecord).toBe(true);
+        expect(euclid.displayName).toBe('Euclid');
+        expect(euclid.pendingAction).toBeNull();
+        expect(euclid.controlReason).toBeNull();
+
+        store.destroy()
     });
 
     test('no bridge / no verb / malformed rows / thrown → keeps the last-known roster (fail-closed, no crash)', async () => {
@@ -291,6 +305,103 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         expect(grid.store.added.map(row => row.agentId)).toEqual(['joiner']);
         expect(grid.store.cleared).toBe(0);
         expect(grid.adapterState).toBe('live')
+    });
+
+    // Source precedence: the provider-hosted store autoLoads the JSON sample while loadRoster races
+    // the bridge. These run against a REAL isolated FleetRoster instance with the REAL load
+    // listener attached (the store fires `load` for its own mutations, so the guard's recursion
+    // behavior is only observable through the live listener path — a manual handler call is a
+    // mock-hole).
+    const makeLiveCockpit = (store, index) => {
+        const grid = {adapterState: 'sample', store};
+
+        const cockpit = {
+            getReference     : reference => reference === 'fleet-grid' ? grid : null,
+            grid,
+            id               : `fake-fleet-cockpit-${index}`,
+            lastLiveRows     : null,
+            mapRosterRow     : FleetCockpit.prototype.mapRosterRow,
+            onRosterStoreLoad: FleetCockpit.prototype.onRosterStoreLoad,
+            reconcileRoster  : FleetCockpit.prototype.reconcileRoster,
+            reconcilingRoster: false,
+            rosterWired      : false
+        };
+
+        store.on({load: cockpit.onRosterStoreLoad, scope: cockpit});
+
+        return cockpit
+    };
+
+    test('a sample seed landing AFTER live truth cannot overwrite the roster (fail-closed toward live)', async () => {
+        const store   = Neo.create(FleetRoster, {data: []}),
+              cockpit = makeLiveCockpit(store, 1);
+
+        globalThis.AgentOS = {fleet: {registryBridge: {fleetRoster: async () => ({rows: [
+            {id: 'ada',  family: 'claude', lifecycle: {state: 'running'}},
+            {id: 'vega', family: 'claude', lifecycle: {state: 'stopped'}}
+        ]})}}};
+
+        // the bridge wins the race: live truth lands first
+        await FleetCockpit.prototype.loadRoster.call(cockpit);
+
+        expect(cockpit.rosterWired).toBe(true);
+        expect(cockpit.lastLiveRows.map(row => row.agentId)).toEqual(['ada', 'vega']);
+        expect(store.getCount()).toBe(2);
+
+        // now the slower JSON seed lands: replace the items — the store fires `load` itself,
+        // reaching the guard through the REAL listener
+        store.clear();
+        store.add([{agentId: 'sample-1'}, {agentId: 'sample-2'}, {agentId: 'sample-3'}]);
+
+        // live truth is re-asserted: sample rows evicted, live residents restored
+        expect(store.getCount()).toBe(2);
+        expect(store.get('ada')).toBeTruthy();
+        expect(store.get('vega')).toBeTruthy();
+        expect(store.get('sample-1')).toBeFalsy();
+
+        store.destroy()
+    });
+
+    test('a seed load BEFORE live truth passes through untouched (the normal boot path)', () => {
+        const store   = Neo.create(FleetRoster, {data: []}),
+              cockpit = makeLiveCockpit(store, 2);
+
+        // the seed lands while nothing live exists yet — the store's own load fires the guard
+        store.add([{agentId: 'sample-1'}, {agentId: 'sample-2'}]);
+
+        expect(store.getCount()).toBe(2);
+        expect(store.get('sample-1')).toBeTruthy();
+
+        store.destroy()
+    });
+
+    test('guard re-entry is latched: reconciling a large snapshot through the live listener cannot overflow the stack', async () => {
+        const store   = Neo.create(FleetRoster, {data: []}),
+              cockpit = makeLiveCockpit(store, 3);
+
+        // 1,000 authoritative rows — the unlatched recursion overflowed at ~524 nested frames
+        const rows = Array.from({length: 1000}, (item, index) => ({
+            id: `agent-${index}`, lifecycle: {state: 'running'}
+        }));
+
+        globalThis.AgentOS = {fleet: {registryBridge: {fleetRoster: async () => ({rows})}}};
+
+        await FleetCockpit.prototype.loadRoster.call(cockpit);
+
+        expect(cockpit.rosterWired).toBe(true);
+        expect(store.getCount()).toBe(1000);
+
+        // a late seed load now triggers reconciliation of all 1,000 rows THROUGH the listener:
+        // every joiner add fires `load` back at the guard — the latch must hold
+        store.clear();
+        store.add([{agentId: 'sample-1'}]);
+
+        expect(store.getCount()).toBe(1000);
+        expect(store.get('agent-0')).toBeTruthy();
+        expect(store.get('agent-999')).toBeTruthy();
+        expect(store.get('sample-1')).toBeFalsy();
+
+        store.destroy()
     });
 });
 

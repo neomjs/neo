@@ -8,10 +8,12 @@ import Store                from '../../../src/data/Store.mjs';
  * @summary Redacted Fleet Manager agent definition list — the shared fleet roster. The seed row is a
  * local bridge-state placeholder, not persisted registry data, and carries no credential bytes.
  *
- * Exposed as a **singleton** so the keeper-views that compose the cockpit bind one shared instance:
- * `AgentOS.view.Accounts` writes redacted identities into it (after the Brain-side credential submit),
- * and `AgentOS.view.FleetSettingsPanel`'s roster grid reads from it reactively. No credential bytes
- * ever enter this Body-side store.
+ * **Not a singleton**: the sharing scope is the `state.Provider` that hosts it — the Viewport-level
+ * provider `stores` block, the shared ancestor of both consumers ("if used inside a state provider,
+ * we get it anyway"). `AgentOS.view.Accounts` writes redacted identities into it (after the
+ * Brain-side credential submit) via `getStateProvider().getStore('agentDefinitions')`, and
+ * `AgentOS.view.FleetSettingsPanel`'s roster grid binds it via
+ * `bind: {store: 'stores.agentDefinitions'}`. No credential bytes ever enter this Body-side store.
  */
 class AgentDefinitions extends Store {
     static config = {
@@ -20,10 +22,6 @@ class AgentDefinitions extends Store {
          * @protected
          */
         className: 'AgentOS.store.AgentDefinitions',
-        /**
-         * @member {Boolean} singleton=true
-         */
-        singleton: true,
         /**
          * @member {Object[]} data
          */

@@ -1,8 +1,10 @@
 import Accounts           from './Accounts.mjs';
+import AgentDefinitions   from '../store/AgentDefinitions.mjs';
 import BaseViewport       from '../../../src/container/Viewport.mjs';
 import Dashboard          from '../../../src/dashboard/Container.mjs';
 import FleetCockpit       from './fleet/FleetCockpit.mjs';
 import FleetSettingsPanel from './FleetSettingsPanel.mjs';
+import StateProvider      from '../../../src/state/Provider.mjs';
 import TabContainer       from '../../../src/tab/Container.mjs';
 import ViewportController from './ViewportController.mjs';
 
@@ -39,6 +41,21 @@ class Viewport extends BaseViewport {
          * @reactive
          */
         layout: {ntype: 'vbox', align: 'stretch'},
+        /**
+         * The shell-level shared-store host — the one sharing scope both keeper-view consumers
+         * resolve (Accounts writes into it, FleetSettingsPanel's grid reads it; each binds the
+         * instance at construct, so a pop-out reparent keeps the reference). Store classes are NOT
+         * singletons — the provider IS the sharing mechanism.
+         * @member {Object} stateProvider
+         */
+        stateProvider: {
+            module: StateProvider,
+            stores: {
+                agentDefinitions: {
+                    module: AgentDefinitions
+                }
+            }
+        },
         /**
          * Top chrome (logo · title · theme switch) over the left-rail keeper-view nav.
          * @member {Object[]} items

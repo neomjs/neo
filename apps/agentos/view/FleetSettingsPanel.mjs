@@ -1,16 +1,15 @@
-import AgentDefinitions from '../store/AgentDefinitions.mjs';
-import Button           from '../../../src/button/Base.mjs';
-import DashboardPanel   from '../../../src/dashboard/Panel.mjs';
-import GridContainer    from '../../../src/grid/Container.mjs';
-import Toolbar          from '../../../src/toolbar/Base.mjs';
+import Button         from '../../../src/button/Base.mjs';
+import DashboardPanel from '../../../src/dashboard/Panel.mjs';
+import GridContainer  from '../../../src/grid/Container.mjs';
+import Toolbar        from '../../../src/toolbar/Base.mjs';
 
 /**
  * @class AgentOS.view.FleetSettingsPanel
  * @extends Neo.dashboard.Panel
  *
  * @summary The **Fleet view** — run the fleet: the live, redacted roster (grid) + the lifecycle
- * controls (Start / Stop / Restart). Reads the shared `AgentDefinitions` roster singleton that
- * `AgentOS.view.Accounts` writes into; identity *setup* + all credential handling live in `Accounts`
+ * controls (Start / Stop / Restart). Its grid binds the shared `AgentDefinitions` roster instance
+ * from the Viewport provider (`stores.agentDefinitions`) that `AgentOS.view.Accounts` writes into; identity *setup* + all credential handling live in `Accounts`
  * (the cockpit keeper-view split). This view holds no credential logic — it is read + lifecycle only:
  * the lifecycle controls call the injected fleet registry bridge (`globalThis.AgentOS.fleet.registryBridge`,
  * the same Node↔Body transport `Accounts` defines through) and fail closed when it is absent, exactly
@@ -58,7 +57,7 @@ class FleetSettingsPanel extends DashboardPanel {
             cls      : ['agent-definition-grid'],
             flex     : 1,
             reference: 'agent-grid',
-            store    : AgentDefinitions,
+            bind     : {store: 'stores.agentDefinitions'},
 
             columns: [{
                 dataField: 'githubUsername',
@@ -121,7 +120,8 @@ class FleetSettingsPanel extends DashboardPanel {
      * @returns {Object|null} an `AgentDefinitions` record, or `null` when no real agent is defined yet.
      */
     getTargetAgentRecord() {
-        return AgentDefinitions.getRange().find(record => record.id !== 'bridge-pending') || null
+        // the grid holds the provider-resolved store instance (bound at construct — pop-out safe)
+        return this.getReference('agent-grid').store.getRange().find(record => record.id !== 'bridge-pending') || null
     }
 
     /**

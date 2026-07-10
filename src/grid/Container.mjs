@@ -273,7 +273,7 @@ class GridContainer extends BaseContainer {
     construct(config) {
         super.construct(config);
 
-        let me = this,
+        let me                                    = this,
             {appName, rowHeight, store, windowId} = me;
 
         me.items = me.items || [];
@@ -542,13 +542,17 @@ class GridContainer extends BaseContainer {
 
         me.isTreeGrid = value?.isTreeStore === true;
 
-        value   ?.on(listeners);
-        oldValue?.un(listeners);
+        // on() and un() both consume (delete) keys like `scope` from the passed object,
+        // so each call needs its own copy — a shared object breaks the second call silently.
+        value   ?.on({...listeners});
+        oldValue?.un({...listeners});
 
-        // in case we dynamically change the store, grid.Body needs to get the new reference
-        if (me.body)      me.body.store = value;
-        if (me.bodyStart) me.bodyStart.store = value;
-        if (me.bodyEnd)   me.bodyEnd.store = value
+        // in case we dynamically change the store (incl. a state.Provider store binding resolving
+        // after construction), grid.Body + the scrollbar need to get the new reference
+        if (me.body)              me.body.store = value;
+        if (me.bodyStart)         me.bodyStart.store = value;
+        if (me.bodyEnd)           me.bodyEnd.store = value
+        if (me.verticalScrollbar) me.verticalScrollbar.store = value
 
         if (me.footerToolbar && me.footerToolbar.store !== value) {
             me.footerToolbar.store = value
@@ -836,14 +840,14 @@ class GridContainer extends BaseContainer {
                 me.bodyStart = Neo.create(GridBody, {
                     ...me.body.initialConfig,
                     selectionModel: null, // grid.View owns the single model; locked bodies must not clone it
-                    flex         : 'none',
-                    gridContainer: me,
-                    parentId     : me.view.id,
-                    rowHeight    : me.rowHeight,
-                    store        : me.store,
-                    theme        : me.theme,
-                    useInternalId: me.useInternalId,
-                    windowId     : me.windowId
+                    flex          : 'none',
+                    gridContainer : me,
+                    parentId      : me.view.id,
+                    rowHeight     : me.rowHeight,
+                    store         : me.store,
+                    theme         : me.theme,
+                    useInternalId : me.useInternalId,
+                    windowId      : me.windowId
                 })
             }
         } else if (me.bodyStart) {
@@ -861,14 +865,14 @@ class GridContainer extends BaseContainer {
                 me.bodyEnd = Neo.create(GridBody, {
                     ...me.body.initialConfig,
                     selectionModel: null, // grid.View owns the single model; locked bodies must not clone it
-                    flex         : 'none',
-                    gridContainer: me,
-                    parentId     : me.view.id,
-                    rowHeight    : me.rowHeight,
-                    store        : me.store,
-                    theme        : me.theme,
-                    useInternalId: me.useInternalId,
-                    windowId     : me.windowId
+                    flex          : 'none',
+                    gridContainer : me,
+                    parentId      : me.view.id,
+                    rowHeight     : me.rowHeight,
+                    store         : me.store,
+                    theme         : me.theme,
+                    useInternalId : me.useInternalId,
+                    windowId      : me.windowId
                 })
             }
         } else if (me.bodyEnd) {
@@ -1256,9 +1260,9 @@ class GridContainer extends BaseContainer {
      * @returns {Promise<void>}
      */
     async passSizeToBody(silent=false) {
-        let me            = this,
+        let me                             = this,
             {footerToolbar, headerToolbar} = me,
-            domRects      = [me.id, headerToolbar.id],
+            domRects                       = [me.id, headerToolbar.id],
             containerRect, footerRect, headerRect;
 
         if (footerToolbar) {
@@ -1323,11 +1327,11 @@ class GridContainer extends BaseContainer {
      * @param {Number} step
      */
     scrollByColumns(index, step) {
-        let me           = this,
-            {body}       = me,
+        let me                                                                = this,
+            {body}                                                            = me,
             {columnPositions, containerWidth, mountedColumns, visibleColumns} = body,
-            countColumns = columnPositions.getCount(),
-            newIndex     = index + step,
+            countColumns                                                      = columnPositions.getCount(),
+            newIndex                                                          = index + step,
             column, mounted, scrollLeft, visible;
 
         if (newIndex >= countColumns) {
@@ -1386,12 +1390,12 @@ class GridContainer extends BaseContainer {
 
         return {
             ...super.toJSON(),
-            body             : me.body?.toJSON(),
-            cellEditing      : me.cellEditing,
-            columns          : me.columns?.items.map(item => item.toJSON()),
-            footerToolbar    : me.footerToolbar?.toJSON(),
-            headerToolbar    : me.headerToolbar?.toJSON(),
-            rowHeight        : me.rowHeight,
+            body         : me.body?.toJSON(),
+            cellEditing  : me.cellEditing,
+            columns      : me.columns?.items.map(item => item.toJSON()),
+            footerToolbar: me.footerToolbar?.toJSON(),
+            headerToolbar: me.headerToolbar?.toJSON(),
+            rowHeight    : me.rowHeight,
 
             scrollManager     : me.scrollManager?.toJSON(),
             showHeaderFilters : me.showHeaderFilters,
