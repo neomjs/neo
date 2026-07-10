@@ -150,6 +150,9 @@ class DemoAWorkspace extends Container {
 
         return {
             cls   : ['agentos-dockdemo-tourbar'],
+            // explicit: the surrounding vbox writes flex inline on unflexed items,
+            // which would stretch the bar to half the stage
+            flex  : 'none',
             layout: {ntype: 'hbox', align: 'center'},
             ntype : 'toolbar',
             items : [{

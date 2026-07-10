@@ -19,6 +19,8 @@
 .agentos-dockdemo-tourbar {
     background   : var(--fm-panel);
     border-bottom: 1px solid var(--fm-line);
+    flex         : 0 0 auto;
+    height       : 52px;
     padding      : 8px 12px;
 
     .agentos-dockdemo-tour-play {
