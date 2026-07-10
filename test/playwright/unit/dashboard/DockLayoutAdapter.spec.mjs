@@ -499,4 +499,22 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
             {dockEdge: 'right', dockItemId: 'terminal', restorable: false, title: 'Terminal'}
         ]);
     });
+
+    test('split children permanently carry the choreography motion class (#14949 consumer seam)', () => {
+        let result = DockLayoutAdapter.project(createModel(), {
+                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+            }),
+            rootChildren = getProjectedChildren(result),
+            sideChildren = getProjectedChildren(rootChildren[1]);
+
+        // every split child glides on committed flex changes via the theme's dock transition
+        // tokens; splitter affordances (not split children) never carry it
+        [...rootChildren, ...sideChildren].forEach(child => {
+            expect(child.cls).toContain('neo-dashboard-dock-motion')
+        });
+
+        getProjectedSplitters(result).forEach(item => {
+            expect(item.cls || []).not.toContain('neo-dashboard-dock-motion')
+        })
+    });
 });

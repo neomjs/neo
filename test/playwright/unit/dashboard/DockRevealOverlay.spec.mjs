@@ -9,6 +9,7 @@ setup({
 import {test, expect}    from '@playwright/test';
 import Neo               from '../../../../src/Neo.mjs';
 import * as core         from '../../../../src/core/_export.mjs';
+import DockMotionSignal  from '../../../../src/dashboard/DockMotionSignal.mjs';
 import DockRevealOverlay from '../../../../src/dashboard/DockRevealOverlay.mjs';
 
 const createItem = (config={}) => ({
@@ -24,7 +25,8 @@ test.describe('Neo.dashboard.DockRevealOverlay', () => {
 
     test.afterEach(() => {
         overlay?.destroy();
-        overlay = null
+        overlay = null;
+        DockMotionSignal.activeMotions.clear()
     });
 
     test('stays hidden while idle, composes header (label + pin) and pane slot as real children', () => {
@@ -138,5 +140,37 @@ test.describe('Neo.dashboard.DockRevealOverlay', () => {
             'revealEscape',
             'revealPinRequested'
         ]);
+    });
+
+    test('the reveal-slide routes the motion signal: enter on hidden→visible, filtered leave on animationend', () => {
+        overlay = Neo.create(DockRevealOverlay, {
+            edge: 'left',
+            id  : 'dock-reveal-motion'
+        });
+
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+
+        // idle → revealed opens the signal window (the CSS keyframes restart natively:
+        // the hidden state is display:none)
+        overlay.set({revealState: 'revealed', revealedItem: createItem()});
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(true);
+
+        // a hosted pane's foreign animation ending must NOT close the window...
+        overlay.onMotionAnimationEnd({animationName: 'some-pane-spinner'});
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(true);
+
+        // ...the choreography keyframes do
+        overlay.onMotionAnimationEnd({animationName: 'neo-dock-reveal-from-left'});
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+
+        // dismiss is an instant display cut: no motion window opens
+        overlay.set({revealState: 'idle', revealedItem: null});
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+
+        // visible→visible state shifts (revealed → dismiss-pending) never double-enter
+        overlay.set({revealState: 'revealed', revealedItem: createItem()});
+        overlay.onMotionAnimationEnd({animationName: 'neo-dock-reveal-from-left'});
+        overlay.set({revealState: 'dismiss-pending'});
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false)
     });
 });

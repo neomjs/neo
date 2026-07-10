@@ -159,6 +159,10 @@ class MainContainer extends Viewport {
         me.layoutCollection    = me.createDefaultLayoutCollection();
         me.dockModel           = DockZoneModel.restoreActiveSavedLayout(me.layoutCollection).document || DockZoneModel.clone(initialDockModel);
 
+        // not a global-registry event → mounts locally on the workspace node (the choreography
+        // motion-signal leave seam; children's flex transitions bubble here)
+        me.addDomListeners([{transitionend: me.onDockMotionTransitionEnd, scope: me}]);
+
         me.add(me.buildWorkspaceItems());
         me.layoutCollectionLoadPromise = me.loadLayoutCollectionFromStorage()
     }
@@ -294,9 +298,19 @@ class MainContainer extends Viewport {
      * `commitResizeSplit`). Re-projecting immediately would `removeAll()` — destroying that splitter mid-handler, a
      * use-after-destroy on the rest of `onDragEnd`. The `isDestroyed` guard covers teardown before the tick fires.
      * @param {Object} document The committed dock-zone document.
+     * @param {Object} [descriptor] The committed operation descriptor (the choreography seam reads it).
      */
-    onDockZoneDocumentChange(document) {
+    onDockZoneDocumentChange(document, descriptor) {
         let me = this;
+
+        // A committed size change re-projects new flex values onto children that permanently carry the
+        // choreography transition — the glide plays on its own. Open the motion-signal window for observers;
+        // `onDockMotionTransitionEnd` closes it (the signal's fail-safe backstops a lost end event). Pointer
+        // drags land with zero visual delta (the splitter suppresses live motion), so their transition fires
+        // degenerate and the window closes immediately.
+        if (descriptor?.operation === 'resizeSplit') {
+            DockMotionSignal.enter(me)
+        }
 
         me.dockModel = document;
 
@@ -305,6 +319,18 @@ class MainContainer extends Viewport {
                 me.refreshDockWorkspace()
             }
         })
+    }
+
+    /**
+     * Closes the motion-signal window a committed resize opened. `transitionend` is not a global-registry
+     * event, so the listener mounts locally on this workspace and receives the children's flex transitions
+     * by bubbling; the property filter keeps hosted-pane transitions from leaving a signal they never entered.
+     * @param {Object} data
+     */
+    onDockMotionTransitionEnd(data) {
+        if (data?.propertyName === 'flex-grow') {
+            DockMotionSignal.leave(this)
+        }
     }
 
     /**

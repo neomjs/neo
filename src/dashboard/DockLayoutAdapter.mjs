@@ -549,10 +549,17 @@ class DockLayoutAdapter extends Base {
             layoutNtype = orientation === 'vertical' ? 'vbox' : 'hbox';
 
         children.forEach((childId, index) => {
-            items.push({
+            let child = {
                 ...this.projectNode(childId, context),
                 flex: flexValues[index]
-            });
+            };
+
+            // The choreography seam: split children permanently carry the motion class — a
+            // COMMITTED flex change (programmatic / NL resize, restore) glides on the theme's
+            // dock transition tokens by itself. Live pointer drags suppress via the splitter's
+            // `neo-dashboard-dock-no-motion` wrapper toggle, so motion never fights the hand.
+            child.cls = [...(child.cls || []), 'neo-dashboard-dock-motion'];
+            items.push(child);
 
             if (index < children.length - 1) {
                 items.push(this.createSplitterAffordance(nodeId, orientation, index, context))

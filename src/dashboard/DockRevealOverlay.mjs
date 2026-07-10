@@ -1,7 +1,8 @@
-import Button    from '../button/Base.mjs';
-import Container from '../container/Base.mjs';
-import Label     from '../component/Label.mjs';
-import NeoArray  from '../util/Array.mjs';
+import Button           from '../button/Base.mjs';
+import Container        from '../container/Base.mjs';
+import DockMotionSignal from './DockMotionSignal.mjs';
+import Label            from '../component/Label.mjs';
+import NeoArray         from '../util/Array.mjs';
 
 /**
  * @summary Presentation host for the transient reveal of an auto-hidden dock item — an
@@ -148,8 +149,23 @@ class DockRevealOverlay extends Container {
         me.addDomListeners([
             {keydown   : me.onKeyDown,      scope: me},
             {mouseenter: me.onPointerEnter, scope: me},
-            {mouseleave: me.onPointerLeave, scope: me}
+            {mouseleave: me.onPointerLeave, scope: me},
+            // not a global-registry event → mounts LOCALLY on this node; the reveal-slide
+            // keyframes bubble their end here (the motion-signal leave seam)
+            {animationend: me.onMotionAnimationEnd, scope: me}
         ])
+    }
+
+    /**
+     * The reveal-slide settle: closes the motion-signal window a visible-state flip opened.
+     * Filters to the choreography keyframes so hosted-pane animations never leave a signal
+     * they did not enter.
+     * @param {Object} data
+     */
+    onMotionAnimationEnd(data) {
+        if (String(data?.animationName || '').startsWith('neo-dock-reveal')) {
+            DockMotionSignal.leave(this)
+        }
     }
 
     /**
@@ -204,7 +220,17 @@ class DockRevealOverlay extends Container {
      * @protected
      */
     afterSetRevealState(value, oldValue) {
-        this.isConstructed && this.syncSnapshot()
+        let me            = this,
+            VISIBLE       = DockRevealOverlay.VISIBLE_STATES,
+            becameVisible = VISIBLE.has(value) && !VISIBLE.has(oldValue);
+
+        // A hidden→visible flip re-runs the reveal-slide keyframes (the hidden state is
+        // display:none, so the animation restarts natively) — open the motion-signal window
+        // here; `onMotionAnimationEnd` closes it, the signal's own fail-safe backstops loss.
+        // Dismiss is an instant display cut: no motion, no signal.
+        becameVisible && DockMotionSignal.enter(me);
+
+        me.isConstructed && me.syncSnapshot()
     }
 
     /**
