@@ -331,8 +331,9 @@ class VdomLifecycle extends Base {
              */
             me.afterExecuteVdomUpdate?.();
 
-            // Component could be destroyed while the update is running
-            if (me.id) {
+            // Component could be destroyed while the update is running: a stale success payload
+            // from a destroyed flight must never apply deltas or distribute vnodes.
+            if (me.id && !me.isDestroyed) {
                 // When not using a VdomWorker, we need to apply the deltas inside the App worker
                 if (!Neo.config.useVdomWorker && response.deltas?.length > 0) {
                     await Neo.applyDeltas(me.windowId, response.deltas)

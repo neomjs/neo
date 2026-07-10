@@ -76,7 +76,7 @@ class Component extends Abstract {
         align_: {
             [isDescriptor]: true,
             merge         : 'deep',
-            value: {
+            value         : {
                 edgeAlign  : 't-b',
                 constrainTo: 'document.body'
             }
@@ -1206,10 +1206,16 @@ class Component extends Abstract {
             }
         }
 
-        // A destroyed component must release its update-collision bookkeeping: a lingering
-        // in-flight registry entry makes every ancestor update yield to it forever (nothing can
-        // ever settle it — the reply targets a dead component), silently freezing the ancestor's
-        // delta stream; and ancestors already queued behind it must re-trigger their updates.
+        // Destruction is a complete render-flight cancellation boundary:
+        // 1. Settle every promise parked on this component's flight (the initiator's public
+        //    promiseUpdate AND merged children) with the house destroy sentinel — and remove the
+        //    callback entry itself, or it leaks forever (executeCallbacks never fires for a dead
+        //    owner).
+        // 2. Release the in-flight registry entry: a lingering one makes every ancestor update
+        //    yield to it forever (nothing can ever settle it — the reply targets a dead
+        //    component), silently freezing the ancestor's delta stream.
+        // 3. Re-trigger ancestors already queued behind this component — exactly once.
+        VDomUpdate.rejectCallbacks(me.id, Neo.isDestroyed);
         VDomUpdate.unregisterInFlightUpdate(me.id);
         VDomUpdate.triggerPostUpdates(me.id);
 
