@@ -196,12 +196,15 @@ export class Orchestrator extends Base {
         maintenanceBackpressureService_ : MaintenanceBackpressureService,
         // null = "resolve from the owning config leaf on read" (see beforeGetDataDir): a leaf
         // value in this static block would freeze at module load, not at the use site.
-        dataDir_                  : null,
-        taskDefinitions_          : null,
-        taskStateService_         : TaskStateService,
-        healthService_            : HealthService,
-        spawnFn_                  : spawn,
-        heavyMaintenanceLeasePath_: null
+        dataDir_                        : null,
+        // Same contract as dataDir_: the singleton is constructed during module import, so a
+        // class-field leaf read would still be a module-load capture.
+        dbPath_                         : null,
+        taskDefinitions_                : null,
+        taskStateService_               : TaskStateService,
+        healthService_                  : HealthService,
+        spawnFn_                        : spawn,
+        heavyMaintenanceLeasePath_      : null
     }
 
     primaryRepoSyncService   = PrimaryRepoSyncService
@@ -224,9 +227,6 @@ export class Orchestrator extends Base {
     isPolling                     = false
     pollHandle                    = null
     db                            = null
-    // Construct-time use-site read: a class-field initializer evaluates per instance, never at
-    // module load, so the leaf stays the SSOT for the pre-start() default.
-    dbPath                        = AiConfig.orchestrator.dbPath
     logFile                       = null
     stateFile                     = null
     primaryDevSyncRootsConfig     = null
@@ -363,6 +363,16 @@ export class Orchestrator extends Base {
      */
     beforeGetDataDir(value) {
         return value ?? AiConfig.orchestrator.dataDir
+    }
+
+    /**
+     * @summary Resolves the graph database path from the owning config leaf when no explicit value
+     * was set, preserving Provider refreshes before orchestrator start.
+     * @param {String|null} value
+     * @returns {String}
+     */
+    beforeGetDbPath(value) {
+        return value ?? AiConfig.orchestrator.dbPath
     }
 
     /**
