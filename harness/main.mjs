@@ -1,6 +1,7 @@
-// The Electron harness main: boots the Agent OS app on the packaged origin ADR 0034 specifies.
-// Scope: harness skeleton + multi-window join; NO Agent OS hosting yet (the topology spike is the
-// next slice; isolating shell risk is the point).
+// The Electron harness main: boots the Agent OS app on the packaged origin the Electron-shell ADR
+// specifies (ADR 0034 — ticket-ref-ok: this file IS that contract's implementation; every §-ref
+// below resolves against it). Scope: harness skeleton + multi-window join + the supervised Brain
+// (the hosting-spike verdict: Arm B — see brain.mjs).
 //
 // ADR bindings implemented here:
 //   §2.2 C1  privileged app:// scheme (standard + secure + supportFetchAPI), one stable origin
@@ -28,6 +29,24 @@ import {
     isAllowedHarnessAssetPath,
     isHarnessDocumentUrl
 } from './contentPolicy.mjs';
+import {
+    allocatePort,
+    assertIsolatedProfile,
+    awaitFleetReady,
+    awaitOrchestratorReady,
+    awaitPortListening,
+    buildBrainProfile,
+    clearRunState,
+    detectLiveBrain,
+    FLEET_SERVER_ENTRY,
+    ORCHESTRATOR_ENTRY,
+    probePort,
+    resolveBrainPaths,
+    startBrainChild,
+    stopBrainTree,
+    sweepStaleRunState,
+    writeRunState
+} from './brain.mjs';
 
 const
     harnessDir = path.dirname(fileURLToPath(import.meta.url)),
@@ -36,6 +55,10 @@ const
     // zero-build SOURCE app — Neural Link possession needs real ESM, which minification destroys.
     APP_URL    = `app://${APP_HOST}/apps/agentos/index.html`,
     smokeMode  = process.env.NEO_HARNESS_SMOKE === '1',
+    // The Arm-B Brain leg (opt-in): the main supervises the orchestrator daemon as a system-Node
+    // child. Isolated env by default — on a dev machine the daemon's single-instance takeover
+    // would otherwise SIGTERM the canonical Brain (see brain.mjs).
+    brainMode  = process.env.NEO_HARNESS_BRAIN === '1',
     smokeState = {
         assetFailures : new Set(),
         assetsSeen    : new Set(),
@@ -345,10 +368,142 @@ async function awaitRequiredAssets(timeoutMs = 3000) {
 
 app.on('web-contents-created', (event, contents) => configureWebContents(contents));
 
-process.on('unhandledRejection', error => {
+process.on('unhandledRejection', async error => {
     recordSmokeFailure('main-unhandled-rejection', error);
     console.log('HARNESS_UNHANDLED ' + (error?.stack || error));
-    smokeMode && app.exit(2)
+
+    if (smokeMode) {
+        // app.exit bypasses will-quit, so the failure net owns the Brain teardown explicitly.
+        await teardownBrain();
+        app.exit(2)
+    }
+});
+
+const brainState = {children: [], isolationRoot: null};
+
+function brainLog(line) {
+    console.log('HARNESS_BRAIN ' + line.slice(0, 300))
+}
+
+/**
+ * @summary Full-tree teardown of every child the harness started (and only those — §2.1.1 one
+ * lifecycle owner), then clears the smoke run-state: a record surviving a CLEAN stop would make
+ * a later sweep signal whatever now owns the recycled process-group ids. Callable from every
+ * exit path: will-quit, smoke completion, the smoke nets.
+ * @returns {Promise<Object|null>} per-child stop report, or null when nothing was supervised
+ */
+async function teardownBrain() {
+    if (!brainState.children.length) {
+        return null
+    }
+
+    const children = brainState.children;
+
+    brainState.children = [];
+
+    const report = await stopBrainTree(children);
+
+    if (brainState.isolationRoot) {
+        clearRunState({isolationRoot: brainState.isolationRoot});
+        brainState.isolationRoot = null
+    }
+
+    return report
+}
+
+/**
+ * The product Brain boot — ATTACH-OR-OWN (see brain.mjs): on a machine with a live Brain the
+ * harness supervises only the missing fleet transport against the REAL organism; on a fresh
+ * machine it owns the whole organism on the default (canonical-layout) paths. It never boots a
+ * second organism beside a live one — the daemon's single-instance takeover and the supervisor's
+ * singleton-port reaping make that unsafe by construction.
+ * @summary Boots or attaches the Brain for `start:brain`, supervising only what is missing.
+ * @returns {Promise<Object>}
+ */
+async function bootProductBrain() {
+    const
+        fleetPort = Number(process.env.NEO_FLEET_PORT) || 8083,
+        paths     = await resolveBrainPaths({repoRoot}),
+        live      = await detectLiveBrain({fleetPort, orchestratorDataDir: paths.orchestratorDataDir}),
+        mode      = live.orchestratorAlive ? 'attach' : 'own';
+
+    if (mode === 'own') {
+        const orchestrator = startBrainChild({entry: ORCHESTRATOR_ENTRY, onLog: brainLog, repoRoot});
+
+        brainState.children.push({child: orchestrator, label: 'orchestrator'});
+        await awaitOrchestratorReady({child: orchestrator})
+    }
+
+    if (!live.fleetServing) {
+        // Protocol identity, fail closed: a listener that does NOT answer the fleet wire verb is
+        // a foreign server squatting the port — spawning into it would EADDRINUSE, and skipping
+        // the spawn would report a Brain that the window cannot actually reach.
+        if (live.fleetPortHeld) {
+            throw new Error(`fleet port ${fleetPort} is held by a foreign listener (no listAgents envelope) — free the port or set NEO_FLEET_PORT`)
+        }
+
+        const fleet = startBrainChild({
+            entry: FLEET_SERVER_ENTRY,
+            env  : {NEO_FLEET_PORT: String(fleetPort)},
+            onLog: brainLog,
+            repoRoot
+        });
+
+        brainState.children.push({child: fleet, label: 'fleet'});
+        await awaitFleetReady({child: fleet, port: fleetPort})
+    }
+
+    console.log(`HARNESS_BRAIN_MODE ${mode} fleetPort=${fleetPort} started=[${brainState.children.map(entry => entry.label).join(',') || 'none'}]`);
+    return {fleetPort, mode, up: true}
+}
+
+/**
+ * The smoke Brain boot — the fully ISOLATED profile: allocate ports, bind every mutable path
+ * under a throwaway root, then assert the isolation matrix THROUGH the config SSOT before
+ * anything spawns. Readiness is genuine service readiness (orchestrator poll-loop marker + a
+ * real fleet wire-verb round-trip), never PID existence.
+ * @summary Boots the isolated smoke organism, returning every observable the verdict gates on.
+ * @returns {Promise<Object>}
+ */
+async function bootSmokeBrain() {
+    const
+        isolationRoot           = process.env.NEO_HARNESS_BRAIN_ROOT || path.join(harnessDir, '.brain', 'smoke'),
+        sweptPgids              = sweepStaleRunState({isolationRoot}),
+        [chromaPort, fleetPort] = await Promise.all([allocatePort(), allocatePort()]),
+        profile                 = buildBrainProfile({chromaPort, fleetPort, isolationRoot}),
+        resolved                = await resolveBrainPaths({env: profile, repoRoot}),
+        matrixViolations        = assertIsolatedProfile({chromaPort, isolationRoot, resolved});
+
+    if (matrixViolations.length > 0) {
+        return {chromaPort, fleetPort, isolationRoot, matrixViolations, sweptPgids, up: false}
+    }
+
+    const
+        orchestrator = startBrainChild({entry: ORCHESTRATOR_ENTRY, env: profile, onLog: brainLog, repoRoot}),
+        fleet        = startBrainChild({entry: FLEET_SERVER_ENTRY, env: profile, onLog: brainLog, repoRoot});
+
+    brainState.children.push(
+        {child: orchestrator, entry: ORCHESTRATOR_ENTRY, label: 'orchestrator'},
+        {child: fleet,        entry: FLEET_SERVER_ENTRY, label: 'fleet'}
+    );
+    brainState.isolationRoot = isolationRoot;
+    writeRunState({isolationRoot, children: brainState.children.map(entry => ({entry: entry.entry, pgid: entry.child.pid}))});
+
+    await Promise.all([
+        awaitOrchestratorReady({child: orchestrator}),
+        awaitFleetReady({child: fleet, port: fleetPort})
+    ]);
+
+    return {chromaPort, fleetPort, isolationRoot, matrixViolations, sweptPgids, up: true}
+}
+
+app.on('will-quit', async event => {
+    if (brainState.children.length) {
+        event.preventDefault();
+        const stop = await teardownBrain();
+        smokeMode && console.log('HARNESS_BRAIN_STOP ' + JSON.stringify(stop));
+        app.quit()
+    }
 });
 
 app.whenReady().then(async () => {
@@ -356,7 +511,7 @@ app.whenReady().then(async () => {
     await protocol.handle('app', serveHarnessContent);
 
     // §2.3.3 deny-by-default; Electron requires BOTH handlers for complete permission coverage.
-    // Allowlist additions amend ADR 0034 §2.3 first.
+    // Allowlist additions amend the shell ADR §2.3 first.
     session.defaultSession.setPermissionCheckHandler(() => false);
     session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => callback(false));
 
@@ -366,6 +521,17 @@ app.whenReady().then(async () => {
         ipcMain.on('shell-boot-report', onBootReport);
         ipcMain.on('shell-runtime-error', onRuntimeError)
     }
+
+    // The Brain boots in parallel with the window — the UI never blocks on the supervisor, and
+    // fail-closed surfaces render honestly until the transport is reachable. Boot rejection is
+    // deterministic (readiness contract) and lands as up:false, never as a hung promise.
+    const brainBoot = brainMode
+        ? (smokeMode ? bootSmokeBrain() : bootProductBrain())
+            .catch(error => {
+                console.log('HARNESS_BRAIN_BOOT_FAILED ' + error.message);
+                return {error: error.message, up: false}
+            })
+        : null;
 
     const win1 = createHarnessWindow(APP_URL);
 
@@ -398,6 +564,48 @@ app.whenReady().then(async () => {
 
     await awaitRequiredAssets();
 
+    // The Brain leg (Arm B): the isolated organism proven through its OWN consumable surfaces —
+    // the resolved-leaf isolation matrix, genuine orchestrator + fleet readiness, a REAL wire
+    // verb from the renderer (the AC's "window reaches the fleet transport"), then full-tree
+    // group teardown gated on group-empty AND released listeners.
+    let brain = {mode: false};
+
+    if (brainBoot) {
+        const boot = await brainBoot;
+
+        let chromaListening = null,
+            fleetFromWindow = null;
+
+        if (boot.up) {
+            // Let the organism SETTLE before quitting: the isolated Chroma serving on the
+            // allocated port is live isolation evidence AND removes the mid-startup-child race
+            // from the graceful-teardown measurement. Chroma binds `localhost` (::1 on macOS),
+            // and a cold start on a fresh persist dir takes ~a minute.
+            chromaListening = await awaitPortListening({host: 'localhost', port: boot.chromaPort, timeoutMs: 120000});
+
+            fleetFromWindow = await Promise.race([
+                win1.webContents.executeJavaScript(
+                    `fetch('http://127.0.0.1:${boot.fleetPort}/fleet', {` +
+                    `method: 'POST', headers: {'content-type': 'application/json'},` +
+                    `body: '{"method":"listAgents","params":{}}'` +
+                    `}).then(r => r.json()).then(j => ({ok: j.ok === true}))` +
+                    `.catch(e => ({ok: false, error: String(e).slice(0, 200)}))`, true
+                ),
+                new Promise(resolve => setTimeout(() => resolve({error: 'renderer-probe-wedged', ok: false}), 8000))
+            ])
+        }
+
+        const
+            stop          = await teardownBrain(),
+            stopReports   = Object.values(stop ?? {}),
+            groupsEmpty   = stopReports.every(report => report.groupEmpty),
+            portsReleased = boot.up
+                ? !(await probePort({host: 'localhost', port: boot.chromaPort})) && !(await probePort({port: boot.fleetPort}))
+                : null;
+
+        brain = {mode: true, ...boot, chromaListening, fleetFromWindow, groupsEmpty, portsReleased, stop}
+    }
+
     const
         assetFailures       = [...smokeState.assetFailures],
         rendererErrors      = [...smokeState.rendererErrors],
@@ -412,22 +620,33 @@ app.whenReady().then(async () => {
             assetFailures,
             boot1,
             boot2,
+            brain,
             popupMaterialized: Boolean(win2),
             rendererErrors,
             requiredAssetsReady,
             sharedHeapEvidence,
-            versions: {
+            versions         : {
                 chrome  : process.versions.chrome,
                 electron: process.versions.electron,
                 node    : process.versions.node
             }
         },
+        brainPassed = !brain.mode || (
+            brain.up === true &&
+            (brain.matrixViolations ?? ['unresolved']).length === 0 &&
+            brain.chromaListening === true &&
+            brain.fleetFromWindow?.ok === true &&
+            brain.groupsEmpty === true &&
+            brain.portsReleased === true &&
+            Object.values(brain.stop ?? {}).every(report => report.exited && !report.forced)
+        ),
         passed = boot1.mounted > 10 &&
             boot2.mounted > 10 &&
             results.popupMaterialized &&
             requiredAssetsReady &&
             sharedHeapEvidence &&
-            rendererErrors.length === 0;
+            rendererErrors.length === 0 &&
+            brainPassed;
 
     console.log('HARNESS_SMOKE_RESULTS=' + JSON.stringify(results, null, 2));
     app.exit(passed ? 0 : 1)
@@ -455,5 +674,8 @@ smokeMode && setTimeout(async () => {
         console.log('HARNESS_TIMEOUT_CAPTURE_FAIL ' + error.message)
     }
 
+    // app.exit bypasses will-quit, so the timeout net owns the Brain teardown explicitly.
+    await teardownBrain();
     app.exit(1)
-}, 60000);
+    // The Brain leg legitimately spends ~2min on a cold Chroma start; the UI-only smoke stays tight.
+}, brainMode ? 240000 : 60000);

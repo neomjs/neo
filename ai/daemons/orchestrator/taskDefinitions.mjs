@@ -230,6 +230,7 @@ export function buildOllamaServeEnv({host, keepAlive, contextLength, requirePara
  * @param {String} [options.scriptDir] Script directory.
  * @param {String} [options.nodeBin] Node executable.
  * @param {String|Number} [options.chromaPort] Chroma daemon port — used for the `--port` arg and as the chroma task's `singletonPort` (the port the orchestrator reaps duplicate listeners on).
+ * @param {String} [options.chromaDataDir] Chroma persist dir for the `--path` arg — the configured builder passes the resolved `engines.chroma.dataDir` leaf so env-shifted profiles (`UNIT_TEST_MODE` isolation) move the DATA with the port; the literal default keeps direct callers launch-resilient.
  * @param {String} [options.chromaHost='localhost'] Chroma daemon host for HTTP service-health probes.
  * @param {Number} [options.chromaHealthProbeTimeoutMs=1000] Chroma HTTP health probe timeout.
  * @param {Function} [options.chromaHealthFetchFn] Optional fetch implementation seam for tests.
@@ -242,7 +243,8 @@ export function buildOllamaServeEnv({host, keepAlive, contextLength, requirePara
 export function buildTaskDefinitions({
     scriptDir  = DEFAULT_SCRIPT_DIR,
     nodeBin    = process.argv[0],
-    chromaHost = 'localhost',
+    chromaDataDir = '.neo-ai-data/chroma/unified',
+    chromaHost    = 'localhost',
     chromaPort,
     chromaHealthProbeTimeoutMs = DEFAULT_CHROMA_HEALTH_TIMEOUT_MS,
     chromaHealthFetchFn,
@@ -258,12 +260,12 @@ export function buildTaskDefinitions({
         chroma: {
             label  : 'chroma daemon',
             command: 'chroma',
-            // The --path persist dir resolves to the same dir as AiConfig.engines.chroma.dataDir
-            // — the SSOT that KB/MC configs + defragChromaDB read — under the standard
-            // cwd==repoRoot. Kept as a relative literal here (not SSOT-sourced) for daemon-launch
-            // resilience: a stale config.mjs lacking the SSOT key would otherwise launch the daemon
-            // with `--path undefined`. Keep this value in sync with engines.chroma.dataDir.
-            args           : ['run', '--path', '.neo-ai-data/chroma/unified', '--port', String(chromaPort)],
+            // The --path persist dir is the resolved engines.chroma.dataDir leaf when built through
+            // the configured builder (the SSOT that KB/MC configs + defragChromaDB read) — an
+            // env-shifted profile MUST move the data with the port, or a test-port launch serves the
+            // production persist dir (empirically observed: a second server on the live store). The
+            // parameter default keeps direct callers launch-resilient against a stale config.mjs.
+            args           : ['run', '--path', chromaDataDir, '--port', String(chromaPort)],
             pidFileName    : 'chroma.pid',
             expectedCommand: 'chroma',
             singletonPort  : chromaPort,

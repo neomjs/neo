@@ -2150,3 +2150,18 @@ test.describe('Neo.ai.daemons.Orchestrator — chroma max-runtime recycle (#1213
         expect(orchestrator._chromaDefragPending).toBe(true);
     });
 });
+
+test.describe('taskDefinitions — chroma persist dir rides the resolved leaf (#14967)', () => {
+    test('an explicit chromaDataDir lands in the --path arg beside the port', () => {
+        const tasks = buildTaskDefinitions({chromaDataDir: '/isolated/chroma', chromaPort: 18500});
+
+        expect(tasks.chroma.args).toEqual(['run', '--path', '/isolated/chroma', '--port', '18500']);
+        expect(tasks.chroma.singletonPort).toBe(18500);
+    });
+
+    test('direct callers keep the launch-resilient literal default', () => {
+        const tasks = buildTaskDefinitions({chromaPort: 8000});
+
+        expect(tasks.chroma.args).toEqual(['run', '--path', '.neo-ai-data/chroma/unified', '--port', '8000']);
+    });
+});
