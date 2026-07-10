@@ -448,6 +448,52 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService — curated launch + 
         expect(FleetLifecycleService.isRunning('bare')).toBe(true);
     });
 
+    test('EXECUTABILITY, not existence: a mode-0644 PATH candidate fails synchronously — no record, no async permission-flip', () => {
+        // the exact falsifier shape: a real file that EXISTS on the child PATH but is not
+        // executable — an existence-only preflight passes it, publishes running/pid:null, then
+        // flips to failed on the child's asynchronous permission error
+        const binDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fleet-noexec-'));
+        fs.writeFileSync(path.join(binDir, 'plainfile-harness'), '#!/bin/sh\nexit 0\n', {mode: 0o644});
+
+        const spawn = install({agents: {noexec: {id: 'noexec', githubUsername: 'noexec', harnessType: 'codex', metadata: {launch: {
+            command: 'plainfile-harness',
+            args   : [],
+            env    : {PATH: binDir}
+        }}}}, creds: {}});
+
+        expect(() => FleetLifecycleService.start('noexec')).toThrow(/not found or not executable/);
+        expect(spawn.calls).toHaveLength(0);
+        expect(FleetLifecycleService.processes.has('noexec')).toBe(false);
+
+        fs.rmSync(binDir, {recursive: true, force: true});
+    });
+
+    test('REAL-PROCESS child-cwd resolution: a relative ./bin command under opts.cwd preflights AND spawns consistently', async () => {
+        // spawn-equivalence end-to-end: the resolver accepts the relative command against the
+        // CHILD's cwd, and the real spawn (which chdirs before exec) resolves it identically —
+        // the child stays alive on the held-open stdin pipe, then stops on SIGTERM
+        const childCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'fleet-relcwd-'));
+        fs.mkdirSync(path.join(childCwd, 'bin'));
+        fs.writeFileSync(path.join(childCwd, 'bin', 'h'), '#!/bin/sh\ncat\n', {mode: 0o755});
+
+        install({agents: {rel: {id: 'rel', githubUsername: 'rel', harnessType: 'codex', metadata: {launch: {
+            command: './bin/h',
+            args   : [],
+            env    : {}
+        }}}}, creds: {}});
+        FleetLifecycleService.spawnFn = null;   // the REAL child_process.spawn
+
+        FleetLifecycleService.start('rel', {cwd: childCwd});
+
+        await new Promise(resolve => setTimeout(resolve, 300));
+        expect(FleetLifecycleService.isRunning('rel')).toBe(true);
+
+        const stopped = await FleetLifecycleService.stop('rel');
+        expect(stopped.success).toBe(true);
+
+        fs.rmSync(childCwd, {recursive: true, force: true});
+    });
+
     test('REAL-PROCESS liveness falsifier: the service topology keeps an actual child alive; SIGTERM stops it', async () => {
         // Through the service's EXACT spawn path (no stub): a real `node` child that only survives
         // if stdin stays open — precisely the property the harness CLIs demand. A regression to

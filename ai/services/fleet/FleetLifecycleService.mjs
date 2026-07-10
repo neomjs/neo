@@ -272,6 +272,16 @@ class FleetLifecycleService extends Base {
             env[key] = value;
         }
 
+        // Executable preflight (fail-closed, BEFORE any secret is resolved or minted): the command
+        // must resolve to an executable file exactly the way the spawn will resolve it — child cwd
+        // for path-shaped/relative forms, the child's PATH for bare forms, executable permission
+        // required (existence alone lets a mode-0644 candidate publish a running status, then flip
+        // to failed on the child's asynchronous permission error — a transient false-running state
+        // no supervisor may emit).
+        if (!this.resolveExecutable(command, env.PATH, opts.cwd)) {
+            throw new Error(`FleetLifecycleService.start: harness binary '${command}' not found or not executable for agent '${id}' (path-shaped commands resolve against the child cwd; bare commands against the child's PATH; executable permission required). Pin the AiConfig fleet.harnessBinaries leaf or the harnessBinaryPaths field to a real executable.`);
+        }
+
         const pat = this.getRegistry().resolveCredential(id);
         if (pat != null) env[this.credentialEnvVar] = pat;
 
@@ -294,15 +304,6 @@ class FleetLifecycleService extends Base {
         // ambient identity the FM process happens to carry. Reserved class #4: launch.env can never
         // pre-load it (guard above).
         env[AGENT_IDENTITY_ENV_VAR] = id;
-
-        // Executable preflight (fail-closed): the command must exist BEFORE any secret is minted or
-        // a spawn attempted — for path-shaped commands via a direct stat, for bare commands (e.g.
-        // `claude`) by resolving against the CHILD's PATH. Without the bare-command half, a missing
-        // binary would let start() publish `running` with a null pid and flip to failed ~100ms
-        // later on the async ENOENT — a transient false-running state no supervisor may emit.
-        if (!this.resolveExecutable(command, env.PATH)) {
-            throw new Error(`FleetLifecycleService.start: harness binary '${command}' not found for agent '${id}' (path-shaped commands must exist; bare commands must resolve on the child's PATH). Pin the AiConfig fleet.harnessBinaries leaf or the harnessBinaryPaths field to a real executable.`);
-        }
 
         // The child's working directory: the agent's provisioned repo checkout when the caller supplies
         // it (the Fleet Manager turnkey path via startAgentProvisioned). Omitted ⇒ inherit this process's
@@ -610,25 +611,42 @@ class FleetLifecycleService extends Base {
     }
 
     /**
-     * @summary Synchronous executable resolution for the spawn preflight: path-shaped commands
-     * stat directly; bare commands scan the CHILD's PATH (the allowlisted one — resolution must
-     * match what the spawn will actually see, not the parent's ambient PATH). Returns `null` when
-     * nothing resolves, which the preflight converts into a synchronous, named failure instead of
-     * a published-then-retracted running state.
-     * @param {String} command   The launch command (absolute/relative path or bare binary name).
+     * @summary Synchronous, SPAWN-EQUIVALENT executable resolution for the preflight: it mirrors
+     * the exact process-resolution boundary the spawn will hit. Path-shaped commands (absolute OR
+     * relative like `./bin/h`) resolve against the CHILD's cwd — the spawn chdirs before exec, so
+     * a relative command is the child's business, never the Fleet Manager process cwd. Bare
+     * commands scan the CHILD's PATH (the allowlisted one), with relative PATH entries also
+     * cwd-resolved. A candidate must be an EXECUTABLE FILE — mere existence is not executable
+     * discovery: a mode-0644 file would pass an existence check, then die asynchronously on
+     * permission denial AFTER a running status was published. Returns `null` when nothing
+     * resolves, which the preflight converts into a synchronous, named failure.
+     * @param {String} command    The launch command (absolute/relative path or bare binary name).
      * @param {String} [pathValue] The child env's PATH value.
-     * @returns {String|null} The resolved path, or `null` when the command cannot resolve.
+     * @param {String} [cwd]       The child's working directory; defaults to this process's cwd.
+     * @returns {String|null} The resolved executable path, or `null` when the command cannot resolve.
      * @private
      */
-    resolveExecutable(command, pathValue) {
+    resolveExecutable(command, pathValue, cwd) {
+        const base = cwd ?? process.cwd();
+
+        const isExecutableFile = candidate => {
+            try {
+                fs.accessSync(candidate, fs.constants.X_OK);
+                return fs.statSync(candidate).isFile();
+            } catch (ignored) {
+                return false;
+            }
+        };
+
         if (command.includes('/')) {
-            return fs.existsSync(command) ? command : null;
+            const candidate = path.resolve(base, command);
+            return isExecutableFile(candidate) ? candidate : null;
         }
 
         for (const dir of String(pathValue || '').split(path.delimiter)) {
             if (dir) {
-                const candidate = path.join(dir, command);
-                if (fs.existsSync(candidate)) return candidate;
+                const candidate = path.resolve(base, dir, command);
+                if (isExecutableFile(candidate)) return candidate;
             }
         }
 
