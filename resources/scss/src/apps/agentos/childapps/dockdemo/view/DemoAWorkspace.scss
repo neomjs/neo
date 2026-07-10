@@ -70,6 +70,19 @@
 .agentos-dockdemo-dock-host {
     background: var(--fm-ground);
     padding   : 8px;
+    // the positioning context for the two persistent drag-affordance overlays below
+    position  : relative;
+
+    // The preview renderer + indicator menu are absolute overlay SIBLINGS of the projection
+    // (never inside it — the coarse refresh replaces only the projection child, so these keep
+    // their instances across every re-projection). The preview stays pointer-transparent for
+    // the same reason the indicator layer is: the sort-zone drag owns the pointer.
+    > .neo-dock-preview {
+        inset         : 0;
+        pointer-events: none;
+        position      : absolute;
+        z-index       : 25;
+    }
 }
 
 .agentos-dockdemo-pane {
