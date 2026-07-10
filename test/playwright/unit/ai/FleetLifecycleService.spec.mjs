@@ -11,11 +11,12 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import {EventEmitter} from 'events';
-import fs             from 'fs';
-import os             from 'os';
-import path           from 'path';
+import {test, expect}    from '@playwright/test';
+import {execFile, spawn} from 'child_process';
+import {EventEmitter}    from 'events';
+import fs                from 'fs';
+import os                from 'os';
+import path              from 'path';
 
 import Neo                   from '../../../../src/Neo.mjs';
 import * as core             from '../../../../src/core/_export.mjs';
@@ -749,6 +750,43 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService — curated launch + 
         expect(stopped.success).toBe(true);
 
         fs.rmSync(childCwd, {recursive: true, force: true});
+    });
+
+    test('REAL-PROCESS relative child PATH: spawn and version probe reuse the same resolved executable', async () => {
+        const childCwd       = fs.mkdtempSync(path.join(os.tmpdir(), 'fleet-relpath-')),
+              executablePath = path.join(childCwd, 'bin', 'h'),
+              processCalls   = {spawn: [], execFile: []};
+
+        fs.mkdirSync(path.dirname(executablePath));
+        fs.writeFileSync(executablePath, '#!/bin/sh\nif [ "$1" = "--version" ]; then\n    echo relpath-v1\n    exit 0\nfi\nIFS= read -r line\n', {mode: 0o755});
+
+        install({agents: {relpath: {id: 'relpath', githubUsername: 'relpath', harnessType: 'codex', metadata: {launch: {
+            command: 'h',
+            args   : [],
+            env    : {PATH: 'bin'}
+        }}}}, creds: {}});
+        FleetLifecycleService.spawnFn = (command, args, opts) => {
+            processCalls.spawn.push({command, args, opts});
+            return spawn(command, args, opts);
+        };
+        FleetLifecycleService.execFileFn = (command, args, opts, callback) => {
+            processCalls.execFile.push({command, args, opts});
+            return execFile(command, args, opts, callback);
+        };
+
+        try {
+            FleetLifecycleService.start('relpath', {cwd: childCwd});
+
+            await expect.poll(() => FleetLifecycleService.status('relpath').binaryVersion).toBe('relpath-v1');
+            expect(FleetLifecycleService.isRunning('relpath')).toBe(true);
+            expect(processCalls.spawn).toHaveLength(1);
+            expect(processCalls.execFile).toHaveLength(1);
+            expect(processCalls.spawn[0].command).toBe(executablePath);
+            expect(processCalls.execFile[0].command).toBe(executablePath);
+        } finally {
+            if (FleetLifecycleService.isRunning('relpath')) await FleetLifecycleService.stop('relpath');
+            fs.rmSync(childCwd, {recursive: true, force: true});
+        }
     });
 
     test('REAL-PROCESS liveness falsifier: the service topology keeps an actual child alive; SIGTERM stops it', async () => {
