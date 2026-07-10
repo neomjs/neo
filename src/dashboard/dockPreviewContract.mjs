@@ -19,6 +19,28 @@
  */
 export const PREVIEW_SCHEMA = 'neo.harness.dockPreview.v1';
 
+/**
+ * The drop-candidate-set schema: the runtime-only payload the producer emits for the
+ * indicator-overlay menu (the full valid-placement menu for one hovered zone plus the
+ * container edge chips), consumed by `Neo.dashboard.DockDropIndicators`. Every candidate
+ * wraps a complete, individually valid `neo.harness.dockPreview.v1` payload — a drop on an
+ * indicator commits through `previewToOperation` exactly like a pointer-inferred preview.
+ * @type {String}
+ */
+export const CANDIDATES_SCHEMA = 'neo.harness.dockCandidates.v1';
+
+/**
+ * The five cross positions of the indicator menu, in render order. `center` maps to the
+ * tab-merge candidate; the four directions map to directional split candidates (which kind —
+ * `edge-*` node split vs `split-before/after` sibling insert — the producer resolves from the
+ * hovered zone's parent-split orientation, identical to the pointer-inference grammar).
+ * @type {String[]}
+ */
+export const CROSS_POSITIONS = ['center', 'top', 'right', 'bottom', 'left'];
+
+/** The four container-edge chip positions, in render order. @type {String[]} */
+export const CHIP_EDGES = ['top', 'right', 'bottom', 'left'];
+
 /** @type {Set<String>} */
 export const EDGE_KINDS = new Set(['edge-top', 'edge-right', 'edge-bottom', 'edge-left']);
 
@@ -56,6 +78,109 @@ export function isValidPreview(preview) {
     if (SPLIT_KINDS.has(placement.kind) &&
         placement.orientation !== 'horizontal' && placement.orientation !== 'vertical') {
         return false
+    }
+
+    return true
+}
+
+/**
+ * @summary Numeric-rect gate shared by the candidate-set validator (fail-closed).
+ * @param {Object|null} rect
+ * @returns {Boolean}
+ */
+function isValidRect(rect) {
+    return !!rect &&
+        [rect.x, rect.y, rect.width, rect.height].every(v => typeof v === 'number' && !Number.isNaN(v)) &&
+        rect.width > 0 && rect.height > 0
+}
+
+/**
+ * @summary One cross direction's legal placement kinds — the §06 grammar as a checkable rule.
+ *
+ * `center` is exactly the tab-merge. A directional indicator is either the node split for its
+ * own side (`edge-<direction>`) or the along-axis sibling insert the producer's orientation
+ * grammar resolves — `split-before` only from a LEADING direction (top/left), `split-after`
+ * only from a TRAILING one (bottom/right). Anything else is a menu lying about its operation.
+ * @param {String} position a `CROSS_POSITIONS` entry
+ * @param {String} kind the candidate preview's `placement.kind`
+ * @returns {Boolean}
+ */
+function crossKindMatchesPosition(position, kind) {
+    if (position === 'center') return kind === 'tab-into';
+
+    return kind === `edge-${position}` ||
+        (kind === 'split-before' && (position === 'top'    || position === 'left')) ||
+        (kind === 'split-after'  && (position === 'bottom' || position === 'right'))
+}
+
+/**
+ * @summary Structural validity gate for a dockCandidates set (fail-closed).
+ *
+ * Returns true only for a COMPLETE, internally coherent `neo.harness.dockCandidates.v1` payload:
+ *
+ * - a stable `itemId`, and a hovered `zone` with a node id and a numeric rect;
+ * - a `cross` of EXACTLY the five unique positions (`CROSS_POSITIONS`), every candidate wrapping
+ *   an individually valid preview that carries the SET's `itemId`, targets the hovered zone's
+ *   node, and whose placement kind matches its position per the §06 grammar
+ *   ({@link crossKindMatchesPosition});
+ * - a `root` that is either null (no distinct container target) or a node id + rect + EXACTLY
+ *   the four unique edges (`CHIP_EDGES`), each chip's preview carrying the set's `itemId`,
+ *   targeting the root node, with kind `edge-<edge>` exactly.
+ *
+ * A partial menu, a duplicated position, a candidate built for another item, or a candidate
+ * whose visual position lies about its operation all return false — the indicator layer clears
+ * rather than renders a menu that misrepresents the drop. Same fail-closed posture as
+ * `isValidPreview`.
+ * @param {Object|null} set
+ * @returns {Boolean}
+ */
+export function isValidCandidateSet(set) {
+    if (!set || typeof set !== 'object')               return false;
+    if (set.schema !== CANDIDATES_SCHEMA)              return false;
+    if (typeof set.itemId !== 'string' || !set.itemId) return false;
+
+    let {cross, root, zone} = set;
+
+    if (!zone || typeof zone.nodeId !== 'string' || !zone.nodeId || !isValidRect(zone.rect)) return false;
+
+    if (!Array.isArray(cross) || cross.length !== CROSS_POSITIONS.length) return false;
+
+    let positions = new Set(cross.map(candidate => candidate?.position));
+
+    if (positions.size !== CROSS_POSITIONS.length || !CROSS_POSITIONS.every(position => positions.has(position))) {
+        return false
+    }
+
+    if (!cross.every(candidate =>
+        candidate &&
+        isValidPreview(candidate.preview) &&
+        candidate.preview.itemId === set.itemId &&
+        candidate.preview.target.nodeId === zone.nodeId &&
+        crossKindMatchesPosition(candidate.position, candidate.preview.placement.kind)
+    )) {
+        return false
+    }
+
+    if (root != null) {
+        if (typeof root.nodeId !== 'string' || !root.nodeId || !isValidRect(root.rect)) return false;
+
+        if (!Array.isArray(root.chips) || root.chips.length !== CHIP_EDGES.length) return false;
+
+        let edges = new Set(root.chips.map(chip => chip?.edge));
+
+        if (edges.size !== CHIP_EDGES.length || !CHIP_EDGES.every(edge => edges.has(edge))) {
+            return false
+        }
+
+        if (!root.chips.every(chip =>
+            chip &&
+            isValidPreview(chip.preview) &&
+            chip.preview.itemId === set.itemId &&
+            chip.preview.target.nodeId === root.nodeId &&
+            chip.preview.placement.kind === `edge-${chip.edge}`
+        )) {
+            return false
+        }
     }
 
     return true

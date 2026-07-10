@@ -59,6 +59,69 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoAWorkspace', () => {
         expect(workspace.getDockZoneDocument().items.preview.autoHidden).toBe(true)
     });
 
+    test('drop truth is the RELEASE point: a stale hover selection never commits', async () => {
+        // Stage a drag session by hand: one hovered zone, the menu lit, the CENTER indicator
+        // actively selected (the cached hover truth a wandering pointer leaves behind).
+        const indicators = workspace.getReference('drop-indicators');
+        const zones      = [{nodeId: 'side-tabs', rect: {x: 400, y: 0, width: 400, height: 600}, orientation: null}];
+
+        workspace.dragGeometry = Promise.resolve({hostRect: {x: 0, y: 0, width: 800, height: 600}, root: null, zones});
+        indicators.hostRect    = {x: 0, y: 0, width: 800, height: 600};
+        indicators.candidateSet = workspace.dockPreviewProducer.produceCandidates({
+            pointer: {x: 600, y: 300}, zones, itemId: 'editor', sourceNodeId: 'editor-tabs'
+        });
+        indicators.updatePointer({x: 600, y: 300});
+
+        expect(indicators.activeCandidate?.position).toBe('center'); // the stale selection is armed
+
+        // the review falsifier: release far outside every indicator AND every zone —
+        // the cached center candidate must NOT commit; nothing must commit
+        const before = JSON.stringify(workspace.getDockZoneDocument());
+
+        await workspace.onDockCrossZoneDrop({clientX: 999, clientY: 999, itemId: 'editor', sourceNodeId: 'editor-tabs'});
+
+        expect(JSON.stringify(workspace.getDockZoneDocument())).toBe(before)
+    });
+
+    test('a candidate built for another item never commits — release truth is item-bound', async () => {
+        const indicators = workspace.getReference('drop-indicators');
+        const zones      = [{nodeId: 'side-tabs', rect: {x: 400, y: 0, width: 400, height: 600}, orientation: null}];
+
+        workspace.dragGeometry = Promise.resolve({hostRect: {x: 0, y: 0, width: 800, height: 600}, root: null, zones});
+        indicators.hostRect    = {x: 0, y: 0, width: 800, height: 600};
+        // the menu was built for `editor`…
+        indicators.candidateSet = workspace.dockPreviewProducer.produceCandidates({
+            pointer: {x: 600, y: 300}, zones, itemId: 'editor', sourceNodeId: 'editor-tabs'
+        });
+
+        const before = JSON.stringify(workspace.getDockZoneDocument());
+
+        // …but the release reports `preview` (a stale set across sessions): the candidate is
+        // ignored; the fallback excludes the source zone (side-tabs) → nothing commits
+        await workspace.onDockCrossZoneDrop({clientX: 600, clientY: 300, itemId: 'preview', sourceNodeId: 'side-tabs'});
+
+        expect(JSON.stringify(workspace.getDockZoneDocument())).toBe(before)
+    });
+
+    test('a release ON an indicator commits exactly that candidate (positive control)', async () => {
+        const indicators = workspace.getReference('drop-indicators');
+        const zones      = [{nodeId: 'side-tabs', rect: {x: 400, y: 0, width: 400, height: 600}, orientation: null}];
+
+        workspace.dragGeometry = Promise.resolve({hostRect: {x: 0, y: 0, width: 800, height: 600}, root: null, zones});
+        indicators.hostRect    = {x: 0, y: 0, width: 800, height: 600};
+        indicators.candidateSet = workspace.dockPreviewProducer.produceCandidates({
+            pointer: {x: 600, y: 300}, zones, itemId: 'editor', sourceNodeId: 'editor-tabs'
+        });
+
+        // release exactly on the CENTER indicator (zone center): tab-into side-tabs
+        await workspace.onDockCrossZoneDrop({clientX: 600, clientY: 300, itemId: 'editor', sourceNodeId: 'editor-tabs'});
+
+        const doc = workspace.getDockZoneDocument();
+
+        expect(doc.nodes['side-tabs'].items).toContain('editor');   // the tab-merge landed
+        expect(doc.nodes['side-tabs'].activeItemId).toBe('editor')
+    });
+
     test('the tour bar composes real button children riding the handler contract', () => {
         const playButton = workspace.getReference('tour-play');
 
