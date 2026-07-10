@@ -183,9 +183,9 @@ class Observable extends Base {
      * @protected
      */
     afterSetListeners(value, oldValue) {
-        let me           = this,
-            oldConfig    = oldValue || {},
-            newConfig    = value    || {},
+        let me        = this,
+            oldConfig = oldValue || {},
+            newConfig = value    || {},
             // delay/once/order/scope sit at the config top level and apply to EVERY event entry, so
             // they must travel with each per-event slice — and a change to any of them changes every
             // event's effective registration (→ full re-bind).
