@@ -20,6 +20,23 @@ const createItem = (config={}) => ({
     ...config
 });
 
+/**
+ * @summary Builds the local `DomEvents` wire shape for an `animationend`; native
+ * `AnimationEvent.animationName` is deliberately absent from the serialized payload.
+ * @param {String} targetId Config-aware browser target id.
+ * @param {String[]} [pathIds] Serialized composed-path ids.
+ * @param {String} [rawId] Raw DOM id retained by the local-listener envelope.
+ * @returns {Object}
+ */
+const createSerializedAnimationEnd = (targetId, pathIds=[targetId], rawId=targetId) => ({
+    id       : rawId,
+    path     : pathIds.map(id => ({id})),
+    target   : {id: targetId},
+    timeStamp: 1,
+    type     : 'animationend',
+    value    : undefined
+});
+
 test.describe('Neo.dashboard.DockRevealOverlay', () => {
     let overlay;
 
@@ -148,6 +165,8 @@ test.describe('Neo.dashboard.DockRevealOverlay', () => {
             id  : 'dock-reveal-motion'
         });
 
+        const rootId = overlay.vdom?.id || overlay.id;
+
         expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
 
         // idle → revealed opens the signal window (the CSS keyframes restart natively:
@@ -155,14 +174,14 @@ test.describe('Neo.dashboard.DockRevealOverlay', () => {
         overlay.set({revealState: 'revealed', revealedItem: createItem()});
         expect(DockMotionSignal.isAnimating(overlay.id)).toBe(true);
 
-        // a hosted pane's foreign animation ending — including a similarly prefixed one —
-        // must NOT close the window...
-        overlay.onMotionAnimationEnd({animationName: 'some-pane-spinner'});
-        overlay.onMotionAnimationEnd({animationName: 'neo-dock-reveal-pane-spinner'});
+        // A hosted pane's bubbled animation keeps its child target id and must NOT close the
+        // overlay-owned window, even though the serialized path reaches the overlay root.
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd('hosted-pane-animation', ['hosted-pane-animation', rootId]));
         expect(DockMotionSignal.isAnimating(overlay.id)).toBe(true);
 
-        // ...the choreography keyframes do
-        overlay.onMotionAnimationEnd({animationName: 'neo-dock-reveal-from-left'});
+        // The overlay root event settles. A blank raw DOM id models `useDomIds:false`; the
+        // config-aware `target.id` remains the portable identity authority.
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId, [rootId], ''));
         expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
 
         // dismiss is an instant display cut: no motion window opens
@@ -171,7 +190,7 @@ test.describe('Neo.dashboard.DockRevealOverlay', () => {
 
         // visible→visible state shifts (revealed → dismiss-pending) never double-enter
         overlay.set({revealState: 'revealed', revealedItem: createItem()});
-        overlay.onMotionAnimationEnd({animationName: 'neo-dock-reveal-from-left'});
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId));
         overlay.set({revealState: 'dismiss-pending'});
         expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false)
     });
@@ -194,7 +213,7 @@ test.describe('Neo.dashboard.DockRevealOverlay', () => {
         // A quick second reveal starts from a clean count; its one end event fully settles it.
         overlay.set({revealState: 'revealed', revealedItem: createItem()});
         expect(DockMotionSignal.activeMotions.get(overlay)?.count).toBe(1);
-        overlay.onMotionAnimationEnd({animationName: 'neo-dock-reveal-from-left'});
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(overlay.vdom?.id || overlay.id));
         expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
 
         // Item-only visibility shifts follow the same balanced lifecycle while the state remains
@@ -205,7 +224,7 @@ test.describe('Neo.dashboard.DockRevealOverlay', () => {
         expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
         overlay.revealedItem = createItem();
         expect(DockMotionSignal.activeMotions.get(overlay)?.count).toBe(1);
-        overlay.onMotionAnimationEnd({animationName: 'neo-dock-reveal-from-left'});
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(overlay.vdom?.id || overlay.id));
         expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
 
         // Teardown is another animation-cancellation path and must release instance ownership.

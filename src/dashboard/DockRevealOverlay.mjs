@@ -40,19 +40,6 @@ import NeoArray         from '../util/Array.mjs';
  */
 class DockRevealOverlay extends Container {
     /**
-     * Animation names owned by the reveal producer. An exact allowlist prevents a hosted pane's
-     * similarly prefixed animation from settling this overlay's counted motion window.
-     * @member {Set<String>} MOTION_ANIMATION_NAMES
-     * @static
-     */
-    static MOTION_ANIMATION_NAMES = new Set([
-        'neo-dock-reveal-fade',
-        'neo-dock-reveal-from-bottom',
-        'neo-dock-reveal-from-left',
-        'neo-dock-reveal-from-right',
-        'neo-dock-reveal-from-top'
-    ])
-    /**
      * Reveal states in which the overlay renders visibly — `dismiss-pending` included: the grace
      * window is part of the shown lifecycle.
      * @member {Set<String>} VISIBLE_STATES
@@ -231,12 +218,14 @@ class DockRevealOverlay extends Container {
 
     /**
      * The reveal-slide settle: closes the motion-signal window a visible-state flip opened.
-     * Filters to the choreography keyframes so hosted-pane animations never leave a signal
-     * they did not enter.
+     * Local DOM-event serialization preserves the config-aware browser target id but omits
+     * `AnimationEvent.animationName`. Root-target identity therefore owns settlement: an
+     * overlay animation matches, while a hosted pane's bubbled animation keeps its child id and
+     * cannot leave a signal it did not enter.
      * @param {Object} data
      */
     onMotionAnimationEnd(data) {
-        if (DockRevealOverlay.MOTION_ANIMATION_NAMES.has(data?.animationName)) {
+        if ((data?.target?.id || data?.id) === (this.vdom?.id || this.id)) {
             this.finishRevealMotion()
         }
     }
