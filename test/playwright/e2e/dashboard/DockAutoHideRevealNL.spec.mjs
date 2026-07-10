@@ -80,6 +80,50 @@ test.describe('Dock auto-hide reveal/pin journey (Neural Link)', () => {
         const revealed = await readModel();
         expect(JSON.stringify(revealed), 'the committed document must NOT change on reveal').toBe(JSON.stringify(hidden));
 
+        // Embodied focus: real browser focus moved INSIDE the overlay on click-reveal.
+        expect(await page.evaluate(() =>
+            document.activeElement?.closest('.neo-dashboard-dock-reveal-overlay') !== null
+        ), 'click-reveal must move real focus into the overlay').toBe(true);
+
+        // Escape dismisses — runtime-only, document byte-stable.
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(400);
+        await expect(overlay, 'Escape must dismiss the reveal').toBeHidden();
+        expect(JSON.stringify(await readModel()), 'Escape dismissal must not touch the document').toBe(JSON.stringify(hidden));
+
+        // Outside-click dismissal (focused reveal): clicking outside moves focus out -> focus-leave dismisses.
+        await railTab.click();
+        await page.waitForTimeout(400);
+        await expect(overlay).toBeVisible();
+        await page.locator('.neo-tab-header-button', { hasText: 'Strategy' }).first().click();
+        await page.waitForTimeout(400);
+        await expect(overlay, 'an outside click must dismiss the focused reveal').toBeHidden();
+        expect(JSON.stringify(await readModel()), 'outside-click dismissal must not touch the document').toBe(JSON.stringify(hidden));
+
+        // Hover mode (workspace opt-in, live-configured): dwell opens; leaving the tab without
+        // ever entering the overlay dismisses through the grace window.
+        const railInstances = await app.findInstances({ ntype: 'dashboard-dock-rail' }, ['id']);
+        const railId        = Array.isArray(railInstances) ? railInstances[0]?.id : railInstances?.id;
+        await app.setProperties(railId, { autoHideRevealOnHover: true, revealDismissGraceMs: 400, revealDwellMs: 100 });
+
+        const railBox = await railTab.boundingBox();
+        await page.mouse.move(railBox.x + railBox.width / 2, railBox.y + railBox.height / 2);
+        await page.waitForTimeout(350); // > dwell
+        await expect(overlay, 'opt-in hover must reveal after the dwell').toBeVisible();
+
+        await page.mouse.move(100, 100); // jump far outside — never crosses the overlay
+        await page.waitForTimeout(150);  // < grace: still shown
+        await expect(overlay, 'the grace window must hold the overlay briefly').toBeVisible();
+        await page.waitForTimeout(600);  // > grace
+        await expect(overlay, 'hover-away without entering the overlay must dismiss through grace').toBeHidden();
+
+        await app.setProperties(railId, { autoHideRevealOnHover: false });
+
+        // Re-open for the pin tail.
+        await railTab.click();
+        await page.waitForTimeout(600);
+        await expect(overlay).toBeVisible();
+
         // Native gesture: PIN -> the one committed operation of the interaction.
         await overlay.locator('.neo-dashboard-dock-reveal-pin').first().click();
         await page.waitForTimeout(1500);

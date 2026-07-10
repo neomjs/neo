@@ -9,6 +9,7 @@ setup({
 import {test, expect}    from '@playwright/test';
 import Neo               from '../../../../src/Neo.mjs';
 import * as core         from '../../../../src/core/_export.mjs';
+import Button            from '../../../../src/button/Base.mjs';
 import DockLayoutAdapter from '../../../../src/dashboard/DockLayoutAdapter.mjs';
 import DockRail          from '../../../../src/dashboard/DockRail.mjs';
 
@@ -321,6 +322,55 @@ test.describe('Neo.dashboard.DockRail', () => {
         rail.railItems = [];
 
         expect(rail.items).toContain(overlay);
+    });
+
+    test('a resolver-returned live instance is parked on dismissal and re-parented on re-reveal (never destroyed)', () => {
+        let livePane = Neo.create(Button, {id: 'dock-rail-live-pane', text: 'Live'});
+
+        livePane.transientState = 'survives';
+
+        rail = Neo.create(DockRail, {
+            dockZoneDocument   : createDocument(),
+            edge               : 'right',
+            id                 : 'dock-rail-live-instance',
+            railItems          : createRailItems(),
+            resolveComponentRef: () => livePane
+        });
+
+        rail.onTabClick({component: tabsOf(rail)[0]});
+
+        let slot = rail.revealOverlay.paneSlot;
+
+        expect(slot.items[0]).toBe(livePane);
+
+        // Dismissal PARKS the live instance — identity and transient state survive.
+        rail.revealMachine.escape();
+
+        expect(slot.items).toHaveLength(0);
+        expect(livePane.isDestroyed).not.toBe(true);
+        expect(livePane.transientState).toBe('survives');
+
+        // Re-reveal re-parents the SAME instance.
+        rail.onTabClick({component: tabsOf(rail)[0]});
+
+        expect(slot.items[0]).toBe(livePane);
+        expect(slot.items[0].id).toBe('dock-rail-live-pane');
+    });
+
+    test('threads the workspace default reveal fraction into the bound overlay', () => {
+        let overlay = createStubOverlay();
+
+        rail = Neo.create(DockRail, {
+            defaultRevealFraction: 0.4,
+            edge                 : 'right',
+            id                   : 'dock-rail-fraction',
+            railItems            : createRailItems()
+        });
+
+        rail.bindRevealOverlay(overlay);
+        rail.onTabClick({component: tabsOf(rail)[0]});
+
+        expect(overlay.calls.at(-1).defaultRevealFraction).toBe(0.4);
     });
 
     test('an item leaving the rail fail-closes its reveal', () => {

@@ -124,8 +124,8 @@ test.describe('Neo.dashboard.DockRevealOverlay', () => {
 
         overlay.onPointerEnter({});
         overlay.onPointerLeave({});
-        overlay.onFocusIn({});
-        overlay.onFocusOut({});
+        overlay.onFocusEnter({});
+        overlay.onFocusLeave({});
         overlay.onKeyDown({key: 'Escape'});
         overlay.onKeyDown({key: 'Enter'});
         overlay.onPinClick({});

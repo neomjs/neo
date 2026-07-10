@@ -199,6 +199,26 @@ test.describe('DockRevealStateMachine', () => {
         expect(machine.revealedItemId).toBe('inspector');
     });
 
+    test('a hover-born reveal dismisses through grace when the pointer leaves the tab without entering the overlay', () => {
+        let {machine, timers} = createMachine({revealOnHover: true});
+
+        machine.tabHoverIn('terminal');
+        timers.advance(DockRevealStateMachine.DWELL_MS);
+        expect(machine.state).toBe('revealed');
+
+        machine.tabHoverOut();
+        expect(machine.state).toBe('dismiss-pending');
+
+        // Reaching the overlay during grace rescues the reveal...
+        machine.overlayPointerEnter();
+        expect(machine.state).toBe('revealed');
+
+        // ...while never reaching it lets the grace dismiss.
+        machine.tabHoverOut();
+        timers.advance(DockRevealStateMachine.DISMISS_GRACE_MS);
+        expect(machine.state).toBe('idle');
+    });
+
     test('itemCleared fail-closes any reveal or pending dwell of that item', () => {
         let {machine, timers} = createMachine({revealOnHover: true});
 

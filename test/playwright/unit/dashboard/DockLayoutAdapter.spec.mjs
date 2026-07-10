@@ -411,6 +411,7 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
         let result = DockLayoutAdapter.project(model, {
                 applyDockZoneOperation,
                 autoHideRevealOnHover: true,
+                defaultRevealFraction: 0.4,
                 onDockZoneDocumentChange,
                 resolveComponentRef  : componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
             }),
@@ -420,8 +421,9 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
         expect(rail.applyDockZoneOperation).toBe(applyDockZoneOperation);
         expect(rail.onDockZoneDocumentChange).toBe(onDockZoneDocumentChange);
         expect(rail.dockZoneDocument).toBe(model);
-        // The workspace-level hover opt-in threads through; it defaults to false when absent.
+        // Workspace-level interaction options thread through; they default when absent.
         expect(rail.autoHideRevealOnHover).toBe(true);
+        expect(rail.defaultRevealFraction).toBe(0.4);
         expect(DockLayoutAdapter.project(model, {
             resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
         }).items[0].items.find(item => item.dockNodeType === 'edge-rail').autoHideRevealOnHover).toBe(false);

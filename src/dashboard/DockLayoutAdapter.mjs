@@ -210,6 +210,7 @@ class DockLayoutAdapter extends Base {
         return this.projectNode(model.root, {
             applyDockZoneOperation  : options.applyDockZoneOperation,
             autoHideRevealOnHover   : options.autoHideRevealOnHover === true,
+            defaultRevealFraction   : Number.isFinite(options.defaultRevealFraction) ? options.defaultRevealFraction : null,
             dockZoneDocument        : options.dockZoneDocument || model,
             items                   : model.items || {},
             nodes                   : model.nodes,
@@ -304,6 +305,7 @@ class DockLayoutAdapter extends Base {
         return {
             applyDockZoneOperation  : context.applyDockZoneOperation,
             autoHideRevealOnHover   : context.autoHideRevealOnHover === true,
+            defaultRevealFraction   : context.defaultRevealFraction ?? null,
             dockEdge                : edge,
             dockNodeType            : 'edge-rail',
             dockZoneDocument        : context.dockZoneDocument,

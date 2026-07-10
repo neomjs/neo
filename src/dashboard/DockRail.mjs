@@ -77,6 +77,14 @@ class DockRail extends Container {
          */
         autoHideRevealOnHover_: false,
         /**
+         * Workspace-level default for the overlay's free-dimension fraction when the document
+         * carries no committed extent (`null` keeps the overlay's own default). Threaded from
+         * projection options exactly like the hover opt-in.
+         * @member {Number|null} defaultRevealFraction_=null
+         * @reactive
+         */
+        defaultRevealFraction_: null,
+        /**
          * Current committed dock-zone document. Used when no reducer callback is supplied.
          * @member {Object|null} dockZoneDocument_=null
          * @reactive
@@ -123,6 +131,14 @@ class DockRail extends Container {
         revealDwellMs_: null
     }
 
+    /**
+     * Blueprint-created reveal panes, cached per dock item id. Parked (removed without destroy)
+     * on dismissal and re-parented on the next reveal — mounted children are never destroyed
+     * mid-session; the cache tears down with the rail.
+     * @member {Object} revealPaneCache={}
+     * @protected
+     */
+    revealPaneCache = {}
     /**
      * The reveal/dismiss timing brain. Runtime-only; created per instance, torn down in `destroy()`.
      * @member {DockRevealStateMachine|null} revealMachine=null
@@ -345,6 +361,11 @@ class DockRail extends Container {
         me.revealMachine = null;
         me.revealOverlay = null;
 
+        Object.values(me.revealPaneCache).forEach(pane => {
+            pane?.isDestroyed || pane?.destroy?.()
+        });
+        me.revealPaneCache = {};
+
         super.destroy(...args)
     }
 
@@ -474,7 +495,14 @@ class DockRail extends Container {
             railItem: (me.railItems || []).find(item => item.dockItemId === next.revealedItemId) || null
         });
 
-        me.syncRevealOverlay()
+        me.syncRevealOverlay();
+
+        // Embodied focus-hold: a click-born reveal moves REAL browser focus into the overlay.
+        // Focus-rescue transitions (revealed / dismiss-pending -> focused) already hold focus
+        // inside the subtree by definition — re-focusing would fight the user's caret.
+        if (next.state === 'revealed-focused' && previous.state !== 'revealed' && previous.state !== 'dismiss-pending') {
+            me.revealOverlay?.focusReveal?.()
+        }
     }
 
     /**
@@ -598,7 +626,8 @@ class DockRail extends Container {
             edge        : me.getValidatedEdge(me.edge),
             revealExtent: railItem ? me.resolveRevealExtent(railItem.dockItemId) : null,
             revealState : machine.state,
-            revealedItem: railItem
+            revealedItem: railItem,
+            ...(Number.isFinite(me.defaultRevealFraction) ? {defaultRevealFraction: me.defaultRevealFraction} : {})
         });
 
         me.syncRevealPane(railItem)
@@ -607,16 +636,21 @@ class DockRail extends Container {
     /**
      * Materializes the revealed item's pane into the overlay's slot — resolved through the SAME
      * `resolveComponentRef` seam the adapter uses for in-flow panes, with the `componentRef` read
-     * from the committed document (the rail's copy re-projects on every change). An auto-hidden
-     * item has no live pane instance, so the overlay creates a transient one and destroys it on
-     * dismissal — transient by design, like every other piece of reveal state.
+     * from the committed document (the rail's copy re-projects on every change).
+     *
+     * Live-instance contract: a resolver-returned Neo INSTANCE is added as-is and PARKED on
+     * dismissal (removed without destroy — moved/re-parented, never destroyed), so its identity
+     * and transient state survive reveal/dismiss cycles and the pin transition back into the
+     * flow. A blueprint-created pane (config resolution — the no-live-instance fallback) is
+     * cached per item and parked the same way: mounted children are never destroyed mid-session
+     * (`revealPaneCache` tears down with the rail).
      * @param {Object|null} railItem
      * @protected
      */
     syncRevealPane(railItem) {
         let me   = this,
             slot = me.revealOverlay?.paneSlot,
-            currentId, nextId, componentRef, paneConfig;
+            child, componentRef, currentId, nextId, resolved;
 
         // Stub/external overlays without a pane slot render header-only — valid by contract.
         if (!slot?.add) {
@@ -630,13 +664,27 @@ class DockRail extends Container {
             return
         }
 
-        slot.removeAll();
+        child = slot.items?.[0];
+
+        if (child) {
+            slot.remove(child, false)
+        }
 
         if (nextId && typeof me.resolveComponentRef === 'function') {
-            componentRef = me.dockZoneDocument?.items?.[nextId]?.componentRef;
-            paneConfig   = componentRef != null ? me.resolveComponentRef(componentRef) : null;
+            if (me.revealPaneCache[nextId] && !me.revealPaneCache[nextId].isDestroyed) {
+                slot.add(me.revealPaneCache[nextId])
+            } else {
+                componentRef = me.dockZoneDocument?.items?.[nextId]?.componentRef;
+                resolved     = componentRef != null ? me.resolveComponentRef(componentRef) : null;
 
-            paneConfig && slot.add({...paneConfig})
+                if (resolved) {
+                    if (Neo.typeOf(resolved) === 'NeoInstance') {
+                        slot.add(resolved)
+                    } else {
+                        me.revealPaneCache[nextId] = slot.add({...resolved})
+                    }
+                }
+            }
         }
 
         me.revealOverlay.revealPaneItemId = nextId

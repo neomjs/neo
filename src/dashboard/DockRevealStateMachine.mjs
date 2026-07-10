@@ -26,6 +26,7 @@
  * | `idle` | `tabHoverIn(item)` | `dwell-pending` | Only when `revealOnHover` (workspace opt-in — hover reveals are an a11y hazard by default). |
  * | `dwell-pending` | dwell elapsed | `revealed` | Hover reveal never steals focus. |
  * | `dwell-pending` | `tabHoverOut()` | `idle` | Pass-through hovers never flicker an overlay. |
+ * | `revealed` | `tabHoverOut()` | `dismiss-pending` | Hover-born reveal whose pointer leaves the TAB without ever entering the overlay dismisses through the same grace window. |
  * | `dwell-pending` | `tabClick(item)` | `revealed-focused` | Click overrides the dwell wait. |
  * | `revealed*` | `tabClick(same item)` | `idle` | Re-clicking the tab dismisses. |
  * | `revealed*` | `tabClick(other item)` | `revealed-focused(other)` | Retarget: the reveal follows intent. |
@@ -222,14 +223,18 @@ class DockRevealStateMachine {
     }
 
     /**
-     * Hover left the rail tab before the dwell elapsed — a pass-through must never flicker
-     * an overlay open.
+     * Hover left the rail tab. Before the dwell elapsed, a pass-through must never flicker an
+     * overlay open; after a hover-born reveal opened, leaving the tab WITHOUT entering the
+     * overlay starts the same dismiss grace the overlay's own pointer-leave uses (a pointer
+     * that reaches the overlay cancels it via `overlayPointerEnter()`).
      */
     tabHoverOut() {
         let me = this;
 
         if (me.state === 'dwell-pending') {
             me.transition(me.revealedItemId ? 'revealed' : 'idle', me.revealedItemId)
+        } else if (me.state === 'revealed') {
+            me.overlayPointerLeave()
         }
     }
 

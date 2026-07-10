@@ -146,12 +146,19 @@ class DockRevealOverlay extends Container {
         super.construct(config);
 
         me.addDomListeners([
-            {focusin   : me.onFocusIn,      scope: me},
-            {focusout  : me.onFocusOut,     scope: me},
             {keydown   : me.onKeyDown,      scope: me},
             {mouseenter: me.onPointerEnter, scope: me},
             {mouseleave: me.onPointerLeave, scope: me}
         ])
+    }
+
+    /**
+     * Moves REAL browser focus into the overlay (first focusable descendant — the pin control at
+     * minimum, the hosted pane's focusables once mounted). The owning rail calls this when a
+     * click-born reveal opens: focus-hold must be embodied, not a state label.
+     */
+    focusReveal() {
+        this.focus(this.id, true)
     }
 
     /**
@@ -240,18 +247,27 @@ class DockRevealOverlay extends Container {
     }
 
     /**
+     * `manager.Focus` containment hook: fires only when focus genuinely ENTERS this component's
+     * subtree — internal focus movement never re-triggers it, which is exactly the containment
+     * guard the dismiss contract needs.
      * @param {Object} data
      * @protected
      */
-    onFocusIn(data) {
+    onFocusEnter(data) {
+        super.onFocusEnter(data);
         this.fire('revealFocusEnter', {overlay: this})
     }
 
     /**
+     * `manager.Focus` containment hook: fires only when focus genuinely LEAVES the subtree —
+     * moving focus between the pin control and the hosted pane stays silent. Clicking anywhere
+     * outside a focused overlay moves focus out, so outside-click dismissal of a focused reveal
+     * is embodied here.
      * @param {Object} data
      * @protected
      */
-    onFocusOut(data) {
+    onFocusLeave(data) {
+        super.onFocusLeave(data);
         this.fire('revealFocusLeave', {overlay: this})
     }
 
