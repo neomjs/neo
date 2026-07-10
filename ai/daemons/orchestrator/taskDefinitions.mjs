@@ -1,12 +1,33 @@
 import path            from 'path';
 import net             from 'net';
 import {fileURLToPath} from 'url';
+import AiConfig        from '../../config.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
-export const DEFAULT_DB_PATH    = process.env.NEO_AI_DB_PATH || '.neo-ai-data/sqlite/memory-core-graph.sqlite';
-export const DEFAULT_DATA_DIR   = process.env.NEO_AI_ORCHESTRATOR_DIR || '.neo-ai-data/orchestrator-daemon';
+/**
+ * SQLite Memory Core graph database file the orchestrator opens for graph-backed health
+ * checks. Leaf-fed: the config provider owns the default AND the `NEO_AI_DB_PATH` env
+ * binding — this constant only re-exports the resolved leaf so the existing orchestrator
+ * consumer surface stays stable.
+ * @type {String}
+ */
+export const DEFAULT_DB_PATH = AiConfig.orchestrator.dbPath;
+
+/**
+ * Orchestrator-daemon runtime-state directory (PID files, log, state, lease + revision
+ * files). Leaf-fed: the config provider owns the default AND the `NEO_AI_ORCHESTRATOR_DIR`
+ * env binding — this constant only re-exports the resolved leaf so the existing
+ * orchestrator consumer surface stays stable.
+ * @type {String}
+ */
+export const DEFAULT_DATA_DIR = AiConfig.orchestrator.dataDir;
+
+/**
+ * Default maintenance-script directory, resolved relative to this module.
+ * @type {String}
+ */
 export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../../scripts');
 
 const DEFAULT_CHROMA_HEALTH_ENDPOINT   = '/api/v2/heartbeat';

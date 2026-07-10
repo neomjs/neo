@@ -430,6 +430,28 @@ class Config extends ConfigProvider {
              */
             orchestrator: {
                 /**
+                 * Directory owning ALL orchestrator-daemon runtime state: the daemon + child-task
+                 * PID files, `orchestrator.log`, `orchestrator-state.json`, and the heavy-maintenance
+                 * lease + tenant-repo-sync revision files stored beside them. Kept relative on
+                 * purpose — it resolves against the daemon's cwd (repo root under the standard
+                 * launch). Owning the default AND the `NEO_AI_ORCHESTRATOR_DIR` env binding here
+                 * (instead of a module-level `process.env` read at the consumer) keeps the
+                 * config-is-SSOT contract: no consumer re-derives from env, no consumer holds a
+                 * hidden default.
+                 * @type {String}
+                 */
+                dataDir: leaf('.neo-ai-data/orchestrator-daemon', 'NEO_AI_ORCHESTRATOR_DIR', 'string'),
+                /**
+                 * SQLite Memory Core graph database file the orchestrator opens for graph-backed
+                 * health checks and maintenance decisions. Kept relative on purpose — it resolves
+                 * against the daemon's cwd (repo root under the standard launch). Owning the
+                 * default AND the `NEO_AI_DB_PATH` env binding here (instead of a module-level
+                 * `process.env` read at the consumer) keeps the config-is-SSOT contract: no
+                 * consumer re-derives from env, no consumer holds a hidden default.
+                 * @type {String}
+                 */
+                dbPath: leaf('.neo-ai-data/sqlite/memory-core-graph.sqlite', 'NEO_AI_DB_PATH', 'string'),
+                /**
                  * Deployment profile for Agent OS maintenance ownership.
                  * `local` preserves maintainer-checkout behavior; `cloud` disables local-only
                  * maintenance lanes unless a narrower localOnly override opts them back in.
