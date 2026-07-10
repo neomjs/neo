@@ -31,7 +31,7 @@
  * preserved on the canonical node.
  */
 
-import path from 'node:path';
+import path            from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {
     createDynamicTextEmbeddingFunction,
@@ -112,14 +112,17 @@ registerNeoChromaEmbeddingFunctions();
  */
 export function parseArgs(argv) {
     const args = {
-        apply      : false,
-        chromaOnly : false,
-        db         : null,
-        graphOnly  : false,
-        help       : false,
-        host       : process.env.NEO_CHROMA_HOST || process.env.NEO_KB_CHROMA_HOST || 'localhost',
+        apply     : false,
+        chromaOnly: false,
+        db        : null,
+        graphOnly : false,
+        help      : false,
+        // null = "resolve from the KB server config at run time": the config transitively pulls
+        // the Neo class system, so its import is LAZY inside main() behind the bootstrap — flag
+        // parsing (and `--help`) must stay runnable in a bare fresh process.
+        host       : null,
         memoryOnly : false,
-        port       : Number(process.env.NEO_CHROMA_PORT || process.env.NEO_KB_CHROMA_PORT || 8000),
+        port       : null,
         sessionOnly: false
     };
 
@@ -163,8 +166,8 @@ Options:
   (no flags)         Dry-run mode — print the migration plan without committing
   --apply            Commit the migration
   --db <path>        Override SQLite graph path (default: .neo-ai-data/sqlite/memory-core-graph.sqlite)
-  --host <host>      Override ChromaDB host (default: NEO_CHROMA_HOST, fallback localhost)
-  --port <port>      Override ChromaDB port (default: NEO_CHROMA_PORT, fallback 8000)
+  --host <host>      Override ChromaDB host (default: the KB server config's chroma endpoint; NEO_CHROMA_HOST binds through its leaf)
+  --port <port>      Override ChromaDB port (default: the KB server config's chroma endpoint; NEO_CHROMA_PORT binds through its leaf)
   --graph-only       Update only the SQLite Native Edge Graph
   --chroma-only      Update only ChromaDB metadata
   --memory-only      Update only neo-agent-memory Chroma metadata
@@ -318,7 +321,7 @@ function ensureTargetIdentityNode(db, rename, apply, stats) {
         return;
     }
 
-    const oldData = parseGraphData(oldRow.data);
+    const oldData  = parseGraphData(oldRow.data);
     const nextData = targetRow
         ? mergeIdentityNodeData(oldData, parseGraphData(targetRow.data))
         : rewriteIdentityFields({...oldData, id: rename.toNodeId});
@@ -353,7 +356,7 @@ function rewriteIdentityEdges(db, rename, apply, stats) {
     for (const edge of edges) {
         const nextSource = edge.source === rename.fromNodeId ? rename.toNodeId : edge.source;
         const nextTarget = edge.target === rename.fromNodeId ? rename.toNodeId : edge.target;
-        const duplicate = db.prepare(
+        const duplicate  = db.prepare(
             'SELECT id FROM Edges WHERE source = ? AND target = ? AND type = ? AND id != ?'
         ).get(nextSource, nextTarget, edge.type, edge.id);
 
@@ -440,15 +443,15 @@ function deleteOldIdentityNode(db, rename, apply, stats) {
 export function runGraphMigration(db, apply) {
     const stats = {
         graph: {
-            duplicateCollisions   : 0,
+            duplicateCollisions    : 0,
             edgeMetadataRowsUpdated: 0,
-            edgesDropped          : 0,
-            edgesRewritten        : 0,
+            edgesDropped           : 0,
+            edgesRewritten         : 0,
             nodeMetadataRowsUpdated: 0,
-            nodesDeleted          : 0,
-            nodesInserted         : 0,
-            nodesMerged           : 0,
-            skipped               : []
+            nodesDeleted           : 0,
+            nodesInserted          : 0,
+            nodesMerged            : 0,
+            skipped                : []
         }
     };
 
@@ -477,8 +480,8 @@ export function runGraphMigration(db, apply) {
  */
 export async function findChromaMetadataUpdates(collection) {
     const updates = [];
-    let scanned   = 0;
-    let offset    = 0;
+    let   scanned = 0;
+    let   offset  = 0;
 
     while (true) {
         const batch = await collection.get({
@@ -537,12 +540,12 @@ async function applyChromaMetadataUpdates(collection, updates) {
 async function processChromaCollection(client, collectionName, apply) {
     console.log(`\n[${collectionName}]`);
     const embeddingFunction = createDynamicTextEmbeddingFunction();
-    const collection = await client.getOrCreateCollection({
+    const collection        = await client.getOrCreateCollection({
         name: collectionName,
         embeddingFunction
     });
 
-    const total = await collection.count();
+    const total              = await collection.count();
     const {scanned, updates} = await findChromaMetadataUpdates(collection);
 
     console.log(`  total records: ${total}`);
@@ -571,7 +574,7 @@ async function processChromaCollection(client, collectionName, apply) {
  */
 async function runChromaMigration(args) {
     const {ChromaClient} = await import('chromadb');
-    const client = new ChromaClient({host: args.host, port: args.port, ssl: false});
+    const client         = new ChromaClient({host: args.host, port: args.port, ssl: false});
 
     try {
         await client.heartbeat();
@@ -581,7 +584,7 @@ async function runChromaMigration(args) {
 
     const targetMemory  = !args.sessionOnly;
     const targetSession = !args.memoryOnly;
-    const summary = {memory: null, session: null};
+    const summary       = {memory: null, session: null};
 
     if (targetMemory) {
         summary.memory = await processChromaCollection(client, COLLECTION_MEMORY, args.apply);
@@ -604,6 +607,18 @@ async function main() {
         process.exit(0);
     }
 
+    // The KB server config OWNS the chroma endpoint (default + the NEO_CHROMA_* env bindings) —
+    // consumed at the use site. Its import chain evaluates Neo class modules, which need the
+    // runtime global first, so the bootstrap + config import are LAZY and sequenced here: the
+    // module import and the `--help` path above stay runnable in a bare fresh process.
+    if (args.host == null || args.port == null) {
+        await import('../../../src/Neo.mjs');
+        await import('../../../src/core/_export.mjs');
+        const {default: kbConfig} = await import('../../mcp/server/knowledge-base/config.mjs');
+        args.host ??= kbConfig.host;
+        args.port ??= kbConfig.port;
+    }
+
     const dbPath = args.db || path.resolve(neoRoot, '.neo-ai-data/sqlite/memory-core-graph.sqlite');
     console.log(`[renameAgentIdentities] mode:        ${args.apply ? 'APPLY' : 'DRY-RUN'}`);
     console.log(`[renameAgentIdentities] graph:       ${args.chromaOnly ? 'skip' : dbPath}`);
@@ -612,7 +627,7 @@ async function main() {
 
     if (!args.chromaOnly) {
         const Database = (await import('better-sqlite3')).default;
-        const db = new Database(dbPath, {verbose: null});
+        const db       = new Database(dbPath, {verbose: null});
         try {
             const graphStats = runGraphMigration(db, args.apply);
             console.log('\n[SQLite graph]');
