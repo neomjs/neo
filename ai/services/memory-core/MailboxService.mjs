@@ -479,13 +479,16 @@ function hasMessageNodeInStorage(messageId) {
 }
 
 /**
- * @summary Storage-truth read of the recipient-mutable MESSAGE-node fields (`readAt`,
- * `archivedAt`). The WAL is pure intake — its records carry send-time state (`readAt: null`)
- * forever — so ANY projection landing on an EXISTING node must let the committed graph values win
- * for exactly these two fields: they are graph-owned (written by `markRead` / archive), never
- * WAL-owned. Returns `{}` for a missing node, so a true first projection keeps the WAL values.
+ * @summary Storage-truth read of the graph-owned mutable MESSAGE-node state: the recipient's
+ * `readAt`/`archivedAt` (written by `markRead` / archive) AND the sender's irreversible retraction
+ * tombstone (`retracted` + the placeholder `subject`/`bodyText` written by `deleteMessage` — a
+ * permanent decision with no undo path). The WAL is pure intake — its records carry send-time
+ * state (`readAt: null`, the original content) forever — so ANY projection landing on an EXISTING
+ * node must let the committed graph values win for exactly this surface. Returns `{}` for a
+ * missing node, so a true first projection keeps the WAL values.
  * @param {String} messageId Message graph node id.
- * @returns {Object} `{readAt?, archivedAt?}` — only the fields with committed non-null values.
+ * @returns {Object} Only the committed fields: `{readAt?, archivedAt?, retracted?, subject?,
+ * bodyText?}` — the tombstone trio rides together, never partially.
  * @private
  */
 function getStorageMessageMutableState(messageId) {
@@ -493,8 +496,42 @@ function getStorageMessageMutableState(messageId) {
     if (!sqlite) return {};
 
     const row = sqlite
-        .prepare(`SELECT json_extract(data, '$.properties.readAt') AS readAt, json_extract(data, '$.properties.archivedAt') AS archivedAt FROM Nodes WHERE id = ?`)
+        .prepare(`SELECT json_extract(data, '$.properties.readAt') AS readAt, json_extract(data, '$.properties.archivedAt') AS archivedAt, json_extract(data, '$.properties.retracted') AS retracted, json_extract(data, '$.properties.subject') AS subject, json_extract(data, '$.properties.bodyText') AS bodyText FROM Nodes WHERE id = ?`)
         .get(messageId);
+    if (!row) return {};
+
+    const state = {};
+    if (row.readAt != null)     state.readAt     = row.readAt;
+    if (row.archivedAt != null) state.archivedAt = row.archivedAt;
+
+    // A retraction permanently overwrote the content at write time; a replay resurrecting the
+    // WAL's original subject/body would undo an irreversible sender decision.
+    if (row.retracted) {
+        state.retracted = true;
+        state.subject   = row.subject;
+        state.bodyText  = row.bodyText;
+    }
+    return state;
+}
+
+/**
+ * @summary Storage-truth read of the graph-owned mutable state on one per-recipient broadcast
+ * `DELIVERED_TO` edge: `readAt` (written by `markRead`) and `archivedAt` (receiver-side archive).
+ * The WAL replay's edge payload carries `readAt: null` forever — send-time truth — so a FULL
+ * projection re-linking an EXISTING delivery edge must let the committed per-recipient state win.
+ * Returns `{}` for a missing edge, so a genuinely-recreated delivery honestly starts unread.
+ * @param {String} messageId Message graph node id.
+ * @param {String} recipient Recipient identity node id.
+ * @returns {Object} `{readAt?, archivedAt?}` — only the fields with committed non-null values.
+ * @private
+ */
+function getStorageDeliveryMutableState(messageId, recipient) {
+    const sqlite = GraphService.db?.storage?.db;
+    if (!sqlite) return {};
+
+    const row = sqlite
+        .prepare(`SELECT json_extract(data, '$.properties.readAt') AS readAt, json_extract(data, '$.properties.archivedAt') AS archivedAt FROM Edges WHERE source = ? AND target = ? AND type = 'DELIVERED_TO'`)
+        .get(messageId, recipient);
     if (!row) return {};
 
     const state = {};
@@ -1182,15 +1219,18 @@ class MailboxService extends Base {
                 if (!needsPiece(`missing-delivered-to:${recipient}`)) continue;
 
                 ensureMailboxProjectionEndpoint(recipient);
-                // A RECREATED delivery edge honestly starts unread — its prior read-state is the
-                // damage being repaired; intact sibling edges above are never rewritten, which is
-                // what keeps their committed readAt alive.
+                // Per-recipient read/archive state is graph-owned, never WAL-owned: a FULL replay
+                // re-linking an INTACT delivery edge merges the committed storage truth over the
+                // WAL's send-time nulls, so broadcast reads survive exactly like DM reads. A
+                // genuinely missing edge has no storage row — the merge is empty and the recreated
+                // delivery honestly starts unread (its prior read-state IS the damage).
                 linkRequiredMailboxEdgeOrThrow(messageId, recipient, 'DELIVERED_TO', 1.0, {
                     deliveredAt : timestamp,
                     readAt      : null,
                     deliveryKind: 'broadcast',
                     userId      : senderUserId,
-                    sharedEntity: true
+                    sharedEntity: true,
+                    ...getStorageDeliveryMutableState(messageId, recipient)
                 }, routingDiagnostics);
             }
         }

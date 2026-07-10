@@ -721,6 +721,52 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         expect(readBack.readAt).toBeTruthy();
     });
 
+    test('full replay preserves the COMPLETE graph-owned surface: broadcast delivery readAt AND the retraction tombstone (#14992)', async () => {
+        let msgId;
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const res = await MailboxService.addMessage({ to: 'AGENT:*', subject: 'replay me broadly', body: 'original content' });
+            msgId = res.messageId;
+        });
+
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await MailboxService.markRead({ messageId: msgId });
+        });
+
+        const {readWalMessagesByIds} = await import('../../../../../../ai/services/memory-core/helpers/messageWalStore.mjs');
+        const [record]               = await readWalMessagesByIds({dir: messageWalDir, ids: [msgId]});
+        expect(record?.id).toBe(msgId);
+
+        const edgeReadAt = () => GraphService.db.storage.db
+            .prepare(`SELECT json_extract(data, '$.properties.readAt') AS readAt FROM Edges WHERE source = ? AND target = ? AND type = 'DELIVERED_TO'`)
+            .get(msgId, '@bob');
+
+        expect(edgeReadAt().readAt).toBeTruthy();
+
+        // Full replay #1: per-recipient read-state lives on the DELIVERED_TO edge, not the node —
+        // the reviewer falsifier: pre-fix, this re-link stamped the WAL's readAt: null over it.
+        await MailboxService._projectMessageWalRecord(record, {pumpWake: false});
+        expect(edgeReadAt().readAt).toBeTruthy();
+
+        // The sender's retraction is an IRREVERSIBLE decision: replay must never resurrect the
+        // WAL's original subject/body over the tombstone.
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            await MailboxService.deleteMessage({ messageId: msgId });
+        });
+
+        // Full replay #2 over the tombstone + the read edge together.
+        await MailboxService._projectMessageWalRecord(record, {pumpWake: false});
+
+        const node = GraphService.db.storage.db
+            .prepare(`SELECT json_extract(data, '$.properties.retracted') AS retracted, json_extract(data, '$.properties.subject') AS subject, json_extract(data, '$.properties.bodyText') AS bodyText FROM Nodes WHERE id = ?`)
+            .get(msgId);
+
+        expect(node.retracted).toBeTruthy();
+        expect(node.subject).toBe('[retracted by sender]');
+        expect(node.bodyText).toBe('[retracted by sender]');
+        expect(node.subject).not.toBe('replay me broadly');
+        expect(edgeReadAt().readAt).toBeTruthy()
+    });
+
     test('the drain heals a lost marker on an intact projection WITHOUT rewriting graph state (#14992)', async () => {
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
