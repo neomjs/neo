@@ -1,3 +1,11 @@
+import {setup} from '../../../../setup.mjs';
+
+setup({
+    appConfig: {
+        name: 'DemoADockChoreographyTest'
+    }
+});
+
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
@@ -5,8 +13,31 @@ import DockService    from '../../../../../../src/ai/client/DockService.mjs';
 import DockZoneModel  from '../../../../../../src/dashboard/DockZoneModel.mjs';
 import TourRunner     from '../../../../../../src/ai/client/TourRunner.mjs';
 
+import DockLayoutAdapter                  from '../../../../../../src/dashboard/DockLayoutAdapter.mjs';
 import {validateTourScript}               from '../../../../../../src/ai/client/tourScript.mjs';
 import {demoATourScript, initialDocument} from '../../../../../../apps/agentos/tour/demoADockChoreography.mjs';
+
+/**
+ * @summary Walks a projected config tree and collects every edge-rail container.
+ * @param {Object} config
+ * @param {Object[]} [rails=[]]
+ * @returns {Object[]}
+ */
+function collectRails(config, rails = []) {
+    if (config && typeof config === 'object') {
+        config.dockNodeType === 'edge-rail' && rails.push(config);
+        (config.items || []).forEach(item => collectRails(item, rails))
+    }
+
+    return rails
+}
+
+/**
+ * @summary Minimal pane resolver for projection-boundary assertions.
+ * @param {String} componentRef
+ * @returns {Object}
+ */
+const stubPane = componentRef => ({html: componentRef, ntype: 'component'});
 
 /**
  * @summary Verifies the Demo-A screenplay as reviewed content: it validates fail-closed
@@ -77,7 +108,8 @@ test.describe.serial('apps/agentos/tour/demoADockChoreography', () => {
         // finale document truth: the dense studio, wave rolled back
         const finale = holder.dockZoneDocument;
 
-        expect(finale.nodes['tabs-preview-0'].items).toEqual(['preview', 'terminal', 'logs']);
+        expect(finale.nodes['side-tabs'].items).toEqual(['preview', 'terminal', 'logs']);
+        expect(finale.nodes.root.zones.center).toBe('editor-tabs');
         expect(finale.items.preview.autoHidden).toBe(false);
         expect(finale.items.terminal.autoHidden).toBe(false);
         expect(finale.items.logs.autoHidden).toBe(false)
@@ -99,13 +131,13 @@ test.describe.serial('apps/agentos/tour/demoADockChoreography', () => {
         expect(second.log).toEqual(first.log)
     });
 
-    test('storyboard parity: three scenes, operation budget S1:4 · S2:3 · S3:6', () => {
+    test('storyboard parity: three scenes, operation budget S1:2 · S2:3 · S3:6', () => {
         const opCounts = demoATourScript.scenes.map(
             scene => scene.steps.filter(step => step.type === 'op').length
         );
 
         expect(demoATourScript.scenes.map(scene => scene.id)).toEqual(['s1', 's2', 's3']);
-        expect(opCounts).toEqual([4, 3, 6]);
+        expect(opCounts).toEqual([2, 3, 6]);
 
         // every op descriptor stays inside the executable vocabulary (no invented operations)
         demoATourScript.scenes.forEach(scene =>
@@ -113,6 +145,35 @@ test.describe.serial('apps/agentos/tour/demoADockChoreography', () => {
                 expect(DockZoneModel.operations).toContain(step.descriptor.operation)
             )
         )
+    });
+
+    test('scene 3 projects REAL edge rails — the visual beat holds through the projection boundary', () => {
+        // fold the script's op descriptors through the reducer: S1 (2) + S2 (3) + the three tucks = 8 ops
+        const opSteps = demoATourScript.scenes.flatMap(scene => scene.steps).filter(step => step.type === 'op');
+
+        let document = DockZoneModel.clone(initialDocument);
+
+        const apply = step => {
+            const result = DockZoneModel.applyOperation(document, step.descriptor);
+
+            expect(result.errors).toEqual([]);
+            document = result.document
+        };
+
+        opSteps.slice(0, 8).forEach(apply);
+
+        // the tucked stage: every right-column resident rails on the right edge
+        const tuckedRails = collectRails(DockLayoutAdapter.project(document, {resolveComponentRef: stubPane}));
+
+        expect(tuckedRails).toHaveLength(1);
+        expect(tuckedRails[0].dockEdge).toBe('right');
+        expect(tuckedRails[0].items.map(tab => tab.dockItemId)).toEqual(['preview', 'terminal', 'logs']);
+        expect(tuckedRails[0].items.map(tab => tab.text)).toEqual(['Preview', 'Terminal', 'Logs']);
+
+        // the rollback: the finale projects zero rails
+        opSteps.slice(8).forEach(apply);
+
+        expect(collectRails(DockLayoutAdapter.project(document, {resolveComponentRef: stubPane}))).toHaveLength(0)
     });
 
     test('the reveal-mode advisory rides the script: hover is an explicit workspace opt-in', () => {
