@@ -6,15 +6,15 @@ This protocol outlines the strict 3-step abstraction pipeline required to system
 
 ## The "SOTA" Trap (Mandatory Framing)
 
-The term "State of the Art" (SOTA) often acts as a semantic trap. 
-- In the **Left Hemisphere (Application Engine)**, "SOTA" often equates to accepted anti-patterns (e.g., massive main-thread Virtual DOMs, complex hydration payloads, monolithic generic state). 
+The term "State of the Art" (SOTA) often acts as a semantic trap.
+- In the **Left Hemisphere (Application Engine)**, "SOTA" often equates to accepted anti-patterns (e.g., massive main-thread Virtual DOMs, complex hydration payloads, monolithic generic state).
 - In the **Right Hemisphere (Agent OS)**, "SOTA" often equates to stateless ReAct loops, brittle context windows, and single-agent paradigms.
 
 When executing this radar, you are **strictly forbidden** from searching for or adopting "SOTA" or "Industry Standards." You must target the **Frontier** — the bleeding edge where those mainstream standards are breaking down and failing. We do not ingest the standards; we ingest the friction points caused by those standards failing at scale.
 
 ## The Architecture vs. Framework Filter
 
-Neo.mjs is an **Application Engine** (akin to Unreal or Godot), not a traditional frontend framework (akin to React, Vue, or Angular). 
+Neo.mjs is an **Application Engine** (akin to Unreal or Godot), not a traditional frontend framework (akin to React, Vue, or Angular).
 
 When evaluating trends, you **MUST** apply the Engine-Category Filter:
 - ❌ **Reject Framework-Category Noise:** Hydration strategies, Server Components (RSC), Virtual DOM reconciliation hacks, generic signals.
@@ -51,6 +51,7 @@ You must use the `ideation-sandbox` skill to post a GitHub Discussion proposing 
 - **No Direct PRs:** This skill produces Ideas (Discussions), never Code (Commits/PRs).
 - **Attribution:** The resulting GitHub Discussion MUST include an Author's Note citing the provenance of the friction point, using the `citations` array from Step 2. (e.g., *"External friction observed in [ecosystem] [date]; this Discussion abstracts and responds natively via Neo's architecture."*)
 - **Adjacency Sweep:** Before posting the Discussion, execute a duplicate sweep (per `ideation-sandbox` guidelines) to ensure the concept isn't already being discussed.
+- **Interaction Grain:** When an external system is a capability floor, author parity rows at interaction grain (what the user feels), never feature-name grain — coarse rows propagate as settled facts (anchor: ADR 0029 §4 row 1 / #14934).
 
 ## Integrations & Context
 
