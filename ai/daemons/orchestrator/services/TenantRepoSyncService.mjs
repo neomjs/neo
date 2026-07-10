@@ -2,7 +2,6 @@ import fs                    from 'fs-extra';
 import path                  from 'node:path';
 import Base                  from '../../../../src/core/Base.mjs';
 import AiConfig              from '../../../config.mjs';
-import {DEFAULT_DATA_DIR}    from '../taskDefinitions.mjs';
 import GitMirror             from '../../../services/knowledge-base/helpers/gitMirror.mjs';
 import {buildIngestEnvelope} from '../../../services/knowledge-base/helpers/tenantRepoIngestEnvelopeBuilder.mjs';
 import {isRepoDue}           from '../scheduling/tenantRepoSync.mjs';
@@ -219,7 +218,7 @@ class TenantRepoSyncService extends Base {
      * @param {Object} [options.gitMirror=GitMirror] Injectable mirror primitive (test seam).
      * @param {Object} [options.knowledgeBaseIngestionService] KB ingestion service singleton (test seam). Resolved from `ai/services.mjs` if omitted.
      * @param {String[]} [options.onlyRepoSlugs] If provided, only sync repos whose `repoSlug` is in the list. Used by the manual CLI run path. Empty filter result against non-empty list surfaces `KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED`.
-     * @param {String} [options.revisionsFilePath] Override the per-tenant-repo lastIngestedRev persistence file path (test seam). Defaults to `<DEFAULT_DATA_DIR>/tenant-repo-sync-revisions.json`.
+     * @param {String} [options.revisionsFilePath] Override the per-tenant-repo lastIngestedRev persistence file path (test seam). Defaults to `<orchestrator dataDir leaf>/tenant-repo-sync-revisions.json`.
      * @param {Function} [options.envelopeBuilder=buildIngestEnvelope] Injectable envelope-builder (test seam). Production callers omit; unit tests pass a fake that returns canned envelope shape.
      * @returns {Promise<Object>} `{status, details}` — status ∈ {`completed`, `failed`, `skipped`}.
      */
@@ -631,15 +630,16 @@ class TenantRepoSyncService extends Base {
 
     /**
      * Default per-tenant-repo lastIngestedRev persistence file path. Lives next to
-     * the orchestrator state file (`<DEFAULT_DATA_DIR>/orchestrator-state.json`)
+     * the orchestrator state file (`<orchestrator dataDir leaf>/orchestrator-state.json`)
      * so the two persistence surfaces share lifecycle (same data-dir = same recovery scope).
      * Separate file (not inlined into TaskStateService's state) prevents `markCompleted/markFailed`
-     * task-lifecycle writes from racing with revision-map writes.
+     * task-lifecycle writes from racing with revision-map writes. The dataDir resolves from the
+     * owning config leaf inline — a use-site read, never a module-load capture.
      *
      * @returns {String}
      */
     defaultRevisionsFilePath() {
-        return path.join(DEFAULT_DATA_DIR, PERSISTED_REVISIONS_FILE_NAME);
+        return path.join(AiConfig.orchestrator.dataDir, PERSISTED_REVISIONS_FILE_NAME);
     }
 
     /**

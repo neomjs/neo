@@ -7,25 +7,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
 /**
- * SQLite Memory Core graph database file the orchestrator opens for graph-backed health
- * checks. Leaf-fed: the config provider owns the default AND the `NEO_AI_DB_PATH` env
- * binding — this constant only re-exports the resolved leaf so the existing orchestrator
- * consumer surface stays stable.
- * @type {String}
- */
-export const DEFAULT_DB_PATH = AiConfig.orchestrator.dbPath;
-
-/**
- * Orchestrator-daemon runtime-state directory (PID files, log, state, lease + revision
- * files). Leaf-fed: the config provider owns the default AND the `NEO_AI_ORCHESTRATOR_DIR`
- * env binding — this constant only re-exports the resolved leaf so the existing
- * orchestrator consumer surface stays stable.
- * @type {String}
- */
-export const DEFAULT_DATA_DIR = AiConfig.orchestrator.dataDir;
-
-/**
  * Default maintenance-script directory, resolved relative to this module.
+ *
+ * The orchestrator's db path + runtime-state dir carry NO re-export here: consumers read the
+ * `AiConfig.orchestrator.dbPath` / `AiConfig.orchestrator.dataDir` leaves inline at each use
+ * site — exporting a resolved leaf freezes it at module load and hands consumers a
+ * config-shaped constant, both forbidden by the config-is-SSOT contract.
  * @type {String}
  */
 export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../../scripts');

@@ -6,7 +6,6 @@ import {
     acquireHeavyMaintenanceLeaseSync,
     releaseHeavyMaintenanceLeaseSync
 } from './HeavyMaintenanceLeaseService.mjs';
-import {DEFAULT_DATA_DIR} from '../taskDefinitions.mjs';
 
 /**
  * Canonical set of heavy-maintenance task names that participate in the cross-poll
@@ -177,7 +176,7 @@ export function getActiveGoldenPathDependencyTask({
  */
 export function resolveHeavyMaintenanceLeasePath({heavyMaintenanceLeasePath, dataDir}) {
     if (heavyMaintenanceLeasePath) return heavyMaintenanceLeasePath;
-    return path.join(dataDir || DEFAULT_DATA_DIR, 'heavy-maintenance-lease.json');
+    return path.join(dataDir || AiConfig.orchestrator.dataDir, 'heavy-maintenance-lease.json');
 }
 
 // ============================================================================
@@ -332,10 +331,12 @@ export class MaintenanceBackpressureService extends Base {
          */
         heavyMaintenanceLeasePath_: null,
         /**
-         * @member {String} dataDir_=DEFAULT_DATA_DIR
+         * `null` = "resolve from the owning config leaf on read" (see `beforeGetDataDir`): a
+         * leaf value in this static block would freeze at module load, not at the use site.
+         * @member {String|null} dataDir_=null
          * @reactive
          */
-        dataDir_: DEFAULT_DATA_DIR,
+        dataDir_: null,
         /**
          * @member {Object|null} taskStateService_=null
          * @reactive
@@ -380,6 +381,16 @@ export class MaintenanceBackpressureService extends Base {
      * @member {Number} shedUntil=0
      */
     shedUntil = 0
+
+    /**
+     * @summary Resolves the runtime-state directory from the owning config leaf when no explicit
+     * value was set — a per-read use-site resolution, never a module-load capture.
+     * @param {String|null} value
+     * @returns {String}
+     */
+    beforeGetDataDir(value) {
+        return value ?? AiConfig.orchestrator.dataDir
+    }
 
     /**
      * @summary Opens an auto-expiring shed-window: until `now + durationMs`, `acquireLeaseAndExecute` defers ALL
