@@ -109,5 +109,11 @@ test.describe('dispatchFleetRequest — the app↔fleet wire allowlist + routing
         expect(FLEET_WIRE_METHODS).not.toContain('getManager');
         expect(FLEET_WIRE_METHODS).not.toContain('getRegistry');
         expect(FLEET_WIRE_METHODS).not.toContain('getIdentityResolver');
+        // the Brain/operator-only raw-launch write path must NEVER ride the wire — pairs with the
+        // registry's defineAgent/updateAgent launch rejection (the mechanical security stop-line)
+        expect(FLEET_WIRE_METHODS).not.toContain('setLaunchOverride');
+        // ...and neither may its READ counterpart: getDefinition is the only surface carrying
+        // metadata.launch (the public projection redacts it), so it stays off the wire too
+        expect(FLEET_WIRE_METHODS).not.toContain('getDefinition');
     });
 });

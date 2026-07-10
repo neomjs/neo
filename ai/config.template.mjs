@@ -51,6 +51,35 @@ class Config extends ConfigProvider {
              */
             wakeDaemonHeartbeatAlivePath: leaf(path.resolve(neoRootDir, '.neo-ai-data/wake-daemon/heartbeat.alive'), 'NEO_HEARTBEAT_ALIVE_PATH', 'string'),
             /**
+             * Fleet Manager supervision leaves: where per-agent harness instance homes live and
+             * which binary each harness family launches. The lifecycle service reads these at the
+             * use site (`FleetLifecycleService.getInstanceRoot` / `getHarnessBinaryPath`) — the
+             * SSOT owning default + env binding; the service holds no default shadow.
+             */
+            fleet: {
+                /**
+                 * Absolute root under which per-agent isolated harness config/state homes
+                 * (`CODEX_HOME` / `CLAUDE_CONFIG_DIR`) are derived — the sibling of the managed
+                 * checkouts root.
+                 * @type {string}
+                 */
+                instanceRoot   : leaf(path.resolve(neoRootDir, '.neo-ai-data/fleet/instances'), 'NEO_FLEET_INSTANCE_ROOT', 'string'),
+                harnessBinaries: {
+                    /**
+                     * The claude-code harness binary — PATH-resolved by default.
+                     * @type {string}
+                     */
+                    claudeCode: leaf('claude', 'NEO_FLEET_CLAUDE_CODE_BIN', 'string'),
+                    /**
+                     * The codex harness binary. The default is the ChatGPT-app-bundled CLI — an
+                     * alpha channel that self-updates with its app; production fleets pin this
+                     * leaf, and the lifecycle status's `binaryVersion` surfaces what actually ran.
+                     * @type {string}
+                     */
+                    codex: leaf('/Applications/ChatGPT.app/Contents/Resources/codex', 'NEO_FLEET_CODEX_BIN', 'string')
+                }
+            },
+            /**
              * Global debug flag for all AI processes.
              * @type {boolean}
              */
