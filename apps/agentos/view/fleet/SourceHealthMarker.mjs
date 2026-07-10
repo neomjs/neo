@@ -108,7 +108,8 @@ class SourceHealthMarker extends Component {
     }
 
     /**
-     * @summary Swap the closed state/confidence classes and accessible label in place.
+     * @summary Atomically swap the closed state/confidence classes plus visible text, then update
+     * the accessible label in place.
      * @protected
      */
     applyHealth() {
@@ -120,8 +121,10 @@ class SourceHealthMarker extends Component {
         NeoArray.add(cls, view.stateClass);
         NeoArray.add(cls, view.confidenceClass);
 
-        this.cls  = cls;
-        this.text = view.text;
+        this.set({
+            cls,
+            text: view.text
+        });
         this.changeVdomRootKey('aria-label', view.ariaLabel)
     }
 }

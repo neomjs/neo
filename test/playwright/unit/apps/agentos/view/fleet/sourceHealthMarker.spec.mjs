@@ -188,4 +188,28 @@ test.describe('Fleet source-health honesty (#14643)', () => {
 
         marker.destroy()
     })
+
+    test('publishes class and text changes as one coherent reactive batch', () => {
+        const
+            marker = Neo.create(SourceHealthMarker, {
+                appName,
+                sourceKey: 'runtime',
+                health   : {source: 'fleet:runtimeStatus', state: 'wired', confidence: 'observed'}
+            }),
+            observed = [];
+
+        const cleanup = marker.observeConfig(marker, 'cls', cls => {
+            observed.push({cls, text: marker.text})
+        });
+
+        marker.health = {source: 'fleet:runtimeStatus', state: 'not-wired', confidence: 'none'};
+
+        expect(observed).toHaveLength(1);
+        expect(observed[0].cls).toContain('fm-source-not-wired');
+        expect(observed[0].cls).not.toContain('fm-source-wired');
+        expect(observed[0].text).toBe('RUN NOT WIRED');
+
+        cleanup();
+        marker.destroy()
+    })
 });
