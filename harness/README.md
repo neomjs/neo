@@ -1,8 +1,16 @@
-# The Electron Shell (packaging root)
+# harness/ — the Agent Harness's native vessel
 
 The Electron packaging root (#13033 under epic #13377): boots the harness app inside the shell
 ADR 0034 specifies. This directory wraps what the repo builds/serves — it never becomes a source
 hemisphere (ADR 0020 §3: own `package.json`, no source-tree mixing).
+
+**Why a top-level `harness/` (operator decision, 2026-07-10):** Neo Body apps run WITHOUT a
+harness — `apps/agentos` stays a plain web app (dev server, browser, no Electron required), and
+this directory is the optional native embodiment wrapped around it: the ADR 0020 "Agent Harness"
+made installable. It names the ROLE, not the vessel technology. The harness UI source never moves
+in here (it lives in `apps/`); the Brain never moves in here (it lives in `ai/`). Over the ADR
+0034 E-leaf arc this root accumulates the whole vessel: main process, preload capability contract,
+Brain lifecycle glue, window policy, packaging/signing, updater, tray.
 
 **Scope shipped here (slices 1–2 of the #13033 build plan):** the shell skeleton — privileged
 `app://` origin serving the repo root, one harness window, the fail-closed window/navigation/
@@ -15,7 +23,7 @@ packaging/signing (E6/E7).
 ## Run
 
 ```bash
-cd shell
+cd harness
 npm install
 npm start          # boots the harness window
 npm run smoke      # headless-ish self-test: boot + popup + shared-worker evidence, JSON verdict

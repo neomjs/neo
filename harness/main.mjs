@@ -23,15 +23,15 @@ import {fileURLToPath}                                  from 'node:url';
 import path                                             from 'node:path';
 
 const
-    shellDir = path.dirname(fileURLToPath(import.meta.url)),
-    repoRoot = path.resolve(shellDir, '..'),
-    APP_HOST = 'neo',
+    harnessDir = path.dirname(fileURLToPath(import.meta.url)),
+    repoRoot   = path.resolve(harnessDir, '..'),
+    APP_HOST   = 'neo',
     // DEV MODE, deliberately (operator decision 2026-07-10): the harness window loads the
     // zero-build SOURCE app — the Neural Link's possession depth (inspect_class,
     // get_method_source, patch_code) needs real source ESM, which minified dist output destroys.
     // The document root is the repo root, so dist/* stays reachable for size-sensitive arms.
     APP_URL   = `app://${APP_HOST}/apps/agentos/index.html`,
-    smokeMode = process.env.NEO_SHELL_SMOKE === '1';
+    smokeMode = process.env.NEO_HARNESS_SMOKE === '1';
 
 const MIME = {
     '.css'  : 'text/css',
@@ -87,7 +87,7 @@ function createShellWindow(url) {
         width         : 1400,
         webPreferences: {
             backgroundThrottling: false,
-            preload             : path.join(shellDir, 'preload.cjs')
+            preload             : path.join(harnessDir, 'preload.cjs')
         }
     });
 
@@ -104,7 +104,7 @@ function createShellWindow(url) {
                 overrideBrowserWindowOptions: {
                     webPreferences: {
                         backgroundThrottling: false,
-                        preload             : path.join(shellDir, 'preload.cjs')
+                        preload             : path.join(harnessDir, 'preload.cjs')
                     }
                 }
             }
@@ -236,7 +236,7 @@ smokeMode && setTimeout(async () => {
 
         if (image) {
             const {writeFileSync} = await import('node:fs');
-            writeFileSync(path.join(shellDir, 'smoke-timeout.png'), image.toPNG());
+            writeFileSync(path.join(harnessDir, 'smoke-timeout.png'), image.toPNG());
             console.log('SHELL_TIMEOUT_CAPTURE written')
         }
     } catch (error) {
