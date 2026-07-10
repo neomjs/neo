@@ -29,6 +29,18 @@ export function familyToken(family) {
 }
 
 /**
+ * Pure family → CSS-class resolver — a known family's token minus its `--` custom-property prefix
+ * (e.g. `fm-family-claude`); unknown / absent → `null` (the `fm-family-unclassified` marker class
+ * carries the neutral rail binding in the component SCSS). The class binds `--fm-rail`, so color
+ * stays entirely in the token/skin layer: the rail swaps a class, never writes a style.
+ * @param {String} family
+ * @returns {String|null} the family class name, or null for an unknown / absent family
+ */
+export function familyClass(family) {
+    return isKnownFamily(family) ? FAMILY_TOKEN[family].slice(2) : null
+}
+
+/**
  * Whether `family` is a recognized family key — drives the `unclassified` render marker.
  * @param {String} family
  * @returns {Boolean}
@@ -78,22 +90,26 @@ class FamilyRail extends Component {
 
     /**
      * Triggered after the family config changed — data-driven rebind. A family swap re-renders the
-     * rail in place for the SAME resident (anti-lock-in). Known → its --fm-family-* token; unknown
-     * or absent → the neutral token + the `unclassified` marker (never a guessed family).
+     * rail in place for the SAME resident (anti-lock-in). Known → its `fm-family-*` class (which
+     * binds the `--fm-rail` token in the component SCSS — zero inline styles); unknown or absent →
+     * the `unclassified` marker class, which carries the neutral rail binding (never a guessed
+     * family).
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
      */
     afterSetFamily(value, oldValue) {
-        let me    = this,
-            cls   = me.cls,
-            style = me.style || {};
+        let me       = this,
+            cls      = me.cls,
+            oldClass = familyClass(oldValue),
+            newClass = familyClass(value);
+
+        oldClass && NeoArray.remove(cls, oldClass);
+        newClass && NeoArray.add(cls, newClass);
 
         NeoArray[isKnownFamily(value) ? 'remove' : 'add'](cls, 'fm-family-unclassified');
-        me.cls = cls;
 
-        style['--fm-rail'] = `var(${familyToken(value)})`;
-        me.style = style
+        me.cls = cls
     }
 }
 

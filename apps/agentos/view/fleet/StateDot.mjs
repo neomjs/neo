@@ -30,6 +30,18 @@ export function stateToken(state) {
 }
 
 /**
+ * Pure state → CSS-class mapping — the token name minus its `--` custom-property prefix (e.g.
+ * `fm-state-ok`). The class binds `--fm-dot` in the component SCSS, so color stays entirely in the
+ * token/skin layer: components swap a class, never write a style. Shares `stateToken`'s closed-set
+ * degrade (unknown → `fm-state-off`).
+ * @param {String} state
+ * @returns {String} the state class name (e.g. `fm-state-ok`)
+ */
+export function stateClass(state) {
+    return stateToken(state).slice(2)
+}
+
+/**
  * The atomic session-state indicator: a colored dot whose color is driven entirely by the
  * `--fm-state-*` token layer, with an optional live-pulse gated behind `prefers-reduced-motion`
  * in the component SCSS (`resources/scss/src/apps/agentos/fleet/StateDot.scss`). The color — not the
@@ -72,16 +84,20 @@ class StateDot extends Component {
     }
 
     /**
-     * Triggered after the state config changed — rebinds the `--fm-dot` color token from the
-     * closed-set resolver. State is session-state, never identity.
+     * Triggered after the state config changed — swaps the state class from the closed-set
+     * resolver; the class binds the `--fm-dot` color token in the component SCSS (zero inline
+     * styles — color lives only in the token/skin layer). State is session-state, never identity.
      * @param {String} value
      * @param {String} oldValue
      * @protected
      */
     afterSetState(value, oldValue) {
-        let style = this.style || {};
-        style['--fm-dot'] = `var(${stateToken(value)})`;
-        this.style = style
+        let cls = this.cls;
+
+        oldValue !== undefined && NeoArray.remove(cls, stateClass(oldValue));
+        NeoArray.add(cls, stateClass(value));
+
+        this.cls = cls
     }
 
     /**

@@ -32,10 +32,11 @@ export function agentCardComponentRef(agentId) {
 
 /**
  * @summary Map one fleet-cockpit DTO row to its dock card descriptor: a stable componentRef, a
- * serializable creation blueprint (the card's `ntype` + the per-card provider data), agent-card policy
- * hints, and JSON identity metadata. Field mapping is null-safe and forward-compatible — `engineTag`,
- * `family`, and `laneLine` map through as `null` until the DTO enrichment + activity/runtime wires
- * land, with no change needed here.
+ * serializable creation blueprint (the card's `ntype` + its `record` field bag — the same
+ * {@link AgentOS.model.FleetAgent} field shape the store-backed cards render from, as a plain
+ * snapshot), agent-card policy hints, and JSON identity metadata. Field mapping is null-safe and
+ * forward-compatible — `engineTag`, `family`, and `laneLine` map through as `null` until the DTO
+ * enrichment + activity/runtime wires land, with no change needed here.
  * @param {Object} row=({}) A fleet-cockpit DTO row.
  * @returns {Object} `{componentRef, blueprint, policy, metadata}`
  */
@@ -45,17 +46,15 @@ export function toAgentCardDescriptor(row = {}) {
     return {
         componentRef: agentCardComponentRef(agentId),
         blueprint   : {
-            ntype        : AGENT_CARD_NTYPE,
-            stateProvider: {
-                data: {
-                    agentId,
-                    avatarUrl  : row.avatarUrl ?? null,
-                    displayName: row.displayName ?? null,
-                    engineTag  : row.engineTag ?? null,
-                    family     : row.family ?? null,
-                    laneLine   : row.laneLine ?? null,
-                    state      : row.lifecycle?.state ?? 'off'
-                }
+            ntype : AGENT_CARD_NTYPE,
+            record: {
+                agentId,
+                avatarUrl  : row.avatarUrl ?? null,
+                displayName: row.displayName ?? null,
+                engineTag  : row.engineTag ?? null,
+                family     : row.family ?? null,
+                laneLine   : row.laneLine ?? null,
+                state      : row.lifecycle?.state ?? 'off'
             }
         },
         policy  : {...AGENT_CARD_POLICY},

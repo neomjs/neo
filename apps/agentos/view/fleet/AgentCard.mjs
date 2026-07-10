@@ -4,26 +4,25 @@ import Container           from '../../../../src/container/Base.mjs';
 import FamilyRail          from './FamilyRail.mjs';
 import Image               from '../../../../src/component/Image.mjs';
 import StateDot            from './StateDot.mjs';
-import StateProvider       from '../../../../src/state/Provider.mjs';
 
 /**
  * The resident card: the cockpit's atom. Composes the class-based fleet primitives (FamilyRail +
  * StateDot) with a profile avatar, name, engine tag, and current-lane line into the SSOT card
  * anatomy.
  *
- * **Data-driven from a per-card `state.Provider`** — the resident's display fields live in one place
- * (`stateProvider.data`) and every child `bind`s to it, so the whole card is ONE binding surface. A
- * consumer sets the fields at creation (`stateProvider: {data: {...}}`) or reactively via
- * `card.setState('displayName', …)`; there is no per-field config to thread.
+ * **Data-driven from its `record`** — one {@link AgentOS.model.FleetAgent} record (a row of the
+ * shared {@link AgentOS.store.FleetRoster} Store) is the card's single data surface; there is no
+ * per-card `state.Provider` and no per-field config to thread. The Store is the per-row reactive
+ * layer: live field changes flow `record.set()` → the store's `recordChange` → the owning
+ * {@link AgentOS.view.fleet.FleetGrid} → {@link #applyRecord}, which updates the child components
+ * in place. A plain field-bag `record` (the dock-blueprint restore case) renders its snapshot the
+ * same way.
  *
- * Render rules at card grain (the institution-cockpit render-model): **avatar**, **displayName**, and
- * **engineTag** are mutable versioned DISPLAY STATE over the durable `agentId` — setState on any of
- * them re-renders in place on the SAME card instance and NEVER re-keys (identity is the id, not the
- * presentation). The **family** rail rebinds in place on a family swap. Session **state** is what the
- * resident is doing now, never identity.
- *
- * The live roster / runtime-status wire binding and the NL-verified card wall are sibling leaves; this
- * leaf is the card component itself.
+ * Render rules at card grain (the institution-cockpit render-model): **avatar**, **displayName**,
+ * and **engineTag** are mutable versioned DISPLAY STATE over the durable `agentId` — a field change
+ * re-renders in place on the SAME card instance and NEVER re-keys (identity is the id, not the
+ * presentation). The **family** rail rebinds in place on a family swap. Session **state** is what
+ * the resident is doing now, never identity.
  *
  * @class AgentOS.view.fleet.AgentCard
  * @extends Neo.container.Base
@@ -56,41 +55,30 @@ class AgentCard extends Container {
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**
-         * The per-card binding surface. `agentId` is the DURABLE identity — the one field that is
-         * never presentation, never re-keyed; every other field is display state over it.
-         * Session `state` is what the resident is doing now. Every child binds to these.
-         * @member {Object} stateProvider
+         * The card's data surface: an {@link AgentOS.model.FleetAgent} record (store-backed, live)
+         * or a plain field bag with the same keys (dock-blueprint snapshot). `agentId` is the
+         * DURABLE identity; every other field is display state over it. `pendingAction` +
+         * `controlReason` are the B4/C2 control seam the C2 adapter writes via `record.set()`.
+         * @member {Object|null} record_=null
+         * @reactive
          */
-        stateProvider: {
-            module: StateProvider,
-            data  : {
-                agentId      : null,
-                avatarUrl    : null,
-                controlReason: null, // {action, kind, reason} of the last reject/unauthorized/timeout, set by Lane-C
-                displayName  : null,
-                engineTag    : null,
-                family       : null,
-                laneLine     : null,
-                pendingAction: null, // the verb whose lifecycle round-trip is in flight, set by Lane-C; null when settled
-                state        : 'off'
-            }
-        },
+        record_: null,
         /**
          * The card anatomy — family rail · avatar · body (name-row [state dot + name + engine tag] +
          * current-lane line) · controls slot (start/stop/restart → a single `lifecycleIntent` event
-         * for the Lane C round-trip). Each child binds to the per-card provider; foot meta is a
-         * sibling leaf.
+         * for the Lane C round-trip). Each child is a referenced, in-place-updated surface fed from
+         * the record by {@link #applyRecord}; foot meta is a sibling leaf.
          * @member {Object[]} items
          */
         items: [{
-            module: FamilyRail,
-            flex  : 'none',
-            bind  : {family: data => data.family}
+            module   : FamilyRail,
+            flex     : 'none',
+            reference: 'family-rail'
         }, {
-            module: Image,
-            cls   : ['fm-card-avatar'],
-            flex  : 'none',
-            bind  : {src: data => data.avatarUrl, alt: data => data.displayName}
+            module   : Image,
+            cls      : ['fm-card-avatar'],
+            flex     : 'none',
+            reference: 'card-avatar'
         }, {
             ntype : 'container',
             cls   : ['fm-card-body'],
@@ -103,24 +91,24 @@ class AgentCard extends Container {
                 layout: {ntype: 'hbox', align: 'center'},
 
                 items: [{
-                    module: StateDot,
-                    flex  : 'none',
-                    bind  : {state: data => data.state}
+                    module   : StateDot,
+                    flex     : 'none',
+                    reference: 'state-dot'
                 }, {
-                    ntype: 'component',
-                    cls  : ['fm-card-name'],
-                    flex : 1,
-                    bind : {text: data => data.displayName}
+                    ntype    : 'component',
+                    cls      : ['fm-card-name'],
+                    flex     : 1,
+                    reference: 'card-name'
                 }, {
-                    ntype: 'component',
-                    cls  : ['fm-card-engine'],
-                    flex : 'none',
-                    bind : {text: data => data.engineTag}
+                    ntype    : 'component',
+                    cls      : ['fm-card-engine'],
+                    flex     : 'none',
+                    reference: 'card-engine'
                 }]
             }, {
-                ntype: 'component',
-                cls  : ['fm-card-lane'],
-                bind : {text: data => data.laneLine}
+                ntype    : 'component',
+                cls      : ['fm-card-lane'],
+                reference: 'card-lane'
             }]
         }, {
             ntype : 'container',
@@ -135,60 +123,114 @@ class AgentCard extends Container {
                 layout   : {ntype: 'hbox', align: 'center'},
 
                 items: [{
-                    // ONE power toggle — start when off, stop when running. Only one of the two is ever
-                    // valid for a given state, so we render the contextual action; a disabled play on a
-                    // running resident (or a disabled stop on a stopped one) is bloat, not safety.
-                    module : Button,
-                    handler: 'onToggleLifecycle',
-                    bind   : {
-                        disabled: data => Boolean(data.pendingAction) || data.controlReason?.kind === 'unauthorized',
-                        iconCls : data => data.state === 'off' ? 'fa-solid fa-play' : 'fa-solid fa-stop'
-                    }
+                    // ONE power toggle — start when off, stop when running. Only one of the two is
+                    // ever valid for a given state, so we render the contextual action; a disabled
+                    // play on a running resident (or a disabled stop on a stopped one) is bloat,
+                    // not safety.
+                    module   : Button,
+                    handler  : 'onToggleLifecycle',
+                    reference: 'control-toggle'
                 }, {
-                    // restart is meaningful only while running — a stopped resident starts via the toggle
-                    module : Button,
-                    action : 'restart',
-                    iconCls: 'fa-solid fa-rotate',
-                    handler: 'onLifecycleIntent',
-                    bind   : {
-                        disabled: data => Boolean(data.pendingAction) || data.controlReason?.kind === 'unauthorized',
-                        hidden  : data => data.state === 'off'
-                    }
+                    // restart is meaningful only while running — a stopped resident starts via the
+                    // toggle
+                    module   : Button,
+                    action   : 'restart',
+                    handler  : 'onLifecycleIntent',
+                    hidden   : true,
+                    iconCls  : 'fa-solid fa-rotate',
+                    reference: 'control-restart'
                 }]
             }, {
-                // Honest round-trip state per the B4/C2 contract — the card RENDERS what Lane-C writes,
-                // never fakes success, and each terminal kind renders DISTINCTLY:
-                //   unauthorized → the reason shows AND the cluster stays disabled (see the verb binds) —
-                //                  you cannot retry into a closed door;
-                //   timeout      → stale-pending: the outcome is UNKNOWN (the verb may still be running,
-                //                  we just lost the answer), so it reads as an unfinished "…", not a
-                //                  resolved "⚠" failure, and retry stays open;
-                //   rejected     → the "⚠ reason" with retry open.
                 ntype    : 'component',
                 cls      : ['fm-card-control-status'],
                 reference: 'control-status',
-                bind     : {
-                    // pending takes visual priority over a prior reason, so a new attempt never shows a
-                    // stale rejection (complements C2 clearing controlReason on a new accepted intent)
-                    text  : data => {
-                        if (data.pendingAction) {
-                            return `${data.pendingAction}…`
-                        }
-
-                        const reason = data.controlReason;
-
-                        if (!reason) {
-                            return ''
-                        }
-
-                        return reason.kind === 'timeout'
-                            ? `${reason.action}… stale — no response`
-                            : `⚠ ${reason.kind}: ${reason.reason}`
-                    },
-                    hidden: data => !data.pendingAction && !data.controlReason
-                }
+                hidden   : true
             }]
         }]
+    }
+
+    /**
+     * @summary Populate the referenced child surfaces once constructed (the anatomy exists from
+     * static config; its content is record-derived).
+     * @param {...*} args
+     */
+    onConstructed(...args) {
+        super.onConstructed(...args);
+        this.applyRecord()
+    }
+
+    /**
+     * Triggered after the record config changed — a card re-seated onto a different record (or a
+     * dock-restored snapshot bag) re-renders in place.
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @protected
+     */
+    afterSetRecord(value, oldValue) {
+        this.isConstructed && this.applyRecord()
+    }
+
+    /**
+     * @summary Render the record onto the card's referenced children, in place.
+     *
+     * The one read-side consumer of the record contract: display fields land on the rail / avatar /
+     * name-row / lane surfaces, and the B4/C2 control seam renders the honest round-trip matrix —
+     * the card RENDERS what Lane-C writes, never fakes success, and each terminal kind renders
+     * DISTINCTLY:
+     *   unauthorized → the reason shows AND the control cluster stays disabled — you cannot retry
+     *                  into a closed door;
+     *   timeout      → stale-pending: the outcome is UNKNOWN (the verb may still be running, we
+     *                  just lost the answer), so it reads as an unfinished "…", not a resolved "⚠"
+     *                  failure, and retry stays open;
+     *   rejected     → the "⚠ reason" with retry open.
+     */
+    applyRecord() {
+        let me     = this,
+            record = me.record;
+
+        if (!record) {
+            return
+        }
+
+        const
+            controlReason = record.controlReason ?? null,
+            pendingAction = record.pendingAction ?? null,
+            state         = record.state ?? 'off',
+            disabled      = Boolean(pendingAction) || controlReason?.kind === 'unauthorized';
+
+        me.getReference('family-rail').family = record.family ?? null;
+        me.getReference('state-dot').state    = state;
+        me.getReference('card-name').text     = record.displayName ?? '';
+        me.getReference('card-engine').text   = record.engineTag ?? '';
+        me.getReference('card-lane').text     = record.laneLine ?? '';
+
+        me.getReference('card-avatar').set({
+            alt: record.displayName ?? '',
+            src: record.avatarUrl ?? null
+        });
+
+        me.getReference('control-toggle').set({
+            disabled,
+            iconCls: state === 'off' ? 'fa-solid fa-play' : 'fa-solid fa-stop'
+        });
+
+        me.getReference('control-restart').set({
+            disabled,
+            hidden: state === 'off'
+        });
+
+        me.getReference('control-status').set({
+            hidden: !pendingAction && !controlReason,
+            // pending takes visual priority over a prior reason, so a new attempt never shows a
+            // stale rejection (complements C2 clearing controlReason on a new accepted intent)
+            text  : pendingAction
+                ? `${pendingAction}…`
+                : !controlReason
+                    ? ''
+                    : controlReason.kind === 'timeout'
+                        ? `${controlReason.action}… stale — no response`
+                        : `⚠ ${controlReason.kind}: ${controlReason.reason}`
+        })
     }
 }
 

@@ -1,5 +1,6 @@
 import Component    from '../../../../src/component/Base.mjs';
-import {stateToken} from './StateDot.mjs';
+import NeoArray     from '../../../../src/util/Array.mjs';
+import {stateClass} from './StateDot.mjs';
 
 /**
  * Canonical legend label per session-state category. Kept beside the state→token map so the fleet
@@ -29,10 +30,11 @@ export function stateLabel(state) {
 
 /**
  * A single entry in the fleet health-summary legend / bar: a swatch dot (colored from the same
- * `--fm-state-*` token as {@link StateDot} via the shared `stateToken` — one source of truth on the
- * agent-health axis), an optional count, and the category label. Composable BOTH ways: a plain
- * legend row (no count) and the count-carrying bar unit the health summary consumes (set `count`).
- * An unknown category renders off-toned with its literal text — never invisible.
+ * `--fm-state-*` token as {@link StateDot} via the shared `stateClass` — one source of truth on the
+ * agent-health axis, bound in the component SCSS), an optional count, and the category label.
+ * Composable BOTH ways: a plain legend row (no count) and the count-carrying bar unit the health
+ * summary consumes (set `count`). An unknown category renders off-toned with its literal text —
+ * never invisible.
  *
  * @class AgentOS.view.fleet.HealthSwatch
  * @extends Neo.component.Base
@@ -87,16 +89,23 @@ class HealthSwatch extends Component {
     }
 
     /**
-     * Triggered after the state config changed — rebinds the dot's `--fm-dot` token (shared with
-     * StateDot on the agent-health axis) and refreshes the label (when no override is set).
+     * Triggered after the state config changed — swaps the root state class (shared `stateClass`
+     * vocabulary with StateDot on the agent-health axis; the class binds the dot's `--fm-dot` token
+     * in the component SCSS — zero inline styles) and refreshes the label (when no override is set).
      * @param {String} value
      * @param {String} oldValue
      * @protected
      */
     afterSetState(value, oldValue) {
-        this.vdom.cn[0].style = {'--fm-dot': `var(${stateToken(value)})`};
-        this.applyLabel();
-        this.update()
+        let me  = this,
+            cls = me.cls;
+
+        oldValue !== undefined && NeoArray.remove(cls, stateClass(oldValue));
+        NeoArray.add(cls, stateClass(value));
+        me.cls = cls;
+
+        me.applyLabel();
+        me.update()
     }
 
     /**

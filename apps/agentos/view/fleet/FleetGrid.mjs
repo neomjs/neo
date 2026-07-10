@@ -22,7 +22,7 @@ const isOnline = state => state === 'ok' || state === 'limited' || state === 'we
  * it the grid shows every card (the 3-col view); at/above it the idle tier collapses to a count so a
  * 12–20-agent fleet never buries the online agents under a wall of idle cards. Pure + serializable;
  * the grid renders its result, so the ordering is unit-provable in isolation.
- * @param {Object[]} agents Roster entries carrying a `state` field.
+ * @param {Object[]} agents Roster entries carrying a `state` field — FleetAgent records or plain rows.
  * @param {Object} [options]
  * @param {Number} [options.foldThreshold=12] Registered-agent count at/above which the idle tier collapses.
  * @returns {{online: Object[], idle: Object[], benched: Object[], folded: Boolean, idleCount: Number, total: Number}}
@@ -42,17 +42,17 @@ export function rankFleet(agents, {foldThreshold = 12} = {}) {
 
 /**
  * @summary The fleet grid — the cockpit's default view (SSOT §01 fleet zone): a health-summary bar
- * over a ranked, density-aware grid of {@link AgentCard}s. Composes the built primitives (AgentCard ·
- * {@link HealthBar} → HealthSwatch/StateDot) and lays them out against the MEASURED fleet density
- * rather than the mock's six-agent assumption: below `foldThreshold` every card renders (the 3-col
- * view); at/above it the idle tier collapses to a count so the online agents stay in view at 12–20+
- * scale. The header (title + health bar) is a STABLE sub-tree updated in place — only the card set
- * rebuilds on a roster change, so the glance-instrument counts animate rather than flashing. On
- * adapter loss it degrades honestly — a stale banner over the last-known roster, never a blanked grid.
- *
- * The live-roster / runtime-status wire binding and the NL-verified mount at live scale are
- * sibling leaves; this leaf is the grid component + its ranking contract, unit-provable against
- * fixture rosters.
+ * over a ranked, density-aware grid of {@link AgentCard}s, rendered from ONE bound `data.Store`
+ * ({@link AgentOS.store.FleetRoster}) of {@link AgentOS.model.FleetAgent} records. The Store is the
+ * per-row reactive layer: a `load` re-derives the whole surface; a `recordChange` re-ranks when the
+ * session `state` moved a card between tiers, and otherwise updates the one affected card in place —
+ * no hand-rolled array diffing. Composes the built primitives (AgentCard · {@link HealthBar} →
+ * HealthSwatch/StateDot) and lays them out against the MEASURED fleet density rather than the mock's
+ * six-agent assumption: below `foldThreshold` every card renders (the 3-col view); at/above it the
+ * idle tier collapses to a count so the online agents stay in view at 12–20+ scale. The header
+ * (title + health bar) is a STABLE sub-tree updated in place — only the card set rebuilds on a
+ * roster change, so the glance-instrument counts animate rather than flashing. On adapter loss it
+ * degrades honestly — a stale banner over the last-known roster, never a blanked grid.
  *
  * @class AgentOS.view.fleet.FleetGrid
  * @extends Neo.container.Base
@@ -79,11 +79,13 @@ class FleetGrid extends Container {
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
-         * The roster to render — every card and the health counts derive from it.
-         * @member {Object[]} agents_=[]
+         * The bound roster Store — every card and the health counts derive from its records.
+         * Pass the shared {@link AgentOS.store.FleetRoster} singleton (or an isolated Store of
+         * {@link AgentOS.model.FleetAgent} records in tests).
+         * @member {Neo.data.Store|null} store_=null
          * @reactive
          */
-        agents_: [],
+        store_: null,
         /**
          * Registered-agent count at/above which the idle tier collapses to a count (density-derived).
          * Config-driven so the threshold is tunable, not hard-coded at the call site.
@@ -92,14 +94,15 @@ class FleetGrid extends Container {
          */
         foldThreshold_: 12,
         /**
-         * Feed liveness — `live` renders normally; `stale` renders the degrade banner over the
-         * last-known roster (never a blanked grid).
+         * Feed liveness — `live` renders normally; `sample` marks the honestly-labelled fixture seed
+         * (no roster source wired yet); `stale` renders the degrade banner over the last-known
+         * roster (never a blanked grid).
          * @member {String} adapterState_='live'
          * @reactive
          */
         adapterState_: 'live',
         /**
-         * A STABLE surface: the header (title · stale marker · flex spacer · live {@link HealthBar})
+         * A STABLE surface: the header (title · liveness marker · flex spacer · live {@link HealthBar})
          * and the card region. Only the card region's items rebuild on a roster change — the header
          * and its health bar are updated in place so the counts animate rather than flash.
          * @member {Object[]} items
@@ -129,21 +132,59 @@ class FleetGrid extends Container {
 
     /**
      * @summary Populate the roster-derived surface once constructed (the header sub-tree exists from
-     * static config; its content + the card set are data-derived).
+     * static config; its content + the card set are record-derived).
      * @param {...*} args
      */
     onConstructed(...args) {
         super.onConstructed(...args);
-        this.refreshGrid()
+
+        let me = this;
+
+        // the health bar tallies from the SAME bound store (its own reactive record seam, no array copy)
+        me.getReference('fleet-health').store = me.store;
+        me.refreshGrid()
     }
 
     /**
-     * @param {Object[]} value
-     * @param {Object[]} oldValue
+     * Triggered after the store config changed — re-seats the reactive wire: the grid re-derives on
+     * the store's `load` and routes `recordChange` to a re-rank or an in-place card update; the
+     * header's health bar is re-seated onto the same store (it tallies via its own record seam).
+     * @param {Neo.data.Store|null} value
+     * @param {Neo.data.Store|null} oldValue
      * @protected
      */
-    afterSetAgents(value, oldValue) {
-        this.isConstructed && this.refreshGrid()
+    afterSetStore(value, oldValue) {
+        let me        = this,
+            listeners = me.getStoreListeners();
+
+        oldValue?.un(listeners);
+        value   ?.on(listeners);
+
+        if (me.isConstructed) {
+            me.getReference('fleet-health').store = value;
+            me.refreshGrid()
+        }
+    }
+
+    /**
+     * @summary The one listener set this grid seats on its bound store — kept in one place so
+     * `afterSetStore` re-seating and `destroy` teardown stay symmetric.
+     * @returns {Object}
+     * @protected
+     */
+    getStoreListeners() {
+        let me = this;
+
+        return {load: me.onStoreLoad, recordChange: me.onStoreRecordChange, scope: me}
+    }
+
+    /**
+     *
+     */
+    destroy() {
+        this.store?.un(this.getStoreListeners());
+
+        super.destroy()
     }
 
     /**
@@ -165,61 +206,94 @@ class FleetGrid extends Container {
     }
 
     /**
-     * @summary Refresh the surface: update the stable header in place (title · stale marker · health
-     * bar counts) and rebuild only the ranked card set (online cards → collapsed-idle fold when over
-     * threshold, else idle cards → benched tail).
+     * @summary The store's `load` — the roster set changed (seed, live replace, clear): re-derive
+     * the whole surface.
+     * @param {Object} data The store load event `{items, ...}`.
+     * @protected
      */
-    refreshGrid() {
-        const rank  = rankFleet(this.agents, {foldThreshold: this.foldThreshold}),
-              stale = this.adapterState === 'stale';
+    onStoreLoad(data) {
+        this.isConstructed && this.refreshGrid()
+    }
 
-        // header — updated in place; the health bar instance persists so counts animate, not flash
-        this.getReference('fleet-title').text    = `Fleet · ${rank.total} agents`;
-        this.getReference('fleet-stale').text    = stale ? 'stale — reconnecting' : '';
-        this.getReference('fleet-health').agents = this.agents;
-        this.getReference('fleet-head').cls      = ['fm-fleet-head', stale ? 'is-stale' : 'is-live'];
+    /**
+     * @summary One record's fields changed. A session-`state` change moves the card between tiers
+     * (online / idle / benched), so it re-ranks; any other field set (display state, the B4/C2
+     * `pendingAction` / `controlReason` control seam) updates the one affected card in place — the
+     * Store is the per-row reactive layer, no array diffing.
+     * @param {Object} data The store recordChange event `{fields, record, index, model}`.
+     * @protected
+     */
+    onStoreRecordChange({fields, record}) {
+        let me = this;
 
-        // card set — rebuilt (the visible cards change with the roster)
-        const cards = [...rank.online.map(agent => this.agentCardConfig(agent))];
-
-        if (rank.folded) {
-            rank.idleCount > 0 && cards.push(this.foldConfig(rank.idleCount))
-        } else {
-            cards.push(...rank.idle.map(agent => this.agentCardConfig(agent)))
+        if (!me.isConstructed) {
+            return
         }
 
-        cards.push(...rank.benched.map(agent => this.agentCardConfig(agent)));
+        if (fields.some(field => field.name === 'state')) {
+            me.refreshGrid()
+        } else {
+            me.getReference('fleet-cards').items
+                .find(card => card.record === record)
+                ?.applyRecord()
+        }
+    }
 
-        const cardsContainer = this.getReference('fleet-cards');
+    /**
+     * @summary The bound store's records (empty when no store is bound).
+     * @returns {Object[]}
+     */
+    getRecords() {
+        return this.store?.items ?? []
+    }
+
+    /**
+     * @summary Refresh the surface: update the stable header in place (title · liveness marker ·
+     * health bar counts) and rebuild only the ranked card set (online cards → collapsed-idle fold
+     * when over threshold, else idle cards → benched tail).
+     */
+    refreshGrid() {
+        const me             = this,
+              records        = me.getRecords(),
+              rank           = rankFleet(records, {foldThreshold: me.foldThreshold}),
+              {adapterState} = me;
+
+        // header — updated in place (the health bar is store-bound and tallies itself)
+        me.getReference('fleet-title').text = `Fleet · ${rank.total} agents`;
+        me.getReference('fleet-stale').text = adapterState === 'stale' ? 'stale — reconnecting' : adapterState === 'sample' ? 'sample roster' : '';
+        me.getReference('fleet-head').cls   = ['fm-fleet-head', `is-${adapterState}`];
+
+        // card set — rebuilt (the visible cards change with the roster)
+        const cards = [...rank.online.map(record => me.agentCardConfig(record))];
+
+        if (rank.folded) {
+            rank.idleCount > 0 && cards.push(me.foldConfig(rank.idleCount))
+        } else {
+            cards.push(...rank.idle.map(record => me.agentCardConfig(record)))
+        }
+
+        cards.push(...rank.benched.map(record => me.agentCardConfig(record)));
+
+        const cardsContainer = me.getReference('fleet-cards');
 
         cardsContainer.removeAll(true);
         cardsContainer.add(cards)
     }
 
     /**
-     * @summary One AgentCard config from a roster entry — maps the entry onto the card's per-card
-     * `stateProvider.data` binding surface (the card owns its own render; this just seeds it).
-     * @param {Object} agent
+     * @summary One AgentCard config from a roster record — the card renders from the record itself
+     * (the card owns its own render; this just seats the record).
+     * @param {Object} record An AgentOS.model.FleetAgent record.
      * @returns {Object}
      */
-    agentCardConfig(agent) {
+    agentCardConfig(record) {
         return {
-            module       : AgentCard,
+            module   : AgentCard,
             // The card's control cluster fires an intent-only `lifecycleIntent`; this listener resolves
             // UP the controller chain (card → grid [no controller] → cockpit) to
             // FleetCockpitController.onAgentLifecycleIntent — the C2 consumer that drives the round-trip.
-            listeners    : {lifecycleIntent: 'onAgentLifecycleIntent'},
-            stateProvider: {
-                data: {
-                    agentId    : agent?.agentId     ?? null,
-                    avatarUrl  : agent?.avatarUrl   ?? null,
-                    displayName: agent?.displayName ?? null,
-                    engineTag  : agent?.engineTag   ?? null,
-                    family     : agent?.family      ?? null,
-                    laneLine   : agent?.laneLine    ?? null,
-                    state      : agent?.state       ?? 'off'
-                }
-            }
+            listeners: {lifecycleIntent: 'onAgentLifecycleIntent'},
+            record
         }
     }
 

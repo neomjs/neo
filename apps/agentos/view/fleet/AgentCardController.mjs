@@ -22,7 +22,7 @@ class AgentCardController extends Controller {
     /**
      * @summary Fires the card's lifecycle intent for the clicked control.
      *
-     * Reads the durable `agentId` from the per-card state provider and the `action`
+     * Reads the durable `agentId` from the card's record and the `action`
      * (`start` | `stop` | `restart`) off the button that triggered it, then fires ONE
      * `lifecycleIntent` event `{action, agentId}` on the card. The Lane C (C2) round-trip listens
      * for this and drives `FleetControlBridge`; this controller intentionally does NOT call the
@@ -32,7 +32,7 @@ class AgentCardController extends Controller {
     onLifecycleIntent(data) {
         let me      = this,
             action  = data.component.action,
-            agentId = me.getStateProvider().getData('agentId');
+            agentId = me.component.record?.agentId ?? null;
 
         me.component.fire('lifecycleIntent', {action, agentId})
     }
@@ -40,16 +40,16 @@ class AgentCardController extends Controller {
     /**
      * @summary Fires the contextual power intent — `start` when the resident is off, `stop` when running.
      *
-     * The single power toggle replaces a start+stop pair: only one of the two is ever valid for a given
-     * session state, so rendering both (one disabled) is noise, not safety. Reads `state` + the durable
-     * `agentId` from the per-card provider; intent-only (Lane-C owns the round-trip).
+     * The single power toggle replaces a start+stop pair: only one of the two is ever valid for a
+     * given session state, so rendering both (one disabled) is noise, not safety. Reads `state` +
+     * the durable `agentId` from the card's record; intent-only (Lane-C owns the round-trip).
      * @param {Object} data The button click event.
      */
     onToggleLifecycle(data) {
         let me       = this,
-            provider = me.getStateProvider(),
-            agentId  = provider.getData('agentId'),
-            action   = provider.getData('state') === 'off' ? 'start' : 'stop';
+            {record} = me.component,
+            agentId  = record?.agentId ?? null,
+            action   = (record?.state ?? 'off') === 'off' ? 'start' : 'stop';
 
         me.component.fire('lifecycleIntent', {action, agentId})
     }

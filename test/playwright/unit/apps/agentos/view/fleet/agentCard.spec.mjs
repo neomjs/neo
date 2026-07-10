@@ -17,51 +17,83 @@ import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 import Instance       from '../../../../../../../src/manager/Instance.mjs';
 
-test.describe('Fleet cockpit AgentCard — resident card composing the class primitives + avatar (#14755)', () => {
-    let AgentCard;
+test.describe('Fleet cockpit AgentCard — resident card rendering its roster record (#14755)', () => {
+    let AgentCard, FleetAgent, Store;
 
-    const readData = (card, key) => card.getStateProvider().getDataConfig(key).get();
+    const stores = [];
 
-    const createCard = data => Neo.create(AgentCard, {appName, stateProvider: {data}});
+    // a real store-backed record — the production shape (an AgentOS.store.FleetRoster row). The
+    // store mirrors FleetRoster's keyProperty (the collection default 'id' would shadow the model's).
+    const makeRecord = data => {
+        const store = Neo.create(Store, {keyProperty: 'agentId', model: FleetAgent, data: [data]});
+
+        stores.push(store);
+
+        return store.get(data.agentId)
+    };
+
+    const createCard = data => Neo.create(AgentCard, {appName, record: makeRecord(data)});
+
+    // in the cockpit composition the GRID routes the store's recordChange to the card; standalone
+    // card units drive the same seam directly: mutate the record, then apply it.
+    const applySet = (card, values) => {
+        card.record.set(values);
+        card.applyRecord()
+    };
 
     test.beforeAll(async () => {
-        const mod = await import('../../../../../../../apps/agentos/view/fleet/AgentCard.mjs');
-        AgentCard = mod.default
+        AgentCard  = (await import('../../../../../../../apps/agentos/view/fleet/AgentCard.mjs')).default;
+        FleetAgent = (await import('../../../../../../../apps/agentos/model/FleetAgent.mjs')).default;
+        Store      = (await import('../../../../../../../src/data/Store.mjs')).default
     });
 
-    test('is a data-driven card composing the class primitives + the avatar — one provider surface', () => {
+    test.afterAll(() => {
+        stores.forEach(store => store.destroy());
+        stores.length = 0
+    });
+
+    test('is a data-driven card composing the class primitives + the avatar — one record surface, zero providers', () => {
         const card = createCard({
             agentId: 'vega', avatarUrl: 'vega.png', displayName: 'Vega', family: 'claude', engineTag: 'opus-4.8', state: 'wedged'
         });
 
-        // the per-card provider is the single binding surface (data-driven, no per-field config threading)
-        expect(card.getStateProvider()).not.toBeNull();
-        expect(readData(card, 'state')).toBe('wedged');
-        expect(readData(card, 'family')).toBe('claude');
-        expect(readData(card, 'avatarUrl')).toBe('vega.png');
+        // the roster record is the single data surface (no per-card state.Provider)
+        expect(card.record.agentId).toBe('vega');
+        expect(card.stateProvider ?? null).toBeNull();
 
-        // composes the class primitives (FamilyRail + StateDot) and the avatar Image
-        expect(card.down({ntype: 'fm-family-rail'})).toBeTruthy();
-        expect(card.down({ntype: 'fm-state-dot'})).toBeTruthy();
-        expect(card.down({ntype: 'image'})).toBeTruthy();
+        // composes the class primitives (FamilyRail + StateDot) and the avatar Image, fed from the record
+        expect(card.down({ntype: 'fm-family-rail'}).family).toBe('claude');
+        expect(card.down({ntype: 'fm-state-dot'}).state).toBe('wedged');
+        expect(card.down({ntype: 'image'}).src).toBe('vega.png');
+        expect(card.down({reference: 'card-name'}).text).toBe('Vega');
+        expect(card.down({reference: 'card-engine'}).text).toBe('opus-4.8');
 
         card.destroy()
     });
 
-    test('ADR-0032: avatar/name/engine are display state over the durable id — setState re-renders in place, never a re-key', () => {
+    test('a plain field-bag record renders the same snapshot — the dock-blueprint restore shape', () => {
+        const card = Neo.create(AgentCard, {appName, record: {agentId: 'ghost', displayName: 'Ghost', state: 'ok'}});
+
+        expect(card.down({reference: 'card-name'}).text).toBe('Ghost');
+        expect(card.down({ntype: 'fm-state-dot'}).state).toBe('ok');
+
+        card.destroy()
+    });
+
+    test('ADR-0032: avatar/name/engine are display state over the durable id — a record write re-renders in place, never a re-key', () => {
         const card     = createCard({agentId: 'vega', displayName: 'Vega', avatarUrl: 'a.png', engineTag: 'opus-4.8', state: 'ok'});
         const beforeId = card.id;
 
-        card.setState({displayName: 'Vega (renamed)', avatarUrl: 'b.png', engineTag: 'fable-5'});
+        applySet(card, {displayName: 'Vega (renamed)', avatarUrl: 'b.png', engineTag: 'fable-5'});
 
         // the SAME instance — identity is the durable agentId, not the presentation
         expect(card.id).toBe(beforeId);
-        expect(readData(card, 'agentId')).toBe('vega');
-        expect(readData(card, 'displayName')).toBe('Vega (renamed)');
-        expect(readData(card, 'avatarUrl')).toBe('b.png');
-        expect(readData(card, 'engineTag')).toBe('fable-5');
+        expect(card.record.agentId).toBe('vega');
+        expect(card.down({reference: 'card-name'}).text).toBe('Vega (renamed)');
+        expect(card.down({ntype: 'image'}).src).toBe('b.png');
+        expect(card.down({reference: 'card-engine'}).text).toBe('fable-5');
         // a display-state change never disturbs the session-state axis
-        expect(readData(card, 'state')).toBe('ok');
+        expect(card.down({ntype: 'fm-state-dot'}).state).toBe('ok');
 
         card.destroy()
     });
@@ -70,10 +102,10 @@ test.describe('Fleet cockpit AgentCard — resident card composing the class pri
         const card     = createCard({agentId: 'vega', family: 'claude', state: 'ok'});
         const beforeId = card.id;
 
-        card.setState('family', 'gpt');
+        applySet(card, {family: 'gpt'});
 
         expect(card.id).toBe(beforeId);
-        expect(readData(card, 'family')).toBe('gpt')
+        expect(card.down({ntype: 'fm-family-rail'}).family).toBe('gpt');
 
         card.destroy()
     });
@@ -98,7 +130,7 @@ test.describe('Fleet cockpit AgentCard — resident card composing the class pri
 
         // running → the SAME toggle is now stop (■) and restart appears
         fired.length = 0;
-        card.setState('state', 'ok');
+        applySet(card, {state: 'ok'});
         expect(toggle.iconCls).toBe('fa-solid fa-stop');
         expect(restart.hidden).toBe(false);
         card.getController().onToggleLifecycle();
@@ -122,18 +154,18 @@ test.describe('Fleet cockpit AgentCard — resident card composing the class pri
         expect(status().hidden).toBe(true);
 
         // Lane-C set a verb in flight → controls disabled (no second intent mid-round-trip); pending rendered
-        card.setState('pendingAction', 'restart');
+        applySet(card, {pendingAction: 'restart'});
         expect(verbs().every(button => button.disabled)).toBe(true);
         expect(status().hidden).toBe(false);
         expect(status().text).toBe('restart…');
 
         // Lane-C rejected it → the honest reason renders; never an optimistic success
-        card.setState({controlReason: {action: 'restart', kind: 'rejected', reason: 'harness offline'}, pendingAction: null});
+        applySet(card, {controlReason: {action: 'restart', kind: 'rejected', reason: 'harness offline'}, pendingAction: null});
         expect(status().hidden).toBe(false);
         expect(status().text).toBe('⚠ rejected: harness offline');
 
         // a NEW attempt takes visual priority over a stale reason (the clear-on-new-intent nuance, render side)
-        card.setState('pendingAction', 'start');
+        applySet(card, {pendingAction: 'start'});
         expect(status().text).toBe('start…');
 
         card.destroy()
@@ -146,13 +178,13 @@ test.describe('Fleet cockpit AgentCard — resident card composing the class pri
 
         // unauthorized (Lane-C denied / bridge unavailable) → the cluster DISABLES with the reason, not a
         // live button beside a warning: you cannot retry into a closed door (the accepted B4/C2 contract)
-        card.setState({controlReason: {action: 'start', kind: 'unauthorized', reason: 'Fleet Registry bridge unavailable'}, pendingAction: null});
+        applySet(card, {controlReason: {action: 'start', kind: 'unauthorized', reason: 'Fleet Registry bridge unavailable'}, pendingAction: null});
         expect(verbs().every(button => button.disabled)).toBe(true);
         expect(status().text).toBe('⚠ unauthorized: Fleet Registry bridge unavailable');
 
         // timeout → the outcome is UNKNOWN (the verb may still be running, we lost the answer) → stale-pending:
         // an unfinished "…", NOT a resolved "⚠" failure, and retry stays OPEN (the cluster re-enables)
-        card.setState({controlReason: {action: 'restart', kind: 'timeout', reason: 'restart timed out after 30000ms'}, pendingAction: null});
+        applySet(card, {controlReason: {action: 'restart', kind: 'timeout', reason: 'restart timed out after 30000ms'}, pendingAction: null});
         expect(status().text).toBe('restart… stale — no response');
         expect(verbs()[0].disabled).toBe(false);
 

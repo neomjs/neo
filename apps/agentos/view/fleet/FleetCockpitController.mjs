@@ -7,9 +7,9 @@ import {handleFleetLifecycleIntent} from './fleetLifecycleIntentAdapter.mjs';
  * lives here (the cards themselves stay intent-only and never touch transport).
  *
  * Two entry points, both driving the C2 adapter (`handleFleetLifecycleIntent`) → the registry bridge →
- * honest per-card round-trip state, never an optimistic success:
+ * honest per-record round-trip state, never an optimistic success:
  * - `onAgentLifecycleIntent` — catches a single card's `lifecycleIntent` (resolved up the controller
- *   chain via the card's listener) and dispatches it for that card.
+ *   chain via the card's listener) and dispatches it for that card's record.
  * - `onStartFleet` — the design SSOT §01 "▶ Start morning fleet" one-click: fans `start` out to every
  *   rendered card, so each resident drives its own honest round-trip.
  *
@@ -29,16 +29,16 @@ class FleetCockpitController extends Controller {
      * @summary The one-click morning start — fan `start` out to every resident card via the C2 adapter.
      *
      * The cockpit owns the wire (the cards stay intent-only): it enumerates the rendered cards and hands
-     * each a `start` intent + that card's `state.Provider` to `handleFleetLifecycleIntent`, so every
+     * each a `start` intent + that card's roster record to `handleFleetLifecycleIntent`, so every
      * resident drives its own honest round-trip (pending → settled / rejected), never an optimistic
-     * fleet-wide success. Starting an already-running resident is the bridge's concern; the per-card
+     * fleet-wide success. Starting an already-running resident is the bridge's concern; the per-record
      * honest state reflects whatever actually happens.
      */
     onStartFleet() {
         this.getAgentCards().forEach(card => {
-            const provider = card.getStateProvider();
+            const {record} = card;
 
-            handleFleetLifecycleIntent({action: 'start', agentId: provider.getData('agentId')}, provider)
+            handleFleetLifecycleIntent({action: 'start', agentId: record?.agentId ?? null}, record)
         })
     }
 
@@ -58,15 +58,15 @@ class FleetCockpitController extends Controller {
      * A card's control cluster fires an intent-only `lifecycleIntent {action, agentId}` and never
      * touches transport. The cockpit is the composition root that knows both the cards and the fleet
      * bridge: it resolves the firing card from the event `source`, then hands the intent + that card's
-     * `state.Provider` to the C2 adapter (`handleFleetLifecycleIntent`). The adapter calls the registry
-     * bridge and writes honest pending / settled / rejected state back onto the provider the card
-     * renders — never an optimistic success.
+     * roster record to the C2 adapter (`handleFleetLifecycleIntent`). The adapter calls the registry
+     * bridge and writes honest pending / settled / rejected state onto the record via `record.set()`;
+     * the store's `recordChange` re-renders the card — never an optimistic success.
      * @param {Object} data The `lifecycleIntent` payload `{action, agentId, source}` — Neo stamps `source`.
      */
     onAgentLifecycleIntent(data) {
         const card = Neo.getComponent(data.source);
 
-        card && handleFleetLifecycleIntent(data, card.getStateProvider())
+        card && handleFleetLifecycleIntent(data, card.record)
     }
 }
 
