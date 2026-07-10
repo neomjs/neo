@@ -95,14 +95,42 @@ function isValidRect(rect) {
 }
 
 /**
+ * @summary One cross direction's legal placement kinds — the §06 grammar as a checkable rule.
+ *
+ * `center` is exactly the tab-merge. A directional indicator is either the node split for its
+ * own side (`edge-<direction>`) or the along-axis sibling insert the producer's orientation
+ * grammar resolves — `split-before` only from a LEADING direction (top/left), `split-after`
+ * only from a TRAILING one (bottom/right). Anything else is a menu lying about its operation.
+ * @param {String} position a `CROSS_POSITIONS` entry
+ * @param {String} kind the candidate preview's `placement.kind`
+ * @returns {Boolean}
+ */
+function crossKindMatchesPosition(position, kind) {
+    if (position === 'center') return kind === 'tab-into';
+
+    return kind === `edge-${position}` ||
+        (kind === 'split-before' && (position === 'top'    || position === 'left')) ||
+        (kind === 'split-after'  && (position === 'bottom' || position === 'right'))
+}
+
+/**
  * @summary Structural validity gate for a dockCandidates set (fail-closed).
  *
- * Returns true only for a well-formed `neo.harness.dockCandidates.v1` payload: a stable `itemId`,
- * a hovered `zone` with a node id and a numeric rect, a `cross` array whose entries carry a known
- * position and an individually valid preview, and a `root` that is either null (no distinct
- * container target) or a node id + rect + `chips` whose entries carry a known edge and a valid
- * preview. Anything malformed returns false so the indicator layer clears rather than guesses —
- * the same fail-closed posture as `isValidPreview`.
+ * Returns true only for a COMPLETE, internally coherent `neo.harness.dockCandidates.v1` payload:
+ *
+ * - a stable `itemId`, and a hovered `zone` with a node id and a numeric rect;
+ * - a `cross` of EXACTLY the five unique positions (`CROSS_POSITIONS`), every candidate wrapping
+ *   an individually valid preview that carries the SET's `itemId`, targets the hovered zone's
+ *   node, and whose placement kind matches its position per the §06 grammar
+ *   ({@link crossKindMatchesPosition});
+ * - a `root` that is either null (no distinct container target) or a node id + rect + EXACTLY
+ *   the four unique edges (`CHIP_EDGES`), each chip's preview carrying the set's `itemId`,
+ *   targeting the root node, with kind `edge-<edge>` exactly.
+ *
+ * A partial menu, a duplicated position, a candidate built for another item, or a candidate
+ * whose visual position lies about its operation all return false — the indicator layer clears
+ * rather than renders a menu that misrepresents the drop. Same fail-closed posture as
+ * `isValidPreview`.
  * @param {Object|null} set
  * @returns {Boolean}
  */
@@ -115,10 +143,20 @@ export function isValidCandidateSet(set) {
 
     if (!zone || typeof zone.nodeId !== 'string' || !zone.nodeId || !isValidRect(zone.rect)) return false;
 
-    if (!Array.isArray(cross) || cross.length < 1) return false;
+    if (!Array.isArray(cross) || cross.length !== CROSS_POSITIONS.length) return false;
+
+    let positions = new Set(cross.map(candidate => candidate?.position));
+
+    if (positions.size !== CROSS_POSITIONS.length || !CROSS_POSITIONS.every(position => positions.has(position))) {
+        return false
+    }
 
     if (!cross.every(candidate =>
-        candidate && CROSS_POSITIONS.includes(candidate.position) && isValidPreview(candidate.preview)
+        candidate &&
+        isValidPreview(candidate.preview) &&
+        candidate.preview.itemId === set.itemId &&
+        candidate.preview.target.nodeId === zone.nodeId &&
+        crossKindMatchesPosition(candidate.position, candidate.preview.placement.kind)
     )) {
         return false
     }
@@ -126,8 +164,20 @@ export function isValidCandidateSet(set) {
     if (root != null) {
         if (typeof root.nodeId !== 'string' || !root.nodeId || !isValidRect(root.rect)) return false;
 
-        if (!Array.isArray(root.chips) || !root.chips.every(chip =>
-            chip && CHIP_EDGES.includes(chip.edge) && isValidPreview(chip.preview)
+        if (!Array.isArray(root.chips) || root.chips.length !== CHIP_EDGES.length) return false;
+
+        let edges = new Set(root.chips.map(chip => chip?.edge));
+
+        if (edges.size !== CHIP_EDGES.length || !CHIP_EDGES.every(edge => edges.has(edge))) {
+            return false
+        }
+
+        if (!root.chips.every(chip =>
+            chip &&
+            isValidPreview(chip.preview) &&
+            chip.preview.itemId === set.itemId &&
+            chip.preview.target.nodeId === root.nodeId &&
+            chip.preview.placement.kind === `edge-${chip.edge}`
         )) {
             return false
         }

@@ -171,11 +171,15 @@
     justify-content: center;
     opacity        : 0.92;
     position       : absolute;
-    transition     : left var(--dock-transition-duration-fast, 120ms) var(--dock-transition-easing, cubic-bezier(0, 0, 0.2, 1)),
-                     top var(--dock-transition-duration-fast, 120ms) var(--dock-transition-easing, cubic-bezier(0, 0, 0.2, 1)),
-                     opacity var(--dock-transition-duration-fast, 120ms) var(--dock-transition-easing, cubic-bezier(0, 0, 0.2, 1)),
-                     border-color var(--dock-transition-duration-fast, 120ms) var(--dock-transition-easing, cubic-bezier(0, 0, 0.2, 1)),
-                     background var(--dock-transition-duration-fast, 120ms) var(--dock-transition-easing, cubic-bezier(0, 0, 0.2, 1));
+    // Token-only, no call-site fallbacks (the DockFlip / #14947 authority discipline): a host
+    // outside any `.neo-dashboard` scope resolves NO duration → the transition shorthand is
+    // invalid → indicators land instantly. Fail-safe by construction, and the token-layer
+    // reduced-motion collapse governs every scoped surface with nothing to override it.
+    transition     : left var(--dock-transition-duration-fast) var(--dock-transition-easing),
+                     top var(--dock-transition-duration-fast) var(--dock-transition-easing),
+                     opacity var(--dock-transition-duration-fast) var(--dock-transition-easing),
+                     border-color var(--dock-transition-duration-fast) var(--dock-transition-easing),
+                     background var(--dock-transition-duration-fast) var(--dock-transition-easing);
 
     // The directional glyph: a chevron built from borders — no font/icon dependency.
     &::before {

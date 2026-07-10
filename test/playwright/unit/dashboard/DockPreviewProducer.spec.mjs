@@ -277,5 +277,59 @@ test.describe('Neo.dashboard.DockPreviewProducer (ADR 0029 §2.3 — the dock pr
         expect(producer.produceCandidates({pointer: {x: 500, y: 500}, zones, itemId: 'a'})).toBeNull(); // over no zone
         expect(producer.produceCandidates({pointer: {x: 50, y: 50}, zones, itemId: ''})).toBeNull();    // no item id
         expect(producer.produceCandidates()).toBeNull()                                                  // no args
+    });
+
+    test('isValidCandidateSet rejects partial, duplicated, mismatched and lying menus', async () => {
+        const {isValidCandidateSet} = await import('../../../../src/dashboard/dockPreviewContract.mjs');
+
+        const TALL  = {x: 0, y: 0, width: 400, height: 300};
+        const zones = [{nodeId: 'main-tabs', rect: TALL}];
+        const valid = () => producer.produceCandidates({
+            pointer: {x: 200, y: 150}, zones, itemId: 'terminal',
+            root   : {nodeId: 'root', rect: {x: 0, y: 0, width: 800, height: 600}}
+        });
+
+        expect(isValidCandidateSet(valid())).toBe(true); // the producer's own emission is the positive control
+
+        // a one-entry "menu" is a partial menu — rejected (completeness, not just per-entry validity)
+        let set = valid();
+        set.cross = [set.cross[0]];
+        expect(isValidCandidateSet(set)).toBe(false);
+
+        // duplicated positions are rejected even at the right length
+        set = valid();
+        set.cross[1] = {...set.cross[0]};
+        expect(isValidCandidateSet(set)).toBe(false);
+
+        // a candidate whose position lies about its operation is rejected
+        // (the review falsifier: a `center` indicator wired to an `edge-left` split)
+        set = valid();
+        set.cross.find(c => c.position === 'center').preview.placement = {kind: 'edge-left'};
+        expect(isValidCandidateSet(set)).toBe(false);
+
+        // a candidate built for ANOTHER item is rejected
+        set = valid();
+        set.cross[2].preview.itemId = 'somebody-else';
+        expect(isValidCandidateSet(set)).toBe(false);
+
+        // a cross candidate targeting a node other than the hovered zone is rejected
+        set = valid();
+        set.cross[3].preview.target.nodeId = 'other-node';
+        expect(isValidCandidateSet(set)).toBe(false);
+
+        // chips: a missing edge is rejected (4 unique required when root exists)…
+        set = valid();
+        set.root.chips.pop();
+        expect(isValidCandidateSet(set)).toBe(false);
+
+        // …and a chip whose kind does not match its own edge is rejected
+        set = valid();
+        set.root.chips.find(c => c.edge === 'top').preview.placement = {kind: 'edge-bottom'};
+        expect(isValidCandidateSet(set)).toBe(false);
+
+        // a split-kind on a TRAILING direction claiming `split-before` is rejected
+        set = valid();
+        set.cross.find(c => c.position === 'bottom').preview.placement = {kind: 'split-before', orientation: 'vertical'};
+        expect(isValidCandidateSet(set)).toBe(false)
     })
 });

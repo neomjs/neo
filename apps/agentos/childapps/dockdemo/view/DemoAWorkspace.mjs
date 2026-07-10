@@ -153,7 +153,11 @@ class DemoAWorkspace extends Container {
 
         me.add([me.createTourBar(), {
             module   : Container,
-            cls      : ['agentos-dockdemo-dock-host'],
+            // `neo-dashboard` on the HOST, not only the projected child: custom properties
+            // inherit downward only, and the two overlay layers below are SIBLINGS of the
+            // projection — motion tokens (incl. the reduced-motion collapse) must live on
+            // their shared ancestor or the overlays silently fall out of the contract.
+            cls      : ['agentos-dockdemo-dock-host', 'neo-dashboard'],
             flex     : 1,
             layout   : {ntype: 'fit'},
             reference: 'dock-host',
@@ -308,9 +312,7 @@ class DemoAWorkspace extends Container {
                 : me.dockModel.root;
 
         me.dragGeometry = me.getDomRect([host.id, ...zoneEntries.map(zone => zone.container.id)]).then(([hostRect, ...zoneRects]) => {
-            if (!hostRect) return null;
-
-            let geometry = {
+            let geometry = hostRect && {
                 hostRect,
                 root : {nodeId: rootId, rect: hostRect},
                 zones: zoneEntries
@@ -322,9 +324,17 @@ class DemoAWorkspace extends Container {
                     .filter(zone => zone.rect)
             };
 
+            // A gesture's FIRST move can outrace measurability (fresh mount, mid-layout):
+            // a degenerate result must not latch for the whole gesture — uncache so the
+            // next move frame re-measures and the session self-heals.
+            if (!geometry || geometry.zones.length < 1) {
+                me.dragGeometry = null;
+                return null
+            }
+
             let indicators = me.getReference('drop-indicators');
 
-            indicators && (indicators.hostRect = hostRect);
+            indicators && (indicators.hostRect = geometry.hostRect);
 
             return geometry
         });
@@ -376,6 +386,7 @@ class DemoAWorkspace extends Container {
             }
         }
 
+
         let candidate   = indicators?.updatePointer(pointer) ?? null,
             dockPreview = candidate?.preview
                 ?? producer.produce({pointer, zones: geometry.zones, itemId, sourceNodeId});
@@ -394,29 +405,37 @@ class DemoAWorkspace extends Container {
     }
 
     /**
-     * The drop half (`dockCrossZoneDrop` via the projection): a hovered INDICATOR wins over
-     * pointer inference — the §06 tier order — and both commit through `previewToOperation`
-     * unchanged. An Escape-suppressed gesture commits nothing. Same-zone pointer drops stay
-     * excluded from the fallback (the within-toolbar reorder already handled them); indicator
-     * drops keep self-targets deliberately (splitting your own zone is a real operation).
+     * The drop half (`dockCrossZoneDrop` via the projection): the indicator is re-hit-tested
+     * at the RELEASE coordinates — release truth, never cached hover truth (a pointer that
+     * left the menu after hovering an indicator must not commit the stale selection), and a
+     * candidate only counts when it was built for the item THIS gesture drags. A release-point
+     * indicator wins over pointer inference — the §06 tier order — and both commit through
+     * `previewToOperation` unchanged. An Escape-suppressed gesture commits nothing. Same-zone
+     * pointer drops stay excluded from the fallback (the within-toolbar reorder already
+     * handled them); indicator drops keep self-targets deliberately (splitting your own zone
+     * is a real operation).
      * @param {Object} data {clientX, clientY, itemId, sourceNodeId}
      */
     async onDockCrossZoneDrop({clientX, clientY, itemId, sourceNodeId}) {
         let me         = this,
             suppressed = me.dragSuppressed,
-            candidate  = me.getReference('drop-indicators')?.activeCandidate ?? null,
             geometry   = me.dragGeometry ? await me.dragGeometry : null,
+            pointer    = {x: clientX, y: clientY},
             preview    = null;
 
         if (!suppressed) {
-            preview = candidate?.preview ?? (geometry
-                ? me.dockPreviewProducer.produce({
-                    pointer: {x: clientX, y: clientY},
-                    zones  : geometry.zones.filter(zone => zone.nodeId !== sourceNodeId),
+            let candidate = me.getReference('drop-indicators')?.hitTest(pointer);
+
+            if (candidate?.preview?.itemId === itemId) {
+                preview = candidate.preview
+            } else if (geometry) {
+                preview = me.dockPreviewProducer.produce({
+                    pointer,
+                    zones: geometry.zones.filter(zone => zone.nodeId !== sourceNodeId),
                     itemId,
                     sourceNodeId
                 })
-                : null)
+            }
         }
 
         me.clearDragAffordances();
