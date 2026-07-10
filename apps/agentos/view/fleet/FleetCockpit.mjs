@@ -1,11 +1,18 @@
 import ActivityStream          from './ActivityStream.mjs';
 import Button                  from '../../../../src/button/Base.mjs';
 import Container               from '../../../../src/container/Base.mjs';
+import DockLayoutAdapter       from '../../../../src/dashboard/DockLayoutAdapter.mjs';
+import DockMotionSignal        from '../../../../src/dashboard/DockMotionSignal.mjs';
+import DockPreviewProducer     from '../../../../src/dashboard/DockPreviewProducer.mjs';
+import DockZoneModel           from '../../../../src/dashboard/DockZoneModel.mjs';
 import FleetCockpitController  from './FleetCockpitController.mjs';
 import FleetGrid               from './FleetGrid.mjs';
 import FleetRoster             from '../../store/FleetRoster.mjs';
 import StateProvider           from '../../../../src/state/Provider.mjs';
+import cockpitDockDocument     from './cockpitDockDocument.mjs';
 import {mapFleetSessionHealth} from './sourceHealth.mjs';
+import {previewToOperation}    from '../../../../src/dashboard/dockPreviewContract.mjs';
+import '../../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the dock projection emits for tab zones
 
 /**
  * Recent fleet activity for the fixture-fed stream — the live A2A / PR / lane adapters
@@ -23,18 +30,35 @@ const FIXTURE_ACTIVITY = [
 ];
 
 /**
- * @summary The Fleet keeper-view — the FM cockpit's default mission-control surface (design SSOT §01):
- * the fleet zone (a density-ranked card roster + the scale-to-a-glance health bar) beside the live
- * activity stream, in the SSOT's ~1.55fr / 1fr split. This is the "run the fleet" keeper-view the harness-UI
- * definition specifies, reached from the harness shell's left-rail nav — the cards, NOT a data-grid table.
+ * @summary The Fleet keeper-view — the FM cockpit's default mission-control surface (design SSOT §01),
+ * composed as a LIVE DOCK PROJECTION: the fleet zone (a density-ranked card roster + the
+ * scale-to-a-glance health bar) over the live activity stream in the SSOT's ~1.55fr / 1fr split,
+ * with the secondary chrome panes (agent detail, perspectives) auto-hidden onto the right edge rail.
+ *
+ * The layout SSOT is the committed `neo.harness.dockZone.v1` document ({@link #dockModel}, seeded
+ * from {@link module:cockpitDockDocument}); the visible tree is
+ * {@link Neo.dashboard.DockLayoutAdapter}'s projection of it. The commit loop follows the proven
+ * dashboard-dock pattern — a clean reducer / view-sync split:
+ * - {@link #applyDockZoneOperation} is the **reducer**: a pure `DockZoneModel.applyOperation` over
+ *   the current document — splitter drags, cross-zone tab drops and NL-driven operations all
+ *   funnel through it;
+ * - {@link #onDockZoneDocumentChange} is the **view-sync**: it stores the committed document and
+ *   re-projects one tick deferred (the committing splitter must finish its own `onDragEnd` before
+ *   `removeAll()` destroys it — use-after-destroy otherwise; `isDestroyed` guards teardown).
+ *
+ * Projections REBUILD pane instances (`removeAll` + add), so runtime pane state lives on THIS
+ * owner, never on the instances: {@link #resolveDockComponentRef} re-materializes each pane from
+ * the held state ({@link #gridAdapterState} / {@link #streamAdapterState} / {@link #streamEvents}),
+ * and the panes themselves stay layout-blind per the docking design's pane contract — ordinary
+ * configs only, no dock wiring reaches them.
  *
  * The roster data layer is ONE {@link AgentOS.store.FleetRoster} Store of
  * {@link AgentOS.model.FleetAgent} records, hosted by THIS view's `state.Provider` (`stores`
- * block — the provider is the sharing scope; store classes are never singletons). The provider
- * `autoLoad`s the honestly-labelled JSON sample seed, the {@link FleetGrid} binds the instance via
- * `bind: {store: 'stores.fleetRoster'}`, and {@link #loadRoster} re-points it at the running fleet
- * when the registry bridge wires up. The activity zone composes {@link ActivityStream} → EventChip against a
- * representative snapshot the same way ({@link #loadActivity}).
+ * block — the provider is the sharing scope and survives every re-projection; store classes are
+ * never singletons). The provider `autoLoad`s the honestly-labelled JSON sample seed, the
+ * projected {@link FleetGrid} binds the instance via `bind: {store: 'stores.fleetRoster'}`, and
+ * {@link #loadRoster} re-points it at the running fleet when the registry bridge wires up. The
+ * activity zone composes {@link ActivityStream} → EventChip the same way ({@link #loadActivity}).
  *
  * @class AgentOS.view.fleet.FleetCockpit
  * @extends Neo.container.Base
@@ -51,6 +75,15 @@ class FleetCockpit extends Container {
          * @protected
          */
         ntype: 'fm-fleet-cockpit',
+        /**
+         * The dock motion/token contract (`--dock-transition-*`, reveal keyframes, splitter
+         * cursors) lives in the `Neo.dashboard.Container` theme file — the projected dock tree is
+         * plain containers, so per-class loading never fetches it; the consuming workspace
+         * declares the dependency (the projection root carries the matching `.neo-dashboard`
+         * scope class itself).
+         * @member {String[]} additionalThemeFiles=['Neo.dashboard.Container']
+         */
+        additionalThemeFiles: ['Neo.dashboard.Container'],
         /**
          * @member {String[]} baseCls=['fm-fleet-cockpit']
          */
@@ -78,42 +111,37 @@ class FleetCockpit extends Container {
             }
         },
         /**
-         * Vertical stack: the control bar over the full-width fleet grid over the full-width activity
-         * feed. The fleet zone gets the full width for its ranked card grid; the live feed is the
-         * bottom strip, not a right-hand column.
+         * Vertical stack: the control bar over the dock projection (which owns the fleet-over-
+         * activity split per the committed document).
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @reactive
          */
-        layout: {ntype: 'vbox', align: 'stretch'},
-        /**
-         * @member {Object[]} items
-         */
-        items: [{
-            ntype: 'toolbar',
-            cls  : ['fm-cockpit-bar'],
-            flex : 'none',
-            items: ['->', {
-                module : Button,
-                cls    : ['fm-fleet-start'],
-                iconCls: 'fa-solid fa-play',
-                text   : 'Start morning fleet',
-                handler: 'onStartFleet'
-            }]
-        }, {
-            module      : FleetGrid,
-            flex        : 1.55,
-            reference   : 'fleet-grid',
-            adapterState: 'sample', // the seeded roster is a representative sample until the live source is wired
-            bind        : {store: 'stores.fleetRoster'}
-        }, {
-            module      : ActivityStream,
-            flex        : 1,
-            reference   : 'activity-stream',
-            adapterState: 'sample', // the fixture is a representative sample until the live source is wired
-            events      : FIXTURE_ACTIVITY
-        }]
+        layout: {ntype: 'vbox', align: 'stretch'}
+        // `items` is built in construct() — not here — so each projection can carry the
+        // instance-bound applyDockZoneOperation + onDockZoneDocumentChange callbacks the resize
+        // commit loop needs.
     }
 
+    /**
+     * The live committed dock-zone document — the layout SSOT this view projects from. Seeded
+     * from {@link module:cockpitDockDocument}; advanced by {@link #onDockZoneDocumentChange} on
+     * each committed operation.
+     * @member {Object|null} dockModel=null
+     */
+    dockModel = null
+    /**
+     * The cross-zone drop producer instance (pointer → placement grammar), owned per cockpit.
+     * @member {Neo.dashboard.DockPreviewProducer|null} dockPreviewProducer=null
+     * @protected
+     */
+    dockPreviewProducer = null
+    /**
+     * The grid's held `adapterState` — re-projections re-materialize the pane from HERE, so a
+     * committed layout change can never reset a live grid back to its sample badge.
+     * @member {String} gridAdapterState='sample'
+     * @protected
+     */
+    gridAdapterState = 'sample'
     /**
      * The last authoritative (bridge-sourced) roster snapshot, kept so a slower store load — the
      * JSON sample seed racing {@link #loadRoster} — can never overwrite live truth
@@ -139,6 +167,37 @@ class FleetCockpit extends Container {
      * @protected
      */
     rosterWired = false
+    /**
+     * The stream's held `adapterState` — the re-projection source of truth, like
+     * {@link #gridAdapterState}.
+     * @member {String} streamAdapterState='sample'
+     * @protected
+     */
+    streamAdapterState = 'sample'
+    /**
+     * The stream's held event list (chronological). Starts as the honestly-labelled fixture;
+     * {@link #loadActivity} replaces it with the live feed — re-projections read it back.
+     * @member {Object[]} streamEvents=FIXTURE_ACTIVITY
+     * @protected
+     */
+    streamEvents = FIXTURE_ACTIVITY
+
+    /**
+     * @summary Seed the layout SSOT and build the toolbar + dock projection as instance items —
+     * the projection carries instance-bound commit-loop callbacks, so it cannot live in the
+     * static config.
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        let me = this;
+
+        me.dockPreviewProducer = Neo.create(DockPreviewProducer);
+        me.dockModel           = me.dockModel || cockpitDockDocument();
+
+        me.add(me.buildWorkspaceItems())
+    }
 
     /**
      * @summary On construct, bind the fleet surfaces to their live feeds, and guard the roster
@@ -154,6 +213,206 @@ class FleetCockpit extends Container {
 
         me.loadActivity();
         me.loadRoster()
+    }
+
+    /**
+     * The owning reducer every dock gesture calls (`DockSplitter.commitResizeSplit`, the
+     * cross-zone drop path, NL-driven operations): applies an operation descriptor against the
+     * live committed document and returns `DockZoneModel`'s fail-closed `{document, errors}`
+     * result. Pure — the view sync happens in {@link #onDockZoneDocumentChange}, which callers
+     * invoke on success.
+     * @param {Object} descriptor The dock operation descriptor.
+     * @returns {{document: Object, errors: String[]}}
+     */
+    applyDockZoneOperation(descriptor) {
+        return DockZoneModel.applyOperation(this.dockModel, descriptor)
+    }
+
+    /**
+     * The read half of the dock-holder contract (`src/ai/client/DockService.mjs`): exposes the
+     * live committed document so Neural Link topology reads work BEFORE any operation has run.
+     * The write half is {@link #applyDockZoneOperation}; the state sync stays in
+     * {@link #onDockZoneDocumentChange}.
+     * @returns {Object} The current committed dockZone.v1 document.
+     */
+    getDockZoneDocument() {
+        return this.dockModel
+    }
+
+    /**
+     * The view-sync half of the commit loop: stores the new committed document and re-projects
+     * from it.
+     *
+     * Deferred one tick: this fires synchronously from inside the committing splitter's
+     * `onDragEnd` (via `commitResizeSplit`). Re-projecting immediately would `removeAll()` —
+     * destroying that splitter mid-handler, a use-after-destroy on the rest of `onDragEnd`. The
+     * `isDestroyed` guard covers teardown before the tick fires.
+     * @param {Object} document The committed dock-zone document.
+     */
+    onDockZoneDocumentChange(document) {
+        let me = this;
+
+        me.dockModel = document;
+
+        me.timeout(0).then(() => {
+            if (!me.isDestroyed) {
+                me.refreshDockWorkspace()
+            }
+        })
+    }
+
+    /**
+     * @summary Rebuilds the toolbar + dock projection from current state, FLIP-bracketed: the
+     * outgoing pane geometry is snapshotted so the committed re-layout GLIDES, and the counted
+     * motion signal brackets the animation window (ownership lives in `DockMotionSignal`,
+     * fail-safe backstopped — never in the addon).
+     */
+    async refreshDockWorkspace() {
+        const flip = Neo.main?.addon?.DockFlip;
+
+        try {
+            await flip?.captureFirst({hostId: this.id, markerPrefix: 'dock-flip-item-'})
+        } catch (e) {/* instant landing */}
+
+        this.removeAll();
+        this.add(this.buildWorkspaceItems());
+
+        if (flip) {
+            DockMotionSignal.enter(this);
+            flip.play({hostId: this.id, markerPrefix: 'dock-flip-item-'})
+                .catch(() => {})
+                .finally(() => DockMotionSignal.leave(this))
+        }
+    }
+
+    /**
+     * Creates the top-level control bar + dock projection items from current state.
+     * @returns {Object[]}
+     */
+    buildWorkspaceItems() {
+        let dockConfig = this.projectDockModel();
+
+        dockConfig.flex = 1;
+
+        return [{
+            ntype: 'toolbar',
+            cls  : ['fm-cockpit-bar'],
+            flex : 'none',
+            items: ['->', {
+                module : Button,
+                cls    : ['fm-fleet-start'],
+                iconCls: 'fa-solid fa-play',
+                text   : 'Start morning fleet',
+                handler: 'onStartFleet'
+            }]
+        }, dockConfig]
+    }
+
+    /**
+     * Projects the live committed {@link #dockModel} into a dock-zone container config, threading
+     * the instance-bound commit-loop callbacks onto every projected affordance.
+     * @returns {Object}
+     */
+    projectDockModel() {
+        let me = this;
+
+        return DockLayoutAdapter.project(me.dockModel, {
+            applyDockZoneOperation  : me.applyDockZoneOperation.bind(me),
+            onDockCrossZoneDrop     : me.onDockCrossZoneDrop.bind(me),
+            onDockZoneDocumentChange: me.onDockZoneDocumentChange.bind(me),
+            resolveComponentRef     : me.resolveDockComponentRef.bind(me)
+        })
+    }
+
+    /**
+     * @summary Resolves a dock item's `componentRef` to its pane config — the cockpit's keeper
+     * surfaces for the live refs, honest placeholders for panes whose views are sibling leaves.
+     *
+     * Every pane re-materializes from the OWNER's held runtime state (`adapterState`, events):
+     * re-projections rebuild instances, so anything set only on an instance would silently reset.
+     * The flip marker class carries the stable item identity across those rebuilds (the DockFlip
+     * correlation key). Panes stay layout-blind per the docking design's pane contract: nothing
+     * dock-specific is threaded here beyond the marker class.
+     * @param {String} componentRef
+     * @param {Object} item The persisted item record.
+     * @param {String} itemId The stable workspace identity from the item catalog.
+     * @returns {Object}
+     */
+    resolveDockComponentRef(componentRef, item, itemId) {
+        let me     = this,
+            marker = `dock-flip-item-${encodeURIComponent(itemId)}`;
+
+        switch (componentRef) {
+            case 'fleet-grid':
+                return {
+                    module      : FleetGrid,
+                    adapterState: me.gridAdapterState,
+                    bind        : {store: 'stores.fleetRoster'},
+                    cls         : [marker],
+                    reference   : 'fleet-grid'
+                };
+            case 'activity-stream':
+                return {
+                    module      : ActivityStream,
+                    adapterState: me.streamAdapterState,
+                    cls         : [marker],
+                    events      : me.streamEvents,
+                    reference   : 'activity-stream'
+                };
+            default:
+                // agent-detail / perspectives arrive with their own leaves — an honest labelled
+                // placeholder, never a blank pane masquerading as a finished surface
+                return {
+                    ntype: 'component',
+                    cls  : [marker, 'fm-pane-placeholder'],
+                    html : `${item?.title ?? componentRef} — this pane's view lands with its own leaf`
+                }
+        }
+    }
+
+    /**
+     * Cross-zone drop reducer: a dock tab-header released outside its own toolbar reports its
+     * release point here (via `Neo.dashboard.DockTabSortZone`). The producer resolves the
+     * placement KIND from the pointer and each zone's rect, `previewToOperation` maps it to the
+     * semantic operation, and the standard commit loop applies it. A same-zone drop is a no-op
+     * (the within-toolbar reorder already committed via the `moveTo` listener).
+     * @param {Object} data
+     * @param {Number} data.clientX
+     * @param {Number} data.clientY
+     * @param {String} data.itemId       The dock item id being dragged.
+     * @param {String} data.sourceNodeId The tabs node the drag started in.
+     */
+    async onDockCrossZoneDrop({clientX, clientY, itemId, sourceNodeId}) {
+        let me    = this,
+            nodes = me.dockModel?.nodes || {},
+            zones = Object.keys(nodes)
+                .filter(nodeId => nodes[nodeId].type === 'tabs' && nodeId !== sourceNodeId)
+                .map(nodeId => ({nodeId, container: me.down({dockNodeId: nodeId})}))
+                .filter(zone => zone.container);
+
+        if (!zones.length) {
+            return
+        }
+
+        let rects = await me.getDomRect(zones.map(zone => zone.container.id));
+
+        let producerZones = zones
+                .map((zone, index) => ({
+                    nodeId     : zone.nodeId,
+                    rect       : rects[index],
+                    orientation: Object.values(nodes).find(node => node.type === 'split' && node.children?.includes(zone.nodeId))?.orientation ?? null
+                }))
+                .filter(zone => zone.rect),
+            preview    = me.dockPreviewProducer.produce({pointer: {x: clientX, y: clientY}, zones: producerZones, itemId, sourceNodeId}),
+            descriptor = previewToOperation(preview);
+
+        if (descriptor) {
+            let result = me.applyDockZoneOperation(descriptor);
+
+            if (result && !result.errors?.length && result.document) {
+                me.onDockZoneDocumentChange(result.document)
+            }
+        }
     }
 
     /**
@@ -181,13 +440,16 @@ class FleetCockpit extends Container {
     }
 
     /**
-     * @summary Detach the roster-store load guard; the provider tears the owned store itself down.
+     * @summary Detach the roster-store load guard and release the drop producer; the provider
+     * tears the owned store itself down.
      * @param {...*} args
      */
     destroy(...args) {
         let me = this;
 
         me.getReference('fleet-grid')?.store?.un({load: me.onRosterStoreLoad, scope: me});
+        me.dockPreviewProducer?.destroy();
+        me.dockPreviewProducer = null;
         super.destroy(...args)
     }
 
@@ -201,6 +463,8 @@ class FleetCockpit extends Container {
      * - `degraded` → the **stale** banner.
      * - not-wired / absent bridge / a thrown source → leave the representative **sample** in place
      *   (honestly labelled by the stream header); fail closed rather than blanking the surface.
+     * The routed state also lands on the OWNER ({@link #streamAdapterState} / {@link #streamEvents})
+     * so re-projections re-materialize the pane at current truth.
      * @protected
      */
     async loadActivity() {
@@ -216,9 +480,12 @@ class FleetCockpit extends Container {
             const {capability, events} = await bridge.fleetActivity() ?? {};
 
             if (capability?.state === 'wired') {
-                stream.set({adapterState: 'live', events: Array.isArray(events) ? events.slice().reverse() : []})
+                me.streamAdapterState = 'live';
+                me.streamEvents       = Array.isArray(events) ? events.slice().reverse() : [];
+                stream.set({adapterState: me.streamAdapterState, events: me.streamEvents})
             } else if (capability?.state === 'degraded') {
-                stream.adapterState = 'stale'
+                me.streamAdapterState = 'stale';
+                stream.adapterState   = 'stale'
             }
             // not-wired / absent bridge → keep the honestly-labelled 'sample' seed
         } catch (error) {
@@ -236,7 +503,7 @@ class FleetCockpit extends Container {
      *   state, never seven sample maintainers masquerading as live); every later one **reconciles**
      *   the Store — `record.set(row)` per known `agentId`, `store.add` for a joiner, `store.remove`
      *   for a resident absent from the snapshot (a `removeAgent` must never leave a ghost card).
-     *   Grid goes `live`.
+     *   Grid goes `live` (instance + the owner-held state re-projections read).
      * - absent bridge / no verb / a MALFORMED answer (`rows` not an Array) / a thrown source →
      *   keep the last-known roster; fail closed rather than blanking the fleet. A resolved call is
      *   mechanically distinguishable from a failed one — only failures preserve last-known state.
@@ -272,7 +539,8 @@ class FleetCockpit extends Container {
                 me.rosterWired = true
             }
 
-            grid.adapterState = 'live'
+            me.gridAdapterState = 'live';
+            grid.adapterState   = 'live'
         } catch (error) {
             // fail-closed: the last-known roster stays rather than blanking the fleet
         }
