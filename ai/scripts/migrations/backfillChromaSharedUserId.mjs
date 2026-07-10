@@ -40,7 +40,7 @@
  * @see ai/services/memory-core/SummaryService.mjs
  */
 
-import path from 'node:path';
+import path            from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {
     createDynamicTextEmbeddingFunction,
@@ -52,10 +52,12 @@ const __dirname  = path.dirname(__filename);
 
 // MUST match `SHARED_USER_ID` exported from `ai/mcp/server/shared/services/RequestContextService.mjs`.
 // Hardcoded (vs imported) because that module transitively pulls in the Neo class system, which
-// requires a bootstrap this standalone script intentionally avoids — keeping the migration runner
-// dependency-light and fast to invoke. The sync invariant (script literal == service export) is
-// asserted by the `SHARED_USER_ID is in sync with the migration runner script's hardcoded copy`
-// test in `test/playwright/unit/ai/mcp/server/shared/services/RequestContextService.spec.mjs`,
+// needs the runtime global before any class module evaluates — and THIS module's import scope
+// (plus the `--help` path) must stay runnable in a bare fresh process. A real migration run
+// bootstraps Neo lazily inside main() for config resolution only; module scope stays
+// bootstrap-free. The sync invariant (script literal == service export) is asserted by the
+// `SHARED_USER_ID is in sync with the migration runner script's hardcoded copy` test in
+// `test/playwright/unit/ai/mcp/server/shared/services/RequestContextService.spec.mjs`,
 // which reads this script as text + regex-extracts the constant + compares against the import.
 const SHARED_USER_ID = 'shared';
 
@@ -77,13 +79,16 @@ registerNeoChromaEmbeddingFunctions();
 
 function parseArgs(argv) {
     const args = {
-        apply       : false,
-        help        : false,
-        host        : process.env.NEO_CHROMA_HOST || process.env.NEO_KB_CHROMA_HOST || 'localhost',
-        port        : Number(process.env.NEO_CHROMA_PORT || process.env.NEO_KB_CHROMA_PORT || 8000),
-        memoryOnly  : false,
-        sessionOnly : false,
-        debugHidden : false
+        apply: false,
+        help : false,
+        // null = "resolve from the KB server config at run time": the config transitively pulls
+        // the Neo class system, so its import is LAZY inside main() behind the bootstrap — flag
+        // parsing (and `--help`) must stay runnable in a bare fresh process.
+        host       : null,
+        port       : null,
+        memoryOnly : false,
+        sessionOnly: false,
+        debugHidden: false
     };
     for (let i = 2; i < argv.length; i++) {
         const a = argv[i];
@@ -112,8 +117,8 @@ userId key, restoring tenant-aware read access to legacy data.
 Options:
   (no flags)         Dry-run mode — print the migration plan without committing
   --apply            Commit the migration (calls collection.update on all matched ids)
-  --host <host>      Override ChromaDB host (default: NEO_CHROMA_HOST, fallback localhost)
-  --port <port>      Override ChromaDB port (default: NEO_CHROMA_PORT, fallback 8000)
+  --host <host>      Override ChromaDB host (default: the KB server config's chroma endpoint; NEO_CHROMA_HOST binds through its leaf)
+  --port <port>      Override ChromaDB port (default: the KB server config's chroma endpoint; NEO_CHROMA_PORT binds through its leaf)
   --memory-only      Tag only the neo-agent-memory collection
   --session-only     Tag only the neo-agent-sessions collection
   --debug-hidden     Diagnostic dump of records to investigate parser shapes
@@ -176,12 +181,12 @@ function hasCoreSwarmParticipant(participatingAgents) {
  */
 async function findRecordsToTag(collection, {promoteCoreSwarmSummaries = false, debugHidden = false} = {}) {
     const tagRecords           = [];
-    let totalScanned           = 0;
-    let alreadyTagged          = 0;
-    let untagged               = 0;
-    let alreadyShared          = 0;
-    let coreSwarmParticipant   = 0;
-    let batchOffset            = 0;
+    let   totalScanned         = 0;
+    let   alreadyTagged        = 0;
+    let   untagged             = 0;
+    let   alreadyShared        = 0;
+    let   coreSwarmParticipant = 0;
+    let   batchOffset          = 0;
 
     while (true) {
         const batch = await collection.get({
@@ -198,10 +203,10 @@ async function findRecordsToTag(collection, {promoteCoreSwarmSummaries = false, 
 
             // Treat both missing key AND empty-string as untagged. Mirrors the
             // COALESCE(...) IS NULL OR = '' pattern in HealthService graph-side checker.
-            const userId = metadata && metadata.userId;
+            const userId           = metadata && metadata.userId;
             const normalizedUserId = normalizeUserId(userId);
-            const missingUserId = userId === undefined || userId === null || userId === '';
-            const hasCorePeer = promoteCoreSwarmSummaries && hasCoreSwarmParticipant(metadata?.participatingAgents);
+            const missingUserId    = userId === undefined || userId === null || userId === '';
+            const hasCorePeer      = promoteCoreSwarmSummaries && hasCoreSwarmParticipant(metadata?.participatingAgents);
 
             if (missingUserId) {
                 untagged++;
@@ -278,7 +283,7 @@ async function processCollection(client, collectionName, args) {
     const total = await collection.count();
     console.log(`  total records: ${total}`);
 
-    const promoteCoreSwarmSummaries = collectionName === COLLECTION_SESSION;
+    const promoteCoreSwarmSummaries                                                                              = collectionName === COLLECTION_SESSION;
     const {tagRecords: recordsToTag, totalScanned, alreadyTagged, untagged, alreadyShared, coreSwarmParticipant} = await findRecordsToTag(collection, {
         promoteCoreSwarmSummaries,
         debugHidden: args.debugHidden
@@ -314,6 +319,18 @@ async function main() {
         process.exit(0);
     }
 
+    // The KB server config OWNS the chroma endpoint (default + the NEO_CHROMA_* env bindings) —
+    // consumed at the use site. Its import chain evaluates Neo class modules, which need the
+    // runtime global first, so the bootstrap + config import are LAZY and sequenced here: the
+    // module import and the `--help` path above stay runnable in a bare fresh process.
+    if (args.host == null || args.port == null) {
+        await import('../../../src/Neo.mjs');
+        await import('../../../src/core/_export.mjs');
+        const {default: kbConfig} = await import('../../mcp/server/knowledge-base/config.mjs');
+        args.host ??= kbConfig.host;
+        args.port ??= kbConfig.port;
+    }
+
     const targetMemory  = !args.sessionOnly;
     const targetSession = !args.memoryOnly;
 
@@ -323,7 +340,7 @@ async function main() {
     console.log(`[backfillChromaSharedUserId] collections: ${[targetMemory && COLLECTION_MEMORY, targetSession && COLLECTION_SESSION].filter(Boolean).join(', ')}`);
 
     const {ChromaClient} = await import('chromadb');
-    const client = new ChromaClient({host: args.host, port: args.port, ssl: false});
+    const client         = new ChromaClient({host: args.host, port: args.port, ssl: false});
 
     // Quick reachability check
     try {
