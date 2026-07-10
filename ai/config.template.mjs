@@ -104,6 +104,14 @@ class Config extends ConfigProvider {
              */
             allowedHosts: leaf(null, 'NEO_MCP_ALLOWED_HOSTS', 'string'),
             /**
+             * Hostname (or full `protocol://host` URL) the SSE / HTTP transport advertises when
+             * `publicUrl` is unset. Bare hostnames infer their protocol by convention (http for
+             * localhost/127.0.0.1, https otherwise); values containing '://' are parsed verbatim.
+             * Bound to the platform-standard `HOST` env var. Consumed by TransportService.setup.
+             * @type {string}
+             */
+            mcpHttpHost: leaf('localhost', 'HOST', 'string'),
+            /**
              * Port the MCP server's HTTP/SSE transport listens on.
              * Sub-servers will typically override this with their own defaultPort.
              * @type {number}
