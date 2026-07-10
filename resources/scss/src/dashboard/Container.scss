@@ -27,17 +27,6 @@
 // through the token, by construction.
 // ─────────────────────────────────────────────────────────────────────────────────────
 
-// Splitter size ease: split children carry the transition permanently — a committed flex
-// change (programmatic / NL resizeSplit, drag-end snap) glides on its own. Live pointer
-// drags suppress via the wrapper class below so motion never fights the hand.
-.neo-dashboard-dock-motion {
-    transition: flex-grow var(--dock-transition-duration) var(--dock-transition-easing);
-}
-
-.neo-dashboard-dock-no-motion .neo-dashboard-dock-motion {
-    transition: none !important;
-}
-
 // Tab insert morphing: an entering tab header settles in — a self-completing CSS
 // animation fires on DOM insertion (no second toggle, no timer). Scoped to dock
 // surfaces; plain tab views outside the dashboard stay untouched.

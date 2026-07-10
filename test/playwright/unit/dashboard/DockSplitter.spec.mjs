@@ -232,38 +232,4 @@ test.describe('Neo.dashboard.DockSplitter', () => {
         expect(splitter.dockZoneDocument.nodes.root.sizes).toEqual([0.7, 0.3]);  // the local doc is left untouched
         expect(rejected).toHaveLength(1)                                         // the rejection event fired instead
     });
-
-    test('live-drag motion suppression: toggles the choreography suppression class on the parent, capability-optional', async () => {
-        let clsCalls = [],
-            parent   = {
-                ...createParent(),
-                addCls   : cls => clsCalls.push(['add', cls]),
-                removeCls: cls => clsCalls.push(['remove', cls])
-            };
-
-        splitter = Neo.create(DockSplitter, {
-            boundaryIndex   : 0,
-            dockZoneDocument: createDocument(),
-            id              : 'dock-splitter-motion',
-            orientation     : 'horizontal',
-            parentComponent : parent,
-            splitNodeId     : 'root'
-        });
-
-        splitter.dragZone = {dragEnd: () => {}};
-
-        // the drag lifecycle wraps the gesture in suppress/lift
-        splitter.setChildMotionSuppressed(true);
-        expect(clsCalls).toEqual([['add', 'neo-dashboard-dock-no-motion']]);
-
-        await splitter.captureDragStart({clientX: 100, clientY: 0});
-        splitter.onDragEnd({clientX: 0, clientY: 0});
-
-        expect(clsCalls[clsCalls.length - 1]).toEqual(['remove', 'neo-dashboard-dock-no-motion']);
-
-        // capability-optional by the duck-typed parent contract: a parent without cls
-        // manipulation is a safe no-op, never a throw
-        splitter.parentComponent = createParent();
-        expect(() => splitter.setChildMotionSuppressed(true)).not.toThrow()
-    });
 });

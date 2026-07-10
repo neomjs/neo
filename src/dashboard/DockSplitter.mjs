@@ -253,19 +253,6 @@ class DockSplitter extends Component {
     }
 
     /**
-     * Toggles the choreography suppression class on the owning split container: while a live
-     * pointer drag is in flight, the children's permanent flex transition (the projected
-     * `neo-dashboard-dock-motion` class) must not fight the hand. Capability-optional by the
-     * splitter's duck-typed parent contract — a parent without cls manipulation simply has no
-     * motion to suppress.
-     * @param {Boolean} suppressed
-     * @protected
-     */
-    setChildMotionSuppressed(suppressed) {
-        this.parent?.[suppressed ? 'addCls' : 'removeCls']?.('neo-dashboard-dock-no-motion')
-    }
-
-    /**
      * @returns {String}
      * @protected
      */
@@ -313,10 +300,6 @@ class DockSplitter extends Component {
             me.parent.disabled = false
         }
 
-        // the commit sizes equal the live pointer sizes, so no visual delta remains —
-        // lifting the suppression here never produces a post-drop glide
-        me.setChildMotionSuppressed(false);
-
         if (me.dragZone) {
             me.dragZone.dragEnd(data)
         }
@@ -343,17 +326,13 @@ class DockSplitter extends Component {
      * @param {Object} data
      */
     async onDragStart(data={}) {
-        let me          = this,
+        let me         = this,
             orientation = me.getValidatedOrientation(me.orientation),
             vertical    = orientation === 'vertical';
 
         if (me.parent) {
             me.parent.disabled = true
         }
-
-        // live drag must track the pointer 1:1 — suppress the children's flex transition
-        // (the choreography motion class) for the gesture's duration
-        me.setChildMotionSuppressed(true);
 
         if (!me.dragZone) {
             me.dragZone = Neo.create({
