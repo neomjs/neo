@@ -141,12 +141,11 @@ test.describe('Dock auto-hide reveal/pin journey (Neural Link)', () => {
             'no overlay instance may survive the post-pin re-projection').toEqual([]);
     });
 
-    // Pinned by #14911 (ticket-ref-ok: expected-fail pins must cite their tracking bug): the
-    // wholesale workspace refresh (removeAll + add) destroys the rail instances (asserted green
-    // above) but leaves their DOM in the main thread — a vdom reconciliation defect independent
-    // of the affordance components. Flips to green with #14911 (ticket-ref-ok: same pin).
+    // Regression guard: a wholesale workspace refresh (removeAll + add) must remove the retired
+    // affordance's DOM, not just its worker instances — a destroyed component's lingering
+    // in-flight update entry once wedged the ancestor's yielded refresh forever, orphaning the
+    // subtree in the main thread.
     test('post-pin DOM reconciliation removes the retired rail affordance (#14911)', async ({ page, neuralLink }) => {
-        test.fail(true, 'DOM cleanup of the destroyed rail lags worker truth — tracked in #14911');
 
         const { app, holderId } = await bootDockExample({ page, neuralLink });
 

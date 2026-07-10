@@ -6,6 +6,7 @@ import Logger           from '../util/Logger.mjs';
 import NeoArray         from '../util/Array.mjs';
 import Rectangle        from '../util/Rectangle.mjs';
 import Style            from '../util/Style.mjs';
+import VDomUpdate       from '../manager/VDomUpdate.mjs';
 import VDomUtil         from '../util/VDom.mjs';
 import VNodeUtil        from '../util/VNode.mjs';
 import {isDescriptor}   from '../core/ConfigSymbols.mjs';
@@ -1204,6 +1205,13 @@ class Component extends Abstract {
                 parent[silent ? '_vdom' : 'vdom'] = parentVdom
             }
         }
+
+        // A destroyed component must release its update-collision bookkeeping: a lingering
+        // in-flight registry entry makes every ancestor update yield to it forever (nothing can
+        // ever settle it — the reply targets a dead component), silently freezing the ancestor's
+        // delta stream; and ancestors already queued behind it must re-trigger their updates.
+        VDomUpdate.unregisterInFlightUpdate(me.id);
+        VDomUpdate.triggerPostUpdates(me.id);
 
         super.destroy();
 
