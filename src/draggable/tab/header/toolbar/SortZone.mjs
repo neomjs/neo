@@ -31,7 +31,8 @@ class SortZone extends BaseSortZone {
      * @param {Number} toIndex
      */
     moveTo(fromIndex, toIndex) {
-        this.owner.up().moveTo(fromIndex, toIndex)
+        // Optional-chained: a mid-gesture re-projection can detach or destroy the owner chain.
+        this.owner?.up?.()?.moveTo(fromIndex, toIndex)
     }
 
     /**
