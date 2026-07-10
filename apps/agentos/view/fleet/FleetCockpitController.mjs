@@ -33,13 +33,19 @@ class FleetCockpitController extends Controller {
      * resident drives its own honest round-trip (pending → settled / rejected), never an optimistic
      * fleet-wide success. Starting an already-running resident is the bridge's concern; the per-record
      * honest state reflects whatever actually happens.
+     *
+     * After the fan-out settles, the roster is re-polled ONCE (not per card) so every resident that
+     * actually started advances from its stale pre-start state to live runtime truth — see
+     * {@link #refreshRosterOnSettle}.
      */
     onStartFleet() {
-        this.getAgentCards().forEach(card => {
+        const results = this.getAgentCards().map(card => {
             const {record} = card;
 
-            handleFleetLifecycleIntent({action: 'start', agentId: record?.agentId ?? null}, record)
-        })
+            return handleFleetLifecycleIntent({action: 'start', agentId: record?.agentId ?? null}, record)
+        });
+
+        return this.refreshRosterOnSettle(Promise.all(results).then(settled => settled.some(result => result?.ok)))
     }
 
     /**
@@ -66,7 +72,27 @@ class FleetCockpitController extends Controller {
     onAgentLifecycleIntent(data) {
         const card = Neo.getComponent(data.source);
 
-        card && handleFleetLifecycleIntent(data, card.record)
+        return card && this.refreshRosterOnSettle(
+            handleFleetLifecycleIntent(data, card.record).then(result => Boolean(result?.ok))
+        )
+    }
+
+    /**
+     * @summary Re-poll the roster once a lifecycle intent has genuinely changed runtime state.
+     *
+     * `loadRoster` is the ONLY path that maps live runtime truth onto the roster records, and the
+     * cockpit calls it once at construct — so without this, a started resident's card stays at its
+     * stale pre-start state until a page reload (the observe half of define→start→observe). Here the
+     * cockpit re-polls exactly when a settle reports a real change (`ok`), and never on a rejected /
+     * timeout / unauthorized outcome (its honest reason render must stand — a refresh could clobber it
+     * with a stale snapshot). `loadRoster` is idempotent + fail-closed, so a redundant call is safe.
+     * @param {Promise<Boolean>} settledOk Resolves true when at least one intent changed runtime state.
+     * @protected
+     */
+    async refreshRosterOnSettle(settledOk) {
+        if (await settledOk) {
+            this.component.loadRoster()
+        }
     }
 }
 

@@ -500,3 +500,99 @@ test.describe('Fleet cockpit — whole-fleet control (B4, #14611)', () => {
         expect(writes.some(write => write.controlReason?.kind === 'unauthorized')).toBe(true)
     });
 });
+
+/**
+ * Covers the observe half of define→start→observe: after a lifecycle intent SETTLES, the
+ * cockpit re-polls the roster so runtime truth re-materializes — `loadRoster` otherwise only fires
+ * once at construct, leaving a started resident's card at its stale pre-start state until a reload.
+ * `loadRoster` is a spied collaborator here; that it correctly reconciles the Store is covered above.
+ */
+test.describe('Fleet cockpit — controller re-polls the roster on a settled lifecycle intent (#14978)', () => {
+    let FleetCockpitController;
+
+    const settlingBridge  = () => ({startAgent: async () => ({}), stopAgent: async () => ({}), restartAgent: async () => ({})});
+    const rejectingBridge = () => ({startAgent: async () => { throw new Error('harness offline') }});
+
+    const setBridge   = bridge => { (globalThis.AgentOS ??= {}).fleet = {registryBridge: bridge} };
+    const clearBridge = () => { delete globalThis.AgentOS?.fleet };
+
+    // a controller with a spied loadRoster — count the re-polls without a real Store/grid.
+    const makeController = calls => {
+        const controller = Object.create(FleetCockpitController.prototype);
+        controller.component = {loadRoster: () => { calls.push(1) }};
+        return controller
+    };
+
+    test.beforeAll(async () => {
+        FleetCockpitController = (await import('../../../../../../../apps/agentos/view/fleet/FleetCockpitController.mjs')).default
+    });
+
+    test.afterEach(() => clearBridge());
+
+    test('refreshRosterOnSettle re-polls only when the settle reports a real change', async () => {
+        const calls      = [],
+              controller = makeController(calls);
+
+        await controller.refreshRosterOnSettle(Promise.resolve(true));
+        expect(calls.length).toBe(1);   // a real change → one re-poll
+
+        await controller.refreshRosterOnSettle(Promise.resolve(false));
+        expect(calls.length).toBe(1)    // nothing changed (rejected/timeout) → no re-poll, honest reason stands
+    });
+
+    test('onAgentLifecycleIntent re-polls the roster once a start settles successfully', async () => {
+        setBridge(settlingBridge());
+
+        const calls      = [],
+              controller = makeController(calls),
+              card       = {record: {agentId: 'vega'}},
+              origGet    = Neo.getComponent;
+
+        Neo.getComponent = id => id === 'fm-card-x' ? card : null;
+
+        try {
+            await controller.onAgentLifecycleIntent({action: 'start', agentId: 'vega', source: 'fm-card-x'})
+        } finally {
+            Neo.getComponent = origGet
+        }
+
+        expect(calls.length).toBe(1)
+    });
+
+    test('a rejected intent does NOT re-poll — the honest failure render is preserved', async () => {
+        setBridge(rejectingBridge());
+
+        const calls      = [],
+              controller = makeController(calls),
+              card       = {record: {agentId: 'vega'}},
+              origGet    = Neo.getComponent;
+
+        Neo.getComponent = id => id === 'fm-card-x' ? card : null;
+
+        try {
+            await controller.onAgentLifecycleIntent({action: 'start', agentId: 'vega', source: 'fm-card-x'})
+        } finally {
+            Neo.getComponent = origGet
+        }
+
+        expect(calls.length).toBe(0)
+    });
+
+    test('onStartFleet fans out N starts but re-polls the roster EXACTLY ONCE after the batch settles', async () => {
+        setBridge(settlingBridge());
+
+        const calls      = [],
+              controller = makeController(calls),
+              cards      = [
+                  {ntype: 'fm-agent-card', record: {agentId: 'vega'}},
+                  {ntype: 'fm-agent-card', record: {agentId: 'ada'}},
+                  {ntype: 'fm-agent-card', record: {agentId: 'grace'}}
+              ];
+
+        controller.getReference = name => name === 'fleet-cards' ? {items: cards} : null;
+
+        await controller.onStartFleet();
+
+        expect(calls.length).toBe(1)   // three residents started, ONE roster re-poll — never N polls
+    })
+});

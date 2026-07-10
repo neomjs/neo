@@ -14,7 +14,11 @@ const STATE_TOKEN = {
     idle   : '--fm-state-idle',
     wedged : '--fm-state-wedged',
     limited: '--fm-state-limited',
-    off    : '--fm-state-off'
+    // transitional states — a lifecycle intent is in flight (`pendingAction`), so the resident is
+    // neither cleanly `off` nor confirmed `ok`; the dot must not assert a resolved state mid-request.
+    starting: '--fm-state-starting',
+    stopping: '--fm-state-stopping',
+    off     : '--fm-state-off'
 };
 
 /**
@@ -68,8 +72,9 @@ class StateDot extends Component {
          */
         baseCls: ['fm-state-dot'],
         /**
-         * The session state — one of `ok` · `idle` · `wedged` · `limited` · `off`. Encodes SESSION
-         * state, never identity. Unknown values render as `off`.
+         * The session state — one of `ok` · `idle` · `wedged` · `limited` · `starting` · `stopping` ·
+         * `off`. `starting` / `stopping` are the transitional states while a lifecycle intent is in
+         * flight. Encodes SESSION state, never identity. Unknown values render as `off`.
          * @member {String} state_='off'
          * @reactive
          */
