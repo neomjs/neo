@@ -1,10 +1,11 @@
-import ActivityStream         from './ActivityStream.mjs';
-import Button                 from '../../../../src/button/Base.mjs';
-import Container              from '../../../../src/container/Base.mjs';
-import FleetCockpitController from './FleetCockpitController.mjs';
-import FleetGrid              from './FleetGrid.mjs';
-import FleetRoster            from '../../store/FleetRoster.mjs';
-import StateProvider          from '../../../../src/state/Provider.mjs';
+import ActivityStream          from './ActivityStream.mjs';
+import Button                  from '../../../../src/button/Base.mjs';
+import Container               from '../../../../src/container/Base.mjs';
+import FleetCockpitController  from './FleetCockpitController.mjs';
+import FleetGrid               from './FleetGrid.mjs';
+import FleetRoster             from '../../store/FleetRoster.mjs';
+import StateProvider           from '../../../../src/state/Provider.mjs';
+import {mapFleetSessionHealth} from './sourceHealth.mjs';
 
 /**
  * Recent fleet activity for the fixture-fed stream — the live A2A / PR / lane adapters
@@ -281,21 +282,25 @@ class FleetCockpit extends Container {
      * @summary Map one assembler DTO row onto the FleetAgent record contract. The durable `id`
      * becomes `agentId`; identity display facts (`family` / `engineTag`) flow through (null =
      * unclassified / tagless, never guessed); the runtime `lifecycle.state` maps onto the cockpit's
-     * session-state vocabulary — `running` → `ok`, anything else (`stopped` / `not-wired` /
-     * unknown liveness) → `off`, honestly benched until the richer watchdog states land. `laneLine`
-     * is deliberately OMITTED (not nulled): the activity capability owns it, and a merge must never
-     * wipe what another producer wrote.
+     * session-state vocabulary only when `sources.runtime` is usable; missing / not-wired /
+     * malformed source truth forces `off`, so placeholder can never render as fact. The normalized
+     * three-source object remains on the record for the card markers. `laneLine` is deliberately
+     * OMITTED (not nulled): the activity capability owns it, and a merge must never wipe what another
+     * producer wrote.
      * @param {Object} row One cockpit DTO row (`fleetCockpitStatus` shape).
      * @returns {Object} FleetAgent record field values.
      */
     mapRosterRow(row) {
+        const sessionHealth = mapFleetSessionHealth(row.lifecycle, row.sources);
+
         return {
             agentId    : row.id,
             avatarUrl  : row.avatarUrl ?? null,
             displayName: row.displayName ?? null,
             engineTag  : row.engineTag ?? null,
             family     : row.family ?? null,
-            state      : row.lifecycle?.state === 'running' ? 'ok' : 'off'
+            sources    : sessionHealth.sources,
+            state      : sessionHealth.state
         }
     }
 

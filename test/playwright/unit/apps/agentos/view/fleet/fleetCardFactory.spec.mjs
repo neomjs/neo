@@ -56,6 +56,11 @@ test.describe('fleetCardFactory — cockpit DTO → dock card descriptors (#1479
         expect(card.blueprint.record.displayName).toBe('Vega')
         // the avatar auto-derived through the DTO (from the GitHub account) rides into the blueprint
         expect(card.blueprint.record.avatarUrl).toBe('https://github.com/neo-opus-vega.png?size=80')
+        expect(card.blueprint.record.sources.runtime).toEqual({
+            confidence: 'none',
+            source    : 'fleet:runtimeStatus',
+            state     : 'not-wired'
+        })
 
         // serializable end-to-end — a captured perspective can restore a real card from the blueprint
         expect(() => JSON.stringify(card.blueprint)).not.toThrow()
@@ -85,10 +90,22 @@ test.describe('fleetCardFactory — cockpit DTO → dock card descriptors (#1479
         expect(card.metadata.githubUsername).toBeNull()
     })
 
-    test('maps the session state through from the DTO lifecycle axis', () => {
-        const card = toAgentCardDescriptor({id: 'vega', lifecycle: {state: 'ok'}})
+    test('maps the session state through only when runtime source truth is usable', () => {
+        const sources   = {runtime: {source: 'fleet:runtimeStatus', state: 'wired', confidence: 'observed'}}
+        const lifecycle = {source: 'fleet:runtimeStatus', state: 'running', confidence: 'observed'}
+        const card      = toAgentCardDescriptor({id: 'vega', lifecycle, sources})
 
         expect(card.blueprint.record.state).toBe('ok')
+        expect(card.blueprint.record.sources.runtime).toEqual({source: 'fleet:runtimeStatus', state: 'wired', confidence: 'observed'})
+
+        const placeholder = toAgentCardDescriptor({id: 'vega', lifecycle: {state: 'running'}})
+        expect(placeholder.blueprint.record.state).toBe('off')
+
+        const contradictory = toAgentCardDescriptor({id: 'vega', sources})
+        expect(contradictory.blueprint.record).toMatchObject({
+            state  : 'off',
+            sources: {runtime: {source: 'fleet:runtimeStatus', state: 'not-wired', confidence: 'none'}}
+        })
     })
 
     test('createFleetCardDescriptors tolerates a rowless / empty DTO', () => {

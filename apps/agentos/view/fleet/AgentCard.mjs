@@ -1,14 +1,16 @@
-import AgentCardController from './AgentCardController.mjs';
-import Button              from '../../../../src/button/Base.mjs';
-import Container           from '../../../../src/container/Base.mjs';
-import FamilyRail          from './FamilyRail.mjs';
-import Image               from '../../../../src/component/Image.mjs';
-import StateDot            from './StateDot.mjs';
+import AgentCardController     from './AgentCardController.mjs';
+import Button                  from '../../../../src/button/Base.mjs';
+import Container               from '../../../../src/container/Base.mjs';
+import FamilyRail              from './FamilyRail.mjs';
+import Image                   from '../../../../src/component/Image.mjs';
+import SourceHealthMarker      from './SourceHealthMarker.mjs';
+import StateDot                from './StateDot.mjs';
+import {normalizeFleetSources} from './sourceHealth.mjs';
 
 /**
  * The resident card: the cockpit's atom. Composes the class-based fleet primitives (FamilyRail +
- * StateDot) with a profile avatar, name, engine tag, and current-lane line into the SSOT card
- * anatomy.
+ * StateDot + SourceHealthMarker) with a profile avatar, name, engine tag, and current-lane line
+ * into the SSOT card anatomy.
  *
  * **Data-driven from its `record`** — one {@link AgentOS.model.FleetAgent} record (a row of the
  * shared {@link AgentOS.store.FleetRoster} Store) is the card's single data surface; there is no
@@ -57,17 +59,20 @@ class AgentCard extends Container {
         /**
          * The card's data surface: an {@link AgentOS.model.FleetAgent} record (store-backed, live)
          * or a plain field bag with the same keys (dock-blueprint snapshot). `agentId` is the
-         * DURABLE identity; every other field is display state over it. `pendingAction` +
-         * `controlReason` are the B4/C2 control seam the C2 adapter writes via `record.set()`.
+         * DURABLE identity; every other field is display state over it. `sources` carries the
+         * roster / repository / runtime provenance that gates honest session rendering;
+         * `pendingAction` + `controlReason` are the B4/C2 control seam the C2 adapter writes via
+         * `record.set()`.
          * @member {Object|null} record_=null
          * @reactive
          */
         record_: null,
         /**
          * The card anatomy — family rail · avatar · body (name-row [state dot + name + engine tag] +
-         * current-lane line) · controls slot (start/stop/restart → a single `lifecycleIntent` event
-         * for the Lane C round-trip). Each child is a referenced, in-place-updated surface fed from
-         * the record by {@link #applyRecord}; foot meta is a sibling leaf.
+         * current-lane line + per-source health markers) · controls slot (start/stop/restart → a
+         * single `lifecycleIntent` event for the Lane C round-trip). Each child is a referenced,
+         * in-place-updated surface fed from the record by {@link #applyRecord}; foot meta is a sibling
+         * leaf.
          * @member {Object[]} items
          */
         items: [{
@@ -109,6 +114,28 @@ class AgentCard extends Container {
                 ntype    : 'component',
                 cls      : ['fm-card-lane'],
                 reference: 'card-lane'
+            }, {
+                ntype    : 'container',
+                cls      : ['fm-card-source-health'],
+                reference: 'source-health',
+                role     : 'group',
+                vdom     : {'aria-label': 'Source health'},
+                layout   : {ntype: 'hbox', align: 'center'},
+                // Runtime comes first: at constrained card widths the action-owning source must
+                // remain the first visible / wrapped fact.
+                items    : [{
+                    module   : SourceHealthMarker,
+                    reference: 'source-runtime',
+                    sourceKey: 'runtime'
+                }, {
+                    module   : SourceHealthMarker,
+                    reference: 'source-roster',
+                    sourceKey: 'roster'
+                }, {
+                    module   : SourceHealthMarker,
+                    reference: 'source-repo-status',
+                    sourceKey: 'repoStatus'
+                }]
             }]
         }, {
             ntype : 'container',
@@ -174,9 +201,10 @@ class AgentCard extends Container {
      * @summary Render the record onto the card's referenced children, in place.
      *
      * The one read-side consumer of the record contract: display fields land on the rail / avatar /
-     * name-row / lane surfaces, and the B4/C2 control seam renders the honest round-trip matrix —
-     * the card RENDERS what Lane-C writes, never fakes success, and each terminal kind renders
-     * DISTINCTLY:
+     * name-row / lane surfaces. Source facts are normalized once, update the three reusable markers,
+     * and gate the state dot so missing runtime evidence cannot render as live. The B4/C2 control
+     * seam renders the honest round-trip matrix — the card RENDERS what Lane-C writes, never fakes
+     * success, and each terminal kind renders DISTINCTLY:
      *   unauthorized → the reason shows AND the control cluster stays disabled — you cannot retry
      *                  into a closed door;
      *   timeout      → stale-pending: the outcome is UNKNOWN (the verb may still be running, we
@@ -195,14 +223,29 @@ class AgentCard extends Container {
         const
             controlReason = record.controlReason ?? null,
             pendingAction = record.pendingAction ?? null,
-            state         = record.state ?? 'off',
-            disabled      = Boolean(pendingAction) || controlReason?.kind === 'unauthorized';
+            sources       = normalizeFleetSources(record.sources),
+            runtime       = sources.runtime,
+            sourceUsable  = runtime.state === 'wired',
+            recordState   = record.state ?? 'off',
+            displayState  = sourceUsable ? recordState : 'off',
+            sourceReason  = sourceUsable
+                ? null
+                : runtime.state === 'missing'
+                    ? 'MISSING'
+                    : 'NOT WIRED',
+            disabled      = Boolean(pendingAction) || Boolean(sourceReason) || controlReason?.kind === 'unauthorized';
 
         me.getReference('family-rail').family = record.family ?? null;
-        me.getReference('state-dot').state    = state;
-        me.getReference('card-name').text     = record.displayName ?? '';
-        me.getReference('card-engine').text   = record.engineTag ?? '';
-        me.getReference('card-lane').text     = record.laneLine ?? '';
+        me.getReference('state-dot').set({
+            live : displayState === 'ok' && runtime.confidence === 'observed',
+            state: displayState
+        });
+        me.getReference('card-name').text          = record.displayName ?? '';
+        me.getReference('card-engine').text        = record.engineTag ?? '';
+        me.getReference('card-lane').text          = record.laneLine ?? '';
+        me.getReference('source-roster').health    = sources.roster;
+        me.getReference('source-repo-status').health = sources.repoStatus;
+        me.getReference('source-runtime').health   = runtime;
 
         me.getReference('card-avatar').set({
             alt: record.displayName ?? '',
@@ -211,22 +254,22 @@ class AgentCard extends Container {
 
         me.getReference('control-toggle').set({
             disabled,
-            iconCls: state === 'off' ? 'fa-solid fa-play' : 'fa-solid fa-stop'
+            iconCls: recordState === 'off' ? 'fa-solid fa-play' : 'fa-solid fa-stop'
         });
 
         me.getReference('control-restart').set({
             disabled,
-            hidden: state === 'off'
+            hidden: recordState === 'off'
         });
 
         me.getReference('control-status').set({
-            hidden: !pendingAction && !controlReason,
+            hidden: !pendingAction && !controlReason && !sourceReason,
             // pending takes visual priority over a prior reason, so a new attempt never shows a
             // stale rejection (complements C2 clearing controlReason on a new accepted intent)
             text  : pendingAction
                 ? `${pendingAction}…`
                 : !controlReason
-                    ? ''
+                    ? sourceReason ?? ''
                     : controlReason.kind === 'timeout'
                         ? `${controlReason.action}… stale — no response`
                         : `⚠ ${controlReason.kind}: ${controlReason.reason}`
