@@ -114,6 +114,14 @@ class FleetCockpit extends Container {
     }
 
     /**
+     * The last authoritative (bridge-sourced) roster snapshot, kept so a slower store load — the
+     * JSON sample seed racing {@link #loadRoster} — can never overwrite live truth
+     * (see {@link #onRosterStoreLoad}).
+     * @member {Object[]|null} lastLiveRows=null
+     * @protected
+     */
+    lastLiveRows = null
+    /**
      * Set once {@link #loadRoster} has replaced the sample seed with a wired roster payload —
      * subsequent wired payloads MERGE onto the existing records (runtime status refresh) instead of
      * re-seeding the store.
@@ -123,13 +131,46 @@ class FleetCockpit extends Container {
     rosterWired = false
 
     /**
-     * @summary On construct, bind the fleet surfaces to their live feeds.
+     * @summary On construct, bind the fleet surfaces to their live feeds, and guard the roster
+     * store's async seed load against clobbering a faster live source.
      * @param {...*} args
      */
     onConstructed(...args) {
         super.onConstructed(...args);
-        this.loadActivity();
-        this.loadRoster()
+
+        let me = this;
+
+        me.getReference('fleet-grid')?.store?.on({load: me.onRosterStoreLoad, scope: me});
+
+        me.loadActivity();
+        me.loadRoster()
+    }
+
+    /**
+     * @summary Source-precedence guard: the provider-hosted roster store `autoLoad`s the JSON
+     * sample seed while {@link #loadRoster} races the bridge. When the bridge wins, the sample's
+     * later `load` would silently replace live rows (the grid still claiming `live`). Any store
+     * load landing AFTER live truth re-applies the last authoritative snapshot — idempotent,
+     * fail-closed toward live. A load before live truth is the normal seed path and passes through.
+     * @protected
+     */
+    onRosterStoreLoad() {
+        let me = this;
+
+        if (me.rosterWired && me.lastLiveRows) {
+            me.reconcileRoster(me.getReference('fleet-grid').store, me.lastLiveRows)
+        }
+    }
+
+    /**
+     * @summary Detach the roster-store load guard; the provider tears the owned store itself down.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        let me = this;
+
+        me.getReference('fleet-grid')?.store?.un({load: me.onRosterStoreLoad, scope: me});
+        super.destroy(...args)
     }
 
     /**
@@ -202,6 +243,8 @@ class FleetCockpit extends Container {
             }
 
             const mapped = rows.filter(row => row?.id).map(row => me.mapRosterRow(row));
+
+            me.lastLiveRows = mapped;
 
             if (me.rosterWired) {
                 me.reconcileRoster(grid.store, mapped)

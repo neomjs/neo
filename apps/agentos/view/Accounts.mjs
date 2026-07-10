@@ -31,8 +31,10 @@ class Accounts extends DashboardPanel {
         className: 'AgentOS.view.Accounts',
         /**
          * The shared roster store, bound from the Viewport provider's `stores.agentDefinitions`
-         * (see the `bind` config) — resolved to the INSTANCE at construct, so a pop-out reparent
-         * keeps the reference. Never a module-global singleton.
+         * (see the `bind` config) — declarative and resolved once at construct. Pop-outs swap the
+         * render target only, never the owning component/provider tree (components stay one live
+         * object in the shared App-Worker heap), so the bound instance naturally stays valid.
+         * Never a module-global singleton.
          * @member {Neo.data.Store|null} agentDefinitionsStore_=null
          * @reactive
          */

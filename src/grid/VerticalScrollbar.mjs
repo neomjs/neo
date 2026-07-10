@@ -123,15 +123,17 @@ class VerticalScrollbar extends Component {
      * @protected
      */
     afterSetStore(value, oldValue) {
-        if (value) {
-            let me = this;
-
-            value.on({
+        let me        = this,
+            listeners = {
                 filter: me.updateScrollHeight,
                 load  : me.updateScrollHeight,
                 scope : me
-            })
-        }
+            };
+
+        // on() and un() both consume (delete) keys like `scope` from the passed object,
+        // so each call needs its own copy — a shared object breaks the second call silently.
+        value   ?.on({...listeners});
+        oldValue?.un({...listeners})
     }
 
     /**

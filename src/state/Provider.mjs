@@ -184,6 +184,14 @@ class Provider extends Base {
      */
     #formulaEffects = new Map()
     /**
+     * Tracks store instances THIS provider created from `stores` descriptors (class / config
+     * shapes). Passed-in instances are never added: the provider shares those, it does not own
+     * them. Owned instances get destroyed with the provider.
+     * @member {Set} #ownedStores=new Set()
+     * @private
+     */
+    #ownedStores = new Set()
+    /**
      * Tracks provider-owned Record field bindings by StateProvider data path.
      * @member {Map} #recordDataBindings=new Map()
      * @private
@@ -290,6 +298,8 @@ class Provider extends Base {
             });
 
             Object.entries(value).forEach(([key, storeValue]) => {
+                const providerCreates = Neo.typeOf(storeValue) !== 'NeoInstance';
+
                 storeValue = me.normalizeProviderStoreConfig(key, storeValue, storeIds);
 
                 // support mapping string based listeners into the stateProvider instance
@@ -297,7 +307,9 @@ class Provider extends Base {
                     me.bindCallback(listener, listenerKey, me, storeValue.listeners)
                 })
 
-                value[key] = ClassSystemUtil.beforeSetInstance(storeValue)
+                value[key] = ClassSystemUtil.beforeSetInstance(storeValue);
+
+                providerCreates && me.#ownedStores.add(value[key])
             })
         }
 
@@ -452,7 +464,9 @@ class Provider extends Base {
     }
 
     /**
-     * Destroys the state provider and cleans up all associated effects.
+     * Destroys the state provider and cleans up all associated effects, plus every store instance
+     * the provider itself created from a `stores` descriptor (passed-in instances stay alive —
+     * shared, not owned).
      */
     destroy() {
         const me = this;
@@ -464,6 +478,9 @@ class Provider extends Base {
 
         me.#bindingEffects.forEach(effect => effect.destroy());
         me.#bindingEffects.clear();
+
+        me.#ownedStores.forEach(store => store.destroy());
+        me.#ownedStores.clear();
 
         super.destroy()
     }

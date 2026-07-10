@@ -300,6 +300,67 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         expect(grid.store.cleared).toBe(0);
         expect(grid.adapterState).toBe('live')
     });
+
+    // Source precedence: the provider-hosted store autoLoads the JSON sample while loadRoster races
+    // the bridge. These run against a REAL isolated FleetRoster instance so the reconciliation is
+    // exercised end-to-end, with onRosterStoreLoad standing in for the store's late `load` event.
+    const makeLiveCockpit = store => {
+        const grid = {adapterState: 'sample', store};
+
+        return {
+            getReference     : reference => reference === 'fleet-grid' ? grid : null,
+            grid,
+            lastLiveRows     : null,
+            mapRosterRow     : FleetCockpit.prototype.mapRosterRow,
+            onRosterStoreLoad: FleetCockpit.prototype.onRosterStoreLoad,
+            reconcileRoster  : FleetCockpit.prototype.reconcileRoster,
+            rosterWired      : false
+        }
+    };
+
+    test('a sample seed landing AFTER live truth cannot overwrite the roster (fail-closed toward live)', async () => {
+        const store   = Neo.create(FleetRoster, {data: []}),
+              cockpit = makeLiveCockpit(store);
+
+        globalThis.AgentOS = {fleet: {registryBridge: {fleetRoster: async () => ({rows: [
+            {id: 'ada',  family: 'claude', lifecycle: {state: 'running'}},
+            {id: 'vega', family: 'claude', lifecycle: {state: 'stopped'}}
+        ]})}}};
+
+        // the bridge wins the race: live truth lands first
+        await FleetCockpit.prototype.loadRoster.call(cockpit);
+
+        expect(cockpit.rosterWired).toBe(true);
+        expect(cockpit.lastLiveRows.map(row => row.agentId)).toEqual(['ada', 'vega']);
+        expect(store.getCount()).toBe(2);
+
+        // now the slower JSON seed lands: the url pipeline replaces the items and fires `load`
+        store.clear();
+        store.add([{agentId: 'sample-1'}, {agentId: 'sample-2'}, {agentId: 'sample-3'}]);
+        cockpit.onRosterStoreLoad();
+
+        // live truth is re-asserted: sample rows evicted, live residents restored
+        expect(store.getCount()).toBe(2);
+        expect(store.get('ada')).toBeTruthy();
+        expect(store.get('vega')).toBeTruthy();
+        expect(store.get('sample-1')).toBeFalsy();
+
+        store.destroy()
+    });
+
+    test('a seed load BEFORE live truth passes through untouched (the normal boot path)', () => {
+        const store   = Neo.create(FleetRoster, {data: []}),
+              cockpit = makeLiveCockpit(store);
+
+        // the seed lands while nothing live exists yet
+        store.add([{agentId: 'sample-1'}, {agentId: 'sample-2'}]);
+        cockpit.onRosterStoreLoad();
+
+        expect(store.getCount()).toBe(2);
+        expect(store.get('sample-1')).toBeTruthy();
+
+        store.destroy()
+    });
 });
 
 test.describe('Fleet cockpit — whole-fleet control (B4, #14611)', () => {

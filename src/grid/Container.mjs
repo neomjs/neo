@@ -542,8 +542,10 @@ class GridContainer extends BaseContainer {
 
         me.isTreeGrid = value?.isTreeStore === true;
 
-        value   ?.on(listeners);
-        oldValue?.un(listeners);
+        // on() and un() both consume (delete) keys like `scope` from the passed object,
+        // so each call needs its own copy — a shared object breaks the second call silently.
+        value   ?.on({...listeners});
+        oldValue?.un({...listeners});
 
         // in case we dynamically change the store (incl. a state.Provider store binding resolving
         // after construction), grid.Body + the scrollbar need to get the new reference

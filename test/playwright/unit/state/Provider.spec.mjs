@@ -19,6 +19,7 @@ import Component       from '../../../../src/component/Base.mjs';
 import InstanceManager from '../../../../src/manager/Instance.mjs';
 import StateProvider   from '../../../../src/state/Provider.mjs';
 import Store           from '../../../../src/data/Store.mjs';
+import StoreManager    from '../../../../src/manager/Store.mjs';
 
 // Mock Component for testing purposes
 class MockComponent extends Component {
@@ -55,7 +56,7 @@ test.describe('Neo.state.Provider (Node.js)', () => {
 
     test('Provider should update data and trigger config changes', () => {
         const component = Neo.create(MockComponent, {stateProvider: {data: {counter: 0}}});
-        const provider = component.getStateProvider();
+        const provider  = component.getStateProvider();
 
         let effectRunCount = 0;
         provider.createBinding(component.id, 'testConfig', data => {
@@ -82,7 +83,7 @@ test.describe('Neo.state.Provider (Node.js)', () => {
             stateProvider: {data: {appTitle: 'My App', user: {firstName: 'Parent'}}}
         });
         const childComponent = Neo.create(MockComponent, {
-            stateProvider: {data: {user: {lastName: 'Child'}}},
+            stateProvider  : {data: {user: {lastName: 'Child'}}},
             parentComponent: parentComponent
         });
 
@@ -113,10 +114,10 @@ test.describe('Neo.state.Provider (Node.js)', () => {
 
     test('Provider should remove bindings on component destroy', () => {
         const component = Neo.create(MockComponent, {stateProvider: {data: {test: 1}}});
-        const provider = component.getStateProvider();
+        const provider  = component.getStateProvider();
 
-        let effectRunCount = 0;
-        const bindingEffect = provider.createBinding(component.id, 'testConfig', data => {
+        let   effectRunCount = 0;
+        const bindingEffect  = provider.createBinding(component.id, 'testConfig', data => {
             effectRunCount++;
             return data.test;
         });
@@ -133,10 +134,10 @@ test.describe('Neo.state.Provider (Node.js)', () => {
 
     test('Provider should remove bindings on provider destroy', () => {
         const component = Neo.create(MockComponent, {stateProvider: {data: {test: 1}}});
-        const provider = component.getStateProvider();
+        const provider  = component.getStateProvider();
 
-        let effectRunCount = 0;
-        const bindingEffect = provider.createBinding(component.id, 'testConfig', data => {
+        let   effectRunCount = 0;
+        const bindingEffect  = provider.createBinding(component.id, 'testConfig', data => {
             effectRunCount++;
             return data.test;
         });
@@ -155,7 +156,7 @@ test.describe('Neo.state.Provider (Node.js)', () => {
 
     test('setData should create new data properties if they do not exist', () => {
         const component = Neo.create(MockComponent, {stateProvider: {data: {}}});
-        const provider = component.getStateProvider();
+        const provider  = component.getStateProvider();
 
         let effectRunCount = 0;
         provider.createBinding(component.id, 'testConfig', data => {
@@ -388,7 +389,7 @@ test.describe('Neo.state.Provider (Node.js)', () => {
     test('Inline provider stores should get predictable ids and resolve sibling sourceId keys', () => {
         const component = Neo.create(MockComponent, {
             stateProvider: {
-                id: 'state-provider-sourceid-test',
+                id    : 'state-provider-sourceid-test',
                 stores: {
                     users: {
                         module: Store,
@@ -436,7 +437,7 @@ test.describe('Neo.state.Provider (Node.js)', () => {
 
         const component = Neo.create(MockComponent, {
             stateProvider: {
-                id: 'state-provider-explicit-sourceid-test',
+                id    : 'state-provider-explicit-sourceid-test',
                 stores: {
                     explicitUsers: {
                         id    : 'provider-sourceid-explicit-users',
@@ -483,9 +484,9 @@ test.describe('Neo.state.Provider (Node.js)', () => {
         class ClassLevelProvider extends StateProvider {
             static config = {
                 className: 'ClassLevelProvider',
-                data:  {
-                    a: 1,
-                    b: { c: 2, d: 3 },
+                data     : {
+                    a  : 1,
+                    b  : { c: 2, d: 3 },
                     arr: [1, 2]
                 }
             }
@@ -513,7 +514,7 @@ test.describe('Neo.state.Provider (Node.js)', () => {
         class GrandparentProvider extends StateProvider {
             static config = {
                 className: 'GrandparentProvider',
-                data: { app: { name: 'My App', version: '1.0.0' }, user: { role: 'guest', settings: { theme: 'dark' } } }
+                data     : { app: { name: 'My App', version: '1.0.0' }, user: { role: 'guest', settings: { theme: 'dark' } } }
             }
         }
         GrandparentProvider = Neo.setupClass(GrandparentProvider);
@@ -521,7 +522,7 @@ test.describe('Neo.state.Provider (Node.js)', () => {
         class ParentProvider extends GrandparentProvider {
             static config = {
                 className: 'ParentProvider',
-                data: { app: { version: '1.1.0', author: 'Neo' }, user: { id: 123, settings: { notifications: true } }, newParentProp: 'parentValue' }
+                data     : { app: { version: '1.1.0', author: 'Neo' }, user: { id: 123, settings: { notifications: true } }, newParentProp: 'parentValue' }
             }
         }
         ParentProvider = Neo.setupClass(ParentProvider);
@@ -529,33 +530,33 @@ test.describe('Neo.state.Provider (Node.js)', () => {
         class ChildProvider extends ParentProvider {
             static config = {
                 className: 'ChildProvider',
-                data: { user: { role: 'admin', preferences: { language: 'en' } }, newChildProp: 'childValue' }
+                data     : { user: { role: 'admin', preferences: { language: 'en' } }, newChildProp: 'childValue' }
             }
         }
         ChildProvider = Neo.setupClass(ChildProvider);
 
         const provider1 = Neo.create(ChildProvider);
         expect(proxyToObject(provider1.data)).toEqual({
-            app: { name: 'My App', version: '1.1.0', author: 'Neo' },
-            user: { role: 'admin', id: 123, settings: { theme: 'dark', notifications: true }, preferences: { language: 'en' } },
+            app          : { name: 'My App', version: '1.1.0', author: 'Neo' },
+            user         : { role: 'admin', id: 123, settings: { theme: 'dark', notifications: true }, preferences: { language: 'en' } },
             newParentProp: 'parentValue',
-            newChildProp: 'childValue'
+            newChildProp : 'childValue'
         });
         provider1.destroy();
 
         const provider2 = Neo.create(ChildProvider, {
             data: {
-                app: { version: '2.0.0', status: 'beta' },
-                user: { id: 456, settings: { theme: 'light', notifications: false } },
-                newChildProp: 'overriddenChildValue',
+                app             : { version: '2.0.0', status: 'beta' },
+                user            : { id: 456, settings: { theme: 'light', notifications: false } },
+                newChildProp    : 'overriddenChildValue',
                 instanceOnlyProp: 'instanceValue'
             }
         });
         expect(proxyToObject(provider2.data)).toEqual({
-            app: { name: 'My App', version: '2.0.0', author: 'Neo', status: 'beta' },
-            user: { role: 'admin', id: 456, settings: { theme: 'light', notifications: false }, preferences: { language: 'en' } },
-            newParentProp: 'parentValue',
-            newChildProp: 'overriddenChildValue',
+            app             : { name: 'My App', version: '2.0.0', author: 'Neo', status: 'beta' },
+            user            : { role: 'admin', id: 456, settings: { theme: 'light', notifications: false }, preferences: { language: 'en' } },
+            newParentProp   : 'parentValue',
+            newChildProp    : 'overriddenChildValue',
             instanceOnlyProp: 'instanceValue'
         });
         provider2.destroy();
@@ -571,7 +572,7 @@ test.describe('Neo.state.Provider (Node.js)', () => {
             parentComponent,
 
             stateProvider: {
-                data: { itemQuantity: 2 },
+                data    : { itemQuantity: 2 },
                 formulas: {
                     totalCost: (data) => (data.basePrice * data.itemQuantity) * (1 + data.taxRate)
                 }
@@ -599,11 +600,11 @@ test.describe('Neo.state.Provider (Node.js)', () => {
     test('Component bind_ config should deep merge class and instance level bindings', () => {
         class BoundComponent extends Component {
             static config = {
-                className: 'BoundComponent',
+                className   : 'BoundComponent',
                 appName,
                 testConfig1_: null,
                 testConfig2_: null,
-                bind: {
+                bind        : {
                     testConfig1: data => data.val1
                 }
             }
@@ -625,5 +626,66 @@ test.describe('Neo.state.Provider (Node.js)', () => {
         expect(component.testConfig2).toBe('B');
 
         component.destroy();
+    });
+});
+
+// Provider-owned lifetime: a store the provider CREATES from a `stores` descriptor dies with the
+// provider (and with the owning component); an externally created instance passed into `stores`
+// is shared, not owned — it must survive.
+test.describe('Neo.state.Provider hosted-store lifecycle', () => {
+
+    test('a descriptor-created store is destroyed with its provider and deregistered', () => {
+        const provider = Neo.create(StateProvider, {
+            stores: {roster: {module: Store, keyProperty: 'id'}}
+        });
+
+        const store = provider.getStore('roster');
+
+        expect(store.isDestroyed).toBeFalsy();
+        expect(StoreManager.get(store.id)).toBe(store);
+
+        const storeId = store.id;
+
+        provider.destroy();
+
+        expect(store.isDestroyed).toBe(true);
+        expect(StoreManager.get(storeId)).toBeFalsy();
+    });
+
+    test('a passed-in store instance survives provider destroy (shared, not owned)', () => {
+        const external = Neo.create(Store, {keyProperty: 'id'});
+        const provider = Neo.create(StateProvider, {
+            stores: {shared: external}
+        });
+
+        expect(provider.getStore('shared')).toBe(external);
+
+        provider.destroy();
+
+        expect(external.isDestroyed).toBeFalsy();
+        expect(StoreManager.get(external.id)).toBe(external);
+
+        external.destroy();
+    });
+
+    test('component destroy tears down its provider AND the provider-owned stores (the full chain)', () => {
+        const component = Neo.create(MockComponent, {
+            stateProvider: {
+                module: StateProvider,
+                stores: {roster: {module: Store, keyProperty: 'id'}}
+            }
+        });
+
+        const provider = component.getStateProvider();
+        const store    = provider.getStore('roster');
+        const storeId  = store.id;
+
+        expect(store.isDestroyed).toBeFalsy();
+
+        component.destroy();
+
+        expect(provider.isDestroyed).toBe(true);
+        expect(store.isDestroyed).toBe(true);
+        expect(StoreManager.get(storeId)).toBeFalsy();
     });
 });

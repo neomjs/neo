@@ -80,8 +80,8 @@ class FleetGrid extends Container {
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
          * The bound roster Store — every card and the health counts derive from its records.
-         * Pass the shared {@link AgentOS.store.FleetRoster} singleton (or an isolated Store of
-         * {@link AgentOS.model.FleetAgent} records in tests).
+         * Pass the provider-hosted {@link AgentOS.store.FleetRoster} instance (or an isolated
+         * Store of {@link AgentOS.model.FleetAgent} records in tests).
          * @member {Neo.data.Store|null} store_=null
          * @reactive
          */
