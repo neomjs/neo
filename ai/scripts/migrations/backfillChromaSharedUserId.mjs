@@ -42,7 +42,6 @@
 
 import path            from 'node:path';
 import {fileURLToPath} from 'node:url';
-import kbConfig        from '../../mcp/server/knowledge-base/config.mjs';
 import {
     createDynamicTextEmbeddingFunction,
     registerNeoChromaEmbeddingFunctions
@@ -53,10 +52,12 @@ const __dirname  = path.dirname(__filename);
 
 // MUST match `SHARED_USER_ID` exported from `ai/mcp/server/shared/services/RequestContextService.mjs`.
 // Hardcoded (vs imported) because that module transitively pulls in the Neo class system, which
-// requires a bootstrap this standalone script intentionally avoids — keeping the migration runner
-// dependency-light and fast to invoke. The sync invariant (script literal == service export) is
-// asserted by the `SHARED_USER_ID is in sync with the migration runner script's hardcoded copy`
-// test in `test/playwright/unit/ai/mcp/server/shared/services/RequestContextService.spec.mjs`,
+// needs the runtime global before any class module evaluates — and THIS module's import scope
+// (plus the `--help` path) must stay runnable in a bare fresh process. A real migration run
+// bootstraps Neo lazily inside main() for config resolution only; module scope stays
+// bootstrap-free. The sync invariant (script literal == service export) is asserted by the
+// `SHARED_USER_ID is in sync with the migration runner script's hardcoded copy` test in
+// `test/playwright/unit/ai/mcp/server/shared/services/RequestContextService.spec.mjs`,
 // which reads this script as text + regex-extracts the constant + compares against the import.
 const SHARED_USER_ID = 'shared';
 
@@ -80,10 +81,11 @@ function parseArgs(argv) {
     const args = {
         apply: false,
         help : false,
-        // The KB server config OWNS the chroma endpoint (default + the NEO_CHROMA_* env
-        // bindings) — consumed at the use site, never re-derived from env with a shadow default.
-        host       : kbConfig.host,
-        port       : kbConfig.port,
+        // null = "resolve from the KB server config at run time": the config transitively pulls
+        // the Neo class system, so its import is LAZY inside main() behind the bootstrap — flag
+        // parsing (and `--help`) must stay runnable in a bare fresh process.
+        host       : null,
+        port       : null,
         memoryOnly : false,
         sessionOnly: false,
         debugHidden: false
@@ -115,8 +117,8 @@ userId key, restoring tenant-aware read access to legacy data.
 Options:
   (no flags)         Dry-run mode — print the migration plan without committing
   --apply            Commit the migration (calls collection.update on all matched ids)
-  --host <host>      Override ChromaDB host (default: NEO_CHROMA_HOST, fallback localhost)
-  --port <port>      Override ChromaDB port (default: NEO_CHROMA_PORT, fallback 8000)
+  --host <host>      Override ChromaDB host (default: the KB server config's chroma endpoint; NEO_CHROMA_HOST binds through its leaf)
+  --port <port>      Override ChromaDB port (default: the KB server config's chroma endpoint; NEO_CHROMA_PORT binds through its leaf)
   --memory-only      Tag only the neo-agent-memory collection
   --session-only     Tag only the neo-agent-sessions collection
   --debug-hidden     Diagnostic dump of records to investigate parser shapes
@@ -315,6 +317,18 @@ async function main() {
     if (args.help) {
         printUsage();
         process.exit(0);
+    }
+
+    // The KB server config OWNS the chroma endpoint (default + the NEO_CHROMA_* env bindings) —
+    // consumed at the use site. Its import chain evaluates Neo class modules, which need the
+    // runtime global first, so the bootstrap + config import are LAZY and sequenced here: the
+    // module import and the `--help` path above stay runnable in a bare fresh process.
+    if (args.host == null || args.port == null) {
+        await import('../../../src/Neo.mjs');
+        await import('../../../src/core/_export.mjs');
+        const {default: kbConfig} = await import('../../mcp/server/knowledge-base/config.mjs');
+        args.host ??= kbConfig.host;
+        args.port ??= kbConfig.port;
     }
 
     const targetMemory  = !args.sessionOnly;
