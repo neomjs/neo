@@ -66,10 +66,24 @@ class Config extends ConfigProvider {
                 instanceRoot   : leaf(path.resolve(neoRootDir, '.neo-ai-data/fleet/instances'), 'NEO_FLEET_INSTANCE_ROOT', 'string'),
                 harnessBinaries: {
                     /**
+                     * The antigravity harness binary — the app-bundle MAIN binary (a directly
+                     * spawnable, supervisable child), never an `open -n` launcher. macOS default;
+                     * other hosts pin this leaf.
+                     * @type {string}
+                     */
+                    antigravity: leaf('/Applications/Antigravity.app/Contents/MacOS/Antigravity', 'NEO_FLEET_ANTIGRAVITY_BIN', 'string'),
+                    /**
                      * The claude-code harness binary — PATH-resolved by default.
                      * @type {string}
                      */
                     claudeCode: leaf('claude', 'NEO_FLEET_CLAUDE_CODE_BIN', 'string'),
+                    /**
+                     * The claude-desktop harness binary — the app-bundle MAIN binary (a directly
+                     * spawnable, supervisable child), never an `open -n` launcher. macOS default;
+                     * other hosts pin this leaf.
+                     * @type {string}
+                     */
+                    claudeDesktop: leaf('/Applications/Claude.app/Contents/MacOS/Claude', 'NEO_FLEET_CLAUDE_DESKTOP_BIN', 'string'),
                     /**
                      * The codex harness binary. The default is the ChatGPT-app-bundled CLI — an
                      * alpha channel that self-updates with its app; production fleets pin this
