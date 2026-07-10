@@ -9,13 +9,21 @@ contextBridge.exposeInMainWorld('neoShell', {
     shellVersion: process.versions.electron
 });
 
-// Smoke popup trigger: a renderer-initiated window.open (the Neo pattern, hitting the shell's
-// setWindowOpenHandler) — driven from main over IPC because executeJavaScript wedges here.
-ipcRenderer.on('shell-open-popup', (event, url) => {
-    console.log('SHELL_POPUP_TRIGGER received');
-    const popup = window.open(url, '_blank', 'width=900,height=700');
-    console.log('SHELL_POPUP_TRIGGER window.open returned ' + String(!!popup))
-});
+/**
+ * Reports renderer failures over a private, sender-validated diagnostic channel.
+ * @summary Makes the smoke verdict fail on uncaught errors and unhandled promise rejections.
+ * @param {String} type
+ * @param {*} error
+ */
+function reportRuntimeError(type, error) {
+    ipcRenderer.send('shell-runtime-error', {
+        message: String(error?.message ?? error?.reason ?? error ?? 'unknown renderer error'),
+        type
+    })
+}
+
+window.addEventListener('error', event => reportRuntimeError('error', event.error ?? event.message));
+window.addEventListener('unhandledrejection', event => reportRuntimeError('unhandledrejection', event.reason));
 
 // Boot reporter (smoke + diagnostics): polls the DOM (the preload world shares the DOM, never
 // page JS state) and reports ONCE when the harness app has mounted. Note for the next author:
