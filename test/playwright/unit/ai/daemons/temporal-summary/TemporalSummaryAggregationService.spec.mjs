@@ -54,7 +54,7 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         TemporalSummaryAggregationService.pollIntervalMs = null;
 
         // Drop instance-method seam overrides so the real prototype methods resurface for the next test.
-        for (const seam of ['scheduleNext', 'acquireLease', 'releaseLease', 'collectPendingWindows', 'persistTemporalRecord', 'runCycle', 'resolveAggregationAnchor', 'dailyWindowCount', 'fetchWindowSources', 'fetchDevCommits', 'fetchSandboxesGraduated', 'fetchAdrsLanded', 'fetchSessions', 'execCommand']) {
+        for (const seam of ['scheduleNext', 'acquireLease', 'releaseLease', 'collectPendingWindows', 'persistTemporalRecord', 'runCycle', 'resolveAggregationAnchor', 'dailyWindowCount', 'fetchWindowSources', 'fetchDevCommits', 'fetchSandboxesGraduated', 'fetchAdrsLanded', 'fetchSessions', 'fetchMergedPrs', 'readContentRecords', 'execCommand']) {
             delete TemporalSummaryAggregationService[seam]
         }
     });
@@ -154,6 +154,58 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         expect(upserts[0].ids).toEqual([record.id]);
         expect(upserts[0].metadatas).toEqual([record.metadata]);
         expect(JSON.parse(upserts[0].documents[0])).toEqual({mergedPrs: 3})
+    });
+
+    test('readContentRecords fails loud on a missing sync root — a broken checkout is not an empty window', () => {
+        expect(() => TemporalSummaryAggregationService.readContentRecords('no-such-type'))
+            .toThrow(/missing synced content root/)
+    });
+
+    test('fetchMergedPrs counts only MERGED records whose mergedAt lands in the half-open window', async () => {
+        TemporalSummaryAggregationService.readContentRecords = type => {
+            expect(type).toBe('pulls');
+
+            return [
+                {frontmatter: {number: 1, state: 'MERGED', mergedAt: '2026-07-05T10:00:00Z'}, body: ''},
+                {frontmatter: {number: 2, state: 'MERGED', mergedAt: '2026-07-06T00:00:00Z'}, body: ''},  // windowEnd is exclusive
+                {frontmatter: {number: 3, state: 'CLOSED', mergedAt: null},                   body: ''},  // closed, never merged
+                {frontmatter: {number: 4, state: 'OPEN',   mergedAt: null},                   body: ''},
+                {frontmatter: {number: 5, state: 'MERGED', mergedAt: '2026-07-04T23:59:59Z'}, body: ''}   // before windowStart
+            ]
+        };
+
+        const merged = await TemporalSummaryAggregationService.fetchMergedPrs({
+            windowStart: '2026-07-05T00:00:00.000Z',
+            windowEnd  : '2026-07-06T00:00:00.000Z'
+        });
+
+        expect(merged.map(pr => pr.number)).toEqual([1])
+    });
+
+    test('fetchSandboxesGraduated reads the complete synced corpus, never a truncated live query', async () => {
+        let execCalls = 0;
+
+        TemporalSummaryAggregationService.execCommand        = () => { execCalls++; return '' };
+        TemporalSummaryAggregationService.readContentRecords = type => {
+            expect(type).toBe('discussions');
+
+            return [
+                {frontmatter: {number: 10, title: 'graduated', closedAt: '2026-07-05T10:00:00Z'}, body: 'text [GRADUATED_TO_TICKET] more'},
+                {frontmatter: {number: 11, title: 'resolved',  closedAt: '2026-07-05T11:00:00Z'}, body: 'text [RESOLVED_TO_AC] more'},
+                {frontmatter: {number: 12, title: 'no marker', closedAt: '2026-07-05T12:00:00Z'}, body: 'ordinary discussion'},
+                {frontmatter: {number: 13, title: 'still open', closedAt: null},                  body: '[GRADUATED_TO_TICKET]'},
+                {frontmatter: {number: 14, title: 'out of window', closedAt: '2026-07-09T00:00:00Z'}, body: '[GRADUATED_TO_TICKET]'}
+            ]
+        };
+
+        const graduated = await TemporalSummaryAggregationService.fetchSandboxesGraduated({
+            windowStart: '2026-07-05T00:00:00.000Z',
+            windowEnd  : '2026-07-06T00:00:00.000Z'
+        });
+
+        // no `gh api graphql` page — the corpus is complete, so the count cannot be silently truncated
+        expect(execCalls).toBe(0);
+        expect(graduated.map(entry => entry.ref)).toEqual(['discussion #10', 'discussion #11'])
     });
 
     test('fetchSessions binds sessions to the summary collection over a bounded half-open window', async () => {
@@ -328,6 +380,7 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         TemporalSummaryAggregationService.fetchSandboxesGraduated = async () => [];   // isolate the devCommits binding
         TemporalSummaryAggregationService.fetchAdrsLanded        = async () => [];
         TemporalSummaryAggregationService.fetchSessions          = async () => [];
+        TemporalSummaryAggregationService.fetchMergedPrs         = async () => [];
 
         const sources = await TemporalSummaryAggregationService.fetchWindowSources({
             windowStart: '2026-07-05T00:00:00.000Z',
@@ -340,17 +393,16 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         expect(commands[0]).toContain('--until="2026-07-06T00:00:00.000Z"')
     });
 
-    test('fetchSandboxesGraduated binds to in-window closed Discussions carrying a graduation marker', async () => {
-        const graphqlResponse = JSON.stringify({data: {repository: {discussions: {nodes: [
-            {number: 10, title: 'graduated in window',  closedAt: '2026-07-05T06:00:00.000Z', comments: {nodes: [{body: 'done [GRADUATED_TO_TICKET]'}]}},
-            {number: 11, title: 'closed but no marker', closedAt: '2026-07-05T07:00:00.000Z', comments: {nodes: [{body: 'just closed'}]}},
-            {number: 12, title: 'graduated out of window', closedAt: '2026-07-01T00:00:00.000Z', comments: {nodes: [{body: '[RESOLVED_TO_AC]'}]}}
-        ]}}}});
-
-        TemporalSummaryAggregationService.fetchDevCommits = async () => [];
-        TemporalSummaryAggregationService.fetchAdrsLanded = async () => [];
-        TemporalSummaryAggregationService.fetchSessions   = async () => [];
-        TemporalSummaryAggregationService.execCommand     = () => graphqlResponse;
+    test('fetchWindowSources threads the graduated Discussions through from the synced corpus', async () => {
+        TemporalSummaryAggregationService.fetchDevCommits    = async () => [];
+        TemporalSummaryAggregationService.fetchAdrsLanded    = async () => [];
+        TemporalSummaryAggregationService.fetchSessions      = async () => [];
+        TemporalSummaryAggregationService.fetchMergedPrs     = async () => [];
+        TemporalSummaryAggregationService.readContentRecords = () => [
+            {frontmatter: {number: 10, title: 'graduated in window', closedAt: '2026-07-05T06:00:00.000Z'}, body: 'done [GRADUATED_TO_TICKET]'},
+            {frontmatter: {number: 11, title: 'closed but no marker', closedAt: '2026-07-05T07:00:00.000Z'}, body: 'just closed'},
+            {frontmatter: {number: 12, title: 'graduated out of window', closedAt: '2026-07-01T00:00:00.000Z'}, body: '[RESOLVED_TO_AC]'}
+        ];
 
         const sources = await TemporalSummaryAggregationService.fetchWindowSources({
             windowStart: '2026-07-05T00:00:00.000Z',
@@ -367,6 +419,7 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         TemporalSummaryAggregationService.fetchDevCommits         = async () => [];
         TemporalSummaryAggregationService.fetchSandboxesGraduated = async () => [];
         TemporalSummaryAggregationService.fetchSessions           = async () => [];
+        TemporalSummaryAggregationService.fetchMergedPrs          = async () => [];
         TemporalSummaryAggregationService.execCommand            = () => 'learn/agentos/decisions/0034-new-adr.md\nsrc/unrelated.mjs\nlearn/agentos/decisions/README.md\n';
 
         const sources = await TemporalSummaryAggregationService.fetchWindowSources({

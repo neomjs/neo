@@ -17,7 +17,10 @@ import {
     acquireHeavyMaintenanceLeaseSync,
     releaseHeavyMaintenanceLeaseSync
 } from '../orchestrator/services/heavyMaintenanceLeasePrimitives.mjs';
-import {execSync} from 'node:child_process';
+import {execSync}           from 'node:child_process';
+import {parse as parseYaml} from 'yaml';
+import fs                   from 'node:fs';
+import path                 from 'node:path';
 
 /**
  * @summary The heavy-maintenance lease owner label for this lane — the backpressure invariant keys on it
@@ -294,11 +297,66 @@ class TemporalSummaryAggregationService extends Base {
      */
     async fetchWindowSources(window) {
         return {
+            mergedPrs         : await this.fetchMergedPrs(window),
             devCommits        : await this.fetchDevCommits(window),
             adrsLanded        : await this.fetchAdrsLanded(window),
             sandboxesGraduated: await this.fetchSandboxesGraduated(window),
             sessions          : await this.fetchSessions(window)
         }
+    }
+
+    /**
+     * @summary Reads every synced content record of one type (`'pulls'`, `'discussions'`) from the repo-tracked
+     * GitHub sync under `resources/content/<type>/chunk-*`. The corpus is **complete**: a durable metric is
+     * never derived from a truncated live API page, because a confidently-wrong count is worse than none. The
+     * repo-relative root derives from the Tier-1 `projectRoot` leaf at the use site — the sync is fixed repo
+     * substrate, so it needs no config leaf of its own. A missing root is a broken checkout, not an empty
+     * window, and fails loud rather than silently reporting zero.
+     * @param {String} type The content type directory name.
+     * @returns {Array<{frontmatter:Object, body:String}>}
+     * @protected
+     */
+    readContentRecords(type) {
+        const root = path.resolve(AiConfig.projectRoot, 'resources', 'content', type);
+
+        if (!fs.existsSync(root)) {
+            throw new Error(`readContentRecords: missing synced content root ${root} — a broken checkout would otherwise report an honest-looking zero.`)
+        }
+
+        return fs.readdirSync(root, {withFileTypes: true})
+            .filter(entry => entry.isDirectory() && entry.name.startsWith('chunk-'))
+            .flatMap(chunk => fs.readdirSync(path.join(root, chunk.name))
+                .filter(name => name.endsWith('.md'))
+                .map(name => fs.readFileSync(path.join(root, chunk.name, name), 'utf8')))
+            .map(raw => {
+                const match = raw.match(/^---\n([\s\S]*?)\n---/);
+
+                return {frontmatter: match ? parseYaml(match[1]) : {}, body: raw}
+            })
+    }
+
+    /**
+     * @summary Binds `mergedPrs` to its named source — the merged pull requests in the repo-tracked GitHub PR
+     * sync, filtered by `mergedAt` into the half-open window. `state` and `mergedAt` are structured frontmatter
+     * facts, so this count is exact rather than inferred from prose.
+     * @param {{windowStart:String, windowEnd:String}} window
+     * @returns {Promise<Array<{number:Number, mergedAt:String}>>}
+     * @protected
+     */
+    async fetchMergedPrs({windowStart, windowEnd}) {
+        const
+            startMs = Date.parse(windowStart),
+            endMs   = Date.parse(windowEnd);
+
+        return this.readContentRecords('pulls')
+            .map(record => record.frontmatter)
+            .filter(frontmatter => frontmatter.state === 'MERGED' && frontmatter.mergedAt)
+            .filter(frontmatter => {
+                const mergedMs = Date.parse(String(frontmatter.mergedAt));
+
+                return mergedMs >= startMs && mergedMs < endMs
+            })
+            .map(frontmatter => ({number: frontmatter.number, mergedAt: String(frontmatter.mergedAt)}))
     }
 
     /**
@@ -363,25 +421,34 @@ class TemporalSummaryAggregationService extends Base {
 
     /**
      * @summary Binds `sandboxesGraduated` to its named source — closed Discussions carrying a graduation
-     * marker, window-filtered by `closedAt`. Best-effort, bounded recency query (the same reader family the
-     * handoff retrospective uses).
+     * marker, window-filtered by `closedAt`, read from the **complete** repo-tracked Discussions sync.
+     *
+     * This deliberately does not query the live API. A `discussions(first: 50, orderBy: UPDATED_AT)` page plus
+     * `comments(last: 25)` silently undercounts: a discussion closed inside the window but not recently
+     * *updated* falls off the page, and a marker in an earlier comment falls off the comment tail. The synced
+     * corpus carries every discussion with its full body, so the count is exact rather than plausible.
      * @param {{windowStart:String, windowEnd:String}} window
      * @returns {Promise<Array<{ref:String, headline:String, at:String}>>}
      * @protected
      */
     async fetchSandboxesGraduated({windowStart, windowEnd}) {
         const
-            query   = 'query($owner:String!,$name:String!){repository(owner:$owner,name:$name){discussions(first:50,states:CLOSED,orderBy:{field:UPDATED_AT,direction:DESC}){nodes{number title closedAt comments(last:25){nodes{body}}}}}}',
-            raw     = this.execCommand(`gh api graphql -f owner=neomjs -f name=neo -f query='${query}'`),
-            nodes   = JSON.parse(raw || '{}')?.data?.repository?.discussions?.nodes || [],
             startMs = Date.parse(windowStart),
             endMs   = Date.parse(windowEnd),
             markers = ['[GRADUATED_TO_TICKET]', '[RESOLVED_TO_AC]'];
 
-        return nodes
-            .filter(node => node?.closedAt && Date.parse(node.closedAt) >= startMs && Date.parse(node.closedAt) < endMs)
-            .filter(node => (node.comments?.nodes || []).some(comment => markers.some(marker => (comment?.body || '').includes(marker))))
-            .map(node => ({ref: `discussion #${node.number}`, headline: node.title, at: node.closedAt}))
+        return this.readContentRecords('discussions')
+            .filter(({frontmatter}) => {
+                const closedMs = frontmatter.closedAt ? Date.parse(String(frontmatter.closedAt)) : NaN;
+
+                return Number.isFinite(closedMs) && closedMs >= startMs && closedMs < endMs
+            })
+            .filter(({body}) => markers.some(marker => body.includes(marker)))
+            .map(({frontmatter}) => ({
+                ref     : `discussion #${frontmatter.number}`,
+                headline: frontmatter.title,
+                at      : String(frontmatter.closedAt)
+            }))
     }
 
     /**
