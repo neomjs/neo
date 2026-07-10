@@ -140,7 +140,9 @@ class DockFlip extends Base {
 
         hostEl = document.getElementById(hostId);
 
-        const tokens = hostEl && getComputedStyle(hostEl);
+        // environment-honest global access: the unit env's mocked DOM has no getComputedStyle,
+        // so token resolution degrades to the fallbacks there — exactly the intended contract
+        const tokens = hostEl && globalThis.getComputedStyle?.(hostEl);
 
         duration ??= parseFloat(tokens?.getPropertyValue('--dock-transition-duration')) || 280;
         easing   ||= tokens?.getPropertyValue('--dock-transition-easing').trim() || 'cubic-bezier(0, 0, 0.2, 1)';
