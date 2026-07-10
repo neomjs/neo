@@ -123,7 +123,9 @@
     position: absolute;
     z-index : 20;
 
-    &-hidden {
+    // The overlay is also a flex container. Keep the semantic visibility state above the generic
+    // `.neo-flex-container {display:flex}` rule without depending on stylesheet load order.
+    &.neo-dashboard-dock-reveal-overlay-hidden {
         display: none;
     }
 
