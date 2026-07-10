@@ -1,0 +1,72 @@
+// Demo-B perspectives + pop-out showcase — the hooks Demo A's skin does not carry.
+// Same discipline: fleet-manager module tokens only, theme variance rides the token layer.
+
+.agentos-dockdemo-switcher {
+    background   : var(--fm-panel);
+    border-bottom: 1px solid var(--fm-line);
+    flex   : 0 0 auto;
+    height : 44px;
+    padding: 6px 12px;
+
+    .agentos-dockdemo-switcher-label {
+        color         : var(--fm-ink-dim);
+        font-family   : var(--fm-font-mono);
+        font-size     : 11px;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+
+    .agentos-dockdemo-switcher-btn {
+        background   : var(--fm-panel-2);
+        border       : 1px solid var(--fm-line);
+        border-radius: 6px;
+        color        : var(--fm-ink);
+        font-family  : var(--fm-font-mono);
+        margin-left  : 6px;
+
+        .neo-button-text {
+            color: var(--fm-ink);
+        }
+    }
+}
+
+.agentos-dockdemo-counter-pane {
+    align-items    : center;
+    background     : var(--fm-panel);
+    border         : 1px solid var(--fm-line-soft);
+    border-radius  : 8px;
+    display        : flex;
+    flex-direction : column;
+    gap            : 6px;
+    justify-content: center;
+
+    .agentos-dockdemo-counter-label {
+        color         : var(--fm-ink-dim);
+        font-family   : var(--fm-font-mono);
+        font-size     : 12px;
+        letter-spacing: .12em;
+    }
+
+    .agentos-dockdemo-counter-value {
+        color      : var(--fm-signal);
+        font-family: var(--fm-font-mono);
+        font-size  : 34px;
+        font-weight: 700;
+    }
+
+    .agentos-dockdemo-counter-note {
+        color      : var(--fm-ink-dim);
+        font-size  : 11px;
+        font-style : italic;
+    }
+}
+
+// the pop-out window: a bare stage for the reparented pane — full-bleed, token ground
+.agentos-dockdemo-popout-host {
+    background: var(--fm-ground);
+    padding   : 10px;
+
+    > * {
+        flex: 1;
+    }
+}
