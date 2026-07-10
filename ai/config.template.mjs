@@ -425,6 +425,24 @@ class Config extends ConfigProvider {
                 graphProjectionDrainIntervalMs : leaf(60000, 'NEO_MC_GRAPH_PROJECTION_DRAIN_INTERVAL_MS', 'number')
             },
             /**
+             * Temporal-pyramid durable aggregation lane (L1 session / L2 daily tiers).
+             * @type {Object}
+             */
+            temporalSummary: {
+                /**
+                 * Master opt-in for the temporal-pyramid aggregation daemon.
+                 * Disabled by default; the daemon exits early when false.
+                 * @type {Boolean}
+                 */
+                aggregationEnabled: leaf(false, 'NEO_MC_TEMPORAL_SUMMARY_ENABLED', 'boolean'),
+                /**
+                 * Aggregation daemon poll interval in ms (default 1 h). The lane runs under the
+                 * shared heavy-maintenance lease, so it yields to REM / defrag siblings.
+                 * @type {Number}
+                 */
+                aggregationIntervalMs: leaf(60 * 60 * 1000, 'NEO_MC_TEMPORAL_SUMMARY_INTERVAL_MS', 'number')
+            },
+            /**
              * Agent OS maintenance orchestrator configuration.
              * @type {Object}
              */
