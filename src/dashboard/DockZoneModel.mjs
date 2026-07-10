@@ -969,6 +969,15 @@ class DockZoneModel extends Base {
                     if (treeErrors.length) {
                         errors.push(`windowDocuments[${index}] is not a valid dock-zone document: ${treeErrors[0]}`)
                     }
+
+                    // The finite durable-field boundary applies to EVERY captured slot, not only
+                    // the primary `dockZone` — runtime-bearing fields (window fingerprints,
+                    // rects) must not ride an additional window document into persistence.
+                    const unexpected = DockZoneModel.findUnexpectedDockZoneKey(tree, `windowDocuments[${index}]`);
+
+                    if (unexpected) {
+                        errors.push(`windowDocuments[${index}] contains unexpected field "${unexpected.key}" at ${unexpected.path}: ${unexpected.reason}`)
+                    }
                 })
             }
         }

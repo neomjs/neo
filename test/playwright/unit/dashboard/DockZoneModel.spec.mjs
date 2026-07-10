@@ -391,6 +391,26 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             expect(errors.join(' ')).toContain('documents[1]')
         });
 
+        test('windowDocuments slots enforce the SAME finite durable-field boundary as the primary document', () => {
+            const {layout} = DockZoneModel.captureTopologyPerspective([doc(), doc()], {layoutId: 'x', title: 'X'});
+
+            // A runtime-bearing field on an ADDITIONAL slot must fail exactly like it would on
+            // `dockZone` — document-level and item-level offenders both, index preserved.
+            const slot     = layout.windowDocuments[0],
+                  poisoned = {...layout, windowDocuments: [{...slot, runtimeRect: {x: 0, y: 0}}]},
+                  topLevel = DockZoneModel.restoreSavedLayout(poisoned).errors.join(' ');
+
+            expect(topLevel).toContain('windowDocuments[0]');
+            expect(topLevel).toContain('runtimeRect');
+
+            const [itemId]  = Object.keys(slot.items),
+                  badItems  = {...slot, items: {[itemId]: {...slot.items[itemId], windowId: 'w2'}}},
+                  itemLevel = DockZoneModel.restoreSavedLayout({...layout, windowDocuments: [badItems]}).errors.join(' ');
+
+            expect(itemLevel).toContain(`windowDocuments[0].items.${itemId}`);
+            expect(itemLevel).toContain('windowId')
+        });
+
         test('fingerprint walk fails closed on dangling node refs', () => {
             const broken = doc();
             broken.root = 'missing-node';
