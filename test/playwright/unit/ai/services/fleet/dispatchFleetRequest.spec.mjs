@@ -100,8 +100,10 @@ test.describe('dispatchFleetRequest — the app↔fleet wire allowlist + routing
 
     test('the wire allowlist is exactly the pane operations (+ the read-observe getBootIdentity / fleetActivity / fleetRoster) — no resolver seams', () => {
         expect([...FLEET_WIRE_METHODS].sort()).toEqual(
-            // fleet-agent operations + the read-observe verbs (boot-identity fact + activity snapshot + assembled roster DTO — advisory reads, no lifecycle-write)
-            ['defineAgent', 'fleetActivity', 'fleetRoster', 'fleetRuntimeStatus', 'fleetStatus', 'getAgent', 'getBootIdentity', 'listAgents', 'removeAgent', 'restartAgent', 'setAvatar', 'setRepo', 'startAgent', 'stopAgent'].sort()
+            // fleet-agent operations (incl. the configureAgent scoped-config patch — never identity,
+            // never credential) + the read-observe verbs (boot-identity fact + activity snapshot +
+            // assembled roster DTO — advisory reads, no lifecycle-write)
+            ['configureAgent', 'defineAgent', 'fleetActivity', 'fleetRoster', 'fleetRuntimeStatus', 'fleetStatus', 'getAgent', 'getBootIdentity', 'listAgents', 'removeAgent', 'restartAgent', 'setAvatar', 'setRepo', 'startAgent', 'stopAgent'].sort()
         );
         expect(FLEET_WIRE_METHODS).toContain('getBootIdentity');   // the read-observe verbs ride the wire; the lifecycle-write restart actuator does NOT (R3)
         expect(FLEET_WIRE_METHODS).toContain('fleetActivity');

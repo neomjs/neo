@@ -46,8 +46,10 @@ test.describe('FM account configuration model', () => {
             expect(harnessTypes.resolveHarnessType(entry.type)).toEqual(entry)
         });
 
-        // the ticket-named trio is registered, with product-language labels
-        expect(harnessTypes.resolveHarnessType('claude-desktop')?.label).toBe('Claude Desktop');
+        // the shared-authority entries carry the shipped product-language labels — including the
+        // Brain-valid claude-code the cycle-1 app-local fork was missing
+        expect(harnessTypes.resolveHarnessType('claude-desktop')?.label).toBe('Claude');
+        expect(harnessTypes.resolveHarnessType('claude-code')?.label).toBe('Claude Code');
         expect(harnessTypes.resolveHarnessType('codex')?.label).toBe('Codex');
         expect(harnessTypes.resolveHarnessType('antigravity')?.label).toBe('Antigravity');
 
