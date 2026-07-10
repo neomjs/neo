@@ -26,10 +26,10 @@
 // the next canonical restart — see ProcessSupervisorService.reconcileSingletonPort), which is
 // exactly why parent-only teardown leaks: the group is the only boundary that owns the whole tree.
 
-import {execFile, spawn} from 'node:child_process';
-import fs                from 'node:fs';
-import net               from 'node:net';
-import path              from 'node:path';
+import {execFile, execFileSync, spawn} from 'node:child_process';
+import fs                              from 'node:fs';
+import net                             from 'node:net';
+import path                            from 'node:path';
 
 export const ORCHESTRATOR_ENTRY = 'ai/daemons/orchestrator/daemon.mjs';
 export const FLEET_SERVER_ENTRY = 'ai/services/fleet/devFleetServer.mjs';
@@ -184,9 +184,44 @@ export function buildBrainProfile({isolationRoot, chromaPort, fleetPort}) {
 }
 
 /**
+ * @summary Resolves a path by FILESYSTEM IDENTITY: realpath of its deepest existing ancestor with
+ * the not-yet-created tail re-appended. A lexical `startsWith` is an observation about strings; a
+ * symlinked ancestor inside the root (e.g. `sqlite/` → an outside directory) satisfies it while
+ * the data lands elsewhere. Isolation is an identity contract, so containment must resolve links.
+ * @param {String} value
+ * @returns {String}
+ */
+export function resolveRealPath(value) {
+    let
+        current = path.resolve(value),
+        tail    = [];
+
+    while (!fs.existsSync(current)) {
+        const parent = path.dirname(current);
+
+        tail.unshift(path.basename(current));
+
+        if (parent === current) {
+            break
+        }
+
+        current = parent
+    }
+
+    try {
+        current = fs.realpathSync(current)
+    } catch (error) {
+        // Keep the lexical resolution when even the existing ancestor cannot be resolved.
+    }
+
+    return path.join(current, ...tail)
+}
+
+/**
  * @summary Verifies the RESOLVED leaves against the isolation contract: every mutable path under
- * the isolation root, every probed port the allocated one. Run against `resolveBrainPaths` output
- * so the assertion covers what the tree actually consumes, not what the profile intended.
+ * the isolation root BY FILESYSTEM IDENTITY (ancestor symlinks resolved on both sides), every
+ * probed port the allocated one. Run against `resolveBrainPaths` output so the assertion covers
+ * what the tree actually consumes, not what the profile intended.
  * @param {Object} options
  * @param {Object} options.resolved Output of {@link resolveBrainPaths} under the profile env.
  * @param {String} options.isolationRoot
@@ -196,14 +231,14 @@ export function buildBrainProfile({isolationRoot, chromaPort, fleetPort}) {
 export function assertIsolatedProfile({resolved, isolationRoot, chromaPort}) {
     const
         violations = [],
-        root       = path.resolve(isolationRoot) + path.sep,
+        root       = resolveRealPath(isolationRoot) + path.sep,
         pathLeaves = ['backupPath', 'chromaDataDir', 'dbPath', 'fleetInstanceRoot', 'orchestratorDataDir'];
 
     for (const leafName of pathLeaves) {
         const value = resolved[leafName];
 
-        if (typeof value !== 'string' || !path.resolve(value).startsWith(root)) {
-            violations.push(`${leafName}=${value} escapes isolation root ${isolationRoot}`)
+        if (typeof value !== 'string' || !resolveRealPath(value).startsWith(root)) {
+            violations.push(`${leafName}=${value} escapes isolation root ${isolationRoot} (real path: ${typeof value === 'string' ? resolveRealPath(value) : value})`)
         }
     }
 
@@ -215,27 +250,63 @@ export function assertIsolatedProfile({resolved, isolationRoot, chromaPort}) {
 }
 
 /**
+ * @summary Probes FLEET PROTOCOL IDENTITY on a port: one `POST /fleet {method:'listAgents'}`
+ * round-trip answering `{ok:true}`. A listening socket is an observation about occupancy; only
+ * the wire envelope proves the listener IS the fleet transport — a foreign server squatting the
+ * port must read as "held but not serving", never as attach-ready.
+ * @param {Object} options
+ * @param {Number|String} options.port
+ * @param {Number} [options.timeoutMs=2500]
+ * @param {Function} [options.fetchFn=fetch] Injection seam for tests.
+ * @returns {Promise<Boolean>}
+ */
+export async function probeFleetServing({port, timeoutMs = 2500, fetchFn = fetch}) {
+    try {
+        const response = await fetchFn(`http://127.0.0.1:${port}/fleet`, {
+            body   : JSON.stringify({method: 'listAgents', params: {}}),
+            headers: {'content-type': 'application/json'},
+            method : 'POST',
+            signal : AbortSignal.timeout(timeoutMs)
+        });
+
+        return (await response.json())?.ok === true
+    } catch (error) {
+        return false
+    }
+}
+
+/**
  * @summary Detects a live Brain on this machine WITHOUT spawning one: the orchestrator's own
  * PID-file + command-line liveness idiom (read from the RESOLVED dataDir leaf, so an env-shifted
- * setup is honored) plus a fleet-transport port probe. Drives the attach-or-own decision.
+ * setup is honored) plus fleet-transport PROTOCOL identity — `fleetServing` requires a real wire
+ * envelope, while `fleetPortHeld` reports raw occupancy so a foreign listener fails the boot
+ * closed instead of masquerading as an attach target. Drives the attach-or-own decision.
  * @param {Object} options
  * @param {String} options.orchestratorDataDir Resolved `AiConfig.orchestrator.dataDir`.
  * @param {Number|String} options.fleetPort Fleet transport port to probe.
  * @param {Function} [options.killFn=process.kill] Injection seam for tests.
  * @param {Function} [options.commandFn] pid → command line. Injection seam for tests.
  * @param {Function} [options.probePortFn=probePort] Injection seam for tests.
- * @returns {Promise<{orchestratorAlive: Boolean, orchestratorPid: Number|null, fleetListening: Boolean}>}
+ * @param {Function} [options.probeFleetFn=probeFleetServing] Injection seam for tests.
+ * @returns {Promise<{orchestratorAlive: Boolean, orchestratorPid: Number|null, fleetServing: Boolean, fleetPortHeld: Boolean}>}
  */
 export async function detectLiveBrain({
     orchestratorDataDir,
     fleetPort,
-    killFn      = process.kill,
-    commandFn   = null,
-    probePortFn = probePort
+    killFn       = process.kill,
+    commandFn    = null,
+    probePortFn  = probePort,
+    probeFleetFn = probeFleetServing
 }) {
     const
-        pidFile = path.join(orchestratorDataDir, 'orchestrator-daemon.pid'),
-        result  = {fleetListening: await probePortFn({port: fleetPort}), orchestratorAlive: false, orchestratorPid: null};
+        pidFile      = path.join(orchestratorDataDir, 'orchestrator-daemon.pid'),
+        fleetServing = await probeFleetFn({port: fleetPort}),
+        result       = {
+            fleetPortHeld    : fleetServing || await probePortFn({port: fleetPort}),
+            fleetServing,
+            orchestratorAlive: false,
+            orchestratorPid  : null
+        };
 
     try {
         const pid = parseInt(fs.readFileSync(pidFile, 'utf8'), 10);
@@ -530,51 +601,86 @@ export async function stopBrainTree(children, options = {}) {
 }
 
 /**
- * @summary Persists the process-group ids of a SMOKE run so a crashed harness's next run can
- * sweep its own leftovers (the crash path bypasses will-quit). Product own-mode leftovers are
- * deliberately NOT swept: a still-live default-paths Brain is simply attached to next boot.
+ * @summary Persists the process groups of a SMOKE run — WITH an ownership token per group (the
+ * group leader's entry script) — so a crashed harness's next run can sweep its own leftovers
+ * (the crash path bypasses will-quit). A bare PGID is not ownership evidence: the OS reuses ids,
+ * so the sweep re-verifies the recorded identity before signaling. Product own-mode leftovers
+ * are deliberately NOT recorded: a still-live default-paths Brain is attached to next boot.
  * @param {Object} options
  * @param {String} options.isolationRoot
- * @param {Number[]} options.pgids
+ * @param {Object[]} options.children `{pgid, entry}` per supervised group leader.
  */
-export function writeRunState({isolationRoot, pgids}) {
+export function writeRunState({isolationRoot, children}) {
     fs.mkdirSync(isolationRoot, {recursive: true});
-    fs.writeFileSync(path.join(isolationRoot, 'run-state.json'), JSON.stringify({pgids}), 'utf8')
+    fs.writeFileSync(path.join(isolationRoot, 'run-state.json'), JSON.stringify({children}), 'utf8')
 }
 
 /**
- * @summary Sweeps a prior crashed smoke run's process groups (ownership: they were spawned under
- * OUR isolation root) and clears the run-state file. No-op when no state exists.
+ * @summary Clears the persisted run-state after a CLEAN teardown. Without this, the record
+ * outlives the run and a later sweep would signal whatever now owns the recycled ids.
+ * @param {Object} options
+ * @param {String} options.isolationRoot
+ */
+export function clearRunState({isolationRoot}) {
+    try {
+        fs.unlinkSync(path.join(isolationRoot, 'run-state.json'))
+    } catch (error) {
+        // Nothing persisted — already clean.
+    }
+}
+
+/**
+ * @summary Sweeps a prior CRASHED smoke run's process groups — but only after re-proving
+ * ownership: the group leader's current command line must still carry the recorded entry script.
+ * An identity mismatch (recycled pid) drops the record without signaling. The state file is
+ * cleared either way. No-op when no state exists.
  * @param {Object} options
  * @param {String} options.isolationRoot
  * @param {Function} [options.killFn=process.kill] Injection seam for tests.
- * @returns {Number[]} pgids that were still alive and got killed.
+ * @param {Function} [options.commandFn] pid → current command line ('' when gone). Injection seam for tests.
+ * @returns {Number[]} pgids that were alive, identity-verified, and killed.
  */
-export function sweepStaleRunState({isolationRoot, killFn = process.kill}) {
+export function sweepStaleRunState({isolationRoot, killFn = process.kill, commandFn = null}) {
     const
         runStateFile = path.join(isolationRoot, 'run-state.json'),
-        swept        = [];
+        readCommand  = commandFn ?? (pid => {
+            try {
+                return execFileSyncCommand(pid)
+            } catch (error) {
+                return ''
+            }
+        }),
+        swept          = [];
 
-    let pgids = [];
+    let children = [];
 
     try {
-        pgids = JSON.parse(fs.readFileSync(runStateFile, 'utf8')).pgids ?? []
+        children = JSON.parse(fs.readFileSync(runStateFile, 'utf8')).children ?? []
     } catch (error) {
         return swept
     }
 
-    for (const pgid of pgids) {
-        if (Number.isInteger(pgid) && pgid > 1 && groupAlive(pgid, killFn)) {
-            try {
-                killFn(-pgid, 'SIGKILL');
-                swept.push(pgid)
-            } catch (error) {}
+    for (const {pgid, entry} of children) {
+        if (!Number.isInteger(pgid) || pgid <= 1 || typeof entry !== 'string' || !groupAlive(pgid, killFn)) {
+            continue
         }
+
+        // Ownership re-proof: the recorded leader must still run OUR entry script. Mirrors the
+        // daemon's own isOrchestratorDaemonCommand guard against recycled pids.
+        if (!readCommand(pgid).includes(entry)) {
+            continue
+        }
+
+        try {
+            killFn(-pgid, 'SIGKILL');
+            swept.push(pgid)
+        } catch (error) {}
     }
 
-    try {
-        fs.unlinkSync(runStateFile)
-    } catch (error) {}
-
+    clearRunState({isolationRoot});
     return swept
+}
+
+function execFileSyncCommand(pid) {
+    return execFileSync('ps', ['-p', String(pid), '-o', 'command=']).toString().trim()
 }

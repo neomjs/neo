@@ -1,6 +1,6 @@
 import {expect, test}                                       from '@playwright/test';
 import {EventEmitter}                                       from 'node:events';
-import {mkdtemp, rm}                                        from 'node:fs/promises';
+import {mkdtemp, rm, symlink}                               from 'node:fs/promises';
 import {readFileSync, writeFileSync, mkdirSync, existsSync} from 'node:fs';
 import net                                                  from 'node:net';
 import {tmpdir}                                             from 'node:os';
@@ -12,9 +12,13 @@ import {
     awaitOrchestratorReady,
     awaitReadyMarker,
     buildBrainProfile,
+    clearRunState,
     detectLiveBrain,
+    FLEET_SERVER_ENTRY,
     ORCHESTRATOR_ENTRY,
+    probeFleetServing,
     probePort,
+    resolveRealPath,
     stopBrainChild,
     stopBrainTree,
     sweepStaleRunState,
@@ -126,6 +130,42 @@ test.describe('harness brain lifecycle', () => {
         expect(leaky.some(violation => violation.includes('dbPath'))).toBe(true);
         expect(leaky.some(violation => violation.includes('chromaPort'))).toBe(true);
         expect(leaky).toHaveLength(2)
+    });
+
+    // Isolation is a filesystem-IDENTITY contract: a symlinked ancestor inside the root satisfies
+    // a lexical prefix check while the data lands outside. The containment must resolve links.
+    test('assertIsolatedProfile flags a symlinked ancestor escaping the root by identity', async () => {
+        const outside = await mkdtemp(path.join(tmpdir(), 'neo-harness-outside-'));
+
+        try {
+            const isolated = {
+                backupPath         : path.join(workDir, 'backups'),
+                chromaDataDir      : path.join(workDir, 'chroma'),
+                chromaPort         : 18500,
+                dbPath             : path.join(workDir, 'sqlite', 'memory-core-graph.sqlite'),
+                fleetInstanceRoot  : path.join(workDir, 'fleet', 'instances'),
+                orchestratorDataDir: path.join(workDir, 'orchestrator')
+            };
+
+            // The lexical form is identical before and after; only the identity changes.
+            expect(assertIsolatedProfile({chromaPort: 18500, isolationRoot: workDir, resolved: isolated})).toEqual([]);
+
+            await symlink(outside, path.join(workDir, 'sqlite'));
+
+            const violations = assertIsolatedProfile({chromaPort: 18500, isolationRoot: workDir, resolved: isolated});
+
+            expect(violations.some(violation => violation.includes('dbPath'))).toBe(true);
+            // realpath both sides: os.tmpdir() itself sits behind a symlink on macOS (/var → /private/var).
+            expect(resolveRealPath(isolated.dbPath).startsWith(resolveRealPath(outside))).toBe(true)
+        } finally {
+            await rm(outside, {force: true, recursive: true})
+        }
+    });
+
+    test('probeFleetServing requires the wire envelope — occupancy alone is not fleet identity', async () => {
+        expect(await probeFleetServing({fetchFn: async () => ({json: async () => ({ok: true, result: []})}), port: 1})).toBe(true);
+        expect(await probeFleetServing({fetchFn: async () => ({json: async () => 'not the fleet protocol'}), port: 1})).toBe(false);
+        expect(await probeFleetServing({fetchFn: async () => { throw new Error('ECONNREFUSED') }, port: 1})).toBe(false)
     });
 
     test('awaitReadyMarker resolves on the marker and never on PID existence alone', async () => {
@@ -266,13 +306,27 @@ test.describe('harness brain lifecycle', () => {
         expect(report.orchestrator.groupEmpty).toBe(true)
     });
 
-    test('run-state round-trip: a crashed run\'s live groups are swept, dead ones skipped, state cleared', () => {
+    // A bare PGID is not ownership: the OS recycles ids, so the sweep must re-prove the recorded
+    // identity (the leader still runs OUR entry script) before signaling, and a CLEAN stop must
+    // clear the record so it can never outlive the run.
+    test('run-state sweep kills only identity-verified groups, skips recycled pids, clears state', () => {
         const group = createFakeGroup({diesOn: ['SIGKILL'], pid: 7001});
 
-        writeRunState({isolationRoot: workDir, pgids: [7001, 999999]});
+        writeRunState({
+            children     : [
+                {entry: ORCHESTRATOR_ENTRY, pgid: 7001},
+                {entry: FLEET_SERVER_ENTRY, pgid: 7002},
+                {entry: ORCHESTRATOR_ENTRY, pgid: 999999}
+            ],
+            isolationRoot: workDir
+        });
 
         const killFn = (target, signal) => {
-            if (Math.abs(target) === 999999) {
+            if ([7002, 999999].includes(Math.abs(target))) {
+                if (Math.abs(target) === 7002 && signal === 0) {
+                    return true // alive — but identity will mismatch below
+                }
+
                 const error = new Error('ESRCH');
                 error.code  = 'ESRCH';
                 throw error
@@ -281,15 +335,30 @@ test.describe('harness brain lifecycle', () => {
             return group.killFn(target, signal)
         };
 
-        expect(sweepStaleRunState({isolationRoot: workDir, killFn})).toEqual([7001]);
+        const commandFn = pgid => pgid === 7001
+            ? `node ${ORCHESTRATOR_ENTRY}`
+            : '/usr/bin/unrelated-tool-that-recycled-the-pid';
+
+        // 7001: alive + identity match → killed. 7002: alive but recycled → SKIPPED. 999999: dead.
+        expect(sweepStaleRunState({commandFn, isolationRoot: workDir, killFn})).toEqual([7001]);
         expect(group.signals).toEqual(['SIGKILL']);
         expect(existsSync(path.join(workDir, 'run-state.json'))).toBe(false);
 
         // No state file → no-op.
-        expect(sweepStaleRunState({isolationRoot: workDir, killFn})).toEqual([])
+        expect(sweepStaleRunState({commandFn, isolationRoot: workDir, killFn})).toEqual([])
     });
 
-    test('detectLiveBrain: live pid + orchestrator command + fleet probe drive the attach decision', async () => {
+    test('clearRunState removes the record after a clean stop and tolerates absence', () => {
+        writeRunState({children: [{entry: ORCHESTRATOR_ENTRY, pgid: 7100}], isolationRoot: workDir});
+        expect(existsSync(path.join(workDir, 'run-state.json'))).toBe(true);
+
+        clearRunState({isolationRoot: workDir});
+        expect(existsSync(path.join(workDir, 'run-state.json'))).toBe(false);
+
+        clearRunState({isolationRoot: workDir}) // idempotent
+    });
+
+    test('detectLiveBrain: protocol identity drives attach; a foreign listener reads held-not-serving', async () => {
         const dataDir = path.join(workDir, 'orchestrator');
 
         mkdirSync(dataDir, {recursive: true});
@@ -300,10 +369,25 @@ test.describe('harness brain lifecycle', () => {
             fleetPort          : 18501,
             killFn             : () => true,
             orchestratorDataDir: dataDir,
+            probeFleetFn       : async () => true,
             probePortFn        : async () => true
         });
 
-        expect(live).toEqual({fleetListening: true, orchestratorAlive: true, orchestratorPid: 8123});
+        expect(live).toEqual({fleetPortHeld: true, fleetServing: true, orchestratorAlive: true, orchestratorPid: 8123});
+
+        // A foreign HTTP server on the fleet port: occupied, but NOT the fleet protocol —
+        // attach must not treat it as a reachable Brain surface.
+        const squatted = await detectLiveBrain({
+            commandFn          : () => `node ${ORCHESTRATOR_ENTRY}`,
+            fleetPort          : 18501,
+            killFn             : () => true,
+            orchestratorDataDir: dataDir,
+            probeFleetFn       : async () => false,
+            probePortFn        : async () => true
+        });
+
+        expect(squatted.fleetServing).toBe(false);
+        expect(squatted.fleetPortHeld).toBe(true);
 
         // A recycled pid running something else must NOT read as a live Brain.
         const foreign = await detectLiveBrain({
@@ -311,16 +395,19 @@ test.describe('harness brain lifecycle', () => {
             fleetPort          : 18501,
             killFn             : () => true,
             orchestratorDataDir: dataDir,
+            probeFleetFn       : async () => false,
             probePortFn        : async () => false
         });
 
         expect(foreign.orchestratorAlive).toBe(false);
-        expect(foreign.fleetListening).toBe(false);
+        expect(foreign.fleetServing).toBe(false);
+        expect(foreign.fleetPortHeld).toBe(false);
 
         // No PID file at all.
         const missing = await detectLiveBrain({
             fleetPort          : 18501,
             orchestratorDataDir: path.join(workDir, 'nowhere'),
+            probeFleetFn       : async () => false,
             probePortFn        : async () => false
         });
 
@@ -340,9 +427,10 @@ test.describe('harness brain lifecycle', () => {
         expect(await probePort({port, timeoutMs: 500})).toBe(false)
     });
 
-    test('run-state file content stays a minimal pgid list', () => {
-        writeRunState({isolationRoot: workDir, pgids: [111, 222]});
+    test('run-state file content carries the ownership token per group', () => {
+        writeRunState({children: [{entry: ORCHESTRATOR_ENTRY, pgid: 111}], isolationRoot: workDir});
 
-        expect(JSON.parse(readFileSync(path.join(workDir, 'run-state.json'), 'utf8'))).toEqual({pgids: [111, 222]})
+        expect(JSON.parse(readFileSync(path.join(workDir, 'run-state.json'), 'utf8')))
+            .toEqual({children: [{entry: ORCHESTRATOR_ENTRY, pgid: 111}]})
     })
 });

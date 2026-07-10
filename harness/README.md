@@ -68,8 +68,9 @@ exercised listener to a runtime-allocated port, and gates every other lane OFF v
 env switch (dev server, Neural Link, embed/message daemons, mlx/ollama/lms, swarm heartbeat, the
 sync + enrichment lanes, deployment-state bridge). The matrix is EXECUTABLE, not documentation:
 `resolveBrainPaths` re-resolves the leaves through `ai/config.mjs` itself under the profile env,
-and the smoke fails on any leaf escaping the isolation root — asserting what the tree actually
-consumes, not what the profile intended.
+and the smoke fails on any leaf escaping the isolation root — by FILESYSTEM IDENTITY (ancestor
+symlinks resolved on both sides), asserting what the tree actually consumes, not what the profile
+intended.
 
 **Readiness is service readiness, never PID existence.** The daemon writes its PID file before
 config load and `Orchestrator.start()`, so the up-gates are: the orchestrator's own
@@ -84,8 +85,11 @@ exit additionally requires the unforced path plus released listeners. SIGINT (no
 graceful rung by measurement: the chromadb npm wrapper ignores group-SIGTERM indefinitely but
 exits on SIGINT in milliseconds, and both supervised entries register the two identically. Every
 smoke exit path (will-quit, verdict, timeout net, unhandled-rejection net) runs the teardown; a
-crashed run's process groups are recorded in `.brain/smoke/run-state.json` and swept on the next
-smoke boot.
+crashed run's process groups are recorded in `.brain/smoke/run-state.json` WITH an ownership
+token (the leader's entry script), cleared on clean stop, and swept on the next smoke boot only
+after the recorded identity re-verifies — a bare PGID is an observation, not ownership. The same
+rule governs attach: `fleetServing` requires the `listAgents` wire envelope, and a foreign
+listener squatting the fleet port fails the product boot closed instead of reading as a Brain.
 
 ## Why the window loads DEV MODE (operator decision, 2026-07-10)
 

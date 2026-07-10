@@ -36,6 +36,7 @@ import {
     awaitOrchestratorReady,
     awaitPortListening,
     buildBrainProfile,
+    clearRunState,
     detectLiveBrain,
     FLEET_SERVER_ENTRY,
     ORCHESTRATOR_ENTRY,
@@ -378,7 +379,7 @@ process.on('unhandledRejection', async error => {
     }
 });
 
-const brainState = {children: []};
+const brainState = {children: [], isolationRoot: null};
 
 function brainLog(line) {
     console.log('HARNESS_BRAIN ' + line.slice(0, 300))
@@ -386,7 +387,9 @@ function brainLog(line) {
 
 /**
  * @summary Full-tree teardown of every child the harness started (and only those — §2.1.1 one
- * lifecycle owner). Callable from every exit path: will-quit, smoke completion, the smoke nets.
+ * lifecycle owner), then clears the smoke run-state: a record surviving a CLEAN stop would make
+ * a later sweep signal whatever now owns the recycled process-group ids. Callable from every
+ * exit path: will-quit, smoke completion, the smoke nets.
  * @returns {Promise<Object|null>} per-child stop report, or null when nothing was supervised
  */
 async function teardownBrain() {
@@ -397,7 +400,15 @@ async function teardownBrain() {
     const children = brainState.children;
 
     brainState.children = [];
-    return stopBrainTree(children)
+
+    const report = await stopBrainTree(children);
+
+    if (brainState.isolationRoot) {
+        clearRunState({isolationRoot: brainState.isolationRoot});
+        brainState.isolationRoot = null
+    }
+
+    return report
 }
 
 /**
@@ -423,7 +434,14 @@ async function bootProductBrain() {
         await awaitOrchestratorReady({child: orchestrator})
     }
 
-    if (!live.fleetListening) {
+    if (!live.fleetServing) {
+        // Protocol identity, fail closed: a listener that does NOT answer the fleet wire verb is
+        // a foreign server squatting the port — spawning into it would EADDRINUSE, and skipping
+        // the spawn would report a Brain that the window cannot actually reach.
+        if (live.fleetPortHeld) {
+            throw new Error(`fleet port ${fleetPort} is held by a foreign listener (no listAgents envelope) — free the port or set NEO_FLEET_PORT`)
+        }
+
         const fleet = startBrainChild({
             entry: FLEET_SERVER_ENTRY,
             env  : {NEO_FLEET_PORT: String(fleetPort)},
@@ -464,8 +482,12 @@ async function bootSmokeBrain() {
         orchestrator = startBrainChild({entry: ORCHESTRATOR_ENTRY, env: profile, onLog: brainLog, repoRoot}),
         fleet        = startBrainChild({entry: FLEET_SERVER_ENTRY, env: profile, onLog: brainLog, repoRoot});
 
-    brainState.children.push({child: orchestrator, label: 'orchestrator'}, {child: fleet, label: 'fleet'});
-    writeRunState({isolationRoot, pgids: brainState.children.map(entry => entry.child.pid)});
+    brainState.children.push(
+        {child: orchestrator, entry: ORCHESTRATOR_ENTRY, label: 'orchestrator'},
+        {child: fleet,        entry: FLEET_SERVER_ENTRY, label: 'fleet'}
+    );
+    brainState.isolationRoot = isolationRoot;
+    writeRunState({isolationRoot, children: brainState.children.map(entry => ({entry: entry.entry, pgid: entry.child.pid}))});
 
     await Promise.all([
         awaitOrchestratorReady({child: orchestrator}),
