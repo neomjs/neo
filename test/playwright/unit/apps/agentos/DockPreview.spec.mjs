@@ -69,6 +69,29 @@ test.describe('AgentOS.view.DockPreview', () => {
             expect(light).toContain('--agent-dock-preview-accept');
             expect(light).toContain('--agent-dock-preview-reject')
         })
+
+        test('domain-token consumers stay on the declared DockPreview contract', () => {
+            const structural = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/apps/agentos/DockPreview.scss'), 'utf8'),
+                  dark       = fs.readFileSync(path.join(repoRoot, 'resources/scss/theme-neo-dark/apps/agentos/DockPreview.scss'), 'utf8'),
+                  light      = fs.readFileSync(path.join(repoRoot, 'resources/scss/theme-neo-light/apps/agentos/DockPreview.scss'), 'utf8'),
+                  consumers  = [...new Set(
+                      [structural, dark, light].flatMap(source =>
+                          [...source.matchAll(/var\((--(?:fm|dock-transition)-[\w-]+)/g)].map(match => match[1])
+                      )
+                  )].sort();
+
+            // This explicit census fails if a call site invents a pseudo-token such as
+            // --dock-transition-duration-fast or an undeclared --fm-* semantic alias.
+            expect(consumers).toEqual([
+                '--dock-transition-duration',
+                '--dock-transition-easing'
+            ]);
+
+            expect(dark).toMatch(/--agent-dock-preview-accept\s*:\s*#5eead4;/);
+            expect(dark).toMatch(/--agent-dock-preview-reject\s*:\s*#f4718b;/);
+            expect(light).toMatch(/--agent-dock-preview-accept\s*:\s*#0d9488;/);
+            expect(light).toMatch(/--agent-dock-preview-reject\s*:\s*#be123c;/)
+        })
     });
 
     test.describe('isValidPreview (fail-closed)', () => {

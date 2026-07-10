@@ -1,6 +1,9 @@
+// §06 authority (dock-choreography design artifact): these component-domain aliases map accept
+// and reject to the artifact's dark signal/hot column. Global FM light-native tokens remain
+// #14681's authority; this layer does not mint a parallel --fm-* vocabulary.
 :root .neo-theme-neo-dark {
-    --agent-dock-preview-accept      : var(--agent-state-focus, #58a6ff);
-    --agent-dock-preview-accept-fill : rgba(88, 166, 255, 0.22);
-    --agent-dock-preview-reject      : var(--agent-accent-intervention, #cf222e);
-    --agent-dock-preview-reject-fill : rgba(207, 34, 46, 0.16);
+    --agent-dock-preview-accept      : #5eead4;
+    --agent-dock-preview-accept-fill : rgba(94, 234, 212, 0.20);
+    --agent-dock-preview-reject      : #f4718b;
+    --agent-dock-preview-reject-fill : rgba(244, 113, 139, 0.16);
 }

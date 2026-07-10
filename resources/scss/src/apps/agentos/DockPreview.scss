@@ -7,7 +7,11 @@
         opacity        : 0.85;
         pointer-events : none;
         position       : absolute;
-        transition     : opacity 0.12s ease, background-color 0.12s ease, border-color 0.12s ease;
+        // Motion rides the one dock transition contract. Reduced-motion collapses the duration
+        // at that authority, never at this call site.
+        transition     : opacity var(--dock-transition-duration) var(--dock-transition-easing),
+                         background-color var(--dock-transition-duration) var(--dock-transition-easing),
+                         border-color var(--dock-transition-duration) var(--dock-transition-easing);
     }
 
     // Zone highlights — edge bands and whole-node tab targets — read as a translucent filled region.
