@@ -146,3 +146,69 @@ test.describe('Neo.ai.services.fleet.FleetRegistryService — the raw-launch sec
         expect(FleetRegistryService.getDefinition('iso').metadata.launch.command).toBe('/opt/custom');
     });
 });
+
+test.describe('Neo.ai.services.fleet.FleetRegistryService.configureAgent — the Body round-trip patch', () => {
+    let tmpDir;
+
+    test.beforeEach(() => {
+        tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-fleet-reg-'));
+        FleetRegistryService.dataDir = tmpDir;
+    });
+
+    test.afterEach(() => {
+        fs.rmSync(tmpDir, {recursive: true, force: true});
+    });
+
+    test('harnessTypes derives from the ONE shared registry (no second key list)', async () => {
+        const {HARNESS_TYPES} = await import('../../../../../../src/ai/fleet/harnessTypes.mjs');
+
+        expect(FleetRegistryService.harnessTypes).toEqual(HARNESS_TYPES.map(entry => entry.type));
+        // the drift the cycle-1 review convicted: the Brain-valid key the app copy was missing
+        expect(FleetRegistryService.harnessTypes).toContain('claude-code');
+    });
+
+    test('persists config, returns the readback projection, and preserves identity + credential state', () => {
+        FleetRegistryService.defineAgent({githubUsername: 'neo-gpt', harnessType: 'codex'});
+
+        const updated = FleetRegistryService.configureAgent('neo-gpt', {
+            harnessType: 'claude-code',
+            mcpServers : {'memory-core': true, 'knowledge-base': 0},
+            hooksActive: true
+        });
+
+        // the RESPONSE is the readback: persisted truth, boolean-coerced matrix, no credential
+        expect(updated.harnessType).toBe('claude-code');
+        expect(updated.mcpServers).toEqual({'memory-core': true, 'knowledge-base': false});
+        expect(updated.hooksActive).toBe(true);
+        expect(updated.wakeSubscriptionsActive).toBeNull();
+        expect(updated.credential).toBeUndefined();
+        expect(updated.githubUsername).toBe('neo-gpt');
+
+        // and it round-trips through the read API
+        expect(FleetRegistryService.getAgent('neo-gpt').mcpServers).toEqual({'memory-core': true, 'knowledge-base': false});
+    });
+
+    test('partial patches preserve unspecified config; null matrix resets to catalog defaults', () => {
+        FleetRegistryService.defineAgent({githubUsername: 'ada', harnessType: 'codex'});
+        FleetRegistryService.configureAgent('ada', {mcpServers: {'neural-link': true}, wakeSubscriptionsActive: false});
+
+        // a later harness-only patch keeps the matrix + the wake intent
+        const second = FleetRegistryService.configureAgent('ada', {harnessType: 'native-neo'});
+
+        expect(second.mcpServers).toEqual({'neural-link': true});
+        expect(second.wakeSubscriptionsActive).toBe(false);
+
+        // explicit null resets the matrix to "catalog defaults" (the Body resolves null that way)
+        expect(FleetRegistryService.configureAgent('ada', {mcpServers: null}).mcpServers).toBeNull();
+    });
+
+    test('fail-closed edges: unknown id returns null; an invalid harnessType throws and persists nothing', () => {
+        expect(FleetRegistryService.configureAgent('ghost', {harnessType: 'codex'})).toBeNull();
+
+        FleetRegistryService.defineAgent({githubUsername: 'vega', harnessType: 'codex'});
+
+        expect(() => FleetRegistryService.configureAgent('vega', {harnessType: 'not-a-harness'}))
+            .toThrow(/invalid harnessType/);
+        expect(FleetRegistryService.getAgent('vega').harnessType).toBe('codex');
+    });
+});

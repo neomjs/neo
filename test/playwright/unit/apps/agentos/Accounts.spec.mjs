@@ -12,6 +12,7 @@ import path            from 'path';
 import {fileURLToPath} from 'url';
 import Neo             from '../../../../../src/Neo.mjs';
 import * as core       from '../../../../../src/core/_export.mjs';
+import Instance        from '../../../../../src/manager/Instance.mjs';
 import Accounts        from '../../../../../apps/agentos/view/Accounts.mjs';
 
 const
@@ -157,8 +158,12 @@ test.describe('AgentOS.view.Accounts — agent-scoped configuration (multiple ag
     // wired as an accessor so assignments run the real afterSet, mirroring the reactive config.
     const makeScopedAccounts = store => {
         const
-            selector = {items: []},
-            card     = {record: undefined};
+            selector = {
+                items: [],
+                add(items) { this.items.push(...[].concat(items)) },
+                removeAll() { this.items = [] }
+            },
+            card     = {record: undefined, refreshCount: 0, refresh() { this.refreshCount++ }};
 
         const stub = {
             id                     : `accounts-scoped-stub-${Math.abs(store.id.length)}-${store.id}`,
@@ -261,5 +266,114 @@ test.describe('AgentOS.view.Accounts — agent-scoped configuration (multiple ag
         expect(source).toContain('listHarnessTypes().map');
         // no hand-rolled harness radio literals survive
         expect(source).not.toMatch(/valueLabel\s*:\s*'(Codex|Claude|Antigravity|Native)'/)
+    });
+});
+
+// The cycle-2 review's falsifier, covered with REAL objects: a recordChange mutates fields
+// WITHOUT changing record identity, and the reactive `record` config suppresses same-identity
+// assignments — the card must still re-render (refresh), and the intent path must fire from the
+// real vdom-derived ids.
+test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + configIntent (real objects)', () => {
+    let AgentConfigCard, AgentDefinition, Store;
+
+    test.beforeAll(async () => {
+        AgentConfigCard = (await import('../../../../../apps/agentos/view/AgentConfigCard.mjs')).default;
+        AgentDefinition = (await import('../../../../../apps/agentos/model/AgentDefinition.mjs')).default;
+        Store           = (await import('../../../../../src/data/Store.mjs')).default
+    });
+
+    const cardText = card => JSON.stringify(card.vdom.cn);
+
+    test('a same-record field change re-renders the card through refresh() — the stale-state falsifier', () => {
+        const store = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: [
+            {id: 'vega', githubUsername: 'vega', harnessType: 'codex', hooksActive: null}
+        ]});
+        const record = store.get('vega');
+        const card   = Neo.create(AgentConfigCard, {record});
+
+        const unreadRows = () => (cardText(card).match(/Not read back yet/g) || []).length;
+
+        expect(unreadRows()).toBe(2); // Hooks + Wake subscriptions both unobserved
+
+        // the review's exact schedule: mutate the SAME record instance, then the same-identity
+        // assignment path (suppressed by the reactive config) — refresh() must close the gap
+        record.set({hooksActive: true});
+        card.record = record;   // suppressed: identity unchanged
+        card.refresh();         // the owning view's roster-change hook
+
+        expect(unreadRows()).toBe(1); // Hooks now renders its observed state...
+        expect(cardText(card)).toContain('"text":"Hooks"'); // ...as the On row
+        expect(cardText(card)).toMatch(/"text":"Hooks"\},\{"cls":\["agent-config-value"\],"text":"On"/);
+
+        // reselection / teardown leaves no stale state behind
+        card.record = null;
+        expect(cardText(card)).toContain('Select an agent');
+
+        card.destroy();
+        store.destroy()
+    });
+
+    test('server-row and harness-chip clicks fire configIntent with the toggled config — the card never mutates', () => {
+        const store = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: [
+            {id: 'ada', githubUsername: 'ada', harnessType: 'codex', mcpServers: {'memory-core': true}}
+        ]});
+        const record  = store.get('ada');
+        const card    = Neo.create(AgentConfigCard, {record});
+        const intents = [];
+
+        card.on('configIntent', data => intents.push(data));
+
+        // the vdom-derived row ids ARE the click contract
+        card.onCardClick({path: [{id: `${card.id}__srv__memory-core`}]});
+        card.onCardClick({path: [{id: `${card.id}__harness__claude-code`}]});
+        card.onCardClick({path: [{id: `${card.id}__harness__codex`}]});      // same harness → no intent
+        card.onCardClick({path: [{id: 'unrelated-node'}]});                  // off-card → no intent
+
+        expect(intents.length).toBe(2);
+        expect(intents[0].agentId).toBe('ada');
+        expect(intents[0].config.mcpServers['memory-core']).toBe(false);
+        expect(intents[1].config).toEqual({harnessType: 'claude-code'});
+
+        // the record itself is untouched — the owning view writes only from the bridge RESPONSE
+        expect(record.mcpServers).toEqual({'memory-core': true});
+        expect(record.harnessType).toBe('codex');
+
+        card.destroy();
+        store.destroy()
+    });
+
+    test('the Accounts round-trip writes the bridge RESPONSE onto the record and reports honestly', async () => {
+        const store = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: [
+            {id: 'ada', githubUsername: 'ada', harnessType: 'codex'}
+        ]});
+
+        const statuses = [];
+        const stub     = {
+            agentDefinitionsStore: store,
+            onAgentConfigIntent  : Accounts.prototype.onAgentConfigIntent,
+            updateBridgeStatus   : (cls, text) => statuses.push(cls)
+        };
+
+        // no bridge → fail closed, nothing mutates
+        delete globalThis.AgentOS;
+        await stub.onAgentConfigIntent({agentId: 'ada', config: {harnessType: 'claude-code'}});
+        expect(statuses).toEqual(['is-error']);
+        expect(store.get('ada').harnessType).toBe('codex');
+
+        // bridge answers → the RESPONSE (not the request) lands on the record
+        globalThis.AgentOS = {fleet: {registryBridge: {configureAgent: async () => ({
+            harnessType: 'claude-code', mcpServers: {'neural-link': true}, hooksActive: true, wakeSubscriptionsActive: null
+        })}}};
+
+        await stub.onAgentConfigIntent({agentId: 'ada', config: {harnessType: 'claude-code'}});
+
+        const record = store.get('ada');
+        expect(record.harnessType).toBe('claude-code');
+        expect(record.mcpServers).toEqual({'neural-link': true});
+        expect(record.hooksActive).toBe(true);
+        expect(statuses).toEqual(['is-error', 'is-live']);
+
+        delete globalThis.AgentOS;
+        store.destroy()
     });
 });

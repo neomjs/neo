@@ -143,6 +143,19 @@ class FleetControlBridge extends Base {
     }
 
     /**
+     * @summary Configure an existing agent — harness type + per-agent MCP matrix + operational
+     * intents (the scoped patch path; fleet authority, as with `defineAgent`). Never identity,
+     * never credential: the registry validates and persists, and the returned public definition
+     * is the Body's readback.
+     * @param {String} id
+     * @param {Object} config `{harnessType?, mcpServers?, hooksActive?, wakeSubscriptionsActive?}`
+     * @returns {Object|null} the updated public definition, or `null` for an unknown id.
+     */
+    configureAgent(id, config) {
+        return this.getRegistry().configureAgent(id, config);
+    }
+
+    /**
      * @summary List all agent definitions (no credentials) — the roster the pane renders.
      * @returns {Object[]}
      */

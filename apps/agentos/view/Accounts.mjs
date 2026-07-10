@@ -169,6 +169,16 @@ class Accounts extends DashboardPanel {
     }
 
     /**
+     * @summary Wire the configuration card's intent event — the card renders and fires; this view
+     * owns the bridge round-trip (see {@link #onAgentConfigIntent}).
+     * @param {...*} args
+     */
+    onConstructed(...args) {
+        super.onConstructed(...args);
+        this.getReference('agent-config-card')?.on({configIntent: this.onAgentConfigIntent, scope: this})
+    }
+
+    /**
      * Triggered after the agentDefinitionsStore config got changed — the provider-bound roster
      * arrives post-construct. Listener discipline: per-call copies (on()/un() consume keys off the
      * object they receive), symmetric unbind of the old store.
@@ -202,7 +212,10 @@ class Accounts extends DashboardPanel {
             card = me.getReference('agent-config-card');
 
         if (card) {
-            card.record = value ? (me.agentDefinitionsStore?.get(value) ?? null) : null
+            card.record = value ? (me.agentDefinitionsStore?.get(value) ?? null) : null;
+            // a recordChange mutates fields WITHOUT changing record identity, and the reactive
+            // config setter suppresses same-identity assignments — refresh() closes that gap
+            card.refresh()
         }
 
         me.getReference('agent-selector')?.items?.forEach(item => {
@@ -217,6 +230,43 @@ class Accounts extends DashboardPanel {
      */
     onAgentRosterChange() {
         this.syncAgentSelector()
+    }
+
+    /**
+     * @summary The card's `configIntent` → the `configureAgent` bridge round-trip: the registry
+     * validates + persists, and the RESPONSE (the public definition — the readback) is written
+     * onto the store record, which re-renders the card. Fail-closed: without a bridge nothing
+     * mutates locally — a config that did not persist must never render as if it had.
+     * @param {Object} data `{agentId, config}` from {@link AgentOS.view.AgentConfigCard}.
+     * @returns {Promise<void>}
+     */
+    async onAgentConfigIntent({agentId, config}) {
+        const
+            me     = this,
+            bridge = globalThis.AgentOS?.fleet?.registryBridge;
+
+        if (typeof bridge?.configureAgent !== 'function') {
+            me.updateBridgeStatus('is-error', 'Configuration is unavailable in dev-server mode. Nothing was changed.');
+            return
+        }
+
+        try {
+            const updated = await bridge.configureAgent(agentId, config);
+
+            if (updated) {
+                me.agentDefinitionsStore?.get(agentId)?.set({
+                    harnessType            : updated.harnessType,
+                    hooksActive            : updated.hooksActive ?? null,
+                    mcpServers             : updated.mcpServers ?? null,
+                    wakeSubscriptionsActive: updated.wakeSubscriptionsActive ?? null
+                });
+                me.updateBridgeStatus('is-live', 'Configuration saved.')
+            } else {
+                me.updateBridgeStatus('is-error', 'Unknown agent — configuration not saved.')
+            }
+        } catch (error) {
+            me.updateBridgeStatus('is-error', 'Could not save the configuration. Nothing was changed.')
+        }
     }
 
     /**
@@ -244,14 +294,17 @@ class Accounts extends DashboardPanel {
             return
         }
 
-        selector.items = records.map(record => ({
+        // container children materialize through the API — a bare `items = [...]` assignment on a
+        // LIVE container does not re-render (the stub-only shape the cycle-2 e2e falsified)
+        selector.removeAll();
+        selector.add(records.map(record => ({
             module : Button,
             agentId: record.id,
             cls    : ['agent-selector-button'],
             pressed: record.id === me.selectedAgentId,
             text   : record.displayName || record.githubUsername || record.id,
             handler: 'up.onSelectAgentClick'
-        }));
+        })));
 
         const validSelection = me.selectedAgentId && store?.get(me.selectedAgentId);
 
@@ -276,6 +329,7 @@ class Accounts extends DashboardPanel {
             };
 
         me.agentDefinitionsStore?.un({...listeners});
+        me.getReference('agent-config-card')?.un({configIntent: me.onAgentConfigIntent, scope: me});
         super.destroy(...args)
     }
 

@@ -78,6 +78,41 @@
                 opacity    : .6;
             }
         }
+
+        .agent-config-toggle {
+            cursor : pointer;
+
+            &:hover .agent-config-value {
+                text-decoration : underline;
+            }
+        }
+
+        .agent-config-chips {
+            display   : flex;
+            flex-wrap : wrap;
+            gap       : 6px;
+        }
+
+        .agent-config-chip {
+            border        : 1px solid var(--fm-line, currentColor);
+            border-radius : 6px;
+            cursor        : pointer;
+            font-size     : 11px;
+            padding       : 2px 8px;
+
+            &.is-selected {
+                background  : var(--fm-signal, transparent);
+                font-weight : 600;
+            }
+
+            &.is-selectable {
+                opacity : .7;
+
+                &:hover {
+                    opacity : 1;
+                }
+            }
+        }
     }
 
     .agent-definition-form {
