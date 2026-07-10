@@ -1,6 +1,9 @@
 import {setup} from '../../setup.mjs';
 
 setup({
+    // Explicit: sibling spec files enable allowVdomUpdatesInTests and the flag can bleed across
+    // files sharing a worker — this contract test REQUIRES the disabled-updates branch.
+    allowVdomUpdatesInTests: false,
     appConfig: {
         name: 'CoreVdomUnitModeUpdateTest'
     }
@@ -23,6 +26,19 @@ import Container      from '../../../../src/container/Base.mjs';
  * is pinned separately in `test/playwright/unit/core/AsyncDestruction.spec.mjs` and is unchanged.
  */
 test.describe('VdomLifecycle unit-mode update contract', () => {
+    let previousFlag;
+
+    // Worker-persistent Neo.config outlives per-file setup, and sibling spec files enable
+    // allowVdomUpdatesInTests — this contract REQUIRES the disabled branch, so pin it per test.
+    test.beforeEach(() => {
+        previousFlag = Neo.config.allowVdomUpdatesInTests;
+        Neo.config.allowVdomUpdatesInTests = false
+    });
+
+    test.afterEach(() => {
+        Neo.config.allowVdomUpdatesInTests = previousFlag
+    });
+
     test('promiseUpdate() resolves as a successful no-op while unit mode disables vdom updates', async () => {
         const component = Neo.create(Component, {id: 'vdom-unitmode-resolve'});
 
