@@ -200,7 +200,11 @@ class DockLayoutAdapter extends Base {
      * worker reads `additionalThemeFiles` from the class prototype, never from instance
      * configs — so each consuming workspace declares
      * `additionalThemeFiles: ['Neo.dashboard.Container']` in its own static config (one line;
-     * the `DemoAWorkspace` token-bridge precedent).
+     * the `DemoAWorkspace` token-bridge precedent). A workspace whose refresh loop awaits the
+     * FLIP addon (`Neo.main.addon.DockFlip.captureFirst`) must ALSO declare `"DockFlip"` in its
+     * app's `mainThreadAddons` — a remote call into an addon the app never loaded does not
+     * reject, it never settles, which silently hangs the awaiting view-sync (the whole
+     * re-projection loop) with no error surfacing anywhere.
      * @param {Object} model
      * @param {Object} [options={}]
      * @param {Function} [options.resolveComponentRef]
