@@ -124,6 +124,7 @@ test.describe('ai/graph/identityRoots — Codex model lineage', () => {
                 family             : 'gpt',
                 trustTier          : 'peer-trusted',
                 contextWindowInput : 353400,
+                modelDesignation   : 'GPT-5.6 Sol',
                 thoughtBudget      : 'xhigh',
                 releaseDate        : '2026-07-09',
                 pricingInput       : 5,
@@ -135,6 +136,25 @@ test.describe('ai/graph/identityRoots — Codex model lineage', () => {
             'OpenAI releases a successor Sol-tier model with material reasoning capability upgrade',
             'GPT-5.x family deprecation'
         ]);
+    });
+});
+
+/**
+ * @summary Structured current-model designation contract: every agent identity carries the
+ * `modelDesignation` display fact (the structured mirror of the Model-Stats `name` rows) the
+ * fleet↔identity display join consumes. Rotated by model-rotation PRs; superseded by the
+ * EmbodiedEpisode era layer when the era schema lands.
+ */
+test.describe('ai/graph/identityRoots — model designations', () => {
+    test('every agent identity carries a non-empty modelDesignation display fact', () => {
+        const agents = IDENTITIES.filter(node => node.type === 'AgentIdentity' && node.properties?.accountType === 'agent');
+
+        expect(agents.length).toBeGreaterThan(0);
+
+        agents.forEach(node => {
+            expect(typeof node.properties.modelDesignation, `${node.id} modelDesignation`).toBe('string');
+            expect(node.properties.modelDesignation.length, `${node.id} modelDesignation`).toBeGreaterThan(0)
+        })
     });
 });
 

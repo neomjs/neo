@@ -125,6 +125,7 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
 
     const makeCockpit = (grid, rosterWired = false) => ({
         getReference: reference => reference === 'fleet-grid' ? grid : null,
+        mapRosterRow: FleetCockpit.prototype.mapRosterRow,
         mergeRoster : FleetCockpit.prototype.mergeRoster,
         rosterWired
     });
@@ -179,11 +180,11 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         })
     });
 
-    test('no bridge / no verb / not-wired / thrown → keeps the last-known roster (fail-closed, no crash)', async () => {
+    test('no bridge / no verb / malformed rows / thrown → keeps the last-known roster (fail-closed, no crash)', async () => {
         for (const bridge of [
             null,
             {},
-            {fleetRoster: async () => ({capability: {state: 'not-wired'}, agents: [{agentId: 'x'}]})},
+            {fleetRoster: async () => ({rows: null})},
             {fleetRoster: async () => { throw new Error('bridge boom') }}
         ]) {
             const {grid} = await routeLoadRoster(bridge);
@@ -194,43 +195,82 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         }
     });
 
-    test('wired + EMPTY → keeps the last-known roster — an empty fleet from a wired source never blanks the cockpit', async () => {
-        const {grid} = await routeLoadRoster({fleetRoster: async () => ({capability: {state: 'wired'}, agents: []})});
+    test('an EMPTY roster answer keeps the last-known roster — an empty fleet from an answering producer never blanks the cockpit', async () => {
+        const {grid} = await routeLoadRoster({fleetRoster: async () => ({rows: []})});
 
         expect(grid.adapterState).toBe('sample');
         expect(grid.store.cleared).toBe(0)
     });
 
-    test('degraded → the stale banner over the last-known roster', async () => {
-        const {grid} = await routeLoadRoster({fleetRoster: async () => ({capability: {state: 'degraded'}, agents: []})});
+    test('mapRosterRow maps a DTO row onto the FleetAgent contract — durable id, identity facts, honest state vocabulary', () => {
+        const mapped = FleetCockpit.prototype.mapRosterRow({
+            id         : 'neo-gpt',
+            displayName: 'Neo GPT',
+            avatarUrl  : 'https://github.com/neo-gpt.png?size=80',
+            family     : 'gpt',
+            engineTag  : 'GPT-5.6 Sol',
+            lifecycle  : {state: 'running', confidence: 'observed'}
+        });
 
-        expect(grid.adapterState).toBe('stale');
-        expect(grid.store.cleared).toBe(0)
+        expect(mapped).toEqual({
+            agentId    : 'neo-gpt',
+            avatarUrl  : 'https://github.com/neo-gpt.png?size=80',
+            displayName: 'Neo GPT',
+            engineTag  : 'GPT-5.6 Sol',
+            family     : 'gpt',
+            state      : 'ok'
+        });
+
+        // laneLine is OMITTED, never nulled — a roster merge must not wipe what the activity producer writes
+        expect(Object.hasOwn(mapped, 'laneLine')).toBe(false)
     });
 
-    test('the FIRST wired payload populates the Store (replaces the sample seed) and goes live — rows without agentId are dropped', async () => {
-        const {cockpit, grid} = await routeLoadRoster({fleetRoster: async () => ({
-            capability: {state: 'wired'},
-            agents    : [{agentId: 'vega', state: 'ok'}, {noId: true}, {agentId: 'ada', state: 'idle'}]
-        })});
+    test('mapRosterRow state vocabulary — running → ok; stopped / not-wired / absent liveness → off (benched, never guessed)', () => {
+        const map = lifecycle => FleetCockpit.prototype.mapRosterRow({id: 'x', lifecycle}).state;
+
+        expect(map({state: 'running'})).toBe('ok');
+        expect(map({state: 'stopped'})).toBe('off');
+        expect(map({state: 'not-wired'})).toBe('off');
+        expect(map(undefined)).toBe('off');
+
+        // un-enriched identity facts flow as nulls (unclassified / tagless)
+        const bare = FleetCockpit.prototype.mapRosterRow({id: 'x'});
+        expect(bare.family).toBeNull();
+        expect(bare.engineTag).toBeNull()
+    });
+
+    test('the FIRST roster payload populates the Store (replaces the sample seed) and goes live — rows without a durable id are dropped', async () => {
+        const {cockpit, grid} = await routeLoadRoster({fleetRoster: async () => ({rows: [
+            {id: 'vega', lifecycle: {state: 'running'}},
+            {noId: true},
+            {id: 'ada', lifecycle: {state: 'stopped'}}
+        ]})});
 
         expect(grid.store.cleared).toBe(1);
-        expect(grid.store.added.map(row => row.agentId)).toEqual(['vega', 'ada']);
+        // rows arrive MAPPED onto the record contract — durable id → agentId, runtime → session state
+        expect(grid.store.added.map(row => [row.agentId, row.state])).toEqual([['vega', 'ok'], ['ada', 'off']]);
         expect(grid.adapterState).toBe('live');
         expect(cockpit.rosterWired).toBe(true)
     });
 
-    test('later wired payloads MERGE onto records — record.set(row) per known agentId, add for a new resident', async () => {
+    test('later roster payloads MERGE onto records — record.set(mapped row) per known agentId, add for a new resident', async () => {
         const writes = [],
               vega   = {set(row) { writes.push(row) }};
 
-        const {grid} = await routeLoadRoster({fleetRoster: async () => ({
-            capability: {state: 'wired'},
-            agents    : [{agentId: 'vega', state: 'wedged'}, {agentId: 'joiner', state: 'ok'}]
-        })}, {known: {vega}, rosterWired: true});
+        const {grid} = await routeLoadRoster({fleetRoster: async () => ({rows: [
+            {id: 'vega', family: 'claude', engineTag: 'Claude Opus 4.8', lifecycle: {state: 'running'}},
+            {id: 'joiner', lifecycle: {state: 'stopped'}}
+        ]})}, {known: {vega}, rosterWired: true});
 
         // known resident → runtime status merged onto ITS record (the store re-renders just that card)
-        expect(writes).toEqual([{agentId: 'vega', state: 'wedged'}]);
+        expect(writes).toEqual([{
+            agentId    : 'vega',
+            avatarUrl  : null,
+            displayName: null,
+            engineTag  : 'Claude Opus 4.8',
+            family     : 'claude',
+            state      : 'ok'
+        }]);
         // new resident → joins the roster; the seed is never re-cleared on a merge
         expect(grid.store.added.map(row => row.agentId)).toEqual(['joiner']);
         expect(grid.store.cleared).toBe(0);

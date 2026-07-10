@@ -56,6 +56,7 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
         FleetControlBridge.manager            = null;
         FleetControlBridge.bootIdentitySource = null;
         FleetControlBridge.activitySource     = null;
+        FleetControlBridge.identityResolver   = null;
     });
 
     // ---- delegation: the registry (define / list / get) half ----
@@ -166,6 +167,66 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
         managerStub.fleetRuntimeStatus = () => { calls.push(['fleetRuntimeStatus']); return [{agentId: 'alice', state: 'running', running: true, confidence: 'observed', source: 'fleet:runtimeStatus'}]; };
         expect(FleetControlBridge.fleetRuntimeStatus()).toEqual([{agentId: 'alice', state: 'running', running: true, confidence: 'observed', source: 'fleet:runtimeStatus'}]);
         expect(calls).toEqual([['fleetRuntimeStatus']]);
+    });
+
+    // ---- fleetRoster: the assembled cockpit DTO with the identity join (the Brain-side assembler) ----
+
+    test('fleetRoster assembles roster + repo + runtime and joins identity display facts through the resolver seam', () => {
+        registryStub.listAgents = () => {
+            calls.push(['listAgents']);
+            return [
+                {id: 'neo-gpt', githubUsername: 'neo-gpt', harnessType: 'codex'},
+                {id: 'guest-agent', githubUsername: 'guest-agent', harnessType: 'claude-code'}
+            ];
+        };
+        managerStub.fleetRepoStatus    = () => { calls.push(['fleetRepoStatus']); return [{agentId: 'neo-gpt', state: 'checkout'}]; };
+        managerStub.fleetRuntimeStatus = () => { calls.push(['fleetRuntimeStatus']); return [{agentId: 'neo-gpt', state: 'running', running: true, confidence: 'observed'}]; };
+
+        // the ONE join seam — injected here, so the spec pins the SEAM without depending on live root values
+        FleetControlBridge.identityResolver = login => {
+            calls.push(['resolveIdentityDisplay', login]);
+            return login === 'neo-gpt' ? {family: 'gpt', engineTag: 'GPT-5.6 Sol'} : {family: null, engineTag: null};
+        };
+
+        const dto = FleetControlBridge.fleetRoster();
+
+        // the resolver was consulted once per agent, keyed by githubUsername
+        expect(calls).toContainEqual(['resolveIdentityDisplay', 'neo-gpt']);
+        expect(calls).toContainEqual(['resolveIdentityDisplay', 'guest-agent']);
+
+        expect(dto.rows).toHaveLength(2);
+        expect(dto.rows[0]).toMatchObject({
+            id       : 'neo-gpt',
+            family   : 'gpt',
+            engineTag: 'GPT-5.6 Sol',
+            lifecycle: {state: 'running', confidence: 'observed'},
+            sources  : {runtime: {state: 'wired'}}
+        });
+
+        // no identity root -> null facts (rendered unclassified/tagless, never guessed) + honest runtime gap
+        expect(dto.rows[1]).toMatchObject({
+            id       : 'guest-agent',
+            family   : null,
+            engineTag: null,
+            lifecycle: {state: 'not-wired', confidence: 'none'}
+        });
+
+        // activity stays on its own verb; the DTO declares that honestly rather than duplicating it
+        expect(dto.capabilities.activity.state).toBe('not-wired');
+        expect(dto.capabilities.runtime.state).toBe('wired');
+    });
+
+    test('fleetRoster defaults the resolver to the identity-roots join when not injected (named maintainers resolve real facts)', () => {
+        registryStub.listAgents        = () => [{id: 'neo-gpt', githubUsername: 'neo-gpt', harnessType: 'codex'}];
+        managerStub.fleetRepoStatus    = () => [];
+        managerStub.fleetRuntimeStatus = () => [];
+
+        const [row] = FleetControlBridge.fleetRoster().rows;
+
+        // compare against the LIVE root (rotation-proof): the default resolver reads identityRoots
+        expect(row.family).toBe('gpt');
+        expect(typeof row.engineTag).toBe('string');
+        expect(row.engineTag.length).toBeGreaterThan(0);
     });
 
     // ---- the security boundary: the allowlist OMITS the Brain-internal secret paths ----

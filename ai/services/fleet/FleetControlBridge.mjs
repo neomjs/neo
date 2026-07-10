@@ -1,7 +1,9 @@
-import Base                 from '../../../src/core/Base.mjs';
-import FleetManager         from './FleetManager.mjs';
-import FleetRegistryService from './FleetRegistryService.mjs';
+import Base                     from '../../../src/core/Base.mjs';
+import FleetManager             from './FleetManager.mjs';
+import FleetRegistryService     from './FleetRegistryService.mjs';
+import {resolveIdentityDisplay} from './resolveIdentityDisplay.mjs';
 import {
+    createFleetCockpitStatus,
     createNotWiredCapability,
     FLEET_COCKPIT_SOURCES
 } from '../../../src/ai/fleet/fleetCockpitStatus.mjs';
@@ -89,11 +91,29 @@ class FleetControlBridge extends Base {
     activitySource = null
 
     /**
+     * Identity-display resolver seam — maps a fleet agent onto its identity-root display facts
+     * (`{family, engineTag}`) for the {@link #fleetRoster} assembler join. Defaults (via
+     * {@link getIdentityResolver}) to `resolveIdentityDisplay` over the flat identity roots; inject
+     * a stub in tests. A plain injectable field, mirroring `registry` / `manager` — and the single
+     * re-point site when the EmbodiedEpisode era schema supersedes the flat roots.
+     * @member {Function|null} identityResolver=null
+     */
+    identityResolver = null
+
+    /**
      * @returns {Object} the registry collaborator (injected stub or the default singleton).
      * @protected
      */
     getRegistry() {
         return this.registry || FleetRegistryService;
+    }
+
+    /**
+     * @returns {Function} the identity-display resolver (injected stub or the module default).
+     * @protected
+     */
+    getIdentityResolver() {
+        return this.identityResolver || resolveIdentityDisplay;
     }
 
     /**
@@ -256,6 +276,50 @@ class FleetControlBridge extends Base {
                 capability: createNotWiredCapability(FLEET_COCKPIT_SOURCES.activity, 'fleet activity source not wired'),
                 events    : []
             };
+    }
+
+    /**
+     * @summary READ-OBSERVE: the assembled fleet-roster cockpit snapshot — the DTO the FM cockpit's
+     * fleet grid renders from. This is the **assembler** the ratified fleet↔identity join design places Brain-side:
+     * it gathers the shipped reads (`listAgents` roster + `fleetStatus` repo state +
+     * `fleetRuntimeStatus` live process truth), joins each agent onto its identity-root display
+     * facts through the ONE {@link #getIdentityResolver} seam (`family` as era/display attribute,
+     * `engineTag` as current-model metadata — read-only, era-swap re-points the resolver, zero Body
+     * diff), and hands the identity-enriched agents to the Body-side pure map
+     * (`createFleetCockpitStatus` — which never imports `ai/graph`; the hemisphere boundary holds).
+     *
+     * Rides the authenticated `registryBridge` as a **read** verb; it carries NO lifecycle-write /
+     * restart authority (the R3 read-observe ÷ lifecycle-write seam). An agent without an identity
+     * root resolves to null display facts — rendered unclassified / tagless, never guessed. Activity
+     * stays on its own {@link #fleetActivity} verb; this DTO's activity capability is declared
+     * accordingly rather than duplicated.
+     * @returns {Object} the serializable cockpit DTO `{sources, capabilities, rows, events}`.
+     */
+    fleetRoster() {
+        const
+            me       = this,
+            registry = me.getRegistry(),
+            manager  = me.getManager(),
+            resolve  = me.getIdentityResolver();
+
+        const agents = (registry.listAgents() ?? []).map(agent => ({
+            ...agent,
+            ...resolve(agent.githubUsername ?? agent.id)
+        }));
+
+        return createFleetCockpitStatus({
+            agents,
+            fleetStatus  : manager.fleetRepoStatus() ?? [],
+            runtimeStatus: manager.fleetRuntimeStatus() ?? [],
+            capabilities : {
+                activity: createNotWiredCapability(FLEET_COCKPIT_SOURCES.activity, 'activity rides the dedicated fleetActivity verb'),
+                runtime : {
+                    source    : FLEET_COCKPIT_SOURCES.runtime,
+                    state     : 'wired',
+                    confidence: 'observed'
+                }
+            }
+        });
     }
 }
 

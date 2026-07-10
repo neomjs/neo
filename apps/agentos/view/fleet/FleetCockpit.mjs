@@ -151,16 +151,17 @@ class FleetCockpit extends Container {
 
     /**
      * @summary Bind the fleet roster to the running fleet: poll the read-observe `fleetRoster` verb
-     * on the injected registry bridge and route its honest capability state to the Store the grid
-     * renders from:
-     * - `wired` + rows → the FIRST wired payload **populates the Store** (replacing the sample
-     *   seed); every later one **merges onto the records** (`record.set(row)` per known `agentId`,
-     *   `store.add` for a new resident) — runtime status refresh, not a re-seed. Grid goes `live`.
-     * - `degraded` → the **stale** banner over the last-known roster.
-     * - `wired` + EMPTY / not-wired / absent bridge / a thrown source → keep the last-known roster
-     *   (the honestly-labelled sample seed at boot); fail closed rather than blanking the fleet. An
-     *   empty roster from a wired source is indistinguishable from a broken producer at this seam,
-     *   and a blanked cockpit hides exactly the fleet the operator must see.
+     * on the injected registry bridge — the Brain-side assembler DTO (`{sources, capabilities, rows,
+     * events}`, identity-enriched per the `resolveIdentityDisplay` join) — map its rows onto the
+     * FleetAgent record contract, and route honestly into the Store the grid renders from:
+     * - rows present → the FIRST payload **populates the Store** (replacing the sample seed); every
+     *   later one **merges onto the records** (`record.set(row)` per known `agentId`, `store.add`
+     *   for a new resident) — runtime status refresh, not a re-seed. Grid goes `live`.
+     * - EMPTY rows / absent bridge / no verb / a thrown source → keep the last-known roster (the
+     *   honestly-labelled sample seed at boot); fail closed rather than blanking the fleet. An
+     *   empty roster from an answering producer is indistinguishable from a broken one at this
+     *   seam, and a blanked cockpit hides exactly the fleet the operator must see. (The grid's
+     *   `stale` render remains reserved for a real degraded signal once a producer emits one.)
      * @protected
      */
     async loadRoster() {
@@ -173,25 +174,45 @@ class FleetCockpit extends Container {
         }
 
         try {
-            const {capability, agents} = await bridge.fleetRoster() ?? {},
-                  rows                 = Array.isArray(agents) ? agents.filter(row => row?.agentId) : [];
+            const {rows} = await bridge.fleetRoster() ?? {},
+                  mapped = Array.isArray(rows) ? rows.filter(row => row?.id).map(row => me.mapRosterRow(row)) : [];
 
-            if (capability?.state === 'wired' && rows.length > 0) {
+            if (mapped.length > 0) {
                 if (me.rosterWired) {
-                    me.mergeRoster(grid.store, rows)
+                    me.mergeRoster(grid.store, mapped)
                 } else {
                     grid.store.clear();
-                    grid.store.add(rows);
+                    grid.store.add(mapped);
                     me.rosterWired = true
                 }
 
                 grid.adapterState = 'live'
-            } else if (capability?.state === 'degraded') {
-                grid.adapterState = 'stale'
             }
-            // wired-but-empty / not-wired / absent bridge → keep the last-known roster
+            // empty rows / absent bridge → keep the last-known roster
         } catch (error) {
             // fail-closed: the last-known roster stays rather than blanking the fleet
+        }
+    }
+
+    /**
+     * @summary Map one assembler DTO row onto the FleetAgent record contract. The durable `id`
+     * becomes `agentId`; identity display facts (`family` / `engineTag`) flow through (null =
+     * unclassified / tagless, never guessed); the runtime `lifecycle.state` maps onto the cockpit's
+     * session-state vocabulary — `running` → `ok`, anything else (`stopped` / `not-wired` /
+     * unknown liveness) → `off`, honestly benched until the richer watchdog states land. `laneLine`
+     * is deliberately OMITTED (not nulled): the activity capability owns it, and a merge must never
+     * wipe what another producer wrote.
+     * @param {Object} row One cockpit DTO row (`fleetCockpitStatus` shape).
+     * @returns {Object} FleetAgent record field values.
+     */
+    mapRosterRow(row) {
+        return {
+            agentId    : row.id,
+            avatarUrl  : row.avatarUrl ?? null,
+            displayName: row.displayName ?? null,
+            engineTag  : row.engineTag ?? null,
+            family     : row.family ?? null,
+            state      : row.lifecycle?.state === 'running' ? 'ok' : 'off'
         }
     }
 
