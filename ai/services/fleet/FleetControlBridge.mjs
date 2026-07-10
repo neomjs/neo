@@ -2,6 +2,9 @@ import Base                     from '../../../src/core/Base.mjs';
 import FleetManager             from './FleetManager.mjs';
 import FleetRegistryService     from './FleetRegistryService.mjs';
 import {resolveIdentityDisplay} from './resolveIdentityDisplay.mjs';
+
+import {LAUNCHABLE_HARNESS_TYPES, getHarnessAuthMode} from './deriveHarnessLaunchSpec.mjs';
+
 import {
     createFleetCockpitStatus,
     createNotWiredCapability,
@@ -298,8 +301,12 @@ class FleetControlBridge extends Base {
      * `fleetRuntimeStatus` live process truth), joins each agent onto its identity-root display
      * facts through the ONE {@link #getIdentityResolver} seam (`family` as era/display attribute,
      * `engineTag` as current-model metadata — read-only, era-swap re-points the resolver, zero Body
-     * diff), and hands the identity-enriched agents to the Body-side pure map
-     * (`createFleetCockpitStatus` — which never imports `ai/graph`; the hemisphere boundary holds).
+     * diff), stamps the launch-derived truth per agent (`launchable` = the family is in the
+     * launch-templated subset; `authMode` = `'marker' | 'in-app' | null` — both DERIVED at read
+     * time from the launch seam, never a second hand-maintained list, so a family becomes
+     * cockpit-launchable exactly when its template lands), and hands the enriched agents to the
+     * Body-side pure map (`createFleetCockpitStatus` — which never imports `ai/graph` or the Brain
+     * launch seam; the hemisphere boundary holds, the Body only hoists what arrives stamped).
      *
      * Rides the authenticated `registryBridge` as a **read** verb; it carries NO lifecycle-write /
      * restart authority (the R3 read-observe ÷ lifecycle-write seam). An agent without an identity
@@ -317,7 +324,9 @@ class FleetControlBridge extends Base {
 
         const agents = (registry.listAgents() ?? []).map(agent => ({
             ...agent,
-            ...resolve(agent.githubUsername ?? agent.id)
+            ...resolve(agent.githubUsername ?? agent.id),
+            launchable: LAUNCHABLE_HARNESS_TYPES.includes(agent.harnessType),
+            authMode  : getHarnessAuthMode(agent.harnessType)
         }));
 
         return createFleetCockpitStatus({
