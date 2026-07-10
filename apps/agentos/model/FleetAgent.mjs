@@ -7,10 +7,10 @@ import Model from '../../../src/data/Model.mjs';
  * @summary The cockpit fleet-roster record contract: one row per resident, keyed by the durable
  * `agentId`. The `fields` array IS the card's data contract — display state (`displayName`,
  * `avatarUrl`, `engineTag`, `family`, `laneLine`), session `state` (what the resident is doing
- * now, never identity), and the B4/C2 lifecycle-control seam (`pendingAction`, `controlReason`)
- * all live on the record, so one Store of these records is the per-row reactive layer for the
- * whole fleet view. Sibling of {@link AgentOS.model.AgentDefinition} (the credential-side
- * definition shape); this model carries no credential field by design.
+ * now, never identity), per-source `sources` provenance, and the B4/C2 lifecycle-control seam
+ * (`pendingAction`, `controlReason`) all live on the record, so one Store of these records is the
+ * per-row reactive layer for the whole fleet view. Sibling of {@link AgentOS.model.AgentDefinition}
+ * (the credential-side definition shape); this model carries no credential field by design.
  */
 class FleetAgent extends Model {
     static config = {
@@ -64,6 +64,13 @@ class FleetAgent extends Model {
             name        : 'state',
             type        : 'String',
             defaultValue: 'off'
+        }, {
+            // normalized `fleetCockpitStatus.rows[*].sources`: roster / repoStatus / runtime
+            // provenance. Replaced as one Object on each snapshot so Store recordChange remains
+            // the single reactive path; no nested per-card state layer.
+            name        : 'sources',
+            type        : 'Object',
+            defaultValue: null
         }]
     }
 }

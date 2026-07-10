@@ -55,6 +55,16 @@ test.describe('Tier 1 Config Immutability', () => {
         expect(fresh.getDataConfig('mcpHttpPort').get()).toBe(initialPort);
     });
 
+    test('mcpHttpHost transport-host leaf owns the HOST env binding', () => {
+        // Consumers (TransportService) read the resolved leaf; the env-override-with-default
+        // behavior lives here on the leaf, so prove the binding resolves through it.
+        expect(Config.mcpHttpHost).toBe(process.env.HOST || 'localhost');
+
+        const fresh = Neo.create(ConfigProvider, {data: Config._data});
+        fresh.setEnvOverride('HOST', 'internal-host');
+        expect(fresh.getDataConfig('mcpHttpHost').get()).toBe('internal-host');
+    });
+
     test('ships a machine-neutral orchestrator dev-sync root default', async () => {
         expect(Config.orchestrator.devSyncRoots).toEqual([]);
     });

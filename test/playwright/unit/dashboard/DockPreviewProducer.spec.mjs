@@ -25,17 +25,53 @@ test.describe('Neo.dashboard.DockPreviewProducer (ADR 0029 §2.3 — the dock pr
         producer?.destroy()
     });
 
-    test('resolvePlacementKind maps the five zones deterministically', () => {
+    test('resolvePlacementKind maps the zones deterministically — the top edge is strip-owned', () => {
         const k = (x, y) => producer.resolvePlacementKind(RECT, {x, y});
 
         expect(k(50, 50)).toBe('tab-into');
-        expect(k(50, 10)).toBe('edge-top');
+        // The top region belongs to the header-strip carve-out (36 > band 24 on this rect):
+        // dropping on a tabs zone's upper area IS the add-as-tab gesture — never a top split.
+        expect(k(50, 10)).toBe('tab-into');
+        expect(k(5,  5 )).toBe('tab-into');
+        expect(k(50, 23.9)).toBe('tab-into');
+        expect(k(50, 24.1)).toBe('tab-into');
+        // The other three edges keep the five-zone grammar.
         expect(k(50, 90)).toBe('edge-bottom');
         expect(k(10, 50)).toBe('edge-left');
         expect(k(90, 50)).toBe('edge-right');
-        expect(k(5,  5 )).toBe('edge-top');    // corner tie resolves top > left (deterministic order)
-        expect(k(50, 23.9)).toBe('edge-top');  // just inside the edge band
-        expect(k(50, 24.1)).toBe('tab-into')   // just past the edge band
+        expect(k(5,  95)).toBe('edge-bottom')  // corner tie resolves bottom > left (deterministic order)
+    });
+
+    test('the header-strip carve-out wins at REAL projected strip geometry (the #14913 journey scale)', () => {
+        // The live adapter projects tabs-zone rects strip-shallow — this is the observed
+        // rendered scale of the demo's Terminal zone. Band = 0.24 * 44 = 10.56; the effective
+        // carve-out caps at height/2 = 22, and it must NOT deactivate here: this exact rect is
+        // where the fits-inside-the-band precondition classified the primary journey as a split.
+        const STRIP = {x: 0, y: 0, width: 402, height: 44};
+        const k     = (x, y) => producer.resolvePlacementKind(STRIP, {x, y});
+
+        expect(k(200, 5 )).toBe('tab-into');   // inside the old 10.56px band → was edge-top, the shipped bug
+        expect(k(200, 15)).toBe('tab-into');   // mid-strip
+        expect(k(200, 22)).toBe('tab-into');   // carve-out cap boundary (height/2)
+        expect(k(200, 30)).toBe('tab-into');   // bottom half, interior (dBottom 14 > band)
+        expect(k(200, 40)).toBe('edge-bottom') // bottom edge band survives on ANY zone
+    });
+
+    test('the carve-out on tall zones: full 36px depth, strip-owned under EVERY orientation', () => {
+        const BIG = {x: 0, y: 0, width: 400, height: 300};   // band = 0.24 * 300 = 72; carve-out caps at 36
+        const k   = (x, y, o) => producer.resolvePlacementKind(BIG, {x, y}, o);
+
+        // Inside the carve-out (the tab header strip): the most intentional add-as-tab gesture —
+        // the strip row outranks edge-top AND the along-axis split-before (the live journey's
+        // terminal zone is a vertical-split child; a strip-top drop must never sibling-insert).
+        expect(k(200, 20)).toBe('tab-into');
+        expect(k(200, 36)).toBe('tab-into');
+        expect(k(200, 20, 'vertical')).toBe('tab-into');
+        expect(k(200, 20, 'horizontal')).toBe('tab-into');
+        // Below the carve-out but inside the band: top-edge semantics survive on tall zones,
+        // including the along-axis mapping.
+        expect(k(200, 50)).toBe('edge-top');
+        expect(k(200, 50, 'vertical')).toBe('split-before')
     });
 
     test('resolvePlacementKind is fail-closed for outside / malformed input', () => {
@@ -50,8 +86,10 @@ test.describe('Neo.dashboard.DockPreviewProducer (ADR 0029 §2.3 — the dock pr
         // the extensibility payoff: an app / subclass tunes the affordance thickness via config
         const wide = Neo.create(DockPreviewProducer, {edgeBandRatio: 0.4}); // band = 40 on a 100px rect
 
-        expect(producer.resolvePlacementKind(RECT, {x: 50, y: 30})).toBe('tab-into'); // default band 24: 30 > 24
-        expect(wide.resolvePlacementKind(RECT, {x: 50, y: 30})).toBe('edge-top');     // wide band 40: 30 < 40
+        // y = 38 sits above the header carve-out (36), inside the wide band (40), past the
+        // default band (24) — isolating the band-tunability contract from the carve-out.
+        expect(producer.resolvePlacementKind(RECT, {x: 50, y: 38})).toBe('tab-into'); // default band 24: 38 > 24
+        expect(wide.resolvePlacementKind(RECT, {x: 50, y: 38})).toBe('edge-top');     // wide band 40: 38 < 40
 
         wide.destroy()
     });
@@ -61,25 +99,30 @@ test.describe('Neo.dashboard.DockPreviewProducer (ADR 0029 §2.3 — the dock pr
         const h = (x, y) => producer.resolvePlacementKind(RECT, {x, y}, 'horizontal');
         expect(h(8,  50)).toBe('split-before'); // leading (left)
         expect(h(92, 50)).toBe('split-after');  // trailing (right)
-        expect(h(50, 8 )).toBe('edge-top');     // perpendicular edge stays a node split
+        expect(h(50, 8 )).toBe('tab-into');     // perpendicular top edge is strip-owned (carve-out)
         expect(h(50, 92)).toBe('edge-bottom');
         expect(h(50, 50)).toBe('tab-into');
 
-        // vertical split: children stacked → top/bottom are sibling insertions; left/right split the node
+        // vertical split: children stacked → the bottom edge is a sibling insertion; left/right
+        // split the node. The TOP edge is strip-owned on this rect (carve-out ≥ band) — the
+        // leading sibling-insert is only reachable below the carve-out on tall zones (pinned in
+        // the tall-zone spec above).
         const v = (x, y) => producer.resolvePlacementKind(RECT, {x, y}, 'vertical');
-        expect(v(50, 8 )).toBe('split-before'); // leading (top)
+        expect(v(50, 8 )).toBe('tab-into');     // strip-owned top
         expect(v(50, 92)).toBe('split-after');  // trailing (bottom)
         expect(v(8,  50)).toBe('edge-left');    // perpendicular edge stays a node split
         expect(v(92, 50)).toBe('edge-right')
     });
 
     test('produce carries placement.orientation for split-* and passes the consumer validator', () => {
+        // The bottom edge carries the sibling-insert on vertical-split children (the top is
+        // strip-owned by the carve-out — see the placement-grammar specs).
         const zones   = [{nodeId: 'side-split-child', rect: RECT, orientation: 'vertical'}];
-        const preview = producer.produce({pointer: {x: 50, y: 8}, zones, itemId: 'terminal'});
+        const preview = producer.produce({pointer: {x: 50, y: 92}, zones, itemId: 'terminal'});
 
-        expect(preview.placement.kind).toBe('split-before');
+        expect(preview.placement.kind).toBe('split-after');
         expect(preview.placement.orientation).toBe('vertical');  // contract: split placements MUST carry orientation
-        expect(preview.previewId).toBe('preview:terminal:side-split-child:split-before');
+        expect(preview.previewId).toBe('preview:terminal:side-split-child:split-after');
         expect(DockPreview.isValidPreview(preview)).toBe(true)   // THE PIN — incl. the split-orientation requirement
     });
 
@@ -97,10 +140,12 @@ test.describe('Neo.dashboard.DockPreviewProducer (ADR 0029 §2.3 — the dock pr
     });
 
     test('produce emits a dockPreview.v1 that PASSES the consumer validator (producer→consumer pin)', () => {
-        const zones = [{nodeId: 'main-tabs', rect: RECT}];
+        // A tall rect (band 72 > carve-out 36) keeps every kind reachable incl. edge-top —
+        // on strip-scale rects the carve-out owns the top by design (see the STRIP spec).
+        const zones = [{nodeId: 'main-tabs', rect: {x: 0, y: 0, width: 400, height: 300}}];
 
         // one produce per resolvable kind — each MUST satisfy the landed DockPreview.isValidPreview (write === read)
-        for (const [x, y, kind] of [[50, 50, 'tab-into'], [50, 8, 'edge-top'], [92, 50, 'edge-right'], [8, 50, 'edge-left'], [50, 92, 'edge-bottom']]) {
+        for (const [x, y, kind] of [[200, 150, 'tab-into'], [200, 50, 'edge-top'], [390, 150, 'edge-right'], [10, 150, 'edge-left'], [200, 290, 'edge-bottom']]) {
             const preview = producer.produce({pointer: {x, y}, zones, itemId: 'strategy', containerId: 'workspace'});
 
             expect(preview.schema).toBe('neo.harness.dockPreview.v1');

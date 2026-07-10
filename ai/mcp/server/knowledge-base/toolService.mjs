@@ -1,5 +1,3 @@
-import path                          from 'path';
-import {fileURLToPath}               from 'url';
 import DatabaseService               from '../../../services/knowledge-base/DatabaseService.mjs';
 import DocumentService               from '../../../services/knowledge-base/DocumentService.mjs';
 import HealthService                 from '../../../services/knowledge-base/HealthService.mjs';
@@ -9,6 +7,7 @@ import QueryService                  from '../../../services/knowledge-base/Quer
 import SearchService                 from '../../../services/knowledge-base/SearchService.mjs';
 import ToolService                   from '../../ToolService.mjs';
 import AiConfig                      from '../../../config.mjs';
+import kbConfig                      from './config.mjs';
 import {readDeploymentStateSnapshot} from '../../../services/memory-core/helpers/deploymentStateBridgeStore.mjs';
 import {
     assertToolTransportAllowed,
@@ -16,11 +15,6 @@ import {
     ingestToolName,
     isIngestSourceFilesToolVisible
 } from './ingestSourceFilesTool.mjs';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
-/** @anchor test-isolation - ENV override to prevent parallel test mutations from corrupting the canonical file. Easily extensible to other servers via NEO_AI_MCP_<SERVER>_OPENAPI_PATH. */
-const openApiFilePath = process.env.NEO_AI_MCP_KB_OPENAPI_PATH || path.join(__dirname, 'openapi.yaml');
 
 const readDeploymentInspection = args => readDeploymentStateSnapshot({
     filePath    : AiConfig.orchestrator.deploymentStateBridge.snapshotPath,
@@ -81,7 +75,9 @@ const serviceMapping = {
 
 const toolService = Neo.create(ToolService, {
     compactToolDescriptions     : true,
-    openApiFilePath,
+    // The server config owns the OpenAPI-contract path (default + the test-isolation env
+    // binding) — consumed at the use site, never re-derived from env here.
+    openApiFilePath             : kbConfig.openApiPath,
     serviceMapping,
     toolListDescriptionMaxLength: 120
 });

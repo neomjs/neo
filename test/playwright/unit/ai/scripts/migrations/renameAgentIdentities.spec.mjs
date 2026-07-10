@@ -13,12 +13,13 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Database       from 'better-sqlite3';
+import {test, expect}                         from '@playwright/test';
+import Database                               from 'better-sqlite3';
+import {spawnSync}                            from 'node:child_process';
 import {lstatSync, readdirSync, readFileSync} from 'node:fs';
-import path           from 'node:path';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
+import path                                   from 'node:path';
+import Neo                                    from '../../../../../../src/Neo.mjs';
+import * as core                              from '../../../../../../src/core/_export.mjs';
 import {
     findChromaMetadataUpdates,
     rewriteIdentityFields,
@@ -132,10 +133,26 @@ function findFilesContaining(repoRoot, entries, pattern) {
     return matches;
 }
 
+test.describe('migration CLIs — fresh-process bootstrap contract', () => {
+    test('both --help commands exit 0 with usage output in a BARE process — no Neo bootstrap, no Chroma/SQLite access', () => {
+        // The load-bearing regression: Playwright preloads Neo/core before importing these
+        // modules, so an in-process import can pass while the real CLI dies on the missing
+        // runtime global. Only a spawned fresh process proves the standalone entrypoint contract.
+        const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../../../../..');
+
+        for (const script of ['ai/scripts/migrations/renameAgentIdentities.mjs', 'ai/scripts/migrations/backfillChromaSharedUserId.mjs']) {
+            const result = spawnSync(process.execPath, [script, '--help'], {cwd: repoRoot, encoding: 'utf-8', timeout: 30_000});
+
+            expect(result.status, `${script} --help must exit 0 (stderr: ${result.stderr})`).toBe(0);
+            expect(result.stdout).toContain('Usage:');
+        }
+    });
+});
+
 test.describe('ai/scripts/migrations/renameAgentIdentities', () => {
     test('stale versioned handles are confined to the migration runner and its fixtures', () => {
         const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../../../../..');
-        const output = findFilesContaining(repoRoot, [
+        const output   = findFilesContaining(repoRoot, [
             'ai',
             '.github',
             'README.md',
@@ -162,13 +179,13 @@ test.describe('ai/scripts/migrations/renameAgentIdentities', () => {
             id        : '@neo-opus-4-7',
             label     : 'MESSAGE',
             properties: {
-                agentIdentity       : '@neo-opus-4-7',
-                bodyText            : 'historical body mentions @neo-opus-4-7',
-                participatingAgents : '@neo-opus-4-7, @neo-gemini-3-1-pro',
-                requiredGithubLogin : '@neo-gemini-3-1-pro',
+                agentIdentity        : '@neo-opus-4-7',
+                bodyText             : 'historical body mentions @neo-opus-4-7',
+                participatingAgents  : '@neo-opus-4-7, @neo-gemini-3-1-pro',
+                requiredGithubLogin  : '@neo-gemini-3-1-pro',
                 sourceAgentIdentities: ['@neo-opus-4-7', '@neo-gpt'],
-                subject             : 'historical subject mentions @neo-gemini-3-1-pro',
-                userId              : 'neo-opus-4-7'
+                subject              : 'historical subject mentions @neo-gemini-3-1-pro',
+                userId               : 'neo-opus-4-7'
             }
         };
 

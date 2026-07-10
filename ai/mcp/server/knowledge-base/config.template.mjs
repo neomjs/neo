@@ -48,6 +48,17 @@ class Config extends ConfigProvider {
              */
             transport: leaf('stdio', 'NEO_TRANSPORT', 'string'),
             /**
+             * Absolute path to this server's OpenAPI tool-contract file. The env binding is the
+             * test-isolation seam: a parallel test run points its server instance at a scratch
+             * copy so tool-contract mutations never corrupt the canonical file — extensible per
+             * server via the `NEO_AI_MCP_<SERVER>_OPENAPI_PATH` naming convention. Owning the
+             * default AND the env binding here (instead of a module-level `process.env` read at
+             * the consumer) keeps the config-is-SSOT contract: no consumer re-derives from env,
+             * no consumer holds a hidden default.
+             * @type {string}
+             */
+            openApiPath: leaf(path.join(__dirname, 'openapi.yaml'), 'NEO_AI_MCP_KB_OPENAPI_PATH', 'string'),
+            /**
              * Port the MCP server's HTTP/SSE transport listens on (only used when `transport === 'sse'`).
              *
              * Operator env var: `MCP_HTTP_PORT`.
