@@ -32,10 +32,11 @@ test.describe('Neo.dashboard.DockMotionSignal (the motion-contract observability
 
         return {
             id,
-            isDestroyed: false,
+            isDestroyed : false,
+            isDestroying: false,
             calls,
-            addCls     : cls => calls.push(['add', cls]),
-            removeCls  : cls => calls.push(['remove', cls])
+            addCls      : cls => calls.push(['add', cls]),
+            removeCls   : cls => calls.push(['remove', cls])
         };
     };
 
@@ -139,5 +140,71 @@ test.describe('Neo.dashboard.DockMotionSignal (the motion-contract observability
 
         expect(DockMotionSignal.isAnimating('ws-7')).toBe(false);
         expect(c.calls).toEqual([['add', 'neo-dashboard-dock-animating']]) // bookkeeping cleared, corpse untouched
+    });
+
+    test('ownership binds to the INSTANCE: a same-id replacement is untouchable by the stale predecessor', () => {
+        const t   = makeTimers(),
+              old = makeComponent('ws-8');
+
+        // the predecessor enters, then tears down mid-motion WITHOUT a leave — its fail-safe stays pending
+        DockMotionSignal.enter(old, t.setTimeoutFn, t.clearTimeoutFn);
+        old.isDestroyed = true;
+
+        // a replacement instance reuses the SAME id and starts its own motion
+        const next = makeComponent('ws-8');
+        DockMotionSignal.enter(next, t.setTimeoutFn, t.clearTimeoutFn);
+        expect(DockMotionSignal.isAnimating('ws-8')).toBe(true);
+
+        // the stale predecessor's leave() must not decrement the replacement's entry...
+        DockMotionSignal.leave(old, t.clearTimeoutFn);
+        expect(DockMotionSignal.isAnimating('ws-8')).toBe(true);
+
+        // ...and BOTH pending fail-safes fire: the old one clears only its own (corpse) entry —
+        // the replacement's entry goes ONLY via its own timer, removing cls on the live instance
+        t.fire();
+        expect(DockMotionSignal.isAnimating('ws-8')).toBe(false);
+        expect(old.calls).toEqual([['add', 'neo-dashboard-dock-animating']]);           // corpse never touched again
+        expect(next.calls).toEqual([
+            ['add', 'neo-dashboard-dock-animating'],
+            ['remove', 'neo-dashboard-dock-animating']
+        ])
+    });
+
+    test('a runtime id change neither strands nor duplicates the entry — instance keying, id-resolved reads', () => {
+        const t = makeTimers(),
+              c = makeComponent('ws-9');
+
+        DockMotionSignal.enter(c, t.setTimeoutFn, t.clearTimeoutFn);
+        c.id = 'ws-9-renamed';
+
+        // reads resolve the CURRENT id; the old id reads idle
+        expect(DockMotionSignal.isAnimating('ws-9')).toBe(false);
+        expect(DockMotionSignal.isAnimating('ws-9-renamed')).toBe(true);
+
+        // the leave still finds its instance-keyed entry and cleans up fully
+        DockMotionSignal.leave(c, t.clearTimeoutFn);
+        expect(DockMotionSignal.isAnimating('ws-9-renamed')).toBe(false);
+        expect(c.calls[1]).toEqual(['remove', 'neo-dashboard-dock-animating']);
+        expect(t.pending.size).toBe(0)
+    });
+
+    test('isDestroying gates exactly like isDestroyed: no entry, no instance touch, bookkeeping still clears', () => {
+        const t = makeTimers(),
+              c = makeComponent('ws-10');
+
+        c.isDestroying = true;
+        DockMotionSignal.enter(c, t.setTimeoutFn, t.clearTimeoutFn);
+        expect(c.calls).toEqual([]);
+        expect(DockMotionSignal.isAnimating('ws-10')).toBe(false);
+
+        // live enter, then teardown BEGINS (isDestroying) before the leave: the entry clears,
+        // the in-teardown instance is not touched
+        const d = makeComponent('ws-11');
+        DockMotionSignal.enter(d, t.setTimeoutFn, t.clearTimeoutFn);
+        d.isDestroying = true;
+        DockMotionSignal.leave(d, t.clearTimeoutFn);
+
+        expect(DockMotionSignal.isAnimating('ws-11')).toBe(false);
+        expect(d.calls).toEqual([['add', 'neo-dashboard-dock-animating']])
     });
 });
