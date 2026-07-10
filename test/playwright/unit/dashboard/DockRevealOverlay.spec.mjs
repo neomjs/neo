@@ -9,6 +9,7 @@ setup({
 import {test, expect}    from '@playwright/test';
 import Neo               from '../../../../src/Neo.mjs';
 import * as core         from '../../../../src/core/_export.mjs';
+import DockMotionSignal  from '../../../../src/dashboard/DockMotionSignal.mjs';
 import DockRevealOverlay from '../../../../src/dashboard/DockRevealOverlay.mjs';
 
 const createItem = (config={}) => ({
@@ -19,12 +20,30 @@ const createItem = (config={}) => ({
     ...config
 });
 
+/**
+ * @summary Builds the local `DomEvents` wire shape for an `animationend`; native
+ * `AnimationEvent.animationName` is deliberately absent from the serialized payload.
+ * @param {String} targetId Config-aware browser target id.
+ * @param {String[]} [pathIds] Serialized composed-path ids.
+ * @param {String} [rawId] Raw DOM id retained by the local-listener envelope.
+ * @returns {Object}
+ */
+const createSerializedAnimationEnd = (targetId, pathIds=[targetId], rawId=targetId) => ({
+    id       : rawId,
+    path     : pathIds.map(id => ({id})),
+    target   : {id: targetId},
+    timeStamp: 1,
+    type     : 'animationend',
+    value    : undefined
+});
+
 test.describe('Neo.dashboard.DockRevealOverlay', () => {
     let overlay;
 
     test.afterEach(() => {
         overlay?.destroy();
-        overlay = null
+        overlay = null;
+        DockMotionSignal.activeMotions.clear()
     });
 
     test('stays hidden while idle, composes header (label + pin) and pane slot as real children', () => {
@@ -138,5 +157,91 @@ test.describe('Neo.dashboard.DockRevealOverlay', () => {
             'revealEscape',
             'revealPinRequested'
         ]);
+    });
+
+    test('the reveal-slide routes the motion signal: enter on hidden→visible, filtered leave on animationend', () => {
+        overlay = Neo.create(DockRevealOverlay, {
+            edge: 'left',
+            id  : 'dock-reveal-motion'
+        });
+
+        const rootId = overlay.vdom?.id || overlay.id;
+
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+
+        // idle → revealed opens the signal window (the CSS keyframes restart natively:
+        // the hidden state is display:none)
+        overlay.set({revealState: 'revealed', revealedItem: createItem()});
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(true);
+
+        // A hosted pane's bubbled animation keeps its child target id and must NOT close the
+        // overlay-owned window, even though the serialized path reaches the overlay root.
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd('hosted-pane-animation', ['hosted-pane-animation', rootId]));
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(true);
+
+        // Raw DOM ids are a different identity namespace. A non-Neo child can omit the
+        // config-aware target id while its browser id happens to collide with the overlay id;
+        // that must not settle the overlay-owned motion window.
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(undefined, [rootId], rootId));
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(true);
+
+        // The overlay root event settles. A blank raw DOM id models `useDomIds:false`; the
+        // config-aware `target.id` remains the portable identity authority.
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId, [rootId], ''));
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+
+        // dismiss is an instant display cut: no motion window opens
+        overlay.set({revealState: 'idle', revealedItem: null});
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+
+        // visible→visible state shifts (revealed → dismiss-pending) never double-enter
+        overlay.set({revealState: 'revealed', revealedItem: createItem()});
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId));
+        overlay.set({revealState: 'dismiss-pending'});
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false)
+    });
+
+    test('early dismissal, rapid re-reveal and destroy each settle exactly their owned motion entry', () => {
+        overlay = Neo.create(DockRevealOverlay, {
+            edge: 'left',
+            id  : 'dock-reveal-motion-cancel'
+        });
+
+        overlay.set({revealState: 'revealed', revealedItem: createItem()});
+        expect(DockMotionSignal.activeMotions.get(overlay)?.count).toBe(1);
+
+        // display:none cancels the CSS animation without animationend. The state transition
+        // settles synchronously instead of leaving the signal wedged until its fail-safe.
+        overlay.set({revealState: 'idle', revealedItem: null});
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+        expect(DockMotionSignal.activeMotions.has(overlay)).toBe(false);
+
+        // A quick second reveal starts from a clean count; its one end event fully settles it.
+        overlay.set({revealState: 'revealed', revealedItem: createItem()});
+        expect(DockMotionSignal.activeMotions.get(overlay)?.count).toBe(1);
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(overlay.vdom?.id || overlay.id));
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+
+        // Item-only visibility shifts follow the same balanced lifecycle while the state remains
+        // `revealed`: removing the item hides/cancels; restoring one restarts from count one.
+        overlay.set({revealState: 'idle', revealedItem: null});
+        overlay.set({revealState: 'revealed', revealedItem: createItem()});
+        overlay.revealedItem = null;
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+        overlay.revealedItem = createItem();
+        expect(DockMotionSignal.activeMotions.get(overlay)?.count).toBe(1);
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(overlay.vdom?.id || overlay.id));
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+
+        // Teardown is another animation-cancellation path and must release instance ownership.
+        overlay.set({revealState: 'idle', revealedItem: null});
+        overlay.set({revealState: 'revealed', revealedItem: createItem()});
+
+        let doomed = overlay;
+
+        overlay.destroy();
+        overlay = null;
+
+        expect(DockMotionSignal.activeMotions.has(doomed)).toBe(false)
     });
 });
