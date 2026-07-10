@@ -508,7 +508,7 @@ test.describe('Fleet cockpit — whole-fleet control (B4, #14611)', () => {
  * `loadRoster` is a spied collaborator here; that it correctly reconciles the Store is covered above.
  */
 test.describe('Fleet cockpit — controller re-polls the roster on a settled lifecycle intent (#14978)', () => {
-    let FleetCockpitController;
+    let FleetCockpitController, FleetCockpit, FleetAgent, Store;
 
     const settlingBridge  = () => ({startAgent: async () => ({}), stopAgent: async () => ({}), restartAgent: async () => ({})});
     const rejectingBridge = () => ({startAgent: async () => { throw new Error('harness offline') }});
@@ -524,7 +524,10 @@ test.describe('Fleet cockpit — controller re-polls the roster on a settled lif
     };
 
     test.beforeAll(async () => {
-        FleetCockpitController = (await import('../../../../../../../apps/agentos/view/fleet/FleetCockpitController.mjs')).default
+        FleetCockpitController = (await import('../../../../../../../apps/agentos/view/fleet/FleetCockpitController.mjs')).default;
+        FleetCockpit          = (await import('../../../../../../../apps/agentos/view/fleet/FleetCockpit.mjs')).default;
+        FleetAgent            = (await import('../../../../../../../apps/agentos/model/FleetAgent.mjs')).default;
+        Store                 = (await import('../../../../../../../src/data/Store.mjs')).default
     });
 
     test.afterEach(() => clearBridge());
@@ -594,5 +597,63 @@ test.describe('Fleet cockpit — controller re-polls the roster on a settled lif
         await controller.onStartFleet();
 
         expect(calls.length).toBe(1)   // three residents started, ONE roster re-poll — never N polls
+    });
+
+    // The composition-root binding witness: not "loadRoster was called" (the spy tests above) but
+    // "reconciliation reaches the RECORD". Assembles the REAL path end to end — the real controller
+    // onAgentLifecycleIntent, the real C2 adapter, a stateful bridge whose `fleetRoster` reflects the
+    // start, the real FleetCockpit.loadRoster, and a REAL Store — and asserts the SAME record advances
+    // off -> running, so post-settle reconciliation is proven to update the card's data surface.
+    test('composition-root witness: a settled card Start reconciles the REAL roster record off -> running via the re-poll (#14978)', async () => {
+        let running = false;
+
+        const wired     = channel => ({source: `fleet:${channel}`, state: 'wired', confidence: 'observed'});
+        const rosterRow = () => ({
+            id         : 'vega',
+            displayName: 'Vega',
+            family     : 'claude',
+            engineTag  : 'opus-4.8',
+            // lifecycle 'stopped' -> derived card state 'off'; 'running' -> 'ok' (mapFleetSessionHealth)
+            lifecycle: {source: 'fleet:runtimeStatus', state: running ? 'running' : 'stopped', confidence: 'observed'},
+            sources  : {roster: wired('listAgents'), repoStatus: wired('fleetStatus'), runtime: wired('runtimeStatus')}
+        });
+
+        setBridge({
+            startAgent : async () => { running = true; return {ok: true, result: {id: 'vega', state: 'running'}} },
+            fleetRoster: async () => ({rows: [rosterRow()]})
+        });
+
+        // a REAL store the REAL loadRoster reconciles into — the record is the card's data surface
+        const store   = Neo.create(Store, {keyProperty: 'agentId', model: FleetAgent});
+        const cockpit = {
+            getReference   : reference => reference === 'fleet-grid' ? {adapterState: 'sample', store} : null,
+            mapRosterRow   : FleetCockpit.prototype.mapRosterRow,
+            reconcileRoster: FleetCockpit.prototype.reconcileRoster,
+            loadRoster     : FleetCockpit.prototype.loadRoster,
+            rosterWired    : false
+        };
+
+        // boot: the real loadRoster reads the bridge — the agent is stopped, so the record resolves to 'off'
+        await cockpit.loadRoster();
+        expect(store.get('vega').state).toBe('off');
+
+        // drive the REAL controller path for that record — real onAgentLifecycleIntent -> real adapter ->
+        // bridge.startAgent -> refreshRosterOnSettle -> real loadRoster -> reconcile
+        const controller = Object.create(FleetCockpitController.prototype),
+              origGet    = Neo.getComponent;
+
+        controller.component = cockpit;
+        Neo.getComponent     = id => id === 'card-vega' ? {record: store.get('vega')} : null;
+
+        try {
+            await controller.onAgentLifecycleIntent({action: 'start', agentId: 'vega', source: 'card-vega'})
+        } finally {
+            Neo.getComponent = origGet
+        }
+
+        // the binding witness: the SAME real record advanced off -> ok through reconciliation, no reload/rebuild
+        expect(store.get('vega').state).toBe('ok');
+
+        store.destroy()
     })
 });

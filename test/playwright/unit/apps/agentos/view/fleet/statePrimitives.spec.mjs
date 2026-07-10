@@ -34,6 +34,9 @@ test.describe('Fleet cockpit StateDot — session-state token mapping + reduced-
         expect(stateToken('wedged')).toBe('--fm-state-wedged');
         expect(stateToken('limited')).toBe('--fm-state-limited');
         expect(stateToken('off')).toBe('--fm-state-off');
+        // the transitional pair (a lifecycle intent in flight) — a first-party fact, not the runtime wire
+        expect(stateToken('starting')).toBe('--fm-state-starting');
+        expect(stateToken('stopping')).toBe('--fm-state-stopping');
         // unknown / undefined falls back to off — never throws, never a hand-rolled color
         expect(stateToken('nonsense')).toBe('--fm-state-off');
         expect(stateToken(undefined)).toBe('--fm-state-off');
@@ -46,6 +49,8 @@ test.describe('Fleet cockpit StateDot — session-state token mapping + reduced-
     test('stateClass is the token minus the custom-property prefix — the class the SCSS token binding keys on', () => {
         expect(stateClass('ok')).toBe('fm-state-ok');
         expect(stateClass('wedged')).toBe('fm-state-wedged');
+        expect(stateClass('starting')).toBe('fm-state-starting');
+        expect(stateClass('stopping')).toBe('fm-state-stopping');
         // shares the closed-set degrade — unknown / prototype-shaped → the neutral off class
         expect(stateClass('nonsense')).toBe('fm-state-off');
         expect(stateClass(undefined)).toBe('fm-state-off');
@@ -72,6 +77,25 @@ test.describe('Fleet cockpit StateDot — session-state token mapping + reduced-
         expect(dot.vdom.cls).toContain('fm-state-dot');
         expect(dot.vdom.cls).not.toContain('fm-live');
         expect(dot.vdom.cls).toContain('fm-state-ok');
+
+        dot.destroy()
+    });
+
+    test('StateDot binds the transitional starting/stopping classes in place (#14978)', async () => {
+        const dot = Neo.create(StateDot, {appName, state: 'starting'});
+        await dot.initVnode();
+
+        expect(dot.vdom.cls).toContain('fm-state-starting');
+        expect(dot.vdom.style?.['--fm-dot']).toBeUndefined();   // color stays in the token layer
+
+        dot.state = 'stopping';
+        expect(dot.vdom.cls).toContain('fm-state-stopping');
+        expect(dot.vdom.cls).not.toContain('fm-state-starting');
+
+        // and back to a resolved state once the intent settles
+        dot.state = 'ok';
+        expect(dot.vdom.cls).toContain('fm-state-ok');
+        expect(dot.vdom.cls).not.toContain('fm-state-stopping');
 
         dot.destroy()
     });

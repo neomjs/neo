@@ -4,7 +4,8 @@ import NeoArray  from '../../../../src/util/Array.mjs';
 /**
  * Maps a session-state key to its design token (the `--fm-state-*` values live in the theme skin,
  * `resources/scss/theme-neo-{dark,light}/apps/agentos/`).
- * State encodes what a resident is *doing now* — working / idle / wedged / limited / off —
+ * State encodes what a resident is *doing now* — working / idle / wedged / limited / off, plus the
+ * transitional `starting` / `stopping` while a lifecycle intent is in flight —
  * and is NEVER identity — session state is what a resident does, not who it is. Unknown keys
  * fall back to `off`. Colors live only in the token layer — zero hand-rolled values here.
  * @type {Object}

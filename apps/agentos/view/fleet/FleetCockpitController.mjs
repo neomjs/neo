@@ -87,11 +87,13 @@ class FleetCockpitController extends Controller {
      * timeout / unauthorized outcome (its honest reason render must stand — a refresh could clobber it
      * with a stale snapshot). `loadRoster` is idempotent + fail-closed, so a redundant call is safe.
      * @param {Promise<Boolean>} settledOk Resolves true when at least one intent changed runtime state.
+     * @returns {Promise<*>} The `loadRoster` re-poll (awaited), so the handler's settle point includes the
+     *     refresh and a `loadRoster` failure propagates to the caller instead of becoming a detached rejection.
      * @protected
      */
     async refreshRosterOnSettle(settledOk) {
         if (await settledOk) {
-            this.component.loadRoster()
+            return this.component.loadRoster()
         }
     }
 }
