@@ -478,6 +478,68 @@ function hasMessageNodeInStorage(messageId) {
         .get(messageId)?.count ?? 0) > 0;
 }
 
+/**
+ * @summary Storage-truth read of the graph-owned mutable MESSAGE-node state: the recipient's
+ * `readAt`/`archivedAt` (written by `markRead` / archive) AND the sender's irreversible retraction
+ * tombstone (`retracted` + the placeholder `subject`/`bodyText` written by `deleteMessage` — a
+ * permanent decision with no undo path). The WAL is pure intake — its records carry send-time
+ * state (`readAt: null`, the original content) forever — so ANY projection landing on an EXISTING
+ * node must let the committed graph values win for exactly this surface. Returns `{}` for a
+ * missing node, so a true first projection keeps the WAL values.
+ * @param {String} messageId Message graph node id.
+ * @returns {Object} Only the committed fields: `{readAt?, archivedAt?, retracted?, subject?,
+ * bodyText?}` — the tombstone trio rides together, never partially.
+ * @private
+ */
+function getStorageMessageMutableState(messageId) {
+    const sqlite = GraphService.db?.storage?.db;
+    if (!sqlite) return {};
+
+    const row = sqlite
+        .prepare(`SELECT json_extract(data, '$.properties.readAt') AS readAt, json_extract(data, '$.properties.archivedAt') AS archivedAt, json_extract(data, '$.properties.retracted') AS retracted, json_extract(data, '$.properties.subject') AS subject, json_extract(data, '$.properties.bodyText') AS bodyText FROM Nodes WHERE id = ?`)
+        .get(messageId);
+    if (!row) return {};
+
+    const state = {};
+    if (row.readAt != null)     state.readAt     = row.readAt;
+    if (row.archivedAt != null) state.archivedAt = row.archivedAt;
+
+    // A retraction permanently overwrote the content at write time; a replay resurrecting the
+    // WAL's original subject/body would undo an irreversible sender decision.
+    if (row.retracted) {
+        state.retracted = true;
+        state.subject   = row.subject;
+        state.bodyText  = row.bodyText;
+    }
+    return state;
+}
+
+/**
+ * @summary Storage-truth read of the graph-owned mutable state on one per-recipient broadcast
+ * `DELIVERED_TO` edge: `readAt` (written by `markRead`) and `archivedAt` (receiver-side archive).
+ * The WAL replay's edge payload carries `readAt: null` forever — send-time truth — so a FULL
+ * projection re-linking an EXISTING delivery edge must let the committed per-recipient state win.
+ * Returns `{}` for a missing edge, so a genuinely-recreated delivery honestly starts unread.
+ * @param {String} messageId Message graph node id.
+ * @param {String} recipient Recipient identity node id.
+ * @returns {Object} `{readAt?, archivedAt?}` — only the fields with committed non-null values.
+ * @private
+ */
+function getStorageDeliveryMutableState(messageId, recipient) {
+    const sqlite = GraphService.db?.storage?.db;
+    if (!sqlite) return {};
+
+    const row = sqlite
+        .prepare(`SELECT json_extract(data, '$.properties.readAt') AS readAt, json_extract(data, '$.properties.archivedAt') AS archivedAt FROM Edges WHERE source = ? AND target = ? AND type = 'DELIVERED_TO'`)
+        .get(messageId, recipient);
+    if (!row) return {};
+
+    const state = {};
+    if (row.readAt != null)     state.readAt     = row.readAt;
+    if (row.archivedAt != null) state.archivedAt = row.archivedAt;
+    return state;
+}
+
 function hasGraphEdgeOfType(source, type) {
     return (GraphService.db?.edges?.items || []).some(edge =>
         getRecordField(edge, 'source') === source &&
@@ -1095,11 +1157,18 @@ class MailboxService extends Base {
      *   pure intake — its records carry send-time mutable state (`readAt: null`) forever — so a
      *   FULL re-projection over existing structures resurrects unread state on top of committed
      *   reads (the read-state-rollback defect: partial damage must never trigger a total rewrite).
-     *   `null` (accept/drain paths) keeps the full projection for never-projected records.
+     *   `null` (accept/drain paths) keeps the full projection for never-projected records — made
+     *   idempotent-safe by the node piece's mutable-state merge below.
+     * @param {Boolean} [options.appendMarker=!onlyIssues] Whether to append the graph-projection
+     *   success marker. Full projections (accept / drain) append — the marker is what retires the
+     *   record from the pending index. Surgical repairs default OFF: they exist for the
+     *   POST-marker damage class, so the marker is already present by definition — re-appending
+     *   inflated the marker index multiples past the accepted-record count (observed 7×/3× on
+     *   2026-07-09/10) and masks projection-count diagnostics.
      * @returns {Promise<void>}
      * @private
      */
-    async _projectMessageWalRecord(record, {pumpWake = true, onlyIssues = null} = {}) {
+    async _projectMessageWalRecord(record, {pumpWake = true, onlyIssues = null, appendMarker = !onlyIssues} = {}) {
         const messageId = record?.id || record?.message?.id;
         if (typeof messageId !== 'string' || !messageId.startsWith('MESSAGE:')) {
             throw new Error('[MailboxService] message WAL projection requires a MESSAGE:* id');
@@ -1129,11 +1198,16 @@ class MailboxService extends Base {
         const needsPiece = piece => !onlyIssues || onlyIssues.includes(piece);
 
         if (needsPiece('missing-message-node')) {
+            // Recipient-mutable state is graph-owned, never WAL-owned: when this projection lands
+            // on an EXISTING node (a marker-lost-but-projected record replayed by the drain, or
+            // any future full-path caller), the committed `readAt`/`archivedAt` win over the WAL's
+            // eternal send-time nulls. This makes the write choke-point structurally unable to
+            // resurrect unread state, whichever caller reaches it.
             GraphService.upsertNode({
                 id        : messageId,
                 type      : message.type || 'MESSAGE',
                 name      : message.name || messageProperties.subject || messageId,
-                properties: messageProperties
+                properties: {...messageProperties, ...getStorageMessageMutableState(messageId)}
             });
         }
 
@@ -1145,15 +1219,18 @@ class MailboxService extends Base {
                 if (!needsPiece(`missing-delivered-to:${recipient}`)) continue;
 
                 ensureMailboxProjectionEndpoint(recipient);
-                // A RECREATED delivery edge honestly starts unread — its prior read-state is the
-                // damage being repaired; intact sibling edges above are never rewritten, which is
-                // what keeps their committed readAt alive.
+                // Per-recipient read/archive state is graph-owned, never WAL-owned: a FULL replay
+                // re-linking an INTACT delivery edge merges the committed storage truth over the
+                // WAL's send-time nulls, so broadcast reads survive exactly like DM reads. A
+                // genuinely missing edge has no storage row — the merge is empty and the recreated
+                // delivery honestly starts unread (its prior read-state IS the damage).
                 linkRequiredMailboxEdgeOrThrow(messageId, recipient, 'DELIVERED_TO', 1.0, {
                     deliveredAt : timestamp,
                     readAt      : null,
                     deliveryKind: 'broadcast',
                     userId      : senderUserId,
-                    sharedEntity: true
+                    sharedEntity: true,
+                    ...getStorageDeliveryMutableState(messageId, recipient)
                 }, routingDiagnostics);
             }
         }
@@ -1187,10 +1264,12 @@ class MailboxService extends Base {
         // taggedConcepts are replayed above, while low-confidence model-derived concepts stay out
         // of the message hot path.
 
-        await appendMessageWalGraphProjectionMarker({
-            id        : messageId,
-            segmentKey: record.segmentKey || getMessageWalSegmentKey(record.timestamp ?? Date.now())
-        }, {dir: aiConfig.messageWal.dir});
+        if (appendMarker) {
+            await appendMessageWalGraphProjectionMarker({
+                id        : messageId,
+                segmentKey: record.segmentKey || getMessageWalSegmentKey(record.timestamp ?? Date.now())
+            }, {dir: aiConfig.messageWal.dir});
+        }
 
         if (pumpWake) {
             WakeSubscriptionService.pump().catch(e => logger.error('[wake-pump]', e));
@@ -1214,7 +1293,25 @@ class MailboxService extends Base {
 
         for (const record of records) {
             try {
-                await this._projectMessageWalRecord(record);
+                // Issues-first: a marker-less record is NOT necessarily unprojected — a crash
+                // between projection commit and marker append (or a diverged marker index) leaves
+                // fully-intact graph state behind, and blindly re-projecting it was the
+                // read-state-rollback amplifier. Graph already intact ⇒ heal the marker only;
+                // partial damage ⇒ surgical projection of the named pieces; a genuinely absent
+                // MESSAGE node ⇒ the full projection (the one path that also links the optional
+                // semantic edges — the established first-projection contract).
+                const issues = getMessageGraphProjectionIssues(record);
+
+                if (issues.length === 0) {
+                    await appendMessageWalGraphProjectionMarker({
+                        id        : record.id,
+                        segmentKey: record.segmentKey || getMessageWalSegmentKey(record.timestamp ?? Date.now())
+                    }, {dir: aiConfig.messageWal.dir});
+                } else if (issues.includes('missing-message-node')) {
+                    await this._projectMessageWalRecord(record);
+                } else {
+                    await this._projectMessageWalRecord(record, {onlyIssues: issues, appendMarker: true});
+                }
                 summary.projected++;
             } catch (error) {
                 summary.failed++;

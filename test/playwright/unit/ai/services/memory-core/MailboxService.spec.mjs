@@ -686,6 +686,156 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         expect(readBack.readAt).toBeTruthy();
     });
 
+    test('a FULL re-projection over an existing read DM preserves the committed readAt — the write choke-point is caller-proof (#14992)', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        let msgId;
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const res = await MailboxService.addMessage({ to: '@bob', subject: 'full replay must not unread me', body: 'committed' });
+            msgId = res.messageId;
+        });
+
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await MailboxService.markRead({ messageId: msgId });
+        });
+
+        const {readWalMessagesByIds} = await import('../../../../../../ai/services/memory-core/helpers/messageWalStore.mjs');
+        const [record]               = await readWalMessagesByIds({dir: messageWalDir, ids: [msgId]});
+        expect(record?.id).toBe(msgId);
+
+        // The empirical 2026-07-10 incident path: a projected record replayed through the FULL
+        // path (marker loss, index divergence — whichever caller). The WAL properties carry the
+        // send-time readAt: null forever; the node piece's storage-truth merge must win.
+        await MailboxService._projectMessageWalRecord(record, {pumpWake: false});
+
+        const postReplay = GraphService.db.storage.db
+            .prepare(`SELECT json_extract(data, '$.properties.readAt') AS readAt FROM Nodes WHERE id = ?`)
+            .get(msgId);
+        expect(postReplay.readAt).toBeTruthy();
+
+        const readBack = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            return await MailboxService.getMessage({messageId: msgId});
+        });
+        expect(readBack.readAt).toBeTruthy();
+    });
+
+    test('full replay preserves the COMPLETE graph-owned surface: broadcast delivery readAt AND the retraction tombstone (#14992)', async () => {
+        let msgId;
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const res = await MailboxService.addMessage({ to: 'AGENT:*', subject: 'replay me broadly', body: 'original content' });
+            msgId = res.messageId;
+        });
+
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await MailboxService.markRead({ messageId: msgId });
+        });
+
+        const {readWalMessagesByIds} = await import('../../../../../../ai/services/memory-core/helpers/messageWalStore.mjs');
+        const [record]               = await readWalMessagesByIds({dir: messageWalDir, ids: [msgId]});
+        expect(record?.id).toBe(msgId);
+
+        const edgeReadAt = () => GraphService.db.storage.db
+            .prepare(`SELECT json_extract(data, '$.properties.readAt') AS readAt FROM Edges WHERE source = ? AND target = ? AND type = 'DELIVERED_TO'`)
+            .get(msgId, '@bob');
+
+        expect(edgeReadAt().readAt).toBeTruthy();
+
+        // Full replay #1: per-recipient read-state lives on the DELIVERED_TO edge, not the node —
+        // the reviewer falsifier: pre-fix, this re-link stamped the WAL's readAt: null over it.
+        await MailboxService._projectMessageWalRecord(record, {pumpWake: false});
+        expect(edgeReadAt().readAt).toBeTruthy();
+
+        // The sender's retraction is an IRREVERSIBLE decision: replay must never resurrect the
+        // WAL's original subject/body over the tombstone.
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            await MailboxService.deleteMessage({ messageId: msgId });
+        });
+
+        // Full replay #2 over the tombstone + the read edge together.
+        await MailboxService._projectMessageWalRecord(record, {pumpWake: false});
+
+        const node = GraphService.db.storage.db
+            .prepare(`SELECT json_extract(data, '$.properties.retracted') AS retracted, json_extract(data, '$.properties.subject') AS subject, json_extract(data, '$.properties.bodyText') AS bodyText FROM Nodes WHERE id = ?`)
+            .get(msgId);
+
+        expect(node.retracted).toBeTruthy();
+        expect(node.subject).toBe('[retracted by sender]');
+        expect(node.bodyText).toBe('[retracted by sender]');
+        expect(node.subject).not.toBe('replay me broadly');
+        expect(edgeReadAt().readAt).toBeTruthy()
+    });
+
+    test('the drain heals a lost marker on an intact projection WITHOUT rewriting graph state (#14992)', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        let msgId;
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const res = await MailboxService.addMessage({ to: '@bob', subject: 'marker-lost but projected', body: 'intact' });
+            msgId = res.messageId;
+        });
+
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await MailboxService.markRead({ messageId: msgId });
+        });
+
+        // Simulate the crash window between projection commit and marker append: the graph is
+        // fully intact (node + edges + committed readAt), only the marker line vanishes.
+        const markerFiles = fs.readdirSync(messageWalDir).filter(name => name.endsWith('.graph.jsonl'));
+        for (const name of markerFiles) {
+            const filePath = path.join(messageWalDir, name);
+            const kept     = fs.readFileSync(filePath, 'utf8').split('\n').filter(line => line.trim() && !line.includes(msgId));
+            fs.writeFileSync(filePath, kept.length ? kept.join('\n') + '\n' : '');
+        }
+        expect((await readPendingMessageWalRecords({dir: messageWalDir, ids: [msgId]})).map(record => record.id)).toEqual([msgId]);
+
+        // Pre-fix, this drain FULL-re-projected the intact record — resurrecting readAt: null
+        // (the rollback amplifier). Issues-first, it only heals the marker.
+        const summary = await MailboxService.drainPendingMessageGraphProjections({ids: [msgId]});
+        expect(summary).toEqual({pending: 1, projected: 1, failed: 0});
+
+        const postDrain = GraphService.db.storage.db
+            .prepare(`SELECT json_extract(data, '$.properties.readAt') AS readAt FROM Nodes WHERE id = ?`)
+            .get(msgId);
+        expect(postDrain.readAt).toBeTruthy();
+
+        // marker healed: the record retired from the pending index
+        expect(await readPendingMessageWalRecords({dir: messageWalDir, ids: [msgId]})).toHaveLength(0);
+    });
+
+    test('surgical repair does not duplicate the projection marker — the marker index stays 1:1 with accepted records (#14992)', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        let msgId;
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const res = await MailboxService.addMessage({ to: '@bob', subject: 'one marker only', body: 'no inflation' });
+            msgId = res.messageId;
+        });
+
+        const countMarkerLines = () => fs.readdirSync(messageWalDir)
+            .filter(name => name.endsWith('.graph.jsonl'))
+            .reduce((count, name) => count + fs.readFileSync(path.join(messageWalDir, name), 'utf8')
+                .split('\n').filter(line => line.includes(msgId)).length, 0);
+
+        expect(countMarkerLines()).toBe(1);
+
+        // post-marker damage: repair restores the edge; the pre-existing marker must NOT be
+        // re-appended (observed inflation: 499 markers over 70 accepted records on 2026-07-09)
+        GraphService.db.storage.db.prepare('DELETE FROM Edges WHERE source = ? AND target = ? AND type = ?')
+            .run(msgId, '@bob', 'SENT_TO');
+        clearGraphCacheWithoutStorageMutation();
+
+        const summary = await MailboxService.repairMessageGraphIntegrity({ids: [msgId]});
+        expect(summary).toMatchObject({scanned: 1, repaired: 1, failed: 0});
+
+        expect(countMarkerLines()).toBe(1);
+    });
+
     test('unread counts are stable across consecutive cold-cache listMessages calls — reads never revert reads (#14797)', async () => {
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
