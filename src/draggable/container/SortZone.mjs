@@ -268,7 +268,7 @@ class SortZone extends DragZone {
      * @returns {Boolean} true if the method processing should stop
      */
     checkWindowBoundary(data) {
-        let me = this,
+        let me          = this,
             {proxyRect} = data;
 
         if (proxyRect && me.boundaryContainerRect) {
@@ -412,8 +412,8 @@ class SortZone extends DragZone {
                         // Only move DOM if not window dragging or if it's a remote drag being finalized locally
                         if (!me.isRemoteDragging || (me.isRemoteDragging && !me.isWindowDragging)) {
                              deltas.push({
-                                action  : 'moveNode',
-                                id      : component.id,
+                                action: 'moveNode',
+                                id    : component.id,
                                 index,    // Visually correct index (where placeholder is)
                                 parentId: owner.getVdomItemsRoot().id
                             })
@@ -480,7 +480,11 @@ class SortZone extends DragZone {
                 }
 
                 me.traceEvent({t: 'end', from: fromIndex, to: toIndex});
-                me.moveTo(fromIndex, toIndex);
+
+                // A committed cross-container drop can re-project the workspace and destroy the
+                // source owner while this latch completes — the local reorder is moot then, and
+                // calling into a destroyed owner chain throws.
+                me.owner?.isDestroyed || me.moveTo(fromIndex, toIndex);
             } else {
                 me.traceEvent({t: 'end', from: me.startIndex, to: me.currentIndex, noop: true});
             }
@@ -668,11 +672,11 @@ class SortZone extends DragZone {
      * @param {Object} data - The drag start event data.
      */
     async onDragStart(data) {
-        let me         = this,
+        let me                                                                       = this,
             {adjustItemRectsToParent, dragHandleSelector, ignoreDragSelector, owner} = me,
-            itemStyles = me.itemStyles = [],
-            {layout}   = owner,
-            ownerStyle = owner.style || {},
+            itemStyles                                                               = me.itemStyles = [],
+            {layout}                                                                 = owner,
+            ownerStyle                                                               = owner.style || {},
             draggedItem, index, indexMap, itemStyle, rect, sortableItems;
 
         if (owner.dragResortable) {
@@ -695,7 +699,7 @@ class SortZone extends DragZone {
 
                 for (let i = handleIndex; i < data.path.length; i++) {
                     const potentialItemNode = data.path[i];
-                    const component = Neo.getComponent(potentialItemNode.id);
+                    const component         = Neo.getComponent(potentialItemNode.id);
 
                     if (component && owner.items.includes(component)) {
                         draggedItem = component;
