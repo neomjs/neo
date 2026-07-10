@@ -17,6 +17,7 @@ import Neo             from '../../../../src/Neo.mjs';
 import * as core       from '../../../../src/core/_export.mjs';
 import Component       from '../../../../src/component/Base.mjs';
 import InstanceManager from '../../../../src/manager/Instance.mjs';
+import Plugin          from '../../../../src/plugin/Base.mjs';
 import StateProvider   from '../../../../src/state/Provider.mjs';
 import Store           from '../../../../src/data/Store.mjs';
 import StoreManager    from '../../../../src/manager/Store.mjs';
@@ -687,5 +688,83 @@ test.describe('Neo.state.Provider hosted-store lifecycle', () => {
         expect(provider.isDestroyed).toBe(true);
         expect(store.isDestroyed).toBe(true);
         expect(StoreManager.get(storeId)).toBeFalsy();
+    });
+
+    test('reactive stores replacement destroys the removed OWNED store immediately; a passed-in one survives', () => {
+        const external = Neo.create(Store, {keyProperty: 'id'});
+        const provider = Neo.create(StateProvider, {
+            stores: {
+                owned : {module: Store, keyProperty: 'id'},
+                shared: external
+            }
+        });
+
+        const owned   = provider.getStore('owned');
+        const ownedId = owned.id;
+
+        expect(StoreManager.get(ownedId)).toBe(owned);
+
+        // reactive replacement: neither previous entry is hosted anymore
+        provider.stores = {second: {module: Store, keyProperty: 'id'}};
+
+        // the removed provider-created instance is destroyed + deregistered NOW, not at provider death
+        expect(owned.isDestroyed).toBe(true);
+        expect(StoreManager.get(ownedId)).toBeFalsy();
+        expect(provider.stores.owned).toBeFalsy();
+
+        // the removed passed-in instance stays alive — shared, not owned
+        expect(external.isDestroyed).toBeFalsy();
+
+        const second = provider.getStore('second');
+
+        provider.destroy();
+
+        expect(second.isDestroyed).toBe(true);
+
+        external.destroy();
+    });
+
+    test('setting stores to null destroys every provider-owned instance', () => {
+        const provider = Neo.create(StateProvider, {
+            stores: {roster: {module: Store, keyProperty: 'id'}}
+        });
+
+        const store = provider.getStore('roster');
+
+        provider.stores = null;
+
+        expect(store.isDestroyed).toBe(true);
+
+        provider.destroy();
+    });
+
+    test('plugin teardown still observes a LIVE provider (release stays at the inherited post-plugin point)', () => {
+        const observed = {providerAtPluginDestroy: undefined};
+
+        class ProbePlugin extends Plugin {
+            static config = {
+                className: 'Probe.Plugin'
+            }
+
+            destroy(...args) {
+                observed.providerAtPluginDestroy = this.owner?.stateProvider ?? null;
+                super.destroy(...args)
+            }
+        }
+        const ProbePluginClass = Neo.setupClass(ProbePlugin);
+
+        const component = Neo.create(MockComponent, {
+            plugins      : [{module: ProbePluginClass}],
+            stateProvider: {module: StateProvider, data: {x: 1}}
+        });
+
+        const provider = component.getStateProvider();
+
+        component.destroy();
+
+        // the provider must be released AFTER plugin teardown (component.Abstract's established
+        // point) — a plugin's destroy() sees it alive; afterwards it is destroyed
+        expect(observed.providerAtPluginDestroy).toBe(provider);
+        expect(provider.isDestroyed).toBe(true);
     });
 });

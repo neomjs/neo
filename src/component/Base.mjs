@@ -1190,8 +1190,6 @@ class Component extends Abstract {
 
         me.reference && me.getController()?.removeReference(me); // remove own reference from parent controllers
 
-        me.stateProvider = null; // triggers destroy(), incl. provider-owned stores
-
         me.plugins?.forEach(plugin => {
             plugin.destroy()
         });

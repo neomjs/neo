@@ -284,10 +284,10 @@ class Provider extends Base {
      * @protected
      */
     beforeSetStores(value, oldValue) {
+        const me = this;
+
         if (value) {
-            const
-                me       = this,
-                storeIds = {};
+            const storeIds = {};
 
             Object.entries(value).forEach(([key, storeValue]) => {
                 const storeId = me.getProviderStoreId(key, storeValue);
@@ -310,6 +310,20 @@ class Provider extends Base {
                 value[key] = ClassSystemUtil.beforeSetInstance(storeValue);
 
                 providerCreates && me.#ownedStores.add(value[key])
+            })
+        }
+
+        // reactive replacement (or null-removal): an owned instance the provider no longer hosts
+        // gets destroyed NOW — deferring it to provider destroy would leak a live, registered
+        // store nothing can resolve anymore. Passed-in instances stay externally owned.
+        if (oldValue) {
+            const keptInstances = new Set(Object.values(value || {}));
+
+            Object.values(oldValue).forEach(store => {
+                if (me.#ownedStores.has(store) && !keptInstances.has(store)) {
+                    me.#ownedStores.delete(store);
+                    store.destroy()
+                }
             })
         }
 
