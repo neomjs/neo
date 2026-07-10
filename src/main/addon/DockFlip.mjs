@@ -92,30 +92,85 @@ class DockFlip extends Base {
     }
 
     /**
+     * Converts one computed CSS time token to milliseconds. Exact zero is meaningful: the
+     * reduced-motion contract collapses `--dock-transition-duration` to `0ms`, which must not
+     * fall through to the visual fallback. Both CSS time units are accepted.
+     * @param {String} value
+     * @returns {Number}
+     * @protected
+     */
+    parseDurationToken(value) {
+        const match = String(value ?? '').trim().match(/(-?(?:\d+(?:\.\d+)?|\.\d+))(ms|s)\s*\)?$/);
+
+        return match
+            ? Number(match[1]) * (match[2] === 's' ? 1000 : 1)
+            : 0
+    }
+
+    /**
      * Phase 2: wait for the new tree's marker elements, invert them onto their old geometry,
      * then play the transition to their new geometry. Safe to call unconditionally after a
      * swap — with no prior `captureFirst()` snapshot, or under reduced motion, it no-ops and
      * the layout simply lands.
+     * Duration and easing resolve from the motion-contract tokens (`--dock-transition-duration`
+     * / `--dock-transition-easing`) on the nearest descendant dashboard token scope — zero
+     * local duration policy. Missing or invalid tokens fail safe to the instant path; a token
+     * collapsed to `0ms` is the token-layer reduced-motion path.
      * @param {Object} opts
      * @param {String} opts.hostId            The dock host element id
      * @param {String} opts.markerPrefix      The marker-class prefix used in `captureFirst()`
-     * @param {Number} [opts.duration=280]    Transition duration in ms (the design language's standard-decelerate beat)
-     * @param {String} [opts.easing='cubic-bezier(0,0,0.2,1)'] Transition timing function
      * @param {Number} [opts.maxFrames=15]    Bounded frame-poll for the new tree to appear
-     * @returns {Promise<Boolean>} true if an animation played, false on any instant-landing path
+     * @returns {Promise<Boolean>} true if an animation played (resolves AFTER the motion completes), false on any instant-landing path
      */
-    async play({hostId, markerPrefix, duration = 280, easing = 'cubic-bezier(0,0,0.2,1)', maxFrames = 15}) {
+    async play({hostId, markerPrefix, maxFrames = 15}) {
         const first = this.#firstRects[hostId];
+
+        let hostEl,
+            moves = [];
+
+        // One idempotent settlement path owns every temporary visual mutation. In particular,
+        // a rejected post-invert frame must restore the final layout instead of preserving the
+        // inverse transform or observability class indefinitely.
+        const cleanup = () => {
+            moves.forEach(({el}) => {
+                el.style.opacity         = '';
+                el.style.transform       = '';
+                el.style.transformOrigin = '';
+                el.style.transition      = ''
+            });
+
+            hostEl?.classList.remove('dock-animating');
+
+            hostEl = null;
+            moves  = []
+        };
 
         delete this.#firstRects[hostId];
 
-        if (!first?.rects.size || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        if (!first?.rects.size) {
             return false
         }
 
         const firstRects = first.rects;
 
         try {
+            // Both consumers pass a workspace host ABOVE the projected `.neo-dashboard`.
+            // Custom properties inherit downward only, so reading the outer host silently loses
+            // the contract and falls back. Resolve the actual token-bearing descendant instead.
+            hostEl = document.getElementById(hostId);
+
+            const
+                tokenHost = hostEl?.matches?.('.neo-dashboard')
+                    ? hostEl
+                    : hostEl?.querySelector?.('.neo-dashboard') || hostEl,
+                tokens    = tokenHost && globalThis.getComputedStyle?.(tokenHost),
+                duration  = this.parseDurationToken(tokens?.getPropertyValue('--dock-transition-duration')),
+                easing    = tokens?.getPropertyValue('--dock-transition-easing')?.trim();
+
+            if (!(duration > 0) || !easing) {
+                return false // token-layer reduced-motion collapse or missing contract: land instantly
+            }
+
             let frame = 0;
 
             // stage A: the swap lands asynchronously through the delta pipeline — the OLD
@@ -140,8 +195,6 @@ class DockFlip extends Base {
             }
 
             await new Promise(resolve => requestAnimationFrame(resolve));
-
-            const moves = [];
 
             markers.forEach((el, key) => {
                 const
@@ -169,6 +222,11 @@ class DockFlip extends Base {
                 return false
             }
 
+            // the observability signal (`neo-dashboard-dock-animating`) is OWNED by the
+            // worker-side Neo.dashboard.DockMotionSignal (counted lifecycle) — consumers
+            // bracket enter/leave around this awaited promise; the addon never toggles it
+            // (cleanup still strips the legacy `dock-animating` class defensively)
+
             // Invert: place every survivor on its old geometry, entering panes at their birth state
             moves.forEach(({el, transform, fade}) => {
                 el.style.transformOrigin = 'top left';
@@ -186,16 +244,18 @@ class DockFlip extends Base {
                 el.style.opacity    = ''
             });
 
-            setTimeout(() => {
-                moves.forEach(({el}) => {
-                    el.style.transition      = '';
-                    el.style.transformOrigin = ''
-                })
-            }, duration + 50);
+            // resolve AFTER the motion completes, so an awaiting consumer's signal bracket
+            // (DockMotionSignal enter/leave) covers the true animation window; the idempotent
+            // cleanup owns every temporary visual mutation (the hardening contract)
+            await new Promise(resolve => setTimeout(resolve, duration + 50));
+
+            cleanup();
 
             return true
         } catch (e) {
             // fail-safe: animation errors must never wedge the layout — land instantly
+            cleanup();
+
             return false
         }
     }
