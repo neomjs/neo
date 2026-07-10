@@ -163,11 +163,19 @@ test.describe('AgentOS.view.Accounts — agent-scoped configuration (multiple ag
                 add(items) { this.items.push(...[].concat(items)) },
                 removeAll() { this.items = [] }
             },
-            card     = {record: undefined, refreshCount: 0, refresh() { this.refreshCount++ }};
+            card     = {
+                record: undefined,
+                refreshCount: 0,
+                refresh() { this.refreshCount++ },
+                setSaveStatus(agentId, state, reason) {
+                    if (this.record?.id === agentId) this.saveStatus = {agentId, state, reason}
+                }
+            };
 
         const stub = {
             id                     : `accounts-scoped-stub-${Math.abs(store.id.length)}-${store.id}`,
             agentDefinitionsStore  : store,
+            agentConfigSaveStatuses: new Map(),
             card,
             selector,
             afterSetSelectedAgentId: Accounts.prototype.afterSetSelectedAgentId,
@@ -221,6 +229,24 @@ test.describe('AgentOS.view.Accounts — agent-scoped configuration (multiple ag
         expect(stub.selectedAgentId).toBe('b');
         expect(stub.card.record?.id).toBe('b');
         expect(stub.card.record?.mcpServers).toEqual({'github-workflow': true});
+
+        store.destroy()
+    });
+
+    test('save feedback stays keyed to its agent across selection changes', () => {
+        const store = makeAgentStore([
+            {id: 'a', githubUsername: 'a', harnessType: 'codex'},
+            {id: 'b', githubUsername: 'b', harnessType: 'antigravity'}
+        ]);
+        const stub = makeScopedAccounts(store);
+
+        stub.agentConfigSaveStatuses.set('a', {state: 'pending', reason: 'Saving A…'});
+        stub.onSelectAgentClick({component: {agentId: 'b'}});
+        expect(stub.card.record.id).toBe('b');
+        expect(stub.card.saveStatus?.agentId).not.toBe('a');
+
+        stub.onSelectAgentClick({component: {agentId: 'a'}});
+        expect(stub.card.saveStatus).toEqual({agentId: 'a', state: 'pending', reason: 'Saving A…'});
 
         store.destroy()
     });
@@ -313,7 +339,7 @@ test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + c
         store.destroy()
     });
 
-    test('server-row and harness-chip clicks fire configIntent with the toggled config — the card never mutates', () => {
+    test('server-row and harness-chip clicks fire the flat sparse intent; pending blocks overlap', () => {
         const store = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: [
             {id: 'ada', githubUsername: 'ada', harnessType: 'codex', mcpServers: {'memory-core': true}}
         ]});
@@ -330,12 +356,24 @@ test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + c
         card.onCardClick({path: [{id: 'unrelated-node'}]});                  // off-card → no intent
 
         expect(intents.length).toBe(2);
-        expect(intents[0].agentId).toBe('ada');
-        expect(intents[0].config.mcpServers['memory-core']).toBe(false);
-        expect(intents[1].config).toEqual({harnessType: 'claude-code'});
+        expect(intents[0]).toMatchObject({id: 'ada', mcpServers: {'memory-core': false}});
+        expect(intents[1]).toMatchObject({id: 'ada', harnessType: 'claude-code'});
+        expect(intents[0].source).toBe(card.id); // event envelope exists; Accounts strips it before wire
+
+        card.setSaveStatus('ada', 'pending', 'Saving configuration…');
+        card.onCardClick({path: [{id: `${card.id}__srv__memory-core`}]});
+        expect(intents).toHaveLength(2);
+        expect(cardText(card)).toContain('Saving configuration');
+
+        // Returning the sole override to its live default emits null, never a resolved matrix.
+        card.setSaveStatus('ada', 'idle');
+        record.set({mcpServers: {'memory-core': false}});
+        card.refresh();
+        card.onCardClick({path: [{id: `${card.id}__srv__memory-core`}]});
+        expect(intents[2]).toMatchObject({id: 'ada', mcpServers: null});
 
         // the record itself is untouched — the owning view writes only from the bridge RESPONSE
-        expect(record.mcpServers).toEqual({'memory-core': true});
+        expect(record.mcpServers).toEqual({'memory-core': false});
         expect(record.harnessType).toBe('codex');
 
         card.destroy();
@@ -347,31 +385,131 @@ test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + c
             {id: 'ada', githubUsername: 'ada', harnessType: 'codex'}
         ]});
 
-        const statuses = [];
-        const stub     = {
-            agentDefinitionsStore: store,
-            onAgentConfigIntent  : Accounts.prototype.onAgentConfigIntent,
-            updateBridgeStatus   : (cls, text) => statuses.push(cls)
+        const saveStatuses = [],
+              card         = {setSaveStatus: (...args) => saveStatuses.push(args)},
+              stub         = {
+            agentDefinitionsStore         : store,
+            agentConfigRequestGenerations : new Map(),
+            agentConfigSaveStatuses       : new Map(),
+            onAgentConfigIntent           : Accounts.prototype.onAgentConfigIntent,
+            setAgentConfigSaveStatus      : Accounts.prototype.setAgentConfigSaveStatus,
+            getReference                  : ref => ref === 'agent-config-card' ? card : null
         };
 
         // no bridge → fail closed, nothing mutates
         delete globalThis.AgentOS;
-        await stub.onAgentConfigIntent({agentId: 'ada', config: {harnessType: 'claude-code'}});
-        expect(statuses).toEqual(['is-error']);
+        await stub.onAgentConfigIntent({id: 'ada', harnessType: 'claude-code'});
         expect(store.get('ada').harnessType).toBe('codex');
 
         // bridge answers → the RESPONSE (not the request) lands on the record
-        globalThis.AgentOS = {fleet: {registryBridge: {configureAgent: async () => ({
-            harnessType: 'claude-code', mcpServers: {'neural-link': true}, hooksActive: true, wakeSubscriptionsActive: null
-        })}}};
+        let received;
+        globalThis.AgentOS = {fleet: {registryBridge: {configureAgent: async intent => {
+            received = intent;
+            return {status: 'accepted', agent: {
+                id: 'ada', harnessType: 'native-neo', mcpServers: {'neural-link': false}
+            }}
+        }}}};
 
-        await stub.onAgentConfigIntent({agentId: 'ada', config: {harnessType: 'claude-code'}});
+        await stub.onAgentConfigIntent({id: 'ada', harnessType: 'claude-code'});
 
         const record = store.get('ada');
-        expect(record.harnessType).toBe('claude-code');
-        expect(record.mcpServers).toEqual({'neural-link': true});
-        expect(record.hooksActive).toBe(true);
-        expect(statuses).toEqual(['is-error', 'is-live']);
+        expect(received).toEqual({id: 'ada', harnessType: 'claude-code'});
+        expect(record.harnessType).toBe('native-neo'); // response, not request
+        expect(record.mcpServers).toEqual({'neural-link': false});
+        expect(saveStatuses.map(entry => entry[1])).toEqual(['pending', 'rejected', 'pending', 'accepted']);
+
+        delete globalThis.AgentOS;
+        store.destroy()
+    });
+
+    test('a stale out-of-order save response cannot regress the newer canonical readback', async () => {
+        const
+            store    = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: [
+                {id: 'ada', githubUsername: 'ada', harnessType: 'codex'}
+            ]}),
+            deferred = [],
+            card     = {setSaveStatus: () => {}},
+            stub     = {
+                agentDefinitionsStore         : store,
+                agentDefinitionsLoadGeneration: 0,
+                agentConfigRequestGenerations : new Map(),
+                agentConfigSaveStatuses       : new Map(),
+                onAgentConfigIntent           : Accounts.prototype.onAgentConfigIntent,
+                setAgentConfigSaveStatus      : Accounts.prototype.setAgentConfigSaveStatus,
+                getReference                  : () => card
+            };
+
+        globalThis.AgentOS = {fleet: {registryBridge: {configureAgent: intent => new Promise(resolve => {
+            deferred.push({intent, resolve})
+        })}}};
+
+        const older = stub.onAgentConfigIntent({id: 'ada', harnessType: 'claude-code'});
+        // Simulate a non-card caller bypassing the pending UI latch: the generation guard is the
+        // final defense when two transport responses still overlap.
+        stub.agentConfigSaveStatuses.set('ada', {state: 'idle', reason: ''});
+        const newer = stub.onAgentConfigIntent({id: 'ada', harnessType: 'native-neo'});
+
+        deferred[1].resolve({status: 'accepted', agent: {id: 'ada', harnessType: 'native-neo', mcpServers: null}});
+        await newer;
+        deferred[0].resolve({status: 'accepted', agent: {id: 'ada', harnessType: 'claude-code', mcpServers: null}});
+        await older;
+
+        expect(deferred.map(entry => entry.intent.harnessType)).toEqual(['claude-code', 'native-neo']);
+        expect(store.get('ada').harnessType).toBe('native-neo');
+        expect(stub.agentConfigSaveStatuses.get('ada').state).toBe('accepted');
+
+        delete globalThis.AgentOS;
+        store.destroy()
+    });
+
+    test('a rejected domain outcome renders its reason and leaves the real record untouched', async () => {
+        const store = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: [
+            {id: 'ada', githubUsername: 'ada', harnessType: 'codex'}
+        ]});
+        const saveStatuses = [];
+        const stub = {
+            agentDefinitionsStore         : store,
+            agentDefinitionsLoadGeneration: 0,
+            agentConfigRequestGenerations : new Map(),
+            agentConfigSaveStatuses       : new Map(),
+            onAgentConfigIntent           : Accounts.prototype.onAgentConfigIntent,
+            setAgentConfigSaveStatus      : Accounts.prototype.setAgentConfigSaveStatus,
+            getReference                  : () => ({setSaveStatus: (...args) => saveStatuses.push(args)})
+        };
+        globalThis.AgentOS = {fleet: {registryBridge: {configureAgent: async () => ({
+            status: 'rejected', reason: "Unknown MCP server 'bogus'."
+        })}}};
+
+        await stub.onAgentConfigIntent({id: 'ada', mcpServers: {bogus: true}});
+
+        expect(store.get('ada').harnessType).toBe('codex');
+        expect(saveStatuses.at(-1)).toEqual(['ada', 'rejected', "Unknown MCP server 'bogus'."]);
+
+        delete globalThis.AgentOS;
+        store.destroy()
+    });
+
+    test('cold hydration replaces the placeholder from canonical listAgents; failure preserves last state', async () => {
+        const store = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: [
+            {id: 'bridge-pending', githubUsername: 'bridge-pending', harnessType: 'codex'}
+        ]});
+        const stub = {
+            agentDefinitionsStore      : store,
+            agentDefinitionsLoadGeneration: 0,
+            syncAgentSelector          : () => {},
+            loadAgentDefinitions       : Accounts.prototype.loadAgentDefinitions
+        };
+
+        globalThis.AgentOS = {fleet: {registryBridge: {listAgents: async () => [{
+            id: 'canonical', githubUsername: 'canonical', harnessType: 'claude-code', mcpServers: {'memory-core': false}
+        }]}}};
+        await expect(stub.loadAgentDefinitions()).resolves.toBe(true);
+        expect(store.get('bridge-pending')).toBeNull();
+        expect(store.get('canonical').mcpServers).toEqual({'memory-core': false});
+
+        globalThis.AgentOS.fleet.registryBridge.listAgents = async () => { throw new Error('offline') };
+        await expect(stub.loadAgentDefinitions()).resolves.toBe(false);
+        expect(store.get('canonical').harnessType).toBe('claude-code');
 
         delete globalThis.AgentOS;
         store.destroy()

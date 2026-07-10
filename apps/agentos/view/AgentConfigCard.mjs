@@ -1,6 +1,10 @@
 import Component                              from '../../../src/component/Base.mjs';
 import {listHarnessTypes, resolveHarnessType} from '../config/harnessTypes.mjs';
-import {listMcpServers, resolveMcpMatrix}     from '../config/mcpServers.mjs';
+import {
+    listMcpServers,
+    normalizeMcpOverrides,
+    resolveMcpMatrix
+} from '../config/mcpServers.mjs';
 
 /**
  * @class AgentOS.view.AgentConfigCard
@@ -36,7 +40,15 @@ class AgentConfigCard extends Component {
          * @member {Object|null} record_=null
          * @reactive
          */
-        record_: null
+        record_: null,
+        /**
+         * Ephemeral save feedback for the currently rendered record. This is deliberately component
+         * state, never AgentDefinition data: pending/rejected are transport facts, not durable fleet
+         * configuration.
+         * @member {Object|null} saveStatus_=null
+         * @reactive
+         */
+        saveStatus_: null
     }
 
     /**
@@ -54,6 +66,7 @@ class AgentConfigCard extends Component {
      * @protected
      */
     afterSetRecord(value, oldValue) {
+        this.saveStatus = {agentId: value?.id ?? null, state: 'idle', reason: ''};
         this.refresh()
     }
 
@@ -82,7 +95,7 @@ class AgentConfigCard extends Component {
             record = me.record,
             node   = data.path?.find(item => item.id?.startsWith(`${me.id}__`));
 
-        if (!node || !record) {
+        if (!node || !record || (me.saveStatus?.agentId === record.id && me.saveStatus.state === 'pending')) {
             return
         }
 
@@ -90,17 +103,31 @@ class AgentConfigCard extends Component {
 
         if (kind === 'srv') {
             const matrix = resolveMcpMatrix(record.mcpServers);
+            matrix[key] = !matrix[key];
 
-            me.fire('configIntent', {
-                agentId: record.id,
-                config : {mcpServers: {...matrix, [key]: !matrix[key]}}
-            })
+            me.fire('configIntent', {id: record.id, mcpServers: normalizeMcpOverrides(matrix)})
         } else if (kind === 'harness' && key !== record.harnessType) {
-            me.fire('configIntent', {
-                agentId: record.id,
-                config : {harnessType: key}
-            })
+            me.fire('configIntent', {id: record.id, harnessType: key})
         }
+    }
+
+    /**
+     * @summary Render one save-state transition only when the card still shows the originating
+     * agent. A slow response after selection changed must never paint the next agent's card.
+     * @param {String} agentId
+     * @param {'idle'|'pending'|'accepted'|'rejected'} state
+     * @param {String} [reason=''] Operator-facing status or rejection reason.
+     * @returns {Boolean} True when the visible card accepted the state.
+     */
+    setSaveStatus(agentId, state, reason='') {
+        if (this.record?.id !== agentId) {
+            return false
+        }
+
+        this.saveStatus = {agentId, state, reason};
+        this.refresh();
+
+        return true
     }
 
     /**
@@ -117,9 +144,12 @@ class AgentConfigCard extends Component {
         }
 
         const
-            me      = this,
-            harness = resolveHarnessType(record.harnessType),
-            matrix  = resolveMcpMatrix(record.mcpServers);
+            me         = this,
+            harness    = resolveHarnessType(record.harnessType),
+            matrix     = resolveMcpMatrix(record.mcpServers),
+            saveStatus = me.saveStatus?.agentId === record.id
+                ? me.saveStatus
+                : {state: 'idle', reason: ''};
 
         return [{
             cls: ['agent-config-identity'],
@@ -160,6 +190,9 @@ class AgentConfigCard extends Component {
                 this.createToggleRow('Hooks',              record.hooksActive),
                 this.createToggleRow('Wake subscriptions', record.wakeSubscriptionsActive)
             ]
+        }, {
+            cls : ['agent-config-save-status', `is-${saveStatus.state}`],
+            text: saveStatus.reason
         }]
     }
 

@@ -130,8 +130,9 @@ class FleetControlBridge extends Base {
     // ---- capability allowlist (the ONLY pane-reachable operations) ----------
 
     /**
-     * @summary Define (create or update) an agent. A supplied `credential` (PAT) is stored encrypted
-     * Node-side by the registry and is **never** echoed back — the return is the public definition.
+     * @summary Create an agent. Existing ids reject so established residents can change only through
+     * scoped update authorities. A supplied `credential` (PAT) is stored encrypted Node-side and is
+     * **never** echoed back — the return is the public definition.
      * @param {Object}  definition
      * @param {String}  definition.githubUsername    The agent's GitHub username (required).
      * @param {String}  definition.harnessType       A supported harness type (required).
@@ -139,6 +140,7 @@ class FleetControlBridge extends Base {
      * @param {String} [definition.id]               Stable id; defaults to `githubUsername`.
      * @param {Object} [definition.metadata]         Free-form non-secret metadata.
      * @param {String} [definition.modelProvider]    The agent's model-provider login; resolves via the AiConfig SSOT leaf when omitted.
+     * @param {Object|null} [definition.mcpServers]   Complete sparse MCP overrides; omitted/null follows live defaults, exactly like configureAgent.
      * @returns {Object} the public agent definition (no credential).
      */
     defineAgent(definition) {
@@ -146,16 +148,28 @@ class FleetControlBridge extends Base {
     }
 
     /**
-     * @summary Configure an existing agent — harness type + per-agent MCP matrix + operational
-     * intents (the scoped patch path; fleet authority, as with `defineAgent`). Never identity,
-     * never credential: the registry validates and persists, and the returned public definition
-     * is the Body's readback.
-     * @param {String} id
-     * @param {Object} config `{harnessType?, mcpServers?, hooksActive?, wakeSubscriptionsActive?}`
-     * @returns {Object|null} the updated public definition, or `null` for an unknown id.
+     * @summary Configure an existing agent through one serializable curated intent. Validation
+     * failures become an explicit domain outcome the Accounts card may render; unexpected service
+     * failures still throw and are sanitized by dispatchFleetRequest.
+     * @param {Object} intent `{id, harnessType?, mcpServers?}`
+     * @returns {{status: 'accepted', agent: Object}|{status: 'rejected', reason: String}}
      */
-    configureAgent(id, config) {
-        return this.getRegistry().configureAgent(id, config);
+    configureAgent(intent) {
+        try {
+            const agent = this.getRegistry().configureAgent(intent);
+
+            return agent
+                ? {status: 'accepted', agent}
+                : {status: 'rejected', reason: `Unknown agent '${intent?.id ?? ''}'.`}
+        } catch (error) {
+            const prefix = 'FleetRegistryService.configureAgent:';
+
+            if (error?.message?.startsWith(prefix)) {
+                return {status: 'rejected', reason: error.message.slice(prefix.length).trim()}
+            }
+
+            throw error
+        }
     }
 
     /**
