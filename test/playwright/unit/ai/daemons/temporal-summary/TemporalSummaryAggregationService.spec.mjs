@@ -149,6 +149,58 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         expect(JSON.parse(upserts[0].documents[0])).toEqual({mergedPrs: 3})
     });
 
+    test('runCycle persists the unified track plus one record per agent seen in the window', async () => {
+        const persisted = [];
+
+        TemporalSummaryAggregationService.collectPendingWindows = async () => [{
+            level      : 'daily',
+            windowStart: '2026-07-05T00:00:00.000Z',
+            windowEnd  : '2026-07-06T00:00:00.000Z',
+            sources    : {
+                mergedPrs: [{n: 1}, {n: 2}],
+                sessions : [
+                    {agentIdentity: '@neo-opus-ada', impact: 95},
+                    {agentIdentity: '@neo-gpt',      impact: 10}
+                ]
+            }
+        }];
+        TemporalSummaryAggregationService.persistTemporalRecord = async record => { persisted.push(record) };
+
+        await TemporalSummaryAggregationService.runCycle();
+
+        expect(persisted.map(record => record.metadata.partition)).toEqual(['unified', '@neo-gpt', '@neo-opus-ada']);
+
+        const [unified, gpt, ada] = persisted;
+
+        // the window fact is attributed exactly once — on the unified track
+        expect(unified.velocityFields.mergedPrs).toBe(2);
+        expect(ada.velocityFields.mergedPrs).toBeNull();
+        expect(gpt.velocityFields.mergedPrs).toBeNull();
+
+        // each per-agent track carries only its own attributable measurements
+        expect(ada.velocityFields.highImpactSessions).toBe(1);
+        expect(gpt.velocityFields.highImpactSessions).toBe(0);
+        expect(ada.velocityFields.sessionsPerAgent).toEqual({'@neo-opus-ada': 1})
+    });
+
+    test('runCycle writes the unified track alone when no session source attributes the window', async () => {
+        const persisted = [];
+
+        TemporalSummaryAggregationService.collectPendingWindows = async () => [{
+            level      : 'daily',
+            windowStart: '2026-07-05T00:00:00.000Z',
+            windowEnd  : '2026-07-06T00:00:00.000Z',
+            sources    : {devCommits: [{sha: 'a'}]}   // sessions source not yet bound
+        }];
+        TemporalSummaryAggregationService.persistTemporalRecord = async record => { persisted.push(record) };
+
+        await TemporalSummaryAggregationService.runCycle();
+
+        // no per-agent record the lane cannot attribute
+        expect(persisted).toHaveLength(1);
+        expect(persisted[0].metadata.partition).toBe('unified')
+    });
+
     test('collectPendingWindows plans the trailing daily windows + attaches each window fetched sources', async () => {
         TemporalSummaryAggregationService.resolveAggregationAnchor = () => '2026-07-06T12:00:00.000Z';
         TemporalSummaryAggregationService.dailyWindowCount         = () => 2;

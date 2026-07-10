@@ -2,10 +2,16 @@
 // InstanceManager) lives in `ai/daemons/temporal-summary/daemon.mjs`, following the
 // canonical Orchestrator class+wrapper pattern. `Neo.setupClass(...)` at file bottom
 // uses `globalThis.Neo`, populated by the entry-point bootstrap chain.
-import Base                                     from '../../../src/core/Base.mjs';
-import logger                                   from '../../mcp/server/memory-core/logger.mjs';
-import {composeUnifiedRecord, planDailyWindows} from '../../services/memory-core/helpers/temporalSummaryAggregationEngine.mjs';
-import {Memory_StorageRouter as StorageRouter}  from '../../services.mjs';
+import Base                                    from '../../../src/core/Base.mjs';
+import logger                                  from '../../mcp/server/memory-core/logger.mjs';
+import {UNIFIED_PARTITION}                     from '../../graph/temporalSummarySchema.mjs';
+import {Memory_StorageRouter as StorageRouter} from '../../services.mjs';
+import {
+    composeAgentRecord,
+    composeUnifiedRecord,
+    planDailyWindows,
+    resolvePartitionKeys
+} from '../../services/memory-core/helpers/temporalSummaryAggregationEngine.mjs';
 import {
     acquireHeavyMaintenanceLeaseSync,
     releaseHeavyMaintenanceLeaseSync
@@ -175,9 +181,9 @@ class TemporalSummaryAggregationService extends Base {
     }
 
     /**
-     * @summary One bounded aggregation cycle: read the pending windows (most-recent-first, bounded), fold
-     * + compose the unified-track record for each, and persist it. Per-agent partition records are added
-     * once their non-attributable-field semantics are pinned.
+     * @summary One bounded aggregation cycle: read the pending windows (most-recent-first, bounded), then for
+     * each window persist the unified-track record plus one record per agent seen in it. The unified track
+     * carries the window facts; each per-agent track carries only what is attributable to that agent.
      * @returns {Promise<void>}
      * @protected
      */
@@ -185,8 +191,25 @@ class TemporalSummaryAggregationService extends Base {
         const windows = await this.collectPendingWindows();
 
         for (const window of windows) {
-            await this.persistTemporalRecord(composeUnifiedRecord(window))
+            for (const partition of this.resolveWindowPartitions(window)) {
+                await this.persistTemporalRecord(partition === UNIFIED_PARTITION
+                    ? composeUnifiedRecord(window)
+                    : composeAgentRecord({...window, partition}))
+            }
         }
+    }
+
+    /**
+     * @summary The partition tracks one window aggregates into: the unified track, plus one per distinct agent
+     * observed in the window's session rows. A window whose session source is absent yields the unified track
+     * alone — the lane writes no per-agent record it cannot attribute.
+     * @param {Object} window
+     * @param {Object} [window.sources={}] The window's fetched source rows.
+     * @returns {String[]}
+     * @protected
+     */
+    resolveWindowPartitions({sources = {}}) {
+        return resolvePartitionKeys((sources.sessions || []).map(session => session?.agentIdentity))
     }
 
     /**

@@ -1,5 +1,6 @@
 import {
     createTemporalSummaryDocId,
+    isValidPartition,
     UNIFIED_PARTITION,
     validateTemporalSummaryMetadata
 } from '../../../graph/temporalSummarySchema.mjs';
@@ -32,6 +33,24 @@ export const VELOCITY_FIELD_SOURCES = Object.freeze({
     adrsLanded        : 'landed architectural decision records (decisions dir / graph nodes)',
     sandboxesGraduated: 'Discussion graduation markers (GitHub Discussions sync)'
 });
+
+/**
+ * @summary The velocity fields that are window-scoped facts rather than agent-attributable measurements: each
+ * counts whole-repository activity across the window, so no share of it belongs to any single agent. They are
+ * attributed ONLY on the unified track, and are `null` on every per-agent `'@<identity>'` partition by design.
+ *
+ * `null` — not `0`, and not the repeated window count — is the only honest value there:
+ * - `0` would assert a measurement ("this agent contributed none") that was never taken.
+ * - Repeating the window count on each track invites silent double-counting the moment a consumer aggregates
+ *   across partitions — precisely the class of error a durable record must not seed.
+ * - `null` carries the only safe upgrade path: should a field ever become agent-attributable, `null → measured`
+ *   is additive for consumers that already skip null, whereas `repeated → measured` would silently change
+ *   meaning underneath them.
+ * @type {ReadonlyArray<String>}
+ */
+export const WINDOW_SCOPED_VELOCITY_FIELDS = Object.freeze([
+    'mergedPrs', 'devCommits', 'adrsLanded', 'sandboxesGraduated'
+]);
 
 /**
  * @summary The session-impact floor for the `highImpactSessions` velocity field.
@@ -156,8 +175,8 @@ export function resolvePartitionKeys(agentIdentities = []) {
 /**
  * @summary Composes the unified-track record for one window — the whole-window fold (all sources) under
  * the `'unified'` partition. The unified track is always present (per-agent tracks are additive); the
- * service fetches the window's sources, calls this, and persists the returned record. Per-agent track
- * composition is a separate step (its non-attributable-field semantics are still being pinned).
+ * service fetches the window's sources, calls this, and persists the returned record. Per-agent tracks are
+ * composed by {@link composeAgentRecord}, which carries only the agent-attributable fields.
  * @param {Object} params
  * @param {String} params.level        `'session'` (L1) or `'daily'` (L2).
  * @param {String} params.windowStart  ISO 8601 UTC.
@@ -174,6 +193,54 @@ export function composeUnifiedRecord({level, windowStart, windowEnd, version = 1
         windowEnd,
         version,
         velocityFields: deriveVelocityFields(sources)
+    })
+}
+
+/**
+ * @summary Folds a window's fetched source rows into the six velocity fields for ONE per-agent track. Session
+ * rows are filtered to this partition's agent before the fold, so `sessionsPerAgent` / `highImpactSessions`
+ * carry that agent's measurements alone; every {@link WINDOW_SCOPED_VELOCITY_FIELDS} entry is `null` (that
+ * constant carries the reasoning). Fails closed on the unified track or a malformed identity — folding a
+ * per-agent record under the wrong partition would silently mis-attribute the whole window.
+ * @param {Object} params
+ * @param {String} params.partition    A per-agent `'@<identity>'` track.
+ * @param {Object} [params.sources={}] The window's fetched source arrays ({@link deriveVelocityFields} shape).
+ * @returns {{mergedPrs:null, devCommits:null, adrsLanded:null, sandboxesGraduated:null, highImpactSessions:Number, sessionsPerAgent:Object}}
+ */
+export function deriveAgentVelocityFields({partition, sources = {}}) {
+    if (partition === UNIFIED_PARTITION || !isValidPartition(partition)) {
+        throw new Error(`deriveAgentVelocityFields: expected a per-agent '@<identity>' track — got ${JSON.stringify(partition)}`)
+    }
+
+    const
+        agentSessions                          = (sources.sessions || []).filter(session => session?.agentIdentity === partition),
+        {highImpactSessions, sessionsPerAgent} = deriveVelocityFields({sessions: agentSessions}),
+        windowScopedFields                     = Object.fromEntries(WINDOW_SCOPED_VELOCITY_FIELDS.map(field => [field, null]));
+
+    return {...windowScopedFields, highImpactSessions, sessionsPerAgent}
+}
+
+/**
+ * @summary Composes one per-agent track record for a window — the agent-attributable fold under the
+ * `'@<identity>'` partition. The unified track ({@link composeUnifiedRecord}) owns the window facts; this
+ * record carries only what is attributable to the agent, leaving the window-scoped fields `null`.
+ * @param {Object} params
+ * @param {String} params.level        `'session'` (L1) or `'daily'` (L2).
+ * @param {String} params.partition    A per-agent `'@<identity>'` track.
+ * @param {String} params.windowStart  ISO 8601 UTC.
+ * @param {String} params.windowEnd    ISO 8601 UTC.
+ * @param {Number} [params.version=1]  Positive-integer append-only re-aggregation counter.
+ * @param {Object} [params.sources={}] The window's fetched source arrays ({@link deriveVelocityFields} shape).
+ * @returns {{id:String, metadata:Object, velocityFields:Object}}
+ */
+export function composeAgentRecord({level, partition, windowStart, windowEnd, version = 1, sources = {}}) {
+    return buildTemporalSummaryDocument({
+        level,
+        partition,
+        windowStart,
+        windowEnd,
+        version,
+        velocityFields: deriveAgentVelocityFields({partition, sources})
     })
 }
 

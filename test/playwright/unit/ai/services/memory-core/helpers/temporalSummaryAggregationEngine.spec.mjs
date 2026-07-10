@@ -17,13 +17,16 @@ import * as core      from '../../../../../../../src/core/_export.mjs';
 
 import {
     buildTemporalSummaryDocument,
+    composeAgentRecord,
     composeUnifiedRecord,
+    deriveAgentVelocityFields,
     deriveVelocityFields,
     HIGH_IMPACT_THRESHOLD,
     planDailyWindows,
     resolveDailyWindow,
     resolvePartitionKeys,
-    VELOCITY_FIELD_SOURCES
+    VELOCITY_FIELD_SOURCES,
+    WINDOW_SCOPED_VELOCITY_FIELDS
 } from '../../../../../../../ai/services/memory-core/helpers/temporalSummaryAggregationEngine.mjs';
 
 test.describe('Neo.ai.services.memory-core.temporalSummaryAggregationEngine', () => {
@@ -159,6 +162,87 @@ test.describe('Neo.ai.services.memory-core.temporalSummaryAggregationEngine', ()
         expect(record.velocityFields.mergedPrs).toBe(2);
         expect(record.velocityFields.highImpactSessions).toBe(1);
         expect(record.id).toContain('temporal-summary-daily-unified-')
+    });
+
+    test('WINDOW_SCOPED_VELOCITY_FIELDS pins exactly the four non-agent-attributable window facts', () => {
+        expect([...WINDOW_SCOPED_VELOCITY_FIELDS].sort()).toEqual([
+            'adrsLanded', 'devCommits', 'mergedPrs', 'sandboxesGraduated'
+        ]);
+        // the two agent-attributable fields are deliberately absent — they carry measurements per track
+        expect(WINDOW_SCOPED_VELOCITY_FIELDS).not.toContain('sessionsPerAgent');
+        expect(WINDOW_SCOPED_VELOCITY_FIELDS).not.toContain('highImpactSessions')
+    });
+
+    test('deriveAgentVelocityFields nulls every window-scoped field — never 0, never the repeated window count', () => {
+        const fields = deriveAgentVelocityFields({
+            partition: '@neo-opus-ada',
+            sources  : {
+                mergedPrs         : [{n: 1}, {n: 2}, {n: 3}],
+                devCommits        : [{sha: 'a'}],
+                adrsLanded        : [{id: 'ADR-0028'}],
+                sandboxesGraduated: [{ref: 'd#1'}],
+                sessions          : [{agentIdentity: '@neo-opus-ada', impact: 95}]
+            }
+        });
+
+        // null asserts "not attributed at this partition" — 0 would assert an unmeasured contribution,
+        // and repeating the window count (3 mergedPrs) would double-count across tracks
+        WINDOW_SCOPED_VELOCITY_FIELDS.forEach(field => expect(fields[field]).toBeNull());
+        expect(fields.mergedPrs).not.toBe(0);
+        expect(fields.mergedPrs).not.toBe(3)
+    });
+
+    test('deriveAgentVelocityFields attributes only the partition agent\'s sessions', () => {
+        const sources = {
+            sessions: [
+                {agentIdentity: '@neo-opus-ada', impact: 95},
+                {agentIdentity: '@neo-opus-ada', impact: 20},
+                {agentIdentity: '@neo-gpt',      impact: 99}
+            ]
+        };
+
+        const ada = deriveAgentVelocityFields({partition: '@neo-opus-ada', sources});
+
+        expect(ada.sessionsPerAgent).toEqual({'@neo-opus-ada': 2});
+        // @neo-gpt's impact-99 session belongs to its own track, never to Ada's
+        expect(ada.highImpactSessions).toBe(1);
+
+        const gpt = deriveAgentVelocityFields({partition: '@neo-gpt', sources});
+
+        expect(gpt.sessionsPerAgent).toEqual({'@neo-gpt': 1});
+        expect(gpt.highImpactSessions).toBe(1)
+    });
+
+    test('deriveAgentVelocityFields folds an agent with no sessions in the window to honest empties', () => {
+        const fields = deriveAgentVelocityFields({partition: '@neo-opus-vega', sources: {mergedPrs: [{n: 1}]}});
+
+        expect(fields.sessionsPerAgent).toEqual({});
+        expect(fields.highImpactSessions).toBe(0);
+        expect(fields.mergedPrs).toBeNull()
+    });
+
+    test('deriveAgentVelocityFields fails closed on the unified track or a malformed identity', () => {
+        expect(() => deriveAgentVelocityFields({partition: 'unified'})).toThrow(/expected a per-agent/);
+        expect(() => deriveAgentVelocityFields({partition: 'plain'})).toThrow(/expected a per-agent/);
+        expect(() => deriveAgentVelocityFields({partition: '@'})).toThrow(/expected a per-agent/);
+        expect(() => deriveAgentVelocityFields({})).toThrow(/expected a per-agent/)
+    });
+
+    test('composeAgentRecord composes a per-agent track record; the unified track keeps the window facts', () => {
+        const
+            window  = {level: 'daily', windowStart: '2026-07-05T00:00:00.000Z', windowEnd: '2026-07-06T00:00:00.000Z'},
+            sources = {mergedPrs: [{n: 1}, {n: 2}], sessions: [{agentIdentity: '@neo-opus-ada', impact: 95}]},
+            agent   = composeAgentRecord({...window, partition: '@neo-opus-ada', sources}),
+            unified = composeUnifiedRecord({...window, sources});
+
+        expect(agent.metadata.partition).toBe('@neo-opus-ada');
+        expect(agent.velocityFields.mergedPrs).toBeNull();
+        expect(agent.velocityFields.highImpactSessions).toBe(1);
+        expect(agent.id).toContain('temporal-summary-daily-neo-opus-ada-');
+
+        // same window, same source rows: the window fact is attributed once, on the unified track only
+        expect(unified.velocityFields.mergedPrs).toBe(2);
+        expect(agent.id).not.toBe(unified.id)
     });
 
     test('planDailyWindows returns contiguous most-recent-first UTC-day windows, bounded by dayCount', () => {
