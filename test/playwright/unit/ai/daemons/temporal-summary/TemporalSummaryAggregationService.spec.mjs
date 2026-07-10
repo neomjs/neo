@@ -164,9 +164,9 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
                 queries.push(args);
 
                 return {metadatas: [
-                    {sessionId: 's1', impact: 95, participatingAgents: '@neo-opus-ada,@neo-gpt'},
-                    {sessionId: 's2', impact: 10, participatingAgents: '@neo-opus-ada'},
-                    {sessionId: 's3', impact: 40, participatingAgents: ''}
+                    {sessionId: 's1', impact: 95, sourceAgentIdentities: '@neo-opus-ada,@neo-gpt'},
+                    {sessionId: 's2', impact: 10, sourceAgentIdentities: '@neo-opus-ada'},
+                    {sessionId: 's3', impact: 40, sourceAgentIdentities: ''}
                 ]}
             }
         });
@@ -189,6 +189,44 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         // an unattributed session survives as a row (it still counts toward the unified window) with no identities
         expect(sessions[2].agentIdentities).toEqual([]);
         expect(sessions[0].impact).toBe(95)
+    });
+
+    test('fetchSessions attributes on canonical sourceAgentIdentities, never the display participatingAgents', async () => {
+        StorageRouter.getSummaryCollection = async () => ({
+            get: async () => ({metadatas: [{
+                sessionId: 's1',
+                impact   : 95,
+                // real shapes observed in the live summary collection — caller-declared free text
+                participatingAgents  : 'Gemini 3.1 Pro (Antigravity),neo-gemini-pro,@neo-gemini-pro',
+                sourceAgentIdentities: '@neo-gemini-pro'
+            }]})
+        });
+
+        const [session] = await TemporalSummaryAggregationService.fetchSessions({
+            windowStart: '2026-07-05T00:00:00.000Z',
+            windowEnd  : '2026-07-06T00:00:00.000Z'
+        });
+
+        // one agent, one canonical identity — the display field spells it three ways, and partitioning on it
+        // would credit the same agent under several keys while silently dropping the unprefixed spellings
+        expect(session.agentIdentities).toEqual(['@neo-gemini-pro'])
+    });
+
+    test('fetchSessions yields no per-agent identity when the session sources carry none', async () => {
+        StorageRouter.getSummaryCollection = async () => ({
+            get: async () => ({metadatas: [
+                {sessionId: 's1', impact: 95, participatingAgents: 'Claude Opus 4.7 (Claude Code)', sourceAgentIdentities: ''}
+            ]})
+        });
+
+        const [session] = await TemporalSummaryAggregationService.fetchSessions({
+            windowStart: '2026-07-05T00:00:00.000Z',
+            windowEnd  : '2026-07-06T00:00:00.000Z'
+        });
+
+        // honest absence: a pre-provenance session gets no per-agent track, and still counts once on unified
+        expect(session.agentIdentities).toEqual([]);
+        expect(session.impact).toBe(95)
     });
 
     test('acquireLease forwards the AiConfig stale TTL — the primitive carries no default and throws without it', async () => {

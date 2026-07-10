@@ -305,9 +305,16 @@ class TemporalSummaryAggregationService extends Base {
      * @summary Binds `sessionsPerAgent` + `highImpactSessions` to their named source — the Memory Core session
      * summaries, window-filtered on the numeric `timestamp` metadata (session last-activity in ms). The
      * half-open `[start, end)` bound is pushed into the store query, so this is a bounded window read, never a
-     * full-history scan. A session is multi-agent: `participatingAgents` is the per-agent partition key list,
-     * and the row keeps ALL of them so the engine can credit each participant while still counting the session
-     * once toward `highImpactSessions`.
+     * full-history scan. A session is multi-agent, so the row keeps ALL of its identities: the engine credits
+     * each participant while still counting the session once toward `highImpactSessions`.
+     *
+     * Attribution reads `sourceAgentIdentities` — the canonical, auth-bound `agentIdentity` set of the
+     * session's source memories. It deliberately does NOT read `participatingAgents`, which is a caller-
+     * declared display field carrying free-text like `'Gemini 3.1 Pro (Antigravity)'` or an unprefixed
+     * `'neo-gemini-pro'` alongside a canonical `'@neo-gemini-pro'`. Partitioning on that would credit one
+     * agent under several spellings and silently drop the rest — a durable record must never derive a metric
+     * from self-declared prose. A session whose sources carry no identity yields no per-agent track and still
+     * counts, once, on the unified one.
      * @param {{windowStart:String, windowEnd:String}} window
      * @returns {Promise<Array<{sessionId:String, impact:Number, agentIdentities:String[]}>>}
      * @protected
@@ -325,7 +332,7 @@ class TemporalSummaryAggregationService extends Base {
         return (result?.metadatas || []).map(metadata => ({
             sessionId      : metadata.sessionId,
             impact         : Number(metadata.impact) || 0,
-            agentIdentities: String(metadata.participatingAgents || '').split(',').map(entry => entry.trim()).filter(Boolean)
+            agentIdentities: String(metadata.sourceAgentIdentities || '').split(',').map(entry => entry.trim()).filter(Boolean)
         }))
     }
 
