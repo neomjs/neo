@@ -90,6 +90,10 @@ class Observable extends Base {
         }
 
         if (nameObject) {
+            // parse a COPY: mutating the caller's object would silently break shared-object
+            // usage like `subject.on(listeners)` followed by `otherSubject.un(listeners)`
+            name = {...name};
+
             if (name.hasOwnProperty('delay')) {
                 delay = name.delay;
                 delete name.delay
@@ -336,6 +340,10 @@ class Observable extends Base {
         }
 
         if (Neo.isObject(name)) {
+            // parse a COPY: mutating the caller's object would silently break shared-object
+            // usage like `subject.on(listeners)` followed by `otherSubject.un(listeners)`
+            name = {...name};
+
             if (name.scope) {
                 scope = name.scope;
                 delete name.scope;
