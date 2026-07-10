@@ -3,6 +3,7 @@ import Button                  from '../../../../src/button/Base.mjs';
 import Container               from '../../../../src/container/Base.mjs';
 import DockLayoutAdapter       from '../../../../src/dashboard/DockLayoutAdapter.mjs';
 import DockMotionSignal        from '../../../../src/dashboard/DockMotionSignal.mjs';
+import DockPerspectiveStore    from '../../../../src/dashboard/DockPerspectiveStore.mjs';
 import DockPreviewProducer     from '../../../../src/dashboard/DockPreviewProducer.mjs';
 import DockZoneModel           from '../../../../src/dashboard/DockZoneModel.mjs';
 import FleetCockpitController  from './FleetCockpitController.mjs';
@@ -10,6 +11,7 @@ import FleetGrid               from './FleetGrid.mjs';
 import FleetRoster             from '../../store/FleetRoster.mjs';
 import StateProvider           from '../../../../src/state/Provider.mjs';
 import cockpitDockDocument     from './cockpitDockDocument.mjs';
+import cockpitPresetCollection from './cockpitPresets.mjs';
 import {mapFleetSessionHealth} from './sourceHealth.mjs';
 import {previewToOperation}    from '../../../../src/dashboard/dockPreviewContract.mjs';
 import '../../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the dock projection emits for tab zones
@@ -130,6 +132,22 @@ class FleetCockpit extends Container {
      */
     dockModel = null
     /**
+     * The named preset library — a {@link Neo.dashboard.DockPerspectiveStore} over the seeded
+     * workspace-scope collection ({@link module:cockpitPresets}). The store is the preset SSOT;
+     * {@link #dockModel} stays the LIVE layout SSOT — presets are snapshots the switch restores
+     * from, never live-bound mirrors.
+     * @member {Neo.dashboard.DockPerspectiveStore|null} perspectiveStore=null
+     * @protected
+     */
+    perspectiveStore = null
+    /**
+     * The last refused preset switch, rendered in the control bar (fail-closed VISIBLY: a
+     * refused restore must never look like a no-op). Cleared by the next successful switch.
+     * @member {String|null} presetError=null
+     * @protected
+     */
+    presetError = null
+    /**
      * The cross-zone drop producer instance (pointer → placement grammar), owned per cockpit.
      * @member {Neo.dashboard.DockPreviewProducer|null} dockPreviewProducer=null
      * @protected
@@ -194,9 +212,38 @@ class FleetCockpit extends Container {
         let me = this;
 
         me.dockPreviewProducer = Neo.create(DockPreviewProducer);
+        me.perspectiveStore    = Neo.create(DockPerspectiveStore, {collection: cockpitPresetCollection()});
         me.dockModel           = me.dockModel || cockpitDockDocument();
 
         me.add(me.buildWorkspaceItems())
+    }
+
+    /**
+     * @summary Switches the cockpit to a named preset: the stored record restores through the
+     * landed fail-closed path (validate everything before mutating anything — a refused restore
+     * leaves the live layout byte-untouched), and a valid document enters the standard commit
+     * loop — the switch re-projects FLIP-animated exactly like any committed operation, with
+     * reduced-motion collapsing through the token layer by construction.
+     *
+     * Pane continuity across a switch is state-continuity, not instance identity: projections
+     * rebuild instances by design; the live surfaces re-materialize from the OWNER-held state
+     * ({@link #resolveDockComponentRef}) and the provider-owned roster store never restarts.
+     * @param {String} name The preset's `perspectiveName` (or technical `layoutId`).
+     * @returns {{switched: Boolean, errors: String[]}}
+     */
+    activatePerspective(name) {
+        let me                 = this,
+            {document, errors} = me.perspectiveStore.loadPerspective(name);
+
+        if (errors.length) {
+            me.presetError = `${name}: ${errors[0]}`;
+            me.refreshDockWorkspace();
+            return {errors, switched: false}
+        }
+
+        me.presetError = null;
+        me.onDockZoneDocumentChange(document);
+        return {errors: [], switched: true}
     }
 
     /**
@@ -286,11 +333,22 @@ class FleetCockpit extends Container {
     }
 
     /**
-     * Creates the top-level control bar + dock projection items from current state.
+     * Creates the top-level control bar + dock projection items from current state: the preset
+     * switcher on the left (one button per stored perspective, the active one pressed — plus
+     * the fail-closed error chip when a switch was refused), the fleet controls on the right.
      * @returns {Object[]}
      */
     buildWorkspaceItems() {
-        let dockConfig = this.projectDockModel();
+        let me             = this,
+            dockConfig     = me.projectDockModel(),
+            activeLayoutId = me.perspectiveStore?.collection?.activeLayoutId,
+            presetButtons  = (me.perspectiveStore?.list() || []).map(preset => ({
+                module : Button,
+                cls    : ['fm-preset-button'],
+                handler: () => me.activatePerspective(preset.perspectiveName ?? preset.layoutId),
+                pressed: preset.layoutId === activeLayoutId,
+                text   : preset.perspectiveName ?? preset.layoutId
+            }));
 
         dockConfig.flex = 1;
 
@@ -298,13 +356,21 @@ class FleetCockpit extends Container {
             ntype: 'toolbar',
             cls  : ['fm-cockpit-bar'],
             flex : 'none',
-            items: ['->', {
-                module : Button,
-                cls    : ['fm-fleet-start'],
-                iconCls: 'fa-solid fa-play',
-                text   : 'Start morning fleet',
-                handler: 'onStartFleet'
-            }]
+            items: [
+                ...presetButtons,
+                ...(me.presetError ? [{
+                    ntype: 'component',
+                    cls  : ['fm-preset-error'],
+                    html : me.presetError
+                }] : []),
+                '->', {
+                    module : Button,
+                    cls    : ['fm-fleet-start'],
+                    iconCls: 'fa-solid fa-play',
+                    text   : 'Start morning fleet',
+                    handler: 'onStartFleet'
+                }
+            ]
         }, dockConfig]
     }
 
@@ -450,6 +516,8 @@ class FleetCockpit extends Container {
         me.getReference('fleet-grid')?.store?.un({load: me.onRosterStoreLoad, scope: me});
         me.dockPreviewProducer?.destroy();
         me.dockPreviewProducer = null;
+        me.perspectiveStore?.destroy();
+        me.perspectiveStore = null;
         super.destroy(...args)
     }
 
