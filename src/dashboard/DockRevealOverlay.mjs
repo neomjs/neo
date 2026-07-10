@@ -1,0 +1,348 @@
+import Button    from '../button/Base.mjs';
+import Container from '../container/Base.mjs';
+import Label     from '../component/Label.mjs';
+import NeoArray  from '../util/Array.mjs';
+
+/**
+ * @summary Presentation host for the transient reveal of an auto-hidden dock item — an
+ * edge-anchored overlay that renders OVER the committed projection, never re-layouts it.
+ *
+ * The overlay is pure per-window runtime state: it renders whatever reveal snapshot its owning
+ * rail pushes (via `DockRail.bindRevealOverlay()`) and translates DOM reality back into semantic
+ * INTENTS the rail's state machine consumes — `revealPointerEnter/Leave`, `revealFocusEnter/Leave`,
+ * `revealEscape`, `revealPinRequested`. It decides nothing itself: timing, focus-hold and policy
+ * all live upstream. It has no write path to any document.
+ *
+ * Composition: a header row (`Neo.component.Label` title + `Neo.button.Base` pin control) above a
+ * pane-slot `Neo.container.Base`. The consuming workspace mounts the revealed pane INTO the slot
+ * container (`overlay.paneSlot.add(...)` / `removeAll()`) — pane resolution stays the workspace's
+ * concern (same seam as the adapter's `resolveComponentRef`), keeping this overlay pane-blind.
+ * Root-level `domListeners` (focus, key, pointer) are the container-level interaction surface;
+ * every interactive CHILD is a real component.
+ *
+ * Sizing follows the auto-hide contract: the free dimension (width for left/right rails, height
+ * for top/bottom) uses the extent the item's owning split last committed when one exists
+ * (`revealExtent`, resolved by the rail), else the workspace-configurable `defaultRevealFraction`.
+ * Left/right reveals span full height; top/bottom span full width. The overlay stays visible
+ * through the dismiss grace window (`dismiss-pending`) — pointer wobble must not flicker it.
+ *
+ * The pin control persists the reveal: it requests `setItemPinned(true)` from the rail (executor
+ * path — no parallel mutation grammar) and renders disabled when the item's policy forbids pinning
+ * (`restorable: false`) — the one honest non-pinnable affordance state, while reveal itself stays
+ * policy-free.
+ *
+ * @class Neo.dashboard.DockRevealOverlay
+ * @extends Neo.container.Base
+ * @see Neo.dashboard.DockRail
+ * @see Neo.dashboard.DockRevealStateMachine
+ * @see learn/agentos/HarnessDockZoneModel.md
+ */
+class DockRevealOverlay extends Container {
+    /**
+     * Reveal states in which the overlay renders visibly — `dismiss-pending` included: the grace
+     * window is part of the shown lifecycle.
+     * @member {Set<String>} VISIBLE_STATES
+     * @static
+     */
+    static VISIBLE_STATES = new Set(['dismiss-pending', 'revealed', 'revealed-focused'])
+
+    static config = {
+        /**
+         * @member {String} className='Neo.dashboard.DockRevealOverlay'
+         * @protected
+         */
+        className: 'Neo.dashboard.DockRevealOverlay',
+        /**
+         * @member {String} ntype='dashboard-dock-reveal-overlay'
+         * @protected
+         */
+        ntype: 'dashboard-dock-reveal-overlay',
+        /**
+         * @member {String[]} baseCls=['neo-dashboard-dock-reveal-overlay']
+         */
+        baseCls: ['neo-dashboard-dock-reveal-overlay'],
+        /**
+         * Workspace-configurable fallback for the free dimension when the document carries no
+         * committed extent for the item (fraction of the workspace extent).
+         * @member {Number} defaultRevealFraction_=0.25
+         * @reactive
+         */
+        defaultRevealFraction_: 0.25,
+        /**
+         * Owning workspace edge (`top`, `right`, `bottom`, `left`).
+         * @member {String} edge_='left'
+         * @reactive
+         */
+        edge_: 'left',
+        /**
+         * @member {Object} layout={ntype:'vbox',align:'stretch'}
+         */
+        layout: {ntype: 'vbox', align: 'stretch'},
+        /**
+         * Committed extent fraction for the free dimension, or `null` for the default fraction.
+         * Resolved by the rail from the live document — never computed from DOM geometry.
+         * @member {Number|null} revealExtent_=null
+         * @reactive
+         */
+        revealExtent_: null,
+        /**
+         * Current machine state snapshot (`idle`, `dwell-pending`, `revealed`, `revealed-focused`,
+         * `dismiss-pending`).
+         * @member {String} revealState_='idle'
+         * @reactive
+         */
+        revealState_: 'idle',
+        /**
+         * Rail-item metadata of the revealed item (`{dockEdge, dockItemId, restorable, title}`),
+         * or `null` when nothing reveals.
+         * @member {Object|null} revealedItem_=null
+         * @reactive
+         */
+        revealedItem_: null
+    }
+
+    /**
+     * The dock item id whose pane currently occupies the slot — maintained by the owning rail's
+     * pane sync. Runtime-only bookkeeping, never persisted.
+     * @member {String|null} revealPaneItemId=null
+     * @protected
+     */
+    revealPaneItemId = null
+
+    /**
+     * Assembles the fixed child skeleton (header: title label + pin button; pane slot) with
+     * instance-bound handlers, wires the container-level interaction listeners, then applies the
+     * initial snapshot.
+     * @param {Object} config
+     */
+    construct(config={}) {
+        let me = this;
+
+        config.items = [{
+            module: Container,
+            cls   : ['neo-dashboard-dock-reveal-header'],
+            flex  : 'none',
+            layout: {ntype: 'hbox', align: 'center'},
+            items : [{
+                module: Label,
+                cls   : ['neo-dashboard-dock-reveal-title'],
+                flex  : 1,
+                text  : ''
+            }, {
+                module: Button,
+                cls   : ['neo-dashboard-dock-reveal-pin'],
+                // Explicitly bound: function-type button handlers run as plain calls.
+                handler        : me.onPinClick.bind(me),
+                text           : 'Pin',
+                useRippleEffect: false
+            }]
+        }, {
+            module: Container,
+            cls   : ['neo-dashboard-dock-reveal-pane-slot'],
+            flex  : 1,
+            items : []
+        }];
+
+        super.construct(config);
+
+        me.addDomListeners([
+            {keydown   : me.onKeyDown,      scope: me},
+            {mouseenter: me.onPointerEnter, scope: me},
+            {mouseleave: me.onPointerLeave, scope: me}
+        ])
+    }
+
+    /**
+     * Moves REAL browser focus into the overlay (first focusable descendant — the pin control at
+     * minimum, the hosted pane's focusables once mounted). The owning rail calls this when a
+     * click-born reveal opens: focus-hold must be embodied, not a state label.
+     */
+    focusReveal() {
+        this.focus(this.id, true)
+    }
+
+    /**
+     * Child instances exist only after the container created its items — the initial snapshot
+     * application waits for that.
+     */
+    onConstructed() {
+        super.onConstructed();
+        this.syncSnapshot()
+    }
+
+    /**
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetEdge(value, oldValue) {
+        let me  = this,
+            cls = me.cls || [];
+
+        if (oldValue) {
+            NeoArray.remove(cls, `neo-dashboard-dock-reveal-overlay-${oldValue}`)
+        }
+
+        NeoArray.add(cls, `neo-dashboard-dock-reveal-overlay-${value}`);
+
+        me.cls = cls;
+        me.isConstructed && me.syncSnapshot()
+    }
+
+    /**
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetRevealExtent(value, oldValue) {
+        this.isConstructed && this.syncSnapshot()
+    }
+
+    /**
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetRevealState(value, oldValue) {
+        this.isConstructed && this.syncSnapshot()
+    }
+
+    /**
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @protected
+     */
+    afterSetRevealedItem(value, oldValue) {
+        this.isConstructed && this.syncSnapshot()
+    }
+
+    /**
+     * The pane-slot container the consuming workspace mounts the revealed pane into.
+     * @returns {Neo.container.Base}
+     */
+    get paneSlot() {
+        return this.items[1]
+    }
+
+    /**
+     * @returns {Neo.button.Base}
+     */
+    get pinButton() {
+        return this.items[0].items[1]
+    }
+
+    /**
+     * @returns {Neo.component.Label}
+     */
+    get titleLabel() {
+        return this.items[0].items[0]
+    }
+
+    /**
+     * Whether the current snapshot renders visibly.
+     * @returns {Boolean}
+     */
+    get visible() {
+        return DockRevealOverlay.VISIBLE_STATES.has(this.revealState) && !!this.revealedItem
+    }
+
+    /**
+     * `manager.Focus` containment hook: fires only when focus genuinely ENTERS this component's
+     * subtree — internal focus movement never re-triggers it, which is exactly the containment
+     * guard the dismiss contract needs.
+     * @param {Object} data
+     * @protected
+     */
+    onFocusEnter(data) {
+        super.onFocusEnter(data);
+        this.fire('revealFocusEnter', {overlay: this})
+    }
+
+    /**
+     * `manager.Focus` containment hook: fires only when focus genuinely LEAVES the subtree —
+     * moving focus between the pin control and the hosted pane stays silent. Clicking anywhere
+     * outside a focused overlay moves focus out, so outside-click dismissal of a focused reveal
+     * is embodied here.
+     * @param {Object} data
+     * @protected
+     */
+    onFocusLeave(data) {
+        super.onFocusLeave(data);
+        this.fire('revealFocusLeave', {overlay: this})
+    }
+
+    /**
+     * @param {Object} data
+     * @protected
+     */
+    onKeyDown(data={}) {
+        if (data.key === 'Escape') {
+            this.fire('revealEscape', {overlay: this})
+        }
+    }
+
+    /**
+     * Requests the pin escape from the owning rail. Policy is honoured upstream; the disabled
+     * rendering here is the honest affordance mirror, not the enforcement point.
+     * @param {Object} data The pin button click event data.
+     * @protected
+     */
+    onPinClick(data) {
+        let item = this.revealedItem;
+
+        if (item) {
+            this.fire('revealPinRequested', {itemId: item.dockItemId, overlay: this})
+        }
+    }
+
+    /**
+     * @param {Object} data
+     * @protected
+     */
+    onPointerEnter(data) {
+        this.fire('revealPointerEnter', {overlay: this})
+    }
+
+    /**
+     * @param {Object} data
+     * @protected
+     */
+    onPointerLeave(data) {
+        this.fire('revealPointerLeave', {overlay: this})
+    }
+
+    /**
+     * Applies the current snapshot to the composed children in place: visibility cls,
+     * free-dimension style, title text and pin policy — the child instances persist across
+     * snapshots (object permanence at the overlay level too).
+     * @protected
+     */
+    syncSnapshot() {
+        let me         = this,
+            edge       = me.edge,
+            isVertical = edge === 'left' || edge === 'right',
+            fraction   = Number.isFinite(me.revealExtent) ? me.revealExtent : me.defaultRevealFraction,
+            item       = me.revealedItem,
+            pct        = `${Math.round(fraction * 10000) / 100}%`,
+            cls        = me.cls || [];
+
+        NeoArray[me.visible ? 'remove' : 'add'](cls, 'neo-dashboard-dock-reveal-overlay-hidden');
+
+        me.set({
+            cls,
+            style: {
+                ...(me.style || {}),
+                height: isVertical ? null : pct,
+                width : isVertical ? pct  : null
+            }
+        });
+
+        me.titleLabel.text = item ? (item.title || item.dockItemId) : '';
+
+        me.pinButton.set({
+            disabled: item ? item.restorable === false : true
+        })
+    }
+}
+
+export default Neo.setupClass(DockRevealOverlay);

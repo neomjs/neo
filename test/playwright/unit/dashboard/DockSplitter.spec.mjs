@@ -164,8 +164,8 @@ test.describe('Neo.dashboard.DockSplitter', () => {
                 reducerCalls.push({descriptor, instance});
                 return {document: committedDoc, errors: []}
             },
-            boundaryIndex  : 0,
-            id             : 'dock-splitter-reducer',
+            boundaryIndex: 0,
+            id           : 'dock-splitter-reducer',
             onDockZoneDocumentChange(document, descriptor, instance) {
                 notifyCalls.push({document, descriptor, instance})
             },
@@ -213,9 +213,9 @@ test.describe('Neo.dashboard.DockSplitter', () => {
             onDockZoneDocumentChange() {
                 notified = true
             },
-            orientation     : 'horizontal',
-            parentComponent : parent,
-            splitNodeId     : 'root'
+            orientation    : 'horizontal',
+            parentComponent: parent,
+            splitNodeId    : 'root'
         });
 
         splitter.dragZone = {

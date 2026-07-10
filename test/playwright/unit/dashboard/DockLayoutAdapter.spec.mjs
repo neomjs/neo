@@ -10,6 +10,7 @@ import {test, expect}    from '@playwright/test';
 import Neo               from '../../../../src/Neo.mjs';
 import * as core         from '../../../../src/core/_export.mjs';
 import DockLayoutAdapter from '../../../../src/dashboard/DockLayoutAdapter.mjs';
+import DockRail          from '../../../../src/dashboard/DockRail.mjs';
 import DockSplitter      from '../../../../src/dashboard/DockSplitter.mjs';
 import DockZoneModel     from '../../../../src/dashboard/DockZoneModel.mjs';
 
@@ -350,19 +351,25 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
             side         = row.items.find(item => item.dockNodeId === 'side-split'),
             terminalTabs = getProjectedChildren(side)[0];
 
-        // The auto-hidden item surfaces as a right-edge rail tab.
+        // The auto-hidden item surfaces as a right-edge DockRail affordance.
         expect(rail).toBeTruthy();
         expect(rail.dockEdge).toBe('right');
-        expect(rail.layout).toEqual({ntype: 'vbox', align: 'start'});
-        expect(rail.items.map(item => item.dockItemId)).toEqual(['terminal']);
-        expect(rail.items[0].dockNodeType).toBe('edge-rail-tab');
-        expect(rail.items[0].text).toBe('Terminal');
-        expect(rail.items[0].data).toEqual({dockEdge: 'right', dockItemId: 'terminal', dockRailTab: true});
+        expect(rail.edge).toBe('right');
+        expect(rail.module).toBe(DockRail);
+        expect(rail.ntype).toBe('dashboard-dock-rail');
+        expect(rail.railItems).toEqual([
+            {dockEdge: 'right', dockItemId: 'terminal', restorable: true, title: 'Terminal'}
+        ]);
 
         // ...and is gone from its tab flow (the now-empty terminal-tabs).
         expect(terminalTabs.dockNodeId).toBe('terminal-tabs');
         expect(terminalTabs.items).toEqual([]);
         expect(terminalTabs.activeIndex).toBeNull();
+
+        // Geometry discipline: edge bands keep a fixed cross-extent, the center flexes.
+        expect(side.flex).toBe('none');
+        expect(side.cls).toEqual(expect.arrayContaining(['neo-dashboard-dock-edge-band', 'neo-dashboard-dock-edge-band-right']));
+        expect(row.items[0].flex).toBe(1);
     });
 
     test('does not rail an item that is pinned but not autoHidden', () => {
@@ -392,5 +399,104 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
         // Center never auto-hides to a rail; the item stays visible rather than vanishing.
         expect(row.items.find(item => item.dockNodeType === 'edge-rail')).toBeUndefined();
         expect(center.items.map(item => item.data.dockItemId)).toEqual(['strategy', 'swarm']);
+    });
+
+    test('threads reducer callbacks from projection context into the rail affordance', () => {
+        let applyDockZoneOperation   = () => null,
+            model                    = createEdgeZoneModel(),
+            onDockZoneDocumentChange = () => null;
+
+        model.items.terminal.autoHidden = true;
+
+        let result = DockLayoutAdapter.project(model, {
+                applyDockZoneOperation,
+                autoHideRevealOnHover: true,
+                defaultRevealFraction: 0.4,
+                onDockZoneDocumentChange,
+                resolveComponentRef  : componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+            }),
+            rail = result.items[0].items.find(item => item.dockNodeType === 'edge-rail');
+
+        // Commits must ride the workspace's single operation path — same threading as splitters.
+        expect(rail.applyDockZoneOperation).toBe(applyDockZoneOperation);
+        expect(rail.onDockZoneDocumentChange).toBe(onDockZoneDocumentChange);
+        expect(rail.dockZoneDocument).toBe(model);
+        // Workspace-level interaction options thread through; they default when absent.
+        expect(rail.autoHideRevealOnHover).toBe(true);
+        expect(rail.defaultRevealFraction).toBe(0.4);
+        expect(DockLayoutAdapter.project(model, {
+            resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+        }).items[0].items.find(item => item.dockNodeType === 'edge-rail').autoHideRevealOnHover).toBe(false);
+    });
+
+    test('resolveRevealExtent returns the committed split share, else null', () => {
+        let model = createEdgeZoneModel();
+
+        // terminal-tabs is side-split child 0: sizes [0.55, 0.45] → 0.55 share.
+        expect(DockLayoutAdapter.resolveRevealExtent(model, 'terminal')).toBeCloseTo(0.55);
+        expect(DockLayoutAdapter.resolveRevealExtent(model, 'inspector')).toBeCloseTo(0.45);
+
+        // strategy's tabs node sits directly in an edge-zone slot — no ancestor split, no extent.
+        expect(DockLayoutAdapter.resolveRevealExtent(model, 'strategy')).toBeNull();
+
+        // Unknown items and absent models fail null-safe.
+        expect(DockLayoutAdapter.resolveRevealExtent(model, 'ghost')).toBeNull();
+        expect(DockLayoutAdapter.resolveRevealExtent(null, 'terminal')).toBeNull();
+    });
+
+    test('projects one rail per edge with correct membership (multi-edge grouping)', () => {
+        let model = createEdgeZoneModel();
+
+        model.items.navigator    = {componentRef: 'navigator', title: 'Navigator', kind: 'panel'};
+        model.nodes['left-tabs'] = {type: 'tabs', items: ['navigator'], activeItemId: 'navigator'};
+        model.nodes.root.zones.left = 'left-tabs';
+
+        model.items.navigator.autoHidden = true;
+        model.items.terminal.autoHidden  = true;
+
+        let result = DockLayoutAdapter.project(model, {
+                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+            }),
+            rails = result.items[0].items.filter(item => item.dockNodeType === 'edge-rail');
+
+        expect(rails.map(rail => rail.dockEdge)).toEqual(['left', 'right']);
+        expect(rails[0].railItems.map(item => item.dockItemId)).toEqual(['navigator']);
+        expect(rails[1].railItems.map(item => item.dockItemId)).toEqual(['terminal']);
+    });
+
+    test('re-projects consistently across rapid autoHidden toggles through the executor', () => {
+        let model    = createEdgeZoneModel(),
+            options  = {resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})},
+            findRail = result => result.items[0].items.find(item => item.dockNodeType === 'edge-rail');
+
+        let hidden = DockZoneModel.applyOperation(model, {autoHidden: true, itemId: 'terminal', operation: 'setItemAutoHidden'});
+        expect(hidden.errors).toEqual([]);
+
+        let railed = findRail(DockLayoutAdapter.project(hidden.document, options));
+        expect(railed.railItems.map(item => item.dockItemId)).toEqual(['terminal']);
+
+        let restored = DockZoneModel.applyOperation(hidden.document, {autoHidden: false, itemId: 'terminal', operation: 'setItemAutoHidden'});
+        expect(findRail(DockLayoutAdapter.project(restored.document, options))).toBeUndefined();
+
+        let rehidden = DockZoneModel.applyOperation(restored.document, {autoHidden: true, itemId: 'terminal', operation: 'setItemAutoHidden'});
+        expect(findRail(DockLayoutAdapter.project(rehidden.document, options)).railItems).toEqual(railed.railItems);
+    });
+
+    test('projects restorable: false for a railed item whose pinnable policy flipped off', () => {
+        let model = createEdgeZoneModel();
+
+        // Reachable state: the item railed first, then its policy flipped — the model would now
+        // reject setItemAutoHidden(false), so the tab must not lie about the affordance.
+        model.items.terminal.autoHidden = true;
+        model.items.terminal.pinnable   = false;
+
+        let result = DockLayoutAdapter.project(model, {
+                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+            }),
+            rail = result.items[0].items.find(item => item.dockNodeType === 'edge-rail');
+
+        expect(rail.railItems).toEqual([
+            {dockEdge: 'right', dockItemId: 'terminal', restorable: false, title: 'Terminal'}
+        ]);
     });
 });

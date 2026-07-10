@@ -8,33 +8,39 @@ import '../../../src/tab/Container.mjs'; // registers the `tab-container` ntype 
 import '../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype used by the perspective toolbar
 
 /**
- * A representative dock-zone document (`neo.harness.dockZone.v1`): a horizontal split of a two-tab main zone and a
- * vertical side-split of two single-tab zones, over four items. The shape `Neo.dashboard.DockLayoutAdapter.project`
- * consumes — see its spec for the full contract. Used as the example's INITIAL committed document; the live document
- * advances on each splitter resize (see `MainContainer#dockModel`).
+ * A representative dock-zone document (`neo.harness.dockZone.v1`): an edge-zone root whose center is a
+ * horizontal split of a two-tab main zone and a vertical side-split of two single-tab zones, plus a
+ * right edge band holding a single-tab inspector zone — the auto-hide surface (committing
+ * `setItemAutoHidden` on an edge-band item collapses it to a `Neo.dashboard.DockRail` edge tab).
+ * The shape `Neo.dashboard.DockLayoutAdapter.project` consumes — see its spec for the full contract.
+ * Used as the example's INITIAL committed document; the live document advances on each commit
+ * (see `MainContainer#dockModel`).
  * @type {Object}
  */
 const initialDockModel = {
     schema: 'neo.harness.dockZone.v1',
     root  : 'root',
     items : {
-        strategy: {componentRef: 'Strategy', title: 'Strategy', kind: 'panel'},
-        swarm   : {componentRef: 'Swarm',    title: 'Swarm',    kind: 'panel'},
-        terminal: {componentRef: 'Terminal', title: 'Terminal', kind: 'terminal'},
-        logs    : {componentRef: 'Logs',     title: 'Logs',     kind: 'panel'}
+        strategy : {componentRef: 'Strategy',  title: 'Strategy',  kind: 'panel'},
+        swarm    : {componentRef: 'Swarm',     title: 'Swarm',     kind: 'panel'},
+        terminal : {componentRef: 'Terminal',  title: 'Terminal',  kind: 'terminal'},
+        logs     : {componentRef: 'Logs',      title: 'Logs',      kind: 'panel'},
+        inspector: {componentRef: 'Inspector', title: 'Inspector', kind: 'panel'}
     },
     nodes: {
-        root           : {type: 'split', orientation: 'horizontal', children: ['main-tabs', 'side-split'], sizes: [0.65, 0.35]},
-        'main-tabs'    : {type: 'tabs',  items: ['strategy', 'swarm'], activeItemId: 'strategy'},
-        'side-split'   : {type: 'split', orientation: 'vertical', children: ['terminal-tabs', 'logs-tabs'], sizes: [0.6, 0.4]},
-        'terminal-tabs': {type: 'tabs',  items: ['terminal'], activeItemId: 'terminal'},
-        'logs-tabs'    : {type: 'tabs',  items: ['logs'],     activeItemId: 'logs'}
+        root            : {type: 'edge-zone', zones: {center: 'root-split', right: 'inspector-tabs'}},
+        'root-split'    : {type: 'split', orientation: 'horizontal', children: ['main-tabs', 'side-split'], sizes: [0.65, 0.35]},
+        'main-tabs'     : {type: 'tabs',  items: ['strategy', 'swarm'], activeItemId: 'strategy'},
+        'side-split'    : {type: 'split', orientation: 'vertical', children: ['terminal-tabs', 'logs-tabs'], sizes: [0.6, 0.4]},
+        'terminal-tabs' : {type: 'tabs',  items: ['terminal'],  activeItemId: 'terminal'},
+        'logs-tabs'     : {type: 'tabs',  items: ['logs'],      activeItemId: 'logs'},
+        'inspector-tabs': {type: 'tabs',  items: ['inspector'], activeItemId: 'inspector'}
     }
 };
 
 const reviewDockModel = DockZoneModel.clone(initialDockModel);
 
-reviewDockModel.nodes.root.sizes = [0.48, 0.52];
+reviewDockModel.nodes['root-split'].sizes = [0.48, 0.52];
 reviewDockModel.nodes['main-tabs'].activeItemId = 'swarm';
 reviewDockModel.nodes['side-split'].sizes = [0.42, 0.58];
 
