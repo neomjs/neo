@@ -123,7 +123,7 @@ class DockMotionSignal extends Base {
      */
     static isAnimating(componentId) {
         for (const component of this.activeMotions.keys()) {
-            if (component.id === componentId) return true
+            if (this.isLive(component) && component.id === componentId) return true
         }
 
         return false

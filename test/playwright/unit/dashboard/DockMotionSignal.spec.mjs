@@ -143,25 +143,32 @@ test.describe('Neo.dashboard.DockMotionSignal (the motion-contract observability
     });
 
     test('ownership binds to the INSTANCE: a same-id replacement is untouchable by the stale predecessor', () => {
-        const t   = makeTimers(),
-              old = makeComponent('ws-8');
+        const oldTimers  = makeTimers(),
+              nextTimers = makeTimers(),
+              old        = makeComponent('ws-8');
 
         // the predecessor enters, then tears down mid-motion WITHOUT a leave — its fail-safe stays pending
-        DockMotionSignal.enter(old, t.setTimeoutFn, t.clearTimeoutFn);
+        DockMotionSignal.enter(old, oldTimers.setTimeoutFn, oldTimers.clearTimeoutFn);
         old.isDestroyed = true;
 
-        // a replacement instance reuses the SAME id and starts its own motion
+        // An idle replacement reusing the SAME id must not inherit the destroyed predecessor's
+        // observation state; only live entries participate in id-level reads.
         const next = makeComponent('ws-8');
-        DockMotionSignal.enter(next, t.setTimeoutFn, t.clearTimeoutFn);
+        expect(DockMotionSignal.isAnimating('ws-8')).toBe(false);
+
+        DockMotionSignal.enter(next, nextTimers.setTimeoutFn, nextTimers.clearTimeoutFn);
         expect(DockMotionSignal.isAnimating('ws-8')).toBe(true);
 
-        // the stale predecessor's leave() must not decrement the replacement's entry...
-        DockMotionSignal.leave(old, t.clearTimeoutFn);
+        // The predecessor's still-pending fail-safe ACTUALLY fires while the replacement is active;
+        // it clears only the corpse entry and cannot change the live replacement observation.
+        oldTimers.fire();
         expect(DockMotionSignal.isAnimating('ws-8')).toBe(true);
 
-        // ...and BOTH pending fail-safes fire: the old one clears only its own (corpse) entry —
-        // the replacement's entry goes ONLY via its own timer, removing cls on the live instance
-        t.fire();
+        // A late stale leave remains a no-op, and the replacement settles only through its own timer.
+        DockMotionSignal.leave(old, oldTimers.clearTimeoutFn);
+        expect(DockMotionSignal.isAnimating('ws-8')).toBe(true);
+
+        nextTimers.fire();
         expect(DockMotionSignal.isAnimating('ws-8')).toBe(false);
         expect(old.calls).toEqual([['add', 'neo-dashboard-dock-animating']]);           // corpse never touched again
         expect(next.calls).toEqual([
