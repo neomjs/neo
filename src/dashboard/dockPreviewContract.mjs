@@ -19,6 +19,28 @@
  */
 export const PREVIEW_SCHEMA = 'neo.harness.dockPreview.v1';
 
+/**
+ * The drop-candidate-set schema: the runtime-only payload the producer emits for the
+ * indicator-overlay menu (the full valid-placement menu for one hovered zone plus the
+ * container edge chips), consumed by `Neo.dashboard.DockDropIndicators`. Every candidate
+ * wraps a complete, individually valid `neo.harness.dockPreview.v1` payload — a drop on an
+ * indicator commits through `previewToOperation` exactly like a pointer-inferred preview.
+ * @type {String}
+ */
+export const CANDIDATES_SCHEMA = 'neo.harness.dockCandidates.v1';
+
+/**
+ * The five cross positions of the indicator menu, in render order. `center` maps to the
+ * tab-merge candidate; the four directions map to directional split candidates (which kind —
+ * `edge-*` node split vs `split-before/after` sibling insert — the producer resolves from the
+ * hovered zone's parent-split orientation, identical to the pointer-inference grammar).
+ * @type {String[]}
+ */
+export const CROSS_POSITIONS = ['center', 'top', 'right', 'bottom', 'left'];
+
+/** The four container-edge chip positions, in render order. @type {String[]} */
+export const CHIP_EDGES = ['top', 'right', 'bottom', 'left'];
+
 /** @type {Set<String>} */
 export const EDGE_KINDS = new Set(['edge-top', 'edge-right', 'edge-bottom', 'edge-left']);
 
@@ -56,6 +78,59 @@ export function isValidPreview(preview) {
     if (SPLIT_KINDS.has(placement.kind) &&
         placement.orientation !== 'horizontal' && placement.orientation !== 'vertical') {
         return false
+    }
+
+    return true
+}
+
+/**
+ * @summary Numeric-rect gate shared by the candidate-set validator (fail-closed).
+ * @param {Object|null} rect
+ * @returns {Boolean}
+ */
+function isValidRect(rect) {
+    return !!rect &&
+        [rect.x, rect.y, rect.width, rect.height].every(v => typeof v === 'number' && !Number.isNaN(v)) &&
+        rect.width > 0 && rect.height > 0
+}
+
+/**
+ * @summary Structural validity gate for a dockCandidates set (fail-closed).
+ *
+ * Returns true only for a well-formed `neo.harness.dockCandidates.v1` payload: a stable `itemId`,
+ * a hovered `zone` with a node id and a numeric rect, a `cross` array whose entries carry a known
+ * position and an individually valid preview, and a `root` that is either null (no distinct
+ * container target) or a node id + rect + `chips` whose entries carry a known edge and a valid
+ * preview. Anything malformed returns false so the indicator layer clears rather than guesses —
+ * the same fail-closed posture as `isValidPreview`.
+ * @param {Object|null} set
+ * @returns {Boolean}
+ */
+export function isValidCandidateSet(set) {
+    if (!set || typeof set !== 'object')               return false;
+    if (set.schema !== CANDIDATES_SCHEMA)              return false;
+    if (typeof set.itemId !== 'string' || !set.itemId) return false;
+
+    let {cross, root, zone} = set;
+
+    if (!zone || typeof zone.nodeId !== 'string' || !zone.nodeId || !isValidRect(zone.rect)) return false;
+
+    if (!Array.isArray(cross) || cross.length < 1) return false;
+
+    if (!cross.every(candidate =>
+        candidate && CROSS_POSITIONS.includes(candidate.position) && isValidPreview(candidate.preview)
+    )) {
+        return false
+    }
+
+    if (root != null) {
+        if (typeof root.nodeId !== 'string' || !root.nodeId || !isValidRect(root.rect)) return false;
+
+        if (!Array.isArray(root.chips) || !root.chips.every(chip =>
+            chip && CHIP_EDGES.includes(chip.edge) && isValidPreview(chip.preview)
+        )) {
+            return false
+        }
     }
 
     return true

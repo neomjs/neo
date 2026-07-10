@@ -214,6 +214,7 @@ class DockLayoutAdapter extends Base {
             dockZoneDocument        : options.dockZoneDocument || model,
             items                   : model.items || {},
             nodes                   : model.nodes,
+            onDockCrossZoneDragMove : options.onDockCrossZoneDragMove,
             onDockCrossZoneDrop     : options.onDockCrossZoneDrop,
             onDockZoneDocumentChange: options.onDockZoneDocumentChange,
             resolveComponentRef     : options.resolveComponentRef || (() => null)
@@ -615,6 +616,10 @@ class DockLayoutAdapter extends Base {
             },
             items    : items.map(itemId => this.projectItem(itemId, context)),
             listeners: {
+                // Live-drag hover: the dock-aware SortZone streams `dockCrossZoneDragMove` per frame; the
+                // owner renders the transient affordance tier (indicator menu / preview) from it. Same
+                // closure-captured context seam as the drop below.
+                dockCrossZoneDragMove: data => context.onDockCrossZoneDragMove?.(data),
                 // Cross-zone: the dock-aware SortZone fires `dockCrossZoneDrop` on this tab.Container; the
                 // closure holds `context` (captured here, not serialized), so the reducer survives config
                 // cloning and needs no component-tree walk. The reducer hit-tests the target zone + commits.
