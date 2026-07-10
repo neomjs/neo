@@ -27,24 +27,6 @@
 // through the token, by construction.
 // ─────────────────────────────────────────────────────────────────────────────────────
 
-// Tab insert morphing: an entering tab header settles in — a self-completing CSS
-// animation fires on DOM insertion (no second toggle, no timer). Scoped to dock
-// surfaces; plain tab views outside the dashboard stay untouched.
-.neo-dashboard .neo-tab-header-button {
-    animation: neo-dock-tab-enter var(--dock-transition-duration) var(--dock-transition-easing);
-}
-
-@keyframes neo-dock-tab-enter {
-    from {
-        opacity  : 0.25;
-        transform: translateY(3px);
-    }
-    to {
-        opacity  : 1;
-        transform: translateY(0);
-    }
-}
-
 // Auto-hide reveal slide: the overlay enters FROM its owning edge — the per-edge cls the
 // rail already stamps (`neo-dashboard-dock-reveal-overlay-<edge>`) picks the direction.
 .neo-dashboard-dock-reveal-overlay {

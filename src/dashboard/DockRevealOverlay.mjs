@@ -40,6 +40,19 @@ import NeoArray         from '../util/Array.mjs';
  */
 class DockRevealOverlay extends Container {
     /**
+     * Animation names owned by the reveal producer. An exact allowlist prevents a hosted pane's
+     * similarly prefixed animation from settling this overlay's counted motion window.
+     * @member {Set<String>} MOTION_ANIMATION_NAMES
+     * @static
+     */
+    static MOTION_ANIMATION_NAMES = new Set([
+        'neo-dock-reveal-fade',
+        'neo-dock-reveal-from-bottom',
+        'neo-dock-reveal-from-left',
+        'neo-dock-reveal-from-right',
+        'neo-dock-reveal-from-top'
+    ])
+    /**
      * Reveal states in which the overlay renders visibly — `dismiss-pending` included: the grace
      * window is part of the shown lifecycle.
      * @member {Set<String>} VISIBLE_STATES
@@ -109,6 +122,20 @@ class DockRevealOverlay extends Container {
      * @protected
      */
     revealPaneItemId = null
+    /**
+     * Whether this overlay currently owns one reveal-animation entry in `DockMotionSignal`.
+     * Keeps matching end events, early dismissal, rapid re-entry and teardown idempotent.
+     * @member {Boolean} revealMotionActive=false
+     * @protected
+     */
+    revealMotionActive = false
+    /**
+     * Last computed `visible` value used to detect the actual hidden/visible boundary even when
+     * `revealedItem`, rather than `revealState`, causes the transition.
+     * @member {Boolean} revealWasVisible=false
+     * @protected
+     */
+    revealWasVisible = false
 
     /**
      * Assembles the fixed child skeleton (header: title label + pin button; pane slot) with
@@ -157,14 +184,60 @@ class DockRevealOverlay extends Container {
     }
 
     /**
+     * Opens this reveal producer's counted motion window once.
+     * @protected
+     */
+    beginRevealMotion() {
+        if (!this.revealMotionActive) {
+            this.revealMotionActive = true;
+            DockMotionSignal.enter(this)
+        }
+    }
+
+    /**
+     * Settles this reveal producer's counted motion window once.
+     * @protected
+     */
+    finishRevealMotion() {
+        if (this.revealMotionActive) {
+            this.revealMotionActive = false;
+            DockMotionSignal.leave(this)
+        }
+    }
+
+    /**
+     * Reconciles the reveal producer with the overlay's computed visibility. Both state and item
+     * changes can cross this boundary because `visible` requires a visible state AND an item.
+     * @protected
+     */
+    syncRevealMotion() {
+        let me      = this,
+            visible = me.visible;
+
+        if (visible !== me.revealWasVisible) {
+            me.revealWasVisible = visible;
+            me[visible ? 'beginRevealMotion' : 'finishRevealMotion']()
+        }
+    }
+
+    /**
+     * Teardown may interrupt the CSS animation without an `animationend`; settle the producer's
+     * entry before the component lifecycle removes its remaining runtime state.
+     */
+    destroy() {
+        this.finishRevealMotion();
+        super.destroy()
+    }
+
+    /**
      * The reveal-slide settle: closes the motion-signal window a visible-state flip opened.
      * Filters to the choreography keyframes so hosted-pane animations never leave a signal
      * they did not enter.
      * @param {Object} data
      */
     onMotionAnimationEnd(data) {
-        if (String(data?.animationName || '').startsWith('neo-dock-reveal')) {
-            DockMotionSignal.leave(this)
+        if (DockRevealOverlay.MOTION_ANIMATION_NAMES.has(data?.animationName)) {
+            this.finishRevealMotion()
         }
     }
 
@@ -220,15 +293,11 @@ class DockRevealOverlay extends Container {
      * @protected
      */
     afterSetRevealState(value, oldValue) {
-        let me            = this,
-            VISIBLE       = DockRevealOverlay.VISIBLE_STATES,
-            becameVisible = VISIBLE.has(value) && !VISIBLE.has(oldValue);
+        let me = this;
 
-        // A hidden→visible flip re-runs the reveal-slide keyframes (the hidden state is
-        // display:none, so the animation restarts natively) — open the motion-signal window
-        // here; `onMotionAnimationEnd` closes it, the signal's own fail-safe backstops loss.
-        // Dismiss is an instant display cut: no motion, no signal.
-        becameVisible && DockMotionSignal.enter(me);
+        // A hidden→visible flip re-runs the reveal-slide keyframes; a visible→hidden cut cancels
+        // CSS `animationend`. Reconcile synchronously so rapid re-entry starts from count zero.
+        me.syncRevealMotion();
 
         me.isConstructed && me.syncSnapshot()
     }
@@ -239,7 +308,12 @@ class DockRevealOverlay extends Container {
      * @protected
      */
     afterSetRevealedItem(value, oldValue) {
-        this.isConstructed && this.syncSnapshot()
+        let me = this;
+
+        // `visible` requires an item, so item-only removal/re-addition crosses the same CSS
+        // display boundary even when the machine state remains `revealed`.
+        me.syncRevealMotion();
+        me.isConstructed && me.syncSnapshot()
     }
 
     /**

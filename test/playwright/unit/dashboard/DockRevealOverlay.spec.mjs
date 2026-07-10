@@ -155,8 +155,10 @@ test.describe('Neo.dashboard.DockRevealOverlay', () => {
         overlay.set({revealState: 'revealed', revealedItem: createItem()});
         expect(DockMotionSignal.isAnimating(overlay.id)).toBe(true);
 
-        // a hosted pane's foreign animation ending must NOT close the window...
+        // a hosted pane's foreign animation ending — including a similarly prefixed one —
+        // must NOT close the window...
         overlay.onMotionAnimationEnd({animationName: 'some-pane-spinner'});
+        overlay.onMotionAnimationEnd({animationName: 'neo-dock-reveal-pane-spinner'});
         expect(DockMotionSignal.isAnimating(overlay.id)).toBe(true);
 
         // ...the choreography keyframes do
@@ -172,5 +174,49 @@ test.describe('Neo.dashboard.DockRevealOverlay', () => {
         overlay.onMotionAnimationEnd({animationName: 'neo-dock-reveal-from-left'});
         overlay.set({revealState: 'dismiss-pending'});
         expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false)
+    });
+
+    test('early dismissal, rapid re-reveal and destroy each settle exactly their owned motion entry', () => {
+        overlay = Neo.create(DockRevealOverlay, {
+            edge: 'left',
+            id  : 'dock-reveal-motion-cancel'
+        });
+
+        overlay.set({revealState: 'revealed', revealedItem: createItem()});
+        expect(DockMotionSignal.activeMotions.get(overlay)?.count).toBe(1);
+
+        // display:none cancels the CSS animation without animationend. The state transition
+        // settles synchronously instead of leaving the signal wedged until its fail-safe.
+        overlay.set({revealState: 'idle', revealedItem: null});
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+        expect(DockMotionSignal.activeMotions.has(overlay)).toBe(false);
+
+        // A quick second reveal starts from a clean count; its one end event fully settles it.
+        overlay.set({revealState: 'revealed', revealedItem: createItem()});
+        expect(DockMotionSignal.activeMotions.get(overlay)?.count).toBe(1);
+        overlay.onMotionAnimationEnd({animationName: 'neo-dock-reveal-from-left'});
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+
+        // Item-only visibility shifts follow the same balanced lifecycle while the state remains
+        // `revealed`: removing the item hides/cancels; restoring one restarts from count one.
+        overlay.set({revealState: 'idle', revealedItem: null});
+        overlay.set({revealState: 'revealed', revealedItem: createItem()});
+        overlay.revealedItem = null;
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+        overlay.revealedItem = createItem();
+        expect(DockMotionSignal.activeMotions.get(overlay)?.count).toBe(1);
+        overlay.onMotionAnimationEnd({animationName: 'neo-dock-reveal-from-left'});
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(false);
+
+        // Teardown is another animation-cancellation path and must release instance ownership.
+        overlay.set({revealState: 'idle', revealedItem: null});
+        overlay.set({revealState: 'revealed', revealedItem: createItem()});
+
+        let doomed = overlay;
+
+        overlay.destroy();
+        overlay = null;
+
+        expect(DockMotionSignal.activeMotions.has(doomed)).toBe(false)
     });
 });

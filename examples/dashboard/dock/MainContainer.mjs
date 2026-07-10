@@ -1,4 +1,5 @@
 import DockLayoutAdapter    from '../../../src/dashboard/DockLayoutAdapter.mjs';
+import DockMotionSignal     from '../../../src/dashboard/DockMotionSignal.mjs';
 import DockPreviewProducer  from '../../../src/dashboard/DockPreviewProducer.mjs';
 import DockZoneModel        from '../../../src/dashboard/DockZoneModel.mjs';
 import Viewport             from '../../../src/container/Viewport.mjs';
