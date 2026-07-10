@@ -1,5 +1,9 @@
 import {defineConfig, devices} from '@playwright/test';
 
+// Overridable so agent/dev runs can isolate from a foreign dev-server already squatting on 8080
+// (a server started from ANOTHER checkout silently serves the wrong tree to every spec).
+const PORT = process.env.NEO_E2E_PORT || 8080;
+
 export default defineConfig({
     testDir      : './e2e',
     outputDir    : './test-results/e2e/artifacts',
@@ -15,20 +19,20 @@ export default defineConfig({
     ],
 
     use: {
-        baseURL: 'http://localhost:8080',
+        baseURL: `http://localhost:${PORT}`,
         trace  : 'on'
     },
 
     webServer: {
-        command            : 'npm run server-start',
-        url                : 'http://localhost:8080',
+        command            : `npm run server-start -- --port ${PORT} --no-open`,
+        url                : `http://localhost:${PORT}`,
         reuseExistingServer: !process.env.CI
     },
 
     projects: [{
         name: 'chromium',
         use : {
-            channel: 'chrome', // Use local Google Chrome instead of Playwright's Chromium binary
+            channel      : 'chrome', // Use local Google Chrome instead of Playwright's Chromium binary
             launchOptions: {
                 args: [
                     '--use-gl=desktop',

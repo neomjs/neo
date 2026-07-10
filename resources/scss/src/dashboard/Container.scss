@@ -14,3 +14,63 @@
         cursor: ns-resize;
     }
 }
+
+// Demo-consumable minimal hooks only — the real visual language lands with the F-tranche.
+// Flow direction comes from the rail's layout (vbox/vertical, hbox/horizontal edges); the
+// buttons bring their own base theming — these hooks only shape the strip.
+.neo-dashboard-dock-edge-rail {
+    flex-shrink: 0;
+    gap        : 2px;
+
+    &-left,
+    &-right {
+        width: 14px;
+
+        .neo-dashboard-dock-rail-tab {
+            writing-mode: vertical-rl;
+        }
+    }
+
+    &-top,
+    &-bottom {
+        height: 14px;
+    }
+}
+
+.neo-dashboard-dock-rail-tab {
+    font-size: 11px;
+    padding  : 4px 1px;
+}
+
+.neo-dashboard-dock-edge-band {
+    &-left,
+    &-right {
+        width: 280px;
+    }
+
+    &-top,
+    &-bottom {
+        height: 200px;
+    }
+}
+
+.neo-dashboard-dock-reveal-overlay {
+    --neo-dock-reveal-ms : 200ms;
+    --neo-dock-dismiss-ms: 160ms;
+
+    position: absolute;
+    z-index : 20;
+
+    &-hidden {
+        display: none;
+    }
+
+    &-left   { inset: 0 auto 0 14px; }
+    &-right  { inset: 0 14px 0 auto; }
+    &-top    { inset: 14px 0 auto 0; }
+    &-bottom { inset: auto 0 14px 0; }
+}
+
+.neo-dashboard-dock-reveal-header {
+    gap: 4px;
+}

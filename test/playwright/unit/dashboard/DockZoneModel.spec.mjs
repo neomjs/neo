@@ -929,7 +929,7 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             const resized = DockZoneModel.applyOperation(example.dockModel, {
                 operation  : 'resizeSplit',
                 sizes      : [0.4, 0.6],
-                splitNodeId: 'root'
+                splitNodeId: 'root-split'
             });
 
             expect(resized.errors).toEqual([]);
@@ -940,13 +940,13 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             expect(saved.errors).toEqual([]);
             expect(saved.layout.layoutId).toBe('saved-perspective-1');
             expect(example.layoutCollection.activeLayoutId).toBe('saved-perspective-1');
-            expect(example.layoutCollection.layouts['saved-perspective-1'].dockZone.nodes.root.sizes).toEqual([0.4, 0.6]);
+            expect(example.layoutCollection.layouts['saved-perspective-1'].dockZone.nodes['root-split'].sizes).toEqual([0.4, 0.6]);
 
             const restored = example.restorePerspective('review-focus');
 
             expect(restored.errors).toEqual([]);
             expect(example.layoutCollection.activeLayoutId).toBe('review-focus');
-            expect(example.dockModel.nodes.root.sizes).toEqual([0.48, 0.52]);
+            expect(example.dockModel.nodes['root-split'].sizes).toEqual([0.48, 0.52]);
             expect(example.dockModel.nodes['main-tabs'].activeItemId).toBe('swarm');
 
             const deleted = example.removeActivePerspective();
