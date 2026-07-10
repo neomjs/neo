@@ -179,6 +179,12 @@ test.describe('Neo.dashboard.DockRevealOverlay', () => {
         overlay.onMotionAnimationEnd(createSerializedAnimationEnd('hosted-pane-animation', ['hosted-pane-animation', rootId]));
         expect(DockMotionSignal.isAnimating(overlay.id)).toBe(true);
 
+        // Raw DOM ids are a different identity namespace. A non-Neo child can omit the
+        // config-aware target id while its browser id happens to collide with the overlay id;
+        // that must not settle the overlay-owned motion window.
+        overlay.onMotionAnimationEnd(createSerializedAnimationEnd(undefined, [rootId], rootId));
+        expect(DockMotionSignal.isAnimating(overlay.id)).toBe(true);
+
         // The overlay root event settles. A blank raw DOM id models `useDomIds:false`; the
         // config-aware `target.id` remains the portable identity authority.
         overlay.onMotionAnimationEnd(createSerializedAnimationEnd(rootId, [rootId], ''));

@@ -225,7 +225,7 @@ class DockRevealOverlay extends Container {
      * @param {Object} data
      */
     onMotionAnimationEnd(data) {
-        if ((data?.target?.id || data?.id) === (this.vdom?.id || this.id)) {
+        if (data?.target?.id === (this.vdom?.id || this.id)) {
             this.finishRevealMotion()
         }
     }
