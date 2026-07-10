@@ -1,15 +1,15 @@
 const WIRE_SOURCES = Object.freeze({
-        activity  : 'fleet:activity-adapters',
-        a2a       : 'memory-core:mailbox',
-        githubPr  : 'github-workflow:pull-requests',
+        activity   : 'fleet:activity-adapters',
+        a2a        : 'memory-core:mailbox',
+        githubPr   : 'github-workflow:pull-requests',
         githubIssue: 'github-workflow:issues',
         commentLane: 'github-workflow:issue-comments',
-        graphLane : 'graph:lane-state',
-        graphStall: 'graph:work-stall',
-        repoStatus: 'fleet:fleetStatus',
-        roster    : 'fleet:listAgents',
-        runtime   : 'fleet:runtimeStatus',
-        lifecycle : 'fleet:lifecycle'
+        graphLane  : 'graph:lane-state',
+        graphStall : 'graph:work-stall',
+        repoStatus : 'fleet:fleetStatus',
+        roster     : 'fleet:listAgents',
+        runtime    : 'fleet:runtimeStatus',
+        lifecycle  : 'fleet:lifecycle'
     })
 
 export const FLEET_COCKPIT_EVENT_TYPES = Object.freeze([
@@ -50,22 +50,35 @@ function githubAvatarUrl(githubUsername) {
 
 /**
  * @summary Build the first Fleet Manager cockpit snapshot from the already-shipped bridge reads:
- * `listAgents()` for the redacted roster and `fleetStatus()` for repo-provisioning state. Runtime
- * process truth and A2A/PR/lane activity are explicit capability slots, not guessed browser state; an
- * unwired adapter is rendered as `not-wired` so Lane 1 never mistakes placeholder data for fact.
+ * `listAgents()` for the redacted roster, `fleetStatus()` for repo-provisioning state, and
+ * `fleetRuntimeStatus()` for live process truth when the assembler supplies it. A2A/PR/lane activity
+ * stays an explicit capability slot, not guessed browser state; an unwired adapter is rendered as
+ * `not-wired` so Lane 1 never mistakes placeholder data for fact.
+ *
+ * Identity display facts (`family` + `engineTag`) pass through from the supplied agents when the
+ * Brain-side assembler enriched them (the `resolveIdentityDisplay` join at the assembler — this Body-side
+ * map stays pure and never imports `ai/graph`); un-enriched agents yield `null`, which the cockpit
+ * renders as unclassified / tagless, never guessed.
  *
  * @param {Object}   options={}
- * @param {Object[]} options.agents      Public agent definitions from `registryBridge.listAgents()`.
- * @param {Object[]} options.fleetStatus Repo-status entries from `registryBridge.fleetStatus()`.
- * @param {Object[]} options.events      Optional already-normalized cockpit events.
- * @param {Object}   options.capabilities Optional source-capability overrides from wired adapters.
+ * @param {Object[]} options.agents        Public agent definitions from `registryBridge.listAgents()`,
+ *     optionally identity-enriched with `family` / `engineTag` by the assembler.
+ * @param {Object[]} options.fleetStatus   Repo-status entries from `registryBridge.fleetStatus()`.
+ * @param {Object[]} options.runtimeStatus Optional per-agent process entries from
+ *     `registryBridge.fleetRuntimeStatus()` — rows carry an observed `lifecycle` when present.
+ * @param {Object[]} options.events        Optional already-normalized cockpit events.
+ * @param {Object}   options.capabilities  Optional source-capability overrides from wired adapters.
  * @returns {Object} serializable cockpit DTO `{sources, capabilities, rows, events}`.
  */
-export function createFleetCockpitStatus({agents = [], fleetStatus = [], events = [], capabilities = {}} = {}) {
+export function createFleetCockpitStatus({agents = [], fleetStatus = [], runtimeStatus = [], events = [], capabilities = {}} = {}) {
     const suppliedCapabilities = capabilities || {}
 
     const statusByAgentId = new Map(
         fleetStatus.map(status => [status.agentId || status.id, sanitizePayload(status)])
+    )
+
+    const runtimeByAgentId = new Map(
+        runtimeStatus.map(entry => [entry.agentId || entry.id, sanitizePayload(entry)])
     )
 
     return {
@@ -77,7 +90,8 @@ export function createFleetCockpitStatus({agents = [], fleetStatus = [], events 
         rows: agents.map(agent => {
             const publicAgent = sanitizePayload(agent),
                   agentId     = publicAgent.id,
-                  repoStatus  = statusByAgentId.get(agentId) || null
+                  repoStatus  = statusByAgentId.get(agentId) || null,
+                  runtime     = runtimeByAgentId.get(agentId) || null
 
             return {
                 id            : agentId,
@@ -85,13 +99,21 @@ export function createFleetCockpitStatus({agents = [], fleetStatus = [], events 
                 harnessType   : publicAgent.harnessType ?? null,
                 displayName   : publicAgent.displayName ?? publicAgent.name ?? publicAgent.githubUsername ?? agentId ?? null,
                 avatarUrl     : publicAgent.metadata?.avatarUrl ?? githubAvatarUrl(publicAgent.githubUsername),
+                family        : publicAgent.family ?? null,
+                engineTag     : publicAgent.engineTag ?? null,
                 agent         : publicAgent,
                 repoStatus,
-                lifecycle     : {
-                    source    : FLEET_COCKPIT_SOURCES.runtime,
-                    state     : 'not-wired',
-                    confidence: 'none'
-                },
+                lifecycle     : runtime
+                    ? {
+                        source    : FLEET_COCKPIT_SOURCES.runtime,
+                        state     : runtime.state ?? 'unknown',
+                        confidence: runtime.confidence ?? 'observed'
+                    }
+                    : {
+                        source    : FLEET_COCKPIT_SOURCES.runtime,
+                        state     : 'not-wired',
+                        confidence: 'none'
+                    },
                 sources: {
                     roster: {
                         source    : FLEET_COCKPIT_SOURCES.roster,
@@ -105,8 +127,8 @@ export function createFleetCockpitStatus({agents = [], fleetStatus = [], events 
                     },
                     runtime: {
                         source    : FLEET_COCKPIT_SOURCES.runtime,
-                        state     : 'not-wired',
-                        confidence: 'none'
+                        state     : runtime ? 'wired' : 'not-wired',
+                        confidence: runtime ? (runtime.confidence ?? 'observed') : 'none'
                     }
                 }
             }

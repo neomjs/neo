@@ -25,6 +25,33 @@ import {
 } from '../../../../../../src/ai/fleet/fleetCockpitStatus.mjs'
 
 test.describe('fleetCockpitStatus - Body-side cockpit DTO contract', () => {
+    test('passes identity display facts through from assembler-enriched agents — nulls when un-enriched (never guessed)', () => {
+        const snapshot = createFleetCockpitStatus({
+            agents: [
+                {id: 'neo-gpt', githubUsername: 'neo-gpt', family: 'gpt', engineTag: 'GPT-5.6 Sol'},
+                {id: 'guest', githubUsername: 'guest-gh'}
+            ]
+        })
+
+        expect(snapshot.rows[0]).toMatchObject({id: 'neo-gpt', family: 'gpt', engineTag: 'GPT-5.6 Sol'})
+        // un-enriched -> explicit nulls: the cockpit renders unclassified / tagless, never a guess
+        expect(snapshot.rows[1]).toMatchObject({id: 'guest', family: null, engineTag: null})
+    })
+
+    test('composes runtimeStatus onto row lifecycle — observed process truth when present, honest not-wired when absent', () => {
+        const snapshot = createFleetCockpitStatus({
+            agents       : [{id: 'alice'}, {id: 'bob'}],
+            runtimeStatus: [{agentId: 'alice', state: 'running', running: true, confidence: 'observed'}]
+        })
+
+        expect(snapshot.rows[0].lifecycle).toMatchObject({source: FLEET_COCKPIT_SOURCES.runtime, state: 'running', confidence: 'observed'})
+        expect(snapshot.rows[0].sources.runtime).toMatchObject({state: 'wired', confidence: 'observed'})
+
+        // no runtime entry -> the DTO's own placeholder-never-renders-as-fact discipline
+        expect(snapshot.rows[1].lifecycle).toMatchObject({state: 'not-wired', confidence: 'none'})
+        expect(snapshot.rows[1].sources.runtime).toMatchObject({state: 'not-wired', confidence: 'none'})
+    })
+
     test('composes roster and repo status with explicit source labels', () => {
         const snapshot = createFleetCockpitStatus({
             agents: [{
