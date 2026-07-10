@@ -9,6 +9,7 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
+import Button         from '../../../../src/button/Base.mjs';
 import DockRail       from '../../../../src/dashboard/DockRail.mjs';
 
 const createDocument = () => ({
@@ -40,7 +41,7 @@ test.describe('Neo.dashboard.DockRail', () => {
         rail = null
     });
 
-    test('renders labeled tabs from railItems and updates in place on model flips (no remount)', () => {
+    test('renders railItems as real button children and reconciles in place (object permanence)', () => {
         rail = Neo.create(DockRail, {
             edge     : 'right',
             id       : 'dock-rail-reactive',
@@ -48,29 +49,39 @@ test.describe('Neo.dashboard.DockRail', () => {
         });
 
         expect(rail.cls).toContain('neo-dashboard-dock-edge-rail-right');
-        expect(rail.vdom.cn).toHaveLength(1);
-        expect(rail.vdom.cn[0].tag).toBe('button');
-        expect(rail.vdom.cn[0].text).toBe('Terminal');
-        expect(rail.vdom.cn[0].data).toEqual({dockEdge: 'right', dockItemId: 'terminal', dockRailTab: true});
-        expect(rail.vdom.cn[0].disabled).toBeNull();
+        expect(rail.layout.ntype).toContain('vbox');
+        expect(rail.items).toHaveLength(1);
+        expect(rail.items[0] instanceof Button.constructor || rail.items[0].ntype).toBeTruthy();
+        expect(rail.items[0].text).toBe('Terminal');
+        expect(rail.items[0].dockItemId).toBe('terminal');
+        expect(rail.items[0].disabled).toBe(false);
 
-        // Model flip: a second item rails — same instance, tab children re-render in place.
+        let terminalButton = rail.items[0];
+
+        // Model flip: a second item rails — the surviving tab keeps its LIVE component instance.
         rail.railItems = [
             ...createRailItems(),
             {dockEdge: 'right', dockItemId: 'inspector', restorable: true, title: 'Inspector'}
         ];
 
-        expect(rail.id).toBe('dock-rail-reactive');
-        expect(rail.vdom.cn).toHaveLength(2);
-        expect(rail.vdom.cn[1].text).toBe('Inspector');
+        expect(rail.items).toHaveLength(2);
+        expect(rail.items[0]).toBe(terminalButton);
+        expect(rail.items[1].text).toBe('Inspector');
 
-        // ...and clears the same way (the empty rail renders no tabs).
+        // Title flips update the surviving instance in place; leavers are removed.
+        rail.railItems = [{dockEdge: 'right', dockItemId: 'terminal', restorable: true, title: 'Console'}];
+
+        expect(rail.items).toHaveLength(1);
+        expect(rail.items[0]).toBe(terminalButton);
+        expect(rail.items[0].text).toBe('Console');
+
+        // ...and the empty rail renders no tabs.
         rail.railItems = [];
 
-        expect(rail.vdom.cn).toHaveLength(0);
+        expect(rail.items).toHaveLength(0);
     });
 
-    test('restore rides the reducer callback: click commits setItemAutoHidden(false)', () => {
+    test('restore rides the reducer callback: tab click commits setItemAutoHidden(false)', () => {
         let descriptors = [],
             events      = [],
             nextDoc     = createDocument();
@@ -89,7 +100,9 @@ test.describe('Neo.dashboard.DockRail', () => {
 
         rail.on('dockRailRestore', data => events.push(data));
 
-        let result = rail.onRailClick({currentTarget: `${rail.id}__tab-0`});
+        // The click path is button.Base's own handler contract; we invoke the handler the way
+        // the button does: with the click data carrying the button component.
+        let result = rail.onTabClick({component: rail.items[0]});
 
         expect(descriptors).toHaveLength(1);
         expect(descriptors[0].descriptor).toEqual({autoHidden: false, itemId: 'terminal', operation: 'setItemAutoHidden'});
@@ -114,7 +127,7 @@ test.describe('Neo.dashboard.DockRail', () => {
             railItems               : createRailItems()
         });
 
-        let result = rail.onRailClick({currentTarget: `${rail.id}__tab-0`});
+        let result = rail.onTabClick({component: rail.items[0]});
 
         expect(result.errors).toEqual([]);
         expect(result.document.items.terminal.autoHidden).toBe(false);
@@ -126,7 +139,7 @@ test.describe('Neo.dashboard.DockRail', () => {
         expect(changes[0].railInstance).toBe(rail);
     });
 
-    test('policy: a non-restorable tab renders disabled and rejects locally without emitting an operation', () => {
+    test('policy: a non-restorable tab renders as a disabled button and rejects locally without emitting an operation', () => {
         let committed = [],
             rejected  = [];
 
@@ -142,16 +155,23 @@ test.describe('Neo.dashboard.DockRail', () => {
 
         rail.on('dockRailRestoreRejected', data => rejected.push(data));
 
-        expect(rail.vdom.cn[0].disabled).toBe(true);
-        expect(rail.vdom.cn[0].cls).toContain('neo-dashboard-dock-rail-tab-disabled');
+        expect(rail.items[0].disabled).toBe(true);
 
-        let result = rail.onRailClick({currentTarget: `${rail.id}__tab-0`});
+        let result = rail.onTabClick({component: rail.items[0]});
 
         expect(committed).toHaveLength(0);
         expect(result.errors.join(' ')).toContain('blocked by policy');
         expect(rejected).toHaveLength(1);
         expect(rejected[0].descriptor).toBeNull();
         expect(rejected[0].itemId).toBe('terminal');
+
+        // A live policy flip re-enables the surviving button instance in place.
+        let button = rail.items[0];
+
+        rail.railItems = [{dockEdge: 'right', dockItemId: 'terminal', restorable: true, title: 'Terminal'}];
+
+        expect(rail.items[0]).toBe(button);
+        expect(button.disabled).toBe(false);
     });
 
     test('an executor rejection surfaces as dockRailRestoreRejected with the document unchanged', () => {
@@ -171,20 +191,20 @@ test.describe('Neo.dashboard.DockRail', () => {
 
         rail.on('dockRailRestoreRejected', data => rejected.push(data));
 
-        let result = rail.onRailClick({currentTarget: `${rail.id}__tab-0`});
+        let result = rail.onTabClick({component: rail.items[0]});
 
         expect(result.errors.join(' ')).toContain('not pinnable');
         expect(rail.dockZoneDocument.items.terminal.autoHidden).toBe(true);
         expect(rejected).toHaveLength(1);
     });
 
-    test('ignores clicks that do not resolve to a known tab', () => {
+    test('ignores clicks that do not resolve to a rail-tab button', () => {
         rail = Neo.create(DockRail, {
             id       : 'dock-rail-unknown',
             railItems: createRailItems()
         });
 
-        expect(rail.onRailClick({currentTarget: 'not-a-tab'})).toBeNull();
-        expect(rail.onRailClick({})).toBeNull();
+        expect(rail.onTabClick({component: {}})).toBeNull();
+        expect(rail.onTabClick({})).toBeNull();
     });
 });

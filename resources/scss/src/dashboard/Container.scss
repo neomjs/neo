@@ -15,16 +15,16 @@
     }
 }
 
-// Demo-consumable minimal hooks only — the real visual language lands with the F-tranche (#14638).
+// Demo-consumable minimal hooks only — the real visual language lands with the F-tranche.
+// Flow direction comes from the rail's layout (vbox/vertical, hbox/horizontal edges); the
+// buttons bring their own base theming — these hooks only shape the strip.
 .neo-dashboard-dock-edge-rail {
-    display    : flex;
     flex-shrink: 0;
     gap        : 2px;
 
     &-left,
     &-right {
-        flex-direction: column;
-        width         : 14px;
+        width: 14px;
 
         .neo-dashboard-dock-rail-tab {
             writing-mode: vertical-rl;
@@ -33,21 +33,11 @@
 
     &-top,
     &-bottom {
-        flex-direction: row;
-        height        : 14px;
+        height: 14px;
     }
 }
 
 .neo-dashboard-dock-rail-tab {
-    background: none;
-    border    : none;
-    color     : inherit;
-    cursor    : pointer;
-    font-size : 11px;
-    padding   : 4px 1px;
-
-    &-disabled {
-        cursor : not-allowed;
-        opacity: 0.4;
-    }
+    font-size: 11px;
+    padding  : 4px 1px;
 }

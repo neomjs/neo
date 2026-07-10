@@ -1,34 +1,44 @@
-import Component     from '../component/Base.mjs';
+import Button        from '../button/Base.mjs';
+import Container     from '../container/Base.mjs';
 import DockZoneModel from './DockZoneModel.mjs';
 import NeoArray      from '../util/Array.mjs';
 
 /**
- * @summary Runtime edge-rail affordance rendering committed auto-hidden items as labeled rail tabs,
- * converting a tab click into a `setItemAutoHidden(false)` operation through the dock-zone reducer.
+ * @summary Runtime edge-rail affordance rendering committed auto-hidden items as real button
+ * children, converting a tab click into a `setItemAutoHidden(false)` operation through the
+ * dock-zone reducer.
  *
- * The rail is pure render projection (per-window, derived, never persisted): WHICH items rail — and on
- * which edge — is committed `dockZone.v1` truth the adapter derives
- * (`DockLayoutAdapter.collectAutoHiddenItems()`). Tabs render from plain `railItems` metadata rather
- * than from the pane components themselves, so the pane never learns it is railed (pane-blindness) and
- * a destroyed or unresolvable pane cannot break its recall affordance.
+ * The rail is pure render projection (per-window, derived, never persisted): WHICH items rail — and
+ * on which edge — is committed `dockZone.v1` truth the adapter derives
+ * (`DockLayoutAdapter.collectAutoHiddenItems()`). Tabs are `Neo.button.Base` child components built
+ * from plain `railItems` metadata rather than from the pane components themselves, so the pane never
+ * learns it is railed (pane-blindness) and a destroyed or unresolvable pane cannot break its recall
+ * affordance. Composition over synthesis: clicks ride the button `handler` contract and each button
+ * carries its `dockItemId` — no hand-rolled DOM listeners, no tab-id bookkeeping.
  *
- * Interaction contract (current slice): click = restore, committed through the owning reducer callback
- * (`applyDockZoneOperation`) or a local `DockZoneModel.applyOperation()` — never a parallel mutation
- * path. The follow-up reveal/dismiss slice upgrades click to a transient reveal overlay and moves the
- * persist to the overlay's pin control; this component is the mount point for that state machine.
+ * Model flips reconcile the button set IN PLACE (`reconcileTabs()`): surviving items keep their live
+ * component instance — object permanence at the affordance level — while leavers and newcomers
+ * remove/insert at their document-order position.
+ *
+ * Interaction contract (current slice): click = restore, committed through the owning reducer
+ * callback (`applyDockZoneOperation`) or a local `DockZoneModel.applyOperation()` — never a parallel
+ * mutation path. The follow-up reveal/dismiss slice upgrades click to a transient reveal overlay and
+ * moves the persist to the overlay's pin control; this component is the mount point for that state
+ * machine.
  *
  * Policy honesty: the model rejects `setItemAutoHidden(false)` for `pinnable: false` items, which is
- * reachable when an item's policy flips after it railed. Such a tab renders disabled and rejects locally
- * instead of emitting a doomed operation — the affordance mirrors what the executor would answer.
+ * reachable when an item's policy flips after it railed. Such a tab renders disabled and rejects
+ * locally instead of emitting a doomed operation — the affordance mirrors what the executor would
+ * answer.
  *
  * @class Neo.dashboard.DockRail
- * @extends Neo.component.Base
+ * @extends Neo.container.Base
  * @see Neo.dashboard.DockLayoutAdapter
  * @see Neo.dashboard.DockSplitter
  * @see Neo.dashboard.DockZoneModel
  * @see learn/agentos/HarnessDockZoneModel.md
  */
-class DockRail extends Component {
+class DockRail extends Container {
     static config = {
         /**
          * @member {String} className='Neo.dashboard.DockRail'
@@ -57,8 +67,9 @@ class DockRail extends Component {
          */
         dockZoneDocument_: null,
         /**
-         * Owning workspace edge (`top`, `right`, `bottom`, `left`). Drives the per-edge cls hook;
-         * tab flow direction and writing-mode are CSS concerns keyed off that hook.
+         * Owning workspace edge (`top`, `right`, `bottom`, `left`). Drives the per-edge cls hook
+         * and the tab-flow layout direction; the tab writing-mode is a CSS concern keyed off the
+         * cls hook.
          * @member {String} edge_='left'
          * @reactive
          */
@@ -78,25 +89,16 @@ class DockRail extends Component {
     }
 
     /**
-     * Maps projected tab node ids to dock item ids for delegate-click resolution.
-     * Runtime-only lookup state, rebuilt on every `railItems` pass — id-based resolution avoids
-     * parsing dataset payloads out of serialized event paths.
-     * @member {Object} tabIdToItemId={}
-     * @protected
-     */
-    tabIdToItemId = {}
-
-    /**
+     * Seeds the initial button set from `railItems` before the container creates its items —
+     * later flips go through `reconcileTabs()` instead.
      * @param {Object} config
      */
-    construct(config) {
-        super.construct(config);
+    construct(config={}) {
+        if (config.railItems?.length && !config.items) {
+            config.items = config.railItems.map(railItem => this.createTabConfig(railItem, config.edge))
+        }
 
-        let me = this;
-
-        me.addDomListeners([
-            {click: me.onRailClick, delegate: '.neo-dashboard-dock-rail-tab', scope: me}
-        ])
+        super.construct(config)
     }
 
     /**
@@ -105,9 +107,10 @@ class DockRail extends Component {
      * @protected
      */
     afterSetEdge(value, oldValue) {
-        let me   = this,
-            edge = me.getValidatedEdge(value),
-            cls  = me.cls || [];
+        let me         = this,
+            edge       = me.getValidatedEdge(value),
+            isVertical = edge === 'left' || edge === 'right',
+            cls        = me.cls || [];
 
         if (oldValue) {
             NeoArray.remove(cls, `neo-dashboard-dock-edge-rail-${me.getValidatedEdge(oldValue)}`)
@@ -115,56 +118,30 @@ class DockRail extends Component {
 
         NeoArray.add(cls, `neo-dashboard-dock-edge-rail-${edge}`);
 
-        me.cls = cls;
-
-        me.data = {
-            ...(me.data || {}),
-            dockEdge: edge
-        }
+        me.set({
+            cls,
+            layout: {ntype: isVertical ? 'vbox' : 'hbox', align: 'stretch'}
+        })
     }
 
     /**
-     * Rebuilds the tab vdom in place — the component instance and its root node stay stable across
-     * model flips (object permanence at the affordance level); only the tab children re-render.
+     * Construction seeds the button set directly (see `construct()`); only live model flips
+     * reconcile — the initial pass would race the container's own item creation.
      * @param {Object[]|null} value
      * @param {Object[]|null} oldValue
      * @protected
      */
     afterSetRailItems(value, oldValue) {
-        let me   = this,
-            edge = me.getValidatedEdge(me.edge),
-            vdom = me.vdom;
-
-        me.tabIdToItemId = {};
-
-        vdom.cn = (value || []).map((railItem, index) => {
-            let tabId      = `${me.id}__tab-${index}`,
-                restorable = railItem.restorable !== false,
-                cls        = ['neo-dashboard-dock-rail-tab'];
-
-            if (!restorable) {
-                cls.push('neo-dashboard-dock-rail-tab-disabled')
-            }
-
-            me.tabIdToItemId[tabId] = railItem.dockItemId;
-
-            return {
-                tag     : 'button',
-                cls,
-                data    : {dockEdge: railItem.dockEdge || edge, dockItemId: railItem.dockItemId, dockRailTab: true},
-                disabled: restorable ? null : true,
-                id      : tabId,
-                text    : railItem.title || railItem.dockItemId
-            }
-        });
-
-        me.update()
+        if (oldValue !== undefined) {
+            this.reconcileTabs(value || [])
+        }
     }
 
     /**
      * Commits a restore descriptor through the owning reducer callback, falling back to a local
-     * `DockZoneModel.applyOperation()` — identical commit contract to `DockSplitter.commitResizeSplit()`
-     * so dashboard reducers handle both affordances with one code path.
+     * `DockZoneModel.applyOperation()` — identical commit contract to
+     * `DockSplitter.commitResizeSplit()` so dashboard reducers handle both affordances with one
+     * code path.
      * @param {Object} descriptor
      * @returns {{document:(Object|null), errors:String[]}}
      * @protected
@@ -198,6 +175,29 @@ class DockRail extends Component {
     }
 
     /**
+     * Builds one rail-tab button config from rail-item metadata. The button carries its
+     * `dockItemId`, so click resolution is instance-based — no id bookkeeping.
+     * @param {Object} railItem {dockEdge, dockItemId, restorable, title}
+     * @param {String} edge
+     * @returns {Object}
+     * @protected
+     */
+    createTabConfig(railItem, edge) {
+        let me = this;
+
+        return {
+            module         : Button,
+            cls            : ['neo-dashboard-dock-rail-tab'],
+            disabled       : railItem.restorable === false,
+            dockItemId     : railItem.dockItemId,
+            handler        : me.onTabClick,
+            handlerScope   : me,
+            text           : railItem.title || railItem.dockItemId,
+            useRippleEffect: false
+        }
+    }
+
+    /**
      * @param {String} edge
      * @returns {String}
      * @protected
@@ -207,15 +207,16 @@ class DockRail extends Component {
     }
 
     /**
-     * Delegate click handler for rail tabs: resolves the clicked tab to its dock item, honours the
+     * Button handler for rail tabs: resolves the clicked button to its dock item, honours the
      * restore policy, and commits `setItemAutoHidden(false)` through the reducer path.
-     * Fires `dockRailRestore` on commit, `dockRailRestoreRejected` on policy block or executor error.
-     * @param {Object} data
+     * Fires `dockRailRestore` on commit, `dockRailRestoreRejected` on policy block or executor
+     * error.
+     * @param {Object} data The button click event data; `data.component` is the tab button.
      * @returns {{document:(Object|null), errors:String[]}|null}
      */
-    onRailClick(data={}) {
+    onTabClick(data={}) {
         let me     = this,
-            itemId = me.tabIdToItemId[data.currentTarget],
+            itemId = data.component?.dockItemId,
             descriptor, railItem, result;
 
         if (!itemId) {
@@ -246,6 +247,44 @@ class DockRail extends Component {
         });
 
         return result
+    }
+
+    /**
+     * Reconciles the live button set against fresh rail-item metadata: surviving items keep their
+     * component instance and receive in-place `set()` updates (object permanence at the affordance
+     * level), leavers are removed, newcomers insert at their document-order position.
+     * @param {Object[]} target Fresh rail-item metadata.
+     * @protected
+     */
+    reconcileTabs(target) {
+        let me       = this,
+            existing = [...(me.items || [])],
+            index;
+
+        for (index = existing.length - 1; index >= 0; index--) {
+            if (!target.some(railItem => railItem.dockItemId === existing[index].dockItemId)) {
+                me.removeAt(index)
+            }
+        }
+
+        target.forEach((railItem, targetIndex) => {
+            let button       = (me.items || []).find(item => item.dockItemId === railItem.dockItemId),
+                currentIndex = button ? me.items.indexOf(button) : -1;
+
+            if (button) {
+                button.set({
+                    disabled: railItem.restorable === false,
+                    text    : railItem.title || railItem.dockItemId
+                });
+
+                if (currentIndex !== targetIndex) {
+                    me.remove(button, false, true);
+                    me.insert(targetIndex, button)
+                }
+            } else {
+                me.insert(targetIndex, me.createTabConfig(railItem, me.edge))
+            }
+        })
     }
 }
 
