@@ -79,6 +79,14 @@ export function isActionableComputedRecommendation(nodeData) {
     if (nodeType && nodeType !== 'ISSUE' && nodeType !== 'DISCUSSION') return false;
     if (!nodeId.startsWith('issue-') && !nodeId.startsWith('discussion-')) return false;
 
+    // Test-fixture provenance guard: a synthetic node in the scored steering surface inverts
+    // the advisory's purpose — an obedient agent gets routed at a lane that does not exist,
+    // every session, silently. Spec-written graph fixtures that are NOT a test's scoring
+    // subject carry `isTestFixture: true`; scoring-subject fixtures stay unstamped and are kept
+    // out of live graphs by their suite's fail-loud isolation gate instead (the guard must not
+    // blind the very tests that exercise this pipeline).
+    if (nodeData?.properties?.isTestFixture === true) return false;
+
     return getComputedRecommendationExclusionLabels(nodeData).length === 0
 }
 
