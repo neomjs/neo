@@ -222,6 +222,30 @@ export const TASK_REGISTRY = Object.freeze([
         }
     },
     {
+        // The temporal-pyramid L1/L2 durable aggregation lane: folds PRs + sessions + graduations into the
+        // durable SUMMARY_SESSION / SUMMARY_DAILY records. A heavy, exclusive-heavy, backpressure-aware task
+        // the orchestrator owns end-to-end — NOT an independent child poller. Inert until the config opt-in
+        // flips: an unset `enables.temporalSummary` fails the guard, so the lane never dispatches while disabled.
+        taskName        : 'temporal-summary',
+        executionKind   : 'in-process-async',
+        maintenanceClass: 'heavy',
+        backpressure    : 'exclusive-heavy',
+        dependencies    : [],
+        getDueTask({state, now, intervals, enables}) {
+            if (!enables.temporalSummary) return null;
+            const lastRunAt  = state['temporal-summary']?.lastRunAt ?? 0;
+            const intervalMs = intervals.temporalSummary;
+            if (intervalMs > 0 && now - lastRunAt >= intervalMs) {
+                return {
+                    taskName: 'temporal-summary',
+                    source  : 'periodic-temporal-summary',
+                    reason  : `periodic-temporal-summary:${intervalMs}`
+                };
+            }
+            return null;
+        }
+    },
+    {
         taskName        : 'golden-path',
         executionKind   : 'in-process-async',
         maintenanceClass: 'graph-dependent',
