@@ -66,6 +66,9 @@ const seededPerspectives = [{
  * @returns {Object}
  */
 const resolveComponentRef = componentRef => ({
+    // the flip marker class carries the stable item identity across coarse re-projections,
+    // so the DockFlip addon can correlate pre/post-commit geometry even when instances recreate
+    cls  : [`dock-flip-item-${componentRef.toLowerCase()}`],
     ntype: 'component',
     style: {alignItems: 'center', color: '#888', display: 'flex', fontSize: '20px', justifyContent: 'center'},
     html : componentRef
@@ -376,9 +379,20 @@ class MainContainer extends Viewport {
     /**
      * Rebuilds the toolbar and dock projection from current state.
      */
-    refreshDockWorkspace() {
+    async refreshDockWorkspace() {
+        const flip = Neo.main?.addon?.DockFlip;
+
+        // FLIP phase 1 (presentation-only, fail-safe): snapshot outgoing pane geometry so the
+        // committed re-layout GLIDES — a human drop and an NL operation animate identically
+        try {
+            await flip?.captureFirst({hostId: this.id, markerPrefix: 'dock-flip-item-'})
+        } catch (e) {/* instant landing */}
+
         this.removeAll();
-        this.add(this.buildWorkspaceItems())
+        this.add(this.buildWorkspaceItems());
+
+        // FLIP phase 2: fire-and-forget — the addon self-waits for the swap, inverts, plays
+        flip?.play({hostId: this.id, markerPrefix: 'dock-flip-item-'})?.catch?.(() => {})
     }
 
     /**

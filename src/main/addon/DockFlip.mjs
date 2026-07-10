@@ -169,6 +169,13 @@ class DockFlip extends Base {
                 return false
             }
 
+            // the motion-contract observability signal (owned by the dock transition-layer
+            // contract): hosts carry `dock-animating` for exactly the duration of the motion,
+            // so e2e observe_motion assertions consume ONE signal regardless of mechanism
+            const hostEl = document.getElementById(hostId);
+
+            hostEl?.classList.add('dock-animating');
+
             // Invert: place every survivor on its old geometry, entering panes at their birth state
             moves.forEach(({el, transform, fade}) => {
                 el.style.transformOrigin = 'top left';
@@ -190,7 +197,9 @@ class DockFlip extends Base {
                 moves.forEach(({el}) => {
                     el.style.transition      = '';
                     el.style.transformOrigin = ''
-                })
+                });
+
+                hostEl?.classList.remove('dock-animating')
             }, duration + 50);
 
             return true
