@@ -119,6 +119,17 @@ class DemoAWorkspace extends Container {
      * @protected
      */
     dragSuppressed = false
+    /**
+     * The in-flight deferred re-projection, tracked as an awaitable. Every committed
+     * operation defers its view-sync one tick ({@link #onDockZoneDocumentChange}); any
+     * consumer that must resolve PROJECTED components — the reveal cue path — awaits this
+     * promise instead of racing that deferral (an unawaited lookup runs within ~0ms of
+     * the commit, resolves `null`, and no-ops silently). Stale-safe: each commit
+     * overwrites it, so awaiting always settles on the LATEST projection.
+     * @member {Promise|null} refreshPromise=null
+     * @protected
+     */
+    refreshPromise = null
 
     /**
      * @param {Object} config
@@ -257,9 +268,9 @@ class DemoAWorkspace extends Container {
 
         me.dockModel = document;
 
-        me.timeout(0).then(() => {
+        me.refreshPromise = me.timeout(0).then(() => {
             if (!me.isDestroyed) {
-                me.refreshDockWorkspace()
+                return me.refreshDockWorkspace()
             }
         })
     }
@@ -476,7 +487,7 @@ class DemoAWorkspace extends Container {
      * and lights its pip.
      * @param {Object} data The runner's beat payload.
      */
-    onTourBeat(data) {
+    async onTourBeat(data) {
         let me = this;
 
         data.caption && me.setTourCaption(data.caption);
@@ -486,6 +497,13 @@ class DemoAWorkspace extends Container {
         // machine through the same entry a native tab click uses (runtime-only; the next
         // committed operation's re-projection releases the overlay)
         if (data.cue?.type === 'reveal') {
+            // the preceding commit's re-projection is deferred one tick — the rail this cue
+            // targets exists only after it lands. Await the tracked settle, or the lookup
+            // below resolves null and the chain no-ops silently.
+            await me.refreshPromise;
+
+            if (me.isDestroyed) return;
+
             me.getReference('dock-host')
                 ?.down({ntype: 'dashboard-dock-rail'})
                 ?.onTabClick({component: {dockItemId: data.cue.itemId}})
