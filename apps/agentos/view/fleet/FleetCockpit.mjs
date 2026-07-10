@@ -4,6 +4,7 @@ import Container              from '../../../../src/container/Base.mjs';
 import FleetCockpitController from './FleetCockpitController.mjs';
 import FleetGrid              from './FleetGrid.mjs';
 import FleetRoster            from '../../store/FleetRoster.mjs';
+import StateProvider          from '../../../../src/state/Provider.mjs';
 
 /**
  * Recent fleet activity for the fixture-fed stream — the live A2A / PR / lane adapters
@@ -26,10 +27,12 @@ const FIXTURE_ACTIVITY = [
  * activity stream, in the SSOT's ~1.55fr / 1fr split. This is the "run the fleet" keeper-view the harness-UI
  * definition specifies, reached from the harness shell's left-rail nav — the cards, NOT a data-grid table.
  *
- * The roster data layer is the shared {@link AgentOS.store.FleetRoster} Store of
- * {@link AgentOS.model.FleetAgent} records — seeded with the honestly-labelled sample roster, bound
- * to the {@link FleetGrid}, and re-pointed at the running fleet by {@link #loadRoster} when the
- * registry bridge wires up. The activity zone composes {@link ActivityStream} → EventChip against a
+ * The roster data layer is ONE {@link AgentOS.store.FleetRoster} Store of
+ * {@link AgentOS.model.FleetAgent} records, hosted by THIS view's `state.Provider` (`stores`
+ * block — the provider is the sharing scope; store classes are never singletons). The provider
+ * `autoLoad`s the honestly-labelled JSON sample seed, the {@link FleetGrid} binds the instance via
+ * `bind: {store: 'stores.fleetRoster'}`, and {@link #loadRoster} re-points it at the running fleet
+ * when the registry bridge wires up. The activity zone composes {@link ActivityStream} → EventChip against a
  * representative snapshot the same way ({@link #loadActivity}).
  *
  * @class AgentOS.view.fleet.FleetCockpit
@@ -59,6 +62,21 @@ class FleetCockpit extends Container {
          */
         controller: FleetCockpitController,
         /**
+         * The cockpit-level roster host — ONE provider-owned {@link AgentOS.store.FleetRoster}
+         * instance (autoLoaded from the JSON sample seed) that the grid + health bar bind; the
+         * provider is the sharing scope, never a store singleton.
+         * @member {Object} stateProvider
+         */
+        stateProvider: {
+            module: StateProvider,
+            stores: {
+                fleetRoster: {
+                    autoLoad: true,
+                    module  : FleetRoster
+                }
+            }
+        },
+        /**
          * Vertical stack: the control bar over the full-width fleet grid over the full-width activity
          * feed. The fleet zone gets the full width for its ranked card grid; the live feed is the
          * bottom strip, not a right-hand column.
@@ -85,7 +103,7 @@ class FleetCockpit extends Container {
             flex        : 1.55,
             reference   : 'fleet-grid',
             adapterState: 'sample', // the seeded roster is a representative sample until the live source is wired
-            store       : FleetRoster
+            bind        : {store: 'stores.fleetRoster'}
         }, {
             module      : ActivityStream,
             flex        : 1,

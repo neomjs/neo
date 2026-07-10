@@ -1,11 +1,10 @@
-import AgentDefinitions from '../store/AgentDefinitions.mjs';
-import Button           from '../../../src/button/Base.mjs';
-import DashboardPanel   from '../../../src/dashboard/Panel.mjs';
-import FormContainer    from '../../../src/form/Container.mjs';
-import PasswordField    from '../../../src/form/field/Password.mjs';
-import Radio            from '../../../src/form/field/Radio.mjs';
-import TextField        from '../../../src/form/field/Text.mjs';
-import Toolbar          from '../../../src/toolbar/Base.mjs';
+import Button         from '../../../src/button/Base.mjs';
+import DashboardPanel from '../../../src/dashboard/Panel.mjs';
+import FormContainer  from '../../../src/form/Container.mjs';
+import PasswordField  from '../../../src/form/field/Password.mjs';
+import Radio          from '../../../src/form/field/Radio.mjs';
+import TextField      from '../../../src/form/field/Text.mjs';
+import Toolbar        from '../../../src/toolbar/Base.mjs';
 
 /**
  * @class AgentOS.view.Accounts
@@ -30,6 +29,18 @@ class Accounts extends DashboardPanel {
          * @protected
          */
         className: 'AgentOS.view.Accounts',
+        /**
+         * The shared roster store, bound from the Viewport provider's `stores.agentDefinitions`
+         * (see the `bind` config) — resolved to the INSTANCE at construct, so a pop-out reparent
+         * keeps the reference. Never a module-global singleton.
+         * @member {Neo.data.Store|null} agentDefinitionsStore_=null
+         * @reactive
+         */
+        agentDefinitionsStore_: null,
+        /**
+         * @member {Object} bind={agentDefinitionsStore:'stores.agentDefinitions'}
+         */
+        bind: {agentDefinitionsStore: 'stores.agentDefinitions'},
         /**
          * @member {String[]} cls=['agent-panel-accounts']
          * @reactive
@@ -207,9 +218,9 @@ class Accounts extends DashboardPanel {
         }
 
         const payload = {
-            credential    : values.credential,
+            credential : values.credential,
             githubUsername,
-            harnessType   : values.harnessType
+            harnessType: values.harnessType
         };
 
         try {
@@ -286,14 +297,17 @@ class Accounts extends DashboardPanel {
     }
 
     /**
-     * @summary Write the redacted projection into the shared `AgentDefinitions` roster singleton,
-     * replacing any prior row for the same agent. The Fleet view's grid (bound to the same singleton)
-     * re-renders reactively — no cross-view reference is needed.
+     * @summary Write the redacted projection into the shared roster store (the Viewport-provider-
+     * hosted `AgentDefinitions` instance this view binds), replacing any prior row for the same
+     * agent. The Fleet view's grid (bound to the same provider store) re-renders reactively — no
+     * cross-view reference is needed.
      * @param {Object} definition
      */
     upsertPublicAgentDefinition(definition) {
-        AgentDefinitions.remove(definition.id);
-        AgentDefinitions.add(definition)
+        const store = this.agentDefinitionsStore;
+
+        store.remove(definition.id);
+        store.add(definition)
     }
 
     /**

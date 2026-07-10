@@ -50,11 +50,13 @@ test.describe('AgentOS.view.Accounts credential boundary', () => {
     test('identity setup writes only the redacted projection to the shared roster', () => {
         const source = fs.readFileSync(viewPath, 'utf8');
 
-        // upsert goes through the AgentDefinitions singleton with the redacted projection,
-        // never the raw form values / credential.
-        expect(source).toContain('AgentDefinitions.add');
+        // upsert goes through the provider-bound roster store with the redacted projection,
+        // never the raw form values / credential — and never a module-global singleton import.
+        expect(source).toContain("bind: {agentDefinitionsStore: 'stores.agentDefinitions'}");
+        expect(source).toContain('store.add(definition)');
         expect(source).toContain('createPublicAgentDefinition');
-        expect(source).not.toMatch(/AgentDefinitions\.add\(\s*values/)
+        expect(source).not.toContain("from '../store/AgentDefinitions.mjs'");
+        expect(source).not.toMatch(/store\.add\(\s*values/)
     });
 
     test('visible setup actions use product language instead of bridge/protocol labels', () => {
@@ -121,7 +123,7 @@ test.describe('AgentOS.view.Accounts NL-MCP connect entry (#13548)', () => {
         const calls = [];
         const stub  = {
             connectExternalHarnessBridge: async () => { throw new Error('Neural Link connection bridge unavailable') },
-            updateBridgeStatus: (stateCls, message) => calls.push({stateCls, message})
+            updateBridgeStatus          : (stateCls, message) => calls.push({stateCls, message})
         };
 
         await Accounts.prototype.onConnectExternalHarnessClick.call(stub);
