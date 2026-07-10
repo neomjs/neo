@@ -23,8 +23,10 @@ const AGENT_IDENTITY_ENV_VAR = 'NEO_AGENT_IDENTITY';
 // The AiConfig `fleet.harnessBinaries` leaf key per harness family. An unknown family has no
 // entry — `resolveLaunch` fails loud instead of guessing a command for it.
 const HARNESS_BINARY_LEAF_KEYS = {
-    'claude-code': 'claudeCode',
-    'codex'      : 'codex'
+    'antigravity'   : 'antigravity',
+    'claude-code'   : 'claudeCode',
+    'claude-desktop': 'claudeDesktop',
+    'codex'         : 'codex'
 };
 
 // The ONLY ambient parent-env vars that cross into a spawned harness. The FM's own environment
@@ -44,7 +46,10 @@ const PROTO_ENV_KEYS = Object.freeze(['__proto__', 'constructor', 'prototype']);
 // Per-family auth-marker files inside an instance home: present ⇒ the home has completed its
 // operator-owned per-home login; absent ⇒ `authRequired` surfaces `true` so the cockpit shows the
 // onboarding step honestly. A HEURISTIC on documented CLI state layouts, not a credential read —
-// the marker's presence is checked, never its content.
+// the marker's presence is checked, never its content. The app-bundle GUI families
+// (claude-desktop / antigravity) have NO documented marker — auth is the in-app sign-in inside a
+// Chromium profile — so they carry no entry and `authRequiredForHome` answers `null` (honest
+// unknown), never a guessed boolean.
 const HARNESS_AUTH_MARKERS = {
     'claude-code': '.credentials.json',
     'codex'      : 'auth.json'
@@ -76,12 +81,15 @@ const HARNESS_AUTH_MARKERS = {
  *   registry-internal `setLaunchOverride` — a method that exists on no bridge and no wire allowlist.
  *   Wire callers send curated `harnessType` intent, nothing more.
  *
- * **Supervision transport (the topology that keeps a CLI harness alive):** children spawn with
- * `stdio: ['pipe', 'ignore', 'pipe']` — stdin is a HELD-OPEN pipe, because both supported harness
- * CLIs exit immediately on an EOF'd/ignored stdin (probed on the exact binaries: codex `app-server`
- * and claude-code stream-json both stay alive on a held pipe and exit without it). The launch
- * templates pin the per-family long-lived mode args; stdout is discarded until a protocol consumer
- * lands; stderr is drained byte-counted as below.
+ * **Supervision transport (the topology that keeps a harness alive):** children spawn with
+ * `stdio: ['pipe', 'ignore', 'pipe']` — stdin is a HELD-OPEN pipe, because the CLI families exit
+ * immediately on an EOF'd/ignored stdin (probed on the exact binaries: codex `app-server` and
+ * claude-code stream-json both stay alive on a held pipe and exit without it); the app-bundle GUI
+ * families (claude-desktop / antigravity) are stdin-indifferent — the held pipe is harmless there,
+ * and pid/SIGTERM is the supervision handle (probed per family: dual-instance coexistence on
+ * distinct `--user-data-dir` homes, SIGTERM-clean exit 0). The launch templates pin the
+ * per-family long-lived mode args; stdout is discarded until a protocol consumer lands; stderr is
+ * drained byte-counted as below.
  *
  * **Child env (minimal by construction):** the child receives ONLY the `AMBIENT_ENV_ALLOWLIST`
  * process-runtime vars — never a full parent-env copy, so ambient operator secrets cannot leak into
@@ -346,17 +354,26 @@ class FleetLifecycleService extends Base {
         this.processes.set(id, record);
 
         // Best-effort version surface (the pin/verify half of the executable preflight): capture
-        // `<binary> --version` async onto the record — the status read surfaces what actually runs,
-        // so an app-bundle alpha channel that self-updated is VISIBLE, not silently different.
-        // Failure is non-fatal (version stays null); the probe never blocks the spawn path.
-        // The probe runs under the SAME minimal env as the supervised child: every subprocess this
-        // service creates shares one secret boundary — an auxiliary execFile inheriting the full
-        // parent env would hand ambient provider secrets to the probed binary.
-        try {
-            this.getExecFileFn()(command, ['--version'], {timeout: 3000, env}, (error, stdout) => {
-                if (!error && stdout) record.binaryVersion = String(stdout).trim().split('\n')[0].slice(0, 80);
-            });
-        } catch (ignored) {}
+        // the template-owned version-probe argv async onto the record — the status read surfaces
+        // what actually runs, so an app-bundle alpha channel that self-updated is VISIBLE, not
+        // silently different. The argv is per-family template data: arg-isolated families carry
+        // their `--user-data-dir` flag so the probe subprocess can never land inside another
+        // profile's single-instance scope, and a family whose binary cannot answer a version ask
+        // without booting the whole app derives `null` — the probe is SKIPPED and `binaryVersion`
+        // stays honestly null (see deriveHarnessLaunchSpec). Raw launches keep the legacy bare
+        // `--version`. Failure is non-fatal (version stays null); the probe never blocks the spawn
+        // path. The probe runs under the SAME minimal env as the supervised child: every subprocess
+        // this service creates shares one secret boundary — an auxiliary execFile inheriting the
+        // full parent env would hand ambient provider secrets to the probed binary.
+        const versionProbeArgs = launch.versionProbeArgs === undefined ? ['--version'] : launch.versionProbeArgs;
+
+        if (versionProbeArgs) {
+            try {
+                this.getExecFileFn()(command, versionProbeArgs, {timeout: 3000, env}, (error, stdout) => {
+                    if (!error && stdout) record.binaryVersion = String(stdout).trim().split('\n')[0].slice(0, 80);
+                });
+            } catch (ignored) {}
+        }
 
         // Drain stderr so a noisy harness can't block on a full pipe buffer. Retain only a byte
         // COUNT, never the content: the child's stderr is untrusted and may echo the injected PAT,
@@ -583,10 +600,12 @@ class FleetLifecycleService extends Base {
      * @summary Resolve the harness binary path for one harness family: the `harnessBinaryPaths`
      * field entry when explicitly injected (the test/tenant override seam), else the family's
      * AiConfig `fleet.harnessBinaries.*` leaf — the SSOT owning the default and its env binding
-     * (`NEO_FLEET_CODEX_BIN` / `NEO_FLEET_CLAUDE_CODE_BIN`). The codex leaf default is the
-     * ChatGPT-app-bundled CLI — an alpha channel that self-updates with its app, so production
-     * fleets pin the leaf; `status().binaryVersion` surfaces what actually ran. An untemplated
-     * family resolves `null` — {@link resolveLaunch} fails loud rather than guessing.
+     * (`NEO_FLEET_CODEX_BIN` / `NEO_FLEET_CLAUDE_CODE_BIN` / `NEO_FLEET_CLAUDE_DESKTOP_BIN` /
+     * `NEO_FLEET_ANTIGRAVITY_BIN`). The codex leaf default is the ChatGPT-app-bundled CLI — an
+     * alpha channel that self-updates with its app, so production fleets pin the leaf;
+     * `status().binaryVersion` surfaces what actually ran. The app-bundle families default to
+     * their macOS bundle MAIN binaries (directly spawnable — never an `open -n` launcher). An
+     * untemplated family resolves `null` — {@link resolveLaunch} fails loud rather than guessing.
      * @param {String} harnessType
      * @returns {String|null}
      */
