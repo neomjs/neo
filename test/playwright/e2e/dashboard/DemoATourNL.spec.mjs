@@ -57,10 +57,34 @@ test.describe('Demo-A dock-choreography tour journey (Neural Link)', () => {
 
                 rails > window.__e2e.maxRailTabs && (window.__e2e.maxRailTabs = rails);
 
-                // any-match: the first '[class*="reveal"]' node can be a legitimately HIDDEN
-                // overlay instance (display:none → offsetParent null) while a different one
-                // is genuinely revealed — a single-match read here passes/fails vacuously
-                [...document.querySelectorAll('[class*="dock-reveal-overlay"]')].some(el => el.offsetParent) && (window.__e2e.revealSeen = true);
+                // Any-match over ALL overlay instances; a reveal counts ONLY when semantic state
+                // and physical rendering AGREE — each guard has a named falsifier it kills:
+                //   · no semantic hidden cls   (a ghost forced visible by a CSS regression must
+                //     FAIL the run, never count as the reveal)
+                //   · POSITIVE-AREA rendered geometry: at least one client rect with width AND
+                //     height > 0 (covers display:none on the element OR any ancestor, detached
+                //     nodes, AND the 0×0-but-rendered case — Chromium yields a rect entry for a
+                //     zero-area box, so a bare length check lies; also subsumes the offsetParent
+                //     shape the interim dev detector used)
+                //   · computed visibility neither hidden nor collapse
+                // The 3-part histogram (display/visibility/semantic) keeps a red run diagnosable
+                // from the output alone: semantic-hidden throughout = the unhide never reached
+                // the DOM (a wedged vdom update is the known signature — check the app-worker
+                // console for "vdom update wedged"; the owning regression ticket pins causality)
+                // vs semantic-visible-but-physically-hidden = a new divergence class entirely.
+                const overlays = [...document.querySelectorAll('.neo-dashboard-dock-reveal-overlay')];
+                window.__e2e.maxOverlays = Math.max(window.__e2e.maxOverlays || 0, overlays.length);
+                overlays.forEach(el => {
+                    const cs  = getComputedStyle(el);
+                    const key = `${cs.display}/${cs.visibility}/${el.className.includes('reveal-overlay-hidden') ? 'sem-hidden' : 'sem-visible'}`;
+                    (window.__e2e.overlayStates ??= {})[key] = (window.__e2e.overlayStates[key] || 0) + 1
+                });
+                overlays.some(el => {
+                    const cs = getComputedStyle(el);
+                    return !el.className.includes('reveal-overlay-hidden') &&
+                        [...el.getClientRects()].some(rect => rect.width > 0 && rect.height > 0) &&
+                        cs.visibility !== 'hidden' && cs.visibility !== 'collapse'
+                }) && (window.__e2e.revealSeen = true);
 
                 window.__e2e.done || requestAnimationFrame(tick)
             };
@@ -82,6 +106,8 @@ test.describe('Demo-A dock-choreography tour journey (Neural Link)', () => {
             window.__e2e.done = true;
             return window.__e2e
         });
+
+        console.log('OBSERVED:', JSON.stringify(observed));
 
         // (2) scene 3 projected REAL interactive rail tabs — the three tucked residents
         expect(observed.maxRailTabs, 'the tucked window must render real DockRail tab buttons').toBe(3);
