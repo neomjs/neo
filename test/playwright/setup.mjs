@@ -29,6 +29,14 @@ globalThis.DOMRect = class DOMRect {
 // VDOM unit tests without a browser or jsdom.
 
 /**
+ * The pre-override values of the LAST `setup()` call's `neoConfig` keys — restored on the next
+ * call so one spec file's overrides never leak into a later file in the same worker process.
+ * `undefined` records a key that did not exist (restored via delete).
+ * @type {Object|null}
+ */
+let priorNeoConfigOverrides = null;
+
+/**
  * Configures the single-threaded Playwright unit-test runtime with the minimal
  * Neo globals required by App Worker and VDom Worker classes.
  * @param {Object} options={}
@@ -50,6 +58,26 @@ export function setup(options = {}) {
         unitTestMode: true,
         windowId    : 1
     };
+
+    // Cross-file isolation in the single shared worker: restore whatever the PREVIOUS spec file's
+    // `neoConfig` overrides replaced BEFORE applying this file's. Without this, a non-default key
+    // (e.g. `useDomApiRenderer: true`) set by one file leaks into every later file in the process —
+    // order-dependent bleed the victims cannot defend against, since `Object.assign` below only
+    // re-asserts the three default keys.
+    if (priorNeoConfigOverrides) {
+        Object.entries(priorNeoConfigOverrides).forEach(([key, value]) => {
+            if (value === undefined) {
+                delete Neo.config[key]
+            } else {
+                Neo.config[key] = value
+            }
+        })
+    }
+
+    priorNeoConfigOverrides = {};
+    Object.keys(neoConfig).forEach(key => {
+        priorNeoConfigOverrides[key] = Neo.config[key]
+    });
 
     Object.assign(Neo.config, defaultNeoConfig);
     Object.assign(Neo.config, neoConfig);
