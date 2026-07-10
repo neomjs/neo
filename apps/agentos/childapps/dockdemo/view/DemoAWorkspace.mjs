@@ -230,7 +230,16 @@ class DemoAWorkspace extends Container {
         let me = this;
 
         data.caption && me.setTourCaption(data.caption);
-        me.setPipProgress(++me.beatCount)
+        me.setPipProgress(++me.beatCount);
+
+        // surface cues make narrated beats executable — the reveal cue feeds the rail's
+        // machine through the same entry a native tab click uses (runtime-only; the next
+        // committed operation's re-projection releases the overlay)
+        if (data.cue?.type === 'reveal') {
+            me.getReference('dock-host')
+                ?.down({ntype: 'dashboard-dock-rail'})
+                ?.onTabClick({component: {dockItemId: data.cue.itemId}})
+        }
     }
 
     /**

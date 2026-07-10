@@ -275,6 +275,10 @@ class TourRunner extends Base {
             for (const step of scene.steps) {
                 me.fire('beat', {
                     caption : step.caption,
+                    // data-only surface cue passthrough: hosting surfaces may perform a
+                    // runtime-only interaction at this beat (e.g. a transient rail reveal) —
+                    // the runner stays document-tier and never interprets the cue itself
+                    cue     : step.cue,
                     sceneId,
                     sceneIndex,
                     stepIndex,

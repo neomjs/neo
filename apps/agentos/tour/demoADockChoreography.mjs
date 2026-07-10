@@ -171,10 +171,14 @@ export const demoATourScript = Object.freeze({
                 expect    : [{path: 'items.logs.autoHidden', equals: true}]
             },
             {
-                type   : 'pause',
-                ms     : 1600,
-                caption: 'the reveal moment: hovering a rail tab slides the pane over as an overlay — shown, never persisted. ' +
-                         'Click-reveal is the platform default; this workspace opted into hover (autoHideRevealOnHover).'
+                type: 'pause',
+                ms  : 1600,
+                // the surface cue makes the narrated beat EXECUTABLE: the workspace feeds the
+                // rail's reveal machine at this beat — a real transient reveal, runtime-only,
+                // never persisted (the following commit's re-projection releases it)
+                cue    : {type: 'reveal', itemId: 'preview'},
+                caption: 'the reveal moment: a rail tab reveals its pane as a transient overlay — shown, never persisted. ' +
+                         'Click-reveal is the platform default; this workspace also opted into hover (autoHideRevealOnHover).'
             },
             {
                 type      : 'op',

@@ -178,6 +178,15 @@ test.describe.serial('apps/agentos/tour/demoADockChoreography', () => {
         expect(collectRails(DockLayoutAdapter.project(document, {resolveComponentRef: stubPane}))).toHaveLength(0)
     });
 
+    test('the reveal beat is executable: the S3 pause carries the surface cue', () => {
+        const revealStep = demoATourScript.scenes[2].steps.find(step => step.cue);
+
+        expect(revealStep.type).toBe('pause');
+        expect(revealStep.cue).toEqual({type: 'reveal', itemId: 'preview'});
+        // and the cue rides the runner's beat payload untouched (data-only passthrough)
+        expect(validateTourScript(demoATourScript, {operations: DockZoneModel.operations}).valid).toBe(true)
+    });
+
     test('the reveal-mode advisory rides the script: hover is an explicit workspace opt-in', () => {
         expect(demoATourScript.workspace).toEqual({autoHideRevealOnHover: true});
 
