@@ -63,12 +63,14 @@ const seededPerspectives = [{
  * Resolves a model `componentRef` to the component config rendered inside its dock zone. For this example, a simple
  * centered label per panel; a real app resolves each ref to its feature view.
  * @param {String} componentRef
+ * @param {Object} _item The persisted item record.
+ * @param {String} itemId The stable workspace identity from the item catalog.
  * @returns {Object}
  */
-const resolveComponentRef = componentRef => ({
+const resolveComponentRef = (componentRef, _item, itemId) => ({
     // the flip marker class carries the stable item identity across coarse re-projections,
     // so the DockFlip addon can correlate pre/post-commit geometry even when instances recreate
-    cls  : [`dock-flip-item-${componentRef.toLowerCase()}`],
+    cls  : [`dock-flip-item-${encodeURIComponent(itemId)}`],
     ntype: 'component',
     style: {alignItems: 'center', color: '#888', display: 'flex', fontSize: '20px', justifyContent: 'center'},
     html : componentRef

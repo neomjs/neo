@@ -107,6 +107,26 @@ class DockFlip extends Base {
     async play({hostId, markerPrefix, duration = 280, easing = 'cubic-bezier(0,0,0.2,1)', maxFrames = 15}) {
         const first = this.#firstRects[hostId];
 
+        let hostEl,
+            moves = [];
+
+        // One idempotent settlement path owns every temporary visual mutation. In particular,
+        // a rejected post-invert frame must restore the final layout instead of preserving the
+        // inverse transform or observability class indefinitely.
+        const cleanup = () => {
+            moves.forEach(({el}) => {
+                el.style.opacity         = '';
+                el.style.transform       = '';
+                el.style.transformOrigin = '';
+                el.style.transition      = ''
+            });
+
+            hostEl?.classList.remove('dock-animating');
+
+            hostEl = null;
+            moves  = []
+        };
+
         delete this.#firstRects[hostId];
 
         if (!first?.rects.size || matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -141,8 +161,6 @@ class DockFlip extends Base {
 
             await new Promise(resolve => requestAnimationFrame(resolve));
 
-            const moves = [];
-
             markers.forEach((el, key) => {
                 const
                     first = firstRects.get(key),
@@ -172,7 +190,7 @@ class DockFlip extends Base {
             // the motion-contract observability signal (owned by the dock transition-layer
             // contract): hosts carry `dock-animating` for exactly the duration of the motion,
             // so e2e observe_motion assertions consume ONE signal regardless of mechanism
-            const hostEl = document.getElementById(hostId);
+            hostEl = document.getElementById(hostId);
 
             hostEl?.classList.add('dock-animating');
 
@@ -193,18 +211,13 @@ class DockFlip extends Base {
                 el.style.opacity    = ''
             });
 
-            setTimeout(() => {
-                moves.forEach(({el}) => {
-                    el.style.transition      = '';
-                    el.style.transformOrigin = ''
-                });
-
-                hostEl?.classList.remove('dock-animating')
-            }, duration + 50);
+            setTimeout(cleanup, duration + 50);
 
             return true
         } catch (e) {
             // fail-safe: animation errors must never wedge the layout — land instantly
+            cleanup();
+
             return false
         }
     }
