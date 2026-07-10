@@ -92,6 +92,46 @@ test.describe('fleet transport — full-chain integration (real server + real re
         expect(raw).not.toContain('ghp_SECRET_integration')
     });
 
+    test('configureAgent crosses the full one-params wire, persists sparse overrides, and reads back canonically', async () => {
+        FleetRegistryService.setLaunchOverride('integration-alice', {
+            command: '/secret/bin/codex',
+            args   : ['--secret'],
+            env    : {TRANSPORT_SECRET: 'hidden'}
+        });
+
+        const intent = {
+            id         : 'integration-alice',
+            harnessType: 'claude-code',
+            mcpServers : {'memory-core': true, 'github-workflow': true}
+        };
+        const outcome = await registryBridge.configureAgent(intent);
+
+        expect(outcome.status).toBe('accepted');
+        expect(outcome.agent).toMatchObject({
+            id         : 'integration-alice',
+            harnessType: 'claude-code',
+            mcpServers : {'github-workflow': true}
+        });
+        expect(outcome.agent.credential).toBeUndefined();
+        expect(outcome.agent.metadata.launch).toBeUndefined();
+        expect(JSON.stringify(outcome)).not.toMatch(/ghp_SECRET_integration|secret-bin|TRANSPORT_SECRET|hidden/);
+
+        const [readback] = await registryBridge.listAgents();
+        expect(readback.harnessType).toBe('claude-code');
+        expect(readback.mcpServers).toEqual({'github-workflow': true})
+    });
+
+    test('configureAgent returns a safe rejection over the real wire and preserves persisted state', async () => {
+        const before  = FleetRegistryService.getAgent('integration-alice'),
+              outcome = await registryBridge.configureAgent({
+                  id        : 'integration-alice',
+                  mcpServers: {'not-registered': true}
+              });
+
+        expect(outcome).toEqual({status: 'rejected', reason: "Unknown MCP server 'not-registered'."});
+        expect(FleetRegistryService.getAgent('integration-alice')).toEqual(before)
+    });
+
     test('an off-allowlist method is rejected by the real server, never reaching a resolver seam', async () => {
         const url = `http://127.0.0.1:${server.address().port}/fleet`;
         const res = await fetch(url, {

@@ -113,6 +113,28 @@
                 }
             }
         }
+
+        .agent-config-save-status {
+            font-size  : 11px;
+            min-height : 14px;
+
+            &.is-idle {
+                visibility : hidden;
+            }
+
+            &.is-pending {
+                font-style : italic;
+                opacity    : .7;
+            }
+
+            &.is-accepted {
+                font-weight : 600;
+            }
+
+            &.is-rejected {
+                color : var(--sem-color-red-500, #b42318);
+            }
+        }
     }
 
     .agent-definition-form {

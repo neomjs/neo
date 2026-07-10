@@ -2,13 +2,47 @@ import crypto          from 'crypto';
 import fs              from 'fs';
 import path            from 'path';
 import {fileURLToPath} from 'url';
-import aiConfig        from '../../config.mjs';
-import Base            from '../../../src/core/Base.mjs';
-import {HARNESS_TYPES} from '../../../src/ai/fleet/harnessTypes.mjs';
+import aiConfig                    from '../../config.mjs';
+import Base                        from '../../../src/core/Base.mjs';
+import {HARNESS_TYPES}             from '../../../src/ai/fleet/harnessTypes.mjs';
+import {normalizeMcpOverrides}     from '../../../src/ai/fleet/mcpServers.mjs';
 
 const
-    __filename = fileURLToPath(import.meta.url),
-    __dirname  = path.dirname(__filename);
+    __filename           = fileURLToPath(import.meta.url),
+    __dirname            = path.dirname(__filename),
+    PUBLIC_REDACTED_KEYS = new Set([
+        'credential', 'credentials', 'pat', 'githubpat', 'token', 'tokens', 'accesstoken',
+        'githubtoken', 'apitoken', 'secret', 'secrets', 'password', 'apikey', 'command', 'args',
+        'env', 'launch'
+    ]);
+
+/**
+ * @summary Recursively remove credential/launch vocabulary from a caller-owned public projection.
+ * Registry metadata is intentionally extensible, so redaction must guard nested legacy entries as
+ * well as the current top-level fields. Keys normalize hyphens/underscores and case before lookup.
+ * @param {*} value Structured-cloned public value.
+ * @param {WeakSet<Object>} [seen]
+ * @returns {*} The same redacted value.
+ */
+function redactPublicFields(value, seen=new WeakSet()) {
+    if (!value || typeof value !== 'object' || seen.has(value)) {
+        return value
+    }
+
+    seen.add(value);
+
+    Object.keys(value).forEach(key => {
+        const normalized = key.replaceAll('-', '').replaceAll('_', '').toLowerCase();
+
+        if (PUBLIC_REDACTED_KEYS.has(normalized)) {
+            delete value[key]
+        } else {
+            redactPublicFields(value[key], seen)
+        }
+    });
+
+    return value
+}
 
 /**
  * @class Neo.ai.services.fleet.FleetRegistryService
@@ -20,7 +54,7 @@ const
  * This is the first leaf of the Fleet Manager MVP: the `define` surface of the operator loop
  * *define agents → start/stop → repos managed under the hood*.
  *
- * An **agent definition** is `{id, githubUsername, harnessType, modelProvider, metadata, createdAt, updatedAt}` —
+ * An **agent definition** is `{id, githubUsername, harnessType, modelProvider, mcpServers, metadata, createdAt, updatedAt}` —
  * never a secret. `modelProvider` (the agent's model-provider login) resolves via the AiConfig
  * `modelProvider` SSOT leaf when not supplied — read-only, no service-local default shadow. The associated **credential** (a GitHub PAT) is stored separately, encrypted at
  * rest, and is the load-bearing security boundary of this service:
@@ -109,7 +143,9 @@ class FleetRegistryService extends Base {
     // ---- public API ---------------------------------------------------------
 
     /**
-     * Define (create or update) an agent and, optionally, store its credential.
+     * Create an agent and, optionally, store its credential. Existing ids reject: every edit of an
+     * established resident must use a scoped authority (`configureAgent`, `setRepo`, `setAvatar`,
+     * or the Brain-only launch override), never replay this credential-bearing creation surface.
      * @param {Object}  opts
      * @param {String}  opts.githubUsername     The agent's GitHub username (required).
      * @param {String}  opts.harnessType        One of {@link harnessTypes} (required).
@@ -117,9 +153,10 @@ class FleetRegistryService extends Base {
      * @param {String} [opts.id=githubUsername] Stable id; pass an explicit id to register multiple instances per user.
      * @param {Object} [opts.metadata={}]       Free-form non-secret metadata.
      * @param {String} [opts.modelProvider]     The agent's model-provider login (e.g. `openAiCompatible`, `ollama`). Resolves via the AiConfig `modelProvider` SSOT leaf when omitted — no service-local default shadow. Non-secret; carried in the public definition.
+     * @param {Object|null} [opts.mcpServers]   Sparse MCP overrides shared with configureAgent; omitted/null follows defaults.
      * @returns {Object} The public agent definition (no credential).
      */
-    defineAgent({githubUsername, harnessType, credential, id, metadata={}, modelProvider} = {}) {
+    defineAgent({githubUsername, harnessType, credential, id, metadata={}, modelProvider, mcpServers} = {}) {
         if (!githubUsername) throw new Error("FleetRegistryService.defineAgent: 'githubUsername' is required.");
         if (!harnessType)    throw new Error("FleetRegistryService.defineAgent: 'harnessType' is required.");
 
@@ -136,42 +173,69 @@ class FleetRegistryService extends Base {
             throw new Error("FleetRegistryService.defineAgent: 'metadata.launch' is not definable through this surface — wire callers send curated harnessType intent only. Brain/operator launch overrides go through setLaunchOverride.");
         }
 
+        const
+            agentId = id || githubUsername,
+            now     = new Date().toISOString(),
+            matrix  = mcpServers === undefined ? null : normalizeMcpOverrides(mcpServers);
+
         this.ensureLoaded();
 
+        if (this.agents.has(agentId)) {
+            throw new Error(`FleetRegistryService.defineAgent: id '${agentId}' already exists; use a scoped update operation.`)
+        }
+
         const
-            agentId  = id || githubUsername,
-            now      = new Date().toISOString(),
-            existing = this.agents.get(agentId),
-            def      = {
+            def        = {
                 id            : agentId,
                 githubUsername,
                 harnessType,
                 // provider-login resolves via the AiConfig SSOT leaf when unset (no service-local
-                // default shadow); an explicit arg wins, else a prior value is preserved on update.
-                modelProvider: modelProvider || existing?.modelProvider || aiConfig.modelProvider,
+                // default shadow); an explicit arg wins on creation.
+                modelProvider: modelProvider || aiConfig.modelProvider,
                 metadata,
-                createdAt    : existing?.createdAt || now,
+                mcpServers   : matrix,
+                createdAt    : now,
                 updatedAt    : now
-            };
+            },
+            nextAgents = new Map(this.agents);
 
-        this.agents.set(agentId, def);
-        this.writeRegistry();
+        nextAgents.set(agentId, def);
 
         if (credential != null) {
-            this.storeCredential(agentId, credential);
+            const
+                previousCredentials = this.readCredentials(),
+                nextCredentials     = Object.assign(Object.create(null), previousCredentials, {[agentId]: credential});
+
+            // Two-store create transaction: credential first, registry row last. A credential
+            // failure cannot strand an unrecoverable create-only resident. If registry publish
+            // fails, restore the prior credential snapshot; the absent row remains retryable even
+            // if the best-effort rollback itself encounters a second storage failure.
+            this.writeCredentials(nextCredentials);
+
+            try {
+                this.writeRegistry(nextAgents)
+            } catch (error) {
+                try {
+                    this.writeCredentials(previousCredentials)
+                } catch (rollbackError) {}
+
+                throw error
+            }
+        } else {
+            this.writeRegistry(nextAgents)
         }
 
+        this.agents = nextAgents;
         return this.toPublic(def);
     }
 
     /**
      * Partially update an existing agent definition: merge `metadata` (does NOT replace it) and
      * override `modelProvider` if given, preserving every other field, `createdAt`, and the stored
-     * credential. The narrow patch path distinct from {@link defineAgent}'s full create-or-replace
-     * upsert — control verbs (e.g. `FleetManager.setRepo`) mutate one facet without re-supplying the
-     * whole definition (which would demand `githubUsername`/`harnessType` and wipe unspecified
-     * metadata). Non-destructive to on-disk checkout and credential. No-op-safe: an unknown id
-     * returns `null` rather than creating a partial definition.
+     * credential. This narrow patch path is distinct from {@link defineAgent}'s create-only
+     * boundary — control verbs (e.g. `FleetManager.setRepo`) mutate one facet without replaying
+     * identity or credentials. Non-destructive to on-disk checkout and credential. No-op-safe: an
+     * unknown id returns `null` rather than creating a partial definition.
      * @param {String}  id
      * @param {Object}  patch
      * @param {Object} [patch.metadata]      Metadata keys merged into the existing metadata.
@@ -198,57 +262,81 @@ class FleetRegistryService extends Base {
             updatedAt    : new Date().toISOString()
         };
 
-        this.agents.set(id, def);
-        this.writeRegistry();
+        const nextAgents = new Map(this.agents);
+        nextAgents.set(id, def);
+        this.writeRegistry(nextAgents);
+        this.agents = nextAgents;
 
         return this.toPublic(def);
     }
 
     /**
-     * Configure an existing agent's harness + per-agent runtime configuration — the scoped patch
-     * path Body configuration surfaces round-trip through (the {@link updateAgent} pattern, one
-     * facet class): validates `harnessType` against {@link harnessTypes}, boolean-coerces the MCP
-     * enable matrix, and preserves everything unspecified — identity, metadata, `createdAt`, and
-     * the stored credential are untouchable through this surface. The returned public definition
-     * IS the caller's readback: the Body renders what the registry persisted, never what it sent.
-     * No-op-safe: an unknown id returns `null` rather than creating a partial definition.
-     * @param {String}        id
-     * @param {Object}        config
-     * @param {String}       [config.harnessType]             New harness type — one of {@link harnessTypes}.
-     * @param {Object|null}  [config.mcpServers]              Per-agent MCP enable matrix (values boolean-coerced); `null` resets to catalog defaults.
-     * @param {Boolean|null} [config.hooksActive]             Configured hooks intent; `null` = not read back.
-     * @param {Boolean|null} [config.wakeSubscriptionsActive] Configured wake-subscription intent; `null` = not read back.
-     * @returns {Object|null} The updated public definition (no credential), or `null` when the agent doesn't exist.
+     * Configure an existing agent through the ONE wire-serializable curated intent. Only `id`,
+     * `harnessType`, and sparse `mcpServers` overrides are accepted; credentials, launch fields,
+     * wake, hooks, identity, and generic config bags are mechanically rejected. Unspecified fields
+     * are preserved. The returned public definition is canonical persisted readback, never request
+     * echo. Controlled validation failures use the method prefix so FleetControlBridge can expose a
+     * safe rejected-domain reason while unexpected storage failures remain transport-sanitized.
+     * @param {Object} intent
+     * @param {String} intent.id Existing registry id.
+     * @param {String} [intent.harnessType] Registered durable harness key.
+     * @param {Object|null} [intent.mcpServers] Complete sparse MCP override set; null follows defaults.
+     * @returns {Object|null} Updated public definition, or `null` when the id is not registered.
      */
-    configureAgent(id, {harnessType, mcpServers, hooksActive, wakeSubscriptionsActive} = {}) {
+    configureAgent(intent={}) {
+        const reject = reason => {
+            throw new TypeError(`FleetRegistryService.configureAgent: ${reason}`)
+        };
+
+        if (!intent || typeof intent !== 'object' || Array.isArray(intent)) {
+            reject('intent must be an object.')
+        }
+
+        const
+            allowed = new Set(['id', 'harnessType', 'mcpServers']),
+            unknown = Object.keys(intent).find(key => !allowed.has(key)),
+            {id, harnessType, mcpServers} = intent;
+
+        if (unknown) {
+            reject(`unsupported field '${unknown}'.`)
+        }
+        if (typeof id !== 'string' || !id.trim()) {
+            reject("'id' is required.")
+        }
+        if (!Object.hasOwn(intent, 'harnessType') && !Object.hasOwn(intent, 'mcpServers')) {
+            reject('at least one configuration field is required.')
+        }
+
         this.ensureLoaded();
 
         const existing = this.agents.get(id);
         if (!existing) return null;
 
-        if (harnessType != null && !this.harnessTypes.includes(harnessType)) {
-            throw new Error(`FleetRegistryService.configureAgent: invalid harnessType '${harnessType}'. Must be one of: ${this.harnessTypes.join(', ')}.`);
+        if (Object.hasOwn(intent, 'harnessType') && !this.harnessTypes.includes(harnessType)) {
+            reject(`invalid harnessType '${harnessType}'. Must be one of: ${this.harnessTypes.join(', ')}.`)
         }
 
         let matrix = existing.mcpServers ?? null;
 
-        if (mcpServers !== undefined) {
-            matrix = mcpServers === null
-                ? null
-                : Object.fromEntries(Object.entries(mcpServers).map(([key, value]) => [key, !!value]));
+        if (Object.hasOwn(intent, 'mcpServers')) {
+            try {
+                matrix = normalizeMcpOverrides(mcpServers)
+            } catch (error) {
+                reject(error.message)
+            }
         }
 
         const def = {
             ...existing,
-            harnessType            : harnessType ?? existing.harnessType,
-            mcpServers             : matrix,
-            hooksActive            : hooksActive !== undefined ? hooksActive : (existing.hooksActive ?? null),
-            wakeSubscriptionsActive: wakeSubscriptionsActive !== undefined ? wakeSubscriptionsActive : (existing.wakeSubscriptionsActive ?? null),
-            updatedAt              : new Date().toISOString()
+            harnessType: Object.hasOwn(intent, 'harnessType') ? harnessType : existing.harnessType,
+            mcpServers : matrix,
+            updatedAt  : new Date().toISOString()
         };
 
-        this.agents.set(id, def);
-        this.writeRegistry();
+        const nextAgents = new Map(this.agents);
+        nextAgents.set(id, def);
+        this.writeRegistry(nextAgents);
+        this.agents = nextAgents;
 
         return this.toPublic(def);
     }
@@ -408,14 +496,7 @@ class FleetRegistryService extends Base {
      * @private
      */
     toPublic(def) {
-        const {credential, pat, ...rest} = def;
-        const pub                        = structuredClone(rest);
-
-        if (pub.metadata && Object.hasOwn(pub.metadata, 'launch')) {
-            delete pub.metadata.launch;
-        }
-
-        return pub;
+        return redactPublicFields(structuredClone(def))
     }
 
     /**
@@ -449,10 +530,22 @@ class FleetRegistryService extends Base {
      * Persist the in-memory registry to `registry.json` (no secrets).
      * @private
      */
-    writeRegistry() {
+    writeRegistry(agents=this.agents) {
         this.ensureDataDir();
-        const payload = {agents: Object.fromEntries(this.agents)};
-        fs.writeFileSync(this.registryPath(), JSON.stringify(payload, null, 2), 'utf8');
+        const
+            file    = this.registryPath(),
+            tmpFile = `${file}.${process.pid}.${crypto.randomUUID()}.tmp`,
+            payload = {agents: Object.fromEntries(agents)};
+
+        try {
+            fs.writeFileSync(tmpFile, JSON.stringify(payload, null, 2), 'utf8');
+            fs.renameSync(tmpFile, file)
+        } catch (error) {
+            if (fs.existsSync(tmpFile)) {
+                fs.unlinkSync(tmpFile)
+            }
+            throw error
+        }
     }
 
     /**
@@ -499,13 +592,25 @@ class FleetRegistryService extends Base {
     }
 
     /**
-     * Encrypt + write the full credential map to `credentials.enc` (`0600`).
+     * Encrypt + atomically publish the full credential map to `credentials.enc` (`0600`).
      * @param {Object} map
      * @private
      */
     writeCredentials(map) {
         this.ensureDataDir();
-        fs.writeFileSync(this.credentialsPath(), this.encrypt(JSON.stringify(map)), {mode: 0o600});
+        const
+            file    = this.credentialsPath(),
+            tmpFile = `${file}.${process.pid}.${crypto.randomUUID()}.tmp`;
+
+        try {
+            fs.writeFileSync(tmpFile, this.encrypt(JSON.stringify(map)), {mode: 0o600});
+            fs.renameSync(tmpFile, file)
+        } catch (error) {
+            if (fs.existsSync(tmpFile)) {
+                fs.unlinkSync(tmpFile)
+            }
+            throw error
+        }
     }
 
     // ---- crypto (AES-256-GCM) ----------------------------------------------

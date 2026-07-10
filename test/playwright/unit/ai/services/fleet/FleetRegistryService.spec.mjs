@@ -127,6 +127,46 @@ test.describe('Neo.ai.services.fleet.FleetRegistryService — the raw-launch sec
         expect(FleetRegistryService.getDefinition('sec').metadata.launch.env.PROBE_SECRET).toBe('x');
     });
 
+    test('public projections recursively redact reserved credential/launch vocabulary', () => {
+        const created = FleetRegistryService.defineAgent({
+            githubUsername: 'nested-sec',
+            harnessType   : 'codex',
+            metadata      : {
+                credential: 'caller-secret',
+                nested    : {secret: 'x', command: '/bin/sh', args: ['-c'], env: {TOKEN: 'x'}},
+                repo      : {managedPath: '/safe/path', repoSlug: 'x/y'}
+            }
+        });
+
+        for (const projection of [created, FleetRegistryService.getAgent('nested-sec'), FleetRegistryService.listAgents()[0]]) {
+            expect(JSON.stringify(projection)).not.toMatch(/caller-secret|"credential"|"secret"|"command"|"args"|"env"/);
+            expect(projection.metadata.repo).toEqual({managedPath: '/safe/path', repoSlug: 'x/y'})
+        }
+
+        // Redaction is projection-only: the Brain-owned raw definition retains non-launch metadata.
+        expect(FleetRegistryService.getDefinition('nested-sec').metadata.nested.command).toBe('/bin/sh')
+    });
+
+    test('defineAgent is create-only: an existing id cannot bypass scoped config or erase launch state', () => {
+        FleetRegistryService.defineAgent({githubUsername: 'resident', harnessType: 'codex', credential: 'original-pat'});
+        FleetRegistryService.setLaunchOverride('resident', {command: '/owned/launcher', args: [], env: {}});
+
+        expect(() => FleetRegistryService.defineAgent({
+            id            : 'resident',
+            githubUsername: 'attacker',
+            harnessType   : 'native-neo',
+            credential    : 'replacement-pat',
+            mcpServers    : {'memory-core': false}
+        })).toThrow(/already exists/);
+
+        expect(FleetRegistryService.getDefinition('resident')).toMatchObject({
+            githubUsername: 'resident',
+            harnessType   : 'codex',
+            metadata      : {launch: {command: '/owned/launcher'}}
+        });
+        expect(FleetRegistryService.resolveCredential('resident')).toBe('original-pat')
+    });
+
     test('projections are DEEP CLONES — mutating a returned definition never reaches the registry cache', () => {
         FleetRegistryService.defineAgent({githubUsername: 'iso', harnessType: 'codex'});
         FleetRegistryService.setLaunchOverride('iso', {command: '/opt/custom', args: [], env: {}});
@@ -167,48 +207,122 @@ test.describe('Neo.ai.services.fleet.FleetRegistryService.configureAgent — the
         expect(FleetRegistryService.harnessTypes).toContain('claude-code');
     });
 
-    test('persists config, returns the readback projection, and preserves identity + credential state', () => {
-        FleetRegistryService.defineAgent({githubUsername: 'neo-gpt', harnessType: 'codex'});
-
-        const updated = FleetRegistryService.configureAgent('neo-gpt', {
-            harnessType: 'claude-code',
-            mcpServers : {'memory-core': true, 'knowledge-base': 0},
-            hooksActive: true
+    test('persists only sparse overrides and returns secret/launch-free canonical readback', () => {
+        FleetRegistryService.defineAgent({
+            githubUsername: 'neo-gpt',
+            harnessType   : 'codex',
+            credential    : 'ghp_config_secret'
+        });
+        FleetRegistryService.setLaunchOverride('neo-gpt', {
+            command: '/secret/bin/codex',
+            args   : ['--secret-arg'],
+            env    : {CONFIG_SECRET: 'do-not-cross'}
         });
 
-        // the RESPONSE is the readback: persisted truth, boolean-coerced matrix, no credential
+        const updated = FleetRegistryService.configureAgent({
+            id          : 'neo-gpt',
+            harnessType : 'claude-code',
+            mcpServers  : {'memory-core': true, 'knowledge-base': false, 'github-workflow': true}
+        });
+
         expect(updated.harnessType).toBe('claude-code');
-        expect(updated.mcpServers).toEqual({'memory-core': true, 'knowledge-base': false});
-        expect(updated.hooksActive).toBe(true);
-        expect(updated.wakeSubscriptionsActive).toBeNull();
-        expect(updated.credential).toBeUndefined();
+        expect(updated.mcpServers).toEqual({'knowledge-base': false, 'github-workflow': true});
         expect(updated.githubUsername).toBe('neo-gpt');
+        expect(updated.credential).toBeUndefined();
+        expect(updated.pat).toBeUndefined();
+        expect(updated.token).toBeUndefined();
+        expect(updated.metadata.launch).toBeUndefined();
+        expect(JSON.stringify(updated)).not.toMatch(/ghp_config_secret|secret-bin|secret-arg|CONFIG_SECRET|do-not-cross/);
 
-        // and it round-trips through the read API
-        expect(FleetRegistryService.getAgent('neo-gpt').mcpServers).toEqual({'memory-core': true, 'knowledge-base': false});
+        const persisted = JSON.parse(fs.readFileSync(path.join(tmpDir, 'registry.json'), 'utf8'));
+        expect(persisted.agents['neo-gpt'].mcpServers)
+            .toEqual({'knowledge-base': false, 'github-workflow': true});
+        expect(FleetRegistryService.resolveCredential('neo-gpt')).toBe('ghp_config_secret')
     });
 
-    test('partial patches preserve unspecified config; null matrix resets to catalog defaults', () => {
-        FleetRegistryService.defineAgent({githubUsername: 'ada', harnessType: 'codex'});
-        FleetRegistryService.configureAgent('ada', {mcpServers: {'neural-link': true}, wakeSubscriptionsActive: false});
+    test('partial patches preserve unspecified config; all-default and null matrices persist as null', () => {
+        FleetRegistryService.defineAgent({
+            githubUsername: 'ada',
+            harnessType   : 'codex',
+            mcpServers    : {'neural-link': false}
+        });
 
-        // a later harness-only patch keeps the matrix + the wake intent
-        const second = FleetRegistryService.configureAgent('ada', {harnessType: 'native-neo'});
+        const second = FleetRegistryService.configureAgent({id: 'ada', harnessType: 'native-neo'});
 
-        expect(second.mcpServers).toEqual({'neural-link': true});
-        expect(second.wakeSubscriptionsActive).toBe(false);
+        expect(second.mcpServers).toEqual({'neural-link': false});
 
-        // explicit null resets the matrix to "catalog defaults" (the Body resolves null that way)
-        expect(FleetRegistryService.configureAgent('ada', {mcpServers: null}).mcpServers).toBeNull();
+        expect(FleetRegistryService.configureAgent({
+            id        : 'ada',
+            mcpServers: {
+                'memory-core'    : true,
+                'knowledge-base' : true,
+                'neural-link'    : true,
+                'github-workflow': false,
+                'gitlab-workflow': false
+            }
+        }).mcpServers).toBeNull();
+        expect(FleetRegistryService.configureAgent({id: 'ada', mcpServers: null}).mcpServers).toBeNull()
     });
 
-    test('fail-closed edges: unknown id returns null; an invalid harnessType throws and persists nothing', () => {
-        expect(FleetRegistryService.configureAgent('ghost', {harnessType: 'codex'})).toBeNull();
-
+    test('strict curated intent rejects unknown/non-boolean/authority-crossing fields without a write', () => {
         FleetRegistryService.defineAgent({githubUsername: 'vega', harnessType: 'codex'});
+        const before = fs.readFileSync(path.join(tmpDir, 'registry.json'), 'utf8');
 
-        expect(() => FleetRegistryService.configureAgent('vega', {harnessType: 'not-a-harness'}))
-            .toThrow(/invalid harnessType/);
-        expect(FleetRegistryService.getAgent('vega').harnessType).toBe('codex');
+        const rejected = [
+            {id: 'vega', harnessType: null},
+            {id: 'vega', harnessType: 'not-a-harness'},
+            {id: 'vega', mcpServers: {'unknown-server': true}},
+            {id: 'vega', mcpServers: {'memory-core': 1}},
+            {id: 'vega', mcpServers: []},
+            {id: 'vega', hooksActive: true},
+            {id: 'vega', command: '/bin/sh'},
+            {id: 'vega', credential: 'secret'},
+            {id: 'vega'}
+        ];
+
+        rejected.forEach(intent => {
+            expect(() => FleetRegistryService.configureAgent(intent)).toThrow(/FleetRegistryService\.configureAgent/);
+            expect(fs.readFileSync(path.join(tmpDir, 'registry.json'), 'utf8')).toBe(before)
+        });
+
+        expect(FleetRegistryService.configureAgent({id: 'ghost', harnessType: 'codex'})).toBeNull();
+        expect(FleetRegistryService.getAgent('vega').harnessType).toBe('codex')
+    });
+
+    test('fresh registry hydration returns the persisted sparse configuration', () => {
+        FleetRegistryService.defineAgent({githubUsername: 'fresh', harnessType: 'codex'});
+        FleetRegistryService.configureAgent({id: 'fresh', mcpServers: {'memory-core': false}});
+
+        const otherDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-fleet-reg-other-'));
+        FleetRegistryService.dataDir = otherDir;
+        expect(FleetRegistryService.listAgents()).toEqual([]);
+
+        FleetRegistryService.dataDir = tmpDir;
+        expect(FleetRegistryService.listAgents().find(agent => agent.id === 'fresh').mcpServers)
+            .toEqual({'memory-core': false});
+
+        fs.rmSync(otherDir, {recursive: true, force: true})
+    });
+
+    test('a failed atomic publish leaves both cache and registry.json on the prior accepted state', () => {
+        FleetRegistryService.defineAgent({githubUsername: 'atomic', harnessType: 'codex'});
+
+        const
+            beforeAgent  = FleetRegistryService.getAgent('atomic'),
+            beforeDisk   = fs.readFileSync(path.join(tmpDir, 'registry.json'), 'utf8'),
+            originalMove = fs.renameSync;
+
+        fs.renameSync = () => { throw Object.assign(new Error('injected rename failure'), {code: 'EIO'}) };
+
+        try {
+            expect(() => FleetRegistryService.configureAgent({id: 'atomic', harnessType: 'native-neo'}))
+                .toThrow('injected rename failure')
+        } finally {
+            fs.renameSync = originalMove
+        }
+
+        expect(FleetRegistryService.getAgent('atomic')).toEqual(beforeAgent);
+        expect(fs.readFileSync(path.join(tmpDir, 'registry.json'), 'utf8')).toBe(beforeDisk);
+        expect(fs.readdirSync(tmpDir).some(name => name.endsWith('.tmp'))).toBe(false)
     });
 });

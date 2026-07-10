@@ -47,6 +47,19 @@ test.describe('createFleetRegistryBridge — the browser-side pane bridge factor
         expect(sent).toEqual([{method: 'startAgent', params: 'alice'}]);
     });
 
+    test('configureAgent forwards its ONE curated intent as params', async () => {
+        const
+            sent   = [],
+            intent = {id: 'alice', harnessType: 'claude-code', mcpServers: {'memory-core': false}},
+            bridge = createFleetRegistryBridge(async req => {
+                sent.push(req);
+                return {ok: true, result: {status: 'accepted', agent: {id: 'alice'}}}
+            });
+
+        await expect(bridge.configureAgent(intent)).resolves.toEqual({status: 'accepted', agent: {id: 'alice'}});
+        expect(sent).toEqual([{method: 'configureAgent', params: intent}])
+    });
+
     test('an {ok:false} envelope rejects with the transport error (fail-closed for the pane)', async () => {
         const bridge = createFleetRegistryBridge(async () => ({ok: false, error: 'spawn failed'}));
         await expect(bridge.startAgent('alice')).rejects.toThrow('spawn failed');
