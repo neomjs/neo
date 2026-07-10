@@ -467,7 +467,7 @@ Post-M6 ([#10986](https://github.com/neomjs/neo/issues/10986)) the per-MCP-serve
 
 | Package | Purpose | Key Classes | Decisions |
 |---|---|---|---|
-| `harness/` | The Electron packaging root — the optional native embodiment around the harness app (Body apps run without it): boots the dev-mode source app on the privileged `app://` origin (repo root as document root, for Neural-Link possession depth) with the fail-closed window/navigation/permission posture; harness UI source stays in `apps/`, the Brain stays in `ai/` | `main.mjs`, `preload.cjs` | [ADR 0020](../agentos/decisions/0020-agent-harness-concept.md), [ADR 0034](../agentos/decisions/0034-electron-shell-architecture.md) |
+| `harness/` | The Electron packaging root — the optional native embodiment around the harness app (Body apps run without it): boots the dev-mode source app on the privileged `app://` origin, resolving the repo-root source graph through an explicit renderer-content allowlist for Neural-Link possession depth; fail-closed content/window/navigation/permission posture; harness UI source stays in `apps/`, the Brain stays in `ai/` | `main.mjs`, `contentPolicy.mjs`, `preload.cjs` | [ADR 0020](../agentos/decisions/0020-agent-harness-concept.md), [ADR 0034](../agentos/decisions/0034-electron-shell-architecture.md) |
 
 ## Architectural Decision Records
 

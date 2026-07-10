@@ -355,11 +355,17 @@ app.whenReady().then(async () => {
     resolveHarnessAsset = await createHarnessAssetResolver(repoRoot);
     await protocol.handle('app', serveHarnessContent);
 
-    // §2.3.3 deny-by-default; allowlist additions amend ADR 0034 §2.3 first.
+    // §2.3.3 deny-by-default; Electron requires BOTH handlers for complete permission coverage.
+    // Allowlist additions amend ADR 0034 §2.3 first.
+    session.defaultSession.setPermissionCheckHandler(() => false);
     session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => callback(false));
 
-    ipcMain.on('shell-boot-report', onBootReport);
-    ipcMain.on('shell-runtime-error', onRuntimeError);
+    if (smokeMode) {
+        // Preload diagnostics are smoke-only. Registering these in normal operation would cache
+        // one unconsumed boot report per window even though no smoke waiter exists.
+        ipcMain.on('shell-boot-report', onBootReport);
+        ipcMain.on('shell-runtime-error', onRuntimeError)
+    }
 
     const win1 = createHarnessWindow(APP_URL);
 
