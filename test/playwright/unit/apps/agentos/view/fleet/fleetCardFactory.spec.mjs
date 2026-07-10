@@ -43,7 +43,7 @@ test.describe('fleetCardFactory — cockpit DTO → dock card descriptors (#1479
         expect(cards[0].componentRef).toBe(agentCardComponentRef('vega'))
     })
 
-    test('emits a fully JSON-serializable blueprint (ntype + provider data — no live objects)', () => {
+    test('emits a fully JSON-serializable blueprint (ntype + record field bag — no live objects)', () => {
         const snapshot = createFleetCockpitStatus({
             agents     : [{id: 'vega', githubUsername: 'neo-opus-vega', displayName: 'Vega'}],
             fleetStatus: []
@@ -52,10 +52,10 @@ test.describe('fleetCardFactory — cockpit DTO → dock card descriptors (#1479
         const [card] = createFleetCardDescriptors(snapshot)
 
         expect(card.blueprint.ntype).toBe('fm-agent-card')
-        expect(card.blueprint.stateProvider.data.agentId).toBe('vega')
-        expect(card.blueprint.stateProvider.data.displayName).toBe('Vega')
+        expect(card.blueprint.record.agentId).toBe('vega')
+        expect(card.blueprint.record.displayName).toBe('Vega')
         // the avatar auto-derived through the DTO (from the GitHub account) rides into the blueprint
-        expect(card.blueprint.stateProvider.data.avatarUrl).toBe('https://github.com/neo-opus-vega.png?size=80')
+        expect(card.blueprint.record.avatarUrl).toBe('https://github.com/neo-opus-vega.png?size=80')
 
         // serializable end-to-end — a captured perspective can restore a real card from the blueprint
         expect(() => JSON.stringify(card.blueprint)).not.toThrow()
@@ -69,8 +69,8 @@ test.describe('fleetCardFactory — cockpit DTO → dock card descriptors (#1479
     })
 
     test('null-safe + forward-compatible: a sparse row yields null display fields, never undefined', () => {
-        const card   = toAgentCardDescriptor({id: 'ghost'})
-        const {data} = card.blueprint.stateProvider
+        const card = toAgentCardDescriptor({id: 'ghost'})
+        const data = card.blueprint.record
 
         expect(card.componentRef).toBe('fm-agent-card-ghost')
         expect(data.agentId).toBe('ghost')
@@ -88,7 +88,7 @@ test.describe('fleetCardFactory — cockpit DTO → dock card descriptors (#1479
     test('maps the session state through from the DTO lifecycle axis', () => {
         const card = toAgentCardDescriptor({id: 'vega', lifecycle: {state: 'ok'}})
 
-        expect(card.blueprint.stateProvider.data.state).toBe('ok')
+        expect(card.blueprint.record.state).toBe('ok')
     })
 
     test('createFleetCardDescriptors tolerates a rowless / empty DTO', () => {

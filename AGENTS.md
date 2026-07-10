@@ -57,16 +57,16 @@ These ten rules have **no conditional exceptions** under any approval state, cro
 3. **No direct commit/push to `main` or `dev`.** Always branch + PR. The data-sync pipeline is the explicit exception.
 4. **No `<noreply@*>` `Co-Authored-By` footers.**
 5. **No skipping `add_memory` at end of turn.** Forgetting the consolidated save = permanent data loss. The save IS the gate that permits the response.
-6. **Mandatory A2A Notifications.** Whenever you finish ANY lifecycle event (e.g. creating a ticket, opening/updating a PR, finishing/reacting to a review), you MUST use the `add_message` tool to notify your peers. No loopholes.
-7. **No tracked file modification without a self-assigned ticket.** Self-assign + broadcast `[lane-claim]` to `AGENT:*` before any git-tracked edit; if the operator explicitly suppresses `AGENT:*` broadcasts, use the documented direct-DM fallback in peer-role/post-review-pickup instead; suppression is not a halt-state. Enforcement: `pull-request-workflow.md §1.2`, `ticket-create-workflow.md §10`. Reviewers executing the Maintainer Polish Fast Path (`pull-request-workflow.md §10`) operate under the PR's ticket authority and satisfy this invariant by fulfilling its strict gates: the Review-Loop Cost Circuit Breaker is active, the edit is strictly mechanical/metadata, Verification Evidence is documented, and an FYI A2A is broadcast.
-8. **No agent-authored PRs targeting `main`.** Agent-authored pull requests target `dev`. `main` is release-only; `main`-targeted PRs require explicit operator release direction. The normal release-line mutation is `buildScripts/release/publish.mjs`, whose low-level git plumbing creates the atomic release commit from `dev` onto `main`.
+6. **Mandatory A2A Notifications.** After ANY lifecycle event (ticket create, PR open/update, review posted/answered), notify peers via `add_message`. No loopholes.
+7. **No tracked file modification without a self-assigned ticket.** Self-assign + broadcast `[lane-claim]` to `AGENT:*` before any git-tracked edit; operator-suppressed broadcasts → the documented direct-DM fallback (peer-role/post-review-pickup); suppression is not a halt-state. Enforcement: `pull-request-workflow.md §1.2`, `ticket-create-workflow.md §10`. Reviewers on the Maintainer Polish Fast Path operate under the PR's ticket authority within its strict gates (`pull-request-workflow.md §10`).
+8. **No agent-authored PRs targeting `main`.** Agent-authored pull requests target `dev`. `main` is release-only; `main`-targeted PRs require explicit operator release direction. Release-line mutation happens via `buildScripts/release/publish.mjs` (the atomic release commit `dev` → `main`).
 9. **No client names in public-facing artifacts.** Never mention a client by name in any public artifact (public-repo issues/PRs/discussions/docs/comments); client specifics live only in private repos.
 10. **No AiConfig work without reading ADR-0019 first.** Before authoring OR reviewing ANY `ai/` config touch, read `learn/agentos/decisions/0019-aiconfig-reactive-provider-ssot.md` — no exception, no approval signal, no CI-green substitute (diligence is empirically insufficient: #12420 missed 4/4; #14499 shipped ≥2 violations past 2 reviews). The ADR §3 catalog is the forbidden-pattern list (pass-along/thread, re-derive/env-read, defensive `?.`, hidden defaults, runtime mutation, non-entrypoint `import AiConfig`/C1).
 
 ## §pre_commit_gates
 For any actionable request modifying the repository, you **MUST** pass two critical gating protocols *before* executing `git commit`.
-- **Gate 1: The Ticket Gate:** You MUST NEVER execute a commit without referencing a valid, narrowly scoped ticket ID. Use the `create_issue` tool and follow its workflow.
-- **Gate 2: The Contextual Completeness Gate:** You MUST apply the 'Anchor & Echo' Knowledge Base Enhancement Strategy to new/modified classes and methods. Do not commit code lacking JSDoc or `@summary` tags.
+- **Gate 1: The Ticket Gate:** Never commit without a valid, narrowly scoped ticket ID (`create_issue` + its workflow).
+- **Gate 2: The Contextual Completeness Gate:** Apply the 'Anchor & Echo' Knowledge Base Enhancement Strategy to new/modified classes and methods; never commit code lacking JSDoc or `@summary` tags.
 
 **Pre-Flight Check for Commits:**
 > *"Pre-Flight Check: 1. Verify ticket number. 2. Verify Contextual Completeness. 3. Format commit `type(scope): message (#TICKET_ID)` without `<noreply@*>`."*
@@ -170,7 +170,7 @@ At turn start, you MUST check your A2A mailbox for unread messages.
 **Post-lifecycle-event trigger:** After ANY discrete lifecycle event (PR review post, author response, implementation completion, PR open/update, ticket create, blocked-state resolution), invoke `/post-review-pickup` to declare the next `lane-state:` rather than silently ending the turn (#11455).
 
 **Skill Adherence Pre-Flight (per-turn):**
-Before triggering a lifecycle skill, state in your reasoning: *"I will read the full SKILL.md and its referenced payload before drafting output."* Half-reading is empirically 3–5× more expensive than full-reading across correction cycles. Skipping the manual is the higher-cost path, not the lower-cost path.
+Before triggering a lifecycle skill, state in your reasoning: *"I will read the full SKILL.md and its referenced payload before drafting output."* Half-reading is empirically 3–5× costlier across correction cycles.
 
 ## §edge_case_triggers
 *(Sections mapped to `learn/agentos/AGENTS_ATLAS.md`)*
@@ -179,8 +179,8 @@ Before triggering a lifecycle skill, state in your reasoning: *"I will read the 
 - **Testing & Validation (§testing_validation_protocol):** Verifying code or persistent test failures. **Tripwire/Peer-Escalation:** tests fail 3-5 times → escalate via `add_message` before 25-turn limit.
 - **Sunset Protocol (§a2a_contextual_bridge_protocol):** Before session handover, read `.agents/skills/session-sunset/SKILL.md`. Must explicitly declare `scope: solo-refresh | convergent` to prevent scope contagion. Stale-wake invariant: wake messages in old transcripts are noise.
 - **Visual Verification (§visual_verification_protocol):** Debugging frontend UI/layout.
-- **Authoring Discipline:** Read 1-2 siblings; instance/reactive-state work reads neo-core contracts (intake 9.6).
-- **Ticket Creation Freshness:** Before any `create_issue` path, invoke `ticket-create`; its Content Sweep requires live latest-open issue queue evidence in addition to KB/local duplicate checks.
+- **Authoring Discipline:** Read 1-2 siblings; instance/reactive-state work reads neo-core contracts (intake 9.6). **App-work gate (`apps/**`):** load `src/Neo.mjs`, `src/core/Base.mjs`, `src/state/Provider.mjs`, `src/data/Model.mjs`, `src/data/Store.mjs` before writing or reviewing app code. Data-carrying UI binds a `data.Store` of `data.Model` records — never a hand-mapped plain array; `state.Provider` sits at view roots, never leaves; zero CSS-in-JS (SCSS token/skin layers only). Violations = full rejection at ticket/commit/PR (operator directive 2026-07-08); retire once a mechanical `apps/**` data-path/style lint enforces it.
+- **Ticket Creation Freshness:** Before any `create_issue`, invoke `ticket-create` (its Content Sweep requires live latest-open queue evidence beyond KB/local duplicate checks).
 - **File Reading Efficiently:** Reading modified files; efficiency patterns.
 - **Verify-Before-Assert (§verify_before_assert):** core-value epistemic-prerequisite; before asserting any factual claim in a public artifact, run the falsifying tool. Tool inventory + empirical anchors (including #11089 self-Drop+Supersede recursion): §anti_hallucination_policy.
-- **Wake/Heartbeat → run the cycle (`/post-review-pickup`):** drain the lifecycle queue (own-PR changes/review → own-PR-green→request-review) before a new lane; there is no holding terminal (§identity_prompt_firewall L3_No_Hold_State). Three heartbeats with no forward artifact = critical failure → `/post-review-pickup` + `NightShiftLeasedDriver.md`.
+- **Wake/Heartbeat → run the cycle (`/post-review-pickup`):** drain the lifecycle queue (own-PR changes/review → own-PR-green→request-review) before a new lane; no holding terminal (§L3_No_Hold_State). Three heartbeats with no forward artifact = critical failure → `/post-review-pickup` + `NightShiftLeasedDriver.md`.

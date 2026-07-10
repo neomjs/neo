@@ -1,5 +1,6 @@
 import Component              from '../../../../src/component/Base.mjs';
-import {kindToken, kindLabel} from './kindRegistry.mjs';
+import NeoArray               from '../../../../src/util/Array.mjs';
+import {kindClass, kindLabel} from './kindRegistry.mjs';
 
 /**
  * The event-kind chip: a small uppercase mono plate colored by event kind, composed by the
@@ -48,17 +49,22 @@ class EventChip extends Component {
     }
 
     /**
-     * Triggered after the kind config changed — rebinds the `--fm-chip` color token from the
-     * shared registry and refreshes the text (when no label override is set).
+     * Triggered after the kind config changed — swaps the kind class from the shared registry (the
+     * class binds the `--fm-chip` color token in the chip SCSS — zero inline styles) and refreshes
+     * the text (when no label override is set).
      * @param {String} value
      * @param {String} oldValue
      * @protected
      */
     afterSetKind(value, oldValue) {
-        let style = this.style || {};
-        style['--fm-chip'] = `var(${kindToken(value)})`;
-        this.style = style;
-        this.updateChipText()
+        let me  = this,
+            cls = me.cls;
+
+        oldValue !== undefined && NeoArray.remove(cls, kindClass(oldValue));
+        NeoArray.add(cls, kindClass(value));
+        me.cls = cls;
+
+        me.updateChipText()
     }
 
     /**

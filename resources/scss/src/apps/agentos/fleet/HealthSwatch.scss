@@ -1,5 +1,7 @@
 /* Health-summary swatch — a legend row (dot + label) or a count-bar unit (dot + count + label), all
-   scoped under the component root. The dot reuses the state token via --fm-dot. */
+   scoped under the component root. The dot reuses the state token via --fm-dot, bound from the root's
+   fm-state-* class (shared stateClass vocabulary with StateDot — the component swaps a class, never
+   writes a style). */
 .fm-health-swatch {
     display    : inline-flex;
     align-items: center;
@@ -7,6 +9,13 @@
     font-family: var(--fm-font-mono);
     font-size  : 11px;
     color      : var(--fm-ink-dim);
+
+    /* state class → color token, inherited by the .fm-sw-dot child */
+    &.fm-state-ok      { --fm-dot: var(--fm-state-ok); }
+    &.fm-state-idle    { --fm-dot: var(--fm-state-idle); }
+    &.fm-state-wedged  { --fm-dot: var(--fm-state-wedged); }
+    &.fm-state-limited { --fm-dot: var(--fm-state-limited); }
+    &.fm-state-off     { --fm-dot: var(--fm-state-off); }
 
     .fm-sw-dot {
         width        : 9px;

@@ -47,7 +47,9 @@ test.describe('Fleet cockpit HealthSwatch — state-axis legend + count-bar unit
               label = sw.vdom.cn.find(n => n.cls?.includes('fm-sw-label')),
               count = sw.vdom.cn.find(n => n.cls?.includes('fm-sw-count'));
 
-        expect(dot.style['--fm-dot']).toBe('var(--fm-state-wedged)');
+        // the ROOT carries the state class; SCSS binds --fm-dot from it (inherited by the dot) — no inline style
+        expect(sw.vdom.cls).toContain('fm-state-wedged');
+        expect(dot.style?.['--fm-dot']).toBeUndefined();
         expect(label.text).toBe('wedged');
         // class-idiom: the count node stays in cn, removeDom-toggled (not omitted) — so a plain
         // legend row renders no count element in the DOM.
@@ -74,10 +76,9 @@ test.describe('Fleet cockpit HealthSwatch — state-axis legend + count-bar unit
         const sw = Neo.create(HealthSwatch, {appName, state: 'mystery'});
         await sw.initVnode();
 
-        const dot   = sw.vdom.cn.find(n => n.cls?.includes('fm-sw-dot')),
-              label = sw.vdom.cn.find(n => n.cls?.includes('fm-sw-label'));
+        const label = sw.vdom.cn.find(n => n.cls?.includes('fm-sw-label'));
 
-        expect(dot.style['--fm-dot']).toBe('var(--fm-state-off)');
+        expect(sw.vdom.cls).toContain('fm-state-off');
         expect(label.text).toBe('mystery');
 
         sw.destroy()
@@ -87,11 +88,10 @@ test.describe('Fleet cockpit HealthSwatch — state-axis legend + count-bar unit
         const sw = Neo.create(HealthSwatch, {appName, state: 'toString'});
         await sw.initVnode();
 
-        const dot   = sw.vdom.cn.find(n => n.cls?.includes('fm-sw-dot')),
-              label = sw.vdom.cn.find(n => n.cls?.includes('fm-sw-label'));
+        const label = sw.vdom.cn.find(n => n.cls?.includes('fm-sw-label'));
 
-        // both the dot token (via stateToken) and the label (via stateLabel) must be closed-set-safe
-        expect(dot.style['--fm-dot']).toBe('var(--fm-state-off)');
+        // both the dot class (via stateClass) and the label (via stateLabel) must be closed-set-safe
+        expect(sw.vdom.cls).toContain('fm-state-off');
         expect(label.text).toBe('toString');
 
         sw.destroy()
