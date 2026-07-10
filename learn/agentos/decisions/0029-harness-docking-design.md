@@ -345,7 +345,7 @@ Two friction classes recur across the surveyed field and are dispositioned by th
 | Per-option target-area preview | translucent area preview per indicator | landed single-option at functional grade (accept translucent fill/border, reject red-dashed — `DockPreview`); flagship treatment + the parallel-option question follow the #14930 disposition |
 | Tab insertion cues | insertion marker in the target tab bar | landed functional grade (tab before/after markers, `DockPreview`); flagship polish = #14930 |
 | Escape-cancel mid-drag | ✓ cancels the gesture | **gap — no owning leaf** (surfaced by this amendment: no Escape path in the draggable layer, `DragCoordinator`, or the main-thread drag addon as of this date) |
-| Commit animation (drop lands smoothly) | animated re-layout | specified: #14929 (FLIP presentation layer riding the view-sync seam; in flight) |
+| Commit animation (drop lands smoothly) | not established by this sweep (the fetched Qt-ADS README documents the drag-preview/indicator tier, not committed-re-layout animation) | Neo house/experience target — above the bar, owned by #14779 (motion contract) / #14929 (FLIP layer, in flight) |
 
 **Closure-gate binding.** Epic #13158 MUST NOT resolve without an item-by-item experience-parity matrix against THIS sub-row inventory (plus the surviving capability rows above), each row evidenced by a recorded interaction, an e2e spec, or a live demo beat — evidence links, not assertions. The epic body carries the matching requirement (#14934).
 
