@@ -1,5 +1,18 @@
 .neo-dashboard {
+    // The dock motion-contract token set: the ONLY sanctioned duration/easing source for dock
+    // transitions — splitter ease, tab insert/remove morphing, auto-hide rail slide, and the
+    // FLIP commit layer all read THESE (a call-site duration/easing literal is a contract
+    // violation). Motion lifecycle is observable via the `neo-dashboard-dock-animating` class
+    // (present during motion, removed on settle — see Neo.dashboard.DockMotionSignal).
+    --dock-transition-duration: 260ms;
+    --dock-transition-easing  : cubic-bezier(0, 0, 0.2, 1);
+}
 
+@media (prefers-reduced-motion: reduce) {
+    .neo-dashboard {
+        // Token-layer collapse: every dock motion goes instant HERE — never per call site.
+        --dock-transition-duration: 0ms;
+    }
 }
 
 .neo-dashboard-dock-splitter {
