@@ -63,7 +63,19 @@ class DockPreviewProducer extends Base {
          * renderer's fixed `edgeBandSize` at typical pane sizes while staying resolution-independent.
          * @member {Number} edgeBandRatio=0.24
          */
-        edgeBandRatio: 0.24
+        edgeBandRatio: 0.24,
+        /**
+         * Pixel height of the tab HEADER STRIP carve-out at a zone's top edge. A drop inside it
+         * classifies `tab-into` even within the edge band: dock zones are tabs nodes by
+         * construction, and dropping onto the header strip is the most intentional add-as-tab
+         * gesture there is — without the carve-out it resolves to a top-edge split. Pixels, not a
+         * ratio: header chrome is resolution-fixed UI height. Applies only while the carve-out
+         * fits INSIDE the edge band (`tabHeaderCarveOutPx < band`) — zones too small for that keep
+         * the plain five-zone grammar. Non-reactive config for the same tunability rationale as
+         * `edgeBandRatio`.
+         * @member {Number} tabHeaderCarveOutPx=36
+         */
+        tabHeaderCarveOutPx: 36
     }
 
     /**
@@ -98,6 +110,12 @@ class DockPreviewProducer extends Base {
             dLeft   = px - x,
             dRight  = (x + width) - px,
             nearest = Math.min(dTop, dBottom, dLeft, dRight);
+
+        // Header-strip carve-out: the tab header band at the zone's top IS the tab-into
+        // affordance — it wins over the geometric edge band it overlaps, but only where it FITS
+        // inside that band (real-scale zones). On zones so small the carve-out would swallow the
+        // band entirely, the landed five-zone grammar stays untouched.
+        if (this.tabHeaderCarveOutPx < band && dTop <= this.tabHeaderCarveOutPx) return 'tab-into';
 
         if (nearest > band) return 'tab-into';
 

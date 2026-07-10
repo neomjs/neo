@@ -38,6 +38,20 @@ test.describe('Neo.dashboard.DockPreviewProducer (ADR 0029 §2.3 — the dock pr
         expect(k(50, 24.1)).toBe('tab-into')   // just past the edge band
     });
 
+    test('the header-strip carve-out wins inside the band at real scale, and yields on small zones', () => {
+        const BIG = {x: 0, y: 0, width: 400, height: 300};   // band = 0.24 * 300 = 72 > carve-out 36
+        const k   = (x, y) => producer.resolvePlacementKind(BIG, {x, y});
+
+        // Inside the carve-out (the tab header strip): the most intentional add-as-tab gesture.
+        expect(k(200, 20)).toBe('tab-into');
+        expect(k(200, 36)).toBe('tab-into');
+        // Below the carve-out but inside the band: top-edge semantics survive.
+        expect(k(200, 50)).toBe('edge-top');
+        // Small zones (carve-out >= band): the landed five-zone grammar is untouched — the
+        // existing pins above (edge-top at y=10 on the 100px rect) assert exactly that.
+        expect(producer.resolvePlacementKind(RECT, {x: 50, y: 10})).toBe('edge-top')
+    });
+
     test('resolvePlacementKind is fail-closed for outside / malformed input', () => {
         expect(producer.resolvePlacementKind(RECT, {x: 150, y: 50})).toBe('rejected');       // outside x
         expect(producer.resolvePlacementKind(RECT, {x: 50,  y: -1})).toBe('rejected');       // outside y
@@ -50,8 +64,10 @@ test.describe('Neo.dashboard.DockPreviewProducer (ADR 0029 §2.3 — the dock pr
         // the extensibility payoff: an app / subclass tunes the affordance thickness via config
         const wide = Neo.create(DockPreviewProducer, {edgeBandRatio: 0.4}); // band = 40 on a 100px rect
 
-        expect(producer.resolvePlacementKind(RECT, {x: 50, y: 30})).toBe('tab-into'); // default band 24: 30 > 24
-        expect(wide.resolvePlacementKind(RECT, {x: 50, y: 30})).toBe('edge-top');     // wide band 40: 30 < 40
+        // y = 38 sits above the header carve-out (36), inside the wide band (40), past the
+        // default band (24) — isolating the band-tunability contract from the carve-out.
+        expect(producer.resolvePlacementKind(RECT, {x: 50, y: 38})).toBe('tab-into'); // default band 24: 38 > 24
+        expect(wide.resolvePlacementKind(RECT, {x: 50, y: 38})).toBe('edge-top');     // wide band 40: 38 < 40
 
         wide.destroy()
     });
