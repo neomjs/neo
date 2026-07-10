@@ -132,14 +132,25 @@ test.describe('Neo.ai.services.fleet.FleetRegistryService — the raw-launch sec
             githubUsername: 'nested-sec',
             harnessType   : 'codex',
             metadata      : {
-                credential: 'caller-secret',
-                nested    : {secret: 'x', command: '/bin/sh', args: ['-c'], env: {TOKEN: 'x'}},
-                repo      : {managedPath: '/safe/path', repoSlug: 'x/y'}
+                credential   : 'caller-secret',
+                refreshToken : 'refresh-secret',
+                session_token: 'session-secret',
+                client_secret: 'client-secret',
+                authorization: 'Bearer secret',
+                nested       : {secret: 'x', privateKey: 'key-secret', command: '/bin/sh', argv: ['-c'], env: {TOKEN: 'x'}},
+                benign       : {credentialState: 'stored', tokenBudget: 64, commandLabel: 'Codex', environmentName: 'local'},
+                repo         : {managedPath: '/safe/path', repoSlug: 'x/y'}
             }
         });
 
         for (const projection of [created, FleetRegistryService.getAgent('nested-sec'), FleetRegistryService.listAgents()[0]]) {
-            expect(JSON.stringify(projection)).not.toMatch(/caller-secret|"credential"|"secret"|"command"|"args"|"env"/);
+            expect(JSON.stringify(projection)).not.toMatch(/caller-secret|refresh-secret|session-secret|client-secret|Bearer secret|key-secret|"credential"|"secret"|"command"|"argv"|"env"/);
+            expect(projection.metadata.benign).toEqual({
+                credentialState: 'stored',
+                tokenBudget    : 64,
+                commandLabel   : 'Codex',
+                environmentName: 'local'
+            });
             expect(projection.metadata.repo).toEqual({managedPath: '/safe/path', repoSlug: 'x/y'})
         }
 

@@ -8,13 +8,22 @@ import {HARNESS_TYPES}             from '../../../src/ai/fleet/harnessTypes.mjs'
 import {normalizeMcpOverrides}     from '../../../src/ai/fleet/mcpServers.mjs';
 
 const
-    __filename           = fileURLToPath(import.meta.url),
-    __dirname            = path.dirname(__filename),
-    PUBLIC_REDACTED_KEYS = new Set([
-        'credential', 'credentials', 'pat', 'githubpat', 'token', 'tokens', 'accesstoken',
-        'githubtoken', 'apitoken', 'secret', 'secrets', 'password', 'apikey', 'command', 'args',
-        'env', 'launch'
-    ]);
+    __filename              = fileURLToPath(import.meta.url),
+    __dirname               = path.dirname(__filename),
+    PUBLIC_SENSITIVE_KEY_RE = /^(?:credentials?|secrets?|tokens?|(?:github)?pats?|passwords?|authorization|(?:api|client|private)(?:key|token|secret|credential|password)s?|personalaccess(?:key|token|secret|credential|password)s?|(?:access|auth|bearer|github|id|oauth|refresh|session)(?:key|token|secret|credential|password)s?|launch|command|args|argv|env|environment)$/;
+
+/**
+ * @summary Returns whether a normalized public-definition key carries credential or launch
+ * authority. Anchoring is deliberate: `refreshToken` and `client_secret` are denied, while benign
+ * descriptive fields such as `credentialState`, `tokenBudget`, and `commandLabel` survive.
+ * @param {String} key
+ * @returns {Boolean}
+ */
+function isPublicSensitiveKey(key) {
+    const normalized = key.replaceAll('-', '').replaceAll('_', '').toLowerCase();
+
+    return PUBLIC_SENSITIVE_KEY_RE.test(normalized)
+}
 
 /**
  * @summary Recursively remove credential/launch vocabulary from a caller-owned public projection.
@@ -32,9 +41,7 @@ function redactPublicFields(value, seen=new WeakSet()) {
     seen.add(value);
 
     Object.keys(value).forEach(key => {
-        const normalized = key.replaceAll('-', '').replaceAll('_', '').toLowerCase();
-
-        if (PUBLIC_REDACTED_KEYS.has(normalized)) {
+        if (isPublicSensitiveKey(key)) {
             delete value[key]
         } else {
             redactPublicFields(value[key], seen)
@@ -184,6 +191,16 @@ class FleetRegistryService extends Base {
             throw new Error(`FleetRegistryService.defineAgent: id '${agentId}' already exists; use a scoped update operation.`)
         }
 
+        const previousCredentials = this.readCredentials();
+
+        // A process crash or failed rollback can leave a credential without its registry row.
+        // Credentialless creation MUST NOT silently adopt that orphan for a later caller. An
+        // explicit credential-bearing retry is the recovery authority: it overwrites the orphan
+        // before the public row publishes.
+        if (credential == null && Object.hasOwn(previousCredentials, agentId)) {
+            throw new Error(`FleetRegistryService.defineAgent: orphan credential exists for id '${agentId}'; credentialless creation refused. Retry with an explicit credential.`)
+        }
+
         const
             def        = {
                 id            : agentId,
@@ -202,14 +219,13 @@ class FleetRegistryService extends Base {
         nextAgents.set(agentId, def);
 
         if (credential != null) {
-            const
-                previousCredentials = this.readCredentials(),
-                nextCredentials     = Object.assign(Object.create(null), previousCredentials, {[agentId]: credential});
+            const nextCredentials = Object.assign(Object.create(null), previousCredentials, {[agentId]: credential});
 
             // Two-store create transaction: credential first, registry row last. A credential
             // failure cannot strand an unrecoverable create-only resident. If registry publish
-            // fails, restore the prior credential snapshot; the absent row remains retryable even
-            // if the best-effort rollback itself encounters a second storage failure.
+            // fails, restore the prior credential snapshot. If rollback itself fails or the
+            // process dies between files, the orphan guard above refuses credentialless adoption;
+            // an explicit credential-bearing retry remains recoverable.
             this.writeCredentials(nextCredentials);
 
             try {
