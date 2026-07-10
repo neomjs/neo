@@ -29,9 +29,10 @@ test.describe('dispatchFleetRequest — the app↔fleet wire allowlist + routing
     test.beforeEach(() => {
         calls  = [];
         bridge = {
-            defineAgent : p  => { calls.push(['defineAgent', p]); return {id: p.githubUsername}; },
-            listAgents  : () => { calls.push(['listAgents']);     return [{id: 'a'}]; },
-            getAgent    : id => { calls.push(['getAgent', id]);   return {id}; },
+            defineAgent   : p  => { calls.push(['defineAgent', p]); return {id: p.githubUsername}; },
+            configureAgent: p  => { calls.push(['configureAgent', p]); return {status: 'accepted', agent: {id: p.id, harnessType: p.harnessType}}; },
+            listAgents    : () => { calls.push(['listAgents']);     return [{id: 'a'}]; },
+            getAgent      : id => { calls.push(['getAgent', id]);   return {id}; },
             startAgent  : async id => { calls.push(['startAgent', id]);   return {id, state: 'running'}; },
             stopAgent   : async id => { calls.push(['stopAgent', id]);    return {success: true, id}; },
             restartAgent: async id => { calls.push(['restartAgent', id]); return {id, state: 'running'}; },
@@ -63,6 +64,18 @@ test.describe('dispatchFleetRequest — the app↔fleet wire allowlist + routing
 
         expect(res).toEqual({ok: true, result: {id: 'alice', metadata: {repo: payload}}});
         expect(calls).toEqual([['setRepo', payload]]);
+    });
+
+    test('routes configureAgent as one payload and preserves the domain outcome', async () => {
+        const
+            payload = {id: 'alice', harnessType: 'claude-code', mcpServers: {'memory-core': false}},
+            res     = await dispatchFleetRequest({method: 'configureAgent', params: payload}, bridge);
+
+        expect(res).toEqual({
+            ok    : true,
+            result: {status: 'accepted', agent: {id: 'alice', harnessType: 'claude-code'}}
+        });
+        expect(calls).toEqual([['configureAgent', payload]])
     });
 
     test('routes setAvatar, forwarding the single payload to the bridge', async () => {

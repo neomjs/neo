@@ -169,6 +169,30 @@ class Accounts extends DashboardPanel {
     }
 
     /**
+     * Monotonic guard for canonical roster reads. An accepted configure response increments the
+     * generation so an older listAgents response cannot overwrite newer persisted truth.
+     * @member {Number} agentDefinitionsLoadGeneration=0
+     * @private
+     */
+    agentDefinitionsLoadGeneration = 0
+
+    /**
+     * Latest save-request generation per agent. Only the newest response may update the Body
+     * projection or visible save state.
+     * @member {Map<String,Number>} agentConfigRequestGenerations
+     * @private
+     */
+    agentConfigRequestGenerations = new Map()
+
+    /**
+     * Ephemeral save status per agent. Selection changes re-project this state onto the card, so a
+     * pending/accepted/rejected result never moves to or disappears behind another agent.
+     * @member {Map<String,Object>} agentConfigSaveStatuses
+     * @private
+     */
+    agentConfigSaveStatuses = new Map()
+
+    /**
      * @summary Wire the configuration card's intent event — the card renders and fires; this view
      * owns the bridge round-trip (see {@link #onAgentConfigIntent}).
      * @param {...*} args
@@ -197,7 +221,8 @@ class Accounts extends DashboardPanel {
         value   ?.on({...listeners});
         oldValue?.un({...listeners});
 
-        me.syncAgentSelector()
+        me.syncAgentSelector();
+        value && void me.loadAgentDefinitions?.()
     }
 
     /**
@@ -215,7 +240,10 @@ class Accounts extends DashboardPanel {
             card.record = value ? (me.agentDefinitionsStore?.get(value) ?? null) : null;
             // a recordChange mutates fields WITHOUT changing record identity, and the reactive
             // config setter suppresses same-identity assignments — refresh() closes that gap
-            card.refresh()
+            card.refresh();
+
+            const status = me.agentConfigSaveStatuses.get(value) ?? {state: 'idle', reason: ''};
+            value && card.setSaveStatus(value, status.state, status.reason)
         }
 
         me.getReference('agent-selector')?.items?.forEach(item => {
@@ -237,35 +265,118 @@ class Accounts extends DashboardPanel {
      * validates + persists, and the RESPONSE (the public definition — the readback) is written
      * onto the store record, which re-renders the card. Fail-closed: without a bridge nothing
      * mutates locally — a config that did not persist must never render as if it had.
-     * @param {Object} data `{agentId, config}` from {@link AgentOS.view.AgentConfigCard}.
+     * @param {Object} intent The one wire shape: `{id, harnessType?, mcpServers?}`.
      * @returns {Promise<void>}
      */
-    async onAgentConfigIntent({agentId, config}) {
+    async onAgentConfigIntent(intent={}) {
         const
-            me     = this,
-            bridge = globalThis.AgentOS?.fleet?.registryBridge;
+            me        = this,
+            agentId   = intent.id,
+            bridge    = globalThis.AgentOS?.fleet?.registryBridge,
+            // Neo events add transport-irrelevant envelope fields such as `source`. Reconstruct the
+            // curated wire intent explicitly so no event metadata can cross the Brain allowlist.
+            wireIntent = {id: agentId};
+
+        if (me.agentConfigSaveStatuses.get(agentId)?.state === 'pending') {
+            return
+        }
+
+        if (Object.hasOwn(intent, 'harnessType')) wireIntent.harnessType = intent.harnessType;
+        if (Object.hasOwn(intent, 'mcpServers'))  wireIntent.mcpServers  = intent.mcpServers;
+
+        const requestGeneration = (me.agentConfigRequestGenerations.get(agentId) || 0) + 1;
+        me.agentConfigRequestGenerations.set(agentId, requestGeneration);
+        me.setAgentConfigSaveStatus(agentId, 'pending', 'Saving configuration…');
 
         if (typeof bridge?.configureAgent !== 'function') {
-            me.updateBridgeStatus('is-error', 'Configuration is unavailable in dev-server mode. Nothing was changed.');
+            const reason = 'Configuration is unavailable in dev-server mode. Nothing was changed.';
+            me.setAgentConfigSaveStatus(agentId, 'rejected', reason);
             return
         }
 
         try {
-            const updated = await bridge.configureAgent(agentId, config);
+            const outcome = await bridge.configureAgent(wireIntent);
 
-            if (updated) {
-                me.agentDefinitionsStore?.get(agentId)?.set({
-                    harnessType            : updated.harnessType,
-                    hooksActive            : updated.hooksActive ?? null,
-                    mcpServers             : updated.mcpServers ?? null,
-                    wakeSubscriptionsActive: updated.wakeSubscriptionsActive ?? null
-                });
-                me.updateBridgeStatus('is-live', 'Configuration saved.')
+            if (me.agentConfigRequestGenerations.get(agentId) !== requestGeneration) {
+                return
+            }
+
+            if (outcome?.status === 'accepted' && outcome.agent?.id === agentId) {
+                const record = me.agentDefinitionsStore?.get(agentId);
+
+                if (!record) {
+                    throw new Error('accepted configuration has no matching local agent')
+                }
+
+                // Invalidate any older boot-list response before applying the canonical save
+                // readback. Only the RESPONSE mutates the durable Body projection.
+                me.agentDefinitionsLoadGeneration = (me.agentDefinitionsLoadGeneration || 0) + 1;
+                record.set(outcome.agent);
+                me.setAgentConfigSaveStatus(agentId, 'accepted', 'Configuration saved.')
             } else {
-                me.updateBridgeStatus('is-error', 'Unknown agent — configuration not saved.')
+                const reason = outcome?.status === 'rejected'
+                    ? (outcome.reason || 'Configuration was rejected.')
+                    : 'Configuration response was invalid. Nothing was changed.';
+
+                me.setAgentConfigSaveStatus(agentId, 'rejected', reason)
             }
         } catch (error) {
-            me.updateBridgeStatus('is-error', 'Could not save the configuration. Nothing was changed.')
+            if (me.agentConfigRequestGenerations.get(agentId) !== requestGeneration) {
+                return
+            }
+
+            const reason = 'Could not save the configuration. Nothing was changed.';
+            me.setAgentConfigSaveStatus(agentId, 'rejected', reason)
+        }
+    }
+
+    /**
+     * @summary Store one agent's ephemeral save state and project it only when that agent is still
+     * visible. The state survives selection changes without entering the durable roster model.
+     * @param {String} agentId
+     * @param {'idle'|'pending'|'accepted'|'rejected'} state
+     * @param {String} [reason='']
+     */
+    setAgentConfigSaveStatus(agentId, state, reason='') {
+        this.agentConfigSaveStatuses.set(agentId, {state, reason});
+        this.getReference('agent-config-card')?.setSaveStatus(agentId, state, reason)
+    }
+
+    /**
+     * @summary Hydrate the provider-hosted AgentDefinitions store from the Brain's canonical public
+     * roster. A failed or stale request preserves the last rendered state. A generation guard keeps
+     * a slow boot read from overwriting a newer accepted configure response.
+     * @returns {Promise<Boolean>} True only when canonical roster data replaced the local projection.
+     */
+    async loadAgentDefinitions() {
+        const
+            me         = this,
+            store      = me.agentDefinitionsStore,
+            bridge     = globalThis.AgentOS?.fleet?.registryBridge,
+            generation = (me.agentDefinitionsLoadGeneration || 0) + 1;
+
+        me.agentDefinitionsLoadGeneration = generation;
+
+        if (!store || typeof bridge?.listAgents !== 'function') {
+            return false
+        }
+
+        try {
+            const agents = await bridge.listAgents();
+
+            if (!Array.isArray(agents)) {
+                return false
+            }
+            if (generation !== me.agentDefinitionsLoadGeneration || store !== me.agentDefinitionsStore) {
+                return false
+            }
+
+            store.data = agents;
+            me.syncAgentSelector();
+
+            return true
+        } catch (error) {
+            return false
         }
     }
 

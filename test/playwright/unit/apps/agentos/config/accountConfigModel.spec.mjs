@@ -99,6 +99,26 @@ test.describe('FM account configuration model', () => {
         expect(mcpServers.resolveMcpMatrix({'memory-core': 'yes'})['memory-core']).toBe(false)
     });
 
+    test('sparse normalization rejects malformed intent, removes defaults, and follows catalog evolution', () => {
+        expect(mcpServers.normalizeMcpOverrides({
+            'memory-core'    : true,
+            'github-workflow': true
+        })).toEqual({'github-workflow': true});
+        expect(mcpServers.normalizeMcpOverrides(mcpServers.defaultMcpMatrix())).toBeNull();
+
+        expect(() => mcpServers.normalizeMcpOverrides({'made-up-server': true})).toThrow(/Unknown MCP server/);
+        expect(() => mcpServers.normalizeMcpOverrides({'memory-core': 1})).toThrow(/must be boolean/);
+        expect(() => mcpServers.normalizeMcpOverrides([])).toThrow(/object or null/);
+
+        const evolvedCatalog = mcpServers.listMcpServers().map(entry => entry.key === 'github-workflow'
+            ? {...entry, defaultEnabled: true}
+            : entry);
+
+        // No override follows the NEW default; the old explicit opt-in is now redundant.
+        expect(mcpServers.resolveMcpMatrix(null, evolvedCatalog)['github-workflow']).toBe(true);
+        expect(mcpServers.normalizeMcpOverrides({'github-workflow': true}, evolvedCatalog)).toBeNull()
+    });
+
     test('the AgentDefinition record contract: matrix passthrough, tri-state toggles, credential-free', () => {
         const store = Neo.create(Store, {
             keyProperty: 'id',

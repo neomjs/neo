@@ -72,7 +72,7 @@ test.describe('Neo.ai.services.fleet.FleetRegistryService', () => {
         expect(JSON.stringify(def)).not.toContain('ghp_secretTokenAAA');
     });
 
-    test('modelProvider resolves via the AiConfig SSOT leaf when unset, honors an explicit value, and is preserved on update', () => {
+    test('modelProvider resolves via the AiConfig SSOT leaf when unset and honors an explicit value on creation', () => {
         // unset -> resolves via the AiConfig modelProvider SSOT (read-only; no service-local default shadow)
         const defaulted = FleetRegistryService.defineAgent({githubUsername: 'prov-default', harnessType: 'codex'});
         expect(defaulted.modelProvider).toBe(aiConfig.modelProvider);
@@ -81,12 +81,65 @@ test.describe('Neo.ai.services.fleet.FleetRegistryService', () => {
         const explicit = FleetRegistryService.defineAgent({githubUsername: 'prov-explicit', harnessType: 'codex', modelProvider: 'ollama'});
         expect(explicit.modelProvider).toBe('ollama');
 
-        // a prior value is preserved when the agent is re-defined without modelProvider
-        const updated = FleetRegistryService.defineAgent({githubUsername: 'prov-explicit', harnessType: 'codex'});
-        expect(updated.modelProvider).toBe('ollama');
+        // definition is create-only; existing-agent changes use the scoped update/config surfaces
+        expect(() => FleetRegistryService.defineAgent({githubUsername: 'prov-explicit', harnessType: 'codex'}))
+            .toThrow(/already exists/);
 
         // non-secret: the provider-login is carried in the public projection
         expect(FleetRegistryService.getAgent('prov-explicit').modelProvider).toBe('ollama');
+    });
+
+    test('create-only registration stays retryable when credential persistence fails', () => {
+        const writeCredentials = FleetRegistryService.writeCredentials;
+
+        FleetRegistryService.writeCredentials = () => { throw new Error('credential disk full') };
+
+        try {
+            expect(() => FleetRegistryService.defineAgent({
+                githubUsername: 'atomic-agent',
+                harnessType   : 'codex',
+                credential    : 'ghp_atomic'
+            })).toThrow(/credential disk full/);
+
+            expect(FleetRegistryService.getAgent('atomic-agent')).toBeNull();
+            expect(FleetRegistryService.listAgents()).toEqual([])
+        } finally {
+            FleetRegistryService.writeCredentials = writeCredentials
+        }
+
+        // The exact same public create succeeds after storage recovers — no credentialless row was
+        // persisted to trip the create-only guard.
+        expect(FleetRegistryService.defineAgent({
+            githubUsername: 'atomic-agent',
+            harnessType   : 'codex',
+            credential    : 'ghp_atomic'
+        }).id).toBe('atomic-agent');
+        expect(FleetRegistryService.resolveCredential('atomic-agent')).toBe('ghp_atomic')
+    });
+
+    test('registry publish failure rolls the new credential back and leaves creation retryable', () => {
+        const writeRegistry = FleetRegistryService.writeRegistry;
+
+        FleetRegistryService.writeRegistry = () => { throw new Error('registry disk full') };
+
+        try {
+            expect(() => FleetRegistryService.defineAgent({
+                githubUsername: 'rollback-agent',
+                harnessType   : 'codex',
+                credential    : 'ghp_rollback'
+            })).toThrow(/registry disk full/)
+        } finally {
+            FleetRegistryService.writeRegistry = writeRegistry
+        }
+
+        expect(FleetRegistryService.getAgent('rollback-agent')).toBeNull();
+        expect(FleetRegistryService.resolveCredential('rollback-agent')).toBeNull();
+        expect(FleetRegistryService.defineAgent({
+            githubUsername: 'rollback-agent',
+            harnessType   : 'codex',
+            credential    : 'ghp_recovered'
+        }).id).toBe('rollback-agent');
+        expect(FleetRegistryService.resolveCredential('rollback-agent')).toBe('ghp_recovered')
     });
 
     test('CRUD round-trip: define -> list -> get -> remove', () => {

@@ -32,9 +32,10 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
         calls = [];
 
         registryStub = {
-            defineAgent: def => { calls.push(['defineAgent', def]); const {credential, ...pub} = def; return {id: def.id || def.githubUsername, ...pub}; },
-            listAgents : ()  => { calls.push(['listAgents']);       return [{id: 'alice'}, {id: 'bob'}]; },
-            getAgent   : id  => { calls.push(['getAgent', id]);     return {id}; }
+            defineAgent   : def => { calls.push(['defineAgent', def]); const {credential, ...pub} = def; return {id: def.id || def.githubUsername, ...pub}; },
+            configureAgent: intent => { calls.push(['configureAgent', intent]); return intent.id === 'alice' ? {id: 'alice', harnessType: intent.harnessType} : null; },
+            listAgents    : ()  => { calls.push(['listAgents']);       return [{id: 'alice'}, {id: 'bob'}]; },
+            getAgent      : id  => { calls.push(['getAgent', id]);     return {id}; }
         };
 
         managerStub = {
@@ -69,6 +70,32 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
         expect(result.githubUsername).toBe('alice');
         // the bridge adds no credential path of its own — it returns exactly the registry's public API result
         expect(result.credential).toBeUndefined();
+    });
+
+    test('configureAgent forwards one curated payload and returns accepted/rejected domain outcomes', () => {
+        const intent = {id: 'alice', harnessType: 'claude-code', mcpServers: {'memory-core': false}};
+
+        expect(FleetControlBridge.configureAgent(intent)).toEqual({
+            status: 'accepted',
+            agent : {id: 'alice', harnessType: 'claude-code'}
+        });
+        expect(calls).toEqual([['configureAgent', intent]]);
+
+        calls.length = 0;
+        expect(FleetControlBridge.configureAgent({id: 'ghost', harnessType: 'codex'}))
+            .toEqual({status: 'rejected', reason: "Unknown agent 'ghost'."})
+    });
+
+    test('configureAgent exposes only controlled validation reasons; unexpected failures still throw', () => {
+        registryStub.configureAgent = () => {
+            throw new TypeError("FleetRegistryService.configureAgent: unsupported field 'credential'.")
+        };
+        expect(FleetControlBridge.configureAgent({id: 'alice', credential: 'secret'}))
+            .toEqual({status: 'rejected', reason: "unsupported field 'credential'."});
+
+        registryStub.configureAgent = () => { throw new Error('/secret/storage/path failed') };
+        expect(() => FleetControlBridge.configureAgent({id: 'alice', harnessType: 'codex'}))
+            .toThrow('/secret/storage/path failed')
     });
 
     test('listAgents delegates to the registry roster', () => {
