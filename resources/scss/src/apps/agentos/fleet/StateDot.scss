@@ -10,11 +10,13 @@
     box-shadow   : 0 0 0 3px color-mix(in srgb, var(--fm-dot, var(--fm-state-off)) 22%, transparent);
 
     /* state class → color token: the closed fm-state-* set from StateDot's stateClass() resolver */
-    &.fm-state-ok      { --fm-dot: var(--fm-state-ok); }
-    &.fm-state-idle    { --fm-dot: var(--fm-state-idle); }
-    &.fm-state-wedged  { --fm-dot: var(--fm-state-wedged); }
-    &.fm-state-limited { --fm-dot: var(--fm-state-limited); }
-    &.fm-state-off     { --fm-dot: var(--fm-state-off); }
+    &.fm-state-ok       { --fm-dot: var(--fm-state-ok); }
+    &.fm-state-idle     { --fm-dot: var(--fm-state-idle); }
+    &.fm-state-wedged   { --fm-dot: var(--fm-state-wedged); }
+    &.fm-state-limited  { --fm-dot: var(--fm-state-limited); }
+    &.fm-state-starting { --fm-dot: var(--fm-state-starting); }
+    &.fm-state-stopping { --fm-dot: var(--fm-state-stopping); }
+    &.fm-state-off      { --fm-dot: var(--fm-state-off); }
 
     @media (prefers-reduced-motion: no-preference) {
         &.fm-live {
