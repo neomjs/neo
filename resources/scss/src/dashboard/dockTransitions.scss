@@ -1,0 +1,28 @@
+// Dock motion contract — token substrate (#14779)
+//
+// This token set is the ONLY sanctioned duration/easing source for dock motion.
+// Consumers include the DockFlip addon (src/main/addon/DockFlip.mjs) and the
+// class-toggle transition layer; no dock motion mechanism may hardcode its own
+// duration or easing — it reads these tokens.
+//
+// Observability: the `dock-animating` host class is the motion signal — any dock
+// motion mechanism toggles it on the animating host for the duration of play
+// (DockFlip already emits it), and e2e observe_motion assertions read it to know
+// when motion is in flight.
+//
+// Reduced motion: the tokens themselves collapse to 0ms under
+// `prefers-reduced-motion: reduce`, so every consumer inherits the collapse
+// with no per-consumer handling.
+
+:root {
+    --dock-transition-duration     : 280ms;
+    --dock-transition-duration-fast: 160ms;
+    --dock-transition-easing       : cubic-bezier(0, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :root {
+        --dock-transition-duration     : 0ms;
+        --dock-transition-duration-fast: 0ms;
+    }
+}
