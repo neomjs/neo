@@ -283,12 +283,24 @@ class DemoAWorkspace extends Container {
      * The dock subtree itself still rebuilds coarsely per the current normative pattern.
      * @protected
      */
-    refreshDockWorkspace() {
+    async refreshDockWorkspace() {
         const host = this.getReference('dock-host');
 
         if (host) {
+            const flip = Neo.main?.addon?.DockFlip;
+
+            // FLIP phase 1: snapshot the outgoing geometry (presentation-only — any failure
+            // lands the new layout instantly, so the try/catch guards motion, never truth)
+            try {
+                await flip?.captureFirst({hostId: host.id, markerPrefix: 'agentos-dockdemo-pane-'})
+            } catch (e) {/* instant landing */}
+
             host.removeAll();
-            host.add(this.projectDockModel())
+            host.add(this.projectDockModel());
+
+            // FLIP phase 2: fire-and-forget — the addon self-waits for the new tree to paint,
+            // inverts the survivors onto their old geometry and releases the transition
+            flip?.play({hostId: host.id, markerPrefix: 'agentos-dockdemo-pane-'})?.catch?.(() => {})
         }
     }
 
@@ -301,7 +313,8 @@ class DemoAWorkspace extends Container {
      */
     resolvePane(componentRef) {
         if (componentRef === 'Editor') {
-            return {module: ClockPane}
+            // the flip marker rides the cls config so FLIP correlation survives instance recreation
+            return {cls: ['agentos-dockdemo-clock-pane', 'agentos-dockdemo-pane-editor'], module: ClockPane}
         }
 
         return {
