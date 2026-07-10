@@ -82,6 +82,27 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoAWorkspace', () => {
         expect(done()).toBe(0)
     });
 
+    test('a second play-click mid-run is a true no-op — the active stage survives', async () => {
+        const firstRun = workspace.startTour();      // demo mode: pause-paced, long-running
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        const liveDoc = workspace.dockModel;
+
+        await workspace.startTour();                 // must return before touching any stage state
+
+        expect(workspace.tourRunner.running).toBe(true);
+        expect(workspace.dockModel).toBe(liveDoc);   // reference identity: no clone-reset happened
+        expect(workspace.getReference('tour-caption').html).toContain('already running');
+
+        workspace.destroy();                         // ends the in-flight tour quietly
+        workspace = null;
+
+        const result = await firstRun;
+
+        expect(result).toBeUndefined()               // startTour resolves void; the runner's partial log died with it
+    });
+
     test('destroy tears down the runner and the seam with the workspace', () => {
         const {dockService, tourRunner} = workspace;
 

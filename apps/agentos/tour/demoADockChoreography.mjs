@@ -26,15 +26,18 @@
  *   `resizeSplit` commit.
  * - **S2 — Tab dance:** density without loss. The terminal folds into the right-column
  *   group, a fourth resident (logs) arrives low, then folds in too — each fold prunes its
- *   emptied node and the layout renormalizes, which IS the story: nothing reloads, the
- *   document just gets denser.
+ *   emptied node and the layout renormalizes, which IS the story: no state is lost, the
+ *   one committed document just gets denser.
  * - **S3 — Auto-hide wave:** the workspace breathes. The right-column residents tuck into
  *   labeled rail tabs on the right edge one by one until the editor floods the stage, the
  *   reveal beat narrates the click-first contract, then the wave rolls back and the layout
  *   remembers itself.
  *
- * The clock inside the editor pane is the object-permanence witness: it keeps ticking
- * through every transition because panes re-parent — they never remount.
+ * The clock inside the editor pane is the continuity witness: it keeps ticking through
+ * every transition — wall-time truth a viewer verifies with their own eyes. (Full
+ * instance-level permanence is claimed only once the dashboard side's instance-preserving
+ * workspace reconcile lands; under today's coarse re-projection the captions claim
+ * document-tier truth and nothing more.)
  *
  * **Reveal-mode note (a11y contract):** click-reveal is the platform default; hover-reveal
  * is a workspace opt-in. Scene 3's hover moment therefore requires the hosting workspace to
@@ -115,7 +118,7 @@ export const demoATourScript = Object.freeze({
     }, {
         id     : 's2',
         title  : 'Tab dance — density without loss',
-        caption: 'Nobody is dragging. The layout gets denser and nothing reloads.',
+        caption: 'Nobody is dragging. The layout gets denser and no state is lost — it is all one committed document.',
         steps  : [
             {
                 type      : 'op',

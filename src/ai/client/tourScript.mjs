@@ -220,9 +220,26 @@ function scanJsonPurity(value, path, errors, seen = new WeakSet()) {
     seen.add(value);
 
     if (Array.isArray(value)) {
-        if (value.length !== Object.keys(value).length) {
-            errors.push(`${path}: sparse array — holes become null on the wire; use explicit values`)
-        } else {
+        // index-exact accounting: holes AND non-index own properties both fail a JSON
+        // round-trip (holes emit null; extra properties are dropped), and neither can be
+        // masked by the other — counting them separately closes the equalization bypass.
+        let holes = 0, i = 0;
+
+        for (; i < value.length; i++) {
+            if (!Object.hasOwn(value, i)) {
+                holes++
+            }
+        }
+
+        if (holes > 0) {
+            errors.push(`${path}: sparse array (${holes} hole${holes > 1 ? 's' : ''}) — holes become null on the wire; use explicit values`)
+        }
+
+        if (Object.keys(value).length !== value.length - holes) {
+            errors.push(`${path}: array carries non-index own properties — JSON drops them silently`)
+        }
+
+        if (errors.length === 0 || (holes === 0 && Object.keys(value).length === value.length)) {
             value.forEach((item, index) => scanJsonPurity(item, `${path}[${index}]`, errors, seen))
         }
     } else if (!isPlainObject(value)) {

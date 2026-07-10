@@ -220,7 +220,18 @@ test.describe.serial('Neo.ai.client.TourRunner', () => {
             const cyclic = smokeScript();
 
             cyclic.scenes[0].loop = cyclic.scenes[0]; // a cycle must reject, never overflow the stack
-            expect(validateTourScript(cyclic, {operations}).errors.join('\n')).toContain('cyclic reference')
+            expect(validateTourScript(cyclic, {operations}).errors.join('\n')).toContain('cyclic reference');
+
+            // the equalization bypass: a hole masked by a non-index own property must still reject
+            const masked = smokeScript(), arr = ['a', , 'c']; // eslint-disable-line no-sparse-arrays
+
+            arr.note = 'equalizer';
+            masked.scenes[0].steps[0].expect = [{path: 'items', equals: arr}];
+
+            const maskedErrors = validateTourScript(masked, {operations}).errors.join('\n');
+
+            expect(maskedErrors).toContain('sparse array');
+            expect(maskedErrors).toContain('non-index own properties')
         });
 
         test('a wrong schema tag is rejected fail-closed', () => {

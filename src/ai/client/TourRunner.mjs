@@ -127,6 +127,16 @@ class TourRunner extends Base {
     log = []
 
     /**
+     * True while a tour is executing — the public read hosting surfaces use to make a
+     * second play-click a true no-op BEFORE touching any stage state (a re-entrant
+     * `start()` throws, but by then a careless caller may already have reset its stage).
+     * @returns {Boolean}
+     */
+    get running() {
+        return this.#running
+    }
+
+    /**
      * Triggered before the mode config gets changed. Validates against {@link .modes}.
      * @param {String} value
      * @param {String} oldValue

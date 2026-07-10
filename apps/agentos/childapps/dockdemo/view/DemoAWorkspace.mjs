@@ -349,7 +349,15 @@ class DemoAWorkspace extends Container {
     async startTour() {
         let me = this;
 
-        if (me.tourRunner.log.length && !me.tourRunner.isDestroyed) {
+        // the running-guard comes FIRST: a second click during a tour must be a true
+        // no-op — resetting the stage before the runner's re-entrancy throw would trash
+        // the active choreography mid-flight
+        if (me.tourRunner.running) {
+            me.setTourCaption('Tour already running — let it finish its story.');
+            return
+        }
+
+        if (me.tourRunner.log.length) {
             // restart semantics: reset the stage to the opening document before replaying
             me.dockModel = DockZoneModel.clone(initialDocument);
             me.refreshDockWorkspace()
@@ -358,12 +366,7 @@ class DemoAWorkspace extends Container {
         me.beatCount = 0;
         me.setPipProgress(0);
 
-        try {
-            await me.tourRunner.start()
-        } catch (e) {
-            // concurrent-start misuse throws by contract; narrate instead of crashing the surface
-            me.setTourCaption('Tour already running — let it finish its story.')
-        }
+        await me.tourRunner.start()
     }
 
     /**
