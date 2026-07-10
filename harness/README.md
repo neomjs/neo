@@ -91,6 +91,37 @@ after the recorded identity re-verifies — a bare PGID is an observation, not o
 rule governs attach: `fleetServing` requires the `listAgents` wire envelope, and a foreign
 listener squatting the fleet port fails the product boot closed instead of reading as a Brain.
 
+## Packaging (E6 — the unsigned leg)
+
+```bash
+cd harness
+npm run dist    # pack.mjs stages the organism, electron-builder emits dist-artifacts/*.zip
+```
+
+The artifact is ONE double-clickable app (unsigned — signing/notarization is release-line,
+operator-owned; never repo tooling) wrapping the ORGANISM: the renderer's source graph derived
+from the contentPolicy allowlist (one authority — a new allowlist prefix ships automatically),
+the Brain tree (`ai/`, minus examples and the not-yet-enabled temporal-summary daemon), a
+GENERATED dependency manifest (this repo declares only devDependencies, so the runtime closure
+is derived from the bundled trees' bare imports and pinned to repo-declared versions —
+fail-loud on any undeclared import), and a pack-time-fresh instance `ai/config.mjs` (generated
+from the staged template, so the packaged first boot never writes into the possibly read-only
+resources dir — and the checkout's gitignored operator overlay NEVER ships).
+
+**The packaged runtime arm (the decision the hosting spike recorded for this leaf):** Brain
+children run on the bundled Electron via `ELECTRON_RUN_AS_NODE`; the staged `node_modules` is
+rebuilt for Electron's ABI at pack time (`@electron/rebuild`, scoped to the stage — never the
+checkout, which must keep serving the system-Node dev loop). Shebang children (the chroma CLI)
+resolve `node` through the organism's `shims/` entry, which execs the bundled binary — a
+stranger's machine carries no Node. Mutable data lands under the per-user data root
+(`userData/brain`); a packaged own-mode boot FAILS CLOSED when a checkout Brain already holds
+the Chroma port (the coexistence guard — the spawned supervisor would otherwise reap it).
+
+Verification: the SAME smoke contract runs against the artifact —
+`NEO_HARNESS_SMOKE=1 NEO_HARNESS_BRAIN=1 "dist-artifacts/mac-arm64/Neo Harness.app/Contents/MacOS/Neo Harness"`.
+Known unsigned-leg limitation: a quarantined zip (browser download) may App-Translocate;
+`xattr -d com.apple.quarantine` or moving the app clears it — signing (E7) dissolves this.
+
 ## Why the window loads DEV MODE (operator decision, 2026-07-10)
 
 The harness window loads the zero-build SOURCE app (`app://neo/apps/agentos/index.html`), not

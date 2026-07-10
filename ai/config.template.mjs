@@ -433,7 +433,9 @@ class Config extends ConfigProvider {
              */
             engines: {
                 chroma: {
-                    dataDirProd: leaf(path.resolve(neoRootDir, '.neo-ai-data/chroma/unified')),
+                    // Env-bindable like its host/port siblings: a packaged harness ships the organism in a
+                    // read-only(ish) resources dir and must move the persist dir to a per-user data root.
+                    dataDirProd: leaf(path.resolve(neoRootDir, '.neo-ai-data/chroma/unified'), 'NEO_CHROMA_DATA_DIR', 'string'),
                     dataDirTest: leaf(chromaUnitTestDataDir, 'NEO_CHROMA_DATA_DIR_TEST', 'string'),
                     hostProd   : leaf('localhost', 'NEO_CHROMA_HOST', 'string'),
                     hostTest   : leaf('localhost', 'NEO_CHROMA_HOST_TEST', 'string'),

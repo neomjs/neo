@@ -219,6 +219,26 @@ export function resolveRealPath(value) {
 }
 
 /**
+ * @summary Builds the PACKAGED product data profile: the organism ships in a read-only(ish)
+ * resources dir, so every mutable path moves to the per-user data root — the same leaves the
+ * smoke profile binds, WITHOUT the lane gates, test mode, or port shifts (the packaged app runs
+ * the real organism on the default ports; a fresh machine has nothing to collide with).
+ * @param {Object} options
+ * @param {String} options.dataRoot Writable per-user root (Electron `userData`-derived).
+ * @returns {Object} env fragment to merge over process.env
+ */
+export function buildPackagedDataEnv({dataRoot}) {
+    return {
+        NEO_AI_DB_PATH         : path.join(dataRoot, 'sqlite', 'memory-core-graph.sqlite'),
+        NEO_AI_ORCHESTRATOR_DIR: path.join(dataRoot, 'orchestrator'),
+        NEO_BACKUP_PATH        : path.join(dataRoot, 'backups'),
+        NEO_CHROMA_DATA_DIR    : path.join(dataRoot, 'chroma', 'unified'),
+        NEO_FLEET_INSTANCE_ROOT: path.join(dataRoot, 'fleet', 'instances'),
+        NEO_REM_RUN_STATE_DIR  : path.join(dataRoot, 'rem-runs')
+    }
+}
+
+/**
  * @summary Verifies the RESOLVED leaves against the isolation contract: every mutable path under
  * the isolation root BY FILESYSTEM IDENTITY (ancestor symlinks resolved on both sides), every
  * probed port the allocated one. Run against `resolveBrainPaths` output so the assertion covers
@@ -371,11 +391,18 @@ export function startBrainChild({
     // The supervised tree resolves bare tool commands (the orchestrator's `chroma` task) via PATH.
     // npm-run contexts prepend the repo's node_modules/.bin by accident of cwd; a packaged shell
     // has no npm in the chain at all — so the lifecycle owner guarantees the resolution explicitly.
+    // The packaged organism additionally carries a `shims/` dir (a `node` shim routing shebang
+    // children onto the bundled Electron runtime — a stranger's machine has no Node); absent in
+    // checkout mode, so the prepend is conditional.
     const
         absoluteRepoRoot = path.resolve(repoRoot),
         absoluteEntry    = path.resolve(absoluteRepoRoot, entry),
         relativeEntry    = path.relative(absoluteRepoRoot, absoluteEntry),
-        binPath          = path.join(absoluteRepoRoot, 'node_modules', '.bin'),
+        shimsPath        = path.join(absoluteRepoRoot, 'shims'),
+        binPaths         = [
+            ...(fs.existsSync(shimsPath) ? [shimsPath] : []),
+            path.join(absoluteRepoRoot, 'node_modules', '.bin')
+        ],
         ownershipToken   = ownershipTokenFn();
 
     if (relativeEntry === '..' || relativeEntry.startsWith(`..${path.sep}`) || path.isAbsolute(relativeEntry)) {
@@ -389,7 +416,7 @@ export function startBrainChild({
     const child = spawnFn(nodeBin(), [absoluteEntry, `--neo-harness-owner=${ownershipToken}`], {
         cwd     : absoluteRepoRoot,
         detached: true,
-        env     : {...process.env, ...env, PATH: `${binPath}${path.delimiter}${process.env.PATH ?? ''}`},
+        env     : {...process.env, ...env, PATH: `${binPaths.join(path.delimiter)}${path.delimiter}${process.env.PATH ?? ''}`},
         stdio   : ['ignore', 'pipe', 'pipe']
     });
 

@@ -49,11 +49,15 @@ import {
 } from './brain.mjs';
 
 const
-    harnessDir = path.dirname(fileURLToPath(import.meta.url)),
-    repoRoot   = path.resolve(harnessDir, '..'),
+    harnessDir   = path.dirname(fileURLToPath(import.meta.url)),
+    repoRoot     = path.resolve(harnessDir, '..'),
+    packagedMode = app.isPackaged,
+    // The organism root: the repo checkout in dev, the bundled resources tree when packaged (the
+    // pack stage stages the SAME allowlist-derived source graph — §2.6 one-boot-path parity).
+    organismRoot = packagedMode ? path.join(process.resourcesPath, 'organism') : repoRoot,
     // DEV MODE, deliberately (operator decision 2026-07-10): the harness window loads the
     // zero-build SOURCE app — Neural Link possession needs real ESM, which minification destroys.
-    APP_URL    = `app://${APP_HOST}/apps/agentos/index.html`,
+    APP_URL      = `app://${APP_HOST}/apps/agentos/index.html`,
     smokeMode  = process.env.NEO_HARNESS_SMOKE === '1',
     // The Arm-B Brain leg (opt-in): the main supervises the orchestrator daemon as a system-Node
     // child. Isolated env by default — on a dev machine the daemon's single-instance takeover
@@ -68,6 +72,12 @@ const
     bootWaiters = new Map();
 
 let resolveHarnessAsset;
+
+// Packaged mode: every parent-side child spawn (Brain children, the config resolver) runs on the
+// bundled Electron runtime — the packaged env fragments add ELECTRON_RUN_AS_NODE per child.
+if (packagedMode && !process.env.NEO_HARNESS_NODE_BIN) {
+    process.env.NEO_HARNESS_NODE_BIN = process.execPath
+}
 
 protocol.registerSchemesAsPrivileged([
     {scheme: 'app', privileges: {standard: true, secure: true, supportFetchAPI: true}}
@@ -421,14 +431,33 @@ async function teardownBrain() {
  * @returns {Promise<Object>}
  */
 async function bootProductBrain() {
+    // Packaged mode: the organism ships read-only(ish), so every mutable path moves to the
+    // per-user data root, and Brain children (plus shebang grandchildren via the organism's node
+    // shim) run on the BUNDLED Electron runtime — a stranger's machine carries no Node.
+    const packagedEnv = packagedMode
+        ? {
+            ...buildPackagedDataEnv({dataRoot: path.join(app.getPath('userData'), 'brain')}),
+            ELECTRON_RUN_AS_NODE    : '1',
+            NEO_HARNESS_ELECTRON_BIN: process.execPath
+        }
+        : {};
+
     const
         fleetPort = Number(process.env.NEO_FLEET_PORT) || 8083,
-        paths     = await resolveBrainPaths({repoRoot}),
+        paths     = await resolveBrainPaths({env: packagedEnv, repoRoot: organismRoot}),
         live      = await detectLiveBrain({fleetPort, orchestratorDataDir: paths.orchestratorDataDir}),
         mode      = live.orchestratorAlive ? 'attach' : 'own';
 
     if (mode === 'own') {
-        const orchestrator = startBrainChild({entry: ORCHESTRATOR_ENTRY, onLog: brainLog, repoRoot});
+        // Coexistence guard (dev machines): a packaged app's own-mode organism runs the DEFAULT
+        // ports — a checkout Brain's Chroma already on that port would be REAPED by the spawned
+        // supervisor (singleton-port reconciliation). A held Chroma port without a serving fleet
+        // fails the boot closed instead.
+        if (packagedMode && await probePort({host: 'localhost', port: paths.chromaPort})) {
+            throw new Error(`chroma port ${paths.chromaPort} is already held (a checkout Brain?) — the packaged harness cannot own an organism beside it`)
+        }
+
+        const orchestrator = startBrainChild({entry: ORCHESTRATOR_ENTRY, env: packagedEnv, onLog: brainLog, repoRoot: organismRoot});
 
         brainState.children.push({child: orchestrator, label: 'orchestrator'});
         await awaitOrchestratorReady({child: orchestrator})
@@ -443,10 +472,10 @@ async function bootProductBrain() {
         }
 
         const fleet = startBrainChild({
-            entry: FLEET_SERVER_ENTRY,
-            env  : {NEO_FLEET_PORT: String(fleetPort)},
-            onLog: brainLog,
-            repoRoot
+            entry   : FLEET_SERVER_ENTRY,
+            env     : {...packagedEnv, NEO_FLEET_PORT: String(fleetPort)},
+            onLog   : brainLog,
+            repoRoot: organismRoot
         });
 
         brainState.children.push({child: fleet, label: 'fleet'});
@@ -467,11 +496,13 @@ async function bootProductBrain() {
  */
 async function bootSmokeBrain() {
     const
-        isolationRoot           = process.env.NEO_HARNESS_BRAIN_ROOT || path.join(harnessDir, '.brain', 'smoke'),
+        isolationRoot           = process.env.NEO_HARNESS_BRAIN_ROOT ||
+            (packagedMode ? path.join(app.getPath('userData'), 'smoke') : path.join(harnessDir, '.brain', 'smoke')),
         sweptPgids              = sweepStaleRunState({isolationRoot}),
         [chromaPort, fleetPort] = await Promise.all([allocatePort(), allocatePort()]),
-        profile                 = buildBrainProfile({chromaPort, fleetPort, isolationRoot}),
-        resolved                = await resolveBrainPaths({env: profile, repoRoot}),
+        packagedRuntimeEnv      = packagedMode ? {ELECTRON_RUN_AS_NODE: '1', NEO_HARNESS_ELECTRON_BIN: process.execPath} : {},
+        profile                 = {...buildBrainProfile({chromaPort, fleetPort, isolationRoot}), ...packagedRuntimeEnv},
+        resolved                = await resolveBrainPaths({env: profile, repoRoot: organismRoot}),
         matrixViolations        = assertIsolatedProfile({chromaPort, isolationRoot, resolved});
 
     if (matrixViolations.length > 0) {
@@ -479,8 +510,8 @@ async function bootSmokeBrain() {
     }
 
     const
-        orchestrator = startBrainChild({entry: ORCHESTRATOR_ENTRY, env: profile, onLog: brainLog, repoRoot}),
-        fleet        = startBrainChild({entry: FLEET_SERVER_ENTRY, env: profile, onLog: brainLog, repoRoot});
+        orchestrator = startBrainChild({entry: ORCHESTRATOR_ENTRY, env: profile, onLog: brainLog, repoRoot: organismRoot}),
+        fleet        = startBrainChild({entry: FLEET_SERVER_ENTRY, env: profile, onLog: brainLog, repoRoot: organismRoot});
 
     brainState.children.push(
         {child: orchestrator, ...orchestrator.neoHarnessIdentity, label: 'orchestrator'},
@@ -514,7 +545,7 @@ app.on('will-quit', async event => {
 });
 
 app.whenReady().then(async () => {
-    resolveHarnessAsset = await createHarnessAssetResolver(repoRoot);
+    resolveHarnessAsset = await createHarnessAssetResolver(organismRoot);
     await protocol.handle('app', serveHarnessContent);
 
     // §2.3.3 deny-by-default; Electron requires BOTH handlers for complete permission coverage.

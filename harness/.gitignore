@@ -1,3 +1,5 @@
 .brain/
+.stage/
+dist-artifacts/
 smoke-timeout.png
 node_modules/
