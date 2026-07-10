@@ -23,15 +23,28 @@ const
     panelPath  = path.join(repoRoot, 'apps/agentos/view/FleetSettingsPanel.mjs');
 
 test.describe('AgentOS.view.FleetSettingsPanel fleet roster', () => {
-    test('shared agent-definition roster (singleton) exposes only redacted public fields', () => {
-        // AgentDefinitions is a singleton: Accounts writes, this view's grid reads the same instance.
-        const [record] = AgentDefinitions.getRange();
+    test('shared agent-definition roster exposes only redacted public fields — provider-hosted, never a singleton', () => {
+        // AgentDefinitions is a CLASS (no singleton): the Viewport provider hosts the one shared
+        // instance ('stores.agentDefinitions'); Accounts writes, this view's grid binds the same one.
+        const store    = Neo.create(AgentDefinitions, {}),
+              [record] = store.getRange();
 
+        expect(AgentDefinitions.isClass).toBe(true);
+        expect(store.singleton).toBeFalsy();
         expect(record.credentialState).toBe('redacted');
         expect(record.statusText).toContain('PAT values are never loaded');
         expect(record.credential).toBeUndefined();
         expect(record.pat).toBeUndefined();
-        expect(record.token).toBeUndefined()
+        expect(record.token).toBeUndefined();
+
+        store.destroy()
+    });
+
+    test('the grid binds the provider store — no module-global store import survives in the view', () => {
+        const source = fs.readFileSync(panelPath, 'utf8');
+
+        expect(source).toContain("bind     : {store: 'stores.agentDefinitions'}");
+        expect(source).not.toContain("from '../store/AgentDefinitions.mjs'")
     });
 
     test('fleet view is read + lifecycle only — no credential logic (that lives in Accounts)', () => {

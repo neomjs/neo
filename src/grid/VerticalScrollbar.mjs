@@ -2,37 +2,37 @@ import Component from '../component/Base.mjs';
 
 /**
  * # The "Dual-Pipeline" Scrolling Architecture
- * 
+ *
  * We do not use native vertical scrollbars on the `neo-grid-view` itself for several absolutely
  * critical architectural reasons required to maintain 60 FPS performance in the Multi-Body Grid.
- * 
+ *
  * 1. The Optical Overlay (Z-Order): If we relied strictly on native container scrollbars, the scrollbar
  *    would appear inside the right-most column segment. By utilizing an absolutely positioned dummy scrollbar
  *    at the container level, we ensure the scrollbar consistently overlays all locked and scrolling body segments,
- *    giving mobile and desktop users guaranteed thumb grab access seamlessly on the far right edge without 
+ *    giving mobile and desktop users guaranteed thumb grab access seamlessly on the far right edge without
  *    column boundary conflicts.
- * 
- * 2. Asynchronous Wheel/Trackpad Gliding: The `neo-grid-view` strictly utilizes `overflow-y: scroll`. This 
- *    is intentional. It allows wheel and trackpad scroll events to be fully hardware-accelerated by the browser's 
- *    GPU compositor, producing zero-lag buttery smooth scrolling. The ScrollManager simply records the delta and 
+ *
+ * 2. Asynchronous Wheel/Trackpad Gliding: The `neo-grid-view` strictly utilizes `overflow-y: scroll`. This
+ *    is intentional. It allows wheel and trackpad scroll events to be fully hardware-accelerated by the browser's
+ *    GPU compositor, producing zero-lag buttery smooth scrolling. The ScrollManager simply records the delta and
  *    syncs the dummy scrollbar passively.
- * 
+ *
  * 3. The Thread-Blocking Thumb-Drag Paradox: When a user grabs a native scrollbar thumb and drags it at
  *    high velocity, the DOM immediately scrolls the container *before* the App Worker can calculate, serialize,
  *    and ship new VDOM rows. This results in horrific "blank body" artifacting where the DOM outpaces the JS engine.
- * 
+ *
  * To solve #3, this `VerticalScrollbar` component acts as a physical proxy. When a user drags THIS scrollbar's target,
- * the `GridRowScrollPinning` main-thread add-on intercepts the interaction. Instead of the browser natively scrolling 
+ * the `GridRowScrollPinning` main-thread add-on intercepts the interaction. Instead of the browser natively scrolling
  * the grid view, the add-on applies Main-Thread synchronous `translate3d` transforms (hardware-accelerated GPU pinning)
  * to forcefully lock the grid bodies into optical alignment with the delayed VDOM deltas.
- * 
+ *
  * This effectively prevents the chromium scrolling compositor from dropping row nodes due to VDOM backpressure,
  * completely eliminating rendering jitter during brutal manual thumb interactions.
- * 
- * CRITICAL DIRECTIVE: This component is fundamental to the framework's baseline physics engine. 
- * DO NOT ATTEMPT to merge this scrollbar back into localized native `overflow-y` styling, or you will categorically 
+ *
+ * CRITICAL DIRECTIVE: This component is fundamental to the framework's baseline physics engine.
+ * DO NOT ATTEMPT to merge this scrollbar back into localized native `overflow-y` styling, or you will categorically
  * resurrect high-velocity JS-driven scroll tearing.
- * 
+ *
  * @class Neo.grid.VerticalScrollbar
  * @extends Neo.component.Base
  */
@@ -123,15 +123,17 @@ class VerticalScrollbar extends Component {
      * @protected
      */
     afterSetStore(value, oldValue) {
-        if (value) {
-            let me = this;
-
-            value.on({
+        let me        = this,
+            listeners = {
                 filter: me.updateScrollHeight,
                 load  : me.updateScrollHeight,
                 scope : me
-            })
-        }
+            };
+
+        // on() and un() both consume (delete) keys like `scope` from the passed object,
+        // so each call needs its own copy — a shared object breaks the second call silently.
+        value   ?.on({...listeners});
+        oldValue?.un({...listeners})
     }
 
     /**
@@ -142,7 +144,7 @@ class VerticalScrollbar extends Component {
      */
     updateScrollHeight(data) {
         let me           = this,
-            countRecords = data?.total ? data.total : me.store.count,
+            countRecords = data?.total ? data.total : (me.store?.count ?? 0),
             {rowHeight}  = me;
 
         if (countRecords > 0 && rowHeight > 0) {
