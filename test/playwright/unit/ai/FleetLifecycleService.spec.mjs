@@ -396,9 +396,14 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService — curated launch + 
 
         FleetLifecycleService.start('peer2');
 
-        expect(FleetLifecycleService.status('peer2').authRequired).toBe(true);  // fresh home: login pending
+        const
+            home   = spawn.calls[0].opts.env.CODEX_HOME,
+            status = FleetLifecycleService.status('peer2');
 
-        const home = spawn.calls[0].opts.env.CODEX_HOME;
+        expect(status.authRequired).toBe(true);  // fresh home: login pending
+        expect(status.instanceHome).toBe(home); // exact non-secret owner path for the login handoff
+        expect(status.launchCommand).toBe(process.execPath); // actual AiConfig/lifecycle binary, not PATH
+
         fs.mkdirSync(home, {recursive: true});
         fs.writeFileSync(path.join(home, 'auth.json'), '{}');
 
