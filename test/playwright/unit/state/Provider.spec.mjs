@@ -767,4 +767,34 @@ test.describe('Neo.state.Provider hosted-store lifecycle', () => {
         expect(observed.providerAtPluginDestroy).toBe(provider);
         expect(provider.isDestroyed).toBe(true);
     });
+
+    test('SAME-key descriptor replacement yields a live, registered fresh store (no id-collision no-op)', () => {
+        const provider = Neo.create(StateProvider, {
+            stores: {roster: {module: Store, keyProperty: 'id'}}
+        });
+
+        const first   = provider.getStore('roster');
+        const firstId = first.id;
+
+        provider.stores = {roster: {module: Store, keyProperty: 'id'}};
+
+        const second = provider.getStore('roster');
+
+        // the old owned instance died; the replacement is a LIVE, distinct instance the provider
+        // actually resolves — reusing the exact old id would make the whole replacement look like
+        // a no-op to the config system's equality check (instances compare by serialized id), so
+        // replacement generations get fresh predictable ids. The key-based contract is what
+        // consumers bind (`stores.roster`); the id is internal.
+        expect(first.isDestroyed).toBe(true);
+        expect(second.isDestroyed).toBeFalsy();
+        expect(second).not.toBe(first);
+        expect(second.id).not.toBe(firstId);
+        expect(StoreManager.get(second.id)).toBe(second);
+        expect(StoreManager.get(firstId)).toBeFalsy();
+
+        provider.destroy();
+
+        expect(second.isDestroyed).toBe(true);
+        expect(StoreManager.get(second.id)).toBeFalsy();
+    });
 });

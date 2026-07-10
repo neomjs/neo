@@ -192,6 +192,15 @@ class Provider extends Base {
      */
     #ownedStores = new Set()
     /**
+     * Bumped on every reactive `stores` replacement and suffixed into the predictable provider-store
+     * ids. Reusing the exact id of a just-destroyed owned store would make the replacement look like
+     * a no-op to the config system's equality check (instances compare by their serialized id), so
+     * the new value would never get stored — a fresh generation keeps replacement ids unique.
+     * @member {Number} #storesGeneration=0
+     * @private
+     */
+    #storesGeneration = 0
+    /**
      * Tracks provider-owned Record field bindings by StateProvider data path.
      * @member {Map} #recordDataBindings=new Map()
      * @private
@@ -286,6 +295,26 @@ class Provider extends Base {
     beforeSetStores(value, oldValue) {
         const me = this;
 
+        // reactive replacement (or null-removal): an owned instance the provider no longer hosts
+        // gets destroyed NOW — deferring it to provider destroy would leak a live, registered
+        // store nothing can resolve anymore. Passed-in instances stay externally owned.
+        // ORDER MATTERS: this runs BEFORE the new value instantiates, and the generation bump
+        // gives same-key replacements a fresh predictable id (see #storesGeneration).
+        if (oldValue) {
+            const reusedInstances = new Set(
+                Object.values(value || {}).filter(storeValue => Neo.typeOf(storeValue) === 'NeoInstance')
+            );
+
+            me.#storesGeneration++;
+
+            Object.values(oldValue).forEach(store => {
+                if (me.#ownedStores.has(store) && !reusedInstances.has(store)) {
+                    me.#ownedStores.delete(store);
+                    store.destroy()
+                }
+            })
+        }
+
         if (value) {
             const storeIds = {};
 
@@ -313,20 +342,6 @@ class Provider extends Base {
             })
         }
 
-        // reactive replacement (or null-removal): an owned instance the provider no longer hosts
-        // gets destroyed NOW — deferring it to provider destroy would leak a live, registered
-        // store nothing can resolve anymore. Passed-in instances stay externally owned.
-        if (oldValue) {
-            const keptInstances = new Set(Object.values(value || {}));
-
-            Object.values(oldValue).forEach(store => {
-                if (me.#ownedStores.has(store) && !keptInstances.has(store)) {
-                    me.#ownedStores.delete(store);
-                    store.destroy()
-                }
-            })
-        }
-
         return value
     }
 
@@ -340,18 +355,21 @@ class Provider extends Base {
      * @protected
      */
     getProviderStoreId(key, storeValue) {
-        const type = Neo.typeOf(storeValue);
+        const
+            type       = Neo.typeOf(storeValue),
+            generation = this.#storesGeneration,
+            baseId     = generation > 0 ? `${this.id}__${key}__${generation}` : `${this.id}__${key}`;
 
         if (type === 'NeoInstance') {
             return storeValue.id
         }
 
         if (type === 'Object') {
-            return storeValue.id || `${this.id}__${key}`
+            return storeValue.id || baseId
         }
 
         if (type === 'NeoClass') {
-            return `${this.id}__${key}`
+            return baseId
         }
 
         return null
