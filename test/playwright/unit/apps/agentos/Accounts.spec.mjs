@@ -12,6 +12,7 @@ import path            from 'path';
 import {fileURLToPath} from 'url';
 import Neo             from '../../../../../src/Neo.mjs';
 import * as core       from '../../../../../src/core/_export.mjs';
+import Instance        from '../../../../../src/manager/Instance.mjs';
 import Accounts        from '../../../../../apps/agentos/view/Accounts.mjs';
 
 const
@@ -142,4 +143,237 @@ test.describe('AgentOS.view.Accounts NL-MCP connect entry (#13548)', () => {
         // the connect handler/bridge invoke manage_connection with {action} only — never a credential
         expect(source).toMatch(/connectExternalHarnessBridge\(\{action: 'start'\}\)/)
     })
+});
+
+test.describe('AgentOS.view.Accounts — agent-scoped configuration (multiple agents)', () => {
+    let AgentDefinition, Store;
+
+    test.beforeAll(async () => {
+        AgentDefinition = (await import('../../../../../apps/agentos/model/AgentDefinition.mjs')).default;
+        Store           = (await import('../../../../../src/data/Store.mjs')).default
+    });
+
+    // prototype-call rig with a REAL store attached through the REAL listener path (store
+    // mutations fire `load` themselves); selector + card are capture stubs. selectedAgentId is
+    // wired as an accessor so assignments run the real afterSet, mirroring the reactive config.
+    const makeScopedAccounts = store => {
+        const
+            selector = {
+                items: [],
+                add(items) { this.items.push(...[].concat(items)) },
+                removeAll() { this.items = [] }
+            },
+            card     = {record: undefined, refreshCount: 0, refresh() { this.refreshCount++ }};
+
+        const stub = {
+            id                     : `accounts-scoped-stub-${Math.abs(store.id.length)}-${store.id}`,
+            agentDefinitionsStore  : store,
+            card,
+            selector,
+            afterSetSelectedAgentId: Accounts.prototype.afterSetSelectedAgentId,
+            getReference           : reference => reference === 'agent-selector' ? selector
+                                               : reference === 'agent-config-card' ? card : null,
+            onAgentRosterChange: Accounts.prototype.onAgentRosterChange,
+            onSelectAgentClick : Accounts.prototype.onSelectAgentClick,
+            syncAgentSelector  : Accounts.prototype.syncAgentSelector,
+
+            _selectedAgentId: null,
+            get selectedAgentId() { return this._selectedAgentId },
+            set selectedAgentId(value) {
+                const oldValue = this._selectedAgentId;
+                this._selectedAgentId = value;
+                this.afterSetSelectedAgentId(value, oldValue)
+            }
+        };
+
+        Accounts.prototype.afterSetAgentDefinitionsStore.call(stub, store, null);
+
+        return stub
+    };
+
+    const makeAgentStore = data => Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data});
+
+    test('the selector strip derives one button per agent from the store; the first agent is scoped by default', () => {
+        const store = makeAgentStore([
+            {id: 'neo-gpt',  githubUsername: 'neo-gpt',  harnessType: 'codex'},
+            {id: 'neo-vega', githubUsername: 'neo-vega', harnessType: 'claude-desktop', displayName: 'Vega'}
+        ]);
+        const stub = makeScopedAccounts(store);
+
+        expect(stub.selector.items.map(item => item.agentId)).toEqual(['neo-gpt', 'neo-vega']);
+        // product language: the display name when present, the username otherwise
+        expect(stub.selector.items.map(item => item.text)).toEqual(['neo-gpt', 'Vega']);
+        expect(stub.selectedAgentId).toBe('neo-gpt');
+        expect(stub.card.record?.id).toBe('neo-gpt');
+
+        store.destroy()
+    });
+
+    test('selecting an agent scopes the configuration card to ITS record', () => {
+        const store = makeAgentStore([
+            {id: 'a', githubUsername: 'a', harnessType: 'codex'},
+            {id: 'b', githubUsername: 'b', harnessType: 'antigravity', mcpServers: {'github-workflow': true}}
+        ]);
+        const stub = makeScopedAccounts(store);
+
+        stub.onSelectAgentClick({component: {agentId: 'b'}});
+
+        expect(stub.selectedAgentId).toBe('b');
+        expect(stub.card.record?.id).toBe('b');
+        expect(stub.card.record?.mcpServers).toEqual({'github-workflow': true});
+
+        store.destroy()
+    });
+
+    test('roster changes flow through the REAL store listener: adds appear, removing the scoped agent falls back to the first', () => {
+        const store = makeAgentStore([{id: 'a', githubUsername: 'a', harnessType: 'codex'}]);
+        const stub  = makeScopedAccounts(store);
+
+        // an add fires the store's own load event → the selector re-derives
+        store.add({id: 'b', githubUsername: 'b', harnessType: 'codex'});
+        expect(stub.selector.items.map(item => item.agentId)).toEqual(['a', 'b']);
+
+        stub.onSelectAgentClick({component: {agentId: 'b'}});
+        store.remove('b');
+
+        // the scoped agent vanished — fail toward the first resident, never a dangling scope
+        expect(stub.selector.items.map(item => item.agentId)).toEqual(['a']);
+        expect(stub.selectedAgentId).toBe('a');
+        expect(stub.card.record?.id).toBe('a');
+
+        store.destroy()
+    });
+
+    test('adding an agent scopes the view to it (configure-next flow)', () => {
+        const store = makeAgentStore([{id: 'a', githubUsername: 'a', harnessType: 'codex'}]);
+        const stub  = makeScopedAccounts(store);
+
+        stub.upsertPublicAgentDefinition = Accounts.prototype.upsertPublicAgentDefinition;
+        stub.upsertPublicAgentDefinition(Accounts.prototype.createPublicAgentDefinition({
+            githubUsername: 'neo-new',
+            harnessType   : 'antigravity'
+        }));
+
+        expect(stub.selectedAgentId).toBe('neo-new');
+        expect(stub.card.record?.harnessType).toBe('antigravity');
+
+        store.destroy()
+    });
+
+    test('the harness radios derive from the registry — one registration reaches the form', () => {
+        const source = fs.readFileSync(viewPath, 'utf8');
+
+        expect(source).toContain('listHarnessTypes().map');
+        // no hand-rolled harness radio literals survive
+        expect(source).not.toMatch(/valueLabel\s*:\s*'(Codex|Claude|Antigravity|Native)'/)
+    });
+});
+
+// The cycle-2 review's falsifier, covered with REAL objects: a recordChange mutates fields
+// WITHOUT changing record identity, and the reactive `record` config suppresses same-identity
+// assignments — the card must still re-render (refresh), and the intent path must fire from the
+// real vdom-derived ids.
+test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + configIntent (real objects)', () => {
+    let AgentConfigCard, AgentDefinition, Store;
+
+    test.beforeAll(async () => {
+        AgentConfigCard = (await import('../../../../../apps/agentos/view/AgentConfigCard.mjs')).default;
+        AgentDefinition = (await import('../../../../../apps/agentos/model/AgentDefinition.mjs')).default;
+        Store           = (await import('../../../../../src/data/Store.mjs')).default
+    });
+
+    const cardText = card => JSON.stringify(card.vdom.cn);
+
+    test('a same-record field change re-renders the card through refresh() — the stale-state falsifier', () => {
+        const store = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: [
+            {id: 'vega', githubUsername: 'vega', harnessType: 'codex', hooksActive: null}
+        ]});
+        const record = store.get('vega');
+        const card   = Neo.create(AgentConfigCard, {record});
+
+        const unreadRows = () => (cardText(card).match(/Not read back yet/g) || []).length;
+
+        expect(unreadRows()).toBe(2); // Hooks + Wake subscriptions both unobserved
+
+        // the review's exact schedule: mutate the SAME record instance, then the same-identity
+        // assignment path (suppressed by the reactive config) — refresh() must close the gap
+        record.set({hooksActive: true});
+        card.record = record;   // suppressed: identity unchanged
+        card.refresh();         // the owning view's roster-change hook
+
+        expect(unreadRows()).toBe(1); // Hooks now renders its observed state...
+        expect(cardText(card)).toContain('"text":"Hooks"'); // ...as the On row
+        expect(cardText(card)).toMatch(/"text":"Hooks"\},\{"cls":\["agent-config-value"\],"text":"On"/);
+
+        // reselection / teardown leaves no stale state behind
+        card.record = null;
+        expect(cardText(card)).toContain('Select an agent');
+
+        card.destroy();
+        store.destroy()
+    });
+
+    test('server-row and harness-chip clicks fire configIntent with the toggled config — the card never mutates', () => {
+        const store = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: [
+            {id: 'ada', githubUsername: 'ada', harnessType: 'codex', mcpServers: {'memory-core': true}}
+        ]});
+        const record  = store.get('ada');
+        const card    = Neo.create(AgentConfigCard, {record});
+        const intents = [];
+
+        card.on('configIntent', data => intents.push(data));
+
+        // the vdom-derived row ids ARE the click contract
+        card.onCardClick({path: [{id: `${card.id}__srv__memory-core`}]});
+        card.onCardClick({path: [{id: `${card.id}__harness__claude-code`}]});
+        card.onCardClick({path: [{id: `${card.id}__harness__codex`}]});      // same harness → no intent
+        card.onCardClick({path: [{id: 'unrelated-node'}]});                  // off-card → no intent
+
+        expect(intents.length).toBe(2);
+        expect(intents[0].agentId).toBe('ada');
+        expect(intents[0].config.mcpServers['memory-core']).toBe(false);
+        expect(intents[1].config).toEqual({harnessType: 'claude-code'});
+
+        // the record itself is untouched — the owning view writes only from the bridge RESPONSE
+        expect(record.mcpServers).toEqual({'memory-core': true});
+        expect(record.harnessType).toBe('codex');
+
+        card.destroy();
+        store.destroy()
+    });
+
+    test('the Accounts round-trip writes the bridge RESPONSE onto the record and reports honestly', async () => {
+        const store = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: [
+            {id: 'ada', githubUsername: 'ada', harnessType: 'codex'}
+        ]});
+
+        const statuses = [];
+        const stub     = {
+            agentDefinitionsStore: store,
+            onAgentConfigIntent  : Accounts.prototype.onAgentConfigIntent,
+            updateBridgeStatus   : (cls, text) => statuses.push(cls)
+        };
+
+        // no bridge → fail closed, nothing mutates
+        delete globalThis.AgentOS;
+        await stub.onAgentConfigIntent({agentId: 'ada', config: {harnessType: 'claude-code'}});
+        expect(statuses).toEqual(['is-error']);
+        expect(store.get('ada').harnessType).toBe('codex');
+
+        // bridge answers → the RESPONSE (not the request) lands on the record
+        globalThis.AgentOS = {fleet: {registryBridge: {configureAgent: async () => ({
+            harnessType: 'claude-code', mcpServers: {'neural-link': true}, hooksActive: true, wakeSubscriptionsActive: null
+        })}}};
+
+        await stub.onAgentConfigIntent({agentId: 'ada', config: {harnessType: 'claude-code'}});
+
+        const record = store.get('ada');
+        expect(record.harnessType).toBe('claude-code');
+        expect(record.mcpServers).toEqual({'neural-link': true});
+        expect(record.hooksActive).toBe(true);
+        expect(statuses).toEqual(['is-error', 'is-live']);
+
+        delete globalThis.AgentOS;
+        store.destroy()
+    });
 });

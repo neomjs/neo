@@ -1,0 +1,122 @@
+.agent-panel-accounts.neo-panel {
+    min-width : 360px;
+
+    .agent-selector {
+        flex-wrap : wrap;
+        gap       : 6px;
+        padding   : 10px 12px 0;
+
+        .agent-selector-button {
+            font-size : 12px;
+
+            &.neo-pressed {
+                font-weight : 600;
+            }
+        }
+    }
+
+    .agent-config-card {
+        display        : flex;
+        flex-direction : column;
+        gap            : 6px;
+        padding        : 10px 12px;
+
+        .agent-config-empty {
+            font-size : 12px;
+            opacity   : .7;
+        }
+
+        .agent-config-identity {
+            display        : flex;
+            flex-direction : column;
+            gap            : 2px;
+
+            .agent-config-name {
+                font-size : 14px;
+            }
+
+            .agent-config-status {
+                font-size : 11px;
+                opacity   : .75;
+            }
+        }
+
+        .agent-config-section {
+            display        : flex;
+            flex-direction : column;
+            gap            : 4px;
+            margin-top     : 6px;
+
+            .agent-config-heading {
+                font-size      : 11px;
+                letter-spacing : .04em;
+                opacity        : .8;
+                text-transform : uppercase;
+            }
+        }
+
+        .agent-config-row {
+            display         : flex;
+            font-size       : 12px;
+            gap             : 12px;
+            justify-content : space-between;
+
+            .agent-config-label {
+                opacity : .85;
+            }
+
+            &.is-disabled .agent-config-value {
+                opacity : .55;
+            }
+
+            &.is-enabled .agent-config-value {
+                font-weight : 600;
+            }
+
+            &.is-unknown .agent-config-value {
+                font-style : italic;
+                opacity    : .6;
+            }
+        }
+
+        .agent-config-toggle {
+            cursor : pointer;
+
+            &:hover .agent-config-value {
+                text-decoration : underline;
+            }
+        }
+
+        .agent-config-chips {
+            display   : flex;
+            flex-wrap : wrap;
+            gap       : 6px;
+        }
+
+        .agent-config-chip {
+            border        : 1px solid var(--fm-line, currentColor);
+            border-radius : 6px;
+            cursor        : pointer;
+            font-size     : 11px;
+            padding       : 2px 8px;
+
+            &.is-selected {
+                background  : var(--fm-signal, transparent);
+                font-weight : 600;
+            }
+
+            &.is-selectable {
+                opacity : .7;
+
+                &:hover {
+                    opacity : 1;
+                }
+            }
+        }
+    }
+
+    .agent-definition-form {
+        gap     : 10px;
+        padding : 12px;
+    }
+}
