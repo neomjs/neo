@@ -1,6 +1,7 @@
-// The Electron harness main: boots the Agent OS app on the packaged origin ADR 0034 specifies.
-// Scope: harness skeleton + multi-window join; NO Agent OS hosting yet (the topology spike is the
-// next slice; isolating shell risk is the point).
+// The Electron harness main: boots the Agent OS app on the packaged origin the Electron-shell ADR
+// specifies (ADR 0034 — ticket-ref-ok: this file IS that contract's implementation; every §-ref
+// below resolves against it). Scope: harness skeleton + multi-window join + the supervised Brain
+// (the hosting-spike verdict: Arm B — see brain.mjs).
 //
 // ADR bindings implemented here:
 //   §2.2 C1  privileged app:// scheme (standard + secure + supportFetchAPI), one stable origin
@@ -28,6 +29,7 @@ import {
     isAllowedHarnessAssetPath,
     isHarnessDocumentUrl
 } from './contentPolicy.mjs';
+import {awaitBrainUp, buildIsolatedBrainEnv, startBrain, stopBrain} from './brain.mjs';
 
 const
     harnessDir = path.dirname(fileURLToPath(import.meta.url)),
@@ -36,6 +38,10 @@ const
     // zero-build SOURCE app — Neural Link possession needs real ESM, which minification destroys.
     APP_URL    = `app://${APP_HOST}/apps/agentos/index.html`,
     smokeMode  = process.env.NEO_HARNESS_SMOKE === '1',
+    // The Arm-B Brain leg (opt-in): the main supervises the orchestrator daemon as a system-Node
+    // child. Isolated env by default — on a dev machine the daemon's single-instance takeover
+    // would otherwise SIGTERM the canonical Brain (see brain.mjs).
+    brainMode  = process.env.NEO_HARNESS_BRAIN === '1',
     smokeState = {
         assetFailures : new Set(),
         assetsSeen    : new Set(),
@@ -351,12 +357,46 @@ process.on('unhandledRejection', error => {
     smokeMode && app.exit(2)
 });
 
+let brainChild = null;
+
+/**
+ * @summary Boots the supervised Brain (Arm B) with the isolated env and registers the
+ * settle-or-reject teardown on quit — §2.1.1 one lifecycle owner, §2.1.5 teardown-with-the-shell.
+ * @returns {Promise<{child: import('node:child_process').ChildProcess, dataDir: String, upReport: Object}>}
+ */
+async function bootSupervisedBrain() {
+    const
+        isolationRoot = process.env.NEO_HARNESS_BRAIN_ROOT || path.join(harnessDir, '.brain'),
+        env           = buildIsolatedBrainEnv({isolationRoot}),
+        child         = startBrain({
+            repoRoot,
+            env,
+            onLog: smokeMode ? line => console.log('HARNESS_BRAIN ' + line.slice(0, 300)) : undefined
+        });
+
+    brainChild = child;
+
+    const upReport = await awaitBrainUp({child, dataDir: env.NEO_AI_ORCHESTRATOR_DIR});
+
+    return {child, dataDir: env.NEO_AI_ORCHESTRATOR_DIR, upReport}
+}
+
+app.on('will-quit', async event => {
+    if (brainChild && brainChild.exitCode === null) {
+        event.preventDefault();
+        const stop = await stopBrain(brainChild);
+        brainChild = null;
+        smokeMode && console.log('HARNESS_BRAIN_STOP ' + JSON.stringify(stop));
+        app.quit()
+    }
+});
+
 app.whenReady().then(async () => {
     resolveHarnessAsset = await createHarnessAssetResolver(repoRoot);
     await protocol.handle('app', serveHarnessContent);
 
     // §2.3.3 deny-by-default; Electron requires BOTH handlers for complete permission coverage.
-    // Allowlist additions amend ADR 0034 §2.3 first.
+    // Allowlist additions amend the shell ADR §2.3 first.
     session.defaultSession.setPermissionCheckHandler(() => false);
     session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => callback(false));
 
@@ -366,6 +406,10 @@ app.whenReady().then(async () => {
         ipcMain.on('shell-boot-report', onBootReport);
         ipcMain.on('shell-runtime-error', onRuntimeError)
     }
+
+    // The Brain boots in parallel with the window — the UI never blocks on the supervisor, and
+    // fail-closed surfaces render honestly until the transport is reachable.
+    const brainBoot = brainMode ? bootSupervisedBrain() : null;
 
     const win1 = createHarnessWindow(APP_URL);
 
@@ -398,6 +442,28 @@ app.whenReady().then(async () => {
 
     await awaitRequiredAssets();
 
+    // The Brain leg (Arm B): supervisor up under the ISOLATED root, then settle-or-reject
+    // teardown with an orphan check — falsifier 3's live observables (ports/PID across the
+    // child's lifecycle are the orchestrator's own job; ours is owning ITS lifecycle cleanly).
+    let brain = {mode: false};
+
+    if (brainBoot) {
+        const {child, dataDir, upReport} = await brainBoot;
+        const stop                       = await stopBrain(child);
+
+        let orphaned = false;
+
+        try {
+            process.kill(child.pid, 0);
+            orphaned = true
+        } catch (error) {
+            // ESRCH — the process is gone, which is the pass condition
+        }
+
+        brainChild = null;
+        brain      = {mode: true, dataDir, ...upReport, stop, orphaned}
+    }
+
     const
         assetFailures       = [...smokeState.assetFailures],
         rendererErrors      = [...smokeState.rendererErrors],
@@ -412,22 +478,25 @@ app.whenReady().then(async () => {
             assetFailures,
             boot1,
             boot2,
+            brain,
             popupMaterialized: Boolean(win2),
             rendererErrors,
             requiredAssetsReady,
             sharedHeapEvidence,
-            versions: {
+            versions         : {
                 chrome  : process.versions.chrome,
                 electron: process.versions.electron,
                 node    : process.versions.node
             }
         },
+        brainPassed = !brain.mode || (brain.up && brain.stop.exited && !brain.stop.forced && !brain.orphaned),
         passed = boot1.mounted > 10 &&
             boot2.mounted > 10 &&
             results.popupMaterialized &&
             requiredAssetsReady &&
             sharedHeapEvidence &&
-            rendererErrors.length === 0;
+            rendererErrors.length === 0 &&
+            brainPassed;
 
     console.log('HARNESS_SMOKE_RESULTS=' + JSON.stringify(results, null, 2));
     app.exit(passed ? 0 : 1)

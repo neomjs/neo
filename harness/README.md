@@ -28,9 +28,32 @@ cd /path/to/neo      # repo root
 npm install         # source-mode runtime + canonical theme builder dependencies
 cd harness
 npm install
-npm start          # prepares missing dev assets, then boots the harness window
-npm run smoke      # boot + popup + shared-worker + clean-runtime evidence, JSON verdict
+npm start            # prepares missing dev assets, then boots the harness window (UI only)
+npm run start:brain  # the window + the SUPERVISED Agent OS (Arm B — see below)
+npm run smoke        # boot + popup + shared-worker + clean-runtime evidence, JSON verdict
+npm run smoke:brain  # the full verdict incl. the Brain leg (up + clean teardown + no orphan)
 ```
+
+Prerequisite for the Brain legs: a fresh per-clone `ai/config.mjs` — if the orchestrator child
+crashes at import with `ERR_INVALID_ARG_TYPE` on a config path, run
+`npm run prepare -- --migrate-config` from the repo root (the instance config drifted behind the
+template; the daemon's own freshness assert fires too late to catch this because the Orchestrator
+singleton constructs at module import).
+
+## The Brain rides supervised (Arm B — the hosting-spike verdict)
+
+The Electron main supervises ONE system-Node child — the orchestrator daemon — which supervises
+the rest of the Agent OS through its own `ProcessSupervisorService` (Chroma, wake/embed/message
+daemons, scheduled maintenance). Arm A (in-process) is falsified in this repo by the native-ABI
+split: `better-sqlite3` builds for one ABI, and the shared `node_modules` must keep serving the
+system-Node dev loop (the verdict + reproduction probe live on the hosting-spike ticket).
+
+**Dev-machine safety (load-bearing):** the orchestrator performs single-instance TAKEOVER — on
+boot it SIGTERMs any PID in its PID file. `brain.mjs` therefore always boots the child with an
+ISOLATED env (`harness/.brain/` data-root + the config's own `UNIT_TEST_MODE` Chroma test
+coordinates + a shifted dev-server port) so a harness Brain can never target a canonical Brain
+running on the same machine. Teardown is settle-or-reject: SIGTERM → bounded grace → SIGKILL
+escalation, and the smoke's exit code requires the UNforced path plus a no-orphan check.
 
 ## Why the window loads DEV MODE (operator decision, 2026-07-10)
 
