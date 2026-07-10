@@ -2,6 +2,12 @@ import Base          from '../core/Base.mjs';
 import DockZoneModel from './DockZoneModel.mjs';
 import Observable    from '../core/Observable.mjs';
 
+// Prototype-shaped keys are rejected at the write boundary: `layouts[key]` assignment with
+// '__proto__' mutates the object's prototype instead of adding a record, and inherited
+// function keys ('constructor') satisfy truthy lookups with garbage. Fail closed at entry —
+// no read-side special-casing can stay complete.
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
 /**
  * @summary The named perspective store: CRUD + list + lifecycle over ONE `dockLayoutCollection.v1`
  * document — the home that turns captured perspectives from one-shot values into named, durable,
@@ -16,10 +22,23 @@ import Observable    from '../core/Observable.mjs';
  *
  * Contracts (binding):
  *
+ * - **Public reads are isolated.** The `collection` getter hands out a deep clone — no caller
+ *   can reach the held document, so state changes only ever enter through the atomic commit
+ *   seam (whole-candidate validation + lifecycle events). `persist()` additionally revalidates
+ *   before writing: bytes that do not validate never reach the adapter as `persisted: true`.
  * - **Name collision is a USER decision, never silent.** `savePerspective` against an existing
  *   name returns a structured `collision` verdict (who holds the name, under which layoutId) and
- *   saves nothing unless the caller explicitly passes `replace: true`. `renamePerspective` obeys
- *   the same rule.
+ *   saves nothing unless the caller explicitly passes `replace: true`. `renamePerspective(from,
+ *   to, {replace})` obeys the same rule with the same atomic retire-the-holder semantics.
+ * - **One namespace, both keys reachable.** `perspectiveName` and `layoutId` share one
+ *   resolution namespace: a save whose layoutId an OTHER record's perspectiveName would shadow
+ *   (or vice versa) is a collision, so every stored record stays addressable through both
+ *   documented paths. Prototype-shaped keys (`__proto__`, `constructor`, `prototype`) are
+ *   rejected at the write boundary.
+ * - **Removing the active perspective repoints, never dangles.** With siblings present the
+ *   successor is the caller's `replacementName` or the first remaining record (insertion
+ *   order), reusing the landed `removeSavedLayout` invariant; removing the last record clears
+ *   `activeLayoutId` to null.
  * - **Loads migrate honestly.** `loadPerspective` runs the stored record through the landed
  *   `restoreSavedLayout` seam — legacy v1 records gain the perspective fields with honest
  *   defaults, invalid records fail closed with the validator's own errors, and the MIGRATED
@@ -117,20 +136,33 @@ class DockPerspectiveStore extends Base {
     }
 
     /**
+     * Public reads are isolated: the getter hands out a deep clone, so no caller can mutate the
+     * held document behind the commit seam (no validation bypass, no silent event-less state).
+     * Internal code reads the raw `_collection` backing field on purpose.
+     * @param {Object|null} value
+     * @returns {Object|null}
+     * @protected
+     */
+    beforeGetCollection(value) {
+        return value ? DockZoneModel.clone(value) : value
+    }
+
+    /**
      * Resolves a perspective entry by product name first (`perspectiveName`), technical id
-     * second (`layoutId`).
+     * second (`layoutId`) — own-property lookup only, so inherited keys can never satisfy the
+     * id path.
      * @param {String} name
      * @returns {{layoutId: String, layout: Object}|null}
      * @protected
      */
     resolveEntry(name) {
-        let layouts = this.collection?.layouts || {};
+        let layouts = this._collection?.layouts || {};
 
         for (const [layoutId, layout] of Object.entries(layouts)) {
             if (layout?.perspectiveName === name) return {layout, layoutId}
         }
 
-        return layouts[name] ? {layout: layouts[name], layoutId: name} : null
+        return Object.hasOwn(layouts, name) ? {layout: layouts[name], layoutId: name} : null
     }
 
     /**
@@ -147,7 +179,7 @@ class DockPerspectiveStore extends Base {
      * @returns {Object[]} `[{layoutId, title, perspectiveName, captureScope, revision}]`
      */
     list() {
-        return Object.entries(this.collection?.layouts || {}).map(([layoutId, layout]) => ({
+        return Object.entries(this._collection?.layouts || {}).map(([layoutId, layout]) => ({
             captureScope   : layout?.captureScope ?? null,
             layoutId,
             perspectiveName: layout?.perspectiveName ?? null,
@@ -176,31 +208,60 @@ class DockPerspectiveStore extends Base {
             return {collision: null, errors: validated.errors, layoutId: null, saved: false}
         }
 
-        let record   = DockZoneModel.clone(layout),
-            name     = record.perspectiveName ?? record.layoutId,
-            existing = me.resolveEntry(name);
+        let record = DockZoneModel.clone(layout),
+            unsafe = [record.layoutId, record.perspectiveName].filter(key => UNSAFE_KEYS.has(key));
 
-        // Collision means a DIFFERENT record holds the name — re-saving your own layoutId under
-        // its own name is the normal update flow, not a name dispute.
-        if (existing && existing.layoutId !== record.layoutId && !replace) {
-            return {
-                collision: {holderLayoutId: existing.layoutId, holderTitle: existing.layout?.title ?? null, name},
-                errors   : [],
-                layoutId : null,
-                saved    : false
+        if (unsafe.length) {
+            let errors = unsafe.map(key => `"${key}" is not a usable perspective key`);
+            me.lastErrors = errors;
+            return {collision: null, errors, layoutId: null, saved: false}
+        }
+
+        let name     = record.perspectiveName ?? record.layoutId,
+            existing = me.resolveEntry(name),
+            // the technical id must STAY reachable after the save: another record's
+            // perspectiveName shadowing the incoming layoutId would win the name-first scan
+            // and make this record unaddressable by id — same collision, other namespace
+            shadow   = name === record.layoutId ? null : me.resolveEntry(record.layoutId);
+
+        shadow?.layoutId === record.layoutId && (shadow = null);
+
+        // Collision means a DIFFERENT record holds the name (or shadows the id) — re-saving
+        // your own layoutId under its own name is the normal update flow, not a name dispute.
+        for (const dispute of [existing, shadow]) {
+            if (dispute && dispute.layoutId !== record.layoutId && !replace) {
+                return {
+                    collision: {
+                        holderLayoutId: dispute.layoutId,
+                        holderTitle   : dispute.layout?.title ?? null,
+                        name          : dispute === existing ? name : record.layoutId
+                    },
+                    errors  : [],
+                    layoutId: null,
+                    saved   : false
+                }
             }
         }
 
-        let base      = me.collection ?? DockZoneModel.createSavedLayoutCollection([], {}).collection,
+        let base      = me._collection ?? DockZoneModel.createSavedLayoutCollection([], {}).collection,
             candidate = DockZoneModel.clone(base);
 
-        // an explicit replace under a DIFFERENT layoutId retires the previous holder — one name,
-        // one record, never two entries answering to it
-        if (existing && existing.layoutId !== record.layoutId) {
-            delete candidate.layouts[existing.layoutId]
+        // an explicit replace retires every previous holder — one name, one record, never two
+        // entries answering to it (in either namespace)
+        for (const dispute of [existing, shadow]) {
+            if (dispute && dispute.layoutId !== record.layoutId) {
+                delete candidate.layouts[dispute.layoutId]
+            }
         }
 
         candidate.layouts[record.layoutId] = record;
+
+        // a retired holder may have been the active record: the replacement inherits activeness
+        // rather than leaving the pointer dangling (the whole-candidate validator would reject)
+        if (candidate.activeLayoutId !== null && !Object.hasOwn(candidate.layouts, candidate.activeLayoutId)) {
+            candidate.activeLayoutId = record.layoutId
+        }
+
         activate && (candidate.activeLayoutId = record.layoutId);
 
         return me.commit(candidate, 'perspectiveSaved', {layoutId: record.layoutId, name}) ?
@@ -231,7 +292,7 @@ class DockPerspectiveStore extends Base {
         }
 
         let migrated  = DockZoneModel.migrateSavedLayout(DockZoneModel.clone(entry.layout)),
-            candidate = DockZoneModel.clone(me.collection);
+            candidate = DockZoneModel.clone(me._collection);
 
         candidate.layouts[entry.layoutId] = migrated;
         candidate.activeLayoutId          = entry.layoutId;
@@ -244,13 +305,16 @@ class DockPerspectiveStore extends Base {
     }
 
     /**
-     * Renames a stored perspective — collision-explicit like `savePerspective`: an existing
-     * holder of the target name blocks the rename with the structured verdict.
+     * Renames a stored perspective — collision-explicit like `savePerspective`, with the same
+     * atomic decision path: an existing holder of the target name blocks the rename with the
+     * structured verdict, and `replace: true` retires that holder and renames in ONE commit.
      * @param {String} from
      * @param {String} to
+     * @param {Object} [options={}]
+     * @param {Boolean} [options.replace=false] The caller's explicit collision decision.
      * @returns {{renamed: Boolean, collision: Object|null, errors: String[]}}
      */
-    renamePerspective(from, to) {
+    renamePerspective(from, to, {replace = false} = {}) {
         let me    = this,
             entry = me.resolveEntry(from);
 
@@ -262,9 +326,17 @@ class DockPerspectiveStore extends Base {
             return {collision: null, errors: ['the new name must be a non-empty string'], renamed: false}
         }
 
+        if (UNSAFE_KEYS.has(to)) {
+            let errors = [`"${to}" is not a usable perspective key`];
+            me.lastErrors = errors;
+            return {collision: null, errors, renamed: false}
+        }
+
         let holder = me.resolveEntry(to);
 
-        if (holder && holder.layoutId !== entry.layoutId) {
+        holder?.layoutId === entry.layoutId && (holder = null);
+
+        if (holder && !replace) {
             return {
                 collision: {holderLayoutId: holder.layoutId, holderTitle: holder.layout?.title ?? null, name: to},
                 errors   : [],
@@ -272,7 +344,17 @@ class DockPerspectiveStore extends Base {
             }
         }
 
-        let candidate = DockZoneModel.clone(me.collection);
+        let candidate = DockZoneModel.clone(me._collection);
+
+        if (holder) {
+            delete candidate.layouts[holder.layoutId];
+
+            // the retired holder may have been active: the renamed record inherits activeness
+            // rather than leaving the pointer dangling
+            if (candidate.activeLayoutId !== null && !Object.hasOwn(candidate.layouts, candidate.activeLayoutId)) {
+                candidate.activeLayoutId = entry.layoutId
+            }
+        }
 
         candidate.layouts[entry.layoutId].perspectiveName = to;
 
@@ -283,12 +365,18 @@ class DockPerspectiveStore extends Base {
 
     /**
      * Removes a stored perspective by name — fail-closed on a missing name (a structured error,
-     * never a silent no-op), and an `activeLayoutId` pointing at the removed record clears to
-     * null rather than dangling.
+     * never a silent no-op). Removing the ACTIVE record with siblings present repoints
+     * `activeLayoutId` to the caller's `replacementName` or the first remaining record
+     * (insertion order), through the landed `removeSavedLayout` invariant; removing the last
+     * record clears it to null.
      * @param {String} name
+     * @param {Object} [options={}]
+     * @param {String} [options.replacementName] Explicit successor for the active pointer. Always
+     * validated when provided (must name a remaining record) — never a silently ignored option;
+     * consulted for repointing only when the removed record was active.
      * @returns {{removed: Boolean, errors: String[]}}
      */
-    removePerspective(name) {
+    removePerspective(name, {replacementName} = {}) {
         let me    = this,
             entry = me.resolveEntry(name);
 
@@ -296,7 +384,38 @@ class DockPerspectiveStore extends Base {
             return {errors: [`no perspective named "${name}"`], removed: false}
         }
 
-        let candidate = DockZoneModel.clone(me.collection);
+        let layouts        = me._collection.layouts,
+            removingActive = me._collection.activeLayoutId === entry.layoutId,
+            siblings       = Object.keys(layouts).filter(layoutId => layoutId !== entry.layoutId),
+            successorId    = null;
+
+        // a provided successor validates unconditionally (never a silently ignored option),
+        // even when the removal would not need one
+        if (replacementName !== undefined) {
+            let successor = me.resolveEntry(replacementName);
+
+            if (!successor || successor.layoutId === entry.layoutId) {
+                return {errors: [`no remaining perspective named "${replacementName}" to activate`], removed: false}
+            }
+
+            successorId = successor.layoutId
+        }
+
+        if (removingActive && siblings.length) {
+            let replacementLayoutId = successorId ?? siblings[0],
+                result              = DockZoneModel.removeSavedLayout(me._collection, {layoutId: entry.layoutId, replacementLayoutId});
+
+            if (result.errors.length) {
+                me.lastErrors = result.errors;
+                return {errors: result.errors, removed: false}
+            }
+
+            return me.commit(result.collection, 'perspectiveRemoved', {layoutId: entry.layoutId, name}) ?
+                {errors: [], removed: true} :
+                {errors: me.lastErrors, removed: false}
+        }
+
+        let candidate = DockZoneModel.clone(me._collection);
 
         delete candidate.layouts[entry.layoutId];
 
@@ -311,7 +430,9 @@ class DockPerspectiveStore extends Base {
 
     /**
      * Writes the current collection through the injected adapter as a plain validated clone.
-     * Fail-closed without an adapter or a collection.
+     * Fail-closed without an adapter or a collection — and REVALIDATED at the boundary: bytes
+     * that do not validate as a collection never reach the adapter, so `persisted: true` is a
+     * validity claim, not just an I/O result.
      * @returns {Promise<{persisted: Boolean, errors: String[]}>}
      */
     async persist() {
@@ -321,12 +442,19 @@ class DockPerspectiveStore extends Base {
             return {errors: ['no persistence adapter with a write() seam is configured'], persisted: false}
         }
 
-        if (!me.collection) {
+        if (!me._collection) {
             return {errors: ['nothing to persist: the store holds no collection'], persisted: false}
         }
 
+        let errors = DockZoneModel.validateSavedLayoutCollection(me._collection);
+
+        if (errors.length) {
+            me.lastErrors = errors;
+            return {errors, persisted: false}
+        }
+
         try {
-            await me.persistenceAdapter.write(DockZoneModel.clone(me.collection));
+            await me.persistenceAdapter.write(DockZoneModel.clone(me._collection));
             return {errors: [], persisted: true}
         } catch (error) {
             return {errors: [error?.message || 'the persistence adapter rejected the write'], persisted: false}

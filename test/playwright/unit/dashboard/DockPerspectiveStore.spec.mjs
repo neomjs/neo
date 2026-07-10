@@ -193,4 +193,136 @@ test.describe('Neo.dashboard.DockPerspectiveStore (B6 — the named perspective 
 
         fresh.destroy()
     });
+
+    test('public reads are ISOLATED: getter mutations never reach held state, and persist() revalidates at the boundary', async () => {
+        const written = [];
+        const events  = [];
+
+        store.persistenceAdapter = {read: async () => null, write: async payload => written.push(payload)};
+        store.savePerspective(makeLayout('l-1', 'Coding'));
+
+        const before = JSON.stringify(store.collection);
+        store.on('collectionChange', () => events.push('change'));
+
+        // attack the returned document every way a careless caller could
+        const leaked = store.collection;
+        leaked.layouts['l-1'].title = 'hacked';
+        leaked.activeLayoutId       = 'ghost';
+        leaked.layouts.injected     = {schema: 'garbage'};
+        delete leaked.layouts['l-1'];
+
+        // internal bytes unchanged, zero events, summaries untouched
+        expect(JSON.stringify(store.collection)).toBe(before);
+        expect(events).toEqual([]);
+        expect(store.list()[0].title).toBe('Coding title');
+
+        // persist writes the UNCORRUPTED bytes
+        const {persisted} = await store.persist();
+        expect(persisted).toBe(true);
+        expect(JSON.stringify(written[0])).toBe(before);
+
+        // the boundary revalidation itself (whitebox: force-corrupt the raw backing field) —
+        // persist fails closed and the adapter never sees invalid bytes as persisted truth
+        store._collection = {schema: 'garbage'};
+        const refused = await store.persist();
+        expect(refused.persisted).toBe(false);
+        expect(refused.errors.length).toBeGreaterThan(0);
+        expect(written.length).toBe(1)
+    });
+
+    test('removing the ACTIVE perspective repoints to a valid successor — derived, explicit, or null on the last record', () => {
+        store.savePerspective(makeLayout('l-1', 'Coding'));
+        store.savePerspective(makeLayout('l-2', 'Review',  ['beta']),  {activate: false});
+        store.savePerspective(makeLayout('l-3', 'Scratch', ['gamma']), {activate: false});
+        expect(store.collection.activeLayoutId).toBe('l-1');
+
+        // derived successor: the first remaining record in insertion order
+        expect(store.removePerspective('Coding')).toEqual({errors: [], removed: true});
+        expect(store.collection.activeLayoutId).toBe('l-2');
+        expect(DockZoneModel.validateSavedLayoutCollection(store.collection)).toEqual([]);
+
+        // an explicit successor wins over derivation
+        store.savePerspective(makeLayout('l-4', 'Deep', ['delta']));
+        expect(store.collection.activeLayoutId).toBe('l-4');
+        expect(store.removePerspective('Deep', {replacementName: 'Scratch'})).toEqual({errors: [], removed: true});
+        expect(store.collection.activeLayoutId).toBe('l-3');
+
+        // a bogus successor fails closed — provided options are never silently ignored
+        const bogus = store.removePerspective('Review', {replacementName: 'ghost'});
+        expect(bogus.removed).toBe(false);
+        expect(bogus.errors.join(' ')).toContain('no remaining perspective named');
+        expect(store.exists('Review')).toBe(true);
+
+        // draining the store: the last record clears the pointer to null
+        expect(store.removePerspective('Review').removed).toBe(true);
+        expect(store.removePerspective('Scratch').removed).toBe(true);
+        expect(store.list()).toEqual([]);
+        expect(store.collection.activeLayoutId).toBeNull()
+    });
+
+    test('one namespace: cross-key shadowing is a collision, prototype-shaped keys fail closed, both paths stay reachable', () => {
+        store.savePerspective(makeLayout('alpha', 'Alpha'));
+
+        // an incoming layoutId equal to an existing perspectiveName would win the name-first
+        // scan and make the new record unaddressable by id — a collision, not a save
+        const shadowed = store.savePerspective(makeLayout('Alpha', 'Boards', ['beta']));
+        expect(shadowed.saved).toBe(false);
+        expect(shadowed.collision).toMatchObject({holderLayoutId: 'alpha'});
+
+        // replace retires the shadow holder; the new record is reachable through BOTH paths
+        const replaced = store.savePerspective(makeLayout('Alpha', 'Boards', ['beta']), {replace: true});
+        expect(replaced.saved).toBe(true);
+        expect(Object.keys(store.collection.layouts)).toEqual(['Alpha']);
+        expect(store.loadPerspective('Boards').errors).toEqual([]);
+        expect(store.loadPerspective('Alpha').errors).toEqual([]);
+
+        // symmetric: an incoming perspectiveName equal to an existing layoutId collides too
+        const nameVsId = store.savePerspective(makeLayout('l-9', 'Alpha', ['gamma']));
+        expect(nameVsId.saved).toBe(false);
+        expect(nameVsId.collision).toMatchObject({holderLayoutId: 'Alpha'});
+
+        // prototype-shaped keys are rejected at the write boundary, store byte-identical
+        const before = JSON.stringify(store.collection);
+
+        for (const evil of ['__proto__', 'constructor', 'prototype']) {
+            const asName = store.savePerspective(makeLayout('safe-id', evil, ['delta']));
+            expect(asName.saved).toBe(false);
+            expect(asName.errors.join(' ')).toContain('not a usable perspective key');
+        }
+
+        const asId = store.savePerspective(makeLayout('__proto__', 'Fine', ['delta']));
+        expect(asId.saved).toBe(false);
+
+        expect(JSON.stringify(store.collection)).toBe(before);
+        expect(store.exists('constructor')).toBe(false);   // inherited keys never satisfy lookups
+
+        const evilRename = store.renamePerspective('Boards', '__proto__');
+        expect(evilRename.renamed).toBe(false);
+        expect(evilRename.errors.join(' ')).toContain('not a usable perspective key')
+    });
+
+    test('rename with replace retires the target holder atomically and inherits its activeness', () => {
+        store.savePerspective(makeLayout('l-1', 'Coding'));
+        store.savePerspective(makeLayout('l-2', 'Review', ['beta']));   // active via the default
+        expect(store.collection.activeLayoutId).toBe('l-2');
+
+        const changes = [];
+        store.on('collectionChange', () => changes.push(1));
+
+        // ONE commit: the ACTIVE holder of the target name retires, the renamed record
+        // inherits its activeness, and the collection stays whole-valid throughout
+        const verdict = store.renamePerspective('Coding', 'Review', {replace: true});
+        expect(verdict).toMatchObject({renamed: true, collision: null});
+        expect(changes.length).toBe(1);
+        expect(Object.keys(store.collection.layouts)).toEqual(['l-1']);
+        expect(store.collection.layouts['l-1'].perspectiveName).toBe('Review');
+        expect(store.collection.activeLayoutId).toBe('l-1');
+        expect(DockZoneModel.validateSavedLayoutCollection(store.collection)).toEqual([]);
+
+        // without replace, the same rename stays the structured verdict (contract unchanged)
+        store.savePerspective(makeLayout('l-3', 'Scratch', ['gamma']), {activate: false});
+        const blocked = store.renamePerspective('Scratch', 'Review');
+        expect(blocked.renamed).toBe(false);
+        expect(blocked.collision).toMatchObject({holderLayoutId: 'l-1', name: 'Review'})
+    });
 });
