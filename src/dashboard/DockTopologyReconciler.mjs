@@ -1,34 +1,39 @@
+import Base               from '../core/Base.mjs';
 import DockRestorePlanner from './DockRestorePlanner.mjs';
 import DockZoneModel      from './DockZoneModel.mjs';
 
 /**
- * @summary Changed-topology perspective restore: maps captured workspace slots onto live windows
- * by shape affinity (never ids), composes the landed per-window restore, and reports everything
- * it cannot cover — nothing silently drops, in either direction.
+ * @summary Changed-topology perspective restore: assigns captured workspace slots onto live
+ * windows by id-free shape affinity (optimal assignment, never greedy order), composes the landed
+ * per-window restore, and reports everything it cannot cover — nothing silently drops, in either
+ * direction, and no item ever duplicates across the output documents.
  *
  * The same-topology planner deliberately DEFERS on a shape-fingerprint mismatch ("the
  * cross-topology leaf owns that path") — this module is that leaf. Reconciliation semantics:
  *
- * - **Validate everything before mutating anything.** Any invalid captured slot or live document
- *   fails the ENTIRE restore closed: no document changes, every captured item reported
- *   `unrestored` with reason `validation-failed`, errors surfaced. There is no partial restore
- *   across the validation boundary.
- * - **Slot mapping is deterministic and id-free.** Affinity = Jaccard overlap of the two
- *   documents' item catalogs (`dockItemId` sets), tie-broken by structural similarity (node-type
- *   multiset overlap), then by stable live-document order; captured slots map greedily in
- *   captured order. Zero-overlap slots never map (`unmapped-slot`); slots beyond the live window
- *   supply stay uncovered (`no-live-window`).
- * - **Per-window restore composes, never duplicates.** A mapped pair with an IDENTICAL shape
- *   fingerprint restores incrementally through `DockRestorePlanner.restoreToward()` (no-flicker
- *   semantic operations). A mapped pair with a DIFFERENT shape adopts the captured document
- *   wholesale — and every live item absent from the adopted document is reported in `displaced`
- *   (documents never destroy pane instances; the workspace decides what to do with displaced
- *   content, e.g. fallback placement).
- * - **No window creation.** A restore MUST NOT depend on popup permission: this module exposes no
- *   spawning path whatsoever; excess live windows keep their documents untouched.
- *
- * Conservation invariant (spec-pinned): every captured item id appears in exactly one of
- * `restored` or `unrestored`.
+ * - **Envelope authority first.** The saved-layout envelope validates through the landed
+ *   `DockZoneModel.restoreSavedLayout()` (schema, `captureScope` ↔ `windowDocuments` coupling,
+ *   slot-indexed document validation, primary presence) plus slot-indexed live-document
+ *   validation. Any failure fails the ENTIRE restore closed without throwing: no document
+ *   changes, every captured item reported `unrestored` with reason `validation-failed`.
+ * - **Assignment is optimal and deterministic.** Maximum cardinality first, then maximum summed
+ *   Jaccard affinity (item-catalog overlap), then maximum summed structural affinity (node-type
+ *   multiset overlap), then the lexicographically smallest live-index sequence — the tie rule is
+ *   content-stable: ties at all affinity keys mean the candidate windows are interchangeable at
+ *   affinity altitude, so index order is an honest deterministic pick. Pairs require Jaccard > 0.
+ *   Never reads node ids or window identifiers.
+ * - **Per-window restore branches on the planner's OWN verdict.** Clean plan → incremental
+ *   semantic operations. Deferred with reason `topology-fingerprint-mismatch` (the one deferral
+ *   this leaf owns) → wholesale adoption of the captured document, with every live-only item
+ *   reported in `displaced`. Any OTHER deferral reason passes through verbatim into `unrestored`
+ *   (the owning leaf for that reason is not this one); executor failures report `apply-error` —
+ *   never mislabeled as validation.
+ * - **Workspace-global item uniqueness.** A slot whose placement would duplicate an item id
+ *   already restored into another output document does not place; its items report
+ *   `duplicate-item`. Conservation is global: every captured item id lands in exactly one of
+ *   `restored` or `unrestored`.
+ * - **No window creation.** A restore MUST NOT depend on popup permission: this module exposes
+ *   no spawning path whatsoever; unmatched live windows keep reference-identical documents.
  *
  * @class Neo.dashboard.DockTopologyReconciler
  * @extends Neo.core.Base
@@ -36,7 +41,7 @@ import DockZoneModel      from './DockZoneModel.mjs';
  * @see Neo.dashboard.DockZoneModel
  * @see learn/agentos/HarnessDockZoneModel.md
  */
-class DockTopologyReconciler {
+class DockTopologyReconciler extends Base {
     static config = {
         /**
          * @member {String} className='Neo.dashboard.DockTopologyReconciler'
@@ -46,19 +51,33 @@ class DockTopologyReconciler {
     }
 
     /**
-     * Reason class: the captured slot could not map because every live window is already taken.
+     * Reason class: the per-window executor failed while applying an incremental plan.
+     * @member {String} REASON_APPLY_ERROR='apply-error'
+     * @static
+     */
+    static REASON_APPLY_ERROR = 'apply-error'
+    /**
+     * Reason class: placing this slot would duplicate an item id already restored into another
+     * output document (workspace-global uniqueness).
+     * @member {String} REASON_DUPLICATE_ITEM='duplicate-item'
+     * @static
+     */
+    static REASON_DUPLICATE_ITEM = 'duplicate-item'
+    /**
+     * Reason class: the captured slot had positive affinity somewhere, but every such window was
+     * assigned to a better-matching slot — the topology shrank underneath it.
      * @member {String} REASON_NO_LIVE_WINDOW='no-live-window'
      * @static
      */
     static REASON_NO_LIVE_WINDOW = 'no-live-window'
     /**
-     * Reason class: the captured slot shares no item overlap with any remaining live window.
+     * Reason class: the captured slot shares no item overlap with ANY live window.
      * @member {String} REASON_UNMAPPED_SLOT='unmapped-slot'
      * @static
      */
     static REASON_UNMAPPED_SLOT = 'unmapped-slot'
     /**
-     * Reason class: validation failed somewhere — the whole restore fails closed.
+     * Reason class: the envelope or a document failed validation — the whole restore fails closed.
      * @member {String} REASON_VALIDATION_FAILED='validation-failed'
      * @static
      */
@@ -127,64 +146,86 @@ class DockTopologyReconciler {
     }
 
     /**
-     * Deterministic greedy slot mapping: captured slots claim live documents in captured order;
-     * each takes the highest-affinity remaining live document (jaccard desc → structural desc →
-     * live index asc). A slot maps only when its Jaccard overlap is > 0.
+     * Optimal deterministic slot assignment: exhaustive search over the (small — window-count-
+     * bounded) pairing space, maximizing `(cardinality, Σ jaccard, Σ structural)` with the
+     * lexicographically smallest live-index sequence as the content-stable final tie rule.
+     * A pair requires Jaccard > 0. Greedy captured-order matching is explicitly NOT used — it
+     * can strand a slot whose only viable window was consumed by an earlier slot's marginally
+     * better match (the greedy trap; spec-pinned).
      * @param {Object[]} capturedDocs
      * @param {Object[]} liveDocs
      * @returns {{mapping: Object[], unmapped: Object[], unmatchedLive: Number[]}}
-     *          `mapping`: `[{capturedIndex, liveIndex, affinity}]` · `unmapped`:
-     *          `[{capturedIndex, reason}]` · `unmatchedLive`: live indices left untouched.
+     *          `mapping`: `[{capturedIndex, liveIndex, affinity}]` in captured order · `unmapped`:
+     *          `[{capturedIndex, reason}]` · `unmatchedLive`: untouched live indices.
      * @static
      */
-    static mapWorkspaceSlots(capturedDocs, liveDocs) {
-        let remaining = liveDocs.map((doc, index) => ({doc, index})),
-            mapping   = [],
-            unmapped  = [];
+    static assignSlots(capturedDocs, liveDocs) {
+        let matrix = capturedDocs.map(captured => liveDocs.map(live => this.slotAffinity(captured, live))),
+            best   = null;
 
-        capturedDocs.forEach((captured, capturedIndex) => {
-            if (!remaining.length) {
-                unmapped.push({capturedIndex, reason: this.REASON_NO_LIVE_WINDOW});
+        const consider = (slotIndex, used, pairs, cardinality, jaccardSum, structuralSum) => {
+            if (slotIndex === capturedDocs.length) {
+                let sequence = pairs.map(pair => pair.liveIndex).join(',');
+
+                if (!best
+                    || cardinality > best.cardinality
+                    || (cardinality === best.cardinality && jaccardSum > best.jaccardSum)
+                    || (cardinality === best.cardinality && jaccardSum === best.jaccardSum && structuralSum > best.structuralSum)
+                    || (cardinality === best.cardinality && jaccardSum === best.jaccardSum && structuralSum === best.structuralSum && sequence < best.sequence)
+                ) {
+                    best = {cardinality, jaccardSum, pairs: [...pairs], sequence, structuralSum}
+                }
                 return
             }
 
-            let best = null;
+            // Option A: leave this slot unassigned.
+            consider(slotIndex + 1, used, pairs, cardinality, jaccardSum, structuralSum);
 
-            remaining.forEach(candidate => {
-                let affinity = this.slotAffinity(captured, candidate.doc);
-
-                if (affinity.jaccard <= 0) {
-                    return
+            // Option B: pair it with any unused positive-affinity window.
+            matrix[slotIndex].forEach((affinity, liveIndex) => {
+                if (affinity.jaccard > 0 && !used.has(liveIndex)) {
+                    used.add(liveIndex);
+                    pairs.push({affinity, capturedIndex: slotIndex, liveIndex});
+                    consider(slotIndex + 1, used, pairs, cardinality + 1, jaccardSum + affinity.jaccard, structuralSum + affinity.structural);
+                    pairs.pop();
+                    used.delete(liveIndex)
                 }
+            })
+        };
 
-                if (!best
-                    || affinity.jaccard   > best.affinity.jaccard
-                    || (affinity.jaccard   === best.affinity.jaccard && affinity.structural > best.affinity.structural)
-                    || (affinity.jaccard   === best.affinity.jaccard && affinity.structural === best.affinity.structural && candidate.index < best.liveIndex)
-                ) {
-                    best = {affinity, liveIndex: candidate.index}
-                }
-            });
+        consider(0, new Set(), [], 0, 0, 0);
 
-            if (best) {
-                mapping.push({capturedIndex, liveIndex: best.liveIndex, affinity: best.affinity});
-                remaining = remaining.filter(candidate => candidate.index !== best.liveIndex)
-            } else {
-                unmapped.push({capturedIndex, reason: this.REASON_UNMAPPED_SLOT})
+        let assigned = new Set(best.pairs.map(pair => pair.capturedIndex)),
+            usedLive = new Set(best.pairs.map(pair => pair.liveIndex)),
+            unmapped = [];
+
+        capturedDocs.forEach((doc, capturedIndex) => {
+            if (!assigned.has(capturedIndex)) {
+                // Cardinality-first optimality guarantees: a slot with positive affinity to a
+                // STILL-FREE window would have been assigned — so an unassigned slot either had
+                // zero affinity everywhere, or every viable window went to a better match.
+                let hadAffinity = matrix[capturedIndex].some(affinity => affinity.jaccard > 0);
+
+                unmapped.push({
+                    capturedIndex,
+                    reason: hadAffinity ? this.REASON_NO_LIVE_WINDOW : this.REASON_UNMAPPED_SLOT
+                })
             }
         });
 
-        return {mapping, unmapped, unmatchedLive: remaining.map(candidate => candidate.index)}
+        return {
+            mapping      : best.pairs.sort((a, b) => a.capturedIndex - b.capturedIndex),
+            unmapped,
+            unmatchedLive: liveDocs.map((doc, index) => index).filter(index => !usedLive.has(index))
+        }
     }
 
     /**
-     * Reconciles a topology-scope perspective onto a changed live topology.
-     *
-     * Fail-closed validation boundary first; then deterministic slot mapping; then per-window
-     * restore (incremental via the landed planner on shape match, wholesale adoption on
-     * mismatch); uncovered captured content returns reason-classed. Live documents are NEVER
-     * mutated in place — the result carries next-documents per live index.
-     * @param {Object} savedLayout   Topology-scope saved layout (`dockZone` + `windowDocuments`).
+     * Reconciles a topology-scope perspective onto a changed live topology. See the class
+     * summary for the governing semantics; every branch is spec-pinned. Live documents are
+     * never mutated in place — `documents` mirrors `liveDocuments` (advanced, adopted, or
+     * reference-identical untouched).
+     * @param {Object} savedLayout    Topology-scope saved layout (`dockZone` + `windowDocuments`).
      * @param {Object[]} liveDocuments Live per-window committed documents, in window order.
      * @returns {{
      *     applied: Object[],
@@ -195,25 +236,26 @@ class DockTopologyReconciler {
      *     restored: String[],
      *     unmatchedLive: Number[],
      *     unrestored: Object[]
-     * }} `documents` mirrors `liveDocuments` (adopted/advanced or untouched); `restored` =
-     *     covered captured item ids; `unrestored` = `[{itemId, reason, capturedIndex}]`;
-     *     `displaced` = `[{itemId, liveIndex}]` live items absent from an adopted document;
-     *     `applied` = per-mapping restore results (`{capturedIndex, liveIndex, mode, applied}`).
+     * }}
      * @static
      */
     static reconcile(savedLayout, liveDocuments = []) {
-        let slots  = this.capturedSlots(savedLayout),
-            errors = [];
+        let errors = [];
 
-        // §validation boundary: everything valid before anything mutates — no partial restore.
-        slots.forEach((doc, index) => {
-            DockZoneModel.validate(doc).forEach(error => errors.push(`captured slot ${index}: ${error}`))
-        });
+        // Envelope authority: the landed restore validator owns the wrapper contract — schema,
+        // captureScope ↔ windowDocuments coupling, slot-indexed tree validation, primary document.
+        // Non-throwing by its own contract.
+        let envelope = DockZoneModel.restoreSavedLayout(savedLayout ?? {});
+
+        errors.push(...envelope.errors);
+
         liveDocuments.forEach((doc, index) => {
             DockZoneModel.validate(doc).forEach(error => errors.push(`live document ${index}: ${error}`))
         });
 
-        if (!slots.length) {
+        let slots = this.capturedSlots(savedLayout);
+
+        if (!errors.length && !slots.length) {
             errors.push('savedLayout carries no captured workspace documents')
         }
 
@@ -232,46 +274,60 @@ class DockTopologyReconciler {
             }
         }
 
-        let {mapping, unmapped, unmatchedLive} = this.mapWorkspaceSlots(slots, liveDocuments),
+        let {mapping, unmapped, unmatchedLive} = this.assignSlots(slots, liveDocuments),
             documents                          = [...liveDocuments],
             applied                            = [],
             displaced                          = [],
+            placedIds                          = new Set(),
             restored                           = [],
             unrestored                         = [];
 
-        mapping.forEach(({capturedIndex, liveIndex, affinity}) => {
-            let captured = slots[capturedIndex],
-                live     = documents[liveIndex],
-                result   = DockRestorePlanner.restoreToward(live, captured);
+        const reportSlot = (capturedIndex, reason) => {
+            Object.keys(slots[capturedIndex].items || {}).forEach(itemId =>
+                unrestored.push({capturedIndex, itemId, reason}))
+        };
 
-            if (result.deferred) {
-                // Shape mismatch: the captured document is adopted wholesale (the wrapper-restore
-                // semantics); live-only items are DISPLACED — reported, never silently dropped.
-                let capturedIds = new Set(Object.keys(captured.items || {}));
+        mapping.forEach(({affinity, capturedIndex, liveIndex}) => {
+            let captured    = slots[capturedIndex],
+                capturedIds = Object.keys(captured.items || {});
+
+            // Workspace-global uniqueness: a placement that would duplicate an already-restored
+            // item id across output documents does not happen — the whole slot reports.
+            if (capturedIds.some(itemId => placedIds.has(itemId))) {
+                reportSlot(capturedIndex, this.REASON_DUPLICATE_ITEM);
+                return
+            }
+
+            let live   = documents[liveIndex],
+                result = DockRestorePlanner.restoreToward(live, captured);
+
+            if (result.deferred && result.reason === 'topology-fingerprint-mismatch') {
+                // The ONE deferral this leaf owns: adopt wholesale; live-only items are DISPLACED.
+                let capturedIdSet = new Set(capturedIds);
 
                 Object.keys(live.items || {}).forEach(itemId => {
-                    capturedIds.has(itemId) || displaced.push({itemId, liveIndex})
+                    capturedIdSet.has(itemId) || displaced.push({itemId, liveIndex})
                 });
 
                 documents[liveIndex] = DockZoneModel.clone(captured);
-                applied.push({capturedIndex, liveIndex, affinity, applied: 0, mode: 'adopt'});
-                restored.push(...Object.keys(captured.items || {}))
+                applied.push({affinity, applied: 0, capturedIndex, liveIndex, mode: 'adopt'});
+                capturedIds.forEach(itemId => placedIds.add(itemId));
+                restored.push(...capturedIds)
+            } else if (result.deferred) {
+                // Every other deferral reason belongs to its own leaf: pass it through verbatim.
+                reportSlot(capturedIndex, result.reason)
             } else if (result.errors.length) {
-                // Per-window executor failure: that window stays as-is; its slot reports closed.
                 errors.push(`slot ${capturedIndex} -> live ${liveIndex}: ${result.errors[0]}`);
-                Object.keys(captured.items || {}).forEach(itemId =>
-                    unrestored.push({capturedIndex, itemId, reason: this.REASON_VALIDATION_FAILED}))
+                reportSlot(capturedIndex, this.REASON_APPLY_ERROR)
             } else {
                 documents[liveIndex] = result.document;
-                applied.push({capturedIndex, liveIndex, affinity, applied: result.applied, mode: 'incremental'});
-                restored.push(...Object.keys(captured.items || {}))
+                applied.push({affinity, applied: result.applied, capturedIndex, liveIndex, mode: 'incremental'});
+                capturedIds.forEach(itemId => placedIds.add(itemId));
+                restored.push(...capturedIds)
             }
         });
 
-        unmapped.forEach(({capturedIndex, reason}) => {
-            Object.keys(slots[capturedIndex].items || {}).forEach(itemId =>
-                unrestored.push({capturedIndex, itemId, reason}))
-        });
+        unmapped.forEach(({capturedIndex, reason}) => reportSlot(capturedIndex, reason));
 
         return {applied, displaced, documents, errors, mapping, restored, unmatchedLive, unrestored}
     }
