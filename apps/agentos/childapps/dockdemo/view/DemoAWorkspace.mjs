@@ -1,6 +1,7 @@
 import ClockPane                          from './ClockPane.mjs';
 import Container                          from '../../../../../src/container/Base.mjs';
 import DockLayoutAdapter                  from '../../../../../src/dashboard/DockLayoutAdapter.mjs';
+import DockMotionSignal                   from '../../../../../src/dashboard/DockMotionSignal.mjs';
 import DockPreviewProducer                from '../../../../../src/dashboard/DockPreviewProducer.mjs';
 import DockService                        from '../../../../../src/ai/client/DockService.mjs';
 import DockZoneModel                      from '../../../../../src/dashboard/DockZoneModel.mjs';
@@ -293,7 +294,9 @@ class DemoAWorkspace extends Container {
      * @protected
      */
     async refreshDockWorkspace() {
-        const host = this.getReference('dock-host');
+        const
+            me   = this,
+            host = me.getReference('dock-host');
 
         if (host) {
             const flip = Neo.main?.addon?.DockFlip;
@@ -309,7 +312,14 @@ class DemoAWorkspace extends Container {
 
             // FLIP phase 2: fire-and-forget — the addon self-waits for the new tree to paint,
             // inverts the survivors onto their old geometry and releases the transition
-            flip?.play({hostId: host.id, markerPrefix: 'agentos-dockdemo-pane-'})?.catch?.(() => {})
+            // the counted motion signal brackets the awaited animation window — ownership
+            // lives in DockMotionSignal (fail-safe backstopped), never in the addon
+            if (flip) {
+                DockMotionSignal.enter(me);
+                flip.play({hostId: host.id, markerPrefix: 'agentos-dockdemo-pane-'})
+                    .catch(() => {})
+                    .finally(() => DockMotionSignal.leave(me))
+            }
         }
     }
 

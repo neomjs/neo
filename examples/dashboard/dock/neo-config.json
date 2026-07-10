@@ -1,7 +1,8 @@
 {
     "appPath"    : "examples/dashboard/dock/app.mjs",
     "basePath"   : "../../../",
-    "environment": "development",
-    "mainPath"   : "./Main.mjs",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["DockFlip", "DragDrop", "Navigator", "Stylesheet"],
     "useAiClient": true
 }

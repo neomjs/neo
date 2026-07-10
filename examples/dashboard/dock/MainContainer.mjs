@@ -1,4 +1,5 @@
 import DockLayoutAdapter    from '../../../src/dashboard/DockLayoutAdapter.mjs';
+import DockMotionSignal     from '../../../src/dashboard/DockMotionSignal.mjs';
 import DockPreviewProducer  from '../../../src/dashboard/DockPreviewProducer.mjs';
 import DockZoneModel        from '../../../src/dashboard/DockZoneModel.mjs';
 import Viewport             from '../../../src/container/Viewport.mjs';
@@ -63,9 +64,14 @@ const seededPerspectives = [{
  * Resolves a model `componentRef` to the component config rendered inside its dock zone. For this example, a simple
  * centered label per panel; a real app resolves each ref to its feature view.
  * @param {String} componentRef
+ * @param {Object} _item The persisted item record.
+ * @param {String} itemId The stable workspace identity from the item catalog.
  * @returns {Object}
  */
-const resolveComponentRef = componentRef => ({
+const resolveComponentRef = (componentRef, _item, itemId) => ({
+    // the flip marker class carries the stable item identity across coarse re-projections,
+    // so the DockFlip addon can correlate pre/post-commit geometry even when instances recreate
+    cls  : [`dock-flip-item-${encodeURIComponent(itemId)}`],
     ntype: 'component',
     style: {alignItems: 'center', color: '#888', display: 'flex', fontSize: '20px', justifyContent: 'center'},
     html : componentRef
@@ -376,9 +382,27 @@ class MainContainer extends Viewport {
     /**
      * Rebuilds the toolbar and dock projection from current state.
      */
-    refreshDockWorkspace() {
+    async refreshDockWorkspace() {
+        const flip = Neo.main?.addon?.DockFlip;
+
+        // FLIP phase 1 (presentation-only, fail-safe): snapshot outgoing pane geometry so the
+        // committed re-layout GLIDES — a human drop and an NL operation animate identically
+        try {
+            await flip?.captureFirst({hostId: this.id, markerPrefix: 'dock-flip-item-'})
+        } catch (e) {/* instant landing */}
+
         this.removeAll();
-        this.add(this.buildWorkspaceItems())
+        this.add(this.buildWorkspaceItems());
+
+        // FLIP phase 2: fire-and-forget — the addon self-waits for the swap, inverts, plays
+        // the counted motion signal brackets the awaited animation window — ownership
+        // lives in DockMotionSignal (fail-safe backstopped), never in the addon
+        if (flip) {
+            DockMotionSignal.enter(this);
+            flip.play({hostId: this.id, markerPrefix: 'dock-flip-item-'})
+                .catch(() => {})
+                .finally(() => DockMotionSignal.leave(this))
+        }
     }
 
     /**
